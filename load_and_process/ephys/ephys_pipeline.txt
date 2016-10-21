@@ -1,0 +1,10 @@
+NOTE: this is being changed with different standards:
+- make all functions operate on vectors of spike times/identity
+- sync channel pulses saved separately as .mat file
+
+1. kwik2dat (in github repository): convert OE data to raw data
+2. AP_run_kilosort: wrapper for kilosort, copies/computes locally and save to basket
+3. AP_prepare_phy: loads data to local drive
+4. (AP_pre_phy: not written but considered for finding noise template to classify before phy)
+5. Manually check/fix clustering in Phy
+6. Copy saved clusters to basket (AP_save_phy?)

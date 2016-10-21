@@ -1,0 +1,45 @@
+function AP_rasterplot
+% Creates rasterplot for spiking data
+% implementation inspired by NS/KH code in psthVewer
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
