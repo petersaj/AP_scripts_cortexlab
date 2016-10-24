@@ -1,7 +1,7 @@
 %% Convert and kilosort data
 
 animal = 'AP006';
-day = '2016-10-10';
+day = '2016-10-01';
 
 kwik_paths = { ...
     ['\\zserver.cortexlab.net\Data\Subjects\' animal filesep day '\ephys']};
@@ -1638,18 +1638,15 @@ legend({'MSN','TAN','FSI','UIN'})
 
 %% MUA/LFP correlation by depth 
 
-[spikeAmps, spikeDepths, templateDepths, tempAmps, tempsUnW, templateDuration, waveforms] = ...
-    templatePositionsAmplitudes(templates,winv,channel_positions(:,2),spike_templates,template_amplitudes);
-
 unique_depths = sort(unique(templateDepths));
 
-n_depth_groups = 50;
+n_depth_groups = 30;
 depth_group_edges = linspace(min(templateDepths),max(templateDepths),n_depth_groups+1);
 depth_group = discretize(templateDepths,depth_group_edges);
 depth_group_centers = grpstats(templateDepths,depth_group);
 unique_depths = unique(depth_group);
 
-spike_binning = 0.01; % seconds
+spike_binning = 0.1; % seconds
 corr_edges = 0:spike_binning:spike_times_timeline(end);
 
 binned_spikes_depth = zeros(length(unique_depths),length(corr_edges)-1);

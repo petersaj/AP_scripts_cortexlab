@@ -275,7 +275,7 @@ AP_image_scroll(sta_im,sta_t);
 
 %% STA for templates
 
-use_templates = unique(spike_templates);
+use_templates = unique(good_tesmplate);
 
 template_sta = zeros(size(U,1),size(U,2),length(use_templates));
 

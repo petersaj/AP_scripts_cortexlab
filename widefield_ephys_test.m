@@ -242,7 +242,7 @@ sta_v_pca = reshape(score,size(sta_v_all,1),size(sta_v_all,2),size(sta_v_all,3))
 
 %% STA for multiunit
 
-use_spikes = spike_times_timeline(ismember(spike_templates,find(templateDepths > 550 & templateDepths < 900)-1));
+use_spikes = spike_times_timeline(ismember(spike_templates,find(templateDepths > 1000 & templateDepths < 1200)-1));
 %use_spikes = spike_times_timeline(ismember(spike_templates,find(templateDepths > 0 & templateDepths < 400)-1) & ...
 %    ismember(spike_templates,use_templates(use_template_narrow))-1);
 
@@ -274,14 +274,11 @@ sta_im= svdFrameReconstruct(U,sta_v);
 AP_image_scroll(sta_im,sta_t);
 
 %% STA for templates
+template_sta = zeros(size(U,1),size(U,2),length(good_templates));
 
-use_templates = unique(spike_templates);
-
-template_sta = zeros(size(U,1),size(U,2),length(use_templates));
-
-for curr_template_idx = 1:length(use_templates)
+for curr_template_idx = 1:length(good_templates)
     
-    curr_template = use_templates(curr_template_idx);
+    curr_template = good_templates(curr_template_idx);
     
     use_spikes = spike_times_timeline(spike_templates == curr_template);
         
@@ -311,23 +308,23 @@ end
 % Rearrange STAs by depth
 [spikeAmps, spikeDepths, templateDepths, tempAmps, tempsUnW, templateDuration, waveforms] = ...
     templatePositionsAmplitudes(templates,winv,channel_positions(:,2),spike_templates,template_amplitudes);
-[~,sort_idx] = sort(templateDepths(use_templates+1));
+[~,sort_idx] = sort(templateDepths(good_templates+1));
 template_sta = template_sta(:,:,sort_idx);
 
 % Plot
-AP_image_scroll(template_sta,use_templates(sort_idx));
+AP_image_scroll(template_sta,good_templates(sort_idx));
 
 
 %% STA for templates by clustered area
 
-use_templates = unique(spike_templates);
+use_templates = good_templates;
 
 template_sta = zeros(size(kgrp,1),size(kgrp,2),length(use_templates));
 cluster_sta = zeros(size(cluster_trace,1),length(use_templates));
 
 for curr_template_idx = 1:length(use_templates)
     
-    curr_template = use_templates(curr_template_idx);
+    curr_template = good_templates(curr_template_idx);
     
     use_spikes = spike_times_timeline(spike_templates == curr_template);
         
@@ -413,7 +410,7 @@ figure;scatter(x_vals,templateDepths(use_templates+1),50,'.k')
 
 %% Correlation of templates with clustered area traces
 
-use_templates = unique(spike_templates);
+use_templates = good_templates;
 
 template_corr = zeros(size(kgrp,1),size(kgrp,2),length(use_templates));
 cluster_corr = zeros(size(cluster_trace,1),length(use_templates));
@@ -1072,7 +1069,7 @@ roi_trace = nanmean(U_roi*fV);
 framerate = 1./nanmedian(diff(frame_t));
 frame_edges = [frame_t,frame_t(end)+1/framerate];
 
-use_spikes = spike_times_timeline(ismember(spike_templates,find(templateDepths > 0 & templateDepths < 300)-1));
+use_spikes = spike_times_timeline(ismember(spike_templates,find(templateDepths > 310 & templateDepths < 600)-1));
 
 [frame_spikes,~,spike_frames] = histcounts(use_spikes,frame_edges);
 
@@ -1105,18 +1102,24 @@ x = ifft((fft(roi_trace).*conj(fft(frame_spikes)))./(mean(fft(frame_spikes)).*me
 x_autonorm = ifft((fft(roi_trace).*conj(fft(frame_spikes)))./(fft(frame_spikes).*conj(fft(frame_spikes))));
 
 plot_frames = 35*10;
+
 figure;
-subplot(2,1,1);
-plot(frame_t(1:plot_frames) - frame_t(1),x_nonorm(1:plot_frames),'k','linewidth',2);
+
+t_shift = [frame_t(end-plot_frames+1:end)-frame_t(end)-1/framerate,frame_t(1:plot_frames)-frame_t(1)];
+
+p1 = subplot(2,1,1);
+plot(t_shift,[x_nonorm(end-plot_frames+1:end),x_nonorm(1:plot_frames)],'k','linewidth',2);
 xlabel('Time (s)');
 ylabel('Impulse response')
 title('Non-normalized: ifft(F*S'')');
 
-subplot(2,1,2);
-plot(frame_t(1:plot_frames) - frame_t(1),x_autonorm(1:plot_frames),'k','linewidth',2);
+p2 = subplot(2,1,2);
+plot(t_shift,[x_autonorm(end-plot_frames+1:end),x_autonorm(1:plot_frames)],'k','linewidth',2);
 xlabel('Time (s)');
 ylabel('Impluse response');
 title('Normalized: ifft(F*S''/S*S'')');
+
+linkaxes([p1,p2],'x')
 
 % Use the corrected impulse response for convolving kernel
 gcamp_kernel = x_autonorm(1:plot_frames);

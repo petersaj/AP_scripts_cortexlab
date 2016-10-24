@@ -1,8 +1,8 @@
 %% Define experiment
 
 animal = 'AP006';
-day = '2016-10-10';
-experiment = '4';
+day = '2016-10-01';
+experiment = '6';
 rig = 'kilotrode'; % kilotrode or bigrig
 cam_color_n = 2;
 cam_color_signal = 'blue';
@@ -574,7 +574,7 @@ template_abs = permute(max(abs(templates),[],2),[3,1,2]);
 templateDepths = channel_positions(max_channel_idx,2);
 
 % Get each spike's depth
-spikeDepths = templateDepths(spikeTemplates+1);
+spikeDepths = templateDepths(spike_templates+1);
 
 % Get the waveform duration of all templates (channel with largest amp)
 [~,max_site] = max(max(abs(templates),[],2),[],3);
