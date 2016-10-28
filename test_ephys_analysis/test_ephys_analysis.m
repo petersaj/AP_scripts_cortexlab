@@ -827,10 +827,6 @@ end
 
 %% Raster plot by depth
 
-% Get depth
-[spikeAmps, spikeDepths, templateDepths, tempAmps, tempsUnW, templateDuration, waveforms] = ...
-    templatePositionsAmplitudes(templates,winv,channel_positions(:,2),spike_templates,template_amplitudes);
-
 % Group by depth
 n_depth_groups = 6;
 depth_group_edges = linspace(0,max(templateDepths),n_depth_groups+1);
@@ -1128,10 +1124,6 @@ plot(bins,psth_plot','k','linewidth',2);
 line([0,0],ylim,'linestyle','--','color','k');
 ylabel('Stim ID');
 xlabel('Time from stim onset')
-
-
-[spikeAmps, spikeDepths, templateDepths, tempAmps, tempsUnW] = ...
-    templatePositionsAmplitudes(templates,winv,channel_positions(:,2),spike_templates,template_amplitudes);
 
 % Plot raster by depth
 n_depth_groups = 15;
@@ -1464,9 +1456,6 @@ rf_map_smooth = imfilter(rf_map,gauss_filt);
 % cutoff_resp = prctile(max_resp,95);
 % sig_rf = bsxfun(@gt,rf_map_smooth,permute(cutoff_resp,[1,3,2]));
 % 
-% % Get depth
-% [spikeAmps, spikeDepths, templateDepths, tempAmps, tempsUnW, templateDuration, waveforms] = ...
-%     templatePositionsAmplitudes(templates,winv,channel_positions(:,2),spike_templates,template_amplitudes);
 
 
 %% Categorize cortical waveforms
@@ -1486,11 +1475,6 @@ for curr_template = unique(spike_templates)'
 end
 
 % 2) spike width
-
-[spikeAmps, spikeDepths, templateDepths, tempAmps, tempsUnW, templateDuration, waveforms] = ...
-    templatePositionsAmplitudes(templates,winv,channel_positions(:,2),spike_templates,template_amplitudes);
-
-templateDuration_us = (templateDuration/ephys_sample_rate)*1e6;
 
 % 3) Proportion of ISI > 2s
 
@@ -1543,11 +1527,6 @@ for curr_template = unique(spike_templates)'
 end
 
 % 2) spike width
-
-[spikeAmps, spikeDepths, templateDepths, tempAmps, tempsUnW, templateDuration, waveforms] = ...
-    templatePositionsAmplitudes(templates,winv,channel_positions(:,2),spike_templates,template_amplitudes);
-
-templateDuration_us = (templateDuration/ephys_sample_rate)*1e6;
 
 % 3) Proportion of ISI > 2s
 
@@ -1646,7 +1625,7 @@ depth_group = discretize(templateDepths,depth_group_edges);
 depth_group_centers = grpstats(templateDepths,depth_group);
 unique_depths = unique(depth_group);
 
-spike_binning = 0.1; % seconds
+spike_binning = 0.01; % seconds
 corr_edges = 0:spike_binning:spike_times_timeline(end);
 
 binned_spikes_depth = zeros(length(unique_depths),length(corr_edges)-1);

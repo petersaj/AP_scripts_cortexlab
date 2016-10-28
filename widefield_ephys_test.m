@@ -242,7 +242,7 @@ sta_v_pca = reshape(score,size(sta_v_all,1),size(sta_v_all,2),size(sta_v_all,3))
 
 %% STA for multiunit
 
-use_spikes = spike_times_timeline(ismember(spike_templates,find(templateDepths > 1000 & templateDepths < 1200)-1));
+use_spikes = spike_times_timeline(ismember(spike_templates,find(templateDepths > 0 & templateDepths < 300)-1));
 %use_spikes = spike_times_timeline(ismember(spike_templates,find(templateDepths > 0 & templateDepths < 400)-1) & ...
 %    ismember(spike_templates,use_templates(use_template_narrow))-1);
 
@@ -306,8 +306,6 @@ for curr_template_idx = 1:length(good_templates)
 end
 
 % Rearrange STAs by depth
-[spikeAmps, spikeDepths, templateDepths, tempAmps, tempsUnW, templateDuration, waveforms] = ...
-    templatePositionsAmplitudes(templates,winv,channel_positions(:,2),spike_templates,template_amplitudes);
 [~,sort_idx] = sort(templateDepths(good_templates+1));
 template_sta = template_sta(:,:,sort_idx);
 
@@ -357,8 +355,6 @@ for curr_template_idx = 1:length(use_templates)
 end
 
 % Rearrange STAs by depth
-[spikeAmps, spikeDepths, templateDepths, tempAmps, tempsUnW, templateDuration, waveforms] = ...
-    templatePositionsAmplitudes(templates,winv,channel_positions(:,2),spike_templates,template_amplitudes);
 [~,sort_idx] = sort(templateDepths(use_templates+1));
 template_sta = template_sta(:,:,sort_idx);
 
@@ -429,7 +425,7 @@ for curr_template_idx = 1:length(use_templates)
 %     smooth_filt = ones(1,smooth_time)./smooth_time;
 %     frame_spikes = conv2(frame_spikes,smooth_filt,'same');
     
-    corr_lags = 35*1;
+    corr_lags = 5;%35*1;
     cluster_xcorr = nan(size(cluster_trace,1),corr_lags*2+1);
         
     % Max cross correlation
@@ -449,8 +445,6 @@ for curr_template_idx = 1:length(use_templates)
 end
 
 % Rearrange STAs by depth
-[spikeAmps, spikeDepths, templateDepths, tempAmps, tempsUnW, templateDuration, waveforms] = ...
-    templatePositionsAmplitudes(templates,winv,channel_positions(:,2),spike_templates,template_amplitudes);
 [~,sort_idx] = sort(templateDepths(use_templates+1));
 template_corr = template_corr(:,:,sort_idx);
 
@@ -461,6 +455,7 @@ caxis([-0.2 0.2]);
 colormap(redblue)
 
 figure;
+
 % Plot vs depth
 subplot(1,2,1);
 scatter3(cluster_corr(1,:),cluster_corr(2,:), ...
@@ -479,13 +474,29 @@ c = colorbar;
 ylabel(c,'Waveform duration (\mus)');
 axis square
 
+% Plot all depth vs. ROI separately
+figure;
+subplot(1,3,1)
+plot(cluster_corr(1,:),templateDepths(use_templates+1),'.k','MarkerSize',10)
+set(gca,'YDir','reverse');
+ylabel('Depth (\mum)');
+xlabel('Correlation with fluorescence')
+title('ROI 1')
+subplot(1,3,2)
+plot(cluster_corr(2,:),templateDepths(use_templates+1),'.k','MarkerSize',10)
+set(gca,'YDir','reverse');
+ylabel('Depth (\mum)');
+xlabel('Correlation with fluorescence')
+title('ROI 2')
+subplot(1,3,3)
+plot(cluster_corr(3,:),templateDepths(use_templates+1),'.k','MarkerSize',10)
+set(gca,'YDir','reverse');
+ylabel('Depth (\mum)');
+xlabel('Correlation with fluorescence')
+title('ROI 3')
 
 
 %% Group multiunit by depth, get STAs
-
-% Get depth
-[spikeAmps, spikeDepths, templateDepths, tempAmps, tempsUnW, templateDuration, waveforms] = ...
-    templatePositionsAmplitudes(templates,winv,channel_positions(:,2),spike_templates,template_amplitudes);
 
 % Group by depth
 n_depth_groups = 10;
@@ -549,10 +560,6 @@ ylabel('Fluorescence');
 
 
 %% Group multiunit by waveform duration, get STAs
-
-% Get waveform information
-[spikeAmps, spikeDepths, templateDepths, tempAmps, tempsUnW, templateDuration, waveforms] = ...
-    templatePositionsAmplitudes(templates,winv,channel_positions(:,2),spike_templates,template_amplitudes);
 
 % Group waveforms by waveforms categorized elsewhere
 waveform_groups = ismember(spike_templates,use_templates(use_template_narrow))+1;
@@ -1058,6 +1065,8 @@ imagesc(avg_im);
 set(gca,'YDir','reverse');
 colormap(gray);
 caxis([0 prctile(avg_im(:),90)]);
+title('Pick ROI to define kernel')
+drawnow
 roiMask = roipoly;
 close(h);
 
@@ -1069,7 +1078,7 @@ roi_trace = nanmean(U_roi*fV);
 framerate = 1./nanmedian(diff(frame_t));
 frame_edges = [frame_t,frame_t(end)+1/framerate];
 
-use_spikes = spike_times_timeline(ismember(spike_templates,find(templateDepths > 310 & templateDepths < 600)-1));
+use_spikes = spike_times_timeline(ismember(spike_templates,find(templateDepths > 650 & templateDepths < 1000)-1));
 
 [frame_spikes,~,spike_frames] = histcounts(use_spikes,frame_edges);
 
@@ -1128,10 +1137,45 @@ frame_spikes_conv = frame_spikes_conv_full(1:length(frame_spikes));
 
 figure;hold on;
 plot(frame_t,zscore(roi_trace),'k','linewidth',1);
-plot(frame_t,zscore(frame_spikes),'r','linewidth',1);
 plot(frame_t,zscore(frame_spikes_conv),'b','linewidth',1);
 xlabel('Time (s)');
-legend({'Fluorescence','Spikes','Spikes conv'});
+legend({'Fluorescence','Spikes conv'});
+
+%% Make kernel that looks like GCaMP6f
+
+use_t = 1:100;
+
+event_trace = double(x_autonorm(use_t)./max(x_autonorm(use_t)));
+starting = [0,0.2,1,0.1,0.5,0.2];
+estimates = fminsearch(@(x) AP_fit_gcamp_kernel(x,frame_t(use_t),event_trace),starting);
+
+t0 = estimates(1);
+tau_on = estimates(2);
+A1 = estimates(3);
+tau1 = estimates(4);
+A2 = estimates(5);
+tau2 = estimates(6);
+
+fitted_curve = (1-exp(-(t-t0)./tau_on)).*(A1*exp(-(t-t0)./tau1) + A2*exp(-(t-t0)./tau2));
+fitted_curve(fitted_curve < 0) = 0;
+
+figure; hold on;
+plot(frame_t(use_t),event_trace,'k');
+plot(frame_t(use_t),fitted_curve,'r');
+
+% Here's a reasonable-ish one
+t0 = 2.85;
+tau_on = 1.46;
+A1 = -866;
+tau1 = 0.05;
+A2 = 59.87;
+tau2 = 0.12;
+
+fitted_curve = (1-exp(-(t-t0)./tau_on)).*(A1*exp(-(t-t0)./tau1) + A2*exp(-(t-t0)./tau2));
+fitted_curve(fitted_curve < 0) = 0;
+
+gcamp_kernel = fitted_curve;
+
 
 %% Get STA-equivalent via xcorr
 
@@ -1195,9 +1239,6 @@ svd_mean = nanmean(svd_xcorr,3);
 
 %% PCA of activity in population and correlation with fluorescence
 % THIS SEEMS MESSED UP DO THIS AGAIN
-
-[spikeAmps, spikeDepths, templateDepths, tempAmps, tempsUnW, templateDuration, waveforms] = ...
-    templatePositionsAmplitudes(templates,winv,channel_positions(:,2),spike_templates,template_amplitudes);
 
 framerate = 1./median(diff(frame_t));
 frame_edges = [frame_t,frame_t(end)+1/framerate];
@@ -1384,17 +1425,17 @@ legend({'High PC1 spikes','Low PC1 spikes'});
 framerate = 1./nanmedian(diff(frame_t));
 
 %use_spikes = spike_times_timeline;
-use_spikes = spike_times_timeline(ismember(spike_templates,find(templateDepths > 500 & templateDepths < 700)-1));
+use_spikes = spike_times_timeline(ismember(spike_templates,find(templateDepths > 0 & templateDepths < 300)-1));
 %use_spikes = spike_times_timeline(ismember(spike_templates,find(templateDepths > 0 & templateDepths < 400)-1) & ...
 %    (ismember(spike_templates,use_templates(use_template_narrow)));
 
 frame_edges = [frame_t(1),mean([frame_t(2:end);frame_t(1:end-1)],1),frame_t(end)+1/framerate];
 [frame_spikes,~,spike_frames] = histcounts(use_spikes,frame_edges);
 
-% Smooth spikes
-smooth_time = round(35*1);
-smooth_filt = ones(1,smooth_time)./smooth_time;
-frame_spikes = conv2(frame_spikes,smooth_filt,'same');
+% % Smooth spikes
+% smooth_time = round(35*1);
+% smooth_filt = ones(1,smooth_time)./smooth_time;
+% frame_spikes = conv2(frame_spikes,smooth_filt,'same');
 
 corr_lags = 35;
 cluster_xcorr = nan(size(cluster_trace,1),corr_lags*2+1);
@@ -1416,7 +1457,7 @@ figure;imagesc(cluster_max_xcorr);colormap(gray);
 %% Correlation between spikes (or any trace) and pixel fluorescence
 
 % Use the corrected impulse response for convolving kernel
-use_spikes = spike_times_timeline(ismember(spike_templates,find(templateDepths > 550 & templateDepths < 900)-1));
+use_spikes = spike_times_timeline(ismember(spike_templates,find(templateDepths > 0 & templateDepths < 300)-1));
 %use_spikes = spike_times_timeline(ismember(spike_templates,find(templateDepths > 0 & templateDepths < 400)-1) & ...
 %    ismember(spike_templates,use_templates(use_template_narrow))-1);
 
@@ -1430,14 +1471,14 @@ end
 
 % Set the trace to use
 %use_trace = interp1(facecam_t(~isnan(facecam_t)),facecam.proc.data.groom.motion(~isnan(facecam_t)),frame_t);
-%use_trace = frame_spikes_conv;
-use_trace = frame_spikes;
+use_trace = frame_spikes_conv;
+%use_trace = frame_spikes;
 %use_trace = smooth(frame_spikes,35);
 %use_trace = wheel_speed;
 %use_trace = interp1(t,beta_power,frame_t);
 
 % Get cross correlation with all pixels
-corr_lags = 35*2;
+corr_lags = round(framerate*0.5);
 
 framerate = 1./nanmedian(diff(frame_t));
 v_xcorr = nan(size(fV,1),corr_lags*2+1);
@@ -1491,9 +1532,6 @@ figure;imagesc(svd_corr);colormap(gray)
 
 %% Get spike trace by depth, get contribution to fluorescence
 
-[spikeAmps, spikeDepths, templateDepths, tempAmps, tempsUnW, templateDuration, waveforms] = ...
-    templatePositionsAmplitudes(templates,winv,channel_positions(:,2),spike_templates,template_amplitudes);
-
 unique_depths = sort(unique(templateDepths));
 
 n_depth_groups = 5;
@@ -1525,10 +1563,7 @@ ylabel('Correlation of conv spikes with fluorescence');
 
 %% Spatiotemporal correlation-fixed spatial kernel for spikes
 
-[spikeAmps, spikeDepths, templateDepths, tempAmps, tempsUnW, templateDuration, waveforms] = ...
-    templatePositionsAmplitudes(templates,winv,channel_positions(:,2),spike_templates,template_amplitudes);
-
-use_spikes = spike_times_timeline(ismember(spike_templates,find(templateDepths > 150 & templateDepths < 400)-1));
+use_spikes = spike_times_timeline(ismember(spike_templates,find(templateDepths > 1000 & templateDepths < 1200)-1));
 %use_spikes = spike_times_timeline(ismember(spike_templates,find(templateDepths > 0 & templateDepths < 400)-1) & ...
 %    ismember(spike_templates,use_templates(use_template_narrow))-1);
 
@@ -1544,7 +1579,7 @@ Ud = imresize(U,1/U_downsample_factor,'bilinear');
 Ud_flat = reshape(Ud,[],size(U,3));
 
 % Get time-shifted spike trace
-surround_frames = 35;
+surround_frames = 1;
 use_spikes_shift = zeros(surround_frames*2+1,length(use_spikes));
 for curr_frame_idx = 1:surround_frames*2+1
    curr_shift = curr_frame_idx - surround_frames;
@@ -1552,13 +1587,129 @@ for curr_frame_idx = 1:surround_frames*2+1
        circshift(use_spikes,[0,curr_shift]);
 end
 
-use_svs = 1:200;
+use_svs = 1:2000;
 k = use_spikes_shift*fV(use_svs,:)'*(diag(1./dataSummary_n.dataSummary.Sv(use_svs)))*Ud_flat(:,use_svs)';
 k2 = reshape(k',size(Ud,1),size(Ud,2),surround_frames*2+1);
 AP_image_scroll(k2);
 
 
+%% Reduced rank regression (Kenneth) by depth
 
+n_depths = 10;
+use_depths = linspace(0,1300,n_depths+1);
+
+canonU = zeros(size(U,1),size(U,2),10);
+for i = 1:n_depths;
+    
+    use_spikes = spike_times_timeline(ismember(spike_templates, ...
+        find(templateDepths > use_depths(i) & templateDepths < use_depths(i+1))-1));
+    
+    frame_edges = [frame_t(1),mean([frame_t(2:end);frame_t(1:end-1)],1),frame_t(end)+1/framerate];
+    [frame_spikes,~,spike_frames] = histcounts(use_spikes,frame_edges);
+    frame_spikes_conv_full = conv(frame_spikes,gcamp_kernel);
+    frame_spikes_conv = frame_spikes_conv_full(1:length(frame_spikes));
+    
+    %Y = frame_spikes';
+    Y = smooth(frame_spikes,35);
+    %Y = frame_spikes_conv';
+    [a,b,R2,~] = CanonCor2(Y,fV');
+    
+    % [a b R2 V] = CanonCor2(Y, X)
+    %
+    % the approximation of Y based on the first n projections is:
+    % Y = X * b(:,1:n) *a'(:,1:n);
+    %
+    % the nth variable for the ith case gives the approximation
+    % Y(i,:)' = a(:,n) * b(:,n)' * X(i,:)'
+    
+    canonU(:,:,i) = sum(bsxfun(@times,U,permute(b(:,1),[2,3,1])),3)/size(U,3).*a(1);
+    
+    disp(i);
+    
+end
+
+canonU_blur = imgaussfilt(canonU,3);
+AP_image_scroll(canonU_blur);colormap(redblue);
+
+
+%% Get spikes to widefield transformation and/or deconvolve V
+
+% I don't think any of this makes sense 
+
+use_spikes = spike_times_timeline(ismember(spike_templates,find(templateDepths > 1000 & templateDepths < 1200)-1));
+
+frame_edges = [frame_t(1),mean([frame_t(2:end);frame_t(1:end-1)],1),frame_t(end)+1/framerate];
+[frame_spikes,~,spike_frames] = histcounts(use_spikes,frame_edges);
+
+shifts = -35:35;
+frame_spikes_shift = zeros(length(shifts),length(frame_spikes));
+for i = 1:length(shifts)
+    frame_spikes_shift(i,:) = circshift(frame_spikes,[0,shifts(i)]);
+end
+
+frame_spikes_shift_conv_full = conv2(frame_spikes_shift,gcamp_kernel);
+frame_spikes_shift_conv = frame_spikes_shift_conv_full(:,1:length(frame_spikes));
+
+sv_weights = frame_spikes_shift_conv'\fV';
+
+m = svdFrameReconstruct(U,sv_weights');
+
+
+%% Get linear combination of pixel > pixel corr to spike > pixel corr
+% this is probably dumb, didnt' really work
+
+% Use the corrected impulse response for convolving kernel
+use_spikes = spike_times_timeline(ismember(spike_templates,find(templateDepths > 0 & templateDepths < 300)-1));
+%use_spikes = spike_times_timeline(ismember(spike_templates,find(templateDepths > 0 & templateDepths < 400)-1) & ...
+%    ismember(spike_templates,use_templates(use_template_narrow))-1);
+
+frame_edges = [frame_t(1),mean([frame_t(2:end);frame_t(1:end-1)],1),frame_t(end)+1/framerate];
+[frame_spikes,~,spike_frames] = histcounts(use_spikes,frame_edges);
+
+if exist('gcamp_kernel','var')
+    frame_spikes_conv_full = conv(frame_spikes,gcamp_kernel);
+    frame_spikes_conv = frame_spikes_conv_full(1:length(frame_spikes));
+end
+
+% Set the trace to use
+use_trace = frame_spikes_conv;
+
+% Correlation in pixel space
+U_downsample_factor = 10;
+maxlags = round(35/2);
+
+% Make mask
+h = figure;
+imagesc(avg_im);
+set(gca,'YDir','reverse');
+colormap(gray);
+caxis([0 prctile(avg_im(:),90)]);
+title('Draw mask to use pixels')
+roiMask = roipoly;
+delete(h);
+roiMaskd = imresize(roiMask,1/U_downsample_factor,'bilinear') > 0;
+
+Ud = imresize(U,1/U_downsample_factor,'bilinear');
+Ud_flat = reshape(Ud,[],size(U,3));
+svd_corr = nan(size(Ud,1),size(Ud,2));
+for curr_px = find(roiMaskd)';
+    curr_trace = Ud_flat(curr_px,:)*fV;
+    %curr_corr = corrcoef(curr_trace,use_trace);
+    %svd_corr(curr_px) = curr_corr(2);
+    curr_corr = xcorr(curr_trace,use_trace,maxlags,'coeff');
+    svd_corr(curr_px) = max(curr_corr);
+    disp(curr_px/find(roiMaskd,1,'last'));
+end
+figure;imagesc(svd_corr);colormap(gray)
+
+px_trace = Ud_flat(roiMaskd(:),:)*fV;
+px_corr = corrcoef(px_trace');
+
+x = px_corr\svd_corr(roiMaskd);
+
+r = zeros(size(Ud,1),size(Ud,2));
+r(roiMaskd) = x;
+figure;imagesc(r);colormap(gray);
 
 
 

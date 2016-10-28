@@ -1,8 +1,8 @@
 %% Define experiment
 
-animal = 'AP006';
-day = '2016-10-10';
-experiment = '4';
+animal = 'AP008';
+day = '2016-10-26';
+experiment = '15';
 rig = 'kilotrode'; % kilotrode or bigrig
 cam_color_n = 2;
 cam_color_signal = 'blue';
@@ -568,24 +568,27 @@ acqlive_ephys_currexpt = [experiment_ephys_starts(experiment_num), ...
 spike_times_timeline = AP_clock_fix(spike_times,acqlive_ephys_currexpt,acqLive_timeline);
 lfp_t_timeline = AP_clock_fix(lfp_t,acqlive_ephys_currexpt,acqLive_timeline);
 
-% Get the depths of each template (by max waveform channel)
+% Get the depths of each template 
+% (by COM: this gives totally wonky answers because of artifacts maybe?)
+%[spikeAmps, spikeDepths, templateDepths, tempAmps, tempsUnW, templateDuration, waveforms] = ...
+%    templatePositionsAmplitudes(templates,winv,channel_positions(:,2),spike_templates,template_amplitudes);
+
+% (by max waveform channel)
 template_abs = permute(max(abs(templates),[],2),[3,1,2]);
 [~,max_channel_idx] =  max(template_abs,[],1);
 templateDepths = channel_positions(max_channel_idx,2);
 
-% Get the waveform duration of all templates
 
 
+% Get each spike's depth
+spikeDepths = templateDepths(spike_templates+1);
 
-% Each spike's depth is the depth of its template
-spikeDepths = templateDepths(spikeTemplates+1);
-
-% Get channel with largest amplitude, take that as the waveform
-[~,max_site] = max(max(abs(temps),[],2),[],3);
-templates_max = nan(size(temps,1),size(temps,2));
-for curr_template = 1:size(temps,1)
+% Get the waveform duration of all templates (channel with largest amp)
+[~,max_site] = max(max(abs(templates),[],2),[],3);
+templates_max = nan(size(templates,1),size(templates,2));
+for curr_template = 1:size(templates,1)
     templates_max(curr_template,:) = ...
-        temps(curr_template,:,max_site(curr_template));
+        templates(curr_template,:,max_site(curr_template));
 end
 waveforms = templates_max;
 
@@ -600,6 +603,7 @@ templates_max_signfix = bsxfun(@times,templates_max, ...
 waveform_peak = waveform_peak_rel + waveform_trough;
 
 templateDuration = waveform_peak - waveform_trough;
+templateDuration_us = (templateDuration/ephys_sample_rate)*1e6;
 
 
 

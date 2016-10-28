@@ -459,7 +459,7 @@ im_stim = nan(size(U,1),size(U,2),length(surround_time),max(unique(stimIDs)));
 for curr_condition = unique(stimIDs)'
 
     use_stims = find(stimIDs == curr_condition);
-    use_stim_onsets = stim_onsets(use_stims);
+    use_stim_onsets = stim_onsets(use_stims(2:end));
     use_stim_onsets([1,end]) = [];
         
     stim_surround_times = bsxfun(@plus, use_stim_onsets(:), surround_time);
@@ -471,6 +471,11 @@ end
 AP_image_scroll(im_stim,surround_time);
 
 % Average (single frame) responses to stimuli
+surround_window = [0.1,0.2];
+framerate = 1./median(diff(frame_t));
+surround_samplerate = 1/(framerate*1);
+surround_time = surround_window(1):surround_samplerate:surround_window(2);
+
 peri_stim_v = nan(size(fV,1),max(stimIDs));
 for curr_stim = 1:max(stimIDs)
     align_times = stim_onsets(stimIDs == curr_stim);
@@ -657,7 +662,7 @@ brain_px = std(px_traces,[],2) > 0.0001;
 % axis off;
 
 % Get fluorescence traces by grouped pixels
-use_kgrps = 3;
+use_kgrps = 6;
 
 kidx = kmeans(px_traces(brain_px,:),use_kgrps,'Distance','correlation');
 

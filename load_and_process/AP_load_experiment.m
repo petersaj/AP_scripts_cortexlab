@@ -1,8 +1,8 @@
 %% Define experiment
 
-animal = 'AP006';
-day = '2016-10-01';
-experiment = '6';
+animal = 'AP010';
+day = '2016-10-26';
+experiment = '4';
 rig = 'kilotrode'; % kilotrode or bigrig
 cam_color_n = 2;
 cam_color_signal = 'blue';
@@ -568,10 +568,17 @@ acqlive_ephys_currexpt = [experiment_ephys_starts(experiment_num), ...
 spike_times_timeline = AP_clock_fix(spike_times,acqlive_ephys_currexpt,acqLive_timeline);
 lfp_t_timeline = AP_clock_fix(lfp_t,acqlive_ephys_currexpt,acqLive_timeline);
 
-% Get the depths of each template (by max waveform channel)
+% Get the depths of each template 
+% (by COM: this gives totally wonky answers because of artifacts maybe?)
+%[spikeAmps, spikeDepths, templateDepths, tempAmps, tempsUnW, templateDuration, waveforms] = ...
+%    templatePositionsAmplitudes(templates,winv,channel_positions(:,2),spike_templates,template_amplitudes);
+
+% (by max waveform channel)
 template_abs = permute(max(abs(templates),[],2),[3,1,2]);
 [~,max_channel_idx] =  max(template_abs,[],1);
 templateDepths = channel_positions(max_channel_idx,2);
+
+
 
 % Get each spike's depth
 spikeDepths = templateDepths(spike_templates+1);
@@ -596,6 +603,7 @@ templates_max_signfix = bsxfun(@times,templates_max, ...
 waveform_peak = waveform_peak_rel + waveform_trough;
 
 templateDuration = waveform_peak - waveform_trough;
+templateDuration_us = (templateDuration/ephys_sample_rate)*1e6;
 
 
 

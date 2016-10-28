@@ -1,4 +1,4 @@
-function fig = AP_stackplot(x,t,spacing,zs)
+function AP_stackplot(x,t,spacing,zs,color)
 % fig = AP_stackplot(x,t,spacing,zs)
 %
 % Plot lines stacked on each other
@@ -23,7 +23,10 @@ elseif zs
     x_spaced = bsxfun(@plus,zscore(x,[],1),spacing_add);
 end
 
-fig = figure;
-plot(t,x_spaced,'linewidth',2);
+if exist('color','var') && ~isempty(color);
+    plot(t,x_spaced,'linewidth',2,'color',color);
+else
+    plot(t,x_spaced,'linewidth',2);
+end
 
 

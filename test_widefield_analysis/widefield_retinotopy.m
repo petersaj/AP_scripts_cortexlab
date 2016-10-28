@@ -987,10 +987,16 @@ for curr_boot = 1:n_boot
 end
 
 vfs_mean = nanmean(imgaussfilt(vfs_boot,1),3);
+
+figure;
+imagesc(vfs_mean);
+caxis([-1,1]);
+axis off;
+title('Visual field sign')
+
 figure;
 subplot(1,3,1);
 imagesc(vfs_mean);
-set(gca,'YDir','normal');
 caxis([-1,1]);
 axis off;
 title('All')
@@ -999,7 +1005,6 @@ subplot(1,3,2);
 p = reshape(AP_signrank_matrix(reshape(imgaussfilt(vfs_boot,1),[],n_boot)'), ...
     size(vfs_mean,1),size(vfs_mean,2));
 h = imagesc(vfs_mean);
-set(gca,'YDir','normal');
 caxis([-1,1]);
 axis off;
 set(h,'AlphaData',p < 0.05);
@@ -1007,7 +1012,6 @@ title('Sign rank p < 0.05');
 
 subplot(1,3,3);
 h = imagesc(vfs_mean);
-set(gca,'YDir','normal');
 caxis([-1,1]);
 axis off;
 vfs_cutoff = 1.5*std(vfs_mean(:));
@@ -1018,6 +1022,7 @@ vis_thresh = abs(vfs_mean) > vfs_cutoff;
 vis_boundaries = cellfun(@(x) x*U_downsample_factor,bwboundaries(vis_thresh),'uni',false);
 
 figure; hold on; 
+set(gca,'YDir','reverse');
 imagesc(avg_im); colormap(gray);
 caxis([0 prctile(avg_im(:),95)]);
 for i = 1:length(vis_boundaries)

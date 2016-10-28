@@ -130,40 +130,8 @@ wf_frame = get(handles.imgSlider,'Value');
 wf_frame = round(wf_frame);
 set(handles.imgSlider,'Value',wf_frame);
 
-handles.t = handles.frame_t(wf_frame);
-
 % Update the images
-if handles.plot_eyecam
-    eyecam_frame = find(handles.eyecam_frame_idx == wf_frame,1);
-    eyecam_im = read(handles.eyecam_vr,eyecam_frame);
-    set(handles.eyecam_im,'Cdata',eyecam_im);
-end
-
-if handles.plot_facecam
-    facecam_frame = find(handles.facecam_frame_idx == wf_frame,1);
-    facecam_im = read(handles.facecam_vr,facecam_frame);
-    set(handles.facecam_im,'Cdata',facecam_im);
-end
-
-wf_im = svdFrameReconstruct(handles.U,handles.V(:,wf_frame));
-
-set(handles.wf_im,'Cdata',wf_im);
-
-% Update trace
-if handles.plot_trace
-    handles.trace_xlim = [handles.t-5,handles.t+5];
-    xlim(handles.trace_axis,handles.trace_xlim);
-    set(handles.trace_tmark,'XData',[handles.t,handles.t]);
-end
-
-% Update the time text
-set(handles.time_text,'String',['Time: ' num2str(handles.t) ,'s']);
-
-% Update guidata
-handles.wf_frame = wf_frame;
-guidata(gui_fig, handles);
-
-drawnow;
+update_im(handles,gui_fig,wf_frame);
 
 
 function imgSlider_MouseWheel(currentObject, eventdata, gui_fig)
@@ -184,11 +152,62 @@ elseif wf_frame < 1
     wf_frame = 1;
 end
 
-handles.t = handles.frame_t(wf_frame);
-
 % Set the slider
 set(handles.imgSlider,'Value',wf_frame);
 
+% Update the images
+update_im(handles,gui_fig,wf_frame);
+
+
+function im_keypress(currentObject, eventdata, gui_fig)
+% Executes when a key is pressed
+
+% Get guidata
+handles = guidata(gui_fig);
+
+switch eventdata.Key
+    
+    % Save section of images as movie
+    case 's'
+        
+        % Get options
+        disp('Preparing to make movie:')
+        movie_t = input('Start/stop time (e.g. [0 5]): ');
+        movie_framerate = input('Framerate: ');
+        save_filename = uiputfile('.avi','Choose save location');
+        
+        movie_wf_frames = handles.frame_t > movie_t(1) & ...
+            handles.frame_t < movie_t(2);
+        n_movie_frames = sum(movie_wf_frames);
+        
+        % Run through selected frames and save
+        disp('Recording...')
+        movie_frames(n_movie_frames) = struct('cdata',[],'colormap',[]);
+        for curr_movie_frame = find(movie_wf_frames);
+            % Update images
+            update_im(handles,gui_fig,curr_movie_frame);
+            movie_frames(curr_movie_frame) = getframe(gui_fig);
+        end
+        
+        % Write movie
+        disp('Saving...')
+        writerObj = VideoWriter(save_filename);
+        writerObj.FrameRate = movie_framerate;
+        open(writerObj);
+        writeVideo(writerObj,movie_frames);
+        close(writerObj);
+        
+        disp('Done.')
+        
+end
+
+% Update guidata
+guidata(gui_fig, handles);
+
+
+function update_im(handles, gui_fig, wf_frame)
+
+handles.t = handles.frame_t(wf_frame);
 
 % Update the images
 if handles.plot_eyecam
@@ -222,20 +241,5 @@ handles.wf_frame = wf_frame;
 guidata(gui_fig, handles);
 
 drawnow;
-
-
-function im_keypress(currentObject, eventdata, gui_fig)
-% Executes when a key is pressed
-
-% Get guidata
-handles = guidata(gui_fig);
-
-switch eventdata.Key
-    case ''
-end
-        
-% Update guidata
-guidata(gui_fig, handles);
-
 
 
