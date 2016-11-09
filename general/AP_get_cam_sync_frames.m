@@ -20,6 +20,8 @@ drawnow;
 clear vr
 vr = VideoReader(fn);
 
+disp('Getting sync frames...')
+
 % Find the start strobe (within first 1000 frames);
 n_frames = vr.NumberOfFrames;
 
@@ -45,3 +47,5 @@ strobe_roi_thresh = prctile(strobe_roi,90)/2;
 strobe_stop_frame = read_frames(find(strobe_roi < strobe_roi_thresh,1));
 
 cam_sync_frames = [strobe_start_frame,strobe_stop_frame];
+
+disp('Done')

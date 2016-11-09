@@ -1,7 +1,7 @@
 %% Convert and kilosort data
 
-animal = 'AP006';
-day = '2016-10-01';
+animal = 'AP011';
+day = '2016-11-06_2';
 
 kwik_paths = { ...
     ['\\zserver.cortexlab.net\Data\Subjects\' animal filesep day '\ephys']};
@@ -16,7 +16,7 @@ for i = 1:length(kwik_paths)
     kwik2dat(kwik_paths{i},save_paths{i},sync_channel,sync_input,local_copy);
 end
 
-combined_bank = true;
+combined_bank = false;
 input_board = 'oe';
 for i = 1:length(kwik_paths)
     data_filename = [save_paths{i} filesep 'spikes.dat'];
@@ -827,8 +827,10 @@ end
 
 %% Raster plot by depth
 
+align_times = stim_onsets(stimIDs == 2);
+
 % Group by depth
-n_depth_groups = 6;
+n_depth_groups = 8;
 depth_group_edges = linspace(0,max(templateDepths),n_depth_groups+1);
 depth_group_edges(end) = Inf;
 depth_group = discretize(spikeDepths,depth_group_edges);
@@ -850,7 +852,7 @@ depth_psth = nan(n_depth_groups,diff(raster_window)/psth_bin_size);
 for curr_depth = 1:n_depth_groups
     [depth_psth(curr_depth,:),bins,rasterX,rasterY,spikeCounts] = psthAndBA( ...
         mua_times{curr_depth}, ...
-        stim_onsets, ...
+        align_times, ...
         raster_window, psth_bin_size);
 end
 
@@ -870,6 +872,53 @@ set(gca,'YTickLabel',sort(depth_group_centers,'descend'));
 xlabel('Time from stim onset')
 title('Population raster by depth');
 
+%% Stim-triggered LFP by depth
+
+% Group by depth
+n_depth_groups = 8;
+depth_group_edges = linspace(0,max(templateDepths),n_depth_groups+1);
+depth_group_edges(end) = Inf;
+depth_group_centers = depth_group_edges(1:end-1) + diff(depth_group_edges)./2;
+
+% Get mean LFP by depth
+channel_depth_grp = discretize(sort(channel_positions(:,2),'ascend'),depth_group_edges);
+lfp_depth_mean = grpstats(lfp,channel_depth_grp);
+
+% Stimulus-triggered LFP by stim
+n_stim = length(unique(stimIDs));
+align_times = stim_onsets;
+
+lfp_window = [-0.5,3];
+t_space = 0.001;
+lfp_stim_mean = nan(n_stim,1+diff(lfp_window)/t_space,size(lfp_depth_mean,1));
+lfp_stim_sem = nan(n_stim,1+diff(lfp_window)/t_space,size(lfp_depth_mean,1));
+
+for curr_stim = 1:n_stim
+    
+    use_align = align_times(stimIDs == curr_stim);
+    use_align_t = bsxfun(@plus,use_align,lfp_window(1):t_space:lfp_window(2));
+    
+    curr_lfp_stim = interp1(lfp_t_timeline,lfp_depth_mean',use_align_t);
+    
+    lfp_stim_mean(curr_stim,:,:) = nanmean(curr_lfp_stim,1);
+    lfp_stim_sem(curr_stim,:,:) = nanstd(curr_lfp_stim,[],1)./sqrt(sum(~isnan(curr_lfp_stim),1));
+
+end
+
+plot_t = lfp_window(1):t_space:lfp_window(2);
+
+plot_channel = 2;
+trace_spacing = 1500;
+plot_lfp = squeeze(lfp_stim_mean(2,:,:));
+yvals = 1500*[1:size(plot_lfp,2)];
+figure;AP_stackplot(a,plot_t,trace_spacing,[],copper(size(plot_lfp,2)))
+set(gca,'YTick',yvals);
+set(gca,'YTickLabel',depth_group_centers);
+ylabel('Depth (\mum)');
+set(gca,'YDir','reverse');
+
+
+
 
 %% Raster GUI with new load structures
 
@@ -879,9 +928,6 @@ spike_times_sec = double(spikes.spike_times);
 raster_window = [-2,2];
 psthViewer(spike_times_sec,spikes.spike_clusters, ...
     xpr.bhv.stim_onset_ephys,raster_window,trial_condition_rl);
-
-
-
 
 %% Raster plot by depth, selected trials
 
@@ -1348,7 +1394,8 @@ for curr_stim = unique(stimIDs)';
     
 end
 stim_psth_smooth = conv2(stim_psth,smWin,'same');
-AP_stackplot(stim_psth_smooth(:,20:end-20)',bins(20:end-20),10)
+figure; hold on;
+AP_stackplot(stim_psth_smooth(:,20:end-20)',bins(20:end-20),10,true)
 xlabel('Time from stim onset')
 ylabel('Population spikes (by stim)');
 line([0,0],ylim,'linestyle','--','color','k');

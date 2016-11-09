@@ -850,7 +850,7 @@ ny = size(stim_screen,1);
 nx = size(stim_screen,2);
 
 switch photodiode_type
-    case 'flicker'
+    case 'Flicker'
         % Check for case of mismatch between photodiode and stimuli:
         % odd number of stimuli, but one extra photodiode flip to come back down
         if mod(size(stim_screen,3),2) == 1 && ...

@@ -1,6 +1,6 @@
 %% This is to load and process animal 65, voltage imaging by DS
 
-%% Load image from single trial
+%% StackSet: Load image from single trial
 
 animal = '65';
 day = '20151012';
@@ -44,14 +44,16 @@ cam = tools.Imager('PCO', [], '_ratio', 1.6, 4); % camera settings
 singleStack = StackSet.LoadStacks(info_data_path,protocol,resize_fac,iStim,tr,cam,'suffix',suffix);
 
 
-%% Load many trials and concatenate
+%% StackSet: Load many trials and concatenate
 
-animal = '65';
-day = '20151012';
-seq = 5; % this is experiment within day
+% This uses a bunch of lab code
+addpath(genpath('\\zserver.cortexlab.net\Code\stacks')); % stackset
+addpath(genpath('\\zserver.cortexlab.net\Code\Rigging\main')); % CB stuff
+addpath(genpath('\\zserver.cortexlab.net\Code\Rigging\cb-tools')) % more CB stuff
 
-% Stackset class written by DS and MC
-addpath('\\zserver\Code\stacks'); %stackset
+animal = 'M160128_SF';
+day = '20160526';
+seq = 2; % this is experiment within day
 
 % Path for raw data
 info_data_path = '\\zserver3.cortexlab.net\Data\Stacks';
@@ -66,11 +68,29 @@ day_dash = datestr(datenum(day,'yyyymmdd'),'yyyy-mm-dd');
 timeline_filename = dat.expFilePath(animal,day_dash,seq,'timeline','master');
 parameters_filename = dat.expFilePath(animal,day_dash,seq,'parameters','master');
 block_filename = dat.expFilePath(animal,day_dash,seq,'block','master');
+protocol_filename = get_cortexlab_filename(animal,day_dash,seq,'protocol','8digit');
 
 % Load behavior/input
-load(timeline_filename);
-load(parameters_filename);
-load(block_filename);
+try
+    load(timeline_filename);
+catch me
+    disp('No timeline')
+end
+try
+    load(parameters_filename);
+catch me
+    disp('No parameters')
+end
+try
+    load(block_filename);
+catch me
+    disp('No block')
+end
+try
+    load(protocol_filename);
+catch me
+    disp('No protocol')
+end
 
 % Make protocol structure required for StackSet loading
 protocol.animal = animal;
@@ -80,14 +100,17 @@ protocol.nstim = 1;
 protocol.seqnums = (1:block.numCompletedTrials)-1; % 1st trial is not imaged
 
 % Load StackSet of selected trials (first trial doesn't work?)
-load_trials = 2:20;
+load_trials = 2:40;
 resize_fac = 0.25; % hard coded for now - this must be in a header somewhere
 iStim = 1; % "averaged repeat for stimulus iStim" ??
 
 % Load 2nd trial to get size
-tr = 2;
+tr = 8;
 suffix = 'ar gd'; % naming convention from DS
-cam = tools.Imager('PCO', [], '_ratio', 1.6, 4); % camera settings
+suffix = ''; % if not DS
+cam = tools.Imager('PCO', [], '_ratio', 1.6, 4); % camera settings (voltage)
+cam = tools.Imager('PCO', [], '', 1.6, 4); % camera settings (gcamp)
+
 singleStack = StackSet.LoadStacks(info_data_path,protocol,resize_fac,iStim,tr,cam,'suffix',suffix);
 [im_y,im_x,numframes] = size(singleStack.Values);
 
@@ -96,12 +119,63 @@ im_concat = [];
 for curr_trial_idx = 1:length(load_trials)
     curr_trial = load_trials(curr_trial_idx);
     suffix = 'ar gd'; % naming convention from DS
+    suffix = ''; % if not DS
     cam = tools.Imager('PCO', [], '_ratio', 1.6, 4); % camera settings
     singleStack = StackSet.LoadStacks(info_data_path,protocol,resize_fac,iStim,curr_trial,cam,'suffix',suffix);
     
     im_concat = [im_concat,reshape(singleStack.Values,im_x*im_y,[])];
     disp(['Loaded ' num2str(curr_trial)]);
 end
+
+%% StackSet: load others
+
+% This uses a bunch of lab code
+addpath(genpath('\\zserver.cortexlab.net\Code\stacks')); % stackset
+addpath(genpath('\\zserver.cortexlab.net\Code\Rigging\main')); % CB stuff
+addpath(genpath('\\zserver.cortexlab.net\Code\Rigging\cb-tools')) % more CB stuff
+
+% Animal info
+Exps.animal = 'M150723_SF_cam2';
+Exps.iseries = '001';
+Exps.iexp = '002';
+suffix = '';
+
+stack_dir = '\\zserver3.cortexlab.net\Data\Stacks';
+stim_dir = 'Resize 50 Stim 001 Repeat All';
+
+stackDir = [stack_dir filesep Exps.animal filesep Exps.iseries filesep Exps.iexp filesep stim_dir];
+
+% Get stack filenames
+stack_dir = dir([stackDir filesep '*.bin']);
+stack_filenames = {stack_dir.name};
+
+n_end_frames = 3; % frames to cut off at the end
+% use_stacks = length(stack_filenames)
+use_stacks = 10;
+
+clear all_stacks;
+all_stacks(use_stacks) = StackSet;
+for curr_stack = 1:use_stacks
+    all_stacks(curr_stack) = tools.LoadMyStacks(stackDir, stack_filenames{curr_stack}(1:end-4));
+    all_stacks(curr_stack).TimeVec(end-n_end_frames+1:end) = [];
+    all_stacks(curr_stack).Values(:,:,end-n_end_frames+1:end) = [];
+end
+
+t_all = {all_stacks.TimeVec};
+t_ends = num2cell([0,cumsum(cellfun(@(x) x(end),t_all(1:end-1)))]);
+t_cat = cell2mat(cellfun(@(t_all,t_ends) t_all+t_ends,t_all,t_ends,'uni',false));
+stack_cat = cat(3,all_stacks.Values);
+
+mean_im = nanmean(stack_cat,3);
+dff = bsxfun(@rdivide,stack_cat,mean_im) - 1;
+
+figure;imagesc(mean_im);
+title(Exps.animal);colormap(gray);
+set(gca,'YDir','normal');
+axis off;
+
+AP_image_scroll(dff,t_cat);
+set(gca,'YDir','normal');
 
 %% Get average movie around stimulus of all selected trials
 
@@ -557,6 +631,10 @@ close(h);
 U_roi = reshape(U(repmat(roiMask,1,1,size(U,3))),[],size(U,3));
 roi_trace = nanmean(U_roi*fV);
 
+figure;
+plot(frame_t,roi_trace,'k');
+xlabel('Time (s)')
+ylabel('ROI Fluorescence')
 
 %% Correlate fluorescence with trace
 

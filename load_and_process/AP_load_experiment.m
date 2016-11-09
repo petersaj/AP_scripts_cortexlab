@@ -1,8 +1,8 @@
 %% Define experiment
 
-animal = 'AP010';
-day = '2016-10-26';
-experiment = '4';
+animal = 'AP009';
+day = '2016-11-05';
+experiment = '5';
 rig = 'kilotrode'; % kilotrode or bigrig
 cam_color_n = 2;
 cam_color_signal = 'blue';
@@ -141,11 +141,15 @@ if exist(fileparts(get_cortexlab_filename(mpep_animal,day,experiment,'protocol')
             
         case 'bigrig'
             switch photodiode_type
-                case 'flicker'
+                case 'Flicker'
                     photodiode_thresh = max(Timeline.rawDAQData(:,photodiode_idx))/2;
                     photodiode_trace = Timeline.rawDAQData(:,photodiode_idx) > photodiode_thresh;
                     photodiode_flip = find((~photodiode_trace(1:end-1) & photodiode_trace(2:end)) | ...
                         (photodiode_trace(1:end-1) & ~photodiode_trace(2:end)))+1;
+                    
+                    photodiode = struct('timestamps',[],'values',[]);
+                    photodiode.timestamps = Timeline.rawDAQTimestamps(photodiode_flip)';
+                    photodiode.values = photodiode_trace(photodiode_flip);
                 case 'Steady'
                     error('write this');
             end
@@ -199,12 +203,14 @@ camSync_up = find((~camSync(1:end-1) & camSync(2:end)))+1;
 % Load camera processed data
 eyecam_processed_filename = get_cortexlab_filename(mpep_animal,day,experiment,'eyecam_processed');
 if exist(eyecam_processed_filename,'file')
-    facecam = load(eyecam_processed_filename);
+    eyecam = load(eyecam_processed_filename);
 end
 
 % Get camera times
+eyecam_filename = get_cortexlab_filename(mpep_animal,day,experiment,'eyecam');
 eyecam_t_savefile = [cam_dir filesep 'eyecam_t.mat'];
-if ~exist(eyecam_t_savefile,'file')      
+
+if exist(eyecam_filename,'file') && ~exist(eyecam_t_savefile,'file')   
     % Get facecam strobes
     eyeCamStrobe_idx = strcmp({Timeline.hw.inputs.name}, 'eyeCameraStrobe');
     eyeCamStrobe_thresh = max(Timeline.rawDAQData(:,eyeCamStrobe_idx))/2;
@@ -213,7 +219,6 @@ if ~exist(eyecam_t_savefile,'file')
     eyeCamStrobe_up_t = Timeline.rawDAQTimestamps(eyeCamStrobe_up);
     
     % Get sync times for cameras (or load if already done)
-    eyecam_filename = get_cortexlab_filename(mpep_animal,day,experiment,'eyecam');
     [eyecam_sync_frames,n_eyecam_frames] = AP_get_cam_sync_frames(eyecam_filename);
     
     % Get the closest facecam strobe to sync start, find offset and frame idx
@@ -226,9 +231,8 @@ if ~exist(eyecam_t_savefile,'file')
     eyecam_t(eyecam_frame_idx) = eyeCamStrobe_up_t;
             
     save(eyecam_t_savefile,'eyecam_t');   
-else   
-    eyecam_filename = get_cortexlab_filename(mpep_animal,day,experiment,'eyecam');
-    load(eyecam_t_savefile);    
+elseif exist(eyecam_filename,'file') && exist(eyecam_t_savefile,'file')   
+    load(eyecam_t_savefile);
 end
 
 % FACECAM
@@ -239,8 +243,10 @@ if exist(facecam_processed_filename,'file')
 end
 
 % Get camera times
+facecam_filename = get_cortexlab_filename(mpep_animal,day,experiment,'facecam');
 facecam_t_savefile = [cam_dir filesep 'facecam_t.mat'];
-if ~exist(facecam_t_savefile,'file')      
+
+if exist(facecam_filename,'file') && ~exist(facecam_t_savefile,'file')      
     % Get facecam strobes
     faceCamStrobe_idx = strcmp({Timeline.hw.inputs.name}, 'faceCamStrobe');
     faceCamStrobe_thresh = max(Timeline.rawDAQData(:,faceCamStrobe_idx))/2;
@@ -249,7 +255,6 @@ if ~exist(facecam_t_savefile,'file')
     faceCamStrobe_up_t = Timeline.rawDAQTimestamps(faceCamStrobe_up);
     
     % Get sync times for cameras (or load if already done)
-    facecam_filename = get_cortexlab_filename(mpep_animal,day,experiment,'facecam');
     [facecam_sync_frames,n_facecam_frames] = AP_get_cam_sync_frames(facecam_filename);
     
     % Get the closest facecam strobe to sync start, find offset and frame idx
@@ -262,8 +267,7 @@ if ~exist(facecam_t_savefile,'file')
     facecam_t(facecam_frame_idx) = faceCamStrobe_up_t;
             
     save(facecam_t_savefile,'facecam_t');   
-else   
-    facecam_filename = get_cortexlab_filename(mpep_animal,day,experiment,'facecam');
+elseif exist(facecam_filename,'file') && exist(facecam_t_savefile,'file')    
     load(facecam_t_savefile);    
 end
 
@@ -464,9 +468,12 @@ lfp_t_timeline = AP_clock_fix(lfp_t,sync(1).timestamps,acqLive_timeline);
 %lfp_t_timeline = AP_clock_fix(lfp_t,sync.timestamps(stim_onset_idx_ephys),photodiode.timestamps(stim_onset_idx_timeline));
 
 %% Load ephys data (single long recording)
+warning('FIX THIS!! this just uses everything outside of experiment??')
 
 % This is just for a few experiments where flipped or not corrected in ks
 flipped_banks = false;
+
+disp('Loading ephys');
 
 data_path = ['\\basket.cortexlab.net\data\ajpeters\' animal filesep day filesep 'ephys'];
 
@@ -605,7 +612,7 @@ waveform_peak = waveform_peak_rel + waveform_trough;
 templateDuration = waveform_peak - waveform_trough;
 templateDuration_us = (templateDuration/ephys_sample_rate)*1e6;
 
-
+disp('Done');
 
 %% Eliminate spikes that were classified as not "good"
 
@@ -618,6 +625,7 @@ if exist('cluster_groups','var') && ~exist('good_templates','var')
     spike_times = spike_times(good_spike_idx);
     spike_templates = spike_templates(good_spike_idx);
     template_amplitudes = template_amplitudes(good_spike_idx);
+    spikeDepths = spikeDepths(good_spike_idx);
     spike_times_timeline = spike_times_timeline(good_spike_idx);
 else
     disp('Good templates already identified')

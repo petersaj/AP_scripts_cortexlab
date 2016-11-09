@@ -242,7 +242,7 @@ sta_v_pca = reshape(score,size(sta_v_all,1),size(sta_v_all,2),size(sta_v_all,3))
 
 %% STA for multiunit
 
-use_spikes = spike_times_timeline(ismember(spike_templates,find(templateDepths > 0 & templateDepths < 300)-1));
+use_spikes = spike_times_timeline(ismember(spike_templates,find(templateDepths > 0 & templateDepths < Inf)-1));
 %use_spikes = spike_times_timeline(ismember(spike_templates,find(templateDepths > 0 & templateDepths < 400)-1) & ...
 %    ismember(spike_templates,use_templates(use_template_narrow))-1);
 
@@ -499,7 +499,7 @@ title('ROI 3')
 %% Group multiunit by depth, get STAs
 
 % Group by depth
-n_depth_groups = 10;
+n_depth_groups = 6;
 depth_group_edges = linspace(0,max(templateDepths),n_depth_groups+1);
 depth_group_edges(end) = Inf;
 
@@ -1078,7 +1078,7 @@ roi_trace = nanmean(U_roi*fV);
 framerate = 1./nanmedian(diff(frame_t));
 frame_edges = [frame_t,frame_t(end)+1/framerate];
 
-use_spikes = spike_times_timeline(ismember(spike_templates,find(templateDepths > 650 & templateDepths < 1000)-1));
+use_spikes = spike_times_timeline(ismember(spike_templates,find(templateDepths > 0 & templateDepths < 1300)-1));
 
 [frame_spikes,~,spike_frames] = histcounts(use_spikes,frame_edges);
 
@@ -1243,7 +1243,7 @@ svd_mean = nanmean(svd_xcorr,3);
 framerate = 1./median(diff(frame_t));
 frame_edges = [frame_t,frame_t(end)+1/framerate];
 
-curr_templates = intersect(find(templateDepths > 550 & templateDepths < 1200)-1,use_templates(msn));
+curr_templates = intersect(find(templateDepths > 600 & templateDepths < Inf)-1,use_templates(msn));
 
 frame_spikes = zeros(length(curr_templates),length(frame_t));
 for curr_template_idx = 1:length(curr_templates);
@@ -1281,7 +1281,7 @@ frame_spikes_1 = nanmean(frame_spikes(sort_idx(1:10),:),1);
 frame_spikes_2 = nanmean(frame_spikes(sort_idx(end-10:end),:),1);
 %use_spikes = nanmean(frame_spikes,1);
 
-corr_lags = 35*3;
+corr_lags = 35*10;
 [~,lags] = xcorr(ones(size(frame_spikes_1)),corr_lags);
 lags_t = lags./framerate;
 figure;
@@ -1457,7 +1457,7 @@ figure;imagesc(cluster_max_xcorr);colormap(gray);
 %% Correlation between spikes (or any trace) and pixel fluorescence
 
 % Use the corrected impulse response for convolving kernel
-use_spikes = spike_times_timeline(ismember(spike_templates,find(templateDepths > 0 & templateDepths < 300)-1));
+use_spikes = spike_times_timeline(ismember(spike_templates,find(templateDepths > 900 & templateDepths < Inf)-1));
 %use_spikes = spike_times_timeline(ismember(spike_templates,find(templateDepths > 0 & templateDepths < 400)-1) & ...
 %    ismember(spike_templates,use_templates(use_template_narrow))-1);
 
@@ -1471,9 +1471,9 @@ end
 
 % Set the trace to use
 %use_trace = interp1(facecam_t(~isnan(facecam_t)),facecam.proc.data.groom.motion(~isnan(facecam_t)),frame_t);
-use_trace = frame_spikes_conv;
+%use_trace = frame_spikes_conv;
 %use_trace = frame_spikes;
-%use_trace = smooth(frame_spikes,35);
+use_trace = smooth(frame_spikes,35);
 %use_trace = wheel_speed;
 %use_trace = interp1(t,beta_power,frame_t);
 
@@ -1563,7 +1563,7 @@ ylabel('Correlation of conv spikes with fluorescence');
 
 %% Spatiotemporal correlation-fixed spatial kernel for spikes
 
-use_spikes = spike_times_timeline(ismember(spike_templates,find(templateDepths > 1000 & templateDepths < 1200)-1));
+use_spikes = spike_times_timeline(ismember(spike_templates,find(templateDepths > 0 & templateDepths < 1200)-1));
 %use_spikes = spike_times_timeline(ismember(spike_templates,find(templateDepths > 0 & templateDepths < 400)-1) & ...
 %    ismember(spike_templates,use_templates(use_template_narrow))-1);
 
@@ -1606,8 +1606,9 @@ for i = 1:n_depths;
     
     frame_edges = [frame_t(1),mean([frame_t(2:end);frame_t(1:end-1)],1),frame_t(end)+1/framerate];
     [frame_spikes,~,spike_frames] = histcounts(use_spikes,frame_edges);
-    frame_spikes_conv_full = conv(frame_spikes,gcamp_kernel);
-    frame_spikes_conv = frame_spikes_conv_full(1:length(frame_spikes));
+    
+    %frame_spikes_conv_full = conv(frame_spikes,gcamp_kernel);
+    %frame_spikes_conv = frame_spikes_conv_full(1:length(frame_spikes));
     
     %Y = frame_spikes';
     Y = smooth(frame_spikes,35);

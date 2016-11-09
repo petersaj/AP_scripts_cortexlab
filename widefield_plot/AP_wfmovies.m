@@ -14,13 +14,13 @@ function AP_wfmovies(U,V,frame_t,eyecam_fn,eyecam_t,facecam_fn,facecam_t,trace,t
 % trace = trace to plot
 % trace_t = trace times
 
-if exist('eyecam_fn','var') && exist('eyecam_t','var')
+if exist('eyecam_fn','var') && exist('eyecam_t','var') && ~isempty(eyecam_t)
    handles.plot_eyecam = true; 
 else
     handles.plot_eyecam = false;
 end
 
-if exist('facecam_fn','var') && exist('facecam_t','var')
+if exist('facecam_fn','var') && exist('facecam_t','var') && ~isempty(facecam_t)
    handles.plot_facecam = true; 
 else
     handles.plot_facecam = false;
@@ -37,10 +37,14 @@ gui_fig = figure; colormap(gray)
 set(gui_fig,'WindowScrollWheelFcn',{@imgSlider_MouseWheel, gui_fig});
 set(gui_fig, 'KeyPressFcn', {@im_keypress, gui_fig});
 
-handles.eyecam_axis = subplot(2,2,1); 
-handles.facecam_axis = subplot(2,2,2);
-handles.wf_axis = subplot(2,2,3);
-handles.trace_axis = subplot(2,2,4);
+if handles.plot_facecam || handles.plot_eyecam || handles.plot_trace
+    handles.eyecam_axis = subplot(2,2,1);
+    handles.facecam_axis = subplot(2,2,2);
+    handles.wf_axis = subplot(2,2,3);
+    handles.trace_axis = subplot(2,2,4);
+else
+    handles.wf_axis = subplot(1,1,1);
+end
 
 % Set up widefield data and image
 handles.V = V; 
@@ -174,19 +178,21 @@ switch eventdata.Key
         disp('Preparing to make movie:')
         movie_t = input('Start/stop time (e.g. [0 5]): ');
         movie_framerate = input('Framerate: ');
-        save_filename = uiputfile('.avi','Choose save location');
+        [save_file,save_path] = uiputfile('.avi','Choose save location');
+        save_filename = [save_path save_file];
         
-        movie_wf_frames = handles.frame_t > movie_t(1) & ...
-            handles.frame_t < movie_t(2);
-        n_movie_frames = sum(movie_wf_frames);
+        movie_wf_frames = find(handles.frame_t > movie_t(1) & ...
+            handles.frame_t < movie_t(2));
+        n_movie_frames = length(movie_wf_frames);
         
         % Run through selected frames and save
         disp('Recording...')
         movie_frames(n_movie_frames) = struct('cdata',[],'colormap',[]);
-        for curr_movie_frame = find(movie_wf_frames);
+        for curr_movie_frame_idx = 1:n_movie_frames
+            curr_movie_frame = movie_wf_frames(curr_movie_frame_idx);
             % Update images
             update_im(handles,gui_fig,curr_movie_frame);
-            movie_frames(curr_movie_frame) = getframe(gui_fig);
+            movie_frames(curr_movie_frame_idx) = getframe(gui_fig);
         end
         
         % Write movie
