@@ -639,7 +639,7 @@ ylabel('ROI Fluorescence')
 %% Correlate fluorescence with trace
 
 % Set the trace to use
-%use_trace = interp1(facecam_t(~isnan(facecam_t)),facecam.proc.data.groom.motion(~isnan(facecam_t)),frame_t);
+%use_trace = interp1(facecam_t(~isnan(facecam_t)),facecam.proc.data.whisker.motion(~isnan(facecam_t)),frame_t);
 %use_trace = frame_spikes_conv;
 %use_trace = wheel_speed;
 use_trace = roi_trace;
@@ -740,7 +740,7 @@ brain_px = std(px_traces,[],2) > 0.0001;
 % axis off;
 
 % Get fluorescence traces by grouped pixels
-use_kgrps = 6;
+use_kgrps = 15;
 
 kidx = kmeans(px_traces(brain_px,:),use_kgrps,'Distance','correlation');
 
@@ -786,8 +786,126 @@ end
 disp('Done')
 
 
+%% Topography by correlation?
+% not exactly sure where I was going with this... reversals in map, i.e.
+% can pick up both visual areas and somatomotor areas based on correlation?
+
+U_downsample_factor = 10;
+Ud = imresize(U,1/U_downsample_factor,'bilinear');
+
+% Lifted from pixelCorrelationViewerSVD
+
+% to compute just the correlation with one pixel and the rest:
+% 1) ahead of time:
+fprintf(1, 'pre-computation...\n');
+Ur = reshape(U, size(U,1)*size(U,2),[]); % P x S
+covV = cov(fV'); % S x S % this is the only one that takes some time really
+varP = dot((Ur*covV)', Ur'); % 1 x P
+fprintf(1, 'done.\n');
+
+ySize = size(U,1); xSize = size(U,2);
+
+pixel = [349,360];
+pixelInd = sub2ind([ySize, xSize], pixel(1), pixel(2));
+
+covP = Ur(pixelInd,:)*covV*Ur'; % 1 x P
+stdPxPy = varP(pixelInd).^0.5 * varP.^0.5; % 1 x P
+corrMat = reshape(covP./stdPxPy,ySize,xSize); % 1 x P
 
 
+corr_max_thresh = 0.005;
+curr_local_max = imextendedmax(corrMat,corr_max_thresh);
+
+% iterate below
+
+U_downsample_factor = 10;
+Ud = imresize(U,1/U_downsample_factor,'bilinear');
+
+ySize = size(Ud,1);
+xSize = size(Ud,2);
+
+fprintf(1, 'pre-computation...\n');
+Ur = reshape(Ud, size(Ud,1)*size(Ud,2),[]); % P x S
+covV = cov(fV'); % S x S % this is the only one that takes some time really
+varP = dot((Ur*covV)', Ur'); % 1 x P
+fprintf(1, 'done.\n');
+
+use_y = 1:ySize;
+use_x = 1:xSize;
+
+corr_max_thresh = 0.001;
+
+max_pix = false(ySize,xSize,length(use_x));
+max_corr_map = zeros(ySize,xSize);
+max_corr_x_idx = zeros(ySize,xSize);
+for y_idx = 1:length(use_y)
+    y = use_y(y_idx);
+    for x_idx = 1:length(use_x)
+        x = use_x(x_idx);
+        pixel = [y,x];
+        pixelInd = sub2ind([ySize, xSize], pixel(1), pixel(2));
+        
+        covP = Ur(pixelInd,:)*covV*Ur'; % 1 x P
+        stdPxPy = varP(pixelInd).^0.5 * varP.^0.5; % 1 x P
+        corrMat = reshape(covP./stdPxPy,ySize,xSize); % 1 x P
+        
+        curr_local_max = imextendedmax(corrMat,corr_max_thresh);
+        
+        % get rid of the local max that's the selected pixel
+        curr_selected = bwselect(curr_local_max,pixel(2),pixel(1));
+        curr_local_max_external = curr_local_max;
+        curr_local_max_external(curr_selected) = false;
+        
+        curr_local_max_corr = zeros(ySize,xSize);
+        curr_local_max_corr(curr_local_max_external) = corrMat(curr_local_max_external);
+        
+        replace_idx = curr_local_max_corr > max_corr_map;
+        max_corr_x_idx(replace_idx) = x;
+        
+        max_pix(:,:,x_idx) = curr_local_max;       
+    end
+    disp(y_idx/length(use_y));
+end
+
+max_pix = false(ySize,xSize,length(use_y));
+max_corr_map = zeros(ySize,xSize);
+max_corr_y_idx = zeros(ySize,xSize);
+for x_idx = 1:length(use_x)
+    x = use_x(x_idx);
+    for y_idx = 1:length(use_y)
+        y = use_y(y_idx);
+        pixel = [y,x];
+        pixelInd = sub2ind([ySize, xSize], pixel(1), pixel(2));
+        
+        covP = Ur(pixelInd,:)*covV*Ur'; % 1 x P
+        stdPxPy = varP(pixelInd).^0.5 * varP.^0.5; % 1 x P
+        corrMat = reshape(covP./stdPxPy,ySize,xSize); % 1 x P
+        
+        curr_local_max = imextendedmax(corrMat,corr_max_thresh);
+        
+        % get rid of the local max that's the selected pixel
+        curr_selected = bwselect(curr_local_max,pixel(2),pixel(1));
+        curr_local_max_external = curr_local_max;
+        curr_local_max_external(curr_selected) = false;
+        
+        curr_local_max_corr = zeros(ySize,xSize);
+        curr_local_max_corr(curr_local_max_external) = corrMat(curr_local_max_external);
+        
+        replace_idx = curr_local_max_corr > max_corr_map;
+        max_corr_y_idx(replace_idx) = y;
+        
+        max_pix(:,:,y_idx) = curr_local_max;
+    end
+    disp(x_idx/length(use_x));
+end
+
+% get gradient direction
+[Xmag,Xdir] = imgradient(imgaussfilt(max_corr_x_idx,1));
+[Ymag,Ydir] = imgradient(imgaussfilt(max_corr_y_idx,1));
+
+angle_diff = sind(Xdir-Ydir);
+
+figure;imagesc(angle_diff);
 
 
 

@@ -1,27 +1,38 @@
 %% Convert and kilosort data
 
-animal = 'AP011';
-day = '2016-11-06_2';
+animal = 'AP009';
+day = '2016-11-03';
 
-kwik_paths = { ...
-    ['\\zserver.cortexlab.net\Data\Subjects\' animal filesep day '\ephys']};
+kwik_path =  ...
+    ['\\zserver.cortexlab.net\Data\Subjects\' animal filesep day '\ephys'];
 
-save_paths = { ...
-    ['\\basket.cortexlab.net\data\ajpeters\' animal filesep day '\ephys']};
+save_path =  ...
+    ['\\basket.cortexlab.net\data\ajpeters\' animal filesep day '\ephys'];
 
+% Convert from Kwik format to raw
 sync_channel = [1,2];
 sync_input = 'adc';
 local_copy = true;
-for i = 1:length(kwik_paths)
-    kwik2dat(kwik_paths{i},save_paths{i},sync_channel,sync_input,local_copy);
+kwik2dat(kwik_path,save_path,sync_channel,sync_input,local_copy);
+
+% Run Kilosort
+% (get header info to get sample rate)
+header_path = [save_path filesep 'dat_params.txt'];
+header_fid = fopen(header_path);
+header_info = textscan(header_fid,'%s %s', 'delimiter',{' = '});
+fclose(header_fid);
+
+header = struct;
+for i = 1:length(header_info{1})
+    header.(header_info{1}{i}) = header_info{2}{i};
 end
+
+ephys_sample_rate = str2num(header.sample_rate);
 
 combined_bank = false;
 input_board = 'oe';
-for i = 1:length(kwik_paths)
-    data_filename = [save_paths{i} filesep 'spikes.dat'];
-    AP_run_kilosort(data_filename,input_board,combined_bank)
-end
+data_filename = [save_path filesep 'spikes.dat'];
+AP_run_kilosort(data_filename,input_board,ephys_sample_rate,combined_bank)
 
 
 
@@ -869,7 +880,7 @@ line([0,0],ylim,'linestyle','--','color','k');
 ylabel('Depth (\mum)');
 set(gca,'YTick',sort(trace_spacing));
 set(gca,'YTickLabel',sort(depth_group_centers,'descend'));
-xlabel('Time from stim onset')
+xlabel('Time from stim onset (s)')
 title('Population raster by depth');
 
 %% Stim-triggered LFP by depth
@@ -907,16 +918,31 @@ end
 
 plot_t = lfp_window(1):t_space:lfp_window(2);
 
-plot_channel = 2;
+% Plot one stim across depths
+plot_stim = 2;
 trace_spacing = 1500;
-plot_lfp = squeeze(lfp_stim_mean(2,:,:));
+plot_lfp = squeeze(lfp_stim_mean(plot_stim,:,:));
 yvals = 1500*[1:size(plot_lfp,2)];
-figure;AP_stackplot(a,plot_t,trace_spacing,[],copper(size(plot_lfp,2)))
+figure;AP_stackplot(plot_lfp,plot_t,trace_spacing,[],copper(size(plot_lfp,2)))
 set(gca,'YTick',yvals);
 set(gca,'YTickLabel',depth_group_centers);
 ylabel('Depth (\mum)');
 set(gca,'YDir','reverse');
+title('Stimulus-triggered LFP');
+xlabel('Time from stim onset (s)');
 
+% Plot one depth across stims
+plot_depth = 2;
+trace_spacing = 1500;
+plot_lfp = squeeze(lfp_stim_mean(:,:,plot_depth))';
+yvals = 1500*[1:size(plot_lfp,2)];
+figure;AP_stackplot(plot_lfp,plot_t,trace_spacing,[],copper(size(plot_lfp,2)))
+set(gca,'YTick',yvals);
+set(gca,'YTickLabel',1:n_stim);
+ylabel('Stimulus)');
+set(gca,'YDir','reverse');
+title('Stimulus-triggered LFP');
+xlabel('Time from stim onset (s)');
 
 
 

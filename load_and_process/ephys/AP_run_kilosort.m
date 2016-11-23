@@ -1,4 +1,4 @@
-function AP_run_kilosort(data_filename,input_board,combined_bank)
+function AP_run_kilosort(data_filename,input_board,sample_rate,combined_bank)
 % AP_run_kilosort(data_filename,input_board,combined_bank)
 %
 % data_filename = .dat flat binary file of all channels together
@@ -21,7 +21,7 @@ ops.Nrank               = 3;    % matrix rank of spike template model (3)
 ops.nfullpasses         = 6;    % number of complete passes through data during optimization (6)
 ops.whitening           = 'full'; % type of whitening (default 'full', for 'noSpikes' set options for spike detection below)
 ops.maxFR               = 20000;  % maximum number of spikes to extract per batch (20000)
-ops.fs                  = 30000; % sampling rate %%%% CHANGED: 25000
+ops.fs                  = sample_rate; % sampling rate %%%% CHANGED: 25000
 ops.fshigh              = 300;   % frequency for high pass filtering
 ops.ntbuff              = 64;    % samples of symmetrical buffer for whitening and spike detection
 ops.scaleproc           = 200;   % int16 scaling of whitened data

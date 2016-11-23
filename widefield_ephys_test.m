@@ -242,7 +242,7 @@ sta_v_pca = reshape(score,size(sta_v_all,1),size(sta_v_all,2),size(sta_v_all,3))
 
 %% STA for multiunit
 
-use_spikes = spike_times_timeline(ismember(spike_templates,find(templateDepths > 0 & templateDepths < Inf)-1));
+use_spikes = spike_times_timeline(ismember(spike_templates,find(templateDepths > 800 & templateDepths < Inf)-1));
 %use_spikes = spike_times_timeline(ismember(spike_templates,find(templateDepths > 0 & templateDepths < 400)-1) & ...
 %    ismember(spike_templates,use_templates(use_template_narrow))-1);
 
@@ -1078,7 +1078,7 @@ roi_trace = nanmean(U_roi*fV);
 framerate = 1./nanmedian(diff(frame_t));
 frame_edges = [frame_t,frame_t(end)+1/framerate];
 
-use_spikes = spike_times_timeline(ismember(spike_templates,find(templateDepths > 0 & templateDepths < 1300)-1));
+use_spikes = spike_times_timeline(ismember(spike_templates,find(templateDepths > 0 & templateDepths < 800)-1));
 
 [frame_spikes,~,spike_frames] = histcounts(use_spikes,frame_edges);
 
@@ -1144,6 +1144,7 @@ legend({'Fluorescence','Spikes conv'});
 %% Make kernel that looks like GCaMP6f
 
 use_t = 1:100;
+t = frame_t(use_t);
 
 event_trace = double(x_autonorm(use_t)./max(x_autonorm(use_t)));
 starting = [0,0.2,1,0.1,0.5,0.2];
@@ -1563,42 +1564,46 @@ ylabel('Correlation of conv spikes with fluorescence');
 
 %% Spatiotemporal correlation-fixed spatial kernel for spikes
 
-use_spikes = spike_times_timeline(ismember(spike_templates,find(templateDepths > 0 & templateDepths < 1200)-1));
+use_spikes = spike_times_timeline(ismember(spike_templates,find(templateDepths > 0 & templateDepths < 800)-1));
 %use_spikes = spike_times_timeline(ismember(spike_templates,find(templateDepths > 0 & templateDepths < 400)-1) & ...
 %    ismember(spike_templates,use_templates(use_template_narrow))-1);
 
 frame_edges = [frame_t(1),mean([frame_t(2:end);frame_t(1:end-1)],1),frame_t(end)+1/framerate];
 [frame_spikes,~,spike_frames] = histcounts(use_spikes,frame_edges);
-frame_spikes_conv_full = conv(frame_spikes,gcamp_kernel);
-frame_spikes_conv = frame_spikes_conv_full(1:length(frame_spikes));
+% frame_spikes_conv_full = conv(frame_spikes,gcamp_kernel);
+% frame_spikes_conv = frame_spikes_conv_full(1:length(frame_spikes));
 
-use_spikes = frame_spikes_conv;
+spike_trace = frame_spikes;
 
-U_downsample_factor = 10;
+U_downsample_factor = 1;
 Ud = imresize(U,1/U_downsample_factor,'bilinear');
 Ud_flat = reshape(Ud,[],size(U,3));
 
 % Get time-shifted spike trace
-surround_frames = 1;
-use_spikes_shift = zeros(surround_frames*2+1,length(use_spikes));
+surround_frames = 35*3;
+use_spikes_shift = zeros(surround_frames*2+1,length(spike_trace));
 for curr_frame_idx = 1:surround_frames*2+1
    curr_shift = curr_frame_idx - surround_frames;
    use_spikes_shift(curr_frame_idx,:) = ...
-       circshift(use_spikes,[0,curr_shift]);
+       circshift(spike_trace,[0,curr_shift]);
 end
 
 use_svs = 1:2000;
 k = use_spikes_shift*fV(use_svs,:)'*(diag(1./dataSummary_n.dataSummary.Sv(use_svs)))*Ud_flat(:,use_svs)';
 k2 = reshape(k',size(Ud,1),size(Ud,2),surround_frames*2+1);
-AP_image_scroll(k2);
+k2_blur = imgaussfilt(k2,3);
+AP_image_scroll(k2_blur);
+
+figure;imagesc(max(k2_blur,[],3));
+colormap(gray);
 
 
 %% Reduced rank regression (Kenneth) by depth
 
-n_depths = 10;
+n_depths = 6;
 use_depths = linspace(0,1300,n_depths+1);
 
-canonU = zeros(size(U,1),size(U,2),10);
+canonU = zeros(size(U,1),size(U,2),n_depths);
 for i = 1:n_depths;
     
     use_spikes = spike_times_timeline(ismember(spike_templates, ...

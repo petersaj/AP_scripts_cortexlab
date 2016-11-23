@@ -2,7 +2,7 @@
 
 animal = 'AP009';
 day = '2016-11-05';
-experiment = '5';
+experiment = '6';
 rig = 'kilotrode'; % kilotrode or bigrig
 cam_color_n = 2;
 cam_color_signal = 'blue';
@@ -316,7 +316,7 @@ elseif cam_color_n == 2
     
     experiment_path = [data_path filesep experiment];
     
-    disp('Loading in imaging data...')
+    disp('Loading imaging data...')
     tn = readNPY([experiment_path filesep 'svdTemporalComponents_' cam_color_signal '.timestamps.npy']);
     Un = readUfromNPY([data_path filesep 'svdSpatialComponents_' cam_color_signal '.npy']);
     Vn = readVfromNPY([experiment_path filesep 'svdTemporalComponents_' cam_color_signal '.npy']);
@@ -525,8 +525,8 @@ lfp_filename = [data_path filesep 'lfp.dat'];
 fid = fopen(lfp_filename);
 lfp_all = fread(fid,[n_channels,inf],'int16');
 fclose(fid);
-% eliminate non-connected channels and sort by position
-lfp = lfp_all(channel_map+1,:);
+% eliminate non-connected channels and sort by position (surface to deep)
+lfp = lfp_all(flipud(channel_map)+1,:);
 % get time of LFP sample points (NOTE: this is messy, based off of sample
 % rate and knowing what kwik2dat does, not sure how accurate)
 sample_rate = str2num(header.sample_rate);
