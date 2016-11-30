@@ -1,7 +1,9 @@
 %% Convert and kilosort data
 
-animal = 'AP009';
-day = '2016-11-03';
+animal = 'AP011';
+day = '2016-11-06';
+combined_bank = false;
+subtract_light = false;
 
 kwik_path =  ...
     ['\\zserver.cortexlab.net\Data\Subjects\' animal filesep day '\ephys'];
@@ -10,10 +12,10 @@ save_path =  ...
     ['\\basket.cortexlab.net\data\ajpeters\' animal filesep day '\ephys'];
 
 % Convert from Kwik format to raw
-sync_channel = [1,2];
+sync_channel = [1,2,3,4];
 sync_input = 'adc';
 local_copy = true;
-kwik2dat(kwik_path,save_path,sync_channel,sync_input,local_copy);
+kwik2dat(kwik_path,save_path,sync_channel,sync_input,local_copy,subtract_light);
 
 % Run Kilosort
 % (get header info to get sample rate)
@@ -29,12 +31,91 @@ end
 
 ephys_sample_rate = str2num(header.sample_rate);
 
-combined_bank = false;
 input_board = 'oe';
 data_filename = [save_path filesep 'spikes.dat'];
 AP_run_kilosort(data_filename,input_board,ephys_sample_rate,combined_bank)
 
+%% Cut data and do kilosort (if bad section of recording)
+% I know this is probably a dumb way to do it: but at the moment, just load
+% the data, cut it, save a cut version, then do kilosort on that
 
+animal = 'AP009';
+day = '2016-11-03';
+combined_bank = false;
+
+
+data_path = ['\\basket.cortexlab.net\data\ajpeters\' animal filesep day filesep 'ephys'];
+
+% Read header information
+header_path = [data_path filesep 'dat_params.txt'];
+header_fid = fopen(header_path);
+header_info = textscan(header_fid,'%s %s', 'delimiter',{' = '});
+fclose(header_fid);
+
+header = struct;
+for i = 1:length(header_info{1})
+    header.(header_info{1}{i}) = header_info{2}{i};
+end
+
+% Load LFP
+disp('Loading LFP...')
+n_channels = str2num(header.n_channels);
+lfp_filename = [data_path filesep 'lfp.dat'];
+fid = fopen(lfp_filename);
+lfp_all = fread(fid,[n_channels,inf],'int16');
+fclose(fid);
+
+lfp_fig = figure;
+imagesc(lfp_all);
+colormap(gray)
+title('Select last timepoint to use');
+[end_time,~] = ginput(1);
+
+close(lfp_fig);
+
+sample_rate = str2num(header.sample_rate);
+lfp_cutoff = str2num(header.lfp_cutoff);
+lfp_downsamp = (sample_rate/lfp_cutoff)/2;
+
+end_sample = end_time*lfp_downsamp;
+
+clear lfp_all;
+
+% Bring spikes to local
+disp('Copying data to local SSD...');
+save_path =  ...
+    ['\\basket.cortexlab.net\data\ajpeters\' animal filesep day '\ephys'];
+data_filename = [save_path filesep 'spikes_cut.dat'];
+[data_path,data_file,data_ext] = fileparts(data_filename);
+local_path = 'C:\Users\Andrew\Documents\CarandiniHarrisLab\data\kilosort_temp';
+local_file = [data_file data_ext];
+local_data_filename = [local_path filesep local_file];
+if ~exist(local_data_filename)
+    copyfile(data_filename,local_data_filename);
+else
+    disp('Already copied');
+end
+disp('Done');
+
+% Load and save spikes, cutting off everything past selected point
+disp('Loading data until cut point, re-saving (locally)...')
+fid = fopen(local_data_filename, 'r');
+spikes = fread(fid,[str2num(header.n_channels),end_sample],'*int16');
+fclose(fid);
+
+spikes_fid = fopen(local_data_filename, 'w');
+fwrite(spikes_fid,spikes,'int16');
+fclose(spikes_fid);
+
+clear spikes;
+
+% Run Kilosort
+title('Running kilosort...')
+ephys_sample_rate = str2num(header.sample_rate);
+input_board = 'oe';
+AP_run_kilosort(data_filename,input_board,ephys_sample_rate,combined_bank);
+
+disp('Done')
 
 %% Load in data from one day
 
@@ -838,10 +919,10 @@ end
 
 %% Raster plot by depth
 
-align_times = stim_onsets(stimIDs == 2);
+align_times = stim_onsets(stimIDs == 4);
 
 % Group by depth
-n_depth_groups = 8;
+n_depth_groups = 20;
 depth_group_edges = linspace(0,max(templateDepths),n_depth_groups+1);
 depth_group_edges(end) = Inf;
 depth_group = discretize(spikeDepths,depth_group_edges);
@@ -886,7 +967,7 @@ title('Population raster by depth');
 %% Stim-triggered LFP by depth
 
 % Group by depth
-n_depth_groups = 8;
+n_depth_groups = 6;
 depth_group_edges = linspace(0,max(templateDepths),n_depth_groups+1);
 depth_group_edges(end) = Inf;
 depth_group_centers = depth_group_edges(1:end-1) + diff(depth_group_edges)./2;
@@ -919,7 +1000,7 @@ end
 plot_t = lfp_window(1):t_space:lfp_window(2);
 
 % Plot one stim across depths
-plot_stim = 2;
+plot_stim = 6;
 trace_spacing = 1500;
 plot_lfp = squeeze(lfp_stim_mean(plot_stim,:,:));
 yvals = 1500*[1:size(plot_lfp,2)];
@@ -932,7 +1013,7 @@ title('Stimulus-triggered LFP');
 xlabel('Time from stim onset (s)');
 
 % Plot one depth across stims
-plot_depth = 2;
+plot_depth = 1;
 trace_spacing = 1500;
 plot_lfp = squeeze(lfp_stim_mean(:,:,plot_depth))';
 yvals = 1500*[1:size(plot_lfp,2)];
@@ -1693,10 +1774,10 @@ legend({'MSN','TAN','FSI','UIN'})
 unique_depths = sort(unique(templateDepths));
 
 n_depth_groups = 30;
-depth_group_edges = linspace(min(templateDepths),max(templateDepths),n_depth_groups+1);
+depth_group_edges = linspace(0,1300,n_depth_groups+1);
 depth_group = discretize(templateDepths,depth_group_edges);
-depth_group_centers = grpstats(templateDepths,depth_group);
-unique_depths = unique(depth_group);
+depth_group_centers = depth_group_edges(1:end-1)+diff(depth_group_edges);
+unique_depths = 1:length(depth_group_edges);
 
 spike_binning = 0.01; % seconds
 corr_edges = 0:spike_binning:spike_times_timeline(end);

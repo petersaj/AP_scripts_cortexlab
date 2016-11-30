@@ -1,8 +1,8 @@
 %% Define experiment
 
 animal = 'AP009';
-day = '2016-11-05';
-experiment = '6';
+day = '2016-10-26';
+experiment = '3';
 rig = 'kilotrode'; % kilotrode or bigrig
 cam_color_n = 2;
 cam_color_signal = 'blue';
@@ -173,8 +173,15 @@ end
 % this is super preliminary
 
 rotaryEncoder_idx = strcmp({Timeline.hw.inputs.name}, 'rotaryEncoder');
+
 wheel_interp = interp1(Timeline.rawDAQTimestamps,Timeline.rawDAQData(:,rotaryEncoder_idx),frame_t);
-wheel_velocity = [0;diff(smooth(wheel_interp,10))];
+% subtract median filtered because of these crazy jumps sometimes??
+wheel_interp_medfilt = medfilt1(wheel_interp,100);
+wheel_interp_medfiltsub = wheel_interp - wheel_interp_medfilt;
+% remove ridiculous outliers
+wheel_interp_medfiltsub(abs(wheel_interp_medfiltsub) > 1e5) = 0;
+
+wheel_velocity = [0;diff(smooth(wheel_interp_medfiltsub,10))];
 wheel_speed = abs(hilbert(wheel_velocity))';
 
 

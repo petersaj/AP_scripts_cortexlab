@@ -146,7 +146,7 @@ xlabel('Time from stim onset')
 
 %% Spike-triggered averaging of widefield (single templates)
 
-curr_template = 27;
+curr_template = 134;
 surround_times = [-2,2];
 
 framerate = 1./median(diff(cam2_time));
@@ -242,7 +242,9 @@ sta_v_pca = reshape(score,size(sta_v_all,1),size(sta_v_all,2),size(sta_v_all,3))
 
 %% STA for multiunit
 
-use_spikes = spike_times_timeline(ismember(spike_templates,find(templateDepths > 800 & templateDepths < Inf)-1));
+use_spikes = spike_times_timeline(ismember(spike_templates,find(templateDepths > 1100 & templateDepths < Inf)-1));
+%use_spikes = spike_times_timeline(ismember(spike_templates,205));
+
 %use_spikes = spike_times_timeline(ismember(spike_templates,find(templateDepths > 0 & templateDepths < 400)-1) & ...
 %    ismember(spike_templates,use_templates(use_template_narrow))-1);
 
@@ -505,7 +507,7 @@ depth_group_edges(end) = Inf;
 
 [depth_group_n,depth_group] = histc(spikeDepths,depth_group_edges);
 depth_groups_used = unique(depth_group);
-depth_group_centers = grpstats(spikeDepths,depth_group);
+depth_group_centers = depth_group_edges(1:end-1)+diff(depth_group_edges);
 
 surround_times = [-2,2];
 framerate = 1./median(diff(frame_t));
@@ -622,9 +624,8 @@ ylabel('Fluorescence');
 % Choose ROI
 h = figure;
 imagesc(avg_im);
-set(gca,'YDir','normal');
 colormap(gray);
-caxis([0 10000]);
+caxis([0 prctile(avg_im(:),90)]);
 roiMask = roipoly;
 close(h);
 
@@ -633,9 +634,11 @@ U_roi = reshape(U(repmat(roiMask,1,1,size(U,3))),[],size(U,3));
 roi_trace = nanmean(U_roi*fV);
 
 % Get population spikes per frame
+use_spikes = spike_times_timeline(ismember(spike_templates,find(templateDepths > 1000 & templateDepths < Inf)-1));
+
 framerate = 1./nanmedian(diff(frame_t));
 frame_edges = [frame_t,frame_t(end)+1/framerate];
-[frame_spikes,~,spike_frames] = histcounts(spike_times_timeline,frame_edges);
+[frame_spikes,~,spike_frames] = histcounts(use_spikes,frame_edges);
 
 figure;hold on;
 plot(zscore(roi_trace),'k','linewidth',1);
@@ -1181,7 +1184,7 @@ gcamp_kernel = fitted_curve;
 %% Get STA-equivalent via xcorr
 
 %use_spikes = spike_times_timeline;
-use_spikes = spike_times_timeline(ismember(spike_templates,find(templateDepths > 0 & templateDepths < 300)-1));
+use_spikes = spike_times_timeline(ismember(spike_templates,find(templateDepths > 0 & templateDepths < Inf)-1));
 %use_spikes = spike_times_timeline(ismember(spike_templates,find(templateDepths > 0 & templateDepths < 400)-1) & ...
 %    (ismember(spike_templates,use_templates(use_template_narrow))));
 
@@ -1191,11 +1194,11 @@ frame_edges = [frame_t(1),mean([frame_t(2:end);frame_t(1:end-1)],1),frame_t(end)
 [frame_spikes,~,spike_frames] = histcounts(use_spikes,frame_edges);
 
 
-corr_lags = 35*5;
+corr_lags = 35*2;
 v_xcorr = nan(size(fV,1),corr_lags*2+1);
 
 for curr_u = 1:size(U,3)  
-    v_xcorr(curr_u,:) = xcorr(fV(curr_u,:),frame_spikes,corr_lags);
+    v_xcorr(curr_u,:) = xcorr(fV(curr_u,:),frame_spikes,corr_lags,'coeff');
 end
 
 lags_t = (-corr_lags:corr_lags)/framerate;
@@ -1214,6 +1217,7 @@ AP_image_scroll(svd_xcorr,lags_t);
 
 
 %% For last cell: make baseline std based shifted times
+% ??
 
 framerate = 1./nanmedian(diff(frame_t));
 
@@ -1223,7 +1227,7 @@ frame_edges = [frame_t(1),mean([frame_t(2:end);frame_t(1:end-1)],1),frame_t(end)
 frame_spikes = circshift(frame_spikes,[0,randi(length(frame_spikes))]);
 
 corr_lags = 100;
-v_xcorr = nan(size(V,1),corr_lags*2+1);
+v_xcorr = nan(size(fV,1),corr_lags*2+1);
 
 for curr_u = 1:size(U,3)  
     v_xcorr(curr_u,:) = xcorr(fV(curr_u,:),frame_spikes,corr_lags);
@@ -1244,7 +1248,7 @@ svd_mean = nanmean(svd_xcorr,3);
 framerate = 1./median(diff(frame_t));
 frame_edges = [frame_t,frame_t(end)+1/framerate];
 
-curr_templates = intersect(find(templateDepths > 600 & templateDepths < Inf)-1,use_templates(msn));
+curr_templates = intersect(find(templateDepths > 0 & templateDepths < Inf)-1,use_templates(msn));
 
 frame_spikes = zeros(length(curr_templates),length(frame_t));
 for curr_template_idx = 1:length(curr_templates);
@@ -1268,7 +1272,6 @@ set(gca,'YDir','reverse');
 % Choose ROI
 h = figure;
 imagesc(avg_im);
-set(gca,'YDir','normal');
 colormap(gray);
 caxis([0 prctile(avg_im(:),90)]);
 roiMask = roipoly;
@@ -1426,7 +1429,7 @@ legend({'High PC1 spikes','Low PC1 spikes'});
 framerate = 1./nanmedian(diff(frame_t));
 
 %use_spikes = spike_times_timeline;
-use_spikes = spike_times_timeline(ismember(spike_templates,find(templateDepths > 0 & templateDepths < 300)-1));
+%use_spikes = spike_times_timeline(ismember(spike_templates,find(templateDepths > 800 & templateDepths < Inf)-1));
 %use_spikes = spike_times_timeline(ismember(spike_templates,find(templateDepths > 0 & templateDepths < 400)-1) & ...
 %    (ismember(spike_templates,use_templates(use_template_narrow)));
 
@@ -1458,8 +1461,9 @@ figure;imagesc(cluster_max_xcorr);colormap(gray);
 %% Correlation between spikes (or any trace) and pixel fluorescence
 
 % Use the corrected impulse response for convolving kernel
-use_spikes = spike_times_timeline(ismember(spike_templates,find(templateDepths > 900 & templateDepths < Inf)-1));
-%use_spikes = spike_times_timeline(ismember(spike_templates,find(templateDepths > 0 & templateDepths < 400)-1) & ...
+use_spikes = spike_times_timeline(ismember(spike_templates,find(templateDepths > 800 & templateDepths < Inf)-1));
+%use_spikes = spike_times_timeline(ismember(spike_templates,427));
+%use_spikes = spike_times_timeline(ismember(spike_templates,find(templateDepths > 0 & templateDepths < Inf)-1) & ...
 %    ismember(spike_templates,use_templates(use_template_narrow))-1);
 
 frame_edges = [frame_t(1),mean([frame_t(2:end);frame_t(1:end-1)],1),frame_t(end)+1/framerate];
@@ -1479,7 +1483,7 @@ use_trace = smooth(frame_spikes,35);
 %use_trace = interp1(t,beta_power,frame_t);
 
 % Get cross correlation with all pixels
-corr_lags = round(framerate*0.5);
+corr_lags = round(framerate*3);
 
 framerate = 1./nanmedian(diff(frame_t));
 v_xcorr = nan(size(fV,1),corr_lags*2+1);
@@ -1564,7 +1568,7 @@ ylabel('Correlation of conv spikes with fluorescence');
 
 %% Spatiotemporal correlation-fixed spatial kernel for spikes
 
-use_spikes = spike_times_timeline(ismember(spike_templates,find(templateDepths > 0 & templateDepths < 800)-1));
+use_spikes = spike_times_timeline(ismember(spike_templates,find(templateDepths > 1100 & templateDepths < 1300)-1));
 %use_spikes = spike_times_timeline(ismember(spike_templates,find(templateDepths > 0 & templateDepths < 400)-1) & ...
 %    ismember(spike_templates,use_templates(use_template_narrow))-1);
 
@@ -1581,6 +1585,7 @@ Ud_flat = reshape(Ud,[],size(U,3));
 
 % Get time-shifted spike trace
 surround_frames = 35*3;
+surround_t = (-surround_frames:surround_frames)/framerate;
 use_spikes_shift = zeros(surround_frames*2+1,length(spike_trace));
 for curr_frame_idx = 1:surround_frames*2+1
    curr_shift = curr_frame_idx - surround_frames;
@@ -1592,10 +1597,61 @@ use_svs = 1:2000;
 k = use_spikes_shift*fV(use_svs,:)'*(diag(1./dataSummary_n.dataSummary.Sv(use_svs)))*Ud_flat(:,use_svs)';
 k2 = reshape(k',size(Ud,1),size(Ud,2),surround_frames*2+1);
 k2_blur = imgaussfilt(k2,3);
-AP_image_scroll(k2_blur);
+AP_image_scroll(k2_blur,surround_t);
 
 figure;imagesc(max(k2_blur,[],3));
 colormap(gray);
+
+%% Spatiotemporal correlation-fixed spatial kernel for spikes (templates)
+
+use_templates = good_templates;
+
+U_downsample_factor = 1;
+Ud = imresize(U,1/U_downsample_factor,'bilinear');
+Ud_flat = reshape(Ud,[],size(U,3));
+
+k2_all = zeros(size(Ud,1),size(Ud,2),length(use_templates));
+
+for curr_template_idx = 1:length(use_templates)
+    
+    curr_template = use_templates(curr_template_idx);
+    
+    use_spikes = spike_times_timeline(spike_templates == curr_template);
+    
+    %use_spikes = spike_times_timeline(ismember(spike_templates,find(templateDepths > 0 & templateDepths < 400)-1) & ...
+    %    ismember(spike_templates,use_templates(use_template_narrow))-1);
+    
+    frame_edges = [frame_t(1),mean([frame_t(2:end);frame_t(1:end-1)],1),frame_t(end)+1/framerate];
+    [frame_spikes,~,spike_frames] = histcounts(use_spikes,frame_edges);
+    % frame_spikes_conv_full = conv(frame_spikes,gcamp_kernel);
+    % frame_spikes_conv = frame_spikes_conv_full(1:length(frame_spikes));
+    
+    spike_trace = frame_spikes;
+    
+    % Get time-shifted spike trace
+    surround_frames = 7;
+    surround_t = (-surround_frames:surround_frames)/framerate;
+    use_spikes_shift = zeros(surround_frames*2+1,length(spike_trace));
+    for curr_frame_idx = 1:surround_frames*2+1
+        curr_shift = curr_frame_idx - surround_frames;
+        use_spikes_shift(curr_frame_idx,:) = ...
+            circshift(spike_trace,[0,curr_shift]);
+    end
+    
+    use_svs = 1:2000;
+    k = use_spikes_shift*fV(use_svs,:)'*(diag(1./dataSummary_n.dataSummary.Sv(use_svs)))*Ud_flat(:,use_svs)';
+    k2 = reshape(k',size(Ud,1),size(Ud,2),surround_frames*2+1);
+    k2_all(:,:,curr_template_idx) = max(k2,[],3);
+    
+    disp(curr_template_idx);
+  
+end
+
+% Rearrange STAs by depth
+[~,sort_idx] = sort(templateDepths(good_templates+1));
+k2_all = k2_all(:,:,sort_idx);
+
+AP_image_scroll(k2_all);
 
 
 %% Reduced rank regression (Kenneth) by depth
@@ -1716,6 +1772,27 @@ x = px_corr\svd_corr(roiMaskd);
 r = zeros(size(Ud,1),size(Ud,2));
 r(roiMaskd) = x;
 figure;imagesc(r);colormap(gray);
+
+
+%% Get STD of pixels (for use in correcting xcov)
+
+px_std_sq = zeros(size(U,1),size(U,2));
+
+px_mean = svdFrameReconstruct(U,nanmean(fV,2));
+
+% Do this in chunks of 1000 frames
+chunk_size = 1000;
+frame_chunks = unique([1:chunk_size:size(fV,2),size(fV,2)]);
+
+for curr_chunk = 1:length(frame_chunks)-1
+    curr_im = svdFrameReconstruct(U,fV(:,frame_chunks(curr_chunk): ...
+        frame_chunks(curr_chunk+1)));
+    px_std_sq = sum(bsxfun(@minus,curr_im,px_mean).^2,3)./size(fV,2);
+    disp(curr_chunk/(length(frame_chunks)-1));
+end
+px_std = sqrt(px_std_sq);
+
+
 
 
 

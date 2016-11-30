@@ -740,7 +740,7 @@ brain_px = std(px_traces,[],2) > 0.0001;
 % axis off;
 
 % Get fluorescence traces by grouped pixels
-use_kgrps = 15;
+use_kgrps = 6;
 
 kidx = kmeans(px_traces(brain_px,:),use_kgrps,'Distance','correlation');
 
@@ -868,6 +868,7 @@ for y_idx = 1:length(use_y)
 end
 
 max_pix = false(ySize,xSize,length(use_y));
+corr_pix = false(ySize,xSize,length(use_y));
 max_corr_map = zeros(ySize,xSize);
 max_corr_y_idx = zeros(ySize,xSize);
 for x_idx = 1:length(use_x)
@@ -894,6 +895,7 @@ for x_idx = 1:length(use_x)
         replace_idx = curr_local_max_corr > max_corr_map;
         max_corr_y_idx(replace_idx) = y;
         
+        corr_pix(:,:,y_idx) = corrMat;
         max_pix(:,:,y_idx) = curr_local_max;
     end
     disp(x_idx/length(use_x));
@@ -906,6 +908,89 @@ end
 angle_diff = sind(Xdir-Ydir);
 
 figure;imagesc(angle_diff);
+
+
+
+
+
+
+
+
+
+max_pix = false(ySize,xSize,length(use_y));
+corr_pix = false(ySize,xSize,length(use_y));
+max_corr_map = zeros(ySize,xSize);
+max_corr_y_idx = zeros(ySize,xSize);
+for x_idx = 1:length(use_x)
+    x = use_x(x_idx);
+    for y_idx = 1:length(use_y)
+        y = use_y(y_idx);
+        pixel = [y,x];
+        pixelInd = sub2ind([ySize, xSize], pixel(1), pixel(2));
+        
+        covP = Ur(pixelInd,:)*covV*Ur'; % 1 x P
+        stdPxPy = varP(pixelInd).^0.5 * varP.^0.5; % 1 x P
+        corrMat = reshape(covP./stdPxPy,ySize,xSize); % 1 x P
+        
+        curr_local_max = imextendedmax(corrMat,corr_max_thresh);
+        
+        % get rid of the local max that's the selected pixel
+        curr_selected = bwselect(curr_local_max,pixel(2),pixel(1));
+        curr_local_max_external = curr_local_max;
+        curr_local_max_external(curr_selected) = false;
+        
+        curr_local_max_corr = zeros(ySize,xSize);
+        curr_local_max_corr(curr_local_max_external) = corrMat(curr_local_max_external);
+        
+        replace_idx = curr_local_max_corr > max_corr_map;
+        max_corr_y_idx(replace_idx) = y;
+        
+        corr_pix(:,:,y_idx) = corrMat;
+        max_pix(:,:,y_idx) = curr_local_max;
+    end
+    disp(x_idx/length(use_x));
+end
+
+
+
+
+
+
+%% xcorr trace/facecam, this probably doesn't make any sense... 
+
+surround_frames = 60;
+
+facecam_t_idx = facecam_t > min(frame_t) & facecam_t < max(frame_t);
+
+% interpolate ROI trace to facecam trace
+roi_trace_interp = zscore(interp1(frame_t,roi_trace,facecam_t(facecam_t_idx)));
+
+use_frame_idx = find(facecam_t_idx);
+
+facecam_vr = VideoReader(facecam_filename);
+
+facecam_first_frame = read(facecam_vr,1);
+facecam_surround = double(repmat(facecam_first_frame,[1,1,surround_frames*2+1]));
+
+for curr_frame_idx = surround_frames+1:length(use_frame_idx)-surround_frames
+    
+    curr_facecam_frame = use_frame_idx(curr_frame_idx);
+    
+    curr_trace = roi_trace_interp(curr_frame_idx-surround_frames:curr_frame_idx+surround_frames);
+    
+    facecam_im_pre = read(facecam_vr,curr_facecam_frame-1);
+    facecam_im = read(facecam_vr,curr_facecam_frame);
+    
+    facecam_im_diff = abs(facecam_im - facecam_im_pre);
+    
+    curr_facecam_surround = double(repmat(facecam_im_diff,[1,1,surround_frames*2+1]));
+    curr_facecam_surround = bsxfun(@times,curr_facecam_surround,permute(curr_trace,[2,3,1]));
+    
+    facecam_surround = facecam_surround+curr_facecam_surround;
+    
+    disp(curr_frame_idx./length(use_frame_idx));
+    
+end
 
 
 
