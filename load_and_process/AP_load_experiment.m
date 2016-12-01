@@ -1,8 +1,8 @@
 %% Define experiment
 
 animal = 'AP009';
-day = '2016-10-26';
-experiment = '3';
+day = '2016-11-05';
+experiment = '6';
 rig = 'kilotrode'; % kilotrode or bigrig
 cam_color_n = 2;
 cam_color_signal = 'blue';
@@ -475,7 +475,6 @@ lfp_t_timeline = AP_clock_fix(lfp_t,sync(1).timestamps,acqLive_timeline);
 %lfp_t_timeline = AP_clock_fix(lfp_t,sync.timestamps(stim_onset_idx_ephys),photodiode.timestamps(stim_onset_idx_timeline));
 
 %% Load ephys data (single long recording)
-warning('FIX THIS!! this just uses everything outside of experiment??')
 
 % This is just for a few experiments where flipped or not corrected in ks
 flipped_banks = false;

@@ -242,7 +242,7 @@ sta_v_pca = reshape(score,size(sta_v_all,1),size(sta_v_all,2),size(sta_v_all,3))
 
 %% STA for multiunit
 
-use_spikes = spike_times_timeline(ismember(spike_templates,find(templateDepths > 1100 & templateDepths < Inf)-1));
+use_spikes = spike_times_timeline(ismember(spike_templates,find(templateDepths > 0 & templateDepths < 800)-1));
 %use_spikes = spike_times_timeline(ismember(spike_templates,205));
 
 %use_spikes = spike_times_timeline(ismember(spike_templates,find(templateDepths > 0 & templateDepths < 400)-1) & ...
@@ -1184,7 +1184,7 @@ gcamp_kernel = fitted_curve;
 %% Get STA-equivalent via xcorr
 
 %use_spikes = spike_times_timeline;
-use_spikes = spike_times_timeline(ismember(spike_templates,find(templateDepths > 0 & templateDepths < Inf)-1));
+use_spikes = spike_times_timeline(ismember(spike_templates,find(templateDepths > 0 & templateDepths < 600)-1));
 %use_spikes = spike_times_timeline(ismember(spike_templates,find(templateDepths > 0 & templateDepths < 400)-1) & ...
 %    (ismember(spike_templates,use_templates(use_template_narrow))));
 
@@ -1193,12 +1193,13 @@ framerate = 1./nanmedian(diff(frame_t));
 frame_edges = [frame_t(1),mean([frame_t(2:end);frame_t(1:end-1)],1),frame_t(end)+1/framerate];
 [frame_spikes,~,spike_frames] = histcounts(use_spikes,frame_edges);
 
+frame_spikes_meansub = frame_spikes - mean(frame_spikes);
 
-corr_lags = 35*2;
+corr_lags = 35*5;
 v_xcorr = nan(size(fV,1),corr_lags*2+1);
 
 for curr_u = 1:size(U,3)  
-    v_xcorr(curr_u,:) = xcorr(fV(curr_u,:),frame_spikes,corr_lags,'coeff');
+    v_xcorr(curr_u,:) = xcorr(fV(curr_u,:)-mean(fV(curr_u,:)),frame_spikes_meansub,corr_lags,'biased');
 end
 
 lags_t = (-corr_lags:corr_lags)/framerate;
@@ -1206,12 +1207,10 @@ lags_t = (-corr_lags:corr_lags)/framerate;
 svd_xcorr = svdFrameReconstruct(U,v_xcorr);
 
 % Normalize the image
-% NOTE: this isn't good, need to normalize by pixel std
-%svd_xcorr_norm = bsxfun(@rdivide,bsxfun(@minus,svd_xcorr,mean(svd_xcorr,3)),std(svd_xcorr,[],3) + ...
-%    prctile(reshape(std(svd_xcorr,[],3),[],1),50));
+svd_xcorr_norm = bsxfun(@rdivide,svd_xcorr,px_std*std(frame_spikes));
 
 % Draw the movie
-AP_image_scroll(svd_xcorr,lags_t);
+AP_image_scroll(svd_xcorr_norm,lags_t);
 
 
 
@@ -1461,7 +1460,7 @@ figure;imagesc(cluster_max_xcorr);colormap(gray);
 %% Correlation between spikes (or any trace) and pixel fluorescence
 
 % Use the corrected impulse response for convolving kernel
-use_spikes = spike_times_timeline(ismember(spike_templates,find(templateDepths > 800 & templateDepths < Inf)-1));
+use_spikes = spike_times_timeline(ismember(spike_templates,find(templateDepths > 0 & templateDepths < 500)-1));
 %use_spikes = spike_times_timeline(ismember(spike_templates,427));
 %use_spikes = spike_times_timeline(ismember(spike_templates,find(templateDepths > 0 & templateDepths < Inf)-1) & ...
 %    ismember(spike_templates,use_templates(use_template_narrow))-1);
@@ -1568,7 +1567,7 @@ ylabel('Correlation of conv spikes with fluorescence');
 
 %% Spatiotemporal correlation-fixed spatial kernel for spikes
 
-use_spikes = spike_times_timeline(ismember(spike_templates,find(templateDepths > 1100 & templateDepths < 1300)-1));
+use_spikes = spike_times_timeline(ismember(spike_templates,find(templateDepths > 0 & templateDepths < 800)-1));
 %use_spikes = spike_times_timeline(ismember(spike_templates,find(templateDepths > 0 & templateDepths < 400)-1) & ...
 %    ismember(spike_templates,use_templates(use_template_narrow))-1);
 
@@ -1596,7 +1595,7 @@ end
 use_svs = 1:2000;
 k = use_spikes_shift*fV(use_svs,:)'*(diag(1./dataSummary_n.dataSummary.Sv(use_svs)))*Ud_flat(:,use_svs)';
 k2 = reshape(k',size(Ud,1),size(Ud,2),surround_frames*2+1);
-k2_blur = imgaussfilt(k2,3);
+k2_blur = imgaussfilt(k2,1);
 AP_image_scroll(k2_blur,surround_t);
 
 figure;imagesc(max(k2_blur,[],3));
@@ -1691,7 +1690,7 @@ for i = 1:n_depths;
 end
 
 canonU_blur = imgaussfilt(canonU,3);
-AP_image_scroll(canonU_blur);colormap(redblue);
+AP_image_scroll(canonU_blur);colormap(colormap_blueblackred);
 
 
 %% Get spikes to widefield transformation and/or deconvolve V
@@ -1774,23 +1773,6 @@ r(roiMaskd) = x;
 figure;imagesc(r);colormap(gray);
 
 
-%% Get STD of pixels (for use in correcting xcov)
-
-px_std_sq = zeros(size(U,1),size(U,2));
-
-px_mean = svdFrameReconstruct(U,nanmean(fV,2));
-
-% Do this in chunks of 1000 frames
-chunk_size = 1000;
-frame_chunks = unique([1:chunk_size:size(fV,2),size(fV,2)]);
-
-for curr_chunk = 1:length(frame_chunks)-1
-    curr_im = svdFrameReconstruct(U,fV(:,frame_chunks(curr_chunk): ...
-        frame_chunks(curr_chunk+1)));
-    px_std_sq = sum(bsxfun(@minus,curr_im,px_mean).^2,3)./size(fV,2);
-    disp(curr_chunk/(length(frame_chunks)-1));
-end
-px_std = sqrt(px_std_sq);
 
 
 

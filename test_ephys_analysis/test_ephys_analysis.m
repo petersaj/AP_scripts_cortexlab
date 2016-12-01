@@ -919,10 +919,10 @@ end
 
 %% Raster plot by depth
 
-align_times = stim_onsets(stimIDs == 4);
+align_times = stim_onsets(ismember(stimIDs,[1:3]));
 
 % Group by depth
-n_depth_groups = 20;
+n_depth_groups = 6;
 depth_group_edges = linspace(0,max(templateDepths),n_depth_groups+1);
 depth_group_edges(end) = Inf;
 depth_group = discretize(spikeDepths,depth_group_edges);
@@ -1780,7 +1780,7 @@ depth_group_centers = depth_group_edges(1:end-1)+diff(depth_group_edges);
 unique_depths = 1:length(depth_group_edges);
 
 spike_binning = 0.01; % seconds
-corr_edges = 0:spike_binning:spike_times_timeline(end);
+corr_edges = spike_times_timeline(1):spike_binning:spike_times_timeline(end);
 
 binned_spikes_depth = zeros(length(unique_depths),length(corr_edges)-1);
 for curr_depth = 1:length(unique_depths);

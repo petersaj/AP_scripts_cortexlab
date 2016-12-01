@@ -639,54 +639,59 @@ ylabel('ROI Fluorescence')
 %% Correlate fluorescence with trace
 
 % Set the trace to use
-%use_trace = interp1(facecam_t(~isnan(facecam_t)),facecam.proc.data.whisker.motion(~isnan(facecam_t)),frame_t);
+use_trace = interp1(facecam_t(~isnan(facecam_t)),facecam.proc.data.whisker.motion(~isnan(facecam_t)),frame_t);
 %use_trace = frame_spikes_conv;
 %use_trace = wheel_speed;
-use_trace = roi_trace;
+%use_trace = roi_trace;
 %use_trace = interp1(t,beta_power,frame_t);
 
+use_trace_meansub = use_trace - mean(use_trace);
+
 % Get cross correlation with all pixels
-corr_lags = 35*20;
+corr_lags = 35*30;
 
 framerate = 1./nanmedian(diff(frame_t));
 v_xcorr = nan(size(fV,1),corr_lags*2+1);
 for curr_u = 1:size(U,3)  
-    v_xcorr(curr_u,:) = xcorr(fV(curr_u,:),use_trace,corr_lags);
+    v_xcorr(curr_u,:) = xcorr(fV(curr_u,:)-mean(fV(curr_u,:)),use_trace_meansub,corr_lags,'biased');
 end
 lags_t = (-corr_lags:corr_lags)/framerate;
 svd_xcorr = svdFrameReconstruct(U,v_xcorr);
 
+% Normalize
+svd_xcorr_norm = bsxfun(@rdivide,svd_xcorr,px_std*std(use_trace));
+
 % Draw the movie
-AP_image_scroll(svd_xcorr,lags_t);
+AP_image_scroll(svd_xcorr_norm,lags_t);
 
 
-% Correlation in pixel space
-U_downsample_factor = 10;
-maxlags = 35;
-
-% Make mask
-h = figure;
-imagesc(avg_im);
-set(gca,'YDir','reverse');
-colormap(gray);
-caxis([0 prctile(avg_im(:),90)]);
-title('Draw mask to use pixels')
-roiMask = roipoly;
-delete(h);
-roiMaskd = imresize(roiMask,1/U_downsample_factor,'bilinear') > 0;
-
-Ud = imresize(U,1/U_downsample_factor,'bilinear');
-Ud_flat = reshape(Ud,[],size(U,3));
-svd_corr = nan(size(Ud,1),size(Ud,2));
-for curr_px = find(roiMaskd)';
-    curr_trace = Ud_flat(curr_px,:)*fV;
-    %curr_corr = corrcoef(curr_trace,use_trace);
-    %svd_corr(curr_px) = curr_corr(2);
-    curr_corr = xcorr(curr_trace,use_trace,maxlags,'coeff');
-    svd_corr(curr_px) = max(curr_corr);
-    disp(curr_px/find(roiMaskd,1,'last'));
-end
-figure;imagesc(svd_corr);colormap(gray)
+% % Correlation in pixel space
+% U_downsample_factor = 10;
+% maxlags = 35;
+% 
+% % Make mask
+% h = figure;
+% imagesc(avg_im);
+% set(gca,'YDir','reverse');
+% colormap(gray);
+% caxis([0 prctile(avg_im(:),90)]);
+% title('Draw mask to use pixels')
+% roiMask = roipoly;
+% delete(h);
+% roiMaskd = imresize(roiMask,1/U_downsample_factor,'bilinear') > 0;
+% 
+% Ud = imresize(U,1/U_downsample_factor,'bilinear');
+% Ud_flat = reshape(Ud,[],size(U,3));
+% svd_corr = nan(size(Ud,1),size(Ud,2));
+% for curr_px = find(roiMaskd)';
+%     curr_trace = Ud_flat(curr_px,:)*fV;
+%     %curr_corr = corrcoef(curr_trace,use_trace);
+%     %svd_corr(curr_px) = curr_corr(2);
+%     curr_corr = xcorr(curr_trace,use_trace,maxlags,'coeff');
+%     svd_corr(curr_px) = max(curr_corr);
+%     disp(curr_px/find(roiMaskd,1,'last'));
+% end
+% figure;imagesc(svd_corr);colormap(gray)
 
 
 
@@ -993,5 +998,26 @@ for curr_frame_idx = surround_frames+1:length(use_frame_idx)-surround_frames
 end
 
 
+%% Get STD of pixels (for use in correcting xcov)
 
+px_std_sq = zeros(size(U,1),size(U,2));
+
+px_mean = svdFrameReconstruct(U,nanmean(fV,2));
+
+% Do this in chunks of 1000 frames
+% Don't use the first n frames (can be weird)
+skip_start_frames = 50;
+n_frames = size(fV,2) - skip_start_frames + 1;
+chunk_size = 1000;
+frame_chunks = unique([skip_start_frames:chunk_size:size(fV,2),size(fV,2)]);
+
+for curr_chunk = 1:length(frame_chunks)-1
+    curr_im = svdFrameReconstruct(U,fV(:,frame_chunks(curr_chunk): ...
+        frame_chunks(curr_chunk+1)));
+    px_std_sq = sum(bsxfun(@minus,curr_im,px_mean).^2,3)./n_frames;
+    disp(curr_chunk/(length(frame_chunks)-1));
+end
+px_std = sqrt(px_std_sq);
+
+px_10prct = svdFrameReconstruct(U,prctile(fV(:,skip_start_frames:end),10,2));
 
