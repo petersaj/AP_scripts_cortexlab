@@ -1,9 +1,9 @@
 %% Convert and kilosort data
 
-animal = 'AP011';
-day = '2016-11-06';
-combined_bank = false;
-subtract_light = false;
+animal = 'AP009';
+day = '2016-11-23';
+combined_bank = true;
+subtract_light = true;
 
 kwik_path =  ...
     ['\\zserver.cortexlab.net\Data\Subjects\' animal filesep day '\ephys'];
@@ -41,7 +41,7 @@ AP_run_kilosort(data_filename,input_board,ephys_sample_rate,combined_bank)
 
 animal = 'AP009';
 day = '2016-11-03';
-combined_bank = false;
+combined_bank = true;
 
 
 data_path = ['\\basket.cortexlab.net\data\ajpeters\' animal filesep day filesep 'ephys'];
@@ -919,10 +919,10 @@ end
 
 %% Raster plot by depth
 
-align_times = stim_onsets(ismember(stimIDs,[1:3]));
+align_times = stim_onsets(ismember(stimIDs,[1]));
 
 % Group by depth
-n_depth_groups = 6;
+n_depth_groups = 8;
 depth_group_edges = linspace(0,max(templateDepths),n_depth_groups+1);
 depth_group_edges(end) = Inf;
 depth_group = discretize(spikeDepths,depth_group_edges);
@@ -952,14 +952,12 @@ smooth_size = 50;
 gw = gausswin(smooth_size,3)';
 smWin = gw./sum(gw);
 psth_smooth = conv2(depth_psth, smWin, 'same');
-trace_spacing = 10*[n_depth_groups:-1:1];
-psth_smooth_plot = bsxfun(@plus,zscore(psth_smooth,[],2),trace_spacing');
-figure; hold on;
-set(gca,'ColorOrder',copper(n_depth_groups));
-plot(repmat(bins(20:end-20)',1,n_depth_groups),psth_smooth_plot(:,20:end-20)','linewidth',2);
+trace_spacing = 300;
+figure; AP_stackplot(psth_smooth(:,20:end-20)',bins(20:end-20),trace_spacing,[],copper(size(psth_smooth,1)))
 line([0,0],ylim,'linestyle','--','color','k');
 ylabel('Depth (\mum)');
-set(gca,'YTick',sort(trace_spacing));
+yvals = trace_spacing*[1:size(psth_smooth,1)];
+set(gca,'YTick',yvals);
 set(gca,'YTickLabel',sort(depth_group_centers,'descend'));
 xlabel('Time from stim onset (s)')
 title('Population raster by depth');
@@ -967,7 +965,7 @@ title('Population raster by depth');
 %% Stim-triggered LFP by depth
 
 % Group by depth
-n_depth_groups = 6;
+n_depth_groups = 8;
 depth_group_edges = linspace(0,max(templateDepths),n_depth_groups+1);
 depth_group_edges(end) = Inf;
 depth_group_centers = depth_group_edges(1:end-1) + diff(depth_group_edges)./2;
@@ -980,7 +978,7 @@ lfp_depth_mean = grpstats(lfp,channel_depth_grp);
 n_stim = length(unique(stimIDs));
 align_times = stim_onsets;
 
-lfp_window = [-0.5,3];
+lfp_window = [-1,5];
 t_space = 0.001;
 lfp_stim_mean = nan(n_stim,1+diff(lfp_window)/t_space,size(lfp_depth_mean,1));
 lfp_stim_sem = nan(n_stim,1+diff(lfp_window)/t_space,size(lfp_depth_mean,1));
@@ -1000,28 +998,26 @@ end
 plot_t = lfp_window(1):t_space:lfp_window(2);
 
 % Plot one stim across depths
-plot_stim = 6;
-trace_spacing = 1500;
+plot_stim = 1;
+trace_spacing = 5000;
 plot_lfp = squeeze(lfp_stim_mean(plot_stim,:,:));
-yvals = 1500*[1:size(plot_lfp,2)];
+yvals = trace_spacing*[1:size(plot_lfp,2)];
 figure;AP_stackplot(plot_lfp,plot_t,trace_spacing,[],copper(size(plot_lfp,2)))
 set(gca,'YTick',yvals);
-set(gca,'YTickLabel',depth_group_centers);
+set(gca,'YTickLabel',sort(depth_group_centers,'descend'));
 ylabel('Depth (\mum)');
-set(gca,'YDir','reverse');
 title('Stimulus-triggered LFP');
 xlabel('Time from stim onset (s)');
 
 % Plot one depth across stims
-plot_depth = 1;
-trace_spacing = 1500;
+plot_depth = 5;
+trace_spacing = 2000;
 plot_lfp = squeeze(lfp_stim_mean(:,:,plot_depth))';
 yvals = 1500*[1:size(plot_lfp,2)];
 figure;AP_stackplot(plot_lfp,plot_t,trace_spacing,[],copper(size(plot_lfp,2)))
 set(gca,'YTick',yvals);
-set(gca,'YTickLabel',1:n_stim);
+set(gca,'YTickLabel',n_stim:-1:1);
 ylabel('Stimulus)');
-set(gca,'YDir','reverse');
 title('Stimulus-triggered LFP');
 xlabel('Time from stim onset (s)');
 
@@ -1460,23 +1456,25 @@ end
 
 %% Raster aligned to stimuli
 
-%use_spikes_idx = ismember(spike_templates,find(templateDepths > 0 & templateDepths < 400)-1);
+use_spikes_idx = ismember(spike_templates,find(templateDepths > 600 & templateDepths < 800)-1);
 %use_spikes_idx = spike_times_timeline(ismember(spike_templates,find(templateDepths > 0 & templateDepths < 400)-1) & ...
 %    (ismember(spike_templates,use_templates(use_template_narrow))));
 
-use_spikes_idx = true(size(spike_times_timeline));
+% use_spikes_idx = true(size(spike_times_timeline));
+
+align_times = stim_onsets(ismember(stimIDs,[1]));
 
 use_spikes = spike_times_timeline(use_spikes_idx);
 use_spike_templates = spike_templates(use_spikes_idx);
 
 % PSTHs
-raster_window = [-3,3];
+raster_window = [-1,5];
 psthViewer(use_spikes,use_spike_templates, ...
     stim_onsets,raster_window,stimIDs);
 
 psth_bin_size = 0.001;
 [psth,bins,rasterX,rasterY,spikeCounts] = psthAndBA( ...
-    use_spikes,stim_onsets, ...
+    use_spikes,align_times, ...
     raster_window, psth_bin_size);
 
 smooth_size = 50;
@@ -1587,6 +1585,8 @@ for curr_template = unique(spike_templates)'
     [rf_map(:,:,curr_template+1),stats] = sparseNoiseRF(spike_times_timeline(spike_templates == curr_template), ...
         vertcat(stim_times_grid{:}),vertcat(stim_positions{:}),params);
 end
+
+disp('done')
 
 gauss_sigma = 1;
 %rf_map_smooth = imgaussfilt(rf_map,gauss_sigma);

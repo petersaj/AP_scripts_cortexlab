@@ -1,8 +1,8 @@
 %% Define experiment
 
 animal = 'AP009';
-day = '2016-11-05';
-experiment = '6';
+day = '2016-11-03';
+experiment = '1';
 rig = 'kilotrode'; % kilotrode or bigrig
 cam_color_n = 2;
 cam_color_signal = 'blue';
@@ -519,7 +519,6 @@ template_amplitudes = readNPY([data_path filesep 'amplitudes.npy']);
 if flipped_banks
     channel_map = [channel_map(61:end);channel_map(1:60)];
     channel_positions = [channel_positions(61:end,:);channel_positions(1:60,:)];
-    templates = cat(3,templates(:,:,61:end),templates(:,:,1:60));
 end
 
 % Default channel map/positions are from end: make from surface
@@ -622,7 +621,7 @@ disp('Done');
 
 %% Eliminate spikes that were classified as not "good"
 
-% Saftey check: if this variable exists, don't do it again
+% Safety check: if this variable exists, don't do it again
 if exist('cluster_groups','var') && ~exist('good_templates','var')
     disp('Removing non-good templates')
     good_templates = uint32(cluster_groups{1}(strcmp(cluster_groups{2},'good')));
@@ -634,7 +633,7 @@ if exist('cluster_groups','var') && ~exist('good_templates','var')
     spikeDepths = spikeDepths(good_spike_idx);
     spike_times_timeline = spike_times_timeline(good_spike_idx);
 else
-    disp('Good templates already identified')
+    disp('Good templates already identified, skipping')
 end
 
 

@@ -1,8 +1,8 @@
 %% Define experiment
 
-animal = 'AP004';
-day = '2016-07-28';
-experiment = '1';
+animal = 'AP011';
+day = '2016-11-07';
+experiment = '6';
 
 % ugggghhhhh mpep
 mpep_animal = ['M111111_' animal];
@@ -242,7 +242,7 @@ sta_v_pca = reshape(score,size(sta_v_all,1),size(sta_v_all,2),size(sta_v_all,3))
 
 %% STA for multiunit
 
-use_spikes = spike_times_timeline(ismember(spike_templates,find(templateDepths > 0 & templateDepths < 800)-1));
+use_spikes = spike_times_timeline(ismember(spike_templates,find(templateDepths > 900 & templateDepths < Inf)-1));
 %use_spikes = spike_times_timeline(ismember(spike_templates,205));
 
 %use_spikes = spike_times_timeline(ismember(spike_templates,find(templateDepths > 0 & templateDepths < 400)-1) & ...
@@ -1081,7 +1081,7 @@ roi_trace = nanmean(U_roi*fV);
 framerate = 1./nanmedian(diff(frame_t));
 frame_edges = [frame_t,frame_t(end)+1/framerate];
 
-use_spikes = spike_times_timeline(ismember(spike_templates,find(templateDepths > 0 & templateDepths < 800)-1));
+use_spikes = spike_times_timeline(ismember(spike_templates,find(templateDepths > 0 & templateDepths < 600)-1));
 
 [frame_spikes,~,spike_frames] = histcounts(use_spikes,frame_edges);
 
@@ -1460,7 +1460,7 @@ figure;imagesc(cluster_max_xcorr);colormap(gray);
 %% Correlation between spikes (or any trace) and pixel fluorescence
 
 % Use the corrected impulse response for convolving kernel
-use_spikes = spike_times_timeline(ismember(spike_templates,find(templateDepths > 0 & templateDepths < 500)-1));
+use_spikes = spike_times_timeline(ismember(spike_templates,find(templateDepths > 600 & templateDepths < Inf)-1));
 %use_spikes = spike_times_timeline(ismember(spike_templates,427));
 %use_spikes = spike_times_timeline(ismember(spike_templates,find(templateDepths > 0 & templateDepths < Inf)-1) & ...
 %    ismember(spike_templates,use_templates(use_template_narrow))-1);
@@ -1538,7 +1538,7 @@ figure;imagesc(svd_corr);colormap(gray)
 
 unique_depths = sort(unique(templateDepths));
 
-n_depth_groups = 5;
+n_depth_groups = 8;
 depth_group_edges = linspace(min(templateDepths),max(templateDepths),n_depth_groups+1);
 depth_group = discretize(templateDepths,depth_group_edges);
 depth_group_centers = grpstats(templateDepths,depth_group);
@@ -1567,7 +1567,7 @@ ylabel('Correlation of conv spikes with fluorescence');
 
 %% Spatiotemporal correlation-fixed spatial kernel for spikes
 
-use_spikes = spike_times_timeline(ismember(spike_templates,find(templateDepths > 0 & templateDepths < 800)-1));
+use_spikes = spike_times_timeline(ismember(spike_templates,find(templateDepths > 0 & templateDepths < 600)-1));
 %use_spikes = spike_times_timeline(ismember(spike_templates,find(templateDepths > 0 & templateDepths < 400)-1) & ...
 %    ismember(spike_templates,use_templates(use_template_narrow))-1);
 
@@ -1655,7 +1655,7 @@ AP_image_scroll(k2_all);
 
 %% Reduced rank regression (Kenneth) by depth
 
-n_depths = 6;
+n_depths = 8;
 use_depths = linspace(0,1300,n_depths+1);
 
 canonU = zeros(size(U,1),size(U,2),n_depths);

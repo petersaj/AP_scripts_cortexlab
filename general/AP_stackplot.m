@@ -16,7 +16,8 @@ if ~exist('zs','var') || isempty(zs)
    zs = false; 
 end
 
-spacing_add = spacing*[1:size(x,2)];
+% Stack from top to bottom
+spacing_add = spacing*[size(x,2):-1:1];
 if ~zs
     x_spaced = bsxfun(@plus,x,spacing_add);
 elseif zs
