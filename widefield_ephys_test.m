@@ -544,6 +544,8 @@ end
 % sta_im_norm = bsxfun(@rdivide,bsxfun(@minus,sta_im,mean(sta_im,3)),std(sta_im,[],3) + ...
 %     prctile(reshape(std(sta_im,[],3),[],1),50));
 
+sta_im_norm = bsxfun(@rdivide,bsxfun(@minus,sta_im,px_mean),px_std);
+
 % Draw the movie
 AP_image_scroll(sta_im,sta_t);
 
@@ -1062,6 +1064,10 @@ legend(cellfun(@(x) ['Part ' num2str(x)],num2cell(1:n_split),'uni',false));
 
 %% Get kernel between spikes and fluorescence
 
+% Skip the first n seconds to do this
+skip_seconds = 30;
+use_frames = frame_t > skip_seconds;
+
 % Choose ROI
 h = figure;
 imagesc(avg_im);
@@ -1075,15 +1081,17 @@ close(h);
 
 % Get fluorescence across session in ROI
 U_roi = reshape(U(repmat(roiMask,1,1,size(U,3))),[],size(U,3));
-roi_trace = nanmean(U_roi*fV);
+roi_trace_full = nanmean(U_roi*fV);
+roi_trace = roi_trace_full(use_frames);
 
 % Get population spikes per frame
 framerate = 1./nanmedian(diff(frame_t));
 frame_edges = [frame_t,frame_t(end)+1/framerate];
 
-use_spikes = spike_times_timeline(ismember(spike_templates,find(templateDepths > 0 & templateDepths < 600)-1));
+use_spikes = spike_times_timeline(ismember(spike_templates,find(templateDepths > 0 & templateDepths < Inf)-1));
 
-[frame_spikes,~,spike_frames] = histcounts(use_spikes,frame_edges);
+[frame_spikes_full,~,spike_frames] = histcounts(use_spikes,frame_edges);
+frame_spikes = frame_spikes_full(use_frames);
 
 corr_lags = 100;
 [~,lags] = xcorr(ones(size(frame_spikes)),corr_lags);
@@ -1101,8 +1109,6 @@ plot(lags_t,xcov(roi_trace,frame_spikes,corr_lags),'k','linewidth',2)
 line([0,0],ylim,'linestyle','--','color','k');
 xlabel('Lag (s)');
 ylabel('Cross-correlation')
-
-% none of this seems to work yet: the "corrected" are exactly the same??
 
 % Non-normalized
 x_nonorm = ifft((fft(roi_trace).*conj(fft(frame_spikes)))); % unnormalized
@@ -1135,11 +1141,11 @@ linkaxes([p1,p2],'x')
 
 % Use the corrected impulse response for convolving kernel
 gcamp_kernel = x_autonorm(1:plot_frames);
-frame_spikes_conv_full = conv(frame_spikes,gcamp_kernel);
-frame_spikes_conv = frame_spikes_conv_full(1:length(frame_spikes));
+frame_spikes_conv_full = conv(frame_spikes_full,gcamp_kernel);
+frame_spikes_conv = frame_spikes_conv_full(1:length(frame_spikes_full));
 
 figure;hold on;
-plot(frame_t,zscore(roi_trace),'k','linewidth',1);
+plot(frame_t,zscore(roi_trace_full),'k','linewidth',1);
 plot(frame_t,zscore(frame_spikes_conv),'b','linewidth',1);
 xlabel('Time (s)');
 legend({'Fluorescence','Spikes conv'});
@@ -1183,8 +1189,10 @@ gcamp_kernel = fitted_curve;
 
 %% Get STA-equivalent via xcorr
 
+skip_frames = 35*10;
+
 %use_spikes = spike_times_timeline;
-use_spikes = spike_times_timeline(ismember(spike_templates,find(templateDepths > 0 & templateDepths < 600)-1));
+use_spikes = spike_times_timeline(ismember(spike_templates,find(templateDepths > 0 & templateDepths < 500)-1));
 %use_spikes = spike_times_timeline(ismember(spike_templates,find(templateDepths > 0 & templateDepths < 400)-1) & ...
 %    (ismember(spike_templates,use_templates(use_template_narrow))));
 
@@ -1193,13 +1201,12 @@ framerate = 1./nanmedian(diff(frame_t));
 frame_edges = [frame_t(1),mean([frame_t(2:end);frame_t(1:end-1)],1),frame_t(end)+1/framerate];
 [frame_spikes,~,spike_frames] = histcounts(use_spikes,frame_edges);
 
-frame_spikes_meansub = frame_spikes - mean(frame_spikes);
-
-corr_lags = 35*5;
+corr_lags = 35*1;
 v_xcorr = nan(size(fV,1),corr_lags*2+1);
 
 for curr_u = 1:size(U,3)  
-    v_xcorr(curr_u,:) = xcorr(fV(curr_u,:)-mean(fV(curr_u,:)),frame_spikes_meansub,corr_lags,'biased');
+    v_xcorr(curr_u,:) = xcov(fV(curr_u,skip_frames:end)-mean(fV(curr_u,skip_frames:end)), ...
+        frame_spikes(skip_frames:end) - mean(frame_spikes(skip_frames:end)),corr_lags,'biased');
 end
 
 lags_t = (-corr_lags:corr_lags)/framerate;
@@ -1207,10 +1214,33 @@ lags_t = (-corr_lags:corr_lags)/framerate;
 svd_xcorr = svdFrameReconstruct(U,v_xcorr);
 
 % Normalize the image
-svd_xcorr_norm = bsxfun(@rdivide,svd_xcorr,px_std*std(frame_spikes));
+svd_xcorr_norm = bsxfun(@rdivide,svd_xcorr,px_std*std(frame_spikes(skip_frames:end)));
 
 % Draw the movie
 AP_image_scroll(svd_xcorr_norm,lags_t);
+
+
+
+%% Get zero-lag correlation in SVD space
+
+skip_frames = 35*10;
+
+%use_spikes = spike_times_timeline;
+use_spikes = spike_times_timeline(ismember(spike_templates,find(templateDepths > 0 & templateDepths < 500)-1));
+%use_spikes = spike_times_timeline(ismember(spike_templates,find(templateDepths > 0 & templateDepths < 400)-1) & ...
+%    (ismember(spike_templates,use_templates(use_template_narrow))));
+
+framerate = 1./nanmedian(diff(frame_t));
+
+frame_edges = [frame_t(1),mean([frame_t(2:end);frame_t(1:end-1)],1),frame_t(end)+1/framerate];
+[frame_spikes,~,spike_frames] = histcounts(use_spikes,frame_edges);
+
+v_cov = mean(bsxfun(@times,bsxfun(@minus,fV(:,skip_frames:end),mean(fV(:,skip_frames:end),2)), ...
+    (frame_spikes(skip_frames:end)-mean(frame_spikes(skip_frames:end)))),2);
+
+svd_corr = bsxfun(@rdivide,svdFrameReconstruct(U,v_cov),px_std.*std(frame_spikes(skip_frames:end)));
+
+figure;imagesc(svd_corr);colormap(gray);
 
 
 
@@ -1460,7 +1490,7 @@ figure;imagesc(cluster_max_xcorr);colormap(gray);
 %% Correlation between spikes (or any trace) and pixel fluorescence
 
 % Use the corrected impulse response for convolving kernel
-use_spikes = spike_times_timeline(ismember(spike_templates,find(templateDepths > 600 & templateDepths < Inf)-1));
+use_spikes = spike_times_timeline(ismember(spike_templates,find(templateDepths > 0 & templateDepths < 500)-1));
 %use_spikes = spike_times_timeline(ismember(spike_templates,427));
 %use_spikes = spike_times_timeline(ismember(spike_templates,find(templateDepths > 0 & templateDepths < Inf)-1) & ...
 %    ismember(spike_templates,use_templates(use_template_narrow))-1);
@@ -1476,8 +1506,8 @@ end
 % Set the trace to use
 %use_trace = interp1(facecam_t(~isnan(facecam_t)),facecam.proc.data.groom.motion(~isnan(facecam_t)),frame_t);
 %use_trace = frame_spikes_conv;
-%use_trace = frame_spikes;
-use_trace = smooth(frame_spikes,35);
+use_trace = frame_spikes;
+%use_trace = smooth(frame_spikes,35);
 %use_trace = wheel_speed;
 %use_trace = interp1(t,beta_power,frame_t);
 
@@ -1535,6 +1565,7 @@ figure;imagesc(svd_corr);colormap(gray)
 
 
 %% Get spike trace by depth, get contribution to fluorescence
+% dirty: needs roi_trace, and set the thing to correlate below
 
 unique_depths = sort(unique(templateDepths));
 
@@ -1557,7 +1588,11 @@ end
 depth_mua_conv_full = conv2(depth_mua,gcamp_kernel);
 depth_mua_conv = depth_mua_conv_full(:,1:length(frame_t));
 
-fluor_mua_corr = 1-pdist2(roi_trace,depth_mua_conv,'correlation');
+% Or, just smooth traces
+smooth_kernel = ones(1,35)/35;
+depth_mua_smooth = conv2(depth_mua,smooth_kernel,'same');
+
+fluor_mua_corr = 1-pdist2(roi_trace,depth_mua,'correlation');
 
 figure;
 plot(depth_group_centers,fluor_mua_corr,'k','linewidth',2)
@@ -1567,7 +1602,7 @@ ylabel('Correlation of conv spikes with fluorescence');
 
 %% Spatiotemporal correlation-fixed spatial kernel for spikes
 
-use_spikes = spike_times_timeline(ismember(spike_templates,find(templateDepths > 0 & templateDepths < 600)-1));
+use_spikes = spike_times_timeline(ismember(spike_templates,find(templateDepths > 0 & templateDepths < Inf)-1));
 %use_spikes = spike_times_timeline(ismember(spike_templates,find(templateDepths > 0 & templateDepths < 400)-1) & ...
 %    ismember(spike_templates,use_templates(use_template_narrow))-1);
 

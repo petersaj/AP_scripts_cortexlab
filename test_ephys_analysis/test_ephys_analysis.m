@@ -85,10 +85,10 @@ clear lfp_all;
 disp('Copying data to local SSD...');
 save_path =  ...
     ['\\basket.cortexlab.net\data\ajpeters\' animal filesep day '\ephys'];
-data_filename = [save_path filesep 'spikes_cut.dat'];
+data_filename = [save_path filesep 'spikes.dat'];
 [data_path,data_file,data_ext] = fileparts(data_filename);
 local_path = 'C:\Users\Andrew\Documents\CarandiniHarrisLab\data\kilosort_temp';
-local_file = [data_file data_ext];
+local_file = [data_file '_cut' data_ext];
 local_data_filename = [local_path filesep local_file];
 if ~exist(local_data_filename)
     copyfile(data_filename,local_data_filename);
@@ -111,6 +111,7 @@ clear spikes;
 
 % Run Kilosort
 title('Running kilosort...')
+data_filename = [save_path filesep 'spikes_cut.dat'];
 ephys_sample_rate = str2num(header.sample_rate);
 input_board = 'oe';
 AP_run_kilosort(data_filename,input_board,ephys_sample_rate,combined_bank);
@@ -922,7 +923,7 @@ end
 align_times = stim_onsets(ismember(stimIDs,[1]));
 
 % Group by depth
-n_depth_groups = 8;
+n_depth_groups = 1;
 depth_group_edges = linspace(0,max(templateDepths),n_depth_groups+1);
 depth_group_edges(end) = Inf;
 depth_group = discretize(spikeDepths,depth_group_edges);
@@ -965,7 +966,7 @@ title('Population raster by depth');
 %% Stim-triggered LFP by depth
 
 % Group by depth
-n_depth_groups = 8;
+n_depth_groups = 1;
 depth_group_edges = linspace(0,max(templateDepths),n_depth_groups+1);
 depth_group_edges(end) = Inf;
 depth_group_centers = depth_group_edges(1:end-1) + diff(depth_group_edges)./2;
@@ -1010,7 +1011,7 @@ title('Stimulus-triggered LFP');
 xlabel('Time from stim onset (s)');
 
 % Plot one depth across stims
-plot_depth = 5;
+plot_depth = 1;
 trace_spacing = 2000;
 plot_lfp = squeeze(lfp_stim_mean(:,:,plot_depth))';
 yvals = 1500*[1:size(plot_lfp,2)];
@@ -1456,7 +1457,7 @@ end
 
 %% Raster aligned to stimuli
 
-use_spikes_idx = ismember(spike_templates,find(templateDepths > 600 & templateDepths < 800)-1);
+use_spikes_idx = ismember(spike_templates,find(templateDepths > 0 & templateDepths < Inf)-1);
 %use_spikes_idx = spike_times_timeline(ismember(spike_templates,find(templateDepths > 0 & templateDepths < 400)-1) & ...
 %    (ismember(spike_templates,use_templates(use_template_narrow))));
 
