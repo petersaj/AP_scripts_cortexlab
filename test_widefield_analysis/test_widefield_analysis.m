@@ -998,7 +998,7 @@ for curr_frame_idx = surround_frames+1:length(use_frame_idx)-surround_frames
 end
 
 
-%% Get STD of pixels (for use in correcting xcov)
+%% Get STD of pixels (for use in getting normalized xcorr)
 
 px_std_sq = zeros(size(U,1),size(U,2));
 
@@ -1021,4 +1021,20 @@ px_std = sqrt(px_std_sq);
 
 % don't know if this is legit
 px_10prct = svdFrameReconstruct(U,prctile(fV(:,skip_start_frames:end),10,2));
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 

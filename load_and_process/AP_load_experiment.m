@@ -1,8 +1,8 @@
 %% Define experiment
 
-animal = 'AP006';
-day = '2016-10-01';
-experiment = '5';
+animal = 'AP011';
+day = '2016-11-04';
+experiment = '4';
 rig = 'kilotrode'; % kilotrode or bigrig
 cam_color_n = 2;
 cam_color_signal = 'blue';
@@ -366,7 +366,7 @@ elseif cam_color_n == 2
     fVh_Un = ChangeU(Uh,fVh,Un);
     
     hemo_freq = [0.2,3];
-    %hemo_freq = [9,13];
+    %hemo_freq = [7,13];
     disp('Correcting hemodynamics...')
     fVn_hemo = HemoCorrectLocal(Un,fVn_th,fVh_Un,framerate,hemo_freq,3);
     
@@ -623,7 +623,7 @@ disp('Done');
 
 % Safety check: if this variable exists, don't do it again
 if exist('cluster_groups','var') && ~exist('good_templates','var')
-    disp('Removing non-good templates')
+    disp('Removed non-good templates')
     good_templates = uint32(cluster_groups{1}(strcmp(cluster_groups{2},'good')));
     good_spike_idx = ismember(spike_templates,good_templates);
     

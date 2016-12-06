@@ -26,7 +26,7 @@ for i = 1:size(im,3)
     if ~isempty(color_axis)
         caxis(color_axis)
     end
-   colormap(gray)
+   colormap(colormap_blueblackred)
    axis off
    
    if exist('annotation_text','var') && ~isempty(annotation_text)

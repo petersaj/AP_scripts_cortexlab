@@ -920,10 +920,10 @@ end
 
 %% Raster plot by depth
 
-align_times = stim_onsets(ismember(stimIDs,[1]));
+align_times = stim_onsets(ismember(stimIDs,[2]));
 
 % Group by depth
-n_depth_groups = 1;
+n_depth_groups = 6;
 depth_group_edges = linspace(0,max(templateDepths),n_depth_groups+1);
 depth_group_edges(end) = Inf;
 depth_group = discretize(spikeDepths,depth_group_edges);
@@ -953,7 +953,7 @@ smooth_size = 50;
 gw = gausswin(smooth_size,3)';
 smWin = gw./sum(gw);
 psth_smooth = conv2(depth_psth, smWin, 'same');
-trace_spacing = 300;
+trace_spacing = 100;
 figure; AP_stackplot(psth_smooth(:,20:end-20)',bins(20:end-20),trace_spacing,[],copper(size(psth_smooth,1)))
 line([0,0],ylim,'linestyle','--','color','k');
 ylabel('Depth (\mum)');
@@ -1457,7 +1457,7 @@ end
 
 %% Raster aligned to stimuli
 
-use_spikes_idx = ismember(spike_templates,find(templateDepths > 0 & templateDepths < Inf)-1);
+use_spikes_idx = ismember(spike_templates,find(templateDepths > 0 & templateDepths < 450)-1);
 %use_spikes_idx = spike_times_timeline(ismember(spike_templates,find(templateDepths > 0 & templateDepths < 400)-1) & ...
 %    (ismember(spike_templates,use_templates(use_template_narrow))));
 
@@ -1501,7 +1501,8 @@ for curr_stim = unique(stimIDs)';
 end
 stim_psth_smooth = conv2(stim_psth,smWin,'same');
 figure; hold on;
-AP_stackplot(stim_psth_smooth(:,20:end-20)',bins(20:end-20),10,true)
+trace_spacing = 50;
+AP_stackplot(stim_psth_smooth(:,20:end-20)',bins(20:end-20),trace_spacing,false)
 xlabel('Time from stim onset')
 ylabel('Population spikes (by stim)');
 line([0,0],ylim,'linestyle','--','color','k');
