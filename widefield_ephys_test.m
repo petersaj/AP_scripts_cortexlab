@@ -1158,7 +1158,7 @@ use_frames = frame_t > skip_seconds;
 use_t = frame_t(use_frames);
 
 %use_spikes = spike_times_timeline;
-use_spikes = spike_times_timeline(ismember(spike_templates,find(templateDepths > 0 & templateDepths < 800)-1));
+use_spikes = spike_times_timeline(ismember(spike_templates,find(templateDepths > 0 & templateDepths < Inf)-1));
 %use_spikes = spike_times_timeline(ismember(spike_templates,find(templateDepths > 0 & templateDepths < 400)-1) & ...
 %    (ismember(spike_templates,use_templates(use_template_narrow))));
 
@@ -1181,6 +1181,7 @@ tfun = svdFrameReconstruct(U,v_autonorm_shift);
 tfun_norm = bsxfun(@rdivide,bsxfun(@minus,tfun,px_mean),px_std);
 
 AP_image_scroll(tfun_norm);
+
 
 
 %% Make kernel that looks like GCaMP6f
@@ -1225,7 +1226,7 @@ gcamp_kernel = fitted_curve;
 skip_frames = 35*10;
 
 %use_spikes = spike_times_timeline;
-use_spikes = spike_times_timeline(ismember(spike_templates,find(templateDepths > 800 & templateDepths < Inf)-1));
+use_spikes = spike_times_timeline(ismember(spike_templates,find(templateDepths > 0 & templateDepths < Inf)-1));
 %use_spikes = spike_times_timeline(ismember(spike_templates,find(templateDepths > 0 & templateDepths < 400)-1) & ...
 %    (ismember(spike_templates,use_templates(use_template_narrow))));
 
@@ -1234,7 +1235,7 @@ framerate = 1./nanmedian(diff(frame_t));
 frame_edges = [frame_t(1),mean([frame_t(2:end);frame_t(1:end-1)],1),frame_t(end)+1/framerate];
 [frame_spikes,~,spike_frames] = histcounts(use_spikes,frame_edges);
 
-corr_lags = round(35*0.5);
+corr_lags = round(35*1);
 v_xcorr = nan(size(fV,1),corr_lags*2+1);
 
 for curr_u = 1:size(U,3)  
@@ -1706,7 +1707,7 @@ ylabel('Correlation of conv spikes with fluorescence');
 
 %% Spatiotemporal correlation-fixed spatial kernel for spikes
 
-use_spikes = spike_times_timeline(ismember(spike_templates,find(templateDepths > 800 & templateDepths < Inf)-1));
+use_spikes = spike_times_timeline(ismember(spike_templates,find(templateDepths > 0 & templateDepths < Inf)-1));
 %use_spikes = spike_times_timeline(ismember(spike_templates,find(templateDepths > 0 & templateDepths < 400)-1) & ...
 %    ismember(spike_templates,use_templates(use_template_narrow))-1);
 
@@ -1732,7 +1733,8 @@ for curr_frame_idx = 1:surround_frames*2+1
 end
 
 use_svs = 1:2000;
-k = use_spikes_shift*fV(use_svs,:)'*(diag(1./dataSummary_n.dataSummary.Sv(use_svs)))*Ud_flat(:,use_svs)';
+lambda = mean(1./dataSummary_n.dataSummary.Sv(use_svs))/2;
+k = use_spikes_shift*fV(use_svs,:)'*(diag(lambda+1./dataSummary_n.dataSummary.Sv(use_svs)))*Ud_flat(:,use_svs)';
 k2 = reshape(k',size(Ud,1),size(Ud,2),surround_frames*2+1);
 AP_image_scroll(k2,surround_t);
 
@@ -1911,9 +1913,254 @@ figure;imagesc(r);colormap(gray);
 
 
 
+%% Spatiotemporal autocorr correct fluorescence-to-spike kernel
+
+% Skip the first n seconds to do this
+skip_seconds = 10;
+use_frames = frame_t > skip_seconds;
+use_t = frame_t(use_frames);
+
+%use_spikes = spike_times_timeline;
+use_spikes = spike_times_timeline(ismember(spike_templates,find(templateDepths > 0 & templateDepths < Inf)-1));
+%use_spikes = spike_times_timeline(ismember(spike_templates,find(templateDepths > 0 & templateDepths < 400)-1) & ...
+%    (ismember(spike_templates,use_templates(use_template_narrow))));
+
+framerate = 1./nanmedian(diff(frame_t));
+
+frame_edges = [frame_t(1),mean([frame_t(2:end);frame_t(1:end-1)],1),frame_t(end)+1/framerate];
+[frame_spikes,~,spike_frames] = histcounts(use_spikes,frame_edges);
+frame_spikes = frame_spikes(use_frames);
+
+spikes_fluor_corr = bsxfun(@times,fft(frame_spikes),conj(fft(fV(:,use_frames),[],2)));
+fluor_autocorr = fft(fV(:,use_frames),[],2).*conj(fft(fV(:,use_frames),[],2));
+fluor_autocorr_buffer = bsxfun(@plus,fluor_autocorr,std(fluor_autocorr(:)));
+
+v_autonorm = ifft(bsxfun(@rdivide,spikes_fluor_corr,fluor_autocorr_buffer),[],2);
+
+plot_frames = 35*2;
+t_shift = [use_t(end-plot_frames+1:end)-use_t(end)-1/framerate,use_t(1:plot_frames)-use_t(1)];
+v_autonorm_shift = [v_autonorm(:,end-plot_frames+1:end),v_autonorm(:,1:plot_frames)];
+
+tfun = svdFrameReconstruct(U,v_autonorm_shift);
+%tfun_norm = bsxfun(@rdivide,bsxfun(@minus,tfun,px_mean),px_std);
+
+AP_image_scroll(tfun_norm);
 
 
 
+% TEMP - DO THIS FOR ROI
+
+
+
+
+% Skip the first n seconds to do this
+skip_seconds = 10;
+use_frames = frame_t > skip_seconds;
+use_t = frame_t(use_frames);
+
+%use_spikes = spike_times_timeline;
+use_spikes = spike_times_timeline(ismember(spike_templates,find(templateDepths > 0 & templateDepths < Inf)-1));
+%use_spikes = spike_times_timeline(ismember(spike_templates,find(templateDepths > 0 & templateDepths < 400)-1) & ...
+%    (ismember(spike_templates,use_templates(use_template_narrow))));
+
+framerate = 1./nanmedian(diff(frame_t));
+
+frame_edges = [frame_t(1),mean([frame_t(2:end);frame_t(1:end-1)],1),frame_t(end)+1/framerate];
+[frame_spikes,~,spike_frames] = histcounts(use_spikes,frame_edges);
+frame_spikes = frame_spikes(use_frames);
+
+spikes_fluor_corr = bsxfun(@times,fft(frame_spikes),conj(fft(roi_trace(use_frames),[],2)));
+fluor_autocorr = fft(roi_trace(use_frames),[],2).*conj(fft(roi_trace(use_frames),[],2));
+
+v_autonorm = ifft(bsxfun(@rdivide,spikes_fluor_corr,fluor_autocorr+std(fluor_autocorr)),[],2);
+
+plot_frames = 35*2;
+t_shift = [use_t(end-plot_frames+1:end)-use_t(end)-1/framerate,use_t(1:plot_frames)-use_t(1)];
+v_autonorm_shift = [v_autonorm(:,end-plot_frames+1:end),v_autonorm(:,1:plot_frames)];
+
+
+
+%% Make fake spike train based on given fluor kernel
+% trying to get similarity between spatiotemporal kernel 
+% and image in V space - this doesn't even kind of work
+
+% Choose ROI
+h = figure;
+imagesc(avg_im);
+set(gca,'YDir','reverse');
+colormap(gray);
+caxis([0 prctile(avg_im(:),90)]);
+roiMask = roipoly;
+close(h);
+
+% One way: super downsample the images, do it in pixel space
+U_downsample_factor = 20;
+Ud = imresize(U,1/U_downsample_factor);
+roiMaskd = imresize(roiMask,1/U_downsample_factor);
+
+% Convert ROI to V space
+spatial_kernel_v = reshape(Ud,[],size(U,3))\roiMaskd(:);
+spatiotemporal_kernel_v = [zeros(length(spatial_kernel_v),10), ...
+    spatial_kernel_v,zeros(length(spatial_kernel_v),5)];
+kernel_frames = size(spatiotemporal_kernel_v,2);
+
+
+
+
+
+
+
+
+
+fV_kernel_conv = conv2(fV-conv2(fV,ones(1,kernel_frames)/kernel_frames,'same'), ...
+    bsxfun(@minus,spatiotemporal_kernel_v,mean(spatiotemporal_kernel_v,2)),'same');
+
+fV_windowstd = sqrt(conv2(bsxfun(@minus,fV,mean(fV,2)).^2, ...
+    ones(1,size(spatiotemporal_kernel_v,2)),'same')./size(spatiotemporal_kernel_v,2));
+spatiotemporal_kernel_v_windowstd  = sqrt(sum(bsxfun(@minus,spatiotemporal_kernel_v, ...
+    mean(spatiotemporal_kernel_v,2)).^2,2)./size(spatiotemporal_kernel_v,2));
+
+fV_kernel_norm = fV_kernel_conv./bsxfun(@times,fV_windowstd,spatiotemporal_kernel_v_windowstd);
+
+fake_spikes = zscore(sum(fV_kernel_normpx,1));
+fake_spikes(fake_spikes < 0) = 0;
+
+
+
+
+
+
+
+
+
+% Skip the first n seconds to do this
+skip_seconds = 10;
+use_frames = frame_t > skip_seconds;
+use_t = frame_t(use_frames);
+
+use_spikes = fake_spikes;
+
+frame_spikes = fake_spikes(use_frames);
+
+fluor_spikes_corr = bsxfun(@times,fft(fV(:,use_frames),[],2),conj(fft(frame_spikes)));
+spikes_autocorr = fft(frame_spikes).*conj(fft(frame_spikes));
+
+v_autonorm = ifft(bsxfun(@rdivide,fluor_spikes_corr,spikes_autocorr),[],2);
+
+plot_frames = 35*2;
+t_shift = [use_t(end-plot_frames+1:end)-use_t(end)-1/framerate,use_t(1:plot_frames)-use_t(1)];
+v_autonorm_shift = [v_autonorm(:,end-plot_frames+1:end),v_autonorm(:,1:plot_frames)];
+
+tfun = svdFrameReconstruct(U,v_autonorm_shift);
+tfun_norm = bsxfun(@rdivide,bsxfun(@minus,tfun,px_mean),px_std);
+
+AP_image_scroll(tfun_norm);
+
+
+%% Matrix division method of fluorescence -> spike kernel (SVD space)
+% NOTE: the lambda scaling matrix is ridge regression
+% lambda is a scalar to tell what level of V values shouldn't contribute
+% (i.e. anything lower than sqrt(lambda))
+% this corresponds, but not exactly, to truncating the Vs
+
+% Skip the first n seconds to do this
+skip_seconds = 10;
+use_frames = frame_t > skip_seconds;
+
+use_spikes = spike_times_timeline(ismember(spike_templates,find(templateDepths > 0 & templateDepths < 500)-1));
+
+framerate = 1./nanmedian(diff(frame_t));
+
+frame_edges = [frame_t(1),mean([frame_t(2:end);frame_t(1:end-1)],1),frame_t(end)+1/framerate];
+[frame_spikes,~,spike_frames] = histcounts(use_spikes,frame_edges);
+
+
+use_svs = 1:500;
+kernel_frames = -10:3;
+
+n_svs = length(use_svs);
+n_kernel_frames = length(kernel_frames);
+
+fluor_design = repmat(fV(use_svs,use_frames)',[1,1,n_kernel_frames]);
+
+% Temporally shift each page
+for curr_kernel_frame = 1:n_kernel_frames;
+    fluor_design(:,:,curr_kernel_frame) = ...
+        circshift(fluor_design(:,:,curr_kernel_frame),[kernel_frames(curr_kernel_frame),0,0]);
+end
+
+fluor_design = reshape(fluor_design,[],size(fluor_design,2)*size(fluor_design,3));
+
+% Ridge regression for reducing noise: add offsets to design matrix to penalize k
+lambda = std(fV(500,:))^2;
+ridge_matrix = lambda*eye(size(fluor_design,2));
+
+fluor_gpu = gpuArray([bsxfun(@minus,fluor_design,mean(fluor_design,1));ridge_matrix]);
+spikes_gpu = gpuArray([frame_spikes(use_frames)' - mean(frame_spikes(use_frames));zeros(size(fluor_design,2),1)]);
+
+% Use the pseudoinverse (pinv doesn't work on gpu) - looks the same though
+k = gather(inv(fluor_gpu'*fluor_gpu)*fluor_gpu'*spikes_gpu);
+
+% Reshape kernel and convert to pixel space
+r = reshape(k,n_svs,n_kernel_frames);
+
+r_px = svdFrameReconstruct(U(:,:,use_svs),r);
+
+AP_image_scroll(r_px,kernel_frames/framerate);
+
+clear fluor_design
+
+%% Matrix division method of fluorescence -> spike kernel (pixel space)
+
+% Super downsample the images, do it in pixel space
+U_downsample_factor = 15;
+Ud = imresize(U,1/U_downsample_factor,'bilinear');
+
+% Reconstruct all data
+px = reshape(svdFrameReconstruct(Ud,fV),[],size(fV,2));
+
+% Skip the first n seconds to do this
+skip_seconds = 10;
+use_frames = frame_t > skip_seconds;
+use_t = frame_t(use_frames);
+
+use_spikes = spike_times_timeline(ismember(spike_templates,find(templateDepths > 0 & templateDepths < Inf)-1));
+
+framerate = 1./nanmedian(diff(frame_t));
+
+frame_edges = [frame_t(1),mean([frame_t(2:end);frame_t(1:end-1)],1),frame_t(end)+1/framerate];
+[frame_spikes,~,spike_frames] = histcounts(use_spikes,frame_edges);
+
+
+kernel_frames = -5:3;
+n_kernel_frames = length(kernel_frames);
+
+fluor_design = repmat(px(:,use_frames)',[1,1,n_kernel_frames]);
+
+% Temporally shift each page
+for curr_kernel_frame = 1:n_kernel_frames;
+    fluor_design(:,:,curr_kernel_frame) = ...
+        circshift(fluor_design(:,:,curr_kernel_frame),[kernel_frames(curr_kernel_frame),0,0]);
+end
+
+fluor_design = reshape(fluor_design,[],size(fluor_design,2)*size(fluor_design,3));
+
+% Ridge regression for reducing noise: add offsets to design matrix to penalize k
+lambda = 10;
+penalize_matrix = lambda*eye(size(fluor_design,2));
+
+fluor_gpu = gpuArray([fluor_design;penalize_matrix]);
+spikes_gpu = gpuArray([frame_spikes(use_frames)';zeros(size(fluor_design,2),1)]);
+
+% Use the pseudoinverse (pinv doesn't work on gpu) - looks the same though
+k = gather(inv(fluor_gpu'*fluor_gpu)*fluor_gpu'*spikes_gpu);
+
+% Reshape kernel
+r = reshape(k,size(Ud,1),size(Ud,2),n_kernel_frames);
+
+AP_image_scroll(r);
+
+clear fluor_design
 
 
 
