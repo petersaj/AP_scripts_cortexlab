@@ -1,8 +1,8 @@
 %% Define experiment
 
-animal = 'AP011';
-day = '2016-11-07';
-experiment = '6';
+animal = 'AP003';
+day = '2016-06-02';
+experiment = '3';
 
 % ugggghhhhh mpep
 mpep_animal = ['M111111_' animal];
@@ -22,7 +22,7 @@ cam2_samples = find(Timeline.rawDAQData(1:end-1,timeline_cam2_idx) <= 2 & ...
 cam2_time = cam2_samples./timeline_sample_rate;
 
 % Load in protocol
-protocol_filename = get_cortexlab_filename(mpep_animal,day,experiment,'protocol');
+protocol_filename = get_cortexlab_filename(mpep_animal,day,experiment,'protocol','8digit');
 load(protocol_filename);
 
 % Get stimulus onsets and parameters
@@ -71,6 +71,8 @@ avg_im = readNPY([data_path filesep 'meanImage_cam2.npy']);
 
 %% Load ephys data
 
+flipped_banks = true;
+
 data_path = ['\\basket.cortexlab.net\data\ajpeters\' animal filesep day filesep 'ephys' filesep num2str(experiment)];
 
 % Load sync/photodiode
@@ -117,9 +119,49 @@ else
     end
 end
 
+% Load clusters, if they exist
+cluster_filename = [data_path filesep 'cluster_groups.csv'];
+if exist(cluster_filename,'file')
+    fid = fopen(cluster_filename);
+    cluster_groups = textscan(fid,'%d%s','HeaderLines',1);
+    fclose(fid);
+end
+
+% Flip channel map and positions if banks are reversed
+if flipped_banks
+    channel_map = [channel_map(61:end);channel_map(1:60)];
+    channel_positions = [channel_positions(61:end,:);channel_positions(1:60,:)];
+end
+
+% Default channel map/positions are from end: make from surface
+channel_positions(:,2) = max(channel_positions(:,2)) - channel_positions(:,2);
+
+template_abs = permute(max(abs(templates),[],2),[3,1,2]);
+[~,max_channel_idx] =  max(template_abs,[],1);
+templateDepths = channel_positions(max_channel_idx,2);
+spikeDepths = templateDepths(spike_templates+1);
+
+
+% Load LFP
+n_channels = str2num(header.n_channels);
+lfp_filename = [data_path filesep 'lfp.dat'];
+fid = fopen(lfp_filename);
+lfp_all = fread(fid,[n_channels,inf],'int16');
+fclose(fid);
+% eliminate non-connected channels and sort by position (surface to deep)
+lfp = lfp_all(flipud(channel_map)+1,:);
+% get time of LFP sample points (NOTE: this is messy, based off of sample
+% rate and knowing what kwik2dat does, not sure how accurate)
+sample_rate = str2num(header.sample_rate);
+lfp_cutoff = str2num(header.lfp_cutoff);
+lfp_downsamp = (sample_rate/lfp_cutoff)/2;
+lfp_t = ([1:size(lfp,2)]*lfp_downsamp)/sample_rate;
+
+
 % Get the spike times in timeline time
 %spike_times_timeline = AP_clock_fix(spike_times,sync.timestamps,photodiode.timestamps);
 spike_times_timeline = AP_clock_fix(spike_times,sync.timestamps(stim_onset_idx_ephys),photodiode.timestamps(stim_onset_idx_timeline));
+lfp_t_timeline = AP_clock_fix(lfp_t,sync.timestamps(stim_onset_idx_ephys),photodiode.timestamps(stim_onset_idx_timeline));
 
 % PSTHs
 raster_window = [-1,3];
@@ -242,7 +284,7 @@ sta_v_pca = reshape(score,size(sta_v_all,1),size(sta_v_all,2),size(sta_v_all,3))
 
 %% STA for multiunit
 
-use_spikes = spike_times_timeline(ismember(spike_templates,find(templateDepths > 0 & templateDepths < 800)-1));
+use_spikes = spike_times_timeline(ismember(spike_templates,find(templateDepths > 0 & templateDepths < 700)-1));
 %use_spikes = spike_times_timeline(ismember(spike_templates,205));
 
 %use_spikes = spike_times_timeline(ismember(spike_templates,find(templateDepths > 0 & templateDepths < 400)-1) & ...
@@ -500,7 +542,7 @@ title('ROI 3')
 %% Group multiunit by depth, get STAs
 
 % Group by depth
-n_depth_groups = 8;
+n_depth_groups = 5;
 depth_group_edges = linspace(0,max(templateDepths),n_depth_groups+1);
 depth_group_edges(end) = Inf;
 
@@ -1087,7 +1129,7 @@ roi_trace = roi_trace_full(use_frames);
 framerate = 1./nanmedian(diff(frame_t));
 frame_edges = [frame_t,frame_t(end)+1/framerate];
 
-use_spikes = spike_times_timeline(ismember(spike_templates,find(templateDepths > 600 & templateDepths < 800)-1));
+use_spikes = spike_times_timeline(ismember(spike_templates,find(templateDepths > 0 & templateDepths < 800)-1));
 
 [frame_spikes_full,~,spike_frames] = histcounts(use_spikes,frame_edges);
 frame_spikes = frame_spikes_full(use_frames);
@@ -1707,7 +1749,7 @@ ylabel('Correlation of conv spikes with fluorescence');
 
 %% Spatiotemporal correlation-fixed spatial kernel for spikes
 
-use_spikes = spike_times_timeline(ismember(spike_templates,find(templateDepths > 0 & templateDepths < Inf)-1));
+use_spikes = spike_times_timeline(ismember(spike_templates,find(templateDepths > 0 & templateDepths < 500)-1));
 %use_spikes = spike_times_timeline(ismember(spike_templates,find(templateDepths > 0 & templateDepths < 400)-1) & ...
 %    ismember(spike_templates,use_templates(use_template_narrow))-1);
 
@@ -1734,6 +1776,7 @@ end
 
 use_svs = 1:2000;
 lambda = mean(1./dataSummary_n.dataSummary.Sv(use_svs))/2;
+% S is already in fV so should probably take out first for this to work
 k = use_spikes_shift*fV(use_svs,:)'*(diag(lambda+1./dataSummary_n.dataSummary.Sv(use_svs)))*Ud_flat(:,use_svs)';
 k2 = reshape(k',size(Ud,1),size(Ud,2),surround_frames*2+1);
 AP_image_scroll(k2,surround_t);
@@ -1921,7 +1964,7 @@ use_frames = frame_t > skip_seconds;
 use_t = frame_t(use_frames);
 
 %use_spikes = spike_times_timeline;
-use_spikes = spike_times_timeline(ismember(spike_templates,find(templateDepths > 0 & templateDepths < Inf)-1));
+use_spikes = spike_times_timeline(ismember(spike_templates,find(templateDepths > 1000 & templateDepths < Inf)-1));
 %use_spikes = spike_times_timeline(ismember(spike_templates,find(templateDepths > 0 & templateDepths < 400)-1) & ...
 %    (ismember(spike_templates,use_templates(use_template_narrow))));
 
@@ -1944,7 +1987,7 @@ v_autonorm_shift = [v_autonorm(:,end-plot_frames+1:end),v_autonorm(:,1:plot_fram
 tfun = svdFrameReconstruct(U,v_autonorm_shift);
 %tfun_norm = bsxfun(@rdivide,bsxfun(@minus,tfun,px_mean),px_std);
 
-AP_image_scroll(tfun_norm);
+AP_image_scroll(tfun);
 
 
 
@@ -2067,16 +2110,32 @@ AP_image_scroll(tfun_norm);
 skip_seconds = 10;
 use_frames = frame_t > skip_seconds;
 
-use_spikes = spike_times_timeline(ismember(spike_templates,find(templateDepths > 0 & templateDepths < 500)-1));
 
-framerate = 1./nanmedian(diff(frame_t));
+% Group multiunit by depth
+n_depth_groups = 4;
+depth_group_edges = linspace(800,max(templateDepths),n_depth_groups+1);
+depth_group_edges(end) = Inf;
 
-frame_edges = [frame_t(1),mean([frame_t(2:end);frame_t(1:end-1)],1),frame_t(end)+1/framerate];
-[frame_spikes,~,spike_frames] = histcounts(use_spikes,frame_edges);
+[depth_group_n,depth_group] = histc(spikeDepths,depth_group_edges);
+depth_groups_used = unique(depth_group);
+depth_group_centers = depth_group_edges(1:end-1)+diff(depth_group_edges);
 
+framerate = 1./median(diff(frame_t));
+frame_spikes = zeros(n_depth_groups,length(frame_t));
+for curr_depth = 1:n_depth_groups'
+    
+    curr_spike_times = spike_times_timeline(depth_group == curr_depth);
+    curr_spike_times(curr_spike_times + surround_times(1) < frame_t(2) | ...
+        curr_spike_times + surround_times(2) > frame_t(end)) = [];
+    
+    % Discretize spikes into frames and count spikes per frame
+    frame_edges = [frame_t,frame_t(end)+1/framerate];
+    frame_spikes(curr_depth,:) = histcounts(curr_spike_times,frame_edges);
+    
+end
 
 use_svs = 1:500;
-kernel_frames = -10:3;
+kernel_frames = -10:5;
 
 n_svs = length(use_svs);
 n_kernel_frames = length(kernel_frames);
@@ -2096,19 +2155,70 @@ lambda = std(fV(500,:))^2;
 ridge_matrix = lambda*eye(size(fluor_design,2));
 
 fluor_gpu = gpuArray([bsxfun(@minus,fluor_design,mean(fluor_design,1));ridge_matrix]);
-spikes_gpu = gpuArray([frame_spikes(use_frames)' - mean(frame_spikes(use_frames));zeros(size(fluor_design,2),1)]);
+spikes_gpu = gpuArray([bsxfun(@minus,frame_spikes(:,use_frames), ...
+    mean(frame_spikes(:,use_frames),2))';zeros(size(fluor_design,2),size(frame_spikes,1))]);
 
 % Use the pseudoinverse (pinv doesn't work on gpu) - looks the same though
 k = gather(inv(fluor_gpu'*fluor_gpu)*fluor_gpu'*spikes_gpu);
 
 % Reshape kernel and convert to pixel space
-r = reshape(k,n_svs,n_kernel_frames);
+r = reshape(k,n_svs,n_kernel_frames,size(frame_spikes,1));
 
-r_px = svdFrameReconstruct(U(:,:,use_svs),r);
+r_px = zeros(size(U,1),size(U,2),size(r,2),size(r,3),'single');
+for curr_spikes = 1:size(r,3);
+    r_px(:,:,:,curr_spikes) = svdFrameReconstruct(U(:,:,use_svs),r(:,:,curr_spikes));
+end
 
 AP_image_scroll(r_px,kernel_frames/framerate);
 
 clear fluor_design
+
+%% (above, but use the function AP_regresskernel)
+
+% Skip the first n seconds to do this
+skip_seconds = 10;
+use_frames = (frame_t > skip_seconds);
+%use_frames = (frame_t > skip_seconds) & (frame_t < max(frame_t)/2);
+%use_frames = (frame_t > max(frame_t)/2);
+
+% Group multiunit by depth
+n_depth_groups = 8;
+depth_group_edges = linspace(0,1300,n_depth_groups+1);
+%depth_group_edges = [0,500];
+depth_group_edges(end) = Inf;
+
+[depth_group_n,depth_group] = histc(spikeDepths,depth_group_edges);
+depth_groups_used = unique(depth_group);
+depth_group_centers = depth_group_edges(1:end-1)+diff(depth_group_edges);
+
+framerate = 1./median(diff(frame_t));
+frame_spikes = zeros(length(depth_group_edges)-1,length(frame_t));
+for curr_depth = 1:length(depth_group_edges)-1
+    
+    curr_spike_times = spike_times_timeline(depth_group == curr_depth);
+
+    % Discretize spikes into frames and count spikes per frame
+    frame_edges = [frame_t,frame_t(end)+1/framerate];
+    frame_spikes(curr_depth,:) = histcounts(curr_spike_times,frame_edges);
+    
+end
+
+use_svs = 1:500;
+kernel_frames = -6:3;
+lambda = std(fV(1000,use_frames))^2;
+
+k = AP_regresskernel(fV(use_svs,use_frames),frame_spikes(:,use_frames),kernel_frames,lambda);
+
+% Reshape kernel and convert to pixel space
+r = reshape(k,length(use_svs),length(kernel_frames),size(frame_spikes,1));
+
+r_px = zeros(size(U,1),size(U,2),size(r,2),size(r,3),'single');
+for curr_spikes = 1:size(r,3);
+    r_px(:,:,:,curr_spikes) = svdFrameReconstruct(U(:,:,use_svs),r(:,:,curr_spikes));
+end
+
+AP_image_scroll(r_px,kernel_frames/framerate);
+caxis([prctile(r_px(:),[1,99])]*2)
 
 %% Matrix division method of fluorescence -> spike kernel (pixel space)
 
@@ -2147,10 +2257,11 @@ fluor_design = reshape(fluor_design,[],size(fluor_design,2)*size(fluor_design,3)
 
 % Ridge regression for reducing noise: add offsets to design matrix to penalize k
 lambda = 10;
-penalize_matrix = lambda*eye(size(fluor_design,2));
+ridge_matrix = lambda*eye(size(fluor_design,2));
 
-fluor_gpu = gpuArray([fluor_design;penalize_matrix]);
-spikes_gpu = gpuArray([frame_spikes(use_frames)';zeros(size(fluor_design,2),1)]);
+fluor_gpu = gpuArray([bsxfun(@minus,fluor_design,mean(fluor_design,1));ridge_matrix]);
+spikes_gpu = gpuArray([bsxfun(@minus,frame_spikes(:,use_frames), ...
+    mean(frame_spikes(:,use_frames),2))';zeros(size(fluor_design,2),size(frame_spikes,1))]);
 
 % Use the pseudoinverse (pinv doesn't work on gpu) - looks the same though
 k = gather(inv(fluor_gpu'*fluor_gpu)*fluor_gpu'*spikes_gpu);
@@ -2161,6 +2272,129 @@ r = reshape(k,size(Ud,1),size(Ud,2),n_kernel_frames);
 AP_image_scroll(r);
 
 clear fluor_design
+
+%% Hemo corr check: spike-fluorescence coherence/kernel
+
+% Skip the first n seconds to do this
+skip_seconds = 10;
+use_frames = frame_t > skip_seconds;
+
+use_spikes = spike_times_timeline(ismember(spike_templates,find(templateDepths > 1000 & templateDepths < Inf)-1));
+frame_edges = [frame_t(1),mean([frame_t(2:end);frame_t(1:end-1)],1),frame_t(end)+1/framerate];
+[frame_spikes,~,spike_frames] = histcounts(use_spikes,frame_edges);
+
+% Hemo correct at different bands
+hemo_freq = ...
+    [0.1,2; ...
+    0.1,3; ...
+    0.2,3; ...    
+    6,12; ...
+    7,9; ...
+    7,13];
+
+fV_allhemos = cell(size(hemo_freq,1),1);
+for i = 1:size(hemo_freq,1)
+    curr_hemo = HemoCorrectLocal(Un,fVn_th,fVh_Un,framerate,hemo_freq(i,:),3);   
+    fV_allhemos{i} = curr_hemo;
+    disp(i);
+end
+
+% Get fluorescence from ROI, get correlation between un/corrected
+h = figure;
+imagesc(avg_im);
+set(gca,'YDir','reverse');
+colormap(gray);
+caxis([0 prctile(avg_im(:),90)]);
+roiMask = roipoly;
+close(h);
+
+U_roi_c = reshape(U(repmat(roiMask,1,1,size(U,3))),[],size(U,3));
+roi_trace_c = cell2mat(cellfun(@(x) nanmean(U_roi_c*x)',fV_allhemos','uni',false));
+
+U_roi_n = reshape(Un(repmat(roiMask,1,1,size(U,3))),[],size(U,3));
+roi_trace_n = nanmean(U_roi_n*fVn);
+
+[c,f] = mscohere(roi_trace_c(use_frames,:),frame_spikes(use_frames)', ...
+    [],[],[],framerate);
+
+[n,f] = mscohere(roi_trace_n(use_frames)',frame_spikes(use_frames)', ...
+   [],[],[],framerate);
+
+figure;
+subplot(3,1,1:2);
+hold on
+plot(f,conv2(bsxfun(@minus,c,n),ones(50,1)/50,'same'));
+ylabel('\DeltaCoherence (corrected - uncorrected)');
+xlabel('Frequency');
+legend(cellfun(@num2str,mat2cell(hemo_freq,ones(size(hemo_freq,1),1),2),'uni',false));
+line(xlim,[0,0],'color','k')
+title([animal ' ' day ' ' experiment])
+
+subplot(3,1,3);
+plot(sum(bsxfun(@minus,c,n),1),'k','linewidth',2);
+set(gca,'XTick',1:size(hemo_freq,1));
+set(gca,'XTickLabel',(cellfun(@num2str,mat2cell(hemo_freq,ones(size(hemo_freq,1),1),2),'uni',false)));
+xlabel('Correction frequency range')
+ylabel('Summed \DeltaCoherence');
+
+% Impulse response
+c_kernel = ifft(bsxfun(@rdivide,bsxfun(@times,fft(roi_trace_c(use_frames,:)), ...
+    conj(fft(frame_spikes(use_frames)'))),fft(frame_spikes(use_frames)').*conj(fft(frame_spikes(use_frames)'))));
+plot_frames = [round(framerate*-0.5),round(framerate*6)];
+t_shift = [frame_t(end+plot_frames(1)+1:end)-frame_t(end)-1/framerate,frame_t(1:plot_frames(2))-frame_t(1)];
+c_kernel_shift = [c_kernel(end+plot_frames(1)+1:end,:);c_kernel(1:plot_frames(2),:)];
+n_kernel = ifft(bsxfun(@rdivide,bsxfun(@times,fft(roi_trace_n(use_frames)'), ...
+    conj(fft(frame_spikes(use_frames)'))),fft(frame_spikes(use_frames)').*conj(fft(frame_spikes(use_frames)'))));
+n_kernel_shift = [n_kernel(end+plot_frames(1)+1:end,:);n_kernel(1:plot_frames(2),:)];
+
+figure;
+subplot(2,1,1); hold on;
+plot(t_shift,c_kernel_shift);
+plot(t_shift,n_kernel_shift,'k');
+line([t_shift(1) t_shift(end)],[0,0],'color','k')
+xlabel('Time from spike (s)')
+ylabel('Fluorescence');
+xlim([t_shift(1) t_shift(end)])
+title([animal ' ' day ' ' experiment])
+legend(cellfun(@num2str,mat2cell(hemo_freq,ones(size(hemo_freq,1),1),2),'uni',false));
+
+subplot(2,1,2); hold on;
+plot(t_shift,bsxfun(@minus,c_kernel_shift,n_kernel_shift));
+line([t_shift(1) t_shift(end)],[0,0],'color','k')
+ylabel('\DeltaFluorescence (corrected - uncorrected)')
+xlabel('Time from spike (s)');
+xlim([t_shift(1) t_shift(end)])
+
+% Frequency power plot
+L = sum(use_frames);
+NFFT = 2^nextpow2(L);
+[Pn,F] = pwelch(single(roi_trace_n(use_frames))',[],[],NFFT,framerate);
+[Pc,F] = pwelch(single(roi_trace_c(use_frames,:)),[],[],NFFT,framerate);
+
+figure; hold on;
+plot(F,log10(conv2(Pc,ones(50,1)/50,'same')));
+plot(F,log10(smooth(Pn,50)),'k')
+xlabel('Frequency');
+ylabel('Log Power');
+legend(cellfun(@num2str,mat2cell(hemo_freq,ones(size(hemo_freq,1),1),2),'uni',false));
+title([animal ' ' day ' ' experiment])
+
+% % Get coherence between spikes and all pixels
+% 
+% Super downsample the images, do it in pixel space
+U_downsample_factor = 15;
+Ud = imresize(U,1/U_downsample_factor,'bilinear');
+
+% Reconstruct all data
+px = reshape(svdFrameReconstruct(Ud,fV),[],size(fV,2));
+
+[px_coherence,f] = mscohere(px(:,use_frames)',frame_spikes(use_frames)',hanning(round(framerate*10)),round(framerate*5),[],framerate);
+px_coherence = reshape(sum(px_coherence,1),size(Ud,1),size(Ud,2));
+
+figure;imagesc(px_coherence);
+
+
+
 
 
 

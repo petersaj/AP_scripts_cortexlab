@@ -923,7 +923,7 @@ end
 align_times = stim_onsets(ismember(stimIDs,[2]));
 
 % Group by depth
-n_depth_groups = 6;
+n_depth_groups = 10;
 depth_group_edges = linspace(0,max(templateDepths),n_depth_groups+1);
 depth_group_edges(end) = Inf;
 depth_group = discretize(spikeDepths,depth_group_edges);
@@ -1829,10 +1829,10 @@ Fs = 1./median(diff(use_t));
 L = length(use_trace);
 NFFT = 2^nextpow2(L);
 [P,F] = pwelch(single(use_trace)',[],[],NFFT,Fs);
-Pc = conv2(P, ones(50,1)/50,'same'); % smooth over frequency so you can see very narrow-band things
-figure;plot(F,10*log10(Pc),'k')
+Pc = smooth(P,50); 
+figure;plot(F,log10(Pc),'k')
 xlabel('Frequency');
-ylabel('Power');
+ylabel('Log Power');
 
 % Notch filter
 freqs = [3 5];
@@ -1846,8 +1846,8 @@ end
 p = bandpower(use_trace,Fs,[3,5]);
 
 % Spectrogram
-spect_overlap = 80;
-window_length = 1; % in seconds
+spect_overlap = 50;
+window_length = 2; % in seconds
 window_length_samples = window_length/(1/Fs);
 figure;spectrogram(use_trace,window_length_samples, ...
     round(spect_overlap/100*window_length_samples),[],Fs,'yaxis')
@@ -1855,8 +1855,8 @@ colormap(redblue)
 
 
 % Band power over time
-spect_overlap = 80;
-window_length = 1; % in seconds
+spect_overlap = 50;
+window_length = 2; % in seconds
 window_length_samples = window_length/(1/Fs);
 
 [s,f,t] = spectrogram(use_trace,window_length_samples, ...

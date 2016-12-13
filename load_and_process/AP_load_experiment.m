@@ -2,7 +2,7 @@
 
 animal = 'AP009';
 day = '2016-11-03';
-experiment = '3';
+experiment = '4';
 rig = 'kilotrode'; % kilotrode or bigrig
 cam_color_n = 2;
 cam_color_signal = 'blue';
