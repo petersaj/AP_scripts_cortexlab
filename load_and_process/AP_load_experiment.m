@@ -1,8 +1,8 @@
 %% Define experiment
 
-animal = 'AP009';
-day = '2016-11-03';
-experiment = '4';
+animal = 'Cori';
+day = '2016-12-11';
+experiment = '2';
 rig = 'kilotrode'; % kilotrode or bigrig
 cam_color_n = 2;
 cam_color_signal = 'blue';
@@ -80,7 +80,7 @@ if exist(fileparts(get_cortexlab_filename(mpep_animal,day,experiment,'protocol')
                 stimScreen_on = Timeline.rawDAQData(:,stimScreen_idx) > stimScreen_thresh;
             end
             
-            switch photodiode_type
+            switch lower(photodiode_type)
                 case 'flicker'
                     warning('if flickering photodiode and steady screen, write diff')                 
                     %         % get differential of photodiode
@@ -111,7 +111,7 @@ if exist(fileparts(get_cortexlab_filename(mpep_animal,day,experiment,'protocol')
                     photodiode.timestamps = stimScreen_on_t(photodiode_flip)';
                     photodiode.values = photodiode_trace(photodiode_flip);
                     
-                case 'Steady'
+                case 'steady'
                     
                     % If the screen flickers (this has a fair amount of
                     % arbitrary numbers and steps, not ideal, so keep an
@@ -140,8 +140,8 @@ if exist(fileparts(get_cortexlab_filename(mpep_animal,day,experiment,'protocol')
             end
             
         case 'bigrig'
-            switch photodiode_type
-                case 'Flicker'
+            switch lower(photodiode_type)
+                case 'flicker'
                     photodiode_thresh = max(Timeline.rawDAQData(:,photodiode_idx))/2;
                     photodiode_trace = Timeline.rawDAQData(:,photodiode_idx) > photodiode_thresh;
                     photodiode_flip = find((~photodiode_trace(1:end-1) & photodiode_trace(2:end)) | ...
@@ -150,7 +150,7 @@ if exist(fileparts(get_cortexlab_filename(mpep_animal,day,experiment,'protocol')
                     photodiode = struct('timestamps',[],'values',[]);
                     photodiode.timestamps = Timeline.rawDAQTimestamps(photodiode_flip)';
                     photodiode.values = photodiode_trace(photodiode_flip);
-                case 'Steady'
+                case 'steady'
                     error('write this');
             end
             

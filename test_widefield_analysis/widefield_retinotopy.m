@@ -1204,4 +1204,105 @@ axis off;
 title('Visual sign field');
 
 
+%% Sparse noise retinotopy by regression
+
+[Uy,Ux,nSV] = size(U);
+
+myScreenInfo.windowPtr = NaN; % so we can call the stimulus generation and it won't try to display anything
+stimNum = 1;
+ss = eval([Protocol.xfile(1:end-2) '(myScreenInfo, Protocol.pars(:,stimNum));']);
+stim_screen = cat(3,ss.ImageTextures{:});
+ny = size(stim_screen,1);
+nx = size(stim_screen,2);
+
+warning('for now just grab stim times from retinotopy code')
+% Interpolate stim screen for all times
+stim_screen_interp = abs(single(interp1(stim_times,reshape(stim_screen,[],length(stim_times))',frame_t,'nearest')'));
+stim_screen_interp(isnan(stim_screen_interp)) = 0;
+
+% Use only the onsets of stim
+stim_screen_interp = single([zeros(size(stim_screen_interp,1),1),diff(stim_screen_interp,[],2)] == 1);
+
+% Skip the first n seconds to do this
+skip_seconds = 10;
+use_frames = (frame_t > skip_seconds);
+
+use_svs = 1:500;
+fluor_kernel_frames = -6:-3;
+lambda = 1000;
+
+k = AP_regresskernel(fV(use_svs,use_frames), ...
+    stim_screen_interp(:,use_frames),fluor_kernel_frames,lambda);
+
+% Get maximum kernel response for all pixels
+r = permute(max(reshape(k,length(use_svs), ...
+    length(fluor_kernel_frames),size(stim_screen_interp,1)),[],2),[1,3,2]);
+
+
+
+% Get position preference for every pixel 
+U_downsample_factor = 3;
+resize_scale = 3;
+filter_sigma = (resize_scale*1.5);
+
+% Downsample U
+use_u_y = 1:Uy;
+Ud = imresize(U(use_u_y,:,:),1/U_downsample_factor,'bilinear');
+
+% Convert V responses to pixel responses
+stim_im_px = reshape(permute(svdFrameReconstruct(Ud(:,:,use_svs),r(use_svs,:)),[3,1,2]),ny,nx,[]);
+
+% Upsample each pixel's response map and find maximum
+gauss_filt = fspecial('gaussian',[ny,nx],filter_sigma);
+stim_im_smoothed = imfilter(imresize(stim_im_px,resize_scale,'bilinear'),gauss_filt);
+[mc,mi] = max(reshape(stim_im_smoothed,[],size(stim_im_px,3)),[],1);
+[m_y,m_x] = ind2sub(size(stim_im_smoothed),mi);
+m_yr = reshape(m_y,size(Ud,1),size(Ud,2));
+m_xr = reshape(m_x,size(Ud,1),size(Ud,2));
+
+
+
+% 1) get gradient direction
+[Vmag,Vdir] = imgradient(imgaussfilt(m_yr,1));
+[Hmag,Hdir] = imgradient(imgaussfilt(m_xr,1));
+
+% 3) get sin(difference in direction) if retinotopic, H/V should be
+% orthogonal, so the closer the orthogonal the better (and get sign)
+angle_diff = sind(Vdir-Hdir);
+
+vfs_mean = nanmean(imgaussfilt(angle_diff,1),3);
+
+figure; 
+subplot(1,2,1);
+imagesc(vfs_mean);
+caxis([-1,1]);
+axis off;
+title('All')
+
+subplot(1,2,2);
+h = imagesc(vfs_mean);
+caxis([-1,1]);
+axis off;
+vfs_cutoff = 1.5*std(vfs_mean(:));
+set(h,'AlphaData',abs(vfs_mean) > vfs_cutoff);
+title('Abs > 1.5*std');
+
+vis_thresh = abs(vfs_mean) > vfs_cutoff;
+vis_boundaries = cellfun(@(x) x*U_downsample_factor,bwboundaries(vis_thresh),'uni',false);
+
+figure; hold on; 
+set(gca,'YDir','reverse');
+imagesc(avg_im); colormap(gray);
+caxis([0 prctile(avg_im(:),95)]);
+for i = 1:length(vis_boundaries)
+    plot(vis_boundaries{i}(:,2),vis_boundaries{i}(:,1),'m','linewidth',1);
+end
+ylim([0,size(avg_im,1)]);
+xlim([0,size(avg_im,2)]);
+axis off;
+
+
+
+
+
 

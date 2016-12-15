@@ -2182,7 +2182,7 @@ use_frames = (frame_t > skip_seconds);
 %use_frames = (frame_t > max(frame_t)/2);
 
 % Group multiunit by depth
-n_depth_groups = 8;
+n_depth_groups = 4;
 depth_group_edges = linspace(0,1300,n_depth_groups+1);
 %depth_group_edges = [0,500];
 depth_group_edges(end) = Inf;
@@ -2205,7 +2205,7 @@ end
 
 use_svs = 1:500;
 kernel_frames = -6:3;
-lambda = std(fV(1000,use_frames))^2;
+lambda = 25;
 
 k = AP_regresskernel(fV(use_svs,use_frames),frame_spikes(:,use_frames),kernel_frames,lambda);
 
@@ -2221,20 +2221,34 @@ AP_image_scroll(r_px,kernel_frames/framerate);
 caxis([prctile(r_px(:),[1,99])]*2)
 
 %% Matrix division method of fluorescence -> spike kernel (pixel space)
+% this doesn't make sense that it doesn't work at all...
+
+U_downsample_factor = 15;
+
+% Make mask
+h = figure;
+imagesc(avg_im);
+set(gca,'YDir','reverse');
+colormap(gray);
+caxis([0 prctile(avg_im(:),90)]);
+title('Draw mask to use pixels')
+roiMask = roipoly;
+delete(h);
+roiMaskd = imresize(roiMask,1/U_downsample_factor,'bilinear') > 0;
 
 % Super downsample the images, do it in pixel space
-U_downsample_factor = 15;
 Ud = imresize(U,1/U_downsample_factor,'bilinear');
+Udpx = reshape(Ud(repmat(roiMaskd,1,1,size(Ud,3))),[],size(Ud,3));
 
 % Reconstruct all data
-px = reshape(svdFrameReconstruct(Ud,fV),[],size(fV,2));
+px = Udpx*fV;
 
 % Skip the first n seconds to do this
 skip_seconds = 10;
 use_frames = frame_t > skip_seconds;
 use_t = frame_t(use_frames);
 
-use_spikes = spike_times_timeline(ismember(spike_templates,find(templateDepths > 0 & templateDepths < Inf)-1));
+use_spikes = spike_times_timeline(ismember(spike_templates,find(templateDepths > 800 & templateDepths < Inf)-1));
 
 framerate = 1./nanmedian(diff(frame_t));
 
@@ -2242,36 +2256,18 @@ frame_edges = [frame_t(1),mean([frame_t(2:end);frame_t(1:end-1)],1),frame_t(end)
 [frame_spikes,~,spike_frames] = histcounts(use_spikes,frame_edges);
 
 
-kernel_frames = -5:3;
-n_kernel_frames = length(kernel_frames);
+kernel_frames = -6:3;
+lambda = 1e4;
 
-fluor_design = repmat(px(:,use_frames)',[1,1,n_kernel_frames]);
-
-% Temporally shift each page
-for curr_kernel_frame = 1:n_kernel_frames;
-    fluor_design(:,:,curr_kernel_frame) = ...
-        circshift(fluor_design(:,:,curr_kernel_frame),[kernel_frames(curr_kernel_frame),0,0]);
-end
-
-fluor_design = reshape(fluor_design,[],size(fluor_design,2)*size(fluor_design,3));
-
-% Ridge regression for reducing noise: add offsets to design matrix to penalize k
-lambda = 10;
-ridge_matrix = lambda*eye(size(fluor_design,2));
-
-fluor_gpu = gpuArray([bsxfun(@minus,fluor_design,mean(fluor_design,1));ridge_matrix]);
-spikes_gpu = gpuArray([bsxfun(@minus,frame_spikes(:,use_frames), ...
-    mean(frame_spikes(:,use_frames),2))';zeros(size(fluor_design,2),size(frame_spikes,1))]);
-
-% Use the pseudoinverse (pinv doesn't work on gpu) - looks the same though
-k = gather(inv(fluor_gpu'*fluor_gpu)*fluor_gpu'*spikes_gpu);
+k = AP_regresskernel(px(:,use_frames),frame_spikes(:,use_frames),kernel_frames,lambda);
 
 % Reshape kernel
-r = reshape(k,size(Ud,1),size(Ud,2),n_kernel_frames);
+k = reshape(k,size(px,1),length(kernel_frames));
+r = zeros(size(Ud,1),size(Ud,2),length(kernel_frames));
+r(repmat(roiMaskd,1,1,length(kernel_frames))) = k;
 
-AP_image_scroll(r);
+AP_image_scroll(r,kernel_frames/framerate);
 
-clear fluor_design
 
 %% Hemo corr check: spike-fluorescence coherence/kernel
 
@@ -2394,6 +2390,185 @@ px_coherence = reshape(sum(px_coherence,1),size(Ud,1),size(Ud,2));
 figure;imagesc(px_coherence);
 
 
+
+
+%% Fluor-spike regression (add spikes)
+
+% Skip the first n seconds to do this
+skip_seconds = 10;
+use_frames = (frame_t > skip_seconds);
+
+use_spikes = spike_times_timeline(ismember(spike_templates,find(templateDepths > 0 & templateDepths < 700)-1));
+
+frame_edges = [frame_t(1),mean([frame_t(2:end);frame_t(1:end-1)],1),frame_t(end)+1/framerate];
+[frame_spikes,~,spike_frames] = histcounts(use_spikes,frame_edges);
+frame_spikes = single(frame_spikes);
+
+use_svs = 1:500;
+fluor_kernel_frames = -6:3;
+spike_kernel_frames = -5:-1;
+lambda = 10;
+
+k = AP_regresskernel({fV(use_svs,use_frames),frame_spikes(:,use_frames)}, ...
+    frame_spikes(:,use_frames),{fluor_kernel_frames,spike_kernel_frames},lambda);
+
+% Reshape kernel and convert to pixel space
+px_regressors_idx = 1:length(use_svs)*length(fluor_kernel_frames);
+spike_regressors_idx = px_regressors_idx(end)+1:px_regressors_idx(end)+length(spike_kernel_frames);
+r = reshape(k(px_regressors_idx),length(use_svs),length(kernel_frames),size(frame_spikes,1));
+
+r_px = zeros(size(U,1),size(U,2),size(r,2),size(r,3),'single');
+for curr_spikes = 1:size(r,3);
+    r_px(:,:,:,curr_spikes) = svdFrameReconstruct(U(:,:,use_svs),r(:,:,curr_spikes));
+end
+
+AP_image_scroll(r_px,kernel_frames/framerate);
+caxis([prctile(r_px(:),[1,99])]*2)
+
+figure;plot(spike_kernel_frames/framerate,k(spike_regressors_idx),'k')
+ylabel('Weight');
+xlabel('Spike lag (s)');
+
+%% Fluor/past spike/stim -> spike regression (MUA)
+
+[Uy,Ux,nSV] = size(U);
+
+myScreenInfo.windowPtr = NaN; % so we can call the stimulus generation and it won't try to display anything
+stimNum = 1;
+ss = eval([Protocol.xfile(1:end-2) '(myScreenInfo, Protocol.pars(:,stimNum));']);
+stim_screen = cat(3,ss.ImageTextures{:});
+ny = size(stim_screen,1);
+nx = size(stim_screen,2);
+
+warning('for now just grab stim times from retinotopy code')
+% Interpolate stim screen for all times
+stim_screen_interp = abs(single(interp1(stim_times,reshape(stim_screen,[],length(stim_times))',frame_t,'nearest')'));
+stim_screen_interp(isnan(stim_screen_interp)) = 0;
+
+% Use only the onsets of stim
+stim_screen_interp = single([zeros(size(stim_screen_interp,1),1),diff(stim_screen_interp,[],2)] == 1);
+
+% Skip the first n seconds to do this
+skip_seconds = 10;
+use_frames = (frame_t > skip_seconds);
+
+use_spikes = spike_times_timeline(ismember(spike_templates,find(templateDepths > 0 & templateDepths < 700)-1));
+
+frame_edges = [frame_t(1),mean([frame_t(2:end);frame_t(1:end-1)],1),frame_t(end)+1/framerate];
+[frame_spikes,~,spike_frames] = histcounts(use_spikes,frame_edges);
+frame_spikes = single(frame_spikes);
+
+use_svs = 1:500;
+fluor_kernel_frames = -6:3;
+spike_kernel_frames = -5:-1;
+stim_kernel_frames = 0:5;
+lambda = 10;
+
+[k,predicted_spikes] = ...
+    AP_regresskernel({fV(use_svs,use_frames),frame_spikes(:,use_frames),stim_screen_interp(:,use_frames)}, ...
+    frame_spikes(:,use_frames),{fluor_kernel_frames,spike_kernel_frames,stim_kernel_frames},lambda);
+
+% Reshape kernel and convert to pixel space
+px_regressors_idx = 1:length(use_svs)*length(fluor_kernel_frames);
+spike_regressors_idx = px_regressors_idx(end)+1:px_regressors_idx(end)+length(spike_kernel_frames);
+stim_regressors_idx = spike_regressors_idx(end)+1:spike_regressors_idx(end)+ ...
+    size(stim_screen_interp,1)*length(stim_kernel_frames);
+
+r = reshape(k(px_regressors_idx),length(use_svs),length(kernel_frames),size(frame_spikes,1));
+r_px = zeros(size(U,1),size(U,2),size(r,2),size(r,3),'single');
+for curr_spikes = 1:size(r,3);
+    r_px(:,:,:,curr_spikes) = svdFrameReconstruct(U(:,:,use_svs),r(:,:,curr_spikes));
+end
+
+AP_image_scroll(r_px,kernel_frames/framerate);
+caxis([prctile(r_px(:),[1,99.5])]*2)
+
+figure;plot(spike_kernel_frames/framerate,k(spike_regressors_idx),'k','linewidth',2)
+ylabel('Weight');
+xlabel('Spike history (s)');
+title('Spike regressors');
+
+stim_r = reshape(k(stim_regressors_idx),ny,nx,length(stim_kernel_frames));
+AP_image_scroll(stim_r,stim_kernel_frames/framerate);
+
+
+
+%% Fluor/past spike/stim -> spike regression (templates separately)
+
+[Uy,Ux,nSV] = size(U);
+
+myScreenInfo.windowPtr = NaN; % so we can call the stimulus generation and it won't try to display anything
+stimNum = 1;
+ss = eval([Protocol.xfile(1:end-2) '(myScreenInfo, Protocol.pars(:,stimNum));']);
+stim_screen = cat(3,ss.ImageTextures{:});
+ny = size(stim_screen,1);
+nx = size(stim_screen,2);
+
+warning('for now just grab stim times from retinotopy code')
+% Interpolate stim screen for all times
+stim_screen_interp = abs(single(interp1(stim_times,reshape(stim_screen,[],length(stim_times))',frame_t,'nearest')'));
+stim_screen_interp(isnan(stim_screen_interp)) = 0;
+
+% Use only the onsets of stim
+stim_screen_interp = single([zeros(size(stim_screen_interp,1),1),diff(stim_screen_interp,[],2)] == 1);
+
+% Skip the first n seconds to do this
+skip_seconds = 10;
+use_frames = (frame_t > skip_seconds);
+
+
+for curr_template_idx = 1:length(use_templates)
+    
+    curr_template = use_templates(curr_template_idx);
+    
+    use_spikes = spike_times_timeline(spike_templates == curr_template);
+    
+    %use_spikes = spike_times_timeline(ismember(spike_templates,find(templateDepths > 0 & templateDepths < 400)-1) & ...
+    %    ismember(spike_templates,use_templates(use_template_narrow))-1);
+    
+    frame_edges = [frame_t(1),mean([frame_t(2:end);frame_t(1:end-1)],1),frame_t(end)+1/framerate];
+    [frame_spikes,~,spike_frames] = histcounts(use_spikes,frame_edges);
+    % frame_spikes_conv_full = conv(frame_spikes,gcamp_kernel);
+    % frame_spikes_conv = frame_spikes_conv_full(1:length(frame_spikes));
+    
+    spike_trace = frame_spikes;
+    
+end
+    
+    
+    
+
+use_svs = 1:500;
+fluor_kernel_frames = -6:3;
+spike_kernel_frames = -5:-1;
+stim_kernel_frames = 0:5;
+lambda = 10;
+
+k = AP_regresskernel({fV(use_svs,use_frames),frame_spikes(:,use_frames),stim_screen_interp(:,use_frames)}, ...
+    frame_spikes(:,use_frames),{fluor_kernel_frames,spike_kernel_frames,stim_kernel_frames},lambda);
+
+% Reshape kernel and convert to pixel space
+px_regressors_idx = 1:length(use_svs)*length(fluor_kernel_frames);
+spike_regressors_idx = px_regressors_idx(end)+1:px_regressors_idx(end)+length(spike_kernel_frames);
+stim_regressors_idx = spike_regressors_idx(end)+1:spike_regressors_idx(end)+ ...
+    size(stim_screen_interp,1)*length(stim_kernel_frames);
+
+r = reshape(k(px_regressors_idx),length(use_svs),length(kernel_frames),size(frame_spikes,1));
+r_px = zeros(size(U,1),size(U,2),size(r,2),size(r,3),'single');
+for curr_spikes = 1:size(r,3);
+    r_px(:,:,:,curr_spikes) = svdFrameReconstruct(U(:,:,use_svs),r(:,:,curr_spikes));
+end
+
+AP_image_scroll(r_px,kernel_frames/framerate);
+caxis([prctile(r_px(:),[1,99])]*2)
+
+figure;plot(spike_kernel_frames/framerate,k(spike_regressors_idx),'k')
+ylabel('Weight');
+xlabel('Spike lag (s)');
+title('Spike regressors');
+
+stim_r = reshape(k(stim_regressors_idx),ny,nx,length(stim_kernel_frames));
+AP_image_scroll(stim_r,stim_kernel_frames);
 
 
 
