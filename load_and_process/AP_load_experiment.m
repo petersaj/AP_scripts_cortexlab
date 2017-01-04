@@ -1,7 +1,7 @@
 %% Define experiment
 
-animal = 'Cori';
-day = '2016-12-11';
+animal = 'AP005';
+day = '2016-12-20';
 experiment = '2';
 rig = 'kilotrode'; % kilotrode or bigrig
 cam_color_n = 2;
@@ -119,7 +119,7 @@ if exist(fileparts(get_cortexlab_filename(mpep_animal,day,experiment,'protocol')
                     if stimScreen_flicker;
                         % have to redefine periods of screen on, because
                         % sometimes there's a sample or so difference
-                        stimScreen_on = Timeline.rawDAQData(:,photodiode_idx) > 0.15;
+                        stimScreen_on = Timeline.rawDAQData(:,photodiode_idx) > 0.3;
                         stimScreen_on_t = Timeline.rawDAQTimestamps(stimScreen_on);
                         photodiode_thresh = max(Timeline.rawDAQData(:,photodiode_idx))/2;
                         % median filter because of weird effect where
@@ -527,17 +527,19 @@ channel_positions(:,2) = max(channel_positions(:,2)) - channel_positions(:,2);
 % Load LFP
 n_channels = str2num(header.n_channels);
 lfp_filename = [data_path filesep 'lfp.dat'];
-fid = fopen(lfp_filename);
-lfp_all = fread(fid,[n_channels,inf],'int16');
-fclose(fid);
-% eliminate non-connected channels and sort by position (surface to deep)
-lfp = lfp_all(flipud(channel_map)+1,:);
-% get time of LFP sample points (NOTE: this is messy, based off of sample
-% rate and knowing what kwik2dat does, not sure how accurate)
-sample_rate = str2num(header.sample_rate);
-lfp_cutoff = str2num(header.lfp_cutoff);
-lfp_downsamp = (sample_rate/lfp_cutoff)/2;
-lfp_t = ([1:size(lfp,2)]*lfp_downsamp)/sample_rate;
+if exist(lfp_filename,'file')
+    fid = fopen(lfp_filename);
+    lfp_all = fread(fid,[n_channels,inf],'int16');
+    fclose(fid);
+    % eliminate non-connected channels and sort by position (surface to deep)
+    lfp = lfp_all(flipud(channel_map)+1,:);
+    % get time of LFP sample points (NOTE: this is messy, based off of sample
+    % rate and knowing what kwik2dat does, not sure how accurate)
+    sample_rate = str2num(header.sample_rate);
+    lfp_cutoff = str2num(header.lfp_cutoff);
+    lfp_downsamp = (sample_rate/lfp_cutoff)/2;
+    lfp_t = ([1:size(lfp,2)]*lfp_downsamp)/sample_rate;
+end
 
 % Get acqLive times for current experiment
 experiment_ephys_starts = sync(1).timestamps(sync(1).values == 1);
@@ -578,7 +580,9 @@ acqlive_ephys_currexpt = [experiment_ephys_starts(experiment_num), ...
 
 % Get the spike/lfp times in timeline time (accounts for clock drifts)
 spike_times_timeline = AP_clock_fix(spike_times,acqlive_ephys_currexpt,acqLive_timeline);
-lfp_t_timeline = AP_clock_fix(lfp_t,acqlive_ephys_currexpt,acqLive_timeline);
+if exist(lfp_filename,'file')
+    lfp_t_timeline = AP_clock_fix(lfp_t,acqlive_ephys_currexpt,acqLive_timeline);
+end
 
 % Get the depths of each template 
 % (by COM: this gives totally wonky answers because of artifacts maybe?)

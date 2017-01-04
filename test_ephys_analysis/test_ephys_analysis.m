@@ -1,4 +1,112 @@
-%% Convert and kilosort data
+%% Preprocess and kilosort data (IMEC Phase 3)
+
+animal = 'AP005';
+day = '2016-12-20';
+
+data_path =  ...
+    ['\\zserver.cortexlab.net\Data\Subjects\' animal filesep day '\ephys'];
+save_path =  ...
+    ['\\basket.cortexlab.net\data\ajpeters\' animal filesep day '\ephys'];
+
+if ~exist(save_path,'dir')
+    mkdir(save_path)
+end
+
+% Hardcode the filenames here... are these always like this?
+ap_data_filename = [data_path filesep 'experiment1_100-0_0.dat'];
+lfp_data_filename = [data_path filesep 'experiment1_100-1_0.dat'];
+sync_filename = [data_path filesep 'experiment1_all_channels_0.events'];
+
+% Save parameters/header information in separate file
+% HARDCODE ALL THIS FOR NOW? (the gain is probably wrong, and lfp cutoff is
+% wrong at the moment)
+params = {'raw_path',['''' data_path '''']; ...
+    'n_channels',num2str(384); ...
+    'sample_rate',num2str(30000); ...
+    'gain',num2str(0.195); ...
+    'lfp_cutoff','undefined'};
+
+param_filename = [save_path filesep 'dat_params.txt'];
+
+formatSpec = '%s = %s\r\n';
+fid = fopen(param_filename,'w');
+for curr_param = 1:size(params,1)
+    fprintf(fid,formatSpec,params{curr_param,:});
+end
+fclose(fid);
+
+% Pull out and save events (saved in Open Ephys format)
+[sync_data, sync_timestamps, sync_info] = load_open_ephys_data_faster(sync_filename);
+sync_channels = unique(sync_data);
+sync = struct('timestamps',cell(size(sync_channels)),'values',cell(size(sync_channels)));
+for curr_sync = 1:length(sync_channels)
+    sync_events = sync_data == (sync_channels(curr_sync));
+    sync(curr_sync).timestamps = sync_timestamps(sync_events);
+    sync(curr_sync).values = logical(sync_info.eventId(sync_events));
+end
+sync_save_filename = [save_path filesep 'sync.mat'];
+save(sync_save_filename,'sync');
+
+% Copy files to local drive to speed up loading
+local_copy = true;
+if local_copy
+    disp('Copying data to local drive...')
+    temp_path = 'C:\temp';
+    ap_temp_filename = [temp_path filesep 'ap_temp.dat'];
+    if ~exist(temp_path,'dir')
+        mkdir(temp_path)
+    end
+    copyfile(ap_data_filename,ap_temp_filename);
+    disp('Done');
+    
+    ap_data_filename = ap_temp_filename;
+end
+
+% Subtract common median across AP-band channels (hardcode channels?)
+ops.NchanTOT = 384;
+medianTrace = applyCARtoDat(ap_data_filename, ops.NchanTOT);
+
+% Run kilosort on CAR data
+sample_rate = 30000; % get this from somewhere in the future?
+AP_run_kilosort(ap_data_filename,input_board,sample_rate)
+
+
+
+
+% Things to do here:
+% get the light artifact times from the median trace?
+% kilosort
+% delete local temp files
+
+% Get light artifact times and match to frame times
+% HOPEFULLY TEMPORARY (now acqLive recorded)
+
+% load in raw ch1
+d = dir(ap_temp_filename);
+nSampsTotal = d.bytes/ops.NchanTOT/2;
+
+fid = fopen(ap_temp_filename, 'r');
+fseek(fid,0,'bof')
+dat = fread(fid, [1,nSampsTotal], '*int16',383*2); % *2 because 2 bytes
+% then do medfilt? then just get with threshold?
+
+% get data summaries (assume filenames)
+img_path = ['\\zserver.cortexlab.net\Data\Subjects\' animal filesep day];
+dataSummary_blue = load([img_path filesep 'dataSummary_blue.mat']);
+dataSummary_purple = load([img_path filesep 'dataSummary_purple.mat']);
+
+n_blue = length(dataSummary_blue.dataSummary.frameNumbersFromStamp);
+n_purple = length(dataSummary_purple.dataSummary.frameNumbersFromStamp);
+% this is really bad and just hardcoded while I manually fix these expts
+% NOTE: THIS IS LOOKING FOR OFFSETS (positive deflections)
+light_artifact_samples = find(dat(2:end) > 5000 & dat(1:end-1) < 5000);
+light_artifact_diff = [0,diff(light_artifact_samples)/30000];
+
+
+
+
+
+%% Convert and kilosort data (IMEC Phase 2)
 
 animal = 'AP009';
 day = '2016-11-23';
@@ -33,7 +141,8 @@ ephys_sample_rate = str2num(header.sample_rate);
 
 input_board = 'oe';
 data_filename = [save_path filesep 'spikes.dat'];
-AP_run_kilosort(data_filename,input_board,ephys_sample_rate,combined_bank)
+AP_run_kilosort_old(data_filename,input_board,ephys_sample_rate,combined_bank)
+
 
 %% Cut data and do kilosort (if bad section of recording)
 % I know this is probably a dumb way to do it: but at the moment, just load

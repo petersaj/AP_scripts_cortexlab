@@ -1,4 +1,4 @@
-function [k,predicted_signals,explained_var] = AP_regresskernel(regressors,signals,t_shifts,lambda)
+function [k,predicted_signals,explained_var] = AP_regresskernel(regressors,signals,t_shifts,lambda,n_crossval)
 % [k,predicted_signals,explained_var] = AP_regresskernel(regressors,signals,t_shifts,lambda)
 %
 % Linear regression of kernel from regressors to outputs
@@ -8,6 +8,7 @@ function [k,predicted_signals,explained_var] = AP_regresskernel(regressors,signa
 % signals - dim x time
 % t_shifts - time shifts of regressors
 % lambda - rig regression value
+% n_crossval - number of 
 %
 % regressors and t_shifts can be cell arrays if multiple types
 %

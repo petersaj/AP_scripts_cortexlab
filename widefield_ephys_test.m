@@ -2392,7 +2392,7 @@ figure;imagesc(px_coherence);
 
 
 
-%% Fluor-spike regression (add spikes)
+%% Fluor-spike regression (add spike history)
 
 % Skip the first n seconds to do this
 skip_seconds = 10;

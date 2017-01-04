@@ -849,7 +849,7 @@ stim_screen = cat(3,ss.ImageTextures{:});
 ny = size(stim_screen,1);
 nx = size(stim_screen,2);
 
-switch photodiode_type
+switch lower(photodiode_type)
     case 'flicker'
         % Check for case of mismatch between photodiode and stimuli:
         % odd number of stimuli, but one extra photodiode flip to come back down
@@ -881,7 +881,7 @@ switch photodiode_type
         
         stim_times = photodiode.timestamps;
         
-    case 'Steady'
+    case 'steady'
         % If the photodiode is on steady: extrapolate the stim times
         if length(photodiode.timestamps) ~= 2
             error('Steady photodiode, but not 2 flips')
