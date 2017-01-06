@@ -1,7 +1,7 @@
 %% Preprocess and kilosort data (IMEC Phase 3)
 
 animal = 'AP005';
-day = '2016-12-20';
+day = '2016-12-19';
 
 data_path =  ...
     ['\\zserver.cortexlab.net\Data\Subjects\' animal filesep day '\ephys'];
@@ -67,8 +67,8 @@ ops.NchanTOT = 384;
 medianTrace = applyCARtoDat(ap_data_filename, ops.NchanTOT);
 
 % Run kilosort on CAR data
-sample_rate = 30000; % get this from somewhere in the future?
-AP_run_kilosort(ap_data_filename,input_board,sample_rate)
+sample_rate = 30000; % in the future, get this from somewhere?
+AP_run_kilosort(ap_data_filename,sample_rate)
 
 
 

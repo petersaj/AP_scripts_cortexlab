@@ -38,13 +38,20 @@ rez                = fullMPMU(rez, DATA);% extract final spike times (overlappin
 % AutoMerge. rez2Phy will use for clusters the new 5th column of st3 if you run this)
 %     rez = merge_posthoc2(rez);
 
-% save matlab and phy results
-ks_results_dir = ['C:\Users\Andrew\Documents\CarandiniHarrisLab\data\kilosort_temp\kilosort_results'];
-mkdir(ks_results_dir);
+% save matlab results file
+save(fullfile(ops.root,  'rez.mat'), 'rez', '-v7.3');
 
-save([ks_results_dir filesep 'rez.mat'], 'rez', '-v7.3');
+% remove temporary file
+delete(ops.fproc);
+
+%% Convert kilosort output to npy
+
+fprintf('Time %3.0fs. Done. saving results... \n', toc);
+
+mkdir(ks_results_dir);
 rezToPhy(rez, ks_results_dir);
 
+fprintf('Time %3.0fs. Done. \n', toc);
 
 %% Copy output files to original path (should be basket)
 
@@ -58,7 +65,7 @@ disp('MAKE THIS')
 disp('Deleting temporary files...')
 
 disp('MAKE THIS')
-%delete(ops.fproc);
+
 disp('Done.')
 
 

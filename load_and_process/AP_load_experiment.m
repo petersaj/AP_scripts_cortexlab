@@ -2,7 +2,7 @@
 
 animal = 'AP005';
 day = '2016-12-20';
-experiment = '2';
+experiment = '3';
 rig = 'kilotrode'; % kilotrode or bigrig
 cam_color_n = 2;
 cam_color_signal = 'blue';
@@ -478,6 +478,7 @@ lfp_t_timeline = AP_clock_fix(lfp_t,sync(1).timestamps,acqLive_timeline);
 
 % This is just for a few experiments where flipped or not corrected in ks
 flipped_banks = false;
+acqLive_channel = 2;
 
 disp('Loading ephys');
 
@@ -542,8 +543,8 @@ if exist(lfp_filename,'file')
 end
 
 % Get acqLive times for current experiment
-experiment_ephys_starts = sync(1).timestamps(sync(1).values == 1);
-experiment_ephys_stops = sync(1).timestamps(sync(1).values == 0);
+experiment_ephys_starts = sync(acqLive_channel).timestamps(sync(acqLive_channel).values == 1);
+experiment_ephys_stops = sync(acqLive_channel).timestamps(sync(acqLive_channel).values == 0);
 
 experiments_dir = dir(fileparts(get_cortexlab_filename(mpep_animal,day,[],'timeline')));
 experiment_num = strmatch(experiment,{experiments_dir.name})-2;

@@ -284,8 +284,8 @@ sta_v_pca = reshape(score,size(sta_v_all,1),size(sta_v_all,2),size(sta_v_all,3))
 
 %% STA for multiunit
 
-use_spikes = spike_times_timeline(ismember(spike_templates,find(templateDepths > 0 & templateDepths < 700)-1));
-%use_spikes = spike_times_timeline(ismember(spike_templates,205));
+%use_spikes = spike_times_timeline(ismember(spike_templates,find(templateDepths > 0 & templateDepths < 700)-1));
+use_spikes = spike_times_timeline(ismember(spike_templates,166));
 
 %use_spikes = spike_times_timeline(ismember(spike_templates,find(templateDepths > 0 & templateDepths < 400)-1) & ...
 %    ismember(spike_templates,use_templates(use_template_narrow))-1);
@@ -2183,8 +2183,8 @@ use_frames = (frame_t > skip_seconds);
 
 % Group multiunit by depth
 n_depth_groups = 4;
-depth_group_edges = linspace(0,1300,n_depth_groups+1);
-%depth_group_edges = [0,500];
+depth_group_edges = linspace(2400,double(max(channel_positions(:,2))),n_depth_groups+1);
+%depth_group_edges = [0,800,Inf];
 depth_group_edges(end) = Inf;
 
 [depth_group_n,depth_group] = histc(spikeDepths,depth_group_edges);
@@ -2204,8 +2204,8 @@ for curr_depth = 1:length(depth_group_edges)-1
 end
 
 use_svs = 1:500;
-kernel_frames = -6:3;
-lambda = 25;
+kernel_frames = -10:0;
+lambda = 10;
 
 k = AP_regresskernel(fV(use_svs,use_frames),frame_spikes(:,use_frames),kernel_frames,lambda);
 
@@ -2452,7 +2452,7 @@ stim_screen_interp = single([zeros(size(stim_screen_interp,1),1),diff(stim_scree
 skip_seconds = 10;
 use_frames = (frame_t > skip_seconds);
 
-use_spikes = spike_times_timeline(ismember(spike_templates,find(templateDepths > 0 & templateDepths < 700)-1));
+use_spikes = spike_times_timeline(ismember(spike_templates,find(templateDepths > 0 & templateDepths < Inf)-1));
 
 frame_edges = [frame_t(1),mean([frame_t(2:end);frame_t(1:end-1)],1),frame_t(end)+1/framerate];
 [frame_spikes,~,spike_frames] = histcounts(use_spikes,frame_edges);
@@ -2474,13 +2474,13 @@ spike_regressors_idx = px_regressors_idx(end)+1:px_regressors_idx(end)+length(sp
 stim_regressors_idx = spike_regressors_idx(end)+1:spike_regressors_idx(end)+ ...
     size(stim_screen_interp,1)*length(stim_kernel_frames);
 
-r = reshape(k(px_regressors_idx),length(use_svs),length(kernel_frames),size(frame_spikes,1));
+r = reshape(k(px_regressors_idx),length(use_svs),length(fluor_kernel_frames),size(frame_spikes,1));
 r_px = zeros(size(U,1),size(U,2),size(r,2),size(r,3),'single');
 for curr_spikes = 1:size(r,3);
     r_px(:,:,:,curr_spikes) = svdFrameReconstruct(U(:,:,use_svs),r(:,:,curr_spikes));
 end
 
-AP_image_scroll(r_px,kernel_frames/framerate);
+AP_image_scroll(r_px,fluor_kernel_frames/framerate);
 caxis([prctile(r_px(:),[1,99.5])]*2)
 
 figure;plot(spike_kernel_frames/framerate,k(spike_regressors_idx),'k','linewidth',2)
@@ -2531,12 +2531,12 @@ for curr_template_idx = 1:length(use_templates)
     % frame_spikes_conv_full = conv(frame_spikes,gcamp_kernel);
     % frame_spikes_conv = frame_spikes_conv_full(1:length(frame_spikes));
     
-    spike_trace = frame_spikes;
+    spike_trace = single(frame_spikes);
     
 end
     
     
-    
+%%%%%%%%%%% NOT FINISHED THIS YET?
 
 use_svs = 1:500;
 fluor_kernel_frames = -6:3;
