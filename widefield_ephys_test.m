@@ -1749,7 +1749,7 @@ ylabel('Correlation of conv spikes with fluorescence');
 
 %% Spatiotemporal correlation-fixed spatial kernel for spikes
 
-use_spikes = spike_times_timeline(ismember(spike_templates,find(templateDepths > 0 & templateDepths < 500)-1));
+use_spikes = spike_times_timeline(ismember(spike_templates,find(templateDepths > 2500 & templateDepths < Inf)-1));
 %use_spikes = spike_times_timeline(ismember(spike_templates,find(templateDepths > 0 & templateDepths < 400)-1) & ...
 %    ismember(spike_templates,use_templates(use_template_narrow))-1);
 
@@ -2173,7 +2173,7 @@ AP_image_scroll(r_px,kernel_frames/framerate);
 
 clear fluor_design
 
-%% (above, but use the function AP_regresskernel)
+%% Regression from fluor to spikes (AP_regresskernel) MUA
 
 % Skip the first n seconds to do this
 skip_seconds = 10;
@@ -2183,8 +2183,8 @@ use_frames = (frame_t > skip_seconds);
 
 % Group multiunit by depth
 n_depth_groups = 4;
-depth_group_edges = linspace(2400,double(max(channel_positions(:,2))),n_depth_groups+1);
-%depth_group_edges = [0,800,Inf];
+depth_group_edges = linspace(2000,double(max(channel_positions(:,2))),n_depth_groups+1);
+%depth_group_edges = [500,2000,Inf];
 depth_group_edges(end) = Inf;
 
 [depth_group_n,depth_group] = histc(spikeDepths,depth_group_edges);
@@ -2203,8 +2203,8 @@ for curr_depth = 1:length(depth_group_edges)-1
     
 end
 
-use_svs = 1:500;
-kernel_frames = -10:0;
+use_svs = 1:200;
+kernel_frames = -8:2;
 lambda = 10;
 
 k = AP_regresskernel(fV(use_svs,use_frames),frame_spikes(:,use_frames),kernel_frames,lambda);
@@ -2219,6 +2219,54 @@ end
 
 AP_image_scroll(r_px,kernel_frames/framerate);
 caxis([prctile(r_px(:),[1,99])]*2)
+
+%% Regression from fluor to spikes (AP_regresskernel) templates
+
+use_templates = good_templates;
+
+% Skip the first n seconds to do this
+skip_seconds = 10;
+use_frames = (frame_t > skip_seconds);
+%use_frames = (frame_t > skip_seconds) & (frame_t < max(frame_t)/2);
+%use_frames = (frame_t > max(frame_t)/2);
+
+frame_spikes = zeros(length(use_templates),length(frame_t),'single');
+for curr_template_idx = 1:length(use_templates)
+    
+    curr_template = use_templates(curr_template_idx);
+    
+    use_spikes = spike_times_timeline(spike_templates == curr_template);
+    
+    %use_spikes = spike_times_timeline(ismember(spike_templates,find(templateDepths > 0 & templateDepths < 400)-1) & ...
+    %    ismember(spike_templates,use_templates(use_template_narrow))-1);
+    
+    frame_edges = [frame_t(1),mean([frame_t(2:end);frame_t(1:end-1)],1),frame_t(end)+1/framerate];
+    [curr_frame_spikes,~,spike_frames] = histcounts(use_spikes,frame_edges);
+    % frame_spikes_conv_full = conv(frame_spikes,gcamp_kernel);
+    % frame_spikes_conv = frame_spikes_conv_full(1:length(frame_spikes));
+    
+    frame_spikes(curr_template_idx,:) = curr_frame_spikes;
+    
+end
+
+use_svs = 1:200;
+kernel_frames = -8:2;
+lambda = 10;
+
+k = AP_regresskernel(fV(use_svs,use_frames),frame_spikes(:,use_frames),kernel_frames,lambda);
+
+% Reshape kernel and convert to pixel space
+r = reshape(k,length(use_svs),length(kernel_frames),size(frame_spikes,1));
+
+r_px = zeros(size(U,1),size(U,2),size(r,2),size(r,3),'single');
+for curr_spikes = 1:size(r,3);
+    r_px(:,:,:,curr_spikes) = svdFrameReconstruct(U(:,:,use_svs),r(:,:,curr_spikes));
+end
+
+AP_image_scroll(r_px,kernel_frames/framerate);
+caxis([prctile(r_px(:),[1,99])]*2)
+
+
 
 %% Matrix division method of fluorescence -> spike kernel (pixel space)
 % this doesn't make sense that it doesn't work at all...

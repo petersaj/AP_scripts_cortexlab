@@ -1,7 +1,7 @@
 %% Preprocess and kilosort data (IMEC Phase 3)
 
-animal = 'AP005';
-day = '2016-12-19';
+animal = 'AP007';
+day = '2016-12-17';
 
 data_path =  ...
     ['\\zserver.cortexlab.net\Data\Subjects\' animal filesep day '\ephys'];
@@ -65,42 +65,16 @@ end
 % Subtract common median across AP-band channels (hardcode channels?)
 ops.NchanTOT = 384;
 medianTrace = applyCARtoDat(ap_data_filename, ops.NchanTOT);
+ap_temp_car_filename = [temp_path filesep 'ap_temp_CAR.dat'];
+
+% Get rid of the original non-CAR (usually not enough disk space)
+delete(ap_data_filename);
 
 % Run kilosort on CAR data
 sample_rate = 30000; % in the future, get this from somewhere?
-AP_run_kilosort(ap_data_filename,sample_rate)
+AP_run_kilosort(ap_temp_car_filename,sample_rate)
 
 
-
-
-% Things to do here:
-% get the light artifact times from the median trace?
-% kilosort
-% delete local temp files
-
-% Get light artifact times and match to frame times
-% HOPEFULLY TEMPORARY (now acqLive recorded)
-
-% load in raw ch1
-d = dir(ap_temp_filename);
-nSampsTotal = d.bytes/ops.NchanTOT/2;
-
-fid = fopen(ap_temp_filename, 'r');
-fseek(fid,0,'bof')
-dat = fread(fid, [1,nSampsTotal], '*int16',383*2); % *2 because 2 bytes
-% then do medfilt? then just get with threshold?
-
-% get data summaries (assume filenames)
-img_path = ['\\zserver.cortexlab.net\Data\Subjects\' animal filesep day];
-dataSummary_blue = load([img_path filesep 'dataSummary_blue.mat']);
-dataSummary_purple = load([img_path filesep 'dataSummary_purple.mat']);
-
-n_blue = length(dataSummary_blue.dataSummary.frameNumbersFromStamp);
-n_purple = length(dataSummary_purple.dataSummary.frameNumbersFromStamp);
-% this is really bad and just hardcoded while I manually fix these expts
-% NOTE: THIS IS LOOKING FOR OFFSETS (positive deflections)
-light_artifact_samples = find(dat(2:end) > 5000 & dat(1:end-1) < 5000);
-light_artifact_diff = [0,diff(light_artifact_samples)/30000];
 
 
 
@@ -1029,10 +1003,10 @@ end
 
 %% Raster plot by depth
 
-align_times = stim_onsets(ismember(stimIDs,[2]));
+align_times = stim_onsets(ismember(stimIDs,[4,5,6]));
 
 % Group by depth
-n_depth_groups = 10;
+n_depth_groups = 20;
 depth_group_edges = linspace(0,max(templateDepths),n_depth_groups+1);
 depth_group_edges(end) = Inf;
 depth_group = discretize(spikeDepths,depth_group_edges);
@@ -1062,7 +1036,7 @@ smooth_size = 50;
 gw = gausswin(smooth_size,3)';
 smWin = gw./sum(gw);
 psth_smooth = conv2(depth_psth, smWin, 'same');
-trace_spacing = 100;
+trace_spacing = 50;
 figure; AP_stackplot(psth_smooth(:,20:end-20)',bins(20:end-20),trace_spacing,[],copper(size(psth_smooth,1)))
 line([0,0],ylim,'linestyle','--','color','k');
 ylabel('Depth (\mum)');
@@ -1075,7 +1049,7 @@ title('Population raster by depth');
 %% Stim-triggered LFP by depth
 
 % Group by depth
-n_depth_groups = 1;
+n_depth_groups = 20;
 depth_group_edges = linspace(0,max(templateDepths),n_depth_groups+1);
 depth_group_edges(end) = Inf;
 depth_group_centers = depth_group_edges(1:end-1) + diff(depth_group_edges)./2;
@@ -1108,7 +1082,7 @@ end
 plot_t = lfp_window(1):t_space:lfp_window(2);
 
 % Plot one stim across depths
-plot_stim = 1;
+plot_stim = 5;
 trace_spacing = 5000;
 plot_lfp = squeeze(lfp_stim_mean(plot_stim,:,:));
 yvals = trace_spacing*[1:size(plot_lfp,2)];
@@ -1566,13 +1540,13 @@ end
 
 %% Raster aligned to stimuli
 
-use_spikes_idx = ismember(spike_templates,find(templateDepths > 0 & templateDepths < 450)-1);
+use_spikes_idx = ismember(spike_templates,find(templateDepths > 2000 & templateDepths < 2200)-1);
 %use_spikes_idx = spike_times_timeline(ismember(spike_templates,find(templateDepths > 0 & templateDepths < 400)-1) & ...
 %    (ismember(spike_templates,use_templates(use_template_narrow))));
 
 % use_spikes_idx = true(size(spike_times_timeline));
 
-align_times = stim_onsets(ismember(stimIDs,[1]));
+align_times = stim_onsets(ismember(stimIDs,[4,5,6]));
 
 use_spikes = spike_times_timeline(use_spikes_idx);
 use_spike_templates = spike_templates(use_spikes_idx);
@@ -1885,7 +1859,7 @@ legend({'MSN','TAN','FSI','UIN'})
 unique_depths = sort(unique(templateDepths));
 
 n_depth_groups = 30;
-depth_group_edges = linspace(0,1300,n_depth_groups+1);
+depth_group_edges = linspace(0,max(channel_positions(:,2)),n_depth_groups+1);
 depth_group = discretize(templateDepths,depth_group_edges);
 depth_group_centers = depth_group_edges(1:end-1)+diff(depth_group_edges);
 unique_depths = 1:length(depth_group_edges);

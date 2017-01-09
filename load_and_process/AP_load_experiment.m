@@ -1,7 +1,7 @@
 %% Define experiment
 
-animal = 'AP005';
-day = '2016-12-20';
+animal = 'AP007';
+day = '2016-12-16';
 experiment = '3';
 rig = 'kilotrode'; % kilotrode or bigrig
 cam_color_n = 2;
