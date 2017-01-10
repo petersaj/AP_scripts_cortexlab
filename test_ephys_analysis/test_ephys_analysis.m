@@ -1,7 +1,7 @@
 %% Preprocess and kilosort data (IMEC Phase 3)
 
 animal = 'AP007';
-day = '2016-12-17';
+day = '2016-12-16';
 
 data_path =  ...
     ['\\zserver.cortexlab.net\Data\Subjects\' animal filesep day '\ephys'];
@@ -48,27 +48,22 @@ sync_save_filename = [save_path filesep 'sync.mat'];
 save(sync_save_filename,'sync');
 
 % Copy files to local drive to speed up loading
-local_copy = true;
-if local_copy
-    disp('Copying data to local drive...')
-    temp_path = 'C:\temp';
-    ap_temp_filename = [temp_path filesep animal filesep day filesep 'ephys_apband.dat'];
-    if ~exist(temp_path,'dir')
-        mkdir(temp_path)
-    end
-    copyfile(ap_data_filename,ap_temp_filename);
-    disp('Done');
-    
-    ap_data_filename = ap_temp_filename;
+disp('Copying data to local drive...')
+temp_path = 'C:\Users\Andrew\Documents\CarandiniHarrisLab\data\kilosort_temp';
+ap_temp_filename = [temp_path filesep animal '_' day  '_' 'ephys_apband.dat'];
+if ~exist(temp_path,'dir')
+    mkdir(temp_path)
 end
+copyfile(ap_data_filename,ap_temp_filename);
+disp('Done');
 
 % Subtract common median across AP-band channels (hardcode channels?)
 ops.NchanTOT = 384;
-medianTrace = applyCARtoDat(ap_data_filename, ops.NchanTOT);
+medianTrace = applyCARtoDat(ap_temp_filename, ops.NchanTOT);
 ap_temp_car_filename = [ap_temp_filename(1:end-4) '_CAR.dat'];
 
 % Get rid of the original non-CAR (usually not enough disk space)
-delete(ap_data_filename);
+delete(ap_temp_filename);
 
 % Run kilosort on CAR data
 sample_rate = 30000; % in the future, get this from somewhere?

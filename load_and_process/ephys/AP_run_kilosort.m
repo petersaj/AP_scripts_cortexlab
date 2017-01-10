@@ -11,9 +11,6 @@ function AP_run_kilosort(data_filename,sample_rate)
 
 %% Run Kilosort
 
-% Set path
-data_path = ['C:\temp'];
-
 % Load channel map
 ops.chanMap = 'C:\Users\Andrew\Documents\CarandiniHarrisLab\data\kilosort_temp\channel_maps\forPRBimecP3opt3.mat';
 load(ops.chanMap);

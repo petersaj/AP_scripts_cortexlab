@@ -2183,7 +2183,7 @@ use_frames = (frame_t > skip_seconds);
 
 % Group multiunit by depth
 n_depth_groups = 4;
-depth_group_edges = linspace(2000,double(max(channel_positions(:,2))),n_depth_groups+1);
+depth_group_edges = linspace(2500,double(max(channel_positions(:,2))),n_depth_groups+1);
 %depth_group_edges = [500,2000,Inf];
 depth_group_edges(end) = Inf;
 

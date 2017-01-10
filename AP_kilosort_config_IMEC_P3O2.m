@@ -4,7 +4,7 @@ ops.verbose             = 1; % whether to print command line progress
 ops.showfigures         = 1; % whether to plot figures during optimization		
 		
 ops.datatype            = 'dat';  % binary ('dat', 'bin') or 'openEphys'		
-ops.fbinary             = [data_path filesep 'ap_temp_CAR.dat']; % will be created for 'openEphys'		
+ops.fbinary             = data_filename; % will be created for 'openEphys'		
 ops.fproc               = [data_path filesep 'temp_wh.dat']; % residual from RAM of preprocessed data		
 ops.root                = data_path; % 'openEphys' only: where raw files are		
 		
