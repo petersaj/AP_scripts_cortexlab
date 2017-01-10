@@ -52,7 +52,7 @@ local_copy = true;
 if local_copy
     disp('Copying data to local drive...')
     temp_path = 'C:\temp';
-    ap_temp_filename = [temp_path filesep 'ap_temp.dat'];
+    ap_temp_filename = [temp_path filesep animal filesep day filesep 'ephys_apband.dat'];
     if ~exist(temp_path,'dir')
         mkdir(temp_path)
     end
@@ -65,7 +65,7 @@ end
 % Subtract common median across AP-band channels (hardcode channels?)
 ops.NchanTOT = 384;
 medianTrace = applyCARtoDat(ap_data_filename, ops.NchanTOT);
-ap_temp_car_filename = [temp_path filesep 'ap_temp_CAR.dat'];
+ap_temp_car_filename = [ap_temp_filename(1:end-4) '_CAR.dat'];
 
 % Get rid of the original non-CAR (usually not enough disk space)
 delete(ap_data_filename);
@@ -1905,13 +1905,13 @@ axis square;
 %% Spectral analysis
 
 % Power spectrum
-use_trace = roi_trace;
+use_trace = roi_trace(1:end-1);
 use_t = frame_t;
 
 Fs = 1./median(diff(use_t));
 L = length(use_trace);
 NFFT = 2^nextpow2(L);
-[P,F] = pwelch(single(use_trace)',[],[],NFFT,Fs);
+[P,F] = pwelch(double(use_trace)',[],[],NFFT,Fs);
 Pc = smooth(P,50); 
 figure;plot(F,log10(Pc),'k')
 xlabel('Frequency');

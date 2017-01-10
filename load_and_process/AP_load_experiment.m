@@ -1,7 +1,7 @@
 %% Define experiment
 
-animal = 'AP007';
-day = '2016-12-16';
+animal = 'AP005';
+day = '2016-12-20';
 experiment = '3';
 rig = 'kilotrode'; % kilotrode or bigrig
 cam_color_n = 2;
@@ -335,40 +335,35 @@ elseif cam_color_n == 2
     Vh = readVfromNPY([experiment_path filesep 'svdTemporalComponents_' cam_color_hemo '.npy']);
     dataSummary_h = load([data_path filesep 'dataSummary_' cam_color_signal '.mat']);
     avg_im_h = readNPY([data_path filesep 'meanImage_' cam_color_hemo '.npy']);
-    
-    disp('Filtering...')
-    nSV = size(Vn,1);
+           
     framerate = 1./nanmedian(diff(tn));
-    if framerate > 28
-        fVn = detrendAndFilt(Vn, framerate);
-        fVh = detrendAndFilt(Vh, framerate);
-    else
-        highpassCutoff = 0.01; % Hz
-        [b100s, a100s] = butter(2, highpassCutoff/(framerate/2), 'high');
-        
-        dVn = detrend(Vn', 'linear')';
-        fVn = filter(b100s,a100s,dVn,[],2);
-        
-        dVh = detrend(Vh', 'linear')';
-        fVh = filter(b100s,a100s,dVh,[],2);
-    end
-    
+
     % Correct hemodynamic signal in blue from green
     % First need to shift alternating signals to be temporally aligned
     % (shifts neural to hemo)
     % Eliminate odd frames out
-    min_frames = min(size(fVn,2),size(fVh,2));
-    fVn = fVn(:,1:min_frames);
-    fVh = fVh(:,1:min_frames);
+    min_frames = min(size(Vn,2),size(Vh,2));
+    Vn = Vn(:,1:min_frames);
+    Vh = Vh(:,1:min_frames);
     
-    fVn_th = SubSampleShift(fVn,1,2);
+    Vn_th = SubSampleShift(Vn,1,2);
     
-    fVh_Un = ChangeU(Uh,fVh,Un);
+    Vh_Un = ChangeU(Uh,Vh,Un);
     
     hemo_freq = [0.2,3];
     %hemo_freq = [7,13];
     disp('Correcting hemodynamics...')
-    fVn_hemo = HemoCorrectLocal(Un,fVn_th,fVh_Un,framerate,hemo_freq,3);
+    Vn_hemo = HemoCorrectLocal(Un,Vn_th,Vh_Un,framerate,hemo_freq,3);
+    
+    disp('Filtering...')
+    % Don't bother filtering heartbeat, just detrend and highpass   
+    % fVn_hemo = detrendAndFilt(Vn_hemo, framerate);    
+    highpassCutoff = 0.01; % Hz
+    [b100s, a100s] = butter(2, highpassCutoff/(framerate/2), 'high');
+    
+    dVn_hemo = detrend(Vn_hemo', 'linear')';
+    fVn_hemo = filter(b100s,a100s,dVn_hemo,[],2);
+    
     
     % set final U/V to use
     fV = fVn_hemo;

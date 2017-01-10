@@ -21,8 +21,7 @@ load(ops.chanMap);
 % Run config script to get options
 AP_kilosort_config_IMEC_P3O2
 
-tic; % start timer
-%
+tic;
 if ops.GPU     
     gpuDevice(1); % initialize GPU (will erase any existing GPU arrays)
 end
@@ -30,7 +29,8 @@ end
 if strcmp(ops.datatype , 'openEphys')
    ops = convertOpenEphysToRawBInary(ops);  % convert data, only for OpenEphys
 end
-%
+
+% Run kilosort
 [rez, DATA, uproj] = preprocessData(ops); % preprocess data and extract spikes for initialization
 rez                = fitTemplates(rez, DATA, uproj);  % fit templates iteratively
 rez                = fullMPMU(rez, DATA);% extract final spike times (overlapping extraction)
@@ -57,8 +57,9 @@ disp('MAKE THIS')
 
 disp('Deleting temporary files...')
 
-disp('MAKE THIS')
-%delete(ops.fproc);
+delete(ops.fproc);
+disp('ALSO DELETE THE REST OF THE LOCAL RESULTS')
+
 disp('Done.')
 
 
