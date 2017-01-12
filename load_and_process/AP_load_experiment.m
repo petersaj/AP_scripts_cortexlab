@@ -1,7 +1,7 @@
 %% Define experiment
 
-animal = 'AP005';
-day = '2016-12-20';
+animal = 'AP007';
+day = '2016-12-18';
 experiment = '3';
 rig = 'kilotrode'; % kilotrode or bigrig
 cam_color_n = 2;
@@ -474,6 +474,7 @@ lfp_t_timeline = AP_clock_fix(lfp_t,sync(1).timestamps,acqLive_timeline);
 % This is just for a few experiments where flipped or not corrected in ks
 flipped_banks = false;
 acqLive_channel = 2;
+load_lfp = false;
 
 disp('Loading ephys');
 
@@ -523,7 +524,7 @@ channel_positions(:,2) = max(channel_positions(:,2)) - channel_positions(:,2);
 % Load LFP
 n_channels = str2num(header.n_channels);
 lfp_filename = [data_path filesep 'lfp.dat'];
-if exist(lfp_filename,'file')
+if load_lfp && exist(lfp_filename,'file')
     fid = fopen(lfp_filename);
     lfp_all = fread(fid,[n_channels,inf],'int16');
     fclose(fid);
@@ -576,7 +577,7 @@ acqlive_ephys_currexpt = [experiment_ephys_starts(experiment_num), ...
 
 % Get the spike/lfp times in timeline time (accounts for clock drifts)
 spike_times_timeline = AP_clock_fix(spike_times,acqlive_ephys_currexpt,acqLive_timeline);
-if exist(lfp_filename,'file')
+if load_lfp && exist(lfp_filename,'file')
     lfp_t_timeline = AP_clock_fix(lfp_t,acqlive_ephys_currexpt,acqLive_timeline);
 end
 

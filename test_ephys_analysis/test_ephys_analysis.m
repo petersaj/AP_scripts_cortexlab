@@ -49,7 +49,7 @@ save(sync_save_filename,'sync');
 
 % Copy files to local drive to speed up loading
 disp('Copying data to local drive...')
-temp_path = 'C:\Users\Andrew\Documents\CarandiniHarrisLab\data\kilosort_temp';
+temp_path = 'C:\data_temp\kilosort';
 ap_temp_filename = [temp_path filesep animal '_' day  '_' 'ephys_apband.dat'];
 if ~exist(temp_path,'dir')
     mkdir(temp_path)
@@ -1535,7 +1535,7 @@ end
 
 %% Raster aligned to stimuli
 
-use_spikes_idx = ismember(spike_templates,find(templateDepths > 2000 & templateDepths < 2200)-1);
+use_spikes_idx = ismember(spike_templates,find(templateDepths > 2000 & templateDepths < 2500)-1);
 %use_spikes_idx = spike_times_timeline(ismember(spike_templates,find(templateDepths > 0 & templateDepths < 400)-1) & ...
 %    (ismember(spike_templates,use_templates(use_template_narrow))));
 
@@ -1579,7 +1579,7 @@ for curr_stim = unique(stimIDs)';
 end
 stim_psth_smooth = conv2(stim_psth,smWin,'same');
 figure; hold on;
-trace_spacing = 50;
+trace_spacing = 100;
 AP_stackplot(stim_psth_smooth(:,20:end-20)',bins(20:end-20),trace_spacing,false)
 xlabel('Time from stim onset')
 ylabel('Population spikes (by stim)');

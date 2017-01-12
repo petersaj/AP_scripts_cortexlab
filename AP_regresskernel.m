@@ -1,16 +1,15 @@
-function [k,predicted_signals,explained_var] = AP_regresskernel(regressors,signals,t_shifts,lambda,n_crossval)
+function [k,predicted_signals,explained_var] = AP_regresskernel(regressors,signals,t_shifts,lambda)
 % [k,predicted_signals,explained_var] = AP_regresskernel(regressors,signals,t_shifts,lambda)
 %
 % Linear regression of kernel from regressors to outputs
 % 
 % Inputs:
 % regressors - dim x time
-% signals - dim x time
+% signals - dim x time, one kernel will be returned for each dim
 % t_shifts - time shifts of regressors
-% lambda - rig regression value
-% n_crossval - number of 
+% lambda - ridge regression value. Units are z-scores of regressors
 %
-% regressors and t_shifts can be cell arrays if multiple types
+% FOR MULTIPLE MODALITIES: make regressors and t_shifts cell arrays
 %
 % Outputs: 
 % k - kernel
@@ -18,6 +17,12 @@ function [k,predicted_signals,explained_var] = AP_regresskernel(regressors,signa
 % explained_var - .total (total model), 
 %                 .reduced (unique - regressors x signals)
 %
+% NOTE IF GPU ERROR: 
+% The GPU is by default set to time out quickly if it can't update the
+% monitor because it's busy. If there is a GPU error, this time (TDR) can be
+% extended by adding a registry key: regedit, HKEY_LOCAL_MACHINE > SYSTEM >
+% CurrentControlSet > Control > GraphicsDrivers, add new REG_DWORD called
+% "TdrDelay" and having a value of something like 30 (seconds)
 
 % Convert regressors and t_shifts to cells if not already
 if ~iscell(regressors)

@@ -14,7 +14,7 @@ function AP_prepare_phy(data_filename)
 
 %% Clear out local phy folder
 
-local_phy_dir = 'C:\Users\Andrew\Documents\CarandiniHarrisLab\data\phy_temp';
+local_phy_dir = 'C:\data_temp\phy';
 if ~exist(local_phy_dir)
     mkdir(local_phy_dir)
 elseif length(dir(local_phy_dir)) > 2

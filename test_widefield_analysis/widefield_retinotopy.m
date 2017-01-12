@@ -554,38 +554,49 @@ stim_screen = cat(3,ss.ImageTextures{:});
 ny = size(stim_screen,1);
 nx = size(stim_screen,2);
 
-% Check for case of mismatch between photodiode and stimuli:
-% odd number of stimuli, but one extra photodiode flip to come back down
-if mod(size(stim_screen,3),2) == 1 && ...
-        length(photodiode.timestamps) == size(stim_screen,3) + 1;
-    photodiode.timestamps(end) = [];
-    photodiode.values(end) = [];
-    warning('Odd number of stimuli, removed last photodiode');
+switch photodiode_type
+    case 'flicker'
+        % Check for case of mismatch between photodiode and stimuli:
+        % odd number of stimuli, but one extra photodiode flip to come back down
+        if mod(size(stim_screen,3),2) == 1 && ...
+                length(photodiode.timestamps) == size(stim_screen,3) + 1;
+            photodiode.timestamps(end) = [];
+            photodiode.values(end) = [];
+            warning('Odd number of stimuli, removed last photodiode');
+        end
+        
+        % If there's still a mismatch, break
+        if size(stim_screen,3) ~= length(photodiode.timestamps);
+            warning([num2str(size(stim_screen,3)) ' stimuli, ', ...
+                num2str(length(photodiode.timestamps)) ' photodiode pulses']);
+            
+            % Try to estimate which stim were missed by time difference
+            photodiode_diff = diff(photodiode.timestamps);
+            max_regular_diff_time = prctile(diff(photodiode.timestamps),99);
+            skip_cutoff = max_regular_diff_time*2;
+            photodiode_skip = find(photodiode_diff > skip_cutoff);
+            est_n_pulse_skip = ceil(photodiode_diff(photodiode_skip)/max_regular_diff_time)-1;
+            stim_skip = cell2mat(arrayfun(@(x) photodiode_skip(x):photodiode_skip(x)+est_n_pulse_skip(x)-1, ...
+                1:length(photodiode_skip),'uni',false));
+            
+            if isempty(est_n_pulse_skip) || length(photodiode.timestamps) + sum(est_n_pulse_skip) ~= size(stim_screen,3)
+                error('Can''t match photodiode events to stimuli')
+            end
+        end
+        
+        stim_times = photodiode.timestamps;
+        
+    case 'Steady'
+        % If the photodiode is on steady: extrapolate the stim times
+        if length(photodiode.timestamps) ~= 2
+            error('Steady photodiode, but not 2 flips')
+        end
+        stim_duration = diff(photodiode.timestamps)/size(stim_screen,3);
+        stim_times = linspace(photodiode.timestamps(1), ...
+            photodiode.timestamps(2)-stim_duration,size(stim_screen,3));
+        
 end
 
-
-% Check number of photodiode pulses vs. number of stimuli
-% (this is really not a good way to do this, why does it skip photodiode
-% events??)
-if size(stim_screen,3) ~= length(photodiode.timestamps);
-   warning([num2str(size(stim_screen,3)) ' stimuli, ', ...
-       num2str(length(photodiode.timestamps)) ' photodiode pulses']); 
-   
-   % Try to estimate which stim were missed by time difference
-   photodiode_diff = diff(photodiode.timestamps);   
-   skip_cutoff = prctile(diff(photodiode.timestamps),99)*1.5;
-   photodiode_skip = find(photodiode_diff > skip_cutoff);
-   est_n_pulse_skip = round(photodiode_diff(photodiode_skip)/median(photodiode_diff))-1;
-   stim_skip = cell2mat(arrayfun(@(x) photodiode_skip(x):photodiode_skip(x)+est_n_pulse_skip(x)-1, ...
-       1:length(photodiode_skip),'uni',false));
-   
-   if isempty(est_n_pulse_skip) || length(photodiode.timestamps) + est_n_pulse_skip ~= size(stim_screen,3)
-       error('Can''t match photodiode events to stimuli')
-   else
-       warning('Estimated skipped stimuli, removing those and continuing');
-       stim_screen(:,:,stim_skip) = [];       
-   end   
-end
 
 % Get average response to each stimulus
 surround_window = [0,3];
@@ -600,7 +611,10 @@ for px_y = 1:ny;
         % Use first frame of dark or light stim 
         align_stims = (stim_screen(px_y,px_x,2:end)~= 0) & ...
             (diff(stim_screen(px_y,px_x,:),[],3) ~= 0);
-        align_times = photodiode.timestamps(find(align_stims)+1);
+        align_times = stim_times(find(align_stims)+1);
+        
+        align_times = align_times(round(length(align_times)/2):end);
+        
         response_n(px_y,px_x) = length(align_times);
         
         % Don't use times that fall outside of imaging

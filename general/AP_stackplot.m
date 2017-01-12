@@ -1,10 +1,11 @@
-function AP_stackplot(x,t,spacing,zs,color)
-% fig = AP_stackplot(x,t,spacing,zs,color)
+function AP_stackplot(x,t,spacing,zs,color,ylabels)
+% fig = AP_stackplot(x,t,spacing,zs,color,ylabels)
 %
 % Plot lines stacked on each other
 % x - 2d matrix of lines to plot
 % spacing - spacing between lines
 % zscore - true/false, zscore traces
+% ylabels - can set the ylabels for each line being plotted
 
 if ~exist('t','var') || isempty(t)
     t = 1:size(x,1);
@@ -35,5 +36,10 @@ if exist('color','var') && ~isempty(color);
 else
     plot(t,x_spaced,'linewidth',2);
 end
+
+% Set ylabels if desired
+set(gca,'YTick',sort(spacing_add));
+set(gca,'YTickLabel',fliplr(ylabels));
+
 
 

@@ -3,7 +3,7 @@ function AP_run_kilosort(data_filename,sample_rate)
 %
 % data_filename = .dat flat binary file of all channels together
 % 
-% New version (old in _old)
+% New version (old version in _old)
 % Runs kilosort (modified from master_file_example_MOVEME)
 
 %% Assume the data is already copied locally for now
@@ -12,7 +12,7 @@ function AP_run_kilosort(data_filename,sample_rate)
 %% Run Kilosort
 
 % Load channel map
-ops.chanMap = 'C:\Users\Andrew\Documents\CarandiniHarrisLab\data\kilosort_temp\channel_maps\forPRBimecP3opt3.mat';
+ops.chanMap = 'C:\Users\Andrew\OneDrive for Business\Documents\CarandiniHarrisLab\kilosort_channelmaps\forPRBimecP3opt3.mat';
 load(ops.chanMap);
 
 % Run config script to get options
@@ -36,7 +36,7 @@ rez                = fullMPMU(rez, DATA);% extract final spike times (overlappin
 %     rez = merge_posthoc2(rez);
 
 % save matlab and phy results
-ks_results_dir = ['C:\Users\Andrew\Documents\CarandiniHarrisLab\data\kilosort_temp\kilosort_results'];
+ks_results_dir = [data_path filesep 'results'];
 mkdir(ks_results_dir);
 
 save([ks_results_dir filesep 'rez.mat'], 'rez', '-v7.3');
@@ -55,7 +55,7 @@ disp('MAKE THIS')
 disp('Deleting temporary files...')
 
 delete(ops.fproc);
-disp('ALSO DELETE THE REST OF THE LOCAL RESULTS')
+disp('ALSO DELETE THE REST OF THE LOCAL RESULTS AFTER THEY''RE MOVED')
 
 disp('Done.')
 
