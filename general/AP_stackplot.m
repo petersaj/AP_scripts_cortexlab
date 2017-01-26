@@ -38,8 +38,9 @@ else
 end
 
 % Set ylabels if desired
-set(gca,'YTick',sort(spacing_add));
-set(gca,'YTickLabel',fliplr(ylabels));
-
+if exist('ylabels','var')
+    set(gca,'YTick',sort(spacing_add));
+    set(gca,'YTickLabel',fliplr(ylabels));
+end
 
 

@@ -998,10 +998,10 @@ end
 
 %% Raster plot by depth
 
-align_times = stim_onsets(ismember(stimIDs,[4,5,6]));
+align_times = stim_onsets(ismember(stimIDs,[1,2,3]));
 
 % Group by depth
-n_depth_groups = 20;
+n_depth_groups = 10;
 depth_group_edges = linspace(0,max(templateDepths),n_depth_groups+1);
 depth_group_edges(end) = Inf;
 depth_group = discretize(spikeDepths,depth_group_edges);
@@ -1031,13 +1031,11 @@ smooth_size = 50;
 gw = gausswin(smooth_size,3)';
 smWin = gw./sum(gw);
 psth_smooth = conv2(depth_psth, smWin, 'same');
-trace_spacing = 50;
-figure; AP_stackplot(psth_smooth(:,20:end-20)',bins(20:end-20),trace_spacing,[],copper(size(psth_smooth,1)))
+trace_spacing = max(psth_smooth(:));
+figure; AP_stackplot(psth_smooth(:,20:end-20)',bins(20:end-20), ...
+    trace_spacing,[],copper(size(psth_smooth,1)),depth_group_centers)
 line([0,0],ylim,'linestyle','--','color','k');
 ylabel('Depth (\mum)');
-yvals = trace_spacing*[1:size(psth_smooth,1)];
-set(gca,'YTick',yvals);
-set(gca,'YTickLabel',sort(depth_group_centers,'descend'));
 xlabel('Time from stim onset (s)')
 title('Population raster by depth');
 
@@ -1535,13 +1533,13 @@ end
 
 %% Raster aligned to stimuli
 
-use_spikes_idx = ismember(spike_templates,find(templateDepths > 2000 & templateDepths < 2500)-1);
+use_spikes_idx = ismember(spike_templates,find(templateDepths > 0 & templateDepths < 600)-1);
 %use_spikes_idx = spike_times_timeline(ismember(spike_templates,find(templateDepths > 0 & templateDepths < 400)-1) & ...
 %    (ismember(spike_templates,use_templates(use_template_narrow))));
 
 % use_spikes_idx = true(size(spike_times_timeline));
 
-align_times = stim_onsets(ismember(stimIDs,[4,5,6]));
+align_times = stim_onsets(ismember(stimIDs,[1,2,3]));
 
 use_spikes = spike_times_timeline(use_spikes_idx);
 use_spike_templates = spike_templates(use_spikes_idx);
@@ -1579,8 +1577,8 @@ for curr_stim = unique(stimIDs)';
 end
 stim_psth_smooth = conv2(stim_psth,smWin,'same');
 figure; hold on;
-trace_spacing = 100;
-AP_stackplot(stim_psth_smooth(:,20:end-20)',bins(20:end-20),trace_spacing,false)
+trace_spacing = max(stim_psth_smooth(:));
+AP_stackplot(stim_psth_smooth(:,20:end-20)',bins(20:end-20),trace_spacing,false,[],unique(stimIDs))
 xlabel('Time from stim onset')
 ylabel('Population spikes (by stim)');
 line([0,0],ylim,'linestyle','--','color','k');
@@ -1720,27 +1718,30 @@ for curr_template = unique(spike_templates)'
     prop_long_isi(curr_template+1) = nanmean(curr_isi > 2);
 end
 
-figure;plot3( ...
-    templateDuration_us(use_templates_1idx), ...
-    prop_long_isi(use_templates_1idx), ...
-    spike_rate(use_templates_1idx),'.k');
-xlabel('waveform duration')
-ylabel('prop. long ISI')
-zlabel('spike rate')
-
-set(gca,'YDir','reverse')
-set(gca,'XDir','reverse')
-
 % Classify (Bartho JNeurophys 2004)
 duration_cutoff = 400;
 use_template_narrow = templateDuration_us(use_templates_1idx) <= duration_cutoff;
 use_template_wide = templateDuration_us(use_templates_1idx) > duration_cutoff;
 
 figure; hold on
-plot(waveforms(use_templates_1idx(use_template_wide),:)','r');
-plot(waveforms(use_templates_1idx(use_template_narrow),:)','k');
+plot(waveforms(use_templates_1idx(use_template_wide),:)','k');
+plot(waveforms(use_templates_1idx(use_template_narrow),:)','r');
 
+figure; hold on;
+plot3( ...
+    templateDuration_us(use_templates_1idx(use_template_wide)), ...
+    prop_long_isi(use_templates_1idx(use_template_wide)), ...
+    spike_rate(use_templates_1idx(use_template_wide)),'.k');
+plot3( ...
+    templateDuration_us(use_templates_1idx(use_template_narrow)), ...
+    prop_long_isi(use_templates_1idx(use_template_narrow)), ...
+    spike_rate(use_templates_1idx(use_template_narrow)),'.r');
+xlabel('waveform duration')
+ylabel('prop. long ISI')
+zlabel('spike rate')
 
+set(gca,'YDir','reverse')
+set(gca,'XDir','reverse')
 
 
 
@@ -1851,16 +1852,15 @@ legend({'MSN','TAN','FSI','UIN'})
 
 %% MUA/LFP correlation by depth 
 
-unique_depths = sort(unique(templateDepths));
-
-n_depth_groups = 30;
+n_depth_groups = 10;
 depth_group_edges = linspace(0,max(channel_positions(:,2)),n_depth_groups+1);
 depth_group = discretize(templateDepths,depth_group_edges);
 depth_group_centers = depth_group_edges(1:end-1)+diff(depth_group_edges);
-unique_depths = 1:length(depth_group_edges);
+unique_depths = 1:length(depth_group_edges)-1;
 
 spike_binning = 0.01; % seconds
 corr_edges = spike_times_timeline(1):spike_binning:spike_times_timeline(end);
+corr_centers = corr_edges(1:end-1) + diff(corr_edges);
 
 binned_spikes_depth = zeros(length(unique_depths),length(corr_edges)-1);
 for curr_depth = 1:length(unique_depths);

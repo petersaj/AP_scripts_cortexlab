@@ -469,6 +469,40 @@ lfp_t_timeline = AP_clock_fix(lfp_t,sync(1).timestamps,acqLive_timeline);
 %spike_times_timeline = AP_clock_fix(spike_times,sync.timestamps(stim_onset_idx_ephys),photodiode.timestamps(stim_onset_idx_timeline));
 %lfp_t_timeline = AP_clock_fix(lfp_t,sync.timestamps(stim_onset_idx_ephys),photodiode.timestamps(stim_onset_idx_timeline));
 
+
+
+% (by max waveform channel)
+template_abs = permute(max(abs(templates),[],2),[3,1,2]);
+[~,max_channel_idx] =  max(template_abs,[],1);
+templateDepths = channel_positions(max_channel_idx,2);
+
+% Get each spike's depth
+spikeDepths = templateDepths(spike_templates+1);
+
+% Get the waveform duration of all templates (channel with largest amp)
+[~,max_site] = max(max(abs(templates),[],2),[],3);
+templates_max = nan(size(templates,1),size(templates,2));
+for curr_template = 1:size(templates,1)
+    templates_max(curr_template,:) = ...
+        templates(curr_template,:,max_site(curr_template));
+end
+waveforms = templates_max;
+
+% Get trough-to-peak time for each template
+templates_max_signfix = bsxfun(@times,templates_max, ...
+    sign(abs(min(templates_max,[],2)) - abs(max(templates_max,[],2))));
+
+[~,waveform_trough] = min(templates_max,[],2);
+[~,waveform_peak_rel] = arrayfun(@(x) ...
+    max(templates_max(x,waveform_trough(x):end),[],2), ...
+    transpose(1:size(templates_max,1)));
+waveform_peak = waveform_peak_rel + waveform_trough;
+
+templateDuration = waveform_peak - waveform_trough;
+templateDuration_us = (templateDuration/ephys_sample_rate)*1e6;
+
+disp('Done');
+
 %% Load ephys data (single long recording)
 
 % This is just for a few experiments where flipped or not corrected in ks

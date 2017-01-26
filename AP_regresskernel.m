@@ -1,5 +1,5 @@
-function [k,predicted_signals,explained_var] = AP_regresskernel(regressors,signals,t_shifts,lambda)
-% [k,predicted_signals,explained_var] = AP_regresskernel(regressors,signals,t_shifts,lambda)
+function [k,predicted_signals,explained_var] = AP_regresskernel(regressors,signals,t_shifts,lambdas,zs)
+% [k,predicted_signals,explained_var] = AP_regresskernel(regressors,signals,t_shifts,lambdas,zs)
 %
 % Linear regression of kernel from regressors to outputs
 % 
@@ -7,7 +7,8 @@ function [k,predicted_signals,explained_var] = AP_regresskernel(regressors,signa
 % regressors - dim x time
 % signals - dim x time, one kernel will be returned for each dim
 % t_shifts - time shifts of regressors
-% lambda - ridge regression value. Units are z-scores of regressors
+% lambda - ridge regression value, if multiple regressors can have multiple
+% values
 %
 % FOR MULTIPLE MODALITIES: make regressors and t_shifts cell arrays
 %
@@ -32,9 +33,14 @@ if ~iscell(t_shifts)
     t_shifts = {t_shifts};
 end
 
-% Z-score all regressors and signals to get beta weights
-regressors = cellfun(@(x) zscore(x,[],2),regressors,'uni',false);
-signals = zscore(signals,[],2);
+% Z-score all regressors and signals to get beta weights if selected
+if ~exist('zs','var') || isempty(zs)
+    zs = false;
+end
+if zs
+    regressors = cellfun(@(x) zscore(x,[],2),regressors,'uni',false);
+    signals = zscore(signals,[],2);
+end
 
 % Create design matrix of all time-shifted regressors
 regressor_design = cellfun(@(regressors,t_shifts) repmat(regressors', ...
@@ -54,17 +60,26 @@ regressor_design = cell2mat(cellfun(@(regressor_design) ...
     regressor_design,'uni',false));
 
 % Ridge regression for reducing noise: add offsets to design matrix to penalize k
-if exist('lambda','var') && lambda ~= 0
-    ridge_matrix = lambda*eye(size(regressor_design,2));
+if exist('lambdas','var') && any(lambdas)
+    if length(lambdas) == 1
+        ridge_matrix = lambdas*eye(size(regressor_design,2));
+    elseif length(lambdas) == length(regressors)
+        lambda_vector = cell2mat(reshape(cellfun(@(reg,t,lam) repmat(lam,size(reg,1)*length(t),1), ...
+            regressors,t_shifts,num2cell(lambdas),'uni',false),[],1));
+        ridge_matrix = bsxfun(@times,eye(size(regressor_design,2)),lambda_vector);
+    else
+        error('Number of lambdas doesn''t match regressor groups');
+    end
 else
     ridge_matrix = [];
 end
 
-% Z-score the inputs to get beta weights
+% Send everything to the GPU
 fluor_gpu = gpuArray([regressor_design;ridge_matrix]);
 spikes_gpu = gpuArray([signals';zeros(length(ridge_matrix),size(signals,1))]);
 
-% Spell out what to do - looks the same result and time as \
+% Spell out what to do - looks the same result and time as
+% fluor_gpu\spikes_gpu
 k = gather(inv(fluor_gpu'*fluor_gpu)*fluor_gpu'*spikes_gpu);
 
 % Get predicted signals

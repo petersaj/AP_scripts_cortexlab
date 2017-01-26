@@ -84,9 +84,15 @@ end
 
 % Set up trace
 if handles.plot_trace
-    handles.trace_plot = plot(handles.trace_axis,trace_t,trace);
-    handles.trace_xlim = [handles.t-5,handles.t+5];
-    handles.trace_tmark = line([handles.t,handles.t],ylim,'color','k');
+    if size(trace,2) < 3
+        handles.trace_plot = plot(handles.trace_axis,trace_t,trace);
+        handles.trace_xlim = [handles.t-5,handles.t+5];
+        handles.trace_tmark = line([handles.t,handles.t],ylim,'color','k');
+    else
+        handles.trace_plot = imagesc(handles.trace_axis,trace_t,1:size(trace,2),trace');
+        handles.trace_xlim = [handles.t-2,handles.t+2];
+        handles.trace_tmark = line([handles.t,handles.t],ylim,'color','r');
+    end    
     xlim(handles.trace_axis,handles.trace_xlim);
 end
 
