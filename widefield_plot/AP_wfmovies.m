@@ -90,7 +90,7 @@ if handles.plot_trace
         handles.trace_tmark = line([handles.t,handles.t],ylim,'color','k');
     else
         handles.trace_plot = imagesc(handles.trace_axis,trace_t,1:size(trace,2),trace');
-        handles.trace_xlim = [handles.t-2,handles.t+2];
+        handles.trace_xlim = [handles.t-1,handles.t+1];
         handles.trace_tmark = line([handles.t,handles.t],ylim,'color','r');
     end    
     xlim(handles.trace_axis,handles.trace_xlim);
@@ -240,7 +240,8 @@ set(handles.wf_im,'Cdata',wf_im);
 
 % Update trace
 if handles.plot_trace
-    handles.trace_xlim = [handles.t-5,handles.t+5];
+    xrange = diff(handles.trace_xlim);
+    handles.trace_xlim = [handles.t-xrange/2,handles.t+xrange/2];
     xlim(handles.trace_axis,handles.trace_xlim);
     set(handles.trace_tmark,'XData',[handles.t,handles.t]);
 end
