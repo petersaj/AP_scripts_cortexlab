@@ -1,7 +1,7 @@
 %% Define experiment
 
-animal = 'AP007';
-day = '2016-12-18';
+animal = 'AP009';
+day = '2016-11-23';
 experiment = '3';
 rig = 'kilotrode'; % kilotrode or bigrig
 cam_color_n = 2;
@@ -383,6 +383,7 @@ disp('Done.')
 
 % This is just for a few experiments, or true with combined bank
 flipped_banks = true;
+load_lfp = false;
 
 data_path = ['\\basket.cortexlab.net\data\ajpeters\' animal filesep day filesep 'ephys' filesep num2str(experiment)];
 
@@ -425,19 +426,21 @@ if flipped_banks
 end
 
 % Load LFP
-n_channels = str2num(header.n_channels);
-lfp_filename = [data_path filesep 'lfp.dat'];
-fid = fopen(lfp_filename);
-lfp_all = fread(fid,[n_channels,inf],'int16');
-fclose(fid);
-% eliminate non-connected channels and sort by position
-lfp = lfp_all(channel_map+1,:);
-% get time of LFP sample points (NOTE: this is messy, based off of sample
-% rate and knowing what kwik2dat does, not sure how accurate)
-sample_rate = str2num(header.sample_rate);
-lfp_cutoff = str2num(header.lfp_cutoff);
-lfp_downsamp = (sample_rate/lfp_cutoff)/2;
-lfp_t = ([1:size(lfp,2)]*lfp_downsamp)/sample_rate;
+if load_lfp
+    n_channels = str2num(header.n_channels);
+    lfp_filename = [data_path filesep 'lfp.dat'];
+    fid = fopen(lfp_filename);
+    lfp_all = fread(fid,[n_channels,inf],'int16');
+    fclose(fid);
+    % eliminate non-connected channels and sort by position
+    lfp = lfp_all(channel_map+1,:);
+    % get time of LFP sample points (NOTE: this is messy, based off of sample
+    % rate and knowing what kwik2dat does, not sure how accurate)
+    sample_rate = str2num(header.sample_rate);
+    lfp_cutoff = str2num(header.lfp_cutoff);
+    lfp_downsamp = (sample_rate/lfp_cutoff)/2;
+    lfp_t = ([1:size(lfp,2)]*lfp_downsamp)/sample_rate;
+end
 
 % Get stim onset times
 % Check that sync matches photodiode number
@@ -463,7 +466,9 @@ end
 
 % Get the spike/lfp times in timeline time (accounts for clock drifts)
 spike_times_timeline = AP_clock_fix(spike_times,sync(1).timestamps,acqLive_timeline);
-lfp_t_timeline = AP_clock_fix(lfp_t,sync(1).timestamps,acqLive_timeline);
+if load_lfp
+    lfp_t_timeline = AP_clock_fix(lfp_t,sync(1).timestamps,acqLive_timeline);
+end
 
 % old, in case above breaks
 %spike_times_timeline = AP_clock_fix(spike_times,sync.timestamps(stim_onset_idx_ephys),photodiode.timestamps(stim_onset_idx_timeline));
@@ -507,7 +512,7 @@ disp('Done');
 
 % This is just for a few experiments where flipped or not corrected in ks
 flipped_banks = false;
-acqLive_channel = 2;
+acqLive_channel = 1;
 load_lfp = false;
 
 disp('Loading ephys');
@@ -667,8 +672,10 @@ if exist('cluster_groups','var') && ~exist('good_templates','var')
     template_amplitudes = template_amplitudes(good_spike_idx);
     spikeDepths = spikeDepths(good_spike_idx);
     spike_times_timeline = spike_times_timeline(good_spike_idx);
-else
+elseif exist('cluster_groups','var') && exist('good_templates','var')
     disp('Good templates already identified, skipping')
+elseif ~exist('cluster_groups','var')
+    disp('Clusters not yet sorted');
 end
 
 

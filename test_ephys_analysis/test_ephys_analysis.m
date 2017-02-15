@@ -998,10 +998,10 @@ end
 
 %% Raster plot by depth
 
-align_times = stim_onsets(ismember(stimIDs,[1,2,3]));
+align_times = stim_onsets(ismember(stimIDs,[4]));
 
 % Group by depth
-n_depth_groups = 10;
+n_depth_groups = 30;
 depth_group_edges = linspace(0,max(templateDepths),n_depth_groups+1);
 depth_group_edges(end) = Inf;
 depth_group = discretize(spikeDepths,depth_group_edges);
@@ -1533,13 +1533,13 @@ end
 
 %% Raster aligned to stimuli
 
-use_spikes_idx = ismember(spike_templates,find(templateDepths > 0 & templateDepths < 600)-1);
-%use_spikes_idx = spike_times_timeline(ismember(spike_templates,find(templateDepths > 0 & templateDepths < 400)-1) & ...
-%    (ismember(spike_templates,use_templates(use_template_narrow))));
+use_spikes_idx = ismember(spike_templates,find(templateDepths > 0 & templateDepths < 500)-1);
+%use_spikes_idx = ismember(spike_templates,find(templateDepths > 0 & templateDepths < Inf)-1) & ...
+%    (ismember(spike_templates,good_templates(fsi)));
 
 % use_spikes_idx = true(size(spike_times_timeline));
 
-align_times = stim_onsets(ismember(stimIDs,[1,2,3]));
+align_times = stim_onsets(ismember(stimIDs,[4]));
 
 use_spikes = spike_times_timeline(use_spikes_idx);
 use_spike_templates = spike_templates(use_spikes_idx);
@@ -1720,22 +1720,22 @@ end
 
 % Classify (Bartho JNeurophys 2004)
 duration_cutoff = 400;
-use_template_narrow = templateDuration_us(use_templates_1idx) <= duration_cutoff;
-use_template_wide = templateDuration_us(use_templates_1idx) > duration_cutoff;
+narrow = templateDuration_us(use_templates_1idx) <= duration_cutoff;
+wide = templateDuration_us(use_templates_1idx) > duration_cutoff;
 
 figure; hold on
-plot(waveforms(use_templates_1idx(use_template_wide),:)','k');
-plot(waveforms(use_templates_1idx(use_template_narrow),:)','r');
+plot(waveforms(use_templates_1idx(wide),:)','k');
+plot(waveforms(use_templates_1idx(narrow),:)','r');
 
 figure; hold on;
 plot3( ...
-    templateDuration_us(use_templates_1idx(use_template_wide)), ...
-    prop_long_isi(use_templates_1idx(use_template_wide)), ...
-    spike_rate(use_templates_1idx(use_template_wide)),'.k');
+    templateDuration_us(use_templates_1idx(wide)), ...
+    prop_long_isi(use_templates_1idx(wide)), ...
+    spike_rate(use_templates_1idx(wide)),'.k');
 plot3( ...
-    templateDuration_us(use_templates_1idx(use_template_narrow)), ...
-    prop_long_isi(use_templates_1idx(use_template_narrow)), ...
-    spike_rate(use_templates_1idx(use_template_narrow)),'.r');
+    templateDuration_us(use_templates_1idx(narrow)), ...
+    prop_long_isi(use_templates_1idx(narrow)), ...
+    spike_rate(use_templates_1idx(narrow)),'.r');
 xlabel('waveform duration')
 ylabel('prop. long ISI')
 zlabel('spike rate')
@@ -1743,13 +1743,22 @@ zlabel('spike rate')
 set(gca,'YDir','reverse')
 set(gca,'XDir','reverse')
 
+% Plot cell type by depth
+
+celltypes = wide + 2.*narrow;
+
+figure; plotSpread(templateDepths(use_templates_1idx),'categoryIdx', ...
+    celltypes,'categoryColors',{'k','r'});
+set(gca,'XTick',[]);
+set(gca,'YDir','reverse');
+ylabel('Depth (\mum)');
+legend({'Wide','Narrow'})
 
 
 %% Cagetorize striatal waveforms
 
 % Define good templates from phy
-good_templates = cluster_groups{1}(strcmp(cluster_groups{2},'good'));
-use_templates = intersect(unique(spike_templates),uint32(good_templates));
+use_templates = good_templates(templateDepths(good_templates+1) > 0);
 use_templates_1idx = use_templates+1;
 
 % 1) firing rate
@@ -1793,72 +1802,90 @@ uin = templateDuration_us(use_templates_1idx) < duration_cutoff & ...
 waveform_t = 1e3*([0:size(templates,2)-1]/ephys_sample_rate);
 
 figure; hold on
-plot(waveform_t,waveforms(use_templates_1idx(msn),:)','r');
-plot(waveform_t,waveforms(use_templates_1idx(fsi),:)','b');
-plot(waveform_t,waveforms(use_templates_1idx(tan),:)','color',[0,0.7,0]);
-plot(waveform_t,waveforms(use_templates_1idx(uin),:)','c');
+if any(msn)
+    plot(waveform_t,waveforms(use_templates_1idx(msn),:)','r');
+end
+if any(fsi)
+    plot(waveform_t,waveforms(use_templates_1idx(fsi),:)','b');
+end
+if any(tan)
+    plot(waveform_t,waveforms(use_templates_1idx(tan),:)','color',[0,0.7,0]);
+end
+if any(uin)
+    plot(waveform_t,waveforms(use_templates_1idx(uin),:)','c');
+end
 xlabel('Time (ms)')
 
 % Trying to replicate figure from Yamin/Cohen 2013
-figure;
+use_legend = {};
 
-stem3( ...
-    templateDuration_us(use_templates_1idx(msn))/1000, ...
-    prop_long_isi(use_templates_1idx(msn)), ...
-    spike_rate(use_templates_1idx(msn)),'r');
-xlabel('waveform duration (ms)')
-ylabel('frac long ISI')
-zlabel('spike rate')
-
-hold on;
-
-stem3( ...
-    templateDuration_us(use_templates_1idx(tan))/1000, ...
-    prop_long_isi(use_templates_1idx(tan)), ...
-    spike_rate(use_templates_1idx(tan)),'color',[0,0.7,0]);
-xlabel('waveform duration (ms)')
-ylabel('frac long ISI')
-zlabel('spike rate')
-
-stem3( ...
-    templateDuration_us(use_templates_1idx(fsi))/1000, ...
-    prop_long_isi(use_templates_1idx(fsi)), ...
-    spike_rate(use_templates_1idx(fsi)),'b');
-xlabel('waveform duration (ms)')
-ylabel('frac long ISI')
-zlabel('spike rate')
-
-stem3( ...
-    templateDuration_us(use_templates_1idx(uin))/1000, ...
-    prop_long_isi(use_templates_1idx(uin)), ...
-    spike_rate(use_templates_1idx(uin)),'c');
-xlabel('waveform duration (ms)')
-ylabel('frac long ISI')
-zlabel('spike rate')
+figure; hold on;
+if any(msn)
+    stem3( ...
+        templateDuration_us(use_templates_1idx(msn))/1000, ...
+        prop_long_isi(use_templates_1idx(msn)), ...
+        spike_rate(use_templates_1idx(msn)),'r');
+    xlabel('waveform duration (ms)')
+    ylabel('frac long ISI')
+    zlabel('spike rate')
+end
+if any(tan)
+    stem3( ...
+        templateDuration_us(use_templates_1idx(tan))/1000, ...
+        prop_long_isi(use_templates_1idx(tan)), ...
+        spike_rate(use_templates_1idx(tan)),'color',[0,0.7,0]);
+    xlabel('waveform duration (ms)')
+    ylabel('frac long ISI')
+    zlabel('spike rate')
+end
+if any(fsi)
+    stem3( ...
+        templateDuration_us(use_templates_1idx(fsi))/1000, ...
+        prop_long_isi(use_templates_1idx(fsi)), ...
+        spike_rate(use_templates_1idx(fsi)),'b');
+    xlabel('waveform duration (ms)')
+    ylabel('frac long ISI')
+    zlabel('spike rate')
+end
+if any(uin)
+    stem3( ...
+        templateDuration_us(use_templates_1idx(uin))/1000, ...
+        prop_long_isi(use_templates_1idx(uin)), ...
+        spike_rate(use_templates_1idx(uin)),'c');
+    xlabel('waveform duration (ms)')
+    ylabel('frac long ISI')
+    zlabel('spike rate')
+end
 
 set(gca,'YDir','reverse')
 set(gca,'XDir','reverse')
+view(3);
+grid on;
+axis vis3d;
 
 % Plot cell type by depth
 
 celltypes = msn + 2.*tan + 3.*fsi + 4.*uin;
 
+use_colors = {'r',[0,0.7,0],'b','c'};
+
 figure; plotSpread(templateDepths(use_templates_1idx),'categoryIdx', ...
-    celltypes,'categoryColors',{'r',[0,0.7,0],'b','c'});
+    celltypes,'categoryColors',use_colors(any([msn,tan,fsi,uin],1)));
 set(gca,'XTick',[]);
 set(gca,'YDir','reverse');
 ylabel('Depth (\mum)');
-legend({'MSN','TAN','FSI','UIN'})
+cell_legend = {'MSN','TAN','FSI','UIN'};
+legend(cell_legend(any([msn,tan,fsi,uin],1)))
 
 %% MUA/LFP correlation by depth 
 
-n_depth_groups = 10;
+n_depth_groups = 30;
 depth_group_edges = linspace(0,max(channel_positions(:,2)),n_depth_groups+1);
 depth_group = discretize(templateDepths,depth_group_edges);
 depth_group_centers = depth_group_edges(1:end-1)+diff(depth_group_edges);
 unique_depths = 1:length(depth_group_edges)-1;
 
-spike_binning = 0.01; % seconds
+spike_binning = 0.05; % seconds
 corr_edges = spike_times_timeline(1):spike_binning:spike_times_timeline(end);
 corr_centers = corr_edges(1:end-1) + diff(corr_edges);
 
@@ -1924,8 +1951,8 @@ end
 p = bandpower(use_trace,Fs,[3,5]);
 
 % Spectrogram
-spect_overlap = 50;
-window_length = 2; % in seconds
+spect_overlap = 80;
+window_length = 3; % in seconds
 window_length_samples = window_length/(1/Fs);
 figure;spectrogram(use_trace,window_length_samples, ...
     round(spect_overlap/100*window_length_samples),[],Fs,'yaxis')
@@ -1933,8 +1960,8 @@ colormap(redblue)
 
 
 % Band power over time
-spect_overlap = 50;
-window_length = 2; % in seconds
+spect_overlap = 80;
+window_length = 3; % in seconds
 window_length_samples = window_length/(1/Fs);
 
 [s,f,t] = spectrogram(use_trace,window_length_samples, ...
@@ -1947,9 +1974,132 @@ power_0_2 = 2*sum(s_squared( f >= 0.1 & f <= 2,:))*df;
 power_3_6 = 2*sum(s_squared( f >= 3 & f <= 6,:))*df; 
 power_10_14 = 2*sum(s_squared( f >= 10 & f <= 14,:))*df; 
 
+%% Spike --> spike regression by depth
+
+spike_binning = 0.01; % seconds
+corr_edges = spike_times_timeline(1):spike_binning:spike_times_timeline(end);
+
+ctx_spikes = spike_times_timeline(ismember(spike_templates,find(templateDepths > 400 & templateDepths < 1500)-1));
+binned_spikes_ctx = single(histcounts(ctx_spikes,corr_edges));
+
+use_templates = good_templates(templateDepths(good_templates+1) > 2000);
+binned_spikes_str = zeros(length(use_templates),length(corr_edges)-1,'single');
+for curr_template_idx = 1:length(use_templates)    
+    curr_template = use_templates(curr_template_idx);   
+    use_spikes = spike_times_timeline(spike_templates == curr_template);    
+    curr_binned_spikes = histcounts(use_spikes,corr_edges);      
+    binned_spikes_str(curr_template_idx,:) = curr_binned_spikes;    
+end
+
+kernel_frames = -10:1:5;
+lambda = 0;
+
+[k,predicted_spikes,explained_var] = ...
+    AP_regresskernel(binned_spikes_str,binned_spikes_ctx,kernel_frames,lambda,true);
+k = reshape(k,size(binned_spikes_str,1),[]);
+
+figure;plot(kernel_frames*spike_binning,k);
+line([0,0],ylim,'color','k')
+
+k_max = max(k,[],2);
+use_template_depths = templateDepths(use_templates+1);
+figure;plot(use_template_depths,k_max,'.k');
+ylabel('Maximum weight over time');
+xlabel('Template depth')
+
+% Group multiunit by depth
+n_depth_groups = 10;
+depth_group_edges = linspace(2000,double(max(channel_positions(:,2))),n_depth_groups+1);
+depth_group_edges_use = depth_group_edges;
+depth_group_edges_use(end) = Inf;
+
+[depth_group_n,depth_group] = histc(spikeDepths,depth_group_edges_use);
+depth_groups_used = unique(depth_group);
+depth_group_centers = depth_group_edges_use(1:end-1)+diff(depth_group_edges_use);
+
+binned_spikes_str = zeros(n_depth_groups,length(corr_edges)-1,'single');
+for curr_depth = 1:length(depth_group_edges_use)-1   
+    curr_spike_times = spike_times_timeline(depth_group == curr_depth);
+    % Discretize spikes into frames and count spikes per frame
+    binned_spikes_str(curr_depth,:) = histcounts(curr_spike_times,corr_edges);  
+end
+
+kernel_frames = -10:1:5;
+lambda = 1000;
+
+[k,predicted_spikes,explained_var] = ...
+    AP_regresskernel(binned_spikes_ctx,binned_spikes_str,kernel_frames,lambda,false);
+k = reshape(k,size(binned_spikes_str,1),[]);
+
+k_max = max(k,[],2);
+figure;plot(depth_group_centers,k_max,'k','linewidth',2);
+ylabel('Max weight over time');
+xlabel('MUA depth');
+
+%% Spike --> spike regression by cell type
+
+% Bin all spikes
+spike_binning = 0.05; % seconds
+corr_edges = spike_times_timeline(1):spike_binning:spike_times_timeline(end);
+
+use_templates = good_templates(templateDepths(good_templates+1) > 2000);
+binned_spikes = zeros(length(use_templates),length(corr_edges)-1,'single');
+for curr_template_idx = 1:length(use_templates)    
+    curr_template = use_templates(curr_template_idx);   
+    use_spikes = spike_times_timeline(spike_templates == curr_template);    
+    curr_binned_spikes = histcounts(use_spikes,corr_edges);      
+    binned_spikes(curr_template_idx,:) = curr_binned_spikes;    
+end
 
 
+kernel_frames = -5:1:5;
+lambda = 0;
 
+spikes_grp_1 = ismember(use_templates,good_templates(msn));
+spikes_grp_2 = ismember(use_templates,good_templates(fsi));
+
+[k,predicted_spikes,explained_var] = ...
+    AP_regresskernel(binned_spikes(spikes_grp_1,:), ...
+    binned_spikes(spikes_grp_2,:),kernel_frames,lambda,true);
+k = reshape(k,sum(spikes_grp_1),length(kernel_frames),[]);
+
+figure;plot(kernel_frames*spike_binning,k);
+line([0,0],ylim,'color','k')
+
+k_max = max(k,[],2);
+use_template_depths = templateDepths(use_templates+1);
+figure;plot(use_template_depths,k_max,'.k');
+ylabel('Maximum weight over time');
+xlabel('Template depth')
+
+% Group multiunit by depth
+n_depth_groups = 10;
+depth_group_edges = linspace(2000,double(max(channel_positions(:,2))),n_depth_groups+1);
+depth_group_edges_use = depth_group_edges;
+depth_group_edges_use(end) = Inf;
+
+[depth_group_n,depth_group] = histc(spikeDepths,depth_group_edges_use);
+depth_groups_used = unique(depth_group);
+depth_group_centers = depth_group_edges_use(1:end-1)+diff(depth_group_edges_use);
+
+binned_spikes_str = zeros(n_depth_groups,length(corr_edges)-1,'single');
+for curr_depth = 1:length(depth_group_edges_use)-1   
+    curr_spike_times = spike_times_timeline(depth_group == curr_depth);
+    % Discretize spikes into frames and count spikes per frame
+    binned_spikes_str(curr_depth,:) = histcounts(curr_spike_times,corr_edges);  
+end
+
+kernel_frames = -10:1:5;
+lambda = 1000;
+
+[k,predicted_spikes,explained_var] = ...
+    AP_regresskernel(binned_spikes_ctx,binned_spikes_str,kernel_frames,lambda,false);
+k = reshape(k,size(binned_spikes_str,1),[]);
+
+k_max = max(k,[],2);
+figure;plot(depth_group_centers,k_max,'k','linewidth',2);
+ylabel('Max weight over time');
+xlabel('MUA depth');
 
 
 
