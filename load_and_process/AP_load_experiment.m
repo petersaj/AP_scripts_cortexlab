@@ -1,8 +1,8 @@
 %% Define experiment
 
-animal = 'AP009';
-day = '2016-11-23';
-experiment = '3';
+animal = 'AP007';
+day = '2016-12-16';
+experiment = '2';
 rig = 'kilotrode'; % kilotrode or bigrig
 cam_color_n = 2;
 cam_color_signal = 'blue';
@@ -512,7 +512,7 @@ disp('Done');
 
 % This is just for a few experiments where flipped or not corrected in ks
 flipped_banks = false;
-acqLive_channel = 1;
+acqLive_channel = 2;
 load_lfp = false;
 
 disp('Loading ephys');

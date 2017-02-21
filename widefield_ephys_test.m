@@ -2231,7 +2231,7 @@ use_frames = (frame_t > skip_seconds);
 %use_frames = (frame_t > skip_seconds) & (frame_t < max(frame_t)/2);
 %use_frames = (frame_t > max(frame_t)/2);
 
-use_spikes = spike_times_timeline(ismember(spike_templates,find(templateDepths > 0 & templateDepths < 500)-1));
+use_spikes = spike_times_timeline(ismember(spike_templates,find(templateDepths > 1500 & templateDepths < 2300)-1));
 
 frame_edges = [frame_t(1),mean([frame_t(2:end);frame_t(1:end-1)],1),frame_t(end)+1/framerate];
 [frame_spikes,~,spike_frames] = histcounts(use_spikes,frame_edges);
@@ -2242,12 +2242,13 @@ kernel_frames = -30:10;
 downsample_factor = 1;
 lambda = 5e5;
 zs = false;
+cvfold = 3;
 
 kernel_frames_downsample = round(downsample(kernel_frames,downsample_factor)/downsample_factor);
 
 [k,predicted_spikes,explained_var] = ...
     AP_regresskernel(downsample(fV(use_svs,use_frames)',downsample_factor)', ...
-    downsample(frame_spikes(:,use_frames)',downsample_factor)',kernel_frames_downsample,lambda,zs);
+    downsample(frame_spikes(:,use_frames)',downsample_factor)',kernel_frames_downsample,lambda,zs,cvfold);
 
 % Reshape kernel and convert to pixel space
 r = reshape(k,length(use_svs),length(kernel_frames_downsample),size(frame_spikes,1));
@@ -2261,6 +2262,52 @@ AP_image_scroll(r_px,(kernel_frames_downsample*downsample_factor)/framerate);
 caxis([prctile(r_px(:),[1,99])]*4)
 truesize
 
+%% Regression from fluor to spikes MUA: test lambda with cross-validation
+
+% Skip the first n seconds to do this
+skip_seconds = 10;
+use_frames = (frame_t > skip_seconds);
+%use_frames = (frame_t > skip_seconds) & (frame_t < max(frame_t)/2);
+%use_frames = (frame_t > max(frame_t)/2);
+
+use_spikes = spike_times_timeline(ismember(spike_templates,find(templateDepths > 1500 & templateDepths < 2300)-1));
+
+frame_edges = [frame_t(1),mean([frame_t(2:end);frame_t(1:end-1)],1),frame_t(end)+1/framerate];
+[frame_spikes,~,spike_frames] = histcounts(use_spikes,frame_edges);
+frame_spikes = single(frame_spikes);
+use_lambdas = logspace(4.5,6.5,30);
+explained_var_lambdas = nan(length(use_lambdas),size(frame_spikes,1));
+for curr_lambda_idx = 1:length(use_lambdas);
+    
+    use_svs = 1:200;
+    kernel_frames = -30:10;
+    downsample_factor = 1;
+    lambda = use_lambdas(curr_lambda_idx);
+    zs = false;
+    cvfold = 5;
+    
+    kernel_frames_downsample = round(downsample(kernel_frames,downsample_factor)/downsample_factor);
+    
+    [k,predicted_spikes,explained_var] = ...
+        AP_regresskernel(downsample(fV(use_svs,use_frames)',downsample_factor)', ...
+        downsample(frame_spikes(:,use_frames)',downsample_factor)',kernel_frames_downsample,lambda,zs,cvfold);
+    
+    explained_var_lambdas(curr_lambda_idx,:) = explained_var.total;
+    
+    disp(curr_lambda_idx);
+    
+end
+
+figure; hold on;
+set(gca,'ColorOrder',copper(size(frame_spikes,1)));
+set(gca,'XScale','log');
+plot(use_lambdas,explained_var_lambdas,'linewidth',2);
+xlabel('\lambda');
+ylabel('Fraction variance explained');
+
+disp(['Best \lambda = ' num2str(use_lambdas(explained_var_lambdas == ...
+    max(explained_var_lambdas)]);
+
 %% Regression from fluor to spikes (AP_regresskernel) MUA depth
 
 % Skip the first n seconds to do this
@@ -2271,7 +2318,7 @@ use_frames = (frame_t > skip_seconds);
 
 % Group multiunit by depth
 n_depth_groups = 6;
-depth_group_edges = linspace(0,double(max(channel_positions(:,2))),n_depth_groups+1);
+depth_group_edges = linspace(1500,double(max(channel_positions(:,2))),n_depth_groups+1);
 depth_group_edges_use = depth_group_edges;
 %depth_group_edges_use = [400,1500,2000,2300,3000,4000];
 depth_group_edges_use(end) = Inf;
@@ -2297,12 +2344,13 @@ kernel_frames = -30:10;
 downsample_factor = 1;
 lambda = 5e5;
 zs = false;
+cvfold = 3;
 
 kernel_frames_downsample = round(downsample(kernel_frames,downsample_factor)/downsample_factor);
 
 [k,predicted_spikes,explained_var] = ...
     AP_regresskernel(downsample(fV(use_svs,use_frames)',downsample_factor)', ...
-    downsample(frame_spikes(:,use_frames)',downsample_factor)',kernel_frames_downsample,lambda,zs);
+    downsample(frame_spikes(:,use_frames)',downsample_factor)',kernel_frames_downsample,lambda,zs,cvfold);
 
 % Reshape kernel and convert to pixel space
 r = reshape(k,length(use_svs),length(kernel_frames_downsample),size(frame_spikes,1));
