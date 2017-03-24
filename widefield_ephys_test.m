@@ -2231,7 +2231,9 @@ use_frames = (frame_t > skip_seconds);
 %use_frames = (frame_t > skip_seconds) & (frame_t < max(frame_t)/2);
 %use_frames = (frame_t > max(frame_t)/2);
 
-use_spikes = spike_times_timeline(ismember(spike_templates,find(templateDepths > 1500 & templateDepths < 2300)-1));
+%use_spikes = spike_times_timeline(ismember(spike_templates,find(templateDepths > 0 & templateDepths < 600)-1));
+use_spikes = spike_times_timeline(ismember(spike_templates,find(templateDepths > 0 & templateDepths < 600)-1) ...
+    & ismember(spike_templates,find(wide)-1));
 
 frame_edges = [frame_t(1),mean([frame_t(2:end);frame_t(1:end-1)],1),frame_t(end)+1/framerate];
 [frame_spikes,~,spike_frames] = histcounts(use_spikes,frame_edges);
@@ -2242,7 +2244,7 @@ kernel_frames = -30:10;
 downsample_factor = 1;
 lambda = 5e5;
 zs = false;
-cvfold = 3;
+cvfold = 5;
 
 kernel_frames_downsample = round(downsample(kernel_frames,downsample_factor)/downsample_factor);
 
@@ -2259,7 +2261,7 @@ for curr_spikes = 1:size(r,3);
 end
 
 AP_image_scroll(r_px,(kernel_frames_downsample*downsample_factor)/framerate);
-caxis([prctile(r_px(:),[1,99])]*4)
+caxis([prctile(r_px(:),[1,99])]*4);
 truesize
 
 %% Regression from fluor to spikes MUA: test lambda with cross-validation
@@ -2270,12 +2272,12 @@ use_frames = (frame_t > skip_seconds);
 %use_frames = (frame_t > skip_seconds) & (frame_t < max(frame_t)/2);
 %use_frames = (frame_t > max(frame_t)/2);
 
-use_spikes = spike_times_timeline(ismember(spike_templates,find(templateDepths > 1500 & templateDepths < 2300)-1));
+use_spikes = spike_times_timeline(ismember(spike_templates,find(templateDepths > 0 & templateDepths < 600)-1));
 
 frame_edges = [frame_t(1),mean([frame_t(2:end);frame_t(1:end-1)],1),frame_t(end)+1/framerate];
 [frame_spikes,~,spike_frames] = histcounts(use_spikes,frame_edges);
 frame_spikes = single(frame_spikes);
-use_lambdas = logspace(4.5,6.5,30);
+use_lambdas = logspace(6,10,30);
 explained_var_lambdas = nan(length(use_lambdas),size(frame_spikes,1));
 for curr_lambda_idx = 1:length(use_lambdas);
     
@@ -2294,7 +2296,7 @@ for curr_lambda_idx = 1:length(use_lambdas);
     
     explained_var_lambdas(curr_lambda_idx,:) = explained_var.total;
     
-    disp(curr_lambda_idx);
+    disp(curr_lambda_idx/length(use_lambdas));
     
 end
 
@@ -2305,8 +2307,11 @@ plot(use_lambdas,explained_var_lambdas,'linewidth',2);
 xlabel('\lambda');
 ylabel('Fraction variance explained');
 
-disp(['Best \lambda = ' num2str(use_lambdas(explained_var_lambdas == ...
-    max(explained_var_lambdas)]);
+disp(['Best lambda = ' num2str(use_lambdas(explained_var_lambdas == ...
+    max(explained_var_lambdas)))]);
+
+%% WRITE THIS: use fminsearch to just find the best lambda? 
+% is that going to take a ridiculous amount of time?
 
 %% Regression from fluor to spikes (AP_regresskernel) MUA depth
 
@@ -2318,7 +2323,7 @@ use_frames = (frame_t > skip_seconds);
 
 % Group multiunit by depth
 n_depth_groups = 6;
-depth_group_edges = linspace(1500,double(max(channel_positions(:,2))),n_depth_groups+1);
+depth_group_edges = linspace(2000,double(max(channel_positions(:,2))),n_depth_groups+1);
 depth_group_edges_use = depth_group_edges;
 %depth_group_edges_use = [400,1500,2000,2300,3000,4000];
 depth_group_edges_use(end) = Inf;
@@ -2680,7 +2685,9 @@ stim_screen_interp = single([zeros(size(stim_screen_interp,1),1),diff(stim_scree
 skip_seconds = 10;
 use_frames = (frame_t > skip_seconds);
 
-use_spikes = spike_times_timeline(ismember(spike_templates,find(templateDepths > 0 & templateDepths < 400)-1));
+use_spikes = spike_times_timeline(ismember(spike_templates,find(templateDepths > 0 & templateDepths < 800)-1));
+%use_spikes = spike_times_timeline(ismember(spike_templates,find(templateDepths > 0 & templateDepths < 800)-1) & ...
+%     ismember(spike_templates,find(narrow)-1));
 
 frame_edges = [frame_t(1),mean([frame_t(2:end);frame_t(1:end-1)],1),frame_t(end)+1/framerate];
 [frame_spikes,~,spike_frames] = histcounts(use_spikes,frame_edges);
@@ -2690,7 +2697,7 @@ use_svs = 1:200;
 fluor_kernel_frames = -40:10;
 spike_kernel_frames = -5:-1;
 stim_kernel_frames = -5:10;
-lambda = 100;
+lambda = 1000;
 zs = true;
 
 [k,predicted_spikes,explained_var] = ...

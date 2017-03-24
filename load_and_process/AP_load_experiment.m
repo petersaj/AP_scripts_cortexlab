@@ -1,10 +1,10 @@
 %% Define experiment
 
-animal = 'AP007';
-day = '2016-12-16';
-experiment = '2';
-rig = 'kilotrode'; % kilotrode or bigrig
-cam_color_n = 2;
+animal = 'SF170215';
+day = '2017-03-21';
+experiment = '3';
+rig = 'bigrig'; % kilotrode or bigrig
+cam_color_n = 1;
 cam_color_signal = 'blue';
 cam_color_hemo = 'purple';
 
@@ -121,12 +121,14 @@ if exist(fileparts(get_cortexlab_filename(mpep_animal,day,experiment,'protocol')
                         % sometimes there's a sample or so difference
                         stimScreen_on = Timeline.rawDAQData(:,photodiode_idx) > 0.3;
                         stimScreen_on_t = Timeline.rawDAQTimestamps(stimScreen_on);
-                        photodiode_thresh = max(Timeline.rawDAQData(:,photodiode_idx))/2;
+                        photodiode_thresh = (max(Timeline.rawDAQData(:,photodiode_idx)) ...
+                            - min(Timeline.rawDAQData(:,photodiode_idx)))/2 + ...
+                            min(Timeline.rawDAQData(:,photodiode_idx));
                         % median filter because of weird effect where
                         % photodiode dims instead of off for one sample
                         % while backlight is turning off
                         photodiode_trace = medfilt1(Timeline.rawDAQData(stimScreen_on, ...
-                            photodiode_idx),5) > photodiode_thresh;                                            
+                            photodiode_idx),10) > photodiode_thresh;                                            
                         photodiode_flip = find((~photodiode_trace(1:end-1) & photodiode_trace(2:end)) | ...
                             (photodiode_trace(1:end-1) & ~photodiode_trace(2:end)))+1;
                         

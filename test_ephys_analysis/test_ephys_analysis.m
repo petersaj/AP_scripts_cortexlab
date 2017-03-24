@@ -1533,7 +1533,7 @@ end
 
 %% Raster aligned to stimuli
 
-use_spikes_idx = ismember(spike_templates,find(templateDepths > 0 & templateDepths < 500)-1);
+use_spikes_idx = ismember(spike_templates,find(templateDepths > 2000 & templateDepths < 2200)-1);
 %use_spikes_idx = ismember(spike_templates,find(templateDepths > 0 & templateDepths < Inf)-1) & ...
 %    (ismember(spike_templates,good_templates(fsi)));
 
@@ -1739,9 +1739,10 @@ plot3( ...
 xlabel('waveform duration')
 ylabel('prop. long ISI')
 zlabel('spike rate')
-
 set(gca,'YDir','reverse')
 set(gca,'XDir','reverse')
+view(3);
+axis vis3d;
 
 % Plot cell type by depth
 
@@ -1951,12 +1952,12 @@ end
 p = bandpower(use_trace,Fs,[3,5]);
 
 % Spectrogram
-spect_overlap = 80;
-window_length = 3; % in seconds
+spect_overlap = 50;
+window_length = 2; % in seconds
 window_length_samples = window_length/(1/Fs);
 figure;spectrogram(use_trace,window_length_samples, ...
     round(spect_overlap/100*window_length_samples),[],Fs,'yaxis')
-colormap(redblue)
+colormap(hot)
 
 
 % Band power over time
