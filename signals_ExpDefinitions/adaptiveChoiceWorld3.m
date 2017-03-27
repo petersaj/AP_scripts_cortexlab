@@ -3,19 +3,24 @@ function adaptiveChoiceWorld3(t, events, pars, visStim, inputs, outputs, audio)
 % Choice world that adapts with behavior
 % 170309 - MW/AP
 
+% CURRENTLY: adding contrasts based on performance
 
 %% Fixed parameters
+
+% Reward
+rewardSize = 0.2; %%%% CHECK OTHER PROTOCOLS
 
 % Trial choice parameters
 % (staircase: every staircaseTrials, engage an staircaseHit forward / staircaseMiss back
 % choice of contrast)
-staircaseTrials = 0; 
+staircaseTrials = 2; 
 staircaseHit = 3;
 staircaseMiss = 1;
 
 % Stimulus/target
 contrasts = [1,0.5,0.25,0.125,0.06,0];
 startingContrasts = [true,true,false,false,false,false];
+trialsToZeroContrast = 500; % number of trials after introducing 0.125
 sigma = [9,9];
 spatialFrequency = 0.01;
 startingAzimuth = 90;
@@ -25,8 +30,22 @@ missDisplacement = 90;
 % Timing
 prestimQuiescentTime = 0.5;
 cueInteractiveDelay = 0.5;
-itiReward = 1;
-itiPunish = 2;
+itiHit = 1;
+itiMiss = 2;
+
+% Sounds %%%% CHECK OTHER PROTOCOLS
+audio_sample_rate = 192e3;
+
+onsetToneAmplitude = 1;
+onsetToneFreq = 500;
+onsetToneDuration = 0.1;
+toneSamples = onsetToneAmplitude*events.expStart.map(@(x) ...
+    aud.pureTone(onsetToneFreq, onsetToneDuration, audio_sample_rate));
+
+missNoiseDuration = itiMiss;
+missNoiseAmplitude = 1;
+missNoiseSamples = missNoiseAmplitude*events.expStart.map(@(x) ...
+    randn(2, audio_sample_rate*missNoiseDuration));
 
 % Wheel parameters
 quiescThreshold = 1; % what's a reasonable value for this?
@@ -35,7 +54,7 @@ wheelGain = 1; % I guess ultimately defined per rig...
 %% Conditional parameters
 
 % Initialize new or load old performance
-performanceInit = events.expStart.mapn(contrasts,startingContrasts,@initializePerformance).subscriptable;
+performanceInit = events.expStart.mapn(contrasts,startingContrasts,trialsToZeroContrast,@initializePerformance).subscriptable;
 
 % Initialize staircase
 staircase = events.trialNum.mapn(@(trialNum) mod(trialNum,staircaseTrials) == 0);
@@ -69,6 +88,9 @@ stimOn = at(true,preStimQuiescence);
 % Fixed cue interactive delay
 interactiveOn = stimOn.delay(cueInteractiveDelay); 
 
+% Play tone at interactive onset
+audio.onsetTone = toneSamples.at(interactiveOn);
+
 % Response
 % (wheel displacement zeroed at interactiveOn)
 stimDisplacement = wheelGain*(wheel - wheel.at(interactiveOn));
@@ -78,8 +100,14 @@ hit = keepWhen(interactiveOn.setTrigger(stimDisplacement*trialSide ...
 miss = keepWhen(interactiveOn.setTrigger(stimDisplacement*trialSide ...
     >= missDisplacement),interactiveOn.to(events.newTrial));
 
+% Give reward on hit
+outputs.reward = at(rewardSize,hit);  
+
+% Play noise on miss
+audio.missNoise = missNoiseSamples.at(miss);
+
 % ITI defined by outcome
-iti = merge(hit.delay(itiReward),miss.delay(itiPunish));
+iti = merge(hit.delay(itiHit),miss.delay(itiMiss));
 
 % Stim fixed in place before interactive and after response, wheel-conditional otherwise
 stimAzimuth = cond( ...
@@ -139,7 +167,7 @@ events.staircase = staircase;
 %at(false,interactiveOn.setTrigger(stimDisplacement*sign(trialAzimuth) >= missAzimuth));
 end
 
-function performanceInit = initializePerformance(~,contrasts,startingContrasts)
+function performanceInit = initializePerformance(~,contrasts,startingContrasts,trialsToZeroContrast)
 
 % Initialize performance structure
 performanceInit = struct;
@@ -148,6 +176,7 @@ performanceInit.use_contrasts = startingContrasts;
 performanceInit.conditions = unique(sort([contrasts,-contrasts]));
 performanceInit.n_trials = zeros(size(performanceInit.conditions));
 performanceInit.n_correct = zeros(size(performanceInit.conditions));
+performanceInit.trialsToZeroContrast = trialsToZeroContrast;
 
 performanceInit.nextTrialContrast = 1;
 
@@ -159,7 +188,7 @@ end
 function performance = updatePerformance(performance,trialInfo)
 % Update the performance and pick the next contrast
 
-% Unpackage (have to be packaged: only one allowable input argument)
+%%%% Unpackage (have to be packaged: only one allowable input argument)
 trialSide = trialInfo(1);
 hit = trialInfo(2);
 staircaseTrial = trialInfo(3);
@@ -168,6 +197,7 @@ staircaseMiss = trialInfo(5);
 
 thisTrialCondition = trialSide*performance.nextTrialContrast;
 
+%%%% Update performance
 % Number of trials in each condition
 performance.n_trials(performance.conditions == thisTrialCondition) = ...
     performance.n_trials(performance.conditions == thisTrialCondition) + 1;
@@ -176,7 +206,59 @@ performance.n_trials(performance.conditions == thisTrialCondition) = ...
 performance.n_correct(performance.conditions == thisTrialCondition) = ...
     performance.n_correct(performance.conditions == thisTrialCondition) + hit;
 
-% Pick next contrast (and update staircase on staircase trials)
+%%%% Add new contrasts as necessary given performance
+% (these parameters are hard-coded because too specific)
+% (these are side-independent)
+switch min(performance.contrasts(performance.use_contrasts & performance.contrasts ~= 0))
+    case 0.5
+        % Lower from 0.5 contrast after > 75% correct
+        curr_condition = ismember(abs(performance.conditions),[0.5,1]);
+        condition_total_trials = sum(performance.n_trials(curr_condition));
+        condition_hit_trials = sum(performance.n_correct(curr_condition));
+        
+        min_hit_percentage = 0.75;
+        min_hit_trials = find(1 - binocdf(1:condition_total_trials,10,min_hit_percentage) < 0.05,1);
+        if condition_hit_trials > min_hit_trials 
+           performance.use_contrasts(find(~performance.use_contrasts,1)) = true;
+        end
+
+    case 0.25
+        % Lower from 0.25 contrast after > 50% correct
+        curr_condition = ismember(abs(performance.conditions),[0.5,1]);
+        condition_total_trials = sum(performance.n_trials(curr_condition));
+        condition_hit_trials = sum(performance.n_correct(curr_condition));
+        
+        min_hit_percentage = 0.5;
+        min_hit_trials = find(1 - binocdf(1:condition_total_trials,10,min_hit_percentage) < 0.05,1);
+        if condition_hit_trials > min_hit_trials 
+           performance.use_contrasts(find(~performance.use_contrasts,1)) = true;
+        end
+        
+    case 0.125
+        % Lower from 0.125 contrast after > 50% correct
+        curr_condition = ismember(abs(performance.conditions),[0.5,1]);
+        condition_total_trials = sum(performance.n_trials(curr_condition));
+        condition_hit_trials = sum(performance.n_correct(curr_condition));
+        
+        min_hit_percentage = 0.5;
+        min_hit_trials = find(1 - binocdf(1:condition_total_trials,10,min_hit_percentage) < 0.05,1);
+        if condition_hit_trials > min_hit_trials 
+           performance.use_contrasts(find(~performance.use_contrasts,1)) = true;
+        end                  
+end
+
+% Add 0 contrast after trialsToZeroContrast trials with 0.125 contrast
+if min(performance.contrasts(performance.use_contrasts)) <= 0.125 && ...
+        performance.trialsToZeroContrast > 0
+    % Subtract one from the countdown
+    performance.trialsToZeroContrast = performance.trialsToZeroContrast-1;
+    % If at zero, add the 0 contrast condition
+    if performance.trialsToZeroContrast == 0
+        performance.use_contrasts(performance.contrasts == 0) = true;
+    end    
+end
+
+%%%% Pick next contrast (and update staircase on staircase trials)
 if ~staircaseTrial
     
     % Next contrast is random from current contrast set
