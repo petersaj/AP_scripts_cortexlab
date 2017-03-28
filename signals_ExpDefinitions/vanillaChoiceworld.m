@@ -1,5 +1,5 @@
-function vanillaChoiceworld(t, events, pars, visStim, inputs, outputs, audio)
-% adaptiveChoiceWorld3(t, evts, pars, vs, in, out, audio)
+function vanillaChoiceworld(t, events, parameters, visStim, inputs, outputs, audio)
+% vanillaChoiceworld(t, events, parameters, visStim, inputs, outputs, audio)
 % Choice world that adapts with behavior
 % 170309 - AP
 
@@ -18,6 +18,7 @@ staircaseMiss = 1;
 % Stimulus/target
 contrasts = [1,0.5,0.25,0.125,0.06,0];
 startingContrasts = [true,true,false,false,false,false];
+trialsToBuffer = 10; % number of trials to judge current performance
 trialsToZeroContrast = 500; % number of trials after introducing 0.125
 sigma = [9,9];
 spatialFrequency = 0.01;
@@ -53,7 +54,7 @@ wheelGain = 1; % I guess ultimately defined per rig...
 subject = 'AP001'; %%%% TO DO: placeholder, get this from MC
 % Initialize new or load old performance
 performanceInit = events.expStart.mapn( ...
-    subject,contrasts,startingContrasts,trialsToZeroContrast,@initializePerformance).subscriptable;
+    subject,contrasts,startingContrasts,trialsToBuffer,trialsToZeroContrast,@initializePerformance).subscriptable;
 
 % Initialize staircase
 staircase = events.trialNum.mapn(@(trialNum) mod(trialNum,staircaseTrials) == 0);
@@ -171,13 +172,12 @@ events.endTrial = endTrial;
 
 % Performance
 events.use_contrasts = performance.use_contrasts;
-events.n_trials = performance.n_trials;
-events.n_correct = performance.n_correct;
+events.hit_buffer = performance.hit_buffer;
 events.trialsToZeroContrast = performance.trialsToZeroContrast;
 
 end
 
-function performanceInit = initializePerformance(~,subject,contrasts,startingContrasts,trialsToZeroContrast)
+function performanceInit = initializePerformance(~,subject,contrasts,startingContrasts,trialsToBuffer,trialsToZeroContrast)
 
 performanceInit = struct;
 performanceInit.contrasts = contrasts;
@@ -197,17 +197,17 @@ if length(expRef) > 1
 end
 
 if exist('previousBlock','var') && all(isfield(previousBlock.block, ...
-        {'use_contrasts','n_trials','n_correct','trialsToZeroContrast'}))
+        {'use_contrasts','hit_buffer','trialsToZeroContrast'}))
     % If the last experiment file has the relevant fields, set up performance   
     performanceInit.use_contrasts = previousBlock.block.use_contrasts(end-n_conditions+1:end);
-    performanceInit.n_trials = previousBlock.block.n_trials(end-n_conditions+1:end);
-    performanceInit.n_correct = previousBlock.block.n_correct(end-n_conditions+1:end);
+    performanceInit.hit_buffer = reshape( ...
+        previousBlock.block.hit_buffer(end-trialsToBuffer*n_conditions+1:end), ...
+        trialsToBuffer,n_conditions);
     performanceInit.trialsToZeroContrast = previousBlock.block.trialsToZeroContrast(end);        
 else    
     % If this animal has no previous experiments, initialize performance
     performanceInit.use_contrasts = startingContrasts;
-    performanceInit.n_trials = zeros(size(performanceInit.conditions));
-    performanceInit.n_correct = zeros(size(performanceInit.conditions));
+    performanceInit.hit_buffer = nan(trialsToBuffer,n_conditions);
     performanceInit.trialsToZeroContrast = trialsToZeroContrast;  
 end
 
@@ -226,53 +226,71 @@ staircaseMiss = trialInfo(5);
 thisTrialCondition = trialSide*performance.nextTrialContrast;
 
 %%%% Update performance
-% Number of trials in each condition
-performance.n_trials(performance.conditions == thisTrialCondition) = ...
-    performance.n_trials(performance.conditions == thisTrialCondition) + 1;
+conditionIdx = performance.conditions == thisTrialCondition;
 
-% Number of hits in each condition
-performance.n_correct(performance.conditions == thisTrialCondition) = ...
-    performance.n_correct(performance.conditions == thisTrialCondition) + hit;
+% Hit/miss in buffer
+performance.hit_buffer(:,conditionIdx) = ...
+    [hit;performance.hit_buffer(1:end-1,conditionIdx)];
+trialsToBuffer = size(performance.hit_buffer,1);
 
 %%%% Add new contrasts as necessary given performance
+% This is based on the last trialsToBuffer trials for rolling performance
 % (these parameters are hard-coded because too specific)
 % (these are side-independent)
-switch min(performance.contrasts(performance.use_contrasts & performance.contrasts ~= 0))
+current_min_contrast = min(performance.contrasts(performance.use_contrasts & performance.contrasts ~= 0));
+switch current_min_contrast
+    
     case 0.5
         % Lower from 0.5 contrast after > 75% correct
-        curr_condition = ismember(abs(performance.conditions),[0.5,1]);
-        condition_total_trials = sum(performance.n_trials(curr_condition));
-        condition_hit_trials = sum(performance.n_correct(curr_condition));
-        
         min_hit_percentage = 0.75;
-        min_hit_trials = find(1 - binocdf(1:condition_total_trials,10,min_hit_percentage) < 0.05,1);
-        if condition_hit_trials > min_hit_trials 
-           performance.use_contrasts(find(~performance.use_contrasts,1)) = true;
+        
+        curr_condition = ismember(abs(performance.conditions),[current_min_contrast,1]);
+        condition_total_trials = sum(sum(~isnan(performance.hit_buffer(:,curr_condition))));
+        % If there have been enough buffer trials, check performance
+        if condition_total_trials >= size(performance.hit_buffer,1)
+            % Sample as evenly as possible across pooled conditions
+            pooled_hits = reshape(performance.hit_buffer(:,curr_condition)',[],1);
+            use_hits = sum(pooled_hits(find(~isnan(pooled_hits),trialsToBuffer)));
+            min_hits = find(1 - binocdf(1:trialsToBuffer,trialsToBuffer,min_hit_percentage) < 0.05,1);
+            if use_hits > min_hits
+                performance.use_contrasts(find(~performance.use_contrasts,1)) = true;
+            end
         end
 
     case 0.25
         % Lower from 0.25 contrast after > 50% correct
-        curr_condition = ismember(abs(performance.conditions),[0.5,1]);
-        condition_total_trials = sum(performance.n_trials(curr_condition));
-        condition_hit_trials = sum(performance.n_correct(curr_condition));
-        
         min_hit_percentage = 0.5;
-        min_hit_trials = find(1 - binocdf(1:condition_total_trials,10,min_hit_percentage) < 0.05,1);
-        if condition_hit_trials > min_hit_trials 
-           performance.use_contrasts(find(~performance.use_contrasts,1)) = true;
+        
+        curr_condition = ismember(abs(performance.conditions),[current_min_contrast,1]);
+        condition_total_trials = sum(sum(~isnan(performance.hit_buffer(:,curr_condition))));
+        % If there have been enough buffer trials, check performance
+        if condition_total_trials >= size(performance.hit_buffer,1)
+            % Sample as evenly as possible across pooled conditions
+            pooled_hits = reshape(performance.hit_buffer(:,curr_condition)',[],1);
+            use_hits = sum(pooled_hits(find(~isnan(pooled_hits),trialsToBuffer)));
+            min_hits = find(1 - binocdf(1:trialsToBuffer,trialsToBuffer,min_hit_percentage) < 0.05,1);
+            if use_hits > min_hits
+                performance.use_contrasts(find(~performance.use_contrasts,1)) = true;
+            end
         end
         
     case 0.125
-        % Lower from 0.125 contrast after > 50% correct
-        curr_condition = ismember(abs(performance.conditions),[0.5,1]);
-        condition_total_trials = sum(performance.n_trials(curr_condition));
-        condition_hit_trials = sum(performance.n_correct(curr_condition));
-        
+        % Lower from 0.25 contrast after > 50% correct
         min_hit_percentage = 0.5;
-        min_hit_trials = find(1 - binocdf(1:condition_total_trials,10,min_hit_percentage) < 0.05,1);
-        if condition_hit_trials > min_hit_trials 
-           performance.use_contrasts(find(~performance.use_contrasts,1)) = true;
-        end                  
+        
+        curr_condition = ismember(abs(performance.conditions),[current_min_contrast,1]);
+        condition_total_trials = sum(sum(~isnan(performance.hit_buffer(:,curr_condition))));
+        % If there have been enough buffer trials, check performance
+        if condition_total_trials >= size(performance.hit_buffer,1)
+            % Sample as evenly as possible across pooled conditions
+            pooled_hits = reshape(performance.hit_buffer(:,curr_condition)',[],1);
+            use_hits = sum(pooled_hits(find(~isnan(pooled_hits),trialsToBuffer)));
+            min_hits = find(1 - binocdf(1:trialsToBuffer,trialsToBuffer,min_hit_percentage) < 0.05,1);
+            if use_hits > min_hits
+                performance.use_contrasts(find(~performance.use_contrasts,1)) = true;
+            end
+        end          
+        
 end
 
 % Add 0 contrast after trialsToZeroContrast trials with 0.125 contrast
