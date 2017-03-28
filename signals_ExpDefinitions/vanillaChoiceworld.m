@@ -192,8 +192,11 @@ n_conditions = length(performanceInit.conditions);
 % (note: MC creates folder on initilization, so look for > 1)
 expRef = dat.listExps(subject);
 if length(expRef) > 1
+    try
     previousBlockFilename = dat.expFilePath(expRef{end-1}, 'block', 'master');
     previousBlock = load(previousBlockFilename);
+    catch me
+    end
 end
 
 if exist('previousBlock','var') && all(isfield(previousBlock.block, ...
@@ -244,7 +247,7 @@ switch current_min_contrast
         % Lower from 0.5 contrast after > 75% correct
         min_hit_percentage = 0.75;
         
-        curr_condition = ismember(abs(performance.conditions),[current_min_contrast,1]);
+        curr_condition = ismember(abs(performance.conditions),[0.5,1]);
         condition_total_trials = sum(sum(~isnan(performance.hit_buffer(:,curr_condition))));
         % If there have been enough buffer trials, check performance
         if condition_total_trials >= size(performance.hit_buffer,1)
@@ -252,7 +255,7 @@ switch current_min_contrast
             pooled_hits = reshape(performance.hit_buffer(:,curr_condition)',[],1);
             use_hits = sum(pooled_hits(find(~isnan(pooled_hits),trialsToBuffer)));
             min_hits = find(1 - binocdf(1:trialsToBuffer,trialsToBuffer,min_hit_percentage) < 0.05,1);
-            if use_hits > min_hits
+            if use_hits >= min_hits
                 performance.use_contrasts(find(~performance.use_contrasts,1)) = true;
             end
         end
@@ -261,7 +264,7 @@ switch current_min_contrast
         % Lower from 0.25 contrast after > 50% correct
         min_hit_percentage = 0.5;
         
-        curr_condition = ismember(abs(performance.conditions),[current_min_contrast,1]);
+        curr_condition = ismember(abs(performance.conditions),current_min_contrast);
         condition_total_trials = sum(sum(~isnan(performance.hit_buffer(:,curr_condition))));
         % If there have been enough buffer trials, check performance
         if condition_total_trials >= size(performance.hit_buffer,1)
@@ -269,7 +272,7 @@ switch current_min_contrast
             pooled_hits = reshape(performance.hit_buffer(:,curr_condition)',[],1);
             use_hits = sum(pooled_hits(find(~isnan(pooled_hits),trialsToBuffer)));
             min_hits = find(1 - binocdf(1:trialsToBuffer,trialsToBuffer,min_hit_percentage) < 0.05,1);
-            if use_hits > min_hits
+            if use_hits >= min_hits
                 performance.use_contrasts(find(~performance.use_contrasts,1)) = true;
             end
         end
@@ -278,7 +281,7 @@ switch current_min_contrast
         % Lower from 0.25 contrast after > 50% correct
         min_hit_percentage = 0.5;
         
-        curr_condition = ismember(abs(performance.conditions),[current_min_contrast,1]);
+        curr_condition = ismember(abs(performance.conditions),current_min_contrast);
         condition_total_trials = sum(sum(~isnan(performance.hit_buffer(:,curr_condition))));
         % If there have been enough buffer trials, check performance
         if condition_total_trials >= size(performance.hit_buffer,1)
@@ -286,7 +289,7 @@ switch current_min_contrast
             pooled_hits = reshape(performance.hit_buffer(:,curr_condition)',[],1);
             use_hits = sum(pooled_hits(find(~isnan(pooled_hits),trialsToBuffer)));
             min_hits = find(1 - binocdf(1:trialsToBuffer,trialsToBuffer,min_hit_percentage) < 0.05,1);
-            if use_hits > min_hits
+            if use_hits >= min_hits
                 performance.use_contrasts(find(~performance.use_contrasts,1)) = true;
             end
         end          
