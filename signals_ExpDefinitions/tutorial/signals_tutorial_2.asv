@@ -1,9 +1,11 @@
 function signals_tutorial_basic(t, events, pars, visStim, inputs, outputs, audio)
 % Signals tutorial 2
-% 170328 - AP
 %
-% This tutorial continues from tutorial 1. 
-% 
+% TO DO HERE
+% give the order of later tutorials:
+% - stimMoveTrigger (includes keepWhen and setTrigger)?
+% - scan
+%
 %% Trial contingencies %%
 %
 % Now that we can use basic signals, let's define an actual task. We'll
@@ -125,7 +127,7 @@ function signals_tutorial_basic(t, events, pars, visStim, inputs, outputs, audio
 % leave it uncommented throughout this example.
 %
 % -- UNCOMMENT --
-% events.endTrial = events.newTrial.delay(1);
+events.endTrial = events.newTrial.delay(1);
 % ---------------
 %
 % Now we'll make simple counters for even and odd trials using scan. Scan
@@ -141,11 +143,9 @@ function signals_tutorial_basic(t, events, pars, visStim, inputs, outputs, audio
 % % Initialize the value at 0
 % oddTrialsInit = 0;
 % evenTrialsInit = 0;
-% 
 % % Whenever there's a new trial, update the value
 % oddTrials = events.trialNum.scan(@odd_trial,oddTrialsInit).skipRepeats;
 % evenTrials = events.trialNum.scan(@even_trial,evenTrialsInit).skipRepeats;
-% 
 % % Plot these counters. Watch them in the plotter: each one only updates on
 % % it's pertinent trial because of the skipRepeats, even though it would
 % % otherwise be queried every trial because it is based on events.trialNum
@@ -154,8 +154,6 @@ function signals_tutorial_basic(t, events, pars, visStim, inputs, outputs, audio
 % events.evenTrials = evenTrials;
 % ---------------
 %
-% Re-comment the above example.
-% 
 % The above example works for updating independent values, but it is
 % usually the case that whatever you want to update will contain
 % co-dependent signals. In this case, you will need to update multiple
@@ -163,44 +161,42 @@ function signals_tutorial_basic(t, events, pars, visStim, inputs, outputs, audio
 % structure. Structures take an extra step to use as signals though, which
 % involves calling the method 'subscriptable' which makes it possible to
 % access their fields using dots as normal.
-%
+
 % -- UNCOMMENT --
-% % Initialize the structure and values
-% trials = struct;
-% trials.odd = 0;
-% trials.even = 0;
-% 
-% % Currently 'trials' is a structure and not an object. We will use the map
-% % trick from the first tutorial to convert this into a signal.
-% initial_trials_signal = events.expStart.map(@(x) trials);
-% 
-% % We will now set up the scan as before, the only difference here is the
-% % use of the method 'subscriptable' which makes the fields of this
-% % structure-signal accessible
-% trials_signal = events.trialNum.scan(@struct_update,initial_trials_signal).subscriptable;
-% 
-% % Plot out the updating values. Note that the dots here (e.g.
-% % trial_signal.odd) is used to access a field and not a signals method
-% % because of the 'subscriptable' command above (try omitting it and seeing
-% % the error when it gets to this step), but we can still use a method in
-% % this syntax (skipRepeats here)
-% events.odd = trials_signal.odd.skipRepeats;
-% events.even = trials_signal.even.skipRepeats;
+% Initialize the structure and values
+trials.odd = 0;
+trials.even = 0;
+initial_trials_signal = events.expStart.map(@(x) trials);
+trials_signal = events.trialNum.scan(@struct_update,initial_trials_signal).subscriptable;
+
 % ---------------
-% 
-% If you want to play around to see why 'map' doesn't work here, you can
-% use the function below nTrials_struct: this will always pass through the
-% initial seed input every time instead of updating each iteration. 
-% 
-% That's all for the examples, try moving on to signals_tutorial_pong and
-% writing pong for Signals. A working example if you get into trouble is
-% provided in signals_tutorial_pong_example
-%
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 end
 
-%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 % These are functions contained and referenced only in this protocol
-%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
 function nTrials = odd_trial(nTrials,trialNum)
 % Add 1 on every odd numbered trial

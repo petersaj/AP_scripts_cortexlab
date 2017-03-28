@@ -1,5 +1,6 @@
 function signals_tutorial_1(t, events, parameters, visStim, inputs, outputs, audio)
 % Signals tutorial 1
+% 170328 - AP
 %
 % Welcome to Signals! From this point on, it's useful to have the Signals
 % documentation open that lists the available methods: 
@@ -212,6 +213,21 @@ events.endTrial = endTrial;
 % thinking of different true signals which could be used to set the value):
 % a lot of them probably won't work for various reasons and it can be
 % useful to try to figure out why.
+%
+% Re-comment above and we'll talk about two types of triggering.
+% 
+% Let's say you wanted to create a new signal which reports the values in
+% the origin signal t
+% One useful method is 'keepWhen', used to report one signal while
+% another signal is true. In this example, we'll read out the values of the
+% origin signal t only when we are currently in every 3rd trial.
+%
+% -- UNCOMMENT --
+trial_mod3 = mod(events.trialNum,3) == 0;
+t_mod3trial = t.keepWhen(trial_mod3);
+
+events.t_mod3trial = t_mod3trial;
+% ---------------
 % 
 % Now you can re-comment those signals (but keep the endTrial signal) and
 % we'll move on to stimuli.
@@ -368,28 +384,33 @@ events.endTrial = endTrial;
 % and they are created whenever they're defined in a protocol script.
 % Outputs at the moment only include reward by default, which controls the
 % water port. Below we will deliver a reward of a user-defined size
-% whenever the trial ends. Uncomment below and run the script: note that in
-% the GUI now there is a field to enter rewardSize, this must be filled in
-% to run properly. On every trial, note that the 'reward delivered'
-% reported in the GUI increases by the rewardSize amount after each trial. 
+% one second after a new trial starts. 
+%
+% Uncomment below and run the script: note that in the GUI there is now a
+% field to enter 'Reward Size' which gets its name from the parameters
+% field. Enter a value there, hit 'apply parameters' and run the
+% experiment. Note that now the 'reward delivered' reported in the GUI
+% increases by the reward size amount after each trial.
 % 
 % -- UNCOMMENT --
-% % The wheel is commonly set up as a signal with skipRepeats, though this
-% % may not be necessary
-% wheel = inputs.wheel.skipRepeats;
-% 
-% % We will define a visual stimulus, but we will set the azimuth to be
-% % controlled by the wheel signal
-% stim = vis.grating(t, 'sinusoid', 'gaussian');
-% stim.azimuth = wheel;
-% stim.show = true;
-% 
-% visStim.gaborStim = stim;
+% deliver_reward = events.newTrial.delay(1);
+% % Below we are using an alternative syntax for 'at': as with all methods,
+% % this can either be signal1.at(signal2), or at(signal2,signal1). The
+% % advantage with the second syntax here is that we can set our new signal
+% % using a constant instead of a signal. It is important to note that
+% % parameters are signals objects, so
+% % 'parameters.rewardSize.at(deliver_reward)' also works, but let's say you
+% % wanted the reward size to be 0.5 always, you could use the
+% % alternate syntax to say 'at(0.5,deliver_reward)'
+% outputs.reward = at(parameters.rewardSize,deliver_reward);
 % ---------------
-outputs.reward = at(rewardSize,hit);  
-
-
-
+%
+% Try delivering the reward at the end of a trial instead of the beginning:
+% note that this doesn't work, the reward delivered never increases. It
+% appears that the processes which are triggered by the end of a trial make
+% executing certain concurrent actions impossible. 
+%
+% Congratulations! End of tutorial 1.
 
 
 

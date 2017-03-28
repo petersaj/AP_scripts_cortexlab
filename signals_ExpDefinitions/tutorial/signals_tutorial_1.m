@@ -213,6 +213,19 @@ events.endTrial = endTrial;
 % thinking of different true signals which could be used to set the value):
 % a lot of them probably won't work for various reasons and it can be
 % useful to try to figure out why.
+%
+% Re-comment above.
+% 
+% One useful method is 'keepWhen', used to report one signal while
+% another signal is true. In this example, we'll read out the values of the
+% origin signal t only when we are currently in every 3rd trial.
+%
+% -- UNCOMMENT --
+% trial_mod3 = mod(events.trialNum,3) == 0;
+% t_mod3trial = t.keepWhen(trial_mod3);
+% 
+% events.t_mod3trial = t_mod3trial;
+% ---------------
 % 
 % Now you can re-comment those signals (but keep the endTrial signal) and
 % we'll move on to stimuli.
@@ -379,6 +392,14 @@ events.endTrial = endTrial;
 % 
 % -- UNCOMMENT --
 % deliver_reward = events.newTrial.delay(1);
+% % Below we are using an alternative syntax for 'at': as with all methods,
+% % this can either be signal1.at(signal2), or at(signal2,signal1). The
+% % advantage with the second syntax here is that we can set our new signal
+% % using a constant instead of a signal. It is important to note that
+% % parameters are signals objects, so
+% % 'parameters.rewardSize.at(deliver_reward)' also works, but let's say you
+% % wanted the reward size to be 0.5 always, you could use the
+% % alternate syntax to say 'at(0.5,deliver_reward)'
 % outputs.reward = at(parameters.rewardSize,deliver_reward);
 % ---------------
 %
@@ -388,8 +409,6 @@ events.endTrial = endTrial;
 % executing certain concurrent actions impossible. 
 %
 % Congratulations! End of tutorial 1.
-
-
 
 
 
