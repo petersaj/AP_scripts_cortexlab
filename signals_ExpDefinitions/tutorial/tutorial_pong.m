@@ -32,25 +32,26 @@ computer_paddle_azimuth = -160;
 
 %%%% PLAYER PADDLE
 player_paddle_altitude = wheel.delta.scan(@paddle_boundary,paddle_altitude_initial);
-%player_paddle_azimuth = cond(events.expStart, player_paddle_altitude, true, paddle_altitude_initial);
 
 player_paddle = vis.patch(t,'rectangle');
 player_paddle.azimuth = player_paddle_azimuth;
-player_paddle.altitude = player_paddle_altitude;
+player_paddle.altitude = cond( ...
+    events.expStart,player_paddle_altitude, ...
+    true, 0);
 player_paddle.dims = paddle_size;
 player_paddle.show = true;
 
 %%%% COMPUTER POSITIONS
 % (need to group ball and paddle because they are co-dependent: this means
 % that they need to be updated simultaneously)
-
 game_data_initial.ball_position = [0,0];
-game_data_initial.ball_velocity = sign(rand(1,2) - 0.5).*[rand.*3,randsample(3:5,1)];
+game_data_initial.ball_velocity = sign(rand(1,2) - 0.5).*[3,rand*3];
 game_data_initial.computer_paddle_position = [computer_paddle_azimuth,paddle_altitude_initial];
 game_data_initial.computer_paddle_speed = 2;
-game_data_initial.player_paddle_position = [player_paddle_azimuth,player_paddle_altitude];
+game_data_initial.player_paddle_azimuth = player_paddle_azimuth;
 game_data_initial.paddle_size = paddle_size;
-game_data = t_update.scan(@update_game_data,game_data_initial).subscriptable;
+
+game_data = player_paddle_altitude.at(t_update).scan(@update_game_data,game_data_initial).subscriptable;
 
 %%%% BALL
 ball_size = [5,5];
@@ -62,7 +63,6 @@ ball.dims = ball_size;
 ball.show = true;
 
 %%%% COMPUTER PADDLE
-
 computer_paddle = vis.patch(t,'rectangle');
 computer_paddle.azimuth = computer_paddle_azimuth;
 computer_paddle.altitude = game_data.computer_paddle_position(2);
@@ -91,7 +91,7 @@ end
 
 end
 
-function game_data = update_game_data(game_data,t_update)
+function game_data = update_game_data(game_data,player_paddle_altitude)
 
 % Define the border along the top: reverse ball altitude velocity
 if abs(game_data.ball_position(2)) >= 90
@@ -99,37 +99,26 @@ if abs(game_data.ball_position(2)) >= 90
 end
 
 % Define the border to hit paddles: reverse ball azimuth velocity
-% if ...
-%         (game_data.ball_position(2) <= game_data.computer_paddle_position(2) && ...
-%         game_data.ball_position(1) <= game_data.computer_paddle_position(1)+(game_data.paddle_size(2)/2) && ...
-%         game_data.ball_position(1) >= game_data.computer_paddle_position(1)-(game_data.paddle_size(2)/2)) | ...
-%         (game_data.ball_position(2) >= game_data.player_paddle_position(2).at(t_update) & ...
-%         game_data.ball_position(1) <= game_data.player_paddle_position(1)+(game_data.paddle_size(2)/2) & ...
-%         game_data.ball_position(1) >= game_data.player_paddle_position(1)-(game_data.paddle_size(2)/2))
-%     
-%     game_data.ball_velocity(2) = -game_data.ball_velocity(2);
-%     
-% end
+if ...
+        (game_data.ball_position(1) <= game_data.computer_paddle_position(1) && ...
+        game_data.ball_position(2) <= game_data.computer_paddle_position(2)+(game_data.paddle_size(2)/2) && ...
+        game_data.ball_position(2) >= game_data.computer_paddle_position(2)-(game_data.paddle_size(2)/2)) || ...
+        (game_data.ball_position(1) >= game_data.player_paddle_azimuth && ...
+        game_data.ball_position(2) <= player_paddle_altitude+(game_data.paddle_size(2)/2) && ...
+        game_data.ball_position(2) >= player_paddle_altitude-(game_data.paddle_size(2)/2))
+    
+    game_data.ball_velocity(1) = -game_data.ball_velocity(1);
+    
+end
 
-new_ball_azimuth_velocity = iff(...
-    (game_data.ball_position(2) <= game_data.computer_paddle_position(2) & ...
-    game_data.ball_position(1) <= game_data.computer_paddle_position(1)+(game_data.paddle_size(2)/2) & ...
-    game_data.ball_position(1) >= game_data.computer_paddle_position(1)-(game_data.paddle_size(2)/2)) | ...
-    (game_data.ball_position(2) >= game_data.player_paddle_position(2).at(t_update) & ...
-    game_data.ball_position(1) <= game_data.player_paddle_position(1)+(game_data.paddle_size(2)/2) & ...
-    game_data.ball_position(1) >= game_data.player_paddle_position(1)-(game_data.paddle_size(2)/2)), ...
-    -game_data.ball_velocity(2),game_data.ball_velocity(2));
-
-game_data.ball_velocity(2) = new_ball_azimuth_velocity;
-
-% Define the border to score, reset the ball randomly
 if abs(game_data.ball_position(1)) >= 180
     game_data.ball_position = [0,0];
-    game_data.ball_velocity = sign(rand(1,2) - 0.5).*[rand.*3,randsample(3:5,1)];
+    game_data.ball_velocity = sign(rand(1,2) - 0.5).*[3,rand*3];
 end
 
 % Update the ball position
 game_data.ball_position = game_data.ball_position + game_data.ball_velocity;
+
 % Update the computer paddle altitude
 game_data.computer_paddle_position(2) = game_data.computer_paddle_position(2) + ...
     game_data.computer_paddle_speed*sign(game_data.ball_position(2) - game_data.computer_paddle_position(2));
