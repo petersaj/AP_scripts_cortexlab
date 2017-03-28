@@ -259,7 +259,7 @@ events.endTrial = endTrial;
 % As usual, these things can be condensed while keeping the same
 % principles, see another way to execute this below:
 %
-% % -- UNCOMMENT --
+% -- UNCOMMENT --
 % soundTrigger = events.newTrial.delay(1);
 % audioSampleRate = 192e3;
 % toneAmplitude = 0.5;
@@ -267,12 +267,12 @@ events.endTrial = endTrial;
 % toneDuration = 0.2;
 % 
 % audio.tone = soundTrigger.map(@(x) toneAmplitude*aud.pureTone(toneFreq, toneDuration, audioSampleRate));
-% % ---------------
+% ---------------
 %
-%  Note that 'audio.tone' that we passed to the audio handler above is an
-%  arbitrarily chosen name, it can be audio.anything, and in fact multiple
-%  sounds can be stored in audio.sound1/audio.sound2. Re-comment the above
-%  and let's make two different sounds:
+% Note that 'audio.tone' that we passed to the audio handler above is an
+% arbitrarily chosen name, it can be audio.anything, and in fact multiple
+% sounds can be stored in audio.sound1/audio.sound2. Re-comment the above
+% and let's make two different sounds:
 %
 % -- UNCOMMENT --
 % soundTrigger1 = events.newTrial.delay(1);
@@ -288,14 +288,95 @@ events.endTrial = endTrial;
 % audio.tone1 = soundTrigger1.map(@(x) toneAmplitude*aud.pureTone(toneFreq1, toneDuration, audioSampleRate));
 % audio.tone2 = soundTrigger2.map(@(x) toneAmplitude*aud.pureTone(toneFreq2, toneDuration, audioSampleRate));
 % ---------------
-
-% You can re-comment the sound section now
+%
+% You can re-comment the sound section now.
 %
 %% VISUAL STIMULI %%
 %
-% Visual stimuli are handled very similarly
+% Visual stimuli are handled very similarly to audio stimuli. 
+% At the moment there are a set number of available stimuli that are
+% generated using the +vis package in signals. Below we will generate a
+% gabor and a square which flicker oppositely from each other.
+%
+% -- UNCOMMENT --
+% % Define when the stimuli should be displayed. This illustrates the new
+% % method 'to', which is defined a signal which is true when one signal
+% % changes until a second signal changes in the syntax signal1.to(signal2)
+% stimOnset = events.newTrial;
+% stimOffset = events.newTrial.delay(1);
+% stimOnOff = stimOnset.to(stimOffset);
+% 
+% % We will greate the gabor with the signals function vis.grating.
+% % Parameters have default values if not explicitely defined, check out
+% % vis.grating for the available parameters
+% gaborStim = vis.grating(t, 'sinusoid', 'gaussian');
+% gaborStim.azimuth = -20;
+% % This parameter 'show' we will make a signal which varies with when
+% % we want our stimulus to be on and off. Note that any parameters can be
+% % constants or signals. 
+% gaborStim.show = stimOnOff;
+% 
+% % Pass our defined stimulus object to the visual stimuli handler
+% % Here's another example type of visual stimulus
+% rectStim = vis.patch(t, 'rect');
+% rectStim.azimuth = 20;
+% % We will turn this stimulus on and off opposite to our gabor
+% rectStim.show = ~stimOnOff;
+% 
+% % Pass our defined stimulus objects to the visual stimuli handler
+% visStim.gaborStim = gaborStim;
+% visStim.rectStim = rectStim;
+% ---------------
+%
+% You can re-comment this section now. 
+%
+%% WHEEL INPUT %%
+% 
+% The major (or only, for now) input of signals will be the rotary encoder.
+% The signal from the rotary encoder is an origin signal and therefore can
+% be used to define other signals. Let's make a visual stimulus which can
+% be controlled by the wheel (note that in exp.test the 'wheel' is the
+% scroll bar in the GUI).
+%
+% Try uncommenting the below code and running it. Where's the stimulus??
+% This is an instance of a bug from no initialization: the wheel value is
+% undefined at some point around the experiment initialization and breaks
+% the stimulus. Try fixing this by using 'cond' to initialize the azimuth
+% to zero by default (or look below to cheat). Once you have the stimulus
+% appearing, you'll now be able to control it's azimuth with the wheel.
+%
+% -- UNCOMMENT --
+% % The wheel is commonly set up as a signal with skipRepeats, though this
+% % may not be necessary
+% wheel = inputs.wheel.skipRepeats;
+% 
+% % We will define a visual stimulus, but we will set the azimuth to be
+% % controlled by the wheel signal
+% stim = vis.grating(t, 'sinusoid', 'gaussian');
+% stim.azimuth = wheel;
+% stim.show = true;
+% 
+% visStim.gaborStim = stim;
+% ---------------
+%
+% Re-comment the above. You might have noticed that you could go off-screen
+% forever - so let's reset the stimulus position when it reaches a certain
+% point. We can conceptually hit one of the weak points in Signals here: it
+% is impossible to make co-dependent signals. For example: the stimulus
+% azimuth should be reset when it reaches a point, but 
+% 
+% -- UNCOMMENT --
+wheel = inputs.wheel.skipRepeats;
+stim = vis.grating(t, 'sinusoid', 'gaussian');
 
+stim_azimuth = wheel - wheel.at(
+stim.azimuth = cond( ...
+    events.expStart,wheel, ...
+    true, 0);
 
+stim.show = true;
+visStim.gaborStim = stim;
+% ---------------
 
 
 % THINGS TO COVER HERE:

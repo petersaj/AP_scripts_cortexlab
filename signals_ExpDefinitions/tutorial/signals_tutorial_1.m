@@ -1,5 +1,6 @@
-function tutorial_intro(t, events, pars, visStim, inputs, outputs, audio)
-% Signals tutorial
+function signals_tutorial_1(t, events, parameters, visStim, inputs, outputs, audio)
+% Signals tutorial 1
+% 170328 - AP
 %
 % Welcome to Signals! From this point on, it's useful to have the Signals
 % documentation open that lists the available methods: 
@@ -31,7 +32,7 @@ function tutorial_intro(t, events, pars, visStim, inputs, outputs, audio)
 %
 %% PROTOCOL INPUT ARGUMENTS %%
 % Signals protocols are functions defined as 
-% signalsProtocol(t, events, pars, visStim, inputs, outputs, audio)
+% signalsProtocol(t, events, parameters, visStim, inputs, outputs, audio)
 % Note that as with any function, these input arguments can be named
 % anything and the only thing that matters is the order (e.g. events could
 % be named evts).
@@ -49,9 +50,9 @@ function tutorial_intro(t, events, pars, visStim, inputs, outputs, audio)
 % somewhere in the protocol (commonly all relevant events are packaged at
 % the end of a protocol script). 
 %
-% pars - These are user defined parameters. MC (the master control program
-% that is the wrapper to run signals) will search for pars within each
-% script and make those editable values. For example, if 'pars.userValue'
+% parameters - These are user defined parameters. MC (the master control program
+% that is the wrapper to run signals) will search for parameters within each
+% script and make those editable values. For example, if 'parameters.userValue'
 % appears in the protocol script, an editable field called 'userValue'
 % will be made available and the signals protocol will use that value to
 % run the experiment. 
@@ -259,7 +260,7 @@ events.endTrial = endTrial;
 % As usual, these things can be condensed while keeping the same
 % principles, see another way to execute this below:
 %
-% % -- UNCOMMENT --
+% -- UNCOMMENT --
 % soundTrigger = events.newTrial.delay(1);
 % audioSampleRate = 192e3;
 % toneAmplitude = 0.5;
@@ -267,12 +268,12 @@ events.endTrial = endTrial;
 % toneDuration = 0.2;
 % 
 % audio.tone = soundTrigger.map(@(x) toneAmplitude*aud.pureTone(toneFreq, toneDuration, audioSampleRate));
-% % ---------------
+% ---------------
 %
-%  Note that 'audio.tone' that we passed to the audio handler above is an
-%  arbitrarily chosen name, it can be audio.anything, and in fact multiple
-%  sounds can be stored in audio.sound1/audio.sound2. Re-comment the above
-%  and let's make two different sounds:
+% Note that 'audio.tone' that we passed to the audio handler above is an
+% arbitrarily chosen name, it can be audio.anything, and in fact multiple
+% sounds can be stored in audio.sound1/audio.sound2. Re-comment the above
+% and let's make two different sounds:
 %
 % -- UNCOMMENT --
 % soundTrigger1 = events.newTrial.delay(1);
@@ -288,48 +289,105 @@ events.endTrial = endTrial;
 % audio.tone1 = soundTrigger1.map(@(x) toneAmplitude*aud.pureTone(toneFreq1, toneDuration, audioSampleRate));
 % audio.tone2 = soundTrigger2.map(@(x) toneAmplitude*aud.pureTone(toneFreq2, toneDuration, audioSampleRate));
 % ---------------
-
-% You can re-comment the sound section now
+%
+% You can re-comment this section. 
 %
 %% VISUAL STIMULI %%
 %
-% Visual stimuli are handled very similarly
-
-
-
-
-% THINGS TO COVER HERE:
-% what a signal is
-% all the inputs to the function:
-% t, events, and origin signals
-% visual stimulus
-% wheel input 
-% outputs?
-% audio?
+% Visual stimuli are handled very similarly to audio stimuli. 
+% At the moment there are a set number of available stimuli that are
+% generated using the +vis package in signals. Below we will generate a
+% gabor and a square which flicker oppositely from each other.
+%
+% -- UNCOMMENT --
+% % Define when the stimuli should be displayed. This illustrates the new
+% % method 'to', which is defined a signal which is true when one signal
+% % changes until a second signal changes in the syntax signal1.to(signal2)
+% stimOnset = events.newTrial;
+% stimOffset = events.newTrial.delay(1);
+% stimOnOff = stimOnset.to(stimOffset);
 % 
-% functions:
-% sum, modulus
+% % We will greate the gabor with the signals function vis.grating.
+% % Parameters have default values if not explicitely defined, check out
+% % vis.grating for the available parameters
+% gaborStim = vis.grating(t, 'sinusoid', 'gaussian');
+% gaborStim.azimuth = -20;
+% % This parameter 'show' we will make a signal which varies with when
+% % we want our stimulus to be on and off. Note that any parameters can be
+% % constants or signals. 
+% gaborStim.show = stimOnOff;
 % 
-% give the order of later tutorials:
-% - time
-% - sound
-% - visStim
-% - contrast visStim
-% - flicker visStim
-% - stimMove
-% - map?
-% - stimMoveTrigger (includes keepWhen and setTrigger)?
-% - scan
-% - params (not made yet)
-
-
-
-
-
-
-
-
-
+% % Pass our defined stimulus object to the visual stimuli handler
+% % Here's another example type of visual stimulus
+% rectStim = vis.patch(t, 'rect');
+% rectStim.azimuth = 20;
+% % We will turn this stimulus on and off opposite to our gabor
+% rectStim.show = ~stimOnOff;
+% 
+% % Pass our defined stimulus objects to the visual stimuli handler
+% visStim.gaborStim = gaborStim;
+% visStim.rectStim = rectStim;
+% ---------------
+%
+% You can re-comment this section. 
+%
+%% WHEEL INPUT %%
+% 
+% The major (or only, for now) input of signals will be the rotary encoder.
+% The signal from the rotary encoder is an origin signal and therefore can
+% be used to define other signals. Let's make a visual stimulus which can
+% be controlled by the wheel (note that in exp.test the 'wheel' is the
+% scroll bar in the GUI).
+%
+% Try uncommenting the below code and running it. Where's the stimulus??
+% This is an instance of a bug from no initialization: the wheel value is
+% undefined at some point around the experiment initialization and breaks
+% the stimulus. Try fixing this by using 'cond' to initialize the azimuth
+% to zero by default. Once you have the stimulus appearing, you'll find
+% that you can move the azimuth with the wheel.
+%
+% -- UNCOMMENT --
+% % The wheel is commonly set up as a signal with skipRepeats, though this
+% % may not be necessary
+% wheel = inputs.wheel.skipRepeats;
+% 
+% % We will define a visual stimulus, but we will set the azimuth to be
+% % controlled by the wheel signal
+% stim = vis.grating(t, 'sinusoid', 'gaussian');
+% stim.azimuth = wheel;
+% stim.show = true;
+% 
+% visStim.gaborStim = stim;
+% ---------------
+%
+% You can re-comment this section. 
+%
+%% PARAMETERS AND OUTPUT %%
+% 
+% The final two inputs to a Signals protocol are the parameters and
+% outputs. Parameters are user-defined values which are used in a protocol,
+% and they are created whenever they're defined in a protocol script.
+% Outputs at the moment only include reward by default, which controls the
+% water port. Below we will deliver a reward of a user-defined size
+% one second after a new trial starts. 
+%
+% Uncomment below and run the script: note that in the GUI there is now a
+% field to enter 'Reward Size' which gets its name from the parameters
+% field. Enter a value there, hit 'apply parameters' and run the
+% experiment. Note that now the 'reward delivered' reported in the GUI
+% increases by the reward size amount after each trial.
+% 
+% -- UNCOMMENT --
+% deliver_reward = events.newTrial.delay(1);
+% outputs.reward = at(parameters.rewardSize,deliver_reward);
+% ---------------
+%
+% Try delivering the reward at the end of a trial instead of the beginning:
+% note that this doesn't work, the reward delivered never increases. It
+% appears that the processes which are triggered by the end of a trial make
+% executing certain concurrent actions impossible. 
+%
+% Congratulations! End of tutorial 1.
 
 
 

@@ -275,20 +275,26 @@ events.endTrial = endTrial;
 %  and let's make two different sounds:
 %
 % -- UNCOMMENT --
-% soundTrigger1 = events.newTrial.delay(1);
-% soundTrigger2 = events.newTrial.delay(1.5);
-% 
-% audioSampleRate = 192e3;
-% toneAmplitude = 0.5;
-% toneDuration = 0.2;
-% 
-% toneFreq1 = 500;
-% toneFreq2 = 200;
-% 
-% audio.tone1 = soundTrigger1.map(@(x) toneAmplitude*aud.pureTone(toneFreq1, toneDuration, audioSampleRate));
-% audio.tone2 = soundTrigger2.map(@(x) toneAmplitude*aud.pureTone(toneFreq2, toneDuration, audioSampleRate));
-% ---------------
+soundTrigger1 = events.newTrial.delay(1);.
+soundTrigger2 = events.newTrial.delay(1.5);
 
+audioSampleRate = 192e3;
+toneAmplitude = 0.5;
+toneDuration = 0.2;
+
+toneFreq1 = 500;
+toneFreq2 = 500;
+
+audio.tone1 = soundTrigger1.map(@(x) toneAmplitude*aud.pureTone(toneFreq1, toneDuration, audioSampleRate));
+audio.tone2 = soundTrigger2.map(@(x) toneAmplitude*aud.pureTone(toneFreq2, toneDuration, audioSampleRate));
+
+% % ---------------
+%
+% % an arbitrarily chosen name, it can be audio.anything, and multiple sounds
+% % can even be stored like audio.sound1 and audio.sound2
+% 
+%
+%
 % You can re-comment the sound section now
 %
 %% VISUAL STIMULI %%
