@@ -1,7 +1,19 @@
 function vanillaChoiceworld(t, events, parameters, visStim, inputs, outputs, audio)
 % vanillaChoiceworld(t, events, parameters, visStim, inputs, outputs, audio)
-% Choice world that adapts with behavior
 % 170309 - AP
+%
+% Choice world that adapts with behavior
+%
+% Task structure: 
+% Start trial
+% Resetting pre-stim quiescent period
+% Stimulus onset
+% Fixed cue interactive delay
+% Infinite time for response, fix stim azimuth on response
+% Short ITI on reward, long ITI on punish, then turn stim off
+% End trial
+% 
+% TO DO: finish writing properties
 
 %% Fixed parameters
 
@@ -9,22 +21,29 @@ function vanillaChoiceworld(t, events, parameters, visStim, inputs, outputs, aud
 rewardSize = 0.2; %%%% TO DO: CHECK OTHER PROTOCOLS
 
 % Trial choice parameters
-% (staircase: every staircaseTrials, engage an staircaseHit forward / staircaseMiss back
-% choice of contrast)
+% Staircase trial choice
+% (how often staircase trials appear - every staircaseTrials trials)
 staircaseTrials = 2; 
+% (how many hits to move forward on the staircase)
 staircaseHit = 3;
+% (how many misses to move backward on the staircase)
 staircaseMiss = 1;
 
 % Stimulus/target
+% (which contrasts to use)
 contrasts = [1,0.5,0.25,0.125,0.06,0];
+% (which conrasts to use at the beginning of training)
 startingContrasts = [true,true,false,false,false,false];
-trialsToBuffer = 10; % number of trials to judge current performance
-trialsToZeroContrast = 500; % number of trials after introducing 0.125
+% (which contrasts to repeat on miss)
+repeatOnMiss = [true,true,false,false,false,false];
+% (number of trials to judge rolling performance)
+trialsToBuffer = 10; %%%% TO DO: make a reasonable number here (200?)
+% (number of trials after introducing 12.5% contrast to introduce 0%)
+trialsToZeroContrast = 500;
 sigma = [9,9];
 spatialFrequency = 0.01;
 startingAzimuth = 90;
-hitDisplacement = 90;
-missDisplacement = 90;
+responseDisplacement = 90;
 
 % Timing
 prestimQuiescentTime = 0.5;
@@ -51,31 +70,22 @@ quiescThreshold = 1; % what's a reasonable value for this?
 wheelGain = 1; % I guess ultimately defined per rig...
 
 %% Conditional parameters
+
 subject = 'AP001'; %%%% TO DO: placeholder, get this from MC
+
 % Initialize new or load old performance
 performanceInit = events.expStart.mapn( ...
-    subject,contrasts,startingContrasts,trialsToBuffer,trialsToZeroContrast,@initializePerformance).subscriptable;
-
-% Initialize staircase
-staircase = events.trialNum.mapn(@(trialNum) mod(trialNum,staircaseTrials) == 0);
-
-% Choose trial condition
-trialSide = events.newTrial.mapn(@(x) randsample([-1,1],1));
+    subject,contrasts,startingContrasts,repeatOnMiss, ...
+    trialsToBuffer,trialsToZeroContrast,staircaseTrials,staircaseHit,staircaseMiss, ...
+    @initializePerformance).subscriptable;
 
 %% Set up wheel 
 
 wheel = inputs.wheel.skipRepeats();
 
 %% Trial event times
-
-% Task structure: 
-% Start trial
-% Resetting pre-stim quiescent period
-% Stimulus onset
-% Fixed cue interactive delay
-% Infinite time for response, fix stim azimuth on response
-% Short ITI on reward, long ITI on punish, then turn stim off
-% End trial
+% (this is set up to be independent of trial conditon, that way the trial
+% condition can be chosen in a performance-dependent manner)
 
 % Resetting pre-stim quiescent period
 prestimQuiescentPeriod = at(prestimQuiescentTime,events.newTrial.delay(0)); 
@@ -95,26 +105,29 @@ audio.onsetTone = toneSamples.at(interactiveOn);
 % (wheel displacement zeroed at interactiveOn)
 stimDisplacement = wheelGain*(wheel - wheel.at(interactiveOn));
 
-hit = keepWhen(interactiveOn.setTrigger(stimDisplacement*trialSide ...
-    <= -hitDisplacement),interactiveOn.to(events.newTrial));
-miss = keepWhen(interactiveOn.setTrigger(stimDisplacement*trialSide ...
-    >= missDisplacement),interactiveOn.to(events.newTrial));
+response = keepWhen(interactiveOn.setTrigger(abs(stimDisplacement) ...
+    >= responseDisplacement),interactiveOn.to(events.newTrial));
+
+%% Update performance at response
+% (NOTE: this cannot be done at endTrial: concurrent events break things)
+
+% Update performance
+performance = stimDisplacement.at(response).scan(@updatePerformance,performanceInit).subscriptable;
+
+% Set trial contrast (chosen when updating performance)
+trialContrast = performance.trialContrast;
+
+
+%% Give feedback and end trial
 
 % Give reward on hit
-outputs.reward = at(rewardSize,hit);  
+outputs.reward = at(rewardSize,performance.hit);  
 
 % Play noise on miss
-audio.missNoise = missNoiseSamples.at(miss);
+audio.missNoise = missNoiseSamples.at(performance.miss);
 
 % ITI defined by outcome
-iti = merge(hit.delay(itiHit),miss.delay(itiMiss));
-
-% Stim fixed in place before interactive and after response, wheel-conditional otherwise
-stimAzimuth = cond( ...
-    events.newTrial.to(interactiveOn), startingAzimuth*trialSide, ...
-    interactiveOn.to(merge(hit,miss)), startingAzimuth*trialSide + stimDisplacement, ...
-    hit.to(events.newTrial), (startingAzimuth-hitDisplacement)*trialSide, ...
-    miss.to(events.newTrial), (startingAzimuth+missDisplacement)*trialSide);
+iti = response.delay(performance.hit.at(response)*itiHit + performance.miss.at(response)*itiMiss);
 
 % Stim stays on until the end of the ITI
 stimOff = iti;
@@ -122,26 +135,14 @@ stimOff = iti;
 % End trial at the end of the ITI
 endTrial = iti;
 
-%% Update performance during ITI
-% NOTE: this cannot be done at endTrial: concurrent events break things
-
-outcome = merge( ...
-    at(true,hit), ...
-    at(false,miss));
-
-% This is a dirty way to package things, but scan only accepts one argument
-trialInfo = ...
-    [trialSide.at(merge(hit,miss)), ...
-    outcome.at(merge(hit,miss)), ...
-    staircase.at(merge(hit,miss)), ...
-    staircaseHit,staircaseMiss];
-
-performance = trialInfo.scan(@updatePerformance,performanceInit).subscriptable;
-trialContrast = performance.nextTrialContrast;
-
 %% Visual stimulus
 
-% Trial-independent parameters
+% Azimuth control
+% Stim fixed in place before interactive and after response, wheel-conditional otherwise
+stimAzimuth = cond( ...
+    events.newTrial.to(interactiveOn), startingAzimuth*performance.trialSide, ...
+    interactiveOn.to(response), startingAzimuth*performance.trialSide + stimDisplacement);
+
 stim = vis.grating(t, 'square', 'gaussian');
 stim.sigma = sigma;
 stim.spatialFrequency = spatialFrequency;
@@ -154,59 +155,83 @@ visStim.stim = stim;
 
 %% Display and save
 
-% Trial conditions and outcome
-events.trialSide = trialSide;
-events.trialContrast = trialContrast;
-
-% Animal-dependent events
+% Wheel and stim
 events.wheel = wheel;
-events.hit = hit;
-events.miss = miss;
+events.stimAzimuth = stimAzimuth;
 
 % Trial times
 events.stimOn = stimOn;
 events.stimOff = stimOff;
 events.interactiveOn = interactiveOn;
-events.stimAzimuth = stimAzimuth;
+events.response = response;
 events.endTrial = endTrial;
 
 % Performance
+events.trialSide = performance.trialSide;
+events.trialContrast = performance.trialContrast;
+events.hit = performance.hit;
+events.miss = performance.miss;
 events.use_contrasts = performance.use_contrasts;
 events.hit_buffer = performance.hit_buffer;
+events.repeatTrial = performance.repeatTrial;
 events.trialsToZeroContrast = performance.trialsToZeroContrast;
 
 end
 
-function performanceInit = initializePerformance(~,subject,contrasts,startingContrasts,trialsToBuffer,trialsToZeroContrast)
+function performanceInit = initializePerformance(~, ...
+    subject,contrasts,startingContrasts,repeatOnMiss,trialsToBuffer, ...
+    trialsToZeroContrast,staircaseTrials,staircaseHit,staircaseMiss)
 
+%%%% Initialize all of the session-independent performance values
 performanceInit = struct;
+
+% Store the contrasts which are used
 performanceInit.contrasts = contrasts;
+% Store which trials are repeated on miss
+performanceInit.repeatOnMiss = repeatOnMiss;
+% Define conditions as side*contrast
 performanceInit.conditions = unique(sort([contrasts,-contrasts]));
-performanceInit.nextTrialContrast = 1;
-% Initialize the staircase: [current contrast, hits, misses]
-performanceInit.staircase = [contrasts(1),0,0];
+% Set the first contrast to 1
+performanceInit.trialContrast = 1;
+% Set the first trial side randomly
+performanceInit.trialSide = randsample([-1,1],1);
+% Set up the flag for repeating incorrect
+performanceInit.repeatTrial = false;
+% Initialize hit/miss
+performanceInit.hit = false;
+performanceInit.miss = false;
+% Initialize the staircase: 
+% [current contrast, hits, misses, staircase trial counter, 
+% staircase every n trials, hit requirement, miss requirement]
+performanceInit.staircase = ...
+    [contrasts(1),0,0,0, ...
+    staircaseTrials,staircaseHit,staircaseMiss];
 
 n_conditions = length(performanceInit.conditions);
 
-% Load the last experiment for the subject if it exists
+%%%% Load the last experiment for the subject if it exists
 % (note: MC creates folder on initilization, so look for > 1)
 expRef = dat.listExps(subject);
 if length(expRef) > 1
-    try
     previousBlockFilename = dat.expFilePath(expRef{end-1}, 'block', 'master');
-    previousBlock = load(previousBlockFilename);
-    catch me
+    if exist(previousBlockFilename,'file')
+        previousBlock = load(previousBlockFilename);
     end
 end
 
 if exist('previousBlock','var') && all(isfield(previousBlock.block, ...
         {'use_contrasts','hit_buffer','trialsToZeroContrast'}))
-    % If the last experiment file has the relevant fields, set up performance   
+    % If the last experiment file has the relevant fields, set up performance
+    
+    % Which contrasts are currently in use
     performanceInit.use_contrasts = previousBlock.block.use_contrasts(end-n_conditions+1:end);
+    % The buffer to judge recent performance for adding contrasts
     performanceInit.hit_buffer = reshape( ...
         previousBlock.block.hit_buffer(end-trialsToBuffer*n_conditions+1:end), ...
         trialsToBuffer,n_conditions);
-    performanceInit.trialsToZeroContrast = previousBlock.block.trialsToZeroContrast(end);        
+    % The countdown to adding 0% contrast
+    performanceInit.trialsToZeroContrast = previousBlock.block.trialsToZeroContrast(end);      
+    
 else    
     % If this animal has no previous experiments, initialize performance
     performanceInit.use_contrasts = startingContrasts;
@@ -216,25 +241,32 @@ end
 
 end
 
-function performance = updatePerformance(performance,trialInfo)
+function performance = updatePerformance(performance,stimDisplacement)
 % Update the performance and pick the next contrast
 
-%%%% Unpackage (have to be packaged: only one allowable input argument)
-trialSide = trialInfo(1);
-hit = trialInfo(2);
-staircaseTrial = trialInfo(3);
-staircaseHit = trialInfo(4);
-staircaseMiss = trialInfo(5);
+%%%% Define the current trial condition
+currentTrialCondition = performance.trialSide*performance.trialContrast;
+conditionIdx = performance.conditions == currentTrialCondition;
 
-thisTrialCondition = trialSide*performance.nextTrialContrast;
+%%%% Define response type based on trial condition
+performance.hit = stimDisplacement*performance.trialSide < 0;
+performance.miss = stimDisplacement*performance.trialSide > 0;
 
-%%%% Update performance
-conditionIdx = performance.conditions == thisTrialCondition;
+%%%% Update hit/miss buffer if not a repeat trial
+if ~performance.repeatTrial
+    performance.hit_buffer(:,conditionIdx) = ...
+        [performance.hit;performance.hit_buffer(1:end-1,conditionIdx)];
+    trialsToBuffer = size(performance.hit_buffer,1);
+end
 
-% Hit/miss in buffer
-performance.hit_buffer(:,conditionIdx) = ...
-    [hit;performance.hit_buffer(1:end-1,conditionIdx)];
-trialsToBuffer = size(performance.hit_buffer,1);
+%%%% Set flag to repeat - skip trial choice if so, choose trial if not
+if performance.miss && ...
+        ismember(performance.trialContrast,performance.contrasts(performance.repeatOnMiss))
+    performance.repeatTrial = true;
+    return
+else
+    performance.repeatTrial = false;
+end
 
 %%%% Add new contrasts as necessary given performance
 % This is based on the last trialsToBuffer trials for rolling performance
@@ -308,26 +340,34 @@ if min(performance.contrasts(performance.use_contrasts)) <= 0.125 && ...
 end
 
 %%%% Pick next contrast (and update staircase on staircase trials)
+staircaseTrial = performance.staircase(4) == 0;
+
 if ~staircaseTrial
     
     % Next contrast is random from current contrast set
-    performance.nextTrialContrast = randsample(performance.contrasts(performance.use_contrasts),1);
+    performance.trialContrast = randsample(performance.contrasts(performance.use_contrasts),1);
     
 elseif staircaseTrial
-    
+        
     % Update hit/miss counter
-    performance.staircase(2) = performance.staircase(2) + hit;
-    performance.staircase(3) = performance.staircase(3) + ~hit;
+    performance.staircase(2) = performance.staircase(2) + performance.hit;
+    performance.staircase(3) = performance.staircase(3) + performance.miss;
+    
+    % Update trial counter
+    performance.staircase(4) = performance.staircase(4) + 1;
+    if performance.staircase(4) >= performance.staircase(5)
+        performance.staircase(4) = 0;
+    end
     
     % Move staircase on hit/miss counter threshold
-    if performance.staircase(2) >= staircaseHit
+    if performance.staircase(2) >= performance.staircase(6)
         % On hit threshold, move the staircase forward and reset hit/miss
         newStaircaseContrast = performance.contrasts(...
             min(find(performance.staircase(1) == performance.contrasts)+1, ...
             sum(performance.use_contrasts)));
         performance.staircase(1) = newStaircaseContrast;
         performance.staircase(2:3) = 0;
-    elseif performance.staircase(3) >= staircaseMiss
+    elseif performance.staircase(3) >= performance.staircase(7)
         % On miss threshold, move staircase backward and reset hit/miss
         newStaircaseContrast = performance.contrasts(...
             max(find(performance.staircase(1) == performance.contrasts)-1,1));
@@ -336,10 +376,12 @@ elseif staircaseTrial
     end
     
     % Next contrast is defined by the staircase
-    performance.nextTrialContrast = performance.staircase(1);
+    performance.trialContrast = performance.staircase(1);
     
 end
 
+%%%% Pick next side (this is done at random)
+performance.trialSide = randsample([-1,1],1);
 
 end
 

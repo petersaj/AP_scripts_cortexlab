@@ -93,8 +93,14 @@ if abs(game_data.ball_position(2)) >= 90
     game_data.ball_velocity(2) = -game_data.ball_velocity(2);
 end
 
-% Define the border to hit paddles: reverse ball azimuth velocity
-if ...
+% Define the boundaries where the ball should bounce or score
+if abs(game_data.ball_position(1)) >= 180
+    
+    % Reset the ball if it reaches the edge of the board
+    game_data.ball_position = [0,0];
+    game_data.ball_velocity = sign(rand(1,2) - 0.5).*[3,rand*3];
+    
+elseif ...
         (game_data.ball_position(1) <= game_data.computer_paddle_position(1) && ...
         game_data.ball_position(2) <= game_data.computer_paddle_position(2)+(game_data.paddle_size(2)/2) && ...
         game_data.ball_position(2) >= game_data.computer_paddle_position(2)-(game_data.paddle_size(2)/2)) || ...
@@ -102,13 +108,9 @@ if ...
         game_data.ball_position(2) <= player_paddle_altitude+(game_data.paddle_size(2)/2) && ...
         game_data.ball_position(2) >= player_paddle_altitude-(game_data.paddle_size(2)/2))
     
+    % Reverse ball azimuth velocity when it hits a paddle
     game_data.ball_velocity(1) = -game_data.ball_velocity(1);
     
-end
-
-if abs(game_data.ball_position(1)) >= 180
-    game_data.ball_position = [0,0];
-    game_data.ball_velocity = sign(rand(1,2) - 0.5).*[3,rand*3];
 end
 
 % Update the ball position
