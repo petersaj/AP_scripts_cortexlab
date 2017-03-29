@@ -18,7 +18,7 @@ function vanillaChoiceworld(t, events, parameters, visStim, inputs, outputs, aud
 %% Fixed parameters
 
 % Reward
-rewardSize = 0.2; %%%% TO DO: CHECK OTHER PROTOCOLS
+rewardSize = 3;
 
 % Trial choice parameters
 % Staircase trial choice
@@ -37,7 +37,7 @@ startingContrasts = [true,true,false,false,false,false];
 % (which contrasts to repeat on miss)
 repeatOnMiss = [true,true,false,false,false,false];
 % (number of trials to judge rolling performance)
-trialsToBuffer = 10; %%%% TO DO: make a reasonable number here (200?)
+trialsToBuffer = 50;
 % (number of trials after introducing 12.5% contrast to introduce 0%)
 trialsToZeroContrast = 500;
 sigma = [9,9];
@@ -52,30 +52,30 @@ itiHit = 1;
 itiMiss = 2;
 
 % Sounds
-audio_sample_rate = 192e3; %%%% TO DO: CHECK OTHER PROTOCOLS
+audioSampleRate = 192e3;
 
-onsetToneAmplitude = 1; %%%% TO DO: CHECK OTHER PROTOCOLS
-onsetToneFreq = 500; %%%% TO DO: CHECK OTHER PROTOCOLS
-onsetToneDuration = 0.1; %%%% TO DO: CHECK OTHER PROTOCOLS
+onsetToneAmplitude = 1;
+onsetToneFreq = 12000;
+onsetToneDuration = 0.1;
+onsetToneRampDuration = 0.01;
+audioChannels = 2;
 toneSamples = onsetToneAmplitude*events.expStart.map(@(x) ...
-    aud.pureTone(onsetToneFreq, onsetToneDuration, audio_sample_rate));
+    aud.pureTone(onsetToneFreq,onsetToneDuration,audioSampleRate, ...
+    onsetToneRampDuration,audioChannels));
 
 missNoiseDuration = itiMiss;
-missNoiseAmplitude = 0.2; %%%% TO DO: CHECK OTHER PROTOCOLS
+missNoiseAmplitude = 0.05;
 missNoiseSamples = missNoiseAmplitude*events.expStart.map(@(x) ...
-    randn(2, audio_sample_rate*missNoiseDuration));
+    randn(2, audioSampleRate*missNoiseDuration));
 
 % Wheel parameters
-quiescThreshold = 1; % what's a reasonable value for this?
-wheelGain = 1; % I guess ultimately defined per rig...
+quiescThreshold = 1;
+wheelGain = 1;
 
-%% Conditional parameters
+%% Initialize trial data
 
-subject = 'AP001'; %%%% TO DO: placeholder, get this from MC
-
-% Initialize new or load old performance
 trialDataInit = events.expStart.mapn( ...
-    subject,contrasts,startingContrasts,repeatOnMiss, ...
+    contrasts,startingContrasts,repeatOnMiss, ...
     trialsToBuffer,trialsToZeroContrast,staircaseTrials,staircaseHit,staircaseMiss, ...
     @initializeTrialData).subscriptable;
 
@@ -168,7 +168,6 @@ events.endTrial = endTrial;
 % Performance
 events.contrasts = trialData.contrasts;
 events.repeatOnMiss = trialData.repeatOnMiss;
-events.conditions = trialData.conditions;
 events.trialContrast = trialData.trialContrast;
 events.trialSide = trialData.trialSide;
 events.repeatTrial = trialData.repeatTrial;
@@ -176,14 +175,25 @@ events.hit = trialData.hit;
 events.miss = trialData.miss;
 events.staircase = trialData.staircase;
 events.use_contrasts = trialData.use_contrasts;
-events.hit_buffer = trialData.hit_buffer;
 events.trialsToZeroContrast = trialData.trialsToZeroContrast;
+events.hit_buffer = trialData.hit_buffer;
+
 
 end
 
-function trialDataInit = initializeTrialData(~, ...
-    subject,contrasts,startingContrasts,repeatOnMiss,trialsToBuffer, ...
+function trialDataInit = initializeTrialData(subject_info, ...
+    contrasts,startingContrasts,repeatOnMiss,trialsToBuffer, ...
     trialsToZeroContrast,staircaseTrials,staircaseHit,staircaseMiss)
+
+%%%% Get the subject
+% (from events.expStart - MC gives subject after last underscore)
+subject_info_underscore_idx = strfind(subject_info,'_');
+if ~isempty(subject_info_underscore_idx)
+    subject = subject_info(subject_info_underscore_idx(end)+1:end);
+else
+    % (if there are no underscores, set subject to nothing)
+    subject = '';
+end
 
 %%%% Initialize all of the session-independent performance values
 trialDataInit = struct;
@@ -192,8 +202,6 @@ trialDataInit = struct;
 trialDataInit.contrasts = contrasts;
 % Store which trials are repeated on miss
 trialDataInit.repeatOnMiss = repeatOnMiss;
-% Define conditions as side*contrast
-trialDataInit.conditions = unique(sort([contrasts,-contrasts]));
 % Set the first contrast to 1
 trialDataInit.trialContrast = 1;
 % Set the first trial side randomly
@@ -210,8 +218,6 @@ trialDataInit.staircase = ...
     [contrasts(1),0,0,0, ...
     staircaseTrials,staircaseHit,staircaseMiss];
 
-n_conditions = length(trialDataInit.conditions);
-
 %%%% Load the last experiment for the subject if it exists
 % (note: MC creates folder on initilization, so look for > 1)
 expRef = dat.listExps(subject);
@@ -221,24 +227,26 @@ if length(expRef) > 1
         previousBlock = load(previousBlockFilename);
     end
 end
-
-if exist('previousBlock','var') && all(isfield(previousBlock.block, ...
-        {'use_contrasts','hit_buffer','trialsToZeroContrast'}))
+if exist('previousBlock','var') && isfield(previousBlock.block,'events') && ...
+        all(isfield(previousBlock.block.events, ...
+        {'use_contrastsValues','hit_bufferValues','trialsToZeroContrastValues'}))
     % If the last experiment file has the relevant fields, set up performance
     
     % Which contrasts are currently in use
-    trialDataInit.use_contrasts = previousBlock.block.use_contrasts(end-n_conditions+1:end);
+    trialDataInit.use_contrasts = previousBlock.block. ...
+        events.use_contrastsValues(end-length(contrasts)+1:end);
     % The buffer to judge recent performance for adding contrasts
-    trialDataInit.hit_buffer = reshape( ...
-        previousBlock.block.hit_buffer(end-trialsToBuffer*n_conditions+1:end), ...
-        trialsToBuffer,n_conditions);
+    trialDataInit.hit_buffer = ...
+        previousBlock.block. ...
+        events.hit_bufferValues(:,end-length(contrasts)+1:end);
     % The countdown to adding 0% contrast
-    trialDataInit.trialsToZeroContrast = previousBlock.block.trialsToZeroContrast(end);      
+    trialDataInit.trialsToZeroContrast = previousBlock.block. ...
+        events.trialsToZeroContrastValues(end);      
     
 else    
     % If this animal has no previous experiments, initialize performance
     trialDataInit.use_contrasts = startingContrasts;
-    trialDataInit.hit_buffer = nan(trialsToBuffer,n_conditions);
+    trialDataInit.hit_buffer = nan(trialsToBuffer,length(contrasts));
     trialDataInit.trialsToZeroContrast = trialsToZeroContrast;  
 end
 
@@ -247,121 +255,32 @@ end
 function trialData = updateTrialData(trialData,stimDisplacement)
 % Update the performance and pick the next contrast
 
-%%%% Define the current trial condition
-currentTrialCondition = trialData.trialSide*trialData.trialContrast;
-conditionIdx = trialData.conditions == currentTrialCondition;
+%%%% Get index of current trial contrast
+currentContrastIdx = trialData.trialContrast == trialData.contrasts;
 
 %%%% Define response type based on trial condition
 trialData.hit = stimDisplacement*trialData.trialSide < 0;
 trialData.miss = stimDisplacement*trialData.trialSide > 0;
 
-%%%% Update hit/miss buffer if not a repeat trial
+%%%% Update buffers and counters if not a repeat trial
 if ~trialData.repeatTrial
-    trialData.hit_buffer(:,conditionIdx) = ...
-        [trialData.hit;trialData.hit_buffer(1:end-1,conditionIdx)];
-    trialsToBuffer = size(trialData.hit_buffer,1);
-end
-
-%%%% Set flag to repeat - skip trial choice if so, choose trial if not
-if trialData.miss && ...
-        ismember(trialData.trialContrast,trialData.contrasts(trialData.repeatOnMiss))
-    trialData.repeatTrial = true;
-    return
-else
-    trialData.repeatTrial = false;
-end
-
-%%%% Add new contrasts as necessary given performance
-% This is based on the last trialsToBuffer trials for rolling performance
-% (these parameters are hard-coded because too specific)
-% (these are side-independent)
-current_min_contrast = min(trialData.contrasts(trialData.use_contrasts & trialData.contrasts ~= 0));
-switch current_min_contrast
     
-    case 0.5
-        % Lower from 0.5 contrast after > 75% correct
-        min_hit_percentage = 0.75;
-        
-        curr_condition = ismember(abs(trialData.conditions),[0.5,1]);
-        condition_total_trials = sum(sum(~isnan(trialData.hit_buffer(:,curr_condition))));
-        % If there have been enough buffer trials, check performance
-        if condition_total_trials >= size(trialData.hit_buffer,1)
-            % Sample as evenly as possible across pooled conditions
-            pooled_hits = reshape(trialData.hit_buffer(:,curr_condition)',[],1);
-            use_hits = sum(pooled_hits(find(~isnan(pooled_hits),trialsToBuffer)));
-            min_hits = find(1 - binocdf(1:trialsToBuffer,trialsToBuffer,min_hit_percentage) < 0.05,1);
-            if use_hits >= min_hits
-                trialData.use_contrasts(find(~trialData.use_contrasts,1)) = true;
-            end
-        end
-
-    case 0.25
-        % Lower from 0.25 contrast after > 50% correct
-        min_hit_percentage = 0.5;
-        
-        curr_condition = ismember(abs(trialData.conditions),current_min_contrast);
-        condition_total_trials = sum(sum(~isnan(trialData.hit_buffer(:,curr_condition))));
-        % If there have been enough buffer trials, check performance
-        if condition_total_trials >= size(trialData.hit_buffer,1)
-            % Sample as evenly as possible across pooled conditions
-            pooled_hits = reshape(trialData.hit_buffer(:,curr_condition)',[],1);
-            use_hits = sum(pooled_hits(find(~isnan(pooled_hits),trialsToBuffer)));
-            min_hits = find(1 - binocdf(1:trialsToBuffer,trialsToBuffer,min_hit_percentage) < 0.05,1);
-            if use_hits >= min_hits
-                trialData.use_contrasts(find(~trialData.use_contrasts,1)) = true;
-            end
-        end
-        
-    case 0.125
-        % Lower from 0.25 contrast after > 50% correct
-        min_hit_percentage = 0.5;
-        
-        curr_condition = ismember(abs(trialData.conditions),current_min_contrast);
-        condition_total_trials = sum(sum(~isnan(trialData.hit_buffer(:,curr_condition))));
-        % If there have been enough buffer trials, check performance
-        if condition_total_trials >= size(trialData.hit_buffer,1)
-            % Sample as evenly as possible across pooled conditions
-            pooled_hits = reshape(trialData.hit_buffer(:,curr_condition)',[],1);
-            use_hits = sum(pooled_hits(find(~isnan(pooled_hits),trialsToBuffer)));
-            min_hits = find(1 - binocdf(1:trialsToBuffer,trialsToBuffer,min_hit_percentage) < 0.05,1);
-            if use_hits >= min_hits
-                trialData.use_contrasts(find(~trialData.use_contrasts,1)) = true;
-            end
-        end          
-        
-end
-
-% Add 0 contrast after trialsToZeroContrast trials with 0.125 contrast
-if min(trialData.contrasts(trialData.use_contrasts)) <= 0.125 && ...
-        trialData.trialsToZeroContrast > 0
-    % Subtract one from the countdown
-    trialData.trialsToZeroContrast = trialData.trialsToZeroContrast-1;
-    % If at zero, add the 0 contrast condition
-    if trialData.trialsToZeroContrast == 0
-        trialData.use_contrasts(trialData.contrasts == 0) = true;
-    end    
-end
-
-%%%% Pick next contrast (and update staircase on staircase trials)
-staircaseTrial = trialData.staircase(4) == 0;
-
-if ~staircaseTrial
+    %%%% Contrast-adding performance buffer
+    % Update hit buffer for running performance
+    trialData.hit_buffer(:,currentContrastIdx) = ...
+        [trialData.hit;trialData.hit_buffer(1:end-1,currentContrastIdx)];
     
-    % Next contrast is random from current contrast set
-    trialData.trialContrast = randsample(trialData.contrasts(trialData.use_contrasts),1);
-    
-elseif staircaseTrial
-        
-    % Update hit/miss counter
-    trialData.staircase(2) = trialData.staircase(2) + trialData.hit;
-    trialData.staircase(3) = trialData.staircase(3) + trialData.miss;
-    
-    % Update trial counter
+    %%%% Staircase
+    % Update staircase trial counter
     trialData.staircase(4) = trialData.staircase(4) + 1;
     if trialData.staircase(4) >= trialData.staircase(5)
         trialData.staircase(4) = 0;
     end
     
+    % Update hit/miss counter
+    trialData.staircase(2) = trialData.staircase(2) + trialData.hit;
+    trialData.staircase(3) = trialData.staircase(3) + trialData.miss;
+        
     % Move staircase on hit/miss counter threshold
     if trialData.staircase(2) >= trialData.staircase(6)
         % On hit threshold, move the staircase forward and reset hit/miss
@@ -378,9 +297,100 @@ elseif staircaseTrial
         trialData.staircase(2:3) = 0;
     end
     
-    % Next contrast is defined by the staircase
-    trialData.trialContrast = trialData.staircase(1);
+end
+
+%%%% Add new contrasts as necessary given performance
+% This is based on the last trialsToBuffer trials for rolling performance
+% (these parameters are hard-coded because too specific)
+% (these are side-independent)
+current_min_contrast = min(trialData.contrasts(trialData.use_contrasts & trialData.contrasts ~= 0));
+trialsToBuffer = size(trialData.hit_buffer,1);
+switch current_min_contrast
     
+    case 0.5
+        % Lower from 0.5 contrast after > 75% correct
+        min_hit_percentage = 0.75;
+        
+        contrast_buffer_idx = ismember(trialData.contrasts,[0.5,1]);
+        contrast_total_trials = sum(sum(~isnan(trialData.hit_buffer(:,contrast_buffer_idx))));
+        % If there have been enough buffer trials, check performance
+        if contrast_total_trials >= size(trialData.hit_buffer,1)
+            % Sample as evenly as possible across pooled contrasts
+            pooled_hits = reshape(trialData.hit_buffer(:,contrast_buffer_idx)',[],1);
+            use_hits = sum(pooled_hits(find(~isnan(pooled_hits),trialsToBuffer)));
+            min_hits = find(1 - binocdf(1:trialsToBuffer,trialsToBuffer,min_hit_percentage) < 0.05,1);
+            if use_hits >= min_hits
+                trialData.use_contrasts(find(~trialData.use_contrasts,1)) = true;
+            end
+        end
+
+    case 0.25
+        % Lower from 0.25 contrast after > 50% correct
+        min_hit_percentage = 0.5;
+        
+        contrast_buffer_idx = ismember(trialData.contrasts,current_min_contrast);
+        contrast_total_trials = sum(sum(~isnan(trialData.hit_buffer(:,contrast_buffer_idx))));
+        % If there have been enough buffer trials, check performance
+        if contrast_total_trials >= size(trialData.hit_buffer,1)
+            % Sample as evenly as possible across pooled contrasts
+            pooled_hits = reshape(trialData.hit_buffer(:,contrast_buffer_idx)',[],1);
+            use_hits = sum(pooled_hits(find(~isnan(pooled_hits),trialsToBuffer)));
+            min_hits = find(1 - binocdf(1:trialsToBuffer,trialsToBuffer,min_hit_percentage) < 0.05,1);
+            if use_hits >= min_hits
+                trialData.use_contrasts(find(~trialData.use_contrasts,1)) = true;
+            end
+        end
+        
+    case 0.125
+        % Lower from 0.25 contrast after > 50% correct
+        min_hit_percentage = 0.5;
+        
+        contrast_buffer_idx = ismember(trialData.contrasts,current_min_contrast);
+        contrast_total_trials = sum(sum(~isnan(trialData.hit_buffer(:,contrast_buffer_idx))));
+        % If there have been enough buffer trials, check performance
+        if contrast_total_trials >= size(trialData.hit_buffer,1)
+            % Sample as evenly as possible across pooled contrasts
+            pooled_hits = reshape(trialData.hit_buffer(:,contrast_buffer_idx)',[],1);
+            use_hits = sum(pooled_hits(find(~isnan(pooled_hits),trialsToBuffer)));
+            min_hits = find(1 - binocdf(1:trialsToBuffer,trialsToBuffer,min_hit_percentage) < 0.05,1);
+            if use_hits >= min_hits
+                trialData.use_contrasts(find(~trialData.use_contrasts,1)) = true;
+            end
+        end          
+        
+end
+
+% Add 0 contrast after trialsToZeroContrast trials with 0.125 contrast
+if min(trialData.contrasts(trialData.use_contrasts)) <= 0.125 && ...
+        trialData.trialsToZeroContrast > 0
+    % Subtract one from the countdown
+    trialData.trialsToZeroContrast = trialData.trialsToZeroContrast-1;
+    % If at zero, add 0 contrast
+    if trialData.trialsToZeroContrast == 0
+        trialData.use_contrasts(trialData.contrasts == 0) = true;
+    end    
+end
+
+%%%% Set flag to repeat - skip trial choice if so
+if trialData.miss && ...
+        ismember(trialData.trialContrast,trialData.contrasts(trialData.repeatOnMiss))
+    trialData.repeatTrial = true;
+    return
+else
+    trialData.repeatTrial = false;
+end
+
+%%%% Pick next contrast
+
+% Define whether this is a staircase trial
+staircaseTrial = trialData.staircase(4) == 0;
+
+if ~staircaseTrial
+    % Next contrast is random from current contrast set
+    trialData.trialContrast = randsample(trialData.contrasts(trialData.use_contrasts),1);    
+elseif staircaseTrial  
+    % Next contrast is defined by the staircase
+    trialData.trialContrast = trialData.staircase(1);    
 end
 
 %%%% Pick next side (this is done at random)
