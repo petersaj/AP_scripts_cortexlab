@@ -8,6 +8,7 @@ function signals_tutorial_pong(t, events, pars, visStim, inputs, outputs, audio)
 % and bounces off walls and paddles but resets when it gets missed by a
 % paddle. 
 %
+%
 % Some caution about a problem you'll run into:
 % 
 % This will bring up a really important issue of signals: truly
@@ -27,11 +28,19 @@ function signals_tutorial_pong(t, events, pars, visStim, inputs, outputs, audio)
 % parameters in a structure which is intialized (seeded) with certain
 % values and then updated via scan. Feed relevant player-data into this by
 % having it be the source signal for the scan.
-
-
-
-
-
+%
+% I've found that the easiest way to think about setting up protocols is in
+% three aspects: 1) define the strucure of the game, 2) define a
+% player-controlled aspect of the game, 3) feed the player-controlled
+% aspect of the game into something that updates player-controlled aspects
+% of the game at events defined by the game structure. 
+%
+% In ChoiceWorld, for instance, you can only have performance-driven
+% updating of trial conditions if the structure of the game is agnostic to
+% whether a trial was a hit or a miss. This is because you want to define
+% task conditions to update on a response, which means that the update has
+% to be defined after defining what a response is, which means a response
+% has to be defined independent of what task condition is.
 
 
 
