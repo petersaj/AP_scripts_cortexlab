@@ -1,6 +1,8 @@
 function allen_browser_test_gui(tv,av,st,bregma)
 % allen_browser_test_gui(tv,av,st)
 
+% Coordinates in: plot [ap,ml,dv], volume [ap,dv,ml]
+
 % Initialize gui_data structure
 gui_data = struct;
 
@@ -14,7 +16,8 @@ if nargin < 4
 end
 
 % Set up the gui and axes
-probe_atlas_gui = figure('Toolbar','none','color','w');
+probe_atlas_gui = figure('Toolbar','none','Menubar','none','color','w', ...
+    'Name','Atlas-probe viewer');
 colormap(gray);
 
 axes_3d = axes;
@@ -26,7 +29,6 @@ axis off
 view([-30,25]);
 caxis([0 300]);
 
-% (coordinates in: plot [ap,ml,dv], volume [ap,dv,ml])
 [ap_max,dv_max,ml_max] = size(tv);
 axis manual
 xlim([-10,ap_max+10])
@@ -75,16 +77,10 @@ structure_patch_h(2) = patch('Vertices',structure_patch.vertices*slice_spacing, 
     'FaceColor',target_structure_color,'EdgeColor','none','FaceAlpha',structure_alpha);
 
 % Set up the probe
-probe_ref_top = [ap_max,bregma(3),0];
-probe_ref_bottom = [0,bregma(3),0];
+probe_ref_top = [bregma(1),bregma(3),0];
+probe_ref_bottom = [bregma(1),bregma(3),size(tv,2)];
 probe_vector = [probe_ref_top',probe_ref_bottom'];
 probe_ref_line = line(probe_vector(1,:),probe_vector(2,:),probe_vector(3,:),'linewidth',4,'color','k','linestyle','--');
-
-probe_angle_ml = 10;
-probe_angle_dv = 45;
-
-rotate(probe_ref_line,[0,0,1],probe_angle_ml,probe_ref_top)
-rotate(probe_ref_line,[0,1,0],probe_angle_dv,probe_ref_top)
 
 % Create and store guidata
 gui_data.tv = tv;
@@ -95,7 +91,6 @@ gui_data.bregma = bregma;
 %gui_data.handles.cortex_wire_h = cortex_wire_h; % commented until Nick's
 %function has handles too
 gui_data.handles.structure_patch_h = structure_patch_h;
-
 gui_data.handles.axes_3d = axes_3d;
 gui_data.handles.slice_plot = surface('EdgeColor','none');
 gui_data.handles.probe_ref_line = probe_ref_line;
@@ -186,6 +181,11 @@ switch eventdata.Key
             case 'on'
                 h.Enable = 'off';
         end
+        
+    case 'a' 
+        % Set probe angle
+        set_probe_angle(probe_atlas_gui);
+        
 end
 
 % Upload gui_data
@@ -202,8 +202,10 @@ gui_data = guidata(probe_atlas_gui);
 curr_campos = campos;
 
 % Get probe vector
-probe_ref_top = [gui_data.handles.probe_ref_line.XData(1),gui_data.handles.probe_ref_line.YData(1),gui_data.handles.probe_ref_line.ZData(1)];
-probe_ref_bottom = [gui_data.handles.probe_ref_line.XData(2),gui_data.handles.probe_ref_line.YData(2),gui_data.handles.probe_ref_line.ZData(2)];
+probe_ref_top = [gui_data.handles.probe_ref_line.XData(1), ...
+    gui_data.handles.probe_ref_line.YData(1),gui_data.handles.probe_ref_line.ZData(1)];
+probe_ref_bottom = [gui_data.handles.probe_ref_line.XData(2), ...
+    gui_data.handles.probe_ref_line.YData(2),gui_data.handles.probe_ref_line.ZData(2)];
 probe_vector = probe_ref_top - probe_ref_bottom;
 
 % Get probe-camera vector
@@ -218,34 +220,56 @@ normal_vector = cross(plot_vector,probe_vector);
 % Get the plane offset through the probe
 plane_offset = -(normal_vector*probe_ref_top');
 
-% Define a plane within the boundaries orthogonal to viewing axis on probe
+% Define a plane of points to index
+% (the plane grid is defined based on the which cardinal plan is most
+% orthogonal to the camera. this is a dumb workaround, but it works)
 slice_px_space = 3;
-[plane_x,plane_y] = meshgrid(1:slice_px_space:size(gui_data.tv,1),1:slice_px_space:size(gui_data.tv,3));
 
-plane_z = ...
-    (normal_vector(1)*plane_x+normal_vector(2)*plane_y + plane_offset)/ ...
-    -normal_vector(3);
+[~,cam_plane] = max(abs((campos - camtarget)./norm(campos - camtarget)));
+switch cam_plane
+    
+    case 1
+        [plane_y,plane_z] = meshgrid(1:slice_px_space:size(gui_data.tv,3),1:slice_px_space:size(gui_data.tv,2));
+        plane_x = ...
+            (normal_vector(2)*plane_y+normal_vector(3)*plane_z + plane_offset)/ ...
+            -normal_vector(1);
+        
+    case 2
+        [plane_x,plane_z] = meshgrid(1:slice_px_space:size(gui_data.tv,1),1:slice_px_space:size(gui_data.tv,2));
+        plane_y = ...
+            (normal_vector(1)*plane_x+normal_vector(3)*plane_z + plane_offset)/ ...
+            -normal_vector(2);
+                
+    case 3
+        [plane_x,plane_y] = meshgrid(1:slice_px_space:size(gui_data.tv,1),1:slice_px_space:size(gui_data.tv,3));
+        plane_z = ...
+            (normal_vector(1)*plane_x+normal_vector(2)*plane_y + plane_offset)/ ...
+            -normal_vector(3);
+        
+end
 
 % Get the coordiates on the plane
-x_idx = plane_x;
-y_idx = plane_y;
+x_idx = round(plane_x);
+y_idx = round(plane_y);
 z_idx = round(plane_z);
 
 % Find plane coordinates in bounds with the volume
+use_xd = x_idx > 0 & x_idx < size(gui_data.tv,1);
+use_yd = y_idx > 0 & y_idx < size(gui_data.tv,3);
 use_zd = z_idx > 0 & z_idx < size(gui_data.tv,2);
-curr_slice_idx = sub2ind(size(gui_data.tv),x_idx(use_zd),z_idx(use_zd),y_idx(use_zd));
+use_idx = use_xd & use_yd & use_zd;
 
-%(coordinates in: plot [ap,ml,dv], volume [ap,dv,ml])
+curr_slice_idx = sub2ind(size(gui_data.tv),x_idx(use_idx),z_idx(use_idx),y_idx(use_idx));
 
 % Find plane coordinates that contain brain
-curr_slice_isbrain = false(size(use_zd));
-curr_slice_isbrain(use_zd) = gui_data.av(curr_slice_idx) > 1;
+curr_slice_isbrain = false(size(use_idx));
+curr_slice_isbrain(use_idx) = gui_data.av(curr_slice_idx) > 1;
 
 % Index coordinates in bounds + with brain
 grab_pix_idx = sub2ind(size(gui_data.tv),x_idx(curr_slice_isbrain),z_idx(curr_slice_isbrain),y_idx(curr_slice_isbrain));
 
 % Grab pixels from volume
-curr_slice = nan(size(use_zd));
+curr_slice = nan(size(use_idx));
 curr_slice(curr_slice_isbrain) = gui_data.tv(grab_pix_idx);
 
 % Update the slice display
@@ -256,7 +280,39 @@ guidata(probe_atlas_gui, gui_data);
 
 end
 
+function set_probe_angle(probe_atlas_gui,varargin)
 
+% Get guidata
+gui_data = guidata(probe_atlas_gui);
+
+% Prompt for angles
+prompt_text = {'Probe ML angle (relative to lambda -> bregma)', ....
+    'Probe DV angle (relative to horizontal)'};
+probe_angles = ...
+    (cellfun(@str2num,inputdlg(prompt_text,'Enter probe angles',1,{'0','90'}))/360)*2*pi;
+
+% Update the probe trajectory reference (reset to bregma)
+[ap_max,dv_max,ml_max] = size(gui_data.tv);
+
+max_ref_length = sqrt(sum(([ap_max,dv_max,ml_max].^2)));
+
+[x,y,z] = sph2cart(pi-probe_angles(1),probe_angles(2),max_ref_length);
+
+probe_ref_top = [gui_data.bregma(1),gui_data.bregma(3),0];
+probe_ref_bottom = probe_ref_top + [x,y,z];
+probe_ref_vector = [probe_ref_top;probe_ref_bottom];
+
+set(gui_data.handles.probe_ref_line,'XData',probe_ref_vector(:,1), ...
+    'YData',probe_ref_vector(:,2), ...
+    'ZData',probe_ref_vector(:,3));
+
+% Update the slice
+update_slice(probe_atlas_gui);
+
+% Upload gui_data
+guidata(probe_atlas_gui, gui_data);
+
+end
 
 
 
