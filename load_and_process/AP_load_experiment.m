@@ -28,7 +28,7 @@ switch rig
 end
 
 % Load timeline
-timeline_filename = get_cortexlab_filename(mpep_animal,day,experiment,'timeline');
+timeline_filename = AP_cortexlab_filename(mpep_animal,day,experiment,'timeline');
 load(timeline_filename);
 timeline_sample_rate = Timeline.hw.daqSampleRate;
 
@@ -46,20 +46,20 @@ acqLive_timeline = Timeline.rawDAQTimestamps( ...
     [find(acqLive_trace,1),find(acqLive_trace,1,'last')+1]);
 
 % Load in protocol and get photodiode, if there was an mpep experiment
-if exist(fileparts(get_cortexlab_filename(mpep_animal,day,experiment,'protocol')),'dir')
+if exist(fileparts(AP_cortexlab_filename(mpep_animal,day,experiment,'protocol')),'dir')
     
     % Load in hardware info
-    hwinfo_filename = get_cortexlab_filename(mpep_animal,day,experiment,'hardware');
+    hwinfo_filename = AP_cortexlab_filename(mpep_animal,day,experiment,'hardware');
     load(hwinfo_filename);
     
     % Get flicker or steady photodiode
     photodiode_type = myScreenInfo.SyncSquare.Type;
     
     try
-        protocol_filename = get_cortexlab_filename(mpep_animal,day,experiment,'protocol','8digit');
+        protocol_filename = AP_cortexlab_filename(mpep_animal,day,experiment,'protocol','8digit');
         load(protocol_filename);
     catch me
-        protocol_filename = get_cortexlab_filename(mpep_animal,day,experiment,'protocol','day_dash');
+        protocol_filename = AP_cortexlab_filename(mpep_animal,day,experiment,'protocol','day_dash');
         load(protocol_filename);
     end
     
@@ -190,7 +190,7 @@ wheel_speed = abs(hilbert(wheel_velocity))';
 %% Load eye tracking data (old, with etGUI)
 
 % Load in processed eye tracking data
-eyetracking_processed_filename = get_cortexlab_filename(mpep_animal,day,experiment,'eyecam_processed');
+eyetracking_processed_filename = AP_cortexlab_filename(mpep_animal,day,experiment,'eyecam_processed');
 eyetracking = load(eyetracking_processed_filename);
 
 % Get frame times for eyetracking data
@@ -200,7 +200,7 @@ eyetracking_t = eyetracker_getFrameTimes_AP(mpep_animal,day,experiment);
 %% Load face/eyecam processing (with eyeGUI)
 
 % Get folder with camera data
-cam_dir = fileparts(get_cortexlab_filename(mpep_animal,day,experiment,'eyecam'));
+cam_dir = fileparts(AP_cortexlab_filename(mpep_animal,day,experiment,'eyecam'));
 
 % Get cam sync
 camSync_idx = strcmp({Timeline.hw.inputs.name}, 'camSync');
@@ -210,13 +210,13 @@ camSync_up = find((~camSync(1:end-1) & camSync(2:end)))+1;
 
 % EYECAM
 % Load camera processed data
-eyecam_processed_filename = get_cortexlab_filename(mpep_animal,day,experiment,'eyecam_processed');
+eyecam_processed_filename = AP_cortexlab_filename(mpep_animal,day,experiment,'eyecam_processed');
 if exist(eyecam_processed_filename,'file')
     eyecam = load(eyecam_processed_filename);
 end
 
 % Get camera times
-eyecam_filename = get_cortexlab_filename(mpep_animal,day,experiment,'eyecam');
+eyecam_filename = AP_cortexlab_filename(mpep_animal,day,experiment,'eyecam');
 eyecam_t_savefile = [cam_dir filesep 'eyecam_t.mat'];
 
 if exist(eyecam_filename,'file') && ~exist(eyecam_t_savefile,'file')   
@@ -246,13 +246,13 @@ end
 
 % FACECAM
 % Load camera processed data
-facecam_processed_filename = get_cortexlab_filename(mpep_animal,day,experiment,'facecam_processed');
+facecam_processed_filename = AP_cortexlab_filename(mpep_animal,day,experiment,'facecam_processed');
 if exist(facecam_processed_filename,'file')
     facecam = load(facecam_processed_filename);
 end
 
 % Get camera times
-facecam_filename = get_cortexlab_filename(mpep_animal,day,experiment,'facecam');
+facecam_filename = AP_cortexlab_filename(mpep_animal,day,experiment,'facecam');
 facecam_t_savefile = [cam_dir filesep 'facecam_t.mat'];
 
 if exist(facecam_filename,'file') && ~exist(facecam_t_savefile,'file')      
@@ -583,7 +583,7 @@ end
 experiment_ephys_starts = sync(acqLive_channel).timestamps(sync(acqLive_channel).values == 1);
 experiment_ephys_stops = sync(acqLive_channel).timestamps(sync(acqLive_channel).values == 0);
 
-experiments_dir = dir(fileparts(get_cortexlab_filename(mpep_animal,day,[],'timeline')));
+experiments_dir = dir(fileparts(AP_cortexlab_filename(mpep_animal,day,[],'timeline')));
 experiment_num = strmatch(experiment,{experiments_dir.name})-2;
 acqlive_ephys_currexpt = [experiment_ephys_starts(experiment_num), ...
     experiment_ephys_stops(experiment_num)];
