@@ -1,7 +1,15 @@
 function allen_browser_test_gui(tv,av,st,bregma)
-% allen_browser_test_gui(tv,av,st)
-
+% allen_browser_test_gui(tv,av,st,bregma)
+%
+% This gui is for looking at trajectories in the brain with the Allen CCF
+% 
 % Coordinates in: plot [ap,ml,dv], volume [ap,dv,ml]
+%
+% TO ADD: 
+% - mouse over structure names
+% - live manupulator update
+% - bregma-lambda scaling and angle adjustment
+% - choose structures to show in mesh
 
 % Initialize gui_data structure
 gui_data = struct;
@@ -105,7 +113,6 @@ guidata(probe_atlas_gui, gui_data);
 update_slice(probe_atlas_gui);
 
 end
-
 
 function key_press(probe_atlas_gui,eventdata)
 
@@ -222,7 +229,7 @@ plane_offset = -(normal_vector*probe_ref_top');
 
 % Define a plane of points to index
 % (the plane grid is defined based on the which cardinal plan is most
-% orthogonal to the camera. this is a dumb workaround, but it works)
+% orthogonal to the camera. this is janky but it works)
 slice_px_space = 3;
 
 [~,cam_plane] = max(abs((campos - camtarget)./norm(campos - camtarget)));
