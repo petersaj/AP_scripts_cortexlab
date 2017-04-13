@@ -1,7 +1,15 @@
 function allen_browser_test_gui(tv,av,st,bregma)
-% allen_browser_test_gui(tv,av,st)
-
+% allen_browser_test_gui(tv,av,st,bregma)
+%
+% This gui is for looking at trajectories in the brain with the Allen CCF
+% 
 % Coordinates in: plot [ap,ml,dv], volume [ap,dv,ml]
+%
+% TO ADD: 
+% - mouse over structure names
+% - live manupulator update
+% - bregma-lambda scaling and angle adjustment
+% - choose structures to show in mesh
 
 % Initialize gui_data structure
 gui_data = struct;
@@ -48,33 +56,7 @@ zlim([-10,dv_max+10])
 %     'FaceColor','none','EdgeColor',target_structure_color);
 
 % (with Nick's method)
-gridIn3D(double(av > 1),0.5,80,bregma);
-
-% Outline structures
-structure_alpha = 0.2;
-structure_patch_h = gobjects;
-
-target_structure = 'CP';
-st_idx = find(strcmp(st.acronym,target_structure));
-target_structure_color = hex2dec(reshape(st.color_hex_triplet{st_idx},3,[]))./255;
-slice_spacing = 10;
-structure_patch = isosurface(permute(av(1:slice_spacing:end,1:slice_spacing:end,1:slice_spacing:end) == st_idx,[3,1,2]),0);
-structure_wire = reducepatch(structure_patch.faces,structure_patch.vertices,0.01);
-
-structure_patch_h(1) = patch('Vertices',structure_patch.vertices*slice_spacing, ...
-    'Faces',structure_patch.faces, ...
-    'FaceColor',target_structure_color,'EdgeColor','none','FaceAlpha',structure_alpha);
-
-target_structure = 'SNr';
-st_idx = find(strcmp(st.acronym,target_structure));
-target_structure_color = hex2dec(reshape(st.color_hex_triplet{st_idx},3,[]))./255;
-slice_spacing = 10;
-structure_patch = isosurface(permute(av(1:slice_spacing:end,1:slice_spacing:end,1:slice_spacing:end) == st_idx,[3,1,2]),0);
-structure_wire = reducepatch(structure_patch.faces,structure_patch.vertices,0.01);
-
-structure_patch_h(2) = patch('Vertices',structure_patch.vertices*slice_spacing, ...
-    'Faces',structure_patch.faces, ...
-    'FaceColor',target_structure_color,'EdgeColor','none','FaceAlpha',structure_alpha);
+brain_outline = gridIn3D(double(av > 1),0.5,80,bregma);
 
 % Set up the probe
 probe_ref_top = [bregma(1),bregma(3),0];
@@ -82,18 +64,19 @@ probe_ref_bottom = [bregma(1),bregma(3),size(tv,2)];
 probe_vector = [probe_ref_top',probe_ref_bottom'];
 probe_ref_line = line(probe_vector(1,:),probe_vector(2,:),probe_vector(3,:),'linewidth',4,'color','k','linestyle','--');
 
-% Create and store guidata
-gui_data.tv = tv;
-gui_data.av = av;
-gui_data.st = st;
-gui_data.bregma = bregma;
+% Store data
+gui_data.tv = tv; % Intensity atlas
+gui_data.av = av; % Annotated atlas
+gui_data.st = st; % Labels table
+gui_data.bregma = bregma; % Bregma for external referencing
+gui_data.structure_plot_idx = []; % Plotted structures
 
-%gui_data.handles.cortex_wire_h = cortex_wire_h; % commented until Nick's
-%function has handles too
-gui_data.handles.structure_patch_h = structure_patch_h;
-gui_data.handles.axes_3d = axes_3d;
-gui_data.handles.slice_plot = surface('EdgeColor','none');
-gui_data.handles.probe_ref_line = probe_ref_line;
+%Store handles
+gui_data.handles.cortex_outline = brain_outline; 
+gui_data.handles.structure_patch = gobjects; % Plotted structures
+gui_data.handles.axes_3d = axes_3d; % Axes with 3D atlas
+gui_data.handles.slice_plot = surface('EdgeColor','none'); % Slice on 3D atlas
+gui_data.handles.probe_ref_line = probe_ref_line; % Probe reference line on 3D atlas
 
 % Set functions for key presses
 set(probe_atlas_gui,'KeyPressFcn',@key_press); 
@@ -105,7 +88,6 @@ guidata(probe_atlas_gui, gui_data);
 update_slice(probe_atlas_gui);
 
 end
-
 
 function key_press(probe_atlas_gui,eventdata)
 
@@ -142,16 +124,26 @@ switch eventdata.Key
         set(gui_data.handles.probe_ref_line,'YData',get(gui_data.handles.probe_ref_line,'YData') + ml_offset);
         update_slice(probe_atlas_gui);
         
+    case 'b' 
+        % Toggle brain outline visibility
+        current_visibility = gui_data.handles.cortex_outline{1}{1}{1}.Visible;
+        switch current_visibility; case 'on'; new_visibility = 'off'; case 'off'; new_visibility = 'on'; end;        
+        % Pull out all handles (stored as nested cells)
+        brain_h_direction = cellfun(@(x) [x{:}],[gui_data.handles.cortex_outline{:}],'uni',false);
+        set(horzcat(brain_h_direction{:}),'Visible',new_visibility);
+        
     case 'm'
-        % Toggle face visibility of target structure
-        curr_structure_FaceAlpha = [gui_data.handles.structure_patch_h.FaceAlpha];
-        if any(curr_structure_FaceAlpha)
-            new_structure_FaceAlpha = 0;
-        else
-            new_structure_FaceAlpha = 0.2;
+        % Toggle plotted structure visibility
+        if ~isempty(gui_data.structure_plot_idx)
+            curr_structure_FaceAlpha = [gui_data.handles.structure_patch.FaceAlpha];
+            if any(curr_structure_FaceAlpha)
+                new_structure_FaceAlpha = 0;
+            else
+                new_structure_FaceAlpha = 0.2;
+            end
+            [gui_data.handles.structure_patch.FaceAlpha] = ...
+                deal(new_structure_FaceAlpha);
         end
-        [gui_data.handles.structure_patch_h.FaceAlpha] = ...
-            deal(new_structure_FaceAlpha);
         
     case 's'
         % Toggle slice visibility
@@ -185,6 +177,41 @@ switch eventdata.Key
     case 'a' 
         % Set probe angle
         set_probe_angle(probe_atlas_gui);
+        
+    case 'add'
+        % Add structure(s) to display
+        slice_spacing = 10;
+
+        % Prompt for which structures to show
+        plot_structures = listdlg('PromptString','Select a structure to add:','ListString',gui_data.st.safe_name);
+        
+        for curr_plot_structure = plot_structures
+            % If this label isn't used, don't plot
+            if ~any(reshape(gui_data.av( ...
+                    1:slice_spacing:end,1:slice_spacing:end,1:slice_spacing:end),[],1) == curr_plot_structure)
+                disp(['"' gui_data.st.safe_name{curr_plot_structure} '" is not parsed in the atlas'])
+                continue
+            end
+                       
+            gui_data.structure_plot_idx(end+1) = curr_plot_structure;
+            
+            plot_structure_color = hex2dec(reshape(gui_data.st.color_hex_triplet{curr_plot_structure},3,[]))./255;
+            structure_3d = isosurface(permute(gui_data.av(1:slice_spacing:end, ...
+                1:slice_spacing:end,1:slice_spacing:end) == curr_plot_structure,[3,1,2]),0);
+            
+            structure_alpha = 0.2;
+            gui_data.handles.structure_patch(end+1) = patch('Vertices',structure_3d.vertices*slice_spacing, ...
+                'Faces',structure_3d.faces, ...
+                'FaceColor',plot_structure_color,'EdgeColor','none','FaceAlpha',structure_alpha);
+        end
+        
+    case 'subtract'
+        % Remove structure(s) already plotted
+        keyboard
+        % Prompt for which structures to remove
+        remove_structures = listdlg('PromptString','Select a structure to remove:','ListString',gui_data.st.safe_name(gui_data.structure_plot_idx));
+        gui_data.structure_plot_idx(remove_structures) = [];
+        gui_data.handles.structure_patch
         
 end
 
@@ -220,49 +247,33 @@ normal_vector = cross(plot_vector,probe_vector);
 % Get the plane offset through the probe
 plane_offset = -(normal_vector*probe_ref_top');
 
-% Define a plane within the boundaries orthogonal to viewing axis on probe
-% slice_px_space = 3;
-% [plane_x,plane_y] = meshgrid(1:slice_px_space:size(gui_data.tv,1),1:slice_px_space:size(gui_data.tv,3));
-% plane_z = ...
-%     (normal_vector(1)*plane_x+normal_vector(2)*plane_y + plane_offset)/ ...
-%     -normal_vector(3);
-
-%%%%%%%%% TRYING A THING
-
-% Get closest plane to camera orientation
+% Define a plane of points to index
+% (the plane grid is defined based on the which cardinal plan is most
+% orthogonal to the camera. this is janky but it works)
 slice_px_space = 3;
 
 [~,cam_plane] = max(abs((campos - camtarget)./norm(campos - camtarget)));
 switch cam_plane
     
-    case 2
-        [plane_x,plane_z] = meshgrid(1:slice_px_space:size(gui_data.tv,1),1:slice_px_space:size(gui_data.tv,2));
-        plane_y = ...
-            (normal_vector(1)*plane_x+normal_vector(3)*plane_z + plane_offset)/ ...
-            -normal_vector(2);
-        
-    case 2
+    case 1
         [plane_y,plane_z] = meshgrid(1:slice_px_space:size(gui_data.tv,3),1:slice_px_space:size(gui_data.tv,2));
         plane_x = ...
             (normal_vector(2)*plane_y+normal_vector(3)*plane_z + plane_offset)/ ...
             -normal_vector(1);
         
+    case 2
+        [plane_x,plane_z] = meshgrid(1:slice_px_space:size(gui_data.tv,1),1:slice_px_space:size(gui_data.tv,2));
+        plane_y = ...
+            (normal_vector(1)*plane_x+normal_vector(3)*plane_z + plane_offset)/ ...
+            -normal_vector(2);
+                
     case 3
-        [plane_x,plane_y] = meshgrid(1:slice_px_space:size(gui_data.tv,1),1:slice_px_space:size(gui_data.tv,2));
+        [plane_x,plane_y] = meshgrid(1:slice_px_space:size(gui_data.tv,1),1:slice_px_space:size(gui_data.tv,3));
         plane_z = ...
             (normal_vector(1)*plane_x+normal_vector(2)*plane_y + plane_offset)/ ...
             -normal_vector(3);
         
 end
-
-
-%%%%%%%%%%%%%%%%%%%%%%%%
-
-% slice_px_space = 3;
-% [plane_x,plane_z] = meshgrid(1:slice_px_space:size(gui_data.tv,1),1:slice_px_space:size(gui_data.tv,2));
-% plane_y = ...
-%     (normal_vector(1)*plane_x+normal_vector(3)*plane_z + plane_offset)/ ...
-%     -normal_vector(2);
 
 % Get the coordiates on the plane
 x_idx = round(plane_x);
