@@ -145,11 +145,7 @@ switch eventdata.Key
         current_visibility = gui_data.handles.slice_plot(1).Visible;
         switch current_visibility; case 'on'; new_visibility = 'off'; case 'off'; new_visibility = 'on'; end;
         set(gui_data.handles.slice_plot,'Visible',new_visibility);
-        
-    case 'u'
-        % Update slice
-        update_slice(probe_atlas_gui);
-        
+                
     case 'r'
         % Toggle 3D rotation
         h = rotate3d(gui_data.handles.axes_3d);
@@ -241,10 +237,12 @@ plane_offset = -(normal_vector*probe_ref_top');
 
 % Define a plane of points to index
 % (the plane grid is defined based on the which cardinal plan is most
-% orthogonal to the camera. this is janky but it works)
+% orthogonal to the plotted plane. this is janky but it works)
 slice_px_space = 3;
+%[~,cam_plane] = max(abs((campos - camtarget)./norm(campos - camtarget)));
 
-[~,cam_plane] = max(abs((campos - camtarget)./norm(campos - camtarget)));
+[~,cam_plane] = max(abs(normal_vector./norm(normal_vector)));
+
 switch cam_plane
     
     case 1
