@@ -1,7 +1,7 @@
 %% Preprocess and kilosort data (IMEC Phase 3)
 
-animal = 'AP007';
-day = '2016-12-16';
+animal = 'AP001';
+day = '2017-04-08';
 
 data_path =  ...
     ['\\zserver.cortexlab.net\Data\Subjects\' animal filesep day '\ephys'];
@@ -16,15 +16,29 @@ end
 ap_data_filename = [data_path filesep 'experiment1_100-0_0.dat'];
 lfp_data_filename = [data_path filesep 'experiment1_100-1_0.dat'];
 sync_filename = [data_path filesep 'experiment1_all_channels_0.events'];
+messages_filename = [data_path filesep 'experiment1_messages_0.events'];
+settings_filename = [data_path filesep 'settings.xml'];
 
-% Save parameters/header information in separate file
-% HARDCODE ALL THIS FOR NOW? (the gain is probably wrong, and lfp cutoff is
-% wrong at the moment)
+%%%%%%%%%%%%%%%%%%%%%%%%% MAKE THIS WORK WHEN DATA FOR REAL
+error('FIX THE SETTINGS STUFF')
+% Get index of electrophysiology channels in recordings
+ephys_settings = xml2struct(settings_filename);
+
+% Get sample rate, gain, cutoff frequency
+
+apGain = ephys_settings.SETTINGS.SIGNALCHAIN.PROCESSOR{1}.EDITOR.NEUROPIXELS.Attributes.apGainValue;
+lfpGain = ephys_settings.SETTINGS.SIGNALCHAIN.PROCESSOR{1}.EDITOR.NEUROPIXELS.Attributes.lfpGainValue;
+filterCut = ephys_settings.SETTINGS.SIGNALCHAIN.PROCESSOR{1}.EDITOR.NEUROPIXELS.Attributes.filterCut;
+
+%%%%% MAKE THESE PARAMETERS THE RELEVANT ONES
+% Nick must've done this already...
+% relationship between gain and 0.195x for int16 to uV?
+
 params = {'raw_path',['''' data_path '''']; ...
     'n_channels',num2str(384); ...
-    'sample_rate',num2str(30000); ...
-    'gain',num2str(0.195); ...
-    'lfp_cutoff','undefined'};
+    'sample_rate',num2str(sample_rate); ... % this should be 30000 AP, 2500 LFP
+    'gain',num2str(ch_gain); ...
+    'lfp_cutoff',num2str(lfp_cutoff)};
 
 param_filename = [save_path filesep 'dat_params.txt'];
 
@@ -35,7 +49,33 @@ for curr_param = 1:size(params,1)
 end
 fclose(fid);
 
+%%%%%%%%%%%%%%%%%%%%%%%%%
+
 % Pull out and save events (saved in Open Ephys format)
+% Need to fix timing
+% From the thread about it:
+% 2) It seems that event times require this "get_experiment_start_time" correction, but I cannot find where that start time is recorded. Do you know where it is?
+% 
+% This is in the messages_0.events files. In python I read it in with:
+% 
+% int(open(os.path.join(self.datapath,'experiment1_messages_0.events'),'r').readlines()[0].split(' ')[0])
+error('FIX THE TIMING STUFF?')
+
+% Get experiment start time (these messages are saved in a super dumb way
+% that are impossible to parse generally, so this is messy)
+messages_id = fopen(messages_filename);
+messages_text = textscan(messages_id,'%*d %s %s', 'delimiter',{': '});
+fclose(messages_id);
+
+start_time_idx = strcmp(messages_text{1},'start time');
+start_time = str2num(messages_text{2}{start_time_idx}(1:strfind(messages_text{2}{start_time_idx},'@')-1));
+start_time_freq = str2num(messages_text{2}{start_time_idx}(strfind(messages_text{2}{start_time_idx},'@')+1: ...
+    strfind(messages_text{2}{start_time_idx},'Hz')-1));
+start_time_sec = start_time/start_time_freq;
+% TO DO: make sure this is real (the number looks potentially resonable,
+% for the test it gave a 36 second delay between ephys recording and
+% acqLive...)
+
 [sync_data, sync_timestamps, sync_info] = load_open_ephys_data_faster(sync_filename);
 sync_channels = unique(sync_data);
 sync = struct('timestamps',cell(size(sync_channels)),'values',cell(size(sync_channels)));

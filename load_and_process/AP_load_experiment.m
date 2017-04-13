@@ -1,9 +1,9 @@
 %% Define experiment
 
-animal = 'SF170215';
-day = '2017-03-21';
+animal = 'AP001';
+day = '2017-04-08';
 experiment = '3';
-rig = 'bigrig'; % kilotrode or bigrig
+rig = 'kilotrode'; % kilotrode or bigrig
 cam_color_n = 1;
 cam_color_signal = 'blue';
 cam_color_hemo = 'purple';
