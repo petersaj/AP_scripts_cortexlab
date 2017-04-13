@@ -74,7 +74,7 @@ start_time_freq = str2num(messages_text{2}{start_time_idx}(strfind(messages_text
 start_time_sec = start_time/start_time_freq;
 % TO DO: make sure this is real (the number looks potentially resonable,
 % for the test it gave a 36 second delay between ephys recording and
-% acqLive...)
+% acqLive and a 5 minute delay to hit record...)
 
 [sync_data, sync_timestamps, sync_info] = load_open_ephys_data_faster(sync_filename);
 sync_channels = unique(sync_data);
