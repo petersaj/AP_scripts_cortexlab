@@ -1,4 +1,4 @@
-function allen_browser_test_gui(tv,av,st,bregma)
+function allen_atlas_probe(tv,av,st,bregma)
 % allen_browser_test_gui(tv,av,st,bregma)
 %
 % This gui is for looking at trajectories in the brain with the Allen CCF
@@ -6,10 +6,11 @@ function allen_browser_test_gui(tv,av,st,bregma)
 % Coordinates in: plot [ap,ml,dv], volume [ap,dv,ml]
 %
 % TO ADD: 
-% - mouse over structure names
 % - live manupulator update
+% - probe position on probe reference
 % - bregma-lambda scaling and angle adjustment
-% - choose structures to show in mesh
+% - mouse over structure names
+
 
 % Initialize gui_data structure
 gui_data = struct;
@@ -28,41 +29,48 @@ probe_atlas_gui = figure('Toolbar','none','Menubar','none','color','w', ...
     'Name','Atlas-probe viewer');
 colormap(gray);
 
-axes_3d = axes;
+axes_3d = axes('ZDir','reverse');
 hold(axes_3d,'on');
-axis vis3d
-set(gca, 'ZDir', 'reverse')
-axis equal
-axis off
+warning off
+axis vis3d equal off manual
+warning on
 view([-30,25]);
 caxis([0 300]);
-
 [ap_max,dv_max,ml_max] = size(tv);
-axis manual
 xlim([-10,ap_max+10])
 ylim([-10,ml_max+10])
 zlim([-10,dv_max+10])
 
+% Make 3D rotation the default state (toggle on/off with 'r')
+h = rotate3d(axes_3d);
+h.Enable = 'on';
+% Update the slice whenever a rotation is completed
+h.ActionPostCallback = @update_slice;
+%(need to restore key-press functionality with rotation)
+hManager = uigetmodemanager(probe_atlas_gui);
+[hManager.WindowListenerHandles.Enabled] = deal(false);
+set(probe_atlas_gui,'KeyPressFcn',@key_press);
+
 % Plot outline of the brain
 
-% (with downsampled polygons)
+% (with downsampled polygons - faster but grosser)
 % slice_spacing = 10;
 % target_volume = permute(av(1:slice_spacing:end,1:slice_spacing:end,1:slice_spacing:end) > 1,[3,1,2]);
 % structure_patch = isosurface(target_volume,0);
 % structure_wire = reducepatch(structure_patch.faces,structure_patch.vertices,0.01);
 % target_structure_color = [0.7,0.7,0.7];
-% cortex_wire_h = patch('Vertices',structure_wire.vertices*slice_spacing, ...
+% brain_outline = patch('Vertices',structure_wire.vertices*slice_spacing, ...
 %     'Faces',structure_wire.faces, ...
 %     'FaceColor','none','EdgeColor',target_structure_color);
 
 % (with Nick's method)
-brain_outline = gridIn3D(double(av > 1),0.5,80,bregma);
+brain_outline = gridIn3D(double(av > 1),0.5,100,bregma);
 
 % Set up the probe
 probe_ref_top = [bregma(1),bregma(3),0];
 probe_ref_bottom = [bregma(1),bregma(3),size(tv,2)];
 probe_vector = [probe_ref_top',probe_ref_bottom'];
-probe_ref_line = line(probe_vector(1,:),probe_vector(2,:),probe_vector(3,:),'linewidth',4,'color','k','linestyle','--');
+probe_ref_line = line(probe_vector(1,:),probe_vector(2,:),probe_vector(3,:),'linewidth',1.5,'color','r','linestyle','--');
 
 % Store data
 gui_data.tv = tv; % Intensity atlas
@@ -171,7 +179,8 @@ switch eventdata.Key
         slice_spacing = 10;
 
         % Prompt for which structures to show
-        plot_structures = listdlg('PromptString','Select a structure to add:','ListString',gui_data.st.safe_name);
+        plot_structures = listdlg('PromptString','Select a structure to add:', ...
+            'ListString',gui_data.st.safe_name,'ListSize',[520,500]);
         
         for curr_plot_structure = plot_structures
             % If this label isn't used, don't plot
@@ -195,11 +204,13 @@ switch eventdata.Key
         
     case 'subtract'
         % Remove structure(s) already plotted
-        remove_structures = listdlg('PromptString','Select a structure to remove:', ...
-            'ListString',gui_data.st.safe_name(gui_data.structure_plot_idx));        
-        delete(gui_data.handles.structure_patch(remove_structures))
-        gui_data.structure_plot_idx(remove_structures) = [];
-        gui_data.handles.structure_patch(remove_structures) = [];
+        if ~isempty(gui_data.structure_plot_idx)
+            remove_structures = listdlg('PromptString','Select a structure to remove:', ...
+                'ListString',gui_data.st.safe_name(gui_data.structure_plot_idx));
+            delete(gui_data.handles.structure_patch(remove_structures))
+            gui_data.structure_plot_idx(remove_structures) = [];
+            gui_data.handles.structure_patch(remove_structures) = [];
+        end
         
 end
 
