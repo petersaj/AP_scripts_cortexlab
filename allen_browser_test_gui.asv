@@ -73,7 +73,7 @@ gui_data.structure_plot_idx = []; % Plotted structures
 
 %Store handles
 gui_data.handles.cortex_outline = brain_outline; 
-gui_data.handles.structure_patch = gobjects; % Plotted structures
+gui_data.handles.structure_patch = []; % Plotted structures
 gui_data.handles.axes_3d = axes_3d; % Axes with 3D atlas
 gui_data.handles.slice_plot = surface('EdgeColor','none'); % Slice on 3D atlas
 gui_data.handles.probe_ref_line = probe_ref_line; % Probe reference line on 3D atlas
@@ -135,7 +135,9 @@ switch eventdata.Key
     case 'm'
         % Toggle plotted structure visibility
         if ~isempty(gui_data.structure_plot_idx)
-            curr_structure_FaceAlpha = [gui_data.handles.structure_patch.FaceAlpha];
+            current_visibility = gui_data.handles.structure_plot{1}{1}.Visible;
+        switch current_visibility; case 'on'; new_visibility = 'off'; case 'off'; new_visibility = 'on'; end;    
+        
             if any(curr_structure_FaceAlpha)
                 new_structure_FaceAlpha = 0;
             else
@@ -207,11 +209,11 @@ switch eventdata.Key
         
     case 'subtract'
         % Remove structure(s) already plotted
-        keyboard
-        % Prompt for which structures to remove
-        remove_structures = listdlg('PromptString','Select a structure to remove:','ListString',gui_data.st.safe_name(gui_data.structure_plot_idx));
+        remove_structures = listdlg('PromptString','Select a structure to remove:', ...
+            'ListString',gui_data.st.safe_name(gui_data.structure_plot_idx));        
+        delete(gui_data.handles.structure_patch(remove_structures))
         gui_data.structure_plot_idx(remove_structures) = [];
-        gui_data.handles.structure_patch
+        gui_data.handles.structure_patch(remove_structures) = [];
         
 end
 

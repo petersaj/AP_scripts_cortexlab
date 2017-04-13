@@ -135,24 +135,16 @@ switch eventdata.Key
     case 'm'
         % Toggle plotted structure visibility
         if ~isempty(gui_data.structure_plot_idx)
-            curr_structure_FaceAlpha = [gui_data.handles.structure_patch.FaceAlpha];
-            if any(curr_structure_FaceAlpha)
-                new_structure_FaceAlpha = 0;
-            else
-                new_structure_FaceAlpha = 0.2;
-            end
-            [gui_data.handles.structure_patch.FaceAlpha] = ...
-                deal(new_structure_FaceAlpha);
+            current_visibility = get(gui_data.handles.structure_patch(1),'Visible');
+            switch current_visibility; case 'on'; new_visibility = 'off'; case 'off'; new_visibility = 'on'; end;
+            set(gui_data.handles.structure_patch,'Visible',new_visibility);
         end
         
     case 's'
         % Toggle slice visibility
-        switch gui_data.handles.slice_plot.Visible
-            case 'on'
-                gui_data.handles.slice_plot.Visible = 'off';
-            case 'off'
-                gui_data.handles.slice_plot.Visible = 'on';
-        end
+        current_visibility = gui_data.handles.slice_plot(1).Visible;
+        switch current_visibility; case 'on'; new_visibility = 'off'; case 'off'; new_visibility = 'on'; end;
+        set(gui_data.handles.slice_plot,'Visible',new_visibility);
         
     case 'u'
         % Update slice
