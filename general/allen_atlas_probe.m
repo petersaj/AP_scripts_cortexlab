@@ -1,4 +1,4 @@
-function allen_atlas_probe(tv,av,st,bregma)
+function allen_atlas_probe(tv,av,st)
 % allen_browser_test_gui(tv,av,st,bregma)
 %
 % This gui is for looking at trajectories in the brain with the Allen CCF
@@ -9,11 +9,15 @@ function allen_atlas_probe(tv,av,st,bregma)
 % - live manupulator update
 % - probe position on probe reference
 % - bregma-lambda scaling and angle adjustment
-% - mouse over structure names
+% - mouse over structure names?
 
 
 % Initialize gui_data structure
 gui_data = struct;
+
+% Allen CCF-bregma transform (this is total estimate)
+% [AP,DV,ML,angle]
+bregma = [550,0,570,0];
 
 % If not already loaded in, load in atlas
 if nargin < 4
@@ -21,7 +25,6 @@ if nargin < 4
     tv = readNPY('template_volume_10um.npy'); % grey-scale "background signal intensity"
     av = readNPY('annotation_volume_10um_by_index.npy'); % the number at each pixel labels the area, see note below
     st = loadStructureTree('structure_tree_safe.csv'); % a table of what all the labels mean
-    bregma = allenCCFbregma();
 end
 
 % Set up the gui and axes
@@ -40,16 +43,6 @@ caxis([0 300]);
 xlim([-10,ap_max+10])
 ylim([-10,ml_max+10])
 zlim([-10,dv_max+10])
-
-% Make 3D rotation the default state (toggle on/off with 'r')
-h = rotate3d(axes_3d);
-h.Enable = 'on';
-% Update the slice whenever a rotation is completed
-h.ActionPostCallback = @update_slice;
-%(need to restore key-press functionality with rotation)
-hManager = uigetmodemanager(probe_atlas_gui);
-[hManager.WindowListenerHandles.Enabled] = deal(false);
-set(probe_atlas_gui,'KeyPressFcn',@key_press);
 
 % Plot outline of the brain
 
@@ -89,6 +82,16 @@ gui_data.handles.probe_ref_line = probe_ref_line; % Probe reference line on 3D a
 % Set functions for key presses
 set(probe_atlas_gui,'KeyPressFcn',@key_press); 
 
+% Make 3D rotation the default state (toggle on/off with 'r')
+h = rotate3d(axes_3d);
+h.Enable = 'on';
+% Update the slice whenever a rotation is completed
+h.ActionPostCallback = @update_slice;
+%(need to restore key-press functionality with rotation)
+hManager = uigetmodemanager(probe_atlas_gui);
+[hManager.WindowListenerHandles.Enabled] = deal(false);
+set(probe_atlas_gui,'KeyPressFcn',@key_press);
+
 % Upload gui_data
 guidata(probe_atlas_gui, gui_data);
 
@@ -106,28 +109,28 @@ switch eventdata.Key
     
     case 'uparrow'
         
-        ap_offset = -20;
+        ap_offset = -10;
         
         set(gui_data.handles.probe_ref_line,'XData',get(gui_data.handles.probe_ref_line,'XData') + ap_offset);
         update_slice(probe_atlas_gui);
         
     case 'downarrow'
         
-        ap_offset = 20;
+        ap_offset = 10;
         
         set(gui_data.handles.probe_ref_line,'XData',get(gui_data.handles.probe_ref_line,'XData') + ap_offset);
         update_slice(probe_atlas_gui);
         
     case 'rightarrow'
         
-        ml_offset = 20;
+        ml_offset = 10;
         
         set(gui_data.handles.probe_ref_line,'YData',get(gui_data.handles.probe_ref_line,'YData') + ml_offset);
         update_slice(probe_atlas_gui);
         
     case 'leftarrow'
         
-        ml_offset = -20;
+        ml_offset = -10;
         
         set(gui_data.handles.probe_ref_line,'YData',get(gui_data.handles.probe_ref_line,'YData') + ml_offset);
         update_slice(probe_atlas_gui);
