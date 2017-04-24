@@ -11,10 +11,6 @@ function AP_run_kilosort(data_filename,sample_rate)
 
 %% Run Kilosort
 
-% Load channel map
-ops.chanMap = 'C:\Users\Andrew\OneDrive for Business\Documents\CarandiniHarrisLab\kilosort_channelmaps\forPRBimecP3opt3.mat';
-load(ops.chanMap);
-
 % Run config script to get options
 AP_kilosort_config_IMEC_P3O2
 
@@ -35,7 +31,7 @@ rez                = fullMPMU(rez, DATA);% extract final spike times (overlappin
 % AutoMerge. rez2Phy will use for clusters the new 5th column of st3 if you run this)
 %     rez = merge_posthoc2(rez);
 
-% save matlab and phy results
+% Convert results to phy, save
 ks_results_dir = [data_path filesep 'results'];
 mkdir(ks_results_dir);
 

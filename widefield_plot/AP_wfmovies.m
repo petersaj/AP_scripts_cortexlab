@@ -1,5 +1,5 @@
 function AP_wfmovies(U,V,frame_t,eyecam_fn,eyecam_t,facecam_fn,facecam_t,trace,trace_t)
-% AP_wfmovies(U,V,frame_t,eyecam_fn,eyecam_t,facecam_fn,facecam_t)
+% AP_wfmovies(U,V,frame_t,eyecam_fn,eyecam_t,facecam_fn,facecam_t,trace,trace_t)
 %
 % U = wf U
 % V = wf V
@@ -11,8 +11,10 @@ function AP_wfmovies(U,V,frame_t,eyecam_fn,eyecam_t,facecam_fn,facecam_t,trace,t
 % facecam_fn = filename of facecam movie
 % facecam_t = facecam frames in timeline time
 %
-% trace = trace to plot
+% trace = trace to plot (> 3 traces plots as image)
 % trace_t = trace times
+
+disp('Press s to save section of movies');
 
 if exist('eyecam_fn','var') && exist('eyecam_t','var') && ~isempty(eyecam_t)
    handles.plot_eyecam = true; 
@@ -83,14 +85,15 @@ if handles.plot_facecam
 end
 
 % Set up trace
+trace_time_range = 60*5;
 if handles.plot_trace
     if size(trace,2) < 3
         handles.trace_plot = plot(handles.trace_axis,trace_t,trace);
-        handles.trace_xlim = [handles.t-5,handles.t+5];
+        handles.trace_xlim = [handles.t-trace_time_range,handles.t+trace_time_range];
         handles.trace_tmark = line([handles.t,handles.t],ylim,'color','k');
     else
         handles.trace_plot = imagesc(handles.trace_axis,trace_t,1:size(trace,2),trace');
-        handles.trace_xlim = [handles.t-1,handles.t+1];
+        handles.trace_xlim = [handles.t-trace_time_range,handles.t+trace_time_range];
         handles.trace_tmark = line([handles.t,handles.t],ylim,'color','r');
     end    
     xlim(handles.trace_axis,handles.trace_xlim);

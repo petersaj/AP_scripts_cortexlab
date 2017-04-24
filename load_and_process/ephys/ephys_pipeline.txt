@@ -8,3 +8,9 @@ NOTE: this is being changed with different standards:
 4. (AP_pre_phy: not written but considered for finding noise template to classify before phy)
 5. Manually check/fix clustering in Phy
 6. Copy saved clusters to basket (AP_save_phy?)
+
+----------------
+This has changed after moving to phase 3, making a new more permanent processing pipeline:
+
+AP_preprocess_phase3 (get/save settings, do CAR, run kilosort)
+[AP_prepare_phy (if not already local, above does by default) - haven't used yet so might not work]

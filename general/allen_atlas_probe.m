@@ -6,8 +6,10 @@ function allen_atlas_probe(tv,av,st)
 % Coordinates in: plot [ap,ml,dv], volume [ap,dv,ml]
 %
 % TO ADD: 
+% - coordinates in bregma! 
+% - intersection coordinate with probe reference and brain
+% - probe position on probe reference (recording sites = 3820 um long)
 % - live manupulator update
-% - probe position on probe reference
 % - bregma-lambda scaling and angle adjustment
 % - mouse over structure names?
 

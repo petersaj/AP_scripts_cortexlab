@@ -1,10 +1,10 @@
 %% Define experiment
 
-animal = 'AP001';
-day = '2017-04-08';
-experiment = '1';
+animal = 'AP014';
+day = '2017-04-16';
+experiment = '3';
 rig = 'kilotrode'; % kilotrode or bigrig
-cam_color_n = 1;
+cam_color_n = 2;
 cam_color_signal = 'blue';
 cam_color_hemo = 'purple';
 
@@ -352,8 +352,8 @@ elseif cam_color_n == 2
     
     Vh_Un = ChangeU(Uh,Vh,Un);
     
-    hemo_freq = [0.2,3];
-    %hemo_freq = [7,13];
+    %hemo_freq = [0.2,3];
+    hemo_freq = [7,13];
     disp('Correcting hemodynamics...')
     Vn_hemo = HemoCorrectLocal(Un,Vn_th,Vh_Un,framerate,hemo_freq,3);
     
@@ -372,11 +372,10 @@ elseif cam_color_n == 2
     U = Un;
     avg_im = avg_im_n;
     frame_t = th; % shifted to use hemo color times
-    
-    %pixelTuningCurveViewerSVD(Us,fVs_hemo,th(1:min_frames),stim_onsets,stimIDs,[-2 5])
-    
+        
 end
 disp('Done.')
+
 % Make dF/F
 %fVdf = dffFromSVD(U,fV,avg_im);
 
@@ -543,8 +542,12 @@ for i = 1:length(header_info{1})
     header.(header_info{1}{i}) = header_info{2}{i};
 end
 
-% Load spike data 
-ephys_sample_rate = str2num(header.sample_rate);
+% Load spike data
+if isfield(header,'sample_rate')
+    ephys_sample_rate = str2num(header.sample_rate);
+elseif isfield(header,'ap_sample_rate')
+    ephys_sample_rate = str2num(header.ap_sample_rate);
+end
 spike_times = double(readNPY([data_path filesep 'spike_times.npy']))./ephys_sample_rate;
 spike_templates = readNPY([data_path filesep 'spike_templates.npy']);
 templates = readNPY([data_path filesep 'templates.npy']);
@@ -632,8 +635,6 @@ template_abs = permute(max(abs(templates),[],2),[3,1,2]);
 [~,max_channel_idx] =  max(template_abs,[],1);
 templateDepths = channel_positions(max_channel_idx,2);
 
-
-
 % Get each spike's depth
 spikeDepths = templateDepths(spike_templates+1);
 
@@ -663,17 +664,34 @@ disp('Done');
 
 %% Eliminate spikes that were classified as not "good"
 
-% Safety check: if this variable exists, don't do it again
 if exist('cluster_groups','var') && ~exist('good_templates','var')
-    disp('Removed non-good templates')
-    good_templates = uint32(cluster_groups{1}(strcmp(cluster_groups{2},'good')));
-    good_spike_idx = ismember(spike_templates,good_templates);
     
+    disp('Removing non-good templates')
+    
+    good_templates_idx = uint32(cluster_groups{1}(strcmp(cluster_groups{2},'good')));
+    good_templates = ismember(0:size(templates,1)-1,good_templates_idx);
+    
+    % Throw out all non-good template data
+    templates = templates(good_templates,:,:);
+    templateDepths = templateDepths(good_templates);
+    waveforms = waveforms(good_templates,:);
+    templateDuration = templateDuration(good_templates);
+    templateDuration_us = templateDuration_us(good_templates);
+    
+    % Throw out all non-good spike data
+    good_spike_idx = ismember(spike_templates,good_templates_idx);    
     spike_times = spike_times(good_spike_idx);
     spike_templates = spike_templates(good_spike_idx);
     template_amplitudes = template_amplitudes(good_spike_idx);
     spikeDepths = spikeDepths(good_spike_idx);
     spike_times_timeline = spike_times_timeline(good_spike_idx);
+    
+    % Re-name the spike templates according to the remaining templates
+    % (and make 1-indexed from 0-indexed)
+    new_spike_idx = nan(max(spike_templates)+1,1);
+    new_spike_idx(good_templates_idx+1) = 1:length(good_templates_idx);
+    spike_templates = new_spike_idx(spike_templates+1);
+    
 elseif exist('cluster_groups','var') && exist('good_templates','var')
     disp('Good templates already identified, skipping')
 elseif ~exist('cluster_groups','var')

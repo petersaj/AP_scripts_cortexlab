@@ -284,10 +284,10 @@ sta_v_pca = reshape(score,size(sta_v_all,1),size(sta_v_all,2),size(sta_v_all,3))
 
 %% STA for multiunit
 
-use_spikes = spike_times_timeline(ismember(spike_templates,find(templateDepths > 2500 & templateDepths < 2700)-1));
+use_spikes = spike_times_timeline(ismember(spike_templates,find(templateDepths > 2500 & templateDepths < 2700)));
 
-%use_spikes = spike_times_timeline(ismember(spike_templates,find(templateDepths > 0 & templateDepths < 400)-1) & ...
-%    ismember(spike_templates,use_templates(use_template_narrow))-1);
+%use_spikes = spike_times_timeline(ismember(spike_templates,find(templateDepths > 0 & templateDepths < 400)) & ...
+%    ismember(spike_templates,use_templates(use_template_narrow)));
 
 frame_edges = [frame_t(1),mean([frame_t(2:end);frame_t(1:end-1)],1),frame_t(end)+1/framerate];
 [frame_spikes,~,spike_frames] = histcounts(use_spikes,frame_edges);
@@ -316,7 +316,7 @@ sta_im = svdFrameReconstruct(U,sta_v);
 AP_image_scroll(sta_im,sta_t);
 
 %% STA for templates
-template_sta = zeros(size(U,1),size(U,2),length(good_templates));
+template_sta = zeros(size(U,1),size(U,2),size(good_templates));
 
 for curr_template_idx = 1:length(good_templates)
     
@@ -348,7 +348,7 @@ for curr_template_idx = 1:length(good_templates)
 end
 
 % Rearrange STAs by depth
-[~,sort_idx] = sort(templateDepths(good_templates+1));
+[~,sort_idx] = sort(templateDepths(good_templates));
 template_sta = template_sta(:,:,sort_idx);
 
 % Plot
@@ -676,7 +676,7 @@ U_roi = reshape(U(repmat(roiMask,1,1,size(U,3))),[],size(U,3));
 roi_trace = nanmean(U_roi*fV);
 
 % Get population spikes per frame
-use_spikes = spike_times_timeline(ismember(spike_templates,find(templateDepths > 1000 & templateDepths < Inf)-1));
+use_spikes = spike_times_timeline(ismember(spike_templates,find(templateDepths > 1000 & templateDepths < Inf)));
 
 framerate = 1./nanmedian(diff(frame_t));
 frame_edges = [frame_t,frame_t(end)+1/framerate];
@@ -809,7 +809,7 @@ raster_y = cell(length(unique_depths),1);
 binned_spikes_depth = zeros(length(unique_depths),length(corr_edges)-1);
 for curr_depth = 1:length(unique_depths);
     curr_binned_spikes = histcounts(spike_times_timeline( ...
-        ismember(spike_templates,find(templateDepths == unique_depths(curr_depth))-1)), ...
+        ismember(spike_templates,find(templateDepths == unique_depths(curr_depth)))), ...
         bin_edges);
     
     [raster_x,raster_y{curr_depth}] = ...
@@ -895,7 +895,7 @@ bin_edges = 0:0.001:frame_t(end);
 
 for curr_depth = 1:length(unique_depths);
     vl_spikes = histcounts(spike_times_timeline( ...
-        ismember(spike_templates,find(templateDepths > use_depths(1) & templateDepths < use_depths(2))-1)), ...
+        ismember(spike_templates,find(templateDepths > use_depths(1) & templateDepths < use_depths(2)))), ...
         bin_edges);
 end
 figure;
@@ -938,7 +938,7 @@ corr_edges = 0:0.01:frame_t(end);
 binned_spikes_depth = zeros(length(unique_depths),length(corr_edges)-1);
 for curr_depth = 1:length(unique_depths);
     binned_spikes_depth(curr_depth,:) = histcounts(spike_times_timeline( ...
-        ismember(spike_templates,find(depth_group == unique_depths(curr_depth))-1)), ...
+        ismember(spike_templates,find(depth_group == unique_depths(curr_depth)))), ...
         corr_edges);
 end
 
@@ -959,7 +959,7 @@ bin_centers = bin_edges(1:end-1) + diff(bin_edges)/2;
 binned_spikes_nucleus = zeros(length(nucleus_borders)-1,length(bin_edges)-1);
 for curr_nucleus = 1:length(nucleus_borders)-1;
     binned_spikes_nucleus(curr_nucleus,:) = histcounts(spike_times_timeline( ...
-        ismember(spike_templates,find(template_nucleus == curr_nucleus)-1)), ...
+        ismember(spike_templates,find(template_nucleus == curr_nucleus))), ...
         bin_edges);
 end
 
@@ -1128,7 +1128,7 @@ roi_trace = roi_trace_full(use_frames);
 framerate = 1./nanmedian(diff(frame_t));
 frame_edges = [frame_t,frame_t(end)+1/framerate];
 
-use_spikes = spike_times_timeline(ismember(spike_templates,find(templateDepths > 200 & templateDepths < 1500)-1));
+use_spikes = spike_times_timeline(ismember(spike_templates,find(templateDepths > 200 & templateDepths < 1500)));
 
 [frame_spikes_full,~,spike_frames] = histcounts(use_spikes,frame_edges);
 frame_spikes = frame_spikes_full(use_frames);
@@ -1200,8 +1200,8 @@ use_frames = frame_t > skip_seconds;
 use_t = frame_t(use_frames);
 
 %use_spikes = spike_times_timeline;
-use_spikes = spike_times_timeline(ismember(spike_templates,find(templateDepths > 0 & templateDepths < Inf)-1));
-%use_spikes = spike_times_timeline(ismember(spike_templates,find(templateDepths > 0 & templateDepths < 400)-1) & ...
+use_spikes = spike_times_timeline(ismember(spike_templates,find(templateDepths > 0 & templateDepths < Inf)));
+%use_spikes = spike_times_timeline(ismember(spike_templates,find(templateDepths > 0 & templateDepths < 400)) & ...
 %    (ismember(spike_templates,use_templates(use_template_narrow))));
 
 framerate = 1./nanmedian(diff(frame_t));
@@ -1268,8 +1268,8 @@ gcamp_kernel = fitted_curve;
 skip_frames = 35*10;
 
 %use_spikes = spike_times_timeline;
-use_spikes = spike_times_timeline(ismember(spike_templates,find(templateDepths > 0 & templateDepths < Inf)-1));
-%use_spikes = spike_times_timeline(ismember(spike_templates,find(templateDepths > 0 & templateDepths < 400)-1) & ...
+use_spikes = spike_times_timeline(ismember(spike_templates,find(templateDepths > 0 & templateDepths < Inf)));
+%use_spikes = spike_times_timeline(ismember(spike_templates,find(templateDepths > 0 & templateDepths < 400)) & ...
 %    (ismember(spike_templates,use_templates(use_template_narrow))));
 
 framerate = 1./nanmedian(diff(frame_t));
@@ -1306,8 +1306,8 @@ lag = 0; % frames
 skip_frames = 35*10;
 
 %use_spikes = spike_times_timeline;
-use_spikes = spike_times_timeline(ismember(spike_templates,find(templateDepths > 600 & templateDepths < 800)-1));
-%use_spikes = spike_times_timeline(ismember(spike_templates,find(templateDepths > 0 & templateDepths < 400)-1) & ...
+use_spikes = spike_times_timeline(ismember(spike_templates,find(templateDepths > 600 & templateDepths < 800)));
+%use_spikes = spike_times_timeline(ismember(spike_templates,find(templateDepths > 0 & templateDepths < 400)) & ...
 %    (ismember(spike_templates,use_templates(use_template_narrow))));
 
 % Discretize spikes into frames and count spikes per frame
@@ -1407,7 +1407,7 @@ svd_mean = nanmean(svd_xcorr,3);
 framerate = 1./median(diff(frame_t));
 frame_edges = [frame_t,frame_t(end)+1/framerate];
 
-curr_templates = intersect(find(templateDepths > 0 & templateDepths < Inf)-1,use_templates(msn));
+curr_templates = intersect(find(templateDepths > 0 & templateDepths < Inf),use_templates(msn));
 
 frame_spikes = zeros(length(curr_templates),length(frame_t));
 for curr_template_idx = 1:length(curr_templates);
@@ -1588,8 +1588,8 @@ legend({'High PC1 spikes','Low PC1 spikes'});
 framerate = 1./nanmedian(diff(frame_t));
 
 %use_spikes = spike_times_timeline;
-%use_spikes = spike_times_timeline(ismember(spike_templates,find(templateDepths > 800 & templateDepths < Inf)-1));
-%use_spikes = spike_times_timeline(ismember(spike_templates,find(templateDepths > 0 & templateDepths < 400)-1) & ...
+%use_spikes = spike_times_timeline(ismember(spike_templates,find(templateDepths > 800 & templateDepths < Inf)));
+%use_spikes = spike_times_timeline(ismember(spike_templates,find(templateDepths > 0 & templateDepths < 400)) & ...
 %    (ismember(spike_templates,use_templates(use_template_narrow)));
 
 frame_edges = [frame_t(1),mean([frame_t(2:end);frame_t(1:end-1)],1),frame_t(end)+1/framerate];
@@ -1620,9 +1620,9 @@ figure;imagesc(cluster_max_xcorr);colormap(gray);
 %% Correlation between spikes (or any trace) and pixel fluorescence
 
 % Use the corrected impulse response for convolving kernel
-use_spikes = spike_times_timeline(ismember(spike_templates,find(templateDepths > 2500 & templateDepths < 2700)-1));
-%use_spikes = spike_times_timeline(ismember(spike_templates,find(templateDepths > 0 & templateDepths < Inf)-1) & ...
-%    ismember(spike_templates,use_templates(use_template_narrow))-1);
+use_spikes = spike_times_timeline(ismember(spike_templates,find(templateDepths > 2500 & templateDepths < 2700)));
+%use_spikes = spike_times_timeline(ismember(spike_templates,find(templateDepths > 0 & templateDepths < Inf)) & ...
+%    ismember(spike_templates,use_templates(use_template_narrow)));
 
 frame_edges = [frame_t(1),mean([frame_t(2:end);frame_t(1:end-1)],1),frame_t(end)+1/framerate];
 [frame_spikes,~,spike_frames] = histcounts(use_spikes,frame_edges);
@@ -1748,9 +1748,9 @@ ylabel('Correlation of conv spikes with fluorescence');
 
 %% Spatiotemporal correlation-fixed spatial kernel for spikes
 
-use_spikes = spike_times_timeline(ismember(spike_templates,find(templateDepths > 2500 & templateDepths < 2700)-1));
-%use_spikes = spike_times_timeline(ismember(spike_templates,find(templateDepths > 0 & templateDepths < 400)-1) & ...
-%    ismember(spike_templates,use_templates(use_template_narrow))-1);
+use_spikes = spike_times_timeline(ismember(spike_templates,find(templateDepths > 2500 & templateDepths < 2700)));
+%use_spikes = spike_times_timeline(ismember(spike_templates,find(templateDepths > 0 & templateDepths < 400)) & ...
+%    ismember(spike_templates,use_templates(use_template_narrow)));
 
 frame_edges = [frame_t(1),mean([frame_t(2:end);frame_t(1:end-1)],1),frame_t(end)+1/framerate];
 [frame_spikes,~,spike_frames] = histcounts(use_spikes,frame_edges);
@@ -1797,8 +1797,8 @@ for curr_template_idx = 1:length(use_templates)
     
     use_spikes = spike_times_timeline(spike_templates == curr_template);
     
-    %use_spikes = spike_times_timeline(ismember(spike_templates,find(templateDepths > 0 & templateDepths < 400)-1) & ...
-    %    ismember(spike_templates,use_templates(use_template_narrow))-1);
+    %use_spikes = spike_times_timeline(ismember(spike_templates,find(templateDepths > 0 & templateDepths < 400)) & ...
+    %    ismember(spike_templates,use_templates(use_template_narrow)));
     
     frame_edges = [frame_t(1),mean([frame_t(2:end);frame_t(1:end-1)],1),frame_t(end)+1/framerate];
     [frame_spikes,~,spike_frames] = histcounts(use_spikes,frame_edges);
@@ -1827,7 +1827,7 @@ for curr_template_idx = 1:length(use_templates)
 end
 
 % Rearrange STAs by depth
-[~,sort_idx] = sort(templateDepths(good_templates+1));
+[~,sort_idx] = sort(templateDepths(good_templates));
 k2_all = k2_all(:,:,sort_idx);
 
 AP_image_scroll(k2_all);
@@ -1842,7 +1842,7 @@ canonU = zeros(size(U,1),size(U,2),n_depths);
 for i = 1:n_depths;
     
     use_spikes = spike_times_timeline(ismember(spike_templates, ...
-        find(templateDepths > use_depths(i) & templateDepths < use_depths(i+1))-1));
+        find(templateDepths > use_depths(i) & templateDepths < use_depths(i+1))));
     
     frame_edges = [frame_t(1),mean([frame_t(2:end);frame_t(1:end-1)],1),frame_t(end)+1/framerate];
     [frame_spikes,~,spike_frames] = histcounts(use_spikes,frame_edges);
@@ -1877,7 +1877,7 @@ AP_image_scroll(canonU_blur);colormap(colormap_blueblackred);
 
 % I don't think any of this makes sense 
 
-use_spikes = spike_times_timeline(ismember(spike_templates,find(templateDepths > 1000 & templateDepths < 1200)-1));
+use_spikes = spike_times_timeline(ismember(spike_templates,find(templateDepths > 1000 & templateDepths < 1200)));
 
 frame_edges = [frame_t(1),mean([frame_t(2:end);frame_t(1:end-1)],1),frame_t(end)+1/framerate];
 [frame_spikes,~,spike_frames] = histcounts(use_spikes,frame_edges);
@@ -1900,9 +1900,9 @@ m = svdFrameReconstruct(U,sv_weights');
 % this is probably dumb, didnt' really work
 
 % Use the corrected impulse response for convolving kernel
-use_spikes = spike_times_timeline(ismember(spike_templates,find(templateDepths > 0 & templateDepths < 300)-1));
-%use_spikes = spike_times_timeline(ismember(spike_templates,find(templateDepths > 0 & templateDepths < 400)-1) & ...
-%    ismember(spike_templates,use_templates(use_template_narrow))-1);
+use_spikes = spike_times_timeline(ismember(spike_templates,find(templateDepths > 0 & templateDepths < 300)));
+%use_spikes = spike_times_timeline(ismember(spike_templates,find(templateDepths > 0 & templateDepths < 400)) & ...
+%    ismember(spike_templates,use_templates(use_template_narrow)));
 
 frame_edges = [frame_t(1),mean([frame_t(2:end);frame_t(1:end-1)],1),frame_t(end)+1/framerate];
 [frame_spikes,~,spike_frames] = histcounts(use_spikes,frame_edges);
@@ -1963,8 +1963,8 @@ use_frames = frame_t > skip_seconds;
 use_t = frame_t(use_frames);
 
 %use_spikes = spike_times_timeline;
-use_spikes = spike_times_timeline(ismember(spike_templates,find(templateDepths > 2500 & templateDepths < 2700)-1));
-%use_spikes = spike_times_timeline(ismember(spike_templates,find(templateDepths > 0 & templateDepths < 400)-1) & ...
+use_spikes = spike_times_timeline(ismember(spike_templates,find(templateDepths > 2500 & templateDepths < 2700)));
+%use_spikes = spike_times_timeline(ismember(spike_templates,find(templateDepths > 0 & templateDepths < 400)) & ...
 %    (ismember(spike_templates,use_templates(use_template_narrow))));
 
 framerate = 1./nanmedian(diff(frame_t));
@@ -2001,8 +2001,8 @@ use_frames = frame_t > skip_seconds;
 use_t = frame_t(use_frames);
 
 %use_spikes = spike_times_timeline;
-use_spikes = spike_times_timeline(ismember(spike_templates,find(templateDepths > 0 & templateDepths < Inf)-1));
-%use_spikes = spike_times_timeline(ismember(spike_templates,find(templateDepths > 0 & templateDepths < 400)-1) & ...
+use_spikes = spike_times_timeline(ismember(spike_templates,find(templateDepths > 0 & templateDepths < Inf)));
+%use_spikes = spike_times_timeline(ismember(spike_templates,find(templateDepths > 0 & templateDepths < 400)) & ...
 %    (ismember(spike_templates,use_templates(use_template_narrow))));
 
 framerate = 1./nanmedian(diff(frame_t));
@@ -2231,9 +2231,9 @@ use_frames = (frame_t > skip_seconds);
 %use_frames = (frame_t > skip_seconds) & (frame_t < max(frame_t)/2);
 %use_frames = (frame_t > max(frame_t)/2);
 
-%use_spikes = spike_times_timeline(ismember(spike_templates,find(templateDepths > 0 & templateDepths < 600)-1));
-use_spikes = spike_times_timeline(ismember(spike_templates,find(templateDepths > 0 & templateDepths < 600)-1) ...
-    & ismember(spike_templates,find(wide)-1));
+%use_spikes = spike_times_timeline(ismember(spike_templates,find(templateDepths > 0 & templateDepths < 600)));
+use_spikes = spike_times_timeline(ismember(spike_templates,find(templateDepths > 0 & templateDepths < 600)) ...
+    & ismember(spike_templates,find(wide)));
 
 frame_edges = [frame_t(1),mean([frame_t(2:end);frame_t(1:end-1)],1),frame_t(end)+1/framerate];
 [frame_spikes,~,spike_frames] = histcounts(use_spikes,frame_edges);
@@ -2272,12 +2272,12 @@ use_frames = (frame_t > skip_seconds);
 %use_frames = (frame_t > skip_seconds) & (frame_t < max(frame_t)/2);
 %use_frames = (frame_t > max(frame_t)/2);
 
-use_spikes = spike_times_timeline(ismember(spike_templates,find(templateDepths > 0 & templateDepths < 600)-1));
+use_spikes = spike_times_timeline(ismember(spike_templates,find(templateDepths > 2400 & templateDepths < Inf)));
 
 frame_edges = [frame_t(1),mean([frame_t(2:end);frame_t(1:end-1)],1),frame_t(end)+1/framerate];
 [frame_spikes,~,spike_frames] = histcounts(use_spikes,frame_edges);
 frame_spikes = single(frame_spikes);
-use_lambdas = logspace(6,10,30);
+use_lambdas = logspace(6,10,10);
 explained_var_lambdas = nan(length(use_lambdas),size(frame_spikes,1));
 for curr_lambda_idx = 1:length(use_lambdas);
     
@@ -2322,11 +2322,11 @@ use_frames = (frame_t > skip_seconds);
 %use_frames = (frame_t > max(frame_t)/2);
 
 % Group multiunit by depth
-n_depth_groups = 6;
-depth_group_edges = linspace(2000,double(max(channel_positions(:,2))),n_depth_groups+1);
+n_depth_groups = 5;
+%depth_group_edges = linspace(2500,double(max(channel_positions(:,2))),n_depth_groups+1);
+depth_group_edges = linspace(0,1000,n_depth_groups+1);
 depth_group_edges_use = depth_group_edges;
 %depth_group_edges_use = [400,1500,2000,2300,3000,4000];
-depth_group_edges_use(end) = Inf;
 
 [depth_group_n,depth_group] = histc(spikeDepths,depth_group_edges_use);
 depth_groups_used = unique(depth_group);
@@ -2345,11 +2345,11 @@ for curr_depth = 1:length(depth_group_edges_use)-1
 end
 
 use_svs = 1:200;
-kernel_frames = -30:10;
+kernel_frames = -90:5:90;
 downsample_factor = 1;
 lambda = 5e5;
 zs = false;
-cvfold = 3;
+cvfold = 1;
 
 kernel_frames_downsample = round(downsample(kernel_frames,downsample_factor)/downsample_factor);
 
@@ -2399,7 +2399,7 @@ set(c,'YTickLabel',linspace(depth_group_edges(1),depth_group_edges(end),6));
 %% Regression from fluor to spikes (AP_regresskernel) templates
 
 %use_templates = good_templates;
-use_templates = good_templates(templateDepths(good_templates+1) > 2000);
+use_templates = good_templates(templateDepths(good_templates) > 2000);
 
 % Skip the first n seconds to do this
 skip_seconds = 10;
@@ -2414,8 +2414,8 @@ for curr_template_idx = 1:length(use_templates)
     
     use_spikes = spike_times_timeline(spike_templates == curr_template);
     
-    %use_spikes = spike_times_timeline(ismember(spike_templates,find(templateDepths > 0 & templateDepths < 400)-1) & ...
-    %    ismember(spike_templates,use_templates(use_template_narrow))-1);
+    %use_spikes = spike_times_timeline(ismember(spike_templates,find(templateDepths > 0 & templateDepths < 400)) & ...
+    %    ismember(spike_templates,use_templates(use_template_narrow)));
     
     frame_edges = [frame_t(1),mean([frame_t(2:end);frame_t(1:end-1)],1),frame_t(end)+1/framerate];
     [curr_frame_spikes,~,spike_frames] = histcounts(use_spikes,frame_edges);
@@ -2479,7 +2479,7 @@ skip_seconds = 10;
 use_frames = frame_t > skip_seconds;
 use_t = frame_t(use_frames);
 
-use_spikes = spike_times_timeline(ismember(spike_templates,find(templateDepths > 800 & templateDepths < Inf)-1));
+use_spikes = spike_times_timeline(ismember(spike_templates,find(templateDepths > 800 & templateDepths < Inf)));
 
 framerate = 1./nanmedian(diff(frame_t));
 
@@ -2506,7 +2506,7 @@ AP_image_scroll(r,kernel_frames/framerate);
 skip_seconds = 10;
 use_frames = frame_t > skip_seconds;
 
-use_spikes = spike_times_timeline(ismember(spike_templates,find(templateDepths > 0 & templateDepths < 500)-1));
+use_spikes = spike_times_timeline(ismember(spike_templates,find(templateDepths > 0 & templateDepths < 500)));
 frame_edges = [frame_t(1),mean([frame_t(2:end);frame_t(1:end-1)],1),frame_t(end)+1/framerate];
 [frame_spikes,~,spike_frames] = histcounts(use_spikes,frame_edges);
 
@@ -2630,7 +2630,7 @@ AP_image_scroll(px_coherence_allf,f);
 skip_seconds = 10;
 use_frames = (frame_t > skip_seconds);
 
-use_spikes = spike_times_timeline(ismember(spike_templates,find(templateDepths > 0 & templateDepths < 700)-1));
+use_spikes = spike_times_timeline(ismember(spike_templates,find(templateDepths > 0 & templateDepths < 700)));
 
 frame_edges = [frame_t(1),mean([frame_t(2:end);frame_t(1:end-1)],1),frame_t(end)+1/framerate];
 [frame_spikes,~,spike_frames] = histcounts(use_spikes,frame_edges);
@@ -2685,9 +2685,9 @@ stim_screen_interp = single([zeros(size(stim_screen_interp,1),1),diff(stim_scree
 skip_seconds = 10;
 use_frames = (frame_t > skip_seconds);
 
-use_spikes = spike_times_timeline(ismember(spike_templates,find(templateDepths > 0 & templateDepths < 800)-1));
-%use_spikes = spike_times_timeline(ismember(spike_templates,find(templateDepths > 0 & templateDepths < 800)-1) & ...
-%     ismember(spike_templates,find(narrow)-1));
+use_spikes = spike_times_timeline(ismember(spike_templates,find(templateDepths > 0 & templateDepths < 800)));
+%use_spikes = spike_times_timeline(ismember(spike_templates,find(templateDepths > 0 & templateDepths < 800)) & ...
+%     ismember(spike_templates,find(narrow)));
 
 frame_edges = [frame_t(1),mean([frame_t(2:end);frame_t(1:end-1)],1),frame_t(end)+1/framerate];
 [frame_spikes,~,spike_frames] = histcounts(use_spikes,frame_edges);
@@ -2759,8 +2759,8 @@ for curr_template_idx = 1:length(good_templates)
     
     use_spikes = spike_times_timeline(spike_templates == curr_template);
     
-    %use_spikes = spike_times_timeline(ismember(spike_templates,find(templateDepths > 0 & templateDepths < 400)-1) & ...
-    %    ismember(spike_templates,use_templates(use_template_narrow))-1);
+    %use_spikes = spike_times_timeline(ismember(spike_templates,find(templateDepths > 0 & templateDepths < 400)) & ...
+    %    ismember(spike_templates,use_templates(use_template_narrow)));
     
     frame_edges = [frame_t(1),mean([frame_t(2:end);frame_t(1:end-1)],1),frame_t(end)+1/framerate];
     [curr_frame_spikes,~,spike_frames] = histcounts(use_spikes,frame_edges);
@@ -2826,7 +2826,7 @@ depth_groups_used = unique(depth_group);
 depth_group_centers = depth_group_edges_use(1:end-1)+diff(depth_group_edges_use);
 
 framerate = 1./median(diff(frame_t));
-frame_spikes = zeros(length(depth_group_edges_use)-1,length(frame_t));
+frame_spikes = zeros(length(depth_group_edges_use),length(frame_t));
 for curr_depth = 1:length(depth_group_edges_use)-1   
     curr_spike_times = spike_times_timeline(depth_group == curr_depth);
 
@@ -2878,7 +2878,7 @@ end
 skip_seconds = 10;
 use_frames = (frame_t > skip_seconds);
 
-use_spikes = spike_times_timeline(ismember(spike_templates,find(templateDepths > 0 & templateDepths < 500)-1));
+use_spikes = spike_times_timeline(ismember(spike_templates,find(templateDepths > 0 & templateDepths < 500)));
 
 frame_edges = [frame_t(1),mean([frame_t(2:end);frame_t(1:end-1)],1),frame_t(end)+1/framerate];
 [frame_spikes,~,spike_frames] = histcounts(use_spikes,frame_edges);
@@ -2944,8 +2944,8 @@ for curr_template_idx = 1:length(good_templates)
     
     use_spikes = spike_times_timeline(spike_templates == curr_template);
     
-    %use_spikes = spike_times_timeline(ismember(spike_templates,find(templateDepths > 0 & templateDepths < 400)-1) & ...
-    %    ismember(spike_templates,use_templates(use_template_narrow))-1);
+    %use_spikes = spike_times_timeline(ismember(spike_templates,find(templateDepths > 0 & templateDepths < 400)) & ...
+    %    ismember(spike_templates,use_templates(use_template_narrow)));
     
     frame_edges = [frame_t(1),mean([frame_t(2:end);frame_t(1:end-1)],1),frame_t(end)+1/framerate];
     [curr_frame_spikes,~,spike_frames] = histcounts(use_spikes,frame_edges);
@@ -3053,7 +3053,7 @@ end
 skip_seconds = 10;
 use_frames = (frame_t > skip_seconds);
 
-use_spikes = spike_times_timeline(ismember(spike_templates,find(templateDepths > 0 & templateDepths < 300)-1));
+use_spikes = spike_times_timeline(ismember(spike_templates,find(templateDepths > 0 & templateDepths < 300)));
 
 frame_edges = [frame_t(1),mean([frame_t(2:end);frame_t(1:end-1)],1),frame_t(end)+1/framerate];
 [frame_spikes,~,spike_frames] = histcounts(use_spikes,frame_edges);
@@ -3112,7 +3112,7 @@ use_frames = (frame_t > skip_seconds);
 %use_frames = (frame_t > skip_seconds) & (frame_t < max(frame_t)/2);
 %use_frames = (frame_t > max(frame_t)/2);
 
-use_spikes = spike_times_timeline(ismember(spike_templates,find(templateDepths > 2000 & templateDepths < 2200)-1));
+use_spikes = spike_times_timeline(ismember(spike_templates,find(templateDepths > 2000 & templateDepths < 2200)));
 
 frame_edges = [frame_t(1),mean([frame_t(2:end);frame_t(1:end-1)],1),frame_t(end)+1/framerate];
 [frame_spikes,~,spike_frames] = histcounts(use_spikes,frame_edges);
@@ -3202,7 +3202,7 @@ use_frames = (frame_t > skip_seconds);
 %use_frames = (frame_t > skip_seconds) & (frame_t < max(frame_t)/2);
 %use_frames = (frame_t > max(frame_t)/2);
 
-use_spikes = spike_times_timeline(ismember(spike_templates,find(templateDepths > 0 & templateDepths < 500)-1));
+use_spikes = spike_times_timeline(ismember(spike_templates,find(templateDepths > 0 & templateDepths < 500)));
 
 frame_edges = [frame_t,frame_t(end)+1/framerate];
 [frame_spikes,~,spike_frames] = histcounts(use_spikes,frame_edges);
