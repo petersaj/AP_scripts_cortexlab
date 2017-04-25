@@ -1,12 +1,12 @@
-function allen_atlas_probe(tv,av,st)
+function allen_atlas_probe(tv,av,st,bregma)
 % allen_browser_test_gui(tv,av,st,bregma)
 %
 % This gui is for looking at trajectories in the brain with the Allen CCF
 % 
 % Coordinates in: plot [ap,ml,dv], volume [ap,dv,ml]
 %
-% TO ADD: 
-% - coordinates in bregma! 
+% TO DO: 
+% - actual coordinates in bregma (they're off from Paxinos to some degree)
 % - live manupulator update
 % - bregma-lambda scaling and angle adjustment
 % - mouse over structure names?
