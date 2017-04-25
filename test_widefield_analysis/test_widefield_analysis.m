@@ -614,8 +614,6 @@ U_roi = reshape(U(repmat(roiMask,1,1,size(U,3))),[],size(U,3));
 roi_trace = nanmean(U_roi*fV);
 
 
-
-
 %% Get fluorescence trace of ROI
 
 % Choose ROI

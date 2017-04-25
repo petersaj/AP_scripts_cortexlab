@@ -2,7 +2,7 @@
 
 animal = 'AP014';
 day = '2017-04-16';
-experiment = '4';
+experiment = '2';
 rig = 'kilotrode'; % kilotrode or bigrig
 cam_color_n = 2;
 cam_color_signal = 'blue';
@@ -365,7 +365,6 @@ elseif cam_color_n == 2
     
     dVn_hemo = detrend(Vn_hemo', 'linear')';
     fVn_hemo = filter(b100s,a100s,dVn_hemo,[],2);
-    
     
     % set final U/V to use
     fV = fVn_hemo;

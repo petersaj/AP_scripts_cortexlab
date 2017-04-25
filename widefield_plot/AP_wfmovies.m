@@ -85,15 +85,15 @@ if handles.plot_facecam
 end
 
 % Set up trace
-trace_time_range = 60*5;
+trace_time_surround = 3; % in seconds
 if handles.plot_trace
     if size(trace,2) < 3
         handles.trace_plot = plot(handles.trace_axis,trace_t,trace);
-        handles.trace_xlim = [handles.t-trace_time_range,handles.t+trace_time_range];
+        handles.trace_xlim = [handles.t-trace_time_surround,handles.t+trace_time_surround];
         handles.trace_tmark = line([handles.t,handles.t],ylim,'color','k');
     else
         handles.trace_plot = imagesc(handles.trace_axis,trace_t,1:size(trace,2),trace');
-        handles.trace_xlim = [handles.t-trace_time_range,handles.t+trace_time_range];
+        handles.trace_xlim = [handles.t-trace_time_surround,handles.t+trace_time_surround];
         handles.trace_tmark = line([handles.t,handles.t],ylim,'color','r');
     end    
     xlim(handles.trace_axis,handles.trace_xlim);
@@ -239,7 +239,7 @@ end
 
 wf_im = svdFrameReconstruct(handles.U,handles.V(:,wf_frame));
 
-set(handles.wf_im,'Cdata',wf_im);
+set(handles.wf_im,'CData',wf_im);
 
 % Update trace
 if handles.plot_trace

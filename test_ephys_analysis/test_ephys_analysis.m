@@ -1943,7 +1943,7 @@ p = bandpower(use_trace,Fs,[3,5]);
 
 % Spectrogram
 spect_overlap = 50;
-window_length = 2; % in seconds
+window_length = 5; % in seconds
 window_length_samples = window_length/(1/Fs);
 figure;spectrogram(use_trace,window_length_samples, ...
     round(spect_overlap/100*window_length_samples),[],Fs,'yaxis')
