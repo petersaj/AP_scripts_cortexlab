@@ -2,7 +2,7 @@
 
 animal = 'AP014';
 day = '2017-04-16';
-experiment = '3';
+experiment = '4';
 rig = 'kilotrode'; % kilotrode or bigrig
 cam_color_n = 2;
 cam_color_signal = 'blue';
@@ -216,10 +216,10 @@ if exist(eyecam_processed_filename,'file')
 end
 
 % Get camera times
-eyecam_filename = AP_cortexlab_filename(mpep_animal,day,experiment,'eyecam');
+eyecam_fn = AP_cortexlab_filename(mpep_animal,day,experiment,'eyecam');
 eyecam_t_savefile = [cam_dir filesep 'eyecam_t.mat'];
 
-if exist(eyecam_filename,'file') && ~exist(eyecam_t_savefile,'file')   
+if exist(eyecam_fn,'file') && ~exist(eyecam_t_savefile,'file')   
     % Get facecam strobes
     eyeCamStrobe_idx = strcmp({Timeline.hw.inputs.name}, 'eyeCameraStrobe');
     eyeCamStrobe_thresh = max(Timeline.rawDAQData(:,eyeCamStrobe_idx))/2;
@@ -228,7 +228,7 @@ if exist(eyecam_filename,'file') && ~exist(eyecam_t_savefile,'file')
     eyeCamStrobe_up_t = Timeline.rawDAQTimestamps(eyeCamStrobe_up);
     
     % Get sync times for cameras (or load if already done)
-    [eyecam_sync_frames,n_eyecam_frames] = AP_get_cam_sync_frames(eyecam_filename);
+    [eyecam_sync_frames,n_eyecam_frames] = AP_get_cam_sync_frames(eyecam_fn);
     
     % Get the closest facecam strobe to sync start, find offset and frame idx
     [~,eyecam_strobe_sync] = min(abs(camSync_up(1) - eyeCamStrobe_up));
@@ -240,7 +240,7 @@ if exist(eyecam_filename,'file') && ~exist(eyecam_t_savefile,'file')
     eyecam_t(eyecam_frame_idx) = eyeCamStrobe_up_t;
             
     save(eyecam_t_savefile,'eyecam_t');   
-elseif exist(eyecam_filename,'file') && exist(eyecam_t_savefile,'file')   
+elseif exist(eyecam_fn,'file') && exist(eyecam_t_savefile,'file')   
     load(eyecam_t_savefile);
 end
 
@@ -252,10 +252,10 @@ if exist(facecam_processed_filename,'file')
 end
 
 % Get camera times
-facecam_filename = AP_cortexlab_filename(mpep_animal,day,experiment,'facecam');
+facecam_fn = AP_cortexlab_filename(mpep_animal,day,experiment,'facecam');
 facecam_t_savefile = [cam_dir filesep 'facecam_t.mat'];
 
-if exist(facecam_filename,'file') && ~exist(facecam_t_savefile,'file')      
+if exist(facecam_fn,'file') && ~exist(facecam_t_savefile,'file')      
     % Get facecam strobes
     faceCamStrobe_idx = strcmp({Timeline.hw.inputs.name}, 'faceCamStrobe');
     faceCamStrobe_thresh = max(Timeline.rawDAQData(:,faceCamStrobe_idx))/2;
@@ -264,7 +264,7 @@ if exist(facecam_filename,'file') && ~exist(facecam_t_savefile,'file')
     faceCamStrobe_up_t = Timeline.rawDAQTimestamps(faceCamStrobe_up);
     
     % Get sync times for cameras (or load if already done)
-    [facecam_sync_frames,n_facecam_frames] = AP_get_cam_sync_frames(facecam_filename);
+    [facecam_sync_frames,n_facecam_frames] = AP_get_cam_sync_frames(facecam_fn);
     
     % Get the closest facecam strobe to sync start, find offset and frame idx
     [~,facecam_strobe_sync] = min(abs(camSync_up(1) - faceCamStrobe_up));
@@ -276,7 +276,7 @@ if exist(facecam_filename,'file') && ~exist(facecam_t_savefile,'file')
     facecam_t(facecam_frame_idx) = faceCamStrobe_up_t;
             
     save(facecam_t_savefile,'facecam_t');   
-elseif exist(facecam_filename,'file') && exist(facecam_t_savefile,'file')    
+elseif exist(facecam_fn,'file') && exist(facecam_t_savefile,'file')    
     load(facecam_t_savefile);    
 end
 

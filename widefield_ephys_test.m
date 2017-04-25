@@ -2277,7 +2277,7 @@ use_spikes = spike_times_timeline(ismember(spike_templates,find(templateDepths >
 frame_edges = [frame_t(1),mean([frame_t(2:end);frame_t(1:end-1)],1),frame_t(end)+1/framerate];
 [frame_spikes,~,spike_frames] = histcounts(use_spikes,frame_edges);
 frame_spikes = single(frame_spikes);
-use_lambdas = logspace(6,10,10);
+use_lambdas = logspace(6,8,10);
 explained_var_lambdas = nan(length(use_lambdas),size(frame_spikes,1));
 for curr_lambda_idx = 1:length(use_lambdas);
     
@@ -2322,9 +2322,8 @@ use_frames = (frame_t > skip_seconds);
 %use_frames = (frame_t > max(frame_t)/2);
 
 % Group multiunit by depth
-n_depth_groups = 5;
-%depth_group_edges = linspace(2500,double(max(channel_positions(:,2))),n_depth_groups+1);
-depth_group_edges = linspace(0,1000,n_depth_groups+1);
+n_depth_groups = 6;
+depth_group_edges = linspace(1200,2300,n_depth_groups+1);
 depth_group_edges_use = depth_group_edges;
 %depth_group_edges_use = [400,1500,2000,2300,3000,4000];
 
@@ -2345,9 +2344,9 @@ for curr_depth = 1:length(depth_group_edges_use)-1
 end
 
 use_svs = 1:200;
-kernel_frames = -90:5:90;
+kernel_frames = -30:20;
 downsample_factor = 1;
-lambda = 5e5;
+lambda = 2782559;
 zs = false;
 cvfold = 1;
 
@@ -2369,32 +2368,32 @@ AP_image_scroll(r_px,kernel_frames_downsample*downsample_factor/framerate);
 caxis([prctile(r_px(:),[1,99])]*2)
 truesize;
 
-% Plot pixel map by preferred depth of probe
+% Get center of mass for each pixel 
 r_px_max = squeeze(max(r_px,[],3)) - squeeze(min(r_px,[],3));
 r_px_max_norm = zscore(reshape(r_px_max,[],n_depth_groups),[],1);
 r_px_com = reshape(sum(bsxfun(@times,r_px_max_norm,1:n_depth_groups),2)./(sum(r_px_max_norm,2)),size(r_px,1),size(r_px,2));
 
-% figure;hold on;set(gca,'YDir','reverse');axis off;
-% imagesc(mat2gray(avg_im,[0 prctile(avg_im(:),99.5)]));colormap(gray);
-% r_px_com_col = ind2rgb(round(mat2gray(r_px_com,[1,n_depth_groups])*255),jet(255));
-% p = image(r_px_com_col);
-% caxis([0,1]);
-% alpha_scaling = 1;
-% set(p,'AlphaData',alpha_scaling*mat2gray(max(r_px_max,[],3), ...
-%     [0,double(prctile(reshape(max(r_px_max,[],3),[],1),99))]));
+% Plot map of cortical pixel by preferred depth of probe
 r_px_com_col = ind2rgb(round(mat2gray(r_px_com,[1,n_depth_groups])*255),jet(255));
-figure; p = imagesc(r_px_com_col); axis off;
+figure;
+a1 = axes('YDir','reverse');
+imagesc(avg_im); colormap(gray); caxis([0,prctile(avg_im(:),95)]);
+axis off; 
+a2 = axes('Visible','off'); 
+p = imagesc(r_px_com_col);
+axis off; 
 set(p,'AlphaData',mat2gray(max(r_px_max,[],3), ...
      [0,double(prctile(reshape(max(r_px_max,[],3),[],1),99))]));
 set(gcf,'color','w');
 
-c = colorbar;
+c = colorbar('peer',a2);
 ylabel(c,'Depth (\mum)');
 colormap(c,jet);
 set(c,'YDir','reverse');
 set(c,'YTick',linspace(0,1,6));
 set(c,'YTickLabel',linspace(depth_group_edges(1),depth_group_edges(end),6));
 
+set(a1,'Position',get(a2,'Position'));
 
 %% Regression from fluor to spikes (AP_regresskernel) templates
 

@@ -7,12 +7,9 @@ function allen_atlas_probe(tv,av,st)
 %
 % TO ADD: 
 % - coordinates in bregma! 
-% - intersection coordinate with probe reference and brain
-% - probe position on probe reference (recording sites = 3820 um long)
 % - live manupulator update
 % - bregma-lambda scaling and angle adjustment
 % - mouse over structure names?
-
 
 % Initialize gui_data structure
 gui_data = struct;
@@ -61,17 +58,29 @@ zlim([-10,dv_max+10])
 % (with Nick's method)
 brain_outline = gridIn3D(double(av > 1),0.5,100,bregma);
 
-% Set up the probe
+% Set up the probe reference/actual
 probe_ref_top = [bregma(1),bregma(3),0];
 probe_ref_bottom = [bregma(1),bregma(3),size(tv,2)];
-probe_vector = [probe_ref_top',probe_ref_bottom'];
-probe_ref_line = line(probe_vector(1,:),probe_vector(2,:),probe_vector(3,:),'linewidth',1.5,'color','r','linestyle','--');
+probe_ref_vector = [probe_ref_top',probe_ref_bottom'];
+probe_ref_line = line(probe_ref_vector(1,:),probe_ref_vector(2,:),probe_ref_vector(3,:), ...
+    'linewidth',1.5,'color','r','linestyle','--');
+
+probe_length = 382.0; % IMEC phase 3
+probe_vector = [probe_ref_vector(:,1),diff(probe_ref_vector,[],2)./ ...
+    norm(diff(probe_ref_vector,[],2))*probe_length + probe_ref_vector(:,1)];
+probe_line = line(probe_vector(1,:),probe_vector(2,:),probe_vector(3,:),'linewidth',3,'color','g','linestyle','-');
+
+% Set up the text to display coordinates
+probe_coordinates_text = uicontrol('Style','text','String','asdf', ...
+    'Units','normalized','Position',[0,0.95,0.4,0.05], ...
+    'BackgroundColor','w','HorizontalAlignment','left','FontSize',12);
 
 % Store data
 gui_data.tv = tv; % Intensity atlas
 gui_data.av = av; % Annotated atlas
 gui_data.st = st; % Labels table
 gui_data.bregma = bregma; % Bregma for external referencing
+gui_data.probe_length = probe_length; % Length of probe
 gui_data.structure_plot_idx = []; % Plotted structures
 
 %Store handles
@@ -80,6 +89,8 @@ gui_data.handles.structure_patch = []; % Plotted structures
 gui_data.handles.axes_3d = axes_3d; % Axes with 3D atlas
 gui_data.handles.slice_plot = surface('EdgeColor','none'); % Slice on 3D atlas
 gui_data.handles.probe_ref_line = probe_ref_line; % Probe reference line on 3D atlas
+gui_data.handles.probe_line = probe_line; % Probe reference line on 3D atlas
+gui_data.probe_coordinates_text = probe_coordinates_text; % Probe coordinates text
 
 % Set functions for key presses
 set(probe_atlas_gui,'KeyPressFcn',@key_press); 
@@ -97,8 +108,18 @@ set(probe_atlas_gui,'KeyPressFcn',@key_press);
 % Upload gui_data
 guidata(probe_atlas_gui, gui_data);
 
-% Display the first slice
+% Display the first slice and update the probe position
 update_slice(probe_atlas_gui);
+update_probe_coordinates(probe_atlas_gui);
+
+% Print controls
+fprintf(['Controls: \n' ...
+    'a : change probe angle \n' ...
+    'arrow keys : move probe \n' ...
+    'numpad 8/2 : raise and lower probe \n' ...
+    'b : toggle brain grid visibility \n' ...
+    '+/- : add 3D brain structure \n' ...
+    'm : toggle 3D brain structure visibility \n']);
 
 end
 
@@ -114,30 +135,68 @@ switch eventdata.Key
         ap_offset = -10;
         
         set(gui_data.handles.probe_ref_line,'XData',get(gui_data.handles.probe_ref_line,'XData') + ap_offset);
+        set(gui_data.handles.probe_line,'XData',get(gui_data.handles.probe_line,'XData') + ap_offset);
         update_slice(probe_atlas_gui);
+        update_probe_coordinates(probe_atlas_gui);
         
     case 'downarrow'
         
         ap_offset = 10;
         
         set(gui_data.handles.probe_ref_line,'XData',get(gui_data.handles.probe_ref_line,'XData') + ap_offset);
+        set(gui_data.handles.probe_line,'XData',get(gui_data.handles.probe_line,'XData') + ap_offset);
         update_slice(probe_atlas_gui);
+        update_probe_coordinates(probe_atlas_gui);
         
     case 'rightarrow'
         
         ml_offset = 10;
         
         set(gui_data.handles.probe_ref_line,'YData',get(gui_data.handles.probe_ref_line,'YData') + ml_offset);
+        set(gui_data.handles.probe_line,'YData',get(gui_data.handles.probe_line,'YData') + ml_offset);
         update_slice(probe_atlas_gui);
+        update_probe_coordinates(probe_atlas_gui);
         
     case 'leftarrow'
         
         ml_offset = -10;
         
         set(gui_data.handles.probe_ref_line,'YData',get(gui_data.handles.probe_ref_line,'YData') + ml_offset);
+        set(gui_data.handles.probe_line,'YData',get(gui_data.handles.probe_line,'YData') + ml_offset);
         update_slice(probe_atlas_gui);
+        update_probe_coordinates(probe_atlas_gui);
         
-    case 'b' 
+    case 'numpad2'
+        
+        probe_offset = -10;
+        old_probe_vector = cell2mat(get(gui_data.handles.probe_line,{'XData','YData','ZData'})');
+        
+        move_probe_vector = diff(old_probe_vector,[],2)./ ...
+            norm(diff(old_probe_vector,[],2))*probe_offset;
+        
+        new_probe_vector = bsxfun(@plus,old_probe_vector,move_probe_vector);
+        
+        set(gui_data.handles.probe_line,'XData',new_probe_vector(1,:), ...
+            'YData',new_probe_vector(2,:),'ZData',new_probe_vector(3,:));
+        
+        update_probe_coordinates(probe_atlas_gui);
+        
+    case 'numpad8'
+        
+        probe_offset = 10;
+        old_probe_vector = cell2mat(get(gui_data.handles.probe_line,{'XData','YData','ZData'})');
+               
+        move_probe_vector = diff(old_probe_vector,[],2)./ ...
+            norm(diff(old_probe_vector,[],2))*probe_offset;
+        
+        new_probe_vector = bsxfun(@plus,old_probe_vector,move_probe_vector);
+        
+        set(gui_data.handles.probe_line,'XData',new_probe_vector(1,:), ...
+            'YData',new_probe_vector(2,:),'ZData',new_probe_vector(3,:));
+        
+        update_probe_coordinates(probe_atlas_gui);        
+        
+    case 'b'
         % Toggle brain outline visibility
         current_visibility = gui_data.handles.cortex_outline{1}{1}{1}.Visible;
         switch current_visibility; case 'on'; new_visibility = 'off'; case 'off'; new_visibility = 'on'; end;        
@@ -324,7 +383,7 @@ prompt_text = {'Probe ML angle (relative to lambda -> bregma)', ....
 probe_angles = ...
     (cellfun(@str2num,inputdlg(prompt_text,'Enter probe angles',1,{'0','90'}))/360)*2*pi;
 
-% Update the probe trajectory reference (reset to bregma)
+% Update the probe and trajectory reference (reset to bregma)
 [ap_max,dv_max,ml_max] = size(gui_data.tv);
 
 max_ref_length = sqrt(sum(([ap_max,dv_max,ml_max].^2)));
@@ -333,19 +392,61 @@ max_ref_length = sqrt(sum(([ap_max,dv_max,ml_max].^2)));
 
 probe_ref_top = [gui_data.bregma(1),gui_data.bregma(3),0];
 probe_ref_bottom = probe_ref_top + [x,y,z];
-probe_ref_vector = [probe_ref_top;probe_ref_bottom];
+probe_ref_vector = [probe_ref_top;probe_ref_bottom]';
 
-set(gui_data.handles.probe_ref_line,'XData',probe_ref_vector(:,1), ...
-    'YData',probe_ref_vector(:,2), ...
-    'ZData',probe_ref_vector(:,3));
+set(gui_data.handles.probe_ref_line,'XData',probe_ref_vector(1,:), ...
+    'YData',probe_ref_vector(2,:), ...
+    'ZData',probe_ref_vector(3,:));
 
-% Update the slice
+probe_vector = [probe_ref_vector(:,1),diff(probe_ref_vector,[],2)./ ...
+    norm(diff(probe_ref_vector,[],2))*gui_data.probe_length + probe_ref_vector(:,1)];
+set(gui_data.handles.probe_line,'XData',probe_vector(1,:), ...
+    'YData',probe_vector(2,:),'ZData',probe_vector(3,:));
+
+% Update the slice and probe coordinates
 update_slice(probe_atlas_gui);
+update_probe_coordinates(probe_atlas_gui);
 
 % Upload gui_data
 guidata(probe_atlas_gui, gui_data);
 
 end
 
+function update_probe_coordinates(probe_atlas_gui,varargin)
 
+% Get guidata
+gui_data = guidata(probe_atlas_gui);
+
+% Get the positions of the probe and trajectory reference
+probe_ref_vector = cell2mat(get(gui_data.handles.probe_ref_line,{'XData','YData','ZData'})');
+probe_vector = cell2mat(get(gui_data.handles.probe_line,{'XData','YData','ZData'})');
+
+n_coords = max(abs(diff(probe_ref_vector,[],2)));
+[xcoords,ycoords,zcoords] = deal( ...
+    linspace(probe_ref_vector(1,1),probe_ref_vector(1,2),n_coords), ...
+    linspace(probe_ref_vector(2,1),probe_ref_vector(2,2),n_coords), ...
+    linspace(probe_ref_vector(3,1),probe_ref_vector(3,2),n_coords));
+    
+% Get brain labels across the probe trajectory and intersection with brain
+pixel_space = 5;
+probe_profile = interp3(single(gui_data.av(1:pixel_space:end,1:pixel_space:end,1:pixel_space:end)), ...
+    round(zcoords/pixel_space),round(xcoords/pixel_space),round(ycoords/pixel_space));
+probe_brain_idx = find(probe_profile > 1,1);
+probe_brain_intersect =[xcoords(probe_brain_idx),ycoords(probe_brain_idx),zcoords(probe_brain_idx)]';
+
+% Get position of brain intersect relative to bregma
+probe_bregma_coordinate = round((gui_data.bregma(1,3)' - probe_brain_intersect(1:2))*10);
+
+% Get the depth of the bottom of the probe (sign: hack by z offset)
+probe_depth = round(sqrt(sum((probe_brain_intersect - probe_vector(:,2)).^2))*10)* ...
+    sign(probe_vector(3,2)-probe_brain_intersect(3));
+
+% Update the text
+probe_text = ['Probe: ' ....
+    num2str(probe_bregma_coordinate(1)) ' AP, ', ...
+    num2str(probe_bregma_coordinate(2)) ' ML, ', ...
+    num2str(probe_depth) ' Depth'];
+set(gui_data.probe_coordinates_text,'String',probe_text);
+
+end
 
