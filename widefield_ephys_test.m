@@ -2344,11 +2344,11 @@ for curr_depth = 1:length(depth_group_edges_use)-1
 end
 
 use_svs = 1:200;
-kernel_frames = -30:20;
+kernel_frames = -40:10;
 downsample_factor = 1;
 lambda = 2782559;
 zs = false;
-cvfold = 1;
+cvfold = 5;
 
 kernel_frames_downsample = round(downsample(kernel_frames,downsample_factor)/downsample_factor);
 
@@ -2402,8 +2402,6 @@ use_templates = find(templateDepths > 2400);
 % Skip the first n seconds to do this
 skip_seconds = 10;
 use_frames = (frame_t > skip_seconds);
-%use_frames = (frame_t > skip_seconds) & (frame_t < max(frame_t)/2);
-%use_frames = (frame_t > max(frame_t)/2);
 
 frame_spikes = zeros(length(use_templates),length(frame_t),'single');
 for curr_template_idx = 1:length(use_templates)
@@ -2411,30 +2409,26 @@ for curr_template_idx = 1:length(use_templates)
     curr_template = use_templates(curr_template_idx);
     
     use_spikes = spike_times_timeline(spike_templates == curr_template);
-    
-    %use_spikes = spike_times_timeline(ismember(spike_templates,find(templateDepths > 0 & templateDepths < 400)) & ...
-    %    ismember(spike_templates,use_templates(use_template_narrow)));
-    
+       
     frame_edges = [frame_t(1),mean([frame_t(2:end);frame_t(1:end-1)],1),frame_t(end)+1/framerate];
     [curr_frame_spikes,~,spike_frames] = histcounts(use_spikes,frame_edges);
-    % frame_spikes_conv_full = conv(frame_spikes,gcamp_kernel);
-    % frame_spikes_conv = frame_spikes_conv_full(1:length(frame_spikes));
-    
+
     frame_spikes(curr_template_idx,:) = curr_frame_spikes;
     
 end
 
 use_svs = 1:200;
-kernel_frames = -70:30;
+kernel_frames = -80:30;
 downsample_factor = 2;
-lambda = 3e5;
+lambda = 2782559;
 zs = false;
+cvfold = 5;
 
 kernel_frames_downsample = round(downsample(kernel_frames,downsample_factor)/downsample_factor);
 
 [k,predicted_spikes,explained_var] = ...
     AP_regresskernel(downsample(fV(use_svs,use_frames)',downsample_factor)', ...
-    downsample(frame_spikes(:,use_frames)',downsample_factor)',kernel_frames_downsample,lambda,zs);
+    downsample(frame_spikes(:,use_frames)',downsample_factor)',kernel_frames_downsample,lambda,zs,cvfold);
 
 % Reshape kernel and convert to pixel space
 r = reshape(k,length(use_svs),length(kernel_frames_downsample),size(frame_spikes,1));
@@ -2950,18 +2944,18 @@ end
 use_svs = 1:200;
 fluor_kernel_frames = -30:10;
 stim_kernel_frames = 0:5;
-lambda = 2782559;
+lambdas = [2782559,0];
 zs = false;
-cvfold = 3;
+cvfold = 5;
 
 [k,predicted_spikes,explained_var] = ...
     AP_regresskernel({fV(use_svs,use_frames),stim_screen_interp(:,use_frames)}, ...
-    frame_spikes(:,use_frames),{fluor_kernel_frames,stim_kernel_frames},lambda,zs,cvfold);
+    frame_spikes(:,use_frames),{fluor_kernel_frames,stim_kernel_frames},lambdas,zs,cvfold);
 
 % Reshape kernel and convert to pixel space
 px_regressors_idx = 1:length(use_svs)*length(fluor_kernel_frames);
 stim_regressors_idx = px_regressors_idx(end)+1:px_regressors_idx(end)+ ...
-    size(stim_screen_interp,1)*length(stim_kernel_frames);
+    size(stim_screen_interp,1)*length(stim_kernel_frames)*size(frame_spikes,1);
 
 r = reshape(k(px_regressors_idx,:),length(use_svs),length(fluor_kernel_frames),size(frame_spikes,1));
 r_px = zeros(size(U,1),size(U,2),size(r,2),size(r,3),'single');
@@ -2972,7 +2966,7 @@ end
 AP_image_scroll(r_px,fluor_kernel_frames/framerate);
 caxis([prctile(r_px(:),[1,99])]*2)
 
-stim_r = reshape(k(stim_regressors_idx),ny,nx,length(stim_kernel_frames));
+stim_r = reshape(k(stim_regressors_idx),ny,nx,length(stim_kernel_frames),size(frame_spikes,1));
 AP_image_scroll(stim_r,stim_kernel_frames);
 
 
