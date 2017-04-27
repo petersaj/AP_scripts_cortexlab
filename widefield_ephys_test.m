@@ -2264,15 +2264,13 @@ AP_image_scroll(r_px,(kernel_frames_downsample*downsample_factor)/framerate);
 caxis([prctile(r_px(:),[1,99])]*4);
 truesize
 
-%% Regression from fluor to spikes MUA: test lambda with cross-validation
+%% Regression fluor -> MUA: get lambda via cross-validation
 
 % Skip the first n seconds to do this
 skip_seconds = 10;
 use_frames = (frame_t > skip_seconds);
-%use_frames = (frame_t > skip_seconds) & (frame_t < max(frame_t)/2);
-%use_frames = (frame_t > max(frame_t)/2);
 
-use_spikes = spike_times_timeline(ismember(spike_templates,find(templateDepths > 2400 & templateDepths < Inf)));
+use_spikes = spike_times_timeline(ismember(spike_templates,find(templateDepths > 2400 & templateDepths <= 3820)));
 
 frame_edges = [frame_t(1),mean([frame_t(2:end);frame_t(1:end-1)],1),frame_t(end)+1/framerate];
 [frame_spikes,~,spike_frames] = histcounts(use_spikes,frame_edges);
@@ -2344,9 +2342,9 @@ for curr_depth = 1:length(depth_group_edges_use)-1
 end
 
 use_svs = 1:200;
-kernel_frames = -40:10;
+kernel_frames = -30:10;
 downsample_factor = 1;
-lambda = 2782559;
+lambda = 4641588;
 zs = false;
 cvfold = 5;
 
@@ -2386,18 +2384,18 @@ set(p,'AlphaData',mat2gray(max(r_px_max,[],3), ...
      [0,double(prctile(reshape(max(r_px_max,[],3),[],1),99))]));
 set(gcf,'color','w');
 
-c = colorbar('peer',a2);
-ylabel(c,'Depth (\mum)');
-colormap(c,jet);
-set(c,'YDir','reverse');
-set(c,'YTick',linspace(0,1,6));
-set(c,'YTickLabel',linspace(depth_group_edges(1),depth_group_edges(end),6));
+c1 = colorbar('peer',a1,'Visible','off');
+c2 = colorbar('peer',a2);
+ylabel(c2,'Depth (\mum)');
+colormap(c2,jet);
+set(c2,'YDir','reverse');
+set(c2,'YTick',linspace(0,1,6));
+set(c2,'YTickLabel',linspace(depth_group_edges(1),depth_group_edges(end),6));
 
-set(a1,'Position',get(a2,'Position'));
 
 %% Regression from fluor to spikes (AP_regresskernel) templates
 
-use_templates = find(templateDepths > 2400);
+use_templates = find(templateDepths >= 2400 & templateDepths <= 3820);
 
 % Skip the first n seconds to do this
 skip_seconds = 10;
@@ -2418,9 +2416,9 @@ for curr_template_idx = 1:length(use_templates)
 end
 
 use_svs = 1:200;
-kernel_frames = -80:30;
-downsample_factor = 2;
-lambda = 2782559;
+kernel_frames = -30:10;
+downsample_factor = 1;
+lambda = 4641588;
 zs = false;
 cvfold = 5;
 
@@ -2972,6 +2970,8 @@ AP_image_scroll(stim_r,stim_kernel_frames);
 
 %% Fluor/stim (stimID) -> spike regression (templates separately)
 
+use_templates = find(templateDepths >= 2400 & templateDepths <= 2600);
+
 stim_regressors = zeros(max(unique(stimIDs)),length(frame_t),'single');
 for curr_stimID = unique(stimIDs)'
     frame_edges = [frame_t(1),mean([frame_t(2:end);frame_t(1:end-1)],1),frame_t(end)+1/framerate];
@@ -2982,28 +2982,30 @@ end
 skip_seconds = 10;
 use_frames = (frame_t > skip_seconds);
 
-frame_spikes = zeros(length(good_templates),length(frame_t),'single');
-for curr_template_idx = 1:length(good_templates)
+frame_spikes = zeros(length(use_templates),length(frame_t),'single');
+for curr_template_idx = 1:length(use_templates)
     
-    curr_template = good_templates(curr_template_idx);
+    curr_template = use_templates(curr_template_idx);
     
     use_spikes = spike_times_timeline(spike_templates == curr_template);
-    
+       
     frame_edges = [frame_t(1),mean([frame_t(2:end);frame_t(1:end-1)],1),frame_t(end)+1/framerate];
     [curr_frame_spikes,~,spike_frames] = histcounts(use_spikes,frame_edges);
-    
+
     frame_spikes(curr_template_idx,:) = curr_frame_spikes;
     
 end
     
 use_svs = 1:200;
-fluor_kernel_frames = -40:10;
-stim_kernel_frames = -5:10;
-lambdas = [1000,0];
+fluor_kernel_frames = -30:10;
+stim_kernel_frames = 0:10;
+lambdas = [2782559,0];
+zs = false;
+cvfold = 5;
 
 [k,predicted_spikes,explained_var] = ...
     AP_regresskernel({fV(use_svs,use_frames),stim_regressors(:,use_frames)}, ...
-    frame_spikes(:,use_frames),{fluor_kernel_frames,stim_kernel_frames},lambdas,true);
+    frame_spikes(:,use_frames),{fluor_kernel_frames,stim_kernel_frames},lambdas,zs,cvfold);
 
 % Reshape kernel and convert to pixel space
 px_regressors_idx = 1:length(use_svs)*length(fluor_kernel_frames);
@@ -3125,17 +3127,15 @@ fluor_kernel = svdFrameReconstruct(U(:,:,use_svs),k');
 AP_image_scroll(fluor_kernel,kernel_frames_downsample*downsample_factor/framerate);
 truesize;
 
-%% TEST: mua by depth to fluorescence
+%% Regression from MUA by depth to fluorescence
 
 % Skip the first n seconds to do this
 skip_seconds = 10;
 use_frames = (frame_t > skip_seconds);
-%use_frames = (frame_t > skip_seconds) & (frame_t < max(frame_t)/2);
-%use_frames = (frame_t > max(frame_t)/2);
 
 % Group multiunit by depth
-n_depth_groups = 6;
-depth_group_edges = linspace(2000,double(max(channel_positions(:,2))),n_depth_groups+1);
+n_depth_groups = 1;
+depth_group_edges = linspace(0,1000,n_depth_groups+1);
 depth_group_edges_use = depth_group_edges;
 %depth_group_edges_use = [400,1500,2000,2300,3000,4000];
 depth_group_edges_use(end) = Inf;
@@ -3157,10 +3157,11 @@ for curr_depth = 1:length(depth_group_edges_use)-1
 end
 
 use_svs = 1:200;
-kernel_frames = -100:100;
+kernel_frames = -60:200;
 downsample_factor = 1;
-lambda = 0;%3e5;
-zs = true;
+lambda = 10;
+zs = false;
+cvfold = 5;
 
 kernel_frames_downsample = round(downsample(kernel_frames,downsample_factor)/downsample_factor);
 
@@ -3168,28 +3169,24 @@ kernel_frames_downsample = round(downsample(kernel_frames,downsample_factor)/dow
     AP_regresskernel( ...
     downsample(frame_spikes(:,use_frames)',downsample_factor)', ...
     downsample(fV(use_svs,use_frames)',downsample_factor)', ...
-    kernel_frames_downsample,lambda,zs);
+    kernel_frames_downsample,lambda,zs,cvfold);
 
-k = reshape(k,size(frame_spikes,1),length(kernel_frames_downsample),[]);
+k = permute(reshape(k,size(frame_spikes,1),length(kernel_frames_downsample),[]),[3,2,1]);
 
-figure;plot(kernel_frames_downsample*downsample_factor/framerate,k)
-
-fluor_kernel = svdFrameReconstruct(U(:,:,use_svs),k');
-AP_image_scroll(fluor_kernel,kernel_frames_downsample*downsample_factor/framerate);
+fluor_kernel = arrayfun(@(x) svdFrameReconstruct(U(:,:,use_svs),k(:,:,x)),1:size(k,3),'uni',false);
+AP_image_scroll(cat(4,fluor_kernel{:}),kernel_frames_downsample*downsample_factor/framerate);
 truesize;
 
 
 %% TEST: face to spikes (MUA) 
 
-face_interp = interp1(eyecam_t(~isnan(eyecam_t)),eyecam.proc.data.face.motionSVD(~isnan(eyecam_t),:),frame_t);
+face_interp = interp1(facecam_t(~isnan(facecam_t)),facecam.proc.data.face.motionSVD(~isnan(facecam_t),:),frame_t);
 
 % Skip the first n seconds to do this
 skip_seconds = 10;
 use_frames = (frame_t > skip_seconds);
-%use_frames = (frame_t > skip_seconds) & (frame_t < max(frame_t)/2);
-%use_frames = (frame_t > max(frame_t)/2);
 
-use_spikes = spike_times_timeline(ismember(spike_templates,find(templateDepths > 0 & templateDepths < 500)));
+use_spikes = spike_times_timeline(ismember(spike_templates,find(templateDepths > 2400 & templateDepths < Inf)));
 
 frame_edges = [frame_t,frame_t(end)+1/framerate];
 [frame_spikes,~,spike_frames] = histcounts(use_spikes,frame_edges);
@@ -3198,8 +3195,9 @@ frame_spikes = single(frame_spikes);
 use_face_svs = 1:100;
 kernel_frames = -30:30;
 downsample_factor = 1;
-lambda = 1e5;%3e5;
+lambda = 1e4;
 zs = false;
+cvfold = 3;
 
 kernel_frames_downsample = round(downsample(kernel_frames,downsample_factor)/downsample_factor);
 
@@ -3207,19 +3205,19 @@ kernel_frames_downsample = round(downsample(kernel_frames,downsample_factor)/dow
     AP_regresskernel( ...
     downsample(face_interp(use_frames,use_face_svs),downsample_factor)', ...
     downsample(frame_spikes(:,use_frames)',downsample_factor)', ...   
-    kernel_frames_downsample,lambda,zs);
+    kernel_frames_downsample,lambda,zs,cvfold);
 
 k = reshape(k,length(use_face_svs),length(kernel_frames_downsample),size(frame_spikes,1));
 
-face_k = reshape(eyecam.proc.data.face.motionMask(:,use_face_svs)*k, ...
-    length(eyecam.proc.data.face.ROIX),length(eyecam.proc.data.face.ROIY),[]);
+face_k = reshape(reshape(facecam.proc.data.face.motionMask(:,:,use_face_svs),[],length(use_face_svs))*k, ...
+    facecam.proc.data.face.nY,facecam.proc.data.face.nX,[]);
 
 AP_image_scroll(face_k,kernel_frames_downsample*downsample_factor/framerate)
 
 
 %% TEST: face to spikes (MUA by depth) 
 
-face_interp = interp1(eyecam_t(~isnan(eyecam_t)),eyecam.proc.data.face.motionSVD(~isnan(eyecam_t),:),frame_t);
+face_interp = interp1(facecam_t(~isnan(facecam_t)),facecam.proc.data.face.motionSVD(~isnan(facecam_t),:),frame_t);
 
 % Skip the first n seconds to do this
 skip_seconds = 10;
@@ -3229,7 +3227,7 @@ use_frames = (frame_t > skip_seconds);
 
 % Group multiunit by depth
 n_depth_groups = 6;
-depth_group_edges = linspace(1700,double(max(channel_positions(:,2))),n_depth_groups+1);
+depth_group_edges = linspace(2400,3820,n_depth_groups+1);
 depth_group_edges_use = depth_group_edges;
 %depth_group_edges_use = [400,1500,2000,2300,3000,4000];
 depth_group_edges_use(end) = Inf;
@@ -3253,8 +3251,9 @@ end
 use_face_svs = 1:100;
 kernel_frames = -35:35;
 downsample_factor = 1;
-lambda = 1e5;%3e5;
+lambda = 1e4;%3e5;
 zs = false;
+cvfold = 3;
 
 kernel_frames_downsample = round(downsample(kernel_frames,downsample_factor)/downsample_factor);
 
@@ -3266,8 +3265,8 @@ kernel_frames_downsample = round(downsample(kernel_frames,downsample_factor)/dow
 
 k = reshape(k,length(use_face_svs),length(kernel_frames_downsample),size(frame_spikes,1));
 
-face_k = arrayfun(@(x) reshape(eyecam.proc.data.face.motionMask(:,use_face_svs)*k(:,:,x), ...
-    length(eyecam.proc.data.face.ROIX),length(eyecam.proc.data.face.ROIY),[]),1:size(frame_spikes,1),'uni',false);
+face_k = arrayfun(@(x) reshape(reshape(facecam.proc.data.face.motionMask(:,:,use_face_svs),[],length(use_face_svs))*k(:,:,x), ...
+    facecam.proc.data.face.nY,facecam.proc.data.face.nX,[]),1:size(frame_spikes,1),'uni',false);
 
 face_k = cat(4,face_k{:});
 

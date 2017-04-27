@@ -2,7 +2,7 @@
 
 animal = 'AP014';
 day = '2017-04-16';
-experiment = '2';
+experiment = '3';
 rig = 'kilotrode'; % kilotrode or bigrig
 cam_color_n = 2;
 cam_color_signal = 'blue';
@@ -364,7 +364,9 @@ elseif cam_color_n == 2
     [b100s, a100s] = butter(2, highpassCutoff/(framerate/2), 'high');
     
     dVn_hemo = detrend(Vn_hemo', 'linear')';
-    fVn_hemo = filter(b100s,a100s,dVn_hemo,[],2);
+    % wasn't zero-lag filtered before? why not?
+    %fVn_hemo = filter(b100s,a100s,dVn_hemo,[],2);
+    fVn_hemo = single(filtfilt(b100s,a100s,double(dVn_hemo)')');
     
     % set final U/V to use
     fV = fVn_hemo;
