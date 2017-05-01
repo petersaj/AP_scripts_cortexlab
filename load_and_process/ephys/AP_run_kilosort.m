@@ -39,19 +39,11 @@ save([ks_results_dir filesep 'rez.mat'], 'rez', '-v7.3');
 rezToPhy(rez, ks_results_dir);
 
 
-%% Copy output files to original path (should be basket)
-
-disp('Copying sorted data to original path...')
-
-disp('MAKE THIS')
-
-
 %% Delete temporary data on local SSD
 
 disp('Deleting temporary files...')
 
 delete(ops.fproc);
-disp('ALSO DELETE THE REST OF THE LOCAL RESULTS AFTER THEY''RE MOVED')
 
 disp('Done.')
 

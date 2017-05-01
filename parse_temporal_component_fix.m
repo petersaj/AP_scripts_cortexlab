@@ -1,6 +1,6 @@
 
-animal = 'AP014';
-day = '2017-02-27';
+animal = 'JL005';
+day = '2017-04-28';
 experiments = 1:2;
 
 data_path = ['\\zserver.cortexlab.net\Data\Subjects\' animal filesep day];
@@ -18,7 +18,7 @@ for curr_exp_idx = 1:length(experiments)
     curr_exp = experiments(curr_exp_idx);
     
     % Load timeline
-    timeline_filename = get_cortexlab_filename(animal,day,curr_exp,'timeline');
+    timeline_filename = AP_cortexlab_filename(animal,day,curr_exp,'timeline');
     load(timeline_filename);
     
     timeline_cam_idx = strcmp({Timeline.hw.inputs.name}, 'cam2');
@@ -49,9 +49,9 @@ end
 
 %% If the V's were parsed but the timestamps weren't saved
 
-animal = 'AP014';
-day = '2017-02-27';
-experiments = 1:2;
+animal = 'JL005';
+day = '2017-04-28';
+experiments = 1023;
 
 data_path = ['\\zserver.cortexlab.net\Data\Subjects\' animal filesep day];
 dataSummary_fn = [data_path filesep 'dataSummary_blue'];
@@ -64,7 +64,7 @@ for curr_exp_idx = 1:length(experiments)
     curr_exp = experiments(curr_exp_idx);
     
     % Load timeline
-    timeline_filename = get_cortexlab_filename(animal,day,curr_exp,'timeline');
+    timeline_filename = AP_cortexlab_filename(animal,day,curr_exp,'timeline');
     load(timeline_filename);
     
     timeline_cam_idx = strcmp({Timeline.hw.inputs.name}, 'pcoExposure');
@@ -83,7 +83,7 @@ for curr_exp_idx = 1:length(experiments)
         error('Wrong number of recorded frames');
     end
     
-    cam_times{curr_exp_idx} = cam_time;
+    cam_times{curr_exp_idx} = cam_time(1:2:end);
 end
 
 frame_times_fn = 'svdTemporalComponents_blue.timestamps.npy';

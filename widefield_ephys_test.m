@@ -2275,7 +2275,7 @@ use_spikes = spike_times_timeline(ismember(spike_templates,find(templateDepths >
 frame_edges = [frame_t(1),mean([frame_t(2:end);frame_t(1:end-1)],1),frame_t(end)+1/framerate];
 [frame_spikes,~,spike_frames] = histcounts(use_spikes,frame_edges);
 frame_spikes = single(frame_spikes);
-use_lambdas = logspace(6,8,10);
+use_lambdas = logspace(4,6,10);
 explained_var_lambdas = nan(length(use_lambdas),size(frame_spikes,1));
 for curr_lambda_idx = 1:length(use_lambdas);
     
@@ -2320,7 +2320,7 @@ use_frames = (frame_t > skip_seconds);
 %use_frames = (frame_t > max(frame_t)/2);
 
 % Group multiunit by depth
-n_depth_groups = 6;
+n_depth_groups = 30;
 depth_group_edges = linspace(2400,3820,n_depth_groups+1);
 depth_group_edges_use = depth_group_edges;
 %depth_group_edges_use = [400,1500,2000,2300,3000,4000];
@@ -2344,14 +2344,14 @@ end
 use_svs = 1:200;
 kernel_frames = -30:10;
 downsample_factor = 1;
-lambda = 4641588;
+lambda = 129154;
 zs = false;
 cvfold = 5;
 
 kernel_frames_downsample = round(downsample(kernel_frames,downsample_factor)/downsample_factor);
 
 [k,predicted_spikes,explained_var] = ...
-    AP_regresskernel(downsample(fV(use_svs,use_frames)',downsample_factor)', ...
+    AP_regresskernel(downsample(fVdf(use_svs,use_frames)',downsample_factor)', ...
     downsample(frame_spikes(:,use_frames)',downsample_factor)',kernel_frames_downsample,lambda,zs,cvfold);
 
 % Reshape kernel and convert to pixel space
@@ -2359,7 +2359,7 @@ r = reshape(k,length(use_svs),length(kernel_frames_downsample),size(frame_spikes
 
 r_px = zeros(size(U,1),size(U,2),size(r,2),size(r,3),'single');
 for curr_spikes = 1:size(r,3);
-    r_px(:,:,:,curr_spikes) = svdFrameReconstruct(U(:,:,use_svs),r(:,:,curr_spikes));
+    r_px(:,:,:,curr_spikes) = svdFrameReconstruct(Udf(:,:,use_svs),r(:,:,curr_spikes));
 end
 
 AP_image_scroll(r_px,kernel_frames_downsample*downsample_factor/framerate);
@@ -2368,20 +2368,22 @@ truesize;
 
 % Get center of mass for each pixel 
 r_px_max = squeeze(max(r_px,[],3)) - squeeze(min(r_px,[],3));
-r_px_max_norm = zscore(reshape(r_px_max,[],n_depth_groups),[],1);
-r_px_com = reshape(sum(bsxfun(@times,r_px_max_norm,1:n_depth_groups),2)./(sum(r_px_max_norm,2)),size(r_px,1),size(r_px,2));
+% (this was before df/f)
+%r_px_max_norm = zscore(reshape(r_px_max,[],n_depth_groups),[],1);
+%r_px_com = reshape(sum(bsxfun(@times,r_px_max_norm,1:n_depth_groups),2)./(sum(r_px_max_norm,2)),size(r_px,1),size(r_px,2));
+r_px_com = sum(bsxfun(@times,r_px_max,permute(1:n_depth_groups,[1,3,2])),3)./sum(r_px_max,3);
 
 % Plot map of cortical pixel by preferred depth of probe
 r_px_com_col = ind2rgb(round(mat2gray(r_px_com,[1,n_depth_groups])*255),jet(255));
 figure;
 a1 = axes('YDir','reverse');
-imagesc(avg_im); colormap(gray); caxis([0,prctile(avg_im(:),95)]);
+imagesc(avg_im); colormap(gray); caxis([0,prctile(avg_im(:),99)]);
 axis off; 
 a2 = axes('Visible','off'); 
 p = imagesc(r_px_com_col);
 axis off; 
 set(p,'AlphaData',mat2gray(max(r_px_max,[],3), ...
-     [0,double(prctile(reshape(max(r_px_max,[],3),[],1),99))]));
+     [0,double(prctile(reshape(max(r_px_max,[],3),[],1),90))]));
 set(gcf,'color','w');
 
 c1 = colorbar('peer',a1,'Visible','off');
@@ -2418,7 +2420,7 @@ end
 use_svs = 1:200;
 kernel_frames = -30:10;
 downsample_factor = 1;
-lambda = 4641588;
+lambda = 129154;
 zs = false;
 cvfold = 5;
 
@@ -3135,7 +3137,7 @@ use_frames = (frame_t > skip_seconds);
 
 % Group multiunit by depth
 n_depth_groups = 1;
-depth_group_edges = linspace(0,1000,n_depth_groups+1);
+depth_group_edges = linspace(2400,3820,n_depth_groups+1);
 depth_group_edges_use = depth_group_edges;
 %depth_group_edges_use = [400,1500,2000,2300,3000,4000];
 depth_group_edges_use(end) = Inf;
@@ -3157,9 +3159,9 @@ for curr_depth = 1:length(depth_group_edges_use)-1
 end
 
 use_svs = 1:200;
-kernel_frames = -60:200;
+kernel_frames = -60:60;
 downsample_factor = 1;
-lambda = 10;
+lambda = 100;
 zs = false;
 cvfold = 5;
 

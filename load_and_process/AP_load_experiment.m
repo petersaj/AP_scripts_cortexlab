@@ -1,8 +1,8 @@
 %% Define experiment
 
 animal = 'AP014';
-day = '2017-04-16';
-experiment = '3';
+day = '2017-04-28';
+experiment = '1';
 rig = 'kilotrode'; % kilotrode or bigrig
 cam_color_n = 2;
 cam_color_signal = 'blue';
@@ -378,7 +378,7 @@ end
 disp('Done.')
 
 % Make dF/F
-%fVdf = dffFromSVD(U,fV,avg_im);
+[Udf,fVdf] = dffFromSVD(U,fV,avg_im);
 
 
 %% Load ephys data (separated by experiment)
