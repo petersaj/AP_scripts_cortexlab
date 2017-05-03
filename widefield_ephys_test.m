@@ -2270,12 +2270,12 @@ truesize
 skip_seconds = 10;
 use_frames = (frame_t > skip_seconds);
 
-use_spikes = spike_times_timeline(ismember(spike_templates,find(templateDepths > 2400 & templateDepths <= 3820)));
+use_spikes = spike_times_timeline(ismember(spike_templates,find(templateDepths > 3100 & templateDepths <= 3820)));
 
 frame_edges = [frame_t(1),mean([frame_t(2:end);frame_t(1:end-1)],1),frame_t(end)+1/framerate];
 [frame_spikes,~,spike_frames] = histcounts(use_spikes,frame_edges);
 frame_spikes = single(frame_spikes);
-use_lambdas = logspace(4,6,10);
+use_lambdas = logspace(5,6,10);
 explained_var_lambdas = nan(length(use_lambdas),size(frame_spikes,1));
 for curr_lambda_idx = 1:length(use_lambdas);
     
@@ -2320,8 +2320,8 @@ use_frames = (frame_t > skip_seconds);
 %use_frames = (frame_t > max(frame_t)/2);
 
 % Group multiunit by depth
-n_depth_groups = 30;
-depth_group_edges = linspace(2400,3820,n_depth_groups+1);
+n_depth_groups = 10;
+depth_group_edges = linspace(0,3280,n_depth_groups+1);
 depth_group_edges_use = depth_group_edges;
 %depth_group_edges_use = [400,1500,2000,2300,3000,4000];
 
@@ -2344,14 +2344,14 @@ end
 use_svs = 1:200;
 kernel_frames = -30:10;
 downsample_factor = 1;
-lambda = 129154;
+lambda = 464158;
 zs = false;
 cvfold = 5;
 
 kernel_frames_downsample = round(downsample(kernel_frames,downsample_factor)/downsample_factor);
 
 [k,predicted_spikes,explained_var] = ...
-    AP_regresskernel(downsample(fVdf(use_svs,use_frames)',downsample_factor)', ...
+    AP_regresskernel(downsample(fV(use_svs,use_frames)',downsample_factor)', ...
     downsample(frame_spikes(:,use_frames)',downsample_factor)',kernel_frames_downsample,lambda,zs,cvfold);
 
 % Reshape kernel and convert to pixel space
@@ -2359,7 +2359,7 @@ r = reshape(k,length(use_svs),length(kernel_frames_downsample),size(frame_spikes
 
 r_px = zeros(size(U,1),size(U,2),size(r,2),size(r,3),'single');
 for curr_spikes = 1:size(r,3);
-    r_px(:,:,:,curr_spikes) = svdFrameReconstruct(Udf(:,:,use_svs),r(:,:,curr_spikes));
+    r_px(:,:,:,curr_spikes) = svdFrameReconstruct(U(:,:,use_svs),r(:,:,curr_spikes));
 end
 
 AP_image_scroll(r_px,kernel_frames_downsample*downsample_factor/framerate);

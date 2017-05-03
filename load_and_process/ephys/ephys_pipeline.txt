@@ -14,3 +14,5 @@ This has changed after moving to phase 3, making a new more permanent processing
 
 AP_preprocess_phase3 (get/save settings, do CAR, run kilosort)
 [AP_prepare_phy (if not already local, above does by default) - haven't used yet so might not work]
+
+AP_pre_phy - quickly flip through waveform templates to throw out obviously bad ones

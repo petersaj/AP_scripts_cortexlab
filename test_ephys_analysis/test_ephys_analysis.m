@@ -1733,8 +1733,8 @@ rf_map_smooth = imfilter(rf_map,gauss_filt);
 %% Classify cell type
 
 % Define cortical and striatal cells
-ctx_depth = [0 2400];
-str_depth = [2400,inf];
+ctx_depth = [0,3100];
+str_depth = [3100,inf];
 
 ctx_templates = templateDepths >= ctx_depth(1) & templateDepths < ctx_depth(2);
 str_templates = templateDepths >= str_depth(1) & templateDepths < str_depth(2);

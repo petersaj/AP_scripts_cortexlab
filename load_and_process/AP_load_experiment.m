@@ -1,10 +1,10 @@
 %% Define experiment
 
 animal = 'AP014';
-day = '2017-04-28';
-experiment = '1';
+day = '2017-05-01';
+experiment = '2';
 rig = 'kilotrode'; % kilotrode or bigrig
-cam_color_n = 2;
+cam_color_n = 1;
 cam_color_signal = 'blue';
 cam_color_hemo = 'purple';
 
@@ -113,31 +113,26 @@ if exist(fileparts(AP_cortexlab_filename(mpep_animal,day,experiment,'protocol'))
                     
                 case 'steady'
                     
-                    % If the screen flickers (this has a fair amount of
-                    % arbitrary numbers and steps, not ideal, so keep an
-                    % eye on how it's working)
-                    if stimScreen_flicker;
-                        % have to redefine periods of screen on, because
-                        % sometimes there's a sample or so difference
-                        stimScreen_on = Timeline.rawDAQData(:,photodiode_idx) > 0.3;
-                        stimScreen_on_t = Timeline.rawDAQTimestamps(stimScreen_on);
-                        photodiode_thresh = (max(Timeline.rawDAQData(:,photodiode_idx)) ...
-                            - min(Timeline.rawDAQData(:,photodiode_idx)))/2 + ...
-                            min(Timeline.rawDAQData(:,photodiode_idx));
-                        % median filter because of weird effect where
-                        % photodiode dims instead of off for one sample
-                        % while backlight is turning off
-                        photodiode_trace = medfilt1(Timeline.rawDAQData(stimScreen_on, ...
-                            photodiode_idx),10) > photodiode_thresh;                                            
-                        photodiode_flip = find((~photodiode_trace(1:end-1) & photodiode_trace(2:end)) | ...
-                            (photodiode_trace(1:end-1) & ~photodiode_trace(2:end)))+1;
-                        
-                        photodiode = struct('timestamps',[],'values',[]);
-                        photodiode.timestamps = stimScreen_on_t(photodiode_flip)';
-                        photodiode.values = photodiode_trace(photodiode_flip);
-                                               
-                    end
+                    % Take into account if the screen flickers
                     
+                    % have to redefine periods of screen on, because
+                    % sometimes there's a sample or so difference
+                    stimScreen_on = Timeline.rawDAQData(:,photodiode_idx) > 0.3;
+                    stimScreen_on_t = Timeline.rawDAQTimestamps(stimScreen_on);
+                    photodiode_thresh = (max(Timeline.rawDAQData(:,photodiode_idx)) ...
+                        - min(Timeline.rawDAQData(:,photodiode_idx)))/2 + ...
+                        min(Timeline.rawDAQData(:,photodiode_idx));
+                    % median filter because of weird effect where
+                    % photodiode dims instead of off for one sample
+                    % while backlight is turning off
+                    photodiode_trace = medfilt1(Timeline.rawDAQData(stimScreen_on, ...
+                        photodiode_idx),10) > photodiode_thresh;
+                    photodiode_flip = find((~photodiode_trace(1:end-1) & photodiode_trace(2:end)) | ...
+                        (photodiode_trace(1:end-1) & ~photodiode_trace(2:end)))+1;
+                    
+                    photodiode = struct('timestamps',[],'values',[]);
+                    photodiode.timestamps = stimScreen_on_t(photodiode_flip)';
+                    photodiode.values = photodiode_trace(photodiode_flip);
                     
             end
             
@@ -294,9 +289,10 @@ if cam_color_n == 1
     
     experiment_path = [data_path filesep num2str(experiment)];
     
-    frame_t = readNPY([experiment_path filesep 'svdTemporalComponents_cam2.timestamps.npy']);
-    U = readUfromNPY([data_path filesep 'svdSpatialComponents_cam2.npy']);
-    V = readVfromNPY([experiment_path filesep 'svdTemporalComponents_cam2.npy']);
+    disp('Loading imaging data...')
+    frame_t = readNPY([experiment_path filesep 'svdTemporalComponents_blue.timestamps.npy']);
+    U = readUfromNPY([data_path filesep 'svdSpatialComponents_blue.npy']);
+    V = readVfromNPY([experiment_path filesep 'svdTemporalComponents_blue.npy']);
     
     framerate = 1./nanmedian(diff(frame_t));
     
@@ -311,7 +307,7 @@ if cam_color_n == 1
         fV = filter(b100s,a100s,dV,[],2);
     end
     
-    avg_im = readNPY([data_path filesep 'meanImage_cam2.npy']);
+    avg_im = readNPY([data_path filesep 'meanImage_blue.npy']);
     
 elseif cam_color_n == 2
     
