@@ -2270,17 +2270,17 @@ truesize
 skip_seconds = 10;
 use_frames = (frame_t > skip_seconds);
 
-use_spikes = spike_times_timeline(ismember(spike_templates,find(templateDepths > 3100 & templateDepths <= 3820)));
+use_spikes = spike_times_timeline(ismember(spike_templates,find(templateDepths > 0 & templateDepths <= 350)));
 
 frame_edges = [frame_t(1),mean([frame_t(2:end);frame_t(1:end-1)],1),frame_t(end)+1/framerate];
 [frame_spikes,~,spike_frames] = histcounts(use_spikes,frame_edges);
 frame_spikes = single(frame_spikes);
-use_lambdas = logspace(5,6,10);
+use_lambdas = logspace(4.5,5.5,10);
 explained_var_lambdas = nan(length(use_lambdas),size(frame_spikes,1));
 for curr_lambda_idx = 1:length(use_lambdas);
     
     use_svs = 1:200;
-    kernel_frames = -30:10;
+    kernel_frames = -10:5;
     downsample_factor = 1;
     lambda = use_lambdas(curr_lambda_idx);
     zs = false;
@@ -2321,7 +2321,7 @@ use_frames = (frame_t > skip_seconds);
 
 % Group multiunit by depth
 n_depth_groups = 10;
-depth_group_edges = linspace(0,3280,n_depth_groups+1);
+depth_group_edges = linspace(0,3350,n_depth_groups+1);
 depth_group_edges_use = depth_group_edges;
 %depth_group_edges_use = [400,1500,2000,2300,3000,4000];
 
@@ -2342,9 +2342,9 @@ for curr_depth = 1:length(depth_group_edges_use)-1
 end
 
 use_svs = 1:200;
-kernel_frames = -30:10;
+kernel_frames = -10:5;
 downsample_factor = 1;
-lambda = 464158;
+lambda = 87992;
 zs = false;
 cvfold = 5;
 
@@ -2368,10 +2368,11 @@ truesize;
 
 % Get center of mass for each pixel 
 r_px_max = squeeze(max(r_px,[],3)) - squeeze(min(r_px,[],3));
-% (this was before df/f)
-%r_px_max_norm = zscore(reshape(r_px_max,[],n_depth_groups),[],1);
-%r_px_com = reshape(sum(bsxfun(@times,r_px_max_norm,1:n_depth_groups),2)./(sum(r_px_max_norm,2)),size(r_px,1),size(r_px,2));
-r_px_com = sum(bsxfun(@times,r_px_max,permute(1:n_depth_groups,[1,3,2])),3)./sum(r_px_max,3);
+% CHECK THAT THIS MAKES SENSE TO DO?
+r_px_max_norm = zscore(reshape(r_px_max,[],n_depth_groups),[],1);
+r_px_com = reshape(sum(bsxfun(@times,r_px_max_norm,1:n_depth_groups),2)./(sum(r_px_max_norm,2)),size(r_px,1),size(r_px,2));
+% (for df/f?)
+%r_px_com = sum(bsxfun(@times,r_px_max,permute(1:n_depth_groups,[1,3,2])),3)./sum(r_px_max,3);
 
 % Plot map of cortical pixel by preferred depth of probe
 r_px_com_col = ind2rgb(round(mat2gray(r_px_com,[1,n_depth_groups])*255),jet(255));
@@ -2383,7 +2384,7 @@ a2 = axes('Visible','off');
 p = imagesc(r_px_com_col);
 axis off; 
 set(p,'AlphaData',mat2gray(max(r_px_max,[],3), ...
-     [0,double(prctile(reshape(max(r_px_max,[],3),[],1),90))]));
+     [0,double(prctile(reshape(max(r_px_max,[],3),[],1),99))]));
 set(gcf,'color','w');
 
 c1 = colorbar('peer',a1,'Visible','off');

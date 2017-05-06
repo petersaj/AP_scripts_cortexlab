@@ -1733,8 +1733,8 @@ rf_map_smooth = imfilter(rf_map,gauss_filt);
 %% Classify cell type
 
 % Define cortical and striatal cells
-ctx_depth = [0,3100];
-str_depth = [3100,inf];
+ctx_depth = [0,0];
+str_depth = [0,3820];
 
 ctx_templates = templateDepths >= ctx_depth(1) & templateDepths < ctx_depth(2);
 str_templates = templateDepths >= str_depth(1) & templateDepths < str_depth(2);
@@ -1785,14 +1785,16 @@ uin = str_templates & ...
 waveform_t = 1e3*((0:size(templates,2)-1)/ephys_sample_rate);
 
 % Plot the waveforms and spike statistics
-figure; 
+figure;
 
-subplot(2,2,1); hold on;
-p1 = plot(waveform_t,waveforms(wide,:)','k');
-p2 = plot(waveform_t,waveforms(narrow,:)','r');
-xlabel('Time (ms)')
-title('Cortex');
-legend([p1(1),p2(1)],{'Wide','Narrow'})
+if any(wide) || any(narrow)
+    subplot(2,2,1); hold on;
+    p1 = plot(waveform_t,waveforms(wide,:)','k');
+    p2 = plot(waveform_t,waveforms(narrow,:)','r');
+    xlabel('Time (ms)')
+    title('Cortex');
+    legend([p1(1),p2(1)],{'Wide','Narrow'})
+end
 
 subplot(2,2,2); hold on;
 p1 = plot(waveform_t,waveforms(msn,:)','m');
@@ -1857,16 +1859,18 @@ grid on;
 axis vis3d;
 
 % Plot cell type by depth
+celltype_labels = {'Wide','Narrow','MSN','TAN','FSI','UIN'};
 celltypes = wide.*1 + narrow.*2 + msn.*3 + tan.*4 + fsi.*5 + uin.*6;
-
 use_colors = {'k','r','m','b','g','c'};
 
+plot_celltypes = any([wide,narrow,msn,tan,fsi,uin],1);
+
 figure; plotSpread(templateDepths,'categoryIdx', ...
-    celltypes,'categoryColors',use_colors);
+    celltypes,'categoryColors',use_colors(plot_celltypes));
 set(gca,'XTick',[]);
 set(gca,'YDir','reverse');
 ylabel('Depth (\mum)');
-legend({'Wide','Narrow','MSN','TAN','FSI','UIN'});
+legend(celltype_labels(plot_celltypes));
 
 %% MUA/LFP correlation by depth 
 

@@ -281,6 +281,11 @@ switch eventdata.Key
             gui_data.handles.structure_patch(remove_structures) = [];
         end
         
+    case 'x'
+        % Export the probe coordinates in Allen CCF to the workspace
+        
+        assignin('base',probe_coordinates)
+        
 end
 
 % Upload gui_data

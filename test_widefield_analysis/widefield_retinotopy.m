@@ -264,7 +264,7 @@ set(gca,'YDir','Normal');
 axis off;
 title('Positional retinotopy');
 
-% Plot isovertical/horizontal lines
+% Plot vertical/horizontal lines
 stripe_spacing = 5;
 vert_stripes = imgaussfilt(double(mod(m_xr-1,stripe_spacing) == 0),1);
 horz_stripes = imgaussfilt(double(mod(m_yr-1,stripe_spacing) == 0),1);
