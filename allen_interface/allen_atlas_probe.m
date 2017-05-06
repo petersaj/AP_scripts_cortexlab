@@ -122,7 +122,8 @@ fprintf(['Controls: \n' ...
     'b : toggle brain grid visibility \n' ...
     's : toggle brain slice visibility \n' ...
     '+/- : add 3D brain structure \n' ...
-    'm : toggle 3D brain structure visibility \n']);
+    'm : toggle 3D brain structure visibility \n' ...
+    'x : export probe coordinates to workspace']);
 
 end
 
@@ -283,8 +284,9 @@ switch eventdata.Key
         
     case 'x'
         % Export the probe coordinates in Allen CCF to the workspace
-        
-        assignin('base',probe_coordinates)
+        probe_vector = cell2mat(get(gui_data.handles.probe_line,{'XData','YData','ZData'})');
+        probe_vector_ccf = round(probe_vector([1,3,2],:))'*10;
+        assignin('base','probe_vector_ccf',probe_vector_ccf)
         
 end
 
