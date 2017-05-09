@@ -100,9 +100,12 @@ switch file
         filename = [filepath filesep mouse filesep day filesep experiment ...
             filesep day '_' experiment '_' mouse '_hardwareInfo.mat'];
         
+    case 'datapath'
+        filepath = '\\zserver.cortexlab.net\Data\Subjects';
+        filename = [filepath filesep mouse filesep day];
 end
 
-file_exists = exist(filename,'file');
+file_exists = exist(filename);
 
 
 

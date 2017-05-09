@@ -1,8 +1,11 @@
-function injection_coordinates = AP_get_allen_projection(projection_coordinates)
+function injection_coordinates = AP_get_allen_projection(projection_coordinates,max_coords)
 % injection_coordinates = AP_get_allen_projection(projection_coordinates)
 %
 % Load in from Allen projection data
+% INPUTS
 % projection_coordinates - n x 3 array of coordinates to query
+% max_coords - the maximum number of injection coordinates to return
+% OUTPUTS
 % injection_coordinates - cell array of cortical injection sites
 
 allen_temp_dir = 'C:\data_temp\AllenAPI';
@@ -16,9 +19,9 @@ for curr_coord = 1:size(projection_coordinates,1);
 
     % Download spatial search
     seed_point = projection_coordinates(curr_coord,:);
-    seed_example_url = sprintf('http://api.brain-map.org/api/v2/data/query.xml?criteria=service::mouse_connectivity_target_spatial[seed_point$eq%d,%d,%d][primary_structure_only$eqtrue][injection_structures$eqIsocortex]',seed_point);
+    seed_url = sprintf('http://api.brain-map.org/api/v2/data/query.xml?criteria=service::mouse_connectivity_target_spatial[seed_point$eq%d,%d,%d][num_rows$eq%d][primary_structure_only$eqtrue][injection_structures$eqIsocortex]',seed_point,max_coords);
     seed_table_fn = [allen_temp_dir filesep 'seed_experiments'];
-    urlwrite(seed_example_url,seed_table_fn);
+    urlwrite(seed_url,seed_table_fn);
     seed_table_raw = xml2struct(seed_table_fn);
     projection_experiments = seed_table_raw.Response.objects.object;
     

@@ -92,6 +92,8 @@ k_cv = zeros(size(regressors_gpu,2),size(signals,1),cvfold,'single');
 cv_partition_ordered = round(linspace(1,cvfold,size(regressor_design,1)))';
 cv_partition = cv_partition_ordered(randperm(length(cv_partition_ordered)));
 
+predicted_signals = nan(size(signals));
+predicted_signals_reduced = nan(length(regressors),size(signals,1),size(signals,2));
 for curr_cv = 1:cvfold
     
     % Get training/test sets

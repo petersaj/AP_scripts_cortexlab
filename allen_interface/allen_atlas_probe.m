@@ -83,7 +83,7 @@ gui_data.st = st; % Labels table
 gui_data.bregma = bregma; % Bregma for external referencing
 gui_data.probe_length = probe_length; % Length of probe
 gui_data.structure_plot_idx = []; % Plotted structures
-gui_data.probe_angle = [0;0]; % Probe angles in ML/DV
+gui_data.probe_angle = [0;90]; % Probe angles in ML/DV
 
 %Store handles
 gui_data.handles.cortex_outline = brain_outline; 
@@ -123,7 +123,7 @@ fprintf(['Controls: \n' ...
     's : toggle brain slice visibility \n' ...
     '+/- : add 3D brain structure \n' ...
     'm : toggle 3D brain structure visibility \n' ...
-    'x : export probe coordinates to workspace']);
+    'x : export probe coordinates to workspace \n']);
 
 end
 
@@ -287,7 +287,7 @@ switch eventdata.Key
         probe_vector = cell2mat(get(gui_data.handles.probe_line,{'XData','YData','ZData'})');
         probe_vector_ccf = round(probe_vector([1,3,2],:))'*10;
         assignin('base','probe_vector_ccf',probe_vector_ccf)
-        
+        disp('Copied probe vector coordinates to workspace');
 end
 
 % Upload gui_data
@@ -461,7 +461,7 @@ probe_text = ['Probe: ' ....
     num2str(probe_bregma_coordinate(2)) ' ML, ', ...
     num2str(probe_depth) ' Depth, ' ...
     num2str(gui_data.probe_angle(1)) char(176) ' from midline, ' ...
-    num2str(gui_data.probe_angle(2)) char(176) ' from vertical'];
+    num2str(gui_data.probe_angle(2)) char(176) ' from horizontal'];
 set(gui_data.probe_coordinates_text,'String',probe_text);
 
 end

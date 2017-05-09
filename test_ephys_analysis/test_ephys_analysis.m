@@ -1038,15 +1038,15 @@ end
 
 %% Raster plot by depth
 
-align_times = stim_onsets(ismember(stimIDs,[3,4]));
+align_times = stim_onsets(ismember(stimIDs,[4,5]));
 
 % Group by depth
-n_depth_groups = 100;
-depth_group_edges = linspace(0,max(templateDepths),n_depth_groups+1);
+n_depth_groups = 6;
+depth_group_edges = linspace(2400,3820,n_depth_groups+1);
+depth_group_centers = round(depth_group_edges(1:end-1)+diff(depth_group_edges)/2);
 depth_group_edges(end) = Inf;
 depth_group = discretize(spikeDepths,depth_group_edges);
 depth_groups_used = unique(depth_group);
-depth_group_centers = round(depth_group_edges(1:end-1)+diff(depth_group_edges)/2);
 
 % Create MUA times grouped according to depth
 mua_times = cell(n_depth_groups,1);
@@ -1055,7 +1055,7 @@ for curr_depth = 1:n_depth_groups
 end
 
 % PSTHs
-raster_window = [-1,3];
+raster_window = [-0.5,2.5];
 psth_bin_size = 0.001;
 
 depth_psth = nan(n_depth_groups,diff(raster_window)/psth_bin_size);
@@ -1573,7 +1573,7 @@ end
 
 %% Raster aligned to stimuli
 
-use_spikes_idx = ismember(spike_templates,find(templateDepths > 2400 & templateDepths < 2700));
+use_spikes_idx = ismember(spike_templates,find(templateDepths >= 2400 & templateDepths <= 2600));
 %use_spikes_idx = ismember(spike_templates,find(templateDepths > 0 & templateDepths < Inf)) & ...
 %    (ismember(spike_templates,good_templates(fsi)));
 
@@ -1585,7 +1585,7 @@ use_spikes = spike_times_timeline(use_spikes_idx);
 use_spike_templates = spike_templates(use_spikes_idx);
 
 % PSTHs
-raster_window = [-1,5];
+raster_window = [-1,2.5];
 psthViewer(use_spikes,use_spike_templates, ...
     stim_onsets,raster_window,stimIDs);
 
@@ -1733,11 +1733,10 @@ rf_map_smooth = imfilter(rf_map,gauss_filt);
 %% Classify cell type
 
 % Define cortical and striatal cells
-ctx_depth = [0,0];
-str_depth = [0,3820];
+str_depth = [2400,Inf];
 
-ctx_templates = templateDepths >= ctx_depth(1) & templateDepths < ctx_depth(2);
-str_templates = templateDepths >= str_depth(1) & templateDepths < str_depth(2);
+str_templates = templateDepths >= str_depth(1) & templateDepths <= str_depth(2);
+non_str_templates = ~str_templates;
 
 % Get firing rate
 spike_rate = nan(max(spike_templates),1);
@@ -1757,29 +1756,29 @@ for curr_template = unique(spike_templates)'
         (max(spike_times_timeline) - min(spike_times_timeline));
 end
 
+waveform_duration_cutoff = 400;
+
 % Cortical classification (like Bartho JNeurophys 2004)
-ctx_duration_cutoff = 400;
-narrow = ctx_templates & templateDuration_us <= ctx_duration_cutoff;
-wide = ctx_templates & templateDuration_us > ctx_duration_cutoff;
+narrow = non_str_templates & templateDuration_us <= waveform_duration_cutoff;
+wide = non_str_templates & templateDuration_us > waveform_duration_cutoff;
 
 % Striatum classification (like Yamin/Cohen 2013)
-str_duration_cutoff = 400;
 long_isi_cutoff = 0.35;
 
 msn = str_templates & ...
-    templateDuration_us >= str_duration_cutoff & ...
+    templateDuration_us >= waveform_duration_cutoff & ...
     prop_long_isi >= long_isi_cutoff;
 
 fsi = str_templates & ...
-    templateDuration_us <= str_duration_cutoff & ...
+    templateDuration_us <= waveform_duration_cutoff & ...
     prop_long_isi <= long_isi_cutoff;
 
 tan = str_templates & ...
-    templateDuration_us > str_duration_cutoff & ...
+    templateDuration_us > waveform_duration_cutoff & ...
     prop_long_isi < long_isi_cutoff;
 
 uin = str_templates & ...
-    templateDuration_us < str_duration_cutoff & ...
+    templateDuration_us < waveform_duration_cutoff & ...
     prop_long_isi > long_isi_cutoff;
 
 waveform_t = 1e3*((0:size(templates,2)-1)/ephys_sample_rate);
@@ -1792,7 +1791,7 @@ if any(wide) || any(narrow)
     p1 = plot(waveform_t,waveforms(wide,:)','k');
     p2 = plot(waveform_t,waveforms(narrow,:)','r');
     xlabel('Time (ms)')
-    title('Cortex');
+    title('Not striatum');
     legend([p1(1),p2(1)],{'Wide','Narrow'})
 end
 

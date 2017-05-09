@@ -30,7 +30,7 @@ for i = 1:size(im,3)
    axis off
    
    if exist('annotation_text','var') && ~isempty(annotation_text)
-       annotation('textbox','Position',[0,0,0,0.07], ...
+       annotation('textbox','Position',[0,0.93,0,0.07], ...
            'FitBoxToText','on','String',annotation_text{i},'Color','w','BackgroundColor','k','FontSize',20)
    end
    

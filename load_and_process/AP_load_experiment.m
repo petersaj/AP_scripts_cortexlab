@@ -1,19 +1,19 @@
 %% Define experiment
 
-animal = 'AP017';
-day = '2017-05-05';
-experiment = '1';
+animal = 'AP014';
+day = '2017-04-16';
+experiment = '3';
 rig = 'kilotrode'; % kilotrode or bigrig
-cam_color_n = 2;
+
+% Get the number of colors imaged during the experiment
+data_path = AP_cortexlab_filename(animal,day,experiment,'datapath');
+
+spatialComponents_fns = dir([data_path filesep 'svdSpatialComponents*']);
+spatialComponents_names = {spatialComponents_fns.name};
+
+cam_color_n = length(spatialComponents_names);
 cam_color_signal = 'blue';
 cam_color_hemo = 'purple';
-
-% ugggghhhhh mpep
-mpep_animal = ['M111111_' animal];
-% fixed after 160728
-if datenum(day) >= datenum('2016-07-28');
-    mpep_animal = animal;
-end
 
 %% Load experiment info
 
@@ -28,7 +28,7 @@ switch rig
 end
 
 % Load timeline
-timeline_filename = AP_cortexlab_filename(mpep_animal,day,experiment,'timeline');
+timeline_filename = AP_cortexlab_filename(animal,day,experiment,'timeline');
 load(timeline_filename);
 timeline_sample_rate = Timeline.hw.daqSampleRate;
 
@@ -46,20 +46,20 @@ acqLive_timeline = Timeline.rawDAQTimestamps( ...
     [find(acqLive_trace,1),find(acqLive_trace,1,'last')+1]);
 
 % Load in protocol and get photodiode, if there was an mpep experiment
-if exist(fileparts(AP_cortexlab_filename(mpep_animal,day,experiment,'protocol')),'dir')
+if exist(fileparts(AP_cortexlab_filename(animal,day,experiment,'protocol')),'dir')
     
     % Load in hardware info
-    hwinfo_filename = AP_cortexlab_filename(mpep_animal,day,experiment,'hardware');
+    hwinfo_filename = AP_cortexlab_filename(animal,day,experiment,'hardware');
     load(hwinfo_filename);
     
     % Get flicker or steady photodiode
     photodiode_type = myScreenInfo.SyncSquare.Type;
     
     try
-        protocol_filename = AP_cortexlab_filename(mpep_animal,day,experiment,'protocol','8digit');
+        protocol_filename = AP_cortexlab_filename(animal,day,experiment,'protocol','8digit');
         load(protocol_filename);
     catch me
-        protocol_filename = AP_cortexlab_filename(mpep_animal,day,experiment,'protocol','day_dash');
+        protocol_filename = AP_cortexlab_filename(animal,day,experiment,'protocol','day_dash');
         load(protocol_filename);
     end
     
@@ -185,17 +185,17 @@ wheel_speed = abs(hilbert(wheel_velocity))';
 %% Load eye tracking data (old, with etGUI)
 
 % Load in processed eye tracking data
-eyetracking_processed_filename = AP_cortexlab_filename(mpep_animal,day,experiment,'eyecam_processed');
+eyetracking_processed_filename = AP_cortexlab_filename(animal,day,experiment,'eyecam_processed');
 eyetracking = load(eyetracking_processed_filename);
 
 % Get frame times for eyetracking data
-eyetracking_t = eyetracker_getFrameTimes_AP(mpep_animal,day,experiment);
+eyetracking_t = eyetracker_getFrameTimes_AP(animal,day,experiment);
 
 
 %% Load face/eyecam processing (with eyeGUI)
 
 % Get folder with camera data
-cam_dir = fileparts(AP_cortexlab_filename(mpep_animal,day,experiment,'eyecam'));
+cam_dir = fileparts(AP_cortexlab_filename(animal,day,experiment,'eyecam'));
 
 % Get cam sync
 camSync_idx = strcmp({Timeline.hw.inputs.name}, 'camSync');
@@ -205,13 +205,13 @@ camSync_up = find((~camSync(1:end-1) & camSync(2:end)))+1;
 
 % EYECAM
 % Load camera processed data
-eyecam_processed_filename = AP_cortexlab_filename(mpep_animal,day,experiment,'eyecam_processed');
+eyecam_processed_filename = AP_cortexlab_filename(animal,day,experiment,'eyecam_processed');
 if exist(eyecam_processed_filename,'file')
     eyecam = load(eyecam_processed_filename);
 end
 
 % Get camera times
-eyecam_fn = AP_cortexlab_filename(mpep_animal,day,experiment,'eyecam');
+eyecam_fn = AP_cortexlab_filename(animal,day,experiment,'eyecam');
 eyecam_t_savefile = [cam_dir filesep 'eyecam_t.mat'];
 
 if exist(eyecam_fn,'file') && ~exist(eyecam_t_savefile,'file')   
@@ -241,13 +241,13 @@ end
 
 % FACECAM
 % Load camera processed data
-facecam_processed_filename = AP_cortexlab_filename(mpep_animal,day,experiment,'facecam_processed');
+facecam_processed_filename = AP_cortexlab_filename(animal,day,experiment,'facecam_processed');
 if exist(facecam_processed_filename,'file')
     facecam = load(facecam_processed_filename);
 end
 
 % Get camera times
-facecam_fn = AP_cortexlab_filename(mpep_animal,day,experiment,'facecam');
+facecam_fn = AP_cortexlab_filename(animal,day,experiment,'facecam');
 facecam_t_savefile = [cam_dir filesep 'facecam_t.mat'];
 
 if exist(facecam_fn,'file') && ~exist(facecam_t_savefile,'file')      
@@ -282,9 +282,9 @@ local_dir = false;
 if cam_color_n == 1
     
     if local_dir
-        data_path = ['D:\data\' mpep_animal filesep day];
+        data_path = ['D:\data\' animal filesep day];
     else
-        data_path = ['\\zserver.cortexlab.net\Data\Subjects\' mpep_animal filesep day];
+        data_path = ['\\zserver.cortexlab.net\Data\Subjects\' animal filesep day];
     end
     
     experiment_path = [data_path filesep num2str(experiment)];
@@ -293,6 +293,8 @@ if cam_color_n == 1
     frame_t = readNPY([experiment_path filesep 'svdTemporalComponents_blue.timestamps.npy']);
     U = readUfromNPY([data_path filesep 'svdSpatialComponents_blue.npy']);
     V = readVfromNPY([experiment_path filesep 'svdTemporalComponents_blue.npy']);
+    
+    disp('Done loading')
     
     framerate = 1./nanmedian(diff(frame_t));
     
@@ -314,9 +316,9 @@ elseif cam_color_n == 2
     % Load in all things as neural (n) or hemodynamic (h)
     
     if local_dir
-        data_path = ['D:\data\' mpep_animal filesep day];
+        data_path = ['D:\data\' animal filesep day];
     else
-        data_path = ['\\zserver.cortexlab.net\Data\Subjects\' mpep_animal filesep day];
+        data_path = ['\\zserver.cortexlab.net\Data\Subjects\' animal filesep day];
     end
     
     experiment_path = [data_path filesep experiment];
@@ -334,6 +336,8 @@ elseif cam_color_n == 2
     dataSummary_h = load([data_path filesep 'dataSummary_' cam_color_signal '.mat']);
     avg_im_h = readNPY([data_path filesep 'meanImage_' cam_color_hemo '.npy']);
            
+    disp('Done loading')
+    
     framerate = 1./nanmedian(diff(tn));
 
     % Correct hemodynamic signal in blue from green
@@ -583,7 +587,7 @@ end
 experiment_ephys_starts = sync(acqLive_channel).timestamps(sync(acqLive_channel).values == 1);
 experiment_ephys_stops = sync(acqLive_channel).timestamps(sync(acqLive_channel).values == 0);
 
-experiments_dir = dir(fileparts(AP_cortexlab_filename(mpep_animal,day,[],'timeline')));
+experiments_dir = dir(fileparts(AP_cortexlab_filename(animal,day,[],'timeline')));
 experiment_num = strmatch(experiment,{experiments_dir.name})-2;
 acqlive_ephys_currexpt = [experiment_ephys_starts(experiment_num), ...
     experiment_ephys_stops(experiment_num)];

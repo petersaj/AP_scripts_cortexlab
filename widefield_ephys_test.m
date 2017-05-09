@@ -284,7 +284,7 @@ sta_v_pca = reshape(score,size(sta_v_all,1),size(sta_v_all,2),size(sta_v_all,3))
 
 %% STA for multiunit
 
-use_spikes = spike_times_timeline(ismember(spike_templates,find(templateDepths > 2500 & templateDepths < 2700)));
+use_spikes = spike_times_timeline(ismember(spike_templates,find(templateDepths > 3000 & templateDepths < 3500)));
 
 %use_spikes = spike_times_timeline(ismember(spike_templates,find(templateDepths > 0 & templateDepths < 400)) & ...
 %    ismember(spike_templates,use_templates(use_template_narrow)));
@@ -292,7 +292,7 @@ use_spikes = spike_times_timeline(ismember(spike_templates,find(templateDepths >
 frame_edges = [frame_t(1),mean([frame_t(2:end);frame_t(1:end-1)],1),frame_t(end)+1/framerate];
 [frame_spikes,~,spike_frames] = histcounts(use_spikes,frame_edges);
 
-surround_times = [-0.5,0.5];
+surround_times = [-3,3];
 framerate = 1./median(diff(frame_t));
 surround_frames = round(surround_times(1)*framerate):round(surround_times(2)*framerate);
 sta_t = surround_frames./framerate;
@@ -1128,7 +1128,7 @@ roi_trace = roi_trace_full(use_frames);
 framerate = 1./nanmedian(diff(frame_t));
 frame_edges = [frame_t,frame_t(end)+1/framerate];
 
-use_spikes = spike_times_timeline(ismember(spike_templates,find(templateDepths > 200 & templateDepths < 1500)));
+use_spikes = spike_times_timeline(ismember(spike_templates,find(templateDepths > 0 & templateDepths < 1000)));
 
 [frame_spikes_full,~,spike_frames] = histcounts(use_spikes,frame_edges);
 frame_spikes = frame_spikes_full(use_frames);
@@ -2023,37 +2023,6 @@ v_autonorm_shift = [v_autonorm(:,end-plot_frames+1:end),v_autonorm(:,1:plot_fram
 
 
 %% Make fake spike train based on given fluor kernel
-% trying to get similarity between spatiotemporal kernel 
-% and image in V space - this doesn't even kind of work
-
-% THIS DIDNT WORK...
-% % Choose ROI
-% h = figure;
-% imagesc(avg_im);
-% set(gca,'YDir','reverse');
-% colormap(gray);
-% caxis([0 prctile(avg_im(:),90)]);
-% roiMask = roipoly;
-% close(h);
-% 
-% % One way: super downsample the images, do it in pixel space
-% U_downsample_factor = 1;
-% Ud = imresize(U,1/U_downsample_factor);
-% roiMaskd = imresize(roiMask,1/U_downsample_factor);
-% 
-% % Convert ROI to V space
-% spatial_kernel_v = reshape(Ud,[],size(U,3))\roiMaskd(:);
-% %spatiotemporal_kernel_v = [zeros(length(spatial_kernel_v),10), ...
-% %    spatial_kernel_v,zeros(length(spatial_kernel_v),5)];
-% spatiotemporal_kernel_v = spatial_kernel_v;
-% kernel_frames = size(spatiotemporal_kernel_v,2);
-% 
-% fV_kernel_conv = conv2(fV,spatiotemporal_kernel_v,'same');
-% fV_kernel_conv_sum = sum(fV_kernel_conv,1);
-% 
-% fake_frame_spikes = poissrnd(mat2gray(fV_kernel_conv_sum));
-
-% Dumb way: just make ROI and get trace
 
 % Choose ROI
 h = figure;
@@ -2067,11 +2036,12 @@ close(h);
 % Get fluorescence across session in ROI
 U_roi = reshape(U(repmat(roiMask,1,1,size(U,3))),[],size(U,3));
 roi_trace = nanmean(U_roi*fV);
-roi_trace(roi_trace < 0) = 0;
-fake_frame_spikes = poissrnd(mat2gray(roi_trace));
+roi_trace_slope = [0;diff(smooth(roi_trace,2))];
+roi_trace_slope(roi_trace_slope < 0) = 0;
+fake_frame_spikes = poissrnd(mat2gray(roi_trace_slope)*10)';
 
 
-%% Compare accuracy of methods with fake spikes
+%% Fake spike regression: test lambdas
 
 frame_spikes = fake_frame_spikes;
 
@@ -2093,27 +2063,31 @@ for curr_px = 1:size(px,1)
 end
 
 % Regression
-use_lambdas = [1e4,5e4,1e5,5e5,1e6,5e6,1e7];
+use_lambdas = [0,1e4,1e5,1e6,1e7,1e8];
 regression_maps = nan(size(Ud,1),size(Ud,2),length(use_lambdas));
+explained_var_all = nan(length(use_lambdas),1);
 for curr_lambda = 1:length(use_lambdas)
-    use_svs = 1:200;
-    kernel_frames = 0;
+    
+    use_svs = 1:50;
+    kernel_frames = -10:10;
     downsample_factor = 1;
     lambda = use_lambdas(curr_lambda);
     zs = false;
+    cvfold = 3;
     
     kernel_frames_downsample = round(downsample(kernel_frames,downsample_factor)/downsample_factor);
     
     [k,predicted_spikes,explained_var] = ...
         AP_regresskernel(downsample(fV(use_svs,use_frames)',downsample_factor)', ...
-        downsample(frame_spikes(:,use_frames)',downsample_factor)',kernel_frames_downsample,lambda,zs);
+        downsample(frame_spikes(:,use_frames)',downsample_factor)',kernel_frames_downsample,lambda,zs,cvfold);
     
     r = reshape(k,length(use_svs),length(kernel_frames_downsample),size(frame_spikes,1));
-    regression_maps(:,:,curr_lambda) = svdFrameReconstruct(Ud(:,:,use_svs),r);
+    regression_maps(:,:,curr_lambda) = max(svdFrameReconstruct(Ud(:,:,use_svs),r),[],3);
+    explained_var_all(curr_lambda) = explained_var.total;
 end
 
 % Plot
-sq_plot = ceil(sqrt(length(use_lambdas) + 3));
+sq_plot = 3;%ceil(sqrt(length(use_lambdas) + 3));
 
 figure; colormap(gray);
 
@@ -2141,13 +2115,93 @@ for curr_regression_map = 1:size(regression_maps,3)
     title(['Regression ' num2str(use_lambdas(curr_regression_map))]);
 end
 
-map_correlation = 1-pdist2(reshape(imresize(roiMask,1/U_downsample_factor),1,[]), ...
-    cat(2,coherence_map(:),correlation_map(:),reshape(regression_maps,[],size(regression_maps,3)))','correlation');
 subplot(sq_plot+1,1,sq_plot+1);
-plot(map_correlation,'k','linewidth',2);
-ylabel('Map-ROI correlation');
-set(gca,'XTickLabel',[{'Coherence'},{'Correlation'},cellfun(@num2str,num2cell(use_lambdas),'uni',false)]);
+plot(explained_var_all,'k','linewidth',2);
+ylabel('Explained variance');
+set(gca,'XTick',1:length(use_lambdas));
+set(gca,'XTickLabel',cellfun(@num2str,num2cell(use_lambdas),'uni',false));
+xlabel('\lambda');
 
+%% Fake spike regression: test number of SVs
+
+frame_spikes = fake_frame_spikes;
+
+% Downsample and get pixels to compare across
+U_downsample_factor = 10;
+Ud = imresize(U,1/U_downsample_factor,'bilinear');
+px = reshape(svdFrameReconstruct(Ud,fV),[],size(fV,2));
+
+% Coherence
+[px_coherence,f] = mscohere(px(:,use_frames)',frame_spikes(use_frames)',hanning(round(framerate*10)),round(framerate*5),[],framerate);
+coherence_map = reshape(sum(px_coherence,1),size(Ud,1),size(Ud,2));
+
+% Correlation
+maxlags = round(35/2);
+correlation_map = nan(size(Ud,1),size(Ud,2));
+for curr_px = 1:size(px,1)
+    curr_corr = xcorr(px(curr_px,:),frame_spikes,maxlags,'coeff');
+    correlation_map(curr_px) = max(curr_corr);
+end
+
+% Regression
+use_svs_all = [25,50,75,100,200,300];
+regression_maps = nan(size(Ud,1),size(Ud,2),length(use_lambdas));
+explained_var_all = nan(length(use_lambdas),1);
+for curr_sv = 1:length(use_lambdas)
+    
+    use_svs = 1:use_svs_all(curr_sv);
+    kernel_frames = -10:10;
+    downsample_factor = 1;
+    lambda = 0;
+    zs = false;
+    cvfold = 3;
+    
+    kernel_frames_downsample = round(downsample(kernel_frames,downsample_factor)/downsample_factor);
+    
+    [k,predicted_spikes,explained_var] = ...
+        AP_regresskernel(downsample(fV(use_svs,use_frames)',downsample_factor)', ...
+        downsample(frame_spikes(:,use_frames)',downsample_factor)',kernel_frames_downsample,lambda,zs,cvfold);
+    
+    r = reshape(k,length(use_svs),length(kernel_frames_downsample),size(frame_spikes,1));
+    regression_maps(:,:,curr_sv) = max(svdFrameReconstruct(Ud(:,:,use_svs),r),[],3);
+    explained_var_all(curr_sv) = explained_var.total;
+end
+
+% Plot
+sq_plot = 3;%ceil(sqrt(length(use_lambdas) + 3));
+
+figure; colormap(gray);
+
+subplot(sq_plot+1,sq_plot,1);
+imagesc(avg_im); hold on;
+mask_im = imagesc(padarray(roiMask,[0,0,2],'post'));
+set(mask_im,'AlphaData',0.2);
+axis off;
+title('Real');
+
+subplot(sq_plot+1,sq_plot,2);
+imagesc(coherence_map);
+axis off;
+title('Coherence')
+ 
+subplot(sq_plot+1,sq_plot,3);
+imagesc(correlation_map);
+axis off;
+title('Correlation')
+
+for curr_regression_map = 1:size(regression_maps,3)
+    subplot(sq_plot+1,sq_plot,3+curr_regression_map);
+    imagesc(regression_maps(:,:,curr_regression_map));
+    axis off;
+    title(['Vs ' num2str(use_svs_all(curr_regression_map))]);
+end
+
+subplot(sq_plot+1,1,sq_plot+1);
+plot(explained_var_all,'k','linewidth',2);
+ylabel('Explained variance');
+set(gca,'XTick',1:length(use_svs_all));
+set(gca,'XTickLabel',cellfun(@num2str,num2cell(use_svs_all),'uni',false));
+xlabel('Vs');
 
 
 %% Matrix division method of fluorescence -> spike kernel (SVD space)
@@ -2270,21 +2324,21 @@ truesize
 skip_seconds = 10;
 use_frames = (frame_t > skip_seconds);
 
-use_spikes = spike_times_timeline(ismember(spike_templates,find(templateDepths > 0 & templateDepths <= 350)));
+use_spikes = spike_times_timeline(ismember(spike_templates,find(templateDepths > 0 & templateDepths <= 2500)));
 
 frame_edges = [frame_t(1),mean([frame_t(2:end);frame_t(1:end-1)],1),frame_t(end)+1/framerate];
 [frame_spikes,~,spike_frames] = histcounts(use_spikes,frame_edges);
 frame_spikes = single(frame_spikes);
-use_lambdas = logspace(4.5,5.5,10);
+use_lambdas = logspace(-1,7,5);
 explained_var_lambdas = nan(length(use_lambdas),size(frame_spikes,1));
 for curr_lambda_idx = 1:length(use_lambdas);
     
-    use_svs = 1:200;
+    use_svs = 1:50;
     kernel_frames = -10:5;
     downsample_factor = 1;
     lambda = use_lambdas(curr_lambda_idx);
     zs = false;
-    cvfold = 5;
+    cvfold = 3;
     
     kernel_frames_downsample = round(downsample(kernel_frames,downsample_factor)/downsample_factor);
     
@@ -2308,8 +2362,6 @@ ylabel('Fraction variance explained');
 disp(['Best lambda = ' num2str(use_lambdas(explained_var_lambdas == ...
     max(explained_var_lambdas)))]);
 
-%% WRITE THIS: use fminsearch to just find the best lambda? 
-% is that going to take a ridiculous amount of time?
 
 %% Regression from fluor to spikes (AP_regresskernel) MUA depth
 
@@ -2320,10 +2372,10 @@ use_frames = (frame_t > skip_seconds);
 %use_frames = (frame_t > max(frame_t)/2);
 
 % Group multiunit by depth
-n_depth_groups = 10;
-depth_group_edges = linspace(0,3350,n_depth_groups+1);
+n_depth_groups = 6;
+depth_group_edges = linspace(2400,3820,n_depth_groups+1);
 depth_group_edges_use = depth_group_edges;
-%depth_group_edges_use = [400,1500,2000,2300,3000,4000];
+%depth_group_edges_use = [0,1000,2400,3820];
 
 [depth_group_n,depth_group] = histc(spikeDepths,depth_group_edges_use);
 depth_groups_used = unique(depth_group);
@@ -2341,10 +2393,10 @@ for curr_depth = 1:length(depth_group_edges_use)-1
     
 end
 
-use_svs = 1:200;
+use_svs = 1:75;
 kernel_frames = -10:5;
 downsample_factor = 1;
-lambda = 87992;
+lambda = 0;
 zs = false;
 cvfold = 5;
 
@@ -2362,20 +2414,23 @@ for curr_spikes = 1:size(r,3);
     r_px(:,:,:,curr_spikes) = svdFrameReconstruct(U(:,:,use_svs),r(:,:,curr_spikes));
 end
 
+% If there exists a GCaMP kernel: convolve
+if exist('gcamp_kernel','var')
+    disp('Convolving with GCaMP kernel')
+    r_px_gcamp_conv = convn(r_px,permute(gcamp_kernel,[1,3,2]));
+    r_px = r_px_gcamp_conv(:,:,1:size(r_px,3),:);
+end
+
 AP_image_scroll(r_px,kernel_frames_downsample*downsample_factor/framerate);
 caxis([prctile(r_px(:),[1,99])]*2)
 truesize;
 
 % Get center of mass for each pixel 
-r_px_max = squeeze(max(r_px,[],3)) - squeeze(min(r_px,[],3));
-% CHECK THAT THIS MAKES SENSE TO DO?
-r_px_max_norm = zscore(reshape(r_px_max,[],n_depth_groups),[],1);
-r_px_com = reshape(sum(bsxfun(@times,r_px_max_norm,1:n_depth_groups),2)./(sum(r_px_max_norm,2)),size(r_px,1),size(r_px,2));
-% (for df/f?)
-%r_px_com = sum(bsxfun(@times,r_px_max,permute(1:n_depth_groups,[1,3,2])),3)./sum(r_px_max,3);
+r_px_max = squeeze(sqrt(sum(r_px.^2,3)));
+r_px_com = sum(bsxfun(@times,r_px_max,permute(1:n_depth_groups,[1,3,2])),3)./sum(r_px_max,3);
 
 % Plot map of cortical pixel by preferred depth of probe
-r_px_com_col = ind2rgb(round(mat2gray(r_px_com,[1,n_depth_groups])*255),jet(255));
+r_px_com_col = ind2rgb(round(mat2gray(r_px_com)*255),jet(255));
 figure;
 a1 = axes('YDir','reverse');
 imagesc(avg_im); colormap(gray); caxis([0,prctile(avg_im(:),99)]);
@@ -2419,9 +2474,9 @@ for curr_template_idx = 1:length(use_templates)
 end
 
 use_svs = 1:200;
-kernel_frames = -30:10;
+kernel_frames = -35:7;
 downsample_factor = 1;
-lambda = 129154;
+lambda = 127427;
 zs = false;
 cvfold = 5;
 
@@ -2871,20 +2926,26 @@ end
 skip_seconds = 10;
 use_frames = (frame_t > skip_seconds);
 
-use_spikes = spike_times_timeline(ismember(spike_templates,find(templateDepths > 0 & templateDepths < 500)));
+use_spikes = spike_times_timeline(ismember(spike_templates,find(templateDepths >= 2400 & templateDepths <= 2600)));
 
 frame_edges = [frame_t(1),mean([frame_t(2:end);frame_t(1:end-1)],1),frame_t(end)+1/framerate];
 [frame_spikes,~,spike_frames] = histcounts(use_spikes,frame_edges);
 frame_spikes = single(frame_spikes);
 
-use_svs = 1:200;
-fluor_kernel_frames = -10:2;
-stim_kernel_frames = -5:10;
-lambda = 1000;
+use_svs = 1:50;
+fluor_kernel_frames = -10:5;
+stim_kernel_frames = -5:20;
+lambdas = [0,0];
+cv_fold = 5;
 
 [k,predicted_spikes,explained_var] = ...
     AP_regresskernel({fV(use_svs,use_frames),stim_regressors(:,use_frames)}, ...
-    frame_spikes(:,use_frames),{fluor_kernel_frames,stim_kernel_frames},lambda,true);
+    frame_spikes(:,use_frames),{fluor_kernel_frames,stim_kernel_frames},lambdas,false,cv_fold);
+
+% (stim only)
+% [k,predicted_spikes,explained_var] = ...
+%     AP_regresskernel(stim_regressors(:,use_frames), ...
+%     frame_spikes(:,use_frames),stim_kernel_frames,0,false,cv_fold);
 
 % Reshape kernel and convert to pixel space
 px_regressors_idx = 1:length(use_svs)*length(fluor_kernel_frames);
@@ -3251,10 +3312,10 @@ for curr_depth = 1:length(depth_group_edges_use)-1
     
 end
 
-use_face_svs = 1:100;
+use_face_svs = 1:50;
 kernel_frames = -35:35;
 downsample_factor = 1;
-lambda = 1e4;%3e5;
+lambda = 0;
 zs = false;
 cvfold = 3;
 
@@ -3276,11 +3337,63 @@ face_k = cat(4,face_k{:});
 AP_image_scroll(face_k,kernel_frames_downsample*downsample_factor/framerate)
 
 
+%% Regression stim ID to spikes, then fluor to residual spikes
 
+stim_regressors = ones(max(unique(stimIDs)),length(frame_t),'single');
+for curr_stimID = unique(stimIDs)'
+    frame_edges = [frame_t(1),mean([frame_t(2:end);frame_t(1:end-1)],1),frame_t(end)+1/framerate];
+    stim_regressors(curr_stimID,:) = histcounts(stim_onsets(stimIDs == curr_stimID),frame_edges); 
+end
 
+% Skip the first n seconds to do this
+skip_seconds = 10;
+use_frames = (frame_t > skip_seconds);
 
+use_spikes = spike_times_timeline(ismember(spike_templates,find(templateDepths >= 2400 & templateDepths <= 2600)));
 
+frame_edges = [frame_t(1),mean([frame_t(2:end);frame_t(1:end-1)],1),frame_t(end)+1/framerate];
+[frame_spikes,~,spike_frames] = histcounts(use_spikes,frame_edges);
+frame_spikes = single(frame_spikes);
 
+% Regress stim ID alone to spikes 
+stim_kernel_frames = -20:20;
+lambda = 0;
+cv_fold = 5;
+
+[k,predicted_spikes,explained_var] = ...
+    AP_regresskernel(stim_regressors(:,use_frames), ...
+    frame_spikes(:,use_frames),stim_kernel_frames,lambda,false,cv_fold);
+
+stim_r = reshape(k,size(stim_regressors,1),length(stim_kernel_frames));
+figure;plot(stim_kernel_frames/framerate,stim_r','linewidth',2);
+xlabel('Time from spike');
+ylabel('Weight');
+title('Stimuli');
+legend(cellfun(@num2str,num2cell(unique(stimIDs))))
+
+% Remove the predicted component from stimuli
+residual_frame_spikes = frame_spikes(:,use_frames) - predicted_spikes;
+
+use_svs = 1:50;
+fluor_kernel_frames = -20:20;
+lambdas = 0;
+cv_fold = 5;
+
+[k,predicted_spikes,explained_var] = ...
+    AP_regresskernel(fV(use_svs,use_frames), ...
+    residual_frame_spikes,fluor_kernel_frames,lambdas,false,cv_fold);
+
+% Reshape kernel and convert to pixel space
+px_regressors_idx = 1:length(use_svs)*length(fluor_kernel_frames);
+
+r = reshape(k,length(use_svs),length(fluor_kernel_frames),size(frame_spikes,1));
+r_px = zeros(size(U,1),size(U,2),size(r,2),size(r,3),'single');
+for curr_spikes = 1:size(r,3);
+    r_px(:,:,:,curr_spikes) = svdFrameReconstruct(U(:,:,use_svs),r(:,:,curr_spikes));
+end
+
+AP_image_scroll(r_px,fluor_kernel_frames/framerate);
+caxis([prctile(r_px(:),[1,99.5])]*2)
 
 
 
