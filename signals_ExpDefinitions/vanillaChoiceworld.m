@@ -12,14 +12,7 @@ function vanillaChoiceworld(t, events, parameters, visStim, inputs, outputs, aud
 % Infinite time for response, fix stim azimuth on response
 % Short ITI on reward, long ITI on punish, then turn stim off
 % End trial
-% 
-% TO DO: finish writing properties
-% TO DO: PROBLEMS - 
-% - make a running total of condition percent correct for plotting, new
-% each session
-% - hitBuffer doesn't display any more?
-% - totalReward didn't display?
-% - now it breaks java whenever it starts??
+
 
 %% Fixed parameters
 
@@ -46,8 +39,9 @@ repeatOnMiss = [true,true,false,false,false,false];
 trialsToBuffer = 50;
 % (number of trials after introducing 12.5% contrast to introduce 0%)
 trialsToZeroContrast = 500;
-sigma = [9,9];
+sigma = [20,20];
 spatialFrequency = 0.01;
+stimFlickerFrequency = 5;
 startingAzimuth = 90;
 responseDisplacement = 90;
 
@@ -76,7 +70,7 @@ missNoiseSamples = missNoiseAmplitude*events.expStart.map(@(x) ...
 
 % Wheel parameters
 quiescThreshold = 1;
-wheelGain = 1;
+wheelGain = 3;
 
 %% Initialize trial data
 
@@ -151,12 +145,15 @@ stimAzimuth = cond( ...
     events.newTrial.to(interactiveOn), startingAzimuth*trialData.trialSide, ...
     interactiveOn.to(response), startingAzimuth*trialData.trialSide + stimDisplacement);
 
+% Stim flicker
+stimFlicker = sin((t - t.at(stimOn))*stimFlickerFrequency*2*pi) > 0;
+
 stim = vis.grating(t, 'square', 'gaussian');
 stim.sigma = sigma;
 stim.spatialFrequency = spatialFrequency;
 stim.phase = 2*pi*events.newTrial.map(@(v)rand);
 stim.azimuth = stimAzimuth;
-stim.contrast = trialContrast.at(stimOn);
+stim.contrast = trialContrast.at(stimOn)*stimFlicker;
 stim.show = stimOn.to(stimOff);
 
 visStim.stim = stim;

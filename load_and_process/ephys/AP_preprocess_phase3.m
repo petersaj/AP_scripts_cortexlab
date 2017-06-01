@@ -1,4 +1,4 @@
-function AP_preprocess_phase3(animal,day,cut_data)
+function AP_preprocess_phase3(animal,day)
 % AP_preprocess_phase3(animal,day)
 
 %% Get paths and filenames

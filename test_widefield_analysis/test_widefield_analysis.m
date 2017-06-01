@@ -1021,17 +1021,39 @@ px_std = sqrt(px_std_sq);
 px_10prct = svdFrameReconstruct(U,prctile(fV(:,skip_start_frames:end),10,2));
 
 
+%% Get average fluorescence to ChoiceWorld event
 
+% Define the window to get an aligned response to
+surround_window = [-0.2,5];
 
+% Define the times to align to
+align_times = stim_times_timeline(block.events.trialContrastValues == 0.5 & block.events.trialSideValues == 1 & block.events.hitValues == 0)';
 
+% Get the surround time
+framerate = 1./nanmedian(diff(frame_t));
+surround_samplerate = 1/(framerate*1);
+surround_time = surround_window(1):surround_samplerate:surround_window(2);
 
+% Don't use times that fall outside of imaging
+align_times(align_times + surround_time(1) < frame_t(2) | ...
+    align_times + surround_time(2) > frame_t(end)) = [];
 
+% Use closest frames to times
+align_surround_times = bsxfun(@plus, align_times, surround_time);
+frame_edges = [frame_t,frame_t(end)+1/framerate];
+align_frames = discretize(align_surround_times,frame_edges);
 
+% If any aligned V's are NaNs (when does this happen?), don't use
+align_frames(any(isnan(align_frames),2),:) = [];
 
+mean_aligned_V = nanmean(reshape(fV(:,align_frames'), ...
+    size(fV,1),size(align_frames,2),size(align_frames,1)),3);
 
+% Get and plot the average fluorescence around event
+mean_aligned_px = svdFrameReconstruct(U,mean_aligned_V);
 
-
-
+AP_image_scroll(mean_aligned_px);
+warning off; truesize; warning on;
 
 
 

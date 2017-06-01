@@ -16,6 +16,10 @@ function AP_wfmovies(U,V,frame_t,eyecam_fn,eyecam_t,facecam_fn,facecam_t,trace,t
 
 disp('Press s to save section of movies');
 
+if ~exist('frame_t','var') || isempty(frame_t)
+    frame_t = 1:size(V,2);
+end
+
 if exist('eyecam_fn','var') && exist('eyecam_t','var') && ~isempty(eyecam_t)
    handles.plot_eyecam = true; 
 else

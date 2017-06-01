@@ -131,8 +131,8 @@ classdef vanillaChoiceworld_ExpPanel < eui.ExpPanel
                   'YData',leftward(~isnan(leftward)));
               obj.performancePlot.axes.XLim = [-1,1];
               obj.performancePlot.axes.YLim = [0,1];
-              xLabel(obj.performancePlot.axes,'Condition')
-              yLabel(obj.performancePlot.axes,'% Left')
+              xLabel(obj.performancePlot.axes,'Condition');
+              yLabel(obj.performancePlot.axes,'% Left');
           end
           %%%%%%%%%%%%%%%%%%%%%%%%%%
           

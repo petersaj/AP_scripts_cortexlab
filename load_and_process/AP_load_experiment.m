@@ -1,8 +1,8 @@
 %% Define experiment
 
-animal = 'AP014';
-day = '2017-04-16';
-experiment = '3';
+animal = 'AP017';
+day = '2017-05-29';
+experiment = '1';
 rig = 'kilotrode'; % kilotrode or bigrig
 
 % Get the number of colors imaged during the experiment
@@ -15,7 +15,7 @@ cam_color_n = length(spatialComponents_names);
 cam_color_signal = 'blue';
 cam_color_hemo = 'purple';
 
-%% Load experiment info
+%% Load timeline
 
 % Set rig-specific timeline names
 switch rig
@@ -166,6 +166,33 @@ if exist(fileparts(AP_cortexlab_filename(animal,day,experiment,'protocol')),'dir
     
 end
 
+%% Load task/behavior
+
+% Load the block
+[block_filename, block_exists] = AP_cortexlab_filename(animal,day,experiment,'block');
+load(block_filename);
+
+% Get reward times in block and timeline
+reward_t_block = block.outputs.rewardTimes;
+
+timeline_reward_idx = strcmp({Timeline.hw.inputs.name}, 'rewardEcho');
+reward_thresh = max(Timeline.rawDAQData(:,timeline_reward_idx))/2;
+reward_trace = Timeline.rawDAQData(:,timeline_reward_idx) > reward_thresh;
+reward_t_timeline = Timeline.rawDAQTimestamps(find(reward_trace(2:end) & ~reward_trace(1:end-1))+1);
+
+% Go through all block events and convert to timeline time using the reward
+% as the reference event
+block_fieldnames = fieldnames(block.events);
+block_values_idx = cellfun(@(x) ~isempty(x),strfind(block_fieldnames,'Values'));
+block_times_idx = cellfun(@(x) ~isempty(x),strfind(block_fieldnames,'Times'));
+
+choiceworld = block.events;
+for curr_times = find(block_times_idx)'
+    choiceworld.(block_fieldnames{curr_times}) = ...
+        AP_clock_fix(block.events.(block_fieldnames{curr_times}),reward_t_block,reward_t_timeline);
+end
+
+
 %% Get wheel velocity
 % this is super preliminary
 
@@ -298,17 +325,12 @@ if cam_color_n == 1
     
     framerate = 1./nanmedian(diff(frame_t));
     
-    % Detrend data, remove heartbeat if that's within frequency range
-    if framerate > 28
-        fV = detrendAndFilt(V, framerate);
-    else
-        highpassCutoff = 0.01; % Hz
-        [b100s, a100s] = butter(2, highpassCutoff/(framerate/2), 'high');
+    % Detrend and high-pass filter
+    highpassCutoff = 0.01; % Hz
+    [b100s, a100s] = butter(2, highpassCutoff/(framerate/2), 'high');
+    dV = detrend(V', 'linear')';
+    fV = single(filtfilt(b100s,a100s,double(dV)')');
         
-        dV = detrend(V', 'linear')';
-        fV = filter(b100s,a100s,dV,[],2);
-    end
-    
     avg_im = readNPY([data_path filesep 'meanImage_blue.npy']);
     
 elseif cam_color_n == 2

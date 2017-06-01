@@ -2045,6 +2045,9 @@ fake_frame_spikes = poissrnd(mat2gray(roi_trace_slope)*10)';
 
 frame_spikes = fake_frame_spikes;
 
+skip_seconds = 4;
+use_frames = (frame_t > skip_seconds);
+
 % Downsample and get pixels to compare across
 U_downsample_factor = 10;
 Ud = imresize(U,1/U_downsample_factor,'bilinear');
@@ -2126,6 +2129,9 @@ xlabel('\lambda');
 
 frame_spikes = fake_frame_spikes;
 
+skip_seconds = 4;
+use_frames = (frame_t > skip_seconds);
+
 % Downsample and get pixels to compare across
 U_downsample_factor = 10;
 Ud = imresize(U,1/U_downsample_factor,'bilinear');
@@ -2145,9 +2151,9 @@ end
 
 % Regression
 use_svs_all = [25,50,75,100,200,300];
-regression_maps = nan(size(Ud,1),size(Ud,2),length(use_lambdas));
-explained_var_all = nan(length(use_lambdas),1);
-for curr_sv = 1:length(use_lambdas)
+regression_maps = nan(size(Ud,1),size(Ud,2),length(use_svs_all));
+explained_var_all = nan(length(use_svs_all),1);
+for curr_sv = 1:length(use_svs_all)
     
     use_svs = 1:use_svs_all(curr_sv);
     kernel_frames = -10:10;
@@ -2292,18 +2298,18 @@ use_spikes = spike_times_timeline(ismember(spike_templates,find(templateDepths >
 frame_edges = [frame_t(1),mean([frame_t(2:end);frame_t(1:end-1)],1),frame_t(end)+1/framerate];
 [frame_spikes,~,spike_frames] = histcounts(use_spikes,frame_edges);
 frame_spikes = single(frame_spikes);
-
-use_svs = 1:200;
-kernel_frames = -30:10;
+ 
+use_svs = 1:50;
+kernel_frames = -35:35;
 downsample_factor = 1;
-lambda = 5e5;
+lambda = 1e4;
 zs = false;
 cvfold = 5;
 
 kernel_frames_downsample = round(downsample(kernel_frames,downsample_factor)/downsample_factor);
 
 [k,predicted_spikes,explained_var] = ...
-    AP_regresskernel(downsample(fV(use_svs,use_frames)',downsample_factor)', ...
+    AP_regresskernel(downsample(fV_filt(use_svs,use_frames)',downsample_factor)', ...
     downsample(frame_spikes(:,use_frames)',downsample_factor)',kernel_frames_downsample,lambda,zs,cvfold);
 
 % Reshape kernel and convert to pixel space
@@ -2372,8 +2378,8 @@ use_frames = (frame_t > skip_seconds);
 %use_frames = (frame_t > max(frame_t)/2);
 
 % Group multiunit by depth
-n_depth_groups = 6;
-depth_group_edges = linspace(2400,3820,n_depth_groups+1);
+n_depth_groups = 1;
+depth_group_edges = linspace(2400,2600,n_depth_groups+1);
 depth_group_edges_use = depth_group_edges;
 %depth_group_edges_use = [0,1000,2400,3820];
 
@@ -2393,7 +2399,7 @@ for curr_depth = 1:length(depth_group_edges_use)-1
     
 end
 
-use_svs = 1:75;
+use_svs = 1:50;
 kernel_frames = -10:5;
 downsample_factor = 1;
 lambda = 0;
@@ -2453,7 +2459,7 @@ set(c2,'YTickLabel',linspace(depth_group_edges(1),depth_group_edges(end),6));
 
 %% Regression from fluor to spikes (AP_regresskernel) templates
 
-use_templates = find(templateDepths >= 2400 & templateDepths <= 3820);
+use_templates = find(templateDepths >= 0 & templateDepths <= 1500);
 
 % Skip the first n seconds to do this
 skip_seconds = 10;
@@ -2473,10 +2479,10 @@ for curr_template_idx = 1:length(use_templates)
     
 end
 
-use_svs = 1:200;
-kernel_frames = -35:7;
+use_svs = 1:50;
+kernel_frames = -10:5;
 downsample_factor = 1;
-lambda = 127427;
+lambda = 0;
 zs = false;
 cvfold = 5;
 
@@ -3256,10 +3262,10 @@ frame_edges = [frame_t,frame_t(end)+1/framerate];
 [frame_spikes,~,spike_frames] = histcounts(use_spikes,frame_edges);
 frame_spikes = single(frame_spikes);
 
-use_face_svs = 1:100;
+use_face_svs = 1:50;
 kernel_frames = -30:30;
 downsample_factor = 1;
-lambda = 1e4;
+lambda = 1e3;
 zs = false;
 cvfold = 3;
 

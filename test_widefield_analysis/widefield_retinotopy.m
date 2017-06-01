@@ -1046,6 +1046,202 @@ ylim([0,size(avg_im,1)]);
 xlim([0,size(avg_im,2)]);
 axis off;
 
+
+%% BLACK BACKGROUND: Sparse noise retinotopy (bootstrap across trials to get less noise)
+
+[Uy,Ux,nSV] = size(U);
+
+myScreenInfo.windowPtr = NaN; % so we can call the stimulus generation and it won't try to display anything
+stimNum = 1;
+ss = eval([Protocol.xfile(1:end-2) '(myScreenInfo, Protocol.pars(:,stimNum));']);
+stim_screen = cat(3,ss.ImageTextures{:});
+ny = size(stim_screen,1);
+nx = size(stim_screen,2);
+
+switch lower(photodiode_type)
+    case 'flicker'
+        % Check for case of mismatch between photodiode and stimuli:
+        % odd number of stimuli, but one extra photodiode flip to come back down
+        if mod(size(stim_screen,3),2) == 1 && ...
+                length(photodiode.timestamps) == size(stim_screen,3) + 1;
+            photodiode.timestamps(end) = [];
+            photodiode.values(end) = [];
+            warning('Odd number of stimuli, removed last photodiode');
+        end
+        
+        % If there's still a mismatch, break
+        if size(stim_screen,3) ~= length(photodiode.timestamps);
+            warning([num2str(size(stim_screen,3)) ' stimuli, ', ...
+                num2str(length(photodiode.timestamps)) ' photodiode pulses']);
+            
+            % Try to estimate which stim were missed by time difference
+            photodiode_diff = diff(photodiode.timestamps);
+            max_regular_diff_time = prctile(diff(photodiode.timestamps),99);
+            skip_cutoff = max_regular_diff_time*2;
+            photodiode_skip = find(photodiode_diff > skip_cutoff);
+            est_n_pulse_skip = ceil(photodiode_diff(photodiode_skip)/max_regular_diff_time)-1;
+            stim_skip = cell2mat(arrayfun(@(x) photodiode_skip(x):photodiode_skip(x)+est_n_pulse_skip(x)-1, ...
+                1:length(photodiode_skip),'uni',false));
+            
+            if isempty(est_n_pulse_skip) || length(photodiode.timestamps) + sum(est_n_pulse_skip) ~= size(stim_screen,3)
+                error('Can''t match photodiode events to stimuli')
+            end
+        end
+        
+        stim_times = photodiode.timestamps;
+        
+    case 'steady'
+        % If the photodiode is on steady: extrapolate the stim times
+        if length(photodiode.timestamps) ~= 2
+            error('Steady photodiode, but not 2 flips')
+        end
+        stim_duration = diff(photodiode.timestamps)/size(stim_screen,3);
+        stim_times = linspace(photodiode.timestamps(1), ...
+            photodiode.timestamps(2)-stim_duration,size(stim_screen,3))';
+        
+end
+
+% Get average response to each stimulus
+surround_window = [0.2,0.3];
+framerate = 1./nanmedian(diff(frame_t));
+surround_samplerate = 1/(framerate*1);
+surround_time = surround_window(1):surround_samplerate:surround_window(2);
+response_n = nan(ny,nx);
+response_grid = cell(ny,nx);
+for px_y = 1:ny;
+    for px_x = 1:nx;
+  
+        % Use first frame of light stim 
+        align_stims = (stim_screen(px_y,px_x,2:end) == 1) & ...
+            (diff(stim_screen(px_y,px_x,:),[],3) == 1);
+        align_times = stim_times(find(align_stims)+1);
+        
+        align_times = align_times(round(length(align_times)/2):end);
+        
+        response_n(px_y,px_x) = length(align_times);
+        
+        % Don't use times that fall outside of imaging
+        align_times(align_times + surround_time(1) < frame_t(2) | ...
+            align_times + surround_time(2) > frame_t(end)) = [];
+             
+        % Get stim-aligned responses, 2 choices:
+        
+        % 1) Interpolate times (slow - but supersamples so better)
+%         align_surround_times = bsxfun(@plus, align_times, surround_time);
+%         peri_stim_v = permute(mean(interp1(frame_t,fV',align_surround_times),1),[3,2,1]);
+        
+        % 2) Use closest frames to times (much faster - not different)
+        align_surround_times = bsxfun(@plus, align_times, surround_time);
+        frame_edges = [frame_t,frame_t(end)+1/framerate];
+        align_frames = discretize(align_surround_times,frame_edges);
+        
+        align_frames(any(isnan(align_frames),2),:) = [];
+        
+        peri_stim_v = squeeze(nanmean(reshape(fV(:,align_frames)', ...
+            size(align_frames,1),size(align_frames,2),[]),2))';
+        
+        % Save V's           
+        response_grid{px_y,px_x} = peri_stim_v;
+        
+    end
+end
+
+% Get position preference for every pixel 
+U_downsample_factor = 3;
+resize_scale = 3;
+filter_sigma = (resize_scale*1.5);
+
+% Downsample U
+use_u_y = 1:Uy;
+Ud = imresize(U(use_u_y,:,:),1/U_downsample_factor,'bilinear');
+
+% Convert V responses to pixel responses
+use_svs = 1:size(U,3);
+n_boot = 10;
+
+response_mean_boostrap = cellfun(@(x) bootstrp(n_boot,@mean,x')',response_grid,'uni',false);
+
+% (to split trials instead of bootstrap)
+%split_trials = cellfun(@(x) shake(discretize(1:size(x,2),round(linspace(1,size(x,2),n_boot+1)))),response_grid,'uni',false);
+%response_mean_boostrap = cellfun(@(x,y) grpstats(x',y','mean')',response_grid,split_trials,'uni',false);
+
+vfs_boot = nan(size(Ud,1),size(Ud,2),n_boot);
+for curr_boot = 1:n_boot
+    
+    response_mean = cell2mat(cellfun(@(x) x(:,curr_boot),response_mean_boostrap(:),'uni',false)');
+    stim_im_px = reshape(permute(svdFrameReconstruct(Ud(:,:,use_svs),response_mean(use_svs,:)),[3,1,2]),ny,nx,[]);
+    
+    % Upsample each pixel's response map and find maximum
+    gauss_filt = fspecial('gaussian',[ny,nx],filter_sigma);
+    stim_im_smoothed = imfilter(imresize(stim_im_px,resize_scale,'bilinear'),gauss_filt);
+    [mc,mi] = max(reshape(stim_im_smoothed,[],size(stim_im_px,3)),[],1);
+    [m_y,m_x] = ind2sub(size(stim_im_smoothed),mi);
+    m_yr = reshape(m_y,size(Ud,1),size(Ud,2));
+    m_xr = reshape(m_x,size(Ud,1),size(Ud,2));
+    
+    % Calculate and plot sign map (do this just with dot product between horz / vert grad?)
+    
+    % 1) get gradient direction
+    [Vmag,Vdir] = imgradient(imgaussfilt(m_yr,1));
+    [Hmag,Hdir] = imgradient(imgaussfilt(m_xr,1));
+    
+    % 3) get sin(difference in direction) if retinotopic, H/V should be
+    % orthogonal, so the closer the orthogonal the better (and get sign)
+    angle_diff = sind(Vdir-Hdir);
+    
+    vfs_boot(:,:,curr_boot) = angle_diff;
+    
+    disp(curr_boot);
+    
+end
+
+vfs_mean = nanmean(imgaussfilt(vfs_boot,1),3);
+
+figure;
+imagesc(vfs_mean);
+caxis([-1,1]);
+axis off;
+title('Visual field sign')
+
+figure;
+subplot(1,3,1);
+imagesc(vfs_mean);
+caxis([-1,1]);
+axis off;
+title('All')
+
+subplot(1,3,2);
+p = reshape(AP_signrank_matrix(reshape(imgaussfilt(vfs_boot,1),[],n_boot)'), ...
+    size(vfs_mean,1),size(vfs_mean,2));
+h = imagesc(vfs_mean);
+caxis([-1,1]);
+axis off;
+set(h,'AlphaData',p < 0.05);
+title('Sign rank p < 0.05');
+
+subplot(1,3,3);
+h = imagesc(vfs_mean);
+caxis([-1,1]);
+axis off;
+vfs_cutoff = 1.5*std(vfs_mean(:));
+set(h,'AlphaData',abs(vfs_mean) > vfs_cutoff);
+title('Abs > 1.5*std');
+
+vis_thresh = abs(vfs_mean) > vfs_cutoff;
+vis_boundaries = cellfun(@(x) x*U_downsample_factor,bwboundaries(vis_thresh),'uni',false);
+
+figure; hold on; 
+set(gca,'YDir','reverse');
+imagesc(avg_im); colormap(gray);
+caxis([0 prctile(avg_im(:),95)]);
+for i = 1:length(vis_boundaries)
+    plot(vis_boundaries{i}(:,2),vis_boundaries{i}(:,1),'m','linewidth',1);
+end
+ylim([0,size(avg_im,1)]);
+xlim([0,size(avg_im,2)]);
+axis off;
+
+
 %% Sparse noise retinotopy (Kenneth's suggestions for reducing non-vis)
 
 % "Whiten" noise in V

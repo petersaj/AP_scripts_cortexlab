@@ -1,7 +1,9 @@
 %% Preprocess and kilosort data (IMEC Phase 3)
 
-animal = 'AP014';
-day = '2017-04-16';
+error('Use AP_preprocess_phase3 instead')
+
+animal = 'AP018';
+day = '2017-05-23';
 
 data_path =  ...
     ['\\zserver.cortexlab.net\Data\Subjects\' animal filesep day '\ephys'];
@@ -20,7 +22,6 @@ messages_filename = [data_path filesep 'experiment1_messages_0.events'];
 settings_filename = [data_path filesep 'settings.xml'];
 
 %%%%%%%%%%%%%%%%%%%%%%%%% MAKE THIS WORK WHEN DATA FOR REAL
-error('FIX THE SETTINGS STUFF')
 % Get index of electrophysiology channels in recordings
 ephys_settings = xml2struct(settings_filename);
 
@@ -1733,7 +1734,7 @@ rf_map_smooth = imfilter(rf_map,gauss_filt);
 %% Classify cell type
 
 % Define cortical and striatal cells
-str_depth = [2400,Inf];
+str_depth = [Inf,Inf];
 
 str_templates = templateDepths >= str_depth(1) & templateDepths <= str_depth(2);
 non_str_templates = ~str_templates;
@@ -1873,13 +1874,13 @@ legend(celltype_labels(plot_celltypes));
 
 %% MUA/LFP correlation by depth 
 
-n_depth_groups = 100;
+n_depth_groups = 50;
 depth_group_edges = linspace(0,max(channel_positions(:,2)),n_depth_groups+1);
 depth_group = discretize(templateDepths,depth_group_edges);
 depth_group_centers = depth_group_edges(1:end-1)+diff(depth_group_edges);
 unique_depths = 1:length(depth_group_edges)-1;
 
-spike_binning = 0.01; % seconds
+spike_binning = 10; % seconds
 corr_edges = spike_times_timeline(1):spike_binning:spike_times_timeline(end);
 corr_centers = corr_edges(1:end-1) + diff(corr_edges);
 
