@@ -267,28 +267,29 @@ if handles.plot_choiceworld
     last_stimOff_time = handles.choiceworld.stimOffTimes(curr_stimOff_idx);
     
     [~,last_event] = max([last_cid_time,last_hit_time,last_stimOn_time,last_stimOff_time]);
-    switch last_event
-        case 1 % stim is interactive
-            set(handles.choiceworld_plot,'Visible','on');
-            set(handles.choiceworld_plot,'MarkerEdgeColor',[0,0.8,0]);
-        case 2 % feedback period
-            set(handles.choiceworld_plot,'Visible','on');
-            if handles.choiceworld.hitValues(curr_hit_idx)
-                set(handles.choiceworld_plot,'MarkerEdgeColor','b');
-            else
-                set(handles.choiceworld_plot,'MarkerEdgeColor','k');
-            end
-        case 3 % stim is on and not interactive
-            set(handles.choiceworld_plot,'Visible','on');
-            set(handles.choiceworld_plot,'MarkerEdgeColor','r');            
-            % Set the fill color to correspond to the contrast
-            curr_contrast_idx = find(handles.choiceworld.trialContrastTimes < handles.t,1,'last');
-            curr_contrast = handles.choiceworld.trialContrastValues(curr_contrast_idx);
-            set(handles.choiceworld_plot,'MarkerFaceColor',1-repmat(curr_contrast,1,3));           
-        case 4 % stim is off
-            set(handles.choiceworld_plot,'Visible','off');
-
-    end 
+    if ~isempty(last_event)
+        switch last_event
+            case 1 % stim is interactive
+                set(handles.choiceworld_plot,'Visible','on');
+                set(handles.choiceworld_plot,'MarkerEdgeColor',[0,0.8,0]);
+            case 2 % feedback period
+                set(handles.choiceworld_plot,'Visible','on');
+                if handles.choiceworld.hitValues(curr_hit_idx)
+                    set(handles.choiceworld_plot,'MarkerEdgeColor','b');
+                else
+                    set(handles.choiceworld_plot,'MarkerEdgeColor','k');
+                end
+            case 3 % stim is on and not interactive
+                set(handles.choiceworld_plot,'Visible','on');
+                set(handles.choiceworld_plot,'MarkerEdgeColor','r');
+                % Set the fill color to correspond to the contrast
+                curr_contrast_idx = find(handles.choiceworld.trialContrastTimes < handles.t,1,'last');
+                curr_contrast = handles.choiceworld.trialContrastValues(curr_contrast_idx);
+                set(handles.choiceworld_plot,'MarkerFaceColor',1-repmat(curr_contrast,1,3));
+            case 4 % stim is off
+                set(handles.choiceworld_plot,'Visible','off');
+        end
+    end
 end
 
 % Update the time text

@@ -616,23 +616,27 @@ roi_trace = nanmean(U_roi*fV);
 
 %% Get fluorescence trace of ROI
 
-% Choose ROI
-h = figure;
-imagesc(avg_im);
-set(gca,'YDir','reverse');
-colormap(gray);
-caxis([0 prctile(avg_im(:),90)]);
-roiMask = roipoly;
-close(h);
+% % Choose ROI
+% h = figure;
+% imagesc(avg_im);
+% set(gca,'YDir','reverse');
+% colormap(gray);
+% caxis([0 prctile(avg_im(:),90)]);
+% roiMask = roipoly;
+% close(h);
+% 
+% % Get fluorescence across session in ROI
+% U_roi = reshape(U(repmat(roiMask,1,1,size(U,3))),[],size(U,3));
+% roi_trace = nanmean(U_roi*fV);
+% 
+% figure;
+% plot(frame_t,roi_trace,'k');
+% xlabel('Time (s)')
+% ylabel('ROI Fluorescence')
 
-% Get fluorescence across session in ROI
-U_roi = reshape(U(repmat(roiMask,1,1,size(U,3))),[],size(U,3));
-roi_trace = nanmean(U_roi*fV);
+% Now have a function to do this:
+roi_trace = AP_svd_roi(U,fV);
 
-figure;
-plot(frame_t,roi_trace,'k');
-xlabel('Time (s)')
-ylabel('ROI Fluorescence')
 
 %% Correlate fluorescence with trace
 
@@ -1024,10 +1028,12 @@ px_10prct = svdFrameReconstruct(U,prctile(fV(:,skip_start_frames:end),10,2));
 %% Get average fluorescence to ChoiceWorld event
 
 % Define the window to get an aligned response to
-surround_window = [-0.2,5];
+surround_window = [-1,1];
 
 % Define the times to align to
-align_times = stim_times_timeline(block.events.trialContrastValues == 0.5 & block.events.trialSideValues == 1 & block.events.hitValues == 0)';
+use_trials = (choiceworld.trialContrastValues == 1 & choiceworld.trialSideValues == 1 & choiceworld.hitValues == 1) | ...
+    (choiceworld.trialContrastValues == 1 & choiceworld.trialSideValues == -1 & choiceworld.hitValues == 1);
+align_times = choiceworld.interactiveOnTimes(use_trials(1:length(choiceworld.interactiveOnTimes)))';
 
 % Get the surround time
 framerate = 1./nanmedian(diff(frame_t));
@@ -1054,6 +1060,108 @@ mean_aligned_px = svdFrameReconstruct(U,mean_aligned_V);
 
 AP_image_scroll(mean_aligned_px);
 warning off; truesize; warning on;
+
+
+%% Regress fluorescence to choiceworld event
+
+% Skip the first n seconds to do this
+skip_seconds = 10;
+use_frames = (frame_t > skip_seconds);
+
+% Make choiceworld event trace
+use_trials = (choiceworld.trialContrastValues == 1 & choiceworld.trialSideValues == 1 & choiceworld.hitValues == 1) | ...
+    (choiceworld.trialContrastValues == 1 & choiceworld.trialSideValues == -1 & choiceworld.hitValues == 1);
+align_times = choiceworld.hitTimes(use_trials(1:length(choiceworld.hitTimes)))';
+
+frame_edges = [frame_t,frame_t(end)+1/framerate];
+choiceworld_event_trace = histcounts(align_times,frame_edges);
+ 
+% for stim position, this didn't really work though...
+% choiceworld_event_trace = interp1(choiceworld.stimAzimuthTimes,choiceworld.stimAzimuthValues,frame_t);
+% choiceworld_event_trace(isnan(choiceworld_event_trace)) = 0;
+
+use_svs = 1:50;
+kernel_frames = -35:35;
+downsample_factor = 1;
+lambda = 1e6;
+zs = false;
+cvfold = 5;
+
+kernel_frames_downsample = round(downsample(kernel_frames,downsample_factor)/downsample_factor);
+
+[k,predicted_choiceworld_events,explained_var] = ...
+    AP_regresskernel(downsample(fV(use_svs,use_frames)',downsample_factor)', ...
+    downsample(choiceworld_event_trace(:,use_frames)',downsample_factor)',kernel_frames_downsample,lambda,zs,cvfold);
+
+% Reshape kernel and convert to pixel space
+r = reshape(k,length(use_svs),length(kernel_frames_downsample),size(choiceworld_event_trace,1));
+
+r_px = zeros(size(U,1),size(U,2),size(r,2),size(r,3),'single');
+for curr_spikes = 1:size(r,3);
+    r_px(:,:,:,curr_spikes) = svdFrameReconstruct(U(:,:,use_svs),r(:,:,curr_spikes));
+end
+
+AP_image_scroll(r_px,(kernel_frames_downsample*downsample_factor)/framerate);
+caxis([prctile(r_px(:),[1,99])]*4);
+truesize
+
+
+%% Regress fluorescence to 2 opposing choiceworld events
+
+% Skip the first n seconds to do this
+skip_seconds = 10;
+use_frames = (frame_t > skip_seconds);
+
+% Make choiceworld event trace
+use_trials_1 = choiceworld.trialContrastValues == 1 & choiceworld.trialSideValues == -1 & choiceworld.hitValues == 1;
+align_times_1 = choiceworld.hitTimes(use_trials_1(1:length(choiceworld.hitTimes)))';
+
+use_trials_2 = choiceworld.trialContrastValues == 1 & choiceworld.trialSideValues == 1 & choiceworld.hitValues == 0;
+align_times_2 = choiceworld.hitTimes(use_trials_2(1:length(choiceworld.hitTimes)))';
+
+frame_edges = [frame_t,frame_t(end)+1/framerate];
+choiceworld_event_trace_1 = histcounts(align_times_1,frame_edges);
+choiceworld_event_trace_2 = histcounts(align_times_2,frame_edges);
+
+choiceworld_event_trace_combined = choiceworld_event_trace_1 - choiceworld_event_trace_2;
+ 
+use_svs = 1:50;
+kernel_frames = -35:35;
+downsample_factor = 1;
+lambda = 1e6;
+zs = false;
+cvfold = 5;
+
+kernel_frames_downsample = round(downsample(kernel_frames,downsample_factor)/downsample_factor);
+
+[k,predicted_choiceworld_events,explained_var] = ...
+    AP_regresskernel(downsample(fV(use_svs,use_frames)',downsample_factor)', ...
+    downsample(choiceworld_event_trace_combined(:,use_frames)',downsample_factor)',kernel_frames_downsample,lambda,zs,cvfold);
+
+% Reshape kernel and convert to pixel space
+r = reshape(k,length(use_svs),length(kernel_frames_downsample),size(choiceworld_event_trace_combined,1));
+
+r_px = zeros(size(U,1),size(U,2),size(r,2),size(r,3),'single');
+for curr_spikes = 1:size(r,3);
+    r_px(:,:,:,curr_spikes) = svdFrameReconstruct(U(:,:,use_svs),r(:,:,curr_spikes));
+end
+
+AP_image_scroll(r_px,(kernel_frames_downsample*downsample_factor)/framerate);
+caxis([prctile(r_px(:),[1,99])]*4);
+truesize
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 
