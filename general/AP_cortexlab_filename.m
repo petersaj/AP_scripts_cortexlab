@@ -1,5 +1,5 @@
-function [filename,file_exists] = AP_cortexlab_filename(mouse,day,experiment,file,dayformat)
-% filename = AP_cortexlab_filename(mouse,day,experiment,file,dayformat);
+function [filename,file_exists] = AP_cortexlab_filename(animal,day,experiment,file,dayformat)
+% filename = AP_cortexlab_filename(animal,day,experiment,file,dayformat);
 %
 % file - can include:
 % timeline
@@ -52,35 +52,35 @@ switch file
     
     case 'datapath'
         filepath = '\\zserver.cortexlab.net\Data\Subjects';
-        filename = [filepath filesep mouse filesep day];
+        filename = [filepath filesep animal filesep day];
         
     case 'timeline'
         filepath = '\\zserver.cortexlab.net\Data\expInfo';
-        filename = [filepath filesep mouse filesep day filesep experiment ...
-            filesep day '_' experiment '_' mouse '_Timeline.mat'];
+        filename = [filepath filesep animal filesep day filesep experiment ...
+            filesep day '_' experiment '_' animal '_Timeline.mat'];
         
     case 'block'
         filepath = '\\zserver.cortexlab.net\Data\expInfo';
-        filename = [filepath filesep mouse filesep day filesep experiment ...
-            filesep day '_' experiment '_' mouse '_Block.mat'];
+        filename = [filepath filesep animal filesep day filesep experiment ...
+            filesep day '_' experiment '_' animal '_Block.mat'];
         
     case 'parameters' 
         filepath = '\\zserver.cortexlab.net\Data\expInfo';
-        filename = [filepath filesep mouse filesep day filesep experiment ...
-            filesep day '_' experiment '_' mouse '_parameters.mat'];
+        filename = [filepath filesep animal filesep day filesep experiment ...
+            filesep day '_' experiment '_' animal '_parameters.mat'];
         
     case 'protocol'
         filepath = '\\zserver.cortexlab.net\Data\trodes';
-        filename = [filepath filesep mouse filesep day filesep experiment filesep 'Protocol.mat'];
+        filename = [filepath filesep animal filesep day filesep experiment filesep 'Protocol.mat'];
         
     case 'eyecam'
         filepath = '\\zserver.cortexlab.net\Data\EyeCamera';
-        filename = [filepath filesep mouse filesep day filesep experiment ...
+        filename = [filepath filesep animal filesep day filesep experiment ...
             filesep 'eye.mj2'];
         
     case 'facecam'
         filepath = '\\zserver.cortexlab.net\Data\EyeCamera';
-        filename = [filepath filesep mouse filesep day filesep experiment ...
+        filename = [filepath filesep animal filesep day filesep experiment ...
             filesep 'face.mj2'];
         
     % Old (with etGUI)
@@ -92,18 +92,18 @@ switch file
     % New (with eyeGUI)
     case 'eyecam_processed'
         filepath = '\\zserver.cortexlab.net\Data\EyeCamera';
-        filename = [filepath filesep mouse filesep day filesep experiment ...
+        filename = [filepath filesep animal filesep day filesep experiment ...
             filesep 'eye_proc.mat'];
         
     case 'facecam_processed'
         filepath = '\\zserver.cortexlab.net\Data\EyeCamera';
-        filename = [filepath filesep mouse filesep day filesep experiment ...
+        filename = [filepath filesep animal filesep day filesep experiment ...
             filesep 'face_proc.mat'];
         
     case 'hardware'
         filepath = '\\zserver.cortexlab.net\Data\expInfo';
-        filename = [filepath filesep mouse filesep day filesep experiment ...
-            filesep day '_' experiment '_' mouse '_hardwareInfo.mat'];
+        filename = [filepath filesep animal filesep day filesep experiment ...
+            filesep day '_' experiment '_' animal '_hardwareInfo.mat'];
         
     case 'ephys'
         filepath = '\\basket.cortexlab.net\data\ajpeters\';

@@ -167,7 +167,7 @@ end
 %% Load face/eyecam processing (with eyeGUI)
 
 % EYECAM
-[eyecam_dir,eyecam_exists] = fileparts(AP_cortexlab_filename(animal,day,experiment,'eyecam'));
+[eyecam_dir,eyecam_exists] = AP_cortexlab_filename(animal,day,experiment,'eyecam');
 
 if eyecam_exists
     disp('Loading eyecam...')
@@ -216,7 +216,7 @@ if eyecam_exists
 end
 
 % FACECAM
-[facecam_dir,facecam_exists] = fileparts(AP_cortexlab_filename(animal,day,experiment,'facecam'));
+[facecam_dir,facecam_exists] = AP_cortexlab_filename(animal,day,experiment,'facecam');
 
 if facecam_exists
     disp('Loading facecam...')
@@ -259,7 +259,7 @@ end
 
 %% Load imaging data
 
-[data_path,data_path_exists] = fileparts(AP_cortexlab_filename(animal,day,experiment,'datapath'));
+[data_path,data_path_exists] = AP_cortexlab_filename(animal,day,experiment,'datapath');
 
 if data_path_exists    
     disp('Loading imaging data...')
@@ -359,8 +359,7 @@ end
 
 %% Load ephys data (single long recording)
 
-[ephys_path,ephys_exists] = fileparts(AP_cortexlab_filename(animal,day,experiment,'ephys'));
-
+[ephys_path,ephys_exists] = AP_cortexlab_filename(animal,day,experiment,'ephys');
 
 acqLive_channel = 2;
 load_lfp = false;
