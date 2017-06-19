@@ -1920,7 +1920,6 @@ colorbar
 axis square;
 
 %% Spectral analysis
-
 % Power spectrum
 use_trace = roi_trace(1:end-1);
 use_t = frame_t;

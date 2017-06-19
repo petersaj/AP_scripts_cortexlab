@@ -9,6 +9,7 @@ function [filename,file_exists] = AP_cortexlab_filename(mouse,day,experiment,fil
 % eyetracking
 % eyetracking_processed
 % hardware
+% datapath
 %
 % dayformat - dash or 8digit (default is to use whatever day is used as)
 
@@ -49,6 +50,10 @@ end
 
 switch file
     
+    case 'datapath'
+        filepath = '\\zserver.cortexlab.net\Data\Subjects';
+        filename = [filepath filesep mouse filesep day];
+        
     case 'timeline'
         filepath = '\\zserver.cortexlab.net\Data\expInfo';
         filename = [filepath filesep mouse filesep day filesep experiment ...
@@ -100,9 +105,10 @@ switch file
         filename = [filepath filesep mouse filesep day filesep experiment ...
             filesep day '_' experiment '_' mouse '_hardwareInfo.mat'];
         
-    case 'datapath'
-        filepath = '\\zserver.cortexlab.net\Data\Subjects';
-        filename = [filepath filesep mouse filesep day];
+    case 'ephys'
+        filepath = '\\basket.cortexlab.net\data\ajpeters\';
+        filename = [filepath filesep animal filesep day filesep 'ephys'];
+
 end
 
 file_exists = exist(filename);

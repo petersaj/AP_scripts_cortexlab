@@ -636,7 +636,7 @@ roi_trace = nanmean(U_roi*fV);
 
 % Now have a function to do this:
 roi_trace = AP_svd_roi(U,fV);
-
+figure;plot(frame_t,roi_trace,'k');
 
 %% Correlate fluorescence with trace
 
@@ -716,36 +716,6 @@ Ud = bsxfun(@times,Ud,roiMaskd);
 px_traces = reshape(Ud,[],size(Ud,3))*fV;
 brain_px = std(px_traces,[],2) > 0.0001;
 
-% % To try out different groupings
-% use_kgrps = 5:10;
-% 
-% kgrp = zeros(size(Ud,1),size(Ud,2),length(use_kgrps));
-% kgrp_borders = zeros(size(Ud,1),size(Ud,2),length(use_kgrps));
-% 
-% for i = 1:length(use_kgrps);
-%     
-%     curr_grps = use_kgrps(i);
-%     
-%     kidx = kmeans(px_traces(brain_px,:),curr_grps,'Distance','correlation');
-%     
-%     curr_kgrp = zeros(size(Ud,1),size(Ud,2));
-%     curr_kgrp(brain_px) = kidx;
-%     
-%     kgrp(:,:,i) = curr_kgrp;
-% 
-%     kgrp_borders(:,:,i) = imerode(imdilate(curr_kgrp,ones(3,3)) > imerode(curr_kgrp,ones(3,3)),ones(2,2));
-%     disp(i);
-% end
-% 
-% kgrp_border_overlay = kgrp_borders;
-% kgrp_border_overlay = bsxfun(@times,kgrp_border_overlay,permute(1:length(use_kgrps),[1,3,2]));
-% kgrp_border_overlay(kgrp_border_overlay == 0) = NaN;
-% kgrp_border_overlay = min(kgrp_border_overlay,[],3);
-% 
-% figure;imagesc(kgrp_border_overlay);
-% colormap(hot); caxis([0,length(use_kgrps)]);
-% axis off;
-
 % Get fluorescence traces by grouped pixels
 use_kgrps = 6;
 
@@ -754,17 +724,20 @@ kidx = kmeans(px_traces(brain_px,:),use_kgrps,'Distance','correlation');
 kgrp_downsample = zeros(size(Ud,1),size(Ud,2));
 kgrp_downsample(brain_px) = kidx;
 
-kgrp_borders = imerode(imdilate(kgrp_downsample,ones(3,3)) > imerode(kgrp_downsample,ones(3,3)),ones(2,2));
-
 % Sample back up to original size, fix edges with brain mask
 kgrp = imresize(kgrp_downsample,[size(U,1),size(U,2)],'nearest');
 kgrp(~any(U,3)) = 0;
+
+% Get borders (for other stuff)
+kgrp = imresize(kgrp_downsample,[size(U,1),size(U,2)],'nearest');
+kgrp_borders = arrayfun(@(x) bwboundaries(kgrp == x),1:use_kgrps,'uni',false);
+
 figure;
 kgrp_im = imagesc(kgrp);
 colormap(hot);
 drawnow;
 % If desired, cut areas bilaterally
-bilateral_separate = false;
+bilateral_separate = true;
 if bilateral_separate
     % Select midline
     [y,x] = ginput(1);
@@ -1028,12 +1001,13 @@ px_10prct = svdFrameReconstruct(U,prctile(fV(:,skip_start_frames:end),10,2));
 %% Get average fluorescence to ChoiceWorld event
 
 % Define the window to get an aligned response to
-surround_window = [-1,1];
+surround_window = [-0.2,1];
 
 % Define the times to align to
-use_trials = (choiceworld.trialContrastValues == 1 & choiceworld.trialSideValues == 1 & choiceworld.hitValues == 1) | ...
-    (choiceworld.trialContrastValues == 1 & choiceworld.trialSideValues == -1 & choiceworld.hitValues == 1);
-align_times = choiceworld.interactiveOnTimes(use_trials(1:length(choiceworld.interactiveOnTimes)))';
+use_trials = ismember(choiceworld.trialContrastValues,[1]) &  ...
+    ismember(choiceworld.trialSideValues,[-1]) & ...
+    ismember(choiceworld.hitValues,[1]);
+align_times = choiceworld.stimOnTimes(use_trials(1:length(choiceworld.stimOnTimes)))';
 
 % Get the surround time
 framerate = 1./nanmedian(diff(frame_t));
@@ -1052,13 +1026,21 @@ align_frames = discretize(align_surround_times,frame_edges);
 % If any aligned V's are NaNs (when does this happen?), don't use
 align_frames(any(isnan(align_frames),2),:) = [];
 
-mean_aligned_V = nanmean(reshape(fV(:,align_frames'), ...
-    size(fV,1),size(align_frames,2),size(align_frames,1)),3);
+aligned_V = reshape(fV(:,align_frames'), ...
+    size(fV,1),size(align_frames,2),size(align_frames,1));
+
+% (to bootstrap) this doesn't help
+% n_boot = 1000;
+% mean_aligned_V = ....
+%     squeeze(nanmean(reshape(bootstrp(n_boot,@mean, ...
+%     permute(aligned_V,[3,1,2])),n_boot,size(aligned_V,1),[]),1));
+
+mean_aligned_V = nanmean(aligned_V,3);
 
 % Get and plot the average fluorescence around event
 mean_aligned_px = svdFrameReconstruct(U,mean_aligned_V);
 
-AP_image_scroll(mean_aligned_px);
+AP_image_scroll(mean_aligned_px,surround_time);
 warning off; truesize; warning on;
 
 
@@ -1069,9 +1051,10 @@ skip_seconds = 10;
 use_frames = (frame_t > skip_seconds);
 
 % Make choiceworld event trace
-use_trials = (choiceworld.trialContrastValues == 1 & choiceworld.trialSideValues == 1 & choiceworld.hitValues == 1) | ...
-    (choiceworld.trialContrastValues == 1 & choiceworld.trialSideValues == -1 & choiceworld.hitValues == 1);
-align_times = choiceworld.hitTimes(use_trials(1:length(choiceworld.hitTimes)))';
+use_trials = ismember(choiceworld.trialContrastValues,[1,0.5]) &  ...
+    ismember(choiceworld.trialSideValues,[-1]) & ...
+    ismember(choiceworld.hitValues,[1]);
+align_times = choiceworld.stimOnTimes(use_trials(1:length(choiceworld.stimOnTimes)))';
 
 frame_edges = [frame_t,frame_t(end)+1/framerate];
 choiceworld_event_trace = histcounts(align_times,frame_edges);
@@ -1080,8 +1063,12 @@ choiceworld_event_trace = histcounts(align_times,frame_edges);
 % choiceworld_event_trace = interp1(choiceworld.stimAzimuthTimes,choiceworld.stimAzimuthValues,frame_t);
 % choiceworld_event_trace(isnan(choiceworld_event_trace)) = 0;
 
+% for timeline inputs
+%choiceworld_event_trace = licking_trace;
+%choiceworld_event_trace = wheel_speed;
+
 use_svs = 1:50;
-kernel_frames = -35:35;
+kernel_frames = -35:7;
 downsample_factor = 1;
 lambda = 1e6;
 zs = false;
@@ -1113,11 +1100,16 @@ skip_seconds = 10;
 use_frames = (frame_t > skip_seconds);
 
 % Make choiceworld event trace
-use_trials_1 = choiceworld.trialContrastValues == 1 & choiceworld.trialSideValues == -1 & choiceworld.hitValues == 1;
-align_times_1 = choiceworld.hitTimes(use_trials_1(1:length(choiceworld.hitTimes)))';
 
-use_trials_2 = choiceworld.trialContrastValues == 1 & choiceworld.trialSideValues == 1 & choiceworld.hitValues == 0;
-align_times_2 = choiceworld.hitTimes(use_trials_2(1:length(choiceworld.hitTimes)))';
+use_trials_1 = ismember(choiceworld.trialContrastValues,[1,0.5]) &  ...
+    ismember(choiceworld.trialSideValues,[1]) & ...
+    ismember(choiceworld.hitValues,[1]);
+align_times_1 = choiceworld.interactiveOnTimes(use_trials_1(1:length(choiceworld.interactiveOnTimes)))';
+
+use_trials_2 = ismember(choiceworld.trialContrastValues,[1,0.5]) &  ...
+    ismember(choiceworld.trialSideValues,[1]) & ...
+    ismember(choiceworld.hitValues,[0]);
+align_times_2 = choiceworld.interactiveOnTimes(use_trials_2(1:length(choiceworld.interactiveOnTimes)))';
 
 frame_edges = [frame_t,frame_t(end)+1/framerate];
 choiceworld_event_trace_1 = histcounts(align_times_1,frame_edges);
@@ -1126,9 +1118,9 @@ choiceworld_event_trace_2 = histcounts(align_times_2,frame_edges);
 choiceworld_event_trace_combined = choiceworld_event_trace_1 - choiceworld_event_trace_2;
  
 use_svs = 1:50;
-kernel_frames = -35:35;
+kernel_frames = -35:7;
 downsample_factor = 1;
-lambda = 1e6;
+lambda = 1e7;
 zs = false;
 cvfold = 5;
 
@@ -1150,8 +1142,205 @@ AP_image_scroll(r_px,(kernel_frames_downsample*downsample_factor)/framerate);
 caxis([prctile(r_px(:),[1,99])]*4);
 truesize
 
+%% Regress fluorescence to multiple choiceworld events
 
+% Skip the first n seconds to do this
+skip_seconds = 10;
+use_frames = (frame_t > skip_seconds);
 
+% Make choiceworld event trace
+frame_edges = [frame_t,frame_t(end)+1/framerate];
+choiceworld_event_trace = [];
+
+use_trials = ismember(choiceworld.trialContrastValues,[1,0.5]) &  ...
+    ismember(choiceworld.trialSideValues,[-1]) & ...
+    ismember(choiceworld.hitValues,[1]);
+align_times = choiceworld.stimOnTimes(use_trials(1:length(choiceworld.stimOnTimes)))';
+choiceworld_event_trace = [choiceworld_event_trace;histcounts(align_times,frame_edges)];
+
+use_trials = ismember(choiceworld.trialContrastValues,[1,0.5]) &  ...
+    ismember(choiceworld.trialSideValues,[1]) & ...
+    ismember(choiceworld.hitValues,[1]);
+align_times = choiceworld.stimOnTimes(use_trials(1:length(choiceworld.stimOnTimes)))';
+choiceworld_event_trace = [choiceworld_event_trace;histcounts(align_times,frame_edges)];
+
+% for stim position, this didn't really work though...
+% choiceworld_event_trace = interp1(choiceworld.stimAzimuthTimes,choiceworld.stimAzimuthValues,frame_t);
+% choiceworld_event_trace(isnan(choiceworld_event_trace)) = 0;
+
+% for timeline inputs
+%choiceworld_event_trace = licking_trace;
+%choiceworld_event_trace = wheel_speed;
+
+use_svs = 1:50;
+kernel_frames = -35:35;
+downsample_factor = 1;
+lambda = 1e7;
+zs = false;
+cvfold = 5;
+
+kernel_frames_downsample = round(downsample(kernel_frames,downsample_factor)/downsample_factor);
+
+[k,predicted_choiceworld_events,explained_var] = ...
+    AP_regresskernel(downsample(fV(use_svs,use_frames)',downsample_factor)', ...
+    downsample(choiceworld_event_trace(:,use_frames)',downsample_factor)',kernel_frames_downsample,lambda,zs,cvfold);
+
+% Reshape kernel and convert to pixel space
+r = reshape(k,length(use_svs),length(kernel_frames_downsample),size(choiceworld_event_trace,1));
+
+r_px = zeros(size(U,1),size(U,2),size(r,2),size(r,3),'single');
+for curr_spikes = 1:size(r,3);
+    r_px(:,:,:,curr_spikes) = svdFrameReconstruct(U(:,:,use_svs),r(:,:,curr_spikes));
+end
+
+AP_image_scroll(r_px,(kernel_frames_downsample*downsample_factor)/framerate);
+caxis([prctile(r_px(:),[1,99])]*4);
+truesize
+
+%% Regress choiceworld event(s) to fluorescence
+
+% Skip the first n seconds to do this
+skip_seconds = 10;
+use_frames = (frame_t > skip_seconds);
+
+% Make choiceworld event traces
+frame_edges = [frame_t,frame_t(end)+1/framerate];
+choiceworld_event_trace = [];
+
+use_contrasts = [0,0.125,0.25,0.5,1];
+use_trialSides = [-1,1];
+
+for trialSide_idx = 1:length(use_trialSides)
+    for contrast_idx = 1:length(use_contrasts)
+        
+        curr_trialSide = use_trialSides(trialSide_idx);
+        curr_contrast = use_contrasts(contrast_idx);
+        
+        use_trials = ismember(choiceworld.trialContrastValues,[curr_contrast]) &  ...
+            choiceworld.trialSideValues == curr_trialSide & ...
+            choiceworld.hitValues == 1;
+        align_times = choiceworld.stimOnTimes(use_trials(1:length(choiceworld.stimOnTimes)))';
+        choiceworld_event_trace = [choiceworld_event_trace;histcounts(align_times,frame_edges)];
+        
+    end
+end
+
+%choiceworld_event_trace = [choiceworld_event_trace;licking_trace];
+%choiceworld_event_trace = [choiceworld_event_trace;wheel_speed];
+
+%choiceworld_event_trace = zscore(choiceworld_event_trace,[],2);
+
+use_svs = 1:50;
+kernel_frames = -7:35;
+lambda = 0;
+zs = false;
+cvfold = 5;
+
+[k,predicted_fluor,explained_var] = ...
+    AP_regresskernel(choiceworld_event_trace(:,use_frames), ...
+    fV(use_svs,use_frames), ...
+    kernel_frames,lambda,zs,cvfold);
+
+% Reshape kernel and convert to pixel space
+k_r = permute(reshape(k,size(choiceworld_event_trace,1),length(kernel_frames),length(use_svs)),[3,2,1]);
+
+r_px = zeros(size(U,1),size(U,2),size(k_r,2),size(k_r,3),'single');
+for curr_event = 1:size(k_r,3);
+    r_px(:,:,:,curr_event) = svdFrameReconstruct(U(:,:,use_svs),k_r(:,:,curr_event));
+end
+
+AP_image_scroll(r_px,kernel_frames/framerate);
+caxis([prctile(r_px(:),[1,99])]*4);
+truesize
+
+%% Align widefield images across days (/ get transform matricies)
+
+animal = 'AP017';
+expInfo_path = ['\\zserver.cortexlab.net\Data\expInfo\' animal];
+expInfo_dir = dir(expInfo_path);
+days = {expInfo_dir(find([expInfo_dir(3:end).isdir])+2).name};
+
+avg_im = cell(length(days),1);
+for curr_day = 1:length(days)
+    data_path = ['\\zserver.cortexlab.net\Data\Subjects\' animal filesep days{curr_day}];
+    avg_im{curr_day} = readNPY([data_path filesep 'meanImage_blue.npy']);
+end
+
+% border_pixels = 20;
+% avg_im = cellfun(@(x) imgaussfilt(x(border_pixels:end-border_pixels+1,border_pixels:end-border_pixels+1),3),avg_im,'uni',false);
+
+% Register days to each other
+ref_im_num = length(avg_im);
+
+disp('Registering average images')
+tform_matrix = cell(length(avg_im),1);
+tform_matrix{1} = eye(3);
+
+avg_im_reg = nan(size(avg_im{ref_im_num},1),size(avg_im{ref_im_num},2),length(avg_im));
+avg_im_reg(:,:,ref_im_num) = avg_im{ref_im_num};
+
+for curr_session = setdiff(1:length(avg_im),ref_im_num)
+    
+    % OLD
+    
+    %     [optimizer, metric] = imregconfig('monomodal');
+    %     optimizer.MaximumStepLength = 0.02;
+    %     %optimizer.MaximumStepLength = 0.0001;
+    %     optimizer.RelaxationFactor = 0.1;
+    %     optimizer.GradientMagnitudeTolerance = 1e-5;
+    %     optimizer.MaximumIterations = 300;
+    %     %         optimizer = registration.optimizer.OnePlusOneEvolutionary();
+    %     %         optimizer.MaximumIterations = 500;
+    %     %         optimizer.GrowthFactor = 1.00001;
+    %     %         optimizer.InitialRadius = 1e-5;
+    %
+    %     % Perform the registration on the maximum image
+    %     tformEstimate = imregtform(avg_im{curr_session},avg_im{1},'affine',optimizer,metric);
+    %     %tformEstimate = imregcorr(summed_max(:,:,curr_session),summed_max(:,:,1),'similarity');
+    %
+    %     curr_im_reg = imwarp(avg_im{curr_session},tformEstimate,'Outputview',imref2d(size(avg_im{1})));
+    %
+    %     tform_matrix{curr_session} = tformEstimate.T;
+    %     summed_max_reg(:,:,curr_session) = max_im_reg;
+    %     summed_mean_reg(:,:,curr_session) = mean_im_reg;
+     
+    
+    %%%%%%%%%%%%%
+    
+    % This is to do correlation, then affine (if above doesn't work)
+    [optimizer, metric] = imregconfig('monomodal');
+    optimizer = registration.optimizer.OnePlusOneEvolutionary();
+    optimizer.MaximumIterations = 1000;
+    optimizer.GrowthFactor = 1+1e-6;
+    optimizer.InitialRadius = 1e-4;
+    
+%     % Register 1) correlation
+%     tformEstimate_corr = imregcorr(avg_im{curr_session},avg_im{ref_im_num},'similarity');
+%     curr_im_reg_corr = imwarp(avg_im{curr_session},tformEstimate_corr,'Outputview',imref2d(size(avg_im{ref_im_num})));
+%     
+%     % Register 2) affine
+%     tformEstimate_affine = imregtform(curr_im_reg_corr,avg_im{ref_im_num},'affine',optimizer,metric);
+%     
+%     tformEstimate_combined = tformEstimate_corr;
+%     tformEstimate_combined.T = tformEstimate_affine.T*tformEstimate_corr.T;
+%     
+%     curr_im_reg = imwarp(avg_im{curr_session},tformEstimate_combined,'Outputview',imref2d(size(avg_im{ref_im_num})));
+    
+%     tform_matrix{curr_session} = tformEstimate_combined.T;
+
+    %%% TEST: just affine
+    tformEstimate_affine = imregtform(avg_im{curr_session},avg_im{ref_im_num},'affine',optimizer,metric);
+    curr_im_reg = imwarp(avg_im{curr_session},tformEstimate_affine,'Outputview',imref2d(size(avg_im{ref_im_num})));
+    tform_matrix{curr_session} = tformEstimate_affine.T;
+    %%%%
+    
+    avg_im_reg(:,:,curr_session) = curr_im_reg;
+    
+    disp(curr_session);
+    
+end
+
+AP_image_scroll(avg_im_reg)
 
 
 

@@ -47,7 +47,6 @@ for curr_day = 1:length(days)
     
     % Performance (note that this excludes repeat on incorrect trials)
     performance = block.events.sessionPerformanceValues(:,end-10:end);  
-    go_left = performance(end,:)./performance(2,:);
         
     % Store in behavior structure   
     bhv.session_duration(curr_day) = session_duration;
@@ -56,7 +55,8 @@ for curr_day = 1:length(days)
     bhv.wheel_movement(curr_day) = sum(abs(wheel_movement));
     bhv.wheel_bias(curr_day) = wheel_bias;
     bhv.conditions = performance(1,:);
-    bhv.go_left(curr_day,:) = go_left;
+    bhv.n_trials_condition(curr_day,:) = performance(2,:);
+    bhv.go_left_trials(curr_day,:) = performance(end,:);
     
     disp(['Behavior: day ' num2str(curr_day) '/' num2str(length(days))]);
     
@@ -84,7 +84,7 @@ ylabel('Wheel bias');
 xlabel('Session');
 
 subplot(1,3,3);
-imagesc(bhv.conditions,1:size(bhv.go_left),bhv.go_left);colormap(redblue)
+imagesc(bhv.conditions,1:size(bhv.go_left_trials),bhv.go_left_trials./bhv.n_trials_condition);colormap(redblue)
 color_step = diff(caxis)/size(colormap,1);
 colormap([repmat(0.5,3);colormap]);
 caxis([0-color_step*(255/size(colormap,1)),1]);

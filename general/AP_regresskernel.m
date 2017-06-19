@@ -37,7 +37,7 @@ end
 
 % Z-score all regressors and signals to get beta weights if selected
 % (z-score signals by default to return comparable weights)
-signals = zscore(signals,[],2);
+%signals = zscore(signals,[],2);
 if ~exist('zs','var') || isempty(zs)
     zs = false;
 end

@@ -65,6 +65,7 @@ handles.t = frame_t(wf_frame);
 
 wf_im = svdFrameReconstruct(U,V(:,wf_frame));
 handles.wf_im = imagesc(handles.wf_axis,wf_im); axis(handles.wf_axis,'off');
+caxis(handles.wf_axis,[-3000,3000]);
 
 % Set up videoreaders, relative times, and images of cameras
 discretize_times = [frame_t,frame_t(end)+framerate];
@@ -76,7 +77,8 @@ if handles.plot_eyecam
     
     eyecam_frame = find(handles.eyecam_frame_idx == wf_frame,1);
     eyecam_im = read(handles.eyecam_vr,eyecam_frame);
-    handles.eyecam_im = imagesc(handles.eyecam_axis,eyecam_im); axis(handles.eyecam_axis,'off');   
+    handles.eyecam_im = imagesc(handles.eyecam_axis,eyecam_im); axis(handles.eyecam_axis,'off');  
+    caxis(handles.eyecam_axis,[0,255]);
 end
 
 if handles.plot_facecam
@@ -86,6 +88,7 @@ if handles.plot_facecam
     facecam_frame = find(handles.facecam_frame_idx == wf_frame,1);
     facecam_im = read(handles.facecam_vr,facecam_frame);
     handles.facecam_im = imagesc(handles.facecam_axis,facecam_im); axis(handles.facecam_axis,'off');
+    caxis(handles.facecam_axis,[0,255]);
 end
 
 % Set up choiceworld plot
@@ -93,8 +96,8 @@ if handles.plot_choiceworld
     handles.choiceworld_plot = plot(handles.choiceworld_axis,0,0,'o');
     set(handles.choiceworld_plot,'Linewidth',3,'MarkerSize',30, ...
         'MarkerFaceColor','k','MarkerEdgeColor',[0.5,0.5,0.5]);    
-    xlim([-180,180])
-    
+    xlim([-180,180]);
+    axis(handles.choiceworld_axis,'off');  
     handles.choiceworld = choiceworld;
 end
 
