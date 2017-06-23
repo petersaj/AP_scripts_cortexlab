@@ -41,7 +41,7 @@ trialsToBuffer = 50;
 trialsToZeroContrast = 500;
 sigma = [20,20];
 spatialFrequency = 0.01;
-stimFlickerFrequency = 5;
+stimFlickerFrequency = 5; % DISABLED BELOW
 startingAzimuth = 90;
 responseDisplacement = 90;
 
@@ -70,7 +70,7 @@ missNoiseSamples = missNoiseAmplitude*events.expStart.map(@(x) ...
 
 % Wheel parameters
 quiescThreshold = 1;
-wheelGain = 3;
+wheelGain = 2;
 
 %% Initialize trial data
 
@@ -153,7 +153,8 @@ stim.sigma = sigma;
 stim.spatialFrequency = spatialFrequency;
 stim.phase = 2*pi*events.newTrial.map(@(v)rand);
 stim.azimuth = stimAzimuth;
-stim.contrast = trialContrast.at(stimOn)*stimFlicker;
+%stim.contrast = trialContrast.at(stimOn)*stimFlicker;
+stim.contrast = trialContrast.at(stimOn);
 stim.show = stimOn.to(stimOff);
 
 visStim.stim = stim;

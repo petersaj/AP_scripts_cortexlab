@@ -1,8 +1,9 @@
-function AP_load_experiment(animal,day,experiment)
-% outputs = AP_load_experiment(animal,day,experiment)
+% AP_load_experiment(animal,day,experiment)
 %
-% Loads and packages data from experiments
+% Loads data from experiments
 % assumes kilotrode, among other things
+%
+% Not a function at the moment because nothing is packaged
 
 %% Load timeline
 
@@ -50,9 +51,6 @@ if protocol_exists
     
     % Get stimulus onsets and parameters
     photodiode_idx = strcmp({Timeline.hw.inputs.name}, 'photoDiode');
-    
-    % If the stim screen is flickered, interpolate photodiode when off
-    disp(['Getting mpep data: ' rig ', photodiode: ' photodiode_type]);
     
     % Get stim screen signal index
     stimScreen_idx = strcmp({Timeline.hw.inputs.name}, 'stimScreen');
@@ -186,7 +184,8 @@ if eyecam_exists
     
     % Get camera times
     eyecam_fn = AP_cortexlab_filename(animal,day,experiment,'eyecam');
-    eyecam_t_savefile = [cam_dir filesep 'eyecam_t.mat'];
+    eyecam_dir = fileparts(eyecam_fn);
+    eyecam_t_savefile = [eyecam_dir filesep 'eyecam_t.mat'];
     
     if exist(eyecam_fn,'file') && ~exist(eyecam_t_savefile,'file')
         % Get facecam strobes
@@ -199,16 +198,18 @@ if eyecam_exists
         % Get sync times for cameras (or load if already done)
         [eyecam_sync_frames,n_eyecam_frames] = AP_get_cam_sync_frames(eyecam_fn);
         
-        % Get the closest facecam strobe to sync start, find offset and frame idx
-        [~,eyecam_strobe_sync] = min(abs(camSync_up(1) - eyeCamStrobe_up));
-        eyecam_frame_offset = eyecam_sync_frames(1) - eyecam_strobe_sync;
-        eyecam_frame_idx = [1:length(eyeCamStrobe_up)] + eyecam_frame_offset;
-        
-        % Get times of facecam frames in timeline
-        eyecam_t = nan(n_eyecam_frames,1);
-        eyecam_t(eyecam_frame_idx) = eyeCamStrobe_up_t;
-        
-        save(eyecam_t_savefile,'eyecam_t');
+        if ~isempty(eyecam_sync_frames)
+            % Get the closest facecam strobe to sync start, find offset and frame idx
+            [~,eyecam_strobe_sync] = min(abs(camSync_up(1) - eyeCamStrobe_up));
+            eyecam_frame_offset = eyecam_sync_frames(1) - eyecam_strobe_sync;
+            eyecam_frame_idx = [1:length(eyeCamStrobe_up)] + eyecam_frame_offset;
+            
+            % Get times of facecam frames in timeline
+            eyecam_t = nan(n_eyecam_frames,1);
+            eyecam_t(eyecam_frame_idx) = eyeCamStrobe_up_t;
+            
+            save(eyecam_t_savefile,'eyecam_t');
+        end
     elseif exist(eyecam_fn,'file') && exist(eyecam_t_savefile,'file')
         load(eyecam_t_savefile);
     end
@@ -228,7 +229,8 @@ if facecam_exists
     
     % Get camera times
     facecam_fn = AP_cortexlab_filename(animal,day,experiment,'facecam');
-    facecam_t_savefile = [cam_dir filesep 'facecam_t.mat'];
+    facecam_dir = fileparts(facecam_fn);
+    facecam_t_savefile = [facecam_dir filesep 'facecam_t.mat'];
     
     if exist(facecam_fn,'file') && ~exist(facecam_t_savefile,'file')
         % Get facecam strobes
@@ -241,16 +243,18 @@ if facecam_exists
         % Get sync times for cameras (or load if already done)
         [facecam_sync_frames,n_facecam_frames] = AP_get_cam_sync_frames(facecam_fn);
         
-        % Get the closest facecam strobe to sync start, find offset and frame idx
-        [~,facecam_strobe_sync] = min(abs(camSync_up(1) - faceCamStrobe_up));
-        facecam_frame_offset = facecam_sync_frames(1) - facecam_strobe_sync;
-        facecam_frame_idx = [1:length(faceCamStrobe_up)] + facecam_frame_offset;
-        
-        % Get times of facecam frames in timeline
-        facecam_t = nan(n_facecam_frames,1);
-        facecam_t(facecam_frame_idx) = faceCamStrobe_up_t;
-        
-        save(facecam_t_savefile,'facecam_t');
+        if ~isempty(facecam_sync_frames)            
+            % Get the closest facecam strobe to sync start, find offset and frame idx
+            [~,facecam_strobe_sync] = min(abs(camSync_up(1) - faceCamStrobe_up));
+            facecam_frame_offset = facecam_sync_frames(1) - facecam_strobe_sync;
+            facecam_frame_idx = [1:length(faceCamStrobe_up)] + facecam_frame_offset;
+            
+            % Get times of facecam frames in timeline
+            facecam_t = nan(n_facecam_frames,1);
+            facecam_t(facecam_frame_idx) = faceCamStrobe_up_t;
+            
+            save(facecam_t_savefile,'facecam_t');
+        end
     elseif exist(facecam_fn,'file') && exist(facecam_t_savefile,'file')
         load(facecam_t_savefile);
     end
@@ -276,13 +280,10 @@ if data_path_exists
         
         experiment_path = [data_path filesep num2str(experiment)];
         
-        disp('Loading imaging data...')
         frame_t = readNPY([experiment_path filesep 'svdTemporalComponents_blue.timestamps.npy']);
         U = readUfromNPY([data_path filesep 'svdSpatialComponents_blue.npy']);
         V = readVfromNPY([experiment_path filesep 'svdTemporalComponents_blue.npy']);
-        
-        disp('Done loading')
-        
+                
         framerate = 1./nanmedian(diff(frame_t));
         
         % Detrend and high-pass filter
@@ -298,7 +299,6 @@ if data_path_exists
         % Load in all things as neural (n) or hemodynamic (h)
         experiment_path = [data_path filesep num2str(experiment)];
         
-        disp('Loading imaging data...')
         tn = readNPY([experiment_path filesep 'svdTemporalComponents_' cam_color_signal '.timestamps.npy']);
         Un = readUfromNPY([data_path filesep 'svdSpatialComponents_' cam_color_signal '.npy']);
         Vn = readVfromNPY([experiment_path filesep 'svdTemporalComponents_' cam_color_signal '.npy']);
@@ -310,15 +310,15 @@ if data_path_exists
         Vh = readVfromNPY([experiment_path filesep 'svdTemporalComponents_' cam_color_hemo '.npy']);
         dataSummary_h = load([data_path filesep 'dataSummary_' cam_color_signal '.mat']);
         avg_im_h = readNPY([data_path filesep 'meanImage_' cam_color_hemo '.npy']);
-        
-        disp('Done loading')
-        
+                
         framerate = 1./nanmedian(diff(tn));
         
         % Correct hemodynamic signal in blue from green
         % First need to shift alternating signals to be temporally aligned
         % (shifts neural to hemo)
         % Eliminate odd frames out
+        disp('Correcting hemodynamics...')
+
         min_frames = min(size(Vn,2),size(Vh,2));
         Vn = Vn(:,1:min_frames);
         Vh = Vh(:,1:min_frames);
@@ -329,8 +329,11 @@ if data_path_exists
         
         %hemo_freq = [0.2,3];
         hemo_freq = [7,13];
-        disp('Correcting hemodynamics...')
         Vn_hemo = HemoCorrectLocal(Un,Vn_th,Vh_Un,framerate,hemo_freq,3);
+        
+        % Close the figures (hacky - but function isn't mine)
+        close(gcf)
+        close(gcf)
         
         disp('Filtering...')
         % Don't bother filtering heartbeat, just detrend and highpass
@@ -353,7 +356,7 @@ if data_path_exists
     disp('Done.')
     
     % Make dF/F
-    %[Udf,fVdf] = dffFromSVD(U,fV,avg_im);
+    [Udf,fVdf] = dffFromSVD(U,fV,avg_im);
     
 end
 
@@ -361,166 +364,166 @@ end
 
 [ephys_path,ephys_exists] = AP_cortexlab_filename(animal,day,experiment,'ephys');
 
-acqLive_channel = 2;
-load_lfp = false;
-
-disp('Loading ephys');
-
-data_path = ['\\basket.cortexlab.net\data\ajpeters\' animal filesep day filesep 'ephys'];
-
-% Load clusters, if they exist
-cluster_filename = [data_path filesep 'cluster_groups.csv'];
-if exist(cluster_filename,'file')
-    fid = fopen(cluster_filename);
-    cluster_groups = textscan(fid,'%d%s','HeaderLines',1);
-    fclose(fid);
-end
-
-% Load sync/photodiode
-load(([data_path filesep 'sync.mat']));
-
-% Read header information
-header_path = [data_path filesep 'dat_params.txt'];
-header_fid = fopen(header_path);
-header_info = textscan(header_fid,'%s %s', 'delimiter',{' = '});
-fclose(header_fid);
-
-header = struct;
-for i = 1:length(header_info{1})
-    header.(header_info{1}{i}) = header_info{2}{i};
-end
-
-% Load spike data
-if isfield(header,'sample_rate')
-    ephys_sample_rate = str2num(header.sample_rate);
-elseif isfield(header,'ap_sample_rate')
-    ephys_sample_rate = str2num(header.ap_sample_rate);
-end
-spike_times = double(readNPY([data_path filesep 'spike_times.npy']))./ephys_sample_rate;
-spike_templates = readNPY([data_path filesep 'spike_templates.npy']);
-templates = readNPY([data_path filesep 'templates.npy']);
-channel_positions = readNPY([data_path filesep 'channel_positions.npy']);
-channel_map = readNPY([data_path filesep 'channel_map.npy']);
-winv = readNPY([data_path filesep 'whitening_mat_inv.npy']);
-template_amplitudes = readNPY([data_path filesep 'amplitudes.npy']);
-
-% Flip channel map and positions if banks are reversed
-if flipped_banks
-    channel_map = [channel_map(61:end);channel_map(1:60)];
-    channel_positions = [channel_positions(61:end,:);channel_positions(1:60,:)];
-end
-
-% Default channel map/positions are from end: make from surface
-channel_positions(:,2) = max(channel_positions(:,2)) - channel_positions(:,2);
-
-% Load LFP
-n_channels = str2num(header.n_channels);
-lfp_filename = [data_path filesep 'lfp.dat'];
-if load_lfp && exist(lfp_filename,'file')
-    fid = fopen(lfp_filename);
-    lfp_all = fread(fid,[n_channels,inf],'int16');
-    fclose(fid);
-    % eliminate non-connected channels and sort by position (surface to deep)
-    lfp = lfp_all(flipud(channel_map)+1,:);
-    % get time of LFP sample points (NOTE: this is messy, based off of sample
-    % rate and knowing what kwik2dat does, not sure how accurate)
-    sample_rate = str2num(header.sample_rate);
-    lfp_cutoff = str2num(header.lfp_cutoff);
-    lfp_downsamp = (sample_rate/lfp_cutoff)/2;
-    lfp_t = ([1:size(lfp,2)]*lfp_downsamp)/sample_rate;
-end
-
-% Get acqLive times for current experiment
-experiment_ephys_starts = sync(acqLive_channel).timestamps(sync(acqLive_channel).values == 1);
-experiment_ephys_stops = sync(acqLive_channel).timestamps(sync(acqLive_channel).values == 0);
-
-experiments_dir = dir(fileparts(AP_cortexlab_filename(animal,day,[],'timeline')));
-experiment_num = strmatch(experiment,{experiments_dir.name})-2;
-acqlive_ephys_currexpt = [experiment_ephys_starts(experiment_num), ...
-    experiment_ephys_stops(experiment_num)];
-
-% Get the spike/lfp times in timeline time (accounts for clock drifts)
-spike_times_timeline = AP_clock_fix(spike_times,acqlive_ephys_currexpt,acqLive_timeline);
-if load_lfp && exist(lfp_filename,'file')
-    lfp_t_timeline = AP_clock_fix(lfp_t,acqlive_ephys_currexpt,acqLive_timeline);
-end
-
-% Get the depths of each template 
-% (by COM: this gives totally wonky answers because of artifacts maybe?)
-%[spikeAmps, spikeDepths, templateDepths, tempAmps, tempsUnW, templateDuration, waveforms] = ...
-%    templatePositionsAmplitudes(templates,winv,channel_positions(:,2),spike_templates,template_amplitudes);
-
-% (by max waveform channel)
-template_abs = permute(max(abs(templates),[],2),[3,1,2]);
-[~,max_channel_idx] =  max(template_abs,[],1);
-templateDepths = channel_positions(max_channel_idx,2);
-
-% Get each spike's depth
-spikeDepths = templateDepths(spike_templates+1);
-
-% Get the waveform duration of all templates (channel with largest amp)
-[~,max_site] = max(max(abs(templates),[],2),[],3);
-templates_max = nan(size(templates,1),size(templates,2));
-for curr_template = 1:size(templates,1)
-    templates_max(curr_template,:) = ...
-        templates(curr_template,:,max_site(curr_template));
-end
-waveforms = templates_max;
-
-% Get trough-to-peak time for each template
-templates_max_signfix = bsxfun(@times,templates_max, ...
-    sign(abs(min(templates_max,[],2)) - abs(max(templates_max,[],2))));
-
-[~,waveform_trough] = min(templates_max,[],2);
-[~,waveform_peak_rel] = arrayfun(@(x) ...
-    max(templates_max(x,waveform_trough(x):end),[],2), ...
-    transpose(1:size(templates_max,1)));
-waveform_peak = waveform_peak_rel + waveform_trough;
-
-templateDuration = waveform_peak - waveform_trough;
-templateDuration_us = (templateDuration/ephys_sample_rate)*1e6;
-
-disp('Done');
-
-%% Eliminate spikes that were classified as not "good"
-
-if exist('cluster_groups','var') && ~exist('good_templates','var')
+if ephys_exists
     
-    disp('Removing non-good templates')
+    disp('Loading ephys...')
     
-    good_templates_idx = uint32(cluster_groups{1}(strcmp(cluster_groups{2},'good')));
-    good_templates = ismember(0:size(templates,1)-1,good_templates_idx);
+    acqLive_channel = 2;
+    load_lfp = false;
+            
+    % Load clusters, if they exist
+    cluster_filename = [ephys_path filesep 'cluster_groups.csv'];
+    if exist(cluster_filename,'file')
+        fid = fopen(cluster_filename);
+        cluster_groups = textscan(fid,'%d%s','HeaderLines',1);
+        fclose(fid);
+    end
     
-    % Throw out all non-good template data
-    templates = templates(good_templates,:,:);
-    templateDepths = templateDepths(good_templates);
-    waveforms = waveforms(good_templates,:);
-    templateDuration = templateDuration(good_templates);
-    templateDuration_us = templateDuration_us(good_templates);
+    % Load sync/photodiode
+    load(([ephys_path filesep 'sync.mat']));
     
-    % Throw out all non-good spike data
-    good_spike_idx = ismember(spike_templates,good_templates_idx);    
-    spike_times = spike_times(good_spike_idx);
-    spike_templates = spike_templates(good_spike_idx);
-    template_amplitudes = template_amplitudes(good_spike_idx);
-    spikeDepths = spikeDepths(good_spike_idx);
-    spike_times_timeline = spike_times_timeline(good_spike_idx);
+    % Read header information
+    header_path = [ephys_path filesep 'dat_params.txt'];
+    header_fid = fopen(header_path);
+    header_info = textscan(header_fid,'%s %s', 'delimiter',{' = '});
+    fclose(header_fid);
     
-    % Re-name the spike templates according to the remaining templates
-    % (and make 1-indexed from 0-indexed)
-    new_spike_idx = nan(max(spike_templates)+1,1);
-    new_spike_idx(good_templates_idx+1) = 1:length(good_templates_idx);
-    spike_templates = new_spike_idx(spike_templates+1);
+    header = struct;
+    for i = 1:length(header_info{1})
+        header.(header_info{1}{i}) = header_info{2}{i};
+    end
     
-elseif exist('cluster_groups','var') && exist('good_templates','var')
-    disp('Good templates already identified, skipping')
-elseif ~exist('cluster_groups','var')
-    disp('Clusters not yet sorted');
+    % Load spike data
+    if isfield(header,'sample_rate')
+        ephys_sample_rate = str2num(header.sample_rate);
+    elseif isfield(header,'ap_sample_rate')
+        ephys_sample_rate = str2num(header.ap_sample_rate);
+    end
+    spike_times = double(readNPY([ephys_path filesep 'spike_times.npy']))./ephys_sample_rate;
+    spike_templates = readNPY([ephys_path filesep 'spike_templates.npy']);
+    templates = readNPY([ephys_path filesep 'templates.npy']);
+    channel_positions = readNPY([ephys_path filesep 'channel_positions.npy']);
+    channel_map = readNPY([ephys_path filesep 'channel_map.npy']);
+    winv = readNPY([ephys_path filesep 'whitening_mat_inv.npy']);
+    template_amplitudes = readNPY([ephys_path filesep 'amplitudes.npy']);
+    
+    % Flip channel map and positions if banks are reversed
+    if flipped_banks
+        channel_map = [channel_map(61:end);channel_map(1:60)];
+        channel_positions = [channel_positions(61:end,:);channel_positions(1:60,:)];
+    end
+    
+    % Default channel map/positions are from end: make from surface
+    channel_positions(:,2) = max(channel_positions(:,2)) - channel_positions(:,2);
+    
+    % Load LFP
+    n_channels = str2num(header.n_channels);
+    lfp_filename = [ephys_path filesep 'lfp.dat'];
+    if load_lfp && exist(lfp_filename,'file')
+        fid = fopen(lfp_filename);
+        lfp_all = fread(fid,[n_channels,inf],'int16');
+        fclose(fid);
+        % eliminate non-connected channels and sort by position (surface to deep)
+        lfp = lfp_all(flipud(channel_map)+1,:);
+        % get time of LFP sample points (NOTE: this is messy, based off of sample
+        % rate and knowing what kwik2dat does, not sure how accurate)
+        sample_rate = str2num(header.sample_rate);
+        lfp_cutoff = str2num(header.lfp_cutoff);
+        lfp_downsamp = (sample_rate/lfp_cutoff)/2;
+        lfp_t = ([1:size(lfp,2)]*lfp_downsamp)/sample_rate;
+    end
+    
+    % Get acqLive times for current experiment
+    experiment_ephys_starts = sync(acqLive_channel).timestamps(sync(acqLive_channel).values == 1);
+    experiment_ephys_stops = sync(acqLive_channel).timestamps(sync(acqLive_channel).values == 0);
+    
+    experiments_dir = dir(fileparts(AP_cortexlab_filename(animal,day,[],'timeline')));
+    experiment_num = strmatch(experiment,{experiments_dir.name})-2;
+    acqlive_ephys_currexpt = [experiment_ephys_starts(experiment_num), ...
+        experiment_ephys_stops(experiment_num)];
+    
+    % Get the spike/lfp times in timeline time (accounts for clock drifts)
+    spike_times_timeline = AP_clock_fix(spike_times,acqlive_ephys_currexpt,acqLive_timeline);
+    if load_lfp && exist(lfp_filename,'file')
+        lfp_t_timeline = AP_clock_fix(lfp_t,acqlive_ephys_currexpt,acqLive_timeline);
+    end
+    
+    % Get the depths of each template
+    % (by COM: this gives totally wonky answers because of artifacts maybe?)
+    %[spikeAmps, spikeDepths, templateDepths, tempAmps, tempsUnW, templateDuration, waveforms] = ...
+    %    templatePositionsAmplitudes(templates,winv,channel_positions(:,2),spike_templates,template_amplitudes);
+    
+    % (by max waveform channel)
+    template_abs = permute(max(abs(templates),[],2),[3,1,2]);
+    [~,max_channel_idx] =  max(template_abs,[],1);
+    templateDepths = channel_positions(max_channel_idx,2);
+    
+    % Get each spike's depth
+    spikeDepths = templateDepths(spike_templates+1);
+    
+    % Get the waveform duration of all templates (channel with largest amp)
+    [~,max_site] = max(max(abs(templates),[],2),[],3);
+    templates_max = nan(size(templates,1),size(templates,2));
+    for curr_template = 1:size(templates,1)
+        templates_max(curr_template,:) = ...
+            templates(curr_template,:,max_site(curr_template));
+    end
+    waveforms = templates_max;
+    
+    % Get trough-to-peak time for each template
+    templates_max_signfix = bsxfun(@times,templates_max, ...
+        sign(abs(min(templates_max,[],2)) - abs(max(templates_max,[],2))));
+    
+    [~,waveform_trough] = min(templates_max,[],2);
+    [~,waveform_peak_rel] = arrayfun(@(x) ...
+        max(templates_max(x,waveform_trough(x):end),[],2), ...
+        transpose(1:size(templates_max,1)));
+    waveform_peak = waveform_peak_rel + waveform_trough;
+    
+    templateDuration = waveform_peak - waveform_trough;
+    templateDuration_us = (templateDuration/ephys_sample_rate)*1e6;        
+    
+    % Eliminate spikes that were classified as not "good"
+    if exist('cluster_groups','var') && ~exist('good_templates','var')
+        
+        disp('Removing non-good templates')
+        
+        good_templates_idx = uint32(cluster_groups{1}(strcmp(cluster_groups{2},'good')));
+        good_templates = ismember(0:size(templates,1)-1,good_templates_idx);
+        
+        % Throw out all non-good template data
+        templates = templates(good_templates,:,:);
+        templateDepths = templateDepths(good_templates);
+        waveforms = waveforms(good_templates,:);
+        templateDuration = templateDuration(good_templates);
+        templateDuration_us = templateDuration_us(good_templates);
+        
+        % Throw out all non-good spike data
+        good_spike_idx = ismember(spike_templates,good_templates_idx);
+        spike_times = spike_times(good_spike_idx);
+        spike_templates = spike_templates(good_spike_idx);
+        template_amplitudes = template_amplitudes(good_spike_idx);
+        spikeDepths = spikeDepths(good_spike_idx);
+        spike_times_timeline = spike_times_timeline(good_spike_idx);
+        
+        % Re-name the spike templates according to the remaining templates
+        % (and make 1-indexed from 0-indexed)
+        new_spike_idx = nan(max(spike_templates)+1,1);
+        new_spike_idx(good_templates_idx+1) = 1:length(good_templates_idx);
+        spike_templates = new_spike_idx(spike_templates+1);
+        
+    elseif exist('cluster_groups','var') && exist('good_templates','var')
+        disp('Good templates already identified, skipping')
+    elseif ~exist('cluster_groups','var')
+        disp('Clusters not yet sorted');
+    end
+    
 end
-
 
 %% Get wheel velocity and licking
-% this is super preliminary
+% % this is super preliminary
+
+disp('Getting wheel/licking input...')
 
 rotaryEncoder_idx = strcmp({Timeline.hw.inputs.name}, 'rotaryEncoder');
 
@@ -538,7 +541,8 @@ lickPiezo_idx = strcmp({Timeline.hw.inputs.name}, 'piezoLickDetector');
 lickPiezo_interp = interp1(Timeline.rawDAQTimestamps,Timeline.rawDAQData(:,lickPiezo_idx),frame_t);
 licking_trace = abs(hilbert(lickPiezo_interp));
 
-
+%% Finished
+disp('Finished loading experiment.')
 
 
 

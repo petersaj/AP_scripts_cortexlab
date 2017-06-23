@@ -518,8 +518,8 @@ end
 %% Align widefield to events
 
 % Set options
-surround_window = [-1,5];
-baseline_surround_window = [-1,0];
+surround_window = [-0.2,2];
+baseline_surround_window = [0,0];
 framerate = 1./median(diff(frame_t));
 surround_samplerate = 1/(framerate*1);
 surround_time = surround_window(1):surround_samplerate:surround_window(2);
@@ -1207,22 +1207,21 @@ use_frames = (frame_t > skip_seconds);
 frame_edges = [frame_t,frame_t(end)+1/framerate];
 choiceworld_event_trace = [];
 
-use_contrasts = [0,0.125,0.25,0.5,1];
-use_trialSides = [-1,1];
+%use_contrasts = [0,0.125,0.25,0.5,1];
+use_contrasts = [0.5,1];
+use_trialSides = [-1];
+use_hitValues = [1];
 
 for trialSide_idx = 1:length(use_trialSides)
-    for contrast_idx = 1:length(use_contrasts)
         
         curr_trialSide = use_trialSides(trialSide_idx);
-        curr_contrast = use_contrasts(contrast_idx);
         
-        use_trials = ismember(choiceworld.trialContrastValues,[curr_contrast]) &  ...
+        use_trials = ismember(choiceworld.trialContrastValues,use_contrasts) &  ...
             choiceworld.trialSideValues == curr_trialSide & ...
-            choiceworld.hitValues == 1;
+            ismember(choiceworld.hitValues,use_hitValues);
         align_times = choiceworld.stimOnTimes(use_trials(1:length(choiceworld.stimOnTimes)))';
         choiceworld_event_trace = [choiceworld_event_trace;histcounts(align_times,frame_edges)];
         
-    end
 end
 
 %choiceworld_event_trace = [choiceworld_event_trace;licking_trace];
@@ -1238,7 +1237,7 @@ cvfold = 5;
 
 [k,predicted_fluor,explained_var] = ...
     AP_regresskernel(choiceworld_event_trace(:,use_frames), ...
-    fV(use_svs,use_frames), ...
+    fVdf(use_svs,use_frames), ...
     kernel_frames,lambda,zs,cvfold);
 
 % Reshape kernel and convert to pixel space
@@ -1246,7 +1245,7 @@ k_r = permute(reshape(k,size(choiceworld_event_trace,1),length(kernel_frames),le
 
 r_px = zeros(size(U,1),size(U,2),size(k_r,2),size(k_r,3),'single');
 for curr_event = 1:size(k_r,3);
-    r_px(:,:,:,curr_event) = svdFrameReconstruct(U(:,:,use_svs),k_r(:,:,curr_event));
+    r_px(:,:,:,curr_event) = svdFrameReconstruct(Udf(:,:,use_svs),k_r(:,:,curr_event));
 end
 
 AP_image_scroll(r_px,kernel_frames/framerate);
@@ -1343,6 +1342,124 @@ end
 AP_image_scroll(avg_im_reg)
 
 
+
+%% Orientation decoding (with varying time windows)
+% specifically for AP015 207-05-22
+
+avg_window = 0.2:0.2:1;
+start_window = -1:0.1:3;
+
+correct_decoding = nan(length(start_window),length(avg_window));
+confusion_mat = nan(max(stimIDs),max(stimIDs),length(start_window),length(avg_window));
+for curr_avg_window = 1:length(avg_window);
+    
+    for curr_start_window = 1:length(start_window);
+        
+        framerate = 1./median(diff(frame_t));
+        surround_samplerate = 1/(framerate*1);
+        surround_time = start_window(curr_start_window):surround_samplerate: ...
+            start_window(curr_start_window)+avg_window(curr_avg_window);
+        
+        align_surround_times = bsxfun(@plus, stim_onsets, surround_time);
+        avg_response_v = permute(nanmean(interp1(frame_t,fV',align_surround_times),2),[3,1,2]);
+        
+        stim_order = zeros(max(stimIDs),length(stimIDs));
+        for curr_stim = 1:max(stimIDs)
+            stim_order(curr_stim,stimIDs == curr_stim) = 1;
+        end
+        
+        lambda = 0;
+        zs = false;
+        cvfold = 5;
+        
+        %stim_order = shake(stim_order,1);
+        
+        [k,predicted_stim,explained_var] = ...
+            AP_regresskernel(avg_response_v,stim_order,0,lambda,zs,cvfold);
+        
+        max_likely_stim = bsxfun(@eq,predicted_stim,max(predicted_stim,[],1));
+        correct_decoding(curr_start_window,curr_avg_window) = sum(max_likely_stim(:) & stim_order(:))./sum(stim_order(:));
+        
+        [~,predicted_stimIDs] = max(predicted_stim,[],1);
+        confusion_mat(:,:,curr_start_window,curr_avg_window) = bsxfun(@rdivide,confusionmat(stimIDs,predicted_stimIDs),sum(stim_order,2));        
+        
+    end
+    
+    disp(curr_avg_window)    
+    
+end
+
+figure; 
+
+subplot(1,2,1); hold on;
+set(gca,'ColorOrder',copper(size(correct_decoding,2)));
+plot(start_window,correct_decoding,'linewidth',2)
+legend(cellfun(@(x) [num2str(x) 's window'],num2cell(avg_window),'uni',false));
+y = ylim;
+line([0,0],ylim,'color','r'); ylim(y);
+line([1,1],ylim,'color','r'); ylim(y);
+ylabel('Fraction correct decoding');
+xlabel('Time window start')
+
+subplot(1,2,2);
+confusion_mat_mean = nanmean(confusion_mat(:,:,start_window > 0 & start_window < 1),3);
+imagesc(confusion_mat_mean);
+c = colorbar;
+colormap(gray);
+axis square;
+ylabel(c,'Fraction of stimuli');
+ylabel('Actual orientation')
+xlabel('Decoded orientation')
+
+
+% Get orientation decoding as a function of SVs
+avg_window = 1;
+start_window = 0.2;
+
+use_svs = 10:10:2000;
+
+correct_decoding = nan(length(use_svs),1);
+confusion_mat = nan(max(stimIDs),max(stimIDs),length(use_svs));
+for curr_svs = 1:length(use_svs)
+    
+    framerate = 1./median(diff(frame_t));
+    surround_samplerate = 1/(framerate*1);
+    surround_time = start_window:surround_samplerate: ...
+        start_window+avg_window;
+    
+    align_surround_times = bsxfun(@plus, stim_onsets, surround_time);
+    avg_response_v = permute(nanmean(interp1(frame_t,fV',align_surround_times),2),[3,1,2]);
+    
+    avg_response_v = avg_response_v(1:use_svs(curr_svs),:);
+    
+    stim_order = zeros(max(stimIDs),length(stimIDs));
+    for curr_stim = 1:max(stimIDs)
+        stim_order(curr_stim,stimIDs == curr_stim) = 1;
+    end
+    
+    lambda = 0;
+    zs = false;
+    cvfold = 5;
+    
+    %stim_order = shake(stim_order,1);
+    
+    [k,predicted_stim,explained_var] = ...
+        AP_regresskernel(avg_response_v,stim_order,0,lambda,zs,cvfold);
+    
+    max_likely_stim = bsxfun(@eq,predicted_stim,max(predicted_stim,[],1));
+    correct_decoding(curr_svs) = sum(max_likely_stim(:) & stim_order(:))./sum(stim_order(:));
+    
+    [~,predicted_stimIDs] = max(predicted_stim,[],1);
+    confusion_mat(:,:,curr_svs) = bsxfun(@rdivide,confusionmat(stimIDs,predicted_stimIDs),sum(stim_order,2));
+    
+    disp(curr_svs);
+end
+
+figure;
+plot(use_svs,correct_decoding,'k','linewidth',2)
+xlabel('Number of SVs')
+ylabel('% Correct decoded')
+title(['Fluorescence window ' num2str(start_window) ':' num2str(start_window+avg_window)])
 
 
 

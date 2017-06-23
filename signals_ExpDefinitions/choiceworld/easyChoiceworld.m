@@ -15,21 +15,21 @@ rewardSize = 3;
 
 % Stimulus/target
 % (which contrasts to use)
-contrasts = [1,0.5,0.25];
+contrasts = [1,0.5];
 % (stim parameters)
-sigma = [9,9];
+sigma = [15,15];
 spatialFrequency = 0.01;
 startingAzimuth = 90;
 responseDisplacement = 90;
 
 % Timing
 prestimQuiescentTime = 0.5;
-cueInteractiveDelay = 0.5;
-iti = 1;
+cueInteractiveDelay = 0;
+iti = 5;
 
 % Wheel parameters
 quiescThreshold = 1;
-wheelGain = 1;
+wheelGain = 2;
 
 %% Initialize trial data
 
@@ -74,7 +74,7 @@ trialContrast = trialData.trialContrast;
 %% Give feedback and end trial
 
 % Give reward on hit
-water = at(rewardSize,trialData.hit);  
+water = at(rewardSize,response);  
 outputs.reward = water;
 totalWater = water.scan(@plus,0);
 
@@ -95,21 +95,21 @@ stimAzimuth = cond( ...
     events.newTrial.to(interactiveOn), startingAzimuth, ...
     interactiveOn.to(response), startingAzimuth + stimDisplacement);
 
-stim_left = vis.grating(t, 'square', 'gaussian');
-stim_left.sigma = sigma;
-stim_left.spatialFrequency = spatialFrequency;
-stim_left.phase = 2*pi*events.newTrial.map(@(v)rand);
-stim_left.azimuth = stimAzimuth;
-stim_left.contrast = trialContrast.at(stimOn);
-stim_left.show = stimOn.to(stimOff);
-
 stim_right = vis.grating(t, 'square', 'gaussian');
 stim_right.sigma = sigma;
 stim_right.spatialFrequency = spatialFrequency;
 stim_right.phase = 2*pi*events.newTrial.map(@(v)rand);
-stim_right.azimuth = -stimAzimuth;
+stim_right.azimuth = stimAzimuth;
 stim_right.contrast = trialContrast.at(stimOn);
 stim_right.show = stimOn.to(stimOff);
+
+stim_left = vis.grating(t, 'square', 'gaussian');
+stim_left.sigma = sigma;
+stim_left.spatialFrequency = spatialFrequency;
+stim_left.phase = 2*pi*events.newTrial.map(@(v)rand);
+stim_left.azimuth = -startingAzimuth*2 + stimAzimuth;
+stim_left.contrast = trialContrast.at(stimOn);
+stim_left.show = stimOn.to(stimOff);
 
 visStim.stim_left = stim_left;
 visStim.stim_right = stim_right;
@@ -147,7 +147,7 @@ function trialData = updateTrialData(trialData,stimDisplacement)
 % Pick the next contrast
 
 % (randomly)
-trialData.trialContrast = randsample(trialData.contrasts(trialData.useContrasts),1);
+trialData.trialContrast = randsample(trialData.contrasts,1);
 
 end
 

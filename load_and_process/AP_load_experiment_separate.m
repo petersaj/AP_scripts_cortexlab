@@ -1,9 +1,9 @@
 %% Define experiment
 
-animal = 'AP017';
-day = '2017-06-07';
-experiment = '1';
-rig = 'kilotrode'; % kilotrode or bigrig
+animal = 'AP003';
+day = '2016-06-08';
+experiment = '2';
+rig = 'bigrig'; % kilotrode or bigrig
 
 % Get the number of colors imaged during the experiment
 data_path = AP_cortexlab_filename(animal,day,experiment,'datapath');
