@@ -141,7 +141,7 @@ if block_exists
     load(block_filename);
     
     % Get reward times in block and timeline
-    reward_t_block = block.outputs.rewardTimes;
+    reward_t_block = block.outputs.rewardTimes(block.outputs.rewardValues > 0);
     
     timeline_reward_idx = strcmp({Timeline.hw.inputs.name}, 'rewardEcho');
     reward_thresh = max(Timeline.rawDAQData(:,timeline_reward_idx))/2;

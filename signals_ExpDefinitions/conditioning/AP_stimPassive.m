@@ -1,4 +1,4 @@
-function stimReward(t, events, parameters, visStim, inputs, outputs, audio)
+function AP_stimReward(t, events, parameters, visStim, inputs, outputs, audio)
 % AP 2017-06-23: pair visual stimuli with rewards
 
 %% Fixed parameters
@@ -8,7 +8,6 @@ rewardSize = 3;
 
 % Stimuli
 stimAzimuths = [-45,0,45];
-rewardedStim = -45; % which stimulus is paired with reward
 spatialFrequency = 0.01;
 contrast = 1;
 sigma = [8,90];
@@ -27,11 +26,6 @@ trialAzimuth = events.newTrial.mapn(@(x) randsample(stimAzimuths,1));
 % Turn stim on for fixed interval
 stimOn = at(true,events.newTrial); 
 stimOff = stimOn.delay(stimTime);
-
-% Reward on rewarded stimulus after set time
-water = at(rewardSize*trialAzimuth.eq(rewardedStim),stimOn.delay(stimRewardTime));  
-outputs.reward = water;
-totalWater = water.scan(@plus,0);
 
 % Start the ITI after the stimulus turns off
 trialITI = events.newTrial.mapn(@(x) randsample(itiTimes,1));
@@ -56,11 +50,8 @@ visStim.stim = stim;
 
 events.stimOn = stimOn;
 events.stimOff = stimOff;
-
 events.stimFlicker = stimFlicker;
-
 events.trialAzimuth = trialAzimuth;
-events.totalWater = totalWater;
 
 events.endTrial = endTrial;
 

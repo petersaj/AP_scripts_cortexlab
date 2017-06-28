@@ -1039,11 +1039,11 @@ end
 
 %% Raster plot by depth
 
-align_times = stim_onsets(ismember(stimIDs,[4,5]));
+align_times = stim_onsets(ismember(stimIDs,[1]));
 
 % Group by depth
 n_depth_groups = 6;
-depth_group_edges = linspace(2400,3820,n_depth_groups+1);
+depth_group_edges = linspace(1,max(spikeDepths),n_depth_groups+1);
 depth_group_centers = round(depth_group_edges(1:end-1)+diff(depth_group_edges)/2);
 depth_group_edges(end) = Inf;
 depth_group = discretize(spikeDepths,depth_group_edges);
@@ -1874,13 +1874,13 @@ legend(celltype_labels(plot_celltypes));
 
 %% MUA/LFP correlation by depth 
 
-n_depth_groups = 50;
+n_depth_groups = 20;
 depth_group_edges = linspace(0,max(channel_positions(:,2)),n_depth_groups+1);
 depth_group = discretize(templateDepths,depth_group_edges);
 depth_group_centers = depth_group_edges(1:end-1)+diff(depth_group_edges);
 unique_depths = 1:length(depth_group_edges)-1;
 
-spike_binning = 10; % seconds
+spike_binning = 0.001; % seconds
 corr_edges = spike_times_timeline(1):spike_binning:spike_times_timeline(end);
 corr_centers = corr_edges(1:end-1) + diff(corr_edges);
 

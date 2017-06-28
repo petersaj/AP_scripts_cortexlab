@@ -766,8 +766,9 @@ linkaxes([p1,p2],'x');
 %use_time = [393,396];
 use_time = [380,400];
 %use_time = [380,434];
+use_time = [0,620];
 
-n_rois = 8;
+n_rois = 2;
 
 % Choose ROI
 h = figure;
@@ -2378,10 +2379,10 @@ use_frames = (frame_t > skip_seconds);
 %use_frames = (frame_t > max(frame_t)/2);
 
 % Group multiunit by depth
-n_depth_groups = 1;
-depth_group_edges = linspace(2400,2600,n_depth_groups+1);
+n_depth_groups = 5;
+depth_group_edges = linspace(0,max(channel_positions(:,2)),n_depth_groups+1);
 depth_group_edges_use = depth_group_edges;
-%depth_group_edges_use = [0,1000,2400,3820];
+depth_group_edges_use = [0,220,360,500,1150,max(channel_positions(:,2))];
 
 [depth_group_n,depth_group] = histc(spikeDepths,depth_group_edges_use);
 depth_groups_used = unique(depth_group);
@@ -2399,10 +2400,10 @@ for curr_depth = 1:length(depth_group_edges_use)-1
     
 end
 
-use_svs = 1:50;
-kernel_frames = -10:5;
+use_svs = 1:100;
+kernel_frames = -10:10;
 downsample_factor = 1;
-lambda = 0;
+lambda = 1e5;
 zs = false;
 cvfold = 5;
 
