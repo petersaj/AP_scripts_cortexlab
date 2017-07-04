@@ -18,6 +18,9 @@ stimFlickerFrequency = 4;
 stimTime = 1.5; % time stimulus is on the screen
 itiTimes = 2:4;
 
+% Lever
+lever_r_flip = inputs.lever_r.delta.skipRepeats;
+
 %% Set up trial parameters and events
 
 % Choose trial parameters (random: azimuth and ITI)
@@ -30,8 +33,8 @@ stimOn = delay(at(true,events.newTrial),0.01);
 stimOff = stimOn.delay(stimTime);
 
 % Reward on rewarded stimulus on lever press
-hit = keepWhen(stimOn.setTrigger(inputs.lever.ge(2.5) & trialAzimuth.eq(rewardedStim)),stimOn.to(stimOff));
-miss = keepWhen(stimOn.setTrigger(inputs.lever.ge(2.5) & ~trialAzimuth.eq(rewardedStim)),stimOn.to(stimOff));
+hit = keepWhen(stimOn.setTrigger(lever_r_flip.eq(1) & trialAzimuth.eq(rewardedStim)),stimOn.to(stimOff));
+miss = keepWhen(stimOn.setTrigger(lever_r_flip.eq(1) & ~trialAzimuth.eq(rewardedStim)),stimOn.to(stimOff));
 
 water = at(rewardSize,hit);  
 outputs.reward = water;
@@ -57,12 +60,15 @@ visStim.stim = stim;
 
 %% Events
 
+wheel = inputs.wheel.skipRepeats;
+events.wheel = wheel;
+
 events.stimOn = stimOn;
 events.stimOff = stimOff;
 events.stimFlicker = stimFlicker;
 events.trialAzimuth = trialAzimuth;
 events.totalWater = totalWater;
-events.lever = inputs.lever;
+events.lever_r_flip = lever_r_flip;
 events.hit = hit;
 events.miss = miss;
 

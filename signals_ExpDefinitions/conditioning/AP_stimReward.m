@@ -3,7 +3,7 @@ function AP_stimReward(t, events, parameters, visStim, inputs, outputs, audio)
 
 %% Fixed parameters
 
-% Reward (chosen to give ~400 ul in 30 min - otherwise they stop early)
+% Reward
 rewardSize = 3;
 
 % Stimuli

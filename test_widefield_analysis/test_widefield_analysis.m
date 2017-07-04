@@ -1001,12 +1001,15 @@ px_10prct = svdFrameReconstruct(U,prctile(fV(:,skip_start_frames:end),10,2));
 %% Get average fluorescence to ChoiceWorld event
 
 % Define the window to get an aligned response to
-surround_window = [-0.2,1];
+surround_window = [-0.2,2];
 
 % Define the times to align to
-use_trials = ismember(choiceworld.trialContrastValues,[1]) &  ...
-    ismember(choiceworld.trialSideValues,[-1]) & ...
-    ismember(choiceworld.hitValues,[1]);
+% use_trials = ismember(choiceworld.trialContrastValues,[1]) &  ...
+%     ismember(choiceworld.trialSideValues,[-1]) & ...
+%     ismember(choiceworld.hitValues,[1]);
+%align_times = choiceworld.stimOnTimes(use_trials(1:length(choiceworld.stimOnTimes)))';
+
+use_trials = ismember(choiceworld.trialAzimuthValues,[-30]);
 align_times = choiceworld.stimOnTimes(use_trials(1:length(choiceworld.stimOnTimes)))';
 
 % Get the surround time
@@ -1252,24 +1255,76 @@ AP_image_scroll(r_px,kernel_frames/framerate);
 caxis([prctile(r_px(:),[1,99])]*4);
 truesize
 
+%% Regress conditioning stims to fluorescence
+
+% Skip the first n seconds to do this
+skip_seconds = 10;
+use_frames = (frame_t > skip_seconds);
+
+% Make choiceworld event traces
+frame_edges = [frame_t,frame_t(end)+1/framerate];
+choiceworld_event_trace = [];
+
+azimuths = unique(choiceworld.trialAzimuthValues);
+
+for trialAzimuth_idx = 1:length(azimuths)
+        
+        curr_azimuth = azimuths(trialAzimuth_idx);
+        
+        use_trials = choiceworld.trialAzimuthValues == curr_azimuth;
+        align_times = choiceworld.stimOnTimes(use_trials(1:length(choiceworld.stimOnTimes)))';
+        choiceworld_event_trace = [choiceworld_event_trace;histcounts(align_times,frame_edges)];
+        
+end
+
+%choiceworld_event_trace = [choiceworld_event_trace;licking_trace];
+%choiceworld_event_trace = [choiceworld_event_trace;wheel_speed];
+
+%choiceworld_event_trace = zscore(choiceworld_event_trace,[],2);
+
+use_svs = 1:50;
+kernel_frames = -7:35;
+lambda = 0;
+zs = false;
+cvfold = 5;
+
+[k,predicted_fluor,explained_var] = ...
+    AP_regresskernel(choiceworld_event_trace(:,use_frames), ...
+    fVdf(use_svs,use_frames), ...
+    kernel_frames,lambda,zs,cvfold);
+
+% Reshape kernel and convert to pixel space
+k_r = permute(reshape(k,size(choiceworld_event_trace,1),length(kernel_frames),length(use_svs)),[3,2,1]);
+
+r_px = zeros(size(U,1),size(U,2),size(k_r,2),size(k_r,3),'single');
+for curr_event = 1:size(k_r,3);
+    r_px(:,:,:,curr_event) = svdFrameReconstruct(Udf(:,:,use_svs),k_r(:,:,curr_event));
+end
+
+AP_image_scroll(r_px,kernel_frames/framerate);
+caxis([prctile(r_px(:),[1,99])]*4);
+truesize
+
 %% Align widefield images across days (/ get transform matricies)
 
-animal = 'AP017';
+animal = 'AP015';
 expInfo_path = ['\\zserver.cortexlab.net\Data\expInfo\' animal];
 expInfo_dir = dir(expInfo_path);
 days = {expInfo_dir(find([expInfo_dir(3:end).isdir])+2).name};
-
+%%%
+days = days(end-2:end);
+%%%
 avg_im = cell(length(days),1);
 for curr_day = 1:length(days)
     data_path = ['\\zserver.cortexlab.net\Data\Subjects\' animal filesep days{curr_day}];
     avg_im{curr_day} = readNPY([data_path filesep 'meanImage_blue.npy']);
 end
 
-% border_pixels = 20;
-% avg_im = cellfun(@(x) imgaussfilt(x(border_pixels:end-border_pixels+1,border_pixels:end-border_pixels+1),3),avg_im,'uni',false);
+border_pixels = 20;
+avg_im = cellfun(@(x) imgaussfilt(x(border_pixels:end-border_pixels+1,border_pixels:end-border_pixels+1),3),avg_im,'uni',false);
 
 % Register days to each other
-ref_im_num = length(avg_im);
+ref_im_num = 1; %length(avg_im);
 
 disp('Registering average images')
 tform_matrix = cell(length(avg_im),1);
