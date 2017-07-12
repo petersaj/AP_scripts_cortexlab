@@ -616,25 +616,6 @@ roi_trace = nanmean(U_roi*fV);
 
 %% Get fluorescence trace of ROI
 
-% % Choose ROI
-% h = figure;
-% imagesc(avg_im);
-% set(gca,'YDir','reverse');
-% colormap(gray);
-% caxis([0 prctile(avg_im(:),90)]);
-% roiMask = roipoly;
-% close(h);
-% 
-% % Get fluorescence across session in ROI
-% U_roi = reshape(U(repmat(roiMask,1,1,size(U,3))),[],size(U,3));
-% roi_trace = nanmean(U_roi*fV);
-% 
-% figure;
-% plot(frame_t,roi_trace,'k');
-% xlabel('Time (s)')
-% ylabel('ROI Fluorescence')
-
-% Now have a function to do this:
 roi_trace = AP_svd_roi(U,fV);
 figure;plot(frame_t,roi_trace,'k');
 
@@ -998,19 +979,23 @@ px_std = sqrt(px_std_sq);
 px_10prct = svdFrameReconstruct(U,prctile(fV(:,skip_start_frames:end),10,2));
 
 
-%% Get average fluorescence to ChoiceWorld event
+%% Get average fluorescence to Signals event
 
 % Define the window to get an aligned response to
-surround_window = [-0.2,2];
+surround_window = [-0.5,4];
 
 % Define the times to align to
-% use_trials = ismember(choiceworld.trialContrastValues,[1]) &  ...
-%     ismember(choiceworld.trialSideValues,[-1]) & ...
-%     ismember(choiceworld.hitValues,[1]);
-%align_times = choiceworld.stimOnTimes(use_trials(1:length(choiceworld.stimOnTimes)))';
+use_trials = ismember(signals_events.trialContrastValues,[1]) &  ...
+    ismember(signals_events.trialSideValues,[-1]) & ...
+    ismember(signals_events.hitValues,[1]);
+align_times = signals_events.stimOnTimes(use_trials(1:length(signals_events.stimOnTimes)))';
 
-use_trials = ismember(choiceworld.trialAzimuthValues,[-30]);
-align_times = choiceworld.stimOnTimes(use_trials(1:length(choiceworld.stimOnTimes)))';
+% use_trials = ismember(signals_events.trialAzimuthValues,[0]);
+% align_times = signals_events.stimOnTimes(use_trials(1:length(signals_events.stimOnTimes)))';
+
+%align_times = signals_events.stimOnTimes';
+%align_times = signals_events.lever_r_flipTimes(signals_events.lever_r_flipValues == 1)';
+%align_times = signals_events.totalWaterTimes';
 
 % Get the surround time
 framerate = 1./nanmedian(diff(frame_t));
@@ -1054,16 +1039,16 @@ skip_seconds = 10;
 use_frames = (frame_t > skip_seconds);
 
 % Make choiceworld event trace
-use_trials = ismember(choiceworld.trialContrastValues,[1,0.5]) &  ...
-    ismember(choiceworld.trialSideValues,[-1]) & ...
-    ismember(choiceworld.hitValues,[1]);
-align_times = choiceworld.stimOnTimes(use_trials(1:length(choiceworld.stimOnTimes)))';
+use_trials = ismember(signals_events.trialContrastValues,[1,0.5,0.25]) &  ...
+    ismember(signals_events.trialSideValues,[1]) & ...
+    ismember(signals_events.hitValues,[1]);
+align_times = signals_events.stimOnTimes(use_trials(1:length(signals_events.stimOnTimes)))';
 
 frame_edges = [frame_t,frame_t(end)+1/framerate];
-choiceworld_event_trace = histcounts(align_times,frame_edges);
+signals_event_trace = histcounts(align_times,frame_edges);
  
 % for stim position, this didn't really work though...
-% choiceworld_event_trace = interp1(choiceworld.stimAzimuthTimes,choiceworld.stimAzimuthValues,frame_t);
+% choiceworld_event_trace = interp1(signals_events.stimAzimuthTimes,signals_events.stimAzimuthValues,frame_t);
 % choiceworld_event_trace(isnan(choiceworld_event_trace)) = 0;
 
 % for timeline inputs
@@ -1079,12 +1064,12 @@ cvfold = 5;
 
 kernel_frames_downsample = round(downsample(kernel_frames,downsample_factor)/downsample_factor);
 
-[k,predicted_choiceworld_events,explained_var] = ...
+[k,predicted_signals_events,explained_var] = ...
     AP_regresskernel(downsample(fV(use_svs,use_frames)',downsample_factor)', ...
-    downsample(choiceworld_event_trace(:,use_frames)',downsample_factor)',kernel_frames_downsample,lambda,zs,cvfold);
+    downsample(signals_event_trace(:,use_frames)',downsample_factor)',kernel_frames_downsample,lambda,zs,cvfold);
 
 % Reshape kernel and convert to pixel space
-r = reshape(k,length(use_svs),length(kernel_frames_downsample),size(choiceworld_event_trace,1));
+r = reshape(k,length(use_svs),length(kernel_frames_downsample),size(signals_event_trace,1));
 
 r_px = zeros(size(U,1),size(U,2),size(r,2),size(r,3),'single');
 for curr_spikes = 1:size(r,3);
@@ -1104,15 +1089,15 @@ use_frames = (frame_t > skip_seconds);
 
 % Make choiceworld event trace
 
-use_trials_1 = ismember(choiceworld.trialContrastValues,[1,0.5]) &  ...
-    ismember(choiceworld.trialSideValues,[1]) & ...
-    ismember(choiceworld.hitValues,[1]);
-align_times_1 = choiceworld.interactiveOnTimes(use_trials_1(1:length(choiceworld.interactiveOnTimes)))';
+use_trials_1 = ismember(signals_events.trialContrastValues,[0]) &  ...
+    ismember(signals_events.trialSideValues,[1]) & ...
+    ismember(signals_events.hitValues,[1]);
+align_times_1 = signals_events.interactiveOnTimes(use_trials_1(1:length(signals_events.interactiveOnTimes)))';
 
-use_trials_2 = ismember(choiceworld.trialContrastValues,[1,0.5]) &  ...
-    ismember(choiceworld.trialSideValues,[1]) & ...
-    ismember(choiceworld.hitValues,[0]);
-align_times_2 = choiceworld.interactiveOnTimes(use_trials_2(1:length(choiceworld.interactiveOnTimes)))';
+use_trials_2 = ismember(signals_events.trialContrastValues,[0]) &  ...
+    ismember(signals_events.trialSideValues,[-1]) & ...
+    ismember(signals_events.hitValues,[1]);
+align_times_2 = signals_events.interactiveOnTimes(use_trials_2(1:length(signals_events.interactiveOnTimes)))';
 
 frame_edges = [frame_t,frame_t(end)+1/framerate];
 choiceworld_event_trace_1 = histcounts(align_times_1,frame_edges);
@@ -1123,13 +1108,13 @@ choiceworld_event_trace_combined = choiceworld_event_trace_1 - choiceworld_event
 use_svs = 1:50;
 kernel_frames = -35:7;
 downsample_factor = 1;
-lambda = 1e7;
+lambda = 1e6;
 zs = false;
 cvfold = 5;
 
 kernel_frames_downsample = round(downsample(kernel_frames,downsample_factor)/downsample_factor);
 
-[k,predicted_choiceworld_events,explained_var] = ...
+[k,predicted_signals_events,explained_var] = ...
     AP_regresskernel(downsample(fV(use_svs,use_frames)',downsample_factor)', ...
     downsample(choiceworld_event_trace_combined(:,use_frames)',downsample_factor)',kernel_frames_downsample,lambda,zs,cvfold);
 
@@ -1153,22 +1138,22 @@ use_frames = (frame_t > skip_seconds);
 
 % Make choiceworld event trace
 frame_edges = [frame_t,frame_t(end)+1/framerate];
-choiceworld_event_trace = [];
+signals_event_trace = [];
 
-use_trials = ismember(choiceworld.trialContrastValues,[1,0.5]) &  ...
-    ismember(choiceworld.trialSideValues,[-1]) & ...
-    ismember(choiceworld.hitValues,[1]);
-align_times = choiceworld.stimOnTimes(use_trials(1:length(choiceworld.stimOnTimes)))';
-choiceworld_event_trace = [choiceworld_event_trace;histcounts(align_times,frame_edges)];
+use_trials = ismember(signals_events.trialContrastValues,[1]) &  ...
+    ismember(signals_events.trialSideValues,[1]) & ...
+    ismember(signals_events.hitValues,[1]);
+align_times = signals_events.stimOnTimes(use_trials(1:length(signals_events.stimOnTimes)))';
+signals_event_trace = [signals_event_trace;histcounts(align_times,frame_edges)];
 
-use_trials = ismember(choiceworld.trialContrastValues,[1,0.5]) &  ...
-    ismember(choiceworld.trialSideValues,[1]) & ...
-    ismember(choiceworld.hitValues,[1]);
-align_times = choiceworld.stimOnTimes(use_trials(1:length(choiceworld.stimOnTimes)))';
-choiceworld_event_trace = [choiceworld_event_trace;histcounts(align_times,frame_edges)];
+use_trials = ismember(signals_events.trialContrastValues,[1]) &  ...
+    ismember(signals_events.trialSideValues,[-1]) & ...
+    ismember(signals_events.hitValues,[1]);
+align_times = signals_events.stimOnTimes(use_trials(1:length(signals_events.stimOnTimes)))';
+signals_event_trace = [signals_event_trace;histcounts(align_times,frame_edges)];
 
 % for stim position, this didn't really work though...
-% choiceworld_event_trace = interp1(choiceworld.stimAzimuthTimes,choiceworld.stimAzimuthValues,frame_t);
+% choiceworld_event_trace = interp1(signals_events.stimAzimuthTimes,signals_events.stimAzimuthValues,frame_t);
 % choiceworld_event_trace(isnan(choiceworld_event_trace)) = 0;
 
 % for timeline inputs
@@ -1178,18 +1163,65 @@ choiceworld_event_trace = [choiceworld_event_trace;histcounts(align_times,frame_
 use_svs = 1:50;
 kernel_frames = -35:35;
 downsample_factor = 1;
-lambda = 1e7;
+lambda = 1e6;
 zs = false;
 cvfold = 5;
 
 kernel_frames_downsample = round(downsample(kernel_frames,downsample_factor)/downsample_factor);
 
-[k,predicted_choiceworld_events,explained_var] = ...
+[k,predicted_signals_events,explained_var] = ...
     AP_regresskernel(downsample(fV(use_svs,use_frames)',downsample_factor)', ...
-    downsample(choiceworld_event_trace(:,use_frames)',downsample_factor)',kernel_frames_downsample,lambda,zs,cvfold);
+    downsample(signals_event_trace(:,use_frames)',downsample_factor)',kernel_frames_downsample,lambda,zs,cvfold);
 
 % Reshape kernel and convert to pixel space
-r = reshape(k,length(use_svs),length(kernel_frames_downsample),size(choiceworld_event_trace,1));
+r = reshape(k,length(use_svs),length(kernel_frames_downsample),size(signals_event_trace,1));
+
+r_px = zeros(size(U,1),size(U,2),size(r,2),size(r,3),'single');
+for curr_spikes = 1:size(r,3);
+    r_px(:,:,:,curr_spikes) = svdFrameReconstruct(U(:,:,use_svs),r(:,:,curr_spikes));
+end
+
+AP_image_scroll(r_px,(kernel_frames_downsample*downsample_factor)/framerate);
+caxis([prctile(r_px(:),[1,99])]*4);
+truesize
+
+%% Regress fluorescence to multiple lever task events
+
+% Skip the first n seconds to do this
+skip_seconds = 10;
+use_frames = (frame_t > skip_seconds);
+
+% Make choiceworld event trace
+frame_edges = [frame_t,frame_t(end)+1/framerate];
+signals_event_trace = [];
+
+align_times = signals_events.stimOnTimes';
+signals_event_trace = [signals_event_trace;histcounts(align_times,frame_edges)];
+
+align_times = signals_events.lever_r_flipTimes(signals_events.lever_r_flipValues == -1)';
+signals_event_trace = [signals_event_trace;histcounts(align_times,frame_edges)];
+
+align_times = signals_events.lever_r_flipTimes(signals_events.lever_r_flipValues == 1)';
+signals_event_trace = [signals_event_trace;histcounts(align_times,frame_edges)];
+
+align_times = signals_events.totalWaterTimes';
+signals_event_trace = [signals_event_trace;histcounts(align_times,frame_edges)];
+
+use_svs = 1:50;
+kernel_frames = -35*3:7;
+downsample_factor = 1;
+lambda = 1e5;
+zs = false;
+cvfold = 5;
+
+kernel_frames_downsample = round(downsample(kernel_frames,downsample_factor)/downsample_factor);
+
+[k,predicted_signals_events,explained_var] = ...
+    AP_regresskernel(downsample(fV(use_svs,use_frames)',downsample_factor)', ...
+    downsample(signals_event_trace(:,use_frames)',downsample_factor)',kernel_frames_downsample,lambda,zs,cvfold);
+
+% Reshape kernel and convert to pixel space
+r = reshape(k,length(use_svs),length(kernel_frames_downsample),size(signals_event_trace,1));
 
 r_px = zeros(size(U,1),size(U,2),size(r,2),size(r,3),'single');
 for curr_spikes = 1:size(r,3);
@@ -1208,24 +1240,48 @@ use_frames = (frame_t > skip_seconds);
 
 % Make choiceworld event traces
 frame_edges = [frame_t,frame_t(end)+1/framerate];
-choiceworld_event_trace = [];
 
-%use_contrasts = [0,0.125,0.25,0.5,1];
-use_contrasts = [0.5,1];
-use_trialSides = [-1];
-use_hitValues = [1];
+% % Matrix of presentation times for all contrasts/sides
+% trial_sides = [-1,1];
+% contrasts = unique(signals_events.trialContrastValues);
+% hit = [0,1];
+% 
+% signals_event_trace_stim = nan(length(trial_sides)*length(contrasts)*length(hit),length(frame_t));
+% store_idx = 1;
+% for trial_side_idx = 1:length(trial_sides);
+%     for contrasts_idx = 1:length(contrasts)
+%         for hit_idx = 1:length(hit);
+%             use_trials = ismember(signals_events.trialContrastValues,contrasts(contrasts_idx)) &  ...
+%                 signals_events.trialSideValues == trial_sides(trial_side_idx) & ...
+%                 signals_events.hitValues == hit(hit_idx);           
+%             align_times = signals_events.stimOnTimes(use_trials(1:length(signals_events.stimOnTimes)))';
+%             
+%             signals_event_trace_stim(store_idx,:) = histcounts(align_times,frame_edges);
+%             store_idx = store_idx + 1;
+%         end
+%     end
+% end
+% 
+% signals_event_trace = signals_event_trace_stim;
 
-for trialSide_idx = 1:length(use_trialSides)
-        
-        curr_trialSide = use_trialSides(trialSide_idx);
-        
-        use_trials = ismember(choiceworld.trialContrastValues,use_contrasts) &  ...
-            choiceworld.trialSideValues == curr_trialSide & ...
-            ismember(choiceworld.hitValues,use_hitValues);
-        align_times = choiceworld.stimOnTimes(use_trials(1:length(choiceworld.stimOnTimes)))';
-        choiceworld_event_trace = [choiceworld_event_trace;histcounts(align_times,frame_edges)];
-        
-end
+% Grouped choiceworld events
+frame_edges = [frame_t,frame_t(end)+1/framerate];
+signals_event_trace = [];
+
+use_trials = ismember(signals_events.trialContrastValues,[1,0.5]) &  ...
+    ismember(signals_events.trialSideValues,[1]) & ...
+    ismember(signals_events.hitValues,[1]);
+align_times = signals_events.stimOnTimes(use_trials(1:length(signals_events.stimOnTimes)))';
+signals_event_trace = [signals_event_trace;histcounts(align_times,frame_edges)];
+
+use_trials = ismember(signals_events.trialContrastValues,[1,0.5]) &  ...
+    ismember(signals_events.trialSideValues,[-1]) & ...
+    ismember(signals_events.hitValues,[1]);
+align_times = signals_events.stimOnTimes(use_trials(1:length(signals_events.stimOnTimes)))';
+signals_event_trace = [signals_event_trace;histcounts(align_times,frame_edges)];
+
+align_times = signals_events.totalWaterTimes';
+signals_event_trace = [signals_event_trace;histcounts(align_times,frame_edges)];
 
 %choiceworld_event_trace = [choiceworld_event_trace;licking_trace];
 %choiceworld_event_trace = [choiceworld_event_trace;wheel_speed];
@@ -1233,22 +1289,67 @@ end
 %choiceworld_event_trace = zscore(choiceworld_event_trace,[],2);
 
 use_svs = 1:50;
-kernel_frames = -7:35;
+kernel_frames = -35:35*2;
 lambda = 0;
 zs = false;
 cvfold = 5;
 
 [k,predicted_fluor,explained_var] = ...
-    AP_regresskernel(choiceworld_event_trace(:,use_frames), ...
-    fVdf(use_svs,use_frames), ...
+    AP_regresskernel(signals_event_trace(:,use_frames), ...
+    fV(use_svs,use_frames), ...
     kernel_frames,lambda,zs,cvfold);
 
 % Reshape kernel and convert to pixel space
-k_r = permute(reshape(k,size(choiceworld_event_trace,1),length(kernel_frames),length(use_svs)),[3,2,1]);
+k_r = permute(reshape(k,size(signals_event_trace,1),length(kernel_frames),length(use_svs)),[3,2,1]);
 
 r_px = zeros(size(U,1),size(U,2),size(k_r,2),size(k_r,3),'single');
 for curr_event = 1:size(k_r,3);
-    r_px(:,:,:,curr_event) = svdFrameReconstruct(Udf(:,:,use_svs),k_r(:,:,curr_event));
+    r_px(:,:,:,curr_event) = svdFrameReconstruct(U(:,:,use_svs),k_r(:,:,curr_event));
+end
+
+AP_image_scroll(r_px,kernel_frames/framerate);
+caxis([prctile(r_px(:),[1,99])]*4);
+truesize
+
+%% Regress lever event(s) to fluorescence
+
+% Skip the first n seconds to do this
+skip_seconds = 10;
+use_frames = (frame_t > skip_seconds);
+
+% Make choiceworld event traces
+frame_edges = [frame_t,frame_t(end)+1/framerate];
+signals_event_trace = [];
+
+align_times = signals_events.stimOnTimes';
+signals_event_trace = [signals_event_trace;histcounts(align_times,frame_edges)];
+
+align_times = signals_events.lever_r_flipTimes(signals_events.lever_r_flipValues == -1)';
+signals_event_trace = [signals_event_trace;histcounts(align_times,frame_edges)];
+
+align_times = signals_events.lever_r_flipTimes(signals_events.lever_r_flipValues == 1)';
+signals_event_trace = [signals_event_trace;histcounts(align_times,frame_edges)];
+
+align_times = signals_events.totalWaterTimes';
+signals_event_trace = [signals_event_trace;histcounts(align_times,frame_edges)];
+
+use_svs = 1:50;
+kernel_frames = -35*5:35*5;
+lambda = 0;
+zs = false;
+cvfold = 5;
+
+[k,predicted_fluor,explained_var] = ...
+    AP_regresskernel(signals_event_trace(:,use_frames), ...
+    fV(use_svs,use_frames), ...
+    kernel_frames,lambda,zs,cvfold);
+
+% Reshape kernel and convert to pixel space
+k_r = permute(reshape(k,size(signals_event_trace,1),length(kernel_frames),length(use_svs)),[3,2,1]);
+
+r_px = zeros(size(U,1),size(U,2),size(k_r,2),size(k_r,3),'single');
+for curr_event = 1:size(k_r,3);
+    r_px(:,:,:,curr_event) = svdFrameReconstruct(U(:,:,use_svs),k_r(:,:,curr_event));
 end
 
 AP_image_scroll(r_px,kernel_frames/framerate);
@@ -1263,42 +1364,38 @@ use_frames = (frame_t > skip_seconds);
 
 % Make choiceworld event traces
 frame_edges = [frame_t,frame_t(end)+1/framerate];
-choiceworld_event_trace = [];
+signals_event_trace = [];
 
-azimuths = unique(choiceworld.trialAzimuthValues);
+azimuths = unique(signals_events.trialAzimuthValues);
 
 for trialAzimuth_idx = 1:length(azimuths)
         
         curr_azimuth = azimuths(trialAzimuth_idx);
         
-        use_trials = choiceworld.trialAzimuthValues == curr_azimuth;
-        align_times = choiceworld.stimOnTimes(use_trials(1:length(choiceworld.stimOnTimes)))';
-        choiceworld_event_trace = [choiceworld_event_trace;histcounts(align_times,frame_edges)];
+        use_trials = signals_events.trialAzimuthValues == curr_azimuth;
+        align_times = signals_events.stimOnTimes(use_trials(1:length(signals_events.stimOnTimes)))';
+        signals_event_trace = [signals_event_trace;histcounts(align_times,frame_edges)];
         
 end
 
-%choiceworld_event_trace = [choiceworld_event_trace;licking_trace];
-%choiceworld_event_trace = [choiceworld_event_trace;wheel_speed];
-
-%choiceworld_event_trace = zscore(choiceworld_event_trace,[],2);
 
 use_svs = 1:50;
-kernel_frames = -7:35;
+kernel_frames = -7:21;
 lambda = 0;
 zs = false;
 cvfold = 5;
 
 [k,predicted_fluor,explained_var] = ...
-    AP_regresskernel(choiceworld_event_trace(:,use_frames), ...
-    fVdf(use_svs,use_frames), ...
+    AP_regresskernel(signals_event_trace(:,use_frames), ...
+    fV(use_svs,use_frames), ...
     kernel_frames,lambda,zs,cvfold);
 
 % Reshape kernel and convert to pixel space
-k_r = permute(reshape(k,size(choiceworld_event_trace,1),length(kernel_frames),length(use_svs)),[3,2,1]);
+k_r = permute(reshape(k,size(signals_event_trace,1),length(kernel_frames),length(use_svs)),[3,2,1]);
 
 r_px = zeros(size(U,1),size(U,2),size(k_r,2),size(k_r,3),'single');
 for curr_event = 1:size(k_r,3);
-    r_px(:,:,:,curr_event) = svdFrameReconstruct(Udf(:,:,use_svs),k_r(:,:,curr_event));
+    r_px(:,:,:,curr_event) = svdFrameReconstruct(U(:,:,use_svs),k_r(:,:,curr_event));
 end
 
 AP_image_scroll(r_px,kernel_frames/framerate);
@@ -1516,11 +1613,227 @@ xlabel('Number of SVs')
 ylabel('% Correct decoded')
 title(['Fluorescence window ' num2str(start_window) ':' num2str(start_window+avg_window)])
 
+window_length = 0.2:0.2:1;
+start_window = -1:0.1:3;
+
+% Get left/right choice trials (of chosen contrasts)
+frame_edges = [frame_t,frame_t(end)+1/framerate];
+
+left_trials = ismember(signals_events.trialContrastValues,[1,0.5,0.25,0.125]) &  ...
+    (ismember(signals_events.trialSideValues,[1]) & ismember(signals_events.hitValues,[1])) | ...
+    (ismember(signals_events.trialSideValues,[-1]) & ismember(signals_events.hitValues,[0]));
+
+right_trials = ismember(signals_events.trialContrastValues,[1,0.5,0.25,0.125]) &  ...
+    (ismember(signals_events.trialSideValues,[1]) & ismember(signals_events.hitValues,[0])) | ...
+    (ismember(signals_events.trialSideValues,[-1]) & ismember(signals_events.hitValues,[1]));
+
+% Get photodiode flips closest to stim presentations
+photodiode_name = 'photoDiode';
+photodiode_idx = strcmp({Timeline.hw.inputs.name}, photodiode_name);
+photodiode_flip_times = Timeline.rawDAQTimestamps( ...
+    find((Timeline.rawDAQData(1:end-1,photodiode_idx) <= 2) ~= ...
+    (Timeline.rawDAQData(2:end,photodiode_idx) <= 2)) + 1);
+
+[~,closest_stimOn_photodiode] = ...
+    arrayfun(@(x) min(abs(signals_events.stimOnTimes(x) - ...
+    photodiode_flip_times)), ...
+    1:length(signals_events.stimOnTimes));
+stimOn_times = photodiode_flip_times(closest_stimOn_photodiode);
+
+correct_decoding = nan(length(start_window),length(window_length));
+for curr_window_length = 1:length(window_length);   
+    for curr_start_window = 1:length(start_window);
+        
+        framerate = 1./median(diff(frame_t));
+        surround_samplerate = 1/(framerate*1);
+        surround_time = start_window(curr_start_window):surround_samplerate: ...
+            start_window(curr_start_window)+window_length(curr_window_length);
+        
+        align_surround_times_left = bsxfun(@plus, stimOn_times(left_trials)', surround_time);
+        align_surround_times_right = bsxfun(@plus, stimOn_times(right_trials)', surround_time);
+        
+        fV_align_left = interp1(frame_t,fV',align_surround_times_left);
+        fV_align_right = interp1(frame_t,fV',align_surround_times_right);
+        
+        stim_order = [[ones(1,sum(left_trials)),zeros(1,sum(right_trials))]; ...
+            [zeros(1,sum(left_trials)),ones(1,sum(right_trials))]];
+        
+        use_svs = 100;
+        lambda = 1e6;
+        zs = false;
+        cvfold = 5;
+        
+        fV_align_all = [reshape(permute(fV_align_left(:,:,1:use_svs),[2,3,1]),[],sum(left_trials)), ...
+            reshape(permute(fV_align_right(:,:,1:use_svs),[2,3,1]),[],sum(right_trials))];
+                  
+        [k,predicted_stim,explained_var] = ...
+            AP_regresskernel(fV_align_all,stim_order,0,lambda,zs,cvfold);
+        
+        max_likely_stim = bsxfun(@eq,predicted_stim,max(predicted_stim,[],1));
+        correct_decoding(curr_start_window,curr_window_length) = sum(max_likely_stim(:) & stim_order(:))./sum(stim_order(:));
+              
+        % k2 = reshape(k,[],use_svs,2);
+        % k_px_l = svdFrameReconstruct(U(:,:,1:use_svs),k2(:,:,2)');
+        % k_px_r = svdFrameReconstruct(U(:,:,1:use_svs),k2(:,:,1)');
+        
+    end
+    
+    disp(curr_window_length)    
+    
+end
+
+figure; 
+set(gca,'ColorOrder',copper(size(correct_decoding,2)));
+plot(start_window,correct_decoding,'linewidth',2)
+legend(cellfun(@(x) [num2str(x) 's window'],num2cell(window_length),'uni',false));
+y = ylim;
+line([0,0],ylim,'color','r'); ylim(y);
+line([1,1],ylim,'color','r'); ylim(y);
+ylabel('Fraction correct decoding');
+xlabel('Time window start')
+
+%% Choiceworld choice decoding (with varying time windows)
+
+window_length = 0.2:0.2:1;
+start_window = -1:0.1:3;
+
+% Get left/right choice trials (of chosen contrasts)
+frame_edges = [frame_t,frame_t(end)+1/framerate];
+
+left_trials = ismember(signals_events.trialContrastValues,[1,0.5,0.25,0.125]) &  ...
+    (ismember(signals_events.trialSideValues,[1]) & ismember(signals_events.hitValues,[1])) | ...
+    (ismember(signals_events.trialSideValues,[-1]) & ismember(signals_events.hitValues,[0]));
+
+right_trials = ismember(signals_events.trialContrastValues,[1,0.5,0.25,0.125]) &  ...
+    (ismember(signals_events.trialSideValues,[1]) & ismember(signals_events.hitValues,[0])) | ...
+    (ismember(signals_events.trialSideValues,[-1]) & ismember(signals_events.hitValues,[1]));
+
+% Get photodiode flips closest to stim presentations
+photodiode_name = 'photoDiode';
+photodiode_idx = strcmp({Timeline.hw.inputs.name}, photodiode_name);
+photodiode_flip_times = Timeline.rawDAQTimestamps( ...
+    find((Timeline.rawDAQData(1:end-1,photodiode_idx) <= 2) ~= ...
+    (Timeline.rawDAQData(2:end,photodiode_idx) <= 2)) + 1);
+
+[~,closest_stimOn_photodiode] = ...
+    arrayfun(@(x) min(abs(signals_events.stimOnTimes(x) - ...
+    photodiode_flip_times)), ...
+    1:length(signals_events.stimOnTimes));
+stimOn_times = photodiode_flip_times(closest_stimOn_photodiode);
+
+correct_decoding = nan(length(start_window),length(window_length));
+for curr_window_length = 1:length(window_length);   
+    for curr_start_window = 1:length(start_window);
+        
+        framerate = 1./median(diff(frame_t));
+        surround_samplerate = 1/(framerate*1);
+        surround_time = start_window(curr_start_window):surround_samplerate: ...
+            start_window(curr_start_window)+window_length(curr_window_length);
+        
+        align_surround_times_left = bsxfun(@plus, stimOn_times(left_trials)', surround_time);
+        align_surround_times_right = bsxfun(@plus, stimOn_times(right_trials)', surround_time);
+        
+        fV_align_left = interp1(frame_t,fV',align_surround_times_left);
+        fV_align_right = interp1(frame_t,fV',align_surround_times_right);
+        
+        stim_order = [[ones(1,sum(left_trials)),zeros(1,sum(right_trials))]; ...
+            [zeros(1,sum(left_trials)),ones(1,sum(right_trials))]];
+        
+        use_svs = 100;
+        lambda = 1e6;
+        zs = false;
+        cvfold = 5;
+        
+        fV_align_all = [reshape(permute(fV_align_left(:,:,1:use_svs),[2,3,1]),[],sum(left_trials)), ...
+            reshape(permute(fV_align_right(:,:,1:use_svs),[2,3,1]),[],sum(right_trials))];
+                  
+        [k,predicted_stim,explained_var] = ...
+            AP_regresskernel(fV_align_all,stim_order,0,lambda,zs,cvfold);
+        
+        max_likely_stim = bsxfun(@eq,predicted_stim,max(predicted_stim,[],1));
+        correct_decoding(curr_start_window,curr_window_length) = sum(max_likely_stim(:) & stim_order(:))./sum(stim_order(:));
+              
+        % k2 = reshape(k,[],use_svs,2);
+        % k_px_l = svdFrameReconstruct(U(:,:,1:use_svs),k2(:,:,2)');
+        % k_px_r = svdFrameReconstruct(U(:,:,1:use_svs),k2(:,:,1)');
+        
+    end
+    
+    disp(curr_window_length)    
+    
+end
+
+figure; hold on;
+set(gca,'ColorOrder',copper(size(correct_decoding,2)));
+plot(start_window,correct_decoding,'linewidth',2)
+legend(cellfun(@(x) [num2str(x) 's window'],num2cell(window_length),'uni',false));
+y = ylim;
+line([0,0],ylim,'color','r'); ylim(y);
+line([0.5,0.5],ylim,'color','r'); ylim(y);
+ylabel('Fraction correct decoding');
+xlabel('Time window start')
 
 
+% Fix the parameters
+
+start_window = -0.5;
+window_length = 1;
+
+framerate = 1./median(diff(frame_t));
+surround_samplerate = 1/(framerate*1);
+surround_time = start_window:surround_samplerate: ...
+    start_window+window_length;
+
+align_surround_times_left = bsxfun(@plus, stimOn_times(left_trials)', surround_time);
+align_surround_times_right = bsxfun(@plus, stimOn_times(right_trials)', surround_time);
+
+fV_align_left = interp1(frame_t,fV',align_surround_times_left);
+fV_align_right = interp1(frame_t,fV',align_surround_times_right);
+
+stim_order = [[ones(1,sum(left_trials)),zeros(1,sum(right_trials))]; ...
+    [zeros(1,sum(left_trials)),ones(1,sum(right_trials))]];
+
+use_svs = 100;
+lambda = 1e6;
+zs = false;
+cvfold = 5;
+
+fV_align_all = [reshape(permute(fV_align_left(:,:,1:use_svs),[2,3,1]),[],sum(left_trials)), ...
+    reshape(permute(fV_align_right(:,:,1:use_svs),[2,3,1]),[],sum(right_trials))];
+
+[k,predicted_stim,explained_var] = ...
+    AP_regresskernel(fV_align_all,stim_order,0,lambda,zs,cvfold);
+
+max_likely_stim = bsxfun(@eq,predicted_stim,max(predicted_stim,[],1));
+correct_decoding = sum(max_likely_stim(:) & stim_order(:))./sum(stim_order(:));
+
+k2 = reshape(k,[],use_svs,2);
+k_px_l = svdFrameReconstruct(U(:,:,1:use_svs),k2(:,:,2)');
+k_px_r = svdFrameReconstruct(U(:,:,1:use_svs),k2(:,:,1)');
+
+l_prediction_contrast = grpstats(predicted_stim,signals_events.trialSideValues(left_trials)* ...
+    signals_events.trialContrastValues(left_trials),'mean');
 
 
+%% Align fluorescence to task event across trials
 
+%align_times = signals_events.totalWaterTimes';
+%align_times = signals_events.stimOnTimes';
+align_times = signals_events.lever_r_flipTimes(signals_events.lever_r_flipValues == 1)';
+
+surround_time = [-0.5,4];
+
+roi_trace = AP_svd_roi(U,fV);
+
+t_surround = surround_time(1):1/framerate:surround_time(2);
+time_around_event = bsxfun(@plus,align_times,t_surround);
+event_aligned_fluor = interp1(frame_t,roi_trace,time_around_event);
+
+figure;
+imagesc(t_surround,1:length(align_times),event_aligned_fluor)
+line([0,0],ylim,'color','r');
+ylabel('Event number')
+xlabel('Time (s)')
 
 
 

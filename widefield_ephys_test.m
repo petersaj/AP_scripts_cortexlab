@@ -2303,14 +2303,14 @@ frame_spikes = single(frame_spikes);
 use_svs = 1:50;
 kernel_frames = -35:35;
 downsample_factor = 1;
-lambda = 1e4;
+lambda = 1e6;
 zs = false;
 cvfold = 5;
 
 kernel_frames_downsample = round(downsample(kernel_frames,downsample_factor)/downsample_factor);
 
 [k,predicted_spikes,explained_var] = ...
-    AP_regresskernel(downsample(fV_filt(use_svs,use_frames)',downsample_factor)', ...
+    AP_regresskernel(downsample(fV(use_svs,use_frames)',downsample_factor)', ...
     downsample(frame_spikes(:,use_frames)',downsample_factor)',kernel_frames_downsample,lambda,zs,cvfold);
 
 % Reshape kernel and convert to pixel space

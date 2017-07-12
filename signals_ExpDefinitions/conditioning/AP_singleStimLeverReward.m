@@ -3,7 +3,7 @@ function AP_stimLeverReward(t, events, parameters, visStim, inputs, outputs, aud
 
 %% Fixed parameters
 
-% Reward (chosen to give ~400 ul in 30 min - otherwise they stop early)
+% Reward
 rewardSize = 3;
 
 % Stimuli
@@ -15,7 +15,7 @@ sigma = [5,90];
 stimFlickerFrequency = 4;
 
 % Timing
-stimTime = 10; % time stimulus is on the screen
+stimTime = 2; % time stimulus is on the screen
 itiTimes = 2:4;
 
 % Lever
@@ -32,9 +32,9 @@ trialITI = events.newTrial.mapn(@(x) itiTimes(randperm(length(itiTimes),1)));
 stimOn = delay(at(true,events.newTrial),0.01); 
 
 % Reward on rewarded stimulus on lever press
-hit = stimOn.setTrigger(lever_r_flip.eq(1) & trialAzimuth.eq(rewardedStim)).keepWhen(stimOn.to(events.newTrial));
-miss = stimOn.setTrigger(lever_r_flip.eq(1) & ~trialAzimuth.eq(rewardedStim)).keepWhen(stimOn.to(events.newTrial));
 timeout = skipRepeats(ge((t-t.at(stimOn)),stimTime));
+hit = stimOn.setTrigger(lever_r_flip.eq(1) & trialAzimuth.eq(rewardedStim)).keepWhen(stimOn.to(timeout));
+miss = stimOn.setTrigger(lever_r_flip.eq(1) & ~trialAzimuth.eq(rewardedStim)).keepWhen(stimOn.to(timeout));
 
 % Turn stim off after a timeout or a hit
 stimOff = stimOn.setTrigger(merge(hit,timeout));

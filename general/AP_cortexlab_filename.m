@@ -6,8 +6,10 @@ function [filename,file_exists] = AP_cortexlab_filename(animal,day,experiment,fi
 % block
 % parameters
 % protocol
-% eyetracking
-% eyetracking_processed
+% eyecam
+% eyecam_processed
+% facecam
+% facecam_processed
 % hardware
 % datapath
 %

@@ -154,9 +154,13 @@ if block_exists
     block_values_idx = cellfun(@(x) ~isempty(x),strfind(block_fieldnames,'Values'));
     block_times_idx = cellfun(@(x) ~isempty(x),strfind(block_fieldnames,'Times'));
     
-    choiceworld = block.events;
+    signals_events = block.events;
     for curr_times = find(block_times_idx)'
-        choiceworld.(block_fieldnames{curr_times}) = ...
+        if isempty(signals_events.(block_fieldnames{curr_times}));
+            % skip if empty
+            continue
+        end
+        signals_events.(block_fieldnames{curr_times}) = ...
             AP_clock_fix(block.events.(block_fieldnames{curr_times}),reward_t_block,reward_t_timeline);
     end
 
@@ -164,17 +168,17 @@ end
 
 %% Load face/eyecam processing (with eyeGUI)
 
+% Get cam sync from timeline
+camSync_idx = strcmp({Timeline.hw.inputs.name}, 'camSync');
+camSync_thresh = max(Timeline.rawDAQData(:,camSync_idx))/2;
+camSync = Timeline.rawDAQData(:,camSync_idx) > camSync_thresh;
+camSync_up = find((~camSync(1:end-1) & camSync(2:end)))+1;
+
 % EYECAM
 [eyecam_dir,eyecam_exists] = AP_cortexlab_filename(animal,day,experiment,'eyecam');
 
 if eyecam_exists
     disp('Loading eyecam...')
-    
-    % Get cam sync
-    camSync_idx = strcmp({Timeline.hw.inputs.name}, 'camSync');
-    camSync_thresh = max(Timeline.rawDAQData(:,camSync_idx))/2;
-    camSync = Timeline.rawDAQData(:,camSync_idx) > camSync_thresh;
-    camSync_up = find((~camSync(1:end-1) & camSync(2:end)))+1;
     
     % Load camera processed data
     [eyecam_processed_filename,eyecam_processed_exists] = AP_cortexlab_filename(animal,day,experiment,'eyecam_processed');
@@ -327,14 +331,25 @@ if data_path_exists
         
         Vh_Un = ChangeU(Uh,Vh,Un);
         
-        %hemo_freq = [0.2,3];
-        hemo_freq = [7,13];
-        Vn_hemo = HemoCorrectLocal(Un,Vn_th,Vh_Un,framerate,hemo_freq,3);
-        
-        % Close the figures (hacky - but function isn't mine)
-        close(gcf)
-        close(gcf)
-        
+        hemo_tform_fn = [data_path filesep 'hemo_tform.mat'];
+        if exist(hemo_tform_fn,'file')
+            % If the hemo tform matrix has been computed, load and fix
+            disp('Using old hemo tform...')
+            load(hemo_tform_fn)
+            zVh_Un = bsxfun(@minus, Vh_Un, mean(Vh_Un));
+            Vn_hemo = transpose(Vn_th' - zVh_Un'*hemo_tform');
+        else
+            % If no p hemo tform matrix, compute and save
+            disp('Computing hemo tform...')
+            %hemo_freq = [0.2,3];
+            hemo_freq = [7,13];
+            [Vn_hemo,hemo_tform] = HemoCorrectLocal(Un,Vn_th,Vh_Un,framerate,hemo_freq,3);
+            save(hemo_tform_fn,'hemo_tform');
+            % Close the figures (hacky - but function isn't mine)
+            close(gcf)
+            close(gcf)
+        end
+      
         disp('Filtering...')
         % Don't bother filtering heartbeat, just detrend and highpass
         % fVn_hemo = detrendAndFilt(Vn_hemo, framerate);
@@ -523,23 +538,29 @@ end
 %% Get wheel velocity and licking
 % % this is super preliminary
 
-disp('Getting wheel/licking input...')
+[data_path,data_path_exists] = AP_cortexlab_filename(animal,day,experiment,'datapath');
 
-rotaryEncoder_idx = strcmp({Timeline.hw.inputs.name}, 'rotaryEncoder');
+if data_path_exists 
+    
+    disp('Getting wheel/licking input...')
+    
+    rotaryEncoder_idx = strcmp({Timeline.hw.inputs.name}, 'rotaryEncoder');
+    
+    wheel_interp = interp1(Timeline.rawDAQTimestamps,Timeline.rawDAQData(:,rotaryEncoder_idx),frame_t);
+    % subtract median filtered because of these crazy jumps sometimes??
+    wheel_interp_medfilt = medfilt1(wheel_interp,100);
+    wheel_interp_medfiltsub = wheel_interp - wheel_interp_medfilt;
+    % remove ridiculous outliers
+    wheel_interp_medfiltsub(abs(wheel_interp_medfiltsub) > 1e5) = 0;
+    
+    wheel_velocity = [0;diff(smooth(wheel_interp_medfiltsub,10))];
+    wheel_speed = abs(hilbert(wheel_velocity))';
+    
+    lickPiezo_idx = strcmp({Timeline.hw.inputs.name}, 'piezoLickDetector');
+    lickPiezo_interp = interp1(Timeline.rawDAQTimestamps,Timeline.rawDAQData(:,lickPiezo_idx),frame_t);
+    licking_trace = abs(hilbert(lickPiezo_interp));
 
-wheel_interp = interp1(Timeline.rawDAQTimestamps,Timeline.rawDAQData(:,rotaryEncoder_idx),frame_t);
-% subtract median filtered because of these crazy jumps sometimes??
-wheel_interp_medfilt = medfilt1(wheel_interp,100);
-wheel_interp_medfiltsub = wheel_interp - wheel_interp_medfilt;
-% remove ridiculous outliers
-wheel_interp_medfiltsub(abs(wheel_interp_medfiltsub) > 1e5) = 0;
-
-wheel_velocity = [0;diff(smooth(wheel_interp_medfiltsub,10))];
-wheel_speed = abs(hilbert(wheel_velocity))';
-
-lickPiezo_idx = strcmp({Timeline.hw.inputs.name}, 'piezoLickDetector');
-lickPiezo_interp = interp1(Timeline.rawDAQTimestamps,Timeline.rawDAQData(:,lickPiezo_idx),frame_t);
-licking_trace = abs(hilbert(lickPiezo_interp));
+end
 
 %% Finished
 disp('Finished loading experiment.')
