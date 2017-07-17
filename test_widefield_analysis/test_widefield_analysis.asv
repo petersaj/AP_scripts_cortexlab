@@ -1776,8 +1776,8 @@ xlabel('Time window start')
 
 % Fix the parameters
 
-start_window = 0;
-window_length = 0.5;
+start_window = -0.5;
+window_length = 1;
 
 framerate = 1./median(diff(frame_t));
 surround_samplerate = 1/(framerate*1);
@@ -1794,7 +1794,7 @@ stim_order = [[ones(1,sum(left_trials)),zeros(1,sum(right_trials))]; ...
     [zeros(1,sum(left_trials)),ones(1,sum(right_trials))]];
 
 use_svs = 100;
-lambda = 0;
+lambda = 1e6;
 zs = false;
 cvfold = 5;
 
@@ -1807,6 +1807,13 @@ fV_align_all = [reshape(permute(fV_align_left(:,:,1:use_svs),[2,3,1]),[],sum(lef
 max_likely_stim = bsxfun(@eq,predicted_stim,max(predicted_stim,[],1));
 correct_decoding = sum(max_likely_stim(:) & stim_order(:))./sum(stim_order(:));
 
+k2 = reshape(k,[],use_svs,2);
+k_px_l = svdFrameReconstruct(U(:,:,1:use_svs),k2(:,:,2)');
+k_px_r = svdFrameReconstruct(U(:,:,1:use_svs),k2(:,:,1)');
+
+[prediction_contrast,grps] = grpstats(predicted_stim', ...
+    signals_events.trialSideValues([find(left_trials),find(right_trials)])'.* ...
+    signals_events.trialContrastValues([find(left_trials),find(right_trials)])',{'mean','gname'});
 
 
 %% Align fluorescence to task event across trials

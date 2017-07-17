@@ -164,6 +164,11 @@ if block_exists
             AP_clock_fix(block.events.(block_fieldnames{curr_times}),reward_t_block,reward_t_timeline);
     end
 
+    % FIX STUPID SIGNALS THING
+    if strcmp(block.expDef,'\\zserver.cortexlab.net\code\Rigging\ExpDefinitions\Andy\choiceworld\vanillaChoiceworld.m');
+        signals_events.hitValues = circshift(signals_events.hitValues,[0,-1]);
+        signals_events.missValues = circshift(signals_events.missValues,[0,-1]);
+    end
 end
 
 %% Load face/eyecam processing (with eyeGUI)
