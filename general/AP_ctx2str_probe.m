@@ -37,7 +37,7 @@ str_depths_mirror = [str_depths(:,1:2),ccf_midline - hemisphere*abs(str_depths(:
 
 max_sites = 50;
 str_depths_query = [str_depths;str_depths_mirror];
-injection_coordinates = AP_get_allen_projection(str_depths_query,max_sites);
+injection_coordinates = get_allen_projection(str_depths_query,max_sites);
 
 % Standardize injection coordinates by hemisphere (left = contra, right =
 % ipsi)

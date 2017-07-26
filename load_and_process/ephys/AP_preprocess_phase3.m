@@ -67,15 +67,21 @@ start_time_freq = str2num(messages_text{2}{start_time_idx}(strfind(messages_text
     strfind(messages_text{2}{start_time_idx},'Hz')-1));
 start_time_sec = start_time/start_time_freq;
 
-% Get/save digital input event times, correct for experiment start time
-% (note: not sure how consistent this fix is, AP007  2016-12-18 doesn't)
+% Get/save digital input event times, 
 [sync_data, sync_timestamps, sync_info] = load_open_ephys_data_faster(sync_filename);
 sync_channels = unique(sync_data);
 sync = struct('timestamps',cell(size(sync_channels)),'values',cell(size(sync_channels)));
 for curr_sync = 1:length(sync_channels)
     sync_events = sync_data == (sync_channels(curr_sync));
-    sync(curr_sync).timestamps = sync_timestamps(sync_events) - start_time_sec;
+    sync(curr_sync).timestamps = sync_timestamps(sync_events);
     sync(curr_sync).values = logical(sync_info.eventId(sync_events));
+    
+    % correct for experiment start time (not always necessary??)
+    % as far as I can tell it's random whether this is needed or not: if
+    % it's not then you get negative numbers at first, so maybe check for
+    % those and then it can be automated? it's not a good sign that it's
+    % variable though... I should probably just switch to spikeglx
+    sync(curr_sync).timestamps = sync(curr_sync).timestamps - start_time_sec;
 end
 
 sync_save_filename = [save_path filesep 'sync.mat'];

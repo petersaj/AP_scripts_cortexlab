@@ -140,132 +140,157 @@ if block_exists
     
     load(block_filename);
     
-    % Get reward times in block and timeline
-    reward_t_block = block.outputs.rewardTimes(block.outputs.rewardValues > 0);
-    
-    timeline_reward_idx = strcmp({Timeline.hw.inputs.name}, 'rewardEcho');
-    reward_thresh = max(Timeline.rawDAQData(:,timeline_reward_idx))/2;
-    reward_trace = Timeline.rawDAQData(:,timeline_reward_idx) > reward_thresh;
-    reward_t_timeline = Timeline.rawDAQTimestamps(find(reward_trace(2:end) & ~reward_trace(1:end-1))+1);
-    
-    % Go through all block events and convert to timeline time using the reward
-    % as the reference event
-    block_fieldnames = fieldnames(block.events);
-    block_values_idx = cellfun(@(x) ~isempty(x),strfind(block_fieldnames,'Values'));
-    block_times_idx = cellfun(@(x) ~isempty(x),strfind(block_fieldnames,'Times'));
-    
     signals_events = block.events;
-    for curr_times = find(block_times_idx)'
-        if isempty(signals_events.(block_fieldnames{curr_times}));
-            % skip if empty
-            continue
+    
+    % If timeline exists, get reward times in block and timeline
+    if exist('Timeline','var')
+        reward_t_block = block.outputs.rewardTimes(block.outputs.rewardValues > 0);
+        
+        timeline_reward_idx = strcmp({Timeline.hw.inputs.name}, 'rewardEcho');
+        reward_thresh = max(Timeline.rawDAQData(:,timeline_reward_idx))/2;
+        reward_trace = Timeline.rawDAQData(:,timeline_reward_idx) > reward_thresh;
+        reward_t_timeline = Timeline.rawDAQTimestamps(find(reward_trace(2:end) & ~reward_trace(1:end-1))+1);
+        
+        % Go through all block events and convert to timeline time using the reward
+        % as the reference event
+        block_fieldnames = fieldnames(block.events);
+        block_values_idx = cellfun(@(x) ~isempty(x),strfind(block_fieldnames,'Values'));
+        block_times_idx = cellfun(@(x) ~isempty(x),strfind(block_fieldnames,'Times'));
+        for curr_times = find(block_times_idx)'
+            if isempty(signals_events.(block_fieldnames{curr_times}));
+                % skip if empty
+                continue
+            end
+            signals_events.(block_fieldnames{curr_times}) = ...
+                AP_clock_fix(block.events.(block_fieldnames{curr_times}),reward_t_block,reward_t_timeline);
         end
-        signals_events.(block_fieldnames{curr_times}) = ...
-            AP_clock_fix(block.events.(block_fieldnames{curr_times}),reward_t_block,reward_t_timeline);
     end
-
+    
     % FIX STUPID SIGNALS THING
-    if strcmp(block.expDef,'\\zserver.cortexlab.net\code\Rigging\ExpDefinitions\Andy\choiceworld\vanillaChoiceworld.m');
+    [~,expDef] = fileparts(block.expDef);
+    if strcmp(expDef,'vanillaChoiceworld');
         signals_events.hitValues = circshift(signals_events.hitValues,[0,-1]);
         signals_events.missValues = circshift(signals_events.missValues,[0,-1]);
     end
+    
+    % Specialized: correct stimOn time to closest photodiode flip
+    % Get photodiode flips
+    photodiode_name = 'photoDiode';
+    photodiode_idx = strcmp({Timeline.hw.inputs.name}, photodiode_name);
+    photodiode_flip_samples = find((Timeline.rawDAQData(1:end-1,photodiode_idx) <= 2) ~= ...
+        (Timeline.rawDAQData(2:end,photodiode_idx) <= 2)) + 1;
+    % Get the closest photodiode flip to each stim on (stimOnTimes)
+    [~,closest_stimOn_photodiode] = ...
+        arrayfun(@(x) min(abs(signals_events.stimOnTimes(x) - ...
+        Timeline.rawDAQTimestamps(photodiode_flip_samples))), ...
+        1:length(signals_events.stimOnTimes));
+    stimOn_samples = photodiode_flip_samples(closest_stimOn_photodiode);
+    stimOn_times = Timeline.rawDAQTimestamps(stimOn_samples);
+    signals_events.stimOnTimes = stimOn_times;
+    
 end
+
 
 %% Load face/eyecam processing (with eyeGUI)
 
-% Get cam sync from timeline
-camSync_idx = strcmp({Timeline.hw.inputs.name}, 'camSync');
-camSync_thresh = max(Timeline.rawDAQData(:,camSync_idx))/2;
-camSync = Timeline.rawDAQData(:,camSync_idx) > camSync_thresh;
-camSync_up = find((~camSync(1:end-1) & camSync(2:end)))+1;
-
-% EYECAM
-[eyecam_dir,eyecam_exists] = AP_cortexlab_filename(animal,day,experiment,'eyecam');
-
-if eyecam_exists
-    disp('Loading eyecam...')
+% Don't load if no timeline
+if exist('Timeline','var')
     
-    % Load camera processed data
-    [eyecam_processed_filename,eyecam_processed_exists] = AP_cortexlab_filename(animal,day,experiment,'eyecam_processed');
-    if eyecam_processed_exists
-        eyecam = load(eyecam_processed_filename);
-    end
+    % Get cam sync from timeline
+    camSync_idx = strcmp({Timeline.hw.inputs.name}, 'camSync');
+    camSync_thresh = max(Timeline.rawDAQData(:,camSync_idx))/2;
+    camSync = Timeline.rawDAQData(:,camSync_idx) > camSync_thresh;
+    camSync_up = find((~camSync(1:end-1) & camSync(2:end)))+1;
     
-    % Get camera times
-    eyecam_fn = AP_cortexlab_filename(animal,day,experiment,'eyecam');
-    eyecam_dir = fileparts(eyecam_fn);
-    eyecam_t_savefile = [eyecam_dir filesep 'eyecam_t.mat'];
+    % EYECAM
+    [eyecam_dir,eyecam_exists] = AP_cortexlab_filename(animal,day,experiment,'eyecam');
     
-    if exist(eyecam_fn,'file') && ~exist(eyecam_t_savefile,'file')
-        % Get facecam strobes
-        eyeCamStrobe_idx = strcmp({Timeline.hw.inputs.name}, 'eyeCameraStrobe');
-        eyeCamStrobe_thresh = max(Timeline.rawDAQData(:,eyeCamStrobe_idx))/2;
-        eyeCamStrobe = Timeline.rawDAQData(:,eyeCamStrobe_idx) > eyeCamStrobe_thresh;
-        eyeCamStrobe_up = find((~eyeCamStrobe(1:end-1) & eyeCamStrobe(2:end)))+1;
-        eyeCamStrobe_up_t = Timeline.rawDAQTimestamps(eyeCamStrobe_up);
+    if eyecam_exists
+        disp('Loading eyecam...')
         
-        % Get sync times for cameras (or load if already done)
-        [eyecam_sync_frames,n_eyecam_frames] = AP_get_cam_sync_frames(eyecam_fn);
-        
-        if ~isempty(eyecam_sync_frames)
-            % Get the closest facecam strobe to sync start, find offset and frame idx
-            [~,eyecam_strobe_sync] = min(abs(camSync_up(1) - eyeCamStrobe_up));
-            eyecam_frame_offset = eyecam_sync_frames(1) - eyecam_strobe_sync;
-            eyecam_frame_idx = [1:length(eyeCamStrobe_up)] + eyecam_frame_offset;
-            
-            % Get times of facecam frames in timeline
-            eyecam_t = nan(n_eyecam_frames,1);
-            eyecam_t(eyecam_frame_idx) = eyeCamStrobe_up_t;
-            
-            save(eyecam_t_savefile,'eyecam_t');
+        % Load camera processed data
+        [eyecam_processed_filename,eyecam_processed_exists] = AP_cortexlab_filename(animal,day,experiment,'eyecam_processed');
+        if eyecam_processed_exists
+            eyecam = load(eyecam_processed_filename);
         end
-    elseif exist(eyecam_fn,'file') && exist(eyecam_t_savefile,'file')
-        load(eyecam_t_savefile);
-    end
-    
-end
-
-% FACECAM
-[facecam_dir,facecam_exists] = AP_cortexlab_filename(animal,day,experiment,'facecam');
-
-if facecam_exists
-    disp('Loading facecam...')
         
-    [facecam_processed_filename,facecam_processed_exists] = AP_cortexlab_filename(animal,day,experiment,'facecam_processed');
-    if facecam_processed_exists
-        facecam = load(facecam_processed_filename);
-    end
-    
-    % Get camera times
-    facecam_fn = AP_cortexlab_filename(animal,day,experiment,'facecam');
-    facecam_dir = fileparts(facecam_fn);
-    facecam_t_savefile = [facecam_dir filesep 'facecam_t.mat'];
-    
-    if exist(facecam_fn,'file') && ~exist(facecam_t_savefile,'file')
-        % Get facecam strobes
-        faceCamStrobe_idx = strcmp({Timeline.hw.inputs.name}, 'faceCamStrobe');
-        faceCamStrobe_thresh = max(Timeline.rawDAQData(:,faceCamStrobe_idx))/2;
-        faceCamStrobe = Timeline.rawDAQData(:,faceCamStrobe_idx) > faceCamStrobe_thresh;
-        faceCamStrobe_up = find((~faceCamStrobe(1:end-1) & faceCamStrobe(2:end)))+1;
-        faceCamStrobe_up_t = Timeline.rawDAQTimestamps(faceCamStrobe_up);
+        % Get camera times
+        eyecam_fn = AP_cortexlab_filename(animal,day,experiment,'eyecam');
+        eyecam_dir = fileparts(eyecam_fn);
+        eyecam_t_savefile = [eyecam_dir filesep 'eyecam_t.mat'];
         
-        % Get sync times for cameras (or load if already done)
-        [facecam_sync_frames,n_facecam_frames] = AP_get_cam_sync_frames(facecam_fn);
-        
-        if ~isempty(facecam_sync_frames)            
-            % Get the closest facecam strobe to sync start, find offset and frame idx
-            [~,facecam_strobe_sync] = min(abs(camSync_up(1) - faceCamStrobe_up));
-            facecam_frame_offset = facecam_sync_frames(1) - facecam_strobe_sync;
-            facecam_frame_idx = [1:length(faceCamStrobe_up)] + facecam_frame_offset;
+        if exist(eyecam_fn,'file') && ~exist(eyecam_t_savefile,'file')
+            % Get facecam strobes
+            eyeCamStrobe_idx = strcmp({Timeline.hw.inputs.name}, 'eyeCameraStrobe');
+            eyeCamStrobe_thresh = max(Timeline.rawDAQData(:,eyeCamStrobe_idx))/2;
+            eyeCamStrobe = Timeline.rawDAQData(:,eyeCamStrobe_idx) > eyeCamStrobe_thresh;
+            eyeCamStrobe_up = find((~eyeCamStrobe(1:end-1) & eyeCamStrobe(2:end)))+1;
+            eyeCamStrobe_up_t = Timeline.rawDAQTimestamps(eyeCamStrobe_up);
             
-            % Get times of facecam frames in timeline
-            facecam_t = nan(n_facecam_frames,1);
-            facecam_t(facecam_frame_idx) = faceCamStrobe_up_t;
+            % Get sync times for cameras (or load if already done)
+            [eyecam_sync_frames,n_eyecam_frames] = AP_get_cam_sync_frames(eyecam_fn);
             
-            save(facecam_t_savefile,'facecam_t');
+            if ~isempty(eyecam_sync_frames)
+                % Get the closest facecam strobe to sync start, find offset and frame idx
+                [~,eyecam_strobe_sync] = min(abs(camSync_up(1) - eyeCamStrobe_up));
+                eyecam_frame_offset = eyecam_sync_frames(1) - eyecam_strobe_sync;
+                eyecam_frame_idx = [1:length(eyeCamStrobe_up)] + eyecam_frame_offset;
+                
+                % Get times of facecam frames in timeline
+                eyecam_t = nan(n_eyecam_frames,1);
+                eyecam_t(eyecam_frame_idx) = eyeCamStrobe_up_t;
+                
+                save(eyecam_t_savefile,'eyecam_t');
+            end
+        elseif exist(eyecam_fn,'file') && exist(eyecam_t_savefile,'file')
+            load(eyecam_t_savefile);
         end
-    elseif exist(facecam_fn,'file') && exist(facecam_t_savefile,'file')
-        load(facecam_t_savefile);
+        
+    end
+    
+    % FACECAM
+    [facecam_dir,facecam_exists] = AP_cortexlab_filename(animal,day,experiment,'facecam');
+    
+    if facecam_exists
+        disp('Loading facecam...')
+        
+        [facecam_processed_filename,facecam_processed_exists] = AP_cortexlab_filename(animal,day,experiment,'facecam_processed');
+        if facecam_processed_exists
+            facecam = load(facecam_processed_filename);
+        end
+        
+        % Get camera times
+        facecam_fn = AP_cortexlab_filename(animal,day,experiment,'facecam');
+        facecam_dir = fileparts(facecam_fn);
+        facecam_t_savefile = [facecam_dir filesep 'facecam_t.mat'];
+        
+        if exist(facecam_fn,'file') && ~exist(facecam_t_savefile,'file')
+            % Get facecam strobes
+            faceCamStrobe_idx = strcmp({Timeline.hw.inputs.name}, 'faceCamStrobe');
+            faceCamStrobe_thresh = max(Timeline.rawDAQData(:,faceCamStrobe_idx))/2;
+            faceCamStrobe = Timeline.rawDAQData(:,faceCamStrobe_idx) > faceCamStrobe_thresh;
+            faceCamStrobe_up = find((~faceCamStrobe(1:end-1) & faceCamStrobe(2:end)))+1;
+            faceCamStrobe_up_t = Timeline.rawDAQTimestamps(faceCamStrobe_up);
+            
+            % Get sync times for cameras (or load if already done)
+            [facecam_sync_frames,n_facecam_frames] = AP_get_cam_sync_frames(facecam_fn);
+            
+            if ~isempty(facecam_sync_frames)
+                % Get the closest facecam strobe to sync start, find offset and frame idx
+                [~,facecam_strobe_sync] = min(abs(camSync_up(1) - faceCamStrobe_up));
+                facecam_frame_offset = facecam_sync_frames(1) - facecam_strobe_sync;
+                facecam_frame_idx = [1:length(faceCamStrobe_up)] + facecam_frame_offset;
+                
+                % Get times of facecam frames in timeline
+                facecam_t = nan(n_facecam_frames,1);
+                facecam_t(facecam_frame_idx) = faceCamStrobe_up_t;
+                
+                save(facecam_t_savefile,'facecam_t');
+            end
+        elseif exist(facecam_fn,'file') && exist(facecam_t_savefile,'file')
+            load(facecam_t_savefile);
+        end
+        
     end
     
 end
@@ -428,6 +453,8 @@ if ephys_exists
     template_amplitudes = readNPY([ephys_path filesep 'amplitudes.npy']);
     
     % Flip channel map and positions if banks are reversed
+    % (this was only for phase 2, so setting false by default)
+    flipped_banks = false;
     if flipped_banks
         channel_map = [channel_map(61:end);channel_map(1:60)];
         channel_positions = [channel_positions(61:end,:);channel_positions(1:60,:)];
@@ -438,7 +465,8 @@ if ephys_exists
     
     % Load LFP
     n_channels = str2num(header.n_channels);
-    lfp_filename = [ephys_path filesep 'lfp.dat'];
+    %lfp_filename = [ephys_path filesep 'lfp.dat']; (this is old)
+    lfp_filename = [data_path filesep 'ephys' filesep 'experiment1_100-1_0.dat'];
     if load_lfp && exist(lfp_filename,'file')
         fid = fopen(lfp_filename);
         lfp_all = fread(fid,[n_channels,inf],'int16');
@@ -458,7 +486,7 @@ if ephys_exists
     experiment_ephys_stops = sync(acqLive_channel).timestamps(sync(acqLive_channel).values == 0);
     
     experiments_dir = dir(fileparts(AP_cortexlab_filename(animal,day,[],'timeline')));
-    experiment_num = strmatch(experiment,{experiments_dir.name})-2;
+    experiment_num = experiment == cellfun(@str2num,{experiments_dir(3:end).name});
     acqlive_ephys_currexpt = [experiment_ephys_starts(experiment_num), ...
         experiment_ephys_stops(experiment_num)];
     
@@ -469,7 +497,7 @@ if ephys_exists
     end
     
     % Get the depths of each template
-    % (by COM: this gives totally wonky answers because of artifacts maybe?)
+    % (by COM: this gives totally wonky answers?)
     %[spikeAmps, spikeDepths, templateDepths, tempAmps, tempsUnW, templateDuration, waveforms] = ...
     %    templatePositionsAmplitudes(templates,winv,channel_positions(:,2),spike_templates,template_amplitudes);
     
