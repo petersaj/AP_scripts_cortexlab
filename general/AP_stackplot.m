@@ -1,5 +1,5 @@
-function AP_stackplot(x,t,spacing,zs,color,ylabels)
-% fig = AP_stackplot(x,t,spacing,zs,color,ylabels)
+function h = AP_stackplot(x,t,spacing,zs,color,ylabels)
+% h = AP_stackplot(x,t,spacing,zs,color,ylabels)
 %
 % Plot lines stacked on each other
 % x - 2d matrix of lines to plot
@@ -27,14 +27,14 @@ end
 
 if exist('color','var') && ~isempty(color);
     if length(color) == 1
-        plot(t,x_spaced,'linewidth',2,'color',color);
+        h = plot(t,x_spaced,'linewidth',2,'color',color);
     elseif size(color,1) == size(x_spaced,2)
         axis; hold on;
         set(gca,'ColorOrder',color);
-        plot(t,x_spaced,'linewidth',2);
+        h = plot(t,x_spaced,'linewidth',2);
     end
 else
-    plot(t,x_spaced,'linewidth',2);
+    h = plot(t,x_spaced,'linewidth',2);
 end
 
 % Set ylabels if desired

@@ -17,7 +17,7 @@ function vanillaChoiceworld(t, events, parameters, visStim, inputs, outputs, aud
 %% Fixed parameters
 
 % Reward
-rewardSize = 3;
+rewardSize = 2;
 
 % Trial choice parameters
 % Staircase trial choice
@@ -33,6 +33,13 @@ staircaseMiss = 1;
 contrasts = [1,0.5,0.25,0.125,0.06,0];
 % (which conrasts to use at the beginning of training)
 startingContrasts = [true,true,false,false,false,false];
+%%%%%%%%%%%%%% NOTE: FOR NOW MAKING THIS TRUE FROM THE BEGINNING
+%%%%%%%%%%%%%% THIS IS BECAUSE NEED TO FIX LOOKING FOR OLD CHOICEWORLD:
+%%%%%%%%%%%%%% MAKE IT BE THE LAST CHOICEWORLD, NOT THE LAST EXPT
+startingContrasts = [true,true,true,true,true,true];
+%%%%%%%%%%%%%%
+%%%%%%%%%%%%%%
+%%%%%%%%%%%%%%
 % (which contrasts to repeat on miss)
 repeatOnMiss = [true,true,false,false,false,false];
 % (number of trials to judge rolling performance)
@@ -216,6 +223,14 @@ trialDataInit.trialSide = randsample([-1,1],1);
 % Set up the flag for repeating incorrect
 trialDataInit.repeatTrial = false;
 % Initialize hit/miss
+%%%%%%%%%%%% NOTE THAT THIS IS WEIRD (FIGURED THIS OUT LATE): 
+%%%%%%%%%%%% This sets up the hit/miss signal AFTER a trial (i.e. the first
+%%%%%%%%%%%% value is always undefined, the second value represents the
+%%%%%%%%%%%% first trial). But this is confusing because contrasts are set
+%%%%%%%%%%%% up BEFORE a trial (i.e. the first value is the first trial).
+%%%%%%%%%%%% This means that in order to align them, in analysis they need
+%%%%%%%%%%%% to be shifted one spot to the left. Maybe this could be done
+%%%%%%%%%%%% here, but would be non-trivial, so doing in anaylsis.
 trialDataInit.hit = false;
 trialDataInit.miss = false;
 % Initialize the staircase: 

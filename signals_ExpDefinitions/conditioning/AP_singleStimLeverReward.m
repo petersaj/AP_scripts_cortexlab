@@ -16,7 +16,7 @@ stimFlickerFrequency = 4;
 
 % Timing
 stimTime = 2; % time stimulus is on the screen
-itiTimes = 2:4;
+itiTimes = 5:7;
 
 % Lever
 lever_r_flip = inputs.lever_r.delta.skipRepeats;

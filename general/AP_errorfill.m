@@ -35,7 +35,7 @@ fill([x,fliplr(x)],[ye_pos,fliplr(ye_neg)], ...
     color,'FaceAlpha',alpha,'EdgeColor','none')
 
 % Plot central line
-plot(x,y,'color','k','linewidth',2);
+plot(x,y,'color',color,'linewidth',2);
 
 
 

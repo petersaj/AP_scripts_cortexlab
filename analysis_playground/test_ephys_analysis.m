@@ -1074,7 +1074,7 @@ smWin = gw./sum(gw);
 psth_smooth = conv2(depth_psth, smWin, 'same');
 trace_spacing = max(psth_smooth(:));
 figure; AP_stackplot(psth_smooth(:,20:end-20)',bins(20:end-20), ...
-    trace_spacing,[],copper(size(psth_smooth,1)),depth_group_centers)
+    trace_spacing,[],'k',depth_group_centers)
 line([0,0],ylim,'linestyle','--','color','k');
 ylabel('Depth (\mum)');
 xlabel('Time from stim onset (s)')
@@ -1574,7 +1574,7 @@ end
 
 %% Raster aligned to stimuli
 
-use_spikes_idx = ismember(spike_templates,find(templateDepths >= 1300 & templateDepths <= 2500));
+use_spikes_idx = ismember(spike_templates,find(templateDepths >= 1500 & templateDepths <= 2500));
 %use_spikes_idx = ismember(spike_templates,find(templateDepths > 0 & templateDepths < Inf)) & ...
 %    (ismember(spike_templates,good_templates(fsi)));
 
@@ -1586,7 +1586,7 @@ use_spike_templates = spike_templates(use_spikes_idx);
 align_times = stim_onsets(ismember(stimIDs,[2]));
 
 % PSTHs
-raster_window = [-2,4];
+raster_window = [-0.5,2.5];
 psthViewer(use_spikes,use_spike_templates, ...
     stim_onsets,raster_window,stimIDs);
 
@@ -1767,7 +1767,7 @@ axis equal
 %% Classify cell type
 
 % Define cortical and striatal cells
-str_depth = [800,Inf];
+str_depth = [1300,Inf];
 
 str_templates = templateDepths >= str_depth(1) & templateDepths <= str_depth(2);
 non_str_templates = ~str_templates;
@@ -1907,7 +1907,7 @@ legend(celltype_labels(plot_celltypes));
 
 %% MUA/LFP correlation by depth 
 
-n_depth_groups = 20;
+n_depth_groups = 50;
 depth_group_edges = linspace(0,max(channel_positions(:,2)),n_depth_groups+1);
 depth_group = discretize(templateDepths,depth_group_edges);
 depth_group_centers = depth_group_edges(1:end-1)+diff(depth_group_edges);
@@ -1926,13 +1926,14 @@ end
 
 mua_corr = corrcoef(binned_spikes_depth');
 
-% LFP
-channel_depth_grp = discretize(sort(channel_positions(:,2),'ascend'),depth_group_edges);
+% LFP (subtract the median across channels)
+channel_depth_grp = discretize(channel_positions(:,2),depth_group_edges);
 lfp_depth_mean = grpstats(lfp,channel_depth_grp);
-lfp_corr = corrcoef(lfp_depth_mean');
+lfp_depth_mean_mediansub = bsxfun(@minus,lfp_depth_mean,nanmedian(lfp_depth_mean,1));
+lfp_corr = corrcoef(lfp_depth_mean_mediansub');
 
 % Plot
-figure; colormap(redblue);
+figure; colormap(parula);
 
 subplot(1,2,1);
 imagesc(depth_group_centers,depth_group_centers,mua_corr);

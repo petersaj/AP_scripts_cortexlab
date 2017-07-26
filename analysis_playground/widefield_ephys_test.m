@@ -2301,7 +2301,7 @@ frame_edges = [frame_t(1),mean([frame_t(2:end);frame_t(1:end-1)],1),frame_t(end)
 frame_spikes = single(frame_spikes);
  
 use_svs = 1:50;
-kernel_frames = -35:35;
+kernel_frames = -20:5;
 downsample_factor = 1;
 lambda = 1291549;
 zs = false;
@@ -2331,7 +2331,7 @@ truesize
 skip_seconds = 10;
 use_frames = (frame_t > skip_seconds);
 
-use_spikes = spike_times_timeline(ismember(spike_templates,find(templateDepths > 800 & templateDepths <= 2000)));
+use_spikes = spike_times_timeline(ismember(spike_templates,find(templateDepths > 1300 & templateDepths <= 2000)));
 
 frame_edges = [frame_t(1),mean([frame_t(2:end);frame_t(1:end-1)],1),frame_t(end)+1/framerate];
 [frame_spikes,~,spike_frames] = histcounts(use_spikes,frame_edges);
@@ -2379,8 +2379,8 @@ use_frames = (frame_t > skip_seconds);
 %use_frames = (frame_t > max(frame_t)/2);
 
 % Group multiunit by depth
-n_depth_groups = 15;
-depth_group_edges = linspace(800,max(channel_positions(:,2)),n_depth_groups+1);
+n_depth_groups = 10;
+depth_group_edges = linspace(1300,max(channel_positions(:,2)),n_depth_groups+1);
 depth_group_edges_use = depth_group_edges;
 %depth_group_edges_use = [3500 Inf];
 
@@ -2401,9 +2401,9 @@ for curr_depth = 1:length(depth_group_edges_use)-1
 end
 
 use_svs = 1:50;
-kernel_frames = -35:35;
+kernel_frames = -17:17;
 downsample_factor = 1;
-lambda = 1e6;
+lambda = 1.5e5;
 zs = false;
 cvfold = 5;
 

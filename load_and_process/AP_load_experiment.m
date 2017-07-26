@@ -414,7 +414,7 @@ if ephys_exists
     disp('Loading ephys...')
     
     acqLive_channel = 2;
-    load_lfp = false;
+    load_lfp = true;
             
     % Load clusters, if they exist
     cluster_filename = [ephys_path filesep 'cluster_groups.csv'];
@@ -463,22 +463,25 @@ if ephys_exists
     % Default channel map/positions are from end: make from surface
     channel_positions(:,2) = max(channel_positions(:,2)) - channel_positions(:,2);
     
-    % Load LFP
+    % Load LFP (random snippet: just for correlation)
     n_channels = str2num(header.n_channels);
     %lfp_filename = [ephys_path filesep 'lfp.dat']; (this is old)
     lfp_filename = [data_path filesep 'ephys' filesep 'experiment1_100-1_0.dat'];
     if load_lfp && exist(lfp_filename,'file')
+        lfp_sample_rate = str2num(header.lfp_sample_rate);
+        lfp_cutoff = str2num(header.filter_cutoff);
+        lfp_downsamp = (lfp_sample_rate/lfp_cutoff)/2;
+        
         fid = fopen(lfp_filename);
-        lfp_all = fread(fid,[n_channels,inf],'int16');
+        fseek(fid,(lfp_sample_rate*60*5*n_channels),'bof'); % move to 10 minutes after recording start
+        lfp_all = fread(fid,[n_channels,1e6],'int16'); % pull snippet
         fclose(fid);
-        % eliminate non-connected channels and sort by position (surface to deep)
-        lfp = lfp_all(flipud(channel_map)+1,:);
+        % eliminate non-connected channels
+        lfp = lfp_all(channel_map+1,:);
+        clear lfp_all;
         % get time of LFP sample points (NOTE: this is messy, based off of sample
-        % rate and knowing what kwik2dat does, not sure how accurate)
-        sample_rate = str2num(header.sample_rate);
-        lfp_cutoff = str2num(header.lfp_cutoff);
-        lfp_downsamp = (sample_rate/lfp_cutoff)/2;
-        lfp_t = ([1:size(lfp,2)]*lfp_downsamp)/sample_rate;
+        % rate and knowing what kwik2dat does, not sure how accurate)     
+        lfp_t = ([1:size(lfp,2)]*lfp_downsamp)/lfp_sample_rate;
     end
     
     % Get acqLive times for current experiment
