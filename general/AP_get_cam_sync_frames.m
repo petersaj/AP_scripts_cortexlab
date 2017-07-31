@@ -37,7 +37,7 @@ disp('Getting sync frames...')
 % Find the start strobe (within first n frames);
 n_frames = vr.NumberOfFrames;
 
-read_frames = 1:min(4000,n_frames);
+read_frames = 1:min(6000,n_frames);
 strobe_roi = zeros(length(read_frames),1);
 for curr_frame_idx = 1:length(read_frames);
     curr_frame = read_frames(curr_frame_idx);
@@ -48,7 +48,7 @@ strobe_roi_thresh = prctile(strobe_roi,90)/2;
 strobe_start_frame = read_frames(find(strobe_roi < strobe_roi_thresh,1));
 
 % Find the end strobe (longer, within n frames?)
-read_frames = max(1,(n_frames-4000)):n_frames;
+read_frames = max(1,(n_frames-6000)):n_frames;
 strobe_roi = zeros(length(read_frames),1);
 for curr_frame_idx = 1:length(read_frames);
     curr_frame = read_frames(curr_frame_idx);

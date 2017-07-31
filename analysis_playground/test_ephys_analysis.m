@@ -1039,11 +1039,11 @@ end
 
 %% Raster plot by depth
 
-align_times = stim_onsets(ismember(stimIDs,[3]));
+align_times = stim_onsets(ismember(stimIDs,[90]));
 
 % Group by depth
-n_depth_groups = 20;
-depth_group_edges = linspace(1,max(spikeDepths),n_depth_groups+1);
+n_depth_groups = 15;
+depth_group_edges = linspace(0,max(spikeDepths),n_depth_groups+1);
 depth_group_centers = round(depth_group_edges(1:end-1)+diff(depth_group_edges)/2);
 depth_group_edges(end) = Inf;
 depth_group = discretize(spikeDepths,depth_group_edges);
@@ -1074,7 +1074,7 @@ smWin = gw./sum(gw);
 psth_smooth = conv2(depth_psth, smWin, 'same');
 trace_spacing = max(psth_smooth(:));
 figure; AP_stackplot(psth_smooth(:,20:end-20)',bins(20:end-20), ...
-    trace_spacing,[],'k',depth_group_centers)
+    10,true,'k',depth_group_centers);
 line([0,0],ylim,'linestyle','--','color','k');
 ylabel('Depth (\mum)');
 xlabel('Time from stim onset (s)')
@@ -1574,19 +1574,19 @@ end
 
 %% Raster aligned to stimuli
 
-use_spikes_idx = ismember(spike_templates,find(templateDepths >= 1500 & templateDepths <= 2500));
-%use_spikes_idx = ismember(spike_templates,find(templateDepths > 0 & templateDepths < Inf)) & ...
-%    (ismember(spike_templates,good_templates(fsi)));
+%use_spikes_idx = ismember(spike_templates,find(templateDepths >= 1000 & templateDepths <= 2000));
+use_spikes_idx = ismember(spike_templates,find(templateDepths > 0 & templateDepths < 2000)) & ...
+   (ismember(spike_templates,find(uin)));
 
 % use_spikes_idx = true(size(spike_times_timeline));
 
 use_spikes = spike_times_timeline(use_spikes_idx);
 use_spike_templates = spike_templates(use_spikes_idx);
 
-align_times = stim_onsets(ismember(stimIDs,[2]));
+align_times = stim_onsets(ismember(stimIDs,[0]));
 
 % PSTHs
-raster_window = [-0.5,2.5];
+raster_window = [-0.5,3];
 psthViewer(use_spikes,use_spike_templates, ...
     stim_onsets,raster_window,stimIDs);
 
@@ -1767,7 +1767,7 @@ axis equal
 %% Classify cell type
 
 % Define cortical and striatal cells
-str_depth = [1300,Inf];
+str_depth = [0,Inf];
 
 str_templates = templateDepths >= str_depth(1) & templateDepths <= str_depth(2);
 non_str_templates = ~str_templates;
@@ -2080,10 +2080,12 @@ kernel_time = [-0.5,0.5];
 kernel_timepoints = kernel_time(1)/spike_binning:kernel_time(2)/spike_binning;
 lambda = 0;
 
-msn_spikes = sum(binned_spikes(msn,:),1);
-tan_spikes = sum(binned_spikes(tan,:),1);
-fsi_spikes = sum(binned_spikes(fsi,:),1);
-uin_spikes = sum(binned_spikes(uin,:),1);
+use_depth_templates = templateDepths > 0 & templateDepths < 2000;
+
+msn_spikes = sum(binned_spikes(msn & use_depth_templates,:),1);
+tan_spikes = sum(binned_spikes(tan & use_depth_templates,:),1);
+fsi_spikes = sum(binned_spikes(fsi & use_depth_templates,:),1);
+uin_spikes = sum(binned_spikes(uin & use_depth_templates,:),1);
 
 [k,predicted_spikes,explained_var] = ...
     AP_regresskernel([tan_spikes;fsi_spikes;uin_spikes],msn_spikes, ...
@@ -2091,28 +2093,18 @@ uin_spikes = sum(binned_spikes(uin,:),1);
 
 k = reshape(k,3,length(kernel_timepoints),[]);
 
-figure;plot(kernel_timepoints*spike_binning,k','linewidth',2);
+figure;
+subplot(1,2,1);
+plot(kernel_timepoints*spike_binning,k','linewidth',2);
+legend({'TAN','FSI','UIN'})
 
-
-
-
-
-wide_spikes = sum(binned_spikes(wide,:),1);
-narrow_spikes = sum(binned_spikes(narrow,:),1);
-
-
-soft_reg_factor = 1e4;
-x_autonorm = ifft((fft(wide_spikes).*conj(fft(narrow_spikes)))./(soft_reg_factor+fft(narrow_spikes).*conj(fft(narrow_spikes))));
+plot_frames = 100;
+soft_reg_factor = 1e9;
+x_autonorm = ifft((fft(msn_spikes).*conj(fft(fsi_spikes)))./(soft_reg_factor+fft(fsi_spikes).*conj(fft(fsi_spikes))));
 
 t_shift = [frame_t(end-plot_frames+1:end)-frame_t(end)-1/framerate,frame_t(1:plot_frames)-frame_t(1)];
 
-p1 = subplot(2,1,1);
-plot(t_shift,[x_nonorm(end-plot_frames+1:end),x_nonorm(1:plot_frames)],'k','linewidth',2);
-xlabel('Time (s)');
-ylabel('Impulse response')
-title('Non-normalized: ifft(F*S'')');
-
-p2 = subplot(2,1,2);
+subplot(1,2,2);
 plot(t_shift,[x_autonorm(end-plot_frames+1:end),x_autonorm(1:plot_frames)],'k','linewidth',2);
 xlabel('Time (s)');
 ylabel('Impluse response');

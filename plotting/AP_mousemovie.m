@@ -31,6 +31,11 @@ set(handles.imgSlider,'Max',handles.n_frames);
 set(handles.imgSlider,'Value',1);
 set(handles.imgSlider,'SliderStep',[10/handles.n_frames, 100/handles.n_frames]);
 
+% Set up frame title
+handles.frame_text = uicontrol('Style','text','String', ...
+    ['Frame: 1'],'FontSize',14,'Units', ...
+    'Normalized','Position',[0.3,0.93,0.4,0.07]);
+
 % Update guidata
 handles.movie_frame = movie_frame;
 guidata(gui_fig, handles);
@@ -142,6 +147,9 @@ function update_im(handles, gui_fig, movie_frame)
 % Update the images
 movie_im = read(handles.movie_vr,movie_frame);
 set(handles.movie_im,'Cdata',movie_im);
+
+% Update the frame text
+set(handles.frame_text,'String',['Frame: ' num2str(movie_frame)]);
 
 % Update guidata
 handles.movie_frame = movie_frame;

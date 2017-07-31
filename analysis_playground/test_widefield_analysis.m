@@ -982,20 +982,21 @@ px_10prct = svdFrameReconstruct(U,prctile(fV(:,skip_start_frames:end),10,2));
 %% Get average fluorescence to Signals event
 
 % Define the window to get an aligned response to
-surround_window = [-0.5,2];
+surround_window = [0,0.5];
 
 % Define the times to align to
 use_trials = ismember(signals_events.trialContrastValues,[1]) &  ...
-    ismember(signals_events.trialSideValues,[-1]) & ...
-    ismember(signals_events.hitValues,[1]);
+    ismember(signals_events.trialSideValues,[1]) & ...
+    ismember(signals_events.hitValues,[0]) & ...
+    ~signals_events.repeatTrialValues;
 align_times = signals_events.stimOnTimes(use_trials(1:length(signals_events.stimOnTimes)))';
 
-% use_trials = ismember(signals_events.trialAzimuthValues,[0]);
-% align_times = signals_events.stimOnTimes(use_trials(1:length(signals_events.stimOnTimes)))';
+%use_trials = ismember(signals_events.trialAzimuthValues,[0]);
+%align_times = signals_events.stimOnTimes(use_trials(1:length(signals_events.stimOnTimes)))';
 
 %align_times = signals_events.stimOnTimes';
 %align_times = signals_events.lever_r_flipTimes(signals_events.lever_r_flipValues == 1)';
-%align_times = signals_events.totalWaterTimes';
+%align_times = signals_events.totalWaterTimes(diff([0,signals_events.totalWaterTimes]) > 0)';
 
 % Get the surround time
 framerate = 1./nanmedian(diff(frame_t));
@@ -1140,13 +1141,13 @@ use_frames = (frame_t > skip_seconds);
 frame_edges = [frame_t,frame_t(end)+1/framerate];
 signals_event_trace = [];
 
-use_trials = ismember(signals_events.trialContrastValues,[1]) &  ...
+use_trials = ismember(signals_events.trialContrastValues,[1,0.5,0.25]) &  ...
     ismember(signals_events.trialSideValues,[-1]) & ...
     ismember(signals_events.hitValues,[1]);
 align_times = signals_events.stimOnTimes(use_trials(1:length(signals_events.stimOnTimes)))';
 signals_event_trace = [signals_event_trace;histcounts(align_times,frame_edges)];
 
-use_trials = ismember(signals_events.trialContrastValues,[1]) &  ...
+use_trials = ismember(signals_events.trialContrastValues,[1,0.5,0.25]) &  ...
     ismember(signals_events.trialSideValues,[1]) & ...
     ismember(signals_events.hitValues,[1]);
 align_times = signals_events.stimOnTimes(use_trials(1:length(signals_events.stimOnTimes)))';
@@ -1404,11 +1405,11 @@ truesize
 
 %% Align widefield images across days (/ get transform matricies)
 
-animal = 'AP017';
+animal = 'AP015';
 expInfo_path = ['\\zserver.cortexlab.net\Data\expInfo\' animal];
 expInfo_dir = dir(expInfo_path);
-%days = {expInfo_dir(find([expInfo_dir(3:end).isdir])+2).name};
-days = use_days;
+days = {expInfo_dir(find([expInfo_dir(3:end).isdir])+2).name};
+days = days(end-1:end);
 
 avg_im = cell(length(days),1);
 for curr_day = 1:length(days)
@@ -1416,8 +1417,12 @@ for curr_day = 1:length(days)
     avg_im{curr_day} = readNPY([data_path filesep 'meanImage_blue.npy']);
 end
 
-border_pixels = 20;
-avg_im = cellfun(@(x) imgaussfilt(x(border_pixels:end-border_pixels+1,border_pixels:end-border_pixels+1),3),avg_im,'uni',false);
+border_pixels = 10;
+
+%im_align = cellfun(@(x) x(border_pixels:end-border_pixels+1,border_pixels:end-border_pixels+1),avg_im,'uni',false);
+% align the left half of the image (without the craniotomy)
+m_align = cellfun(@(x) x(:,1:round(size(x,2)/2)),avg_im,'uni',false);
+%avg_im = cellfun(@(x) imgaussfilt(x(border_pixels:end-border_pixels+1,border_pixels:end-border_pixels+1),3),avg_im,'uni',false);
 
 % Register days to each other
 ref_im_num = length(avg_im); % register to last day
@@ -1479,7 +1484,7 @@ for curr_session = setdiff(1:length(avg_im),ref_im_num)
 %     tform_matrix{curr_session} = tformEstimate_combined.T;
 
     %%% TEST: just affine
-    tformEstimate_affine = imregtform(avg_im{curr_session},avg_im{ref_im_num},'affine',optimizer,metric);
+    tformEstimate_affine = imregtform(im_align{curr_session},im_align{ref_im_num},'affine',optimizer,metric);
     curr_im_reg = imwarp(avg_im{curr_session},tformEstimate_affine,'Outputview',imref2d(size(avg_im{ref_im_num})));
     tform_matrix{curr_session} = tformEstimate_affine.T;
     %%%%
@@ -1840,11 +1845,10 @@ colormap(colormap_blueblackred);
 %% Align fluorescence to task event across trials
 
 %align_times = signals_events.totalWaterTimes';
-%align_times = signals_events.stimOnTimes';
-align_times = stimOn_times(use_trials)';
+align_times = signals_events.stimOnTimes';
 %align_times = signals_events.lever_r_flipTimes(signals_events.lever_r_flipValues == 1)';
 
-surround_time = [-0.5,4];
+surround_time = [-1,3];
 
 roi_trace = AP_svd_roi(U,fV);
 

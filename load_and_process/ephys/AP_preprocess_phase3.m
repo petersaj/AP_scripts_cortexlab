@@ -12,12 +12,18 @@ if ~exist(save_path,'dir')
     mkdir(save_path)
 end
 
-% Hardcode the filenames
-ap_data_filename = [data_path filesep 'experiment1_100-0_0.dat'];
-lfp_data_filename = [data_path filesep 'experiment1_100-1_0.dat'];
-sync_filename = [data_path filesep 'experiment1_all_channels_0.events'];
-messages_filename = [data_path filesep 'experiment1_messages_0.events'];
-settings_filename = [data_path filesep 'settings.xml'];
+% Filenames are semi-hardcoded in open ephys convention
+ap_data_dir = dir([data_path filesep 'experiment*_100-0_0.dat']);
+lfp_data_dir = dir([data_path filesep 'experiment*_100-1_0.dat']);
+sync_dir = dir([data_path filesep 'experiment*_all_channels_0.events']);
+messages_dir = dir([data_path filesep 'experiment*_messages_0.events']);
+settings_dir = dir([data_path filesep 'settings*.xml']);
+
+ap_data_filename = [data_path filesep ap_data_dir.name];
+lfp_data_filename = [data_path filesep lfp_data_dir.name];
+sync_filename = [data_path filesep sync_dir.name];
+messages_filename = [data_path filesep messages_dir.name];
+settings_filename = [data_path filesep settings_dir.name];
 
 %% Get and save recording parameters
 
@@ -93,6 +99,11 @@ save(sync_save_filename,'sync');
 local_kilosort_path = 'C:\data_temp\kilosort';
 rmdir(local_kilosort_path,'s');
 mkdir(local_kilosort_path);
+
+% Clear out whatever's currently in phy (usually not enough room)
+local_phy_path = 'C:\data_temp\phy';
+rmdir(local_phy_path,'s');
+mkdir(local_phy_path);
 
 % Copy data locally
 disp('Copying data to local drive...')

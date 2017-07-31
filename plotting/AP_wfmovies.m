@@ -65,6 +65,7 @@ handles.t = frame_t(wf_frame);
 
 wf_im = svdFrameReconstruct(U,V(:,wf_frame));
 handles.wf_im = imagesc(handles.wf_axis,wf_im); axis(handles.wf_axis,'off');
+caxis(handles.wf_axis,[-3000,3000]);
 
 % Set up videoreaders, relative times, and images of cameras
 discretize_times = [frame_t,frame_t(end)+framerate];

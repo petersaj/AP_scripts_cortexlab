@@ -466,6 +466,7 @@ if ephys_exists
     % Load LFP (random snippet: just for correlation)
     n_channels = str2num(header.n_channels);
     %lfp_filename = [ephys_path filesep 'lfp.dat']; (this is old)
+    [data_path,data_path_exists] = AP_cortexlab_filename(animal,day,experiment,'datapath');
     lfp_filename = [data_path filesep 'ephys' filesep 'experiment1_100-1_0.dat'];
     if load_lfp && exist(lfp_filename,'file')
         lfp_sample_rate = str2num(header.lfp_sample_rate);

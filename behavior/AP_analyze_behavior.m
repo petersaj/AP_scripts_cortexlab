@@ -187,5 +187,46 @@ xlabel('Time from stim onset (s)');
 ylabel('Lick energy');
 legend(cellfun(@(x) num2str(x),num2cell(azimuths),'uni',false));
  
+%% Choiceworld: wheel movement around stim
+
+surround_time = [-0.5,2];
+surround_samples = surround_time/Timeline.hw.samplingInterval;
+
+% Get wheel aligned to stim onset
+rotaryEncoder_idx = strcmp({Timeline.hw.inputs.name}, 'rotaryEncoder');
+surround_time = surround_time(1):Timeline.hw.samplingInterval:surround_time(2);
+pull_times = bsxfun(@plus,signals_events.stimOnTimes',surround_time);
+
+stim_aligned_wheel_raw = interp1(Timeline.rawDAQTimestamps, ...
+    Timeline.rawDAQData(:,rotaryEncoder_idx),pull_times);
+stim_aligned_wheel = bsxfun(@minus,stim_aligned_wheel_raw, ...
+    nanmedian(stim_aligned_wheel_raw(:,surround_time < 0),2));
+
+figure; hold on;
+
+use_trials = signals_events.trialSideValues == 1 & signals_events.trialContrastValues > 0 & signals_events.hitValues;
+plot(surround_time,nanmedian(stim_aligned_wheel(use_trials,:),1),'k','linewidth',2)
+
+use_trials = signals_events.trialSideValues == 1 & signals_events.trialContrastValues > 0 & ~signals_events.hitValues;
+plot(surround_time,nanmedian(stim_aligned_wheel(use_trials,:),1),'r','linewidth',2)
+
+use_trials = signals_events.trialSideValues == -1 & signals_events.trialContrastValues > 0 & signals_events.hitValues;
+plot(surround_time,nanmedian(stim_aligned_wheel(use_trials,:),1),'b','linewidth',2)
+
+use_trials = signals_events.trialSideValues == -1 & signals_events.trialContrastValues > 0 & ~signals_events.hitValues;
+plot(surround_time,nanmedian(stim_aligned_wheel(use_trials,:),1),'m','linewidth',2)
+
+legend({'Stim right hit','Stim right miss','Stim left hit','Stim left miss'})
+xlabel('Time from stim');
+ylabel('Wheel displacement');
+
+
+
+
+
+
+
+
+
 
 
