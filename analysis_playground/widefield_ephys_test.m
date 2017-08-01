@@ -284,7 +284,7 @@ sta_v_pca = reshape(score,size(sta_v_all,1),size(sta_v_all,2),size(sta_v_all,3))
 
 %% STA for multiunit
 
-use_spikes = spike_times_timeline(ismember(spike_templates,find(templateDepths > 800 & templateDepths < 2000)));
+use_spikes = spike_times_timeline(ismember(spike_templates,find(templateDepths > 0 & templateDepths < 2000)));
 
 %use_spikes = spike_times_timeline(ismember(spike_templates,find(templateDepths > 0 & templateDepths < 400)) & ...
 %    ismember(spike_templates,use_templates(use_template_narrow)));
@@ -1201,7 +1201,7 @@ use_frames = frame_t > skip_seconds;
 use_t = frame_t(use_frames);
 
 %use_spikes = spike_times_timeline;
-use_spikes = spike_times_timeline(ismember(spike_templates,find(templateDepths > 0 & templateDepths < Inf)));
+use_spikes = spike_times_timeline(ismember(spike_templates,find(templateDepths > 0 & templateDepths < 2000)));
 %use_spikes = spike_times_timeline(ismember(spike_templates,find(templateDepths > 0 & templateDepths < 400)) & ...
 %    (ismember(spike_templates,use_templates(use_template_narrow))));
 
@@ -2403,7 +2403,7 @@ end
 use_svs = 1:50;
 kernel_frames = -17:17;
 downsample_factor = 1;
-lambda = 1e5;
+lambda = 1e6;
 zs = false;
 cvfold = 5;
 
@@ -3347,8 +3347,8 @@ AP_image_scroll(face_k,kernel_frames_downsample*downsample_factor/framerate)
 
 %% Regression stim ID to spikes, then fluor to residual spikes
 
-stim_regressors = ones(max(unique(stimIDs)),length(frame_t),'single');
 unique_stimIDs = unique(stimIDs);
+stim_regressors = ones(length(unique_stimIDs),length(frame_t),'single');
 for curr_stimID_idx = 1:length(unique_stimIDs);
     curr_stimID = unique_stimIDs(curr_stimID_idx);
     frame_edges = [frame_t(1),mean([frame_t(2:end);frame_t(1:end-1)],1),frame_t(end)+1/framerate];
@@ -3359,7 +3359,7 @@ end
 skip_seconds = 10;
 use_frames = (frame_t > skip_seconds);
 
-use_spikes = spike_times_timeline(ismember(spike_templates,find(templateDepths >= 1500 & templateDepths <= 2000)));
+use_spikes = spike_times_timeline(ismember(spike_templates,find(templateDepths >= 0 & templateDepths <= 2000)));
 
 frame_edges = [frame_t(1),mean([frame_t(2:end);frame_t(1:end-1)],1),frame_t(end)+1/framerate];
 [frame_spikes,~,spike_frames] = histcounts(use_spikes,frame_edges);

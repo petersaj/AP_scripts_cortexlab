@@ -467,14 +467,15 @@ if ephys_exists
     n_channels = str2num(header.n_channels);
     %lfp_filename = [ephys_path filesep 'lfp.dat']; (this is old)
     [data_path,data_path_exists] = AP_cortexlab_filename(animal,day,experiment,'datapath');
-    lfp_filename = [data_path filesep 'ephys' filesep 'experiment1_100-1_0.dat'];
+    lfp_dir = dir([data_path filesep 'ephys' filesep 'experiment*_100-1_0.dat']);
+    lfp_filename = [data_path filesep 'ephys' filesep lfp_dir.name];
     if load_lfp && exist(lfp_filename,'file')
         lfp_sample_rate = str2num(header.lfp_sample_rate);
         lfp_cutoff = str2num(header.filter_cutoff);
         lfp_downsamp = (lfp_sample_rate/lfp_cutoff)/2;
         
         fid = fopen(lfp_filename);
-        fseek(fid,(lfp_sample_rate*60*5*n_channels),'bof'); % move to 10 minutes after recording start
+        fseek(fid,(lfp_sample_rate*60*10*n_channels),'bof'); % move to 10 minutes after recording start
         lfp_all = fread(fid,[n_channels,1e6],'int16'); % pull snippet
         fclose(fid);
         % eliminate non-connected channels

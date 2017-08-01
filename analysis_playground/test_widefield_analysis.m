@@ -982,17 +982,17 @@ px_10prct = svdFrameReconstruct(U,prctile(fV(:,skip_start_frames:end),10,2));
 %% Get average fluorescence to Signals event
 
 % Define the window to get an aligned response to
-surround_window = [0,0.5];
+surround_window = [0,3];
 
 % Define the times to align to
-use_trials = ismember(signals_events.trialContrastValues,[1]) &  ...
-    ismember(signals_events.trialSideValues,[1]) & ...
-    ismember(signals_events.hitValues,[0]) & ...
-    ~signals_events.repeatTrialValues;
-align_times = signals_events.stimOnTimes(use_trials(1:length(signals_events.stimOnTimes)))';
+% use_trials = ismember(signals_events.trialContrastValues,[1]) &  ...
+%     ismember(signals_events.trialSideValues,[1]) & ...
+%     ismember(signals_events.hitValues,[0]) & ...
+%     ~signals_events.repeatTrialValues;
+% align_times = signals_events.stimOnTimes(use_trials(1:length(signals_events.stimOnTimes)))';
 
-%use_trials = ismember(signals_events.trialAzimuthValues,[0]);
-%align_times = signals_events.stimOnTimes(use_trials(1:length(signals_events.stimOnTimes)))';
+use_trials = ismember(signals_events.trialAzimuthValues,[90]);
+align_times = signals_events.stimOnTimes(use_trials(1:length(signals_events.stimOnTimes)))';
 
 %align_times = signals_events.stimOnTimes';
 %align_times = signals_events.lever_r_flipTimes(signals_events.lever_r_flipValues == 1)';
@@ -1409,7 +1409,7 @@ animal = 'AP015';
 expInfo_path = ['\\zserver.cortexlab.net\Data\expInfo\' animal];
 expInfo_dir = dir(expInfo_path);
 days = {expInfo_dir(find([expInfo_dir(3:end).isdir])+2).name};
-days = days(end-1:end);
+days = days(end-3:end);
 
 avg_im = cell(length(days),1);
 for curr_day = 1:length(days)
@@ -1417,12 +1417,12 @@ for curr_day = 1:length(days)
     avg_im{curr_day} = readNPY([data_path filesep 'meanImage_blue.npy']);
 end
 
-border_pixels = 10;
+border_pixels = 30;
 
 %im_align = cellfun(@(x) x(border_pixels:end-border_pixels+1,border_pixels:end-border_pixels+1),avg_im,'uni',false);
 % align the left half of the image (without the craniotomy)
-m_align = cellfun(@(x) x(:,1:round(size(x,2)/2)),avg_im,'uni',false);
-%avg_im = cellfun(@(x) imgaussfilt(x(border_pixels:end-border_pixels+1,border_pixels:end-border_pixels+1),3),avg_im,'uni',false);
+im_align = cellfun(@(x) x(border_pixels:end,1:round(size(x,2)/2)),avg_im,'uni',false);
+%im_align = cellfun(@(x) imgaussfilt(x(border_pixels:end-border_pixels+1,border_pixels:end-border_pixels+1),3),avg_im,'uni',false);
 
 % Register days to each other
 ref_im_num = length(avg_im); % register to last day
