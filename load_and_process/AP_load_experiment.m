@@ -5,6 +5,26 @@
 %
 % Not a function at the moment because nothing is packaged
 
+%% Define what to load
+
+% If nothing specified, load everything
+if ~exist('load_parts','var')
+    load_parts.cam = true;
+    load_parts.imaging = true;
+    load_parts.ephys = true;
+else
+    % If only some things specified, don't load others
+    if ~isfield(load_parts,'cam');
+        load_parts.cam = false;
+    end
+    if ~isfield(load_parts,'imaging');
+        load_parts.imaging = false;
+    end
+    if ~isfield(load_parts,'ephys');
+        load_parts.ephys = false;
+    end
+end
+
 %% Load timeline
 
 [timeline_filename,timeline_exists] = AP_cortexlab_filename(animal,day,experiment,'timeline');
@@ -194,7 +214,7 @@ end
 %% Load face/eyecam processing (with eyeGUI)
 
 % Don't load if no timeline
-if exist('Timeline','var')
+if exist('Timeline','var') && load_parts.cam
     
     % Get cam sync from timeline
     camSync_idx = strcmp({Timeline.hw.inputs.name}, 'camSync');
@@ -299,7 +319,7 @@ end
 
 [data_path,data_path_exists] = AP_cortexlab_filename(animal,day,experiment,'datapath');
 
-if data_path_exists    
+if data_path_exists && load_parts.imaging
     disp('Loading imaging data...')
     
     % Get the imaged colors
@@ -409,7 +429,7 @@ end
 
 [ephys_path,ephys_exists] = AP_cortexlab_filename(animal,day,experiment,'ephys');
 
-if ephys_exists
+if ephys_exists && load_parts.ephys
     
     disp('Loading ephys...')
     

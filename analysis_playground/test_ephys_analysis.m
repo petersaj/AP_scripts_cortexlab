@@ -1039,11 +1039,11 @@ end
 
 %% Raster plot by depth
 
-align_times = stim_onsets(ismember(stimIDs,[90]));
+align_times = stim_onsets(ismember(stimIDs,[0]));
 
 % Group by depth
-n_depth_groups = 6;
-depth_group_edges = linspace(1000,max(spikeDepths),n_depth_groups+1);
+n_depth_groups = 10;
+depth_group_edges = linspace(800,max(spikeDepths),n_depth_groups+1);
 depth_group_centers = round(depth_group_edges(1:end-1)+diff(depth_group_edges)/2);
 depth_group_edges(end) = Inf;
 depth_group = discretize(spikeDepths,depth_group_edges);
@@ -1574,9 +1574,9 @@ end
 
 %% Raster aligned to stimuli
 
-% use_spikes_idx = ismember(spike_templates,find(templateDepths >= 0 & templateDepths <= 1500));
-use_spikes_idx = ismember(spike_templates,find(templateDepths > 3500 & templateDepths < 4000)) & ...
-   (ismember(spike_templates,find(msn)));
+use_spikes_idx = ismember(spike_templates,find(templateDepths >= 500 & templateDepths <= 2000));
+%use_spikes_idx = ismember(spike_templates,find(templateDepths > 0 & templateDepths < 2000)) & ...
+%   (ismember(spike_templates,find(msn)));
 
 % use_spikes_idx = true(size(spike_times_timeline));
 

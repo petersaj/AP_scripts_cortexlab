@@ -982,7 +982,7 @@ px_10prct = svdFrameReconstruct(U,prctile(fV(:,skip_start_frames:end),10,2));
 %% Get average fluorescence to Signals event
 
 % Define the window to get an aligned response to
-surround_window = [0,0.5];
+surround_window = [0,3];
 
 % Define the times to align to
 % use_trials = ismember(signals_events.trialContrastValues,[1]) &  ...
@@ -1381,7 +1381,7 @@ end
 
 
 use_svs = 1:50;
-kernel_frames = -7:35*1;
+kernel_frames = -7:21;
 lambda = 0;
 zs = false;
 cvfold = 5;
@@ -1409,7 +1409,7 @@ animal = 'AP015';
 expInfo_path = ['\\zserver.cortexlab.net\Data\expInfo\' animal];
 expInfo_dir = dir(expInfo_path);
 days = {expInfo_dir(find([expInfo_dir(3:end).isdir])+2).name};
-days = days(end-4:end);
+days = days(end-3:end);
 
 avg_im = cell(length(days),1);
 for curr_day = 1:length(days)
@@ -1417,15 +1417,15 @@ for curr_day = 1:length(days)
     avg_im{curr_day} = readNPY([data_path filesep 'meanImage_blue.npy']);
 end
 
-border_pixels = 20;
+border_pixels = 30;
 
 %im_align = cellfun(@(x) x(border_pixels:end-border_pixels+1,border_pixels:end-border_pixels+1),avg_im,'uni',false);
 % align the left half of the image (without the craniotomy)
-%im_align = cellfun(@(x) x(border_pixels:end,1:round(size(x,2)/2)),avg_im,'uni',false);
-im_align = cellfun(@(x) imgaussfilt(x(border_pixels:end-border_pixels+1,border_pixels:end-border_pixels+1),3),avg_im,'uni',false);
+im_align = cellfun(@(x) x(border_pixels:end,1:round(size(x,2)/2)),avg_im,'uni',false);
+%im_align = cellfun(@(x) imgaussfilt(x(border_pixels:end-border_pixels+1,border_pixels:end-border_pixels+1),3),avg_im,'uni',false);
 
-% Choose reference day
-ref_im_num = round(length(im_align)/2);
+% Register days to each other
+ref_im_num = length(avg_im); % register to last day
 
 disp('Registering average images')
 tform_matrix = cell(length(avg_im),1);
@@ -1465,25 +1465,25 @@ for curr_session = setdiff(1:length(avg_im),ref_im_num)
     % This is to do correlation, then affine (if above doesn't work)
     [optimizer, metric] = imregconfig('monomodal');
     optimizer = registration.optimizer.OnePlusOneEvolutionary();
-    optimizer.MaximumIterations = 100;
+    optimizer.MaximumIterations = 1000;
     optimizer.GrowthFactor = 1+1e-6;
-    optimizer.InitialRadius = 1e-5;
+    optimizer.InitialRadius = 1e-4;
     
 %     % Register 1) correlation
-%     tformEstimate_corr = imregcorr(im_align{curr_session},im_align{ref_im_num},'similarity');
-%     curr_im_reg_corr = imwarp(im_align{curr_session},tformEstimate_corr,'Outputview',imref2d(size(im_align{ref_im_num})));
+%     tformEstimate_corr = imregcorr(avg_im{curr_session},avg_im{ref_im_num},'similarity');
+%     curr_im_reg_corr = imwarp(avg_im{curr_session},tformEstimate_corr,'Outputview',imref2d(size(avg_im{ref_im_num})));
 %     
 %     % Register 2) affine
-%     tformEstimate_affine = imregtform(curr_im_reg_corr,im_align{ref_im_num},'affine',optimizer,metric);
+%     tformEstimate_affine = imregtform(curr_im_reg_corr,avg_im{ref_im_num},'affine',optimizer,metric);
 %     
 %     tformEstimate_combined = tformEstimate_corr;
 %     tformEstimate_combined.T = tformEstimate_affine.T*tformEstimate_corr.T;
 %     
 %     curr_im_reg = imwarp(avg_im{curr_session},tformEstimate_combined,'Outputview',imref2d(size(avg_im{ref_im_num})));
-%     
+    
 %     tform_matrix{curr_session} = tformEstimate_combined.T;
 
-    %%% for just affine
+    %%% TEST: just affine
     tformEstimate_affine = imregtform(im_align{curr_session},im_align{ref_im_num},'affine',optimizer,metric);
     curr_im_reg = imwarp(avg_im{curr_session},tformEstimate_affine,'Outputview',imref2d(size(avg_im{ref_im_num})));
     tform_matrix{curr_session} = tformEstimate_affine.T;
@@ -1496,6 +1496,7 @@ for curr_session = setdiff(1:length(avg_im),ref_im_num)
 end
 
 AP_image_scroll(avg_im_reg)
+
 
 
 %% Orientation decoding (with varying time windows)
