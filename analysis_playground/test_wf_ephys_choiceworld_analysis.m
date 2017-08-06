@@ -2,7 +2,7 @@
 
 stimIDs = signals_events.trialSideValues.*signals_events.trialContrastValues;
 
-use_spikes_idx = ismember(spike_templates,find(templateDepths >= 1500 & templateDepths <= 2000));
+use_spikes_idx = ismember(spike_templates,find(templateDepths >= 1500 & templateDepths <= 2300));
 use_spikes = spike_times_timeline(use_spikes_idx);
 
 raster_window = [-0.5,2];
@@ -53,8 +53,9 @@ line([0,0],ylim,'linestyle','--','color','k');
 %% Raster plots for left vs. right stim, choose left vs. right stim (by depth)
 
 % Group multiunit by depth
-n_depth_groups = 8;
-depth_group_edges = linspace(1300,max(channel_positions(:,2)),n_depth_groups+1);
+n_depth_groups = 4;
+%depth_group_edges = linspace(0,max(channel_positions(:,2)),n_depth_groups+1);
+depth_group_edges = linspace(1300,3000,n_depth_groups+1);
 %depth_group_edges = [0 1300];
 depth_group_centers = round(depth_group_edges(1:end-1)+diff(depth_group_edges)/2);
 
@@ -100,23 +101,25 @@ end
 
 figure; hold on;
 trace_spacing = max([max(psth_right_hit(:)),max(psth_right_miss(:)),max(psth_left_hit(:)),max(psth_left_hit(:))]);
-p_rh = AP_stackplot(psth_right_hit',bins,trace_spacing,[],'k',depth_group_centers);
-p_rm = AP_stackplot(psth_right_miss',bins,trace_spacing,[],'r',depth_group_centers);
-p_lh = AP_stackplot(psth_left_hit',bins,trace_spacing,[],'b',depth_group_centers);
-p_lm = AP_stackplot(psth_left_miss',bins,trace_spacing,[],'m',depth_group_centers);
+zs = true;
+p_rh = AP_stackplot(psth_right_hit',bins,10,zs,'k',depth_group_centers);
+p_rm = AP_stackplot(psth_right_miss',bins,10,zs,'r',depth_group_centers);
+p_lh = AP_stackplot(psth_left_hit',bins,10,zs,'b',depth_group_centers);
+p_lm = AP_stackplot(psth_left_miss',bins,10,zs,'m',depth_group_centers);
 
 line([0,0],ylim,'color','k','linestyle','--');
+line([0.5,0.5],ylim,'color','k','linestyle','--');
 
 legend([p_rh(1),p_rm(1),p_lh(1),p_lm(1)],{'Stim right hit','Stim right miss','Stim left hit','Stim left miss'})
 xlabel('Time from stim');
 ylabel('Depth (\mum)');
 
 
-%% Raster plots for left vs. right stim, choose left vs. right stim (errorbars)
+%% PSTH for left vs. right stim, choose left vs. right stim (errorbars)
 
 stimIDs = signals_events.trialSideValues.*signals_events.trialContrastValues;
 
-use_spikes_idx = ismember(spike_templates,find(templateDepths >= 1300 & templateDepths <= 2500));
+use_spikes_idx = ismember(spike_templates,find(templateDepths >= 1300 & templateDepths <= 3000));
 use_spikes = spike_times_timeline(use_spikes_idx);
 
 raster_window = [-0.5,2];
@@ -157,14 +160,14 @@ subplot(1,3,2); hold on;
 use_trials = (signals_events.trialSideValues == 1 & signals_events.hitValues == 1) | ...
     (signals_events.trialSideValues == -1 & signals_events.hitValues == 0);
 [psth, bins, rasterX, rasterY, spikeCounts, binnedArray] = psthAndBA(use_spikes,signals_events.stimOnTimes(use_trials),raster_window,psth_bin_size);
-AP_errorfill(bins,nanmean(binnedArray),nanstd(binnedArray,[],1)./sqrt(sum(~isnan(binnedArray),1)),'k');
+p1 = AP_errorfill(bins,nanmean(binnedArray),nanstd(binnedArray,[],1)./sqrt(sum(~isnan(binnedArray),1)),'k');
 
 use_trials = (signals_events.trialSideValues == -1 & signals_events.hitValues == 1) | ...
     (signals_events.trialSideValues == 1 & signals_events.hitValues == 0);
 [psth, bins, rasterX, rasterY, spikeCounts, binnedArray] = psthAndBA(use_spikes,signals_events.stimOnTimes(use_trials),raster_window,psth_bin_size);
-AP_errorfill(bins,nanmean(binnedArray),nanstd(binnedArray,[],1)./sqrt(sum(~isnan(binnedArray),1)),'r');
+p2 = AP_errorfill(bins,nanmean(binnedArray),nanstd(binnedArray,[],1)./sqrt(sum(~isnan(binnedArray),1)),'r');
 
-legend({'Move left','Move right'});
+legend([p1(1),p2(1)],{'Move left','Move right'});
 xlim([bins(1),bins(end)])
 xlabel('Time from stim');
 ylabel('Spikes');
@@ -186,6 +189,155 @@ legend({'Move left 0 contrast','Move right 0 contrast'});
 xlim([bins(1),bins(end)])
 xlabel('Time from stim');
 ylabel('Spikes');
+
+
+%% PSTH population choose left vs. right stim (move-aligned)
+
+stimIDs = signals_events.trialSideValues.*signals_events.trialContrastValues;
+
+use_spikes_idx = ismember(spike_templates,find(templateDepths >= 1300 & templateDepths <= 3000));
+%use_spikes_idx = ismember(spike_templates,intersect(find(templateDepths >= 1300 & templateDepths <= 3000),find(fsi)));
+
+use_spikes = spike_times_timeline(use_spikes_idx);
+
+raster_window = [-0.5 2];
+psth_bin_size = 0.02;
+
+smooth_size = 50;
+gw = gausswin(smooth_size,3)';
+smWin = gw./sum(gw);
+
+% Get wheel movement time for each trial
+
+surround_time = [-0.2,5];
+surround_samples = surround_time/Timeline.hw.samplingInterval;
+
+rotaryEncoder_idx = strcmp({Timeline.hw.inputs.name}, 'rotaryEncoder');
+surround_time = surround_time(1):Timeline.hw.samplingInterval:surround_time(2);
+pull_times = bsxfun(@plus,signals_events.stimOnTimes',surround_time);
+
+stim_aligned_wheel_raw = interp1(Timeline.rawDAQTimestamps, ...
+    Timeline.rawDAQData(:,rotaryEncoder_idx),pull_times);
+stim_aligned_wheel = bsxfun(@minus,stim_aligned_wheel_raw, ...
+    nanmedian(stim_aligned_wheel_raw(:,surround_time < 0),2));
+
+thresh_displacement = 10;
+[~,wheel_move_sample] = max(abs(stim_aligned_wheel) > thresh_displacement,[],2);
+wheel_move_time = arrayfun(@(x) pull_times(x,wheel_move_sample(x)),1:size(pull_times,1));
+wheel_move_time(wheel_move_sample == 1) = NaN;
+
+% Plot
+figure; hold on;
+
+use_trials = (signals_events.trialSideValues == 1 & signals_events.hitValues == 1) | ...
+    (signals_events.trialSideValues == -1 & signals_events.hitValues == 0) & ...
+    ~signals_events.repeatTrialValues;
+[psth, bins, rasterX, rasterY, spikeCounts, binnedArray] = psthAndBA(use_spikes,wheel_move_time(use_trials),raster_window,psth_bin_size);
+p1 = AP_errorfill(bins,nanmean(binnedArray),nanstd(binnedArray,[],1)./sqrt(sum(~isnan(binnedArray),1)),'k');
+
+use_trials = (signals_events.trialSideValues == -1 & signals_events.hitValues == 1) | ...
+    (signals_events.trialSideValues == 1 & signals_events.hitValues == 0) & ...
+    ~signals_events.repeatTrialValues;
+[psth, bins, rasterX, rasterY, spikeCounts, binnedArray] = psthAndBA(use_spikes,wheel_move_time(use_trials),raster_window,psth_bin_size);
+p2 = AP_errorfill(bins,nanmean(binnedArray),nanstd(binnedArray,[],1)./sqrt(sum(~isnan(binnedArray),1)),'r');
+
+legend([p1(1),p2(1)],{'Move left','Move right'});
+xlim([bins(1),bins(end)])
+xlabel('Time from movement');
+ylabel('Spikes');
+
+line([0,0],ylim,'linestyle','--','color','k');
+
+
+%% PSTH templates choose left vs. right stim (move-aligned)
+
+stimIDs = signals_events.trialSideValues.*signals_events.trialContrastValues;
+
+use_spikes_idx = ismember(spike_templates,find(templateDepths >= 1300 & templateDepths <= 3000));
+%use_spikes_idx = ismember(spike_templates,intersect(find(templateDepths >= 1300 & templateDepths <= 3000),find(msn)));
+use_spikes = spike_times_timeline(use_spikes_idx);
+
+% Get wheel movement time for each trial
+surround_time = [-0.5,2];
+surround_samples = surround_time/Timeline.hw.samplingInterval;
+
+rotaryEncoder_idx = strcmp({Timeline.hw.inputs.name}, 'rotaryEncoder');
+surround_time = surround_time(1):Timeline.hw.samplingInterval:surround_time(2);
+pull_times = bsxfun(@plus,signals_events.stimOnTimes',surround_time);
+
+stim_aligned_wheel_raw = interp1(Timeline.rawDAQTimestamps, ...
+    Timeline.rawDAQData(:,rotaryEncoder_idx),pull_times);
+stim_aligned_wheel = bsxfun(@minus,stim_aligned_wheel_raw, ...
+    nanmedian(stim_aligned_wheel_raw(:,surround_time < 0),2));
+
+thresh_displacement = 10;
+[~,wheel_move_sample] = max(abs(stim_aligned_wheel) > thresh_displacement,[],2);
+wheel_move_time = arrayfun(@(x) pull_times(x,wheel_move_sample(x)),1:size(pull_times,1));
+wheel_move_time(wheel_move_sample == 1) = NaN;
+
+% Plot
+go_left_trials = (signals_events.trialSideValues == 1 & signals_events.hitValues == 1) | ...
+    (signals_events.trialSideValues == -1 & signals_events.hitValues == 0) & ...
+    ~signals_events.repeatTrialValues;
+
+go_right_trials = (signals_events.trialSideValues == -1 & signals_events.hitValues == 1) | ...
+    (signals_events.trialSideValues == 1 & signals_events.hitValues == 0) & ...
+    ~signals_events.repeatTrialValues;
+
+trial_choice = go_left_trials + 2.*go_right_trials;
+
+raster_window = [-0.1,0.1];
+psth_bin_size = 0.01;
+
+use_templates = find(templateDepths >= 1300 & templateDepths <= 3000);
+
+template_psth_left = nan(length(use_templates),diff(raster_window/psth_bin_size));
+for curr_template_idx = 1:length(use_templates)
+    curr_template = use_templates(curr_template_idx);
+    curr_use_spikes = spike_times_timeline(spike_templates == curr_template);
+    [psth, bins, rasterX, rasterY, spikeCounts, binnedArray] = ...
+        psthAndBA(curr_use_spikes,wheel_move_time(go_left_trials),raster_window,psth_bin_size);
+    template_psth_left(curr_template_idx,:) = psth;
+end
+
+template_psth_right = nan(length(use_templates),diff(raster_window/psth_bin_size));
+for curr_template_idx = 1:length(use_templates)
+    curr_template = use_templates(curr_template_idx);
+    curr_use_spikes = spike_times_timeline(spike_templates == curr_template);
+    [psth, bins, rasterX, rasterY, spikeCounts, binnedArray] = ...
+        psthAndBA(curr_use_spikes,wheel_move_time(go_right_trials),raster_window,psth_bin_size);
+    template_psth_right(curr_template_idx,:) = psth;
+end
+
+figure; hold on;
+plot(nanmean(zscore(template_psth_left,[],2)),'k');
+plot(nanmean(zscore(template_psth_right,[],2)),'r');
+
+% Get left/right differences for correct non-repeat trials, plot raster and
+% sort by difference
+l_r_diff = (sum(template_psth_left,2) - sum(template_psth_right,2))./ ...
+    (sum(template_psth_left,2) + sum(template_psth_right,2));
+
+[~,sort_idx] = sort(l_r_diff);
+sort_templates = nan(size(templates,1),1);
+sort_templates(use_templates(sort_idx)) = 1:length(use_templates);
+template_sort = sort_templates(spike_templates(use_spikes_idx));
+
+raster_window = [-1,1];
+psthViewer(use_spikes,template_sort, ...
+    [wheel_move_time(go_right_trials),wheel_move_time(go_left_trials)], ...
+    raster_window,[ones(1,sum(go_right_trials)),2*ones(1,sum(go_left_trials))]);
+
+
+
+
+
+
+
+
+
+
+
 
 
 

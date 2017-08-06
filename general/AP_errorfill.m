@@ -1,4 +1,4 @@
-function AP_errorfill(x,y,ye,color,alpha)
+function h = AP_errorfill(x,y,ye,color,alpha)
 % AP_errorfill(x,y,ye,color,alpha);
 %
 % Draw filled polygon as errorbars
@@ -35,7 +35,7 @@ fill([x,fliplr(x)],[ye_pos,fliplr(ye_neg)], ...
     color,'FaceAlpha',alpha,'EdgeColor','none')
 
 % Plot central line
-plot(x,y,'color',color,'linewidth',2);
+h = plot(x,y,'color',color,'linewidth',2);
 
 
 

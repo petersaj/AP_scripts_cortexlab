@@ -593,33 +593,6 @@ if ephys_exists && load_parts.ephys
     
 end
 
-%% Get wheel velocity and licking
-% % this is super preliminary
-
-[data_path,data_path_exists] = AP_cortexlab_filename(animal,day,experiment,'datapath');
-
-if data_path_exists 
-    
-    disp('Getting wheel/licking input...')
-    
-    rotaryEncoder_idx = strcmp({Timeline.hw.inputs.name}, 'rotaryEncoder');
-    
-    wheel_interp = interp1(Timeline.rawDAQTimestamps,Timeline.rawDAQData(:,rotaryEncoder_idx),frame_t);
-    % subtract median filtered because of these crazy jumps sometimes??
-    wheel_interp_medfilt = medfilt1(wheel_interp,100);
-    wheel_interp_medfiltsub = wheel_interp - wheel_interp_medfilt;
-    % remove ridiculous outliers
-    wheel_interp_medfiltsub(abs(wheel_interp_medfiltsub) > 1e5) = 0;
-    
-    wheel_velocity = [0;diff(smooth(wheel_interp_medfiltsub,10))];
-    wheel_speed = abs(hilbert(wheel_velocity))';
-    
-    lickPiezo_idx = strcmp({Timeline.hw.inputs.name}, 'piezoLickDetector');
-    lickPiezo_interp = interp1(Timeline.rawDAQTimestamps,Timeline.rawDAQData(:,lickPiezo_idx),frame_t);
-    licking_trace = abs(hilbert(lickPiezo_interp));
-
-end
-
 %% Finished
 disp('Finished loading experiment.')
 

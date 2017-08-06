@@ -2292,9 +2292,11 @@ use_frames = (frame_t > skip_seconds);
 %use_frames = (frame_t > skip_seconds) & (frame_t < max(frame_t)/2);
 %use_frames = (frame_t > max(frame_t)/2);
 
-use_spikes = spike_times_timeline(ismember(spike_templates,find(templateDepths > 1500 & templateDepths < 2000)));
-% use_spikes = spike_times_timeline(ismember(spike_templates,find(templateDepths > 1300 & templateDepths < 2700)) &...
+% use_spikes = spike_times_timeline(ismember(spike_templates,find(templateDepths > 1500 & templateDepths < 2000)));
+% use_spikes = spike_times_timeline(ismember(spike_templates,find(templateDepths > 1300 & templateDepths < 3000)) &...
 %     ismember(spike_templates,find(tan)));
+use_spikes = spike_times_timeline(ismember(spike_templates,find(templateDepths > 1300 & templateDepths < 2500)) &...
+    ismember(spike_templates,find(msn)) & ismember(spike_templates,find(a > 0)));
 
 frame_edges = [frame_t(1),mean([frame_t(2:end);frame_t(1:end-1)],1),frame_t(end)+1/framerate];
 [frame_spikes,~,spike_frames] = histcounts(use_spikes,frame_edges);
@@ -2372,15 +2374,16 @@ disp(['Best lambda = ' num2str(use_lambdas(explained_var_lambdas == ...
 
 %% Regression from fluor to spikes (AP_regresskernel) MUA depth
 
-% Skip the first n seconds to do this
-skip_seconds = 4;
-use_frames = (frame_t > skip_seconds);
+% Skip the first/last n seconds to do this
+skip_seconds = 30;
+use_frames = (frame_t > skip_seconds & frame_t < frame_t(end)-skip_seconds);
 %use_frames = (frame_t > skip_seconds) & (frame_t < max(frame_t)/2);
 %use_frames = (frame_t > max(frame_t)/2);
 
 % Group multiunit by depth
-n_depth_groups = 10;
-depth_group_edges = linspace(500,max(channel_positions(:,2)),n_depth_groups+1);
+n_depth_groups = 6;
+%depth_group_edges = linspace(0,max(channel_positions(:,2)),n_depth_groups+1);
+depth_group_edges = linspace(1300,3500,n_depth_groups+1);
 depth_group_edges_use = depth_group_edges;
 %depth_group_edges_use = [3500 Inf];
 
@@ -2434,7 +2437,7 @@ truesize;
 
 % Get center of mass for each pixel 
 r_px_max = squeeze(sqrt(sum(r_px.^2,3)));
-%r_px_max = reshape(zscore(reshape(r_px_max,[],size(r_px_max,3)),[],1),size(r_px_max));
+r_px_max = reshape(zscore(reshape(r_px_max,[],size(r_px_max,3)),[],1),size(r_px_max));
 r_px_com = sum(bsxfun(@times,r_px_max,permute(1:n_depth_groups,[1,3,2])),3)./sum(r_px_max,3);
 
 % Plot map of cortical pixel by preferred depth of probe

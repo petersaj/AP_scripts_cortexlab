@@ -1039,10 +1039,10 @@ end
 
 %% Raster plot by depth
 
-align_times = stim_onsets(ismember(stimIDs,[0]));
+align_times = stim_onsets(ismember(stimIDs,[2]));
 
 % Group by depth
-n_depth_groups = 10;
+n_depth_groups = 6;
 depth_group_edges = linspace(800,max(spikeDepths),n_depth_groups+1);
 depth_group_centers = round(depth_group_edges(1:end-1)+diff(depth_group_edges)/2);
 depth_group_edges(end) = Inf;
@@ -1574,7 +1574,7 @@ end
 
 %% Raster aligned to stimuli
 
-use_spikes_idx = ismember(spike_templates,find(templateDepths >= 500 & templateDepths <= 2000));
+use_spikes_idx = ismember(spike_templates,find(templateDepths >= 3000 & templateDepths <= 3500));
 %use_spikes_idx = ismember(spike_templates,find(templateDepths > 0 & templateDepths < 2000)) & ...
 %   (ismember(spike_templates,find(msn)));
 
@@ -1586,7 +1586,7 @@ use_spike_templates = spike_templates(use_spikes_idx);
 align_times = stim_onsets(ismember(stimIDs,[0]));
 
 % PSTHs
-raster_window = [-0.5,3];
+raster_window = [-0.5,2];
 psthViewer(use_spikes,use_spike_templates, ...
     stim_onsets,raster_window,stimIDs);
 
@@ -1836,7 +1836,7 @@ p3 = plot(waveform_t,waveforms(tan,:)','g');
 p4 = plot(waveform_t,waveforms(uin,:)','c');
 xlabel('Time (ms)')
 title('Striatum');
-legend([p1(1),p2(1),p3(1),p4(1)],{'MSN','TAN','FSI','UIN'});
+legend([p1(1),p2(1),p3(1),p4(1)],{'MSN','FSI','TAN','UIN'});
 
 subplot(2,2,3); hold on;
 
@@ -1867,14 +1867,14 @@ stem3( ...
     spike_rate(msn),'m');
 
 stem3( ...
-    templateDuration_us(tan)/1000, ...
-    prop_long_isi(tan), ...
-    spike_rate(tan),'b');
-
-stem3( ...
     templateDuration_us(fsi)/1000, ...
     prop_long_isi(fsi), ...
-    spike_rate(fsi),'g');
+    spike_rate(fsi),'b');
+
+stem3( ...
+    templateDuration_us(tan)/1000, ...
+    prop_long_isi(tan), ...
+    spike_rate(tan),'g');
 
 stem3( ...
     templateDuration_us(uin)/1000, ...
@@ -1892,11 +1892,11 @@ grid on;
 axis vis3d;
 
 % Plot cell type by depth
-celltype_labels = {'Wide','Narrow','MSN','TAN','FSI','UIN'};
-celltypes = wide.*1 + narrow.*2 + msn.*3 + tan.*4 + fsi.*5 + uin.*6;
+celltype_labels = {'Wide','Narrow','MSN','FSI','TAN','UIN'};
+celltypes = wide.*1 + narrow.*2 + msn.*3 + fsi.*5 + tan.*4 + uin.*6;
 use_colors = {'k','r','m','b','g','c'};
 
-plot_celltypes = any([wide,narrow,msn,tan,fsi,uin],1);
+plot_celltypes = any([wide,narrow,msn,fsi,tan,uin],1);
 
 figure; plotSpread(templateDepths,'categoryIdx', ...
     celltypes,'categoryColors',use_colors(plot_celltypes));
