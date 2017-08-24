@@ -1039,11 +1039,12 @@ end
 
 %% Raster plot by depth
 
-align_times = stim_onsets(ismember(stimIDs,[2]));
+align_times = stim_onsets(ismember(stimIDs,[90]));
+%align_times = stimOnTimes(azimuths == 90 & stim_hit);
 
 % Group by depth
-n_depth_groups = 6;
-depth_group_edges = linspace(800,max(spikeDepths),n_depth_groups+1);
+n_depth_groups = 20;
+depth_group_edges = linspace(0,max(spikeDepths),n_depth_groups+1);
 depth_group_centers = round(depth_group_edges(1:end-1)+diff(depth_group_edges)/2);
 depth_group_edges(end) = Inf;
 depth_group = discretize(spikeDepths,depth_group_edges);
@@ -1574,9 +1575,9 @@ end
 
 %% Raster aligned to stimuli
 
-use_spikes_idx = ismember(spike_templates,find(templateDepths >= 3000 & templateDepths <= 3500));
-%use_spikes_idx = ismember(spike_templates,find(templateDepths > 0 & templateDepths < 2000)) & ...
-%   (ismember(spike_templates,find(msn)));
+%use_spikes_idx = ismember(spike_templates,find(templateDepths >= 0 & templateDepths <= 1500));
+use_spikes_idx = ismember(spike_templates,find(templateDepths > 0 & templateDepths < 3500)) & ...
+   (ismember(spike_templates,find(fsi)));
 
 % use_spikes_idx = true(size(spike_times_timeline));
 
@@ -1586,7 +1587,7 @@ use_spike_templates = spike_templates(use_spikes_idx);
 align_times = stim_onsets(ismember(stimIDs,[0]));
 
 % PSTHs
-raster_window = [-0.5,2];
+raster_window = [-0.5,5];
 psthViewer(use_spikes,use_spike_templates, ...
     stim_onsets,raster_window,stimIDs);
 
@@ -1734,7 +1735,7 @@ rf_map_smooth = imfilter(rf_map,gauss_filt);
 
 
 % Get stim-triggered average for each stimulus
-use_spikes_idx = ismember(spike_templates,find(templateDepths >= 1300 & templateDepths <= 2500));
+use_spikes_idx = ismember(spike_templates,find(templateDepths >= 2300 & templateDepths <= 3000));
 use_spikes = spike_times_timeline(use_spikes_idx);
 use_spike_templates = spike_templates(use_spikes_idx);
 
@@ -1790,30 +1791,38 @@ for curr_template = unique(spike_templates)'
         (max(spike_times_timeline) - min(spike_times_timeline));
 end
 
-waveform_duration_cutoff = 400;
+% Get "CV2" from Stalnaker/Schoenbaum 2016
+cv2 = nan(max(spike_templates),1);
+for curr_template = unique(spike_templates)'
+    curr_spike_times = spike_times_timeline(spike_templates == curr_template);
+    curr_isi = diff(curr_spike_times);
+    
+    cv2(curr_template) = nanmean((2*abs(curr_isi(2:end) - curr_isi(1:end-1)))./ ...
+        (curr_isi(2:end) + curr_isi(1:end-1)));
+end
+cv2_cutoff = 0.8;
 
 % Cortical classification (like Bartho JNeurophys 2004)
+waveform_duration_cutoff = 400;
 narrow = non_str_templates & templateDuration_us <= waveform_duration_cutoff;
 wide = non_str_templates & templateDuration_us > waveform_duration_cutoff;
 
 % Striatum classification (like Yamin/Cohen 2013)
-long_isi_cutoff = 0.35;
+prop_long_isi_cutoff = 0.35;
 
 msn = str_templates & ...
-    templateDuration_us >= waveform_duration_cutoff & ...
-    prop_long_isi >= long_isi_cutoff;
+    templateDuration_us > waveform_duration_cutoff & ...
+    cv2 >= cv2_cutoff;
 
 fsi = str_templates & ...
     templateDuration_us <= waveform_duration_cutoff & ...
-    prop_long_isi <= long_isi_cutoff;
+    cv2 >= cv2_cutoff;
 
 tan = str_templates & ...
-    templateDuration_us > waveform_duration_cutoff & ...
-    prop_long_isi < long_isi_cutoff;
+    templateDuration_us >= waveform_duration_cutoff & ...
+    cv2 < cv2_cutoff;
 
-uin = str_templates & ...
-    templateDuration_us < waveform_duration_cutoff & ...
-    prop_long_isi > long_isi_cutoff;
+uin = str_templates & ~msn & ~fsi & ~tan;
 
 waveform_t = 1e3*((0:size(templates,2)-1)/ephys_sample_rate);
 
@@ -1893,7 +1902,7 @@ axis vis3d;
 
 % Plot cell type by depth
 celltype_labels = {'Wide','Narrow','MSN','FSI','TAN','UIN'};
-celltypes = wide.*1 + narrow.*2 + msn.*3 + fsi.*5 + tan.*4 + uin.*6;
+celltypes = wide.*1 + narrow.*2 + msn.*3 + fsi.*4 + tan.*5 + uin.*6;
 use_colors = {'k','r','m','b','g','c'};
 
 plot_celltypes = any([wide,narrow,msn,fsi,tan,uin],1);
@@ -1963,7 +1972,7 @@ L = length(use_trace);
 NFFT = 2^nextpow2(L);
 [P,F] = pwelch(double(use_trace)',[],[],NFFT,Fs);
 Pc = smooth(P,50); 
-figure;plot(F,log10(Pc),'k')
+figure;plot(F,log10(Pc),'r')
 xlabel('Frequency');
 ylabel('Log Power');
 
@@ -2002,11 +2011,12 @@ power_3_6 = 2*sum(s_squared( f >= 3 & f <= 6,:))*df;
 power_10_14 = 2*sum(s_squared( f >= 10 & f <= 14,:))*df; 
 
 %% Spike --> spike regression by depth
+% GOOD TEMPLATES: old, probably doesn't work at the moment
 
 spike_binning = 0.01; % seconds
 corr_edges = spike_times_timeline(1):spike_binning:spike_times_timeline(end);
 
-ctx_spikes = spike_times_timeline(ismember(spike_templates,find(templateDepths > 0 & templateDepths < 2400)));
+ctx_spikes = spike_times_timeline(ismember(spike_templates,find(templateDepths > 1300 & templateDepths < 3000)));
 binned_spikes_ctx = single(histcounts(ctx_spikes,corr_edges));
 
 use_templates = good_templates(templateDepths(good_templates) > 2400);
@@ -2036,7 +2046,7 @@ xlabel('Template depth')
 
 % Group multiunit by depth
 n_depth_groups = 10;
-depth_group_edges = linspace(2000,double(max(channel_positions(:,2))),n_depth_groups+1);
+depth_group_edges = linspace(1300,double(max(channel_positions(:,2))),n_depth_groups+1);
 depth_group_edges_use = depth_group_edges;
 depth_group_edges_use(end) = Inf;
 
@@ -2080,7 +2090,7 @@ kernel_time = [-0.5,0.5];
 kernel_timepoints = kernel_time(1)/spike_binning:kernel_time(2)/spike_binning;
 lambda = 0;
 
-use_depth_templates = templateDepths > 0 & templateDepths < 2000;
+use_depth_templates = templateDepths > 1300 & templateDepths < 1800;
 
 msn_spikes = sum(binned_spikes(msn & use_depth_templates,:),1);
 tan_spikes = sum(binned_spikes(tan & use_depth_templates,:),1);

@@ -46,7 +46,8 @@ ylabel('Lick power');
 % Get licks
 lick_piezo_name = 'beamLickDetector';
 lick_pizeo_idx = strcmp({Timeline.hw.inputs.name}, lick_piezo_name);
-licking_energy = abs(hilbert(Timeline.rawDAQData(:,lick_pizeo_idx)));
+lick_times = Timeline.rawDAQTimestamps(find(Timeline.rawDAQData(1:end-1,lick_pizeo_idx) <= 2 & ...
+    Timeline.rawDAQData(2:end,lick_pizeo_idx) > 2) + 1);
 
 % Get reward delivery times
 water_name = 'rewardEcho';
@@ -61,6 +62,7 @@ surround_samples = surround_time/Timeline.hw.samplingInterval;
 % Get lick aligned to water delivery
 surround_samples = surround_time/Timeline.hw.samplingInterval;
 water_surround_lick = bsxfun(@plus,water_samples,surround_samples(1):surround_samples(2));
+water_surround_lick(water_surround_lick < 1 | water_surround_lick > size(Timeline.rawDAQData,1)) = 1;
 water_aligned_lick = reshape(Timeline.rawDAQData(water_surround_lick,lick_pizeo_idx),size(water_surround_lick)) < 2.5;
 
 % Plot
@@ -244,7 +246,7 @@ photodiode_flip_samples = find(abs(Timeline.rawDAQData(1:end-1,photodiode_idx) <
 stimOn_samples = photodiode_flip_samples(closest_stimOn_photodiode);
 
 % Define surround time
-surround_time = [-0.2,5];
+surround_time = [-0.5,5];
 surround_samples = surround_time/Timeline.hw.samplingInterval;
 
 % Get licking aligned to each azimuth
@@ -401,6 +403,41 @@ thresh_displacement = 2;
 [~,wheel_move_sample] = max(abs(stim_aligned_wheel) > thresh_displacement,[],2);
 wheel_move_time = arrayfun(@(x) pull_times(x,wheel_move_sample(x)),1:size(pull_times,1));
 wheel_move_time(wheel_move_sample == 1) = NaN;
+
+
+%% Get licking bout statistics (from beam lick)
+% ALSO KEEP IN MIND THIS PROBABLY CHANGES! mice start licking more
+% specifically to stimuli at the end maybe?
+
+lick_bout_cutoff = 1; % seconds between what's considered a lick bout
+lick_bout_times = signals_events.n_licksTimes(find(diff( ...
+    signals_events.n_licksTimes) >= lick_bout_cutoff)+1);
+
+min_lick_to_reward_time = 0.01; % time from lick to reward to define rewarded lick
+lick_to_reward_time = min(abs(bsxfun(@minus,lick_bout_times',signals_events.hitTimes)),[],2);
+rewarded_licks = lick_to_reward_time < min_lick_to_reward_time;
+
+% I don't think this makes sense... but get some kind of statistics for
+% probability of licking during stim vs. not
+% use_stim = min(length(signals_events.stimOnTimes),length(signals_events.stimOffTimes));
+% epoch_times = reshape([signals_events.stimOnTimes(1:use_stim);signals_events.stimOffTimes(1:use_stim)],[],1);
+% epoch_licks = histcounts(lick_bout_times, epoch_times);
+% 
+% epoch_lick_rate = epoch_licks'./diff(epoch_times);
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 

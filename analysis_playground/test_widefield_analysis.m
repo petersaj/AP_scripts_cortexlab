@@ -982,7 +982,7 @@ px_10prct = svdFrameReconstruct(U,prctile(fV(:,skip_start_frames:end),10,2));
 %% Get average fluorescence to Signals event
 
 % Define the window to get an aligned response to
-surround_window = [0,0.5];
+surround_window = [-0.5,4];
 
 % Define the times to align to
 % use_trials = ismember(signals_events.trialContrastValues,[1]) &  ...
@@ -1040,17 +1040,26 @@ skip_seconds = 10;
 use_frames = (frame_t > skip_seconds);
 
 % Make choiceworld event trace
-use_trials = ismember(signals_events.trialContrastValues,[1,0.5,0.25]) &  ...
-    ismember(signals_events.trialSideValues,[1]) & ...
-    ismember(signals_events.hitValues,[1]);
-align_times = signals_events.stimOnTimes(use_trials(1:length(signals_events.stimOnTimes)))';
+% use_trials = ismember(signals_events.trialContrastValues,[1,0.5,0.25]) &  ...
+%     ismember(signals_events.trialSideValues,[1]) & ...
+%     ismember(signals_events.hitValues,[1]);
+% align_times = signals_events.stimOnTimes(use_trials(1:length(signals_events.stimOnTimes)))';
+% 
+% frame_edges = [frame_t,frame_t(end)+1/framerate];
+% signals_event_trace = histcounts(align_times,frame_edges);
 
-frame_edges = [frame_t,frame_t(end)+1/framerate];
-signals_event_trace = histcounts(align_times,frame_edges);
+% frame_licks = histcounts(signals_events.n_licksTimes,frame_edges);
+% signals_event_trace = frame_licks;
  
-% for stim position, this didn't really work though...
-% choiceworld_event_trace = interp1(signals_events.stimAzimuthTimes,signals_events.stimAzimuthValues,frame_t);
-% choiceworld_event_trace(isnan(choiceworld_event_trace)) = 0;
+frame_edges = [frame_t,frame_t(end)+1/framerate];
+signals_event_trace = [];
+azimuths = unique(signals_events.trialAzimuthValues);
+for trialAzimuth_idx = 1:length(azimuths)        
+        curr_azimuth = azimuths(trialAzimuth_idx);       
+        use_trials = signals_events.trialAzimuthValues == curr_azimuth;
+        align_times = signals_events.stimOnTimes(use_trials(1:length(signals_events.stimOnTimes)))';
+        signals_event_trace = [signals_event_trace;histcounts(align_times,frame_edges)];
+end
 
 % for timeline inputs
 %choiceworld_event_trace = licking_trace;
@@ -1059,7 +1068,7 @@ signals_event_trace = histcounts(align_times,frame_edges);
 use_svs = 1:50;
 kernel_frames = -35:7;
 downsample_factor = 1;
-lambda = 1e6;
+lambda = 1e8;
 zs = false;
 cvfold = 5;
 
@@ -1402,6 +1411,7 @@ end
 AP_image_scroll(r_px,kernel_frames/framerate);
 caxis([prctile(r_px(:),[1,99])]*4);
 truesize
+
 
 %% Align widefield images across days (/ get transform matricies)
 

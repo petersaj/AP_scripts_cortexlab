@@ -253,9 +253,11 @@ line([0,0],ylim,'linestyle','--','color','k');
 
 stimIDs = signals_events.trialSideValues.*signals_events.trialContrastValues;
 
-use_spikes_idx = ismember(spike_templates,find(templateDepths >= 1300 & templateDepths <= 3000));
-%use_spikes_idx = ismember(spike_templates,intersect(find(templateDepths >= 1300 & templateDepths <= 3000),find(msn)));
+%use_spikes_idx = ismember(spike_templates,find(templateDepths >= 0 & templateDepths <= 4000));
+use_spikes_idx = ismember(spike_templates,intersect(find(templateDepths >= 1300 & templateDepths <= 1800),find(fsi)));
 use_spikes = spike_times_timeline(use_spikes_idx);
+
+use_templates = unique(spike_templates(use_spikes_idx));
 
 % Get wheel movement time for each trial
 surround_time = [-0.5,2];
@@ -288,8 +290,6 @@ trial_choice = go_left_trials + 2.*go_right_trials;
 
 raster_window = [-0.1,0.1];
 psth_bin_size = 0.01;
-
-use_templates = find(templateDepths >= 1300 & templateDepths <= 3000);
 
 template_psth_left = nan(length(use_templates),diff(raster_window/psth_bin_size));
 for curr_template_idx = 1:length(use_templates)

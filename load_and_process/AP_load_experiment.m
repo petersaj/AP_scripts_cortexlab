@@ -173,16 +173,24 @@ if block_exists
         
         % Go through all block events and convert to timeline time using the reward
         % as the reference event
-        block_fieldnames = fieldnames(block.events);
-        block_values_idx = cellfun(@(x) ~isempty(x),strfind(block_fieldnames,'Values'));
-        block_times_idx = cellfun(@(x) ~isempty(x),strfind(block_fieldnames,'Times'));
-        for curr_times = find(block_times_idx)'
-            if isempty(signals_events.(block_fieldnames{curr_times}));
-                % skip if empty
-                continue
+        % (NOTE: reward is now manually deliverable, no longer reliable.
+        % Hook up the flipper to signals instead - but can't at the moment
+        % because all of the expServer input ports are in use)
+        % Don't do this if different number of sync events
+        if length(reward_t_block) == length(reward_t_timeline)
+            block_fieldnames = fieldnames(block.events);
+            block_values_idx = cellfun(@(x) ~isempty(x),strfind(block_fieldnames,'Values'));
+            block_times_idx = cellfun(@(x) ~isempty(x),strfind(block_fieldnames,'Times'));
+            for curr_times = find(block_times_idx)'
+                if isempty(signals_events.(block_fieldnames{curr_times}));
+                    % skip if empty
+                    continue
+                end
+                signals_events.(block_fieldnames{curr_times}) = ...
+                    AP_clock_fix(block.events.(block_fieldnames{curr_times}),reward_t_block,reward_t_timeline);
             end
-            signals_events.(block_fieldnames{curr_times}) = ...
-                AP_clock_fix(block.events.(block_fieldnames{curr_times}),reward_t_block,reward_t_timeline);
+        else
+            warning('NOT ALIGNING SIGNALS TO TIMELINE - MISMATCH!!')
         end
     end
     
@@ -193,7 +201,7 @@ if block_exists
         signals_events.missValues = circshift(signals_events.missValues,[0,-1]);
     end
     
-    % Specialized: correct stimOn time to closest photodiode flip
+    % Specialized: correct stimOn/Off time to closest photodiode flip
     % Get photodiode flips
     photodiode_name = 'photoDiode';
     photodiode_idx = strcmp({Timeline.hw.inputs.name}, photodiode_name);
@@ -205,8 +213,16 @@ if block_exists
         Timeline.rawDAQTimestamps(photodiode_flip_samples))), ...
         1:length(signals_events.stimOnTimes));
     stimOn_samples = photodiode_flip_samples(closest_stimOn_photodiode);
-    stimOn_times = Timeline.rawDAQTimestamps(stimOn_samples);
-    signals_events.stimOnTimes = stimOn_times;
+    stimOn_t_timeline = Timeline.rawDAQTimestamps(stimOn_samples);
+    signals_events.stimOnTimes = stimOn_t_timeline;
+    % Get the closest photodiode flip to each stim off (stimOffTimes)
+    [~,closest_stimOff_photodiode] = ...
+        arrayfun(@(x) min(abs(signals_events.stimOffTimes(x) - ...
+        Timeline.rawDAQTimestamps(photodiode_flip_samples))), ...
+        1:length(signals_events.stimOffTimes));
+    stimOff_samples = photodiode_flip_samples(closest_stimOff_photodiode);
+    stimOff_t_timeline = Timeline.rawDAQTimestamps(stimOff_samples);
+    signals_events.stimOffTimes = stimOff_t_timeline;
     
 end
 

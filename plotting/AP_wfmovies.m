@@ -90,7 +90,7 @@ if handles.plot_facecam
 end
 
 % Set up trace
-trace_time_surround = 0.2; % in seconds
+trace_time_surround = 1; % in seconds
 if handles.plot_trace
     if size(trace,2) < 3
         handles.trace_plot = plot(handles.trace_axis,trace_t,trace);

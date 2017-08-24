@@ -8,7 +8,7 @@ function t_new = AP_clock_fix(t,source_sync,target_sync)
 % NOTE: source/target syncs can be n timepoints, only uses first and last
 
 if length(source_sync) ~= length(target_sync)
-    error('Different numbers of sync pulses')
+    warning('Different numbers of sync pulses!!!!! This won''t work!')
 end
 
 t_offset = source_sync(1) - target_sync(1);

@@ -907,7 +907,7 @@ switch lower(photodiode_type)
 end
 
 % Get average response to each stimulus
-surround_window = [0.2,0.3];
+surround_window = [0.2,0.5];
 framerate = 1./nanmedian(diff(frame_t));
 surround_samplerate = 1/(framerate*1);
 surround_time = surround_window(1):surround_samplerate:surround_window(2);
@@ -1481,8 +1481,8 @@ skip_seconds = 10;
 use_frames = (frame_t > skip_seconds);
 
 use_svs = 1:500;
-fluor_kernel_frames = -12:-6;
-lambda = 1000;
+fluor_kernel_frames = -17:-6;
+lambda = 1e7;
 
 k = AP_regresskernel(fV(use_svs,use_frames), ...
     stim_screen_interp(:,use_frames),fluor_kernel_frames,lambda,true,5);
