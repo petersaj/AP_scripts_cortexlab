@@ -52,7 +52,7 @@ if timeline_exists
         [find(acqLive_trace,1),find(acqLive_trace,1,'last')+1]);
 end
 
-%% Load protocol from mpep experiment
+%% Load mpep protocol
 
 [protocol_filename,protocol_exists] = AP_cortexlab_filename(animal,day,experiment,'protocol');
 

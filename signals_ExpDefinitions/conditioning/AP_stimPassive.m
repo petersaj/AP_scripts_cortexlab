@@ -7,16 +7,17 @@ function AP_stimReward(t, events, parameters, visStim, inputs, outputs, audio)
 rewardSize = 3;
 
 % Stimuli
-stimAzimuths = [-45,0,45];
-spatialFrequency = 0.01;
+stimAzimuths = [-90,0,90];
+spatialFrequency = 0.1;
 contrast = 1;
-sigma = [8,90];
-stimFlickerFrequency = 4;
+sigma = [90,90];
+stimFlickerFrequency = 5;
+orientation = 45;
 
 % Timing
 stimTime = 1.5; % time stimulus is on the screen
 stimRewardTime = 1; % time after stimulus onset when reward is given
-itiTimes = 2:4;
+itiTimes = 5:7;
 
 %% Set up trial parameters and events
 
@@ -42,6 +43,7 @@ stim.spatialFrequency = spatialFrequency;
 stim.phase = pi*stimFlicker;
 stim.azimuth = trialAzimuth.at(stimOn);
 stim.contrast = contrast;
+stim.orientation = orientation;
 stim.show = stimOn.to(stimOff);
 
 visStim.stim = stim;
