@@ -2295,7 +2295,7 @@ use_frames = (frame_t > skip_seconds & frame_t < (frame_t(end) - skip_seconds));
 %use_frames = (frame_t > skip_seconds) & (frame_t < max(frame_t)/2);
 %use_frames = (frame_t > max(frame_t)/2);
 
-use_spikes = spike_times_timeline(ismember(spike_templates,find(templateDepths > 0 & templateDepths < 2000)));
+use_spikes = spike_times_timeline(ismember(spike_templates,find(templateDepths > 3200 & templateDepths < 4000)));
 % use_spikes = spike_times_timeline(ismember(spike_templates,find(templateDepths > 1300 & templateDepths < 1800)) &...
 %     ismember(spike_templates,find(tan)));
 % use_spikes = spike_times_timeline(ismember(spike_templates,find(templateDepths > 1300 & templateDepths < 2500)) &...
@@ -2384,9 +2384,9 @@ use_frames = (frame_t > skip_seconds & frame_t < frame_t(end)-skip_seconds);
 %use_frames = (frame_t > max(frame_t)/2);
 
 % Group multiunit by depth
-n_depth_groups = 6;
+n_depth_groups = 4;
 %depth_group_edges = linspace(0,max(channel_positions(:,2)),n_depth_groups+1);
-depth_group_edges = linspace(800,3500,n_depth_groups+1);
+depth_group_edges = linspace(850,3200,n_depth_groups+1);
 depth_group_edges_use = depth_group_edges;
 %depth_group_edges_use = [3500 Inf];
 
@@ -2400,6 +2400,9 @@ for curr_depth = 1:length(depth_group_edges_use)-1
     
     curr_spike_times = spike_times_timeline(depth_group == curr_depth);
 
+%     curr_spike_times = spike_times_timeline((depth_group == curr_depth) & ...
+%         ismember(spike_templates,find(msn)));
+
     % Discretize spikes into frames and count spikes per frame
     frame_edges = [frame_t,frame_t(end)+1/framerate];
     frame_spikes(curr_depth,:) = histcounts(curr_spike_times,frame_edges);
@@ -2407,16 +2410,16 @@ for curr_depth = 1:length(depth_group_edges_use)-1
 end
 
 use_svs = 1:50;
-kernel_frames = -17:17;
+kernel_frames = -35:35;
 downsample_factor = 1;
-lambda = 1e5;
+lambda = 0;
 zs = false;
 cvfold = 5;
 
 kernel_frames_downsample = round(downsample(kernel_frames,downsample_factor)/downsample_factor);
 
 [k,predicted_spikes,explained_var] = ...
-    AP_regresskernel(downsample(Vh(use_svs,use_frames)',downsample_factor)', ...
+    AP_regresskernel(downsample(fV(use_svs,use_frames)',downsample_factor)', ...
     downsample(frame_spikes(:,use_frames)',downsample_factor)',kernel_frames_downsample,lambda,zs,cvfold);
 
 % Reshape kernel and convert to pixel space
@@ -2424,7 +2427,7 @@ r = reshape(k,length(use_svs),length(kernel_frames_downsample),size(frame_spikes
 
 r_px = zeros(size(U,1),size(U,2),size(r,2),size(r,3),'single');
 for curr_spikes = 1:size(r,3);
-    r_px(:,:,:,curr_spikes) = svdFrameReconstruct(Uh(:,:,use_svs),r(:,:,curr_spikes));
+    r_px(:,:,:,curr_spikes) = svdFrameReconstruct(U(:,:,use_svs),r(:,:,curr_spikes));
 end
 
 % If there exists a GCaMP kernel: convolve

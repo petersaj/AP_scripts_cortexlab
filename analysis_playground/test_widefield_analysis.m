@@ -616,7 +616,7 @@ roi_trace = nanmean(U_roi*fV);
 
 %% Get fluorescence trace of ROI
 
-roi_trace = AP_svd_roi(U,fV);
+roi_trace = AP_svd_roi(Udf,fVdf);
 figure;plot(frame_t,roi_trace,'k');
 
 %% Correlate fluorescence with trace
@@ -1415,11 +1415,11 @@ truesize
 
 %% Align widefield images across days (/ get transform matricies)
 
-animal = 'AP015';
+animal = 'AP016';
 expInfo_path = ['\\zserver.cortexlab.net\Data\expInfo\' animal];
 expInfo_dir = dir(expInfo_path);
 days = {expInfo_dir(find([expInfo_dir(3:end).isdir])+2).name};
-days = days(end-4:end);
+days = days(end-5:end-1);
 
 avg_im = cell(length(days),1);
 for curr_day = 1:length(days)
@@ -1435,7 +1435,7 @@ border_pixels = 20;
 im_align = cellfun(@(x) imgaussfilt(x(border_pixels:end-border_pixels+1,border_pixels:end-border_pixels+1),3),avg_im,'uni',false);
 
 % Choose reference day
-ref_im_num = round(length(im_align)/2);
+ref_im_num = 1;%round(length(im_align)/2);
 
 disp('Registering average images')
 tform_matrix = cell(length(avg_im),1);
@@ -1871,6 +1871,20 @@ line([0,0],ylim,'color','r');
 ylabel('Event number')
 xlabel('Time (s)')
 
+%% Get map of fraction variance explained given predicted fluorescence
+
+downsample_factor = 10;
+spatial_explained_var = AP_spatial_explained_var(Udf(:,:,use_svs), ...
+    fVdf(use_svs,use_frames),predicted_fluor,downsample_factor);
+
+figure;
+imagesc(spatial_explained_var);
+axis equal;
+axis off;
+caxis = [-max(abs(caxis)),max(abs(caxis))];
+colormap(colormap_BlueWhiteRed);
+c = colorbar;
+ylabel(c,'Explained variance')
 
 
 

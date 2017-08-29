@@ -1767,6 +1767,9 @@ axis equal
 
 %% Classify cell type
 
+%%%% CHANGE SLIGHTLY: FOR CELLS THAT ARE LOST OR GAINED OVER A RECORDING,
+%%%% ONLY USE PORTIONS WHERE THEY'RE AROUND
+
 % Define cortical and striatal cells
 str_depth = [0,Inf];
 
@@ -1812,15 +1815,15 @@ prop_long_isi_cutoff = 0.35;
 
 msn = str_templates & ...
     templateDuration_us > waveform_duration_cutoff & ...
-    cv2 >= cv2_cutoff;
+    prop_long_isi >= prop_long_isi_cutoff;
 
 fsi = str_templates & ...
     templateDuration_us <= waveform_duration_cutoff & ...
-    cv2 >= cv2_cutoff;
+    prop_long_isi < prop_long_isi_cutoff;
 
 tan = str_templates & ...
-    templateDuration_us >= waveform_duration_cutoff & ...
-    cv2 < cv2_cutoff;
+    templateDuration_us > waveform_duration_cutoff & ...
+    prop_long_isi < prop_long_isi_cutoff;
 
 uin = str_templates & ~msn & ~fsi & ~tan;
 
@@ -1839,13 +1842,14 @@ if any(wide) || any(narrow)
 end
 
 subplot(2,2,2); hold on;
-p1 = plot(waveform_t,waveforms(msn,:)','m');
-p2 = plot(waveform_t,waveforms(fsi,:)','b');
-p3 = plot(waveform_t,waveforms(tan,:)','g');
-p4 = plot(waveform_t,waveforms(uin,:)','c');
+p = plot(waveform_t,waveforms');
+set(p(msn),'color','m')
+set(p(fsi),'color','b')
+set(p(tan),'color','g')
+set(p(uin),'color','c')
 xlabel('Time (ms)')
 title('Striatum');
-legend([p1(1),p2(1),p3(1),p4(1)],{'MSN','FSI','TAN','UIN'});
+legend([p(find(msn,1)),p(find(fsi,1)),p(find(tan,1)),p(find(uin,1))],{'MSN','FSI','TAN','UIN'});
 
 subplot(2,2,3); hold on;
 
@@ -2090,7 +2094,7 @@ kernel_time = [-0.5,0.5];
 kernel_timepoints = kernel_time(1)/spike_binning:kernel_time(2)/spike_binning;
 lambda = 0;
 
-use_depth_templates = templateDepths > 1300 & templateDepths < 1800;
+use_depth_templates = templateDepths > 2000 & templateDepths < 2400;
 
 msn_spikes = sum(binned_spikes(msn & use_depth_templates,:),1);
 tan_spikes = sum(binned_spikes(tan & use_depth_templates,:),1);

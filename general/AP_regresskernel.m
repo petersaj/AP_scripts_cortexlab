@@ -8,8 +8,8 @@ function [k,predicted_signals,explained_var] = AP_regresskernel(regressors,signa
 % signals - dim x time, one kernel will be returned for each dim
 % t_shifts - time shifts of regressors
 % lambda - ridge regression regularization (can be one for each regressor)
-% zs - zscore the regressors to return beta weights (ZSCORE SIGNAL BY
-% DEFAULT - THAT WAY IT RETURNS COMPARABLE WEIGHTS)
+% zs - length 2 logical vector: zscore 1) regressors, 2) signals
+% (default is [false,true])
 % cvfold - fold cross-validation 
 %
 % FOR MULTIPLE MODALITIES: make regressors and t_shifts cell arrays
@@ -36,13 +36,14 @@ if ~iscell(t_shifts)
 end
 
 % Z-score all regressors and signals to get beta weights if selected
-% (z-score signals by default to return comparable weights): 
-signals = zscore(signals,[],2);
 if ~exist('zs','var') || isempty(zs)
-    zs = false;
+    zs = [false,true];
 end
-if zs
+if zs(1)
     regressors = cellfun(@(x) zscore(x,[],2),regressors,'uni',false);
+end
+if zs(2)
+    signals = zscore(signals,[],2);
 end
 
 % Set cross-validation to 1-fold if not entered
