@@ -5,10 +5,11 @@ lick_trace = Timeline.rawDAQData(:,lick_idx) > 2.5;
 lick_times = Timeline.rawDAQTimestamps(find(lick_trace(2:end) & ~lick_trace(1:end-1))+1);
         
 lick_bout_cutoff = 1; % seconds between what's considered a lick bout
-lick_bout_times = lick_times([1,find(diff(lick_times) >= lick_bout_cutoff)+1]);
+lick_bout_starts = lick_times([1,find(diff(lick_times) >= lick_bout_cutoff)+1]);
+lick_bout_stops = lick_times([find(diff(lick_times) >= lick_bout_cutoff),length(lick_times)]);
 
 min_lick_to_reward_time = 1; % time from lick to reward to define rewarded lick
-all_lick_reward_times = bsxfun(@minus,lick_bout_times',reward_t_timeline);
+all_lick_reward_times = bsxfun(@minus,lick_bout_starts',reward_t_timeline);
 all_lick_reward_times(all_lick_reward_times > 0) = NaN;
 lick_to_reward_time = max(all_lick_reward_times,[],2);
 rewarded_licks = lick_to_reward_time >= -min_lick_to_reward_time;
@@ -16,18 +17,15 @@ if sum(rewarded_licks) ~= length(reward_t_timeline)
    error('Rewarded licks don''t match rewards') 
 end
 
-n_complete_stim = min(length(stimOn_t_timeline),length(stimOff_t_timeline));
-stimOnTimes = stimOn_t_timeline(1:n_complete_stim);
-stimOffTimes = stimOff_t_timeline(1:n_complete_stim);
-azimuths = signals_events.trialAzimuthValues(1:n_complete_stim);
+azimuths = signals_events.trialAzimuthValues;
 
-epoch_times = reshape([stimOnTimes;stimOffTimes],[],1);
+epoch_times = reshape([stimOn_times,stimOff_times]',[],1);
 epoch_hit = histcounts(signals_events.hitTimes,epoch_times) > 0;
 stim_hit = epoch_hit(1:2:end);
 
 stim_hit_licktime_cell = arrayfun(@(x) lick_times(find(...
-    lick_times >= stimOnTimes(x) & ...
-    lick_times(x),1)),1:length(stimOnTimes),'uni',false);
+    lick_times >= stimOn_times(x) & ...
+    lick_times(x),1)),1:length(stimOn_times),'uni',false);
 stim_hit_licktime = nan(size(stim_hit));
 stim_hit_licktime(stim_hit) = [stim_hit_licktime_cell{stim_hit}];
 
@@ -39,9 +37,9 @@ use_spikes_idx = ismember(spike_templates,find(templateDepths > 3000 & templateD
 
 use_spikes = spike_times_timeline(use_spikes_idx);
 
-%align_times = stimOnTimes(stim_hit & azimuths == 0);
+%align_times = stimOn_times(stim_hit & azimuths == 0);
 %align_times = stim_hit_licktime(stim_hit & azimuths == 0);
-align_times = lick_bout_times(rewarded_licks);
+align_times = lick_bout_starts(rewarded_licks);
 
 raster_window = [-2,3.5];
 psth_bin_size = 0.001;
@@ -61,13 +59,13 @@ xlabel('Time from stim onset')
 
 %% Raster plot by depth aligned to stuff
 
-%align_times = stimOn_t_timeline(~stim_hit & azimuths == 0);
+%align_times = stimOn_times(stim_hit & azimuths == 0);
 %align_times = stim_hit_licktime(stim_hit & azimuths == 0);
-align_times = lick_bout_times(rewarded_licks);
+align_times = lick_bout_starts(~rewarded_licks);
 
 % Group by depth
-n_depth_groups = 4;
-depth_group_edges = linspace(850,3200,n_depth_groups+1);
+n_depth_groups = 6;
+depth_group_edges = linspace(1500,3200,n_depth_groups+1);
 depth_group_centers = round(depth_group_edges(1:end-1)+diff(depth_group_edges)/2);
 depth_group_edges(end) = Inf;
 depth_group = discretize(spikeDepths,depth_group_edges);
@@ -108,7 +106,7 @@ title('Population raster by depth');
 
 %% PSTH viewer
 
-align_times = stimOn_t_timeline;
+align_times = stimOn_times;
 %alignIDs = stim_hit(azimuths == 0)*1 + ~stim_hit(azimuths == 0)*2;
 %align_times = stim_hit_licktime(stim_hit & azimuths == 0);
 %align_times = lick_bout_times(rewarded_licks);
@@ -125,7 +123,7 @@ psthViewer(spike_times_timeline(use_spikes_idx),spike_templates(use_spikes_idx),
 % Define the window to get an aligned response to
 surround_window = [-2.5,5];
 
-align_times = stimOn_t_timeline(~stim_hit & azimuths == 0);
+align_times = stimOn_times(~stim_hit & azimuths == 0);
 %align_times = lick_bout_times(rewarded_licks);
 
 % Get the surround time
@@ -171,29 +169,40 @@ unique_azimuths = unique(signals_events.trialAzimuthValues);
 for trialAzimuth_idx = 1:length(unique_azimuths)        
         curr_azimuth = unique_azimuths(trialAzimuth_idx);       
         use_trials = signals_events.trialAzimuthValues == curr_azimuth;
-        align_times = stimOn_t_timeline(use_trials)';
+        align_times = stimOn_times(use_trials)';
         signals_event_trace = [signals_event_trace;histcounts(align_times,frame_edges)];        
 end
 
 % Licks
 frame_rewarded_licks_stim1 = histcounts(stim_hit_licktime(stim_hit & azimuths == 0),frame_edges);
 frame_rewarded_licks_stim2 = histcounts(stim_hit_licktime(stim_hit & azimuths == 90),frame_edges);
-frame_unrewarded_licks = histcounts(lick_bout_times(~rewarded_licks),frame_edges);
+frame_unrewarded_licks = histcounts(lick_bout_starts(~rewarded_licks),frame_edges);
 signals_event_trace = ...
     [signals_event_trace;frame_rewarded_licks_stim1;frame_rewarded_licks_stim2;frame_unrewarded_licks];
 
-% % Rewards
-% water_name = 'rewardEcho';
-% water_idx = strcmp({Timeline.hw.inputs.name}, water_name);
-% water_times = Timeline.rawDAQTimestamps(find(Timeline.rawDAQData(1:end-1,water_idx) <= 2 & ...
-%     Timeline.rawDAQData(2:end,water_idx) > 2) + 1);
-% frame_water = histcounts(water_times,frame_edges);
-% signals_event_trace = [signals_event_trace;frame_water];
+% Rewards
+water_name = 'rewardEcho';
+water_idx = strcmp({Timeline.hw.inputs.name}, water_name);
+water_times = Timeline.rawDAQTimestamps(find(Timeline.rawDAQData(1:end-1,water_idx) <= 2 & ...
+    Timeline.rawDAQData(2:end,water_idx) > 2) + 1);
+frame_water = histcounts(water_times,frame_edges);
+signals_event_trace = [signals_event_trace;frame_water];
+
+% Quiescence
+lick_bout_edges = reshape([lick_bout_starts;lick_bout_stops],[],1);
+[~,~,lick_bout_frame_bin] = histcounts(frame_t,lick_bout_edges);
+lick_frames = histcounts(lick_times,frame_edges);
+quiescence = mod(lick_bout_frame_bin,2) == 0 & ~lick_frames;
+quiescence_leeway_time = 1; % give it some leeway
+quiescence_leeway_frames = round(quiescence_leeway_time*framerate);
+quiescence_leeway = conv(+quiescence,ones(1,quiescence_leeway_frames),'same') ...
+    == quiescence_leeway_frames;
+signals_event_trace = [signals_event_trace;quiescence_leeway];
 
 use_svs = 1:50;
 kernel_frames = -35*2:35*6;
 lambda = 0;
-zs = false;
+zs = [false,false];
 cvfold = 5;
 
 [k,predicted_fluor,explained_var] = ...
@@ -213,6 +222,15 @@ AP_image_scroll(r_px,kernel_frames/framerate);
 caxis([prctile(r_px(:),[1,99])]*4);
 truesize
 
+% Get map of explained variance
+downsample_factor = 10;
+spatial_explained_var = AP_spatial_explained_var(U(:,:,use_svs), ...
+    fV(use_svs,use_frames),predicted_fluor,downsample_factor);
+figure;imagesc(spatial_explained_var);
+caxis([-max(abs(spatial_explained_var(:))),max(abs(spatial_explained_var(:)))]);
+colormap(colormap_BlueWhiteRed);
+colorbar;
+
 %% Regress fluorescence to stuff
 
 % Skip the first n seconds to do this
@@ -228,13 +246,13 @@ azimuths = unique(signals_events.trialAzimuthValues);
 for trialAzimuth_idx = 1:length(azimuths)        
         curr_azimuth = azimuths(trialAzimuth_idx);       
         use_trials = signals_events.trialAzimuthValues == curr_azimuth;
-        align_times = stimOn_t_timeline(use_trials)';
+        align_times = stimOn_times(use_trials)';
         signals_event_trace = [signals_event_trace;histcounts(align_times,frame_edges)];        
 end
 
 % Licks
-frame_rewarded_licks = histcounts(lick_bout_times(rewarded_licks),frame_edges);
-frame_unrewarded_licks = histcounts(lick_bout_times(~rewarded_licks),frame_edges);
+frame_rewarded_licks = histcounts(lick_bout_starts(rewarded_licks),frame_edges);
+frame_unrewarded_licks = histcounts(lick_bout_starts(~rewarded_licks),frame_edges);
 signals_event_trace = [signals_event_trace;frame_rewarded_licks;frame_unrewarded_licks];
 
 % Rewards
@@ -280,7 +298,7 @@ frame_edges = [frame_t,frame_t(end)+1/framerate];
 signals_event_trace = [];
    
 % Licks
-frame_licks = histcounts(lick_bout_times,frame_edges);
+frame_licks = histcounts(lick_bout_starts,frame_edges);
 signals_event_trace = [signals_event_trace;frame_licks];
 
 use_svs = 1:50;
@@ -315,20 +333,51 @@ lick_id(rewarded_lick_idx(azimuths(stim_hit) == 0)) = 1;
 lick_id(rewarded_lick_idx(azimuths(stim_hit) == 90)) = 2;
 
 %use_spikes_idx = ismember(spike_templates,find(templateDepths >= 0 & templateDepths <= 1500));
-use_spikes_idx = ismember(spike_templates,find(templateDepths > 0 & templateDepths < 1200)) & ...
-   (ismember(spike_templates,find(msn)));
+use_spikes_idx = ismember(spike_templates,find(templateDepths > 1500 & templateDepths < 2000)) & ...
+   (ismember(spike_templates,find(fsi)));
 
 raster_window = [-1,1];
 psthViewer(spike_times_timeline(use_spikes_idx),spike_templates(use_spikes_idx), ...
-    lick_bout_times,raster_window,lick_id);
+    lick_bout_starts,raster_window,lick_id);
 
 
+%% PSTH around rewarded lick
 
+raster_window = [-5,0];
+psth_bin_size = 0.001;
 
+rewarded_stim1_lick_psth = nan(size(templates,1),diff(raster_window)/psth_bin_size);
+rewarded_stim2_lick_psth = nan(size(templates,1),diff(raster_window)/psth_bin_size);
+nonrewarded_lick_psth = nan(size(templates,1),diff(raster_window)/psth_bin_size);
+for curr_template = unique(spike_templates)'
+    
+    rewarded_stim1_lick_psth(curr_template,:) = psthAndBA( ...
+        spike_times_timeline(spike_templates == curr_template), ...
+        stim_hit_licktime(stim_hit & azimuths == 0), ...
+        raster_window, psth_bin_size);
+    
+    rewarded_stim2_lick_psth(curr_template,:) = psthAndBA( ...
+        spike_times_timeline(spike_templates == curr_template), ...
+        stim_hit_licktime(stim_hit & azimuths == 90), ...
+        raster_window, psth_bin_size);
+    
+    nonrewarded_lick_psth(curr_template,:) = psthAndBA( ...
+        spike_times_timeline(spike_templates == curr_template), ...
+        lick_bout_starts(~rewarded_licks), ...
+        raster_window, psth_bin_size);
+    
+    disp(curr_template);
+    
+end
 
+smooth_size = 50;
+gw = gausswin(smooth_size,3)';
+smWin = gw./sum(gw);
+rewarded_stim1_lick_psth_smooth = conv2(rewarded_stim1_lick_psth, smWin, 'same');
+rewarded_stim2_lick_psth_smooth = conv2(rewarded_stim2_lick_psth, smWin, 'same');
+nonrewarded_lick_psth_smooth = conv2(nonrewarded_lick_psth, smWin, 'same');
 
-
-
+%[Row,Col,Scalar,Model,Residual] = MakeSeparable(psth_smooth');
 
 
 

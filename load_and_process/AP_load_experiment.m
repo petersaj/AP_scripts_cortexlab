@@ -190,7 +190,7 @@ if block_exists
                     AP_clock_fix(block.events.(block_fieldnames{curr_times}),reward_t_block,reward_t_timeline);
             end
         else
-            warning('NOT ALIGNING SIGNALS TO TIMELINE - MISMATCH!!')
+            warning('NOT ALIGNING SIGNALS TO TIMELINE - REWARD MISMATCH')
         end
     end
     
@@ -201,28 +201,35 @@ if block_exists
         signals_events.missValues = circshift(signals_events.missValues,[0,-1]);
     end
     
-    % Specialized: correct stimOn/Off time to closest photodiode flip
-    % Get photodiode flips
+    % Get photodiode flips 
+    % (get stim screen flickering, if that happens)
+     stimScreen_idx = strcmp({Timeline.hw.inputs.name}, 'stimScreen');
+    if any(stimScreen_idx)
+        stimScreen_flicker = max(Timeline.rawDAQData(:,stimScreen_idx)) - ...
+            min(Timeline.rawDAQData(:,stimScreen_idx)) > 2;
+        stimScreen_thresh = max(Timeline.rawDAQData(:,stimScreen_idx))/2;
+        stimScreen_on = Timeline.rawDAQData(:,stimScreen_idx) > stimScreen_thresh;
+        stimScreen_on_t = Timeline.rawDAQTimestamps(stimScreen_on);
+    end    
+    % median filter because of weird effect where
+    % photodiode dims instead of off for one sample
+    % while backlight is turning off
     photodiode_name = 'photoDiode';
     photodiode_idx = strcmp({Timeline.hw.inputs.name}, photodiode_name);
-    photodiode_flip_samples = find((Timeline.rawDAQData(1:end-1,photodiode_idx) <= 2) ~= ...
-        (Timeline.rawDAQData(2:end,photodiode_idx) <= 2)) + 1;
-    % Get the closest photodiode flip to each stim on (stimOnTimes)
-    [~,closest_stimOn_photodiode] = ...
-        arrayfun(@(x) min(abs(signals_events.stimOnTimes(x) - ...
-        Timeline.rawDAQTimestamps(photodiode_flip_samples))), ...
-        1:length(signals_events.stimOnTimes));
-    stimOn_samples = photodiode_flip_samples(closest_stimOn_photodiode);
-    stimOn_t_timeline = Timeline.rawDAQTimestamps(stimOn_samples);
-    signals_events.stimOnTimes = stimOn_t_timeline;
-    % Get the closest photodiode flip to each stim off (stimOffTimes)
-    [~,closest_stimOff_photodiode] = ...
-        arrayfun(@(x) min(abs(signals_events.stimOffTimes(x) - ...
-        Timeline.rawDAQTimestamps(photodiode_flip_samples))), ...
-        1:length(signals_events.stimOffTimes));
-    stimOff_samples = photodiode_flip_samples(closest_stimOff_photodiode);
-    stimOff_t_timeline = Timeline.rawDAQTimestamps(stimOff_samples);
-    signals_events.stimOffTimes = stimOff_t_timeline;
+    photodiode_trace = medfilt1(Timeline.rawDAQData(stimScreen_on, ...
+        photodiode_idx),10) > 2;
+    photodiode_flip = find((~photodiode_trace(1:end-1) & photodiode_trace(2:end)) | ...
+        (photodiode_trace(1:end-1) & ~photodiode_trace(2:end)))+1;   
+    photodiode_flip_times = stimScreen_on_t(photodiode_flip)';
+    
+    % Specialized: get stim on/off times BY ASSUMING MINIMUM STIM DOWNTIME        
+    min_stim_downtime = 1; % minimum time between pd flips to get stim
+    stimOn_times = photodiode_flip_times([true;diff(photodiode_flip_times) > min_stim_downtime]);
+    stimOff_times = photodiode_flip_times([diff(photodiode_flip_times) > min_stim_downtime;true]);   
+    % sanity check
+    if length(signals_events.stimOnTimes) ~= length(stimOn_times)
+        error('Different number of signals/timeline stim ons')
+    end
     
 end
 

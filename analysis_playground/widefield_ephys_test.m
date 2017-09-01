@@ -2295,9 +2295,9 @@ use_frames = (frame_t > skip_seconds & frame_t < (frame_t(end) - skip_seconds));
 %use_frames = (frame_t > skip_seconds) & (frame_t < max(frame_t)/2);
 %use_frames = (frame_t > max(frame_t)/2);
 
-use_spikes = spike_times_timeline(ismember(spike_templates,find(templateDepths > 3200 & templateDepths < 4000)));
-% use_spikes = spike_times_timeline(ismember(spike_templates,find(templateDepths > 1300 & templateDepths < 1800)) &...
-%     ismember(spike_templates,find(tan)));
+%use_spikes = spike_times_timeline(ismember(spike_templates,find(templateDepths > 2500 & templateDepths < 4000)));
+use_spikes = spike_times_timeline(ismember(spike_templates,find(templateDepths > 2500 & templateDepths < 3000)) &...
+    ismember(spike_templates,find(msn)));
 % use_spikes = spike_times_timeline(ismember(spike_templates,find(templateDepths > 1300 & templateDepths < 2500)) &...
 %     ismember(spike_templates,find(msn)) & ismember(spike_templates,find(l_r_diff < 0.5)));
 
@@ -2309,7 +2309,7 @@ use_svs = 1:50;
 kernel_frames = -20:20;
 downsample_factor = 1;
 lambda = 0;
-zs = false;
+zs = [false,true];
 cvfold = 5;
 
 kernel_frames_downsample = round(downsample(kernel_frames,downsample_factor)/downsample_factor);

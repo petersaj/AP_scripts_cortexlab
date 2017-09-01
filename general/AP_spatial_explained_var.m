@@ -1,4 +1,5 @@
 function spatial_explained_var = AP_spatial_explained_var(U,V,V_pred,downsample_factor)
+% spatial_explained_var = AP_spatial_explained_var(U,V,V_pred,downsample_factor)
 
 Ud = imresize(U,1/downsample_factor,'bilinear');
 f = svdFrameReconstruct(Ud,V);

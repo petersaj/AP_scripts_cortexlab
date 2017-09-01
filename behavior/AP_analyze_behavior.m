@@ -221,7 +221,11 @@ xlabel('Time from stim onset (s)');
 ylabel('Lick energy');
 legend(cellfun(@(x) num2str(x),num2cell(azimuths),'uni',false));
 
-%% Plot beam licking aligned to stimuli by azimuths
+%% Plot beam licking aligned to stimuli by condition
+
+% Define conditions
+%signals_conditions = signals_events.trialAzimuthValues;
+signals_conditions = signals_events.trialOrientationValues;
 
 % Get licks
 lick_piezo_name = 'beamLickDetector';
@@ -233,60 +237,50 @@ water_idx = strcmp({Timeline.hw.inputs.name}, water_name);
 water_samples = find(Timeline.rawDAQData(1:end-1,water_idx) <= 2 & ...
     Timeline.rawDAQData(2:end,water_idx) > 2) + 1;
 
-% Get photodiode flips closest to stim presentations
-photodiode_name = 'photoDiode';
-photodiode_idx = strcmp({Timeline.hw.inputs.name}, photodiode_name);
-photodiode_flip_samples = find(abs(Timeline.rawDAQData(1:end-1,photodiode_idx) < 2 - ...
-    Timeline.rawDAQData(2:end,photodiode_idx)) > 0) + 1;
-
-[~,closest_stimOn_photodiode] = ...
-    arrayfun(@(x) min(abs(signals_events.stimOnTimes(x) - ...
-    Timeline.rawDAQTimestamps(photodiode_flip_samples))), ...
-    1:length(signals_events.stimOnTimes));
-stimOn_samples = photodiode_flip_samples(closest_stimOn_photodiode);
-
 % Define surround time
-surround_time = [-0.5,5];
-surround_samples = surround_time/Timeline.hw.samplingInterval;
+surround_time = [-5,5];
 
-% Get licking aligned to each azimuth
-[azimuths,~,azimuths_idx] = unique(signals_events.trialAzimuthValues);
-azimuths_n = accumarray(azimuths_idx,1);
+% Get licking aligned to each condition
+[conditions,~,conditions_idx] = unique(signals_conditions);
+conditions_n = accumarray(conditions_idx,1);
 
-azimuth_aligned_lick = cellfun(@(x) nan(x, ...
-    length(surround_samples(1):surround_samples(2))),num2cell(azimuths_n),'uni',false);
-azimuth_aligned_water = cellfun(@(x) nan(x, ...
-    length(surround_samples(1):surround_samples(2))),num2cell(azimuths_n),'uni',false);
-for trialAzimuth_idx = 1:length(azimuths)
+condition_aligned_lick = cellfun(@(x) nan(x, ...
+    ceil(diff(surround_time)/Timeline.hw.samplingInterval)),num2cell(conditions_n),'uni',false);
+condition_aligned_water = cellfun(@(x) nan(x, ...
+    ceil(diff(surround_time)/Timeline.hw.samplingInterval)),num2cell(conditions_n),'uni',false);
+for trialCondition_idx = 1:length(conditions)
         
-        curr_azimuth = azimuths(trialAzimuth_idx);       
-        use_trials = signals_events.trialAzimuthValues == curr_azimuth;
-        curr_stim_samples = stimOn_samples(use_trials);
-        stim_surround_lick = bsxfun(@plus,curr_stim_samples,surround_samples(1):surround_samples(2));
+        curr_condition = conditions(trialCondition_idx);       
+        use_trials = signals_conditions == curr_condition;
+      
+        curr_stim_times = stimOn_times(use_trials);
+        stim_surround_lick = bsxfun(@plus,curr_stim_times, ...
+            surround_time(1):Timeline.hw.samplingInterval:surround_time(2));
         
-        stim_surround_lick(any(stim_surround_lick <= 0,2) | ...
-            any(stim_surround_lick > size(Timeline.rawDAQData,1),2),:) = [];
+        stim_surround_lick(any(stim_surround_lick <= min(Timeline.rawDAQTimestamps),2) | ...
+            any(stim_surround_lick > max(Timeline.rawDAQTimestamps),2),:) = [];
         
-        azimuth_aligned_lick{trialAzimuth_idx} = reshape(Timeline.rawDAQData( ...
-            stim_surround_lick,lick_pizeo_idx),size(stim_surround_lick)) < 2.5;
-        azimuth_aligned_water{trialAzimuth_idx} = reshape(Timeline.rawDAQData( ...
-            stim_surround_lick,water_idx),size(stim_surround_lick)) < 2.5;
+        condition_aligned_lick{trialCondition_idx} = interp1(Timeline.rawDAQTimestamps, ...
+            Timeline.rawDAQData(:,lick_pizeo_idx),stim_surround_lick) < 2.5;
+        condition_aligned_water{trialCondition_idx} = interp1(Timeline.rawDAQTimestamps, ...
+            Timeline.rawDAQData(:,water_idx),stim_surround_lick) < 2.5;
                 
 end
 
 % Plot
 figure;
-t = (surround_samples(1):surround_samples(2))*Timeline.hw.samplingInterval;
+t = surround_time(1):Timeline.hw.samplingInterval:surround_time(2);
+stim_time = median(stimOff_times - stimOn_times);
 
 % Licks
 subplot(1,2,1);
-imagesc(t,1:size(vertcat(azimuth_aligned_lick{:}),1),vertcat(azimuth_aligned_lick{:}))
-ylim([0 size(vertcat(azimuth_aligned_lick{:}),1)]);
+imagesc(t,1:size(vertcat(condition_aligned_lick{:}),1),vertcat(condition_aligned_lick{:}))
+ylim([0 size(vertcat(condition_aligned_lick{:}),1)]);
 xlim(surround_time)
 line([0,0],ylim,'color','r');
-line([4,4],ylim,'color','r');
-for i = 1:length(azimuths)
-    line(xlim,repmat(sum(azimuths_n(1:i))+0.5,2,1),'color','r')
+line([stim_time,stim_time],ylim,'color','r');
+for i = 1:length(conditions)
+    line(xlim,repmat(sum(conditions_n(1:i))+0.5,2,1),'color','r')
 end
 colormap(gray);
 ylabel('Stim presentation');
@@ -295,18 +289,20 @@ title('Licks')
 
 % Reward
 subplot(1,2,2);
-imagesc(t,1:size(vertcat(azimuth_aligned_water{:}),1),vertcat(azimuth_aligned_water{:}))
-ylim([0 size(vertcat(azimuth_aligned_water{:}),1)]);
+imagesc(t,1:size(vertcat(condition_aligned_water{:}),1),vertcat(condition_aligned_water{:}))
+ylim([0 size(vertcat(condition_aligned_water{:}),1)]);
 xlim(surround_time)
 line([0,0],ylim,'color','r');
-line([4,4],ylim,'color','r');
-for i = 1:length(azimuths)
-    line(xlim,repmat(sum(azimuths_n(1:i))+0.5,2,1),'color','r')
+line([stim_time,stim_time],ylim,'color','r');
+for i = 1:length(conditions)
+    line(xlim,repmat(sum(conditions_n(1:i))+0.5,2,1),'color','r')
 end
 colormap(gray);
 ylabel('Stim presentation');
 xlabel('Time from stim onset (s)')
 title('Water')
+
+
 
 %% Choiceworld: wheel movement around stim
 
