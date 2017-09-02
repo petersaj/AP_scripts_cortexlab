@@ -2296,7 +2296,7 @@ use_frames = (frame_t > skip_seconds & frame_t < (frame_t(end) - skip_seconds));
 %use_frames = (frame_t > max(frame_t)/2);
 
 %use_spikes = spike_times_timeline(ismember(spike_templates,find(templateDepths > 2500 & templateDepths < 4000)));
-use_spikes = spike_times_timeline(ismember(spike_templates,find(templateDepths > 2500 & templateDepths < 3000)) &...
+use_spikes = spike_times_timeline(ismember(spike_templates,find(templateDepths > 0 & templateDepths < 1500)) &...
     ismember(spike_templates,find(msn)));
 % use_spikes = spike_times_timeline(ismember(spike_templates,find(templateDepths > 1300 & templateDepths < 2500)) &...
 %     ismember(spike_templates,find(msn)) & ismember(spike_templates,find(l_r_diff < 0.5)));
@@ -2384,9 +2384,9 @@ use_frames = (frame_t > skip_seconds & frame_t < frame_t(end)-skip_seconds);
 %use_frames = (frame_t > max(frame_t)/2);
 
 % Group multiunit by depth
-n_depth_groups = 4;
+n_depth_groups = 12;
 %depth_group_edges = linspace(0,max(channel_positions(:,2)),n_depth_groups+1);
-depth_group_edges = linspace(850,3200,n_depth_groups+1);
+depth_group_edges = linspace(600,3200,n_depth_groups+1);
 depth_group_edges_use = depth_group_edges;
 %depth_group_edges_use = [3500 Inf];
 
@@ -2413,7 +2413,7 @@ use_svs = 1:50;
 kernel_frames = -35:35;
 downsample_factor = 1;
 lambda = 0;
-zs = false;
+zs = [false,true];
 cvfold = 5;
 
 kernel_frames_downsample = round(downsample(kernel_frames,downsample_factor)/downsample_factor);
@@ -3176,29 +3176,31 @@ legend(cellfun(@num2str,num2cell(unique(stimIDs))))
 
 
 
-%% TEST: spikes to fluorescence
+%% Regress spikes to fluorescence
 
 % Skip the first n seconds to do this
-skip_seconds = 10;
-use_frames = (frame_t > skip_seconds);
+skip_seconds = 30;
+use_frames = (frame_t > skip_seconds & frame_t < (frame_t(end) - skip_seconds));
 %use_frames = (frame_t > skip_seconds) & (frame_t < max(frame_t)/2);
 %use_frames = (frame_t > max(frame_t)/2);
 
-use_spikes = spike_times_timeline(ismember(spike_templates,find(templateDepths > 2000 & templateDepths < 2200)));
+use_spikes = spike_times_timeline(ismember(spike_templates,find(templateDepths > 500 & templateDepths < 1000)));
+% use_spikes = spike_times_timeline(ismember(spike_templates,find(templateDepths > 2000 & templateDepths < 2500)) &...
+%     ismember(spike_templates,find(msn)));
 
 frame_edges = [frame_t(1),mean([frame_t(2:end);frame_t(1:end-1)],1),frame_t(end)+1/framerate];
 [frame_spikes,~,spike_frames] = histcounts(use_spikes,frame_edges);
 frame_spikes = single(frame_spikes);
 
-use_svs = 1:200;
+use_svs = 1:50;
 kernel_frames = -200:200;
 downsample_factor = 1;
 lambda = 0;%3e5;
-zs = false;
+zs = [false,false];
 
 kernel_frames_downsample = round(downsample(kernel_frames,downsample_factor)/downsample_factor);
 
-[k,predicted_spikes,explained_var] = ...
+[k,predicted_fluor,explained_var] = ...
     AP_regresskernel( ...
     downsample(frame_spikes(:,use_frames)',downsample_factor)', ...
     downsample(fV(use_svs,use_frames)',downsample_factor)', ...
@@ -3210,15 +3212,25 @@ fluor_kernel = svdFrameReconstruct(U(:,:,use_svs),k');
 AP_image_scroll(fluor_kernel,kernel_frames_downsample*downsample_factor/framerate);
 truesize;
 
+% Get map of explained variance
+downsample_factor = 10;
+spatial_explained_var = AP_spatial_explained_var(U(:,:,use_svs), ...
+    fV(use_svs,use_frames),predicted_fluor,downsample_factor);
+figure;imagesc(spatial_explained_var);
+caxis([-max(abs(spatial_explained_var(:))),max(abs(spatial_explained_var(:)))]);
+colormap(colormap_BlueWhiteRed);
+colorbar;
+
+
 %% Regression from MUA by depth to fluorescence
 
 % Skip the first n seconds to do this
-skip_seconds = 10;
-use_frames = (frame_t > skip_seconds);
+skip_seconds = 30;
+use_frames = (frame_t > skip_seconds & frame_t < (frame_t(end) - skip_seconds));
 
 % Group multiunit by depth
-n_depth_groups = 1;
-depth_group_edges = linspace(800,3500,n_depth_groups+1);
+n_depth_groups = 10;
+depth_group_edges = linspace(500,3500,n_depth_groups+1);
 depth_group_edges_use = depth_group_edges;
 %depth_group_edges_use = [400,1500,2000,2300,3000,4000];
 depth_group_edges_use(end) = Inf;
@@ -3239,16 +3251,16 @@ for curr_depth = 1:length(depth_group_edges_use)-1
     
 end
 
-use_svs = 1:200;
-kernel_frames = -60:60;
+use_svs = 1:50;
+kernel_frames = -35:35;
 downsample_factor = 1;
-lambda = 100;
-zs = false;
+lambda = 0;
+zs = [false,false];
 cvfold = 5;
 
 kernel_frames_downsample = round(downsample(kernel_frames,downsample_factor)/downsample_factor);
 
-[k,predicted_spikes,explained_var] = ...
+[k,predicted_fluor,explained_var] = ...
     AP_regresskernel( ...
     downsample(frame_spikes(:,use_frames)',downsample_factor)', ...
     downsample(fV(use_svs,use_frames)',downsample_factor)', ...
@@ -3260,6 +3272,94 @@ fluor_kernel = arrayfun(@(x) svdFrameReconstruct(U(:,:,use_svs),k(:,:,x)),1:size
 AP_image_scroll(cat(4,fluor_kernel{:}),kernel_frames_downsample*downsample_factor/framerate);
 truesize;
 
+% Get map of explained variance
+downsample_factor = 10;
+spatial_explained_var = AP_spatial_explained_var(U(:,:,use_svs), ...
+    fV(use_svs,use_frames),predicted_fluor,downsample_factor);
+figure;imagesc(spatial_explained_var);
+caxis([-max(abs(spatial_explained_var(:))),max(abs(spatial_explained_var(:)))]);
+colormap(colormap_BlueWhiteRed);
+colorbar;
+
+%% Regression from MUA by depth to fluorescence - expl var map
+
+% Skip the first n seconds to do this
+skip_seconds = 30;
+use_frames = (frame_t > skip_seconds & frame_t < (frame_t(end) - skip_seconds));
+
+% Group multiunit by depth
+n_depth_groups = 10;
+depth_group_edges = linspace(500,3200,n_depth_groups+1);
+depth_group_edges_use = depth_group_edges;
+depth_group_edges_use(end) = Inf;
+
+[depth_group_n,depth_group] = histc(spikeDepths,depth_group_edges_use);
+depth_groups_used = unique(depth_group);
+depth_group_centers = depth_group_edges_use(1:end-1)+diff(depth_group_edges_use);
+
+framerate = 1./median(diff(frame_t));
+frame_spikes = zeros(length(depth_group_edges_use)-1,length(frame_t));
+for curr_depth = 1:length(depth_group_edges_use)-1
+    
+    curr_spike_times = spike_times_timeline(depth_group == curr_depth & ...
+        ismember(spike_templates,find(msn)));
+
+    % Discretize spikes into frames and count spikes per frame
+    frame_edges = [frame_t,frame_t(end)+1/framerate];
+    frame_spikes(curr_depth,:) = histcounts(curr_spike_times,frame_edges);
+    
+end
+
+use_svs = 1:50;
+kernel_frames = -35:35;
+lambda = 0;
+zs = [false,false];
+cvfold = 5;
+
+spatial_explained_var = nan(size(U,1),size(U,2),n_depth_groups);
+for curr_depth = 1:n_depth_groups
+    
+    [k,predicted_fluor,explained_var] = ...
+        AP_regresskernel( ...
+        frame_spikes(curr_depth,use_frames), ...
+        fV(use_svs,use_frames), ...
+        kernel_frames,lambda,zs,cvfold);
+    
+    % Get map of explained variance
+    downsample_factor = 10;
+    spatial_explained_var(:,:,curr_depth) = ...
+        AP_spatial_explained_var(U(:,:,use_svs), ...
+        fV(use_svs,use_frames),predicted_fluor,downsample_factor);
+    
+    disp(curr_depth);
+    
+end
+
+% Get center of mass for each pixel 
+r_px_max = spatial_explained_var;
+%r_px_max = reshape(zscore(reshape(r_px_max,[],size(r_px_max,3)),[],1),size(r_px_max));
+r_px_com = sum(bsxfun(@times,r_px_max,permute(1:n_depth_groups,[1,3,2])),3)./sum(r_px_max,3);
+
+% Plot map of cortical pixel by preferred depth of probe
+r_px_com_col = ind2rgb(round(mat2gray(r_px_com,[1,n_depth_groups])*255),jet(255));
+figure;
+a1 = axes('YDir','reverse');
+imagesc(avg_im); colormap(gray); caxis([0,prctile(avg_im(:),99)]);
+axis off;
+a2 = axes('Visible','off');
+p = imagesc(r_px_com_col);
+axis off;
+set(p,'AlphaData',mat2gray(max(r_px_max,[],3), ...
+    [0,double(prctile(reshape(max(r_px_max,[],3),[],1),100))]));
+set(gcf,'color','w');
+
+c1 = colorbar('peer',a1,'Visible','off');
+c2 = colorbar('peer',a2);
+ylabel(c2,'Depth (\mum)');
+colormap(c2,jet);
+set(c2,'YDir','reverse');
+set(c2,'YTick',linspace(0,1,6));
+set(c2,'YTickLabel',linspace(depth_group_edges(1),depth_group_edges(end),6));
 
 %% TEST: face to spikes (MUA) 
 

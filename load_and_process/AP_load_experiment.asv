@@ -194,11 +194,20 @@ if block_exists
         end
     end
     
-    % FIX STUPID SIGNALS THING
+    % vanillaChoiceworld-specific
     [~,expDef] = fileparts(block.expDef);
     if strcmp(expDef,'vanillaChoiceworld');
+        % dumb signals thing, fix
         signals_events.hitValues = circshift(signals_events.hitValues,[0,-1]);
         signals_events.missValues = circshift(signals_events.missValues,[0,-1]);
+        
+        % Get stim times by closest photodiode flip
+        [~,closest_stimOn_photodiode] = ...
+        arrayfun(@(x) min(abs(signals_events.stimOnTimes(x) - ...
+        photodiode_flip_times)), ...
+        1:length(signals_events.stimOnTimes));
+    stimOn_times = photodiode_flip_times(closest_stimOn_photodiode);
+    
     end
     
     % Get photodiode flips 
@@ -209,10 +218,8 @@ if block_exists
             min(Timeline.rawDAQData(:,stimScreen_idx)) > 2;
         stimScreen_thresh = max(Timeline.rawDAQData(:,stimScreen_idx))/2;
         stimScreen_on = Timeline.rawDAQData(:,stimScreen_idx) > stimScreen_thresh;
-    end
-    
-    stimScreen_on = Timeline.rawDAQData(:,photodiode_idx) > 0.3;
-    stimScreen_on_t = Timeline.rawDAQTimestamps(stimScreen_on);
+        stimScreen_on_t = Timeline.rawDAQTimestamps(stimScreen_on);
+    end    
     % median filter because of weird effect where
     % photodiode dims instead of off for one sample
     % while backlight is turning off
@@ -221,12 +228,8 @@ if block_exists
     photodiode_trace = medfilt1(Timeline.rawDAQData(stimScreen_on, ...
         photodiode_idx),10) > 2;
     photodiode_flip = find((~photodiode_trace(1:end-1) & photodiode_trace(2:end)) | ...
-        (photodiode_trace(1:end-1) & ~photodiode_trace(2:end)))+1;
-    
-    
-    photodiode_flip_times = Timeline.rawDAQTimestamps( ...
-        find((Timeline.rawDAQData(1:end-1,photodiode_idx) <= 2) ~= ...
-        (Timeline.rawDAQData(2:end,photodiode_idx) <= 2)) + 1)';
+        (photodiode_trace(1:end-1) & ~photodiode_trace(2:end)))+1;   
+    photodiode_flip_times = stimScreen_on_t(photodiode_flip)';
     
     % Specialized: get stim on/off times BY ASSUMING MINIMUM STIM DOWNTIME        
     min_stim_downtime = 1; % minimum time between pd flips to get stim

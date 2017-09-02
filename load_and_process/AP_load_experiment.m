@@ -194,23 +194,16 @@ if block_exists
         end
     end
     
-    % FIX STUPID SIGNALS THING
-    [~,expDef] = fileparts(block.expDef);
-    if strcmp(expDef,'vanillaChoiceworld');
-        signals_events.hitValues = circshift(signals_events.hitValues,[0,-1]);
-        signals_events.missValues = circshift(signals_events.missValues,[0,-1]);
-    end
-    
-    % Get photodiode flips 
+    % Get photodiode flips
     % (get stim screen flickering, if that happens)
-     stimScreen_idx = strcmp({Timeline.hw.inputs.name}, 'stimScreen');
+    stimScreen_idx = strcmp({Timeline.hw.inputs.name}, 'stimScreen');
     if any(stimScreen_idx)
         stimScreen_flicker = max(Timeline.rawDAQData(:,stimScreen_idx)) - ...
             min(Timeline.rawDAQData(:,stimScreen_idx)) > 2;
         stimScreen_thresh = max(Timeline.rawDAQData(:,stimScreen_idx))/2;
         stimScreen_on = Timeline.rawDAQData(:,stimScreen_idx) > stimScreen_thresh;
         stimScreen_on_t = Timeline.rawDAQTimestamps(stimScreen_on);
-    end    
+    end
     % median filter because of weird effect where
     % photodiode dims instead of off for one sample
     % while backlight is turning off
@@ -219,17 +212,34 @@ if block_exists
     photodiode_trace = medfilt1(Timeline.rawDAQData(stimScreen_on, ...
         photodiode_idx),10) > 2;
     photodiode_flip = find((~photodiode_trace(1:end-1) & photodiode_trace(2:end)) | ...
-        (photodiode_trace(1:end-1) & ~photodiode_trace(2:end)))+1;   
+        (photodiode_trace(1:end-1) & ~photodiode_trace(2:end)))+1;
     photodiode_flip_times = stimScreen_on_t(photodiode_flip)';
     
-    % Specialized: get stim on/off times BY ASSUMING MINIMUM STIM DOWNTIME        
-    min_stim_downtime = 1; % minimum time between pd flips to get stim
-    stimOn_times = photodiode_flip_times([true;diff(photodiode_flip_times) > min_stim_downtime]);
-    stimOff_times = photodiode_flip_times([diff(photodiode_flip_times) > min_stim_downtime;true]);   
-    % sanity check
-    if length(signals_events.stimOnTimes) ~= length(stimOn_times)
-        error('Different number of signals/timeline stim ons')
+    % SPECIFIC
+    [~,expDef] = fileparts(block.expDef);
+    if strcmp(expDef,'vanillaChoiceworld');
+        % dumb signals thing, fix
+        signals_events.hitValues = circshift(signals_events.hitValues,[0,-1]);
+        signals_events.missValues = circshift(signals_events.missValues,[0,-1]);
+        
+        % Get stim times by closest photodiode flip
+        [~,closest_stimOn_photodiode] = ...
+            arrayfun(@(x) min(abs(signals_events.stimOnTimes(x) - ...
+            photodiode_flip_times)), ...
+            1:length(signals_events.stimOnTimes));
+        stimOn_times = photodiode_flip_times(closest_stimOn_photodiode);
+    else     
+        % Specialized: get stim on/off times BY ASSUMING MINIMUM STIM DOWNTIME
+        min_stim_downtime = 1; % minimum time between pd flips to get stim
+        stimOn_times = photodiode_flip_times([true;diff(photodiode_flip_times) > min_stim_downtime]);
+        stimOff_times = photodiode_flip_times([diff(photodiode_flip_times) > min_stim_downtime;true]);
+        % sanity check
+        if length(signals_events.stimOnTimes) ~= length(stimOn_times)
+            error('Different number of signals/timeline stim ons')
+        end
     end
+    
+    
     
 end
 

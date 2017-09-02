@@ -1,15 +1,14 @@
-function roi_trace = AP_svd_roi(U,V)
-% roi_trace = AP_svd_roi(U,V)
+function roi_trace = AP_svd_roi(U,V,avg_im)
+% roi_trace = AP_svd_roi(U,V,avg_im)
 %
 % Draw roi on average SVD'd image, return reconstructed trace in time
 
 % Choose ROI
 h = figure;
-avg_svd = reshape(reshape(U,[],size(U,3))*mean(V,2),size(U,1),size(U,2));
-imagesc(avg_svd);
+imagesc(avg_im);
 set(gca,'YDir','reverse');
 colormap(gray);
-caxis([prctile(avg_svd(:),0) prctile(avg_svd(:),100)]);
+caxis([prctile(avg_im(:),0) prctile(avg_im(:),95)]);
 roiMask = roipoly;
 close(h);
 

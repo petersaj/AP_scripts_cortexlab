@@ -60,12 +60,12 @@ xlabel('Time from stim onset')
 %% Raster plot by depth aligned to stuff
 
 %align_times = stimOn_times(stim_hit & azimuths == 0);
-%align_times = stim_hit_licktime(stim_hit & azimuths == 0);
-align_times = lick_bout_starts(~rewarded_licks);
+align_times = stim_hit_licktime(stim_hit & azimuths == 90);
+%align_times = lick_bout_starts(~rewarded_licks);
 
 % Group by depth
 n_depth_groups = 6;
-depth_group_edges = linspace(1500,3200,n_depth_groups+1);
+depth_group_edges = linspace(500,3200,n_depth_groups+1);
 depth_group_centers = round(depth_group_edges(1:end-1)+diff(depth_group_edges)/2);
 depth_group_edges(end) = Inf;
 depth_group = discretize(spikeDepths,depth_group_edges);
@@ -74,7 +74,7 @@ depth_groups_used = unique(depth_group);
 % Create MUA times grouped according to depth
 mua_times = cell(n_depth_groups,1);
 for curr_depth = 1:n_depth_groups
-    use_spikes_idx = (depth_group == curr_depth) & ismember(spike_templates,find(fsi));
+    use_spikes_idx = (depth_group == curr_depth) & ismember(spike_templates,find(msn));
     mua_times{curr_depth} = spike_times_timeline(use_spikes_idx);
 end
 
@@ -107,11 +107,12 @@ title('Population raster by depth');
 %% PSTH viewer
 
 align_times = stimOn_times;
+alignIDs = azimuths;
 %alignIDs = stim_hit(azimuths == 0)*1 + ~stim_hit(azimuths == 0)*2;
 %align_times = stim_hit_licktime(stim_hit & azimuths == 0);
 %align_times = lick_bout_times(rewarded_licks);
 
-use_spikes_idx = ismember(spike_templates,find(templateDepths > 0 & templateDepths < 3200)) & ...
+use_spikes_idx = ismember(spike_templates,find(templateDepths > 0 & templateDepths < 1200)) & ...
    (ismember(spike_templates,find(msn)));
 
 raster_window = [-3.5,5];
@@ -123,7 +124,7 @@ psthViewer(spike_times_timeline(use_spikes_idx),spike_templates(use_spikes_idx),
 % Define the window to get an aligned response to
 surround_window = [-2.5,5];
 
-align_times = stimOn_times(~stim_hit & azimuths == 0);
+align_times = stimOn_times(stim_hit & azimuths == 0);
 %align_times = lick_bout_times(rewarded_licks);
 
 % Get the surround time
@@ -136,7 +137,7 @@ align_times(align_times + surround_time(1) < frame_t(2) | ...
     align_times + surround_time(2) > frame_t(end)) = [];
 
 % Use closest frames to times
-align_surround_times = bsxfun(@plus, align_times', surround_time);
+align_surround_times = bsxfun(@plus, align_times, surround_time);
 frame_edges = [frame_t,frame_t(end)+1/framerate];
 align_frames = discretize(align_surround_times,frame_edges);
 
@@ -266,7 +267,7 @@ signals_event_trace = [signals_event_trace;frame_water];
 use_svs = 1:50;
 kernel_frames = -35*1:7;
 lambda = 1e6;
-zs = false;
+zs = [false,false];
 cvfold = 5;
 
 [k,predicted_fluor,explained_var] = ...
@@ -333,8 +334,8 @@ lick_id(rewarded_lick_idx(azimuths(stim_hit) == 0)) = 1;
 lick_id(rewarded_lick_idx(azimuths(stim_hit) == 90)) = 2;
 
 %use_spikes_idx = ismember(spike_templates,find(templateDepths >= 0 & templateDepths <= 1500));
-use_spikes_idx = ismember(spike_templates,find(templateDepths > 1500 & templateDepths < 2000)) & ...
-   (ismember(spike_templates,find(fsi)));
+use_spikes_idx = ismember(spike_templates,find(templateDepths > 2500 & templateDepths < 3000)) & ...
+   (ismember(spike_templates,find(msn)));
 
 raster_window = [-1,1];
 psthViewer(spike_times_timeline(use_spikes_idx),spike_templates(use_spikes_idx), ...
@@ -343,7 +344,7 @@ psthViewer(spike_times_timeline(use_spikes_idx),spike_templates(use_spikes_idx),
 
 %% PSTH around rewarded lick
 
-raster_window = [-5,0];
+raster_window = [-5,5];
 psth_bin_size = 0.001;
 
 rewarded_stim1_lick_psth = nan(size(templates,1),diff(raster_window)/psth_bin_size);
