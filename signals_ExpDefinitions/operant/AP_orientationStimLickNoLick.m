@@ -1,0 +1,156 @@
+function AP_orientationStimLickNoLick(t, events, parameters, visStim, inputs, outputs, audio)
+
+%% Parameters
+
+% Reward
+rewardSize = 4;
+
+% Stimuli
+stimOrientations = [-45,45];
+rewardedStim = stimOrientations(1); % which stimuli is paired with reward
+spatialFrequency = 0.04;
+contrast = 1;
+azimuth = 0;
+sigma = [20,20];
+stimFlickerFrequency = 5;
+
+% Timing (MC-parameterized now)
+parameters.stimTime; % =  3; % time stimulus is on the screen
+parameters.minITI; % = 3;
+parameters.maxITI; % = 5;
+parameters.punishITI; % extra time to ITI if lick during off stim
+parameters.maxRepeat; % max times to repeat each stimulus
+
+% Lick detector
+lick = inputs.lickDetector.delta.skipRepeats;
+
+%% Set up events
+
+% Turn stim on for fixed interval 
+% (delay this by 10 ms because concurrent events causes a crash)
+stimOn = delay(at(true,events.newTrial),0.01); 
+
+% Reward on rewarded stimulus on lever press
+stimTimeClock = skipRepeats(ge((t-t.at(stimOn)),parameters.stimTime));
+stimResponse = stimOn.setTrigger(lick.eq(1));
+
+% Turn stim off after timeout
+stimOff = stimOn.setTrigger(stimTimeClock);
+
+%% Set up/update trial parameters
+
+trialDataInit = events.expStart.mapn( ...
+    stimOrientations,rewardedStim, ...
+    parameters.stimTime,parameters.minITI,parameters.maxITI, ...
+    parameters.punishITI,parameters.maxRepeat ...
+    @initializeTrialData).subscriptable;
+
+trialData = stimDisplacement.at(stimResponse).scan(@updateTrialData,trialDataInit).subscriptable;
+
+%% Reward, if rewarded condition
+
+water = at(rewardSize,hit);  
+outputs.reward = water;
+totalWater = water.scan(@plus,0);
+
+%% ITI until next trial
+
+% ITI is time after stimulus off only
+%endTrial = stimOff.delay(trialITI.at(stimOff));
+% ITI is time after stim off but resets if lick during ITI
+% define the last lick time as infinite if no licks yet
+n_licks = lick.ge(1).scan(@plus,0);
+lastLickTime = cond(...
+    n_licks.gt(0), t-t.at(lick),...
+    true, Inf);
+
+addPunishITI = merge(at(0,events.newTrial),falseAlarm);
+totalITI = trialITI.at(stimOff) + addPunishITI.at(stimOff)*parameters.punishITI;
+
+endTrial = stimOff.setTrigger(ge(t-t.at(stimOff),totalITI) ...
+    & ge(lastLickTime,parameters.minLickStimTime));
+
+%% Visual stimuli
+
+stimFlicker = mod(skipRepeats(floor((t - t.at(stimOn))/(1/stimFlickerFrequency))),2);
+%stim.contrast = trialContrast.at(stimOn)*stimFlicker;
+
+stim = vis.grating(t, 'square', 'gaussian');
+stim.sigma = sigma;
+stim.spatialFrequency = spatialFrequency;
+stim.phase = pi*stimFlicker;
+stim.orientation = trialOrientation.at(stimOn);
+stim.contrast = contrast;
+stim.azimuth = azimuth;
+stim.show = stimOn.to(stimOff);
+
+visStim.stim = stim;
+
+%% Events
+
+events.stimOn = stimOn;
+events.stimOff = stimOff;
+events.stimFlicker = stimFlicker;
+events.trialOrientation = trialOrientation;
+events.trialITI = trialITI;g
+events.totalWater = totalWater;
+events.lick = lick;
+events.hit = hit;
+events.falseAlarm = falseAlarm;
+events.totalITI = totalITI;
+events.maxStimRep = maxStimRep;
+
+events.n_licks = n_licks;
+
+events.endTrial = endTrial;
+
+end
+
+
+function trialDataInit = initializeTrialData(stimOrientations,rewardedStim, ...
+    stimTime,minITI,maxITI,punishITI,maxRepeat)
+
+% Store user parameters
+trialDataInit.orientations = stimOrientations;
+trialDataInit.rewardedStim = rewardedStim;
+trialDataInit.stimTime = stimTime;
+trialDataInit.minITI = minITI;
+trialDataInit.maxITI = maxITI;
+trialDataInit.punishITI = punishITI;
+trialDataInit.maxRepeat = maxRepeat;
+
+% Pick starting trial parameters
+trialDataInit.trialOrientation = stimOrientations(randperm(length(stimOrientations),1));
+
+end
+
+
+function trialData = updateTrialData(trialData,stimDisplacement)
+
+hit = stimOn.setTrigger(lick.eq(1) & trialOrientation.map(@(x) ismember(x,rewardedStim))).keepWhen(stimOn.to(stimTimeClock));
+falseAlarm = stimOn.setTrigger(lick.eq(1) & ...
+    ~trialOrientation.map(@(x) ismember(x,rewardedStim))).keepWhen(stimOn.to(stimTimeClock));
+
+
+trialDataInit.trialITI = randi([minITI,maxITI]);
+
+
+end
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
