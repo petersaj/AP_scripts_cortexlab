@@ -2386,7 +2386,7 @@ use_frames = (frame_t > skip_seconds & frame_t < frame_t(end)-skip_seconds);
 % Group multiunit by depth
 n_depth_groups = 12;
 %depth_group_edges = linspace(0,max(channel_positions(:,2)),n_depth_groups+1);
-depth_group_edges = linspace(600,3200,n_depth_groups+1);
+depth_group_edges = linspace(1000,3200,n_depth_groups+1);
 depth_group_edges_use = depth_group_edges;
 %depth_group_edges_use = [3500 Inf];
 
@@ -2412,7 +2412,7 @@ end
 use_svs = 1:50;
 kernel_frames = -35:35;
 downsample_factor = 1;
-lambda = 0;
+lambda = 1e4;
 zs = [false,true];
 cvfold = 5;
 
@@ -3288,8 +3288,8 @@ skip_seconds = 30;
 use_frames = (frame_t > skip_seconds & frame_t < (frame_t(end) - skip_seconds));
 
 % Group multiunit by depth
-n_depth_groups = 10;
-depth_group_edges = linspace(500,3200,n_depth_groups+1);
+n_depth_groups = 4;
+depth_group_edges = linspace(1000,3200,n_depth_groups+1);
 depth_group_edges_use = depth_group_edges;
 depth_group_edges_use(end) = Inf;
 

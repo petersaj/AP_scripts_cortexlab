@@ -1480,12 +1480,13 @@ stim_screen_interp = single([zeros(size(stim_screen_interp,1),1),diff(stim_scree
 skip_seconds = 10;
 use_frames = (frame_t > skip_seconds);
 
-use_svs = 1:500;
+use_svs = 10:500;
 fluor_kernel_frames = -17:-6;
 lambda = 1e7;
+zs = [false,true];
 
 k = AP_regresskernel(fV(use_svs,use_frames), ...
-    stim_screen_interp(:,use_frames),fluor_kernel_frames,lambda,true,5);
+    stim_screen_interp(:,use_frames),fluor_kernel_frames,lambda,zs,5);
 
 % Get maximum kernel response for all pixels
 r = permute(mean(reshape(k,length(use_svs), ...
@@ -1501,7 +1502,7 @@ use_u_y = 1:Uy;
 Ud = imresize(U(use_u_y,:,:),1/U_downsample_factor,'bilinear');
 
 % Convert V responses to pixel responses
-stim_im_px = reshape(permute(svdFrameReconstruct(Ud(:,:,use_svs),r(use_svs,:)),[3,1,2]),ny,nx,[]);
+stim_im_px = reshape(permute(svdFrameReconstruct(Ud(:,:,use_svs),r),[3,1,2]),ny,nx,[]);
 
 % Upsample each pixel's response map and find maximum
 gauss_filt = fspecial('gaussian',[ny,nx],filter_sigma);
@@ -1522,20 +1523,12 @@ angle_diff = sind(Vdir-Hdir);
 vfs_mean = nanmean(imgaussfilt(angle_diff,1),3);
 
 figure; 
-subplot(1,2,1);
 imagesc(vfs_mean);
 caxis([-1,1]);
 axis off;
 title('All')
 
-subplot(1,2,2);
-h = imagesc(vfs_mean);
-caxis([-1,1]);
-axis off;
 vfs_cutoff = 1.5*std(vfs_mean(:));
-set(h,'AlphaData',abs(vfs_mean) > vfs_cutoff);
-title('Abs > 1.5*std');
-
 vis_thresh = abs(vfs_mean) > vfs_cutoff;
 vis_boundaries = cellfun(@(x) x*U_downsample_factor,bwboundaries(vis_thresh),'uni',false);
 

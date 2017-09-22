@@ -33,13 +33,6 @@ staircaseMiss = 1;
 contrasts = [1,0.5,0.25,0.125,0.06,0];
 % (which conrasts to use at the beginning of training)
 startingContrasts = [true,true,false,false,false,false];
-%%%%%%%%%%%%%% NOTE: FOR NOW MAKING THIS TRUE FROM THE BEGINNING
-%%%%%%%%%%%%%% THIS IS BECAUSE NEED TO FIX LOOKING FOR OLD CHOICEWORLD:
-%%%%%%%%%%%%%% MAKE IT BE THE LAST CHOICEWORLD, NOT THE LAST EXPT
-startingContrasts = [true,true,true,true,true,true];
-%%%%%%%%%%%%%%
-%%%%%%%%%%%%%%
-%%%%%%%%%%%%%%
 % (which contrasts to repeat on miss)
 repeatOnMiss = [true,true,false,false,false,false];
 % (number of trials to judge rolling performance)

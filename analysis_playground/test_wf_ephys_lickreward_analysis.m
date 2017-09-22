@@ -1,3 +1,110 @@
+%% Plot lick task performance over days
+
+animal = 'AP016';
+% just get all days for now (eventually choose, supply date range, etc)
+expInfo_path = ['\\zserver.cortexlab.net\Data\expInfo\' animal];
+expInfo_dir = dir(expInfo_path);
+days = {expInfo_dir(find([expInfo_dir(3:end).isdir])+2).name};
+
+% Get lick task
+lick_task_expts = nan(size(days));
+for curr_day = 1:length(days)  
+    day = days{curr_day};
+    % In the event of multiple experiments, check all
+    expDay_dir = dir([expInfo_path filesep days{curr_day}]);
+    exp_nums = cellfun(@str2num,{expDay_dir(3:end).name});
+    use_exp = false(size(exp_nums));
+    for curr_exp = 1:length(exp_nums);
+        [block_filename, block_exists] = AP_cortexlab_filename(animal,day,exp_nums(curr_exp),'block');
+        if ~block_exists
+            continue
+        end
+        % Load the block file
+        load(block_filename)
+        [~,expDef] = fileparts(block.expDef);
+        use_exp(curr_exp) = ~isempty(strfind(expDef,'LickReward'));    
+    end
+    if any(use_exp)
+        lick_task_expts(curr_day) = exp_nums(use_exp);
+    end
+end
+
+% Initialize the behavior structure
+days = days(~isnan(lick_task_expts));
+expts = lick_task_expts(~isnan(lick_task_expts));
+bhv = struct;
+
+for curr_day = 1:length(days)
+    day = days{curr_day};
+    experiment = expts(curr_day);
+    load_parts = struct;
+    AP_load_experiment;
+
+    lick_idx = strcmp({Timeline.hw.inputs.name}, 'beamLickDetector');
+    lick_trace = Timeline.rawDAQData(:,lick_idx) > 2.5;
+    lick_times = Timeline.rawDAQTimestamps(find(lick_trace(2:end) & ~lick_trace(1:end-1))+1);
+    
+    epoch_times = reshape([stimOn_times,stimOff_times]',[],1);
+    epoch_hit = histcounts(lick_times,epoch_times) > 0;
+    
+    stim_hit = epoch_hit(1:2:end)';
+          
+    stim_hit_licktime_cell = arrayfun(@(x) lick_times(find(...
+        lick_times >= stimOn_times(x),1)),1:length(stimOn_times),'uni',false);
+    stim_hit_licktime = nan(size(stim_hit));
+    stim_hit_licktime(stim_hit) = [stim_hit_licktime_cell{stim_hit}];
+    stim_lick_delay = stim_hit_licktime - stimOn_times;
+    
+    % Get lick aligned to stim hit
+    surround_interval = [-2,2];
+    surround_time = surround_interval(1):Timeline.hw.samplingInterval:surround_interval(2);
+    water_surround_lick = bsxfun(@plus,stim_hit_licktime(~isnan(stim_hit_licktime)), ...
+        surround_time);   
+    water_aligned_lick = interp1(Timeline.rawDAQTimestamps,Timeline.rawDAQData(:,lick_idx), ...
+        water_surround_lick);
+    
+    bhv(curr_day).stim_hit = stim_hit;
+    bhv(curr_day).stim_lick_delay = stim_lick_delay;
+    bhv(curr_day).water_aligned_lick = water_aligned_lick;
+    
+end
+
+figure;
+
+subplot(1,3,1); hold on;
+plotSpread({bhv.stim_lick_delay});
+errorbar(cellfun(@nanmedian,{bhv.stim_lick_delay}), ...
+    cellfun(@(x) nanstd(x)./sqrt(sum(~isnan(x))),{bhv.stim_lick_delay}),'r')
+xlabel('Day');
+ylabel('Time from stim to lick')
+
+subplot(2,3,2); hold on; set(gca,'ColorOrder',copper(length(days)));
+frac_stim = arrayfun(@(x) smooth(+bhv(x).stim_hit,20),1:length(days),'uni',false);
+for i = 1:length(days)
+    plot(frac_stim{i},'linewidth',2);
+end
+ylim([0 1]);
+xlabel('Trial');
+ylabel('Fraction hit trials');
+
+subplot(2,3,5);
+plot(cellfun(@median,frac_stim),'k','linewidth',2);
+xlabel('Day');
+ylabel('Median smoothed fraction hit');
+ylim([0 1]);
+
+subplot(1,3,3)
+day_trials_plotted = arrayfun(@(x) size(bhv(x).water_aligned_lick,1),1:length(days));
+imagesc(surround_time,1:sum(day_trials_plotted),1-vertcat(bhv.water_aligned_lick));
+colormap(gray);
+cumulative_trials = cumsum(day_trials_plotted);
+for i = 1:length(days)
+    line(xlim,[cumulative_trials(i),cumulative_trials(i)],'color','r');
+end
+ylabel('Trial');
+xlabel('Time from rewarded lick');
+
+
 %% Get behavior times
 
 lick_idx = strcmp({Timeline.hw.inputs.name}, 'beamLickDetector');
@@ -20,7 +127,7 @@ end
 azimuths = signals_events.trialAzimuthValues;
 
 epoch_times = reshape([stimOn_times,stimOff_times]',[],1);
-epoch_hit = histcounts(signals_events.hitTimes,epoch_times) > 0;
+epoch_hit = histcounts(lick_times,epoch_times) > 0;
 stim_hit = epoch_hit(1:2:end);
 
 stim_hit_licktime_cell = arrayfun(@(x) lick_times(find(...
@@ -28,6 +135,7 @@ stim_hit_licktime_cell = arrayfun(@(x) lick_times(find(...
     lick_times(x),1)),1:length(stimOn_times),'uni',false);
 stim_hit_licktime = nan(size(stim_hit));
 stim_hit_licktime(stim_hit) = [stim_hit_licktime_cell{stim_hit}];
+
 
 %% Get visual striatum MUA PSTH around events
 

@@ -56,7 +56,7 @@ water_samples = find(Timeline.rawDAQData(1:end-1,water_idx) <= 2 & ...
     Timeline.rawDAQData(2:end,water_idx) > 2) + 1;
 
 % How much licking to plot
-surround_time = [-1,10];
+surround_time = [-2,2];
 surround_samples = surround_time/Timeline.hw.samplingInterval;
 
 % Get lick aligned to water delivery
