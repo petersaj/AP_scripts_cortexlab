@@ -985,14 +985,14 @@ px_10prct = svdFrameReconstruct(U,prctile(fV(:,skip_start_frames:end),10,2));
 surround_window = [-0.5,4];
 
 % Define the times to align to
-% use_trials = ismember(signals_events.trialContrastValues,[1]) &  ...
-%     ismember(signals_events.trialSideValues,[1]) & ...
-%     ismember(signals_events.hitValues,[0]) & ...
-%     ~signals_events.repeatTrialValues;
-% align_times = signals_events.stimOnTimes(use_trials(1:length(signals_events.stimOnTimes)))';
-
-use_trials = ismember(signals_events.trialAzimuthValues,[0]);
+use_trials = ismember(signals_events.trialContrastValues,[0.25]) &  ...
+    ismember(signals_events.trialSideValues,[1]) & ...
+    ismember(signals_events.hitValues,[1]) & ...
+    ~signals_events.repeatTrialValues;
 align_times = signals_events.stimOnTimes(use_trials(1:length(signals_events.stimOnTimes)))';
+
+% use_trials = ismember(signals_events.trialAzimuthValues,[0]);
+% align_times = signals_events.stimOnTimes(use_trials(1:length(signals_events.stimOnTimes)))';
 
 %align_times = signals_events.stimOnTimes';
 %align_times = signals_events.lever_r_flipTimes(signals_events.lever_r_flipValues == 1)';
@@ -1301,7 +1301,7 @@ signals_event_trace = [signals_event_trace;histcounts(align_times,frame_edges)];
 use_svs = 1:50;
 kernel_frames = -35:35*2;
 lambda = 0;
-zs = false;
+zs = [false,false];
 cvfold = 5;
 
 [k,predicted_fluor,explained_var] = ...
@@ -1720,31 +1720,6 @@ right_trials = ismember(signals_events.trialContrastValues,[1,0.5,0.25,0.125,0.0
     (ismember(signals_events.trialSideValues,[-1]) & ismember(signals_events.hitValues,[1]))) & ...
     ~signals_events.repeatTrialValues;
 
-% Get photodiode flips closest to stim presentations
-photodiode_name = 'photoDiode';
-photodiode_idx = strcmp({Timeline.hw.inputs.name}, photodiode_name);
-photodiode_flip_times = Timeline.rawDAQTimestamps( ...
-    find((Timeline.rawDAQData(1:end-1,photodiode_idx) <= 2) ~= ...
-    (Timeline.rawDAQData(2:end,photodiode_idx) <= 2)) + 1);
-
-[~,closest_stimOn_photodiode] = ...
-    arrayfun(@(x) min(abs(signals_events.stimOnTimes(x) - ...
-    photodiode_flip_times)), ...
-    1:length(signals_events.stimOnTimes));
-stimOn_times = photodiode_flip_times(closest_stimOn_photodiode);
-
-% Get time to first movement after stim onset
-wheel_move_thresh = 1;
-wheel_move_start_times = frame_t( ...
-    find((wheel_velocity(1:end-1) <= wheel_move_thresh) & ...
-    (wheel_velocity(2:end) > wheel_move_thresh)) + 1);
-stimOn_move_times = ...
-    arrayfun(@(x) ...
-    wheel_move_start_times(find(wheel_move_start_times > stimOn_times(x),1)) - ...
-    stimOn_times(x),1:length(stimOn_times),'uni',false);
-stimOn_move_times(cellfun(@isempty,stimOn_move_times)) = {NaN};
-stimOn_move_times = cell2mat(stimOn_move_times);
-
 % % Restrict trials to non-move before interactive on
 %left_trials = left_trials & stimOn_move_times >= 0.5;
 %right_trials = right_trials & stimOn_move_times >= 0.5;
@@ -1757,8 +1732,8 @@ surround_samplerate = 1/(framerate*1);
 surround_time = use_window(1):surround_samplerate: ...
     use_window(2);
 
-align_surround_times_left = bsxfun(@plus, stimOn_times(left_trials)', surround_time);
-align_surround_times_right = bsxfun(@plus, stimOn_times(right_trials)', surround_time);
+align_surround_times_left = bsxfun(@plus, stimOn_times(left_trials), surround_time);
+align_surround_times_right = bsxfun(@plus, stimOn_times(right_trials), surround_time);
 
 fV_align_left = interp1(frame_t,fV',align_surround_times_left);
 fV_align_right = interp1(frame_t,fV',align_surround_times_right);
@@ -1766,13 +1741,13 @@ fV_align_right = interp1(frame_t,fV',align_surround_times_right);
 stim_order = [[ones(1,sum(left_trials)),zeros(1,sum(right_trials))]; ...
     [zeros(1,sum(left_trials)),ones(1,sum(right_trials))]];
 
-use_svs = 100;
+use_svs = 1:100;
 lambda = 1e6;
-zs = false;
+zs = [false,false];
 cvfold = 5;
 
-fV_align_all = [reshape(permute(fV_align_left(:,:,1:use_svs),[2,3,1]),[],sum(left_trials)), ...
-    reshape(permute(fV_align_right(:,:,1:use_svs),[2,3,1]),[],sum(right_trials))];
+fV_align_all = [reshape(permute(fV_align_left(:,:,use_svs),[2,3,1]),[],sum(left_trials)), ...
+    reshape(permute(fV_align_right(:,:,use_svs),[2,3,1]),[],sum(right_trials))];
 
 [k,predicted_stim,explained_var] = ...
     AP_regresskernel(fV_align_all,stim_order,0,lambda,zs,cvfold);
@@ -1780,9 +1755,9 @@ fV_align_all = [reshape(permute(fV_align_left(:,:,1:use_svs),[2,3,1]),[],sum(lef
 max_likely_stim = bsxfun(@eq,predicted_stim,max(predicted_stim,[],1));
 correct_decoding = sum(max_likely_stim(:) & stim_order(:))./sum(stim_order(:));
 
-k2 = reshape(k,[],use_svs,2);
-k_px_l = svdFrameReconstruct(U(:,:,1:use_svs),k2(:,:,1)');
-k_px_r = svdFrameReconstruct(U(:,:,1:use_svs),k2(:,:,2)');
+k2 = reshape(k,[],length(use_svs),2);
+k_px_l = svdFrameReconstruct(U(:,:,use_svs),k2(:,:,1)');
+k_px_r = svdFrameReconstruct(U(:,:,use_svs),k2(:,:,2)');
 
 baseline_time = find(surround_time < 0,1,'last');
 k_px_l_norm = bsxfun(@minus,k_px_l,nanmean(k_px_l(:,:,1:baseline_time),3));
