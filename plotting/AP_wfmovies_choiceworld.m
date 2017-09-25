@@ -277,7 +277,8 @@ if handles.plot_choiceworld
                 set(handles.choiceworld_plot,'MarkerEdgeColor',[0,0.8,0]);
             case 2 % feedback period
                 set(handles.choiceworld_plot,'Visible','on');
-                if handles.choiceworld.hitValues(curr_hit_idx)
+                % (look at the next hitValue because circshift in load)
+                if curr_hit_idx > 1 && handles.choiceworld.hitValues(curr_hit_idx-1)
                     set(handles.choiceworld_plot,'MarkerEdgeColor','b');
                 else
                     set(handles.choiceworld_plot,'MarkerEdgeColor','k');
