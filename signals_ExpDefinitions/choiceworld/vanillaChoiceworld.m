@@ -240,17 +240,29 @@ trialDataInit.sessionPerformance = ...
     zeros(size(unique([-contrasts,contrasts])))];
 
 %%%% Load the last experiment for the subject if it exists
-% (note: MC creates folder on initilization, so look for > 1)
+% (note: MC creates folder on initilization, so start search at 1-back)
 expRef = dat.listExps(subject);
+useOldParams = false;
 if length(expRef) > 1
-    previousBlockFilename = dat.expFilePath(expRef{end-1}, 'block', 'master');
-    if exist(previousBlockFilename,'file')
-        previousBlock = load(previousBlockFilename);
-    end
+    % Loop through blocks from latest to oldest, if any have the relevant
+    % parameters then carry them over
+    for check_expt = length(expRef)-1:-1:1
+        previousBlockFilename = dat.expFilePath(expRef{check_expt}, 'block', 'master');
+        if exist(previousBlockFilename,'file')
+            previousBlock = load(previousBlockFilename);
+        end
+        % Check if the relevant fields exist
+        if exist('previousBlock','var') && isfield(previousBlock.block,'events') && ...
+                all(isfield(previousBlock.block.events, ...
+                {'useContrastsValues','hitBufferValues','trialsToZeroContrastValues'}))
+            % Break the loop and use these parameters
+            useOldParams = true;
+            break
+        end       
+    end        
 end
-if exist('previousBlock','var') && isfield(previousBlock.block,'events') && ...
-        all(isfield(previousBlock.block.events, ...
-        {'useContrastsValues','hitBufferValues','trialsToZeroContrastValues'}))
+
+if useOldParams
     % If the last experiment file has the relevant fields, set up performance
     
     % Which contrasts are currently in use
@@ -264,9 +276,9 @@ if exist('previousBlock','var') && isfield(previousBlock.block,'events') && ...
     
     % The countdown to adding 0% contrast
     trialDataInit.trialsToZeroContrast = previousBlock.block. ...
-        events.trialsToZeroContrastValues(end);      
-       
-else    
+        events.trialsToZeroContrastValues(end);
+    
+else
     % If this animal has no previous experiments, initialize performance
     trialDataInit.useContrasts = startingContrasts;
     trialDataInit.hitBuffer = nan(trialsToBuffer,length(contrasts));

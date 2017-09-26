@@ -291,7 +291,7 @@ if exist('Timeline','var') && load_parts.cam
                 
                 % Get times of facecam frames in timeline
                 eyecam_t = nan(n_eyecam_frames,1);
-                eyecam_t(eyecam_frame_idx) = eyeCamStrobe_up_t;
+                eyecam_t(eyecam_frame_idx(eyecam_frame_idx > 0)) = eyeCamStrobe_up_t(eyecam_frame_idx > 0);
                 
                 save(eyecam_t_savefile,'eyecam_t');
             end
