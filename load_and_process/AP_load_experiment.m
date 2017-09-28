@@ -1,4 +1,4 @@
-% AP_load_experiment(animal,day,experiment)
+% AP_load_experiment(animal,day,experiment,site)
 %
 % Loads data from experiments
 % assumes kilotrode, among other things
@@ -6,6 +6,11 @@
 % Not a function at the moment because nothing is packaged
 
 %% Define what to load
+
+% Site is optional
+if ~exist('site','var')
+    site = [];
+end
 
 % If nothing specified, load everything
 if ~exist('load_parts','var')
@@ -162,8 +167,8 @@ if block_exists
     
     signals_events = block.events;
     
-    % If timeline exists, get reward times in block and timeline
-    if exist('Timeline','var')
+    % If reward information exists, use that to align signals/timeline
+    if exist('Timeline','var') && isfield(block.outputs,'rewardTimes')
         reward_t_block = block.outputs.rewardTimes(block.outputs.rewardValues > 0);
         
         timeline_reward_idx = strcmp({Timeline.hw.inputs.name}, 'rewardEcho');
@@ -228,6 +233,24 @@ if block_exists
             photodiode_flip_times)), ...
             1:length(signals_events.stimOnTimes));
         stimOn_times = photodiode_flip_times(closest_stimOn_photodiode);
+        
+    elseif strcmp(expDef,'AP_visAudioPassive')
+        min_stim_downtime = 0.5; % minimum time between pd flips to get stim
+        stimOn_times_pd = photodiode_flip_times([true;diff(photodiode_flip_times) > min_stim_downtime]);
+        stimOff_times_pd = photodiode_flip_times([diff(photodiode_flip_times) > min_stim_downtime;true]);
+        warning('visAudioPassive: THIS IS TEMPORARY BECAUSE NO BUFFER TIME')
+        
+        stimOn_times = nan(size(signals_events.visualOnsetTimes));
+        stimOn_times(end-(length(stimOn_times_pd)-1):end) = stimOn_times_pd;
+        
+        stimOff_times = nan(size(signals_events.visualOnsetTimes));
+        stimOff_times(end-(length(stimOff_times_pd)-1):end) = stimOff_times_pd;
+        
+        % sanity check
+        if length(signals_events.visualOnsetValues) ~= length(stimOn_times)
+            error('Different number of signals/timeline stim ons')
+        end
+        
     else     
         % Specialized: get stim on/off times BY ASSUMING MINIMUM STIM DOWNTIME
         min_stim_downtime = 1; % minimum time between pd flips to get stim
@@ -350,7 +373,7 @@ end
 
 %% Load imaging data
 
-[data_path,data_path_exists] = AP_cortexlab_filename(animal,day,experiment,'datapath');
+[data_path,data_path_exists] = AP_cortexlab_filename(animal,day,experiment,'imaging',site);
 
 if data_path_exists && load_parts.imaging
     disp('Loading imaging data...')
@@ -460,7 +483,7 @@ end
 
 %% Load ephys data (single long recording)
 
-[ephys_path,ephys_exists] = AP_cortexlab_filename(animal,day,experiment,'ephys');
+[ephys_path,ephys_exists] = AP_cortexlab_filename(animal,day,experiment,'ephys',site);
 
 if ephys_exists && load_parts.ephys
     
@@ -519,9 +542,9 @@ if ephys_exists && load_parts.ephys
     % Load LFP (random snippet: just for correlation)
     n_channels = str2num(header.n_channels);
     %lfp_filename = [ephys_path filesep 'lfp.dat']; (this is old)
-    [data_path,data_path_exists] = AP_cortexlab_filename(animal,day,experiment,'datapath');
-    lfp_dir = dir([data_path filesep 'ephys' filesep 'experiment*_100-1_0.dat']);
-    lfp_filename = [data_path filesep 'ephys' filesep lfp_dir.name];
+    [data_path,data_path_exists] = AP_cortexlab_filename(animal,day,experiment,'ephysraw',site);
+    lfp_dir = dir([data_path 'experiment*_100-1_0.dat']);
+    lfp_filename = [data_path lfp_dir.name];
     if load_lfp && exist(lfp_filename,'file')
         lfp_sample_rate = str2num(header.lfp_sample_rate);
         lfp_cutoff = str2num(header.filter_cutoff);

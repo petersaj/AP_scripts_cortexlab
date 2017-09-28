@@ -1,5 +1,5 @@
-function [filename,file_exists] = AP_cortexlab_filename(animal,day,experiment,file,dayformat)
-% filename = AP_cortexlab_filename(animal,day,experiment,file,dayformat);
+function [filename,file_exists] = AP_cortexlab_filename(animal,day,experiment,file,site)
+% filename = AP_cortexlab_filename(animal,day,experiment,file,site);
 %
 % file - can include:
 % timeline
@@ -29,33 +29,40 @@ if isnumeric(day)
     experiment = num2str(day);
 end
 
-% There is no lab convention for dates so it's all mixed up, make both
-% versions and use as necessary
-isdaydash = any(strfind(day,'-'));
-if isdaydash
-    day_dash = day;
-    day_8digit = datestr(datenum(day,'yyyy-mm-dd'),'yyyymmdd');
-elseif ~isdaydash
-    day_dash = datestr(datenum(day,'yyyymmdd'),'yyyy-mm-dd');
-    day_8digit = day;
+if exist('site','var') && ~isempty(site)
+    if isnumeric(site)
+        site = num2str(site);
+    end
+    site_dir = [filesep 'site' site];
+else
+    site_dir = [];
 end
 
-% Switch the used day format if necessary
-if exist('dayformat','var') && ~isempty(dayformat)
-    switch dayformat
-        case 'dash'
-            day = day_dash;
-        case '8digit'
-            day = day_8digit;
-    end
-end
+%%%% DATE FORMAT: NOT USED ANY MORE (the standard is yyyy-mm-dd)
+% % There is no lab convention for dates so it's all mixed up, make both
+% % versions and use as necessary
+% isdaydash = any(strfind(day,'-'));
+% if isdaydash
+%     day_dash = day;
+%     day_8digit = datestr(datenum(day,'yyyy-mm-dd'),'yyyymmdd');
+% elseif ~isdaydash
+%     day_dash = datestr(datenum(day,'yyyymmdd'),'yyyy-mm-dd');
+%     day_8digit = day;
+% end
+%
+% % Switch the used day format if necessary
+% if exist('dayformat','var') && ~isempty(dayformat)
+%     switch dayformat
+%         case 'dash'
+%             day = day_dash;
+%         case '8digit'
+%             day = day_8digit;
+%     end
+% end
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
 switch file
-    
-    case 'datapath'
-        filepath = '\\zserver.cortexlab.net\Data\Subjects';
-        filename = [filepath filesep animal filesep day];
-        
+            
     case 'timeline'
         filepath = '\\zserver.cortexlab.net\Data\expInfo';
         filename = [filepath filesep animal filesep day filesep experiment ...
@@ -107,9 +114,17 @@ switch file
         filename = [filepath filesep animal filesep day filesep experiment ...
             filesep day '_' experiment '_' animal '_hardwareInfo.mat'];
         
+    case 'imaging'
+        filepath = '\\zserver.cortexlab.net\Data\Subjects';
+        filename = [filepath filesep animal filesep day site_dir filesep];
+        
     case 'ephys'
-        filepath = '\\basket.cortexlab.net\data\ajpeters\';
-        filename = [filepath filesep animal filesep day filesep 'ephys'];
+        filepath = '\\basket.cortexlab.net\data\ajpeters';
+        filename = [filepath filesep animal filesep day filesep 'ephys' site_dir filesep];
+        
+    case 'ephysraw'
+        filepath = '\\zserver.cortexlab.net\Data\Subjects';
+        filename = [filepath filesep animal filesep day filesep 'ephys' site_dir filesep];
 
 end
 

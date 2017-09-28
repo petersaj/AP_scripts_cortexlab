@@ -1,4 +1,4 @@
-%% Raster plots to choiceworld conditions
+%% PSTH to choiceworld conditions
 
 stimIDs = signals_events.trialSideValues.*signals_events.trialContrastValues;
 
@@ -50,7 +50,7 @@ ylabel('Population spikes (by stim)');
 line([0,0],ylim,'linestyle','--','color','k');
 
 
-%% Raster plots for left vs. right stim, choose left vs. right stim (by depth)
+%% PSTH for left vs. right stim, choose left vs. right stim (by depth)
 
 % Group multiunit by depth
 n_depth_groups = 4;
@@ -329,7 +329,7 @@ psthViewer(use_spikes,template_sort, ...
     raster_window,[ones(1,sum(go_right_trials)),2*ones(1,sum(go_left_trials))]);
 
 
-
+%% TO DO: average fluorescence around all conditions
 
 
 

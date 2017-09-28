@@ -1278,18 +1278,19 @@ frame_edges = [frame_t,frame_t(end)+1/framerate];
 frame_edges = [frame_t,frame_t(end)+1/framerate];
 signals_event_trace = [];
 
-use_trials = ismember(signals_events.trialContrastValues,[1,0.5]) &  ...
+use_trials = ismember(signals_events.trialContrastValues,[1]) &  ...
     ismember(signals_events.trialSideValues,[1]) & ...
     ismember(signals_events.hitValues,[1]);
 align_times = signals_events.stimOnTimes(use_trials(1:length(signals_events.stimOnTimes)))';
 signals_event_trace = [signals_event_trace;histcounts(align_times,frame_edges)];
 
-use_trials = ismember(signals_events.trialContrastValues,[1,0.5]) &  ...
+use_trials = ismember(signals_events.trialContrastValues,[1]) &  ...
     ismember(signals_events.trialSideValues,[-1]) & ...
     ismember(signals_events.hitValues,[1]);
 align_times = signals_events.stimOnTimes(use_trials(1:length(signals_events.stimOnTimes)))';
 signals_event_trace = [signals_event_trace;histcounts(align_times,frame_edges)];
 
+% Rewards
 align_times = signals_events.totalWaterTimes';
 signals_event_trace = [signals_event_trace;histcounts(align_times,frame_edges)];
 
@@ -1415,7 +1416,7 @@ truesize
 
 %% Align widefield images across days (/ get transform matricies)
 
-animal = 'AP016';
+animal = 'AP015';
 expInfo_path = ['\\zserver.cortexlab.net\Data\expInfo\' animal];
 expInfo_dir = dir(expInfo_path);
 days = {expInfo_dir(find([expInfo_dir(3:end).isdir])+2).name};
@@ -1856,7 +1857,7 @@ figure;
 imagesc(spatial_explained_var);
 axis equal;
 axis off;
-caxis = [-max(abs(caxis)),max(abs(caxis))];
+caxis([-max(abs(caxis)),max(abs(caxis))])
 colormap(colormap_BlueWhiteRed);
 c = colorbar;
 ylabel(c,'Explained variance')

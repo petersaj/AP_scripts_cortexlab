@@ -1,6 +1,6 @@
 % Load in and plot behavior
 
-animal = 'AP024';
+animal = 'AP025';
 expInfo_path = ['\\zserver.cortexlab.net\Data\expInfo\' animal];
 expInfo_dir = dir(expInfo_path);
 days = {expInfo_dir(find([expInfo_dir(3:end).isdir])+2).name};

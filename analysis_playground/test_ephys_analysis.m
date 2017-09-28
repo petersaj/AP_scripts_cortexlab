@@ -918,7 +918,7 @@ legend([cellfun(@(x) ['Depth: ' num2str(round(x))], ...
     depth_groups_used < n_depth_groups+1)),'uni',false);'Subcortex']);
 
 
-%% Raster plot by depth (OLD LOAD STRUCTURE)
+%% PSTH by depth (OLD LOAD STRUCTURE)
 
 animal = '65';
 days = {'20151028','20151029','20151030','20151031','20151101','20151102','20151103'};
@@ -1037,9 +1037,9 @@ for curr_day = 1:length(days)
     
 end
 
-%% Raster plot by depth
+%% PSTH plot by depth
 
-align_times = stim_onsets(ismember(stimIDs,[90]));
+align_times = stim_onsets(ismember(stimIDs,[-90]));
 %align_times = stimOnTimes(azimuths == 90 & stim_hit);
 
 % Group by depth
@@ -1573,11 +1573,11 @@ for x = 1:nX
 end
 
 
-%% Raster aligned to stimuli
+%% PSTH aligned to stimuli
 
-%use_spikes_idx = ismember(spike_templates,find(templateDepths >= 0 & templateDepths <= 1500));
-use_spikes_idx = ismember(spike_templates,find(templateDepths > 0 & templateDepths < 3500)) & ...
-   (ismember(spike_templates,find(fsi)));
+use_spikes_idx = ismember(spike_templates,find(templateDepths >= 1000 & templateDepths <= 1500));
+% use_spikes_idx = ismember(spike_templates,find(templateDepths > 0 & templateDepths < 700)) & ...
+%    (ismember(spike_templates,find(fsi)));
 
 % use_spikes_idx = true(size(spike_times_timeline));
 
