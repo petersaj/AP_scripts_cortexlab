@@ -529,35 +529,39 @@ baseline_surround_time = baseline_surround_window(1):surround_samplerate:baselin
 pixelTuningCurveViewerSVD(U,fV,frame_t,stim_onsets,stimIDs,surround_window);
 
 % Average (time course) responses
-im_stim = nan(size(U,1),size(U,2),length(surround_time),max(unique(stimIDs)));
-for curr_condition = unique(stimIDs)'
-
+conditions = unique(stimIDs);
+im_stim = nan(size(U,1),size(U,2),length(surround_time),length(conditions));
+for curr_condition_idx = 1:length(conditions)
+    curr_condition = conditions(curr_condition_idx);
+    
     use_stims = find(stimIDs == curr_condition);
     use_stim_onsets = stim_onsets(use_stims(2:end));
     use_stim_onsets([1,end]) = [];
-        
+    
     stim_surround_times = bsxfun(@plus, use_stim_onsets(:), surround_time);
     peri_stim_v = permute(mean(interp1(frame_t,fV',stim_surround_times),1),[3,2,1]);
     
-    im_stim(:,:,:,curr_condition) = svdFrameReconstruct(U,peri_stim_v);   
+    im_stim(:,:,:,curr_condition_idx) = svdFrameReconstruct(U,peri_stim_v);   
 end
 
 AP_image_scroll(im_stim,surround_time);
 
 % Average (single frame) responses to stimuli
-surround_window = [0.1,0.2];
+surround_window = [0.1,0.3];
 framerate = 1./median(diff(frame_t));
 surround_samplerate = 1/(framerate*1);
 surround_time = surround_window(1):surround_samplerate:surround_window(2);
 
-peri_stim_v = nan(size(fV,1),max(stimIDs));
-for curr_stim = 1:max(stimIDs)
-    align_times = stim_onsets(stimIDs == curr_stim);
+peri_stim_v = nan(size(fV,1),length(conditions));
+for curr_condition_idx = 1:length(conditions)
+    curr_condition = conditions(curr_condition_idx);
+    
+    align_times = stim_onsets(stimIDs == curr_condition);
     align_times(align_times + surround_time(1) < frame_t(2) | ...
         align_times + surround_time(2) > frame_t(end)) = [];
     
     align_surround_times = bsxfun(@plus, align_times, surround_time);
-    peri_stim_v(:,curr_stim) = nanmean(permute(nanmean(interp1(frame_t,fV',align_surround_times),1),[3,2,1]),2);
+    peri_stim_v(:,curr_condition_idx) = nanmean(permute(nanmean(interp1(frame_t,fV',align_surround_times),1),[3,2,1]),2);
 end
 
 surround_im = svdFrameReconstruct(U,peri_stim_v);
@@ -1040,26 +1044,27 @@ skip_seconds = 10;
 use_frames = (frame_t > skip_seconds);
 
 % Make choiceworld event trace
-% use_trials = ismember(signals_events.trialContrastValues,[1,0.5,0.25]) &  ...
-%     ismember(signals_events.trialSideValues,[1]) & ...
-%     ismember(signals_events.hitValues,[1]);
-% align_times = signals_events.stimOnTimes(use_trials(1:length(signals_events.stimOnTimes)))';
-% 
-% frame_edges = [frame_t,frame_t(end)+1/framerate];
-% signals_event_trace = histcounts(align_times,frame_edges);
+use_trials = ismember(signals_events.trialContrastValues,[1,0.5,0.25]) &  ...
+    ismember(signals_events.trialSideValues,[1]) & ...
+    ismember(signals_events.hitValues,[1]);
+align_times = signals_events.stimOnTimes(use_trials(1:length(signals_events.stimOnTimes)))';
 
+frame_edges = [frame_t,frame_t(end)+1/framerate];
+signals_event_trace = histcounts(align_times,frame_edges);
+
+% Licks
 % frame_licks = histcounts(signals_events.n_licksTimes,frame_edges);
 % signals_event_trace = frame_licks;
  
-frame_edges = [frame_t,frame_t(end)+1/framerate];
-signals_event_trace = [];
-azimuths = unique(signals_events.trialAzimuthValues);
-for trialAzimuth_idx = 1:length(azimuths)        
-        curr_azimuth = azimuths(trialAzimuth_idx);       
-        use_trials = signals_events.trialAzimuthValues == curr_azimuth;
-        align_times = signals_events.stimOnTimes(use_trials(1:length(signals_events.stimOnTimes)))';
-        signals_event_trace = [signals_event_trace;histcounts(align_times,frame_edges)];
-end
+% frame_edges = [frame_t,frame_t(end)+1/framerate];
+% signals_event_trace = [];
+% azimuths = unique(signals_events.trialAzimuthValues);
+% for trialAzimuth_idx = 1:length(azimuths)        
+%         curr_azimuth = azimuths(trialAzimuth_idx);       
+%         use_trials = signals_events.trialAzimuthValues == curr_azimuth;
+%         align_times = signals_events.stimOnTimes(use_trials(1:length(signals_events.stimOnTimes)))';
+%         signals_event_trace = [signals_event_trace;histcounts(align_times,frame_edges)];
+% end
 
 % for timeline inputs
 %choiceworld_event_trace = licking_trace;
@@ -1069,7 +1074,7 @@ use_svs = 1:50;
 kernel_frames = -35:7;
 downsample_factor = 1;
 lambda = 1e8;
-zs = false;
+zs = [false,false];
 cvfold = 5;
 
 kernel_frames_downsample = round(downsample(kernel_frames,downsample_factor)/downsample_factor);
@@ -1393,7 +1398,7 @@ end
 use_svs = 1:50;
 kernel_frames = -7:35*1;
 lambda = 0;
-zs = false;
+zs = [false,false];
 cvfold = 5;
 
 [k,predicted_fluor,explained_var] = ...
@@ -1416,11 +1421,12 @@ truesize
 
 %% Align widefield images across days (/ get transform matricies)
 
-animal = 'AP015';
+animal = 'AP025';
 expInfo_path = ['\\zserver.cortexlab.net\Data\expInfo\' animal];
 expInfo_dir = dir(expInfo_path);
 days = {expInfo_dir(find([expInfo_dir(3:end).isdir])+2).name};
-days = days(end-5:end-1);
+%days = days(3:end);
+days = days(~ismember(1:length(days),[1,2,3,8]));
 
 avg_im = cell(length(days),1);
 for curr_day = 1:length(days)
@@ -1476,9 +1482,9 @@ for curr_session = setdiff(1:length(avg_im),ref_im_num)
     % This is to do correlation, then affine (if above doesn't work)
     [optimizer, metric] = imregconfig('monomodal');
     optimizer = registration.optimizer.OnePlusOneEvolutionary();
-    optimizer.MaximumIterations = 100;
+    optimizer.MaximumIterations = 200;
     optimizer.GrowthFactor = 1+1e-6;
-    optimizer.InitialRadius = 1e-5;
+    optimizer.InitialRadius = 1e-4;
     
 %     % Register 1) correlation
 %     tformEstimate_corr = imregcorr(im_align{curr_session},im_align{ref_im_num},'similarity');

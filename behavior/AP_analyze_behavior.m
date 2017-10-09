@@ -12,7 +12,7 @@ water_samples = find(Timeline.rawDAQData(1:end-1,water_idx) <= 2 & ...
     Timeline.rawDAQData(2:end,water_idx) > 2) + 1;
 
 % How much licking to plot
-surround_time = [-0.5,2];
+surround_time = [-1.5,2];
 surround_samples = surround_time/Timeline.hw.samplingInterval;
 
 % Get lick aligned to water delivery
@@ -224,8 +224,8 @@ legend(cellfun(@(x) num2str(x),num2cell(azimuths),'uni',false));
 %% Plot beam licking aligned to stimuli by condition
 
 % Define conditions
-%signals_conditions = signals_events.trialAzimuthValues;
-signals_conditions = signals_events.trialOrientationValues;
+signals_conditions = signals_events.trialAzimuthValues;
+%signals_conditions = signals_events.trialOrientationValues;
 
 % Get licks
 lick_piezo_name = 'beamLickDetector';

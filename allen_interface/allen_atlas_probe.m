@@ -221,6 +221,13 @@ switch eventdata.Key
         current_visibility = gui_data.handles.slice_plot(1).Visible;
         switch current_visibility; case 'on'; new_visibility = 'off'; case 'off'; new_visibility = 'on'; end;
         set(gui_data.handles.slice_plot,'Visible',new_visibility);
+        
+    case 'p'
+        % Toggle probe visibility
+        current_visibility = gui_data.handles.probe_ref_line.Visible;
+        switch current_visibility; case 'on'; new_visibility = 'off'; case 'off'; new_visibility = 'on'; end;
+        set(gui_data.handles.probe_ref_line,'Visible',new_visibility);
+        set(gui_data.handles.probe_line,'Visible',new_visibility);
                 
     case 'r'
         % Toggle 3D rotation
@@ -465,4 +472,32 @@ probe_text = ['Probe: ' ....
 set(gui_data.probe_coordinates_text,'String',probe_text);
 
 end
+
+
+%% 
+
+function probe_histology
+% IN PROGRESS: plot best-fit line through probe histology points
+% this isn't implemented yet, just keeping this code here for whenever
+
+histology_points = AP015_probe_coords_2;
+
+r0 = mean(histology_points);
+xyz = bsxfun(@minus,histology_points,r0);
+[~,~,V] = svd(xyz,0);
+histology_probe_direction = V(:,1);
+
+t = [-1000,1000];
+P = bsxfun(@plus,bsxfun(@times,t',histology_probe_direction'),r0);
+line(P(:,3),P(:,1),P(:,2),'color','b')
+
+end
+
+
+
+
+
+
+
+
 

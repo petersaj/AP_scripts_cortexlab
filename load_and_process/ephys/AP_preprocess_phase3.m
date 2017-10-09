@@ -99,7 +99,10 @@ for curr_site = 1:length(data_paths)
         % it's not then you get negative numbers at first, so maybe check for
         % those and then it can be automated? it's not a good sign that it's
         % variable though... I should probably just switch to spikeglx
-        sync(curr_sync).timestamps = sync(curr_sync).timestamps - start_time_sec;
+%         if sync(curr_sync).timestamps(1) - start_time_sec > 0
+%             sync(curr_sync).timestamps = sync(curr_sync).timestamps - start_time_sec;
+%         end
+        %sync(curr_sync).timestamps = sync(curr_sync).timestamps - start_time_sec;
     end
     
     sync_save_filename = [curr_save_path filesep 'sync.mat'];

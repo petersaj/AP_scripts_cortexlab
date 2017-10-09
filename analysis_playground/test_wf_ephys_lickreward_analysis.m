@@ -140,14 +140,14 @@ stim_hit_licktime(stim_hit) = [stim_hit_licktime_cell{stim_hit}];
 %% Get visual striatum MUA PSTH around events
 
 %use_spikes_idx = ismember(spike_templates,find(templateDepths >= 0 & templateDepths <= 1200));
-use_spikes_idx = ismember(spike_templates,find(templateDepths > 3000 & templateDepths < 3200)) & ...
+use_spikes_idx = ismember(spike_templates,find(templateDepths > 2000 & templateDepths < 3000)) & ...
    (ismember(spike_templates,find(msn)));
 
 use_spikes = spike_times_timeline(use_spikes_idx);
 
-%align_times = stimOn_times(stim_hit & azimuths == 0);
+align_times = stimOn_times(stim_hit & azimuths == 90);
 %align_times = stim_hit_licktime(stim_hit & azimuths == 0);
-align_times = lick_bout_starts(rewarded_licks);
+%align_times = lick_bout_starts(rewarded_licks);
 
 raster_window = [-2,3.5];
 psth_bin_size = 0.001;
@@ -167,13 +167,13 @@ xlabel('Time from stim onset')
 
 %% Raster plot by depth aligned to stuff
 
-%align_times = stimOn_times(stim_hit & azimuths == 0);
-align_times = stim_hit_licktime(stim_hit & azimuths == 90);
-%align_times = lick_bout_starts(~rewarded_licks);
+%align_times = stimOn_times(stim_hit & azimuths == 90);
+%align_times = stim_hit_licktime(stim_hit & azimuths == 90);
+align_times = lick_bout_starts(~rewarded_licks);
 
 % Group by depth
-n_depth_groups = 6;
-depth_group_edges = linspace(500,3200,n_depth_groups+1);
+n_depth_groups = 4;
+depth_group_edges = linspace(1000,4000,n_depth_groups+1);
 depth_group_centers = round(depth_group_edges(1:end-1)+diff(depth_group_edges)/2);
 depth_group_edges(end) = Inf;
 depth_group = discretize(spikeDepths,depth_group_edges);
@@ -206,7 +206,7 @@ psth_smooth = conv2(depth_psth, smWin, 'same');
 trace_spacing = max(psth_smooth(:));
 figure; 
 AP_stackplot(psth_smooth(:,20:end-20)',bins(20:end-20), ...
-    10,true,'k',depth_group_centers);
+    trace_spacing,false,'k',depth_group_centers);
 line([0,0],ylim,'linestyle','--','color','k');
 ylabel('Depth (\mum)');
 xlabel('Time from stim onset (s)')

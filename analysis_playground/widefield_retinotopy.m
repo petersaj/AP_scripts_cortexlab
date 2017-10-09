@@ -1480,9 +1480,9 @@ stim_screen_interp = single([zeros(size(stim_screen_interp,1),1),diff(stim_scree
 skip_seconds = 10;
 use_frames = (frame_t > skip_seconds);
 
-use_svs = 10:500;
+use_svs = 100:500;
 fluor_kernel_frames = -17:-6;
-lambda = 1e7;
+lambda = 1e6;
 zs = [false,true];
 
 k = AP_regresskernel(fV(use_svs,use_frames), ...
