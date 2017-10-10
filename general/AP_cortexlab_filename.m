@@ -62,7 +62,7 @@ end
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
 switch file
-            
+    
     case 'timeline'
         filepath = '\\zserver.cortexlab.net\Data\expInfo';
         filename = [filepath filesep animal filesep day filesep experiment ...
@@ -128,7 +128,7 @@ switch file
 
 end
 
-file_exists = exist(filename);
+file_exists = exist(filename) > 0;
 
 
 

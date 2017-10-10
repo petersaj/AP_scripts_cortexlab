@@ -1,30 +1,30 @@
 %% Batch template for loading
 % this isn't done yet
 
-animal = 'AP026';
-expInfo_path = ['\\zserver.cortexlab.net\Data\expInfo\' animal];
-expInfo_dir = dir(expInfo_path);
-days = {expInfo_dir(find([expInfo_dir(3:end).isdir])+2).name};
+animal = 'AP025';
+protocol = 'vanillaChoiceworld';
+experiments = AP_find_experiments(animal,protocol);
 
+% only use experiments with ephys + imaging
+experiments = experiments([experiments.imaging] & [experiments.ephys]);
+
+load_parts.cam = false;
+load_parts.imaging = false;
+load_parts.ephys = true;
 
 batch_vars = struct;
-for curr_day = 1:length(use_days);
+for curr_day = 1:length(experiments);
+        
+    day = experiments(curr_day).day;
+    experiment = experiments(curr_day).experiment;
     
-    day = use_days{curr_day};
-    
-    expInfo_path = ['\\zserver.cortexlab.net\Data\expInfo\' animal];
-    expDay_dir = dir([expInfo_path filesep day]);
-    experiment = 1;
-    
-    load_parts.cam = false;
-    load_parts.imaging = true;
-    load_parts.ephys = false;
     AP_load_experiment
     
     %%%%%%%%%%%%%%%
     % DO THE STUFF
     %%%%%%%%%%%%%%%
     
+    figure;plotSpread(templateDepths);set(gca,'YDir','reverse');
     
     %%%%%%%%%%%%%%%%%%%%
     % THE STUFF IS DONE
@@ -32,7 +32,7 @@ for curr_day = 1:length(use_days);
     
     drawnow
     disp(curr_day)
-    clearvars -except use_days curr_day animal batch_vars
+    clearvars -except experiments curr_day animal batch_vars load_parts
     
 end
 
@@ -93,7 +93,7 @@ line([0,0],ylim,'linestyle','--','color','k');
 % Group multiunit by depth
 n_depth_groups = 6;
 %depth_group_edges = linspace(0,max(channel_positions(:,2)),n_depth_groups+1);
-depth_group_edges = linspace(1000,3500,n_depth_groups+1);
+depth_group_edges = linspace(0,4000,n_depth_groups+1);
 %depth_group_edges = [0 1300];
 depth_group_centers = round(depth_group_edges(1:end-1)+diff(depth_group_edges)/2);
 
@@ -165,7 +165,7 @@ ylabel('Depth (\mum)');
 
 stimIDs = signals_events.trialSideValues.*signals_events.trialContrastValues;
 
-use_spikes_idx = ismember(spike_templates,find(templateDepths >= 1000 & templateDepths <= 1700));
+use_spikes_idx = ismember(spike_templates,find(templateDepths >= 700 & templateDepths <= 1500));
 use_spikes = spike_times_timeline(use_spikes_idx);
 
 raster_window = [-0.5,2];
@@ -241,12 +241,12 @@ ylabel('Spikes');
 
 stimIDs = signals_events.trialSideValues.*signals_events.trialContrastValues;
 
-%use_spikes_idx = ismember(spike_templates,find(templateDepths >= 0 & templateDepths <= 500));
-use_spikes_idx = ismember(spike_templates,intersect(find(templateDepths >= 2000 & templateDepths <= 3000),find(msn)));
+use_spikes_idx = ismember(spike_templates,find(templateDepths >= 700 & templateDepths <= 1500));
+%use_spikes_idx = ismember(spike_templates,intersect(find(templateDepths >= 700 & templateDepths <= 1500),find(msn)));
 
 use_spikes = spike_times_timeline(use_spikes_idx);
 
-raster_window = [-0.5 2];
+raster_window = [-1 2];
 psth_bin_size = 0.02;
 
 smooth_size = 50;
@@ -299,14 +299,14 @@ line([0,0],ylim,'linestyle','--','color','k');
 
 stimIDs = signals_events.trialSideValues.*signals_events.trialContrastValues;
 
-use_spikes_idx = ismember(spike_templates,find(templateDepths >= 1000 & templateDepths <= 2000));
-%use_spikes_idx = ismember(spike_templates,intersect(find(templateDepths >= 1300 & templateDepths <= 1800),find(fsi)));
+% use_spikes_idx = ismember(spike_templates,find(templateDepths >= 700 & templateDepths <= 1200));
+use_spikes_idx = ismember(spike_templates,intersect(find(templateDepths >= 700 & templateDepths <= 1200),find(msn)));
 use_spikes = spike_times_timeline(use_spikes_idx);
 
 use_templates = unique(spike_templates(use_spikes_idx));
 
 % Get wheel movement time for each trial
-surround_time = [-0.5,2];
+surround_time = [-1,2];
 surround_samples = surround_time/Timeline.hw.samplingInterval;
 
 rotaryEncoder_idx = strcmp({Timeline.hw.inputs.name}, 'rotaryEncoder');

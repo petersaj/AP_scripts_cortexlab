@@ -1544,6 +1544,93 @@ xlim([0,size(avg_im,2)]);
 axis off;
 
 
+%% Sparse noise retinotopy with Nick's code
+
+[Uy,Ux,nSV] = size(U);
+
+myScreenInfo.windowPtr = NaN; % so we can call the stimulus generation and it won't try to display anything
+stimNum = 1;
+ss = eval([Protocol.xfile(1:end-2) '(myScreenInfo, Protocol.pars(:,stimNum));']);
+stim_screen = cat(3,ss.ImageTextures{:});
+ny = size(stim_screen,1);
+nx = size(stim_screen,2);
+
+switch lower(photodiode_type)
+    case 'flicker'
+        % Check for case of mismatch between photodiode and stimuli:
+        % odd number of stimuli, but one extra photodiode flip to come back down
+        if mod(size(stim_screen,3),2) == 1 && ...
+                length(photodiode.timestamps) == size(stim_screen,3) + 1;
+            photodiode.timestamps(end) = [];
+            photodiode.values(end) = [];
+            warning('Odd number of stimuli, removed last photodiode');
+        end
+        
+        % If there's still a mismatch, break
+        if size(stim_screen,3) ~= length(photodiode.timestamps);
+            warning([num2str(size(stim_screen,3)) ' stimuli, ', ...
+                num2str(length(photodiode.timestamps)) ' photodiode pulses']);
+            
+            % Try to estimate which stim were missed by time difference
+            photodiode_diff = diff(photodiode.timestamps);
+            max_regular_diff_time = prctile(diff(photodiode.timestamps),99);
+            skip_cutoff = max_regular_diff_time*2;
+            photodiode_skip = find(photodiode_diff > skip_cutoff);
+            est_n_pulse_skip = ceil(photodiode_diff(photodiode_skip)/max_regular_diff_time)-1;
+            stim_skip = cell2mat(arrayfun(@(x) photodiode_skip(x):photodiode_skip(x)+est_n_pulse_skip(x)-1, ...
+                1:length(photodiode_skip),'uni',false));
+            
+            if isempty(est_n_pulse_skip) || length(photodiode.timestamps) + sum(est_n_pulse_skip) ~= size(stim_screen,3)
+                error('Can''t match photodiode events to stimuli')
+            end
+        end
+        
+        stim_times = photodiode.timestamps;
+        
+    case 'steady'
+        % If the photodiode is on steady: extrapolate the stim times
+        if length(photodiode.timestamps) ~= 2
+            error('Steady photodiode, but not 2 flips')
+        end
+        stim_duration = diff(photodiode.timestamps)/size(stim_screen,3);
+        stim_times = linspace(photodiode.timestamps(1), ...
+            photodiode.timestamps(2)-stim_duration,size(stim_screen,3))';
+        
+end
+
+% Get times and positions of each stimulus
+sparse_noise_position_times = cell(ny,nx);
+for px_y = 1:ny;
+    for px_x = 1:nx;
+  
+        % Use first frame of dark or light stim 
+        align_stims = (stim_screen(px_y,px_x,2:end)~= 0) & ...
+            (diff(stim_screen(px_y,px_x,:),[],3) ~= 0);
+        align_times = stim_times(find(align_stims)+1);
+        
+        align_times = align_times(round(length(align_times)/2):end);
+        sparse_noise_position_times{px_y,px_x} = align_times;
+        
+    end
+end
+[x,y] = meshgrid(1:nx,1:ny);
+sparse_noise_positions = cellfun(@(times,px_x,px_y) repmat([px_x,px_y], ...
+    length(times),1),sparse_noise_position_times,num2cell(x),num2cell(y),'uni',false);
+
+[signMap, xMap, yMap] = sparseRetinotopy(Udf,fVdf,frame_t, ...
+    vertcat(sparse_noise_positions{:}),vertcat(sparse_noise_position_times{:}),avg_im);
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 

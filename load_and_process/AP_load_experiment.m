@@ -141,11 +141,18 @@ if protocol_exists
             photodiode.values = photodiode_trace(photodiode_flip);            
     end
      
+    photodiode_offsets = photodiode.timestamps(photodiode.values == 0);
     photodiode_onsets = photodiode.timestamps(photodiode.values == 1);
     
+    % Get specific stim onsets by time between last offset and new onset
+    % (occasionally there a bad frame so flip but not new stim)
     refresh_rate_cutoff = 1/5;
     stim_onsets = photodiode_onsets( ...
-        [1;find(diff(photodiode_onsets) > refresh_rate_cutoff) + 1]);
+        [1;find(photodiode_onsets(2:end) - photodiode_offsets(1:end-1) > refresh_rate_cutoff) + 1]);
+    
+    if length(stim_onsets) ~= numel(Protocol.seqnums)
+        error('MPEP/Photodiode error: photodiode doesn''t match stim')
+    end
     
     stimIDs = zeros(size(stim_onsets));
     for q = 1:size(Protocol.seqnums,1)

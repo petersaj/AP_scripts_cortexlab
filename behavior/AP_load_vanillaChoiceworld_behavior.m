@@ -1,49 +1,16 @@
 % Load in and plot behavior
 
 animal = 'AP025';
-expInfo_path = ['\\zserver.cortexlab.net\Data\expInfo\' animal];
-expInfo_dir = dir(expInfo_path);
-days = {expInfo_dir(find([expInfo_dir(3:end).isdir])+2).name};
+protocol = 'vanillaChoiceworld';
+experiments = AP_find_experiments(animal,protocol);
 
-% Get experiments with vanillaChoiceworld
-vanillaChoiceworld_expts = nan(size(days));
-for curr_day = 1:length(days)  
-    day = days{curr_day};
-    % In the event of multiple experiments, check all
-    expDay_dir = dir([expInfo_path filesep days{curr_day}]);
-    exp_nums = cellfun(@str2num,{expDay_dir(3:end).name});
-    use_exp = false(size(exp_nums));
-    for curr_exp = 1:length(exp_nums);
-        [block_filename, block_exists] = AP_cortexlab_filename(animal,day,exp_nums(curr_exp),'block');
-        if ~block_exists
-            continue
-        end
-        % Load the block file
-        load(block_filename)
-        [~,expDef] = fileparts(block.expDef);
-        use_exp(curr_exp) = ~isempty(strfind(expDef,'vanillaChoiceworld'));    
-    end
-    if any(use_exp)
-        vanillaChoiceworld_expts(curr_day) = exp_nums(use_exp);
-    end
-end
-
-% Initialize the behavior structure
-days = days(~isnan(vanillaChoiceworld_expts));
-expts = vanillaChoiceworld_expts(~isnan(vanillaChoiceworld_expts));
-bhv = struct;
-
-for curr_day = 1:length(days)
+for curr_day = 1:length(experiments)
     
-    day = days{curr_day};
-    experiment = expts(curr_day);
+    day = experiments(curr_day).day;
+    experiment = experiments(curr_day).experiment;
 
     [block_filename, block_exists] = AP_cortexlab_filename(animal,day,experiment,'block');
-   
-    if ~block_exists
-        continue
-    end
-    
+
     % Load the block file    
     load(block_filename)
     

@@ -1421,12 +1421,11 @@ truesize
 
 %% Align widefield images across days (/ get transform matricies)
 
-animal = 'AP025';
+animal = 'AP024';
 expInfo_path = ['\\zserver.cortexlab.net\Data\expInfo\' animal];
 expInfo_dir = dir(expInfo_path);
 days = {expInfo_dir(find([expInfo_dir(3:end).isdir])+2).name};
-%days = days(3:end);
-days = days(~ismember(1:length(days),[1,2,3,8]));
+days = days(end-7:end);
 
 avg_im = cell(length(days),1);
 for curr_day = 1:length(days)
@@ -1442,7 +1441,8 @@ border_pixels = 20;
 im_align = cellfun(@(x) imgaussfilt(x(border_pixels:end-border_pixels+1,border_pixels:end-border_pixels+1),3),avg_im,'uni',false);
 
 % Choose reference day
-ref_im_num = 1;%round(length(im_align)/2);
+ref_im_num = round(length(im_align)/2);
+%ref_im_num = length(avg_im);
 
 disp('Registering average images')
 tform_matrix = cell(length(avg_im),1);
