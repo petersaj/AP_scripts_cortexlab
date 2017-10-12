@@ -35,7 +35,7 @@ ccf_midline = 5700;
 hemisphere = sign(str_depths(1,3) - ccf_midline);
 str_depths_mirror = [str_depths(:,1:2),ccf_midline - hemisphere*abs(str_depths(:,3)-ccf_midline)];
 
-max_sites = 20;
+max_sites = 50;
 str_depths_query = [str_depths;str_depths_mirror];
 injection_parameters = get_allen_projection(str_depths_query,max_sites);
 injection_coordinates = {injection_parameters.coordinates};
