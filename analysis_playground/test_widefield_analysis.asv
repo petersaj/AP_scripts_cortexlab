@@ -1427,11 +1427,6 @@ truesize
 % days = {expInfo_dir(find([expInfo_dir(3:end).isdir])+2).name};
 % days = days(end-7:end);
 
-animal = 'AP025';
-protocol = 'vanillaChoiceworld';
-experiments = AP_find_experiments(animal,protocol);
-experiments = experiments([experiments.imaging]);
-
 days = {experiments.day};
 
 avg_im = cell(length(days),1);
@@ -1724,15 +1719,16 @@ xlabel('Time window start')
 % Get left/right choice trials (of chosen contrasts)
 frame_edges = [frame_t,frame_t(end)+1/framerate];
 
-left_trials = ismember(signals_events.trialContrastValues,[1,0.5,0.25,0.125,0.06,0]) &  ...
+left_trials = ismember(signals_events.trialContrastValues,[1,0.5]) &  ...
     ((ismember(signals_events.trialSideValues,[1]) & ismember(signals_events.hitValues,[1])) | ...
     (ismember(signals_events.trialSideValues,[-1]) & ismember(signals_events.hitValues,[0]))) & ...
     ~signals_events.repeatTrialValues;
 
-right_trials = ismember(signals_events.trialContrastValues,[1,0.5,0.25,0.125,0.06,0]) &  ...
+right_trials = ismember(signals_events.trialContrastValues,[1,0.5]) &  ...
     ((ismember(signals_events.trialSideValues,[1]) & ismember(signals_events.hitValues,[0])) | ...
     (ismember(signals_events.trialSideValues,[-1]) & ismember(signals_events.hitValues,[1]))) & ...
     ~signals_events.repeatTrialValues;
+
 
 % % Restrict trials to non-move before interactive on
 % left_trials = left_trials & (wheel_move_time - stimOn_times') >= 0.5;

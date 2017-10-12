@@ -1043,7 +1043,7 @@ align_times = stim_onsets(ismember(stimIDs,[2]));
 %align_times = stimOnTimes(azimuths == 90 & stim_hit);
 
 % Group by depth
-n_depth_groups = 6;
+n_depth_groups = 15;
 depth_group_edges = linspace(0,4000,n_depth_groups+1);
 depth_group_centers = round(depth_group_edges(1:end-1)+diff(depth_group_edges)/2);
 depth_group_edges(end) = Inf;
@@ -1575,7 +1575,7 @@ end
 
 %% PSTH aligned to stimuli
 
-use_spikes_idx = ismember(spike_templates,find(templateDepths >= 800 & templateDepths <= 1300));
+use_spikes_idx = ismember(spike_templates,find(templateDepths >= 1500 & templateDepths <= 2000));
 % use_spikes_idx = ismember(spike_templates,find(templateDepths > 0 & templateDepths < 700)) & ...
 %    (ismember(spike_templates,find(fsi)));
 
@@ -1584,7 +1584,7 @@ use_spikes_idx = ismember(spike_templates,find(templateDepths >= 800 & templateD
 use_spikes = spike_times_timeline(use_spikes_idx);
 use_spike_templates = spike_templates(use_spikes_idx);
 
-align_times = stim_onsets(ismember(stimIDs,[3]));
+align_times = stim_onsets(ismember(stimIDs,[2]));
 
 % PSTHs
 raster_window = [-0.5,5];
@@ -1979,10 +1979,10 @@ ylim([0,max(channel_positions(:,2))])
 
 %% MUA/LFP correlation by depth 
 
-n_depth_groups = 50;
+n_depth_groups = 100;
 depth_group_edges = linspace(0,max(channel_positions(:,2)),n_depth_groups+1);
 depth_group = discretize(templateDepths,depth_group_edges);
-depth_group_centers = depth_group_edges(1:end-1)+(diff(depth_group_edges)/2);
+depth_group_centers = depth_group_edges(1:end-1)+diff(depth_group_edges);
 unique_depths = 1:length(depth_group_edges)-1;
 
 spike_binning = 0.01; % seconds

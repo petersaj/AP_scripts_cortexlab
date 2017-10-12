@@ -1,16 +1,16 @@
 %% Batch template for loading
 % this isn't done yet
 
-animal = 'AP024';
+animal = 'AP025';
 protocol = 'vanillaChoiceworld';
 experiments = AP_find_experiments(animal,protocol);
 
 % only use experiments with ephys + imaging
-experiments = experiments([experiments.imaging] & ~[experiments.ephys]);
+experiments = experiments([experiments.imaging] & [experiments.ephys]);
 
-load_parts.cam = false;
+load_parts.cam = true;
 load_parts.imaging = true;
-load_parts.ephys = false;
+load_parts.ephys = true;
 
 batch_vars = struct;
 for curr_day = 1:length(experiments);
@@ -27,12 +27,12 @@ for curr_day = 1:length(experiments);
     % Get left/right choice trials (of chosen contrasts)
     frame_edges = [frame_t,frame_t(end)+1/framerate];
     
-    left_trials = ismember(signals_events.trialContrastValues,[1,0.5,0.25,0.0125,0.06]) &  ...
+    left_trials = ismember(signals_events.trialContrastValues,[1,0.5,0.25]) &  ...
         ((ismember(signals_events.trialSideValues,[1]) & ismember(signals_events.hitValues,[1])) | ...
         (ismember(signals_events.trialSideValues,[-1]) & ismember(signals_events.hitValues,[0]))) & ...
         ~signals_events.repeatTrialValues;
     
-    right_trials = ismember(signals_events.trialContrastValues,[1,0.5,0.25,0.0125,0.06]) &  ...
+    right_trials = ismember(signals_events.trialContrastValues,[1,0.5,0.25]) &  ...
         ((ismember(signals_events.trialSideValues,[1]) & ismember(signals_events.hitValues,[0])) | ...
         (ismember(signals_events.trialSideValues,[-1]) & ismember(signals_events.hitValues,[1]))) & ...
         ~signals_events.repeatTrialValues;
@@ -76,8 +76,7 @@ for curr_day = 1:length(experiments);
     k_px_l_norm = bsxfun(@minus,k_px_l,nanmean(k_px_l(:,:,1:baseline_time),3));
     k_px_r_norm = bsxfun(@minus,k_px_r,nanmean(k_px_r(:,:,1:baseline_time),3));
     
-    batch_vars.k_px_l{curr_day} = k_px_l_norm;
-    batch_vars.k_px_r{curr_day} = k_px_r_norm;
+    batch_vars.k_px_l{curr_Day}
     
     %%%%%%%%%%%%%%%%%%%%
     % THE STUFF IS DONE
@@ -91,37 +90,11 @@ end
 
 disp('Finished batch.')
 
-%% Align images from batch processing
-
-batch_vars_reg = batch_vars;
-
-for curr_day = setdiff(1:length(experiments),ref_im_num);
-    
-    tform = affine2d;
-    tform.T = tform_matrix{curr_day};
-    
-    curr_im = batch_vars_reg.k_px_l{curr_day};
-    curr_im(isnan(curr_im)) = 0;    
-    batch_vars_reg.k_px_l{curr_day} = imwarp(curr_im,tform, ...
-        'Outputview',imref2d(size(avg_im{ref_im_num})));
-    
-    curr_im = batch_vars_reg.k_px_r{curr_day};
-    curr_im(isnan(curr_im)) = 0;    
-    batch_vars_reg.k_px_r{curr_day} = imwarp(curr_im,tform, ...
-        'Outputview',imref2d(size(avg_im{ref_im_num})));
-
-end
-
-a = nanmean(cat(4,batch_vars_reg.k_px_l{:}),4);
-b = nanmean(cat(4,batch_vars_reg.k_px_r{:}),4);
-AP_image_scroll([a,b],surround_time)
-
-
 %% PSTH to choiceworld conditions
 
 stimIDs = signals_events.trialSideValues.*signals_events.trialContrastValues;
 
-use_spikes_idx = ismember(spike_templates,find(templateDepths >= 0 & templateDepths <= 1200));
+use_spikes_idx = ismember(spike_templates,find(templateDepths >= 700 & templateDepths <= 3500));
 use_spikes = spike_times_timeline(use_spikes_idx);
 
 raster_window = [-0.5,2];
@@ -198,28 +171,28 @@ for curr_depth = 1:n_depth_groups
     
     use_trials = signals_events.trialSideValues == 1 & signals_events.trialContrastValues > 0 & signals_events.hitValues == 1;
     if sum(use_trials) > 0
-        [psth, bins, rasterX, rasterY] = psthAndBA(curr_spike_times,stimOn_times(use_trials),raster_window,psth_bin_size);
+        [psth, bins, rasterX, rasterY] = psthAndBA(curr_spike_times,signals_events.stimOnTimes(use_trials),raster_window,psth_bin_size);
         psth_smooth = conv2(psth,smWin,'same');
         psth_right_hit(curr_depth,:) = psth_smooth;
     end
     
     use_trials = signals_events.trialSideValues == 1 & signals_events.trialContrastValues > 0 & signals_events.hitValues == 0;
     if sum(use_trials) > 0
-        [psth, bins, rasterX, rasterY] = psthAndBA(curr_spike_times,stimOn_times(use_trials),raster_window,psth_bin_size);
+        [psth, bins, rasterX, rasterY] = psthAndBA(curr_spike_times,signals_events.stimOnTimes(use_trials),raster_window,psth_bin_size);
         psth_smooth = conv2(psth,smWin,'same');
         psth_right_miss(curr_depth,:) = psth_smooth;
     end
     
     use_trials = signals_events.trialSideValues == -1 & signals_events.trialContrastValues > 0 & signals_events.hitValues == 1;
     if sum(use_trials) > 0
-        [psth, bins, rasterX, rasterY] = psthAndBA(curr_spike_times,stimOn_times(use_trials),raster_window,psth_bin_size);
+        [psth, bins, rasterX, rasterY] = psthAndBA(curr_spike_times,signals_events.stimOnTimes(use_trials),raster_window,psth_bin_size);
         psth_smooth = conv2(psth,smWin,'same');
         psth_left_hit(curr_depth,:) = psth_smooth;
     end
     
     use_trials = signals_events.trialSideValues == -1 & signals_events.trialContrastValues > 0 & signals_events.hitValues == 0;
     if sum(use_trials) > 0
-        [psth, bins, rasterX, rasterY] = psthAndBA(curr_spike_times,stimOn_times(use_trials),raster_window,psth_bin_size);
+        [psth, bins, rasterX, rasterY] = psthAndBA(curr_spike_times,signals_events.stimOnTimes(use_trials),raster_window,psth_bin_size);
         psth_smooth = conv2(psth,smWin,'same');
         psth_left_miss(curr_depth,:) = psth_smooth;
     end
@@ -228,14 +201,11 @@ end
 
 figure; hold on;
 trace_spacing = max([max(psth_right_hit(:)),max(psth_right_miss(:)),max(psth_left_hit(:)),max(psth_left_hit(:))]);
-zs = false;
-if zs
-    trace_spacing = 10;
-end
-p_rh = AP_stackplot(psth_right_hit',bins,trace_spacing,zs,'k',depth_group_centers);
-p_rm = AP_stackplot(psth_right_miss',bins,trace_spacing,zs,'r',depth_group_centers);
-p_lh = AP_stackplot(psth_left_hit',bins,trace_spacing,zs,'b',depth_group_centers);
-p_lm = AP_stackplot(psth_left_miss',bins,trace_spacing,zs,'m',depth_group_centers);
+zs = true;
+p_rh = AP_stackplot(psth_right_hit',bins,10,zs,'k',depth_group_centers);
+p_rm = AP_stackplot(psth_right_miss',bins,10,zs,'r',depth_group_centers);
+p_lh = AP_stackplot(psth_left_hit',bins,10,zs,'b',depth_group_centers);
+p_lm = AP_stackplot(psth_left_miss',bins,10,zs,'m',depth_group_centers);
 
 line([0,0],ylim,'color','k','linestyle','--');
 line([0.2,0.2],ylim,'color','k','linestyle','--');
@@ -249,7 +219,7 @@ ylabel('Depth (\mum)');
 
 stimIDs = signals_events.trialSideValues.*signals_events.trialContrastValues;
 
-use_spikes_idx = ismember(spike_templates,find(templateDepths >= 0 & templateDepths <= 1200));
+use_spikes_idx = ismember(spike_templates,find(templateDepths >= 700 & templateDepths <= 1100));
 use_spikes = spike_times_timeline(use_spikes_idx);
 
 raster_window = [-0.5,2];
@@ -325,8 +295,8 @@ ylabel('Spikes');
 
 stimIDs = signals_events.trialSideValues.*signals_events.trialContrastValues;
 
-use_spikes_idx = ismember(spike_templates,find(templateDepths >= 0 & templateDepths <= 1200));
-%use_spikes_idx = ismember(spike_templates,intersect(find(templateDepths >= 0 & templateDepths <= 1200),find(msn)));
+%use_spikes_idx = ismember(spike_templates,find(templateDepths >= 700 & templateDepths <= 1100));
+use_spikes_idx = ismember(spike_templates,intersect(find(templateDepths >= 700 & templateDepths <= 1100),find(msn)));
 
 use_spikes = spike_times_timeline(use_spikes_idx);
 
@@ -383,8 +353,8 @@ line([0,0],ylim,'linestyle','--','color','k');
 
 stimIDs = signals_events.trialSideValues.*signals_events.trialContrastValues;
 
-%use_spikes_idx = ismember(spike_templates,find(templateDepths >= 2000 & templateDepths <= 3000));
-use_spikes_idx = ismember(spike_templates,intersect(find(templateDepths >= 2000 & templateDepths <= 3000),find(tan)));
+% use_spikes_idx = ismember(spike_templates,find(templateDepths >= 700 & templateDepths <= 1200));
+use_spikes_idx = ismember(spike_templates,intersect(find(templateDepths >= 700 & templateDepths <= 1100),find(fsi)));
 use_spikes = spike_times_timeline(use_spikes_idx);
 
 use_templates = unique(spike_templates(use_spikes_idx));

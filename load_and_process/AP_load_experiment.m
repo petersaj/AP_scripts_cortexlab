@@ -585,17 +585,15 @@ if ephys_exists && load_parts.ephys
     end
     
     % Get the depths of each template
-    % (by COM: this gives totally wonky answers?)
-    %[spikeAmps, spikeDepths, templateDepths, tempAmps, tempsUnW, templateDuration, waveforms] = ...
-    %    templatePositionsAmplitudes(templates,winv,channel_positions(:,2),spike_templates,template_amplitudes);
-    
-    % (by max waveform channel)
-    template_abs = permute(max(abs(templates),[],2),[3,1,2]);
-    [~,max_channel_idx] =  max(template_abs,[],1);
-    templateDepths = channel_positions(max_channel_idx,2);
-    
-    % Get each spike's depth
-    spikeDepths = templateDepths(spike_templates+1);
+    % (by COM - this used to not work but now looks ok)
+    [spikeAmps, spikeDepths, templateDepths, tempAmps, tempsUnW, templateDuration, waveforms] = ...
+       templatePositionsAmplitudes(templates,winv,channel_positions(:,2),spike_templates,template_amplitudes);    
+%     % (by max waveform channel)
+%     template_abs = permute(max(abs(templates),[],2),[3,1,2]);
+%     [~,max_channel_idx] =  max(template_abs,[],1);
+%     templateDepths = channel_positions(max_channel_idx,2); 
+%     % Get each spike's depth
+%     spikeDepths = templateDepths(spike_templates+1);
     
     % Get the waveform duration of all templates (channel with largest amp)
     [~,max_site] = max(max(abs(templates),[],2),[],3);
@@ -620,7 +618,7 @@ if ephys_exists && load_parts.ephys
     templateDuration_us = (templateDuration/ephys_sample_rate)*1e6;        
     
     % Eliminate spikes that were classified as not "good"
-    if exist('cluster_groups','var') && ~exist('good_templates','var')
+    if exist('cluster_groups','var')
         
         disp('Removing non-good templates')
         
@@ -648,8 +646,6 @@ if ephys_exists && load_parts.ephys
         new_spike_idx(good_templates_idx+1) = 1:length(good_templates_idx);
         spike_templates = new_spike_idx(spike_templates+1);
         
-    elseif exist('cluster_groups','var') && exist('good_templates','var')
-        disp('Good templates already identified, skipping')
     elseif ~exist('cluster_groups','var')
         disp('Clusters not yet sorted');
     end

@@ -1,9 +1,9 @@
 % Load in and plot behavior
 
-animal = 'AP025';
+animal = 'AP026';
 protocol = 'vanillaChoiceworld';
 experiments = AP_find_experiments(animal,protocol);
-
+bhv = struct;
 for curr_day = 1:length(experiments)
     
     day = experiments(curr_day).day;
@@ -41,27 +41,28 @@ for curr_day = 1:length(experiments)
     bhv.n_trials_condition(curr_day,:) = performance(2,:);
     bhv.go_left_trials(curr_day,:) = performance(end,:);
     
-    disp(['Behavior: day ' num2str(curr_day) '/' num2str(length(days))]);
+    disp(['Behavior: day ' num2str(curr_day) '/' num2str(length(experiments))]);
     
 end
 
 % Plot summary
-figure;
+figure('Name',animal)
+
 subplot(1,3,1);
 yyaxis left
-plot(1:length(days),bhv.n_trials./bhv.session_duration);
+plot(1:length(experiments),bhv.n_trials./bhv.session_duration);
 ylabel('Trials/min');
 yyaxis right
-plot(1:length(days),bhv.total_water);
+plot(1:length(experiments),bhv.total_water);
 ylabel('Total water');
 xlabel('Session');
 
 subplot(1,3,2);
 yyaxis left
-plot(1:length(days),bhv.wheel_movement./bhv.session_duration);
+plot(1:length(experiments),bhv.wheel_movement./bhv.session_duration);
 ylabel('Wheel movement / min');
 yyaxis right
-plot(1:length(days),bhv.wheel_bias);
+plot(1:length(experiments),bhv.wheel_bias);
 ylim([-1,1]);
 ylabel('Wheel bias');
 xlabel('Session');

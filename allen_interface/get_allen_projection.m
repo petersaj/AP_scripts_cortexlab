@@ -1,4 +1,4 @@
-function injection_coordinates = AP_get_allen_projection(projection_coordinates,max_sites)
+function injection_parameters = get_allen_projection(projection_coordinates,max_sites)
 % injection_coordinates = AP_get_allen_projection(projection_coordinates)
 %
 % Load in from Allen projection data
@@ -12,7 +12,9 @@ allen_temp_dir = 'C:\data_temp\AllenAPI';
 
 % Loop through all input coordinates
 disp('Getting injection coordinates...')
-injection_coordinates = cell(size(projection_coordinates,1),1);
+injection_parameters = struct('coordinates',cell(size(projection_coordinates,1),1), ...
+    'volume',cell(size(projection_coordinates,1),1), ...
+    'density',cell(size(projection_coordinates,1),1));
 for curr_coord = 1:size(projection_coordinates,1);
     
     disp(['Coordinate ' num2str(curr_coord) '/' num2str(size(projection_coordinates,1))]);
@@ -28,14 +30,24 @@ for curr_coord = 1:size(projection_coordinates,1);
     % Delete downloaded data
     delete(seed_table_fn);
     
-    % Get coordinates of all injections
+    % Get coordinates, injection volume, and projection density
     injection_coordinates{curr_coord} = nan(length(projection_experiments),3);
+    injection_volume{curr_coord} = nan(length(projection_experiments),1);
+    projection_density{curr_coord} = nan(length(projection_experiments),1);
     for curr_experiment = 1:length(projection_experiments)
         % Injection coordinates are /10 to fit with Allen CCF
-        injection_coordinates{curr_coord}(curr_experiment,:) = ...
+        injection_parameters(curr_coord).coordinates(curr_experiment,:) = ...
             cellfun(@(x) str2num(x.Text), ...
             projection_experiments{curr_experiment}.injection_dash_coordinates.injection_dash_coordinate);
+        % Injection volume
+        injection_parameters(curr_coord).volume(curr_experiment) = ...
+            str2num(projection_experiments{curr_experiment}.injection_dash_volume.Text);
+        % Projection density
+        injection_parameters(curr_coord).density(curr_experiment) = ...
+            str2num(projection_experiments{curr_experiment}.density.Text);
     end    
+    
+    % Get injection volume and projection density 
     
 end
 disp('Done');

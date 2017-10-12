@@ -327,7 +327,7 @@ use_frames = (frame_t > skip_seconds & frame_t < frame_t(end)-skip_seconds);
 %use_frames = (frame_t > max(frame_t)/2);
 
 % Group multiunit by depth
-n_depth_groups = 5;
+n_depth_groups = 15;
 %depth_group_edges = linspace(0,max(channel_positions(:,2)),n_depth_groups+1);
 %depth_group_edges = linspace(700,3500,n_depth_groups+1);
 depth_group_edges = round(linspace(str_depth(1),str_depth(2),n_depth_groups+1));
@@ -387,7 +387,7 @@ AP_image_scroll(sta_im,sta_t);
 % Plot map of cortical pixel by preferred depth of probe
 r_px_max = squeeze(max(sta_im,[],3));
 %r_px_max_norm = reshape(zscore(reshape(r_px_max,[],size(r_px_max,3)),[],1),size(r_px_max));
-r_px_com = nansum(bsxfun(@times,r_px_max,permute(1:n_depth_groups,[1,3,2])),3)./nansum(r_px_max,3);
+r_px_com = sum(bsxfun(@times,r_px_max,permute(1:n_depth_groups,[1,3,2])),3)./sum(r_px_max,3);
 
 r_px_com_col = ind2rgb(round(mat2gray(r_px_com,[1,n_depth_groups])*255),jet(255));
 figure;
@@ -398,7 +398,7 @@ a2 = axes('Visible','off');
 p = imagesc(r_px_com_col);
 axis off; 
 set(p,'AlphaData',mat2gray(max(r_px_max,[],3), ...
-     [0,double(prctile(reshape(max(r_px_max,[],3),[],1),100))]));
+     [0,double(prctile(reshape(max(r_px_max,[],3),[],1),99))]));
 set(gcf,'color','w');
 
 c1 = colorbar('peer',a1,'Visible','off');

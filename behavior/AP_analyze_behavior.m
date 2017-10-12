@@ -306,7 +306,7 @@ title('Water')
 
 %% Choiceworld: wheel movement around stim
 
-surround_time = [-0.5,2];
+surround_time = [-0.5,5];
 surround_samples = surround_time/Timeline.hw.samplingInterval;
 
 % Get wheel aligned to stim onset
