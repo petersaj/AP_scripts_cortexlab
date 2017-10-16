@@ -1039,12 +1039,13 @@ end
 
 %% PSTH plot by depth
 
-align_times = stim_onsets(ismember(stimIDs,[2]));
+align_times = stim_onsets(ismember(stimIDs,[3]));
 %align_times = stimOnTimes(azimuths == 90 & stim_hit);
 
 % Group by depth
 n_depth_groups = 6;
-depth_group_edges = linspace(0,4000,n_depth_groups+1);
+%depth_group_edges = linspace(0,4000,n_depth_groups+1);
+depth_group_edges = round(linspace(str_depth(1),str_depth(2),n_depth_groups+1));
 depth_group_centers = round(depth_group_edges(1:end-1)+diff(depth_group_edges)/2);
 depth_group_edges(end) = Inf;
 depth_group = discretize(spikeDepths,depth_group_edges);
@@ -1575,7 +1576,7 @@ end
 
 %% PSTH aligned to stimuli
 
-use_spikes_idx = ismember(spike_templates,find(templateDepths >= 800 & templateDepths <= 1300));
+use_spikes_idx = ismember(spike_templates,find(templateDepths >= 0 & templateDepths <= 1300));
 % use_spikes_idx = ismember(spike_templates,find(templateDepths > 0 & templateDepths < 700)) & ...
 %    (ismember(spike_templates,find(fsi)));
 

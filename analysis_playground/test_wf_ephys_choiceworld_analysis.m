@@ -121,7 +121,7 @@ AP_image_scroll([a,b],surround_time)
 
 stimIDs = signals_events.trialSideValues.*signals_events.trialContrastValues;
 
-use_spikes_idx = ismember(spike_templates,find(templateDepths >= 0 & templateDepths <= 1200));
+use_spikes_idx = ismember(spike_templates,find(templateDepths >= 1000 & templateDepths <= 2000));
 use_spikes = spike_times_timeline(use_spikes_idx);
 
 raster_window = [-0.5,2];

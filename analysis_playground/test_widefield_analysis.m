@@ -702,7 +702,7 @@ px_traces = reshape(Ud,[],size(Ud,3))*fV;
 brain_px = std(px_traces,[],2) > 0.0001;
 
 % Get fluorescence traces by grouped pixels
-use_kgrps = 6;
+use_kgrps = 5;
 
 kidx = kmeans(px_traces(brain_px,:),use_kgrps,'Distance','correlation');
 
@@ -722,7 +722,7 @@ kgrp_im = imagesc(kgrp);
 colormap(hot);
 drawnow;
 % If desired, cut areas bilaterally
-bilateral_separate = true;
+bilateral_separate = false;
 if bilateral_separate
     % Select midline
     [y,x] = ginput(1);
@@ -750,6 +750,16 @@ for i = 1:max(kgrp(:))
 end
 disp('Done')
 
+figure; 
+imagesc(avg_im); colormap(gray);
+caxis([0,prctile(avg_im(:),99.9)]);
+hold on;
+for curr_grp = 1:length(kgrp_borders)
+    for curr_subgrp = 1:length(kgrp_borders{curr_grp})
+        plot(smooth(kgrp_borders{curr_grp}{curr_subgrp}(:,2),30), ...
+            smooth(kgrp_borders{curr_grp}{curr_subgrp}(:,1),30),'linewidth',2,'color','m')
+    end
+end
 
 %% Topography by correlation?
 % not exactly sure where I was going with this... reversals in map, i.e.
@@ -1850,8 +1860,7 @@ caxis([-c,c])
 
 %% Align fluorescence to task event across trials
 
-%align_times = signals_events.totalWaterTimes';
-align_times = signals_events.stimOnTimes';
+align_times = stimOn_times;
 %align_times = signals_events.lever_r_flipTimes(signals_events.lever_r_flipValues == 1)';
 
 surround_time = [-1,3];
