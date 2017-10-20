@@ -526,7 +526,7 @@ surround_time = surround_window(1):surround_samplerate:surround_window(2);
 baseline_surround_time = baseline_surround_window(1):surround_samplerate:baseline_surround_window(2);
 
 % Gui for plotting responses
-pixelTuningCurveViewerSVD(U,fV,frame_t,stim_onsets,stimIDs,surround_window);
+pixelTuningCurveViewerSVD(Udf,fVdf,frame_t,stim_onsets,stimIDs,surround_window);
 
 % Average (time course) responses
 conditions = unique(stimIDs);
@@ -539,9 +539,9 @@ for curr_condition_idx = 1:length(conditions)
     use_stim_onsets([1,end]) = [];
     
     stim_surround_times = bsxfun(@plus, use_stim_onsets(:), surround_time);
-    peri_stim_v = permute(mean(interp1(frame_t,fV',stim_surround_times),1),[3,2,1]);
+    peri_stim_v = permute(mean(interp1(frame_t,fVdf',stim_surround_times),1),[3,2,1]);
     
-    im_stim(:,:,:,curr_condition_idx) = svdFrameReconstruct(U,peri_stim_v);   
+    im_stim(:,:,:,curr_condition_idx) = svdFrameReconstruct(Udf,peri_stim_v);   
 end
 
 AP_image_scroll(im_stim,surround_time);
@@ -561,10 +561,10 @@ for curr_condition_idx = 1:length(conditions)
         align_times + surround_time(2) > frame_t(end)) = [];
     
     align_surround_times = bsxfun(@plus, align_times, surround_time);
-    peri_stim_v(:,curr_condition_idx) = nanmean(permute(nanmean(interp1(frame_t,fV',align_surround_times),1),[3,2,1]),2);
+    peri_stim_v(:,curr_condition_idx) = nanmean(permute(nanmean(interp1(frame_t,fVdf',align_surround_times),1),[3,2,1]),2);
 end
 
-surround_im = svdFrameReconstruct(U,peri_stim_v);
+surround_im = svdFrameReconstruct(Udf,peri_stim_v);
 
 
 
@@ -626,7 +626,8 @@ figure;plot(frame_t,roi_trace,'k');
 %% Correlate fluorescence with trace
 
 % Set the trace to use
-use_trace = interp1(facecam_t(~isnan(facecam_t)),facecam.proc.data.whisker.motion(~isnan(facecam_t)),frame_t);
+pupil_area = medfilt1(eyecam.proc.data.pupil.area,10);
+use_trace = interp1(eyecam_t(~isnan(eyecam_t)),pupil_area(~isnan(eyecam_t)),frame_t);
 %use_trace = frame_spikes_conv;
 %use_trace = wheel_speed;
 %use_trace = roi_trace;
@@ -640,16 +641,13 @@ corr_lags = 35*30;
 framerate = 1./nanmedian(diff(frame_t));
 v_xcorr = nan(size(fV,1),corr_lags*2+1);
 for curr_u = 1:size(U,3)  
-    v_xcorr(curr_u,:) = xcorr(fV(curr_u,:)-mean(fV(curr_u,:)),use_trace_meansub,corr_lags,'biased');
+    v_xcorr(curr_u,:) = xcorr(fVdf(curr_u,:)-mean(fVdf(curr_u,:)),use_trace_meansub,corr_lags,'biased');
 end
 lags_t = (-corr_lags:corr_lags)/framerate;
-svd_xcorr = svdFrameReconstruct(U,v_xcorr);
-
-% Normalize
-svd_xcorr_norm = bsxfun(@rdivide,svd_xcorr,px_std*std(use_trace));
+svd_xcorr = svdFrameReconstruct(Udf,v_xcorr);
 
 % Draw the movie
-AP_image_scroll(svd_xcorr_norm,lags_t);
+AP_image_scroll(svd_xcorr,lags_t);
 
 
 % % Correlation in pixel space
@@ -1437,10 +1435,10 @@ truesize
 % days = {expInfo_dir(find([expInfo_dir(3:end).isdir])+2).name};
 % days = days(end-7:end);
 
-animal = 'AP025';
-protocol = 'vanillaChoiceworld';
-experiments = AP_find_experiments(animal,protocol);
-experiments = experiments([experiments.imaging]);
+% animal = 'AP025';
+% protocol = 'vanillaChoiceworld';
+% experiments = AP_find_experiments(animal,protocol);
+% experiments = experiments([experiments.imaging]);
 
 days = {experiments.day};
 
@@ -1763,14 +1761,14 @@ surround_time = use_window(1):surround_samplerate: ...
 align_surround_times_left = bsxfun(@plus, stimOn_times(left_trials), surround_time);
 align_surround_times_right = bsxfun(@plus, stimOn_times(right_trials), surround_time);
 
-fV_align_left = interp1(frame_t,fV',align_surround_times_left);
-fV_align_right = interp1(frame_t,fV',align_surround_times_right);
+fV_align_left = interp1(frame_t,fVdf',align_surround_times_left);
+fV_align_right = interp1(frame_t,fVdf',align_surround_times_right);
 
 stim_order = [[ones(1,sum(left_trials)),zeros(1,sum(right_trials))]; ...
     [zeros(1,sum(left_trials)),ones(1,sum(right_trials))]];
 
 use_svs = 1:100;
-lambda = 1e6;
+lambda = 1e5;
 zs = [false,false];
 cvfold = 5;
 
@@ -1784,8 +1782,8 @@ max_likely_stim = bsxfun(@eq,predicted_stim,max(predicted_stim,[],1));
 correct_decoding = sum(max_likely_stim(:) & stim_order(:))./sum(stim_order(:));
 
 k2 = reshape(k,[],length(use_svs),2);
-k_px_l = svdFrameReconstruct(U(:,:,use_svs),k2(:,:,1)');
-k_px_r = svdFrameReconstruct(U(:,:,use_svs),k2(:,:,2)');
+k_px_l = svdFrameReconstruct(Udf(:,:,use_svs),k2(:,:,1)');
+k_px_r = svdFrameReconstruct(Udf(:,:,use_svs),k2(:,:,2)');
 
 baseline_time = find(surround_time < 0,1,'last');
 k_px_l_norm = bsxfun(@minus,k_px_l,nanmean(k_px_l(:,:,1:baseline_time),3));

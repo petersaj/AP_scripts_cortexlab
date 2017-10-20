@@ -485,7 +485,8 @@ if data_path_exists && load_parts.imaging
     
     % Make dF/F
     [Udf,fVdf] = dffFromSVD(U,fV,avg_im);
-    
+    % zero out NaNs in the Udfs (from saturated pixels?)
+    Udf(isnan(Udf)) = 0;
 end
 
 %% Load ephys data (single long recording)

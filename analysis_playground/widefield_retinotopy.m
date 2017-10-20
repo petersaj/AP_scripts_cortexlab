@@ -1620,8 +1620,21 @@ sparse_noise_positions = cellfun(@(times,px_x,px_y) repmat([px_x,px_y], ...
 [signMap, xMap, yMap] = sparseRetinotopy(Udf,fVdf,frame_t, ...
     vertcat(sparse_noise_positions{:}),vertcat(sparse_noise_position_times{:}),avg_im);
 
+signMap_blur = imgaussfilt(signMap,2);
+vfs_cutoff = 0.8*nanstd(signMap_blur(:));
+vis_thresh = abs(signMap_blur) > vfs_cutoff;
+vis_boundaries = cellfun(@(x) x*U_downsample_factor,bwboundaries(vis_thresh),'uni',false);
 
-
+figure; hold on; 
+set(gca,'YDir','reverse');
+imagesc(avg_im); colormap(gray);
+caxis([0 prctile(avg_im(:),95)]);
+for i = 1:length(vis_boundaries)
+    plot(vis_boundaries{i}(:,2),vis_boundaries{i}(:,1),'m','linewidth',1);
+end
+ylim([0,size(avg_im,1)]);
+xlim([0,size(avg_im,2)]);
+axis off;
 
 
 

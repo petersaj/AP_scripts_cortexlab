@@ -8,8 +8,10 @@ classdef vanillaChoiceworld_ExpPanel < eui.ExpPanel
     NumSignalUpdates = 0
     LabelsMap
     RecentColour = [0 1 0]
+    %%% AP: added properties for plots
     performancePlot
     visStimPlot
+    %%%
   end
   
   

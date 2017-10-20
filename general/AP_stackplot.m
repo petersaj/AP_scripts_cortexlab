@@ -28,6 +28,8 @@ end
 if exist('color','var') && ~isempty(color);
     if length(color) == 1
         h = plot(t,x_spaced,'linewidth',2,'color',color);
+    elseif size(color,1) == 1 && size(color,2) == 3
+        h = plot(t,x_spaced,'linewidth',2,'color',color);
     elseif size(color,1) == size(x_spaced,2)
         axis; hold on;
         set(gca,'ColorOrder',color);

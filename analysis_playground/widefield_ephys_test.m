@@ -342,9 +342,9 @@ framerate = 1./median(diff(frame_t));
 frame_spikes = zeros(length(depth_group_edges_use)-1,length(frame_t));
 for curr_depth = 1:length(depth_group_edges_use)-1
     
-    curr_spike_times = spike_times_timeline(depth_group == curr_depth);
-    %     curr_spike_times = spike_times_timeline((depth_group == curr_depth) & ...
-    %         ismember(spike_templates,find(msn)));
+    %     curr_spike_times = spike_times_timeline(depth_group == curr_depth);
+    curr_spike_times = spike_times_timeline((depth_group == curr_depth) & ...
+        ismember(spike_templates,find(msn)));
     
     % Discretize spikes into frames and count spikes per frame
     frame_edges = [frame_t,frame_t(end)+1/framerate];
@@ -2388,9 +2388,9 @@ use_frames = (frame_t > skip_seconds & frame_t < (frame_t(end) - skip_seconds));
 %use_frames = (frame_t > skip_seconds) & (frame_t < max(frame_t)/2);
 %use_frames = (frame_t > max(frame_t)/2);
 
-use_spikes = spike_times_timeline(ismember(spike_templates,find(templateDepths > 0 & templateDepths < 1300)));
-% use_spikes = spike_times_timeline(ismember(spike_templates,find(templateDepths > 0 & templateDepths < 1500)) &...
-%     ismember(spike_templates,find(msn)));
+% use_spikes = spike_times_timeline(ismember(spike_templates,find(templateDepths > 0 & templateDepths < 1300)));
+use_spikes = spike_times_timeline(ismember(spike_templates,find(templateDepths > 2000 & templateDepths < 2500)) &...
+    ismember(spike_templates,find(msn)));
 % use_spikes = spike_times_timeline(ismember(spike_templates,find(templateDepths > 1300 & templateDepths < 2500)) &...
 %     ismember(spike_templates,find(msn)) & ismember(spike_templates,find(l_r_diff < 0.5)));
 
@@ -2401,7 +2401,7 @@ frame_spikes = single(frame_spikes);
 use_svs = 1:50;
 kernel_frames = -20:20;
 downsample_factor = 1;
-lambda = 1e7;
+lambda = 1e6;
 zs = [false,true];
 cvfold = 5;
 
@@ -2507,9 +2507,9 @@ framerate = 1./median(diff(frame_t));
 frame_spikes = zeros(length(depth_group_edges_use)-1,length(frame_t));
 for curr_depth = 1:length(depth_group_edges_use)-1
     
-    curr_spike_times = spike_times_timeline(depth_group == curr_depth);
-%     curr_spike_times = spike_times_timeline((depth_group == curr_depth) & ...
-%         ismember(spike_templates,find(msn)));
+%     curr_spike_times = spike_times_timeline(depth_group == curr_depth);
+    curr_spike_times = spike_times_timeline((depth_group == curr_depth) & ...
+        ismember(spike_templates,find(msn)));
 
     % Discretize spikes into frames and count spikes per frame
     frame_edges = [frame_t,frame_t(end)+1/framerate];
@@ -3355,7 +3355,7 @@ framerate = 1./median(diff(frame_t));
 frame_spikes = zeros(length(depth_group_edges_use)-1,length(frame_t));
 for curr_depth = 1:length(depth_group_edges_use)-1
     
-    %     curr_spike_times = spike_times_timeline(depth_group == curr_depth);
+%     curr_spike_times = spike_times_timeline(depth_group == curr_depth);
     curr_spike_times = spike_times_timeline(depth_group == curr_depth & ...
         ismember(spike_templates,find(msn)));
     
@@ -3416,9 +3416,9 @@ framerate = 1./median(diff(frame_t));
 frame_spikes = zeros(length(depth_group_edges_use)-1,length(frame_t));
 for curr_depth = 1:length(depth_group_edges_use)-1
     
-    curr_spike_times = spike_times_timeline(depth_group == curr_depth);
-%     curr_spike_times = spike_times_timeline(depth_group == curr_depth & ...
-%         ismember(spike_templates,find(msn)));
+%     curr_spike_times = spike_times_timeline(depth_group == curr_depth);
+    curr_spike_times = spike_times_timeline(depth_group == curr_depth & ...
+        ismember(spike_templates,find(msn)));
 
     % Discretize spikes into frames and count spikes per frame
     frame_edges = [frame_t,frame_t(end)+1/framerate];
@@ -3526,7 +3526,8 @@ use_frames = (frame_t > skip_seconds);
 
 % Group multiunit by depth
 n_depth_groups = 6;
-depth_group_edges = linspace(2400,3820,n_depth_groups+1);
+%depth_group_edges = linspace(2400,3820,n_depth_groups+1);
+depth_group_edges = round(linspace(str_depth(1),str_depth(2),n_depth_groups+1));
 depth_group_edges_use = depth_group_edges;
 %depth_group_edges_use = [400,1500,2000,2300,3000,4000];
 depth_group_edges_use(end) = Inf;
@@ -3540,7 +3541,9 @@ frame_spikes = zeros(length(depth_group_edges_use)-1,length(frame_t));
 for curr_depth = 1:length(depth_group_edges_use)-1
     
     curr_spike_times = spike_times_timeline(depth_group == curr_depth);
-
+%     curr_spike_times = spike_times_timeline((depth_group == curr_depth) & ...
+%         ismember(spike_templates,find(msn)));
+    
     % Discretize spikes into frames and count spikes per frame
     frame_edges = [frame_t,frame_t(end)+1/framerate];
     frame_spikes(curr_depth,:) = histcounts(curr_spike_times,frame_edges);
@@ -3548,11 +3551,11 @@ for curr_depth = 1:length(depth_group_edges_use)-1
 end
 
 use_face_svs = 1:50;
-kernel_frames = -35:35;
+kernel_frames = -20:20;
 downsample_factor = 1;
-lambda = 0;
-zs = false;
-cvfold = 3;
+lambda = 1e6;
+zs = [false,false];
+cvfold = 5;
 
 kernel_frames_downsample = round(downsample(kernel_frames,downsample_factor)/downsample_factor);
 

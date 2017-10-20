@@ -40,7 +40,7 @@ trialsToBuffer = 50;
 % (number of trials after introducing 12.5% contrast to introduce 0%)
 trialsToZeroContrast = 500;
 sigma = [20,20];
-spatialFrequency = 0.01;
+spatialFreq = 1/15;
 stimFlickerFrequency = 5; % DISABLED BELOW
 startingAzimuth = 90;
 responseDisplacement = 90;
@@ -121,7 +121,9 @@ trialContrast = trialData.trialContrast;
 %% Give feedback and end trial
 
 % Give reward on hit
-water = at(rewardSize,trialData.hit);  
+% NOTE: there is a 10ms delay for water output, because otherwise water and
+% stim output compete and stim is delayed
+water = at(rewardSize,trialData.hit.delay(0.01));  
 outputs.reward = water;
 totalWater = water.scan(@plus,0);
 
@@ -140,17 +142,21 @@ endTrial = iti;
 %% Visual stimulus
 
 % Azimuth control
-% Stim fixed in place before interactive and after response, wheel-conditional otherwise
+% 1) stim fixed in place until interactive on
+% 2) wheel-conditional during interactive
+% 3) fixed at response displacement azimuth after response
 stimAzimuth = cond( ...
     events.newTrial.to(interactiveOn), startingAzimuth*trialData.trialSide, ...
-    interactiveOn.to(response), startingAzimuth*trialData.trialSide + stimDisplacement);
+    interactiveOn.to(response), startingAzimuth*trialData.trialSide + stimDisplacement, ...
+    response.to(events.newTrial), ...
+    startingAzimuth*trialData.trialSide.at(interactiveOn) + sign(stimDisplacement.at(response))*responseDisplacement);
 
 % Stim flicker
 stimFlicker = sin((t - t.at(stimOn))*stimFlickerFrequency*2*pi) > 0;
 
 stim = vis.grating(t, 'square', 'gaussian');
 stim.sigma = sigma;
-stim.spatialFrequency = spatialFrequency;
+stim.spatialFreq = spatialFreq;
 stim.phase = 2*pi*events.newTrial.map(@(v)rand);
 stim.azimuth = stimAzimuth;
 %stim.contrast = trialContrast.at(stimOn)*stimFlicker;

@@ -312,7 +312,7 @@ surround_samples = surround_time/Timeline.hw.samplingInterval;
 % Get wheel aligned to stim onset
 rotaryEncoder_idx = strcmp({Timeline.hw.inputs.name}, 'rotaryEncoder');
 surround_time = surround_time(1):Timeline.hw.samplingInterval:surround_time(2);
-pull_times = bsxfun(@plus,signals_events.stimOnTimes',surround_time);
+pull_times = bsxfun(@plus,stimOn_times,surround_time);
 
 stim_aligned_wheel_raw = interp1(Timeline.rawDAQTimestamps, ...
     Timeline.rawDAQData(:,rotaryEncoder_idx),pull_times);

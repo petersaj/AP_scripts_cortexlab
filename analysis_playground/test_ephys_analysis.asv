@@ -1037,14 +1037,7 @@ for curr_day = 1:length(days)
     
 end
 
-%% Plot waveform 
-% (uses Nick's function)
-
-plot_template = 192;
-figure;plotWaveform(-(squeeze(templates(plot_template,:,:))*winv)', ...
-    channel_positions(:,1),channel_positions(:,2),10,2,0.2,[0,0,0]);set(gca,'YDir','reverse')
-
-%% PSTH plot by depth (single stim ID)
+%% PSTH plot by depth
 
 align_times = stim_onsets(ismember(stimIDs,[3]));
 %align_times = stimOnTimes(azimuths == 90 & stim_hit);
@@ -1131,13 +1124,14 @@ gw = gausswin(smooth_size,3)';
 smWin = gw./sum(gw);
 psth_smooth = cell2mat(permute(arrayfun(@(x) conv2(depth_psth(:,:,x), ...
     smWin, 'same'),1:size(depth_psth,3),'uni',false),[1,3,2]));
-psth_minmax = [min(min(psth_smooth,[],2),[],3), max(max(psth_smooth,[],2),[],3)];
-psth_norm = bsxfun(@rdivide,bsxfun(@minus,psth_smooth,psth_minmax(:,1)),diff(psth_minmax,[],2));
+psth_maxmin = [min(min(psth_smooth,[],2),[],3), max(max(psth_smooth,[],2),[],3)];
+psth_norm = bsbsxfun(@minus,psth_smooth,psth_minmax(:,1))
+trace_spacing = max(psth_smooth(:));
 
-figure; hold on; plot_col = [0.7,0,0;0,0.7,0;0,0,0.7];
+figure; hold on; plot_col = copper(length(unique_stim));
 for curr_stim_idx = 1:length(unique_stim)
-    AP_stackplot(psth_norm(:,20:end-20,curr_stim_idx)',bins(20:end-20), ...
-        1,false,plot_col(curr_stim_idx,:), ...
+    AP_stackplot(psth_smooth(:,20:end-20,curr_stim_idx)',bins(20:end-20), ...
+        trace_spacing,false,plot_col(curr_stim_idx,:), ...
         depth_group_centers);
 end
 
@@ -1641,7 +1635,7 @@ end
 
 %% PSTH aligned to stimuli
 
-use_spikes_idx = ismember(spike_templates,find(templateDepths >= 0 & templateDepths <= 1500));
+use_spikes_idx = ismember(spike_templates,find(templateDepths >= 0 & templateDepths <= 1300));
 % use_spikes_idx = ismember(spike_templates,find(templateDepths > 0 & templateDepths < 700)) & ...
 %    (ismember(spike_templates,find(fsi)));
 
@@ -1767,10 +1761,9 @@ stim_positions = cellfun(@(x,y,times) repmat([y,x],length(times),1), ...
 params = struct;
 params.makePlots = false;
 params.useSVD = false;
-params.countWindow = [0.05,0.1];
 rf_map = nan(nY,nX,max(spike_templates));
 for curr_template = unique(spike_templates)'
-    [rf_map(:,:,curr_template),stats] = sparseNoiseRF(spike_times_timeline(spike_templates == curr_template), ...
+    [rf_map(:,:,curr_template+1),stats] = sparseNoiseRF(spike_times_timeline(spike_templates == curr_template), ...
         vertcat(stim_times_grid{:}),vertcat(stim_positions{:}),params);
 end
 
@@ -1801,12 +1794,10 @@ rf_map_smooth = imfilter(rf_map,gauss_filt);
 
 
 
-% Get stim-triggered MUA average for each stimulus
-use_spikes = spike_times_timeline(ismember(spike_templates, ...
-    find(templateDepths > 0 & templateDepths < 1500)));
-% use_spikes = spike_times_timeline(ismember(spike_templates, ...
-%     find(templateDepths > 0 & templateDepths < 1500)) &...
-%     ismember(spike_templates,find(msn)));
+% Get stim-triggered average for each stimulus
+use_spikes_idx = ismember(spike_templates,find(templateDepths >= 2300 & templateDepths <= 3000));
+use_spikes = spike_times_timeline(use_spikes_idx);
+use_spike_templates = spike_templates(use_spikes_idx);
 
 % Get stim times vector (x,y)
 stim_aligned_avg = cell(nY,nX);

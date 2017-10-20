@@ -18,7 +18,7 @@ rewardSize = 3;
 contrasts = [1,0.5];
 % (stim parameters)
 sigma = [15,15];
-spatialFrequency = 0.01;
+spatialFreq = 0.01;
 startingAzimuth = 90;
 responseDisplacement = 90;
 
@@ -97,7 +97,7 @@ stimAzimuth = cond( ...
 
 stim_right = vis.grating(t, 'square', 'gaussian');
 stim_right.sigma = sigma;
-stim_right.spatialFrequency = spatialFrequency;
+stim_right.spatialFreq = spatialFreq;
 stim_right.phase = 2*pi*events.newTrial.map(@(v)rand);
 stim_right.azimuth = stimAzimuth;
 stim_right.contrast = trialContrast.at(stimOn);
@@ -105,7 +105,7 @@ stim_right.show = stimOn.to(stimOff);
 
 stim_left = vis.grating(t, 'square', 'gaussian');
 stim_left.sigma = sigma;
-stim_left.spatialFrequency = spatialFrequency;
+stim_left.spatialFreq = spatialFreq;
 stim_left.phase = 2*pi*events.newTrial.map(@(v)rand);
 stim_left.azimuth = -startingAzimuth*2 + stimAzimuth;
 stim_left.contrast = trialContrast.at(stimOn);
