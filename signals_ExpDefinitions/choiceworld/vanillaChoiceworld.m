@@ -128,7 +128,7 @@ outputs.reward = water;
 totalWater = water.scan(@plus,0);
 
 % Play noise on miss
-audio.missNoise = missNoiseSamples.at(trialData.miss);
+audio.missNoise = missNoiseSamples.at(trialData.miss.delay(0.01));
 
 % ITI defined by outcome
 iti = response.delay(trialData.hit.at(response)*itiHit + trialData.miss.at(response)*itiMiss);
