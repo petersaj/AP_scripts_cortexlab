@@ -1,4 +1,4 @@
-%% Batch template for loading
+%% Batch load responses to passive stim
 
 animal = 'AP025';
 % protocol = 'vanillaChoiceworld';
@@ -6,7 +6,7 @@ protocol = 'stimKalatsky';
 experiments = AP_find_experiments(animal,protocol);
 
 % only use experiments with ephys + imaging
-experiments = experiments([experiments.imaging] & ~[experiments.ephys]);
+experiments = experiments([experiments.imaging] & [experiments.ephys]);
 
 load_parts.cam = false;
 load_parts.imaging = true;
@@ -101,12 +101,12 @@ AP_image_scroll(a,surround_time)
 
 %% Batch get average choiceworld fluorescence
 
-animal = 'AP017';
+animal = 'AP025';
 protocol = 'vanillaChoiceworld';
 experiments = AP_find_experiments(animal,protocol);
 
 % only use experiments with ephys + imaging
-experiments = experiments([experiments.imaging] & ~[experiments.ephys]);
+experiments = experiments([experiments.imaging] & [experiments.ephys]);
 
 load_parts.cam = false;
 load_parts.imaging = true;
@@ -252,44 +252,54 @@ for curr_session = setdiff(1:length(avg_im),ref_im_num)
     
 end
 
-
 batch_vars_reg = batch_vars;
 
+% Spatially blur, get the > 0 delta, replace nans
 for curr_day = 1:length(experiments)
     curr_im = batch_vars_reg.im_stim_miss{curr_day};
+    nan_cond = squeeze(all(all(all(isnan(curr_im),1),2),3));
     curr_im(isnan(curr_im)) = 0;
-    curr_im = imgaussfilt(diff(curr_im,[],3),2);
+    curr_im = imgaussfilt(diff(curr_im,[],3),1);
     curr_im(curr_im < 0) = 0;
+    curr_im(:,:,:,nan_cond) = NaN;
     batch_vars_reg.im_stim_miss{curr_day} = curr_im;
     
     curr_im = batch_vars_reg.im_stim_hit{curr_day};
+    nan_cond = squeeze(all(all(all(isnan(curr_im),1),2),3));
     curr_im(isnan(curr_im)) = 0;
-    curr_im = imgaussfilt(diff(curr_im,[],3),2);
+    curr_im = imgaussfilt(diff(curr_im,[],3),1);
     curr_im(curr_im < 0) = 0;
+    curr_im(:,:,:,nan_cond) = NaN;
     batch_vars_reg.im_stim_hit{curr_day} = curr_im;
 end
 
+% Align across days and replace nans
 for curr_day = setdiff(1:length(experiments),ref_im_num);
     
     tform = affine2d;
     tform.T = tform_matrix{curr_day};
     
     curr_im = batch_vars_reg.im_stim_miss{curr_day};
-    curr_im(isnan(curr_im)) = 0;    
-
-    batch_vars_reg.im_stim_miss{curr_day} = imwarp(curr_im,tform, ...
-        'Outputview',imref2d(size(avg_im{ref_im_num})));    
+    nan_cond = squeeze(all(all(all(isnan(curr_im),1),2),3));
+    curr_im(isnan(curr_im)) = 0;
+    curr_im = imwarp(curr_im,tform, ...
+        'Outputview',imref2d(size(avg_im{ref_im_num})));
+    curr_im(:,:,:,nan_cond) = NaN;
+    batch_vars_reg.im_stim_miss{curr_day} = curr_im;
     
     curr_im = batch_vars_reg.im_stim_hit{curr_day};
-    curr_im(isnan(curr_im)) = 0;    
-
-    batch_vars_reg.im_stim_hit{curr_day} = imwarp(curr_im,tform, ...
-        'Outputview',imref2d(size(avg_im{ref_im_num})));  
+    nan_cond = squeeze(all(all(all(isnan(curr_im),1),2),3));
+    curr_im(isnan(curr_im)) = 0;
+    curr_im = imwarp(curr_im,tform, ...
+        'Outputview',imref2d(size(avg_im{ref_im_num}))); 
+    curr_im(:,:,:,nan_cond) = NaN;
+    batch_vars_reg.im_stim_hit{curr_day} = curr_im;
 
 end
 
-a = nanmean(cat(5,batch_vars_reg.im_stim_miss{:}),5);
-b = nanmean(cat(5,batch_vars_reg.im_stim_hit{:}),5);
+% Mean
+avg_hit = nanmean(cat(5,batch_vars_reg.im_stim_hit{:}),5);
+avg_miss = nanmean(cat(5,batch_vars_reg.im_stim_miss{:}),5);
 
 surround_window = [-0.2,3];
 baseline_surround_window = [0,0];
@@ -298,8 +308,8 @@ surround_samplerate = 1/(framerate*1);
 surround_time = surround_window(1):surround_samplerate:surround_window(2);
 baseline_surround_time = baseline_surround_window(1):surround_samplerate:baseline_surround_window(2);
 
-AP_image_scroll(a,surround_time)
-AP_image_scroll(b,surround_time)
+AP_image_scroll(avg_hit,surround_time)
+AP_image_scroll(avg_miss,surround_time)
 
 
 %% PSTH to choiceworld conditions
@@ -307,8 +317,8 @@ AP_image_scroll(b,surround_time)
 stimIDs = signals_events.trialSideValues.*signals_events.trialContrastValues;
 stimIDs = discretize(stimIDs,[-Inf,-0.125,-0.01,0.01,0.25,Inf],[-2,-1,0,1,2]);
 
-% use_spikes_idx = ismember(spike_templates,find(templateDepths >= 1000 & templateDepths <= 2000));
-use_spikes_idx = ismember(spike_templates,intersect(find(templateDepths >= 1000 & templateDepths <= 2000),find(msn)));
+use_spikes_idx = ismember(spike_templates,find(templateDepths >= 700 & templateDepths <= 1500));
+% use_spikes_idx = ismember(spike_templates,intersect(find(templateDepths >= 500 & templateDepths <= 1500),find(msn)));
 
 use_spikes = spike_times_timeline(use_spikes_idx);
 

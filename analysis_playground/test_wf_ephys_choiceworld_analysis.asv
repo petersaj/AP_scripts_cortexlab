@@ -6,7 +6,7 @@ protocol = 'stimKalatsky';
 experiments = AP_find_experiments(animal,protocol);
 
 % only use experiments with ephys + imaging
-experiments = experiments([experiments.imaging] & [experiments.ephys]);
+experiments = experiments([experiments.imaging] & ~[experiments.ephys]);
 
 load_parts.cam = false;
 load_parts.imaging = true;
@@ -101,18 +101,19 @@ AP_image_scroll(a,surround_time)
 
 %% Batch get average choiceworld fluorescence
 
-animal = 'AP025';
+animal = 'AP015';
 protocol = 'vanillaChoiceworld';
 experiments = AP_find_experiments(animal,protocol);
 
 % only use experiments with ephys + imaging
-experiments = experiments([experiments.imaging] & [experiments.ephys]);
+experiments = experiments([experiments.imaging] & ~[experiments.ephys]);
 
 load_parts.cam = false;
 load_parts.imaging = true;
 load_parts.ephys = false;
 
 batch_vars = struct;
+
 for curr_day = 1:length(experiments);
     
     day = experiments(curr_day).day;
@@ -128,7 +129,7 @@ for curr_day = 1:length(experiments);
     stim_onsets = stimOn_times(1:num_stim);
     
     % Discretize the stimIDs by easy/hard/zero
-    stimIDs = discretize(stimIDs,[-Inf,-0.125,-0.01,0.01,0.25,Inf]);
+    stimIDs = discretize(stimIDs,[-Inf,-0.125,-0.01,0.01,0.25,Inf],[-2,-1,0,1,2]);
     
     %%%% Get wheel move time
     surround_time = [-0.5,5];
@@ -161,7 +162,8 @@ for curr_day = 1:length(experiments);
     baseline_surround_time = baseline_surround_window(1):surround_samplerate:baseline_surround_window(2);
     
     % Average (time course) responses
-    conditions = unique(stimIDs);
+    %     conditions = unique(stimIDs);
+    conditions = [-2,-1,0,1,2];
     im_stim_hit = nan(size(U,1),size(U,2),length(surround_time),length(conditions));
     im_stim_miss = nan(size(U,1),size(U,2),length(surround_time),length(conditions));
 
@@ -251,44 +253,54 @@ for curr_session = setdiff(1:length(avg_im),ref_im_num)
     
 end
 
-
 batch_vars_reg = batch_vars;
 
+% Spatially blur, get the > 0 delta, replace nans
 for curr_day = 1:length(experiments)
     curr_im = batch_vars_reg.im_stim_miss{curr_day};
+    nan_cond = squeeze(all(all(all(isnan(curr_im),1),2),3));
     curr_im(isnan(curr_im)) = 0;
-    curr_im = imgaussfilt(diff(curr_im,[],3),2);
+    curr_im = imgaussfilt(diff(curr_im,[],3),1);
     curr_im(curr_im < 0) = 0;
+    curr_im(:,:,:,nan_cond) = NaN;
     batch_vars_reg.im_stim_miss{curr_day} = curr_im;
     
     curr_im = batch_vars_reg.im_stim_hit{curr_day};
+    nan_cond = squeeze(all(all(all(isnan(curr_im),1),2),3));
     curr_im(isnan(curr_im)) = 0;
-    curr_im = imgaussfilt(diff(curr_im,[],3),2);
+    curr_im = imgaussfilt(diff(curr_im,[],3),1);
     curr_im(curr_im < 0) = 0;
+    curr_im(:,:,:,nan_cond) = NaN;
     batch_vars_reg.im_stim_hit{curr_day} = curr_im;
 end
 
+% Align across days and replace nans
 for curr_day = setdiff(1:length(experiments),ref_im_num);
     
     tform = affine2d;
     tform.T = tform_matrix{curr_day};
     
     curr_im = batch_vars_reg.im_stim_miss{curr_day};
-    curr_im(isnan(curr_im)) = 0;    
-
-    batch_vars_reg.im_stim_miss{curr_day} = imwarp(curr_im,tform, ...
-        'Outputview',imref2d(size(avg_im{ref_im_num})));    
+    nan_cond = squeeze(all(all(all(isnan(curr_im),1),2),3));
+    curr_im(isnan(curr_im)) = 0;
+    curr_im = imwarp(curr_im,tform, ...
+        'Outputview',imref2d(size(avg_im{ref_im_num})));
+    curr_im(:,:,:,nan_cond) = NaN;
+    batch_vars_reg.im_stim_miss{curr_day} = curr_im;
     
     curr_im = batch_vars_reg.im_stim_hit{curr_day};
-    curr_im(isnan(curr_im)) = 0;    
-
-    batch_vars_reg.im_stim_hit{curr_day} = imwarp(curr_im,tform, ...
-        'Outputview',imref2d(size(avg_im{ref_im_num})));  
+    nan_cond = squeeze(all(all(all(isnan(curr_im),1),2),3));
+    curr_im(isnan(curr_im)) = 0;
+    curr_im = imwarp(curr_im,tform, ...
+        'Outputview',imref2d(size(avg_im{ref_im_num}))); 
+    curr_im(:,:,:,nan_cond) = NaN;
+    batch_vars_reg.im_stim_hit{curr_day} = curr_im;
 
 end
 
-a = nanmean(cat(5,batch_vars_reg.im_stim_miss{:}),5);
-b = nanmean(cat(5,batch_vars_reg.im_stim_hit{:}),5);
+% Mean
+avg_miss = nanmean(cat(5,batch_vars_reg.im_stim_miss{:}),5);
+avg_hit = nanmean(cat(5,batch_vars_reg.im_stim_hit{:}),5);
 
 surround_window = [-0.2,3];
 baseline_surround_window = [0,0];
@@ -297,8 +309,8 @@ surround_samplerate = 1/(framerate*1);
 surround_time = surround_window(1):surround_samplerate:surround_window(2);
 baseline_surround_time = baseline_surround_window(1):surround_samplerate:baseline_surround_window(2);
 
-AP_image_scroll(a,surround_time)
-AP_image_scroll(b,surround_time)
+AP_image_scroll(avg_miss,surround_time)
+AP_image_scroll(avg_hit,surround_time)
 
 
 %% PSTH to choiceworld conditions
@@ -595,25 +607,6 @@ smooth_size = 50;
 gw = gausswin(smooth_size,3)';
 smWin = gw./sum(gw);
 
-% Get wheel movement time for each trial
-
-surround_time = [-0.2,5];
-surround_samples = surround_time/Timeline.hw.samplingInterval;
-
-rotaryEncoder_idx = strcmp({Timeline.hw.inputs.name}, 'rotaryEncoder');
-surround_time = surround_time(1):Timeline.hw.samplingInterval:surround_time(2);
-pull_times = bsxfun(@plus,signals_events.stimOnTimes',surround_time);
-
-stim_aligned_wheel_raw = interp1(Timeline.rawDAQTimestamps, ...
-    Timeline.rawDAQData(:,rotaryEncoder_idx),pull_times);
-stim_aligned_wheel = bsxfun(@minus,stim_aligned_wheel_raw, ...
-    nanmedian(stim_aligned_wheel_raw(:,surround_time < 0),2));
-
-thresh_displacement = 10;
-[~,wheel_move_sample] = max(abs(stim_aligned_wheel) > thresh_displacement,[],2);
-wheel_move_time = arrayfun(@(x) pull_times(x,wheel_move_sample(x)),1:size(pull_times,1));
-wheel_move_time(wheel_move_sample == 1) = NaN;
-
 % Plot
 figure; hold on;
 
@@ -641,29 +634,11 @@ line([0,0],ylim,'linestyle','--','color','k');
 
 stimIDs = signals_events.trialSideValues.*signals_events.trialContrastValues;
 
-% use_spikes_idx = ismember(spike_templates,find(templateDepths >= 2000 & templateDepths <= 3000));
-use_spikes_idx = ismember(spike_templates,intersect(find(templateDepths >= 1000 & templateDepths <= 2000),find(msn)));
+% use_spikes_idx = ismember(spike_templates,find(templateDepths >= 0 & templateDepths <= 4000));
+use_spikes_idx = ismember(spike_templates,intersect(find(templateDepths >= 2000 & templateDepths <= 3000),find(msn)));
 use_spikes = spike_times_timeline(use_spikes_idx);
 
 use_templates = unique(spike_templates(use_spikes_idx));
-
-% Get wheel movement time for each trial
-surround_time = [-1,2];
-surround_samples = surround_time/Timeline.hw.samplingInterval;
-
-rotaryEncoder_idx = strcmp({Timeline.hw.inputs.name}, 'rotaryEncoder');
-surround_time = surround_time(1):Timeline.hw.samplingInterval:surround_time(2);
-pull_times = bsxfun(@plus,signals_events.stimOnTimes',surround_time);
-
-stim_aligned_wheel_raw = interp1(Timeline.rawDAQTimestamps, ...
-    Timeline.rawDAQData(:,rotaryEncoder_idx),pull_times);
-stim_aligned_wheel = bsxfun(@minus,stim_aligned_wheel_raw, ...
-    nanmedian(stim_aligned_wheel_raw(:,surround_time < 0),2));
-
-thresh_displacement = 10;
-[~,wheel_move_sample] = max(abs(stim_aligned_wheel) > thresh_displacement,[],2);
-wheel_move_time = arrayfun(@(x) pull_times(x,wheel_move_sample(x)),1:size(pull_times,1));
-wheel_move_time(wheel_move_sample == 1) = NaN;
 
 % Plot
 go_left_trials = (signals_events.trialSideValues == 1 & signals_events.hitValues == 1) | ...
@@ -702,16 +677,19 @@ gw = gausswin(smooth_size,3)';
 smWin = gw./sum(gw);
 
 template_psth_left_smooth = conv2(template_psth_left,smWin,'same');
-template_psth_left_smooth = conv2(template_psth_left,smWin,'same');
+template_psth_right_smooth = conv2(template_psth_right,smWin,'same');
 
 figure; hold on;
-plot(nanmean(zscore(template_psth_left,[],2)),'k');
-plot(nanmean(zscore(template_psth_right,[],2)),'r');
+plot(nanmean(zscore(template_psth_left_smooth,[],2)),'k');
+plot(nanmean(zscore(template_psth_right_smooth,[],2)),'r');
 
 % Get left/right differences for correct non-repeat trials, plot raster and
 % sort by difference
-l_r_diff = (sum(template_psth_left,2) - sum(template_psth_right,2))./ ...
-    (sum(template_psth_left,2) + sum(template_psth_right,2));
+sort_time = raster_window(1):psth_bin_size:raster_window(2) > 0 & ...
+    raster_window(1):psth_bin_size:raster_window(2) < 0.5;
+
+l_r_diff = (sum(template_psth_left_smooth(:,sort_time),2) - sum(template_psth_right_smooth(:,sort_time),2))./ ...
+    (sum(template_psth_left_smooth(:,sort_time),2) + sum(template_psth_right_smooth(:,sort_time),2));
 
 [~,sort_idx] = sort(l_r_diff);
 sort_templates = nan(size(templates,1),1);
@@ -723,6 +701,10 @@ psthViewer(use_spikes,template_sort, ...
     [wheel_move_time(go_right_trials),wheel_move_time(go_left_trials)], ...
     raster_window,[ones(1,sum(go_right_trials)),2*ones(1,sum(go_left_trials))]);
 
+sorted_diff = template_psth_left_smooth(sort_idx,:) - template_psth_right_smooth(sort_idx,:);
+figure;imagesc(sorted_diff);
+colormap(colormap_BlueWhiteRed);
+caxis([-max(abs(sorted_diff(:))),max(abs(sorted_diff(:)))]);
 
 %% Get average fluorescence to Signals event
 
@@ -764,6 +746,10 @@ a = diff(imgaussfilt(mean_aligned_px,2),[],3);
 a(a < 0) = 0;
 AP_image_scroll(a,surround_time);
 warning off; truesize; warning on;
+
+
+
+
 
 
 
