@@ -29,12 +29,12 @@ for curr_day = 1:length(experiments);
     baseline_surround_window = [0,0];
     framerate = 1./median(diff(frame_t));
     surround_samplerate = 1/(framerate*1);
-    surround_time = surround_window(1):surround_samplerate:surround_window(2);
+    t_surround = surround_window(1):surround_samplerate:surround_window(2);
     baseline_surround_time = baseline_surround_window(1):surround_samplerate:baseline_surround_window(2);
     
     % Average (time course) responses
     conditions = unique(stimIDs);
-    im_stim = nan(size(U,1),size(U,2),length(surround_time),length(conditions));
+    im_stim = nan(size(U,1),size(U,2),length(t_surround),length(conditions));
     for curr_condition_idx = 1:length(conditions)
         curr_condition = conditions(curr_condition_idx);
         
@@ -42,7 +42,7 @@ for curr_day = 1:length(experiments);
         use_stim_onsets = stim_onsets(use_stims(2:end));
         use_stim_onsets([1,end]) = [];
         
-        stim_surround_times = bsxfun(@plus, use_stim_onsets(:), surround_time);
+        stim_surround_times = bsxfun(@plus, use_stim_onsets(:), t_surround);
         peri_stim_v = permute(mean(interp1(frame_t,fVdf',stim_surround_times),1),[3,2,1]);
         
         im_stim(:,:,:,curr_condition_idx) = svdFrameReconstruct(Udf,peri_stim_v);
@@ -93,10 +93,10 @@ surround_window = [-0.2,3];
 baseline_surround_window = [0,0];
 framerate = 35;
 surround_samplerate = 1/(framerate*1);
-surround_time = surround_window(1):surround_samplerate:surround_window(2);
+t_surround = surround_window(1):surround_samplerate:surround_window(2);
 baseline_surround_time = baseline_surround_window(1):surround_samplerate:baseline_surround_window(2);
 
-AP_image_scroll(a,surround_time)
+AP_image_scroll(a,t_surround)
 
 
 %% Batch get average choiceworld fluorescence
@@ -131,18 +131,18 @@ for curr_day = 1:length(experiments);
     stimIDs = discretize(stimIDs,[-Inf,-0.125,-0.01,0.01,0.25,Inf],[-2,-1,0,1,2]);
     
     %%%% Get wheel move time
-    surround_time = [-0.5,5];
-    surround_samples = surround_time/Timeline.hw.samplingInterval;
+    t_surround = [-0.5,5];
+    surround_samples = t_surround/Timeline.hw.samplingInterval;
     
     % Get wheel aligned to stim onset
     rotaryEncoder_idx = strcmp({Timeline.hw.inputs.name}, 'rotaryEncoder');
-    surround_time = surround_time(1):Timeline.hw.samplingInterval:surround_time(2);
-    pull_times = bsxfun(@plus,stim_onsets,surround_time);
+    t_surround = t_surround(1):Timeline.hw.samplingInterval:t_surround(2);
+    pull_times = bsxfun(@plus,stim_onsets,t_surround);
     
     stim_aligned_wheel_raw = interp1(Timeline.rawDAQTimestamps, ...
         Timeline.rawDAQData(:,rotaryEncoder_idx),pull_times);
     stim_aligned_wheel = bsxfun(@minus,stim_aligned_wheel_raw, ...
-        nanmedian(stim_aligned_wheel_raw(:,surround_time < 0),2));
+        nanmedian(stim_aligned_wheel_raw(:,t_surround < 0),2));
 
     % Define time to first wheel movement
     thresh_displacement = 2;
@@ -157,14 +157,14 @@ for curr_day = 1:length(experiments);
     baseline_surround_window = [0,0];
     framerate = 1./median(diff(frame_t));
     surround_samplerate = 1/(framerate*1);
-    surround_time = surround_window(1):surround_samplerate:surround_window(2);
+    t_surround = surround_window(1):surround_samplerate:surround_window(2);
     baseline_surround_time = baseline_surround_window(1):surround_samplerate:baseline_surround_window(2);
     
     % Average (time course) responses
     %     conditions = unique(stimIDs);
     conditions = [-2,-1,0,1,2];
-    im_stim_hit = nan(size(U,1),size(U,2),length(surround_time),length(conditions));
-    im_stim_miss = nan(size(U,1),size(U,2),length(surround_time),length(conditions));
+    im_stim_hit = nan(size(U,1),size(U,2),length(t_surround),length(conditions));
+    im_stim_miss = nan(size(U,1),size(U,2),length(t_surround),length(conditions));
 
     for curr_condition_idx = 1:length(conditions)
         curr_condition = conditions(curr_condition_idx);
@@ -172,7 +172,7 @@ for curr_day = 1:length(experiments);
         use_stims = find(stimIDs == curr_condition & signals_events.hitValues(1:num_stim) == 0);
         use_stim_onsets = stim_onsets(use_stims);       
         if length(use_stim_onsets) > 5           
-            stim_surround_times = bsxfun(@plus, use_stim_onsets(:), surround_time);
+            stim_surround_times = bsxfun(@plus, use_stim_onsets(:), t_surround);
             peri_stim_v = permute(mean(interp1(frame_t,fVdf',stim_surround_times),1),[3,2,1]);           
             im_stim_miss(:,:,:,curr_condition_idx) = svdFrameReconstruct(Udf,peri_stim_v);
         end
@@ -180,7 +180,7 @@ for curr_day = 1:length(experiments);
         use_stims = find(stimIDs == curr_condition & signals_events.hitValues(1:num_stim) == 1);
         use_stim_onsets = stim_onsets(use_stims);       
         if length(use_stim_onsets) > 5           
-            stim_surround_times = bsxfun(@plus, use_stim_onsets(:), surround_time);
+            stim_surround_times = bsxfun(@plus, use_stim_onsets(:), t_surround);
             peri_stim_v = permute(mean(interp1(frame_t,fVdf',stim_surround_times),1),[3,2,1]);           
             im_stim_hit(:,:,:,curr_condition_idx) = svdFrameReconstruct(Udf,peri_stim_v);
         end
@@ -305,11 +305,11 @@ surround_window = [-0.2,3];
 baseline_surround_window = [0,0];
 framerate = 35;
 surround_samplerate = 1/(framerate*1);
-surround_time = surround_window(1):surround_samplerate:surround_window(2);
+t_surround = surround_window(1):surround_samplerate:surround_window(2);
 baseline_surround_time = baseline_surround_window(1):surround_samplerate:baseline_surround_window(2);
 
-AP_image_scroll(avg_hit,surround_time)
-AP_image_scroll(avg_miss,surround_time)
+AP_image_scroll(avg_hit,t_surround)
+AP_image_scroll(avg_miss,t_surround)
 
 
 %% PSTH to choiceworld conditions
@@ -717,14 +717,14 @@ align_times = stimOn_times(use_trials(1:length(stimOn_times)));
 % Get the surround time
 framerate = 1./nanmedian(diff(frame_t));
 surround_samplerate = 1/(framerate*1);
-surround_time = surround_window(1):surround_samplerate:surround_window(2);
+t_surround = surround_window(1):surround_samplerate:surround_window(2);
 
 % Don't use times that fall outside of imaging
-align_times(align_times + surround_time(1) < frame_t(2) | ...
-    align_times + surround_time(2) > frame_t(end)) = [];
+align_times(align_times + t_surround(1) < frame_t(2) | ...
+    align_times + t_surround(2) > frame_t(end)) = [];
 
 % Use closest frames to times
-align_surround_times = bsxfun(@plus, align_times, surround_time);
+align_surround_times = bsxfun(@plus, align_times, t_surround);
 frame_edges = [frame_t,frame_t(end)+1/framerate];
 align_frames = discretize(align_surround_times,frame_edges);
 
@@ -743,7 +743,7 @@ mean_aligned_px = svdFrameReconstruct(Udf,mean_aligned_V);
 
 a = diff(imgaussfilt(mean_aligned_px,2),[],3);
 a(a < 0) = 0;
-AP_image_scroll(a,surround_time);
+AP_image_scroll(a,t_surround);
 axis image;
 
 
@@ -753,9 +753,9 @@ axis image;
 use_trials = signals_events.trialSideValues == 1 & signals_events.trialContrastValues == 0 & signals_events.hitValues == 0;
 align_times = reshape(stimOn_times(use_trials(1:length(stimOn_times))),[],1);
 
-surround_time = [-0.5,1.5];
+t_surround = [-0.5,1.5];
 samplerate = framerate*2;
-t_surround = surround_time(1):1/samplerate:surround_time(2);
+t_surround = t_surround(1):1/samplerate:t_surround(2);
 t_peri_event = bsxfun(@plus,align_times,t_surround);
 
 % Draw ROI and align fluorescence
@@ -799,22 +799,22 @@ xlabel('Time from event')
 %% SPECIFIC VERSION OF ABOVE (hit vs. miss) 
 
 % Define times to align
-use_trials = signals_events.trialSideValues == 1 & signals_events.trialContrastValues > 0;
+use_trials = signals_events.trialSideValues == 1 & signals_events.trialContrastValues > 0;% & ~isnan(wheel_move_time);
 align_times = reshape(stimOn_times(use_trials(1:length(stimOn_times))),[],1);
 
-surround_time = [-0.5,1.5];
+t_surround = [-0.5,1.5];
 samplerate = framerate*2;
-t_surround = surround_time(1):1/samplerate:surround_time(2);
+t_surround = t_surround(1):1/samplerate:t_surround(2);
 t_peri_event = bsxfun(@plus,align_times,t_surround);
 
 % Draw ROI and align fluorescence
-[roi_trace,roi_mask] = AP_svd_roi(Udf,fVdf,avg_im,response_map);
+[roi_trace,roi_mask] = AP_svd_roi(Udf,fVdf,response_im,retinotopic_map);
 event_aligned_f = interp1(frame_t,roi_trace,t_peri_event);
 event_aligned_df = interp1(conv(frame_t,[1,1]/2,'valid'),diff(roi_trace),t_peri_event);
 event_aligned_df(event_aligned_df < 0) = 0;
 
 % Pull out MUA at a given depth
-use_spikes = spike_times_timeline(ismember(spike_templates,find(templateDepths > 0 & templateDepths < 1500)));
+use_spikes = spike_times_timeline(ismember(spike_templates,find(templateDepths > 500 & templateDepths < 1500)));
 % use_spikes = spike_times_timeline(ismember(spike_templates,find(templateDepths > 0 & templateDepths < 1500)) &...
 %     ismember(spike_templates,find(msn)));
 t_peri_event_bins = [t_peri_event - 1/(samplerate*2), ...
