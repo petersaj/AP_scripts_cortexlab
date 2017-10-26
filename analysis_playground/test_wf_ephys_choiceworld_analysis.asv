@@ -1,4 +1,4 @@
-%% Batch template for loading
+%% Batch load responses to passive stim
 
 animal = 'AP025';
 % protocol = 'vanillaChoiceworld';
@@ -6,7 +6,7 @@ protocol = 'stimKalatsky';
 experiments = AP_find_experiments(animal,protocol);
 
 % only use experiments with ephys + imaging
-experiments = experiments([experiments.imaging] & ~[experiments.ephys]);
+experiments = experiments([experiments.imaging] & [experiments.ephys]);
 
 load_parts.cam = false;
 load_parts.imaging = true;
@@ -101,19 +101,18 @@ AP_image_scroll(a,surround_time)
 
 %% Batch get average choiceworld fluorescence
 
-animal = 'AP015';
+animal = 'AP025';
 protocol = 'vanillaChoiceworld';
 experiments = AP_find_experiments(animal,protocol);
 
 % only use experiments with ephys + imaging
-experiments = experiments([experiments.imaging] & ~[experiments.ephys]);
+experiments = experiments([experiments.imaging] & [experiments.ephys]);
 
 load_parts.cam = false;
 load_parts.imaging = true;
 load_parts.ephys = false;
 
 batch_vars = struct;
-
 for curr_day = 1:length(experiments);
     
     day = experiments(curr_day).day;
@@ -299,8 +298,8 @@ for curr_day = setdiff(1:length(experiments),ref_im_num);
 end
 
 % Mean
-avg_miss = nanmean(cat(5,batch_vars_reg.im_stim_miss{:}),5);
 avg_hit = nanmean(cat(5,batch_vars_reg.im_stim_hit{:}),5);
+avg_miss = nanmean(cat(5,batch_vars_reg.im_stim_miss{:}),5);
 
 surround_window = [-0.2,3];
 baseline_surround_window = [0,0];
@@ -309,17 +308,17 @@ surround_samplerate = 1/(framerate*1);
 surround_time = surround_window(1):surround_samplerate:surround_window(2);
 baseline_surround_time = baseline_surround_window(1):surround_samplerate:baseline_surround_window(2);
 
-AP_image_scroll(avg_miss,surround_time)
 AP_image_scroll(avg_hit,surround_time)
+AP_image_scroll(avg_miss,surround_time)
 
 
 %% PSTH to choiceworld conditions
 
 stimIDs = signals_events.trialSideValues.*signals_events.trialContrastValues;
-stimIDs = discretize(stimIDs,[-Inf,-0.125,-0.01,0.01,0.25,Inf],[-2,-1,0,1,2]);
+% stimIDs = discretize(stimIDs,[-Inf,-0.125,-0.01,0.01,0.25,Inf],[-2,-1,0,1,2]);
 
-% use_spikes_idx = ismember(spike_templates,find(templateDepths >= 1000 & templateDepths <= 2000));
-use_spikes_idx = ismember(spike_templates,intersect(find(templateDepths >= 1000 & templateDepths <= 2000),find(msn)));
+use_spikes_idx = ismember(spike_templates,find(templateDepths >= 500 & templateDepths <= 1500));
+% use_spikes_idx = ismember(spike_templates,intersect(find(templateDepths >= 500 & templateDepths <= 1500),find(msn)));
 
 use_spikes = spike_times_timeline(use_spikes_idx);
 
@@ -712,8 +711,8 @@ caxis([-max(abs(sorted_diff(:))),max(abs(sorted_diff(:)))]);
 surround_window = [-0.5,2];
 
 % Define the times to align to
-use_trials = signals_events.trialSideValues == 1 & signals_events.trialContrastValues > 0 & signals_events.hitValues == 1;
-align_times = signals_events.stimOnTimes(use_trials(1:length(signals_events.stimOnTimes)))';
+use_trials = signals_events.trialSideValues == 1 & signals_events.trialContrastValues >= 0.5 & signals_events.hitValues == 1;
+align_times = stimOn_times(use_trials(1:length(stimOn_times)));
 
 % Get the surround time
 framerate = 1./nanmedian(diff(frame_t));
@@ -745,7 +744,75 @@ mean_aligned_px = svdFrameReconstruct(Udf,mean_aligned_V);
 a = diff(imgaussfilt(mean_aligned_px,2),[],3);
 a(a < 0) = 0;
 AP_image_scroll(a,surround_time);
-warning off; truesize; warning on;
+axis image;
+
+
+%% Align fluorescence and MUA to task event across trials
+
+% Define times to align
+use_trials = signals_events.trialSideValues == 1 & signals_events.trialContrastValues > 0 & signals_events.hitValues == 1;
+align_times = reshape(stimOn_times(use_trials(1:length(stimOn_times))),[],1);
+
+surround_time = [-0.5,1.5];
+samplerate = framerate*2;
+t_surround = surround_time(1):1/samplerate:surround_time(2);
+t_peri_event = bsxfun(@plus,align_times,t_surround);
+
+% Draw ROI and align fluorescence
+roi_trace = AP_svd_roi(Udf,fVdf,avg_im);
+event_aligned_f = interp1(frame_t,roi_trace,t_peri_event);
+event_aligned_df = interp1(conv(frame_t,[1,1]/2,'valid'),diff(roi_trace),t_peri_event);
+event_aligned_df(event_aligned_df < 0) = 0;
+
+% Pull out MUA at a given depth
+use_spikes = spike_times_timeline(ismember(spike_templates,find(templateDepths > 0 & templateDepths < 1500)));
+% use_spikes = spike_times_timeline(ismember(spike_templates,find(templateDepths > 0 & templateDepths < 1500)) &...
+%     ismember(spike_templates,find(msn)));
+t_peri_event_bins = [t_peri_event - 1/(samplerate*2), ...
+    t_peri_event(:,end) + 1/(samplerate*2)];
+event_aligned_spikes = reshape([histcounts(use_spikes,reshape(t_peri_event_bins',[],1)),NaN],[],length(align_times))';
+event_aligned_spikes(:,length(t_surround)+1) = [];
+
+figure; colormap(gray);
+subplot(2,2,1);
+imagesc(t_surround,1:length(align_times),event_aligned_df)
+line([0,0],ylim,'color','r');
+ylabel('Event number')
+xlabel('Time (s)')
+title('\DeltaF')
+
+subplot(2,2,2);
+imagesc(t_surround,1:length(align_times),event_aligned_spikes)
+line([0,0],ylim,'color','r');
+ylabel('Event number')
+xlabel('Time (s)')
+title('Spikes')
+
+subplot(2,2,3:4); hold on;
+plot(t_surround,mat2gray(nanmean(event_aligned_df,1)),'k','linewidth',2)
+plot(t_surround,mat2gray(nanmean(event_aligned_spikes,1)),'b','linewidth',2)
+line([0,0],ylim,'color','r');
+ylabel('Normalized units')
+xlabel('Time from event')
+
+
+% (some analysis stuff)
+t_avg = t_surround > 0.05 & t_surround < 0.15;
+df_peak1 = nanmean(event_aligned_df(:,t_avg),2);
+spikes_peak1 = nanmean(event_aligned_spikes(:,t_avg),2);
+
+p = polyfit(df_peak1,spikes_peak1,1);
+
+figure; hold on;
+used_contrrevalued_contrasts = 
+col = copper(length(unique(signals_events.trialContrastValues(use_trials))));
+scatter(df_peak1,spikes_peak1,20,'.k');
+line(xlim,xlim*p(1)+p(2))
+
+
+
+
+
 
 
 

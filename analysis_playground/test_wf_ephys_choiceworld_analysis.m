@@ -315,9 +315,9 @@ AP_image_scroll(avg_miss,surround_time)
 %% PSTH to choiceworld conditions
 
 stimIDs = signals_events.trialSideValues.*signals_events.trialContrastValues;
-stimIDs = discretize(stimIDs,[-Inf,-0.125,-0.01,0.01,0.25,Inf],[-2,-1,0,1,2]);
+% stimIDs = discretize(stimIDs,[-Inf,-0.125,-0.01,0.01,0.25,Inf],[-2,-1,0,1,2]);
 
-use_spikes_idx = ismember(spike_templates,find(templateDepths >= 700 & templateDepths <= 1500));
+use_spikes_idx = ismember(spike_templates,find(templateDepths >= 500 & templateDepths <= 1500));
 % use_spikes_idx = ismember(spike_templates,intersect(find(templateDepths >= 500 & templateDepths <= 1500),find(msn)));
 
 use_spikes = spike_times_timeline(use_spikes_idx);
@@ -711,8 +711,8 @@ caxis([-max(abs(sorted_diff(:))),max(abs(sorted_diff(:)))]);
 surround_window = [-0.5,2];
 
 % Define the times to align to
-use_trials = signals_events.trialSideValues == 1 & signals_events.trialContrastValues > 0 & signals_events.hitValues == 1;
-align_times = signals_events.stimOnTimes(use_trials(1:length(signals_events.stimOnTimes)))';
+use_trials = signals_events.trialSideValues == 1 & signals_events.trialContrastValues >= 0.5 & signals_events.hitValues == 1;
+align_times = stimOn_times(use_trials(1:length(stimOn_times)));
 
 % Get the surround time
 framerate = 1./nanmedian(diff(frame_t));
@@ -744,7 +744,131 @@ mean_aligned_px = svdFrameReconstruct(Udf,mean_aligned_V);
 a = diff(imgaussfilt(mean_aligned_px,2),[],3);
 a(a < 0) = 0;
 AP_image_scroll(a,surround_time);
-warning off; truesize; warning on;
+axis image;
+
+
+%% Align fluorescence and MUA to task event across trials
+
+% Define times to align
+use_trials = signals_events.trialSideValues == 1 & signals_events.trialContrastValues == 0 & signals_events.hitValues == 0;
+align_times = reshape(stimOn_times(use_trials(1:length(stimOn_times))),[],1);
+
+surround_time = [-0.5,1.5];
+samplerate = framerate*2;
+t_surround = surround_time(1):1/samplerate:surround_time(2);
+t_peri_event = bsxfun(@plus,align_times,t_surround);
+
+% Draw ROI and align fluorescence
+roi_trace = AP_svd_roi(Udf,fVdf,avg_im);
+event_aligned_f = interp1(frame_t,roi_trace,t_peri_event);
+event_aligned_df = interp1(conv(frame_t,[1,1]/2,'valid'),diff(roi_trace),t_peri_event);
+event_aligned_df(event_aligned_df < 0) = 0;
+
+% Pull out MUA at a given depth
+use_spikes = spike_times_timeline(ismember(spike_templates,find(templateDepths > 0 & templateDepths < 1500)));
+% use_spikes = spike_times_timeline(ismember(spike_templates,find(templateDepths > 0 & templateDepths < 1500)) &...
+%     ismember(spike_templates,find(msn)));
+t_peri_event_bins = [t_peri_event - 1/(samplerate*2), ...
+    t_peri_event(:,end) + 1/(samplerate*2)];
+event_aligned_spikes = reshape([histcounts(use_spikes,reshape(t_peri_event_bins',[],1)),NaN],[],length(align_times))';
+event_aligned_spikes(:,length(t_surround)+1) = [];
+
+figure; colormap(gray);
+subplot(2,2,1);
+imagesc(t_surround,1:length(align_times),event_aligned_df)
+line([0,0],ylim,'color','r');
+ylabel('Event number')
+xlabel('Time (s)')
+title('\DeltaF')
+
+subplot(2,2,2);
+imagesc(t_surround,1:length(align_times),event_aligned_spikes)
+line([0,0],ylim,'color','r');
+ylabel('Event number')
+xlabel('Time (s)')
+title('Spikes')
+
+subplot(2,2,3:4); hold on;
+plot(t_surround,mat2gray(nanmean(event_aligned_df,1)),'k','linewidth',2)
+plot(t_surround,mat2gray(nanmean(event_aligned_spikes,1)),'b','linewidth',2)
+line([0,0],ylim,'color','r');
+ylabel('Normalized units')
+xlabel('Time from event')
+
+
+%% SPECIFIC VERSION OF ABOVE (hit vs. miss) 
+
+% Define times to align
+use_trials = signals_events.trialSideValues == 1 & signals_events.trialContrastValues > 0;
+align_times = reshape(stimOn_times(use_trials(1:length(stimOn_times))),[],1);
+
+surround_time = [-0.5,1.5];
+samplerate = framerate*2;
+t_surround = surround_time(1):1/samplerate:surround_time(2);
+t_peri_event = bsxfun(@plus,align_times,t_surround);
+
+% Draw ROI and align fluorescence
+[roi_trace,roi_mask] = AP_svd_roi(Udf,fVdf,avg_im,response_map);
+event_aligned_f = interp1(frame_t,roi_trace,t_peri_event);
+event_aligned_df = interp1(conv(frame_t,[1,1]/2,'valid'),diff(roi_trace),t_peri_event);
+event_aligned_df(event_aligned_df < 0) = 0;
+
+% Pull out MUA at a given depth
+use_spikes = spike_times_timeline(ismember(spike_templates,find(templateDepths > 0 & templateDepths < 1500)));
+% use_spikes = spike_times_timeline(ismember(spike_templates,find(templateDepths > 0 & templateDepths < 1500)) &...
+%     ismember(spike_templates,find(msn)));
+t_peri_event_bins = [t_peri_event - 1/(samplerate*2), ...
+    t_peri_event(:,end) + 1/(samplerate*2)];
+event_aligned_spikes = reshape([histcounts(use_spikes,reshape(t_peri_event_bins',[],1)),NaN],[],length(align_times))';
+event_aligned_spikes(:,length(t_surround)+1) = [];
+
+figure; colormap(gray);
+subplot(2,2,1);
+imagesc(t_surround,1:length(align_times),event_aligned_df)
+line([0,0],ylim,'color','r');
+ylabel('Event number')
+xlabel('Time (s)')
+title('\DeltaF')
+
+subplot(2,2,2);
+imagesc(t_surround,1:length(align_times),event_aligned_spikes)
+line([0,0],ylim,'color','r');
+ylabel('Event number')
+xlabel('Time (s)')
+title('Spikes')
+
+subplot(2,2,3:4); hold on;
+plot(t_surround,mat2gray(nanmean(event_aligned_df,1)),'k','linewidth',2)
+plot(t_surround,mat2gray(nanmean(event_aligned_spikes,1)),'b','linewidth',2)
+line([0,0],ylim,'color','r');
+ylabel('Normalized units')
+xlabel('Time from event')
+
+% (some analysis stuff)
+t_avg = t_surround > 0.05 & t_surround < 0.15;
+
+curr_hit_trials = signals_events.hitValues(use_trials) == 1;
+
+df_peak1_hit = nanmean(event_aligned_df(curr_hit_trials,t_avg),2);
+spikes_peak1_hit = nanmean(event_aligned_spikes(curr_hit_trials,t_avg),2);
+
+df_peak1_miss = nanmean(event_aligned_df(~curr_hit_trials,t_avg),2);
+spikes_peak1_miss = nanmean(event_aligned_spikes(~curr_hit_trials,t_avg),2);
+
+fit_hit = polyfit(df_peak1_hit,spikes_peak1_hit,1);
+fit_miss = polyfit(df_peak1_miss,spikes_peak1_miss,1);
+
+figure; hold on; axis square;
+[used_contrasts,~,revalued_contrasts] = unique(signals_events.trialContrastValues(use_trials));
+col = copper(length(used_contrasts));
+scatter(df_peak1_hit,spikes_peak1_hit,50,col(revalued_contrasts(curr_hit_trials),:),'filled','MarkerEdgeColor','b');
+scatter(df_peak1_miss,spikes_peak1_miss,50,col(revalued_contrasts(~curr_hit_trials),:),'filled','MarkerEdgeColor','r');
+
+line(xlim,xlim*fit_hit(1)+fit_hit(2)','color','b')
+line(xlim,xlim*fit_miss(1)+fit_miss(2),'color','r')
+xlabel('\DeltaF');
+ylabel('Spikes');
+
 
 
 
