@@ -844,10 +844,14 @@ line([0,0],ylim,'color','r');
 ylabel('Normalized units')
 xlabel('Time from event')
 
-% (some analysis stuff)
+% Plot the average response
 t_avg = t_surround > 0.05 & t_surround < 0.15;
-
 curr_hit_trials = signals_events.hitValues(use_trials) == 1;
+
+figure;
+
+% (trial-trial)
+subplot(1,2,1); hold on;
 
 df_peak1_hit = nanmean(event_aligned_df(curr_hit_trials,t_avg),2);
 spikes_peak1_hit = nanmean(event_aligned_spikes(curr_hit_trials,t_avg),2);
@@ -858,7 +862,6 @@ spikes_peak1_miss = nanmean(event_aligned_spikes(~curr_hit_trials,t_avg),2);
 fit_hit = polyfit(df_peak1_hit,spikes_peak1_hit,1);
 fit_miss = polyfit(df_peak1_miss,spikes_peak1_miss,1);
 
-figure; hold on; axis square;
 [used_contrasts,~,revalued_contrasts] = unique(signals_events.trialContrastValues(use_trials));
 col = copper(length(used_contrasts));
 scatter(df_peak1_hit,spikes_peak1_hit,50,col(revalued_contrasts(curr_hit_trials),:),'filled','MarkerEdgeColor','b');
@@ -868,15 +871,33 @@ line(xlim,xlim*fit_hit(1)+fit_hit(2)','color','b')
 line(xlim,xlim*fit_miss(1)+fit_miss(2),'color','r')
 xlabel('\DeltaF');
 ylabel('Spikes');
+title('Trial');
+axis square;
 
+% (contrast mean)
+subplot(1,2,2); hold on;
 
+df_peak1_hit_contrastmean = grpstats(df_peak1_hit,revalued_contrasts(curr_hit_trials));
+spikes_peak1_hit_contrastmean = grpstats(spikes_peak1_hit,revalued_contrasts(curr_hit_trials));
 
+df_peak1_miss_contrastmean = grpstats(df_peak1_miss,revalued_contrasts(~curr_hit_trials));
+spikes_peak1_miss_contrastmean = grpstats(spikes_peak1_miss,revalued_contrasts(~curr_hit_trials));
 
+fit_hit_contrastmean = polyfit(df_peak1_hit_contrastmean,spikes_peak1_hit_contrastmean,1);
+fit_miss_contrastmean = polyfit(df_peak1_miss_contrastmean,spikes_peak1_miss_contrastmean,1);
 
+col = copper(length(used_contrasts));
+hit_contrasts = unique(revalued_contrasts(curr_hit_trials));
+miss_contrasts = unique(revalued_contrasts(~curr_hit_trials));
+scatter(df_peak1_hit_contrastmean,spikes_peak1_hit_contrastmean,100,col(hit_contrasts,:),'filled','MarkerEdgeColor','b');
+scatter(df_peak1_miss_contrastmean,spikes_peak1_miss_contrastmean,100,col(miss_contrasts,:),'filled','MarkerEdgeColor','r');
 
-
-
-
+line(xlim,xlim*fit_hit_contrastmean(1)+fit_hit_contrastmean(2)','color','b')
+line(xlim,xlim*fit_miss_contrastmean(1)+fit_miss_contrastmean(2),'color','r')
+xlabel('\DeltaF');
+ylabel('Spikes');
+title('Contrast mean');
+axis square;
 
 
 
