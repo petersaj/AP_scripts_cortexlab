@@ -8,7 +8,7 @@ rewardSize = 3;
 
 % Stimuli
 stimAzimuths = [-90,0,90];
-spatialFrequency = 0.1;
+spatialFreq = 1/15;
 contrast = 1;
 sigma = [90,90];
 stimFlickerFrequency = 5;
@@ -39,7 +39,7 @@ stimFlicker = mod(skipRepeats(floor((t - t.at(stimOn))/(1/stimFlickerFrequency))
 
 stim = vis.grating(t, 'square', 'gaussian');
 stim.sigma = sigma;
-stim.spatialFrequency = spatialFrequency;
+stim.spatialFreq = spatialFreq;
 stim.phase = pi*stimFlicker;
 stim.azimuth = trialAzimuth.at(stimOn);
 stim.contrast = contrast;

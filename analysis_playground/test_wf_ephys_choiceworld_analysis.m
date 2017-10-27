@@ -802,9 +802,9 @@ xlabel('Time from event')
 use_trials = signals_events.trialSideValues == 1 & signals_events.trialContrastValues > 0;% & ~isnan(wheel_move_time);
 align_times = reshape(stimOn_times(use_trials(1:length(stimOn_times))),[],1);
 
-t_surround = [-0.5,1.5];
+interval_surround = [-0.5,1.5];
 samplerate = framerate*2;
-t_surround = t_surround(1):1/samplerate:t_surround(2);
+t_surround = interval_surround(1):1/samplerate:interval_surround(2);
 t_peri_event = bsxfun(@plus,align_times,t_surround);
 
 % Draw ROI and align fluorescence
@@ -815,7 +815,7 @@ event_aligned_df(event_aligned_df < 0) = 0;
 
 % Pull out MUA at a given depth
 use_spikes = spike_times_timeline(ismember(spike_templates,find(templateDepths > 500 & templateDepths < 1500)));
-% use_spikes = spike_times_timeline(ismember(spike_templates,find(templateDepths > 0 & templateDepths < 1500)) &...
+% use_spikes = spike_times_timeline(ismember(spike_templates,find(templateDepths > 500 & templateDepths < 1500)) &...
 %     ismember(spike_templates,find(msn)));
 t_peri_event_bins = [t_peri_event - 1/(samplerate*2), ...
     t_peri_event(:,end) + 1/(samplerate*2)];
@@ -846,58 +846,160 @@ xlabel('Time from event')
 
 % Plot the average response
 t_avg = t_surround > 0.05 & t_surround < 0.15;
-curr_hit_trials = signals_events.hitValues(use_trials) == 1;
+hit_trials = signals_events.hitValues(use_trials) == 1;
 
 figure;
 
 % (trial-trial)
-subplot(1,2,1); hold on;
+ax1 = subplot(1,2,1); hold on;
 
-df_peak1_hit = nanmean(event_aligned_df(curr_hit_trials,t_avg),2);
-spikes_peak1_hit = nanmean(event_aligned_spikes(curr_hit_trials,t_avg),2);
+df_peak_hit = nanmean(event_aligned_df(hit_trials,t_avg),2);
+spikes_peak_hit = nanmean(event_aligned_spikes(hit_trials,t_avg),2);
 
-df_peak1_miss = nanmean(event_aligned_df(~curr_hit_trials,t_avg),2);
-spikes_peak1_miss = nanmean(event_aligned_spikes(~curr_hit_trials,t_avg),2);
+df_peak_miss = nanmean(event_aligned_df(~hit_trials,t_avg),2);
+spikes_peak_miss = nanmean(event_aligned_spikes(~hit_trials,t_avg),2);
 
-fit_hit = polyfit(df_peak1_hit,spikes_peak1_hit,1);
-fit_miss = polyfit(df_peak1_miss,spikes_peak1_miss,1);
+fit_hit = robustfit(df_peak_hit,spikes_peak_hit);
+fit_miss = robustfit(df_peak_miss,spikes_peak_miss);
 
 [used_contrasts,~,revalued_contrasts] = unique(signals_events.trialContrastValues(use_trials));
 col = copper(length(used_contrasts));
-scatter(df_peak1_hit,spikes_peak1_hit,50,col(revalued_contrasts(curr_hit_trials),:),'filled','MarkerEdgeColor','b');
-scatter(df_peak1_miss,spikes_peak1_miss,50,col(revalued_contrasts(~curr_hit_trials),:),'filled','MarkerEdgeColor','r');
+scatter(df_peak_hit,spikes_peak_hit,50,col(revalued_contrasts(hit_trials),:),'filled','MarkerEdgeColor','b');
+scatter(df_peak_miss,spikes_peak_miss,50,col(revalued_contrasts(~hit_trials),:),'filled','MarkerEdgeColor','r');
+axis square tight;
 
-line(xlim,xlim*fit_hit(1)+fit_hit(2)','color','b')
-line(xlim,xlim*fit_miss(1)+fit_miss(2),'color','r')
+line(xlim,xlim*fit_hit(2)+fit_hit(1)','color','b')
+line(xlim,xlim*fit_miss(2)+fit_miss(1),'color','r')
 xlabel('\DeltaF');
 ylabel('Spikes');
 title('Trial');
-axis square;
 
 % (contrast mean)
-subplot(1,2,2); hold on;
+ax2 = subplot(1,2,2); hold on;
 
-df_peak1_hit_contrastmean = grpstats(df_peak1_hit,revalued_contrasts(curr_hit_trials));
-spikes_peak1_hit_contrastmean = grpstats(spikes_peak1_hit,revalued_contrasts(curr_hit_trials));
+df_peak_hit_contrastmean = grpstats(df_peak_hit,revalued_contrasts(hit_trials),'mean');
+spikes_peak_hit_contrastmean = grpstats(spikes_peak_hit,revalued_contrasts(hit_trials),'mean');
 
-df_peak1_miss_contrastmean = grpstats(df_peak1_miss,revalued_contrasts(~curr_hit_trials));
-spikes_peak1_miss_contrastmean = grpstats(spikes_peak1_miss,revalued_contrasts(~curr_hit_trials));
+df_peak_miss_contrastmean = grpstats(df_peak_miss,revalued_contrasts(~hit_trials),'mean');
+spikes_peak_miss_contrastmean = grpstats(spikes_peak_miss,revalued_contrasts(~hit_trials),'mean');
 
-fit_hit_contrastmean = polyfit(df_peak1_hit_contrastmean,spikes_peak1_hit_contrastmean,1);
-fit_miss_contrastmean = polyfit(df_peak1_miss_contrastmean,spikes_peak1_miss_contrastmean,1);
+fit_hit_contrastmean = robustfit(df_peak_hit_contrastmean,spikes_peak_hit_contrastmean);
+fit_miss_contrastmean = robustfit(df_peak_miss_contrastmean,spikes_peak_miss_contrastmean);
 
 col = copper(length(used_contrasts));
-hit_contrasts = unique(revalued_contrasts(curr_hit_trials));
-miss_contrasts = unique(revalued_contrasts(~curr_hit_trials));
-scatter(df_peak1_hit_contrastmean,spikes_peak1_hit_contrastmean,100,col(hit_contrasts,:),'filled','MarkerEdgeColor','b');
-scatter(df_peak1_miss_contrastmean,spikes_peak1_miss_contrastmean,100,col(miss_contrasts,:),'filled','MarkerEdgeColor','r');
+hit_contrasts = unique(revalued_contrasts(hit_trials));
+miss_contrasts = unique(revalued_contrasts(~hit_trials));
+scatter(df_peak_hit_contrastmean,spikes_peak_hit_contrastmean,100,col(hit_contrasts,:),'filled','MarkerEdgeColor','b');
+scatter(df_peak_miss_contrastmean,spikes_peak_miss_contrastmean,100,col(miss_contrasts,:),'filled','MarkerEdgeColor','r');
+axis square tight;
 
-line(xlim,xlim*fit_hit_contrastmean(1)+fit_hit_contrastmean(2)','color','b')
-line(xlim,xlim*fit_miss_contrastmean(1)+fit_miss_contrastmean(2),'color','r')
+line(xlim,xlim*fit_hit_contrastmean(2)+fit_hit_contrastmean(1)','color','b')
+line(xlim,xlim*fit_miss_contrastmean(2)+fit_miss_contrastmean(1),'color','r')
 xlabel('\DeltaF');
 ylabel('Spikes');
 title('Contrast mean');
-axis square;
+
+% (total session, put on both plots)
+skip_seconds = 60;
+use_frames = frame_t > skip_seconds & abs(frame_t-frame_t(end)) > skip_seconds;
+roi_trace_df = diff(roi_trace);
+frame_t_df = conv(frame_t,[1,1]/2,'valid');
+frame_t_df_resample = frame_t_df(1):1/samplerate:frame_t_df(end);
+roi_trace_df_resample = interp1(frame_t_df,roi_trace_df,frame_t_df_resample);
+roi_trace_df_resample(roi_trace_df < 0) = 0;
+spike_bins = [frame_t_df_resample-1/samplerate,frame_t_df_resample(end)+1/samplerate];
+binned_spikes = histcounts(use_spikes,spike_bins);
+
+fit_total = robustfit(roi_trace_df_resample(use_frames)',binned_spikes(use_frames)');
+line(ax1,xlim(ax1),xlim(ax1)*fit_total(2)+fit_total(1)','color','k','linestyle','--')
+line(ax2,xlim(ax2),xlim(ax2)*fit_total(2)+fit_total(1)','color','k','linestyle','--')
+
+legend(ax1,{'Correct','Incorrect','Correct fit','Incorrect fit','Session fit'});
+
+% Get time-varying fit from fluorescence to spikes 
+smooth_size = 5;
+gw = gausswin(smooth_size,3)';
+smWin = gw./sum(gw);
+event_aligned_df_smooth = conv2(event_aligned_df,smWin,'same');
+event_aligned_spikes_smooth = conv2(event_aligned_spikes,smWin,'same');
+
+f = figure('Position',[464,558,776,342]);
+ax1 = axes; hold on; axis square
+subplot(1,2,1,ax1);
+ylabel('Normalized units');
+xlabel('Time from event');
+plot(t_surround,mat2gray(nanmean(event_aligned_df_smooth,1)),'k','linewidth',2);
+plot(t_surround,mat2gray(nanmean(event_aligned_spikes_smooth,1)),'b','linewidth',2);
+t_line = line([0,0],ylim,'color','k');
+
+ax2 = axes; hold on; axis square
+subplot(1,2,2,ax2);
+xlabel('\DeltaF');
+ylabel('Spikes');
+xlim([0,max(event_aligned_df_smooth(:))]);
+ylim([0,max(event_aligned_spikes_smooth(:))])
+
+hit_plot = plot(event_aligned_df_smooth(hit_trials,1),event_aligned_spikes_smooth(hit_trials,1),'.b');
+miss_plot = plot(event_aligned_df_smooth(~hit_trials,1),event_aligned_spikes_smooth(~hit_trials,1),'.r');
+
+hit_fit_line = line(xlim,ylim,'color','b');
+miss_fit_line = line(xlim,ylim,'color','r');
+
+hit_fit_t = nan(size(event_aligned_df_smooth,2),2);
+miss_fit_t = nan(size(event_aligned_df_smooth,2),2);
+corr_p = nan(size(event_aligned_df_smooth,2),1);
+for i = 1:size(event_aligned_df_smooth,2)
+    set(hit_plot,'XData',event_aligned_df_smooth(hit_trials,i),'YData',event_aligned_spikes_smooth(hit_trials,i));
+    set(miss_plot,'XData',event_aligned_df_smooth(~hit_trials,i),'YData',event_aligned_spikes_smooth(~hit_trials,i));
+    
+    curr_fit_hit = robustfit(event_aligned_df_smooth(hit_trials,i),event_aligned_spikes_smooth(hit_trials,i));
+    curr_fit_miss = robustfit(event_aligned_df_smooth(~hit_trials,i),event_aligned_spikes_smooth(~hit_trials,i));
+    [r,p] = corrcoef(event_aligned_df_smooth(:,i),event_aligned_spikes_smooth(:,i))    ;
+    corr_p(i) = p(2);
+    
+    if p(2) < 0.05
+        set(hit_fit_line,'XData',xlim,'YData',xlim*curr_fit_hit(2)+curr_fit_hit(1));
+        set(miss_fit_line,'XData',xlim,'YData',xlim*curr_fit_miss(2)+curr_fit_miss(1));
+    else
+        set(hit_fit_line,'XData',[],'YData',[]);
+        set(miss_fit_line,'XData',[],'YData',[]);
+    end
+    
+    set(t_line,'XData',repmat(t_surround(i),1,2));
+    
+    hit_fit_t(i,:) = curr_fit_hit;
+    miss_fit_t(i,:) = curr_fit_miss;
+   
+    frames(i) = getframe(f);
+end
+
+% % (write this movie to a file)
+% fn = 'C:\Users\Andrew\OneDrive for Business\Documents\CarandiniHarrisLab\presentations\171114_sfn\figs\aligned_fluor_spikes_regression.mov';
+% writerObj = VideoWriter(fn);
+% writerObj.FrameRate = samplerate/4;
+% open(writerObj);
+% writeVideo(writerObj,frames);
+% close(writerObj);
+
+figure;
+subplot(2,1,1); hold on;
+plot(t_surround,miss_fit_t(:,1),'r','linewidth',2);
+plot(t_surround,hit_fit_t(:,1),'b','linewidth',2);
+line([0,0],ylim,'color','k');
+ylabel('Fit intercept');
+xlabel('Time from event');
+legend({'Hit','Miss'})
+subplot(2,1,2); hold on;
+plot(t_surround,miss_fit_t(:,2),'r','linewidth',2);
+plot(t_surround,hit_fit_t(:,2),'b','linewidth',2);
+line([0,0],ylim,'color','k');
+ylabel('Fit slope');
+xlabel('Time from event');
+
+
+
+
+
 
 
 

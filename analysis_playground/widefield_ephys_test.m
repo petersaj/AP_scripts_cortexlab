@@ -2655,7 +2655,7 @@ n_depth_groups = 6;
 %depth_group_edges = linspace(700,3500,n_depth_groups+1);
 depth_group_edges = round(linspace(str_depth(1),str_depth(2),n_depth_groups+1));
 depth_group_edges_use = depth_group_edges;
-%depth_group_edges_use = [3500 Inf];
+%depth_group_edges_use = [500 1500];
 
 [depth_group_n,depth_group] = histc(spikeDepths,depth_group_edges_use);
 depth_groups_used = unique(depth_group);
