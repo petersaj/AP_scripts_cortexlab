@@ -815,7 +815,7 @@ event_aligned_df(event_aligned_df < 0) = 0;
 
 % Pull out MUA at a given depth
 use_spikes = spike_times_timeline(ismember(spike_templates,find(templateDepths > 500 & templateDepths < 1200)));
-% use_spikes = spike_times_timeline(ismember(spike_templates,find(templateDepths > 500 & templateDepths < 1200)) &...
+% use_spikes = spike_times_timeline(ismember(spike_templates,find(templateDepths > 500 & templateDepths < 1500)) &...
 %     ismember(spike_templates,find(msn)));
 t_peri_event_bins = [t_peri_event - 1/(samplerate*2), ...
     t_peri_event(:,end) + 1/(samplerate*2)];
@@ -925,16 +925,17 @@ warning off
 for curr_shuff = 1:n_shuff
     corr_shuff(:,:,curr_shuff) = (...
         zscore(shake(event_aligned_df,1),1)'* ...
-        zscore(event_aligned_spikes,1))./(size(event_aligned_df,1)-1);
+        zscore(shake(event_aligned_spikes,1),1))./(size(event_aligned_df,1)-1);
     curr_shuff
 end
 warning on
-corr_shuff_cutoff = prctile(corr_shuff,[2.5,97.5],3);
-corr_sig = (corr_real > corr_shuff_cutoff(:,:,2)) - (corr_real < corr_shuff_cutoff(:,:,1));
+corr_shuff_cutoff = prctile(corr_shuff,95,3);
+corr_sig = corr_real > corr_shuff_cutoff;
 
 figure;
 subplot(4,4,[1,2,3,5,6,7,9,10,11])
 imagesc(t_surround,t_surround,corr_sig);
+axis square;
 colormap(gray);
 ylabel('\DeltaF');
 xlabel('Spikes');
@@ -946,10 +947,10 @@ median_reward_time_rel = nanmedian( ...
     reward_t_timeline(ismember(reward_trial_idx,use_trials_idx(hit_trials))) - align_times(hit_trials)');
 
 line(xlim,ylim,'color','r');
-line([0,0],ylim,'color','m');
-line(xlim,[0,0],'color','m');
-line(repmat(median_stim_time_rel,1,2),ylim,'color','g','linestyle','--');
-line(xlim,repmat(median_stim_time_rel,1,2),'color','g','linestyle','--');
+line([0,0],ylim,'color','r');
+line(xlim,[0,0],'color','r');
+line(repmat(median_stim_time_rel,1,2),ylim,'color','r','linestyle','--');
+line(xlim,repmat(median_stim_time_rel,1,2),'color','r','linestyle','--');
 line(repmat(median_move_time_rel,1,2),ylim,'color','r','linestyle','--');
 line(xlim,repmat(median_move_time_rel,1,2),'color','r','linestyle','--');
 line(repmat(median_reward_time_rel,1,2),ylim,'color','b','linestyle','--');
@@ -957,16 +958,16 @@ line(xlim,repmat(median_reward_time_rel,1,2),'color','b','linestyle','--');
 
 subplot(4,4,[4,8,12]);
 plot(nanmean(event_aligned_df,1),t_surround,'k','linewidth',2);
-line(xlim,[0,0],'color','m');
-line(xlim,repmat(median_stim_time_rel,1,2),'color','g','linestyle','--');
+line(xlim,[0,0],'color','r');
+line(xlim,repmat(median_move_time_rel,1,2),'color','r','linestyle','--');
 line(xlim,repmat(median_move_time_rel,1,2),'color','r','linestyle','--');
 line(xlim,repmat(median_reward_time_rel,1,2),'color','b','linestyle','--');
 axis tight off; set(gca,'YDir','reverse');
 
 subplot(4,4,[13,14,15]);
 plot(t_surround,nanmean(event_aligned_spikes,1),'k','linewidth',2);
-line([0,0],ylim,'color','m');
-line(repmat(median_stim_time_rel,1,2),ylim,'color','g','linestyle','--');
+line([0,0],ylim,'color','r');
+line(repmat(median_move_time_rel,1,2),ylim,'color','r','linestyle','--');
 line(repmat(median_move_time_rel,1,2),ylim,'color','r','linestyle','--');
 line(repmat(median_reward_time_rel,1,2),ylim,'color','b','linestyle','--');
 axis tight off;
