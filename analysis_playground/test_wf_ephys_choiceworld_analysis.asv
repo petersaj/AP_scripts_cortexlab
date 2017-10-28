@@ -799,7 +799,7 @@ xlabel('Time from event')
 %% SPECIFIC VERSION OF ABOVE (hit vs. miss) 
 
 % Define times to align
-use_trials = signals_events.trialSideValues == 1 & signals_events.trialContrastValues > 0;% & ~isnan(wheel_move_time);
+use_trials = signals_events.trialSideValues == -1 & signals_events.trialContrastValues > 0;% & ~isnan(wheel_move_time);
 align_times = reshape(stimOn_times(use_trials(1:length(stimOn_times))),[],1);
 
 interval_surround = [-0.5,1.5];
@@ -914,10 +914,10 @@ fit_total = robustfit(roi_trace_df_resample(use_frames)',binned_spikes(use_frame
 line(ax1,xlim(ax1),xlim(ax1)*fit_total(2)+fit_total(1)','color','k','linestyle','--')
 line(ax2,xlim(ax2),xlim(ax2)*fit_total(2)+fit_total(1)','color','k','linestyle','--')
 
-legend(ax1,{'Correct','Incorrect','Correct fit','Incorrect fit','Session fit'});
+legend(ax2,{'Correct','Incorrect','Correct fit','Incorrect fit','Session fit'});
 
 % Get time-varying fit from fluorescence to spikes 
-smooth_size = 5;
+smooth_size = 10;
 gw = gausswin(smooth_size,3)';
 smWin = gw./sum(gw);
 event_aligned_df_smooth = conv2(event_aligned_df,smWin,'same');
@@ -954,7 +954,7 @@ for i = 1:size(event_aligned_df_smooth,2)
     
     curr_fit_hit = robustfit(event_aligned_df_smooth(hit_trials,i),event_aligned_spikes_smooth(hit_trials,i));
     curr_fit_miss = robustfit(event_aligned_df_smooth(~hit_trials,i),event_aligned_spikes_smooth(~hit_trials,i));
-    [r,p] = corrcoef(event_aligned_df_smooth(:,i),event_aligned_spikes_smooth(:,i))    ;
+    [r,p] = corrcoef(event_aligned_df_smooth(:,i),event_aligned_spikes_smooth(:,i));
     corr_p(i) = p(2);
     
     if p(2) < 0.05
@@ -972,35 +972,81 @@ for i = 1:size(event_aligned_df_smooth,2)
    
     frames(i) = getframe(f);
 end
+close(f);
 
-% (write this movie to a file)
-fn = 'C:\Users\Andrew\OneDrive for Business\Documents\CarandiniHarrisLab\presentations\171114_sfn\figs\aligned_fluor_spikes_regression.mov';
-writerObj = VideoWriter(fn);
-writerObj.FrameRate = samplerate/4;
-open(writerObj);
-writeVideo(writerObj,frames);
-close(writerObj);
+% % (write this movie to a file)
+% fn = 'C:\Users\Andrew\OneDrive for Business\Documents\CarandiniHarrisLab\presentations\171114_sfn\figs\aligned_fluor_spikes_regression.mov';
+% writerObj = VideoWriter(fn);
+% writerObj.FrameRate = samplerate/4;
+% open(writerObj);
+% writeVideo(writerObj,frames);
+% close(writerObj);
+
+hit_fit_t(corr_p > 0.05,:) = NaN;
+miss_fit_t(corr_p > 0.05,:) = NaN;
 
 figure;
 subplot(2,1,1); hold on;
-plot(t_surround,miss_fit_t(:,1),'r','linewidth',2)
-plot(t_surround,hit_fit_t(:,1),'b','linewidth',2)
+plot(t_surround,hit_fit_t(:,1),'b','linewidth',2);
+plot(t_surround,miss_fit_t(:,1),'r','linewidth',2);
 line([0,0],ylim,'color','k');
 ylabel('Fit intercept');
 xlabel('Time from event');
 legend({'Hit','Miss'})
 subplot(2,1,2); hold on;
-plot(t_surround,miss_fit_t(:,2),'r','linewidth',2)
-plot(t_surround,hit_fit_t(:,2),'b','linewidth',2)
-
+plot(t_surround,hit_fit_t(:,2),'b','linewidth',2);
+plot(t_surround,miss_fit_t(:,2),'r','linewidth',2);
 line([0,0],ylim,'color','k');
 ylabel('Fit slope');
 xlabel('Time from event');
 
+% Get significant correlations from df to spikes
+corr_real = (zscore(event_aligned_df,1)'*zscore(event_aligned_spikes,1))./(size(event_aligned_df,1)-1);
+n_shuff = 1000;
+corr_shuff = nan(size(corr_real,1),size(corr_real,2),n_shuff);
+warning off
+for curr_shuff = 1:n_shuff
+    corr_shuff(:,:,curr_shuff) = (...
+        zscore(shake(event_aligned_df,1),1)'* ...
+        zscore(shake(event_aligned_spikes,1),1))./(size(event_aligned_df,1)-1);
+    curr_shuff
+end
+warning on
+corr_shuff_cutoff = prctile(corr_shuff,95,3);
+corr_sig = corr_real > corr_shuff_cutoff;
+figure;imagesc(t_surround,t_surround,corr_sig);
+axis square;
+colormap(gray);
+ylabel('\DeltaF');
+xlabel('Spikes');
+line([0,0],ylim,'color','r');
+line(xlim,[0,0],'color','r');
+line(xlim,ylim,'color','r')
 
 
 
-
+corr_real = (zscore(event_aligned_spikes,1)'*zscore(event_aligned_spikes,1))./(size(event_aligned_spikes,1)-1);
+n_shuff = 1000;
+corr_shuff = nan(size(corr_real,1),size(corr_real,2),n_shuff);
+warning off
+for curr_shuff = 1:n_shuff
+    corr_shuff(:,:,curr_shuff) = (...
+        zscore(shake(event_aligned_spikes,1),1)'* ...
+        zscore(shake(event_aligned_spikes,1),1))./(size(event_aligned_spikes,1)-1);
+    curr_shuff
+end
+warning on
+corr_shuff_cutoff = prctile(corr_shuff,95,3);
+corr_sig = corr_real > corr_shuff_cutoff;
+figure;imagesc(t_surround,t_surround,corr_sig);
+axis square;
+colormap(gray);
+ylabel('\DeltaF');
+xlabel('Spikes');
+line([0,0],ylim,'color','r');
+line(xlim,[0,0],'color','r');
+line(xlim,ylim,'color','r')
+title('Significant correlations 
 
 
 
