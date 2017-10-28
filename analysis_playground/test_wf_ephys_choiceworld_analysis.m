@@ -433,7 +433,7 @@ legend(cellfun(@(x) ['Depth ' num2str(x)],num2cell(1:n_depth_groups),'uni',false
 %% PSTH for left vs. right stim, choose left vs. right stim (by depth)
 
 % Group multiunit by depth
-n_depth_groups = 6;
+n_depth_groups = 8;
 %depth_group_edges = linspace(0,max(channel_positions(:,2)),n_depth_groups+1);
 %depth_group_edges = linspace(0,4000,n_depth_groups+1);
 depth_group_edges = round(linspace(str_depth(1),str_depth(2),n_depth_groups+1));
@@ -799,7 +799,7 @@ xlabel('Time from event')
 %% SPECIFIC VERSION OF ABOVE (hit vs. miss) 
 
 % Define times to align
-use_trials = signals_events.trialSideValues == -1 & signals_events.trialContrastValues > 0;% & ~isnan(wheel_move_time);
+use_trials = signals_events.trialSideValues == 1 & signals_events.trialContrastValues > 0;% & ~isnan(wheel_move_time);
 align_times = reshape(stimOn_times(use_trials(1:length(stimOn_times))),[],1);
 
 interval_surround = [-0.5,1.5];
@@ -808,13 +808,13 @@ t_surround = interval_surround(1):1/samplerate:interval_surround(2);
 t_peri_event = bsxfun(@plus,align_times,t_surround);
 
 % Draw ROI and align fluorescence
-[roi_trace,roi_mask] = AP_svd_roi(Udf,fVdf,response_im,retinotopic_map);
+[roi_trace,roi_mask] = AP_svd_roi(Udf,fVdf,weight_im,response_im);
 event_aligned_f = interp1(frame_t,roi_trace,t_peri_event);
 event_aligned_df = interp1(conv(frame_t,[1,1]/2,'valid'),diff(roi_trace),t_peri_event);
 event_aligned_df(event_aligned_df < 0) = 0;
 
 % Pull out MUA at a given depth
-use_spikes = spike_times_timeline(ismember(spike_templates,find(templateDepths > 500 & templateDepths < 1500)));
+use_spikes = spike_times_timeline(ismember(spike_templates,find(templateDepths > 500 & templateDepths < 1200)));
 % use_spikes = spike_times_timeline(ismember(spike_templates,find(templateDepths > 500 & templateDepths < 1500)) &...
 %     ismember(spike_templates,find(msn)));
 t_peri_event_bins = [t_peri_event - 1/(samplerate*2), ...
@@ -847,6 +847,7 @@ xlabel('Time from event')
 % Plot the average response
 t_avg = t_surround > 0.05 & t_surround < 0.15;
 hit_trials = signals_events.hitValues(use_trials) == 1;
+plot(t_surround,t_avg,'m')
 
 figure;
 
@@ -916,6 +917,54 @@ line(ax2,xlim(ax2),xlim(ax2)*fit_total(2)+fit_total(1)','color','k','linestyle',
 
 legend(ax2,{'Correct','Incorrect','Correct fit','Incorrect fit','Session fit'});
 
+% Get significant correlations from df to spikes
+corr_real = (zscore(event_aligned_df,1)'*zscore(event_aligned_spikes,1))./(size(event_aligned_df,1)-1);
+n_shuff = 1000;
+corr_shuff = nan(size(corr_real,1),size(corr_real,2),n_shuff);
+warning off
+for curr_shuff = 1:n_shuff
+    corr_shuff(:,:,curr_shuff) = (...
+        zscore(shake(event_aligned_df,1),1)'* ...
+        zscore(shake(event_aligned_spikes,1),1))./(size(event_aligned_df,1)-1);
+    curr_shuff
+end
+warning on
+corr_shuff_cutoff = prctile(corr_shuff,95,3);
+corr_sig = corr_real > corr_shuff_cutoff;
+
+figure;
+subplot(4,4,[1,2,3,5,6,7,9,10,11])
+imagesc(t_surround,t_surround,corr_sig);
+axis square;
+colormap(gray);
+ylabel('\DeltaF');
+xlabel('Spikes');
+
+median_move_time = nanmedian(wheel_move_time' - stimOn_times);
+median_reward_time = nanmedian(reward_t_timeline - stimOn_times(signals_events.hitValues == 1)');
+
+line(xlim,ylim,'color','r');
+line([0,0],ylim,'color','r');
+line(xlim,[0,0],'color','r');
+line(repmat(median_move_time,1,2),ylim,'color','r','linestyle','--');
+line(xlim,repmat(median_move_time,1,2),'color','r','linestyle','--');
+line(repmat(median_reward_time,1,2),ylim,'color','r','linestyle','--');
+line(xlim,repmat(median_reward_time,1,2),'color','r','linestyle','--');
+
+subplot(4,4,[4,8,12]);
+plot(nanmean(event_aligned_df,1),t_surround,'k','linewidth',2);
+line(xlim,[0,0],'color','r');
+line(xlim,repmat(median_move_time,1,2),'color','r','linestyle','--');
+line(xlim,repmat(median_reward_time,1,2),'color','r','linestyle','--');
+axis tight off; set(gca,'YDir','reverse');
+
+subplot(4,4,[13,14,15]);
+plot(t_surround,nanmean(event_aligned_spikes,1),'k','linewidth',2);
+line([0,0],ylim,'color','r');
+line(repmat(median_move_time,1,2),ylim,'color','r','linestyle','--');
+line(repmat(median_reward_time,1,2),ylim,'color','r','linestyle','--');
+axis tight off;
+
 % Get time-varying fit from fluorescence to spikes 
 smooth_size = 10;
 gw = gausswin(smooth_size,3)';
@@ -947,17 +996,16 @@ miss_fit_line = line(xlim,ylim,'color','r');
 
 hit_fit_t = nan(size(event_aligned_df_smooth,2),2);
 miss_fit_t = nan(size(event_aligned_df_smooth,2),2);
-corr_p = nan(size(event_aligned_df_smooth,2),1);
+plot_fit = diag(corr_sig);
+warning off;
 for i = 1:size(event_aligned_df_smooth,2)
     set(hit_plot,'XData',event_aligned_df_smooth(hit_trials,i),'YData',event_aligned_spikes_smooth(hit_trials,i));
     set(miss_plot,'XData',event_aligned_df_smooth(~hit_trials,i),'YData',event_aligned_spikes_smooth(~hit_trials,i));
     
     curr_fit_hit = robustfit(event_aligned_df_smooth(hit_trials,i),event_aligned_spikes_smooth(hit_trials,i));
     curr_fit_miss = robustfit(event_aligned_df_smooth(~hit_trials,i),event_aligned_spikes_smooth(~hit_trials,i));
-    [r,p] = corrcoef(event_aligned_df_smooth(:,i),event_aligned_spikes_smooth(:,i));
-    corr_p(i) = p(2);
     
-    if p(2) < 0.05
+    if plot_fit(i)
         set(hit_fit_line,'XData',xlim,'YData',xlim*curr_fit_hit(2)+curr_fit_hit(1));
         set(miss_fit_line,'XData',xlim,'YData',xlim*curr_fit_miss(2)+curr_fit_miss(1));
     else
@@ -972,6 +1020,7 @@ for i = 1:size(event_aligned_df_smooth,2)
    
     frames(i) = getframe(f);
 end
+warning on;
 close(f);
 
 % % (write this movie to a file)
@@ -982,8 +1031,8 @@ close(f);
 % writeVideo(writerObj,frames);
 % close(writerObj);
 
-hit_fit_t(corr_p > 0.05,:) = NaN;
-miss_fit_t(corr_p > 0.05,:) = NaN;
+hit_fit_t(~plot_fit,:) = NaN;
+miss_fit_t(~plot_fit,:) = NaN;
 
 figure;
 subplot(2,1,1); hold on;
@@ -1000,34 +1049,22 @@ line([0,0],ylim,'color','k');
 ylabel('Fit slope');
 xlabel('Time from event');
 
-% Get significant correlations from df to spikes
-corr_real = (zscore(event_aligned_df,1)'*zscore(event_aligned_spikes,1))./(size(event_aligned_df,1)-1);
-n_shuff = 1000;
-corr_shuff = nan(size(corr_real,1),size(corr_real,2),n_shuff);
-warning off
-for curr_shuff = 1:n_shuff
-    corr_shuff(:,:,curr_shuff) = (...
-        zscore(shake(event_aligned_df,1),1)'* ...
-        zscore(shake(event_aligned_spikes,1),1))./(size(event_aligned_df,1)-1);
-    curr_shuff
-end
-warning on
-corr_shuff_cutoff = prctile(corr_shuff,95,3);
-corr_sig = corr_real > corr_shuff_cutoff;
-figure;imagesc(t_surround,t_surround,corr_sig);
-axis square;
-colormap(gray);
-ylabel('\DeltaF');
-xlabel('Spikes');
-line([0,0],ylim,'color','r');
-line(xlim,[0,0],'color','r');
-line(xlim,ylim,'color','r')
-median_move_time = nanmedian(wheel_move_time' - stimOn_times);
-median_reward_time = nanmedian(reward_t_timeline - stimOn_times(signals_events.hitValues == 1)');
-line(repmat(median_move_time,1,2),ylim,'color','r','linestyle','--');
-line(xlim,repmat(median_move_time,1,2),'color','r','linestyle','--');
-line(repmat(median_reward_time,1,2),ylim,'color','r','linestyle','--');
-line(xlim,repmat(median_reward_time,1,2),'color','r','linestyle','--');
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 

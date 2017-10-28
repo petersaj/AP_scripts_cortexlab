@@ -22,7 +22,7 @@ if ~exist('roi_mask','var') || isempty(roi_mask)
         colormap(ax_overlay, colormap_BlueWhiteRed);
         overlay_thresh = double(prctile(abs(overlay(:)),95));
         caxis(ax_overlay, [-overlay_thresh,overlay_thresh]);
-        set(overlay_im,'AlphaData',0.3*mat2gray(abs(overlay),[0,overlay_thresh]));
+        set(overlay_im,'AlphaData',0.5*mat2gray(abs(overlay),[0,overlay_thresh]));
     end
     
     roi_mask = roipoly;
