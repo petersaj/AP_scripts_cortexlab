@@ -799,8 +799,17 @@ xlabel('Time from event')
 %% SPECIFIC VERSION OF ABOVE (hit vs. miss) 
 
 % Define times to align
-use_trials = signals_events.trialSideValues == 1 & signals_events.trialContrastValues > 0;% & ~isnan(wheel_move_time);
-align_times = reshape(stimOn_times(use_trials(1:length(stimOn_times))),[],1);
+
+% SIGNALS - CHOICEWORLD
+% use_trials = signals_events.trialSideValues == 1 & signals_events.trialContrastValues > 0;% & ~isnan(wheel_move_time);
+% align_times = reshape(stimOn_times(use_trials(1:length(stimOn_times))),[],1);
+% hit_trials = signals_events.hitValues(use_trials) == 1;
+% stim_conditions = signals_events.trialContrastValues(use_trials);
+
+% MPEP PASSIVE
+align_times = reshape(stimOn_times,[],1);
+hit_trials = rand(size(align_times)) > 0.5;
+stim_conditions = stimIDs;
 
 interval_surround = [-0.5,1.5];
 samplerate = framerate*2;
@@ -846,7 +855,6 @@ xlabel('Time from event')
 
 % Plot the average response
 t_avg = t_surround > 0.05 & t_surround < 0.15;
-hit_trials = signals_events.hitValues(use_trials) == 1;
 plot(t_surround,t_avg,'m')
 
 figure;
@@ -863,10 +871,10 @@ spikes_peak_miss = nanmean(event_aligned_spikes(~hit_trials,t_avg),2);
 fit_hit = robustfit(df_peak_hit,spikes_peak_hit);
 fit_miss = robustfit(df_peak_miss,spikes_peak_miss);
 
-[used_contrasts,~,revalued_contrasts] = unique(signals_events.trialContrastValues(use_trials));
-col = copper(length(used_contrasts));
-scatter(df_peak_hit,spikes_peak_hit,50,col(revalued_contrasts(hit_trials),:),'filled','MarkerEdgeColor','b');
-scatter(df_peak_miss,spikes_peak_miss,50,col(revalued_contrasts(~hit_trials),:),'filled','MarkerEdgeColor','r');
+[used_conditions,~,revalued_conditions] = unique(stim_conditions);
+col = copper(length(used_conditions));
+scatter(df_peak_hit,spikes_peak_hit,50,col(revalued_conditions(hit_trials),:),'filled','MarkerEdgeColor','b');
+scatter(df_peak_miss,spikes_peak_miss,50,col(revalued_conditions(~hit_trials),:),'filled','MarkerEdgeColor','r');
 axis square tight;
 
 line(xlim,xlim*fit_hit(2)+fit_hit(1)','color','b')
@@ -878,18 +886,18 @@ title('Trial');
 % (contrast mean)
 ax2 = subplot(1,2,2); hold on;
 
-df_peak_hit_contrastmean = grpstats(df_peak_hit,revalued_contrasts(hit_trials),'mean');
-spikes_peak_hit_contrastmean = grpstats(spikes_peak_hit,revalued_contrasts(hit_trials),'mean');
+df_peak_hit_contrastmean = grpstats(df_peak_hit,revalued_conditions(hit_trials),'mean');
+spikes_peak_hit_contrastmean = grpstats(spikes_peak_hit,revalued_conditions(hit_trials),'mean');
 
-df_peak_miss_contrastmean = grpstats(df_peak_miss,revalued_contrasts(~hit_trials),'mean');
-spikes_peak_miss_contrastmean = grpstats(spikes_peak_miss,revalued_contrasts(~hit_trials),'mean');
+df_peak_miss_contrastmean = grpstats(df_peak_miss,revalued_conditions(~hit_trials),'mean');
+spikes_peak_miss_contrastmean = grpstats(spikes_peak_miss,revalued_conditions(~hit_trials),'mean');
 
 fit_hit_contrastmean = robustfit(df_peak_hit_contrastmean,spikes_peak_hit_contrastmean);
 fit_miss_contrastmean = robustfit(df_peak_miss_contrastmean,spikes_peak_miss_contrastmean);
 
-col = copper(length(used_contrasts));
-hit_contrasts = unique(revalued_contrasts(hit_trials));
-miss_contrasts = unique(revalued_contrasts(~hit_trials));
+col = copper(length(used_conditions));
+hit_contrasts = unique(revalued_conditions(hit_trials));
+miss_contrasts = unique(revalued_conditions(~hit_trials));
 scatter(df_peak_hit_contrastmean,spikes_peak_hit_contrastmean,100,col(hit_contrasts,:),'filled','MarkerEdgeColor','b');
 scatter(df_peak_miss_contrastmean,spikes_peak_miss_contrastmean,100,col(miss_contrasts,:),'filled','MarkerEdgeColor','r');
 axis square tight;
@@ -939,36 +947,44 @@ colormap(gray);
 ylabel('\DeltaF');
 xlabel('Spikes');
 
-median_stim_time_rel = nanmedian(stimOn_times(use_trials) - align_times);
-median_move_time_rel = nanmedian(wheel_move_time(use_trials)' - align_times);
-reward_trial_idx = find(signals_events.hitValues == 1);
-median_reward_time_rel = nanmedian( ...
-    reward_t_timeline(ismember(reward_trial_idx,use_trials_idx(hit_trials))) - align_times(hit_trials)');
+if exist('reward_t_timeline','var')
+    median_stim_time_rel = nanmedian(stimOn_times(use_trials) - align_times);
+    median_move_time_rel = nanmedian(wheel_move_time(use_trials)' - align_times);
+    reward_trial_idx = find(signals_events.hitValues == 1);
+    median_reward_time_rel = nanmedian( ...
+        reward_t_timeline(ismember(reward_trial_idx,use_trials_idx(hit_trials))) - align_times(hit_trials)');
+end
 
 line(xlim,ylim,'color','r');
 line([0,0],ylim,'color','m');
 line(xlim,[0,0],'color','m');
-line(repmat(median_stim_time_rel,1,2),ylim,'color','g','linestyle','--');
-line(xlim,repmat(median_stim_time_rel,1,2),'color','g','linestyle','--');
-line(repmat(median_move_time_rel,1,2),ylim,'color','r','linestyle','--');
-line(xlim,repmat(median_move_time_rel,1,2),'color','r','linestyle','--');
-line(repmat(median_reward_time_rel,1,2),ylim,'color','b','linestyle','--');
-line(xlim,repmat(median_reward_time_rel,1,2),'color','b','linestyle','--');
+if exist('reward_t_timeline','var')
+    line(repmat(median_stim_time_rel,1,2),ylim,'color','g','linestyle','--');
+    line(xlim,repmat(median_stim_time_rel,1,2),'color','g','linestyle','--');
+    line(repmat(median_move_time_rel,1,2),ylim,'color','r','linestyle','--');
+    line(xlim,repmat(median_move_time_rel,1,2),'color','r','linestyle','--');
+    line(repmat(median_reward_time_rel,1,2),ylim,'color','b','linestyle','--');
+    line(xlim,repmat(median_reward_time_rel,1,2),'color','b','linestyle','--');
+end
 
 subplot(4,4,[4,8,12]);
 plot(nanmean(event_aligned_df,1),t_surround,'k','linewidth',2);
 line(xlim,[0,0],'color','m');
-line(xlim,repmat(median_stim_time_rel,1,2),'color','g','linestyle','--');
-line(xlim,repmat(median_move_time_rel,1,2),'color','r','linestyle','--');
-line(xlim,repmat(median_reward_time_rel,1,2),'color','b','linestyle','--');
+if exist('reward_t_timeline','var')
+    line(xlim,repmat(median_stim_time_rel,1,2),'color','g','linestyle','--');
+    line(xlim,repmat(median_move_time_rel,1,2),'color','r','linestyle','--');
+    line(xlim,repmat(median_reward_time_rel,1,2),'color','b','linestyle','--');
+end
 axis tight off; set(gca,'YDir','reverse');
 
 subplot(4,4,[13,14,15]);
 plot(t_surround,nanmean(event_aligned_spikes,1),'k','linewidth',2);
 line([0,0],ylim,'color','m');
+if exist('reward_t_timeline','var')
 line(repmat(median_stim_time_rel,1,2),ylim,'color','g','linestyle','--');
-line(repmat(median_move_time_rel,1,2),ylim,'color','r','linestyle','--');
-line(repmat(median_reward_time_rel,1,2),ylim,'color','b','linestyle','--');
+    line(repmat(median_move_time_rel,1,2),ylim,'color','r','linestyle','--');
+    line(repmat(median_reward_time_rel,1,2),ylim,'color','b','linestyle','--');
+end
 axis tight off;
 
 % Get time-varying fit from fluorescence to spikes 

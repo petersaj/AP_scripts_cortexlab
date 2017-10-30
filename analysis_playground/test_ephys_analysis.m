@@ -1639,11 +1639,11 @@ for x = 1:nX
 end
 
 
-%% PSTH aligned to stimuli
+%% Rasters and PSTHs aligned to stimuli
 
-use_spikes_idx = ismember(spike_templates,find(templateDepths >= 0 & templateDepths <= 1500));
-% use_spikes_idx = ismember(spike_templates,find(templateDepths > 0 & templateDepths < 700)) & ...
-%    (ismember(spike_templates,find(fsi)));
+use_spikes_idx = ismember(spike_templates,find(templateDepths >= 500 & templateDepths <= 1200));
+% use_spikes_idx = ismember(spike_templates,find(templateDepths > 500 & templateDepths < 1500)) & ...
+%    (ismember(spike_templates,find(msn)));
 
 % use_spikes_idx = true(size(spike_times_timeline));
 

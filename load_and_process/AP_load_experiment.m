@@ -147,14 +147,14 @@ if protocol_exists
     % Get specific stim onsets by time between last offset and new onset
     % (occasionally there a bad frame so flip but not new stim)
     refresh_rate_cutoff = 1/5;
-    stim_onsets = photodiode_onsets( ...
+    stimOn_times = photodiode_onsets( ...
         [1;find(photodiode_onsets(2:end) - photodiode_offsets(1:end-1) > refresh_rate_cutoff) + 1]);
     
-    if length(stim_onsets) ~= numel(Protocol.seqnums)
+    if length(stimOn_times) ~= numel(Protocol.seqnums)
         error('MPEP/Photodiode error: photodiode doesn''t match stim')
     end
     
-    stimIDs = zeros(size(stim_onsets));
+    stimIDs = zeros(size(stimOn_times));
     for q = 1:size(Protocol.seqnums,1)
         stimIDs(Protocol.seqnums(q,:)) = q;
     end

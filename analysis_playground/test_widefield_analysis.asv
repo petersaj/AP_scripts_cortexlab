@@ -547,12 +547,12 @@ end
 AP_image_scroll(im_stim,surround_time);
 
 % Average (single frame) responses to stimuli
-surround_window = [0,0.2];
+surround_window = [0.2,0.5];
 framerate = 1./median(diff(frame_t));
 surround_samplerate = 1/(framerate*1);
 surround_time = surround_window(1):surround_samplerate:surround_window(2);
 
-peri_stim_df = nan(size(U,1),size(U,2),length(conditions));
+peri_stim_v = nan(size(fV,1),length(conditions));
 for curr_condition_idx = 1:length(conditions)
     curr_condition = conditions(curr_condition_idx);
     
@@ -561,12 +561,15 @@ for curr_condition_idx = 1:length(conditions)
         align_times + surround_time(2) > frame_t(end)) = [];
     
     align_surround_times = bsxfun(@plus, align_times, surround_time);
-    peri_stim_v = permute(nanmean(interp1(frame_t,fVdf',align_surround_times),1),[3,2,1]);
-    peri_stim_df(:,:,curr_condition_idx) = ...
-        nanmean(imgaussfilt(diff(svdFrameReconstruct(Udf,peri_stim_v),[],3),1),3);
+    peri_stim_v = nanmean(permute(nanmean(interp1(frame_t,fVdf',align_surround_times),1),[3,2,1]),2);
+    peri_stim_v_df = svdFrameReconstruct(Udf,peri_stim_v);
+    
+    peri_stim_v(:,curr_condition_idx) = nanmean(permute(nanmean(interp1(frame_t,fVdf',align_surround_times),1),[3,2,1]),2);
 end
 
+surround_im = svdFrameReconstruct(Udf,peri_stim_v);
 
+imgaussfilt(diff(im_stim_hit,[],3),1);im_stim_hit_df(im_stim_hit_df < 0) = 0;
 
 %% Autocorrelation of each pixel
 % (i.e. do medial areas have wider autocorrelation shapes?)

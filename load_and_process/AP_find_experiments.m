@@ -35,9 +35,9 @@ for curr_day = 1:length(days)
             use_exp(curr_exp) = strcmp(expDef,protocol);
         else
             continue
-        end
-        
+        end       
     end
+    
     if any(use_exp)
         protocol_expts{curr_day} = exp_nums(use_exp);
         [~,imaging_expts{curr_day}] = AP_cortexlab_filename(animal,day,exp_nums(use_exp),'imaging');

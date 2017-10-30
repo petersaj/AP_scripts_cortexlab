@@ -474,13 +474,13 @@ set(gui_data.probe_coordinates_text,'String',probe_text);
 end
 
 
-%% 
+%% PROBE HISTOLOGY: TO-DO
 
 function probe_histology
 % IN PROGRESS: plot best-fit line through probe histology points
 % this isn't implemented yet, just keeping this code here for whenever
 
-histology_points = AP015_probe_coords_2;
+histology_points = AP015_probe_coords_1;
 
 r0 = mean(histology_points);
 xyz = bsxfun(@minus,histology_points,r0);
@@ -489,7 +489,8 @@ histology_probe_direction = V(:,1);
 
 t = [-1000,1000];
 P = bsxfun(@plus,bsxfun(@times,t',histology_probe_direction'),r0);
-line(P(:,3),P(:,1),P(:,2),'color','b')
+% plot3(histology_points(:,3),histology_points(:,1),histology_points(:,2),'.b','MarkerSize',20);
+line(P(:,3),P(:,1),P(:,2),'color','r','linewidth',2)
 
 end
 
