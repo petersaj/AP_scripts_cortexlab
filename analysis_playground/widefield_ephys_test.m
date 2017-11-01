@@ -2137,6 +2137,13 @@ roi_trace_slope = [0;diff(smooth(roi_trace,2))];
 roi_trace_slope(roi_trace_slope < 0) = 0;
 fake_frame_spikes = poissrnd(mat2gray(roi_trace_slope)*10)';
 
+jitter_time = median(diff(frame_t));
+fake_spike_times = cell2mat(arrayfun(@(x) ...
+    repmat(frame_t(x),1,fake_frame_spikes(x)), ...
+    1:length(fake_frame_spikes),'uni',false));
+fake_spike_times = fake_spike_times + (rand(1,length(fake_spike_times))-0.5)*jitter_time;
+
+
 
 %% Fake spike regression: test lambdas
 
@@ -2655,7 +2662,7 @@ n_depth_groups = 6;
 %depth_group_edges = linspace(700,3500,n_depth_groups+1);
 depth_group_edges = round(linspace(str_depth(1),str_depth(2),n_depth_groups+1));
 depth_group_edges_use = depth_group_edges;
-% depth_group_edges_use = [500 1200];
+% depth_group_edges_use = [500 1700];
 
 [depth_group_n,depth_group] = histc(spikeDepths,depth_group_edges_use);
 depth_groups_used = unique(depth_group);
@@ -2731,7 +2738,7 @@ ylabel(c2,'Depth (\mum)');
 colormap(c2,jet);
 set(c2,'YDir','reverse');
 set(c2,'YTick',linspace(0,1,6));
-set(c2,'YTickLabel',linspace(depth_group_edges(1),depth_group_edges(end),6));
+set(c2,'YTickLabel',linspace(depth_group_edges_use(1),depth_group_edges_use(end),6));
 
 
 %% Regression from fluor to spikes (AP_regresskernel) templates

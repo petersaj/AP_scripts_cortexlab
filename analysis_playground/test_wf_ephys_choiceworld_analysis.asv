@@ -373,7 +373,7 @@ figure; hold on
 set(gca,'ColorOrder',copper(length(unique(stimIDs))));
 plot(bins(20:end-20),stim_psth_hit_smooth(:,20:end-20)','linewidth',2)
 
-%% Plot contrast-dependent response by depth
+%% Plot contrast response curves response by depth
 
 stimIDs = signals_events.trialSideValues.*signals_events.trialContrastValues;
 
@@ -433,7 +433,7 @@ legend(cellfun(@(x) ['Depth ' num2str(x)],num2cell(1:n_depth_groups),'uni',false
 %% PSTH for left vs. right stim, choose left vs. right stim (by depth)
 
 % Group multiunit by depth
-n_depth_groups = 8;
+n_depth_groups = 6;
 %depth_group_edges = linspace(0,max(channel_positions(:,2)),n_depth_groups+1);
 %depth_group_edges = linspace(0,4000,n_depth_groups+1);
 depth_group_edges = round(linspace(str_depth(1),str_depth(2),n_depth_groups+1));
@@ -455,9 +455,9 @@ psth_left_miss = nan(n_depth_groups,diff(raster_window)/psth_bin_size);
 
 for curr_depth = 1:n_depth_groups
     
-%     curr_spike_times = spike_times_timeline(depth_group == curr_depth);
-    curr_spike_times = spike_times_timeline((depth_group == curr_depth) & ...
-        ismember(spike_templates,find(msn)));
+    curr_spike_times = spike_times_timeline(depth_group == curr_depth);
+%     curr_spike_times = spike_times_timeline((depth_group == curr_depth) & ...
+%         ismember(spike_templates,find(msn)));
     
     use_trials = signals_events.trialSideValues == 1 & signals_events.trialContrastValues > 0 & signals_events.hitValues == 1;
     if sum(use_trials) > 0
@@ -746,85 +746,37 @@ a(a < 0) = 0;
 AP_image_scroll(a,t_surround);
 axis image;
 
-
 %% Align fluorescence and MUA to task event across trials
 
-% Define times to align
-use_trials = signals_events.trialSideValues == 1 & signals_events.trialContrastValues == 0 & signals_events.hitValues == 0;
-align_times = reshape(stimOn_times(use_trials(1:length(stimOn_times))),[],1);
-
-t_surround = [-0.5,1.5];
-samplerate = framerate*2;
-t_surround = t_surround(1):1/samplerate:t_surround(2);
-t_peri_event = bsxfun(@plus,align_times,t_surround);
-
-% Draw ROI and align fluorescence
-roi_trace = AP_svd_roi(Udf,fVdf,avg_im);
-event_aligned_f = interp1(frame_t,roi_trace,t_peri_event);
-event_aligned_df = interp1(conv(frame_t,[1,1]/2,'valid'),diff(roi_trace),t_peri_event);
-event_aligned_df(event_aligned_df < 0) = 0;
-
-% Pull out MUA at a given depth
-use_spikes = spike_times_timeline(ismember(spike_templates,find(templateDepths > 0 & templateDepths < 1500)));
-% use_spikes = spike_times_timeline(ismember(spike_templates,find(templateDepths > 0 & templateDepths < 1500)) &...
-%     ismember(spike_templates,find(msn)));
-t_peri_event_bins = [t_peri_event - 1/(samplerate*2), ...
-    t_peri_event(:,end) + 1/(samplerate*2)];
-event_aligned_spikes = reshape([histcounts(use_spikes,reshape(t_peri_event_bins',[],1)),NaN],[],length(align_times))';
-event_aligned_spikes(:,length(t_surround)+1) = [];
-
-figure; colormap(gray);
-subplot(2,2,1);
-imagesc(t_surround,1:length(align_times),event_aligned_df)
-line([0,0],ylim,'color','r');
-ylabel('Event number')
-xlabel('Time (s)')
-title('\DeltaF')
-
-subplot(2,2,2);
-imagesc(t_surround,1:length(align_times),event_aligned_spikes)
-line([0,0],ylim,'color','r');
-ylabel('Event number')
-xlabel('Time (s)')
-title('Spikes')
-
-subplot(2,2,3:4); hold on;
-plot(t_surround,mat2gray(nanmean(event_aligned_df,1)),'k','linewidth',2)
-plot(t_surround,mat2gray(nanmean(event_aligned_spikes,1)),'b','linewidth',2)
-line([0,0],ylim,'color','r');
-ylabel('Normalized units')
-xlabel('Time from event')
-
-
-%% SPECIFIC VERSION OF ABOVE (hit vs. miss) 
+depth_edges = [500,1500];
+sample_rate_factor = 3;
 
 % Define times to align
-
 % SIGNALS - CHOICEWORLD
-% use_trials = signals_events.trialSideValues == 1 & signals_events.trialContrastValues > 0;% & ~isnan(wheel_move_time);
-% align_times = reshape(stimOn_times(use_trials(1:length(stimOn_times))),[],1);
-% hit_trials = signals_events.hitValues(use_trials) == 1;
-% stim_conditions = signals_events.trialContrastValues(use_trials);
+use_trials = signals_events.trialSideValues == 1 & signals_events.trialContrastValues > 0;% & ~isnan(wheel_move_time);
+align_times = reshape(stimOn_times(use_trials(1:length(stimOn_times))),[],1);
+hit_trials = signals_events.hitValues(use_trials) == 1;
+stim_conditions = signals_events.trialContrastValues(use_trials);
 
 % MPEP PASSIVE
-align_times = reshape(stimOn_times,[],1);
-hit_trials = true(size(align_times));
-stim_conditions = stimIDs;
+% align_times = reshape(stimOn_times,[],1);
+% hit_trials = rand(size(align_times)) > 0.5;
+% stim_conditions = stimIDs;
 
 interval_surround = [-0.5,1.5];
-samplerate = framerate*2;
+samplerate = framerate*sample_rate_factor;
 t_surround = interval_surround(1):1/samplerate:interval_surround(2);
 t_peri_event = bsxfun(@plus,align_times,t_surround);
 
 % Draw ROI and align fluorescence
-[roi_trace,roi_mask] = AP_svd_roi(Udf,fVdf,weight_im,response_im);
+[roi_trace,roi_mask] = AP_svd_roi(Udf,fVdf,weight_im,retinotopic_map); % weight_im, retinotopic_map, response_im
 event_aligned_f = interp1(frame_t,roi_trace,t_peri_event);
 event_aligned_df = interp1(conv(frame_t,[1,1]/2,'valid'),diff(roi_trace),t_peri_event);
 event_aligned_df(event_aligned_df < 0) = 0;
 
 % Pull out MUA at a given depth
-use_spikes = spike_times_timeline(ismember(spike_templates,find(templateDepths > 500 & templateDepths < 1200)));
-% use_spikes = spike_times_timeline(ismember(spike_templates,find(templateDepths > 500 & templateDepths < 1200)) &...
+use_spikes = spike_times_timeline(ismember(spike_templates,find(templateDepths > depth_edges(1) & templateDepths < depth_edges(2))));
+% use_spikes = spike_times_timeline(ismember(spike_templates,find(templateDepths > 500 & templateDepths < 1500)) &...
 %     ismember(spike_templates,find(msn)));
 t_peri_event_bins = [t_peri_event - 1/(samplerate*2), ...
     t_peri_event(:,end) + 1/(samplerate*2)];
@@ -869,9 +821,7 @@ df_peak_miss = nanmean(event_aligned_df(~hit_trials,t_avg),2);
 spikes_peak_miss = nanmean(event_aligned_spikes(~hit_trials,t_avg),2);
 
 fit_hit = robustfit(df_peak_hit,spikes_peak_hit);
-if any(~hit_trials)
-    fit_miss = robustfit(df_peak_miss,spikes_peak_miss);
-end
+fit_miss = robustfit(df_peak_miss,spikes_peak_miss);
 
 [used_conditions,~,revalued_conditions] = unique(stim_conditions);
 col = copper(length(used_conditions));
@@ -949,8 +899,8 @@ colormap(gray);
 ylabel('\DeltaF');
 xlabel('Spikes');
 
-median_stim_time_rel = nanmedian(stimOn_times(use_trials) - align_times);
 if exist('reward_t_timeline','var')
+    median_stim_time_rel = nanmedian(stimOn_times(use_trials) - align_times);
     median_move_time_rel = nanmedian(wheel_move_time(use_trials)' - align_times);
     reward_trial_idx = find(signals_events.hitValues == 1);
     median_reward_time_rel = nanmedian( ...
@@ -960,9 +910,9 @@ end
 line(xlim,ylim,'color','r');
 line([0,0],ylim,'color','m');
 line(xlim,[0,0],'color','m');
-line(repmat(median_stim_time_rel,1,2),ylim,'color','g','linestyle','--');
-line(xlim,repmat(median_stim_time_rel,1,2),'color','g','linestyle','--');
 if exist('reward_t_timeline','var')
+    line(repmat(median_stim_time_rel,1,2),ylim,'color','g','linestyle','--');
+    line(xlim,repmat(median_stim_time_rel,1,2),'color','g','linestyle','--');
     line(repmat(median_move_time_rel,1,2),ylim,'color','r','linestyle','--');
     line(xlim,repmat(median_move_time_rel,1,2),'color','r','linestyle','--');
     line(repmat(median_reward_time_rel,1,2),ylim,'color','b','linestyle','--');
@@ -972,8 +922,8 @@ end
 subplot(4,4,[4,8,12]);
 plot(nanmean(event_aligned_df,1),t_surround,'k','linewidth',2);
 line(xlim,[0,0],'color','m');
-line(xlim,repmat(median_stim_time_rel,1,2),'color','g','linestyle','--');
 if exist('reward_t_timeline','var')
+    line(xlim,repmat(median_stim_time_rel,1,2),'color','g','linestyle','--');
     line(xlim,repmat(median_move_time_rel,1,2),'color','r','linestyle','--');
     line(xlim,repmat(median_reward_time_rel,1,2),'color','b','linestyle','--');
 end
@@ -982,8 +932,8 @@ axis tight off; set(gca,'YDir','reverse');
 subplot(4,4,[13,14,15]);
 plot(t_surround,nanmean(event_aligned_spikes,1),'k','linewidth',2);
 line([0,0],ylim,'color','m');
-line(repmat(median_stim_time_rel,1,2),ylim,'color','g','linestyle','--');
 if exist('reward_t_timeline','var')
+line(repmat(median_stim_time_rel,1,2),ylim,'color','g','linestyle','--');
     line(repmat(median_move_time_rel,1,2),ylim,'color','r','linestyle','--');
     line(repmat(median_reward_time_rel,1,2),ylim,'color','b','linestyle','--');
 end
@@ -1073,20 +1023,265 @@ line([0,0],ylim,'color','k');
 ylabel('Fit slope');
 xlabel('Time from event');
 
+%% Compare predicted to actual spikes by condition
+
+depth_edges = [500,1700];
+sample_rate_factor = 2;
+
+% % SIGNALS - CHOICEWORLD
+% use_trials = signals_events.missValues == 1;
+% % align_times = reshape(stimOn_times(use_trials),[],1);
+% align_times = reshape(signals_events.responseTimes(use_trials),[],1);
+% % align_times = reshape(reward_t_timeline,[],1);
+% % align_times = reshape(wheel_move_time(hit_trials),[],1);
+% stim_conditions = signals_events.trialContrastValues(use_trials).*signals_events.trialSideValues(use_trials);
+
+% MPEP PASSIVE
+align_times = reshape(stimOn_times,[],1);
+stim_conditions = stimIDs;
+
+interval_surround = [-0.5,1.5];
+sample_rate = (1/median(diff(frame_t)))*sample_rate_factor;
+
+t_surround = interval_surround(1):1/sample_rate:interval_surround(2);
+t_peri_event = bsxfun(@plus,align_times,t_surround);
+
+% Skip the first/last n seconds for prediction
+skip_seconds = 60*1;
+
+time_bins = frame_t(find(frame_t > skip_seconds,1)):1/sample_rate:frame_t(find(frame_t-frame_t(end) < -skip_seconds,1,'last'));
+time_bin_centers = time_bins(1:end-1) + diff(time_bins)/2;
+
+use_spikes = spike_times_timeline(ismember(spike_templates,find(templateDepths > depth_edges(1) & templateDepths < depth_edges(2))));
+% use_spikes = spike_times_timeline(ismember(spike_templates, ...
+%     find(templateDepths > depth_edges(1) & templateDepths < depth_edges(2))) & ...
+%     ismember(spike_templates,find(msn)));
+
+binned_spikes = histcounts(use_spikes,time_bins);
+
+use_svs = 1:50;
+kernel_frames = -35:17;
+lambda = 0;
+zs = [false,true];
+cvfold = 5;
+
+fVdf_resample = interp1(frame_t,fVdf(use_svs,:)',time_bin_centers)';
+dfVdf_resample = interp1(conv(frame_t,[1,1]/2,'valid'),diff(fVdf(use_svs,:),[],2)',time_bin_centers)';
+
+% [k,predicted_spikes,explained_var] = ...
+%     AP_regresskernel(fVdf_resample, ...
+%     binned_spikes,kernel_frames,lambda,zs,cvfold);
+[k,predicted_spikes,explained_var] = ...
+    AP_regresskernel(dfVdf_resample, ...
+    binned_spikes,kernel_frames,lambda,zs,cvfold);
+
+spikes_real_aligned = interp1(time_bin_centers,zscore(binned_spikes),t_peri_event);
+spikes_pred_aligned = interp1(time_bin_centers,predicted_spikes,t_peri_event);
+
+spikes_real_aligned_mean = grpstats(spikes_real_aligned,stim_conditions);
+spikes_pred_aligned_mean = grpstats(spikes_pred_aligned,stim_conditions);
+
+figure; hold on
+p1 = AP_stackplot(spikes_real_aligned_mean',t_surround,3,false,'k',unique(stim_conditions));
+p2 = AP_stackplot(spikes_pred_aligned_mean',t_surround,3,false,'r');
+ylabel('Stim');
+xlabel('Time from event onset');
+legend([p1(1),p2(1)],{'Real','Predicted'});
+line([0,0],ylim,'color','k');
+
+error_t = [0,0.3];
+error_t_use = t_surround >= error_t(1) & t_surround <= error_t(2);
+pred_error = nanmean(spikes_real_aligned(:,error_t_use) - spikes_pred_aligned(:,error_t_use),2);
+[pred_error_mean,pred_error_sem] = grpstats(pred_error,stim_conditions,{'mean','sem'});
+figure;errorbar(unique(stim_conditions),pred_error_mean,pred_error_sem,'k','linewidth',2)
+line(xlim,[0,0],'color','r')
+ylabel('Predicted spikes error');
+xlabel('Stim condition');
+
+%% Align fluorescence, MUA, and predicted MUA, compare across conditions
+
+depth_edges = [500,1700];
+sample_rate_factor = 2;
+
+% Define times to align
+% SIGNALS - CHOICEWORLD
+% use_trials = ~isnan(wheel_move_time);
+% align_times = reshape(stimOn_times(use_trials(1:length(stimOn_times))),[],1);
+% stim_conditions = signals_events.trialContrastValues(use_trials).* ...
+%     signals_events.trialSideValues(use_trials);
+
+% MPEP PASSIVE
+use_trials = true(size(stimIDs));
+align_times = reshape(stimOn_times,[],1);
+stim_conditions = stimIDs;
+
+interval_surround = [-0.5,1.5];
+samplerate = framerate*sample_rate_factor;
+t_surround = interval_surround(1):1/samplerate:interval_surround(2);
+t_peri_event = bsxfun(@plus,align_times,t_surround);
+
+% Pull out MUA at a given depth
+
+use_spikes = spike_times_timeline(ismember(spike_templates,find(templateDepths > depth_edges(1) & templateDepths < depth_edges(2))));
+% use_spikes = spike_times_timeline(ismember(spike_templates,find(templateDepths > depth_edges(1) & templateDepths < depth_edges(2))) &...
+%     ismember(spike_templates,find(msn)));
+
+t_peri_event_bins = [t_peri_event - 1/(samplerate*2), ...
+    t_peri_event(:,end) + 1/(samplerate*2)];
+event_aligned_spikes = cell2mat(arrayfun(@(x) ...
+    histcounts(use_spikes,t_peri_event_bins(x,:)),[1:length(align_times)]','uni',false));
+
+% Define spikes time of interest
+h = figure;
+imagesc(t_surround,1:length(align_times),event_aligned_spikes);
+colormap(flipud(gray));
+title('Mark range start')
+[t_start,~] = ginput(1);
+title('Mark range end');
+[t_stop,~] = ginput(1);
+close(h);drawnow;
+
+t_avg = t_surround >= t_start & t_surround <= t_stop;
+
+% Predict and align spikes from fluorescence
+skip_seconds = 60*1;
+
+time_bins = frame_t(find(frame_t > skip_seconds,1)):1/sample_rate:frame_t(find(frame_t-frame_t(end) < -skip_seconds,1,'last'));
+time_bin_centers = time_bins(1:end-1) + diff(time_bins)/2;
+
+use_spikes = spike_times_timeline(ismember(spike_templates,find(templateDepths > depth_edges(1) & templateDepths < depth_edges(2))));
+binned_spikes = histcounts(use_spikes,time_bins);
+
+use_svs = 1:50;
+kernel_frames = -35:17;
+lambda = 0;
+zs = [false,true];
+cvfold = 5;
+
+% % To use ROI
+% roi_trace_df_resample = interp1(conv(frame_t,[1,1]/2,'valid'),diff(roi_trace)',time_bin_centers);
+% roi_trace_df_resample(roi_trace_df_resample < 0) = 0;
+% [k,predicted_spikes,explained_var] = ...
+%     AP_regresskernel(roi_trace_df_resample, ...
+%     binned_spikes,kernel_frames,lambda,zs,cvfold);
+
+% To use all V's
+dfVdf_resample = interp1(conv(frame_t,[1,1]/2,'valid'),diff(fVdf(use_svs,:),[],2)',time_bin_centers)';
+[k,predicted_spikes,explained_var] = ...
+    AP_regresskernel(dfVdf_resample, ...
+    binned_spikes,kernel_frames,lambda,zs,cvfold);
+
+binned_spikes_std = std(binned_spikes);
+binned_spikes_mean = mean(binned_spikes);
+predicted_spikes_reranged = predicted_spikes*binned_spikes_std+binned_spikes_mean;
+
+event_aligned_spikes_predicted = interp1(time_bin_centers,predicted_spikes_reranged,t_peri_event);
+
+% Divide and plot everything by contrast/side/movement direction/hit-miss
+df_peak = nanmean(event_aligned_df(:,t_avg),2);
+spikes_peak = nanmean(event_aligned_spikes(:,t_avg),2);
+spikes_predicted_peak = nanmean(event_aligned_spikes_predicted(:,t_avg),2);
+
+[fluor_grp_mean,fluor_grp_sem,fluor_grp] = ...
+    grpstats(df_peak,stim_conditions,{'mean','sem','gname'});
+fluor_grp = cellfun(@str2num,fluor_grp);
+
+[spikes_grp_mean,spikes_grp_sem,spikes_grp] = ...
+    grpstats(spikes_peak,stim_conditions,{'mean','sem','gname'});
+spikes_grp = cellfun(@str2num,spikes_grp);
+
+[spikes_predicted_grp_mean,spikes_predicted_grp_sem,spikes_predicted_grp] = ...
+    grpstats(spikes_predicted_peak,stim_conditions,{'mean','sem','gname'});
+spikes_predicted_grp = cellfun(@str2num,spikes_predicted_grp);
+
+subplot(1,3,1); hold on;
+plot(t_surround,nanmean(event_aligned_spikes_predicted,1),'r','linewidth',2)
+plot(t_surround,nanmean(event_aligned_spikes,1),'k','linewidth',2)
+patch([t_start,t_stop,t_stop,t_start],[repmat(min(ylim),1,2),repmat(max(ylim),1,2)],'y','EdgeColor','none');
+set(gca,'Children',flipud(get(gca,'Children')))
+ylabel('Spikes');
+xlabel('Time from event');
+legend({'Time used','Real','Predicted'})
+
+subplot(1,3,2); hold on;
+[used_conditions,~,revalued_conditions] = unique(stim_conditions);
+if exist('signals_events','var')
+    hit_trials = signals_events.hitValues(use_trials) == 1;
+    miss_trials = signals_events.missValues(use_trials) == 1;
+    ipsi_stim_trials = signals_events.trialSideValues(use_trials) == -1;
+    contra_stim_trials = signals_events.trialSideValues(use_trials) == 1;
+    
+    col = copper(length(used_conditions));
+    p1 = scatter(spikes_peak(hit_trials & contra_stim_trials),spikes_predicted_peak(hit_trials & contra_stim_trials),70, ...
+        col(revalued_conditions(hit_trials & contra_stim_trials),:),'filled','MarkerEdgeColor','b','LineWidth',2);
+    p2 = scatter(spikes_peak(miss_trials & contra_stim_trials),spikes_predicted_peak(miss_trials & contra_stim_trials),70, ...
+        col(revalued_conditions(miss_trials & contra_stim_trials),:),'filled','MarkerEdgeColor','r','LineWidth',2);
+    legend([p1(1),p2(1)],{'Correct','Incorrect'});
+else
+    col = copper(length(used_conditions));
+    p1 = scatter(spikes_peak(contra_stim_trials),spikes_predicted_peak(contra_stim_trials),70, ...
+        col(revalued_conditions(contra_stim_trials),:),'filled','MarkerEdgeColor','k');
+end
+line([0,max([spikes_peak;spikes_predicted_peak])],[0,max([spikes_peak;spikes_predicted_peak])],'color','k');
+axis square tight;
+
+xlabel('Spikes');
+ylabel('Predicted spikes');
+title('Trials')
+
+subplot(1,3,3);
+
+% Fit by condition and correctness
+spike_lim = [0,max([spikes_peak;spikes_predicted_peak])];
+line(spike_lim,spike_lim);
+
+fit_conditions = nan(length(used_conditions),2);
+for curr_condition = 1:length(used_conditions)
+    fit_conditions(curr_condition,:) = ...
+        robustfit(spikes_peak(revalued_conditions == curr_condition),spikes_predicted_peak(revalued_conditions == curr_condition));   
+    line(spike_lim,spike_lim*fit_conditions(curr_condition,2)+ ...
+        fit_conditions(curr_condition,1)','color',col(curr_condition,:),'linewidth',2)
+end
+if exist('signals_events','var')
+    fit_hit = robustfit(spikes_peak(hit_trials),spikes_predicted_peak(hit_trials));
+    fit_miss = robustfit(spikes_peak(miss_trials),spikes_predicted_peak(miss_trials));
+    
+    line(spike_lim,spike_lim*fit_hit(2)+ ...
+        fit_hit(1)','color',[0,0.8,0],'linewidth',2)
+    line(spike_lim,spike_lim*fit_miss(2)+ ...
+        fit_miss(1)','color',[0.8,0,0],'linewidth',2)
+end
+
+axis square tight;
+xlabel('Spikes');
+ylabel('Predicted spikes');
+title('Fits')
 
 
+%% THIS WAS FROM ABOVE: TO PLOT FLUOR, BUT NOT DIRECTLY RELATED, SO MOVED
 
+%%%%
 
+% Draw ROI and align fluorescence
+[roi_trace,roi_mask] = AP_svd_roi(Udf,fVdf,weight_im,retinotopic_map); % weight_im, retinotopic_map, response_im
+event_aligned_f = interp1(frame_t,roi_trace,t_peri_event);
+event_aligned_df = interp1(conv(frame_t,[1,1]/2,'valid'),diff(roi_trace),t_peri_event);
+event_aligned_df(event_aligned_df < 0) = 0;
 
+%%%%
 
+figure;
+subplot(2,2,1); hold on; axis tight;
+errorbar(fluor_grp,fluor_grp_mean,fluor_grp_sem,'k','linewidth',2)
+xlabel('Contrast');
+ylabel('Fluorescence');
 
-
-
-
-
-
-
-
+subplot(2,2,2); hold on; axis tight;
+errorbar(spikes_grp,spikes_grp_mean,spikes_grp_sem,'k','linewidth',2)
+errorbar(spikes_predicted_grp,spikes_predicted_grp_mean,spikes_predicted_grp_sem,'r','linewidth',2)
+xlabel('Contrast');
+ylabel('Spikes');
+legend({'Real','Predicted'});
 
 
 

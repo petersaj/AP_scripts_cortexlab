@@ -1046,11 +1046,11 @@ figure;plotWaveform(-(squeeze(templates(plot_template,:,:))*winv)', ...
 
 %% PSTH plot by depth (single stim ID)
 
-align_times = stim_onsets(ismember(stimIDs,[3]));
+align_times = stimOn_times(ismember(stimIDs,[4]));
 %align_times = stimOnTimes(azimuths == 90 & stim_hit);
 
 % Group by depth
-n_depth_groups = 8;
+n_depth_groups = 6;
 %depth_group_edges = linspace(0,4000,n_depth_groups+1);
 depth_group_edges = round(linspace(str_depth(1),str_depth(2),n_depth_groups+1));
 depth_group_centers = round(depth_group_edges(1:end-1)+diff(depth_group_edges)/2);
@@ -1121,7 +1121,7 @@ for curr_stim_idx = 1:length(unique_stim)
     for curr_depth = 1:n_depth_groups
         [depth_psth(curr_depth,:,curr_stim_idx),bins,rasterX,rasterY,spikeCounts] = psthAndBA( ...
             mua_times{curr_depth}, ...
-            stim_onsets(ismember(stimIDs,curr_stim)), ...
+            stimOn_times(ismember(stimIDs,curr_stim)), ...
             raster_window, psth_bin_size);
     end
 end
@@ -1161,7 +1161,7 @@ lfp_depth_mean = grpstats(lfp,channel_depth_grp);
 
 % Stimulus-triggered LFP by stim
 n_stim = length(unique(stimIDs));
-align_times = stim_onsets;
+align_times = stimOn_times;
 
 lfp_window = [-1,5];
 t_space = 0.001;
@@ -1641,7 +1641,7 @@ end
 
 %% Rasters and PSTHs aligned to stimuli
 
-use_spikes_idx = ismember(spike_templates,find(templateDepths >= 500 & templateDepths <= 1200));
+use_spikes_idx = ismember(spike_templates,find(templateDepths >= 2500 & templateDepths <= 2700));
 % use_spikes_idx = ismember(spike_templates,find(templateDepths > 500 & templateDepths < 1500)) & ...
 %    (ismember(spike_templates,find(msn)));
 
@@ -1650,12 +1650,12 @@ use_spikes_idx = ismember(spike_templates,find(templateDepths >= 500 & templateD
 use_spikes = spike_times_timeline(use_spikes_idx);
 use_spike_templates = spike_templates(use_spikes_idx);
 
-align_times = stim_onsets(ismember(stimIDs,[3]));
+align_times = stimOn_times(ismember(stimIDs,[3,4]));
 
 % PSTHs
 raster_window = [-0.5,5];
 psthViewer(use_spikes,use_spike_templates, ...
-    stim_onsets,raster_window,stimIDs);
+    stimOn_times,raster_window,stimIDs);
 
 psth_bin_size = 0.001;
 [psth,bins,rasterX,rasterY,spikeCounts] = psthAndBA( ...
@@ -1678,7 +1678,7 @@ unique_stims = unique(stimIDs);
 for curr_stim_idx = 1:length(unique_stims);   
     
     [psth,bins,rasterX,rasterY,spikeCounts] = psthAndBA( ...
-        use_spikes,stim_onsets(stimIDs == unique_stims(curr_stim_idx)), ...
+        use_spikes,stimOn_times(stimIDs == unique_stims(curr_stim_idx)), ...
         raster_window, psth_bin_size);
     
     stim_psth(curr_stim_idx,:) = psth;

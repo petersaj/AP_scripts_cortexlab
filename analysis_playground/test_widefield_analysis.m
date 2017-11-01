@@ -526,7 +526,7 @@ surround_time = surround_window(1):surround_samplerate:surround_window(2);
 baseline_surround_time = baseline_surround_window(1):surround_samplerate:baseline_surround_window(2);
 
 % Gui for plotting responses
-pixelTuningCurveViewerSVD(Udf,fVdf,frame_t,stim_onsets,stimIDs,surround_window);
+pixelTuningCurveViewerSVD(Udf,fVdf,frame_t,stimOn_times,stimIDs,surround_window);
 
 % Average (time course) responses
 conditions = unique(stimIDs);
@@ -535,10 +535,10 @@ for curr_condition_idx = 1:length(conditions)
     curr_condition = conditions(curr_condition_idx);
     
     use_stims = find(stimIDs == curr_condition);
-    use_stim_onsets = stim_onsets(use_stims(2:end));
-    use_stim_onsets([1,end]) = [];
+    use_stimOn_times = stimOn_times(use_stims(2:end));
+    use_stimOn_times([1,end]) = [];
     
-    stim_surround_times = bsxfun(@plus, use_stim_onsets(:), surround_time);
+    stim_surround_times = bsxfun(@plus, use_stimOn_times(:), surround_time);
     peri_stim_v = permute(mean(interp1(frame_t,fVdf',stim_surround_times),1),[3,2,1]);
     
     im_stim(:,:,:,curr_condition_idx) = svdFrameReconstruct(Udf,peri_stim_v);   
@@ -556,7 +556,7 @@ peri_stim_df = nan(size(U,1),size(U,2),length(conditions));
 for curr_condition_idx = 1:length(conditions)
     curr_condition = conditions(curr_condition_idx);
     
-    align_times = stim_onsets(stimIDs == curr_condition);
+    align_times = stimOn_times(stimIDs == curr_condition);
     align_times(align_times + surround_time(1) < frame_t(2) | ...
         align_times + surround_time(2) > frame_t(end)) = [];
     
@@ -1546,7 +1546,7 @@ for curr_avg_window = 1:length(avg_window);
         surround_time = start_window(curr_start_window):surround_samplerate: ...
             start_window(curr_start_window)+avg_window(curr_avg_window);
         
-        align_surround_times = bsxfun(@plus, stim_onsets, surround_time);
+        align_surround_times = bsxfun(@plus, stimOn_times, surround_time);
         avg_response_v = permute(nanmean(interp1(frame_t,fV',align_surround_times),2),[3,1,2]);
         
         stim_order = zeros(max(stimIDs),length(stimIDs));
@@ -1613,7 +1613,7 @@ for curr_svs = 1:length(use_svs)
     surround_time = start_window:surround_samplerate: ...
         start_window+avg_window;
     
-    align_surround_times = bsxfun(@plus, stim_onsets, surround_time);
+    align_surround_times = bsxfun(@plus, stimOn_times, surround_time);
     avg_response_v = permute(nanmean(interp1(frame_t,fV',align_surround_times),2),[3,1,2]);
     
     avg_response_v = avg_response_v(1:use_svs(curr_svs),:);

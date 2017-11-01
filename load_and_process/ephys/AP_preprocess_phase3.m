@@ -102,7 +102,7 @@ for curr_site = 1:length(data_paths)
 %         if sync(curr_sync).timestamps(1) - start_time_sec > 0
 %             sync(curr_sync).timestamps = sync(curr_sync).timestamps - start_time_sec;
 %         end
-        %sync(curr_sync).timestamps = sync(curr_sync).timestamps - start_time_sec;
+%         sync(curr_sync).timestamps = sync(curr_sync).timestamps - start_time_sec;
     end
     
     sync_save_filename = [curr_save_path filesep 'sync.mat'];
