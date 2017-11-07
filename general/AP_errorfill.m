@@ -23,7 +23,7 @@ if size(ye,1) == 1;
     ye_neg = y - ye;
 elseif size(ye,1) == 2
     ye_pos = y + ye(1,:);
-    ye_neg = y - ye(2,:);
+    ye_neg = y + ye(2,:);
 else
     error('Y error size wrong');
 end

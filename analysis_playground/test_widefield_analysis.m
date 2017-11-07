@@ -566,6 +566,7 @@ for curr_condition_idx = 1:length(conditions)
         nanmean(imgaussfilt(diff(svdFrameReconstruct(Udf,peri_stim_v),[],3),1),3);
 end
 
+AP_image_scroll(peri_stim_df,surround_time);
 
 
 %% Autocorrelation of each pixel

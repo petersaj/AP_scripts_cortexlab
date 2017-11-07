@@ -2662,7 +2662,7 @@ n_depth_groups = 6;
 %depth_group_edges = linspace(700,3500,n_depth_groups+1);
 depth_group_edges = round(linspace(str_depth(1),str_depth(2),n_depth_groups+1));
 depth_group_edges_use = depth_group_edges;
-% depth_group_edges_use = [500 1700];
+% depth_group_edges_use = [500 1500];
 
 [depth_group_n,depth_group] = histc(spikeDepths,depth_group_edges_use);
 depth_groups_used = unique(depth_group);
@@ -2671,9 +2671,10 @@ depth_group_centers = depth_group_edges_use(1:end-1)+(diff(depth_group_edges_use
 binned_spikes = zeros(length(depth_group_edges_use)-1,length(time_bins)-1);
 for curr_depth = 1:length(depth_group_edges_use)-1
     
-    curr_spike_times = spike_times_timeline(depth_group == curr_depth);
-%     curr_spike_times = spike_times_timeline((depth_group == curr_depth) & ...
-%         ismember(spike_templates,find(msn)));
+%     curr_spike_times = spike_times_timeline(depth_group == curr_depth);
+    curr_spike_times = spike_times_timeline((depth_group == curr_depth) & ...
+        ismember(spike_templates,find(tan)));
+%     curr_spike_times = spike_times_timeline(spike_templates == 119);
     
     binned_spikes(curr_depth,:) = histcounts(curr_spike_times,time_bins);
     
@@ -2739,11 +2740,13 @@ colormap(c2,jet);
 set(c2,'YDir','reverse');
 set(c2,'YTick',linspace(0,1,6));
 set(c2,'YTickLabel',linspace(depth_group_edges_use(1),depth_group_edges_use(end),6));
+ 
+
 
 
 %% Regression from fluor to spikes (AP_regresskernel) templates
 
-use_templates = 474;%find(templateDepths >= 1500 & templateDepths <= 3000);
+use_templates = find(templateDepths >= 500 & templateDepths <= 1500);
 
 % Skip the first n seconds to do this
 skip_seconds = 30;
@@ -2766,7 +2769,7 @@ end
 use_svs = 1:50;
 kernel_frames = -35:17;
 downsample_factor = 1;
-lambda = 1e7;
+lambda = 2e5;
 zs = [false,true];
 cvfold = 5;
 

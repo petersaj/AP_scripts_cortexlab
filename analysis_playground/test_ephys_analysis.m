@@ -1046,7 +1046,7 @@ figure;plotWaveform(-(squeeze(templates(plot_template,:,:))*winv)', ...
 
 %% PSTH plot by depth (single stim ID)
 
-align_times = stimOn_times(ismember(stimIDs,[4]));
+align_times = stimOn_times(ismember(stimIDs,[3]));
 %align_times = stimOnTimes(azimuths == 90 & stim_hit);
 
 % Group by depth
@@ -1085,7 +1085,7 @@ smWin = gw./sum(gw);
 psth_smooth = conv2(depth_psth, smWin, 'same');
 trace_spacing = max(psth_smooth(:));
 figure; AP_stackplot(psth_smooth(:,20:end-20)',bins(20:end-20), ...
-    10,true,'k',depth_group_centers);
+    5,true,'k',depth_group_centers);
 line([0,0],ylim,'linestyle','--','color','k');
 ylabel('Depth (\mum)');
 xlabel('Time from stim onset (s)')
@@ -1641,7 +1641,7 @@ end
 
 %% Rasters and PSTHs aligned to stimuli
 
-use_spikes_idx = ismember(spike_templates,find(templateDepths >= 2500 & templateDepths <= 2700));
+use_spikes_idx = ismember(spike_templates,find(templateDepths >= 500 & templateDepths <= 1500));
 % use_spikes_idx = ismember(spike_templates,find(templateDepths > 500 & templateDepths < 1500)) & ...
 %    (ismember(spike_templates,find(msn)));
 
@@ -2048,7 +2048,7 @@ ylim([0,max(channel_positions(:,2))])
 
 %% MUA/LFP correlation by depth 
 
-n_depth_groups = 50;
+n_depth_groups = 40;
 depth_group_edges = linspace(0,max(channel_positions(:,2)),n_depth_groups+1);
 depth_group = discretize(templateDepths,depth_group_edges);
 depth_group_centers = depth_group_edges(1:end-1)+(diff(depth_group_edges)/2);
