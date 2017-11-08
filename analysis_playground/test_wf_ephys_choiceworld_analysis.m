@@ -685,8 +685,8 @@ line([0,0],ylim,'linestyle','--','color','k');
 
 stimIDs = signals_events.trialSideValues.*signals_events.trialContrastValues;
 
-% use_spikes_idx = ismember(spike_templates,find(templateDepths >= 0 & templateDepths <= 4000));
-use_spikes_idx = ismember(spike_templates,intersect(find(templateDepths >= 2000 & templateDepths <= 3000),find(msn)));
+use_spikes_idx = ismember(spike_templates,find(templateDepths >= 500 & templateDepths <= 3500));
+% use_spikes_idx = ismember(spike_templates,intersect(find(templateDepths >= 2000 & templateDepths <= 3000),find(msn)));
 use_spikes = spike_times_timeline(use_spikes_idx);
 
 use_templates = unique(spike_templates(use_spikes_idx));

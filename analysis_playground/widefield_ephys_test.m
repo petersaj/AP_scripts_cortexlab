@@ -188,7 +188,7 @@ xlabel('Time from stim onset')
 
 %% Spike-triggered averaging of widefield (single templates)
 
-curr_template = 474;
+curr_template = 43;
 surround_times = [-2,2];
 
 framerate = 1./median(diff(frame_t));
@@ -284,10 +284,12 @@ sta_v_pca = reshape(score,size(sta_v_all,1),size(sta_v_all,2),size(sta_v_all,3))
 
 %% STA for multiunit
 
+use_spikes = spike_times_timeline(spike_templates == 279);
+
 % use_spikes = spike_times_timeline(ismember(spike_templates,find(templateDepths > 3000 & templateDepths < 3500)));
 
-use_spikes = spike_times_timeline(ismember(spike_templates,find(templateDepths > 1000 & templateDepths < 2000)) &...
-    ismember(spike_templates,find(msn)));
+% use_spikes = spike_times_timeline(ismember(spike_templates,find(templateDepths > 1000 & templateDepths < 2000)) &...
+%     ismember(spike_templates,find(msn)));
 
 %use_spikes = spike_times_timeline(ismember(spike_templates,find(templateDepths > 0 & templateDepths < 400)) & ...
 %    ismember(spike_templates,use_templates(use_template_narrow)));
@@ -2657,7 +2659,7 @@ time_bins = frame_t(find(frame_t > skip_seconds,1)):1/sample_rate:frame_t(find(f
 time_bin_centers = time_bins(1:end-1) + diff(time_bins)/2;
 
 % Group multiunit by depth
-n_depth_groups = 6;
+n_depth_groups = 3;
 %depth_group_edges = linspace(0,max(channel_positions(:,2)),n_depth_groups+1);
 %depth_group_edges = linspace(700,3500,n_depth_groups+1);
 depth_group_edges = round(linspace(str_depth(1),str_depth(2),n_depth_groups+1));
@@ -2671,10 +2673,10 @@ depth_group_centers = depth_group_edges_use(1:end-1)+(diff(depth_group_edges_use
 binned_spikes = zeros(length(depth_group_edges_use)-1,length(time_bins)-1);
 for curr_depth = 1:length(depth_group_edges_use)-1
     
-%     curr_spike_times = spike_times_timeline(depth_group == curr_depth);
-    curr_spike_times = spike_times_timeline((depth_group == curr_depth) & ...
-        ismember(spike_templates,find(tan)));
-%     curr_spike_times = spike_times_timeline(spike_templates == 119);
+    curr_spike_times = spike_times_timeline(depth_group == curr_depth);
+%     curr_spike_times = spike_times_timeline((depth_group == curr_depth) & ...
+%         ismember(spike_templates,find(tan)));
+%     curr_spike_times = spike_times_timeline(spike_templates == 279);
     
     binned_spikes(curr_depth,:) = histcounts(curr_spike_times,time_bins);
     
@@ -2683,7 +2685,7 @@ end
 use_svs = 1:50;
 kernel_frames = -35:17;
 downsample_factor = 1;
-lambda = 2e5;
+lambda = 2e6;
 zs = [false,true];
 cvfold = 5;
 
@@ -2769,7 +2771,7 @@ end
 use_svs = 1:50;
 kernel_frames = -35:17;
 downsample_factor = 1;
-lambda = 2e5;
+lambda = 2e6;
 zs = [false,true];
 cvfold = 5;
 

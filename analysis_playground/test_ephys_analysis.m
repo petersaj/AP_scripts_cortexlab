@@ -1650,7 +1650,7 @@ use_spikes_idx = ismember(spike_templates,find(templateDepths >= 500 & templateD
 use_spikes = spike_times_timeline(use_spikes_idx);
 use_spike_templates = spike_templates(use_spikes_idx);
 
-align_times = stimOn_times(ismember(stimIDs,[3,4]));
+align_times = stimOn_times;%(ismember(stimIDs,[3,4]));
 
 % PSTHs
 raster_window = [-0.5,5];
@@ -1854,12 +1854,13 @@ non_str_templates = ~str_templates;
 % Define the window to look for spiking statistics in (spikes go in and
 % out, so take the bin with the largest firing rate for each cell and work
 % with that one)
-spiking_stat_window = 60*10; % seconds
-spiking_stat_bins = min(spike_times_timeline):spiking_stat_window: ...
-    max(spike_times_timeline);
+% spiking_stat_window = 60*10; % seconds
+% spiking_stat_bins = min(spike_times_timeline):spiking_stat_window: ...
+%     max(spike_times_timeline);
 
-% spiking_stat_window = max(spike_times_timeline)-min(spike_times_timeline);
-% spiking_stat_bins = [min(spike_times_timeline),max(spike_times_timeline)];
+% % (for whole session)
+spiking_stat_window = max(spike_times_timeline)-min(spike_times_timeline);
+spiking_stat_bins = [min(spike_times_timeline),max(spike_times_timeline)];
 
 % Get firing rate across the session
 bin_spikes = nan(max(spike_templates), ...
@@ -2045,6 +2046,20 @@ set(gca,'YDir','reverse');
 ylabel('Depth (\mum)');
 legend(celltype_labels(plot_celltypes));
 ylim([0,max(channel_positions(:,2))])
+
+% %%%% DO SOMETHING WITH THIS AT SOME POINT: ISI DISTRIBUTION
+% 
+% isi_edges = [0:0.01:0.5];
+% isi_centers = conv(isi_edges,[1,1]/2,'valid');
+% 
+% isi_hist = nan(max(spike_templates),length(isi_centers));
+% for curr_template = 1:max(spike_templates)
+%     curr_spikes = spike_times_timeline(spike_templates == curr_template);
+%     curr_isi = diff(curr_spikes);
+%     isi_hist(curr_template,:) = histcounts(curr_isi,isi_edges);
+% end
+%
+% %%%%
 
 %% MUA/LFP correlation by depth 
 

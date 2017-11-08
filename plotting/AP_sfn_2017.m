@@ -208,5 +208,76 @@ ylabel(p(2),'Variance');
 % 6 (tan), 8/95 (msn), 53/119 (fsi)
 % these are saved, easier enough to just produce on the fly
 
+%% Plot spike properties
+
+plot_templates = templateDepths < 1500;
+
+% Plot the waveforms and spike statistics
+figure;
+
+subplot(1,3,1); hold on;
+plot(waveform_t,nanmean(waveforms(uin,:),1),'c')
+plot(waveform_t,nanmean(waveforms(tan,:),1),'g')
+plot(waveform_t,nanmean(waveforms(fsi,:),1),'b')
+plot(waveform_t,nanmean(waveforms(msn,:),1),'m')
+xlabel('Time (ms)')
+legend({'MSN','FSI','TAN','UIN'});
+
+subplot(1,3,2); hold on;
+stem3( ...
+    templateDuration_us(msn & plot_templates)/1000, ...
+    prop_long_isi(msn & plot_templates), ...
+    spike_rate(msn & plot_templates),'m');
+
+stem3( ...
+    templateDuration_us(fsi & plot_templates)/1000, ...
+    prop_long_isi(fsi & plot_templates), ...
+    spike_rate(fsi & plot_templates),'b');
+
+stem3( ...
+    templateDuration_us(tan & plot_templates)/1000, ...
+    prop_long_isi(tan & plot_templates), ...
+    spike_rate(tan & plot_templates),'g');
+
+stem3( ...
+    templateDuration_us(uin & plot_templates)/1000, ...
+    prop_long_isi(uin & plot_templates), ...
+    spike_rate(uin & plot_templates),'c');
+
+xlabel('waveform duration (ms)')
+ylabel('frac long ISI')
+zlabel('spike rate')
+
+set(gca,'YDir','reverse')
+set(gca,'XDir','reverse')
+view(3);
+grid on;
+axis vis3d;
+
+isi_edges = [0:0.001:0.3];
+isi_centers = conv(isi_edges,[1,1]/2,'valid');
+
+isi_hist = nan(max(spike_templates),length(isi_centers));
+for curr_template = 1:max(spike_templates)
+    curr_spikes = spike_times_timeline(spike_templates == curr_template);
+    curr_isi = diff(curr_spikes);
+    isi_hist(curr_template,:) = histcounts(curr_isi,isi_edges);
+end
+
+isi_hist_norm = bsxfun(@rdivide,bsxfun(@minus,isi_hist,min(isi_hist,[],2)),max(isi_hist,[],2) - min(isi_hist,[],2));
+
+msn_isi = nanmedian(isi_hist_norm(plot_templates & msn,:),1);
+fsi_isi = nanmedian(isi_hist_norm(plot_templates & fsi,:),1);
+tan_isi = nanmedian(isi_hist_norm(plot_templates & tan,:),1);
+uin_isi = nanmedian(isi_hist_norm(plot_templates & uin,:),1);
+
+subplot(1,3,3); hold on;
+plot(isi_centers,msn_isi,'m','linewidth',2);
+plot(isi_centers,fsi_isi,'b','linewidth',2);
+plot(isi_centers,tan_isi,'g','linewidth',2);
+plot(isi_centers,uin_isi,'c','linewidth',2);
+
+xlabel('Inter-spike interval');
+ylabel('Normalized frequency');
 
 
