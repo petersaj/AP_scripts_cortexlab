@@ -3,9 +3,25 @@ function experiments = AP_find_experiments(animal,protocol)
 %
 % Find all experiments from an animal with a given protocol name
 
+% Days can either be on Data\expInfo or Data (garbage system to be replaced
+% by Alyx logging files)
+% (look in Data)
 expInfo_path = ['\\zserver.cortexlab.net\Data\expInfo\' animal];
 expInfo_dir = dir(expInfo_path);
-days = {expInfo_dir(find([expInfo_dir(3:end).isdir])+2).name};
+days_Data = {expInfo_dir(find([expInfo_dir(3:end).isdir])+2).name};
+days_Data_pathname = cellfun(@(x) [expInfo_path filesep x],days_Data,'uni',false);
+
+% (look in Data2)
+expInfo_path = ['\\zserver.cortexlab.net\Data2\Subjects\' animal];
+expInfo_dir = dir(expInfo_path);
+days_Data2 = {expInfo_dir(find([expInfo_dir(3:end).isdir])+2).name};
+days_Data2_pathname = cellfun(@(x) [expInfo_path filesep x],days_Data2,'uni',false);
+
+% (take unique days from both)
+days_combined = [days_Data,days_Data2];
+days_pathname_combined = [days_Data_pathname,days_Data2_pathname];
+[days,unique_day_idx] = unique(days_combined);
+days_pathnames = days_pathname_combined(unique_day_idx);
 
 % Find experiments with chosen protocol and which modalities were recorded
 protocol_expts = cell(size(days));
@@ -15,7 +31,7 @@ ephys_expts = cell(size(days));
 for curr_day = 1:length(days)  
     day = days{curr_day};
     % Check all experiments of that day
-    expDay_dir = dir([expInfo_path filesep days{curr_day}]);
+    expDay_dir = dir(days_pathnames{curr_day});
     exp_nums = cellfun(@str2num,{expDay_dir(3:end).name});
     use_exp = false(size(exp_nums));
     for curr_exp = 1:length(exp_nums);
@@ -26,8 +42,10 @@ for curr_day = 1:length(days)
         if block_exists
             % If signals
             load(block_filename)
-            [~,expDef] = fileparts(block.expDef);
-            use_exp(curr_exp) = ~isempty(strfind(expDef,protocol));
+            if isfield(block,'expDef');
+                [~,expDef] = fileparts(block.expDef);
+                use_exp(curr_exp) = ~isempty(strfind(expDef,protocol));
+            end
         elseif protocol_exists
             % If MPEP
             load(protocol_filename)

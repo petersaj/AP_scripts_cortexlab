@@ -152,7 +152,7 @@ protocol = 'vanillaChoiceworld';
 experiments = AP_find_experiments(animal,protocol);
 
 % only use experiments with ephys + imaging
-experiments = experiments([experiments.imaging] & [experiments.ephys]);
+experiments = experiments([experiments.imaging] & ~[experiments.ephys]);
 
 load_parts.cam = false;
 load_parts.imaging = true;
@@ -174,7 +174,7 @@ for curr_day = 1:length(experiments);
     stim_onsets = stimOn_times(1:num_stim);
     
     % Discretize the stimIDs by easy/hard/zero
-    stimIDs = discretize(stimIDs,[-Inf,-0.125,-0.01,0.01,0.25,Inf],[-2,-1,0,1,2]);
+%     stimIDs = discretize(stimIDs,[-Inf,-0.125,-0.01,0.01,0.25,Inf],[-2,-1,0,1,2]);
     
     %%%% Get wheel move time
     t_surround = [-0.5,5];
@@ -207,8 +207,7 @@ for curr_day = 1:length(experiments);
     baseline_surround_time = baseline_surround_window(1):surround_samplerate:baseline_surround_window(2);
     
     % Average (time course) responses
-    %     conditions = unique(stimIDs);
-    conditions = [-2,-1,0,1,2];
+    conditions = unique(stimIDs);
     im_stim_hit = nan(size(U,1),size(U,2),length(t_surround),length(conditions));
     im_stim_miss = nan(size(U,1),size(U,2),length(t_surround),length(conditions));
 

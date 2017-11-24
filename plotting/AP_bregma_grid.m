@@ -1,8 +1,20 @@
-function h = AP_bregma_grid
+function h = AP_bregma_grid(reference_im)
+% h = AP_bregma_grid(reference_im)
+%
+% If a reference image is provided, bregma is defined there
+
+if exist('reference_im','var') && ~isempty(reference_im)
+    temp_f = figure;
+    imagesc(reference_im);
+    colormap(gray);
+    axis off image;
+    [bregma_x,bregma_y] = ginput(1);
+    close(temp_f);
+else
+    [bregma_x,bregma_y] = ginput(1);
+end
 
 hold on;
-
-[bregma_x,bregma_y] = ginput(1);
 
 pixel2um = 20.6;
 spacing_um = 1000;

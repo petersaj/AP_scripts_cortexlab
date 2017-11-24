@@ -1095,7 +1095,7 @@ title('Population raster by depth');
 
 % Group by depth
 n_depth_groups = 6;
-%depth_group_edges = linspace(0,4000,n_depth_groups+1);
+%depth_group_edges = linspace(0,max(channel_positions(:,2)),n_depth_groups+1);
 depth_group_edges = round(linspace(str_depth(1),str_depth(2),n_depth_groups+1));
 depth_group_centers = round(depth_group_edges(1:end-1)+diff(depth_group_edges)/2);
 depth_group_edges(end) = Inf;

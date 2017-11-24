@@ -687,7 +687,7 @@ U_downsample_factor = 10;
 % Make mask
 h = figure;
 imagesc(avg_im);
-colormap(gray);
+colormap(gray); axis off image;
 caxis([0 prctile(avg_im(:),90)]);
 title('Draw mask to use pixels');
 roiMask = roipoly;
@@ -700,7 +700,7 @@ px_traces = reshape(Ud,[],size(Ud,3))*fV;
 brain_px = std(px_traces,[],2) > 0.0001;
 
 % Get fluorescence traces by grouped pixels
-use_kgrps = 5;
+use_kgrps = 6;
 
 kidx = kmeans(px_traces(brain_px,:),use_kgrps,'Distance','correlation');
 
@@ -737,16 +737,16 @@ if bilateral_separate
     drawnow;
 end
 
-% Get fluorescence across session in ROI
-% (there must be a faster way to do this...)
-disp('Getting cluster traces...')
-cluster_trace = zeros(max(kgrp(:)),size(fV,2));
-U_reshape = reshape(U,[],size(U,3));
-for i = 1:max(kgrp(:))
-    roiMask = kgrp == i;
-    cluster_trace(i,:) = nanmean(U_reshape(roiMask(:),:)*fV);
-end
-disp('Done')
+% % Get fluorescence across session in ROI
+% % (there must be a faster way to do this...)
+% disp('Getting cluster traces...')
+% cluster_trace = zeros(max(kgrp(:)),size(fV,2));
+% U_reshape = reshape(U,[],size(U,3));
+% for i = 1:max(kgrp(:))
+%     roiMask = kgrp == i;
+%     cluster_trace(i,:) = nanmean(U_reshape(roiMask(:),:)*fV);
+% end
+% disp('Done')
 
 figure; 
 imagesc(avg_im); colormap(gray);
@@ -925,8 +925,65 @@ for x_idx = 1:length(use_x)
 end
 
 
+%% Topography: try again
+%%%% LOOKS PROMISING KEEP DOING THIS
+
+% Lifted from pixelCorrelationViewerSVD
+
+% to compute just the correlation with one pixel and the rest:
+% 1) ahead of time:
+fprintf(1, 'pre-computation...\n');
+Ur = reshape(U, size(U,1)*size(U,2),[]); % P x S
+covV = cov(fV'); % S x S % this is the only one that takes some time really
+varP = dot((Ur*covV)', Ur'); % 1 x P
+fprintf(1, 'done.\n');
+
+ySize = size(U,1); xSize = size(U,2);
+
+px_spacing = 20;
+use_y = 1:px_spacing:size(U,1);
+use_x = 1:px_spacing:size(U,2);
+corr_map = cell(length(use_y),length(use_x));
+for curr_x_idx = 1:length(use_x)
+    curr_x = use_x(curr_x_idx);
+    for curr_y_idx = 1:length(use_y)
+        curr_y = use_y(curr_y_idx);
+        
+        pixel = [curr_y,curr_x];
+        pixelInd = sub2ind([ySize, xSize], pixel(1), pixel(2));
+        
+        covP = Ur(pixelInd,:)*covV*Ur'; % 1 x P
+        stdPxPy = varP(pixelInd).^0.5 * varP.^0.5; % 1 x P
+        corrMat = reshape(covP./stdPxPy,ySize,xSize); % 1 x P
+        
+        corr_map{curr_y_idx,curr_x_idx} = corrMat;
+    end
+    
+    disp(curr_x_idx/length(use_x));
+end
+
+% Get map of correlation for each pixel
+corr_map_reshape = reshape(cat(3,corr_map{:}),[],length(use_x)*length(use_y));
+corr_map_reshape = reshape(corr_map_reshape',length(use_y),length(use_x),[]);
+
+[xx,yy] = meshgrid(1:length(use_x),1:length(use_y));
+m_xr = reshape(sum(sum(bsxfun(@times,corr_map_reshape.^2,xx),1),2)./sum(sum(corr_map_reshape.^2,1),2),size(U,1),size(U,2));
+m_yr = reshape(sum(sum(bsxfun(@times,corr_map_reshape.^2,yy),1),2)./sum(sum(corr_map_reshape.^2,1),2),size(U,1),size(U,2));
+
+% 1) get gradient direction
+[~,Vdir] = imgradient(imgaussfilt(m_yr,1));
+[~,Hdir] = imgradient(imgaussfilt(m_xr,1));
+
+% 3) get sin(difference in direction) if retinotopic, H/V should be
+% orthogonal, so the closer the orthogonal the better (and get sign)
+angle_diff = sind(Vdir-Hdir);
+angle_diff(isnan(angle_diff)) = 0;
 
 
+
+%%%%% EDGE DETECTION: I think this works better
+a = cat(3,corr_map{:});
+a2 = a-imgaussfilt(a,10);
 
 
 %% xcorr trace/facecam, this probably doesn't make any sense... 

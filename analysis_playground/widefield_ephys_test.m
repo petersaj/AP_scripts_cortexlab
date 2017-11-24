@@ -2659,12 +2659,12 @@ time_bins = frame_t(find(frame_t > skip_seconds,1)):1/sample_rate:frame_t(find(f
 time_bin_centers = time_bins(1:end-1) + diff(time_bins)/2;
 
 % Group multiunit by depth
-n_depth_groups = 3;
-%depth_group_edges = linspace(0,max(channel_positions(:,2)),n_depth_groups+1);
+n_depth_groups = 6;
+% depth_group_edges = linspace(0,max(channel_positions(:,2)),n_depth_groups+1);
 %depth_group_edges = linspace(700,3500,n_depth_groups+1);
 depth_group_edges = round(linspace(str_depth(1),str_depth(2),n_depth_groups+1));
 depth_group_edges_use = depth_group_edges;
-% depth_group_edges_use = [500 1500];
+% depth_group_edges_use = [0 300];
 
 [depth_group_n,depth_group] = histc(spikeDepths,depth_group_edges_use);
 depth_groups_used = unique(depth_group);
@@ -2685,7 +2685,7 @@ end
 use_svs = 1:50;
 kernel_frames = -35:17;
 downsample_factor = 1;
-lambda = 2e6;
+lambda = 2e5;
 zs = [false,true];
 cvfold = 5;
 

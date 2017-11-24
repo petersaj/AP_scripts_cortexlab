@@ -1,47 +1,57 @@
 % Load in and plot behavior
 
-animal = 'AP025';
+animal = 'AP026';
 protocol = 'vanillaChoiceworld';
 experiments = AP_find_experiments(animal,protocol);
 bhv = struct;
+
 for curr_day = 1:length(experiments)
     
     day = experiments(curr_day).day;
-    experiment = experiments(curr_day).experiment;
-
-    [block_filename, block_exists] = AP_cortexlab_filename(animal,day,experiment,'block');
-
-    % Load the block file    
-    load(block_filename)
+    experiment_num = experiments(curr_day).experiment;
     
-    % Time of session (in minutes)
-    session_duration = block.duration/60;
+    if length(experiment_num) > 1
+        warning('NOT USING ALL EXPERIMENTS AT THE MOMENT')
+    end
     
-    % Trial counts
-    n_trials = length(block.paramsValues);
-    total_water = sum(block.outputs.rewardValues);
-           
-    % Wheel movements/biases
-    wheel_movement = diff(block.inputs.wheelValues);
-    left_wheel_movement = abs(wheel_movement.*(wheel_movement < 0));
-    right_wheel_movement = abs(wheel_movement.*(wheel_movement > 0));
-    wheel_bias = (sum(right_wheel_movement)-sum(left_wheel_movement))/ ...
-        (sum(right_wheel_movement)+sum(left_wheel_movement));
-    
-    % Performance (note that this excludes repeat on incorrect trials)
-    performance = block.events.sessionPerformanceValues(:,end-10:end);  
+    for curr_experiment = length(experiment_num);
         
-    % Store in behavior structure   
-    bhv.session_duration(curr_day) = session_duration;
-    bhv.n_trials(curr_day) = n_trials;
-    bhv.total_water(curr_day) = total_water;
-    bhv.wheel_movement(curr_day) = sum(abs(wheel_movement));
-    bhv.wheel_bias(curr_day) = wheel_bias;
-    bhv.conditions = performance(1,:);
-    bhv.n_trials_condition(curr_day,:) = performance(2,:);
-    bhv.go_left_trials(curr_day,:) = performance(end,:);
-    
-    disp(['Behavior: day ' num2str(curr_day) '/' num2str(length(experiments))]);
+        experiment = experiment_num(curr_experiment);
+        
+        [block_filename, block_exists] = AP_cortexlab_filename(animal,day,experiment,'block');
+        
+        % Load the block file
+        load(block_filename)
+        
+        % Time of session (in minutes)
+        session_duration = block.duration/60;
+        
+        % Trial counts
+        n_trials = length(block.paramsValues);
+        total_water = sum(block.outputs.rewardValues);
+        
+        % Wheel movements/biases
+        wheel_movement = diff(block.inputs.wheelValues);
+        left_wheel_movement = abs(wheel_movement.*(wheel_movement < 0));
+        right_wheel_movement = abs(wheel_movement.*(wheel_movement > 0));
+        wheel_bias = (sum(right_wheel_movement)-sum(left_wheel_movement))/ ...
+            (sum(right_wheel_movement)+sum(left_wheel_movement));
+        
+        % Performance (note that this excludes repeat on incorrect trials)
+        performance = block.events.sessionPerformanceValues(:,end-10:end);
+        
+        % Store in behavior structure
+        bhv.session_duration(curr_day) = session_duration;
+        bhv.n_trials(curr_day) = n_trials;
+        bhv.total_water(curr_day) = total_water;
+        bhv.wheel_movement(curr_day) = sum(abs(wheel_movement));
+        bhv.wheel_bias(curr_day) = wheel_bias;
+        bhv.conditions = performance(1,:);
+        bhv.n_trials_condition(curr_day,:) = performance(2,:);
+        bhv.go_left_trials(curr_day,:) = performance(end,:);
+        
+        disp(['Behavior: day ' num2str(curr_day) '/' num2str(length(experiments))]);
+    end
     
 end
 
