@@ -51,6 +51,7 @@ for curr_exp_idx = 1:length(experiments)
         mkdir(curr_exp_dir);
     end
     writeNPY(cam_times_blue{curr_exp_idx},[curr_exp_dir filesep frame_times_fn]);
+    disp('Saved blue timestamps')
 end
 
 
@@ -63,6 +64,7 @@ for curr_exp_idx = 1:length(experiments)
         mkdir(curr_exp_dir);
     end
     writeNPY(cam_times_purple{curr_exp_idx},[curr_exp_dir filesep frame_times_fn]);
+    disp('Saved purple timestamps')
 end
 
 

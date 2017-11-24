@@ -66,7 +66,7 @@ if protocol_exists
     disp('Loading mpep protocol...')
     
     load(protocol_filename);
-
+    
     % Load in hardware info
     hwinfo_filename = AP_cortexlab_filename(animal,day,experiment,'hardware');
     load(hwinfo_filename);
@@ -138,9 +138,9 @@ if protocol_exists
             
             photodiode = struct('timestamps',[],'values',[]);
             photodiode.timestamps = stimScreen_on_t(photodiode_flip)';
-            photodiode.values = photodiode_trace(photodiode_flip);            
+            photodiode.values = photodiode_trace(photodiode_flip);
     end
-     
+    
     photodiode_offsets = photodiode.timestamps(photodiode.values == 0);
     photodiode_onsets = photodiode.timestamps(photodiode.values == 1);
     
@@ -175,6 +175,7 @@ if block_exists
     signals_events = block.events;
     
     % If reward information exists, use that to align signals/timeline
+    % (bad now because manual reward possible - use flipper in future)
     if exist('Timeline','var') && isfield(block.outputs,'rewardTimes')
         reward_t_block = block.outputs.rewardTimes(block.outputs.rewardValues > 0);
         
@@ -183,26 +184,40 @@ if block_exists
         reward_trace = Timeline.rawDAQData(:,timeline_reward_idx) > reward_thresh;
         reward_t_timeline = Timeline.rawDAQTimestamps(find(reward_trace(2:end) & ~reward_trace(1:end-1))+1);
         
-        % Go through all block events and convert to timeline time using the reward
-        % as the reference event
-        % (NOTE: reward is now manually deliverable, no longer reliable.
-        % Hook up the flipper to signals instead - but can't at the moment
-        % because all of the expServer input ports are in use)
-        % Don't do this if different number of sync events
-        if length(reward_t_block) == length(reward_t_timeline)
-            block_fieldnames = fieldnames(block.events);
-            block_values_idx = cellfun(@(x) ~isempty(x),strfind(block_fieldnames,'Values'));
-            block_times_idx = cellfun(@(x) ~isempty(x),strfind(block_fieldnames,'Times'));
-            for curr_times = find(block_times_idx)'
-                if isempty(signals_events.(block_fieldnames{curr_times}));
-                    % skip if empty
-                    continue
-                end
-                signals_events.(block_fieldnames{curr_times}) = ...
-                    AP_clock_fix(block.events.(block_fieldnames{curr_times}),reward_t_block,reward_t_timeline);
+        % If there's a different number of block and timeline rewards (aka
+        % manual rewards were given), try to fix this
+        if length(reward_t_block) ~= length(reward_t_timeline)
+            % (this is really inelegant but I think works - find the most
+            % common offset between block/timeline rewards)
+            reward_t_offset = bsxfun(@minus,reward_t_block',reward_t_timeline);
+            blunt_reward_offset = mode(round(reward_t_offset(:)*10))/10;
+            reward_t_offset_shift = reward_t_offset - blunt_reward_offset;
+            t_offset_tolerance = 0.1;
+            reward_t_offset_binary = abs(reward_t_offset_shift) < t_offset_tolerance;
+            if all(sum(reward_t_offset_binary,2) == 1)
+                % one timeline reward for each block reward, you're good
+                % (eliminate the timeline rewards with no match)
+                manual_timeline_rewards = sum(reward_t_offset_binary,1) == 0;
+                reward_t_timeline(manual_timeline_rewards) = [];  
+                warning('Manual rewards included - removed successfully');
+            else
+                % otherwise, you're in trouble
+                error('Manual rewards included - couldn''t match to block');
             end
-        else
-            warning('NOT ALIGNING SIGNALS TO TIMELINE - REWARD MISMATCH')
+        end
+        
+        % Go through all block events and convert to timeline time
+        % (uses reward as reference)
+        block_fieldnames = fieldnames(block.events);
+        block_values_idx = cellfun(@(x) ~isempty(x),strfind(block_fieldnames,'Values'));
+        block_times_idx = cellfun(@(x) ~isempty(x),strfind(block_fieldnames,'Times'));
+        for curr_times = find(block_times_idx)'
+            if isempty(signals_events.(block_fieldnames{curr_times}));
+                % skip if empty
+                continue
+            end
+            signals_events.(block_fieldnames{curr_times}) = ...
+                AP_clock_fix(block.events.(block_fieldnames{curr_times}),reward_t_block,reward_t_timeline);
         end
     end
     
@@ -258,7 +273,7 @@ if block_exists
             error('Different number of signals/timeline stim ons')
         end
         
-    else     
+    else
         % Specialized: get stim on/off times BY ASSUMING MINIMUM STIM DOWNTIME
         min_stim_downtime = 1; % minimum time between pd flips to get stim
         stimOn_times = photodiode_flip_times([true;diff(photodiode_flip_times) > min_stim_downtime]);
@@ -400,7 +415,7 @@ if data_path_exists && load_parts.imaging
         frame_t = readNPY([experiment_path filesep 'svdTemporalComponents_blue.timestamps.npy']);
         U = readUfromNPY([data_path filesep 'svdSpatialComponents_blue.npy']);
         V = readVfromNPY([experiment_path filesep 'svdTemporalComponents_blue.npy']);
-                
+        
         framerate = 1./nanmedian(diff(frame_t));
         
         % Detrend and high-pass filter
@@ -427,7 +442,7 @@ if data_path_exists && load_parts.imaging
         Vh = readVfromNPY([experiment_path filesep 'svdTemporalComponents_' cam_color_hemo '.npy']);
         dataSummary_h = load([data_path filesep 'dataSummary_' cam_color_signal '.mat']);
         avg_im_h = readNPY([data_path filesep 'meanImage_' cam_color_hemo '.npy']);
-                
+        
         framerate = 1./nanmedian(diff(tn));
         
         % Correct hemodynamic signal in blue from green
@@ -435,7 +450,7 @@ if data_path_exists && load_parts.imaging
         % (shifts neural to hemo)
         % Eliminate odd frames out
         disp('Correcting hemodynamics...')
-
+        
         min_frames = min(size(Vn,2),size(Vh,2));
         Vn = Vn(:,1:min_frames);
         Vh = Vh(:,1:min_frames);
@@ -462,7 +477,7 @@ if data_path_exists && load_parts.imaging
             close(gcf)
             close(gcf)
         end
-      
+        
         disp('Filtering...')
         % Don't bother filtering heartbeat, just detrend and highpass
         % fVn_hemo = detrendAndFilt(Vn_hemo, framerate);
@@ -499,7 +514,7 @@ if ephys_exists && load_parts.ephys
     
     acqLive_channel = 2;
     load_lfp = true;
-            
+    
     % Load clusters, if they exist
     cluster_filename = [ephys_path filesep 'cluster_groups.csv'];
     if exist(cluster_filename,'file')
@@ -566,7 +581,7 @@ if ephys_exists && load_parts.ephys
         lfp = lfp_all(channel_map+1,:);
         clear lfp_all;
         % get time of LFP sample points (NOTE: this is messy, based off of sample
-        % rate and knowing what kwik2dat does, not sure how accurate)     
+        % rate and knowing what kwik2dat does, not sure how accurate)
         lfp_t = ([1:size(lfp,2)]*lfp_downsamp)/lfp_sample_rate;
     end
     
@@ -588,13 +603,13 @@ if ephys_exists && load_parts.ephys
     % Get the depths of each template
     % (by COM - this used to not work but now looks ok)
     [spikeAmps, spikeDepths, templateDepths, tempAmps, tempsUnW, templateDuration, waveforms] = ...
-       templatePositionsAmplitudes(templates,winv,channel_positions(:,2),spike_templates,template_amplitudes);    
-%     % (by max waveform channel)
-%     template_abs = permute(max(abs(templates),[],2),[3,1,2]);
-%     [~,max_channel_idx] =  max(template_abs,[],1);
-%     templateDepths = channel_positions(max_channel_idx,2); 
-%     % Get each spike's depth
-%     spikeDepths = templateDepths(spike_templates+1);
+        templatePositionsAmplitudes(templates,winv,channel_positions(:,2),spike_templates,template_amplitudes);
+    %     % (by max waveform channel)
+    %     template_abs = permute(max(abs(templates),[],2),[3,1,2]);
+    %     [~,max_channel_idx] =  max(template_abs,[],1);
+    %     templateDepths = channel_positions(max_channel_idx,2);
+    %     % Get each spike's depth
+    %     spikeDepths = templateDepths(spike_templates+1);
     
     % Get the waveform duration of all templates (channel with largest amp)
     [~,max_site] = max(max(abs(templates),[],2),[],3);
@@ -616,7 +631,7 @@ if ephys_exists && load_parts.ephys
     waveform_peak = waveform_peak_rel + waveform_trough;
     
     templateDuration = waveform_peak - waveform_trough;
-    templateDuration_us = (templateDuration/ephys_sample_rate)*1e6;        
+    templateDuration_us = (templateDuration/ephys_sample_rate)*1e6;
     
     % Eliminate spikes that were classified as not "good"
     if exist('cluster_groups','var')

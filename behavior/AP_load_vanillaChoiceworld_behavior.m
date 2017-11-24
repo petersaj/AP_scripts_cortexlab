@@ -1,6 +1,6 @@
 % Load in and plot behavior
 
-animal = 'AP026';
+animal = 'AP027';
 protocol = 'vanillaChoiceworld';
 experiments = AP_find_experiments(animal,protocol);
 bhv = struct;
