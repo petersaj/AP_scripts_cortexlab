@@ -147,7 +147,7 @@ AP_image_scroll(a,t_surround)
 
 %% Batch get average choiceworld fluorescence
 
-animal = 'AP025';
+animal = 'AP027';
 protocol = 'vanillaChoiceworld';
 experiments = AP_find_experiments(animal,protocol);
 
@@ -159,7 +159,7 @@ load_parts.imaging = true;
 load_parts.ephys = false;
 
 batch_vars = struct;
-for curr_day = 1:length(experiments);
+for curr_day = 5:length(experiments);
     
     day = experiments(curr_day).day;
     experiment = experiments(curr_day).experiment;
