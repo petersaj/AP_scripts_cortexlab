@@ -1,10 +1,17 @@
-function AP_preprocess_phase3(animal,day)
-% AP_preprocess_phase3(animal,day)
+function AP_preprocess_phase3(animal,day,local_data)
+% AP_preprocess_phase3(animal,day,local_data)
+% if local_data - use data on D:data (used when zserver is down)
 
 %% Get paths and filenames
 
-data_paths =  ...
-    {['\\zserver.cortexlab.net\Data\Subjects\' animal filesep day '\ephys']};
+if exist('local_data','var') && local_data
+    data_paths =  ...
+        {['D:\data\' animal filesep day '\ephys']};
+else
+    data_paths =  ...
+        {['\\zserver.cortexlab.net\Data\Subjects\' animal filesep day '\ephys']};
+end
+
 save_paths =  ...
     {['\\basket.cortexlab.net\data\ajpeters\' animal filesep day '\ephys']};
 

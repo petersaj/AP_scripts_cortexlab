@@ -362,7 +362,7 @@ AP_image_scroll(avg_miss,t_surround)
 stimIDs = signals_events.trialSideValues.*signals_events.trialContrastValues;
 % stimIDs = discretize(stimIDs,[-Inf,-0.125,-0.01,0.01,0.25,Inf],[-2,-1,0,1,2]);
 
-use_spikes_idx = ismember(spike_templates,find(templateDepths >= 500 & templateDepths <= 1500));
+use_spikes_idx = ismember(spike_templates,find(templateDepths >= 0 & templateDepths <= 1000));
 % use_spikes_idx = ismember(spike_templates,intersect(find(templateDepths >= 500 & templateDepths <= 1500),find(msn)));
 
 use_spikes = spike_times_timeline(use_spikes_idx);

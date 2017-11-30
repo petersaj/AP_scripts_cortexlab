@@ -956,8 +956,8 @@ for px_y = 1:ny;
 end
 
 % Get position preference for every pixel
-U_downsample_factor = 1;
-screen_resize_scale = 1;
+U_downsample_factor = 1; %2
+screen_resize_scale = 1; %3
 filter_sigma = (screen_resize_scale*2);
 
 % Downsample U

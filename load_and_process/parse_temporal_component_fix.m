@@ -1,8 +1,8 @@
 %% If the V's were parsed but the timestamps weren't saved
 
-animal = 'AP027';
-day = '2017-11-16';
-experiments = 2;
+animal = 'M171006_MIK';
+day = '2017-11-30';
+experiments = 1;
 
 data_path = ['\\zserver.cortexlab.net\Data\Subjects\' animal filesep day];
 dataSummary_fn = [data_path filesep 'dataSummary_blue'];
@@ -10,7 +10,7 @@ load(dataSummary_fn);
 
 cam_times_blue = cell(length(experiments),1);
 cam_times_purple = cell(length(experiments),1);
-exp_start_frames = [1,find(diff(dataSummary.timeStampsFromStamp) > 2)+1,length(dataSummary.timeStampsFromStamp)-1];
+exp_start_frames = [1,find(diff(dataSummary.timeStampsFromStamp) > 2)+1,length(dataSummary.timeStampsFromStamp)+1];
 
 for curr_exp_idx = 1:length(experiments)   
     curr_exp = experiments(curr_exp_idx);
