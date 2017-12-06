@@ -1759,53 +1759,9 @@ end
 
 disp('Finished batch.')
 
-
 % Align
 days = {experiments.day};
-avg_im = cell(length(days),1);
-for curr_day = 1:length(days)
-    data_path = ['\\zserver.cortexlab.net\Data\Subjects\' animal filesep days{curr_day}];
-    avg_im{curr_day} = readNPY([data_path filesep 'meanImage_blue.npy']);
-end
-
-border_pixels = 20;
-
-%im_align = cellfun(@(x) x(border_pixels:end-border_pixels+1,border_pixels:end-border_pixels+1),avg_im,'uni',false);
-% align the left half of the image (without the craniotomy)
-%im_align = cellfun(@(x) x(border_pixels:end,1:round(size(x,2)/2)),avg_im,'uni',false);
-im_align = cellfun(@(x) imgaussfilt(x(border_pixels:end-border_pixels+1,border_pixels:end-border_pixels+1),3),avg_im,'uni',false);
-
-% Choose reference day
-ref_im_num = round(length(im_align)/2);
-%ref_im_num = length(avg_im);
-
-disp('Registering average images')
-tform_matrix = cell(length(avg_im),1);
-tform_matrix{1} = eye(3);
-
-avg_im_reg = nan(size(avg_im{ref_im_num},1),size(avg_im{ref_im_num},2),length(avg_im));
-avg_im_reg(:,:,ref_im_num) = avg_im{ref_im_num};
-
-for curr_session = setdiff(1:length(avg_im),ref_im_num)
-    
-    % This is to do correlation, then affine (if above doesn't work)
-    [optimizer, metric] = imregconfig('monomodal');
-    optimizer = registration.optimizer.OnePlusOneEvolutionary();
-    optimizer.MaximumIterations = 200;
-    optimizer.GrowthFactor = 1+1e-6;
-    optimizer.InitialRadius = 1e-4;
-
-    %%% for just affine
-    tformEstimate_affine = imregtform(im_align{curr_session},im_align{ref_im_num},'affine',optimizer,metric);
-    curr_im_reg = imwarp(avg_im{curr_session},tformEstimate_affine,'Outputview',imref2d(size(avg_im{ref_im_num})));
-    tform_matrix{curr_session} = tformEstimate_affine.T;
-    %%%%
-    
-    avg_im_reg(:,:,curr_session) = curr_im_reg;
-    
-    disp(curr_session);
-    
-end
+tform_matrix = AP_align_widefield(animal,days);
 
 batch_vars_reg = batch_vars;
 
@@ -2060,12 +2016,13 @@ disp('Finished batch.')
 
 % Align
 days = {experiments.day};
-tform_matrix = AP_align_widefield(animal,days);
+[tform_matrix,im_aligned] = AP_align_widefield(animal,days);
+AP_image_scroll(im_aligned); axis image;
 
 batch_vars_reg = batch_vars;
 
 % Align across days and replace nans
-for curr_day = setdiff(1:length(experiments),ref_im_num);
+for curr_day = 1:length(experiments);
     
     tform = affine2d;
     tform.T = tform_matrix{curr_day};
@@ -2074,7 +2031,7 @@ for curr_day = setdiff(1:length(experiments),ref_im_num);
     nan_cond = squeeze(all(all(all(isnan(curr_im),1),2),3));
     curr_im(isnan(curr_im)) = 0;
     curr_im = imwarp(curr_im,tform, ...
-        'Outputview',imref2d(size(avg_im{ref_im_num})));
+        'Outputview',imref2d(size(im_aligned(:,:,1))));
     curr_im(:,:,:,nan_cond) = NaN;
     batch_vars_reg.signMap{curr_day} = curr_im;
 
@@ -2083,7 +2040,7 @@ end
 signMap_cat = cat(3,batch_vars_reg.signMap{:});
 
 signMap_mean = nanmean(signMap_cat,3);
-avg_im_mean = nanmean(avg_im_reg,3);
+avg_im_mean = nanmean(im_aligned,3);
 
 % Plot
 figure('Name',['Average retinotopy: ' animal]);

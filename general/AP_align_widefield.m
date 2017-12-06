@@ -1,5 +1,5 @@
-function tform_matrix = AP_align_widefield(animal,days)
-% tform_matrix = AP_align_widefield(animal,days)
+function [tform_matrix,im_aligned] = AP_align_widefield(animal,days)
+% [tform_matrix,im_aligned] = AP_align_widefield(animal,days)
 % 
 % Get transform matrix to align widefield images across days
 % (this is not comprehensively tested and isn't always good)
@@ -38,10 +38,12 @@ fprintf('Registering average images:')
 fprintf('\n');
 
 tform_matrix = cell(length(avg_im_blue),1);
-tform_matrix{1} = eye(3);
+tform_matrix{ref_im_num} = eye(3);
 
-avg_im_reg = nan(size(avg_im_blue{ref_im_num},1),size(avg_im_blue{ref_im_num},2),length(avg_im_blue));
-avg_im_reg(:,:,ref_im_num) = avg_im_blue{ref_im_num};
+ref_size = size(avg_im_blue{ref_im_num});
+
+im_aligned = nan(size(avg_im_blue{ref_im_num},1),size(avg_im_blue{ref_im_num},2),length(avg_im_blue));
+im_aligned(:,:,ref_im_num) = avg_im_blue{ref_im_num};
 
 for curr_session = setdiff(1:length(avg_im_blue),ref_im_num)
     
@@ -94,18 +96,15 @@ for curr_session = setdiff(1:length(avg_im_blue),ref_im_num)
 
     %%% for just affine
     tformEstimate_affine = imregtform(im_align{curr_session},im_align{ref_im_num},'affine',optimizer,metric);
-    curr_im_reg = imwarp(avg_im_blue{curr_session},tformEstimate_affine,'Outputview',imref2d(size(avg_im_blue{ref_im_num})));
+    curr_im_reg = imwarp(avg_im_blue{curr_session},tformEstimate_affine,'Outputview',imref2d(ref_size));
     tform_matrix{curr_session} = tformEstimate_affine.T;
     %%%%
     
-    avg_im_reg(:,:,curr_session) = curr_im_reg;
+    im_aligned(:,:,curr_session) = curr_im_reg;
     
     AP_print_progress_fraction(curr_session,length(avg_im_blue))
     
 end
-
-AP_image_scroll(avg_im_reg)
-axis image;
 
 
 

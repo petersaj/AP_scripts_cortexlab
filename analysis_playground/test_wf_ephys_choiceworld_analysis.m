@@ -76,9 +76,9 @@ batch_vars_reg = batch_vars;
 
 % Align
 days = {experiments.day};
-tform_matrix = AP_align_widefield(animal,days);
+[tform_matrix,im_aligned] = AP_align_widefield(animal,days);
 
-for curr_day = setdiff(1:length(experiments),ref_im_num);
+for curr_day = 1:length(experiments);
     
     tform = affine2d;
     tform.T = tform_matrix{curr_day};
@@ -87,7 +87,7 @@ for curr_day = setdiff(1:length(experiments),ref_im_num);
     curr_im(isnan(curr_im)) = 0;    
 
     batch_vars_reg.im_stim{curr_day} = imwarp(curr_im,tform, ...
-        'Outputview',imref2d(size(avg_im{ref_im_num})));       
+        'Outputview',imref2d(size(im_aligned(:,:,1))));       
 
 end
 
@@ -209,7 +209,7 @@ disp('Finished batch.')
 % Align
 
 days = {experiments.day};
-tform_matrix = AP_align_widefield(animal,days);
+[tform_matrix,im_aligned] = AP_align_widefield(animal,days);
 
 batch_vars_reg = batch_vars;
 
@@ -242,7 +242,7 @@ for curr_day = setdiff(1:length(experiments),ref_im_num);
     nan_cond = squeeze(all(all(all(isnan(curr_im),1),2),3));
     curr_im(isnan(curr_im)) = 0;
     curr_im = imwarp(curr_im,tform, ...
-        'Outputview',imref2d(size(avg_im{ref_im_num})));
+        'Outputview',imref2d(size(im_aligned(:,:,1))));
     curr_im(:,:,:,nan_cond) = NaN;
     batch_vars_reg.im_stim_miss{curr_day} = curr_im;
     
@@ -250,7 +250,7 @@ for curr_day = setdiff(1:length(experiments),ref_im_num);
     nan_cond = squeeze(all(all(all(isnan(curr_im),1),2),3));
     curr_im(isnan(curr_im)) = 0;
     curr_im = imwarp(curr_im,tform, ...
-        'Outputview',imref2d(size(avg_im{ref_im_num}))); 
+        'Outputview',imref2d(size(im_aligned(:,:,1)))); 
     curr_im(:,:,:,nan_cond) = NaN;
     batch_vars_reg.im_stim_hit{curr_day} = curr_im;
 
