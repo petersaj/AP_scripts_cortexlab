@@ -8,15 +8,15 @@ function tform_matrix = AP_align_widefield(animal,days)
 % blurring
 
 avg_im_blue = cell(length(days),1);
-for curr_day = 1:length(days)
-    data_path = ['\\zserver.cortexlab.net\Data\Subjects\' animal filesep days{curr_day}];
-    avg_im_blue{curr_day} = readNPY([data_path filesep 'meanImage_blue.npy']);
+for curr_day = 1:length(days)    
+    [img_path,img_exists] = AP_cortexlab_filename(animal,days{curr_day},[],'imaging');    
+    avg_im_blue{curr_day} = readNPY([img_path filesep 'meanImage_blue.npy']);
 end
 
 avg_im_purple = cell(length(days),1);
 for curr_day = 1:length(days)
-    data_path = ['\\zserver.cortexlab.net\Data\Subjects\' animal filesep days{curr_day}];
-    avg_im_purple{curr_day} = readNPY([data_path filesep 'meanImage_purple.npy']);
+    [img_path,img_exists] = AP_cortexlab_filename(animal,days{curr_day},[],'imaging');
+    avg_im_purple{curr_day} = readNPY([img_path filesep 'meanImage_purple.npy']);
 end
 
 border_pixels = 100;
