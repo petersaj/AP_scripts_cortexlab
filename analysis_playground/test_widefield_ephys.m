@@ -284,9 +284,9 @@ sta_v_pca = reshape(score,size(sta_v_all,1),size(sta_v_all,2),size(sta_v_all,3))
 
 %% STA for multiunit
 
-use_spikes = spike_times_timeline(spike_templates == 279);
+% use_spikes = spike_times_timeline(spike_templates == 279);
 
-% use_spikes = spike_times_timeline(ismember(spike_templates,find(templateDepths > 3000 & templateDepths < 3500)));
+use_spikes = spike_times_timeline(ismember(spike_templates,find(templateDepths > 0 & templateDepths < 1500)));
 
 % use_spikes = spike_times_timeline(ismember(spike_templates,find(templateDepths > 1000 & templateDepths < 2000)) &...
 %     ismember(spike_templates,find(msn)));
@@ -2397,9 +2397,9 @@ use_frames = (frame_t > skip_seconds & frame_t < (frame_t(end) - skip_seconds));
 %use_frames = (frame_t > skip_seconds) & (frame_t < max(frame_t)/2);
 %use_frames = (frame_t > max(frame_t)/2);
 
-% use_spikes = spike_times_timeline(ismember(spike_templates,find(templateDepths > 0 & templateDepths < 1300)));
-use_spikes = spike_times_timeline(ismember(spike_templates,find(templateDepths > 2000 & templateDepths < 2500)) &...
-    ismember(spike_templates,find(msn)));
+use_spikes = spike_times_timeline(ismember(spike_templates,find(templateDepths > 2000 & templateDepths < 2500)));
+% use_spikes = spike_times_timeline(ismember(spike_templates,find(templateDepths > 0 & templateDepths < 1500)) &...
+%     ismember(spike_templates,find(msn)));
 % use_spikes = spike_times_timeline(ismember(spike_templates,find(templateDepths > 1300 & templateDepths < 2500)) &...
 %     ismember(spike_templates,find(msn)) & ismember(spike_templates,find(l_r_diff < 0.5)));
 
@@ -2410,7 +2410,7 @@ frame_spikes = single(frame_spikes);
 use_svs = 1:50;
 kernel_frames = -35:17;
 downsample_factor = 1;
-lambda = 1e5;
+lambda = 2e5;
 zs = [false,true];
 cvfold = 5;
 
@@ -2564,9 +2564,9 @@ use_frames = (frame_t > skip_seconds & frame_t < frame_t(end)-skip_seconds);
 
 % Group multiunit by depth
 n_depth_groups = 6;
-depth_group_edges = linspace(0,max(channel_positions(:,2)),n_depth_groups+1);
+% depth_group_edges = linspace(0,max(channel_positions(:,2)),n_depth_groups+1);
 %depth_group_edges = linspace(700,3500,n_depth_groups+1);
-% depth_group_edges = round(linspace(str_depth(1),str_depth(2),n_depth_groups+1));
+depth_group_edges = round(linspace(str_depth(1),str_depth(2),n_depth_groups+1));
 depth_group_edges_use = depth_group_edges;
 %depth_group_edges_use = [3500 Inf];
 
@@ -2598,7 +2598,7 @@ cvfold = 5;
 % TO USE fV
 % [k,predicted_spikes,explained_var] = ...
 %     AP_regresskernel(fVdf(use_svs,use_frames), ...
-%     frame_spikes(:,use_frames),kernel_frames_downsample,lambda,zs,cvfold);
+%     frame_spikes(:,use_frames),kernel_frames,lambda,zs,cvfold);
 % TO USE dfV
 use_frames_idx = find(use_frames);
 [k,predicted_spikes,explained_var] = ...

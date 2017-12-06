@@ -505,7 +505,7 @@ if data_path_exists && load_parts.imaging
 end
 
 %% Load ephys data (single long recording)
-
+warning('Subtract light-triggered average from LFP (sync 3)?');
 [ephys_path,ephys_exists] = AP_cortexlab_filename(animal,day,experiment,'ephys',site);
 
 if ephys_exists && load_parts.ephys
@@ -562,7 +562,7 @@ if ephys_exists && load_parts.ephys
     % Default channel map/positions are from end: make from surface
     channel_positions(:,2) = max(channel_positions(:,2)) - channel_positions(:,2);
     
-    % Load LFP (random snippet: just for correlation)
+    % Load LFP
     n_channels = str2num(header.n_channels);
     %lfp_filename = [ephys_path filesep 'lfp.dat']; (this is old)
     [data_path,data_path_exists] = AP_cortexlab_filename(animal,day,experiment,'ephysraw',site);
@@ -571,18 +571,20 @@ if ephys_exists && load_parts.ephys
     if load_lfp && exist(lfp_filename,'file')
         lfp_sample_rate = str2num(header.lfp_sample_rate);
         lfp_cutoff = str2num(header.filter_cutoff);
-        lfp_downsamp = (lfp_sample_rate/lfp_cutoff)/2;
         
         fid = fopen(lfp_filename);
-        fseek(fid,(lfp_sample_rate*60*10*n_channels),'bof'); % move to 10 minutes after recording start
-        lfp_all = fread(fid,[n_channels,1e6],'int16'); % pull snippet
+        % define where/how much of LFP to load
+        lfp_load_start = (lfp_sample_rate*60*10*n_channels); % move to 10 minutes after recording start
+        lfp_load_samples = 1e6;
+        % load LFP
+        fseek(fid,lfp_load_start,'bof'); 
+        lfp_all = fread(fid,[n_channels,lfp_load_samples],'int16'); % pull snippet
         fclose(fid);
         % eliminate non-connected channels
         lfp = lfp_all(channel_map+1,:);
         clear lfp_all;
-        % get time of LFP sample points (NOTE: this is messy, based off of sample
-        % rate and knowing what kwik2dat does, not sure how accurate)
-        lfp_t = ([1:size(lfp,2)]*lfp_downsamp)/lfp_sample_rate;
+
+        lfp_t = [(lfp_load_start/n_channels):(lfp_load_start/n_channels)+lfp_load_samples-1]/lfp_sample_rate;
     end
     
     % Get acqLive times for current experiment

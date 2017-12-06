@@ -78,6 +78,7 @@ if handles.plot_eyecam
     eyecam_frame = find(handles.eyecam_frame_idx == wf_frame,1);
     eyecam_im = read(handles.eyecam_vr,eyecam_frame);
     handles.eyecam_im = imagesc(handles.eyecam_axis,eyecam_im); axis(handles.eyecam_axis,'off');   
+    caxis(handles.eyecam_axis,[0,255]);
 end
 
 if handles.plot_facecam
@@ -87,6 +88,7 @@ if handles.plot_facecam
     facecam_frame = find(handles.facecam_frame_idx == wf_frame,1);
     facecam_im = read(handles.facecam_vr,facecam_frame);
     handles.facecam_im = imagesc(handles.facecam_axis,facecam_im); axis(handles.facecam_axis,'off');
+    caxis(handles.facecam_axis,[0,255]);
 end
 
 % Set up trace

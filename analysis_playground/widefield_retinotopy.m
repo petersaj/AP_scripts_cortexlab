@@ -1860,7 +1860,7 @@ axis image off
 
 %% Sparse noise with my code in batch
 
-animal = 'AP025';
+animal = 'AP027';
 protocol = 'stimSparseNoiseUncorrAsync';
 experiments = AP_find_experiments(animal,protocol);
 
