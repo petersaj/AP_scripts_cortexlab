@@ -13,7 +13,7 @@ if ~exist('roi_mask','var') || isempty(roi_mask)
     imagesc(ax_guide_im,guide_im);
     axis image off;
     colormap(ax_guide_im, gray);
-    caxis(ax_guide_im, [prctile(guide_im(:),0) prctile(guide_im(:),99)]);
+    caxis(ax_guide_im, [prctile(guide_im(:),5) prctile(guide_im(:),95)]);
     
     if exist('overlay','var') && ~isempty(overlay) && all(size(overlay) == size(guide_im))        
         ax_overlay = axes;

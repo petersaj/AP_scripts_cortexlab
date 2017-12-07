@@ -1,7 +1,6 @@
 %% Batch load responses to passive stim
 
-animal = 'AP025';
-% protocol = 'vanillaChoiceworld';
+animal = 'AP026';
 protocol = 'stimKalatsky';
 experiments = AP_find_experiments(animal,protocol);
 
@@ -100,8 +99,8 @@ surround_samplerate = 1/(framerate*1);
 t_surround = surround_window(1):surround_samplerate:surround_window(2);
 baseline_surround_time = baseline_surround_window(1):surround_samplerate:baseline_surround_window(2);
 
-AP_image_scroll(a,t_surround)
-
+f = AP_image_scroll(a,t_surround);
+axis image;
 
 %% Batch get average choiceworld fluorescence
 
@@ -110,14 +109,14 @@ protocol = 'vanillaChoiceworld';
 experiments = AP_find_experiments(animal,protocol);
 
 % only use experiments with ephys + imaging
-experiments = experiments([experiments.imaging] & ~[experiments.ephys]);
+experiments = experiments([experiments.imaging] & [experiments.ephys]);
 
 load_parts.cam = false;
 load_parts.imaging = true;
 load_parts.ephys = false;
 
 batch_vars = struct;
-for curr_day = 5:length(experiments);
+for curr_day = 1:length(experiments);
     
     day = experiments(curr_day).day;
     experiment = experiments(curr_day).experiment;
@@ -132,7 +131,7 @@ for curr_day = 5:length(experiments);
     stim_onsets = stimOn_times(1:num_stim);
     
     % Discretize the stimIDs by easy/hard/zero
-%     stimIDs = discretize(stimIDs,[-Inf,-0.125,-0.01,0.01,0.25,Inf],[-2,-1,0,1,2]);
+    stimIDs = discretize(stimIDs,[-Inf,-0.125,-0.01,0.01,0.25,Inf],[-2,-1,0,1,2]);
     
     %%%% Get wheel move time
     t_surround = [-0.5,5];
@@ -233,7 +232,7 @@ for curr_day = 1:length(experiments)
 end
 
 % Align across days and replace nans
-for curr_day = setdiff(1:length(experiments),ref_im_num);
+for curr_day = 1:length(experiments);
     
     tform = affine2d;
     tform.T = tform_matrix{curr_day};

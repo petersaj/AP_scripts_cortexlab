@@ -2563,10 +2563,10 @@ use_frames = (frame_t > skip_seconds & frame_t < frame_t(end)-skip_seconds);
 %use_frames = (frame_t > max(frame_t)/2);
 
 % Group multiunit by depth
-n_depth_groups = 6;
-% depth_group_edges = linspace(0,max(channel_positions(:,2)),n_depth_groups+1);
+n_depth_groups = 8;
+depth_group_edges = linspace(0,max(channel_positions(:,2)),n_depth_groups+1);
 %depth_group_edges = linspace(700,3500,n_depth_groups+1);
-depth_group_edges = round(linspace(str_depth(1),str_depth(2),n_depth_groups+1));
+% depth_group_edges = round(linspace(str_depth(1),str_depth(2),n_depth_groups+1));
 depth_group_edges_use = depth_group_edges;
 %depth_group_edges_use = [3500 Inf];
 

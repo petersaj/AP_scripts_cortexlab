@@ -2109,6 +2109,41 @@ caxis([min(AP_itril(lfp_corr,-1)),max(AP_itril(lfp_corr,-1))]);
 colorbar
 axis square;
 
+%% Remove light artifact from LFP 
+% (by subtracting the average responses around light)
+warning('This seems to work but the timing might be way off - artifacts aren''t aligned to times')
+
+light_t = sync(3).timestamps(sync(3).values == 1);
+light_t_timeline = AP_clock_fix(light_t,acqlive_ephys_currexpt,acqLive_timeline);
+use_light_t = light_t_timeline(light_t_timeline > lfp_t_timeline(1) & light_t_timeline < lfp_t_timeline(end));
+
+light_timediff = median(diff(light_t_timeline));
+light_surround_t = [-light_timediff:1/lfp_sample_rate:light_timediff];
+light_surround_pull = bsxfun(@plus,use_light_t,light_surround_t);
+
+lfp_lightfix = lfp;
+for curr_channel = 1:size(lfp,1)
+    light_surround_lfp = interp1(lfp_t_timeline,lfp(curr_channel,:),light_surround_pull);
+    
+    % Get the approximate samples the timepoints correspond to
+    light_surround_pull_samples = round((light_surround_pull - lfp_t_timeline(1))*lfp_sample_rate);
+    
+    light_artifact_1 = nanmedian(light_surround_lfp(1:2:end,:)) - nanmedian(nanmedian(light_surround_lfp(1:2:end,:)));
+    light_artifact_2 = nanmedian(light_surround_lfp(1:2:end,:)) - nanmedian(nanmedian(light_surround_lfp(1:2:end,:)));
+    
+    light_surround_lfp_meansub = light_surround_lfp;
+    light_surround_lfp_meansub(1:2:end,:) = bsxfun(@minus,light_surround_lfp(1:2:end,:),light_artifact_1);
+    light_surround_lfp_meansub(2:2:end,:) = bsxfun(@minus,light_surround_lfp(2:2:end,:),light_artifact_2);
+    
+    use_samples = light_surround_pull_samples > 0 & light_surround_pull_samples < size(lfp,2);
+    lfp_lightfix(curr_channel,light_surround_pull_samples(use_samples)) = light_surround_lfp_meansub(use_samples);
+    
+    AP_print_progress_fraction(curr_channel,size(lfp,1));
+end
+% There are nans sometimes, not sure why, replace with original values
+lfp_lightfix(isnan(lfp_lightfix)) = lfp(isnan(lfp_lightfix));
+
+
 %% Spectral analysis
 % Power spectrum
 use_trace = roi_trace(1:end-1);
@@ -2156,6 +2191,31 @@ s_squared = (s/Fs).*conj(s/Fs);  % Fs is used to normalize the FFT amplitudes
 power_0_2 = 2*sum(s_squared( f >= 0.1 & f <= 2,:))*df; 
 power_3_6 = 2*sum(s_squared( f >= 3 & f <= 6,:))*df; 
 power_10_14 = 2*sum(s_squared( f >= 10 & f <= 14,:))*df; 
+
+% Power spectrum of each LFP channel
+lfp_power = nan(size(lfp,1),62914);
+for curr_chan = 1:size(lfp,1)
+    use_trace = lfp(curr_chan,:);
+    use_t = lfp_t_timeline;
+    
+    Fs = 1./median(diff(use_t));
+    L = length(use_trace);
+    NFFT = 2^nextpow2(L);
+    [P,F] = pwelch(double(use_trace)',[],[],NFFT,Fs);
+    Pc = smooth(P,50);
+    plot_f = F < 150;
+    lfp_power(curr_chan,:) = log10(Pc(plot_f));
+    AP_print_progress_fraction(curr_chan,size(lfp,1));
+end
+figure;imagesc(F(plot_f),channel_positions(:,2),lfp_power);
+% group depths
+n_depth_groups = 60;
+depth_group_edges = linspace(0,max(channel_positions(:,2)),n_depth_groups+1);
+depth_group_centers = depth_group_edges(1:end-1)+(diff(depth_group_edges)/2);
+channel_depth_grp = discretize(channel_positions(:,2),depth_group_edges);
+lfp_power_depth = grpstats(lfp_power,channel_depth_grp);
+figure;imagesc(F(plot_f),depth_group_centers,lfp_power_depth);
+
 
 %% Spike --> spike regression by depth
 % GOOD TEMPLATES: old, probably doesn't work at the moment
