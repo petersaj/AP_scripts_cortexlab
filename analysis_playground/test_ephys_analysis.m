@@ -1046,13 +1046,13 @@ figure;plotWaveform(-(squeeze(templates(plot_template,:,:))*winv)', ...
 
 %% PSTH plot by depth (single stim ID)
 
-align_times = stimOn_times(ismember(stimIDs,[3]));
+align_times = stimOn_times(ismember(stimIDs,[1,2,3]));
 %align_times = stimOnTimes(azimuths == 90 & stim_hit);
 
 % Group by depth
-n_depth_groups = 6;
-%depth_group_edges = linspace(0,4000,n_depth_groups+1);
-depth_group_edges = round(linspace(str_depth(1),str_depth(2),n_depth_groups+1));
+n_depth_groups = 8;
+depth_group_edges = linspace(0,max(channel_positions(:,2)),n_depth_groups+1);
+% depth_group_edges = round(linspace(str_depth(1),str_depth(2),n_depth_groups+1));
 depth_group_centers = round(depth_group_edges(1:end-1)+diff(depth_group_edges)/2);
 depth_group_edges(end) = Inf;
 depth_group = discretize(spikeDepths,depth_group_edges);
@@ -1091,10 +1091,18 @@ ylabel('Depth (\mum)');
 xlabel('Time from stim onset (s)')
 title('Population raster by depth');
 
+% (get response to visual stim)
+baseline_bins = bins > -0.2 & bins < 0;
+vis_bins = bins > 0 & bins < 0.2;
+
+baseline_rate = nanmean(depth_psth(:,baseline_bins),2);
+vis_rate = nanmean(depth_psth(:,vis_bins),2);
+vis_modulation = (vis_rate-baseline_rate)./(vis_rate+baseline_rate);
+
 %% PSTH plot by depth (all stim IDs)
 
 % Group by depth
-n_depth_groups = 6;
+n_depth_groups = 8;
 depth_group_edges = linspace(0,max(channel_positions(:,2)),n_depth_groups+1);
 % depth_group_edges = round(linspace(str_depth(1),str_depth(2),n_depth_groups+1));
 depth_group_centers = round(depth_group_edges(1:end-1)+diff(depth_group_edges)/2);
@@ -1641,7 +1649,7 @@ end
 
 %% Rasters and PSTHs aligned to stimuli
 
-use_spikes_idx = ismember(spike_templates,find(templateDepths >= 500 & templateDepths <= 1200));
+use_spikes_idx = ismember(spike_templates,find(templateDepths >= 0 & templateDepths <= 1300));
 % use_spikes_idx = ismember(spike_templates,find(templateDepths > 500 & templateDepths < 1500)) & ...
 %    (ismember(spike_templates,find(msn)));
 

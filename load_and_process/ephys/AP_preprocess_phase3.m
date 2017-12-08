@@ -9,11 +9,11 @@ if exist('local_data','var') && local_data
         {['D:\data\' animal filesep day '\ephys']};
 else
     data_paths =  ...
-        {['\\zserver.cortexlab.net\Data\Subjects\' animal filesep day '\ephys']};
+        {['\\zserver.cortexlab.net\Data\Subjects\' animal filesep day filesep 'ephys']};
 end
 
 save_paths =  ...
-    {['\\basket.cortexlab.net\data\ajpeters\' animal filesep day '\ephys']};
+    {['\\zserver.cortexlab.net\Data\Subjects\' animal filesep day filesep 'ephys' filesep 'kilosort']};
 
 % Check for multiple sites (based on the data path containing only folders)
 data_path_dir = dir(data_paths{1});
@@ -148,9 +148,9 @@ for curr_site = 1:length(data_paths)
     AP_run_kilosort(ap_temp_car_filename,ap_sample_rate);
     
     
-    %% Copy kilosort results to basket
+    %% Copy kilosort results to server
     
-    disp('Copying sorted data to basket...');
+    disp('Copying sorted data to server...');
     ks_results_path = [local_kilosort_path filesep 'results'];
     copyfile(ks_results_path,curr_save_path);
     

@@ -137,8 +137,8 @@ switch file
         filename = [filepath filesep animal filesep day site_dir filesep];
         
     case 'ephys'
-        filepath = '\\basket.cortexlab.net\data\ajpeters';
-        filename = [filepath filesep animal filesep day filesep 'ephys' site_dir filesep];
+        filepath = '\\zserver.cortexlab.net\Data\Subjects';
+        filename = [filepath filesep animal filesep day filesep 'ephys' site_dir filesep 'kilosort' filesep];
         
     case 'ephysraw'
         filepath = '\\zserver.cortexlab.net\Data\Subjects';
