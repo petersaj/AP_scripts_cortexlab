@@ -982,8 +982,13 @@ angle_diff(isnan(angle_diff)) = 0;
 
 
 %%%%% EDGE DETECTION: I think this works better
-a = cat(3,corr_map{:});
-a2 = a-imgaussfilt(a,10);
+a = mat2gray(cat(3,corr_map{:}),[0.5,1]);
+a2 = imgaussfilt(a,10)-imgaussfilt(a,30);
+corr_edges = nanmean(a2,3);
+
+
+
+
 
 
 %% xcorr trace/facecam, this probably doesn't make any sense... 
@@ -1054,7 +1059,7 @@ px_10prct = svdFrameReconstruct(U,prctile(fV(:,skip_start_frames:end),10,2));
 surround_window = [-0.5,4];
 
 % Define the times to align to
-use_trials = ismember(signals_events.trialContrastValues,[0.25]) &  ...
+use_trials = ismember(signals_events.trialContrastValues,[0.06,0.125]) &  ...
     ismember(signals_events.trialSideValues,[1]) & ...
     ismember(signals_events.hitValues,[1]) & ...
     ~signals_events.repeatTrialValues;
@@ -1099,8 +1104,7 @@ mean_aligned_V = nanmean(aligned_V,3);
 mean_aligned_px = svdFrameReconstruct(U,mean_aligned_V);
 
 AP_image_scroll(mean_aligned_px,surround_time);
-warning off; truesize; warning on;
-
+axis image;
 
 %% Regress fluorescence to choiceworld event
 

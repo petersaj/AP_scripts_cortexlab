@@ -489,6 +489,13 @@ if data_path_exists && load_parts.imaging
         %fVn_hemo = filter(b100s,a100s,dVn_hemo,[],2);
         fVn_hemo = single(filtfilt(b100s,a100s,double(dVn_hemo)')');
         
+        % Do this for the colors individually, in case they're used
+        dVn = detrend(Vn', 'linear')';
+        fVn = single(filtfilt(b100s,a100s,double(dVn)')');
+        
+        dVh = detrend(Vh', 'linear')';
+        fVh = single(filtfilt(b100s,a100s,double(dVh)')');
+        
         % set final U/V to use
         fV = fVn_hemo;
         U = Un;

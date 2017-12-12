@@ -1,7 +1,7 @@
 %% If the V's were parsed but the timestamps weren't saved
 
-animal = 'M171006_MIK';
-day = '2017-11-30';
+animal = 'AP026';
+day = '2017-11-16';
 experiments = 1;
 
 data_path = ['\\zserver.cortexlab.net\Data\Subjects\' animal filesep day];

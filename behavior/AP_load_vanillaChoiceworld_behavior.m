@@ -111,7 +111,6 @@ for i = 1:length(ephys_days)
     line(repmat(ephys_days(i),1,2),ylim,'color','r','linestyle','--');
 end
 
-
 % Psychometric over all days
 subplot(2,2,3);
 imagesc(bhv.conditions,1:size(bhv.go_left_trials),bhv.go_left_trials./bhv.n_trials_condition);colormap(redblue)
@@ -125,6 +124,13 @@ ylabel('Session');
 set(gca,'YTick',1:length(experiments));
 set(gca,'YTickLabel',day_labels);
 axis square;
+hold on;
+if any([experiments.imaging])
+    plot(0,find([experiments.imaging]),'.k');
+end
+if any([experiments.ephys])
+    plot(0,find([experiments.ephys]),'ok');
+end
 
 % Psychometric of combined days that use all contrasts
 subplot(2,2,4); hold on;
@@ -137,9 +143,9 @@ errorbar(bhv.conditions,nanmean(combine_days_performance,1), ...
 xlim([-1,1]);
 ylim([0,1]);
 axis square;
-
-
-
+xlabel('Condition');
+ylabel('Fraction go left (combined)');
+legend({'Sum','Average'});
 
 
 

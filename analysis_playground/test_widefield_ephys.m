@@ -319,6 +319,7 @@ sta_im = svdFrameReconstruct(U,sta_v);
 
 % Draw the movie
 AP_image_scroll(sta_im,sta_t);
+axis image;
 
 %% STA for multiunit by depth
 
@@ -1207,27 +1208,15 @@ legend(cellfun(@(x) ['Part ' num2str(x)],num2cell(1:n_split),'uni',false));
 skip_seconds = 10;
 use_frames = frame_t > skip_seconds;
 
-% Choose ROI
-h = figure;
-imagesc(avg_im);
-set(gca,'YDir','reverse');
-colormap(gray);
-caxis([0 prctile(avg_im(:),90)]);
-title('Pick ROI to define kernel')
-drawnow
-roiMask = roipoly;
-close(h);
-
-% Get fluorescence across session in ROI
-U_roi = reshape(U(repmat(roiMask,1,1,size(U,3))),[],size(U,3));
-roi_trace_full = nanmean(U_roi*fV);
+% Get fluorescence in ROI
+roi_trace_full = AP_svd_roi(U,fV,avg_im);
 roi_trace = roi_trace_full(use_frames);
 
 % Get population spikes per frame
 framerate = 1./nanmedian(diff(frame_t));
 frame_edges = [frame_t,frame_t(end)+1/framerate];
 
-use_spikes = spike_times_timeline(ismember(spike_templates,find(templateDepths > 0 & templateDepths < 1000)));
+use_spikes = spike_times_timeline(ismember(spike_templates,find(templateDepths > 0 & templateDepths < 1200)));
 
 [frame_spikes_full,~,spike_frames] = histcounts(use_spikes,frame_edges);
 frame_spikes = frame_spikes_full(use_frames);
@@ -1256,10 +1245,10 @@ x_nonorm = ifft((fft(roi_trace).*conj(fft(frame_spikes)))); % unnormalized
 x = ifft((fft(roi_trace).*conj(fft(frame_spikes)))./(mean(fft(frame_spikes)).*mean(conj(fft(frame_spikes)))));
 
 % This looks like from Nauhaus 2012?
-soft_reg_factor = 1e4;
+soft_reg_factor = 1e6;
 x_autonorm = ifft((fft(roi_trace).*conj(fft(frame_spikes)))./(soft_reg_factor+fft(frame_spikes).*conj(fft(frame_spikes))));
 
-plot_frames = 35*10;
+plot_frames = 35*5;
 
 figure;
 
@@ -1299,7 +1288,7 @@ use_frames = frame_t > skip_seconds;
 use_t = frame_t(use_frames);
 
 %use_spikes = spike_times_timeline;
-use_spikes = spike_times_timeline(ismember(spike_templates,find(templateDepths > 0 & templateDepths < 2000)));
+use_spikes = spike_times_timeline(ismember(spike_templates,find(templateDepths > 0 & templateDepths < 600)));
 %use_spikes = spike_times_timeline(ismember(spike_templates,find(templateDepths > 0 & templateDepths < 400)) & ...
 %    (ismember(spike_templates,use_templates(use_template_narrow))));
 
@@ -1319,9 +1308,9 @@ t_shift = [use_t(end-plot_frames+1:end)-use_t(end)-1/framerate,use_t(1:plot_fram
 v_autonorm_shift = [v_autonorm(:,end-plot_frames+1:end),v_autonorm(:,1:plot_frames)];
 
 tfun = svdFrameReconstruct(U,v_autonorm_shift);
-tfun_norm = bsxfun(@rdivide,bsxfun(@minus,tfun,px_mean),px_std);
+% tfun_norm = bsxfun(@rdivide,bsxfun(@minus,tfun,px_mean),px_std);
 
-AP_image_scroll(tfun_norm);
+AP_image_scroll(tfun);
 
 
 
@@ -2397,7 +2386,7 @@ use_frames = (frame_t > skip_seconds & frame_t < (frame_t(end) - skip_seconds));
 %use_frames = (frame_t > skip_seconds) & (frame_t < max(frame_t)/2);
 %use_frames = (frame_t > max(frame_t)/2);
 
-use_spikes = spike_times_timeline(ismember(spike_templates,find(templateDepths > 2000 & templateDepths < 2500)));
+use_spikes = spike_times_timeline(ismember(spike_templates,find(templateDepths > 0 & templateDepths < 600)));
 % use_spikes = spike_times_timeline(ismember(spike_templates,find(templateDepths > 0 & templateDepths < 1500)) &...
 %     ismember(spike_templates,find(msn)));
 % use_spikes = spike_times_timeline(ismember(spike_templates,find(templateDepths > 1300 & templateDepths < 2500)) &...
@@ -2563,7 +2552,7 @@ use_frames = (frame_t > skip_seconds & frame_t < frame_t(end)-skip_seconds);
 %use_frames = (frame_t > max(frame_t)/2);
 
 % Group multiunit by depth
-n_depth_groups = 8;
+n_depth_groups = 6;
 depth_group_edges = linspace(0,max(channel_positions(:,2)),n_depth_groups+1);
 %depth_group_edges = linspace(700,3500,n_depth_groups+1);
 % depth_group_edges = round(linspace(str_depth(1),str_depth(2),n_depth_groups+1));

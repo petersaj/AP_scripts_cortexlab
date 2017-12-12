@@ -1,6 +1,6 @@
 %% Batch load responses to passive stim
 
-animal = 'AP026';
+animal = 'AP027';
 protocol = 'stimKalatsky';
 experiments = AP_find_experiments(animal,protocol);
 
@@ -101,6 +101,13 @@ baseline_surround_time = baseline_surround_window(1):surround_samplerate:baselin
 
 f = AP_image_scroll(a,t_surround);
 axis image;
+
+t_use = t_surround > 0.1 & t_surround < 0.5;
+b = nanmean(a(:,:,t_use,:),3);
+figure;imagesc(reshape(b,size(b,1),[],1)); 
+colormap(gray); axis image off;
+title([animal ': passive stimuli']);
+
 
 %% Batch get average choiceworld fluorescence
 

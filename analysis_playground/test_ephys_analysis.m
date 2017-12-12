@@ -1649,7 +1649,7 @@ end
 
 %% Rasters and PSTHs aligned to stimuli
 
-use_spikes_idx = ismember(spike_templates,find(templateDepths >= 0 & templateDepths <= 1300));
+use_spikes_idx = ismember(spike_templates,find(templateDepths >= 0 & templateDepths <= 1500));
 % use_spikes_idx = ismember(spike_templates,find(templateDepths > 500 & templateDepths < 1500)) & ...
 %    (ismember(spike_templates,find(msn)));
 
@@ -1811,7 +1811,7 @@ rf_map_smooth = imfilter(rf_map,gauss_filt);
 
 % Get stim-triggered MUA average for each stimulus
 use_spikes = spike_times_timeline(ismember(spike_templates, ...
-    find(templateDepths > 0 & templateDepths < 1500)));
+    find(templateDepths > 0 & templateDepths < 1800)));
 % use_spikes = spike_times_timeline(ismember(spike_templates, ...
 %     find(templateDepths > 0 & templateDepths < 1500)) &...
 %     ismember(spike_templates,find(msn)));
@@ -1837,7 +1837,6 @@ for x = 1:nX
 end
 stim_aligned_avg_cat = cell2mat(cellfun(@(x) permute(x,[1,3,2]),stim_aligned_avg,'uni',false));
 AP_image_scroll(stim_aligned_avg_cat,raster_window(1):psth_bin_size:raster_window(2));
-axis equal
 
 
 
@@ -2200,7 +2199,7 @@ power_0_2 = 2*sum(s_squared( f >= 0.1 & f <= 2,:))*df;
 power_3_6 = 2*sum(s_squared( f >= 3 & f <= 6,:))*df; 
 power_10_14 = 2*sum(s_squared( f >= 10 & f <= 14,:))*df; 
 
-% Power spectrum of each LFP channel
+%% Power spectrum of each LFP channel
 lfp_power = nan(size(lfp,1),62914);
 for curr_chan = 1:size(lfp,1)
     use_trace = lfp(curr_chan,:);
