@@ -959,7 +959,7 @@ for curr_x_idx = 1:length(use_x)
         corr_map{curr_y_idx,curr_x_idx} = corrMat;
     end
     
-    disp(curr_x_idx/length(use_x));
+    AP_print_progress_fraction(curr_x_idx,length(use_x));
 end
 
 % Get map of correlation for each pixel
@@ -982,7 +982,8 @@ angle_diff(isnan(angle_diff)) = 0;
 
 
 %%%%% EDGE DETECTION: I think this works better
-a = mat2gray(cat(3,corr_map{:}),[0.5,1]);
+% a = mat2gray(cat(3,corr_map{:}),[0.5,1]);
+a = mat2gray(cat(3,corr_map{:}),[-1,1]);
 a2 = imgaussfilt(a,10)-imgaussfilt(a,30);
 corr_edges = nanmean(a2,3);
 
