@@ -242,7 +242,7 @@ if block_exists
         (photodiode_trace(1:end-1) & ~photodiode_trace(2:end)))+1;
     photodiode_flip_times = stimScreen_on_t(photodiode_flip)';
     
-    % SPECIFIC
+    % SPECIFIC TO PROTOCOL
     [~,expDef] = fileparts(block.expDef);
     if strcmp(expDef,'vanillaChoiceworld');
         % dumb signals thing, fix
@@ -257,16 +257,30 @@ if block_exists
         stimOn_times = photodiode_flip_times(closest_stimOn_photodiode);
         
     elseif strcmp(expDef,'AP_visAudioPassive')
-        min_stim_downtime = 0.5; % minimum time between pd flips to get stim
-        stimOn_times_pd = photodiode_flip_times([true;diff(photodiode_flip_times) > min_stim_downtime]);
-        stimOff_times_pd = photodiode_flip_times([diff(photodiode_flip_times) > min_stim_downtime;true]);
-        warning('visAudioPassive: THIS IS TEMPORARY BECAUSE NO BUFFER TIME')
+        %         min_stim_downtime = 0.5; % minimum time between pd flips to get stim
+        %         stimOn_times_pd = photodiode_flip_times([true;diff(photodiode_flip_times) > min_stim_downtime]);
+        %         stimOff_times_pd = photodiode_flip_times([diff(photodiode_flip_times) > min_stim_downtime;true]);
+        %         warning('visAudioPassive: THIS IS TEMPORARY BECAUSE NO BUFFER TIME')
+        %
+        %         stimOn_times = nan(size(signals_events.visualOnsetTimes));
+        %         stimOn_times(end-(length(stimOn_times_pd)-1):end) = stimOn_times_pd;
+        %
+        %         stimOff_times = nan(size(signals_events.visualOnsetTimes));
+        %         stimOff_times(end-(length(stimOff_times_pd)-1):end) = stimOff_times_pd;
+        %
+        %
+        %         % sanity check
+        %         if length(signals_events.visualOnsetValues) ~= length(stimOn_times)
+        %             error('Different number of signals/timeline stim ons')
+        %         end
+        error('AP_visAudioPassive isn''t reliable yet')
         
-        stimOn_times = nan(size(signals_events.visualOnsetTimes));
-        stimOn_times(end-(length(stimOn_times_pd)-1):end) = stimOn_times_pd;
+    elseif strcmp(expDef,'AP_choiceWorldStimPassive')
+        % Get all times the photodiode flips up
+        stimOn_times = stimScreen_on_t(photodiode_flip(photodiode_trace(photodiode_flip) == 1));
+        stimOff_times = stimScreen_on_t(photodiode_flip(photodiode_trace(photodiode_flip) == 0));
         
-        stimOff_times = nan(size(signals_events.visualOnsetTimes));
-        stimOff_times(end-(length(stimOff_times_pd)-1):end) = stimOff_times_pd;
+        [conditions,~,stimIDs] = unique(signals_events.visualParamsValues(:,signals_events.visualOnsetValues)','rows');
         
         % sanity check
         if length(signals_events.visualOnsetValues) ~= length(stimOn_times)
@@ -274,14 +288,7 @@ if block_exists
         end
         
     else
-        % Specialized: get stim on/off times BY ASSUMING MINIMUM STIM DOWNTIME
-        min_stim_downtime = 1; % minimum time between pd flips to get stim
-        stimOn_times = photodiode_flip_times([true;diff(photodiode_flip_times) > min_stim_downtime]);
-        stimOff_times = photodiode_flip_times([diff(photodiode_flip_times) > min_stim_downtime;true]);
-        % sanity check
-        if length(signals_events.stimOnTimes) ~= length(stimOn_times)
-            error('Different number of signals/timeline stim ons')
-        end
+        error('Signals protocol with no analysis script')
     end
     
     

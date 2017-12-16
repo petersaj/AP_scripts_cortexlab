@@ -4,7 +4,7 @@
 % it, but this aligns a widefield visual field sign map to the allen CCF
 % boundaries, requires imaged visual field sign 'imaged_vfs'
 
-%% Make top-down boundaries from scratch (I save these and load)
+%% Make top-down boundaries from scratch (could load but would need st too)
 
 % Get first brain pixel from top-down, get annotation at that point
 [~,top_down_depth] = max(av>1, [], 2);
@@ -48,10 +48,11 @@ ccf_vfs = zeros(size(top_down_annotation));
 ccf_vfs(ismember(top_down_annotation,used_areas([v1_idx,am_idx,al_idx,li_idx]))) = 1;
 ccf_vfs(ismember(top_down_annotation,used_areas([p_idx,pm_idx,rl_idx,lm_idx]))) = -1;
 
-%% Align the imaged VFS to the (downsampled) Allen VFS
+%% Define um per pixel (hard coded)
 
-% Hard-code microns per pixel
 um2pixel = 20.6;
+
+%% Align the imaged VFS to the (downsampled) Allen VFS
 
 ccf_vfs_d = imresize(ccf_vfs,10/um2pixel,'nearest');
 
@@ -111,6 +112,25 @@ for curr_area_idx = 1:length(cortical_boundaries_aligned)
     cellfun(@(outline) plot(outline(:,2),outline(:,1),'k'), ...
         cortical_boundaries_aligned{curr_area_idx},'uni',false);
 end
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 

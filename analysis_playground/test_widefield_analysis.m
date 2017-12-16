@@ -982,11 +982,12 @@ angle_diff(isnan(angle_diff)) = 0;
 
 
 %%%%% EDGE DETECTION: I think this works better
-% a = mat2gray(cat(3,corr_map{:}),[0.5,1]);
-a = mat2gray(cat(3,corr_map{:}),[-1,1]);
+a = mat2gray(cat(3,corr_map{:}),[0.5,1]);
+% a = mat2gray(cat(3,corr_map{:}),[-1,1]);
 a2 = imgaussfilt(a,10)-imgaussfilt(a,30);
 corr_edges = nanmean(a2,3);
-
+figure;imagesc(corr_edges);
+axis image off; colormap(hot);
 
 
 
