@@ -256,6 +256,24 @@ if block_exists
             1:length(signals_events.stimOnTimes));
         stimOn_times = photodiode_flip_times(closest_stimOn_photodiode);
         
+        % Get time from stim ton to first wheel movement
+        surround_time = [-0.5,5];
+        surround_samples = surround_time/Timeline.hw.samplingInterval;
+        
+        rotaryEncoder_idx = strcmp({Timeline.hw.inputs.name}, 'rotaryEncoder');
+        surround_time = surround_time(1):Timeline.hw.samplingInterval:surround_time(2);
+        pull_times = bsxfun(@plus,stimOn_times,surround_time);
+        
+        stim_aligned_wheel_raw = interp1(Timeline.rawDAQTimestamps, ...
+            Timeline.rawDAQData(:,rotaryEncoder_idx),pull_times);
+        stim_aligned_wheel = bsxfun(@minus,stim_aligned_wheel_raw, ...
+            nanmedian(stim_aligned_wheel_raw(:,surround_time < 0),2));
+        
+        thresh_displacement = 2;
+        [~,wheel_move_sample] = max(abs(stim_aligned_wheel) > thresh_displacement,[],2);
+        wheel_move_time = arrayfun(@(x) pull_times(x,wheel_move_sample(x)),1:size(pull_times,1));
+        wheel_move_time(wheel_move_sample == 1) = NaN;
+        
     elseif strcmp(expDef,'AP_visAudioPassive')
         %         min_stim_downtime = 0.5; % minimum time between pd flips to get stim
         %         stimOn_times_pd = photodiode_flip_times([true;diff(photodiode_flip_times) > min_stim_downtime]);
@@ -276,16 +294,20 @@ if block_exists
         error('AP_visAudioPassive isn''t reliable yet')
         
     elseif strcmp(expDef,'AP_choiceWorldStimPassive')
-        % Get all times the photodiode flips up
-        stimOn_times = stimScreen_on_t(photodiode_flip(photodiode_trace(photodiode_flip) == 1));
-        stimOff_times = stimScreen_on_t(photodiode_flip(photodiode_trace(photodiode_flip) == 0));
+        % This is kind of a dumb hack to get the stimOn times, maybe not
+        % permanent unless it works fine: get stim times by photodiode
+        % flips that are separated by 1s        
+        photodiode_flip_diff = diff(stimScreen_on_t(photodiode_flip));
+        stimOn_idx = find(photodiode_flip_diff > 0.9 & photodiode_flip_diff < 1.1);
         
-        [conditions,~,stimIDs] = unique(signals_events.visualParamsValues(:,signals_events.visualOnsetValues)','rows');
+        stimOn_times = stimScreen_on_t(photodiode_flip(stimOn_idx));
         
-        % sanity check
-        if length(signals_events.visualOnsetValues) ~= length(stimOn_times)
-            error('Different number of signals/timeline stim ons')
-        end
+        % assume the times correspond to the last n values (this is because
+        % sometimes if the buffer time wasn't enough, the first stimuli
+        % weren't shown or weren't shown completely)
+        [conditions,conditions_idx,stimIDs] = unique(signals_events.visualParamsValues(:, ...
+            signals_events.visualOnsetValues(end-length(stimOn_times)+1:end))','rows');   
+        conditions_params = signals_events.visualParamsValues(:,conditions_idx);
         
     else
         error('Signals protocol with no analysis script')
@@ -681,6 +703,48 @@ if ephys_exists && load_parts.ephys
     elseif ~exist('cluster_groups','var')
         disp('Clusters not yet sorted');
     end
+    
+end
+
+%% Estimate striatal boundaries on probe
+
+if ephys_exists && load_parts.ephys
+    disp('Estimating striatum boundaries on probe...');
+   
+    %%% Get correlation of MUA and LFP   
+    n_corr_groups = 40;
+    depth_group_edges = linspace(0,max(channel_positions(:,2)),n_corr_groups+1);
+    depth_group = discretize(templateDepths,depth_group_edges);
+    depth_group_centers = depth_group_edges(1:end-1)+(diff(depth_group_edges)/2);
+    unique_depths = 1:length(depth_group_edges)-1;
+    
+    spike_binning = 0.01; % seconds
+    corr_edges = spike_times_timeline(1):spike_binning:spike_times_timeline(end);
+    corr_centers = corr_edges(1:end-1) + diff(corr_edges);
+    
+    binned_spikes_depth = zeros(length(unique_depths),length(corr_edges)-1);
+    for curr_depth = 1:length(unique_depths);
+        binned_spikes_depth(curr_depth,:) = histcounts(spike_times_timeline( ...
+            ismember(spike_templates,find(depth_group == unique_depths(curr_depth)))), ...
+            corr_edges);
+    end
+    
+    mua_corr = corrcoef(binned_spikes_depth');
+
+    %%% Estimate start and end depths of striatum 
+    % start of striatum: look for ventricle (the largest gap)
+    sorted_template_depths = sort([0;templateDepths]);
+    [~,max_gap_idx] = max(diff(sorted_template_depths));
+    str_start = sorted_template_depths(max_gap_idx+1)-1;
+    % end of striatum: biggest drop in MUA correlation near end
+    groups_back = 10;
+    mua_corr_end = mua_corr(end-groups_back+1:end,end-groups_back+1:end);
+    mua_corr_end(triu(true(length(mua_corr_end)),0)) = nan;
+    median_corr = nanmedian(mua_corr_end,2);
+    [x,max_corr_drop] = min(diff(median_corr));
+    str_end = depth_group_centers(end-groups_back+max_corr_drop-1);    
+    
+    str_depth = [str_start,str_end];
     
 end
 

@@ -319,6 +319,13 @@ stim_aligned_wheel_raw = interp1(Timeline.rawDAQTimestamps, ...
 stim_aligned_wheel = bsxfun(@minus,stim_aligned_wheel_raw, ...
     nanmedian(stim_aligned_wheel_raw(:,surround_time < 0),2));
 
+% Define time to first wheel movement
+thresh_displacement = 2;
+[~,wheel_move_sample] = max(abs(stim_aligned_wheel) > thresh_displacement,[],2);
+wheel_move_time = arrayfun(@(x) pull_times(x,wheel_move_sample(x)),1:size(pull_times,1));
+wheel_move_time(wheel_move_sample == 1) = NaN;
+
+% Plot the wheel aligned to stim onset
 figure; hold on;
 
 use_trials = signals_events.trialSideValues == 1 & signals_events.trialContrastValues > 0 & signals_events.hitValues;
@@ -336,12 +343,6 @@ plot(surround_time,nanmedian(stim_aligned_wheel(use_trials,:),1),'m','linewidth'
 legend({'Stim right hit','Stim right miss','Stim left hit','Stim left miss'})
 xlabel('Time from stim');
 ylabel('Wheel displacement');
-
-% Define time to first wheel movement
-thresh_displacement = 2;
-[~,wheel_move_sample] = max(abs(stim_aligned_wheel) > thresh_displacement,[],2);
-wheel_move_time = arrayfun(@(x) pull_times(x,wheel_move_sample(x)),1:size(pull_times,1));
-wheel_move_time(wheel_move_sample == 1) = NaN;
 
 %% Choiceworld: wheel movement around wheel movement start (sanity check)
 

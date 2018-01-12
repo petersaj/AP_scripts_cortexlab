@@ -1,6 +1,6 @@
 %% Batch load responses to passive stim
 
-animal = 'AP027';
+animal = 'AP026';
 protocol = 'stimKalatsky';
 experiments = AP_find_experiments(animal,protocol);
 
@@ -282,7 +282,8 @@ AP_image_scroll(avg_miss,t_surround)
 stimIDs = signals_events.trialSideValues.*signals_events.trialContrastValues;
 % stimIDs = discretize(stimIDs,[-Inf,-0.125,-0.01,0.01,0.25,Inf],[-2,-1,0,1,2]);
 
-use_spikes_idx = ismember(spike_templates,find(templateDepths >= 0 & templateDepths <= 1000));
+use_spikes_idx = ismember(spike_templates,find(templateDepths >= str_depth(1) & templateDepths <= str_depth(1)+100));
+% use_spikes_idx = ismember(spike_templates,find(templateDepths >= 500 & templateDepths <= 800));
 % use_spikes_idx = ismember(spike_templates,intersect(find(templateDepths >= 500 & templateDepths <= 1500),find(msn)));
 
 use_spikes = spike_times_timeline(use_spikes_idx);
@@ -366,9 +367,9 @@ unique_stims = unique(stimIDs);
 contrast_response = nan(n_depth_groups,length(unique_stims));
 for curr_depth = 1:n_depth_groups
     
-%     curr_spike_times = spike_times_timeline(depth_group == curr_depth);
-    curr_spike_times = spike_times_timeline((depth_group == curr_depth) & ...
-        ismember(spike_templates,find(msn)));
+    curr_spike_times = spike_times_timeline(depth_group == curr_depth);
+%     curr_spike_times = spike_times_timeline((depth_group == curr_depth) & ...
+%         ismember(spike_templates,find(msn)));
         
     stim_psth_hit = nan(length(unique(stimIDs)),diff(raster_window)/psth_bin_size);
     for curr_stim_idx = 1:length(unique_stims);
@@ -565,8 +566,9 @@ ylabel('Spikes');
 
 stimIDs = signals_events.trialSideValues.*signals_events.trialContrastValues;
 
+use_spikes_idx = ismember(spike_templates,find(templateDepths >= str_depth(2)-600 & templateDepths <= str_depth(2)-300));
 %use_spikes_idx = ismember(spike_templates,find(templateDepths >= 3000 & templateDepths <= 4000));
-use_spikes_idx = ismember(spike_templates,intersect(find(templateDepths >= 1000 & templateDepths <= 2000),find(msn)));
+% use_spikes_idx = ismember(spike_templates,intersect(find(templateDepths >= 1000 & templateDepths <= 2000),find(msn)));
 
 use_spikes = spike_times_timeline(use_spikes_idx);
 
@@ -1080,7 +1082,7 @@ xlabel('Stim condition');
 
 %% Align fluorescence, MUA, and predicted MUA, compare across conditions
 
-depth_edges = [500,1500];
+depth_edges = [str_depth(1),str_depth(1)+200];
 sample_rate_factor = 1;
 
 % Define times to align

@@ -4,6 +4,12 @@
 % it, but this aligns a widefield visual field sign map to the allen CCF
 % boundaries, requires imaged visual field sign 'imaged_vfs'
 
+%% Load Allen CCF
+
+cd 'C:\Users\Andrew\OneDrive for Business\Documents\Atlases\AllenCCF';
+av = readNPY('annotation_volume_10um_by_index.npy'); 
+st = loadStructureTree('structure_tree_safe_2017.csv');
+
 %% Make top-down boundaries from scratch (could load but would need st too)
 
 % Get first brain pixel from top-down, get annotation at that point
