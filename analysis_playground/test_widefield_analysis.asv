@@ -1490,22 +1490,20 @@ caxis([prctile(r_px(:),[1,99])]*4);
 truesize
 
 
-%% Align widefield images across days and save transform matricies
+%% Align widefield images across days (/ get transform matricies)
 
-% Already done for current animals, shouldn't have to do again
+animal = 'AP026';
+protocol = 'vanillaChoiceworld';
+experiments = AP_find_experiments(animal,protocol);
+experiments = experiments([experiments.imaging]);
+days = {experiments.day};
 
-% animal = 'AP024';
-% protocol = 'vanillaChoiceworld';
-% experiments = AP_find_experiments(animal,protocol);
-% experiments = experiments([experiments.imaging]);
-% days = {experiments.day};
-% 
-% [tform_matrix,im_aligned] = AP_align_widefield(animal,days,'new');
-% AP_image_scroll(im_aligned); 
-% axis image off;
+[tform_matrix,im_aligned] = AP_align_widefield(animal,days);
+AP_image_scroll(im_aligned); 
+axis image off;
 
-
-
+alignment_path = '\\basket.cortexlab.net\data\ajpeters\alignment';
+for curr_day = 1:length(days)
 
 %% Orientation decoding (with varying time windows)
 % specifically for AP015 207-05-22

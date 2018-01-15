@@ -8,13 +8,17 @@ function experiments = AP_find_experiments(animal,protocol)
 % (look in Data)
 expInfo_path = ['\\zserver.cortexlab.net\Data\expInfo\' animal];
 expInfo_dir = dir(expInfo_path);
-days_Data = {expInfo_dir(find([expInfo_dir(3:end).isdir])+2).name};
+day_paths = cellfun(@(x) ~isempty(regexp(x,'\d\d\d\d-\d\d-\d\d')),{expInfo_dir.name}) &...
+    [expInfo_dir.isdir];
+days_Data = {expInfo_dir(day_paths).name};
 days_Data_pathname = cellfun(@(x) [expInfo_path filesep x],days_Data,'uni',false);
 
 % (look in Data2)
 expInfo_path = ['\\zserver.cortexlab.net\Data2\Subjects\' animal];
 expInfo_dir = dir(expInfo_path);
-days_Data2 = {expInfo_dir(find([expInfo_dir(3:end).isdir])+2).name};
+day_paths = cellfun(@(x) ~isempty(regexp(x,'\d\d\d\d-\d\d-\d\d')),{expInfo_dir.name}) &...
+    [expInfo_dir.isdir];
+days_Data2 = {expInfo_dir(day_paths).name};
 days_Data2_pathname = cellfun(@(x) [expInfo_path filesep x],days_Data2,'uni',false);
 
 % (take unique days from both)

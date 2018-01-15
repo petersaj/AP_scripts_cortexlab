@@ -1,5 +1,5 @@
 function h = AP_reference_outline(reference_im,ccf)
-% h = AP_reference_outline(reference_im)
+% h = AP_reference_outline(reference_im,ccf)
 %
 % If a reference image is provided, bregma is defined there
 % ccf - if true, draws (unscaled) CCF boundaries

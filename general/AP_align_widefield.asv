@@ -1,5 +1,5 @@
 function im_aligned = AP_align_widefield(animal,days,im_unaligned)
-% im_aligned = AP_align_widefield(animal,days,im_unaligned)
+% im_aligned = AP_align_widefield(animal,days,new_tform)
 % 
 % Get transform matrix to align widefield images across days
 % im_unaligned - unaligned images (if 'new', then create and save tform)
@@ -76,28 +76,25 @@ end
 
 %% If not, apply old alignment to data
 if ~new_alignment
-    
     % Load alignment tform
     load(alignment_filename,'wf_tform');
-    
     % Apply to each day
-    im_aligned = nan(wf_tform(1).im_size(1),wf_tform(1).im_size(2),length(days));
     for curr_day = 1:length(days);
         
-        curr_day_idx = strcmp(days{curr_day},{wf_tform.day});
-        
         tform = affine2d;
-        tform.T = wf_tform(curr_day_idx).t;
+        tform.T = wf_tform(curr_day};
         
-        % (this might be bad for the future, keep it in mind)
-        curr_im = im_unaligned;
+        curr_im = batch_vars_reg.corr_edges{curr_day};
         curr_im(isnan(curr_im)) = 0;
         
-        im_aligned(:,:,curr_day) = imwarp(curr_im,tform, ...
-            'Outputview',imref2d(wf_tform(curr_day_idx).im_size));
+        batch_vars_reg.corr_edges{curr_day} = imwarp(curr_im,tform, ...
+            'Outputview',imref2d(size(im_aligned(:,:,1))));
         
     end
 
+    
+    
+    animal,days,im_unaligned
 end
 
 
