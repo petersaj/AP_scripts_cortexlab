@@ -3,8 +3,8 @@ function experiments = AP_find_experiments(animal,protocol)
 %
 % Find all experiments from an animal with a given protocol name
 
-% Days can either be on Data\expInfo or Data (garbage system to be replaced
-% by Alyx logging files)
+% Days can either be on Data\expInfo or Data2 (to be replaced, eventually)
+
 % (look in Data)
 expInfo_path = ['\\zserver.cortexlab.net\Data\expInfo\' animal];
 expInfo_dir = dir(expInfo_path);

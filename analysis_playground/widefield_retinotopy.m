@@ -1815,8 +1815,8 @@ set(p2,'AlphaData',mat2gray(abs(signMap_mean))*0.3);
 axis image off
 
 %% Sparse noise with my code in batch
-
-animal = 'AP029';
+clear all
+animal = 'AP027';
 protocol = 'stimSparseNoiseUncorrAsync';
 experiments = AP_find_experiments(animal,protocol);
 
@@ -2013,37 +2013,19 @@ end
 
 disp('Finished batch.')
 
-
 % Align
 days = {experiments.day};
-[tform_matrix,im_aligned] = AP_align_widefield(animal,days);
-AP_image_scroll(im_aligned); axis image;
 
-batch_vars_reg = batch_vars;
+signMap_aligned = AP_align_widefield(animal,days,batch_vars.signMap);
+signMap_mean = nanmean(signMap_aligned,3);
 
-% Align across days and replace nans
-for curr_day = 1:length(experiments);
-    
-    tform = affine2d;
-    tform.T = tform_matrix{curr_day};
-    
-    curr_im = batch_vars_reg.signMap{curr_day};
-    nan_cond = squeeze(all(all(all(isnan(curr_im),1),2),3));
-    curr_im(isnan(curr_im)) = 0;
-    curr_im = imwarp(curr_im,tform, ...
-        'Outputview',imref2d(size(im_aligned(:,:,1))));
-    curr_im(:,:,:,nan_cond) = NaN;
-    batch_vars_reg.signMap{curr_day} = curr_im;
-
-end
-
-signMap_cat = cat(3,batch_vars_reg.signMap{:});
-
-signMap_mean = nanmean(signMap_cat,3);
-avg_im_mean = nanmean(im_aligned,3);
+align_fn = ['\\basket.cortexlab.net\data\ajpeters\wf_alignment' filesep animal '_wf_tform'];
+load(align_fn);
+ref_path = AP_cortexlab_filename(animal,wf_tform(1).day,[],'imaging');
+ref_im = readNPY([ref_path filesep 'meanImage_blue.npy']);
 
 % Plot
-figure('Name',['Average retinotopy: ' animal]);
+retinotopy_fig = figure('Name',['Average retinotopy: ' animal]);
 ax1 = axes;
 subplot(1,2,1,ax1);
 imagesc(signMap_mean);
@@ -2055,9 +2037,9 @@ ax2 = axes;
 ax3 = axes;
 subplot(1,2,2,ax2);
 subplot(1,2,2,ax3);
-h1 = imagesc(ax2,avg_im_mean);
+h1 = imagesc(ax2,ref_im);
 colormap(ax2,gray);
-caxis(ax2,[0 prctile(avg_im_mean(:),99.9)]);
+caxis(ax2,[0 prctile(ref_im(:),99.9)]);
 h2 = imagesc(ax3,signMap_mean);
 colormap(ax3,colormap_BlueWhiteRed);
 caxis([-1,1]);
@@ -2067,6 +2049,14 @@ set(ax3,'Visible','off');
 axes(ax3); axis image off;
 set(h2,'AlphaData',mat2gray(abs(signMap_mean))*0.3);
 colormap(colormap_BlueWhiteRed)
+
+retinotopy_path = '\\basket.cortexlab.net\data\ajpeters\retinotopy';
+saveas(retinotopy_fig,[retinotopy_path filesep animal '_retinotopy']);
+
+
+
+
+
 
 
 

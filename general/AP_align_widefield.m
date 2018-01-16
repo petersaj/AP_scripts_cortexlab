@@ -50,26 +50,26 @@ if new_alignment
     
     tform_matrix = cell(length(avg_im_blue),1);
     im_aligned = nan(ref_size(1),ref_size(2),length(days));
-    for curr_session = 1:length(days);
+    for curr_day = 1:length(days);
         
         [optimizer, metric] = imregconfig('monomodal');
         optimizer = registration.optimizer.OnePlusOneEvolutionary();
         optimizer.MaximumIterations = 200;
         optimizer.GrowthFactor = 1+1e-6;
-        optimizer.InitialRadius = 1e-5;
+        optimizer.InitialRadius = 1e-4;
         
-        tformEstimate_affine = imregtform(im_align{curr_session},ref_im,'affine',optimizer,metric);
-        curr_im_reg = imwarp(avg_im_blue{curr_session},tformEstimate_affine,'Outputview',imref2d(ref_size));
-        tform_matrix{curr_session} = tformEstimate_affine.T;
+        tformEstimate_affine = imregtform(im_align{curr_day},ref_im,'affine',optimizer,metric);
+        curr_im_reg = imwarp(avg_im_blue{curr_day},tformEstimate_affine,'Outputview',imref2d(ref_size));
+        tform_matrix{curr_day} = tformEstimate_affine.T;
         
-        im_aligned(:,:,curr_session) = curr_im_reg;
+        im_aligned(:,:,curr_day) = curr_im_reg;
         
-        AP_print_progress_fraction(curr_session,length(days))
+        AP_print_progress_fraction(curr_day,length(days))
         
     end
     
     % Save alignments
-    wf_tform = struct('day',days,'t',tform_matrix,'im_size',size(ref_im_full));
+    wf_tform = struct('day',reshape(days,[],1),'t',tform_matrix,'im_size',size(ref_im_full));
     save(alignment_filename,'wf_tform');
     
 end
@@ -85,12 +85,15 @@ if ~new_alignment
     for curr_day = 1:length(days);
         
         curr_day_idx = strcmp(days{curr_day},{wf_tform.day});
+        if ~any(curr_day_idx)
+            error(['No transform matrix for ' days{curr_day}]);
+        end
         
         tform = affine2d;
         tform.T = wf_tform(curr_day_idx).t;
         
         % (this might be bad for the future, keep it in mind)
-        curr_im = im_unaligned;
+        curr_im = im_unaligned{curr_day};
         curr_im(isnan(curr_im)) = 0;
         
         im_aligned(:,:,curr_day) = imwarp(curr_im,tform, ...

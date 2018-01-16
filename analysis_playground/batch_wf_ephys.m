@@ -55,7 +55,7 @@ for curr_day = 1:length(experiments);
        
     %%%%% EDGE DETECTION: I think this works better
     a = mat2gray(cat(3,corr_map{:}),[0.5,1]);
-    a2 = imgaussfilt(a,10)-imgaussfilt(a,30);
+    a2 = imgaussfilt(a,5)-imgaussfilt(a,20);
     corr_edges = nanmean(a2,3);
         
     batch_vars.corr_edges{curr_day} = corr_edges;
@@ -73,27 +73,9 @@ end
 disp('Finished batch.')
 
 % Align images from batch processing
-batch_vars_reg = batch_vars;
-
-% Align
 days = {experiments.day};
+corr_edges_aligned = AP_align_widefield(animal,days,batch_vars.corr_edges);
 
-alignment_path = '\\basket.cortexlab.net\data\ajpeters\wf_alignment';
-alignment_filename = [alignment_path filesep animal '_wf_tform'];
-load(alignment_filename);
-
-for curr_day = 1:length(experiments);
-    
-    tform = affine2d;
-    tform.T = tform_matrix{curr_day};
-    
-    curr_im = batch_vars_reg.corr_edges{curr_day};
-    curr_im(isnan(curr_im)) = 0;    
-
-    batch_vars_reg.corr_edges{curr_day} = imwarp(curr_im,tform, ...
-        'Outputview',imref2d(size(im_aligned(:,:,1))));       
-
-end
 
 
 

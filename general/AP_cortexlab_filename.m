@@ -1,5 +1,5 @@
 function [filename,file_exists] = AP_cortexlab_filename(animal,day,experiment,file,site)
-% filename = AP_cortexlab_filename(animal,day,experiment,file,site);
+% [filename,file_exists] = AP_cortexlab_filename(animal,day,experiment,file,site)
 %
 % file - can include:
 % timeline
@@ -11,14 +11,9 @@ function [filename,file_exists] = AP_cortexlab_filename(animal,day,experiment,fi
 % facecam
 % facecam_processed
 % hardware
-% datapath
-%
-% dayformat - dash or 8digit (default is to use whatever day is used as)
-
-% I know this is redundant with dat.expFilePath, but I don't like that it
-% uses a lot of server/nested functions to do something so simple. I also
-% don't like reservation of 'dat'. So I just made this one.
-%
+% imaging
+% ephys
+% ephysraw
 
 % Make inputs strings if they're numbers
 if isnumeric(experiment)

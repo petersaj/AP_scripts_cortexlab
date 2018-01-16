@@ -1494,16 +1494,49 @@ truesize
 
 % Already done for current animals, shouldn't have to do again
 
-% animal = 'AP024';
+% animal = 'AP026';
+% 
 % protocol = 'vanillaChoiceworld';
 % experiments = AP_find_experiments(animal,protocol);
 % experiments = experiments([experiments.imaging]);
-% days = {experiments.day};
+% choiceworld_days = {experiments.day};
 % 
-% [tform_matrix,im_aligned] = AP_align_widefield(animal,days,'new');
+% protocol = 'stimSparseNoiseUncorrAsync';
+% experiments = AP_find_experiments(animal,protocol);
+% experiments = experiments([experiments.imaging]);
+% sparsenoise_days = {experiments.day};
+% 
+% days = sort(unique([choiceworld_days,sparsenoise_days]));
+% 
+% im_aligned = AP_align_widefield(animal,days,'new');
 % AP_image_scroll(im_aligned); 
 % axis image off;
 
+%% Show aligned mean images
+
+animal = 'AP024';
+
+protocol = 'vanillaChoiceworld';
+experiments = AP_find_experiments(animal,protocol);
+experiments = experiments([experiments.imaging]);
+choiceworld_days = {experiments.day};
+
+protocol = 'stimSparseNoiseUncorrAsync';
+experiments = AP_find_experiments(animal,protocol);
+experiments = experiments([experiments.imaging]);
+sparsenoise_days = {experiments.day};
+
+days = sort(unique([choiceworld_days,sparsenoise_days]));
+
+avg_im_blue = cell(length(days),1);
+for curr_day = 1:length(days)
+    [img_path,img_exists] = AP_cortexlab_filename(animal,days{curr_day},[],'imaging');
+    avg_im_blue{curr_day} = readNPY([img_path filesep 'meanImage_blue.npy']);
+end
+
+im_aligned = AP_align_widefield(animal,days,avg_im_blue);
+AP_image_scroll(im_aligned); 
+axis image off;
 
 
 
