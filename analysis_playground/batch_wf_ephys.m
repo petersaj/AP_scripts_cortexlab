@@ -1,11 +1,10 @@
 %% Get widefield area boundaries in batch
 
-animal = 'AP028';
+clear all
+animal = 'AP027';
 protocol = 'vanillaChoiceworld';
 experiments = AP_find_experiments(animal,protocol);
-
-experiments = experiments([experiments.imaging] & [experiments.ephys]);
-% experiments = experiments([experiments.imaging]);
+experiments = experiments([experiments.imaging]);
 
 load_parts.cam = false;
 load_parts.imaging = true;
@@ -23,13 +22,10 @@ for curr_day = 1:length(experiments);
     % DO THE STUFF
     %%%%%%%%%%%%%%%
     
-    % to compute just the correlation with one pixel and the rest:
-    % 1) ahead of time:
-    fprintf(1, 'pre-computation...\n');
+    % Get V covariance
     Ur = reshape(U, size(U,1)*size(U,2),[]); % P x S
     covV = cov(fV'); % S x S % this is the only one that takes some time really
     varP = dot((Ur*covV)', Ur'); % 1 x P
-    fprintf(1, 'done.\n');
     
     ySize = size(U,1); xSize = size(U,2);
     
@@ -53,10 +49,10 @@ for curr_day = 1:length(experiments);
         end      
     end 
        
-    %%%%% EDGE DETECTION: I think this works better
-    a = mat2gray(cat(3,corr_map{:}),[0.5,1]);
-    a2 = imgaussfilt(a,5)-imgaussfilt(a,20);
-    corr_edges = nanmean(a2,3);
+    % Correlation map edge detection
+    corr_map_norm = mat2gray(cat(3,corr_map{:}),[0.5,1]);
+    corr_map_edge = imgaussfilt(corr_map_norm,5)-imgaussfilt(corr_map_norm,20);
+    corr_edges = nanmean(corr_map_edge,3);
         
     batch_vars.corr_edges{curr_day} = corr_edges;
     
@@ -65,7 +61,7 @@ for curr_day = 1:length(experiments);
     %%%%%%%%%%%%%%%%%%%%
     
     drawnow
-    disp(curr_day)
+    AP_print_progress_fraction(curr_day,length(experiments))
     clearvars -except experiments curr_day animal batch_vars load_parts
     
 end
@@ -76,120 +72,104 @@ disp('Finished batch.')
 days = {experiments.day};
 corr_edges_aligned = AP_align_widefield(animal,days,batch_vars.corr_edges);
 
+wf_borders_fig = figure('Name',animal);
+imagesc(nanmean(corr_edges_aligned,3));
+axis image off; colormap(gray); caxis([0,0.05])
 
-
+fn = ['\\basket.cortexlab.net\data\ajpeters\wf_borders' filesep animal '_wf_borders'];
+saveas(wf_borders_fig,fn);
 
 %% Batch load responses to passive stim
 
-animal = 'AP028';
-% protocol = 'stimKalatsky';
-protocol = 'AP_choiceWorldStimPassive';
-experiments = AP_find_experiments(animal,protocol);
+animals = {'AP024','AP025','AP026','AP027','AP028','AP029'};
+protocol = 'stimKalatsky';
+% protocol = 'AP_choiceWorldStimPassive';
 
-% only use experiments with ephys + imaging
-experiments = experiments([experiments.imaging] & [experiments.ephys]);
-
-load_parts.cam = false;
-load_parts.imaging = true;
-load_parts.ephys = false;
-
-batch_vars = struct;
-for curr_day = 1:length(experiments);
+for curr_animal = 1:length(animals)
     
-    day = experiments(curr_day).day;
-    experiment = experiments(curr_day).experiment;
+    animal = animals{curr_animal};
+    experiments = AP_find_experiments(animal,protocol);
+    disp(animal);
     
-    AP_load_experiment
+    % only use experiments with ephys + imaging
+    experiments = experiments([experiments.imaging] & [experiments.ephys]);
     
-    %%%%%%%%%%%%%%%
-    % DO THE STUFF
-    %%%%%%%%%%%%%%%
+    load_parts.cam = false;
+    load_parts.imaging = true;
+    load_parts.ephys = false;
     
-    % Set options
-    surround_window = [-0.2,3];
-    baseline_surround_window = [0,0];
-    framerate = 1./median(diff(frame_t));
-    surround_samplerate = 1/(framerate*1);
-    t_surround = surround_window(1):surround_samplerate:surround_window(2);
-    baseline_surround_time = baseline_surround_window(1):surround_samplerate:baseline_surround_window(2);
-    
-    % Average (time course) responses
-    conditions = unique(stimIDs);
-    im_stim = nan(size(U,1),size(U,2),length(t_surround),length(conditions));
-    for curr_condition_idx = 1:length(conditions)
-        curr_condition = conditions(curr_condition_idx);
+    batch_vars = struct;
+    for curr_day = 1:length(experiments);
         
-        use_stims = find(stimIDs == curr_condition);
-        use_stim_onsets = stimOn_times(use_stims(2:end));
-        use_stim_onsets([1,end]) = [];
+        % Load the experiment
+        day = experiments(curr_day).day;
+        experiment = experiments(curr_day).experiment;        
+        AP_load_experiment
+             
+        % Set options
+        surround_window = [-0.5,5];
+        baseline_surround_window = [0,0];
+        framerate = 1./median(diff(frame_t));
+        surround_samplerate = 1/(framerate*1);
+        t_surround = surround_window(1):surround_samplerate:surround_window(2);
+        baseline_surround_time = baseline_surround_window(1):surround_samplerate:baseline_surround_window(2);
         
-        stim_surround_times = bsxfun(@plus, use_stim_onsets(:), t_surround);
-        peri_stim_v = permute(mean(interp1(frame_t,fVdf',stim_surround_times),1),[3,2,1]);
+        % Average (time course) responses
+        conditions = unique(stimIDs);
+        im_stim = nan(size(U,1),size(U,2),length(t_surround),length(conditions));
+        for curr_condition_idx = 1:length(conditions)
+            curr_condition = conditions(curr_condition_idx);
+            
+            use_stims = find(stimIDs == curr_condition);
+            use_stim_onsets = stimOn_times(use_stims(2:end));
+            use_stim_onsets([1,end]) = [];
+            
+            stim_surround_times = bsxfun(@plus, use_stim_onsets(:), t_surround);
+            peri_stim_v = permute(mean(interp1(frame_t,fVdf',stim_surround_times),1),[3,2,1]);
+            
+            im_stim(:,:,:,curr_condition_idx) = svdFrameReconstruct(Udf,peri_stim_v);
+        end
         
-        im_stim(:,:,:,curr_condition_idx) = svdFrameReconstruct(Udf,peri_stim_v);
+        batch_vars.im_stim{curr_day} = im_stim;        
+        
+        % Prepare for next loop
+        drawnow
+        AP_print_progress_fraction(curr_day,length(experiments))
+        clearvars -except animals protocol curr_animal experiments curr_day animal batch_vars load_parts
+        
     end
     
-    batch_vars.im_stim{curr_day} = im_stim;
+    %     % Get ddf
+    %     ddf_im = batch_vars.im_stim;
+    %     for curr_day = 1:length(experiments)
+    %         curr_im = ddf_im{curr_day};
+    %         curr_im(isnan(curr_im)) = 0;
+    %         curr_im = imgaussfilt(diff(curr_im,[],3),2);
+    %         curr_im(curr_im < 0) = 0;
+    %         ddf_im{curr_day} = curr_im;
+    %     end
     
-    %%%%%%%%%%%%%%%%%%%%
-    % THE STUFF IS DONE
-    %%%%%%%%%%%%%%%%%%%%
+    % Align
+    days = {experiments.day};
+    im_aligned = AP_align_widefield(animal,days,batch_vars.im_stim);
+    im_aligned_average = nanmean(im_aligned,5);
     
-    drawnow
-    disp(curr_day)
-    clearvars -except experiments curr_day animal batch_vars load_parts
+    %     % Plot
+    %     surround_window = [-0.5,5];
+    %     t_surround = linspace(surround_window(1),surround_window(2),size(im_aligned_average,3));
+    %     AP_image_scroll(im_aligned_average,t_surround);
+    %     colormap(gray); axis image off;
+    %     title([animal ': passive stimuli']);
+    
+    % Save
+    save_path = ['C:\Users\Andrew\OneDrive for Business\Documents\CarandiniHarrisLab\analysis\wf_ephys_choiceworld\passive'];
+    save([save_path filesep animal '_' protocol],'im_aligned_average');    
+    
+    disp(['Finished ' animal]);
     
 end
 
-disp('Finished batch.')
-
-% Align images from batch processing
-batch_vars_reg = batch_vars;
-
-% Get ddf
-for curr_day = 1:length(experiments)
-    curr_im = batch_vars_reg.im_stim{curr_day};
-    curr_im(isnan(curr_im)) = 0;
-    curr_im = imgaussfilt(diff(curr_im,[],3),2);
-    curr_im(curr_im < 0) = 0;
-    batch_vars_reg.im_stim{curr_day} = curr_im;
-end
-
-% Align
-days = {experiments.day};
-[tform_matrix,im_aligned] = AP_align_widefield(animal,days);
-
-for curr_day = 1:length(experiments);
-    
-    tform = affine2d;
-    tform.T = tform_matrix{curr_day};
-    
-    curr_im = batch_vars_reg.im_stim{curr_day};
-    curr_im(isnan(curr_im)) = 0;    
-
-    batch_vars_reg.im_stim{curr_day} = imwarp(curr_im,tform, ...
-        'Outputview',imref2d(size(im_aligned(:,:,1))));       
-
-end
-
-a = nanmean(cat(5,batch_vars_reg.im_stim{:}),5);
-
-surround_window = [-0.2,3];
-baseline_surround_window = [0,0];
-framerate = 35;
-surround_samplerate = 1/(framerate*1);
-t_surround = surround_window(1):surround_samplerate:surround_window(2);
-baseline_surround_time = baseline_surround_window(1):surround_samplerate:baseline_surround_window(2);
-
-f = AP_image_scroll(a,t_surround);
-axis image;
-
-t_use = t_surround > 0.1 & t_surround < 0.5;
-b = nanmean(a(:,:,t_use,:),3);
-figure;imagesc(reshape(b,size(b,1),[],1)); 
-colormap(gray); axis image off;
-title([animal ': passive stimuli']);
-
+disp('Finished batch');
 
 %% Batch get average choiceworld fluorescence
 
@@ -291,7 +271,7 @@ for curr_day = 1:length(experiments);
     %%%%%%%%%%%%%%%%%%%%
     
     drawnow
-    disp(curr_day)
+    AP_print_progress_fraction(curr_day,length(experiments))
     clearvars -except experiments curr_day animal batch_vars load_parts
     
 end

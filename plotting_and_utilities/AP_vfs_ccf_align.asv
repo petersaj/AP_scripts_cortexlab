@@ -64,14 +64,14 @@ um2pixel = 20.6;
 
 ccf_vfs_d = imresize(ccf_vfs,10/um2pixel,'nearest');
 
-vfs_cutoff = 0.1;
-imaged_vfs_scaled = mat2gray(imaged_vfs+1,[1-vfs_cutoff,1+vfs_cutoff])*2-1;
+vfs_cutoff = 0
+imaged_vfs_scaled = mat2gray(imaged_vfs+1,[0.3,1.3])*2-1;
 
 [optimizer, metric] = imregconfig('monomodal');
 optimizer = registration.optimizer.OnePlusOneEvolutionary();
 optimizer.MaximumIterations = 200;
 optimizer.GrowthFactor = 1+1e-6;
-optimizer.InitialRadius = 1e-4;
+optimizer.InitialRadius = 1e-3;
 
 tformEstimate_affine = imregtform(imaged_vfs_scaled,ccf_vfs_d,'affine',optimizer,metric);
 curr_im_reg = imwarp(imaged_vfs_scaled,tformEstimate_affine,'Outputview',imref2d(size(ccf_vfs_d)));
@@ -99,32 +99,42 @@ end
 
 ccf_vfs_d = imresize(ccf_vfs,10/um2pixel,'nearest');
 
-vfs_cutoff = 0.1;
-imaged_vfs_scaled = mat2gray(imaged_vfs+1,[1-vfs_cutoff,1+vfs_cutoff])*2-1;
-
 [optimizer, metric] = imregconfig('monomodal');
 optimizer = registration.optimizer.OnePlusOneEvolutionary();
 optimizer.MaximumIterations = 200;
 optimizer.GrowthFactor = 1+1e-6;
 optimizer.InitialRadius = 1e-4;
 
-tformEstimate_affine = imregtform(ccf_vfs_d,imaged_vfs_scaled,'affine',optimizer,metric);
+tformEstimate_affine = imregtform(ccf_vfs_d,imaged_vfs,'affine',optimizer,metric);
 tform_matrix = tformEstimate_affine.T;
 
 boundaries_tform_long = cellfun(@(areas) cellfun(@(coords) ...
     [fliplr(coords*(10/um2pixel)),ones(size(coords,1),1)]*tform_matrix,areas,'uni',false), ...
     top_down_cortical_area_boundaries,'uni',false);
 
-cortical_area_boundaries_aligned = cellfun(@(areas) cellfun(@(coords) ...
+cortical_boundaries_aligned = cellfun(@(areas) cellfun(@(coords) ...
     coords(:,[2,1]),areas,'uni',false),boundaries_tform_long,'uni',false);
 
 figure; 
-imagesc(imaged_vfs_scaled); hold on; axis image off;
+imagesc(imaged_vfs); hold on; axis image off;
 colormap(colormap_BlueWhiteRed);
-for curr_area_idx = 1:length(cortical_area_boundaries_aligned)
+for curr_area_idx = 1:length(cortical_boundaries_aligned)
     cellfun(@(outline) plot(outline(:,2),outline(:,1),'k'), ...
-        cortical_area_boundaries_aligned{curr_area_idx},'uni',false);
+        cortical_boundaries_aligned{curr_area_idx},'uni',false);
 end
+
+
+
+
+cc = normxcorr2(roi_snip,im_curr_avg_lumnorm);
+
+% get the point of max correlation
+xcorr_midpoint = round(length(cc)/2);
+[max_c,imax] = max(cc(:));
+[ypeak xpeak] = ind2sub(size(cc),imax(1));
+corr_offset = [(xpeak-s*cell_radius)-center_x ...
+    (ypeak-s_aspect*cell_radius)-center_y];
+
 
 
 

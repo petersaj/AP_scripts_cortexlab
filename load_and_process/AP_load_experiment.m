@@ -544,7 +544,6 @@ if data_path_exists && load_parts.imaging
 end
 
 %% Load ephys data (single long recording)
-warning('Subtract light-triggered average from LFP (sync 3)?');
 [ephys_path,ephys_exists] = AP_cortexlab_filename(animal,day,experiment,'ephys',site);
 
 if ephys_exists && load_parts.ephys
