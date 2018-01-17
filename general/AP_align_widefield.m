@@ -13,6 +13,9 @@ if ischar(im_unaligned) && strcmp(im_unaligned,'new')
     new_alignment = true;
 else
     new_alignment = false;
+    if ~iscell(im_unaligned)
+        im_unaligned = {im_unaligned};
+    end
 end
 
 % Whether to align within animal across days or across animals
@@ -21,10 +24,10 @@ if isempty(days)
     if ~iscell(animals)
         animals = {animals};
     end
-    if ~iscell(im_unaligned)
-        im_unaligned = {im_unaligned};
-    end
 else
+    if ~iscell(days)
+        days = {days};
+    end
     animal_aligned = false;
 end
 
@@ -62,7 +65,8 @@ if ~new_alignment
            error('Different number of frames across animals'); 
         end
         
-        im_aligned = nan(wf_tform(1).im_size(1),wf_tform(1).im_size(2),n_frames,n_conditions,length(days));
+        im_aligned = nan(animal_wf_tform(curr_animal_idx).im_size(1), ...
+            animal_wf_tform(curr_animal_idx).im_size(2),n_frames,n_conditions,length(days));
         for curr_day = 1:length(days);
             
             curr_day_idx = strcmp(days{curr_day},{wf_tform.day});

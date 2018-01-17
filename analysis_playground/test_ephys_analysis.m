@@ -1807,11 +1807,20 @@ rf_map_smooth = imfilter(rf_map,gauss_filt);
 % sig_rf = bsxfun(@gt,rf_map_smooth,permute(cutoff_resp,[1,3,2]));
 % 
 
-
+% Get MUA receptive field
+params = struct;
+params.makePlots = false;
+params.useSVD = false;
+params.countWindow = [0.05,0.1];
+use_spikes = spike_times_timeline(ismember(spike_templates, ...
+    find(templateDepths > 0 & templateDepths < 1500)));
+[rf_map,stats] = sparseNoiseRF(use_spikes, ...
+    vertcat(stim_times_grid{:}),vertcat(stim_positions{:}),params);
+figure;imagesc(rf_map);axis image off;
 
 % Get stim-triggered MUA average for each stimulus
 use_spikes = spike_times_timeline(ismember(spike_templates, ...
-    find(templateDepths > 0 & templateDepths < 1800)));
+    find(templateDepths > 0 & templateDepths < 1500)));
 % use_spikes = spike_times_timeline(ismember(spike_templates, ...
 %     find(templateDepths > 0 & templateDepths < 1500)) &...
 %     ismember(spike_templates,find(msn)));
