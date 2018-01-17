@@ -1,4 +1,4 @@
-%% Get widefield area boundaries in batch
+%% Get widefield area boundaries
 
 clear all
 animal = 'AP027';
@@ -294,15 +294,15 @@ for curr_animal = 1:length(animals)
     
     % Save
     save_path = ['C:\Users\Andrew\OneDrive for Business\Documents\CarandiniHarrisLab\analysis\wf_ephys_choiceworld\choiceworld'];
-    save([save_path filesep animal '_im_stim_miss_avg'],'im_stim_miss_avg');
-    save([save_path filesep animal 'im_stim_hit_avg'],'im_stim_hit_avg');
+    save([save_path filesep animal '_im_stim_miss_avg'],'im_stim_miss_avg','-v7.3');
+    save([save_path filesep animal 'im_stim_hit_avg'],'im_stim_hit_avg','-v7.3');
     
     disp(['Finished ' animal]);
     
 end
 
 disp('Finished batch.')
-
+warning('This uses -v7.3 and therefore compresses data, switch to dat in the future');
 
 %% Get cortex > spike prediction kernels across recordings
 
@@ -985,7 +985,7 @@ for curr_stim = 1:size(stim_psth_avg,3)
     p = AP_stackplot(stim_psth_avg(:,:,curr_stim)',[],5,true);
 end
 
-%% Meta-batch: striatum responses during choiceworld
+%% Batch striatum responses during choiceworld
 
 animals = {'AP024','AP025','AP026','AP027','AP028','AP029'};
 protocol = 'vanillaChoiceworld';

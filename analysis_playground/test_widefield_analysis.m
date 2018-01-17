@@ -518,7 +518,7 @@ end
 %% Align widefield to events
 
 % Set options
-surround_window = [-0.2,3];
+surround_window = [-0.5,5];
 baseline_surround_window = [0,0];
 framerate = 1./median(diff(frame_t));
 surround_samplerate = 1/(framerate*1);

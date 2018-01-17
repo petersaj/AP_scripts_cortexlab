@@ -1103,8 +1103,8 @@ vis_modulation = (vis_rate-baseline_rate)./(vis_rate+baseline_rate);
 
 % Group by depth
 n_depth_groups = 6;
-% depth_group_edges = linspace(0,max(channel_positions(:,2)),n_depth_groups+1);
-depth_group_edges = round(linspace(str_depth(1),str_depth(2),n_depth_groups+1));
+depth_group_edges = linspace(0,max(channel_positions(:,2)),n_depth_groups+1);
+% depth_group_edges = round(linspace(str_depth(1),str_depth(2),n_depth_groups+1));
 depth_group_centers = round(depth_group_edges(1:end-1)+diff(depth_group_edges)/2);
 depth_group_edges(end) = Inf;
 depth_group = discretize(spikeDepths,depth_group_edges);
