@@ -20,14 +20,16 @@ else
     f = figure;
 end
 a = axes('Position',[0,0,1,1]);
+axis image;
 
+im_plot = imagesc(a,im(:,:,1));
+AP_reference_outline('retinotopy','m');AP_reference_outline('ccf_aligned','k');
 for i = 1:size(im,3)
-    imagesc(a,im(:,:,i));
+    set(im_plot,'CData',im(:,:,i));
     if ~isempty(color_axis)
         caxis(color_axis)
     end
-   colormap(gray)
-   axis off
+   colormap(colormap_BlueWhiteRed)
    
    if exist('annotation_text','var') && ~isempty(annotation_text)
        annotation('textbox','Position',[0,0.93,0,0.07], ...

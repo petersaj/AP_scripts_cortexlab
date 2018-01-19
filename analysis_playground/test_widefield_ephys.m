@@ -1283,7 +1283,7 @@ legend({'Fluorescence','Spikes conv'});
 %% Temporal autocorrelation-fixed STA
  
 % Skip the first n seconds to do this
-skip_seconds = 10;
+skip_seconds = 30;
 use_frames = frame_t > skip_seconds;
 use_t = frame_t(use_frames);
 

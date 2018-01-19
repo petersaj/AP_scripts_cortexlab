@@ -1186,12 +1186,7 @@ legend([p1(1),p2(1)],{'Right miss','Left miss'});
 %% Load and average wf ephys maps
 
 data_path = 'C:\Users\Andrew\OneDrive for Business\Documents\CarandiniHarrisLab\analysis\wf_ephys_choiceworld\wf_ephys';
-
 protocol = 'vanillaChoiceworld';
-% protocol = 'stimSparseNoiseUncorrAsync';
-% protocol = 'stimKalatsky';
-% protocol = 'AP_choiceWorldStimPassive';
-
 map_fn = [data_path filesep 'wf_ephys_maps_' protocol];
 load(map_fn);
 
@@ -1244,15 +1239,9 @@ set(c,'YTickLabel',c_range(1):c_range(2));
 AP_reference_outline('retinotopy','m');
 AP_reference_outline('ccf_aligned','k');
 
-title(protocol);
-
 % Plot explained variance by depth
 figure;
-errorbar(nanmean(explained_var,2),nanstd(explained_var,[],2)./sqrt(sum(~isnan(explained_var),2)),'k','linewidth',2);
-ylabel('Fraction explained variance');
-xlabel('Depth');
-axis tight
-title(protocol);
+errorbar(nanmean(explained_var),nanstd(explained_var)./sqrt(sum(~isnan(explained_var
 
 
 
