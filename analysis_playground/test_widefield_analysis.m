@@ -1494,7 +1494,7 @@ truesize
 
 % Already done for current animals, shouldn't have to do again
 
-% animal = 'AP026';
+% animal = 'AP017';
 % 
 % protocol = 'vanillaChoiceworld';
 % experiments = AP_find_experiments(animal,protocol);

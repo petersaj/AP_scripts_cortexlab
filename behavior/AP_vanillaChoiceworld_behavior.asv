@@ -1,6 +1,6 @@
-%% Single behavior
+% Load in and plot behavior
 
-animal = 'AP017';
+animal = 'AP029';
 protocol = 'vanillaChoiceworld';
 experiments = AP_find_experiments(animal,protocol);
 bhv = struct;
@@ -212,7 +212,6 @@ plot(conditions,nanmean(pooled_psychometric,1),'linewidth',5','color','k');
 xlim([-1,1]);
 ylim([0,1]);
 line([0,0],ylim,'linestyle','--','color','k');
-line(xlim,[0.5,0.5],'linestyle','--','color','k');
 axis square;
 xlabel('Condition');
 ylabel('Fraction go left');

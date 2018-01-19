@@ -51,8 +51,9 @@ if ~new_alignment
         load([alignment_path filesep animals '_wf_tform']);
         
         curr_animal_idx = strcmp(animals,{animal_wf_tform.animal});
-        if ~any(curr_animal_idx)
-            error(['No transform matrix for ' animals]);
+        globally_aligned = any(curr_animal_idx);
+        if ~globally_aligned
+            warning(['No global alignment: ' animals]);
         end
         
         % Apply to each day
@@ -65,8 +66,15 @@ if ~new_alignment
            error('Different number of frames across animals'); 
         end
         
-        im_aligned = nan(animal_wf_tform(curr_animal_idx).im_size(1), ...
-            animal_wf_tform(curr_animal_idx).im_size(2),n_frames,n_conditions,length(days));
+        if globally_aligned
+            [n_px_y,n_px_x] = deal(animal_wf_tform(curr_animal_idx).im_size);            
+        else
+            n_px_y = size(im_unaligned{1},1);
+            n_px_x = size(im_unaligned{1},2);
+        end
+        
+        im_aligned = nan(n_px_y,n_px_x,n_frames,n_conditions,length(days));
+        
         for curr_day = 1:length(days);
             
             curr_day_idx = strcmp(days{curr_day},{wf_tform.day});
@@ -75,14 +83,18 @@ if ~new_alignment
             end
             
             tform = affine2d;
-            tform.T = wf_tform(curr_day_idx).t*animal_wf_tform(curr_animal_idx).t;
+            if globally_aligned
+                tform.T = wf_tform(curr_day_idx).t*animal_wf_tform(curr_animal_idx).t;
+            else
+                tform.T = wf_tform(curr_day_idx).t;
+            end
             
             % (this might be bad for the future, keep it in mind)
             curr_im = im_unaligned{curr_day};
             curr_im(isnan(curr_im)) = 0;
             
             im_aligned(:,:,:,:,curr_day) = imwarp(curr_im,tform, ...
-                'Outputview',imref2d(animal_wf_tform(curr_animal_idx).im_size));
+                'Outputview',imref2d([n_px_y,n_px_x]));
         end
         % Squeeze any extra dimensions out
         im_aligned = squeeze(im_aligned);

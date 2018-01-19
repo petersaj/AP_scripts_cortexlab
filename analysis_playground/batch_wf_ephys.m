@@ -82,6 +82,7 @@ saveas(wf_borders_fig,fn);
 %% Batch widefield responses to passive stim
 
 animals = {'AP024','AP025','AP026','AP027','AP028','AP029'};
+
 % protocol = 'stimKalatsky';
 protocol = 'AP_choiceWorldStimPassive';
 
@@ -90,7 +91,7 @@ for curr_animal = 1:length(animals)
     animal = animals{curr_animal};
     experiments = AP_find_experiments(animal,protocol);
     
-    % Move on if this animal doesn't have this experiment
+    % Skip if this animal doesn't have this experiment
     if isempty(experiments)
         continue
     end
@@ -216,28 +217,7 @@ for curr_animal = 1:length(animals)
         %         stim_onsets = stim_onsets(use_stim);
         %         % (to discretize the stimIDs by easy/hard/zero)
         %         stimIDs = discretize(stimIDs,[-Inf,-0.125,-0.01,0.01,0.25,Inf],[-2,-1,0,1,2]);
-        
-        %%%% Get wheel move time
-        t_surround = [-0.5,5];
-        surround_samples = t_surround/Timeline.hw.samplingInterval;
-        
-        % Get wheel aligned to stim onset
-        rotaryEncoder_idx = strcmp({Timeline.hw.inputs.name}, 'rotaryEncoder');
-        t_surround = t_surround(1):Timeline.hw.samplingInterval:t_surround(2);
-        pull_times = bsxfun(@plus,stim_onsets,t_surround);
-        
-        stim_aligned_wheel_raw = interp1(Timeline.rawDAQTimestamps, ...
-            Timeline.rawDAQData(:,rotaryEncoder_idx),pull_times);
-        stim_aligned_wheel = bsxfun(@minus,stim_aligned_wheel_raw, ...
-            nanmedian(stim_aligned_wheel_raw(:,t_surround < 0),2));
-        
-        % Define time to first wheel movement
-        thresh_displacement = 2;
-        [~,wheel_move_sample] = max(abs(stim_aligned_wheel) > thresh_displacement,[],2);
-        wheel_move_time = arrayfun(@(x) pull_times(x,wheel_move_sample(x)),1:size(pull_times,1));
-        wheel_move_time(wheel_move_sample == 1) = NaN;
-        %%%%
-        
+       
         % Set options
         surround_window = [-0.5,5];
         framerate = 1./median(diff(frame_t));
@@ -310,8 +290,8 @@ animals = {'AP024','AP025','AP026','AP027','AP028','AP029'};
 
 % protocol = 'vanillaChoiceworld';
 % protocol = 'stimSparseNoiseUncorrAsync';
-protocol = 'stimKalatsky';
-% protocol = 'AP_choiceWorldStimPassive';
+% protocol = 'stimKalatsky';
+protocol = 'AP_choiceWorldStimPassive';
 
 batch_vars = struct;
 for curr_animal = 1:length(animals)
@@ -319,7 +299,7 @@ for curr_animal = 1:length(animals)
     animal = animals{curr_animal};
     experiments = AP_find_experiments(animal,protocol);
     
-    % Move on if this animal doesn't have this experiment
+    % Skip if this animal doesn't have this experiment
     if isempty(experiments)
         continue
     end
@@ -668,7 +648,7 @@ for curr_stim = 1:size(stim_psth_avg,3)
     p = AP_stackplot(stim_psth_avg(:,:,curr_stim)',[],5,true);
 end
 
-%% Batch striatum responses during choiceworld
+%% Batch striatum responses to choiceworld
 
 animals = {'AP024','AP025','AP026','AP027','AP028','AP029'};
 protocol = 'vanillaChoiceworld';
@@ -753,7 +733,90 @@ end
 
 % Save
 save_path = ['C:\Users\Andrew\OneDrive for Business\Documents\CarandiniHarrisLab\analysis\wf_ephys_choiceworld\choiceworld'];
-save([save_path filesep 'mua_stim'],'batch_vars');
+save([save_path filesep 'mua_stim_choiceworld'],'batch_vars');
+
+%% Batch striatum responses to passive
+
+animals = {'AP024','AP025','AP026','AP027','AP028','AP029'};
+
+% protocol = 'stimKalatsky';
+protocol = 'AP_choiceWorldStimPassive';
+
+batch_vars = struct;
+
+for curr_animal = 1:length(animals)
+    
+    animal = animals{curr_animal};
+    experiments = AP_find_experiments(animal,protocol);
+    
+    disp(animal);
+    
+    experiments = experiments([experiments.ephys]);
+    
+    % Skip if this animal doesn't have this experiment
+    if isempty(experiments)
+        continue
+    end
+    
+    load_parts.cam = false;
+    load_parts.imaging = false;
+    load_parts.ephys = true;
+    
+    for curr_day = 1:length(experiments);
+        
+        day = experiments(curr_day).day;
+        experiment = experiments(curr_day).experiment;
+        
+        AP_load_experiment
+        
+        conditions = unique(stimIDs);
+
+        % Group multiunit by depth
+        n_depth_groups = 6;
+        depth_group_edges = round(linspace(str_depth(1),str_depth(2),n_depth_groups+1));
+        depth_group_centers = round(depth_group_edges(1:end-1)+diff(depth_group_edges)/2);
+        
+        depth_group = discretize(spikeDepths,depth_group_edges);
+        
+        raster_window = [-0.5,5];
+        psth_bin_size = 0.001;
+        t = raster_window(1):psth_bin_size:raster_window(2);
+        t_bins = t(1:end-1) + diff(t);
+        
+        mua_stim = nan(6,length(t_bins),length(conditions));
+        for curr_depth = 1:n_depth_groups
+            
+            curr_spike_times = spike_times_timeline(depth_group == curr_depth);
+            
+            for curr_condition_idx = 1:length(conditions)
+                curr_condition = conditions(curr_condition_idx);
+                
+                use_stims = find(stimIDs == curr_condition);
+                use_stim_onsets = stimOn_times(use_stims(2:end));
+                use_stim_onsets([1,end]) = [];
+                
+                if length(use_stim_onsets) > 5
+                    [psth, bins, rasterX, rasterY] = psthAndBA(curr_spike_times,use_stim_onsets,raster_window,psth_bin_size);
+                    mua_stim(curr_depth,:,curr_condition_idx) = psth;
+                end
+                
+            end
+        end
+        
+        batch_vars(curr_animal).mua_stim(:,:,:,curr_day) = mua_stim;
+
+        AP_print_progress_fraction(curr_day,length(experiments));
+        clearvars -except animals animal curr_animal protocol experiments curr_day animal batch_vars load_parts
+        
+    end
+    
+    disp(['Finished ' animal])
+    
+end
+
+% Save
+save_path = ['C:\Users\Andrew\OneDrive for Business\Documents\CarandiniHarrisLab\analysis\wf_ephys_choiceworld\passive'];
+save([save_path filesep 'mua_stim_' protocol],'batch_vars');
 
 
 

@@ -1006,16 +1006,18 @@ legend({'Real','Predicted'});
 
 %% !!!!!!!! BATCH PROCESSED ANALYSIS !!!!!!!!!
 
-%% Load batch passive
+%% Load batch widefield passive
 
 animals = {'AP024','AP025','AP026','AP027','AP028','AP029'};
+
+protocol = 'stimKalatsky';
+% protocol = 'AP_choiceWorldStimPassive';
 
 data_path = 'C:\Users\Andrew\OneDrive for Business\Documents\CarandiniHarrisLab\analysis\wf_ephys_choiceworld\passive';
 im = cell(size(animals));
 for curr_animal = 1:length(animals)
     animal = animals{curr_animal};
-%     fn = [data_path filesep animal '_stimKalatsky.mat'];
-    fn = [data_path filesep animal '_AP_choiceWorldStimPassive.mat'];
+    fn = [data_path filesep animal '_' protocol '.mat'];
     if ~exist(fn,'file');
         continue
     end
@@ -1041,7 +1043,7 @@ im = nanmean(cat(5,im{:}),5);
 ddf_im = nanmean(cat(5,ddf_im{:}),5);
 
 
-%% Make batch choiceworld mean
+%% Make batch widefield choiceworld mean
 
 clear all
 animals = {'AP024','AP025','AP026','AP027','AP028','AP029'};
@@ -1104,10 +1106,10 @@ for curr_frame = 1:size(ddf,3);
     AP_print_progress_fraction(curr_frame,size(ddf,3));
 end
 
-%% Load and process striatal MUA
+%% Load and process striatal MUA during choiceworld
 
 data_path = ['C:\Users\Andrew\OneDrive for Business\Documents\CarandiniHarrisLab\analysis\wf_ephys_choiceworld\choiceworld'];
-mua_fn = [data_path filesep 'mua_stim'];
+mua_fn = [data_path filesep 'mua_stim_choiceworld'];
 load(mua_fn);
 
 raster_window = [-0.5,5];
@@ -1183,6 +1185,53 @@ xlabel('Time from stim onset (s)');
 line([0,0],ylim,'linestyle','--','color','k');
 legend([p1(1),p2(1)],{'Right miss','Left miss'});
 
+%% Load and process striatal MUA during passive
+
+data_path = ['C:\Users\Andrew\OneDrive for Business\Documents\CarandiniHarrisLab\analysis\wf_ephys_choiceworld\passive'];
+
+% protocol = 'stimKalatsky';
+protocol = 'AP_choiceWorldStimPassive';
+
+mua_fn = [data_path filesep 'mua_stim_' protocol];
+load(mua_fn);
+
+raster_window = [-0.5,5];
+psth_bin_size = 0.001;
+t = raster_window(1):psth_bin_size:raster_window(2);
+t_bins = t(1:end-1) + diff(t);
+
+smooth_size = 50;
+gw = gausswin(smooth_size,3)';
+smWin = gw./sum(gw);
+
+t_baseline = t_bins < 0;
+
+softnorm = 1;
+
+use_animals = cellfun(@(x) ~isempty(x),{batch_vars(:).mua_stim});
+
+mua_stim_smoothed = cellfun(@(x) convn(x,smWin,'same'),{batch_vars(use_animals).mua_stim},'uni',false);
+mua_stim_norm = cellfun(@(x) bsxfun(@rdivide,x,nanmean(x(:,t_baseline,:,:),2)+softnorm),mua_stim_smoothed,'uni',false);
+mua_stim_mean = cellfun(@(x) nanmean(x,4),mua_stim_norm,'uni',false);
+mua_stim_combined = nanmean(cat(4,mua_stim_mean{:}),4);
+
+trace_spacing = 3;
+n_conditions = size(mua_stim_combined,3);
+n_depths = size(mua_stim_combined,1);
+col = copper(n_conditions);
+figure; hold on;
+p = gobjects(n_depths,n_conditions);
+for curr_condition = 1:n_conditions
+    p(:,curr_condition) = ...
+        AP_stackplot(mua_stim_combined(:,:,curr_condition)',t_bins,trace_spacing,false,col(curr_condition,:));
+end
+axis tight;
+ylabel('Spikes')
+xlabel('Time from stim onset (s)');
+line([0,0],ylim,'linestyle','--','color','k');
+legend(p(1,:),cellfun(@num2str,num2cell(1:n_conditions),'uni',false));
+
+
 %% Load and average wf ephys maps
 
 data_path = 'C:\Users\Andrew\OneDrive for Business\Documents\CarandiniHarrisLab\analysis\wf_ephys_choiceworld\wf_ephys';
@@ -1202,10 +1251,14 @@ explained_var = nan(6,length(animals));
 for curr_animal = 1:length(animals)
     
     animal = animals{curr_animal};
-    protocol = 'vanillaChoiceworld';
     experiments = AP_find_experiments(animal,protocol);       
     experiments = experiments([experiments.imaging] & [experiments.ephys]);
     days = {experiments.day};
+    
+    % Skip if this animal doesn't have this experiment
+    if isempty(experiments)
+        continue
+    end
     
     r_px_com_aligned = AP_align_widefield(animal,days,batch_vars(curr_animal).r_px_com);
     r_px_weight_aligned = AP_align_widefield(animal,days,batch_vars(curr_animal).r_px_weight);
@@ -1245,6 +1298,15 @@ AP_reference_outline('retinotopy','m');
 AP_reference_outline('ccf_aligned','k');
 
 title(protocol);
+
+% Plot weight
+figure;imagesc(weight_mean);
+axis image off
+colormap(hot); 
+caxis([0,prctile(reshape(max(weight_mean,[],3),[],1),95)]);
+AP_reference_outline('retinotopy','m');
+AP_reference_outline('ccf_aligned','k');
+title([protocol ' - weights']);
 
 % Plot explained variance by depth
 figure;

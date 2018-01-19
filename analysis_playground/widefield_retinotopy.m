@@ -1815,8 +1815,8 @@ set(p2,'AlphaData',mat2gray(abs(signMap_mean))*0.3);
 axis image off
 
 %% Sparse noise with my code in batch
-clear all
-animal = 'AP027';
+
+animal = 'AP017';
 protocol = 'stimSparseNoiseUncorrAsync';
 experiments = AP_find_experiments(animal,protocol);
 
@@ -1834,10 +1834,6 @@ for curr_day = 1:length(experiments);
     experiment = experiments(curr_day).experiment;
     
     AP_load_experiment
-    
-    %%%%%%%%%%%%%%%
-    % DO THE STUFF
-    %%%%%%%%%%%%%%%
     
     [Uy,Ux,nSV] = size(U);
     
@@ -2000,13 +1996,8 @@ for curr_day = 1:length(experiments);
     vfs_median = imgaussfilt(nanmedian(vfs_boot,3),2);
     
     batch_vars.signMap{curr_day} = vfs_median;
-    
-    %%%%%%%%%%%%%%%%%%%%
-    % THE STUFF IS DONE
-    %%%%%%%%%%%%%%%%%%%%
-    
-    drawnow
-    disp(curr_day)
+
+    AP_print_progress_fraction(curr_day,length(days));
     clearvars -except experiments curr_day animal batch_vars load_parts
     
 end
