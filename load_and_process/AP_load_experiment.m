@@ -252,15 +252,15 @@ if block_exists
         signals_events.hitValues = circshift(signals_events.hitValues,[0,-1]);
         signals_events.missValues = circshift(signals_events.missValues,[0,-1]);
         
-        % Get stim times by closest photodiode flip
+        % Get stim on times by closest photodiode flip
         [~,closest_stimOn_photodiode] = ...
             arrayfun(@(x) min(abs(signals_events.stimOnTimes(x) - ...
             photodiode_flip_times)), ...
             1:length(signals_events.stimOnTimes));
         stimOn_times = photodiode_flip_times(closest_stimOn_photodiode);
         
-        % Get time from stim ton to first wheel movement
-        surround_time = [-0.5,5];
+        % Get time from stim on to first wheel movement
+        surround_time = [-0.5,10];
         surround_samples = surround_time/Timeline.hw.samplingInterval;
         
         rotaryEncoder_idx = strcmp({Timeline.hw.inputs.name}, 'rotaryEncoder');

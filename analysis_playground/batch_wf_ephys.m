@@ -1,83 +1,83 @@
-%% Get widefield area boundaries
+%% Batch widefield area boundaries
 
-clear all
-animal = 'AP027';
+animals = {'AP024','AP025','AP026','AP027','AP028','AP029'};
 protocol = 'vanillaChoiceworld';
-experiments = AP_find_experiments(animal,protocol);
-experiments = experiments([experiments.imaging]);
 
-load_parts.cam = false;
-load_parts.imaging = true;
-load_parts.ephys = false;
-
-batch_vars = struct;
-for curr_day = 1:length(experiments);
+for curr_animal = 1:length(animals)
     
-    day = experiments(curr_day).day;
-    experiment = experiments(curr_day).experiment;
+    animal = animals{curr_animal};
+    experiments = AP_find_experiments(animal,protocol);
     
-    AP_load_experiment
+    experiments = experiments([experiments.imaging]);
     
-    %%%%%%%%%%%%%%%
-    % DO THE STUFF
-    %%%%%%%%%%%%%%%
+    load_parts.cam = false;
+    load_parts.imaging = true;
+    load_parts.ephys = false;
     
-    % Get V covariance
-    Ur = reshape(U, size(U,1)*size(U,2),[]); % P x S
-    covV = cov(fV'); % S x S % this is the only one that takes some time really
-    varP = dot((Ur*covV)', Ur'); % 1 x P
+    batch_vars = struct;
     
-    ySize = size(U,1); xSize = size(U,2);
-    
-    px_spacing = 20;
-    use_y = 1:px_spacing:size(U,1);
-    use_x = 1:px_spacing:size(U,2);
-    corr_map = cell(length(use_y),length(use_x));
-    for curr_x_idx = 1:length(use_x)
-        curr_x = use_x(curr_x_idx);
-        for curr_y_idx = 1:length(use_y)
-            curr_y = use_y(curr_y_idx);
-            
-            pixel = [curr_y,curr_x];
-            pixelInd = sub2ind([ySize, xSize], pixel(1), pixel(2));
-            
-            covP = Ur(pixelInd,:)*covV*Ur'; % 1 x P
-            stdPxPy = varP(pixelInd).^0.5 * varP.^0.5; % 1 x P
-            corrMat = reshape(covP./stdPxPy,ySize,xSize); % 1 x P
-            
-            corr_map{curr_y_idx,curr_x_idx} = corrMat;
-        end      
-    end 
-       
-    % Correlation map edge detection
-    corr_map_norm = mat2gray(cat(3,corr_map{:}),[0.5,1]);
-    corr_map_edge = imgaussfilt(corr_map_norm,5)-imgaussfilt(corr_map_norm,20);
-    corr_edges = nanmean(corr_map_edge,3);
+    for curr_day = 1:length(experiments);
         
-    batch_vars.corr_edges{curr_day} = corr_edges;
+        day = experiments(curr_day).day;
+        experiment = experiments(curr_day).experiment;
+        
+        AP_load_experiment
+        
+        % Get V covariance
+        Ur = reshape(U, size(U,1)*size(U,2),[]); % P x S
+        covV = cov(fV'); % S x S % this is the only one that takes some time really
+        varP = dot((Ur*covV)', Ur'); % 1 x P
+        
+        ySize = size(U,1); xSize = size(U,2);
+        
+        px_spacing = 20;
+        use_y = 1:px_spacing:size(U,1);
+        use_x = 1:px_spacing:size(U,2);
+        corr_map = cell(length(use_y),length(use_x));
+        for curr_x_idx = 1:length(use_x)
+            curr_x = use_x(curr_x_idx);
+            for curr_y_idx = 1:length(use_y)
+                curr_y = use_y(curr_y_idx);
+                
+                pixel = [curr_y,curr_x];
+                pixelInd = sub2ind([ySize, xSize], pixel(1), pixel(2));
+                
+                covP = Ur(pixelInd,:)*covV*Ur'; % 1 x P
+                stdPxPy = varP(pixelInd).^0.5 * varP.^0.5; % 1 x P
+                corrMat = reshape(covP./stdPxPy,ySize,xSize); % 1 x P
+                
+                corr_map{curr_y_idx,curr_x_idx} = corrMat;
+            end
+        end
+        
+        % Correlation map edge detection
+        corr_map_norm = mat2gray(cat(3,corr_map{:}),[0.5,1]);
+        corr_map_edge = imgaussfilt(corr_map_norm,5)-imgaussfilt(corr_map_norm,20);
+        corr_edges = nanmean(corr_map_edge,3);
+        
+        batch_vars.corr_edges{curr_day} = corr_edges;
+                     
+        clearvars -except animals animal curr_animal protocol experiments curr_day animal batch_vars load_parts
+        
+    end
+        
+    % Align images from batch processing
+    days = {experiments.day};
+    corr_edges_aligned = AP_align_widefield(animal,days,batch_vars.corr_edges);
     
-    %%%%%%%%%%%%%%%%%%%%
-    % THE STUFF IS DONE
-    %%%%%%%%%%%%%%%%%%%%
+    wf_borders_fig = figure('Name',animal);
+    imagesc(nanmean(corr_edges_aligned,3));
+    axis image off; colormap(gray); caxis([0,0.05])
     
-    drawnow
-    AP_print_progress_fraction(curr_day,length(experiments))
-    clearvars -except experiments curr_day animal batch_vars load_parts
+    fn = ['\\basket.cortexlab.net\data\ajpeters\wf_borders' filesep animal '_wf_borders'];
+    saveas(wf_borders_fig,fn);
+   
+    AP_print_progress_fraction(curr_animal,length(animals))
     
 end
 
 disp('Finished batch.')
 
-% Align images from batch processing
-days = {experiments.day};
-corr_edges_aligned = AP_align_widefield(animal,days,batch_vars.corr_edges);
-
-wf_borders_fig = figure('Name',animal);
-imagesc(nanmean(corr_edges_aligned,3));
-axis image off; colormap(gray); caxis([0,0.05])
-
-fn = ['\\basket.cortexlab.net\data\ajpeters\wf_borders' filesep animal '_wf_borders'];
-saveas(wf_borders_fig,fn);
 
 %% Batch widefield responses to passive stim
 
@@ -211,13 +211,6 @@ for curr_animal = 1:length(animals)
         stimIDs = signals_events.trialSideValues(use_stim).*signals_events.trialContrastValues(use_stim);
         stim_onsets = stimOn_times(use_stim);
         
-        %         % (to only use certain stimIDs)
-        %         use_stim = ismember(stimIDs,[-1,-0.125,0.125,1]);
-        %         stimIDs = stimIDs(use_stim);
-        %         stim_onsets = stim_onsets(use_stim);
-        %         % (to discretize the stimIDs by easy/hard/zero)
-        %         stimIDs = discretize(stimIDs,[-Inf,-0.125,-0.01,0.01,0.25,Inf],[-2,-1,0,1,2]);
-       
         % Set options
         surround_window = [-0.5,5];
         framerate = 1./median(diff(frame_t));
@@ -397,6 +390,187 @@ save_path = ['C:\Users\Andrew\OneDrive for Business\Documents\CarandiniHarrisLab
 save([save_path filesep 'wf_ephys_maps_' protocol],'batch_vars');
 
 disp('Finished batch');
+
+%% Batch cortex > striatum prediction by condition and depth
+
+animals = {'AP024','AP025','AP026','AP027','AP028','AP029'};
+protocol = 'vanillaChoiceworld';
+batch_vars = struct;
+
+for curr_animal = 1:length(animals)
+    
+    animal = animals{curr_animal};
+    experiments = AP_find_experiments(animal,protocol);
+    
+    disp(animal);
+    
+    experiments = experiments([experiments.imaging] & [experiments.ephys]);
+    
+    load_parts.cam = false;
+    load_parts.imaging = true;
+    load_parts.ephys = true;
+    
+    for curr_day = 1:length(experiments);
+        
+        day = experiments(curr_day).day;
+        experiment = experiments(curr_day).experiment;
+        
+        AP_load_experiment
+        
+        sample_rate_factor = 1;
+        
+        % Group multiunit by depth
+        n_depth_groups = 6;
+        depth_group_edges = round(linspace(str_depth(1),str_depth(2),n_depth_groups+1));
+        
+        depth_group = discretize(spikeDepths,depth_group_edges);
+        depth_groups_used = unique(depth_group);
+        depth_group_centers = depth_group_edges(1:end-1)+(diff(depth_group_edges)/2);
+        
+        % Skip the first/last n seconds for prediction
+        skip_seconds = 60*1;
+        
+        sample_rate = (1/median(diff(frame_t)))*sample_rate_factor;
+        
+        time_bins = frame_t(find(frame_t > skip_seconds,1)):1/sample_rate:frame_t(find(frame_t-frame_t(end) < -skip_seconds,1,'last'));
+        time_bin_centers = time_bins(1:end-1) + diff(time_bins)/2;
+        
+        binned_spikes = zeros(length(depth_group_edges)-1,length(time_bins)-1);
+        for curr_depth = 1:length(depth_group_edges)-1
+            curr_spike_times = spike_times_timeline(depth_group == curr_depth);
+            binned_spikes(curr_depth,:) = histcounts(curr_spike_times,time_bins);
+        end
+        
+        stim_conditions = signals_events.trialContrastValues.*signals_events.trialSideValues;
+        conditions = unique(block.events.sessionPerformanceValues(1,:));
+        
+        % (only use trials that were completed and not repeat trials)
+        use_trials = any([signals_events.hitValues;signals_events.missValues],1) & ~signals_events.repeatTrialValues;
+        align_times = reshape(stimOn_times(use_trials),[],1);
+        
+        interval_surround = [-0.5,1.5];
+        t_surround = interval_surround(1):1/sample_rate:interval_surround(2);
+        t_peri_event = bsxfun(@plus,align_times,t_surround);
+        
+        % Regress spikes from cortex
+        use_svs = 1:50;
+        kernel_frames = -35:17;
+        lambda = 2e5;
+        zs = [false,true];
+        cvfold = 5;
+        
+        fVdf_resample = interp1(frame_t,fVdf(use_svs,:)',time_bin_centers)';
+        dfVdf_resample = interp1(conv(frame_t,[1,1]/2,'valid'),diff(fVdf(use_svs,:),[],2)',time_bin_centers)';
+        
+        % [k,predicted_spikes,explained_var] = ...
+        %     AP_regresskernel(fVdf_resample, ...
+        %     binned_spikes,kernel_frames,lambda,zs,cvfold);
+        [k,predicted_spikes,explained_var] = ...
+            AP_regresskernel(dfVdf_resample, ...
+            binned_spikes,kernel_frames,lambda,zs,cvfold);
+        
+        binned_spikes_std = std(binned_spikes,[],2);
+        binned_spikes_mean = mean(binned_spikes,2);
+        predicted_spikes_reranged = bsxfun(@plus,bsxfun(@times,predicted_spikes, ...
+            binned_spikes_std),binned_spikes_mean);
+        
+        % Find nonlinearity for predicted spikes
+        nlin_fit = @(b,x) (x+b(1)).^b(2);
+        nlin_params = nan(n_depth_groups,2);
+        predicted_spikes_nlin = nan(size(predicted_spikes_reranged));
+        for curr_depth = 1:n_depth_groups
+            
+            % Get the median predicted spikes per binned spikes
+            [grp_binned_spikes,grp_predicted_spikes]= ...
+                grpstats(predicted_spikes_reranged(curr_depth,:),binned_spikes(curr_depth,:),{'gname','median'});
+            grp_binned_spikes = cellfun(@str2num,grp_binned_spikes);
+            
+            % Pick spikes to fit nonlinearity
+            fit_spikes_thresh = prctile(binned_spikes(curr_depth,:),99);
+            fit_spikes = grp_binned_spikes > 0 & ...
+                grp_binned_spikes < fit_spikes_thresh;
+            
+            % Fit the nonlinearity
+            fit_options = statset('MaxIter',1000);
+            beta0 = [grp_predicted_spikes(grp_binned_spikes == 0),1];
+            beta = nlinfit(grp_predicted_spikes(fit_spikes),grp_binned_spikes(fit_spikes),nlin_fit,beta0,fit_options);
+            nlin_params(curr_depth,:) = beta;
+            
+            % Fit model and rectify
+            predicted_spikes_rectif = nlin_fit(beta,predicted_spikes_reranged(curr_depth,:));
+            predicted_spikes_rectif(imag(predicted_spikes_rectif) ~= 0) = 0;
+            predicted_spikes_nlin(curr_depth,:) = predicted_spikes_rectif;
+            
+            % Plot model fit
+            figure; hold on;
+            plot(grp_predicted_spikes,grp_binned_spikes,'k')
+            grp_predicted_spikes_nlin = nlin_fit(beta,grp_predicted_spikes);
+            grp_predicted_spikes_nlin(imag(grp_predicted_spikes_nlin) ~= 0) = 0;
+            plot(grp_predicted_spikes_nlin,grp_binned_spikes,'r')
+            line([0,fit_spikes_thresh],[0,fit_spikes_thresh]);
+            xlabel('Predicted spikes')
+            ylabel('Real spikes')
+            legend({'Raw','Nlin'})
+        end
+        
+        if ~isreal(nlin_params)
+            error('Imaginary parameter fits')
+        end
+        
+        % % Get new explained variance (this can't be right...)
+        % sse_real_spikes = sum(bsxfun(@minus,binned_spikes,nanmean(binned_spikes,2)).^2,2);
+        % sse_total_residual = sum((predicted_spikes_nlin-binned_spikes).^2,2);
+        % explained_var_nlin = (sse_real_spikes - sse_total_residual)./sse_real_spikes;
+        
+        % Align real and predicted spikes to event
+        mua_stim_hit = nan(n_depth_groups,length(t_surround),length(conditions));
+        mua_stim_hit_pred = nan(n_depth_groups,length(t_surround),length(conditions));
+        
+        mua_stim_miss = nan(n_depth_groups,length(t_surround),length(conditions));
+        mua_stim_miss_pred = nan(n_depth_groups,length(t_surround),length(conditions));
+        
+        for curr_depth = 1:n_depth_groups
+            for curr_condition_idx = 1:length(conditions)
+                mua_stim = interp1(time_bin_centers,binned_spikes(curr_depth,:),t_peri_event);
+                mua_stim_pred = interp1(time_bin_centers,predicted_spikes_nlin(curr_depth,:),t_peri_event);
+                
+                curr_trials = signals_events.hitValues(use_trials) == 1 & stim_conditions(use_trials) == conditions(curr_condition_idx);
+                if sum(curr_trials) > 5
+                    mua_stim_hit(curr_depth,:,curr_condition_idx) = nanmean(mua_stim(curr_trials,:),1);
+                    mua_stim_hit_pred(curr_depth,:,curr_condition_idx) = nanmean(mua_stim_pred(curr_trials,:),1);
+                end
+                
+                curr_trials = signals_events.missValues(use_trials) == 1 & stim_conditions(use_trials) == conditions(curr_condition_idx);
+                if sum(curr_trials) > 5
+                    mua_stim_miss(curr_depth,:,curr_condition_idx) = nanmean(mua_stim(curr_trials,:),1);
+                    mua_stim_miss_pred(curr_depth,:,curr_condition_idx) = nanmean(mua_stim_pred(curr_trials,:),1);
+                end
+            end
+        end
+        
+        % THINGS TO SAVE:
+        % nlin parameters, explained variance difference, grouped fits
+        % traces
+        
+        
+        batch_vars(curr_animal).mua_stim_hit(:,:,:,curr_day) = mua_stim_hit;
+        batch_vars(curr_animal).mua_stim_hit_pred(:,:,:,curr_day) = mua_stim_hit_pred;
+        
+        batch_vars(curr_animal).mua_stim_miss(:,:,:,curr_day) = mua_stim_miss;
+        batch_vars(curr_animal).mua_stim_miss_pred(:,:,:,curr_day) = mua_stim_miss_pred;
+        
+        batch_vars(curr_animal).nlin_params(:,:,curr_day) = nlin_params;
+        
+        AP_print_progress_fraction(curr_day,length(experiments));
+        clearvars -except animals animal curr_animal protocol experiments curr_day animal batch_vars load_parts
+        
+    end
+    
+    disp(['Finished ' animal])
+    
+end
+
+
 
 %% Get ephys properties and visual modulation index across spikes
 

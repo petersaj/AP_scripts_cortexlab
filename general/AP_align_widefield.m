@@ -67,7 +67,8 @@ if ~new_alignment
         end
         
         if globally_aligned
-            [n_px_y,n_px_x] = deal(animal_wf_tform(curr_animal_idx).im_size);            
+            n_px_y = animal_wf_tform(curr_animal_idx).im_size(1);
+            n_px_x = animal_wf_tform(curr_animal_idx).im_size(2);
         else
             n_px_y = size(im_unaligned{1},1);
             n_px_x = size(im_unaligned{1},2);

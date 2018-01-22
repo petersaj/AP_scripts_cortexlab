@@ -162,8 +162,7 @@ for curr_animal = 1:length(animals)
     
     load_parts.cam = false;
     load_parts.imaging = false;
-    load_parts.ephys = false;
-    
+    load_parts.ephys = false;   
     
     for curr_day = 1:length(experiments)
         
@@ -175,15 +174,21 @@ for curr_animal = 1:length(animals)
         % Time of session (in minutes)
         session_duration = block.duration/60;
         
-        % Trial counts
-        n_trials = length(block.paramsValues);
+        % Trial counts (subtract 1 because last trial always incomplete)
+        n_trials = length(block.paramsValues) - 1;
         total_water = sum(block.outputs.rewardValues);
  
         % Performance (note that this excludes repeat on incorrect trials)
         performance = block.events.sessionPerformanceValues(:,end-10:end);
         
-        % Get whether all contrasts were used
-        use_all_contrasts = all(block.events.useContrastsValues(end-10:end));
+        % Trial conditions and behavior times
+        % (only use trials that were completed and not repeat trials)
+        use_trials = any([signals_events.hitValues;signals_events.missValues],1) & ~signals_events.repeatTrialValues;
+        
+        trial_conditions = signals_events.trialSideValues(use_trials).*signals_events.trialContrastValues(use_trials);
+        trial_hit = signals_events.hitValues(use_trials);
+        stim_to_move = wheel_move_time(use_trials) - stimOn_times(use_trials)';
+        stim_to_feedback = signals_events.responseTimes(use_trials) - stimOn_times(use_trials)';        
         
         % Store in behavior structure
         bhv(curr_animal).session_duration(curr_day) = session_duration;
@@ -193,6 +198,11 @@ for curr_animal = 1:length(animals)
         bhv(curr_animal).n_trials_condition(curr_day,:) = performance(2,:);
         bhv(curr_animal).go_left_trials(curr_day,:) = performance(end,:);
         
+        bhv(curr_animal).trial_conditions{curr_day} = trial_conditions;
+        bhv(curr_animal).trial_hit{curr_day} = trial_hit;
+        bhv(curr_animal).stim_to_move{curr_day} = stim_to_move;
+        bhv(curr_animal).stim_to_feedback{curr_day} = stim_to_feedback;
+        
         clearvars -except animals protocol experiments load_parts curr_animal curr_day animal bhv 
     end
     
@@ -200,7 +210,7 @@ for curr_animal = 1:length(animals)
     
 end
 
-% Psychometric pooling across days
+% Plot psychometric pooling days
 conditions = unique(vertcat(bhv.conditions),'rows');
 pooled_psychometric = cell2mat(cellfun(@(go_left,n_trials) sum(go_left,1)./sum(n_trials,1), ...
     {bhv.go_left_trials},{bhv.n_trials_condition},'uni',false)');
@@ -218,11 +228,66 @@ xlabel('Condition');
 ylabel('Fraction go left');
 title('Pooling across days');
 
+% Plot stim to move / feedback by condition and success pooling days
+[group,stim_to_move] = arrayfun(@(x) ...
+    grpstats(horzcat(bhv(x).stim_to_move{:})', ...
+    [horzcat(bhv(x).trial_conditions{:})',horzcat(bhv(x).trial_hit{:})'], ...
+    {'gname','nanmedian'}),1:length(bhv),'uni',false);
+group = cellfun(@(x) cellfun(@(x) str2num(x),x),group,'uni',false);
+if ~any(reshape(bsxfun(@eq,cat(3,group{:}),group{1}),[],1))
+    error('Different conditions across animals')
+end
+group = group{1};
+stim_to_move_cat = horzcat(stim_to_move{:});
+
+[group,stim_to_feedback] = arrayfun(@(x) ...
+    grpstats(horzcat(bhv(x).stim_to_feedback{:})', ...
+    [horzcat(bhv(x).trial_conditions{:})',horzcat(bhv(x).trial_hit{:})'], ...
+    {'gname','nanmedian'}),1:length(bhv),'uni',false);
+group = cellfun(@(x) cellfun(@(x) str2num(x),x),group,'uni',false);
+if ~any(reshape(bsxfun(@eq,cat(3,group{:}),group{1}),[],1))
+    error('Different conditions across animals')
+end
+group = group{1};
+stim_to_feedback_cat = horzcat(stim_to_feedback{:});
+
+figure;
+subplot(1,2,1); hold on;
+plot(group(group(:,2) == 1,1),stim_to_move_cat(group(:,2) == 0,:),'color',[0.8,0.6,0.6],'linewidth',2);
+plot(group(group(:,2) == 1,1),stim_to_move_cat(group(:,2) == 1,:),'color',[0.6,0.8,0.6],'linewidth',2);
+p1 = plot(group(group(:,2) == 1,1),nanmean(stim_to_move_cat(group(:,2) == 0,:),2),'color',[0.8,0,0],'linewidth',5);
+p2 = plot(group(group(:,2) == 1,1),nanmean(stim_to_move_cat(group(:,2) == 1,:),2),'color',[0,0.8,0],'linewidth',5);
+ylabel('Stim to move time (s)');
+xlabel('Condition');
+legend([p1,p2],{'Miss','Hit'})
+axis tight square
+line(xlim,[0.5,0.5],'linestyle','--','color','k')
+
+subplot(1,2,2); hold on;
+plot(group(group(:,2) == 1,1),stim_to_feedback_cat(group(:,2) == 0,:),'color',[0.8,0.6,0.6],'linewidth',2);
+plot(group(group(:,2) == 1,1),stim_to_feedback_cat(group(:,2) == 1,:),'color',[0.6,0.8,0.6],'linewidth',2);
+p1 = plot(group(group(:,2) == 1,1),nanmean(stim_to_feedback_cat(group(:,2) == 0,:),2),'color',[0.8,0,0],'linewidth',5);
+p2 = plot(group(group(:,2) == 1,1),nanmean(stim_to_feedback_cat(group(:,2) == 1,:),2),'color',[0,0.8,0],'linewidth',5);
+ylabel('Stim to feedback time (s)');
+xlabel('Condition');
+legend([p1,p2],{'Miss','Hit'})
+axis tight square
+line(xlim,[0.5,0.5],'linestyle','--','color','k')
 
 
 
 
 
 
-
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
 

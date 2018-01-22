@@ -23,13 +23,13 @@ a = axes('Position',[0,0,1,1]);
 axis image;
 
 im_plot = imagesc(a,im(:,:,1));
-AP_reference_outline('retinotopy','m');AP_reference_outline('ccf_aligned','k');
+AP_reference_outline('retinotopy','b');AP_reference_outline('ccf_aligned','r');
 for i = 1:size(im,3)
     set(im_plot,'CData',im(:,:,i));
     if ~isempty(color_axis)
         caxis(color_axis)
     end
-   colormap(colormap_BlueWhiteRed)
+   colormap(gray)
    
    if exist('annotation_text','var') && ~isempty(annotation_text)
        annotation('textbox','Position',[0,0.93,0,0.07], ...

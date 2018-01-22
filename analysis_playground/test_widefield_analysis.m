@@ -1512,9 +1512,9 @@ truesize
 % AP_image_scroll(im_aligned); 
 % axis image off;
 
-%% Show aligned mean images
+%% Show aligned mean images within one animal and across animals
 
-animal = 'AP024';
+animal = 'AP029';
 
 protocol = 'vanillaChoiceworld';
 experiments = AP_find_experiments(animal,protocol);
@@ -1539,6 +1539,29 @@ AP_image_scroll(im_aligned);
 axis image off;
 
 
+% Load across-animal alignments (wf and retinotopy)
+alignment_path = '\\basket.cortexlab.net\data\ajpeters\wf_alignment';
+load([alignment_path filesep 'animal_wf_tform']);
+animals = {animal_wf_tform.animal};
+
+avg_im_blue = cell(length(animals));
+for curr_animal = 1:length(animals)
+    animal = animals{curr_animal};
+        
+    load([alignment_path filesep animal '_wf_tform']);
+    use_day = wf_tform(1).day;
+    
+    [img_path,img_exists] = AP_cortexlab_filename(animal,use_day,[],'imaging');
+    avg_im_blue{curr_animal} = readNPY([img_path filesep 'meanImage_blue.npy']);  
+end
+
+retinotopy_fn = '\\basket.cortexlab.net\data\ajpeters\retinotopy\retinotopy';
+load(retinotopy_fn);
+
+retinotopy_aligned = AP_align_widefield(animals,[],retinotopy(:,2));
+im_aligned = AP_align_widefield(animals,[],avg_im_blue);
+AP_image_scroll([mat2gray(retinotopy_aligned,[-0.5,0.5]),mat2gray(im_aligned,[0,30000])]);
+axis image off;
 
 %% Orientation decoding (with varying time windows)
 % specifically for AP015 207-05-22

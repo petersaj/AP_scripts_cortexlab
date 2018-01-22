@@ -442,12 +442,13 @@ axis image;
 
 %% Align fluorescence and MUA to task event across trials
 
-depth_edges = [500,1500];
+depth_edges = [str_depth(1),str_depth(1)+200];
 sample_rate_factor = 3;
 
 % Define times to align
 % SIGNALS - CHOICEWORLD
 use_trials = signals_events.trialSideValues == 1 & signals_events.trialContrastValues > 0;% & ~isnan(wheel_move_time);
+use_trials_idx = find(use_trials);
 align_times = reshape(stimOn_times(use_trials(1:length(stimOn_times))),[],1);
 hit_trials = signals_events.hitValues(use_trials) == 1;
 stim_conditions = signals_events.trialContrastValues(use_trials);
@@ -463,7 +464,8 @@ t_surround = interval_surround(1):1/sample_rate:interval_surround(2);
 t_peri_event = bsxfun(@plus,align_times,t_surround);
 
 % Draw ROI and align fluorescence
-[roi_trace,roi_mask] = AP_svd_roi(Udf,fVdf,weight_im,retinotopic_map); % weight_im, retinotopic_map, response_im
+Udf_aligned = AP_align_widefield(animal,day,Udf);
+[roi_trace,roi_mask] = AP_svd_roi(Udf_aligned,fVdf,'master'); % weight_im, retinotopic_map, response_im
 event_aligned_f = interp1(frame_t,roi_trace,t_peri_event);
 event_aligned_df = interp1(conv(frame_t,[1,1]/2,'valid'),diff(roi_trace),t_peri_event);
 event_aligned_df(event_aligned_df < 0) = 0;
@@ -719,13 +721,13 @@ xlabel('Time from event');
 
 %% Compare predicted to actual spikes by condition
 
-depth_edges = [str_depth(1),str_depth(1)+200];
+depth_edges = [str_depth(1),str_depth(1)+1000];
 sample_rate_factor = 1;
 
 % SIGNALS - CHOICEWORLD
-use_trials = signals_events.hitValues == 1;
-% align_times = reshape(stimOn_times(use_trials),[],1);
-align_times = reshape(signals_events.responseTimes(use_trials),[],1);
+use_trials = signals_events.hitValues == 1 & signals_events.repeatTrialValues == 0;
+align_times = reshape(stimOn_times(use_trials),[],1);
+% align_times = reshape(signals_events.responseTimes(use_trials),[],1);
 % align_times = reshape(reward_t_timeline,[],1);
 % align_times = reshape(wheel_move_time(hit_trials),[],1);
 stim_conditions = signals_events.trialContrastValues(use_trials).*signals_events.trialSideValues(use_trials);
@@ -755,7 +757,7 @@ binned_spikes = histcounts(use_spikes,time_bins);
 
 use_svs = 1:50;
 kernel_frames = -35:17;
-lambda = 0;
+lambda = 2e5;
 zs = [false,true];
 cvfold = 5;
 
@@ -769,16 +771,46 @@ dfVdf_resample = interp1(conv(frame_t,[1,1]/2,'valid'),diff(fVdf(use_svs,:),[],2
     AP_regresskernel(dfVdf_resample, ...
     binned_spikes,kernel_frames,lambda,zs,cvfold);
 
-spikes_real_aligned = interp1(time_bin_centers,zscore(binned_spikes),t_peri_event);
-spikes_pred_aligned = interp1(time_bin_centers,predicted_spikes,t_peri_event);
+binned_spikes_std = std(binned_spikes);
+binned_spikes_mean = mean(binned_spikes);
+predicted_spikes_reranged = predicted_spikes*binned_spikes_std+binned_spikes_mean;
+
+
+
+% find predicted -> real nonlinearity
+[grp_binned_spikes,grp_predicted_spikes]= grpstats(predicted_spikes_reranged,binned_spikes,{'gname','median'});
+grp_binned_spikes = cellfun(@str2num,grp_binned_spikes);
+
+pred_offset = grp_predicted_spikes(grp_binned_spikes == 0);
+pred_exp = log(grp_predicted_spikes(grp_binned_spikes ~= 0))\ ...
+    log(grp_binned_spikes(grp_binned_spikes ~= 0));
+
+% figure;
+% plot((grp_predicted_spikes-pred_offset).^pred_exp,grp_binned_spikes,'.k')
+% xlim([0,100]);ylim([0,100]);
+% line(xlim,ylim,'color','r');
+
+predicted_spikes_rectified = (predicted_spikes_reranged-pred_offset);
+predicted_spikes_rectified(predicted_spikes_rectified < 0) = 0;
+predicted_spikes_nlin = predicted_spikes_rectified.^pred_exp;
+
+% nonlinear-fixed explained variance
+sse_signals = sum(binned_spikes.^2,2);
+sse_total_residual = sum(bsxfun(@minus,predicted_spikes_nlin,binned_spikes).^2,2);
+explained_var_nlin = (sse_signals - sse_total_residual)./sse_signals;
+
+
+
+spikes_real_aligned = interp1(time_bin_centers,binned_spikes,t_peri_event);
+spikes_pred_aligned = interp1(time_bin_centers,predicted_spikes_nlin,t_peri_event);
 
 spikes_real_aligned_mean = grpstats(spikes_real_aligned,stim_conditions);
 spikes_pred_aligned_mean = grpstats(spikes_pred_aligned,stim_conditions);
 
 % Plot all responses
 figure; hold on
-p1 = AP_stackplot(spikes_real_aligned_mean',t_surround,3,false,'k',unique(stim_conditions));
-p2 = AP_stackplot(spikes_pred_aligned_mean',t_surround,3,false,'r');
+p1 = AP_stackplot(spikes_real_aligned_mean',t_surround,20,false,'k',unique(stim_conditions));
+p2 = AP_stackplot(spikes_pred_aligned_mean',t_surround,20,false,'r');
 ylabel('Stim');
 xlabel('Time from event onset');
 legend([p1(1),p2(1)],{'Real','Predicted'});
@@ -787,13 +819,10 @@ line([0,0],ylim,'color','k');
 % Plot responses by condition and error
 response_t = [0,0.3];
 response_t_use = t_surround >= response_t(1) & t_surround <= response_t(2);
-spikes_real_response = nanmean(spikes_real_aligned(:,response_t),2);
-spikes_pred_response = nanmean(spikes_pred_aligned(:,response_t),2);
+spikes_real_response = nanmean(spikes_real_aligned(:,response_t_use),2);
+spikes_pred_response = nanmean(spikes_pred_aligned(:,response_t_use),2);
 
-subplot(1,2,1);
-
-
-subplot(1,2,2);
+figure;
 pred_error = spikes_real_response - spikes_pred_response;
 [pred_error_mean,pred_error_sem] = grpstats(pred_error,stim_conditions,{'mean','sem'});
 errorbar(unique(stim_conditions),pred_error_mean,pred_error_sem,'k','linewidth',2)
@@ -1106,7 +1135,7 @@ for curr_frame = 1:size(ddf,3);
     AP_print_progress_fraction(curr_frame,size(ddf,3));
 end
 
-%% Load and process striatal MUA during choiceworld
+%% Load and process striatal MUA during choiceworld (stim-aligned)
 
 data_path = ['C:\Users\Andrew\OneDrive for Business\Documents\CarandiniHarrisLab\analysis\wf_ephys_choiceworld\choiceworld'];
 mua_fn = [data_path filesep 'mua_stim_choiceworld'];
@@ -1182,6 +1211,164 @@ p2 = AP_stackplot(l_miss',t_bins,trace_spacing,false,'r');
 axis tight;
 ylabel('Contrast slope')
 xlabel('Time from stim onset (s)');
+line([0,0],ylim,'linestyle','--','color','k');
+legend([p1(1),p2(1)],{'Right miss','Left miss'});
+
+%% Load and process striatal MUA during choiceworld (move-aligned)
+
+data_path = ['C:\Users\Andrew\OneDrive for Business\Documents\CarandiniHarrisLab\analysis\wf_ephys_choiceworld\choiceworld'];
+mua_fn = [data_path filesep 'mua_move_choiceworld'];
+load(mua_fn);
+
+raster_window = [-5.5,3];
+psth_bin_size = 0.001;
+t = raster_window(1):psth_bin_size:raster_window(2);
+t_bins = t(1:end-1) + diff(t);
+
+smooth_size = 50;
+gw = gausswin(smooth_size,3)';
+smWin = gw./sum(gw);
+
+t_baseline = t_bins < 0;
+
+softnorm = 1;
+
+mua_move_hit_smoothed = cellfun(@(x) convn(x,smWin,'same'),{batch_vars(:).mua_move_hit},'uni',false);
+mua_move_hit_norm = cellfun(@(x) bsxfun(@rdivide,x,nanmean(x(:,t_baseline,:,:),2)+softnorm),mua_move_hit_smoothed,'uni',false);
+mua_move_hit_mean = cellfun(@(x) nanmean(x,4),mua_move_hit_norm,'uni',false);
+mua_move_hit_combined = nanmean(cat(4,mua_move_hit_mean{:}),4);
+
+mua_move_miss_smoothed = cellfun(@(x) convn(x,smWin,'same'),{batch_vars(:).mua_move_miss},'uni',false);
+mua_move_miss_norm = cellfun(@(x) bsxfun(@rdivide,x,nanmean(x(:,t_baseline,:,:),2)+softnorm),mua_move_miss_smoothed,'uni',false);
+mua_move_miss_mean = cellfun(@(x) nanmean(x,4),mua_move_miss_norm,'uni',false);
+mua_move_miss_combined = nanmean(cat(4,mua_move_miss_mean{:}),4);
+
+% Get contrast tuning by time point for hit/miss
+r_hit = nan(6,length(t_bins));
+l_hit = nan(6,length(t_bins));
+
+r_miss = nan(6,length(t_bins));
+l_miss = nan(6,length(t_bins));
+for curr_t = 1:length(t_bins)
+    
+    curr_r = squeeze(mua_move_hit_combined(:,curr_t,6:end));
+    curr_r = bsxfun(@minus,curr_r,mean(curr_r,2));
+    r_fit = curr_r/[1:6];
+    r_hit(:,curr_t) = r_fit;
+    
+    curr_l = squeeze(mua_move_hit_combined(:,curr_t,6:-1:1));
+    curr_l = bsxfun(@minus,curr_l,mean(curr_l,2));
+    l_fit = curr_l/[1:6];
+    l_hit(:,curr_t) = l_fit;
+    
+    curr_r = squeeze(mua_move_miss_combined(:,curr_t,6:end));
+    curr_r = bsxfun(@minus,curr_r,mean(curr_r,2));
+    r_fit = curr_r/[1:6];
+    r_miss(:,curr_t) = r_fit;
+    
+    curr_l = squeeze(mua_move_miss_combined(:,curr_t,6:-1:1));
+    curr_l = bsxfun(@minus,curr_l,mean(curr_l,2));
+    l_fit = curr_l/[1:6];
+    l_miss(:,curr_t) = l_fit;
+    
+end
+
+trace_spacing = 0.2;
+
+figure; hold on;
+p1 = AP_stackplot(r_hit',t_bins,trace_spacing,false,'k');
+p2 = AP_stackplot(l_hit',t_bins,trace_spacing,false,'r');
+axis tight;
+ylabel('Contrast slope')
+xlabel('Time from move onset (s)');
+line([0,0],ylim,'linestyle','--','color','k');
+legend([p1(1),p2(1)],{'Right hit','Left hit'});
+
+figure; hold on;
+p1 = AP_stackplot(r_miss',t_bins,trace_spacing,false,'k');
+p2 = AP_stackplot(l_miss',t_bins,trace_spacing,false,'r');
+axis tight;
+ylabel('Contrast slope')
+xlabel('Time from move onset (s)');
+line([0,0],ylim,'linestyle','--','color','k');
+legend([p1(1),p2(1)],{'Right miss','Left miss'});
+
+%% Load and process striatal MUA during choiceworld (feedback-aligned)
+
+data_path = ['C:\Users\Andrew\OneDrive for Business\Documents\CarandiniHarrisLab\analysis\wf_ephys_choiceworld\choiceworld'];
+mua_fn = [data_path filesep 'mua_feedback_choiceworld'];
+load(mua_fn);
+
+raster_window = [-5.5,3];
+psth_bin_size = 0.001;
+t = raster_window(1):psth_bin_size:raster_window(2);
+t_bins = t(1:end-1) + diff(t);
+
+smooth_size = 50;
+gw = gausswin(smooth_size,3)';
+smWin = gw./sum(gw);
+
+t_baseline = t_bins < -5;
+
+softnorm = 1;
+
+mua_feedback_hit_smoothed = cellfun(@(x) convn(x,smWin,'same'),{batch_vars(:).mua_feedback_hit},'uni',false);
+mua_feedback_hit_norm = cellfun(@(x) bsxfun(@rdivide,x,nanmean(x(:,t_baseline,:,:),2)+softnorm),mua_feedback_hit_smoothed,'uni',false);
+mua_feedback_hit_mean = cellfun(@(x) nanmean(x,4),mua_feedback_hit_norm,'uni',false);
+mua_feedback_hit_combined = nanmean(cat(4,mua_feedback_hit_mean{:}),4);
+
+mua_feedback_miss_smoothed = cellfun(@(x) convn(x,smWin,'same'),{batch_vars(:).mua_feedback_miss},'uni',false);
+mua_feedback_miss_norm = cellfun(@(x) bsxfun(@rdivide,x,nanmean(x(:,t_baseline,:,:),2)+softnorm),mua_feedback_miss_smoothed,'uni',false);
+mua_feedback_miss_mean = cellfun(@(x) nanmean(x,4),mua_feedback_miss_norm,'uni',false);
+mua_feedback_miss_combined = nanmean(cat(4,mua_feedback_miss_mean{:}),4);
+
+% Get contrast tuning by time point for hit/miss
+r_hit = nan(6,length(t_bins));
+l_hit = nan(6,length(t_bins));
+
+r_miss = nan(6,length(t_bins));
+l_miss = nan(6,length(t_bins));
+for curr_t = 1:length(t_bins)
+    
+    curr_r = squeeze(mua_feedback_hit_combined(:,curr_t,6:end));
+    curr_r = bsxfun(@minus,curr_r,mean(curr_r,2));
+    r_fit = curr_r/[1:6];
+    r_hit(:,curr_t) = r_fit;
+    
+    curr_l = squeeze(mua_feedback_hit_combined(:,curr_t,6:-1:1));
+    curr_l = bsxfun(@minus,curr_l,mean(curr_l,2));
+    l_fit = curr_l/[1:6];
+    l_hit(:,curr_t) = l_fit;
+    
+    curr_r = squeeze(mua_feedback_miss_combined(:,curr_t,6:end));
+    curr_r = bsxfun(@minus,curr_r,mean(curr_r,2));
+    r_fit = curr_r/[1:6];
+    r_miss(:,curr_t) = r_fit;
+    
+    curr_l = squeeze(mua_feedback_miss_combined(:,curr_t,6:-1:1));
+    curr_l = bsxfun(@minus,curr_l,mean(curr_l,2));
+    l_fit = curr_l/[1:6];
+    l_miss(:,curr_t) = l_fit;
+    
+end
+
+trace_spacing = 0.2;
+
+figure; hold on;
+p1 = AP_stackplot(r_hit',t_bins,trace_spacing,false,'k');
+p2 = AP_stackplot(l_hit',t_bins,trace_spacing,false,'r');
+axis tight;
+ylabel('Contrast slope')
+xlabel('Time from move onset (s)');
+line([0,0],ylim,'linestyle','--','color','k');
+legend([p1(1),p2(1)],{'Right hit','Left hit'});
+
+figure; hold on;
+p1 = AP_stackplot(r_miss',t_bins,trace_spacing,false,'k');
+p2 = AP_stackplot(l_miss',t_bins,trace_spacing,false,'r');
+axis tight;
+ylabel('Contrast slope')
+xlabel('Time from move onset (s)');
 line([0,0],ylim,'linestyle','--','color','k');
 legend([p1(1),p2(1)],{'Right miss','Left miss'});
 
