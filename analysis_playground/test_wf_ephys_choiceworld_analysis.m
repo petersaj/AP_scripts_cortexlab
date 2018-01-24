@@ -1172,6 +1172,7 @@ mua_fn = [data_path filesep 'mua_stim_choiceworld'];
 load(mua_fn);
 
 conditions = [-1,-0.5,-0.25,-0.125,-0.06,0,0.06,0.125,0.25,0.5,1];
+n_depths = size(batch_vars(1).mua_stim_earlymove_hit,1);
 
 raster_window = [-0.5,5];
 psth_bin_size = 0.001;
@@ -1186,99 +1187,163 @@ t_baseline = t_bins < 0;
 
 softnorm = 1;
 
-mua_stim_hit_smoothed = cellfun(@(x) convn(x,smWin,'same'),{batch_vars(:).mua_stim_hit},'uni',false);
-mua_stim_hit_norm = cellfun(@(x) bsxfun(@rdivide,x,nanmean(x(:,t_baseline,:,:),2)+softnorm),mua_stim_hit_smoothed,'uni',false);
-mua_stim_hit_mean = cellfun(@(x) nanmean(x,4),mua_stim_hit_norm,'uni',false);
-mua_stim_hit_combined = nanmean(cat(4,mua_stim_hit_mean{:}),4);
+mua_stim_earlymove_hit_smoothed = cellfun(@(x) convn(x,smWin,'same'),{batch_vars(:).mua_stim_earlymove_hit},'uni',false);
+mua_stim_earlymove_hit_norm = cellfun(@(x) bsxfun(@rdivide,x,nanmean(x(:,t_baseline,:,:),2)+softnorm),mua_stim_earlymove_hit_smoothed,'uni',false);
+mua_stim_earlymove_hit_mean = cellfun(@(x) nanmean(x,4),mua_stim_earlymove_hit_norm,'uni',false);
+mua_stim_earlymove_hit_combined = nanmean(cat(4,mua_stim_earlymove_hit_mean{:}),4);
 
-mua_stim_miss_smoothed = cellfun(@(x) convn(x,smWin,'same'),{batch_vars(:).mua_stim_miss},'uni',false);
-mua_stim_miss_norm = cellfun(@(x) bsxfun(@rdivide,x,nanmean(x(:,t_baseline,:,:),2)+softnorm),mua_stim_miss_smoothed,'uni',false);
-mua_stim_miss_mean = cellfun(@(x) nanmean(x,4),mua_stim_miss_norm,'uni',false);
-mua_stim_miss_combined = nanmean(cat(4,mua_stim_miss_mean{:}),4);
+mua_stim_latemove_hit_smoothed = cellfun(@(x) convn(x,smWin,'same'),{batch_vars(:).mua_stim_latemove_hit},'uni',false);
+mua_stim_latemove_hit_norm = cellfun(@(x) bsxfun(@rdivide,x,nanmean(x(:,t_baseline,:,:),2)+softnorm),mua_stim_latemove_hit_smoothed,'uni',false);
+mua_stim_latemove_hit_mean = cellfun(@(x) nanmean(x,4),mua_stim_latemove_hit_norm,'uni',false);
+mua_stim_latemove_hit_combined = nanmean(cat(4,mua_stim_latemove_hit_mean{:}),4);
 
-for plot_depth = 1:size(mua_stim_hit_combined,1)
-    figure; hold on;
-    trace_spacing = 5;
-    p1 = AP_stackplot(squeeze(mua_stim_hit_combined(plot_depth,:,:)),t_bins,trace_spacing,false,'k',conditions);
-    p2 = AP_stackplot(squeeze(mua_stim_miss_combined(plot_depth,:,:)),t_bins,trace_spacing,false,'r',conditions);
-    xlabel('Time from stim onset');
-    ylabel(['MUA depth ' num2str(plot_depth)])
-    legend([p1(1),p2(1)],{'Hit','Miss'});
-    line([0,0],ylim,'color','k','linestyle','--');
-end
+mua_stim_earlymove_miss_smoothed = cellfun(@(x) convn(x,smWin,'same'),{batch_vars(:).mua_stim_earlymove_miss},'uni',false);
+mua_stim_earlymove_miss_norm = cellfun(@(x) bsxfun(@rdivide,x,nanmean(x(:,t_baseline,:,:),2)+softnorm),mua_stim_earlymove_miss_smoothed,'uni',false);
+mua_stim_earlymove_miss_mean = cellfun(@(x) nanmean(x,4),mua_stim_earlymove_miss_norm,'uni',false);
+mua_stim_earlymove_miss_combined = nanmean(cat(4,mua_stim_earlymove_miss_mean{:}),4);
+
+mua_stim_latemove_miss_smoothed = cellfun(@(x) convn(x,smWin,'same'),{batch_vars(:).mua_stim_latemove_miss},'uni',false);
+mua_stim_latemove_miss_norm = cellfun(@(x) bsxfun(@rdivide,x,nanmean(x(:,t_baseline,:,:),2)+softnorm),mua_stim_latemove_miss_smoothed,'uni',false);
+mua_stim_latemove_miss_mean = cellfun(@(x) nanmean(x,4),mua_stim_latemove_miss_norm,'uni',false);
+mua_stim_latemove_miss_combined = nanmean(cat(4,mua_stim_latemove_miss_mean{:}),4);
+
+% (to plot all early move contrasts across all depths)
+% for plot_depth = 1:n_depths
+%     figure; hold on;
+%     trace_spacing = 5;
+%     p1 = AP_stackplot(squeeze(mua_stim_earlymove_hit_combined(plot_depth,:,:)),t_bins,trace_spacing,false,'k',conditions);
+%     p2 = AP_stackplot(squeeze(mua_stim_earlymove_miss_combined(plot_depth,:,:)),t_bins,trace_spacing,false,'r',conditions);
+%     xlabel('Time from stim onset');
+%     ylabel(['MUA depth ' num2str(plot_depth)])
+%     legend([p1(1),p2(1)],{'Hit','Miss'});
+%     line([0,0],ylim,'color','k','linestyle','--');
+% end
+
+% (to plot all late move contrasts across all depths)
+% for plot_depth = 1:n_depths
+%     figure; hold on;
+%     trace_spacing = 5;
+%     p1 = AP_stackplot(squeeze(mua_stim_latemove_hit_combined(plot_depth,:,:)),t_bins,trace_spacing,false,'k',conditions);
+%     p2 = AP_stackplot(squeeze(mua_stim_latemove_miss_combined(plot_depth,:,:)),t_bins,trace_spacing,false,'r',conditions);
+%     xlabel('Time from stim onset');
+%     ylabel(['MUA depth ' num2str(plot_depth)])
+%     legend([p1(1),p2(1)],{'Hit','Miss'});
+%     line([0,0],ylim,'color','k','linestyle','--');
+% end
+
+% (to plot all depths for left/right contrast 1)
+figure;
+trace_spacing = 6;
+subplot(1,2,1); hold on;
+p1 = AP_stackplot(mua_stim_earlymove_hit_combined(:,:,1)',t_bins,trace_spacing,false,'k',1:n_depths);
+p2 = AP_stackplot(mua_stim_latemove_hit_combined(:,:,1)',t_bins,trace_spacing,false,'r',1:n_depths);
+ylim([trace_spacing,(n_depths+1)*trace_spacing])
+line([0,0],ylim,'color','k','linestyle','--');
+line([0.5,0.5],ylim,'color','k','linestyle','--');
+legend([p1(1),p2(1)],{'Early move','Late move'});
+xlabel('Time from stim onset (s)')
+ylabel('Striatum depth')
+title('Left Contrast 1')
+subplot(1,2,2); hold on;
+p1 = AP_stackplot(mua_stim_earlymove_hit_combined(:,:,11)',t_bins,trace_spacing,false,'k',1:n_depths);
+p2 = AP_stackplot(mua_stim_latemove_hit_combined(:,:,11)',t_bins,trace_spacing,false,'r',1:n_depths);
+ylim([trace_spacing,(n_depths+1)*trace_spacing])
+line([0,0],ylim,'color','k','linestyle','--');
+line([0.5,0.5],ylim,'color','k','linestyle','--');
+legend([p1(1),p2(1)],{'Early move','Late move'});
+xlabel('Time from stim onset (s)')
+ylabel('Striatum depth')
+title('Right Contrast 1')
 
 % Get contrast tuning by time point for hit/miss
-r_hit = nan(6,length(t_bins));
-l_hit = nan(6,length(t_bins));
+r_earlymove_hit = nan(6,length(t_bins));
+l_earlymove_hit = nan(6,length(t_bins));
 
-r_miss = nan(6,length(t_bins));
-l_miss = nan(6,length(t_bins));
+r_latemove_hit = nan(6,length(t_bins));
+l_latemove_hit = nan(6,length(t_bins));
 for curr_t = 1:length(t_bins)
     
-    curr_r = squeeze(mua_stim_hit_combined(:,curr_t,6:end));
+    curr_r = squeeze(mua_stim_earlymove_hit_combined(:,curr_t,6:end));
     curr_r = bsxfun(@minus,curr_r,mean(curr_r,2));
     r_fit = curr_r/[1:6];
-    r_hit(:,curr_t) = r_fit;
+    r_earlymove_hit(:,curr_t) = r_fit;
     
-    curr_l = squeeze(mua_stim_hit_combined(:,curr_t,6:-1:1));
+    curr_l = squeeze(mua_stim_earlymove_hit_combined(:,curr_t,6:-1:1));
     curr_l = bsxfun(@minus,curr_l,mean(curr_l,2));
     l_fit = curr_l/[1:6];
-    l_hit(:,curr_t) = l_fit;
+    l_earlymove_hit(:,curr_t) = l_fit;
     
-    curr_r = squeeze(mua_stim_miss_combined(:,curr_t,6:end));
+    curr_r = squeeze(mua_stim_latemove_hit_combined(:,curr_t,6:end));
     curr_r = bsxfun(@minus,curr_r,mean(curr_r,2));
     r_fit = curr_r/[1:6];
-    r_miss(:,curr_t) = r_fit;
+    r_latemove_hit(:,curr_t) = r_fit;
     
-    curr_l = squeeze(mua_stim_miss_combined(:,curr_t,6:-1:1));
+    curr_l = squeeze(mua_stim_latemove_hit_combined(:,curr_t,6:-1:1));
     curr_l = bsxfun(@minus,curr_l,mean(curr_l,2));
     l_fit = curr_l/[1:6];
-    l_miss(:,curr_t) = l_fit;
+    l_latemove_hit(:,curr_t) = l_fit;
     
 end
 
-trace_spacing = 0.2;
+trace_spacing = 0.3;
 
-figure; hold on;
-p1 = AP_stackplot(r_hit',t_bins,trace_spacing,false,'k');
-p2 = AP_stackplot(l_hit',t_bins,trace_spacing,false,'r');
-axis tight;
+figure; 
+subplot(1,3,1); hold on;
+p1 = AP_stackplot(r_earlymove_hit',t_bins,trace_spacing,false,'k',1:n_depths);
+p2 = AP_stackplot(l_earlymove_hit',t_bins,trace_spacing,false,'r',1:n_depths);
+ylim([trace_spacing/2,n_depths*trace_spacing+trace_spacing/2])
 ylabel('Contrast slope')
 xlabel('Time from stim onset (s)');
 line([0,0],ylim,'linestyle','--','color','k');
-legend([p1(1),p2(1)],{'Right hit','Left hit'});
+line([0.5,0.5],ylim,'color','k','linestyle','--');
+legend([p1(1),p2(1)],{'Right stim','Left stim'});
+title('Early move hit');
 
-figure; hold on;
-p1 = AP_stackplot(r_miss',t_bins,trace_spacing,false,'k');
-p2 = AP_stackplot(l_miss',t_bins,trace_spacing,false,'r');
-axis tight;
+subplot(1,3,2); hold on;
+p1 = AP_stackplot(r_latemove_hit',t_bins,trace_spacing,false,'k',1:n_depths);
+p2 = AP_stackplot(l_latemove_hit',t_bins,trace_spacing,false,'r',1:n_depths);
+ylim([trace_spacing/2,n_depths*trace_spacing+trace_spacing/2])
 ylabel('Contrast slope')
 xlabel('Time from stim onset (s)');
 line([0,0],ylim,'linestyle','--','color','k');
-legend([p1(1),p2(1)],{'Right miss','Left miss'});
+line([0.5,0.5],ylim,'color','k','linestyle','--');
+legend([p1(1),p2(1)],{'Right stim','Left stim'});
+title('Late move hit');
 
+subplot(1,3,3); hold on;
+p1 = AP_stackplot(r_earlymove_hit',t_bins,trace_spacing,false,'k',1:n_depths);
+p2 = AP_stackplot(r_latemove_hit',t_bins,trace_spacing,false,'r',1:n_depths);
+ylim([trace_spacing/2,n_depths*trace_spacing+trace_spacing/2])
+ylabel('Contrast slope')
+xlabel('Time from stim onset (s)');
+line([0,0],ylim,'linestyle','--','color','k');
+line([0.5,0.5],ylim,'color','k','linestyle','--');
+legend([p1(1),p2(1)],{'Early move','Late move'});
+title('Right stimuli hit');
 
 vis_t = t_bins > 0 & t_bins < 0.2;
-vis_response_hit = squeeze(max(mua_stim_hit_combined(:,vis_t,:),[],2));
-vis_response_miss = squeeze(max(mua_stim_miss_combined(:,vis_t,:),[],2));
-figure; hold on
-p1 = AP_stackplot(vis_response_hit',conditions,2,false,'k');
-p2 = AP_stackplot(vis_response_miss',conditions,2,false,'r');
+vis_response_earlymove_hit = squeeze(max(mua_stim_earlymove_hit_combined(:,vis_t,:),[],2));
+vis_response_latemove_hit = squeeze(max(mua_stim_latemove_hit_combined(:,vis_t,:),[],2));
+vis_response_earlymove_miss = squeeze(max(mua_stim_earlymove_miss_combined(:,vis_t,:),[],2));
+vis_response_latemove_miss = squeeze(max(mua_stim_latemove_miss_combined(:,vis_t,:),[],2));
+figure; 
+subplot(1,2,1); hold on
+p1 = AP_stackplot(vis_response_earlymove_hit',conditions,2,false,'k',1:n_depths);
+p2 = AP_stackplot(vis_response_earlymove_miss',conditions,2,false,'r',1:n_depths);
 legend([p1(1),p2(1)],{'Hit','Miss'})
 ylabel('Depth')
 xlabel('Condition')
+title('Early move')
+axis tight
+subplot(1,2,2); hold on
+p1 = AP_stackplot(vis_response_latemove_hit',conditions,2,false,'k',1:n_depths);
+p2 = AP_stackplot(vis_response_latemove_miss',conditions,2,false,'r',1:n_depths);
+legend([p1(1),p2(1)],{'Hit','Miss'})
+ylabel('Depth')
+xlabel('Condition')
+title('Late move')
 axis tight
 
-go_t = t_bins > 0.5 & t_bins < 0.6;
-go_response_hit = squeeze(max(mua_stim_hit_combined(:,go_t,:),[],2));
-go_response_miss = squeeze(max(mua_stim_miss_combined(:,go_t,:),[],2));
-figure; hold on
-p1 = AP_stackplot(go_response_hit',conditions,5,false,'k');
-p2 = AP_stackplot(go_response_miss',conditions,5,false,'r');
-legend([p1(1),p2(1)],{'Hit','Miss'})
-ylabel('Depth')
-xlabel('Condition')
-axis tight
 
 
 %% Load and process striatal MUA during choiceworld (move-aligned)
