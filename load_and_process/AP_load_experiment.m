@@ -260,7 +260,7 @@ if block_exists
         stimOn_times = photodiode_flip_times(closest_stimOn_photodiode);
         
         % Get time from stim on to first wheel movement
-        surround_time = [-0.5,10];
+        surround_time = [-0.5,2];
         surround_samples = surround_time/Timeline.hw.samplingInterval;
         
         rotaryEncoder_idx = strcmp({Timeline.hw.inputs.name}, 'rotaryEncoder');

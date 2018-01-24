@@ -1039,8 +1039,13 @@ legend({'Real','Predicted'});
 
 animals = {'AP024','AP025','AP026','AP027','AP028','AP029'};
 
-protocol = 'stimKalatsky';
-% protocol = 'AP_choiceWorldStimPassive';
+% protocol = 'stimKalatsky';
+protocol = 'AP_choiceWorldStimPassive';
+
+surround_window = [-0.5,5];
+framerate = 35;
+surround_samplerate = 1/(framerate*1);
+t_surround = surround_window(1):surround_samplerate:surround_window(2);
 
 data_path = 'C:\Users\Andrew\OneDrive for Business\Documents\CarandiniHarrisLab\analysis\wf_ephys_choiceworld\passive';
 im = cell(size(animals));
@@ -1070,6 +1075,8 @@ end
 
 im = nanmean(cat(5,im{:}),5);
 ddf_im = nanmean(cat(5,ddf_im{:}),5);
+
+
 
 
 %% Make batch widefield choiceworld mean
@@ -1110,36 +1117,61 @@ im_stim_miss_avg_combined = bsxfun(@rdivide,im_stim_miss_avg_combined,n_conditio
 save_fn = [data_path filesep 'im_stim_miss_avg_combined.mat'];
 save(save_fn,'im_stim_miss_avg_combined','-v7.3');
 
-%% Get tuning strength and side difference in movie
+%% Load and process widefield choiceworld mean
 
-data_path = ['C:\Users\Andrew\OneDrive for Business\Documents\CarandiniHarrisLab\analysis\wf_ephys_choiceworld\choiceworld'];
-fn = [data_path filesep 'im_stim_hit_avg_combined'];
+surround_window = [-0.5,5];
+framerate = 35;
+surround_samplerate = 1/(framerate*1);
+t_surround = surround_window(1):surround_samplerate:surround_window(2);
+conditions = [-1,-0.5,-0.25,-0.125,-0.06,0,0.06,0.125,0.25,0.5,1];
+
+hit_data_path = ['C:\Users\Andrew\OneDrive for Business\Documents\CarandiniHarrisLab\analysis\wf_ephys_choiceworld\choiceworld'];
+fn = [hit_data_path filesep 'im_stim_hit_avg_combined'];
 load(fn);
 
-ddf = diff(im_stim_hit_avg_combined,[],3);
-ddf(ddf < 0) = 0;
+miss_data_path = ['C:\Users\Andrew\OneDrive for Business\Documents\CarandiniHarrisLab\analysis\wf_ephys_choiceworld\choiceworld'];
+fn = [miss_data_path filesep 'im_stim_miss_avg_combined'];
+load(fn);
 
-r = nan(size(ddf,1),size(ddf,2),size(ddf,3));
-l = nan(size(ddf,1),size(ddf,2),size(ddf,3));
-for curr_frame = 1:size(ddf,3);
-    curr_r = gpuArray(reshape(squeeze(ddf(:,:,curr_frame,6:end)),[],6));
+ddf_hit = diff(im_stim_hit_avg_combined,[],3);
+ddf_hit(ddf_hit < 0) = 0;
+
+ddf_miss = diff(im_stim_miss_avg_combined,[],3);
+ddf_miss(ddf_miss < 0) = 0;
+
+r = nan(size(ddf_hit,1),size(ddf_hit,2),size(ddf_hit,3));
+l = nan(size(ddf_hit,1),size(ddf_hit,2),size(ddf_hit,3));
+for curr_frame = 1:size(ddf_hit,3);
+    curr_r = gpuArray(reshape(squeeze(ddf_hit(:,:,curr_frame,6:end)),[],6));
     curr_r = bsxfun(@minus,curr_r,mean(curr_r,2));
     r_fit = gather(curr_r/[1:6]);
-    r(:,:,curr_frame) = reshape(r_fit,size(ddf,1),size(ddf,2));
+    r(:,:,curr_frame) = reshape(r_fit,size(ddf_hit,1),size(ddf_hit,2));
     
-    curr_l = gpuArray(reshape(squeeze(ddf(:,:,curr_frame,6:-1:1)),[],6));
+    curr_l = gpuArray(reshape(squeeze(ddf_hit(:,:,curr_frame,6:-1:1)),[],6));
     curr_l = bsxfun(@minus,curr_l,mean(curr_l,2));
     l_fit = gather(curr_l/[1:6]);
-    l(:,:,curr_frame) = reshape(l_fit,size(ddf,1),size(ddf,2));
+    l(:,:,curr_frame) = reshape(l_fit,size(ddf_hit,1),size(ddf_hit,2));
     
-    AP_print_progress_fraction(curr_frame,size(ddf,3));
+    AP_print_progress_fraction(curr_frame,size(ddf_hit,3));
 end
+
+AP_image_scroll(r-l);
+axis image; colormap(colormap_BlueWhiteRed);
+
+
+vis_t = t_surround > 0 & t_surround < 0.2;
+vis_response_hit = squeeze(max(ddf_hit(:,:,vis_t,:),[],3));
+vis_response_miss = squeeze(max(ddf_miss(:,:,vis_t,:),[],3));
+vis_response = cat(4,vis_response_hit,vis_response_miss);
+
 
 %% Load and process striatal MUA during choiceworld (stim-aligned)
 
 data_path = ['C:\Users\Andrew\OneDrive for Business\Documents\CarandiniHarrisLab\analysis\wf_ephys_choiceworld\choiceworld'];
 mua_fn = [data_path filesep 'mua_stim_choiceworld'];
 load(mua_fn);
+
+conditions = [-1,-0.5,-0.25,-0.125,-0.06,0,0.06,0.125,0.25,0.5,1];
 
 raster_window = [-0.5,5];
 psth_bin_size = 0.001;
@@ -1163,6 +1195,17 @@ mua_stim_miss_smoothed = cellfun(@(x) convn(x,smWin,'same'),{batch_vars(:).mua_s
 mua_stim_miss_norm = cellfun(@(x) bsxfun(@rdivide,x,nanmean(x(:,t_baseline,:,:),2)+softnorm),mua_stim_miss_smoothed,'uni',false);
 mua_stim_miss_mean = cellfun(@(x) nanmean(x,4),mua_stim_miss_norm,'uni',false);
 mua_stim_miss_combined = nanmean(cat(4,mua_stim_miss_mean{:}),4);
+
+for plot_depth = 1:size(mua_stim_hit_combined,1)
+    figure; hold on;
+    trace_spacing = 5;
+    p1 = AP_stackplot(squeeze(mua_stim_hit_combined(plot_depth,:,:)),t_bins,trace_spacing,false,'k',conditions);
+    p2 = AP_stackplot(squeeze(mua_stim_miss_combined(plot_depth,:,:)),t_bins,trace_spacing,false,'r',conditions);
+    xlabel('Time from stim onset');
+    ylabel(['MUA depth ' num2str(plot_depth)])
+    legend([p1(1),p2(1)],{'Hit','Miss'});
+    line([0,0],ylim,'color','k','linestyle','--');
+end
 
 % Get contrast tuning by time point for hit/miss
 r_hit = nan(6,length(t_bins));
@@ -1214,11 +1257,37 @@ xlabel('Time from stim onset (s)');
 line([0,0],ylim,'linestyle','--','color','k');
 legend([p1(1),p2(1)],{'Right miss','Left miss'});
 
+
+vis_t = t_bins > 0 & t_bins < 0.2;
+vis_response_hit = squeeze(max(mua_stim_hit_combined(:,vis_t,:),[],2));
+vis_response_miss = squeeze(max(mua_stim_miss_combined(:,vis_t,:),[],2));
+figure; hold on
+p1 = AP_stackplot(vis_response_hit',conditions,2,false,'k');
+p2 = AP_stackplot(vis_response_miss',conditions,2,false,'r');
+legend([p1(1),p2(1)],{'Hit','Miss'})
+ylabel('Depth')
+xlabel('Condition')
+axis tight
+
+go_t = t_bins > 0.5 & t_bins < 0.6;
+go_response_hit = squeeze(max(mua_stim_hit_combined(:,go_t,:),[],2));
+go_response_miss = squeeze(max(mua_stim_miss_combined(:,go_t,:),[],2));
+figure; hold on
+p1 = AP_stackplot(go_response_hit',conditions,5,false,'k');
+p2 = AP_stackplot(go_response_miss',conditions,5,false,'r');
+legend([p1(1),p2(1)],{'Hit','Miss'})
+ylabel('Depth')
+xlabel('Condition')
+axis tight
+
+
 %% Load and process striatal MUA during choiceworld (move-aligned)
 
 data_path = ['C:\Users\Andrew\OneDrive for Business\Documents\CarandiniHarrisLab\analysis\wf_ephys_choiceworld\choiceworld'];
 mua_fn = [data_path filesep 'mua_move_choiceworld'];
 load(mua_fn);
+
+conditions = [-1,-0.5,-0.25,-0.125,-0.06,0,0.06,0.125,0.25,0.5,1];
 
 raster_window = [-5.5,3];
 psth_bin_size = 0.001;
@@ -1242,6 +1311,17 @@ mua_move_miss_smoothed = cellfun(@(x) convn(x,smWin,'same'),{batch_vars(:).mua_m
 mua_move_miss_norm = cellfun(@(x) bsxfun(@rdivide,x,nanmean(x(:,t_baseline,:,:),2)+softnorm),mua_move_miss_smoothed,'uni',false);
 mua_move_miss_mean = cellfun(@(x) nanmean(x,4),mua_move_miss_norm,'uni',false);
 mua_move_miss_combined = nanmean(cat(4,mua_move_miss_mean{:}),4);
+
+for plot_depth = 1:size(mua_move_hit_combined,1)
+    figure; hold on;
+    trace_spacing = 3;
+    p1 = AP_stackplot(squeeze(mua_move_hit_combined(plot_depth,:,:)),t_bins,trace_spacing,false,'k',conditions);
+    p2 = AP_stackplot(squeeze(mua_move_miss_combined(plot_depth,:,:)),t_bins,trace_spacing,false,'r',conditions);
+    xlabel('Time from move onset');
+    ylabel(['MUA depth ' num2str(plot_depth)])
+    legend([p1(1),p2(1)],{'Hit','Miss'});
+    line([0,0],ylim,'color','k','linestyle','--');
+end
 
 % Get contrast tuning by time point for hit/miss
 r_hit = nan(6,length(t_bins));
@@ -1299,6 +1379,8 @@ data_path = ['C:\Users\Andrew\OneDrive for Business\Documents\CarandiniHarrisLab
 mua_fn = [data_path filesep 'mua_feedback_choiceworld'];
 load(mua_fn);
 
+conditions = [-1,-0.5,-0.25,-0.125,-0.06,0,0.06,0.125,0.25,0.5,1];
+
 raster_window = [-5.5,3];
 psth_bin_size = 0.001;
 t = raster_window(1):psth_bin_size:raster_window(2);
@@ -1321,6 +1403,17 @@ mua_feedback_miss_smoothed = cellfun(@(x) convn(x,smWin,'same'),{batch_vars(:).m
 mua_feedback_miss_norm = cellfun(@(x) bsxfun(@rdivide,x,nanmean(x(:,t_baseline,:,:),2)+softnorm),mua_feedback_miss_smoothed,'uni',false);
 mua_feedback_miss_mean = cellfun(@(x) nanmean(x,4),mua_feedback_miss_norm,'uni',false);
 mua_feedback_miss_combined = nanmean(cat(4,mua_feedback_miss_mean{:}),4);
+
+for plot_depth = 1:size(mua_feedback_hit_combined,1)
+    figure; hold on;
+    trace_spacing = 8;
+    p1 = AP_stackplot(squeeze(mua_feedback_hit_combined(plot_depth,:,:)),t_bins,trace_spacing,true,'k',conditions);
+    p2 = AP_stackplot(squeeze(mua_feedback_miss_combined(plot_depth,:,:)),t_bins,trace_spacing,true,'r',conditions);
+    xlabel('Time from feedback onset');
+    ylabel(['MUA depth ' num2str(plot_depth)])
+    legend([p1(1),p2(1)],{'Hit','Miss'});
+    line([0,0],ylim,'color','k','linestyle','--');
+end
 
 % Get contrast tuning by time point for hit/miss
 r_hit = nan(6,length(t_bins));
@@ -1503,17 +1596,43 @@ xlabel('Depth');
 axis tight
 title(protocol);
 
+%% Load and process cortex-predicted striatal MUA during choiceworld (stim-aligned)
 
+data_path = ['C:\Users\Andrew\OneDrive for Business\Documents\CarandiniHarrisLab\analysis\wf_ephys_choiceworld\choiceworld'];
+mua_fn = [data_path filesep 'mua_stim_pred'];
+load(mua_fn);
 
+raster_window = [-0.5,1.5];
+psth_bin_size = 1/35;
+t = raster_window(1):psth_bin_size:raster_window(2);
+t_bins = t(1:end-1) + diff(t);
 
+t_baseline = t_bins < 0;
 
+softnorm = 1;
 
+mua_stim_hit_norm = cellfun(@(x) bsxfun(@rdivide,x,nanmean(x(:,t_baseline,:,:),2)+softnorm),{batch_vars(:).mua_stim_hit},'uni',false);
+mua_stim_hit_mean = cellfun(@(x) nanmean(x,4),mua_stim_hit_norm,'uni',false);
+mua_stim_hit_combined = nanmean(cat(4,mua_stim_hit_mean{:}),4);
 
+mua_stim_hit_pred_norm = cellfun(@(x) bsxfun(@rdivide,x,nanmean(x(:,t_baseline,:,:),2)+softnorm),{batch_vars(:).mua_stim_hit_pred},'uni',false);
+mua_stim_hit_pred_mean = cellfun(@(x) nanmean(x,4),mua_stim_hit_pred_norm,'uni',false);
+mua_stim_hit_pred_combined = nanmean(cat(4,mua_stim_hit_pred_mean{:}),4);
 
+mua_stim_miss_norm = cellfun(@(x) bsxfun(@rdivide,x,nanmean(x(:,t_baseline,:,:),2)+softnorm),{batch_vars(:).mua_stim_miss},'uni',false);
+mua_stim_miss_mean = cellfun(@(x) nanmean(x,4),mua_stim_miss_norm,'uni',false);
+mua_stim_miss_combined = nanmean(cat(4,mua_stim_miss_mean{:}),4);
 
+mua_stim_miss_pred_norm = cellfun(@(x) bsxfun(@rdivide,x,nanmean(x(:,t_baseline,:,:),2)+softnorm),{batch_vars(:).mua_stim_miss_pred},'uni',false);
+mua_stim_miss_pred_mean = cellfun(@(x) nanmean(x,4),mua_stim_miss_pred_norm,'uni',false);
+mua_stim_miss_pred_combined = nanmean(cat(4,mua_stim_miss_pred_mean{:}),4);
 
-
-
+figure; hold on
+AP_stackplot(squeeze(mua_stim_hit_combined(1,:,:)),t,5,true,'k');
+AP_stackplot(squeeze(mua_stim_hit_pred_combined(1,:,:)),t,5,true,'r');
+xlabel('Time from stim onset');
+ylabel('MUA depth 1')
+legend([p1(1),p2(1)],{'Real','Predicted'});
 
 
 

@@ -174,22 +174,27 @@ for curr_animal = 1:length(animals)
         % Time of session (in minutes)
         session_duration = block.duration/60;
         
-        % Trial counts (subtract 1 because last trial always incomplete)
-        n_trials = length(block.paramsValues) - 1;
+        % Water
         total_water = sum(block.outputs.rewardValues);
  
         % Performance (note that this excludes repeat on incorrect trials)
         performance = block.events.sessionPerformanceValues(:,end-10:end);
         
-        % Trial conditions and behavior times
-        % (only use trials that were completed and not repeat trials)
-        use_trials = any([signals_events.hitValues;signals_events.missValues],1) & ~signals_events.repeatTrialValues;
+        % Trial conditions and behavior times (pad to the same number)
+        n_trials = length(block.paramsValues);
+        trial_conditions = signals_events.trialSideValues(1:n_trials).*signals_events.trialContrastValues(1:n_trials);
+        trial_outcome = signals_events.hitValues(1:n_trials)-signals_events.missValues(1:n_trials);
+        stim_to_move = wheel_move_time - stimOn_times';
+        stim_to_feedback = padarray(signals_events.responseTimes, ...
+            [0,n_trials-length(signals_events.responseTimes)],NaN,'post') - ...
+            padarray(stimOn_times',[0,n_trials-length(stimOn_times)],NaN,'post');    
         
-        trial_conditions = signals_events.trialSideValues(use_trials).*signals_events.trialContrastValues(use_trials);
-        trial_hit = signals_events.hitValues(use_trials);
-        stim_to_move = wheel_move_time(use_trials) - stimOn_times(use_trials)';
-        stim_to_feedback = signals_events.responseTimes(use_trials) - stimOn_times(use_trials)';        
-        
+        % Define trials to use 
+        use_trials = ...
+            trial_outcome ~= 0 & ...
+            ~signals_events.repeatTrialValues(1:n_trials) & ...
+            stim_to_feedback < 1.5;
+               
         % Store in behavior structure
         bhv(curr_animal).session_duration(curr_day) = session_duration;
         bhv(curr_animal).n_trials(curr_day) = n_trials;
@@ -198,10 +203,10 @@ for curr_animal = 1:length(animals)
         bhv(curr_animal).n_trials_condition(curr_day,:) = performance(2,:);
         bhv(curr_animal).go_left_trials(curr_day,:) = performance(end,:);
         
-        bhv(curr_animal).trial_conditions{curr_day} = trial_conditions;
-        bhv(curr_animal).trial_hit{curr_day} = trial_hit;
-        bhv(curr_animal).stim_to_move{curr_day} = stim_to_move;
-        bhv(curr_animal).stim_to_feedback{curr_day} = stim_to_feedback;
+        bhv(curr_animal).trial_conditions{curr_day} = trial_conditions(use_trials);
+        bhv(curr_animal).trial_outcome{curr_day} = trial_outcome(use_trials);
+        bhv(curr_animal).stim_to_move{curr_day} = stim_to_move(use_trials);
+        bhv(curr_animal).stim_to_feedback{curr_day} = stim_to_feedback(use_trials);
         
         clearvars -except animals protocol experiments load_parts curr_animal curr_day animal bhv 
     end
@@ -228,52 +233,161 @@ xlabel('Condition');
 ylabel('Fraction go left');
 title('Pooling across days');
 
-% Plot stim to move / feedback by condition and success pooling days
-[group,stim_to_move] = arrayfun(@(x) ...
-    grpstats(horzcat(bhv(x).stim_to_move{:})', ...
-    [horzcat(bhv(x).trial_conditions{:})',horzcat(bhv(x).trial_hit{:})'], ...
-    {'gname','nanmedian'}),1:length(bhv),'uni',false);
-group = cellfun(@(x) cellfun(@(x) str2num(x),x),group,'uni',false);
-if ~any(reshape(bsxfun(@eq,cat(3,group{:}),group{1}),[],1))
-    error('Different conditions across animals')
-end
-group = group{1};
-stim_to_move_cat = horzcat(stim_to_move{:});
+% Plot distribution of stim to move and feedback times
+move_time_bins = 0:0.01:1;
+day_split = 4;
 
-[group,stim_to_feedback] = arrayfun(@(x) ...
-    grpstats(horzcat(bhv(x).stim_to_feedback{:})', ...
-    [horzcat(bhv(x).trial_conditions{:})',horzcat(bhv(x).trial_hit{:})'], ...
+move_time_centers = move_time_bins(1:end-1) + diff(move_time_bins)/2;
+stim_to_move_binned = zeros(day_split,length(move_time_bins)-1,length(bhv));
+
+for curr_animal = 1:length(bhv)
+    for curr_day = 1:length(bhv(curr_animal).stim_to_move)
+        curr_data = bhv(curr_animal).stim_to_move{curr_day};
+        trials_split = round(linspace(1,length(curr_data),day_split+1));
+        for curr_split = 1:day_split
+            stim_to_move_binned(curr_split,:,curr_animal) = ...
+                stim_to_move_binned(curr_split,:,curr_animal) + ...
+                histcounts(curr_data(trials_split(curr_split): ...
+                trials_split(curr_split+1)),move_time_bins);
+        end
+    end
+end
+stim_to_move_binned_norm = bsxfun(@rdivide,stim_to_move_binned, ...
+    sum(sum(stim_to_move_binned,1),2));
+
+figure; hold on;
+for curr_animal = 1:length(bhv)
+    AP_stackplot(stim_to_move_binned_norm(:,:,curr_animal)', ...
+        move_time_centers,0.02,false,[0.5,0.5,0.5],1:day_split);
+end
+AP_stackplot(nanmean(stim_to_move_binned_norm,3)', ...
+    move_time_centers,0.02,false,'k',1:day_split);
+xlabel('Time to movement onset')
+ylabel('Frequency by fraction within day')
+axis tight
+line([0.5,0.5],ylim,'linestyle','--','color','k');
+   
+% Plot stim to move / feedback by condition and success pooling days
+% (separate pre/post-beep movements)
+go_time = 0.5;
+pre_beep_movements = arrayfun(@(animal) cellfun(@(x) x < go_time, ...
+    bhv(animal).stim_to_move,'uni',false),1:length(bhv),'uni',false);
+
+pre_beep_movements_trialcat = arrayfun(@(animal) ...
+    horzcat(pre_beep_movements{animal}{:}),1:length(bhv),'uni',false);
+trial_conditions_trialcat = arrayfun(@(animal) ...
+    horzcat(bhv(animal).trial_conditions{:}),1:length(bhv),'uni',false);
+trial_outcome_trialcat = arrayfun(@(animal) ...
+    horzcat(bhv(animal).trial_outcome{:}),1:length(bhv),'uni',false);
+stim_to_move_trialcat = arrayfun(@(animal) ...
+    horzcat(bhv(animal).stim_to_move{:}),1:length(bhv),'uni',false);
+stim_to_feedback_trialcat = arrayfun(@(animal) ...
+    horzcat(bhv(animal).stim_to_feedback{:}),1:length(bhv),'uni',false);
+
+[group,stim_to_move_prebeep] = arrayfun(@(x) ...
+    grpstats(stim_to_move_trialcat{x}(pre_beep_movements_trialcat{x})', ...
+    [trial_conditions_trialcat{x}(pre_beep_movements_trialcat{x})', ...
+    trial_outcome_trialcat{x}(pre_beep_movements_trialcat{x})'], ...
     {'gname','nanmedian'}),1:length(bhv),'uni',false);
 group = cellfun(@(x) cellfun(@(x) str2num(x),x),group,'uni',false);
-if ~any(reshape(bsxfun(@eq,cat(3,group{:}),group{1}),[],1))
-    error('Different conditions across animals')
+all_group = unique(vertcat(group{:}),'rows');
+stim_to_move_prebeep_cat = nan(size(all_group,1),length(bhv));
+for curr_animal = 1:length(bhv)
+    [~,group_idx] = intersect(all_group,group{curr_animal},'rows');
+    stim_to_move_prebeep_cat(group_idx,curr_animal) = stim_to_move_prebeep{curr_animal};
 end
-group = group{1};
-stim_to_feedback_cat = horzcat(stim_to_feedback{:});
+
+[group,stim_to_move_postbeep] = arrayfun(@(x) ...
+    grpstats(stim_to_move_trialcat{x}(~pre_beep_movements_trialcat{x})', ...
+    [trial_conditions_trialcat{x}(~pre_beep_movements_trialcat{x})', ...
+    trial_outcome_trialcat{x}(~pre_beep_movements_trialcat{x})'], ...
+    {'gname','nanmedian'}),1:length(bhv),'uni',false);
+group = cellfun(@(x) cellfun(@(x) str2num(x),x),group,'uni',false);
+all_group = unique(vertcat(group{:}),'rows');
+stim_to_move_postbeep_cat = nan(size(all_group,1),length(bhv));
+for curr_animal = 1:length(bhv)
+    [~,group_idx] = intersect(all_group,group{curr_animal},'rows');
+    stim_to_move_postbeep_cat(group_idx,curr_animal) = stim_to_move_postbeep{curr_animal};
+end
+
+[group,stim_to_feedback_prebeep] = arrayfun(@(x) ...
+    grpstats(stim_to_feedback_trialcat{x}(pre_beep_movements_trialcat{x})', ...
+    [trial_conditions_trialcat{x}(pre_beep_movements_trialcat{x})', ...
+    trial_outcome_trialcat{x}(pre_beep_movements_trialcat{x})'], ...
+    {'gname','nanmedian'}),1:length(bhv),'uni',false);
+group = cellfun(@(x) cellfun(@(x) str2num(x),x),group,'uni',false);
+all_group = unique(vertcat(group{:}),'rows');
+stim_to_feedback_prebeep_cat = nan(size(all_group,1),length(bhv));
+for curr_animal = 1:length(bhv)
+    [~,group_idx] = intersect(all_group,group{curr_animal},'rows');
+    stim_to_feedback_prebeep_cat(group_idx,curr_animal) = stim_to_feedback_prebeep{curr_animal};
+end
+
+[group,stim_to_feedback_postbeep] = arrayfun(@(x) ...
+    grpstats(stim_to_feedback_trialcat{x}(~pre_beep_movements_trialcat{x})', ...
+    [trial_conditions_trialcat{x}(~pre_beep_movements_trialcat{x})', ...
+    trial_outcome_trialcat{x}(~pre_beep_movements_trialcat{x})'], ...
+    {'gname','nanmedian'}),1:length(bhv),'uni',false);
+group = cellfun(@(x) cellfun(@(x) str2num(x),x),group,'uni',false);
+all_group = unique(vertcat(group{:}),'rows');
+stim_to_feedback_postbeep_cat = nan(size(all_group,1),length(bhv));
+for curr_animal = 1:length(bhv)
+    [~,group_idx] = intersect(all_group,group{curr_animal},'rows');
+    stim_to_feedback_postbeep_cat(group_idx,curr_animal) = stim_to_feedback_postbeep{curr_animal};
+end
 
 figure;
-subplot(1,2,1); hold on;
-plot(group(group(:,2) == 1,1),stim_to_move_cat(group(:,2) == 0,:),'color',[0.8,0.6,0.6],'linewidth',2);
-plot(group(group(:,2) == 1,1),stim_to_move_cat(group(:,2) == 1,:),'color',[0.6,0.8,0.6],'linewidth',2);
-p1 = plot(group(group(:,2) == 1,1),nanmean(stim_to_move_cat(group(:,2) == 0,:),2),'color',[0.8,0,0],'linewidth',5);
-p2 = plot(group(group(:,2) == 1,1),nanmean(stim_to_move_cat(group(:,2) == 1,:),2),'color',[0,0.8,0],'linewidth',5);
+subplot(2,2,1); hold on;
+plot(all_group(all_group(:,2) == -1,1),stim_to_move_prebeep_cat(all_group(:,2) == -1,:),'color',[0.8,0.6,0.6],'linewidth',2);
+plot(all_group(all_group(:,2) == 1,1),stim_to_move_prebeep_cat(all_group(:,2) == 1,:),'color',[0.6,0.8,0.6],'linewidth',2);
+p1 = plot(all_group(all_group(:,2) == -1,1),nanmean(stim_to_move_prebeep_cat(all_group(:,2) == -1,:),2),'color',[0.8,0,0],'linewidth',5);
+p2 = plot(all_group(all_group(:,2) == 1,1),nanmean(stim_to_move_prebeep_cat(all_group(:,2) == 1,:),2),'color',[0,0.8,0],'linewidth',5);
 ylabel('Stim to move time (s)');
 xlabel('Condition');
+title('Pre-beep movement')
 legend([p1,p2],{'Miss','Hit'})
-axis tight square
+axis tight
+ylim([0,1])
 line(xlim,[0.5,0.5],'linestyle','--','color','k')
 
-subplot(1,2,2); hold on;
-plot(group(group(:,2) == 1,1),stim_to_feedback_cat(group(:,2) == 0,:),'color',[0.8,0.6,0.6],'linewidth',2);
-plot(group(group(:,2) == 1,1),stim_to_feedback_cat(group(:,2) == 1,:),'color',[0.6,0.8,0.6],'linewidth',2);
-p1 = plot(group(group(:,2) == 1,1),nanmean(stim_to_feedback_cat(group(:,2) == 0,:),2),'color',[0.8,0,0],'linewidth',5);
-p2 = plot(group(group(:,2) == 1,1),nanmean(stim_to_feedback_cat(group(:,2) == 1,:),2),'color',[0,0.8,0],'linewidth',5);
+subplot(2,2,2); hold on;
+plot(all_group(all_group(:,2) == -1,1),stim_to_feedback_prebeep_cat(all_group(:,2) == -1,:),'color',[0.8,0.6,0.6],'linewidth',2);
+plot(all_group(all_group(:,2) == 1,1),stim_to_feedback_prebeep_cat(all_group(:,2) == 1,:),'color',[0.6,0.8,0.6],'linewidth',2);
+p1 = plot(all_group(all_group(:,2) == -1,1),nanmean(stim_to_feedback_prebeep_cat(all_group(:,2) == -1,:),2),'color',[0.8,0,0],'linewidth',5);
+p2 = plot(all_group(all_group(:,2) == 1,1),nanmean(stim_to_feedback_prebeep_cat(all_group(:,2) == 1,:),2),'color',[0,0.8,0],'linewidth',5);
 ylabel('Stim to feedback time (s)');
 xlabel('Condition');
+title('Pre-beep movement')
 legend([p1,p2],{'Miss','Hit'})
-axis tight square
+axis tight
+ylim([0,1])
 line(xlim,[0.5,0.5],'linestyle','--','color','k')
 
+subplot(2,2,3); hold on;
+plot(all_group(all_group(:,2) == -1,1),stim_to_move_postbeep_cat(all_group(:,2) == -1,:),'color',[0.8,0.6,0.6],'linewidth',2);
+plot(all_group(all_group(:,2) == 1,1),stim_to_move_postbeep_cat(all_group(:,2) == 1,:),'color',[0.6,0.8,0.6],'linewidth',2);
+p1 = plot(all_group(all_group(:,2) == -1,1),nanmean(stim_to_move_postbeep_cat(all_group(:,2) == -1,:),2),'color',[0.8,0,0],'linewidth',5);
+p2 = plot(all_group(all_group(:,2) == 1,1),nanmean(stim_to_move_postbeep_cat(all_group(:,2) == 1,:),2),'color',[0,0.8,0],'linewidth',5);
+ylabel('Stim to move time (s)');
+xlabel('Condition');
+title('Post-beep movement')
+legend([p1,p2],{'Miss','Hit'})
+axis tight
+ylim([0,1])
+line(xlim,[0.5,0.5],'linestyle','--','color','k')
+
+subplot(2,2,4); hold on;
+plot(all_group(all_group(:,2) == -1,1),stim_to_feedback_postbeep_cat(all_group(:,2) == -1,:),'color',[0.8,0.6,0.6],'linewidth',2);
+plot(all_group(all_group(:,2) == 1,1),stim_to_feedback_postbeep_cat(all_group(:,2) == 1,:),'color',[0.6,0.8,0.6],'linewidth',2);
+p1 = plot(all_group(all_group(:,2) == -1,1),nanmean(stim_to_feedback_postbeep_cat(all_group(:,2) == -1,:),2),'color',[0.8,0,0],'linewidth',5);
+p2 = plot(all_group(all_group(:,2) == 1,1),nanmean(stim_to_feedback_postbeep_cat(all_group(:,2) == 1,:),2),'color',[0,0.8,0],'linewidth',5);
+ylabel('Stim to feedback time (s)');
+xlabel('Condition');
+title('Post-beep movement')
+legend([p1,p2],{'Miss','Hit'})
+axis tight
+ylim([0,1])
+line(xlim,[0.5,0.5],'linestyle','--','color','k')
 
 
 

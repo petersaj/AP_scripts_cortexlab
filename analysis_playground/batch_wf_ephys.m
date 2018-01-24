@@ -325,7 +325,7 @@ for curr_animal = 1:length(animals)
         depth_group_edges = round(linspace(str_depth(1),str_depth(2),n_depth_groups+1));
         depth_group_edges_use = depth_group_edges;
         
-        [depth_group_n,depth_group] = histc(spikeDepths,depth_group_edges_use);
+        [depth_group_n,depth_group] = histcounts(spikeDepths,depth_group_edges_use);
         depth_groups_used = unique(depth_group);
         depth_group_centers = depth_group_edges_use(1:end-1)+(diff(depth_group_edges_use)/2);
         
@@ -490,9 +490,14 @@ for curr_animal = 1:length(animals)
             fit_spikes = grp_binned_spikes > 0 & ...
                 grp_binned_spikes < fit_spikes_thresh;
             
+            % Less than 5 points to fit, don't bother
+            if sum(fit_spikes) < 5
+                continue
+            end
+            
             % Fit the nonlinearity
             fit_options = statset('MaxIter',1000);
-            beta0 = [grp_predicted_spikes(grp_binned_spikes == 0),1];
+            beta0 = [grp_predicted_spikes(1),1];
             beta = nlinfit(grp_predicted_spikes(fit_spikes),grp_binned_spikes(fit_spikes),nlin_fit,beta0,fit_options);
             nlin_params(curr_depth,:) = beta;
             
@@ -501,20 +506,20 @@ for curr_animal = 1:length(animals)
             predicted_spikes_rectif(imag(predicted_spikes_rectif) ~= 0) = 0;
             predicted_spikes_nlin(curr_depth,:) = predicted_spikes_rectif;
             
-            % Plot model fit
-            figure; hold on;
-            plot(grp_predicted_spikes,grp_binned_spikes,'k')
-            grp_predicted_spikes_nlin = nlin_fit(beta,grp_predicted_spikes);
-            grp_predicted_spikes_nlin(imag(grp_predicted_spikes_nlin) ~= 0) = 0;
-            plot(grp_predicted_spikes_nlin,grp_binned_spikes,'r')
-            line([0,fit_spikes_thresh],[0,fit_spikes_thresh]);
-            xlabel('Predicted spikes')
-            ylabel('Real spikes')
-            legend({'Raw','Nlin'})
+%             % Plot model fit
+%             figure; hold on;
+%             plot(grp_predicted_spikes,grp_binned_spikes,'k')
+%             grp_predicted_spikes_nlin = nlin_fit(beta,grp_predicted_spikes);
+%             grp_predicted_spikes_nlin(imag(grp_predicted_spikes_nlin) ~= 0) = 0;
+%             plot(grp_predicted_spikes_nlin,grp_binned_spikes,'r')
+%             line([0,fit_spikes_thresh],[0,fit_spikes_thresh]);
+%             xlabel('Predicted spikes')
+%             ylabel('Real spikes')
+%             legend({'Raw','Nlin'})
         end
         
         if ~isreal(nlin_params)
-            error('Imaginary parameter fits')
+            warning('Imaginary parameter fits')
         end
         
         % % Get new explained variance (this can't be right...)
@@ -548,11 +553,7 @@ for curr_animal = 1:length(animals)
             end
         end
         
-        % THINGS TO SAVE:
-        % nlin parameters, explained variance difference, grouped fits
-        % traces
-        
-        
+        % Store variables
         batch_vars(curr_animal).mua_stim_hit(:,:,:,curr_day) = mua_stim_hit;
         batch_vars(curr_animal).mua_stim_hit_pred(:,:,:,curr_day) = mua_stim_hit_pred;
         
@@ -846,14 +847,23 @@ for curr_animal = 1:length(animals)
         day = experiments(curr_day).day;
         experiment = experiments(curr_day).experiment;
         
-        AP_load_experiment
-        
-        use_stim = true(1,min(length(signals_events.trialSideValues),length(stimOn_times)));
-        stimIDs = signals_events.trialSideValues(use_stim).*signals_events.trialContrastValues(use_stim);
-        stim_onsets = stimOn_times(use_stim);
-        
+        AP_load_experiment        
         conditions = unique(block.events.sessionPerformanceValues(1,:));
-
+        
+        % Define trials to use
+        n_trials = length(block.paramsValues);
+        trial_conditions = signals_events.trialSideValues(1:n_trials).*signals_events.trialContrastValues(1:n_trials);
+        trial_outcome = signals_events.hitValues(1:n_trials)-signals_events.missValues(1:n_trials);
+        stim_to_move = padarray(wheel_move_time - stimOn_times',[0,n_trials-length(stimOn_times)],NaN,'post');
+        stim_to_feedback = padarray(signals_events.responseTimes, ...
+            [0,n_trials-length(signals_events.responseTimes)],NaN,'post') - ...
+            padarray(stimOn_times',[0,n_trials-length(stimOn_times)],NaN,'post');    
+      
+        use_trials = ...
+            trial_outcome ~= 0 & ...
+            ~signals_events.repeatTrialValues(1:n_trials) & ...
+            stim_to_feedback < 1.5;
+        
         % Group multiunit by depth
         n_depth_groups = 6;
         depth_group_edges = round(linspace(str_depth(1),str_depth(2),n_depth_groups+1));
@@ -866,8 +876,11 @@ for curr_animal = 1:length(animals)
         t = raster_window(1):psth_bin_size:raster_window(2);
         t_bins = t(1:end-1) + diff(t);
         
-        mua_stim_hit = nan(6,length(t_bins),length(conditions));
-        mua_stim_miss = nan(6,length(t_bins),length(conditions));
+        mua_stim_earlymove_hit = nan(6,length(t_bins),length(conditions));
+        mua_stim_latemove_hit = nan(6,length(t_bins),length(conditions));
+        
+        mua_stim_earlymove_miss = nan(6,length(t_bins),length(conditions));
+        mua_stim_latemove_miss = nan(6,length(t_bins),length(conditions));
         
         for curr_depth = 1:n_depth_groups
             
@@ -876,26 +889,43 @@ for curr_animal = 1:length(animals)
             for curr_condition_idx = 1:length(conditions)
                 curr_condition = conditions(curr_condition_idx);                
                 
-                use_stims = find(stimIDs == curr_condition & signals_events.hitValues(use_stim) == 1);
-                use_stim_onsets = stim_onsets(use_stims);
+                use_stims = use_trials & trial_conditions == curr_condition & trial_outcome == 1 & stim_to_move < 0.5;
+                use_stim_onsets = stimOn_times(use_stims);
                 if length(use_stim_onsets) > 5
                     [psth, bins, rasterX, rasterY] = psthAndBA(curr_spike_times,use_stim_onsets,raster_window,psth_bin_size);
-                    mua_stim_hit(curr_depth,:,curr_condition_idx) = psth;
+                    mua_stim_earlymove_hit(curr_depth,:,curr_condition_idx) = psth;
                 end
                 
-                use_stims = find(stimIDs == curr_condition & signals_events.missValues(use_stim) == 1);
-                use_stim_onsets = stim_onsets(use_stims);
+                use_stims = use_trials & trial_conditions == curr_condition & trial_outcome == 1 & stim_to_move >= 0.5;
+                use_stim_onsets = stimOn_times(use_stims);
                 if length(use_stim_onsets) > 5
                     [psth, bins, rasterX, rasterY] = psthAndBA(curr_spike_times,use_stim_onsets,raster_window,psth_bin_size);
-                    mua_stim_miss(curr_depth,:,curr_condition_idx) = psth;
+                    mua_stim_latemove_hit(curr_depth,:,curr_condition_idx) = psth;
+                end
+                
+                use_stims = use_trials & trial_conditions == curr_condition & trial_outcome == -1 & stim_to_move < 0.5;
+                use_stim_onsets = stimOn_times(use_stims);
+                if length(use_stim_onsets) > 5
+                    [psth, bins, rasterX, rasterY] = psthAndBA(curr_spike_times,use_stim_onsets,raster_window,psth_bin_size);
+                    mua_stim_earlymove_miss(curr_depth,:,curr_condition_idx) = psth;
+                end
+                
+                use_stims = use_trials & trial_conditions == curr_condition & trial_outcome == -1 & stim_to_move >= 0.5;
+                use_stim_onsets = stimOn_times(use_stims);
+                if length(use_stim_onsets) > 5
+                    [psth, bins, rasterX, rasterY] = psthAndBA(curr_spike_times,use_stim_onsets,raster_window,psth_bin_size);
+                    mua_stim_latemove_miss(curr_depth,:,curr_condition_idx) = psth;
                 end
                 
             end
         end
         
-        batch_vars(curr_animal).mua_stim_hit(:,:,:,curr_day) = mua_stim_hit;
-        batch_vars(curr_animal).mua_stim_miss(:,:,:,curr_day) = mua_stim_miss;
-
+        batch_vars(curr_animal).mua_stim_earlymove_hit(:,:,:,curr_day) = mua_stim_earlymove_hit;
+        batch_vars(curr_animal).mua_stim_latemove_hit(:,:,:,curr_day) = mua_stim_latemove_hit;
+        
+        batch_vars(curr_animal).mua_stim_earlymove_miss(:,:,:,curr_day) = mua_stim_earlymove_miss;
+        batch_vars(curr_animal).mua_stim_latemove_miss(:,:,:,curr_day) = mua_stim_latemove_miss;
+        
         AP_print_progress_fraction(curr_day,length(experiments));
         clearvars -except animals animal curr_animal protocol experiments curr_day animal batch_vars load_parts
         
