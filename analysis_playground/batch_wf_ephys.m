@@ -318,9 +318,9 @@ for curr_animal = 1:length(animals)
     
     % Save
     save_path = ['C:\Users\Andrew\OneDrive for Business\Documents\CarandiniHarrisLab\analysis\wf_ephys_choiceworld\choiceworld'];
-    save([save_path filesep animal 'im_stim_earlymove_hit_avg'],'im_stim_earlymove_hit_avg','-v7.3');
+    save([save_path filesep animal '_im_stim_earlymove_hit_avg'],'im_stim_earlymove_hit_avg','-v7.3');
     save([save_path filesep animal '_im_stim_latemove_hit_avg'],'im_stim_latemove_hit_avg','-v7.3');
-    save([save_path filesep animal 'im_stim_earlymove_miss_avg'],'im_stim_earlymove_miss_avg','-v7.3');
+    save([save_path filesep animal '_im_stim_earlymove_miss_avg'],'im_stim_earlymove_miss_avg','-v7.3');
     save([save_path filesep animal '_im_stim_latemove_miss_avg'],'im_stim_latemove_miss_avg','-v7.3');
     
     disp(['Finished ' animal]);
@@ -445,7 +445,7 @@ save([save_path filesep 'wf_ephys_maps_' protocol],'batch_vars');
 
 disp('Finished batch');
 
-%% Batch cortex > striatum prediction by condition and depth
+%% Batch cortex > striatum prediction by condition and depth (NL fit)
 
 animals = {'AP024','AP025','AP026','AP027','AP028','AP029'};
 protocol = 'vanillaChoiceworld';
@@ -625,6 +625,172 @@ for curr_animal = 1:length(animals)
     
 end
 
+%% Batch cortex > striatum prediction by condition and depth (raw)
+
+animals = {'AP024','AP025','AP026','AP027','AP028','AP029'};
+protocol = 'vanillaChoiceworld';
+batch_vars = struct;
+
+for curr_animal = 1:length(animals)
+    
+    animal = animals{curr_animal};
+    experiments = AP_find_experiments(animal,protocol);
+    
+    disp(animal);
+    
+    experiments = experiments([experiments.imaging] & [experiments.ephys]);
+    
+    load_parts.cam = false;
+    load_parts.imaging = true;
+    load_parts.ephys = true;
+    
+    for curr_day = 1:length(experiments);
+        
+        day = experiments(curr_day).day;
+        experiment = experiments(curr_day).experiment;
+        
+        AP_load_experiment
+        conditions = unique(block.events.sessionPerformanceValues(1,:));
+
+        % Define trials to use
+        n_trials = length(block.paramsValues);
+        trial_conditions = signals_events.trialSideValues(1:n_trials).*signals_events.trialContrastValues(1:n_trials);
+        trial_outcome = signals_events.hitValues(1:n_trials)-signals_events.missValues(1:n_trials);
+        stim_to_move = padarray(wheel_move_time - stimOn_times',[0,n_trials-length(stimOn_times)],NaN,'post');
+        stim_to_feedback = padarray(signals_events.responseTimes, ...
+            [0,n_trials-length(signals_events.responseTimes)],NaN,'post') - ...
+            padarray(stimOn_times',[0,n_trials-length(stimOn_times)],NaN,'post');    
+      
+        use_trials = ...
+            trial_outcome ~= 0 & ...
+            ~signals_events.repeatTrialValues(1:n_trials) & ...
+            stim_to_feedback < 1.5;
+               
+        % Group multiunit by depth
+        n_depth_groups = 6;
+        depth_group_edges = round(linspace(str_depth(1),str_depth(2),n_depth_groups+1));
+        
+        depth_group = discretize(spikeDepths,depth_group_edges);
+        depth_groups_used = unique(depth_group);
+        depth_group_centers = depth_group_edges(1:end-1)+(diff(depth_group_edges)/2);
+        
+        % Skip the first/last n seconds for prediction
+        skip_seconds = 60*1;
+        
+        sample_rate_factor = 1;
+        sample_rate = (1/median(diff(frame_t)))*sample_rate_factor;
+        
+        time_bins = frame_t(find(frame_t > skip_seconds,1)):1/sample_rate:frame_t(find(frame_t-frame_t(end) < -skip_seconds,1,'last'));
+        time_bin_centers = time_bins(1:end-1) + diff(time_bins)/2;
+        
+        binned_spikes = zeros(length(depth_group_edges)-1,length(time_bins)-1);
+        for curr_depth = 1:length(depth_group_edges)-1
+            curr_spike_times = spike_times_timeline(depth_group == curr_depth);
+            binned_spikes(curr_depth,:) = histcounts(curr_spike_times,time_bins);
+        end
+        
+        stim_conditions = signals_events.trialContrastValues.*signals_events.trialSideValues;
+        align_times = reshape(stimOn_times,[],1);
+        
+        interval_surround = [-0.5,3];
+        t_surround = interval_surround(1):1/sample_rate:interval_surround(2);
+        t_peri_event = bsxfun(@plus,align_times,t_surround);
+        
+        % Regress spikes from cortex
+        use_svs = 1:50;
+        kernel_frames = -35:17;
+        lambda = 2e6;
+        zs = [false,true];
+        cvfold = 5;
+        
+        fVdf_resample = interp1(frame_t,fVdf(use_svs,:)',time_bin_centers)';
+        dfVdf_resample = interp1(conv(frame_t,[1,1]/2,'valid'),diff(fVdf(use_svs,:),[],2)',time_bin_centers)';
+        
+        % (to use df/f)
+        [k,predicted_spikes,explained_var] = ...
+            AP_regresskernel(fVdf_resample, ...
+            binned_spikes,kernel_frames,lambda,zs,cvfold);
+        % (to use ddf/f)
+%         [k,predicted_spikes,explained_var] = ...
+%             AP_regresskernel(dfVdf_resample, ...
+%             binned_spikes,kernel_frames,lambda,zs,cvfold);
+        
+        binned_spikes_std = std(binned_spikes,[],2);
+        binned_spikes_mean = mean(binned_spikes,2);
+        predicted_spikes_reranged = bsxfun(@plus,bsxfun(@times,predicted_spikes, ...
+            binned_spikes_std),binned_spikes_mean);        
+        
+        % Align real and predicted spikes to event
+        mua_stim_earlymove_hit = nan(n_depth_groups,length(t_surround),length(conditions));
+        mua_stim_earlymove_hit_pred = nan(n_depth_groups,length(t_surround),length(conditions));
+        
+        mua_stim_latemove_hit = nan(n_depth_groups,length(t_surround),length(conditions));
+        mua_stim_latemove_hit_pred = nan(n_depth_groups,length(t_surround),length(conditions));
+        
+        mua_stim_earlymove_miss = nan(n_depth_groups,length(t_surround),length(conditions));
+        mua_stim_earlymove_miss_pred = nan(n_depth_groups,length(t_surround),length(conditions));
+        
+        mua_stim_latemove_miss = nan(n_depth_groups,length(t_surround),length(conditions));
+        mua_stim_latemove_miss_pred = nan(n_depth_groups,length(t_surround),length(conditions));
+        
+        for curr_depth = 1:n_depth_groups
+            for curr_condition_idx = 1:length(conditions)
+                
+                curr_condition = conditions(curr_condition_idx);
+                
+                mua_stim = interp1(time_bin_centers,binned_spikes(curr_depth,:),t_peri_event);
+                mua_stim_pred = interp1(time_bin_centers,predicted_spikes_reranged(curr_depth,:),t_peri_event);
+                
+                curr_trials = use_trials & trial_conditions == curr_condition & trial_outcome == 1 & stim_to_move < 0.5;
+                if sum(curr_trials) > 5
+                    mua_stim_earlymove_hit(curr_depth,:,curr_condition_idx) = nanmean(mua_stim(curr_trials,:),1);
+                    mua_stim_earlymove_hit_pred(curr_depth,:,curr_condition_idx) = nanmean(mua_stim_pred(curr_trials,:),1);
+                end
+                
+                curr_trials = use_trials & trial_conditions == curr_condition & trial_outcome == 1 & stim_to_move >= 0.5;
+                if sum(curr_trials) > 5
+                    mua_stim_latemove_hit(curr_depth,:,curr_condition_idx) = nanmean(mua_stim(curr_trials,:),1);
+                    mua_stim_latemove_hit_pred(curr_depth,:,curr_condition_idx) = nanmean(mua_stim_pred(curr_trials,:),1);
+                end
+                
+                curr_trials = use_trials & trial_conditions == curr_condition & trial_outcome == -1 & stim_to_move < 0.5;
+                if sum(curr_trials) > 5
+                    mua_stim_earlymove_miss(curr_depth,:,curr_condition_idx) = nanmean(mua_stim(curr_trials,:),1);
+                    mua_stim_earlymove_miss_pred(curr_depth,:,curr_condition_idx) = nanmean(mua_stim_pred(curr_trials,:),1);
+                end
+                
+                curr_trials = use_trials & trial_conditions == curr_condition & trial_outcome == -1 & stim_to_move >= 0.5;
+                if sum(curr_trials) > 5
+                    mua_stim_latemove_miss(curr_depth,:,curr_condition_idx) = nanmean(mua_stim(curr_trials,:),1);
+                    mua_stim_latemove_miss_pred(curr_depth,:,curr_condition_idx) = nanmean(mua_stim_pred(curr_trials,:),1);
+                end
+            end
+        end
+        
+        % Store variables
+        batch_vars(curr_animal).mua_stim_earlymove_hit(:,:,:,curr_day) = mua_stim_earlymove_hit;
+        batch_vars(curr_animal).mua_stim_earlymove_hit_pred(:,:,:,curr_day) = mua_stim_earlymove_hit_pred;
+        
+        batch_vars(curr_animal).mua_stim_latemove_hit(:,:,:,curr_day) = mua_stim_latemove_hit;
+        batch_vars(curr_animal).mua_stim_latemove_hit_pred(:,:,:,curr_day) = mua_stim_latemove_hit_pred;
+        
+        batch_vars(curr_animal).mua_stim_earlymove_miss(:,:,:,curr_day) = mua_stim_earlymove_miss;
+        batch_vars(curr_animal).mua_stim_earlymove_miss_pred(:,:,:,curr_day) = mua_stim_earlymove_miss_pred;
+        
+        batch_vars(curr_animal).mua_stim_latemove_miss(:,:,:,curr_day) = mua_stim_latemove_miss;
+        batch_vars(curr_animal).mua_stim_latemove_miss_pred(:,:,:,curr_day) = mua_stim_latemove_miss_pred;
+                
+        AP_print_progress_fraction(curr_day,length(experiments));
+        clearvars -except animals animal curr_animal protocol experiments curr_day animal batch_vars load_parts
+        
+    end
+    
+    disp(['Finished ' animal])
+    
+end
+
+save_path = ['C:\Users\Andrew\OneDrive for Business\Documents\CarandiniHarrisLab\analysis\wf_ephys_choiceworld\choiceworld'];
+save([save_path filesep 'mua_stim_choiceworld_pred'],'batch_vars');
 
 %% Batch striatum responses to choiceworld
 

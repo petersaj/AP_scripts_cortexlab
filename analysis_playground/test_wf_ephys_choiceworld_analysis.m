@@ -1664,40 +1664,140 @@ title(protocol);
 %% Load and process cortex-predicted striatal MUA during choiceworld (stim-aligned)
 
 data_path = ['C:\Users\Andrew\OneDrive for Business\Documents\CarandiniHarrisLab\analysis\wf_ephys_choiceworld\choiceworld'];
-mua_fn = [data_path filesep 'mua_stim_pred'];
+mua_fn = [data_path filesep 'mua_stim_choiceworld_pred'];
 load(mua_fn);
 
-raster_window = [-0.5,1.5];
-psth_bin_size = 1/35;
-t = raster_window(1):psth_bin_size:raster_window(2);
-t_bins = t(1:end-1) + diff(t);
+% This smoothing window was got empirically (should be found optimally): 
+% it find the MUA smoothing which the predicted spiking gives best
+smooth_size = 15;
+gw = gausswin(smooth_size,3)';
+smWin = gw./sum(gw);
+% smWin = ones(1,10)/10;
 
-t_baseline = t_bins < 0;
+raster_window = [-0.5,3];
+t_length = size(batch_vars(1).mua_stim_earlymove_hit,2);
+t = linspace(raster_window(1),raster_window(2),t_length);
+
+n_depths = size(batch_vars(1).mua_stim_earlymove_hit,1);
+conditions = [-1,-0.5,-0.25,-0.125,-0.06,0,0.06,0.125,0.25,0.5,1];
+
+t_baseline = t < 0;
 
 softnorm = 1;
 
-mua_stim_hit_norm = cellfun(@(x) bsxfun(@rdivide,x,nanmean(x(:,t_baseline,:,:),2)+softnorm),{batch_vars(:).mua_stim_hit},'uni',false);
-mua_stim_hit_mean = cellfun(@(x) nanmean(x,4),mua_stim_hit_norm,'uni',false);
-mua_stim_hit_combined = nanmean(cat(4,mua_stim_hit_mean{:}),4);
+mua_stim_earlymove_hit_norm = cellfun(@(x) ...
+    bsxfun(@rdivide,x,nanmean(x(:,t_baseline,:,:),2)+softnorm),{batch_vars(:).mua_stim_earlymove_hit},'uni',false);
+mua_stim_earlymove_hit_mean = cellfun(@(x) nanmean(x,4),mua_stim_earlymove_hit_norm,'uni',false);
+mua_stim_earlymove_hit_combined = nanmean(cat(4,mua_stim_earlymove_hit_mean{:}),4);
 
-mua_stim_hit_pred_norm = cellfun(@(x) bsxfun(@rdivide,x,nanmean(x(:,t_baseline,:,:),2)+softnorm),{batch_vars(:).mua_stim_hit_pred},'uni',false);
-mua_stim_hit_pred_mean = cellfun(@(x) nanmean(x,4),mua_stim_hit_pred_norm,'uni',false);
-mua_stim_hit_pred_combined = nanmean(cat(4,mua_stim_hit_pred_mean{:}),4);
+mua_stim_earlymove_hit_pred_norm = cellfun(@(x) ...
+    bsxfun(@rdivide,x,nanmean(x(:,t_baseline,:,:),2)+softnorm),{batch_vars(:).mua_stim_earlymove_hit_pred},'uni',false);
+mua_stim_earlymove_hit_pred_mean = cellfun(@(x) nanmean(x,4),mua_stim_earlymove_hit_pred_norm,'uni',false);
+mua_stim_earlymove_hit_pred_combined = nanmean(cat(4,mua_stim_earlymove_hit_pred_mean{:}),4);
 
-mua_stim_miss_norm = cellfun(@(x) bsxfun(@rdivide,x,nanmean(x(:,t_baseline,:,:),2)+softnorm),{batch_vars(:).mua_stim_miss},'uni',false);
-mua_stim_miss_mean = cellfun(@(x) nanmean(x,4),mua_stim_miss_norm,'uni',false);
-mua_stim_miss_combined = nanmean(cat(4,mua_stim_miss_mean{:}),4);
+mua_stim_latemove_hit_norm = cellfun(@(x) ...
+    bsxfun(@rdivide,x,nanmean(x(:,t_baseline,:,:),2)+softnorm),{batch_vars(:).mua_stim_latemove_hit},'uni',false);
+mua_stim_latemove_hit_mean = cellfun(@(x) nanmean(x,4),mua_stim_latemove_hit_norm,'uni',false);
+mua_stim_latemove_hit_combined = nanmean(cat(4,mua_stim_latemove_hit_mean{:}),4);
 
-mua_stim_miss_pred_norm = cellfun(@(x) bsxfun(@rdivide,x,nanmean(x(:,t_baseline,:,:),2)+softnorm),{batch_vars(:).mua_stim_miss_pred},'uni',false);
-mua_stim_miss_pred_mean = cellfun(@(x) nanmean(x,4),mua_stim_miss_pred_norm,'uni',false);
-mua_stim_miss_pred_combined = nanmean(cat(4,mua_stim_miss_pred_mean{:}),4);
+mua_stim_latemove_hit_pred_norm = cellfun(@(x) ...
+    bsxfun(@rdivide,x,nanmean(x(:,t_baseline,:,:),2)+softnorm),{batch_vars(:).mua_stim_latemove_hit_pred},'uni',false);
+mua_stim_latemove_hit_pred_mean = cellfun(@(x) nanmean(x,4),mua_stim_latemove_hit_pred_norm,'uni',false);
+mua_stim_latemove_hit_pred_combined = nanmean(cat(4,mua_stim_latemove_hit_pred_mean{:}),4);
 
-figure; hold on
-AP_stackplot(squeeze(mua_stim_hit_combined(1,:,:)),t,5,true,'k');
-AP_stackplot(squeeze(mua_stim_hit_pred_combined(1,:,:)),t,5,true,'r');
+mua_stim_earlymove_miss_norm = cellfun(@(x) ...
+    bsxfun(@rdivide,x,nanmean(x(:,t_baseline,:,:),2)+softnorm),{batch_vars(:).mua_stim_earlymove_miss},'uni',false);
+mua_stim_earlymove_miss_mean = cellfun(@(x) nanmean(x,4),mua_stim_earlymove_miss_norm,'uni',false);
+mua_stim_earlymove_miss_combined = nanmean(cat(4,mua_stim_earlymove_miss_mean{:}),4);
+
+mua_stim_earlymove_miss_pred_norm = cellfun(@(x) ...
+    bsxfun(@rdivide,x,nanmean(x(:,t_baseline,:,:),2)+softnorm),{batch_vars(:).mua_stim_earlymove_miss_pred},'uni',false);
+mua_stim_earlymove_miss_pred_mean = cellfun(@(x) nanmean(x,4),mua_stim_earlymove_miss_pred_norm,'uni',false);
+mua_stim_earlymove_miss_pred_combined = nanmean(cat(4,mua_stim_earlymove_miss_pred_mean{:}),4);
+
+mua_stim_latemove_miss_norm = cellfun(@(x) ...
+    bsxfun(@rdivide,x,nanmean(x(:,t_baseline,:,:),2)+softnorm),{batch_vars(:).mua_stim_latemove_miss},'uni',false);
+mua_stim_latemove_miss_mean = cellfun(@(x) nanmean(x,4),mua_stim_latemove_miss_norm,'uni',false);
+mua_stim_latemove_miss_combined = nanmean(cat(4,mua_stim_latemove_miss_mean{:}),4);
+
+mua_stim_latemove_miss_pred_norm = cellfun(@(x) ...
+    bsxfun(@rdivide,x,nanmean(x(:,t_baseline,:,:),2)+softnorm),{batch_vars(:).mua_stim_latemove_miss_pred},'uni',false);
+mua_stim_latemove_miss_pred_mean = cellfun(@(x) nanmean(x,4),mua_stim_latemove_miss_pred_norm,'uni',false);
+mua_stim_latemove_miss_pred_combined = nanmean(cat(4,mua_stim_latemove_miss_pred_mean{:}),4);
+
+% Plot condition by depth
+figure; 
+subplot(1,2,1); hold on
+p1 = AP_stackplot(conv2(squeeze(mua_stim_earlymove_hit_combined(1,:,:)),smWin','same'),t,5,true,'k',conditions);
+p2 = AP_stackplot(squeeze(mua_stim_earlymove_hit_pred_combined(1,:,:)),t,5,true,'r',conditions);
+line([0,0],ylim,'color','k','linestyle','--');
+line([0.5,0.5],ylim,'color','k','linestyle','--');
 xlabel('Time from stim onset');
 ylabel('MUA depth 1')
 legend([p1(1),p2(1)],{'Real','Predicted'});
+title('Early move');
+
+subplot(1,2,2); hold on
+p1 = AP_stackplot(conv2(squeeze(mua_stim_latemove_hit_combined(1,:,:)),smWin','same'),t,5,true,'k',conditions);
+p2 = AP_stackplot(squeeze(mua_stim_latemove_hit_pred_combined(1,:,:)),t,5,true,'r',conditions);
+line([0,0],ylim,'color','k','linestyle','--');
+line([0.5,0.5],ylim,'color','k','linestyle','--');
+xlabel('Time from stim onset');
+ylabel('MUA depth 1')
+legend([p1(1),p2(1)],{'Real','Predicted'});
+title('Late move');
+
+figure; 
+subplot(1,2,1); hold on
+p1 = AP_stackplot(conv2(squeeze(mua_stim_earlymove_miss_combined(1,:,:)),smWin','same'),t,5,true,'b',conditions);
+p2 = AP_stackplot(squeeze(mua_stim_earlymove_miss_pred_combined(1,:,:)),t,5,true,'m',conditions);
+line([0,0],ylim,'color','k','linestyle','--');
+line([0.5,0.5],ylim,'color','k','linestyle','--');
+xlabel('Time from stim onset');
+ylabel('MUA depth 1')
+legend([p1(1),p2(1)],{'Real','Predicted'});
+title('Early move');
+
+subplot(1,2,2); hold on
+p1 = AP_stackplot(conv2(squeeze(mua_stim_latemove_miss_combined(1,:,:)),smWin','same'),t,5,true,'k',conditions);
+p2 = AP_stackplot(squeeze(mua_stim_latemove_miss_pred_combined(1,:,:)),t,5,true,'r',conditions);
+line([0,0],ylim,'color','k','linestyle','--');
+line([0.5,0.5],ylim,'color','k','linestyle','--');
+xlabel('Time from stim onset');
+ylabel('MUA depth 1')
+legend([p1(1),p2(1)],{'Real','Predicted'});
+title('Late move');
+
+% Plot depth by condition
+figure; 
+subplot(1,2,1); hold on
+p1 = AP_stackplot(conv2(squeeze(mua_stim_earlymove_hit_combined(:,:,1))',smWin','same'),t,5,true,'k',1:n_depths);
+p2 = AP_stackplot(squeeze(mua_stim_earlymove_hit_pred_combined(:,:,1))',t,5,true,'r',1:n_depths);
+line([0,0],ylim,'color','k','linestyle','--');
+line([0.5,0.5],ylim,'color','k','linestyle','--');
+xlabel('Time from stim onset');
+ylabel('MUA depth 1')
+legend([p1(1),p2(1)],{'Real','Predicted'});
+title('Early move');
+
+subplot(1,2,2); hold on
+p1 = AP_stackplot(conv2(squeeze(mua_stim_latemove_hit_combined(:,:,1))',smWin','same'),t,5,true,'k',1:n_depths);
+p2 = AP_stackplot(squeeze(mua_stim_latemove_hit_pred_combined(:,:,1))',t,5,true,'r',1:n_depths);
+line([0,0],ylim,'color','k','linestyle','--');
+line([0.5,0.5],ylim,'color','k','linestyle','--');
+xlabel('Time from stim onset');
+ylabel('MUA depth 1')
+legend([p1(1),p2(1)],{'Real','Predicted'});
+title('Late move');
+
+
+
+
+
+
+
+
+
 
 
 

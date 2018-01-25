@@ -2,7 +2,8 @@ function [k,predicted_signals,explained_var] = AP_regresskernel(regressors,signa
 % [k,predicted_signals,explained_var] = AP_regresskernel(regressors,signals,t_shifts,lambdas,zs,cvfold)
 %
 % Linear regression of kernel from regressors to outputs
-% 
+% (note constant term is included and used for prediction, but not output) 
+%
 % Inputs:
 % regressors - dim x time
 % signals - dim x time, one kernel will be returned for each dim
@@ -83,8 +84,11 @@ else
     ridge_matrix = [];
 end
 
+% Prepare column of 1's to have a constant term
+constant = ones(size(regressor_design,1)+size(ridge_matrix,1),1);
+
 % Send everything to the GPU
-regressors_gpu = gpuArray([regressor_design;ridge_matrix]);
+regressors_gpu = gpuArray([[regressor_design;ridge_matrix],constant]);
 signals_gpu = gpuArray([signals';zeros(length(ridge_matrix),size(signals,1))]);
 
 % Regression (and cross validation if selected)
@@ -146,8 +150,8 @@ if length(regressors) > 1
         bsxfun(@minus,sse_signals,sse_partial_residual)),(sse_signals - sse_total_residual));
 end
 
-% Get the final k from averaging
-k = mean(k_cv,3);
+% Get the final k from averaging (remove the constant term)
+k = mean(k_cv(1:end-1,:,:),3);
 
 
 
