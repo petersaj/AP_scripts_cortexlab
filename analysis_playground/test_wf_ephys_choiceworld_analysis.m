@@ -1201,6 +1201,7 @@ ddf_latemove_miss = diff(im_stim_latemove_miss_avg_combined,[],3);
 ddf_latemove_miss(ddf_latemove_miss < 0) = 0;
 clear im_stim_latemove_miss_avg_combined
 
+% Plot contrast response functions across the cortex
 r_earlymove = nan(size(ddf_earlymove_hit,1),size(ddf_earlymove_hit,2),size(ddf_earlymove_hit,3));
 l_earlymove = nan(size(ddf_earlymove_hit,1),size(ddf_earlymove_hit,2),size(ddf_earlymove_hit,3));
 
@@ -1234,11 +1235,20 @@ end
 AP_image_scroll([r_earlymove-l_earlymove,r_latemove-l_latemove],t_surround);
 axis image; colormap(colormap_BlueWhiteRed);
 
+% Plot stim/decision difference
+decision_earlymove_diff = ddf_earlymove_hit(:,:,:,7:end)-ddf_earlymove_miss(:,:,:,7:end);
+stim_earlymove_diff = ddf_earlymove_hit(:,:,:,7:end)-ddf_earlymove_miss(:,:,:,5:-1:1);
+stim_decision_earlymove_diff = nanmean(abs(stim_earlymove_diff)-abs(decision_earlymove_diff),4);
 
-vis_t = t_surround > 0 & t_surround < 0.2;
-vis_response_hit = squeeze(max(ddf_earlymove_hit(:,:,vis_t,:),[],3));
-vis_response_miss = squeeze(max(ddf_earlymove_miss(:,:,vis_t,:),[],3));
-vis_response = cat(4,vis_response_hit,vis_response_miss);
+decision_latemove_diff = ddf_latemove_hit(:,:,:,7:end)-ddf_latemove_miss(:,:,:,7:end);
+stim_latemove_diff = ddf_latemove_hit(:,:,:,7:end)-ddf_latemove_miss(:,:,:,5:-1:1);
+stim_decision_latemove_diff = nanmean(abs(stim_latemove_diff)-abs(decision_latemove_diff),4);
+
+AP_image_scroll(stim_decision_earlymove_diff,t_surround);
+axis image;
+caxis([-max(abs(caxis)),max(abs(caxis))]);
+colormap(colormap_BlueWhiteRed);
+
 
 
 %% Load and process striatal MUA during choiceworld (stim-aligned)
@@ -1362,24 +1372,26 @@ title('Late move');
 % stim_decision_latemove_diff = stim_latemove_diff-decision_latemove_diff;
 
 % this way only uses conditions that are represented in all used cases
-decision_earlymove_diff = mua_stim_earlymove_hit_combined(:,:,7:end)-mua_stim_earlymove_miss_combined(:,:,7:end);
 stim_earlymove_diff = mua_stim_earlymove_hit_combined(:,:,7:end)-mua_stim_earlymove_miss_combined(:,:,5:-1:1);
-stim_decision_earlymove_diff = nanmean(stim_earlymove_diff-decision_earlymove_diff,3);
+decision_earlymove_diff = mua_stim_earlymove_hit_combined(:,:,7:end)-mua_stim_earlymove_miss_combined(:,:,7:end);
+stim_decision_earlymove_diff = nanmean(abs(stim_earlymove_diff)-abs(decision_earlymove_diff),3);
 
-decision_latemove_diff = mua_stim_latemove_hit_combined(:,:,7:end)-mua_stim_latemove_miss_combined(:,:,7:end);
 stim_latemove_diff = mua_stim_latemove_hit_combined(:,:,7:end)-mua_stim_latemove_miss_combined(:,:,5:-1:1);
-stim_decision_latemove_diff = nanmean(stim_latemove_diff-decision_latemove_diff,3);
+decision_latemove_diff = mua_stim_latemove_hit_combined(:,:,7:end)-mua_stim_latemove_miss_combined(:,:,7:end);
+stim_decision_latemove_diff = nanmean(abs(stim_latemove_diff)-abs(decision_latemove_diff),3);
 
 figure; trace_spacing = 10;
 subplot(1,2,1); hold on;
 pos_plot = ones(n_depths,length(t_bins)); pos_plot(stim_decision_earlymove_diff < 0) = NaN;
 neg_plot = ones(n_depths,length(t_bins)); neg_plot(stim_decision_earlymove_diff > 0) = NaN;
-p1 = AP_stackplot(stim_decision_earlymove_diff'.*pos_plot',t_bins,trace_spacing,false,'b',1:n_depths);
-p2 = AP_stackplot(stim_decision_earlymove_diff'.*neg_plot',t_bins,trace_spacing,false,'r',1:n_depths);
-ylim([0,(n_depths+1)*trace_spacing]);
+p1 = AP_stackplot(abs(nanmean(stim_earlymove_diff,3))',t_bins,trace_spacing,false,[0.5,0.5,0.5],1:n_depths);
+p2 = AP_stackplot(-abs(nanmean(decision_earlymove_diff,3))',t_bins,trace_spacing,false,[0.5,0.5,0.5],1:n_depths);
+p3 = AP_stackplot(stim_decision_earlymove_diff'.*pos_plot',t_bins,trace_spacing,false,'b',1:n_depths);
+p4 = AP_stackplot(stim_decision_earlymove_diff'.*neg_plot',t_bins,trace_spacing,false,'r',1:n_depths);
+ylim([trace_spacing/2,(n_depths+0.5)*trace_spacing]);
 line([0,0],ylim,'color','k','linestyle','--');
 line([0.5,0.5],ylim,'color','k','linestyle','--');
-legend([p1(1),p2(1)],{'Stim','Decision'})
+legend([p1(1),p3(1),p4(1)],{'Independent','Stim','Movement'})
 xlabel('Time from stim onset (s)');
 ylabel('MUA depth');
 title('Early move');
@@ -1387,12 +1399,14 @@ title('Early move');
 subplot(1,2,2); hold on;
 pos_plot = ones(n_depths,length(t_bins)); pos_plot(stim_decision_latemove_diff < 0) = NaN;
 neg_plot = ones(n_depths,length(t_bins)); neg_plot(stim_decision_latemove_diff > 0) = NaN;
-p1 = AP_stackplot(stim_decision_latemove_diff'.*pos_plot',t_bins,trace_spacing,false,'b',1:n_depths);
-p2 = AP_stackplot(stim_decision_latemove_diff'.*neg_plot',t_bins,trace_spacing,false,'r',1:n_depths);
-ylim([0,(n_depths+1)*trace_spacing]);
+p1 = AP_stackplot(abs(nanmean(stim_latemove_diff,3))',t_bins,trace_spacing,false,[0.5,0.5,0.5],1:n_depths);
+p2 = AP_stackplot(-abs(nanmean(decision_latemove_diff,3))',t_bins,trace_spacing,false,[0.5,0.5,0.5],1:n_depths);
+p3 = AP_stackplot(stim_decision_latemove_diff'.*pos_plot',t_bins,trace_spacing,false,'b',1:n_depths);
+p4 = AP_stackplot(stim_decision_latemove_diff'.*neg_plot',t_bins,trace_spacing,false,'r',1:n_depths);
+ylim([trace_spacing/2,(n_depths+0.5)*trace_spacing]);
 line([0,0],ylim,'color','k','linestyle','--');
 line([0.5,0.5],ylim,'color','k','linestyle','--');
-legend([p1(1),p2(1)],{'Stim','Decision'})
+legend([p1(1),p3(1),p4(1)],{'Independent','Stim','Movement'})
 xlabel('Time from stim onset (s)');
 ylabel('MUA depth');
 title('Late move');
@@ -1864,7 +1878,7 @@ softnorm = 1;
 mua_stim_earlymove_hit_norm = cellfun(@(x) ...
     bsxfun(@rdivide,x,nanmean(x(:,t_baseline,:,:),2)+softnorm),{batch_vars(:).mua_stim_earlymove_hit},'uni',false);
 mua_stim_earlymove_hit_mean = cellfun(@(x) nanmean(x,4),mua_stim_earlymove_hit_norm,'uni',false);
-mua_stim_earlymove_hit_combined = nanmean(cat(4,mua_stim_earlymove_hit_mean{:}),4);
+mua_stim_earlymove_hit_combined = convn(nanmean(cat(4,mua_stim_earlymove_hit_mean{:}),4),smWin,'same');
 
 mua_stim_earlymove_hit_pred_norm = cellfun(@(x) ...
     bsxfun(@rdivide,x,nanmean(x(:,t_baseline,:,:),2)+softnorm),{batch_vars(:).mua_stim_earlymove_hit_pred},'uni',false);
@@ -1874,7 +1888,7 @@ mua_stim_earlymove_hit_pred_combined = nanmean(cat(4,mua_stim_earlymove_hit_pred
 mua_stim_latemove_hit_norm = cellfun(@(x) ...
     bsxfun(@rdivide,x,nanmean(x(:,t_baseline,:,:),2)+softnorm),{batch_vars(:).mua_stim_latemove_hit},'uni',false);
 mua_stim_latemove_hit_mean = cellfun(@(x) nanmean(x,4),mua_stim_latemove_hit_norm,'uni',false);
-mua_stim_latemove_hit_combined = nanmean(cat(4,mua_stim_latemove_hit_mean{:}),4);
+mua_stim_latemove_hit_combined = convn(nanmean(cat(4,mua_stim_latemove_hit_mean{:}),4),smWin,'same');
 
 mua_stim_latemove_hit_pred_norm = cellfun(@(x) ...
     bsxfun(@rdivide,x,nanmean(x(:,t_baseline,:,:),2)+softnorm),{batch_vars(:).mua_stim_latemove_hit_pred},'uni',false);
@@ -1884,7 +1898,7 @@ mua_stim_latemove_hit_pred_combined = nanmean(cat(4,mua_stim_latemove_hit_pred_m
 mua_stim_earlymove_miss_norm = cellfun(@(x) ...
     bsxfun(@rdivide,x,nanmean(x(:,t_baseline,:,:),2)+softnorm),{batch_vars(:).mua_stim_earlymove_miss},'uni',false);
 mua_stim_earlymove_miss_mean = cellfun(@(x) nanmean(x,4),mua_stim_earlymove_miss_norm,'uni',false);
-mua_stim_earlymove_miss_combined = nanmean(cat(4,mua_stim_earlymove_miss_mean{:}),4);
+mua_stim_earlymove_miss_combined = convn(nanmean(cat(4,mua_stim_earlymove_miss_mean{:}),4),smWin,'same');
 
 mua_stim_earlymove_miss_pred_norm = cellfun(@(x) ...
     bsxfun(@rdivide,x,nanmean(x(:,t_baseline,:,:),2)+softnorm),{batch_vars(:).mua_stim_earlymove_miss_pred},'uni',false);
@@ -1894,7 +1908,7 @@ mua_stim_earlymove_miss_pred_combined = nanmean(cat(4,mua_stim_earlymove_miss_pr
 mua_stim_latemove_miss_norm = cellfun(@(x) ...
     bsxfun(@rdivide,x,nanmean(x(:,t_baseline,:,:),2)+softnorm),{batch_vars(:).mua_stim_latemove_miss},'uni',false);
 mua_stim_latemove_miss_mean = cellfun(@(x) nanmean(x,4),mua_stim_latemove_miss_norm,'uni',false);
-mua_stim_latemove_miss_combined = nanmean(cat(4,mua_stim_latemove_miss_mean{:}),4);
+mua_stim_latemove_miss_combined = convn(nanmean(cat(4,mua_stim_latemove_miss_mean{:}),4),smWin,'same');
 
 mua_stim_latemove_miss_pred_norm = cellfun(@(x) ...
     bsxfun(@rdivide,x,nanmean(x(:,t_baseline,:,:),2)+softnorm),{batch_vars(:).mua_stim_latemove_miss_pred},'uni',false);
@@ -1907,7 +1921,7 @@ trace_spacing = 0.3;
 
 figure; 
 subplot(1,4,1); hold on
-p1 = AP_stackplot(conv2(squeeze(mua_stim_earlymove_hit_combined(plot_depth,:,:)),smWin','same'),t,trace_spacing,false,'k',conditions);
+p1 = AP_stackplot(squeeze(mua_stim_earlymove_hit_combined(plot_depth,:,:)),t,trace_spacing,false,'k',conditions);
 p2 = AP_stackplot(squeeze(mua_stim_earlymove_hit_pred_combined(plot_depth,:,:)),t,trace_spacing,false,'r',conditions);
 ylim([trace_spacing,(n_conditions+2)*trace_spacing]);
 line([0,0],ylim,'color','k','linestyle','--');
@@ -1918,7 +1932,7 @@ legend([p1(1),p2(1)],{'Real','Predicted'});
 title('Early move hit');
 
 subplot(1,4,2); hold on
-p1 = AP_stackplot(conv2(squeeze(mua_stim_earlymove_miss_combined(plot_depth,:,:)),smWin','same'),t,trace_spacing,false,'k',conditions);
+p1 = AP_stackplot(squeeze(mua_stim_earlymove_miss_combined(plot_depth,:,:)),t,trace_spacing,false,'k',conditions);
 p2 = AP_stackplot(squeeze(mua_stim_earlymove_miss_pred_combined(plot_depth,:,:)),t,trace_spacing,false,'r',conditions);
 ylim([trace_spacing,(n_conditions+2)*trace_spacing]);
 line([0,0],ylim,'color','k','linestyle','--');
@@ -1929,7 +1943,7 @@ legend([p1(1),p2(1)],{'Real','Predicted'});
 title('Early move miss');
 
 subplot(1,4,3); hold on
-p1 = AP_stackplot(conv2(squeeze(mua_stim_latemove_hit_combined(plot_depth,:,:)),smWin','same'),t,trace_spacing,false,'k',conditions);
+p1 = AP_stackplot(squeeze(mua_stim_latemove_hit_combined(plot_depth,:,:)),t,trace_spacing,false,'k',conditions);
 p2 = AP_stackplot(squeeze(mua_stim_latemove_hit_pred_combined(plot_depth,:,:)),t,trace_spacing,false,'r',conditions);
 ylim([trace_spacing,(n_conditions+2)*trace_spacing]);
 line([0,0],ylim,'color','k','linestyle','--');
@@ -1940,7 +1954,7 @@ legend([p1(1),p2(1)],{'Real','Predicted'});
 title('Late move hit');
 
 subplot(1,4,4); hold on
-p1 = AP_stackplot(conv2(squeeze(mua_stim_latemove_miss_combined(plot_depth,:,:)),smWin','same'),t,trace_spacing,false,'k',conditions);
+p1 = AP_stackplot(squeeze(mua_stim_latemove_miss_combined(plot_depth,:,:)),t,trace_spacing,false,'k',conditions);
 p2 = AP_stackplot(squeeze(mua_stim_latemove_miss_pred_combined(plot_depth,:,:)),t,trace_spacing,false,'r',conditions);
 ylim([trace_spacing,(n_conditions+2)*trace_spacing]);
 line([0,0],ylim,'color','k','linestyle','--');
@@ -1956,7 +1970,7 @@ trace_spacing = 4;
 
 figure; 
 subplot(1,2,1); hold on
-p1 = AP_stackplot(conv2(squeeze(mua_stim_earlymove_hit_combined(:,:,plot_condition))',smWin','same'),t,trace_spacing,false,'k',1:n_depths);
+p1 = AP_stackplot(squeeze(mua_stim_earlymove_hit_combined(:,:,plot_condition))',t,trace_spacing,false,'k',1:n_depths);
 p2 = AP_stackplot(squeeze(mua_stim_earlymove_hit_pred_combined(:,:,plot_condition))',t,trace_spacing,false,'r',1:n_depths);
 ylim([trace_spacing,(n_depths+1)*trace_spacing]);
 line([0,0],ylim,'color','k','linestyle','--');
@@ -1967,7 +1981,7 @@ legend([p1(1),p2(1)],{'Real','Predicted'});
 title('Early move');
 
 subplot(1,2,2); hold on
-p1 = AP_stackplot(conv2(squeeze(mua_stim_latemove_hit_combined(:,:,plot_condition))',smWin','same'),t,trace_spacing,false,'k',1:n_depths);
+p1 = AP_stackplot(squeeze(mua_stim_latemove_hit_combined(:,:,plot_condition))',t,trace_spacing,false,'k',1:n_depths);
 p2 = AP_stackplot(squeeze(mua_stim_latemove_hit_pred_combined(:,:,plot_condition))',t,trace_spacing,false,'r',1:n_depths);
 ylim([trace_spacing,(n_depths+1)*trace_spacing]);
 line([0,0],ylim,'color','k','linestyle','--');
@@ -1977,10 +1991,83 @@ ylabel(['MUA depth (condition ' num2str(plot_condition) ')'])
 legend([p1(1),p2(1)],{'Real','Predicted'});
 title('Late move');
 
+% Stim vs. movement tuning
+stim_earlymove_diff = mua_stim_earlymove_hit_combined(:,:,7:end)-mua_stim_earlymove_miss_combined(:,:,5:-1:1);
+decision_earlymove_diff = mua_stim_earlymove_hit_combined(:,:,7:end)-mua_stim_earlymove_miss_combined(:,:,7:end);
+stim_decision_earlymove_diff = nanmean(abs(stim_earlymove_diff)-abs(decision_earlymove_diff),3);
 
+stim_earlymove_pred_diff = mua_stim_earlymove_hit_pred_combined(:,:,7:end)-mua_stim_earlymove_miss_pred_combined(:,:,5:-1:1);
+decision_earlymove_pred_diff = mua_stim_earlymove_hit_pred_combined(:,:,7:end)-mua_stim_earlymove_miss_pred_combined(:,:,7:end);
+stim_decision_earlymove_pred_diff = nanmean(abs(stim_earlymove_pred_diff)-abs(decision_earlymove_pred_diff),3);
 
+stim_latemove_diff = mua_stim_latemove_hit_combined(:,:,7:end)-mua_stim_latemove_miss_combined(:,:,5:-1:1);
+decision_latemove_diff = mua_stim_latemove_hit_combined(:,:,7:end)-mua_stim_latemove_miss_combined(:,:,7:end);
+stim_decision_latemove_diff = nanmean(abs(stim_latemove_diff)-abs(decision_latemove_diff),3);
 
+stim_latemove_pred_diff = mua_stim_latemove_hit_pred_combined(:,:,7:end)-mua_stim_latemove_miss_pred_combined(:,:,5:-1:1);
+decision_latemove_pred_diff = mua_stim_latemove_hit_pred_combined(:,:,7:end)-mua_stim_latemove_miss_pred_combined(:,:,7:end);
+stim_decision_latemove_pred_diff = nanmean(abs(stim_latemove_pred_diff)-abs(decision_latemove_pred_diff),3);
 
+figure; trace_spacing = 3;
+subplot(1,4,1); hold on;
+pos_plot = ones(n_depths,length(t)); pos_plot(stim_decision_earlymove_diff < 0) = NaN;
+neg_plot = ones(n_depths,length(t)); neg_plot(stim_decision_earlymove_diff > 0) = NaN;
+p1 = AP_stackplot(abs(nanmean(stim_earlymove_diff,3))',t,trace_spacing,false,[0.5,0.5,0.5],1:n_depths);
+p2 = AP_stackplot(-abs(nanmean(decision_earlymove_diff,3))',t,trace_spacing,false,[0.5,0.5,0.5],1:n_depths);
+p3 = AP_stackplot(stim_decision_earlymove_diff'.*pos_plot',t,trace_spacing,false,'b',1:n_depths);
+p4 = AP_stackplot(stim_decision_earlymove_diff'.*neg_plot',t,trace_spacing,false,'r',1:n_depths);
+ylim([trace_spacing/2,(n_depths+0.5)*trace_spacing]);
+line([0,0],ylim,'color','k','linestyle','--');
+line([0.5,0.5],ylim,'color','k','linestyle','--');
+legend([p1(1),p3(1),p4(1)],{'Independent','Stim','Movement'})
+xlabel('Time from stim onset (s)');
+ylabel('MUA depth');
+title('Early move');
+
+subplot(1,4,2); hold on;
+pos_plot = ones(n_depths,length(t)); pos_plot(stim_decision_earlymove_pred_diff < 0) = NaN;
+neg_plot = ones(n_depths,length(t)); neg_plot(stim_decision_earlymove_pred_diff > 0) = NaN;
+p1 = AP_stackplot(abs(nanmean(stim_earlymove_pred_diff,3))',t,trace_spacing,false,[0.5,0.5,0.5],1:n_depths);
+p2 = AP_stackplot(-abs(nanmean(decision_earlymove_pred_diff,3))',t,trace_spacing,false,[0.5,0.5,0.5],1:n_depths);
+p3 = AP_stackplot(stim_decision_earlymove_pred_diff'.*pos_plot',t,trace_spacing,false,'b',1:n_depths);
+p4 = AP_stackplot(stim_decision_earlymove_pred_diff'.*neg_plot',t,trace_spacing,false,'r',1:n_depths);
+ylim([trace_spacing/2,(n_depths+0.5)*trace_spacing]);
+line([0,0],ylim,'color','k','linestyle','--');
+line([0.5,0.5],ylim,'color','k','linestyle','--');
+legend([p1(1),p3(1),p4(1)],{'Independent','Stim','Movement'})
+xlabel('Time from stim onset (s)');
+ylabel('MUA depth');
+title('Early move predicted');
+
+subplot(1,4,3); hold on;
+pos_plot = ones(n_depths,length(t)); pos_plot(stim_decision_latemove_diff < 0) = NaN;
+neg_plot = ones(n_depths,length(t)); neg_plot(stim_decision_latemove_diff > 0) = NaN;
+p1 = AP_stackplot(abs(nanmean(stim_latemove_diff,3))',t,trace_spacing,false,[0.5,0.5,0.5],1:n_depths);
+p2 = AP_stackplot(-abs(nanmean(decision_latemove_diff,3))',t,trace_spacing,false,[0.5,0.5,0.5],1:n_depths);
+p3 = AP_stackplot(stim_decision_latemove_diff'.*pos_plot',t,trace_spacing,false,'b',1:n_depths);
+p4 = AP_stackplot(stim_decision_latemove_diff'.*neg_plot',t,trace_spacing,false,'r',1:n_depths);
+ylim([trace_spacing/2,(n_depths+0.5)*trace_spacing]);
+line([0,0],ylim,'color','k','linestyle','--');
+line([0.5,0.5],ylim,'color','k','linestyle','--');
+legend([p1(1),p3(1),p4(1)],{'Independent','Stim','Movement'})
+xlabel('Time from stim onset (s)');
+ylabel('MUA depth');
+title('Late move');
+
+subplot(1,4,4); hold on;
+pos_plot = ones(n_depths,length(t)); pos_plot(stim_decision_latemove_pred_diff < 0) = NaN;
+neg_plot = ones(n_depths,length(t)); neg_plot(stim_decision_latemove_pred_diff > 0) = NaN;
+p1 = AP_stackplot(abs(nanmean(stim_latemove_pred_diff,3))',t,trace_spacing,false,[0.5,0.5,0.5],1:n_depths);
+p2 = AP_stackplot(-abs(nanmean(decision_latemove_pred_diff,3))',t,trace_spacing,false,[0.5,0.5,0.5],1:n_depths);
+p3 = AP_stackplot(stim_decision_latemove_pred_diff'.*pos_plot',t,trace_spacing,false,'b',1:n_depths);
+p4 = AP_stackplot(stim_decision_latemove_pred_diff'.*neg_plot',t,trace_spacing,false,'r',1:n_depths);
+ylim([trace_spacing/2,(n_depths+0.5)*trace_spacing]);
+line([0,0],ylim,'color','k','linestyle','--');
+line([0.5,0.5],ylim,'color','k','linestyle','--');
+legend([p1(1),p3(1),p4(1)],{'Independent','Stim','Movement'})
+xlabel('Time from stim onset (s)');
+ylabel('MUA depth');
+title('Late move predicted');
 
 
 
