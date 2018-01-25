@@ -852,8 +852,6 @@ axis off
 
 %% Sparse noise retinotopy (bootstrap across trials to get less noise)
 
-% TO DO HERE: use pagefun or bsxfun on GPU for all pixels quickly?
-
 [Uy,Ux,nSV] = size(U);
 
 myScreenInfo.windowPtr = NaN; % so we can call the stimulus generation and it won't try to display anything
@@ -956,8 +954,8 @@ for px_y = 1:ny;
 end
 
 % Get position preference for every pixel
-U_downsample_factor = 1; %2
-screen_resize_scale = 1; %3
+U_downsample_factor = 1; %2 if max method
+screen_resize_scale = 1; %3 if max method
 filter_sigma = (screen_resize_scale*2);
 
 % Downsample U
@@ -1016,7 +1014,7 @@ end
 
 vfs_median = imgaussfilt(nanmedian(vfs_boot,3),2);
 
-figure;
+figure('Name',animal);
 ax1 = axes;
 subplot(1,2,1,ax1);
 imagesc(vfs_median);

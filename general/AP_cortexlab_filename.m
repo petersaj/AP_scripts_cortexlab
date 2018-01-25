@@ -62,6 +62,12 @@ switch file
         filepath = '\\zserver.cortexlab.net\Data\expInfo';
         filename = [filepath filesep animal filesep day filesep experiment ...
             filesep day '_' experiment '_' animal '_Timeline.mat'];
+        % CHECK DATA2 IF IT DOESN'T EXIST
+        if ~exist(filename,'file')
+            filepath = '\\zserver.cortexlab.net\Data2\Subjects';
+            filename = [filepath filesep animal filesep day filesep experiment ...
+                filesep day '_' experiment '_' animal '_Timeline.mat'];
+        end
         
     case 'block'
         filepath = '\\zserver.cortexlab.net\Data\expInfo';
@@ -130,6 +136,11 @@ switch file
     case 'imaging'
         filepath = '\\zserver.cortexlab.net\Data\Subjects';
         filename = [filepath filesep animal filesep day site_dir filesep];
+        % CHECK DATA2 IF IT DOESN'T EXIST
+        if ~exist(filename,'file')
+            filepath = '\\zserver.cortexlab.net\Data2\Subjects';
+            filename = [filepath filesep animal filesep day site_dir filesep];
+        end
         
     case 'ephys'
         filepath = '\\zserver.cortexlab.net\Data\Subjects';

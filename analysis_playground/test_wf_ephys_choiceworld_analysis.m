@@ -1082,40 +1082,84 @@ ddf_im = nanmean(cat(5,ddf_im{:}),5);
 %% Make batch widefield choiceworld mean
 
 clear all
+disp('Early move hit');
 animals = {'AP024','AP025','AP026','AP027','AP028','AP029'};
 data_path = 'C:\Users\Andrew\OneDrive for Business\Documents\CarandiniHarrisLab\analysis\wf_ephys_choiceworld\choiceworld';
-im_stim_hit_avg_combined = zeros(437,416,194,11);
+im_stim_earlymove_hit_avg_combined = zeros(437,416,194,11);
 n_conditions = [];
 for curr_animal = 1:length(animals) 
     animal = animals{curr_animal};
-    fn = [data_path filesep animal '_im_stim_hit_avg.mat'];
+    fn = [data_path filesep animal '_im_stim_earlymove_hit_avg.mat'];
     load(fn);
     
-    im_stim_hit_avg_combined = nansum(cat(5,im_stim_hit_avg_combined,im_stim_hit_avg),5); 
-    n_conditions = sum(cat(5,n_conditions,any(any(any(im_stim_hit_avg,1),2),3)),5);
+    im_stim_earlymove_hit_avg_combined = nansum(cat(5,im_stim_earlymove_hit_avg_combined,im_stim_earlymove_hit_avg),5); 
+    n_conditions = sum(cat(5,n_conditions,any(any(any(im_stim_earlymove_hit_avg,1),2),3)),5);
     AP_print_progress_fraction(curr_animal,length(animals));
 end
-im_stim_hit_avg_combined = bsxfun(@rdivide,im_stim_hit_avg_combined,n_conditions);
-save_fn = [data_path filesep 'im_stim_hit_avg_combined.mat'];
-save(save_fn,'im_stim_hit_avg_combined','-v7.3');
+im_stim_earlymove_hit_avg_combined = bsxfun(@rdivide,im_stim_earlymove_hit_avg_combined,n_conditions);
+save_fn = [data_path filesep 'im_stim_earlymove_hit_avg_combined.mat'];
+save(save_fn,'im_stim_earlymove_hit_avg_combined','-v7.3');
+disp('Done')
 
 clear all
+disp('Late move hit');
 animals = {'AP024','AP025','AP026','AP027','AP028','AP029'};
 data_path = 'C:\Users\Andrew\OneDrive for Business\Documents\CarandiniHarrisLab\analysis\wf_ephys_choiceworld\choiceworld';
-im_stim_miss_avg_combined = zeros(437,416,194,11);
+im_stim_latemove_hit_avg_combined = zeros(437,416,194,11);
+n_conditions = [];
+for curr_animal = 1:length(animals) 
+    animal = animals{curr_animal};
+    fn = [data_path filesep animal '_im_stim_latemove_hit_avg.mat'];
+    load(fn);
+    
+    im_stim_latemove_hit_avg_combined = nansum(cat(5,im_stim_latemove_hit_avg_combined,im_stim_latemove_hit_avg),5); 
+    n_conditions = sum(cat(5,n_conditions,any(any(any(im_stim_latemove_hit_avg,1),2),3)),5);
+    AP_print_progress_fraction(curr_animal,length(animals));
+end
+im_stim_latemove_hit_avg_combined = bsxfun(@rdivide,im_stim_latemove_hit_avg_combined,n_conditions);
+save_fn = [data_path filesep 'im_stim_latemove_hit_avg_combined.mat'];
+save(save_fn,'im_stim_latemove_hit_avg_combined','-v7.3');
+disp('Done')
+
+clear all
+disp('Early move miss');
+animals = {'AP024','AP025','AP026','AP027','AP028','AP029'};
+data_path = 'C:\Users\Andrew\OneDrive for Business\Documents\CarandiniHarrisLab\analysis\wf_ephys_choiceworld\choiceworld';
+im_stim_earlymove_miss_avg_combined = zeros(437,416,194,11);
 n_conditions = [];
 for curr_animal = 1:length(animals)
     animal = animals{curr_animal};
-    fn = [data_path filesep animal '_im_stim_miss_avg.mat'];
+    fn = [data_path filesep animal '_im_stim_earlymove_miss_avg.mat'];
     load(fn);
     
-    im_stim_miss_avg_combined = nansum(cat(5,im_stim_miss_avg_combined,im_stim_miss_avg),5); 
-    n_conditions = sum(cat(5,n_conditions,any(any(any(im_stim_miss_avg,1),2),3)),5);
+    im_stim_earlymove_miss_avg_combined = nansum(cat(5,im_stim_earlymove_miss_avg_combined,im_stim_earlymove_miss_avg),5); 
+    n_conditions = sum(cat(5,n_conditions,any(any(any(im_stim_earlymove_miss_avg,1),2),3)),5);
     AP_print_progress_fraction(curr_animal,length(animals));
 end
-im_stim_miss_avg_combined = bsxfun(@rdivide,im_stim_miss_avg_combined,n_conditions);
-save_fn = [data_path filesep 'im_stim_miss_avg_combined.mat'];
-save(save_fn,'im_stim_miss_avg_combined','-v7.3');
+im_stim_earlymove_miss_avg_combined = bsxfun(@rdivide,im_stim_earlymove_miss_avg_combined,n_conditions);
+save_fn = [data_path filesep 'im_stim_earlymove_miss_avg_combined.mat'];
+save(save_fn,'im_stim_earlymove_miss_avg_combined','-v7.3');
+disp('Done')
+
+clear all
+disp('Late move miss');
+animals = {'AP024','AP025','AP026','AP027','AP028','AP029'};
+data_path = 'C:\Users\Andrew\OneDrive for Business\Documents\CarandiniHarrisLab\analysis\wf_ephys_choiceworld\choiceworld';
+im_stim_latemove_miss_avg_combined = zeros(437,416,194,11);
+n_conditions = [];
+for curr_animal = 1:length(animals)
+    animal = animals{curr_animal};
+    fn = [data_path filesep animal '_im_stim_latemove_miss_avg.mat'];
+    load(fn);
+    
+    im_stim_latemove_miss_avg_combined = nansum(cat(5,im_stim_latemove_miss_avg_combined,im_stim_latemove_miss_avg),5); 
+    n_conditions = sum(cat(5,n_conditions,any(any(any(im_stim_latemove_miss_avg,1),2),3)),5);
+    AP_print_progress_fraction(curr_animal,length(animals));
+end
+im_stim_latemove_miss_avg_combined = bsxfun(@rdivide,im_stim_latemove_miss_avg_combined,n_conditions);
+save_fn = [data_path filesep 'im_stim_latemove_miss_avg_combined.mat'];
+save(save_fn,'im_stim_latemove_miss_avg_combined','-v7.3');
+disp('Done')
 
 %% Load and process widefield choiceworld mean
 
@@ -1125,43 +1169,75 @@ surround_samplerate = 1/(framerate*1);
 t_surround = surround_window(1):surround_samplerate:surround_window(2);
 conditions = [-1,-0.5,-0.25,-0.125,-0.06,0,0.06,0.125,0.25,0.5,1];
 
-hit_data_path = ['C:\Users\Andrew\OneDrive for Business\Documents\CarandiniHarrisLab\analysis\wf_ephys_choiceworld\choiceworld'];
-fn = [hit_data_path filesep 'im_stim_hit_avg_combined'];
+early_hit_data_path = ['C:\Users\Andrew\OneDrive for Business\Documents\CarandiniHarrisLab\analysis\wf_ephys_choiceworld\choiceworld'];
+fn = [early_hit_data_path filesep 'im_stim_earlymove_hit_avg_combined'];
 load(fn);
 
-miss_data_path = ['C:\Users\Andrew\OneDrive for Business\Documents\CarandiniHarrisLab\analysis\wf_ephys_choiceworld\choiceworld'];
-fn = [miss_data_path filesep 'im_stim_miss_avg_combined'];
+late_hit_data_path = ['C:\Users\Andrew\OneDrive for Business\Documents\CarandiniHarrisLab\analysis\wf_ephys_choiceworld\choiceworld'];
+fn = [late_hit_data_path filesep 'im_stim_latemove_hit_avg_combined'];
 load(fn);
 
-ddf_hit = diff(im_stim_hit_avg_combined,[],3);
-ddf_hit(ddf_hit < 0) = 0;
+early_miss_data_path = ['C:\Users\Andrew\OneDrive for Business\Documents\CarandiniHarrisLab\analysis\wf_ephys_choiceworld\choiceworld'];
+fn = [early_miss_data_path filesep 'im_stim_earlymove_miss_avg_combined'];
+load(fn);
 
-ddf_miss = diff(im_stim_miss_avg_combined,[],3);
-ddf_miss(ddf_miss < 0) = 0;
+late_miss_data_path = ['C:\Users\Andrew\OneDrive for Business\Documents\CarandiniHarrisLab\analysis\wf_ephys_choiceworld\choiceworld'];
+fn = [late_miss_data_path filesep 'im_stim_latemove_miss_avg_combined'];
+load(fn);
 
-r = nan(size(ddf_hit,1),size(ddf_hit,2),size(ddf_hit,3));
-l = nan(size(ddf_hit,1),size(ddf_hit,2),size(ddf_hit,3));
-for curr_frame = 1:size(ddf_hit,3);
-    curr_r = gpuArray(reshape(squeeze(ddf_hit(:,:,curr_frame,6:end)),[],6));
+ddf_earlymove_hit = diff(im_stim_earlymove_hit_avg_combined,[],3);
+ddf_earlymove_hit(ddf_earlymove_hit < 0) = 0;
+clear im_stim_earlymove_hit_avg_combined
+
+ddf_latemove_hit = diff(im_stim_latemove_hit_avg_combined,[],3);
+ddf_latemove_hit(ddf_latemove_hit < 0) = 0;
+clear im_stim_latemove_hit_avg_combined
+
+ddf_earlymove_miss = diff(im_stim_earlymove_miss_avg_combined,[],3);
+ddf_earlymove_miss(ddf_earlymove_miss < 0) = 0;
+clear im_stim_earlymove_miss_avg_combined
+
+ddf_latemove_miss = diff(im_stim_latemove_miss_avg_combined,[],3);
+ddf_latemove_miss(ddf_latemove_miss < 0) = 0;
+clear im_stim_latemove_miss_avg_combined
+
+r_earlymove = nan(size(ddf_earlymove_hit,1),size(ddf_earlymove_hit,2),size(ddf_earlymove_hit,3));
+l_earlymove = nan(size(ddf_earlymove_hit,1),size(ddf_earlymove_hit,2),size(ddf_earlymove_hit,3));
+
+r_latemove = nan(size(ddf_latemove_hit,1),size(ddf_latemove_hit,2),size(ddf_latemove_hit,3));
+l_latemove = nan(size(ddf_latemove_hit,1),size(ddf_latemove_hit,2),size(ddf_latemove_hit,3));
+
+for curr_frame = 1:size(ddf_earlymove_hit,3);
+    curr_r = gpuArray(reshape(squeeze(ddf_earlymove_hit(:,:,curr_frame,6:end)),[],6));
     curr_r = bsxfun(@minus,curr_r,mean(curr_r,2));
     r_fit = gather(curr_r/[1:6]);
-    r(:,:,curr_frame) = reshape(r_fit,size(ddf_hit,1),size(ddf_hit,2));
+    r_earlymove(:,:,curr_frame) = reshape(r_fit,size(ddf_earlymove_hit,1),size(ddf_earlymove_hit,2));
     
-    curr_l = gpuArray(reshape(squeeze(ddf_hit(:,:,curr_frame,6:-1:1)),[],6));
+    curr_l = gpuArray(reshape(squeeze(ddf_earlymove_hit(:,:,curr_frame,6:-1:1)),[],6));
     curr_l = bsxfun(@minus,curr_l,mean(curr_l,2));
     l_fit = gather(curr_l/[1:6]);
-    l(:,:,curr_frame) = reshape(l_fit,size(ddf_hit,1),size(ddf_hit,2));
+    l_earlymove(:,:,curr_frame) = reshape(l_fit,size(ddf_earlymove_hit,1),size(ddf_earlymove_hit,2));
     
-    AP_print_progress_fraction(curr_frame,size(ddf_hit,3));
+    curr_r = gpuArray(reshape(squeeze(ddf_latemove_hit(:,:,curr_frame,6:end)),[],6));
+    curr_r = bsxfun(@minus,curr_r,mean(curr_r,2));
+    r_fit = gather(curr_r/[1:6]);
+    r_latemove(:,:,curr_frame) = reshape(r_fit,size(ddf_latemove_hit,1),size(ddf_latemove_hit,2));
+    
+    curr_l = gpuArray(reshape(squeeze(ddf_latemove_hit(:,:,curr_frame,6:-1:1)),[],6));
+    curr_l = bsxfun(@minus,curr_l,mean(curr_l,2));
+    l_fit = gather(curr_l/[1:6]);
+    l_latemove(:,:,curr_frame) = reshape(l_fit,size(ddf_latemove_hit,1),size(ddf_latemove_hit,2));
+    
+    AP_print_progress_fraction(curr_frame,size(ddf_earlymove_hit,3));
 end
 
-AP_image_scroll(r-l);
+AP_image_scroll([r_earlymove-l_earlymove,r_latemove-l_latemove],t_surround);
 axis image; colormap(colormap_BlueWhiteRed);
 
 
 vis_t = t_surround > 0 & t_surround < 0.2;
-vis_response_hit = squeeze(max(ddf_hit(:,:,vis_t,:),[],3));
-vis_response_miss = squeeze(max(ddf_miss(:,:,vis_t,:),[],3));
+vis_response_hit = squeeze(max(ddf_earlymove_hit(:,:,vis_t,:),[],3));
+vis_response_miss = squeeze(max(ddf_earlymove_miss(:,:,vis_t,:),[],3));
 vis_response = cat(4,vis_response_hit,vis_response_miss);
 
 
@@ -1172,6 +1248,7 @@ mua_fn = [data_path filesep 'mua_stim_choiceworld'];
 load(mua_fn);
 
 conditions = [-1,-0.5,-0.25,-0.125,-0.06,0,0.06,0.125,0.25,0.5,1];
+n_conditions = length(conditions);
 n_depths = size(batch_vars(1).mua_stim_earlymove_hit,1);
 
 raster_window = [-0.5,5];
@@ -1230,6 +1307,103 @@ mua_stim_latemove_miss_combined = nanmean(cat(4,mua_stim_latemove_miss_mean{:}),
 %     legend([p1(1),p2(1)],{'Hit','Miss'});
 %     line([0,0],ylim,'color','k','linestyle','--');
 % end
+
+% Get average activity within decision
+move_right_earlymove_hit = nanmean(mua_stim_earlymove_hit_combined(:,:,1:5),3);
+move_right_earlymove_miss = nanmean(mua_stim_earlymove_miss_combined(:,:,7:end),3);
+
+move_left_earlymove_hit = nanmean(mua_stim_earlymove_hit_combined(:,:,7:end),3);
+move_left_earlymove_miss = nanmean(mua_stim_earlymove_miss_combined(:,:,1:5),3);
+
+move_right_latemove_hit = nanmean(mua_stim_latemove_hit_combined(:,:,1:5),3);
+move_right_latemove_miss = nanmean(mua_stim_latemove_miss_combined(:,:,7:end),3);
+
+move_left_latemove_hit = nanmean(mua_stim_latemove_hit_combined(:,:,7:end),3);
+move_left_latemove_miss = nanmean(mua_stim_latemove_miss_combined(:,:,1:5),3);
+
+% (plot decision by depth)
+figure; trace_spacing = 6;
+
+subplot(1,2,1);hold on;
+p1 = AP_stackplot(move_right_earlymove_hit',t_bins,trace_spacing,false,'b',1:n_depths);
+p2 = AP_stackplot(move_right_earlymove_miss',t_bins,trace_spacing,false,[0.7,0.7,1],1:n_depths);
+p3 = AP_stackplot(move_left_earlymove_hit',t_bins,trace_spacing,false,'r',1:n_depths);
+p4 = AP_stackplot(move_left_earlymove_miss',t_bins,trace_spacing,false,[1,0.7,0.7],1:n_depths);
+ylim([trace_spacing,(n_depths+2)*trace_spacing]);
+line([0,0],ylim,'color','k','linestyle','--');
+line([0.5,0.5],ylim,'color','k','linestyle','--');
+xlabel('Time from stim onset (s)');
+ylabel('MUA depth');
+legend([p1(1),p2(1),p3(1),p4(1)],{'Move right hit','Move right miss','Move left hit','Move left miss'});
+title('Early move');
+
+subplot(1,2,2);hold on;
+p1 = AP_stackplot(move_right_latemove_hit',t_bins,trace_spacing,false,'b',1:n_depths);
+p2 = AP_stackplot(move_right_latemove_miss',t_bins,trace_spacing,false,[0.7,0.7,1],1:n_depths);
+p3 = AP_stackplot(move_left_latemove_hit',t_bins,trace_spacing,false,'r',1:n_depths);
+p4 = AP_stackplot(move_left_latemove_miss',t_bins,trace_spacing,false,[1,0.7,0.7],1:n_depths);
+ylim([trace_spacing,(n_depths+2)*trace_spacing]);
+line([0,0],ylim,'color','k','linestyle','--');
+line([0.5,0.5],ylim,'color','k','linestyle','--');
+xlabel('Time from stim onset (s)');
+ylabel('MUA depth');
+legend([p1(1),p2(1),p3(1),p4(1)],{'Move right hit','Move right miss','Move left hit','Move left miss'});
+title('Late move');
+
+% (plot decision difference by depth)
+
+% this probably isn't the way to do it, will include lopsided conditions
+% decision_earlymove_diff = move_left_earlymove_hit-move_right_earlymove_miss;
+% stim_earlymove_diff = move_left_earlymove_hit-move_left_earlymove_miss;
+% stim_decision_earlymove_diff = stim_earlymove_diff-decision_earlymove_diff;
+% 
+% decision_latemove_diff = move_left_latemove_hit-move_right_latemove_miss;
+% stim_latemove_diff = move_left_latemove_hit-move_left_latemove_miss;
+% stim_decision_latemove_diff = stim_latemove_diff-decision_latemove_diff;
+
+% this way only uses conditions that are represented in all used cases
+decision_earlymove_diff = mua_stim_earlymove_hit_combined(:,:,7:end)-mua_stim_earlymove_miss_combined(:,:,7:end);
+stim_earlymove_diff = mua_stim_earlymove_hit_combined(:,:,7:end)-mua_stim_earlymove_miss_combined(:,:,5:-1:1);
+stim_decision_earlymove_diff = nanmean(stim_earlymove_diff-decision_earlymove_diff,3);
+
+decision_latemove_diff = mua_stim_latemove_hit_combined(:,:,7:end)-mua_stim_latemove_miss_combined(:,:,7:end);
+stim_latemove_diff = mua_stim_latemove_hit_combined(:,:,7:end)-mua_stim_latemove_miss_combined(:,:,5:-1:1);
+stim_decision_latemove_diff = nanmean(stim_latemove_diff-decision_latemove_diff,3);
+
+figure; trace_spacing = 10;
+subplot(1,2,1); hold on;
+pos_plot = ones(n_depths,length(t_bins)); pos_plot(stim_decision_earlymove_diff < 0) = NaN;
+neg_plot = ones(n_depths,length(t_bins)); neg_plot(stim_decision_earlymove_diff > 0) = NaN;
+p1 = AP_stackplot(stim_decision_earlymove_diff'.*pos_plot',t_bins,trace_spacing,false,'b',1:n_depths);
+p2 = AP_stackplot(stim_decision_earlymove_diff'.*neg_plot',t_bins,trace_spacing,false,'r',1:n_depths);
+ylim([0,(n_depths+1)*trace_spacing]);
+line([0,0],ylim,'color','k','linestyle','--');
+line([0.5,0.5],ylim,'color','k','linestyle','--');
+legend([p1(1),p2(1)],{'Stim','Decision'})
+xlabel('Time from stim onset (s)');
+ylabel('MUA depth');
+title('Early move');
+
+subplot(1,2,2); hold on;
+pos_plot = ones(n_depths,length(t_bins)); pos_plot(stim_decision_latemove_diff < 0) = NaN;
+neg_plot = ones(n_depths,length(t_bins)); neg_plot(stim_decision_latemove_diff > 0) = NaN;
+p1 = AP_stackplot(stim_decision_latemove_diff'.*pos_plot',t_bins,trace_spacing,false,'b',1:n_depths);
+p2 = AP_stackplot(stim_decision_latemove_diff'.*neg_plot',t_bins,trace_spacing,false,'r',1:n_depths);
+ylim([0,(n_depths+1)*trace_spacing]);
+line([0,0],ylim,'color','k','linestyle','--');
+line([0.5,0.5],ylim,'color','k','linestyle','--');
+legend([p1(1),p2(1)],{'Stim','Decision'})
+xlabel('Time from stim onset (s)');
+ylabel('MUA depth');
+title('Late move');
+
+% (plot all traces from a depth on top of each other - can see decision)
+plot_depth = 4;
+figure; hold on
+set(gca,'ColorOrder',colormap_BlueWhiteRed((n_conditions-1)/2));
+p1 = plot(t_bins,squeeze(mua_stim_earlymove_hit_combined(plot_depth,:,:)),'linewidth',2);
+p2 = plot(t_bins,squeeze(mua_stim_earlymove_miss_combined(plot_depth,:,:)),'linewidth',2,'linestyle','--');
+legend([p1(1),p2(2)],{'Hit','Miss'})
 
 % (to plot all depths for left/right contrast 1)
 figure;
@@ -1472,8 +1646,8 @@ mua_feedback_miss_combined = nanmean(cat(4,mua_feedback_miss_mean{:}),4);
 for plot_depth = 1:size(mua_feedback_hit_combined,1)
     figure; hold on;
     trace_spacing = 8;
-    p1 = AP_stackplot(squeeze(mua_feedback_hit_combined(plot_depth,:,:)),t_bins,trace_spacing,true,'k',conditions);
-    p2 = AP_stackplot(squeeze(mua_feedback_miss_combined(plot_depth,:,:)),t_bins,trace_spacing,true,'r',conditions);
+    p1 = AP_stackplot(squeeze(mua_feedback_hit_combined(plot_depth,:,:)),t_bins,trace_spacing,false,'k',conditions);
+    p2 = AP_stackplot(squeeze(mua_feedback_miss_combined(plot_depth,:,:)),t_bins,trace_spacing,false,'r',conditions);
     xlabel('Time from feedback onset');
     ylabel(['MUA depth ' num2str(plot_depth)])
     legend([p1(1),p2(1)],{'Hit','Miss'});
@@ -1669,10 +1843,11 @@ load(mua_fn);
 
 % This smoothing window was got empirically (should be found optimally): 
 % it find the MUA smoothing which the predicted spiking gives best
-smooth_size = 15;
+smooth_size = 20;
 gw = gausswin(smooth_size,3)';
 smWin = gw./sum(gw);
 % smWin = ones(1,10)/10;
+% smWin = 1;
 
 raster_window = [-0.5,3];
 t_length = size(batch_vars(1).mua_stim_earlymove_hit,2);
@@ -1680,6 +1855,7 @@ t = linspace(raster_window(1),raster_window(2),t_length);
 
 n_depths = size(batch_vars(1).mua_stim_earlymove_hit,1);
 conditions = [-1,-0.5,-0.25,-0.125,-0.06,0,0.06,0.125,0.25,0.5,1];
+n_conditions = length(conditions);
 
 t_baseline = t < 0;
 
@@ -1725,68 +1901,79 @@ mua_stim_latemove_miss_pred_norm = cellfun(@(x) ...
 mua_stim_latemove_miss_pred_mean = cellfun(@(x) nanmean(x,4),mua_stim_latemove_miss_pred_norm,'uni',false);
 mua_stim_latemove_miss_pred_combined = nanmean(cat(4,mua_stim_latemove_miss_pred_mean{:}),4);
 
-% Plot condition by depth
-figure; 
-subplot(1,2,1); hold on
-p1 = AP_stackplot(conv2(squeeze(mua_stim_earlymove_hit_combined(1,:,:)),smWin','same'),t,5,true,'k',conditions);
-p2 = AP_stackplot(squeeze(mua_stim_earlymove_hit_pred_combined(1,:,:)),t,5,true,'r',conditions);
-line([0,0],ylim,'color','k','linestyle','--');
-line([0.5,0.5],ylim,'color','k','linestyle','--');
-xlabel('Time from stim onset');
-ylabel('MUA depth 1')
-legend([p1(1),p2(1)],{'Real','Predicted'});
-title('Early move');
-
-subplot(1,2,2); hold on
-p1 = AP_stackplot(conv2(squeeze(mua_stim_latemove_hit_combined(1,:,:)),smWin','same'),t,5,true,'k',conditions);
-p2 = AP_stackplot(squeeze(mua_stim_latemove_hit_pred_combined(1,:,:)),t,5,true,'r',conditions);
-line([0,0],ylim,'color','k','linestyle','--');
-line([0.5,0.5],ylim,'color','k','linestyle','--');
-xlabel('Time from stim onset');
-ylabel('MUA depth 1')
-legend([p1(1),p2(1)],{'Real','Predicted'});
-title('Late move');
-
-figure; 
-subplot(1,2,1); hold on
-p1 = AP_stackplot(conv2(squeeze(mua_stim_earlymove_miss_combined(1,:,:)),smWin','same'),t,5,true,'b',conditions);
-p2 = AP_stackplot(squeeze(mua_stim_earlymove_miss_pred_combined(1,:,:)),t,5,true,'m',conditions);
-line([0,0],ylim,'color','k','linestyle','--');
-line([0.5,0.5],ylim,'color','k','linestyle','--');
-xlabel('Time from stim onset');
-ylabel('MUA depth 1')
-legend([p1(1),p2(1)],{'Real','Predicted'});
-title('Early move');
-
-subplot(1,2,2); hold on
-p1 = AP_stackplot(conv2(squeeze(mua_stim_latemove_miss_combined(1,:,:)),smWin','same'),t,5,true,'k',conditions);
-p2 = AP_stackplot(squeeze(mua_stim_latemove_miss_pred_combined(1,:,:)),t,5,true,'r',conditions);
-line([0,0],ylim,'color','k','linestyle','--');
-line([0.5,0.5],ylim,'color','k','linestyle','--');
-xlabel('Time from stim onset');
-ylabel('MUA depth 1')
-legend([p1(1),p2(1)],{'Real','Predicted'});
-title('Late move');
-
 % Plot depth by condition
+plot_depth = 1;
+trace_spacing = 0.3;
+
 figure; 
-subplot(1,2,1); hold on
-p1 = AP_stackplot(conv2(squeeze(mua_stim_earlymove_hit_combined(:,:,1))',smWin','same'),t,5,true,'k',1:n_depths);
-p2 = AP_stackplot(squeeze(mua_stim_earlymove_hit_pred_combined(:,:,1))',t,5,true,'r',1:n_depths);
+subplot(1,4,1); hold on
+p1 = AP_stackplot(conv2(squeeze(mua_stim_earlymove_hit_combined(plot_depth,:,:)),smWin','same'),t,trace_spacing,false,'k',conditions);
+p2 = AP_stackplot(squeeze(mua_stim_earlymove_hit_pred_combined(plot_depth,:,:)),t,trace_spacing,false,'r',conditions);
+ylim([trace_spacing,(n_conditions+2)*trace_spacing]);
 line([0,0],ylim,'color','k','linestyle','--');
 line([0.5,0.5],ylim,'color','k','linestyle','--');
 xlabel('Time from stim onset');
-ylabel('MUA depth 1')
+ylabel(['Condition (MUA depth ' num2str(plot_depth) ')'])
+legend([p1(1),p2(1)],{'Real','Predicted'});
+title('Early move hit');
+
+subplot(1,4,2); hold on
+p1 = AP_stackplot(conv2(squeeze(mua_stim_earlymove_miss_combined(plot_depth,:,:)),smWin','same'),t,trace_spacing,false,'k',conditions);
+p2 = AP_stackplot(squeeze(mua_stim_earlymove_miss_pred_combined(plot_depth,:,:)),t,trace_spacing,false,'r',conditions);
+ylim([trace_spacing,(n_conditions+2)*trace_spacing]);
+line([0,0],ylim,'color','k','linestyle','--');
+line([0.5,0.5],ylim,'color','k','linestyle','--');
+xlabel('Time from stim onset');
+ylabel(['Condition (MUA depth ' num2str(plot_depth) ')'])
+legend([p1(1),p2(1)],{'Real','Predicted'});
+title('Early move miss');
+
+subplot(1,4,3); hold on
+p1 = AP_stackplot(conv2(squeeze(mua_stim_latemove_hit_combined(plot_depth,:,:)),smWin','same'),t,trace_spacing,false,'k',conditions);
+p2 = AP_stackplot(squeeze(mua_stim_latemove_hit_pred_combined(plot_depth,:,:)),t,trace_spacing,false,'r',conditions);
+ylim([trace_spacing,(n_conditions+2)*trace_spacing]);
+line([0,0],ylim,'color','k','linestyle','--');
+line([0.5,0.5],ylim,'color','k','linestyle','--');
+xlabel('Time from stim onset');
+ylabel(['Condition (MUA depth ' num2str(plot_depth) ')'])
+legend([p1(1),p2(1)],{'Real','Predicted'});
+title('Late move hit');
+
+subplot(1,4,4); hold on
+p1 = AP_stackplot(conv2(squeeze(mua_stim_latemove_miss_combined(plot_depth,:,:)),smWin','same'),t,trace_spacing,false,'k',conditions);
+p2 = AP_stackplot(squeeze(mua_stim_latemove_miss_pred_combined(plot_depth,:,:)),t,trace_spacing,false,'r',conditions);
+ylim([trace_spacing,(n_conditions+2)*trace_spacing]);
+line([0,0],ylim,'color','k','linestyle','--');
+line([0.5,0.5],ylim,'color','k','linestyle','--');
+xlabel('Time from stim onset');
+ylabel(['Condition (MUA depth ' num2str(plot_depth) ')'])
+legend([p1(1),p2(1)],{'Real','Predicted'});
+title('Late move miss');
+
+% Plot condition by depth 
+plot_condition = 11;
+trace_spacing = 4;
+
+figure; 
+subplot(1,2,1); hold on
+p1 = AP_stackplot(conv2(squeeze(mua_stim_earlymove_hit_combined(:,:,plot_condition))',smWin','same'),t,trace_spacing,false,'k',1:n_depths);
+p2 = AP_stackplot(squeeze(mua_stim_earlymove_hit_pred_combined(:,:,plot_condition))',t,trace_spacing,false,'r',1:n_depths);
+ylim([trace_spacing,(n_depths+1)*trace_spacing]);
+line([0,0],ylim,'color','k','linestyle','--');
+line([0.5,0.5],ylim,'color','k','linestyle','--');
+xlabel('Time from stim onset');
+ylabel(['MUA depth (condition ' num2str(plot_condition) ')'])
 legend([p1(1),p2(1)],{'Real','Predicted'});
 title('Early move');
 
 subplot(1,2,2); hold on
-p1 = AP_stackplot(conv2(squeeze(mua_stim_latemove_hit_combined(:,:,1))',smWin','same'),t,5,true,'k',1:n_depths);
-p2 = AP_stackplot(squeeze(mua_stim_latemove_hit_pred_combined(:,:,1))',t,5,true,'r',1:n_depths);
+p1 = AP_stackplot(conv2(squeeze(mua_stim_latemove_hit_combined(:,:,plot_condition))',smWin','same'),t,trace_spacing,false,'k',1:n_depths);
+p2 = AP_stackplot(squeeze(mua_stim_latemove_hit_pred_combined(:,:,plot_condition))',t,trace_spacing,false,'r',1:n_depths);
+ylim([trace_spacing,(n_depths+1)*trace_spacing]);
 line([0,0],ylim,'color','k','linestyle','--');
 line([0.5,0.5],ylim,'color','k','linestyle','--');
 xlabel('Time from stim onset');
-ylabel('MUA depth 1')
+ylabel(['MUA depth (condition ' num2str(plot_condition) ')'])
 legend([p1(1),p2(1)],{'Real','Predicted'});
 title('Late move');
 
