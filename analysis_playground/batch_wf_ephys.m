@@ -335,10 +335,10 @@ warning('This uses -v7.3 and therefore compresses data, switch to dat in the fut
 
 animals = {'AP024','AP025','AP026','AP027','AP028','AP029'};
 
-% protocol = 'vanillaChoiceworld';
+protocol = 'vanillaChoiceworld';
 % protocol = 'stimSparseNoiseUncorrAsync';
 % protocol = 'stimKalatsky';
-protocol = 'AP_choiceWorldStimPassive';
+% protocol = 'AP_choiceWorldStimPassive';
 
 batch_vars = struct;
 for curr_animal = 1:length(animals)
@@ -426,6 +426,7 @@ for curr_animal = 1:length(animals)
         
         r_px_weight = max(r_px_max,[],3);
         
+        batch_vars(curr_animal).r_px{curr_day} = r_px;
         batch_vars(curr_animal).r_px_com{curr_day} = r_px_com;
         batch_vars(curr_animal).r_px_weight{curr_day} = r_px_weight;
         batch_vars(curr_animal).explained_var{curr_day} = explained_var.total;

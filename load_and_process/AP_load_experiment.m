@@ -629,7 +629,7 @@ if ephys_exists && load_parts.ephys
     experiment_ephys_starts = sync(acqLive_channel).timestamps(sync(acqLive_channel).values == 1);
     experiment_ephys_stops = sync(acqLive_channel).timestamps(sync(acqLive_channel).values == 0);
     
-    experiments_dir = dir(fileparts(AP_cortexlab_filename(animal,day,[],'timeline')));
+    experiments_dir = dir(AP_cortexlab_filename(animal,day,experiment,'expInfo'));
     experiment_num = experiment == cellfun(@str2num,{experiments_dir(3:end).name});
     acqlive_ephys_currexpt = [experiment_ephys_starts(experiment_num), ...
         experiment_ephys_stops(experiment_num)];

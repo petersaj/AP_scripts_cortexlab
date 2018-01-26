@@ -1185,21 +1185,39 @@ late_miss_data_path = ['C:\Users\Andrew\OneDrive for Business\Documents\Carandin
 fn = [late_miss_data_path filesep 'im_stim_latemove_miss_avg_combined'];
 load(fn);
 
+% ddf_earlymove_hit = im_stim_earlymove_hit_avg_combined;
 ddf_earlymove_hit = diff(im_stim_earlymove_hit_avg_combined,[],3);
 ddf_earlymove_hit(ddf_earlymove_hit < 0) = 0;
 clear im_stim_earlymove_hit_avg_combined
 
+% ddf_latemove_hit = im_stim_latemove_hit_avg_combined;
 ddf_latemove_hit = diff(im_stim_latemove_hit_avg_combined,[],3);
 ddf_latemove_hit(ddf_latemove_hit < 0) = 0;
 clear im_stim_latemove_hit_avg_combined
 
+% ddf_earlymove_miss = im_stim_earlymove_miss_avg_combined;
 ddf_earlymove_miss = diff(im_stim_earlymove_miss_avg_combined,[],3);
 ddf_earlymove_miss(ddf_earlymove_miss < 0) = 0;
 clear im_stim_earlymove_miss_avg_combined
 
+% ddf_latemove_miss = im_stim_latemove_miss_avg_combined;
 ddf_latemove_miss = diff(im_stim_latemove_miss_avg_combined,[],3);
 ddf_latemove_miss(ddf_latemove_miss < 0) = 0;
 clear im_stim_latemove_miss_avg_combined
+
+% % Get conditions which have data in all cases
+% % (not used at the moment - all cases have data? how??)
+% use_data_grid = ...
+%     +squeeze(~any(isnan(cat(5, ...
+%     ddf_earlymove_hit(:,:,1,7:end), ...
+%     ddf_earlymove_hit(:,:,1,5:-1:1), ...
+%     ddf_earlymove_miss(:,:,1,7:end), ...
+%     ddf_earlymove_miss(:,:,1,5:-1:1), ...
+%     ddf_latemove_hit(:,:,1,7:end), ...
+%     ddf_latemove_hit(:,:,1,5:-1:1), ...
+%     ddf_latemove_miss(:,:,1,7:end), ...
+%     ddf_latemove_miss(:,:,1,5:-1:1))),5));
+% use_data_grid(~logical(use_data_grid)) = NaN;
 
 % Plot contrast response functions across the cortex
 r_earlymove = nan(size(ddf_earlymove_hit,1),size(ddf_earlymove_hit,2),size(ddf_earlymove_hit,3));
@@ -1233,6 +1251,7 @@ for curr_frame = 1:size(ddf_earlymove_hit,3);
 end
 
 AP_image_scroll([r_earlymove-l_earlymove,r_latemove-l_latemove],t_surround);
+caxis([-max(abs(caxis)),max(abs(caxis))]);
 axis image; colormap(colormap_BlueWhiteRed);
 
 % Plot stim/decision difference
@@ -1247,7 +1266,7 @@ stim_decision_latemove_diff = nanmean(abs(stim_latemove_diff)-abs(decision_latem
 AP_image_scroll(stim_decision_earlymove_diff,t_surround);
 axis image;
 caxis([-max(abs(caxis)),max(abs(caxis))]);
-colormap(colormap_BlueWhiteRed);
+colormap(colormap_RedWhiteBlue);
 
 
 
@@ -1318,18 +1337,30 @@ mua_stim_latemove_miss_combined = nanmean(cat(4,mua_stim_latemove_miss_mean{:}),
 %     line([0,0],ylim,'color','k','linestyle','--');
 % end
 
+% Get conditions which have data in all cases
+use_data_grid = ...
+    +squeeze(~any(isnan(cat(4,mua_stim_earlymove_hit_combined(:,:,7:end), ...
+    mua_stim_earlymove_hit_combined(:,:,5:-1:1), ...
+    mua_stim_earlymove_miss_combined(:,:,7:end), ...
+    mua_stim_earlymove_miss_combined(:,:,5:-1:1), ...
+    mua_stim_latemove_hit_combined(:,:,7:end), ...
+    mua_stim_latemove_hit_combined(:,:,5:-1:1), ...
+    mua_stim_latemove_miss_combined(:,:,7:end), ...
+    mua_stim_latemove_miss_combined(:,:,5:-1:1))),4));
+use_data_grid(~logical(use_data_grid)) = NaN;
+
 % Get average activity within decision
-move_right_earlymove_hit = nanmean(mua_stim_earlymove_hit_combined(:,:,1:5),3);
-move_right_earlymove_miss = nanmean(mua_stim_earlymove_miss_combined(:,:,7:end),3);
+move_right_earlymove_hit = nanmean(mua_stim_earlymove_hit_combined(:,:,5:-1:1).*use_data_grid,3);
+move_right_earlymove_miss = nanmean(mua_stim_earlymove_miss_combined(:,:,7:end).*use_data_grid,3);
 
-move_left_earlymove_hit = nanmean(mua_stim_earlymove_hit_combined(:,:,7:end),3);
-move_left_earlymove_miss = nanmean(mua_stim_earlymove_miss_combined(:,:,1:5),3);
+move_left_earlymove_hit = nanmean(mua_stim_earlymove_hit_combined(:,:,7:end).*use_data_grid,3);
+move_left_earlymove_miss = nanmean(mua_stim_earlymove_miss_combined(:,:,5:-1:1).*use_data_grid,3);
 
-move_right_latemove_hit = nanmean(mua_stim_latemove_hit_combined(:,:,1:5),3);
-move_right_latemove_miss = nanmean(mua_stim_latemove_miss_combined(:,:,7:end),3);
+move_right_latemove_hit = nanmean(mua_stim_latemove_hit_combined(:,:,5:-1:1).*use_data_grid,3);
+move_right_latemove_miss = nanmean(mua_stim_latemove_miss_combined(:,:,7:end).*use_data_grid,3);
 
-move_left_latemove_hit = nanmean(mua_stim_latemove_hit_combined(:,:,7:end),3);
-move_left_latemove_miss = nanmean(mua_stim_latemove_miss_combined(:,:,1:5),3);
+move_left_latemove_hit = nanmean(mua_stim_latemove_hit_combined(:,:,7:end).*use_data_grid,3);
+move_left_latemove_miss = nanmean(mua_stim_latemove_miss_combined(:,:,5:-1:1).*use_data_grid,3);
 
 % (plot decision by depth)
 figure; trace_spacing = 6;
@@ -1372,12 +1403,12 @@ title('Late move');
 % stim_decision_latemove_diff = stim_latemove_diff-decision_latemove_diff;
 
 % this way only uses conditions that are represented in all used cases
-stim_earlymove_diff = mua_stim_earlymove_hit_combined(:,:,7:end)-mua_stim_earlymove_miss_combined(:,:,5:-1:1);
-decision_earlymove_diff = mua_stim_earlymove_hit_combined(:,:,7:end)-mua_stim_earlymove_miss_combined(:,:,7:end);
+stim_earlymove_diff = (mua_stim_earlymove_hit_combined(:,:,7:end)-mua_stim_earlymove_miss_combined(:,:,5:-1:1)).*use_data_grid;
+decision_earlymove_diff = (mua_stim_earlymove_hit_combined(:,:,7:end)-mua_stim_earlymove_miss_combined(:,:,7:end)).*use_data_grid;
 stim_decision_earlymove_diff = nanmean(abs(stim_earlymove_diff)-abs(decision_earlymove_diff),3);
 
-stim_latemove_diff = mua_stim_latemove_hit_combined(:,:,7:end)-mua_stim_latemove_miss_combined(:,:,5:-1:1);
-decision_latemove_diff = mua_stim_latemove_hit_combined(:,:,7:end)-mua_stim_latemove_miss_combined(:,:,7:end);
+stim_latemove_diff = (mua_stim_latemove_hit_combined(:,:,7:end)-mua_stim_latemove_miss_combined(:,:,5:-1:1)).*use_data_grid;
+decision_latemove_diff = (mua_stim_latemove_hit_combined(:,:,7:end)-mua_stim_latemove_miss_combined(:,:,7:end)).*use_data_grid;
 stim_decision_latemove_diff = nanmean(abs(stim_latemove_diff)-abs(decision_latemove_diff),3);
 
 figure; trace_spacing = 10;
@@ -1412,16 +1443,29 @@ ylabel('MUA depth');
 title('Late move');
 
 % (plot all traces from a depth on top of each other - can see decision)
-plot_depth = 4;
-figure; hold on
+plot_depth = 2;
+figure; 
+
+a1 = subplot(1,2,1); hold on
 set(gca,'ColorOrder',colormap_BlueWhiteRed((n_conditions-1)/2));
 p1 = plot(t_bins,squeeze(mua_stim_earlymove_hit_combined(plot_depth,:,:)),'linewidth',2);
 p2 = plot(t_bins,squeeze(mua_stim_earlymove_miss_combined(plot_depth,:,:)),'linewidth',2,'linestyle','--');
 legend([p1(1),p2(2)],{'Hit','Miss'})
+title('Early move');
+
+a2 = subplot(1,2,2); hold on
+set(gca,'ColorOrder',colormap_BlueWhiteRed((n_conditions-1)/2));
+p1 = plot(t_bins,squeeze(mua_stim_latemove_hit_combined(plot_depth,:,:)),'linewidth',2);
+p2 = plot(t_bins,squeeze(mua_stim_latemove_miss_combined(plot_depth,:,:)),'linewidth',2,'linestyle','--');
+legend([p1(1),p2(2)],{'Hit','Miss'})
+title('Late move');
+
+linkaxes([a1,a2],'x');
 
 % (to plot all depths for left/right contrast 1)
 figure;
 trace_spacing = 6;
+
 subplot(1,2,1); hold on;
 p1 = AP_stackplot(mua_stim_earlymove_hit_combined(:,:,1)',t_bins,trace_spacing,false,'k',1:n_depths);
 p2 = AP_stackplot(mua_stim_latemove_hit_combined(:,:,1)',t_bins,trace_spacing,false,'r',1:n_depths);
@@ -1432,6 +1476,7 @@ legend([p1(1),p2(1)],{'Early move','Late move'});
 xlabel('Time from stim onset (s)')
 ylabel('Striatum depth')
 title('Left Contrast 1')
+
 subplot(1,2,2); hold on;
 p1 = AP_stackplot(mua_stim_earlymove_hit_combined(:,:,11)',t_bins,trace_spacing,false,'k',1:n_depths);
 p2 = AP_stackplot(mua_stim_latemove_hit_combined(:,:,11)',t_bins,trace_spacing,false,'r',1:n_depths);
@@ -1915,6 +1960,18 @@ mua_stim_latemove_miss_pred_norm = cellfun(@(x) ...
 mua_stim_latemove_miss_pred_mean = cellfun(@(x) nanmean(x,4),mua_stim_latemove_miss_pred_norm,'uni',false);
 mua_stim_latemove_miss_pred_combined = nanmean(cat(4,mua_stim_latemove_miss_pred_mean{:}),4);
 
+% Get conditions which have data in all cases
+use_data_grid = ...
+    +squeeze(~any(isnan(cat(4,mua_stim_earlymove_hit_combined(:,:,7:end), ...
+    mua_stim_earlymove_hit_combined(:,:,5:-1:1), ...
+    mua_stim_earlymove_miss_combined(:,:,7:end), ...
+    mua_stim_earlymove_miss_combined(:,:,5:-1:1), ...
+    mua_stim_latemove_hit_combined(:,:,7:end), ...
+    mua_stim_latemove_hit_combined(:,:,5:-1:1), ...
+    mua_stim_latemove_miss_combined(:,:,7:end), ...
+    mua_stim_latemove_miss_combined(:,:,5:-1:1))),4));
+use_data_grid(~logical(use_data_grid)) = NaN;
+
 % Plot depth by condition
 plot_depth = 1;
 trace_spacing = 0.3;
@@ -1992,20 +2049,20 @@ legend([p1(1),p2(1)],{'Real','Predicted'});
 title('Late move');
 
 % Stim vs. movement tuning
-stim_earlymove_diff = mua_stim_earlymove_hit_combined(:,:,7:end)-mua_stim_earlymove_miss_combined(:,:,5:-1:1);
-decision_earlymove_diff = mua_stim_earlymove_hit_combined(:,:,7:end)-mua_stim_earlymove_miss_combined(:,:,7:end);
+stim_earlymove_diff = (mua_stim_earlymove_hit_combined(:,:,7:end)-mua_stim_earlymove_miss_combined(:,:,5:-1:1)).*use_data_grid;
+decision_earlymove_diff = (mua_stim_earlymove_hit_combined(:,:,7:end)-mua_stim_earlymove_miss_combined(:,:,7:end)).*use_data_grid;
 stim_decision_earlymove_diff = nanmean(abs(stim_earlymove_diff)-abs(decision_earlymove_diff),3);
 
-stim_earlymove_pred_diff = mua_stim_earlymove_hit_pred_combined(:,:,7:end)-mua_stim_earlymove_miss_pred_combined(:,:,5:-1:1);
-decision_earlymove_pred_diff = mua_stim_earlymove_hit_pred_combined(:,:,7:end)-mua_stim_earlymove_miss_pred_combined(:,:,7:end);
+stim_earlymove_pred_diff = (mua_stim_earlymove_hit_pred_combined(:,:,7:end)-mua_stim_earlymove_miss_pred_combined(:,:,5:-1:1)).*use_data_grid;
+decision_earlymove_pred_diff = (mua_stim_earlymove_hit_pred_combined(:,:,7:end)-mua_stim_earlymove_miss_pred_combined(:,:,7:end)).*use_data_grid;
 stim_decision_earlymove_pred_diff = nanmean(abs(stim_earlymove_pred_diff)-abs(decision_earlymove_pred_diff),3);
 
-stim_latemove_diff = mua_stim_latemove_hit_combined(:,:,7:end)-mua_stim_latemove_miss_combined(:,:,5:-1:1);
-decision_latemove_diff = mua_stim_latemove_hit_combined(:,:,7:end)-mua_stim_latemove_miss_combined(:,:,7:end);
+stim_latemove_diff = (mua_stim_latemove_hit_combined(:,:,7:end)-mua_stim_latemove_miss_combined(:,:,5:-1:1)).*use_data_grid;
+decision_latemove_diff = (mua_stim_latemove_hit_combined(:,:,7:end)-mua_stim_latemove_miss_combined(:,:,7:end)).*use_data_grid;
 stim_decision_latemove_diff = nanmean(abs(stim_latemove_diff)-abs(decision_latemove_diff),3);
 
-stim_latemove_pred_diff = mua_stim_latemove_hit_pred_combined(:,:,7:end)-mua_stim_latemove_miss_pred_combined(:,:,5:-1:1);
-decision_latemove_pred_diff = mua_stim_latemove_hit_pred_combined(:,:,7:end)-mua_stim_latemove_miss_pred_combined(:,:,7:end);
+stim_latemove_pred_diff = (mua_stim_latemove_hit_pred_combined(:,:,7:end)-mua_stim_latemove_miss_pred_combined(:,:,5:-1:1)).*use_data_grid;
+decision_latemove_pred_diff = (mua_stim_latemove_hit_pred_combined(:,:,7:end)-mua_stim_latemove_miss_pred_combined(:,:,7:end)).*use_data_grid;
 stim_decision_latemove_pred_diff = nanmean(abs(stim_latemove_pred_diff)-abs(decision_latemove_pred_diff),3);
 
 figure; trace_spacing = 3;

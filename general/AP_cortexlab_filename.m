@@ -2,6 +2,7 @@ function [filename,file_exists] = AP_cortexlab_filename(animal,day,experiment,fi
 % [filename,file_exists] = AP_cortexlab_filename(animal,day,experiment,file,site)
 %
 % file - can include:
+% expInfo
 % timeline
 % block
 % parameters
@@ -57,6 +58,10 @@ end
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
 switch file
+    
+    case 'expInfo'
+        filepath = '\\zserver.cortexlab.net\Data\expInfo';
+        filename = [filepath filesep animal filesep day filesep];
     
     case 'timeline'
         filepath = '\\zserver.cortexlab.net\Data\expInfo';
@@ -137,7 +142,7 @@ switch file
         filepath = '\\zserver.cortexlab.net\Data\Subjects';
         filename = [filepath filesep animal filesep day site_dir filesep];
         % CHECK DATA2 IF IT DOESN'T EXIST
-        if ~exist(filename,'file')
+        if ~exist(filename,'dir')
             filepath = '\\zserver.cortexlab.net\Data2\Subjects';
             filename = [filepath filesep animal filesep day site_dir filesep];
         end
