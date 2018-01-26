@@ -1348,6 +1348,8 @@ use_data_grid = ...
     mua_stim_latemove_miss_combined(:,:,7:end), ...
     mua_stim_latemove_miss_combined(:,:,5:-1:1))),4));
 use_data_grid(~logical(use_data_grid)) = NaN;
+% (TO ONLY USE 12.5% CONDITION)
+use_data_grid = bsxfun(@times,use_data_grid,permute([NaN,1,NaN,NaN,NaN],[1,3,2]));
 
 % Get average activity within decision
 move_right_earlymove_hit = nanmean(mua_stim_earlymove_hit_combined(:,:,5:-1:1).*use_data_grid,3);
@@ -1443,7 +1445,7 @@ ylabel('MUA depth');
 title('Late move');
 
 % (plot all traces from a depth on top of each other - can see decision)
-plot_depth = 2;
+plot_depth = 1;
 figure; 
 
 a1 = subplot(1,2,1); hold on
@@ -1767,8 +1769,8 @@ legend([p1(1),p2(1)],{'Right miss','Left miss'});
 
 data_path = ['C:\Users\Andrew\OneDrive for Business\Documents\CarandiniHarrisLab\analysis\wf_ephys_choiceworld\passive'];
 
-% protocol = 'stimKalatsky';
-protocol = 'AP_choiceWorldStimPassive';
+protocol = 'stimKalatsky';
+% protocol = 'AP_choiceWorldStimPassive';
 
 mua_fn = [data_path filesep 'mua_stim_' protocol];
 load(mua_fn);
@@ -1793,7 +1795,7 @@ mua_stim_norm = cellfun(@(x) bsxfun(@rdivide,x,nanmean(x(:,t_baseline,:,:),2)+so
 mua_stim_mean = cellfun(@(x) nanmean(x,4),mua_stim_norm,'uni',false);
 mua_stim_combined = nanmean(cat(4,mua_stim_mean{:}),4);
 
-trace_spacing = 3;
+trace_spacing = 2;
 n_conditions = size(mua_stim_combined,3);
 n_depths = size(mua_stim_combined,1);
 col = copper(n_conditions);
@@ -1807,6 +1809,8 @@ axis tight;
 ylabel('Spikes')
 xlabel('Time from stim onset (s)');
 line([0,0],ylim,'linestyle','--','color','k');
+line([1,1],ylim,'linestyle','--','color','k');
+line([2,2],ylim,'linestyle','--','color','k');
 legend(p(1,:),cellfun(@num2str,num2cell(1:n_conditions),'uni',false));
 
 

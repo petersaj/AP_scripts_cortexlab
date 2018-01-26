@@ -1,4 +1,5 @@
 %% Single behavior
+% NOTE THIS IS OLD
 
 animal = 'AP017';
 protocol = 'vanillaChoiceworld';
