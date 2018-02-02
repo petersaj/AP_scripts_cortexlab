@@ -57,102 +57,111 @@ end
 % end
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
+% server1 = '\\zclone.cortexlab.net';
+server1 = '\\zserver.cortexlab.net';
+server2 = '\\zubjects.cortexlab.net';
+
 switch file
     
     case 'expInfo'
-        filepath = '\\zserver.cortexlab.net\Data\expInfo';
+        filepath = [server1 filesep 'Data\expInfo'];
         filename = [filepath filesep animal filesep day filesep];
     
     case 'timeline'
-        filepath = '\\zserver.cortexlab.net\Data\expInfo';
+        filepath = [server1 filesep 'Data\expInfo'];
         filename = [filepath filesep animal filesep day filesep experiment ...
             filesep day '_' experiment '_' animal '_Timeline.mat'];
-        % CHECK DATA2 IF IT DOESN'T EXIST
+        % CHECK SERVER2 IF IT DOESN'T EXIST
         if ~exist(filename,'file')
-            filepath = '\\zserver.cortexlab.net\Data2\Subjects';
+            filepath = [server2 filesep 'Subjects'];
             filename = [filepath filesep animal filesep day filesep experiment ...
                 filesep day '_' experiment '_' animal '_Timeline.mat'];
         end
         
     case 'block'
-        filepath = '\\zserver.cortexlab.net\Data\expInfo';
+        filepath = [server1 filesep 'Data\expInfo'];
         filename = [filepath filesep animal filesep day filesep experiment ...
             filesep day '_' experiment '_' animal '_Block.mat'];
-        % CHECK DATA2 IF IT DOESN'T EXIST
+        % CHECK SERVER2 IF IT DOESN'T EXIST
         if ~exist(filename,'file')
-            filepath = '\\zserver.cortexlab.net\Data2\Subjects';
+            filepath = [server2 filesep 'Subjects'];
             filename = [filepath filesep animal filesep day filesep experiment ...
                 filesep day '_' experiment '_' animal '_Block.mat'];
         end
         
     case 'parameters'
-        filepath = '\\zserver.cortexlab.net\Data\expInfo';
+        filepath = [server1 filesep 'Data\expInfo'];
         filename = [filepath filesep animal filesep day filesep experiment ...
             filesep day '_' experiment '_' animal '_parameters.mat'];
-        % CHECK DATA2 IF IT DOESN'T EXIST
+        % CHECK SERVER2 IF IT DOESN'T EXIST
         if ~exist(filename,'file')
-            filepath = '\\zserver.cortexlab.net\Data2\Subjects';
+            filepath = [server2 filesep 'Subjects'];
             filename = [filepath filesep animal filesep day filesep experiment ...
                 filesep day '_' experiment '_' animal '_parameters.mat'];
         end
         
     case 'protocol'
-        filepath = '\\zserver.cortexlab.net\Data\trodes';
+        filepath = [server1 filesep 'Data\trodes'];
         filename = [filepath filesep animal filesep day filesep experiment filesep 'Protocol.mat'];
+        % CHECK SERVER2 IF IT DOESN'T EXIST
+        if ~exist(filename,'file')
+            filepath = [server2 filesep 'Subjects'];
+            filename = [filepath filesep animal filesep day filesep experiment filesep 'Protocol.mat'];
+        end
         
     case 'eyecam'
-        filepath = '\\zserver.cortexlab.net\Data\EyeCamera';
+        filepath = [server1 filesep 'Data\EyeCamera'];
         filename = [filepath filesep animal filesep day filesep experiment ...
             filesep 'eye.mj2'];
         
     case 'facecam'
-        filepath = '\\zserver.cortexlab.net\Data\EyeCamera';
+        filepath = [server1 filesep 'Data\EyeCamera'];
         filename = [filepath filesep animal filesep day filesep experiment ...
             filesep 'face.mj2'];
         
     % Old (with etGUI)
 %     case 'eyecam_processed'
-%         filepath = '\\zserver.cortexlab.net\Data\EyeCamera';
+%         filepath = '\\zserver1.cortexlab.net\Data\EyeCamera';
 %         filename = [filepath filesep mouse filesep day filesep experiment ...
 %             filesep day '_' experiment '_' mouse '_eye_processed.mat'];
 
     % New (with eyeGUI)
     case 'eyecam_processed'
-        filepath = '\\zserver.cortexlab.net\Data\EyeCamera';
+        filepath = [server1 filesep 'Data\EyeCamera'];
         filename = [filepath filesep animal filesep day filesep experiment ...
             filesep 'eye_proc.mat'];
         
     case 'facecam_processed'
-        filepath = '\\zserver.cortexlab.net\Data\EyeCamera';
+        filepath = [server1 filesep 'Data\EyeCamera'];
         filename = [filepath filesep animal filesep day filesep experiment ...
             filesep 'face_proc.mat'];
         
     case 'hardware'
-        filepath = '\\zserver.cortexlab.net\Data\expInfo';
+        filepath = [server1 filesep 'Data\expInfo'];
         filename = [filepath filesep animal filesep day filesep experiment ...
             filesep day '_' experiment '_' animal '_hardwareInfo.mat'];
-        % CHECK DATA2 IF IT DOESN'T EXIST
+        % CHECK SERVER2 IF IT DOESN'T EXIST
         if ~exist(filename,'file')
-            filepath = '\\zserver.cortexlab.net\Data2\Subjects';
+            filepath = [server2 filesep 'Subjects'];
             filename = [filepath filesep animal filesep day filesep experiment ...
             filesep day '_' experiment '_' animal '_hardwareInfo.mat'];
         end
         
     case 'imaging'
-        filepath = '\\zserver.cortexlab.net\Data\Subjects';
+        filepath = [server1 filesep 'Data\Subjects'];
         filename = [filepath filesep animal filesep day site_dir filesep];
-        % CHECK DATA2 IF IT DOESN'T EXIST
+        % CHECK SERVER2 IF IT DOESN'T EXIST
         if ~exist(filename,'dir')
-            filepath = '\\zserver.cortexlab.net\Data2\Subjects';
+            filepath = [server2 filesep 'Subjects'];
             filename = [filepath filesep animal filesep day site_dir filesep];
         end
         
     case 'ephys'
-        filepath = '\\zserver.cortexlab.net\Data\Subjects';
+        filepath = [server1 filesep 'Data\Subjects'];
         filename = [filepath filesep animal filesep day filesep 'ephys' site_dir filesep 'kilosort' filesep];
         
     case 'ephysraw'
-        filepath = '\\zserver.cortexlab.net\Data\Subjects';
+        filepath = [server1 filesep 'Data\Subjects'];
         filename = [filepath filesep animal filesep day filesep 'ephys' site_dir filesep];
 
 end

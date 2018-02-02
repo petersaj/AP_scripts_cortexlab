@@ -1852,17 +1852,18 @@ AP_image_scroll(stim_aligned_avg_cat,raster_window(1):psth_bin_size:raster_windo
 
 %% Classify cell type
 
-% Define cortical and striatal cells
-h = figure('Position',[94,122,230,820]);
-plotSpread(templateDepths);set(gca,'YDir','reverse');
-ylim([0 max(channel_positions(:,2))])
-title('Mark striatum top')
-[~,striatum_top] = ginput(1);
-title('Mark striatum bottom');
-[~,striatum_bottom] = ginput(1);
-close(h);drawnow;
-
-str_depth = [striatum_top,striatum_bottom];
+% (striatum should now be defined on load)
+% % Define cortical and striatal cells
+% h = figure('Position',[94,122,230,820]);
+% plotSpread(templateDepths);set(gca,'YDir','reverse');
+% ylim([0 max(channel_positions(:,2))])
+% title('Mark striatum top')
+% [~,striatum_top] = ginput(1);
+% title('Mark striatum bottom');
+% [~,striatum_bottom] = ginput(1);
+% close(h);drawnow;
+% 
+% str_depth = [striatum_top,striatum_bottom];
 
 str_templates = templateDepths >= str_depth(1) & templateDepths <= str_depth(2);
 non_str_templates = ~str_templates;

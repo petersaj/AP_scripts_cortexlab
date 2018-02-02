@@ -69,7 +69,7 @@ for curr_animal = 1:length(animals)
     imagesc(nanmean(corr_edges_aligned,3));
     axis image off; colormap(gray); caxis([0,0.05])
     
-    fn = ['\\basket.cortexlab.net\data\ajpeters\wf_borders' filesep animal '_wf_borders'];
+    fn = ['C:\Users\Andrew\OneDrive for Business\Documents\CarandiniHarrisLab\analysis\wf_ephys_choiceworld\wf_processing\wf_borders' filesep animal '_wf_borders'];
     saveas(wf_borders_fig,fn);
    
     AP_print_progress_fraction(curr_animal,length(animals))
@@ -174,7 +174,7 @@ end
 
 disp('Finished batch');
 
-%% Batch widefield choiceworld 
+%% Batch widefield choiceworld (stim onset)
 
 animals = {'AP024','AP025','AP026','AP027','AP028','AP029'};
 protocol = 'vanillaChoiceworld';
@@ -186,7 +186,7 @@ for curr_animal = 1:length(animals)
     
     disp(animal);
     
-    experiments = experiments([experiments.imaging]);
+    experiments = experiments([experiments.imaging] & [experiments.ephys]);
     
     load_parts.cam = false;
     load_parts.imaging = true;
@@ -245,35 +245,35 @@ for curr_animal = 1:length(animals)
         for curr_condition_idx = 1:length(conditions)
             curr_condition = conditions(curr_condition_idx);
             
-            use_stims = use_trials & trial_conditions == curr_condition & trial_outcome == 1 & stim_to_move < 0.5;
-            use_stim_onsets = stimOn_times(use_stims);           
-            if length(use_stim_onsets) > 5
-                stim_surround_times = bsxfun(@plus, use_stim_onsets(:), t_surround);
-                peri_stim_v = permute(mean(interp1(frame_t,fVdf',stim_surround_times),1),[3,2,1]);
+            curr_trials = use_trials & trial_conditions == curr_condition & trial_outcome == 1 & stim_to_move < 0.5;
+            curr_align = stimOn_times(curr_trials);           
+            if length(curr_align) > 5
+                curr_surround_times = bsxfun(@plus, curr_align(:), t_surround);
+                peri_stim_v = permute(mean(interp1(frame_t,fVdf',curr_surround_times),1),[3,2,1]);
                 im_stim_earlymove_hit(:,:,:,curr_condition_idx) = svdFrameReconstruct(Udf,peri_stim_v);
             end      
             
-            use_stims = use_trials & trial_conditions == curr_condition & trial_outcome == 1 & stim_to_move >= 0.5;
-            use_stim_onsets = stimOn_times(use_stims);           
-            if length(use_stim_onsets) > 5
-                stim_surround_times = bsxfun(@plus, use_stim_onsets(:), t_surround);
-                peri_stim_v = permute(mean(interp1(frame_t,fVdf',stim_surround_times),1),[3,2,1]);
+            curr_trials = use_trials & trial_conditions == curr_condition & trial_outcome == 1 & stim_to_move >= 0.5;
+            curr_align = stimOn_times(curr_trials);           
+            if length(curr_align) > 5
+                curr_surround_times = bsxfun(@plus, curr_align(:), t_surround);
+                peri_stim_v = permute(mean(interp1(frame_t,fVdf',curr_surround_times),1),[3,2,1]);
                 im_stim_latemove_hit(:,:,:,curr_condition_idx) = svdFrameReconstruct(Udf,peri_stim_v);
             end      
                         
-            use_stims = use_trials & trial_conditions == curr_condition & trial_outcome == -1 & stim_to_move < 0.5;
-            use_stim_onsets = stimOn_times(use_stims);  
-            if length(use_stim_onsets) > 5
-                stim_surround_times = bsxfun(@plus, use_stim_onsets(:), t_surround);
-                peri_stim_v = permute(mean(interp1(frame_t,fVdf',stim_surround_times),1),[3,2,1]);
+            curr_trials = use_trials & trial_conditions == curr_condition & trial_outcome == -1 & stim_to_move < 0.5;
+            curr_align = stimOn_times(curr_trials);  
+            if length(curr_align) > 5
+                curr_surround_times = bsxfun(@plus, curr_align(:), t_surround);
+                peri_stim_v = permute(mean(interp1(frame_t,fVdf',curr_surround_times),1),[3,2,1]);
                 im_stim_earlymove_miss(:,:,:,curr_condition_idx) = svdFrameReconstruct(Udf,peri_stim_v);
             end
             
-            use_stims = use_trials & trial_conditions == curr_condition & trial_outcome == -1 & stim_to_move >= 0.5;
-            use_stim_onsets = stimOn_times(use_stims);  
-            if length(use_stim_onsets) > 5
-                stim_surround_times = bsxfun(@plus, use_stim_onsets(:), t_surround);
-                peri_stim_v = permute(mean(interp1(frame_t,fVdf',stim_surround_times),1),[3,2,1]);
+            curr_trials = use_trials & trial_conditions == curr_condition & trial_outcome == -1 & stim_to_move >= 0.5;
+            curr_align = stimOn_times(curr_trials);  
+            if length(curr_align) > 5
+                curr_surround_times = bsxfun(@plus, curr_align(:), t_surround);
+                peri_stim_v = permute(mean(interp1(frame_t,fVdf',curr_surround_times),1),[3,2,1]);
                 im_stim_latemove_miss(:,:,:,curr_condition_idx) = svdFrameReconstruct(Udf,peri_stim_v);
             end
             
@@ -330,6 +330,321 @@ end
 disp('Finished batch.')
 warning('This uses -v7.3 and therefore compresses data, switch to dat in the future');
 
+%% Batch widefield choiceworld (move onset)
+
+animals = {'AP024','AP025','AP026','AP027','AP028','AP029'};
+protocol = 'vanillaChoiceworld';
+
+for curr_animal = 1:length(animals)
+    
+    animal = animals{curr_animal};
+    experiments = AP_find_experiments(animal,protocol);    
+    
+    disp(animal);
+    
+    experiments = experiments([experiments.imaging] & [experiments.ephys]);
+    
+    load_parts.cam = false;
+    load_parts.imaging = true;
+    load_parts.ephys = false;
+    
+    batch_vars = struct;
+    
+    % (initialize these because iteratively added below)
+    batch_vars.im_move_earlymove_hit = [];
+    batch_vars.im_move_latemove_hit = [];
+    
+    batch_vars.im_move_earlymove_miss = [];
+    batch_vars.im_move_latemove_miss = [];
+    
+    batch_vars.n_im_move_earlymove_hit = [];
+    batch_vars.n_im_move_latemove_hit = [];
+    
+    batch_vars.n_im_move_earlymove_miss = [];
+    batch_vars.n_im_move_latemove_miss = [];
+
+    for curr_day = 1:length(experiments);
+        
+        day = experiments(curr_day).day;
+        experiment = experiments(curr_day).experiment;
+        
+        AP_load_experiment
+        conditions = unique(block.events.sessionPerformanceValues(1,:));
+
+        % Define trials to use
+        n_trials = length(block.paramsValues);
+        trial_conditions = signals_events.trialSideValues(1:n_trials).*signals_events.trialContrastValues(1:n_trials);
+        trial_outcome = signals_events.hitValues(1:n_trials)-signals_events.missValues(1:n_trials);
+        stim_to_move = padarray(wheel_move_time - stimOn_times',[0,n_trials-length(stimOn_times)],NaN,'post');
+        stim_to_feedback = padarray(signals_events.responseTimes, ...
+            [0,n_trials-length(signals_events.responseTimes)],NaN,'post') - ...
+            padarray(stimOn_times',[0,n_trials-length(stimOn_times)],NaN,'post');    
+      
+        use_trials = ...
+            trial_outcome ~= 0 & ...
+            ~signals_events.repeatTrialValues(1:n_trials) & ...
+            stim_to_feedback < 1.5;
+        
+        % Set options
+        surround_window = [-0.5,2];
+        upsample_rate = 3;
+        
+        framerate = 1./median(diff(frame_t));
+        surround_samplerate = 1/(framerate*upsample_rate);
+        t_surround = surround_window(1):surround_samplerate:surround_window(2);
+        
+        % Average (time course) responses
+        im_move_earlymove_hit = nan(size(U,1),size(U,2),length(t_surround),length(conditions));
+        im_move_latemove_hit = nan(size(U,1),size(U,2),length(t_surround),length(conditions));
+        
+        im_move_earlymove_miss = nan(size(U,1),size(U,2),length(t_surround),length(conditions));
+        im_move_latemove_miss = nan(size(U,1),size(U,2),length(t_surround),length(conditions));
+        
+        for curr_condition_idx = 1:length(conditions)
+            curr_condition = conditions(curr_condition_idx);
+            
+            curr_trials = use_trials & trial_conditions == curr_condition & trial_outcome == 1 & stim_to_move < 0.5;
+            curr_align = wheel_move_time(curr_trials);                 
+            if length(curr_align) > 5
+                curr_surround_times = bsxfun(@plus, curr_align(:), t_surround);
+                peri_stim_v = permute(mean(interp1(frame_t,fVdf',curr_surround_times),1),[3,2,1]);
+                im_move_earlymove_hit(:,:,:,curr_condition_idx) = svdFrameReconstruct(Udf,peri_stim_v);
+            end      
+            
+            curr_trials = use_trials & trial_conditions == curr_condition & trial_outcome == 1 & stim_to_move >= 0.5;
+            curr_align = wheel_move_time(curr_trials);                 
+            if length(curr_align) > 5
+                curr_surround_times = bsxfun(@plus, curr_align(:), t_surround);
+                peri_stim_v = permute(mean(interp1(frame_t,fVdf',curr_surround_times),1),[3,2,1]);
+                im_move_latemove_hit(:,:,:,curr_condition_idx) = svdFrameReconstruct(Udf,peri_stim_v);
+            end      
+                        
+            curr_trials = use_trials & trial_conditions == curr_condition & trial_outcome == -1 & stim_to_move < 0.5;
+            curr_align = wheel_move_time(curr_trials);                 
+            if length(curr_align) > 5
+                curr_surround_times = bsxfun(@plus, curr_align(:), t_surround);
+                peri_stim_v = permute(mean(interp1(frame_t,fVdf',curr_surround_times),1),[3,2,1]);
+                im_move_earlymove_miss(:,:,:,curr_condition_idx) = svdFrameReconstruct(Udf,peri_stim_v);
+            end
+            
+            curr_trials = use_trials & trial_conditions == curr_condition & trial_outcome == -1 & stim_to_move >= 0.5;
+            curr_align = wheel_move_time(curr_trials);                 
+            if length(curr_align) > 5
+                curr_surround_times = bsxfun(@plus, curr_align(:), t_surround);
+                peri_stim_v = permute(mean(interp1(frame_t,fVdf',curr_surround_times),1),[3,2,1]);
+                im_move_latemove_miss(:,:,:,curr_condition_idx) = svdFrameReconstruct(Udf,peri_stim_v);
+            end
+            
+        end
+        
+        % Align and average as it goes, otherwise the variable's too big
+        im_move_earlymove_hit_align = AP_align_widefield(animal,day,im_move_earlymove_hit);
+        im_move_latemove_hit_align = AP_align_widefield(animal,day,im_move_latemove_hit);
+        
+        im_move_earlymove_miss_align = AP_align_widefield(animal,day,im_move_earlymove_miss);
+        im_move_latemove_miss_align = AP_align_widefield(animal,day,im_move_latemove_miss);
+        
+        batch_vars.im_move_earlymove_hit = nansum(cat(5,batch_vars.im_move_earlymove_hit,im_move_earlymove_hit_align),5);
+        batch_vars.im_move_latemove_hit = nansum(cat(5,batch_vars.im_move_latemove_hit,im_move_latemove_hit_align),5);
+        
+        batch_vars.im_move_earlymove_miss = nansum(cat(5,batch_vars.im_move_earlymove_miss,im_move_earlymove_miss_align),5);
+        batch_vars.im_move_latemove_miss = nansum(cat(5,batch_vars.im_move_latemove_miss,im_move_latemove_miss_align),5);
+        
+        % Count conditions to divide at end
+        batch_vars.n_im_move_earlymove_hit = ...
+            sum(cat(5,batch_vars.n_im_move_earlymove_hit,any(any(any(im_move_earlymove_hit_align,1),2),3)),5);
+        batch_vars.n_im_move_latemove_hit = ...
+            sum(cat(5,batch_vars.n_im_move_latemove_hit,any(any(any(im_move_latemove_hit_align,1),2),3)),5);
+        
+        batch_vars.n_im_move_earlymove_miss = ...
+            sum(cat(5,batch_vars.n_im_move_earlymove_miss,any(any(any(im_move_earlymove_miss_align,1),2),3)),5);
+        batch_vars.n_im_move_latemove_miss = ...
+            sum(cat(5,batch_vars.n_im_move_latemove_miss,any(any(any(im_move_latemove_miss_align,1),2),3)),5);
+        
+        % Prepare for next loop
+        AP_print_progress_fraction(curr_day,length(experiments))
+        clearvars -except animals protocol curr_animal experiments curr_day animal batch_vars load_parts
+        
+    end
+    
+    % Divide sum to get average
+    im_move_earlymove_hit_avg = bsxfun(@rdivide,batch_vars.im_move_earlymove_hit,batch_vars.n_im_move_earlymove_hit);
+    im_move_latemove_hit_avg = bsxfun(@rdivide,batch_vars.im_move_latemove_hit,batch_vars.n_im_move_latemove_hit);
+    
+    im_move_earlymove_miss_avg = bsxfun(@rdivide,batch_vars.im_move_earlymove_miss,batch_vars.n_im_move_earlymove_miss);
+    im_move_latemove_miss_avg = bsxfun(@rdivide,batch_vars.im_move_latemove_miss,batch_vars.n_im_move_latemove_miss);
+    
+    % Save
+    save_path = ['C:\Users\Andrew\OneDrive for Business\Documents\CarandiniHarrisLab\analysis\wf_ephys_choiceworld\choiceworld'];
+    save([save_path filesep animal '_im_move_earlymove_hit_avg'],'im_move_earlymove_hit_avg','-v7.3');
+    save([save_path filesep animal '_im_move_latemove_hit_avg'],'im_move_latemove_hit_avg','-v7.3');
+    save([save_path filesep animal '_im_move_earlymove_miss_avg'],'im_move_earlymove_miss_avg','-v7.3');
+    save([save_path filesep animal '_im_move_latemove_miss_avg'],'im_move_latemove_miss_avg','-v7.3');
+    
+    disp(['Finished ' animal]);
+    
+end
+
+disp('Finished batch.')
+warning('This uses -v7.3 and therefore compresses data, switch to dat in the future');
+
+%% Batch widefield choiceworld (move onset) !! ONLY EARLY HITS HERE !!
+
+animals = {'AP024','AP025','AP026','AP027','AP028','AP029'};
+protocol = 'vanillaChoiceworld';
+
+for curr_animal = 1:length(animals)
+    
+    animal = animals{curr_animal};
+    experiments = AP_find_experiments(animal,protocol);    
+    
+    disp(animal);
+    
+    experiments = experiments([experiments.imaging] & [experiments.ephys]);
+    
+    load_parts.cam = false;
+    load_parts.imaging = true;
+    load_parts.ephys = false;
+    
+    batch_vars = struct;
+    
+    % (initialize these because iteratively added below)
+    batch_vars.im_move_earlymove_hit = [];
+%     batch_vars.im_move_latemove_hit = [];
+%     
+%     batch_vars.im_move_earlymove_miss = [];
+%     batch_vars.im_move_latemove_miss = [];
+    
+    batch_vars.n_im_move_earlymove_hit = [];
+%     batch_vars.n_im_move_latemove_hit = [];
+%     
+%     batch_vars.n_im_move_earlymove_miss = [];
+%     batch_vars.n_im_move_latemove_miss = [];
+
+    for curr_day = 1:length(experiments);
+        
+        day = experiments(curr_day).day;
+        experiment = experiments(curr_day).experiment;
+        
+        AP_load_experiment
+        conditions = unique(block.events.sessionPerformanceValues(1,:));
+
+        % Define trials to use
+        n_trials = length(block.paramsValues);
+        trial_conditions = signals_events.trialSideValues(1:n_trials).*signals_events.trialContrastValues(1:n_trials);
+        trial_outcome = signals_events.hitValues(1:n_trials)-signals_events.missValues(1:n_trials);
+        stim_to_move = padarray(wheel_move_time - stimOn_times',[0,n_trials-length(stimOn_times)],NaN,'post');
+        stim_to_feedback = padarray(signals_events.responseTimes, ...
+            [0,n_trials-length(signals_events.responseTimes)],NaN,'post') - ...
+            padarray(stimOn_times',[0,n_trials-length(stimOn_times)],NaN,'post');    
+      
+        use_trials = ...
+            trial_outcome ~= 0 & ...
+            ~signals_events.repeatTrialValues(1:n_trials) & ...
+            stim_to_feedback < 1.5;
+        
+        % Set options
+        surround_window = [-0.5,2];
+        upsample_rate = 3;
+        
+        framerate = 1./median(diff(frame_t));
+        surround_samplerate = 1/(framerate*upsample_rate);
+        t_surround = surround_window(1):surround_samplerate:surround_window(2);
+        
+        % Average (time course) responses
+        im_move_earlymove_hit = nan(size(U,1),size(U,2),length(t_surround),length(conditions));
+%         im_move_latemove_hit = nan(size(U,1),size(U,2),length(t_surround),length(conditions));
+%         
+%         im_move_earlymove_miss = nan(size(U,1),size(U,2),length(t_surround),length(conditions));
+%         im_move_latemove_miss = nan(size(U,1),size(U,2),length(t_surround),length(conditions));
+        
+        for curr_condition_idx = 1:length(conditions)
+            curr_condition = conditions(curr_condition_idx);
+            
+            curr_trials = use_trials & trial_conditions == curr_condition & trial_outcome == 1 & stim_to_move < 0.5;
+            curr_align = wheel_move_time(curr_trials);                 
+            if length(curr_align) > 5
+                curr_surround_times = bsxfun(@plus, curr_align(:), t_surround);
+                peri_stim_v = permute(mean(interp1(frame_t,fVdf',curr_surround_times),1),[3,2,1]);
+                im_move_earlymove_hit(:,:,:,curr_condition_idx) = svdFrameReconstruct(Udf,peri_stim_v);
+            end      
+            
+%             curr_trials = use_trials & trial_conditions == curr_condition & trial_outcome == 1 & stim_to_move >= 0.5;
+%             curr_align = wheel_move_time(curr_trials);                 
+%             if length(curr_align) > 5
+%                 curr_surround_times = bsxfun(@plus, curr_align(:), t_surround);
+%                 peri_stim_v = permute(mean(interp1(frame_t,fVdf',curr_surround_times),1),[3,2,1]);
+%                 im_move_latemove_hit(:,:,:,curr_condition_idx) = svdFrameReconstruct(Udf,peri_stim_v);
+%             end      
+%                         
+%             curr_trials = use_trials & trial_conditions == curr_condition & trial_outcome == -1 & stim_to_move < 0.5;
+%             curr_align = wheel_move_time(curr_trials);                 
+%             if length(curr_align) > 5
+%                 curr_surround_times = bsxfun(@plus, curr_align(:), t_surround);
+%                 peri_stim_v = permute(mean(interp1(frame_t,fVdf',curr_surround_times),1),[3,2,1]);
+%                 im_move_earlymove_miss(:,:,:,curr_condition_idx) = svdFrameReconstruct(Udf,peri_stim_v);
+%             end
+%             
+%             curr_trials = use_trials & trial_conditions == curr_condition & trial_outcome == -1 & stim_to_move >= 0.5;
+%             curr_align = wheel_move_time(curr_trials);                 
+%             if length(curr_align) > 5
+%                 curr_surround_times = bsxfun(@plus, curr_align(:), t_surround);
+%                 peri_stim_v = permute(mean(interp1(frame_t,fVdf',curr_surround_times),1),[3,2,1]);
+%                 im_move_latemove_miss(:,:,:,curr_condition_idx) = svdFrameReconstruct(Udf,peri_stim_v);
+%             end
+            
+        end
+        
+        % Align and average as it goes, otherwise the variable's too big
+        im_move_earlymove_hit_align = AP_align_widefield(animal,day,im_move_earlymove_hit);
+%         im_move_latemove_hit_align = AP_align_widefield(animal,day,im_move_latemove_hit);
+%         
+%         im_move_earlymove_miss_align = AP_align_widefield(animal,day,im_move_earlymove_miss);
+%         im_move_latemove_miss_align = AP_align_widefield(animal,day,im_move_latemove_miss);
+        
+        batch_vars.im_move_earlymove_hit = nansum(cat(5,batch_vars.im_move_earlymove_hit,im_move_earlymove_hit_align),5);
+%         batch_vars.im_move_latemove_hit = nansum(cat(5,batch_vars.im_move_latemove_hit,im_move_latemove_hit_align),5);
+%         
+%         batch_vars.im_move_earlymove_miss = nansum(cat(5,batch_vars.im_move_earlymove_miss,im_move_earlymove_miss_align),5);
+%         batch_vars.im_move_latemove_miss = nansum(cat(5,batch_vars.im_move_latemove_miss,im_move_latemove_miss_align),5);
+        
+        % Count conditions to divide at end
+        batch_vars.n_im_move_earlymove_hit = ...
+            sum(cat(5,batch_vars.n_im_move_earlymove_hit,any(any(any(im_move_earlymove_hit_align,1),2),3)),5);
+%         batch_vars.n_im_move_latemove_hit = ...
+%             sum(cat(5,batch_vars.n_im_move_latemove_hit,any(any(any(im_move_latemove_hit_align,1),2),3)),5);
+%         
+%         batch_vars.n_im_move_earlymove_miss = ...
+%             sum(cat(5,batch_vars.n_im_move_earlymove_miss,any(any(any(im_move_earlymove_miss_align,1),2),3)),5);
+%         batch_vars.n_im_move_latemove_miss = ...
+%             sum(cat(5,batch_vars.n_im_move_latemove_miss,any(any(any(im_move_latemove_miss_align,1),2),3)),5);
+        
+        % Prepare for next loop
+        AP_print_progress_fraction(curr_day,length(experiments))
+        clearvars -except animals protocol curr_animal experiments curr_day animal batch_vars load_parts
+        
+    end
+    
+    % Divide sum to get average
+    im_move_earlymove_hit_avg = bsxfun(@rdivide,batch_vars.im_move_earlymove_hit,batch_vars.n_im_move_earlymove_hit);
+%     im_move_latemove_hit_avg = bsxfun(@rdivide,batch_vars.im_move_latemove_hit,batch_vars.n_im_move_latemove_hit);
+%     
+%     im_move_earlymove_miss_avg = bsxfun(@rdivide,batch_vars.im_move_earlymove_miss,batch_vars.n_im_move_earlymove_miss);
+%     im_move_latemove_miss_avg = bsxfun(@rdivide,batch_vars.im_move_latemove_miss,batch_vars.n_im_move_latemove_miss);
+    
+    % Save
+    save_path = ['C:\Users\Andrew\OneDrive for Business\Documents\CarandiniHarrisLab\analysis\wf_ephys_choiceworld\choiceworld'];
+    save([save_path filesep animal '_im_move_earlymove_hit_avg'],'im_move_earlymove_hit_avg','-v7.3');
+%     save([save_path filesep animal '_im_move_latemove_hit_avg'],'im_move_latemove_hit_avg','-v7.3');
+%     save([save_path filesep animal '_im_move_earlymove_miss_avg'],'im_move_earlymove_miss_avg','-v7.3');
+%     save([save_path filesep animal '_im_move_latemove_miss_avg'],'im_move_latemove_miss_avg','-v7.3');
+    
+    disp(['Finished ' animal]);
+    
+end
+
+disp('Finished batch.')
+warning('This uses -v7.3 and therefore compresses data, switch to dat in the future');
 
 %% Batch widefield > striatum maps
 
@@ -379,7 +694,7 @@ for curr_animal = 1:length(animals)
         depth_group_edges = round(linspace(str_depth(1),str_depth(2),n_depth_groups+1));
         depth_group_edges_use = depth_group_edges;
         
-        [depth_group_n,depth_group] = histcounts(spikeDepths,depth_group_edges_use);
+        [depth_group_n,~,depth_group] = histcounts(spikeDepths,depth_group_edges_use);
         depth_groups_used = unique(depth_group);
         depth_group_centers = depth_group_edges_use(1:end-1)+(diff(depth_group_edges_use)/2);
         
@@ -442,8 +757,8 @@ end
 
 % Save
 save_path = ['C:\Users\Andrew\OneDrive for Business\Documents\CarandiniHarrisLab\analysis\wf_ephys_choiceworld\wf_ephys'];
-save([save_path filesep 'wf_ephys_maps_' protocol],'batch_vars');
-
+save([save_path filesep 'wf_ephys_maps_' protocol],'batch_vars','-v7.3');
+warning('saving -v7.3');
 disp('Finished batch');
 
 %% Batch cortex > striatum prediction by condition and depth (NL fit)
@@ -847,10 +1162,19 @@ for curr_animal = 1:length(animals)
         t_bins = t(1:end-1) + diff(t);
         
         mua_stim_earlymove_hit = nan(6,length(t_bins),length(conditions));
-        mua_stim_latemove_hit = nan(6,length(t_bins),length(conditions));
-        
+        mua_stim_latemove_hit = nan(6,length(t_bins),length(conditions));        
         mua_stim_earlymove_miss = nan(6,length(t_bins),length(conditions));
         mua_stim_latemove_miss = nan(6,length(t_bins),length(conditions));
+        
+        mua_move_earlymove_hit = nan(6,length(t_bins),length(conditions));
+        mua_move_latemove_hit = nan(6,length(t_bins),length(conditions));        
+        mua_move_earlymove_miss = nan(6,length(t_bins),length(conditions));
+        mua_move_latemove_miss = nan(6,length(t_bins),length(conditions));
+        
+        mua_feedback_earlymove_hit = nan(6,length(t_bins),length(conditions));
+        mua_feedback_latemove_hit = nan(6,length(t_bins),length(conditions));        
+        mua_feedback_earlymove_miss = nan(6,length(t_bins),length(conditions));
+        mua_feedback_latemove_miss = nan(6,length(t_bins),length(conditions));
         
         for curr_depth = 1:n_depth_groups
             
@@ -859,42 +1183,83 @@ for curr_animal = 1:length(animals)
             for curr_condition_idx = 1:length(conditions)
                 curr_condition = conditions(curr_condition_idx);                
                 
-                use_stims = use_trials & trial_conditions == curr_condition & trial_outcome == 1 & stim_to_move < 0.5;
-                use_stim_onsets = stimOn_times(use_stims);
+                curr_trials = use_trials & trial_conditions == curr_condition & trial_outcome == 1 & stim_to_move < 0.5;
+                use_stim_onsets = stimOn_times(curr_trials);
+                use_move_onsets = wheel_move_time(curr_trials);
+                use_feedback_onsets = signals_events.responseTimes(curr_trials);
                 if length(use_stim_onsets) > 5
                     [psth, bins, rasterX, rasterY] = psthAndBA(curr_spike_times,use_stim_onsets,raster_window,psth_bin_size);
                     mua_stim_earlymove_hit(curr_depth,:,curr_condition_idx) = psth;
+                    
+                    [psth, bins, rasterX, rasterY] = psthAndBA(curr_spike_times,use_move_onsets,raster_window,psth_bin_size);
+                    mua_move_earlymove_hit(curr_depth,:,curr_condition_idx) = psth;
+                    
+                    [psth, bins, rasterX, rasterY] = psthAndBA(curr_spike_times,use_feedback_onsets,raster_window,psth_bin_size);
+                    mua_feedback_earlymove_hit(curr_depth,:,curr_condition_idx) = psth;
                 end
                 
-                use_stims = use_trials & trial_conditions == curr_condition & trial_outcome == 1 & stim_to_move >= 0.5;
-                use_stim_onsets = stimOn_times(use_stims);
+                curr_trials = use_trials & trial_conditions == curr_condition & trial_outcome == 1 & stim_to_move >= 0.5;
+                use_stim_onsets = stimOn_times(curr_trials);
+                use_move_onsets = wheel_move_time(curr_trials);
+                use_feedback_onsets = signals_events.responseTimes(curr_trials);
                 if length(use_stim_onsets) > 5
                     [psth, bins, rasterX, rasterY] = psthAndBA(curr_spike_times,use_stim_onsets,raster_window,psth_bin_size);
                     mua_stim_latemove_hit(curr_depth,:,curr_condition_idx) = psth;
+                    
+                    [psth, bins, rasterX, rasterY] = psthAndBA(curr_spike_times,use_move_onsets,raster_window,psth_bin_size);
+                    mua_move_latemove_hit(curr_depth,:,curr_condition_idx) = psth;
+                    
+                    [psth, bins, rasterX, rasterY] = psthAndBA(curr_spike_times,use_feedback_onsets,raster_window,psth_bin_size);
+                    mua_feedback_latemove_hit(curr_depth,:,curr_condition_idx) = psth;
                 end
                 
-                use_stims = use_trials & trial_conditions == curr_condition & trial_outcome == -1 & stim_to_move < 0.5;
-                use_stim_onsets = stimOn_times(use_stims);
+                curr_trials = use_trials & trial_conditions == curr_condition & trial_outcome == -1 & stim_to_move < 0.5;
+                use_stim_onsets = stimOn_times(curr_trials);
+                use_move_onsets = wheel_move_time(curr_trials);
+                use_feedback_onsets = signals_events.responseTimes(curr_trials);
                 if length(use_stim_onsets) > 5
                     [psth, bins, rasterX, rasterY] = psthAndBA(curr_spike_times,use_stim_onsets,raster_window,psth_bin_size);
                     mua_stim_earlymove_miss(curr_depth,:,curr_condition_idx) = psth;
+                    
+                    [psth, bins, rasterX, rasterY] = psthAndBA(curr_spike_times,use_move_onsets,raster_window,psth_bin_size);
+                    mua_move_earlymove_miss(curr_depth,:,curr_condition_idx) = psth;
+                    
+                    [psth, bins, rasterX, rasterY] = psthAndBA(curr_spike_times,use_feedback_onsets,raster_window,psth_bin_size);
+                    mua_feedback_earlymove_miss(curr_depth,:,curr_condition_idx) = psth;
                 end
                 
-                use_stims = use_trials & trial_conditions == curr_condition & trial_outcome == -1 & stim_to_move >= 0.5;
-                use_stim_onsets = stimOn_times(use_stims);
+                curr_trials = use_trials & trial_conditions == curr_condition & trial_outcome == -1 & stim_to_move >= 0.5;
+                use_stim_onsets = stimOn_times(curr_trials);
+                use_move_onsets = wheel_move_time(curr_trials);
+                use_feedback_onsets = signals_events.responseTimes(curr_trials);
                 if length(use_stim_onsets) > 5
                     [psth, bins, rasterX, rasterY] = psthAndBA(curr_spike_times,use_stim_onsets,raster_window,psth_bin_size);
                     mua_stim_latemove_miss(curr_depth,:,curr_condition_idx) = psth;
+                    
+                    [psth, bins, rasterX, rasterY] = psthAndBA(curr_spike_times,use_move_onsets,raster_window,psth_bin_size);
+                    mua_move_latemove_miss(curr_depth,:,curr_condition_idx) = psth;
+                    
+                    [psth, bins, rasterX, rasterY] = psthAndBA(curr_spike_times,use_feedback_onsets,raster_window,psth_bin_size);
+                    mua_feedback_latemove_miss(curr_depth,:,curr_condition_idx) = psth;
                 end
                 
             end
         end
         
         batch_vars(curr_animal).mua_stim_earlymove_hit(:,:,:,curr_day) = mua_stim_earlymove_hit;
-        batch_vars(curr_animal).mua_stim_latemove_hit(:,:,:,curr_day) = mua_stim_latemove_hit;
-        
+        batch_vars(curr_animal).mua_stim_latemove_hit(:,:,:,curr_day) = mua_stim_latemove_hit;       
         batch_vars(curr_animal).mua_stim_earlymove_miss(:,:,:,curr_day) = mua_stim_earlymove_miss;
         batch_vars(curr_animal).mua_stim_latemove_miss(:,:,:,curr_day) = mua_stim_latemove_miss;
+        
+        batch_vars(curr_animal).mua_move_earlymove_hit(:,:,:,curr_day) = mua_move_earlymove_hit;
+        batch_vars(curr_animal).mua_move_latemove_hit(:,:,:,curr_day) = mua_move_latemove_hit;       
+        batch_vars(curr_animal).mua_move_earlymove_miss(:,:,:,curr_day) = mua_move_earlymove_miss;
+        batch_vars(curr_animal).mua_move_latemove_miss(:,:,:,curr_day) = mua_move_latemove_miss;
+        
+        batch_vars(curr_animal).mua_feedback_earlymove_hit(:,:,:,curr_day) = mua_feedback_earlymove_hit;
+        batch_vars(curr_animal).mua_feedback_latemove_hit(:,:,:,curr_day) = mua_feedback_latemove_hit;       
+        batch_vars(curr_animal).mua_feedback_earlymove_miss(:,:,:,curr_day) = mua_feedback_earlymove_miss;
+        batch_vars(curr_animal).mua_feedback_latemove_miss(:,:,:,curr_day) = mua_feedback_latemove_miss;
         
         AP_print_progress_fraction(curr_day,length(experiments));
         clearvars -except animals animal curr_animal protocol experiments curr_day animal batch_vars load_parts
@@ -907,7 +1272,7 @@ end
 
 % Save
 save_path = ['C:\Users\Andrew\OneDrive for Business\Documents\CarandiniHarrisLab\analysis\wf_ephys_choiceworld\choiceworld'];
-save([save_path filesep 'mua_stim_choiceworld'],'batch_vars');
+save([save_path filesep 'mua_choiceworld'],'batch_vars');
 
 %% Batch striatum responses to passive
 
@@ -993,17 +1358,177 @@ save_path = ['C:\Users\Andrew\OneDrive for Business\Documents\CarandiniHarrisLab
 save([save_path filesep 'mua_stim_' protocol],'batch_vars');
 
 
+%% Batch trial-trial MUA-fluorescence correlation
 
+animals = {'AP024','AP025','AP026','AP027','AP028','AP029'};
 
+protocol = 'vanillaChoiceworld';
+% protocol = 'stimSparseNoiseUncorrAsync';
+% protocol = 'stimKalatsky';
+% protocol = 'AP_choiceWorldStimPassive';
 
+batch_vars = struct;
+for curr_animal = 1:length(animals)
+    
+    animal = animals{curr_animal};
+    experiments = AP_find_experiments(animal,protocol);
+    
+    % Skip if this animal doesn't have this experiment
+    if isempty(experiments)
+        continue
+    end
+    
+    disp(animal);
+    
+    experiments = experiments([experiments.imaging] & [experiments.ephys]);
+    
+    load_parts.cam = false;
+    load_parts.imaging = true;
+    load_parts.ephys = true;
+    
+    for curr_day = 1:length(experiments);
+        
+        day = experiments(curr_day).day;
+        experiment = experiments(curr_day).experiment;
+        
+        AP_load_experiment
+        
+        % Load widefield ROIs
+        wf_roi_fn = 'C:\Users\Andrew\OneDrive for Business\Documents\CarandiniHarrisLab\analysis\wf_ephys_choiceworld\wf_processing\wf_rois\wf_roi';
+        load(wf_roi_fn);
+        
+        % Group striatum depths
+        n_depth_groups = 6;
+        depth_group_edges = round(linspace(str_depth(1),str_depth(2),n_depth_groups+1));
+        [depth_group_n,~,depth_group] = histcounts(spikeDepths,depth_group_edges);
+     
+        % Define times to align
+        n_trials = length(block.paramsValues);
+        trial_conditions = signals_events.trialSideValues(1:n_trials).*signals_events.trialContrastValues(1:n_trials);
+        trial_outcome = signals_events.hitValues(1:n_trials)-signals_events.missValues(1:n_trials);
+        stim_to_move = padarray(wheel_move_time - stimOn_times',[0,n_trials-length(stimOn_times)],NaN,'post');
+        stim_to_feedback = padarray(signals_events.responseTimes, ...
+            [0,n_trials-length(signals_events.responseTimes)],NaN,'post') - ...
+            padarray(stimOn_times',[0,n_trials-length(stimOn_times)],NaN,'post');
+        
+        use_trials = ...
+            trial_outcome ~= 0 & ...
+            ~signals_events.repeatTrialValues(1:n_trials) & ...
+            stim_to_move < 0.5 & ...
+            stim_to_feedback < 1.5;
+        
+        align_times = reshape(wheel_move_time(use_trials),[],1);
+        
+        sample_rate_factor = 3;
+        interval_surround = [-0.5,1.5];
+        sample_rate = framerate*sample_rate_factor;
+        t_surround = interval_surround(1):1/sample_rate:interval_surround(2);
+        t_peri_event = bsxfun(@plus,align_times,t_surround);
+        
+        % Get fluorescence within saved ROIs
+        Udf_aligned = AP_align_widefield(animal,day,Udf);
+        roi_traces = AP_svd_roi(Udf_aligned,fVdf,[],[],cat(3,wf_roi.mask));
+        event_aligned_f = interp1(frame_t,roi_traces',t_peri_event);
+        event_aligned_df = interp1(conv(frame_t,[1,1]/2,'valid'),diff(roi_traces,[],2)',t_peri_event);
+        event_aligned_df(event_aligned_df < 0) = 0;
+        
+        % Pull out MUA across depths
+        t_peri_event_bins = [t_peri_event - 1/(sample_rate*2), ...
+            t_peri_event(:,end) + 1/(sample_rate*2)];
+        event_aligned_spikes = nan(size(t_peri_event_bins,1),size(t_peri_event_bins,2)-1,n_depth_groups);
+        for curr_depth = 1:n_depth_groups
+            use_spikes = spike_times_timeline(depth_group == curr_depth);
+            event_aligned_spikes(:,:,curr_depth) = cell2mat(arrayfun(@(x) ...
+                histcounts(use_spikes,t_peri_event_bins(x,:)),[1:length(align_times)]','uni',false));
+        end
+        
+        % Get significant correlations from spikes to spikes
+        corr_mua_mua = cell(size(event_aligned_spikes,3),size(event_aligned_spikes,3));
+        for curr_mua1 = 1:size(event_aligned_spikes,3)
+            for curr_mua2 = 1:size(event_aligned_spikes,3)
+                corr_real = (zscore(event_aligned_spikes(:,:,curr_mua1),1)'* ...
+                    zscore(event_aligned_spikes(:,:,curr_mua2),1))./(size(event_aligned_spikes(:,:,curr_mua1),1)-1);
+                n_shuff = 1000;
+                corr_shuff = nan(size(corr_real,1),size(corr_real,2),n_shuff);
+                warning off
+                for curr_shuff = 1:n_shuff
+                    corr_shuff(:,:,curr_shuff) = (...
+                        zscore(shake(event_aligned_spikes(:,:,curr_mua1),1),1)'* ...
+                        zscore(event_aligned_spikes(:,:,curr_mua2),1))./ ...
+                        (size(event_aligned_spikes(:,:,curr_mua1),1)-1);
+                end
+                warning on
+                corr_shuff_cutoff = prctile(corr_shuff,[2.5,97.5],3);
+                corr_sig = (corr_real > corr_shuff_cutoff(:,:,2)) | (corr_real < corr_shuff_cutoff(:,:,1));
+                
+                corr_mua_mua{curr_mua1,curr_mua2} = corr_real;
+                corr_mua_mua{curr_mua1,curr_mua2}(~corr_sig) = 0;
+            end
+        end      
+        
+        % Get significant correlations from fluor to fluor
+        corr_fluor_fluor = cell(size(event_aligned_df,3),size(event_aligned_df,3));
+        for curr_fluor1 = 1:size(event_aligned_df,3)
+            for curr_fluor2 = 1:size(event_aligned_df,3)
+                corr_real = (zscore(event_aligned_df(:,:,curr_fluor1),1)'* ...
+                    zscore(event_aligned_df(:,:,curr_fluor2),1))./(size(event_aligned_df(:,:,curr_fluor1),1)-1);
+                n_shuff = 1000;
+                corr_shuff = nan(size(corr_real,1),size(corr_real,2),n_shuff);
+                warning off
+                for curr_shuff = 1:n_shuff
+                    corr_shuff(:,:,curr_shuff) = (...
+                        zscore(shake(event_aligned_df(:,:,curr_fluor1),1),1)'* ...
+                        zscore(event_aligned_df(:,:,curr_fluor2),1))./ ...
+                        (size(event_aligned_df(:,:,curr_fluor1),1)-1);
+                end
+                warning on
+                corr_shuff_cutoff = prctile(corr_shuff,[2.5,97.5],3);
+                corr_sig = (corr_real > corr_shuff_cutoff(:,:,2)) | (corr_real < corr_shuff_cutoff(:,:,1));
+                
+                corr_fluor_fluor{curr_fluor1,curr_fluor2} = corr_real;
+                corr_fluor_fluor{curr_fluor1,curr_fluor2}(~corr_sig) = 0;
+            end
+        end     
+        
+        % Get significant correlations from fluor to spikes
+        corr_fluor_mua = cell(size(event_aligned_df,3),size(event_aligned_spikes,3));
+        for curr_fluor = 1:size(event_aligned_df,3)
+            for curr_mua = 1:size(event_aligned_spikes,3)
+                corr_real = (zscore(event_aligned_df(:,:,curr_fluor),1)'* ...
+                    zscore(event_aligned_spikes(:,:,curr_mua),1))./(size(event_aligned_df(:,:,curr_fluor),1)-1);
+                n_shuff = 1000;
+                corr_shuff = nan(size(corr_real,1),size(corr_real,2),n_shuff);
+                warning off
+                for curr_shuff = 1:n_shuff
+                    corr_shuff(:,:,curr_shuff) = (...
+                        zscore(shake(event_aligned_df(:,:,curr_fluor),1),1)'* ...
+                        zscore(event_aligned_spikes(:,:,curr_mua),1))./ ...
+                        (size(event_aligned_df(:,:,curr_fluor),1)-1);
+                end
+                warning on
+                corr_shuff_cutoff = prctile(corr_shuff,[2.5,97.5],3);
+                corr_sig = (corr_real > corr_shuff_cutoff(:,:,2)) | (corr_real < corr_shuff_cutoff(:,:,1));
+                
+                corr_fluor_mua{curr_fluor,curr_mua} = corr_real;
+                corr_fluor_mua{curr_fluor,curr_mua}(~corr_sig) = 0;
+            end
+        end       
+        
+        batch_vars(curr_animal).corr_mua_mua(:,:,curr_day) = corr_mua_mua;
+        batch_vars(curr_animal).corr_fluor_fluor(:,:,curr_day) = corr_fluor_fluor;
+        batch_vars(curr_animal).corr_fluor_mua(:,:,curr_day) = corr_fluor_mua;
+        
+        AP_print_progress_fraction(curr_day,length(experiments));
+        clearvars -except animals animal curr_animal protocol experiments curr_day animal batch_vars load_parts
+        
+    end
+    
+    disp(['Finished ' animal]);
+    
+end
 
-
-
-
-
-
-
-
+fn = 'C:\Users\Andrew\OneDrive for Business\Documents\CarandiniHarrisLab\analysis\wf_ephys_choiceworld\choiceworld\corr_mua_fluor';
+save(fn,'batch_vars');
 
 
 

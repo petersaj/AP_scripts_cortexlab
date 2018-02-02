@@ -29,7 +29,11 @@ else
         days = {days};
     end
     animal_aligned = false;
+    if length(days) ~= length(im_unaligned)
+        error('Different number of days and images')
+    end
 end
+
 
 if ~animal_aligned && iscell(animals) && length(animals) > 1
     error('Only within or across animal alignment possible at a time')

@@ -1514,7 +1514,7 @@ truesize
 
 %% Show aligned mean images within one animal and across animals
 
-animal = 'AP029';
+animal = 'AP027';
 
 protocol = 'vanillaChoiceworld';
 experiments = AP_find_experiments(animal,protocol);
