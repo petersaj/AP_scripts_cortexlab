@@ -1359,6 +1359,9 @@ save([save_path filesep 'mua_stim_' protocol],'batch_vars');
 
 
 %% Batch trial-trial MUA-fluorescence correlation
+% NOTE: I put a bunch of work into doing this on the GPU instead, but the
+% memory-limiting steps required FOR loops and the resulting code was
+% barely faster
 
 animals = {'AP024','AP025','AP026','AP027','AP028','AP029'};
 
@@ -1458,9 +1461,11 @@ for curr_animal = 1:length(animals)
         
         % Get sig correlations across all time points across modalities
         n_shuff = 1000;
+        warning off;
         shuff_idx = ...
             shake(repmat(reshape(1:length(align_times)*length(t_surround), ...
             length(align_times),length(t_surround)),1,1,n_shuff),1);
+        warning on ;
         
         % MUA-MUA
         corr_mua_mua = cell(size(event_aligned_spikes,3),size(event_aligned_spikes,3));

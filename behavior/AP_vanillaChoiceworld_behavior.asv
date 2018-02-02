@@ -295,35 +295,14 @@ ylabel('Fraction go left');
 title('Late move');
 
 % Plot wheel velocity by condition
-[velocity_condition_hit_earlymove_grp,group] = cellfun(@(wheel,outcome,condition,stim_to_move) ...
-    grpstats(wheel(outcome == 1 & stim_to_move < 0.5),condition(outcome == 1 & stim_to_move < 0.5), ...
-    {'mean','gname'}),trial_wheel_velocity_cat,trial_outcome_cat,trial_condition_cat,stim_to_move_cat,'uni',false);
-group = cellfun(@(x) cellfun(@(x) str2num(x),x),group,'uni',false);
-all_group = unique(vertcat(group{:}),'rows');
-velocity_condition_hit_earlymove = nan(size(all_group,1),length(bhv));
-for curr_animal = 1:length(bhv)
-    [~,group_idx] = intersect(all_group,group{curr_animal},'rows');
-    velocity_condition_hit_earlymove(group_idx,curr_animal) = velocity_condition_hit_earlymove_grp{curr_animal};
-end
 
-[velocity_condition_miss_earlymove_grp,group] = cellfun(@(wheel,outcome,condition,stim_to_move) ...
-    grpstats(wheel(outcome == -1 & stim_to_move < 0.5),condition(outcome == -1 & stim_to_move < 0.5), ...
-    {'mean','gname'}),trial_wheel_velocity_cat,trial_outcome_cat,trial_condition_cat,stim_to_move_cat,'uni',false);
-group = cellfun(@(x) cellfun(@(x) str2num(x),x),group,'uni',false);
-all_group = unique(vertcat(group{:}),'rows');
-velocity_condition_miss_earlymove = nan(size(all_group,1),length(bhv));
-for curr_animal = 1:length(bhv)
-    [~,group_idx] = intersect(all_group,group{curr_animal},'rows');
-    velocity_condition_miss_earlymove(group_idx,curr_animal) = velocity_condition_miss_earlymove_grp{curr_animal};
-end
+velocity_condition_hit_earlymove = cell2mat(cellfun(@(wheel,outcome,condition,stim_to_move) ...
+    grpstats(wheel(outcome == 1 & stim_to_move < 0.5),condition(outcome == 1 & stim_to_move < 0.5)), ...
+    trial_wheel_velocity_cat,trial_outcome_cat,trial_condition_cat,stim_to_move_cat,'uni',false));
 
-figure; hold on;
-plot(conditions,abs(velocity_condition_miss_earlymove),'color',[0.8,0.6,0.6],'linewidth',2);
-plot(conditions,abs(velocity_condition_hit_earlymove),'color',[0.6,0.8,0.6],'linewidth',2);
-plot(conditions,nanmean(abs(velocity_condition_miss_earlymove),2),'color',[0.8,0,0],'linewidth',2);
-plot(conditions,nanmean(abs(velocity_condition_hit_earlymove),2),'color',[0,0.8,0],'linewidth',2);
-ylabel('Max wheel velocity towards choice');
-xlabel('Condition');
+velocity_condition_miss_earlymove = cell2mat(cellfun(@(wheel,outcome,condition,stim_to_move) ...
+    grpstats(wheel(outcome == -1 & stim_to_move < 0.5),condition(outcome == 1 & stim_to_move < 0.5)), ...
+    trial_wheel_velocity_cat,trial_outcome_cat,trial_condition_cat,stim_to_move_cat,'uni',false));
 
 % Plot distribution of stim to move and feedback times
 move_time_bins = 0:0.01:1;
