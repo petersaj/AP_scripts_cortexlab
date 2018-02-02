@@ -260,15 +260,25 @@ if block_exists
         stimOn_times = photodiode_flip_times(closest_stimOn_photodiode);
         
         % Get time from stim on to first wheel movement
+        rotaryEncoder_idx = strcmp({Timeline.hw.inputs.name}, 'rotaryEncoder');
+        % (this is a very strange hack to overcome a problem in the rotary
+        % encoder that's known in the lab and was put on the wiki)
+        wheel_position = Timeline.rawDAQData(:,rotaryEncoder_idx);
+        wheel_position(wheel_position > 2^31) = wheel_position(wheel_position > 2^31) - 2^32;
+        
         surround_time = [-0.5,2];
         surround_samples = surround_time/Timeline.hw.samplingInterval;
         
-        rotaryEncoder_idx = strcmp({Timeline.hw.inputs.name}, 'rotaryEncoder');
+        % (wheel velocity by smoothing the wheel trace and taking dt/t)
+        wheel_smooth_t = 0.05; % seconds
+        wheel_smooth_samples = wheel_smooth_t/Timeline.hw.samplingInterval;
+        wheel_velocity = diff(smooth(wheel_position,wheel_smooth_samples));
+                
         surround_time = surround_time(1):Timeline.hw.samplingInterval:surround_time(2);
         pull_times = bsxfun(@plus,stimOn_times,surround_time);
         
         stim_aligned_wheel_raw = interp1(Timeline.rawDAQTimestamps, ...
-            Timeline.rawDAQData(:,rotaryEncoder_idx),pull_times);
+            wheel_position,pull_times);
         stim_aligned_wheel = bsxfun(@minus,stim_aligned_wheel_raw, ...
             nanmedian(stim_aligned_wheel_raw(:,surround_time < 0),2));
         

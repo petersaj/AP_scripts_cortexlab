@@ -1442,77 +1442,179 @@ for curr_animal = 1:length(animals)
                 histcounts(use_spikes,t_peri_event_bins(x,:)),[1:length(align_times)]','uni',false));
         end
         
-        % Get significant correlations from spikes to spikes
+        % Get wheel movements around all aligned events
+        event_aligned_wheel = interp1(conv2(Timeline.rawDAQTimestamps,[0.5,0.5],'valid'), ...
+            wheel_velocity,t_peri_event);
+        
+        % Choice of all events (L/R movement)
+        choice = ...
+            ((signals_events.trialSideValues(use_trials) == 1 & trial_outcome(use_trials) == -1 | ...
+            signals_events.trialSideValues(use_trials) == -1 & trial_outcome(use_trials) == 1) - ...
+            (signals_events.trialSideValues(use_trials) == -1 & trial_outcome(use_trials) == -1 | ...
+            signals_events.trialSideValues(use_trials) == 1 & trial_outcome(use_trials) == 1))';
+        if any(~ismember(choice,[-1,1]))
+            error('Non-valid choice')
+        end
+        
+        % Get sig correlations across all time points across modalities
+        n_shuff = 1000;
+        shuff_idx = ...
+            shake(repmat(reshape(1:length(align_times)*length(t_surround), ...
+            length(align_times),length(t_surround)),1,1,n_shuff),1);
+        
+        % MUA-MUA
         corr_mua_mua = cell(size(event_aligned_spikes,3),size(event_aligned_spikes,3));
         for curr_mua1 = 1:size(event_aligned_spikes,3)
-            for curr_mua2 = 1:size(event_aligned_spikes,3)
-                corr_real = (zscore(event_aligned_spikes(:,:,curr_mua1),1)'* ...
-                    zscore(event_aligned_spikes(:,:,curr_mua2),1))./(size(event_aligned_spikes(:,:,curr_mua1),1)-1);
-                n_shuff = 1000;
-                corr_shuff = nan(size(corr_real,1),size(corr_real,2),n_shuff);
-                warning off
-                for curr_shuff = 1:n_shuff
-                    corr_shuff(:,:,curr_shuff) = (...
-                        zscore(shake(event_aligned_spikes(:,:,curr_mua1),1),1)'* ...
-                        zscore(event_aligned_spikes(:,:,curr_mua2),1))./ ...
-                        (size(event_aligned_spikes(:,:,curr_mua1),1)-1);
-                end
-                warning on
+            for curr_mua2 = 1:size(event_aligned_spikes,3)                            
+                
+                curr_data1 = zscore(event_aligned_spikes(:,:,curr_mua1),[],1);
+                curr_data2 = zscore(event_aligned_spikes(:,:,curr_mua2),[],1);               
+                curr_data2_shuff = curr_data2(shuff_idx);
+                              
+                corr_real = (curr_data1'*curr_data2)./(length(align_times)-1);
+                
+                corr_shuff = ...
+                    gather(pagefun(@mtimes,gpuArray(curr_data1'), ...
+                    gpuArray(curr_data2_shuff)))./(length(align_times)-1);
+                           
                 corr_shuff_cutoff = prctile(corr_shuff,[2.5,97.5],3);
                 corr_sig = (corr_real > corr_shuff_cutoff(:,:,2)) | (corr_real < corr_shuff_cutoff(:,:,1));
                 
                 corr_mua_mua{curr_mua1,curr_mua2} = corr_real;
                 corr_mua_mua{curr_mua1,curr_mua2}(~corr_sig) = 0;
+                
             end
         end      
         
-        % Get significant correlations from fluor to fluor
+        % Fluor-Fluor
         corr_fluor_fluor = cell(size(event_aligned_df,3),size(event_aligned_df,3));
         for curr_fluor1 = 1:size(event_aligned_df,3)
             for curr_fluor2 = 1:size(event_aligned_df,3)
-                corr_real = (zscore(event_aligned_df(:,:,curr_fluor1),1)'* ...
-                    zscore(event_aligned_df(:,:,curr_fluor2),1))./(size(event_aligned_df(:,:,curr_fluor1),1)-1);
-                n_shuff = 1000;
-                corr_shuff = nan(size(corr_real,1),size(corr_real,2),n_shuff);
-                warning off
-                for curr_shuff = 1:n_shuff
-                    corr_shuff(:,:,curr_shuff) = (...
-                        zscore(shake(event_aligned_df(:,:,curr_fluor1),1),1)'* ...
-                        zscore(event_aligned_df(:,:,curr_fluor2),1))./ ...
-                        (size(event_aligned_df(:,:,curr_fluor1),1)-1);
-                end
-                warning on
+                
+                curr_data1 = zscore(event_aligned_df(:,:,curr_fluor1),[],1);
+                curr_data2 = zscore(event_aligned_df(:,:,curr_fluor2),[],1);               
+                curr_data2_shuff = curr_data2(shuff_idx);
+                              
+                corr_real = (curr_data1'*curr_data2)./(length(align_times)-1);
+                
+                corr_shuff = ...
+                    gather(pagefun(@mtimes,gpuArray(curr_data1'), ...
+                    gpuArray(curr_data2_shuff)))./(length(align_times)-1);
+                
                 corr_shuff_cutoff = prctile(corr_shuff,[2.5,97.5],3);
                 corr_sig = (corr_real > corr_shuff_cutoff(:,:,2)) | (corr_real < corr_shuff_cutoff(:,:,1));
                 
                 corr_fluor_fluor{curr_fluor1,curr_fluor2} = corr_real;
                 corr_fluor_fluor{curr_fluor1,curr_fluor2}(~corr_sig) = 0;
+                
             end
         end     
         
-        % Get significant correlations from fluor to spikes
+        % Fluor-MUA
         corr_fluor_mua = cell(size(event_aligned_df,3),size(event_aligned_spikes,3));
         for curr_fluor = 1:size(event_aligned_df,3)
             for curr_mua = 1:size(event_aligned_spikes,3)
-                corr_real = (zscore(event_aligned_df(:,:,curr_fluor),1)'* ...
-                    zscore(event_aligned_spikes(:,:,curr_mua),1))./(size(event_aligned_df(:,:,curr_fluor),1)-1);
-                n_shuff = 1000;
-                corr_shuff = nan(size(corr_real,1),size(corr_real,2),n_shuff);
-                warning off
-                for curr_shuff = 1:n_shuff
-                    corr_shuff(:,:,curr_shuff) = (...
-                        zscore(shake(event_aligned_df(:,:,curr_fluor),1),1)'* ...
-                        zscore(event_aligned_spikes(:,:,curr_mua),1))./ ...
-                        (size(event_aligned_df(:,:,curr_fluor),1)-1);
-                end
-                warning on
+                
+                curr_data1 = zscore(event_aligned_df(:,:,curr_fluor),[],1);
+                curr_data2 = zscore(event_aligned_spikes(:,:,curr_mua),[],1);               
+                curr_data2_shuff = curr_data2(shuff_idx);
+                              
+                corr_real = (curr_data1'*curr_data2)./(length(align_times)-1);
+                
+                corr_shuff = ...
+                    gather(pagefun(@mtimes,gpuArray(curr_data1'), ...
+                    gpuArray(curr_data2_shuff)))./(length(align_times)-1);
+                
                 corr_shuff_cutoff = prctile(corr_shuff,[2.5,97.5],3);
                 corr_sig = (corr_real > corr_shuff_cutoff(:,:,2)) | (corr_real < corr_shuff_cutoff(:,:,1));
                 
                 corr_fluor_mua{curr_fluor,curr_mua} = corr_real;
                 corr_fluor_mua{curr_fluor,curr_mua}(~corr_sig) = 0;
+                
             end
-        end       
+        end      
+        
+        % MUA-wheel/choice
+        corr_mua_wheel = cell(size(event_aligned_spikes,3),1);
+        corr_mua_choice = cell(size(event_aligned_spikes,3),1);
+        for curr_mua = 1:size(event_aligned_spikes,3)
+            
+            % Wheel
+            curr_data1 = zscore(event_aligned_spikes(:,:,curr_mua),[],1);
+            curr_data2 = zscore(event_aligned_wheel,[],1);
+            curr_data2_shuff = curr_data2(shuff_idx);
+            
+            corr_real = (curr_data1'*curr_data2)./(length(align_times)-1);
+            
+            corr_shuff = ...
+                gather(pagefun(@mtimes,gpuArray(curr_data1'), ...
+                gpuArray(curr_data2_shuff)))./(length(align_times)-1);
+            
+            corr_shuff_cutoff = prctile(corr_shuff,[2.5,97.5],3);
+            corr_sig = (corr_real > corr_shuff_cutoff(:,:,2)) | (corr_real < corr_shuff_cutoff(:,:,1));
+            
+            corr_mua_wheel{curr_mua} = corr_real;
+            corr_mua_wheel{curr_mua}(~corr_sig) = 0;
+            
+            % Choice
+            curr_data1 = zscore(event_aligned_spikes(:,:,curr_mua),[],1);
+            curr_data2 = zscore(choice,[],1);
+            curr_data2_shuff = curr_data2(shuff_idx(:,1,:));
+            
+            corr_real = (curr_data1'*curr_data2)./(length(align_times)-1);
+            
+            corr_shuff = ...
+                gather(pagefun(@mtimes,gpuArray(curr_data1'), ...
+                gpuArray(curr_data2_shuff)))./(length(align_times)-1);
+            
+            corr_shuff_cutoff = prctile(corr_shuff,[2.5,97.5],3);
+            corr_sig = (corr_real > corr_shuff_cutoff(:,:,2)) | (corr_real < corr_shuff_cutoff(:,:,1));
+            
+            corr_mua_choice{curr_mua} = corr_real;
+            corr_mua_choice{curr_mua}(~corr_sig) = 0;
+            
+        end
+        
+        % Fluor-wheel/choice
+        corr_fluor_wheel = cell(size(event_aligned_df,3),1);
+        corr_fluor_choice = cell(size(event_aligned_df,3),1);
+        for curr_fluor = 1:size(event_aligned_df,3)
+            
+            % Wheel
+            curr_data1 = zscore(event_aligned_df(:,:,curr_fluor),[],1);
+            curr_data2 = zscore(event_aligned_wheel,[],1);
+            curr_data2_shuff = curr_data2(shuff_idx);
+            
+            corr_real = (curr_data1'*curr_data2)./(length(align_times)-1);
+            
+            corr_shuff = ...
+                gather(pagefun(@mtimes,gpuArray(curr_data1'), ...
+                gpuArray(curr_data2_shuff)))./(length(align_times)-1);
+            
+            corr_shuff_cutoff = prctile(corr_shuff,[2.5,97.5],3);
+            corr_sig = (corr_real > corr_shuff_cutoff(:,:,2)) | (corr_real < corr_shuff_cutoff(:,:,1));
+            
+            corr_fluor_wheel{curr_fluor} = corr_real;
+            corr_fluor_wheel{curr_fluor}(~corr_sig) = 0;
+            
+            % Choice
+            curr_data1 = zscore(event_aligned_df(:,:,curr_fluor),[],1);
+            curr_data2 = zscore(choice,[],1);
+            curr_data2_shuff = curr_data2(shuff_idx(:,1,:));
+            
+            corr_real = (curr_data1'*curr_data2)./(length(align_times)-1);
+            
+            corr_shuff = ...
+                gather(pagefun(@mtimes,gpuArray(curr_data1'), ...
+                gpuArray(curr_data2_shuff)))./(length(align_times)-1);
+            
+            corr_shuff_cutoff = prctile(corr_shuff,[2.5,97.5],3);
+            corr_sig = (corr_real > corr_shuff_cutoff(:,:,2)) | (corr_real < corr_shuff_cutoff(:,:,1));
+            
+            corr_fluor_choice{curr_fluor} = corr_real;
+            corr_fluor_choice{curr_fluor}(~corr_sig) = 0;
+            
+        end
         
         batch_vars(curr_animal).corr_mua_mua(:,:,curr_day) = corr_mua_mua;
         batch_vars(curr_animal).corr_fluor_fluor(:,:,curr_day) = corr_fluor_fluor;
