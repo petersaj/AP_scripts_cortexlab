@@ -2308,7 +2308,7 @@ t = linspace(interval_surround(1),interval_surround(2),212);
 sample_rate = 1/median(diff(t));
 
 % Load correlations
-fn = 'C:\Users\Andrew\OneDrive for Business\Documents\CarandiniHarrisLab\analysis\wf_ephys_choiceworld\choiceworld\corr_mua_fluor';
+fn = 'C:\Users\Andrew\OneDrive for Business\Documents\CarandiniHarrisLab\analysis\wf_ephys_choiceworld\choiceworld\corr_mua_fluor_move';
 load(fn);
 n_depths = 6;
 
@@ -2316,6 +2316,7 @@ n_depths = 6;
 wf_roi_fn = 'C:\Users\Andrew\OneDrive for Business\Documents\CarandiniHarrisLab\analysis\wf_ephys_choiceworld\wf_processing\wf_rois\wf_roi';
 load(wf_roi_fn);
 n_rois = length(wf_roi);
+wf_areas = {wf_roi.area};
 
 corr_mua_mua = nanmean(cell2mat(permute(arrayfun(@(x) ...
     nanmean(cell2mat(batch_vars(x).corr_mua_mua),3),1:length(batch_vars),'uni',false),[1,3,2])),3);
@@ -2324,9 +2325,26 @@ corr_fluor_fluor = nanmean(cell2mat(permute(arrayfun(@(x) ...
 corr_fluor_mua = nanmean(cell2mat(permute(arrayfun(@(x) ...
     nanmean(cell2mat(batch_vars(x).corr_fluor_mua),3),1:length(batch_vars),'uni',false),[1,3,2])),3);
 
+corr_mua_wheel = nanmean(cell2mat(permute(arrayfun(@(x) ...
+    nanmean(cell2mat(batch_vars(x).corr_mua_wheel),3),1:length(batch_vars),'uni',false),[1,3,2])),3);
+corr_fluor_wheel = nanmean(cell2mat(permute(arrayfun(@(x) ...
+    nanmean(cell2mat(batch_vars(x).corr_fluor_wheel),3),1:length(batch_vars),'uni',false),[1,3,2])),3);
+
+corr_mua_choice = nanmean(cell2mat(permute(arrayfun(@(x) ...
+    nanmean(cell2mat(batch_vars(x).corr_mua_choice),3),1:length(batch_vars),'uni',false),[1,3,2])),3);
+corr_fluor_choice = nanmean(cell2mat(permute(arrayfun(@(x) ...
+    nanmean(cell2mat(batch_vars(x).corr_fluor_choice),3),1:length(batch_vars),'uni',false),[1,3,2])),3);
+
 corr_mua_mua_split = mat2cell(corr_mua_mua,repmat(length(t),n_depths,1),repmat(length(t),1,n_depths));
 corr_fluor_fluor_split = mat2cell(corr_fluor_fluor,repmat(length(t),n_rois,1),repmat(length(t),1,n_rois));
 corr_fluor_mua_split = mat2cell(corr_fluor_mua,repmat(length(t),n_rois,1),repmat(length(t),1,n_depths));
+
+corr_mua_wheel_split = mat2cell(corr_mua_wheel,repmat(length(t),n_depths,1),length(t));
+corr_fluor_wheel_split = mat2cell(corr_fluor_wheel,repmat(length(t),n_rois,1),length(t));
+
+corr_mua_choice_split = mat2cell(corr_mua_choice,repmat(length(t),n_depths,1),1);
+corr_fluor_choice_split = mat2cell(corr_fluor_choice,repmat(length(t),n_rois,1),1);
+
 
 % Plot everything concatenated
 figure;
@@ -2356,8 +2374,9 @@ ylabel('Fluor');
 xlabel('MUA');
 
 % Plot grid of correlations
-plot_t = [-0.2,0.1];
+plot_t = [-0.2,0.7];
 
+% MUA-MUA
 figure; colormap(colormap_BlueWhiteRed);
 ax = tight_subplot(n_depths,n_depths,[0.01,0.01]);
 for curr_depth1 = 1:n_depths
@@ -2376,6 +2395,7 @@ for curr_depth1 = 1:n_depths
     end
 end
 
+% Fluor-Fluor
 figure; colormap(colormap_BlueWhiteRed);
 ax = tight_subplot(n_rois,n_rois,[0.01,0.01]);
 for curr_roi1 = 1:n_rois
@@ -2394,8 +2414,7 @@ for curr_roi1 = 1:n_rois
     end
 end
 
-wf_areas = {wf_roi.area};
-
+% Fluor-MUA
 figure; colormap(colormap_BlueWhiteRed);
 ax = tight_subplot(n_rois,n_depths,[0.01,0.01]);
 for curr_roi = 1:n_rois
@@ -2413,6 +2432,60 @@ for curr_roi = 1:n_rois
         ylim(plot_t)
     end
 end
+
+% MUA/Fluor-wheel
+figure; colormap(colormap_BlueWhiteRed);
+ax = tight_subplot(2,max(n_depths,n_rois),[0.01,0.01]);
+for curr_depth = 1:n_depths
+    axes(ax(curr_depth));
+    imagesc(t,t,corr_mua_wheel_split{curr_depth})
+    caxis([-0.1,0.1])
+    title(['Str' num2str(curr_depth) '-Wheel']);
+    set(gca,'FontSize',8);
+    line([0,0],ylim,'color','k');
+    line(xlim,[0,0],'color','k');
+    line(xlim,ylim,'color','k');
+    axis square off;
+    xlim(plot_t)
+    ylim(plot_t)
+end
+for curr_roi = 1:n_rois
+    axes(ax(n_depths+(max(n_rois,n_depths)-n_depths)+curr_roi));
+    imagesc(t,t,corr_fluor_wheel_split{curr_roi})
+    caxis([-0.2,0.2])
+    title([wf_areas{curr_roi} '-Wheel']);
+    set(gca,'FontSize',8);
+    line([0,0],ylim,'color','k');
+    line(xlim,[0,0],'color','k');
+    line(xlim,ylim,'color','k');
+    axis square off;
+    xlim(plot_t)
+    ylim(plot_t)
+end
+
+% MUA/Fluor-choice
+% (to smooth mua)
+smooth_size = 10;
+gw = gausswin(smooth_size,3)';
+smWin = gw./sum(gw);
+
+figure; 
+subplot(1,2,1); hold on
+set(gca,'ColorOrder',copper(n_depths));
+plot(t,conv2(horzcat(corr_mua_choice_split{:}),smWin','same'),'linewidth',2);
+line([0,0],ylim,'color','k');
+ylabel('Correlation with decision')
+xlabel('Time from movement onset (s)');
+title('MUA');
+legend(cellfun(@(x) ['Str ' num2str(x)],num2cell(1:6),'uni',false))
+subplot(1,2,2); hold on
+set(gca,'ColorOrder',copper(n_rois));
+plot(t,horzcat(corr_fluor_choice_split{:}),'linewidth',2);
+line([0,0],ylim,'color','k');
+ylabel('Correlation with decision')
+xlabel('Time from movement onset (s)')
+title('Fluor');
+legend(wf_areas);
 
 % Plot pre-movement predicted/predictor
 t_use = t > -0.15 & t < 0;
@@ -2495,6 +2568,9 @@ for curr_roi = 1:n_rois
     xlabel('Depth');
     ylabel('Time CoM');
 end
+
+
+
 
 
 

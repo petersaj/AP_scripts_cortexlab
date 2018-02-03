@@ -1358,7 +1358,292 @@ save_path = ['C:\Users\Andrew\OneDrive for Business\Documents\CarandiniHarrisLab
 save([save_path filesep 'mua_stim_' protocol],'batch_vars');
 
 
-%% Batch trial-trial MUA-fluorescence correlation
+%% Batch trial-trial MUA-fluorescence correlation (stim-aligned)
+% NOTE: I put a bunch of work into doing this on the GPU instead, but the
+% memory-limiting steps required FOR loops and the resulting code was
+% barely faster
+
+animals = {'AP024','AP025','AP026','AP027','AP028','AP029'};
+
+protocol = 'vanillaChoiceworld';
+% protocol = 'stimSparseNoiseUncorrAsync';
+% protocol = 'stimKalatsky';
+% protocol = 'AP_choiceWorldStimPassive';
+
+batch_vars = struct;
+for curr_animal = 1:length(animals)
+    
+    animal = animals{curr_animal};
+    experiments = AP_find_experiments(animal,protocol);
+    
+    % Skip if this animal doesn't have this experiment
+    if isempty(experiments)
+        continue
+    end
+    
+    disp(animal);
+    
+    experiments = experiments([experiments.imaging] & [experiments.ephys]);
+    
+    load_parts.cam = false;
+    load_parts.imaging = true;
+    load_parts.ephys = true;
+    
+    for curr_day = 1:length(experiments);
+        
+        day = experiments(curr_day).day;
+        experiment = experiments(curr_day).experiment;
+        
+        AP_load_experiment
+        
+        % Load widefield ROIs
+        wf_roi_fn = 'C:\Users\Andrew\OneDrive for Business\Documents\CarandiniHarrisLab\analysis\wf_ephys_choiceworld\wf_processing\wf_rois\wf_roi';
+        load(wf_roi_fn);
+        
+        % Group striatum depths
+        n_depth_groups = 6;
+        depth_group_edges = round(linspace(str_depth(1),str_depth(2),n_depth_groups+1));
+        [depth_group_n,~,depth_group] = histcounts(spikeDepths,depth_group_edges);
+     
+        % Define times to align
+        n_trials = length(block.paramsValues);
+        trial_conditions = signals_events.trialSideValues(1:n_trials).*signals_events.trialContrastValues(1:n_trials);
+        trial_outcome = signals_events.hitValues(1:n_trials)-signals_events.missValues(1:n_trials);
+        stim_to_move = padarray(wheel_move_time - stimOn_times',[0,n_trials-length(stimOn_times)],NaN,'post');
+        stim_to_feedback = padarray(signals_events.responseTimes, ...
+            [0,n_trials-length(signals_events.responseTimes)],NaN,'post') - ...
+            padarray(stimOn_times',[0,n_trials-length(stimOn_times)],NaN,'post');
+        
+        use_trials = ...
+            trial_outcome ~= 0 & ...
+            ~signals_events.repeatTrialValues(1:n_trials) & ...
+            stim_to_move < 0.5 & ...
+            stim_to_feedback < 1.5;
+        
+        align_times = reshape(stimOn_times(use_trials),[],1);
+        
+        sample_rate_factor = 3;
+        interval_surround = [-0.5,1.5];
+        sample_rate = framerate*sample_rate_factor;
+        t_surround = interval_surround(1):1/sample_rate:interval_surround(2);
+        t_peri_event = bsxfun(@plus,align_times,t_surround);
+        
+        % Get fluorescence within saved ROIs
+        Udf_aligned = AP_align_widefield(animal,day,Udf);
+        roi_traces = AP_svd_roi(Udf_aligned,fVdf,[],[],cat(3,wf_roi.mask));
+        event_aligned_f = interp1(frame_t,roi_traces',t_peri_event);
+        event_aligned_df = interp1(conv(frame_t,[1,1]/2,'valid'),diff(roi_traces,[],2)',t_peri_event);
+        event_aligned_df(event_aligned_df < 0) = 0;
+        
+        % Pull out MUA across depths
+        t_peri_event_bins = [t_peri_event - 1/(sample_rate*2), ...
+            t_peri_event(:,end) + 1/(sample_rate*2)];
+        event_aligned_spikes = nan(size(t_peri_event_bins,1),size(t_peri_event_bins,2)-1,n_depth_groups);
+        for curr_depth = 1:n_depth_groups
+            use_spikes = spike_times_timeline(depth_group == curr_depth);
+            event_aligned_spikes(:,:,curr_depth) = cell2mat(arrayfun(@(x) ...
+                histcounts(use_spikes,t_peri_event_bins(x,:)),[1:length(align_times)]','uni',false));
+        end
+        
+        % Get wheel movements around all aligned events
+        event_aligned_wheel = interp1(conv2(Timeline.rawDAQTimestamps,[0.5,0.5],'valid'), ...
+            wheel_velocity,t_peri_event);
+        
+        % Choice of all events (L/R movement)
+        choice = ...
+            ((signals_events.trialSideValues(use_trials) == 1 & trial_outcome(use_trials) == -1 | ...
+            signals_events.trialSideValues(use_trials) == -1 & trial_outcome(use_trials) == 1) - ...
+            (signals_events.trialSideValues(use_trials) == -1 & trial_outcome(use_trials) == -1 | ...
+            signals_events.trialSideValues(use_trials) == 1 & trial_outcome(use_trials) == 1))';
+        if any(~ismember(choice,[-1,1]))
+            error('Non-valid choice')
+        end
+        
+        % Get sig correlations across all time points across modalities
+        n_shuff = 1000;
+        warning off;
+        shuff_idx = ...
+            shake(repmat(reshape(1:length(align_times)*length(t_surround), ...
+            length(align_times),length(t_surround)),1,1,n_shuff),1);
+        warning on ;
+        
+        % MUA-MUA
+        corr_mua_mua = cell(size(event_aligned_spikes,3),size(event_aligned_spikes,3));
+        for curr_mua1 = 1:size(event_aligned_spikes,3)
+            for curr_mua2 = 1:size(event_aligned_spikes,3)                            
+                
+                curr_data1 = zscore(event_aligned_spikes(:,:,curr_mua1),[],1);
+                curr_data2 = zscore(event_aligned_spikes(:,:,curr_mua2),[],1);               
+                curr_data2_shuff = curr_data2(shuff_idx);
+                              
+                corr_real = (curr_data1'*curr_data2)./(length(align_times)-1);
+                
+                corr_shuff = ...
+                    gather(pagefun(@mtimes,gpuArray(curr_data1'), ...
+                    gpuArray(curr_data2_shuff)))./(length(align_times)-1);
+                           
+                corr_shuff_cutoff = prctile(corr_shuff,[2.5,97.5],3);
+                corr_sig = (corr_real > corr_shuff_cutoff(:,:,2)) | (corr_real < corr_shuff_cutoff(:,:,1));
+                
+                corr_mua_mua{curr_mua1,curr_mua2} = corr_real;
+                corr_mua_mua{curr_mua1,curr_mua2}(~corr_sig) = 0;
+                
+            end
+        end      
+        
+        % Fluor-Fluor
+        corr_fluor_fluor = cell(size(event_aligned_df,3),size(event_aligned_df,3));
+        for curr_fluor1 = 1:size(event_aligned_df,3)
+            for curr_fluor2 = 1:size(event_aligned_df,3)
+                
+                curr_data1 = zscore(event_aligned_df(:,:,curr_fluor1),[],1);
+                curr_data2 = zscore(event_aligned_df(:,:,curr_fluor2),[],1);               
+                curr_data2_shuff = curr_data2(shuff_idx);
+                              
+                corr_real = (curr_data1'*curr_data2)./(length(align_times)-1);
+                
+                corr_shuff = ...
+                    gather(pagefun(@mtimes,gpuArray(curr_data1'), ...
+                    gpuArray(curr_data2_shuff)))./(length(align_times)-1);
+                
+                corr_shuff_cutoff = prctile(corr_shuff,[2.5,97.5],3);
+                corr_sig = (corr_real > corr_shuff_cutoff(:,:,2)) | (corr_real < corr_shuff_cutoff(:,:,1));
+                
+                corr_fluor_fluor{curr_fluor1,curr_fluor2} = corr_real;
+                corr_fluor_fluor{curr_fluor1,curr_fluor2}(~corr_sig) = 0;
+                
+            end
+        end     
+        
+        % Fluor-MUA
+        corr_fluor_mua = cell(size(event_aligned_df,3),size(event_aligned_spikes,3));
+        for curr_fluor = 1:size(event_aligned_df,3)
+            for curr_mua = 1:size(event_aligned_spikes,3)
+                
+                curr_data1 = zscore(event_aligned_df(:,:,curr_fluor),[],1);
+                curr_data2 = zscore(event_aligned_spikes(:,:,curr_mua),[],1);               
+                curr_data2_shuff = curr_data2(shuff_idx);
+                              
+                corr_real = (curr_data1'*curr_data2)./(length(align_times)-1);
+                
+                corr_shuff = ...
+                    gather(pagefun(@mtimes,gpuArray(curr_data1'), ...
+                    gpuArray(curr_data2_shuff)))./(length(align_times)-1);
+                
+                corr_shuff_cutoff = prctile(corr_shuff,[2.5,97.5],3);
+                corr_sig = (corr_real > corr_shuff_cutoff(:,:,2)) | (corr_real < corr_shuff_cutoff(:,:,1));
+                
+                corr_fluor_mua{curr_fluor,curr_mua} = corr_real;
+                corr_fluor_mua{curr_fluor,curr_mua}(~corr_sig) = 0;
+                
+            end
+        end      
+        
+        % MUA-wheel/choice
+        corr_mua_wheel = cell(size(event_aligned_spikes,3),1);
+        corr_mua_choice = cell(size(event_aligned_spikes,3),1);
+        for curr_mua = 1:size(event_aligned_spikes,3)
+            
+            % Wheel
+            curr_data1 = zscore(event_aligned_spikes(:,:,curr_mua),[],1);
+            curr_data2 = zscore(event_aligned_wheel,[],1);
+            curr_data2_shuff = curr_data2(shuff_idx);
+            
+            corr_real = (curr_data1'*curr_data2)./(length(align_times)-1);
+            
+            corr_shuff = ...
+                gather(pagefun(@mtimes,gpuArray(curr_data1'), ...
+                gpuArray(curr_data2_shuff)))./(length(align_times)-1);
+            
+            corr_shuff_cutoff = prctile(corr_shuff,[2.5,97.5],3);
+            corr_sig = (corr_real > corr_shuff_cutoff(:,:,2)) | (corr_real < corr_shuff_cutoff(:,:,1));
+            
+            corr_mua_wheel{curr_mua} = corr_real;
+            corr_mua_wheel{curr_mua}(~corr_sig) = 0;
+            
+            % Choice
+            curr_data1 = zscore(event_aligned_spikes(:,:,curr_mua),[],1);
+            curr_data2 = zscore(choice,[],1);
+            curr_data2_shuff = curr_data2(shuff_idx(:,1,:));
+            
+            corr_real = (curr_data1'*curr_data2)./(length(align_times)-1);
+            
+            corr_shuff = ...
+                gather(pagefun(@mtimes,gpuArray(curr_data1'), ...
+                gpuArray(curr_data2_shuff)))./(length(align_times)-1);
+            
+            corr_shuff_cutoff = prctile(corr_shuff,[2.5,97.5],3);
+            corr_sig = (corr_real > corr_shuff_cutoff(:,:,2)) | (corr_real < corr_shuff_cutoff(:,:,1));
+            
+            corr_mua_choice{curr_mua} = corr_real;
+            corr_mua_choice{curr_mua}(~corr_sig) = 0;
+            
+        end
+        
+        % Fluor-wheel/choice
+        corr_fluor_wheel = cell(size(event_aligned_df,3),1);
+        corr_fluor_choice = cell(size(event_aligned_df,3),1);
+        for curr_fluor = 1:size(event_aligned_df,3)
+            
+            % Wheel
+            curr_data1 = zscore(event_aligned_df(:,:,curr_fluor),[],1);
+            curr_data2 = zscore(event_aligned_wheel,[],1);
+            curr_data2_shuff = curr_data2(shuff_idx);
+            
+            corr_real = (curr_data1'*curr_data2)./(length(align_times)-1);
+            
+            corr_shuff = ...
+                gather(pagefun(@mtimes,gpuArray(curr_data1'), ...
+                gpuArray(curr_data2_shuff)))./(length(align_times)-1);
+            
+            corr_shuff_cutoff = prctile(corr_shuff,[2.5,97.5],3);
+            corr_sig = (corr_real > corr_shuff_cutoff(:,:,2)) | (corr_real < corr_shuff_cutoff(:,:,1));
+            
+            corr_fluor_wheel{curr_fluor} = corr_real;
+            corr_fluor_wheel{curr_fluor}(~corr_sig) = 0;
+            
+            % Choice
+            curr_data1 = zscore(event_aligned_df(:,:,curr_fluor),[],1);
+            curr_data2 = zscore(choice,[],1);
+            curr_data2_shuff = curr_data2(shuff_idx(:,1,:));
+            
+            corr_real = (curr_data1'*curr_data2)./(length(align_times)-1);
+            
+            corr_shuff = ...
+                gather(pagefun(@mtimes,gpuArray(curr_data1'), ...
+                gpuArray(curr_data2_shuff)))./(length(align_times)-1);
+            
+            corr_shuff_cutoff = prctile(corr_shuff,[2.5,97.5],3);
+            corr_sig = (corr_real > corr_shuff_cutoff(:,:,2)) | (corr_real < corr_shuff_cutoff(:,:,1));
+            
+            corr_fluor_choice{curr_fluor} = corr_real;
+            corr_fluor_choice{curr_fluor}(~corr_sig) = 0;
+            
+        end
+        
+        batch_vars(curr_animal).corr_mua_mua(:,:,curr_day) = corr_mua_mua;
+        batch_vars(curr_animal).corr_fluor_fluor(:,:,curr_day) = corr_fluor_fluor;
+        batch_vars(curr_animal).corr_fluor_mua(:,:,curr_day) = corr_fluor_mua;
+        
+        batch_vars(curr_animal).corr_mua_wheel(:,:,curr_day) = corr_mua_wheel;
+        batch_vars(curr_animal).corr_mua_choice(:,:,curr_day) = corr_mua_choice;
+        
+        batch_vars(curr_animal).corr_fluor_wheel(:,:,curr_day) = corr_fluor_wheel;
+        batch_vars(curr_animal).corr_fluor_choice(:,:,curr_day) = corr_fluor_choice;
+        
+        AP_print_progress_fraction(curr_day,length(experiments));
+        clearvars -except animals animal curr_animal protocol experiments curr_day animal batch_vars load_parts
+        
+    end
+    
+    disp(['Finished ' animal]);
+    
+end
+
+fn = 'C:\Users\Andrew\OneDrive for Business\Documents\CarandiniHarrisLab\analysis\wf_ephys_choiceworld\choiceworld\corr_mua_fluor_stim';
+save(fn,'batch_vars','-v7.3');
+
+%% Batch trial-trial MUA-fluorescence correlation (move-aligned)
 % NOTE: I put a bunch of work into doing this on the GPU instead, but the
 % memory-limiting steps required FOR loops and the resulting code was
 % barely faster
@@ -1625,6 +1910,12 @@ for curr_animal = 1:length(animals)
         batch_vars(curr_animal).corr_fluor_fluor(:,:,curr_day) = corr_fluor_fluor;
         batch_vars(curr_animal).corr_fluor_mua(:,:,curr_day) = corr_fluor_mua;
         
+        batch_vars(curr_animal).corr_mua_wheel(:,:,curr_day) = corr_mua_wheel;
+        batch_vars(curr_animal).corr_mua_choice(:,:,curr_day) = corr_mua_choice;
+        
+        batch_vars(curr_animal).corr_fluor_wheel(:,:,curr_day) = corr_fluor_wheel;
+        batch_vars(curr_animal).corr_fluor_choice(:,:,curr_day) = corr_fluor_choice;
+        
         AP_print_progress_fraction(curr_day,length(experiments));
         clearvars -except animals animal curr_animal protocol experiments curr_day animal batch_vars load_parts
         
@@ -1634,9 +1925,8 @@ for curr_animal = 1:length(animals)
     
 end
 
-fn = 'C:\Users\Andrew\OneDrive for Business\Documents\CarandiniHarrisLab\analysis\wf_ephys_choiceworld\choiceworld\corr_mua_fluor';
-save(fn,'batch_vars');
-
+fn = 'C:\Users\Andrew\OneDrive for Business\Documents\CarandiniHarrisLab\analysis\wf_ephys_choiceworld\choiceworld\corr_mua_fluor_move';
+save(fn,'batch_vars','-v7.3');
 
 
 
