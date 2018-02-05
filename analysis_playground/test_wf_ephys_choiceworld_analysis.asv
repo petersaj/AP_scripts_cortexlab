@@ -1098,7 +1098,7 @@ clear all
 disp('Early move hit');
 animals = {'AP024','AP025','AP026','AP027','AP028','AP029'};
 data_path = 'C:\Users\Andrew\OneDrive for Business\Documents\CarandiniHarrisLab\analysis\wf_ephys_choiceworld\choiceworld';
-im_stim_earlymove_hit_avg_combined = zeros(437,416,194,11);
+im_stim_earlymove_hit_avg_combined = zeros(437,416,265,11);
 n_conditions = [];
 for curr_animal = 1:length(animals) 
     animal = animals{curr_animal};
@@ -1258,10 +1258,13 @@ disp('Done')
 
 %% Load and process widefield choiceworld mean (stim aligned)
 
-surround_window = [-0.5,5];
-framerate = 35;
-surround_samplerate = 1/(framerate*1);
+surround_window = [-0.5,2];
+upsample_rate = 3;
+
+framerate = 35.2;
+surround_samplerate = 1/(framerate*upsample_rate);
 t_surround = surround_window(1):surround_samplerate:surround_window(2);
+t_df = conv2(t_surround,[1,1]/2,'valid');
 conditions = [-1,-0.5,-0.25,-0.125,-0.06,0,0.06,0.125,0.25,0.5,1];
 
 early_hit_data_path = ['C:\Users\Andrew\OneDrive for Business\Documents\CarandiniHarrisLab\analysis\wf_ephys_choiceworld\choiceworld'];
@@ -1388,14 +1391,54 @@ ddf_baseline_mean = nanmean(ddf_baseline,4);
 [~,first_rise] = max(bsxfun(@gt,ddf_earlymove_hit(:,:,t_use,:),ddf_baseline_mean*10),[],3);
 first_rise_t = squeeze(t_use_vals(first_rise));
 
+% Get traces for all pre-drawn ROIs
+% Load widefield ROIs
+wf_roi_fn = 'C:\Users\Andrew\OneDrive for Business\Documents\CarandiniHarrisLab\analysis\wf_ephys_choiceworld\wf_processing\wf_rois\wf_roi';
+load(wf_roi_fn);
+n_rois = length(wf_roi);
+
+figure('Name','Early hit');
+for curr_roi = 1:n_rois   
+    curr_mask = wf_roi(curr_roi).mask;
+    curr_traces = squeeze(...
+        sum(sum(bsxfun(@times,ddf_earlymove_hit,curr_mask),1),2)./sum(curr_mask(:)));
+    
+    subplot(2,4,curr_roi); hold on;
+    set(gca,'ColorOrder',colormap_BlueWhiteRed((length(conditions)-1)/2));
+    plot(t_df,curr_traces','linewidth',2);
+    plot(t_df,curr_traces(:,conditions == 0),'k','linewidth',1);
+    line([0,0],ylim,'color','k');
+    xlabel('Time from move onset (s)')
+    ylabel('\Delta\DeltaF/F');
+    title(wf_roi(curr_roi).area);
+end
+
+figure('Name','Late hit');
+for curr_roi = 1:n_rois   
+    curr_mask = wf_roi(curr_roi).mask;
+    curr_traces = squeeze(...
+        sum(sum(bsxfun(@times,ddf_latemove_hit,curr_mask),1),2)./sum(curr_mask(:)));
+    
+    subplot(2,4,curr_roi); hold on;
+    set(gca,'ColorOrder',colormap_BlueWhiteRed((length(conditions)-1)/2));
+    plot(t_df,curr_traces','linewidth',2);
+    plot(t_df,curr_traces(:,conditions == 0),'k','linewidth',1);
+    line([0,0],ylim,'color','k');
+    xlabel('Time from move onset (s)')
+    ylabel('\Delta\DeltaF/F');
+    title(wf_roi(curr_roi).area);
+end
+
+
 %% Load and process widefield choiceworld mean (move aligned)
 
 surround_window = [-0.5,2];
 upsample_rate = 3;
 
-framerate = 35;
+framerate = 35.2;
 surround_samplerate = 1/(framerate*upsample_rate);
 t_surround = surround_window(1):surround_samplerate:surround_window(2);
+t_df = conv2(t_surround,[1,1]/2,'valid');
 conditions = [-1,-0.5,-0.25,-0.125,-0.06,0,0.06,0.125,0.25,0.5,1];
 
 early_hit_data_path = ['C:\Users\Andrew\OneDrive for Business\Documents\CarandiniHarrisLab\analysis\wf_ephys_choiceworld\choiceworld'];
@@ -1521,6 +1564,45 @@ ddf_baseline = nanmean(ddf_earlymove_hit(:,:,t_baseline,:),3);
 ddf_baseline_mean = nanmean(ddf_baseline,4);
 [~,first_rise] = max(bsxfun(@gt,ddf_earlymove_hit(:,:,t_use,:),ddf_baseline_mean*10),[],3);
 first_rise_t = squeeze(t_use_vals(first_rise));
+
+% Get traces for all pre-drawn ROIs
+% Load widefield ROIs
+wf_roi_fn = 'C:\Users\Andrew\OneDrive for Business\Documents\CarandiniHarrisLab\analysis\wf_ephys_choiceworld\wf_processing\wf_rois\wf_roi';
+load(wf_roi_fn);
+n_rois = length(wf_roi);
+
+figure('Name','Early hit');
+for curr_roi = 1:n_rois   
+    curr_mask = wf_roi(curr_roi).mask;
+    curr_traces = squeeze(...
+        sum(sum(bsxfun(@times,ddf_earlymove_hit,curr_mask),1),2)./sum(curr_mask(:)));
+    
+    subplot(2,4,curr_roi); hold on;
+    set(gca,'ColorOrder',colormap_BlueWhiteRed((length(conditions)-1)/2));
+    plot(t_df,curr_traces','linewidth',2);
+    plot(t_df,curr_traces(:,conditions == 0),'k','linewidth',1);
+    line([0,0],ylim,'color','k');
+    xlabel('Time from move onset (s)')
+    ylabel('\Delta\DeltaF/F');
+    title(wf_roi(curr_roi).area);
+end
+
+figure('Name','Late hit');
+for curr_roi = 1:n_rois   
+    curr_mask = wf_roi(curr_roi).mask;
+    curr_traces = squeeze(...
+        sum(sum(bsxfun(@times,ddf_latemove_hit,curr_mask),1),2)./sum(curr_mask(:)));
+    
+    subplot(2,4,curr_roi); hold on;
+    set(gca,'ColorOrder',colormap_BlueWhiteRed((length(conditions)-1)/2));
+    plot(t_df,curr_traces','linewidth',2);
+    plot(t_df,curr_traces(:,conditions == 0),'k','linewidth',1);
+    line([0,0],ylim,'color','k');
+    xlabel('Time from move onset (s)')
+    ylabel('\Delta\DeltaF/F');
+    title(wf_roi(curr_roi).area);
+end
+
 
 %% Load and process striatal MUA during choiceworld
 
@@ -2308,7 +2390,8 @@ t = linspace(interval_surround(1),interval_surround(2),212);
 sample_rate = 1/median(diff(t));
 
 % Load correlations
-fn = 'C:\Users\Andrew\OneDrive for Business\Documents\CarandiniHarrisLab\analysis\wf_ephys_choiceworld\choiceworld\corr_mua_fluor_move';
+corr_use = 'corr_mua_fluor_stim_conditionshuff';
+fn = ['C:\Users\Andrew\OneDrive for Business\Documents\CarandiniHarrisLab\analysis\wf_ephys_choiceworld\choiceworld\' corr_use];
 load(fn);
 n_depths = 6;
 
@@ -2345,37 +2428,10 @@ corr_fluor_wheel_split = mat2cell(corr_fluor_wheel,repmat(length(t),n_rois,1),le
 corr_mua_choice_split = mat2cell(corr_mua_choice,repmat(length(t),n_depths,1),1);
 corr_fluor_choice_split = mat2cell(corr_fluor_choice,repmat(length(t),n_rois,1),1);
 
-
-% Plot everything concatenated
-figure;
-
-subplot(1,3,1);
-imagesc(corr_mua_mua)
-axis square;
-caxis([-0.1,0.1])
-colormap(colormap_BlueWhiteRed);
-ylabel('MUA');
-xlabel('MUA');
-
-subplot(1,3,2);
-imagesc(corr_fluor_fluor)
-axis square;
-caxis([-0.1,0.1])
-colormap(colormap_BlueWhiteRed);
-ylabel('Fluor');
-xlabel('Fluor');
-
-subplot(1,3,3);
-imagesc(corr_fluor_mua)
-axis square;
-caxis([-0.05,0.05])
-colormap(colormap_BlueWhiteRed);
-ylabel('Fluor');
-xlabel('MUA');
-
 % Plot grid of correlations
-plot_t = [-0.2,0.1];
+plot_t = [-0.2,0.2];
 
+% MUA-MUA
 figure; colormap(colormap_BlueWhiteRed);
 ax = tight_subplot(n_depths,n_depths,[0.01,0.01]);
 for curr_depth1 = 1:n_depths
@@ -2394,6 +2450,7 @@ for curr_depth1 = 1:n_depths
     end
 end
 
+% Fluor-Fluor
 figure; colormap(colormap_BlueWhiteRed);
 ax = tight_subplot(n_rois,n_rois,[0.01,0.01]);
 for curr_roi1 = 1:n_rois
@@ -2412,6 +2469,7 @@ for curr_roi1 = 1:n_rois
     end
 end
 
+% Fluor-MUA
 figure; colormap(colormap_BlueWhiteRed);
 ax = tight_subplot(n_rois,n_depths,[0.01,0.01]);
 for curr_roi = 1:n_rois
@@ -2430,6 +2488,7 @@ for curr_roi = 1:n_rois
     end
 end
 
+% MUA/Fluor-wheel
 figure; colormap(colormap_BlueWhiteRed);
 ax = tight_subplot(2,max(n_depths,n_rois),[0.01,0.01]);
 for curr_depth = 1:n_depths
@@ -2459,29 +2518,32 @@ for curr_roi = 1:n_rois
     ylim(plot_t)
 end
 
-figure;
-ax = tight_subplot(2,max(n_depths,n_rois),[0.01,0.01]);
-for curr_depth = 1:n_depths
-    axes(ax(curr_depth));
-    plot(t,corr_mua_choice_split{curr_depth},'k','linewidth',2)
-    title(['Str' num2str(curr_depth) '-Choice']);
-    set(gca,'FontSize',8);
-    line([0,0],ylim,'color','k');
-    line(xlim,[0,0],'color','k');
-    xlim(plot_t)
-end
-for curr_roi = 1:n_rois
-    axes(ax(n_depths+(max(n_rois,n_depths)-n_depths)+curr_roi));
-    plot(t,corr_fluor_choice_split{curr_roi},'k','linewidth',2)
-    title([wf_areas{curr_roi} '-Choice']);
-    set(gca,'FontSize',8);
-    line([0,0],ylim,'color','k');
-    line(xlim,[0,0],'color','k');
-    xlim(plot_t)
-end
+% MUA/Fluor-choice
+% (to smooth mua)
+smooth_size = 10;
+gw = gausswin(smooth_size,3)';
+smWin = gw./sum(gw);
+
+figure; 
+subplot(1,2,1); hold on
+set(gca,'ColorOrder',copper(n_depths));
+plot(t,conv2(horzcat(corr_mua_choice_split{:}),smWin','same'),'linewidth',2);
+line([0,0],ylim,'color','k');
+ylabel('Correlation with decision')
+xlabel('Time from movement onset (s)');
+title('MUA');
+legend(cellfun(@(x) ['Str ' num2str(x)],num2cell(1:6),'uni',false))
+subplot(1,2,2); hold on
+set(gca,'ColorOrder',copper(n_rois));
+plot(t,horzcat(corr_fluor_choice_split{:}),'linewidth',2);
+line([0,0],ylim,'color','k');
+ylabel('Correlation with decision')
+xlabel('Time from movement onset (s)')
+title('Fluor');
+legend(wf_areas);
 
 % Plot pre-movement predicted/predictor
-t_use = t > -0.15 & t < 0;
+t_use = t > 0.05 & t < 0.15;
 corr_mua_mua_use = cellfun(@(x) x(t_use,t_use),corr_mua_mua_split,'uni',false);
 corr_mua_mua_diag = cellfun(@(y) arrayfun(@(x) nanmean(diag(y,x)),-(length(y)-1):length(y)-1),corr_mua_mua_use,'uni',false);
 
@@ -2492,92 +2554,194 @@ corr_fluor_mua_use = cellfun(@(x) x(t_use,t_use),corr_fluor_mua_split,'uni',fals
 corr_fluor_mua_diag = cellfun(@(y) arrayfun(@(x) nanmean(diag(y,x)),-(length(y)-1):length(y)-1),corr_fluor_mua_use,'uni',false);
 
 figure;
-for curr_depth = 1:n_depths
-    lags = (-(sum(t_use)-1):(sum(t_use)-1))/sample_rate;
-    
-    subplot(2,n_depths,curr_depth); hold on;
+n_cols = max(n_depths,n_rois);
+lags = (-(sum(t_use)-1):(sum(t_use)-1))/sample_rate;
+use_lags = lags > 0 & lags < 0.05;
+
+mua_mua_pred = nan(n_depths);
+for curr_depth = 1:n_depths    
+    subplot(4,n_cols,curr_depth); hold on;
     set(gca,'ColorOrder',copper(n_depths));    
     curr_diag_mean = vertcat(corr_mua_mua_diag{curr_depth,:});
-    curr_diag_mean(curr_depth,:) = NaN;
+    curr_diag_mean = curr_diag_mean - fliplr(curr_diag_mean);
+    curr_diag_mean(curr_depth,:) = NaN;    
+    
+    max_diag_data = curr_diag_mean(:,use_lags);
+    [max_mag,max_mag_idx] = max(abs(max_diag_data),[],2);
+    max_sign = arrayfun(@(x) sign(max_diag_data(x,max_mag_idx(x))),1:size(max_diag_data))';    
+    mua_mua_pred(:,curr_depth) = max_mag.*max_sign;
+    
     plot(lags,curr_diag_mean','linewidth',2)
     line([0,0],ylim,'color','k')
     xlabel('Time (s)')
-    ylabel('Mean correlation');
+    ylabel('Predicts - predicted');
     title(['Str ' num2str(curr_depth)]);
-    axis tight;
-    
-    subplot(2,n_depths,n_depths+curr_depth);
-    t_com = (lags*mat2gray(curr_diag_mean)')./sum(mat2gray(curr_diag_mean),2)';
-    plot(t_com,'linewidth',2,'color','k');
-    axis tight
-    line(xlim,[0,0],'color','k','linestyle','--');
-    xlabel('Depth');
-    ylabel('Time CoM');
+    axis tight;    
+    xlim([0,max(lags)]);
 end
 
-figure;
-for curr_roi = 1:n_rois
-    lags = (-(sum(t_use)-1):(sum(t_use)-1))/sample_rate;
-    
-    subplot(2,n_rois,curr_roi); hold on;
+fluor_fluor_pred = nan(n_rois);
+for curr_roi = 1:n_rois    
+    subplot(4,n_cols,n_cols+curr_roi); hold on;
     set(gca,'ColorOrder',copper(n_rois));    
     curr_diag_mean = vertcat(corr_fluor_fluor_diag{curr_roi,:});
+    curr_diag_mean = curr_diag_mean - fliplr(curr_diag_mean);
     curr_diag_mean(curr_roi,:) = NaN;
+    
+    max_diag_data = curr_diag_mean(:,use_lags);
+    [max_mag,max_mag_idx] = max(abs(max_diag_data),[],2);
+    max_sign = arrayfun(@(x) sign(max_diag_data(x,max_mag_idx(x))),1:size(max_diag_data))';    
+    fluor_fluor_pred(:,curr_roi) = max_mag.*max_sign;
+    
     plot(lags,curr_diag_mean','linewidth',2)
     line([0,0],ylim,'color','k')
     xlabel('Time (s)')
-    ylabel('Mean correlation');
+    ylabel('Predicts - predicted');
     title(wf_roi(curr_roi).area);
     axis tight;
-    
-    subplot(2,n_rois,n_rois+curr_roi);
-    t_com = (lags*mat2gray(curr_diag_mean)')./sum(mat2gray(curr_diag_mean),2)';
-    plot(t_com,'linewidth',2,'color','k');
-    axis tight
-    line(xlim,[0,0],'color','k','linestyle','--');
-    xlabel('Depth');
-    ylabel('Time CoM');
+    xlim([0,max(lags)]);
 end
 
-figure;
-for curr_roi = 1:n_rois
-    lags = (-(sum(t_use)-1):(sum(t_use)-1))/sample_rate;
-    
-    subplot(2,n_rois,curr_roi); hold on;
+fluor_mua_pred = nan(n_depths,n_rois);
+for curr_roi = 1:n_rois    
+    subplot(4,n_cols,n_cols*2+curr_roi); hold on;
     set(gca,'ColorOrder',copper(n_depths));    
     curr_diag_mean = vertcat(corr_fluor_mua_diag{curr_roi,:});
+    curr_diag_mean = curr_diag_mean - fliplr(curr_diag_mean);
+    
+    max_diag_data = curr_diag_mean(:,use_lags);
+    [max_mag,max_mag_idx] = max(abs(max_diag_data),[],2);
+    max_sign = arrayfun(@(x) sign(max_diag_data(x,max_mag_idx(x))),1:size(max_diag_data))';    
+    fluor_mua_pred(:,curr_roi) = max_mag.*max_sign;
+    
     plot(lags,curr_diag_mean','linewidth',2)
     line([0,0],ylim,'color','k')
     xlabel('Time (s)')
-    ylabel('Mean correlation');
+    ylabel('Predicts - predicted');
     title(wf_roi(curr_roi).area);
-    axis tight;
-    
-    subplot(2,n_rois,n_rois+curr_roi);
-    t_com = (lags*mat2gray(curr_diag_mean)')./sum(mat2gray(curr_diag_mean),2)';
-    plot(t_com,'linewidth',2,'color','k');
-    axis tight
-    line(xlim,[0,0],'color','k','linestyle','--');
-    xlabel('Depth');
-    ylabel('Time CoM');
+    axis tight;    
+    xlim([0,max(lags)]);
 end
 
-% MUA/Fluor-wheel/choice correlation
+for curr_depth = 1:n_depths    
+    subplot(4,n_cols,n_cols*3+curr_depth); hold on;
+    set(gca,'ColorOrder',copper(n_rois));    
+    curr_diag_mean = vertcat(corr_fluor_mua_diag{:,curr_depth});
+    curr_diag_mean = curr_diag_mean - fliplr(curr_diag_mean);
+    plot(lags,-curr_diag_mean','linewidth',2); % neg b/c orientation
+    line([0,0],ylim,'color','k')
+    xlabel('Time (s)')
+    ylabel('Predicts - predicted');
+    title(['Str ' num2str(curr_depth)]);
+    axis tight;    
+    xlim([0,max(lags)]);
+end
+
+% Plot the max/min correlations spatially
 figure; 
-subplot(1,2,1); hold on
-set(gca,'ColorOrder',copper(n_depths));
-plot(t,horzcat(corr_mua_choice_split{:}),'linewidth',2);
-line([0,0],ylim,'color','k');
-ylabel('Correlation with decision')
-xlabel('Time from movement onset (s)');
-title('MUA');
-subplot(1,2,2); hold on
-set(gca,'ColorOrder',copper(n_rois));
-plot(t,horzcat(corr_fluor_choice_split{:}),'linewidth',2);
-line([0,0],ylim,'color','k');
-ylabel('Correlation with decision')
-xlabel('Time from movement onset (s)')
-title('MUA');
+
+% Fluor-Fluor
+subplot(1,3,1); hold on; axis image off;
+
+ctx_circle_radius = 50;
+ctx_circle_radius_text = ctx_circle_radius + 10;
+ctx_circle_degs = linspace(0,360,n_rois+1);
+ctx_plot_center = ctx_circle_radius*...
+    [-sind(ctx_circle_degs(1:n_rois))',cosd(ctx_circle_degs(1:n_rois))'];
+ctx_text_center = ctx_circle_radius_text*...
+    [-sind(ctx_circle_degs(1:n_rois))',cosd(ctx_circle_degs(1:n_rois))'];
+scatter(ctx_plot_center(:,1),ctx_plot_center(:,2),200,copper(n_rois),'filled','MarkerEdgeColor','k');
+
+for curr_roi1 = 1:n_rois
+    for curr_roi2 = curr_roi1+1:n_rois
+        
+        curr_weight = 0.01+abs(fluor_fluor_pred(curr_roi2,curr_roi1))*50;
+        curr_sign = sign(fluor_fluor_pred(curr_roi2,curr_roi1));
+        
+        line([ctx_plot_center(curr_roi1,1),ctx_plot_center(curr_roi2,1)], ...
+            [ctx_plot_center(curr_roi1,2),ctx_plot_center(curr_roi2,2)], ...
+            'linewidth',curr_weight, ...
+            'color',[curr_sign == 1,0,curr_sign == -1]);
+                
+    end    
+end
+
+% MUA-MUA
+subplot(1,3,2); hold on; axis image off;
+
+str_circle_radius = 50;
+str_circle_degs = linspace(0,360,n_depths+1);
+str_plot_center = str_circle_radius*...
+    [-sind(str_circle_degs(1:n_depths))',cosd(str_circle_degs(1:n_depths))'];
+scatter(str_plot_center(:,1),str_plot_center(:,2),200,copper(n_depths),'filled','MarkerEdgeColor','k');
+
+for curr_depth1 = 1:n_depths
+    for curr_depth2 = curr_depth1+1:n_depths
+        
+        curr_weight = 0.01+abs(mua_mua_pred(curr_depth2,curr_depth1))*120;
+        curr_sign = sign(mua_mua_pred(curr_depth2,curr_depth1));
+        
+        line([str_plot_center(curr_depth1,1),str_plot_center(curr_depth2,1)], ...
+            [str_plot_center(curr_depth1,2),str_plot_center(curr_depth2,2)], ...
+            'linewidth',curr_weight, ...
+            'color',[curr_sign == 1,0,curr_sign == -1]);
+        
+    end
+end
+
+% Fluor-MUA
+subplot(1,3,3); hold on; axis image off;
+set(gca,'YDir','reverse');
+AP_reference_outline('ccf_aligned',[0.7,0.7,0.7]);AP_reference_outline('retinotopy',[0.7,0.7,1]);
+
+wf_roi_center = nan(length(wf_roi),2);
+for curr_roi = 1:length(wf_roi)
+   curr_roi_boundaries = bwboundaries(wf_roi(curr_roi).mask); 
+   plot(curr_roi_boundaries{1}(:,2),curr_roi_boundaries{1}(:,1),'color',[0,0.7,0],'linewidth',2);    
+   wf_roi_center(curr_roi,:) = [nanmean(curr_roi_boundaries{1}(:,2)),nanmean(curr_roi_boundaries{1}(:,1))];  
+end
+
+str_plot_center = [linspace(300,300,n_depths)',linspace(100,350,n_depths)'];
+rectangle('Position',[min(str_plot_center(:,1))-20,min(str_plot_center(:,2))-20,...
+    range(str_plot_center(:,1))+40,range(str_plot_center(:,2))+40],'FaceColor','w');
+scatter(str_plot_center(:,1),str_plot_center(:,2),200,copper(n_depths),'filled','MarkerEdgeColor','k');
+
+for curr_roi = 1:n_rois
+    for curr_depth = 1:n_depths
+        
+        curr_weight = 0.01+abs(fluor_mua_pred(curr_depth,curr_roi))*50;
+        curr_sign = sign(fluor_mua_pred(curr_depth,curr_roi));
+        
+        line([wf_roi_center(curr_roi,1),str_plot_center(curr_depth,1)], ...
+            [wf_roi_center(curr_roi,2),str_plot_center(curr_depth,2)], ...
+            'linewidth',curr_weight, ...
+            'color',[curr_sign == 1,0,curr_sign == -1]);
+        
+    end
+end
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 

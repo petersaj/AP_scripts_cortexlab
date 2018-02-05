@@ -52,7 +52,7 @@ switch type
         bregma = allenCCFbregma;
         for curr_area_idx =1:length(cortical_area_boundaries)
             h = cellfun(@(outline) plot((outline(:,2)-bregma(3))*10, ...
-                (bregma(1)-outline(:,1))*10,color),cortical_area_boundaries{curr_area_idx},'uni',false);
+                (bregma(1)-outline(:,1))*10,'color',color),cortical_area_boundaries{curr_area_idx},'uni',false);
         end
         
     case 'ccf_wf'        
@@ -61,19 +61,23 @@ switch type
         bregma = allenCCFbregma;
         for curr_area_idx =1:length(cortical_area_boundaries)
             h = cellfun(@(outline) plot(bregma_offset_x + ((outline(:,2)-bregma(3))*10)/um2pixel, ...
-                bregma_offset_y + ((outline(:,1)-bregma(1))*10)/um2pixel,color),cortical_area_boundaries{curr_area_idx},'uni',false);
+                bregma_offset_y + ((outline(:,1)-bregma(1))*10)/um2pixel,'color',color), ...
+                cortical_area_boundaries{curr_area_idx},'uni',false);
         end
         
     case 'ccf_aligned'
         % Plot CCF borders aligned to master retinotopy
         load('C:\Users\Andrew\OneDrive for Business\Documents\Atlases\AllenCCF\cortical_area_boundaries_aligned.mat');
-        h = cellfun(@(areas) cellfun(@(outline) plot(outline(:,2),outline(:,1),color),areas,'uni',false), ...
+        h = cellfun(@(areas) cellfun(@(outline) plot(outline(:,2),outline(:,1),'color',color),areas,'uni',false), ...
             cortical_area_boundaries_aligned,'uni',false);
         
     case 'retinotopy'
         % Plot master retinotopic borders        
         load('\\basket.cortexlab.net\data\ajpeters\retinotopy\retinotopic_boundaries.mat');
-        h = cellfun(@(outline) plot(outline(:,2),outline(:,1),color),retinotopic_boundaries,'uni',false);
+        h = cellfun(@(outline) plot(outline(:,2),outline(:,1),'color',color),retinotopic_boundaries,'uni',false);
+        
+    otherwise
+        warning(['Invalid reference: ' type]);
         
 end
 
