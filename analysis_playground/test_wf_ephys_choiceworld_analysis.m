@@ -1335,20 +1335,20 @@ for curr_frame = 1:size(ddf_earlymove_hit,3);
     l_fit = gather(curr_l/[1:6]);
     l_earlymove(:,:,curr_frame) = reshape(l_fit,size(ddf_earlymove_hit,1),size(ddf_earlymove_hit,2));
     
-    curr_r = gpuArray(reshape(squeeze(ddf_latemove_hit(:,:,curr_frame,6:end)),[],6));
-    curr_r = bsxfun(@minus,curr_r,mean(curr_r,2));
-    r_fit = gather(curr_r/[1:6]);
-    r_latemove(:,:,curr_frame) = reshape(r_fit,size(ddf_latemove_hit,1),size(ddf_latemove_hit,2));
-    
-    curr_l = gpuArray(reshape(squeeze(ddf_latemove_hit(:,:,curr_frame,6:-1:1)),[],6));
-    curr_l = bsxfun(@minus,curr_l,mean(curr_l,2));
-    l_fit = gather(curr_l/[1:6]);
-    l_latemove(:,:,curr_frame) = reshape(l_fit,size(ddf_latemove_hit,1),size(ddf_latemove_hit,2));
+%     curr_r = gpuArray(reshape(squeeze(ddf_latemove_hit(:,:,curr_frame,6:end)),[],6));
+%     curr_r = bsxfun(@minus,curr_r,mean(curr_r,2));
+%     r_fit = gather(curr_r/[1:6]);
+%     r_latemove(:,:,curr_frame) = reshape(r_fit,size(ddf_latemove_hit,1),size(ddf_latemove_hit,2));
+%     
+%     curr_l = gpuArray(reshape(squeeze(ddf_latemove_hit(:,:,curr_frame,6:-1:1)),[],6));
+%     curr_l = bsxfun(@minus,curr_l,mean(curr_l,2));
+%     l_fit = gather(curr_l/[1:6]);
+%     l_latemove(:,:,curr_frame) = reshape(l_fit,size(ddf_latemove_hit,1),size(ddf_latemove_hit,2));
     
     AP_print_progress_fraction(curr_frame,size(ddf_earlymove_hit,3));
 end
 
-AP_image_scroll([r_earlymove-l_earlymove,r_latemove-l_latemove],t_surround);
+AP_image_scroll([r_earlymove-l_earlymove],t_surround);
 caxis([-max(abs(caxis)),max(abs(caxis))]);
 axis image; colormap(colormap_BlueWhiteRed);
 
@@ -1408,7 +1408,7 @@ for curr_roi = 1:n_rois
     plot(t_df,curr_traces','linewidth',2);
     plot(t_df,curr_traces(:,conditions == 0),'k','linewidth',1);
     line([0,0],ylim,'color','k');
-    xlabel('Time from move onset (s)')
+    xlabel('Time from stim onset (s)')
     ylabel('\Delta\DeltaF/F');
     title(wf_roi(curr_roi).area);
 end
@@ -1522,7 +1522,7 @@ for curr_frame = 1:size(ddf_earlymove_hit,3);
     AP_print_progress_fraction(curr_frame,size(ddf_earlymove_hit,3));
 end
 
-AP_image_scroll([r_earlymove,l_earlymove],t_surround);
+AP_image_scroll([r_earlymove,l_earlymove],t_df);
 caxis([-max(abs(caxis)),max(abs(caxis))]);
 axis image; colormap(colormap_BlueWhiteRed);
 
@@ -2389,6 +2389,9 @@ interval_surround = [-0.5,1.5];
 t = linspace(interval_surround(1),interval_surround(2),212);
 sample_rate = 1/median(diff(t));
 
+plot_t = [-0.2,0.2];
+t_use = t > 0.1 & t < 0.15;
+
 % Load correlations
 corr_use = 'corr_mua_fluor_stim_conditionshuff';
 fn = ['C:\Users\Andrew\OneDrive for Business\Documents\CarandiniHarrisLab\analysis\wf_ephys_choiceworld\choiceworld\' corr_use];
@@ -2429,7 +2432,6 @@ corr_mua_choice_split = mat2cell(corr_mua_choice,repmat(length(t),n_depths,1),1)
 corr_fluor_choice_split = mat2cell(corr_fluor_choice,repmat(length(t),n_rois,1),1);
 
 % Plot grid of correlations
-plot_t = [-0.2,0.2];
 
 % MUA-MUA
 figure; colormap(colormap_BlueWhiteRed);
@@ -2543,7 +2545,6 @@ title('Fluor');
 legend(wf_areas);
 
 % Plot pre-movement predicted/predictor
-t_use = t > 0.05 & t < 0.15;
 corr_mua_mua_use = cellfun(@(x) x(t_use,t_use),corr_mua_mua_split,'uni',false);
 corr_mua_mua_diag = cellfun(@(y) arrayfun(@(x) nanmean(diag(y,x)),-(length(y)-1):length(y)-1),corr_mua_mua_use,'uni',false);
 
