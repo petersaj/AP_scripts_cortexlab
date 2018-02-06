@@ -2502,42 +2502,42 @@ frame_edges = [frame_t(1),mean([frame_t(2:end);frame_t(1:end-1)],1),frame_t(end)
 frame_spikes = single(frame_spikes);
 
 lambda_start = 1e3;
-n_reduce_lambda = 3;
 
 use_svs = 1:50;
 kernel_t = [-0.2,0.2];
 kernel_frames = round(kernel_t(1)*framerate):round(kernel_t(2)*framerate);
+lambda = use_lambdas(curr_lambda_idx);
 zs = [false,true];
 cvfold = 5;
 use_frames_idx = find(use_frames);
 
-update_lambda = n_reduce_lambda;
+update_lambda = true;
 curr_lambda = lambda_start;
-lambdas = 0;
-explained_var_lambdas = 0;
+explained_var_lambdas = [];
 
 while update_lambda;
     
     % TO USE dfV
-    [~,~,explained_var] = ...
-        AP_regresskernel(conv2(diff(fVdf(use_svs,use_frames_idx),[],2),[1,1]/2,'valid'), ...
-        frame_spikes(:,use_frames_idx(2:end-1)),kernel_frames,curr_lambda,zs,cvfold);
+    [k,predicted_spikes,explained_var] = ...
+        AP_regresskernel(conv2(diff(fVdf,[],2),[1,1]/2,'valid'), ...
+        frame_spikes(:,use_frames_idx(2:end),kernel_frames,lambda,zs,cvfold);
     
-    lambdas(end+1) = curr_lambda;
     explained_var_lambdas(end+1) = explained_var.total;
     
-    if explained_var_lambdas(end) > explained_var_lambdas(end-1)
-        curr_lambda = curr_lambda*10;
-    else
-        lambdas(end) = [];
-        explained_var_lambdas(end) = [];
-        curr_lambda = curr_lambda/2;
-        update_lambda = update_lambda-1;
-    end
-        
+    AP_print_progress_fraction(curr_lambda_idx,length(use_lambdas));
+    
 end
 
-lambda = lambdas(end);
+figure; hold on;
+set(gca,'ColorOrder',copper(size(frame_spikes,1)));
+set(gca,'XScale','log');
+plot(use_lambdas,explained_var_lambdas,'linewidth',2);
+xlabel('\lambda');
+ylabel('Fraction variance explained');
+
+disp(['Best lambda = ' num2str(use_lambdas(explained_var_lambdas == ...
+    max(explained_var_lambdas)))]);
+
 
 %% Regression from fluor to spikes (AP_regresskernel) MUA depth
 % NOTE that the timing is more carefully controlled in the next cell
@@ -2673,7 +2673,7 @@ end
 use_svs = 1:50;
 kernel_t = [-0.3,0.3];
 kernel_frames = round(kernel_t(1)*sample_rate):round(kernel_t(2)*sample_rate);
-%lambda = 100000; (USE LAMBDA FROM ESTIMATION ABOVE)
+lambda = 100000;
 zs = [false,true];
 cvfold = 5;
 

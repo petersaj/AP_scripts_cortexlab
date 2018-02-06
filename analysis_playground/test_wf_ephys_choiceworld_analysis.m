@@ -1703,7 +1703,7 @@ move_left_latemove_miss = nanmean(mua.stim_latemove_miss(:,:,5:-1:1).*use_data_g
 
 % Plot overlay all conditions for all depth
 curr_data = cell2mat(permute(arrayfun(@(x) ...
-    mat2gray(squeeze(mua.move_earlymove_miss(x,:,:))),1:n_depths,'uni',false),[1,3,2]));
+    mat2gray(squeeze(mua.move_latemove_hit(x,:,:))),1:n_depths,'uni',false),[1,3,2]));
 
 figure; hold on;
 col = colormap_BlueWhiteRed((length(conditions)-1)/2);
@@ -2011,7 +2011,7 @@ for curr_animal = 1:length(animals)
     r_px_weight_aligned = AP_align_widefield(animal,days,batch_vars(curr_animal).r_px_weight);
     explained_var_cat = horzcat(batch_vars(curr_animal).explained_var{:});
     
-    r_px{curr_animal} = squeeze(max(r_px_aligned,[],3));
+    r_px{curr_animal} = nanmean(r_px_aligned,5);
     com(:,:,curr_animal) = nanmean(r_px_com_aligned,3);
     weight(:,:,curr_animal) = nanmean(r_px_weight_aligned,3);
     explained_var(:,curr_animal) = nanmean(explained_var_cat,2);
@@ -2020,7 +2020,7 @@ for curr_animal = 1:length(animals)
     
 end
 
-r_px_mean = nanmean(cell2mat(permute(cellfun(@(x) nanmean(x,4),r_px,'uni',false),[2,3,4,1])),4);
+r_px_mean = nanmean(cell2mat(permute(cellfun(@(x) nanmean(x,5),r_px,'uni',false),[2,3,4,5,1])),5);
 com_mean = nanmean(com,3);
 weight_mean = nanmean(weight,3);
 
@@ -2390,10 +2390,10 @@ t = linspace(interval_surround(1),interval_surround(2),212);
 sample_rate = 1/median(diff(t));
 
 plot_t = [-0.2,0.2];
-t_use = t > 0.1 & t < 0.15;
+t_use = t > 0 & t < 0.1;
 
 % Load correlations
-corr_use = 'corr_mua_fluor_stim_conditionshuff';
+corr_use = 'corr_mua_fluor_stim';
 fn = ['C:\Users\Andrew\OneDrive for Business\Documents\CarandiniHarrisLab\analysis\wf_ephys_choiceworld\choiceworld\' corr_use];
 load(fn);
 n_depths = 6;
