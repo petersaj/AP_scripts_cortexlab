@@ -3052,8 +3052,8 @@ wf_time_scaled = sum(bsxfun(@plus,wf_time,[zeros(n_rois,1),est_move_time*ones(n_
 str_time_scaled = sum(bsxfun(@plus,str_time,[zeros(n_depths,1),est_move_time*ones(n_depths,1)]) ...
     .*bsxfun(@rdivide,str_max,sum(str_max,2)),2);
 
-wf_scale = mat2gray(max(wf_max,[],2))*100+20;
-str_scale = mat2gray(max(str_max,[],2))*100+20;
+wf_scale = mat2gray(max(wf_max,[],2))*200+20;
+str_scale = mat2gray(max(str_max,[],2))*200+20;
 
 time_scaled_cat = [wf_time_scaled;str_time_scaled];
 scale_cat = [wf_scale;str_scale];
@@ -3072,24 +3072,287 @@ set(gca,'XTick',1:n_rois+n_depths,'XTickLabel', ...
 xlabel('Area')
 ylabel('Weighted time');
 
+%% Use scales from above to combine feedforward/back plots?
 
+interval_surround = [-0.5,1.5];
+t = linspace(interval_surround(1),interval_surround(2),212);
+sample_rate = 1/median(diff(t));
+corr_path = 'C:\Users\Andrew\OneDrive for Business\Documents\CarandiniHarrisLab\analysis\wf_ephys_choiceworld\choiceworld';
 
+corr_fn = {'corr_mua_fluor_stim_earlymove_conditionshuff', ...
+    'corr_mua_fluor_move_earlymove_conditionshuff'};
+t_use = [{t > 0 & t < 0.2}, ...
+    {t > -0.2 & t < 0}];
 
+% Striatum
+n_depths = 6;
 
+% Widefield
+wf_roi_fn = 'C:\Users\Andrew\OneDrive for Business\Documents\CarandiniHarrisLab\analysis\wf_ephys_choiceworld\wf_processing\wf_rois\wf_roi';
+load(wf_roi_fn);
+n_rois = numel(wf_roi);
+wf_areas = {wf_roi.area};
 
+local_corr_fluor_fluor_diff = cell(n_rois,n_rois,2);
+local_corr_mua_mua_diff = cell(n_depths,n_depths,2);
+local_corr_fluor_mua_diff = cell(n_rois,n_depths,2);
 
+corr_mua_choice_cat = cell(2,1);
+corr_fluor_choice_cat = cell(2,1);
 
+for curr_align = 1:2
+    
+    % Load correlations
+    load([corr_path filesep corr_fn{curr_align}]);
+    
+    % Create average area correlations
+    corr_mua_mua = nanmean(cell2mat(permute(arrayfun(@(x) ...
+        nanmean(cell2mat(batch_vars(x).corr_mua_mua),3),1:length(batch_vars),'uni',false),[1,3,2])),3);
+    corr_fluor_fluor = nanmean(cell2mat(permute(arrayfun(@(x) ...
+        nanmean(cell2mat(batch_vars(x).corr_fluor_fluor),3),1:length(batch_vars),'uni',false),[1,3,2])),3);
+    corr_fluor_mua = nanmean(cell2mat(permute(arrayfun(@(x) ...
+        nanmean(cell2mat(batch_vars(x).corr_fluor_mua),3),1:length(batch_vars),'uni',false),[1,3,2])),3);
+ 
+    corr_mua_mua_split = mat2cell(corr_mua_mua,repmat(length(t),n_depths,1),repmat(length(t),1,n_depths));
+    corr_fluor_fluor_split = mat2cell(corr_fluor_fluor,repmat(length(t),n_rois,1),repmat(length(t),1,n_rois));
+    corr_fluor_mua_split = mat2cell(corr_fluor_mua,repmat(length(t),n_rois,1),repmat(length(t),1,n_depths));
+  
+    % Compute running feedforward/back
+    max_lag = 0.08;
+    max_lag_samples = round(max_lag*sample_rate);
+    
+    local_corr_fluor_fluor = cellfun(@(curr_data) cell2mat(arrayfun(@(x) padarray(diag(curr_data,x),[abs(x),0],NaN,'post'), ...
+        -max_lag_samples:max_lag_samples,'uni',false)),corr_fluor_fluor_split,'uni',false);
+    local_corr_fluor_fluor_diff(:,:,curr_align) = ...
+        cellfun(@(local_corr) nanmean(local_corr(:,max_lag_samples+2:end) - ...
+        local_corr(:,max_lag_samples:-1:1),2),local_corr_fluor_fluor,'uni',false);
+    
+    local_corr_mua_mua = cellfun(@(curr_data) cell2mat(arrayfun(@(x) padarray(diag(curr_data,x),[abs(x),0],NaN,'post'), ...
+        -max_lag_samples:max_lag_samples,'uni',false)),corr_mua_mua_split,'uni',false);
+    local_corr_mua_mua_diff(:,:,curr_align) = ...
+        cellfun(@(local_corr) nanmean(local_corr(:,max_lag_samples+2:end) - ...
+        local_corr(:,max_lag_samples:-1:1),2),local_corr_mua_mua,'uni',false);
+    
+    local_corr_fluor_mua = cellfun(@(curr_data) cell2mat(arrayfun(@(x) padarray(diag(curr_data,x),[abs(x),0],NaN,'post'), ...
+        -max_lag_samples:max_lag_samples,'uni',false)),corr_fluor_mua_split,'uni',false);
+    local_corr_fluor_mua_diff(:,:,curr_align) = ...
+        cellfun(@(local_corr) nanmean(local_corr(:,max_lag_samples+2:end) - ...
+        local_corr(:,max_lag_samples:-1:1),2),local_corr_fluor_mua,'uni',false);
+    
+    % Compute average choice correlations
+    corr_mua_choice = nanmean(cell2mat(permute(arrayfun(@(x) ...
+        nanmean(cell2mat(batch_vars(x).corr_mua_choice),3),1:length(batch_vars),'uni',false),[1,3,2])),3);
+    corr_fluor_choice = nanmean(cell2mat(permute(arrayfun(@(x) ...
+        nanmean(cell2mat(batch_vars(x).corr_fluor_choice),3),1:length(batch_vars),'uni',false),[1,3,2])),3);
+    
+    corr_mua_choice_split = mat2cell(corr_mua_choice,repmat(length(t),n_depths,1),1);
+    corr_fluor_choice_split = mat2cell(corr_fluor_choice,repmat(length(t),n_rois,1),1);
+        
+    corr_mua_choice_cat{curr_align} = horzcat(corr_mua_choice_split{:});
+    corr_fluor_choice_cat{curr_align} = horzcat(corr_fluor_choice_split{:});
+        
+end
 
+est_move_time = 0.2;
+t_plot = -0.5:1/sample_rate:0.5;
 
+wf_ratio = bsxfun(@rdivide,wf_max,sum(wf_max,2));
+str_ratio = bsxfun(@rdivide,str_max,sum(str_max,2));
 
+% Scale and combine area correlations
+fluor_fluor(:,:,1) = cellfun(@(x) interp1(t,x,t_plot),local_corr_fluor_fluor_diff(:,:,1),'uni',false);
+fluor_fluor(:,:,2) = cellfun(@(x) interp1(t+est_move_time,x,t_plot),local_corr_fluor_fluor_diff(:,:,2),'uni',false);
+[roi2,roi1] = meshgrid(1:n_rois);
+fluor_fluor_scaled = cellfun(@(data1,data2,roi1,roi2) ...
+    data1*wf_ratio(roi1,1)+data2*wf_ratio(roi2,2), ...
+    fluor_fluor(:,:,1),fluor_fluor(:,:,2),num2cell(roi1),num2cell(roi2),'uni',false);
 
+mua_mua(:,:,1) = cellfun(@(x) interp1(t,x,t_plot),local_corr_mua_mua_diff(:,:,1),'uni',false);
+mua_mua(:,:,2) = cellfun(@(x) interp1(t+est_move_time,x,t_plot),local_corr_mua_mua_diff(:,:,2),'uni',false);
+[depth2,depth1] = meshgrid(1:n_depths);
+fluor_fluor_scaled = cellfun(@(data1,data2,depth1,depth2) ...
+    data1*str_ratio(depth1,1)+data2*str_ratio(depth2,2), ...
+    mua_mua(:,:,1),mua_mua(:,:,2),num2cell(depth1),num2cell(depth2),'uni',false);
 
+fluor_mua(:,:,1) = cellfun(@(x) interp1(t,x,t_plot),local_corr_fluor_mua_diff(:,:,1),'uni',false);
+fluor_mua(:,:,2) = cellfun(@(x) interp1(t+est_move_time,x,t_plot),local_corr_fluor_mua_diff(:,:,2),'uni',false);
+[depth,roi] = meshgrid(1:n_depths,1:n_rois);
+fluor_fluor_scaled = cellfun(@(data1,data2,roi,depth) ...
+    data1*mean([wf_ratio(roi,1),str_ratio(depth,1)]) + ...
+    data2*mean([wf_ratio(roi,2),str_ratio(depth,2)]), ...
+    fluor_mua(:,:,1),fluor_mua(:,:,2),num2cell(roi),num2cell(depth),'uni',false);
 
+% Scale and combine choice correlations
+fluor_choice{1} = interp1(t,corr_fluor_choice_cat{1},t_plot);
+fluor_choice{2} = interp1(t,corr_fluor_choice_cat{2},t_plot);
+fluor_choice_scaled = sum(bsxfun(@times,cat(3,fluor_choice{:}),permute(wf_ratio,[3,1,2])),3);
 
+mua_choice{1} = interp1(t,corr_mua_choice_cat{1},t_plot);
+mua_choice{2} = interp1(t,corr_mua_choice_cat{2},t_plot);
+mua_choice_scaled = sum(bsxfun(@times,cat(3,mua_choice{:}),permute(str_ratio,[3,1,2])),3);
 
+% Plot scaled choice correlations
+fig_h = figure('Position',[31,109,1838,828]);
 
+smooth_size = 5;
+gw = gausswin(smooth_size,3)';
+smWin = gw./sum(gw);
 
+fig_h = figure('Position',[31,109,1838,828]);
+subplot(2,1,1);hold on; 
 
+set(gca,'ColorOrder',[copper(n_depths);autumn(size(wf_roi,1));winter(size(wf_roi,1))]);
+plot(t_plot,conv2(mua_choice_scaled,smWin','same'),'linewidth',2);
+plot(t_plot,conv2(fluor_choice_scaled,smWin','same'),'linewidth',2);
+
+axis tight; xlim(t_plot);
+line([0,0],ylim,'color','k');
+ylabel('Correlation with decision')
+xlabel('Time from stim onset (s)')
+
+t_h = line([0,0],ylim,'color','k');
+
+% Plot scaled area correlations
+initial_weight = 0.1;
+initial_color = 'k';
+
+fluor_fluor_h = gobjects(n_rois);
+mua_mua_h = gobjects(n_depths);
+fluor_mua_h = gobjects(n_rois,n_depths);
+
+% Fluor-Fluor
+subplot(2,3,4); hold on; axis image off;
+
+ctx_circle_radius = 50;
+ctx_circle_radius_text = ctx_circle_radius + 10;
+ctx_circle_degs = linspace(0,360,n_rois+1);
+ctx_plot_center = ctx_circle_radius*...
+    [sind(ctx_circle_degs(1:n_rois))',cosd(ctx_circle_degs(1:n_rois))'];
+ctx_text_center = ctx_circle_radius_text*...
+    [sind(ctx_circle_degs(1:n_rois))',cosd(ctx_circle_degs(1:n_rois))'];
+scatter(ctx_plot_center(:,1),ctx_plot_center(:,2),200, ...
+    [autumn(size(wf_roi,1));winter(size(wf_roi,1))],'filled','MarkerEdgeColor','k');
+text(ctx_text_center(:,1),ctx_text_center(:,2),{wf_roi.area}, ...
+    'HorizontalAlignment','center','VerticalAlignment','middle');
+
+for curr_roi1 = 1:n_rois
+    for curr_roi2 = curr_roi1+1:n_rois               
+        fluor_fluor_h(curr_roi1,curr_roi2) = ...
+            line([ctx_plot_center(curr_roi1,1),ctx_plot_center(curr_roi2,1)], ...
+            [ctx_plot_center(curr_roi1,2),ctx_plot_center(curr_roi2,2)], ...
+            'linewidth',initial_weight, ...
+            'color',initial_color);             
+    end    
+end
+
+% MUA-MUA
+subplot(2,3,5); hold on; axis image off;
+
+str_circle_radius = 50;
+str_circle_radius_text = str_circle_radius + 10;
+str_circle_degs = linspace(0,360,n_depths+1);
+str_plot_center = str_circle_radius*...
+    [sind(str_circle_degs(1:n_depths))',cosd(str_circle_degs(1:n_depths))'];
+str_text_center = str_circle_radius_text*...
+    [sind(str_circle_degs(1:n_depths))',cosd(str_circle_degs(1:n_depths))'];
+scatter(str_plot_center(:,1),str_plot_center(:,2),200,copper(n_depths),'filled','MarkerEdgeColor','k');
+text(str_text_center(:,1),str_text_center(:,2), ...
+    arrayfun(@(x) ['Str ' num2str(x)],1:n_depths,'uni',false), ...
+    'HorizontalAlignment','center','VerticalAlignment','middle');
+
+for curr_depth1 = 1:n_depths
+    for curr_depth2 = curr_depth1+1:n_depths
+        mua_mua_h(curr_depth1,curr_depth2) = ...
+            line([str_plot_center(curr_depth1,1),str_plot_center(curr_depth2,1)], ...
+            [str_plot_center(curr_depth1,2),str_plot_center(curr_depth2,2)], ...
+            'linewidth',initial_weight, ...
+            'color',initial_color);        
+    end
+end
+
+% Fluor-MUA
+subplot(2,3,6); hold on; axis off;
+set(gca,'YDir','reverse');
+
+ctx_plot_center = ...
+    [[linspace(-50,-50,size(wf_roi,1))',linspace(0,50,size(wf_roi,1))']; ...
+    [linspace(50,50,size(wf_roi,1))',linspace(0,50,size(wf_roi,1))']];
+ctx_text_center = ctx_plot_center + ...
+    [-15*ones(size(wf_roi,1),1),zeros(size(wf_roi,1),1); ...
+    15*ones(size(wf_roi,1),1),zeros(size(wf_roi,1),1)];
+scatter(ctx_plot_center(:,1),ctx_plot_center(:,2),200, ...
+    [autumn(size(wf_roi,1));winter(size(wf_roi,1))],'filled','MarkerEdgeColor','k');
+text(ctx_text_center(:,1),ctx_text_center(:,2),{wf_roi.area}, ...
+    'HorizontalAlignment','center','VerticalAlignment','middle');
+
+str_plot_center = [linspace(0,0,n_depths)',linspace(0,50,n_depths)'];
+str_text_center = str_plot_center + [zeros(n_depths,1),-4*ones(n_depths,1)];
+scatter(str_plot_center(:,1),str_plot_center(:,2),100,copper(n_depths),'filled','MarkerEdgeColor','k');
+text(str_text_center(:,1),str_text_center(:,2), ...
+    arrayfun(@(x) ['Str ' num2str(x)],1:n_depths,'uni',false), ...
+    'HorizontalAlignment','center','VerticalAlignment','middle');
+
+for curr_roi = 1:n_rois
+    for curr_depth = 1:n_depths
+        fluor_mua_h(curr_roi,curr_depth) = ...
+        line([ctx_plot_center(curr_roi,1),str_plot_center(curr_depth,1)], ...
+            [ctx_plot_center(curr_roi,2),str_plot_center(curr_depth,2)], ...
+            'linewidth',initial_weight, ...
+            'color',initial_color);       
+    end
+end
+
+% Make movie updating lines
+clear movie_frames
+curr_frame = 1;
+for curr_t = 1:length(t_plot)
+    
+%     set(t_h,'XData',repmat(t_plot(curr_t),2,1));
+    
+    % Fluor-fluor
+    for curr_roi1 = 1:n_rois
+        for curr_roi2 = curr_roi1+1:n_rois
+            curr_corr = fluor_fluor{curr_roi1,curr_roi2}(curr_t);
+            set(fluor_fluor_h(curr_roi1,curr_roi2), ...
+                'linewidth',abs(curr_corr)*50, ...
+                'color',[sign(curr_corr) == 1,0,sign(curr_corr) == -1]);  
+        end
+    end
+    % MUA-MUA
+    for curr_depth1 = 1:n_depths
+        for curr_depth2 = curr_depth1+1:n_depths
+            curr_corr = mua_mua{curr_depth1,curr_depth2}(curr_t);
+            set(mua_mua_h(curr_depth1,curr_depth2), ...
+                'linewidth',abs(curr_corr)*120, ...
+                'color',[sign(curr_corr) == 1,0,sign(curr_corr) == -1]);  
+        end
+    end
+    % Fluor-MUA
+    for curr_roi = 1:n_rois
+        for curr_depth = 1:n_depths
+            curr_corr = fluor_mua{curr_roi,curr_depth}(curr_t);
+            set(fluor_mua_h(curr_roi,curr_depth), ...
+                'linewidth',abs(curr_corr)*50, ...
+                'color',[sign(curr_corr) == 1,0,sign(curr_corr) == -1]);  
+        end
+    end
+    drawnow
+    
+    warning off;
+    movie_frames(curr_frame) = getframe(fig_h);
+    warning on;
+    curr_frame = curr_frame + 1;
+end
+
+% save_path = 'C:\Users\Andrew\OneDrive for Business\Documents\CarandiniHarrisLab\analysis\wf_ephys_choiceworld\choiceworld';
+% save_filename = [save_path filesep corr_use '.avi'];
+% 
+% writerObj = VideoWriter(save_filename);
+% writerObj.FrameRate = sample_rate/5;
+% open(writerObj);
+% writeVideo(writerObj,movie_frames);
+% close(writerObj);
+% 
 
 
 
