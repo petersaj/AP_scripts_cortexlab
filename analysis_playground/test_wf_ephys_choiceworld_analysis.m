@@ -2992,7 +2992,7 @@ for curr_align = 1:2
     wf_time(:,curr_align) = curr_t(wf_time_idx);
     
 end
-%%
+
 figure; 
 
 % Plot stim vs. move peak
@@ -3052,22 +3052,42 @@ wf_time_scaled = sum(bsxfun(@plus,wf_time,[zeros(n_rois,1),est_move_time*ones(n_
 str_time_scaled = sum(bsxfun(@plus,str_time,[zeros(n_depths,1),est_move_time*ones(n_depths,1)]) ...
     .*bsxfun(@rdivide,str_max,sum(str_max,2)),2);
 
-wf_scale = mat2gray(max(wf_max,[],2))*100+0.1;
-str_scale = mat2gray(max(str_max,[],2))*100+0.1;
+wf_scale = mat2gray(max(wf_max,[],2))*200+20;
+str_scale = mat2gray(max(str_max,[],2))*200+20;
 
-subplot(4,2,7); 
-scatter(1:n_rois,wf_time_scaled(:,1),wf_scale, ...
-    [autumn(size(wf_roi,1));winter(size(wf_roi,1))], ...
+time_scaled_cat = [wf_time_scaled;str_time_scaled];
+scale_cat = [wf_scale;str_scale];
+label_cat = [{wf_roi.area},arrayfun(@(x) ['Str ' num2str(x)],1:n_depths,'uni',false)];
+cmap_cat = [autumn(size(wf_roi,1));winter(size(wf_roi,1));copper(6)];
+
+[~,time_scaled_idx] = sort(time_scaled_cat);
+
+subplot(4,1,4); 
+scatter(1:n_rois+n_depths,time_scaled_cat(time_scaled_idx), ...
+    scale_cat(time_scaled_idx), ...
+    cmap_cat(time_scaled_idx,:), ...
     'filled','MarkerEdgeColor','k');
-set(gca,'XTick',1:n_rois,'XTickLabel',{wf_roi.area},'XTickLabelRotation',45);
-xlabel('ROI')
+set(gca,'XTick',1:n_rois+n_depths,'XTickLabel', ...
+    label_cat(time_scaled_idx),'XTickLabelRotation',45);
+xlabel('Area')
 ylabel('Weighted time');
 
-subplot(4,2,8);
-scatter(1:n_depths,str_time_scaled(:,1),str_scale, ...
-    copper(n_depths),'filled','MarkerEdgeColor','k');
-xlabel('Depth')
-ylabel('Weighted time');
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 

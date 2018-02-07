@@ -2995,7 +2995,8 @@ end
 
 figure; 
 
-subplot(2,2,1);
+% Plot stim vs. move peak
+subplot(4,2,1);
 scatter(wf_max(:,1),wf_max(:,2),100, ...
     [autumn(size(wf_roi,1));winter(size(wf_roi,1))],'filled','MarkerEdgeColor','k');
 xlim([min(wf_max(:)),max(wf_max(:))]);
@@ -3006,7 +3007,7 @@ xlabel('Choice corr (stim-aligned)');
 ylabel('Choice corr (move-aligned)')
 title('Cortex');
 
-subplot(2,2,2);
+subplot(4,2,2);
 scatter(str_max(:,1),str_max(:,2),100, ...
     copper(n_depths),'filled','MarkerEdgeColor','k');
 xlim([min(str_max(:)),max(str_max(:))]);
@@ -3017,14 +3018,15 @@ xlabel('Choice corr (stim-aligned)');
 ylabel('Choice corr (move-aligned)')
 title('Striatum');
 
-subplot(4,2,6);
+% Plot times for stim/move separately
+subplot(4,2,3);
 scatter(1:n_rois,wf_time(:,1),100, ...
     [autumn(size(wf_roi,1));winter(size(wf_roi,1))], ...
     'filled','MarkerEdgeColor','k');
 set(gca,'XTick',1:n_rois,'XTickLabel',{wf_roi.area},'XTickLabelRotation',45);
 xlabel('ROI')
 ylabel('Peak time (stim-aligned)');
-subplot(4,2,[6,8]);
+subplot(4,2,5);
 scatter(1:n_rois,wf_time(:,2),100, ...
     [autumn(size(wf_roi,1));winter(size(wf_roi,1))], ...
     'filled','MarkerEdgeColor','k');
@@ -3042,6 +3044,42 @@ scatter(1:n_depths,str_time(:,2),100, ...
     copper(n_depths),'filled','MarkerEdgeColor','k');
 xlabel('Depth')
 ylabel('Peak time (move-aligned)');
+
+% Plot some kind of weighted average for timing
+est_move_time = 0.2;
+wf_time_scaled = sum(bsxfun(@plus,wf_time,[zeros(n_rois,1),est_move_time*ones(n_rois,1)]) ...
+    .*bsxfun(@rdivide,wf_max,sum(wf_max,2)),2);
+str_time_scaled = sum(bsxfun(@plus,str_time,[zeros(n_depths,1),est_move_time*ones(n_depths,1)]) ...
+    .*bsxfun(@rdivide,str_max,sum(str_max,2)),2);
+
+wf_scale = mat2gray(max(wf_max,[],2))*100+20;
+str_scale = mat2gray(max(str_max,[],2))*100+20;
+
+time_scaled_cat = [wf_time_scaled;str_time_scaled];
+scale_cat = [wf_scale;str_scale];
+label_cat = [{wf_roi.area},arrayfun(@(x) ['Str ' num2str(x)],1:n_depths,'uni',false)];
+cmap_cat = [autumn(size(wf_roi,1));winter(size(wf_roi,1));copper(6)];
+
+[~,time_scaled_idx] = sort(time_scaled_cat);
+
+subplot(4,1,4); 
+scatter(1:n_rois+n_depths,time_scaled_cat(time_scaled_idx), ...
+    scale_cat(time_scaled_idx), ...
+    cmap_cat(time_scaled_idx,:), ...
+    'filled','MarkerEdgeColor','k');
+set(gca,'XTick',1:n_rois+n_depths,'XTickLabel', ...
+    label_cat(time_scaled_idx),'XTickLabelRotation',45);
+xlabel('Area')
+ylabel('Weighted time');
+
+
+
+
+
+
+
+
+
 
 
 
