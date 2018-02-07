@@ -17,14 +17,14 @@ if ~exist('roi_mask','var') || isempty(roi_mask)
         axis image off;
         colormap(ax_guide_im, gray);
         caxis(ax_guide_im, [prctile(guide_im(:),5) prctile(guide_im(:),95)]);
-    elseif ischar(guide_im) && strcmp(guide_im,'master')
-        imagesc(ax_guide_im,ones(size(U,1),size(U,2)));
+    elseif ischar(guide_im) && strcmp(guide_im,'master')        
+        imagesc(ax_guide_im,ones(size(U(:,:,1))));
+        colormap(gray);
         axis image off;
         caxis([0,1])
-        colormap(ax_guide_im, gray);
-        set(gca,'YDir','Reverse');
+        set(gca,'YDir','Reverse');        
         AP_reference_outline('retinotopy','r');
-        AP_reference_outline('ccf_aligned','k');
+        AP_reference_outline('ccf_aligned','k');        
     end
     if exist('overlay','var') && ~isempty(overlay) && all(size(overlay) == size(guide_im))
         ax_overlay = axes;
@@ -41,12 +41,18 @@ if ~exist('roi_mask','var') || isempty(roi_mask)
 end
 
 % Get fluorescence across session in ROIs
-roi_trace = nan(size(roi_mask,3),size(V,2));
-for curr_roi = 1:size(roi_mask,3)
-    U_roi = reshape(U(repmat(roi_mask(:,:,curr_roi),1,1,size(U,3))),[],size(U,3));
-    roi_trace(curr_roi,:) = nanmean(U_roi*V);
+if exist('V','var') && ~isempty(V);
+    roi_trace = nan(size(roi_mask,3),size(V,2));
+    U_reshape = reshape(U,[],size(U,3));
+    roi_mask_reshape = reshape(roi_mask,[],size(roi_mask,3));
+    for curr_roi = 1:size(roi_mask,3)
+        curr_roi_px = roi_mask_reshape(:,curr_roi) ~= 0;
+        U_roi = bsxfun(@times,U_reshape(curr_roi_px,:),roi_mask_reshape(curr_roi_px,curr_roi));
+        roi_trace(curr_roi,:) = nanmean(U_roi*V);
+    end
+else
+    roi_trace = [];
 end
-
 
 
 

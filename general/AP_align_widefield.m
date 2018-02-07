@@ -40,7 +40,7 @@ if ~animal_aligned && iscell(animals) && length(animals) > 1
 end
 
 % Set alignment save path
-alignment_path = '\\basket.cortexlab.net\data\ajpeters\wf_alignment';
+alignment_path = 'C:\Users\Andrew\OneDrive for Business\Documents\CarandiniHarrisLab\analysis\wf_ephys_choiceworld\wf_processing\wf_alignment';
 
 %% Apply alignments to data
 

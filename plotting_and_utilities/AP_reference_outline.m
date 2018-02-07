@@ -73,7 +73,7 @@ switch type
         
     case 'retinotopy'
         % Plot master retinotopic borders        
-        load('\\basket.cortexlab.net\data\ajpeters\retinotopy\retinotopic_boundaries.mat');
+        load('C:\Users\Andrew\OneDrive for Business\Documents\CarandiniHarrisLab\analysis\wf_ephys_choiceworld\wf_processing\retinotopy\retinotopic_boundaries.mat');
         h = cellfun(@(outline) plot(outline(:,2),outline(:,1),'color',color),retinotopic_boundaries,'uni',false);
         
     otherwise

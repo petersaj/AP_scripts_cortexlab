@@ -1,3 +1,29 @@
+%% Create widefield ROIs
+
+alignment_path = 'C:\Users\Andrew\OneDrive for Business\Documents\CarandiniHarrisLab\analysis\wf_ephys_choiceworld\wf_processing\wf_alignment';
+load([alignment_path filesep 'animal_wf_tform']);
+im_size = animal_wf_tform(1).im_size;
+
+roi_areas = {'V1','AM','RSPp','FRm','FRl','SMl','SMf'};
+
+wf_roi = struct('area',cell(length(roi_areas),2),'mask',cell(length(roi_areas),2));
+
+% (ideally this should mirror, but that'd involve a transform etc)
+curr_roi = 1;
+for curr_hemi = {'L','R'};
+    for curr_area = roi_areas;
+        curr_roi_name = [curr_area{:} '_' curr_hemi{:}];
+        disp(curr_roi_name);
+        wf_roi(curr_roi).area = curr_roi_name;
+        [~,wf_roi(curr_roi).mask] = AP_svd_roi(nan(im_size),[],'master');
+        curr_roi = curr_roi + 1;
+    end
+end
+
+wf_roi_fn = 'C:\Users\Andrew\OneDrive for Business\Documents\CarandiniHarrisLab\analysis\wf_ephys_choiceworld\wf_processing\wf_rois\wf_roi';
+save(wf_roi_fn,'wf_roi');
+disp('Saved new widefield ROIs');
+
 %% Batch widefield area boundaries
 
 animals = {'AP024','AP025','AP026','AP027','AP028','AP029'};
@@ -837,25 +863,33 @@ for curr_animal = 1:length(animals)
         day = experiments(curr_day).day;
         experiment = experiments(curr_day).experiment;
         
-        AP_load_experiment
+        AP_load_experiment       
+        
+        upsample_factor = 2;
+        sample_rate = (1/median(diff(frame_t)))*upsample_factor;
         
         skip_seconds = 60;
+        time_bins = frame_t(find(frame_t > skip_seconds,1)):1/sample_rate:frame_t(find(frame_t-frame_t(end) < -skip_seconds,1,'last'));
+        time_bin_centers = time_bins(1:end-1) + diff(time_bins)/2;
+        
+        % Get upsampled dVdf's
+        use_svs = 1:50;
+        dfVdf_resample = interp1(conv2(frame_t,[1,1]/2,'valid'), ...
+            diff(fVdf(use_svs,:),[],2)',time_bin_centers)';
         
         % Estimate lambda using entire striatum       
         use_frames = (frame_t > skip_seconds & frame_t < frame_t(end)-skip_seconds);        
         use_spikes = spike_times_timeline(ismember(spike_templates, ...
             find(templateDepths > str_depth(1) & templateDepths <= str_depth(2))));
         
-        frame_edges = [frame_t(1),mean([frame_t(2:end);frame_t(1:end-1)],1),frame_t(end)+1/framerate];
-        [frame_spikes,~,spike_frames] = histcounts(use_spikes,frame_edges);
-        frame_spikes = single(frame_spikes);
+        [binned_spikes,~,spike_frames] = histcounts(use_spikes,time_bins);
+        binned_spikes = single(binned_spikes);
         
         lambda_start = 1e3;
         n_reduce_lambda = 3;
         
-        use_svs = 1:50;
-        kernel_t = [-0.2,0.2];
-        kernel_frames = round(kernel_t(1)*framerate):round(kernel_t(2)*framerate);
+        kernel_t = [-0.1,0.1];
+        kernel_frames = round(kernel_t(1)*sample_rate):round(kernel_t(2)*sample_rate);
         zs = [false,true];
         cvfold = 5;
         use_frames_idx = find(use_frames);
@@ -869,8 +903,8 @@ for curr_animal = 1:length(animals)
             
             % TO USE dfV
             [~,~,explained_var] = ...
-                AP_regresskernel(conv2(diff(fVdf(use_svs,use_frames_idx),[],2),[1,1]/2,'valid'), ...
-                frame_spikes(:,use_frames_idx(2:end-1)),kernel_frames,curr_lambda,zs,cvfold);
+                AP_regresskernel(dfVdf_resample, ...
+                binned_spikes,kernel_frames,curr_lambda,zs,cvfold);
             
             lambdas(end+1) = curr_lambda;
             explained_var_lambdas(end+1) = explained_var.total;
@@ -889,12 +923,7 @@ for curr_animal = 1:length(animals)
         lambda = lambdas(end);         
         
         % Get cortex/striatum regression by depth
-        upsample_factor = 3;
-        sample_rate = (1/median(diff(frame_t)))*upsample_factor;
-        
-        time_bins = frame_t(find(frame_t > skip_seconds,1)):1/sample_rate:frame_t(find(frame_t-frame_t(end) < -skip_seconds,1,'last'));
-        time_bin_centers = time_bins(1:end-1) + diff(time_bins)/2;
-        
+               
         % Group striatum depths
         n_depth_groups = 6;
         depth_group_edges = round(linspace(str_depth(1),str_depth(2),n_depth_groups+1));
@@ -906,14 +935,10 @@ for curr_animal = 1:length(animals)
             binned_spikes(curr_depth,:) = histcounts(curr_spike_times,time_bins);            
         end
         
-        use_svs = 1:50;
         kernel_t = [-0.3,0.3];
         kernel_frames = round(kernel_t(1)*sample_rate):round(kernel_t(2)*sample_rate);
         zs = [false,true];
-        cvfold = 5;
-        
-        dfVdf_resample = interp1(conv2(frame_t,[1,1]/2,'valid'), ...
-            diff(fVdf(use_svs,:),[],2)',time_bin_centers)';
+        cvfold = 5;      
 
         % TO USE dfV
         [k,predicted_spikes,explained_var] = ...
@@ -2205,6 +2230,11 @@ for curr_animal = 1:length(animals)
         event_aligned_df = interp1(conv(frame_t,[1,1]/2,'valid'),diff(roi_traces,[],2)',t_peri_event);
         event_aligned_df(event_aligned_df < 0) = 0;
         
+        % Make the R hemisphere ROIs actually be L-R
+        event_aligned_df(:,:,size(wf_roi,1)+1:end) = ...
+            event_aligned_df(:,:,1:size(wf_roi,1)) - ...
+            event_aligned_df(:,:,size(wf_roi,1)+1:end);
+        
         % Pull out MUA across depths
         t_peri_event_bins = [t_peri_event - 1/(sample_rate*2), ...
             t_peri_event(:,end) + 1/(sample_rate*2)];
@@ -2499,6 +2529,11 @@ for curr_animal = 1:length(animals)
         event_aligned_f = interp1(frame_t,roi_traces',t_peri_event);
         event_aligned_df = interp1(conv(frame_t,[1,1]/2,'valid'),diff(roi_traces,[],2)',t_peri_event);
         event_aligned_df(event_aligned_df < 0) = 0;
+        
+        % Make the R hemisphere ROIs actually be L-R
+        event_aligned_df(:,:,size(wf_roi,1)+1:end) = ...
+            event_aligned_df(:,:,1:size(wf_roi,1)) - ...
+            event_aligned_df(:,:,size(wf_roi,1)+1:end);
         
         % Pull out MUA across depths
         t_peri_event_bins = [t_peri_event - 1/(sample_rate*2), ...
