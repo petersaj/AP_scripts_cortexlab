@@ -1978,7 +1978,7 @@ legend(p(1,:),cellfun(@num2str,num2cell(1:n_conditions),'uni',false));
 
 
 %% Load and average wf ephys maps
-error('different weights for different lambdas, need to normalize')
+warning('different weights for different lambdas, need to normalize')
 
 data_path = 'C:\Users\Andrew\OneDrive for Business\Documents\CarandiniHarrisLab\analysis\wf_ephys_choiceworld\wf_ephys';
 
@@ -2008,12 +2008,19 @@ for curr_animal = 1:length(animals)
         continue
     end
     
+    % Align all images
     r_px_aligned = AP_align_widefield(animal,days,batch_vars(curr_animal).r_px);
     r_px_com_aligned = AP_align_widefield(animal,days,batch_vars(curr_animal).r_px_com);
     r_px_weight_aligned = AP_align_widefield(animal,days,batch_vars(curr_animal).r_px_weight);
     explained_var_cat = horzcat(batch_vars(curr_animal).explained_var{:});
     
-    r_px{curr_animal} = nanmean(r_px_aligned,5);
+    % Scale all r_px's because different lambdas give different weights
+    r_scale_cutoff = prctile(abs(reshape(r_px_aligned,[],size(r_px_aligned,5))),95)';
+    r_px_aligned_scaled = bsxfun(@rdivide,r_px_aligned,permute(r_scale_cutoff,[2,3,4,5,1]));
+    r_px_aligned_scaled(abs(r_px_aligned_scaled) > 1) = sign(r_px_aligned_scaled(abs(r_px_aligned_scaled) > 1));
+    
+    % Average across days
+    r_px{curr_animal} = nanmean(r_px_aligned_scaled,5);
     com(:,:,curr_animal) = nanmean(r_px_com_aligned,3);
     weight(:,:,curr_animal) = nanmean(r_px_weight_aligned,3);
     explained_var(:,curr_animal) = nanmean(explained_var_cat,2);
@@ -2023,8 +2030,43 @@ for curr_animal = 1:length(animals)
 end
 
 r_px_mean = nanmean(cell2mat(permute(cellfun(@(x) nanmean(x,5),r_px,'uni',false),[2,3,4,5,1])),5);
+% flip r_px to go forward in time
+r_px_mean = r_px_mean(:,:,end:-1:1,:);
 com_mean = nanmean(com,3);
 weight_mean = nanmean(weight,3);
+
+n_depths = size(r_px_mean,4);
+
+% Load widefield ROIs
+wf_roi_fn = 'C:\Users\Andrew\OneDrive for Business\Documents\CarandiniHarrisLab\analysis\wf_ephys_choiceworld\wf_processing\wf_rois\wf_roi';
+load(wf_roi_fn);
+
+% Plot weights over time (only use ipsi ROIs)
+t = linspace(-0.3,0.3,size(r_px_mean,3));
+AP_image_scroll(r_px_mean,t)  
+axis image;
+caxis([-1,1]);
+colormap(colormap_BlueWhiteRed);
+AP_reference_outline('ccf_aligned','k');AP_reference_outline('retinotopy','m');
+
+r_px_max = squeeze(max(r_px_mean,[],3));
+figure;
+for curr_depth = 1:n_depths
+    subplot(1,n_depths,curr_depth)
+    imagesc(r_px_max(:,:,curr_depth));
+    axis image off;
+    caxis([-1,1]);
+    colormap(colormap_BlueWhiteRed);
+    AP_reference_outline('ccf_aligned','k');AP_reference_outline('retinotopy','m');
+    title(['Str ' num2str(curr_depth)]);
+end
+
+wf_roi_masks = cat(3,wf_roi(:,1).mask);
+wf_roi_mask_mult = bsxfun(@rdivide,wf_roi_masks, .permute(sum(reshape(wf_roi_masks,[],size(wf_roi,1)),1),[1,3,2]));
+r_px_mean
+
+roi_traces = reshape(reshape(r_px_mean,[],length(t)*n_depths)'* ...
+    reshape(wf_roi_masks,[],size(wf_roi,1)),length(t),n_depths,size(wf_roi,1));
 
 % Plot map
 n_depth_groups = 6;
@@ -2936,6 +2978,8 @@ open(writerObj);
 writeVideo(writerObj,movie_frames);
 close(writerObj);
 
+close(fig_h);
+
 %% Max abs and time of stim/move-aligned correlations
 
 interval_surround = [-0.5,1.5];
@@ -3154,7 +3198,7 @@ for curr_align = 1:2
 end
 
 est_move_time = 0.2;
-t_plot = -0.5:1/sample_rate:0.5;
+t_plot = -0.2:1/sample_rate:0.4;
 
 wf_ratio = bsxfun(@rdivide,wf_max,sum(wf_max,2));
 str_ratio = bsxfun(@rdivide,str_max,sum(str_max,2));
@@ -3184,11 +3228,11 @@ fluor_fluor_scaled = cellfun(@(data1,data2,roi,depth) ...
 
 % Scale and combine choice correlations
 fluor_choice{1} = interp1(t,corr_fluor_choice_cat{1},t_plot);
-fluor_choice{2} = interp1(t,corr_fluor_choice_cat{2},t_plot);
+fluor_choice{2} = interp1(t+est_move_time,corr_fluor_choice_cat{2},t_plot);
 fluor_choice_scaled = sum(bsxfun(@times,cat(3,fluor_choice{:}),permute(wf_ratio,[3,1,2])),3);
 
 mua_choice{1} = interp1(t,corr_mua_choice_cat{1},t_plot);
-mua_choice{2} = interp1(t,corr_mua_choice_cat{2},t_plot);
+mua_choice{2} = interp1(t+est_move_time,corr_mua_choice_cat{2},t_plot);
 mua_choice_scaled = sum(bsxfun(@times,cat(3,mua_choice{:}),permute(str_ratio,[3,1,2])),3);
 
 % Plot scaled choice correlations
@@ -3205,12 +3249,13 @@ set(gca,'ColorOrder',[copper(n_depths);autumn(size(wf_roi,1));winter(size(wf_roi
 plot(t_plot,conv2(mua_choice_scaled,smWin','same'),'linewidth',2);
 plot(t_plot,conv2(fluor_choice_scaled,smWin','same'),'linewidth',2);
 
-axis tight; xlim(t_plot);
+axis tight;
 line([0,0],ylim,'color','k');
 ylabel('Correlation with decision')
 xlabel('Time from stim onset (s)')
 
 t_h = line([0,0],ylim,'color','k');
+t_mov = line(repmat(est_move_time,2,1),ylim,'color','k');
 
 % Plot scaled area correlations
 initial_weight = 0.1;
@@ -3307,7 +3352,7 @@ clear movie_frames
 curr_frame = 1;
 for curr_t = 1:length(t_plot)
     
-%     set(t_h,'XData',repmat(t_plot(curr_t),2,1));
+    set(t_h,'XData',repmat(t_plot(curr_t),2,1));
     
     % Fluor-fluor
     for curr_roi1 = 1:n_rois
@@ -3344,15 +3389,15 @@ for curr_t = 1:length(t_plot)
     curr_frame = curr_frame + 1;
 end
 
-% save_path = 'C:\Users\Andrew\OneDrive for Business\Documents\CarandiniHarrisLab\analysis\wf_ephys_choiceworld\choiceworld';
-% save_filename = [save_path filesep corr_use '.avi'];
-% 
-% writerObj = VideoWriter(save_filename);
-% writerObj.FrameRate = sample_rate/5;
-% open(writerObj);
-% writeVideo(writerObj,movie_frames);
-% close(writerObj);
-% 
+save_path = 'C:\Users\Andrew\OneDrive for Business\Documents\CarandiniHarrisLab\analysis\wf_ephys_choiceworld\choiceworld';
+save_filename = [save_path filesep 'corr_combined.avi'];
+
+writerObj = VideoWriter(save_filename);
+writerObj.FrameRate = sample_rate/5;
+open(writerObj);
+writeVideo(writerObj,movie_frames);
+close(writerObj);
+
 
 
 

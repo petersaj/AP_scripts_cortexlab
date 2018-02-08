@@ -1978,13 +1978,13 @@ legend(p(1,:),cellfun(@num2str,num2cell(1:n_conditions),'uni',false));
 
 
 %% Load and average wf ephys maps
-error('different weights for different lambdas, need to normalize')
+warning('different weights for different lambdas, need to normalize')
 
 data_path = 'C:\Users\Andrew\OneDrive for Business\Documents\CarandiniHarrisLab\analysis\wf_ephys_choiceworld\wf_ephys';
 
-protocol = 'vanillaChoiceworld';
+% protocol = 'vanillaChoiceworld';
 % protocol = 'stimSparseNoiseUncorrAsync';
-% protocol = 'stimKalatsky';
+protocol = 'stimKalatsky';
 % protocol = 'AP_choiceWorldStimPassive';
 
 map_fn = [data_path filesep 'wf_ephys_maps_' protocol];
@@ -2008,12 +2008,19 @@ for curr_animal = 1:length(animals)
         continue
     end
     
+    % Align all images
     r_px_aligned = AP_align_widefield(animal,days,batch_vars(curr_animal).r_px);
     r_px_com_aligned = AP_align_widefield(animal,days,batch_vars(curr_animal).r_px_com);
     r_px_weight_aligned = AP_align_widefield(animal,days,batch_vars(curr_animal).r_px_weight);
     explained_var_cat = horzcat(batch_vars(curr_animal).explained_var{:});
     
-    r_px{curr_animal} = nanmean(r_px_aligned,5);
+    % Scale all r_px's because different lambdas give different weights
+    r_scale_cutoff = prctile(abs(reshape(r_px_aligned,[],size(r_px_aligned,5))),95)';
+    r_px_aligned_scaled = bsxfun(@rdivide,r_px_aligned,permute(r_scale_cutoff,[2,3,4,5,1]));
+    r_px_aligned_scaled(abs(r_px_aligned_scaled) > 1) = sign(r_px_aligned_scaled(abs(r_px_aligned_scaled) > 1));
+    
+    % Average across days
+    r_px{curr_animal} = nanmean(r_px_aligned_scaled,5);
     com(:,:,curr_animal) = nanmean(r_px_com_aligned,3);
     weight(:,:,curr_animal) = nanmean(r_px_weight_aligned,3);
     explained_var(:,curr_animal) = nanmean(explained_var_cat,2);
@@ -2023,8 +2030,55 @@ for curr_animal = 1:length(animals)
 end
 
 r_px_mean = nanmean(cell2mat(permute(cellfun(@(x) nanmean(x,5),r_px,'uni',false),[2,3,4,5,1])),5);
+% flip r_px to go forward in time
+r_px_mean = r_px_mean(:,:,end:-1:1,:);
 com_mean = nanmean(com,3);
 weight_mean = nanmean(weight,3);
+
+n_depths = size(r_px_mean,4);
+
+% Load widefield ROIs
+wf_roi_fn = 'C:\Users\Andrew\OneDrive for Business\Documents\CarandiniHarrisLab\analysis\wf_ephys_choiceworld\wf_processing\wf_rois\wf_roi';
+load(wf_roi_fn);
+
+% Plot weights over time (only use ipsi ROIs)
+t = linspace(-0.3,0.3,size(r_px_mean,3));
+AP_image_scroll(r_px_mean,t)  
+axis image;
+caxis([-1,1]);
+colormap(colormap_BlueWhiteRed);
+AP_reference_outline('ccf_aligned','k');AP_reference_outline('retinotopy','m');
+
+r_px_max = squeeze(max(r_px_mean,[],3));
+
+wf_roi_masks = cat(3,wf_roi(:,1).mask);
+wf_roi_mask_mult = bsxfun(@rdivide,wf_roi_masks, ...
+    permute(sum(reshape(wf_roi_masks,[],size(wf_roi,1)),1),[1,3,2]));
+
+roi_traces = permute(reshape(reshape(r_px_mean,[],length(t)*n_depths)'* ...
+    reshape(wf_roi_mask_mult,[],size(wf_roi,1)), ...
+    length(t),n_depths,size(wf_roi,1)),[1,3,2]);
+
+figure;
+for curr_depth = 1:n_depths
+    subplot(2,n_depths,curr_depth)
+    imagesc(r_px_max(:,:,curr_depth));
+    axis image off;
+    caxis([-1,1]);
+    colormap(colormap_BlueWhiteRed);
+    AP_reference_outline('ccf_aligned','k');AP_reference_outline('retinotopy','m');
+    title(['Str ' num2str(curr_depth)]);
+    
+    subplot(2,n_depths,n_depths+curr_depth); hold on;
+    set(gca,'ColorOrder',autumn(size(wf_roi,1)));
+    plot(t,roi_traces(:,:,curr_depth),'linewidth',2);
+    axis tight;
+    line([0,0],ylim,'color','k');
+    xlabel('Time from spike');
+    ylabel('Normalized fluor weight');
+end
+
+
 
 % Plot map
 n_depth_groups = 6;
@@ -2935,6 +2989,8 @@ writerObj.FrameRate = sample_rate/5;
 open(writerObj);
 writeVideo(writerObj,movie_frames);
 close(writerObj);
+
+close(fig_h);
 
 %% Max abs and time of stim/move-aligned correlations
 
