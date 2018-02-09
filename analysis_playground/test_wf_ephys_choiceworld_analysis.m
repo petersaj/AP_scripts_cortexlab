@@ -1256,6 +1256,17 @@ save_fn = [data_path filesep 'im_move_latemove_miss_avg_combined.mat'];
 save(save_fn,'im_move_latemove_miss_avg_combined','-v7.3');
 disp('Done')
 
+%% Plot widefield ROIs
+
+wf_roi_fn = 'C:\Users\Andrew\OneDrive for Business\Documents\CarandiniHarrisLab\analysis\wf_ephys_choiceworld\wf_processing\wf_rois\wf_roi';
+load(wf_roi_fn);
+n_rois = numel(wf_roi);
+
+roi_cat = cat(3,wf_roi.mask);
+roi_col = [autumn(size(wf_roi,1));winter(size(wf_roi,1))];
+
+
+
 %% Load and process widefield choiceworld mean (stim aligned)
 
 surround_window = [-0.5,2];
