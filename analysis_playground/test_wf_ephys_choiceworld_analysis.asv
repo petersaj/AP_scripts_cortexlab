@@ -1256,6 +1256,58 @@ save_fn = [data_path filesep 'im_move_latemove_miss_avg_combined.mat'];
 save(save_fn,'im_move_latemove_miss_avg_combined','-v7.3');
 disp('Done')
 
+%% Make batch widefield choiceworld mean (GENERAL - ALL)
+
+clear all
+disp('Early move hit');
+animals = {'AP024','AP025','AP026','AP027','AP028','AP029'};
+
+for trialtype_align = {'stim','move'};
+    trialtype_align = cell2mat(trialtype_align);
+    for trialtype_timing = {'earlymove','latemove'};
+        trialtype_timing = cell2mat(trialtype_timing);
+        for trialtype_success = {'hit','miss'};
+            trialtype_success = cell2mat(trialtype_success);
+            
+            data_path = 'C:\Users\Andrew\OneDrive for Business\Documents\CarandiniHarrisLab\analysis\wf_ephys_choiceworld\choiceworld';
+            im_move_earlymove_hit_avg_combined = zeros(437,416,265,11);
+            n_conditions = [];
+            for curr_animal = 1:length(animals)
+                animal = animals{curr_animal};
+                fn = [data_path filesep animal '_im_move_earlymove_hit_avg.mat'];
+                load(fn);
+                
+                im_move_earlymove_hit_avg_combined = nansum(cat(5,im_move_earlymove_hit_avg_combined,im_move_earlymove_hit_avg),5);
+                n_conditions = sum(cat(5,n_conditions,any(any(any(im_move_earlymove_hit_avg,1),2),3)),5);
+                AP_print_progress_fraction(curr_animal,length(animals));
+            end
+            im_move_earlymove_hit_avg_combined = bsxfun(@rdivide,im_move_earlymove_hit_avg_combined,n_conditions);
+            save_fn = [data_path filesep 'im_move_earlymove_hit_avg_combined.mat'];
+            save(save_fn,'im_move_earlymove_hit_avg_combined','-v7.3');
+            disp('Done')
+            
+        end
+    end
+end
+
+%% Plot widefield ROIs
+
+wf_roi_fn = 'C:\Users\Andrew\OneDrive for Business\Documents\CarandiniHarrisLab\analysis\wf_ephys_choiceworld\wf_processing\wf_rois\wf_roi';
+load(wf_roi_fn);
+n_rois = numel(wf_roi);
+
+roi_cat = cat(3,wf_roi.mask);
+roi_col = [autumn(size(wf_roi,1));winter(size(wf_roi,1))];
+
+figure; hold on
+set(gca,'YDir','reverse');
+AP_reference_outline('ccf_aligned','k');AP_reference_outline('retinotopy','m');
+for curr_roi = 1:n_rois
+    curr_roi_boundary = cell2mat(bwboundaries(roi_cat(:,:,curr_roi)));
+    patch(curr_roi_boundary(:,2),curr_roi_boundary(:,1),roi_col(curr_roi,:));
+end
+axis image off;
+
 %% Load and process widefield choiceworld mean (stim aligned)
 
 surround_window = [-0.5,2];
@@ -1351,45 +1403,6 @@ end
 AP_image_scroll([r_earlymove-l_earlymove],t_surround);
 caxis([-max(abs(caxis)),max(abs(caxis))]);
 axis image; colormap(colormap_BlueWhiteRed);
-
-% Plot stim/decision difference
-decision_earlymove_diff_r = ddf_earlymove_hit(:,:,:,8)-ddf_earlymove_miss(:,:,:,8);
-stim_earlymove_diff_r = ddf_earlymove_hit(:,:,:,8)-ddf_earlymove_miss(:,:,:,4);
-stim_decision_earlymove_diff_r = nanmean(abs(stim_earlymove_diff_r)-abs(decision_earlymove_diff_r),4);
-
-decision_earlymove_diff_l = ddf_earlymove_hit(:,:,:,4)-ddf_earlymove_miss(:,:,:,4);
-stim_earlymove_diff_l = ddf_earlymove_hit(:,:,:,4)-ddf_earlymove_miss(:,:,:,8);
-stim_decision_earlymove_diff_l = nanmean(abs(stim_earlymove_diff_l)-abs(decision_earlymove_diff_l),4);
-
-stim_decision_earlymove_mean = ...
-    nanmean(cat(4,stim_decision_earlymove_diff_l,stim_decision_earlymove_diff_r),4);
-
-AP_image_scroll(stim_decision_earlymove_mean,t_surround);
-axis image;
-caxis([-max(abs(caxis)),max(abs(caxis))]);
-colormap(colormap_RedWhiteBlue);
-
-% Get timing of activity
-
-% (time of max or com, but bad because often multiphasic)
-t_use = t_surround < 0.5;
-ddf_time_com = squeeze(bsxfun(@rdivide,sum(bsxfun(@times, ...
-    ddf_earlymove_hit(:,:,t_use,:),permute(t_surround(t_use),[1,3,2])),3), ...
-    sum(ddf_earlymove_hit(:,:,t_use,:),3)));
-
-t_use = t_surround > 0.5 & t_surround < 1;
-ddf_time_com = squeeze(bsxfun(@rdivide,sum(bsxfun(@times, ...
-    ddf_latemove_hit(:,:,t_use,:),permute(t_surround(t_use),[1,3,2])),3), ...
-    sum(ddf_latemove_hit(:,:,t_use,:),3)));
-
-% (first time above baseline)
-t_baseline = t_surround < 0;
-t_use = t_surround > 0 & t_surround < 0.5;
-t_use_vals = t_surround(t_use);
-ddf_baseline = nanmean(ddf_earlymove_hit(:,:,t_baseline,:),3);
-ddf_baseline_mean = nanmean(ddf_baseline,4);
-[~,first_rise] = max(bsxfun(@gt,ddf_earlymove_hit(:,:,t_use,:),ddf_baseline_mean*10),[],3);
-first_rise_t = squeeze(t_use_vals(first_rise));
 
 % Get traces for all pre-drawn ROIs
 % Load widefield ROIs
@@ -1527,45 +1540,6 @@ AP_image_scroll(r_earlymove,t_df);
 caxis([-max(abs(caxis)),max(abs(caxis))]);
 axis image; colormap(colormap_BlueWhiteRed);
 
-% Plot stim/decision difference
-decision_earlymove_diff_r = ddf_earlymove_hit(:,:,:,8)-ddf_earlymove_miss(:,:,:,8);
-stim_earlymove_diff_r = ddf_earlymove_hit(:,:,:,8)-ddf_earlymove_miss(:,:,:,4);
-stim_decision_earlymove_diff_r = nanmean(abs(stim_earlymove_diff_r)-abs(decision_earlymove_diff_r),4);
-
-decision_earlymove_diff_l = ddf_earlymove_hit(:,:,:,4)-ddf_earlymove_miss(:,:,:,4);
-stim_earlymove_diff_l = ddf_earlymove_hit(:,:,:,4)-ddf_earlymove_miss(:,:,:,8);
-stim_decision_earlymove_diff_l = nanmean(abs(stim_earlymove_diff_l)-abs(decision_earlymove_diff_l),4);
-
-stim_decision_earlymove_mean = ...
-    nanmean(cat(4,stim_decision_earlymove_diff_l,stim_decision_earlymove_diff_r),4);
-
-AP_image_scroll(stim_decision_earlymove_mean,t_surround);
-axis image;
-caxis([-max(abs(caxis)),max(abs(caxis))]);
-colormap(colormap_RedWhiteBlue);
-
-% Get timing of activity
-
-% (time of max or com, but bad because often multiphasic)
-t_use = t_surround < 0.5;
-ddf_time_com = squeeze(bsxfun(@rdivide,sum(bsxfun(@times, ...
-    ddf_earlymove_hit(:,:,t_use,:),permute(t_surround(t_use),[1,3,2])),3), ...
-    sum(ddf_earlymove_hit(:,:,t_use,:),3)));
-
-t_use = t_surround > 0.5 & t_surround < 1;
-ddf_time_com = squeeze(bsxfun(@rdivide,sum(bsxfun(@times, ...
-    ddf_latemove_hit(:,:,t_use,:),permute(t_surround(t_use),[1,3,2])),3), ...
-    sum(ddf_latemove_hit(:,:,t_use,:),3)));
-
-% (first time above baseline)
-t_baseline = t_surround < 0;
-t_use = t_surround > 0 & t_surround < 0.5;
-t_use_vals = t_surround(t_use);
-ddf_baseline = nanmean(ddf_earlymove_hit(:,:,t_baseline,:),3);
-ddf_baseline_mean = nanmean(ddf_baseline,4);
-[~,first_rise] = max(bsxfun(@gt,ddf_earlymove_hit(:,:,t_use,:),ddf_baseline_mean*10),[],3);
-first_rise_t = squeeze(t_use_vals(first_rise));
-
 % Get traces for all pre-drawn ROIs
 % Load widefield ROIs
 wf_roi_fn = 'C:\Users\Andrew\OneDrive for Business\Documents\CarandiniHarrisLab\analysis\wf_ephys_choiceworld\wf_processing\wf_rois\wf_roi';
@@ -1574,34 +1548,35 @@ n_rois = length(wf_roi);
 
 figure('Name','Early hit');
 for curr_roi = 1:n_rois   
-    curr_mask = wf_roi(curr_roi).mask;
-    curr_traces = squeeze(...
-        sum(sum(bsxfun(@times,ddf_earlymove_hit,curr_mask),1),2)./sum(curr_mask(:)));
     
-    subplot(2,7,curr_roi); hold on;
+    curr_mask_l = wf_roi(curr_roi,1).mask;
+    curr_mask_r = curr_mask_l-wf_roi(curr_roi,2).mask;
+    
+    curr_traces_l = squeeze(...
+        sum(sum(bsxfun(@times,ddf_earlymove_hit,curr_mask_l),1),2)./sum(curr_mask_l(:) ~= 0));
+    curr_traces_r = squeeze(...
+        sum(sum(bsxfun(@times,ddf_earlymove_hit,curr_mask_r),1),2)./sum(curr_mask_r(:) ~= 0));
+    
+    subplot(2,n_rois,curr_roi); hold on;
     set(gca,'ColorOrder',colormap_BlueWhiteRed((length(conditions)-1)/2));
-    plot(t_df,curr_traces','linewidth',2);
-    plot(t_df,curr_traces(:,conditions == 0),'k','linewidth',1);
+    plot(t_df,curr_traces_l','linewidth',2);
+    plot(t_df,curr_traces_l(:,conditions == 0),'k','linewidth',1);
+    axis tight;
     line([0,0],ylim,'color','k');
     xlabel('Time from move onset (s)')
     ylabel('\Delta\DeltaF/F');
-    title(wf_roi(curr_roi).area);
-end
-
-figure('Name','Late hit');
-for curr_roi = 1:n_rois   
-    curr_mask = wf_roi(curr_roi).mask;
-    curr_traces = squeeze(...
-        sum(sum(bsxfun(@times,ddf_latemove_hit,curr_mask),1),2)./sum(curr_mask(:)));
+    title(wf_roi(curr_roi,1).area);
     
-    subplot(2,4,curr_roi); hold on;
+    subplot(2,n_rois,n_rois+curr_roi); hold on;
     set(gca,'ColorOrder',colormap_BlueWhiteRed((length(conditions)-1)/2));
-    plot(t_df,curr_traces','linewidth',2);
-    plot(t_df,curr_traces(:,conditions == 0),'k','linewidth',1);
+    plot(t_df,curr_traces_r','linewidth',2);
+    plot(t_df,curr_traces_r(:,conditions == 0),'k','linewidth',1);
+    axis tight;
     line([0,0],ylim,'color','k');
     xlabel('Time from move onset (s)')
     ylabel('\Delta\DeltaF/F');
-    title(wf_roi(curr_roi).area);
+    title([wf_roi(curr_roi,1).area '-' wf_roi(curr_roi,2).area]);
+    
 end
 
 
@@ -1928,6 +1903,34 @@ title('Late move')
 axis tight
 
 
+% Plot overlay all conditions for all depths
+figure; 
+
+subplot(1,2,1); hold on;
+curr_data = cell2mat(permute(arrayfun(@(x) ...
+    mat2gray(squeeze(mua.stim_earlymove_hit(x,:,:))),1:n_depths,'uni',false),[1,3,2]));
+col = colormap_BlueWhiteRed((length(conditions)-1)/2);
+col(conditions == 0,:) = 0;
+for curr_cond = 1:n_conditions
+    AP_stackplot(squeeze(curr_data(:,curr_cond,:)),t_bins,1,false,col(curr_cond,:));
+end
+line([0,0],ylim,'color','k');
+xlabel('Time from stim onset');
+
+subplot(1,2,2); hold on;
+curr_data = cell2mat(permute(arrayfun(@(x) ...
+    mat2gray(squeeze(mua.move_earlymove_hit(x,:,:))),1:n_depths,'uni',false),[1,3,2]));
+col = colormap_BlueWhiteRed((length(conditions)-1)/2);
+col(conditions == 0,:) = 0;
+for curr_cond = 1:n_conditions
+    AP_stackplot(squeeze(curr_data(:,curr_cond,:)),t_bins,1,false,col(curr_cond,:));
+end
+line([0,0],ylim,'color','k');
+xlabel('Time from move onset');
+
+
+
+
 %% Load and process striatal MUA during passive
 
 data_path = ['C:\Users\Andrew\OneDrive for Business\Documents\CarandiniHarrisLab\analysis\wf_ephys_choiceworld\passive'];
@@ -1982,9 +1985,9 @@ warning('different weights for different lambdas, need to normalize')
 
 data_path = 'C:\Users\Andrew\OneDrive for Business\Documents\CarandiniHarrisLab\analysis\wf_ephys_choiceworld\wf_ephys';
 
-protocol = 'vanillaChoiceworld';
+% protocol = 'vanillaChoiceworld';
 % protocol = 'stimSparseNoiseUncorrAsync';
-% protocol = 'stimKalatsky';
+protocol = 'stimKalatsky';
 % protocol = 'AP_choiceWorldStimPassive';
 
 map_fn = [data_path filesep 'wf_ephys_maps_' protocol];
@@ -2050,23 +2053,35 @@ colormap(colormap_BlueWhiteRed);
 AP_reference_outline('ccf_aligned','k');AP_reference_outline('retinotopy','m');
 
 r_px_max = squeeze(max(r_px_mean,[],3));
+
+wf_roi_masks = cat(3,wf_roi(:,1).mask);
+wf_roi_mask_mult = bsxfun(@rdivide,wf_roi_masks, ...
+    permute(sum(reshape(wf_roi_masks,[],size(wf_roi,1)),1),[1,3,2]));
+
+roi_traces = permute(reshape(reshape(r_px_mean,[],length(t)*n_depths)'* ...
+    reshape(wf_roi_mask_mult,[],size(wf_roi,1)), ...
+    length(t),n_depths,size(wf_roi,1)),[1,3,2]);
+
 figure;
 for curr_depth = 1:n_depths
-    subplot(1,n_depths,curr_depth)
+    subplot(2,n_depths,curr_depth)
     imagesc(r_px_max(:,:,curr_depth));
     axis image off;
     caxis([-1,1]);
     colormap(colormap_BlueWhiteRed);
     AP_reference_outline('ccf_aligned','k');AP_reference_outline('retinotopy','m');
     title(['Str ' num2str(curr_depth)]);
+    
+    subplot(2,n_depths,n_depths+curr_depth); hold on;
+    set(gca,'ColorOrder',autumn(size(wf_roi,1)));
+    plot(t,roi_traces(:,:,curr_depth),'linewidth',2);
+    axis tight;
+    line([0,0],ylim,'color','k');
+    xlabel('Time from spike');
+    ylabel('Normalized fluor weight');
 end
 
-wf_roi_masks = cat(3,wf_roi(:,1).mask);
-wf_roi_mask_mult = bsxfun(@rdivide,wf_roi_masks, .permute(sum(reshape(wf_roi_masks,[],size(wf_roi,1)),1),[1,3,2]));
-r_px_mean
 
-roi_traces = reshape(reshape(r_px_mean,[],length(t)*n_depths)'* ...
-    reshape(wf_roi_masks,[],size(wf_roi,1)),length(t),n_depths,size(wf_roi,1));
 
 % Plot map
 n_depth_groups = 6;
@@ -2437,7 +2452,7 @@ plot_t = [-0.2,0.2];
 t_use = t > -0.1 & t < 0;
 
 % Load correlations
-corr_use = 'corr_mua_fluor_stim_earlymove_conditionshuff';
+corr_use = 'corr_mua_fluor_move_latemove_conditionshuff';
 fn = ['C:\Users\Andrew\OneDrive for Business\Documents\CarandiniHarrisLab\analysis\wf_ephys_choiceworld\choiceworld\' corr_use];
 load(fn);
 n_depths = 6;
@@ -2798,7 +2813,7 @@ end
 %% Feed-forward/back (first run above)
 
 max_lag = 0.08;
-plot_t = [-0.5,1];
+plot_t = [-0.5,1.5];
 
 max_lag_samples = round(max_lag*sample_rate);
 use_t = t >= plot_t(1) & t <= plot_t(2);
@@ -3116,7 +3131,7 @@ set(gca,'XTick',1:n_rois+n_depths,'XTickLabel', ...
 xlabel('Area')
 ylabel('Weighted time');
 
-%% Use scales from above to combine feedforward/back plots?
+%% Use scales from above to combine feedforward/back plots (first run above)
 
 interval_surround = [-0.5,1.5];
 t = linspace(interval_surround(1),interval_surround(2),212);
