@@ -327,10 +327,16 @@ line([0,0],ylim,'linestyle','--','color','k');
 
 stimIDs = signals_events.trialSideValues.*signals_events.trialContrastValues;
 
-use_spikes_idx = ismember(spike_templates,find(templateDepths >= 500 & templateDepths <= 3500));
-% use_spikes_idx = ismember(spike_templates,intersect(find(templateDepths >= 2000 & templateDepths <= 3000),find(msn)));
-use_spikes = spike_times_timeline(use_spikes_idx);
+n_depths = 6;
+depth_group_edges = round(linspace(str_depth(1),str_depth(2),n_depths+1));
+depth_group = discretize(spikeDepths,depth_group_edges);
 
+use_spikes_idx = depth_group == 2;
+
+% use_spikes_idx = ismember(spike_templates,find(templateDepths >= 500 & templateDepths <= 3500));
+% use_spikes_idx = ismember(spike_templates,intersect(find(templateDepths >= 2000 & templateDepths <= 3000),find(msn)));
+
+use_spikes = spike_times_timeline(use_spikes_idx);
 use_templates = unique(spike_templates(use_spikes_idx));
 
 % Plot
@@ -1045,8 +1051,442 @@ xlabel('Contrast');
 ylabel('Spikes');
 legend({'Real','Predicted'});
 
+%% !!!!!!!! NEW INDIVIDUAL DAY ANALYSIS !!!!!!!!!
+
+%% PSTH viewer
+
+% Spikes in striatum
+use_spikes_idx = spikeDepths > str_depth(1) & spikeDepths > str_depth(2);
+
+use_spikes = spike_times_timeline(use_spikes_idx);
+use_templates = spike_templates(use_spikes_idx);
+
+% Trial properties 
+n_trials = length(block.paramsValues);
+trial_outcome = signals_events.hitValues(1:n_trials)-signals_events.missValues(1:n_trials);
+stim_to_move = padarray(wheel_move_time - stimOn_times',[0,n_trials-length(stimOn_times)],NaN,'post');
+stim_to_feedback = padarray(signals_events.responseTimes, ...
+    [0,n_trials-length(signals_events.responseTimes)],NaN,'post') - ...
+    padarray(stimOn_times',[0,n_trials-length(stimOn_times)],NaN,'post');
+
+go_left = (signals_events.trialSideValues == 1 & signals_events.hitValues == 1) | ...
+    (signals_events.trialSideValues == -1 & signals_events.missValues == 1);
+go_right = (signals_events.trialSideValues == -1 & signals_events.hitValues == 1) | ...
+    (signals_events.trialSideValues == 1 & signals_events.missValues == 1);
+trial_choice = go_right - go_left;
+
+% Trials and groupings to use
+use_trials = ...
+    trial_outcome ~= 0 & ...
+    ~signals_events.repeatTrialValues & ...
+    stim_to_feedback < 1.5;
+
+conditions = combvec([-1,1],[-1,1])';
+trial_conditions = ...
+    [signals_events.trialSideValues; trial_choice]';
+[~,trial_id] = ismember(trial_conditions,conditions,'rows');
+
+condition_counts = histcounts(trial_id(use_trials), ...
+    'BinLimits',[1,size(conditions,1)],'BinMethod','integers')';
+
+raster_window = [-0.5,1];
+psthViewer(use_spikes,use_templates, ...
+    wheel_move_time(use_trials)',raster_window,trial_id(use_trials));
+
+
+%% Ephys: rasters by template
+
+% Pull out spikes within striatum
+use_spikes_idx = spikeDepths > str_depth(1) & spikeDepths > str_depth(2);
+
+use_spikes = spike_times_timeline(use_spikes_idx);
+use_templates = spike_templates(use_spikes_idx);
+
+use_templates_unique = unique(use_templates);
+
+% Define trials to use
+n_trials = length(block.paramsValues);
+trial_outcome = signals_events.hitValues(1:n_trials)-signals_events.missValues(1:n_trials);
+stim_to_move = padarray(wheel_move_time - stimOn_times',[0,n_trials-length(stimOn_times)],NaN,'post');
+stim_to_feedback = padarray(signals_events.responseTimes, ...
+    [0,n_trials-length(signals_events.responseTimes)],NaN,'post') - ...
+    padarray(stimOn_times',[0,n_trials-length(stimOn_times)],NaN,'post');
+
+go_left = (signals_events.trialSideValues == 1 & signals_events.hitValues == 1) | ...
+    (signals_events.trialSideValues == -1 & signals_events.missValues == 1);
+go_right = (signals_events.trialSideValues == -1 & signals_events.hitValues == 1) | ...
+    (signals_events.trialSideValues == 1 & signals_events.missValues == 1);
+trial_choice = go_right - go_left;
+
+trial_timing = 1 + (stim_to_move > 0.5);
+
+use_trials = ...
+    trial_outcome ~= 0 & ...
+    ~signals_events.repeatTrialValues(1:n_trials) & ...
+    stim_to_feedback < 1.5;
+
+% Get trial conditions
+% [contrast,side,choice,timing]
+contrasts = [0,0.06,0.125,0.25,0.5,1];
+sides = [-1,1];
+choices = [-1,1];
+timings = [1,2];
+
+conditions = combvec(contrasts,sides,choices,timings)';
+n_conditions = size(conditions,1);
+
+trial_conditions = ...
+    [signals_events.trialContrastValues; signals_events.trialSideValues; ...
+    trial_choice; trial_timing]';
+[~,trial_id] = ismember(trial_conditions,conditions,'rows');
+
+condition_counts = histcounts(trial_id(use_trials), ...
+    'BinLimits',[1,n_conditions],'BinMethod','integers')';
+
+% Get raster for all chosen templates and all conditions
+
+% Set times for PSTH
+raster_window = [-0.5,1];
+psth_bin_size = 0.001;
+t = raster_window(1):psth_bin_size:raster_window(2);
+t_bins = conv2(t,[1,1]/2,'valid');
+
+% PSTH for all conditions
+template_psth = nan(n_conditions,length(t)-1,length(use_templates_unique),2);
+for curr_align = 1:2
+    switch curr_align
+        case 1
+            use_align = stimOn_times;
+        case 2
+            use_align = wheel_move_time';
+            use_align(isnan(use_align)) = 0;
+    end
+    t_peri_event = bsxfun(@plus,use_align,t);
+    for curr_template_idx = 1:length(use_templates_unique)
+        
+        curr_template = use_templates_unique(curr_template_idx);
+        curr_spikes = spike_times_timeline(spike_templates == curr_template);
+        
+        curr_spikes_binned = cell2mat(arrayfun(@(x) ...
+            histcounts(curr_spikes,t_peri_event(x,:)), ...
+            [1:size(t_peri_event,1)]','uni',false))./psth_bin_size;
+        
+        [curr_ids_str,curr_mean_psth] = ...
+            grpstats(curr_spikes_binned(use_trials,:), ...
+            trial_id(use_trials),{'gname','mean'});
+        curr_ids = cellfun(@str2num,curr_ids_str);
+        
+        template_psth(curr_ids,:,curr_template_idx,curr_align) = curr_mean_psth;
+    end
+end
+
+smooth_size = 100;
+gw = gausswin(smooth_size,3)';
+smWin = gw./sum(gw);
+template_psth_smooth = convn(template_psth,smWin,'same');
+AP_image_scroll(template_psth_smooth)
+line(repmat(find(t_bins > 0,1),2,1),ylim,'color','r');
+
+% Choice difference psth
+% [contrast,side,choice,timing]
+left_early = ismember(conditions(:,3:4),[-1,1],'rows');
+right_early = ismember(conditions(:,3:4),[1,1],'rows');
+
+move_diff = permute(nanmean(template_psth_smooth(right_early,:,:,:),1) - ...
+    nanmean(template_psth_smooth(left_early,:,:,:),1),[3,2,4,1]);
+
+AP_image_scroll(move_diff)
+caxis([-abs(max(move_diff(:))),abs(max(move_diff(:)))]);
+colormap(colormap_BlueWhiteRed);
+line(repmat(find(t_bins > 0,1),2,1),ylim,'color','k');
+
+%% Ephys: rasters by depth
+
+% Group striatum depths
+n_depths = 6;
+depth_group_edges = round(linspace(str_depth(1),str_depth(2),n_depths+1));
+depth_group = discretize(spikeDepths,depth_group_edges);
+
+% Define trials to use
+n_trials = length(block.paramsValues);
+trial_outcome = signals_events.hitValues(1:n_trials)-signals_events.missValues(1:n_trials);
+stim_to_move = padarray(wheel_move_time - stimOn_times',[0,n_trials-length(stimOn_times)],NaN,'post');
+stim_to_feedback = padarray(signals_events.responseTimes, ...
+    [0,n_trials-length(signals_events.responseTimes)],NaN,'post') - ...
+    padarray(stimOn_times',[0,n_trials-length(stimOn_times)],NaN,'post');
+
+go_left = (signals_events.trialSideValues == 1 & signals_events.hitValues == 1) | ...
+    (signals_events.trialSideValues == -1 & signals_events.missValues == 1);
+go_right = (signals_events.trialSideValues == -1 & signals_events.hitValues == 1) | ...
+    (signals_events.trialSideValues == 1 & signals_events.missValues == 1);
+trial_choice = go_right - go_left;
+
+trial_timing = 1 + (stim_to_move > 0.5);
+
+use_trials = ...
+    trial_outcome ~= 0 & ...
+    ~signals_events.repeatTrialValues(1:n_trials) & ...
+    stim_to_feedback < 1.5;
+
+% Get trial conditions
+% [contrast,side,choice,timing]
+contrasts = [0,0.06,0.125,0.25,0.5,1];
+sides = [-1,1];
+choices = [-1,1];
+timings = [1,2];
+
+conditions = combvec(contrasts,sides,choices,timings)';
+n_conditions = size(conditions,1);
+
+trial_conditions = ...
+    [signals_events.trialContrastValues; signals_events.trialSideValues; ...
+    trial_choice; trial_timing]';
+[~,trial_id] = ismember(trial_conditions,conditions,'rows');
+
+condition_counts = histcounts(trial_id(use_trials), ...
+    'BinLimits',[1,n_conditions],'BinMethod','integers')';
+
+% Get raster for all chosen templates and all conditions
+
+% Set times for PSTH
+raster_window = [-0.5,1];
+psth_bin_size = 0.001;
+t = raster_window(1):psth_bin_size:raster_window(2);
+t_bins = conv2(t,[1,1]/2,'valid');
+
+% PSTH for all conditions
+depth_psth = nan(n_conditions,length(t)-1,n_depths,2);
+for curr_align = 1:2
+    switch curr_align
+        case 1
+            use_align = stimOn_times;
+        case 2
+            use_align = wheel_move_time';
+            use_align(isnan(use_align)) = 0;
+    end
+    t_peri_event = bsxfun(@plus,use_align,t);
+    for curr_depth = 1:n_depths
+        
+        curr_spikes = spike_times_timeline(depth_group == curr_depth);
+        
+        curr_spikes_binned = cell2mat(arrayfun(@(x) ...
+            histcounts(curr_spikes,t_peri_event(x,:)), ...
+            [1:size(t_peri_event,1)]','uni',false))./psth_bin_size;
+        
+        [curr_ids_str,curr_mean_psth] = ...
+            grpstats(curr_spikes_binned(use_trials,:), ...
+            trial_id(use_trials),{'gname','mean'});
+        curr_ids = cellfun(@str2num,curr_ids_str);
+        
+        depth_psth(curr_ids,:,curr_depth,curr_align) = curr_mean_psth;
+    end
+end
+
+smooth_size = 100;
+gw = gausswin(smooth_size,3)';
+smWin = gw./sum(gw);
+depth_psth_smooth = convn(depth_psth,smWin,'same');
+AP_image_scroll(depth_psth_smooth)
+line(repmat(find(t_bins > 0,1),2,1),ylim,'color','r');
+
+% Choice psth
+% [contrast,side,choice,timing]
+left_early = ismember(conditions(:,3:4),[-1,1],'rows');
+right_early = ismember(conditions(:,3:4),[1,1],'rows');
+
+left_early_psth = squeeze(nansum(bsxfun(@times,depth_psth_smooth(left_early,:,:,:), ...
+    condition_counts(left_early)),1)./sum(condition_counts(left_early)));
+right_early_psth = squeeze(nansum(bsxfun(@times,depth_psth_smooth(right_early,:,:,:), ...
+    condition_counts(right_early)),1)./sum(condition_counts(right_early)));
+
+
+
+%% Widefield: rasters by ROI
+
+% Get traces for all pre-drawn ROIs
+% Load widefield ROIs
+wf_roi_fn = 'C:\Users\Andrew\OneDrive for Business\Documents\CarandiniHarrisLab\analysis\wf_ephys_choiceworld\wf_processing\wf_rois\wf_roi';
+load(wf_roi_fn);
+n_rois = numel(wf_roi);
+
+aUdf = single(AP_align_widefield(animal,day,Udf));
+roi_trace = AP_svd_roi(aUdf,fVdf,[],[],cat(3,wf_roi.mask));
+
+% (get ddf)
+ddf = diff(roi_trace,[],2);
+ddf(ddf < 0) = 0;
+
+% (make L-R traces)
+ddf(size(wf_roi,1)+1:end,:) = ...
+    ddf(1:size(wf_roi,1),:) - ddf(size(wf_roi,1)+1:end,:);
+
+% Define trials to use
+n_trials = length(block.paramsValues);
+trial_outcome = signals_events.hitValues(1:n_trials)-signals_events.missValues(1:n_trials);
+stim_to_move = padarray(wheel_move_time - stimOn_times',[0,n_trials-length(stimOn_times)],NaN,'post');
+stim_to_feedback = padarray(signals_events.responseTimes, ...
+    [0,n_trials-length(signals_events.responseTimes)],NaN,'post') - ...
+    padarray(stimOn_times',[0,n_trials-length(stimOn_times)],NaN,'post');
+
+go_left = (signals_events.trialSideValues == 1 & signals_events.hitValues == 1) | ...
+    (signals_events.trialSideValues == -1 & signals_events.missValues == 1);
+go_right = (signals_events.trialSideValues == -1 & signals_events.hitValues == 1) | ...
+    (signals_events.trialSideValues == 1 & signals_events.missValues == 1);
+trial_choice = go_right - go_left;
+
+trial_timing = 1 + (stim_to_move > 0.5);
+
+use_trials = ...
+    trial_outcome ~= 0 & ...
+    ~signals_events.repeatTrialValues(1:n_trials) & ...
+    stim_to_feedback < 1.5;
+
+% Get trial conditions
+% [contrast,side,choice,timing]
+contrasts = [0,0.06,0.125,0.25,0.5,1];
+sides = [-1,1];
+choices = [-1,1];
+timings = [1,2];
+
+conditions = combvec(contrasts,sides,choices,timings)';
+n_conditions = size(conditions,1);
+
+trial_conditions = ...
+    [signals_events.trialContrastValues; signals_events.trialSideValues; ...
+    trial_choice; trial_timing]';
+[~,trial_id] = ismember(trial_conditions,conditions,'rows');
+
+condition_counts = histcounts(trial_id(use_trials), ...
+    'BinLimits',[1,n_conditions],'BinMethod','integers')';
+
+% Get event-aligned fluorescence
+
+raster_window = [-0.5,1];
+raster_sample_rate = 1/(framerate*3);
+t = raster_window(1):raster_sample_rate:raster_window(2);
+
+roi_psth = nan(n_conditions,length(t),n_rois,2);
+for curr_align = 1:2
+    switch curr_align
+        case 1
+            use_align = stimOn_times;
+        case 2
+            use_align = wheel_move_time';
+            use_align(isnan(use_align)) = 0;
+    end
+    
+    t_peri_event = bsxfun(@plus,use_align,t);
+    event_aligned_ddf = interp1(conv2(frame_t,[1,1]/2,'valid'),ddf',t_peri_event);
+    
+    for curr_roi = 1:n_rois      
+        
+        [curr_ids,curr_mean_psth] = ...
+            grpstats(event_aligned_ddf(use_trials,:,curr_roi), ...
+            trial_id(use_trials),{'gname',@(x) mean(x,1)});
+        curr_ids = cellfun(@str2num,curr_ids);
+        
+        roi_psth(curr_ids,:,curr_roi,curr_align) = curr_mean_psth;
+        
+    end
+end
+
+AP_image_scroll(roi_psth,{wf_roi.area})
+line(repmat(find(t > 0,1),2,1),ylim,'color','r');
+colormap(colormap_BlueWhiteRed);
+caxis([-max(abs(caxis)),max(abs(caxis))]);
+
+% Choice difference psth
+% [contrast,side,choice,timing]
+left_early = ismember(conditions(:,3:4),[-1,1],'rows');
+right_early = ismember(conditions(:,3:4),[1,1],'rows');
+
+move_diff = permute(squeeze(nanmean(roi_psth(right_early,:,:,:),1) - ...
+    nanmean(roi_psth(left_early,:,:,:),1)),[2,1,3]);
+
+AP_image_scroll(move_diff,{'Stim-aligned','Move-aligned'})
+line(repmat(find(t > 0,1),2,1),ylim,'color','r');
+axis on;
+colormap(colormap_BlueWhiteRed);
+caxis([-max(abs(caxis)),max(abs(caxis))]);
+set(gca,'YTick',1:n_rois,'YTickLabel',{wf_roi.area})
+
+% Plot difference across trials (stim/move-aligned)
+early_condition = find(ismember(conditions(:,4),[1],'rows'));
+curr_trials = ismember(trial_id,early_condition) & use_trials';
+
+figure;
+subplot(2,1,1);
+use_align = stimOn_times;
+use_align(isnan(use_align)) = 0;
+t_peri_event = bsxfun(@plus,use_align,t);
+event_aligned_ddf = interp1(conv2(frame_t,[1,1]/2,'valid'),ddf',t_peri_event);
+
+use_t = t > 0.05 & t < 0.15;
+ddf_mean = squeeze(nanmean(event_aligned_ddf(:,use_t,:),2));
+ddf_group = reshape(bsxfun(@plus,(trial_choice(curr_trials)'+1)/4,1:n_rois),[],1);
+
+plotSpread(reshape(ddf_mean(curr_trials,:),[],1),'distributionIdx', ...
+    ddf_group,'distributionColors',repmat({'r','b'},1,n_rois));
+set(gca,'XTick',(1:n_rois)+0.25,'XTickLabel',{wf_roi.area});
+axis tight
+line(xlim,[0,0],'color','k')
+ylabel('\Delta\DeltaF/F');
+legend({'Go left','Go right'});
+title('Stim-aligned')
+
+subplot(2,1,2);
+use_align = wheel_move_time';
+use_align(isnan(use_align)) = 0;
+t_peri_event = bsxfun(@plus,use_align,t);
+event_aligned_ddf = interp1(conv2(frame_t,[1,1]/2,'valid'),ddf',t_peri_event);
+
+use_t = t > -0.2 & t < 0;
+ddf_mean = squeeze(nanmean(event_aligned_ddf(:,use_t,:),2));
+ddf_group = reshape(bsxfun(@plus,(trial_choice(curr_trials)'+1)/4,1:n_rois),[],1);
+
+plotSpread(reshape(ddf_mean(curr_trials,:),[],1),'distributionIdx', ...
+    ddf_group,'distributionColors',repmat({'r','b'},1,n_rois));
+set(gca,'XTick',(1:n_rois)+0.25,'XTickLabel',{wf_roi.area});
+axis tight
+line(xlim,[0,0],'color','k')
+ylabel('\Delta\DeltaF/F');
+legend({'Go left','Go right'});
+title('Move-aligned')
+
+% Stats
+
+%%%% TESTING ANOVAN via all comparisons? 
+% this returns everything as rank deficient, nothing is modelable
+
+use_align = wheel_move_time';
+use_t = t > -0.2 & t < 0;
+
+use_align(isnan(use_align)) = 0;
+t_peri_event = bsxfun(@plus,use_align,t);
+event_aligned_ddf = interp1(conv2(frame_t,[1,1]/2,'valid'),ddf',t_peri_event);
+ddf_mean = squeeze(nanmean(event_aligned_ddf(:,use_t,:),2));
+
+model = [1,1,0,0,0;1,0,1,0,0;1,0,0,1,0; ...
+    1,1,1,0,0;1,0,1,1,0;1,1,1,1,0];
+[p,tbl,stats] = anovan(reshape(ddf_mean(use_trials,:),[],1), ...
+    [reshape(repmat(1:14,sum(use_trials),1),[],1), ...
+    repmat(trial_conditions(use_trials,:),n_rois,1)], ...
+    model,1,{'ROI';'contrast';'side';'choice';'timing'});
+[results,~,h,gnames] = multcompare(stats,'Dimension',[1,4],'Display','off');
+comp_idx = reshape(1:length(gnames),[],2);
+sig_rois = arrayfun(@(x) results(results(:,1) == comp_idx(x,1) & ...
+    results(:,2) == comp_idx(x,2),6),1:size(comp_idx,1)) < 0.5;
+rois_sig = sum(bsxfun(@times,cat(3,wf_roi.mask),permute((sig_rois-0.5)*2,[1,3,2])),3);
+figure;imagesc(rois_sig);
+caxis([-1,1])
+colormap(colormap_BlueWhiteRed);
+AP_reference_outline('ccf_aligned','k');AP_reference_outline('retinotopy','m');
+title('ROIs significantly modulated by ?');
+axis image off;
+
 
 %% !!!!!!!! BATCH PROCESSED ANALYSIS !!!!!!!!!
+
 
 %% Load batch widefield passive
 
@@ -1159,7 +1599,7 @@ conditions = [-1,-0.5,-0.25,-0.125,-0.06,0,0.06,0.125,0.25,0.5,1];
 data_path = 'C:\Users\Andrew\OneDrive for Business\Documents\CarandiniHarrisLab\analysis\wf_ephys_choiceworld\choiceworld';
 
 trialtype_align = 'stim';
-trialtype_timing = 'nomove';
+trialtype_timing = 'earlymove';
 trialtype_success = 'hit';
 
 trialtype = [trialtype_align ' ' trialtype_timing ' ' trialtype_success];
@@ -1167,9 +1607,10 @@ trialtype = [trialtype_align ' ' trialtype_timing ' ' trialtype_success];
 wf_fn = [data_path filesep 'im_' trialtype_align '_' trialtype_timing '_' trialtype_success '_combined.mat'];
 load(wf_fn);
 
-% ddf_earlymove_hit = im_stim_earlymove_hit_avg_combined;
+% Get ddf
 ddf = diff(im_aligned_avg_combined,[],3);
 ddf(ddf < 0) = 0;
+% ddf = im_aligned_avg_combined(:,:,1:end-1,:);
 
 % Get traces for all pre-drawn ROIs
 % Load widefield ROIs
@@ -1210,9 +1651,39 @@ for curr_roi = 1:n_rois
     
 end
 
+% (this shouldn't be necessary anymore, reflecting wf is the same as
+% reflecting the ROIs which is how ROIs are made now)
 
+% % Reflect widefield, get L-R 
+% ddf(isnan(ddf)) = 0;
+% ddf_diff = ddf - AP_reflect_widefield(ddf);
+% AP_image_scroll(ddf_diff,t_df)
+% AP_reference_outline('ccf_aligned','k');AP_reference_outline('retinotopy','m');
+% axis image;
+% colormap(colormap_BlueWhiteRed);
+% caxis([-0.003,0.003]);
+% 
+% figure('Name',trialtype);
+% for curr_roi = 1:n_rois   
+%     
+%     curr_mask_l = wf_roi(curr_roi,1).mask;
+%     
+%     curr_traces_l = squeeze(...
+%         sum(sum(bsxfun(@times,ddf_diff,curr_mask_l),1),2)./sum(curr_mask_l(:) ~= 0));
+%     
+%     subplot(1,n_rois,curr_roi); hold on;
+%     set(gca,'ColorOrder',colormap_BlueWhiteRed((length(conditions)-1)/2));
+%     plot(t_df,curr_traces_l','linewidth',2);
+%     plot(t_df,curr_traces_l(:,conditions == 0),'k','linewidth',1);
+%     axis tight;
+%     line([0,0],ylim,'color','k');
+%     xlabel(['Time from ' trialtype_align])
+%     ylabel('\Delta\DeltaF/F');
+%     title(wf_roi(curr_roi,1).area);
+%     
+% end
 
-%% Load and process striatal MUA during choiceworld
+%% Load and process striatal MUA during choiceworld (OLD)
 
 data_path = ['C:\Users\Andrew\OneDrive for Business\Documents\CarandiniHarrisLab\analysis\wf_ephys_choiceworld\choiceworld'];
 mua_fn = [data_path filesep 'mua_choiceworld'];
@@ -1561,6 +2032,150 @@ line([0,0],ylim,'color','k');
 xlabel('Time from move onset');
 
 
+%% Load and process striatal MUA during choiceworld (OLD 2)
+
+data_path = ['C:\Users\Andrew\OneDrive for Business\Documents\CarandiniHarrisLab\analysis\wf_ephys_choiceworld\choiceworld'];
+mua_fn = [data_path filesep 'mua_choiceworld'];
+load(mua_fn);
+
+conditions = [-1,-0.5,-0.25,-0.125,-0.06,0,0.06,0.125,0.25,0.5,1];
+n_conditions = length(conditions);
+n_depths = 6;
+
+raster_window = [-0.5,3];
+psth_bin_size = 0.001;
+t = raster_window(1):psth_bin_size:raster_window(2);
+t_bins = conv2(t,[1,1]/2,'valid');
+
+% Loop through all MUA fields, normalize and combine
+smooth_size = 50;
+gw = gausswin(smooth_size,3)';
+smWin = gw./sum(gw);
+
+t_baseline = t_bins < 0;
+
+softnorm = 1;
+
+% (get baseline from all stim-aligned MUAs)
+mua_baseline = cell(size(batch_vars));
+for curr_animal = 1:length(batch_vars)
+   mua_baseline{curr_animal} = cellfun(@(x) ...
+       nanmean(nanmean(x(:,t_baseline,:),2),3), ...
+       {batch_vars(curr_animal).mua.stim_earlymove_hit},'uni',false);
+end
+
+mua_fieldnames = fieldnames(batch_vars(1).mua);
+mua = struct;
+for curr_field = mua_fieldnames'
+    curr_field = curr_field{:};
+    
+    curr_mua_daycat = arrayfun(@(x) cat(4,batch_vars(x).mua(:).(curr_field)),1:length(batch_vars),'uni',false);
+    curr_mua_daycat_norm = cellfun(@(data,baseline) ...
+        bsxfun(@rdivide,data,cat(4,baseline{:})+softnorm), ...
+        curr_mua_daycat,mua_baseline,'uni',false);
+    
+    curr_mua_smoothed = cellfun(@(x) convn(x,smWin,'same'),curr_mua_daycat_norm,'uni',false);    
+    curr_mua_mean = cellfun(@(x) nanmean(x,4),curr_mua_smoothed,'uni',false);
+    curr_mua_combined = nanmean(cat(4,curr_mua_mean{:}),4);
+    
+    mua.(curr_field) = curr_mua_combined;    
+end
+
+
+trialtype_align = 'move';
+trialtype_timing = 'earlymove';
+trialtype_success = 'miss';
+trialtype = [trialtype_align '_' trialtype_timing '_' trialtype_success];
+
+figure; hold on;
+curr_data = cell2mat(permute(arrayfun(@(x) ...
+    mat2gray(squeeze(mua.(trialtype)(x,:,:))),1:n_depths,'uni',false),[1,3,2]));
+col = colormap_BlueWhiteRed((length(conditions)-1)/2);
+col(conditions == 0,:) = 0;
+for curr_cond = 1:n_conditions
+    AP_stackplot(squeeze(curr_data(:,curr_cond,:)),t_bins,1,false,col(curr_cond,:));
+end
+line([0,0],ylim,'color','k');
+if strcmp(trialtype_align,'stim');
+    line([0.5,0.5],ylim,'color','k');
+end
+xlabel(['Time from ' trialtype_align]);
+title([trialtype_timing ' ' trialtype_success])
+
+%% Load and process striatal MUA during choiceworld (NEW)
+
+data_path = ['C:\Users\Andrew\OneDrive for Business\Documents\CarandiniHarrisLab\analysis\wf_ephys_choiceworld\choiceworld'];
+mua_fn = [data_path filesep 'mua_choiceworld'];
+load(mua_fn);
+
+contrasts = [0,0.06,0.125,0.25,0.5,1];
+sides = [-1,1];
+choices = [-1,1];
+timings = [1,2];
+
+conditions = combvec(contrasts,sides,choices,timings)';
+
+raster_window = [-0.5,3];
+psth_bin_size = 0.001;
+t = raster_window(1):psth_bin_size:raster_window(2);
+t_bins = conv2(t,[1,1]/2,'valid');
+
+% Normalize, smooth, and combine PSTH
+% (PSTH: [condition,time,depth,align,day])
+smooth_size = 50;
+gw = gausswin(smooth_size,3)';
+smWin = gw./sum(gw);
+
+t_baseline = t_bins < 0;
+
+softnorm = 20;
+
+depth_psth = {batch_vars.depth_psth};
+mua_baseline = cellfun(@(x) nanmean(x(:,t_baseline,:,1,:),2),depth_psth,'uni',false);
+depth_psth_norm = cellfun(@(mua,baseline) ...
+    bsxfun(@rdivide,mua,baseline + softnorm),depth_psth,mua_baseline,'uni',false);
+depth_psth_smoothed = cellfun(@(x) convn(x,smWin,'same'),depth_psth_norm,'uni',false);
+depth_psth_mean = nanmean(cell2mat(permute(cellfun(@(x) ...
+    nanmean(x,5),depth_psth_smoothed,'uni',false),[1,3,4,5,2])),5);
+
+% Plot
+plot_str = 2;
+
+figure; 
+
+subplot(2,2,1); hold on;
+set(gca,'ColorOrder',[copper(6);fliplr(copper(6))]);
+plot_conditions = conditions(:,2) == -conditions(:,3) & conditions(:,4) == 1;
+plot(t_bins,depth_psth_mean(plot_conditions,:,plot_str,1)','linewidth',2);
+line([0,0],ylim,'color','k');
+xlabel('Time from stim')
+title('Early move')
+
+subplot(2,2,2); hold on;
+set(gca,'ColorOrder',[copper(6);fliplr(copper(6))]);
+plot_conditions = conditions(:,2) == -conditions(:,3) & conditions(:,4) == 1;
+plot(t_bins,depth_psth_mean(plot_conditions,:,plot_str,2)','linewidth',2);
+line([0,0],ylim,'color','k');
+xlabel('Time from move')
+title('Early move')
+
+subplot(2,2,3); hold on;
+set(gca,'ColorOrder',[copper(6);fliplr(copper(6))]);
+plot_conditions = conditions(:,2) == -conditions(:,3) & conditions(:,4) == 2;
+plot(t_bins,depth_psth_mean(plot_conditions,:,plot_str,1)','linewidth',2);
+line([0,0],ylim,'color','k');
+xlabel('Time from stim')
+title('Late move')
+
+subplot(2,2,4); hold on;
+set(gca,'ColorOrder',[copper(6);fliplr(copper(6))]);
+plot_conditions = conditions(:,2) == -conditions(:,3) & conditions(:,4) == 2;
+plot(t_bins,depth_psth_mean(plot_conditions,:,plot_str,2)','linewidth',2);
+line([0,0],ylim,'color','k');
+xlabel('Time from move')
+title('Late move')
+
+
 
 
 %% Load and process striatal MUA during passive
@@ -1613,19 +2228,21 @@ legend(p(1,:),cellfun(@num2str,num2cell(1:n_conditions),'uni',false));
 
 
 %% Load and average wf ephys maps
-warning('different weights for different lambdas, need to normalize')
 
 data_path = 'C:\Users\Andrew\OneDrive for Business\Documents\CarandiniHarrisLab\analysis\wf_ephys_choiceworld\wf_ephys';
 
-% protocol = 'vanillaChoiceworld';
+protocol = 'vanillaChoiceworld';
 % protocol = 'stimSparseNoiseUncorrAsync';
-protocol = 'stimKalatsky';
+% protocol = 'stimKalatsky';
 % protocol = 'AP_choiceWorldStimPassive';
 
 map_fn = [data_path filesep 'wf_ephys_maps_' protocol];
 load(map_fn);
 
 animals = {'AP024','AP025','AP026','AP027','AP028','AP029'};
+
+com_all = cell(length(animals),1);
+weight_all = cell(length(animals),1);
 
 r_px = cell(length(animals),1);
 com = nan(437,416,length(animals));
@@ -1653,6 +2270,10 @@ for curr_animal = 1:length(animals)
     r_scale_cutoff = prctile(abs(reshape(r_px_aligned,[],size(r_px_aligned,5))),95)';
     r_px_aligned_scaled = bsxfun(@rdivide,r_px_aligned,permute(r_scale_cutoff,[2,3,4,5,1]));
     r_px_aligned_scaled(abs(r_px_aligned_scaled) > 1) = sign(r_px_aligned_scaled(abs(r_px_aligned_scaled) > 1));
+    
+    % Within animal
+    com_all{curr_animal} = r_px_com_aligned;
+    weight_all{curr_animal} = r_px_weight_aligned;
     
     % Average across days
     r_px{curr_animal} = nanmean(r_px_aligned_scaled,5);
@@ -1713,7 +2334,18 @@ for curr_depth = 1:n_depths
     ylabel('Normalized fluor weight');
 end
 
-
+% Plot time asymmetry in maps
+r_px_asym = r_px_mean(:,:,t>=0 & t<=0.2,:) - r_px_mean(:,:,fliplr(find(t<=0 & t >=-0.2)),:);
+figure;
+for curr_depth = 1:n_depths
+    subplot(1,n_depths,curr_depth)
+    imagesc(r_px_asym(:,:,3,curr_depth))
+    axis image off;
+    caxis([-0.5,0.5]);
+    colormap(colormap_BlueWhiteRed);
+    AP_reference_outline('ccf_aligned','k');AP_reference_outline('retinotopy','m');
+    title(['Str ' num2str(curr_depth)]);   
+end
 
 % Plot map
 n_depth_groups = 6;
@@ -1755,6 +2387,32 @@ ylabel('Fraction explained variance');
 xlabel('Depth');
 axis tight
 title(protocol);
+
+% (plot COM for all animals separately)
+n_depth_groups = 6;
+com_leeway = 1;
+c_range = [1+com_leeway,n_depth_groups-com_leeway];
+
+com_all_cat = cat(3,com_all{:});
+com_all_colored = arrayfun(@(x) ind2rgb(round(mat2gray( ...
+    com_all_cat(:,:,x),c_range)*255),jet(255)),1:size(com_all_cat,3),'uni',false);
+
+weight_all_cat = cat(3,weight_all{:});
+weight_all_norm = mat2gray(weight_all_cat,[0,double(prctile(reshape(max(weight_all_cat,[],3),[],1),80))]);
+
+com_all_colored_weighted = arrayfun(@(x) com_all_colored{x} + ...
+    bsxfun(@times,bsxfun(@minus,com_all_colored{x}, ...
+    permute([-1,-1,-1],[1,3,2])),(1-weight_all_norm(:,:,x))), ...
+    1:length(com_all_colored),'uni',false);
+
+ad_labels = cellfun(@(x,animal) cellfun(@(x) [animal ' ' num2str(x)], ...
+    num2cell(1:size(x,3)),'uni',false),com_all,animals','uni',false);
+ad_labels = horzcat(ad_labels{:});
+
+AP_image_scroll(cat(4,com_all_colored_weighted{:}),ad_labels,true);
+axis image;
+AP_reference_outline('ccf_aligned','k');AP_reference_outline('retinotopy','m');
+
 
 %% Load and process cortex-predicted striatal MUA during choiceworld
 
@@ -2084,7 +2742,10 @@ plot_t = [-0.2,0.2];
 t_use = t > -0.1 & t < 0;
 
 % Load correlations
-corr_use = 'corr_mua_fluor_move_latemove_conditionshuff';
+trialtype_align = 'move';
+trialtype_timing = 'earlymove';
+
+corr_use = ['corr_mua_fluor_' trialtype_align '_' trialtype_timing '_conditionshuff'];
 fn = ['C:\Users\Andrew\OneDrive for Business\Documents\CarandiniHarrisLab\analysis\wf_ephys_choiceworld\choiceworld\' corr_use];
 load(fn);
 n_depths = 6;
@@ -2215,8 +2876,9 @@ end
 % MUA/Fluor-choice
 % (to smooth mua)
 smooth_size = 5;
-gw = gausswin(smooth_size,3)';
-smWin = gw./sum(gw);
+% gw = gausswin(smooth_size,3)';
+% smWin = gw./sum(gw);
+smWin = ones(1,smooth_size)/smooth_size;
 
 figure; 
 
@@ -2225,7 +2887,7 @@ set(gca,'ColorOrder',copper(n_depths));
 plot(t,conv2(horzcat(corr_mua_choice_split{:}),smWin','same'),'linewidth',2);
 line([0,0],ylim,'color','k');
 ylabel('Correlation with decision')
-xlabel('Time from movement onset (s)');
+xlabel(['Time from ' trialtype_align ' onset (s)']);
 title('MUA');
 legend(cellfun(@(x) ['Str ' num2str(x)],num2cell(1:6),'uni',false))
 
@@ -2234,7 +2896,7 @@ set(gca,'ColorOrder',[autumn(size(wf_roi,1));winter(size(wf_roi,1))]);
 plot(t,conv2(horzcat(corr_fluor_choice_split{:}),smWin','same'),'linewidth',2);
 line([0,0],ylim,'color','k');
 ylabel('Correlation with decision')
-xlabel('Time from movement onset (s)')
+xlabel(['Time from ' trialtype_align ' onset (s)']);
 title('Fluor');
 legend(wf_areas);
 
@@ -2442,6 +3104,44 @@ for curr_roi = 1:n_rois
         
     end
 end
+
+%% Choice correlation: plot individual animals (SUBSET OF ABOVE)
+
+animals = {'AP024','AP025','AP026','AP027','AP028','AP029'};
+
+choice_animals = {batch_vars(:).corr_mua_choice};
+choice_day = cell2mat(permute(cellfun(@(x) cell2mat(permute(x,[2,1,3])),choice_animals,'uni',false),[1,3,2]));
+animalmean = cellfun(@(x) nanmean(cell2mat(permute(x,[2,1,3])),3),choice_animals,'uni',false);
+animalmean = cat(3,animalmean{:});
+
+smooth_size = 5;
+smWin = ones(1,smooth_size)/smooth_size;
+
+choice_day_smooth = convn(choice_day,smWin','same');
+choice_animalmean_smooth = convn(animalmean,smWin','same');
+
+plot_area = 2;
+
+figure;
+subplot(1,2,1); hold on
+curr_plot = squeeze(choice_day_smooth(:,plot_area,:));
+plot(t,curr_plot)
+plot(t,nanmean(curr_plot,2),'k','linewidth',2)
+axis tight;
+line([0,0],ylim,'color','k');
+xlabel(['Time from ' trialtype_align ' onset (s)']);
+legend({'Animal-day'})
+
+subplot(1,2,2); hold on;
+curr_plot = squeeze(choice_animalmean_smooth(:,plot_area,:));
+plot(t,curr_plot)
+plot(t,nanmedian(curr_plot,2),'k','linewidth',2)
+axis tight;
+line([0,0],ylim,'color','k');
+xlabel(['Time from ' trialtype_align ' onset (s)']);
+legend(animals)
+
+
 %% Feed-forward/back (first run above)
 
 max_lag = 0.08;
@@ -3044,6 +3744,111 @@ writerObj.FrameRate = sample_rate/5;
 open(writerObj);
 writeVideo(writerObj,movie_frames);
 close(writerObj);
+
+%% Choice correlation: p-value of L/R difference
+
+% Load batch analysis
+fn = 'C:\Users\Andrew\OneDrive for Business\Documents\CarandiniHarrisLab\analysis\wf_ephys_choiceworld\choiceworld\choice_p';
+load(fn);
+
+% Load widefield ROIs
+wf_roi_fn = 'C:\Users\Andrew\OneDrive for Business\Documents\CarandiniHarrisLab\analysis\wf_ephys_choiceworld\wf_processing\wf_rois\wf_roi';
+load(wf_roi_fn);
+n_depths = 6;
+
+interval_surround = [-0.5,1.5];
+t = linspace(interval_surround(1),interval_surround(2),212);
+sample_rate = 1/median(diff(t));
+
+mua_choice_p = cellfun(@(x) cat(5,x{:}) < 0.05,{batch_vars(:).mua_choice_p},'uni',false);
+mua_choice_p_mean = cellfun(@(x) nanmean(x,5),mua_choice_p,'uni',false);
+mua_choice_p_mean = nanmean(cat(5,mua_choice_p_mean{:}),5);
+
+fluor_choice_p = cellfun(@(x) cat(5,x{:}) < 0.05,{batch_vars(:).fluor_choice_p},'uni',false);
+fluor_choice_p_mean = cellfun(@(x) nanmean(x,5),fluor_choice_p,'uni',false);
+fluor_choice_p_mean = nanmean(cat(5,fluor_choice_p_mean{:}),5);
+
+
+smooth_size = 3;
+smWin = ones(1,smooth_size)/smooth_size;
+
+figure('Name','Early move');
+
+subplot(2,2,1); hold on
+set(gca,'ColorOrder',copper(n_depths));
+plot(t,conv2(mua_choice_p_mean(:,:,1,1)',smWin','same'),'linewidth',2);
+line([0,0],ylim,'color','k');
+ylabel('Fraction significant decision difference')
+xlabel(['Time from stim onset (s)']);
+title('MUA');
+legend(cellfun(@(x) ['Str ' num2str(x)],num2cell(1:6),'uni',false))
+
+subplot(2,2,2); hold on;
+set(gca,'ColorOrder',[autumn(size(wf_roi,1));winter(size(wf_roi,1))]);
+plot(t,conv2(fluor_choice_p_mean(:,:,1,1)',smWin','same'),'linewidth',2);
+line([0,0],ylim,'color','k');
+ylabel('Fraction significant decision difference')
+xlabel(['Time from stim onset (s)']);
+title('Fluor');
+legend({wf_roi.area});
+
+subplot(2,2,3); hold on
+set(gca,'ColorOrder',copper(n_depths));
+plot(t,conv2(mua_choice_p_mean(:,:,2,1)',smWin','same'),'linewidth',2);
+line([0,0],ylim,'color','k');
+ylabel('Fraction significant decision difference')
+xlabel(['Time from move onset (s)']);
+title('MUA');
+legend(cellfun(@(x) ['Str ' num2str(x)],num2cell(1:6),'uni',false))
+
+subplot(2,2,4); hold on;
+set(gca,'ColorOrder',[autumn(size(wf_roi,1));winter(size(wf_roi,1))]);
+plot(t,conv2(fluor_choice_p_mean(:,:,2,1)',smWin','same'),'linewidth',2);
+line([0,0],ylim,'color','k');
+ylabel('Fraction significant decision difference')
+xlabel(['Time from move onset (s)']);
+title('Fluor');
+legend({wf_roi.area});
+
+figure('Name','Late move');
+
+subplot(2,2,1); hold on
+set(gca,'ColorOrder',copper(n_depths));
+plot(t,conv2(mua_choice_p_mean(:,:,1,2)',smWin','same'),'linewidth',2);
+line([0,0],ylim,'color','k');
+ylabel('Fraction significant decision difference')
+xlabel(['Time from stim onset (s)']);
+title('MUA');
+legend(cellfun(@(x) ['Str ' num2str(x)],num2cell(1:6),'uni',false))
+
+subplot(2,2,2); hold on;
+set(gca,'ColorOrder',[autumn(size(wf_roi,1));winter(size(wf_roi,1))]);
+plot(t,conv2(fluor_choice_p_mean(:,:,1,2)',smWin','same'),'linewidth',2);
+line([0,0],ylim,'color','k');
+ylabel('Fraction significant decision difference')
+xlabel(['Time from stim onset (s)']);
+title('Fluor');
+legend({wf_roi.area});
+
+subplot(2,2,3); hold on
+set(gca,'ColorOrder',copper(n_depths));
+plot(t,conv2(mua_choice_p_mean(:,:,2,2)',smWin','same'),'linewidth',2);
+line([0,0],ylim,'color','k');
+ylabel('Fraction significant decision difference')
+xlabel(['Time from move onset (s)']);
+title('MUA');
+legend(cellfun(@(x) ['Str ' num2str(x)],num2cell(1:6),'uni',false))
+
+subplot(2,2,4); hold on;
+set(gca,'ColorOrder',[autumn(size(wf_roi,1));winter(size(wf_roi,1))]);
+plot(t,conv2(fluor_choice_p_mean(:,:,2,2)',smWin','same'),'linewidth',2);
+line([0,0],ylim,'color','k');
+ylabel('Fraction significant decision difference')
+xlabel(['Time from move onset (s)']);
+title('Fluor');
+legend({wf_roi.area});
+
+
 
 
 

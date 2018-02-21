@@ -1,5 +1,5 @@
-function AP_wfmovies_choiceworld(U,V,frame_t,eyecam_fn,eyecam_t,facecam_fn,facecam_t,choiceworld)
-% AP_wfmovies_choiceworld(U,V,frame_t,eyecam_fn,eyecam_t,facecam_fn,facecam_t,choiceworld)
+function AP_wfmovies_choiceworld(U,V,frame_t,eyecam_fn,eyecam_t,facecam_fn,facecam_t,signals_events)
+% AP_wfmovies_choiceworld(U,V,frame_t,eyecam_fn,eyecam_t,facecam_fn,facecam_t,signals_events)
 %
 % U = wf U
 % V = wf V
@@ -32,7 +32,7 @@ else
     handles.plot_facecam = false;
 end
 
-if exist('choiceworld','var') && ~isempty(choiceworld)
+if exist('signals_events','var') && ~isempty(signals_events)
    handles.plot_choiceworld = true; 
 else
     handles.plot_choiceworld = false;
@@ -77,7 +77,7 @@ if handles.plot_eyecam
     
     eyecam_frame = find(handles.eyecam_frame_idx == wf_frame,1);
     eyecam_im = read(handles.eyecam_vr,eyecam_frame);
-    handles.eyecam_im = imagesc(handles.eyecam_axis,eyecam_im); axis(handles.eyecam_axis,'off');  
+    handles.eyecam_im = imagesc(handles.eyecam_axis,eyecam_im); axis(handles.eyecam_axis,'off','image');  
     caxis(handles.eyecam_axis,[0,255]);
 end
 
@@ -87,7 +87,7 @@ if handles.plot_facecam
         
     facecam_frame = find(handles.facecam_frame_idx == wf_frame,1);
     facecam_im = read(handles.facecam_vr,facecam_frame);
-    handles.facecam_im = imagesc(handles.facecam_axis,facecam_im); axis(handles.facecam_axis,'off');
+    handles.facecam_im = imagesc(handles.facecam_axis,facecam_im); axis(handles.facecam_axis,'off','image');
     caxis(handles.facecam_axis,[0,255]);
 end
 
@@ -98,7 +98,7 @@ if handles.plot_choiceworld
         'MarkerFaceColor','k','MarkerEdgeColor',[0.5,0.5,0.5]);    
     xlim([-180,180]);
     axis(handles.choiceworld_axis,'off');  
-    handles.choiceworld = choiceworld;
+    handles.choiceworld = signals_events;
 end
 
 % Set up scrollbar (use timer function to prevent lag)

@@ -1,5 +1,5 @@
 function AP_prepare_phy(animal,day,car)
-% AP_prepare_phy(data_filename)
+% AP_prepare_phy(animal,day,car)
 %
 % Clears whatever is currently in local phy folder
 % Sets up params file

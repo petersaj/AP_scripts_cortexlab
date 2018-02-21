@@ -1514,16 +1514,16 @@ truesize
 
 %% Show aligned mean images within one animal and across animals
 
-animal = 'AP027';
+animal = 'AP029';
 
 protocol = 'vanillaChoiceworld';
 experiments = AP_find_experiments(animal,protocol);
-experiments = experiments([experiments.imaging]);
+experiments = experiments([experiments.imaging] & [experiments.ephys]);
 choiceworld_days = {experiments.day};
 
 protocol = 'stimSparseNoiseUncorrAsync';
 experiments = AP_find_experiments(animal,protocol);
-experiments = experiments([experiments.imaging]);
+experiments = experiments([experiments.imaging] & [experiments.ephys]);
 sparsenoise_days = {experiments.day};
 
 days = sort(unique([choiceworld_days,sparsenoise_days]));

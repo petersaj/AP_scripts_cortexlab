@@ -1,14 +1,19 @@
-% function AP_vfs_ccf_align
-% 
-% Not really sure where to put this code at the moment or what to do with
-% it, but this aligns a widefield visual field sign map to the allen CCF
-% boundaries, requires imaged visual field sign 'imaged_vfs'
+% Align CCF and VFS
+% (produces and saves master CCF alignment)
 
 %% Load Allen CCF
 
 cd 'C:\Users\Andrew\OneDrive for Business\Documents\Atlases\AllenCCF';
 av = readNPY('annotation_volume_10um_by_index.npy'); 
 st = loadStructureTree('structure_tree_safe_2017.csv');
+
+%% Load, align, average widefield retinotopy
+
+retinotopy_path = 'C:\Users\Andrew\OneDrive for Business\Documents\CarandiniHarrisLab\analysis\wf_ephys_choiceworld\wf_processing\retinotopy';
+retinotopy_fn = [retinotopy_path filesep 'retinotopy'];
+load(retinotopy_fn);
+
+imaged_vfs = nanmean(AP_align_widefield(retinotopy(:,1),[],retinotopy(:,2)),3);
 
 %% Make top-down boundaries from scratch (could load but would need st too)
 
@@ -95,7 +100,7 @@ for curr_area_idx =1:length(top_down_cortical_area_boundaries)
         (outline(:,1)*10)/um2pixel,'k'),top_down_cortical_area_boundaries{curr_area_idx},'uni',false);
 end
 
-%% ALTERNATELY: Align the (downsampled) Allen VFS to the imaged VFS
+%% Align the (downsampled) Allen VFS to the imaged VFS
 
 ccf_vfs_d = imresize(ccf_vfs,10/um2pixel,'nearest');
 
@@ -108,8 +113,8 @@ optimizer.MaximumIterations = 200;
 optimizer.GrowthFactor = 1+1e-6;
 optimizer.InitialRadius = 1e-4;
 
-tformEstimate_affine = imregtform(ccf_vfs_d,imaged_vfs_scaled,'affine',optimizer,metric);
-tform_matrix = tformEstimate_affine.T;
+ccf_tform = imregtform(ccf_vfs_d,imaged_vfs_scaled,'affine',optimizer,metric);
+tform_matrix = ccf_tform.T;
 
 boundaries_tform_long = cellfun(@(areas) cellfun(@(coords) ...
     [fliplr(coords*(10/um2pixel)),ones(size(coords,1),1)]*tform_matrix,areas,'uni',false), ...
@@ -126,11 +131,24 @@ for curr_area_idx = 1:length(cortical_area_boundaries_aligned)
         cortical_area_boundaries_aligned{curr_area_idx},'uni',false);
 end
 
+% % Save master alignment
+% save_path = 'C:\Users\Andrew\OneDrive for Business\Documents\Atlases\AllenCCF';
+% save_ccf_fn = [save_path filesep 'cortical_area_boundaries_aligned'];
+% save_ccf_tform_fn = [save_path filesep 'ccf_tform'];
+% 
+% save(save_ccf_fn,'cortical_area_boundaries_aligned');
+% save(save_ccf_tform_fn,'ccf_tform');
 
 
+%% Get bregma in master aligned coordinates (unused at the moment)
 
+bregma = allenCCFbregma;
+ccf_tform_fn = ['C:\Users\Andrew\OneDrive for Business\Documents\Atlases\AllenCCF\ccf_tform'];
+load(ccf_tform_fn);
 
-
+um2pixel = 20.6;
+bregma_resize = bregma*(10/um2pixel);
+bregma_align = [bregma_resize([3,1]),1]*ccf_tform.T;
 
 
 

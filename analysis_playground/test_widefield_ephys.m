@@ -2538,6 +2538,7 @@ while update_lambda;
 end
 
 lambda = lambdas(end);
+disp(['Best lambda = ' num2str(lambda) ', Frac var = ' num2str(explained_var_lambdas(end))]);
 
 %% Regression from fluor to spikes (AP_regresskernel) MUA depth
 % NOTE that the timing is more carefully controlled in the next cell

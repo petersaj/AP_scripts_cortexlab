@@ -182,7 +182,6 @@ for curr_animal = 1:length(animals)
         
         % Trial conditions and behavior times (pad to the same number)
         n_trials = length(block.paramsValues);
-        trial_condition = signals_events.trialSideValues(1:n_trials).*signals_events.trialContrastValues(1:n_trials);
         trial_outcome = signals_events.hitValues(1:n_trials)-signals_events.missValues(1:n_trials);
         stim_to_move = wheel_move_time - stimOn_times';
         stim_to_feedback = padarray(signals_events.responseTimes, ...
@@ -196,16 +195,19 @@ for curr_animal = 1:length(animals)
             stim_to_feedback < 1.5;
         
         % L/R choice
-        trial_choice = ...
-            ((signals_events.trialSideValues(1:n_trials) == 1 & trial_outcome(1:n_trials) == -1 | ...
-            signals_events.trialSideValues(1:n_trials) == -1 & trial_outcome(1:n_trials) == 1) - ...
-            (signals_events.trialSideValues(1:n_trials) == -1 & trial_outcome(1:n_trials) == -1 | ...
-            signals_events.trialSideValues(1:n_trials) == 1 & trial_outcome(1:n_trials) == 1));
+        go_right = (signals_events.trialSideValues(1:n_trials) == 1 & trial_outcome(1:n_trials) == -1) | ...
+            (signals_events.trialSideValues(1:n_trials) == -1 & trial_outcome(1:n_trials) == 1);
+        go_left = (signals_events.trialSideValues(1:n_trials) == -1 & trial_outcome(1:n_trials) == -1) | ...
+            (signals_events.trialSideValues(1:n_trials) == 1 & trial_outcome(1:n_trials) == 1);
+        
+        trial_choice = go_right - go_left;
+        
         if any(~ismember(trial_choice(use_trials),[-1,1]))
             error('Non-valid choice')
         end
                
         % Max wheel speed around choice
+        % CHANGE THIS: make it be stim -> feedback for each trial
         use_move_times = reshape(wheel_move_time(use_trials),[],1);       
         interval_surround = [0,0.6];
         sample_t = 0.01;
@@ -225,8 +227,9 @@ for curr_animal = 1:length(animals)
         bhv(curr_animal).total_water(curr_day) = total_water;
         bhv(curr_animal).conditions = performance(1,:);
                         
-        bhv(curr_animal).trial_condition{curr_day} = trial_condition(use_trials);
-        bhv(curr_animal).trial_choice{curr_day} = trial_choice(use_trials);b
+        bhv(curr_animal).trial_side{curr_day} = signals_events.trialSideValues(use_trials);
+        bhv(curr_animal).trial_contrast{curr_day} = signals_events.trialContrastValues(use_trials);
+        bhv(curr_animal).trial_choice{curr_day} = trial_choice(use_trials);
         bhv(curr_animal).trial_outcome{curr_day} = trial_outcome(use_trials);
         bhv(curr_animal).stim_to_move{curr_day} = stim_to_move(use_trials);
         bhv(curr_animal).stim_to_feedback{curr_day} = stim_to_feedback(use_trials);
@@ -242,9 +245,19 @@ end
 conditions = unique(vertcat(bhv.conditions),'rows');
 trial_choice_cat = arrayfun(@(x) horzcat(bhv(x).trial_choice{:}),1:length(bhv),'uni',false);
 trial_outcome_cat = arrayfun(@(x) horzcat(bhv(x).trial_outcome{:}),1:length(bhv),'uni',false);
-trial_condition_cat = arrayfun(@(x) horzcat(bhv(x).trial_condition{:}),1:length(bhv),'uni',false);
+trial_side_cat = arrayfun(@(x) horzcat(bhv(x).trial_side{:}),1:length(bhv),'uni',false);
+trial_contrast_cat = arrayfun(@(x) horzcat(bhv(x).trial_contrast{:}),1:length(bhv),'uni',false);
+trial_condition_cat = cellfun(@(side,contrast) side.*contrast,trial_side_cat,trial_contrast_cat,'uni',false);
 trial_wheel_velocity_cat = arrayfun(@(x) vertcat(bhv(x).trial_wheel_velocity{:})',1:length(bhv),'uni',false);
 stim_to_move_cat = arrayfun(@(x) horzcat(bhv(x).stim_to_move{:}),1:length(bhv),'uni',false);
+stim_to_feedback_cat = arrayfun(@(x) horzcat(bhv(x).stim_to_feedback{:}),1:length(bhv),'uni',false);
+
+% Distinguish early/late movements
+go_time = 0.5;
+trial_timing = arrayfun(@(animal) cellfun(@(x) 1+(x > go_time), ...
+    bhv(animal).stim_to_move,'uni',false),1:length(bhv),'uni',false);
+trial_timing_cat = arrayfun(@(animal) ...
+    horzcat(trial_timing{animal}{:}),1:length(bhv),'uni',false);
 
 % Plot psychometric 
 frac_left = cell2mat(cellfun(@(choice,condition) ...
@@ -359,26 +372,12 @@ axis tight
 line([0.5,0.5],ylim,'linestyle','--','color','k');
    
 % Plot stim to move / feedback by condition and success pooling days
-% (separate pre/post-beep movements)
-go_time = 0.5;
-pre_beep_movements = arrayfun(@(animal) cellfun(@(x) x < go_time, ...
-    bhv(animal).stim_to_move,'uni',false),1:length(bhv),'uni',false);
-
-pre_beep_movements_trialcat = arrayfun(@(animal) ...
-    horzcat(pre_beep_movements{animal}{:}),1:length(bhv),'uni',false);
-trial_condition_trialcat = arrayfun(@(animal) ...
-    horzcat(bhv(animal).trial_condition{:}),1:length(bhv),'uni',false);
-trial_outcome_trialcat = arrayfun(@(animal) ...
-    horzcat(bhv(animal).trial_outcome{:}),1:length(bhv),'uni',false);
-stim_to_move_trialcat = arrayfun(@(animal) ...
-    horzcat(bhv(animal).stim_to_move{:}),1:length(bhv),'uni',false);
-stim_to_feedback_trialcat = arrayfun(@(animal) ...
-    horzcat(bhv(animal).stim_to_feedback{:}),1:length(bhv),'uni',false);
+% (separate early/late movements)
 
 [group,stim_to_move_prebeep] = arrayfun(@(x) ...
-    grpstats(stim_to_move_trialcat{x}(pre_beep_movements_trialcat{x})', ...
-    [trial_condition_trialcat{x}(pre_beep_movements_trialcat{x})', ...
-    trial_outcome_trialcat{x}(pre_beep_movements_trialcat{x})'], ...
+    grpstats(stim_to_move_cat{x}(early_movements_cat{x})', ...
+    [trial_condition_cat{x}(early_movements_cat{x})', ...
+    trial_outcome_cat{x}(early_movements_cat{x})'], ...
     {'gname','nanmedian'}),1:length(bhv),'uni',false);
 group = cellfun(@(x) cellfun(@(x) str2num(x),x),group,'uni',false);
 all_group = unique(vertcat(group{:}),'rows');
@@ -389,9 +388,9 @@ for curr_animal = 1:length(bhv)
 end
 
 [group,stim_to_move_postbeep] = arrayfun(@(x) ...
-    grpstats(stim_to_move_trialcat{x}(~pre_beep_movements_trialcat{x})', ...
-    [trial_condition_trialcat{x}(~pre_beep_movements_trialcat{x})', ...
-    trial_outcome_trialcat{x}(~pre_beep_movements_trialcat{x})'], ...
+    grpstats(stim_to_move_cat{x}(~early_movements_cat{x})', ...
+    [trial_condition_cat{x}(~early_movements_cat{x})', ...
+    trial_outcome_cat{x}(~early_movements_cat{x})'], ...
     {'gname','nanmedian'}),1:length(bhv),'uni',false);
 group = cellfun(@(x) cellfun(@(x) str2num(x),x),group,'uni',false);
 all_group = unique(vertcat(group{:}),'rows');
@@ -402,9 +401,9 @@ for curr_animal = 1:length(bhv)
 end
 
 [group,stim_to_feedback_prebeep] = arrayfun(@(x) ...
-    grpstats(stim_to_feedback_trialcat{x}(pre_beep_movements_trialcat{x})', ...
-    [trial_condition_trialcat{x}(pre_beep_movements_trialcat{x})', ...
-    trial_outcome_trialcat{x}(pre_beep_movements_trialcat{x})'], ...
+    grpstats(stim_to_feedback_cat{x}(early_movements_cat{x})', ...
+    [trial_condition_cat{x}(early_movements_cat{x})', ...
+    trial_outcome_cat{x}(early_movements_cat{x})'], ...
     {'gname','nanmedian'}),1:length(bhv),'uni',false);
 group = cellfun(@(x) cellfun(@(x) str2num(x),x),group,'uni',false);
 all_group = unique(vertcat(group{:}),'rows');
@@ -415,9 +414,9 @@ for curr_animal = 1:length(bhv)
 end
 
 [group,stim_to_feedback_postbeep] = arrayfun(@(x) ...
-    grpstats(stim_to_feedback_trialcat{x}(~pre_beep_movements_trialcat{x})', ...
-    [trial_condition_trialcat{x}(~pre_beep_movements_trialcat{x})', ...
-    trial_outcome_trialcat{x}(~pre_beep_movements_trialcat{x})'], ...
+    grpstats(stim_to_feedback_cat{x}(~early_movements_cat{x})', ...
+    [trial_condition_cat{x}(~early_movements_cat{x})', ...
+    trial_outcome_cat{x}(~early_movements_cat{x})'], ...
     {'gname','nanmedian'}),1:length(bhv),'uni',false);
 group = cellfun(@(x) cellfun(@(x) str2num(x),x),group,'uni',false);
 all_group = unique(vertcat(group{:}),'rows');
@@ -480,15 +479,53 @@ axis tight
 ylim([0,1])
 line(xlim,[0.5,0.5],'linestyle','--','color','k')
 
+% Get numbers of trials each day/animal (contrast/side/choice)
+% [animal,contrast,side,choice,timing]
+contrasts = [0,0.06,0.125,0.25,0.5,1];
+sides = [-1,1];
+choices = [-1,1];
+timings = [1,2];
 
+% Re-number all conditions
+conditions = combvec(contrasts,sides,choices,timings);
+conditions_str = cellfun(@(x) sprintf('%+g/',x),mat2cell(conditions,size(conditions,1),ones(1,size(conditions,2))),'uni',false);
+n_conditions = size(conditions,2);
 
+condition_count = arrayfun(@(x) nan(n_conditions,length(bhv(x).session_duration)),1:length(bhv),'uni',false);
+for curr_animal = 1:length(bhv);
+    for curr_day = 1:length(bhv(curr_animal).session_duration)
+        trial_conditions = ...
+            [bhv(curr_animal).trial_contrast{curr_day}; bhv(curr_animal).trial_side{curr_day}; ...
+            bhv(curr_animal).trial_choice{curr_day}; trial_timing{curr_animal}{curr_day}];
+        [~,trial_id] = ismember(trial_conditions',conditions','rows');
+        curr_counts = histcounts(trial_id,'BinLimits',[1,n_conditions],'BinMethod','integers');
+        condition_count{curr_animal}(:,curr_day) = curr_counts;
+    end
+end
 
+figure; colormap(gray);
+max_count = max(reshape(horzcat(condition_count{:}),[],1));
+for curr_animal = 1:length(bhv)
+    subplot(1,length(bhv)+1,curr_animal);
+    imagesc(condition_count{curr_animal});
+    caxis([0,max_count]);
+    title(animals{curr_animal});
+    if curr_animal == 1
+        set(gca,'YTick',1:n_conditions,'YTickLabel',conditions_str)
+        ylabel(['contrast/side/choice/timing, max ' num2str(max_count)])
+        xlabel('day');
+    else
+        axis off
+    end
+end
+subplot(1,length(bhv)+1,length(bhv)+1);
+condition_count_cat = cell2mat(cellfun(@(x) sum(x,2),condition_count,'uni',false));
+plot(condition_count_cat,1:n_conditions);
+axis tight;
+set(gca,'YDir','reverse','YTick',1:n_conditions,'YTickLabel',conditions_str,'YAxisLocation','Right')
+xlabel('# Trials')
+legend(animals);
 
-    
-    
-    
-    
-    
     
     
     

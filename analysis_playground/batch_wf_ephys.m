@@ -8,17 +8,31 @@ roi_areas = {'V1','AM','RSPp','FRm','FRl','SMl','SMf'};
 
 wf_roi = struct('area',cell(length(roi_areas),2),'mask',cell(length(roi_areas),2));
 
-% (ideally this should mirror, but that'd involve a transform etc)
-curr_roi = 1;
-for curr_hemi = {'L','R'};
-    for curr_area = roi_areas;
-        curr_roi_name = [curr_area{:} '_' curr_hemi{:}];
-        disp(curr_roi_name);
-        wf_roi(curr_roi).area = curr_roi_name;
-        [~,wf_roi(curr_roi).mask] = AP_svd_roi(nan(im_size),[],'master');
-        curr_roi = curr_roi + 1;
-    end
+% Draw all ROIs on left hemisphere
+for curr_area = 1:length(roi_areas);
+    curr_roi_name = [roi_areas{curr_area} '_L'];
+    disp(curr_roi_name);
+    wf_roi(curr_area).area = curr_roi_name;
+    [~,wf_roi(curr_area).mask] = AP_svd_roi(nan(im_size),[],'master');
 end
+
+% Reflect all ROIs to right hemisphere
+for curr_area = 1:length(roi_areas);
+    curr_roi_name = [roi_areas{curr_area} '_R'];
+    wf_roi(curr_area,2).area = curr_roi_name;
+    
+    L_roi = wf_roi(curr_area,1).mask;
+    R_roi = AP_reflect_widefield(L_roi) > 0;
+    
+    wf_roi(curr_area,2).mask = R_roi;
+end
+
+wf_roi_plot = sum(cat(3,wf_roi(:).mask),3);
+figure;imagesc(wf_roi_plot);
+colormap(flipud(gray));
+AP_reference_outline('ccf_aligned','r');AP_reference_outline('retinotopy','b');
+axis image off;
+title('New ROIs')
 
 wf_roi_fn = 'C:\Users\Andrew\OneDrive for Business\Documents\CarandiniHarrisLab\analysis\wf_ephys_choiceworld\wf_processing\wf_rois\wf_roi';
 save(wf_roi_fn,'wf_roi');
@@ -608,6 +622,7 @@ for trialtype_align = {'stim','move'};
                         curr_trials = use_trials & trial_conditions == curr_condition & ...
                             use_outcome & use_stim_to_move & use_stim_to_feedback;
                         curr_align = use_align(curr_trials);
+                        
                         if length(curr_align) > 5
                             curr_surround_times = bsxfun(@plus, curr_align(:), t_surround);
                             peri_stim_v = permute(mean(interp1(frame_t,fVdf',curr_surround_times),1),[3,2,1]);
@@ -1318,7 +1333,7 @@ end
 save_path = ['C:\Users\Andrew\OneDrive for Business\Documents\CarandiniHarrisLab\analysis\wf_ephys_choiceworld\choiceworld'];
 save([save_path filesep 'mua_choiceworld'],'batch_vars');
 
-%% Batch striatum responses to choiceworld (NEW)
+%% Batch striatum responses to choiceworld (OLD - TRIAL TYPE BY STRUCT)
 
 animals = {'AP024','AP025','AP026','AP027','AP028','AP029'};
 protocol = 'vanillaChoiceworld';
@@ -1437,6 +1452,102 @@ for curr_animal = 1:length(animals)
         
         batch_vars(curr_animal).mua(curr_day) = mua;      
         
+        AP_print_progress_fraction(curr_day,length(experiments));
+        clearvars -except animals animal curr_animal protocol experiments curr_day animal batch_vars load_parts
+        
+    end
+    
+    disp(['Finished ' animal])
+    
+end
+
+% Save
+save_path = ['C:\Users\Andrew\OneDrive for Business\Documents\CarandiniHarrisLab\analysis\wf_ephys_choiceworld\choiceworld'];
+save([save_path filesep 'mua_choiceworld'],'batch_vars');
+
+%% Batch striatum responses to choiceworld (NEW - TRIAL ID)
+
+animals = {'AP024','AP025','AP026','AP027','AP028','AP029'};
+protocol = 'vanillaChoiceworld';
+batch_vars = struct;
+
+for curr_animal = 1:length(animals)
+    
+    animal = animals{curr_animal};
+    experiments = AP_find_experiments(animal,protocol);
+    
+    disp(animal);
+    
+    experiments = experiments([experiments.ephys]);
+    
+    load_parts.cam = false;
+    load_parts.imaging = false;
+    load_parts.ephys = true;
+    
+    for curr_day = 1:length(experiments);
+        
+        day = experiments(curr_day).day;
+        experiment = experiments(curr_day).experiment;
+        
+        AP_load_experiment        
+        
+        % Group multiunit by depth
+        n_depths = 6;
+        depth_group_edges = round(linspace(str_depth(1),str_depth(2),n_depths+1));
+        depth_group_centers = round(depth_group_edges(1:end-1)+diff(depth_group_edges)/2);
+        
+        depth_group = discretize(spikeDepths,depth_group_edges);
+        
+        % Set times for PSTH
+        raster_window = [-0.5,3];
+        psth_bin_size = 0.001;
+        t = raster_window(1):psth_bin_size:raster_window(2);
+        
+        % Get trial properties
+        use_trials = ...
+            trial_outcome ~= 0 & ...
+            ~signals_events.repeatTrialValues(1:n_trials) & ...
+            stim_to_feedback < 1.5;
+        
+        % Loop through all trial conditions, PSTH
+        mua = struct;
+        
+        depth_psth = nan(n_conditions,length(t)-1,n_depths,2);
+        for curr_align = 1:2
+            switch curr_align
+                case 1
+                    use_align = stimOn_times;
+                case 2
+                    use_align = wheel_move_time';
+                    use_align(isnan(use_align)) = 0;
+            end
+            t_peri_event = bsxfun(@plus,use_align,t);
+            for curr_depth = 1:n_depths
+                
+                curr_spikes = spike_times_timeline(depth_group == curr_depth);
+                
+                curr_spikes_binned = cell2mat(arrayfun(@(x) ...
+                    histcounts(curr_spikes,t_peri_event(x,:)), ...
+                    [1:size(t_peri_event,1)]','uni',false))./psth_bin_size;
+                
+                [curr_ids_str,curr_mean_psth] = ...
+                    grpstats(curr_spikes_binned(use_trials,:), ...
+                    trial_id(use_trials),{'gname','mean'});
+                curr_ids = cellfun(@str2num,curr_ids_str);
+                
+                depth_psth(curr_ids,:,curr_depth,curr_align) = curr_mean_psth;
+            end
+        end
+        
+        % Count trials per condition
+        condition_counts = histcounts(trial_id(use_trials), ...
+            'BinLimits',[1,n_conditions],'BinMethod','integers')';
+       
+        % Store
+        batch_vars(curr_animal).depth_psth(:,:,:,:,curr_day) = depth_psth; 
+        batch_vars(curr_animal).condition_counts(:,curr_day) = condition_counts; 
+        
+        % Prep for next loop
         AP_print_progress_fraction(curr_day,length(experiments));
         clearvars -except animals animal curr_animal protocol experiments curr_day animal batch_vars load_parts
         
@@ -2703,6 +2814,183 @@ for curr_animal = 1:length(animals)
 end
 
 fn = 'C:\Users\Andrew\OneDrive for Business\Documents\CarandiniHarrisLab\analysis\wf_ephys_choiceworld\choiceworld\corr_mua_fluor_move_latemove_conditionshuff';
+save(fn,'batch_vars','-v7.3');
+
+%% Batch trial-trial CHOICE DIFF ONLY (within-condition shuffle)
+
+animals = {'AP024','AP025','AP026','AP027','AP028','AP029'};
+
+protocol = 'vanillaChoiceworld';
+% protocol = 'stimSparseNoiseUncorrAsync';
+% protocol = 'stimKalatsky';
+% protocol = 'AP_choiceWorldStimPassive';
+
+batch_vars = struct;
+for curr_animal = 1:length(animals)
+    
+    animal = animals{curr_animal};
+    experiments = AP_find_experiments(animal,protocol);
+    
+    % Skip if this animal doesn't have this experiment
+    if isempty(experiments)
+        continue
+    end
+    
+    disp(animal);
+    
+    experiments = experiments([experiments.imaging] & [experiments.ephys]);
+    
+    load_parts.cam = false;
+    load_parts.imaging = true;
+    load_parts.ephys = true;
+    
+    for curr_day = 1:length(experiments);
+        
+        day = experiments(curr_day).day;
+        experiment = experiments(curr_day).experiment;
+        
+        AP_load_experiment
+        
+        % Load widefield ROIs
+        wf_roi_fn = 'C:\Users\Andrew\OneDrive for Business\Documents\CarandiniHarrisLab\analysis\wf_ephys_choiceworld\wf_processing\wf_rois\wf_roi';
+        load(wf_roi_fn);
+        
+        % Group striatum depths
+        n_depths = 6;
+        depth_group_edges = round(linspace(str_depth(1),str_depth(2),n_depths+1));
+        [depth_group_n,~,depth_group] = histcounts(spikeDepths,depth_group_edges);
+     
+        % Define times to align   
+        sample_rate_factor = 3;
+        interval_surround = [-0.5,1.5];
+        sample_rate = framerate*sample_rate_factor;
+        t_surround = interval_surround(1):1/sample_rate:interval_surround(2);
+        
+        % Get p-values for choice-specific differences
+        % [region,t,alignment,timing]
+        mua_choice_p = nan(n_depths,length(t_surround),2,2);
+        fluor_choice_p = nan(numel(wf_roi),length(t_surround),2,2);
+        
+        for curr_align = 1:2
+            
+            switch curr_align
+                case 1
+                    align_times = stimOn_times;
+                case 2
+                    align_times = wheel_move_time';
+                    align_times(isnan(align_times)) = 0;
+            end
+            
+            for curr_timing = 1:2
+                
+                switch curr_timing
+                    case 1
+                        use_stim_to_move = stim_to_move < 0.5;
+                    case 2
+                        use_stim_to_move = stim_to_move > 0.5;
+                end
+                
+                % Get trials to use and surrounding time points
+                use_trials = ...
+                    trial_outcome ~= 0 & ...
+                    ~signals_events.repeatTrialValues(1:n_trials) & ...
+                    stim_to_feedback < 1.5 & ...
+                    use_stim_to_move;
+                
+                t_peri_event = bsxfun(@plus,align_times(use_trials),t_surround);
+                
+                % Get fluorescence within saved ROIs
+                Udf_aligned = AP_align_widefield(animal,day,Udf);
+                roi_traces = AP_svd_roi(Udf_aligned,fVdf,[],[],cat(3,wf_roi.mask));
+                event_aligned_f = interp1(frame_t,roi_traces',t_peri_event);
+                event_aligned_df = interp1(conv(frame_t,[1,1]/2,'valid'),diff(roi_traces,[],2)',t_peri_event);
+                event_aligned_df(event_aligned_df < 0) = 0;
+                
+                % Make the R hemisphere ROIs actually be L-R
+                event_aligned_df(:,:,size(wf_roi,1)+1:end) = ...
+                    event_aligned_df(:,:,1:size(wf_roi,1)) - ...
+                    event_aligned_df(:,:,size(wf_roi,1)+1:end);
+                
+                % Pull out MUA across depths
+                t_peri_event_bins = [t_peri_event - 1/(sample_rate*2), ...
+                    t_peri_event(:,end) + 1/(sample_rate*2)];
+                event_aligned_spikes = nan(size(t_peri_event_bins,1),size(t_peri_event_bins,2)-1,n_depths);
+                for curr_depth = 1:n_depths
+                    use_spikes = spike_times_timeline(depth_group == curr_depth);
+                    event_aligned_spikes(:,:,curr_depth) = cell2mat(arrayfun(@(x) ...
+                        histcounts(use_spikes,t_peri_event_bins(x,:)),[1:size(t_peri_event_bins,1)]','uni',false));
+                end
+                
+                % Get sig correlations across all time points across modalities
+                % (SHUFFLE ONLY WITHIN CONTRAST/SIDE)
+                n_shuff = 1000;
+                warning off;
+                use_comb = combvec(contrasts,sides)';
+                data_idx = reshape(1:sum(use_trials)*length(t_surround), ...
+                    sum(use_trials),length(t_surround));
+                shuff_idx = nan(sum(use_trials),length(t_surround),n_shuff);
+                for curr_condition = 1:size(use_comb,1)
+                    curr_trials = ismember(trial_conditions(use_trials,1:2),use_comb(curr_condition,:),'rows');
+                    shuff_idx(curr_trials,:,:) = ...
+                        shake(repmat(data_idx(curr_trials,:,:),1,1,n_shuff),1);
+                end
+                warning on;                
+                
+                % MUA-choice               
+                for curr_mua = 1:size(event_aligned_spikes,3)
+                    
+                    curr_data1 = event_aligned_spikes(:,:,curr_mua);
+                    curr_data2 = trial_choice(use_trials)';
+                    curr_data2_shuff = curr_data2(shuff_idx(:,1,:));
+                    
+                    corr_real = curr_data1'*curr_data2;
+                    
+                    corr_shuff = ...
+                        gather(pagefun(@mtimes,gpuArray(curr_data1'), ...
+                        gpuArray(curr_data2_shuff)));
+                    
+                    corr_rank = tiedrank([corr_real';permute(corr_shuff,[3,1,2])]);
+                    corr_p = corr_rank(1,:)/(n_shuff+1);
+                    
+                    mua_choice_p(curr_mua,:,curr_align,curr_timing) = corr_p;
+                    
+                end
+                
+                % Fluor-choice
+                for curr_fluor = 1:size(event_aligned_df,3)
+                    
+                    curr_data1 = event_aligned_df(:,:,curr_fluor);
+                    curr_data2 = trial_choice(use_trials)';
+                    curr_data2_shuff = curr_data2(shuff_idx(:,1,:));
+                    
+                    corr_real = curr_data1'*curr_data2;
+                    
+                    corr_shuff = ...
+                        gather(pagefun(@mtimes,gpuArray(curr_data1'), ...
+                        gpuArray(curr_data2_shuff)));
+                    
+                    corr_rank = tiedrank([corr_real';permute(corr_shuff,[3,1,2])]);
+                    corr_p = corr_rank(1,:)/(n_shuff+1);
+                    
+                    fluor_choice_p(curr_fluor,:,curr_align,curr_timing) = corr_p;
+                    
+                end               
+            end
+        end
+        
+        batch_vars(curr_animal).mua_choice_p{curr_day} = mua_choice_p;       
+        batch_vars(curr_animal).fluor_choice_p{curr_day} = fluor_choice_p;
+        
+        AP_print_progress_fraction(curr_day,length(experiments));
+        clearvars -except animals animal curr_animal protocol experiments curr_day animal batch_vars load_parts
+        
+    end
+    
+    disp(['Finished ' animal]);
+    
+end
+
+fn = 'C:\Users\Andrew\OneDrive for Business\Documents\CarandiniHarrisLab\analysis\wf_ephys_choiceworld\choiceworld\choice_p';
 save(fn,'batch_vars','-v7.3');
 
 

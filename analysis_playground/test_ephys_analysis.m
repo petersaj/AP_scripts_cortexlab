@@ -1040,9 +1040,11 @@ end
 %% Plot waveform 
 % (uses Nick's function)
 
-plot_template = 192;
+plot_template = 239;
+thresh = 0.2;
 figure;plotWaveform(-(squeeze(templates(plot_template,:,:))*winv)', ...
-    channel_positions(:,1),channel_positions(:,2),10,2,0.2,[0,0,0]);set(gca,'YDir','reverse')
+    channel_positions(:,1),channel_positions(:,2),10,2,thresh,[0,0,0]);set(gca,'YDir','reverse')
+axis image;
 
 %% PSTH plot by depth (single stim ID)
 
@@ -1103,12 +1105,10 @@ vis_modulation = (vis_rate-baseline_rate)./(vis_rate+baseline_rate);
 
 % Group by depth
 n_depth_groups = 6;
-depth_group_edges = linspace(0,max(channel_positions(:,2)),n_depth_groups+1);
-% depth_group_edges = round(linspace(str_depth(1),str_depth(2),n_depth_groups+1));
+% depth_group_edges = linspace(0,max(channel_positions(:,2)),n_depth_groups+1);
+depth_group_edges = round(linspace(str_depth(1),str_depth(2),n_depth_groups+1));
 depth_group_centers = round(depth_group_edges(1:end-1)+diff(depth_group_edges)/2);
-depth_group_edges(end) = Inf;
 depth_group = discretize(spikeDepths,depth_group_edges);
-depth_groups_used = unique(depth_group);
 
 % Create MUA times grouped according to depth
 mua_times = cell(n_depth_groups,1);

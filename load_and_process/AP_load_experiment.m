@@ -248,6 +248,7 @@ if block_exists
     % SPECIFIC TO PROTOCOL
     [~,expDef] = fileparts(block.expDef);
     if strcmp(expDef,'vanillaChoiceworld');
+        
         % dumb signals thing, fix
         signals_events.hitValues = circshift(signals_events.hitValues,[0,-1]);
         signals_events.missValues = circshift(signals_events.missValues,[0,-1]);
@@ -287,6 +288,39 @@ if block_exists
         wheel_move_time = arrayfun(@(x) pull_times(x,wheel_move_sample(x)),1:size(pull_times,1));
         wheel_move_time(wheel_move_sample == 1) = NaN;
         
+        % Get conditions for all trials
+        % (trial timing)
+        n_trials = length(block.paramsValues);
+        trial_outcome = signals_events.hitValues(1:n_trials)-signals_events.missValues(1:n_trials);
+        stim_to_move = padarray(wheel_move_time - stimOn_times',[0,n_trials-length(stimOn_times)],NaN,'post');
+        stim_to_feedback = padarray(signals_events.responseTimes, ...
+            [0,n_trials-length(signals_events.responseTimes)],NaN,'post') - ...
+            padarray(stimOn_times',[0,n_trials-length(stimOn_times)],NaN,'post');
+        
+        % (early vs late move)
+        trial_timing = 1 + (stim_to_move > 0.5);
+        
+        % (left vs right choice)
+        go_left = (signals_events.trialSideValues == 1 & signals_events.hitValues == 1) | ...
+            (signals_events.trialSideValues == -1 & signals_events.missValues == 1);
+        go_right = (signals_events.trialSideValues == -1 & signals_events.hitValues == 1) | ...
+            (signals_events.trialSideValues == 1 & signals_events.missValues == 1);
+        trial_choice = go_right - go_left;
+        
+        % (trial conditions: [contrast,side,choice,timing])
+        contrasts = [0,0.06,0.125,0.25,0.5,1];
+        sides = [-1,1];
+        choices = [-1,1];
+        timings = [1,2];
+        
+        conditions = combvec(contrasts,sides,choices,timings)';
+        n_conditions = size(conditions,1);
+        
+        trial_conditions = ...
+            [signals_events.trialContrastValues(1:n_trials); signals_events.trialSideValues(1:n_trials); ...
+            trial_choice(1:n_trials); trial_timing(1:n_trials)]';
+        [~,trial_id] = ismember(trial_conditions,conditions,'rows');        
+               
     elseif strcmp(expDef,'AP_visAudioPassive')
         %         min_stim_downtime = 0.5; % minimum time between pd flips to get stim
         %         stimOn_times_pd = photodiode_flip_times([true;diff(photodiode_flip_times) > min_stim_downtime]);
