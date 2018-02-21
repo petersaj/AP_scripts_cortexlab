@@ -62,7 +62,8 @@ for curr_day = 1:length(days)
     
     if any(use_exp)
         protocol_expts{curr_day} = exp_nums(use_exp);
-        [~,imaging_expts{curr_day}] = AP_cortexlab_filename(animal,day,exp_nums(use_exp),'imaging');
+        imaging_path = AP_cortexlab_filename(animal,day,exp_nums(use_exp),'imaging');
+        imaging_expts{curr_day} = exist([imaging_path filesep 'meanImage_blue.npy'],'file') > 0;
         [~,ephys_expts{curr_day}] = AP_cortexlab_filename(animal,day,exp_nums(use_exp),'ephys');
     end
 end

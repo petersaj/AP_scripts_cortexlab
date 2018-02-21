@@ -665,6 +665,102 @@ for trialtype_align = {'stim','move'};
     end
 end
 
+%% Batch widefield choiceworld (TRIAL ID - ROIS ONLY)
+
+animals = {'AP024','AP025','AP026','AP027','AP028','AP029'};
+protocol = 'vanillaChoiceworld';
+batch_vars = struct;
+
+% Load widefield ROIs
+wf_roi_fn = 'C:\Users\Andrew\OneDrive for Business\Documents\CarandiniHarrisLab\analysis\wf_ephys_choiceworld\wf_processing\wf_rois\wf_roi';
+load(wf_roi_fn);
+n_rois = numel(wf_roi);
+
+for curr_animal = 1:length(animals)
+    
+    animal = animals{curr_animal};
+    experiments = AP_find_experiments(animal,protocol);
+    
+    disp(animal);
+    
+    experiments = experiments([experiments.imaging] & [experiments.ephys]);
+    
+    load_parts.cam = false;
+    load_parts.imaging = true;
+    load_parts.ephys = false;
+    
+    for curr_day = 1:length(experiments);
+        
+        day = experiments(curr_day).day;
+        experiment = experiments(curr_day).experiment;
+        
+        AP_load_experiment
+        
+        % Get ROI traces
+        aUdf = single(AP_align_widefield(animal,day,Udf));
+        roi_traces = AP_svd_roi(aUdf,fVdf,[],[],cat(3,wf_roi.mask));
+        
+        % Make DDF
+        ddf = diff(roi_traces,[],2);
+        ddf(ddf < 0) = 0;
+        
+        % Define trials to use
+        use_trials = ...
+            trial_outcome ~= 0 & ...
+            ~signals_events.repeatTrialValues(1:n_trials) & ...
+            stim_to_feedback < 1.5;
+        
+        % Get event-aligned fluorescence
+        raster_window = [-0.5,3];
+        upsample_factor = 5;
+        raster_sample_rate = 1/(framerate*upsample_factor);
+        t = raster_window(1):raster_sample_rate:raster_window(2);
+        
+        roi_psth = nan(n_conditions,length(t),numel(wf_roi),2);
+        for curr_align = 1:2
+            switch curr_align
+                case 1
+                    use_align = stimOn_times;
+                case 2
+                    use_align = wheel_move_time';
+                    use_align(isnan(use_align)) = 0;
+            end
+            
+            t_peri_event = bsxfun(@plus,use_align,t);
+            event_aligned_ddf = interp1(conv2(frame_t,[1,1]/2,'valid'),ddf',t_peri_event);
+            
+            for curr_roi = 1:numel(wf_roi)
+                
+                [curr_ids,curr_mean_psth] = ...
+                    grpstats(event_aligned_ddf(use_trials,:,curr_roi), ...
+                    trial_id(use_trials),{'gname',@(x) mean(x,1)});
+                curr_ids = cellfun(@str2num,curr_ids);
+                
+                roi_psth(curr_ids,:,curr_roi,curr_align) = curr_mean_psth;
+                
+            end
+        end
+        
+        % Count trials per condition
+        condition_counts = histcounts(trial_id(use_trials), ...
+            'BinLimits',[1,n_conditions],'BinMethod','integers')';
+        
+        % Store
+        batch_vars(curr_animal).roi_psth(:,:,:,:,curr_day) = roi_psth;
+        batch_vars(curr_animal).condition_counts(:,curr_day) = condition_counts;
+        
+        % Prep for next loop
+        AP_print_progress_fraction(curr_day,length(experiments));
+        clearvars -except animals animal curr_animal protocol experiments curr_day animal batch_vars load_parts wf_roi
+        
+    end
+end
+
+% Save
+save_path = ['C:\Users\Andrew\OneDrive for Business\Documents\CarandiniHarrisLab\analysis\wf_ephys_choiceworld\choiceworld'];
+save([save_path filesep 'roi_choiceworld'],'batch_vars');
+
+disp(['Finished batch'])
 
 %% Batch widefield > striatum maps (upsampled, ddf/f, lambda estimate)
 
@@ -1561,6 +1657,7 @@ end
 save_path = ['C:\Users\Andrew\OneDrive for Business\Documents\CarandiniHarrisLab\analysis\wf_ephys_choiceworld\choiceworld'];
 save([save_path filesep 'mua_choiceworld'],'batch_vars');
 
+disp(['Finished batch'])
 
 %% Batch striatum responses to passive
 

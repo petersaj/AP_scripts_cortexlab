@@ -1514,19 +1514,14 @@ truesize
 
 %% Show aligned mean images within one animal and across animals
 
-animal = 'AP029';
+animal = 'AP026';
 
 protocol = 'vanillaChoiceworld';
 experiments = AP_find_experiments(animal,protocol);
 experiments = experiments([experiments.imaging] & [experiments.ephys]);
 choiceworld_days = {experiments.day};
 
-protocol = 'stimSparseNoiseUncorrAsync';
-experiments = AP_find_experiments(animal,protocol);
-experiments = experiments([experiments.imaging] & [experiments.ephys]);
-sparsenoise_days = {experiments.day};
-
-days = sort(unique([choiceworld_days,sparsenoise_days]));
+days = sort(choiceworld_days);
 
 avg_im_blue = cell(length(days),1);
 for curr_day = 1:length(days)
@@ -1538,9 +1533,8 @@ im_aligned = AP_align_widefield(animal,days,avg_im_blue);
 AP_image_scroll(im_aligned); 
 axis image off;
 
-
 % Load across-animal alignments (wf and retinotopy)
-alignment_path = '\\basket.cortexlab.net\data\ajpeters\wf_alignment';
+alignment_path = 'C:\Users\Andrew\OneDrive for Business\Documents\CarandiniHarrisLab\analysis\wf_ephys_choiceworld\wf_processing\wf_alignment';
 load([alignment_path filesep 'animal_wf_tform']);
 animals = {animal_wf_tform.animal};
 
@@ -1555,7 +1549,7 @@ for curr_animal = 1:length(animals)
     avg_im_blue{curr_animal} = readNPY([img_path filesep 'meanImage_blue.npy']);  
 end
 
-retinotopy_fn = '\\basket.cortexlab.net\data\ajpeters\retinotopy\retinotopy';
+retinotopy_fn = 'C:\Users\Andrew\OneDrive for Business\Documents\CarandiniHarrisLab\analysis\wf_ephys_choiceworld\wf_processing\retinotopy\retinotopy.mat';
 load(retinotopy_fn);
 
 retinotopy_aligned = AP_align_widefield(animals,[],retinotopy(:,2));

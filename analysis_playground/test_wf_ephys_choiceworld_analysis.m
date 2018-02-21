@@ -1360,9 +1360,9 @@ condition_counts = histcounts(trial_id(use_trials), ...
     'BinLimits',[1,n_conditions],'BinMethod','integers')';
 
 % Get event-aligned fluorescence
-
 raster_window = [-0.5,1];
-raster_sample_rate = 1/(framerate*3);
+upsample_factor = 3;
+raster_sample_rate = 1/(framerate*upsample_factor);
 t = raster_window(1):raster_sample_rate:raster_window(2);
 
 roi_psth = nan(n_conditions,length(t),n_rois,2);
@@ -1585,7 +1585,7 @@ for curr_roi = 1:n_rois
 end
 axis image off;
 
-%% Load and process widefield choiceworld mean (GENERAL)
+%% Load and process widefield choiceworld mean (GENERAL - FULL IMAGE)
 
 surround_window = [-0.5,2];
 upsample_rate = 3;
@@ -1599,7 +1599,7 @@ conditions = [-1,-0.5,-0.25,-0.125,-0.06,0,0.06,0.125,0.25,0.5,1];
 data_path = 'C:\Users\Andrew\OneDrive for Business\Documents\CarandiniHarrisLab\analysis\wf_ephys_choiceworld\choiceworld';
 
 trialtype_align = 'stim';
-trialtype_timing = 'earlymove';
+trialtype_timing = 'latemove';
 trialtype_success = 'hit';
 
 trialtype = [trialtype_align ' ' trialtype_timing ' ' trialtype_success];
@@ -1651,6 +1651,10 @@ for curr_roi = 1:n_rois
     
 end
 
+AP_image_scroll(ddf,t_df);
+axis image;
+AP_reference_outline('ccf_aligned','r');AP_reference_outline('retinotopy','b');
+
 % (this shouldn't be necessary anymore, reflecting wf is the same as
 % reflecting the ROIs which is how ROIs are made now)
 
@@ -1682,6 +1686,112 @@ end
 %     title(wf_roi(curr_roi,1).area);
 %     
 % end
+
+%% Load and process widefield choiceworld mean (GENERAL - ROIs)
+
+% Get times and conditions
+surround_window = [-0.5,3];
+upsample_rate = 5;
+
+framerate = 35.2;
+surround_samplerate = 1/(framerate*upsample_rate);
+t = surround_window(1):surround_samplerate:surround_window(2);
+
+contrasts = [0,0.06,0.125,0.25,0.5,1];
+sides = [-1,1];
+choices = [-1,1];
+timings = [1,2];
+conditions = combvec(contrasts,sides,choices,timings)';
+
+% Load data
+data_path = ['C:\Users\Andrew\OneDrive for Business\Documents\CarandiniHarrisLab\analysis\wf_ephys_choiceworld\choiceworld'];
+load([data_path filesep 'roi_choiceworld']);
+
+% Load widefield ROIs
+wf_roi_fn = 'C:\Users\Andrew\OneDrive for Business\Documents\CarandiniHarrisLab\analysis\wf_ephys_choiceworld\wf_processing\wf_rois\wf_roi';
+load(wf_roi_fn);
+n_rois = length(wf_roi);
+
+% Combine data
+roi_psth = {batch_vars.roi_psth};
+roi_psth_mean = nanmean(cell2mat(permute(cellfun(@(x) nanmean(x,5),roi_psth,'uni',false),[1,3,4,5,2])),5);
+
+AP_image_scroll(roi_psth_mean,{wf_roi.area})
+line(repmat(find(t_df > 0,1),2,1),ylim,'color','r');
+
+% Plot all hit conditions for one ROI
+plot_roi = 2;
+
+figure; 
+
+subplot(2,2,1); hold on;
+set(gca,'ColorOrder',[copper(6);fliplr(copper(6))]);
+plot_conditions = conditions(:,2) == -conditions(:,3) & conditions(:,4) == 1;
+plot(t,roi_psth_mean(plot_conditions,:,plot_roi,1)','linewidth',2);
+line([0,0],ylim,'color','k');
+xlabel('Time from stim')
+title('Early move')
+
+subplot(2,2,2); hold on;
+set(gca,'ColorOrder',[copper(6);fliplr(copper(6))]);
+plot_conditions = conditions(:,2) == -conditions(:,3) & conditions(:,4) == 1;
+plot(t,roi_psth_mean(plot_conditions,:,plot_roi,2)','linewidth',2);
+line([0,0],ylim,'color','k');
+xlabel('Time from move')
+title('Early move')
+
+subplot(2,2,3); hold on;
+set(gca,'ColorOrder',[copper(6);fliplr(copper(6))]);
+plot_conditions = conditions(:,2) == -conditions(:,3) & conditions(:,4) == 2;
+plot(t,roi_psth_mean(plot_conditions,:,plot_roi,1)','linewidth',2);
+line([0,0],ylim,'color','k');
+xlabel('Time from stim')
+title('Late move')
+
+subplot(2,2,4); hold on;
+set(gca,'ColorOrder',[copper(6);fliplr(copper(6))]);
+plot_conditions = conditions(:,2) == -conditions(:,3) & conditions(:,4) == 2;
+plot(t,roi_psth_mean(plot_conditions,:,plot_roi,2)','linewidth',2);
+line([0,0],ylim,'color','k');
+xlabel('Time from move')
+title('Late move')
+
+% Plot all ROIs for one condition
+plot_contrast = 0;
+plot_align = 1;
+plot_timing = 2;
+
+figure; 
+
+subplot(2,2,1); hold on;
+set(gca,'ColorOrder',copper(size(wf_roi,1)));
+plot_condition = ismember(conditions,[plot_contrast,-1,-1,plot_timing],'rows');
+plot(t,squeeze(roi_psth_mean(plot_condition,:,1:size(wf_roi,1),plot_align)),'linewidth',2);
+line([0,0],ylim,'color','k');
+title('Stim L/Move L')
+
+subplot(2,2,2); hold on;
+set(gca,'ColorOrder',copper(size(wf_roi,1)));
+plot_condition = ismember(conditions,[plot_contrast,1,-1,plot_timing],'rows');
+plot(t,squeeze(roi_psth_mean(plot_condition,:,1:size(wf_roi,1),plot_align)),'linewidth',2);
+line([0,0],ylim,'color','k');
+title('Stim R/Move L')
+
+subplot(2,2,3); hold on;
+set(gca,'ColorOrder',copper(size(wf_roi,1)));
+plot_condition = ismember(conditions,[plot_contrast,-1,1,plot_timing],'rows');
+plot(t,squeeze(roi_psth_mean(plot_condition,:,1:size(wf_roi,1),plot_align)),'linewidth',2);
+line([0,0],ylim,'color','k');
+title('Stim L/Move R')
+
+subplot(2,2,4); hold on;
+set(gca,'ColorOrder',copper(size(wf_roi,1)));
+plot_condition = ismember(conditions,[plot_contrast,1,1,plot_timing],'rows');
+plot(t,squeeze(roi_psth_mean(plot_condition,:,1:size(wf_roi,1),plot_align)),'linewidth',2);
+line([0,0],ylim,'color','k');
+title('Stim R/Move R')
+
+
 
 %% Load and process striatal MUA during choiceworld (OLD)
 
@@ -2108,17 +2218,18 @@ data_path = ['C:\Users\Andrew\OneDrive for Business\Documents\CarandiniHarrisLab
 mua_fn = [data_path filesep 'mua_choiceworld'];
 load(mua_fn);
 
+n_depths = 6;
+
 contrasts = [0,0.06,0.125,0.25,0.5,1];
 sides = [-1,1];
 choices = [-1,1];
 timings = [1,2];
-
 conditions = combvec(contrasts,sides,choices,timings)';
 
 raster_window = [-0.5,3];
 psth_bin_size = 0.001;
-t = raster_window(1):psth_bin_size:raster_window(2);
-t_bins = conv2(t,[1,1]/2,'valid');
+t_edges = raster_window(1):psth_bin_size:raster_window(2);
+t = conv2(t_edges,[1,1]/2,'valid');
 
 % Normalize, smooth, and combine PSTH
 % (PSTH: [condition,time,depth,align,day])
@@ -2126,7 +2237,7 @@ smooth_size = 50;
 gw = gausswin(smooth_size,3)';
 smWin = gw./sum(gw);
 
-t_baseline = t_bins < 0;
+t_baseline = t < 0;
 
 softnorm = 20;
 
@@ -2138,15 +2249,18 @@ depth_psth_smoothed = cellfun(@(x) convn(x,smWin,'same'),depth_psth_norm,'uni',f
 depth_psth_mean = nanmean(cell2mat(permute(cellfun(@(x) ...
     nanmean(x,5),depth_psth_smoothed,'uni',false),[1,3,4,5,2])),5);
 
+AP_image_scroll(depth_psth_mean,t);
+line(repmat(find(t > 0,1),2,1),ylim,'color','r');
+
 % Plot
-plot_str = 2;
+plot_str = 1;
 
 figure; 
 
 subplot(2,2,1); hold on;
 set(gca,'ColorOrder',[copper(6);fliplr(copper(6))]);
 plot_conditions = conditions(:,2) == -conditions(:,3) & conditions(:,4) == 1;
-plot(t_bins,depth_psth_mean(plot_conditions,:,plot_str,1)','linewidth',2);
+plot(t,depth_psth_mean(plot_conditions,:,plot_str,1)','linewidth',2);
 line([0,0],ylim,'color','k');
 xlabel('Time from stim')
 title('Early move')
@@ -2154,7 +2268,7 @@ title('Early move')
 subplot(2,2,2); hold on;
 set(gca,'ColorOrder',[copper(6);fliplr(copper(6))]);
 plot_conditions = conditions(:,2) == -conditions(:,3) & conditions(:,4) == 1;
-plot(t_bins,depth_psth_mean(plot_conditions,:,plot_str,2)','linewidth',2);
+plot(t,depth_psth_mean(plot_conditions,:,plot_str,2)','linewidth',2);
 line([0,0],ylim,'color','k');
 xlabel('Time from move')
 title('Early move')
@@ -2162,7 +2276,7 @@ title('Early move')
 subplot(2,2,3); hold on;
 set(gca,'ColorOrder',[copper(6);fliplr(copper(6))]);
 plot_conditions = conditions(:,2) == -conditions(:,3) & conditions(:,4) == 2;
-plot(t_bins,depth_psth_mean(plot_conditions,:,plot_str,1)','linewidth',2);
+plot(t,depth_psth_mean(plot_conditions,:,plot_str,1)','linewidth',2);
 line([0,0],ylim,'color','k');
 xlabel('Time from stim')
 title('Late move')
@@ -2170,13 +2284,45 @@ title('Late move')
 subplot(2,2,4); hold on;
 set(gca,'ColorOrder',[copper(6);fliplr(copper(6))]);
 plot_conditions = conditions(:,2) == -conditions(:,3) & conditions(:,4) == 2;
-plot(t_bins,depth_psth_mean(plot_conditions,:,plot_str,2)','linewidth',2);
+plot(t,depth_psth_mean(plot_conditions,:,plot_str,2)','linewidth',2);
 line([0,0],ylim,'color','k');
 xlabel('Time from move')
 title('Late move')
 
+% Plot all depths for one condition
+plot_contrast = 0;
+plot_align = 1;
+plot_timing = 2;
 
+figure; 
 
+subplot(2,2,1); hold on;
+set(gca,'ColorOrder',copper(n_depths));
+plot_condition = ismember(conditions,[plot_contrast,-1,-1,plot_timing],'rows');
+plot(t,squeeze(depth_psth_mean(plot_condition,:,:,plot_align)),'linewidth',2);
+line([0,0],ylim,'color','k');
+title('Stim L/Move L')
+
+subplot(2,2,2); hold on;
+set(gca,'ColorOrder',copper(n_depths));
+plot_condition = ismember(conditions,[plot_contrast,1,-1,plot_timing],'rows');
+plot(t,squeeze(depth_psth_mean(plot_condition,:,:,plot_align)),'linewidth',2);
+line([0,0],ylim,'color','k');
+title('Stim R/Move L')
+
+subplot(2,2,3); hold on;
+set(gca,'ColorOrder',copper(n_depths));
+plot_condition = ismember(conditions,[plot_contrast,-1,1,plot_timing],'rows');
+plot(t,squeeze(depth_psth_mean(plot_condition,:,:,plot_align)),'linewidth',2);
+line([0,0],ylim,'color','k');
+title('Stim L/Move R')
+
+subplot(2,2,4); hold on;
+set(gca,'ColorOrder',copper(n_depths));
+plot_condition = ismember(conditions,[plot_contrast,1,1,plot_timing],'rows');
+plot(t,squeeze(depth_psth_mean(plot_condition,:,:,plot_align)),'linewidth',2);
+line([0,0],ylim,'color','k');
+title('Stim R/Move R')
 
 %% Load and process striatal MUA during passive
 
