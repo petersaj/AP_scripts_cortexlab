@@ -526,7 +526,7 @@ surround_time = surround_window(1):surround_samplerate:surround_window(2);
 baseline_surround_time = baseline_surround_window(1):surround_samplerate:baseline_surround_window(2);
 
 % Gui for plotting responses
-pixelTuningCurveViewerSVD(Udf,fVdf,frame_t,stimOn_times,stimIDs,surround_window);
+pixelTuningCurveViewerSVD(Uh,Vh,frame_t,stimOn_times,stimIDs,surround_window);
 
 % Average (time course) responses
 conditions = unique(stimIDs);

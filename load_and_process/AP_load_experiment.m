@@ -6,7 +6,9 @@
 % Not a function at the moment because nothing is packaged
 
 %% Display progress or not
-verbose = false;
+if ~exist('verbose','var')
+    verbose = false;
+end
 
 %% Define what to load
 

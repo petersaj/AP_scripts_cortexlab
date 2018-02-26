@@ -4247,18 +4247,13 @@ raster_sample_rate = 1/(framerate*upsample_factor);
 t = raster_window(1):raster_sample_rate:raster_window(2);
 
 % Combine and plot data
-loglik_increase_emp = {batch_vars.loglik_increase_empirical};
-
+log
 loglik_increase_fluor = {batch_vars.loglik_increase_fluor};
-loglik_increase_fluor_rel = cellfun(@(ll,emp) ...
-    bsxfun(@rdivide,ll,permute(emp,[1,3,4,2])),loglik_increase_fluor,loglik_increase_emp,'uni',false);
-loglik_increase_fluor_animal_mean = cellfun(@(x) nanmean(x,4),loglik_increase_fluor_rel,'uni',false);
+loglik_increase_fluor_animal_mean = cellfun(@(x) nanmean(x,4),loglik_increase_fluor,'uni',false);
 loglik_increase_fluor_mean = nanmean(cat(4,loglik_increase_fluor_animal_mean{:}),4);
 
 loglik_increase_mua = {batch_vars.loglik_increase_mua};
-loglik_increase_mua_rel = cellfun(@(ll,emp) ...
-    bsxfun(@rdivide,ll,permute(emp,[1,3,4,2])),loglik_increase_mua,loglik_increase_emp,'uni',false);
-loglik_increase_mua_animal_mean = cellfun(@(x) nanmean(x,4),loglik_increase_mua_rel,'uni',false);
+loglik_increase_mua_animal_mean = cellfun(@(x) nanmean(x,4),loglik_increase_mua,'uni',false);
 loglik_increase_mua_mean = nanmean(cat(4,loglik_increase_mua_animal_mean{:}),4);
 
 figure; 
