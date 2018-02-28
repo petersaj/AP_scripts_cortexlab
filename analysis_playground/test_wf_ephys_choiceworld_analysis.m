@@ -1051,7 +1051,7 @@ xlabel('Contrast');
 ylabel('Spikes');
 legend({'Real','Predicted'});
 
-%% !!!!!!!! NEW INDIVIDUAL DAY ANALYSIS !!!!!!!!!
+%% !!!!!!!! NEW INDIVIDUAL DAY ANALYSIS (some goes into batch) !!!!!!!!!
 
 %% PSTH viewer
 
@@ -1507,6 +1507,121 @@ colormap(colormap_BlueWhiteRed);
 AP_reference_outline('ccf_aligned','k');AP_reference_outline('retinotopy','m');
 title('ROIs significantly modulated by ?');
 axis image off;
+
+%% Get trial activity by contrast and choice
+
+% Prepare fluorescence
+% (load widefield ROIs)
+wf_roi_fn = 'C:\Users\Andrew\OneDrive for Business\Documents\CarandiniHarrisLab\analysis\wf_ephys_choiceworld\wf_processing\wf_rois\wf_roi';
+load(wf_roi_fn);
+n_rois = numel(wf_roi);
+
+aUdf = single(AP_align_widefield(animal,day,Udf));
+roi_trace = AP_svd_roi(aUdf,fVdf,[],[],cat(3,wf_roi.mask));
+
+% (get ddf)
+ddf = diff(roi_trace,[],2);
+ddf(ddf < 0) = 0;
+
+% (make L-R traces)
+ddf(size(wf_roi,1)+1:end,:) = ...
+    ddf(1:size(wf_roi,1),:) - ddf(size(wf_roi,1)+1:end,:);
+
+% Prepare MUA
+% (group striatum depths)
+n_depths = 6;
+depth_group_edges = round(linspace(str_depth(1),str_depth(2),n_depths+1));
+depth_group = discretize(spikeDepths,depth_group_edges);
+
+% Get event-aligned activity
+raster_window = [-0.5,1];
+upsample_factor = 3;
+raster_sample_rate = 1/(framerate*upsample_factor);
+t = raster_window(1):raster_sample_rate:raster_window(2);
+
+event_aligned_ddf = nan(length(stimOn_times),length(t),n_rois,2);
+event_aligned_mua = nan(length(stimOn_times),length(t),n_depths,2);
+for curr_align = 1:2
+    switch curr_align
+        case 1
+            use_align = stimOn_times;
+            use_align(isnan(use_align)) = 0;
+        case 2
+            use_align = wheel_move_time';
+            use_align(isnan(use_align)) = 0;
+    end
+    
+    t_peri_event = bsxfun(@plus,use_align,t);
+    
+    % Fluorescence
+    event_aligned_ddf(:,:,:,curr_align) = ...
+        interp1(conv2(frame_t,[1,1]/2,'valid'),ddf',t_peri_event);
+    
+    % MUA
+    % (raster times)
+    t_bins = [t_peri_event-raster_sample_rate/2,t_peri_event(:,end)+raster_sample_rate/2];
+    for curr_depth = 1:n_depths
+        curr_spikes = spike_times_timeline(depth_group == curr_depth);
+        event_aligned_mua(:,:,curr_depth,curr_align) = cell2mat(arrayfun(@(x) ...
+            histcounts(curr_spikes,t_bins(x,:)), ...
+            [1:size(t_peri_event,1)]','uni',false))./raster_sample_rate;
+    end
+end
+
+% Smooth MUA
+smooth_size = 20;
+gw = gausswin(smooth_size,3)';
+smWin = gw./sum(gw);
+event_aligned_mua = convn(event_aligned_mua,smWin,'same');
+
+% Pick trials to use
+use_trials = ...
+    trial_outcome ~= 0 & ...
+    ~signals_events.repeatTrialValues(1:n_trials) & ...
+    stim_to_feedback < 1.5;
+
+% Pick times to average across
+use_t_stim = t > 0.05 & t < 0.15;
+use_t_move = t > -0.15 & t < 0.02;
+
+% Get average activity for both alignments
+event_aligned_ddf_avg = nan(sum(use_trials),n_rois,2);
+event_aligned_mua_avg = nan(sum(use_trials),n_depths,2);
+
+for curr_align = 1:2
+    switch curr_align
+        case 1
+            use_t = use_t_stim;
+        case 2
+            use_t = use_t_move;
+    end
+    event_aligned_ddf_avg(:,:,curr_align) = ...
+        squeeze(nanmean(event_aligned_ddf(use_trials,use_t,:,curr_align),2));
+    event_aligned_mua_avg(:,:,curr_align) = ...
+        squeeze(nanmean(event_aligned_mua(use_trials,use_t,:,curr_align),2));
+end
+
+% Package all activity by trial ID (must be more elegant way but whatever)
+fluor_trial_act = cell(n_rois,n_conditions,2);
+for curr_roi = 1:n_rois
+    for curr_align = 1:2
+        for curr_condition = 1:n_conditions
+            fluor_trial_act{curr_roi,curr_condition,curr_align} = ...
+                event_aligned_ddf_avg(trial_id(use_trials) == curr_condition,curr_roi,curr_align);
+        end
+    end
+end
+
+mua_trial_act = cell(n_depths,n_conditions,2);
+for curr_depth = 1:n_depths
+    for curr_align = 1:2
+        for curr_condition = 1:n_conditions
+            mua_trial_act{curr_depth,curr_condition,curr_align} = ...
+                event_aligned_mua_avg(trial_id(use_trials) == curr_condition,curr_depth,curr_align);
+        end
+    end
+end
+
 
 
 %% !!!!!!!! BATCH PROCESSED ANALYSIS !!!!!!!!!
@@ -2472,7 +2587,7 @@ line([2,2],ylim,'linestyle','--','color','k');
 legend(p(1,:),cellfun(@num2str,num2cell(1:n_conditions),'uni',false));
 
 
-%% Load and average wf ephys maps
+%% Load and average wf->ephys maps
 
 data_path = 'C:\Users\Andrew\OneDrive for Business\Documents\CarandiniHarrisLab\analysis\wf_ephys_choiceworld\wf_ephys';
 
@@ -4228,7 +4343,7 @@ plot(t,a-b,'linewidth',2);
 
 %% Load/process Peter-model
 
-fn = 'C:\Users\Andrew\OneDrive for Business\Documents\CarandiniHarrisLab\analysis\wf_ephys_choiceworld\choiceworld\loglik_increase';
+fn = 'C:\Users\Andrew\OneDrive for Business\Documents\CarandiniHarrisLab\analysis\wf_ephys_choiceworld\choiceworld\loglik_increase_early';
 load(fn);
 
 % Widefield ROs
@@ -4250,15 +4365,15 @@ t = raster_window(1):raster_sample_rate:raster_window(2);
 loglik_increase_emp = {batch_vars.loglik_increase_empirical};
 
 loglik_increase_fluor = {batch_vars.loglik_increase_fluor};
-loglik_increase_fluor_rel = cellfun(@(ll,emp) ...
-    bsxfun(@rdivide,ll,permute(emp,[1,3,4,2])),loglik_increase_fluor,loglik_increase_emp,'uni',false);
-loglik_increase_fluor_animal_mean = cellfun(@(x) nanmean(x,4),loglik_increase_fluor_rel,'uni',false);
+% loglik_increase_fluor_rel = cellfun(@(ll,emp) ...
+%     bsxfun(@rdivide,ll,permute(emp,[1,3,4,2])),loglik_increase_fluor,loglik_increase_emp,'uni',false);
+loglik_increase_fluor_animal_mean = cellfun(@(x) nanmedian(x,4),loglik_increase_fluor,'uni',false);
 loglik_increase_fluor_mean = nanmean(cat(4,loglik_increase_fluor_animal_mean{:}),4);
 
 loglik_increase_mua = {batch_vars.loglik_increase_mua};
-loglik_increase_mua_rel = cellfun(@(ll,emp) ...
-    bsxfun(@rdivide,ll,permute(emp,[1,3,4,2])),loglik_increase_mua,loglik_increase_emp,'uni',false);
-loglik_increase_mua_animal_mean = cellfun(@(x) nanmean(x,4),loglik_increase_mua_rel,'uni',false);
+% loglik_increase_mua_rel = cellfun(@(ll,emp) ...
+%     bsxfun(@rdivide,ll,permute(emp,[1,3,4,2])),loglik_increase_mua,loglik_increase_emp,'uni',false);
+loglik_increase_mua_animal_mean = cellfun(@(x) nanmedian(x,4),loglik_increase_mua,'uni',false);
 loglik_increase_mua_mean = nanmean(cat(4,loglik_increase_mua_animal_mean{:}),4);
 
 figure; 
@@ -4292,6 +4407,98 @@ ylabel('Relative log likelihood');
 xlabel('Time from move onset');
 line([0,0],ylim,'color','k');
 legend(cellfun(@(x) ['Str ' num2str(x)],num2cell(1:n_depths),'uni',false))
+
+%% Load AFC mean time model
+
+% fn = 'C:\Users\Andrew\OneDrive for Business\Documents\CarandiniHarrisLab\analysis\wf_ephys_choiceworld\choiceworld\c_cn_modeling_ll';
+fn = 'C:\Users\Andrew\OneDrive for Business\Documents\CarandiniHarrisLab\analysis\wf_ephys_choiceworld\choiceworld\c_cn_modeling_ll_hemisphere';
+% fn = 'C:\Users\Andrew\OneDrive for Business\Documents\CarandiniHarrisLab\analysis\wf_ephys_choiceworld\choiceworld\c_cn_modeling_ll_earlymove';
+
+load(fn);
+
+% Widefield ROs
+wf_roi_fn = 'C:\Users\Andrew\OneDrive for Business\Documents\CarandiniHarrisLab\analysis\wf_ephys_choiceworld\wf_processing\wf_rois\wf_roi';
+load(wf_roi_fn);
+n_rois = numel(wf_roi);
+
+% Get MUA
+n_depths = 6;
+
+% Get time
+raster_window = [-0.5,1];
+upsample_factor = 3;
+framerate = 35.2;
+raster_sample_rate = 1/(framerate*upsample_factor);
+t = raster_window(1):raster_sample_rate:raster_window(2);
+
+% Combine and plot data
+loglik_increase_fluor = {batch_vars.loglik_increase_fluor};
+loglik_increase_fluor_animal_mean = cellfun(@(x) nanmedian(x,3),loglik_increase_fluor,'uni',false);
+loglik_increase_fluor_mean = nanmean(cat(3,loglik_increase_fluor_animal_mean{:}),3);
+
+loglik_increase_mua = {batch_vars.loglik_increase_mua};
+loglik_increase_mua_animal_mean = cellfun(@(x) nanmedian(x,3),loglik_increase_mua,'uni',false);
+loglik_increase_mua_mean = nanmean(cat(3,loglik_increase_mua_animal_mean{:}),3);
+
+figure;
+subplot(2,1,1); hold on;
+plot(loglik_increase_fluor_mean,'linewidth',2)
+ylabel('Relative log likelihood');
+line(xlim,[0,0],'color','k');
+set(gca,'XTick',1:n_rois,'XTickLabel',{wf_roi.area});
+legend({'Stim-aligned','Move-aligned'})
+
+subplot(2,1,2); hold on;
+plot(loglik_increase_mua_mean,'linewidth',2)
+ylabel('Relative log likelihood');
+line(xlim,[0,0],'color','k');
+set(gca,'XTick',1:n_depths,'XTickLabel',cellfun(@(x) ...
+    ['Str ' num2str(x)],num2cell(1:n_depths),'uni',false));
+
+% % (for plotting L/R params)
+% fluor_params = {batch_vars.fluor_params};
+% fluor_weight = cellfun(@(x) [abs(x(:,5,:,:)),abs(x(:,6,:,:)) ...
+%     .*sign(x(:,5,:,:)).*sign(x(:,6,:,:))],fluor_params,'uni',false);
+% fluor_weight_animal_mean = cellfun(@(x) nanmedian(x,4),fluor_weight,'uni',false);
+% fluor_weight_mean = nanmean(cat(4,fluor_weight_animal_mean{:}),4);
+% 
+% figure;
+% subplot(2,1,1);
+% plot(squeeze(fluor_weight_mean(:,:,1)),'linewidth',2)
+% legend({'L hemi','R hemi'})
+% ylabel('Weight')
+% set(gca,'XTick',1:n_rois/2,'XTickLabel',{wf_roi(:,1).area});
+% title('Stim-aligned');
+% 
+% subplot(2,1,2);
+% plot(squeeze(fluor_weight_mean(:,:,2)),'linewidth',2)
+% legend({'L hemi','R hemi'})
+% ylabel('Weight')
+% set(gca,'XTick',1:n_rois/2,'XTickLabel',{wf_roi(:,1).area});
+% title('Move-aligned')
+
+%% Make contrast/choice plots
+
+% Load trial activity
+% [area, trial ID, alignment, day]
+fn = 'C:\Users\Andrew\OneDrive for Business\Documents\CarandiniHarrisLab\analysis\wf_ephys_choiceworld\choiceworld\trial_activity';
+load(fn);
+
+% Widefield ROs
+wf_roi_fn = 'C:\Users\Andrew\OneDrive for Business\Documents\CarandiniHarrisLab\analysis\wf_ephys_choiceworld\wf_processing\wf_rois\wf_roi';
+load(wf_roi_fn);
+n_rois = numel(wf_roi);
+
+% Get MUA
+n_depths = 6;
+
+
+
+
+
+
+
+
 
 
 
