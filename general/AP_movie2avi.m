@@ -22,7 +22,7 @@ end
 a = axes('Position',[0,0,1,1]);
 
 im_plot = imagesc(a,im(:,:,1));
-AP_reference_outline('retinotopy','b');AP_reference_outline('ccf_aligned','r');
+% AP_reference_outline('retinotopy','b');AP_reference_outline('ccf_aligned','r');
 for i = 1:size(im,3)
     set(im_plot,'CData',im(:,:,i));
     if ~isempty(color_axis)

@@ -1871,7 +1871,7 @@ non_str_templates = ~str_templates;
 % Define the window to look for spiking statistics in (spikes go in and
 % out, so take the bin with the largest firing rate for each cell and work
 % with that one)
-% spiking_stat_window = 60*10; % seconds
+% spiking_stat_window = 60*5; % seconds
 % spiking_stat_bins = min(spike_times_timeline):spiking_stat_window: ...
 %     max(spike_times_timeline);
 
