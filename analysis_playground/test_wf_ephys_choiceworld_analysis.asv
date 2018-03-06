@@ -1739,7 +1739,7 @@ animals = {'AP024','AP025','AP026','AP027','AP028','AP029'};
 
 for trialtype_align = {'stim','move'};
     trialtype_align = cell2mat(trialtype_align);
-    for trialtype_timing = {'earlymove','latemove','nomove'};
+    for trialtype_timing = {'earlymove','latemove'};
         trialtype_timing = cell2mat(trialtype_timing);
         for trialtype_success = {'hit','miss'};
             trialtype_success = cell2mat(trialtype_success);
@@ -1800,7 +1800,7 @@ conditions = [-1,-0.5,-0.25,-0.125,-0.06,0,0.06,0.125,0.25,0.5,1];
 data_path = 'C:\Users\Andrew\OneDrive for Business\Documents\CarandiniHarrisLab\analysis\wf_ephys_choiceworld\choiceworld';
 
 trialtype_align = 'stim';
-trialtype_timing = 'latemove';
+trialtype_timing = 'earlymove';
 trialtype_success = 'hit';
 
 trialtype = [trialtype_align ' ' trialtype_timing ' ' trialtype_success];
@@ -1911,7 +1911,7 @@ load([data_path filesep 'roi_choiceworld']);
 % Load widefield ROIs
 wf_roi_fn = 'C:\Users\Andrew\OneDrive for Business\Documents\CarandiniHarrisLab\analysis\wf_ephys_choiceworld\wf_processing\wf_rois\wf_roi';
 load(wf_roi_fn);
-n_rois = length(wf_roi);
+n_rois = numel(wf_roi);
 
 % Combine data
 roi_psth = {batch_vars.roi_psth};
@@ -1929,7 +1929,7 @@ colormap(colormap_BlueWhiteRed)
 caxis([-max(abs(caxis)),max(abs(caxis))]);
 
 % Plot all select conditions from given ROI
-plot_roi = 13;
+plot_roi = 9;
 
 figure('Name',wf_roi(plot_roi).area); 
 
@@ -2039,6 +2039,155 @@ set(gca,'ColorOrder',autumn(size(wf_roi,1)));
 plot(t,squeeze(roi_psth_mean(plot_condition,:,1:size(wf_roi,1),plot_align)),'linewidth',2);
 line([0,0],ylim,'color','k');
 title(['Contrast ' num2str(plot_contrast) ', Stim R/Move R'])
+
+% % Fit contrast response
+% 
+% % [depth,time,align,timing,param,success]
+% activity_model_params = nan(n_rois,length(t),2,2,3,2);
+% for curr_success = 1:2
+%     switch curr_success
+%         case 1
+%             use_success = 1;
+%         case 2
+%             use_success = -1;
+%     end
+%     
+%     for curr_timing = 1:2
+%         
+%         use_conditions = conditions(:,2) == -use_success*conditions(:,3) & conditions(:,4) == curr_timing;
+%         contrast_sides = zeros(size(conditions,1),2);
+%         contrast_sides(conditions(:,2) == -1,1) = conditions(conditions(:,2) == -1,1);
+%         contrast_sides(conditions(:,2) == 1,2) = conditions(conditions(:,2) == 1,1);
+%         use_contrast_sides = contrast_sides(use_conditions,:);
+%         
+%         %     activity_model = @(P) P(1) + P(2).*use_contrast_sides(:,1).^P(4) + P(3).*use_contrast_sides(:,2).^P(4);
+%         activity_model = @(P) P(1) + P(2).*use_contrast_sides(:,1).^1 + P(3).*use_contrast_sides(:,2).^1;
+%         
+%         for curr_roi = 1:n_rois
+%             for curr_align = 1:2
+%                 for curr_t = 1:length(t)
+%                     
+%                     curr_act = roi_psth_mean(use_conditions,curr_t,curr_roi,curr_align);
+%                     model_sse = @(P) sum((curr_act-(activity_model(P))).^2);
+%                     
+%                     start_params = [0,0,0.005];
+%                     
+%                     options = struct;
+%                     options.MaxFunEvals = 1000;
+%                     options.Display = 'off';
+%                     
+%                     params_fit = fminsearch(model_sse,start_params,options);
+%                     activity_model_params(curr_roi,curr_t,curr_align,curr_timing,:,curr_success) = ...
+%                         params_fit;
+%                     
+%                 end
+%             end
+%             disp(curr_roi);
+%         end
+%     end
+% end
+% 
+% 
+% medfilt_t = 1;
+% spacing = 0.005;
+% plot_param = 1;
+% plot_align = 1;
+% 
+% figure; 
+% s1 = subplot(1,3,1);hold on;
+% p1 = AP_stackplot(medfilt1(activity_model_params(:,:,plot_align,1,plot_param,1)',medfilt_t),t,spacing,false,'k',{wf_roi.area});
+% p2 = AP_stackplot(medfilt1(activity_model_params(:,:,plot_align,1,plot_param,2)',medfilt_t),t,spacing,false,'r',{wf_roi.area});
+% line([0,0],ylim,'color','k');
+% line([0.2,0.2],ylim,'color','k');
+% xlabel('Time from align')
+% ylabel(['Param ' num2str(plot_param)])
+% title('Early move')
+% legend([p1(1),p2(1)],{'Early hit','Early miss'});
+% 
+% s2 = subplot(1,3,2);hold on;
+% p1 = AP_stackplot(medfilt1(activity_model_params(:,:,plot_align,2,plot_param,1)',medfilt_t),t,spacing,false,'k',{wf_roi.area});
+% p2 = AP_stackplot(medfilt1(activity_model_params(:,:,plot_align,2,plot_param,2)',medfilt_t),t,spacing,false,'r',{wf_roi.area});
+% line([0,0],ylim,'color','k');
+% line([0.5,0.5],ylim,'color','k');
+% line([0.7,0.7],ylim,'color','k');
+% xlabel('Time from align')
+% ylabel(['Param ' num2str(plot_param)])
+% title('Late move')
+% legend([p1(1),p2(1)],{'Late hit','Late miss'});
+% 
+% s3 = subplot(1,3,3);hold on;
+% p1 = AP_stackplot(medfilt1(activity_model_params(:,:,plot_align,1,plot_param,1)',medfilt_t),t,spacing,false,'b',{wf_roi.area});
+% p2 = AP_stackplot(medfilt1(activity_model_params(:,:,plot_align,2,plot_param,1)',medfilt_t),t,spacing,false,'m',{wf_roi.area});
+% line([0,0],ylim,'color','k');
+% line([0.2,0.2],ylim,'color','k');
+% line([0.5,0.5],ylim,'color','k');
+% line([0.7,0.7],ylim,'color','k');
+% xlabel('Time from align')
+% ylabel(['Param ' num2str(plot_param)])
+% title('Stim-aligned')
+% legend([p1(1),p2(1)],{'Early move hit','Late move hit'});
+% 
+% linkaxes([s1,s2,s3]);
+
+
+% Fit contrast response plus choice
+
+% [depth,time,align,timing,param,success]
+activity_model_params = nan(n_rois,length(t),2,2,4);
+
+for curr_timing = 1:2
+    
+    use_conditions = conditions(:,4) == curr_timing;
+    contrast_sides = zeros(size(conditions,1),2);
+    contrast_sides(conditions(:,2) == -1,1) = conditions(conditions(:,2) == -1,1);
+    contrast_sides(conditions(:,2) == 1,2) = conditions(conditions(:,2) == 1,1);
+    
+    use_choices = conditions(use_conditions,3);
+    use_contrast_sides = contrast_sides(use_conditions,:);
+    
+    activity_model = @(P) P(1) + P(2).*use_contrast_sides(:,1).^1 + P(3).*use_contrast_sides(:,2).^1 + P(4).*use_choices;
+    
+    for curr_roi = 1:n_rois
+        for curr_align = 1:2
+            for curr_t = 1:length(t)
+                
+                curr_act = roi_psth_mean(use_conditions,curr_t,curr_roi,curr_align);
+                params_fit = [ones(size(curr_act)),use_contrast_sides,use_choices]\curr_act;
+                activity_model_params(curr_roi,curr_t,curr_align,curr_timing,:) = ...
+                    params_fit;
+                
+            end
+        end
+        disp(curr_roi);
+    end
+end
+
+
+medfilt_t = 1;
+plot_param = 4;
+
+spacing = max(reshape(activity_model_params(:,:,:,:,plot_param),[],1));
+
+figure; 
+s1 = subplot(1,2,1);hold on;
+p1 = AP_stackplot(medfilt1(activity_model_params(:,:,1,1,plot_param)',medfilt_t),t,spacing,false,'k',{wf_roi.area});
+p2 = AP_stackplot(medfilt1(activity_model_params(:,:,1,2,plot_param)',medfilt_t),t,spacing,false,'r',{wf_roi.area});
+line([0,0],ylim,'color','k');
+line([0.5,0.5],ylim,'color','k');
+xlabel('Time from stim')
+ylabel(['Param ' num2str(plot_param)])
+legend([p1(1),p2(1)],{'Early move','Late move'});
+
+s2 = subplot(1,2,2);hold on;
+p1 = AP_stackplot(medfilt1(activity_model_params(:,:,2,1,plot_param)',medfilt_t),t,spacing,false,'k',{wf_roi.area});
+p2 = AP_stackplot(medfilt1(activity_model_params(:,:,2,2,plot_param)',medfilt_t),t,spacing,false,'r',{wf_roi.area});
+line([0,0],ylim,'color','k');
+xlabel('Time from move')
+ylabel(['Param ' num2str(plot_param)])
+title('Move aligned')
+legend([p1(1),p2(1)],{'Early move','Late move'});
+
+linkaxes([s1,s2]);
 
 
 
@@ -2488,7 +2637,7 @@ smWin = gw./sum(gw);
 
 t_baseline = t < 0;
 
-softnorm = 20;
+softnorm = 50;
 
 depth_psth = {batch_vars.depth_psth};
 mua_baseline = cellfun(@(x) nanmean(x(:,t_baseline,:,1,:),2),depth_psth,'uni',false);
@@ -2503,8 +2652,8 @@ AP_image_scroll(depth_psth_mean, ...
 line(repmat(find(t > 0,1),2,1),ylim,'color','r');
 
 % Plot all hit/miss conditions for one depth
-plot_str = 6;
-plot_success = 1;
+plot_str = 1;
+plot_success = -1;
 plot_color = colormap_BlueWhiteRed(6);
 plot_color = [[0,0,0];plot_color(5:-1:1,:);[0,0,0];plot_color(end-5:end,:)];
 
@@ -2545,7 +2694,7 @@ title('Late move')
 % Plot all depths for one condition
 plot_contrast = 1;
 plot_align = 1;
-plot_timing = 1;
+plot_timing = 2;
 
 figure; 
 
@@ -2642,40 +2791,142 @@ legend(cellfun(@num2str,num2cell(contrasts),'uni',false))
 
 
 % Fit contrast response
-contrast_gain = nan(n_depths,length(t),2,2);
-explained_var = nan(n_depths,length(t),2,2);
+
+% [depth,time,align,timing,param,success]
+activity_model_params = nan(n_depths,length(t),2,2,3,2);
+for curr_success = 1:2
+    switch curr_success
+        case 1
+            use_success = 1;
+        case 2
+            use_success = -1;
+    end
+    
+    for curr_timing = 1:2
+        
+        use_conditions = conditions(:,2) == -use_success*conditions(:,3) & conditions(:,4) == curr_timing;
+        contrast_sides = zeros(size(conditions,1),2);
+        contrast_sides(conditions(:,2) == -1,1) = conditions(conditions(:,2) == -1,1);
+        contrast_sides(conditions(:,2) == 1,2) = conditions(conditions(:,2) == 1,1);
+        use_contrast_sides = contrast_sides(use_conditions,:);
+        
+        %     activity_model = @(P) P(1) + P(2).*use_contrast_sides(:,1).^P(4) + P(3).*use_contrast_sides(:,2).^P(4);
+        activity_model = @(P) P(1) + P(2).*use_contrast_sides(:,1).^0.3 + P(3).*use_contrast_sides(:,2).^0.3;
+        
+        for curr_depth = 1:n_depths
+            for curr_align = 1:2
+                for curr_t = 1:length(t)
+                    
+                    curr_act = depth_psth_mean(use_conditions,curr_t,curr_depth,curr_align);
+                    model_sse = @(P) sum((curr_act-(activity_model(P))).^2);
+                    
+                    start_params = [0,0,1];
+                    
+                    options = struct;
+                    options.MaxFunEvals = 1000;
+                    options.Display = 'off';
+                    
+                    params_fit = fminsearch(model_sse,start_params,options);
+                    activity_model_params(curr_depth,curr_t,curr_align,curr_timing,:,curr_success) = ...
+                        params_fit;
+                    
+                    % Doesn't make sense since not cross-validated
+                    %                 sse_act = sum(curr_act.^2);
+                    %                 sse_residual = sum((curr_act-activity_model(params_fit)).^2);
+                    %                 explained_var(curr_depth,curr_t,curr_align,curr_timing) = ...
+                    %                     (sse_act - sse_residual)/sse_act;
+                    
+                end
+            end
+            disp(curr_depth);
+        end
+    end
+end
+
+medfilt_t = 1;
+spacing = 2;
+plot_param = 3;
+plot_align = 1;
+
+figure; 
+s1 = subplot(1,3,1);hold on;
+p1 = AP_stackplot(medfilt1(activity_model_params(:,:,plot_align,1,plot_param,1)',medfilt_t),t,spacing,false,'k');
+p2 = AP_stackplot(medfilt1(activity_model_params(:,:,plot_align,1,plot_param,2)',medfilt_t),t,spacing,false,'r');
+line([0,0],ylim,'color','k');
+line([0.2,0.2],ylim,'color','k');
+xlabel('Time from align')
+ylabel(['Param ' num2str(plot_param)])
+title('Early move')
+legend([p1(1),p2(1)],{'Early hit','Early miss'});
+
+s2 = subplot(1,3,2);hold on;
+p1 = AP_stackplot(medfilt1(activity_model_params(:,:,plot_align,2,plot_param,1)',medfilt_t),t,spacing,false,'k');
+p2 = AP_stackplot(medfilt1(activity_model_params(:,:,plot_align,2,plot_param,2)',medfilt_t),t,spacing,false,'r');
+line([0,0],ylim,'color','k');
+line([0.5,0.5],ylim,'color','k');
+line([0.7,0.7],ylim,'color','k');
+xlabel('Time from align')
+ylabel(['Param ' num2str(plot_param)])
+title('Late move')
+legend([p1(1),p2(1)],{'Late hit','Late miss'});
+
+s3 = subplot(1,3,3);hold on;
+p1 = AP_stackplot(medfilt1(activity_model_params(:,:,plot_align,1,plot_param,1)',medfilt_t),t,spacing,false,'b');
+p2 = AP_stackplot(medfilt1(activity_model_params(:,:,plot_align,2,plot_param,1)',medfilt_t),t,spacing,false,'m');
+line([0,0],ylim,'color','k');
+line([0.2,0.2],ylim,'color','k');
+line([0.5,0.5],ylim,'color','k');
+line([0.7,0.7],ylim,'color','k');
+xlabel('Time from align')
+ylabel(['Param ' num2str(plot_param)])
+title('Stim-aligned')
+legend([p1(1),p2(1)],{'Early move hit','Late move hit'});
+
+linkaxes([s1,s2,s3]);
+
+
+% Fit contrast response plus choice
+contrast_exp = 0.3;
+
+% [depth,time,align,timing,param,success]
+activity_model_params = nan(n_depths,length(t),2,2,4);
+
 for curr_timing = 1:2
     
-    use_conditions = conditions(:,2) == -plot_success*conditions(:,3) & conditions(:,4) == curr_timing;
+    use_conditions = conditions(:,4) == curr_timing;
     contrast_sides = zeros(size(conditions,1),2);
     contrast_sides(conditions(:,2) == -1,1) = conditions(conditions(:,2) == -1,1);
     contrast_sides(conditions(:,2) == 1,2) = conditions(conditions(:,2) == 1,1);
+    
+    use_choices = conditions(use_conditions,3);
     use_contrast_sides = contrast_sides(use_conditions,:);
     
-%     activity_model = @(P) P(1) + P(2).*use_contrast_sides(:,1).^P(4) + P(3).*use_contrast_sides(:,2).^P(4);    
-    activity_model = @(P) P(1) + P(2).*use_contrast_sides(:,1).^0.3 + P(3).*use_contrast_sides(:,2).^0.3;    
+    activity_model = @(P) P(1) + P(2).*use_contrast_sides(:,1).^contrast_exp + ...
+        P(3).*use_contrast_sides(:,2).^contrast_exp + P(4).*use_choices;
     
     for curr_depth = 1:n_depths
         for curr_align = 1:2
             for curr_t = 1:length(t)
                 
                 curr_act = depth_psth_mean(use_conditions,curr_t,curr_depth,curr_align);
-                model_sse = @(P) sum((curr_act-(activity_model(P))).^2);
                 
-                start_params = [0,0,1,0.3];
+                % to fit non-linear
+                %                 model_sse = @(P) sum((curr_act-(activity_model(P))).^2);
+                %
+                %                 start_params = [0,0,1,0];
+                %
+                %                 options = struct;
+                %                 options.MaxFunEvals = 1000;
+                %                 options.Display = 'off';
+                %
+                %                 params_fit = fminsearch(model_sse,start_params,options);
+                %                 activity_model_params(curr_roi,curr_t,curr_align,curr_timing,:) = ...
+                %                     params_fit;
                 
-                options = struct;
-                options.MaxFunEvals = 1000;
-                options.Display = 'off';
-                
-                params_fit = fminsearch(model_sse,start_params,options);
-                contrast_gain(curr_depth,curr_t,curr_align,curr_timing) = ...
-                    params_fit(3);
-                
-                sse_act = sum(curr_act.^2);
-                sse_residual = sum((curr_act-activity_model(params_fit)).^2);
-                explained_var(curr_depth,curr_t,curr_align,curr_timing) = ...
-                    (sse_act - sse_residual)/sse_act;
+                % to fit linear
+                params_fit = [ones(size(curr_act)),use_contrast_sides.^contrast_exp,use_choices]\curr_act;
+                activity_model_params(curr_depth,curr_t,curr_align,curr_timing,:) = ...
+                    params_fit;
                 
             end
         end
@@ -2683,42 +2934,34 @@ for curr_timing = 1:2
     end
 end
 
+
 medfilt_t = 1;
-spacing = 1.5;
+plot_param = 4;
+
+spacing = max(abs(reshape(activity_model_params(:,:,:,:,plot_param),[],1)));
 
 figure; 
-subplot(1,3,1);hold on;
-p1 = AP_stackplot(medfilt1(contrast_gain(:,:,1,1)',medfilt_t),t,spacing,false,'k');
-p2 = AP_stackplot(medfilt1(contrast_gain(:,:,2,1)',medfilt_t),t+0.2,spacing,false,'r');
-line([0,0],ylim,'color','k');
-line([0.2,0.2],ylim,'color','k');
-xlabel('Time from stim onset')
-ylabel('Contrast weight')
-title('Early move')
-legend([p1(1),p2(1)],{'Stim-aligned','Move-aligned'});
-
-subplot(1,3,2);hold on;
-p1 = AP_stackplot(medfilt1(contrast_gain(:,:,1,2)',medfilt_t),t,spacing,false,'k');
-p2 = AP_stackplot(medfilt1(contrast_gain(:,:,2,2)',medfilt_t),t+0.7,spacing,false,'r');
+s1 = subplot(1,2,1);hold on;
+p1 = AP_stackplot(medfilt1(activity_model_params(:,:,1,1,plot_param)',medfilt_t),t,spacing,false,'k',1:6);
+p2 = AP_stackplot(medfilt1(activity_model_params(:,:,1,2,plot_param)',medfilt_t),t,spacing,false,'r',1:6);
 line([0,0],ylim,'color','k');
 line([0.5,0.5],ylim,'color','k');
-line([0.7,0.7],ylim,'color','k');
-xlabel('Time from stim onset')
-ylabel('Contrast weight')
-title('Late move')
-legend([p1(1),p2(1)],{'Stim-aligned','Move-aligned'});
-
-subplot(1,3,3);hold on;
-p1 = AP_stackplot(medfilt1(contrast_gain(:,:,1,1)',medfilt_t),t,spacing,false,'k');
-p2 = AP_stackplot(medfilt1(contrast_gain(:,:,1,2)',medfilt_t),t,spacing,false,'r');
-line([0,0],ylim,'color','k');
-line([0.2,0.2],ylim,'color','k');
-line([0.5,0.5],ylim,'color','k');
-line([0.7,0.7],ylim,'color','k');
-xlabel('Time from stim onset')
-ylabel('Contrast weight')
-title('Stim-aligned')
+xlabel('Time from align')
+ylabel(['Param ' num2str(plot_param)])
+title('Stim aligned')
 legend([p1(1),p2(1)],{'Early move','Late move'});
+
+s2 = subplot(1,2,2);hold on;
+p1 = AP_stackplot(medfilt1(activity_model_params(:,:,2,1,plot_param)',medfilt_t),t,spacing,false,'k',1:6);
+p2 = AP_stackplot(medfilt1(activity_model_params(:,:,2,2,plot_param)',medfilt_t),t,spacing,false,'r',1:6);
+line([0,0],ylim,'color','k');
+xlabel('Time from align')
+ylabel(['Param ' num2str(plot_param)])
+title('Move aligned')
+legend([p1(1),p2(1)],{'Early move','Late move'});
+
+linkaxes([s1,s2]);
+
 
 
 %% Load and process striatal MUA during passive
@@ -2981,7 +3224,7 @@ n_conditions = length(conditions);
 
 t_baseline = t < 0;
 
-softnorm = 1;
+softnorm = 20;
 
 mua_stim_earlymove_hit_norm = cellfun(@(x) ...
     bsxfun(@rdivide,x,nanmean(x(:,t_baseline,:,:),2)+softnorm),{batch_vars(:).mua_stim_earlymove_hit},'uni',false);
@@ -3274,6 +3517,265 @@ legend([p1(1),p3(1),p4(1)],{'Independent','Stim','Movement'})
 xlabel('Time from stim onset (s)');
 ylabel('MUA depth');
 title('Late move predicted');
+
+%% Load and process cortex-predicted striatal MUA during choiceworld (NEW)
+
+data_path = ['C:\Users\Andrew\OneDrive for Business\Documents\CarandiniHarrisLab\analysis\wf_ephys_choiceworld\choiceworld'];
+mua_fn = [data_path filesep 'mua_choiceworld_predicted'];
+load(mua_fn);
+
+n_depths = 6;
+
+contrasts = [0,0.06,0.125,0.25,0.5,1];
+sides = [-1,1];
+choices = [-1,1];
+timings = [1,2];
+conditions = combvec(contrasts,sides,choices,timings)';
+
+sample_rate = 35.2*2;
+interval_surround = [-0.5,3];
+t = interval_surround(1):1/sample_rate:interval_surround(2);
+
+% Normalize, smooth, and combine PSTH
+% (PSTH: [condition,time,depth,align,day])
+t_baseline = t < 0;
+softnorm = 500;
+
+depth_psth = {batch_vars.depth_psth};
+mua_baseline = cellfun(@(x) nanmean(x(:,t_baseline,:,1,:),2),depth_psth,'uni',false);
+depth_psth_norm = cellfun(@(mua,baseline) ...
+    bsxfun(@rdivide,mua,baseline + softnorm),depth_psth,mua_baseline,'uni',false);
+depth_psth_mean = nanmean(cell2mat(permute(cellfun(@(x) ...
+    nanmean(x,5),depth_psth_norm,'uni',false),[1,3,4,5,2])),5);
+
+predicted_depth_psth = {batch_vars.predicted_depth_psth};
+predicted_mua_baseline = cellfun(@(x) nanmean(x(:,t_baseline,:,1,:),2),predicted_depth_psth,'uni',false);
+predicted_depth_psth_norm = cellfun(@(mua,baseline) ...
+    bsxfun(@rdivide,mua,baseline + softnorm),predicted_depth_psth,predicted_mua_baseline,'uni',false);
+predicted_depth_psth_mean = nanmean(cell2mat(permute(cellfun(@(x) ...
+    nanmean(x,5),predicted_depth_psth_norm,'uni',false),[1,3,4,5,2])),5);
+
+% Smooth the real psth to match the inherently smoothed predicted
+% (by finding the best match)
+start_params = [9,3];
+options = struct;
+options.MaxFunEvals = 1000;
+options.Display = 'off';
+
+model_sse = @(P) ...
+    sum((predicted_depth_psth_mean(:) - ...
+    reshape(convn(depth_psth_mean, ...
+    (gausswin(P(1),P(2))'./sum(gausswin(P(1),P(2))')),'same'),[],1)).^2);
+
+warning off
+smooth_params = round(fminsearch(model_sse,start_params,options));
+warning on
+
+gw = gausswin(smooth_params(1),smooth_params(2))';
+smWin = gw./sum(gw);
+
+depth_psth_mean = convn(depth_psth_mean,smWin,'same');
+
+% Plot all hit/miss conditions for one depth
+plot_str = 3;
+plot_success = -1;
+plot_align = 2;
+plot_timing = 1;
+plot_color = colormap_BlueWhiteRed(6);
+plot_color = [[0,0,0];plot_color(5:-1:1,:);[0,0,0];plot_color(end-5:end,:)];
+
+figure; 
+p1 = subplot(1,3,1); hold on;
+set(gca,'ColorOrder',plot_color);
+plot_conditions = conditions(:,2) == -plot_success*conditions(:,3) & conditions(:,4) == plot_timing;
+plot(t,depth_psth_mean(plot_conditions,:,plot_str,plot_align)','linewidth',2);
+line([0,0],ylim,'color','k');
+ylabel(['Str ' num2str(plot_str)]);
+xlabel('Time from stim')
+title('Real')
+
+p2 = subplot(1,3,2); hold on;
+set(gca,'ColorOrder',plot_color);
+plot_conditions = conditions(:,2) == -plot_success*conditions(:,3) & conditions(:,4) == plot_timing;
+plot(t,predicted_depth_psth_mean(plot_conditions,:,plot_str,plot_align)','linewidth',2);
+line([0,0],ylim,'color','k');
+ylabel(['Str ' num2str(plot_str)]);
+xlabel('Time from stim')
+title('Predicted')
+
+p3 = subplot(1,3,3); hold on;
+set(gca,'ColorOrder',plot_color);
+plot_conditions = conditions(:,2) == -plot_success*conditions(:,3) & conditions(:,4) == plot_timing;
+plot(t,depth_psth_mean(plot_conditions,:,plot_str,plot_align)' - ...
+    predicted_depth_psth_mean(plot_conditions,:,plot_str,plot_align)','linewidth',2);
+line([0,0],ylim,'color','k');
+ylabel(['Str ' num2str(plot_str)]);
+xlabel('Time from stim')
+title('Real - Predicted')
+
+linkaxes([p1,p2,p3],'x');
+linkaxes([p1,p2],'y');
+
+
+% % Fit contrast response
+% % [depth,time,align,timing,param,success]
+% activity_model_params = nan(n_depths,length(t),2,2,3,2);
+% predicted_activity_model_params = nan(n_depths,length(t),2,2,3,2);
+% for curr_success = 1:2
+%     switch curr_success
+%         case 1
+%             use_success = 1;
+%         case 2
+%             use_success = -1;
+%     end
+%     
+%     for curr_timing = 1:2
+%         
+%         use_conditions = conditions(:,2) == -use_success*conditions(:,3) & conditions(:,4) == curr_timing;
+%         contrast_sides = zeros(size(conditions,1),2);
+%         contrast_sides(conditions(:,2) == -1,1) = conditions(conditions(:,2) == -1,1);
+%         contrast_sides(conditions(:,2) == 1,2) = conditions(conditions(:,2) == 1,1);
+%         use_contrast_sides = contrast_sides(use_conditions,:);
+%         
+%         %     activity_model = @(P) P(1) + P(2).*use_contrast_sides(:,1).^P(4) + P(3).*use_contrast_sides(:,2).^P(4);
+%         activity_model = @(P) P(1) + P(2).*use_contrast_sides(:,1).^0.3 + P(3).*use_contrast_sides(:,2).^0.3;
+%         
+%         for curr_depth = 1:n_depths
+%             for curr_align = 1:2
+%                 for curr_t = 1:length(t)
+%                     
+%                     % Real
+%                     curr_act = depth_psth_mean(use_conditions,curr_t,curr_depth,curr_align);
+%                     model_sse = @(P) sum((curr_act-(activity_model(P))).^2);
+%                     
+%                     start_params = [0,1,0.3];
+%                     
+%                     options = struct;
+%                     options.MaxFunEvals = 1000;
+%                     options.Display = 'off';
+%                     
+%                     params_fit = fminsearch(model_sse,start_params,options);
+%                     activity_model_params(curr_depth,curr_t,curr_align,curr_timing,:,curr_success) = ...
+%                         params_fit;
+%                     
+%                     % Predicted
+%                     curr_act = predicted_depth_psth_mean(use_conditions,curr_t,curr_depth,curr_align);
+%                     model_sse = @(P) sum((curr_act-(activity_model(P))).^2);
+%                     
+%                     start_params = [0,1,0.3];
+%                     
+%                     options = struct;
+%                     options.MaxFunEvals = 1000;
+%                     options.Display = 'off';
+%                     
+%                     params_fit = fminsearch(model_sse,start_params,options);
+%                     predicted_activity_model_params(curr_depth,curr_t,curr_align,curr_timing,:,curr_success) = ...
+%                         params_fit;
+%                     
+%                 end
+%             end
+%             disp(curr_depth);
+%         end
+%     end
+% end
+% 
+% spacing = 0.3;
+% plot_param = 1;
+% 
+% figure; 
+% s1 = subplot(1,2,1);hold on;
+% p1 = AP_stackplot(activity_model_params(:,:,1,1,plot_param,1)',t,spacing,false,'k');
+% p2 = AP_stackplot(predicted_activity_model_params(:,:,1,1,plot_param,1)',t,spacing,false,'r');
+% p3 = AP_stackplot(activity_model_params(:,:,1,1,plot_param,2)',t,spacing,false,'b');
+% p4 = AP_stackplot(predicted_activity_model_params(:,:,1,1,plot_param,2)',t,spacing,false,'m');
+% line([0,0],ylim,'color','k');
+% line([0.2,0.2],ylim,'color','k');
+% xlabel('Time from stim onset')
+% ylabel(['Param ' num2str(plot_param)])
+% title('Early move')
+% legend([p1(1),p2(1),p3(1),p4(1)],{'Real hit','Predicted hit','Real miss','Predicted miss'});
+% 
+% s2 = subplot(1,2,2);hold on;
+% p1 = AP_stackplot(activity_model_params(:,:,1,2,plot_param,1)',t,spacing,false,'k');
+% p2 = AP_stackplot(predicted_activity_model_params(:,:,1,2,plot_param,1)',t,spacing,false,'r');
+% p3 = AP_stackplot(activity_model_params(:,:,1,2,plot_param,2)',t,spacing,false,'b');
+% p4 = AP_stackplot(predicted_activity_model_params(:,:,1,2,plot_param,2)',t,spacing,false,'m');
+% line([0,0],ylim,'color','k');
+% line([0.5,0.5],ylim,'color','k');
+% line([0.7,0.7],ylim,'color','k');
+% xlabel('Time from stim onset')
+% ylabel(['Param ' num2str(plot_param)])
+% title('Late move')
+% legend([p1(1),p2(1),p3(1),p4(1)],{'Real hit','Predicted hit','Real miss','Predicted miss'});
+% 
+% linkaxes([s1,s2,s3,s4]);
+
+
+% Fit contrast response plus choice
+contrast_exp = 0.3;
+
+% [depth,time,align,timing,param,success]
+activity_model_params = nan(n_depths,length(t),2,2,4);
+predicted_activity_model_params = nan(n_depths,length(t),2,2,4);
+
+for curr_timing = 1:2
+    
+    use_conditions = conditions(:,4) == curr_timing;
+    contrast_sides = zeros(size(conditions,1),2);
+    contrast_sides(conditions(:,2) == -1,1) = conditions(conditions(:,2) == -1,1);
+    contrast_sides(conditions(:,2) == 1,2) = conditions(conditions(:,2) == 1,1);
+    
+    use_choices = conditions(use_conditions,3);
+    use_contrast_sides = contrast_sides(use_conditions,:);
+    
+    for curr_depth = 1:n_depths
+        for curr_align = 1:2
+            for curr_t = 1:length(t)
+                
+                curr_act = depth_psth_mean(use_conditions,curr_t,curr_depth,curr_align);
+                params_fit = [ones(size(curr_act)),use_contrast_sides.^contrast_exp,use_choices]\curr_act;
+                activity_model_params(curr_depth,curr_t,curr_align,curr_timing,:) = ...
+                    params_fit;
+                
+                curr_act = predicted_depth_psth_mean(use_conditions,curr_t,curr_depth,curr_align);
+                params_fit = [ones(size(curr_act)),use_contrast_sides.^contrast_exp,use_choices]\curr_act;
+                predicted_activity_model_params(curr_depth,curr_t,curr_align,curr_timing,:) = ...
+                    params_fit;
+                
+            end
+        end
+        disp(curr_depth);
+    end
+end
+
+plot_param = 3;
+spacing = max(abs(reshape(activity_model_params(:,:,:,:,plot_param),[],1)))*1.5;
+
+figure; 
+s1 = subplot(1,2,1);hold on;
+p1 = AP_stackplot(activity_model_params(:,:,1,1,plot_param)',t,spacing,false,'k');
+p2 = AP_stackplot(predicted_activity_model_params(:,:,1,1,plot_param)',t,spacing,false,'r');
+p3 = AP_stackplot(activity_model_params(:,:,1,2,plot_param)',t,spacing,false,'b');
+p4 = AP_stackplot(predicted_activity_model_params(:,:,1,2,plot_param)',t,spacing,false,'m');
+line([0,0],ylim,'color','k');
+line([0.5,0.5],ylim,'color','k');
+xlabel('Time from stim')
+ylabel(['Param ' num2str(plot_param)])
+legend([p1(1),p2(1),p3(1),p4(1)],{'Early real','Early predicted','Late real','Late predicted'});
+
+s2 = subplot(1,2,2);hold on;
+p1 = AP_stackplot(activity_model_params(:,:,2,1,plot_param)',t,spacing,false,'k');
+p2 = AP_stackplot(predicted_activity_model_params(:,:,2,1,plot_param)',t,spacing,false,'r');
+p3 = AP_stackplot(activity_model_params(:,:,2,2,plot_param)',t,spacing,false,'b');
+p4 = AP_stackplot(predicted_activity_model_params(:,:,2,2,plot_param)',t,spacing,false,'m');
+line([0,0],ylim,'color','k');
+xlabel('Time from move')
+ylabel(['Param ' num2str(plot_param)])
+legend([p1(1),p2(1),p3(1),p4(1)],{'Early real','Early predicted','Late real','Late predicted'});
+
+linkaxes([s1,s2]);
+
+
 
 %% Load and process MUA-fluor correlations
 

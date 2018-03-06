@@ -1276,6 +1276,7 @@ save([save_path filesep 'mua_stim_choiceworld_pred'],'batch_vars');
 
 %% Batch cortex > striatum prediction by condition and depth (UPDATED)
 % still uses raw output, but now estimates lambda and uses trial ID
+% DOING NOW: adding in regression
 
 animals = {'AP024','AP025','AP026','AP027','AP028','AP029'};
 protocol = 'vanillaChoiceworld';
