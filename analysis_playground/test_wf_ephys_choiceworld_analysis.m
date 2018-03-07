@@ -2158,7 +2158,6 @@ for curr_timing = 1:2
                 
             end
         end
-        disp(curr_roi);
     end
 end
 
@@ -2166,28 +2165,82 @@ end
 medfilt_t = 1;
 plot_param = 4;
 
-spacing = max(reshape(activity_model_params(:,:,:,:,plot_param),[],1));
-
 figure; 
-s1 = subplot(1,2,1);hold on;
-p1 = AP_stackplot(medfilt1(activity_model_params(:,:,1,1,plot_param)',medfilt_t),t,spacing,false,'k',{wf_roi.area});
-p2 = AP_stackplot(medfilt1(activity_model_params(:,:,1,2,plot_param)',medfilt_t),t,spacing,false,'r',{wf_roi.area});
+
+% L ROIs
+spacing = max(reshape(activity_model_params(1:size(wf_roi,1),:,:,:,plot_param),[],1));
+
+s1 = subplot(2,2,1);hold on;
+p1 = AP_stackplot(medfilt1(activity_model_params(1:size(wf_roi,1),:,1,1,plot_param)',medfilt_t),t,spacing,false,'k',{wf_roi(:,1).area});
+p2 = AP_stackplot(medfilt1(activity_model_params(1:size(wf_roi,1),:,1,2,plot_param)',medfilt_t),t,spacing,false,'r',{wf_roi(:,1).area});
 line([0,0],ylim,'color','k');
 line([0.5,0.5],ylim,'color','k');
 xlabel('Time from stim')
 ylabel(['Param ' num2str(plot_param)])
 legend([p1(1),p2(1)],{'Early move','Late move'});
 
-s2 = subplot(1,2,2);hold on;
-p1 = AP_stackplot(medfilt1(activity_model_params(:,:,2,1,plot_param)',medfilt_t),t,spacing,false,'k',{wf_roi.area});
-p2 = AP_stackplot(medfilt1(activity_model_params(:,:,2,2,plot_param)',medfilt_t),t,spacing,false,'r',{wf_roi.area});
+s2 = subplot(2,2,2);hold on;
+p1 = AP_stackplot(medfilt1(activity_model_params(1:size(wf_roi,1),:,2,1,plot_param)',medfilt_t),t,spacing,false,'k',{wf_roi(:,1).area});
+p2 = AP_stackplot(medfilt1(activity_model_params(1:size(wf_roi,1),:,2,2,plot_param)',medfilt_t),t,spacing,false,'r',{wf_roi(:,1).area});
 line([0,0],ylim,'color','k');
 xlabel('Time from move')
 ylabel(['Param ' num2str(plot_param)])
-title('Move aligned')
 legend([p1(1),p2(1)],{'Early move','Late move'});
 
+% dROIs
+spacing = max(reshape(activity_model_params(size(wf_roi,1)+1:end,:,:,:,plot_param),[],1));
+
+s3 = subplot(2,2,3);hold on;
+p1 = AP_stackplot(medfilt1(activity_model_params(size(wf_roi,1)+1:end,:,1,1,plot_param)',medfilt_t),t,spacing,false,'k',{wf_roi(:,2).area});
+p2 = AP_stackplot(medfilt1(activity_model_params(size(wf_roi,1)+1:end,:,1,2,plot_param)',medfilt_t),t,spacing,false,'r',{wf_roi(:,2).area});
+line([0,0],ylim,'color','k');
+line([0.5,0.5],ylim,'color','k');
+xlabel('Time from stim')
+ylabel(['Param ' num2str(plot_param)])
+legend([p1(1),p2(1)],{'Early move','Late move'});
+
+s4 = subplot(2,2,4);hold on;
+p1 = AP_stackplot(medfilt1(activity_model_params(size(wf_roi,1)+1:end,:,2,1,plot_param)',medfilt_t),t,spacing,false,'k',{wf_roi(:,2).area});
+p2 = AP_stackplot(medfilt1(activity_model_params(size(wf_roi,1)+1:end,:,2,2,plot_param)',medfilt_t),t,spacing,false,'r',{wf_roi(:,2).area});
+line([0,0],ylim,'color','k');
+xlabel('Time from move')
+ylabel(['Param ' num2str(plot_param)])
+legend([p1(1),p2(1)],{'Early move','Late move'});
+
+linkaxes([s1,s2,s3,s4],'x');
+
+
+%%% Params from trial activity within day
+
+% [depth,time,align,timing,param]
+activity_model_params = {batch_vars.activity_model_params};
+activity_model_params_mean = nanmean(cell2mat(permute(cellfun(@(x) ...
+    nanmean(x,6),activity_model_params,'uni',false),[1,3,4,5,6,2])),6);
+
+plot_param = 1;
+
+spacing = max(abs(reshape(activity_model_params_mean(:,:,:,:,plot_param),[],1)))*1.5;
+
+figure; 
+s1 = subplot(1,2,1);hold on;
+p1 = AP_stackplot(activity_model_params_mean(:,:,1,1,plot_param)',t,spacing,false,'k',{wf_roi.area});
+p2 = AP_stackplot(activity_model_params_mean(:,:,1,2,plot_param)',t,spacing,false,'b',{wf_roi.area});
+line([0,0],ylim,'color','k');
+line([0.5,0.5],ylim,'color','k');
+xlabel('Time from stim')
+ylabel(['Param ' num2str(plot_param)])
+legend([p1(1),p2(1)],{'Early','Late'});
+
+s2 = subplot(1,2,2);hold on;
+p1 = AP_stackplot(activity_model_params_mean(:,:,2,1,plot_param)',t,spacing,false,'k',{wf_roi.area});
+p2 = AP_stackplot(activity_model_params_mean(:,:,2,2,plot_param)',t,spacing,false,'b',{wf_roi.area});
+line([0,0],ylim,'color','k');
+xlabel('Time from move')
+ylabel(['Param ' num2str(plot_param)])
+legend([p1(1),p2(1)],{'Early','Late'});
+
 linkaxes([s1,s2]);
+
 
 
 
@@ -2790,99 +2843,99 @@ title(['Str ' num2str(plot_str), ',Stim R']);
 legend(cellfun(@num2str,num2cell(contrasts),'uni',false))
 
 
-% Fit contrast response
-
-% [depth,time,align,timing,param,success]
-activity_model_params = nan(n_depths,length(t),2,2,3,2);
-for curr_success = 1:2
-    switch curr_success
-        case 1
-            use_success = 1;
-        case 2
-            use_success = -1;
-    end
-    
-    for curr_timing = 1:2
-        
-        use_conditions = conditions(:,2) == -use_success*conditions(:,3) & conditions(:,4) == curr_timing;
-        contrast_sides = zeros(size(conditions,1),2);
-        contrast_sides(conditions(:,2) == -1,1) = conditions(conditions(:,2) == -1,1);
-        contrast_sides(conditions(:,2) == 1,2) = conditions(conditions(:,2) == 1,1);
-        use_contrast_sides = contrast_sides(use_conditions,:);
-        
-        %     activity_model = @(P) P(1) + P(2).*use_contrast_sides(:,1).^P(4) + P(3).*use_contrast_sides(:,2).^P(4);
-        activity_model = @(P) P(1) + P(2).*use_contrast_sides(:,1).^0.3 + P(3).*use_contrast_sides(:,2).^0.3;
-        
-        for curr_depth = 1:n_depths
-            for curr_align = 1:2
-                for curr_t = 1:length(t)
-                    
-                    curr_act = depth_psth_mean(use_conditions,curr_t,curr_depth,curr_align);
-                    model_sse = @(P) sum((curr_act-(activity_model(P))).^2);
-                    
-                    start_params = [0,0,1];
-                    
-                    options = struct;
-                    options.MaxFunEvals = 1000;
-                    options.Display = 'off';
-                    
-                    params_fit = fminsearch(model_sse,start_params,options);
-                    activity_model_params(curr_depth,curr_t,curr_align,curr_timing,:,curr_success) = ...
-                        params_fit;
-                    
-                    % Doesn't make sense since not cross-validated
-                    %                 sse_act = sum(curr_act.^2);
-                    %                 sse_residual = sum((curr_act-activity_model(params_fit)).^2);
-                    %                 explained_var(curr_depth,curr_t,curr_align,curr_timing) = ...
-                    %                     (sse_act - sse_residual)/sse_act;
-                    
-                end
-            end
-            disp(curr_depth);
-        end
-    end
-end
-
-medfilt_t = 1;
-spacing = 2;
-plot_param = 3;
-plot_align = 1;
-
-figure; 
-s1 = subplot(1,3,1);hold on;
-p1 = AP_stackplot(medfilt1(activity_model_params(:,:,plot_align,1,plot_param,1)',medfilt_t),t,spacing,false,'k');
-p2 = AP_stackplot(medfilt1(activity_model_params(:,:,plot_align,1,plot_param,2)',medfilt_t),t,spacing,false,'r');
-line([0,0],ylim,'color','k');
-line([0.2,0.2],ylim,'color','k');
-xlabel('Time from align')
-ylabel(['Param ' num2str(plot_param)])
-title('Early move')
-legend([p1(1),p2(1)],{'Early hit','Early miss'});
-
-s2 = subplot(1,3,2);hold on;
-p1 = AP_stackplot(medfilt1(activity_model_params(:,:,plot_align,2,plot_param,1)',medfilt_t),t,spacing,false,'k');
-p2 = AP_stackplot(medfilt1(activity_model_params(:,:,plot_align,2,plot_param,2)',medfilt_t),t,spacing,false,'r');
-line([0,0],ylim,'color','k');
-line([0.5,0.5],ylim,'color','k');
-line([0.7,0.7],ylim,'color','k');
-xlabel('Time from align')
-ylabel(['Param ' num2str(plot_param)])
-title('Late move')
-legend([p1(1),p2(1)],{'Late hit','Late miss'});
-
-s3 = subplot(1,3,3);hold on;
-p1 = AP_stackplot(medfilt1(activity_model_params(:,:,plot_align,1,plot_param,1)',medfilt_t),t,spacing,false,'b');
-p2 = AP_stackplot(medfilt1(activity_model_params(:,:,plot_align,2,plot_param,1)',medfilt_t),t,spacing,false,'m');
-line([0,0],ylim,'color','k');
-line([0.2,0.2],ylim,'color','k');
-line([0.5,0.5],ylim,'color','k');
-line([0.7,0.7],ylim,'color','k');
-xlabel('Time from align')
-ylabel(['Param ' num2str(plot_param)])
-title('Stim-aligned')
-legend([p1(1),p2(1)],{'Early move hit','Late move hit'});
-
-linkaxes([s1,s2,s3]);
+% % Fit contrast response
+% 
+% % [depth,time,align,timing,param,success]
+% activity_model_params = nan(n_depths,length(t),2,2,3,2);
+% for curr_success = 1:2
+%     switch curr_success
+%         case 1
+%             use_success = 1;
+%         case 2
+%             use_success = -1;
+%     end
+%     
+%     for curr_timing = 1:2
+%         
+%         use_conditions = conditions(:,2) == -use_success*conditions(:,3) & conditions(:,4) == curr_timing;
+%         contrast_sides = zeros(size(conditions,1),2);
+%         contrast_sides(conditions(:,2) == -1,1) = conditions(conditions(:,2) == -1,1);
+%         contrast_sides(conditions(:,2) == 1,2) = conditions(conditions(:,2) == 1,1);
+%         use_contrast_sides = contrast_sides(use_conditions,:);
+%         
+%         %     activity_model = @(P) P(1) + P(2).*use_contrast_sides(:,1).^P(4) + P(3).*use_contrast_sides(:,2).^P(4);
+%         activity_model = @(P) P(1) + P(2).*use_contrast_sides(:,1).^0.3 + P(3).*use_contrast_sides(:,2).^0.3;
+%         
+%         for curr_depth = 1:n_depths
+%             for curr_align = 1:2
+%                 for curr_t = 1:length(t)
+%                     
+%                     curr_act = depth_psth_mean(use_conditions,curr_t,curr_depth,curr_align);
+%                     model_sse = @(P) sum((curr_act-(activity_model(P))).^2);
+%                     
+%                     start_params = [0,0,1];
+%                     
+%                     options = struct;
+%                     options.MaxFunEvals = 1000;
+%                     options.Display = 'off';
+%                     
+%                     params_fit = fminsearch(model_sse,start_params,options);
+%                     activity_model_params(curr_depth,curr_t,curr_align,curr_timing,:,curr_success) = ...
+%                         params_fit;
+%                     
+%                     % Doesn't make sense since not cross-validated
+%                     %                 sse_act = sum(curr_act.^2);
+%                     %                 sse_residual = sum((curr_act-activity_model(params_fit)).^2);
+%                     %                 explained_var(curr_depth,curr_t,curr_align,curr_timing) = ...
+%                     %                     (sse_act - sse_residual)/sse_act;
+%                     
+%                 end
+%             end
+%             disp(curr_depth);
+%         end
+%     end
+% end
+% 
+% medfilt_t = 1;
+% spacing = 2;
+% plot_param = 3;
+% plot_align = 1;
+% 
+% figure; 
+% s1 = subplot(1,3,1);hold on;
+% p1 = AP_stackplot(medfilt1(activity_model_params(:,:,plot_align,1,plot_param,1)',medfilt_t),t,spacing,false,'k');
+% p2 = AP_stackplot(medfilt1(activity_model_params(:,:,plot_align,1,plot_param,2)',medfilt_t),t,spacing,false,'r');
+% line([0,0],ylim,'color','k');
+% line([0.2,0.2],ylim,'color','k');
+% xlabel('Time from align')
+% ylabel(['Param ' num2str(plot_param)])
+% title('Early move')
+% legend([p1(1),p2(1)],{'Early hit','Early miss'});
+% 
+% s2 = subplot(1,3,2);hold on;
+% p1 = AP_stackplot(medfilt1(activity_model_params(:,:,plot_align,2,plot_param,1)',medfilt_t),t,spacing,false,'k');
+% p2 = AP_stackplot(medfilt1(activity_model_params(:,:,plot_align,2,plot_param,2)',medfilt_t),t,spacing,false,'r');
+% line([0,0],ylim,'color','k');
+% line([0.5,0.5],ylim,'color','k');
+% line([0.7,0.7],ylim,'color','k');
+% xlabel('Time from align')
+% ylabel(['Param ' num2str(plot_param)])
+% title('Late move')
+% legend([p1(1),p2(1)],{'Late hit','Late miss'});
+% 
+% s3 = subplot(1,3,3);hold on;
+% p1 = AP_stackplot(medfilt1(activity_model_params(:,:,plot_align,1,plot_param,1)',medfilt_t),t,spacing,false,'b');
+% p2 = AP_stackplot(medfilt1(activity_model_params(:,:,plot_align,2,plot_param,1)',medfilt_t),t,spacing,false,'m');
+% line([0,0],ylim,'color','k');
+% line([0.2,0.2],ylim,'color','k');
+% line([0.5,0.5],ylim,'color','k');
+% line([0.7,0.7],ylim,'color','k');
+% xlabel('Time from align')
+% ylabel(['Param ' num2str(plot_param)])
+% title('Stim-aligned')
+% legend([p1(1),p2(1)],{'Early move hit','Late move hit'});
+% 
+% linkaxes([s1,s2,s3]);
 
 
 % Fit contrast response plus choice
@@ -2930,13 +2983,13 @@ for curr_timing = 1:2
                 
             end
         end
-        disp(curr_depth);
     end
 end
 
 
 medfilt_t = 1;
-plot_param = 4;
+
+for plot_param = 1:size(activity_model_params,5);
 
 spacing = max(abs(reshape(activity_model_params(:,:,:,:,plot_param),[],1)));
 
@@ -2961,6 +3014,8 @@ title('Move aligned')
 legend([p1(1),p2(1)],{'Early move','Late move'});
 
 linkaxes([s1,s2]);
+
+end
 
 
 
@@ -3743,11 +3798,10 @@ for curr_timing = 1:2
                 
             end
         end
-        disp(curr_depth);
     end
 end
 
-plot_param = 2;
+plot_param = 4;
 spacing = max(abs(reshape(activity_model_params(:,:,:,:,plot_param),[],1)))*1.5;
 
 figure; 
@@ -3771,6 +3825,72 @@ line([0,0],ylim,'color','k');
 xlabel('Time from move')
 ylabel(['Param ' num2str(plot_param)])
 legend([p1(1),p2(1),p3(1),p4(1)],{'Early real','Early predicted','Late real','Late predicted'});
+
+linkaxes([s1,s2]);
+
+
+%%% Params from trial activity within day
+
+% [depth,time,align,timing,param]
+activity_model_params = {batch_vars.activity_model_params};
+activity_model_params_mean = nanmean(cell2mat(permute(cellfun(@(x) ...
+    nanmean(x,6),activity_model_params,'uni',false),[1,3,4,5,6,2])),6);
+activity_model_params_mean_smoothed = convn(activity_model_params_mean,smWin,'same');
+
+predicted_activity_model_params = {batch_vars.predicted_activity_model_params};
+predicted_activity_model_params_mean = nanmean(cell2mat(permute(cellfun(@(x) ...
+    nanmean(x,6),predicted_activity_model_params,'uni',false),[1,3,4,5,6,2])),6);
+
+plot_param = 4;
+
+spacing = max(abs(reshape(activity_model_params_mean_smoothed(:,:,:,:,plot_param),[],1)))*1.5;
+
+figure; 
+s1 = subplot(1,2,1);hold on;
+p1 = AP_stackplot(activity_model_params_mean_smoothed(:,:,1,1,plot_param)',t,spacing,false,'k');
+p2 = AP_stackplot(predicted_activity_model_params_mean(:,:,1,1,plot_param)',t,spacing,false,'r');
+p3 = AP_stackplot(activity_model_params_mean_smoothed(:,:,1,2,plot_param)',t,spacing,false,'b');
+p4 = AP_stackplot(predicted_activity_model_params_mean(:,:,1,2,plot_param)',t,spacing,false,'m');
+line([0,0],ylim,'color','k');
+line([0.5,0.5],ylim,'color','k');
+xlabel('Time from stim')
+ylabel(['Param ' num2str(plot_param)])
+legend([p1(1),p2(1),p3(1),p4(1)],{'Early real','Early predicted','Late real','Late predicted'});
+
+s2 = subplot(1,2,2);hold on;
+p1 = AP_stackplot(activity_model_params_mean_smoothed(:,:,2,1,plot_param)',t,spacing,false,'k');
+p2 = AP_stackplot(predicted_activity_model_params_mean(:,:,2,1,plot_param)',t,spacing,false,'r');
+p3 = AP_stackplot(activity_model_params_mean_smoothed(:,:,2,2,plot_param)',t,spacing,false,'b');
+p4 = AP_stackplot(predicted_activity_model_params_mean(:,:,2,2,plot_param)',t,spacing,false,'m');
+line([0,0],ylim,'color','k');
+xlabel('Time from move')
+ylabel(['Param ' num2str(plot_param)])
+legend([p1(1),p2(1),p3(1),p4(1)],{'Early real','Early predicted','Late real','Late predicted'});
+
+linkaxes([s1,s2]);
+
+% Plot unsmoothed
+plot_param = 4;
+
+spacing = max(abs(reshape(activity_model_params_mean(:,:,:,:,plot_param),[],1)))*1.5;
+
+figure; 
+s1 = subplot(1,2,1);hold on;
+p1 = AP_stackplot(activity_model_params_mean(:,:,1,1,plot_param)',t,spacing,false,'k');
+p2 = AP_stackplot(activity_model_params_mean(:,:,1,2,plot_param)',t,spacing,false,'b');
+line([0,0],ylim,'color','k');
+line([0.5,0.5],ylim,'color','k');
+xlabel('Time from stim')
+ylabel(['Param ' num2str(plot_param)])
+legend([p1(1),p2(1)],{'Early real','Late real'});
+
+s2 = subplot(1,2,2);hold on;
+p1 = AP_stackplot(activity_model_params_mean(:,:,2,1,plot_param)',t,spacing,false,'k');
+p2 = AP_stackplot(activity_model_params_mean(:,:,2,2,plot_param)',t,spacing,false,'b');
+line([0,0],ylim,'color','k');
+xlabel('Time from move')
+ylabel(['Param ' num2str(plot_param)])
+legend([p1(1),p2(1)],{'Early real','Late real'});
 
 linkaxes([s1,s2]);
 
@@ -5193,7 +5313,7 @@ ylabel('Weight')
 set(gca,'XTick',1:n_rois/2,'XTickLabel',{wf_roi(:,1).area});
 title('Move-aligned')
 
-%% Make contrast/choice plots
+%% Trial-by-trial activity time-averaged
 
 % Load trial activity
 % [area, trial ID, alignment, day]
@@ -5236,8 +5356,80 @@ plot_contrasts = [unique(conditions(plot_conditions,1))*sides(1); ...
     unique(conditions(plot_conditions,1))*sides(2)];
 [~,sort_idx] = sort(plot_contrasts);
 
+
+% Plot distribution of all trials (fluor)
+curr_roi = 2;
+curr_align = 1;
+
+curr_trial_act = cellfun(@(x) ...
+    squeeze(x(curr_roi,plot_conditions,curr_align,:)), ...
+    {batch_vars.fluor_trial_act},'uni',false);
+curr_trial_act_animalcat = horzcat(curr_trial_act{:});
+curr_trial_act_allcat = reshape(arrayfun(@(y) ...
+    vertcat(curr_trial_act_animalcat{y,:}), ...
+    1:size(curr_trial_act_animalcat,1),'uni',false),[],2);
+% (combine zeros)
+zero_contrasts = find(plot_contrasts == 0);
+zero_trials = {vertcat(curr_trial_act_allcat{zero_contrasts,1}), ...
+    vertcat(curr_trial_act_allcat{zero_contrasts,2})};
+curr_trial_act_allcat(zero_contrasts(1),:) = zero_trials;
+curr_trial_act_allcat(zero_contrasts(2:end),:) = [];
+curr_plot_contrasts = plot_contrasts(setdiff(1:length(plot_contrasts),zero_contrasts(2:end)));
+[~,curr_sort_idx] = sort(curr_plot_contrasts);
+
+curr_trial_act_allcat_median = cellfun(@nanmedian,curr_trial_act_allcat);
+
+figure; hold on;
+p1 = distributionPlot(curr_trial_act_allcat(curr_sort_idx,1),'distWidth',0.5, ...
+    'xValues',(1:11)-0.25,'histOri','left','showMM',0,'color','r');
+p2 = distributionPlot(curr_trial_act_allcat(curr_sort_idx,2),'distWidth',0.5, ...
+    'xValues',(1:11)+0.25,'histOri','right','showMM',0,'color','b');
+plot((1:11),curr_trial_act_allcat_median(curr_sort_idx,1),'color',[0.9,0.6,0.6],'linewidth',2)
+plot((1:11),curr_trial_act_allcat_median(curr_sort_idx,2),'color',[0.6,0.6,0.9],'linewidth',2)
+
+set(gca,'XTick',1:11,'XTickLabel',cellfun(@num2str,num2cell(curr_plot_contrasts(curr_sort_idx)),'uni',false));
+xlabel('Contrast*Side');
+ylabel(wf_roi(curr_roi).area);
+legend([p1{1}(1),p2{1}(1)],'Move left','Move right');
+
+
+% Plot distribution of all trials(MUA)
+curr_depth = 3;
 curr_align = 2;
 
+curr_trial_act = cellfun(@(x) ...
+    squeeze(x(curr_depth,plot_conditions,curr_align,:)), ...
+    mua_trial_act_norm,'uni',false);
+curr_trial_act_animalcat = horzcat(curr_trial_act{:});
+curr_trial_act_allcat = reshape(arrayfun(@(y) ...
+    vertcat(curr_trial_act_animalcat{y,:}), ...
+    1:size(curr_trial_act_animalcat,1),'uni',false),[],2);
+% (combine zeros)
+zero_contrasts = find(plot_contrasts == 0);
+zero_trials = {vertcat(curr_trial_act_allcat{zero_contrasts,1}), ...
+    vertcat(curr_trial_act_allcat{zero_contrasts,2})};
+curr_trial_act_allcat(zero_contrasts(1),:) = zero_trials;
+curr_trial_act_allcat(zero_contrasts(2:end),:) = [];
+curr_plot_contrasts = plot_contrasts(setdiff(1:length(plot_contrasts),zero_contrasts(2:end)));
+[~,curr_sort_idx] = sort(curr_plot_contrasts);
+
+curr_trial_act_allcat_median = cellfun(@nanmedian,curr_trial_act_allcat);
+
+figure; hold on;
+p1 = distributionPlot(curr_trial_act_allcat(curr_sort_idx,1),'distWidth',0.5, ...
+    'xValues',(1:11)-0.25,'histOri','left','showMM',0,'color','r');
+p2 = distributionPlot(curr_trial_act_allcat(curr_sort_idx,2),'distWidth',0.5, ...
+    'xValues',(1:11)+0.25,'histOri','right','showMM',0,'color','b');
+plot((1:11),curr_trial_act_allcat_median(curr_sort_idx,1),'color',[0.9,0.6,0.6],'linewidth',2);
+plot((1:11),curr_trial_act_allcat_median(curr_sort_idx,2),'color',[0.6,0.6,0.9],'linewidth',2);
+
+set(gca,'XTick',1:11,'XTickLabel',cellfun(@num2str,num2cell(curr_plot_contrasts(curr_sort_idx)),'uni',false));
+xlabel('Contrast*Side');
+ylabel(['Str ' num2str(curr_depth)]);
+legend([p1{1}(1),p2{1}(1)],'Move left','Move right');
+
+
+curr_align = 2;
 % Plot averaging across days then animals
 figure('Name','Within days, Within animals');
 for curr_roi = 1:n_rois;    

@@ -685,6 +685,7 @@ batch_vars = struct;
 % Load widefield ROIs
 wf_roi_fn = 'C:\Users\Andrew\OneDrive for Business\Documents\CarandiniHarrisLab\analysis\wf_ephys_choiceworld\wf_processing\wf_rois\wf_roi';
 load(wf_roi_fn);
+n_rois = numel(wf_roi);
 
 for curr_animal = 1:length(animals)
     
@@ -754,18 +755,16 @@ for curr_animal = 1:length(animals)
         % Count trials per condition
         condition_counts = histcounts(trial_id(use_trials), ...
             'BinLimits',[1,n_conditions],'BinMethod','integers')';
-          
+        
+        
+        
+        %%%%% TEST
+        
         % Regress out contrast/choice from both real and predicted
-        
-        % (make R ROIs into L-R)
-        ddf(size(wf_roi,1)+1:end,:) = ...
-            ddf(1:size(wf_roi,1),:) - ddf(size(wf_roi,1)+1:end,:);
-        
         contrast_exp = 1;
         
-        % [roi,time,align,timing,param]
-        n_rois = numel(wf_roi);
-        activity_model_params = nan(n_rois,length(t),2,2,4);
+        % [depth,time,align,timing,param]
+        activity_model_params = nan(n_depths,length(t),2,2,4);
         for curr_timing = 1:2
             for curr_align = 1:2
                 switch curr_align
@@ -779,10 +778,10 @@ for curr_animal = 1:length(animals)
                 use_timing_trials = use_trials' & trial_conditions(:,4) == curr_timing;
                 
                 t_peri_event = bsxfun(@plus,use_align(use_timing_trials),t);
-                curr_aligned_ddf = interp1(conv2(frame_t,[1,1]/2,'valid'),ddf',t_peri_event);
-                
-                for curr_roi = 1:n_rois
-            
+                for curr_depth = 1:n_depths
+                    
+                    curr_aligned_ddf = interp1(conv2(frame_t,[1,1]/2,'valid'),conv2(frame_t,[1,1]/2,'valid'),t_peri_event)*sample_rate;
+                    
                     curr_contrast_sides = zeros(sum(use_timing_trials),2);
                     curr_contrast_sides(trial_conditions(use_timing_trials,2) == -1,1) = ...
                        trial_conditions(trial_conditions(use_timing_trials,2) == -1,1);
@@ -791,24 +790,35 @@ for curr_animal = 1:length(animals)
                     
                     curr_choices = trial_conditions(use_timing_trials,3);                                       
                     
-                    valid_trials = all(~isnan([curr_aligned_ddf(:,:,curr_roi)]),2);
+                    valid_trials = all(~isnan([curr_aligned_ddf]),2);
                     
                     for curr_t = 1:length(t)                       
-                        curr_act = curr_aligned_ddf(:,curr_t,curr_roi);
+                        curr_act = curr_aligned_ddf(:,curr_t);
                         params_fit = [ones(sum(valid_trials),1), ...
                             curr_contrast_sides(valid_trials,:).^contrast_exp, ...
                             curr_choices(valid_trials)]\curr_act(valid_trials);
-                        activity_model_params(curr_roi,curr_t,curr_align,curr_timing,:) = ...
+                        activity_model_params(curr_depth,curr_t,curr_align,curr_timing,:) = ...
                             params_fit;
                     end
                 end
             end
-        end     
+        end
+              
+        % Store
+        batch_vars(curr_animal).depth_psth(:,:,:,:,curr_day) = depth_psth; 
+        batch_vars(curr_animal).predicted_depth_psth(:,:,:,:,curr_day) = predicted_depth_psth; 
+        batch_vars(curr_animal).condition_counts(:,curr_day) = condition_counts;
+        
+        batch_vars(curr_animal).activity_model_params(:,:,:,:,:,curr_day) = activity_model_params;
+        batch_vars(curr_animal).predicted_activity_model_params(:,:,:,:,:,curr_day) = predicted_activity_model_params;
+        
+        %%%%% TEST
+        
+        
         
         % Store
         batch_vars(curr_animal).roi_psth(:,:,:,:,curr_day) = roi_psth;
         batch_vars(curr_animal).condition_counts(:,curr_day) = condition_counts;
-        batch_vars(curr_animal).activity_model_params(:,:,:,:,:,curr_day) = activity_model_params;
         
         % Prep for next loop
         AP_print_progress_fraction(curr_day,length(experiments));
