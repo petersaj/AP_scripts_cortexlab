@@ -711,8 +711,8 @@ for curr_animal = 1:length(animals)
         roi_traces = AP_svd_roi(aUdf,fVdf,[],[],cat(3,wf_roi.mask));
         
         % Make DDF
-        ddf = diff(roi_traces,[],2);
-        ddf(ddf < 0) = 0;
+        roi_traces_derivative = diff(roi_traces,[],2);
+        roi_traces_derivative(roi_traces_derivative < 0) = 0;
         
         % Define trials to use
         use_trials = ...
@@ -726,7 +726,11 @@ for curr_animal = 1:length(animals)
         raster_sample_rate = 1/(framerate*upsample_factor);
         t = raster_window(1):raster_sample_rate:raster_window(2);
         
-        roi_psth = nan(n_conditions,length(t),numel(wf_roi),2);
+        baseline_window = [-0.2,0]; % (from stim onset)
+        t_baseline = baseline_window(1):raster_sample_rate:baseline_window(2);
+        
+        % [condition, time, roi, alignment, timing, ddf/df]
+        roi_psth = nan(n_conditions,length(t),numel(wf_roi),2,2);
         for curr_align = 1:2
             switch curr_align
                 case 1
@@ -737,16 +741,33 @@ for curr_animal = 1:length(animals)
             end
             
             t_peri_event = bsxfun(@plus,use_align,t);
-            event_aligned_ddf = interp1(conv2(frame_t,[1,1]/2,'valid'),ddf',t_peri_event);
+                        
+            % DDF/F
+            event_aligned_ddf = interp1(conv2(frame_t,[1,1]/2,'valid'),roi_traces_derivative',t_peri_event);           
             
+            % DF/F (subtract baseline)
+            use_align_baseline = stimOn_times;
+            t_peri_event_baseline = bsxfun(@plus,use_align_baseline,t_baseline);
+            event_aligned_df_raw = interp1(frame_t,roi_traces',t_peri_event);
+            event_aligned_df_baseline = interp1(frame_t,roi_traces',t_peri_event_baseline);
+            event_aligned_df = bsxfun(@minus,event_aligned_df_raw,nanmean(event_aligned_df_baseline,2));
+                       
             for curr_roi = 1:numel(wf_roi)
                 
-                [curr_ids,curr_mean_psth] = ...
+                % DDF/F
+                [curr_ids,curr_mean_psth_ddf] = ...
                     grpstats(event_aligned_ddf(use_trials,:,curr_roi), ...
                     trial_id(use_trials),{'gname',@(x) mean(x,1)});
                 curr_ids = cellfun(@str2num,curr_ids);
                 
-                roi_psth(curr_ids,:,curr_roi,curr_align) = curr_mean_psth;
+                % DF/F
+                [curr_ids,curr_mean_psth_df] = ...
+                    grpstats(event_aligned_df(use_trials,:,curr_roi), ...
+                    trial_id(use_trials),{'gname',@(x) mean(x,1)});
+                curr_ids = cellfun(@str2num,curr_ids);
+                
+                roi_psth(curr_ids,:,curr_roi,curr_align,1) = curr_mean_psth_ddf;
+                roi_psth(curr_ids,:,curr_roi,curr_align,2) = curr_mean_psth_df;
                 
             end
         end
@@ -758,14 +779,17 @@ for curr_animal = 1:length(animals)
         % Regress out contrast/choice from both real and predicted
         
         % (make R ROIs into L-R)
-        ddf(size(wf_roi,1)+1:end,:) = ...
-            ddf(1:size(wf_roi,1),:) - ddf(size(wf_roi,1)+1:end,:);
+        roi_traces(size(wf_roi,1)+1:end,:) = ...
+            roi_traces(1:size(wf_roi,1),:) - roi_traces(size(wf_roi,1)+1:end,:);
         
+        roi_traces_derivative(size(wf_roi,1)+1:end,:) = ...
+            roi_traces_derivative(1:size(wf_roi,1),:) - roi_traces_derivative(size(wf_roi,1)+1:end,:);
+       
         contrast_exp = 1;
         
-        % [roi,time,align,timing,param]
+        % [roi,time,align,timing,param,ddf/df]
         n_rois = numel(wf_roi);
-        activity_model_params = nan(n_rois,length(t),2,2,4);
+        activity_model_params = nan(n_rois,length(t),2,2,4,2);
         for curr_timing = 1:2
             for curr_align = 1:2
                 switch curr_align
@@ -777,9 +801,18 @@ for curr_animal = 1:length(animals)
                 end
                 
                 use_timing_trials = use_trials' & trial_conditions(:,4) == curr_timing;
-                
+                               
                 t_peri_event = bsxfun(@plus,use_align(use_timing_trials),t);
-                curr_aligned_ddf = interp1(conv2(frame_t,[1,1]/2,'valid'),ddf',t_peri_event);
+                
+                % DDF/F
+                curr_aligned_ddf = interp1(conv2(frame_t,[1,1]/2,'valid'),roi_traces_derivative',t_peri_event);
+                
+                % DF/F (subtract baseline)
+                use_align_baseline = stimOn_times;
+                t_peri_event_baseline = bsxfun(@plus,use_align_baseline(use_timing_trials),t_baseline);
+                curr_aligned_df_raw = interp1(frame_t,roi_traces',t_peri_event);
+                curr_aligned_df_baseline = interp1(frame_t,roi_traces',t_peri_event_baseline);
+                curr_aligned_df = bsxfun(@minus,curr_aligned_df_raw,nanmean(curr_aligned_df_baseline,2));                
                 
                 for curr_roi = 1:n_rois
             
@@ -793,22 +826,32 @@ for curr_animal = 1:length(animals)
                     
                     valid_trials = all(~isnan([curr_aligned_ddf(:,:,curr_roi)]),2);
                     
-                    for curr_t = 1:length(t)                       
+                    for curr_t = 1:length(t)            
+                        % DDF/F
                         curr_act = curr_aligned_ddf(:,curr_t,curr_roi);
                         params_fit = [ones(sum(valid_trials),1), ...
                             curr_contrast_sides(valid_trials,:).^contrast_exp, ...
                             curr_choices(valid_trials)]\curr_act(valid_trials);
-                        activity_model_params(curr_roi,curr_t,curr_align,curr_timing,:) = ...
+                        activity_model_params(curr_roi,curr_t,curr_align,curr_timing,:,1) = ...
                             params_fit;
+                        
+                        % DF/F
+                        curr_act = curr_aligned_df(:,curr_t,curr_roi);
+                        params_fit = [ones(sum(valid_trials),1), ...
+                            curr_contrast_sides(valid_trials,:).^contrast_exp, ...
+                            curr_choices(valid_trials)]\curr_act(valid_trials);
+                        activity_model_params(curr_roi,curr_t,curr_align,curr_timing,:,2) = ...
+                            params_fit;
+                        
                     end
                 end
             end
         end     
         
         % Store
-        batch_vars(curr_animal).roi_psth(:,:,:,:,curr_day) = roi_psth;
+        batch_vars(curr_animal).roi_psth(:,:,:,:,:,curr_day) = roi_psth;
         batch_vars(curr_animal).condition_counts(:,curr_day) = condition_counts;
-        batch_vars(curr_animal).activity_model_params(:,:,:,:,:,curr_day) = activity_model_params;
+        batch_vars(curr_animal).activity_model_params(:,:,:,:,:,:,curr_day) = activity_model_params;
         
         % Prep for next loop
         AP_print_progress_fraction(curr_day,length(experiments));
@@ -1326,7 +1369,8 @@ save([save_path filesep 'mua_stim_choiceworld_pred'],'batch_vars');
 
 %% Batch cortex > striatum prediction by condition and depth (UPDATED)
 % still uses raw output, but now estimates lambda and uses trial ID
-% DOING NOW: adding in regression
+% also regression from task parameters
+% NOTE: ran once with -0.3:0 kernel, now doing 0:0.3 (ctx->str or vv)
 
 animals = {'AP024','AP025','AP026','AP027','AP028','AP029'};
 protocol = 'vanillaChoiceworld';
@@ -1422,7 +1466,8 @@ for curr_animal = 1:length(animals)
             binned_spikes(curr_depth,:) = histcounts(curr_spike_times,time_bins);            
         end
         
-        kernel_t = [-0.3,0]; % CURRENTLY: CAUSAL ONLY
+%         kernel_t = [-0.3,0]; % TO PREDICT CORTEX -> STRIATUM
+        kernel_t = [0,0.3]; % TO PREDICT STRIATUM -> CORTEX
         kernel_frames = round(kernel_t(1)*sample_rate):round(kernel_t(2)*sample_rate);
         zs = [false,true];
         cvfold = 5;      
@@ -1555,7 +1600,7 @@ for curr_animal = 1:length(animals)
 end
 
 save_path = ['C:\Users\Andrew\OneDrive for Business\Documents\CarandiniHarrisLab\analysis\wf_ephys_choiceworld\choiceworld'];
-save([save_path filesep 'mua_choiceworld_predicted'],'batch_vars');
+save([save_path filesep 'mua_choiceworld_predicted_str-ctx'],'batch_vars');
 
 
 %% Batch striatum responses to choiceworld (OLD)
@@ -3426,12 +3471,12 @@ for curr_animal = 1:length(animals)
         roi_trace = AP_svd_roi(aUdf,fVdf,[],[],cat(3,wf_roi.mask));
         
         % (get ddf)
-        ddf = diff(roi_trace,[],2);
-        ddf(ddf < 0) = 0;
+        roi_traces_derivative = diff(roi_trace,[],2);
+        roi_traces_derivative(roi_traces_derivative < 0) = 0;
         
         % (make L-R traces)
-        ddf(size(wf_roi,1)+1:end,:) = ...
-            ddf(1:size(wf_roi,1),:) - ddf(size(wf_roi,1)+1:end,:);
+        roi_traces_derivative(size(wf_roi,1)+1:end,:) = ...
+            roi_traces_derivative(1:size(wf_roi,1),:) - roi_traces_derivative(size(wf_roi,1)+1:end,:);
         
         % Prepare MUA
         % (group striatum depths)
@@ -3468,7 +3513,7 @@ for curr_animal = 1:length(animals)
             
             % Fluorescence
             event_aligned_ddf(:,:,:,curr_align) = ...
-                interp1(conv2(frame_t,[1,1]/2,'valid'),ddf',t_peri_event);
+                interp1(conv2(frame_t,[1,1]/2,'valid'),roi_traces_derivative',t_peri_event);
             
             % MUA
             % (raster times)
@@ -3639,12 +3684,12 @@ for curr_animal = 1:length(animals)
         roi_trace = AP_svd_roi(aUdf,fVdf,[],[],cat(3,wf_roi.mask));
         
         % (get ddf)
-        ddf = diff(roi_trace,[],2);
-        ddf(ddf < 0) = 0;
+        roi_traces_derivative = diff(roi_trace,[],2);
+        roi_traces_derivative(roi_traces_derivative < 0) = 0;
         
         % (make L-R traces)
-        ddf(size(wf_roi,1)+1:end,:) = ...
-            ddf(1:size(wf_roi,1),:) - ddf(size(wf_roi,1)+1:end,:);
+        roi_traces_derivative(size(wf_roi,1)+1:end,:) = ...
+            roi_traces_derivative(1:size(wf_roi,1),:) - roi_traces_derivative(size(wf_roi,1)+1:end,:);
         
         % Prepare MUA
         % (group striatum depths)
@@ -3674,7 +3719,7 @@ for curr_animal = 1:length(animals)
             
             % Fluorescence
             event_aligned_ddf(:,:,:,curr_align) = ...
-                interp1(conv2(frame_t,[1,1]/2,'valid'),ddf',t_peri_event);
+                interp1(conv2(frame_t,[1,1]/2,'valid'),roi_traces_derivative',t_peri_event);
             
             % MUA
             % (raster times)
@@ -3839,8 +3884,8 @@ for curr_animal = 1:length(animals)
         roi_trace = AP_svd_roi(aUdf,fVdf,[],[],cat(3,wf_roi.mask));
         
         % (get ddf)
-        ddf = diff(roi_trace,[],2);
-        ddf(ddf < 0) = 0;
+        roi_traces_derivative = diff(roi_trace,[],2);
+        roi_traces_derivative(roi_traces_derivative < 0) = 0;
                 
         % Prepare MUA
         % (group striatum depths)
@@ -3870,7 +3915,7 @@ for curr_animal = 1:length(animals)
             
             % Fluorescence
             event_aligned_ddf(:,:,:,curr_align) = ...
-                interp1(conv2(frame_t,[1,1]/2,'valid'),ddf',t_peri_event);
+                interp1(conv2(frame_t,[1,1]/2,'valid'),roi_traces_derivative',t_peri_event);
             
             % MUA
             % (raster times)
@@ -4036,12 +4081,12 @@ for curr_animal = 1:length(animals)
         roi_trace = AP_svd_roi(aUdf,fVdf,[],[],cat(3,wf_roi.mask));
         
         % (get ddf)
-        ddf = diff(roi_trace,[],2);
-        ddf(ddf < 0) = 0;
+        roi_traces_derivative = diff(roi_trace,[],2);
+        roi_traces_derivative(roi_traces_derivative < 0) = 0;
         
         % (make L-R traces)
-        ddf(size(wf_roi,1)+1:end,:) = ...
-            ddf(1:size(wf_roi,1),:) - ddf(size(wf_roi,1)+1:end,:);
+        roi_traces_derivative(size(wf_roi,1)+1:end,:) = ...
+            roi_traces_derivative(1:size(wf_roi,1),:) - roi_traces_derivative(size(wf_roi,1)+1:end,:);
         
         % Prepare MUA
         % (group striatum depths)
@@ -4071,7 +4116,7 @@ for curr_animal = 1:length(animals)
             
             % Fluorescence
             event_aligned_ddf(:,:,:,curr_align) = ...
-                interp1(conv2(frame_t,[1,1]/2,'valid'),ddf',t_peri_event);
+                interp1(conv2(frame_t,[1,1]/2,'valid'),roi_traces_derivative',t_peri_event);
             
             % MUA
             % (raster times)
@@ -4099,28 +4144,34 @@ for curr_animal = 1:length(animals)
         % Pick times to average across
         use_t_stim = t > 0.05 & t < 0.15;
         use_t_move = t > -0.15 & t < 0.02;
+        use_t_beep = t > 0.55 & t < 0.65;
         
         % Get average activity for both alignments
-        event_aligned_ddf_avg = nan(sum(use_trials),n_rois,2);
-        event_aligned_mua_avg = nan(sum(use_trials),n_depths,2);
+        event_aligned_ddf_avg = nan(sum(use_trials),n_rois,3);
+        event_aligned_mua_avg = nan(sum(use_trials),n_depths,3);
         
-        for curr_align = 1:2
+        for curr_align = 1:3
             switch curr_align
                 case 1
+                    use_align = 1;
                     use_t = use_t_stim;
                 case 2
+                    use_align = 2;
                     use_t = use_t_move;
+                case 3
+                    use_align = 1;
+                    use_t = use_t_beep;
             end
             event_aligned_ddf_avg(:,:,curr_align) = ...
-                squeeze(nanmean(event_aligned_ddf(use_trials,use_t,:,curr_align),2));
+                squeeze(nanmean(event_aligned_ddf(use_trials,use_t,:,use_align),2));
             event_aligned_mua_avg(:,:,curr_align) = ...
-                squeeze(nanmean(event_aligned_mua(use_trials,use_t,:,curr_align),2));
+                squeeze(nanmean(event_aligned_mua(use_trials,use_t,:,use_align),2));
         end
         
         % Package all activity by trial ID (must be more elegant way but whatever)
-        fluor_trial_act = cell(n_rois,n_conditions,2);
+        fluor_trial_act = cell(n_rois,n_conditions,3);
         for curr_roi = 1:n_rois
-            for curr_align = 1:2
+            for curr_align = 1:3
                 for curr_condition = 1:n_conditions
                     fluor_trial_act{curr_roi,curr_condition,curr_align} = ...
                         event_aligned_ddf_avg(trial_id(use_trials) == curr_condition,curr_roi,curr_align);
@@ -4128,9 +4179,9 @@ for curr_animal = 1:length(animals)
             end
         end
         
-        mua_trial_act = cell(n_depths,n_conditions,2);
+        mua_trial_act = cell(n_depths,n_conditions,3);
         for curr_depth = 1:n_depths
-            for curr_align = 1:2
+            for curr_align = 1:3
                 for curr_condition = 1:n_conditions
                     mua_trial_act{curr_depth,curr_condition,curr_align} = ...
                         event_aligned_mua_avg(trial_id(use_trials) == curr_condition,curr_depth,curr_align);
@@ -4153,6 +4204,528 @@ end
 
 fn = 'C:\Users\Andrew\OneDrive for Business\Documents\CarandiniHarrisLab\analysis\wf_ephys_choiceworld\choiceworld\trial_activity';
 save(fn,'batch_vars','-v7.3');
+
+disp('Finished batch');
+
+
+%% Batch kernel regression of activity from task parameters
+%%%%%% THIS IS A WORK IN PROGRESS
+% I started this because I was thinking that kernel regression would be
+% cleaner because time points wouldn't be independent, but they still would
+% be, so this doesn't add anything. On the other hand, it's cleaner and can
+% give partial variance explained, so it's worth eventually moving the
+% stuff above to be stand-alone down here.
+%%%%%%
+
+animals = {'AP024','AP025','AP026','AP027','AP028','AP029'};
+
+protocol = 'vanillaChoiceworld';
+
+batch_vars = struct;
+for curr_animal = 1:length(animals)
+    
+    animal = animals{curr_animal};
+    experiments = AP_find_experiments(animal,protocol);
+    
+    % Skip if this animal doesn't have this experiment
+    if isempty(experiments)
+        continue
+    end
+    
+    disp(animal);
+    
+    experiments = experiments([experiments.imaging] & [experiments.ephys]);
+    
+    load_parts.cam = false;
+    load_parts.imaging = true;
+    load_parts.ephys = true;
+    
+    for curr_day = 1:length(experiments);
+        
+        day = experiments(curr_day).day;
+        experiment = experiments(curr_day).experiment;
+        
+        AP_load_experiment
+        
+        % Prepare fluorescence
+        % (load widefield ROIs)
+        wf_roi_fn = 'C:\Users\Andrew\OneDrive for Business\Documents\CarandiniHarrisLab\analysis\wf_ephys_choiceworld\wf_processing\wf_rois\wf_roi';
+        load(wf_roi_fn);
+        n_rois = numel(wf_roi);
+        
+        aUdf = single(AP_align_widefield(animal,day,Udf));
+        roi_trace = AP_svd_roi(aUdf,fVdf,[],[],cat(3,wf_roi.mask));
+        
+        % (get ddf)
+        roi_traces_derivative = diff(roi_trace,[],2);
+        roi_traces_derivative(roi_traces_derivative < 0) = 0;
+        
+        % (make L-R traces)
+        roi_traces_derivative(size(wf_roi,1)+1:end,:) = ...
+            roi_traces_derivative(1:size(wf_roi,1),:) - roi_traces_derivative(size(wf_roi,1)+1:end,:);
+        
+        % Prepare MUA
+        % (group striatum depths)
+        n_depths = 6;
+        depth_group_edges = round(linspace(str_depth(1),str_depth(2),n_depths+1));
+        depth_group = discretize(spikeDepths,depth_group_edges);
+        
+        
+        
+        
+        
+        
+        
+        %%%%%%% Task regressors
+        contrast_sides = zeros(length(stimOn_times),2);
+        contrast_sides(trial_conditions(:,2) == -1,1) = ...
+            trial_conditions(trial_conditions(:,2) == -1,1);
+        contrast_sides(trial_conditions(:,2) == 1,2) = ...
+            trial_conditions(trial_conditions(:,2) == 1,1);
+        
+        contrast_exp = 0.3;
+        task_regressors = [ones(length(stimOn_times),1), ...
+                            contrast_sides.^contrast_exp, ...
+                            trial_choice(1:n_trials)'];
+        
+        
+        
+        %%%%%%% MUA
+        
+        % Set times for PSTH
+        raster_window = [-0.5,3];
+        psth_bin_size = 0.001;
+        t = raster_window(1):psth_bin_size:raster_window(2);
+        
+        % Loop through all trial conditions, PSTH        
+        depth_psth = nan(length(stimOn_times),length(t)-1,n_depths,2);
+        for curr_align = 1:2
+            switch curr_align
+                case 1
+                    use_align = stimOn_times;
+                case 2
+                    use_align = wheel_move_time';
+                    use_align(isnan(use_align)) = 0;
+            end
+            t_peri_event = bsxfun(@plus,use_align,t);
+            for curr_depth = 1:n_depths
+                
+                curr_spikes = spike_times_timeline(depth_group == curr_depth);
+                
+                curr_spikes_binned = cell2mat(arrayfun(@(x) ...
+                    histcounts(curr_spikes,t_peri_event(x,:)), ...
+                    [1:size(t_peri_event,1)]','uni',false))./psth_bin_size;
+                
+                depth_psth(:,:,curr_depth,curr_align) = curr_spikes_binned;
+                
+            end
+        end
+        
+        smooth_size = 50;
+        gw = gausswin(smooth_size,3)';
+        smWin = gw./sum(gw);
+        depth_psth_smooth = convn(depth_psth,smWin,'same');
+        
+        % Regress out contrast/choice from both real and predicted
+        contrast_exp = 0.3;
+        
+        % [depth,time,align,timing,param]
+        activity_model_params = nan(n_depths,length(t),2,2,4);
+        predicted_activity_model_params = nan(n_depths,length(t),2,2,4);
+        for curr_timing = 1:2
+            for curr_align = 1:2
+                switch curr_align
+                    case 1
+                        use_align = stimOn_times;
+                    case 2
+                        use_align = wheel_move_time';
+                        use_align(isnan(use_align)) = 0;
+                end
+                
+                use_timing_trials = use_trials' & trial_conditions(:,4) == curr_timing;
+                
+                t_peri_event = bsxfun(@plus,use_align(use_timing_trials),t);
+                for curr_depth = 1:n_depths
+                    
+                    curr_spikes_binned = interp1(time_bin_centers,binned_spikes(curr_depth,:),t_peri_event)*sample_rate;
+                    curr_spikes_binned_pred = interp1(time_bin_centers,predicted_spikes_reranged(curr_depth,:),t_peri_event)*sample_rate;                    
+                    
+                    curr_contrast_sides = zeros(sum(use_timing_trials),2);
+                    curr_contrast_sides(trial_conditions(use_timing_trials,2) == -1,1) = ...
+                       trial_conditions(trial_conditions(use_timing_trials,2) == -1,1);
+                    curr_contrast_sides(trial_conditions(use_timing_trials,2) == 1,2) = ...
+                       trial_conditions(trial_conditions(use_timing_trials,2) == 1,1);
+                    
+                    curr_choices = trial_conditions(use_timing_trials,3);                                       
+                    
+                    valid_trials = all(~isnan([curr_spikes_binned,curr_spikes_binned_pred]),2);
+                    
+                    for curr_t = 1:length(t)                       
+                        curr_act = curr_spikes_binned(:,curr_t);
+                        params_fit = [ones(sum(valid_trials),1), ...
+                            curr_contrast_sides(valid_trials,:).^contrast_exp, ...
+                            curr_choices(valid_trials)]\curr_act(valid_trials);
+                        activity_model_params(curr_depth,curr_t,curr_align,curr_timing,:) = ...
+                            params_fit;
+                        
+                        curr_act = curr_spikes_binned_pred(:,curr_t);
+                        params_fit = [ones(sum(valid_trials),1), ...
+                            curr_contrast_sides(valid_trials,:).^contrast_exp, ...
+                            curr_choices(valid_trials)]\curr_act(valid_trials);
+                        predicted_activity_model_params(curr_depth,curr_t,curr_align,curr_timing,:) = ...
+                            params_fit;
+                    end
+                end
+            end
+        end
+        
+        %%%%%%% HERE
+        
+        
+        
+        
+        
+        
+        
+        
+        % Store
+        batch_vars(curr_animal).fluor_trial_act(:,:,:,curr_day) = fluor_trial_act;
+        batch_vars(curr_animal).mua_trial_act(:,:,:,curr_day) = mua_trial_act;
+                
+        AP_print_progress_fraction(curr_day,length(experiments));
+        clearvars -except animals animal curr_animal protocol experiments curr_day animal batch_vars load_parts
+        
+    end
+    
+    disp(['Finished ' animal]);
+    
+end
+
+fn = 'C:\Users\Andrew\OneDrive for Business\Documents\CarandiniHarrisLab\analysis\wf_ephys_choiceworld\choiceworld\trial_activity';
+save(fn,'batch_vars','-v7.3');
+
+disp('Finished batch');
+
+
+%% Batch cortex ROI -> striatum regression
+
+animals = {'AP024','AP025','AP026','AP027','AP028','AP029'};
+protocol = 'vanillaChoiceworld';
+batch_vars = struct;
+
+% Load widefield ROIs
+wf_roi_fn = 'C:\Users\Andrew\OneDrive for Business\Documents\CarandiniHarrisLab\analysis\wf_ephys_choiceworld\wf_processing\wf_rois\wf_roi';
+load(wf_roi_fn);
+
+for curr_animal = 1:length(animals)
+    
+    animal = animals{curr_animal};
+    experiments = AP_find_experiments(animal,protocol);
+    
+    disp(animal);
+    
+    experiments = experiments([experiments.imaging] & [experiments.ephys]);
+    
+    load_parts.cam = false;
+    load_parts.imaging = true;
+    load_parts.ephys = true;
+    
+    for curr_day = 1:length(experiments);
+        
+        day = experiments(curr_day).day;
+        experiment = experiments(curr_day).experiment;
+        
+        AP_load_experiment       
+        
+        upsample_factor = 2;
+        sample_rate = (1/median(diff(frame_t)))*upsample_factor;
+        
+        skip_seconds = 60;
+        time_bins = frame_t(find(frame_t > skip_seconds,1)):1/sample_rate:frame_t(find(frame_t-frame_t(end) < -skip_seconds,1,'last'));
+        t = time_bins(1:end-1) + diff(time_bins)/2;
+        
+        % Get upsampled roi traces
+        aUdf = single(AP_align_widefield(animal,day,Udf));
+        roi_traces = AP_svd_roi(aUdf,fVdf,[],[],cat(3,wf_roi.mask));
+              
+        % Make DDF, upsample
+        roi_traces_derivative = diff(roi_traces,[],2);
+        roi_traces_derivative(roi_traces_derivative < 0) = 0;
+        
+        roi_traces_derivative_resample = interp1(conv2(frame_t,[1,1]/2,'valid'), ...
+            roi_traces_derivative',t)';
+        
+        % Group striatum depths
+        n_depths = 6;
+        depth_group_edges = round(linspace(str_depth(1),str_depth(2),n_depths+1));
+        [depth_group_n,~,depth_group] = histcounts(spikeDepths,depth_group_edges);
+          
+        binned_spikes = zeros(n_depths,length(t));
+        for curr_depth = 1:n_depths           
+            curr_spike_times = spike_times_timeline(depth_group == curr_depth);           
+            binned_spikes(curr_depth,:) = histcounts(curr_spike_times,time_bins);            
+        end
+        
+        % Align activity        
+        depth_psth = nan(n_conditions,length(t),n_depths,2);
+        predicted_depth_psth = nan(n_conditions,length(t),n_depths,2);
+        for curr_align = 1:2
+            switch curr_align
+                case 1
+                    use_align = stimOn_times;
+                case 2
+                    use_align = wheel_move_time';
+                    use_align(isnan(use_align)) = 0;
+            end
+            t_peri_event = bsxfun(@plus,use_align,t);
+            
+            curr_aligned_spikes = interp1(time_bin_centers,binned_spikes(curr_depth,:),t_peri_event)*sample_rate;
+                curr_aligned_rois
+                
+            for curr_depth = 1:n_depths
+                
+                
+                
+                curr_spikes_binned_pred = interp1(time_bin_centers,predicted_spikes_reranged(curr_depth,:),t_peri_event)*sample_rate;
+      
+                [curr_ids_str,curr_mean_psth] = ...
+                    grpstats(curr_spikes_binned(use_trials,:), ...
+                    trial_id(use_trials),{'gname','mean'});
+                curr_ids = cellfun(@str2num,curr_ids_str);
+                
+                [curr_ids_str,curr_mean_pred_psth] = ...
+                    grpstats(curr_spikes_binned_pred(use_trials,:), ...
+                    trial_id(use_trials),{'gname','mean'});
+                curr_ids = cellfun(@str2num,curr_ids_str);
+                
+                depth_psth(curr_ids,:,curr_depth,curr_align) = curr_mean_psth;
+                predicted_depth_psth(curr_ids,:,curr_depth,curr_align) = curr_mean_pred_psth;
+            end
+        end
+        
+        
+        
+        
+        
+      
+        
+        % Estimate lambda using entire striatum       
+        use_frames = (frame_t > skip_seconds & frame_t < frame_t(end)-skip_seconds);        
+        use_spikes = spike_times_timeline(ismember(spike_templates, ...
+            find(templateDepths > str_depth(1) & templateDepths <= str_depth(2))));
+        
+        [binned_spikes,~,spike_frames] = histcounts(use_spikes,time_bins);
+        binned_spikes = single(binned_spikes);
+        
+        lambda_start = 1e3;
+        n_reduce_lambda = 3;
+        
+        kernel_t = [-0.1,0.1];
+        kernel_frames = round(kernel_t(1)*sample_rate):round(kernel_t(2)*sample_rate);
+        zs = [false,true];
+        cvfold = 5;
+        use_frames_idx = find(use_frames);
+        
+        update_lambda = n_reduce_lambda;
+        curr_lambda = lambda_start;
+        lambdas = 0;
+        explained_var_lambdas = 0;
+        
+        while update_lambda;
+            
+            % TO USE dfV
+            [~,~,explained_var] = ...
+                AP_regresskernel(dfVdf_resample, ...
+                binned_spikes,kernel_frames,curr_lambda,zs,cvfold);
+            
+            lambdas(end+1) = curr_lambda;
+            explained_var_lambdas(end+1) = explained_var.total;
+            
+            if explained_var_lambdas(end) > explained_var_lambdas(end-1)
+                curr_lambda = curr_lambda*10;
+            else
+                lambdas(end) = [];
+                explained_var_lambdas(end) = [];
+                curr_lambda = curr_lambda/2;
+                update_lambda = update_lambda-1;
+            end
+            
+        end
+        
+        lambda = lambdas(end);         
+        
+        % Get cortex/striatum regression by depth
+               
+        % Group striatum depths
+        n_depths = 6;
+        depth_group_edges = round(linspace(str_depth(1),str_depth(2),n_depths+1));
+        [depth_group_n,~,depth_group] = histcounts(spikeDepths,depth_group_edges);
+          
+        binned_spikes = zeros(n_depths,length(time_bin_centers));
+        for curr_depth = 1:n_depths           
+            curr_spike_times = spike_times_timeline(depth_group == curr_depth);           
+            binned_spikes(curr_depth,:) = histcounts(curr_spike_times,time_bins);            
+        end
+        
+%         kernel_t = [-0.3,0]; % TO PREDICT CORTEX -> STRIATUM
+        kernel_t = [0,0.3]; % TO PREDICT STRIATUM -> CORTEX
+        kernel_frames = round(kernel_t(1)*sample_rate):round(kernel_t(2)*sample_rate);
+        zs = [false,true];
+        cvfold = 5;      
+
+        % Predict striatal spikes from cortical fluorescence (dfV)
+        [k,predicted_spikes,explained_var] = ...
+            AP_regresskernel(dfVdf_resample, ...
+            binned_spikes,kernel_frames,lambda,zs,cvfold);          
+        
+        binned_spikes_std = std(binned_spikes,[],2);
+        binned_spikes_mean = mean(binned_spikes,2);
+        predicted_spikes_reranged = bsxfun(@plus,bsxfun(@times,predicted_spikes, ...
+            binned_spikes_std),binned_spikes_mean);     
+                        
+        % Set times for PSTH
+        interval_surround = [-0.5,3];
+        t = interval_surround(1):1/sample_rate:interval_surround(2);
+        
+        % Get trial properties
+        use_trials = ...
+            trial_outcome ~= 0 & ...
+            ~signals_events.repeatTrialValues(1:n_trials) & ...
+            stim_to_feedback < 1.5;
+        
+        % Loop through all trial conditions, PSTH        
+        depth_psth = nan(n_conditions,length(t),n_depths,2);
+        predicted_depth_psth = nan(n_conditions,length(t),n_depths,2);
+        for curr_align = 1:2
+            switch curr_align
+                case 1
+                    use_align = stimOn_times;
+                case 2
+                    use_align = wheel_move_time';
+                    use_align(isnan(use_align)) = 0;
+            end
+            t_peri_event = bsxfun(@plus,use_align,t);
+            for curr_depth = 1:n_depths
+                
+                curr_spikes_binned = interp1(time_bin_centers,binned_spikes(curr_depth,:),t_peri_event)*sample_rate;
+                curr_spikes_binned_pred = interp1(time_bin_centers,predicted_spikes_reranged(curr_depth,:),t_peri_event)*sample_rate;
+      
+                [curr_ids_str,curr_mean_psth] = ...
+                    grpstats(curr_spikes_binned(use_trials,:), ...
+                    trial_id(use_trials),{'gname','mean'});
+                curr_ids = cellfun(@str2num,curr_ids_str);
+                
+                [curr_ids_str,curr_mean_pred_psth] = ...
+                    grpstats(curr_spikes_binned_pred(use_trials,:), ...
+                    trial_id(use_trials),{'gname','mean'});
+                curr_ids = cellfun(@str2num,curr_ids_str);
+                
+                depth_psth(curr_ids,:,curr_depth,curr_align) = curr_mean_psth;
+                predicted_depth_psth(curr_ids,:,curr_depth,curr_align) = curr_mean_pred_psth;
+            end
+        end
+        
+        % Count trials per condition
+        condition_counts = histcounts(trial_id(use_trials), ...
+            'BinLimits',[1,n_conditions],'BinMethod','integers')';
+        
+        % Regress out contrast/choice from both real and predicted
+        contrast_exp = 0.3;
+        
+        % [depth,time,align,timing,param]
+        activity_model_params = nan(n_depths,length(t),2,2,4);
+        predicted_activity_model_params = nan(n_depths,length(t),2,2,4);
+        for curr_timing = 1:2
+            for curr_align = 1:2
+                switch curr_align
+                    case 1
+                        use_align = stimOn_times;
+                    case 2
+                        use_align = wheel_move_time';
+                        use_align(isnan(use_align)) = 0;
+                end
+                
+                use_timing_trials = use_trials' & trial_conditions(:,4) == curr_timing;
+                
+                t_peri_event = bsxfun(@plus,use_align(use_timing_trials),t);
+                for curr_depth = 1:n_depths
+                    
+                    curr_spikes_binned = interp1(time_bin_centers,binned_spikes(curr_depth,:),t_peri_event)*sample_rate;
+                    curr_spikes_binned_pred = interp1(time_bin_centers,predicted_spikes_reranged(curr_depth,:),t_peri_event)*sample_rate;                    
+                    
+                    curr_contrast_sides = zeros(sum(use_timing_trials),2);
+                    curr_contrast_sides(trial_conditions(use_timing_trials,2) == -1,1) = ...
+                       trial_conditions(trial_conditions(use_timing_trials,2) == -1,1);
+                    curr_contrast_sides(trial_conditions(use_timing_trials,2) == 1,2) = ...
+                       trial_conditions(trial_conditions(use_timing_trials,2) == 1,1);
+                    
+                    curr_choices = trial_conditions(use_timing_trials,3);                                       
+                    
+                    valid_trials = all(~isnan([curr_spikes_binned,curr_spikes_binned_pred]),2);
+                    
+                    for curr_t = 1:length(t)                       
+                        curr_act = curr_spikes_binned(:,curr_t);
+                        params_fit = [ones(sum(valid_trials),1), ...
+                            curr_contrast_sides(valid_trials,:).^contrast_exp, ...
+                            curr_choices(valid_trials)]\curr_act(valid_trials);
+                        activity_model_params(curr_depth,curr_t,curr_align,curr_timing,:) = ...
+                            params_fit;
+                        
+                        curr_act = curr_spikes_binned_pred(:,curr_t);
+                        params_fit = [ones(sum(valid_trials),1), ...
+                            curr_contrast_sides(valid_trials,:).^contrast_exp, ...
+                            curr_choices(valid_trials)]\curr_act(valid_trials);
+                        predicted_activity_model_params(curr_depth,curr_t,curr_align,curr_timing,:) = ...
+                            params_fit;
+                    end
+                end
+            end
+        end
+              
+        % Store
+        batch_vars(curr_animal).depth_psth(:,:,:,:,curr_day) = depth_psth; 
+        batch_vars(curr_animal).predicted_depth_psth(:,:,:,:,curr_day) = predicted_depth_psth; 
+        batch_vars(curr_animal).condition_counts(:,curr_day) = condition_counts;
+        
+        batch_vars(curr_animal).activity_model_params(:,:,:,:,:,curr_day) = activity_model_params;
+        batch_vars(curr_animal).predicted_activity_model_params(:,:,:,:,:,curr_day) = predicted_activity_model_params;
+        
+        % Prepare for next loop       
+        AP_print_progress_fraction(curr_day,length(experiments));
+        clearvars -except animals animal curr_animal protocol experiments curr_day animal batch_vars load_parts wf_roi
+        
+    end
+     
+    disp(['Finished ' animal])
+    
+end
+
+save_path = ['C:\Users\Andrew\OneDrive for Business\Documents\CarandiniHarrisLab\analysis\wf_ephys_choiceworld\choiceworld'];
+save([save_path filesep 'mua_choiceworld_predicted_str-ctx'],'batch_vars');
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 

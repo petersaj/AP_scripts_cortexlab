@@ -72,11 +72,11 @@ regressor_design = cell2mat(cellfun(@(regressor_design) ...
 % Ridge regression for reducing noise: add offsets to design matrix to penalize k
 if exist('lambdas','var') && any(lambdas)
     if length(lambdas) == 1
-        ridge_matrix = lambdas*eye(size(regressor_design,2));
+        ridge_matrix = lambdas*eye(size(regressor_design,2)+1);
     elseif length(lambdas) == length(regressors)
         lambda_vector = cell2mat(reshape(cellfun(@(reg,t,lam) repmat(lam,size(reg,1)*length(t),1), ...
             regressors,t_shifts,num2cell(lambdas),'uni',false),[],1));
-        ridge_matrix = bsxfun(@times,eye(size(regressor_design,2)),lambda_vector);
+        ridge_matrix = bsxfun(@times,eye(size(regressor_design,2)+1),lambda_vector);
     else
         error('Number of lambdas doesn''t match regressor groups');
     end
@@ -85,10 +85,10 @@ else
 end
 
 % Prepare column of 1's to have a constant term
-constant = ones(size(regressor_design,1)+size(ridge_matrix,1),1);
+constant = ones(size(regressor_design,1),1);
 
 % Send everything to the GPU
-regressors_gpu = gpuArray([[regressor_design;ridge_matrix],constant]);
+regressors_gpu = gpuArray([[regressor_design,constant];ridge_matrix]);
 signals_gpu = gpuArray([signals';zeros(length(ridge_matrix),size(signals,1))]);
 
 % Regression (and cross validation if selected)

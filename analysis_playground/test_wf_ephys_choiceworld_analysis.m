@@ -1800,7 +1800,7 @@ conditions = [-1,-0.5,-0.25,-0.125,-0.06,0,0.06,0.125,0.25,0.5,1];
 data_path = 'C:\Users\Andrew\OneDrive for Business\Documents\CarandiniHarrisLab\analysis\wf_ephys_choiceworld\choiceworld';
 
 trialtype_align = 'stim';
-trialtype_timing = 'earlymove';
+trialtype_timing = 'latemove';
 trialtype_success = 'hit';
 
 trialtype = [trialtype_align ' ' trialtype_timing ' ' trialtype_success];
@@ -1809,9 +1809,9 @@ wf_fn = [data_path filesep 'im_' trialtype_align '_' trialtype_timing '_' trialt
 load(wf_fn);
 
 % Get ddf
-ddf = diff(im_aligned_avg_combined,[],3);
-ddf(ddf < 0) = 0;
-% ddf = im_aligned_avg_combined(:,:,1:end-1,:);
+% ddf = diff(im_aligned_avg_combined,[],3);
+% ddf(ddf < 0) = 0;
+ddf = im_aligned_avg_combined(:,:,1:end-1,:);
 
 AP_image_scroll(ddf,t_df);
 axis image;
@@ -1914,7 +1914,8 @@ load(wf_roi_fn);
 n_rois = numel(wf_roi);
 
 % Combine data
-roi_psth = {batch_vars.roi_psth};
+use_fluor = 2; % 1 = ddf, 2 = df
+roi_psth = cellfun(@(x) squeeze(x(:,:,:,:,use_fluor,:)),{batch_vars.roi_psth},'uni',false);
 roi_psth_mean = nanmean(cell2mat(permute(cellfun(@(x) nanmean(x,5),roi_psth,'uni',false),[1,3,4,5,2])),5);
 
 AP_image_scroll(roi_psth_mean,{wf_roi.area})
@@ -1929,7 +1930,7 @@ colormap(colormap_BlueWhiteRed)
 caxis([-max(abs(caxis)),max(abs(caxis))]);
 
 % Plot all select conditions from given ROI
-plot_roi = 9;
+plot_roi = 10;
 
 figure('Name',wf_roi(plot_roi).area); 
 
@@ -1968,7 +1969,7 @@ xlabel('Time from move')
 title('Late move')
 
 % Plot move L - move R from given ROI
-plot_roi = 10;
+plot_roi = 13;
 
 figure('Name',wf_roi(plot_roi).area); 
 
@@ -2213,11 +2214,11 @@ linkaxes([s1,s2,s3,s4],'x');
 %%% Params from trial activity within day
 
 % [depth,time,align,timing,param]
-activity_model_params = {batch_vars.activity_model_params};
+activity_model_params = cellfun(@(x) squeeze(x(:,:,:,:,:,use_fluor,:)),{batch_vars.activity_model_params},'uni',false);
 activity_model_params_mean = nanmean(cell2mat(permute(cellfun(@(x) ...
     nanmean(x,6),activity_model_params,'uni',false),[1,3,4,5,6,2])),6);
 
-plot_param = 1;
+plot_param = 3;
 
 spacing = max(abs(reshape(activity_model_params_mean(:,:,:,:,plot_param),[],1)))*1.5;
 
@@ -2706,7 +2707,7 @@ line(repmat(find(t > 0,1),2,1),ylim,'color','r');
 
 % Plot all hit/miss conditions for one depth
 plot_str = 1;
-plot_success = -1;
+plot_success = 1;
 plot_color = colormap_BlueWhiteRed(6);
 plot_color = [[0,0,0];plot_color(5:-1:1,:);[0,0,0];plot_color(end-5:end,:)];
 
@@ -3841,7 +3842,7 @@ predicted_activity_model_params = {batch_vars.predicted_activity_model_params};
 predicted_activity_model_params_mean = nanmean(cell2mat(permute(cellfun(@(x) ...
     nanmean(x,6),predicted_activity_model_params,'uni',false),[1,3,4,5,6,2])),6);
 
-plot_param = 4;
+plot_param = 2;
 
 spacing = max(abs(reshape(activity_model_params_mean_smoothed(:,:,:,:,plot_param),[],1)))*1.5;
 
@@ -3870,7 +3871,7 @@ legend([p1(1),p2(1),p3(1),p4(1)],{'Early real','Early predicted','Late real','La
 linkaxes([s1,s2]);
 
 % Plot unsmoothed
-plot_param = 4;
+plot_param = 3;
 
 spacing = max(abs(reshape(activity_model_params_mean(:,:,:,:,plot_param),[],1)))*1.5;
 
@@ -5351,15 +5352,15 @@ timings = [1,2];
 conditions = combvec(contrasts,sides,choices,timings)';
 n_conditions = size(conditions,1);
 
-plot_conditions = conditions(:,1) < Inf & conditions(:,4) == 1;
+plot_conditions = conditions(:,1) < Inf & conditions(:,4) == 2;
 plot_contrasts = [unique(conditions(plot_conditions,1))*sides(1); ...
     unique(conditions(plot_conditions,1))*sides(2)];
 [~,sort_idx] = sort(plot_contrasts);
 
 
 % Plot distribution of all trials (fluor)
-curr_roi = 2;
-curr_align = 1;
+curr_roi = 10;
+curr_align = 3;
 
 curr_trial_act = cellfun(@(x) ...
     squeeze(x(curr_roi,plot_conditions,curr_align,:)), ...
@@ -5394,8 +5395,8 @@ legend([p1{1}(1),p2{1}(1)],'Move left','Move right');
 
 
 % Plot distribution of all trials(MUA)
-curr_depth = 3;
-curr_align = 2;
+curr_depth = 1;
+curr_align = 3;
 
 curr_trial_act = cellfun(@(x) ...
     squeeze(x(curr_depth,plot_conditions,curr_align,:)), ...
