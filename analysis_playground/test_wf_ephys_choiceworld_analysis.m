@@ -1914,7 +1914,7 @@ load(wf_roi_fn);
 n_rois = numel(wf_roi);
 
 % Combine data
-use_fluor = 2; % 1 = ddf, 2 = df
+use_fluor = 1; % 1 = ddf, 2 = df
 roi_psth = cellfun(@(x) squeeze(x(:,:,:,:,use_fluor,:)),{batch_vars.roi_psth},'uni',false);
 roi_psth_mean = nanmean(cell2mat(permute(cellfun(@(x) nanmean(x,5),roi_psth,'uni',false),[1,3,4,5,2])),5);
 
@@ -1930,11 +1930,12 @@ colormap(colormap_BlueWhiteRed)
 caxis([-max(abs(caxis)),max(abs(caxis))]);
 
 % Plot all select conditions from given ROI
-plot_roi = 10;
+plot_roi = 9;
+plot_success = -1;
 
 figure('Name',wf_roi(plot_roi).area); 
 
-plot_conditions = conditions(:,2) == -conditions(:,3) & conditions(:,4) == 1;
+plot_conditions = conditions(:,2) == -plot_success*conditions(:,3) & conditions(:,4) == 1;
 plot_color = colormap_BlueWhiteRed(6);
 plot_color = [[0,0,0];plot_color(5:-1:1,:);[0,0,0];plot_color(end-5:end,:)];
 
@@ -1952,7 +1953,7 @@ line([0,0],ylim,'color','k');
 xlabel('Time from move')
 title('Early move')
 
-plot_conditions = conditions(:,2) == -conditions(:,3) & conditions(:,4) == 2;
+plot_conditions = conditions(:,2) == -plot_success*conditions(:,3) & conditions(:,4) == 2;
 
 subplot(2,2,3); hold on;
 set(gca,'ColorOrder',plot_color);
@@ -2218,7 +2219,7 @@ activity_model_params = cellfun(@(x) squeeze(x(:,:,:,:,:,use_fluor,:)),{batch_va
 activity_model_params_mean = nanmean(cell2mat(permute(cellfun(@(x) ...
     nanmean(x,6),activity_model_params,'uni',false),[1,3,4,5,6,2])),6);
 
-plot_param = 3;
+plot_param = 1;
 
 spacing = max(abs(reshape(activity_model_params_mean(:,:,:,:,plot_param),[],1)))*1.5;
 
@@ -3577,7 +3578,7 @@ title('Late move predicted');
 %% Load and process cortex-predicted striatal MUA during choiceworld (NEW)
 
 data_path = ['C:\Users\Andrew\OneDrive for Business\Documents\CarandiniHarrisLab\analysis\wf_ephys_choiceworld\choiceworld'];
-mua_fn = [data_path filesep 'mua_choiceworld_predicted'];
+mua_fn = [data_path filesep 'mua_choiceworld_predicted_str-ctx'];
 load(mua_fn);
 
 n_depths = 6;
@@ -3842,7 +3843,7 @@ predicted_activity_model_params = {batch_vars.predicted_activity_model_params};
 predicted_activity_model_params_mean = nanmean(cell2mat(permute(cellfun(@(x) ...
     nanmean(x,6),predicted_activity_model_params,'uni',false),[1,3,4,5,6,2])),6);
 
-plot_param = 2;
+plot_param = 3;
 
 spacing = max(abs(reshape(activity_model_params_mean_smoothed(:,:,:,:,plot_param),[],1)))*1.5;
 
@@ -3871,7 +3872,7 @@ legend([p1(1),p2(1),p3(1),p4(1)],{'Early real','Early predicted','Late real','La
 linkaxes([s1,s2]);
 
 % Plot unsmoothed
-plot_param = 3;
+plot_param = 4;
 
 spacing = max(abs(reshape(activity_model_params_mean(:,:,:,:,plot_param),[],1)))*1.5;
 
@@ -3902,8 +3903,8 @@ interval_surround = [-0.5,1.5];
 t = linspace(interval_surround(1),interval_surround(2),212);
 sample_rate = 1/median(diff(t));
 
-plot_t = [-0.2,0.2];
-t_use = t > -0.1 & t < 0;
+plot_t = [-0.2,0.7];
+t_use = t > 0.5 & t < 0.6;
 
 % Load correlations
 trialtype_align = 'stim';
@@ -3918,7 +3919,7 @@ n_depths = 6;
 wf_roi_fn = 'C:\Users\Andrew\OneDrive for Business\Documents\CarandiniHarrisLab\analysis\wf_ephys_choiceworld\wf_processing\wf_rois\wf_roi';
 load(wf_roi_fn);
 % wf_roi = wf_roi(:,1); % (if only ipsi ROIs)
-wf_roi(3,:) = [];% RSP wasn't included when I did this 
+% wf_roi(3,:) = [];% RSP wasn't included when I did this 
 n_rois = numel(wf_roi);
 wf_areas = {wf_roi.area};
 
@@ -4065,7 +4066,7 @@ xlabel(['Time from ' trialtype_align ' onset (s)']);
 title('Fluor');
 legend(wf_areas);
 
-% Plot pre-movement predicted/predictor
+% Plot predicted/predictor within window and lag
 corr_mua_mua_use = cellfun(@(x) x(t_use,t_use),corr_mua_mua_split,'uni',false);
 corr_mua_mua_diag = cellfun(@(y) arrayfun(@(x) nanmean(diag(y,x)),-(length(y)-1):length(y)-1),corr_mua_mua_use,'uni',false);
 
@@ -4481,16 +4482,16 @@ for curr_t = find(use_t)
     curr_frame = curr_frame + 1;
 end
 
-save_path = 'C:\Users\Andrew\OneDrive for Business\Documents\CarandiniHarrisLab\analysis\wf_ephys_choiceworld\choiceworld';
-save_filename = [save_path filesep corr_use '.avi'];
-
-writerObj = VideoWriter(save_filename);
-writerObj.FrameRate = sample_rate/5;
-open(writerObj);
-writeVideo(writerObj,movie_frames);
-close(writerObj);
-
-close(fig_h);
+% save_path = 'C:\Users\Andrew\OneDrive for Business\Documents\CarandiniHarrisLab\analysis\wf_ephys_choiceworld\choiceworld';
+% save_filename = [save_path filesep corr_use '.avi'];
+% 
+% writerObj = VideoWriter(save_filename);
+% writerObj.FrameRate = sample_rate/5;
+% open(writerObj);
+% writeVideo(writerObj,movie_frames);
+% close(writerObj);
+% 
+% close(fig_h);
 
 %% Max abs and time of stim/move-aligned correlations
 
@@ -5556,6 +5557,122 @@ for curr_depth = 1:n_depths;
     ylabel(['Str ' num2str(curr_depth)]);
 end
 legend({'Move L','Move R'});
+
+
+%% Ctx (ROI) -> str regression, also tr-tr regression
+
+% Load data
+data_path = ['C:\Users\Andrew\OneDrive for Business\Documents\CarandiniHarrisLab\analysis\wf_ephys_choiceworld\choiceworld'];
+mua_fn = [data_path filesep 'roi-mua_choiceworld_predicted'];
+load(mua_fn);
+
+% Widefield ROs
+wf_roi_fn = 'C:\Users\Andrew\OneDrive for Business\Documents\CarandiniHarrisLab\analysis\wf_ephys_choiceworld\wf_processing\wf_rois\wf_roi';
+load(wf_roi_fn);
+n_rois = numel(wf_roi);
+
+n_depths = 6;
+
+contrasts = [0,0.06,0.125,0.25,0.5,1];
+sides = [-1,1];
+choices = [-1,1];
+timings = [1,2];
+conditions = combvec(contrasts,sides,choices,timings)';
+
+frame_rate = 35.2;
+upsample_factor = 2;
+sample_rate = frame_rate*upsample_factor;
+
+interval_surround = [-0.5,3];
+t = interval_surround(1):1/sample_rate:interval_surround(2);
+
+% Smooth the real psth to match the inherently smoothed predicted
+gw = gausswin(9,1)';
+smWin = gw./sum(gw);
+
+%%% Params from trial activity within day
+
+% [depth,time,align,timing,param]
+activity_model_params = {batch_vars.activity_model_params};
+activity_model_params_mean = nanmean(cell2mat(permute(cellfun(@(x) ...
+    nanmean(x,6),activity_model_params,'uni',false),[1,3,4,5,6,2])),6);
+activity_model_params_mean_smoothed = convn(activity_model_params_mean,smWin,'same');
+
+predicted_activity_model_params = {batch_vars.predicted_activity_model_params};
+predicted_activity_model_params_mean = nanmean(cell2mat(permute(cellfun(@(x) ...
+    nanmean(x,6),predicted_activity_model_params,'uni',false),[1,3,4,5,6,2])),6);
+
+plot_param = 4;
+
+spacing = max(abs(reshape(activity_model_params_mean_smoothed(:,:,:,:,plot_param),[],1)))*1.5;
+
+figure; 
+s1 = subplot(1,2,1);hold on;
+p1 = AP_stackplot(activity_model_params_mean_smoothed(:,:,1,1,plot_param)',t,spacing,false,'k');
+p2 = AP_stackplot(predicted_activity_model_params_mean(:,:,1,1,plot_param)',t,spacing,false,'r');
+p3 = AP_stackplot(activity_model_params_mean_smoothed(:,:,1,2,plot_param)',t,spacing,false,'b');
+p4 = AP_stackplot(predicted_activity_model_params_mean(:,:,1,2,plot_param)',t,spacing,false,'m');
+line([0,0],ylim,'color','k');
+line([0.5,0.5],ylim,'color','k');
+xlabel('Time from stim')
+ylabel(['Param ' num2str(plot_param)])
+legend([p1(1),p2(1),p3(1),p4(1)],{'Early real','Early predicted','Late real','Late predicted'});
+
+s2 = subplot(1,2,2);hold on;
+p1 = AP_stackplot(activity_model_params_mean_smoothed(:,:,2,1,plot_param)',t,spacing,false,'k');
+p2 = AP_stackplot(predicted_activity_model_params_mean(:,:,2,1,plot_param)',t,spacing,false,'r');
+p3 = AP_stackplot(activity_model_params_mean_smoothed(:,:,2,2,plot_param)',t,spacing,false,'b');
+p4 = AP_stackplot(predicted_activity_model_params_mean(:,:,2,2,plot_param)',t,spacing,false,'m');
+line([0,0],ylim,'color','k');
+xlabel('Time from move')
+ylabel(['Param ' num2str(plot_param)])
+legend([p1(1),p2(1),p3(1),p4(1)],{'Early real','Early predicted','Late real','Late predicted'});
+
+linkaxes([s1,s2]);
+
+% Plot unsmoothed
+plot_param = 4;
+
+spacing = max(abs(reshape(activity_model_params_mean(:,:,:,:,plot_param),[],1)))*1.5;
+
+figure; 
+s1 = subplot(1,2,1);hold on;
+p1 = AP_stackplot(activity_model_params_mean(:,:,1,1,plot_param)',t,spacing,false,'k');
+p2 = AP_stackplot(activity_model_params_mean(:,:,1,2,plot_param)',t,spacing,false,'b');
+line([0,0],ylim,'color','k');
+line([0.5,0.5],ylim,'color','k');
+xlabel('Time from stim')
+ylabel(['Param ' num2str(plot_param)])
+legend([p1(1),p2(1)],{'Early real','Late real'});
+
+s2 = subplot(1,2,2);hold on;
+p1 = AP_stackplot(activity_model_params_mean(:,:,2,1,plot_param)',t,spacing,false,'k');
+p2 = AP_stackplot(activity_model_params_mean(:,:,2,2,plot_param)',t,spacing,false,'b');
+line([0,0],ylim,'color','k');
+xlabel('Time from move')
+ylabel(['Param ' num2str(plot_param)])
+legend([p1(1),p2(1)],{'Early real','Late real'});
+
+linkaxes([s1,s2]);
+
+
+% Kernel for ROIs by depth
+% [ROI, time, depth, alignment, timing];
+roi_depth_kernel = {batch_vars.roi_depth_kernel};
+roi_depth_kernel_mean = nanmean(cell2mat(permute(cellfun(@(x) ...
+    nanmean(x,6),roi_depth_kernel,'uni',false),[1,3,4,5,6,2])),6);
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 
