@@ -1890,6 +1890,8 @@ end
 
 %% Load and process widefield choiceworld mean (GENERAL - ROIs)
 
+use_fluor = 1; % 1 = ddf, 2 = df
+
 % Get times and conditions
 surround_window = [-0.5,3];
 upsample_rate = 5;
@@ -1914,7 +1916,6 @@ load(wf_roi_fn);
 n_rois = numel(wf_roi);
 
 % Combine data
-use_fluor = 1; % 1 = ddf, 2 = df
 roi_psth = cellfun(@(x) squeeze(x(:,:,:,:,use_fluor,:)),{batch_vars.roi_psth},'uni',false);
 roi_psth_mean = nanmean(cell2mat(permute(cellfun(@(x) nanmean(x,5),roi_psth,'uni',false),[1,3,4,5,2])),5);
 
@@ -2219,7 +2220,7 @@ activity_model_params = cellfun(@(x) squeeze(x(:,:,:,:,:,use_fluor,:)),{batch_va
 activity_model_params_mean = nanmean(cell2mat(permute(cellfun(@(x) ...
     nanmean(x,6),activity_model_params,'uni',false),[1,3,4,5,6,2])),6);
 
-plot_param = 1;
+plot_param = 4;
 
 spacing = max(abs(reshape(activity_model_params_mean(:,:,:,:,plot_param),[],1)))*1.5;
 
@@ -2242,6 +2243,36 @@ ylabel(['Param ' num2str(plot_param)])
 legend([p1(1),p2(1)],{'Early','Late'});
 
 linkaxes([s1,s2]);
+
+
+% Plot max b3 v max b4
+max_b3 = max(max(abs(activity_model_params_mean(:,:,:,1,3)),[],2),[],3);
+max_b4 = max(max(abs(activity_model_params_mean(:,:,:,1,4)),[],2),[],3);
+
+figure; 
+plot_col = [autumn(n_rois/2);winter(n_rois/2)];
+
+subplot(4,1,1);
+scatter(1:n_rois,max_b3,100,plot_col,'filled','MarkerEdgeColor','k');
+set(gca,'XTick',1:n_rois,'XTickLabel',{wf_roi.area});
+ylabel('\beta_3');
+
+subplot(4,1,2);
+scatter(1:n_rois,max_b4,100,plot_col,'filled','MarkerEdgeColor','k');
+set(gca,'XTick',1:n_rois,'XTickLabel',{wf_roi.area});
+ylabel('\beta_4');
+
+subplot(4,1,3);
+scatter(1:n_roismax_b3./max_b4,100,plot_col,'filled','MarkerEdgeColor','k');
+set(gca,'XTick',1:n_rois,'XTickLabel',{wf_roi.area});
+line([0,max([max_b3;max_b4])],[0,max([max_b3;max_b4])],'color','k');
+axis image
+
+subplot(4,1,4);
+scatter(max_b3,max_b4,100,plot_col,'filled','MarkerEdgeColor','k');
+xlabel('\beta_3');ylabel('\beta_4')
+line([0,max([max_b3;max_b4])],[0,max([max_b3;max_b4])],'color','k');
+axis image
 
 
 
@@ -3872,8 +3903,7 @@ legend([p1(1),p2(1),p3(1),p4(1)],{'Early real','Early predicted','Late real','La
 linkaxes([s1,s2]);
 
 % Plot unsmoothed
-plot_param = 4;
-
+plot_param = 3
 spacing = max(abs(reshape(activity_model_params_mean(:,:,:,:,plot_param),[],1)))*1.5;
 
 figure; 
@@ -3897,6 +3927,33 @@ legend([p1(1),p2(1)],{'Early real','Late real'});
 linkaxes([s1,s2]);
 
 
+% Plot max b3 v max b4
+max_b3 = max(max(abs(activity_model_params_mean(:,:,:,1,3)),[],2),[],3);
+max_b4 = max(max(abs(activity_model_params_mean(:,:,:,1,4)),[],2),[],3);
+
+figure; 
+plot_col = copper(n_depths);
+
+subplot(3,1,1);
+scatter(1:n_depths,max_b3,100,plot_col,'filled','MarkerEdgeColor','k');
+set(gca,'XTick',1:n_depths);
+xlabel('Striatal depth');
+ylabel('\beta_3');
+
+subplot(3,1,2);
+scatter(1:n_depths,max_b4,100,plot_col,'filled','MarkerEdgeColor','k');
+set(gca,'XTick',1:n_depths);
+xlabel('Striatal depth');
+ylabel('\beta_4');
+
+subplot(3,1,3);
+scatter(max_b3,max_b4,100,plot_col,'filled','MarkerEdgeColor','k');
+xlabel('\beta_3');ylabel('\beta_4')
+line([0,max([max_b3;max_b4])],[0,max([max_b3;max_b4])],'color','k');
+axis image
+
+
+
 %% Load and process MUA-fluor correlations
 
 interval_surround = [-0.5,1.5];
@@ -3907,8 +3964,8 @@ plot_t = [-0.2,0.7];
 t_use = t > 0.5 & t < 0.6;
 
 % Load correlations
-trialtype_align = 'move';
-trialtype_timing = 'earlymove';
+trialtype_align = 'stim';
+trialtype_timing = 'latemove';
 
 corr_use = ['corr_mua_fluor_' trialtype_align '_' trialtype_timing '_conditionshuff'];
 fn = ['C:\Users\Andrew\OneDrive for Business\Documents\CarandiniHarrisLab\analysis\wf_ephys_choiceworld\choiceworld\' corr_use];
@@ -3919,7 +3976,7 @@ n_depths = 6;
 wf_roi_fn = 'C:\Users\Andrew\OneDrive for Business\Documents\CarandiniHarrisLab\analysis\wf_ephys_choiceworld\wf_processing\wf_rois\wf_roi';
 load(wf_roi_fn);
 % wf_roi = wf_roi(:,1); % (if only ipsi ROIs)
-wf_roi(3,:) = [];% RSP wasn't included when I did this 
+% wf_roi(3,:) = [];% RSP wasn't included when I did this 
 n_rois = numel(wf_roi);
 wf_areas = {wf_roi.area};
 
@@ -4451,27 +4508,33 @@ for curr_t = find(use_t)
     for curr_roi1 = 1:n_rois
         for curr_roi2 = curr_roi1+1:n_rois
             curr_corr = local_corr_fluor_fluor_diff{curr_roi1,curr_roi2}(curr_t);
-            set(fluor_fluor_h(curr_roi1,curr_roi2), ...
-                'linewidth',abs(curr_corr)*50, ...
-                'color',[sign(curr_corr) == 1,0,sign(curr_corr) == -1]);  
+            if ~isnan(curr_corr)
+                set(fluor_fluor_h(curr_roi1,curr_roi2), ...
+                    'linewidth',abs(curr_corr)*50, ...
+                    'color',[sign(curr_corr) == 1,0,sign(curr_corr) == -1]);
+            end
         end
     end
     % MUA-MUA
     for curr_depth1 = 1:n_depths
         for curr_depth2 = curr_depth1+1:n_depths
             curr_corr = local_corr_mua_mua_diff{curr_depth1,curr_depth2}(curr_t);
-            set(mua_mua_h(curr_depth1,curr_depth2), ...
-                'linewidth',abs(curr_corr)*120, ...
-                'color',[sign(curr_corr) == 1,0,sign(curr_corr) == -1]);  
+            if ~isnan(curr_corr)
+                set(mua_mua_h(curr_depth1,curr_depth2), ...
+                    'linewidth',abs(curr_corr)*120, ...
+                    'color',[sign(curr_corr) == 1,0,sign(curr_corr) == -1]);
+            end
         end
     end
     % Fluor-MUA
     for curr_roi = 1:n_rois
         for curr_depth = 1:n_depths
             curr_corr = local_corr_fluor_mua_diff{curr_roi,curr_depth}(curr_t);
-            set(fluor_mua_h(curr_roi,curr_depth), ...
-                'linewidth',abs(curr_corr)*50, ...
-                'color',[sign(curr_corr) == 1,0,sign(curr_corr) == -1]);  
+            if ~isnan(curr_corr)
+                set(fluor_mua_h(curr_roi,curr_depth), ...
+                    'linewidth',abs(curr_corr)*50, ...
+                    'color',[sign(curr_corr) == 1,0,sign(curr_corr) == -1]);
+            end
         end
     end
     drawnow
@@ -4482,16 +4545,30 @@ for curr_t = find(use_t)
     curr_frame = curr_frame + 1;
 end
 
-% save_path = 'C:\Users\Andrew\OneDrive for Business\Documents\CarandiniHarrisLab\analysis\wf_ephys_choiceworld\choiceworld';
-% save_filename = [save_path filesep corr_use '.avi'];
+save_path = 'C:\Users\Andrew\OneDrive for Business\Documents\CarandiniHarrisLab\analysis\wf_ephys_choiceworld\choiceworld';
+save_filename = [save_path filesep corr_use '.avi'];
+
+writerObj = VideoWriter(save_filename);
+writerObj.FrameRate = sample_rate/5;
+open(writerObj);
+writeVideo(writerObj,movie_frames);
+close(writerObj);
+
+close(fig_h);
+
+% % this was doing PCA on correlation patterns, makes the labels
+% str_labels = cellfun(@(x) ['Str ' num2str(x)],num2cell(1:n_depths),'uni',false);
+% fluor_mua_labels = cellfun(@(fluor,mua) [fluor '-' mua], ...
+%     repmat({wf_roi.area}',1,n_depths),repmat(str_labels,n_rois,1),'uni',false);
 % 
-% writerObj = VideoWriter(save_filename);
-% writerObj.FrameRate = sample_rate/5;
-% open(writerObj);
-% writeVideo(writerObj,movie_frames);
-% close(writerObj);
+% fluor_fluor_labels = cellfun(@(mua1,mua2) [mua1 '-' mua2], ...
+%     repmat({wf_roi.area}',1,n_rois),repmat({wf_roi.area}',1,n_rois)','uni',false);
 % 
-% close(fig_h);
+% mua_mua_labels = cellfun(@(mua1,mua2) [mua1 '-' mua2], ...
+%     repmat(str_labels,n_depths,1),repmat(str_labels,n_depths,1)','uni',false);
+
+
+
 
 %% Max abs and time of stim/move-aligned correlations
 
@@ -5353,19 +5430,30 @@ timings = [1,2];
 conditions = combvec(contrasts,sides,choices,timings)';
 n_conditions = size(conditions,1);
 
-plot_conditions = conditions(:,1) < Inf & conditions(:,4) == 2;
+
+
+% Plot distribution of all trials 
+plot_act = 'mua';
+plot_area = 3;
+plot_conditions = conditions(:,4) == 1;
+plot_align = 2;
+
+switch plot_act
+    case 'fluor'
+        use_data = {batch_vars.fluor_trial_act};
+        area_labels = {wf_roi.area};
+    case 'mua'
+        use_data =  mua_trial_act_norm;
+        area_labels = cellfun(@(x) ['Str ' num2str(x)],num2cell(1:n_depths),'uni',false);
+end
+
 plot_contrasts = [unique(conditions(plot_conditions,1))*sides(1); ...
     unique(conditions(plot_conditions,1))*sides(2)];
 [~,sort_idx] = sort(plot_contrasts);
 
-
-% Plot distribution of all trials (fluor)
-curr_roi = 10;
-curr_align = 3;
-
 curr_trial_act = cellfun(@(x) ...
-    squeeze(x(curr_roi,plot_conditions,curr_align,:)), ...
-    {batch_vars.fluor_trial_act},'uni',false);
+    squeeze(x(plot_area,plot_conditions,plot_align,:)), ...
+    use_data,'uni',false);
 curr_trial_act_animalcat = horzcat(curr_trial_act{:});
 curr_trial_act_allcat = reshape(arrayfun(@(y) ...
     vertcat(curr_trial_act_animalcat{y,:}), ...
@@ -5391,48 +5479,25 @@ plot((1:11),curr_trial_act_allcat_median(curr_sort_idx,2),'color',[0.6,0.6,0.9],
 
 set(gca,'XTick',1:11,'XTickLabel',cellfun(@num2str,num2cell(curr_plot_contrasts(curr_sort_idx)),'uni',false));
 xlabel('Contrast*Side');
-ylabel(wf_roi(curr_roi).area);
-legend([p1{1}(1),p2{1}(1)],'Move left','Move right');
+ylabel(area_labels{plot_area});
+
+plot_choices = unique(conditions(plot_conditions,3));
+plot_timing = unique(conditions(plot_conditions,4));
+condition_labels{1} = ['Choice ' num2str(plot_choices(1)), ', Timing ' num2str(plot_timing(1))];
+condition_labels{2} = ['Choice ' num2str(plot_choices(end)), ', Timing ' num2str(plot_timing(end))];
+legend([p1{1}(1),p2{1}(1)],condition_labels);
+
+align_labels = {'Stim','Move','Beep'};
+title([align_labels{plot_align} '-aligned']);
 
 
-% Plot distribution of all trials(MUA)
-curr_depth = 1;
-curr_align = 3;
-
-curr_trial_act = cellfun(@(x) ...
-    squeeze(x(curr_depth,plot_conditions,curr_align,:)), ...
-    mua_trial_act_norm,'uni',false);
-curr_trial_act_animalcat = horzcat(curr_trial_act{:});
-curr_trial_act_allcat = reshape(arrayfun(@(y) ...
-    vertcat(curr_trial_act_animalcat{y,:}), ...
-    1:size(curr_trial_act_animalcat,1),'uni',false),[],2);
-% (combine zeros)
-zero_contrasts = find(plot_contrasts == 0);
-zero_trials = {vertcat(curr_trial_act_allcat{zero_contrasts,1}), ...
-    vertcat(curr_trial_act_allcat{zero_contrasts,2})};
-curr_trial_act_allcat(zero_contrasts(1),:) = zero_trials;
-curr_trial_act_allcat(zero_contrasts(2:end),:) = [];
-curr_plot_contrasts = plot_contrasts(setdiff(1:length(plot_contrasts),zero_contrasts(2:end)));
-[~,curr_sort_idx] = sort(curr_plot_contrasts);
-
-curr_trial_act_allcat_median = cellfun(@nanmedian,curr_trial_act_allcat);
-
-figure; hold on;
-p1 = distributionPlot(curr_trial_act_allcat(curr_sort_idx,1),'distWidth',0.5, ...
-    'xValues',(1:11)-0.25,'histOri','left','showMM',0,'color','r');
-p2 = distributionPlot(curr_trial_act_allcat(curr_sort_idx,2),'distWidth',0.5, ...
-    'xValues',(1:11)+0.25,'histOri','right','showMM',0,'color','b');
-plot((1:11),curr_trial_act_allcat_median(curr_sort_idx,1),'color',[0.9,0.6,0.6],'linewidth',2);
-plot((1:11),curr_trial_act_allcat_median(curr_sort_idx,2),'color',[0.6,0.6,0.9],'linewidth',2);
-
-set(gca,'XTick',1:11,'XTickLabel',cellfun(@num2str,num2cell(curr_plot_contrasts(curr_sort_idx)),'uni',false));
-xlabel('Contrast*Side');
-ylabel(['Str ' num2str(curr_depth)]);
-legend([p1{1}(1),p2{1}(1)],'Move left','Move right');
 
 
-curr_align = 2;
+
+
 % Plot averaging across days then animals
+curr_align = 2;
+
 figure('Name','Within days, Within animals');
 for curr_roi = 1:n_rois;    
     curr_trial_act = cellfun(@(x) ...
@@ -5561,9 +5626,15 @@ legend({'Move L','Move R'});
 
 %% Ctx (ROI) -> str regression, also tr-tr regression
 
+% Load data
 data_path = ['C:\Users\Andrew\OneDrive for Business\Documents\CarandiniHarrisLab\analysis\wf_ephys_choiceworld\choiceworld'];
 mua_fn = [data_path filesep 'roi-mua_choiceworld_predicted'];
 load(mua_fn);
+
+% Widefield ROs
+wf_roi_fn = 'C:\Users\Andrew\OneDrive for Business\Documents\CarandiniHarrisLab\analysis\wf_ephys_choiceworld\wf_processing\wf_rois\wf_roi';
+load(wf_roi_fn);
+n_rois = numel(wf_roi);
 
 n_depths = 6;
 
@@ -5596,7 +5667,7 @@ predicted_activity_model_params = {batch_vars.predicted_activity_model_params};
 predicted_activity_model_params_mean = nanmean(cell2mat(permute(cellfun(@(x) ...
     nanmean(x,6),predicted_activity_model_params,'uni',false),[1,3,4,5,6,2])),6);
 
-plot_param = 3;
+plot_param = 4;
 
 spacing = max(abs(reshape(activity_model_params_mean_smoothed(:,:,:,:,plot_param),[],1)))*1.5;
 
@@ -5648,6 +5719,29 @@ ylabel(['Param ' num2str(plot_param)])
 legend([p1(1),p2(1)],{'Early real','Late real'});
 
 linkaxes([s1,s2]);
+
+
+% Kernel for ROIs by depth
+% [ROI, time, depth, alignment, timing];
+roi_depth_kernel = {batch_vars.roi_depth_kernel};
+roi_depth_kernel_mean = nanmean(cell2mat(permute(cellfun(@(x) ...
+    nanmean(x,6),roi_depth_kernel,'uni',false),[1,3,4,5,6,2])),6);
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 

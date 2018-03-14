@@ -2974,7 +2974,7 @@ for trialtype_align = {'stim','move'};
         
         save_path = 'C:\Users\Andrew\OneDrive for Business\Documents\CarandiniHarrisLab\analysis\wf_ephys_choiceworld\choiceworld\';
         save_fn = [save_path filesep 'corr_mua_fluor_' trialtype_align '_' trialtype_timing '_conditionshuff'];
-        save(fn,'batch_vars','-v7.3');
+        save(save_fn,'batch_vars','-v7.3');
         disp(['Saved ' save_fn]);      
         
     end
