@@ -1094,6 +1094,50 @@ psthViewer(use_spikes,use_templates, ...
     wheel_move_time(use_trials)',raster_window,trial_id(use_trials));
 
 
+% PSTH viewier sorted by choice
+use_templates_unique = unique(use_templates);
+
+use_t = [-0.2,-0.02];
+use_align = wheel_move_time(use_trials)';
+
+t_peri_event = bsxfun(@plus,use_align,use_t);
+d_prime_diff = nan(size(use_templates_unique));
+for curr_template_idx = 1:length(use_templates_unique)
+    
+    curr_template = use_templates_unique(curr_template_idx);
+    curr_spikes = spike_times_timeline(spike_templates == curr_template);
+    
+    curr_spikes_binned = cell2mat(arrayfun(@(x) ...
+        histcounts(curr_spikes,t_peri_event(x,:)), ...
+        [1:size(t_peri_event,1)]','uni',false))./diff(use_t);
+    
+    stim_r_trials = signals_events.trialSideValues(use_trials) == 1;
+    go_l_trials = trial_choice(use_trials) == -1;
+    
+    d_prime_choice = ...
+        abs(mean(curr_spikes_binned(go_l_trials)) - mean(curr_spikes_binned(~go_l_trials)))./ ...
+        sqrt(std(curr_spikes_binned(go_l_trials)).^2 + std(curr_spikes_binned(~go_l_trials)).^2);
+    
+    d_prime_stim = ...
+        abs(mean(curr_spikes_binned(stim_r_trials & go_l_trials)) - mean(curr_spikes_binned(stim_r_trials & ~go_l_trials)))./ ...
+        sqrt(std(curr_spikes_binned(stim_r_trials & go_l_trials)).^2 + std(curr_spikes_binned(stim_r_trials & ~go_l_trials)).^2);
+    
+    d_prime_diff(curr_template_idx) = d_prime_choice-d_prime_stim;
+    
+end
+
+d_prime_diff(isnan(d_prime_diff)) = -inf;
+[~,sort_idx] = sort(d_prime_diff,'descend');
+
+sort_templates = nan(size(templates,1),1);
+sort_templates(use_templates_unique(sort_idx)) = use_templates_unique;
+template_sort = sort_templates(use_templates);
+
+raster_window = [-0.5,0.5];
+psthViewer(use_spikes,template_sort, ...
+    wheel_move_time(use_trials)',raster_window,trial_id(use_trials));
+
+
 %% Ephys: rasters by template
 
 % Pull out spikes within striatum
@@ -1890,7 +1934,7 @@ end
 
 %% Load and process widefield choiceworld mean (GENERAL - ROIs)
 
-use_fluor = 2; % 1 = ddf, 2 = df
+use_fluor = 1; % 1 = ddf, 2 = df
 
 % Get times and conditions
 surround_window = [-0.5,3];
@@ -1931,8 +1975,8 @@ colormap(colormap_BlueWhiteRed)
 caxis([-max(abs(caxis)),max(abs(caxis))]);
 
 % Plot all select conditions from given ROI
-plot_roi = 9;
-plot_success = -1;
+plot_roi = 7;
+plot_success = 1;
 
 figure('Name',wf_roi(plot_roi).area); 
 
@@ -2009,8 +2053,8 @@ xlabel('Time from move')
 title('Late move')
 
 % Plot all ROIs for one condition
-plot_contrast = 1;
-plot_align = 2;
+plot_contrast = 0;
+plot_align = 1;
 plot_timing = 1;
 
 figure; 
@@ -2218,7 +2262,7 @@ linkaxes([s1,s2,s3,s4],'x');
 % [depth,time,align,timing,param]
 activity_model_params = cellfun(@(x) squeeze(x(:,:,:,:,:,use_fluor,:)),{batch_vars.activity_model_params},'uni',false);
 activity_model_params_mean = nanmean(cell2mat(permute(cellfun(@(x) ...
-    nanmean(x,6),activity_model_params,'uni',false),[1,3,4,5,6,2])),6);
+    nanmedian(x,6),activity_model_params,'uni',false),[1,3,4,5,6,2])),6);
 
 plot_param = 4;
 
@@ -2246,39 +2290,50 @@ linkaxes([s1,s2]);
 
 
 % Plot max b3 v max b4
-use_t_stim = t > 0 & t < 0.2;
-use_t_move = t > -0.2 & t < -0.02;
-use_timing = 2;
+use_t_stim = t > 0.05 & t < 0.15;
+use_t_move = t > -0.15 & t < -0.02;
 
-max_b3 = max(max(abs(activity_model_params_mean(:,use_t_stim,1,use_timing,3)),[],2), ...
-    max(abs(activity_model_params_mean(:,use_t_move,2,use_timing,3)),[],2));
+max_b3_early = max(max(abs(activity_model_params_mean(:,use_t_stim,1,1,3)),[],2), ...
+    max(abs(activity_model_params_mean(:,use_t_move,2,1,3)),[],2));
+max_b3_late = max(max(abs(activity_model_params_mean(:,use_t_stim,1,2,3)),[],2), ...
+    max(abs(activity_model_params_mean(:,use_t_move,2,2,3)),[],2));
 
-max_b4 = max(max(abs(activity_model_params_mean(:,use_t_stim,1,use_timing,4)),[],2), ...
-    max(abs(activity_model_params_mean(:,use_t_move,2,use_timing,4)),[],2));
+max_b4_early = max(max(abs(activity_model_params_mean(:,use_t_stim,1,1,4)),[],2), ...
+    max(abs(activity_model_params_mean(:,use_t_move,2,1,4)),[],2));
+max_b4_late = max(max(abs(activity_model_params_mean(:,use_t_stim,1,2,4)),[],2), ...
+    max(abs(activity_model_params_mean(:,use_t_move,2,2,4)),[],2));
 
 figure; 
 plot_col = [autumn(n_rois/2);winter(n_rois/2)];
 
-subplot(4,1,1);
-scatter(1:n_rois,max_b3,100,plot_col,'filled','MarkerEdgeColor','k');
+subplot(4,1,1); hold on;
+scatter(1:n_rois,max_b3_early,100,plot_col,'filled','MarkerEdgeColor','k','linewidth',2);
+scatter(1:n_rois,max_b3_late,100,plot_col,'filled','MarkerEdgeColor',[0.5,0.5,0.5],'linewidth',2);
 set(gca,'XTick',1:n_rois,'XTickLabel',{wf_roi.area});
 ylabel('\beta_3');
 
-subplot(4,1,2);
-scatter(1:n_rois,max_b4,100,plot_col,'filled','MarkerEdgeColor','k');
+subplot(4,1,2); hold on;
+scatter(1:n_rois,max_b4_early,100,plot_col,'filled','MarkerEdgeColor','k','linewidth',2);
+scatter(1:n_rois,max_b4_late,100,plot_col,'filled','MarkerEdgeColor',[0.5,0.5,0.5],'linewidth',2);
 set(gca,'XTick',1:n_rois,'XTickLabel',{wf_roi.area});
 ylabel('\beta_4');
 
-subplot(4,1,3);
-scatter(1:n_rois,(max_b3-max_b4)./(max_b3+max_b4),100,plot_col,'filled','MarkerEdgeColor','k');
+subplot(4,1,3); hold on;
+scatter(1:n_rois,(max_b3_early-max_b4_early)./(max_b3_early+max_b4_early), ...
+    100,plot_col,'filled','MarkerEdgeColor','k','linewidth',2);
+scatter(1:n_rois,(max_b3_late-max_b4_late)./(max_b3_late+max_b4_late), ...
+    100,plot_col,'filled','MarkerEdgeColor',[0.5,0.5,0.5],'linewidth',2);
 set(gca,'XTick',1:n_rois,'XTickLabel',{wf_roi.area});
 ylabel('(\beta_3-\beta_4)/(\beta_3+\beta_4)');
 
-subplot(4,1,4);
-scatter(max_b3,max_b4,100,plot_col,'filled','MarkerEdgeColor','k');
+subplot(4,1,4); hold on;
+scatter(max_b3_early,max_b4_early,100,plot_col,'filled','MarkerEdgeColor','k','linewidth',2);
+scatter(max_b3_late,max_b4_late,100,plot_col,'filled','MarkerEdgeColor',[0.5,0.5,0.5],'linewidth',2);
 xlabel('\beta_3');ylabel('\beta_4')
-line([0,max([max_b3;max_b4])],[0,max([max_b3;max_b4])],'color','k');
+max_weight = max([max_b3_early;max_b3_late;max_b4_early;max_b4_late]);
+line([0,max_weight],[0,max_weight],'color','k');
 axis image
+
 
 
 
@@ -2744,7 +2799,7 @@ AP_image_scroll(depth_psth_mean, ...
 line(repmat(find(t > 0,1),2,1),ylim,'color','r');
 
 % Plot all hit/miss conditions for one depth
-plot_str = 1;
+plot_str = 2;
 plot_success = 1;
 plot_color = colormap_BlueWhiteRed(6);
 plot_color = [[0,0,0];plot_color(5:-1:1,:);[0,0,0];plot_color(end-5:end,:)];
@@ -2784,7 +2839,7 @@ xlabel('Time from move')
 title('Late move')
 
 % Plot all depths for one condition
-plot_contrast = 1;
+plot_contrast = 0.125;
 plot_align = 1;
 plot_timing = 2;
 
@@ -3026,16 +3081,15 @@ for curr_timing = 1:2
 end
 
 
-medfilt_t = 1;
 
-for plot_param = 1:size(activity_model_params,5);
+plot_param = 3;
 
 spacing = max(abs(reshape(activity_model_params(:,:,:,:,plot_param),[],1)));
 
 figure; 
 s1 = subplot(1,2,1);hold on;
-p1 = AP_stackplot(medfilt1(activity_model_params(:,:,1,1,plot_param)',medfilt_t),t,spacing,false,'k',1:6);
-p2 = AP_stackplot(medfilt1(activity_model_params(:,:,1,2,plot_param)',medfilt_t),t,spacing,false,'r',1:6);
+p1 = AP_stackplot(activity_model_params(:,:,1,1,plot_param)',t,spacing,false,'k',1:6);
+p2 = AP_stackplot(activity_model_params(:,:,1,2,plot_param)',t,spacing,false,'r',1:6);
 line([0,0],ylim,'color','k');
 line([0.5,0.5],ylim,'color','k');
 xlabel('Time from align')
@@ -3044,8 +3098,8 @@ title('Stim aligned')
 legend([p1(1),p2(1)],{'Early move','Late move'});
 
 s2 = subplot(1,2,2);hold on;
-p1 = AP_stackplot(medfilt1(activity_model_params(:,:,2,1,plot_param)',medfilt_t),t,spacing,false,'k',1:6);
-p2 = AP_stackplot(medfilt1(activity_model_params(:,:,2,2,plot_param)',medfilt_t),t,spacing,false,'r',1:6);
+p1 = AP_stackplot(activity_model_params(:,:,2,1,plot_param)',t,spacing,false,'k',1:6);
+p2 = AP_stackplot(activity_model_params(:,:,2,2,plot_param)',t,spacing,false,'r',1:6);
 line([0,0],ylim,'color','k');
 xlabel('Time from align')
 ylabel(['Param ' num2str(plot_param)])
@@ -3054,7 +3108,56 @@ legend([p1(1),p2(1)],{'Early move','Late move'});
 
 linkaxes([s1,s2]);
 
-end
+
+% Plot max b3 v max b4
+use_t_stim = t > 0.05 & t < 0.15;
+use_t_move = t > -0.15 & t < -0.02;
+
+max_b3_early = max(max(abs(activity_model_params(:,use_t_stim,1,1,3)),[],2), ...
+    max(abs(activity_model_params(:,use_t_move,2,1,3)),[],2));
+max_b3_late = max(max(abs(activity_model_params(:,use_t_stim,1,2,3)),[],2), ...
+    max(abs(activity_model_params(:,use_t_move,2,2,3)),[],2));
+
+max_b4_early = max(max(abs(activity_model_params(:,use_t_stim,1,1,4)),[],2), ...
+    max(abs(activity_model_params(:,use_t_move,2,1,4)),[],2));
+max_b4_late = max(max(abs(activity_model_params(:,use_t_stim,1,2,4)),[],2), ...
+    max(abs(activity_model_params(:,use_t_move,2,2,4)),[],2));
+
+figure; 
+plot_col = copper(n_depths);
+
+subplot(4,1,1); hold on;
+scatter(1:n_depths,max_b3_early,100,plot_col,'filled','MarkerEdgeColor','k','linewidth',2);
+scatter(1:n_depths,max_b3_late,100,plot_col,'filled','MarkerEdgeColor',[0.5,0.5,0.5],'linewidth',2);
+set(gca,'XTick',1:n_depths);
+xlabel('Striatal depth');
+ylabel('\beta_3');
+
+subplot(4,1,2); hold on;
+scatter(1:n_depths,max_b4_early,100,plot_col,'filled','MarkerEdgeColor','k','linewidth',2);
+scatter(1:n_depths,max_b4_late,100,plot_col,'filled','MarkerEdgeColor',[0.5,0.5,0.5],'linewidth',2);
+set(gca,'XTick',1:n_depths);
+xlabel('Striatal depth');
+ylabel('\beta_4');
+
+subplot(4,1,3); hold on;
+scatter(1:n_depths,(max_b3_early-max_b4_early)./(max_b3_early+max_b4_early), ...
+    100,plot_col,'filled','MarkerEdgeColor','k','linewidth',2);
+scatter(1:n_depths,(max_b3_late-max_b4_late)./(max_b3_late+max_b4_late), ...
+    100,plot_col,'filled','MarkerEdgeColor',[0.5,0.5,0.5],'linewidth',2);
+set(gca,'XTick',1:n_depths);
+xlabel('Striatal depth');
+ylabel('(\beta_3-\beta_4)/(\beta_3+\beta_4)');
+
+subplot(4,1,4); hold on;
+scatter(max_b3_early,max_b4_early,100,plot_col,'filled','MarkerEdgeColor','k','linewidth',2);
+scatter(max_b3_late,max_b4_late,100,plot_col,'filled','MarkerEdgeColor',[0.5,0.5,0.5],'linewidth',2);
+xlabel('\beta_3');ylabel('\beta_4')
+max_weight = max([max_b3_early;max_b3_late;max_b4_early;max_b4_late]);
+line([0,max_weight],[0,max_weight],'color','k');
+axis image
+
+
 
 
 
@@ -3873,7 +3976,7 @@ linkaxes([s1,s2]);
 % [depth,time,align,timing,param]
 activity_model_params = {batch_vars.activity_model_params};
 activity_model_params_mean = nanmean(cell2mat(permute(cellfun(@(x) ...
-    nanmean(x,6),activity_model_params,'uni',false),[1,3,4,5,6,2])),6);
+    nanmedian(x,6),activity_model_params,'uni',false),[1,3,4,5,6,2])),6);
 activity_model_params_mean_smoothed = convn(activity_model_params_mean,smWin,'same');
 
 predicted_activity_model_params = {batch_vars.predicted_activity_model_params};
@@ -3934,8 +4037,8 @@ linkaxes([s1,s2]);
 
 
 % Plot max b3 v max b4
-use_t_stim = t > 0 & t < 0.2;
-use_t_move = t > -0.2 & t < 0.01;
+use_t_stim = t > 0.05 & t < 0.15;
+use_t_move = t > -0.15 & t < -0.02;
 
 max_b3_early = max(max(abs(activity_model_params_mean(:,use_t_stim,1,1,3)),[],2), ...
     max(abs(activity_model_params_mean(:,use_t_move,2,1,3)),[],2));
@@ -3950,30 +4053,35 @@ max_b4_late = max(max(abs(activity_model_params_mean(:,use_t_stim,1,2,4)),[],2),
 figure; 
 plot_col = copper(n_depths);
 
-subplot(4,1,1);
-scatter(1:n_depths,max_b3_early,100,plot_col,'filled','MarkerEdgeColor','k');
-scatter(1:n_depths,max_b3_early_late,100,plot_col,'filled','MarkerEdgeColor','k');
-
+subplot(4,1,1); hold on;
+scatter(1:n_depths,max_b3_early,100,plot_col,'filled','MarkerEdgeColor','k','linewidth',2);
+scatter(1:n_depths,max_b3_late,100,plot_col,'filled','MarkerEdgeColor',[0.5,0.5,0.5],'linewidth',2);
 set(gca,'XTick',1:n_depths);
 xlabel('Striatal depth');
 ylabel('\beta_3');
 
-subplot(4,1,2);
-scatter(1:n_depths,max_b4,100,plot_col,'filled','MarkerEdgeColor','k');
+subplot(4,1,2); hold on;
+scatter(1:n_depths,max_b4_early,100,plot_col,'filled','MarkerEdgeColor','k','linewidth',2);
+scatter(1:n_depths,max_b4_late,100,plot_col,'filled','MarkerEdgeColor',[0.5,0.5,0.5],'linewidth',2);
 set(gca,'XTick',1:n_depths);
 xlabel('Striatal depth');
 ylabel('\beta_4');
 
-subplot(4,1,3);
-scatter(1:n_depths,(max_b3-max_b4)./(max_b3+max_b4),100,plot_col,'filled','MarkerEdgeColor','k');
+subplot(4,1,3); hold on;
+scatter(1:n_depths,(max_b3_early-max_b4_early)./(max_b3_early+max_b4_early), ...
+    100,plot_col,'filled','MarkerEdgeColor','k','linewidth',2);
+scatter(1:n_depths,(max_b3_late-max_b4_late)./(max_b3_late+max_b4_late), ...
+    100,plot_col,'filled','MarkerEdgeColor',[0.5,0.5,0.5],'linewidth',2);
 set(gca,'XTick',1:n_depths);
 xlabel('Striatal depth');
 ylabel('(\beta_3-\beta_4)/(\beta_3+\beta_4)');
 
-subplot(4,1,4);
-scatter(max_b3,max_b4,100,plot_col,'filled','MarkerEdgeColor','k');
+subplot(4,1,4); hold on;
+scatter(max_b3_early,max_b4_early,100,plot_col,'filled','MarkerEdgeColor','k','linewidth',2);
+scatter(max_b3_late,max_b4_late,100,plot_col,'filled','MarkerEdgeColor',[0.5,0.5,0.5],'linewidth',2);
 xlabel('\beta_3');ylabel('\beta_4')
-line([0,max([max_b3;max_b4])],[0,max([max_b3;max_b4])],'color','k');
+max_weight = max([max_b3_early;max_b3_late;max_b4_early;max_b4_late]);
+line([0,max_weight],[0,max_weight],'color','k');
 axis image
 
 
@@ -3988,8 +4096,8 @@ plot_t = [-0.2,0.7];
 t_use = t > 0.5 & t < 0.6;
 
 % Load correlations
-trialtype_align = 'stim';
-trialtype_timing = 'latemove';
+trialtype_align = 'move';
+trialtype_timing = 'earlymove';
 
 corr_use = ['corr_mua_fluor_' trialtype_align '_' trialtype_timing '_conditionshuff'];
 fn = ['C:\Users\Andrew\OneDrive for Business\Documents\CarandiniHarrisLab\analysis\wf_ephys_choiceworld\choiceworld\' corr_use];
@@ -3999,8 +4107,6 @@ n_depths = 6;
 % Load widefield ROIs
 wf_roi_fn = 'C:\Users\Andrew\OneDrive for Business\Documents\CarandiniHarrisLab\analysis\wf_ephys_choiceworld\wf_processing\wf_rois\wf_roi';
 load(wf_roi_fn);
-% wf_roi = wf_roi(:,1); % (if only ipsi ROIs)
-% wf_roi(3,:) = [];% RSP wasn't included when I did this 
 n_rois = numel(wf_roi);
 wf_areas = {wf_roi.area};
 
@@ -5280,8 +5386,8 @@ plot(t,a-b,'linewidth',2);
 
 %% Load/process Peter model
 
-% fn = 'C:\Users\Andrew\OneDrive for Business\Documents\CarandiniHarrisLab\analysis\wf_ephys_choiceworld\choiceworld\loglik_increase_early';
-fn = 'C:\Users\Andrew\OneDrive for Business\Documents\CarandiniHarrisLab\analysis\wf_ephys_choiceworld\choiceworld\loglik_increase_late';
+fn = 'C:\Users\Andrew\OneDrive for Business\Documents\CarandiniHarrisLab\analysis\wf_ephys_choiceworld\choiceworld\loglik_increase_early';
+% fn = 'C:\Users\Andrew\OneDrive for Business\Documents\CarandiniHarrisLab\analysis\wf_ephys_choiceworld\choiceworld\loglik_increase_late';
 load(fn);
 
 % Widefield ROs
@@ -5381,40 +5487,44 @@ loglik_increase_mua_mean = nanmean(cat(3,loglik_increase_mua_animal_mean{:}),3);
 
 figure;
 subplot(2,1,1); hold on;
-plot(loglik_increase_fluor_mean,'linewidth',2)
-ylabel('Relative log likelihood');
+plot_col = [autumn(n_rois/2);winter(n_rois/2)];
+scatter(1:n_rois,loglik_increase_fluor_mean(:,1),100,plot_col,'filled','MarkerEdgeColor','k','linewidth',2);
+scatter(1:n_rois,loglik_increase_fluor_mean(:,2),100,plot_col,'filled','MarkerEdgeColor',[0.5,0.5,0.5],'linewidth',2);
+ylabel('Relative log likelihood (bpt)');
 line(xlim,[0,0],'color','k');
 set(gca,'XTick',1:n_rois,'XTickLabel',{wf_roi.area});
 legend({'Stim-aligned','Move-aligned'})
 
 subplot(2,1,2); hold on;
-plot(loglik_increase_mua_mean,'linewidth',2)
-ylabel('Relative log likelihood');
+plot_col = copper(n_depths);
+scatter(1:n_depths,loglik_increase_mua_mean(:,1),100,plot_col,'filled','MarkerEdgeColor','k','linewidth',2);
+scatter(1:n_depths,loglik_increase_mua_mean(:,2),100,plot_col,'filled','MarkerEdgeColor',[0.5,0.5,0.5],'linewidth',2);
+ylabel('Relative log likelihood (bpt)');
 line(xlim,[0,0],'color','k');
 set(gca,'XTick',1:n_depths,'XTickLabel',cellfun(@(x) ...
     ['Str ' num2str(x)],num2cell(1:n_depths),'uni',false));
 
-% (for plotting L/R params)
-fluor_params = {batch_vars.fluor_params};
-fluor_weight = cellfun(@(x) [abs(x(:,5,:,:)),abs(x(:,6,:,:)) ...
-    .*sign(x(:,5,:,:)).*sign(x(:,6,:,:))],fluor_params,'uni',false);
-fluor_weight_animal_mean = cellfun(@(x) nanmedian(x,4),fluor_weight,'uni',false);
-fluor_weight_mean = nanmean(cat(4,fluor_weight_animal_mean{:}),4);
-
-figure;
-subplot(2,1,1);
-plot(squeeze(fluor_weight_mean(:,:,1)),'linewidth',2)
-legend({'L hemi','R hemi'})
-ylabel('Weight')
-set(gca,'XTick',1:n_rois/2,'XTickLabel',{wf_roi(:,1).area});
-title('Stim-aligned');
-
-subplot(2,1,2);
-plot(squeeze(fluor_weight_mean(:,:,2)),'linewidth',2)
-legend({'L hemi','R hemi'})
-ylabel('Weight')
-set(gca,'XTick',1:n_rois/2,'XTickLabel',{wf_roi(:,1).area});
-title('Move-aligned')
+% % (for plotting L/R params)
+% fluor_params = {batch_vars.fluor_params};
+% fluor_weight = cellfun(@(x) [abs(x(:,5,:,:)),abs(x(:,6,:,:)) ...
+%     .*sign(x(:,5,:,:)).*sign(x(:,6,:,:))],fluor_params,'uni',false);
+% fluor_weight_animal_mean = cellfun(@(x) nanmedian(x,4),fluor_weight,'uni',false);
+% fluor_weight_mean = nanmean(cat(4,fluor_weight_animal_mean{:}),4);
+% 
+% figure;
+% subplot(2,1,1);
+% plot(squeeze(fluor_weight_mean(:,:,1)),'linewidth',2)
+% legend({'L hemi','R hemi'})
+% ylabel('Weight')
+% set(gca,'XTick',1:n_rois/2,'XTickLabel',{wf_roi(:,1).area});
+% title('Stim-aligned');
+% 
+% subplot(2,1,2);
+% plot(squeeze(fluor_weight_mean(:,:,2)),'linewidth',2)
+% legend({'L hemi','R hemi'})
+% ylabel('Weight')
+% set(gca,'XTick',1:n_rois/2,'XTickLabel',{wf_roi(:,1).area});
+% title('Move-aligned')
 
 %% Trial-by-trial activity time-averaged
 
@@ -5750,6 +5860,250 @@ linkaxes([s1,s2]);
 roi_depth_kernel = {batch_vars.roi_depth_kernel};
 roi_depth_kernel_mean = nanmean(cell2mat(permute(cellfun(@(x) ...
     nanmean(x,6),roi_depth_kernel,'uni',false),[1,3,4,5,6,2])),6);
+
+%% Simulate data
+% (this was initially to look at L/L-R differences, not sure if that made
+% sense but at least it's useful for testing stuff)
+
+contrasts = [0,0.06,0.125,0.25,0.5,1];
+sides = [-1,1];
+
+n_trials = 10000;
+
+% Make sides and contrasts
+trial_sides = sides(randi(length(sides),n_trials,1));
+trial_contrasts = contrasts(randi(length(contrasts),n_trials,1));
+
+trial_contrasts_sides = zeros(n_trials,2);
+trial_contrasts_sides(trial_sides == -1,1) = trial_contrasts(trial_sides == -1);
+trial_contrasts_sides(trial_sides == 1,2) = trial_contrasts(trial_sides == 1);
+
+% Generate activity
+private_act_noise_coeff = 0.2;
+shared_act_noise_coeff = 1;
+choice_noise_coeff = 0.5;
+
+shared_noise = shared_act_noise_coeff*randn(n_trials,1);
+act_l = trial_contrasts_sides(:,2).^0.3 + private_act_noise_coeff*randn(n_trials,1);
+act_r = trial_contrasts_sides(:,1).^0.3 + private_act_noise_coeff*randn(n_trials,1);
+
+% % (unilateral: activity based on trial choice)
+trial_choice = -sign((act_l - act_r) + choice_noise_coeff*randn(n_trials,1));
+
+% (bilateral: trial choice based on L-R)
+% act_choice_add = 0.5;
+% act_choice_noise_coeff = 0.5;
+% trial_choice = sign(-trial_contrasts_sides(:,1).^0.3+trial_contrasts_sides(:,2).^0.3 + choice_noise_coeff*randn(n_trials,1));
+% act_l = act_l + act_choice_add*(trial_choice == -1) + act_choice_noise_coeff*randn(n_trials,1);
+% act_r = act_r + act_choice_add*(trial_choice == 1) + act_choice_noise_coeff*randn(n_trials,1);
+
+[psychometric,conditions] = grpstats(trial_choice == -1,trial_sides.*trial_contrasts,{'mean','gname'});
+conditions = cellfun(@str2num,conditions);
+figure;plot(conditions,psychometric,'color','k','linewidth',3);
+
+% Regress L activity from task parameters
+contrast_exp = 1;
+
+regression_unilateral = [ones(n_trials,1), ...
+    trial_contrasts_sides.^contrast_exp, ...
+    trial_choice]\act_l;
+
+regression_bilateral = [ones(n_trials,1), ...
+    trial_contrasts_sides.^contrast_exp, ...
+    trial_choice]\(act_l-act_r);
+
+regression_choice_ratio = regression_bilateral(4)/regression_unilateral(4);
+disp(['Regression ratio: ' num2str(regression_choice_ratio)]);       
+
+
+% Fit Peter's model
+cvfold = 10;
+
+D = struct;
+D.stimulus = trial_contrasts_sides;
+D.response = ((trial_choice+1)/2)+1;
+D.repeatNum = ones(n_trials,1);
+
+% Fit all stim
+use_model = 'AP_test_stim';
+g_stim_all = GLM(D).setModel(use_model).fit;
+behavParameterFit = g_stim_all.parameterFits;
+
+% Fit without neural CV
+use_model = 'AP_test_stim';
+
+g_stim = GLM(D).setModel(use_model).fitCV(cvfold);
+pL = g_stim.p_hat(:,1);    pR = g_stim.p_hat(:,2);
+likelihood = pL.*(g_stim.data.response==1) + pR.*(g_stim.data.response==2);
+
+stim_params = nanmean(g_stim.parameterFits,1);
+loglik_bpt_stim = nanmean(log2(likelihood(likelihood ~= 0)));
+
+% Fit with neural
+use_model = 'AP_test_neur_stim';
+
+D.neur = act_l; 
+clear g_fluor
+g_act = GLM(D).setModel(use_model).fitCV(cvfold);
+pL = g_act.p_hat(:,1);
+pR = g_act.p_hat(:,2);
+likelihood = pL.*(g_act.data.response==1) + pR.*(g_act.data.response==2);
+loglik_bpt_act_unilateral = nanmean(log2(likelihood(likelihood ~= 0)));
+
+D.neur = act_l-act_r;
+clear g_fluor
+g_act = GLM(D).setModel(use_model).fitCV(cvfold);
+pL = g_act.p_hat(:,1);
+pR = g_act.p_hat(:,2);
+likelihood = pL.*(g_act.data.response==1) + pR.*(g_act.data.response==2);
+loglik_bpt_act_bilateral = nanmean(log2(likelihood(likelihood ~= 0)));
+
+loglik_increase_unilateral = loglik_bpt_act_unilateral - loglik_bpt_stim;
+loglik_increase_bilateral = loglik_bpt_act_bilateral - loglik_bpt_stim;
+
+model_choice_ratio = loglik_increase_bilateral/loglik_increase_unilateral;
+disp(['Model ratio: ' num2str(model_choice_ratio)]);       
+        
+%% Logistic regression from V's to choice
+
+% Load
+fn = 'C:\Users\Andrew\OneDrive for Business\Documents\CarandiniHarrisLab\analysis\wf_ephys_choiceworld\choiceworld\logistic_regression_pV';
+load(fn);
+
+% Get time
+framerate = 35.2;
+raster_window = [-0.5,1];
+upsample_factor = 3;
+raster_sample_rate = 1/(framerate*upsample_factor);
+t = raster_window(1):raster_sample_rate:raster_window(2);
+
+% Take the mean progressively and overwrite - file's too big
+for curr_animal = 1:length(batch_vars)
+    batch_vars(curr_animal).pV = nanmean(batch_vars(curr_animal).pV,5);
+end
+
+pV = nanmean(cat(5,batch_vars.pV),5);
+
+AP_image_scroll(pV,t);
+axis image;
+caxis([-5e-11,5e-11]);
+colormap(colormap_BlueWhiteRed);
+
+%% Logistic regression: concatenate trials within animal, mean time
+
+analysis_path = ['C:\Users\Andrew\OneDrive for Business\Documents\CarandiniHarrisLab\analysis\wf_ephys_choiceworld\choiceworld'];
+analysis_fn = ['activity_choice_logistic_regression_meantime'];
+load([analysis_path filesep analysis_fn]);
+
+% Widefield ROs
+wf_roi_fn = 'C:\Users\Andrew\OneDrive for Business\Documents\CarandiniHarrisLab\analysis\wf_ephys_choiceworld\wf_processing\wf_rois\wf_roi';
+load(wf_roi_fn);
+n_rois = numel(wf_roi);
+
+% Get MUA
+n_depths = 6;
+
+% Get time
+raster_window = [-0.5,1];
+upsample_factor = 3;
+framerate = 35.2;
+raster_sample_rate = 1/(framerate*upsample_factor);
+t = raster_window(1):raster_sample_rate:raster_window(2);
+
+% Get average data
+loglik_increase_fluor = nanmean(batch_vars.loglik_increase_fluor,ndims(batch_vars.loglik_increase_fluor));
+
+
+%% Regression on saved trial activity
+
+% Get time
+framerate = 35.2;
+raster_window = [-0.5,1];
+upsample_factor = 3;
+raster_sample_rate = 1/(framerate*upsample_factor);
+t = raster_window(1):raster_sample_rate:raster_window(2);
+
+use_t_stim = t > 0.05 & t < 0.15; 
+use_t_move = t > -0.15 & t < -0.02;
+use_t_align = [use_t_stim;use_t_move];
+
+% Get widefield ROIs
+wf_roi_fn = 'C:\Users\Andrew\OneDrive for Business\Documents\CarandiniHarrisLab\analysis\wf_ephys_choiceworld\wf_processing\wf_rois\wf_roi';
+load(wf_roi_fn);
+n_rois = numel(wf_roi);
+
+n_depths = 6;
+
+activity_model_params = nan(4,length(t),n_rois,2,length(D_all));
+for curr_animal = 1:length(D_all)
+    
+    % Concatenate fluorescence
+    fluor_cat = cat(1,fluor_all{curr_animal}{:});
+    
+    % Concatenate MUA and normalize
+    mua_cat_raw = cat(1,mua_all{curr_animal}{:});
+        
+    smooth_size = 10;
+    gw = gausswin(smooth_size,3)';
+    smWin = gw./sum(gw);
+    
+    mua_cat_raw_smoothed = convn(mua_cat_raw,smWin,'same');
+       
+    t_baseline = t < 0;
+    softnorm = 5;
+    mua_baseline = nanmean(mua_cat_raw_smoothed(:,t_baseline,:,1),2);
+    mua_cat = bsxfun(@rdivide,mua_cat_raw_smoothed,mua_baseline + softnorm);
+    
+    % Get L-R activity
+    fluor_cat_hemidiff = cat(3,fluor_cat(:,:,1:n_rois/2,:),fluor_cat(:,:,1:n_rois/2,:) - ...
+        fluor_cat(:,:,n_rois/2+1:end,:));
+    
+    % Concatenate behavioural data
+    D = struct;
+    D.stimulus = cell2mat(cellfun(@(x) x.stimulus,D_all{curr_animal},'uni',false));
+    D.response = cell2mat(cellfun(@(x) x.response,D_all{curr_animal},'uni',false));
+    D.repeatNum = cell2mat(cellfun(@(x) x.repeatNum,D_all{curr_animal},'uni',false));
+    
+    trial_day = cell2mat(cellfun(@(day,act) repmat(day,size(act,1),1), ...
+        num2cell(1:length(fluor_all{curr_animal}))',fluor_all{curr_animal},'uni',false));
+    D.day = trial_day;
+    
+    max_contrast = max(D.stimulus,[],2);
+    use_trials = max_contrast > 0 & max_contrast < 1;
+    
+    % Regression
+    contrast_exps = 1;
+    for contrast_exp = contrast_exps;
+               
+        %     n_trials = size(fluor_cat_hemidiff,1);
+        n_trials = sum(use_trials);
+        
+        params_fit = [ones(n_trials,1), ...
+            D.stimulus(use_trials,:).^contrast_exp, ...
+            2*(D.response(use_trials)-1.5)]\reshape(fluor_cat_hemidiff(use_trials,:,:,:),n_trials,[]);
+        
+        activity_model_params(:,:,:,:,curr_animal)= ...
+            reshape(params_fit,4,length(t),n_rois,2);        
+        
+    end
+    
+end
+
+activity_model_params_mean = nanmean(activity_model_params,5);
+figure; hold on
+set(gca,'ColorOrder',[autumn(8);winter(8)]);
+plot(t,squeeze(activity_model_params_mean(4,:,:,2)));
+
+
+
+
+
+
+
+
+
+
+
 
 
 
