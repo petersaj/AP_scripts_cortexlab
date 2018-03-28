@@ -6042,50 +6042,36 @@ for curr_animal = 1:length(D_all)
     trial_day = cell2mat(cellfun(@(day,act) repmat(day,size(act,1),1), ...
         num2cell(1:length(fluor_all{curr_animal}))',fluor_all{curr_animal},'uni',false));
     
-    % Concatenate fluorescence, get L-R
+    % Concatenate fluorescence, get L-R, normalize (all together)
     fluor_cat = cat(1,fluor_all{curr_animal}{:});
     
     fluor_cat_hemidiff = cat(3,fluor_cat(:,:,1:n_rois/2,:),fluor_cat(:,:,1:n_rois/2,:) - ...
         fluor_cat(:,:,n_rois/2+1:end,:));
-    
-    % Concatenate MUA and normalize
-    mua_cat_raw = cat(1,mua_all{curr_animal}{:});
         
+    fluor_cat_norm = bsxfun(@rdivide,fluor_cat,permute(std(reshape(permute(fluor_cat,[1,2,4,3]),[],n_rois),[],1),[1,3,2,4]));
+    fluor_cat_hemidiff_norm = bsxfun(@rdivide,fluor_cat_hemidiff,permute(std(abs(reshape(permute(fluor_cat_hemidiff,[1,2,4,3]),[],n_rois)),[],1),[1,3,2,4]));     
+    
+    % Concatenate MUA and normalize (separately by day)
+    mua_cat_raw = cat(1,mua_all{curr_animal}{:});
+    
     smooth_size = 8;
     gw = gausswin(smooth_size,3)';
     smWin = gw./sum(gw);
     
     mua_cat_raw_smoothed = convn(mua_cat_raw,smWin,'same');
-       
-    t_baseline = t < 0;
-    softnorm = 10;
-    mua_baseline = nanmean(mua_cat_raw_smoothed(:,t_baseline,:,1),2);
-    mua_cat = bsxfun(@rdivide,mua_cat_raw_smoothed,mua_baseline + softnorm)-1;
     
-    % Normalize all activity by std (days combined)
-    fluor_cat_norm = bsxfun(@rdivide,fluor_cat,permute(std(reshape(permute(fluor_cat,[1,2,4,3]),[],n_rois),[],1),[1,3,2,4]));
-    fluor_cat_hemidiff_norm = bsxfun(@rdivide,fluor_cat_hemidiff,permute(std(abs(reshape(permute(fluor_cat_hemidiff,[1,2,4,3]),[],n_rois)),[],1),[1,3,2,4]));   
-    mua_cat_norm = bsxfun(@rdivide,mua_cat,permute(std(reshape(permute(mua_cat,[1,2,4,3]),[],n_depths),[],1),[1,3,2,4]));
+    t_baseline = t < 0;        
+    mua_day_baseline = cell2mat(cellfun(@(x) ...
+        repmat(permute(nanmean(reshape(permute(x(:,t_baseline,:,1),[1,2,4,3]),[],n_depths),1), ...
+        [1,3,2,4]),[size(x,1),1]),  ...
+        mat2cell(mua_cat_raw_smoothed,cellfun(@(x) size(x,1), mua_all{curr_animal}),length(t),n_depths,2),'uni',false));
     
-    % Normalize all activity by std (days separately - looked worse?)
-%     fluor_day_std = cell2mat(cellfun(@(x) ...
-%         repmat(permute(std(reshape(permute(x,[1,2,4,3]),[],n_rois),[],1), ...
-%         [1,3,2,4]),[size(x,1),1]), fluor_all{curr_animal},'uni',false));
-%     
-%     fluor_hemidiff_day_std = cell2mat(cellfun(@(x) ...
-%         repmat(permute(std(abs(reshape(permute(x,[1,2,4,3]),[],n_rois)),[],1), ...
-%         [1,3,2,4]),[size(x,1),1]), ...
-%         mat2cell(fluor_cat_hemidiff,cellfun(@(x) size(x,1), fluor_all{curr_animal}),length(t),n_rois,2), ...
-%         'uni',false));
-%     
-%     mua_day_std = cell2mat(cellfun(@(x) ...
-%         repmat(permute(std(reshape(permute(x,[1,2,4,3]),[],n_depths),[],1), ...
-%         [1,3,2,4]),[size(x,1),1]),  ...
-%         mat2cell(mua_cat,cellfun(@(x) size(x,1), mua_all{curr_animal}),length(t),n_depths,2),'uni',false));
-%         
-%     fluor_cat_norm = bsxfun(@rdivide,fluor_cat,fluor_day_std);
-%     fluor_cat_hemidiff_norm = bsxfun(@rdivide,fluor_cat_hemidiff,fluor_hemidiff_day_std);
-%     mua_cat_norm = bsxfun(@rdivide,mua_cat,mua_day_std);
+    mua_day_std = cell2mat(cellfun(@(x) ...
+        repmat(permute(std(reshape(permute(x,[1,2,4,3]),[],n_depths),[],1), ...
+        [1,3,2,4]),[size(x,1),1]),  ...
+        mat2cell(mua_cat_raw_smoothed,cellfun(@(x) size(x,1), mua_all{curr_animal}),length(t),n_depths,2),'uni',false));
+    
+    mua_cat_norm = bsxfun(@rdivide,bsxfun(@minus,mua_cat_raw_smoothed,mua_day_baseline),mua_day_std);
     
     % Concatenate behavioural data
     D = struct;
@@ -6140,7 +6126,7 @@ for curr_alignment = 1:2
                     set(gca,'ColorOrder',[autumn(n_rois/2);winter(n_rois/2)]);
                     plot(t,squeeze(fluor_activity_model_params_mean(curr_param,:,:,curr_alignment)));
                     xlabel(['Time from ' align_text]);
-                    ylabel(['Param ' num2str(curr_param)]);
+                    ylabel(['\beta ' num2str(curr_param)]);
                     axis tight
                     line([0,0],ylim,'color','k');
                     line(xlim,[0,0],'color','k');
@@ -6148,7 +6134,7 @@ for curr_alignment = 1:2
                     set(gca,'ColorOrder',copper(n_depths));
                     plot(t,squeeze(mua_activity_model_params_mean(curr_param,:,:,curr_alignment)));
                     xlabel(['Time from ' align_text]);
-                    ylabel(['Param ' num2str(curr_param)]);
+                    ylabel(['\beta ' num2str(curr_param)]);
                     axis tight
                     line([0,0],ylim,'color','k');
                     line(xlim,[0,0],'color','k');
@@ -6187,50 +6173,36 @@ for curr_animal = 1:n_animals
     trial_day = cell2mat(cellfun(@(day,act) repmat(day,size(act,1),1), ...
         num2cell(1:length(fluor_all{curr_animal}))',fluor_all{curr_animal},'uni',false));
     
-    % Concatenate fluorescence, get L-R
+    % Concatenate fluorescence, get L-R, normalize (all together)
     fluor_cat = cat(1,fluor_all{curr_animal}{:});
     
     fluor_cat_hemidiff = cat(3,fluor_cat(:,:,1:n_rois/2,:),fluor_cat(:,:,1:n_rois/2,:) - ...
         fluor_cat(:,:,n_rois/2+1:end,:));
-    
-    % Concatenate MUA and normalize
-    mua_cat_raw = cat(1,mua_all{curr_animal}{:});
         
-    smooth_size = 1;
+    fluor_cat_norm = bsxfun(@rdivide,fluor_cat,permute(std(reshape(permute(fluor_cat,[1,2,4,3]),[],n_rois),[],1),[1,3,2,4]));
+    fluor_cat_hemidiff_norm = bsxfun(@rdivide,fluor_cat_hemidiff,permute(std(abs(reshape(permute(fluor_cat_hemidiff,[1,2,4,3]),[],n_rois)),[],1),[1,3,2,4]));     
+    
+    % Concatenate MUA and normalize (separately by day)
+    mua_cat_raw = cat(1,mua_all{curr_animal}{:});
+    
+    smooth_size = 8;
     gw = gausswin(smooth_size,3)';
     smWin = gw./sum(gw);
     
     mua_cat_raw_smoothed = convn(mua_cat_raw,smWin,'same');
-       
-    t_baseline = t < 0;
-    softnorm = 10;
-    mua_baseline = nanmean(mua_cat_raw_smoothed(:,t_baseline,:,1),2);
-    mua_cat = bsxfun(@rdivide,mua_cat_raw_smoothed,mua_baseline + softnorm)-1;
     
-    % Normalize all activity by std (days combined)
-    fluor_cat_norm = bsxfun(@rdivide,fluor_cat,permute(std(reshape(permute(fluor_cat,[1,2,4,3]),[],n_rois),[],1),[1,3,2,4]));
-    fluor_cat_hemidiff_norm = bsxfun(@rdivide,fluor_cat_hemidiff,permute(std(abs(reshape(permute(fluor_cat_hemidiff,[1,2,4,3]),[],n_rois)),[],1),[1,3,2,4]));   
-    mua_cat_norm = bsxfun(@rdivide,mua_cat,permute(std(reshape(permute(mua_cat,[1,2,4,3]),[],n_depths),[],1),[1,3,2,4]));
+    t_baseline = t < 0;        
+    mua_day_baseline = cell2mat(cellfun(@(x) ...
+        repmat(permute(nanmean(reshape(permute(x(:,t_baseline,:,1),[1,2,4,3]),[],n_depths),1), ...
+        [1,3,2,4]),[size(x,1),1]),  ...
+        mat2cell(mua_cat_raw_smoothed,cellfun(@(x) size(x,1), mua_all{curr_animal}),length(t),n_depths,2),'uni',false));
     
-    % Normalize all activity by std (days separately - looked worse?)
-%     fluor_day_std = cell2mat(cellfun(@(x) ...
-%         repmat(permute(std(reshape(permute(x,[1,2,4,3]),[],n_rois),[],1), ...
-%         [1,3,2,4]),[size(x,1),1]), fluor_all{curr_animal},'uni',false));
-%     
-%     fluor_hemidiff_day_std = cell2mat(cellfun(@(x) ...
-%         repmat(permute(std(abs(reshape(permute(x,[1,2,4,3]),[],n_rois)),[],1), ...
-%         [1,3,2,4]),[size(x,1),1]), ...
-%         mat2cell(fluor_cat_hemidiff,cellfun(@(x) size(x,1), fluor_all{curr_animal}),length(t),n_rois,2), ...
-%         'uni',false));
-%     
-%     mua_day_std = cell2mat(cellfun(@(x) ...
-%         repmat(permute(std(reshape(permute(x,[1,2,4,3]),[],n_depths),[],1), ...
-%         [1,3,2,4]),[size(x,1),1]),  ...
-%         mat2cell(mua_cat,cellfun(@(x) size(x,1), mua_all{curr_animal}),length(t),n_depths,2),'uni',false));
-%         
-%     fluor_cat_norm = bsxfun(@rdivide,fluor_cat,fluor_day_std);
-%     fluor_cat_hemidiff_norm = bsxfun(@rdivide,fluor_cat_hemidiff,fluor_hemidiff_day_std);
-%     mua_cat_norm = bsxfun(@rdivide,mua_cat,mua_day_std);
+    mua_day_std = cell2mat(cellfun(@(x) ...
+        repmat(permute(std(reshape(permute(x,[1,2,4,3]),[],n_depths),[],1), ...
+        [1,3,2,4]),[size(x,1),1]),  ...
+        mat2cell(mua_cat_raw_smoothed,cellfun(@(x) size(x,1), mua_all{curr_animal}),length(t),n_depths,2),'uni',false));
+    
+    mua_cat_norm = bsxfun(@rdivide,bsxfun(@minus,mua_cat_raw_smoothed,mua_day_baseline),mua_day_std);
     
     % Concatenate behavioural data
     D = struct;
@@ -6241,7 +6213,7 @@ for curr_animal = 1:n_animals
     D.day = trial_day;
     
     max_contrast = max(D.stimulus,[],2);
-    use_trials = max_contrast >= 0 & max_contrast < 1;
+    use_trials = max_contrast >= 0 & max_contrast < Inf;
 %     use_trials = max_contrast == 0;
 
     n_trials = sum(use_trials);
