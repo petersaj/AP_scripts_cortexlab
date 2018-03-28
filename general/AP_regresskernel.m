@@ -126,11 +126,13 @@ for curr_cv = 1:cvfold
     if length(regressors) > 1
         
         regressor_split_size = [cellfun(@(x) size(x,1),regressors).*cellfun(@length,t_shifts),1];
+        
         % (use everything BUT particular regressor)
-        regressor_split_idx = cellfun(@(x) setdiff(1:size(regressors_gpu,2),x), ...
-            mat2cell(1:size(regressors_gpu,2),1,regressor_split_size),'uni',false);
+%         regressor_split_idx = cellfun(@(x) setdiff(1:size(regressors_gpu,2),x), ...
+%             mat2cell(1:size(regressors_gpu,2),1,regressor_split_size),'uni',false);
+
         % (use ONLY particular regressor)
-        regressor_split_idx = num2cell(1:length(regressors)+1);
+        regressor_split_idx = mat2cell(1:size(regressors_gpu,2),1,regressor_split_size);
         
         for curr_regressor = 1:length(regressors)
             

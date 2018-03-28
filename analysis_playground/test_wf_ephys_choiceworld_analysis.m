@@ -6028,10 +6028,6 @@ upsample_factor = 3;
 raster_sample_rate = 1/(framerate*upsample_factor);
 t = raster_window(1):raster_sample_rate:raster_window(2);
 
-use_t_stim = t > 0.05 & t < 0.15; 
-use_t_move = t > -0.15 & t < -0.02;
-use_t_align = [use_t_stim;use_t_move];
-
 % Get widefield ROIs
 wf_roi_fn = 'C:\Users\Andrew\OneDrive for Business\Documents\CarandiniHarrisLab\analysis\wf_ephys_choiceworld\wf_processing\wf_rois\wf_roi';
 load(wf_roi_fn);
@@ -6168,6 +6164,7 @@ end
 data_path = 'C:\Users\Andrew\OneDrive for Business\Documents\CarandiniHarrisLab\analysis\wf_ephys_choiceworld\choiceworld';
 data_fn = 'all_trial_activity_diff_earlymove.mat';
 load([data_path filesep data_fn]);
+n_animals = length(D_all);
 
 % Get time
 framerate = 35.2;
@@ -6176,10 +6173,6 @@ upsample_factor = 3;
 raster_sample_rate = 1/(framerate*upsample_factor);
 t = raster_window(1):raster_sample_rate:raster_window(2);
 
-use_t_stim = t > 0.05 & t < 0.15; 
-use_t_move = t > -0.15 & t < -0.02;
-use_t_align = [use_t_stim;use_t_move];
-
 % Get widefield ROIs
 wf_roi_fn = 'C:\Users\Andrew\OneDrive for Business\Documents\CarandiniHarrisLab\analysis\wf_ephys_choiceworld\wf_processing\wf_rois\wf_roi';
 load(wf_roi_fn);
@@ -6187,9 +6180,9 @@ n_rois = numel(wf_roi);
 
 n_depths = 6;
 
-fluor_activity_model_params = nan(4,length(t),n_rois,2,length(D_all));
-mua_activity_model_params = nan(4,length(t),n_depths,2,length(D_all));
-for curr_animal = 1:length(D_all)
+fluor_model_expl_var = nan(length(t),n_rois,2,2,n_animals);
+mua_model_expl_var = nan(length(t),n_depths,2,2,n_animals);
+for curr_animal = 1:n_animals
     
     trial_day = cell2mat(cellfun(@(day,act) repmat(day,size(act,1),1), ...
         num2cell(1:length(fluor_all{curr_animal}))',fluor_all{curr_animal},'uni',false));
@@ -6203,7 +6196,7 @@ for curr_animal = 1:length(D_all)
     % Concatenate MUA and normalize
     mua_cat_raw = cat(1,mua_all{curr_animal}{:});
         
-    smooth_size = 8;
+    smooth_size = 1;
     gw = gausswin(smooth_size,3)';
     smWin = gw./sum(gw);
     
@@ -6263,7 +6256,7 @@ for curr_animal = 1:length(D_all)
     t_shifts = {0,0};
     lambda = 0;
     zs = [false,false];
-    cvfold = 5;
+    cvfold = 10;
     
     [fluor_params_fit,~,fluor_expl_var] = AP_regresskernel(regressors', ...
         reshape(fluor_cat_hemidiff_norm(use_trials,:,:,:),n_trials,[])',t_shifts,lambda,zs,cvfold);
@@ -6271,15 +6264,13 @@ for curr_animal = 1:length(D_all)
     [mua_params_fit,~,mua_expl_var] = AP_regresskernel(regressors', ...
         reshape(mua_cat_norm(use_trials,:,:,:),n_trials,[])',t_shifts,lambda,zs,cvfold);
     
+    fluor_model_expl_var(:,:,:,:,curr_animal) = reshape(fluor_expl_var.reduced,length(t),n_rois,2,2);
+    mua_model_expl_var(:,:,:,:,curr_animal) = reshape(mua_expl_var.reduced,length(t),n_depths,2,2);
     
-    a = reshape(fluor_params_fit,4,length(t),n_rois,2);
-    
-
- 
 end
 
-fluor_activity_model_params_mean = nanmean(fluor_activity_model_params,5);
-mua_activity_model_params_mean = nanmean(mua_activity_model_params,5);
+fluor_model_expl_var_mean = nanmean(fluor_model_expl_var,5);
+mua_model_expl_var_mean = nanmean(mua_model_expl_var,5);
 
 % Plot all average parameters
 figure;
@@ -6291,23 +6282,30 @@ for curr_alignment = 1:2
         case 2
             align_text = 'move';
     end
-    for curr_modality = 1:2        
-        for curr_param = 1:4
-            subplot(4,4,curr_subplot); hold on;
+    for curr_modality = 1:2
+        for curr_param = 1:2            
+            switch curr_param
+                case 1
+                    param_text = 'stim';
+                case 2
+                    param_text = 'choice';
+            end
+            
+            subplot(4,2,curr_subplot); hold on;
             switch curr_modality
                 case 1
                     set(gca,'ColorOrder',[autumn(n_rois/2);winter(n_rois/2)]);
-                    plot(t,squeeze(fluor_activity_model_params_mean(curr_param,:,:,curr_alignment)));
+                    plot(t,squeeze(fluor_model_expl_var_mean(:,:,curr_alignment,curr_param)));
                     xlabel(['Time from ' align_text]);
-                    ylabel(['Param ' num2str(curr_param)]);
+                    ylabel(['Expl var: ' param_text]);
                     axis tight
                     line([0,0],ylim,'color','k');
                     line(xlim,[0,0],'color','k');
                 case 2
                     set(gca,'ColorOrder',copper(n_depths));
-                    plot(t,squeeze(mua_activity_model_params_mean(curr_param,:,:,curr_alignment)));
+                    plot(t,squeeze(mua_model_expl_var_mean(:,:,curr_alignment,curr_param)));
                     xlabel(['Time from ' align_text]);
-                    ylabel(['Param ' num2str(curr_param)]);
+                    ylabel(['Expl var: ' param_text]);
                     axis tight
                     line([0,0],ylim,'color','k');
                     line(xlim,[0,0],'color','k');
