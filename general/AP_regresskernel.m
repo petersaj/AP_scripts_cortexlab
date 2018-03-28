@@ -36,6 +36,10 @@ if ~iscell(t_shifts)
     t_shifts = {t_shifts};
 end
 
+% Standardize orientations
+regressors = reshape(regressors,1,[]);
+t_shifts = reshape(t_shifts,1,[]);
+
 % Z-score all regressors and signals to get beta weights if selected
 if ~exist('zs','var') || isempty(zs)
     zs = [false,true];
@@ -98,7 +102,7 @@ cv_partition_ordered = round(linspace(1,cvfold,size(regressor_design,1)))';
 cv_partition = cv_partition_ordered(randperm(length(cv_partition_ordered)));
 
 predicted_signals = nan(size(signals));
-predicted_signals_reduced = nan(length(regressors),size(signals,1),size(signals,2));
+predicted_signals_reduced = nan(size(signals,1),size(signals,2),length(regressors));
 for curr_cv = 1:cvfold
     
     % Get training/test sets
@@ -121,9 +125,12 @@ for curr_cv = 1:cvfold
     % Predict on test set for each regressor modality (if > 1)
     if length(regressors) > 1
         
-        regressor_split_size = cellfun(@(x) size(x,1),regressors).*cellfun(@length,t_shifts);
+        regressor_split_size = [cellfun(@(x) size(x,1),regressors).*cellfun(@length,t_shifts),1];
+        % (use everything BUT particular regressor)
         regressor_split_idx = cellfun(@(x) setdiff(1:size(regressors_gpu,2),x), ...
             mat2cell(1:size(regressors_gpu,2),1,regressor_split_size),'uni',false);
+        % (use ONLY particular regressor)
+        regressor_split_idx = num2cell(1:length(regressors)+1);
         
         for curr_regressor = 1:length(regressors)
             
@@ -131,8 +138,8 @@ for curr_cv = 1:cvfold
                 gather(regressors_gpu(test_idx,regressor_split_idx{curr_regressor})* ...
                 gpuArray(k_cv(regressor_split_idx{curr_regressor},:,curr_cv)));
             
-            predicted_signals_reduced(curr_regressor,:,test_idx) = ...
-                permute(curr_predicted,[3,2,1]);
+            predicted_signals_reduced(:,test_idx,curr_regressor) = ...
+                curr_predicted';
             
         end
     end  
@@ -145,9 +152,9 @@ explained_var.total = (sse_signals - sse_total_residual)./sse_signals;
 
 % Partial explained variance
 if length(regressors) > 1
-    sse_partial_residual = sum(bsxfun(@minus,predicted_signals_reduced,permute(signals,[3,1,2])).^2,3)';
-    explained_var.reduced = bsxfun(@rdivide,bsxfun(@minus,(sse_signals - sse_total_residual), ...
-        bsxfun(@minus,sse_signals,sse_partial_residual)),(sse_signals - sse_total_residual));
+    sse_partial_residual = cell2mat(arrayfun(@(x) ...
+        sum(bsxfun(@minus,predicted_signals_reduced(:,:,x),signals).^2,2),1:length(regressors),'uni',false));
+    explained_var.reduced = bsxfun(@rdivide,bsxfun(@minus,sse_signals,sse_partial_residual),sse_signals);
 end
 
 % Get the final k from averaging (remove the constant term)

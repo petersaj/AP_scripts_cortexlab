@@ -5274,6 +5274,7 @@ for curr_animal = 1:n_animals
     %%% Modeling
     cvfold = 20;
     
+    warning off;
     % Fit stim all
     use_model = 'AP_test_stim';
     g_stim_all = GLM(D).setModel(use_model).fit;
@@ -5341,12 +5342,15 @@ for curr_animal = 1:n_animals
     end
     loglik_increase_mua(:,:,:,curr_animal) = loglik_bpt_mua - loglik_bpt_stim;
     
+    warning on;
+    
     AP_print_progress_fraction(curr_animal,n_animals);
 end
 
 clearvars -except loglik_increase_fluor loglik_increase_mua
 save_path = ['C:\Users\Andrew\OneDrive for Business\Documents\CarandiniHarrisLab\analysis\wf_ephys_choiceworld\choiceworld'];
-save_fn = ['activity_sessioncat_logistic_regression'];
+save_fn = ['activity_sessioncat_logistic_regression_earlymove'];
+save([save_path filesep save_fn])
 
-
+disp('Finished');
 
