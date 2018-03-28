@@ -5206,7 +5206,7 @@ save([save_path filesep save_fn]);
 
 % Load data
 data_path = 'C:\Users\Andrew\OneDrive for Business\Documents\CarandiniHarrisLab\analysis\wf_ephys_choiceworld\choiceworld';
-data_fn = 'all_trial_activity_diff_earlymove.mat';
+data_fn = 'all_trial_activity_diff_latemove.mat';
 load([data_path filesep data_fn]);
 
 % Get time
@@ -5233,10 +5233,19 @@ loglik_increase_fluor = nan(length(t),n_rois,2,n_animals);
 loglik_increase_mua = nan(length(t),n_depths,2,n_animals);
 for curr_animal = 1:n_animals
     
-    % Concatenate fluorescence
+    trial_day = cell2mat(cellfun(@(day,act) repmat(day,size(act,1),1), ...
+        num2cell(1:length(fluor_all{curr_animal}))',fluor_all{curr_animal},'uni',false));
+    
+    % Concatenate fluorescence, get L-R, normalize (all together)
     fluor_cat = cat(1,fluor_all{curr_animal}{:});
     
-    % Concatenate MUA and normalize
+    fluor_cat_hemidiff = cat(3,fluor_cat(:,:,1:n_rois/2,:),fluor_cat(:,:,1:n_rois/2,:) - ...
+        fluor_cat(:,:,n_rois/2+1:end,:));
+        
+    fluor_cat_norm = bsxfun(@rdivide,fluor_cat,permute(std(reshape(permute(fluor_cat,[1,2,4,3]),[],n_rois),[],1),[1,3,2,4]));
+    fluor_cat_hemidiff_norm = bsxfun(@rdivide,fluor_cat_hemidiff,permute(std(abs(reshape(permute(fluor_cat_hemidiff,[1,2,4,3]),[],n_rois)),[],1),[1,3,2,4]));     
+    
+    % Concatenate MUA and normalize (separately by day)
     mua_cat_raw = cat(1,mua_all{curr_animal}{:});
     
     smooth_size = 8;
@@ -5245,18 +5254,18 @@ for curr_animal = 1:n_animals
     
     mua_cat_raw_smoothed = convn(mua_cat_raw,smWin,'same');
     
-    t_baseline = t < 0;
-    softnorm = 10;
-    mua_baseline = nanmean(mua_cat_raw_smoothed(:,t_baseline,:,1),2);
-    mua_cat = bsxfun(@rdivide,mua_cat_raw_smoothed,mua_baseline + softnorm)-1;
+    t_baseline = t < 0;        
+    mua_day_baseline = cell2mat(cellfun(@(x) ...
+        repmat(permute(nanmean(reshape(permute(x(:,t_baseline,:,1),[1,2,4,3]),[],n_depths),1), ...
+        [1,3,2,4]),[size(x,1),1]),  ...
+        mat2cell(mua_cat_raw_smoothed,cellfun(@(x) size(x,1), mua_all{curr_animal}),length(t),n_depths,2),'uni',false));
     
-    % Normalize all activity by std
-    fluor_cat = bsxfun(@rdivide,fluor_cat,permute(std(reshape(permute(fluor_cat,[1,2,4,3]),[],n_rois),[],1),[1,3,2,4]));
-    mua_cat = bsxfun(@rdivide,mua_cat,permute(std(reshape(permute(mua_cat,[1,2,4,3]),[],n_depths),[],1),[1,3,2,4]));
+    mua_day_std = cell2mat(cellfun(@(x) ...
+        repmat(permute(std(reshape(permute(x,[1,2,4,3]),[],n_depths),[],1), ...
+        [1,3,2,4]),[size(x,1),1]),  ...
+        mat2cell(mua_cat_raw_smoothed,cellfun(@(x) size(x,1), mua_all{curr_animal}),length(t),n_depths,2),'uni',false));
     
-    % Get L-R activity
-    fluor_cat_hemidiff = cat(3,fluor_cat(:,:,1:n_rois/2,:),fluor_cat(:,:,1:n_rois/2,:) - ...
-        fluor_cat(:,:,n_rois/2+1:end,:));
+    mua_cat_norm = bsxfun(@rdivide,bsxfun(@minus,mua_cat_raw_smoothed,mua_day_baseline),mua_day_std);
     
     % Concatenate behavioural data
     D = struct;
@@ -5264,15 +5273,13 @@ for curr_animal = 1:n_animals
     D.response = cell2mat(cellfun(@(x) x.response,D_all{curr_animal},'uni',false));
     D.repeatNum = cell2mat(cellfun(@(x) x.repeatNum,D_all{curr_animal},'uni',false));
     
-    trial_day = cell2mat(cellfun(@(day,act) repmat(day,size(act,1),1), ...
-        num2cell(1:length(fluor_all{curr_animal}))',fluor_all{curr_animal},'uni',false));
     D.day = trial_day;
     
     max_contrast = max(D.stimulus,[],2);
     use_trials = max_contrast >= 0 & max_contrast < 1;   
     
     %%% Modeling
-    cvfold = 20;
+    cvfold = 10;
     
     warning off;
     % Fit stim all
@@ -5302,7 +5309,7 @@ for curr_animal = 1:n_animals
             for curr_t = 1:length(t)
                 
                 % Set the activity
-                D.neur = reshape(fluor_cat_hemidiff(:,curr_t,curr_area,curr_align),[],1);
+                D.neur = reshape(fluor_cat_hemidiff_norm(:,curr_t,curr_area,curr_align),[],1);
                 
                 % Pick subset of trials
                 D_use = structfun(@(x) x(use_trials,:),D,'uni',false);
@@ -5325,7 +5332,7 @@ for curr_animal = 1:n_animals
             for curr_t = 1:length(t)
                 
                 % Set the activity
-                D.neur = reshape(mua_cat(:,curr_t,curr_area,curr_align),[],1);
+                D.neur = reshape(mua_cat_norm(:,curr_t,curr_area,curr_align),[],1);
 
                 % Pick subset of trials
                 D_use = structfun(@(x) x(use_trials,:),D,'uni',false);
@@ -5349,7 +5356,7 @@ end
 
 clearvars -except loglik_increase_fluor loglik_increase_mua
 save_path = ['C:\Users\Andrew\OneDrive for Business\Documents\CarandiniHarrisLab\analysis\wf_ephys_choiceworld\choiceworld'];
-save_fn = ['activity_sessioncat_logistic_regression_earlymove'];
+save_fn = ['activity_sessioncat_logistic_regression_latemove'];
 save([save_path filesep save_fn])
 
 disp('Finished');
