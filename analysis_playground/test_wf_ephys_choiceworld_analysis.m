@@ -3209,8 +3209,25 @@ line([1,1],ylim,'linestyle','--','color','k');
 line([2,2],ylim,'linestyle','--','color','k');
 legend(p(1,:),cellfun(@num2str,num2cell(1:n_conditions),'uni',false));
 
+%% Passive correlations/visual modulation
 
-%% Load and average wf->ephys maps
+data_path = ['C:\Users\Andrew\OneDrive for Business\Documents\CarandiniHarrisLab\analysis\wf_ephys_choiceworld\passive'];
+data_fn = 'mua_passive';
+load([data_path filesep data_fn]);
+
+mua_corr_all = cat(3,batch_vars(:).mua_corr);
+lfp_corr_all = cat(3,batch_vars(:).lfp_corr);
+vis_modulation_all = horzcat(batch_vars(:).vis_modulation);
+
+lfp_reshape = cell2mat(reshape(mat2cell(lfp_corr_all,20,20,ones(size(lfp_corr_all,3),1)),7,7));
+mua_reshape = cell2mat(reshape(mat2cell(mua_corr_all,20,20,ones(size(mua_corr_all,3),1)),7,7));
+
+figure;imagesc(lfp_reshape)
+axis square off; colormap(gray);
+figure;imagesc(mua_reshape)
+axis square off; colormap(gray);
+
+%% Load and average wf -> ephys maps
 
 data_path = 'C:\Users\Andrew\OneDrive for Business\Documents\CarandiniHarrisLab\analysis\wf_ephys_choiceworld\wf_ephys';
 
@@ -6013,6 +6030,42 @@ t = raster_window(1):sample_rate:raster_window(2);
 % Get average data
 loglik_increase_fluor = nanmean(batch_vars.loglik_increase_fluor,ndims(batch_vars.loglik_increase_fluor));
 
+%% Load logistic regression on day-concatenated activity
+
+% Load data
+data_path = ['C:\Users\Andrew\OneDrive for Business\Documents\CarandiniHarrisLab\analysis\wf_ephys_choiceworld\choiceworld'];
+data_fn = ['activity_sessioncat_logistic_regression_latemove'];
+load([data_path filesep data_fn])
+
+% Get time
+framerate = 35.2;
+raster_window = [-0.5,1];
+upsample_factor = 3;
+sample_rate = 1/(framerate*upsample_factor);
+t = raster_window(1):sample_rate:raster_window(2);
+
+% Get widefield ROIs
+wf_roi_fn = 'C:\Users\Andrew\OneDrive for Business\Documents\CarandiniHarrisLab\analysis\wf_ephys_choiceworld\wf_processing\wf_rois\wf_roi';
+load(wf_roi_fn);
+n_rois = numel(wf_roi);
+
+n_depths = 6;
+
+% Plot mean
+figure; 
+subplot(2,2,1); hold on;
+set(gca,'ColorOrder',[autumn(n_rois/2);winter(n_rois/2)]);
+plot(t,nanmean(loglik_increase_fluor(:,:,1,:),4))
+subplot(2,2,2); hold on;
+set(gca,'ColorOrder',[autumn(n_rois/2);winter(n_rois/2)]);
+plot(t,nanmean(loglik_increase_fluor(:,:,2,:),4))
+subplot(2,2,3); hold on;
+set(gca,'ColorOrder',copper(n_depths));
+plot(t,nanmean(loglik_increase_mua(:,:,1,:),4))
+subplot(2,2,4); hold on;
+set(gca,'ColorOrder',copper(n_depths));
+plot(t,nanmean(loglik_increase_mua(:,:,2,:),4))
+
 
 %% Regression on day-concatenated activity
 
@@ -6213,8 +6266,8 @@ for curr_animal = 1:n_animals
     D.day = trial_day;
     
     max_contrast = max(D.stimulus,[],2);
-    use_trials = max_contrast >= 0 & max_contrast < Inf;
-%     use_trials = max_contrast == 0;
+%     use_trials = max_contrast >= 0 & max_contrast < Inf;
+    use_trials = max_contrast == 0;
 
     n_trials = sum(use_trials);
     
@@ -6358,7 +6411,7 @@ for curr_animal = 1:n_animals
     kernel_t = [-0.2,0];
     kernel_frames = round(kernel_t(1)*sample_rate):round(kernel_t(2)*sample_rate);
     zs = [false,false];
-    cvfold = 2; % I don't really want this, but GPU out of memory :(
+    cvfold = 1;
     lambda = 0;
     
     [k,predicted_spikes,explained_var] = ...
@@ -6481,7 +6534,7 @@ for curr_animal = 1:n_animals
     mua_cat_raw = cat(1,mua_all{curr_animal}{:});
     
     % (way smoothed to match cortical temporal resolution)
-    smooth_size = 40;
+    smooth_size = 8;
     gw = gausswin(smooth_size,3)';
     smWin = gw./sum(gw);
     
@@ -6504,7 +6557,7 @@ for curr_animal = 1:n_animals
     kernel_t = [-0.2,0];
     kernel_frames = round(kernel_t(1)*sample_rate):round(kernel_t(2)*sample_rate);
     zs = [false,false];
-    cvfold = 2; % I don't really want this, but GPU out of memory :(
+    cvfold = 1;
     lambda = 0;
     
     [k,predicted_spikes,explained_var] = ...

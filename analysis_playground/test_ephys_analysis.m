@@ -2127,8 +2127,10 @@ colorbar
 axis square;
 
 %% Remove light artifact from LFP 
-% (by subtracting the average responses around light)
+
+% 1) By subtracting the average responses around light
 warning('This seems to work but the timing might be way off - artifacts aren''t aligned to times')
+warning('Do this by regression instead?')
 
 light_t = sync(3).timestamps(sync(3).values == 1);
 light_t_timeline = AP_clock_fix(light_t,acqlive_ephys_currexpt,acqLive_timeline);
@@ -2159,6 +2161,48 @@ for curr_channel = 1:size(lfp,1)
 end
 % There are nans sometimes, not sure why, replace with original values
 lfp_lightfix(isnan(lfp_lightfix)) = lfp(isnan(lfp_lightfix));
+
+
+% 2) By regression
+light_timeline = AP_clock_fix(sync(3).timestamps,acqlive_ephys_currexpt,acqLive_timeline);
+light_on = light_timeline(sync(3).values == 1);
+light_off = light_timeline(sync(3).values == 0);
+
+blue_on = light_on(1:2:end);
+blue_off = light_off(1:2:end);
+violet_on = light_on(2:2:end);
+violet_off = light_off(2:2:end);
+
+lfp_t_bins = [lfp_t_timeline-0.5/lfp_sample_rate,lfp_t_timeline(end)+0.5/lfp_sample_rate];
+blue_on_vector = histcounts(blue_on,lfp_t_bins);
+blue_off_vector = histcounts(blue_off,lfp_t_bins);
+violet_on_vector = histcounts(violet_on,lfp_t_bins);
+violet_off_vector = histcounts(violet_off,lfp_t_bins);
+
+light_vectors = [blue_on_vector;blue_off_vector;violet_on_vector;violet_off_vector];
+
+t_shift = round((1/35)*lfp_sample_rate*1.5);
+t_shifts = [-t_shift:t_shift];
+lambda = 0;
+zs = [false,false];
+cvfold = 1;
+
+% Do this in chunks (necessary memory-wise, also allows changing light)
+n_chunks = 10;
+lfp_t_chunk = round(linspace(1,size(lfp,2),n_chunks+1));
+
+lfp_lightfix = nan(size(lfp));
+for curr_chunk = 1:n_chunks
+    curr_chunk_t = lfp_t_chunk(curr_chunk):lfp_t_chunk(curr_chunk+1);
+    [light_k,artifact_lfp] = AP_regresskernel(light_vectors(:,curr_chunk_t),lfp(:,curr_chunk_t),t_shifts,lambda,zs,cvfold);
+    
+    lfp_lightfix(:,curr_chunk_t) = lfp(:,curr_chunk_t)-artifact_lfp;
+    AP_print_progress_fraction(curr_chunk,n_chunks);
+end
+
+% Alternate: get the kernel from the beginning, then convolve and sub
+light_k_reshape = reshape(light_k,4,length(t_shifts),[]);
+
 
 
 %% Spectral analysis
