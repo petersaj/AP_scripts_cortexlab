@@ -2674,7 +2674,7 @@ end
 use_svs = 1:50;
 kernel_t = [-0.3,0.3];
 kernel_frames = round(kernel_t(1)*sample_rate):round(kernel_t(2)*sample_rate);
-%lambda = 100000; (USE LAMBDA FROM ESTIMATION ABOVE)
+% lambda = 2e5; % (COMMENT OUT TO USE LAMBDA FROM ESTIMATION ABOVE)
 zs = [false,true];
 cvfold = 5;
 

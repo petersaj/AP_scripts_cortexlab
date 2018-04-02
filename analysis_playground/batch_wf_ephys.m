@@ -2087,6 +2087,7 @@ for curr_animal = 1:length(animals)
             [light_k,artifact_lfp] = AP_regresskernel(light_vectors(:,curr_chunk_t),lfp(:,curr_chunk_t),t_shifts,lambda,zs,cvfold);
             
             lfp_lightfix(:,curr_chunk_t) = lfp(:,curr_chunk_t)-artifact_lfp;
+%             AP_print_progress_fraction(curr_chunk,n_chunks);
         end
         lfp_lightfix(isnan(lfp_lightfix)) = 0;
         
@@ -2094,9 +2095,15 @@ for curr_animal = 1:length(animals)
         channel_depth_grp = discretize(channel_positions(:,2),depth_group_edges);
         lfp_depth_median = grpstats(lfp_lightfix,channel_depth_grp,'median');
         
+        % (low-pass filter: sometimes bunch of junk at high freq?)
+        freqCutoff = 300; % Hz
+        [b100s, a100s] = butter(2,freqCutoff/(lfp_sample_rate/2),'low');
+        lfp_depth_median_filt = single(filtfilt(b100s,a100s,double(lfp_depth_median)')');
+        
         % (subtract the median across channels)
-        lfp_depth_median_meansub = bsxfun(@minus,lfp_depth_median,nanmean(lfp_depth_median,1));
-        lfp_corr = corrcoef(lfp_depth_median_meansub');
+        lfp_depth_median_filt_meansub = bsxfun(@minus,lfp_depth_median_filt,nanmean(lfp_depth_median_filt,1));
+        
+        lfp_corr = corrcoef(lfp_depth_median_filt_meansub');
         
         % Get responses to passive visual stimuli 
         conditions = unique(stimIDs);
@@ -2158,6 +2165,7 @@ clearvars -except batch_vars
 % Save
 save_path = ['C:\Users\Andrew\OneDrive for Business\Documents\CarandiniHarrisLab\analysis\wf_ephys_choiceworld\passive'];
 save([save_path filesep 'mua_passive'],'batch_vars');
+disp('Finished batch');
 
 
 %% Batch trial-trial MUA-fluorescence correlation (stim-aligned)

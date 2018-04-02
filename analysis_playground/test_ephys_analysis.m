@@ -2200,9 +2200,6 @@ for curr_chunk = 1:n_chunks
     AP_print_progress_fraction(curr_chunk,n_chunks);
 end
 
-% Alternate: get the kernel from the beginning, then convolve and sub
-light_k_reshape = reshape(light_k,4,length(t_shifts),[]);
-
 
 
 %% Spectral analysis

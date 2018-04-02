@@ -2035,7 +2035,7 @@ for curr_animal = 1:length(animals)
         AP_load_experiment
 
         % Independent from stim, get MUA/LFP correlations by depth      
-        n_depths = 20;
+        n_depths = round(diff(str_depth)/100);
         depth_group_edges = round(linspace(str_depth(1),str_depth(2),n_depths+1));
         spike_depth_group = discretize(spikeDepths,depth_group_edges);
         
@@ -2077,7 +2077,7 @@ for curr_animal = 1:length(animals)
         zs = [false,false];
         cvfold = 1;
         
-        % Do this in chunks (necessary memory-wise, also allows changing light)
+        % (in chunks: necessary memory-wise, also allows changing light)
         n_chunks = 10;
         lfp_t_chunk = round(linspace(1,size(lfp,2),n_chunks+1));
         
@@ -2087,24 +2087,31 @@ for curr_animal = 1:length(animals)
             [light_k,artifact_lfp] = AP_regresskernel(light_vectors(:,curr_chunk_t),lfp(:,curr_chunk_t),t_shifts,lambda,zs,cvfold);
             
             lfp_lightfix(:,curr_chunk_t) = lfp(:,curr_chunk_t)-artifact_lfp;
-            AP_print_progress_fraction(curr_chunk,n_chunks);
+%             AP_print_progress_fraction(curr_chunk,n_chunks);
         end
+        lfp_lightfix(isnan(lfp_lightfix)) = 0;
+        
         % (group channels by depth)
         channel_depth_grp = discretize(channel_positions(:,2),depth_group_edges);
         lfp_depth_median = grpstats(lfp_lightfix,channel_depth_grp,'median');
+        
+        % (low-pass filter: sometimes bunch of junk at high freq?)
+        freqCutoff = 300; % Hz
+        [b100s, a100s] = butter(2,freqCutoff/(lfp_sample_rate/2),'low');
+        lfp_depth_median = single(filtfilt(b100s,a100s,double(lfp)')');
+        
         % (subtract the median across channels)
         lfp_depth_median_meansub = bsxfun(@minus,lfp_depth_median,nanmean(lfp_depth_median,1));
+        
         lfp_corr = corrcoef(lfp_depth_median_meansub');
         
         % Get responses to passive visual stimuli 
         conditions = unique(stimIDs);
         
-        raster_window = [-0.5,2.5];
-        psth_bin_size = 0.001;
-        t = raster_window(1):psth_bin_size:raster_window(2);
-        t_bins = [t-psth_bin_size/2,t(end)+psth_bin_size/2];
+        t_baseline = [-0.1,0];
+        t_stim = [0,0.1];
         
-        mua_stim = nan(n_depths,length(t),length(conditions));
+        vis_modulation = nan(n_depths,length(conditions));
         for curr_depth = 1:n_depths
             
             curr_spike_times = spike_times_timeline(spike_depth_group == curr_depth);
@@ -2116,29 +2123,33 @@ for curr_animal = 1:length(animals)
                 use_stims = find(stimIDs == curr_condition);
                 use_stim_onsets = stimOn_times(use_stims);
                                 
-                t_peri_event = bsxfun(@plus,use_stim_onsets,t_bins);
-                                
-                mua_stim(curr_depth,:,curr_condition_idx) = ...
-                    nanmean(cell2mat(arrayfun(@(x) ...
-                    histcounts(curr_spike_times,t_peri_event(x,:)), ...
-                    [1:size(t_peri_event,1)]','uni',false))./psth_bin_size,1);
+                curr_t_baseline = bsxfun(@plus,use_stim_onsets,t_baseline);
+                curr_t_stim = bsxfun(@plus,use_stim_onsets,t_stim);
+                
+                curr_rate_baseline = ...
+                    cell2mat(arrayfun(@(x) ...
+                    histcounts(curr_spike_times,curr_t_baseline(x,:)), ...
+                    [1:size(curr_t_baseline,1)]','uni',false))./diff(t_baseline);
+                
+                curr_rate_stim = ...
+                    cell2mat(arrayfun(@(x) ...
+                    histcounts(curr_spike_times,curr_t_stim(x,:)), ...
+                    [1:size(curr_t_stim,1)]','uni',false))./diff(t_stim);
+                
+                trial_modulation = ...
+                    (curr_rate_stim - curr_rate_baseline)./(curr_rate_stim + curr_rate_baseline);
+                trial_modulation(isnan(trial_modulation)) = 0;
+                trial_modulation(isinf(trial_modulation)) = 0;
+                
+               vis_modulation(curr_depth,curr_condition_idx) = nanmean(trial_modulation);
                 
             end
         end
-        
-        % Get visual modulation index (max across center/right stim)
-        baseline_bins = t_bins > -0.1 & t_bins < 0;
-        vis_bins = t_bins > 0 & t_bins < 0.1;
-        
-        baseline_rate = nanmean(mua_stim(:,baseline_bins,:),2);
-        vis_rate = nanmean(mua_stim(:,vis_bins,:),2);
-        vis_modulation_stim = squeeze((vis_rate-baseline_rate)./(vis_rate+baseline_rate));
-        vis_modulation = max(vis_modulation_stim(:,[2,3]),[],2);
 
         % Store
-        batch_vars(curr_animal).mua_corr(:,:,curr_day) = mua_corr;
-        batch_vars(curr_animal).lfp_corr(:,:,curr_day) = lfp_corr;
-        batch_vars(curr_animal).vis_modulation(:,curr_day) = vis_modulation;
+        batch_vars(curr_animal).mua_corr{curr_day} = mua_corr;
+        batch_vars(curr_animal).lfp_corr{curr_day} = lfp_corr;
+        batch_vars(curr_animal).vis_modulation{curr_day} = max(vis_modulation,[],2);
         
         AP_print_progress_fraction(curr_day,length(experiments));
         clearvars -except animals animal curr_animal protocol experiments curr_day animal batch_vars load_parts
@@ -2154,6 +2165,7 @@ clearvars -except batch_vars
 % Save
 save_path = ['C:\Users\Andrew\OneDrive for Business\Documents\CarandiniHarrisLab\analysis\wf_ephys_choiceworld\passive'];
 save([save_path filesep 'mua_passive'],'batch_vars');
+disp('Finished batch');
 
 
 %% Batch trial-trial MUA-fluorescence correlation (stim-aligned)

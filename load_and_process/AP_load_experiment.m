@@ -658,7 +658,8 @@ if ephys_exists && load_parts.ephys
         
         fid = fopen(lfp_filename);
         % define where/how much of LFP to load
-        lfp_load_start = (lfp_sample_rate*60*10*n_channels); % move to 10 minutes after recording start
+        lfp_skip_minutes = 10; % move to N minutes after recording start
+        lfp_load_start = (lfp_sample_rate*60*lfp_skip_minutes*n_channels); 
         lfp_load_samples = 1e6;
         % load LFP
         fseek(fid,lfp_load_start,'bof'); 
@@ -778,12 +779,9 @@ if ephys_exists && load_parts.ephys
     end
     
     mua_corr = corrcoef(binned_spikes_depth');
+    
+    %%% Estimate start and end depths of striatum
 
-    %%% Estimate start and end depths of striatum 
-    % start of striatum: look for ventricle (the largest gap)
-    sorted_template_depths = sort([0;templateDepths]);
-    [~,max_gap_idx] = max(diff(sorted_template_depths));
-    str_start = sorted_template_depths(max_gap_idx+1)-1;
     % end of striatum: biggest drop in MUA correlation near end
     groups_back = 10;
     mua_corr_end = mua_corr(end-groups_back+1:end,end-groups_back+1:end);
@@ -791,6 +789,39 @@ if ephys_exists && load_parts.ephys
     median_corr = nanmedian(mua_corr_end,2);
     [x,max_corr_drop] = min(diff(median_corr));
     str_end = depth_group_centers(end-groups_back+max_corr_drop-1);    
+    
+    % start of striatum: look for ventricle (dropoff in templates)
+    
+    % (by template density)
+%     n_template_bins = 40;
+%     size_template_bins = max(channel_positions(:,2))/n_template_bins;
+%     template_density_bins = linspace(0,max(channel_positions(:,2)),n_template_bins);
+%     template_density = histcounts(templateDepths,template_density_bins);
+%         
+%     str_end_bin = floor(str_end/size_template_bins);
+%     
+%     n_bins_check = 3;
+%     bins_conv = ones(1,n_bins_check)/n_bins_check;
+%     template_gaps = conv(+(fliplr(template_density(1:str_end_bin)) < 2),bins_conv);
+%         
+%     sorted_template_depths = sort([0;templateDepths]);
+%     
+%     if any(template_gaps)
+%         str_gap_stop = length(template_gaps) - n_bins_check - find(template_gaps(n_bins_check:end),1);
+%         str_start = sorted_template_depths(find(sorted_template_depths > template_density_bins(str_gap_stop),1)) - 1;
+%     else
+%         str_start = sorted_template_depths(2);
+%     end    
+    
+    % (by biggest gap)
+    min_gap = 100;
+    sorted_template_depths = sort([0;templateDepths]);
+    [max_gap,max_gap_idx] = max(diff(sorted_template_depths));
+    if max_gap > min_gap
+        str_start = sorted_template_depths(max_gap_idx+1)-1;
+    else
+        str_start = sorted_template_depths(2);
+    end
     
     str_depth = [str_start,str_end];
     

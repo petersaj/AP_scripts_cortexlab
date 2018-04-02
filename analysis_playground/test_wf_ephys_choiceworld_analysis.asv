@@ -3213,7 +3213,31 @@ legend(p(1,:),cellfun(@num2str,num2cell(1:n_conditions),'uni',false));
 
 data_path = ['C:\Users\Andrew\OneDrive for Business\Documents\CarandiniHarrisLab\analysis\wf_ephys_choiceworld\passive'];
 data_fn = 'mua_passive';
-load(data_path filesep data_
+load([data_path filesep data_fn]);
+
+n_groups = cellfun(@(x) cellfun(@length,x),{batch_vars.mua_corr},'uni',false);
+max_grps = max(horzcat(n_groups{:}));
+
+lfp_pad = cellfun(@(x) cecellfun(@(x) padarray(x,[max_grps-length(x),max_grps-length(x)],NaN,'post'),x,'uni',false),{batch_vars.lfp_corr},'uni',false);
+vis_modulation_pad = cellfun(@(x) cell2mat(cellfun(@(x) padarray(x,[max_grps-length(x),0],NaN,'post'),x,'uni',false)),{batch_vars.vis_modulation},'uni',false);
+
+lfp_cat = cell2mat(cellfun(@(x) cat(3,x{:}),permute(lfp_pad,[1,3,2]),'uni',false));
+lfp_reshape = cell2mat(reshape(mat2cell(lfp_cat,max_grps,max_grps,ones(size(lfp_cat,3),1)),7,7));
+
+vis_modulation_cat = horzcat(vis_modulation_pad{:});
+
+
+
+mua_corr_all = cat(3,batch_vars(:).mua_corr);
+lfp_corr_all = cat(3,batch_vars(:).lfp_corr);
+vis_modulation_all = horzcat(batch_vars(:).vis_modulation);
+
+mua_reshape = cell2mat(reshape(mat2cell(mua_corr_all,20,20,ones(size(mua_corr_all,3),1)),7,7));
+
+figure;imagesc(lfp_reshape)
+axis square off; colormap(gray);
+figure;imagesc(mua_reshape)
+axis square off; colormap(gray);
 
 %% Load and average wf -> ephys maps
 
@@ -6015,14 +6039,31 @@ framerate = 35.2;
 sample_rate = 1/(framerate*upsample_factor);
 t = raster_window(1):sample_rate:raster_window(2);
 
-% Get average data
+% Plot average data
 loglik_increase_fluor = nanmean(batch_vars.loglik_increase_fluor,ndims(batch_vars.loglik_increase_fluor));
+loglik_increase_mua = nanmean(batch_vars.loglik_increase_mua,ndims(batch_vars.loglik_increase_mua));
+
+figure;
+subplot(2,1,1);
+plot(loglik_increase_fluor,'linewidth',2);
+line(xlim,[0,0],'color','k');
+set(gca,'XTick',1:n_rois,'XTickLabel',{wf_roi.area});
+ylabel('Relative loglikelihood (bpt)');
+legend({'Stim-aligned','Move-aligned'});
+
+subplot(2,1,2);
+plot(loglik_increase_mua,'linewidth',2);
+line(xlim,[0,0],'color','k');
+set(gca,'XTick',1:n_depths);
+ylabel('Relative loglikelihood (bpt)');
+legend({'Stim-aligned','Move-aligned'});
+
 
 %% Load logistic regression on day-concatenated activity
 
 % Load data
 data_path = ['C:\Users\Andrew\OneDrive for Business\Documents\CarandiniHarrisLab\analysis\wf_ephys_choiceworld\choiceworld'];
-data_fn = ['activity_sessioncat_logistic_regression_latemove'];
+data_fn = ['activity_sessioncat_logistic_regression_earlymove'];
 load([data_path filesep data_fn])
 
 % Get time
@@ -6040,19 +6081,52 @@ n_rois = numel(wf_roi);
 n_depths = 6;
 
 % Plot mean
+yrange = [min(reshape(nanmean(loglik_increase_fluor,4),[],1)), ...
+    max(reshape(nanmean(loglik_increase_fluor,4),[],1))];
+
 figure; 
-subplot(2,2,1); hold on;
+p1 = subplot(2,2,1); hold on;
 set(gca,'ColorOrder',[autumn(n_rois/2);winter(n_rois/2)]);
 plot(t,nanmean(loglik_increase_fluor(:,:,1,:),4))
-subplot(2,2,2); hold on;
+line([0,0],yrange,'color','k');
+xlabel('Time from stim')
+ylabel('Relative loglikelihood (bpt)');
+
+p2 = subplot(2,2,2); hold on;
 set(gca,'ColorOrder',[autumn(n_rois/2);winter(n_rois/2)]);
 plot(t,nanmean(loglik_increase_fluor(:,:,2,:),4))
-subplot(2,2,3); hold on;
+line([0,0],yrange,'color','k');
+xlabel('Time from move')
+ylabel('Relative loglikelihood (bpt)');
+
+p3 = subplot(2,2,3); hold on;
 set(gca,'ColorOrder',copper(n_depths));
 plot(t,nanmean(loglik_increase_mua(:,:,1,:),4))
-subplot(2,2,4); hold on;
+line([0,0],yrange,'color','k');
+xlabel('Time from stim')
+ylabel('Relative loglikelihood (bpt)');
+
+p4 = subplot(2,2,4); hold on;
 set(gca,'ColorOrder',copper(n_depths));
 plot(t,nanmean(loglik_increase_mua(:,:,2,:),4))
+line([0,0],yrange,'color','k');
+xlabel('Time from move')
+ylabel('Relative loglikelihood (bpt)');
+
+linkaxes([p1,p2,p3,p4])
+ylim(yrange);
+
+% Plot fluor/move across animals for each region
+figure; hold on;
+col = copper(6);
+p = gobjects(6,1);
+for curr_animal = 1:6
+    curr_p = AP_stackplot(squeeze(loglik_increase_fluor(:,:,2,curr_animal)),t,0.15,false,col(curr_animal,:),{wf_roi.area});
+    p(curr_animal) = curr_p(1);
+end
+animals = {'AP024','AP025','AP026','AP027','AP028','AP029'};
+legend(p,animals);
+
 
 
 %% Regression on day-concatenated activity
@@ -6254,8 +6328,8 @@ for curr_animal = 1:n_animals
     D.day = trial_day;
     
     max_contrast = max(D.stimulus,[],2);
-%     use_trials = max_contrast >= 0 & max_contrast < Inf;
-    use_trials = max_contrast == 0;
+    use_trials = max_contrast >= 0 & max_contrast < 0.5;
+%     use_trials = max_contrast == 0;
 
     n_trials = sum(use_trials);
     
