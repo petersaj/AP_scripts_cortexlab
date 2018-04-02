@@ -3215,7 +3215,10 @@ data_path = ['C:\Users\Andrew\OneDrive for Business\Documents\CarandiniHarrisLab
 data_fn = 'mua_passive';
 load([data_path filesep data_fn]);
 
+n_experiments = cellfun(@length,{batch_vars.mua_corr});
+
 n_depths = cellfun(@(x) cellfun(@length,x),{batch_vars.mua_corr},'uni',false);
+n_depths_cat = horzcat(n_depths{:});
 max_grps = max(horzcat(n_depths{:}));
 
 mua_pad = cellfun(@(x) cellfun(@(x) padarray(x,[max_grps-length(x),max_grps-length(x)],NaN,'post'),x,'uni',false),{batch_vars.mua_corr},'uni',false);
@@ -3229,11 +3232,80 @@ mua_reshape = cell2mat(reshape(mat2cell(mua_cat,max_grps,max_grps,ones(size(mua_
 lfp_reshape = cell2mat(reshape(mat2cell(lfp_cat,max_grps,max_grps,ones(size(lfp_cat,3),1)),7,7));
 
 vis_modulation_cat = horzcat(vis_modulation_pad{:});
-
-vis_modulation_median = nanmedian(vis_modulation_cat,2);
-% [Xa,Ya] = alignsignals(vis_modulation_cat(:,36),vis_modulation_median);
+vis_modulation_mean = nanmean(vis_modulation_cat,2);
 
 
+% Align LFP to templates, then align visual modulation by that
+template_lfp_size = max_grps*2;
+template_lfp_corr = ones(template_lfp_size)*-1;
+template_lfp_corr(eye(template_lfp_size) > 0) = 1;
+template_lfp_corr(1:round(template_lfp_size/2),1:round(template_lfp_size/2)) = 1;
+template_lfp_corr(end-round(template_lfp_size/2)+1:end,end-round(template_lfp_size/2)+1:end) = 1;
+
+lfp_bigpad = cellfun(@(x) cellfun(@(x) padarray(x, ...
+    [template_lfp_size-length(x),template_lfp_size-length(x)],0,'post'), ...
+    x,'uni',false),{batch_vars.lfp_corr},'uni',false);
+lfp_bigcat = cell2mat(cellfun(@(x) cat(3,x{:}),permute(lfp_bigpad,[1,3,2]),'uni',false));
+
+shift_grp = nan(size(lfp_bigcat,3),1);
+aligned_lfp = nan(size(lfp_bigcat));
+for curr_exp = 1:size(lfp_bigcat,3)
+    n_shifts = template_lfp_size-n_depths_cat(curr_exp);
+    template_dot = nan(n_shifts,1);
+    for i = 1:n_shifts
+        shifted_lfp = circshift(lfp_bigcat(:,:,curr_exp),[i,i]);
+        template_dot(i) = transpose(shifted_lfp(:))*template_lfp_corr(:);
+    end
+    [~,shift_grp(curr_exp)] = max(template_dot);
+    aligned_lfp(:,:,curr_exp) = circshift(lfp_bigcat(:,:,curr_exp),[shift_grp(curr_exp),shift_grp(curr_exp)]);
+end
+
+vis_modulation_bigpad = cellfun(@(x) cell2mat(cellfun(@(x) padarray(x, ...
+    [template_lfp_size-length(x),0],NaN,'post'),x,'uni',false)), ...
+    {batch_vars.vis_modulation},'uni',false);
+vis_modulation_bigcat = horzcat(vis_modulation_bigpad{:});
+aligned_vis_modulation = nan(size(vis_modulation_bigcat));
+for curr_exp = 1:size(lfp_bigcat,3)
+    aligned_vis_modulation(:,curr_exp) = ...
+        circshift(vis_modulation_bigcat(:,curr_exp),[shift_grp(curr_exp),0]);
+end
+
+% From that alignment, divide the total extent into 6 groups
+depth_bin_size = 100; % from the batch script
+used_bins = any(~isnan(aligned_vis_modulation),2);
+n_used_bins = sum(used_bins);
+total_depth = depth_bin_size*n_used_bins;
+
+n_str_depths = 6;
+str_depth_edges = linspace(0,total_depth,n_str_depths+1);
+
+% Get the striatum "offset" for each experiment, package by animal
+first_bin = find(used_bins,1);
+[~,str_offset_bin] = max(~isnan(aligned_vis_modulation(first_bin:end,:)),[],1);
+str_offset = mat2cell((str_offset_bin-1)*depth_bin_size,1,n_experiments);
+
+% Save in structure
+% (hardcoded: this is dirty, but whatever for now
+% (in the future should be included in batch vars)
+animals = {'AP024','AP025','AP026','AP027','AP028','AP029'};
+
+ephys_align = struct('animal',cell(size(animals)),'days',cell(size(animals)), ...
+    'str_depth_edges',cell(size(animals)),'str_offset',cell(size(animals)));
+[ephys_align.animal] = deal(animals{:});
+[ephys_align.str_depth_edges] = deal(str_depth_edges);
+[ephys_align.str_offset] = deal(str_offset{:});
+
+protocol = 'stimKalatsky';
+for curr_animal = 1:length(animals)
+    animal = animals{curr_animal};
+    experiments = AP_find_experiments(animal,protocol);
+    experiments = experiments([experiments.ephys]);
+    ephys_align(curr_animal).days = {experiments.day};
+end
+
+ephys_align_path = 'C:\Users\Andrew\OneDrive for Business\Documents\CarandiniHarrisLab\analysis\wf_ephys_choiceworld\ephys_processing';
+ephys_align_fn = 'ephys_str_align';
+save([ephys_align_path filesep ephys_align_fn],'ephys_align');
 
 
 %% Load and average wf -> ephys maps

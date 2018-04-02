@@ -827,6 +827,28 @@ if ephys_exists && load_parts.ephys
     
 end
 
+% Load striatum alignment
+ephys_align_path = 'C:\Users\Andrew\OneDrive for Business\Documents\CarandiniHarrisLab\analysis\wf_ephys_choiceworld\ephys_processing';
+ephys_align_fn = 'ephys_str_align';
+load([ephys_align_path filesep ephys_align_fn]);
+
+% If alignment exists, align
+curr_animal_idx = strcmp(animal,{ephys_align.animal});
+curr_day_idx = strcmp(day,ephys_align(curr_animal_idx).days);
+if any(curr_animal_idx) && any(curr_day_idx)
+    curr_str_offset = ephys_align(curr_animal_idx).str_offset(curr_day_idx);
+    % (get striatum depth boundaries offset by striatum start)
+    str_depth_edges = str_depth(1) - curr_str_offset + ephys_align(curr_animal_idx).str_depth_edges;
+    % (get spike depths, setting all outside the striatum to NaN)
+    str_spikeDepths = spikeDepths;
+    str_spikeDepths(spikeDepths < str_depth(1) | spikeDepths > str_depth(2)) = NaN;
+    % (group the striatal spike depths into the um-standardized bins)
+    str_depth_group = discretize(spikeDepths,str_depth_edges);   
+    
+    n_depths = length(str_depth_edges)-1;
+end
+
+
 %% Finished
 if verbose; disp('Finished loading experiment.'); end
 

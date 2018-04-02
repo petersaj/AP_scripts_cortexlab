@@ -1937,6 +1937,9 @@ for curr_animal = 1:length(animals)
         
         depth_group = discretize(spikeDepths,depth_group_edges);
         
+        % USE NEW GROUPING BY ALIGNMENT
+        str_depth_group
+        
         % Set times for PSTH
         raster_window = [-0.5,3];
         psth_bin_size = 0.001;
@@ -2034,8 +2037,9 @@ for curr_animal = 1:length(animals)
         
         AP_load_experiment
 
-        % Independent from stim, get MUA/LFP correlations by depth      
-        n_depths = round(diff(str_depth)/100);
+        % Independent from stim, get MUA/LFP correlations by depth  
+        depth_bin_size = 100; % in um
+        n_depths = round(diff(str_depth)/depth_bin_size);
         depth_group_edges = round(linspace(str_depth(1),str_depth(2),n_depths+1));
         spike_depth_group = discretize(spikeDepths,depth_group_edges);
         
