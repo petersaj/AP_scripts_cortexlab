@@ -6609,10 +6609,13 @@ for curr_alignment = 1:2
 end
 
 %% Regression on day-concatenated activity (empirical stim)
+% (this still super changes depending on which contrasts are included,
+% although that might be a function of day/trial instead of actually
+% mis-modeling stimulus effects)
 
 % Load data
 data_path = 'C:\Users\Andrew\OneDrive for Business\Documents\CarandiniHarrisLab\analysis\wf_ephys_choiceworld\choiceworld';
-data_fn = 'all_trial_activity_df_earlymove.mat';
+data_fn = 'all_trial_activity_df_msn_earlymove.mat';
 load([data_path filesep data_fn]);
 
 % Get time
@@ -6683,13 +6686,14 @@ for curr_animal = 1:length(D_all)
 %     use_trials = max_contrast == 0;
     
     %%% Regression    
+    n_total_trials = length(max_contrast);
     n_trials = sum(use_trials);
     
     contrasts = [0.06,0.125,0.25,0.5,1];
-    stim_regressors = zeros(n_trials,length(contrasts),2);
+    stim_regressors = zeros(n_total_trials,length(contrasts),2);
     [~,contrast_l_idx] = ismember(D.stimulus(:,1),contrasts','rows');
     [~,contrast_r_idx] = ismember(D.stimulus(:,2),contrasts','rows');
-    for curr_trial = 1:n_trials
+    for curr_trial = 1:n_total_trials
         if contrast_l_idx(curr_trial)
             stim_regressors(curr_trial,contrast_l_idx(curr_trial),1) = 1;
         end
@@ -6697,14 +6701,14 @@ for curr_animal = 1:length(D_all)
             stim_regressors(curr_trial,contrast_r_idx(curr_trial),2) = 1;
         end
     end
-    stim_regressors = reshape(stim_regressors,n_trials,[]);
+    stim_regressors = reshape(stim_regressors,n_total_trials,[]);
     
     fluor_params_fit = [ones(n_trials,1), ...
-        stim_regressors, ...
+        stim_regressors(use_trials,:), ...
         2*(D.response(use_trials)-1.5)]\reshape(fluor_cat_hemidiff_norm(use_trials,:,:,:),n_trials,[]);
     
     mua_params_fit = [ones(n_trials,1), ...
-        stim_regressors, ...
+        stim_regressors(use_trials,:), ...
         2*(D.response(use_trials)-1.5)]\reshape(mua_cat_norm(use_trials,:,:,:),n_trials,[]);
     
     fluor_activity_model_params(:,:,:,:,curr_animal)= ...
@@ -6755,7 +6759,7 @@ end
 
 % Load data
 data_path = 'C:\Users\Andrew\OneDrive for Business\Documents\CarandiniHarrisLab\analysis\wf_ephys_choiceworld\choiceworld';
-data_fn = 'all_trial_activity_df_earlymove.mat';
+data_fn = 'all_trial_activity_df_msn_earlymove.mat';
 load([data_path filesep data_fn]);
 n_animals = length(D_all);
 
@@ -6775,6 +6779,7 @@ n_depths = 6;
 
 fluor_model_expl_var = nan(length(t),n_rois,2,2,n_animals);
 mua_model_expl_var = nan(length(t),n_depths,2,2,n_animals);
+mua_predicted_model_expl_var = nan(length(t),n_depths,2,2,n_animals);
 for curr_animal = 1:n_animals
     
     trial_day = cell2mat(cellfun(@(day,act) repmat(day,size(act,1),1), ...
@@ -6814,6 +6819,21 @@ for curr_animal = 1:n_animals
     % Set any NaNs in MUA to zero (days without depth)
     mua_cat_norm(isnan(mua_cat_norm)) = 0;
     
+    % Regress from fluor to MUA
+    kernel_t = [-0.2,0];
+    kernel_frames = round(kernel_t(1)*sample_rate):round(kernel_t(2)*sample_rate);
+    zs = [false,false];
+    cvfold = 1;
+    lambda = 0;
+    
+    [k,predicted_spikes,explained_var] = ...
+        AP_regresskernel(reshape(permute(fluor_cat_norm,[2,1,4,3]),[],n_rois)', ...
+        reshape(permute(mua_cat_norm,[2,1,4,3]),[],n_depths)',kernel_frames,lambda,zs,cvfold);
+    
+    k_reshape = reshape(k,n_rois,length(kernel_frames),n_depths);
+    
+    mua_cat_predicted = permute(reshape(predicted_spikes',length(t),length(trial_day),2,n_depths),[2,1,4,3]);    
+    
     % Concatenate behavioural data
     D = struct;
     D.stimulus = cell2mat(cellfun(@(x) x.stimulus,D_all{curr_animal},'uni',false));
@@ -6823,16 +6843,34 @@ for curr_animal = 1:n_animals
     D.day = trial_day;
     
     max_contrast = max(D.stimulus,[],2);
-    use_trials = max_contrast >= 0 & max_contrast < 0.25;
+    use_trials = max_contrast >= -Inf & max_contrast < Inf;
 %     use_trials = max_contrast == 0;
-
+    n_total_trials = length(max_contrast);
     n_trials = sum(use_trials);
     
     %%% Regression (separate regressors to get partial explained variance)
-    contrast_exp = 1;
+    
+%     % (to use one contrast exp)
+%     contrast_exp = 1;
+%     stim_regressors = D.stimulus.^contrast_exp;
+    
+    % (to use each contrast separately)
+    contrasts = [0.06,0.125,0.25,0.5,1];
+    stim_regressors = zeros(n_total_trials,length(contrasts),2);
+    [~,contrast_l_idx] = ismember(D.stimulus(:,1),contrasts','rows');
+    [~,contrast_r_idx] = ismember(D.stimulus(:,2),contrasts','rows');
+    for curr_trial = 1:n_total_trials
+        if contrast_l_idx(curr_trial)
+            stim_regressors(curr_trial,contrast_l_idx(curr_trial),1) = 1;
+        end
+        if contrast_r_idx(curr_trial)
+            stim_regressors(curr_trial,contrast_r_idx(curr_trial),2) = 1;
+        end
+    end
+    stim_regressors = reshape(stim_regressors,n_total_trials,[]);
     
     regressors = cellfun(@transpose, ...
-        {D.stimulus(use_trials,:).^contrast_exp, ...
+        {stim_regressors(use_trials,:), ...
         2*(D.response(use_trials)-1.5)},'uni',false);
     
     t_shifts = {0,0};
@@ -6846,13 +6884,18 @@ for curr_animal = 1:n_animals
     [mua_params_fit,~,mua_expl_var] = AP_regresskernel(regressors', ...
         reshape(mua_cat_norm(use_trials,:,:,:),n_trials,[])',t_shifts,lambda,zs,cvfold);
     
+    [mua_predicted_params_fit,~,mua_predicted_expl_var] = AP_regresskernel(regressors', ...
+        reshape(mua_cat_predicted(use_trials,:,:,:),n_trials,[])',t_shifts,lambda,zs,cvfold);
+    
     fluor_model_expl_var(:,:,:,:,curr_animal) = reshape(fluor_expl_var.reduced,length(t),n_rois,2,2);
     mua_model_expl_var(:,:,:,:,curr_animal) = reshape(mua_expl_var.reduced,length(t),n_depths,2,2);
+    mua_predicted_model_expl_var(:,:,:,:,curr_animal) = reshape(mua_predicted_expl_var.reduced,length(t),n_depths,2,2);
     
 end
 
 fluor_model_expl_var_mean = nanmean(fluor_model_expl_var,5);
 mua_model_expl_var_mean = nanmean(mua_model_expl_var,5);
+mua_predicted_model_expl_var_mean = nanmean(mua_predicted_model_expl_var,5);
 
 % Plot all average parameters
 figure;
@@ -6864,7 +6907,7 @@ for curr_alignment = 1:2
         case 2
             align_text = 'move';
     end
-    for curr_modality = 1:2
+    for curr_modality = 1:3
         for curr_param = 1:2            
             switch curr_param
                 case 1
@@ -6873,7 +6916,7 @@ for curr_alignment = 1:2
                     param_text = 'choice';
             end
             
-            subplot(4,2,curr_subplot); hold on;
+            subplot(6,2,curr_subplot); hold on;
             switch curr_modality
                 case 1
                     set(gca,'ColorOrder',[autumn(n_rois/2);winter(n_rois/2)]);
@@ -6891,11 +6934,52 @@ for curr_alignment = 1:2
                     axis tight
                     line([0,0],ylim,'color','k');
                     line(xlim,[0,0],'color','k');
+                case 3
+                    set(gca,'ColorOrder',copper(n_depths));
+                    plot(t,squeeze(mua_predicted_model_expl_var_mean(:,:,curr_alignment,curr_param)));                    
+                    xlabel(['Time from ' align_text]);
+                    ylabel(['Expl var: ' param_text]);
+                    axis tight
+                    line([0,0],ylim,'color','k');
+                    line(xlim,[0,0],'color','k');
             end
             curr_subplot = curr_subplot + 1;
         end
     end
 end
+
+% Plot differences in MUA real and predicted
+figure;
+curr_subplot = 1;
+for curr_alignment = 1:2
+    switch curr_alignment
+        case 1
+            align_text = 'stim';
+        case 2
+            align_text = 'move';
+    end
+    for curr_param = 1:2
+        switch curr_param
+            case 1
+                param_text = 'stim';
+            case 2
+                param_text = 'choice';
+        end
+                subplot(2,2,curr_subplot); hold on;
+                set(gca,'ColorOrder',copper(n_depths));
+                plot(t,squeeze(mua_model_expl_var_mean(:,:,curr_alignment,curr_param)) - ...
+                    squeeze(mua_predicted_model_expl_var_mean(:,:,curr_alignment,curr_param)));
+                xlabel(['Time from ' align_text]);
+                ylabel(['Real-pred expl var: ' param_text]);
+                axis tight
+                line([0,0],ylim,'color','k');
+                line(xlim,[0,0],'color','k');
+        curr_subplot = curr_subplot + 1;
+    end
+end
+
+
+
 
 %% Regression on day-concatenated activity (ctx -> str prediction)
 
@@ -6924,9 +7008,9 @@ n_rois = numel(wf_roi);
 
 n_depths = 6;
 
-fluor_activity_model_params = nan(4,length(t),n_rois,2,n_animals);
-mua_activity_model_params = nan(4,length(t),n_depths,2,n_animals);
-mua_predicted_activity_model_params = nan(4,length(t),n_depths,2,n_animals);
+fluor_activity_model_params = nan(12,length(t),n_rois,2,n_animals);
+mua_activity_model_params = nan(12,length(t),n_depths,2,n_animals);
+mua_predicted_activity_model_params = nan(12,length(t),n_depths,2,n_animals);
 for curr_animal = 1:n_animals
     
     trial_day = cell2mat(cellfun(@(day,act) repmat(day,size(act,1),1), ...
@@ -6992,30 +7076,49 @@ for curr_animal = 1:n_animals
     max_contrast = max(D.stimulus,[],2);
     use_trials = max_contrast >= 0 & max_contrast < 1;
 %     use_trials = max_contrast == 0;
-    
-    %%% Regression
-    contrast_exp = 1;
-    
+
+    n_total_trials = length(max_contrast);
     n_trials = sum(use_trials);
     
+    %%% Regression
+    
+%     % (to use one contrast exp)
+%     contrast_exp = 1;
+%     stim_regressors = D.stimulus.^contrast_exp;
+    
+    % (to use each contrast separately)
+    contrasts = [0.06,0.125,0.25,0.5,1];
+    stim_regressors = zeros(n_total_trials,length(contrasts),2);
+    [~,contrast_l_idx] = ismember(D.stimulus(:,1),contrasts','rows');
+    [~,contrast_r_idx] = ismember(D.stimulus(:,2),contrasts','rows');
+    for curr_trial = 1:n_total_trials
+        if contrast_l_idx(curr_trial)
+            stim_regressors(curr_trial,contrast_l_idx(curr_trial),1) = 1;
+        end
+        if contrast_r_idx(curr_trial)
+            stim_regressors(curr_trial,contrast_r_idx(curr_trial),2) = 1;
+        end
+    end
+    stim_regressors = reshape(stim_regressors,n_total_trials,[]);
+        
     fluor_params_fit = [ones(n_trials,1), ...
-        D.stimulus(use_trials,:).^contrast_exp, ...
+        stim_regressors(use_trials,:), ...
         2*(D.response(use_trials)-1.5)]\reshape(fluor_cat_hemidiff_norm(use_trials,:,:,:),n_trials,[]);
     
     mua_params_fit = [ones(n_trials,1), ...
-        D.stimulus(use_trials,:).^contrast_exp, ...
+        stim_regressors(use_trials,:), ...
         2*(D.response(use_trials)-1.5)]\reshape(mua_cat_norm(use_trials,:,:,:),n_trials,[]);
     
     mua_predicted_params_fit = [ones(n_trials,1), ...
-        D.stimulus(use_trials,:).^contrast_exp, ...
+        stim_regressors(use_trials,:), ...
         2*(D.response(use_trials)-1.5)]\reshape(mua_cat_predicted(use_trials,:,:,:),n_trials,[]);
     
     fluor_activity_model_params(:,:,:,:,curr_animal)= ...
-        reshape(fluor_params_fit,4,length(t),n_rois,2);
+        reshape(fluor_params_fit,12,length(t),n_rois,2);
     mua_activity_model_params(:,:,:,:,curr_animal)= ...
-        reshape(mua_params_fit,4,length(t),n_depths,2);
+        reshape(mua_params_fit,12,length(t),n_depths,2);
     mua_predicted_activity_model_params(:,:,:,:,curr_animal)= ...
-        reshape(mua_predicted_params_fit,4,length(t),n_depths,2);
+        reshape(mua_predicted_params_fit,12,length(t),n_depths,2);
     
     AP_print_progress_fraction(curr_animal,n_animals);
        
@@ -7035,8 +7138,8 @@ for curr_alignment = 1:2
         case 2
             align_text = 'move';
     end
-    for curr_param = 1:4
-        subplot(2,4,curr_subplot); hold on;
+        curr_param = 12;
+        subplot(2,2,curr_subplot); hold on;
         
         set(gca,'ColorOrder',copper(n_depths));
         plot(t,squeeze(mua_activity_model_params_mean(curr_param,:,:,curr_alignment)));
@@ -7050,7 +7153,6 @@ for curr_alignment = 1:2
         line(xlim,[0,0],'color','k');
         
         curr_subplot = curr_subplot + 1;
-    end
 end
 
 %% Regression on day-concatenated activity: CV explained variance (ctx->str prediction)
