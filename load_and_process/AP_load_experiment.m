@@ -843,9 +843,94 @@ if any(curr_animal_idx) && any(curr_day_idx)
     str_spikeDepths = spikeDepths;
     str_spikeDepths(spikeDepths < str_depth(1) | spikeDepths > str_depth(2)) = NaN;
     % (group the striatal spike depths into the um-standardized bins)
-    str_depth_group = discretize(spikeDepths,str_depth_edges);   
+    aligned_str_depth_group = discretize(str_spikeDepths,str_depth_edges);   
     
-    n_depths = length(str_depth_edges)-1;
+    n_aligned_depths = length(str_depth_edges)-1;
+end
+
+%% Classify spikes
+
+if ephys_exists && load_parts.ephys
+    if verbose; disp('Classifying spikes...'); end;
+ 
+    str_templates = templateDepths >= str_depth(1) & templateDepths <= str_depth(2);
+    non_str_templates = ~str_templates;
+    
+    % Define the window to look for spiking statistics in (spikes go in and
+    % out, so take the bin with the largest firing rate for each cell and work
+    % with that one)
+    % spiking_stat_window = 60*5; % seconds
+    % spiking_stat_bins = min(spike_times_timeline):spiking_stat_window: ...
+    %     max(spike_times_timeline);
+    
+    % % (for whole session)
+    spiking_stat_window = max(spike_times_timeline)-min(spike_times_timeline);
+    spiking_stat_bins = [min(spike_times_timeline),max(spike_times_timeline)];
+    
+    % Get firing rate across the session
+    bin_spikes = nan(max(spike_templates), ...
+        length(spiking_stat_bins)-1);
+    for curr_template = unique(spike_templates)'
+        bin_spikes(curr_template,:) = ...
+            histcounts(spike_times_timeline(spike_templates == curr_template), ...
+            spiking_stat_bins);
+    end
+    min_spikes = 10;
+    use_spiking_stat_bins = bsxfun(@ge,bin_spikes,prctile(bin_spikes,80,2)) & bin_spikes > min_spikes;
+    spike_rate = sum(bin_spikes.*use_spiking_stat_bins,2)./ ...
+        (sum(use_spiking_stat_bins,2)*spiking_stat_window);
+    
+    % Get proportion of ISI > 2s (Yamin/Cohen 2013) and CV2 (Stalnaker/Schoenbaum 2016)
+    prop_long_isi = nan(max(spike_templates),1);
+    cv2 = nan(max(spike_templates),1);
+    for curr_template = unique(spike_templates)'
+        
+        long_isi_total = 0;
+        isi_ratios = [];
+        for curr_bin = find(use_spiking_stat_bins(curr_template,:))
+            curr_spike_times = spike_times_timeline( ...
+                spike_times_timeline > spiking_stat_bins(curr_bin) & ...
+                spike_times_timeline < spiking_stat_bins(curr_bin+1) & ...
+                spike_templates == curr_template);
+            curr_isi = diff(curr_spike_times);
+            
+            long_isi_total = long_isi_total + sum(curr_isi(curr_isi > 2));
+            
+            isi_ratios = [isi_ratios;(2*abs(curr_isi(2:end) - curr_isi(1:end-1)))./ ...
+                (curr_isi(2:end) + curr_isi(1:end-1))];
+        end
+        
+        prop_long_isi(curr_template) = long_isi_total/ ...
+            (sum(use_spiking_stat_bins(curr_template,:))*spiking_stat_window);
+        cv2(curr_template) = nanmean(isi_ratios);
+        
+    end
+    
+    % Cortical classification (like Bartho JNeurophys 2004)
+    waveform_duration_cutoff = 400;
+    narrow = non_str_templates & templateDuration_us <= waveform_duration_cutoff;
+    wide = non_str_templates & templateDuration_us > waveform_duration_cutoff;
+    
+    % Striatum classification
+    prop_long_isi_cutoff = 0.35;
+    cv2_cutoff = 0.8;
+    
+    msn = str_templates & ...
+        templateDuration_us > waveform_duration_cutoff & ...
+        prop_long_isi >= prop_long_isi_cutoff;
+    
+    fsi = str_templates & ...
+        templateDuration_us <= waveform_duration_cutoff & ...
+        prop_long_isi < prop_long_isi_cutoff;
+    
+    tan = str_templates & ...
+        templateDuration_us > waveform_duration_cutoff & ...
+        prop_long_isi < prop_long_isi_cutoff;
+    
+    uin = str_templates & ~msn & ~fsi & ~tan;
+    
+    waveform_t = 1e3*((0:size(templates,2)-1)/ephys_sample_rate);
+    
 end
 
 

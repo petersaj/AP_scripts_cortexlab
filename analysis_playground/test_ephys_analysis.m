@@ -2204,15 +2204,15 @@ end
 
 %% Spectral analysis
 % Power spectrum
-use_trace = roi_trace(1:end-1);
-use_t = frame_t;
+use_trace = lfp_depth_median_filt(2,:);
+use_t = lfp_t_timeline;
 
 Fs = 1./median(diff(use_t));
 L = length(use_trace);
 NFFT = 2^nextpow2(L);
 [P,F] = pwelch(double(use_trace)',[],[],NFFT,Fs);
 Pc = smooth(P,50); 
-figure;plot(F,log10(Pc),'r')
+figure;plot(F,log10(Pc),'m')
 xlabel('Frequency');
 ylabel('Log Power');
 

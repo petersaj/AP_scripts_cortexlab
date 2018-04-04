@@ -2507,7 +2507,7 @@ n_reduce_lambda = 3;
 use_svs = 1:50;
 kernel_t = [-0.2,0.2];
 kernel_frames = round(kernel_t(1)*framerate):round(kernel_t(2)*framerate);
-zs = [false,true];
+zs = [false,false];
 cvfold = 5;
 use_frames_idx = find(use_frames);
 
@@ -2671,11 +2671,14 @@ for curr_depth = 1:length(depth_group_edges_use)-1
     
 end
 
+% Normalize binned spikes
+binned_spikes = bsxfun(@rdivide,binned_spikes,std(binned_spikes,[],2));
+
 use_svs = 1:50;
 kernel_t = [-0.3,0.3];
 kernel_frames = round(kernel_t(1)*sample_rate):round(kernel_t(2)*sample_rate);
-% lambda = 2e5; % (COMMENT OUT TO USE LAMBDA FROM ESTIMATION ABOVE)
-zs = [false,true];
+lambda = 2e5; % (COMMENT OUT TO USE LAMBDA FROM ESTIMATION ABOVE)
+zs = [false,false];
 cvfold = 5;
 
 fVdf_resample = interp1(frame_t,fVdf(use_svs,:)',time_bin_centers)';
@@ -2702,14 +2705,17 @@ caxis([-prctile(r_px(:),99.9),prctile(r_px(:),99.9)])
 colormap(colormap_BlueWhiteRed);
 axis image;
 
-% Get center of mass for each pixel 
-% r_px_max = squeeze(sqrt(sum(r_px.^2,3)));
-r_px_max = squeeze(max(r_px,[],3));
-r_px_max_zeronan = r_px_max;
-r_px_max_zeronan(isnan(r_px_max_zeronan)) = 0;
-r_px_max_norm = bsxfun(@rdivide,bsxfun(@minus,r_px_max_zeronan,min(r_px_max_zeronan,[],3)), ...
-    max(bsxfun(@minus,r_px_max_zeronan,min(r_px_max_zeronan,[],3)),[],3));
-r_px_com = sum(bsxfun(@times,r_px_max_norm,permute(1:n_depth_groups,[1,3,2])),3)./sum(r_px_max_norm,3);
+% Get center of mass for each pixel
+% (get max r for each pixel, filter out big ones)
+r_px_max = squeeze(max(abs(r_px),[],3));
+r_px_max(isnan(r_px_max)) = 0;
+for i = 1:n_depths
+    r_px_max(:,:,i) = medfilt2(r_px_max(:,:,i),[10,10]);
+end
+r_px_max_norm = bsxfun(@rdivide,r_px_max, ...
+    permute(max(reshape(r_px_max,[],n_depths),[],1),[1,3,2]));
+r_px_max_norm(isnan(r_px_max_norm)) = 0;
+r_px_com = sum(bsxfun(@times,r_px_max_norm,permute(1:n_depths,[1,3,2])),3)./sum(r_px_max_norm,3);
 
 % Plot map of cortical pixel by preferred depth of probe
 r_px_com_col = ind2rgb(round(mat2gray(r_px_com,[1,n_depth_groups])*255),jet(255));
@@ -2720,8 +2726,8 @@ axis off; axis image;
 a2 = axes('Visible','off'); 
 p = imagesc(r_px_com_col);
 axis off; axis image;
-set(p,'AlphaData',mat2gray(max(r_px_max,[],3), ...
-     [0,double(prctile(reshape(max(r_px_max,[],3),[],1),99))]));
+set(p,'AlphaData',mat2gray(max(r_px_max_norm,[],3), ...
+     [0,double(prctile(reshape(max(r_px_max_norm,[],3),[],1),99))]));
 set(gcf,'color','w');
 
 c1 = colorbar('peer',a1,'Visible','off');

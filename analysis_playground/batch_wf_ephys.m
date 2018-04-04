@@ -913,69 +913,82 @@ for curr_animal = 1:length(animals)
         dfVdf_resample = interp1(conv2(frame_t,[1,1]/2,'valid'), ...
             diff(fVdf(use_svs,:),[],2)',time_bin_centers)';
         
-        % Estimate lambda using entire striatum       
-        use_frames = (frame_t > skip_seconds & frame_t < frame_t(end)-skip_seconds);        
-        use_spikes = spike_times_timeline(ismember(spike_templates, ...
-            find(templateDepths > str_depth(1) & templateDepths <= str_depth(2))));
-        
-        [binned_spikes,~,spike_frames] = histcounts(use_spikes,time_bins);
-        binned_spikes = single(binned_spikes);
-        
-        lambda_start = 1e3;
-        n_reduce_lambda = 3;
-        
-        kernel_t = [-0.1,0.1];
-        kernel_frames = round(kernel_t(1)*sample_rate):round(kernel_t(2)*sample_rate);
-        zs = [false,true];
-        cvfold = 5;
-        use_frames_idx = find(use_frames);
-        
-        update_lambda = n_reduce_lambda;
-        curr_lambda = lambda_start;
-        lambdas = 0;
-        explained_var_lambdas = 0;
-        
-        while update_lambda;
-            
-            % TO USE dfV
-            [~,~,explained_var] = ...
-                AP_regresskernel(dfVdf_resample, ...
-                binned_spikes,kernel_frames,curr_lambda,zs,cvfold);
-            
-            lambdas(end+1) = curr_lambda;
-            explained_var_lambdas(end+1) = explained_var.total;
-            
-            if explained_var_lambdas(end) > explained_var_lambdas(end-1)
-                curr_lambda = curr_lambda*10;
-            else
-                lambdas(end) = [];
-                explained_var_lambdas(end) = [];
-                curr_lambda = curr_lambda/2;
-                update_lambda = update_lambda-1;
-            end
-            
-        end
-        
-        % Take lambda to be the best * 10 (makes a better picture even
-        % though this has no justification)
-        lambda = lambdas(end)*10;         
+%         % Estimate lambda using entire striatum       
+%         use_frames = (frame_t > skip_seconds & frame_t < frame_t(end)-skip_seconds);        
+%         use_spikes = spike_times_timeline(ismember(spike_templates, ...
+%             find(templateDepths > str_depth(1) & templateDepths <= str_depth(2))));
+%         
+%         [binned_spikes,~,spike_frames] = histcounts(use_spikes,time_bins);
+%         binned_spikes = single(binned_spikes);
+%         binned_spikes = binned_spikes/std(binned_spikes);
+%         
+%         lambda_start = 1e3;
+%         n_reduce_lambda = 3;
+%         
+%         kernel_t = [-0.1,0.1];
+%         kernel_frames = round(kernel_t(1)*sample_rate):round(kernel_t(2)*sample_rate);
+%         zs = [false,false];
+%         cvfold = 5;
+%         use_frames_idx = find(use_frames);
+%         
+%         update_lambda = n_reduce_lambda;
+%         curr_lambda = lambda_start;
+%         lambdas = 0;
+%         explained_var_lambdas = 0;
+%         
+%         while update_lambda;
+%             
+%             % TO USE dfV
+%             [~,~,explained_var] = ...
+%                 AP_regresskernel(dfVdf_resample, ...
+%                 binned_spikes,kernel_frames,curr_lambda,zs,cvfold);
+%             
+%             lambdas(end+1) = curr_lambda;
+%             explained_var_lambdas(end+1) = explained_var.total;
+%             
+%             if explained_var_lambdas(end) > explained_var_lambdas(end-1)
+%                 curr_lambda = curr_lambda*10;
+%             else
+%                 lambdas(end) = [];
+%                 explained_var_lambdas(end) = [];
+%                 curr_lambda = curr_lambda/2;
+%                 update_lambda = update_lambda-1;
+%             end
+%             
+%         end
+%         
+%         % Take lambda to be the best * 10 (makes a better picture even
+%         % though this has no justification)
+%         lambda = lambdas(end)*10;         
+
+        % Just use one lambda
+        lambda = 2e5;
         
         % Get cortex/striatum regression by depth
-               
-        % Group striatum depths
-        n_depths = 6;
-        depth_group_edges = round(linspace(str_depth(1),str_depth(2),n_depths+1));
-        [depth_group_n,~,depth_group] = histcounts(spikeDepths,depth_group_edges);
+        
+        % Group multiunit by depth
+        % (evenly across recorded striatum)
+        %         n_depths = 6;
+        %         depth_group_edges = round(linspace(str_depth(1),str_depth(2),n_depths+1));
+        %         depth_group_centers = round(depth_group_edges(1:end-1)+diff(depth_group_edges)/2);
+        %         depth_group = discretize(spikeDepths,depth_group_edges);
+        
+        % (aligned striatum depths)
+        n_depths = n_aligned_depths;
+        depth_group = aligned_str_depth_group;
           
         binned_spikes = zeros(n_depths,length(time_bin_centers));
         for curr_depth = 1:n_depths           
             curr_spike_times = spike_times_timeline(depth_group == curr_depth);           
             binned_spikes(curr_depth,:) = histcounts(curr_spike_times,time_bins);            
-        end
+        end       
+        
+        % Normalize binned spikes
+        binned_spikes = bsxfun(@rdivide,binned_spikes,std(binned_spikes,[],2));
         
         kernel_t = [-0.3,0.3];
         kernel_frames = round(kernel_t(1)*sample_rate):round(kernel_t(2)*sample_rate);
-        zs = [false,true];
+        zs = [false,false];
         cvfold = 5;      
 
         % TO USE dfV
@@ -990,16 +1003,20 @@ for curr_animal = 1:length(animals)
         for curr_spikes = 1:size(r,3);
             r_px(:,:,:,curr_spikes) = svdFrameReconstruct(Udf(:,:,use_svs),r(:,:,curr_spikes));
         end
-            
+                
         % Get center of mass for each pixel
-        r_px_max = squeeze(max(r_px,[],3));
-        r_px_max_zeronan = r_px_max;
-        r_px_max_zeronan(isnan(r_px_max_zeronan)) = 0;
-        r_px_max_norm = bsxfun(@rdivide,bsxfun(@minus,r_px_max_zeronan,min(r_px_max_zeronan,[],3)), ...
-            max(bsxfun(@minus,r_px_max_zeronan,min(r_px_max_zeronan,[],3)),[],3));
-        r_px_com = sum(bsxfun(@times,r_px_max_norm,permute(1:n_depths,[1,3,2])),3)./sum(r_px_max_norm,3);
+        % (get max r for each pixel, filter out big ones)
+        r_px_max = squeeze(max(abs(r_px),[],3));
+        r_px_max(isnan(r_px_max)) = 0;
+        for i = 1:n_depths
+            r_px_max(:,:,i) = medfilt2(r_px_max(:,:,i),[10,10]);
+        end
+        r_px_max_norm = bsxfun(@rdivide,r_px_max, ...
+            permute(max(reshape(r_px_max,[],n_depths),[],1),[1,3,2]));
+        r_px_max_norm(isnan(r_px_max_norm)) = 0;
+        r_px_com = sum(bsxfun(@times,r_px_max_norm,permute(1:n_depths,[1,3,2])),3)./sum(r_px_max_norm,3);        
         
-        r_px_weight = max(r_px_max,[],3);
+        r_px_weight = max(abs(r_px_max),[],3);
         
         % Store all variables to save
         batch_vars(curr_animal).r_px{curr_day} = r_px;
@@ -1931,14 +1948,15 @@ for curr_animal = 1:length(animals)
         AP_load_experiment        
         
         % Group multiunit by depth
-        n_depths = 6;
-        depth_group_edges = round(linspace(str_depth(1),str_depth(2),n_depths+1));
-        depth_group_centers = round(depth_group_edges(1:end-1)+diff(depth_group_edges)/2);
+        % (evenly across recorded striatum)
+%         n_depths = 6;
+%         depth_group_edges = round(linspace(str_depth(1),str_depth(2),n_depths+1));
+%         depth_group_centers = round(depth_group_edges(1:end-1)+diff(depth_group_edges)/2);        
+%         depth_group = discretize(spikeDepths,depth_group_edges);
         
-        depth_group = discretize(spikeDepths,depth_group_edges);
-        
-        % USE NEW GROUPING BY ALIGNMENT
-        str_depth_group
+        % (aligned striatum depths)
+        n_depths = n_aligned_depths;
+        depth_group = aligned_str_depth_group;
         
         % Set times for PSTH
         raster_window = [-0.5,3];
@@ -2007,7 +2025,6 @@ disp(['Finished batch'])
 
 animals = {'AP024','AP025','AP026','AP027','AP028','AP029'};
 
-protocol = 'stimKalatsky';
 % protocol = 'AP_choiceWorldStimPassive';
 
 batch_vars = struct;
@@ -2015,11 +2032,18 @@ batch_vars = struct;
 for curr_animal = 1:length(animals)
     
     animal = animals{curr_animal};
-    experiments = AP_find_experiments(animal,protocol);
-    
     disp(animal);
     
-    experiments = experiments([experiments.ephys]);
+    % Only use days with choiceworld (sometimes passive in cortex)
+    protocol = 'vanillaChoiceworld';
+    behavior_experiments = AP_find_experiments(animal,protocol);
+    
+    protocol = 'stimKalatsky';
+    passive_experiments = AP_find_experiments(animal,protocol);
+    
+    behavior_day = ismember({passive_experiments.day},{behavior_experiments.day});
+    
+    experiments = passive_experiments([passive_experiments.imaging] & [passive_experiments.ephys] & behavior_day);
     
     % Skip if this animal doesn't have this experiment
     if isempty(experiments)
@@ -2151,6 +2175,8 @@ for curr_animal = 1:length(animals)
         end
 
         % Store
+        batch_vars(curr_animal).animal = animal;
+        batch_vars(curr_animal).day{curr_day} = day;
         batch_vars(curr_animal).mua_corr{curr_day} = mua_corr;
         batch_vars(curr_animal).lfp_corr{curr_day} = lfp_corr;
         batch_vars(curr_animal).vis_modulation{curr_day} = max(vis_modulation,[],2);
@@ -5187,14 +5213,14 @@ for curr_animal = 1:length(animals)
         roi_traces_df = bsxfun(@minus,roi_traces_f,roi_f_baseline);
         roi_traces_dff = bsxfun(@rdivide,roi_traces_df,f_avg);
                 
-        % Just fluorescence, no derivative
-        roi_traces_derivative = roi_traces_dff;
-        frame_t_derivative = frame_t;
+%         % Just fluorescence, no derivative
+%         roi_traces_derivative = roi_traces_dff;
+%         frame_t_derivative = frame_t;
         
-%         % Derivative via diff
-%         roi_traces_derivative = diff(roi_traces_dff,[],2);
-%         roi_traces_derivative(roi_traces_derivative < 0) = 0;
-%         frame_t_derivative = conv2(frame_t,[1,1]/2,'valid');
+        % Derivative via diff
+        roi_traces_derivative = diff(roi_traces_dff,[],2);
+        roi_traces_derivative(roi_traces_derivative < 0) = 0;
+        frame_t_derivative = conv2(frame_t,[1,1]/2,'valid');
         
 %         % Derivative via low-pass filter, then derivative (from Nick)       
 %         Nf = 50;
@@ -5212,11 +5238,16 @@ for curr_animal = 1:length(animals)
 %         
 %         frame_t_derivative = frame_t;
                 
-        % Prepare MUA
-        % (group striatum depths)
-        n_depths = 6;
-        depth_group_edges = round(linspace(str_depth(1),str_depth(2),n_depths+1));
-        depth_group = discretize(spikeDepths,depth_group_edges);
+        % Group multiunit by depth
+        % (evenly across recorded striatum)
+        %         n_depths = 6;
+        %         depth_group_edges = round(linspace(str_depth(1),str_depth(2),n_depths+1));
+        %         depth_group_centers = round(depth_group_edges(1:end-1)+diff(depth_group_edges)/2);
+        %         depth_group = discretize(spikeDepths,depth_group_edges);
+        
+        % (aligned striatum depths)
+        n_depths = n_aligned_depths;
+        depth_group = aligned_str_depth_group;
         
         % Get event-aligned activity
         raster_window = [-0.5,1];
@@ -5245,7 +5276,12 @@ for curr_animal = 1:length(animals)
             % MUA
             t_bins = [t_peri_event-raster_sample_rate/2,t_peri_event(:,end)+raster_sample_rate/2];
             for curr_depth = 1:n_depths
-                curr_spikes = spike_times_timeline(depth_group == curr_depth);
+                % (for all spikes in depth group)
+%                 curr_spikes = spike_times_timeline(depth_group == curr_depth);
+                % (for only msns in depth group)
+                curr_spikes = spike_times_timeline(depth_group == curr_depth & ...
+                    ismember(spike_templates,find(msn)));
+                
                 event_aligned_mua(:,:,curr_depth,curr_align) = cell2mat(arrayfun(@(x) ...
                     histcounts(curr_spikes,t_bins(x,:)), ...
                     [1:size(t_peri_event,1)]','uni',false))./raster_sample_rate;
@@ -5258,7 +5294,7 @@ for curr_animal = 1:length(animals)
             trial_outcome ~= 0 & ...
             ~signals_events.repeatTrialValues(1:n_trials) & ...
             stim_to_feedback < 1.5 & ...
-            stim_to_move > 0.5;
+            stim_to_move < 0.5;
         
         % Get behavioural data
         D = struct;
@@ -5289,14 +5325,14 @@ clearvars -except fluor_all mua_all D_all
 disp('Finished loading all')
 
 save_path = 'C:\Users\Andrew\OneDrive for Business\Documents\CarandiniHarrisLab\analysis\wf_ephys_choiceworld\choiceworld';
-save_fn = 'all_trial_activity_f_latemove.mat';
+save_fn = 'all_trial_activity_df_msn_earlymove.mat';
 save([save_path filesep save_fn]);
 
-%% Batch modeling on saved day-concatenated activity
+%% Batch logistic regression on saved day-concatenated activity
 
 % Load data
 data_path = 'C:\Users\Andrew\OneDrive for Business\Documents\CarandiniHarrisLab\analysis\wf_ephys_choiceworld\choiceworld';
-data_fn = 'all_trial_activity_diff_latemove.mat';
+data_fn = 'all_trial_activity_df_earlymove.mat';
 load([data_path filesep data_fn]);
 
 % Get time
@@ -5305,10 +5341,6 @@ raster_window = [-0.5,1];
 upsample_factor = 3;
 raster_sample_rate = 1/(framerate*upsample_factor);
 t = raster_window(1):raster_sample_rate:raster_window(2);
-
-use_t_stim = t > 0.05 & t < 0.15;
-use_t_move = t > -0.15 & t < -0.02;
-use_t_align = [use_t_stim;use_t_move];
 
 % Get widefield ROIs
 wf_roi_fn = 'C:\Users\Andrew\OneDrive for Business\Documents\CarandiniHarrisLab\analysis\wf_ephys_choiceworld\wf_processing\wf_rois\wf_roi';
@@ -5357,6 +5389,9 @@ for curr_animal = 1:n_animals
     
     mua_cat_norm = bsxfun(@rdivide,bsxfun(@minus,mua_cat_raw_smoothed,mua_day_baseline),mua_day_std);
     
+    % Set any NaNs in MUA to zero (days without depth)
+    mua_cat_norm(isnan(mua_cat_norm)) = 0;
+    
     % Concatenate behavioural data
     D = struct;
     D.stimulus = cell2mat(cellfun(@(x) x.stimulus,D_all{curr_animal},'uni',false));
@@ -5393,28 +5428,28 @@ for curr_animal = 1:n_animals
     % Fit stim + activity (all time)
     use_model = 'AP_test_neur_stimoffset';
     
-    loglik_bpt_fluor = nan(length(t),n_rois,2);
-    for curr_align = 1:2
-        for curr_area = 1:n_rois
-            for curr_t = 1:length(t)
-                
-                % Set the activity
-                D.neur = reshape(fluor_cat_hemidiff_norm(:,curr_t,curr_area,curr_align),[],1);
-                
-                % Pick subset of trials
-                D_use = structfun(@(x) x(use_trials,:),D,'uni',false);
-                
-                clear g_act
-                g_act = GLM(D_use).setModel(use_model).fitCV(cvfold);
-                pL = g_act.p_hat(:,1);
-                pR = g_act.p_hat(:,2);
-                likelihood = pL.*(g_act.data.response==1) + pR.*(g_act.data.response==2);
-                
-                loglik_bpt_fluor(curr_t,curr_area,curr_align) = nanmean(log2(likelihood));
-            end
-        end
-    end
-    loglik_increase_fluor(:,:,:,curr_animal) = loglik_bpt_fluor - loglik_bpt_stim;
+%     loglik_bpt_fluor = nan(length(t),n_rois,2);
+%     for curr_align = 1:2
+%         for curr_area = 1:n_rois
+%             for curr_t = 1:length(t)
+%                 
+%                 % Set the activity
+%                 D.neur = reshape(fluor_cat_hemidiff_norm(:,curr_t,curr_area,curr_align),[],1);
+%                 
+%                 % Pick subset of trials
+%                 D_use = structfun(@(x) x(use_trials,:),D,'uni',false);
+%                 
+%                 clear g_act
+%                 g_act = GLM(D_use).setModel(use_model).fitCV(cvfold);
+%                 pL = g_act.p_hat(:,1);
+%                 pR = g_act.p_hat(:,2);
+%                 likelihood = pL.*(g_act.data.response==1) + pR.*(g_act.data.response==2);
+%                 
+%                 loglik_bpt_fluor(curr_t,curr_area,curr_align) = nanmean(log2(likelihood));
+%             end
+%         end
+%     end
+%     loglik_increase_fluor(:,:,:,curr_animal) = loglik_bpt_fluor - loglik_bpt_stim;
     
     loglik_bpt_mua = nan(length(t),n_depths,2);
     for curr_align = 1:2
@@ -5446,7 +5481,7 @@ end
 
 clearvars -except loglik_increase_fluor loglik_increase_mua
 save_path = ['C:\Users\Andrew\OneDrive for Business\Documents\CarandiniHarrisLab\analysis\wf_ephys_choiceworld\choiceworld'];
-save_fn = ['activity_sessioncat_logistic_regression_latemove'];
+save_fn = ['activity_sessioncat_logistic_regression_earlymove_newmua'];
 save([save_path filesep save_fn])
 
 disp('Finished');

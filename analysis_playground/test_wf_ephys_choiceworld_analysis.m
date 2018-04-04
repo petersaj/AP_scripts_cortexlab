@@ -1975,7 +1975,7 @@ colormap(colormap_BlueWhiteRed)
 caxis([-max(abs(caxis)),max(abs(caxis))]);
 
 % Plot all select conditions from given ROI
-plot_roi = 7;
+plot_roi = 13;
 plot_success = 1;
 
 figure('Name',wf_roi(plot_roi).area); 
@@ -2798,8 +2798,57 @@ AP_image_scroll(depth_psth_mean, ...
     cellfun(@(x) ['Str ' num2str(x)],num2cell(1:n_depths),'uni',false));
 line(repmat(find(t > 0,1),2,1),ylim,'color','r');
 
+% Stack success plots 
+plot_color = colormap_BlueWhiteRed(6);
+plot_color = [plot_color(5:-1:1,:);plot_color(end-5:end,:)];
+plot_success = 1;
+plot_timing = 2;
+plot_conditions = find(conditions(:,1) ~= 0 & conditions(:,2) == -plot_success*conditions(:,3) & conditions(:,4) == plot_timing);
+figure; 
+p1 = subplot(1,2,1); hold on;
+for curr_condition_idx = 1:length(plot_conditions);
+    curr_condition = plot_conditions(curr_condition_idx);
+    AP_stackplot(squeeze(depth_psth_mean(curr_condition,:,:,1)),t,3,false,plot_color(curr_condition_idx,:));
+end
+line([0,0],ylim,'color','k');
+xlabel('Time from stim');
+
+p2 = subplot(1,2,2); hold on;
+for curr_condition_idx = 1:length(plot_conditions);
+    curr_condition = plot_conditions(curr_condition_idx);
+    AP_stackplot(squeeze(depth_psth_mean(curr_condition,:,:,2)),t,3,false,plot_color(curr_condition_idx,:));
+end
+line([0,0],ylim,'color','k');
+xlabel('Time from move');
+
+linkaxes([p1,p2]);
+
+% Stack L/R plots 
+plot_conditions = [find(conditions(:,3) == -1 & conditions(:,4) == 1); ...
+    find(conditions(:,3) == 1 & conditions(:,4) == 1)];
+plot_color = [repmat([0,0,0],12,1);repmat([0,0,1],12,1)];
+
+figure; 
+p1 = subplot(1,2,1); hold on;
+for curr_condition_idx = 1:length(plot_conditions);
+    curr_condition = plot_conditions(curr_condition_idx);
+    AP_stackplot(squeeze(depth_psth_mean(curr_condition,:,:,1)),t,3,false,plot_color(curr_condition_idx,:));
+end
+line([0,0],ylim,'color','k');
+xlabel('Time from stim');
+
+p2 = subplot(1,2,2); hold on;
+for curr_condition_idx = 1:length(plot_conditions);
+    curr_condition = plot_conditions(curr_condition_idx);
+    AP_stackplot(squeeze(depth_psth_mean(curr_condition,:,:,2)),t,3,false,plot_color(curr_condition_idx,:));
+end
+line([0,0],ylim,'color','k');
+xlabel('Time from move');
+
+linkaxes([p1,p2]);
+
 % Plot all hit/miss conditions for one depth
-plot_str = 2;
+plot_str = 3;
 plot_success = 1;
 plot_color = colormap_BlueWhiteRed(6);
 plot_color = [[0,0,0];plot_color(5:-1:1,:);[0,0,0];plot_color(end-5:end,:)];
@@ -2875,7 +2924,7 @@ title(['Contrast ' num2str(plot_contrast) ', Stim R/Move R'])
 
 % Plot move L-R difference for all depths
 plot_contrast = 0.5;
-plot_align = 1;
+plot_align = 2;
 plot_timing = 1;
 
 figure; 
@@ -3209,7 +3258,7 @@ line([1,1],ylim,'linestyle','--','color','k');
 line([2,2],ylim,'linestyle','--','color','k');
 legend(p(1,:),cellfun(@num2str,num2cell(1:n_conditions),'uni',false));
 
-%% Passive correlations/visual modulation
+%% Align ephys recordings by passive correlations/visual modulation
 
 data_path = ['C:\Users\Andrew\OneDrive for Business\Documents\CarandiniHarrisLab\analysis\wf_ephys_choiceworld\passive'];
 data_fn = 'mua_passive';
@@ -3221,91 +3270,123 @@ n_depths = cellfun(@(x) cellfun(@length,x),{batch_vars.mua_corr},'uni',false);
 n_depths_cat = horzcat(n_depths{:});
 max_grps = max(horzcat(n_depths{:}));
 
-mua_pad = cellfun(@(x) cellfun(@(x) padarray(x,[max_grps-length(x),max_grps-length(x)],NaN,'post'),x,'uni',false),{batch_vars.mua_corr},'uni',false);
-lfp_pad = cellfun(@(x) cellfun(@(x) padarray(x,[max_grps-length(x),max_grps-length(x)],NaN,'post'),x,'uni',false),{batch_vars.lfp_corr},'uni',false);
-vis_modulation_pad = cellfun(@(x) cell2mat(cellfun(@(x) padarray(x,[max_grps-length(x),0],NaN,'post'),x,'uni',false)),{batch_vars.vis_modulation},'uni',false);
+mua_pad = cellfun(@(x) cellfun(@(x) padarray(x,[max_grps-length(x),max_grps-length(x)],NaN,'pre'),x,'uni',false),{batch_vars.mua_corr},'uni',false);
+lfp_pad = cellfun(@(x) cellfun(@(x) padarray(x,[max_grps-length(x),max_grps-length(x)],NaN,'pre'),x,'uni',false),{batch_vars.lfp_corr},'uni',false);
+vis_modulation_pad = cellfun(@(x) cell2mat(cellfun(@(x) padarray(x,[max_grps-length(x),0],NaN,'pre'),x,'uni',false)),{batch_vars.vis_modulation},'uni',false);
 
 mua_cat = cell2mat(cellfun(@(x) cat(3,x{:}),permute(mua_pad,[1,3,2]),'uni',false));
 lfp_cat = cell2mat(cellfun(@(x) cat(3,x{:}),permute(lfp_pad,[1,3,2]),'uni',false));
 
-mua_reshape = cell2mat(reshape(mat2cell(mua_cat,max_grps,max_grps,ones(size(mua_cat,3),1)),7,7));
-lfp_reshape = cell2mat(reshape(mat2cell(lfp_cat,max_grps,max_grps,ones(size(lfp_cat,3),1)),7,7));
-
 vis_modulation_cat = horzcat(vis_modulation_pad{:});
 vis_modulation_mean = nanmean(vis_modulation_cat,2);
 
+% % Align LFP to templates, then align visual modulation by that
+% template_size = max_grps*2;
+% template_lfp_groups = 2;
+% template_lfp_corr = zeros(template_size);
+% template_lfp_corr(eye(template_size) > 0) = 1;
+% template_lfp_edges = round(linspace(1,template_size,template_lfp_groups+1));
+% for curr_grp = 1:template_lfp_groups
+%     template_lfp_corr(template_lfp_edges(curr_grp):template_lfp_edges(curr_grp+1), ...
+%         template_lfp_edges(curr_grp):template_lfp_edges(curr_grp+1)) = 1;
+% end
+% 
+% lfp_bigpad = cellfun(@(x) cellfun(@(x) padarray(x, ...
+%     [template_size-length(x),template_size-length(x)],0,'post'), ...
+%     x,'uni',false),{batch_vars.lfp_corr},'uni',false);
+% lfp_bigcat = cell2mat(cellfun(@(x) cat(3,x{:}),permute(lfp_bigpad,[1,3,2]),'uni',false));
+% 
+% shift_grp = nan(size(lfp_bigcat,3),1);
+% aligned_lfp = nan(size(lfp_bigcat));
+% for curr_exp = 1:size(lfp_bigcat,3)
+%     n_shifts = template_size-n_depths_cat(curr_exp);
+%     template_dot = nan(n_shifts,1);
+%     for i = 1:n_shifts
+%         shifted_lfp = circshift(lfp_bigcat(:,:,curr_exp),[i,i]);
+%         template_dot(i) = transpose(shifted_lfp(:))*template_lfp_corr(:);
+%     end
+%     [~,shift_grp(curr_exp)] = max(template_dot);
+%     aligned_lfp(:,:,curr_exp) = circshift(lfp_bigcat(:,:,curr_exp),[shift_grp(curr_exp),shift_grp(curr_exp)]);
+% end
+% 
+% vis_modulation_bigpad = cellfun(@(x) cell2mat(cellfun(@(x) padarray(x, ...
+%     [template_size-length(x),0],NaN,'post'),x,'uni',false)), ...
+%     {batch_vars.vis_modulation},'uni',false);
+% vis_modulation_bigcat = horzcat(vis_modulation_bigpad{:});
+% aligned_vis_modulation = nan(size(vis_modulation_bigcat));
+% for curr_exp = 1:size(lfp_bigcat,3)
+%     aligned_vis_modulation(:,curr_exp) = ...
+%         circshift(vis_modulation_bigcat(:,curr_exp),[shift_grp(curr_exp),0]);
+% end
+%
+% % From that alignment, divide the total extent into 6 groups
+% depth_bin_size = 100; % from the batch script
+% used_bins = any(~isnan(aligned_vis_modulation),2);
+% n_used_bins = sum(used_bins);
+% total_depth = depth_bin_size*n_used_bins;
+% 
+% n_str_depths = 6;
+% str_depth_edges = linspace(0,total_depth,n_str_depths+1);
+% 
+% % Get the striatum "offset" for each experiment, package by animal
+% first_bin = find(used_bins,1);
+% [~,str_offset_bin] = max(~isnan(aligned_vis_modulation(first_bin:end,:)),[],1);
+% str_offset = mat2cell((str_offset_bin-1)*depth_bin_size,1,n_experiments);
 
-% Align LFP to templates, then align visual modulation by that
-template_lfp_size = max_grps*2;
-template_lfp_corr = ones(template_lfp_size)*-1;
-template_lfp_corr(eye(template_lfp_size) > 0) = 1;
-template_lfp_corr(1:round(template_lfp_size/2),1:round(template_lfp_size/2)) = 1;
-template_lfp_corr(end-round(template_lfp_size/2)+1:end,end-round(template_lfp_size/2)+1:end) = 1;
+% Above didn't work - align by just assuming the end is the correct border
 
-lfp_bigpad = cellfun(@(x) cellfun(@(x) padarray(x, ...
-    [template_lfp_size-length(x),template_lfp_size-length(x)],0,'post'), ...
-    x,'uni',false),{batch_vars.lfp_corr},'uni',false);
-lfp_bigcat = cell2mat(cellfun(@(x) cat(3,x{:}),permute(lfp_bigpad,[1,3,2]),'uni',false));
+% Plot
+vis_modulation_cutoff = 0.5;
+max_vis = cellfun(@(x) cellfun(@max,x),{batch_vars.vis_modulation},'uni',false);
 
-shift_grp = nan(size(lfp_bigcat,3),1);
-aligned_lfp = nan(size(lfp_bigcat));
-for curr_exp = 1:size(lfp_bigcat,3)
-    n_shifts = template_lfp_size-n_depths_cat(curr_exp);
-    template_dot = nan(n_shifts,1);
-    for i = 1:n_shifts
-        shifted_lfp = circshift(lfp_bigcat(:,:,curr_exp),[i,i]);
-        template_dot(i) = transpose(shifted_lfp(:))*template_lfp_corr(:);
+figure;
+curr_exp = 1;
+for curr_animal = 1:length(batch_vars)
+    for curr_day = 1:n_experiments(curr_animal)
+        subplot(length(batch_vars),max(n_experiments), ...
+            (curr_animal-1)*max(n_experiments)+curr_day);
+        imagesc(lfp_cat(:,:,curr_exp));
+        axis image off;
+        colormap(gray);
+        
+        if max_vis{curr_animal}(curr_day) > vis_modulation_cutoff
+            title(num2str(round(max_vis{curr_animal}(curr_day)*100)))
+        end
+        
+        curr_exp = curr_exp + 1;
     end
-    [~,shift_grp(curr_exp)] = max(template_dot);
-    aligned_lfp(:,:,curr_exp) = circshift(lfp_bigcat(:,:,curr_exp),[shift_grp(curr_exp),shift_grp(curr_exp)]);
 end
 
-vis_modulation_bigpad = cellfun(@(x) cell2mat(cellfun(@(x) padarray(x, ...
-    [template_lfp_size-length(x),0],NaN,'post'),x,'uni',false)), ...
-    {batch_vars.vis_modulation},'uni',false);
-vis_modulation_bigcat = horzcat(vis_modulation_bigpad{:});
-aligned_vis_modulation = nan(size(vis_modulation_bigcat));
-for curr_exp = 1:size(lfp_bigcat,3)
-    aligned_vis_modulation(:,curr_exp) = ...
-        circshift(vis_modulation_bigcat(:,curr_exp),[shift_grp(curr_exp),0]);
-end
-
-% From that alignment, divide the total extent into 6 groups
+% Divide the total extent into 6 groups
 depth_bin_size = 100; % from the batch script
-used_bins = any(~isnan(aligned_vis_modulation),2);
-n_used_bins = sum(used_bins);
-total_depth = depth_bin_size*n_used_bins;
+total_depth = depth_bin_size*max_grps;
 
 n_str_depths = 6;
 str_depth_edges = linspace(0,total_depth,n_str_depths+1);
 
+figure;imagesc(1:size(vis_modulation_cat,2),(0:max_grps-1)*depth_bin_size,vis_modulation_cat)
+for i = 1:length(str_depth_edges)
+line(xlim,repmat(str_depth_edges(i),2,1),'linewidth',2,'color','r')
+end
+
 % Get the striatum "offset" for each experiment, package by animal
-first_bin = find(used_bins,1);
-[~,str_offset_bin] = max(~isnan(aligned_vis_modulation(first_bin:end,:)),[],1);
+[~,str_offset_bin] = max(~isnan(vis_modulation_cat),[],1);
 str_offset = mat2cell((str_offset_bin-1)*depth_bin_size,1,n_experiments);
 
-% Save in structure
-% (hardcoded: this is dirty, but whatever for now
-% (in the future should be included in batch vars)
-animals = {'AP024','AP025','AP026','AP027','AP028','AP029'};
-
-ephys_align = struct('animal',cell(size(animals)),'days',cell(size(animals)), ...
-    'str_depth_edges',cell(size(animals)),'str_offset',cell(size(animals)));
-[ephys_align.animal] = deal(animals{:});
+% Package in structure
+n_animal = length(batch_vars);
+ephys_align = struct('animal',cell(n_animal,1),'days',cell(n_animal,1), ...
+    'str_depth_edges',cell(n_animal,1),'str_offset',cell(n_animal,1));
+[ephys_align.animal] = deal(batch_vars.animal);
+[ephys_align.days] = deal(batch_vars.day);
 [ephys_align.str_depth_edges] = deal(str_depth_edges);
 [ephys_align.str_offset] = deal(str_offset{:});
 
-protocol = 'stimKalatsky';
-for curr_animal = 1:length(animals)
-    animal = animals{curr_animal};
-    experiments = AP_find_experiments(animal,protocol);
-    experiments = experiments([experiments.ephys]);
-    ephys_align(curr_animal).days = {experiments.day};
-end
-
+% To save
 ephys_align_path = 'C:\Users\Andrew\OneDrive for Business\Documents\CarandiniHarrisLab\analysis\wf_ephys_choiceworld\ephys_processing';
 ephys_align_fn = 'ephys_str_align';
 save([ephys_align_path filesep ephys_align_fn],'ephys_align');
+disp('Saved ephys alignment');
 
 
 %% Load and average wf -> ephys maps
@@ -3428,7 +3509,31 @@ for curr_depth = 1:n_depths
     title(['Str ' num2str(curr_depth)]);   
 end
 
-% Plot map
+% Plot map (from mean kernel)
+r_px_max = squeeze(max(r_px_mean,[],3)).^3;
+r_px_max_norm = bsxfun(@rdivide,r_px_max, ...
+    permute(max(reshape(r_px_max,[],n_depths),[],1),[1,3,2]));
+r_px_max_norm(isnan(r_px_max_norm)) = 0;
+r_px_com = sum(bsxfun(@times,r_px_max_norm,permute(1:n_depths,[1,3,2])),3)./sum(r_px_max_norm,3);
+com_colored = ind2rgb(round(mat2gray(r_px_com,[1,n_depth_groups])*255),jet(255));
+
+figure;
+p = imagesc(com_colored);
+axis image off
+weight_norm = mat2gray(max(r_px_max,[],3),[0,double(prctile(reshape(max(r_px_max,[],3),[],1),90))]);
+set(p,'AlphaData',weight_norm);
+
+c = colorbar;
+ylabel(c,'Depth (fraction)');
+colormap(c,jet);
+set(c,'YDir','reverse');
+set(c,'YTick',linspace(0,1,diff(c_range)+1));
+set(c,'YTickLabel',c_range(1):c_range(2));
+ 
+AP_reference_outline('retinotopy','m');
+AP_reference_outline('ccf_aligned','k');
+
+% Plot map (from mean CoM)
 n_depth_groups = 6;
 com_leeway = 1;
 c_range = [1+com_leeway,n_depth_groups-com_leeway];
@@ -3437,7 +3542,7 @@ com_colored = ind2rgb(round(mat2gray(com_mean,c_range)*255),jet(255));
 figure;
 p = imagesc(com_colored);
 axis image off
-weight_norm = mat2gray(max(weight_mean,[],3),[0,double(prctile(reshape(max(weight_mean,[],3),[],1),95))]);
+weight_norm = mat2gray(max(weight_mean,[],3),[0,double(prctile(reshape(max(weight_mean,[],3),[],1),98))]);
 set(p,'AlphaData',weight_norm);
 
 c = colorbar;
@@ -6132,7 +6237,7 @@ legend({'Stim-aligned','Move-aligned'});
 
 % Load data
 data_path = ['C:\Users\Andrew\OneDrive for Business\Documents\CarandiniHarrisLab\analysis\wf_ephys_choiceworld\choiceworld'];
-data_fn = ['activity_sessioncat_logistic_regression_earlymove'];
+data_fn = ['activity_sessioncat_logistic_regression_earlymove_newmua'];
 load([data_path filesep data_fn])
 
 % Get time
@@ -6150,8 +6255,8 @@ n_rois = numel(wf_roi);
 n_depths = 6;
 
 % Plot mean
-yrange = [min(reshape(nanmean(loglik_increase_fluor,4),[],1)), ...
-    max(reshape(nanmean(loglik_increase_fluor,4),[],1))];
+yrange = [min(reshape(nanmedian(loglik_increase_fluor,4),[],1)), ...
+    max(reshape(nanmedian(loglik_increase_fluor,4),[],1))];
 
 figure; 
 p1 = subplot(2,2,1); hold on;
@@ -6185,24 +6290,196 @@ ylabel('Relative loglikelihood (bpt)');
 linkaxes([p1,p2,p3,p4])
 ylim(yrange);
 
-% Plot fluor/move across animals for each region
+% Stack plot across animals for each region
 figure; hold on;
 col = copper(6);
 p = gobjects(6,1);
 for curr_animal = 1:6
-    curr_p = AP_stackplot(squeeze(loglik_increase_fluor(:,:,2,curr_animal)),t,0.15,false,col(curr_animal,:),{wf_roi.area});
+    curr_p = AP_stackplot(squeeze(loglik_increase_mua(:,:,2,curr_animal)),t,0.15,false,col(curr_animal,:));
     p(curr_animal) = curr_p(1);
 end
 animals = {'AP024','AP025','AP026','AP027','AP028','AP029'};
 legend(p,animals);
 
+%% Plot mean day-concatenated activity
+
+% Load data
+data_path = 'C:\Users\Andrew\OneDrive for Business\Documents\CarandiniHarrisLab\analysis\wf_ephys_choiceworld\choiceworld';
+data_fn = 'all_trial_activity_df_earlymove.mat';
+load([data_path filesep data_fn]);
+n_animals = length(D_all);
+
+% Get time
+framerate = 35.2;
+raster_window = [-0.5,1];
+upsample_factor = 3;
+sample_rate = 1/(framerate*upsample_factor);
+t = raster_window(1):sample_rate:raster_window(2);
+
+% Get widefield ROIs
+wf_roi_fn = 'C:\Users\Andrew\OneDrive for Business\Documents\CarandiniHarrisLab\analysis\wf_ephys_choiceworld\wf_processing\wf_rois\wf_roi';
+load(wf_roi_fn);
+n_rois = numel(wf_roi);
+
+% MUA depths
+n_depths = 6;
+
+% Set up conditions
+contrasts = [0,0.06,0.125,0.25,0.5,1];
+sides = [-1,1];
+choices = [-1,1];
+timings = [1,2];
+conditions = combvec(contrasts,sides,choices,timings)';
+n_conditions = size(conditions,1);
+
+fluor_psth = nan(n_conditions,length(t),n_rois,2,n_animals);
+mua_psth = nan(n_conditions,length(t),n_depths,2,n_animals);
+for curr_animal = 1:n_animals
+    
+    trial_day = cell2mat(cellfun(@(day,act) repmat(day,size(act,1),1), ...
+        num2cell(1:length(fluor_all{curr_animal}))',fluor_all{curr_animal},'uni',false));
+    
+    % Concatenate fluorescence, get L-R, normalize (all together)
+    fluor_cat = cat(1,fluor_all{curr_animal}{:});
+    
+    fluor_cat_hemidiff = cat(3,fluor_cat(:,:,1:n_rois/2,:),fluor_cat(:,:,1:n_rois/2,:) - ...
+        fluor_cat(:,:,n_rois/2+1:end,:));
+        
+    fluor_cat_norm = bsxfun(@rdivide,fluor_cat,permute(std(reshape(permute(fluor_cat,[1,2,4,3]),[],n_rois),[],1),[1,3,2,4]));
+    fluor_cat_hemidiff_norm = bsxfun(@rdivide,fluor_cat_hemidiff,permute(std(abs(reshape(permute(fluor_cat_hemidiff,[1,2,4,3]),[],n_rois)),[],1),[1,3,2,4]));     
+    
+    % Concatenate MUA and normalize (separately by day)
+    mua_cat_raw = cat(1,mua_all{curr_animal}{:});
+    
+    smooth_size = 8;
+    gw = gausswin(smooth_size,3)';
+    smWin = gw./sum(gw);
+    
+    mua_cat_raw_smoothed = convn(mua_cat_raw,smWin,'same');
+    
+    t_baseline = t < 0;        
+    mua_day_baseline = cell2mat(cellfun(@(x) ...
+        repmat(permute(nanmean(reshape(permute(x(:,t_baseline,:,1),[1,2,4,3]),[],n_depths),1), ...
+        [1,3,2,4]),[size(x,1),1]),  ...
+        mat2cell(mua_cat_raw_smoothed,cellfun(@(x) size(x,1), mua_all{curr_animal}),length(t),n_depths,2),'uni',false));
+    
+    mua_day_std = cell2mat(cellfun(@(x) ...
+        repmat(permute(std(reshape(permute(x,[1,2,4,3]),[],n_depths),[],1), ...
+        [1,3,2,4]),[size(x,1),1]),  ...
+        mat2cell(mua_cat_raw_smoothed,cellfun(@(x) size(x,1), mua_all{curr_animal}),length(t),n_depths,2),'uni',false));
+    
+    mua_cat_norm = bsxfun(@rdivide,bsxfun(@minus,mua_cat_raw_smoothed,mua_day_baseline),mua_day_std);
+    
+    % Set any NaNs in MUA to zero (days without depth)
+    mua_cat_norm(isnan(mua_cat_norm)) = 0;
+    
+    % Concatenate behavioural data
+    D = struct;
+    D.stimulus = cell2mat(cellfun(@(x) x.stimulus,D_all{curr_animal},'uni',false));
+    D.response = cell2mat(cellfun(@(x) x.response,D_all{curr_animal},'uni',false));
+    D.repeatNum = cell2mat(cellfun(@(x) x.repeatNum,D_all{curr_animal},'uni',false));
+    
+    D.day = trial_day;
+    
+    % Get trial ID   
+    trial_contrast = max(D.stimulus,[],2);
+    [~,side_idx] = max(D.stimulus > 0,[],2);
+    trial_side = (side_idx-1.5)*2;
+    trial_choice = -(D.response-1.5)*2;
+    
+    trial_conditions = ...
+        [trial_contrast, trial_side, ...
+        trial_choice, ones(size(trial_day))];
+    [~,trial_id] = ismember(trial_conditions,conditions,'rows');
+    
+    % Save aligned average by trial ID
+    for curr_roi = 1:n_rois
+        fluor_psth(unique(trial_id),:,curr_roi,1,curr_animal) = grpstats(fluor_cat_hemidiff_norm(:,:,curr_roi,1),trial_id);
+        fluor_psth(unique(trial_id),:,curr_roi,2,curr_animal) = grpstats(fluor_cat_hemidiff_norm(:,:,curr_roi,2),trial_id);
+    end    
+    
+    for curr_depth = 1:n_depths
+        mua_psth(unique(trial_id),:,curr_depth,1,curr_animal) = grpstats(mua_cat_norm(:,:,curr_depth,1),trial_id);
+        mua_psth(unique(trial_id),:,curr_depth,2,curr_animal) = grpstats(mua_cat_norm(:,:,curr_depth,2),trial_id);
+    end    
+ 
+end
+
+fluor_psth_mean = nanmean(fluor_psth,5);
+mua_psth_mean = nanmean(mua_psth,5);
+
+% Set up plot conditions
+plot_timing = 1; % always same, because slots filled in above
+
+% (to plot only correct/incorrect)
+plot_success = 1;
+plot_conditions = find(conditions(:,1) ~= 0 & ...
+    conditions(:,2) == -plot_success*conditions(:,3) & ...
+    conditions(:,4) == plot_timing);
+plot_color = colormap_BlueWhiteRed(6);
+plot_color = [plot_color(5:-1:1,:);plot_color(end-5:end,:)];
+
+% % (to plot one movement direction)
+% plot_move = 1;
+% plot_conditions = find(conditions(:,1) ~= 0 & ...
+%     conditions(:,3) == plot_move & ...
+%     conditions(:,4) == plot_timing);
+% plot_color = colormap_BlueWhiteRed(6);
+% plot_color = [plot_color(5:-1:1,:);plot_color(end-5:end,:)];
+
+% % (to plot by movement direction)
+% plot_conditions = find(conditions(:,1) ~= 0 & ...
+%     conditions(:,4) == plot_timing);
+% plot_color = colormap_BlueWhiteRed(6);
+% plot_color = [plot_color(5:-1:1,:);plot_color(5:-1:1,:); ...
+%     plot_color(end-5:end,:);plot_color(end-5:end,:)];
+
+% Stack MUA plots 
+figure; 
+p1 = subplot(1,2,1); hold on;
+for curr_condition_idx = 1:length(plot_conditions);
+    curr_condition = plot_conditions(curr_condition_idx);
+    AP_stackplot(squeeze(mua_psth_mean(curr_condition,:,:,1)),t,3,false,plot_color(curr_condition_idx,:));
+end
+line([0,0],ylim,'color','k');
+xlabel('Time from stim');
+
+p2 = subplot(1,2,2); hold on;
+for curr_condition_idx = 1:length(plot_conditions);
+    curr_condition = plot_conditions(curr_condition_idx);
+    AP_stackplot(squeeze(mua_psth_mean(curr_condition,:,:,2)),t,3,false,plot_color(curr_condition_idx,:));
+end
+line([0,0],ylim,'color','k');
+xlabel('Time from move');
+
+linkaxes([p1,p2]);
+
+% Stack fluor plots 
+figure; 
+p1 = subplot(1,2,1); hold on;
+for curr_condition_idx = 1:length(plot_conditions);
+    curr_condition = plot_conditions(curr_condition_idx);
+    AP_stackplot(squeeze(fluor_psth_mean(curr_condition,:,:,1)),t,5,false,plot_color(curr_condition_idx,:),{wf_roi.area});
+end
+line([0,0],ylim,'color','k');
+xlabel('Time from stim');
+
+p2 = subplot(1,2,2); hold on;
+for curr_condition_idx = 1:length(plot_conditions);
+    curr_condition = plot_conditions(curr_condition_idx);
+    AP_stackplot(squeeze(fluor_psth_mean(curr_condition,:,:,2)),t,5,false,plot_color(curr_condition_idx,:),{wf_roi.area});
+end
+line([0,0],ylim,'color','k');
+xlabel('Time from move');
+
+linkaxes([p1,p2]);
 
 
 %% Regression on day-concatenated activity
 
 % Load data
 data_path = 'C:\Users\Andrew\OneDrive for Business\Documents\CarandiniHarrisLab\analysis\wf_ephys_choiceworld\choiceworld';
-data_fn = 'all_trial_activity_diff_earlymove.mat';
+data_fn = 'all_trial_activity_df_earlymove.mat';
 load([data_path filesep data_fn]);
 
 % Get time
@@ -6257,6 +6534,9 @@ for curr_animal = 1:length(D_all)
     
     mua_cat_norm = bsxfun(@rdivide,bsxfun(@minus,mua_cat_raw_smoothed,mua_day_baseline),mua_day_std);
     
+    % Set any NaNs in MUA to zero (days without depth)
+    mua_cat_norm(isnan(mua_cat_norm)) = 0;
+    
     % Concatenate behavioural data
     D = struct;
     D.stimulus = cell2mat(cellfun(@(x) x.stimulus,D_all{curr_animal},'uni',false));
@@ -6266,7 +6546,7 @@ for curr_animal = 1:length(D_all)
     D.day = trial_day;
     
     max_contrast = max(D.stimulus,[],2);
-    use_trials = max_contrast >= 0 & max_contrast < 1;
+    use_trials = max_contrast >= 0 & max_contrast < 0.25;
 %     use_trials = max_contrast == 0;
     
     %%% Regression
@@ -6328,11 +6608,154 @@ for curr_alignment = 1:2
     end
 end
 
+%% Regression on day-concatenated activity (empirical stim)
+
+% Load data
+data_path = 'C:\Users\Andrew\OneDrive for Business\Documents\CarandiniHarrisLab\analysis\wf_ephys_choiceworld\choiceworld';
+data_fn = 'all_trial_activity_df_earlymove.mat';
+load([data_path filesep data_fn]);
+
+% Get time
+framerate = 35.2;
+raster_window = [-0.5,1];
+upsample_factor = 3;
+sample_rate = 1/(framerate*upsample_factor);
+t = raster_window(1):sample_rate:raster_window(2);
+
+% Get widefield ROIs
+wf_roi_fn = 'C:\Users\Andrew\OneDrive for Business\Documents\CarandiniHarrisLab\analysis\wf_ephys_choiceworld\wf_processing\wf_rois\wf_roi';
+load(wf_roi_fn);
+n_rois = numel(wf_roi);
+
+n_depths = 6;
+
+fluor_activity_model_params = nan(12,length(t),n_rois,2,length(D_all));
+mua_activity_model_params = nan(12,length(t),n_depths,2,length(D_all));
+for curr_animal = 1:length(D_all)
+    
+    trial_day = cell2mat(cellfun(@(day,act) repmat(day,size(act,1),1), ...
+        num2cell(1:length(fluor_all{curr_animal}))',fluor_all{curr_animal},'uni',false));
+    
+    % Concatenate fluorescence, get L-R, normalize (all together)
+    fluor_cat = cat(1,fluor_all{curr_animal}{:});
+    
+    fluor_cat_hemidiff = cat(3,fluor_cat(:,:,1:n_rois/2,:),fluor_cat(:,:,1:n_rois/2,:) - ...
+        fluor_cat(:,:,n_rois/2+1:end,:));
+        
+    fluor_cat_norm = bsxfun(@rdivide,fluor_cat,permute(std(reshape(permute(fluor_cat,[1,2,4,3]),[],n_rois),[],1),[1,3,2,4]));
+    fluor_cat_hemidiff_norm = bsxfun(@rdivide,fluor_cat_hemidiff,permute(std(abs(reshape(permute(fluor_cat_hemidiff,[1,2,4,3]),[],n_rois)),[],1),[1,3,2,4]));     
+    
+    % Concatenate MUA and normalize (separately by day)
+    mua_cat_raw = cat(1,mua_all{curr_animal}{:});
+    
+    smooth_size = 8;
+    gw = gausswin(smooth_size,3)';
+    smWin = gw./sum(gw);
+    
+    mua_cat_raw_smoothed = convn(mua_cat_raw,smWin,'same');
+    
+    t_baseline = t < 0;        
+    mua_day_baseline = cell2mat(cellfun(@(x) ...
+        repmat(permute(nanmean(reshape(permute(x(:,t_baseline,:,1),[1,2,4,3]),[],n_depths),1), ...
+        [1,3,2,4]),[size(x,1),1]),  ...
+        mat2cell(mua_cat_raw_smoothed,cellfun(@(x) size(x,1), mua_all{curr_animal}),length(t),n_depths,2),'uni',false));
+    
+    mua_day_std = cell2mat(cellfun(@(x) ...
+        repmat(permute(std(reshape(permute(x,[1,2,4,3]),[],n_depths),[],1), ...
+        [1,3,2,4]),[size(x,1),1]),  ...
+        mat2cell(mua_cat_raw_smoothed,cellfun(@(x) size(x,1), mua_all{curr_animal}),length(t),n_depths,2),'uni',false));
+    
+    mua_cat_norm = bsxfun(@rdivide,bsxfun(@minus,mua_cat_raw_smoothed,mua_day_baseline),mua_day_std);
+    
+    % Set any NaNs in MUA to zero (days without depth)
+    mua_cat_norm(isnan(mua_cat_norm)) = 0;
+    
+    % Concatenate behavioural data
+    D = struct;
+    D.stimulus = cell2mat(cellfun(@(x) x.stimulus,D_all{curr_animal},'uni',false));
+    D.response = cell2mat(cellfun(@(x) x.response,D_all{curr_animal},'uni',false));
+    D.repeatNum = cell2mat(cellfun(@(x) x.repeatNum,D_all{curr_animal},'uni',false));
+    
+    D.day = trial_day;
+    
+    max_contrast = max(D.stimulus,[],2);
+    use_trials = max_contrast >= -Inf & max_contrast < Inf;
+%     use_trials = max_contrast == 0;
+    
+    %%% Regression    
+    n_trials = sum(use_trials);
+    
+    contrasts = [0.06,0.125,0.25,0.5,1];
+    stim_regressors = zeros(n_trials,length(contrasts),2);
+    [~,contrast_l_idx] = ismember(D.stimulus(:,1),contrasts','rows');
+    [~,contrast_r_idx] = ismember(D.stimulus(:,2),contrasts','rows');
+    for curr_trial = 1:n_trials
+        if contrast_l_idx(curr_trial)
+            stim_regressors(curr_trial,contrast_l_idx(curr_trial),1) = 1;
+        end
+        if contrast_r_idx(curr_trial)
+            stim_regressors(curr_trial,contrast_r_idx(curr_trial),2) = 1;
+        end
+    end
+    stim_regressors = reshape(stim_regressors,n_trials,[]);
+    
+    fluor_params_fit = [ones(n_trials,1), ...
+        stim_regressors, ...
+        2*(D.response(use_trials)-1.5)]\reshape(fluor_cat_hemidiff_norm(use_trials,:,:,:),n_trials,[]);
+    
+    mua_params_fit = [ones(n_trials,1), ...
+        stim_regressors, ...
+        2*(D.response(use_trials)-1.5)]\reshape(mua_cat_norm(use_trials,:,:,:),n_trials,[]);
+    
+    fluor_activity_model_params(:,:,:,:,curr_animal)= ...
+        reshape(fluor_params_fit,12,length(t),n_rois,2);
+    mua_activity_model_params(:,:,:,:,curr_animal)= ...
+        reshape(mua_params_fit,12,length(t),n_depths,2);
+ 
+end
+
+fluor_activity_model_params_mean = nanmean(fluor_activity_model_params,5);
+mua_activity_model_params_mean = nanmean(mua_activity_model_params,5);
+
+% Plot only choice parameter
+figure;
+curr_subplot = 1;
+for curr_alignment = 1:2
+    switch curr_alignment
+        case 1
+            align_text = 'stim';
+        case 2
+            align_text = 'move';
+    end
+    for curr_modality = 1:2        
+        subplot(2,2,curr_subplot); hold on;
+            switch curr_modality
+                case 1
+                    set(gca,'ColorOrder',[autumn(n_rois/2);winter(n_rois/2)]);
+                    plot(t,squeeze(fluor_activity_model_params_mean(end,:,:,curr_alignment)));
+                    xlabel(['Time from ' align_text]);
+                    ylabel(['\beta choice']);
+                    axis tight
+                    line([0,0],ylim,'color','k');
+                    line(xlim,[0,0],'color','k');
+                case 2
+                    set(gca,'ColorOrder',copper(n_depths));
+                    plot(t,squeeze(mua_activity_model_params_mean(end,:,:,curr_alignment)));
+                    xlabel(['Time from ' align_text]);
+                    ylabel(['\beta choice']);
+                    axis tight
+                    line([0,0],ylim,'color','k');
+                    line(xlim,[0,0],'color','k');
+            end
+            curr_subplot = curr_subplot + 1;
+    end
+end
+
 %% Regression on day-concatenated activity: CV explained variance
 
 % Load data
 data_path = 'C:\Users\Andrew\OneDrive for Business\Documents\CarandiniHarrisLab\analysis\wf_ephys_choiceworld\choiceworld';
-data_fn = 'all_trial_activity_diff_earlymove.mat';
+data_fn = 'all_trial_activity_df_earlymove.mat';
 load([data_path filesep data_fn]);
 n_animals = length(D_all);
 
@@ -6388,6 +6811,9 @@ for curr_animal = 1:n_animals
     
     mua_cat_norm = bsxfun(@rdivide,bsxfun(@minus,mua_cat_raw_smoothed,mua_day_baseline),mua_day_std);
     
+    % Set any NaNs in MUA to zero (days without depth)
+    mua_cat_norm(isnan(mua_cat_norm)) = 0;
+    
     % Concatenate behavioural data
     D = struct;
     D.stimulus = cell2mat(cellfun(@(x) x.stimulus,D_all{curr_animal},'uni',false));
@@ -6397,12 +6823,12 @@ for curr_animal = 1:n_animals
     D.day = trial_day;
     
     max_contrast = max(D.stimulus,[],2);
-    use_trials = max_contrast >= 0 & max_contrast < 0.5;
+    use_trials = max_contrast >= 0 & max_contrast < 0.25;
 %     use_trials = max_contrast == 0;
 
     n_trials = sum(use_trials);
     
-    %%% Regression (separate regressors to get partial explained variance
+    %%% Regression (separate regressors to get partial explained variance)
     contrast_exp = 1;
     
     regressors = cellfun(@transpose, ...
@@ -6475,7 +6901,7 @@ end
 
 % Load data
 data_path = 'C:\Users\Andrew\OneDrive for Business\Documents\CarandiniHarrisLab\analysis\wf_ephys_choiceworld\choiceworld';
-data_fn = 'all_trial_activity_diff_earlymove.mat';
+data_fn = 'all_trial_activity_df_earlymove.mat';
 load([data_path filesep data_fn]);
 
 n_animals = length(D_all);
@@ -6537,6 +6963,9 @@ for curr_animal = 1:n_animals
         mat2cell(mua_cat_raw_smoothed,cellfun(@(x) size(x,1), mua_all{curr_animal}),length(t),n_depths,2),'uni',false));
     
     mua_cat_norm = bsxfun(@rdivide,bsxfun(@minus,mua_cat_raw_smoothed,mua_day_baseline),mua_day_std);
+    
+    % Set any NaNs in MUA to zero (days without depth)
+    mua_cat_norm(isnan(mua_cat_norm)) = 0;
     
     % Regress from fluor to MUA
     kernel_t = [-0.2,0];
@@ -6612,6 +7041,8 @@ for curr_alignment = 1:2
         set(gca,'ColorOrder',copper(n_depths));
         plot(t,squeeze(mua_activity_model_params_mean(curr_param,:,:,curr_alignment)));
         plot(t,squeeze(mua_predicted_activity_model_params_mean(curr_param,:,:,curr_alignment)),'linewidth',2);
+%         plot(t,squeeze(mua_activity_model_params_mean(curr_param,:,:,curr_alignment)) - ...
+%             squeeze(mua_predicted_activity_model_params_mean(curr_param,:,:,curr_alignment)),'linewidth',2);
         xlabel(['Time from ' align_text]);
         ylabel(['\beta ' num2str(curr_param)]);
         axis tight
@@ -6626,7 +7057,7 @@ end
 
 % Load data
 data_path = 'C:\Users\Andrew\OneDrive for Business\Documents\CarandiniHarrisLab\analysis\wf_ephys_choiceworld\choiceworld';
-data_fn = 'all_trial_activity_diff_earlymove.mat';
+data_fn = 'all_trial_activity_df_earlymove.mat';
 load([data_path filesep data_fn]);
 n_animals = length(D_all);
 
