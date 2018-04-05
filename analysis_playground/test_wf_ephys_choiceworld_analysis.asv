@@ -6759,7 +6759,7 @@ end
 
 % Load data
 data_path = 'C:\Users\Andrew\OneDrive for Business\Documents\CarandiniHarrisLab\analysis\wf_ephys_choiceworld\choiceworld';
-data_fn = 'all_trial_activity_df_msn_earlymove.mat';
+data_fn = 'all_trial_activity_diff_earlymove.mat';
 load([data_path filesep data_fn]);
 n_animals = length(D_all);
 
@@ -6894,8 +6894,8 @@ for curr_animal = 1:n_animals
 end
 
 fluor_model_expl_var_mean = nanmean(fluor_model_expl_var,5);
-mua_model_expl_var_mean = nanmean(mua_model_expl_var,5);
-mua_predicted_model_expl_var_mean = nanmean(mua_predicted_model_expl_var,5);
+mua_model_expl_var_mean = nanmedian(mua_model_expl_var,5);
+mua_predicted_model_expl_var_mean = nanmedian(mua_predicted_model_expl_var,5);
 
 % Plot all average parameters
 figure;
@@ -6958,8 +6958,25 @@ for curr_alignment = 1:2
         case 2
             align_text = 'move';
     end
-    for curr_modality = 1:3
-        for curr_param = 1:2    
+    for curr_param = 1:2
+        switch curr_param
+            case 1
+                param_text = 'stim';
+            case 2
+                param_text = 'choice';
+        end
+                subplot(2,2,curr_subplot); hold on;
+                set(gca,'ColorOrder',copper(n_depths));
+                plot(t,squeeze(mua_model_expl_var_mean(:,:,curr_alignment,curr_param)) - ...
+                    squeeze(mua_predicted_model_expl_var_mean(:,:,curr_alignment,curr_param)));
+                xlabel(['Time from ' align_text]);
+                ylabel(['Real-pred expl var: ' param_text]);
+                axis tight
+                line([0,0],ylim,'color','k');
+                line(xlim,[0,0],'color','k');
+        curr_subplot = curr_subplot + 1;
+    end
+end
 
 
 

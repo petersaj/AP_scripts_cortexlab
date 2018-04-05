@@ -6759,7 +6759,7 @@ end
 
 % Load data
 data_path = 'C:\Users\Andrew\OneDrive for Business\Documents\CarandiniHarrisLab\analysis\wf_ephys_choiceworld\choiceworld';
-data_fn = 'all_trial_activity_df_msn_earlymove.mat';
+data_fn = 'all_trial_activity_df_earlymove.mat';
 load([data_path filesep data_fn]);
 n_animals = length(D_all);
 

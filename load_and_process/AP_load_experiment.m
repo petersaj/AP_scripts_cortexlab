@@ -759,8 +759,8 @@ end
 
 if ephys_exists && load_parts.ephys
     if verbose; disp('Estimating striatum boundaries on probe...'); end;
-   
-    %%% Get correlation of MUA and LFP   
+    
+    %%% Get correlation of MUA and LFP
     n_corr_groups = 40;
     depth_group_edges = linspace(0,max(channel_positions(:,2)),n_corr_groups+1);
     depth_group = discretize(templateDepths,depth_group_edges);
@@ -781,37 +781,37 @@ if ephys_exists && load_parts.ephys
     mua_corr = corrcoef(binned_spikes_depth');
     
     %%% Estimate start and end depths of striatum
-
+    
     % end of striatum: biggest drop in MUA correlation near end
     groups_back = 10;
     mua_corr_end = mua_corr(end-groups_back+1:end,end-groups_back+1:end);
     mua_corr_end(triu(true(length(mua_corr_end)),0)) = nan;
     median_corr = nanmedian(mua_corr_end,2);
     [x,max_corr_drop] = min(diff(median_corr));
-    str_end = depth_group_centers(end-groups_back+max_corr_drop-1);    
+    str_end = depth_group_centers(end-groups_back+max_corr_drop-1);
     
     % start of striatum: look for ventricle (dropoff in templates)
     
     % (by template density)
-%     n_template_bins = 40;
-%     size_template_bins = max(channel_positions(:,2))/n_template_bins;
-%     template_density_bins = linspace(0,max(channel_positions(:,2)),n_template_bins);
-%     template_density = histcounts(templateDepths,template_density_bins);
-%         
-%     str_end_bin = floor(str_end/size_template_bins);
-%     
-%     n_bins_check = 3;
-%     bins_conv = ones(1,n_bins_check)/n_bins_check;
-%     template_gaps = conv(+(fliplr(template_density(1:str_end_bin)) < 2),bins_conv);
-%         
-%     sorted_template_depths = sort([0;templateDepths]);
-%     
-%     if any(template_gaps)
-%         str_gap_stop = length(template_gaps) - n_bins_check - find(template_gaps(n_bins_check:end),1);
-%         str_start = sorted_template_depths(find(sorted_template_depths > template_density_bins(str_gap_stop),1)) - 1;
-%     else
-%         str_start = sorted_template_depths(2);
-%     end    
+    %     n_template_bins = 40;
+    %     size_template_bins = max(channel_positions(:,2))/n_template_bins;
+    %     template_density_bins = linspace(0,max(channel_positions(:,2)),n_template_bins);
+    %     template_density = histcounts(templateDepths,template_density_bins);
+    %
+    %     str_end_bin = floor(str_end/size_template_bins);
+    %
+    %     n_bins_check = 3;
+    %     bins_conv = ones(1,n_bins_check)/n_bins_check;
+    %     template_gaps = conv(+(fliplr(template_density(1:str_end_bin)) < 2),bins_conv);
+    %
+    %     sorted_template_depths = sort([0;templateDepths]);
+    %
+    %     if any(template_gaps)
+    %         str_gap_stop = length(template_gaps) - n_bins_check - find(template_gaps(n_bins_check:end),1);
+    %         str_start = sorted_template_depths(find(sorted_template_depths > template_density_bins(str_gap_stop),1)) - 1;
+    %     else
+    %         str_start = sorted_template_depths(2);
+    %     end
     
     % (by biggest gap)
     min_gap = 100;
@@ -825,27 +825,29 @@ if ephys_exists && load_parts.ephys
     
     str_depth = [str_start,str_end];
     
-end
-
-% Load striatum alignment
-ephys_align_path = 'C:\Users\Andrew\OneDrive for Business\Documents\CarandiniHarrisLab\analysis\wf_ephys_choiceworld\ephys_processing';
-ephys_align_fn = 'ephys_str_align';
-load([ephys_align_path filesep ephys_align_fn]);
-
-% If alignment exists, align
-curr_animal_idx = strcmp(animal,{ephys_align.animal});
-curr_day_idx = strcmp(day,ephys_align(curr_animal_idx).days);
-if any(curr_animal_idx) && any(curr_day_idx)
-    curr_str_offset = ephys_align(curr_animal_idx).str_offset(curr_day_idx);
-    % (get striatum depth boundaries offset by striatum start)
-    str_depth_edges = str_depth(1) - curr_str_offset + ephys_align(curr_animal_idx).str_depth_edges;
-    % (get spike depths, setting all outside the striatum to NaN)
-    str_spikeDepths = spikeDepths;
-    str_spikeDepths(spikeDepths < str_depth(1) | spikeDepths > str_depth(2)) = NaN;
-    % (group the striatal spike depths into the um-standardized bins)
-    aligned_str_depth_group = discretize(str_spikeDepths,str_depth_edges);   
+    %%% Align striatal recordings using saved alignment
     
-    n_aligned_depths = length(str_depth_edges)-1;
+    % Load striatum alignment
+    ephys_align_path = 'C:\Users\Andrew\OneDrive for Business\Documents\CarandiniHarrisLab\analysis\wf_ephys_choiceworld\ephys_processing';
+    ephys_align_fn = 'ephys_str_align';
+    load([ephys_align_path filesep ephys_align_fn]);
+    
+    % If alignment exists, align
+    curr_animal_idx = strcmp(animal,{ephys_align.animal});
+    curr_day_idx = strcmp(day,ephys_align(curr_animal_idx).days);
+    if any(curr_animal_idx) && any(curr_day_idx)
+        curr_str_offset = ephys_align(curr_animal_idx).str_offset(curr_day_idx);
+        % (get striatum depth boundaries offset by striatum start)
+        str_depth_edges = str_depth(1) - curr_str_offset + ephys_align(curr_animal_idx).str_depth_edges;
+        % (get spike depths, setting all outside the striatum to NaN)
+        str_spikeDepths = spikeDepths;
+        str_spikeDepths(spikeDepths < str_depth(1) | spikeDepths > str_depth(2)) = NaN;
+        % (group the striatal spike depths into the um-standardized bins)
+        aligned_str_depth_group = discretize(str_spikeDepths,str_depth_edges);
+        
+        n_aligned_depths = length(str_depth_edges)-1;
+    end
+    
 end
 
 %% Classify spikes
