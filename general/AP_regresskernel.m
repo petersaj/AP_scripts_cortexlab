@@ -114,6 +114,11 @@ for curr_cv = 1:cvfold
         test_idx = cv_partition == curr_cv;
     end
     
+    % If regressors for training fold are empty, error out
+    if ~all(any(regressors_gpu(train_idx,:),1));
+        error('Regressors in fold unfilled (not enough trials?)');
+    end
+    
     % Used to do manual inv(fluor_gpu'*fluor_gpu)*fluor_gpu'*spikes_gpu
     % but looks like \ works fine on GPU
     k_cv(:,:,curr_cv) = ...
@@ -145,6 +150,12 @@ for curr_cv = 1:cvfold
             
         end
     end  
+end
+
+% Throw errors for bad numbers in kernel or predicted signals
+if any(isinf(k_cv(:))) || any(isinf(predicted_signals(:))) || ...
+        any(isnan(k_cv(:))) || any(isnan(predicted_signals(:)))
+    error('Inf/NaN in kernel or predicted signal')
 end
 
 % Total explained variance

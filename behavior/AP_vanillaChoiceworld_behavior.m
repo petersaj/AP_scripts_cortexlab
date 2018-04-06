@@ -273,7 +273,40 @@ r_correct = cellfun(@(contrast,side,choice) cellfun(@(contrast,side,choice) ...
     {bhv.trial_contrast},{bhv.trial_side},{bhv.trial_choice},'uni',false);
 
 thresh_correct = 0.85; % threshold for lapse rate 
-use_experiment = cellfun(@(l,r) min(l,r) > thresh_correct,l_correct,r_correct,'uni',false);
+min_correct = cellfun(@(l,r) min(l,r),l_correct,r_correct,'uni',false);
+use_experiments = cellfun(@(x) x > thresh_correct,min_correct,'uni',false);
+
+trial_choice_cat_use = arrayfun(@(x) horzcat(bhv(x).trial_choice{use_experiments{x}}),1:length(bhv),'uni',false);
+trial_side_cat_use = arrayfun(@(x) horzcat(bhv(x).trial_side{use_experiments{x}}),1:length(bhv),'uni',false);
+trial_contrast_cat_use = arrayfun(@(x) horzcat(bhv(x).trial_contrast{use_experiments{x}}),1:length(bhv),'uni',false);
+
+trial_condition_cat_use = cellfun(@(side,contrast) side.*contrast,trial_side_cat_use,trial_contrast_cat_use,'uni',false);
+
+frac_left_use = cell2mat(cellfun(@(choice,condition) ...
+    grpstats(choice == -1,condition),trial_choice_cat_use,trial_condition_cat_use,'uni',false));
+
+figure;
+subplot(1,2,1);
+plot(horzcat(min_correct{:}),'.k')
+line(xlim,[thresh_correct,thresh_correct]);
+xlabel('Experiment');
+ylabel('Easy performance');
+
+subplot(1,2,2); hold on;
+plot(conditions,frac_left_use,'linewidth',2,'color',[0.5,0.5,0.5]);
+plot(conditions,nanmean(frac_left_use,2),'linewidth',5,'color','k');
+xlim([-1,1]);
+ylim([0,1]);
+line([0,0],ylim,'linestyle','--','color','k');
+line(xlim,[0.5,0.5],'linestyle','--','color','k');
+xlabel('Condition');
+ylabel('Fraction go left');
+title('Good experiments');
+
+% (save good experiments for later use)
+save_path = 'C:\Users\Andrew\OneDrive for Business\Documents\CarandiniHarrisLab\analysis\wf_ephys_choiceworld\bhv_processing';
+save_fn = 'use_experiments';
+save([save_path filesep save_fn],'use_experiments');
 
 % Plot psychometric 
 frac_left = cell2mat(cellfun(@(choice,condition) ...
@@ -503,9 +536,9 @@ choices = [-1,1];
 timings = [1,2];
 
 % Re-number all conditions
-conditions = combvec(contrasts,sides,choices,timings);
-conditions_str = cellfun(@(x) sprintf('%+g/',x),mat2cell(conditions,size(conditions,1),ones(1,size(conditions,2))),'uni',false);
-n_conditions = size(conditions,2);
+condition_ids = combvec(contrasts,sides,choices,timings);
+conditions_str = cellfun(@(x) sprintf('%+g/',x),mat2cell(condition_ids,size(condition_ids,1),ones(1,size(condition_ids,2))),'uni',false);
+n_conditions = size(condition_ids,2);
 
 condition_count = arrayfun(@(x) nan(n_conditions,length(bhv(x).session_duration)),1:length(bhv),'uni',false);
 for curr_animal = 1:length(bhv);
@@ -513,7 +546,7 @@ for curr_animal = 1:length(bhv);
         trial_conditions = ...
             [bhv(curr_animal).trial_contrast{curr_day}; bhv(curr_animal).trial_side{curr_day}; ...
             bhv(curr_animal).trial_choice{curr_day}; trial_timing{curr_animal}{curr_day}];
-        [~,trial_id] = ismember(trial_conditions',conditions','rows');
+        [~,trial_id] = ismember(trial_conditions',condition_ids','rows');
         curr_counts = histcounts(trial_id,'BinLimits',[1,n_conditions],'BinMethod','integers');
         condition_count{curr_animal}(:,curr_day) = curr_counts;
     end

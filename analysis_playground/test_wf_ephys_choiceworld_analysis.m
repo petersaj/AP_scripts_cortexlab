@@ -3260,6 +3260,11 @@ legend(p(1,:),cellfun(@num2str,num2cell(1:n_conditions),'uni',false));
 
 %% Align ephys recordings by passive correlations/visual modulation
 
+% Define parameters
+n_str_depths = 4;
+save_alignment = true;
+
+% Load data from passive visual experiments
 data_path = ['C:\Users\Andrew\OneDrive for Business\Documents\CarandiniHarrisLab\analysis\wf_ephys_choiceworld\passive'];
 data_fn = 'mua_passive';
 load([data_path filesep data_fn]);
@@ -3357,11 +3362,10 @@ for curr_animal = 1:length(batch_vars)
     end
 end
 
-% Divide the total extent into 6 groups
+% Divide the total extent into N depths
 depth_bin_size = 100; % from the batch script
 total_depth = depth_bin_size*max_grps;
 
-n_str_depths = 6;
 str_depth_edges = linspace(0,total_depth,n_str_depths+1);
 
 figure;imagesc(1:size(vis_modulation_cat,2),(0:max_grps-1)*depth_bin_size,vis_modulation_cat)
@@ -3383,11 +3387,12 @@ ephys_align = struct('animal',cell(n_animal,1),'days',cell(n_animal,1), ...
 [ephys_align.str_offset] = deal(str_offset{:});
 
 % To save
-ephys_align_path = 'C:\Users\Andrew\OneDrive for Business\Documents\CarandiniHarrisLab\analysis\wf_ephys_choiceworld\ephys_processing';
-ephys_align_fn = 'ephys_str_align';
-save([ephys_align_path filesep ephys_align_fn],'ephys_align');
-disp('Saved ephys alignment');
-
+if save_alignment
+    ephys_align_path = 'C:\Users\Andrew\OneDrive for Business\Documents\CarandiniHarrisLab\analysis\wf_ephys_choiceworld\ephys_processing';
+    ephys_align_fn = ['ephys_str_align_' num2str(n_str_depths) '_depths'];
+    save([ephys_align_path filesep ephys_align_fn],'ephys_align');
+    disp('Saved ephys alignment');
+end
 
 %% Load and average wf -> ephys maps
 
@@ -3395,7 +3400,7 @@ data_path = 'C:\Users\Andrew\OneDrive for Business\Documents\CarandiniHarrisLab\
 
 protocol = 'vanillaChoiceworld';
 % protocol = 'stimSparseNoiseUncorrAsync';
-% protocol = 'stimKalatsky';
+% protocol = 'stimKalatsky'; 
 % protocol = 'AP_choiceWorldStimPassive';
 
 map_fn = [data_path filesep 'wf_ephys_maps_' protocol];
@@ -6237,7 +6242,7 @@ legend({'Stim-aligned','Move-aligned'});
 
 % Load data
 data_path = ['C:\Users\Andrew\OneDrive for Business\Documents\CarandiniHarrisLab\analysis\wf_ephys_choiceworld\choiceworld'];
-data_fn = ['activity_sessioncat_logistic_regression_earlymove_newmua'];
+data_fn = ['activity_sessioncat_logistic_regression_earlymove_4str'];
 load([data_path filesep data_fn])
 
 % Get time
@@ -6252,7 +6257,7 @@ wf_roi_fn = 'C:\Users\Andrew\OneDrive for Business\Documents\CarandiniHarrisLab\
 load(wf_roi_fn);
 n_rois = numel(wf_roi);
 
-n_depths = 6;
+n_depths = size(loglik_increase_mua,2);
 
 % Plot mean
 yrange = [min(reshape(nanmedian(loglik_increase_fluor,4),[],1)), ...
@@ -6305,7 +6310,7 @@ legend(p,animals);
 
 % Load data
 data_path = 'C:\Users\Andrew\OneDrive for Business\Documents\CarandiniHarrisLab\analysis\wf_ephys_choiceworld\choiceworld';
-data_fn = 'all_trial_activity_df_earlymove.mat';
+data_fn = 'all_trial_activity_df_4str_earlymove.mat';
 load([data_path filesep data_fn]);
 n_animals = length(D_all);
 
@@ -6322,7 +6327,7 @@ load(wf_roi_fn);
 n_rois = numel(wf_roi);
 
 % MUA depths
-n_depths = 6;
+n_depths = size(mua_all{1}{1},3);
 
 % Set up conditions
 contrasts = [0,0.06,0.125,0.25,0.5,1];
@@ -6476,6 +6481,7 @@ linkaxes([p1,p2]);
 
 
 %% Regression on day-concatenated activity
+% >>> REMOVE MUA DATA THAT IS UNFILLED BEORE REGRESSION
 
 % Load data
 data_path = 'C:\Users\Andrew\OneDrive for Business\Documents\CarandiniHarrisLab\analysis\wf_ephys_choiceworld\choiceworld';
@@ -6488,6 +6494,18 @@ raster_window = [-0.5,1];
 upsample_factor = 3;
 sample_rate = 1/(framerate*upsample_factor);
 t = raster_window(1):sample_rate:raster_window(2);
+
+% Load use experiments and cut out bad ones
+bhv_fn = 'C:\Users\Andrew\OneDrive for Business\Documents\CarandiniHarrisLab\analysis\wf_ephys_choiceworld\bhv_processing\use_experiments';
+load(bhv_fn);
+D_all = cellfun(@(data,use_expts) data(use_expts),D_all,use_experiments','uni',false);
+fluor_all = cellfun(@(data,use_expts) data(use_expts),fluor_all,use_experiments','uni',false);
+mua_all = cellfun(@(data,use_expts) data(use_expts),mua_all,use_experiments','uni',false);
+
+use_animals = cellfun(@(x) ~isempty(x),D_all);
+D_all = D_all(use_animals);
+fluor_all = fluor_all(use_animals);
+mua_all = mua_all(use_animals);
 
 % Get widefield ROIs
 wf_roi_fn = 'C:\Users\Andrew\OneDrive for Business\Documents\CarandiniHarrisLab\analysis\wf_ephys_choiceworld\wf_processing\wf_rois\wf_roi';
@@ -6546,7 +6564,7 @@ for curr_animal = 1:length(D_all)
     D.day = trial_day;
     
     max_contrast = max(D.stimulus,[],2);
-    use_trials = max_contrast >= 0 & max_contrast < 0.25;
+    use_trials = max_contrast >= 0 & max_contrast < 1;
 %     use_trials = max_contrast == 0;
     
     %%% Regression
@@ -6612,10 +6630,11 @@ end
 % (this still super changes depending on which contrasts are included,
 % although that might be a function of day/trial instead of actually
 % mis-modeling stimulus effects)
+% >>> REMOVE MUA DATA THAT IS UNFILLED BEORE REGRESSION
 
 % Load data
 data_path = 'C:\Users\Andrew\OneDrive for Business\Documents\CarandiniHarrisLab\analysis\wf_ephys_choiceworld\choiceworld';
-data_fn = 'all_trial_activity_df_msn_earlymove.mat';
+data_fn = 'all_trial_activity_df_4str_earlymove.mat';
 load([data_path filesep data_fn]);
 
 % Get time
@@ -6625,12 +6644,24 @@ upsample_factor = 3;
 sample_rate = 1/(framerate*upsample_factor);
 t = raster_window(1):sample_rate:raster_window(2);
 
+% Load use experiments and cut out bad ones
+bhv_fn = 'C:\Users\Andrew\OneDrive for Business\Documents\CarandiniHarrisLab\analysis\wf_ephys_choiceworld\bhv_processing\use_experiments';
+load(bhv_fn);
+D_all = cellfun(@(data,use_expts) data(use_expts),D_all,use_experiments','uni',false);
+fluor_all = cellfun(@(data,use_expts) data(use_expts),fluor_all,use_experiments','uni',false);
+mua_all = cellfun(@(data,use_expts) data(use_expts),mua_all,use_experiments','uni',false);
+
+use_animals = cellfun(@(x) ~isempty(x),D_all);
+D_all = D_all(use_animals);
+fluor_all = fluor_all(use_animals);
+mua_all = mua_all(use_animals);
+
 % Get widefield ROIs
 wf_roi_fn = 'C:\Users\Andrew\OneDrive for Business\Documents\CarandiniHarrisLab\analysis\wf_ephys_choiceworld\wf_processing\wf_rois\wf_roi';
 load(wf_roi_fn);
 n_rois = numel(wf_roi);
 
-n_depths = 6;
+n_depths = size(mua_all{1}{1},3);
 
 fluor_activity_model_params = nan(12,length(t),n_rois,2,length(D_all));
 mua_activity_model_params = nan(12,length(t),n_depths,2,length(D_all));
@@ -6759,9 +6790,8 @@ end
 
 % Load data
 data_path = 'C:\Users\Andrew\OneDrive for Business\Documents\CarandiniHarrisLab\analysis\wf_ephys_choiceworld\choiceworld';
-data_fn = 'all_trial_activity_df_earlymove.mat';
+data_fn = 'all_trial_activity_df_4str_earlymove.mat';
 load([data_path filesep data_fn]);
-n_animals = length(D_all);
 
 % Get time
 framerate = 35.2;
@@ -6770,22 +6800,47 @@ upsample_factor = 3;
 sample_rate = 1/(framerate*upsample_factor);
 t = raster_window(1):sample_rate:raster_window(2);
 
+% Load use experiments and cut out bad ones
+bhv_fn = 'C:\Users\Andrew\OneDrive for Business\Documents\CarandiniHarrisLab\analysis\wf_ephys_choiceworld\bhv_processing\use_experiments';
+load(bhv_fn);
+D_all = cellfun(@(data,use_expts) data(use_expts),D_all,use_experiments','uni',false);
+fluor_all = cellfun(@(data,use_expts) data(use_expts),fluor_all,use_experiments','uni',false);
+mua_all = cellfun(@(data,use_expts) data(use_expts),mua_all,use_experiments','uni',false);
+
+use_animals = cellfun(@(x) ~isempty(x),D_all);
+D_all = D_all(use_animals);
+fluor_all = fluor_all(use_animals);
+mua_all = mua_all(use_animals);
+
 % Get widefield ROIs
 wf_roi_fn = 'C:\Users\Andrew\OneDrive for Business\Documents\CarandiniHarrisLab\analysis\wf_ephys_choiceworld\wf_processing\wf_rois\wf_roi';
 load(wf_roi_fn);
 n_rois = numel(wf_roi);
 
-n_depths = 6;
+n_depths = size(mua_all{1}{1},3);
 
-fluor_model_expl_var = nan(length(t),n_rois,2,2,n_animals);
-mua_model_expl_var = nan(length(t),n_depths,2,2,n_animals);
-mua_predicted_model_expl_var = nan(length(t),n_depths,2,2,n_animals);
-for curr_animal = 1:n_animals
+fluor_model_expl_var = nan(length(t),n_rois,2,2,length(D_all));
+mua_model_expl_var = nan(length(t),n_depths,2,2,length(D_all));
+mua_predicted_model_expl_var = nan(length(t),n_depths,2,2,length(D_all));
+for curr_animal = 1:length(D_all)
     
     trial_day = cell2mat(cellfun(@(day,act) repmat(day,size(act,1),1), ...
         num2cell(1:length(fluor_all{curr_animal}))',fluor_all{curr_animal},'uni',false));
     
-    % Concatenate fluorescence, get L-R, normalize (all together)
+    % Concatenate behavioural data and select trials to use
+    D = struct;
+    D.stimulus = cell2mat(cellfun(@(x) x.stimulus,D_all{curr_animal},'uni',false));
+    D.response = cell2mat(cellfun(@(x) x.response,D_all{curr_animal},'uni',false));
+    D.repeatNum = cell2mat(cellfun(@(x) x.repeatNum,D_all{curr_animal},'uni',false));
+    
+    D.day = trial_day;
+    
+    max_contrast = max(D.stimulus,[],2);
+    use_trials = max_contrast >= -Inf & max_contrast < Inf;
+    n_total_trials = length(max_contrast);
+    n_trials = sum(use_trials);
+    
+    % Concatenate fluorescence, get L-R, normalize
     fluor_cat = cat(1,fluor_all{curr_animal}{:});
     
     fluor_cat_hemidiff = cat(3,fluor_cat(:,:,1:n_rois/2,:),fluor_cat(:,:,1:n_rois/2,:) - ...
@@ -6816,40 +6871,34 @@ for curr_animal = 1:n_animals
     
     mua_cat_norm = bsxfun(@rdivide,bsxfun(@minus,mua_cat_raw_smoothed,mua_day_baseline),mua_day_std);
     
-    % Set any NaNs in MUA to zero (days without depth)
-    mua_cat_norm(isnan(mua_cat_norm)) = 0;
-    
     % Regress from fluor to MUA
+    % (by depth: data-less days cause different trial numbers)
     kernel_t = [-0.2,0];
     kernel_frames = round(kernel_t(1)*sample_rate):round(kernel_t(2)*sample_rate);
     zs = [false,false];
     cvfold = 1;
     lambda = 0;
     
-    [k,predicted_spikes,explained_var] = ...
-        AP_regresskernel(reshape(permute(fluor_cat_norm,[2,1,4,3]),[],n_rois)', ...
-        reshape(permute(mua_cat_norm,[2,1,4,3]),[],n_depths)',kernel_frames,lambda,zs,cvfold);
-    
-    k_reshape = reshape(k,n_rois,length(kernel_frames),n_depths);
-    
-    mua_cat_predicted = permute(reshape(predicted_spikes',length(t),length(trial_day),2,n_depths),[2,1,4,3]);    
-    
-    % Concatenate behavioural data
-    D = struct;
-    D.stimulus = cell2mat(cellfun(@(x) x.stimulus,D_all{curr_animal},'uni',false));
-    D.response = cell2mat(cellfun(@(x) x.response,D_all{curr_animal},'uni',false));
-    D.repeatNum = cell2mat(cellfun(@(x) x.repeatNum,D_all{curr_animal},'uni',false));
-    
-    D.day = trial_day;
-    
-    max_contrast = max(D.stimulus,[],2);
-    use_trials = max_contrast >= -Inf & max_contrast < Inf;
-%     use_trials = max_contrast == 0;
-    n_total_trials = length(max_contrast);
-    n_trials = sum(use_trials);
-    
+    mua_nonan_trials = ~squeeze(any(any(isnan(mua_cat_norm),2),4));
+    mua_cat_predicted = nan(size(mua_cat_norm));
+    for curr_depth = 1:n_depths
+        curr_valid_trials = use_trials & mua_nonan_trials(:,curr_depth);
+
+        [~,predicted_spikes,~] = ...
+            AP_regresskernel(reshape(permute( ...
+            fluor_cat_norm(curr_valid_trials,:,:,:), ...
+            [2,1,4,3]),[],n_rois)', ...
+            reshape(permute(mua_cat_norm(curr_valid_trials,:,curr_depth,:), ...
+            [2,1,4,3]),[],1)',kernel_frames,lambda,zs,cvfold);
+        
+        mua_cat_predicted(curr_valid_trials,:,curr_depth,:) = ...
+            permute(reshape(predicted_spikes',length(t),sum(curr_valid_trials),2),[2,1,4,3]);
+        
+    end
+            
     %%% Regression (separate regressors to get partial explained variance)
     
+    % Set up stim regressors
 %     % (to use one contrast exp)
 %     contrast_exp = 1;
 %     stim_regressors = D.stimulus.^contrast_exp;
@@ -6869,27 +6918,55 @@ for curr_animal = 1:n_animals
     end
     stim_regressors = reshape(stim_regressors,n_total_trials,[]);
     
+    % Set up choice regressors
+    choice_regressors = zeros(n_total_trials,2);
+    choice_regressors(D.response == 1,1) = 1;
+    choice_regressors(D.response == 2,2) = 1;
+    
     regressors = cellfun(@transpose, ...
         {stim_regressors(use_trials,:), ...
-        2*(D.response(use_trials)-1.5)},'uni',false);
+        choice_regressors(use_trials,:)},'uni',false);
     
     t_shifts = {0,0};
     lambda = 0;
     zs = [false,false];
     cvfold = 10;
     
-    [fluor_params_fit,~,fluor_expl_var] = AP_regresskernel(regressors', ...
+    [~,~,fluor_expl_var] = AP_regresskernel(regressors', ...
         reshape(fluor_cat_hemidiff_norm(use_trials,:,:,:),n_trials,[])',t_shifts,lambda,zs,cvfold);
     
-    [mua_params_fit,~,mua_expl_var] = AP_regresskernel(regressors', ...
-        reshape(mua_cat_norm(use_trials,:,:,:),n_trials,[])',t_shifts,lambda,zs,cvfold);
+    % (by depth: data-less days cause different trial numbers)
+    mua_expl_var = nan(length(t),n_depths,2,2);
+    for curr_depth = 1:n_depths
+        curr_valid_trials = use_trials & mua_nonan_trials(:,curr_depth);
+        curr_regressors = cellfun(@(x) x(:,curr_valid_trials),regressors,'uni',false);
+        try
+            [~,~,curr_mua_expl_var] = AP_regresskernel(curr_regressors', ...
+                reshape(mua_cat_norm(curr_valid_trials, ...
+                :,curr_depth,:),sum(curr_valid_trials),[])',t_shifts,lambda,zs,cvfold);
+            mua_expl_var(:,curr_depth,:,:) = reshape(curr_mua_expl_var.reduced,[],2,2);
+        catch me
+            continue
+        end
+    end
     
-    [mua_predicted_params_fit,~,mua_predicted_expl_var] = AP_regresskernel(regressors', ...
-        reshape(mua_cat_predicted(use_trials,:,:,:),n_trials,[])',t_shifts,lambda,zs,cvfold);
-    
+    mua_predicted_expl_var = nan(length(t),n_depths,2,2);
+    for curr_depth = 1:n_depths
+        curr_valid_trials = use_trials & mua_nonan_trials(:,curr_depth);
+        curr_regressors = cellfun(@(x) x(:,curr_valid_trials),regressors,'uni',false);
+        try
+            [~,~,curr_mua_predicted_expl_var] = AP_regresskernel(curr_regressors', ...
+                reshape(mua_cat_predicted(curr_valid_trials, ...
+                :,curr_depth,:),sum(curr_valid_trials),[])',t_shifts,lambda,zs,cvfold);
+        catch me
+            continue
+        end
+        mua_predicted_expl_var(:,curr_depth,:,:) = reshape(curr_mua_predicted_expl_var.reduced,[],2,2);
+    end
+ 
     fluor_model_expl_var(:,:,:,:,curr_animal) = reshape(fluor_expl_var.reduced,length(t),n_rois,2,2);
-    mua_model_expl_var(:,:,:,:,curr_animal) = reshape(mua_expl_var.reduced,length(t),n_depths,2,2);
-    mua_predicted_model_expl_var(:,:,:,:,curr_animal) = reshape(mua_predicted_expl_var.reduced,length(t),n_depths,2,2);
+    mua_model_expl_var(:,:,:,:,curr_animal) = mua_expl_var;
+    mua_predicted_model_expl_var(:,:,:,:,curr_animal) = mua_predicted_expl_var;
     
 end
 
@@ -6982,10 +7059,11 @@ end
 
 
 %% Regression on day-concatenated activity (ctx -> str prediction)
+% >>> REMOVE MUA DATA THAT IS UNFILLED BEORE REGRESSION
 
 % Load data
 data_path = 'C:\Users\Andrew\OneDrive for Business\Documents\CarandiniHarrisLab\analysis\wf_ephys_choiceworld\choiceworld';
-data_fn = 'all_trial_activity_df_earlymove.mat';
+data_fn = 'all_trial_activity_df_4str_earlymove.mat';
 load([data_path filesep data_fn]);
 
 n_animals = length(D_all);
@@ -7006,7 +7084,7 @@ wf_roi_fn = 'C:\Users\Andrew\OneDrive for Business\Documents\CarandiniHarrisLab\
 load(wf_roi_fn);
 n_rois = numel(wf_roi);
 
-n_depths = 6;
+n_depths = size(mua_all{1}{1},3);
 
 fluor_activity_model_params = nan(12,length(t),n_rois,2,n_animals);
 mua_activity_model_params = nan(12,length(t),n_depths,2,n_animals);
@@ -7154,170 +7232,6 @@ for curr_alignment = 1:2
         
         curr_subplot = curr_subplot + 1;
 end
-
-%% Regression on day-concatenated activity: CV explained variance (ctx->str prediction)
-
-% Load data
-data_path = 'C:\Users\Andrew\OneDrive for Business\Documents\CarandiniHarrisLab\analysis\wf_ephys_choiceworld\choiceworld';
-data_fn = 'all_trial_activity_df_earlymove.mat';
-load([data_path filesep data_fn]);
-n_animals = length(D_all);
-
-% Get time
-framerate = 35.2;
-raster_window = [-0.5,1];
-upsample_factor = 3;
-sample_rate = 1/(framerate*upsample_factor);
-t = raster_window(1):sample_rate:raster_window(2);
-
-% Get widefield ROIs
-wf_roi_fn = 'C:\Users\Andrew\OneDrive for Business\Documents\CarandiniHarrisLab\analysis\wf_ephys_choiceworld\wf_processing\wf_rois\wf_roi';
-load(wf_roi_fn);
-n_rois = numel(wf_roi);
-
-n_depths = 6;
-
-fluor_model_expl_var = nan(length(t),n_rois,2,2,n_animals);
-mua_model_expl_var = nan(length(t),n_depths,2,2,n_animals);
-mua_predicted_model_expl_var = nan(length(t),n_depths,2,2,n_animals);
-for curr_animal = 1:n_animals
-    
-    trial_day = cell2mat(cellfun(@(day,act) repmat(day,size(act,1),1), ...
-        num2cell(1:length(fluor_all{curr_animal}))',fluor_all{curr_animal},'uni',false));
-    
-    % Concatenate fluorescence, get L-R, normalize (all together)
-    fluor_cat = cat(1,fluor_all{curr_animal}{:});
-    
-    fluor_cat_hemidiff = cat(3,fluor_cat(:,:,1:n_rois/2,:),fluor_cat(:,:,1:n_rois/2,:) - ...
-        fluor_cat(:,:,n_rois/2+1:end,:));
-        
-    fluor_cat_norm = bsxfun(@rdivide,fluor_cat,permute(std(reshape(permute(fluor_cat,[1,2,4,3]),[],n_rois),[],1),[1,3,2,4]));
-    fluor_cat_hemidiff_norm = bsxfun(@rdivide,fluor_cat_hemidiff,permute(std(abs(reshape(permute(fluor_cat_hemidiff,[1,2,4,3]),[],n_rois)),[],1),[1,3,2,4]));     
-    
-    % Concatenate MUA and normalize (separately by day)
-    mua_cat_raw = cat(1,mua_all{curr_animal}{:});
-    
-    % (way smoothed to match cortical temporal resolution)
-    smooth_size = 8;
-    gw = gausswin(smooth_size,3)';
-    smWin = gw./sum(gw);
-    
-    mua_cat_raw_smoothed = convn(mua_cat_raw,smWin,'same');
-    
-    t_baseline = t < 0;        
-    mua_day_baseline = cell2mat(cellfun(@(x) ...
-        repmat(permute(nanmean(reshape(permute(x(:,t_baseline,:,1),[1,2,4,3]),[],n_depths),1), ...
-        [1,3,2,4]),[size(x,1),1]),  ...
-        mat2cell(mua_cat_raw_smoothed,cellfun(@(x) size(x,1), mua_all{curr_animal}),length(t),n_depths,2),'uni',false));
-    
-    mua_day_std = cell2mat(cellfun(@(x) ...
-        repmat(permute(std(reshape(permute(x,[1,2,4,3]),[],n_depths),[],1), ...
-        [1,3,2,4]),[size(x,1),1]),  ...
-        mat2cell(mua_cat_raw_smoothed,cellfun(@(x) size(x,1), mua_all{curr_animal}),length(t),n_depths,2),'uni',false));
-    
-    mua_cat_norm = bsxfun(@rdivide,bsxfun(@minus,mua_cat_raw_smoothed,mua_day_baseline),mua_day_std);
-    
-    % Regress from fluor to MUA
-    kernel_t = [-0.2,0];
-    kernel_frames = round(kernel_t(1)*sample_rate):round(kernel_t(2)*sample_rate);
-    zs = [false,false];
-    cvfold = 1;
-    lambda = 0;
-    
-    [k,predicted_spikes,explained_var] = ...
-        AP_regresskernel(reshape(permute(fluor_cat_norm,[2,1,4,3]),[],n_rois)', ...
-        reshape(permute(mua_cat_norm,[2,1,4,3]),[],n_depths)',kernel_frames,lambda,zs,cvfold);
-    
-    k_reshape = reshape(k,n_rois,length(kernel_frames),n_depths);
-    
-    mua_cat_predicted = permute(reshape(predicted_spikes',length(t),length(trial_day),2,n_depths),[2,1,4,3]);    
-       
-    % Concatenate behavioural data
-    D = struct;
-    D.stimulus = cell2mat(cellfun(@(x) x.stimulus,D_all{curr_animal},'uni',false));
-    D.response = cell2mat(cellfun(@(x) x.response,D_all{curr_animal},'uni',false));
-    D.repeatNum = cell2mat(cellfun(@(x) x.repeatNum,D_all{curr_animal},'uni',false));
-    
-    D.day = trial_day;
-    
-    max_contrast = max(D.stimulus,[],2);
-    use_trials = max_contrast >= 0 & max_contrast < Inf;
-%     use_trials = max_contrast == 0;
-
-    n_trials = sum(use_trials);
-    
-    %%% Regression (separate regressors to get partial explained variance
-    contrast_exp = 1;
-    
-    regressors = cellfun(@transpose, ...
-        {D.stimulus(use_trials,:).^contrast_exp, ...
-        2*(D.response(use_trials)-1.5)},'uni',false);
-    
-    t_shifts = {0,0};
-    lambda = 0;
-    zs = [false,false];
-    cvfold = 10;
-    
-    [fluor_params_fit,~,fluor_expl_var] = AP_regresskernel(regressors', ...
-        reshape(fluor_cat_hemidiff_norm(use_trials,:,:,:),n_trials,[])',t_shifts,lambda,zs,cvfold);
-    
-    [mua_params_fit,~,mua_expl_var] = AP_regresskernel(regressors', ...
-        reshape(mua_cat_norm(use_trials,:,:,:),n_trials,[])',t_shifts,lambda,zs,cvfold);
-    
-    [mua_predicted_params_fit,~,mua_predicted_expl_var] = AP_regresskernel(regressors', ...
-        reshape(mua_cat_predicted(use_trials,:,:,:),n_trials,[])',t_shifts,lambda,zs,cvfold);
-    
-    fluor_model_expl_var(:,:,:,:,curr_animal) = reshape(fluor_expl_var.reduced,length(t),n_rois,2,2);
-    mua_model_expl_var(:,:,:,:,curr_animal) = reshape(mua_expl_var.reduced,length(t),n_depths,2,2);
-    mua_predicted_model_expl_var(:,:,:,:,curr_animal) = reshape(mua_predicted_expl_var.reduced,length(t),n_depths,2,2);
-    
-    AP_print_progress_fraction(curr_animal,n_animals);
-end
-
-fluor_model_expl_var_mean = nanmean(fluor_model_expl_var,5);
-mua_model_expl_var_mean = nanmean(mua_model_expl_var,5);
-mua_predicted_model_expl_var_mean = nanmean(mua_predicted_model_expl_var,5);
-
-% Plot all average parameters
-figure;
-curr_subplot = 1;
-for curr_alignment = 1:2
-    switch curr_alignment
-        case 1
-            align_text = 'stim';
-        case 2
-            align_text = 'move';
-    end
-    for curr_param = 1:2
-        switch curr_param
-            case 1
-                param_text = 'stim';
-            case 2
-                param_text = 'choice';
-        end
-        
-        subplot(2,2,curr_subplot); hold on;
-        
-        set(gca,'ColorOrder',copper(n_depths));
-        plot(t,squeeze(mua_model_expl_var_mean(:,:,curr_alignment,curr_param)));
-        plot(t,squeeze(mua_predicted_model_expl_var_mean(:,:,curr_alignment,curr_param)),'linewidth',2);
-        xlabel(['Time from ' align_text]);
-        ylabel(['Expl var: ' param_text]);
-        axis tight
-        line([0,0],ylim,'color','k');
-        line(xlim,[0,0],'color','k');
-        
-        curr_subplot = curr_subplot + 1;
-    end
-end
-
-
-
-
-
-
-
-
 
 
 
