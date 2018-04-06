@@ -6310,7 +6310,7 @@ legend(p,animals);
 
 % Load data
 data_path = 'C:\Users\Andrew\OneDrive for Business\Documents\CarandiniHarrisLab\analysis\wf_ephys_choiceworld\choiceworld';
-data_fn = 'all_trial_activity_df_4str_earlymove.mat';
+data_fn = 'all_trial_activity_df_earlymove.mat';
 load([data_path filesep data_fn]);
 n_animals = length(D_all);
 
@@ -6421,8 +6421,8 @@ plot_success = 1;
 plot_conditions = find(conditions(:,1) ~= 0 & ...
     conditions(:,2) == -plot_success*conditions(:,3) & ...
     conditions(:,4) == plot_timing);
-plot_color = colormap_BlueWhiteRed(6);
-plot_color = [plot_color(5:-1:1,:);plot_color(end-5:end,:)];
+plot_color = colormap_BlueWhiteRed(5);
+plot_color = [plot_color(end-4:end,:);plot_color(5:-1:1,:)];
 
 % % (to plot one movement direction)
 % plot_move = 1;
@@ -6484,7 +6484,7 @@ linkaxes([p1,p2]);
 
 % Load data
 data_path = 'C:\Users\Andrew\OneDrive for Business\Documents\CarandiniHarrisLab\analysis\wf_ephys_choiceworld\choiceworld';
-data_fn = 'all_trial_activity_df_4str_earlymove.mat';
+data_fn = 'all_trial_activity_df_earlymove.mat';
 load([data_path filesep data_fn]);
 
 % Get time

@@ -6310,7 +6310,7 @@ legend(p,animals);
 
 % Load data
 data_path = 'C:\Users\Andrew\OneDrive for Business\Documents\CarandiniHarrisLab\analysis\wf_ephys_choiceworld\choiceworld';
-data_fn = 'all_trial_activity_df_4str_earlymove.mat';
+data_fn = 'all_trial_activity_df_earlymove.mat';
 load([data_path filesep data_fn]);
 n_animals = length(D_all);
 
@@ -6422,7 +6422,7 @@ plot_conditions = find(conditions(:,1) ~= 0 & ...
     conditions(:,2) == -plot_success*conditions(:,3) & ...
     conditions(:,4) == plot_timing);
 plot_color = colormap_BlueWhiteRed(6);
-plot_color = [plot_color(5:-1:1,:);plot_color(end-5:end,:)];
+plot_color = [plot_color(end-5:end,:);plot_color(5:-1:1,:)];
 
 % % (to plot one movement direction)
 % plot_move = 1;
@@ -6484,7 +6484,7 @@ linkaxes([p1,p2]);
 
 % Load data
 data_path = 'C:\Users\Andrew\OneDrive for Business\Documents\CarandiniHarrisLab\analysis\wf_ephys_choiceworld\choiceworld';
-data_fn = 'all_trial_activity_df_4str_earlymove.mat';
+data_fn = 'all_trial_activity_df_earlymove.mat';
 load([data_path filesep data_fn]);
 
 % Get time
@@ -6700,9 +6700,36 @@ mua_predicted_model_expl_var_mean = nanmean(mua_predicted_model_expl_var,5);
 % Plot regressed stim weight
 plot_color = colormap_BlueWhiteRed(5);
 plot_color = [plot_color(5:-1:1,:);plot_color(end-4:end,:)];
+
+% (Fluor)
 figure;
+spacing = max(fluor_activity_model_params_mean(:));
+
 subplot(1,2,1); hold on;
+for curr_stim = 1:10;
+   AP_stackplot(squeeze(fluor_activity_model_params_mean(curr_stim,:,:,1)),t, ...
+       spacing,false,plot_color(curr_stim,:),{wf_roi.area});
+end
+line([0,0],ylim,'color','k');
+xlabel('Time from stim');
+ylabel(['\beta stim'])
+title('Fluor');
+
+subplot(1,2,2); hold on;
+for curr_stim = 1:10;
+   AP_stackplot(squeeze(fluor_activity_model_params_mean(curr_stim,:,:,2)),t, ...
+       spacing,false,plot_color(curr_stim,:),{wf_roi.area});
+end
+line([0,0],ylim,'color','k');
+xlabel('Time from move');
+ylabel(['\beta stim'])
+title('Fluor');
+
+% (MUA)
+figure;
 spacing = max(mua_activity_model_params_mean(:));
+
+subplot(1,2,1); hold on;
 for curr_stim = 1:10;
    AP_stackplot(squeeze(mua_activity_model_params_mean(curr_stim,:,:,1)),t, ...
        spacing,false,plot_color(curr_stim,:),1:n_depths);
@@ -6713,7 +6740,6 @@ ylabel(['\beta stim'])
 title('MUA');
 
 subplot(1,2,2); hold on;
-spacing = max(mua_activity_model_params_mean(:));
 for curr_stim = 1:10;
    AP_stackplot(squeeze(mua_activity_model_params_mean(curr_stim,:,:,2)),t, ...
        spacing,false,plot_color(curr_stim,:),1:n_depths);
@@ -6723,27 +6749,29 @@ xlabel('Time from move');
 ylabel(['\beta stim'])
 title('MUA');
 
+% (MUA predicted)
+figure;
+spacing = max(mua_predicted_activity_model_params_mean(:));
+
 subplot(1,2,1); hold on;
-spacing = max(mua_activity_model_params_mean(:));
 for curr_stim = 1:10;
-   AP_stackplot(squeeze(mua_activity_model_params_mean(curr_stim,:,:,1)),t, ...
+   AP_stackplot(squeeze(mua_predicted_activity_model_params_mean(curr_stim,:,:,1)),t, ...
        spacing,false,plot_color(curr_stim,:),1:n_depths);
 end
 line([0,0],ylim,'color','k');
 xlabel('Time from stim');
 ylabel(['\beta stim'])
-title('MUA');
+title('MUA predicted');
 
 subplot(1,2,2); hold on;
-spacing = max(mua_activity_model_params_mean(:));
 for curr_stim = 1:10;
-   AP_stackplot(squeeze(mua_activity_model_params_mean(curr_stim,:,:,2)),t, ...
+   AP_stackplot(squeeze(mua_predicted_activity_model_params_mean(curr_stim,:,:,2)),t, ...
        spacing,false,plot_color(curr_stim,:),1:n_depths);
 end
 line([0,0],ylim,'color','k');
 xlabel('Time from move');
 ylabel(['\beta stim'])
-title('MUA');
+title('MUA predicted');
 
 % Plot regressed choice weight
 figure;
