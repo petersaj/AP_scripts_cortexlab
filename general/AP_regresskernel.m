@@ -164,10 +164,17 @@ sse_total_residual = sum(bsxfun(@minus,predicted_signals,signals).^2,2);
 explained_var.total = (sse_signals - sse_total_residual)./sse_signals;
 
 % Partial explained variance
+sse_complete_model = sum(predicted_signals.^2,2);
 if length(regressors) > 1
+    sse_partial = cell2mat(arrayfun(@(x) ...
+        sum(predicted_signals_reduced(:,:,x).^2,2),1:length(regressors),'uni',false));
     sse_partial_residual = cell2mat(arrayfun(@(x) ...
         sum(bsxfun(@minus,predicted_signals_reduced(:,:,x),signals).^2,2),1:length(regressors),'uni',false));
+    % (I think this gets unique + confounded expl var?)
     explained_var.reduced = bsxfun(@rdivide,bsxfun(@minus,sse_signals,sse_partial_residual),sse_signals);
+    % (this method + leave-one-out above should be unique expl var, but
+    % gives pretty much the exact same results as the above?)
+%     explained_var.reduced = bsxfun(@rdivide,bsxfun(@minus,sse_complete_model,sse_partial),sse_signals);
 end
 
 % Get the final k from averaging (remove the constant term)

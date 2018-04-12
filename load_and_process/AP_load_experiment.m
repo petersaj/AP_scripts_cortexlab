@@ -828,7 +828,7 @@ if ephys_exists && load_parts.ephys
     %%% Align striatal recordings using saved alignment
     
     % Load striatum alignment
-    n_str_depths = 4;
+    n_str_depths = 6;
     
     ephys_align_path = 'C:\Users\Andrew\OneDrive for Business\Documents\CarandiniHarrisLab\analysis\wf_ephys_choiceworld\ephys_processing';
     ephys_align_fn = ['ephys_str_align_' num2str(n_str_depths) '_depths'];

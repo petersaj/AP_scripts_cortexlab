@@ -877,7 +877,7 @@ protocol = 'vanillaChoiceworld';
 
 batch_vars = struct;
 for curr_animal = 1:length(animals)
-    
+     
     animal = animals{curr_animal};
     experiments = AP_find_experiments(animal,protocol);
     
@@ -979,12 +979,15 @@ for curr_animal = 1:length(animals)
           
         binned_spikes = zeros(n_depths,length(time_bin_centers));
         for curr_depth = 1:n_depths           
-            curr_spike_times = spike_times_timeline(depth_group == curr_depth);           
+            curr_spike_times = spike_times_timeline(depth_group == curr_depth);    
             binned_spikes(curr_depth,:) = histcounts(curr_spike_times,time_bins);            
         end       
         
         % Normalize binned spikes
         binned_spikes = bsxfun(@rdivide,binned_spikes,std(binned_spikes,[],2));
+        
+        % Get rid of NaNs (if no data?)
+        binned_spikes(isnan(binned_spikes)) = 0;
         
         kernel_t = [-0.3,0.3];
         kernel_frames = round(kernel_t(1)*sample_rate):round(kernel_t(2)*sample_rate);
@@ -1006,7 +1009,7 @@ for curr_animal = 1:length(animals)
                 
         % Get center of mass for each pixel
         % (get max r for each pixel, filter out big ones)
-        r_px_max = squeeze(max(abs(r_px),[],3));
+        r_px_max = squeeze(max(abs(r_px),[],3)).^3;
         r_px_max(isnan(r_px_max)) = 0;
         for i = 1:n_depths
             r_px_max(:,:,i) = medfilt2(r_px_max(:,:,i),[10,10]);
@@ -5328,7 +5331,7 @@ save_path = 'C:\Users\Andrew\OneDrive for Business\Documents\CarandiniHarrisLab\
 save_fn = 'all_trial_activity_df_4str_earlymove.mat';
 save([save_path filesep save_fn]);
 
-%% Batch logistic regression on saved day-concatenated activity
+%% Batch logistic regression on saved day-concatenated activity (neural data independently)
 
 % Load data
 data_path = 'C:\Users\Andrew\OneDrive for Business\Documents\CarandiniHarrisLab\analysis\wf_ephys_choiceworld\choiceworld';
@@ -5401,8 +5404,8 @@ for curr_animal = 1:n_animals
     
     mua_cat_norm = bsxfun(@rdivide,bsxfun(@minus,mua_cat_raw_smoothed,mua_day_baseline),mua_day_std);
     
-    % Set any NaNs in MUA to zero (days without depth)
-    mua_cat_norm(isnan(mua_cat_norm)) = 0;
+    % Get NaNs in MUA (no data at that depth in that experiment)
+    mua_nonan_trials = ~squeeze(any(any(isnan(mua_cat_norm),2),4));
     
     % Concatenate behavioural data
     D = struct;
@@ -5413,7 +5416,7 @@ for curr_animal = 1:n_animals
     D.day = trial_day;
     
     max_contrast = max(D.stimulus,[],2);
-    use_trials = max_contrast >= 0 & max_contrast < 1;   
+    use_trials = max_contrast >= -Inf & max_contrast < Inf;   
     
     %%% Modeling
     cvfold = 10;
@@ -5472,7 +5475,7 @@ for curr_animal = 1:n_animals
                 D.neur = reshape(mua_cat_norm(:,curr_t,curr_area,curr_align),[],1);
 
                 % Pick subset of trials
-                D_use = structfun(@(x) x(use_trials,:),D,'uni',false);
+                D_use = structfun(@(x) x(use_trials & mua_nonan_trials(:,curr_area),:),D,'uni',false);
                 
                 clear g_act
                 g_act = GLM(D_use).setModel(use_model).fitCV(cvfold);
@@ -5494,6 +5497,180 @@ end
 clearvars -except loglik_increase_fluor loglik_increase_mua
 save_path = ['C:\Users\Andrew\OneDrive for Business\Documents\CarandiniHarrisLab\analysis\wf_ephys_choiceworld\choiceworld'];
 save_fn = ['activity_sessioncat_logistic_regression_earlymove_4str'];
+save([save_path filesep save_fn])
+
+disp('Finished');
+
+%% Batch logistic regression on saved day-concatenated activity (neural data simultaneously)
+
+% Load data
+data_path = 'C:\Users\Andrew\OneDrive for Business\Documents\CarandiniHarrisLab\analysis\wf_ephys_choiceworld\choiceworld';
+data_fn = 'all_trial_activity_df_4str_earlymove.mat';
+load([data_path filesep data_fn]);
+
+% Get time
+framerate = 35.2;
+raster_window = [-0.5,1];
+upsample_factor = 3;
+raster_sample_rate = 1/(framerate*upsample_factor);
+t = raster_window(1):raster_sample_rate:raster_window(2);
+
+% Load use experiments and cut out bad ones
+bhv_fn = 'C:\Users\Andrew\OneDrive for Business\Documents\CarandiniHarrisLab\analysis\wf_ephys_choiceworld\bhv_processing\use_experiments';
+load(bhv_fn);
+D_all = cellfun(@(data,use_expts) data(use_expts),D_all,use_experiments','uni',false);
+fluor_all = cellfun(@(data,use_expts) data(use_expts),fluor_all,use_experiments','uni',false);
+mua_all = cellfun(@(data,use_expts) data(use_expts),mua_all,use_experiments','uni',false);
+
+use_animals = cellfun(@(x) ~isempty(x),D_all);
+D_all = D_all(use_animals);
+fluor_all = fluor_all(use_animals);
+mua_all = mua_all(use_animals);
+
+% Get widefield ROIs
+wf_roi_fn = 'C:\Users\Andrew\OneDrive for Business\Documents\CarandiniHarrisLab\analysis\wf_ephys_choiceworld\wf_processing\wf_rois\wf_roi';
+load(wf_roi_fn);
+n_rois = numel(wf_roi);
+
+n_depths = size(mua_all{1}{1},3);
+
+n_animals = length(D_all);
+
+loglik_increase_fluor = nan(length(t),2,n_animals);
+loglik_increase_mua = nan(length(t),2,n_animals);
+
+loglik_params_fluor = nan(n_rois,length(t),2,n_animals);
+loglik_params_mua = nan(n_depths,length(t),2,n_animals);
+for curr_animal = 1:n_animals
+    
+    trial_day = cell2mat(cellfun(@(day,act) repmat(day,size(act,1),1), ...
+        num2cell(1:length(fluor_all{curr_animal}))',fluor_all{curr_animal},'uni',false));
+    
+    % Concatenate fluorescence, get L-R, normalize (all together)
+    fluor_cat = cat(1,fluor_all{curr_animal}{:});
+    
+    fluor_cat_hemidiff = cat(3,fluor_cat(:,:,1:n_rois/2,:),fluor_cat(:,:,1:n_rois/2,:) - ...
+        fluor_cat(:,:,n_rois/2+1:end,:));
+        
+    fluor_cat_norm = bsxfun(@rdivide,fluor_cat,permute(std(reshape(permute(fluor_cat,[1,2,4,3]),[],n_rois),[],1),[1,3,2,4]));
+    fluor_cat_hemidiff_norm = bsxfun(@rdivide,fluor_cat_hemidiff,permute(std(abs(reshape(permute(fluor_cat_hemidiff,[1,2,4,3]),[],n_rois)),[],1),[1,3,2,4]));     
+    
+    % Concatenate MUA and normalize (separately by day)
+    mua_cat_raw = cat(1,mua_all{curr_animal}{:});
+    
+    smooth_size = 8;
+    gw = gausswin(smooth_size,3)';
+    smWin = gw./sum(gw);
+    
+    mua_cat_raw_smoothed = convn(mua_cat_raw,smWin,'same');
+    
+    t_baseline = t < 0;        
+    mua_day_baseline = cell2mat(cellfun(@(x) ...
+        repmat(permute(nanmean(reshape(permute(x(:,t_baseline,:,1),[1,2,4,3]),[],n_depths),1), ...
+        [1,3,2,4]),[size(x,1),1]),  ...
+        mat2cell(mua_cat_raw_smoothed,cellfun(@(x) size(x,1), mua_all{curr_animal}),length(t),n_depths,2),'uni',false));
+    
+    mua_day_std = cell2mat(cellfun(@(x) ...
+        repmat(permute(std(reshape(permute(x,[1,2,4,3]),[],n_depths),[],1), ...
+        [1,3,2,4]),[size(x,1),1]),  ...
+        mat2cell(mua_cat_raw_smoothed,cellfun(@(x) size(x,1), mua_all{curr_animal}),length(t),n_depths,2),'uni',false));
+    
+    mua_cat_norm = bsxfun(@rdivide,bsxfun(@minus,mua_cat_raw_smoothed,mua_day_baseline),mua_day_std);
+    
+    % Get NaNs in MUA (no data at that depth in that experiment)
+    mua_nonan_trials = ~squeeze(any(any(isnan(mua_cat_norm),2),4));
+    
+    % Concatenate behavioural data
+    D = struct;
+    D.stimulus = cell2mat(cellfun(@(x) x.stimulus,D_all{curr_animal},'uni',false));
+    D.response = cell2mat(cellfun(@(x) x.response,D_all{curr_animal},'uni',false));
+    D.repeatNum = cell2mat(cellfun(@(x) x.repeatNum,D_all{curr_animal},'uni',false));
+    
+    D.day = trial_day;
+    
+    max_contrast = max(D.stimulus,[],2);
+    use_trials = max_contrast >= -Inf & max_contrast < Inf;   
+    
+    %%% Modeling
+    cvfold = 10;
+    
+    warning off;
+    % Fit stim all
+    use_model = 'AP_test_stim';
+    g_stim_all = GLM(D).setModel(use_model).fit;
+    behavParameterFit = g_stim_all.parameterFits;
+    
+    D.offset_ZL = g_stim_all.ZL(behavParameterFit, g_stim_all.Zinput(g_stim_all.data));
+    
+    % Fit stim cross-validated
+    use_model = 'AP_test_stim';
+    
+    D_use = structfun(@(x) x(use_trials,:),D,'uni',false);
+    
+    g_stim = GLM(D_use).setModel(use_model).fitCV(cvfold);
+    pL = g_stim.p_hat(:,1);    pR = g_stim.p_hat(:,2);
+    likelihood = pL.*(g_stim.data.response == 1) + pR.*(g_stim.data.response == 2);
+    
+    loglik_bpt_stim = nanmean(log2(likelihood));
+    
+    % Fit stim + activity (all time)
+    use_model = 'AP_test_roi_stimoffset';
+    loglik_bpt_fluor = nan(length(t),2);
+    loglik_params_fluor = nan(n_rois,length(t),2);
+    for curr_align = 1:2
+        for curr_t = 1:length(t)
+            
+            % Set the activity
+            D.neur = reshape(fluor_cat_norm(:,curr_t,:,curr_align),[],n_rois);
+            
+            % Pick subset of trials
+            D_use = structfun(@(x) x(use_trials,:),D,'uni',false);
+            
+            clear g_act
+            g_act = GLM(D_use).setModel(use_model).fitCV(cvfold);
+            pL = g_act.p_hat(:,1);
+            pR = g_act.p_hat(:,2);
+            likelihood = pL.*(g_act.data.response==1) + pR.*(g_act.data.response==2);
+            
+            loglik_bpt_fluor(curr_t,curr_align) = nanmean(log2(likelihood));
+            loglik_params_fluor(:,curr_t,curr_align,curr_animal) = nanmean(g_act.parameterFits(:,2:end),1);
+        
+        end
+    end
+    loglik_increase_fluor(:,:,curr_animal) = loglik_bpt_fluor - loglik_bpt_stim;
+    
+    use_model = 'AP_test_mua_stimoffset';
+    loglik_bpt_mua = nan(length(t),2);
+    loglik_params_mua = nan(n_depths,length(t),2);
+    for curr_align = 1:2
+        for curr_t = 1:length(t)
+            
+            % Set the activity
+            D.neur = reshape(mua_cat_norm(:,curr_t,:,curr_align),[],n_depths);
+            
+            % Pick subset of trials
+            D_use = structfun(@(x) x(use_trials & all(mua_nonan_trials,2),:),D,'uni',false);
+            
+            clear g_act
+            g_act = GLM(D_use).setModel(use_model).fitCV(cvfold);
+            pL = g_act.p_hat(:,1);
+            pR = g_act.p_hat(:,2);
+            likelihood = pL.*(g_act.data.response==1) + pR.*(g_act.data.response==2);
+            
+            loglik_bpt_mua(curr_t,curr_align) = nanmean(log2(likelihood));
+            loglik_params_mua(:,curr_t,curr_align,curr_animal) = nanmean(g_act.parameterFits(:,2:end),1);
+        end
+    end
+    loglik_increase_mua(:,:,curr_animal) = loglik_bpt_mua - loglik_bpt_stim;
+    
+    warning on;
+    
+    AP_print_progress_fraction(curr_animal,n_animals);
+end
+
+clearvars -except loglik_increase_fluor loglik_increase_mua loglik_params_fluor loglik_params_mua
+save_path = ['C:\Users\Andrew\OneDrive for Business\Documents\CarandiniHarrisLab\analysis\wf_ephys_choiceworld\choiceworld'];
+save_fn = ['activity_sessioncat_logistic_regression_neucombined_earlymove_4str'];
 save([save_path filesep save_fn])
 
 disp('Finished');
