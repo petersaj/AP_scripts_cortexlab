@@ -259,55 +259,6 @@ trial_timing = arrayfun(@(animal) cellfun(@(x) 1+(x > go_time), ...
 trial_timing_cat = arrayfun(@(animal) ...
     horzcat(trial_timing{animal}{:}),1:length(bhv),'uni',false);
 
-% Get easy performance / anti-lapse rate
-performance_contrasts = [0.5,1];
-
-l_correct = cellfun(@(contrast,side,choice) cellfun(@(contrast,side,choice) ...
-    nanmean(choice(ismember(contrast,performance_contrasts) & side == -1) == 1), ...
-    contrast,side,choice), ...
-    {bhv.trial_contrast},{bhv.trial_side},{bhv.trial_choice},'uni',false);
-
-r_correct = cellfun(@(contrast,side,choice) cellfun(@(contrast,side,choice) ...
-    nanmean(choice(ismember(contrast,performance_contrasts) & side == 1) == -1), ...
-    contrast,side,choice), ...
-    {bhv.trial_contrast},{bhv.trial_side},{bhv.trial_choice},'uni',false);
-
-thresh_correct = 0.85; % threshold for lapse rate 
-min_correct = cellfun(@(l,r) min(l,r),l_correct,r_correct,'uni',false);
-use_experiments = cellfun(@(x) x > thresh_correct,min_correct,'uni',false);
-
-trial_choice_cat_use = arrayfun(@(x) horzcat(bhv(x).trial_choice{use_experiments{x}}),1:length(bhv),'uni',false);
-trial_side_cat_use = arrayfun(@(x) horzcat(bhv(x).trial_side{use_experiments{x}}),1:length(bhv),'uni',false);
-trial_contrast_cat_use = arrayfun(@(x) horzcat(bhv(x).trial_contrast{use_experiments{x}}),1:length(bhv),'uni',false);
-
-trial_condition_cat_use = cellfun(@(side,contrast) side.*contrast,trial_side_cat_use,trial_contrast_cat_use,'uni',false);
-
-frac_left_use = cell2mat(cellfun(@(choice,condition) ...
-    grpstats(choice == -1,condition),trial_choice_cat_use,trial_condition_cat_use,'uni',false));
-
-figure;
-subplot(1,2,1);
-plot(horzcat(min_correct{:}),'.k')
-line(xlim,[thresh_correct,thresh_correct]);
-xlabel('Experiment');
-ylabel('Easy performance');
-
-subplot(1,2,2); hold on;
-plot(conditions,frac_left_use,'linewidth',2,'color',[0.5,0.5,0.5]);
-plot(conditions,nanmean(frac_left_use,2),'linewidth',5,'color','k');
-xlim([-1,1]);
-ylim([0,1]);
-line([0,0],ylim,'linestyle','--','color','k');
-line(xlim,[0.5,0.5],'linestyle','--','color','k');
-xlabel('Condition');
-ylabel('Fraction go left');
-title('Good experiments');
-
-% (save good experiments for later use)
-save_path = 'C:\Users\Andrew\OneDrive for Business\Documents\CarandiniHarrisLab\analysis\wf_ephys_choiceworld\bhv_processing';
-save_fn = 'use_experiments';
-save([save_path filesep save_fn],'use_experiments');
-
 % Plot psychometric 
 frac_left = cell2mat(cellfun(@(choice,condition) ...
     grpstats(choice == -1,condition),trial_choice_cat,trial_condition_cat,'uni',false));
@@ -354,6 +305,63 @@ line(xlim,[0.5,0.5],'linestyle','--','color','k');
 xlabel('Condition');
 ylabel('Fraction go left');
 title('Late move');
+
+% Get easy performance / anti-lapse rate
+performance_contrasts = [0.5,1];
+
+l_correct = cellfun(@(contrast,side,choice) cellfun(@(contrast,side,choice) ...
+    nanmean(choice(ismember(contrast,performance_contrasts) & side == -1) == 1), ...
+    contrast,side,choice), ...
+    {bhv.trial_contrast},{bhv.trial_side},{bhv.trial_choice},'uni',false);
+
+r_correct = cellfun(@(contrast,side,choice) cellfun(@(contrast,side,choice) ...
+    nanmean(choice(ismember(contrast,performance_contrasts) & side == 1) == -1), ...
+    contrast,side,choice), ...
+    {bhv.trial_contrast},{bhv.trial_side},{bhv.trial_choice},'uni',false);
+
+thresh_correct = 0.85; % threshold for lapse rate 
+min_correct = cellfun(@(l,r) min(l,r),l_correct,r_correct,'uni',false);
+use_experiments = cellfun(@(x) x > thresh_correct,min_correct,'uni',false);
+
+trial_choice_cat_use = arrayfun(@(x) horzcat(bhv(x).trial_choice{use_experiments{x}}),1:length(bhv),'uni',false);
+trial_side_cat_use = arrayfun(@(x) horzcat(bhv(x).trial_side{use_experiments{x}}),1:length(bhv),'uni',false);
+trial_contrast_cat_use = arrayfun(@(x) horzcat(bhv(x).trial_contrast{use_experiments{x}}),1:length(bhv),'uni',false);
+
+trial_condition_cat_use = cellfun(@(side,contrast) side.*contrast,trial_side_cat_use,trial_contrast_cat_use,'uni',false);
+
+frac_left_use = cell2mat(cellfun(@(choice,condition) ...
+    grpstats(choice == -1,condition),trial_choice_cat_use,trial_condition_cat_use,'uni',false));
+
+animal_experiments = cell2mat(cellfun(@(mouse,data) repmat(mouse,1,length(data)), ...
+    num2cell(1:length(bhv)),l_correct,'uni',false));
+
+figure;
+subplot(1,2,1);
+p1 = scatter(1:length(animal_experiments),horzcat(min_correct{:}), ...
+    40,animal_experiments,'Filled','MarkerEdgeColor','k');
+axis tight;
+p2 = line(xlim,[thresh_correct,thresh_correct],'linewidth',3);
+xlabel('Experiment');
+ylabel(['Min performance easy contrasts']);
+legend([p1(1),p2],{'Mouse','Performance threshold'});
+
+subplot(1,2,2); hold on;
+plot(conditions,frac_left,'linewidth',2,'color',[0.5,0,0]);
+p1 = plot(conditions,nanmean(frac_left,2),'linewidth',5,'color','r');
+plot(conditions,frac_left_use,'linewidth',2,'color',[0.5,0.5,0.5]);
+p2 = plot(conditions,nanmean(frac_left_use,2),'linewidth',5,'color','k');
+xlim([-1,1]);
+ylim([0,1]);
+line([0,0],ylim,'linestyle','--','color','k');
+line(xlim,[0.5,0.5],'linestyle','--','color','k');
+xlabel('Condition');
+ylabel('Fraction go left');
+legend([p1,p2],{'All','> Threshold'},'location','nw');
+
+% (save good experiments for later use)
+save_path = 'C:\Users\Andrew\OneDrive for Business\Documents\CarandiniHarrisLab\analysis\wf_ephys_choiceworld\bhv_processing';
+save_fn = 'use_experiments';
+save([save_path filesep save_fn],'use_experiments');
 
 % Plot wheel velocity by condition
 [velocity_condition_hit_earlymove_grp,group] = cellfun(@(wheel,outcome,condition,stim_to_move) ...

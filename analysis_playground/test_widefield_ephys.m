@@ -2707,7 +2707,7 @@ axis image;
 
 % Get center of mass for each pixel
 % (get max r for each pixel, filter out big ones)
-r_px_max = squeeze(max(abs(r_px),[],3));
+r_px_max = squeeze(max(abs(r_px),[],3)).^3;
 r_px_max(isnan(r_px_max)) = 0;
 for i = 1:n_depths
     r_px_max(:,:,i) = medfilt2(r_px_max(:,:,i),[10,10]);
