@@ -542,12 +542,12 @@ if data_path_exists && load_parts.imaging
             % If the hemo tform matrix has been computed, load and fix
             if verbose; disp('Using old hemo tform...'); end;
             load(hemo_tform_fn)
-            zVh_Un = bsxfun(@minus, Vh_Un, mean(Vh_Un));
+            zVh_Un = bsxfun(@minus, Vh_Un, nanmean(Vh_Un,2));
             Vn_hemo = transpose(Vn_th' - zVh_Un'*hemo_tform');
         else
             % If no p hemo tform matrix, compute and save
             if verbose; disp('Computing hemo tform...'); end
-            %hemo_freq = [0.2,3];
+            %hemo_freq = [0.1,1];
             hemo_freq = [7,13];
             [Vn_hemo,hemo_tform] = HemoCorrectLocal(Un,Vn_th,Vh_Un,framerate,hemo_freq,3);
             save(hemo_tform_fn,'hemo_tform');
@@ -814,7 +814,7 @@ if ephys_exists && load_parts.ephys
     %     end
     
     % (by biggest gap)
-    min_gap = 100;
+    min_gap = 200;
     sorted_template_depths = sort([0;templateDepths]);
     [max_gap,max_gap_idx] = max(diff(sorted_template_depths));
     if max_gap > min_gap

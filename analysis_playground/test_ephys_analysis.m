@@ -2212,7 +2212,7 @@ L = length(use_trace);
 NFFT = 2^nextpow2(L);
 [P,F] = pwelch(double(use_trace)',[],[],NFFT,Fs);
 Pc = smooth(P,50); 
-figure;plot(F,log10(Pc),'m')
+figure;plot(F,log10(Pc),'k')
 xlabel('Frequency');
 ylabel('Log Power');
 

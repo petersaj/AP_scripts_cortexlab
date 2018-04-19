@@ -1056,7 +1056,8 @@ legend({'Real','Predicted'});
 %% PSTH viewer
 
 % Spikes in striatum
-use_spikes_idx = spikeDepths >= str_depth(1) & spikeDepths <= str_depth(2);
+% use_spikes_idx = spikeDepths >= str_depth(1) & spikeDepths <= str_depth(2);
+use_spikes_idx = aligned_str_depth_group == 4;
 
 use_spikes = spike_times_timeline(use_spikes_idx);
 use_templates = spike_templates(use_spikes_idx);
@@ -1090,9 +1091,16 @@ condition_counts = histcounts(trial_id(use_trials), ...
     'BinLimits',[1,size(conditions,1)],'BinMethod','integers')';
 
 raster_window = [-0.5,1];
+
+% Population PSTH
+psthViewer(use_spikes,ones(size(use_spikes)), ...
+    wheel_move_time(use_trials)',raster_window,trial_id(use_trials));
+set(gcf,'Name','Population');
+
+% Template PSTH
 psthViewer(use_spikes,use_templates, ...
     wheel_move_time(use_trials)',raster_window,trial_id(use_trials));
-
+set(gcf,'Name','Templates');
 
 % PSTH viewier sorted by choice
 use_templates_unique = unique(use_templates);
@@ -1270,10 +1278,14 @@ pca_data = zscore([squeeze(nanmean(template_psth_smooth(go_left,:,depth_group ==
 
 %% Ephys: rasters by depth
 
-% Group striatum depths
-n_depths = 6;
-depth_group_edges = round(linspace(str_depth(1),str_depth(2),n_depths+1));
-depth_group = discretize(spikeDepths,depth_group_edges);
+% % (to group striatum depths)
+% n_depths = 6;
+% depth_group_edges = round(linspace(str_depth(1),str_depth(2),n_depths+1));
+% depth_group = discretize(spikeDepths,depth_group_edges);
+
+% (to use aligned striatum depths)
+n_depths = n_aligned_depths;
+depth_group = aligned_str_depth_group;
 
 % Define trials to use
 n_trials = length(block.paramsValues);
@@ -3397,7 +3409,6 @@ if save_alignment
 end
 
 %% Load and average wf -> ephys maps
-
 data_path = 'C:\Users\Andrew\OneDrive for Business\Documents\CarandiniHarrisLab\analysis\wf_ephys_choiceworld\wf_ephys';
 
 protocol = 'vanillaChoiceworld';
@@ -3412,49 +3423,32 @@ n_depths = size(batch_vars(1).explained_var{1},1);
 
 animals = {'AP024','AP025','AP026','AP027','AP028','AP029'};
 
-com_all = cell(length(animals),1);
-weight_all = cell(length(animals),1);
-
-r_px = cell(length(animals),1);
-com = nan(437,416,length(animals));
-weight = nan(437,416,length(animals));
-explained_var = nan(n_depths,length(animals));
+% (scale r_px's because different lambdas give different weights)
+% (do in a loop because memory can't handle a cellfun??)
+r_px = nan(437,416,43,n_depths,length(animals));
 for curr_animal = 1:length(animals)
-    
-    animal = animals{curr_animal};
-    experiments = AP_find_experiments(animal,protocol);       
-    experiments = experiments([experiments.imaging] & [experiments.ephys]);
-    days = {experiments.day};
-    
-    % Skip if this animal doesn't have this experiment
-    if isempty(experiments)
-        continue
+    curr_animal_r_px = nan(437,416,43,n_depths,length(days));
+    for curr_day = 1:length(batch_vars(curr_animal).r_px)        
+        
+        curr_r_px = batch_vars(curr_animal).r_px{curr_day};
+        curr_scaled_r_px = mat2gray(bsxfun(@rdivide, ...
+            curr_r_px,permute(prctile(abs( ...
+            reshape(curr_r_px,[],size(curr_r_px,5))),95)',[2,3,4,5,1])),[-1,1])*2-1;     
+        
+        % Set any NaN explained (no MUA data probably) to NaN
+        curr_scaled_r_px(:,:,:,isnan(batch_vars(curr_animal).explained_var{curr_day})) = NaN;
+        
+        curr_animal_r_px(:,:,:,:,curr_day) = curr_scaled_r_px;
+        
     end
-    
-    % Align all images
-    r_px_aligned = AP_align_widefield(animal,days,batch_vars(curr_animal).r_px);
-    r_px_com_aligned = AP_align_widefield(animal,days,batch_vars(curr_animal).r_px_com);
-    r_px_weight_aligned = AP_align_widefield(animal,days,batch_vars(curr_animal).r_px_weight);
-    explained_var_cat = horzcat(batch_vars(curr_animal).explained_var{:});
-    
-    % Scale all r_px's because different lambdas give different weights
-    r_scale_cutoff = prctile(abs(reshape(r_px_aligned,[],size(r_px_aligned,5))),95)';
-    r_px_aligned_scaled = bsxfun(@rdivide,r_px_aligned,permute(r_scale_cutoff,[2,3,4,5,1]));
-    r_px_aligned_scaled(abs(r_px_aligned_scaled) > 1) = sign(r_px_aligned_scaled(abs(r_px_aligned_scaled) > 1));
-    
-    % Within animal
-    com_all{curr_animal} = r_px_com_aligned;
-    weight_all{curr_animal} = r_px_weight_aligned;
-    
-    % Average across days
-    r_px{curr_animal} = nanmean(r_px_aligned_scaled,5);
-    com(:,:,curr_animal) = nanmean(r_px_com_aligned,3);
-    weight(:,:,curr_animal) = nanmean(r_px_weight_aligned,3);
-    explained_var(:,curr_animal) = nanmean(explained_var_cat,2);
-    
-    AP_print_progress_fraction(curr_animal,length(animals));
-    
+    r_px(:,:,:,:,curr_animal) = nanmean(curr_animal_r_px,5);
+    disp(curr_animal);
 end
+
+
+com = cell2mat(shiftdim(cellfun(@(x) nanmean(cat(3,x{:}),3),{batch_vars.r_px_com},'uni',false),-1));
+weight = cell2mat(shiftdim(cellfun(@(x) nanmean(cat(3,x{:}),3),{batch_vars.r_px_weight},'uni',false),-1));
+explained_var = cell2mat(cellfun(@(x) nanmean(cat(2,x{:}),2),{batch_vars.explained_var},'uni',false));
 
 % % (THIS WAS TO BINARIZE KERNELS - EVENTUALLY TO DEFINE STR FROM CTX)
 % n_experiments = arrayfun(@(x) length(batch_vars(x).r_px),1:length(animals));
@@ -3503,7 +3497,7 @@ end
 % 
 % disp('done')
 
-r_px_mean = nanmean(cell2mat(permute(cellfun(@(x) nanmean(x,5),r_px,'uni',false),[2,3,4,5,1])),5);
+r_px_mean = nanmean(r_px,5);
 % flip r_px to go forward in time
 r_px_mean = r_px_mean(:,:,end:-1:1,:);
 com_mean = nanmean(com,3);
@@ -3588,7 +3582,7 @@ AP_reference_outline('retinotopy','m');
 AP_reference_outline('ccf_aligned','k');
 
 % Plot map (from mean CoM)
-com_leeway = 1;
+com_leeway =1;
 c_range = [1+com_leeway,n_depths-com_leeway];
 com_colored = ind2rgb(round(mat2gray(com_mean,c_range)*255),jet(255));
 
@@ -5782,6 +5776,7 @@ set(gca,'XTick',1:n_depths,'XTickLabel',cellfun(@(x) ...
 % title('Move-aligned')
 
 %% Trial-by-trial activity time-averaged
+error('Don''t use this - use the distribution plots below');
 
 % Load trial activity
 % [area, trial ID, alignment, day]
@@ -6436,7 +6431,7 @@ ylabel('Weight');
 
 % Load data
 data_path = 'C:\Users\Andrew\OneDrive for Business\Documents\CarandiniHarrisLab\analysis\wf_ephys_choiceworld\choiceworld';
-data_fn = 'all_trial_activity_df_4str_earlymove.mat';
+data_fn = 'all_trial_activity_df_msn_earlymove.mat';
 load([data_path filesep data_fn]);
 n_animals = length(D_all);
 
@@ -6447,17 +6442,17 @@ upsample_factor = 3;
 sample_rate = 1/(framerate*upsample_factor);
 t = raster_window(1):sample_rate:raster_window(2);
 
-% Load use experiments and cut out bad ones
-bhv_fn = 'C:\Users\Andrew\OneDrive for Business\Documents\CarandiniHarrisLab\analysis\wf_ephys_choiceworld\bhv_processing\use_experiments';
-load(bhv_fn);
-D_all = cellfun(@(data,use_expts) data(use_expts),D_all,use_experiments','uni',false);
-fluor_all = cellfun(@(data,use_expts) data(use_expts),fluor_all,use_experiments','uni',false);
-mua_all = cellfun(@(data,use_expts) data(use_expts),mua_all,use_experiments','uni',false);
-
-use_animals = cellfun(@(x) ~isempty(x),D_all);
-D_all = D_all(use_animals);
-fluor_all = fluor_all(use_animals);
-mua_all = mua_all(use_animals);
+% % Load use experiments and cut out bad ones
+% bhv_fn = 'C:\Users\Andrew\OneDrive for Business\Documents\CarandiniHarrisLab\analysis\wf_ephys_choiceworld\bhv_processing\use_experiments';
+% load(bhv_fn);
+% D_all = cellfun(@(data,use_expts) data(use_expts),D_all,use_experiments','uni',false);
+% fluor_all = cellfun(@(data,use_expts) data(use_expts),fluor_all,use_experiments','uni',false);
+% mua_all = cellfun(@(data,use_expts) data(use_expts),mua_all,use_experiments','uni',false);
+% 
+% use_animals = cellfun(@(x) ~isempty(x),D_all);
+% D_all = D_all(use_animals);
+% fluor_all = fluor_all(use_animals);
+% mua_all = mua_all(use_animals);
 
 % Get widefield ROIs
 wf_roi_fn = 'C:\Users\Andrew\OneDrive for Business\Documents\CarandiniHarrisLab\analysis\wf_ephys_choiceworld\wf_processing\wf_rois\wf_roi';
@@ -6669,14 +6664,18 @@ timings = [1,2];
 conditions = combvec(contrasts,sides,choices,timings)';
 n_conditions = size(conditions,1);
 
-% Plot distribution of all trials 
-plot_act = 'fluor';
-plot_area = 1;
-plot_align = 1;
-plot_t = t > 0 & t < 0.1;
+sidecontrasts = unique(bsxfun(@times,contrasts',sides));
 
-curr_animal = 6;
-% for curr_animal = 1:length(D_all)
+% Plot distribution of all trials 
+plot_act = 'mua';
+plot_area = 3;
+plot_align = 2;
+% plot_t = t >= 0.05 & t <= 0.15;
+plot_t = t >= -0.05 & t <= 0;
+
+figure;
+trial_act_timeavg_split_all = cell(length(sidecontrasts),2);
+for curr_animal = 1:length(D_all)
     
     trial_day = cell2mat(cellfun(@(day,act) repmat(day,size(act,1),1), ...
         num2cell(1:length(fluor_all{curr_animal}))',fluor_all{curr_animal},'uni',false));
@@ -6739,7 +6738,6 @@ curr_animal = 6;
     trial_act_timeavg = squeeze(nanmean(use_data(:,plot_t,:,:),2));
     
     % Split activity by contrast*side/choice
-    sidecontrasts = unique(bsxfun(@times,contrasts',sides));
     trial_act_timeavg_split = cell(length(sidecontrasts),2);
     trial_act_timeavg_split(:,1) = arrayfun(@(x) ...
         trial_act_timeavg(trial_side.*trial_contrast == sidecontrasts(x) & ...
@@ -6751,32 +6749,57 @@ curr_animal = 6;
         plot_area, plot_align),1:length(sidecontrasts),'uni',false);
     trial_act_timeavg_split_median = cellfun(@nanmedian,trial_act_timeavg_split);
     
+    trial_act_timeavg_split_all = cellfun(@(curr,all) [curr;all], ...
+        trial_act_timeavg_split,trial_act_timeavg_split_all,'uni',false);
+    
     % Plot average activity across time for reference
-    figure;
-    subplot(2,1,1); hold on;
+    subplot(2,length(D_all),curr_animal); hold on;
     condition_act = grpstats(use_data(:,:,plot_area,plot_align),trial_side.*trial_contrast);
-    set(gca,'ColorOrder',colormap_BlueWhiteRed(length(contrasts)));
+    set(gca,'ColorOrder',colormap_BlueWhiteRed(length(contrasts)-1));
     plot(t,condition_act','linewidth',2);
-    rectangle('Position',[t(find(plot_t,1)),min(condition_act(:)),range(t(plot_t)),max(condition_act(:))]);
+    rectangle('Position',[t(find(plot_t,1)),min(condition_act(:)), ...
+        range(t(plot_t)),range(condition_act(:))],'linewidth',2);
+    axis tight;
+    ylabel(area_labels{plot_area});
+    title('Average activity');
     
     % Plot distribution plot
-    subplot(2,1,2); hold on;
+    subplot(2,length(D_all),length(D_all) + curr_animal); hold on;
     p1 = distributionPlot(trial_act_timeavg_split(:,1),'distWidth',0.5, ...
-        'xValues',(1:11)-0.25,'histOri','left','showMM',0,'color','r');
+        'xValues',(1:11)-0.25,'histOri','left','showMM',0,'color',[0.6,0,0.6]);
     p2 = distributionPlot(trial_act_timeavg_split(:,2),'distWidth',0.5, ...
-        'xValues',(1:11)+0.25,'histOri','right','showMM',0,'color','b');
-    plot((1:11),trial_act_timeavg_split_median(:,1),'color',[0.9,0.6,0.6],'linewidth',2)
-    plot((1:11),trial_act_timeavg_split_median(:,2),'color',[0.6,0.6,0.9],'linewidth',2)
+        'xValues',(1:11)+0.25,'histOri','right','showMM',0,'color',[0,0.6,0]);
+    plot((1:11),trial_act_timeavg_split_median(:,1),'color',[0.9,0.6,0.9],'linewidth',2)
+    plot((1:11),trial_act_timeavg_split_median(:,2),'color',[0.6,0.9,0.6],'linewidth',2)
     
     set(gca,'XTick',1:11,'XTickLabel',cellfun(@num2str,num2cell(sidecontrasts),'uni',false));
     xlabel('Contrast*Side');
     ylabel(area_labels{plot_area});
-    legend([p1{1}(1),p2{1}(1)],{'Move left','Move right'});
+    legend([p1{1}(6),p2{1}(6)],{'Move left','Move right'});
+    title('Trial activity');
     
+end
+
+% Plot trials from all animals concatenated
+figure; hold on;
+p1 = distributionPlot(trial_act_timeavg_split_all(:,1),'distWidth',0.5, ...
+    'xValues',(1:11)-0.25,'histOri','left','showMM',0,'color',[0.6,0,0.6]);
+p2 = distributionPlot(trial_act_timeavg_split_all(:,2),'distWidth',0.5, ...
+    'xValues',(1:11)+0.25,'histOri','right','showMM',0,'color',[0,0.6,0]);
+
+trial_act_timeavg_split_all_median = cellfun(@nanmedian,trial_act_timeavg_split_all);
+plot((1:11),trial_act_timeavg_split_all_median(:,1),'color',[0.9,0.6,0.9],'linewidth',2)
+plot((1:11),trial_act_timeavg_split_all_median(:,2),'color',[0.6,0.9,0.6],'linewidth',2)
+
+set(gca,'XTick',1:11,'XTickLabel',cellfun(@num2str,num2cell(sidecontrasts),'uni',false));
+xlabel('Contrast*Side');
+ylabel(area_labels{plot_area});
+legend([p1{1}(6),p2{1}(6)],{'Move left','Move right'});
+title('Trial activity across animals');
     
-    
-    
-% end
+
+
+
 
 
 %% Linear regression on day-concatenated activity (weights & expl var)
@@ -6813,7 +6836,9 @@ n_rois = numel(wf_roi);
 n_depths = size(mua_all{1}{1},3);
 
 % Set up variables for model parameters
-use_contrasts = [0.06,0.125,0.25,0.5,1];
+% use_contrasts = [0.06,0.125,0.25,0.5,1];
+use_contrasts = [0.06,0.125];
+% use_contrasts = [];
 
 n_regressors = length(use_contrasts)*2 + 1;
 fluor_activity_model_params = nan(n_regressors,length(t),n_rois,2,length(D_all));

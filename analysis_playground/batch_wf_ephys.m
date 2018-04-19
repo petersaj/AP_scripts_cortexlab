@@ -637,7 +637,7 @@ for trialtype_align = {'stim','move'};
                             peri_stim_v_baselinesub = bsxfun(@minus, ...
                                 peri_stim_v,nanmean(peri_stim_v_baseline,2));
                             
-                            im(:,:,:,curr_condition_idx) = svdFrameReconstruct(Udf,peri_stim_v);
+                            im(:,:,:,curr_condition_idx) = svdFrameReconstruct(Udf,peri_stim_v_baselinesub);
                         end
                         
                     end
@@ -913,56 +913,52 @@ for curr_animal = 1:length(animals)
         dfVdf_resample = interp1(conv2(frame_t,[1,1]/2,'valid'), ...
             diff(fVdf(use_svs,:),[],2)',time_bin_centers)';
         
-%         % Estimate lambda using entire striatum       
-%         use_frames = (frame_t > skip_seconds & frame_t < frame_t(end)-skip_seconds);        
-%         use_spikes = spike_times_timeline(ismember(spike_templates, ...
-%             find(templateDepths > str_depth(1) & templateDepths <= str_depth(2))));
-%         
-%         [binned_spikes,~,spike_frames] = histcounts(use_spikes,time_bins);
-%         binned_spikes = single(binned_spikes);
-%         binned_spikes = binned_spikes/std(binned_spikes);
-%         
-%         lambda_start = 1e3;
-%         n_reduce_lambda = 3;
-%         
-%         kernel_t = [-0.1,0.1];
-%         kernel_frames = round(kernel_t(1)*sample_rate):round(kernel_t(2)*sample_rate);
-%         zs = [false,false];
-%         cvfold = 5;
-%         use_frames_idx = find(use_frames);
-%         
-%         update_lambda = n_reduce_lambda;
-%         curr_lambda = lambda_start;
-%         lambdas = 0;
-%         explained_var_lambdas = 0;
-%         
-%         while update_lambda;
-%             
-%             % TO USE dfV
-%             [~,~,explained_var] = ...
-%                 AP_regresskernel(dfVdf_resample, ...
-%                 binned_spikes,kernel_frames,curr_lambda,zs,cvfold);
-%             
-%             lambdas(end+1) = curr_lambda;
-%             explained_var_lambdas(end+1) = explained_var.total;
-%             
-%             if explained_var_lambdas(end) > explained_var_lambdas(end-1)
-%                 curr_lambda = curr_lambda*10;
-%             else
-%                 lambdas(end) = [];
-%                 explained_var_lambdas(end) = [];
-%                 curr_lambda = curr_lambda/2;
-%                 update_lambda = update_lambda-1;
-%             end
-%             
-%         end
-%         
-%         % Take lambda to be the best * 10 (makes a better picture even
-%         % though this has no justification)
-%         lambda = lambdas(end)*10;         
-
+        % Estimate lambda using entire striatum       
+        use_frames = (frame_t > skip_seconds & frame_t < frame_t(end)-skip_seconds);        
+        use_spikes = spike_times_timeline(ismember(spike_templates, ...
+            find(templateDepths > str_depth(1) & templateDepths <= str_depth(2))));
+        
+        [binned_spikes,~,spike_frames] = histcounts(use_spikes,time_bins);
+        binned_spikes = single(binned_spikes);
+        binned_spikes = binned_spikes/std(binned_spikes);
+        
+        lambda_start = 1e3;
+        n_reduce_lambda = 3;
+        
+        kernel_t = [-0.1,0.1];
+        kernel_frames = round(kernel_t(1)*sample_rate):round(kernel_t(2)*sample_rate);
+        zs = [false,true];
+        cvfold = 5;
+        use_frames_idx = find(use_frames);
+        
+        update_lambda = n_reduce_lambda;
+        curr_lambda = lambda_start;
+        lambdas = 0;
+        explained_var_lambdas = 0;
+        
+        while update_lambda;
+            
+            % TO USE dfV
+            [~,~,explained_var] = ...
+                AP_regresskernel(dfVdf_resample, ...
+                binned_spikes,kernel_frames,curr_lambda,zs,cvfold);
+            
+            lambdas(end+1) = curr_lambda;
+            explained_var_lambdas(end+1) = explained_var.total;
+            
+            if explained_var_lambdas(end) > explained_var_lambdas(end-1)
+                curr_lambda = curr_lambda*10;
+            else
+                lambdas(end) = [];
+                explained_var_lambdas(end) = [];
+                curr_lambda = curr_lambda/2;
+                update_lambda = update_lambda-1;
+            end
+            
+        end      
+        lambda = lambdas(end);
         % Just use one lambda
-        lambda = 2e5;
+%         lambda = 2e5;
         
         % Get cortex/striatum regression by depth
         
@@ -991,7 +987,7 @@ for curr_animal = 1:length(animals)
         
         kernel_t = [-0.3,0.3];
         kernel_frames = round(kernel_t(1)*sample_rate):round(kernel_t(2)*sample_rate);
-        zs = [false,false];
+        zs = [false,true];
         cvfold = 5;      
 
         % TO USE dfV
@@ -1002,17 +998,18 @@ for curr_animal = 1:length(animals)
         % Reshape kernel and convert to pixel space
         r = reshape(k,length(use_svs),length(kernel_frames),size(binned_spikes,1));
         
-        r_px = zeros(size(U,1),size(U,2),size(r,2),size(r,3),'single');
+        aUdf = single(AP_align_widefield(animal,day,Udf));
+        r_px = zeros(size(aUdf,1),size(aUdf,2),size(r,2),size(r,3),'single');
         for curr_spikes = 1:size(r,3);
-            r_px(:,:,:,curr_spikes) = svdFrameReconstruct(Udf(:,:,use_svs),r(:,:,curr_spikes));
+            r_px(:,:,:,curr_spikes) = svdFrameReconstruct(aUdf(:,:,use_svs),r(:,:,curr_spikes));
         end
                 
         % Get center of mass for each pixel
         % (get max r for each pixel, filter out big ones)
-        r_px_max = squeeze(max(abs(r_px),[],3)).^3;
+        r_px_max = squeeze(max(r_px,[],3)).^3;
         r_px_max(isnan(r_px_max)) = 0;
         for i = 1:n_depths
-            r_px_max(:,:,i) = medfilt2(r_px_max(:,:,i),[10,10]);
+            r_px_max(:,:,i) = medfilt2(r_px_max(:,:,i),[20,20]);
         end
         r_px_max_norm = bsxfun(@rdivide,r_px_max, ...
             permute(max(reshape(r_px_max,[],n_depths),[],1),[1,3,2]));

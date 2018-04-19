@@ -526,7 +526,7 @@ surround_time = surround_window(1):surround_samplerate:surround_window(2);
 baseline_surround_time = baseline_surround_window(1):surround_samplerate:baseline_surround_window(2);
 
 % Gui for plotting responses
-pixelTuningCurveViewerSVD(Uh,Vh,frame_t,stimOn_times,stimIDs,surround_window);
+pixelTuningCurveViewerSVD(Udf,fVdf,frame_t,stimOn_times,stimIDs,surround_window);
 
 % Average (time course) responses
 conditions = unique(stimIDs);
@@ -1057,56 +1057,51 @@ px_10prct = svdFrameReconstruct(U,prctile(fV(:,skip_start_frames:end),10,2));
 
 %% Get average fluorescence to Signals event
 
-% Define the window to get an aligned response to
-surround_window = [-0.5,4];
-
 % Define the times to align to
-use_trials = ismember(signals_events.trialContrastValues,[0.06,0.125]) &  ...
-    ismember(signals_events.trialSideValues,[1]) & ...
-    ismember(signals_events.hitValues,[1]) & ...
-    ~signals_events.repeatTrialValues;
-align_times = signals_events.stimOnTimes(use_trials(1:length(signals_events.stimOnTimes)))';
+use_trials = ...
+    trial_outcome ~= 0 & ...
+    ~signals_events.repeatTrialValues(1:n_trials) & ...
+    stim_to_feedback < 1.5 & ...
+    signals_events.trialSideValues == 1 & ...
+    signals_events.trialContrastValues == 1;
 
-% use_trials = ismember(signals_events.trialAzimuthValues,[0]);
-% align_times = signals_events.stimOnTimes(use_trials(1:length(signals_events.stimOnTimes)))';
+align_times = signals_events.stimOnTimes(use_trials)';
 
-%align_times = signals_events.stimOnTimes';
-%align_times = signals_events.lever_r_flipTimes(signals_events.lever_r_flipValues == 1)';
-%align_times = signals_events.totalWaterTimes(diff([0,signals_events.totalWaterTimes]) > 0)';
+% Time for alignment
+surround_window = [-0.5,2];
+upsample_factor = 2;
+
+framerate = 1./median(diff(frame_t));
+surround_samplerate = 1/(framerate*upsample_factor);
+t_surround = surround_window(1):surround_samplerate:surround_window(2);
+
+t_baseline = [-0.5,0]; % (from stim onset)
+t_baseline_surround = t_baseline(1):surround_samplerate:t_baseline(2);
 
 % Get the surround time
-framerate = 1./nanmedian(diff(frame_t));
-surround_samplerate = 1/(framerate*1);
-surround_time = surround_window(1):surround_samplerate:surround_window(2);
+curr_surround_times = bsxfun(@plus, align_times(:), t_surround);
+curr_surround_baseline = bsxfun(@plus, align_times(:), t_baseline_surround);
 
-% Don't use times that fall outside of imaging
-align_times(align_times + surround_time(1) < frame_t(2) | ...
-    align_times + surround_time(2) > frame_t(end)) = [];
+% Interpolate times
+peri_stim_v = permute(mean(interp1(frame_t,fVdf',curr_surround_times),1),[3,2,1]);
+peri_stim_v_baseline = permute(mean(interp1(frame_t,fVdf',curr_surround_baseline),1),[3,2,1]);
+peri_stim_v_baselinesub = bsxfun(@minus, ...
+    peri_stim_v,nanmean(peri_stim_v_baseline,2));
 
-% Use closest frames to times
-align_surround_times = bsxfun(@plus, align_times, surround_time);
-frame_edges = [frame_t,frame_t(end)+1/framerate];
-align_frames = discretize(align_surround_times,frame_edges);
+% Put into pixel space
+mean_aligned_px = svdFrameReconstruct(Udf,peri_stim_v_baselinesub);
 
-% If any aligned V's are NaNs (when does this happen?), don't use
-align_frames(any(isnan(align_frames),2),:) = [];
-
-aligned_V = reshape(fV(:,align_frames'), ...
-    size(fV,1),size(align_frames,2),size(align_frames,1));
-
-% (to bootstrap) this doesn't help
-% n_boot = 1000;
-% mean_aligned_V = ....
-%     squeeze(nanmean(reshape(bootstrp(n_boot,@mean, ...
-%     permute(aligned_V,[3,1,2])),n_boot,size(aligned_V,1),[]),1));
-
-mean_aligned_V = nanmean(aligned_V,3);
-
-% Get and plot the average fluorescence around event
-mean_aligned_px = svdFrameReconstruct(U,mean_aligned_V);
-
-AP_image_scroll(mean_aligned_px,surround_time);
+AP_image_scroll(mean_aligned_px,t_surround);
 axis image;
+
+
+mean_aligned_px_g = gpuArray(mean_aligned_px);
+mean_aligned_px_med = nan(size(mean_aligned_px));
+for curr_frame = 1:size(mean_aligned_px_med,3)
+    mean_aligned_px_med(:,:,curr_frame) = gather(medfilt2(mean_aligned_px_g(:,:,curr_frame),[11,11]));
+    disp(curr_frame);
+end
+
 
 %% Regress fluorescence to choiceworld event
 
@@ -1885,12 +1880,18 @@ caxis([-c,c])
 
 %% Align fluorescence to task event across trials
 
-align_times = stimOn_times;
-%align_times = signals_events.lever_r_flipTimes(signals_events.lever_r_flipValues == 1)';
+use_trials = ...
+    trial_outcome ~= 0 & ...
+    ~signals_events.repeatTrialValues(1:n_trials) & ...
+    stim_to_feedback < 1.5 & ...
+    stim_to_move < 0.5;
 
-surround_time = [-1,3];
+% align_times = stimOn_times(use_trials);
+align_times = wheel_move_time(use_trials)';
 
-roi_trace = AP_svd_roi(U,fV);
+surround_time = [-0.5,1];
+
+roi_trace = AP_svd_roi(aUdf,fVdf,avg_im);
 
 t_surround = surround_time(1):1/framerate:surround_time(2);
 time_around_event = bsxfun(@plus,align_times,t_surround);

@@ -2489,14 +2489,73 @@ Q_norm = Q/(T*sum(f_real/T).^2);
 
 
 
-%% Regression fluor -> MUA: get lambda via cross-validation
+%% Regression fluor -> MUA: get lambda via cross-validation (preset lambdas)
 
 % Skip the first n seconds to do this
 skip_seconds = 60;
 use_frames = (frame_t > skip_seconds & frame_t < frame_t(end)-skip_seconds);
 
-use_spikes = spike_times_timeline(ismember(spike_templates,find(templateDepths > str_depth(1) & templateDepths <= str_depth(2))));
+% Group multiunit by depth
+n_depths = 6;
+depth_group_edges = round(linspace(str_depth(1),str_depth(2),n_depths+1));
+depth_group_edges_use = depth_group_edges;
 
+[depth_group_n,depth_group] = histc(spikeDepths,depth_group_edges_use);
+depth_groups_used = unique(depth_group);
+depth_group_centers = depth_group_edges_use(1:end-1)+(diff(depth_group_edges_use)/2);
+
+% Use spikes at specific depth
+use_spikes = spike_times_timeline(depth_group ~= 0);
+frame_edges = [frame_t(1),mean([frame_t(2:end);frame_t(1:end-1)],1),frame_t(end)+1/framerate];
+[frame_spikes,~,spike_frames] = histcounts(use_spikes,frame_edges);
+frame_spikes = single(frame_spikes);
+
+use_svs = 1:50;
+kernel_t = [-0.2,0.2];
+kernel_frames = round(kernel_t(1)*framerate):round(kernel_t(2)*framerate);
+zs = [false,true]; % MUA has to be z-scored if large lambda
+cvfold = 5;
+use_frames_idx = find(use_frames);
+
+lambdas = [0,logspace(0,10,10)];
+explained_var_lambdas = nan(size(lambdas));
+
+for curr_lambda_idx = 1:length(lambdas)
+    
+    curr_lambda = lambdas(curr_lambda_idx);
+    
+    [~,predicted_spikes,explained_var] = ...
+        AP_regresskernel(conv2(diff(fVdf(use_svs,use_frames_idx),[],2),[1,1]/2,'valid'), ...
+        frame_spikes(:,use_frames_idx(2:end-1)),kernel_frames,curr_lambda,zs,cvfold);
+    
+    explained_var_lambdas(curr_lambda_idx) = explained_var.total;    
+        
+    AP_print_progress_fraction(curr_lambda_idx,length(lambdas));
+    
+end
+
+figure;
+semilogx(lambdas,explained_var_lambdas,'k','linewidth',2);
+xlabel('\lambda');
+ylabel('Explained variance');
+
+%% Regression fluor -> MUA: get lambda via cross-validation (auto stop)
+
+% Skip the first n seconds to do this
+skip_seconds = 60;
+use_frames = (frame_t > skip_seconds & frame_t < frame_t(end)-skip_seconds);
+
+% Group multiunit by depth
+n_depths = 6;
+depth_group_edges = round(linspace(str_depth(1),str_depth(2),n_depths+1));
+depth_group_edges_use = depth_group_edges;
+
+[depth_group_n,depth_group] = histc(spikeDepths,depth_group_edges_use);
+depth_groups_used = unique(depth_group);
+depth_group_centers = depth_group_edges_use(1:end-1)+(diff(depth_group_edges_use)/2);
+
+% Use spikes at specific depth
+use_spikes = spike_times_timeline(depth_group ~= 0);
 frame_edges = [frame_t(1),mean([frame_t(2:end);frame_t(1:end-1)],1),frame_t(end)+1/framerate];
 [frame_spikes,~,spike_frames] = histcounts(use_spikes,frame_edges);
 frame_spikes = single(frame_spikes);
@@ -2505,16 +2564,16 @@ lambda_start = 1e3;
 n_reduce_lambda = 3;
 
 use_svs = 1:50;
-kernel_t = [-0.2,0.2];
+kernel_t = [0,0]; 
 kernel_frames = round(kernel_t(1)*framerate):round(kernel_t(2)*framerate);
-zs = [false,false];
+zs = [false,true]; % MUA has to be z-scored if large lambda
 cvfold = 5;
 use_frames_idx = find(use_frames);
 
 update_lambda = n_reduce_lambda;
 curr_lambda = lambda_start;
 lambdas = 0;
-explained_var_lambdas = 0;
+explained_var_lambdas = -Inf;
 
 while update_lambda;
     
@@ -2525,6 +2584,61 @@ while update_lambda;
     
     lambdas(end+1) = curr_lambda;
     explained_var_lambdas(end+1) = explained_var.total;
+    
+    if explained_var_lambdas(end) > explained_var_lambdas(end-1)
+        curr_lambda = curr_lambda*10;
+    else
+        lambdas(end) = [];
+        explained_var_lambdas(end) = [];
+        curr_lambda = curr_lambda/2;
+        update_lambda = update_lambda-1;
+    end
+        
+end
+
+lambda = lambdas(end);
+disp(['Best lambda = ' num2str(lambda) ', Frac var = ' num2str(explained_var_lambdas(end))]);
+
+%% Regression fluor -> templates: get lambda via cross-validation (auto stop)
+
+% Skip the first n seconds to do this
+skip_seconds = 60;
+use_frames = (frame_t > skip_seconds & frame_t < frame_t(end)-skip_seconds);
+
+% (to use aligned striatum depths)
+depth_group = aligned_str_depth_group;
+
+use_templates = unique(spike_templates(~isnan(depth_group)));
+binned_spikes = zeros(length(use_templates),length(time_bins)-1);
+for curr_template_idx = 1:length(use_templates)    
+    curr_template = use_templates(curr_template_idx);   
+    curr_spike_times = spike_times_timeline(spike_templates == curr_template);   
+    binned_spikes(curr_template_idx,:) = histcounts(curr_spike_times,time_bins);    
+end
+
+lambda_start = 1e3;
+n_reduce_lambda = 3;
+
+use_svs = 1:50;
+kernel_frames = 0;
+zs = [false,true]; % MUA has to be z-scored if large lambda
+cvfold = 5;
+use_frames_idx = find(use_frames);
+
+update_lambda = n_reduce_lambda;
+curr_lambda = lambda_start;
+lambdas = 0;
+explained_var_lambdas = -Inf;
+
+while update_lambda;
+    
+    % TO USE dfV
+    [~,~,explained_var] = ...
+        AP_regresskernel(conv2(diff(fVdf(use_svs,use_frames_idx),[],2),[1,1]/2,'valid'), ...
+        binned_spikes(:,use_frames_idx(2:end-1)),kernel_frames,curr_lambda,zs,cvfold);
+    
+    lambdas(end+1) = curr_lambda;
+    explained_var_lambdas(end+1) = nanmedian(explained_var.total);
     
     if explained_var_lambdas(end) > explained_var_lambdas(end-1)
         curr_lambda = curr_lambda*10;
@@ -2638,7 +2752,7 @@ set(c2,'YTickLabel',linspace(depth_group_edges(1),depth_group_edges(end),6));
 
 %% Regression from fluor to spikes (AP_regresskernel) MUA depth - RESAMPLE
 
-upsample_factor = 3;
+upsample_factor = 2;
 sample_rate = (1/median(diff(frame_t)))*upsample_factor;
 
 % Skip the first/last n seconds to do this
@@ -2647,25 +2761,23 @@ skip_seconds = 60;
 time_bins = frame_t(find(frame_t > skip_seconds,1)):1/sample_rate:frame_t(find(frame_t-frame_t(end) < -skip_seconds,1,'last'));
 time_bin_centers = time_bins(1:end-1) + diff(time_bins)/2;
 
-% Group multiunit by depth
-n_depth_groups = 6;
-% depth_group_edges = linspace(0,max(channel_positions(:,2)),n_depth_groups+1);
-%depth_group_edges = linspace(700,3500,n_depth_groups+1);
-depth_group_edges = round(linspace(str_depth(1),str_depth(2),n_depth_groups+1));
-depth_group_edges_use = depth_group_edges;
-% depth_group_edges_use = [0 300];
+% % (to group multiunit by depth from top)
+% n_depths = 6;
+% depth_group_edges = round(linspace(str_depth(1),str_depth(2),n_depths+1));
+% [depth_group_n,depth_group] = histc(spikeDepths,depth_group_edges);
+% depth_groups_used = unique(depth_group);
+% depth_group_centers = depth_group_edges(1:end-1)+(diff(depth_group_edges)/2);
 
-[depth_group_n,depth_group] = histc(spikeDepths,depth_group_edges_use);
-depth_groups_used = unique(depth_group);
-depth_group_centers = depth_group_edges_use(1:end-1)+(diff(depth_group_edges_use)/2);
+% (to use aligned striatum depths)
+n_depths = n_aligned_depths;
+depth_group = aligned_str_depth_group;
 
-binned_spikes = zeros(length(depth_group_edges_use)-1,length(time_bins)-1);
-for curr_depth = 1:length(depth_group_edges_use)-1
+binned_spikes = zeros(n_depths,length(time_bins)-1);
+for curr_depth = 1:n_depths
     
     curr_spike_times = spike_times_timeline(depth_group == curr_depth);
 %     curr_spike_times = spike_times_timeline((depth_group == curr_depth) & ...
 %         ismember(spike_templates,find(tan)));
-%     curr_spike_times = spike_times_timeline(spike_templates == 279);
     
     binned_spikes(curr_depth,:) = histcounts(curr_spike_times,time_bins);
     
@@ -2674,11 +2786,14 @@ end
 % Normalize binned spikes
 binned_spikes = bsxfun(@rdivide,binned_spikes,std(binned_spikes,[],2));
 
+% Get rid of NaNs (if no data?)
+binned_spikes(isnan(binned_spikes)) = 0;
+
 use_svs = 1:50;
 kernel_t = [-0.3,0.3];
 kernel_frames = round(kernel_t(1)*sample_rate):round(kernel_t(2)*sample_rate);
-lambda = 2e5; % (COMMENT OUT TO USE LAMBDA FROM ESTIMATION ABOVE)
-zs = [false,false];
+% lambda = 1e5; % (COMMENT OUT TO USE LAMBDA FROM ESTIMATION ABOVE)
+zs = [false,true];
 cvfold = 5;
 
 fVdf_resample = interp1(frame_t,fVdf(use_svs,:)',time_bin_centers)';
@@ -2707,7 +2822,7 @@ axis image;
 
 % Get center of mass for each pixel
 % (get max r for each pixel, filter out big ones)
-r_px_max = squeeze(max(abs(r_px),[],3)).^3;
+r_px_max = squeeze(max(r_px,[],3)).^3;
 r_px_max(isnan(r_px_max)) = 0;
 for i = 1:n_depths
     r_px_max(:,:,i) = medfilt2(r_px_max(:,:,i),[10,10]);
@@ -2718,7 +2833,7 @@ r_px_max_norm(isnan(r_px_max_norm)) = 0;
 r_px_com = sum(bsxfun(@times,r_px_max_norm,permute(1:n_depths,[1,3,2])),3)./sum(r_px_max_norm,3);
 
 % Plot map of cortical pixel by preferred depth of probe
-r_px_com_col = ind2rgb(round(mat2gray(r_px_com,[1,n_depth_groups])*255),jet(255));
+r_px_com_col = ind2rgb(round(mat2gray(r_px_com,[1,n_depths])*255),jet(255));
 figure;
 a1 = axes('YDir','reverse');
 imagesc(avg_im); colormap(gray); caxis([0,prctile(avg_im(:),99.7)]);
@@ -2735,58 +2850,128 @@ c2 = colorbar('peer',a2);
 ylabel(c2,'Depth (\mum)');
 colormap(c2,jet);
 set(c2,'YDir','reverse');
-set(c2,'YTick',linspace(0,1,6));
-set(c2,'YTickLabel',linspace(depth_group_edges_use(1),depth_group_edges_use(end),6));
+set(c2,'YTick',linspace(0,1,n_depths));
+set(c2,'YTickLabel',linspace(depth_group_edges(1),depth_group_edges(end),n_depths));
  
 
+%% Regression from fluor to spikes (AP_regresskernel) templates - RESAMPLE
 
+upsample_factor = 2;
+sample_rate = (1/median(diff(frame_t)))*upsample_factor;
 
-%% Regression from fluor to spikes (AP_regresskernel) templates
+% Skip the first/last n seconds to do this
+skip_seconds = 60;
 
-use_templates = find(templateDepths >= 500 & templateDepths <= 1500);
+time_bins = frame_t(find(frame_t > skip_seconds,1)):1/sample_rate:frame_t(find(frame_t-frame_t(end) < -skip_seconds,1,'last'));
+time_bin_centers = time_bins(1:end-1) + diff(time_bins)/2;
 
-% Skip the first n seconds to do this
-skip_seconds = 30;
-use_frames = (frame_t > skip_seconds & frame_t < (frame_t(end)-skip_seconds));
+% % (to group multiunit by depth from top)
+% n_depths = 6;
+% depth_group_edges = round(linspace(str_depth(1),str_depth(2),n_depths+1));
+% [depth_group_n,depth_group] = histc(spikeDepths,depth_group_edges);
+% depth_groups_used = unique(depth_group);
+% depth_group_centers = depth_group_edges(1:end-1)+(diff(depth_group_edges)/2);
 
-frame_spikes = zeros(length(use_templates),length(frame_t),'single');
-for curr_template_idx = 1:length(use_templates)
-    
-    curr_template = use_templates(curr_template_idx);
-    
-    use_spikes = spike_times_timeline(spike_templates == curr_template);
-       
-    frame_edges = [frame_t(1),mean([frame_t(2:end);frame_t(1:end-1)],1),frame_t(end)+1/framerate];
-    [curr_frame_spikes,~,spike_frames] = histcounts(use_spikes,frame_edges);
+% (to use aligned striatum depths)
+n_depths = n_aligned_depths;
+depth_group = aligned_str_depth_group;
 
-    frame_spikes(curr_template_idx,:) = curr_frame_spikes;
-    
+use_templates = unique(spike_templates(~isnan(depth_group)));
+binned_spikes = zeros(length(use_templates),length(time_bins)-1);
+for curr_template_idx = 1:length(use_templates)    
+    curr_template = use_templates(curr_template_idx);   
+    curr_spike_times = spike_times_timeline(spike_templates == curr_template);   
+    binned_spikes(curr_template_idx,:) = histcounts(curr_spike_times,time_bins);    
 end
 
 use_svs = 1:50;
-kernel_frames = -35:17;
-downsample_factor = 1;
-lambda = 2e6;
+kernel_t = [-0.2,0.2];
+kernel_frames = round(kernel_t(1)*sample_rate):round(kernel_t(2)*sample_rate);
+lambda = 1e6; % (comment out to use lambda from above)
 zs = [false,true];
 cvfold = 5;
 
-kernel_frames_downsample = round(downsample(kernel_frames,downsample_factor)/downsample_factor);
+fVdf_resample = interp1(frame_t,fVdf(use_svs,:)',time_bin_centers)';
 
+% TO USE fV
+% [k,predicted_spikes,explained_var] = ...
+%     AP_regresskernel(fVdf_resample, ...
+%     binned_spikes,kernel_frames,lambda,zs,cvfold);
+% TO USE dfV
 [k,predicted_spikes,explained_var] = ...
-    AP_regresskernel(downsample(fV(use_svs,use_frames)',downsample_factor)', ...
-    downsample(frame_spikes(:,use_frames)',downsample_factor)',kernel_frames_downsample,lambda,zs,cvfold);
+    AP_regresskernel(conv2(diff(fVdf_resample,[],2),[1,1]/2,'valid'), ...
+    binned_spikes(:,2:end-1),kernel_frames,lambda,zs,cvfold);
 
 % Reshape kernel and convert to pixel space
-r = reshape(k,length(use_svs),length(kernel_frames_downsample),size(frame_spikes,1));
+r = reshape(k,length(use_svs),length(kernel_frames),size(binned_spikes,1));
 
-r_px = zeros(size(U,1),size(U,2),size(r,2),size(r,3),'single');
+r_px_max = gpuArray(squeeze(max(reshape(svdFrameReconstruct(Udf(:,:,use_svs), ...
+    reshape(r,size(r,1),[])),size(Udf,1),size(Udf,2),[],size(binned_spikes,1)),[],3)));
+r_px_medfilt = nan(size(r_px_max));
 for curr_spikes = 1:size(r,3);
-    r_px(:,:,:,curr_spikes) = svdFrameReconstruct(U(:,:,use_svs),r(:,:,curr_spikes));
+    curr_medfilt_r = gather(medfilt2(r_px_max(:,:,curr_spikes),[15,15]));
+    r_px_medfilt(:,:,curr_spikes) = curr_medfilt_r;
+    AP_print_progress_fraction(curr_spikes,size(r,3));
 end
+r_px_areas = double(r_px_medfilt).^3;
 
-AP_image_scroll(r_px,kernel_frames_downsample*downsample_factor/framerate);
-caxis([prctile(r_px(:),[1,99])]*4)
-truesize;
+[~,sort_idx] = sort(templateDepths(use_templates));
+AP_image_scroll(r_px_max(:,:,sort_idx));
+caxis([-prctile(r_px_max(:),95),prctile(r_px_max(:),95)])
+colormap(colormap_BlueWhiteRed);
+axis image;
+
+% Binarize max kernels to get areas
+r_px_binary = false(size(r_px_max));
+for curr_spikes = 1:size(r_px_max,3)
+    r_px_binary(:,:,curr_spikes) = imbinarize(r_px_max(:,:,curr_spikes), ...
+        prctile(reshape(r_px_max(:,:,curr_spikes),[],1),90));
+end
+r_px_binary_frac = nanmean(r_px_binary,3);
+
+% Plot map of cortical pixel by preferred depth of probe
+r_px_com = sum(bsxfun(@times,r_px_binary,permute(templateDepths(use_templates),[2,3,1])),3)./sum(r_px_binary,3);
+
+depth_range_min = min(templateDepths(use_templates));
+depth_range_max = max(templateDepths(use_templates));
+
+r_px_binary_frac_aligned = AP_align_widefield(animal,day,r_px_binary_frac);
+r_px_com_aligned = AP_align_widefield(animal,day,r_px_com);
+avg_im_aligned = AP_align_widefield(animal,day,avg_im);
+
+r_px_com_col = ind2rgb(round(mat2gray(r_px_com_aligned,[depth_range_min,depth_range_max])*255),jet(255));
+figure;
+a1 = axes('YDir','reverse');
+imagesc(avg_im_aligned); colormap(gray); caxis([0,prctile(avg_im(:),99.7)]);
+axis off; axis image;
+a2 = axes('Visible','off'); 
+p = imagesc(r_px_com_col);
+axis off; axis image;
+set(p,'AlphaData',mat2gray(r_px_binary_frac_aligned, ...
+     [0,double(prctile(reshape(r_px_binary_frac_aligned,[],1),90))]));
+set(gcf,'color','w');
+
+c1 = colorbar('peer',a1,'Visible','off');
+c2 = colorbar('peer',a2);
+ylabel(c2,'Depth (\mum)');
+colormap(c2,jet);
+set(c2,'YDir','reverse');
+set(c2,'YTick',linspace(0,1,6));
+set(c2,'YTickLabel',linspace(depth_range_min,depth_range_max,6));
+ 
+AP_reference_outline('ccf_aligned','b');AP_reference_outline('retinotopy','m');
+
+% Trying out a thing: correlation of kernel across depths
+[~,sort_idx] = sort(templateDepths(use_templates));
+r_px_binary_reshape = reshape(r_px_binary(:,:,sort_idx),[],size(r_px_binary,3));
+r_px_binary_reshape_medfilt = medfilt1(+r_px_binary_reshape',10)';
+figure;imagesc(corrcoef(r_px_binary_reshape_medfilt));
+axis square; colormap(gray);
+xlabel('Template');
+ylabel('Template');
+
+
+
 
 
 %% Matrix division method of fluorescence -> spike kernel (pixel space)
