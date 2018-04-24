@@ -159,11 +159,21 @@ switch file
     case 'ephys'
         filepath = [server1 filesep 'Data\Subjects'];
         filename = [filepath filesep animal filesep day filesep 'ephys' site_dir filesep 'kilosort' filesep];
+        % CHECK SERVER2 IF IT DOESN'T EXIST
+        if ~exist(filename,'dir')
+            filepath = [server2 filesep 'Subjects'];
+            filename = [filepath filesep animal filesep day filesep 'ephys' site_dir filesep 'kilosort' filesep];
+        end
         
     case 'ephysraw'
         filepath = [server1 filesep 'Data\Subjects'];
         filename = [filepath filesep animal filesep day filesep 'ephys' site_dir filesep];
-
+        % CHECK SERVER2 IF IT DOESN'T EXIST
+        if ~exist(filename,'dir')
+            filepath = [server2 filesep 'Subjects'];
+            filename = [filepath filesep animal filesep day filesep 'ephys' site_dir filesep];
+        end
+        
 end
 
 file_exists = exist(filename) > 0;
