@@ -842,25 +842,27 @@ if ephys_exists && load_parts.ephys
     
     % If alignment exists, align
     curr_animal_idx = strcmp(animal,{ephys_align.animal});
-    curr_day_idx = strcmp(day,ephys_align(curr_animal_idx).days);
-    if any(curr_animal_idx) && any(curr_day_idx)
-        curr_str_offset = ephys_align(curr_animal_idx).str_offset(curr_day_idx);
-        % (get striatum depth boundaries offset by striatum start)
-        str_depth_edges = str_depth(1) - curr_str_offset + ephys_align(curr_animal_idx).str_depth_edges;
-        % (get spike depths, setting all outside the striatum to NaN)
-        str_spikeDepths = spikeDepths;
-        str_spikeDepths(spikeDepths < str_depth(1) | spikeDepths > str_depth(2)) = NaN;
-        % (group the striatal spike depths into the um-standardized bins)
-        aligned_str_depth_group = discretize(str_spikeDepths,str_depth_edges);
-        
-        n_aligned_depths = length(str_depth_edges)-1;
+    if any(curr_animal_idx)
+        curr_day_idx = strcmp(day,ephys_align(curr_animal_idx).days);
+        if any(curr_day_idx)
+            curr_str_offset = ephys_align(curr_animal_idx).str_offset(curr_day_idx);
+            % (get striatum depth boundaries offset by striatum start)
+            str_depth_edges = str_depth(1) - curr_str_offset + ephys_align(curr_animal_idx).str_depth_edges;
+            % (get spike depths, setting all outside the striatum to NaN)
+            str_spikeDepths = spikeDepths;
+            str_spikeDepths(spikeDepths < str_depth(1) | spikeDepths > str_depth(2)) = NaN;
+            % (group the striatal spike depths into the um-standardized bins)
+            aligned_str_depth_group = discretize(str_spikeDepths,str_depth_edges);
+            
+            n_aligned_depths = length(str_depth_edges)-1;
+        end
     end
     
 end
 
 %% Classify spikes
 
-if ephys_exists && load_parts.ephys
+if ephys_exists && load_parts.ephys && exist('cluster_groups','var')
     if verbose; disp('Classifying spikes...'); end;
  
     str_templates = templateDepths >= str_depth(1) & templateDepths <= str_depth(2);
