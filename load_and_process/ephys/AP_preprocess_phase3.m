@@ -9,11 +9,11 @@ if exist('local_data','var') && local_data
         {['D:\data\' animal filesep day '\ephys']};
 else
     data_paths =  ...
-        {['\\zserver.cortexlab.net\Data\Subjects\' animal filesep day filesep 'ephys']};
+        {['\\zubjects.cortexlab.net\Subjects\' animal filesep day filesep 'ephys']};
 end
 
 save_paths =  ...
-    {['\\zserver.cortexlab.net\Data\Subjects\' animal filesep day filesep 'ephys' filesep 'kilosort']};
+    {['\\zubjects.cortexlab.net\Subjects\' animal filesep day filesep 'ephys' filesep 'kilosort']};
 
 % Check for multiple sites (based on the data path containing only folders)
 data_path_dir = dir(data_paths{1});
@@ -32,8 +32,8 @@ for curr_site = 1:length(data_paths)
     end
     
     % Filenames are semi-hardcoded in open ephys convention
-    ap_data_dir = dir([curr_data_path filesep 'experiment*_100-0_0.dat']);
-    lfp_data_dir = dir([curr_data_path filesep 'experiment*_100-1_0.dat']);
+    ap_data_dir = dir([curr_data_path filesep 'experiment*_10*-0_0.dat']);
+    lfp_data_dir = dir([curr_data_path filesep 'experiment*_10*-1_0.dat']);
     sync_dir = dir([curr_data_path filesep 'experiment*_all_channels_0.events']);
     messages_dir = dir([curr_data_path filesep 'experiment*_messages_0.events']);
     settings_dir = dir([curr_data_path filesep 'settings*.xml']);

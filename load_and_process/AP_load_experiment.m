@@ -475,7 +475,11 @@ end
 
 [data_path,data_path_exists] = AP_cortexlab_filename(animal,day,experiment,'imaging',site);
 
-if data_path_exists && load_parts.imaging
+% (check for specific imaging file since data path is just root)
+spatialComponents_fns = dir([data_path filesep 'svdSpatialComponents*']);
+imaging_exists = ~isempty(spatialComponents_fns);
+
+if imaging_exists && load_parts.imaging
     if verbose; disp('Loading imaging data...'); end;
     
     % Get the imaged colors

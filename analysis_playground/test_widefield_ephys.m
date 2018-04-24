@@ -2511,7 +2511,7 @@ frame_edges = [frame_t(1),mean([frame_t(2:end);frame_t(1:end-1)],1),frame_t(end)
 frame_spikes = single(frame_spikes);
 
 use_svs = 1:50;
-kernel_t = [-0.2,0.2];
+kernel_t = [-0.3,0.3];
 kernel_frames = round(kernel_t(1)*framerate):round(kernel_t(2)*framerate);
 zs = [false,true]; % MUA has to be z-scored if large lambda
 cvfold = 5;
@@ -2564,7 +2564,7 @@ lambda_start = 1e3;
 n_reduce_lambda = 3;
 
 use_svs = 1:50;
-kernel_t = [0,0]; 
+kernel_t = [-0.3,0.3]; 
 kernel_frames = round(kernel_t(1)*framerate):round(kernel_t(2)*framerate);
 zs = [false,true]; % MUA has to be z-scored if large lambda
 cvfold = 5;
@@ -2593,11 +2593,83 @@ while update_lambda;
         curr_lambda = curr_lambda/2;
         update_lambda = update_lambda-1;
     end
-        
+        AP_print_progress_fraction(update_lambda,update_lambda);
 end
 
 lambda = lambdas(end);
 disp(['Best lambda = ' num2str(lambda) ', Frac var = ' num2str(explained_var_lambdas(end))]);
+
+%% Regression fluor -> MUA: get lambda via cross-validation (auto stop, NEW)
+
+% Skip the first n seconds to do this
+skip_seconds = 60;
+use_frames = (frame_t > skip_seconds & frame_t < frame_t(end)-skip_seconds);
+
+% Group multiunit by depth
+n_depths = 6;
+depth_group_edges = round(linspace(str_depth(1),str_depth(2),n_depths+1));
+depth_group_edges_use = depth_group_edges;
+
+[depth_group_n,depth_group] = histc(spikeDepths,depth_group_edges_use);
+depth_groups_used = unique(depth_group);
+depth_group_centers = depth_group_edges_use(1:end-1)+(diff(depth_group_edges_use)/2);
+
+% Use spikes at specific depth
+use_spikes = spike_times_timeline(depth_group ~= 0);
+frame_edges = [frame_t(1),mean([frame_t(2:end);frame_t(1:end-1)],1),frame_t(end)+1/framerate];
+[frame_spikes,~,spike_frames] = histcounts(use_spikes,frame_edges);
+frame_spikes = single(frame_spikes);
+
+use_svs = 1:50;
+kernel_t = [-0.3,0.3];
+kernel_frames = round(kernel_t(1)*framerate):round(kernel_t(2)*framerate);
+zs = [false,true]; % MUA has to be z-scored if large lambda
+cvfold = 5;
+use_frames_idx = find(use_frames);
+
+n_update_lambda = 3;
+lambda_range = [0,10]; % ^10
+n_lambdas = 10;
+
+figure; hold on;
+set(gca,'XScale','log');
+xlabel('\lambda');
+ylabel('Explained variance');
+drawnow;
+for curr_update_lambda = 1:n_update_lambda
+  
+    lambdas = logspace(lambda_range(1),lambda_range(2),n_lambdas);
+    explained_var_lambdas = nan(n_lambdas,1);
+
+    curr_plot = plot(lambdas,explained_var_lambdas,'linewidth',2);
+    
+    for curr_lambda_idx = 1:length(lambdas)
+        
+        curr_lambda = lambdas(curr_lambda_idx);
+        
+        [~,predicted_spikes,explained_var] = ...
+            AP_regresskernel(conv2(diff(fVdf(use_svs,use_frames_idx),[],2),[1,1]/2,'valid'), ...
+            frame_spikes(:,use_frames_idx(2:end-1)),kernel_frames,curr_lambda,zs,cvfold);
+        
+        explained_var_lambdas(curr_lambda_idx) = explained_var.total;
+        
+        set(curr_plot,'YData',explained_var_lambdas);
+        drawnow;
+        
+    end        
+
+    lambda_bin_size = diff(lambda_range)/n_lambdas;
+    [~,best_lambda_idx] = max(explained_var_lambdas);
+    best_lambda = lambdas(best_lambda_idx);
+    lambda_range = log10([best_lambda,best_lambda]) + ...
+        [-lambda_bin_size,lambda_bin_size];
+        
+end
+
+lambda = best_lambda;
+
+disp(['Best lambda = ' num2str(lambda) ', Frac var = ' num2str(explained_var_lambdas(best_lambda_idx))]);
+
 
 %% Regression fluor -> templates: get lambda via cross-validation (auto stop)
 
@@ -2783,9 +2855,6 @@ for curr_depth = 1:n_depths
     
 end
 
-% Normalize binned spikes
-binned_spikes = bsxfun(@rdivide,binned_spikes,std(binned_spikes,[],2));
-
 % Get rid of NaNs (if no data?)
 binned_spikes(isnan(binned_spikes)) = 0;
 
@@ -2794,7 +2863,7 @@ kernel_t = [-0.3,0.3];
 kernel_frames = round(kernel_t(1)*sample_rate):round(kernel_t(2)*sample_rate);
 % lambda = 1e5; % (COMMENT OUT TO USE LAMBDA FROM ESTIMATION ABOVE)
 zs = [false,true];
-cvfold = 5;
+cvfold = 5 ;
 
 fVdf_resample = interp1(frame_t,fVdf(use_svs,:)',time_bin_centers)';
 
@@ -2842,7 +2911,7 @@ a2 = axes('Visible','off');
 p = imagesc(r_px_com_col);
 axis off; axis image;
 set(p,'AlphaData',mat2gray(max(r_px_max_norm,[],3), ...
-     [0,double(prctile(reshape(max(r_px_max_norm,[],3),[],1),99))]));
+     [0,double(prctile(reshape(max(r_px_max_norm,[],3),[],1),95))]));
 set(gcf,'color','w');
 
 c1 = colorbar('peer',a1,'Visible','off');
@@ -2887,7 +2956,7 @@ end
 use_svs = 1:50;
 kernel_t = [-0.2,0.2];
 kernel_frames = round(kernel_t(1)*sample_rate):round(kernel_t(2)*sample_rate);
-lambda = 1e6; % (comment out to use lambda from above)
+% lambda = 2e5; % (comment out to use lambda from above)
 zs = [false,true];
 cvfold = 5;
 
@@ -2909,25 +2978,26 @@ r_px_max = gpuArray(squeeze(max(reshape(svdFrameReconstruct(Udf(:,:,use_svs), ..
     reshape(r,size(r,1),[])),size(Udf,1),size(Udf,2),[],size(binned_spikes,1)),[],3)));
 r_px_medfilt = nan(size(r_px_max));
 for curr_spikes = 1:size(r,3);
-    curr_medfilt_r = gather(medfilt2(r_px_max(:,:,curr_spikes),[15,15]));
+    curr_medfilt_r = gather(medfilt2(r_px_max(:,:,curr_spikes),[11,11]));
     r_px_medfilt(:,:,curr_spikes) = curr_medfilt_r;
     AP_print_progress_fraction(curr_spikes,size(r,3));
 end
-r_px_areas = double(r_px_medfilt).^3;
-
-[~,sort_idx] = sort(templateDepths(use_templates));
-AP_image_scroll(r_px_max(:,:,sort_idx));
-caxis([-prctile(r_px_max(:),95),prctile(r_px_max(:),95)])
-colormap(colormap_BlueWhiteRed);
-axis image;
+r_px_areas = r_px_medfilt.^3;
 
 % Binarize max kernels to get areas
-r_px_binary = false(size(r_px_max));
-for curr_spikes = 1:size(r_px_max,3)
-    r_px_binary(:,:,curr_spikes) = imbinarize(r_px_max(:,:,curr_spikes), ...
-        prctile(reshape(r_px_max(:,:,curr_spikes),[],1),90));
+r_px_binary = false(size(r_px_areas));
+for curr_spikes = 1:size(r_px_areas,3)
+    r_px_binary(:,:,curr_spikes) = imbinarize(r_px_areas(:,:,curr_spikes), ...
+        prctile(reshape(r_px_areas(:,:,curr_spikes),[],1),90));
 end
 r_px_binary_frac = nanmean(r_px_binary,3);
+
+% Plot nonbinary/binary kernels by depth
+[~,sort_idx] = sort(templateDepths(use_templates));
+AP_image_scroll([mat2gray(r_px_areas(:,:,sort_idx), ...
+    [-prctile(r_px_areas(:),95),prctile(r_px_areas(:),95)]), ...
+    r_px_binary(:,:,sort_idx)],explained_var.total); 
+axis image;
 
 % Plot map of cortical pixel by preferred depth of probe
 r_px_com = sum(bsxfun(@times,r_px_binary,permute(templateDepths(use_templates),[2,3,1])),3)./sum(r_px_binary,3);
@@ -2964,14 +3034,11 @@ AP_reference_outline('ccf_aligned','b');AP_reference_outline('retinotopy','m');
 % Trying out a thing: correlation of kernel across depths
 [~,sort_idx] = sort(templateDepths(use_templates));
 r_px_binary_reshape = reshape(r_px_binary(:,:,sort_idx),[],size(r_px_binary,3));
-r_px_binary_reshape_medfilt = medfilt1(+r_px_binary_reshape',10)';
+r_px_binary_reshape_medfilt = medfilt1(+r_px_binary_reshape',20)';
 figure;imagesc(corrcoef(r_px_binary_reshape_medfilt));
 axis square; colormap(gray);
 xlabel('Template');
 ylabel('Template');
-
-
-
 
 
 %% Matrix division method of fluorescence -> spike kernel (pixel space)

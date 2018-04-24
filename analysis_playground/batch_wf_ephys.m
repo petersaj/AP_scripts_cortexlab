@@ -925,7 +925,7 @@ for curr_animal = 1:length(animals)
         lambda_start = 1e3;
         n_reduce_lambda = 3;
         
-        kernel_t = [-0.1,0.1];
+        kernel_t = [-0.3,0.3];
         kernel_frames = round(kernel_t(1)*sample_rate):round(kernel_t(2)*sample_rate);
         zs = [false,true];
         cvfold = 5;
