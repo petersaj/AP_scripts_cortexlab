@@ -654,7 +654,7 @@ if ephys_exists && load_parts.ephys
     n_channels = str2num(header.n_channels);
     %lfp_filename = [ephys_path filesep 'lfp.dat']; (this is old)
     [data_path,data_path_exists] = AP_cortexlab_filename(animal,day,experiment,'ephysraw',site);
-    lfp_dir = dir([data_path 'experiment*_100-1_0.dat']);
+    lfp_dir = dir([data_path 'experiment*-1_0.dat']);
     lfp_filename = [data_path lfp_dir.name];
     if load_lfp && exist(lfp_filename,'file')
         lfp_sample_rate = str2num(header.lfp_sample_rate);
@@ -680,8 +680,10 @@ if ephys_exists && load_parts.ephys
     experiment_ephys_starts = sync(acqLive_channel).timestamps(sync(acqLive_channel).values == 1);
     experiment_ephys_stops = sync(acqLive_channel).timestamps(sync(acqLive_channel).values == 0);
     
+    % (get folders with only a number - those're the experiment folders)
     experiments_dir = dir(AP_cortexlab_filename(animal,day,experiment,'expInfo'));
-    experiment_num = experiment == cellfun(@str2num,{experiments_dir(3:end).name});
+    experiments_num_idx = cellfun(@(x) ~isempty(x), regexp({experiments_dir.name},'^\d*$'));
+    experiment_num = experiment == cellfun(@str2num,{experiments_dir(experiments_num_idx).name});
     acqlive_ephys_currexpt = [experiment_ephys_starts(experiment_num), ...
         experiment_ephys_stops(experiment_num)];
     
