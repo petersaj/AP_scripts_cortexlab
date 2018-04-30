@@ -118,12 +118,12 @@ for curr_site = 1:length(data_paths)
     %% Run kilosort
     
     % Set up local directory and clear out
-    local_kilosort_path = 'C:\data_temp\kilosort';
+    local_kilosort_path = 'E:\data_temp\kilosort';
     rmdir(local_kilosort_path,'s');
     mkdir(local_kilosort_path);
     
     % Clear out whatever's currently in phy (usually not enough room)
-    local_phy_path = 'C:\data_temp\phy';
+    local_phy_path = 'E:\data_temp\phy';
     rmdir(local_phy_path,'s');
     mkdir(local_phy_path);
     
@@ -156,7 +156,7 @@ for curr_site = 1:length(data_paths)
     
     %% Copy kilosort results and raw data to phy folder for clustering
     
-    local_phy_path = 'C:\data_temp\phy';
+    local_phy_path = 'E:\data_temp\phy';
     
     % Clear out whatever's currently in phy
     rmdir(local_phy_path,'s');

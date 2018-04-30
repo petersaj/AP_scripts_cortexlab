@@ -1057,7 +1057,8 @@ legend({'Real','Predicted'});
 
 % Spikes in striatum
 % use_spikes_idx = spikeDepths >= str_depth(1) & spikeDepths <= str_depth(2);
-use_spikes_idx = aligned_str_depth_group == 4;
+% use_spikes_idx = aligned_str_depth_group == 4;
+use_spikes_idx = spike_templates == 30;
 
 use_spikes = spike_times_timeline(use_spikes_idx);
 use_templates = spike_templates(use_spikes_idx);
