@@ -2834,7 +2834,7 @@ time_bins = frame_t(find(frame_t > skip_seconds,1)):1/sample_rate:frame_t(find(f
 time_bin_centers = time_bins(1:end-1) + diff(time_bins)/2;
 
 % (to group multiunit by depth from top)
-n_depths = 50;
+n_depths = round(diff(str_depth)/100);
 depth_group_edges = round(linspace(str_depth(1),str_depth(2),n_depths+1));
 [depth_group_n,depth_group] = histc(spikeDepths,depth_group_edges);
 depth_groups_used = unique(depth_group);
@@ -2845,7 +2845,7 @@ depth_group_centers = depth_group_edges(1:end-1)+(diff(depth_group_edges)/2);
 % depth_group = aligned_str_depth_group;
 
 % % (for manual depth)
-% depth_group_edges = [0,1500];
+% depth_group_edges = [1500,2200];
 % n_depths = length(depth_group_edges) - 1;
 % [depth_group_n,depth_group] = histc(spikeDepths,depth_group_edges);
 
@@ -3102,16 +3102,22 @@ r_px_areas = r_px_medfilt.^3;
 % Binarize max kernels to get areas
 r_px_binary = false(size(r_px_areas));
 for curr_spikes = 1:size(r_px_areas,3)
+%     r_px_binary(:,:,curr_spikes) = imbinarize(r_px_areas(:,:,curr_spikes), ...
+%         prctile(reshape(r_px_areas(:,:,curr_spikes),[],1),95));
+    
     r_px_binary(:,:,curr_spikes) = imbinarize(r_px_areas(:,:,curr_spikes), ...
-        prctile(reshape(r_px_areas(:,:,curr_spikes),[],1),90));
+        2*nanstd(reshape(r_px_areas(:,:,curr_spikes),[],1)));
 end
 r_px_binary_frac = nanmean(r_px_binary,3);
 
 % Plot nonbinary/binary kernels by depth
 [~,sort_idx] = sort(templateDepths(use_templates));
-plot_labels = cellfun(@(template,depth,expl_var) ...
-    sprintf('template %d, %d um, %d%%',template,round(depth),round(expl_var*100)), ...
-    num2cell(use_templates),num2cell(templateDepths(use_templates)),num2cell(explained_var.total),'uni',false);
+idx = 1:length(use_templates);
+idx(sort_idx) = 1:length(use_templates);
+plot_labels = cellfun(@(idx,template,depth,expl_var) ...
+    sprintf('idx %d, template %d, %d um, %d%%',idx,template,round(depth),round(expl_var*100)), ...
+    num2cell(idx'),num2cell(use_templates), ...
+    num2cell(templateDepths(use_templates)),num2cell(explained_var.total),'uni',false);
 AP_image_scroll([mat2gray(r_px_areas(:,:,sort_idx), ...
     [-prctile(r_px_areas(:),95),prctile(r_px_areas(:),95)]), ...
     r_px_binary(:,:,sort_idx)],plot_labels(sort_idx)); 

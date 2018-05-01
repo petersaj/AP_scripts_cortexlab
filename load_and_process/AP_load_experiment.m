@@ -541,7 +541,7 @@ if imaging_exists && load_parts.imaging
         
         Vh_Un = ChangeU(Uh,Vh,Un);
         
-        hemo_tform_fn = [data_path filesep 'hemo_tform.mat'];
+        hemo_tform_fn = [experiment_path filesep 'hemo_tform.mat'];
         if exist(hemo_tform_fn,'file')
             % If the hemo tform matrix has been computed, load and fix
             if verbose; disp('Using old hemo tform...'); end;

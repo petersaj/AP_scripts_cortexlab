@@ -1288,6 +1288,11 @@ pca_data = zscore([squeeze(nanmean(template_psth_smooth(go_left,:,depth_group ==
 n_depths = n_aligned_depths;
 depth_group = aligned_str_depth_group;
 
+% % (for manual depth)
+% depth_group_edges = [1500,2200];
+% n_depths = length(depth_group_edges) - 1;
+% [depth_group_n,depth_group] = histc(spikeDepths,depth_group_edges);
+
 % Define trials to use
 n_trials = length(block.paramsValues);
 trial_outcome = signals_events.hitValues(1:n_trials)-signals_events.missValues(1:n_trials);
@@ -3560,6 +3565,9 @@ end
 
 % Plot map (from mean kernel)
 r_px_max = squeeze(max(r_px_mean,[],3)).^3;
+for i = 1:n_depths
+    r_px_max(:,:,i) = medfilt2(r_px_max(:,:,i),[10,10]);
+end
 r_px_max_norm = bsxfun(@rdivide,r_px_max, ...
     permute(max(reshape(r_px_max,[],n_depths),[],1),[1,3,2]));
 r_px_max_norm(isnan(r_px_max_norm)) = 0;
