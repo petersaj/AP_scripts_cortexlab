@@ -2656,17 +2656,13 @@ for curr_update_lambda = 1:n_update_lambda
     end        
 
     lambda_bin_size = diff(lambda_range)/n_lambdas;
-    explained_var_lambdas_smoothed = smooth(explained_var_lambdas,3);
-    [best_lambda_explained_var,best_lambda_idx] = max(explained_var_lambdas_smoothed);
+    explained_var_lambdas_smoothed =
+    [~,best_lambda_idx] = max(explained_var_lambdas);
     best_lambda = lambdas(best_lambda_idx);
     lambda_range = log10([best_lambda,best_lambda]) + ...
         [-lambda_bin_size,lambda_bin_size];
         
 end
-
-plot(lambdas,explained_var_lambdas_smoothed,'r');
-line(xlim,repmat(best_lambda_explained_var,1,2),'color','k');
-line(repmat(best_lambda,1,2),ylim,'color','k');
 
 lambda = best_lambda;
 

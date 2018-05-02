@@ -14,9 +14,9 @@ x_shaken = permute(x,dim_reorder);
 x_shaken = reshape(x_shaken,prod(x_size(dim)),[]);
 
 % Run through each column and shake the data
-for i = 1:size(x_shaken,2)
-    x_shaken(:,i) = x_shaken(randperm(size(x_shaken,1)),i);
-end
+[~,shaken_column_idx] = sort(rand(size(x_shaken)),1);
+shaken_element_idx = bsxfun(@plus,shaken_column_idx,size(x_shaken,1)*(0:size(x_shaken,2)-1));
+x_shaken = x_shaken(shaken_element_idx);
 
 % Reshape and permute the shaken data back to normal
 [~,dim_reorder_reverse] = sort(dim_reorder);
