@@ -2,6 +2,10 @@ function AP_preprocess_phase3(animal,day,local_data)
 % AP_preprocess_phase3(animal,day,local_data)
 % if local_data - use data on D:data (used when zserver is down)
 
+if ~exist('local_data','var')
+    local_data = false;
+end
+
 %% Get paths and filenames
 
 if exist('local_data','var') && local_data

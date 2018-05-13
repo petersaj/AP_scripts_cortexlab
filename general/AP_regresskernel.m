@@ -114,9 +114,9 @@ for curr_cv = 1:cvfold
         test_idx = cv_partition == curr_cv;
     end
     
-    % If regressors for training fold are empty, error out
+    % If regressors for training fold are empty, warning
     if ~all(any(regressors_gpu(train_idx,:),1));
-        error('Regressors in fold unfilled (not enough trials?)');
+        warning('Regressors in fold unfilled (not enough trials?)');
     end
     
     % Used to do manual inv(fluor_gpu'*fluor_gpu)*fluor_gpu'*spikes_gpu

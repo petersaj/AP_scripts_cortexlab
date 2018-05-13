@@ -866,18 +866,21 @@ save([save_path filesep 'roi_choiceworld'],'batch_vars');
 
 disp(['Finished batch'])
 
-%% Batch widefield > striatum maps (upsampled, ddf/f, lambda estimate)
+%% !!!!                 DEFINE CORTEX-STRIATUM PARAMETERS               !!!!
+
+%% 1) Estimate imaging-ephys lambda
+% (this should be the same as in AP_estimate_lambda, but if that's never
+% going to be used out of this context then better to just keep the code
+% here)
 
 animals = {'AP024','AP025','AP026','AP027','AP028','AP029'};
 
 protocol = 'vanillaChoiceworld';
-% protocol = 'stimSparseNoiseUncorrAsync';
-% protocol = 'stimKalatsky';
-% protocol = 'AP_choiceWorldStimPassive';
 
-batch_vars = struct;
+ctx_str_lambda = struct;
+
 for curr_animal = 1:length(animals)
-     
+    
     animal = animals{curr_animal};
     experiments = AP_find_experiments(animal,protocol);
     
@@ -899,45 +902,46 @@ for curr_animal = 1:length(animals)
         day = experiments(curr_day).day;
         experiment = experiments(curr_day).experiment;
         
-        AP_load_experiment       
-        
-        %%% Estimate lambda for regression        
-        upsample_factor = 0.2;
+        AP_load_experiment
+                
+        % Set upsample factor and sample rate
+        upsample_factor = 2;
         sample_rate = (1/median(diff(frame_t)))*upsample_factor;
         
+        % Skip the first n seconds to do this
         skip_seconds = 60;
         time_bins = frame_t(find(frame_t > skip_seconds,1)):1/sample_rate:frame_t(find(frame_t-frame_t(end) < -skip_seconds,1,'last'));
         time_bin_centers = time_bins(1:end-1) + diff(time_bins)/2;
         
-        % Get upsampled dVdf's
-        use_svs = 1:50;
-        dfVdf_resample = interp1(conv2(frame_t,[1,1]/2,'valid'), ...
-            diff(fVdf(use_svs,:),[],2)',time_bin_centers)';
-        
-        % Use spikes from all striatum for lambda estimation       
+        % Use all spikes in striatum
         use_spikes = spike_times_timeline(ismember(spike_templates, ...
             find(templateDepths > str_depth(1) & templateDepths <= str_depth(2))));
         binned_spikes = single(histcounts(use_spikes,time_bins));
-                
+        
+        use_svs = 1:50;
         kernel_t = [-0.3,0.3];
-        kernel_frames = round(kernel_t(1)*framerate):round(kernel_t(2)*framerate);
-        zs = [false,true]; % MUA has to be z-scored if large lambda
-        cvfold = 10;
+        kernel_frames = round(kernel_t(1)*sample_rate):round(kernel_t(2)*sample_rate);
+        zs = [false,true]; % z-score MUA, not V's
+        cvfold = 2;
+        
+        % Resample and get derivative of V
+        dfVdf_resample = interp1(conv2(frame_t,[1,1]/2,'valid'), ...
+            diff(fVdf(use_svs,:),[],2)',time_bin_centers)';
         
         n_update_lambda = 1;
-        lambda_range = [3,8]; % ^10
-        n_lambdas = 100;
-
+        lambda_range = [3,7]; % ^10
+        n_lambdas = 50;
+        
         for curr_update_lambda = 1:n_update_lambda
             
-            lambdas = logspace(lambda_range(1),lambda_range(2),n_lambdas);
+            lambdas = logspace(lambda_range(1),lambda_range(2),n_lambdas)';
             explained_var_lambdas = nan(n_lambdas,1);
-                        
+            
             for curr_lambda_idx = 1:length(lambdas)
                 
                 curr_lambda = lambdas(curr_lambda_idx);
                 
-                [~,predicted_spikes,explained_var] = ...
+                [~,~,explained_var] = ...
                     AP_regresskernel(dfVdf_resample, ...
                     binned_spikes,kernel_frames,curr_lambda,zs,cvfold);
                 
@@ -946,14 +950,77 @@ for curr_animal = 1:length(animals)
             end
             
             lambda_bin_size = diff(lambda_range)/n_lambdas;
-            [best_lambda_explained_var,best_lambda_idx] = max(explained_var_lambdas);
+            explained_var_lambdas_smoothed = smooth(explained_var_lambdas,3);
+            [best_lambda_explained_var,best_lambda_idx] = max(explained_var_lambdas_smoothed);
             best_lambda = lambdas(best_lambda_idx);
             lambda_range = log10([best_lambda,best_lambda]) + ...
                 [-lambda_bin_size,lambda_bin_size];
             
         end
+                
+        ctx_str_lambda(curr_animal).animal = animal;
+        ctx_str_lambda(curr_animal).day{curr_day} = day;
+        ctx_str_lambda(curr_animal).best_lambda(curr_day) = best_lambda;
+        ctx_str_lambda(curr_animal).lambdas{curr_day} = lambdas;        
+        ctx_str_lambda(curr_animal).explained_var_lambdas{curr_day} = explained_var_lambdas;        
         
-        lambda = best_lambda;   
+        AP_print_progress_fraction(curr_day,length(experiments));
+        clearvars -except load_parts animals animal curr_animal protocol experiments curr_day animal ctx_str_lambda 
+        
+    end
+end
+
+% Save
+save_path = 'C:\Users\Andrew\OneDrive for Business\Documents\CarandiniHarrisLab\analysis\wf_ephys_choiceworld\ephys_processing';
+save_fn = 'ctx-str_lambda';
+save([save_path filesep save_fn],'ctx_str_lambda');
+disp('Saved cortex-striatum lambda values');
+
+%% 2) Batch cortex -> striatum maps
+
+animals = {'AP024','AP025','AP026','AP027','AP028','AP029'};
+
+protocol = 'vanillaChoiceworld';
+% protocol = 'stimSparseNoiseUncorrAsync';
+% protocol = 'stimKalatsky';
+% protocol = 'AP_choiceWorldStimPassive';
+
+batch_vars = struct;
+for curr_animal = 1:length(animals)
+    
+    animal = animals{curr_animal};
+    experiments = AP_find_experiments(animal,protocol);
+    
+    % Skip if this animal doesn't have this experiment
+    if isempty(experiments)
+        continue
+    end
+    
+    disp(animal);
+    
+    experiments = experiments([experiments.imaging] & [experiments.ephys]);
+    
+    load_parts.cam = false;
+    load_parts.imaging = true;
+    load_parts.ephys = true;
+    
+    for curr_day = 1:length(experiments);
+        
+        day = experiments(curr_day).day;
+        experiment = experiments(curr_day).experiment;
+        
+        AP_load_experiment;
+                
+        %%% Load lambda from previously estimated and saved
+        lambda_fn = 'C:\Users\Andrew\OneDrive for Business\Documents\CarandiniHarrisLab\analysis\wf_ephys_choiceworld\ephys_processing\ctx-str_lambda';
+        load(lambda_fn);
+        curr_animal_idx = strcmp(animal,{ctx_str_lambda.animal});
+        if any(curr_animal_idx)
+            curr_day_idx = strcmp(day,ctx_str_lambda(curr_animal_idx).day);
+            if any(curr_day_idx)
+                lambda = ctx_str_lambda(curr_animal_idx).best_lambda(curr_day_idx);
+            end
+        end
         
         %%% Prepare data for regression                
         upsample_factor = 2;
@@ -1024,12 +1091,11 @@ for curr_animal = 1:length(animals)
         r_px_weight = max(abs(r_px_max),[],3);
         
         % Store all variables to save
-        batch_vars(curr_animal).lambda(curr_day,1:2) = [lambda,best_lambda_explained_var];
         batch_vars(curr_animal).r_px{curr_day} = r_px;
         batch_vars(curr_animal).r_px_com{curr_day} = r_px_com;
         batch_vars(curr_animal).r_px_weight{curr_day} = r_px_weight;
         batch_vars(curr_animal).explained_var{curr_day} = explained_var.total;
-        
+              
         AP_print_progress_fraction(curr_day,length(experiments));
         clearvars -except animals animal curr_animal protocol experiments curr_day animal batch_vars load_parts
         
@@ -1044,6 +1110,170 @@ save_path = ['C:\Users\Andrew\OneDrive for Business\Documents\CarandiniHarrisLab
 save([save_path filesep 'wf_ephys_maps_' protocol],'batch_vars','-v7.3');
 warning('saving -v7.3');
 disp('Finished batch');
+
+%% 3) Batch align striatum recordings from wf > ephys maps
+
+animals = {'AP024','AP025','AP026','AP027','AP028','AP029'};
+
+protocol = 'vanillaChoiceworld';
+
+ephys_kernel_align_new = struct;
+
+for curr_animal = 1:length(animals)
+    
+    animal = animals{curr_animal};
+    experiments = AP_find_experiments(animal,protocol);
+    
+    % Skip if this animal doesn't have this experiment
+    if isempty(experiments)
+        continue
+    end
+    
+    disp(animal);
+    
+    experiments = experiments([experiments.imaging] & [experiments.ephys]);
+    
+    load_parts.cam = false;
+    load_parts.imaging = true;
+    load_parts.ephys = true;
+    
+    for curr_day = 1:length(experiments);
+        
+        day = experiments(curr_day).day;
+        experiment = experiments(curr_day).experiment;
+        
+        AP_load_experiment 
+        
+        % Load the template kernels
+        kernel_template_fn = 'C:\Users\Andrew\OneDrive for Business\Documents\CarandiniHarrisLab\analysis\wf_ephys_choiceworld\ephys_processing\kernel_template.mat';
+        load(kernel_template_fn);
+        
+        %%% Load lambda from previously estimated and saved
+        lambda_fn = 'C:\Users\Andrew\OneDrive for Business\Documents\CarandiniHarrisLab\analysis\wf_ephys_choiceworld\ephys_processing\ctx-str_lambda';
+        load(lambda_fn);
+        curr_animal_idx = strcmp(animal,{ctx_str_lambda.animal});
+        if any(curr_animal_idx)
+            curr_day_idx = strcmp(day,ctx_str_lambda(curr_animal_idx).day);
+            if any(curr_day_idx)
+                lambda = ctx_str_lambda(curr_animal_idx).best_lambda(curr_day_idx);
+            end
+        end       
+        % Bump it up - no this doesn't make sense, but it makes it better
+        lambda = lambda*10;
+        
+        % Set upsample value for regression
+        upsample_factor = 2;
+        sample_rate = (1/median(diff(frame_t)))*upsample_factor;
+        
+        % Skip the first/last n seconds to do this
+        skip_seconds = 60;
+        time_bins = frame_t(find(frame_t > skip_seconds,1)):1/sample_rate:frame_t(find(frame_t-frame_t(end) < -skip_seconds,1,'last'));
+        time_bin_centers = time_bins(1:end-1) + diff(time_bins)/2;
+        
+        % Get multiunit in 100 um depths
+        n_depths = round(diff(str_depth)/100);
+        depth_group_edges = round(linspace(str_depth(1),str_depth(2),n_depths+1));
+        [depth_group_n,depth_group] = histc(spikeDepths,depth_group_edges);
+        depth_groups_used = unique(depth_group);
+        depth_group_centers = depth_group_edges(1:end-1)+(diff(depth_group_edges)/2);
+        
+        binned_spikes = zeros(n_depths,length(time_bins)-1);
+        for curr_depth = 1:n_depths
+            curr_spike_times = spike_times_timeline(depth_group == curr_depth);
+            binned_spikes(curr_depth,:) = histcounts(curr_spike_times,time_bins);
+        end
+        
+        % Get rid of NaNs (if no data?)
+        binned_spikes(isnan(binned_spikes)) = 0;
+        
+        use_svs = 1:50;
+        kernel_t = [-0.3,0.3];
+        kernel_frames = round(kernel_t(1)*sample_rate):round(kernel_t(2)*sample_rate);
+        % (lambda taken from estimate above)
+        zs = [false,true];
+        cvfold = 10;
+        
+        dfVdf_resample = interp1(conv2(frame_t,[1,1]/2,'valid'), ...
+            diff(fVdf(use_svs,:),[],2)',time_bin_centers)';
+        
+        % Regress spikes from cortical fluorescence
+        [k,predicted_spikes,explained_var] = ...
+            AP_regresskernel(dfVdf_resample, ...
+            binned_spikes,kernel_frames,lambda,zs,cvfold);
+        
+        % Reshape kernel and convert to pixel space
+        r = reshape(k,length(use_svs),length(kernel_frames),size(binned_spikes,1));
+        
+        r_px = zeros(size(U,1),size(U,2),size(r,2),size(r,3),'single');
+        for curr_spikes = 1:size(r,3);
+            r_px(:,:,:,curr_spikes) = svdFrameReconstruct(Udf(:,:,use_svs),r(:,:,curr_spikes));
+        end
+        
+        % Get center of mass for each pixel
+        % (get max r for each pixel, filter out big ones)
+        r_px_max = squeeze(max(r_px,[],3)).^3;
+        r_px_max(isnan(r_px_max)) = 0;
+        for i = 1:n_depths
+            r_px_max(:,:,i) = medfilt2(r_px_max(:,:,i),[10,10]);
+        end
+        r_px_max_norm = bsxfun(@rdivide,r_px_max, ...
+            permute(max(reshape(r_px_max,[],n_depths),[],1),[1,3,2]));
+        r_px_max_norm(isnan(r_px_max_norm)) = 0;
+        
+        % Get best match from kernels to kernel templates
+        kernel_align = reshape(AP_align_widefield(animal,day,r_px_max_norm),[],n_depths);
+        kernel_align_medfilt = medfilt2(kernel_align,[1,3]);
+        kernel_score = zscore(kernel_align_medfilt,[],1)'* ...
+            zscore(reshape(kernel_template,[],size(kernel_template,3)),[],1);
+        [~,kernel_match_raw] = max(kernel_score,[],2);
+        
+        % CLEAN UP KERNEL MATCH, NOT SURE HOW TO DO THIS YET
+        % Median filter kernel match to get rid of blips
+        kernel_match = medfilt1(kernel_match_raw,3);
+        
+        % If kernel match goes backwards, then set it to nearest neighbor
+        replace_kernel_match = kernel_match < cummax(kernel_match);
+        kernel_match(replace_kernel_match) = ...
+            interp1(find(~replace_kernel_match),kernel_match(~replace_kernel_match), ...
+            find(replace_kernel_match),'nearest');
+        
+        % Assign depth edges and kernel template index numbers
+        kernel_match_boundary_idx = unique([1;find(diff(kernel_match) ~= 0)+1;n_depths]);
+        
+        kernel_match_depth_edges = depth_group_edges(kernel_match_boundary_idx);
+        kernel_match_idx = kernel_match(kernel_match_boundary_idx(1:end-1));
+        
+        % Categorize template by kernel match
+        aligned_str_depth_group = discretize(spikeDepths,kernel_match_depth_edges,kernel_match_idx);
+        n_aligned_depths = size(kernel_template,3);
+        
+        % Package in structure
+        ephys_kernel_align_new(curr_animal).animal = animal;
+        ephys_kernel_align_new(curr_animal).days{curr_day} = day;       
+
+        ephys_kernel_align_new(curr_animal).kernel_match_raw{curr_day} = kernel_match_raw;
+        ephys_kernel_align_new(curr_animal).kernel_match{curr_day} = kernel_match;
+        
+        ephys_kernel_align_new(curr_animal).aligned_str_depth_group{curr_day} = aligned_str_depth_group;
+        ephys_kernel_align_new(curr_animal).n_aligned_depths(curr_day) = n_aligned_depths;
+                
+        AP_print_progress_fraction(curr_day,length(experiments));
+        clearvars -except animals animal curr_animal protocol experiments curr_day animal ephys_kernel_align_new load_parts
+        
+    end
+    disp(['Finished ' animal]);
+end
+
+% Overwrite old alignment
+ephys_kernel_align = ephys_kernel_align_new;
+
+% Save
+save_path = 'C:\Users\Andrew\OneDrive for Business\Documents\CarandiniHarrisLab\analysis\wf_ephys_choiceworld\ephys_processing';
+save_fn = 'ephys_kernel_align';
+save([save_path filesep save_fn],'ephys_kernel_align');
+disp('Saved ephys kernel alignment');
+
+%% !!!!                                                                                                       !!!!
 
 %% Batch cortex > striatum prediction by condition and depth (NL fit)
 
@@ -5331,20 +5561,20 @@ clearvars -except fluor_all mua_all D_all
 disp('Finished loading all')
 
 save_path = 'C:\Users\Andrew\OneDrive for Business\Documents\CarandiniHarrisLab\analysis\wf_ephys_choiceworld\choiceworld';
-save_fn = 'all_trial_activity_df_4str_earlymove.mat';
+save_fn = 'all_trial_activity_df_kernel-str_earlymove.mat';
 save([save_path filesep save_fn]);
 
 %% Batch logistic regression on saved day-concatenated activity (neural data independently)
 
 % Load data
 data_path = 'C:\Users\Andrew\OneDrive for Business\Documents\CarandiniHarrisLab\analysis\wf_ephys_choiceworld\choiceworld';
-data_fn = 'all_trial_activity_df_4str_earlymove.mat';
+data_fn = 'all_trial_activity_df_kernel-str_earlymove.mat';
 load([data_path filesep data_fn]);
 
 % Get time
 framerate = 35.2;
 raster_window = [-0.5,1];
-upsample_factor = 3;
+upsample_factor = 3; 
 raster_sample_rate = 1/(framerate*upsample_factor);
 t = raster_window(1):raster_sample_rate:raster_window(2);
 
@@ -5499,7 +5729,7 @@ end
 
 clearvars -except loglik_increase_fluor loglik_increase_mua
 save_path = ['C:\Users\Andrew\OneDrive for Business\Documents\CarandiniHarrisLab\analysis\wf_ephys_choiceworld\choiceworld'];
-save_fn = ['activity_sessioncat_logistic_regression_earlymove_4str'];
+save_fn = ['activity_sessioncat_logistic_regression_earlymove_kernel-str'];
 save([save_path filesep save_fn])
 
 disp('Finished');

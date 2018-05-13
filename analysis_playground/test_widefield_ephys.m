@@ -2600,77 +2600,78 @@ lambda = lambdas(end);
 disp(['Best lambda = ' num2str(lambda) ', Frac var = ' num2str(explained_var_lambdas(end))]);
 
 %% Regression fluor -> MUA: get lambda via cross-validation (auto stop, NEW)
+% (NOW SAVED AS AP_estimate_lambda - incorporated below)
 
-upsample_factor = 0.2;
-sample_rate = (1/median(diff(frame_t)))*upsample_factor;
-
-% Skip the first n seconds to do this
-skip_seconds = 60;
-time_bins = frame_t(find(frame_t > skip_seconds,1)):1/sample_rate:frame_t(find(frame_t-frame_t(end) < -skip_seconds,1,'last'));
-time_bin_centers = time_bins(1:end-1) + diff(time_bins)/2;
-
-% Use all spikes in striatum
-use_spikes = spike_times_timeline(ismember(spike_templates, ...
-    find(templateDepths > str_depth(1) & templateDepths <= str_depth(2))));
-binned_spikes = single(histcounts(use_spikes,time_bins));
-
-use_svs = 1:50;
-kernel_t = [-0.3,0.3];
-kernel_frames = round(kernel_t(1)*sample_rate):round(kernel_t(2)*sample_rate);
-zs = [false,true]; % MUA has to be z-scored if large lambda
-cvfold = 50;
-
-% Resample and get derivative of V
-dfVdf_resample = interp1(conv2(frame_t,[1,1]/2,'valid'), ...
-    diff(fVdf(use_svs,:),[],2)',time_bin_centers)';
-
-n_update_lambda = 1;
-lambda_range = [3,8]; % ^10
-n_lambdas = 100;
-
-figure; hold on;
-set(gca,'XScale','log');
-xlabel('\lambda');
-ylabel('Explained variance');
-drawnow;
-for curr_update_lambda = 1:n_update_lambda
-  
-    lambdas = logspace(lambda_range(1),lambda_range(2),n_lambdas);
-    explained_var_lambdas = nan(n_lambdas,1);
-
-    curr_plot = plot(lambdas,explained_var_lambdas,'linewidth',2);
-    
-    for curr_lambda_idx = 1:length(lambdas)
-        
-        curr_lambda = lambdas(curr_lambda_idx);
-        
-        [~,predicted_spikes,explained_var] = ...
-            AP_regresskernel(dfVdf_resample, ...
-            binned_spikes,kernel_frames,curr_lambda,zs,cvfold);
-        
-        explained_var_lambdas(curr_lambda_idx) = explained_var.total;
-        
-        set(curr_plot,'YData',explained_var_lambdas);
-        drawnow;
-        
-    end        
-
-    lambda_bin_size = diff(lambda_range)/n_lambdas;
-    explained_var_lambdas_smoothed = smooth(explained_var_lambdas,3);
-    [best_lambda_explained_var,best_lambda_idx] = max(explained_var_lambdas_smoothed);
-    best_lambda = lambdas(best_lambda_idx);
-    lambda_range = log10([best_lambda,best_lambda]) + ...
-        [-lambda_bin_size,lambda_bin_size];
-        
-end
-
-plot(lambdas,explained_var_lambdas_smoothed,'r');
-line(xlim,repmat(best_lambda_explained_var,1,2),'color','k');
-line(repmat(best_lambda,1,2),ylim,'color','k');
-
-lambda = best_lambda;
-
-disp(['Best lambda = ' num2str(lambda) ', Frac var = ' num2str(explained_var_lambdas(best_lambda_idx))]);
+% upsample_factor = 0.2;
+% sample_rate = (1/median(diff(frame_t)))*upsample_factor;
+% 
+% % Skip the first n seconds to do this
+% skip_seconds = 60;
+% time_bins = frame_t(find(frame_t > skip_seconds,1)):1/sample_rate:frame_t(find(frame_t-frame_t(end) < -skip_seconds,1,'last'));
+% time_bin_centers = time_bins(1:end-1) + diff(time_bins)/2;
+% 
+% % Use all spikes in striatum
+% use_spikes = spike_times_timeline(ismember(spike_templates, ...
+%     find(templateDepths > str_depth(1) & templateDepths <= str_depth(2))));
+% binned_spikes = single(histcounts(use_spikes,time_bins));
+% 
+% use_svs = 1:50;
+% kernel_t = [-0.3,0.3];
+% kernel_frames = round(kernel_t(1)*sample_rate):round(kernel_t(2)*sample_rate);
+% zs = [false,true]; % MUA has to be z-scored if large lambda
+% cvfold = 50;
+% 
+% % Resample and get derivative of V
+% dfVdf_resample = interp1(conv2(frame_t,[1,1]/2,'valid'), ...
+%     diff(fVdf(use_svs,:),[],2)',time_bin_centers)';
+% 
+% n_update_lambda = 1;
+% lambda_range = [3,8]; % ^10
+% n_lambdas = 100;
+% 
+% figure; hold on;
+% set(gca,'XScale','log');
+% xlabel('\lambda');
+% ylabel('Explained variance');
+% drawnow;
+% for curr_update_lambda = 1:n_update_lambda
+%   
+%     lambdas = logspace(lambda_range(1),lambda_range(2),n_lambdas);
+%     explained_var_lambdas = nan(n_lambdas,1);
+% 
+%     curr_plot = plot(lambdas,explained_var_lambdas,'linewidth',2);
+%     
+%     for curr_lambda_idx = 1:length(lambdas)
+%         
+%         curr_lambda = lambdas(curr_lambda_idx);
+%         
+%         [~,predicted_spikes,explained_var] = ...
+%             AP_regresskernel(dfVdf_resample, ...
+%             binned_spikes,kernel_frames,curr_lambda,zs,cvfold);
+%         
+%         explained_var_lambdas(curr_lambda_idx) = explained_var.total;
+%         
+%         set(curr_plot,'YData',explained_var_lambdas);
+%         drawnow;
+%         
+%     end        
+% 
+%     lambda_bin_size = diff(lambda_range)/n_lambdas;
+%     explained_var_lambdas_smoothed = smooth(explained_var_lambdas,3);
+%     [best_lambda_explained_var,best_lambda_idx] = max(explained_var_lambdas_smoothed);
+%     best_lambda = lambdas(best_lambda_idx);
+%     lambda_range = log10([best_lambda,best_lambda]) + ...
+%         [-lambda_bin_size,lambda_bin_size];
+%         
+% end
+% 
+% plot(lambdas,explained_var_lambdas_smoothed,'r');
+% line(xlim,repmat(best_lambda_explained_var,1,2),'color','k');
+% line(repmat(best_lambda,1,2),ylim,'color','k');
+% 
+% lambda = best_lambda;
+% 
+% disp(['Best lambda = ' num2str(lambda) ', Frac var = ' num2str(explained_var_lambdas(best_lambda_idx))]);
 
 
 %% Regression fluor -> templates: get lambda via cross-validation (auto stop)
@@ -2826,6 +2827,11 @@ set(c2,'YTickLabel',linspace(depth_group_edges(1),depth_group_edges(end),6));
 
 %% Regression from fluor to spikes (AP_regresskernel) MUA depth - RESAMPLE
 
+% % (to estimate lambda value)
+% plot_lambda_estimate = true;
+% AP_estimate_lambda;
+
+% Set upsample value for regression
 upsample_factor = 2;
 sample_rate = (1/median(diff(frame_t)))*upsample_factor;
 

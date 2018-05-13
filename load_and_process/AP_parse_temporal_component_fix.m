@@ -1,8 +1,8 @@
 %% If the V's were parsed but the timestamps weren't saved
 
-animal = 'LEW005';
-day = '2018-02-08';
-experiments = 1;
+animal = 'DS_PS001';
+day = '2018-05-12';
+experiments = 5;
 
 [data_path,file_exists] = AP_cortexlab_filename(animal,day,[],'imaging');
 dataSummary_fn = [data_path filesep 'dataSummary_blue'];
@@ -22,10 +22,7 @@ for curr_exp_idx = 1:length(experiments)
     timeline_cam_idx = strcmp({Timeline.hw.inputs.name}, 'pcoExposure');
     cam_samples = find(Timeline.rawDAQData(1:end-1,timeline_cam_idx) <= 2 & ...
         Timeline.rawDAQData(2:end,timeline_cam_idx) > 2) + 1;
-    % FIX THIS! needs to take blue/purple into account when parsing expts
-%     cam_time = Timeline.rawDAQTimestamps(cam_samples( ...
-%         exp_start_frames(curr_exp):exp_start_frames(curr_exp+1)-1));
-%     
+
     cam_time = Timeline.rawDAQTimestamps(cam_samples);
     
     % Load V's to check

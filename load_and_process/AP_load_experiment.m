@@ -203,7 +203,7 @@ if block_exists
                 % one timeline reward for each block reward, you're good
                 % (eliminate the timeline rewards with no match)
                 manual_timeline_rewards = sum(reward_t_offset_binary,1) == 0;
-                reward_t_timeline(manual_timeline_rewards) = [];  
+                reward_t_timeline(manual_timeline_rewards) = [];
                 warning('Manual rewards included - removed successfully');
             else
                 % otherwise, you're in trouble
@@ -276,7 +276,7 @@ if block_exists
         wheel_smooth_t = 0.05; % seconds
         wheel_smooth_samples = wheel_smooth_t/Timeline.hw.samplingInterval;
         wheel_velocity = diff(smooth(wheel_position,wheel_smooth_samples));
-                
+        
         surround_time = surround_time(1):Timeline.hw.samplingInterval:surround_time(2);
         pull_times = bsxfun(@plus,stimOn_times,surround_time);
         
@@ -321,8 +321,8 @@ if block_exists
         trial_conditions = ...
             [signals_events.trialContrastValues(1:n_trials); signals_events.trialSideValues(1:n_trials); ...
             trial_choice(1:n_trials); trial_timing(1:n_trials)]';
-        [~,trial_id] = ismember(trial_conditions,conditions,'rows');        
-               
+        [~,trial_id] = ismember(trial_conditions,conditions,'rows');
+        
     elseif strcmp(expDef,'AP_visAudioPassive')
         %         min_stim_downtime = 0.5; % minimum time between pd flips to get stim
         %         stimOn_times_pd = photodiode_flip_times([true;diff(photodiode_flip_times) > min_stim_downtime]);
@@ -345,7 +345,7 @@ if block_exists
     elseif strcmp(expDef,'AP_choiceWorldStimPassive')
         % This is kind of a dumb hack to get the stimOn times, maybe not
         % permanent unless it works fine: get stim times by photodiode
-        % flips that are separated by 1s        
+        % flips that are separated by 1s
         photodiode_flip_diff = diff(stimScreen_on_t(photodiode_flip));
         stimOn_idx = find(photodiode_flip_diff > 0.9 & photodiode_flip_diff < 1.1);
         
@@ -355,8 +355,70 @@ if block_exists
         % sometimes if the buffer time wasn't enough, the first stimuli
         % weren't shown or weren't shown completely)
         [conditions,conditions_idx,stimIDs] = unique(signals_events.visualParamsValues(:, ...
-            signals_events.visualOnsetValues(end-length(stimOn_times)+1:end))','rows');   
+            signals_events.visualOnsetValues(end-length(stimOn_times)+1:end))','rows');
         conditions_params = signals_events.visualParamsValues(:,conditions_idx);
+        
+    elseif strcmp(expDef,'DS_choiceWorldStimPassive')
+        % photodiode turns gray? change threshold
+        photodiode_idx = strcmp({Timeline.hw.inputs.name}, photodiode_name);
+        photodiode_trace = medfilt1(Timeline.rawDAQData(stimScreen_on, ...
+            photodiode_idx),10) > 6;
+        photodiode_flip = find((~photodiode_trace(1:end-1) & photodiode_trace(2:end)) | ...
+            (photodiode_trace(1:end-1) & ~photodiode_trace(2:end)))+1;
+        photodiode_flip_times = stimScreen_on_t(photodiode_flip)';
+        
+        % get stim times - first stim photodiode is messed up so throw it out
+        stimOn_times = photodiode_flip_times(2:2:end);
+        
+        % sanity check: times between stim on times in signals
+        signals_photodiode_iti_diff = diff(signals_events.stimOnTimes(2:end)) - diff(stimOn_times)';
+        if any(signals_photodiode_iti_diff > 0.1)
+            error('mismatching signals/photodiode stim ITIs')
+        end
+        
+        % Get stim ID and conditions
+        contrasts = unique(signals_events.stimContrastValues);
+        azimuths = unique(signals_events.stimAzimuthValues);
+        
+        conditions = combvec(contrasts,azimuths)';
+        n_conditions = size(conditions,1);
+        
+        trial_conditions = ...
+            [signals_events.stimContrastValues(2:end); signals_events.stimAzimuthValues(2:end)]';
+        [~,stimIDs] = ismember(trial_conditions,conditions,'rows');
+        
+    elseif strcmp(expDef,'AP_localize_choiceWorldStimPassive')
+        % photodiode turns gray? change threshold
+        photodiode_idx = strcmp({Timeline.hw.inputs.name}, photodiode_name);
+        photodiode_trace = medfilt1(Timeline.rawDAQData(stimScreen_on, ...
+            photodiode_idx),10) > 6;
+        photodiode_flip = find((~photodiode_trace(1:end-1) & photodiode_trace(2:end)) | ...
+            (photodiode_trace(1:end-1) & ~photodiode_trace(2:end)))+1;
+        photodiode_flip_times = stimScreen_on_t(photodiode_flip)';
+        
+        % get stim times - first stim photodiode is messed up so throw it out
+        stimOn_times = photodiode_flip_times(2:2:end);
+        
+        % sanity check: times between stim on times in signals
+        signals_photodiode_iti_diff = diff(signals_events.stimOnTimes(2:end)) - diff(stimOn_times)';
+        if any(signals_photodiode_iti_diff > 0.1)
+            error('mismatching signals/photodiode stim ITIs')
+        end
+        
+        % Get stim ID and conditions
+        azimuths = unique(signals_events.stimAzimuthValues);
+        altitudes = unique(signals_events.stimAltitudeValues);
+
+        trial_conditions = reshape(signals_events.visualParamsValues,2,[])';
+        
+        conditions = unique(trial_conditions,'rows');
+        n_conditions = size(conditions,1);
+        
+        [~,stimIDs] = ismember(trial_conditions,conditions,'rows');
+        
+        % Get rid of the first one for now
+        trial_conditions = trial_conditions(2:end);
+        stimIDs = stimIDs(2:end);
         
     else
         error('Signals protocol with no analysis script')
@@ -474,6 +536,7 @@ end
 %% Load imaging data
 
 [data_path,data_path_exists] = AP_cortexlab_filename(animal,day,experiment,'imaging',site);
+experiment_path = [data_path filesep num2str(experiment)];
 
 % (check for specific imaging file since data path is just root)
 spatialComponents_fns = dir([data_path filesep 'svdSpatialComponents*']);
@@ -482,21 +545,22 @@ imaging_exists = ~isempty(spatialComponents_fns);
 if imaging_exists && load_parts.imaging
     if verbose; disp('Loading imaging data...'); end;
     
-    % Get the imaged colors
-    spatialComponents_fns = dir([data_path filesep 'svdSpatialComponents*']);
-    spatialComponents_names = {spatialComponents_fns.name};
+    % Get the imaging file locations
+    spatialComponents_dir = dir([data_path filesep 'svdSpatialComponents*']);
+    temporalComponents_dir = dir([experiment_path filesep 'svdTemporalComponents*']);
+    imaging_timestamps_idx = cellfun(@any,strfind({temporalComponents_dir.name},'timestamps'));
     
-    cam_color_n = length(spatialComponents_names);
+    meanImage_dir = dir([data_path filesep 'meanImage*']);
+    
+    cam_color_n = length(spatialComponents_dir);
     cam_color_signal = 'blue';
     cam_color_hemo = 'purple';
     
     if cam_color_n == 1
         
-        experiment_path = [data_path filesep num2str(experiment)];
-        
-        frame_t = readNPY([experiment_path filesep 'svdTemporalComponents_blue.timestamps.npy']);
-        U = readUfromNPY([data_path filesep 'svdSpatialComponents_blue.npy']);
-        V = readVfromNPY([experiment_path filesep 'svdTemporalComponents_blue.npy']);
+        U = readUfromNPY([data_path filesep spatialComponents_dir.name]);
+        V = readVfromNPY([experiment_path filesep temporalComponents_dir(~imaging_timestamps_idx).name]);
+        frame_t = readNPY([experiment_path filesep temporalComponents_dir(imaging_timestamps_idx).name]);
         
         framerate = 1./nanmedian(diff(frame_t));
         
@@ -506,12 +570,11 @@ if imaging_exists && load_parts.imaging
         dV = detrend(V', 'linear')';
         fV = single(filtfilt(b100s,a100s,double(dV)')');
         
-        avg_im = readNPY([data_path filesep 'meanImage_blue.npy']);
+        avg_im = readNPY([data_path filesep meanImage_dir.name]);
         
     elseif cam_color_n == 2
         
         % Load in all things as neural (n) or hemodynamic (h)
-        experiment_path = [data_path filesep num2str(experiment)];
         
         tn = readNPY([experiment_path filesep 'svdTemporalComponents_' cam_color_signal '.timestamps.npy']);
         Un = readUfromNPY([data_path filesep 'svdSpatialComponents_' cam_color_signal '.npy']);
@@ -663,16 +726,16 @@ if ephys_exists && load_parts.ephys
         fid = fopen(lfp_filename);
         % define where/how much of LFP to load
         lfp_skip_minutes = 10; % move to N minutes after recording start
-        lfp_load_start = (lfp_sample_rate*60*lfp_skip_minutes*n_channels); 
+        lfp_load_start = (lfp_sample_rate*60*lfp_skip_minutes*n_channels);
         lfp_load_samples = 1e6;
         % load LFP
-        fseek(fid,lfp_load_start,'bof'); 
+        fseek(fid,lfp_load_start,'bof');
         lfp_all = fread(fid,[n_channels,lfp_load_samples],'int16'); % pull snippet
         fclose(fid);
         % eliminate non-connected channels
         lfp = lfp_all(channel_map+1,:);
         clear lfp_all;
-
+        
         lfp_t = [(lfp_load_start/n_channels):(lfp_load_start/n_channels)+lfp_load_samples-1]/lfp_sample_rate;
     end
     
@@ -832,19 +895,16 @@ if ephys_exists && load_parts.ephys
     str_depth = [str_start,str_end];
     
     %%% Align striatal recordings using saved alignment
-    
-    % Load striatum alignment
     n_str_depths = 6;
-    
     ephys_align_path = 'C:\Users\Andrew\OneDrive for Business\Documents\CarandiniHarrisLab\analysis\wf_ephys_choiceworld\ephys_processing';
     ephys_align_fn = ['ephys_str_align_' num2str(n_str_depths) '_depths'];
     load([ephys_align_path filesep ephys_align_fn]);
-    
-    % If alignment exists, align
+    % If alignment exists for this dataset, align
     curr_animal_idx = strcmp(animal,{ephys_align.animal});
     if any(curr_animal_idx)
         curr_day_idx = strcmp(day,ephys_align(curr_animal_idx).days);
         if any(curr_day_idx)
+            if verbose; disp('Aligning striatum by saved depths...'); end;
             curr_str_offset = ephys_align(curr_animal_idx).str_offset(curr_day_idx);
             % (get striatum depth boundaries offset by striatum start)
             str_depth_edges = str_depth(1) - curr_str_offset + ephys_align(curr_animal_idx).str_depth_edges;
@@ -858,13 +918,30 @@ if ephys_exists && load_parts.ephys
         end
     end
     
+    %%% Align by cortex-striatum kernel template
+    % (this overrides the previous alignments)
+    ephys_kernel_align_path = 'C:\Users\Andrew\OneDrive for Business\Documents\CarandiniHarrisLab\analysis\wf_ephys_choiceworld\ephys_processing';
+    ephys_kernel_align_fn = 'ephys_kernel_align';
+    load([ephys_kernel_align_path filesep ephys_kernel_align_fn]);
+    % If alignment exists for this dataset, align
+    curr_animal_idx = strcmp(animal,{ephys_align.animal});
+    if any(curr_animal_idx)
+        curr_day_idx = strcmp(day,ephys_kernel_align(curr_animal_idx).days);
+        if any(curr_day_idx)
+            if verbose; disp('Aligning striatum by kernel alignment...'); end;
+            % (use previously saved depth groups)
+            aligned_str_depth_group = ephys_kernel_align(curr_animal_idx).aligned_str_depth_group{curr_day_idx};
+            n_aligned_depths = ephys_kernel_align(curr_animal_idx).n_aligned_depths(curr_day_idx);
+        end
+    end
+    
 end
 
 %% Classify spikes
 
 if ephys_exists && load_parts.ephys && exist('cluster_groups','var')
     if verbose; disp('Classifying spikes...'); end;
- 
+    
     str_templates = templateDepths >= str_depth(1) & templateDepths <= str_depth(2);
     non_str_templates = ~str_templates;
     

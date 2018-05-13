@@ -3276,7 +3276,7 @@ line([1,1],ylim,'linestyle','--','color','k');
 line([2,2],ylim,'linestyle','--','color','k');
 legend(p(1,:),cellfun(@num2str,num2cell(1:n_conditions),'uni',false));
 
-%% Align ephys recordings by passive correlations/visual modulation
+%% Align ephys recordings by passive correlations
 
 % Define parameters
 n_str_depths = 6;
@@ -3451,57 +3451,9 @@ for curr_animal = 1:length(animals)
     disp(curr_animal);
 end
 
-
 com = cell2mat(shiftdim(cellfun(@(x) nanmean(cat(3,x{:}),3),{batch_vars.r_px_com},'uni',false),-1));
 weight = cell2mat(shiftdim(cellfun(@(x) nanmean(cat(3,x{:}),3),{batch_vars.r_px_weight},'uni',false),-1));
 explained_var = cell2mat(cellfun(@(x) nanmean(cat(2,x{:}),2),{batch_vars.explained_var},'uni',false));
-
-% % (THIS WAS TO BINARIZE KERNELS - EVENTUALLY TO DEFINE STR FROM CTX)
-% n_experiments = arrayfun(@(x) length(batch_vars(x).r_px),1:length(animals));
-% ctx_str_k_binary = false(437,416,6,sum(n_experiments));
-% 
-% curr_expt = 1;
-% for curr_animal = 1:length(animals)
-%     
-%     animal = animals{curr_animal};
-%     experiments = AP_find_experiments(animal,protocol);
-%     experiments = experiments([experiments.imaging] & [experiments.ephys]);
-%     days = {experiments.day};
-%     
-%     for curr_day = 1:length(days);
-%         
-%         r_px = batch_vars(curr_animal).r_px{curr_day};
-%         
-%         r_px_max = squeeze(max(r_px,[],3)).^3;
-%         
-%         r_px_max(isnan(r_px_max)) = 0;
-%         for i = 1:n_depths
-%             r_px_max(:,:,i) = medfilt2(r_px_max(:,:,i),[20,20]);
-%         end
-%         
-%         r_px_binary = false(size(r_px_max));
-%         for curr_depth = 1:size(r_px_max,3)
-%             r_px_binary(:,:,curr_depth) = imbinarize(r_px_max(:,:,curr_depth), ...
-%                 prctile(reshape(r_px_max(:,:,curr_depth),[],1),90));
-%         end
-%         
-%         r_px_binary_aligned = AP_align_widefield(animal,days{curr_day},r_px_binary) > 0;
-%         
-%         r_px_com = sum(bsxfun(@times,r_px_binary,permute(1:n_depths,[1,3,2])),3)./sum(r_px_binary,3);
-%         com_colored = ind2rgb(round(mat2gray(r_px_com,[1,n_depths])*255),jet(255));
-%         com_colored_aligned = AP_align_widefield(animal,days{curr_day},com_colored);
-%         
-%         figure;image(com_colored);
-%         AP_reference_outline('ccf_aligned','w');AP_reference_outline('retinotopy','m');
-%         axis image off;
-%         drawnow;
-%         
-%         ctx_str_k_binary(:,:,:,curr_expt) = r_px_binary_aligned;
-%         curr_expt = curr_expt + 1;
-%     end
-% end
-% 
-% disp('done')
 
 r_px_mean = nanmean(r_px,5);
 % flip r_px to go forward in time
@@ -3512,6 +3464,31 @@ weight_mean = nanmean(weight,3);
 % Load widefield ROIs
 wf_roi_fn = 'C:\Users\Andrew\OneDrive for Business\Documents\CarandiniHarrisLab\analysis\wf_ephys_choiceworld\wf_processing\wf_rois\wf_roi';
 load(wf_roi_fn);
+
+% Plot the kernel matches
+if isfield(batch_vars,'kernel_match')
+    max_n_kernel_match = max(cell2mat(cellfun(@(x) ...
+        cellfun(@length,x),{batch_vars.kernel_match},'uni',false)));
+    
+    kernel_match_raw_all = cellfun(@(x) cell2mat(cellfun(@(x) ...
+        padarray(x,max_n_kernel_match-length(x),NaN,'pre'),x,'uni',false)), ...
+        {batch_vars.kernel_match_raw},'uni',false);
+    
+    kernel_match_all = cellfun(@(x) cell2mat(cellfun(@(x) ...
+        padarray(x,max_n_kernel_match-length(x),NaN,'pre'),x,'uni',false)), ...
+        {batch_vars.kernel_match},'uni',false);
+    
+    figure;
+    for curr_animal = 1:length(animals)
+        subplot(2,length(animals),curr_animal); hold on;
+        set(gca,'ColorOrder',copper(size(kernel_match_raw_all{curr_animal},2)));
+        plot(kernel_match_raw_all{curr_animal},'linewidth',2);
+        
+        subplot(2,length(animals),curr_animal+length(animals)); hold on;
+        set(gca,'ColorOrder',copper(size(kernel_match_all{curr_animal},2)));
+        plot(kernel_match_all{curr_animal},'linewidth',2);
+    end
+end
 
 % Plot weights over time (only use ipsi ROIs)
 t = linspace(-0.3,0.3,size(r_px_mean,3));
@@ -3564,7 +3541,8 @@ for curr_depth = 1:n_depths
 end
 
 % Plot map (from mean kernel)
-r_px_max = squeeze(max(r_px_mean,[],3)).^3;
+use_t = t > -0.1 & t < 0.1;
+r_px_max = squeeze(max(r_px_mean(:,:,use_t,:),[],3)).^3;
 for i = 1:n_depths
     r_px_max(:,:,i) = medfilt2(r_px_max(:,:,i),[10,10]);
 end
@@ -3589,6 +3567,13 @@ set(c,'YTickLabel',1:n_depths);
  
 AP_reference_outline('retinotopy','m');
 AP_reference_outline('ccf_aligned','k');
+
+% %%%% SAVE TEMPLATE KERNELS
+% kernel_template_fn = 'C:\Users\Andrew\OneDrive for Business\Documents\CarandiniHarrisLab\analysis\wf_ephys_choiceworld\ephys_processing\kernel_template';
+% kernel_template = r_px_max_norm;
+% save(kernel_template_fn,'kernel_template');
+% disp('Saved kernel template');
+% %%%%
 
 % Plot map (from mean CoM)
 com_leeway =1;
@@ -3630,30 +3615,35 @@ xlabel('Depth');
 axis tight
 title(protocol);
 
-% (plot COM for all animals separately)
-com_leeway = 1;
-c_range = [1+com_leeway,n_depths-com_leeway];
+%% Plot kernel matches
 
-com_all_cat = cat(3,com_all{:});
-com_all_colored = arrayfun(@(x) ind2rgb(round(mat2gray( ...
-    com_all_cat(:,:,x),c_range)*255),jet(255)),1:size(com_all_cat,3),'uni',false);
+% Load the kernel template matches
+kernel_match_path = 'C:\Users\Andrew\OneDrive for Business\Documents\CarandiniHarrisLab\analysis\wf_ephys_choiceworld\ephys_processing';
+kernel_match_fn = 'ephys_kernel_align';
+load([kernel_match_path filesep kernel_match_fn]);
 
-weight_all_cat = cat(3,weight_all{:});
-weight_all_norm = mat2gray(weight_all_cat,[0,double(prctile(reshape(max(weight_all_cat,[],3),[],1),80))]);
+% Plot the kernel matches
+max_n_kernel_match = max(cell2mat(cellfun(@(x) ...
+    cellfun(@length,x),{ephys_kernel_align.kernel_match},'uni',false)));
 
-com_all_colored_weighted = arrayfun(@(x) com_all_colored{x} + ...
-    bsxfun(@times,bsxfun(@minus,com_all_colored{x}, ...
-    permute([-1,-1,-1],[1,3,2])),(1-weight_all_norm(:,:,x))), ...
-    1:length(com_all_colored),'uni',false);
+kernel_match_raw_all = cellfun(@(x) cell2mat(cellfun(@(x) ...
+    padarray(x,max_n_kernel_match-length(x),NaN,'pre'),x,'uni',false)), ...
+    {ephys_kernel_align.kernel_match_raw},'uni',false);
 
-ad_labels = cellfun(@(x,animal) cellfun(@(x) [animal ' ' num2str(x)], ...
-    num2cell(1:size(x,3)),'uni',false),com_all,animals','uni',false);
-ad_labels = horzcat(ad_labels{:});
+kernel_match_all = cellfun(@(x) cell2mat(cellfun(@(x) ...
+    padarray(x,max_n_kernel_match-length(x),NaN,'pre'),x,'uni',false)), ...
+    {ephys_kernel_align.kernel_match},'uni',false);
 
-AP_image_scroll(cat(4,com_all_colored_weighted{:}),ad_labels,true);
-axis image;
-AP_reference_outline('ccf_aligned','k');AP_reference_outline('retinotopy','m');
-
+figure;
+for curr_animal = 1:length(ephys_kernel_align)
+    subplot(2,length(ephys_kernel_align),curr_animal); hold on;
+    set(gca,'ColorOrder',copper(size(kernel_match_raw_all{curr_animal},2)));
+    plot(kernel_match_raw_all{curr_animal},'linewidth',2);
+    
+    subplot(2,length(ephys_kernel_align),curr_animal+length(ephys_kernel_align)); hold on;
+    set(gca,'ColorOrder',copper(size(kernel_match_all{curr_animal},2)));
+    plot(kernel_match_all{curr_animal},'linewidth',2);
+end
 
 %% Load and process cortex-predicted striatal MUA during choiceworld
 
@@ -6293,7 +6283,8 @@ legend({'Stim-aligned','Move-aligned'});
 
 % Load data
 data_path = ['C:\Users\Andrew\OneDrive for Business\Documents\CarandiniHarrisLab\analysis\wf_ephys_choiceworld\choiceworld'];
-data_fn = ['activity_sessioncat_logistic_regression_earlymove_4str'];
+data_fn = ['activity_sessioncat_logistic_regression_earlymove_kernel-str'];
+% data_fn = ['activity_sessioncat_logistic_regression_earlymove'];
 load([data_path filesep data_fn])
 
 % Get time
@@ -6440,7 +6431,9 @@ ylabel('Weight');
 
 % Load data
 data_path = 'C:\Users\Andrew\OneDrive for Business\Documents\CarandiniHarrisLab\analysis\wf_ephys_choiceworld\choiceworld';
-data_fn = 'all_trial_activity_df_msn_earlymove.mat';
+data_fn = 'all_trial_activity_df_kernel-str_earlymove.mat';
+% data_fn = 'all_trial_activity_df_earlymove.mat';
+
 load([data_path filesep data_fn]);
 n_animals = length(D_all);
 
@@ -6572,8 +6565,8 @@ plot_color = [plot_color(end-4:end,:);plot_color(5:-1:1,:)];
 % plot_color = [plot_color(5:-1:1,:);plot_color(end-5:end,:)];
 
 % % (to plot one side)
-% plot_side = -1;
-% plot_conditions = find(conditions(:,1) < 0.25 & ...
+% plot_side = 1;
+% plot_conditions = find(conditions(:,1) < Inf & ...
 %     conditions(:,2) == plot_side & ...
 %     conditions(:,4) == plot_timing);
 % n_plot_contrasts = length(unique(conditions(plot_conditions,1)));
@@ -6594,7 +6587,7 @@ figure;
 p1 = subplot(1,2,1); hold on;
 for curr_condition_idx = 1:length(plot_conditions);
     curr_condition = plot_conditions(curr_condition_idx);
-    AP_stackplot(squeeze(mua_psth_mean(curr_condition,:,:,1)),t,3,false,plot_color(curr_condition_idx,:));
+    AP_stackplot(squeeze(mua_psth_mean(curr_condition,:,:,1)),t,2,false,plot_color(curr_condition_idx,:));
 end
 line([0,0],ylim,'color','k');
 xlabel('Time from stim');
@@ -6602,7 +6595,7 @@ xlabel('Time from stim');
 p2 = subplot(1,2,2); hold on;
 for curr_condition_idx = 1:length(plot_conditions);
     curr_condition = plot_conditions(curr_condition_idx);
-    AP_stackplot(squeeze(mua_psth_mean(curr_condition,:,:,2)),t,3,false,plot_color(curr_condition_idx,:));
+    AP_stackplot(squeeze(mua_psth_mean(curr_condition,:,:,2)),t,2,false,plot_color(curr_condition_idx,:));
 end
 line([0,0],ylim,'color','k');
 xlabel('Time from move');
@@ -6815,7 +6808,8 @@ title('Trial activity across animals');
 
 % Load data
 data_path = 'C:\Users\Andrew\OneDrive for Business\Documents\CarandiniHarrisLab\analysis\wf_ephys_choiceworld\choiceworld';
-data_fn = 'all_trial_activity_df_4str_earlymove.mat';
+% data_fn = 'all_trial_activity_df_kernel-str_earlymove.mat';
+data_fn = 'all_trial_activity_df_earlymove.mat';
 load([data_path filesep data_fn]);
 
 % Get time
@@ -6845,8 +6839,8 @@ n_rois = numel(wf_roi);
 n_depths = size(mua_all{1}{1},3);
 
 % Set up variables for model parameters
-% use_contrasts = [0.06,0.125,0.25,0.5,1];
-use_contrasts = [0.06,0.125];
+use_contrasts = [0.06,0.125,0.25,0.5,1];
+% use_contrasts = [0.06,0.125];
 % use_contrasts = [];
 
 n_regressors = length(use_contrasts)*2 + 1;

@@ -5,7 +5,7 @@ function experiments = AP_find_experiments(animal,protocol)
 
 % Days can either be on Data\expInfo or Data2 (to be replaced, eventually)
 
-% (look in Data)
+% (look in server 1)
 expInfo_path = ['\\zserver.cortexlab.net\Data\expInfo\' animal];
 expInfo_dir = dir(expInfo_path);
 day_paths = cellfun(@(x) ~isempty(regexp(x,'\d\d\d\d-\d\d-\d\d')),{expInfo_dir.name}) &...
@@ -13,7 +13,7 @@ day_paths = cellfun(@(x) ~isempty(regexp(x,'\d\d\d\d-\d\d-\d\d')),{expInfo_dir.n
 days_Data = {expInfo_dir(day_paths).name};
 days_Data_pathname = cellfun(@(x) [expInfo_path filesep x],days_Data,'uni',false);
 
-% (look in Data2)
+% (look in server 2)
 expInfo_path = ['\\zubjects.cortexlab.net\Subjects\' animal];
 expInfo_dir = dir(expInfo_path);
 day_paths = cellfun(@(x) ~isempty(regexp(x,'\d\d\d\d-\d\d-\d\d')),{expInfo_dir.name}) &...

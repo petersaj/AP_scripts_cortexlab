@@ -1,5 +1,9 @@
 %% Retinotopy via sweep fourier
 
+% Downsample U
+U_downsample_factor = 4; %2 if max method
+Ud = imresize(U,1/U_downsample_factor,'bilinear');
+
 refresh_rate_cutoff = 1/10;
 stim_onsets = photodiode_onsets( ...
     [1;find(diff(photodiode_onsets) > refresh_rate_cutoff) + 1]);
@@ -33,17 +37,16 @@ surround_samplerate = 1/(framerate*1);
 surround_time = surround_window(1):surround_samplerate:surround_window(2);
 
 % Loop through conditions, get average response
-im_stim = nan(size(U,1),size(U,2),length(surround_time),max(unique(stimIDs)));
+im_stim = nan(size(Ud,1),size(Ud,2),length(surround_time),max(unique(stimIDs)));
 for curr_condition = unique(stimIDs)'
     
     use_stims = find(stimIDs == curr_condition);
     use_stim_onsets = stim_onsets(use_stims);
-    use_stim_onsets([1,end]) = [];
     
     stim_surround_times = bsxfun(@plus, use_stim_onsets(:), surround_time);
-    peri_stim_v = permute(mean(interp1(frame_t,fV',stim_surround_times),1),[3,2,1]);
+    peri_stim_v = interp1(frame_t,fV',stim_surround_times)';
     
-    im_stim(:,:,:,curr_condition) = svdFrameReconstruct(U,peri_stim_v);
+    im_stim(:,:,:,curr_condition) = svdFrameReconstruct(Ud,peri_stim_v);
 end
 
 % Get fourier component at stimulus frequency
@@ -86,19 +89,20 @@ for curr_orientation = 1:2
     
 end
 
-[f,jointImage] = bpViewComplexMaps(retinotopy_maps,[],[],[],[],[],'complex');
-close(f);
-% Get amplitude to plot alpha... does this make sense?
-alpha_maps = cellfun(@(x) mat2gray(sqrt(sum((x-1).^2,3))),jointImage,'uni',false);
-
-% Plot retinotopy
-figure;
-for curr_orientation = 1:2
-    subplot(1,2,curr_orientation); hold on;
-    imagesc(avg_im); colormap(gray); caxis([0 6000]);
-    h = imshow(jointImage{curr_orientation});
-    set(h,'AlphaData',alpha_maps{curr_orientation});
-end
+% old - who knows where this code is
+% [f,jointImage] = bpViewComplexMaps(retinotopy_maps,[],[],[],[],[],'complex');
+% close(f);
+% % Get amplitude to plot alpha... does this make sense?
+% alpha_maps = cellfun(@(x) mat2gray(sqrt(sum((x-1).^2,3))),jointImage,'uni',false);
+% 
+% % Plot retinotopy
+% figure;
+% for curr_orientation = 1:2
+%     subplot(1,2,curr_orientation); hold on;
+%     imagesc(avg_im); colormap(gray); caxis([0 6000]);
+%     h = imshow(jointImage{curr_orientation});
+%     set(h,'AlphaData',alpha_maps{curr_orientation});
+% end
 
 % Visual sign map
 
@@ -112,15 +116,32 @@ end
 
 % 3) get sin(difference in direction) if retinotopic, H/V should be
 % orthogonal, so the closer the orthogonal the better (and get sign)
-angle_diff = sind(Vdir-Hdir);
+vfs = sind(Vdir-Hdir);
 
-figure;
-imagesc(imgaussfilt(angle_diff,2));
-set(gca,'YDir','normal')
-axis off;
-title('Visual sign field');
+figure('Name',animal);
+ax1 = axes;
+subplot(1,2,1,ax1);
+imagesc(vfs);
+caxis([-1,1]);
+axes(ax1); axis image off;
+colormap(colormap_BlueWhiteRed)
 
-
+ax2 = axes;
+ax3 = axes;
+subplot(1,2,2,ax2);
+subplot(1,2,2,ax3);
+h1 = imagesc(ax2,avg_im);
+colormap(ax2,gray);
+caxis(ax2,[0 prctile(avg_im(:),99.9)]);
+h2 = imagesc(ax3,vfs);
+colormap(ax3,colormap_BlueWhiteRed);
+caxis([-1,1]);
+set(ax2,'Visible','off');
+axes(ax2); axis image off;
+set(ax3,'Visible','off');
+axes(ax3); axis image off;
+set(h2,'AlphaData',mat2gray(abs(vfs))*0.5);
+colormap(colormap_BlueWhiteRed)
 
 %% Sparse noise retinotopy
 
