@@ -875,7 +875,7 @@ disp(['Finished batch'])
 animals = {'AP024','AP025','AP026','AP027','AP028','AP029'};
 protocol = 'vanillaChoiceworld';
 
-str_boundaries = struct;
+batch_vars = struct;
 
 for curr_animal = 1:length(animals)
     
@@ -904,14 +904,15 @@ for curr_animal = 1:length(animals)
        
         % Store MUA corr, template by depth, str depths
         % (this is all calculated during load)
-        str_boundaries(curr_animal).animal = animal;
-        str_boundaries(curr_animal).day{curr_day} = day;
-        str_boundaries(curr_animal).mua_corr{curr_day} = mua_corr;
-        str_boundaries(curr_animal).templateDepths{curr_day} = templateDepths;
-        str_boundaries(curr_animal).str_depth{curr_day} = str_depth;
+
+        batch_vars(curr_animal).animal = animal;
+        batch_vars(curr_animal).day{curr_day} = day;
+        batch_vars(curr_animal).mua_corr{curr_day} = mua_corr;
+        batch_vars(curr_animal).templateDepths{curr_day} = templateDepths;
+        batch_vars(curr_animal).str_depth{curr_day} = str_depth;
         
         AP_print_progress_fraction(curr_day,length(experiments));
-        clearvars -except animals animal curr_animal protocol experiments curr_day animal load_parts str_boundaries
+        clearvars -except animals animal curr_animal protocol experiments curr_day animal batch_vars load_parts
         
     end
     
@@ -919,9 +920,11 @@ for curr_animal = 1:length(animals)
     
 end
 
+clearvars -except batch_vars
+
 % Save
-save_path = 'C:\Users\Andrew\OneDrive for Business\Documents\CarandiniHarrisLab\analysis\wf_ephys_choiceworld\ephys_processing';
-save([save_path filesep 'str_boundaries'],'str_boundaries');
+save_path = ['C:\Users\Andrew\OneDrive for Business\Documents\CarandiniHarrisLab\analysis\ephys_processing'];
+save([save_path filesep 'str_boundaries'],'batch_vars');
 disp('Finished batch');
 
 

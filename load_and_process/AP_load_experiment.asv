@@ -411,15 +411,14 @@ if block_exists
 
         trial_conditions = reshape(signals_events.visualParamsValues,2,[])';
         
-        stimParams = unique(reshape(signals_events.visualParamsValues,2,[])','rows');
-        
-        conditions = size(stimParams,1)
+        conditions = unique(trial_conditions,'rows');
         n_conditions = size(conditions,1);
         
-        trial_conditions = ...
-            [signals_events.stimAzimuthValues(2:end); signals_events.stimAltitudeValues(2:end)]';
         [~,stimIDs] = ismember(trial_conditions,conditions,'rows');
         
+        % Get rid of the first one for now
+        trial_conditions = trial_conditions(2:end);
+        stimIDs = stimIDs(2:end);
         
     else
         error('Signals protocol with no analysis script')
@@ -851,12 +850,13 @@ if ephys_exists && load_parts.ephys
     mua_corr = corrcoef(binned_spikes_depth');
     
     %%% Estimate start and end depths of striatum
-    
+
     % end of striatum: biggest drop in MUA correlation near end
-    groups_back = 10;
+    groups_back = 15;
     mua_corr_end = mua_corr(end-groups_back+1:end,end-groups_back+1:end);
     mua_corr_end(triu(true(length(mua_corr_end)),0)) = nan;
-    median_corr = nanmedian(mua_corr_end,2);
+    mua_median_factor = 3;
+    median_corr = medfilt1(nanmedian(mua_corr_end,2),3);
     [x,max_corr_drop] = min(diff(median_corr));
     str_end = depth_group_centers(end-groups_back+max_corr_drop-1);
     
@@ -907,8 +907,8 @@ if ephys_exists && load_parts.ephys
         if any(curr_day_idx)
             if verbose; disp('Aligning striatum by saved depths...'); end;
             curr_str_offset = ephys_align(curr_animal_idx).str_offset(curr_day_idx);
-            % (get striatum depth boundaries offset by striatum start)
-            str_depth_edges = str_depth(1) - curr_str_offset + ephys_align(curr_animal_idx).str_depth_edges;
+            % (get striatum depth boundaries from the end of the striatum relative to the across-animal size)
+            str_depth_edges = sort(str_depth(2) - ephys_align(curr_animal_idx).str_depth_edges);
             % (get spike depths, setting all outside the striatum to NaN)
             str_spikeDepths = spikeDepths;
             str_spikeDepths(spikeDepths < str_depth(1) | spikeDepths > str_depth(2)) = NaN;
@@ -918,7 +918,7 @@ if ephys_exists && load_parts.ephys
             n_aligned_depths = length(str_depth_edges)-1;
         end
     end
-    
+        
     %%% Align by cortex-striatum kernel template
     % (this overrides the previous alignments)
     ephys_kernel_align_path = 'C:\Users\Andrew\OneDrive for Business\Documents\CarandiniHarrisLab\analysis\wf_ephys_choiceworld\ephys_processing';
@@ -935,6 +935,19 @@ if ephys_exists && load_parts.ephys
             n_aligned_depths = ephys_kernel_align(curr_animal_idx).n_aligned_depths(curr_day_idx);
         end
     end
+    
+    % (to plot the aligned groups)    
+%     [~,idx,~] = unique(spike_templates);
+%     template_aligned_depth = aligned_str_depth_group(idx)+1;
+%     template_aligned_depth(isnan(template_aligned_depth)) = 1;
+%     
+%     col = [0,0,1;copper(n_aligned_depths)];
+%     
+%     figure;plotSpread(templateDepths,'distributionIdx', ...
+%         template_aligned_depth,'distributionColors',col(unique(template_aligned_depth),:));
+%     set(gca,'YDir','reverse');
+%     line(xlim,[str_depth(1),str_depth(1)]);
+%     line(xlim,[str_depth(2),str_depth(2)]);
     
 end
 

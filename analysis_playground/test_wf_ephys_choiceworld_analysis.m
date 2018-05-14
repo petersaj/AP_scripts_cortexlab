@@ -3355,8 +3355,6 @@ first_bin = find(used_bins,1);
 str_offset = mat2cell((str_offset_bin-1)*depth_bin_size,1,n_experiments);
 
 % Plot the template and mean aligned LFP
-figure; 
-
 
 % % Above didn't work - align by just assuming the end is the correct border
 % 
@@ -3390,11 +3388,11 @@ str_depth_edges = linspace(0,total_depth,n_str_depths+1);
 
 figure;imagesc(1:size(vis_modulation_cat,2),(0:max_grps-1)*depth_bin_size,vis_modulation_cat)
 for i = 1:length(str_depth_edges)
-line(xlim,repmat(str_depth_edges(i),2,1),'linewidth',2,'color','r')
+    line(xlim,repmat(str_depth_edges(i),2,1),'linewidth',2,'color','r')
 end
 
 % Get the striatum "offset" for each experiment, package by animal
-[~,str_offset_bin] = max(~isnan(vis_modulation_cat),[],1);
+str_offset_bin = max_grps-n_depths_cat+1;
 str_offset = mat2cell((str_offset_bin-1)*depth_bin_size,1,n_experiments);
 
 % Package in structure
@@ -6491,6 +6489,14 @@ for curr_animal = 1:length(D_all)
     % Concatenate MUA and normalize (separately by day)
     mua_cat_raw = cat(1,mua_all{curr_animal}{:});
     
+    % NaN-out MUA trials with no spikes (no data collected - this should be
+    % done when getting the activity I guess using some method besides
+    % hist)
+    filled_mua_trials = +cell2mat(cellfun(@(x) repmat(any(reshape(permute(x,[1,2,4,3]),[],n_depths),1), ...
+        size(x,1),1),mua_all{curr_animal},'uni',false));    
+    filled_mua_trials(~filled_mua_trials) = NaN;
+    mua_cat_raw = bsxfun(@times,mua_cat_raw,permute(filled_mua_trials,[1,3,2,4]));
+    
     smooth_size = 8;
     gw = gausswin(smooth_size,3)';
     smWin = gw./sum(gw);
@@ -6504,12 +6510,14 @@ for curr_animal = 1:length(D_all)
         mat2cell(mua_cat_raw_smoothed,cellfun(@(x) size(x,1), mua_all{curr_animal}),length(t),n_depths,2),'uni',false));
     
     mua_day_std = cell2mat(cellfun(@(x) ...
-        repmat(permute(std(reshape(permute(x,[1,2,4,3]),[],n_depths),[],1), ...
+        repmat(permute(nanstd(reshape(permute(x,[1,2,4,3]),[],n_depths),[],1), ...
         [1,3,2,4]),[size(x,1),1]),  ...
         mat2cell(mua_cat_raw_smoothed,cellfun(@(x) size(x,1), mua_all{curr_animal}),length(t),n_depths,2),'uni',false));
     
-    mua_cat_norm = bsxfun(@rdivide,bsxfun(@minus,mua_cat_raw_smoothed,mua_day_baseline),mua_day_std);
-        
+    softnorm = 20;
+    
+    mua_cat_norm = bsxfun(@rdivide,bsxfun(@minus,mua_cat_raw_smoothed,mua_day_baseline),mua_day_std+softnorm);   
+          
     % Concatenate behavioural data
     D = struct;
     D.stimulus = cell2mat(cellfun(@(x) x.stimulus,D_all{curr_animal},'uni',false));
@@ -6542,8 +6550,8 @@ for curr_animal = 1:length(D_all)
  
 end
 
-fluor_psth_mean = nanmedian(fluor_psth,5);
-mua_psth_mean = nanmedian(mua_psth,5);
+fluor_psth_mean = nanmean(fluor_psth,5);
+mua_psth_mean = nanmean(mua_psth,5);
 
 % Set up plot conditions
 plot_timing = 1; % always same, because slots filled in above
@@ -6587,7 +6595,7 @@ figure;
 p1 = subplot(1,2,1); hold on;
 for curr_condition_idx = 1:length(plot_conditions);
     curr_condition = plot_conditions(curr_condition_idx);
-    AP_stackplot(squeeze(mua_psth_mean(curr_condition,:,:,1)),t,2,false,plot_color(curr_condition_idx,:));
+    AP_stackplot(squeeze(mua_psth_mean(curr_condition,:,:,1)),t,1.5,false,plot_color(curr_condition_idx,:));
 end
 line([0,0],ylim,'color','k');
 xlabel('Time from stim');
@@ -6595,7 +6603,7 @@ xlabel('Time from stim');
 p2 = subplot(1,2,2); hold on;
 for curr_condition_idx = 1:length(plot_conditions);
     curr_condition = plot_conditions(curr_condition_idx);
-    AP_stackplot(squeeze(mua_psth_mean(curr_condition,:,:,2)),t,2,false,plot_color(curr_condition_idx,:));
+    AP_stackplot(squeeze(mua_psth_mean(curr_condition,:,:,2)),t,1.5,false,plot_color(curr_condition_idx,:));
 end
 line([0,0],ylim,'color','k');
 xlabel('Time from move');
@@ -6798,18 +6806,14 @@ xlabel('Contrast*Side');
 ylabel(area_labels{plot_area});
 legend([p1{1}(6),p2{1}(6)],{'Move left','Move right'});
 title('Trial activity across animals');
-    
-
-
-
 
 
 %% Linear regression on day-concatenated activity (weights & expl var)
 
 % Load data
 data_path = 'C:\Users\Andrew\OneDrive for Business\Documents\CarandiniHarrisLab\analysis\wf_ephys_choiceworld\choiceworld';
-% data_fn = 'all_trial_activity_df_kernel-str_earlymove.mat';
-data_fn = 'all_trial_activity_df_earlymove.mat';
+data_fn = 'all_trial_activity_df_kernel-str_earlymove.mat';
+% data_fn = 'all_trial_activity_df_earlymove.mat';
 load([data_path filesep data_fn]);
 
 % Get time
@@ -6882,6 +6886,14 @@ for curr_animal = 1:length(D_all)
     % Concatenate MUA and normalize (separately by day)
     mua_cat_raw = cat(1,mua_all{curr_animal}{:});
     
+    % NaN-out MUA trials with no spikes (no data collected - this should be
+    % done when getting the activity I guess using some method besides
+    % hist)
+    filled_mua_trials = +cell2mat(cellfun(@(x) repmat(any(reshape(permute(x,[1,2,4,3]),[],n_depths),1), ...
+        size(x,1),1),mua_all{curr_animal},'uni',false));    
+    filled_mua_trials(~filled_mua_trials) = NaN;
+    mua_cat_raw = bsxfun(@times,mua_cat_raw,permute(filled_mua_trials,[1,3,2,4]));
+    
     smooth_size = 8;
     gw = gausswin(smooth_size,3)';
     smWin = gw./sum(gw);
@@ -6895,12 +6907,14 @@ for curr_animal = 1:length(D_all)
         mat2cell(mua_cat_raw_smoothed,cellfun(@(x) size(x,1), mua_all{curr_animal}),length(t),n_depths,2),'uni',false));
     
     mua_day_std = cell2mat(cellfun(@(x) ...
-        repmat(permute(std(reshape(permute(x,[1,2,4,3]),[],n_depths),[],1), ...
+        repmat(permute(nanstd(reshape(permute(x,[1,2,4,3]),[],n_depths),[],1), ...
         [1,3,2,4]),[size(x,1),1]),  ...
         mat2cell(mua_cat_raw_smoothed,cellfun(@(x) size(x,1), mua_all{curr_animal}),length(t),n_depths,2),'uni',false));
     
-    mua_cat_norm = bsxfun(@rdivide,bsxfun(@minus,mua_cat_raw_smoothed,mua_day_baseline),mua_day_std);
+    softnorm = 20;
     
+    mua_cat_norm = bsxfun(@rdivide,bsxfun(@minus,mua_cat_raw_smoothed,mua_day_baseline),mua_day_std+softnorm);   
+ 
     % Regress from fluor to MUA
     % (by depth: data-less days cause different trial numbers)
     kernel_t = [-0.2,0];
