@@ -856,9 +856,9 @@ if ephys_exists && load_parts.ephys
     mua_corr_end = mua_corr(end-groups_back+1:end,end-groups_back+1:end);
     mua_corr_end(triu(true(length(mua_corr_end)),0)) = nan;
     mua_median_factor = 3;
-    median_corr = medfilt1(nanmedian(mua_corr_end,2),3);
+    median_corr = medfilt1(nanmedian(mua_corr_end,2),mua_median_factor);
     [x,max_corr_drop] = min(diff(median_corr));
-    str_end = depth_group_centers(end-groups_back+max_corr_drop-1);
+    str_end = depth_group_centers(end-groups_back+max_corr_drop-mua_median_factor-1);
     
     % start of striatum: look for ventricle (dropoff in templates)
     
@@ -898,24 +898,33 @@ if ephys_exists && load_parts.ephys
     %%% Align striatal recordings using saved alignment
     n_str_depths = 6;
     ephys_align_path = 'C:\Users\Andrew\OneDrive for Business\Documents\CarandiniHarrisLab\analysis\wf_ephys_choiceworld\ephys_processing';
-    ephys_align_fn = ['ephys_str_align_' num2str(n_str_depths) '_depths'];
-    load([ephys_align_path filesep ephys_align_fn]);
-    % If alignment exists for this dataset, align
-    curr_animal_idx = strcmp(animal,{ephys_align.animal});
-    if any(curr_animal_idx)
-        curr_day_idx = strcmp(day,ephys_align(curr_animal_idx).days);
-        if any(curr_day_idx)
-            if verbose; disp('Aligning striatum by saved depths...'); end;
-            curr_str_offset = ephys_align(curr_animal_idx).str_offset(curr_day_idx);
-            % (get striatum depth boundaries from the end of the striatum relative to the across-animal size)
-            str_depth_edges = sort(str_depth(2) - ephys_align(curr_animal_idx).str_depth_edges);
-            % (get spike depths, setting all outside the striatum to NaN)
-            str_spikeDepths = spikeDepths;
-            str_spikeDepths(spikeDepths < str_depth(1) | spikeDepths > str_depth(2)) = NaN;
-            % (group the striatal spike depths into the um-standardized bins)
-            aligned_str_depth_group = discretize(str_spikeDepths,str_depth_edges);
-            
-            n_aligned_depths = length(str_depth_edges)-1;
+    ephys_align_fn = ['ephys_depth_align'];
+    if exist([ephys_align_path filesep ephys_align_fn],'file')
+        load([ephys_align_path filesep ephys_align_fn]);
+        % Only use if this animal was included in the alignment
+        curr_animal_idx = strcmp(animal,{ephys_depth_align.animal});
+        if any(curr_animal_idx)
+            curr_day_idx = strcmp(day,ephys_depth_align(curr_animal_idx).days);
+            if any(curr_day_idx)
+                if verbose; disp('Aligning striatum by saved depths...'); end;                
+                
+                % Get the maximum striatal length, split evenly
+                all_str_lengths = diff(vertcat(ephys_depth_align(:).str_depth),2);
+                max_str_length = max(all_str_lengths);
+                global_str_depth_edges = linspace(0,max_str_length,n_str_depths+1);
+                
+                % Set current st
+                
+                % Get striatum depth boundaries from the end of the striatum relative to the across-animal size
+                str_depth_edges = sort(str_depth(2) - ephys_depth_align(curr_animal_idx).str_depth_edges);
+                % Get spike depths, setting all outside the striatum to NaN
+                str_spikeDepths = spikeDepths;
+                str_spikeDepths(spikeDepths < str_depth(1) | spikeDepths > str_depth(2)) = NaN;
+                % Group the striatal spike depths into the um-standardized bins
+                aligned_str_depth_group = discretize(str_spikeDepths,str_depth_edges);
+                
+                n_aligned_depths = length(str_depth_edges)-1;
+            end
         end
     end
         
@@ -923,16 +932,18 @@ if ephys_exists && load_parts.ephys
     % (this overrides the previous alignments)
     ephys_kernel_align_path = 'C:\Users\Andrew\OneDrive for Business\Documents\CarandiniHarrisLab\analysis\wf_ephys_choiceworld\ephys_processing';
     ephys_kernel_align_fn = 'ephys_kernel_align';
-    load([ephys_kernel_align_path filesep ephys_kernel_align_fn]);
-    % If alignment exists for this dataset, align
-    curr_animal_idx = strcmp(animal,{ephys_align.animal});
-    if any(curr_animal_idx)
-        curr_day_idx = strcmp(day,ephys_kernel_align(curr_animal_idx).days);
-        if any(curr_day_idx)
-            if verbose; disp('Aligning striatum by kernel alignment...'); end;
-            % (use previously saved depth groups)
-            aligned_str_depth_group = ephys_kernel_align(curr_animal_idx).aligned_str_depth_group{curr_day_idx};
-            n_aligned_depths = ephys_kernel_align(curr_animal_idx).n_aligned_depths(curr_day_idx);
+    if exist([ephys_kernel_align_path filesep ephys_kernel_align_fn],'file')
+        load([ephys_kernel_align_path filesep ephys_kernel_align_fn]);
+        % If alignment exists for this dataset, align
+        curr_animal_idx = strcmp(animal,{ephys_align.animal});
+        if any(curr_animal_idx)
+            curr_day_idx = strcmp(day,ephys_kernel_align(curr_animal_idx).days);
+            if any(curr_day_idx)
+                if verbose; disp('Aligning striatum by kernel alignment...'); end;
+                % (use previously saved depth groups)
+                aligned_str_depth_group = ephys_kernel_align(curr_animal_idx).aligned_str_depth_group{curr_day_idx};
+                n_aligned_depths = ephys_kernel_align(curr_animal_idx).n_aligned_depths(curr_day_idx);
+            end
         end
     end
     

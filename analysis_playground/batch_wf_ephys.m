@@ -868,14 +868,12 @@ disp(['Finished batch'])
 
 %% !!!!                 DEFINE CORTEX-STRIATUM PARAMETERS               !!!!
 
-%% 0) Get global boundaries of striatum
-% Go through all animals and pull out the striatum, then define global
-% striatal length to divide into parts from that
+%% 1) Get boundaries of striatum across experiments
 
 animals = {'AP024','AP025','AP026','AP027','AP028','AP029'};
 protocol = 'vanillaChoiceworld';
 
-str_boundaries = struct;
+ephys_depth_align = struct;
 
 for curr_animal = 1:length(animals)
     
@@ -904,14 +902,14 @@ for curr_animal = 1:length(animals)
        
         % Store MUA corr, template by depth, str depths
         % (this is all calculated during load)
-        str_boundaries(curr_animal).animal = animal;
-        str_boundaries(curr_animal).day{curr_day} = day;
-        str_boundaries(curr_animal).mua_corr{curr_day} = mua_corr;
-        str_boundaries(curr_animal).templateDepths{curr_day} = templateDepths;
-        str_boundaries(curr_animal).str_depth{curr_day} = str_depth;
+        ephys_depth_align(curr_animal).animal = animal;
+        ephys_depth_align(curr_animal).day{curr_day} = day;
+        ephys_depth_align(curr_animal).mua_corr{curr_day} = mua_corr;
+        ephys_depth_align(curr_animal).templateDepths{curr_day} = templateDepths;
+        ephys_depth_align(curr_animal).str_depth(curr_day,:) = str_depth;
         
         AP_print_progress_fraction(curr_day,length(experiments));
-        clearvars -except animals animal curr_animal protocol experiments curr_day animal load_parts str_boundaries
+        clearvars -except animals animal curr_animal protocol experiments curr_day animal load_parts ephys_depth_align
         
     end
     
@@ -921,11 +919,11 @@ end
 
 % Save
 save_path = 'C:\Users\Andrew\OneDrive for Business\Documents\CarandiniHarrisLab\analysis\wf_ephys_choiceworld\ephys_processing';
-save([save_path filesep 'str_boundaries'],'str_boundaries');
+save([save_path filesep 'ephys_depth_align'],'ephys_depth_align');
 disp('Finished batch');
 
 
-%% 1) Estimate imaging-ephys lambda
+%% 2) Estimate imaging-ephys lambda
 % (this should be the same as in AP_estimate_lambda, but if that's never
 % going to be used out of this context then better to just keep the code
 % here)
@@ -1033,7 +1031,7 @@ save_fn = 'ctx-str_lambda';
 save([save_path filesep save_fn],'ctx_str_lambda');
 disp('Saved cortex-striatum lambda values');
 
-%% 2) Batch cortex -> striatum maps
+%% 3) Batch cortex -> striatum maps
 
 animals = {'AP024','AP025','AP026','AP027','AP028','AP029'};
 
@@ -1168,7 +1166,101 @@ save([save_path filesep 'wf_ephys_maps_' protocol],'batch_vars','-v7.3');
 warning('saving -v7.3');
 disp('Finished batch');
 
-%% 3) Batch align striatum recordings from wf > ephys maps
+%% 3.5) Make template kernels
+
+data_path = 'C:\Users\Andrew\OneDrive for Business\Documents\CarandiniHarrisLab\analysis\wf_ephys_choiceworld\wf_ephys';
+
+protocol = 'vanillaChoiceworld';
+
+map_fn = [data_path filesep 'wf_ephys_maps_' protocol];
+load(map_fn);
+
+n_depths = size(batch_vars(1).explained_var{1},1);
+
+animals = {'AP024','AP025','AP026','AP027','AP028','AP029'};
+
+% (scale r_px's because different lambdas give different weights)
+% (do in a loop because memory can't handle a cellfun??)
+r_px = nan(437,416,43,n_depths,length(animals));
+for curr_animal = 1:length(animals)
+    curr_animal_r_px = nan(437,416,43,n_depths,length(days));
+    for curr_day = 1:length(batch_vars(curr_animal).r_px)        
+        
+        curr_r_px = batch_vars(curr_animal).r_px{curr_day};
+        curr_scaled_r_px = mat2gray(bsxfun(@rdivide, ...
+            curr_r_px,permute(prctile(abs( ...
+            reshape(curr_r_px,[],size(curr_r_px,5))),95)',[2,3,4,5,1])),[-1,1])*2-1;     
+        
+        % Set any NaN explained (no MUA data probably) to NaN
+        curr_scaled_r_px(:,:,:,isnan(batch_vars(curr_animal).explained_var{curr_day})) = NaN;
+        
+        curr_animal_r_px(:,:,:,:,curr_day) = curr_scaled_r_px;
+        
+    end
+    r_px(:,:,:,:,curr_animal) = nanmean(curr_animal_r_px,5);
+    disp(curr_animal);
+end
+
+com = cell2mat(shiftdim(cellfun(@(x) nanmean(cat(3,x{:}),3),{batch_vars.r_px_com},'uni',false),-1));
+weight = cell2mat(shiftdim(cellfun(@(x) nanmean(cat(3,x{:}),3),{batch_vars.r_px_weight},'uni',false),-1));
+explained_var = cell2mat(cellfun(@(x) nanmean(cat(2,x{:}),2),{batch_vars.explained_var},'uni',false));
+
+r_px_mean = nanmean(r_px,5);
+% flip r_px to go forward in time
+r_px_mean = r_px_mean(:,:,end:-1:1,:);
+com_mean = nanmean(com,3);
+weight_mean = nanmean(weight,3);
+
+% Load widefield ROIs
+wf_roi_fn = 'C:\Users\Andrew\OneDrive for Business\Documents\CarandiniHarrisLab\analysis\wf_ephys_choiceworld\wf_processing\wf_rois\wf_roi';
+load(wf_roi_fn);
+
+% Plot weights over time (only use ipsi ROIs)
+t = linspace(-0.3,0.3,size(r_px_mean,3));
+AP_image_scroll(r_px_mean,t)  
+axis image;
+caxis([-1,1]);
+colormap(colormap_BlueWhiteRed);
+AP_reference_outline('ccf_aligned','k');AP_reference_outline('retinotopy','m');
+
+% Plot map (from mean kernel)
+use_t = t > -0.1 & t < 0.1;
+r_px_max = squeeze(max(r_px_mean(:,:,use_t,:),[],3)).^3;
+for i = 1:n_depths
+    r_px_max(:,:,i) = medfilt2(r_px_max(:,:,i),[10,10]);
+end
+r_px_max_norm = bsxfun(@rdivide,r_px_max, ...
+    permute(max(reshape(r_px_max,[],n_depths),[],1),[1,3,2]));
+r_px_max_norm(isnan(r_px_max_norm)) = 0;
+r_px_com = sum(bsxfun(@times,r_px_max_norm,permute(1:n_depths,[1,3,2])),3)./sum(r_px_max_norm,3);
+com_colored = ind2rgb(round(mat2gray(r_px_com,[1,n_depths])*255),jet(255));
+
+figure;
+p = imagesc(com_colored);
+axis image off
+weight_norm = mat2gray(max(r_px_max,[],3),[0,double(prctile(reshape(max(r_px_max,[],3),[],1),90))]);
+set(p,'AlphaData',weight_norm);
+
+c = colorbar;
+ylabel(c,'Depth (fraction)');
+colormap(c,jet);
+set(c,'YDir','reverse');
+set(c,'YTick',linspace(0,1,n_depths));
+set(c,'YTickLabel',1:n_depths);
+ 
+AP_reference_outline('retinotopy','m');
+AP_reference_outline('ccf_aligned','k');
+
+% Save template kernels
+kernel_template_fn = 'C:\Users\Andrew\OneDrive for Business\Documents\CarandiniHarrisLab\analysis\wf_ephys_choiceworld\ephys_processing\kernel_template';
+kernel_template = r_px_max_norm;
+save(kernel_template_fn,'kernel_template');
+disp('Saved kernel template');
+
+AP_image_scroll(r_px_max_norm)  
+
+
+%% 4) Batch align striatum recordings from wf > ephys maps
 
 animals = {'AP024','AP025','AP026','AP027','AP028','AP029'};
 
@@ -1227,8 +1319,8 @@ for curr_animal = 1:length(animals)
         time_bins = frame_t(find(frame_t > skip_seconds,1)):1/sample_rate:frame_t(find(frame_t-frame_t(end) < -skip_seconds,1,'last'));
         time_bin_centers = time_bins(1:end-1) + diff(time_bins)/2;
         
-        % Get multiunit in 100 um depths
-        n_depths = round(diff(str_depth)/100);
+        % Get multiunit in ~200 um depths
+        n_depths = round(diff(str_depth)/200);
         depth_group_edges = round(linspace(str_depth(1),str_depth(2),n_depths+1));
         [depth_group_n,depth_group] = histc(spikeDepths,depth_group_edges);
         depth_groups_used = unique(depth_group);
@@ -1295,7 +1387,7 @@ for curr_animal = 1:length(animals)
             find(replace_kernel_match),'nearest');
         
         % Assign depth edges and kernel template index numbers
-        kernel_match_boundary_idx = unique([1;find(diff(kernel_match) ~= 0)+1;n_depths]);
+        kernel_match_boundary_idx = unique([1;find(diff(kernel_match) ~= 0)+1;n_depths+1]);
         
         kernel_match_depth_edges = depth_group_edges(kernel_match_boundary_idx);
         kernel_match_idx = kernel_match(kernel_match_boundary_idx(1:end-1));

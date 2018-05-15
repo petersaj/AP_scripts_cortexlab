@@ -3622,24 +3622,22 @@ lambda_fn = 'C:\Users\Andrew\OneDrive for Business\Documents\CarandiniHarrisLab\
 load(lambda_fn);
 
 max_days = max(cellfun(@length,{ctx_str_lambda.day}));
-
-expl_vars = cellfun(@(x) cellfun(@max,x),{ctx_str_lambda.explained_var_lambdas},'uni',false);
-max_expl_var = max(horzcat(expl_vars{:}));
+max_expl_var = max(cellfun(@(x) max(vertcat(x{:})),{ctx_str_lambda.explained_var_lambdas}));
 
 figure;
 for curr_animal = 1:length(ctx_str_lambda);
     n_days = length(ctx_str_lambda(curr_animal).day);
+    figure; 
     for curr_day = 1:n_days       
         
-        subplot(length(ctx_str_lambda),max_days,(curr_animal-1)*max_days+curr_day);
+        subplot(length(ctx_str_lambda),n_days,curr_day);
         semilogx(ctx_str_lambda(curr_animal).lambdas{curr_day}, ...
             ctx_str_lambda(curr_animal).explained_var_lambdas{curr_day},'color','k','linewidth',2);
-        
-        ylim([0,max_expl_var]);
 
         line(repmat(ctx_str_lambda(curr_animal).best_lambda(curr_day),1,2),ylim,'color','r');
         
     end   
+    set(gcf,'Name',ctx_str_lambda(curr_animal).animal);
 end
 
 
