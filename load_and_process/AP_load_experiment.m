@@ -934,7 +934,7 @@ if ephys_exists && load_parts.ephys
     if exist([ephys_kernel_align_path filesep ephys_kernel_align_fn],'file')
         load([ephys_kernel_align_path filesep ephys_kernel_align_fn]);
         % If alignment exists for this dataset, align
-        curr_animal_idx = strcmp(animal,{ephys_align.animal});
+        curr_animal_idx = strcmp(animal,{ephys_kernel_align.animal});
         if any(curr_animal_idx)
             curr_day_idx = strcmp(day,ephys_kernel_align(curr_animal_idx).days);
             if any(curr_day_idx)

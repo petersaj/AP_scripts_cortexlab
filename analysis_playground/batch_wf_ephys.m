@@ -1223,42 +1223,22 @@ caxis([-1,1]);
 colormap(colormap_BlueWhiteRed);
 AP_reference_outline('ccf_aligned','k');AP_reference_outline('retinotopy','m');
 
-% Plot map (from mean kernel)
-use_t = t > -0.1 & t < 0.1;
-r_px_max = squeeze(max(r_px_mean(:,:,use_t,:),[],3)).^3;
-for i = 1:n_depths
-    r_px_max(:,:,i) = medfilt2(r_px_max(:,:,i),[10,10]);
-end
+% Get template kernels
+use_t = t >= 0 & t <= 0;
+r_px_max = squeeze(nanmean(r_px_mean(:,:,use_t,:),3));
 r_px_max_norm = bsxfun(@rdivide,r_px_max, ...
     permute(max(reshape(r_px_max,[],n_depths),[],1),[1,3,2]));
 r_px_max_norm(isnan(r_px_max_norm)) = 0;
-r_px_com = sum(bsxfun(@times,r_px_max_norm,permute(1:n_depths,[1,3,2])),3)./sum(r_px_max_norm,3);
-com_colored = ind2rgb(round(mat2gray(r_px_com,[1,n_depths])*255),jet(255));
 
-figure;
-p = imagesc(com_colored);
-axis image off
-weight_norm = mat2gray(max(r_px_max,[],3),[0,double(prctile(reshape(max(r_px_max,[],3),[],1),90))]);
-set(p,'AlphaData',weight_norm);
-
-c = colorbar;
-ylabel(c,'Depth (fraction)');
-colormap(c,jet);
-set(c,'YDir','reverse');
-set(c,'YTick',linspace(0,1,n_depths));
-set(c,'YTickLabel',1:n_depths);
- 
-AP_reference_outline('retinotopy','m');
-AP_reference_outline('ccf_aligned','k');
+kernel_template = r_px_max_norm;
 
 % Save template kernels
 kernel_template_fn = 'C:\Users\Andrew\OneDrive for Business\Documents\CarandiniHarrisLab\analysis\wf_ephys_choiceworld\ephys_processing\kernel_template';
-kernel_template = r_px_max_norm;
 save(kernel_template_fn,'kernel_template');
 disp('Saved kernel template');
 
 AP_image_scroll(r_px_max_norm)  
-
+axis image;
 
 %% 4) Batch align striatum recordings from wf > ephys maps
 
@@ -1358,13 +1338,10 @@ for curr_animal = 1:length(animals)
             r_px(:,:,:,curr_spikes) = svdFrameReconstruct(Udf(:,:,use_svs),r(:,:,curr_spikes));
         end
         
-        % Get center of mass for each pixel
-        % (get max r for each pixel, filter out big ones)
-        r_px_max = squeeze(max(r_px,[],3)).^3;
-        r_px_max(isnan(r_px_max)) = 0;
-        for i = 1:n_depths
-            r_px_max(:,:,i) = medfilt2(r_px_max(:,:,i),[10,10]);
-        end
+        % Get template kernels
+        t = kernel_frames/sample_rate;
+        use_t = t >= 0 & t <= 0;
+        r_px_max = squeeze(nanmean(r_px(:,:,use_t,:),3));
         r_px_max_norm = bsxfun(@rdivide,r_px_max, ...
             permute(max(reshape(r_px_max,[],n_depths),[],1),[1,3,2]));
         r_px_max_norm(isnan(r_px_max_norm)) = 0;
@@ -5897,7 +5874,7 @@ disp('Finished');
 
 % Load data
 data_path = 'C:\Users\Andrew\OneDrive for Business\Documents\CarandiniHarrisLab\analysis\wf_ephys_choiceworld\choiceworld';
-data_fn = 'all_trial_activity_df_4str_earlymove.mat';
+data_fn = 'all_trial_activity_df_kernel-str_earlymove.mat';
 load([data_path filesep data_fn]);
 
 % Get time
@@ -5947,8 +5924,16 @@ for curr_animal = 1:n_animals
     fluor_cat_norm = bsxfun(@rdivide,fluor_cat,permute(std(reshape(permute(fluor_cat,[1,2,4,3]),[],n_rois),[],1),[1,3,2,4]));
     fluor_cat_hemidiff_norm = bsxfun(@rdivide,fluor_cat_hemidiff,permute(std(abs(reshape(permute(fluor_cat_hemidiff,[1,2,4,3]),[],n_rois)),[],1),[1,3,2,4]));     
     
-    % Concatenate MUA and normalize (separately by day)
+     % Concatenate MUA and normalize (separately by day)
     mua_cat_raw = cat(1,mua_all{curr_animal}{:});
+    
+    % NaN-out MUA trials with no spikes (no data collected - this should be
+    % done when getting the activity I guess using some method besides
+    % hist)
+    filled_mua_trials = +cell2mat(cellfun(@(x) repmat(any(reshape(permute(x,[1,2,4,3]),[],n_depths),1), ...
+        size(x,1),1),mua_all{curr_animal},'uni',false));    
+    filled_mua_trials(~filled_mua_trials) = NaN;
+    mua_cat_raw = bsxfun(@times,mua_cat_raw,permute(filled_mua_trials,[1,3,2,4]));
     
     smooth_size = 8;
     gw = gausswin(smooth_size,3)';
@@ -5963,11 +5948,13 @@ for curr_animal = 1:n_animals
         mat2cell(mua_cat_raw_smoothed,cellfun(@(x) size(x,1), mua_all{curr_animal}),length(t),n_depths,2),'uni',false));
     
     mua_day_std = cell2mat(cellfun(@(x) ...
-        repmat(permute(std(reshape(permute(x,[1,2,4,3]),[],n_depths),[],1), ...
+        repmat(permute(nanstd(reshape(permute(x,[1,2,4,3]),[],n_depths),[],1), ...
         [1,3,2,4]),[size(x,1),1]),  ...
         mat2cell(mua_cat_raw_smoothed,cellfun(@(x) size(x,1), mua_all{curr_animal}),length(t),n_depths,2),'uni',false));
     
-    mua_cat_norm = bsxfun(@rdivide,bsxfun(@minus,mua_cat_raw_smoothed,mua_day_baseline),mua_day_std);
+    softnorm = 20;
+    
+    mua_cat_norm = bsxfun(@rdivide,bsxfun(@minus,mua_cat_raw_smoothed,mua_day_baseline),mua_day_std+softnorm);      
     
     % Get NaNs in MUA (no data at that depth in that experiment)
     mua_nonan_trials = ~squeeze(any(any(isnan(mua_cat_norm),2),4));
@@ -6040,8 +6027,11 @@ for curr_animal = 1:n_animals
             % Set the activity
             D.neur = reshape(mua_cat_norm(:,curr_t,:,curr_align),[],n_depths);
             
+            % (FOR NOW, BUT THIS PROBABLY ISN'T GOOD)
+            D.neur(isnan(D.neur)) = 0;
+            
             % Pick subset of trials
-            D_use = structfun(@(x) x(use_trials & all(mua_nonan_trials,2),:),D,'uni',false);
+            D_use = structfun(@(x) x(use_trials,:),D,'uni',false);
             
             clear g_act
             g_act = GLM(D_use).setModel(use_model).fitCV(cvfold);
@@ -6062,7 +6052,7 @@ end
 
 clearvars -except loglik_increase_fluor loglik_increase_mua loglik_params_fluor loglik_params_mua
 save_path = ['C:\Users\Andrew\OneDrive for Business\Documents\CarandiniHarrisLab\analysis\wf_ephys_choiceworld\choiceworld'];
-save_fn = ['activity_sessioncat_logistic_regression_neucombined_earlymove_4str'];
+save_fn = ['activity_sessioncat_logistic_regression_neucombined_earlymove_kernel-str'];
 save([save_path filesep save_fn])
 
 disp('Finished');

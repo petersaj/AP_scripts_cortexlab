@@ -3642,8 +3642,10 @@ for curr_animal = 1:length(ctx_str_lambda);
     end   
 end
 
-
-
+figure;
+plot(horzcat(expl_vars{:}),'.k');
+xlabel('Experiment');
+ylabel('Ctx->Str explained variance');
 
 %% Plot all striatum boundaries
 
@@ -6428,7 +6430,7 @@ legend(p,animals);
 
 % Load data
 data_path = ['C:\Users\Andrew\OneDrive for Business\Documents\CarandiniHarrisLab\analysis\wf_ephys_choiceworld\choiceworld'];
-data_fn = ['activity_sessioncat_logistic_regression_neucombined_earlymove_4str'];
+data_fn = ['activity_sessioncat_logistic_regression_neucombined_earlymove_kernel-str'];
 load([data_path filesep data_fn])
 
 % Get time
