@@ -3615,38 +3615,6 @@ title(protocol);
 
 %% ~~~~~ PLOT ALIGNMENT PARAMETERS ~~~~~~
 
-%% Plot lambda fits
-
-% Load lambda from previously estimated and saved
-lambda_fn = 'C:\Users\Andrew\OneDrive for Business\Documents\CarandiniHarrisLab\analysis\wf_ephys_choiceworld\ephys_processing\ctx-str_lambda';
-load(lambda_fn);
-
-max_days = max(cellfun(@length,{ctx_str_lambda.day}));
-
-expl_vars = cellfun(@(x) cellfun(@max,x),{ctx_str_lambda.explained_var_lambdas},'uni',false);
-max_expl_var = max(horzcat(expl_vars{:}));
-
-figure;
-for curr_animal = 1:length(ctx_str_lambda);
-    n_days = length(ctx_str_lambda(curr_animal).day);
-    for curr_day = 1:n_days       
-        
-        subplot(length(ctx_str_lambda),max_days,(curr_animal-1)*max_days+curr_day);
-        semilogx(ctx_str_lambda(curr_animal).lambdas{curr_day}, ...
-            ctx_str_lambda(curr_animal).explained_var_lambdas{curr_day},'color','k','linewidth',2);
-        
-        ylim([0,max_expl_var]);
-
-        line(repmat(ctx_str_lambda(curr_animal).best_lambda(curr_day),1,2),ylim,'color','r');
-        
-    end   
-end
-
-figure;
-plot(horzcat(expl_vars{:}),'.k');
-xlabel('Experiment');
-ylabel('Ctx->Str explained variance');
-
 %% Plot all striatum boundaries
 
 ephys_align_path = 'C:\Users\Andrew\OneDrive for Business\Documents\CarandiniHarrisLab\analysis\wf_ephys_choiceworld\ephys_processing';
@@ -3683,11 +3651,57 @@ for curr_animal = 1:length(ephys_depth_align);
     set(gcf,'Name',ephys_depth_align(curr_animal).animal);
 end
 
+%% Plot lambda fits
+
+% Load lambda from previously estimated and saved
+lambda_fn = 'C:\Users\Andrew\OneDrive for Business\Documents\CarandiniHarrisLab\analysis\wf_ephys_choiceworld\ephys_processing\ctx-str_lambda';
+load(lambda_fn);
+
+max_days = max(cellfun(@length,{ctx_str_lambda.day}));
+
+expl_vars = cellfun(@(x) cellfun(@max,x),{ctx_str_lambda.explained_var_lambdas},'uni',false);
+max_expl_var = max(horzcat(expl_vars{:}));
+
+figure;
+for curr_animal = 1:length(ctx_str_lambda);
+    n_days = length(ctx_str_lambda(curr_animal).day);
+    for curr_day = 1:n_days       
+        
+        subplot(length(ctx_str_lambda),max_days,(curr_animal-1)*max_days+curr_day);
+        semilogx(ctx_str_lambda(curr_animal).lambdas{curr_day}, ...
+            ctx_str_lambda(curr_animal).explained_var_lambdas{curr_day},'color','k','linewidth',2);
+        
+        ylim([0,max_expl_var]);
+
+        line(repmat(ctx_str_lambda(curr_animal).best_lambda(curr_day),1,2),ylim,'color','r');
+        
+    end   
+end
+
+figure;
+plot(horzcat(expl_vars{:}),'.k');
+xlabel('Experiment');
+ylabel('Ctx->Str explained variance');
+
+
 %% Plot kernel matches
+
+% Load and plot the kernel templates
+n_aligned_depths = 4;
+kernel_template_fn = ['C:\Users\Andrew\OneDrive for Business\Documents\CarandiniHarrisLab\analysis\wf_ephys_choiceworld\ephys_processing\kernel_template_' num2str(n_aligned_depths) '_depths.mat'];
+load(kernel_template_fn);
+n_kernels = n_aligned_depths;
+figure; 
+for i = 1:n_kernels
+    subplot(1,n_kernels,i);
+    imagesc(kernel_template(:,:,i));
+    axis image off;
+    colormap(gray);
+end
 
 % Load the kernel template matches
 kernel_match_path = 'C:\Users\Andrew\OneDrive for Business\Documents\CarandiniHarrisLab\analysis\wf_ephys_choiceworld\ephys_processing';
-kernel_match_fn = 'ephys_kernel_align';
+kernel_match_fn = ['ephys_kernel_align_' num2str(n_aligned_depths) '_depths.mat'];
 load([kernel_match_path filesep kernel_match_fn]);
 
 % Plot the kernel matches
@@ -3712,6 +3726,7 @@ for curr_animal = 1:length(ephys_kernel_align)
     set(gca,'ColorOrder',copper(size(kernel_match_all{curr_animal},2)));
     plot(kernel_match_all{curr_animal},'linewidth',2);
 end
+
 
 %% ~~~~~ ~~~~~~~~~~~~~~~~ ~~~~~~
 
@@ -6352,9 +6367,11 @@ legend({'Stim-aligned','Move-aligned'});
 
 %% Load logistic regression on day-concatenated activity
 
+n_aligned_depths = 4;
+
 % Load data
 data_path = ['C:\Users\Andrew\OneDrive for Business\Documents\CarandiniHarrisLab\analysis\wf_ephys_choiceworld\choiceworld'];
-data_fn = ['activity_sessioncat_logistic_regression_earlymove_kernel-str'];
+data_fn = ['activity_sessioncat_logistic_regression_earlymove_kernel-str_' num2str(n_aligned_depths) '_depths.mat'];
 % data_fn = ['activity_sessioncat_logistic_regression_earlymove'];
 load([data_path filesep data_fn])
 
@@ -6372,20 +6389,24 @@ n_rois = numel(wf_roi);
 
 n_depths = size(loglik_increase_mua,2);
 
+% Set colors
+fluor_colors = [autumn(n_rois/2);winter(n_rois/2)];
+mua_colors = copper(n_depths);
+
 % Plot mean
 yrange = [min(reshape(nanmedian(loglik_increase_fluor,4),[],1)), ...
     max(reshape(nanmedian(loglik_increase_fluor,4),[],1))];
 
 figure; 
 p1 = subplot(2,2,1); hold on;
-set(gca,'ColorOrder',[autumn(n_rois/2);winter(n_rois/2)]);
+set(gca,'ColorOrder',fluor_colors);
 plot(t,nanmean(loglik_increase_fluor(:,:,1,:),4))
 line([0,0],yrange,'color','k');
 xlabel('Time from stim')
 ylabel('Relative loglikelihood (bpt)');
 
 p2 = subplot(2,2,2); hold on;
-set(gca,'ColorOrder',[autumn(n_rois/2);winter(n_rois/2)]);
+set(gca,'ColorOrder',fluor_colors);
 plot(t,nanmean(loglik_increase_fluor(:,:,2,:),4))
 line([0,0],yrange,'color','k');
 xlabel('Time from move')
@@ -6410,21 +6431,27 @@ ylim(yrange);
 
 % Plot move-aligned all together
 figure; hold on;
-set(gca,'ColorOrder',[autumn(n_rois/2);winter(n_rois/2);copper(n_depths)]);
+set(gca,'ColorOrder',[fluor_colors;mua_colors]);
 plot(t,nanmean(loglik_increase_fluor(:,:,2,:),4))
 plot(t,nanmean(loglik_increase_mua(:,:,2,:),4))
 
-% Stack plot across animals for each region
+% Max predicatbility in cortex and striatum for each animal
+% (max difference for all regions and mice)
+loglik_diff_fluor = squeeze(max(loglik_increase_fluor,[],1) - min(loglik_increase_fluor,[],1));
+loglik_diff_mua = squeeze(max(loglik_increase_mua,[],1) - min(loglik_increase_mua,[],1));
 figure; hold on;
-n_animals = size(loglik_increase_mua,4);
-col = copper(n_animals);
-p = gobjects(n_animals,1);
-for curr_animal = 1:n_animals
-    curr_p = AP_stackplot(squeeze(loglik_increase_mua(:,:,2,curr_animal)),t,0.15,false,col(curr_animal,:));
-    p(curr_animal) = curr_p(1);
-end
-animals = {'AP024','AP025','AP027','AP028','AP029'};
-legend(p,animals);
+
+scatter(squeeze(max(loglik_diff_fluor(10,2,:),[],1)), ...
+    squeeze(max(loglik_diff_mua(3,2,:),[],1)), ...
+    80,autumn(n_animals),'filled','MarkerEdgeColor','k')
+
+axis([0,max([ylim,xlim]),0,max([ylim,xlim])]);
+axis image
+
+line([0,max([ylim,xlim])],[0,max([ylim,xlim])],'color','k')
+
+ylabel('Max fluor pred (\DeltaAM)');
+xlabel('Max str pred (Depth 3)');
 
 %% Load logistic regression (all within-modal data simultaneously)
 
@@ -6500,9 +6527,11 @@ ylabel('Weight');
 
 %% Plot mean day-concatenated activity
 
+n_aligned_depths = 4;
+
 % Load data
 data_path = 'C:\Users\Andrew\OneDrive for Business\Documents\CarandiniHarrisLab\analysis\wf_ephys_choiceworld\choiceworld';
-data_fn = 'all_trial_activity_df_kernel-str_earlymove.mat';
+data_fn = ['all_trial_activity_df_kernel-str_earlymove_' num2str(n_aligned_depths) '_depths.mat'];
 % data_fn = 'all_trial_activity_df_earlymove.mat';
 
 load([data_path filesep data_fn]);
@@ -6883,9 +6912,11 @@ title('Trial activity across animals');
 
 %% Linear regression on day-concatenated activity (weights & expl var)
 
+n_aligned_depths = 4;
+
 % Load data
 data_path = 'C:\Users\Andrew\OneDrive for Business\Documents\CarandiniHarrisLab\analysis\wf_ephys_choiceworld\choiceworld';
-data_fn = 'all_trial_activity_df_kernel-str_earlymove.mat';
+data_fn = ['all_trial_activity_df_kernel-str_earlymove_' num2str(n_aligned_depths) '_depths.mat'];
 % data_fn = 'all_trial_activity_df_earlymove.mat';
 load([data_path filesep data_fn]);
 

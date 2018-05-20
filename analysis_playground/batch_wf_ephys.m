@@ -1031,7 +1031,9 @@ save_fn = 'ctx-str_lambda';
 save([save_path filesep save_fn],'ctx_str_lambda');
 disp('Saved cortex-striatum lambda values');
 
-%% 3) Batch cortex -> striatum maps
+%% 3) Batch cortex -> striatum maps with depth alignment
+
+n_aligned_depths = 4;
 
 animals = {'AP024','AP025','AP026','AP027','AP028','AP029'};
 
@@ -1064,6 +1066,8 @@ for curr_animal = 1:length(animals)
         day = experiments(curr_day).day;
         experiment = experiments(curr_day).experiment;
         
+        % Load data and align striatum by depth
+        str_align = 'depth';        
         AP_load_experiment;
                 
         %%% Load lambda from previously estimated and saved
@@ -1089,17 +1093,8 @@ for curr_animal = 1:length(animals)
         use_svs = 1:50;
         dfVdf_resample = interp1(conv2(frame_t,[1,1]/2,'valid'), ...
             diff(fVdf(use_svs,:),[],2)',time_bin_centers)';
-        
-        % Get cortex/striatum regression by depth
-        
-        % Group multiunit by depth
-        % (evenly across recorded striatum)
-        %         n_depths = 6;
-        %         depth_group_edges = round(linspace(str_depth(1),str_depth(2),n_depths+1));
-        %         depth_group_centers = round(depth_group_edges(1:end-1)+diff(depth_group_edges)/2);
-        %         depth_group = discretize(spikeDepths,depth_group_edges);
-        
-        % (aligned striatum depths)
+                
+        % Get striatum depth group by across-experiment alignment
         n_depths = n_aligned_depths;
         depth_group = aligned_str_depth_group;
           
@@ -1117,7 +1112,7 @@ for curr_animal = 1:length(animals)
         zs = [false,true];
         cvfold = 10;      
 
-        % TO USE dfV
+        %%% Regress MUA from cortex
         [k,predicted_spikes,explained_var] = ...
             AP_regresskernel(dfVdf_resample, ...
             binned_spikes,kernel_frames,lambda,zs,cvfold);
@@ -1152,7 +1147,7 @@ for curr_animal = 1:length(animals)
         batch_vars(curr_animal).explained_var{curr_day} = explained_var.total;
               
         AP_print_progress_fraction(curr_day,length(experiments));
-        clearvars -except animals animal curr_animal protocol experiments curr_day animal batch_vars load_parts
+        clearvars -except n_aligned_depths animals animal curr_animal protocol experiments curr_day animal batch_vars load_parts
         
     end
       
@@ -1162,17 +1157,19 @@ end
 
 % Save
 save_path = ['C:\Users\Andrew\OneDrive for Business\Documents\CarandiniHarrisLab\analysis\wf_ephys_choiceworld\wf_ephys'];
-save([save_path filesep 'wf_ephys_maps_' protocol],'batch_vars','-v7.3');
+save([save_path filesep 'wf_ephys_maps_' protocol '_' num2str(n_aligned_depths) '_depths'],'batch_vars','-v7.3');
 warning('saving -v7.3');
 disp('Finished batch');
 
 %% 3.5) Make template kernels
 
+n_aligned_depths = 4;
+
 data_path = 'C:\Users\Andrew\OneDrive for Business\Documents\CarandiniHarrisLab\analysis\wf_ephys_choiceworld\wf_ephys';
 
 protocol = 'vanillaChoiceworld';
 
-map_fn = [data_path filesep 'wf_ephys_maps_' protocol];
+map_fn = [data_path filesep 'wf_ephys_maps_' protocol '_' num2str(n_aligned_depths) '_depths'];
 load(map_fn);
 
 n_depths = size(batch_vars(1).explained_var{1},1);
@@ -1233,7 +1230,7 @@ r_px_max_norm(isnan(r_px_max_norm)) = 0;
 kernel_template = r_px_max_norm;
 
 % Save template kernels
-kernel_template_fn = 'C:\Users\Andrew\OneDrive for Business\Documents\CarandiniHarrisLab\analysis\wf_ephys_choiceworld\ephys_processing\kernel_template';
+kernel_template_fn = ['C:\Users\Andrew\OneDrive for Business\Documents\CarandiniHarrisLab\analysis\wf_ephys_choiceworld\ephys_processing\kernel_template'  '_' num2str(n_aligned_depths) '_depths'];
 save(kernel_template_fn,'kernel_template');
 disp('Saved kernel template');
 
@@ -1241,6 +1238,8 @@ AP_image_scroll(r_px_max_norm)
 axis image;
 
 %% 4) Batch align striatum recordings from wf > ephys maps
+
+n_aligned_depths = 4;
 
 animals = {'AP024','AP025','AP026','AP027','AP028','AP029'};
 
@@ -1270,11 +1269,13 @@ for curr_animal = 1:length(animals)
         
         day = experiments(curr_day).day;
         experiment = experiments(curr_day).experiment;
-        
+                
+        % Load data and align striatum by depth
+        str_align = 'depth';  
         AP_load_experiment 
         
         % Load the template kernels
-        kernel_template_fn = 'C:\Users\Andrew\OneDrive for Business\Documents\CarandiniHarrisLab\analysis\wf_ephys_choiceworld\ephys_processing\kernel_template.mat';
+        kernel_template_fn = ['C:\Users\Andrew\OneDrive for Business\Documents\CarandiniHarrisLab\analysis\wf_ephys_choiceworld\ephys_processing\kernel_template'  '_' num2str(n_aligned_depths) '_depths.mat'];
         load(kernel_template_fn);
         
         %%% Load lambda from previously estimated and saved
@@ -1371,7 +1372,6 @@ for curr_animal = 1:length(animals)
         
         % Categorize template by kernel match
         aligned_str_depth_group = discretize(spikeDepths,kernel_match_depth_edges,kernel_match_idx);
-        n_aligned_depths = size(kernel_template,3);
         
         % Package in structure
         ephys_kernel_align_new(curr_animal).animal = animal;
@@ -1384,7 +1384,7 @@ for curr_animal = 1:length(animals)
         ephys_kernel_align_new(curr_animal).n_aligned_depths(curr_day) = n_aligned_depths;
                 
         AP_print_progress_fraction(curr_day,length(experiments));
-        clearvars -except animals animal curr_animal protocol experiments curr_day animal ephys_kernel_align_new load_parts
+        clearvars -except n_aligned_depths animals animal curr_animal protocol experiments curr_day animal ephys_kernel_align_new load_parts
         
     end
     disp(['Finished ' animal]);
@@ -1395,9 +1395,139 @@ ephys_kernel_align = ephys_kernel_align_new;
 
 % Save
 save_path = 'C:\Users\Andrew\OneDrive for Business\Documents\CarandiniHarrisLab\analysis\wf_ephys_choiceworld\ephys_processing';
-save_fn = 'ephys_kernel_align';
+save_fn = ['ephys_kernel_align_' num2str(n_aligned_depths) '_depths'];
 save([save_path filesep save_fn],'ephys_kernel_align');
 disp('Saved ephys kernel alignment');
+
+%% 5) Batch cortex -> striatum maps with kernel alignment
+
+n_aligned_depths = 4;
+
+animals = {'AP024','AP025','AP026','AP027','AP028','AP029'};
+
+protocol = 'vanillaChoiceworld';
+% protocol = 'stimSparseNoiseUncorrAsync';
+% protocol = 'stimKalatsky';
+% protocol = 'AP_choiceWorldStimPassive';
+
+batch_vars = struct;
+for curr_animal = 1:length(animals)
+    
+    animal = animals{curr_animal};
+    experiments = AP_find_experiments(animal,protocol);
+    
+    % Skip if this animal doesn't have this experiment
+    if isempty(experiments)
+        continue
+    end
+    
+    disp(animal);
+    
+    experiments = experiments([experiments.imaging] & [experiments.ephys]);
+    
+    load_parts.cam = false;
+    load_parts.imaging = true;
+    load_parts.ephys = true;
+    
+    for curr_day = 1:length(experiments);
+        
+        day = experiments(curr_day).day;
+        experiment = experiments(curr_day).experiment;
+        
+        % Load data and align striatum by depth
+        str_align = 'kernel';        
+        AP_load_experiment;
+                
+        %%% Load lambda from previously estimated and saved
+        lambda_fn = 'C:\Users\Andrew\OneDrive for Business\Documents\CarandiniHarrisLab\analysis\wf_ephys_choiceworld\ephys_processing\ctx-str_lambda';
+        load(lambda_fn);
+        curr_animal_idx = strcmp(animal,{ctx_str_lambda.animal});
+        if any(curr_animal_idx)
+            curr_day_idx = strcmp(day,ctx_str_lambda(curr_animal_idx).day);
+            if any(curr_day_idx)
+                lambda = ctx_str_lambda(curr_animal_idx).best_lambda(curr_day_idx);
+            end
+        end
+        
+        %%% Prepare data for regression                
+        upsample_factor = 2;
+        sample_rate = (1/median(diff(frame_t)))*upsample_factor;
+        
+        skip_seconds = 60;
+        time_bins = frame_t(find(frame_t > skip_seconds,1)):1/sample_rate:frame_t(find(frame_t-frame_t(end) < -skip_seconds,1,'last'));
+        time_bin_centers = time_bins(1:end-1) + diff(time_bins)/2;
+        
+        % Get upsampled dVdf's
+        use_svs = 1:50;
+        dfVdf_resample = interp1(conv2(frame_t,[1,1]/2,'valid'), ...
+            diff(fVdf(use_svs,:),[],2)',time_bin_centers)';
+                
+        % Get striatum depth group by across-experiment alignment
+        n_depths = n_aligned_depths;
+        depth_group = aligned_str_depth_group;
+          
+        binned_spikes = zeros(n_depths,length(time_bin_centers));
+        for curr_depth = 1:n_depths           
+            curr_spike_times = spike_times_timeline(depth_group == curr_depth);    
+            binned_spikes(curr_depth,:) = histcounts(curr_spike_times,time_bins);            
+        end       
+        
+        % Get rid of NaNs (if no data?)
+        binned_spikes(isnan(binned_spikes)) = 0;
+        
+        kernel_t = [-0.3,0.3];
+        kernel_frames = round(kernel_t(1)*sample_rate):round(kernel_t(2)*sample_rate);
+        zs = [false,true];
+        cvfold = 10;      
+
+        %%% Regress MUA from cortex
+        [k,predicted_spikes,explained_var] = ...
+            AP_regresskernel(dfVdf_resample, ...
+            binned_spikes,kernel_frames,lambda,zs,cvfold);
+        
+        % Reshape kernel and convert to pixel space
+        r = reshape(k,length(use_svs),length(kernel_frames),size(binned_spikes,1));
+        
+        aUdf = single(AP_align_widefield(animal,day,Udf));
+        r_px = zeros(size(aUdf,1),size(aUdf,2),size(r,2),size(r,3),'single');
+        for curr_spikes = 1:size(r,3);
+            r_px(:,:,:,curr_spikes) = svdFrameReconstruct(aUdf(:,:,use_svs),r(:,:,curr_spikes));
+        end
+                
+        % Get center of mass for each pixel
+        % (get max r for each pixel, filter out big ones)
+        r_px_max = squeeze(max(r_px,[],3)).^3;
+        r_px_max(isnan(r_px_max)) = 0;
+        for i = 1:n_depths
+            r_px_max(:,:,i) = medfilt2(r_px_max(:,:,i),[10,10]);
+        end
+        r_px_max_norm = bsxfun(@rdivide,r_px_max, ...
+            permute(max(reshape(r_px_max,[],n_depths),[],1),[1,3,2]));
+        r_px_max_norm(isnan(r_px_max_norm)) = 0;
+        r_px_com = sum(bsxfun(@times,r_px_max_norm,permute(1:n_depths,[1,3,2])),3)./sum(r_px_max_norm,3);        
+        
+        r_px_weight = max(abs(r_px_max),[],3);
+        
+        % Store all variables to save
+        batch_vars(curr_animal).r_px{curr_day} = r_px;
+        batch_vars(curr_animal).r_px_com{curr_day} = r_px_com;
+        batch_vars(curr_animal).r_px_weight{curr_day} = r_px_weight;
+        batch_vars(curr_animal).explained_var{curr_day} = explained_var.total;
+              
+        AP_print_progress_fraction(curr_day,length(experiments));
+        clearvars -except n_aligned_depths animals animal curr_animal protocol experiments curr_day animal batch_vars load_parts
+        
+    end
+      
+    disp(['Finished ' animal]);
+    
+end
+
+% Save
+save_path = ['C:\Users\Andrew\OneDrive for Business\Documents\CarandiniHarrisLab\analysis\wf_ephys_choiceworld\wf_ephys'];
+save([save_path filesep 'wf_ephys_maps_' protocol '_' num2str(n_aligned_depths) '_depths_kernel'],'batch_vars','-v7.3');
+warning('saving -v7.3');
+disp('Finished batch');
 
 %% !!!!                                                                                                       !!!!
 
@@ -5515,6 +5645,8 @@ disp('Finished batch');
 
 %% Batch load and save activity from all chosen trials for all animals
 
+n_aligned_depths = 4;
+
 animals = {'AP024','AP025','AP026','AP027','AP028','AP029'};
 
 fluor_all = cell(length(animals),1);
@@ -5543,7 +5675,10 @@ for curr_animal = 1:length(animals)
         
         day = experiments(curr_day).day;
         experiment = experiments(curr_day).experiment;
-        verbose = false; AP_load_experiment;
+        
+        % Load experiment
+        str_align = 'kernel';
+        AP_load_experiment;
         
         % Prepare fluorescence
         % (load widefield ROIs)
@@ -5680,21 +5815,23 @@ for curr_animal = 1:length(animals)
         AP_print_progress_fraction(curr_day,length(experiments));
     end
     
-    clearvars -except animals curr_animal fluor_all mua_all D_all
+    clearvars -except n_aligned_depths animals curr_animal fluor_all mua_all D_all
     
 end
-clearvars -except fluor_all mua_all D_all
+clearvars -except n_aligned_depths fluor_all mua_all D_all
 disp('Finished loading all')
 
 save_path = 'C:\Users\Andrew\OneDrive for Business\Documents\CarandiniHarrisLab\analysis\wf_ephys_choiceworld\choiceworld';
-save_fn = 'all_trial_activity_df_kernel-str_earlymove.mat';
+save_fn = ['all_trial_activity_df_kernel-str_earlymove_' num2str(n_aligned_depths) '_depths'];
 save([save_path filesep save_fn]);
 
 %% Batch logistic regression on saved day-concatenated activity (neural data independently)
 
+n_aligned_depths = 4;
+
 % Load data
 data_path = 'C:\Users\Andrew\OneDrive for Business\Documents\CarandiniHarrisLab\analysis\wf_ephys_choiceworld\choiceworld';
-data_fn = 'all_trial_activity_df_kernel-str_earlymove.mat';
+data_fn = ['all_trial_activity_df_kernel-str_earlymove_' num2str(n_aligned_depths) '_depths.mat'];
 load([data_path filesep data_fn]);
 
 % Get time
@@ -5863,9 +6000,9 @@ for curr_animal = 1:n_animals
     AP_print_progress_fraction(curr_animal,n_animals);
 end
 
-clearvars -except loglik_increase_fluor loglik_increase_mua
+clearvars -except n_aligned_depths loglik_increase_fluor loglik_increase_mua
 save_path = ['C:\Users\Andrew\OneDrive for Business\Documents\CarandiniHarrisLab\analysis\wf_ephys_choiceworld\choiceworld'];
-save_fn = ['activity_sessioncat_logistic_regression_earlymove_kernel-str'];
+save_fn = ['activity_sessioncat_logistic_regression_earlymove_kernel-str_' num2str(n_aligned_depths) '_depths'];
 save([save_path filesep save_fn])
 
 disp('Finished');
