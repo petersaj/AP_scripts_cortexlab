@@ -674,6 +674,15 @@ if ephys_exists && load_parts.ephys
         fclose(fid);
     end
     
+    % Apparently now sometimes it's a different filename/type, if that
+    % exists overwrite the other one
+    cluster_filename = [ephys_path filesep 'cluster_group.tsv'];
+    if exist(cluster_filename,'file')
+        fid = fopen(cluster_filename);
+        cluster_groups = textscan(fid,'%d%s','HeaderLines',1);
+        fclose(fid);
+    end
+    
     % Load sync/photodiode
     load(([ephys_path filesep 'sync.mat']));
     
@@ -792,9 +801,10 @@ if ephys_exists && load_parts.ephys
     % Eliminate spikes that were classified as not "good"
     if exist('cluster_groups','var')
         
-        if verbose; disp('Removing non-good templates'); end;
+        if verbose; disp('Removing non-good/MUA templates'); end;
         
-        good_templates_idx = uint32(cluster_groups{1}(strcmp(cluster_groups{2},'good')));
+        good_templates_idx = uint32(cluster_groups{1}( ...
+            strcmp(cluster_groups{2},'good') | strcmp(cluster_groups{2},'mua')));
         good_templates = ismember(0:size(templates,1)-1,good_templates_idx);
         
         % Throw out all non-good template data
@@ -833,7 +843,8 @@ if ephys_exists && load_parts.ephys
     % if none specified, assume kernel
     % if depth specified, requires n_aligned_depths
     if ~exist('n_aligned_depths','var')
-        error('n_aligned_depths not specified');
+        n_aligned_depths = 4;
+        disp('No n_aligned_depths, default = 4')
     end
     
     if ~exist('str_align','var')
@@ -926,6 +937,105 @@ if ephys_exists && load_parts.ephys && exist('cluster_groups','var')
     uin = str_templates & ~msn & ~fsi & ~tan;
     
     waveform_t = 1e3*((0:size(templates,2)-1)/ephys_sample_rate);
+    
+    if verbose
+        
+        % Plot the waveforms and spike statistics
+        figure;
+        
+        if any(non_str_templates)
+            subplot(2,2,1); hold on;
+            p = plot(waveform_t,waveforms(non_str_templates,:)');
+            set(p(wide(non_str_templates)),'color','k')
+            set(p(narrow(non_str_templates)),'color','r')
+            xlabel('Time (ms)')
+            title('Not striatum');
+            legend([p(find(wide(non_str_templates),1)),p(find(narrow(non_str_templates),1))],{'Wide','Narrow'})
+        end
+        
+        subplot(2,2,2); hold on;
+        p = plot(waveform_t,waveforms(str_templates,:)');
+        set(p(msn(str_templates)),'color','m')
+        set(p(fsi(str_templates)),'color','b')
+        set(p(tan(str_templates)),'color','g')
+        set(p(uin(str_templates)),'color','c')
+        xlabel('Time (ms)')
+        title('Striatum');
+        legend([p(find(msn(str_templates),1)),p(find(fsi(str_templates),1)), ...
+            p(find(tan(str_templates),1)),p(find(uin(str_templates),1))],{'MSN','FSI','TAN','UIN'});
+        
+        subplot(2,2,3); hold on;
+        
+        stem3( ...
+            templateDuration_us(wide)/1000, ...
+            prop_long_isi(wide), ...
+            spike_rate(wide),'k');
+        
+        stem3( ...
+            templateDuration_us(narrow)/1000, ...
+            prop_long_isi(narrow), ...
+            spike_rate(narrow),'r');
+        
+        xlabel('waveform duration (ms)')
+        ylabel('frac long ISI')
+        zlabel('spike rate')
+        
+        set(gca,'YDir','reverse')
+        set(gca,'XDir','reverse')
+        view(3);
+        grid on;
+        axis vis3d;
+        
+        subplot(2,2,4); hold on;
+        stem3( ...
+            templateDuration_us(msn)/1000, ...
+            prop_long_isi(msn), ...
+            spike_rate(msn),'m');
+        
+        stem3( ...
+            templateDuration_us(fsi)/1000, ...
+            prop_long_isi(fsi), ...
+            spike_rate(fsi),'b');
+        
+        stem3( ...
+            templateDuration_us(tan)/1000, ...
+            prop_long_isi(tan), ...
+            spike_rate(tan),'g');
+        
+        stem3( ...
+            templateDuration_us(uin)/1000, ...
+            prop_long_isi(uin), ...
+            spike_rate(uin),'c');
+        
+        xlabel('waveform duration (ms)')
+        ylabel('frac long ISI')
+        zlabel('spike rate')
+        
+        set(gca,'YDir','reverse')
+        set(gca,'XDir','reverse')
+        view(3);
+        grid on;
+        axis vis3d;
+        
+        % Plot cell type by depth
+        celltype_labels = {'Wide','Narrow','MSN','FSI','TAN','UIN'};
+        celltypes = wide.*1 + narrow.*2 + msn.*3 + fsi.*4 + tan.*5 + uin.*6;
+        use_colors = {'k','r','m','b','g','c'};
+        
+        plot_celltypes = any([wide,narrow,msn,fsi,tan,uin],1);
+        
+        figure('Position',[94,122,230,820]);
+        plotSpread(templateDepths,'categoryIdx', ...
+            celltypes,'categoryColors',use_colors(plot_celltypes));
+        set(gca,'XTick',[]);
+        set(gca,'YDir','reverse');
+        ylabel('Depth (\mum)');
+        legend(celltype_labels(plot_celltypes));
+        ylim([0,max(channel_positions(:,2))])
+        
+        drawnow;
+        
+    end
     
 end
 

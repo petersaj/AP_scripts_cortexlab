@@ -1195,7 +1195,7 @@ for curr_animal = 1:length(animals)
         
     end
     r_px(:,:,:,:,curr_animal) = nanmean(curr_animal_r_px,5);
-    disp(curr_animal);
+    AP_print_progress_fraction(curr_animal,length(animals));
 end
 
 com = cell2mat(shiftdim(cellfun(@(x) nanmean(cat(3,x{:}),3),{batch_vars.r_px_com},'uni',false),-1));
@@ -1237,7 +1237,7 @@ disp('Saved kernel template');
 AP_image_scroll(r_px_max_norm)  
 axis image;
 
-%% 4) Batch align striatum recordings from wf > ephys maps
+%% 4) Batch align striatum recordings from template kernels
 
 n_aligned_depths = 4;
 
@@ -1339,7 +1339,7 @@ for curr_animal = 1:length(animals)
             r_px(:,:,:,curr_spikes) = svdFrameReconstruct(Udf(:,:,use_svs),r(:,:,curr_spikes));
         end
         
-        % Get template kernels
+        % Make single-frames from kernels
         t = kernel_frames/sample_rate;
         use_t = t >= 0 & t <= 0;
         r_px_max = squeeze(nanmean(r_px(:,:,use_t,:),3));
@@ -1350,9 +1350,10 @@ for curr_animal = 1:length(animals)
         % Get best match from kernels to kernel templates
         kernel_align = reshape(AP_align_widefield(animal,day,r_px_max_norm),[],n_depths);
         kernel_align_medfilt = medfilt2(kernel_align,[1,3]);
-        kernel_score = zscore(kernel_align_medfilt,[],1)'* ...
-            zscore(reshape(kernel_template,[],size(kernel_template,3)),[],1);
-        [~,kernel_match_raw] = max(kernel_score,[],2);
+        kernel_corr = (zscore(kernel_align_medfilt,[],1)'* ...
+            zscore(reshape(kernel_template,[],size(kernel_template,3)),[],1))./ ...
+            (size(kernel_align_medfilt,1)-1);
+        [kernel_match_corr,kernel_match_raw] = max(kernel_corr,[],2);
         
         % CLEAN UP KERNEL MATCH, NOT SURE HOW TO DO THIS YET
         % Median filter kernel match to get rid of blips
@@ -1377,6 +1378,7 @@ for curr_animal = 1:length(animals)
         ephys_kernel_align_new(curr_animal).animal = animal;
         ephys_kernel_align_new(curr_animal).days{curr_day} = day;       
 
+        ephys_kernel_align_new(curr_animal).kernel_corr{curr_day} = kernel_corr;
         ephys_kernel_align_new(curr_animal).kernel_match_raw{curr_day} = kernel_match_raw;
         ephys_kernel_align_new(curr_animal).kernel_match{curr_day} = kernel_match;
         
@@ -1495,15 +1497,13 @@ for curr_animal = 1:length(animals)
         end
                 
         % Get center of mass for each pixel
-        % (get max r for each pixel, filter out big ones)
-        r_px_max = squeeze(max(r_px,[],3)).^3;
-        r_px_max(isnan(r_px_max)) = 0;
-        for i = 1:n_depths
-            r_px_max(:,:,i) = medfilt2(r_px_max(:,:,i),[10,10]);
-        end
+        t = kernel_frames/sample_rate;
+        use_t = t >= 0 & t <= 0;
+        r_px_max = squeeze(nanmean(r_px(:,:,use_t,:),3));
         r_px_max_norm = bsxfun(@rdivide,r_px_max, ...
             permute(max(reshape(r_px_max,[],n_depths),[],1),[1,3,2]));
-        r_px_max_norm(isnan(r_px_max_norm)) = 0;
+        r_px_max_norm(isnan(r_px_max_norm)) = 0;      
+        
         r_px_com = sum(bsxfun(@times,r_px_max_norm,permute(1:n_depths,[1,3,2])),3)./sum(r_px_max_norm,3);        
         
         r_px_weight = max(abs(r_px_max),[],3);
@@ -1528,6 +1528,11 @@ save_path = ['C:\Users\Andrew\OneDrive for Business\Documents\CarandiniHarrisLab
 save([save_path filesep 'wf_ephys_maps_' protocol '_' num2str(n_aligned_depths) '_depths_kernel'],'batch_vars','-v7.3');
 warning('saving -v7.3');
 disp('Finished batch');
+
+
+
+
+
 
 %% !!!!                                                                                                       !!!!
 
@@ -3299,6 +3304,8 @@ for trialtype_align = {'stim','move'};
                 day = experiments(curr_day).day;
                 experiment = experiments(curr_day).experiment;
                 
+                str_align = 'kernel';
+                n_aligned_depths = 4;
                 AP_load_experiment
                 
                 switch trialtype_align
@@ -3325,10 +3332,9 @@ for trialtype_align = {'stim','move'};
                 wf_roi_fn = 'C:\Users\Andrew\OneDrive for Business\Documents\CarandiniHarrisLab\analysis\wf_ephys_choiceworld\wf_processing\wf_rois\wf_roi';
                 load(wf_roi_fn);
                 
-                % Group striatum depths
-                n_depths = 6;
-                depth_group_edges = round(linspace(str_depth(1),str_depth(2),n_depths+1));
-                [depth_group_n,~,depth_group] = histcounts(spikeDepths,depth_group_edges);
+                % Group striatum depths by previous alignment
+                n_depths = n_aligned_depths;
+                depth_group = aligned_str_depth_group;
                 
                 % Define times to align
                 n_trials = length(block.paramsValues);
@@ -5791,7 +5797,7 @@ for curr_animal = 1:length(animals)
             trial_outcome ~= 0 & ...
             ~signals_events.repeatTrialValues(1:n_trials) & ...
             stim_to_feedback < 1.5 & ...
-            stim_to_move < 0.5;
+            stim_to_move > 0.5;
         
         % Get behavioural data
         D = struct;
@@ -5822,7 +5828,7 @@ clearvars -except n_aligned_depths fluor_all mua_all D_all
 disp('Finished loading all')
 
 save_path = 'C:\Users\Andrew\OneDrive for Business\Documents\CarandiniHarrisLab\analysis\wf_ephys_choiceworld\choiceworld';
-save_fn = ['all_trial_activity_df_kernel-str_earlymove_' num2str(n_aligned_depths) '_depths'];
+save_fn = ['all_trial_activity_df_kernel-str_latemove_' num2str(n_aligned_depths) '_depths'];
 save([save_path filesep save_fn]);
 
 %% Batch logistic regression on saved day-concatenated activity (neural data independently)
@@ -6009,9 +6015,11 @@ disp('Finished');
 
 %% Batch logistic regression on saved day-concatenated activity (neural data simultaneously)
 
+n_aligned_depths = 4;
+
 % Load data
 data_path = 'C:\Users\Andrew\OneDrive for Business\Documents\CarandiniHarrisLab\analysis\wf_ephys_choiceworld\choiceworld';
-data_fn = 'all_trial_activity_df_kernel-str_earlymove.mat';
+data_fn = ['all_trial_activity_df_kernel-str_earlymove_' num2str(n_aligned_depths) '_depths.mat'];
 load([data_path filesep data_fn]);
 
 % Get time

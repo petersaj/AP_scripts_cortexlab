@@ -135,7 +135,7 @@ end
 
 %% Plot the aligned groups
 
-if verbose
+if verbose && exist('aligned_str_depth_group','var');
     [~,idx,~] = unique(spike_templates);
     template_aligned_depth = aligned_str_depth_group(idx)+1;
     template_aligned_depth(isnan(template_aligned_depth)) = 1;
@@ -147,6 +147,7 @@ if verbose
     set(gca,'YDir','reverse');
     line(xlim,[str_depth(1),str_depth(1)]);
     line(xlim,[str_depth(2),str_depth(2)]);
+    drawnow;
 end
 
 

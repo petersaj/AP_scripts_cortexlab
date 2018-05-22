@@ -1048,11 +1048,11 @@ axis image;
 
 %% PSTH plot by depth (single stim ID)
 
-align_times = stimOn_times(ismember(stimIDs,[1,2,3]));
+align_times = stimOn_times(ismember(stimIDs,[10]));
 %align_times = stimOnTimes(azimuths == 90 & stim_hit);
 
 % Group by depth
-n_depth_groups = 8;
+n_depth_groups = 20;
 depth_group_edges = linspace(0,max(channel_positions(:,2)),n_depth_groups+1);
 % depth_group_edges = round(linspace(str_depth(1),str_depth(2),n_depth_groups+1));
 depth_group_centers = round(depth_group_edges(1:end-1)+diff(depth_group_edges)/2);
@@ -1069,7 +1069,7 @@ for curr_depth = 1:n_depth_groups
 end
 
 % PSTHs
-raster_window = [-0.5,2.5];
+raster_window = [-0.5,1];
 psth_bin_size = 0.001;
 
 depth_psth = nan(n_depth_groups,diff(raster_window)/psth_bin_size);
@@ -1171,7 +1171,7 @@ lfp_depth_mean = grpstats(lfp,channel_depth_grp);
 n_stim = length(unique(stimIDs));
 align_times = stimOn_times;
 
-lfp_window = [-1,5];
+lfp_window = [-0.5,1];
 t_space = 0.001;
 lfp_stim_mean = nan(n_stim,1+diff(lfp_window)/t_space,size(lfp_depth_mean,1));
 lfp_stim_sem = nan(n_stim,1+diff(lfp_window)/t_space,size(lfp_depth_mean,1));
@@ -1649,7 +1649,7 @@ end
 
 %% Rasters and PSTHs aligned to stimuli
 
-use_spikes_idx = ismember(spike_templates,find(templateDepths >= 0 & templateDepths <= 1500));
+use_spikes_idx = ismember(spike_templates,find(templateDepths >= 0 & templateDepths <= 3000));
 % use_spikes_idx = ismember(spike_templates,find(templateDepths > 500 & templateDepths < 1500)) & ...
 %    (ismember(spike_templates,find(msn)));
 
@@ -1661,7 +1661,7 @@ use_spike_templates = spike_templates(use_spikes_idx);
 align_times = stimOn_times;%(ismember(stimIDs,[3,4]));
 
 % PSTHs
-raster_window = [-0.5,5];
+raster_window = [-0.5,1];
 psthViewer(use_spikes,use_spike_templates, ...
     stimOn_times,raster_window,stimIDs);
 

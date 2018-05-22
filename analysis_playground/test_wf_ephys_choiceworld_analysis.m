@@ -1057,7 +1057,7 @@ legend({'Real','Predicted'});
 
 % Spikes in striatum
 use_spikes_idx = spikeDepths >= str_depth(1) & spikeDepths <= str_depth(2);
-% use_spikes_idx = aligned_str_depth_group == 4;
+% use_spikes_idx = aligned_str_depth_group == 3;
 % use_spikes_idx = spike_templates == 30;
 
 use_spikes = spike_times_timeline(use_spikes_idx);
@@ -1145,6 +1145,7 @@ template_sort = sort_templates(use_templates);
 raster_window = [-0.5,0.5];
 psthViewer(use_spikes,template_sort, ...
     wheel_move_time(use_trials)',raster_window,trial_id(use_trials));
+set(gcf,'Name','Templates sorted by choice difference');
 
 
 %% Ephys: rasters by template
@@ -1279,14 +1280,14 @@ pca_data = zscore([squeeze(nanmean(template_psth_smooth(go_left,:,depth_group ==
 
 %% Ephys: rasters by depth
 
-% (to group striatum depths)
-n_depths = 6;
-depth_group_edges = round(linspace(str_depth(1),str_depth(2),n_depths+1));
-depth_group = discretize(spikeDepths,depth_group_edges);
+% % (to group striatum depths)
+% n_depths = 6;
+% depth_group_edges = round(linspace(str_depth(1),str_depth(2),n_depths+1));
+% depth_group = discretize(spikeDepths,depth_group_edges);
 
-% % (to use aligned striatum depths)
-% n_depths = n_aligned_depths;
-% depth_group = aligned_str_depth_group;
+% (to use aligned striatum depths)
+n_depths = n_aligned_depths;
+depth_group = aligned_str_depth_group;
 
 % % (for manual depth)
 % depth_group_edges = [1500,2200];
@@ -3721,10 +3722,16 @@ for curr_animal = 1:length(ephys_kernel_align)
     subplot(2,length(ephys_kernel_align),curr_animal); hold on;
     set(gca,'ColorOrder',copper(size(kernel_match_raw_all{curr_animal},2)));
     plot(kernel_match_raw_all{curr_animal},'linewidth',2);
+    xlabel('Striatum depth')
+    ylabel('Kernel match')
+    title(ephys_kernel_align(curr_animal).animal);
     
     subplot(2,length(ephys_kernel_align),curr_animal+length(ephys_kernel_align)); hold on;
     set(gca,'ColorOrder',copper(size(kernel_match_all{curr_animal},2)));
     plot(kernel_match_all{curr_animal},'linewidth',2);
+    xlabel('Striatum depth')
+    ylabel('Kernel match (cleaned)')
+    title(ephys_kernel_align(curr_animal).animal);
 end
 
 
@@ -4430,13 +4437,13 @@ plot_t = [-0.2,0.7];
 t_use = t > 0.5 & t < 0.6;
 
 % Load correlations
-trialtype_align = 'move';
+trialtype_align = 'stim';
 trialtype_timing = 'earlymove';
 
 corr_use = ['corr_mua_fluor_' trialtype_align '_' trialtype_timing '_conditionshuff'];
 fn = ['C:\Users\Andrew\OneDrive for Business\Documents\CarandiniHarrisLab\analysis\wf_ephys_choiceworld\choiceworld\' corr_use];
 load(fn);
-n_depths = 6;
+n_depths = 4;
 
 % Load widefield ROIs
 wf_roi_fn = 'C:\Users\Andrew\OneDrive for Business\Documents\CarandiniHarrisLab\analysis\wf_ephys_choiceworld\wf_processing\wf_rois\wf_roi';
@@ -6437,6 +6444,8 @@ plot(t,nanmean(loglik_increase_mua(:,:,2,:),4))
 
 % Max predicatbility in cortex and striatum for each animal
 % (max difference for all regions and mice)
+n_animals = size(loglik_increase_fluor,4);
+
 loglik_diff_fluor = squeeze(max(loglik_increase_fluor,[],1) - min(loglik_increase_fluor,[],1));
 loglik_diff_mua = squeeze(max(loglik_increase_mua,[],1) - min(loglik_increase_mua,[],1));
 figure; hold on;
@@ -6531,8 +6540,8 @@ n_aligned_depths = 4;
 
 % Load data
 data_path = 'C:\Users\Andrew\OneDrive for Business\Documents\CarandiniHarrisLab\analysis\wf_ephys_choiceworld\choiceworld';
-data_fn = ['all_trial_activity_df_kernel-str_earlymove_' num2str(n_aligned_depths) '_depths.mat'];
-% data_fn = 'all_trial_activity_df_earlymove.mat';
+data_fn = ['all_trial_activity_df_kernel-str_latemove_' num2str(n_aligned_depths) '_depths.mat'];
+% data_fn = 'all_trial_activity_df_msn_earlymove.mat';
 
 load([data_path filesep data_fn]);
 n_animals = length(D_all);
@@ -6667,7 +6676,7 @@ plot_color = colormap_BlueWhiteRed(5);
 plot_color = [plot_color(end-4:end,:);plot_color(5:-1:1,:)];
 
 % % (to plot one movement direction)
-% plot_move = 1;
+% plot_move = -1;
 % plot_conditions = find(conditions(:,1) ~= 0 & ...
 %     conditions(:,3) == plot_move & ...
 %     conditions(:,4) == plot_timing);
@@ -6916,7 +6925,7 @@ n_aligned_depths = 4;
 
 % Load data
 data_path = 'C:\Users\Andrew\OneDrive for Business\Documents\CarandiniHarrisLab\analysis\wf_ephys_choiceworld\choiceworld';
-data_fn = ['all_trial_activity_df_kernel-str_earlymove_' num2str(n_aligned_depths) '_depths.mat'];
+data_fn = ['all_trial_activity_df_kernel-str_latemove_' num2str(n_aligned_depths) '_depths.mat'];
 % data_fn = 'all_trial_activity_df_earlymove.mat';
 load([data_path filesep data_fn]);
 

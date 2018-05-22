@@ -1,21 +1,26 @@
-function AP_prepare_phy(animal,day,car)
-% AP_prepare_phy(animal,day,car)
+function AP_prepare_phy(animal,day,site,car)
+% AP_prepare_phy(animal,day,site,car)
 %
 % Clears whatever is currently in local phy folder
 % Sets up params file
 % Loads raw and kilosorted data to local file
 % car - if true, does common-average referencing
 
-%% Make CAR false if not entered
+%% Set defaults
+
+if ~exist('site','var')
+    site = [];
+end
+
 if ~exist('car','var') || isempty(car)
     car = false;
 end
 
 %% Get parts of raw filename
 
-[ephys_path,ephys_exists] = AP_cortexlab_filename(animal,day,[],'ephys');
+[ephys_path,ephys_exists] = AP_cortexlab_filename(animal,day,[],'ephys',site);
 
-[ephys_raw_path,ephys_raw_exists] = AP_cortexlab_filename(animal,day,[],'ephysraw');
+[ephys_raw_path,ephys_raw_exists] = AP_cortexlab_filename(animal,day,[],'ephysraw',site);
 ap_filename = 'experiment1_100-0_0.dat';
 
 if ~ephys_exists || ~ephys_raw_exists
