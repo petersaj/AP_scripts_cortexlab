@@ -1158,7 +1158,7 @@ title('Population raster by depth');
 %% Stim-triggered LFP by depth
 
 % Group by depth
-n_depth_groups = 20;
+n_depth_groups = 10;
 depth_group_edges = linspace(0,max(templateDepths),n_depth_groups+1);
 depth_group_edges(end) = Inf;
 depth_group_centers = depth_group_edges(1:end-1) + diff(depth_group_edges)./2;
@@ -1191,7 +1191,7 @@ end
 plot_t = lfp_window(1):t_space:lfp_window(2);
 
 % Plot one stim across depths
-plot_stim = 5;
+plot_stim = 10;
 trace_spacing = 5000;
 plot_lfp = squeeze(lfp_stim_mean(plot_stim,:,:));
 yvals = trace_spacing*[1:size(plot_lfp,2)];
@@ -1203,7 +1203,7 @@ title('Stimulus-triggered LFP');
 xlabel('Time from stim onset (s)');
 
 % Plot one depth across stims
-plot_depth = 1;
+plot_depth = 6;
 trace_spacing = 2000;
 plot_lfp = squeeze(lfp_stim_mean(:,:,plot_depth))';
 yvals = 1500*[1:size(plot_lfp,2)];
