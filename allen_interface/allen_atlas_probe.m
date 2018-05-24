@@ -21,10 +21,10 @@ bregma = allenCCFbregma;
 
 % If not already loaded in, load in atlas
 if nargin < 3
-    cd('C:\Users\Andrew\OneDrive for Business\Documents\Atlases\AllenCCF')
-    tv = readNPY('template_volume_10um.npy'); % grey-scale "background signal intensity"
-    av = readNPY('annotation_volume_10um_by_index.npy'); % the number at each pixel labels the area, see note below
-    st = loadStructureTree('structure_tree_safe_2017.csv'); % a table of what all the labels mean
+    allen_atlas_path = 'C:\Users\Andrew\OneDrive for Business\Documents\Atlases\AllenCCF';
+    tv = readNPY([allen_atlas_path filesep 'template_volume_10um.npy']); % grey-scale "background signal intensity"
+    av = readNPY([allen_atlas_path filesep 'annotation_volume_10um_by_index.npy']); % the number at each pixel labels the area, see note below
+    st = loadStructureTree([allen_atlas_path filesep 'structure_tree_safe_2017.csv']); % a table of what all the labels mean
 end
 
 % Set up the gui and axes

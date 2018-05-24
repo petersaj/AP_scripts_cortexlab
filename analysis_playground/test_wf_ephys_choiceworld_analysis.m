@@ -4437,7 +4437,7 @@ t_use = t > 0.5 & t < 0.6;
 
 % Load correlations
 trialtype_align = 'stim';
-trialtype_timing = 'earlymove';
+trialtype_timing = 'latemove';
 
 corr_use = ['corr_mua_fluor_' trialtype_align '_' trialtype_timing '_conditionshuff'];
 fn = ['C:\Users\Andrew\OneDrive for Business\Documents\CarandiniHarrisLab\analysis\wf_ephys_choiceworld\choiceworld\' corr_use];
@@ -5053,7 +5053,7 @@ t_use = [{t > 0 & t < 0.2}, ...
     {t > -0.2 & t < 0}];
 
 % Striatum
-n_depths = 6;
+n_depths = 4;
 
 % Widefield
 wf_roi_fn = 'C:\Users\Andrew\OneDrive for Business\Documents\CarandiniHarrisLab\analysis\wf_ephys_choiceworld\wf_processing\wf_rois\wf_roi';
