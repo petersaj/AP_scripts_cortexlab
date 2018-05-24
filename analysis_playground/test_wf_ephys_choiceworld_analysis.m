@@ -3413,22 +3413,22 @@ if save_alignment
 end
 
 %% Load and average wf -> ephys maps
+
+n_aligned_depths = 4;
+
 data_path = 'C:\Users\Andrew\OneDrive for Business\Documents\CarandiniHarrisLab\analysis\wf_ephys_choiceworld\wf_ephys';
 
 protocol = 'vanillaChoiceworld';
-% protocol = 'stimSparseNoiseUncorrAsync';
-% protocol = 'stimKalatsky'; 
-% protocol = 'AP_choiceWorldStimPassive';
 
-map_fn = [data_path filesep 'wf_ephys_maps_' protocol];
+map_fn = [data_path filesep 'wf_ephys_maps_' protocol '_' num2str(n_aligned_depths) '_depths_kernel'];
 load(map_fn);
-
-n_depths = size(batch_vars(1).explained_var{1},1);
 
 animals = {'AP024','AP025','AP026','AP027','AP028','AP029'};
 
 % (scale r_px's because different lambdas give different weights)
 % (do in a loop because memory can't handle a cellfun??)
+n_depths = n_aligned_depths;
+
 r_px = nan(437,416,43,n_depths,length(animals));
 for curr_animal = 1:length(animals)
     curr_animal_r_px = nan(437,416,43,n_depths,length(days));
@@ -3539,21 +3539,19 @@ for curr_depth = 1:n_depths
 end
 
 % Plot map (from mean kernel)
-use_t = t > -0.1 & t < 0.1;
-r_px_max = squeeze(max(r_px_mean(:,:,use_t,:),[],3)).^3;
-for i = 1:n_depths
-    r_px_max(:,:,i) = medfilt2(r_px_max(:,:,i),[10,10]);
-end
+use_t = t >= 0 & t <= 0;
+r_px_max = squeeze(nanmean(r_px_mean(:,:,use_t,:),3));
 r_px_max_norm = bsxfun(@rdivide,r_px_max, ...
     permute(max(reshape(r_px_max,[],n_depths),[],1),[1,3,2]));
 r_px_max_norm(isnan(r_px_max_norm)) = 0;
+r_px_max_norm(r_px_max_norm < 0) = 0;
 r_px_com = sum(bsxfun(@times,r_px_max_norm,permute(1:n_depths,[1,3,2])),3)./sum(r_px_max_norm,3);
 com_colored = ind2rgb(round(mat2gray(r_px_com,[1,n_depths])*255),jet(255));
 
 figure;
 p = imagesc(com_colored);
 axis image off
-weight_norm = mat2gray(max(r_px_max,[],3),[0,double(prctile(reshape(max(r_px_max,[],3),[],1),90))]);
+weight_norm = mat2gray(max(r_px_max,[],3),[0,double(prctile(reshape(max(r_px_max,[],3),[],1),100))]);
 set(p,'AlphaData',weight_norm);
 
 c = colorbar;
@@ -3565,13 +3563,6 @@ set(c,'YTickLabel',1:n_depths);
  
 AP_reference_outline('retinotopy','m');
 AP_reference_outline('ccf_aligned','k');
-
-% %%%% SAVE TEMPLATE KERNELS
-% kernel_template_fn = 'C:\Users\Andrew\OneDrive for Business\Documents\CarandiniHarrisLab\analysis\wf_ephys_choiceworld\ephys_processing\kernel_template';
-% kernel_template = r_px_max_norm;
-% save(kernel_template_fn,'kernel_template');
-% disp('Saved kernel template');
-% %%%%
 
 % Plot map (from mean CoM)
 com_leeway =1;

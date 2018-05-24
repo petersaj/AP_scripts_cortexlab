@@ -1172,12 +1172,12 @@ protocol = 'vanillaChoiceworld';
 map_fn = [data_path filesep 'wf_ephys_maps_' protocol '_' num2str(n_aligned_depths) '_depths'];
 load(map_fn);
 
-n_depths = size(batch_vars(1).explained_var{1},1);
-
 animals = {'AP024','AP025','AP026','AP027','AP028','AP029'};
 
 % (scale r_px's because different lambdas give different weights)
 % (do in a loop because memory can't handle a cellfun??)
+n_depths = n_aligned_depths;
+
 r_px = nan(437,416,43,n_depths,length(animals));
 for curr_animal = 1:length(animals)
     curr_animal_r_px = nan(437,416,43,n_depths,length(days));

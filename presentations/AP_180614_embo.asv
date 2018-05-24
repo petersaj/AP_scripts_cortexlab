@@ -56,7 +56,7 @@ lighting gouraud
 camlight(h,'headlight');
 
 % Rotate brain side to top
-cam_steps = [linspace(180,90,30);linspace(0,90,30)];
+cam_steps = [linspace(-180,90,30);linspace(0,90,30)];
 movie_frames = struct('cdata',[],'colormap',[]);
 for i = 1:length(cam_steps)
     view([cam_steps(1,i),cam_steps(2,i)]);
@@ -71,21 +71,21 @@ writeVideo(writerObj,movie_frames);
 close(writerObj);
 
 % Rotate brain top to front
-cam_steps = [linspace(90,-90,30);linspace(90,0,30)];
+cam_steps = [linspace(90,-90,30);linspace(0,0,30)];
 movie_frames = struct('cdata',[],'colormap',[]);
 for i = 1:length(cam_steps)
     view([cam_steps(1,i),cam_steps(2,i)]);
     camlight(h,'headlight');
     movie_frames(i) = getframe(brain_fig);
 end
-movie_file = [embo_folder filesep 'brain_rotate_top-to-front.avi'];
+movie_file = [embo_folder filesep 'brain_rotate_front-to-top.avi'];
 writerObj = VideoWriter(movie_file);
 writerObj.FrameRate = length(cam_steps);
 open(writerObj);
 writeVideo(writerObj,movie_frames);
 close(writerObj);
 
-% Fade brain out for striatum from front
+% Fade brain out for striatum
 alpha_steps = linspace(1,0,20);
 view([-90,0]);
 camlight(h,'headlight');
@@ -101,7 +101,7 @@ open(writerObj);
 writeVideo(writerObj,movie_frames);
 close(writerObj);
 
-% Fade brain out for striatum from top
+% Fade brain out for striatum
 alpha_steps = linspace(1,0,20);
 view([90,90]);
 camlight(h,'headlight');
