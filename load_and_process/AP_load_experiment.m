@@ -834,6 +834,62 @@ if ephys_exists && load_parts.ephys
     
 end
 
+%% Regress light artifact out of LFP (unused at the moment)
+
+% if ephys_exists && load_parts.ephys
+%     
+%     if verbose; disp('Cleaning LFP...'); end;
+%     
+%     % LFP correlation
+%     % (fix the light artifact on each channel with regression)
+%     light_timeline = AP_clock_fix(sync(3).timestamps,acqlive_ephys_currexpt,acqLive_timeline);
+%     light_on = light_timeline(sync(3).values == 1);
+%     light_off = light_timeline(sync(3).values == 0);
+%     
+%     blue_on = light_on(1:2:end);
+%     blue_off = light_off(1:2:end);
+%     violet_on = light_on(2:2:end);
+%     violet_off = light_off(2:2:end);
+%     
+%     lfp_t_bins = [lfp_t_timeline-0.5/lfp_sample_rate,lfp_t_timeline(end)+0.5/lfp_sample_rate];
+%     blue_on_vector = histcounts(blue_on,lfp_t_bins);
+%     blue_off_vector = histcounts(blue_off,lfp_t_bins);
+%     violet_on_vector = histcounts(violet_on,lfp_t_bins);
+%     violet_off_vector = histcounts(violet_off,lfp_t_bins);
+%     
+%     light_vectors = [blue_on_vector;blue_off_vector;violet_on_vector;violet_off_vector];
+%     
+%     t_shift = round((1/35)*lfp_sample_rate*1.5);
+%     t_shifts = [-t_shift:t_shift];
+%     lambda = 0;
+%     zs = [false,false];
+%     cvfold = 1;
+%     
+%     % (in chunks: necessary memory-wise, also allows changing light)
+%     n_chunks = 10;
+%     lfp_t_chunk = round(linspace(1,size(lfp,2),n_chunks+1));
+%     
+%     lfp_lightfix = nan(size(lfp));
+%     for curr_chunk = 1:n_chunks
+%         curr_chunk_t = lfp_t_chunk(curr_chunk):lfp_t_chunk(curr_chunk+1);
+%         [light_k,artifact_lfp] = AP_regresskernel(light_vectors(:,curr_chunk_t),lfp(:,curr_chunk_t),t_shifts,lambda,zs,cvfold);
+%         
+%         lfp_lightfix(:,curr_chunk_t) = lfp(:,curr_chunk_t)-artifact_lfp;
+%         %             AP_print_progress_fraction(curr_chunk,n_chunks);
+%     end
+%     lfp_lightfix(isnan(lfp_lightfix)) = 0;
+%     
+%     % (group channels by depth)
+%     channel_depth_grp = discretize(channel_positions(:,2),depth_group_edges);
+%     lfp_depth_median = grpstats(lfp_lightfix,channel_depth_grp,'median');
+%     
+%     % (low-pass filter: sometimes bunch of junk at high freq?)
+%     freqCutoff = 300; % Hz
+%     [b100s, a100s] = butter(2,freqCutoff/(lfp_sample_rate/2),'low');
+%     lfp_depth_median_filt = single(filtfilt(b100s,a100s,double(lfp_depth_median)')');
+%     
+% end
+
 %% Estimate striatal boundaries on probe
 
 if ephys_exists && load_parts.ephys

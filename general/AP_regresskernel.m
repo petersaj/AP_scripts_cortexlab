@@ -28,6 +28,11 @@ function [k,predicted_signals,explained_var] = AP_regresskernel(regressors,signa
 % CurrentControlSet > Control > GraphicsDrivers, add new REG_DWORD called
 % "TdrDelay" and having a value of something like 30 (seconds)
 
+% Use no temporal delay if none specified
+if ~exist('t_shifts','var') || isempty(t_shifts)
+    t_shifts = 0;
+end
+
 % Convert regressors and t_shifts to cells if not already
 if ~iscell(regressors)
     regressors = {regressors};

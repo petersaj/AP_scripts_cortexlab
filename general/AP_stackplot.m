@@ -2,7 +2,7 @@ function h = AP_stackplot(x,t,spacing,zs,color,ylabels)
 % h = AP_stackplot(x,t,spacing,zs,color,ylabels)
 %
 % Plot lines stacked on each other
-% x - 2d matrix of lines to plot
+% x - matrix to plot, N points x M lines
 % spacing - spacing between lines
 % zscore - true/false, zscore traces
 % ylabels - can set the ylabels for each line being plotted

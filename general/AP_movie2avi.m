@@ -20,6 +20,7 @@ else
     f = figure;
 end
 a = axes('Position',[0,0,1,1]);
+axis image;
 
 im_plot = imagesc(a,im(:,:,1));
 % AP_reference_outline('retinotopy','b');AP_reference_outline('ccf_aligned','r');

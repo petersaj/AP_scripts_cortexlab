@@ -123,8 +123,8 @@ disp('Finished batch.')
 
 animals = {'AP024','AP025','AP026','AP027','AP028','AP029'};
 
-% protocol = 'stimKalatsky';
-protocol = 'AP_choiceWorldStimPassive';
+protocol = 'stimKalatsky';
+% protocol = 'AP_choiceWorldStimPassive';
 
 for curr_animal = 1:length(animals)
     
@@ -153,7 +153,7 @@ for curr_animal = 1:length(animals)
         AP_load_experiment
              
         % Set options
-        surround_window = [-0.5,5];
+        surround_window = [-0.5,3];
         framerate = 1./median(diff(frame_t));
         surround_samplerate = 1/(framerate*1);
         t_surround = surround_window(1):surround_samplerate:surround_window(2);
@@ -2520,8 +2520,11 @@ disp(['Finished batch'])
 
 %% Batch striatum responses to passive
 
+n_aligned_depths = 4;
+
 animals = {'AP024','AP025','AP026','AP027','AP028','AP029'};
 
+% In two animals could use: 
 % protocol = 'AP_choiceWorldStimPassive';
 
 batch_vars = struct;
@@ -2531,7 +2534,7 @@ for curr_animal = 1:length(animals)
     animal = animals{curr_animal};
     disp(animal);
     
-    % Only use days with choiceworld (sometimes passive in cortex)
+    % Only use days with choiceworld (sometimes recorded in cortex, no bhv)
     protocol = 'vanillaChoiceworld';
     behavior_experiments = AP_find_experiments(animal,protocol);
     
@@ -2556,130 +2559,41 @@ for curr_animal = 1:length(animals)
         day = experiments(curr_day).day;
         experiment = experiments(curr_day).experiment;
         
-        AP_load_experiment
+        % Load experiment
+        str_align = 'kernel';
+        AP_load_experiment;
 
-        % Independent from stim, get MUA/LFP correlations by depth  
-        depth_bin_size = 100; % in um
-        n_depths = round(diff(str_depth)/depth_bin_size);
-        depth_group_edges = round(linspace(str_depth(1),str_depth(2),n_depths+1));
-        spike_depth_group = discretize(spikeDepths,depth_group_edges);
+        % Use aligned striatum depths
+        n_depths = n_aligned_depths;
+        depth_group = aligned_str_depth_group;
+    
+        % Set times for PSTH
+        raster_window = [-0.5,3];
+        psth_bin_size = 0.001;
+        t = raster_window(1):psth_bin_size:raster_window(2);        
         
-        spike_binning = 0.01; % seconds
-        corr_edges = spike_times_timeline(1):spike_binning:spike_times_timeline(end);
-        corr_centers = corr_edges(1:end-1) + diff(corr_edges);
-        
-        binned_spikes_depth = zeros(n_depths,length(corr_edges)-1);
-        for curr_depth = 1:n_depths;
-            binned_spikes_depth(curr_depth,:) = histcounts( ...
-                spike_times_timeline(spike_depth_group == curr_depth),corr_edges);
-        end
-        
-        % MUA correlation
-        mua_corr = corrcoef(binned_spikes_depth');
-        
-        % LFP correlation
-        % (fix the light artifact on each channel with regression)
-        light_timeline = AP_clock_fix(sync(3).timestamps,acqlive_ephys_currexpt,acqLive_timeline);
-        light_on = light_timeline(sync(3).values == 1);
-        light_off = light_timeline(sync(3).values == 0);
-        
-        blue_on = light_on(1:2:end);
-        blue_off = light_off(1:2:end);
-        violet_on = light_on(2:2:end);
-        violet_off = light_off(2:2:end);
-        
-        lfp_t_bins = [lfp_t_timeline-0.5/lfp_sample_rate,lfp_t_timeline(end)+0.5/lfp_sample_rate];
-        blue_on_vector = histcounts(blue_on,lfp_t_bins);
-        blue_off_vector = histcounts(blue_off,lfp_t_bins);
-        violet_on_vector = histcounts(violet_on,lfp_t_bins);
-        violet_off_vector = histcounts(violet_off,lfp_t_bins);
-        
-        light_vectors = [blue_on_vector;blue_off_vector;violet_on_vector;violet_off_vector];
-        
-        t_shift = round((1/35)*lfp_sample_rate*1.5);
-        t_shifts = [-t_shift:t_shift];
-        lambda = 0;
-        zs = [false,false];
-        cvfold = 1;
-        
-        % (in chunks: necessary memory-wise, also allows changing light)
-        n_chunks = 10;
-        lfp_t_chunk = round(linspace(1,size(lfp,2),n_chunks+1));
-        
-        lfp_lightfix = nan(size(lfp));
-        for curr_chunk = 1:n_chunks
-            curr_chunk_t = lfp_t_chunk(curr_chunk):lfp_t_chunk(curr_chunk+1);
-            [light_k,artifact_lfp] = AP_regresskernel(light_vectors(:,curr_chunk_t),lfp(:,curr_chunk_t),t_shifts,lambda,zs,cvfold);
-            
-            lfp_lightfix(:,curr_chunk_t) = lfp(:,curr_chunk_t)-artifact_lfp;
-%             AP_print_progress_fraction(curr_chunk,n_chunks);
-        end
-        lfp_lightfix(isnan(lfp_lightfix)) = 0;
-        
-        % (group channels by depth)
-        channel_depth_grp = discretize(channel_positions(:,2),depth_group_edges);
-        lfp_depth_median = grpstats(lfp_lightfix,channel_depth_grp,'median');
-        
-        % (low-pass filter: sometimes bunch of junk at high freq?)
-        freqCutoff = 300; % Hz
-        [b100s, a100s] = butter(2,freqCutoff/(lfp_sample_rate/2),'low');
-        lfp_depth_median_filt = single(filtfilt(b100s,a100s,double(lfp_depth_median)')');
-        
-        % (subtract the median across channels)
-        lfp_depth_median_filt_meansub = bsxfun(@minus,lfp_depth_median_filt,nanmean(lfp_depth_median_filt,1));
-        
-        lfp_corr = corrcoef(lfp_depth_median_filt_meansub');
-        
-        % Get responses to passive visual stimuli 
-        conditions = unique(stimIDs);
-        
-        t_baseline = [-0.1,0];
-        t_stim = [0,0.1];
-        
-        vis_modulation = nan(n_depths,length(conditions));
+        % Loop through all trial conditions, PSTH
+        stim_aligned_mua = nan(length(stimOn_times),length(t)-1,n_depths);        
+        t_peri_event = bsxfun(@plus,stimOn_times,t);
         for curr_depth = 1:n_depths
             
-            curr_spike_times = spike_times_timeline(spike_depth_group == curr_depth);
+            curr_spikes = spike_times_timeline(depth_group == curr_depth);
             
-            for curr_condition_idx = 1:length(conditions)
-                
-                curr_condition = conditions(curr_condition_idx);
-                
-                use_stims = find(stimIDs == curr_condition);
-                use_stim_onsets = stimOn_times(use_stims);
-                                
-                curr_t_baseline = bsxfun(@plus,use_stim_onsets,t_baseline);
-                curr_t_stim = bsxfun(@plus,use_stim_onsets,t_stim);
-                
-                curr_rate_baseline = ...
-                    cell2mat(arrayfun(@(x) ...
-                    histcounts(curr_spike_times,curr_t_baseline(x,:)), ...
-                    [1:size(curr_t_baseline,1)]','uni',false))./diff(t_baseline);
-                
-                curr_rate_stim = ...
-                    cell2mat(arrayfun(@(x) ...
-                    histcounts(curr_spike_times,curr_t_stim(x,:)), ...
-                    [1:size(curr_t_stim,1)]','uni',false))./diff(t_stim);
-                
-                trial_modulation = ...
-                    (curr_rate_stim - curr_rate_baseline)./(curr_rate_stim + curr_rate_baseline);
-                trial_modulation(isnan(trial_modulation)) = 0;
-                trial_modulation(isinf(trial_modulation)) = 0;
-                
-               vis_modulation(curr_depth,curr_condition_idx) = nanmean(trial_modulation);
-                
-            end
+            stim_aligned_mua(:,:,curr_depth) = ...
+                cell2mat(arrayfun(@(x) ...
+                histcounts(curr_spikes,t_peri_event(x,:)), ...
+                [1:size(t_peri_event,1)]','uni',false))./psth_bin_size;   
         end
 
         % Store
         batch_vars(curr_animal).animal = animal;
         batch_vars(curr_animal).day{curr_day} = day;
-        batch_vars(curr_animal).mua_corr{curr_day} = mua_corr;
-        batch_vars(curr_animal).lfp_corr{curr_day} = lfp_corr;
-        batch_vars(curr_animal).vis_modulation{curr_day} = max(vis_modulation,[],2);
+        batch_vars(curr_animal).stimIDs{curr_day} = stimIDs;
+        batch_vars(curr_animal).stim_aligned_mua{curr_day} = stim_aligned_mua;
         
         AP_print_progress_fraction(curr_day,length(experiments));
-        clearvars -except animals animal curr_animal protocol experiments curr_day animal batch_vars load_parts
+        clearvars -except n_aligned_depths animals animal curr_animal ...
+            protocol experiments curr_day animal batch_vars load_parts
         
     end
     
@@ -2687,11 +2601,11 @@ for curr_animal = 1:length(animals)
     
 end
 
-clearvars -except batch_vars
+clearvars -except n_aligned_depths protocol batch_vars 
 
 % Save
 save_path = ['C:\Users\Andrew\OneDrive for Business\Documents\CarandiniHarrisLab\analysis\wf_ephys_choiceworld\passive'];
-save([save_path filesep 'mua_passive'],'batch_vars');
+save([save_path filesep 'mua_' protocol '_' num2str(n_aligned_depths) '_depths'],'batch_vars');
 disp('Finished batch');
 
 
@@ -5649,7 +5563,172 @@ save([save_path filesep save_fn],'batch_vars');
 
 disp('Finished batch');
 
-%% Batch load and save activity from all chosen trials for all animals
+%% Batch load and save activity from all passive
+
+n_aligned_depths = 4;
+
+animals = {'AP024','AP025','AP026','AP027','AP028','AP029'};
+
+fluor_all = cell(length(animals),1);
+mua_all = cell(length(animals),1);
+D_all = cell(length(animals),1);
+
+for curr_animal = 1:length(animals)
+    
+    animal = animals{curr_animal};
+    
+    % Only use days with choiceworld (sometimes recorded in cortex, no bhv)
+    protocol = 'vanillaChoiceworld';
+    behavior_experiments = AP_find_experiments(animal,protocol);
+    
+    protocol = 'stimKalatsky';
+    passive_experiments = AP_find_experiments(animal,protocol);
+    
+    behavior_day = ismember({passive_experiments.day},{behavior_experiments.day});
+    
+    experiments = passive_experiments([passive_experiments.imaging] & [passive_experiments.ephys] & behavior_day);
+    
+    load_parts.cam = false;
+    load_parts.imaging = true;
+    load_parts.ephys = true;
+    
+    fluor_all{curr_animal} = cell(length(experiments),1);
+    mua_all{curr_animal} = cell(length(experiments),1);
+    D_all{curr_animal} = cell(length(experiments),1);
+    
+    disp(['Loading ' animal]);
+    
+    for curr_day = 1:length(experiments);
+        
+        day = experiments(curr_day).day;
+        experiment = experiments(curr_day).experiment;
+        
+        % Load experiment
+        str_align = 'kernel';
+        AP_load_experiment;
+        
+        % Prepare fluorescence
+        % (load widefield ROIs)
+        wf_roi_fn = 'C:\Users\Andrew\OneDrive for Business\Documents\CarandiniHarrisLab\analysis\wf_ephys_choiceworld\wf_processing\wf_rois\wf_roi';
+        load(wf_roi_fn);
+        n_rois = numel(wf_roi);
+        
+        % OLD DDFF
+        %     aUdf = single(AP_align_widefield(animal,day,Udf));
+        %     roi_traces_df = AP_svd_roi(aUdf,fVdf,[],[],cat(3,wf_roi.mask));
+        %
+        %     roi_traces_derivative = diff(roi_traces_df,[],2);
+        %     roi_traces_derivative(roi_traces_derivative < 0) = 0;
+        %     frame_t_derivative = conv2(frame_t,[1,1]/2,'valid');
+        
+        % NEW DFF
+        aU = single(AP_align_widefield(animal,day,U));
+        roi_traces_f = AP_svd_roi(aU,fV,[],[],cat(3,wf_roi.mask));
+        
+        avg_im_aligned = AP_align_widefield(animal,day,avg_im);
+        f_avg = cellfun(@(x) nanmedian(avg_im_aligned(x)),{wf_roi.mask})';
+        
+        baseline_window = [-0.5,0];
+        t_baseline = baseline_window(1):1/(framerate):baseline_window(2);
+        t_peri_baseline = bsxfun(@plus,stimOn_times,t_baseline);
+        roi_f_baseline = ...
+            squeeze(nanmedian(nanmedian(interp1(frame_t,roi_traces_f',t_peri_baseline),2),1));
+        
+        roi_traces_df = bsxfun(@minus,roi_traces_f,roi_f_baseline);
+        roi_traces_dff = bsxfun(@rdivide,roi_traces_df,f_avg);
+        
+        %         % Just fluorescence, no derivative
+        %         roi_traces_derivative = roi_traces_dff;
+        %         frame_t_derivative = frame_t;
+        
+        % Derivative via diff
+        roi_traces_derivative = diff(roi_traces_dff,[],2);
+        roi_traces_derivative(roi_traces_derivative < 0) = 0;
+        frame_t_derivative = conv2(frame_t,[1,1]/2,'valid');
+        
+        %         % Derivative via low-pass filter, then derivative (from Nick)
+        %         Nf = 50;
+        %         Fpass = 8.5;
+        %         Fstop = 10;
+        %         Fs = 1/mean(diff(frame_t)); %sampling frequency
+        %
+        %         d = designfilt('differentiatorfir','FilterOrder',Nf, ...
+        %             'PassbandFrequency',Fpass,'StopbandFrequency',Fstop, ...
+        %             'SampleRate',Fs);
+        %         roi_traces_derivative = filter(d,roi_traces_dff')';
+        %         delay = mean(grpdelay(d));
+        %         roi_traces_derivative = circshift(roi_traces_derivative,[0,-delay]);
+        %         roi_traces_derivative(roi_traces_derivative < 0) = 0;
+        %
+        %         frame_t_derivative = frame_t;
+        
+        % Group multiunit by depth
+        % (evenly across recorded striatum)
+        %         n_depths = 6;
+        %         depth_group_edges = round(linspace(str_depth(1),str_depth(2),n_depths+1));
+        %         depth_group_centers = round(depth_group_edges(1:end-1)+diff(depth_group_edges)/2);
+        %         depth_group = discretize(spikeDepths,depth_group_edges);
+        
+        % (aligned striatum depths)
+        n_depths = n_aligned_depths;
+        depth_group = aligned_str_depth_group;
+        
+        % Get event-aligned activity
+        raster_window = [-0.5,3];
+        upsample_factor = 3;
+        raster_sample_rate = 1/(framerate*upsample_factor);
+        t = raster_window(1):raster_sample_rate:raster_window(2);
+        
+        event_aligned_ddf = nan(length(stimOn_times),length(t),n_rois);
+        event_aligned_mua = nan(length(stimOn_times),length(t),n_depths);
+        
+        use_align = stimOn_times;
+        
+        t_peri_event = bsxfun(@plus,use_align,t);
+        
+        % Fluorescence
+        event_aligned_ddf(:,:,:) = ...
+            interp1(frame_t_derivative,roi_traces_derivative',t_peri_event);
+        
+        % MUA
+        t_bins = [t_peri_event-raster_sample_rate/2,t_peri_event(:,end)+raster_sample_rate/2];
+        for curr_depth = 1:n_depths
+            % (for all spikes in depth group)
+            curr_spikes = spike_times_timeline(depth_group == curr_depth);
+            % (for only msns in depth group)
+            %                 curr_spikes = spike_times_timeline(depth_group == curr_depth & ...
+            %                     ismember(spike_templates,find(msn)));
+            
+            event_aligned_mua(:,:,curr_depth) = cell2mat(arrayfun(@(x) ...
+                histcounts(curr_spikes,t_bins(x,:)), ...
+                [1:size(t_peri_event,1)]','uni',false))./raster_sample_rate;
+        end
+                      
+        % Get stim info
+        D = struct;
+        D.stimulus = stimIDs;
+        
+        % Store activity and stim
+        fluor_all{curr_animal}{curr_day} = event_aligned_ddf;
+        mua_all{curr_animal}{curr_day} = event_aligned_mua;
+        D_all{curr_animal}{curr_day} = D;
+        
+        AP_print_progress_fraction(curr_day,length(experiments));
+        
+    end
+    
+    clearvars -except n_aligned_depths animals curr_animal fluor_all mua_all D_all
+    
+end
+clearvars -except n_aligned_depths fluor_all mua_all D_all
+disp('Finished loading all')
+
+save_path = 'C:\Users\Andrew\OneDrive for Business\Documents\CarandiniHarrisLab\analysis\wf_ephys_choiceworld\choiceworld';
+save_fn = ['all_trial_activity_df_kernel-str_passive_' num2str(n_aligned_depths) '_depths'];
+save([save_path filesep save_fn]);
+
+
+%% Batch load and save activity from all choiceworld
 
 n_aligned_depths = 4;
 
