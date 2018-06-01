@@ -4119,6 +4119,233 @@ AP_image_scroll(r_px,fluor_kernel_frames/framerate);
 caxis([prctile(r_px(:),[1,99.5])]*2)
 
 
+%% Predict wheel movement from MUA (velocity)
+
+% Set upsample value for regression
+upsample_factor = 2;
+sample_rate = (1/median(diff(frame_t)))*upsample_factor;
+
+% Skip the first/last n seconds to do this
+skip_seconds = 60;
+time_bins = frame_t(find(frame_t > skip_seconds,1)):1/sample_rate:frame_t(find(frame_t-frame_t(end) < -skip_seconds,1,'last'));
+time_bin_centers = time_bins(1:end-1) + diff(time_bins)/2;
+
+% Resample wheel
+wheel_t = conv(Timeline.rawDAQTimestamps,[1,1]/2,'valid');
+wheel_velocity_resample = interp1(wheel_t,wheel_velocity,time_bin_centers);
+
+% (to use aligned striatum depths)
+n_depths = n_aligned_depths;
+depth_group = aligned_str_depth_group;
+
+binned_spikes = zeros(n_depths,length(time_bins)-1);
+for curr_depth = 1:n_depths   
+    curr_spike_times = spike_times_timeline(depth_group == curr_depth);
+    binned_spikes(curr_depth,:) = histcounts(curr_spike_times,time_bins);    
+end
+% Get rid of NaNs (if no data?)
+binned_spikes_norm = bsxfun(@rdivide,binned_spikes,nanstd(binned_spikes,[],2));   
+binned_spikes_norm(isnan(binned_spikes_norm)) = 0;
+
+kernel_samples = [-70:1:70];
+lambda = 1e2;
+cv = 5;
+
+[curr_kernel,curr_predicted_signal,curr_expl_var] = AP_regresskernel( ...
+        binned_spikes_norm,wheel_velocity_resample, ...
+        kernel_samples,lambda,[false,false],cv);
+
+figure; 
+subplot(2,1,1); hold on;
+plot(time_bin_centers,wheel_velocity_resample/max(abs(wheel_velocity_resample)),'k');
+plot(time_bin_centers,curr_predicted_signal/max(abs(curr_predicted_signal)),'b');    
+ylabel('Wheel velocity (max-normalized)');
+xlabel('Time (s)');
+legend({'Measured','Predicted'});
+
+subplot(2,1,2); hold on; set(gca,'ColorOrder',copper(4));
+curr_kernel_reshape = reshape(curr_kernel,size(binned_spikes,1),[]);
+plot(kernel_samples/sample_rate,curr_kernel_reshape','linewidth',2);
+axis tight
+line([0,0],ylim,'color','k');
+line(xlim,[0,0],'color','k');
+legend(cellfun(@(x) ['Str ' num2str(x)],num2cell(1:4),'uni',false)')
+ylabel('Weight');
+xlabel('Time offset (s)');
+
+
+%% Predict wheel movement from MUA (speed)
+
+% Set upsample value for regression
+upsample_factor = 2;
+sample_rate = (1/median(diff(frame_t)))*upsample_factor;
+
+% Skip the first/last n seconds to do this
+skip_seconds = 60;
+time_bins = frame_t(find(frame_t > skip_seconds,1)):1/sample_rate:frame_t(find(frame_t-frame_t(end) < -skip_seconds,1,'last'));
+time_bin_centers = time_bins(1:end-1) + diff(time_bins)/2;
+
+% Resample wheel
+wheel_t = conv(Timeline.rawDAQTimestamps,[1,1]/2,'valid');
+wheel_velocity_resample = abs(interp1(wheel_t,wheel_velocity,time_bin_centers));
+
+% (to use aligned striatum depths)
+n_depths = n_aligned_depths;
+depth_group = aligned_str_depth_group;
+
+binned_spikes = zeros(n_depths,length(time_bins)-1);
+for curr_depth = 1:n_depths   
+    curr_spike_times = spike_times_timeline(depth_group == curr_depth);
+    binned_spikes(curr_depth,:) = histcounts(curr_spike_times,time_bins);    
+end
+% Get rid of NaNs (if no data?)
+binned_spikes(isnan(binned_spikes)) = 0;
+binned_spikes_norm = bsxfun(@rdivide,binned_spikes,nanstd(binned_spikes,[],2));   
+
+kernel_samples = [-70:1:70];
+lambda = 1e2;
+cv = 5;
+
+[curr_kernel,curr_predicted_signal,curr_expl_var] = AP_regresskernel( ...
+        binned_spikes_norm,wheel_velocity_resample, ...
+        kernel_samples,lambda,[false,false],cv);
+
+figure; 
+subplot(2,1,1); hold on;
+plot(time_bin_centers,wheel_velocity_resample/max(abs(wheel_velocity_resample)),'k');
+plot(time_bin_centers,curr_predicted_signal/max(abs(curr_predicted_signal)),'b');    
+ylabel('Wheel speed (max-normalized)');
+xlabel('Time (s)');
+legend({'Measured','Predicted'});
+
+subplot(2,1,2); hold on; set(gca,'ColorOrder',copper(4));
+curr_kernel_reshape = reshape(curr_kernel,size(binned_spikes,1),[]);
+plot(kernel_samples/sample_rate,curr_kernel_reshape','linewidth',2);
+axis tight
+line([0,0],ylim,'color','k');
+line(xlim,[0,0],'color','k');
+legend(cellfun(@(x) ['Str ' num2str(x)],num2cell(1:4),'uni',false)')
+ylabel('Weight');
+xlabel('Time offset (s)');
+
+%% Predict wheel movement from MUA (+/- separately)
+
+% Set upsample value for regression
+upsample_factor = 2;
+sample_rate = (1/median(diff(frame_t)))*upsample_factor;
+
+% Skip the first/last n seconds to do this
+skip_seconds = 60;
+time_bins = frame_t(find(frame_t > skip_seconds,1)):1/sample_rate:frame_t(find(frame_t-frame_t(end) < -skip_seconds,1,'last'));
+time_bin_centers = time_bins(1:end-1) + diff(time_bins)/2;
+
+% Resample wheel
+wheel_t = conv(Timeline.rawDAQTimestamps,[1,1]/2,'valid');
+wheel_velocity_resample = interp1(wheel_t,wheel_velocity,time_bin_centers);
+
+% (to use aligned striatum depths)
+n_depths = n_aligned_depths;
+depth_group = aligned_str_depth_group;
+
+binned_spikes = zeros(n_depths,length(time_bins)-1);
+for curr_depth = 1:n_depths   
+    curr_spike_times = spike_times_timeline(depth_group == curr_depth);
+    binned_spikes(curr_depth,:) = histcounts(curr_spike_times,time_bins);    
+end
+% Get rid of NaNs (if no data?)
+binned_spikes(isnan(binned_spikes)) = 0;
+binned_spikes_norm = bsxfun(@rdivide,binned_spikes,nanstd(binned_spikes,[],2));   
+
+kernel_samples = [-70:1:70];
+lambda = 1e2;
+cv = 5;
+
+wheel_velocity_separate = zeros(2,size(wheel_velocity_resample,2));
+wheel_velocity_separate(1,wheel_velocity_resample > 0) = wheel_velocity_resample(wheel_velocity_resample > 0);
+wheel_velocity_separate(2,wheel_velocity_resample < 0) = wheel_velocity_resample(wheel_velocity_resample < 0);
+
+[curr_kernel,curr_predicted_signal,curr_expl_var] = AP_regresskernel( ...
+        binned_spikes_norm,wheel_velocity_separate, ...
+        kernel_samples,lambda,[false,false],cv);
+    
+curr_kernel_reshape = reshape(curr_kernel,size(binned_spikes,1),[],2);
+    
+figure;
+subplot(3,1,1); hold on;
+plot(time_bin_centers,wheel_velocity_resample/max(abs(wheel_velocity_resample)),'k');
+plot(time_bin_centers,curr_predicted_signal'/max(abs(curr_predicted_signal(:))));    
+ylabel('Wheel velocity (max-normalized)');
+xlabel('Time (s)');
+legend({'Measured','Predicted rightward','Predicted leftward'});
+
+subplot(3,1,2); hold on; set(gca,'ColorOrder',copper(4));
+plot(kernel_samples/sample_rate,curr_kernel_reshape(:,:,1)','linewidth',2);
+axis tight
+line([0,0],ylim,'color','k');
+line(xlim,[0,0],'color','k');
+legend(cellfun(@(x) ['Str ' num2str(x)],num2cell(1:4),'uni',false)')
+ylabel('Weight');
+xlabel('Time offset (s)');
+
+subplot(3,1,3); hold on; set(gca,'ColorOrder',copper(4));
+plot(kernel_samples/sample_rate,curr_kernel_reshape(:,:,2)','linewidth',2);
+axis tight
+line([0,0],ylim,'color','k');
+line(xlim,[0,0],'color','k');
+legend(cellfun(@(x) ['Str ' num2str(x)],num2cell(1:4),'uni',false)')
+ylabel('Weight');
+xlabel('Time offset (s)');
+
+
+%% Predict wheel movement from fluor
+
+% Set upsample value for regression
+upsample_factor = 2;
+sample_rate = (1/median(diff(frame_t)))*upsample_factor;
+
+% Skip the first/last n seconds to do this
+skip_seconds = 60;
+time_bins = frame_t(find(frame_t > skip_seconds,1)):1/sample_rate:frame_t(find(frame_t-frame_t(end) < -skip_seconds,1,'last'));
+time_bin_centers = time_bins(1:end-1) + diff(time_bins)/2;
+
+% Resample wheel
+wheel_t = conv(Timeline.rawDAQTimestamps,[1,1]/2,'valid');
+wheel_velocity_resample = interp1(wheel_t,wheel_velocity,time_bin_centers);
+
+% resample fV 
+use_svs = 1:50;
+fVdf_resample = interp1(frame_t,fVdf(use_svs,:)',time_bin_centers)';
+dfVdf_resample = interp1(conv2(frame_t,[1,1]/2,'valid'), ...
+            diff(fVdf(use_svs,:),[],2)',time_bin_centers)';   
+
+kernel_samples = [-60:1:0];
+lambda = 1e6;
+cv = 5;
+
+[curr_kernel,curr_predicted_signal,curr_expl_var] = AP_regresskernel( ...
+        dfVdf_resample,wheel_velocity_resample, ...
+        kernel_samples,lambda,[false,false],cv);
+
+figure; 
+subplot(2,1,1); hold on;
+plot(time_bin_centers,wheel_velocity_resample/max(abs(wheel_velocity_resample)),'k');
+plot(time_bin_centers,curr_predicted_signal/max(abs(curr_predicted_signal)),'b');    
+ylabel('Wheel velocity (max-normalized)');
+xlabel('Time (s)');
+legend({'Measured','Predicted'});
+
+curr_kernel_reshape = reshape(curr_kernel,size(dfVdf_resample,1),[]);
+
+if ~exist('aUdf','var')
+    aUdf = single(AP_align_widefield(animal,day,Udf));
+end
+
+curr_kernel_px = svdFrameReconstruct(aUdf(:,:,use_svs),curr_kernel_reshape);
+AP_image_scroll(curr_kernel_px,kernel_samples/sample_rate);
+axis image
+caxis([-prctile(abs(curr_kernel_px(:)),99),prctile(abs(curr_kernel_px(:)),99)]);
+colormap(colormap_BlueWhiteRed);
+
 
 
 

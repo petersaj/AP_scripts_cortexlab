@@ -6340,11 +6340,11 @@ for curr_animal = 1:length(animals)
             curr_spike_times = spike_times_timeline(depth_group == curr_depth);
             binned_spikes(curr_depth,:) = histcounts(curr_spike_times,time_bins);
         end
-        % Normalize
+        % Get rid of NaNs (if no data?)
         binned_spikes_norm = bsxfun(@rdivide,binned_spikes,nanstd(binned_spikes,[],2));
         binned_spikes_norm(isnan(binned_spikes_norm)) = 0;
         
-        kernel_samples = [-60:1:0];
+        kernel_samples = [-70:1:70];
         lambda = 1e2;
         cv = 5;
         
@@ -6376,13 +6376,8 @@ for curr_animal = 1:length(animals)
         % Store all variables to save
         batch_vars(curr_animal).animal = animal; 
         batch_vars(curr_animal).day{curr_day} = day; 
-        batch_vars(curr_animal).wheel_velocity_resample{curr_day} = wheel_velocity_resample;
-        
         batch_vars(curr_animal).str_wheel_kernel{curr_day} = str_wheel_kernel_reshape;
-        batch_vars(curr_animal).str_predicted_wheel{curr_day} = str_predicted_wheel;
-        
         batch_vars(curr_animal).ctx_wheel_kernel{curr_day} = ctx_wheel_kernel_px;
-        batch_vars(curr_animal).ctx_predicted_wheel{curr_day} = ctx_predicted_wheel;
               
         AP_print_progress_fraction(curr_day,length(experiments));
         clearvars -except n_aligned_depths animals animal curr_animal protocol experiments curr_day animal batch_vars load_parts

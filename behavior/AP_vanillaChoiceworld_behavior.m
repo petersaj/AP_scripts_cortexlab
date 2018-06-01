@@ -147,7 +147,7 @@ xlabel('Condition');
 ylabel('Fraction go left (combined)');
 legend({'Sum','Average'});
 
-%% Batch behavior
+%% Batch load and save behavior
 
 animals = {'AP024','AP025','AP026','AP027','AP028','AP029'};
 
@@ -222,6 +222,9 @@ for curr_animal = 1:length(animals)
         trial_wheel_velocity(trial_choice(use_trials) == 1) = max_wheel_velocity(trial_choice(use_trials) == 1);
         
         % Store in behavior structure
+        bhv(curr_animal).animal = animal;
+        bhv(curr_animal).days{curr_day} = day;
+       
         bhv(curr_animal).session_duration(curr_day) = session_duration;
         bhv(curr_animal).n_trials(curr_day) = n_trials;
         bhv(curr_animal).total_water(curr_day) = total_water;
@@ -241,6 +244,19 @@ for curr_animal = 1:length(animals)
     AP_print_progress_fraction(curr_animal,length(animals));
     
 end
+
+% Save behavior
+save_path = 'C:\Users\Andrew\OneDrive for Business\Documents\CarandiniHarrisLab\analysis\wf_ephys_choiceworld\bhv_processing';
+save_fn = 'bhv';
+save([save_path filesep save_fn],'bhv');
+
+%% Plot behavior, get days to exclude 
+
+% Load behavior
+bhv_fn = 'C:\Users\Andrew\OneDrive for Business\Documents\CarandiniHarrisLab\analysis\wf_ephys_choiceworld\bhv_processing\bhv.mat';
+load(bhv_fn);
+
+animals = {bhv.animal};
 
 conditions = unique(vertcat(bhv.conditions),'rows');
 trial_choice_cat = arrayfun(@(x) horzcat(bhv(x).trial_choice{:}),1:length(bhv),'uni',false);

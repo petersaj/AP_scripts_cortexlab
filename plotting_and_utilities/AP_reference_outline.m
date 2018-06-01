@@ -28,6 +28,17 @@ switch type
     
     case 'grid'
         % Plot mm grid for widefield
+        
+        % Get bregma from aligned (assume aligned atm)
+        bregma = allenCCFbregma;
+        bregma(3) = bregma(3) + 0.5;
+        ccf_tform_fn = ['C:\Users\Andrew\OneDrive for Business\Documents\Atlases\AllenCCF\ccf_tform'];
+        load(ccf_tform_fn);
+        bregma_resize = bregma*(10/um2pixel);
+        bregma_align = [bregma_resize([3,1]),1]*ccf_tform.T;
+        bregma_offset_x = bregma_align(1);
+        bregma_offset_y = bregma_align(2);
+        
         spacing_um = 1000;
         spacing_pixels = spacing_um/um2pixel;
         

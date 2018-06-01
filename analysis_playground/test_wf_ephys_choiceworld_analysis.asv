@@ -7845,30 +7845,21 @@ xlabel('Time from stim');
 
 
 %% Load and process wheel regression 
+
 % NOTE: need to NaN out days with no depth data, they have non-zero values
 
 data_fn = 'C:\Users\Andrew\OneDrive for Business\Documents\CarandiniHarrisLab\analysis\wf_ephys_choiceworld\choiceworld\wheel_regression';
 load(data_fn);
 
-% Set times
-framerate = 35.2;
-upsample_factor = 2;
-sample_rate = framerate*upsample_factor;
-
-kernel_samples = [-60:1:0];
-kernel_t = kernel_samples/sample_rate;
-
-% Average
 str_wheel_kernel = nanmean(cell2mat(permute(cellfun(@(x) ...
     nanmean(cat(3,x{:}),3),{batch_vars(:).str_wheel_kernel},'uni',false),[1,3,2])),3);
 
 ctx_wheel_kernel = nanmean(cell2mat(permute(cellfun(@(x) ...
     nanmean(cat(4,x{:}),4),{batch_vars(:).ctx_wheel_kernel},'uni',false),[1,3,4,2])),4);
 
-% Plot
-AP_image_scroll(ctx_wheel_kernel,kernel_t)
-axis image; colormap(colormap_BlueWhiteRed);
-caxis([-prctile(abs(ctx_wheel_kernel(:)),99.9),prctile(abs(ctx_wheel_kernel(:)),99.9)]);
+AP_image_scroll(ctx_wheel_kernel)
+axis image; color
+
 
 
 
