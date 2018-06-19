@@ -6342,9 +6342,10 @@ for curr_animal = 1:length(animals)
         end
         % Normalize
         binned_spikes_norm = bsxfun(@rdivide,binned_spikes,nanstd(binned_spikes,[],2));
-        binned_spikes_norm(isnan(binned_spikes_norm)) = 0;
+        spikes_nan = any(isnan(binned_spikes_norm),2);
+        binned_spikes_norm(spikes_nan,:) = 0;
         
-        kernel_samples = [-60:1:0];
+        kernel_samples = [-40:1:20];
         lambda = 1e2;
         cv = 5;
         
@@ -6352,6 +6353,8 @@ for curr_animal = 1:length(animals)
             binned_spikes_norm,wheel_velocity_resample, ...
             kernel_samples,lambda,[false,false],cv);
         str_wheel_kernel_reshape = reshape(str_wheel_kernel,size(binned_spikes,1),[]);
+        % Put nans back
+        str_wheel_kernel_reshape(spikes_nan,:) = NaN;
         
         %%% Regress wheel movement from fluorescence       
         % Resample fV
@@ -6399,7 +6402,94 @@ save([save_path filesep 'wheel_regression'],'batch_vars','-v7.3');
 warning('saving -v7.3');
 disp('Finished batch');
 
+%% Batch regress wheel velocity from cortex IMAGING-ONLY DAYS
 
+animals = {'AP024','AP025','AP026','AP027','AP028','AP029'};
+
+protocol = 'vanillaChoiceworld';
+
+batch_vars = struct;
+for curr_animal = 1:length(animals)
+    
+    animal = animals{curr_animal};
+    experiments = AP_find_experiments(animal,protocol);
+    
+    % Skip if this animal doesn't have this experiment
+    if isempty(experiments)
+        continue
+    end
+    
+    disp(animal);
+    
+    experiments = experiments([experiments.imaging] & ~[experiments.ephys]);
+    
+    load_parts.cam = false;
+    load_parts.imaging = true;
+    load_parts.ephys = false;
+    
+    for curr_day = 1:length(experiments);
+        
+        day = experiments(curr_day).day;
+        experiment = experiments(curr_day).experiment;
+        
+        % Load data 
+        AP_load_experiment;
+                  
+        % Set upsample value for regression
+        upsample_factor = 2;
+        sample_rate = (1/median(diff(frame_t)))*upsample_factor;
+        
+        % Skip the first/last n seconds to do this
+        skip_seconds = 60;
+        time_bins = frame_t(find(frame_t > skip_seconds,1)):1/sample_rate:frame_t(find(frame_t-frame_t(end) < -skip_seconds,1,'last'));
+        time_bin_centers = time_bins(1:end-1) + diff(time_bins)/2;
+        
+        % Resample wheel
+        wheel_t = conv(Timeline.rawDAQTimestamps,[1,1]/2,'valid');
+        wheel_velocity_resample = interp1(wheel_t,wheel_velocity,time_bin_centers);        
+     
+        %%% Regress wheel movement from fluorescence       
+        % Resample fV
+        use_svs = 1:50;
+        fVdf_resample = interp1(frame_t,fVdf(use_svs,:)',time_bin_centers)';
+        dfVdf_resample = interp1(conv2(frame_t,[1,1]/2,'valid'), ...
+            diff(fVdf(use_svs,:),[],2)',time_bin_centers)';
+        
+        kernel_samples = [-40:1:20];
+        lambda = 1e6;
+        cv = 5;
+        
+        [ctx_wheel_kernel,ctx_predicted_wheel,ctx_wheel_expl_var] = AP_regresskernel( ...
+            dfVdf_resample,wheel_velocity_resample, ...
+            kernel_samples,lambda,[false,false],cv);
+        
+        ctx_wheel_kernel_reshape = reshape(ctx_wheel_kernel,size(dfVdf_resample,1),[]);
+        
+        aUdf = single(AP_align_widefield(animal,day,Udf));
+        ctx_wheel_kernel_px = svdFrameReconstruct(aUdf(:,:,use_svs),ctx_wheel_kernel_reshape);
+       
+        % Store all variables to save
+        batch_vars(curr_animal).animal = animal; 
+        batch_vars(curr_animal).day{curr_day} = day; 
+        batch_vars(curr_animal).wheel_velocity_resample{curr_day} = wheel_velocity_resample;
+        
+        batch_vars(curr_animal).ctx_wheel_kernel{curr_day} = ctx_wheel_kernel_px;
+        batch_vars(curr_animal).ctx_predicted_wheel{curr_day} = ctx_predicted_wheel;
+              
+        AP_print_progress_fraction(curr_day,length(experiments));
+        clearvars -except n_aligned_depths animals animal curr_animal protocol experiments curr_day animal batch_vars load_parts
+        
+    end
+      
+    disp(['Finished ' animal]);
+    
+end
+
+% Save
+save_path = ['C:\Users\Andrew\OneDrive for Business\Documents\CarandiniHarrisLab\analysis\wf_ephys_choiceworld\choiceworld'];
+save([save_path filesep 'wheel_regression_wfonly'],'batch_vars','-v7.3');
+warning('saving -v7.3');
+disp('Finished batch');
 
 
 

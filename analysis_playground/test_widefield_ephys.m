@@ -4318,7 +4318,7 @@ fVdf_resample = interp1(frame_t,fVdf(use_svs,:)',time_bin_centers)';
 dfVdf_resample = interp1(conv2(frame_t,[1,1]/2,'valid'), ...
             diff(fVdf(use_svs,:),[],2)',time_bin_centers)';   
 
-kernel_samples = [-60:1:0];
+kernel_samples = [-40:1:20];
 lambda = 1e6;
 cv = 5;
 

@@ -7604,7 +7604,7 @@ for curr_alignment = 1:2
     end
 end
 
-%% Regress day-concatenated areas from other areas in time (non-general)
+%% Regress day-concatenated mua from cortex in time (timepoint specific)
 
 n_aligned_depths = 4;
 
@@ -7728,7 +7728,7 @@ for curr_animal = 1:length(D_all)
     % For each time point, regress fluorescence of one area from others   
     regressor_areas = 1:16;
     regress_area = 3;
-    t_surround = -5:5;
+    t_surround = -10:10;
     interarea_kernel = nan(length(regressor_areas),length(t),length(t_surround));
     interarea_expl_var = nan(1,length(t));
     predicted_signal = nan(size(D.stimulus,1),length(t));
@@ -7741,7 +7741,7 @@ for curr_animal = 1:length(D_all)
         
         % Only use non-nan regressors and signals
         use_trials = ~all(isnan(curr_regressors),2) & all(~isnan(curr_signal),2);       
-        lambda = 2e1;
+        lambda = 5e1;
         cv = 5;
         
         [curr_kernel,curr_predicted_signal,curr_expl_var] = AP_regresskernel( ...
@@ -7761,7 +7761,9 @@ for curr_animal = 1:length(D_all)
     interarea_kernel_magnitude = interarea_kernel_max.*interarea_kernel_pos + ...
         interarea_kernel_min.*~interarea_kernel_pos;
     
-    interarea_kernel_all{curr_animal} = interarea_kernel_magnitude;
+    interarea_kernel_mean = mean(interarea_kernel,3);
+    
+    interarea_kernel_all{curr_animal} = interarea_kernel_mean;
     interarea_expl_var_all{curr_animal} = interarea_expl_var;
   
     predicted_signal_all(unique(trial_id),:,curr_animal) = grpstats(predicted_signal,trial_id);
@@ -7843,26 +7845,419 @@ axis tight;
 line([0,0],ylim,'color','k');
 xlabel('Time from stim');
 
+% Plot weights by spatial ROI
+wf_roi_fn = 'C:\Users\Andrew\OneDrive for Business\Documents\CarandiniHarrisLab\analysis\wf_ephys_choiceworld\wf_processing\wf_rois\wf_roi';
+load(wf_roi_fn);
+n_rois = numel(wf_roi);
+
+roi_cat = cat(3,wf_roi.mask);
+
+use_t_weights = t > -0.1 & t < 0;
+
+interarea_kernel_mean = nanmean(cat(3,interarea_kernel_all{:}),3);
+roi_weights = nanmean(interarea_kernel_mean(:,use_t_weights),2);
+
+figure; hold on
+set(gca,'YDir','reverse');
+AP_reference_outline('ccf_aligned','k');
+for curr_roi = 1:n_rois
+    curr_roi_boundary = cell2mat(bwboundaries(roi_cat(:,:,curr_roi)));
+    patch(curr_roi_boundary(:,2),curr_roi_boundary(:,1),roi_weights(curr_roi));
+end
+axis image off;
+colormap(colormap_BlueWhiteRed);
+caxis([-max(abs(caxis)),max(abs(caxis))]);
+
+%% Regress day-concatenated cortex from cortex in time (timepoint specific)
+
+n_aligned_depths = 4;
+
+% Load data
+data_path = 'C:\Users\Andrew\OneDrive for Business\Documents\CarandiniHarrisLab\analysis\wf_ephys_choiceworld\choiceworld';
+data_fn = ['all_trial_activity_df_kernel-str_earlymove_' num2str(n_aligned_depths) '_depths.mat'];
+load([data_path filesep data_fn]);
+
+% Get time
+framerate = 35.2;
+raster_window = [-0.5,1];
+upsample_factor = 3;
+sample_rate = framerate*upsample_factor;
+t = raster_window(1):(1/sample_rate):raster_window(2);
+
+% Set up conditions
+contrasts = [0,0.06,0.125,0.25,0.5,1];
+sides = [-1,1];
+choices = [-1,1];
+timings = [1,2];
+conditions = combvec(contrasts,sides,choices,timings)';
+n_conditions = size(conditions,1);
+
+% Load use experiments and cut out bad ones
+bhv_fn = 'C:\Users\Andrew\OneDrive for Business\Documents\CarandiniHarrisLab\analysis\wf_ephys_choiceworld\bhv_processing\use_experiments';
+load(bhv_fn);
+D_all = cellfun(@(data,use_expts) data(use_expts),D_all,use_experiments','uni',false);
+fluor_all = cellfun(@(data,use_expts) data(use_expts),fluor_all,use_experiments','uni',false);
+mua_all = cellfun(@(data,use_expts) data(use_expts),mua_all,use_experiments','uni',false);
+
+use_animals = cellfun(@(x) ~isempty(x),D_all);
+D_all = D_all(use_animals);
+fluor_all = fluor_all(use_animals);
+mua_all = mua_all(use_animals);
+
+% Get widefield ROIs
+wf_roi_fn = 'C:\Users\Andrew\OneDrive for Business\Documents\CarandiniHarrisLab\analysis\wf_ephys_choiceworld\wf_processing\wf_rois\wf_roi';
+load(wf_roi_fn);
+n_rois = numel(wf_roi);
+
+% Get number of MUA depths
+n_depths = size(mua_all{1}{1},3);
+
+interarea_kernel_all = cell(size(D_all));
+interarea_expl_var_all = cell(size(D_all));
+predicted_signal_all = nan(n_conditions,length(t),length(D_all));
+for curr_animal = 1:length(D_all)
+    
+    trial_day = cell2mat(cellfun(@(day,act) repmat(day,size(act,1),1), ...
+        num2cell(1:length(fluor_all{curr_animal}))',fluor_all{curr_animal},'uni',false));
+    
+    % Concatenate behavioural data and select trials to use
+    D = struct;
+    D.stimulus = cell2mat(cellfun(@(x) x.stimulus,D_all{curr_animal},'uni',false));
+    D.response = cell2mat(cellfun(@(x) x.response,D_all{curr_animal},'uni',false));
+    D.repeatNum = cell2mat(cellfun(@(x) x.repeatNum,D_all{curr_animal},'uni',false));
+    
+    D.day = trial_day;
+    
+    % Get average predicted activity by condition
+    % Concatenate behavioural data
+    D = struct;
+    D.stimulus = cell2mat(cellfun(@(x) x.stimulus,D_all{curr_animal},'uni',false));
+    D.response = cell2mat(cellfun(@(x) x.response,D_all{curr_animal},'uni',false));
+    D.repeatNum = cell2mat(cellfun(@(x) x.repeatNum,D_all{curr_animal},'uni',false));
+    
+    D.day = trial_day;
+    
+    % Get trial ID   
+    trial_contrast = max(D.stimulus,[],2);
+    [~,side_idx] = max(D.stimulus > 0,[],2);
+    trial_side = (side_idx-1.5)*2;
+    trial_choice = -(D.response-1.5)*2;
+    
+    trial_conditions = ...
+        [trial_contrast, trial_side, ...
+        trial_choice, ones(size(trial_day))];
+    [~,trial_id] = ismember(trial_conditions,conditions,'rows');
+    
+    % Concatenate fluorescence, get L-R, normalize
+    fluor_cat = cat(1,fluor_all{curr_animal}{:});
+    
+    fluor_cat_hemidiff = cat(3,fluor_cat(:,:,1:n_rois/2,:),fluor_cat(:,:,1:n_rois/2,:) - ...
+        fluor_cat(:,:,n_rois/2+1:end,:));
+        
+    fluor_cat_norm = bsxfun(@rdivide,fluor_cat,permute(std(reshape(permute(fluor_cat,[1,2,4,3]),[],n_rois),[],1),[1,3,2,4]));
+    fluor_cat_hemidiff_norm = bsxfun(@rdivide,fluor_cat_hemidiff,permute(std(abs(reshape(permute(fluor_cat_hemidiff,[1,2,4,3]),[],n_rois)),[],1),[1,3,2,4]));     
+       
+    % Concatenate MUA and normalize (separately by day)
+    mua_cat_raw = cat(1,mua_all{curr_animal}{:});
+    
+    % NaN-out MUA trials with no spikes (no data collected - this should be
+    % done when getting the activity I guess using some method besides
+    % hist)
+    filled_mua_trials = +cell2mat(cellfun(@(x) repmat(any(reshape(permute(x,[1,2,4,3]),[],n_depths),1), ...
+        size(x,1),1),mua_all{curr_animal},'uni',false));    
+    filled_mua_trials(~filled_mua_trials) = NaN;
+    mua_cat_raw = bsxfun(@times,mua_cat_raw,permute(filled_mua_trials,[1,3,2,4]));
+    
+    smooth_size = 8;
+    gw = gausswin(smooth_size,3)';
+    smWin = gw./sum(gw);
+    
+    mua_cat_raw_smoothed = convn(mua_cat_raw,smWin,'same');
+    
+    t_baseline = t < 0;        
+    mua_day_baseline = cell2mat(cellfun(@(x) ...
+        repmat(permute(nanmean(reshape(permute(x(:,t_baseline,:,1),[1,2,4,3]),[],n_depths),1), ...
+        [1,3,2,4]),[size(x,1),1]),  ...
+        mat2cell(mua_cat_raw_smoothed,cellfun(@(x) size(x,1), mua_all{curr_animal}),length(t),n_depths,2),'uni',false));
+    
+    mua_day_std = cell2mat(cellfun(@(x) ...
+        repmat(permute(nanstd(reshape(permute(x,[1,2,4,3]),[],n_depths),[],1), ...
+        [1,3,2,4]),[size(x,1),1]),  ...
+        mat2cell(mua_cat_raw_smoothed,cellfun(@(x) size(x,1), mua_all{curr_animal}),length(t),n_depths,2),'uni',false));
+    
+    softnorm = 20;
+    
+    mua_cat_norm = bsxfun(@rdivide,bsxfun(@minus,mua_cat_raw_smoothed,mua_day_baseline),mua_day_std+softnorm);             
+    
+    % For each time point, regress fluorescence of one area from others   
+    regress_area = 2;
+    regressor_areas = setdiff(1:16,regress_area);    
+    t_surround = -10:10;
+    interarea_kernel = nan(length(regressor_areas),length(t),length(t_surround));
+    interarea_expl_var = nan(1,length(t));
+    predicted_signal = nan(size(D.stimulus,1),length(t));
+    for curr_t = -min(t_surround)+1:length(t)-max(t_surround)
+        
+        curr_regressors = reshape(fluor_cat_norm( ...
+            :,curr_t+t_surround,regressor_areas,2),[],length(regressor_areas)*length(t_surround));
+        
+        curr_signal = fluor_cat_norm(:,curr_t,regress_area,2);   
+        
+        % Only use non-nan regressors and signals
+        use_trials = ~all(isnan(curr_regressors),2) & all(~isnan(curr_signal),2);       
+        lambda = 5e1;
+        cv = 5;
+        
+        [curr_kernel,curr_predicted_signal,curr_expl_var] = AP_regresskernel( ...
+            curr_regressors(use_trials,:)',curr_signal(use_trials,:)', ...
+            [],lambda,[false,false],cv);
+        
+        interarea_kernel(:,curr_t,:) = permute(reshape(curr_kernel,[],length(regressor_areas)),[2,3,1]);
+        interarea_expl_var(curr_t) = curr_expl_var.total;
+        predicted_signal(use_trials,curr_t) = curr_predicted_signal;
+        
+    end 
+    
+    % Get the maximum amplitude kernel with sign
+    interarea_kernel_max = max(interarea_kernel,[],3);
+    interarea_kernel_min = min(interarea_kernel,[],3);
+    interarea_kernel_pos = abs(interarea_kernel_max) > abs(interarea_kernel_min);
+    interarea_kernel_magnitude = interarea_kernel_max.*interarea_kernel_pos + ...
+        interarea_kernel_min.*~interarea_kernel_pos;
+    
+    interarea_kernel_mean = mean(interarea_kernel,3);
+    
+    interarea_kernel_all{curr_animal} = interarea_kernel_mean;
+    interarea_expl_var_all{curr_animal} = interarea_expl_var;
+  
+    predicted_signal_all(unique(trial_id),:,curr_animal) = grpstats(predicted_signal,trial_id);
+   
+    AP_print_progress_fraction(curr_animal,length(D_all));
+    
+end
+
+interarea_kernel_mean = nanmean(cat(3,interarea_kernel_all{:}),3);
+interarea_expl_var_mean = nanmean(cat(3,interarea_expl_var_all{:}),3);
+predicted_signal_all_mean = nanmean(predicted_signal_all,3);
+
+figure;
+subplot(3,1,1); hold on;
+set(gca,'ColorOrder',[autumn(8);winter(8)]);
+plot(t,interarea_kernel_mean')
+axis tight
+line([0,0],ylim,'color','k');
+ylabel('Weight');
+
+subplot(3,1,2);
+plot(t,interarea_expl_var_mean,'k','linewidth',2);
+axis tight
+line([0,0],ylim,'color','k');
+ylabel('Explained variance');
+
+% Set up plot conditions
+plot_timing = 1; % always same, because slots filled in above
+
+% (to plot only correct/incorrect)
+plot_success = 1;
+plot_conditions = find(conditions(:,1) ~= 0 & ...
+    conditions(:,2) == -plot_success*conditions(:,3) & ...
+    conditions(:,4) == plot_timing);
+plot_color = colormap_BlueWhiteRed(5);
+plot_color = [plot_color(end-4:end,:);plot_color(5:-1:1,:)];
+
+% % (to plot one movement direction)
+% plot_move = -1;
+% plot_conditions = find(conditions(:,1) ~= 0 & ...
+%     conditions(:,3) == plot_move & ...
+%     conditions(:,4) == plot_timing);
+% plot_color = colormap_BlueWhiteRed(6);
+% plot_color = [plot_color(5:-1:1,:);plot_color(end-5:end,:)];
+
+% % (to plot one side)
+% plot_side = 1;
+% plot_conditions = find(conditions(:,1) < Inf & ...
+%     conditions(:,2) == plot_side & ...
+%     conditions(:,4) == plot_timing);
+% n_plot_contrasts = length(unique(conditions(plot_conditions,1)));
+% plot_color = colormap_BlueWhiteRed(n_plot_contrasts);
+% plot_color = [plot_color(n_plot_contrasts:-1:1,:);plot_color(end-n_plot_contrasts+1:end,:)];
+
+% % (to plot by movement direction)
+% plot_conditions = find(conditions(:,1) == 0.06 & ...
+%     conditions(:,2) == 1 & ...
+%     conditions(:,4) == plot_timing);
+% plot_color = zeros(length(plot_conditions),3);
+% plot_color(conditions(plot_conditions,3) == -1,1) = 1;
+% plot_color(conditions(plot_conditions,3) == 1,3) = 1;
+
+% % (to plot zero-contrast by movement)
+% plot_conditions = find(conditions(:,1) == 0 & ...
+%     conditions(:,4) == plot_timing);
+% plot_color = zeros(length(plot_conditions),3);
+% plot_color(conditions(plot_conditions,3) == -1,1) = 1;
+% plot_color(conditions(plot_conditions,3) == 1,3) = 1;
+
+% Plot predicted signal
+subplot(3,1,3); 
+hold on;
+for curr_condition_idx = 1:length(plot_conditions);
+    curr_condition = plot_conditions(curr_condition_idx);
+    plot(t,squeeze(predicted_signal_all_mean(curr_condition,:)), ...
+        'color',plot_color(curr_condition_idx,:),'linewidth',2);
+end
+axis tight;
+line([0,0],ylim,'color','k');
+xlabel('Time from stim');
+
+% Plot weights by spatial ROI
+wf_roi_fn = 'C:\Users\Andrew\OneDrive for Business\Documents\CarandiniHarrisLab\analysis\wf_ephys_choiceworld\wf_processing\wf_rois\wf_roi';
+load(wf_roi_fn);
+n_rois = numel(wf_roi);
+
+roi_cat = cat(3,wf_roi.mask);
+
+use_t_weights = t > -0.1 & t < 0;
+
+interarea_kernel_mean = nanmean(cat(3,interarea_kernel_all{:}),3);
+roi_weights = nanmean(interarea_kernel_mean(:,use_t_weights),2);
+
+figure; hold on
+set(gca,'YDir','reverse');
+AP_reference_outline('ccf_aligned','k');
+for curr_roi_idx = 1:length(regressor_areas);
+    curr_roi_boundary = cell2mat(bwboundaries(roi_cat(:,:,regressor_areas(curr_roi_idx))));
+    patch(curr_roi_boundary(:,2),curr_roi_boundary(:,1),roi_weights(curr_roi_idx));
+end
+curr_roi_boundary = cell2mat(bwboundaries(roi_cat(:,:,regress_area)));
+patch(curr_roi_boundary(:,2),curr_roi_boundary(:,1),[0,0,0]);
+axis image off;
+colormap(colormap_BlueWhiteRed);
+caxis([-max(abs(caxis)),max(abs(caxis))]);
+
 
 %% Load and process wheel regression 
-
 % NOTE: need to NaN out days with no depth data, they have non-zero values
 
 data_fn = 'C:\Users\Andrew\OneDrive for Business\Documents\CarandiniHarrisLab\analysis\wf_ephys_choiceworld\choiceworld\wheel_regression';
 load(data_fn);
 
+% Set times
+framerate = 35.2;
+upsample_factor = 2;
+sample_rate = framerate*upsample_factor;
+
+kernel_samples = [-40:1:20];
+kernel_t = kernel_samples/sample_rate;
+
+% Wheel prediction kernels
 str_wheel_kernel = nanmean(cell2mat(permute(cellfun(@(x) ...
     nanmean(cat(3,x{:}),3),{batch_vars(:).str_wheel_kernel},'uni',false),[1,3,2])),3);
 
 ctx_wheel_kernel = nanmean(cell2mat(permute(cellfun(@(x) ...
     nanmean(cat(4,x{:}),4),{batch_vars(:).ctx_wheel_kernel},'uni',false),[1,3,4,2])),4);
 
-AP_image_scroll(ctx_wheel_kernel)
-axis image; color
+figure;
+hold on;
+set(gca,'ColorOrder',copper(4));
+plot(kernel_t,str_wheel_kernel');
+
+AP_image_scroll(ctx_wheel_kernel,kernel_t)
+axis image; colormap(colormap_BlueWhiteRed);
+caxis([-prctile(abs(ctx_wheel_kernel(:)),99.9),prctile(abs(ctx_wheel_kernel(:)),99.9)]);
+AP_reference_outline('ccf_aligned','k');
+AP_reference_outline('grid',[0.5,0.5,0.5]);
+
+% Predicted v measured wheel velocity
+n_bins = 19;
+velocity_prctile = 95;
+
+[~,~,wheel_velocity_bins] = cellfun(@(x) cellfun(@(x) ...
+    histcounts(x/prctile(abs(x),velocity_prctile),n_bins),x,'uni',false), ...
+    {batch_vars(:).wheel_velocity_resample},'uni',false);
+
+str_predicted_wheel_binned = ...
+    cellfun(@(x,y) cellfun(@(x,y) ...
+    accumarray(x',(y/prctile(abs(y),velocity_prctile))',[],@median),x,y,'uni',false), ...
+    wheel_velocity_bins,{batch_vars(:).str_predicted_wheel},'uni',false);
+str_predicted_wheel_binned_mean = ...
+    nanmean(cell2mat(cellfun(@(x) nanmean(horzcat(x{:}),2),str_predicted_wheel_binned,'uni',false)),2);
+
+ctx_predicted_wheel_binned = ...
+    cellfun(@(x,y) cellfun(@(x,y) ...
+    accumarray(x',(y/prctile(abs(y),velocity_prctile))',[],@median),x,y,'uni',false), ...
+    wheel_velocity_bins,{batch_vars(:).ctx_predicted_wheel},'uni',false);
+ctx_predicted_wheel_binned_mean = ...
+    nanmean(cell2mat(cellfun(@(x) nanmean(horzcat(x{:}),2),ctx_predicted_wheel_binned,'uni',false)),2);
+
+figure; hold on;
+bin_centers = conv(linspace(-1,1,n_bins+1),[1,1]/2,'valid');
+plot(bin_centers,str_predicted_wheel_binned_mean,'r','linewidth',2)
+plot(bin_centers,ctx_predicted_wheel_binned_mean,'b','linewidth',2)
+line([-1,1],[-1,1],'color','k');
+line([0,0],[-1,1],'color','k');
+line([-1,1],[0,0],'color','k');
+axis square;
+xlabel('Measured wheel velocity (max norm)')
+ylabel('Predicted wheel velocity (max norm)')
+legend({'Striatum','Cortex'});
 
 
+%% Load and process wheel regression (IMAGING ONLY DAYS)
+% NOTE: need to NaN out days with no depth data, they have non-zero values
 
+data_fn = 'C:\Users\Andrew\OneDrive for Business\Documents\CarandiniHarrisLab\analysis\wf_ephys_choiceworld\choiceworld\wheel_regression_wfonly';
+load(data_fn);
 
+% Set times
+framerate = 35.2;
+upsample_factor = 2;
+sample_rate = framerate*upsample_factor;
+
+kernel_samples = [-40:1:20];
+kernel_t = kernel_samples/sample_rate;
+
+% Wheel prediction kernels
+ctx_wheel_kernel = nanmean(cell2mat(permute(cellfun(@(x) ...
+    nanmean(cat(4,x{:}),4),{batch_vars(:).ctx_wheel_kernel},'uni',false),[1,3,4,2])),4);
+
+AP_image_scroll(ctx_wheel_kernel,kernel_t)
+axis image; colormap(colormap_BlueWhiteRed);
+caxis([-prctile(abs(ctx_wheel_kernel(:)),99.9),prctile(abs(ctx_wheel_kernel(:)),99.9)]);
+AP_reference_outline('ccf_aligned','k');
+AP_reference_outline('grid',[0.5,0.5,0.5]);
+
+% Kernel reflected and subtract (different - left) and add (same - right)
+ctx_wheel_kernel_reflected = ctx_wheel_kernel - AP_reflect_widefield(ctx_wheel_kernel);
+AP_image_scroll([ctx_wheel_kernel_reflected,kernel_t)
+axis image; colormap(colormap_BlueWhiteRed);
+caxis([-prctile(abs(ctx_wheel_kernel(:)),99.9),prctile(abs(ctx_wheel_kernel(:)),99.9)]);
+AP_reference_outline('ccf_aligned','k');
+AP_reference_outline('grid',[0.5,0.5,0.5]);
+
+% Predicted v measured wheel velocity
+n_bins = 19;
+velocity_prctile = 95;
+
+[~,~,wheel_velocity_bins] = cellfun(@(x) cellfun(@(x) ...
+    histcounts(x/prctile(abs(x),velocity_prctile),n_bins),x,'uni',false), ...
+    {batch_vars(:).wheel_velocity_resample},'uni',false);
+
+ctx_predicted_wheel_binned = ...
+    cellfun(@(x,y) cellfun(@(x,y) ...
+    accumarray(x',(y/prctile(abs(y),velocity_prctile))',[],@median),x,y,'uni',false), ...
+    wheel_velocity_bins,{batch_vars(:).ctx_predicted_wheel},'uni',false);
+ctx_predicted_wheel_binned_mean = ...
+    nanmean(cell2mat(cellfun(@(x) nanmean(horzcat(x{:}),2),ctx_predicted_wheel_binned,'uni',false)),2);
+
+figure; hold on;
+bin_centers = conv(linspace(-1,1,n_bins+1),[1,1]/2,'valid');
+plot(bin_centers,ctx_predicted_wheel_binned_mean,'b','linewidth',2)
+line([-1,1],[-1,1],'color','k');
+line([0,0],[-1,1],'color','k');
+line([-1,1],[0,0],'color','k');
+axis square;
+xlabel('Measured wheel velocity (max norm)')
+ylabel('Predicted wheel velocity (max norm)')
 
 
 
