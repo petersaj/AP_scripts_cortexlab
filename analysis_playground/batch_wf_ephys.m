@@ -5916,7 +5916,7 @@ n_aligned_depths = 4;
 
 % Load data
 data_path = 'C:\Users\Andrew\OneDrive for Business\Documents\CarandiniHarrisLab\analysis\wf_ephys_choiceworld\choiceworld';
-data_fn = ['all_trial_activity_df_kernel-str_earlymove_' num2str(n_aligned_depths) '_depths.mat'];
+data_fn = ['all_trial_activity_df_kernel-str_latemove_' num2str(n_aligned_depths) '_depths.mat'];
 load([data_path filesep data_fn]);
 
 % Get time
@@ -6087,7 +6087,7 @@ end
 
 clearvars -except n_aligned_depths loglik_increase_fluor loglik_increase_mua
 save_path = ['C:\Users\Andrew\OneDrive for Business\Documents\CarandiniHarrisLab\analysis\wf_ephys_choiceworld\choiceworld'];
-save_fn = ['activity_sessioncat_logistic_regression_earlymove_kernel-str_' num2str(n_aligned_depths) '_depths'];
+save_fn = ['activity_sessioncat_logistic_regression_latemove_kernel-str_' num2str(n_aligned_depths) '_depths'];
 save([save_path filesep save_fn])
 
 disp('Finished');

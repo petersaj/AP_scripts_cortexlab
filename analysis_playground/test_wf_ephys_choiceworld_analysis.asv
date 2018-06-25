@@ -6406,7 +6406,7 @@ n_aligned_depths = 4;
 
 % Load data
 data_path = ['C:\Users\Andrew\OneDrive for Business\Documents\CarandiniHarrisLab\analysis\wf_ephys_choiceworld\choiceworld'];
-data_fn = ['activity_sessioncat_logistic_regression_earlymove_kernel-str_' num2str(n_aligned_depths) '_depths.mat'];
+data_fn = ['activity_sessioncat_logistic_regression_latemove_kernel-str_' num2str(n_aligned_depths) '_depths.mat'];
 % data_fn = ['activity_sessioncat_logistic_regression_earlymove'];
 load([data_path filesep data_fn])
 
@@ -6884,19 +6884,21 @@ for curr_animal = 1:length(D_all)
     [~,trial_id] = ismember(trial_conditions,conditions,'rows');
     
     % Save aligned average by trial ID
+    grp_fun = @(x) nanmean(x,1);
+    
     for curr_roi = 1:n_rois
-        fluor_psth(unique(trial_id),:,curr_roi,1,curr_animal) = grpstats(fluor_cat_hemidiff_norm(:,:,curr_roi,1),trial_id);
-        fluor_psth(unique(trial_id),:,curr_roi,2,curr_animal) = grpstats(fluor_cat_hemidiff_norm(:,:,curr_roi,2),trial_id);
+        fluor_psth(unique(trial_id),:,curr_roi,1,curr_animal) = grpstats(fluor_cat_hemidiff_norm(:,:,curr_roi,1),trial_id,grp_fun);
+        fluor_psth(unique(trial_id),:,curr_roi,2,curr_animal) = grpstats(fluor_cat_hemidiff_norm(:,:,curr_roi,2),trial_id,grp_fun);
     end    
     
     for curr_depth = 1:n_depths
-        mua_psth(unique(trial_id),:,curr_depth,1,curr_animal) = grpstats(mua_cat_norm(:,:,curr_depth,1),trial_id);
-        mua_psth(unique(trial_id),:,curr_depth,2,curr_animal) = grpstats(mua_cat_norm(:,:,curr_depth,2),trial_id);
+        mua_psth(unique(trial_id),:,curr_depth,1,curr_animal) = grpstats(mua_cat_norm(:,:,curr_depth,1),trial_id,grp_fun);
+        mua_psth(unique(trial_id),:,curr_depth,2,curr_animal) = grpstats(mua_cat_norm(:,:,curr_depth,2),trial_id,grp_fun);
     end    
     
     for curr_depth = 1:n_depths
-        mua_predicted_psth(unique(trial_id),:,curr_depth,1,curr_animal) = grpstats(mua_cat_predicted(:,:,curr_depth,1),trial_id);
-        mua_predicted_psth(unique(trial_id),:,curr_depth,2,curr_animal) = grpstats(mua_cat_predicted(:,:,curr_depth,2),trial_id);
+        mua_predicted_psth(unique(trial_id),:,curr_depth,1,curr_animal) = grpstats(mua_cat_predicted(:,:,curr_depth,1),trial_id,grp_fun);
+        mua_predicted_psth(unique(trial_id),:,curr_depth,2,curr_animal) = grpstats(mua_cat_predicted(:,:,curr_depth,2),trial_id,grp_fun);
     end    
  
 end
@@ -7010,7 +7012,7 @@ xlabel('Time from move');
 linkaxes([p1,p2]);
 
 
-%% Distribution plots of time-averaged day-concatenated activity
+%% Distribution plots of time-averaged day-concatenated activity (move L/R)
 
 n_aligned_depths = 4;
 
@@ -7060,11 +7062,11 @@ n_conditions = size(conditions,1);
 sidecontrasts = unique(bsxfun(@times,contrasts',sides));
 
 % Plot distribution of all trials 
-plot_act = 'mua';
-plot_area = 4;
+plot_act = 'fluor';
+plot_area = 10;
 plot_align = 2;
-% plot_t = t >= 0.05 & t <= 0.15;
-plot_t = t >= -0.10 & t <= 0;
+% plot_t = t >= 0.08 & t <= 0.12;
+plot_t = t >= -0.12 & t <= -0.08;
 
 figure;
 trial_act_timeavg_split_all = cell(length(sidecontrasts),2);
@@ -7183,8 +7185,9 @@ for curr_animal = 1:length(D_all)
     
 end
 
+figure; 
 % Plot trials from all animals concatenated
-figure; hold on;
+subplot(2,1,1); hold on;
 p1 = distributionPlot(trial_act_timeavg_split_all(:,1),'distWidth',0.5, ...
     'xValues',(1:11)-0.25,'histOri','left','showMM',0,'color',[0.6,0,0.6]);
 p2 = distributionPlot(trial_act_timeavg_split_all(:,2),'distWidth',0.5, ...
@@ -7200,6 +7203,229 @@ ylabel(area_labels{plot_area});
 legend([p1{1}(6),p2{1}(6)],{'Move left','Move right'});
 title('Trial activity across animals');
 
+% Plot trials from both choices conconatenated
+subplot(2,1,2); hold on;
+trial_act_timeavg_combined = arrayfun(@(x) ...
+    vertcat(trial_act_timeavg_split_all{x,:}), ...
+    1:size(trial_act_timeavg_split_all),'uni',false)';
+p1 = distributionPlot(trial_act_timeavg_combined,'distWidth',0.5, ...
+    'xValues',1:11,'histOri','center','showMM',0,'color',[0.7,0.7,0.7]);
+
+trial_act_timeavg_split_all_median = cellfun(@nanmedian,trial_act_timeavg_combined);
+plot(1:11,trial_act_timeavg_split_all_median,'color','k','linewidth',2)
+
+set(gca,'XTick',1:11,'XTickLabel',cellfun(@num2str,num2cell(sidecontrasts),'uni',false));
+xlabel('Contrast*Side');
+ylabel(area_labels{plot_area});
+
+%% Plot move L-R activity difference of median concatenated activity
+
+n_aligned_depths = 4;
+
+% Load data
+data_path = 'C:\Users\Andrew\OneDrive for Business\Documents\CarandiniHarrisLab\analysis\wf_ephys_choiceworld\choiceworld';
+data_fn = ['all_trial_activity_df_kernel-str_earlymove_' num2str(n_aligned_depths) '_depths.mat'];
+% data_fn = 'all_trial_activity_df_msn_earlymove.mat';
+load([data_path filesep data_fn]);
+
+n_animals = length(D_all);
+
+% Get time
+framerate = 35.2;
+raster_window = [-0.5,1];
+upsample_factor = 3;
+sample_rate = 1/(framerate*upsample_factor);
+t = raster_window(1):sample_rate:raster_window(2);
+
+% Load use experiments and cut out bad ones
+bhv_fn = 'C:\Users\Andrew\OneDrive for Business\Documents\CarandiniHarrisLab\analysis\wf_ephys_choiceworld\bhv_processing\use_experiments';
+load(bhv_fn);
+D_all = cellfun(@(data,use_expts) data(use_expts),D_all,use_experiments','uni',false);
+fluor_all = cellfun(@(data,use_expts) data(use_expts),fluor_all,use_experiments','uni',false);
+mua_all = cellfun(@(data,use_expts) data(use_expts),mua_all,use_experiments','uni',false);
+
+use_animals = cellfun(@(x) ~isempty(x),D_all);
+D_all = D_all(use_animals);
+fluor_all = fluor_all(use_animals);
+mua_all = mua_all(use_animals);
+
+% Get widefield ROIs
+wf_roi_fn = 'C:\Users\Andrew\OneDrive for Business\Documents\CarandiniHarrisLab\analysis\wf_ephys_choiceworld\wf_processing\wf_rois\wf_roi';
+load(wf_roi_fn);
+n_rois = numel(wf_roi);
+
+% MUA depths
+n_depths = size(mua_all{1}{1},3);
+
+% Set up conditions
+contrasts = [0,0.06,0.125,0.25,0.5,1];
+sides = [-1,1];
+choices = [-1,1];
+timings = [1,2];
+conditions = combvec(contrasts,sides,choices,timings)';
+n_conditions = size(conditions,1);
+
+sidecontrasts = unique(bsxfun(@times,contrasts',sides));
+
+% Plot distribution of all trials 
+trial_act_split_fluor_all = cell(length(sidecontrasts),2,n_rois,2);
+trial_act_split_mua_all = cell(length(sidecontrasts),2,n_depths,2);
+for curr_animal = 1:length(D_all)
+    
+    trial_day = cell2mat(cellfun(@(day,act) repmat(day,size(act,1),1), ...
+        num2cell(1:length(fluor_all{curr_animal}))',fluor_all{curr_animal},'uni',false));
+    
+    % Concatenate fluorescence, get L-R, normalize (all together)
+    fluor_cat = cat(1,fluor_all{curr_animal}{:});
+    
+    fluor_cat_hemidiff = cat(3,fluor_cat(:,:,1:n_rois/2,:),fluor_cat(:,:,1:n_rois/2,:) - ...
+        fluor_cat(:,:,n_rois/2+1:end,:));
+        
+    fluor_cat_norm = bsxfun(@rdivide,fluor_cat,permute(std(reshape(permute(fluor_cat,[1,2,4,3]),[],n_rois),[],1),[1,3,2,4]));
+    fluor_cat_hemidiff_norm = bsxfun(@rdivide,fluor_cat_hemidiff,permute(std(abs(reshape(permute(fluor_cat_hemidiff,[1,2,4,3]),[],n_rois)),[],1),[1,3,2,4]));     
+    
+    % Concatenate MUA and normalize (separately by day)
+    mua_cat_raw = cat(1,mua_all{curr_animal}{:});
+    
+    % NaN-out MUA trials with no spikes (no data collected - this should be
+    % done when getting the activity I guess using some method besides
+    % hist)
+    filled_mua_trials = +cell2mat(cellfun(@(x) repmat(any(reshape(permute(x,[1,2,4,3]),[],n_depths),1), ...
+        size(x,1),1),mua_all{curr_animal},'uni',false));    
+    filled_mua_trials(~filled_mua_trials) = NaN;
+    mua_cat_raw = bsxfun(@times,mua_cat_raw,permute(filled_mua_trials,[1,3,2,4]));
+    
+    smooth_size = 8;
+    gw = gausswin(smooth_size,3)';
+    smWin = gw./sum(gw);
+    
+    mua_cat_raw_smoothed = convn(mua_cat_raw,smWin,'same');
+    
+    t_baseline = t < 0;        
+    mua_day_baseline = cell2mat(cellfun(@(x) ...
+        repmat(permute(nanmean(reshape(permute(x(:,t_baseline,:,1),[1,2,4,3]),[],n_depths),1), ...
+        [1,3,2,4]),[size(x,1),1]),  ...
+        mat2cell(mua_cat_raw_smoothed,cellfun(@(x) size(x,1), mua_all{curr_animal}),length(t),n_depths,2),'uni',false));
+    
+    mua_day_std = cell2mat(cellfun(@(x) ...
+        repmat(permute(nanstd(reshape(permute(x,[1,2,4,3]),[],n_depths),[],1), ...
+        [1,3,2,4]),[size(x,1),1]),  ...
+        mat2cell(mua_cat_raw_smoothed,cellfun(@(x) size(x,1), mua_all{curr_animal}),length(t),n_depths,2),'uni',false));
+    
+    softnorm = 20;
+    
+    mua_cat_norm = bsxfun(@rdivide,bsxfun(@minus,mua_cat_raw_smoothed,mua_day_baseline),mua_day_std+softnorm);   
+          
+    % Concatenate behavioural data
+    D = struct;
+    D.stimulus = cell2mat(cellfun(@(x) x.stimulus,D_all{curr_animal},'uni',false));
+    D.response = cell2mat(cellfun(@(x) x.response,D_all{curr_animal},'uni',false));
+    D.repeatNum = cell2mat(cellfun(@(x) x.repeatNum,D_all{curr_animal},'uni',false));
+    
+    D.day = trial_day;
+    
+    % Get trial ID   
+    trial_contrast = max(D.stimulus,[],2);
+    [~,side_idx] = max(D.stimulus > 0,[],2);
+    trial_side = (side_idx-1.5)*2;
+    trial_choice = -(D.response-1.5)*2;
+    
+    % Get time-averaged activity for each trial
+    % (fluor)
+    for curr_align = 1:2
+        for curr_roi = 1:n_rois
+            % Split activity by contrast*side/choice
+            trial_act_split_fluor = cell(length(sidecontrasts),2);
+            trial_act_split_fluor(:,1) = arrayfun(@(x) ...
+                fluor_cat_hemidiff_norm(trial_side.*trial_contrast == sidecontrasts(x) & ...
+                trial_choice == -1,:,curr_roi,curr_align), ...
+                1:length(sidecontrasts),'uni',false);
+            trial_act_split_fluor(:,2) = arrayfun(@(x) ...
+                fluor_cat_hemidiff_norm(trial_side.*trial_contrast == sidecontrasts(x) & ...
+                trial_choice == 1,:,curr_roi,curr_align), ...
+                1:length(sidecontrasts),'uni',false);
+            
+            trial_act_split_fluor_all(:,:,curr_roi,curr_align) = ...
+                cellfun(@(curr,all) [curr;all], ...
+                trial_act_split_fluor, ...
+                trial_act_split_fluor_all(:,:,curr_roi,curr_align),'uni',false);
+        end
+    end
+    
+    % (mua)
+    for curr_align = 1:2
+        for curr_depth = 1:n_depths
+            % Split activity by contrast*side/choice
+            trial_act_split_mua = cell(length(sidecontrasts),2);
+            trial_act_split_mua(:,1) = arrayfun(@(x) ...
+                mua_cat_norm(trial_side.*trial_contrast == sidecontrasts(x) & ...
+                trial_choice == -1,:,curr_depth,curr_align), ...
+                1:length(sidecontrasts),'uni',false);
+            trial_act_split_mua(:,2) = arrayfun(@(x) ...
+                mua_cat_norm(trial_side.*trial_contrast == sidecontrasts(x) & ...
+                trial_choice == 1,:,curr_depth,curr_align), ...
+                1:length(sidecontrasts),'uni',false);
+            
+            trial_act_split_mua_all(:,:,curr_depth,curr_align) = ...
+                cellfun(@(curr,all) [curr;all], ...
+                trial_act_split_mua, ...
+                trial_act_split_mua_all(:,:,curr_depth,curr_align),'uni',false);
+        end
+    end
+        
+          
+end
+
+trial_act_split_fluor_all_median = cellfun(@(x) ...
+    nanmedian(x,1),trial_act_split_fluor_all,'uni',false);
+trial_act_split_fluor_all_median_diff = squeeze(cellfun(@(move_l,move_r) ...
+    move_l-move_r,trial_act_split_fluor_all_median(:,1,:,:), ...
+    trial_act_split_fluor_all_median(:,2,:,:),'uni',false));
+
+trial_act_split_mua_all_median = cellfun(@(x) ...
+    nanmedian(x,1),trial_act_split_mua_all,'uni',false);
+trial_act_split_mua_all_median_diff = squeeze(cellfun(@(move_l,move_r) ...
+    move_l-move_r,trial_act_split_mua_all_median(:,1,:,:), ...
+    trial_act_split_mua_all_median(:,2,:,:),'uni',false));
+
+figure('Name','Move R - Move L: Fluor');
+for curr_align = 1:2
+    for curr_roi = 1:n_rois/2
+        subplot(2,n_rois/2,n_rois/2*(curr_align-1)+curr_roi);
+        imagesc(t,sidecontrasts,vertcat(trial_act_split_fluor_all_median_diff{:,curr_roi,curr_align}))
+        colormap(colormap_BlueWhiteRed);
+        caxis([-max(abs(caxis)),max(abs(caxis))]);
+        xlabel('Time (s)');
+        ylabel('Contrast*Side');
+        title([wf_roi(curr_roi).area ' Align ' num2str(curr_align)])
+    end
+end
+
+figure('Name','Move R - Move L: dFluor');
+for curr_align = 1:2
+    for curr_roi = n_rois/2+1:n_rois
+        subplot(2,n_rois/2,n_rois/2*(curr_align-1)+curr_roi-n_rois/2);
+        imagesc(t,sidecontrasts,vertcat(trial_act_split_fluor_all_median_diff{:,curr_roi,curr_align}))
+        colormap(colormap_BlueWhiteRed);
+        caxis([-max(abs(caxis)),max(abs(caxis))]);
+        xlabel('Time (s)');
+        ylabel('Contrast*Side');
+        title([wf_roi(curr_roi).area ' Align ' num2str(curr_align)])
+    end
+end
+
+figure('Name','Move R - Move L: MUA');
+for curr_align = 1:2
+    for curr_depth = 1:n_depths
+        subplot(2,n_depths,n_depths*(curr_align-1)+curr_depth);
+        imagesc(t,sidecontrasts,vertcat(trial_act_split_mua_all_median_diff{:,curr_depth,curr_align}))
+        colormap(colormap_BlueWhiteRed);
+        caxis([-max(abs(caxis)),max(abs(caxis))]);
+        xlabel('Time (s)');
+        ylabel('Contrast*Side');
+        title(['Str ' num2str(curr_depth) ' Align ' num2str(curr_align)]);
+    end
+end
 
 %% Linear regression on day-concatenated activity (weights & expl var)
 
@@ -7207,7 +7433,7 @@ n_aligned_depths = 4;
 
 % Load data
 data_path = 'C:\Users\Andrew\OneDrive for Business\Documents\CarandiniHarrisLab\analysis\wf_ephys_choiceworld\choiceworld';
-data_fn = ['all_trial_activity_df_kernel-str_earlymove_' num2str(n_aligned_depths) '_depths.mat'];
+data_fn = ['all_trial_activity_df_kernel-str_latemove_' num2str(n_aligned_depths) '_depths.mat'];
 % data_fn = 'all_trial_activity_df_earlymove.mat';
 load([data_path filesep data_fn]);
 
@@ -7604,6 +7830,11 @@ for curr_alignment = 1:2
     end
 end
 
+
+
+
+
+
 %% Regress day-concatenated mua from cortex in time (timepoint specific)
 
 n_aligned_depths = 4;
@@ -7990,7 +8221,7 @@ for curr_animal = 1:length(D_all)
     mua_cat_norm = bsxfun(@rdivide,bsxfun(@minus,mua_cat_raw_smoothed,mua_day_baseline),mua_day_std+softnorm);             
     
     % For each time point, regress fluorescence of one area from others   
-    regress_area = 2;
+    regress_area = 14;
     regressor_areas = setdiff(1:16,regress_area);    
     t_surround = -10:10;
     interarea_kernel = nan(length(regressor_areas),length(t),length(t_surround));
@@ -7998,10 +8229,10 @@ for curr_animal = 1:length(D_all)
     predicted_signal = nan(size(D.stimulus,1),length(t));
     for curr_t = -min(t_surround)+1:length(t)-max(t_surround)
         
-        curr_regressors = reshape(fluor_cat_norm( ...
+        curr_regressors = reshape(fluor_cat_hemidiff_norm( ...
             :,curr_t+t_surround,regressor_areas,2),[],length(regressor_areas)*length(t_surround));
         
-        curr_signal = fluor_cat_norm(:,curr_t,regress_area,2);   
+        curr_signal = fluor_cat_hemidiff_norm(:,curr_t,regress_area,2);   
         
         % Only use non-nan regressors and signals
         use_trials = ~all(isnan(curr_regressors),2) & all(~isnan(curr_signal),2);       
@@ -8136,7 +8367,6 @@ caxis([-max(abs(caxis)),max(abs(caxis))]);
 
 
 %% Load and process wheel regression 
-% NOTE: need to NaN out days with no depth data, they have non-zero values
 
 data_fn = 'C:\Users\Andrew\OneDrive for Business\Documents\CarandiniHarrisLab\analysis\wf_ephys_choiceworld\choiceworld\wheel_regression';
 load(data_fn);
@@ -8159,7 +8389,11 @@ ctx_wheel_kernel = nanmean(cell2mat(permute(cellfun(@(x) ...
 figure;
 hold on;
 set(gca,'ColorOrder',copper(4));
-plot(kernel_t,str_wheel_kernel');
+plot(kernel_t,str_wheel_kernel','linewidth',2);
+line([0,0],ylim,'color','k');
+legend(cellfun(@(x) ['Str ' num2str(x)],num2cell(1:size(str_wheel_kernel,1)),'uni',false)')
+xlabel('Time lag (s)');
+ylabel('Weight');
 
 AP_image_scroll(ctx_wheel_kernel,kernel_t)
 axis image; colormap(colormap_BlueWhiteRed);
@@ -8203,7 +8437,6 @@ legend({'Striatum','Cortex'});
 
 
 %% Load and process wheel regression (IMAGING ONLY DAYS)
-% NOTE: need to NaN out days with no depth data, they have non-zero values
 
 data_fn = 'C:\Users\Andrew\OneDrive for Business\Documents\CarandiniHarrisLab\analysis\wf_ephys_choiceworld\choiceworld\wheel_regression_wfonly';
 load(data_fn);
@@ -8227,8 +8460,9 @@ AP_reference_outline('ccf_aligned','k');
 AP_reference_outline('grid',[0.5,0.5,0.5]);
 
 % Kernel reflected and subtract (different - left) and add (same - right)
-ctx_wheel_kernel_reflected = ctx_wheel_kernel - AP_reflect_widefield(ctx_wheel_kernel);
-AP_image_scroll([ctx_wheel_kernel_reflected,kernel_t)
+AP_image_scroll([ctx_wheel_kernel - AP_reflect_widefield(ctx_wheel_kernel), ...
+     ctx_wheel_kernel + AP_reflect_widefield(ctx_wheel_kernel)],...
+     kernel_t);
 axis image; colormap(colormap_BlueWhiteRed);
 caxis([-prctile(abs(ctx_wheel_kernel(:)),99.9),prctile(abs(ctx_wheel_kernel(:)),99.9)]);
 AP_reference_outline('ccf_aligned','k');
