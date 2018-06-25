@@ -7062,12 +7062,13 @@ n_conditions = size(conditions,1);
 sidecontrasts = unique(bsxfun(@times,contrasts',sides));
 
 % Plot distribution of all trials 
-plot_act = 'mua';
-plot_area = 3;
-plot_align = 1;
-plot_t = t >= 0.08 & t <= 0.12;
-% plot_t = t >= -0.12 & t <= -0.08;
-% plot_t = t >= -0.08 & t <= -0.06;
+plot_act = 'fluor_cat';
+plot_area = 5;
+plot_align = 2;
+% plot_t = t >= 0.08 & t <= 0.12; % stim response
+% plot_t = t >= -0.12 & t <= -0.08; % early premove
+plot_t = t >= -0.08 & t <= 0; % late premove
+% plot_t = t >= 0.55 & t <= 0.6; % post-beep
 
 figure;
 trial_act_timeavg_split_all = cell(length(sidecontrasts),2);
@@ -7136,6 +7137,23 @@ for curr_animal = 1:length(D_all)
         case 'fluor'
             use_data = fluor_cat_hemidiff_norm;
             area_labels = {wf_roi.area};
+            area_labels(n_rois/2+1:end) = cellfun(@(x) ...
+                ['\Delta' x(1:end-2)],area_labels(n_rois/2+1:end),'uni',false);
+            
+        case 'fluor_cat'            
+            if plot_area > n_rois/2
+                error('Concatenating fluor: only use L ROIs')
+            end
+            % concatenate L/R and reorder trial ID as ipsi/contra
+            use_data = [fluor_cat_norm(:,:,1:n_rois/2,:); ...
+                fluor_cat_norm(:,:,n_rois/2+1:end,:)];
+            area_labels = cellfun(@(x) [x(1:end-2) '_{unilateral}'], ...
+                {wf_roi(1:n_rois/2).area},'uni',false);
+            
+            trial_contrast = [trial_contrast;trial_contrast];
+            trial_side = [trial_side;-trial_side];
+            trial_choice = [trial_choice;-trial_choice];
+            
         case 'mua'
             use_data =  mua_cat_norm;
             area_labels = cellfun(@(x) ['Str ' num2str(x)],num2cell(1:n_depths),'uni',false);
@@ -7188,7 +7206,7 @@ end
 
 figure; 
 % Plot trials from all animals concatenated
-subplot(2,1,1); hold on;
+subplot(1,3,1); hold on;
 p1 = distributionPlot(trial_act_timeavg_split_all(:,1),'distWidth',0.5, ...
     'xValues',(1:11)-0.25,'histOri','left','showMM',0,'color',[0.6,0,0.6]);
 p2 = distributionPlot(trial_act_timeavg_split_all(:,2),'distWidth',0.5, ...
@@ -7205,19 +7223,28 @@ legend([p1{1}(6),p2{1}(6)],{'Move left','Move right'});
 title('Trial activity across animals');
 
 % Plot trials from both choices conconatenated
-subplot(2,1,2); hold on;
+subplot(1,3,2); hold on;
 trial_act_timeavg_combined = arrayfun(@(x) ...
     vertcat(trial_act_timeavg_split_all{x,:}), ...
     1:size(trial_act_timeavg_split_all),'uni',false)';
 p1 = distributionPlot(trial_act_timeavg_combined,'distWidth',0.5, ...
     'xValues',1:11,'histOri','center','showMM',0,'color',[0.7,0.7,0.7]);
 
-trial_act_timeavg_split_all_median = cellfun(@nanmedian,trial_act_timeavg_combined);
-plot(1:11,trial_act_timeavg_split_all_median,'color','k','linewidth',2)
+trial_act_timeavg_combined_all_median = cellfun(@nanmedian,trial_act_timeavg_combined);
+plot(1:11,trial_act_timeavg_combined_all_median,'color','k','linewidth',2)
 
 set(gca,'XTick',1:11,'XTickLabel',cellfun(@num2str,num2cell(sidecontrasts),'uni',false));
 xlabel('Contrast*Side');
 ylabel(area_labels{plot_area});
+
+% Plot just medians by correctly scaled x-axis
+subplot(1,3,3); hold on;
+plot(sidecontrasts,trial_act_timeavg_split_all_median(:,1),'color',[0.6,0,0.6],'linewidth',2)
+plot(sidecontrasts,trial_act_timeavg_split_all_median(:,2),'color',[0,0.6,0],'linewidth',2)
+plot(sidecontrasts,trial_act_timeavg_combined_all_median,'color','k','linewidth',2)
+xlabel('Contrast*Side');
+ylabel(area_labels{plot_area});
+legend({'Move left','Move right','All'})
 
 %% Plot move L-R activity difference of median concatenated activity
 
@@ -7377,6 +7404,24 @@ for curr_animal = 1:length(D_all)
           
 end
 
+% Get median of all trials together
+[d1,d2,d3,d4] = size(trial_act_split_fluor_all);
+fluor_reshape = reshape(trial_act_split_fluor_all,d1,[]);
+trial_act_cat_fluor_all_median = reshape(arrayfun(@(x) nanmedian(vertcat(fluor_reshape{:,x}),1), ...
+    1:size(fluor_reshape,2),'uni',false),d2,d3,d4);
+trial_act_cat_fluor_all_diff = squeeze(cellfun(@(x,y) y-x, ...
+    trial_act_cat_fluor_all_median(1,:,:), ...
+    trial_act_cat_fluor_all_median(2,:,:),'uni',false));
+
+[d1,d2,d3,d4] = size(trial_act_split_mua_all);
+mua_reshape = reshape(trial_act_split_mua_all,d1,[]);
+trial_act_cat_mua_all_median = reshape(arrayfun(@(x) nanmedian(vertcat(mua_reshape{:,x}),1), ...
+    1:size(mua_reshape,2),'uni',false),d2,d3,d4);
+trial_act_cat_mua_all_diff = squeeze(cellfun(@(x,y) y-x, ...
+    trial_act_cat_mua_all_median(1,:,:), ...
+    trial_act_cat_mua_all_median(2,:,:),'uni',false));
+
+% Get medians of trials by condition
 trial_act_split_fluor_all_median = cellfun(@(x) ...
     nanmedian(x,1),trial_act_split_fluor_all,'uni',false);
 trial_act_split_fluor_all_median_diff = squeeze(cellfun(@(move_l,move_r) ...
@@ -7389,6 +7434,29 @@ trial_act_split_mua_all_median_diff = squeeze(cellfun(@(move_l,move_r) ...
     move_l-move_r,trial_act_split_mua_all_median(:,1,:,:), ...
     trial_act_split_mua_all_median(:,2,:,:),'uni',false));
 
+% Plot by grand median
+figure('Name','Move R - Move L');
+subplot(1,4,1);
+AP_stackplot(vertcat(trial_act_cat_fluor_all_diff{:,1})',t,3,false,'k',{wf_roi.area});
+line([0,0],ylim);
+xlabel('Time from stim');
+
+subplot(1,4,2);
+AP_stackplot(vertcat(trial_act_cat_fluor_all_diff{:,2})',t,3,false,'k',{wf_roi.area});
+line([0,0],ylim);
+xlabel('Time from move');
+
+subplot(1,4,3);
+AP_stackplot(vertcat(trial_act_cat_mua_all_diff{:,1})',t,3,false,'r',1:4);
+line([0,0],ylim);
+xlabel('Time from stim');
+
+subplot(1,4,4);
+AP_stackplot(vertcat(trial_act_cat_mua_all_diff{:,2})',t,3,false,'r',1:4);
+line([0,0],ylim);
+xlabel('Time from move');
+
+% Plot by condition
 figure('Name','Move R - Move L: Fluor');
 for curr_align = 1:2
     for curr_roi = 1:n_rois/2
