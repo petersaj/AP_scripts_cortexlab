@@ -5736,6 +5736,7 @@ animals = {'AP024','AP025','AP026','AP027','AP028','AP029'};
 
 fluor_all = cell(length(animals),1);
 mua_all = cell(length(animals),1);
+wheel_all = cell(length(animals),1);
 D_all = cell(length(animals),1);
 
 for curr_animal = 1:length(animals)
@@ -5752,6 +5753,7 @@ for curr_animal = 1:length(animals)
     
     fluor_all{curr_animal} = cell(length(experiments),1);
     mua_all{curr_animal} = cell(length(experiments),1);
+    wheel_all{curr_animal} = cell(length(experiments),1);
     D_all{curr_animal} = cell(length(experiments),1);
     
     disp(['Loading ' animal]);
@@ -5839,6 +5841,7 @@ for curr_animal = 1:length(animals)
         
         event_aligned_ddf = nan(length(stimOn_times),length(t),n_rois,2);
         event_aligned_mua = nan(length(stimOn_times),length(t),n_depths,2);
+        event_aligned_wheel = nan(length(stimOn_times),length(t),2);
         for curr_align = 1:2
             switch curr_align
                 case 1
@@ -5869,6 +5872,12 @@ for curr_animal = 1:length(animals)
                     [1:size(t_peri_event,1)]','uni',false))./raster_sample_rate;
             end
             
+            % Wheel
+            event_aligned_wheel_raw = interp1(Timeline.rawDAQTimestamps, ...
+                wheel_position,t_peri_event);
+            event_aligned_wheel(:,:,curr_align) = bsxfun(@minus,event_aligned_wheel_raw, ...
+                nanmedian(event_aligned_wheel_raw(:,t < 0),2));
+            
         end
         
         % Pick trials to use
@@ -5895,15 +5904,16 @@ for curr_animal = 1:length(animals)
         % Store activity and stim
         fluor_all{curr_animal}{curr_day} = event_aligned_ddf(use_trials,:,:,:);
         mua_all{curr_animal}{curr_day} = event_aligned_mua(use_trials,:,:,:);
+        wheel_all{curr_animal}{curr_day} = event_aligned_wheel(use_trials,:,:);
         D_all{curr_animal}{curr_day} = D;
         
         AP_print_progress_fraction(curr_day,length(experiments));
     end
     
-    clearvars -except n_aligned_depths animals curr_animal fluor_all mua_all D_all
+    clearvars -except n_aligned_depths animals curr_animal fluor_all mua_all wheel_all D_all
     
 end
-clearvars -except n_aligned_depths fluor_all mua_all D_all
+clearvars -except n_aligned_depths fluor_all mua_all wheel_all D_all
 disp('Finished loading all')
 
 save_path = 'C:\Users\Andrew\OneDrive for Business\Documents\CarandiniHarrisLab\analysis\wf_ephys_choiceworld\choiceworld';

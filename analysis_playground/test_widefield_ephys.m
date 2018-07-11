@@ -2497,7 +2497,8 @@ use_frames = (frame_t > skip_seconds & frame_t < frame_t(end)-skip_seconds);
 
 % Group multiunit by depth
 n_depths = 6;
-depth_group_edges = round(linspace(str_depth(1),str_depth(2),n_depths+1));
+% depth_group_edges = round(linspace(str_depth(1),str_depth(2),n_depths+1));
+depth_group_edges = [2000,2500];
 depth_group_edges_use = depth_group_edges;
 
 [depth_group_n,depth_group] = histc(spikeDepths,depth_group_edges_use);
@@ -2600,7 +2601,8 @@ lambda = lambdas(end);
 disp(['Best lambda = ' num2str(lambda) ', Frac var = ' num2str(explained_var_lambdas(end))]);
 
 %% Regression fluor -> MUA: get lambda via cross-validation (auto stop, NEW)
-% (NOW SAVED AS AP_estimate_lambda - incorporated below)
+% (used to be AP_estimate_lambda, then subbed that for something else)
+% (autostop is bad - too sensitive to noise)
 
 % upsample_factor = 0.2;
 % sample_rate = (1/median(diff(frame_t)))*upsample_factor;
@@ -2832,7 +2834,7 @@ set(c2,'YTickLabel',linspace(depth_group_edges(1),depth_group_edges(end),6));
 % AP_estimate_lambda;
 
 % Set upsample value for regression
-upsample_factor = 2;
+upsample_factor = 1;
 sample_rate = (1/median(diff(frame_t)))*upsample_factor;
 
 % Skip the first/last n seconds to do this
@@ -2840,16 +2842,23 @@ skip_seconds = 60;
 time_bins = frame_t(find(frame_t > skip_seconds,1)):1/sample_rate:frame_t(find(frame_t-frame_t(end) < -skip_seconds,1,'last'));
 time_bin_centers = time_bins(1:end-1) + diff(time_bins)/2;
 
-% % (to group multiunit by depth from top)
+% (to group multiunit by depth from top)
+n_depths = 8;
+depth_group_edges = round(linspace(min(templateDepths),max(templateDepths),n_depths+1));
+[depth_group_n,depth_group] = histc(spikeDepths,depth_group_edges);
+depth_groups_used = unique(depth_group);
+depth_group_centers = depth_group_edges(1:end-1)+(diff(depth_group_edges)/2);
+
+% % (to group multiunit by depth within striatum)
 % n_depths = round(diff(str_depth)/100);
 % depth_group_edges = round(linspace(str_depth(1),str_depth(2),n_depths+1));
 % [depth_group_n,depth_group] = histc(spikeDepths,depth_group_edges);
 % depth_groups_used = unique(depth_group);
 % depth_group_centers = depth_group_edges(1:end-1)+(diff(depth_group_edges)/2);
 
-% (to use aligned striatum depths)
-n_depths = n_aligned_depths;
-depth_group = aligned_str_depth_group;
+% % (to use aligned striatum depths)
+% n_depths = n_aligned_depths;
+% depth_group = aligned_str_depth_group;
 
 % % (for manual depth)
 % depth_group_edges = [1500,2200];
@@ -3821,9 +3830,9 @@ skip_seconds = 60;
 use_frames = (frame_t > skip_seconds & frame_t < (frame_t(end) - skip_seconds));
 
 % Group multiunit by depth
-n_depth_groups = 1;
-% depth_group_edges = linspace(500,1500,n_depth_groups+1);
-depth_group_edges = round(linspace(str_depth(1),str_depth(2),n_depth_groups+1));
+n_depth_groups = 8;
+depth_group_edges = linspace(min(templateDepths),max(templateDepths),n_depth_groups+1);
+% depth_group_edges = round(linspace(str_depth(1),str_depth(2),n_depth_groups+1));
 depth_group_edges_use = depth_group_edges;
 %depth_group_edges_use = [400,1500,2000,2300,3000,4000];
 depth_group_edges_use(end) = Inf;
@@ -3883,9 +3892,9 @@ skip_seconds = 60;
 use_frames = (frame_t > skip_seconds & frame_t < (frame_t(end) - skip_seconds));
 
 % Group multiunit by depth
-n_depth_groups = 10;
-%depth_group_edges = linspace(1000,3500,n_depth_groups+1);
-depth_group_edges = round(linspace(str_depth(1),str_depth(2),n_depth_groups+1));
+n_depth_groups = 8;
+depth_group_edges = linspace(min(templateDepths),max(templateDepths),n_depth_groups+1);
+% depth_group_edges = round(linspace(str_depth(1),str_depth(2),n_depth_groups+1));
 depth_group_edges_use = depth_group_edges;
 depth_group_edges_use(end) = Inf;
 

@@ -379,7 +379,7 @@ save_path = 'C:\Users\Andrew\OneDrive for Business\Documents\CarandiniHarrisLab\
 save_fn = 'use_experiments';
 save([save_path filesep save_fn],'use_experiments');
 
-% Plot wheel velocity by condition
+% Plot wheel velocity by correct/incorrect
 [velocity_condition_hit_earlymove_grp,group] = cellfun(@(wheel,outcome,condition,stim_to_move) ...
     grpstats(wheel(outcome == 1 & stim_to_move < 0.5),condition(outcome == 1 & stim_to_move < 0.5), ...
     {'mean','gname'}),trial_wheel_velocity_cat,trial_outcome_cat,trial_condition_cat,stim_to_move_cat,'uni',false);
@@ -409,6 +409,37 @@ plot(conditions,nanmean(abs(velocity_condition_miss_earlymove),2),'color',[0.8,0
 plot(conditions,nanmean(abs(velocity_condition_hit_earlymove),2),'color',[0,0.8,0],'linewidth',2);
 ylabel('Max wheel velocity towards choice');
 xlabel('Condition');
+
+% Plot wheel velocity by left/right
+[velocity_condition_moveL_earlymove_grp,group] = cellfun(@(wheel,choice,condition,stim_to_move) ...
+    grpstats(wheel(choice == -1 & stim_to_move < 0.5),condition(choice == -1 & stim_to_move < 0.5), ...
+    {'mean','gname'}),trial_wheel_velocity_cat,trial_choice_cat,trial_condition_cat,stim_to_move_cat,'uni',false);
+group = cellfun(@(x) cellfun(@(x) str2num(x),x),group,'uni',false);
+all_group = unique(vertcat(group{:}),'rows');
+velocity_condition_hit_earlymove = nan(size(all_group,1),length(bhv));
+for curr_animal = 1:length(bhv)
+    [~,group_idx] = intersect(all_group,group{curr_animal},'rows');
+    velocity_condition_moveL_earlymove(group_idx,curr_animal) = velocity_condition_moveL_earlymove_grp{curr_animal};
+end
+
+[velocity_condition_moveR_earlymove_grp,group] = cellfun(@(wheel,choice,condition,stim_to_move) ...
+    grpstats(wheel(choice == 1 & stim_to_move < 0.5),condition(choice == 1 & stim_to_move < 0.5), ...
+    {'mean','gname'}),trial_wheel_velocity_cat,trial_choice_cat,trial_condition_cat,stim_to_move_cat,'uni',false);
+group = cellfun(@(x) cellfun(@(x) str2num(x),x),group,'uni',false);
+all_group = unique(vertcat(group{:}),'rows');
+velocity_condition_hit_earlymove = nan(size(all_group,1),length(bhv));
+for curr_animal = 1:length(bhv)
+    [~,group_idx] = intersect(all_group,group{curr_animal},'rows');
+    velocity_condition_moveR_earlymove(group_idx,curr_animal) = velocity_condition_moveR_earlymove_grp{curr_animal};
+end
+
+figure; hold on;
+plot(conditions,nanmean(abs(velocity_condition_moveL_earlymove),2),'color',[0.6,0,0.6],'linewidth',2);
+plot(conditions,nanmean(abs(velocity_condition_moveR_earlymove),2),'color',[0,0.6,0],'linewidth',2);
+ylabel('Max wheel velocity towards choice');
+xlabel('Condition');
+
+legend({'Move L','Move R'});
 
 % Plot distribution of stim to move and feedback times
 move_time_bins = 0:0.01:1;
@@ -444,6 +475,84 @@ ylabel('Frequency by fraction within day')
 axis tight
 line([0.5,0.5],ylim,'linestyle','--','color','k');
    
+% Plot distribution of stim to move and feedback times (correct/incorrect)
+move_time_bins = 0:0.01:1;
+day_split = 4;
+
+move_time_centers = move_time_bins(1:end-1) + diff(move_time_bins)/2;
+stim_to_move_binned_correct = zeros(day_split,length(move_time_bins)-1,length(bhv));
+stim_to_move_binned_incorrect = zeros(day_split,length(move_time_bins)-1,length(bhv));
+stim_to_move_binned_zero = zeros(day_split,length(move_time_bins)-1,length(bhv));
+
+for curr_animal = 1:length(bhv)
+    for curr_day = 1:length(bhv(curr_animal).stim_to_move)
+        curr_data = bhv(curr_animal).stim_to_move{curr_day}( ...
+            bhv(curr_animal).trial_side{curr_day} == -bhv(curr_animal).trial_choice{curr_day} & ...
+            bhv(curr_animal).trial_contrast{curr_day} ~= 0);
+        trials_split = round(linspace(1,length(curr_data),day_split+1));
+        for curr_split = 1:day_split
+            stim_to_move_binned_correct(curr_split,:,curr_animal) = ...
+                stim_to_move_binned_correct(curr_split,:,curr_animal) + ...
+                histcounts(curr_data(trials_split(curr_split): ...
+                trials_split(curr_split+1)),move_time_bins);
+        end
+        
+        curr_data = bhv(curr_animal).stim_to_move{curr_day}( ...
+            bhv(curr_animal).trial_side{curr_day} == bhv(curr_animal).trial_choice{curr_day} & ...
+            bhv(curr_animal).trial_contrast{curr_day} ~= 0);
+        trials_split = round(linspace(1,length(curr_data),day_split+1));
+        for curr_split = 1:day_split
+            stim_to_move_binned_incorrect(curr_split,:,curr_animal) = ...
+                stim_to_move_binned_incorrect(curr_split,:,curr_animal) + ...
+                histcounts(curr_data(trials_split(curr_split): ...
+                trials_split(curr_split+1)),move_time_bins);
+        end
+        
+        curr_data = bhv(curr_animal).stim_to_move{curr_day}( ...
+            bhv(curr_animal).trial_contrast{curr_day} == 0);
+        trials_split = round(linspace(1,length(curr_data),day_split+1));
+        for curr_split = 1:day_split
+            stim_to_move_binned_zero(curr_split,:,curr_animal) = ...
+                stim_to_move_binned_zero(curr_split,:,curr_animal) + ...
+                histcounts(curr_data(trials_split(curr_split): ...
+                trials_split(curr_split+1)),move_time_bins);
+        end
+    end
+end
+stim_to_move_binned_correct_norm = bsxfun(@rdivide,stim_to_move_binned_correct, ...
+    sum(sum(stim_to_move_binned_correct,1),2));
+stim_to_move_binned_incorrect_norm = bsxfun(@rdivide,stim_to_move_binned_incorrect, ...
+    sum(sum(stim_to_move_binned_incorrect,1),2)); 
+stim_to_move_binned_zero_norm = bsxfun(@rdivide,stim_to_move_binned_zero, ...
+    sum(sum(stim_to_move_binned_zero,1),2)); 
+
+figure; hold on;
+for curr_animal = 1:length(bhv)
+    AP_stackplot(stim_to_move_binned_correct_norm(:,:,curr_animal)', ...
+        move_time_centers,0.02,false,[0.5,1,0.5],1:day_split);
+end
+for curr_animal = 1:length(bhv)
+    AP_stackplot(stim_to_move_binned_incorrect_norm(:,:,curr_animal)', ...
+        move_time_centers,0.02,false,[1,0.5,0.5],1:day_split);
+end
+for curr_animal = 1:length(bhv)
+    AP_stackplot(stim_to_move_binned_zero_norm(:,:,curr_animal)', ...
+        move_time_centers,0.02,false,[0.5,0.5,0.5],1:day_split);
+end
+
+p1 = AP_stackplot(nanmean(stim_to_move_binned_correct_norm,3)', ...
+    move_time_centers,0.02,false,[0,0.8,0],1:day_split);
+p2 = AP_stackplot(nanmean(stim_to_move_binned_incorrect_norm,3)', ...
+    move_time_centers,0.02,false,[0.8,0,0],1:day_split);
+p3 = AP_stackplot(nanmean(stim_to_move_binned_zero_norm,3)', ...
+    move_time_centers,0.02,false,[0,0,0],1:day_split);
+
+xlabel('Time to movement onset')
+ylabel('Frequency by fraction within day')
+legend([p1(1),p2(1),p3(1)],{'Correct','Incorrect','Zero'});
+axis tight
+line([0.5,0.5],ylim,'linestyle','--','color','k');
+
 % Plot stim to move / feedback by condition and success pooling days
 % (separate early/late movements)
 

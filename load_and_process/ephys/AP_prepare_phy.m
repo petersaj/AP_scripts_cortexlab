@@ -21,7 +21,7 @@ end
 [ephys_path,ephys_exists] = AP_cortexlab_filename(animal,day,[],'ephys',site);
 
 [ephys_raw_path,ephys_raw_exists] = AP_cortexlab_filename(animal,day,[],'ephysraw',site);
-ap_filename = 'experiment1_100-0_0.dat';
+ap_filename = 'experiment1_10*-0_0.dat';
 
 if ~ephys_exists || ~ephys_raw_exists
     error('No ephys data')

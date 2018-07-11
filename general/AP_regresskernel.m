@@ -1,5 +1,6 @@
-function [k,predicted_signals,explained_var] = AP_regresskernel(regressors,signals,t_shifts,lambdas,zs,cvfold)
-% [k,predicted_signals,explained_var] = AP_regresskernel(regressors,signals,t_shifts,lambdas,zs,cvfold)
+function [k,predicted_signals,explained_var,predicted_signals_reduced] = ...
+    AP_regresskernel(regressors,signals,t_shifts,lambdas,zs,cvfold)
+% [k,predicted_signals,explained_var,predicted_signals_reduced] = AP_regresskernel(regressors,signals,t_shifts,lambdas,zs,cvfold)
 %
 % Linear regression of kernel from regressors to outputs
 % (note constant term is included and used for prediction, but not output) 
@@ -20,6 +21,7 @@ function [k,predicted_signals,explained_var] = AP_regresskernel(regressors,signa
 % predicted_signals - regressors*k
 % explained_var - .total (total model), 
 %                 .reduced (unique - regressors x signals)
+% predicted_signals_reduced - predicted signals with reduced k
 %
 % NOTE IF GPU ERROR: 
 % The GPU is by default set to time out quickly if it can't update the
@@ -137,12 +139,12 @@ for curr_cv = 1:cvfold
         
         regressor_split_size = [cellfun(@(x) size(x,1),regressors).*cellfun(@length,t_shifts),1];
         
-        % (use everything BUT particular regressor)
-%         regressor_split_idx = cellfun(@(x) setdiff(1:size(regressors_gpu,2),x), ...
-%             mat2cell(1:size(regressors_gpu,2),1,regressor_split_size),'uni',false);
+%         (use everything BUT particular regressor)
+        regressor_split_idx = cellfun(@(x) setdiff(1:size(regressors_gpu,2),x), ...
+            mat2cell(1:size(regressors_gpu,2),1,regressor_split_size),'uni',false);
 
         % (use ONLY particular regressor)
-        regressor_split_idx = mat2cell(1:size(regressors_gpu,2),1,regressor_split_size);
+%         regressor_split_idx = mat2cell(1:size(regressors_gpu,2),1,regressor_split_size);
         
         for curr_regressor = 1:length(regressors)
             
@@ -176,14 +178,19 @@ if length(regressors) > 1
     sse_partial_residual = cell2mat(arrayfun(@(x) ...
         sum(bsxfun(@minus,predicted_signals_reduced(:,:,x),signals).^2,2),1:length(regressors),'uni',false));
     % (I think this gets unique + confounded expl var?)
-    explained_var.reduced = bsxfun(@rdivide,bsxfun(@minus,sse_signals,sse_partial_residual),sse_signals);
-    % (this method + leave-one-out above should be unique expl var, but
-    % gives pretty much the exact same results as the above?)
-%     explained_var.reduced = bsxfun(@rdivide,bsxfun(@minus,sse_complete_model,sse_partial),sse_signals);
+%     explained_var.reduced = bsxfun(@rdivide,bsxfun(@minus,sse_signals,sse_partial_residual),sse_signals);
+    % (this method + leave-one-out above should be unique expl var?)
+    explained_var.reduced = bsxfun(@rdivide,bsxfun(@minus,sse_complete_model,sse_partial),sse_signals);
 end
 
 % Get the final k from averaging (remove the constant term)
 k = mean(k_cv(1:end-1,:,:),3);
+
+
+
+
+
+
 
 
 
