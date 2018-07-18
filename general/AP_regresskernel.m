@@ -69,7 +69,7 @@ regressor_design = cellfun(@(regressors,t_shifts) repmat(regressors', ...
 
 % Temporally shift each page
 for curr_regressors = 1:length(regressor_design)
-    for curr_kernel_frame = 1:length(t_shifts{curr_regressors});
+    for curr_kernel_frame = 1:length(t_shifts{curr_regressors})
         regressor_design{curr_regressors}(:,:,curr_kernel_frame) = ...
             circshift(regressor_design{curr_regressors}(:,:,curr_kernel_frame), ...
             [t_shifts{curr_regressors}(curr_kernel_frame),0,0]);
@@ -122,7 +122,7 @@ for curr_cv = 1:cvfold
     end
     
     % If regressors for training fold are empty, warning
-    if ~all(any(regressors_gpu(train_idx,:),1));
+    if ~all(any(regressors_gpu(train_idx,:),1))
         warning('Regressors in fold unfilled (not enough trials?)');
     end
     

@@ -7367,7 +7367,7 @@ xlabel('Contrast*Side');
 ylabel('Activity');
 
 % Plot average activity within condition restricted by reaction time
-plot_act = mua_allcat(:,:,3,1);
+plot_act = fluor_unilateral_allcat(:,:,1,2);
 
 rxn_times = linspace(0,0.5,6);
 n_rxn_times = length(rxn_times)-1;
@@ -7375,8 +7375,8 @@ n_rxn_times = length(rxn_times)-1;
 activity_split = arrayfun(@(x) ...
     plot_act( ... 
     move_t' > rxn_times(x) & move_t' < rxn_times(x+1) & ...
-    trial_side_allcat == -1 & ...
-    trial_contrast_allcat == 0.06 & ...
+    trial_side_allcat == 1 & ...
+    trial_contrast_allcat == 1 & ...
     trial_choice_allcat == -1,:), ...
     1:length(rxn_times)-1,'uni',false);
 
@@ -7445,14 +7445,13 @@ for curr_rxn = 1:n_rxn_times
 end
 
 % Plot all areas in different reaction time bins
-plot_align = 1;
+plot_align = 2;
 
 use_condition = ...
-    trial_side_allcat == 1 & ...
-    trial_contrast_allcat == 0.125 & ...
-    trial_choice_allcat == -1;
+    trial_contrast_allcat == 0 & ...
+    trial_choice_allcat == 1;
 
-rxn_times = linspace(0,0.5,6);
+rxn_times = linspace(0,0.5,2);
 n_rxn_times = length(rxn_times)-1;
 
 fluor_split = arrayfun(@(x) ...
@@ -8255,9 +8254,9 @@ n_rois = numel(wf_roi);
 n_depths = size(mua_all{1}{1},3);
 
 % Set up variables for model parameters
-% use_contrasts = [0.06,0.125,0.25,0.5,1];
+use_contrasts = [0.06,0.125,0.25,0.5,1];
 % use_contrasts = [0.06,0.125];
-use_contrasts = [];
+% use_contrasts = [];
 
 n_regressors = length(use_contrasts)*2 + 1;
 fluor_activity_model_params = nan(n_regressors,length(t),n_rois,2,length(D_all));
@@ -8620,10 +8619,6 @@ for curr_alignment = 1:2
         end
     end
 end
-
-
-
-
 
 
 %% Regress day-concatenated mua from cortex in time (timepoint specific)
@@ -9464,15 +9459,6 @@ for curr_animal = 1:length(D_all)
 
 end
 
-keep_trials = trial_contrast_allcat == 0;
-fluor_allcat = fluor_allcat(keep_trials,:,:,:);
-mua_allcat = mua_allcat(keep_trials,:,:,:);
-wheel_allcat = wheel_allcat(keep_trials,:,:,:);
-
-trial_contrast_allcat = trial_contrast_allcat(keep_trials);
-trial_side_allcat = trial_side_allcat(keep_trials);
-trial_choice_allcat = trial_choice_allcat(keep_trials);
-
 % Downsample
 downsample_factor = 3;
 t_downsample = linspace(t(1),t(end),round(length(t)/downsample_factor));
@@ -9509,16 +9495,16 @@ wheel_vel_norm = wheel_vel_norm/prctile(abs(wheel_vel_norm(:)),95);
 wheel_vel_norm(abs(wheel_vel_norm) > 1) = sign(wheel_vel_norm(abs(wheel_vel_norm) > 1));
 wheel_regressors = abs(repmat(wheel_vel_norm,1,1,2).*cat(3,wheel_vel_norm < 0,wheel_vel_norm > 0)); 
 
-regressors = {choice_stim_regressors;choice_move_regressors;wheel_regressors};
+regressors = {stim_regressors;choice_stim_regressors;choice_move_regressors;wheel_regressors};
 
 % Do regression 
-t_shifts = {[0:20];[-40:20];[-20:20]};
+t_shifts = {[0:30];[0:20];[-40:20];[-20:20]};
 lambda = 1e1;
 zs = [false,false];
 cvfold = 5;
 
 % Set activity 
-activity = fluor_allcat(:,:,2,2);
+activity = mua_allcat(:,:,2,1);
 activity = interp1(t,activity',t_downsample)';
 
 activity_reshape = reshape(activity',[],1)';
@@ -9645,7 +9631,7 @@ for i = 1:length(rxn_times)-1
 end
 
 
-%% Regress all concatenated MUA from fluor, plot by reaction time
+%% Regress concatenated MUA from fluor, plot by reaction time
 
 n_aligned_depths = 4;
 load_data = 'early';
@@ -9769,7 +9755,7 @@ for curr_animal = 1:length(D_all)
     filled_mua_trials(~filled_mua_trials) = NaN;
     mua_cat_raw = bsxfun(@times,mua_cat_raw,permute(filled_mua_trials,[1,3,2,4]));
     
-    smooth_size = 8;
+    smooth_size = 12; % 8 originally, here higher to match imaging timescale
     gw = gausswin(smooth_size,3)';
     smWin = gw./sum(gw);
     
@@ -9825,29 +9811,81 @@ for curr_animal = 1:length(D_all)
 
 end
 
-% Regress from fluor to MUA
+% Regress from fluor to MUA (all trials)
 % (by depth: data-less days cause different trial numbers)
-kernel_t = [-0.05,0];
+% kernel_t = [-0.05,0.05];
+% kernel_frames = round(kernel_t(1)*sample_rate):round(kernel_t(2)*sample_rate);
+% zs = [false,false];
+% cvfold = 5;
+% lambda = 0;
+% 
+% mua_nonan_trials = ~squeeze(any(any(isnan(mua_allcat),2),4));
+% mua_allcat_predicted = nan(size(mua_allcat));
+% for curr_depth = 1:n_depths
+%     
+%     curr_valid_trials = mua_nonan_trials(:,curr_depth);
+%     
+%     [~,predicted_spikes,~] = ...
+%         AP_regresskernel(reshape(permute( ...
+%         fluor_unilateral_allcat(curr_valid_trials,:,:,:), ...
+%         [2,1,4,3]),[],n_rois)', ...
+%         reshape(permute(mua_allcat(curr_valid_trials,:,curr_depth,:), ...
+%         [2,1,4,3]),[],1)',kernel_frames,lambda,zs,cvfold);
+%     
+%     mua_allcat_predicted(curr_valid_trials,:,curr_depth,:) = ...
+%         permute(reshape(predicted_spikes',length(t),sum(curr_valid_trials),2),[2,1,4,3]);
+%     
+% end
+
+% Regress from fluor to MUA (kernel from non-visually guided trials)
+kernel_t = [-0.05,0.05];
 kernel_frames = round(kernel_t(1)*sample_rate):round(kernel_t(2)*sample_rate);
 zs = [false,false];
 cvfold = 5;
-lambda = 0;
+lambda = 1e2;
+
+% (define non-vis trials: 0 contrast and incorrect)
+nonvis_trials = trial_contrast_allcat == 0 | ...
+    trial_side_allcat == trial_choice_allcat;
+nonvis_trials = true(size(trial_contrast_allcat));
 
 mua_nonan_trials = ~squeeze(any(any(isnan(mua_allcat),2),4));
 mua_allcat_predicted = nan(size(mua_allcat));
+nonvis_k_reshape = nan(n_rois,length(kernel_frames),n_depths);
 for curr_depth = 1:n_depths
     
-    curr_valid_trials = mua_nonan_trials(:,curr_depth);
+    curr_nonan_trials = mua_nonan_trials(:,curr_depth);
+    curr_kernel_trials = nonvis_trials & mua_nonan_trials(:,curr_depth);
     
-    [~,predicted_spikes,~] = ...
+    [nonvis_k,~,explained_var] = ...
         AP_regresskernel(reshape(permute( ...
-        fluor_unilateral_allcat(curr_valid_trials,:,:,:), ...
+        fluor_unilateral_allcat(curr_kernel_trials,:,:,:), ...
         [2,1,4,3]),[],n_rois)', ...
-        reshape(permute(mua_allcat(curr_valid_trials,:,curr_depth,:), ...
+        reshape(permute(mua_allcat(curr_kernel_trials,:,curr_depth,:), ...
         [2,1,4,3]),[],1)',kernel_frames,lambda,zs,cvfold);
     
-    mua_allcat_predicted(curr_valid_trials,:,curr_depth,:) = ...
-        permute(reshape(predicted_spikes',length(t),sum(curr_valid_trials),2),[2,1,4,3]);
+    nonvis_k_reshape(:,:,curr_depth) = reshape(nonvis_k,16,[]);
+       
+    % Create design matrix of all time-shifted regressors
+    regressor_design = repmat(reshape(permute( ...
+        fluor_unilateral_allcat(curr_nonan_trials,:,:,:), ...
+        [2,1,4,3]),[],n_rois), ...
+        [1,1,length(kernel_frames)]);
+    
+    % Temporally shift each page
+    for curr_kernel_frame = 1:length(kernel_frames)
+        regressor_design(:,:,curr_kernel_frame) = ...
+            circshift(regressor_design(:,:,curr_kernel_frame), ...
+            [kernel_frames(curr_kernel_frame),0,0]);
+    end
+    
+    regressor_design = ...
+        reshape(regressor_design,[],size(regressor_design,2)*size(regressor_design,3)); 
+    
+    predicted_spikes = regressor_design*nonvis_k;
+    
+    mua_allcat_predicted(curr_nonan_trials,:,curr_depth,:) = ...
+        permute(reshape(predicted_spikes',length(t),sum(curr_nonan_trials),2),[2,1,4,3]);
     
 end
 
@@ -9860,35 +9898,182 @@ end
 move_t = t(move_idx);
 
 % Plot average activity within condition restricted by reaction time
-plot_act = mua_allcat_predicted(:,:,3,1);
-
-rxn_times = linspace(0,0.5,6);
+rxn_times = linspace(0,0.5,2);
 n_rxn_times = length(rxn_times)-1;
 
-activity_split = arrayfun(@(x) ...
-    plot_act( ... 
-    move_t' > rxn_times(x) & move_t' < rxn_times(x+1) & ...
-    trial_side_allcat == 1 & ...
-    trial_contrast_allcat == 0.06 & ...
-    trial_choice_allcat == -1,:), ...
-    1:length(rxn_times)-1,'uni',false);
-
-activity_split_mean = cell2mat(cellfun(@(x) nanmean(x,1),activity_split','uni',false));
+activity_split = cell(length(contrasts),n_rxn_times,n_depths);
+activity_predicted_split = cell(length(contrasts),n_rxn_times,n_depths);
+for curr_depth = 1:n_depths
+    for curr_contrast = 1:length(contrasts)
+        
+        if contrasts(curr_contrast) == 0
+            use_sides = true(size(trial_side_allcat));
+        else
+            use_sides = trial_side_allcat == 1;
+        end
+        
+        activity_split(curr_contrast,:,curr_depth) = ...
+            arrayfun(@(x) mua_allcat( ...
+            move_t' > rxn_times(x) & move_t' < rxn_times(x+1) & ...
+            use_sides & ...
+            trial_contrast_allcat == contrasts(curr_contrast) & ...
+            trial_choice_allcat == -1,:,curr_depth,1), ...
+            1:length(rxn_times)-1,'uni',false);
+        
+        activity_predicted_split(curr_contrast,:,curr_depth) = ...
+            arrayfun(@(x) mua_allcat_predicted( ...
+            move_t' > rxn_times(x) & move_t' < rxn_times(x+1) & ...
+            use_sides & ...
+            trial_contrast_allcat == contrasts(curr_contrast) & ...
+            trial_choice_allcat == -1,:,curr_depth,1), ...
+            1:length(rxn_times)-1,'uni',false);
+        
+    end
+end
 
 n_boot = 1000;
+
 activity_boot = cellfun(@ (act) ...
     prctile(bootstrp(n_boot,@(x) nanmean(x,1),act),[50,2.5,97.5]), ...
     activity_split,'uni',false);
 
-plot_col = copper(n_rxn_times);
-figure; hold on;
-p = arrayfun(@(x) AP_errorfill(t,activity_boot{x}(1,:)', ...
-    bsxfun(@minus,activity_boot{x}(2:3,:),activity_boot{x}(1,:))', ...
-    plot_col(x,:),0.5),1:n_rxn_times,'uni',false);
+activity_predicted_boot = cellfun(@ (act) ...
+    prctile(bootstrp(n_boot,@(x) nanmean(x,1),act),[50,2.5,97.5]), ...
+    activity_predicted_split,'uni',false);
 
-for i = 1:length(rxn_times)-1
-   line(repmat(rxn_times(i),2,1),ylim,'color',plot_col(i,:));
+activity_residual_boot = cellfun(@ (act,act_pred) ...
+    prctile(bootstrp(n_boot,@(x) nanmean(x,1),act-act_pred),[50,2.5,97.5]), ...
+    activity_split,activity_predicted_split,'uni',false);
+
+plot_mua = 3;
+figure;
+plot_col = copper(n_rxn_times);
+for curr_contrast = 1:length(contrasts)
+    
+    subplot(length(contrasts),3,3*(curr_contrast-1)+1); hold on;
+    p = arrayfun(@(x) AP_errorfill(t,activity_boot{curr_contrast,x,plot_mua}(1,:)', ...
+        bsxfun(@minus,activity_boot{curr_contrast,x,plot_mua}(2:3,:), ...
+        activity_boot{curr_contrast,x,plot_mua}(1,:))', ...
+        plot_col(x,:),0.5),1:n_rxn_times,'uni',false);
+    for i = 1:length(rxn_times)-1
+        line(repmat(rxn_times(i),2,1),ylim,'color',plot_col(i,:));
+    end
+    ylabel('Measured');
+    title(contrasts(curr_contrast));
+    
+    subplot(length(contrasts),3,3*(curr_contrast-1)+2); hold on;
+    p = arrayfun(@(x) AP_errorfill(t,activity_predicted_boot{curr_contrast,x,plot_mua}(1,:)', ...
+        bsxfun(@minus,activity_predicted_boot{curr_contrast,x,plot_mua}(2:3,:), ...
+        activity_predicted_boot{curr_contrast,x,plot_mua}(1,:))', ...
+        plot_col(x,:),0.5),1:n_rxn_times,'uni',false);
+    for i = 1:length(rxn_times)-1
+        line(repmat(rxn_times(i),2,1),ylim,'color',plot_col(i,:));
+    end
+    ylabel('Predicted');
+    title(contrasts(curr_contrast));
+    
+    subplot(length(contrasts),3,3*(curr_contrast-1)+3); hold on;
+    p = arrayfun(@(x) AP_errorfill(t,activity_residual_boot{curr_contrast,x,plot_mua}(1,:)', ...
+        bsxfun(@minus,activity_residual_boot{curr_contrast,x,plot_mua}(2:3,:), ...
+        activity_residual_boot{curr_contrast,x,plot_mua}(1,:))', ...
+        plot_col(x,:),0.5),1:n_rxn_times,'uni',false);
+    for i = 1:length(rxn_times)-1
+        line(repmat(rxn_times(i),2,1),ylim,'color',plot_col(i,:));
+    end
+    ylabel('Residual');
+    title(contrasts(curr_contrast));
+    
 end
+
+% Plot residuals together across contrasts, compare to V1 latency
+v1_split = cell(length(contrasts),n_rxn_times);
+for curr_contrast = 1:length(contrasts)
+    
+    if contrasts(curr_contrast) == 0
+        use_sides = true(size(trial_side_allcat));
+    else
+        use_sides = trial_side_allcat == 1;
+    end
+    
+    v1_split(curr_contrast,:) = ...
+        arrayfun(@(x) fluor_allcat( ...
+        move_t' > rxn_times(x) & move_t' < rxn_times(x+1) & ...
+        use_sides & ...
+        trial_contrast_allcat == contrasts(curr_contrast) & ...
+        trial_choice_allcat == -1,:,1,1), ...
+        1:length(rxn_times)-1,'uni',false);   
+    
+end
+
+v1_boot = cell2mat(cellfun(@ (act) ...
+    prctile(bootstrp(n_boot,@(x) nanmean(x,1),act),[50]), ...
+    v1_split,'uni',false));
+
+use_t = t > 0 & t < 0.2;
+plot_residuals = cell2mat(cellfun(@(x) x(1,:),activity_residual_boot,'uni',false));
+[max_residuals,max_residuals_idx] = max(plot_residuals(:,use_t,:),[],2);
+[max_v1,max_v1_idx] = max(v1_boot(:,use_t),[],2);
+
+t_used = t(use_t);
+max_residuals_t = t_used(max_residuals_idx);
+max_v1_t = t_used(max_v1_idx);
+
+% % (to bootstrap max - doesn't really change it?)
+max_residuals_idx_boot = cellfun(@ (act,act_pred) ...
+    median(bootstrp(n_boot,@(x) find(nanmean(x(:,use_t),1) == ...
+    max(nanmean(x(:,use_t),1),[],2),1),act-act_pred)), ...
+    activity_split,activity_predicted_split);
+max_residuals_t = t_used(max_residuals_idx_boot);
+
+figure; 
+subplot(n_depths+1,2,1); hold on;
+set(gca,'ColorOrder',copper(length(contrasts)));
+plot(t,bsxfun(@rdivide,v1_boot,max_v1),'linewidth',2);
+title('V1 (peak-normalized)');
+
+for curr_depth = 1:n_depths
+    subplot(n_depths+1,2,3+(curr_depth-1)*2); hold on;
+    set(gca,'ColorOrder',copper(length(contrasts)));
+    plot(t,bsxfun(@rdivide,plot_residuals(:,:,curr_depth), ...
+        max_residuals(:,:,curr_depth)),'linewidth',2);
+    title(['Str (peak-normalized)']);
+end
+
+subplot(1,2,2); hold on;
+plot(contrasts(2:end),max_v1_t(2:end),'k','linewidth',2);
+plot(contrasts(2:end),max_residuals_t(2:end),'r','linewidth',2);
+plot(contrasts(2:end),max_residuals_t(2:end)-max_v1_t(2:end),'b','linewidth',2);
+xlabel('Contrast');
+ylabel('Time to activity peak');
+legend({'V1','MUA','MUA-V1'});
+
+% Plot weights by spatial ROI
+wf_roi_fn = 'C:\Users\Andrew\OneDrive for Business\Documents\CarandiniHarrisLab\analysis\wf_ephys_choiceworld\wf_processing\wf_rois\wf_roi';
+load(wf_roi_fn);
+n_rois = numel(wf_roi);
+
+roi_cat = cat(3,wf_roi.mask);
+use_kernel_t = kernel_frames >= -4 & kernel_frames <= 1;
+
+figure;
+for curr_depth = 1:n_depths   
+    
+    curr_k = nonvis_k_reshape(:,use_kernel_t,curr_depth);
+    [~,max_ampl_weight_idx] = max(abs(curr_k),[],2);
+    roi_weights = arrayfun(@(x) curr_k(x,max_ampl_weight_idx(x)),1:n_rois);
+        
+    subplot(1,n_depths,curr_depth); hold on
+    set(gca,'YDir','reverse');
+    AP_reference_outline('ccf_aligned','k');
+    for curr_roi = 1:n_rois
+        curr_roi_boundary = cell2mat(bwboundaries(roi_cat(:,:,curr_roi)));
+        patch(curr_roi_boundary(:,2),curr_roi_boundary(:,1),roi_weights(curr_roi));
+    end
+    axis image off;
+    colormap(colormap_BlueWhiteRed);
+    caxis([-max(abs(caxis)),max(abs(caxis))]);
+end
+
 
 
 %% Regress move starts from all activity within condition
