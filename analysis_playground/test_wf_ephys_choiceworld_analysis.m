@@ -1843,12 +1843,13 @@ load(wf_roi_fn);
 n_rois = numel(wf_roi);
 
 roi_cat = cat(3,wf_roi.mask);
-roi_col = [autumn(size(wf_roi,1));winter(size(wf_roi,1))];
+% roi_col = [autumn(size(wf_roi,1));winter(size(wf_roi,1))];
+roi_col = jet(size(wf_roi,1));
 
 figure; hold on
 set(gca,'YDir','reverse');
 AP_reference_outline('ccf_aligned','k');AP_reference_outline('retinotopy','m');
-for curr_roi = 1:n_rois
+for curr_roi = 1:n_rois/2
     curr_roi_boundary = cell2mat(bwboundaries(roi_cat(:,:,curr_roi)));
     patch(curr_roi_boundary(:,2),curr_roi_boundary(:,1),roi_col(curr_roi,:));
 end
@@ -6734,7 +6735,7 @@ xlabel('Time from stim');
 
 % Stack fluor plots 
 figure; hold on;
-for curr_condition_idx = 1:length(plot_conditions);
+for curr_condition_idx = 1:length(plot_conditions)
     curr_condition = plot_conditions(curr_condition_idx);
     AP_stackplot(squeeze(fluor_psth_mean(curr_condition,:,:,1)),t,5,false,plot_color(curr_condition_idx,:),{wf_roi.area});
 end
@@ -6921,21 +6922,21 @@ wheel_surround_mean = diff(nanmean(wheel_surround,4),[],2);
 % Set up plot conditions
 plot_timing = 1; % always same, because slots filled in above
 
-% % (to plot only correct/incorrect)
-% plot_success = 1;
-% plot_conditions = find(conditions(:,1) ~= 0 & ...
-%     conditions(:,2) == -plot_success*conditions(:,3) & ...
-%     conditions(:,4) == plot_timing);
-% plot_color = colormap_BlueWhiteRed(5);
-% plot_color = [plot_color(end-4:end,:);plot_color(5:-1:1,:)];
-
-% (to plot one movement direction)
-plot_move = 1;
+% (to plot only correct/incorrect)
+plot_success = 1;
 plot_conditions = find(conditions(:,1) ~= 0 & ...
-    conditions(:,3) == plot_move & ...
+    conditions(:,2) == -plot_success*conditions(:,3) & ...
     conditions(:,4) == plot_timing);
-plot_color = colormap_BlueWhiteRed(6);
-plot_color = [plot_color(5:-1:1,:);plot_color(end-5:end,:)];
+plot_color = colormap_BlueWhiteRed(5);
+plot_color = [plot_color(end-4:end,:);plot_color(5:-1:1,:)];
+
+% % (to plot one movement direction)
+% plot_move = 1;
+% plot_conditions = find(conditions(:,1) ~= 0 & ...
+%     conditions(:,3) == plot_move & ...
+%     conditions(:,4) == plot_timing);
+% plot_color = colormap_BlueWhiteRed(6);
+% plot_color = [plot_color(5:-1:1,:);plot_color(end-5:end,:)];
 
 % % (to plot one side)
 % plot_side = 1;
@@ -6964,37 +6965,41 @@ plot_color = [plot_color(5:-1:1,:);plot_color(end-5:end,:)];
 % Stack MUA plots 
 figure; 
 p1 = subplot(1,2,1); hold on;
-for curr_condition_idx = 1:length(plot_conditions);
+for curr_condition_idx = 1:length(plot_conditions)
     curr_condition = plot_conditions(curr_condition_idx);
-    AP_stackplot(squeeze(mua_psth_mean(curr_condition,:,:,1)),t,1.5,false,plot_color(curr_condition_idx,:));
+    AP_stackplot(squeeze(mua_psth_mean(curr_condition,:,:,1)),t,2,false,plot_color(curr_condition_idx,:), ...
+        cellfun(@(x) ['Str ' num2str(x)],num2cell(1:n_depths),'uni',false));
 end
 line([0,0],ylim,'color','k');
 xlabel('Time from stim');
 
 p2 = subplot(1,2,2); hold on;
-for curr_condition_idx = 1:length(plot_conditions);
+for curr_condition_idx = 1:length(plot_conditions)
     curr_condition = plot_conditions(curr_condition_idx);
-    AP_stackplot(squeeze(mua_psth_mean(curr_condition,:,:,2)),t,1.5,false,plot_color(curr_condition_idx,:));
+    AP_stackplot(squeeze(mua_psth_mean(curr_condition,:,:,2)),t,2,false,plot_color(curr_condition_idx,:), ...
+        cellfun(@(x) ['Str ' num2str(x)],num2cell(1:n_depths),'uni',false));
 end
 line([0,0],ylim,'color','k');
 xlabel('Time from move');
 
 linkaxes([p1,p2]);
 
-% Stack MUA plots 
+% Stack MUA predicted plots 
 figure('Name','Predicted'); 
 p1 = subplot(1,2,1); hold on;
-for curr_condition_idx = 1:length(plot_conditions);
+for curr_condition_idx = 1:length(plot_conditions)
     curr_condition = plot_conditions(curr_condition_idx);
-    AP_stackplot(squeeze(mua_predicted_psth_mean(curr_condition,:,:,1)),t,1.5,false,plot_color(curr_condition_idx,:));
+    AP_stackplot(squeeze(mua_predicted_psth_mean(curr_condition,:,:,1)),t,1.5,false,plot_color(curr_condition_idx,:), ...
+        cellfun(@(x) ['Str ' num2str(x)],num2cell(1:n_depths),'uni',false));
 end
 line([0,0],ylim,'color','k');
 xlabel('Time from stim');
 
 p2 = subplot(1,2,2); hold on;
-for curr_condition_idx = 1:length(plot_conditions);
+for curr_condition_idx = 1:length(plot_conditions)
     curr_condition = plot_conditions(curr_condition_idx);
-    AP_stackplot(squeeze(mua_predicted_psth_mean(curr_condition,:,:,2)),t,1.5,false,plot_color(curr_condition_idx,:));
+    AP_stackplot(squeeze(mua_predicted_psth_mean(curr_condition,:,:,2)),t,1.5,false,plot_color(curr_condition_idx,:), ...
+        cellfun(@(x) ['Str ' num2str(x)],num2cell(1:n_depths),'uni',false));
 end
 line([0,0],ylim,'color','k');
 xlabel('Time from move');
@@ -7004,7 +7009,7 @@ linkaxes([p1,p2]);
 % Stack fluor plots 
 figure; 
 p1 = subplot(1,2,1); hold on;
-for curr_condition_idx = 1:length(plot_conditions);
+for curr_condition_idx = 1:length(plot_conditions)
     curr_condition = plot_conditions(curr_condition_idx);
     AP_stackplot(squeeze(fluor_psth_mean(curr_condition,:,:,1)),t,5,false,plot_color(curr_condition_idx,:),{wf_roi.area});
 end
@@ -7012,9 +7017,29 @@ line([0,0],ylim,'color','k');
 xlabel('Time from stim');
 
 p2 = subplot(1,2,2); hold on;
-for curr_condition_idx = 1:length(plot_conditions);
+for curr_condition_idx = 1:length(plot_conditions)
     curr_condition = plot_conditions(curr_condition_idx);
     AP_stackplot(squeeze(fluor_psth_mean(curr_condition,:,:,2)),t,5,false,plot_color(curr_condition_idx,:),{wf_roi.area});
+end
+line([0,0],ylim,'color','k');
+xlabel('Time from move');
+
+linkaxes([p1,p2]);
+
+% Stack fluor plots (unilateral)
+figure; 
+p1 = subplot(1,2,1); hold on;
+for curr_condition_idx = 1:length(plot_conditions)
+    curr_condition = plot_conditions(curr_condition_idx);
+    AP_stackplot(squeeze(fluor_psth_mean(curr_condition,:,1:n_rois/2,1)),t,3,false,plot_color(curr_condition_idx,:),{wf_roi(:,1).area});
+end
+line([0,0],ylim,'color','k');
+xlabel('Time from stim');
+
+p2 = subplot(1,2,2); hold on;
+for curr_condition_idx = 1:length(plot_conditions)
+    curr_condition = plot_conditions(curr_condition_idx);
+    AP_stackplot(squeeze(fluor_psth_mean(curr_condition,:,1:n_rois/2,2)),t,3,false,plot_color(curr_condition_idx,:),{wf_roi(:,1).area});
 end
 line([0,0],ylim,'color','k');
 xlabel('Time from move');
@@ -7281,7 +7306,7 @@ xlabel('Time')
 title('Zero move R');
 
 % Plot activity
-plot_act = mua_allcat(:,:,3,2);
+plot_act = fluor_unilateral_allcat(:,:,1,1);
 
 % % (if concatenating side - messy, just here for the moment)
 % trial_contrast_allcat = [trial_contrast_allcat;trial_contrast_allcat];
@@ -7367,17 +7392,17 @@ xlabel('Contrast*Side');
 ylabel('Activity');
 
 % Plot average activity within condition restricted by reaction time
-plot_act = fluor_unilateral_allcat(:,:,1,2);
+plot_act = fluor_allcat(:,:,1,1);
 
-rxn_times = linspace(0,0.5,6);
+rxn_times = linspace(0,0.5,2);
 n_rxn_times = length(rxn_times)-1;
 
 activity_split = arrayfun(@(x) ...
     plot_act( ... 
     move_t' > rxn_times(x) & move_t' < rxn_times(x+1) & ...
     trial_side_allcat == 1 & ...
-    trial_contrast_allcat == 1 & ...
-    trial_choice_allcat == -1,:), ...
+    trial_contrast_allcat == 0.06 & ...
+    trial_choice_allcat == 1,:), ...
     1:length(rxn_times)-1,'uni',false);
 
 activity_split_mean = cell2mat(cellfun(@(x) nanmean(x,1),activity_split','uni',false));
@@ -7445,11 +7470,12 @@ for curr_rxn = 1:n_rxn_times
 end
 
 % Plot all areas in different reaction time bins
-plot_align = 2;
+plot_align = 1;
 
 use_condition = ...
-    trial_contrast_allcat == 0 & ...
-    trial_choice_allcat == 1;
+    trial_side_allcat == 1 & ...
+    trial_contrast_allcat == 0.5 & ...
+    trial_choice_allcat == -1;
 
 rxn_times = linspace(0,0.5,2);
 n_rxn_times = length(rxn_times)-1;
@@ -7483,8 +7509,8 @@ for i = 1:n_rxn_times
     line([0,0],ylim,'color','k');
 end
 
-% Plot grid of all areas in different reaction time bins
-plot_align = 2;
+% Plot grid of all widefield areas in different reaction time bins
+plot_align = 1;
 
 rxn_times = linspace(0,0.5,6);
 n_rxn_times = length(rxn_times)-1;
@@ -7519,14 +7545,14 @@ for curr_roi = 1:8
         hold on; set(gca,'ColorOrder',copper(6));
         curr_data = vertcat(activity_split_mean{curr_contrast,:,curr_roi});
         plot(t,curr_data','linewidth',2);
-        
+        ylim([0,5])
         if curr_contrast == 1
             ylabel(wf_roi(curr_roi).area)
         end
     end
 end
 
-figure;
+figure('Name','Zero-subtracted');
 for curr_roi = 1:8
     for curr_contrast = 1:length(contrasts)
         subplot(8,length(contrasts),length(contrasts)*(curr_roi-1)+curr_contrast);
@@ -7541,7 +7567,150 @@ for curr_roi = 1:8
     end
 end
 
-%% Plot 3 areas or PCs together
+% Plot grid of all MUA areas in different reaction time bins
+plot_align = 2;
+
+rxn_times = linspace(0,0.5,2);
+n_rxn_times = length(rxn_times)-1;
+
+activity_split = cell(length(contrasts),n_rxn_times,n_depths);
+for curr_roi = 1:n_depths
+    for curr_contrast = 1:length(contrasts)
+        
+        if contrasts(curr_contrast) == 0
+            use_sides = true(size(trial_side_allcat));
+        else
+            use_sides = trial_side_allcat == 1;
+        end
+        
+        activity_split(curr_contrast,:,curr_roi) = ...
+            arrayfun(@(x) mua_allcat( ...
+            move_t' > rxn_times(x) & move_t' < rxn_times(x+1) & ...
+            use_sides & ...
+            trial_contrast_allcat == contrasts(curr_contrast) & ...
+            trial_choice_allcat == -1,:,curr_roi,plot_align), ...
+            1:length(rxn_times)-1,'uni',false);
+
+    end
+end
+
+activity_split_mean = cellfun(@(x) nanmean(x,1),activity_split,'uni',false);
+
+figure;
+for curr_roi = 1:n_depths
+    for curr_contrast = 1:length(contrasts)
+        subplot(n_depths,length(contrasts),length(contrasts)*(curr_roi-1)+curr_contrast);
+        hold on; set(gca,'ColorOrder',copper(6));
+        curr_data = vertcat(activity_split_mean{curr_contrast,:,curr_roi});
+        plot(t,curr_data','linewidth',2);
+        
+        if curr_contrast == 1
+            ylabel(['Str ' num2str(curr_roi)])
+        end
+    end
+end
+
+figure('Name','Zero-subtracted');
+for curr_roi = 1:n_depths
+    for curr_contrast = 1:length(contrasts)
+        subplot(n_depths,length(contrasts),length(contrasts)*(curr_roi-1)+curr_contrast);
+        hold on; set(gca,'ColorOrder',copper(6));
+        curr_zero = vertcat(activity_split_mean{1,:,curr_roi});
+        curr_data = vertcat(activity_split_mean{curr_contrast,:,curr_roi});
+        plot(t,curr_data'-curr_zero','linewidth',2);
+        
+        if curr_contrast == 1
+            ylabel(['Str ' num2str(curr_roi)])
+        end
+    end
+end
+
+% Plot different trial types overlapping 
+
+% vis_trials = trial_contrast_allcat > 0 & ...
+%     trial_side_allcat == 1 & ...
+%     trial_choice_allcat == -1;
+% 
+% nonvis_trials = (trial_contrast_allcat == 0 & ...
+%     trial_choice_allcat == -1) | ...
+%     (trial_contrast_allcat > 0 & ...
+%     trial_side_allcat == -1 & ...
+%     trial_choice_allcat == -1);
+% 
+% trial_types = [vis_trials,nonvis_trials];
+
+rl_trials = trial_contrast_allcat == 0.25 & ...
+    trial_side_allcat == 1 & ...
+    trial_choice_allcat == -1;
+
+rr_trials = trial_contrast_allcat == 0.25 & ...
+    trial_side_allcat == 1 & ...
+    trial_choice_allcat == 1;
+
+ll_trials = trial_contrast_allcat == 0.25 & ...
+    trial_side_allcat == -1 & ...
+    trial_choice_allcat == -1;
+
+lr_trials = trial_contrast_allcat == 0.25 & ...
+    trial_side_allcat == -1 & ...
+    trial_choice_allcat == 1;
+
+trial_types = [rl_trials,rr_trials,ll_trials,lr_trials];
+
+% zl_trials = trial_contrast_allcat == 0 & ...
+%     trial_choice_allcat == -1;
+% 
+% zr_trials = trial_contrast_allcat == 0 & ...
+%     trial_choice_allcat == 1;
+% 
+% trial_types = [zl_trials,zr_trials];
+
+% rl_trials = trial_contrast_allcat == 0.125 & ...
+%     trial_side_allcat == 1 & ...
+%     trial_choice_allcat == -1;
+% 
+% zl_trials = trial_contrast_allcat == 0 & ...
+%     trial_choice_allcat == -1;
+% 
+% zr_trials = trial_contrast_allcat == 0 & ...
+%     trial_choice_allcat == 1;
+% 
+% trial_types = [rl_trials,zl_trials,zr_trials];
+
+
+fluor_split = ...
+    arrayfun(@(x) fluor_unilateral_allcat( ...
+    trial_types(:,x),:,:,:), ...
+    1:size(trial_types,2),'uni',false);
+fluor_split_mean = permute(cell2mat(cellfun(@(x) nanmean(x,1),fluor_split','uni',false)),[2,1,3,4]);
+
+mua_split = ...
+    arrayfun(@(x) mua_allcat( ...
+    trial_types(:,x),:,:,:), ...
+    1:size(trial_types,2),'uni',false);
+mua_split_mean = permute(cell2mat(cellfun(@(x) nanmean(x,1),mua_split','uni',false)),[2,1,3,4]);
+
+figure;
+for curr_roi = 1:8
+    for curr_align = 1:2
+        subplot(8,2,curr_align+(curr_roi-1)*2); hold on;
+        set(gca,'ColorOrder',copper(size(trial_types,2)));
+        plot(t,fluor_split_mean(:,:,curr_roi,curr_align),'linewidth',2)
+        ylabel(wf_roi(curr_roi).area);
+    end
+end
+
+figure;
+for curr_roi = 1:4
+    for curr_align = 1:2
+        subplot(4,2,curr_align+(curr_roi-1)*2); hold on;
+        set(gca,'ColorOrder',copper(size(trial_types,2)));
+        plot(t,mua_split_mean(:,:,curr_roi,curr_align),'linewidth',2)
+        ylabel(['Str ' num2str(curr_roi)]);
+    end
+end
+
+%% Plot activity 3 areas or PCs together
 
 n_aligned_depths = 4;
 load_data = 'early';
@@ -7737,6 +7906,8 @@ fluor_unilateral_allcat = cat(1,fluor_unilateral_allcat(:,:,1:length(wf_roi),:),
 % (by max speed)
 % [~,move_idx] = max(abs(diff(wheel_allcat(:,:,1),[],2)),[],2);
 
+move_t = t(move_idx);
+[~,sort_idx] = sort(move_idx);
 
 %%% 3 areas together
 activity_cat = cat(3,fluor_allcat,mua_allcat);
@@ -7767,7 +7938,7 @@ activity_split_mean = cell2mat(cellfun(@(x) nanmean(x,1), ...
     [activity_zero_L,activity_zero_R,activity_split_hit,activity_split_miss]','uni',false));
 
 figure;
-plot_areas = [2,5,19];
+plot_areas = [17,18,19];
 for plot_align = 1:2
     subplot(1,2,plot_align); hold on;
     col = colormap_BlueWhiteRed(length(contrasts));
@@ -8359,7 +8530,7 @@ ylabel(area_labels{plot_area});
 legend([p1,p2],{'Move left','Move right','All'})
 
 
-%% Plot move L-R activity difference of median concatenated activity
+%% Plot move L-R activity difference of mean concatenated activity
 
 n_aligned_depths = 4;
 
@@ -8517,37 +8688,37 @@ for curr_animal = 1:length(D_all)
           
 end
 
-% Get median of all trials together
+% Get mean of all trials together
 [d1,d2,d3,d4] = size(trial_act_split_fluor_all);
 fluor_reshape = reshape(trial_act_split_fluor_all,d1,[]);
-trial_act_cat_fluor_all_median = reshape(arrayfun(@(x) nanmedian(vertcat(fluor_reshape{:,x}),1), ...
+trial_act_cat_fluor_all_mean = reshape(arrayfun(@(x) nanmean(vertcat(fluor_reshape{:,x}),1), ...
     1:size(fluor_reshape,2),'uni',false),d2,d3,d4);
 trial_act_cat_fluor_all_diff = squeeze(cellfun(@(x,y) y-x, ...
-    trial_act_cat_fluor_all_median(1,:,:), ...
-    trial_act_cat_fluor_all_median(2,:,:),'uni',false));
+    trial_act_cat_fluor_all_mean(1,:,:), ...
+    trial_act_cat_fluor_all_mean(2,:,:),'uni',false));
 
 [d1,d2,d3,d4] = size(trial_act_split_mua_all);
 mua_reshape = reshape(trial_act_split_mua_all,d1,[]);
-trial_act_cat_mua_all_median = reshape(arrayfun(@(x) nanmedian(vertcat(mua_reshape{:,x}),1), ...
+trial_act_cat_mua_all_mean = reshape(arrayfun(@(x) nanmean(vertcat(mua_reshape{:,x}),1), ...
     1:size(mua_reshape,2),'uni',false),d2,d3,d4);
 trial_act_cat_mua_all_diff = squeeze(cellfun(@(x,y) y-x, ...
-    trial_act_cat_mua_all_median(1,:,:), ...
-    trial_act_cat_mua_all_median(2,:,:),'uni',false));
+    trial_act_cat_mua_all_mean(1,:,:), ...
+    trial_act_cat_mua_all_mean(2,:,:),'uni',false));
 
-% Get medians of trials by condition
-trial_act_split_fluor_all_median = cellfun(@(x) ...
-    nanmedian(x,1),trial_act_split_fluor_all,'uni',false);
-trial_act_split_fluor_all_median_diff = squeeze(cellfun(@(move_l,move_r) ...
-    move_l-move_r,trial_act_split_fluor_all_median(:,1,:,:), ...
-    trial_act_split_fluor_all_median(:,2,:,:),'uni',false));
+% Get means of trials by condition
+trial_act_split_fluor_all_mean = cellfun(@(x) ...
+    nanmean(x,1),trial_act_split_fluor_all,'uni',false);
+trial_act_split_fluor_all_mean_diff = squeeze(cellfun(@(move_l,move_r) ...
+    move_l-move_r,trial_act_split_fluor_all_mean(:,1,:,:), ...
+    trial_act_split_fluor_all_mean(:,2,:,:),'uni',false));
 
-trial_act_split_mua_all_median = cellfun(@(x) ...
-    nanmedian(x,1),trial_act_split_mua_all,'uni',false);
-trial_act_split_mua_all_median_diff = squeeze(cellfun(@(move_l,move_r) ...
-    move_l-move_r,trial_act_split_mua_all_median(:,1,:,:), ...
-    trial_act_split_mua_all_median(:,2,:,:),'uni',false));
+trial_act_split_mua_all_medn = cellfun(@(x) ...
+    nanmean(x,1),trial_act_split_mua_all,'uni',false);
+trial_act_split_mua_all_mean_diff = squeeze(cellfun(@(move_l,move_r) ...
+    move_l-move_r,trial_act_split_mua_all_medn(:,1,:,:), ...
+    trial_act_split_mua_all_medn(:,2,:,:),'uni',false));
 
-% Plot by grand median
+% Plot by grand mean
 figure('Name','Move R - Move L');
 subplot(1,4,1);
 AP_stackplot(vertcat(trial_act_cat_fluor_all_diff{:,1})',t,3,false,'k',{wf_roi.area});
@@ -8574,7 +8745,7 @@ figure('Name','Move R - Move L: Fluor');
 for curr_align = 1:2
     for curr_roi = 1:n_rois/2
         subplot(2,n_rois/2,n_rois/2*(curr_align-1)+curr_roi);
-        imagesc(t,sidecontrasts,vertcat(trial_act_split_fluor_all_median_diff{:,curr_roi,curr_align}))
+        imagesc(t,sidecontrasts,vertcat(trial_act_split_fluor_all_mean_diff{:,curr_roi,curr_align}))
         colormap(colormap_BlueWhiteRed);
         caxis([-max(abs(caxis)),max(abs(caxis))]);
         xlabel('Time (s)');
@@ -8587,7 +8758,7 @@ figure('Name','Move R - Move L: dFluor');
 for curr_align = 1:2
     for curr_roi = n_rois/2+1:n_rois
         subplot(2,n_rois/2,n_rois/2*(curr_align-1)+curr_roi-n_rois/2);
-        imagesc(t,sidecontrasts,vertcat(trial_act_split_fluor_all_median_diff{:,curr_roi,curr_align}))
+        imagesc(t,sidecontrasts,vertcat(trial_act_split_fluor_all_mean_diff{:,curr_roi,curr_align}))
         colormap(colormap_BlueWhiteRed);
         caxis([-max(abs(caxis)),max(abs(caxis))]);
         xlabel('Time (s)');
@@ -8600,7 +8771,7 @@ figure('Name','Move R - Move L: MUA');
 for curr_align = 1:2
     for curr_depth = 1:n_depths
         subplot(2,n_depths,n_depths*(curr_align-1)+curr_depth);
-        imagesc(t,sidecontrasts,vertcat(trial_act_split_mua_all_median_diff{:,curr_depth,curr_align}))
+        imagesc(t,sidecontrasts,vertcat(trial_act_split_mua_all_mean_diff{:,curr_depth,curr_align}))
         colormap(colormap_BlueWhiteRed);
         caxis([-max(abs(caxis)),max(abs(caxis))]);
         xlabel('Time (s)');
@@ -9533,7 +9704,7 @@ roi_weights = nanmean(interarea_kernel_mean(:,use_t_weights),2);
 figure; hold on
 set(gca,'YDir','reverse');
 AP_reference_outline('ccf_aligned','k');
-for curr_roi_idx = 1:length(regressor_areas);
+for curr_roi_idx = 1:length(regressor_areas)
     curr_roi_boundary = cell2mat(bwboundaries(roi_cat(:,:,regressor_areas(curr_roi_idx))));
     patch(curr_roi_boundary(:,2),curr_roi_boundary(:,1),roi_weights(curr_roi_idx));
 end
@@ -9672,8 +9843,7 @@ xlabel('Measured wheel velocity (max norm)')
 ylabel('Predicted wheel velocity (max norm)')
 
 
-%% Regress from task events to full activity trace
-% (to try to remove alignment issues i.e. reaction time differences)
+%% Regress from task events to full activity trace (stim + move choice)
 
 n_aligned_depths = 4;
 load_data = 'early';
@@ -10309,7 +10479,7 @@ move_start_k = cat(3,mua_kernel{2,:});
 wheel_k = cat(3,mua_kernel{3,:});
 
 figure; 
-subplot(1,3,1); hold on;
+p1 = subplot(1,4,1); hold on;
 set(gca,'ColorOrder',copper(4));
 plot(t_shifts{2}/sample_rate/downsample_factor, ...
     squeeze(nanmean(move_start_k([2,4],:,:) - ...
@@ -10318,7 +10488,16 @@ line([0,0],ylim,'color','k');
 ylabel('Weight')
 title('Vis - Non-vis')
 
-subplot(1,3,2); hold on;
+p2 = subplot(1,4,2); hold on;
+set(gca,'ColorOrder',jet(n_rois/2));
+plot(t_shifts{2}/sample_rate/downsample_factor, ...
+    squeeze(nanmean(move_start_k(1,:,:) - ...
+    move_start_k(3,:,:),1)),'linewidth',2)
+line([0,0],ylim,'color','k');
+ylabel('Weight')
+title('Non-vis L - Non-vis R')
+
+p3 = subplot(1,4,3); hold on;
 set(gca,'ColorOrder',copper(4));
 plot(t_shifts{2}/sample_rate/downsample_factor, ...
     squeeze(nanmean(move_start_k(4,:,:) - ...
@@ -10327,7 +10506,7 @@ line([0,0],ylim,'color','k');
 ylabel('Weight')
 title('Vis L - Vis R')
 
-subplot(1,3,3); hold on;
+p4 = subplot(1,4,4); hold on;
 set(gca,'ColorOrder',copper(4));
 plot(t_shifts{3}/sample_rate/downsample_factor, ...
     squeeze(nanmean(wheel_k(1,:,:) - ...
@@ -10342,9 +10521,9 @@ lambda = 1e2;
 zs = [true,true];
 cvfold = 5;
 
-fluor_kernel = cell(3,n_rois);
-fluor_expl_var = cell(3,n_rois);
-for curr_roi = 1:n_rois
+fluor_kernel = cell(3,n_rois/2);
+fluor_expl_var = cell(3,n_rois/2);
+for curr_roi = 1:n_rois/2
     
     activity = fluor_allcat(:,:,curr_roi,1);
     activity = interp1(t,activity',t_downsample)';
@@ -10368,14 +10547,14 @@ for curr_roi = 1:n_rois
         mat2cell(kernel_flat,cellfun(@(x) size(x,1),regressors_reshape).*cellfun(@length,t_shifts),1), ...
         t_shifts,'uni',false);
     
-    AP_print_progress_fraction(curr_roi,n_rois);
+    AP_print_progress_fraction(curr_roi,n_rois/2);
     
 end
 
 figure;
 for curr_regressor = 1:3
-    for curr_roi = 1:n_rois
-        subplot(3,n_rois,(curr_regressor-1)*n_rois+curr_roi)
+    for curr_roi = 1:n_rois/2
+        subplot(3,n_rois/2,(curr_regressor-1)*n_rois/2+curr_roi)
         imagesc(fluor_kernel{curr_regressor,curr_roi})
         colormap(hot);
     end
@@ -10385,8 +10564,8 @@ move_start_k = cat(3,fluor_kernel{2,:});
 wheel_k = cat(3,fluor_kernel{3,:});
 
 figure; 
-subplot(1,3,1); hold on;
-set(gca,'ColorOrder',jet(n_rois));
+p1 = subplot(1,4,1); hold on;
+set(gca,'ColorOrder',jet(n_rois/2));
 plot(t_shifts{2}/sample_rate/downsample_factor, ...
     squeeze(nanmean(move_start_k([2,4],:,:) - ...
     move_start_k([1,3],:,:),1)),'linewidth',2)
@@ -10394,8 +10573,17 @@ line([0,0],ylim,'color','k');
 ylabel('Weight')
 title('Vis - Non-vis')
 
-subplot(1,3,2); hold on;
-set(gca,'ColorOrder',jet(n_rois));
+p2 = subplot(1,4,2); hold on;
+set(gca,'ColorOrder',jet(n_rois/2));
+plot(t_shifts{2}/sample_rate/downsample_factor, ...
+    squeeze(nanmean(move_start_k(1,:,:) - ...
+    move_start_k(3,:,:),1)),'linewidth',2)
+line([0,0],ylim,'color','k');
+ylabel('Weight')
+title('Non-vis L - Non-vis R')
+
+p3 = subplot(1,4,3); hold on;
+set(gca,'ColorOrder',jet(n_rois/2));
 plot(t_shifts{2}/sample_rate/downsample_factor, ...
     squeeze(nanmean(move_start_k(4,:,:) - ...
     move_start_k(2,:,:),1)),'linewidth',2)
@@ -10403,8 +10591,8 @@ line([0,0],ylim,'color','k');
 ylabel('Weight')
 title('Vis L - Vis R')
 
-subplot(1,3,3); hold on;
-set(gca,'ColorOrder',jet(n_rois));
+p4 = subplot(1,4,4); hold on;
+set(gca,'ColorOrder',jet(n_rois/2));
 plot(t_shifts{3}/sample_rate/downsample_factor, ...
     squeeze(nanmean(wheel_k(1,:,:) - ...
     wheel_k(2,:,:),1)),'linewidth',2)
@@ -10412,8 +10600,9 @@ line([0,0],ylim,'color','k');
 ylabel('Weight')
 title('Wheel L - Wheel R')
 
-%% Regress from task events to full activity trace (fluor unilateral)
+linkaxes([p1,p2,p3,p4],'y');
 
+%% Regress from task events to full activity trace (fluor unilateral)
 
 n_aligned_depths = 4;
 load_data = 'early';
@@ -11487,8 +11676,90 @@ legend(arrayfun(@(x) [num2str(rxn_times(x)) '-' num2str(rxn_times(x+1))], ...
     1:length(rxn_times)-1,'uni',false));
 
 
+%%% One reaction time bin broken down by contrast
+rxn_times = linspace(0,0.5,2);
+n_rxn_times = length(rxn_times)-1;
 
+fluor_split = cell(length(contrasts),n_rxn_times);
+mua_split = cell(length(contrasts),n_rxn_times);
+move_starts_split = cell(length(contrasts),n_rxn_times);
+for curr_contrast = 1:length(contrasts)
+    
+    if contrasts(curr_contrast) == 0
+        use_sides = true(size(trial_side_allcat));
+    else
+        use_sides = trial_side_allcat == 1;
+    end
+    
+    fluor_split(curr_contrast,:) = ...
+        arrayfun(@(x) fluor_allcat( ...
+        move_t' > rxn_times(x) & move_t' < rxn_times(x+1) & ...
+        use_sides & ...
+        trial_contrast_allcat == contrasts(curr_contrast) & ...
+        trial_choice_allcat == -1,:,:,1), ...
+        1:length(rxn_times)-1,'uni',false);
+    
+    mua_split(curr_contrast,:) = ...
+        arrayfun(@(x) mua_allcat( ...
+        move_t' > rxn_times(x) & move_t' < rxn_times(x+1) & ...
+        use_sides & ...
+        trial_contrast_allcat == contrasts(curr_contrast) & ...
+        trial_choice_allcat == -1,:,:,1), ...
+        1:length(rxn_times)-1,'uni',false);
+    
+    move_starts_split(curr_contrast,:) = ...
+        arrayfun(@(x) move_starts( ...
+        move_t' > rxn_times(x) & move_t' < rxn_times(x+1) & ...
+        use_sides & ...
+        trial_contrast_allcat == contrasts(curr_contrast) & ...
+        trial_choice_allcat == -1,:,:,1), ...
+        1:length(rxn_times)-1,'uni',false);
+    
+end
 
+activity_split = cellfun(@(x,y) cat(3,x,y),fluor_split,mua_split,'uni',false);
 
+% Do regression separately 
+t_shifts = -30:30;
+lambda = 1e3;
+zs = [true,true];
+cvfold = 5;
+
+kernel = cell(length(contrasts),n_rxn_times);
+expl_var_all = cell(length(contrasts),n_rxn_times);
+for curr_contrast = 1:length(contrasts)  
+    for curr_rxn = 1:n_rxn_times
+        for curr_area = 1:20
+            
+            use_trials = any(activity_split{curr_contrast,curr_rxn}(:,:,curr_area),2);
+            
+            % Set activity
+            activity_regressors = reshape(permute(activity_split{curr_contrast,curr_rxn}(use_trials,:,curr_area),[2,1,3]),[],1)';
+            
+            move_regress = reshape(permute(move_starts_split{curr_contrast,curr_rxn}(use_trials,:,1),[2,1,3]),[],1)';
+            
+            [curr_kernel,move_predicted,expl_var,move_predicted_reduced] = AP_regresskernel( ...
+                activity_regressors,move_regress,t_shifts,lambda,zs,cvfold);
+            
+            kernel{curr_contrast,curr_rxn}(:,curr_area) = curr_kernel;
+            expl_var_all{curr_contrast,curr_rxn}(curr_area) = expl_var.total;
+            
+        end
+    end
+    disp(curr_contrast);
+end
+
+expl_var_grid = cell2mat(cellfun(@(x) permute(x,[1,3,2]),expl_var_all,'uni',false));
+
+col = colormap_BlueWhiteRed(11);
+col = [0,0,0;col(end-4:end,:)];
+figure; hold on
+set(gca,'ColorOrder',col);
+plot(squeeze(expl_var_grid)','linewidth',2);
+ylabel('Explained variance');
+xlabel('Area');
+set(gca,'XTick',1:20,'XTickLabel',[{wf_roi.area},cellfun(@(x) ...
+    ['Str ' num2str(x)],num2cell(1:4),'uni',false)]);
+legend(cellfun(@(x) ['Contrast ' num2str(x)],num2cell(contrasts),'uni',false));
 
 
