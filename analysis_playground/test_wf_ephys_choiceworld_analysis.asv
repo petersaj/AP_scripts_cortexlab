@@ -11774,9 +11774,9 @@ legend(cellfun(@(x) ['Contrast ' num2str(x)],num2cell(contrasts),'uni',false));
 
 
 % Regress move starts from activity on vis/non-vis
-
+%%
 % (define vis/non-vis trials)
-vis_trials = trial_contrast_allcat > 0 & ...
+vis_trials = trial_contrast_allcat > 0.125 & ...
     trial_side_allcat == 1 & ...
     trial_choice_allcat == -1;
 
