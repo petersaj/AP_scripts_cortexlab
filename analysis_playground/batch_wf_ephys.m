@@ -5758,7 +5758,7 @@ for curr_animal = 1:length(animals)
     
     disp(['Loading ' animal]);
     
-    for curr_day = 1:length(experiments);
+    for curr_day = 1:length(experiments)
         
         day = experiments(curr_day).day;
         experiment = experiments(curr_day).experiment;

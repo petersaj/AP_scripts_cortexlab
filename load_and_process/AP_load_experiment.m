@@ -661,10 +661,10 @@ end
 
 if ephys_exists && load_parts.ephys
     
-    if verbose; disp('Loading ephys...'); end;
+    if verbose; disp('Loading ephys...'); end
     
     acqLive_channel = 2;
-    load_lfp = true;
+    load_lfp = false;
     
     % Load clusters, if they exist
     cluster_filename = [ephys_path filesep 'cluster_groups.csv'];
@@ -893,7 +893,7 @@ end
 %% Estimate striatal boundaries on probe
 
 if ephys_exists && load_parts.ephys
-    if verbose; disp('Estimating striatum boundaries on probe...'); end;
+    if verbose; disp('Estimating striatum boundaries on probe...'); end
     
     % str_align = alignment method ('depth' or 'kernel')
     % if none specified, assume kernel
@@ -914,7 +914,7 @@ end
 %% Classify spikes
 
 if ephys_exists && load_parts.ephys && exist('cluster_groups','var')
-    if verbose; disp('Classifying spikes...'); end;
+    if verbose; disp('Classifying spikes...'); end
     
     str_templates = templateDepths >= str_depth(1) & templateDepths <= str_depth(2);
     non_str_templates = ~str_templates;

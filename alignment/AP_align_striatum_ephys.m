@@ -19,7 +19,7 @@ corr_edges = spike_times_timeline(1):spike_binning:spike_times_timeline(end);
 corr_centers = corr_edges(1:end-1) + diff(corr_edges);
 
 binned_spikes_depth = zeros(length(unique_depths),length(corr_edges)-1);
-for curr_depth = 1:length(unique_depths);
+for curr_depth = 1:length(unique_depths)
     binned_spikes_depth(curr_depth,:) = histcounts(spike_times_timeline( ...
         ismember(spike_templates,find(depth_group == unique_depths(curr_depth)))), ...
         corr_edges);

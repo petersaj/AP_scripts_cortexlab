@@ -172,11 +172,18 @@ switch file
         
     case 'ephysraw'
         filepath = [server1 filesep 'Data\Subjects'];
-        filename = [filepath filesep animal filesep day filesep 'ephys' site_dir filesep];
+        filename = [filepath filesep animal filesep day filesep 'ephys' site_dir filesep 'experiment1_10*-0_0.dat'];
         % CHECK SERVER2 IF IT DOESN'T EXIST
-        if ~exist(filename,'dir')
+        if isempty(dir(filename))
             filepath = [server2 filesep 'Subjects'];
-            filename = [filepath filesep animal filesep day filesep 'ephys' site_dir filesep];
+            filename = [filepath filesep animal filesep day filesep 'ephys' site_dir filesep 'experiment1_10*-0_0.dat'];
+        end
+        % CHECK NEW OPEN EPHYS ON SERVER2 IF IT DOESN'T EXIST
+        if isempty(dir(filename))
+            filepath = [server2 filesep 'Subjects'];
+            filename = [filepath filesep animal filesep day filesep ...
+                'ephys' site_dir filesep 'experiment1' filesep 'recording1' ...
+                filesep 'continuous' filesep 'Neuropix-3a-100.0' filesep 'continuous.dat'];
         end
         
 end

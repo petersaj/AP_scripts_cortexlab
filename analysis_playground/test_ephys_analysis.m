@@ -1104,7 +1104,7 @@ vis_modulation = (vis_rate-baseline_rate)./(vis_rate+baseline_rate);
 %% PSTH plot by depth (all stim IDs)
 
 % Group by depth
-n_depth_groups = 50;
+n_depth_groups = 10;
 depth_group_edges = linspace(0,max(channel_positions(:,2)),n_depth_groups+1);
 % depth_group_edges = round(linspace(str_depth(1),str_depth(2),n_depth_groups+1));
 depth_group_centers = round(depth_group_edges(1:end-1)+diff(depth_group_edges)/2);
@@ -1142,7 +1142,7 @@ psth_smooth = cell2mat(permute(arrayfun(@(x) conv2(depth_psth(:,:,x), ...
 psth_minmax = [min(min(psth_smooth,[],2),[],3), max(max(psth_smooth,[],2),[],3)];
 psth_norm = bsxfun(@rdivide,bsxfun(@minus,psth_smooth,psth_minmax(:,1)),diff(psth_minmax,[],2));
 
-figure; hold on; plot_col = copper(length(unique_stim))
+figure; hold on; plot_col = copper(length(unique_stim));
 for curr_stim_idx = 1:length(unique_stim)
     AP_stackplot(psth_norm(:,20:end-20,curr_stim_idx)',bins(20:end-20), ...
         1,false,plot_col(curr_stim_idx,:), ...

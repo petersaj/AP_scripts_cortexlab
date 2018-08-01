@@ -20,10 +20,9 @@ end
 
 [ephys_path,ephys_exists] = AP_cortexlab_filename(animal,day,[],'ephys',site);
 
-[ephys_raw_path,ephys_raw_exists] = AP_cortexlab_filename(animal,day,[],'ephysraw',site);
-ap_filename = 'experiment1_10*-0_0.dat';
+[ephys_raw_ap_filename,ephys_raw_ap_exists] = AP_cortexlab_filename(animal,day,[],'ephysraw',site);
 
-if ~ephys_exists || ~ephys_raw_exists
+if ~ephys_exists || ~ephys_raw_ap_exists
     error('No ephys data')
 end
 
@@ -57,7 +56,7 @@ for i = 1:length(header_info{1})
 end
     
 local_ap_filename = [local_phy_dir filesep header.dat_path(2:end-1)];
-copyfile([ephys_raw_path ap_filename],local_ap_filename);
+copyfile(ephys_raw_ap_filename,local_ap_filename);
 
 if car
     disp('Doing common-average referencing...')

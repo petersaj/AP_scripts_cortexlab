@@ -36,8 +36,9 @@ for curr_site = 1:length(data_paths)
     end
     
     % Switch file formats between old/new versions
-    % (do this by looking for a folder called 'continuous')
-    if exist([curr_data_path filesep 'continuous'],'dir')
+    % (do this by looking for a folder called 'experiment1' created
+    % automatically by open ephys)
+    if exist([curr_data_path filesep 'experiment1'],'dir')
         oe_file_structure = 'new';
     else
         oe_file_structure = 'old';
@@ -61,12 +62,12 @@ for curr_site = 1:length(data_paths)
             
         case 'new'
             % and then they totally changed everything (2018-07-27)
-            ap_data_filename = [curr_data_path filesep 'continuous' filesep 'Neuropix-3a-100.0' filesep 'continuous.dat'];
-            lfp_data_filename = [curr_data_path filesep 'continuous' filesep 'Neuropix-3a-100.1' filesep 'continuous.dat'];
-            sync_filename = [curr_data_path filesep 'events' filesep 'Neuropix-3a-100.0' filesep 'TTL_1' filesep 'channel_states.npy' ];
-            sync_timestamps_filename = [curr_data_path filesep 'events' filesep 'Neuropix-3a-100.0' filesep 'TTL_1' filesep 'timestamps.npy' ];
-            messages_filename = [curr_data_path filesep 'sync_messages.txt'];
-            settings_filename = [curr_data_path filesep 'structure.oebin'];
+            ap_data_filename = [curr_data_path filesep 'experiment1' filesep 'recording1' filesep 'continuous' filesep 'Neuropix-3a-100.0' filesep 'continuous.dat'];
+            lfp_data_filename = [curr_data_path filesep 'experiment1' filesep 'recording1' filesep 'continuous' filesep 'Neuropix-3a-100.1' filesep 'continuous.dat'];
+            sync_filename = [curr_data_path filesep 'experiment1' filesep 'recording1' filesep 'events' filesep 'Neuropix-3a-100.0' filesep 'TTL_1' filesep 'channel_states.npy' ];
+            sync_timestamps_filename = [curr_data_path filesep 'experiment1' filesep 'recording1' filesep 'events' filesep 'Neuropix-3a-100.0' filesep 'TTL_1' filesep 'timestamps.npy' ];
+            messages_filename = [curr_data_path filesep 'experiment1' filesep 'recording1' filesep 'sync_messages.txt'];
+            settings_filename = [curr_data_path filesep 'experiment1' filesep 'recording1' filesep 'structure.oebin'];
             
     end
     
