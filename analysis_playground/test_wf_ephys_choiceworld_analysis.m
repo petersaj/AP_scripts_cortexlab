@@ -7640,17 +7640,17 @@ end
 
 % Plot different trial types overlapping 
 
-vis_trials = trial_contrast_allcat == 0.06 & ...
-    trial_side_allcat == 1 & ...
-    trial_choice_allcat == -1;
-
-nonvis_trials = (trial_contrast_allcat == 0 & ...
-    trial_choice_allcat == -1) | ...
-    (trial_contrast_allcat > 0 & ...
-    trial_side_allcat == -1 & ...
-    trial_choice_allcat == -1);
-
-trial_types = [vis_trials,nonvis_trials];
+% vis_trials = trial_contrast_allcat == 0.06 & ...
+%     trial_side_allcat == 1 & ...
+%     trial_choice_allcat == -1;
+% 
+% nonvis_trials = (trial_contrast_allcat == 0 & ...
+%     trial_choice_allcat == -1) | ...
+%     (trial_contrast_allcat > 0 & ...
+%     trial_side_allcat == -1 & ...
+%     trial_choice_allcat == -1);
+% 
+% trial_types = [vis_trials,nonvis_trials];
 
 % rl_trials = trial_contrast_allcat == 0.25 & ...
 %     trial_side_allcat == 1 & ...
@@ -7690,18 +7690,18 @@ trial_types = [vis_trials,nonvis_trials];
 % 
 % trial_types = [rl_trials,zl_trials,zr_trials];
 
-% rl_trials = trial_contrast_allcat == 0.25 & ...
-%     trial_side_allcat == 1 & ...
-%     trial_choice_allcat == -1;
-% 
-% rr_trials = trial_contrast_allcat == 0.25 & ...
-%     trial_side_allcat == 1 & ...
-%     trial_choice_allcat == 1;
-% 
-% zl_trials = trial_contrast_allcat == 0 & ...
-%     trial_choice_allcat == -1;
-% 
-% trial_types = [rl_trials,rr_trials,zl_trials];
+rl_trials = trial_contrast_allcat == 0.25 & ...
+    trial_side_allcat == 1 & ...
+    trial_choice_allcat == -1;
+
+rr_trials = trial_contrast_allcat == 0.25 & ...
+    trial_side_allcat == 1 & ...
+    trial_choice_allcat == 1;
+
+zl_trials = trial_contrast_allcat == 0 & ...
+    trial_choice_allcat == -1;
+
+trial_types = [rl_trials,rr_trials,zl_trials];
 
 fluor_split = ...
     arrayfun(@(x) fluor_unilateral_allcat( ...
@@ -7736,8 +7736,8 @@ for curr_roi = 1:4
 end
 
 % Plot activity amplitude by wheel velocity
-% THIS BINNING IS FUCKED UP not all groups are filled
-use_trials = trial_contrast_allcat == 0 & trial_side_allcat == -trial_choice_allcat;
+% THIS BINNING IS FUCKED UP not all groups are filled?
+use_trials = trial_contrast_allcat > 0 & trial_side_allcat == -trial_choice_allcat;
 use_data = mua_allcat(:,:,3,2);
 fit_response = mat2gray(nanmean(use_data,1));
 activity_amplitude = fit_response'\use_data';
@@ -7784,6 +7784,31 @@ line([0,0],ylim,'color','r');
 xlabel('Wheel velocity');ylabel('Response amplitude');
 axis tight
 
+% ANOVAN between contrast and reaction time
+use_trials = trial_contrast_allcat > 0 & trial_side_allcat == 1 & trial_choice_allcat == -1;
+
+activity_cat = cat(3,fluor_allcat(:,:,1:n_rois/2,:),mua_allcat);
+area_labels = [{wf_roi(:,1).area}, ...
+    cellfun(@(x) ['Str ' num2str(x)],num2cell(1:n_depths),'uni',false)];
+
+activity_p = nan(3,size(activity_cat,3));
+
+for curr_act = 1:size(activity_cat,3)
+    use_data = activity_cat(:,:,curr_act,2);
+    fit_response = mat2gray(nanmean(use_data,1));
+    activity_amplitude = fit_response'\use_data';
+    
+    [p,tbl,stats,terms] = anovan(activity_amplitude(use_trials), ...
+        [trial_contrast_allcat(use_trials),move_t(use_trials)'], ...
+        'continuous',1:2,'model','full','display','off');
+    activity_p(:,curr_act) = p;
+end
+figure;imagesc(activity_p < 0.05);
+colormap(gray);
+set(gca,'YTick',1:3,'YTickLabel',{'Contrast','Response time','Interaction'});
+set(gca,'XTick',1:size(activity_p,2),'XTickLabel',area_labels);
+axis image;
+title('ANOVAN p < 0.05');
 
 
 %% Plot activity 3 areas or PCs together

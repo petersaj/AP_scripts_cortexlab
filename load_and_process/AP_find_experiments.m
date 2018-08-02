@@ -34,11 +34,12 @@ ephys_expts = cell(size(days));
 
 for curr_day = 1:length(days)  
     day = days{curr_day};
-    % Check all experiments of that day
+    % Check all experiments of that day (defined as number-only folders)
     expDay_dir = dir(days_pathnames{curr_day});
-    exp_nums = cellfun(@str2num,{expDay_dir(3:end).name});
+    exp_folders = cellfun(@any,regexp({expDay_dir.name},'^\d*$'));
+    exp_nums = cellfun(@str2num,{expDay_dir(exp_folders).name});
     use_exp = false(size(exp_nums));
-    for curr_exp = 1:length(exp_nums);
+    for curr_exp = 1:length(exp_nums)
         % Check for signals or MPEP
         [block_filename, block_exists] = AP_cortexlab_filename(animal,day,exp_nums(curr_exp),'block');
         [protocol_filename,protocol_exists] = AP_cortexlab_filename(animal,day,exp_nums(curr_exp),'protocol');
@@ -46,7 +47,7 @@ for curr_day = 1:length(days)
         if block_exists
             % If signals
             load(block_filename)
-            if isfield(block,'expDef');
+            if isfield(block,'expDef')
                 [~,expDef] = fileparts(block.expDef);
                 use_exp(curr_exp) = ~isempty(strfind(expDef,protocol));
             end

@@ -5964,15 +5964,13 @@ for curr_animal = 1:length(animals)
         load('C:\Users\Andrew\OneDrive for Business\Documents\CarandiniHarrisLab\analysis\wf_ephys_choiceworld\wf_processing\wf_alignment\U_master.mat');
         Udf_aligned = single(AP_align_widefield(animal,day,Udf));
         fVdf_respaced = ChangeU(Udf_aligned,fVdf,U_master);
-        % (rescale Vs to be on par with the original)
-        % (I DON'T KNOW IF THIS MAKES MATH SENSE there must be a better way
-        % to do it, the real scale would be UV/U2V2)
+        
         original_mean = svdFrameReconstruct(Udf_aligned,nanmean(fVdf,2));
-        respaced_mean = svdFrameReconstruct(U_master,nanmean(fVdf_respaced,2));
-        V_scale = respaced_mean(:)\original_mean(:);
+        b = AP_svd_roi(U_master,fVdf_respaced*r,avg_im);
+        r = b(:)\a(:);
         
         use_Us = 1:200;
-        fVdf_respaced_reduced = fVdf_respaced(use_Us,:).*V_scale;
+        fVdf_respaced_reduced = fVdf_respaced(use_Us,:);
         
          
         % Group multiunit by depth
@@ -6054,7 +6052,7 @@ for curr_animal = 1:length(animals)
         D.repeatNum = ones(sum(use_trials),1);
         
         % Store activity and stim
-        fluor_all{curr_animal}{curr_day} = event_aligned_V(use_trials,:,:,:);
+        fluor_all{curr_animal}{curr_day} = event_aligned_ddf(use_trials,:,:,:);
         mua_all{curr_animal}{curr_day} = event_aligned_mua(use_trials,:,:,:);
         wheel_all{curr_animal}{curr_day} = event_aligned_wheel(use_trials,:,:);
         D_all{curr_animal}{curr_day} = D;
