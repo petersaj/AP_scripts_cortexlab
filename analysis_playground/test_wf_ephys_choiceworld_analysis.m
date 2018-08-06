@@ -7810,6 +7810,238 @@ set(gca,'XTick',1:size(activity_p,2),'XTickLabel',area_labels);
 axis image;
 title('ANOVAN p < 0.05');
 
+%% Get concatenated activity in V-space
+
+n_aligned_depths = 4;
+
+% Load data
+data_path = 'C:\Users\Andrew\OneDrive for Business\Documents\CarandiniHarrisLab\analysis\wf_ephys_choiceworld\choiceworld';
+data_fn = ['all_trial_activity_Udf_kernel-str_4_depths'];
+% data_fn = 'all_trial_activity_df_msn_earlymove.mat';
+
+load([data_path filesep data_fn]);
+n_animals = length(D_all);
+
+% Get time
+framerate = 35.2;
+raster_window = [-0.5,1];
+upsample_factor = 3;
+sample_rate = 1/(framerate*upsample_factor);
+t = raster_window(1):sample_rate:raster_window(2);
+
+% Load use experiments and cut out bad ones
+bhv_fn = 'C:\Users\Andrew\OneDrive for Business\Documents\CarandiniHarrisLab\analysis\wf_ephys_choiceworld\bhv_processing\use_experiments';
+load(bhv_fn);
+D_all = cellfun(@(data,use_expts) data(use_expts),D_all,use_experiments','uni',false);
+fluor_all = cellfun(@(data,use_expts) data(use_expts),fluor_all,use_experiments','uni',false);
+mua_all = cellfun(@(data,use_expts) data(use_expts),mua_all,use_experiments','uni',false);
+wheel_all = cellfun(@(data,use_expts) data(use_expts),wheel_all,use_experiments','uni',false);
+
+use_animals = cellfun(@(x) ~isempty(x),D_all);
+D_all = D_all(use_animals);
+fluor_all = fluor_all(use_animals);
+mua_all = mua_all(use_animals);
+wheel_all = wheel_all(use_animals);
+
+% Get widefield ROIs
+n_rois = 200;
+
+% MUA depths
+n_depths = size(mua_all{1}{1},3);
+
+% Set up conditions
+contrasts = [0,0.06,0.125,0.25,0.5,1];
+sides = [-1,1];
+choices = [-1,1];
+timings = [1,2];
+conditions = combvec(contrasts,sides,choices,timings)';
+n_conditions = size(conditions,1);
+
+% Normalize and concatenate activity/wheel
+fluor_allcat = nan(0,length(t),n_rois,2);
+mua_allcat = nan(0,length(t),n_depths,2);
+wheel_allcat = nan(0,length(t),2);
+
+trial_contrast_allcat = [];
+trial_side_allcat = [];
+trial_choice_allcat = [];
+
+for curr_animal = 1:length(D_all)
+    
+    trial_day = cell2mat(cellfun(@(day,act) repmat(day,size(act,1),1), ...
+        num2cell(1:length(fluor_all{curr_animal}))',fluor_all{curr_animal},'uni',false));
+    
+    % Concatenate fluorescence, get L-R, normalize (all together)
+    fluor_cat = cat(1,fluor_all{curr_animal}{:});
+    
+    % Concatenate MUA and normalize (separately by day)
+    mua_cat_raw = cat(1,mua_all{curr_animal}{:});
+    
+    % NaN-out MUA trials with no spikes (no data collected - this should be
+    % done when getting the activity I guess using some method besides
+    % hist)
+    filled_mua_trials = +cell2mat(cellfun(@(x) repmat(any(reshape(permute(x,[1,2,4,3]),[],n_depths),1), ...
+        size(x,1),1),mua_all{curr_animal},'uni',false));    
+    filled_mua_trials(~filled_mua_trials) = NaN;
+    mua_cat_raw = bsxfun(@times,mua_cat_raw,permute(filled_mua_trials,[1,3,2,4]));
+    
+    % Smooth MUA with replicated edges
+    smooth_size = 9; % MUST BE ODD 
+    gw = gausswin(smooth_size,3)';
+    smWin = gw./sum(gw);
+    mua_cat_raw_smoothed = padarray(convn(mua_cat_raw,smWin,'valid'),[0,floor(size(smWin,2)/2)],'replicate','both');
+    
+    t_baseline = t < 0;        
+    mua_day_baseline = cell2mat(cellfun(@(x) ...
+        repmat(permute(nanmean(reshape(permute(x(:,t_baseline,:,1),[1,2,4,3]),[],n_depths),1), ...
+        [1,3,2,4]),[size(x,1),1]),  ...
+        mat2cell(mua_cat_raw_smoothed,cellfun(@(x) size(x,1), mua_all{curr_animal}),length(t),n_depths,2),'uni',false));
+    
+    mua_day_std = cell2mat(cellfun(@(x) ...
+        repmat(permute(nanstd(reshape(permute(x,[1,2,4,3]),[],n_depths),[],1), ...
+        [1,3,2,4]),[size(x,1),1]),  ...
+        mat2cell(mua_cat_raw_smoothed,cellfun(@(x) size(x,1), mua_all{curr_animal}),length(t),n_depths,2),'uni',false));
+    
+    softnorm = 20;
+    
+    mua_cat_norm = bsxfun(@rdivide,bsxfun(@minus,mua_cat_raw_smoothed,mua_day_baseline),mua_day_std+softnorm);   
+ 
+    % Regress from fluor to MUA
+    % (by depth: data-less days cause different trial numbers)
+    kernel_t = [-0.1,0.1];
+    kernel_frames = round(kernel_t(1)*sample_rate):round(kernel_t(2)*sample_rate);
+    zs = [false,false];
+    cvfold = 1;
+    lambda = 0; 
+    
+    % Concatenate wheel
+    wheel_cat = cat(1,wheel_all{curr_animal}{:});
+%     wheel_cat_norm = wheel_cat./prctile(max(max(abs(wheel_cat),[],2),[],3),95);
+    
+    % Concatenate behavioural data
+    D = struct;
+    D.stimulus = cell2mat(cellfun(@(x) x.stimulus,D_all{curr_animal},'uni',false));
+    D.response = cell2mat(cellfun(@(x) x.response,D_all{curr_animal},'uni',false));
+    D.repeatNum = cell2mat(cellfun(@(x) x.repeatNum,D_all{curr_animal},'uni',false));
+    
+    D.day = trial_day;
+    
+    % Get trial ID   
+    trial_contrast = max(D.stimulus,[],2);
+    [~,side_idx] = max(D.stimulus > 0,[],2);
+    trial_side = (side_idx-1.5)*2;
+    trial_choice = -(D.response-1.5)*2;
+    
+    trial_conditions = ...
+        [trial_contrast, trial_side, ...
+        trial_choice, ones(size(trial_day))];
+    [~,trial_id] = ismember(trial_conditions,conditions,'rows');
+    
+    % Concatenate everything
+    fluor_allcat = [fluor_allcat;fluor_cat];
+    mua_allcat = [mua_allcat;mua_cat_norm];
+    wheel_allcat = [wheel_allcat;wheel_cat];
+    
+    trial_contrast_allcat = [trial_contrast_allcat;trial_contrast];
+    trial_side_allcat = [trial_side_allcat;trial_side];
+    trial_choice_allcat = [trial_choice_allcat;trial_choice];
+   
+end
+
+% Get reaction time
+[~,move_idx] = max(abs(wheel_allcat(:,:,1)) > 2,[],2);
+move_t = t(move_idx)';
+
+% Load the master U
+load('C:\Users\Andrew\OneDrive for Business\Documents\CarandiniHarrisLab\analysis\wf_ephys_choiceworld\wf_processing\wf_alignment\U_master');
+
+% Get major trial types
+use_rxn_time = move_t > 0.3 & move_t < 0.4;
+
+vis_L_trials_hit = ...
+    trial_contrast_allcat > 0 & ...
+    trial_side_allcat == 1 & ...
+    trial_choice_allcat == -1 & ...
+    use_rxn_time;
+
+vis_R_trials_hit = ...
+    trial_contrast_allcat > 0 & ...
+    trial_side_allcat == -1 & ...
+    trial_choice_allcat == 1 & ...
+    use_rxn_time;
+
+vis_L_trials_miss = ...
+    trial_contrast_allcat > 0 & ...
+    trial_side_allcat == -1 & ...
+    trial_choice_allcat == -1 & ...
+    use_rxn_time;
+
+vis_R_trials_miss = ...
+    trial_contrast_allcat > 0 & ...
+    trial_side_allcat == 1 & ...
+    trial_choice_allcat == 1 & ...
+    use_rxn_time;
+
+zero_L_trials = ...
+    trial_contrast_allcat == 0 & ...
+    trial_choice_allcat == -1 & ...
+    use_rxn_time;
+
+zero_R_trials = ...
+    trial_contrast_allcat == 0 & ...
+    trial_choice_allcat == 1 & ...
+    use_rxn_time;
+
+trial_types = [vis_L_trials_hit, vis_R_trials_hit, ...
+    vis_L_trials_miss, vis_R_trials_miss, ...
+    zero_L_trials, zero_R_trials];
+
+plot_align = 1;
+px_trial_types = nan(size(U_master,1),size(U_master,2), ...
+    size(fluor_allcat,2)-1,size(trial_types,2));
+for curr_trial_type = 1:size(trial_types,2)
+    curr_data = squeeze(nanmean(fluor_allcat(trial_types(:,curr_trial_type),:,:,plot_align),1))';
+    curr_px = diff(svdFrameReconstruct(U_master(:,:,1:n_rois),curr_data),[],3);
+%     curr_px(curr_px < 0) = 0;
+    
+    px_trial_types(:,:,:,curr_trial_type) = curr_px;
+end
+
+t_diff = conv(t,[1,1]/2,'valid');
+
+% Plot move L - move R visual hit
+px_compare = (px_trial_types(:,:,:,1) + AP_reflect_widefield(px_trial_types(:,:,:,2)))./2;
+AP_image_scroll([px_compare,px_compare - AP_reflect_widefield(px_compare)],t_diff)
+axis image
+caxis([-prctile(abs(px_compare(:)),95),prctile(abs(px_compare(:)),95)]);
+colormap(colormap_BlueWhiteRed);
+
+AP_reference_outline('ccf_aligned','k');
+AP_reference_outline('grid','k');
+set(gcf,'Name','Move L - Move R visual hit');
+
+% Plot move L - move R visual miss
+px_compare = (px_trial_types(:,:,:,4) + AP_reflect_widefield(px_trial_types(:,:,:,3)))./2;
+AP_image_scroll([px_compare,px_compare - AP_reflect_widefield(px_compare)],t_diff)
+axis image
+caxis([-prctile(abs(px_compare(:)),95),prctile(abs(px_compare(:)),95)]);
+colormap(colormap_BlueWhiteRed);
+
+AP_reference_outline('ccf_aligned','k');
+AP_reference_outline('grid','k');
+set(gcf,'Name','Move L - Move R visual miss');
+
+% Plot move L - move R zero
+px_compare = (px_trial_types(:,:,:,5) + AP_reflect_widefield(px_trial_types(:,:,:,6)))./2;
+AP_image_scroll([px_compare,px_compare - AP_reflect_widefield(px_compare)],t_diff)
+axis image
+caxis([-prctile(abs(px_compare(:)),95),prctile(abs(px_compare(:)),95)]);
+colormap(colormap_BlueWhiteRed);
+
+AP_reference_outline('ccf_aligned','k');
+AP_reference_outline('grid','k');
+set(gcf,'Name','Move L - Move R zero');
+
 
 %% Plot activity 3 areas or PCs together
 

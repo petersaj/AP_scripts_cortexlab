@@ -1,13 +1,11 @@
-animal = 'AP006';
-day = '2016-10-01';
-experiment = 6;
-
 % AP_load_old(animal,day,experiment,site)
 %
-% Loads data from experiments
-% assumes kilotrode, among other things
-%
-% Not a function at the moment because nothing is packaged
+% Loads old data (Phase 2 neuropixels?)
+
+%% Display progress or not
+if ~exist('verbose','var')
+    verbose = false;
+end
 
 %% Define what to load
 
@@ -23,13 +21,13 @@ if ~exist('load_parts','var')
     load_parts.ephys = true;
 else
     % If only some things specified, don't load others
-    if ~isfield(load_parts,'cam');
+    if ~isfield(load_parts,'cam')
         load_parts.cam = false;
     end
-    if ~isfield(load_parts,'imaging');
+    if ~isfield(load_parts,'imaging')
         load_parts.imaging = false;
     end
-    if ~isfield(load_parts,'ephys');
+    if ~isfield(load_parts,'ephys')
         load_parts.ephys = false;
     end
 end
@@ -39,7 +37,7 @@ end
 [timeline_filename,timeline_exists] = AP_cortexlab_filename(animal,day,experiment,'timeline');
 
 if timeline_exists
-    disp('Loading timeline...')
+    if verbose; disp('Loading timeline...'); end;
     
     load(timeline_filename);
     
@@ -67,7 +65,7 @@ end
 
 if protocol_exists
     
-    disp('Loading mpep protocol...')
+    if verbose; disp('Loading mpep protocol...'); end
     
     load(protocol_filename);
     
@@ -172,7 +170,7 @@ end
 
 if block_exists
     
-    disp('Loading block file...')
+    if verbose; disp('Loading block file...'); end
     
     load(block_filename);
     
@@ -308,7 +306,7 @@ if exist('Timeline','var') && load_parts.cam
     [eyecam_dir,eyecam_exists] = AP_cortexlab_filename(animal,day,experiment,'eyecam');
     
     if eyecam_exists
-        disp('Loading eyecam...')
+        if verbose; disp('Loading eyecam...'); end
         
         % Load camera processed data
         [eyecam_processed_filename,eyecam_processed_exists] = AP_cortexlab_filename(animal,day,experiment,'eyecam_processed');
@@ -354,7 +352,7 @@ if exist('Timeline','var') && load_parts.cam
     [facecam_dir,facecam_exists] = AP_cortexlab_filename(animal,day,experiment,'facecam');
     
     if facecam_exists
-        disp('Loading facecam...')
+        if verbose; disp('Loading facecam...'); end
         
         [facecam_processed_filename,facecam_processed_exists] = AP_cortexlab_filename(animal,day,experiment,'facecam_processed');
         if facecam_processed_exists
@@ -402,7 +400,7 @@ end
 [data_path,data_path_exists] = AP_cortexlab_filename(animal,day,experiment,'imaging',site);
 
 if data_path_exists && load_parts.imaging
-    disp('Loading imaging data...')
+    if verbose; disp('Loading imaging data...'); end
     
     % Get the imaged colors
     spatialComponents_fns = dir([data_path filesep 'svdSpatialComponents*']);
@@ -453,7 +451,7 @@ if data_path_exists && load_parts.imaging
         % First need to shift alternating signals to be temporally aligned
         % (shifts neural to hemo)
         % Eliminate odd frames out
-        disp('Correcting hemodynamics...')
+        if verbose; disp('Correcting hemodynamics...'); end
         
         min_frames = min(size(Vn,2),size(Vh,2));
         Vn = Vn(:,1:min_frames);
@@ -466,13 +464,13 @@ if data_path_exists && load_parts.imaging
         hemo_tform_fn = [data_path filesep 'hemo_tform.mat'];
         if exist(hemo_tform_fn,'file')
             % If the hemo tform matrix has been computed, load and fix
-            disp('Using old hemo tform...')
+            if verbose; disp('Using old hemo tform...'); end
             load(hemo_tform_fn)
             zVh_Un = bsxfun(@minus, Vh_Un, mean(Vh_Un));
             Vn_hemo = transpose(Vn_th' - zVh_Un'*hemo_tform');
         else
             % If no p hemo tform matrix, compute and save
-            disp('Computing hemo tform...')
+            if verbose; disp('Computing hemo tform...'); end
             %hemo_freq = [0.2,3];
             hemo_freq = [7,13];
             [Vn_hemo,hemo_tform] = HemoCorrectLocal(Un,Vn_th,Vh_Un,framerate,hemo_freq,3);
@@ -482,7 +480,7 @@ if data_path_exists && load_parts.imaging
             close(gcf)
         end
         
-        disp('Filtering...')
+        if verbose; disp('Filtering...'); end
         % Don't bother filtering heartbeat, just detrend and highpass
         % fVn_hemo = detrendAndFilt(Vn_hemo, framerate);
         highpassCutoff = 0.01; % Hz
@@ -507,7 +505,7 @@ if data_path_exists && load_parts.imaging
         frame_t = th; % shifted to use hemo color times
         
     end
-    disp('Done.')
+    if verbose; disp('Done.'); end
     
     % Make dF/F
     [Udf,fVdf] = dffFromSVD(U,fV,avg_im);
@@ -520,10 +518,10 @@ end
 
 if ephys_exists && load_parts.ephys
     
-    disp('Loading ephys...')
+    if verbose; disp('Loading ephys...'); end
     
     acqLive_channel = 1;
-    load_lfp = true;
+    load_lfp = false;
     
     % Load clusters, if they exist
     cluster_filename = [ephys_path filesep 'cluster_groups.csv'];
@@ -562,8 +560,8 @@ if ephys_exists && load_parts.ephys
     template_amplitudes = readNPY([ephys_path filesep 'amplitudes.npy']);
     
     % Flip channel map and positions if banks are reversed
-    % (this was only for phase 2, so setting false by default)
-    flipped_banks = false;
+    % (true only for phase 2)
+    flipped_banks = true;
     if flipped_banks
         channel_map = [channel_map(61:end);channel_map(1:60)];
         channel_positions = [channel_positions(61:end,:);channel_positions(1:60,:)];
@@ -610,9 +608,11 @@ if ephys_exists && load_parts.ephys
     % Get acqLive times for current experiment
     experiment_ephys_starts = sync(acqLive_channel).timestamps(sync(acqLive_channel).values == 1);
     experiment_ephys_stops = sync(acqLive_channel).timestamps(sync(acqLive_channel).values == 0);
-    
-    experiments_dir = dir(fileparts(AP_cortexlab_filename(animal,day,[],'timeline')));
-    experiment_num = experiment == cellfun(@str2num,{experiments_dir(3:end).name});
+        
+    % (get folders with only a number - those're the experiment folders)
+    experiments_dir = dir(AP_cortexlab_filename(animal,day,experiment,'expInfo'));
+    experiments_num_idx = cellfun(@(x) ~isempty(x), regexp({experiments_dir.name},'^\d*$'));
+    experiment_num = experiment == cellfun(@str2num,{experiments_dir(experiments_num_idx).name});
     acqlive_ephys_currexpt = [experiment_ephys_starts(experiment_num), ...
         experiment_ephys_stops(experiment_num)];
     
@@ -658,7 +658,7 @@ if ephys_exists && load_parts.ephys
     % Eliminate spikes that were classified as not "good"
     if exist('cluster_groups','var')
         
-        disp('Removing non-good templates')
+        if verbose; disp('Removing non-good templates'); end
         
         good_templates_idx = uint32(cluster_groups{1}(strcmp(cluster_groups{2},'good')));
         good_templates = ismember(0:size(templates,1)-1,good_templates_idx);
@@ -685,13 +685,13 @@ if ephys_exists && load_parts.ephys
         spike_templates = new_spike_idx(spike_templates+1);
         
     elseif ~exist('cluster_groups','var')
-        disp('Clusters not yet sorted');
+        if verbose; disp('Clusters not yet sorted'); end
     end
     
 end
 
 %% Finished
-disp('Finished loading experiment.')
+if verbose; disp('Finished loading experiment.'); end
 
 
 

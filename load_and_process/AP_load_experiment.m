@@ -1,9 +1,7 @@
 % AP_load_experiment(animal,day,experiment,site)
 %
 % Loads data from experiments
-% assumes kilotrode, among other things
-%
-% Not a function at the moment because nothing is packaged
+
 
 %% Display progress or not
 if ~exist('verbose','var')
@@ -562,7 +560,7 @@ if imaging_exists && load_parts.imaging
         V = readVfromNPY([experiment_path filesep temporalComponents_dir(~imaging_timestamps_idx).name]);
         frame_t = readNPY([experiment_path filesep temporalComponents_dir(imaging_timestamps_idx).name]);
         
-        framerate = 1./nanmedian(diff(frame_t));
+        framerate = 1./nanmean(diff(frame_t));
         
         % Detrend and high-pass filter
         highpassCutoff = 0.01; % Hz
@@ -588,7 +586,7 @@ if imaging_exists && load_parts.imaging
         dataSummary_h = load([data_path filesep 'dataSummary_' cam_color_signal '.mat']);
         avg_im_h = readNPY([data_path filesep 'meanImage_' cam_color_hemo '.npy']);
         
-        framerate = 1./nanmedian(diff(tn));
+        framerate = 1./nanmean(diff(tn));
         
         % Correct hemodynamic signal in blue from green
         % First need to shift alternating signals to be temporally aligned

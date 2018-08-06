@@ -1061,7 +1061,7 @@ for curr_animal = 1:length(animals)
     load_parts.imaging = true;
     load_parts.ephys = true;
     
-    for curr_day = 1:length(experiments);
+    for curr_day = 1:length(experiments)
         
         day = experiments(curr_day).day;
         experiment = experiments(curr_day).experiment;
@@ -1122,7 +1122,7 @@ for curr_animal = 1:length(animals)
         
         aUdf = single(AP_align_widefield(animal,day,Udf));
         r_px = zeros(size(aUdf,1),size(aUdf,2),size(r,2),size(r,3),'single');
-        for curr_spikes = 1:size(r,3);
+        for curr_spikes = 1:size(r,3)
             r_px(:,:,:,curr_spikes) = svdFrameReconstruct(aUdf(:,:,use_svs),r(:,:,curr_spikes));
         end
                 

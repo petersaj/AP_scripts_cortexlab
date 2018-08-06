@@ -30,18 +30,19 @@ if ~exist('roi_mask','var') || isempty(roi_mask)
         ax_overlay = axes;
         overlay_im = imagesc(ax_overlay,overlay);
         axis image off;
-        colormap(ax_overlay, colormap_BlueWhiteRed);
+        colormap(ax_overlay, hsv);
         overlay_thresh = double(prctile(abs(overlay(:)),95));
         caxis(ax_overlay, [-overlay_thresh,overlay_thresh]);
-        set(overlay_im,'AlphaData',0.5*mat2gray(abs(overlay),[0,overlay_thresh]));
+        set(overlay_im,'AlphaData',0.3*mat2gray(abs(overlay),[0,overlay_thresh]));
     end
     
+    title('Draw ROI');
     roi_mask = roipoly;
     close(h);
 end
 
 % Get fluorescence across session in ROIs
-if exist('V','var') && ~isempty(V);
+if exist('V','var') && ~isempty(V)
     roi_trace = nan(size(roi_mask,3),size(V,2));
     U_reshape = reshape(U,[],size(U,3));
     roi_mask_reshape = reshape(roi_mask,[],size(roi_mask,3));
