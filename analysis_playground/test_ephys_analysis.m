@@ -2204,8 +2204,8 @@ end
 
 %% Spectral analysis
 % Power spectrum
-use_trace = lfp_depth_median_filt(2,:);
-use_t = lfp_t_timeline;
+use_trace = r;
+use_t = frame_t(1:end-1);
 
 Fs = 1./median(diff(use_t));
 L = length(use_trace);
@@ -2249,6 +2249,12 @@ s_squared = (s/Fs).*conj(s/Fs);  % Fs is used to normalize the FFT amplitudes
 power_0_2 = 2*sum(s_squared( f >= 0.1 & f <= 2,:))*df; 
 power_3_6 = 2*sum(s_squared( f >= 3 & f <= 6,:))*df; 
 power_10_14 = 2*sum(s_squared( f >= 10 & f <= 14,:))*df; 
+
+figure; hold on;
+plot(power_0_2,'k');
+plot(power_3_6,'b');
+plot(power_10_14,'r');
+
 
 %% Power spectrum of each LFP channel
 lfp_power = nan(size(lfp,1),62914);

@@ -984,7 +984,7 @@ for curr_animal = 1:length(animals)
             diff(fVdf(use_svs,:),[],2)',time_bin_centers)';
         
         n_update_lambda = 1;
-        lambda_range = [3,7]; % ^10
+        lambda_range = [-1,0.5]; % ^10 (used to be [3,7] before df/f change
         n_lambdas = 50;
         
         for curr_update_lambda = 1:n_update_lambda

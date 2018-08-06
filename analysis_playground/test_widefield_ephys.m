@@ -2861,7 +2861,7 @@ time_bin_centers = time_bins(1:end-1) + diff(time_bins)/2;
 % depth_group = aligned_str_depth_group;
 
 % (for manual depth)
-depth_group_edges = [0,1700];
+depth_group_edges = [0,3500];
 n_depths = length(depth_group_edges) - 1;
 [depth_group_n,depth_group] = histc(spikeDepths,depth_group_edges);
 
@@ -2882,7 +2882,7 @@ binned_spikes(isnan(binned_spikes)) = 0;
 use_svs = 1:50;
 kernel_t = [-0.3,0.3];
 kernel_frames = round(kernel_t(1)*sample_rate):round(kernel_t(2)*sample_rate);
-lambda = 4; % (COMMENT OUT TO USE LAMBDA ESTIMATION ELSEWHERE)
+% lambda = 4; % (COMMENT OUT TO USE LAMBDA ESTIMATION ELSEWHERE)
 % zs = [false,true];
 cvfold = 10;
 
@@ -2903,7 +2903,7 @@ dfVdf_resample = interp1(conv2(frame_t,[1,1]/2,'valid'), ...
 r = reshape(k,length(use_svs),length(kernel_frames),size(binned_spikes,1));
 
 r_px = zeros(size(U,1),size(U,2),size(r,2),size(r,3),'single');
-for curr_spikes = 1:size(r,3);
+for curr_spikes = 1:size(r,3)
     r_px(:,:,:,curr_spikes) = svdFrameReconstruct(Udf(:,:,use_svs),r(:,:,curr_spikes));
 end
 
