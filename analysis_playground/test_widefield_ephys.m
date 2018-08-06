@@ -2498,7 +2498,7 @@ use_frames = (frame_t > skip_seconds & frame_t < frame_t(end)-skip_seconds);
 % Group multiunit by depth
 n_depths = 6;
 % depth_group_edges = round(linspace(str_depth(1),str_depth(2),n_depths+1));
-depth_group_edges = [2000,2500];
+depth_group_edges = [0,2000];
 depth_group_edges_use = depth_group_edges;
 
 [depth_group_n,depth_group] = histc(spikeDepths,depth_group_edges_use);
@@ -2518,7 +2518,7 @@ zs = [false,true]; % MUA has to be z-scored if large lambda
 cvfold = 5;
 use_frames_idx = find(use_frames);
 
-lambdas = [0,logspace(0,10,10)];
+lambdas = [0,logspace(0,2,10)];
 explained_var_lambdas = nan(size(lambdas));
 
 for curr_lambda_idx = 1:length(lambdas)
@@ -2842,12 +2842,12 @@ skip_seconds = 60;
 time_bins = frame_t(find(frame_t > skip_seconds,1)):1/sample_rate:frame_t(find(frame_t-frame_t(end) < -skip_seconds,1,'last'));
 time_bin_centers = time_bins(1:end-1) + diff(time_bins)/2;
 
-% (to group multiunit by depth from top)
-n_depths = 8;
-depth_group_edges = round(linspace(min(templateDepths),max(templateDepths),n_depths+1));
-[depth_group_n,depth_group] = histc(spikeDepths,depth_group_edges);
-depth_groups_used = unique(depth_group);
-depth_group_centers = depth_group_edges(1:end-1)+(diff(depth_group_edges)/2);
+% % (to group multiunit by depth from top)
+% n_depths = 10;
+% depth_group_edges = round(linspace(min(templateDepths),max(templateDepths),n_depths+1));
+% [depth_group_n,depth_group] = histc(spikeDepths,depth_group_edges);
+% depth_groups_used = unique(depth_group);
+% depth_group_centers = depth_group_edges(1:end-1)+(diff(depth_group_edges)/2);
 
 % % (to group multiunit by depth within striatum)
 % n_depths = round(diff(str_depth)/100);
@@ -2860,10 +2860,10 @@ depth_group_centers = depth_group_edges(1:end-1)+(diff(depth_group_edges)/2);
 % n_depths = n_aligned_depths;
 % depth_group = aligned_str_depth_group;
 
-% % (for manual depth)
-% depth_group_edges = [1500,2200];
-% n_depths = length(depth_group_edges) - 1;
-% [depth_group_n,depth_group] = histc(spikeDepths,depth_group_edges);
+% (for manual depth)
+depth_group_edges = [0,1700];
+n_depths = length(depth_group_edges) - 1;
+[depth_group_n,depth_group] = histc(spikeDepths,depth_group_edges);
 
 binned_spikes = zeros(n_depths,length(time_bins)-1);
 for curr_depth = 1:n_depths
@@ -2882,8 +2882,8 @@ binned_spikes(isnan(binned_spikes)) = 0;
 use_svs = 1:50;
 kernel_t = [-0.3,0.3];
 kernel_frames = round(kernel_t(1)*sample_rate):round(kernel_t(2)*sample_rate);
-% lambda = 1e5; % (COMMENT OUT TO USE LAMBDA ESTIMATION ELSEWHERE)
-zs = [false,true];
+lambda = 4; % (COMMENT OUT TO USE LAMBDA ESTIMATION ELSEWHERE)
+% zs = [false,true];
 cvfold = 10;
 
 fVdf_resample = interp1(frame_t,fVdf(use_svs,:)',time_bin_centers)';

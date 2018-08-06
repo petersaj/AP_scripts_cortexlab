@@ -7523,7 +7523,7 @@ for i = 1:n_rxn_times
 end
 
 % Plot grid of all widefield areas in different reaction time bins
-plot_align = 1;
+plot_align = 2;
 
 rxn_times = linspace(0,0.5,4);
 n_rxn_times = length(rxn_times)-1;
@@ -7581,7 +7581,7 @@ for curr_roi = 1:8
 end
 
 % Plot grid of all MUA areas in different reaction time bins
-plot_align = 1;
+plot_align = 2;
 
 rxn_times = linspace(0,0.5,4);
 n_rxn_times = length(rxn_times)-1;

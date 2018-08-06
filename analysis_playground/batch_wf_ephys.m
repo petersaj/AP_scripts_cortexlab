@@ -5963,18 +5963,10 @@ for curr_animal = 1:length(animals)
         % Convert U to master U
         load('C:\Users\Andrew\OneDrive for Business\Documents\CarandiniHarrisLab\analysis\wf_ephys_choiceworld\wf_processing\wf_alignment\U_master.mat');
         Udf_aligned = single(AP_align_widefield(animal,day,Udf));
-        fVdf_respaced = ChangeU(Udf_aligned,fVdf,U_master);
-        % (rescale Vs to be on par with the original)
-        % (I DON'T KNOW IF THIS MAKES MATH SENSE there must be a better way
-        % to do it, the real scale would be UV/U2V2)
-        original_mean = svdFrameReconstruct(Udf_aligned,nanmean(fVdf,2));
-        respaced_mean = svdFrameReconstruct(U_master,nanmean(fVdf_respaced,2));
-        V_scale = respaced_mean(:)\original_mean(:);
-        
-        use_Us = 1:200;
-        fVdf_respaced_reduced = fVdf_respaced(use_Us,:).*V_scale;
-        
-         
+        fVdf_recast = ChangeU(Udf_aligned,fVdf,U_master);
+        % Set components to use
+        use_components = 1:200;
+                     
         % Group multiunit by depth
         % (evenly across recorded striatum)
         %         n_depths = 6;
@@ -5992,7 +5984,7 @@ for curr_animal = 1:length(animals)
         raster_sample_rate = 1/(framerate*upsample_factor);
         t = raster_window(1):raster_sample_rate:raster_window(2);
         
-        event_aligned_ddf = nan(length(stimOn_times),length(t),n_rois,2);
+        event_aligned_V = nan(length(stimOn_times),length(t),length(use_components),2);
         event_aligned_mua = nan(length(stimOn_times),length(t),n_depths,2);
         event_aligned_wheel = nan(length(stimOn_times),length(t),2);
         for curr_align = 1:2
@@ -6005,11 +5997,11 @@ for curr_animal = 1:length(animals)
                     use_align(isnan(use_align)) = 0;
             end
             
-            t_peri_event = bsxfun(@plus,use_align,t);
+            t_peri_event = bsxfun(@plus,use_align,t); 
             
             % Fluorescence
             event_aligned_V(:,:,:,curr_align) = ...
-                interp1(frame_t,fVdf_respaced_reduced',t_peri_event);
+                interp1(frame_t,fVdf_recast(use_components,:)',t_peri_event);
             
             % MUA
             t_bins = [t_peri_event-raster_sample_rate/2,t_peri_event(:,end)+raster_sample_rate/2];
@@ -6070,7 +6062,7 @@ disp('Finished loading all')
 
 save_path = 'C:\Users\Andrew\OneDrive for Business\Documents\CarandiniHarrisLab\analysis\wf_ephys_choiceworld\choiceworld';
 save_fn = ['all_trial_activity_Udf_kernel-str_' num2str(n_aligned_depths) '_depths'];
-save([save_path filesep save_fn]);
+save([save_path filesep save_fn],'-v7.3');
 
 %% Batch logistic regression on saved day-concatenated activity (neural data independently)
 
