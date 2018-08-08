@@ -6761,8 +6761,8 @@ n_animals = length(D_all);
 framerate = 35.2;
 raster_window = [-0.5,1];
 upsample_factor = 3;
-sample_rate = framerate*upsample_factor;
-t = raster_window(1):1/sample_rate:raster_window(2);
+sample_rate = 1/(framerate*upsample_factor);
+t = raster_window(1):sample_rate:raster_window(2);
 
 % Load use experiments and cut out bad ones
 bhv_fn = 'C:\Users\Andrew\OneDrive for Business\Documents\CarandiniHarrisLab\analysis\wf_ephys_choiceworld\bhv_processing\use_experiments';
@@ -7122,8 +7122,8 @@ end
 framerate = 35.2;
 raster_window = [-0.5,1];
 upsample_factor = 3;
-sample_rate = framerate*upsample_factor;
-t = raster_window(1):1/sample_rate:raster_window(2);
+sample_rate = 1/(framerate*upsample_factor);
+t = raster_window(1):sample_rate:raster_window(2);
 
 % Load use experiments and cut out bad ones
 bhv_fn = 'C:\Users\Andrew\OneDrive for Business\Documents\CarandiniHarrisLab\analysis\wf_ephys_choiceworld\bhv_processing\use_experiments';
@@ -7844,8 +7844,8 @@ n_animals = length(D_all);
 framerate = 35.2;
 raster_window = [-0.5,1];
 upsample_factor = 3;
-sample_rate = (framerate*upsample_factor);
-t = raster_window(1):1/sample_rate:raster_window(2);
+sample_rate = 1/(framerate*upsample_factor);
+t = raster_window(1):sample_rate:raster_window(2);
 
 % Load use experiments and cut out bad ones
 bhv_fn = 'C:\Users\Andrew\OneDrive for Business\Documents\CarandiniHarrisLab\analysis\wf_ephys_choiceworld\bhv_processing\use_experiments';
@@ -7924,6 +7924,14 @@ for curr_animal = 1:length(D_all)
     
     mua_cat_norm = bsxfun(@rdivide,bsxfun(@minus,mua_cat_raw_smoothed,mua_day_baseline),mua_day_std+softnorm);   
  
+    % Regress from fluor to MUA
+    % (by depth: data-less days cause different trial numbers)
+    kernel_t = [-0.1,0.1];
+    kernel_frames = round(kernel_t(1)*sample_rate):round(kernel_t(2)*sample_rate);
+    zs = [false,false];
+    cvfold = 1;
+    lambda = 0; 
+    
     % Concatenate wheel
     wheel_cat = cat(1,wheel_all{curr_animal}{:});
 %     wheel_cat_norm = wheel_cat./prctile(max(max(abs(wheel_cat),[],2),[],3),95);
@@ -7964,11 +7972,11 @@ move_t = t(move_idx)';
 
 % Load the master U
 load('C:\Users\Andrew\OneDrive for Business\Documents\CarandiniHarrisLab\analysis\wf_ephys_choiceworld\wf_processing\wf_alignment\U_master');
-
+%%
 % Settings to plot
 use_rxn_time = move_t > 0.1 & move_t < 0.3;
-plot_align = 2;
-normalize_px = true;
+plot_align = 1;
+normalize_px = false;
 
 % Get major trial types
 vis_L_trials_hit = ...
@@ -8005,8 +8013,7 @@ zero_R_trials = ...
     trial_choice_allcat == 1 & ...
     use_rxn_time;
 
-trial_types = ...
-    [vis_L_trials_hit, vis_R_trials_hit, ...
+trial_types = [vis_L_trials_hit, vis_R_trials_hit, ...
     vis_L_trials_miss, vis_R_trials_miss, ...
     zero_L_trials, zero_R_trials];
 
@@ -8045,6 +8052,10 @@ if normalize_px
          px_combined,[],1,size(px_combined,3),size(px_combined,4))),[],1));
     px_combined_hemidiff = bsxfun(@rdivide,px_combined_hemidiff,max(abs(reshape( ...
          px_combined_hemidiff,[],1,size(px_combined_hemidiff,3),size(px_combined_hemidiff,4))),[],1));
+     
+     % Normalize by dividing by max of each pixel
+    px_combined = bsxfun(@rdivide,px_combined,max(abs(px_combined),[],3));
+    px_combined_hemidiff = bsxfun(@rdivide,px_combined,max(abs(px_combined),[],3));
 end
 
 % Plot all concatenated
