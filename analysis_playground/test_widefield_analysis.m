@@ -521,7 +521,7 @@ end
 surround_window = [-0.5,5];
 baseline_window = [-0.5,0];
 
-framerate = 1./median(diff(frame_t));
+framerate = 1./mean(diff(frame_t));
 surround_samplerate = 1/(framerate*1);
 surround_time = surround_window(1):surround_samplerate:surround_window(2);
 baseline_surround_time = baseline_window(1):surround_samplerate:baseline_window(2);
@@ -563,7 +563,7 @@ axis image;
 
 % Average (single frame) responses to stimuli
 surround_window = [0,0.2];
-framerate = 1./median(diff(frame_t));
+framerate = 1./mean(diff(frame_t));
 surround_samplerate = 1/(framerate*1);
 surround_time = surround_window(1):surround_samplerate:surround_window(2);
 

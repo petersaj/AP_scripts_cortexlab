@@ -33,13 +33,16 @@ mua_fluor_coherence = cell(size(recordings));
 % Spectra correlations
 spectra_corr = cell(size(recordings));
 
+% GCaMP kernel (this is for me)
+gcamp_kernel = cell(size(recordings));
+
 %% Loop through all recordings
 
 for curr_recording = 1:length(recordings)
        
     %% Clear workspace, set current recording
     clearvars -except curr_recording recordings ...
-        mua_fluor_xcorr mua_fluor_coherence spectra_corr
+        mua_fluor_xcorr mua_fluor_coherence spectra_corr gcamp_kernel
     
     animal = recordings(curr_recording).animal;
     day = recordings(curr_recording).day;
@@ -278,10 +281,6 @@ for curr_recording = 1:length(recordings)
     N = window_length_samples; % window length
     df = framerate/N; % frequency increment
     
-    % Time of traces
-    use_t = frame_t;
-    framerate = 1./median(diff(use_t));
-    
     % Power spectrum of MUA
     use_trace = frame_spikes(1:end-1);
     
@@ -326,6 +325,41 @@ for curr_recording = 1:length(recordings)
     ylabel('MUA frequency');
     axis square; caxis(c);
     
+    drawnow;
+    
+    %% Get the kernel from spikes to fluorescence with normalized ifft       
+    
+    % Non-normalized
+    x_nonorm = ifft((fft(fluor_trace).*conj(fft(frame_spikes)))); % unnormalized
+    
+    % Normalized like in Nauhaus 2012?
+    soft_reg_factor = 0;
+    x_autonorm = ifft((fft(fluor_trace).*conj(fft(frame_spikes)))./(soft_reg_factor+fft(frame_spikes).*conj(fft(frame_spikes))));
+    
+    plot_frames = 35*5;
+    
+    figure;
+    t_shift = [frame_t(end-plot_frames+1:end)-frame_t(end)-1/framerate,frame_t(1:plot_frames)-frame_t(1)];
+    
+    p1 = subplot(2,1,1); hold on;
+    plot(t_shift,[x_nonorm(end-plot_frames+1:end),x_nonorm(1:plot_frames)],'k','linewidth',2);
+    xlabel('Time (s)');
+    ylabel('Impulse response')
+    title('Non-normalized: ifft(F*S'')');
+    
+    p2 = subplot(2,1,2); hold on;
+    plot(t_shift,[x_autonorm(end-plot_frames+1:end),x_autonorm(1:plot_frames)],'k','linewidth',2);
+    xlabel('Time (s)');
+    ylabel('Impluse response');
+    title('Normalized: ifft(F*S''/S*S'')');
+    
+    linkaxes([p1,p2],'x')
+    
+    % Use the corrected impulse response for convolving kernel
+    gcamp_kernel_frames = 1:framerate*3;
+    gcamp_kernel_t = (gcamp_kernel_frames-1)/framerate;
+    gcamp_kernel{curr_recording} = x_autonorm(gcamp_kernel_frames);        
+    plot(p2,gcamp_kernel_t,gcamp_kernel{curr_recording},'r');
     drawnow;
     
 end
@@ -417,5 +451,20 @@ title(recordings(curr_recording).animal);
 title('Mean');
 c = colorbar;
 ylabel(c,'Correlation');
+
+% GCaMP kernel
+gcamp_kernel_norm = cellfun(@(x) (x-x(1))/max(x-x(1)),gcamp_kernel,'uni',false);
+figure; hold on
+plot(gcamp_kernel_t,vertcat(gcamp_kernel_norm{:})','linewidth',2);
+legend({recordings.animal});
+title('GCaMP kernel');
+
+% (I saved AP026 and AP024 averaged together)
+gcamp6s_kernel_t = gcamp_kernel_t;
+gcamp6s_kernel_nonnorm = nanmean(vertcat(gcamp_kernel_norm{[1,3]}),1);
+gcamp6s_kernel = (gcamp6s_kernel_nonnorm-gcamp6s_kernel_nonnorm(1))./ ...
+    max(gcamp6s_kernel_nonnorm-gcamp6s_kernel_nonnorm(1));
+save('C:\Users\Andrew\OneDrive for Business\Documents\CarandiniHarrisLab\analysis\wf_ephys_choiceworld\wf_processing\gcamp_kernel\gcamp6s_kernel.mat', ...
+    'gcamp6s_kernel_t','gcamp6s_kernel');
 
 

@@ -1401,9 +1401,12 @@ n_rois = numel(wf_roi);
 aUdf = single(AP_align_widefield(animal,day,Udf));
 roi_trace = AP_svd_roi(aUdf,fVdf,[],[],cat(3,wf_roi.mask));
 
-% (get ddf)
-ddf = diff(roi_trace,[],2);
-ddf(ddf < 0) = 0;
+% (to no use ddf)
+ddf = roi_trace(:,1:end-1);
+
+% % (get ddf)
+% ddf = diff(roi_trace,[],2);
+% ddf(ddf < 0) = 0;
 
 % (make L-R traces)
 ddf(size(wf_roi,1)+1:end,:) = ...
@@ -8015,6 +8018,13 @@ trial_types = ...
 px_trial_types = nan(size(U_master,1),size(U_master,2), ...
     size(fluor_allcat,2)-1,size(trial_types,2));
 for curr_trial_type = 1:size(trial_types,2)
+    
+%     % Straight fluorescence
+%     curr_data = fluor_allcat(trial_types(:,curr_trial_type),:,:,plot_align);
+%     curr_data = squeeze(nanmean(bsxfun(@minus,curr_data,nanmean(curr_data(:,t > -0.2 & t < 0,:),2)),1))';
+%     curr_px = svdFrameReconstruct(U_master(:,:,1:n_rois),curr_data(:,1:end-1));
+    
+    % Fluorescence derivative
     curr_data = squeeze(nanmean(fluor_allcat(trial_types(:,curr_trial_type),:,:,plot_align),1))';
     curr_px = diff(svdFrameReconstruct(U_master(:,:,1:n_rois),curr_data),[],3);
     curr_px(curr_px < 0) = 0;
@@ -8025,7 +8035,7 @@ end
 t_diff = conv(t,[1,1]/2,'valid');
 
 % Flip and combine trial types
-% 1) visual hit, 2) visual miss, 3) zero
+% 1) visual hit (contra), 2) visual miss (ipsi), 3) zero (L)
 px_combined = cat(4, ...
     (px_trial_types(:,:,:,1) + AP_reflect_widefield(px_trial_types(:,:,:,2)))./2, ...
     (px_trial_types(:,:,:,3) + AP_reflect_widefield(px_trial_types(:,:,:,4)))./2, ...
@@ -8066,6 +8076,7 @@ mua_trial_types = cell2mat(arrayfun(@(x) permute(nanmean(mua_allcat( ...
 % 1) visual hit, 2) visual miss, 3) zero
 col = copper(3);
 figure; 
+
 p1 = subplot(1,2,1); hold on;
 AP_stackplot(mua_trial_types(:,:,1)',t,2,false,col(1,:));
 AP_stackplot(mua_trial_types(:,:,3)',t,2,false,col(2,:));
@@ -8078,6 +8089,263 @@ AP_stackplot(mua_trial_types(:,:,3)' - mua_trial_types(:,:,4)',t,2,false,col(2,:
 AP_stackplot(mua_trial_types(:,:,5)' - mua_trial_types(:,:,6)',t,2,false,col(3,:));
 title('Move L - Move R');
 
+% Plot overlayed so that ROIs can be plotted over
+figure; 
+subplot(1,3,1); hold on;
+set(gca,'ColorOrder',copper(n_depths));
+plot(t,mua_trial_types(:,:,1)','linewidth',2);
+title ('Vis hit L');
+
+subplot(1,3,2); hold on;
+set(gca,'ColorOrder',copper(n_depths));
+plot(t,mua_trial_types(:,:,3)','linewidth',2);
+title ('Vis miss L');
+
+subplot(1,3,3); hold on;
+set(gca,'ColorOrder',copper(n_depths));
+plot(t,mua_trial_types(:,:,5)','linewidth',2);
+title ('Zero L');
+
+
+%% Get concatenated activity in V-space in reaction time bins
+
+n_aligned_depths = 4;
+
+% Load data
+data_path = 'C:\Users\Andrew\OneDrive for Business\Documents\CarandiniHarrisLab\analysis\wf_ephys_choiceworld\choiceworld';
+data_fn = ['all_trial_activity_Udf_kernel-str_4_depths'];
+% data_fn = 'all_trial_activity_df_msn_earlymove.mat';
+
+load([data_path filesep data_fn]);
+n_animals = length(D_all);
+
+% Get time
+framerate = 35.2;
+raster_window = [-0.5,1];
+upsample_factor = 3;
+sample_rate = (framerate*upsample_factor);
+t = raster_window(1):1/sample_rate:raster_window(2);
+
+% Load use experiments and cut out bad ones
+bhv_fn = 'C:\Users\Andrew\OneDrive for Business\Documents\CarandiniHarrisLab\analysis\wf_ephys_choiceworld\bhv_processing\use_experiments';
+load(bhv_fn);
+D_all = cellfun(@(data,use_expts) data(use_expts),D_all,use_experiments','uni',false);
+fluor_all = cellfun(@(data,use_expts) data(use_expts),fluor_all,use_experiments','uni',false);
+mua_all = cellfun(@(data,use_expts) data(use_expts),mua_all,use_experiments','uni',false);
+wheel_all = cellfun(@(data,use_expts) data(use_expts),wheel_all,use_experiments','uni',false);
+
+use_animals = cellfun(@(x) ~isempty(x),D_all);
+D_all = D_all(use_animals);
+fluor_all = fluor_all(use_animals);
+mua_all = mua_all(use_animals);
+wheel_all = wheel_all(use_animals);
+
+% Get widefield ROIs
+n_rois = 200;
+
+% MUA depths
+n_depths = size(mua_all{1}{1},3);
+
+% Set up conditions
+contrasts = [0,0.06,0.125,0.25,0.5,1];
+sides = [-1,1];
+choices = [-1,1];
+timings = [1,2];
+conditions = combvec(contrasts,sides,choices,timings)';
+n_conditions = size(conditions,1);
+
+% Normalize and concatenate activity/wheel
+fluor_allcat = nan(0,length(t),n_rois,2);
+mua_allcat = nan(0,length(t),n_depths,2);
+wheel_allcat = nan(0,length(t),2);
+
+trial_contrast_allcat = [];
+trial_side_allcat = [];
+trial_choice_allcat = [];
+
+for curr_animal = 1:length(D_all)
+    
+    trial_day = cell2mat(cellfun(@(day,act) repmat(day,size(act,1),1), ...
+        num2cell(1:length(fluor_all{curr_animal}))',fluor_all{curr_animal},'uni',false));
+    
+    % Concatenate fluorescence, get L-R, normalize (all together)
+    fluor_cat = cat(1,fluor_all{curr_animal}{:});
+    
+    % Concatenate MUA and normalize (separately by day)
+    mua_cat_raw = cat(1,mua_all{curr_animal}{:});
+    
+    % NaN-out MUA trials with no spikes (no data collected - this should be
+    % done when getting the activity I guess using some method besides
+    % hist)
+    filled_mua_trials = +cell2mat(cellfun(@(x) repmat(any(reshape(permute(x,[1,2,4,3]),[],n_depths),1), ...
+        size(x,1),1),mua_all{curr_animal},'uni',false));    
+    filled_mua_trials(~filled_mua_trials) = NaN;
+    mua_cat_raw = bsxfun(@times,mua_cat_raw,permute(filled_mua_trials,[1,3,2,4]));
+    
+    % Smooth MUA with replicated edges
+    smooth_size = 9; % MUST BE ODD 
+    gw = gausswin(smooth_size,3)';
+    smWin = gw./sum(gw);
+    mua_cat_raw_smoothed = padarray(convn(mua_cat_raw,smWin,'valid'),[0,floor(size(smWin,2)/2)],'replicate','both');
+    
+    t_baseline = t < 0;        
+    mua_day_baseline = cell2mat(cellfun(@(x) ...
+        repmat(permute(nanmean(reshape(permute(x(:,t_baseline,:,1),[1,2,4,3]),[],n_depths),1), ...
+        [1,3,2,4]),[size(x,1),1]),  ...
+        mat2cell(mua_cat_raw_smoothed,cellfun(@(x) size(x,1), mua_all{curr_animal}),length(t),n_depths,2),'uni',false));
+    
+    mua_day_std = cell2mat(cellfun(@(x) ...
+        repmat(permute(nanstd(reshape(permute(x,[1,2,4,3]),[],n_depths),[],1), ...
+        [1,3,2,4]),[size(x,1),1]),  ...
+        mat2cell(mua_cat_raw_smoothed,cellfun(@(x) size(x,1), mua_all{curr_animal}),length(t),n_depths,2),'uni',false));
+    
+    softnorm = 20;
+    
+    mua_cat_norm = bsxfun(@rdivide,bsxfun(@minus,mua_cat_raw_smoothed,mua_day_baseline),mua_day_std+softnorm);   
+ 
+    % Concatenate wheel
+    wheel_cat = cat(1,wheel_all{curr_animal}{:});
+%     wheel_cat_norm = wheel_cat./prctile(max(max(abs(wheel_cat),[],2),[],3),95);
+    
+    % Concatenate behavioural data
+    D = struct;
+    D.stimulus = cell2mat(cellfun(@(x) x.stimulus,D_all{curr_animal},'uni',false));
+    D.response = cell2mat(cellfun(@(x) x.response,D_all{curr_animal},'uni',false));
+    D.repeatNum = cell2mat(cellfun(@(x) x.repeatNum,D_all{curr_animal},'uni',false));
+    
+    D.day = trial_day;
+    
+    % Get trial ID   
+    trial_contrast = max(D.stimulus,[],2);
+    [~,side_idx] = max(D.stimulus > 0,[],2);
+    trial_side = (side_idx-1.5)*2;
+    trial_choice = -(D.response-1.5)*2;
+    
+    trial_conditions = ...
+        [trial_contrast, trial_side, ...
+        trial_choice, ones(size(trial_day))];
+    [~,trial_id] = ismember(trial_conditions,conditions,'rows');
+    
+    % Concatenate everything
+    fluor_allcat = [fluor_allcat;fluor_cat];
+    mua_allcat = [mua_allcat;mua_cat_norm];
+    wheel_allcat = [wheel_allcat;wheel_cat];
+    
+    trial_contrast_allcat = [trial_contrast_allcat;trial_contrast];
+    trial_side_allcat = [trial_side_allcat;trial_side];
+    trial_choice_allcat = [trial_choice_allcat;trial_choice];
+   
+end
+
+% Get reaction time
+[~,move_idx] = max(abs(wheel_allcat(:,:,1)) > 2,[],2);
+move_t = t(move_idx)';
+
+% Load the master U
+load('C:\Users\Andrew\OneDrive for Business\Documents\CarandiniHarrisLab\analysis\wf_ephys_choiceworld\wf_processing\wf_alignment\U_master');
+
+% Settings to plot
+rxn_time_bins = {[0,0.1],[0.1,0.3],[0.3,0.4],[0.6,0.7]};
+plot_align = 2;
+normalize_px = true;
+
+% Get major trial types
+vis_L_trials_hit = ...
+    trial_contrast_allcat > 0 & ...
+    trial_side_allcat == 1 & ...
+    trial_choice_allcat == -1;
+
+vis_R_trials_hit = ...
+    trial_contrast_allcat > 0 & ...
+    trial_side_allcat == -1 & ...
+    trial_choice_allcat == 1;
+
+vis_L_trials_miss = ...
+    trial_contrast_allcat > 0 & ...
+    trial_side_allcat == -1 & ...
+    trial_choice_allcat == -1;
+
+vis_R_trials_miss = ...
+    trial_contrast_allcat > 0 & ...
+    trial_side_allcat == 1 & ...
+    trial_choice_allcat == 1;
+
+zero_L_trials = ...
+    trial_contrast_allcat == 0 & ...
+    trial_choice_allcat == -1;
+
+zero_R_trials = ...
+    trial_contrast_allcat == 0 & ...
+    trial_choice_allcat == 1;
+
+trial_types = ...
+    [vis_L_trials_hit, vis_R_trials_hit, ...
+    vis_L_trials_miss, vis_R_trials_miss, ...
+    zero_L_trials, zero_R_trials];
+
+%%% Get and plot fluorescence
+
+px_trial_types = nan(size(U_master,1),size(U_master,2), ...
+    size(fluor_allcat,2)-1,size(trial_types,2),length(rxn_time_bins));
+for curr_rxn = 1:length(rxn_time_bins)
+    for curr_trial_type = 1:size(trial_types,2)
+        
+        curr_trials = trial_types(:,curr_trial_type) & ...
+            move_t > rxn_time_bins{curr_rxn}(1) & ...
+            move_t < rxn_time_bins{curr_rxn}(2);
+        
+        %     % Straight fluorescence
+        %     curr_data = fluor_allcat(trial_types(:,curr_trial_type),:,:,plot_align);
+        %     curr_data = squeeze(nanmean(bsxfun(@minus,curr_data,nanmean(curr_data(:,t > -0.2 & t < 0,:),2)),1))';
+        %     curr_px = svdFrameReconstruct(U_master(:,:,1:n_rois),curr_data(:,1:end-1));
+        
+        % Fluorescence derivative
+        curr_data = squeeze(nanmean(fluor_allcat(curr_trials,:,:,plot_align),1))';
+        curr_px = diff(svdFrameReconstruct(U_master(:,:,1:n_rois),curr_data),[],3);
+        curr_px(curr_px < 0) = 0;
+        
+        px_trial_types(:,:,:,curr_trial_type,curr_rxn) = curr_px;
+    end
+    AP_print_progress_fraction(curr_rxn,length(rxn_time_bins));
+end
+
+t_diff = conv(t,[1,1]/2,'valid');
+
+% Flip and combine trial types
+% 1) visual hit (contra), 2) visual miss (ipsi), 3) zero (L)
+px_combined = cat(4, ...
+    (px_trial_types(:,:,:,1,:) + AP_reflect_widefield(px_trial_types(:,:,:,2,:)))./2, ...
+    (px_trial_types(:,:,:,3,:) + AP_reflect_widefield(px_trial_types(:,:,:,4,:)))./2, ...
+    (px_trial_types(:,:,:,5,:) + AP_reflect_widefield(px_trial_types(:,:,:,6,:)))./2);
+
+px_combined_hemidiff = px_combined - AP_reflect_widefield(px_combined);
+
+if normalize_px
+    % Normalize by dividing by max of each frame
+    px_dims = size(px_combined);
+    px_combined = bsxfun(@rdivide,px_combined,max(abs(reshape( ...
+         px_combined,[px_dims(1)*px_dims(2),1,px_dims(3:end)])),[],1));
+     
+    px_combined_hemidiff = bsxfun(@rdivide,px_combined_hemidiff,max(abs(reshape( ...
+         px_combined_hemidiff,[px_dims(1)*px_dims(2),1,px_dims(3:end)])),[],1));
+end
+
+% Plot
+AP_image_scroll(px_combined(:,:,:,:,2),t_diff);
+axis image; caxis([-1,1]); colormap(colormap_BlueWhiteRed);
+
+% Plot all concatenated
+px_dims = size(px_combined);
+AP_image_scroll([reshape(permute(px_combined,[1,4,2,5,3]), ...
+    [],size(px_combined,2)*size(px_combined,5),size(px_combined,3)), ...
+    reshape(permute(px_combined_hemidiff,[1,4,2,5,3]), ...
+    [],size(px_combined_hemidiff,2)*size(px_combined_hemidiff,5), ...
+    size(px_combined_hemidiff,3))],t_diff);
+axis image;
+% caxis([-prctile(abs(px_combined(:)),99),prctile(abs(px_combined(:)),99)]);
+caxis([-1,1]);
+% colormap(colormap_BlueWhiteRed);
+colormap(brewermap([],'*RdBu'))
 
 
 %% Plot activity 3 areas or PCs together
