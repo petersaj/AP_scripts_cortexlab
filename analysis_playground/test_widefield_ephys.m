@@ -2883,7 +2883,7 @@ use_svs = 1:50;
 kernel_t = [-0.3,0.3];
 kernel_frames = round(kernel_t(1)*sample_rate):round(kernel_t(2)*sample_rate);
 % lambda = 4; % (COMMENT OUT TO USE LAMBDA ESTIMATION ELSEWHERE)
-% zs = [false,true];
+zs = [false,true];
 cvfold = 10;
 
 fVdf_resample = interp1(frame_t,fVdf(use_svs,:)',time_bin_centers)';
