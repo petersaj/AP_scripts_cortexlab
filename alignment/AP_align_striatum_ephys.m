@@ -76,6 +76,10 @@ str_depth = [str_start,str_end];
 
 switch str_align
     
+    case 'none'
+        %%% Don't group striatal templates
+        aligned_str_depth_group = [];
+        
     case 'depth'
         %%% Align striatal recordings using saved alignment
         % (this requires an input for n_aligned_depths)
@@ -89,7 +93,7 @@ switch str_align
                 if any(curr_animal_idx)
                     curr_day_idx = strcmp(day,ephys_depth_align(curr_animal_idx).day);
                     if any(curr_day_idx)
-                        if verbose; disp('Aligning striatum by saved depths...'); end;
+                        if verbose; disp('Aligning striatum by saved depths...'); end
                         
                         % Get the maximum striatal length, split evenly
                         all_str_lengths = diff(vertcat(ephys_depth_align(:).str_depth),[],2);
@@ -123,19 +127,23 @@ switch str_align
             if any(curr_animal_idx)
                 curr_day_idx = strcmp(day,ephys_kernel_align(curr_animal_idx).days);
                 if any(curr_day_idx)
-                    if verbose; disp('Aligning striatum by kernel alignment...'); end;
+                    if verbose; disp('Aligning striatum by kernel alignment...'); end
                     % (use previously saved depth groups)
                     aligned_str_depth_group = ephys_kernel_align(curr_animal_idx).aligned_str_depth_group{curr_day_idx};
                     n_aligned_depths = ephys_kernel_align(curr_animal_idx).n_aligned_depths(curr_day_idx);
                 end
             end
         end
+        % If the number of spike depths doesn't match depth groups, error
+        if length(spikeDepths) ~= length(aligned_str_depth_group)
+            error('Not 1:1 raw and aligned spike depths')
+        end
         
 end
 
 %% Plot the aligned groups
 
-if verbose && exist('aligned_str_depth_group','var');
+if verbose && exist('aligned_str_depth_group','var')
     [~,idx,~] = unique(spike_templates);
     template_aligned_depth = aligned_str_depth_group(idx)+1;
     template_aligned_depth(isnan(template_aligned_depth)) = 1;

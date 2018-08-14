@@ -22,13 +22,13 @@ if ~exist('load_parts','var')
     load_parts.ephys = true;
 else
     % If only some things specified, don't load others
-    if ~isfield(load_parts,'cam');
+    if ~isfield(load_parts,'cam')
         load_parts.cam = false;
     end
-    if ~isfield(load_parts,'imaging');
+    if ~isfield(load_parts,'imaging')
         load_parts.imaging = false;
     end
-    if ~isfield(load_parts,'ephys');
+    if ~isfield(load_parts,'ephys')
         load_parts.ephys = false;
     end
 end
@@ -605,7 +605,7 @@ if imaging_exists && load_parts.imaging
         hemo_tform_fn = [experiment_path filesep 'hemo_tform.mat'];
         if exist(hemo_tform_fn,'file')
             % If the hemo tform matrix has been computed, load and fix
-            if verbose; disp('Using old hemo tform...'); end;
+            if verbose; disp('Using old hemo tform...'); end
             load(hemo_tform_fn)
             zVh_Un = bsxfun(@minus, Vh_Un, nanmean(Vh_Un,2));
             Vn_hemo = transpose(Vn_th' - zVh_Un'*hemo_tform');
@@ -621,7 +621,7 @@ if imaging_exists && load_parts.imaging
             close(gcf)
         end
         
-        if verbose; disp('Filtering...'); end;
+        if verbose; disp('Filtering...'); end
         % Don't bother filtering heartbeat, just detrend and highpass
         % fVn_hemo = detrendAndFilt(Vn_hemo, framerate);
         highpassCutoff = 0.01; % Hz
@@ -827,7 +827,7 @@ if ephys_exists && load_parts.ephys
         spike_templates = new_spike_idx(spike_templates+1);
         
     elseif ~exist('cluster_groups','var')
-        if verbose; disp('Clusters not yet sorted'); end;
+        if verbose; disp('Clusters not yet sorted'); end
     end
     
 end
@@ -893,14 +893,14 @@ end
 if ephys_exists && load_parts.ephys
     if verbose; disp('Estimating striatum boundaries on probe...'); end
     
-    % str_align = alignment method ('depth' or 'kernel')
-    % if none specified, assume kernel
-    % if depth specified, requires n_aligned_depths
+    % str_align = alignment method ('none', 'depth', or 'kernel')
+    
+    % requires n_aligned_depths for alignment, default 4
     if ~exist('n_aligned_depths','var')
         n_aligned_depths = 4;
-        disp('No n_aligned_depths, default = 4')
     end
     
+    % if no alignment specified, default kernel
     if ~exist('str_align','var')
         str_align = 'kernel';
     end
