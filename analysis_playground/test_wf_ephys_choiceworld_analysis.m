@@ -7121,47 +7121,10 @@ linkaxes([p1,p2]);
 n_aligned_depths = 4;
 load_data = 'all';
 
-% Load data (early/late/all)
+% Load data
 data_path = 'C:\Users\Andrew\OneDrive for Business\Documents\CarandiniHarrisLab\analysis\wf_ephys_choiceworld\choiceworld';
-early_data_fn = ['all_trial_activity_df_kernel-str_earlymove_' num2str(n_aligned_depths) '_depths.mat'];
-late_data_fn = ['all_trial_activity_df_kernel-str_latemove_' num2str(n_aligned_depths) '_depths.mat'];
-
-switch load_data
-    case 'early'
-        load([data_path filesep early_data_fn])
-    case 'late'
-        load([data_path filesep late_data_fn])
-    case 'all'
-        early_data = load([data_path filesep early_data_fn]);
-        late_data = load([data_path filesep late_data_fn]);
-        
-        n_animals = length(early_data.D_all);
-        
-        D_all = cell(n_animals,1);
-        fluor_all = cell(n_animals,1);
-        mua_all = cell(n_animals,1);
-        wheel_all = cell(n_animals,1);
-        for curr_animal = 1:n_animals
-            for curr_day = 1:length(early_data.D_all{curr_animal})
-                D_all{curr_animal}{curr_day,1} = ...
-                    cell2struct(cellfun(@vertcat,struct2cell(early_data.D_all{curr_animal}{curr_day}), ...
-                    struct2cell(late_data.D_all{curr_animal}{curr_day}),'uni',0),fieldnames(early_data.D_all{curr_animal}{curr_day}),1);
-                
-                fluor_all{curr_animal}{curr_day,1} = ...
-                    [early_data.fluor_all{curr_animal}{curr_day}; ...
-                    late_data.fluor_all{curr_animal}{curr_day}];
-                
-                mua_all{curr_animal}{curr_day,1} = ...
-                    [early_data.mua_all{curr_animal}{curr_day}; ...
-                    late_data.mua_all{curr_animal}{curr_day}];
-                
-                wheel_all{curr_animal}{curr_day,1} = ...
-                    [early_data.wheel_all{curr_animal}{curr_day}; ...
-                    late_data.wheel_all{curr_animal}{curr_day}];
-                
-            end
-        end
-end
+data_fn = ['all_trial_activity_df_kernel-str_' num2str(n_aligned_depths) '_depths.mat'];
+load([data_path filesep data_fn]);
 
 % Get time
 framerate = 35;
@@ -7453,7 +7416,7 @@ xlabel('Contrast*Side');
 ylabel('Activity');
 
 % Plot average activity within condition restricted by reaction time
-plot_act = mua_allcat(:,:,3,1);
+plot_act = mua_allcat(:,:,1,1);
 
 rxn_times = linspace(0,0.5,6);
 n_rxn_times = length(rxn_times)-1;
@@ -7462,7 +7425,7 @@ activity_split = arrayfun(@(x) ...
     plot_act( ... 
     move_t' > rxn_times(x) & move_t' < rxn_times(x+1) & ...
     trial_side_allcat == 1 & ...
-    trial_contrast_allcat == 0.06 & ...
+    trial_contrast_allcat == 1 & ...
     trial_choice_allcat == -1,:), ...
     1:length(rxn_times)-1,'uni',false);
 

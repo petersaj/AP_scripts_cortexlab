@@ -22,6 +22,10 @@ recordings(2).day = '2017-12-09';
 recordings(3).animal = 'AP024';
 recordings(3).day = '2018-07-02';
 
+% Recording 4
+recordings(4).animal = 'AP029';
+recordings(4).day = '2018-08-15';
+
 %% Initialize variables to keep
 
 % Cross-correlation
@@ -38,7 +42,7 @@ gcamp_kernel = cell(size(recordings));
 
 %% Loop through all recordings
 
-for curr_recording = 1:length(recordings)
+for curr_recording = 4:length(recordings)
        
     %% Clear workspace, set current recording
     clearvars -except curr_recording recordings ...
@@ -54,11 +58,6 @@ for curr_recording = 1:length(recordings)
     experiments_dir = dir(AP_cortexlab_filename(animal,day,[],'expInfo'));
     experiments_num_idx = cellfun(@(x) ~isempty(x), regexp({experiments_dir.name},'^\d*$'));
     experiments = cellfun(@str2num,{experiments_dir(experiments_num_idx).name});
-    
-    % Exception for one recording: something unexplained happened in widefield
-    if strcmp(animal,'AP024') && strcmp(day,'2018-07-02')
-        experiments(experiments == 3) = [];
-    end
     
     % Loop through experiments, collate data
     frame_t_all = cell(size(experiments));
@@ -85,15 +84,16 @@ for curr_recording = 1:length(recordings)
         AP_print_progress_fraction(curr_exp,length(experiments));
     end
     
-    stitch_t = cumsum([0,cellfun(@(x) x(end)+1/framerate,frame_t_all(1:end-1))]);
+    stitch_t = cumsum([0,cellfun(@(x) ...
+        (x(end)-x(1))+1/framerate,frame_t_all(1:end-1))]);
     
     frame_t_stitch = cellfun(@(frame_t,stitch_t) ...
-        frame_t + stitch_t, ...
+        frame_t-frame_t(1) + stitch_t, ...
         frame_t_all, num2cell(stitch_t),'uni',false);
     
-    spike_times_timeline_all_stitch = cellfun(@(spike_times_timeline,stitch_t) ...
-        spike_times_timeline + stitch_t, ...
-        spike_times_timeline_all, num2cell(stitch_t),'uni',false);
+    spike_times_timeline_all_stitch = cellfun(@(frame_t,spike_times_timeline,stitch_t) ...
+        spike_times_timeline-frame_t(1) + stitch_t, ...
+        frame_t_all,spike_times_timeline_all,num2cell(stitch_t),'uni',false);
     
     % Concatenate all data
     frame_t = cat(2,frame_t_stitch{:});
@@ -459,12 +459,12 @@ plot(gcamp_kernel_t,vertcat(gcamp_kernel_norm{:})','linewidth',2);
 legend({recordings.animal});
 title('GCaMP kernel');
 
-% (I saved AP026 and AP024 averaged together)
-gcamp6s_kernel_t = gcamp_kernel_t;
-gcamp6s_kernel_nonnorm = nanmean(vertcat(gcamp_kernel_norm{[1,3]}),1);
-gcamp6s_kernel = (gcamp6s_kernel_nonnorm-gcamp6s_kernel_nonnorm(1))./ ...
-    max(gcamp6s_kernel_nonnorm-gcamp6s_kernel_nonnorm(1));
-save('C:\Users\Andrew\OneDrive for Business\Documents\CarandiniHarrisLab\analysis\wf_ephys_choiceworld\wf_processing\gcamp_kernel\gcamp6s_kernel.mat', ...
-    'gcamp6s_kernel_t','gcamp6s_kernel');
+% % (I saved AP026 and AP024 averaged together)
+% gcamp6s_kernel_t = gcamp_kernel_t;
+% gcamp6s_kernel_nonnorm = nanmean(vertcat(gcamp_kernel_norm{[1,3]}),1);
+% gcamp6s_kernel = (gcamp6s_kernel_nonnorm-gcamp6s_kernel_nonnorm(1))./ ...
+%     max(gcamp6s_kernel_nonnorm-gcamp6s_kernel_nonnorm(1));
+% save('C:\Users\Andrew\OneDrive for Business\Documents\CarandiniHarrisLab\analysis\wf_ephys_choiceworld\wf_processing\gcamp_kernel\gcamp6s_kernel.mat', ...
+%     'gcamp6s_kernel_t','gcamp6s_kernel');
 
 

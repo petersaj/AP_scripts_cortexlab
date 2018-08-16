@@ -48,9 +48,14 @@ if timeline_exists
     
     % Get camera times
     timeline_cam_idx = strcmp({Timeline.hw.inputs.name}, cam_name);
-    cam_samples = find(Timeline.rawDAQData(1:end-1,timeline_cam_idx) <= 2 & ...
+    
+    cam_expose_starts = find(Timeline.rawDAQData(1:end-1,timeline_cam_idx) <= 2 & ...
         Timeline.rawDAQData(2:end,timeline_cam_idx) > 2) + 1;
-    cam_time = Timeline.rawDAQTimestamps(cam_samples);
+    cam_expose_stops = find(Timeline.rawDAQData(1:end-1,timeline_cam_idx) >= 2 & ...
+        Timeline.rawDAQData(2:end,timeline_cam_idx) < 2) + 1;
+    
+    cam_time = Timeline.rawDAQTimestamps(cam_expose_starts);
+    cam_expose_times = cam_expose_stops - cam_expose_starts;
     
     % Get acqLive signal
     acqLive_idx = strcmp({Timeline.hw.inputs.name}, acqLive_name);
@@ -596,7 +601,31 @@ if imaging_exists && load_parts.imaging
         
         min_frames = min(size(Vn,2),size(Vh,2));
         Vn = Vn(:,1:min_frames);
+        tn = tn(1:min_frames);
+        
         Vh = Vh(:,1:min_frames);
+        th = th(1:min_frames);
+        
+        % Sometimes weird problem with camera at the end? 
+        % Identify by long exposure time and delete
+        cam_expose_time_reshape = ...
+            reshape(cam_expose_times(1:end-mod(length(cam_expose_times),2)),2,[]);
+        
+        if(size(cam_expose_time_reshape,2) ~= min_frames)
+            error('Mismatching exposure times and frames')
+        end
+        
+        bad_cam_expose = any(cam_expose_time_reshape > ...
+            median(cam_expose_time_reshape(:))*2,1);
+        
+        if any(bad_cam_expose)
+            warning(['Bad cam expose time: ' num2str(find(bad_cam_expose)) '/' num2str(min_frames)]);
+            Vn = Vn(:,~bad_cam_expose);
+            tn = tn(~bad_cam_expose);
+            
+            Vh = Vh(:,~bad_cam_expose);
+            th = th(~bad_cam_expose);
+        end
         
         Vn_th = SubSampleShift(Vn,1,2);
         
