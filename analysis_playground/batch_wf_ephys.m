@@ -1494,7 +1494,8 @@ warning('saving -v7.3');
 disp('Finished batch');
 
 
-%% X) Batch align striatum recordings from template kernels (OLD - made k)
+%% X) (OLD) Batch align striatum recordings from template kernels
+% (kernels are now saved and just aligned in this step)
 
 n_aligned_depths = 4;
  
@@ -1667,7 +1668,7 @@ save([save_path filesep save_fn],'ephys_kernel_align');
 disp('Saved ephys kernel alignment');
 
 
-%% X) Batch cortex -> striatum maps with depth alignment 
+%% X) (OLD) Batch cortex -> striatum maps with depth alignment
 % (not done anymore: templates gotten from finer depth alignment)
 
 n_aligned_depths = 4;
@@ -1800,7 +1801,8 @@ warning('saving -v7.3');
 disp('Finished batch');
 
 
-%% X) Make template kernels (OLD - by n depths)
+%% X) (OLD) Make template kernels 
+% this is now done by k-means on all fine depth kernels
 
 n_aligned_depths = 4;
 
@@ -6228,8 +6230,7 @@ for curr_animal = 1:length(animals)
         use_trials = ...
             trial_outcome ~= 0 & ...
             ~signals_events.repeatTrialValues(1:n_trials) & ...
-            stim_to_feedback < 1.5 & ...
-            stim_to_move > 0.5;
+            stim_to_feedback < 1.5; 
         
         % Get behavioural data
         D = struct;
@@ -6261,8 +6262,9 @@ clearvars -except n_aligned_depths fluor_all mua_all wheel_all D_all
 disp('Finished loading all')
 
 save_path = 'C:\Users\Andrew\OneDrive for Business\Documents\CarandiniHarrisLab\analysis\wf_ephys_choiceworld\choiceworld';
-save_fn = ['all_trial_activity_df_kernel-str_latemove_' num2str(n_aligned_depths) '_depths'];
+save_fn = ['all_trial_activity_df_kernel-str_' num2str(n_aligned_depths) '_depths'];
 save([save_path filesep save_fn]);
+
 
 %% Batch load and save activity from all choiceworld (common U)
 

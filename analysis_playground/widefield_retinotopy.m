@@ -887,14 +887,14 @@ switch lower(photodiode_type)
         % Check for case of mismatch between photodiode and stimuli:
         % odd number of stimuli, but one extra photodiode flip to come back down
         if mod(size(stim_screen,3),2) == 1 && ...
-                length(photodiode.timestamps) == size(stim_screen,3) + 1;
+                length(photodiode.timestamps) == size(stim_screen,3) + 1
             photodiode.timestamps(end) = [];
             photodiode.values(end) = [];
             warning('Odd number of stimuli, removed last photodiode');
         end
         
         % If there's still a mismatch, break
-        if size(stim_screen,3) ~= length(photodiode.timestamps);
+        if size(stim_screen,3) ~= length(photodiode.timestamps)
             warning([num2str(size(stim_screen,3)) ' stimuli, ', ...
                 num2str(length(photodiode.timestamps)) ' photodiode pulses']);
             
@@ -932,8 +932,8 @@ surround_samplerate = 1/(framerate*1);
 surround_time = surround_window(1):surround_samplerate:surround_window(2);
 response_n = nan(ny,nx);
 response_grid = cell(ny,nx);
-for px_y = 1:ny;
-    for px_x = 1:nx;
+for px_y = 1:ny
+    for px_x = 1:nx
         
         % Use first frame of dark or light stim
         align_stims = (stim_screen(px_y,px_x,2:end)~= 0) & ...

@@ -1757,7 +1757,7 @@ protocol = 'stimKalatsky';
 % protocol = 'AP_choiceWorldStimPassive';
 
 surround_window = [-0.5,3];
-framerate = 35.2;
+framerate = 35;
 surround_samplerate = 1/(framerate*1);
 t_surround = surround_window(1):surround_samplerate:surround_window(2);
 
@@ -1865,7 +1865,7 @@ axis image off;
 surround_window = [-0.5,2];
 upsample_rate = 3;
 
-framerate = 35.2;
+framerate = 35;
 surround_samplerate = 1/(framerate*upsample_rate);
 t_surround = surround_window(1):surround_samplerate:surround_window(2);
 t_df = conv2(t_surround,[1,1]/2,'valid');
@@ -1969,7 +1969,7 @@ use_fluor = 1; % 1 = ddf, 2 = df
 surround_window = [-0.5,3];
 upsample_rate = 5;
 
-framerate = 35.2;
+framerate = 35;
 surround_samplerate = 1/(framerate*upsample_rate);
 t = surround_window(1):surround_samplerate:surround_window(2);
 
@@ -5650,7 +5650,7 @@ conditions = combvec(contrasts,sides,choices,timings)';
 surround_window = [-0.5,3];
 upsample_rate = 5;
 
-framerate = 35.2;
+framerate = 35;
 surround_samplerate = 1/(framerate*upsample_rate);
 t_fluor = surround_window(1):surround_samplerate:surround_window(2);
 
@@ -5818,7 +5818,7 @@ n_depths = 6;
 % Get time
 raster_window = [-0.5,1];
 upsample_factor = 3;
-framerate = 35.2;
+framerate = 35;
 sample_rate = 1/(framerate*upsample_factor);
 t = raster_window(1):sample_rate:raster_window(2);
 
@@ -5889,7 +5889,7 @@ n_depths = 6;
 % Get time
 raster_window = [-0.5,1];
 upsample_factor = 3;
-framerate = 35.2;
+framerate = 35;
 sample_rate = 1/(framerate*upsample_factor);
 t = raster_window(1):sample_rate:raster_window(2);
 
@@ -6389,7 +6389,7 @@ fn = 'C:\Users\Andrew\OneDrive for Business\Documents\CarandiniHarrisLab\analysi
 load(fn);
 
 % Get time
-framerate = 35.2;
+framerate = 35;
 raster_window = [-0.5,1];
 upsample_factor = 3;
 sample_rate = 1/(framerate*upsample_factor);
@@ -6424,7 +6424,7 @@ n_depths = 6;
 % Get time
 raster_window = [-0.5,1];
 upsample_factor = 3;
-framerate = 35.2;
+framerate = 35;
 sample_rate = 1/(framerate*upsample_factor);
 t = raster_window(1):sample_rate:raster_window(2);
 
@@ -6459,7 +6459,7 @@ data_fn = ['activity_sessioncat_logistic_regression_earlymove_kernel-str_' num2s
 load([data_path filesep data_fn])
 
 % Get time
-framerate = 35.2;
+framerate = 35;
 raster_window = [-0.5,1];
 upsample_factor = 3;
 sample_rate = 1/(framerate*upsample_factor);
@@ -6550,7 +6550,7 @@ data_fn = ['activity_sessioncat_logistic_regression_neucombined_earlymove_kernel
 load([data_path filesep data_fn])
 
 % Get time
-framerate = 35.2;
+framerate = 35;
 raster_window = [-0.5,1];
 upsample_factor = 3;
 sample_rate = 1/(framerate*upsample_factor);
@@ -6626,7 +6626,7 @@ load([data_path filesep data_fn]);
 n_animals = length(D_all);
 
 % Get time
-framerate = 35.2;
+framerate = 35;
 raster_window = [-0.5,3];
 upsample_factor = 3;
 sample_rate = 1/(framerate*upsample_factor);
@@ -6803,7 +6803,7 @@ load([data_path filesep data_fn]);
 n_animals = length(D_all);
 
 % Get time
-framerate = 35.2;
+framerate = 35;
 raster_window = [-0.5,1];
 upsample_factor = 3;
 sample_rate = framerate*upsample_factor;
@@ -7164,7 +7164,7 @@ switch load_data
 end
 
 % Get time
-framerate = 35.2;
+framerate = 35;
 raster_window = [-0.5,1];
 upsample_factor = 3;
 sample_rate = framerate*upsample_factor;
@@ -7366,7 +7366,7 @@ xlabel('Time')
 title('Zero move R');
 
 % Plot activity
-plot_act = fluor_unilateral_allcat(:,:,1,1);
+plot_act = mua_allcat(:,:,1,1);
 
 % % (if concatenating side - messy, just here for the moment)
 % trial_contrast_allcat = [trial_contrast_allcat;trial_contrast_allcat];
@@ -7487,7 +7487,7 @@ legend([p{:}],arrayfun(@(x) [num2str(rxn_times(x)) '-' num2str(rxn_times(x+1))],
     1:length(rxn_times)-1,'uni',false));
 
 % Plot activity difference of conditions
-plot_act = fluor_unilateral_allcat(:,:,2,1);
+plot_act = mua_allcat(:,:,1,1);
 
 rxn_times = linspace(0,0.5,6);
 n_rxn_times = length(rxn_times)-1;
@@ -7894,7 +7894,7 @@ load([data_path filesep data_fn]);
 n_animals = length(D_all);
 
 % Get time
-framerate = 35.2;
+framerate = 35;
 raster_window = [-0.5,1];
 upsample_factor = 3;
 sample_rate = (framerate*upsample_factor);
@@ -8178,7 +8178,7 @@ load([data_path filesep data_fn]);
 n_animals = length(D_all);
 
 % Get time
-framerate = 35.2;
+framerate = 35;
 raster_window = [-0.5,1];
 upsample_factor = 3;
 sample_rate = (framerate*upsample_factor);
@@ -8226,7 +8226,7 @@ for curr_animal = 1:length(D_all)
     trial_day = cell2mat(cellfun(@(day,act) repmat(day,size(act,1),1), ...
         num2cell(1:length(fluor_all{curr_animal}))',fluor_all{curr_animal},'uni',false));
     
-    % Concatenate fluorescence, get L-R, normalize (all together)
+    % Concatenate fluorescence (all together)
     fluor_cat = cat(1,fluor_all{curr_animal}{:});
     
     % Concatenate MUA and normalize (separately by day)
@@ -8339,8 +8339,11 @@ move_t = t(move_idx)';
 load('C:\Users\Andrew\OneDrive for Business\Documents\CarandiniHarrisLab\analysis\wf_ephys_choiceworld\wf_processing\wf_alignment\U_master');
 
 % Settings to plot
-rxn_time_bins = {[0,0.1],[0.1,0.2],[0.2,0.3],[0.3,0.4],[0.6,0.7]};
-plot_align = 2;
+% rxn_time_bins = {[0,0.1],[0.1,0.2],[0.2,0.3],[0.3,0.4],[0.6,0.7]};
+rxn_time_bins = {[0.1,0.2],[0.2,0.4],[0.6,0.7]};
+% rxn_time_bins = {[0.1,0.4],[0.5,0.8]};
+
+plot_align = 1;
 normalize_px = true;
 
 % Get major trial types
@@ -8432,7 +8435,7 @@ if normalize_px
 end
 
 % Plot
-plot_rxn = 3;
+plot_rxn = 1;
 AP_image_scroll(cat(4,px_combined(:,:,:,:,plot_rxn),px_combined_hemidiff(:,:,:,:,plot_rxn)),t_diff);
 axis image; caxis([-1,1]); 
 % colormap(colormap_BlueWhiteRed);
@@ -8499,36 +8502,37 @@ end
 
 
 
-% % Get fluor trace from ROI
-plot_rxn = 1;
-AP_image_scroll(cat(4,px_combined(:,:,:,:,plot_rxn),px_combined_hemidiff(:,:,:,:,plot_rxn)),t_diff);
-axis image; caxis([-1,1]); 
-colormap(brewermap([],'*RdBu'))
-AP_reference_outline('ccf_aligned','k');
+% Get fluor trace from ROI
 
-U_roi = reshape(U_master(find(repmat(roi.mask,1,1,n_rois))),sum(roi.mask(:)),[]);
-
-smooth_factor = 3;
-fluor_roi = diff(conv2(reshape(nanmean(U_roi*reshape(permute(fluor_allcat(:,:,:,2), ...
-    [3,2,1,4]),n_rois,[]),1),size(fluor_allcat,2),[])',ones(1,smooth_factor)/smooth_factor,'same'),[],2);
-fluor_roi(fluor_roi < 0) = 0;
-
-
-figure;
-use_trials = ...
-    trial_contrast_allcat == 0 & ...
-    trial_choice_allcat == -1 & ...
-    move_t > 0.2 & move_t < 0.4;
-
-subplot(1,2,1);
-plot(t_diff,nanmean(fluor_roi(use_trials,:),1));
-line([0,0],ylim,'color','k');
-
-subplot(1,2,2);
-act_diff = mat2gray([zeros(size(fluor_roi,1),1),fluor_roi],double([0,prctile(reshape(fluor_roi,[],1),95)])) - ...
-    mat2gray(mua_allcat(:,:,3,2),[0,prctile(reshape(mua_allcat(:,:,3,2),[],1),95)]);
-plot(t,nanmean(act_diff(use_trials,:),1));
-line([0,0],ylim,'color','k');
+% plot_rxn = 1;
+% AP_image_scroll(cat(4,px_combined(:,:,:,:,plot_rxn),px_combined_hemidiff(:,:,:,:,plot_rxn)),t_diff);
+% axis image; caxis([-1,1]); 
+% colormap(brewermap([],'*RdBu'))
+% AP_reference_outline('ccf_aligned','k');
+% 
+% U_roi = reshape(U_master(find(repmat(roi.mask,1,1,n_rois))),sum(roi.mask(:)),[]);
+% 
+% smooth_factor = 3;
+% fluor_roi = diff(conv2(reshape(nanmean(U_roi*reshape(permute(fluor_allcat(:,:,:,2), ...
+%     [3,2,1,4]),n_rois,[]),1),size(fluor_allcat,2),[])',ones(1,smooth_factor)/smooth_factor,'same'),[],2);
+% fluor_roi(fluor_roi < 0) = 0;
+% 
+% 
+% figure;
+% use_trials = ...
+%     trial_contrast_allcat == 0 & ...
+%     trial_choice_allcat == -1 & ...
+%     move_t > 0.2 & move_t < 0.4;
+% 
+% subplot(1,2,1);
+% plot(t_diff,nanmean(fluor_roi(use_trials,:),1));
+% line([0,0],ylim,'color','k');
+% 
+% subplot(1,2,2);
+% act_diff = mat2gray([zeros(size(fluor_roi,1),1),fluor_roi],double([0,prctile(reshape(fluor_roi,[],1),95)])) - ...
+%     mat2gray(mua_allcat(:,:,3,2),[0,prctile(reshape(mua_allcat(:,:,3,2),[],1),95)]);
+% plot(t,nanmean(act_diff(use_trials,:),1));
+% line([0,0],ylim,'color','k');
 
 
 
@@ -8580,7 +8584,7 @@ switch load_data
 end
 
 % Get time
-framerate = 35.2;
+framerate = 35;
 raster_window = [-0.5,1];
 upsample_factor = 3;
 sample_rate = 1/(framerate*upsample_factor);
@@ -8876,7 +8880,7 @@ load([data_path filesep data_fn]);
 n_animals = length(D_all);
 
 % Get time
-framerate = 35.2;
+framerate = 35;
 raster_window = [-0.5,1];
 upsample_factor = 3;
 sample_rate = 1/(framerate*upsample_factor);
@@ -9147,7 +9151,7 @@ load([data_path filesep data_fn]);
 n_animals = length(D_all);
 
 % Get time
-framerate = 35.2;
+framerate = 35;
 raster_window = [-0.5,1];
 upsample_factor = 3;
 sample_rate = 1/(framerate*upsample_factor);
@@ -9358,7 +9362,7 @@ load([data_path filesep data_fn]);
 n_animals = length(D_all);
 
 % Get time
-framerate = 35.2;
+framerate = 35;
 raster_window = [-0.5,1];
 upsample_factor = 3;
 sample_rate = 1/(framerate*upsample_factor);
@@ -9606,7 +9610,7 @@ data_fn = ['all_trial_activity_df_kernel-str_earlymove_' num2str(n_aligned_depth
 load([data_path filesep data_fn]);
 
 % Get time
-framerate = 35.2;
+framerate = 35;
 raster_window = [-0.5,1];
 upsample_factor = 3;
 sample_rate = framerate*upsample_factor;
@@ -10009,7 +10013,7 @@ data_fn = ['all_trial_activity_df_kernel-str_earlymove_' num2str(n_aligned_depth
 load([data_path filesep data_fn]);
 
 % Get time
-framerate = 35.2;
+framerate = 35;
 raster_window = [-0.5,1];
 upsample_factor = 3;
 sample_rate = framerate*upsample_factor;
@@ -10273,7 +10277,7 @@ data_fn = ['all_trial_activity_df_kernel-str_earlymove_' num2str(n_aligned_depth
 load([data_path filesep data_fn]);
 
 % Get time
-framerate = 35.2;
+framerate = 35;
 raster_window = [-0.5,1];
 upsample_factor = 3;
 sample_rate = framerate*upsample_factor;
@@ -10536,7 +10540,7 @@ data_fn = 'C:\Users\Andrew\OneDrive for Business\Documents\CarandiniHarrisLab\an
 load(data_fn);
 
 % Set times
-framerate = 35.2;
+framerate = 35;
 upsample_factor = 2;
 sample_rate = framerate*upsample_factor;
 
@@ -10606,7 +10610,7 @@ data_fn = 'C:\Users\Andrew\OneDrive for Business\Documents\CarandiniHarrisLab\an
 load(data_fn);
 
 % Set times
-framerate = 35.2;
+framerate = 35;
 upsample_factor = 2;
 sample_rate = framerate*upsample_factor;
 
@@ -10706,7 +10710,7 @@ switch load_data
 end
 
 % Get time
-framerate = 35.2;
+framerate = 35;
 raster_window = [-0.5,1];
 upsample_factor = 3;
 sample_rate = framerate*upsample_factor;
@@ -11055,7 +11059,7 @@ switch load_data
 end
 
 % Get time
-framerate = 35.2;
+framerate = 35;
 raster_window = [-0.5,1];
 upsample_factor = 3;
 sample_rate = framerate*upsample_factor;
@@ -11488,7 +11492,7 @@ switch load_data
 end
 
 % Get time
-framerate = 35.2;
+framerate = 35;
 raster_window = [-0.5,1];
 upsample_factor = 3;
 sample_rate = framerate*upsample_factor;
@@ -11810,7 +11814,7 @@ switch load_data
 end
 
 % Get time
-framerate = 35.2;
+framerate = 35;
 raster_window = [-0.5,1];
 upsample_factor = 3;
 sample_rate = framerate*upsample_factor;
@@ -12260,7 +12264,7 @@ switch load_data
 end
 
 % Get time
-framerate = 35.2;
+framerate = 35;
 raster_window = [-0.5,1];
 upsample_factor = 3;
 sample_rate = framerate*upsample_factor;
@@ -12714,7 +12718,7 @@ load([data_path filesep data_fn]);
 n_animals = length(D_all);
 
 % Get time
-framerate = 35.2;
+framerate = 35;
 raster_window = [-0.5,1];
 upsample_factor = 3;
 sample_rate = (framerate*upsample_factor);

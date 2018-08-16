@@ -38,7 +38,7 @@ end
 [timeline_filename,timeline_exists] = AP_cortexlab_filename(animal,day,experiment,'timeline');
 
 if timeline_exists
-    if verbose; disp('Loading timeline...'); end;
+    if verbose; disp('Loading timeline...'); end
     
     load(timeline_filename);
     
@@ -66,7 +66,7 @@ end
 
 if protocol_exists
     
-    if verbose; disp('Loading mpep protocol...'); end;
+    if verbose; disp('Loading mpep protocol...'); end
     
     load(protocol_filename);
     
@@ -171,7 +171,7 @@ end
 
 if block_exists
     
-    if verbose; disp('Loading block file...'); end;
+    if verbose; disp('Loading block file...'); end
     
     load(block_filename);
     
@@ -215,7 +215,7 @@ if block_exists
         block_values_idx = cellfun(@(x) ~isempty(x),strfind(block_fieldnames,'Values'));
         block_times_idx = cellfun(@(x) ~isempty(x),strfind(block_fieldnames,'Times'));
         for curr_times = find(block_times_idx)'
-            if isempty(signals_events.(block_fieldnames{curr_times}));
+            if isempty(signals_events.(block_fieldnames{curr_times}))
                 % skip if empty
                 continue
             end
@@ -247,7 +247,7 @@ if block_exists
     
     % SPECIFIC TO PROTOCOL
     [~,expDef] = fileparts(block.expDef);
-    if strcmp(expDef,'vanillaChoiceworld');
+    if strcmp(expDef,'vanillaChoiceworld')
         
         % dumb signals thing, fix
         signals_events.hitValues = circshift(signals_events.hitValues,[0,-1]);
@@ -343,9 +343,9 @@ if block_exists
     elseif strcmp(expDef,'AP_choiceWorldStimPassive')
         % This is kind of a dumb hack to get the stimOn times, maybe not
         % permanent unless it works fine: get stim times by photodiode
-        % flips that are separated by 1s
+        % flips that are separated by > 1s
         photodiode_flip_diff = diff(stimScreen_on_t(photodiode_flip));
-        stimOn_idx = find(photodiode_flip_diff > 0.9 & photodiode_flip_diff < 1.1);
+        stimOn_idx = find(photodiode_flip_diff > 1);
         
         stimOn_times = stimScreen_on_t(photodiode_flip(stimOn_idx));
         
