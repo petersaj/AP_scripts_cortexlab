@@ -541,7 +541,7 @@ spatialComponents_fns = dir([data_path filesep 'svdSpatialComponents*']);
 imaging_exists = ~isempty(spatialComponents_fns);
 
 if imaging_exists && load_parts.imaging
-    if verbose; disp('Loading imaging data...'); end;
+    if verbose; disp('Loading imaging data...'); end
     
     % Get the imaging file locations
     spatialComponents_dir = dir([data_path filesep 'svdSpatialComponents*']);

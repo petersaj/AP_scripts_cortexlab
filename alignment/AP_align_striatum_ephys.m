@@ -135,7 +135,7 @@ switch str_align
             end
         end
         % If the number of spike depths doesn't match depth groups, error
-        if length(spikeDepths) ~= length(aligned_str_depth_group)
+        if exist('aligned_str_depth_group','var') && length(spikeDepths) ~= length(aligned_str_depth_group)
             error('Not 1:1 raw and aligned spike depths')
         end
         

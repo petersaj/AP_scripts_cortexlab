@@ -2856,14 +2856,14 @@ time_bin_centers = time_bins(1:end-1) + diff(time_bins)/2;
 % depth_groups_used = unique(depth_group);
 % depth_group_centers = depth_group_edges(1:end-1)+(diff(depth_group_edges)/2);
 
-% (to use aligned striatum depths)
-n_depths = n_aligned_depths;
-depth_group = aligned_str_depth_group;
+% % (to use aligned striatum depths)
+% n_depths = n_aligned_depths;
+% depth_group = aligned_str_depth_group;
 
-% % (for manual depth)
-% depth_group_edges = [0,3500];
-% n_depths = length(depth_group_edges) - 1;
-% [depth_group_n,depth_group] = histc(spikeDepths,depth_group_edges);
+% (for manual depth)
+depth_group_edges = [1900,3000];
+n_depths = length(depth_group_edges) - 1;
+[depth_group_n,depth_group] = histc(spikeDepths,depth_group_edges);
 
 binned_spikes = zeros(n_depths,length(time_bins)-1);
 for curr_depth = 1:n_depths
