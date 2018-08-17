@@ -375,8 +375,8 @@ ylabel('Fraction go left');
 legend([p1,p2],{'All','> Threshold'},'location','nw');
 
 % (save good experiments for later use)
-save_path = 'C:\Users\Andrew\OneDrive for Business\Documents\CarandiniHarrisLab\analysis\wf_ephys_choiceworld\bhv_processing';
-save_fn = 'use_experiments';
+save_path = 'C:\Users\Andrew\OneDrive for Business\Documents\CarandiniHarrisLab\analysis\wf_ephys_choiceworld\experiment_exclusion';
+save_fn = 'bhv_use_experiments';
 save([save_path filesep save_fn],'use_experiments');
 
 % Plot wheel velocity by correct/incorrect

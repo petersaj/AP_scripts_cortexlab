@@ -7804,19 +7804,12 @@ for curr_roi = 1:4
 end
 
 % Plot activity amplitude by wheel velocity
-use_rxn = move_t' > 0.5 & move_t' < 1;
-
+% THIS BINNING IS FUCKED UP not all groups are filled?
 use_trials = trial_contrast_allcat > 0 & ...
-    trial_side_allcat == -trial_choice_allcat & use_rxn;
-
-use_data = fluor_allcat(:,:,4,2);
-
-% (fit response as mean)
-fit_response = mat2gray(nanmean(abs(use_data(use_rxn,:)),1));
-% (fit response as first SVD component)
-% [rU,~,~] = svd(abs(use_data(use_rxn & ~any(isnan(use_data),2),:))');
-% fit_response = mat2gray(U(:,1).*sign(nanmean(U(:,1))))';
-
+    trial_side_allcat == trial_choice_allcat & ...
+    move_t > 0 & ;
+use_data = mua_allcat(:,:,1,1);
+fit_response = mat2gray(nanmean(use_data,1));
 activity_amplitude = fit_response'\use_data';
 activity_reconstruct = transpose(fit_response'*activity_amplitude);
 
@@ -8200,28 +8193,28 @@ upsample_factor = 3;
 sample_rate = (framerate*upsample_factor);
 t = raster_window(1):1/sample_rate:raster_window(2);
 
-% Load use experiments and cut out bad ones
-exclude_path = 'C:\Users\Andrew\OneDrive for Business\Documents\CarandiniHarrisLab\analysis\wf_ephys_choiceworld\experiment_exclusion';
-exclude_fn{1} = 'bhv_use_experiments';
-% exclude_fn{2} = 'expl_var_use_experiments';
-use_experiments_all = {};
-for curr_exclude = 1:length(exclude_fn)
-    curr_use_experiments = load([exclude_path filesep exclude_fn{curr_exclude}]);
-    use_experiments_all = [use_experiments_all;curr_use_experiments.use_experiments];
-end
-use_experiments = arrayfun(@(x) all(vertcat(use_experiments_all{:,x}),1), ...
-    1:size(use_experiments_all,2),'uni',false);
-
-D_all = cellfun(@(data,use_expts) data(use_expts),D_all,use_experiments','uni',false);
-fluor_all = cellfun(@(data,use_expts) data(use_expts),fluor_all,use_experiments','uni',false);
-mua_all = cellfun(@(data,use_expts) data(use_expts),mua_all,use_experiments','uni',false);
-wheel_all = cellfun(@(data,use_expts) data(use_expts),wheel_all,use_experiments','uni',false);
-
-use_animals = cellfun(@(x) ~isempty(x),D_all);
-D_all = D_all(use_animals);
-fluor_all = fluor_all(use_animals);
-mua_all = mua_all(use_animals);
-wheel_all = wheel_all(use_animals);
+% % Load use experiments and cut out bad ones
+% exclude_path = 'C:\Users\Andrew\OneDrive for Business\Documents\CarandiniHarrisLab\analysis\wf_ephys_choiceworld\experiment_exclusion';
+% exclude_fn{1} = 'bhv_use_experiments';
+% % exclude_fn{2} = 'expl_var_use_experiments';
+% use_experiments_all = {};
+% for curr_exclude = 1:length(exclude_fn)
+%     curr_use_experiments = load([exclude_path filesep exclude_fn{curr_exclude}]);
+%     use_experiments_all = [use_experiments_all;curr_use_experiments.use_experiments];
+% end
+% use_experiments = arrayfun(@(x) all(vertcat(use_experiments_all{:,x}),1), ...
+%     1:size(use_experiments_all,2),'uni',false);
+% 
+% D_all = cellfun(@(data,use_expts) data(use_expts),D_all,use_experiments','uni',false);
+% fluor_all = cellfun(@(data,use_expts) data(use_expts),fluor_all,use_experiments','uni',false);
+% mua_all = cellfun(@(data,use_expts) data(use_expts),mua_all,use_experiments','uni',false);
+% wheel_all = cellfun(@(data,use_expts) data(use_expts),wheel_all,use_experiments','uni',false);
+% 
+% use_animals = cellfun(@(x) ~isempty(x),D_all);
+% D_all = D_all(use_animals);
+% fluor_all = fluor_all(use_animals);
+% mua_all = mua_all(use_animals);
+% wheel_all = wheel_all(use_animals);
 
 
 % Get widefield ROIs
@@ -8372,10 +8365,10 @@ load('C:\Users\Andrew\OneDrive for Business\Documents\CarandiniHarrisLab\analysi
 % Settings to plot
 % rxn_time_bins = {[0,0.1],[0.1,0.2],[0.2,0.3],[0.3,0.4],[0.6,0.7]};
 % rxn_time_bins = {[0,0.15],[0.15,0.4],[0.6,0.7]};
-rxn_time_bins = {[0,0.5],[0.5,1]};
+rxn_time_bins = {[0.1,0.4],[0.6,0.8]};
 
 plot_align = 2;
-normalize_px = true;
+normalize_px = false;
 
 % Get major trial types
 vis_L_trials_hit = ...
