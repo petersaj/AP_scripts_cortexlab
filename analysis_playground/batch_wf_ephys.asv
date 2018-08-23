@@ -6410,7 +6410,7 @@ save_path = 'C:\Users\Andrew\OneDrive for Business\Documents\CarandiniHarrisLab\
 save_fn = ['all_trial_activity_Udf_kernel-str_' num2str(n_aligned_depths) '_depths'];
 save([save_path filesep save_fn],'-v7.3');
 
-%% Batch load and save activity from all choiceworld (common U - LONG)
+%% Batch load and save activity from all choiceworld (common U - NEW!!)
 
 n_aligned_depths = 4;
 
@@ -6508,9 +6508,9 @@ for curr_animal = 1:length(animals)
         
         % Reward
         t_bins = [t_peri_event-raster_sample_rate/2,t_peri_event(:,end)+raster_sample_rate/2];      
-        event_aligned_reward = (cell2mat(arrayfun(@(x) ...
+        event_aligned_reward = cell2mat(arrayfun(@(x) ...
             histcounts(reward_t_timeline,t_bins(x,:)), ...
-            [1:size(t_peri_event,1)]','uni',false))./raster_sample_rate) > 0;
+            [1:size(t_peri_event,1)]','uni',false))./raster_sample_rate;
         
         % Pick trials to use
         use_trials = ...
@@ -6536,20 +6536,20 @@ for curr_animal = 1:length(animals)
         fluor_all{curr_animal}{curr_day} = event_aligned_V(use_trials,:,:,:);
         mua_all{curr_animal}{curr_day} = event_aligned_mua(use_trials,:,:,:);
         wheel_all{curr_animal}{curr_day} = event_aligned_wheel(use_trials,:,:);
-        reward_all{curr_animal}{curr_day} = event_aligned_reward(use_trials,:,:);
+        reward_all{curr_animal}{curr_day} = event_aligned_wheel(use_trials,:,:);
         D_all{curr_animal}{curr_day} = D;
         
         AP_print_progress_fraction(curr_day,length(experiments));
     end
     
-    clearvars -except n_aligned_depths animals curr_animal fluor_all mua_all wheel_all reward_all D_all
+    clearvars -except n_aligned_depths animals curr_animal fluor_all mua_all wheel_all D_all
     
 end
-clearvars -except n_aligned_depths fluor_all mua_all wheel_all reward_all D_all
+clearvars -except n_aligned_depths fluor_all mua_all wheel_all D_all
 disp('Finished loading all')
 
 save_path = 'C:\Users\Andrew\OneDrive for Business\Documents\CarandiniHarrisLab\analysis\wf_ephys_choiceworld\choiceworld';
-save_fn = ['all_trial_activity_Udf_kernel-str_' num2str(n_aligned_depths) '_depths_long'];
+save_fn = ['all_trial_activity_Udf_kernel-str_' num2str(n_aligned_depths) '_depths'];
 save([save_path filesep save_fn],'-v7.3');
 
 %% Batch logistic regression on saved day-concatenated activity (neural data independently)

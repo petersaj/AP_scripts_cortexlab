@@ -1104,18 +1104,17 @@ vis_modulation = (vis_rate-baseline_rate)./(vis_rate+baseline_rate);
 %% PSTH plot by depth (all stim IDs)
 
 % Group by depth
-n_depth_groups = 20;
-% depth_group_edges = linspace(0,max(channel_positions(:,2)),n_depth_groups+1);
-depth_group_edges = round(linspace(str_depth(1),str_depth(2),n_depth_groups+1));
+n_depth_groups = 10;
+depth_group_edges = linspace(0,max(channel_positions(:,2)),n_depth_groups+1);
+% depth_group_edges = round(linspace(str_depth(1),str_depth(2),n_depth_groups+1));
 depth_group_centers = round(depth_group_edges(1:end-1)+diff(depth_group_edges)/2);
 depth_group = discretize(spikeDepths,depth_group_edges);
 
-% Group by aligned striatum
-depth_group = aligned_str_depth_group;
+
 
 % Create MUA times grouped according to depth
-mua_times = cell(max(depth_group),1);
-for curr_depth = 1:max(depth_group)
+mua_times = cell(n_depth_groups,1);
+for curr_depth = 1:n_depth_groups
     mua_times{curr_depth} = spike_times_timeline(depth_group == curr_depth);  
 %     mua_times{curr_depth} = spike_times_timeline(depth_group == curr_depth & ...
 %         ismember(spike_templates,find(msn)));
@@ -1125,11 +1124,11 @@ end
 raster_window = [-0.5,2.5];
 psth_bin_size = 0.001;
 
-depth_psth = nan(max(depth_group),diff(raster_window)/psth_bin_size,length(unique(stimIDs)));
+depth_psth = nan(n_depth_groups,diff(raster_window)/psth_bin_size,length(unique(stimIDs)));
 unique_stim = unique(stimIDs);
 for curr_stim_idx = 1:length(unique_stim)
     curr_stim = unique_stim(curr_stim_idx);
-    for curr_depth = 1:max(depth_group)
+    for curr_depth = 1:n_depth_groups
         [depth_psth(curr_depth,:,curr_stim_idx),bins,rasterX,rasterY,spikeCounts] = psthAndBA( ...
             mua_times{curr_depth}, ...
             stimOn_times(ismember(stimIDs,curr_stim)), ...
@@ -1652,7 +1651,7 @@ end
 
 %% Rasters and PSTHs aligned to stimuli
 
-use_spikes_idx = ismember(spike_templates,find(templateDepths >= 500 & templateDepths <= 1400));
+use_spikes_idx = ismember(spike_templates,find(templateDepths >= 0 & templateDepths <= 3000));
 % use_spikes_idx = ismember(spike_templates,find(templateDepths > 500 & templateDepths < 1500)) & ...
 %    (ismember(spike_templates,find(msn)));
 
@@ -1664,7 +1663,7 @@ use_spike_templates = spike_templates(use_spikes_idx);
 align_times = stimOn_times;%(ismember(stimIDs,[3,4]));
 
 % PSTHs
-raster_window = [-0.5,2];
+raster_window = [-0.5,1];
 psthViewer(use_spikes,use_spike_templates, ...
     stimOn_times,raster_window,stimIDs);
 

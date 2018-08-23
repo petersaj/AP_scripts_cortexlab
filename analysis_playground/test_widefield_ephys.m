@@ -2856,14 +2856,14 @@ time_bin_centers = time_bins(1:end-1) + diff(time_bins)/2;
 % depth_groups_used = unique(depth_group);
 % depth_group_centers = depth_group_edges(1:end-1)+(diff(depth_group_edges)/2);
 
-% % (to use aligned striatum depths)
-% n_depths = n_aligned_depths;
-% depth_group = aligned_str_depth_group;
+% (to use aligned striatum depths)
+n_depths = n_aligned_depths;
+depth_group = aligned_str_depth_group;
 
-% (for manual depth)
-depth_group_edges = [1900,3000];
-n_depths = length(depth_group_edges) - 1;
-[depth_group_n,depth_group] = histc(spikeDepths,depth_group_edges);
+% % (for manual depth)
+% depth_group_edges = [1900,3000];
+% n_depths = length(depth_group_edges) - 1;
+% [depth_group_n,depth_group] = histc(spikeDepths,depth_group_edges);
 
 binned_spikes = zeros(n_depths,length(time_bins)-1);
 for curr_depth = 1:n_depths
@@ -2882,7 +2882,7 @@ binned_spikes(isnan(binned_spikes)) = 0;
 use_svs = 1:50;
 kernel_t = [-0.3,0.3];
 kernel_frames = round(kernel_t(1)*sample_rate):round(kernel_t(2)*sample_rate);
-% lambda = 4; % (COMMENT OUT TO USE LAMBDA ESTIMATION ELSEWHERE)
+lambda = 4; % (COMMENT OUT TO USE LAMBDA ESTIMATION ELSEWHERE)
 zs = [false,true];
 cvfold = 10;
 
@@ -2994,9 +2994,9 @@ binned_spikes(isnan(binned_spikes)) = 0;
 use_svs = 1:50;
 kernel_t = [-0.3,0.3];
 kernel_frames = round(kernel_t(1)*sample_rate):round(kernel_t(2)*sample_rate);
-% lambda = 1e5; % (COMMENT OUT TO USE LAMBDA FROM ESTIMATION ABOVE)
+lambda = 4; % (COMMENT OUT TO USE LAMBDA FROM ESTIMATION ABOVE)
 zs = [false,true];
-cvfold = 5 ;
+cvfold = 5;
 
 fVdf_resample = interp1(frame_t,fVdf(use_svs,:)',time_bin_centers)';
 
