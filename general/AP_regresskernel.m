@@ -1,5 +1,5 @@
 function [k,predicted_signals,explained_var,predicted_signals_reduced] = ...
-    AP_regresskernel(regressors,signals,t_shifts,lambdas,zs,cvfold)
+    AP_regresskernel(regressors,signals,t_shifts,lambdas,zs,cvfold,return_constant)
 % [k,predicted_signals,explained_var,predicted_signals_reduced] = AP_regresskernel(regressors,signals,t_shifts,lambdas,zs,cvfold)
 %
 % Linear regression of kernel from regressors to outputs
@@ -13,6 +13,7 @@ function [k,predicted_signals,explained_var,predicted_signals_reduced] = ...
 % zs - length 2 logical vector: zscore 1) regressors, 2) signals
 % (default is [false,true])
 % cvfold - fold cross-validation 
+% return_constant - if true, include constant in kernel (false by default)
 %
 % FOR MULTIPLE MODALITIES: make regressors and t_shifts cell arrays
 %
@@ -61,6 +62,11 @@ end
 % Set cross-validation to 1-fold if not entered
 if ~exist('cvfold','var') || isempty(cvfold)
    cvfold = 1; 
+end
+
+% Set return_constant false if not entered
+if ~exist('return_constant','var') || isempty(cvfold)
+   return_constant = false; 
 end
 
 % Create design matrix of all time-shifted regressors
@@ -183,9 +189,14 @@ if length(regressors) > 1
     explained_var.reduced = bsxfun(@rdivide,bsxfun(@minus,sse_complete_model,sse_partial),sse_signals);
 end
 
-% Get the final k from averaging (remove the constant term)
-k = mean(k_cv(1:end-1,:,:),3);
-
+% Get the final k from averaging
+% (to remove the constant term)
+if ~return_constant
+    k = mean(k_cv(1:end-1,:,:),3);
+    % (to keep constant term)
+elseif return_constant
+    k = mean(k_cv,3);
+end
 
 
 

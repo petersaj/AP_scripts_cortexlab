@@ -3532,6 +3532,22 @@ if isfield(batch_vars,'kernel_match')
     end
 end
 
+% Save kernels for extracting from fluorescence later (in pixel and V)
+% (turn kernel pixels into V from master U)
+load('C:\Users\Andrew\OneDrive for Business\Documents\CarandiniHarrisLab\analysis\wf_ephys_choiceworld\wf_processing\wf_alignment\U_master');
+n_px = size(U_master,1)*size(U_master,2);
+kernel_V = reshape(reshape(U_master,n_px,[])\reshape(r_px_mean,n_px,[]), ...
+    size(U_master,3),size(r_px_mean,3),n_depths);
+
+ctx_str_kernel.t = t;
+ctx_str_kernel.px = r_px_mean;
+ctx_str_kernel.V = kernel_V;
+
+ctx_str_kernel_fn = 'C:\Users\Andrew\OneDrive for Business\Documents\CarandiniHarrisLab\analysis\wf_ephys_choiceworld\wf_processing\wf_rois\ctx_str_kernel';
+save(ctx_str_kernel_fn,'ctx_str_kernel');
+disp('Saved ctx-str kernels');
+
+
 % Plot weights over time (only use ipsi ROIs)
 t = linspace(-0.3,0.3,size(r_px_mean,3));
 AP_image_scroll(r_px_mean,t)  
@@ -3757,6 +3773,7 @@ for i = 1:n_kernels
     imagesc(kernel_template(:,:,i));
     axis image off;
     colormap(gray);
+    AP_reference_outline('ccf_aligned','r');
 end
 
 % Load the kernel template matches
@@ -3815,7 +3832,41 @@ ylabel('Explained variance')
 legend({ctx_str_lambda.animal})
 
 
+%% Create ROIs from kernel templates
 
+% Load kernel templates
+n_aligned_depths = 4;
+kernel_template_fn = ['C:\Users\Andrew\OneDrive for Business\Documents\CarandiniHarrisLab\analysis\wf_ephys_choiceworld\ephys_processing\kernel_template_' num2str(n_aligned_depths) '_depths.mat'];
+load(kernel_template_fn);
+
+% Set cutoff, get rid of small islands
+kernel_cutoff = 0.2;
+smallest_area = 2000;
+
+kernel_bw = bwareaopen(kernel_template > kernel_cutoff,smallest_area);
+for curr_kernel = 1:size(kernel_bw,3)
+    kernel_bw(:,:,curr_kernel) = bwareaopen(kernel_bw(:,:,curr_kernel),smallest_area);
+end
+
+% Plot the kernels and ROIs
+figure; colormap(gray);
+for i = 1:n_kernels
+    subplot(2,n_kernels,i);
+    imagesc(kernel_template(:,:,i));
+    AP_reference_outline('ccf_aligned','r');
+    axis image off;
+    
+    subplot(2,n_kernels,i+n_kernels);
+    imagesc(kernel_bw(:,:,i));
+    AP_reference_outline('ccf_aligned','r');
+    axis image off;
+end
+
+% Save kernel ROIs
+kernel_roi = kernel_bw;
+kernel_roi_fn = 'C:\Users\Andrew\OneDrive for Business\Documents\CarandiniHarrisLab\analysis\wf_ephys_choiceworld\wf_processing\wf_rois\kernel_roi';
+save(kernel_roi_fn,'kernel_roi');
+disp('Saved kernel ROIs');
 
 
 %% ~~~~~ ~~~~~~~~~~~~~~~~ ~~~~~~
@@ -8100,7 +8151,7 @@ use_trials = ...
     trial_contrast_allcat > 0 & ...
     trial_side_allcat == 1 & ...
     trial_choice_allcat == -1 & ...
-    move_t' > 0.1 & move_t' < 0.3;
+    move_t' > 0.2 & move_t' < 0.3;
 
 use_align = 1;
 
@@ -8653,7 +8704,7 @@ n_aligned_depths = 4;
 
 % Load data
 data_path = 'C:\Users\Andrew\OneDrive for Business\Documents\CarandiniHarrisLab\analysis\wf_ephys_choiceworld\choiceworld';
-data_fn = ['all_trial_activity_Udf_kernel-str_4_depths_long.mat'];
+data_fn = ['all_trial_activity_Udf_kernel-str_4_depths.mat'];
 % data_fn = 'all_trial_activity_df_msn_earlymove.mat';
 
 load([data_path filesep data_fn]);
@@ -8661,7 +8712,7 @@ n_animals = length(D_all);
 
 % Get time
 framerate = 35;
-raster_window = [-0.5,1.5];
+raster_window = [-0.5,1];
 upsample_factor = 3;
 sample_rate = (framerate*upsample_factor);
 t = raster_window(1):1/sample_rate:raster_window(2);
@@ -8691,7 +8742,7 @@ wheel_all = wheel_all(use_animals);
 
 
 % Get widefield ROIs
-n_rois = 200;
+n_vs = 200;
 
 % MUA depths
 n_depths = size(mua_all{1}{1},3);
@@ -8705,9 +8756,9 @@ conditions = combvec(contrasts,sides,choices,timings)';
 n_conditions = size(conditions,1);
 
 % Normalize and concatenate activity/wheel
-fluor_allcat = nan(0,length(t),n_rois,1);
-mua_allcat = nan(0,length(t),n_depths,1);
-wheel_allcat = nan(0,length(t),1);
+fluor_allcat = nan(0,length(t),n_vs,2);
+mua_allcat = nan(0,length(t),n_depths,2);
+wheel_allcat = nan(0,length(t),2);
 
 trial_contrast_allcat = [];
 trial_side_allcat = [];
@@ -8838,10 +8889,10 @@ move_t = t(move_idx)';
 load('C:\Users\Andrew\OneDrive for Business\Documents\CarandiniHarrisLab\analysis\wf_ephys_choiceworld\wf_processing\wf_alignment\U_master');
 
 % Settings to plot
-rxn_time_bins = {[0,0.1],[0.1,0.2],[0.2,0.3],[0.3,0.4],[0.6,0.7]};
+% rxn_time_bins = {[0,0.1],[0.1,0.2],[0.2,0.3],[0.3,0.4],[0.6,0.7]};
 % rxn_time_bins = {[0,0.15],[0.15,0.4],[0.6,0.7]};
 % rxn_time_bins = {[0,0.5],[0.5,1]};
-% rxn_time_bins = {[0,1]};
+rxn_time_bins = {[0,0.5]};
 
 plot_align = 1;
 normalize_px = true;
@@ -8906,7 +8957,7 @@ for curr_rxn = 1:length(rxn_time_bins)
         smooth_factor = 3;
         curr_data = squeeze(nanmean(convn(fluor_allcat(curr_trials,:,:,plot_align), ...
             ones(1,smooth_factor)/smooth_factor,'same'),1))';
-        curr_px = diff(svdFrameReconstruct(U_master(:,:,1:n_rois),curr_data),[],3);
+        curr_px = diff(svdFrameReconstruct(U_master(:,:,1:n_vs),curr_data),[],3);
         curr_px(curr_px < 0) = 0;
         
         px_trial_types(:,:,:,curr_trial_type,curr_rxn) = curr_px;
@@ -9052,39 +9103,423 @@ for curr_rxn = 1:length(rxn_time_bins)
 end
 
 
-% Get fluor trace from ROI
+% Get fluorescence trace in kernel ROIs
+kernel_roi_fn = 'C:\Users\Andrew\OneDrive for Business\Documents\CarandiniHarrisLab\analysis\wf_ephys_choiceworld\wf_processing\wf_rois\kernel_roi';
+load(kernel_roi_fn);
+n_rois = size(kernel_roi,3);
+fluor_roi = nan(size(fluor_allcat,1),size(fluor_allcat,2)-1,n_rois);
 
-plot_rxn = 1;
-AP_image_scroll(cat(4,px_combined(:,:,:,:,plot_rxn),px_combined_hemidiff(:,:,:,:,plot_rxn)),t_diff);
-axis image; caxis([-1,1]); 
-colormap(brewermap([],'*RdBu'))
-AP_reference_outline('ccf_aligned','k');
-
-U_roi = reshape(U_master(find(repmat(roi.mask,1,1,n_rois))),sum(roi.mask(:)),[]);
+U_roi = bsxfun(@rdivide,transpose(reshape(U_master,[],size(U_master,3))'* ...
+    reshape(kernel_roi,[],size(kernel_roi,3))), ...
+    sum(reshape(kernel_roi,[],size(kernel_roi,3)),1)');
 
 smooth_factor = 3;
-fluor_roi = diff(conv2(reshape(nanmean(U_roi*reshape(permute(fluor_allcat(:,:,:,2), ...
-    [3,2,1,4]),n_rois,[]),1),size(fluor_allcat,2),[])',ones(1,smooth_factor)/smooth_factor,'same'),[],2);
+fluor_roi = diff(convn(permute(reshape(transpose(U_roi(:,1:n_vs)* ...
+    reshape(permute(fluor_allcat(:,:,:,1),[3,2,1,4]),n_vs,[])), ...
+    size(fluor_allcat,2),size(fluor_allcat,1),n_rois),[2,1,3]), ...
+    ones(1,smooth_factor)/smooth_factor,'valid'),[],2);
+% (zero negatives, normalize)
 fluor_roi(fluor_roi < 0) = 0;
+fluor_roi = bsxfun(@rdivide,fluor_roi,nanstd(reshape(fluor_roi,[],1,n_rois),[],1));
 
 
-figure;
-use_trials = ...
-    trial_contrast_allcat > 0 & ...
-    trial_side_allcat == -1 & ...
-    trial_choice_allcat == 1 & ...
-    move_t > 0 & move_t < 0.5;
+% Do something with this? use this as the new standard?
 
-subplot(1,2,1);
-plot(t_diff,nanmean(fluor_roi(use_trials,:),1));
+
+
+% % Get fluor trace from drawn ROI
+% plot_rxn = 1;
+% AP_image_scroll(cat(4,px_combined(:,:,:,:,plot_rxn),px_combined_hemidiff(:,:,:,:,plot_rxn)),t_diff);
+% axis image; caxis([-1,1]); 
+% colormap(brewermap([],'*RdBu'))
+% AP_reference_outline('ccf_aligned','k');
+% 
+% U_roi = nanmean(reshape(U_master(find(repmat(roi.mask,1,1,n_vs))),sum(roi.mask(:)),[]),1);
+% 
+% smooth_factor = 3;
+% fluor_roi = diff(conv2(reshape(nanmean(U_roi*reshape(permute(fluor_allcat(:,:,:,2), ...
+%     [3,2,1,4]),n_vs,[]),1),size(fluor_allcat,2),[])',ones(1,smooth_factor)/smooth_factor,'same'),[],2);
+% fluor_roi(fluor_roi < 0) = 0;
+
+
+%% Plot ROI activity from V-space data
+
+n_aligned_depths = 4;
+
+% Load data
+data_path = 'C:\Users\Andrew\OneDrive for Business\Documents\CarandiniHarrisLab\analysis\wf_ephys_choiceworld\choiceworld';
+data_fn = ['all_trial_activity_Udf_kernel-str_4_depths_long'];
+% data_fn = 'all_trial_activity_df_msn_earlymove.mat';
+
+load([data_path filesep data_fn]);
+n_animals = length(D_all);
+
+% Get time
+framerate = 35;
+raster_window = [-0.5,3];
+upsample_factor = 3;
+sample_rate = (framerate*upsample_factor);
+t = raster_window(1):1/sample_rate:raster_window(2);
+
+% Load use experiments and cut out bad ones
+exclude_path = 'C:\Users\Andrew\OneDrive for Business\Documents\CarandiniHarrisLab\analysis\wf_ephys_choiceworld\experiment_exclusion';
+exclude_fn{1} = 'bhv_use_experiments';
+% exclude_fn{2} = 'expl_var_use_experiments';
+use_experiments_all = {};
+for curr_exclude = 1:length(exclude_fn)
+    curr_use_experiments = load([exclude_path filesep exclude_fn{curr_exclude}]);
+    use_experiments_all = [use_experiments_all;curr_use_experiments.use_experiments];
+end
+use_experiments = arrayfun(@(x) all(vertcat(use_experiments_all{:,x}),1), ...
+    1:size(use_experiments_all,2),'uni',false);
+
+D_all = cellfun(@(data,use_expts) data(use_expts),D_all,use_experiments','uni',false);
+fluor_all = cellfun(@(data,use_expts) data(use_expts),fluor_all,use_experiments','uni',false);
+mua_all = cellfun(@(data,use_expts) data(use_expts),mua_all,use_experiments','uni',false);
+wheel_all = cellfun(@(data,use_expts) data(use_expts),wheel_all,use_experiments','uni',false);
+reward_all = cellfun(@(data,use_expts) data(use_expts),reward_all,use_experiments','uni',false);
+
+use_animals = cellfun(@(x) ~isempty(x),D_all);
+D_all = D_all(use_animals);
+fluor_all = fluor_all(use_animals);
+mua_all = mua_all(use_animals);
+wheel_all = wheel_all(use_animals);
+reward_all = reward_all(use_animals);
+
+% Get widefield components
+n_vs = 200;
+
+% MUA depths
+n_depths = size(mua_all{1}{1},3);
+
+% Normalize and concatenate activity/wheel
+fluor_allcat = nan(0,length(t),n_vs,1);
+mua_allcat = nan(0,length(t),n_depths,1);
+wheel_allcat = nan(0,length(t),1);
+reward_allcat = nan(0,length(t),1);
+
+trial_contrast_allcat = [];
+trial_side_allcat = [];
+trial_choice_allcat = [];
+
+for curr_animal = 1:length(D_all)
+    
+    trial_day = cell2mat(cellfun(@(day,act) repmat(day,size(act,1),1), ...
+        num2cell(1:length(fluor_all{curr_animal}))',fluor_all{curr_animal},'uni',false));
+    
+    % Concatenate fluorescence, get L-R, normalize (all together)
+    fluor_cat = cat(1,fluor_all{curr_animal}{:});
+    
+    % Concatenate MUA and normalize (separately by day)
+    mua_cat_raw = cat(1,mua_all{curr_animal}{:});
+    
+    n_align = size(fluor_cat,4);
+    
+    % NaN-out MUA trials with no spikes (no data collected - this should be
+    % done when getting the activity I guess using some method besides
+    % hist)
+    filled_mua_trials = +cell2mat(cellfun(@(x) repmat(any(reshape(permute(x,[1,2,4,3]),[],n_depths),1), ...
+        size(x,1),1),mua_all{curr_animal},'uni',false));    
+    filled_mua_trials(~filled_mua_trials) = NaN;
+    mua_cat_raw = bsxfun(@times,mua_cat_raw,permute(filled_mua_trials,[1,3,2,4]));
+    
+    % Smooth MUA with replicated edges
+    smooth_size = 9; % MUST BE ODD 
+    gw = gausswin(smooth_size,3)';
+    smWin = gw./sum(gw);
+    mua_cat_raw_smoothed = padarray(convn(mua_cat_raw,smWin,'valid'),[0,floor(size(smWin,2)/2)],'replicate','both');
+    
+    t_baseline = t < 0;        
+    mua_day_baseline = cell2mat(cellfun(@(x) ...
+        repmat(permute(nanmean(reshape(permute(x(:,t_baseline,:,1),[1,2,4,3]),[],n_depths),1), ...
+        [1,3,2,4]),[size(x,1),1]),  ...
+        mat2cell(mua_cat_raw_smoothed,cellfun(@(x) size(x,1), mua_all{curr_animal}),length(t),n_depths,n_align),'uni',false));
+    
+    mua_day_std = cell2mat(cellfun(@(x) ...
+        repmat(permute(nanstd(reshape(permute(x,[1,2,4,3]),[],n_depths),[],1), ...
+        [1,3,2,4]),[size(x,1),1]),  ...
+        mat2cell(mua_cat_raw_smoothed,cellfun(@(x) size(x,1), mua_all{curr_animal}),length(t),n_depths,n_align),'uni',false));
+    
+    softnorm = 20;
+    
+    mua_cat_norm = bsxfun(@rdivide,bsxfun(@minus,mua_cat_raw_smoothed,mua_day_baseline),mua_day_std+softnorm);   
+ 
+    % Concatenate wheel
+    wheel_cat = cat(1,wheel_all{curr_animal}{:});
+%     wheel_cat_norm = wheel_cat./prctile(max(max(abs(wheel_cat),[],2),[],3),95);
+    
+    % Concatenate behavioural data
+    D = struct;
+    D.stimulus = cell2mat(cellfun(@(x) x.stimulus,D_all{curr_animal},'uni',false));
+    D.response = cell2mat(cellfun(@(x) x.response,D_all{curr_animal},'uni',false));
+    D.repeatNum = cell2mat(cellfun(@(x) x.repeatNum,D_all{curr_animal},'uni',false));
+    
+    D.day = trial_day;
+
+    % Get trial ID   
+    trial_contrast = max(D.stimulus,[],2);
+    [~,side_idx] = max(D.stimulus > 0,[],2);
+    trial_side = (side_idx-1.5)*2;
+    trial_choice = -(D.response-1.5)*2;
+ 
+    % Concatenate everything
+    fluor_allcat = [fluor_allcat;fluor_cat];
+    mua_allcat = [mua_allcat;mua_cat_norm];
+    wheel_allcat = [wheel_allcat;wheel_cat];
+    reward_allcat = [reward_allcat;vertcat(reward_all{curr_animal}{:})];
+    
+    trial_contrast_allcat = [trial_contrast_allcat;trial_contrast];
+    trial_side_allcat = [trial_side_allcat;trial_side];
+    trial_choice_allcat = [trial_choice_allcat;trial_choice];
+   
+end
+
+% Get reaction time
+[~,move_idx] = max(abs(wheel_allcat(:,:,1)) > 2,[],2);
+move_t = t(move_idx)';
+
+% Get maximum wheel velocity in chosen direction
+wheel_velocity_allcat = [zeros(size(wheel_allcat,1),1,1),diff(wheel_allcat,[],2)];
+[max_speed,max_vel_idx] = max(abs(wheel_velocity_allcat(:,:,1).* ...
+    (bsxfun(@times,wheel_velocity_allcat(:,:,1),trial_choice_allcat) > 0)),[],2);
+vel_t = t(max_vel_idx);
+
+max_vel = max_speed.*trial_choice_allcat;
+
+% Load the master U
+load('C:\Users\Andrew\OneDrive for Business\Documents\CarandiniHarrisLab\analysis\wf_ephys_choiceworld\wf_processing\wf_alignment\U_master');
+
+% Get fluorescence in widefield ROIs
+wf_roi_fn = 'C:\Users\Andrew\OneDrive for Business\Documents\CarandiniHarrisLab\analysis\wf_ephys_choiceworld\wf_processing\wf_rois\wf_roi';
+load(wf_roi_fn);
+wf_roi = wf_roi(:,1);
+n_rois = numel(wf_roi);
+
+roi_mask = cat(3,wf_roi.mask);
+
+fluor_roi = nan(size(fluor_allcat,1),size(fluor_allcat,2)-1,n_rois);
+U_roi = bsxfun(@rdivide,transpose(reshape(U_master,[],size(U_master,3))'* ...
+    reshape(roi_mask,[],size(roi_mask,3))), ...
+    sum(reshape(roi_mask,[],size(roi_mask,3)),1)');
+
+smooth_size = 11;
+gw = gausswin(smooth_size,3)';
+smWin = gw./sum(gw);
+
+fluor_roi = permute(reshape(transpose(U_roi(:,1:n_vs)* ...
+    reshape(permute(fluor_allcat(:,:,:,1),[3,2,1,4]),n_vs,[])), ...
+    size(fluor_allcat,2),size(fluor_allcat,1),n_rois),[2,1,3]);
+
+fluor_roi_diff = diff(padarray(convn(fluor_roi,smWin,'valid'),[0,floor(size(smWin,2)/2)],'replicate','both'),[],2);
+
+% (zero negatives, normalize)
+fluor_roi_diff(fluor_roi_diff < 0) = 0;
+fluor_roi_diff = bsxfun(@rdivide,fluor_roi_diff,nanstd(reshape(fluor_roi_diff,[],1,n_rois),[],1));
+
+t_diff =  conv(t,[1,1]/2,'valid');
+
+% Get conditions for each trial, plot selected
+contrasts = [0,0.06,0.125,0.25,0.5,1];
+sides = [-1,1];
+choices = [-1,1];
+
+contrast_side_col = colormap_BlueWhiteRed(5);
+contrast_side_col(6,:) = 0;
+contrast_side_val = unique(sort([-contrasts,contrasts]))';
+
+choice_linewidth = [1,3];
+
+% contrast, side, choice
+plot_conditions = ...
+    [contrasts(2:end),contrasts(2:end); ...
+    -ones(1,5),ones(1,5); ...
+    ones(1,5),-ones(1,5)]';
+use_rxn = move_t > 0.2 & move_t < 0.3;
+    
+[~,plot_id] = ismember( ...
+    [trial_contrast_allcat,trial_side_allcat,trial_choice_allcat], ...
+    plot_conditions,'rows');
+
+figure; hold on;
+for curr_plot_condition = 1:size(plot_conditions,1)
+    
+    curr_trials = plot_id == curr_plot_condition & use_rxn;
+    curr_data = squeeze(nanmean(fluor_roi_diff(curr_trials,:,:),1));
+    
+    curr_contrast_side = max(trial_contrast_allcat(curr_trials))*sign(max(trial_side_allcat(curr_trials)));
+    contrast_side_idx = find(curr_contrast_side == contrast_side_val);
+    curr_col = contrast_side_col(contrast_side_idx,:);   
+    
+    curr_linewidth = mean(trial_choice_allcat(curr_trials))+2;
+    
+    AP_stackplot(curr_data,t_diff,5,false,curr_col,{wf_roi.area});
+    
+end
 line([0,0],ylim,'color','k');
+xlabel('Time from stim');
 
-subplot(1,2,2);
-act_diff = mat2gray([zeros(size(fluor_roi,1),1),fluor_roi],double([0,prctile(reshape(fluor_roi,[],1),95)])) - ...
-    mat2gray(mua_allcat(:,:,2,2),[0,prctile(reshape(mua_allcat(:,:,3,2),[],1),95)]);
-plot(t,nanmean(act_diff(use_trials,:),1));
+
+% Get fluorescence in kernel ROIs
+kernel_roi_fn = 'C:\Users\Andrew\OneDrive for Business\Documents\CarandiniHarrisLab\analysis\wf_ephys_choiceworld\wf_processing\wf_rois\kernel_roi';
+load(kernel_roi_fn);
+n_rois = size(kernel_roi,3);
+roi_mask = kernel_roi;
+
+fluor_roi = nan(size(fluor_allcat,1),size(fluor_allcat,2)-1,n_rois);
+U_roi = bsxfun(@rdivide,transpose(reshape(U_master,[],size(U_master,3))'* ...
+    reshape(roi_mask,[],size(roi_mask,3))), ...
+    sum(reshape(roi_mask,[],size(roi_mask,3)),1)');
+
+smooth_size = 11;
+gw = gausswin(smooth_size,3)';
+smWin = gw./sum(gw);
+
+fluor_roi = permute(reshape(transpose(U_roi(:,1:n_vs)* ...
+    reshape(permute(fluor_allcat(:,:,:,1),[3,2,1,4]),n_vs,[])), ...
+    size(fluor_allcat,2),size(fluor_allcat,1),n_rois),[2,1,3]);
+
+fluor_roi_diff = diff(padarray(convn(fluor_roi,smWin,'valid'),[0,floor(size(smWin,2)/2)],'replicate','both'),[],2);
+
+% (zero negatives, normalize)
+fluor_roi_diff(fluor_roi_diff < 0) = 0;
+fluor_roi_diff = bsxfun(@rdivide,fluor_roi_diff,nanstd(reshape(fluor_roi_diff,[],1,n_rois),[],1));
+
+t_diff =  conv(t,[1,1]/2,'valid');
+
+% % Re-align to movement onset
+% t_leeway = 0.5;
+% leeway_samples = round(t_leeway*sample_rate);
+% for i = 1:size(fluor_roi_diff,1)
+%     fluor_roi_diff(i,:,:) = circshift(fluor_roi_diff(i,:,:),-move_idx(i)+leeway_samples,2);
+% end
+
+% Get conditions for each trial, plot selected
+contrasts = [0,0.06,0.125,0.25,0.5,1];
+sides = [-1,1];
+choices = [-1,1];
+
+contrast_side_col = colormap_BlueWhiteRed(5);
+contrast_side_col(6,:) = 0;
+contrast_side_val = unique(sort([-contrasts,contrasts]))';
+
+choice_linewidth = [1,3];
+
+% contrast, side, choice
+plot_conditions = ...
+    [contrasts(2:end),contrasts(2:end); ...
+    -ones(1,5),ones(1,5); ...
+    ones(1,5),-ones(1,5)]';
+use_rxn = move_t > 0.2 & move_t < 0.3;
+    
+[~,plot_id] = ismember( ...
+    [trial_contrast_allcat,trial_side_allcat,trial_choice_allcat], ...
+    plot_conditions,'rows');
+
+figure; hold on;
+for curr_plot_condition = 1:size(plot_conditions,1)
+    
+    curr_trials = plot_id == curr_plot_condition & use_rxn;
+    curr_data = fluor_roi_diff(curr_trials,:,:);
+    
+    % Re-align to movement onset
+    t_leeway = 0.5;
+    leeway_samples = round(t_leeway*sample_rate);
+    curr_move_idx = move_idx(curr_trials);
+    for i = 1:size(curr_data,1)
+        curr_data(i,:,:) = circshift(curr_data(i,:,:),-curr_move_idx(i)+leeway_samples,2);
+    end
+    
+    curr_data_mean = squeeze(nanmean(curr_data,1));
+    
+    curr_contrast_side = max(trial_contrast_allcat(curr_trials))*sign(max(trial_side_allcat(curr_trials)));
+    contrast_side_idx = find(curr_contrast_side == contrast_side_val);
+    curr_col = contrast_side_col(contrast_side_idx,:);   
+    
+    curr_linewidth = mean(trial_choice_allcat(curr_trials))+2;
+    
+    AP_stackplot(curr_data_mean,t_diff,5,false,curr_col,1:n_rois);
+    
+end
 line([0,0],ylim,'color','k');
+xlabel('Time from stim');
 
+
+% Fluorescence with kernels
+ctx_str_kernel_fn = 'C:\Users\Andrew\OneDrive for Business\Documents\CarandiniHarrisLab\analysis\wf_ephys_choiceworld\wf_processing\wf_rois\ctx_str_kernel';
+load(ctx_str_kernel_fn)
+% (interpolate to upsampled)
+kernel_t_upsample = ctx_str_kernel.t(1):1/sample_rate:ctx_str_kernel.t(end);
+kernel_upsample = permute(interp1(ctx_str_kernel.t,permute(ctx_str_kernel.V,[2,1,3]),kernel_t_upsample),[2,1,3]);
+
+fluor_str_kernel_act = zeros(size(fluor_allcat,1),size(fluor_allcat,2)-1,n_depths,'single');
+for curr_depth = 1:n_depths
+    curr_conv = zeros(size(fluor_allcat,1),size(fluor_allcat,2)-1,size(fluor_allcat,3),'single');
+    for curr_v = 1:n_vs
+        curr_conv(:,:,curr_v) = ...
+            conv2(diff(fluor_allcat(:,:,curr_v),[],2),permute(kernel_upsample(curr_v,:,curr_depth),[3,2,1]),'same');
+    end
+    fluor_str_kernel_act(:,:,curr_depth) = sum(curr_conv,3);
+end
+
+fluor_str_kernel_act = bsxfun(@rdivide,fluor_str_kernel_act, ...
+    nanstd(reshape(fluor_str_kernel_act,[],1,n_depths),[],1));
+
+figure; hold on;
+for curr_plot_condition = 1:size(plot_conditions,1)
+    
+    curr_trials = plot_id == curr_plot_condition & use_rxn;
+    curr_data = fluor_str_kernel_act(curr_trials,:,:);
+    
+    % Re-align to movement onset
+    t_leeway = 0.5;
+    leeway_samples = round(t_leeway*sample_rate);
+    curr_move_idx = move_idx(curr_trials);
+    for i = 1:size(curr_data,1)
+        curr_data(i,:,:) = circshift(curr_data(i,:,:),-curr_move_idx(i)+leeway_samples,2);
+    end
+    
+    curr_data_mean = squeeze(nanmean(curr_data,1));
+    
+    curr_contrast_side = max(trial_contrast_allcat(curr_trials))*sign(max(trial_side_allcat(curr_trials)));
+    contrast_side_idx = find(curr_contrast_side == contrast_side_val);
+    curr_col = contrast_side_col(contrast_side_idx,:);
+    
+    curr_linewidth = mean(trial_choice_allcat(curr_trials))+2;
+    
+    AP_stackplot(curr_data_mean,t_diff,4,false,curr_col,1:n_depths);
+    
+end
+line([0,0],ylim,'color','k');
+xlabel('Time from stim');
+
+% Plot MUA
+figure; hold on;
+for curr_plot_condition = 1:size(plot_conditions,1)
+    
+    curr_trials = plot_id == curr_plot_condition & use_rxn;
+    curr_data = mua_allcat(curr_trials,:,:);
+    
+    % Re-align to movement onset
+    t_leeway = 0.5;
+    leeway_samples = round(t_leeway*sample_rate);
+    curr_move_idx = move_idx(curr_trials);
+    for i = 1:size(curr_data,1)
+        curr_data(i,:,:) = circshift(curr_data(i,:,:),-curr_move_idx(i)+leeway_samples,2);
+    end
+    
+    curr_data_mean = squeeze(nanmean(curr_data,1));
+    
+    curr_contrast_side = max(trial_contrast_allcat(curr_trials))*sign(max(trial_side_allcat(curr_trials)));
+    contrast_side_idx = find(curr_contrast_side == contrast_side_val);
+    curr_col = contrast_side_col(contrast_side_idx,:);
+    
+    curr_linewidth = mean(trial_choice_allcat(curr_trials))+2;
+    
+    AP_stackplot(curr_data_mean,t,2,false,curr_col,1:n_depths);
+    
+end
+line([0,0],ylim,'color','k');
+xlabel('Time from stim');
 
 
 %% Plot activity 3 areas or PCs together
@@ -12396,6 +12831,8 @@ ylabel('Weight')
 title('Wheel L - Wheel R')
 
 %% Regress from task events to activity (V,long)
+% this only uses stim, move onset, move ongoing, reward
+% generates predicted activity to use in other analyses
 
 n_aligned_depths = 4;
 
@@ -12561,7 +12998,6 @@ max_vel = max_speed.*trial_choice_allcat;
 % Load the master U
 load('C:\Users\Andrew\OneDrive for Business\Documents\CarandiniHarrisLab\analysis\wf_ephys_choiceworld\wf_processing\wf_alignment\U_master');
 
-
 % Downsample (otherwise it's too much for regression) and d(smooth(fluor))
 downsample_factor = 3;
 t_downsample = linspace(t(1),t(end),round(length(t)/downsample_factor));
@@ -12571,7 +13007,7 @@ smooth_factor = 3;
 t_diff =  conv(t,[1,1]/2,'valid');
 t_downsample_diff = conv(t_downsample,[1,1]/2,'valid');
 
-fluor_allcat_downsamp = permute(interp1(t_diff,permute(diff(convn( ...
+fluor_allcat_downsamp_diff = permute(interp1(t_diff,permute(diff(convn( ...
     fluor_allcat,ones(1,smooth_factor)/smooth_factor,'same'),[],2),[2,1,3,4]),t_downsample_diff),[2,1,3,4]);
 
 mua_allcat_downsamp = permute(interp1(t,permute(mua_allcat,[2,1,3,4]),t_downsample_diff),[2,1,3,4]);
@@ -12611,11 +13047,21 @@ for curr_trial = 1:size(move_onset_regressors,1)
     
 end
 
+% Move ongoing regressor - 1 if ongoing movement in that direction
+wheel_vel = [zeros(size(wheel,1),1),diff(wheel(:,:,1),[],2)];
+move_ongoing_regressors = zeros(size(wheel,1),size(wheel,2),2);
+move_ongoing_regressors(:,:,1) = wheel_vel < -2;
+move_ongoing_regressors(:,:,2) = wheel_vel > 2;
+
 % Wheel regressors - separate leftward/rightward velocity
 wheel_vel_norm = [zeros(size(wheel,1),1),diff(wheel(:,:,1),[],2)];
 wheel_vel_norm = wheel_vel_norm/prctile(abs(wheel_vel_norm(:)),95);
 wheel_vel_norm(abs(wheel_vel_norm) > 1) = sign(wheel_vel_norm(abs(wheel_vel_norm) > 1));
 wheel_regressors = abs(repmat(wheel_vel_norm,1,1,2).*cat(3,wheel_vel_norm < 0,wheel_vel_norm > 0)); 
+
+% Go cue regressor
+go_cue_regressor = zeros(size(wheel,1),size(wheel,2));
+go_cue_regressor(:,find(t_downsample_diff > 0.5,1)) = 1;
 
 % Reward regressors
 reward_allcat_downsamp = permute(interp1(t,permute(reward_allcat,[2,1,3,4]),t_downsample_diff,'nearest'),[2,1,3,4]);
@@ -12629,34 +13075,33 @@ for curr_trial = 1:size(reward_allcat,1)
    end
 end
 
-regressors = {stim_regressors;move_onset_regressors;reward_allcat_regressor};
+regressors = {stim_regressors;move_onset_regressors;move_ongoing_regressors;go_cue_regressor;reward_allcat_regressor};
 
 
 
 
 
 
-
-
-% Set trials to use
-use_trials = move_t > 0 & move_t < 0.5;
-
-% Do regression on fluor (not combined unilateral at the moment)
-t_shifts = {[-0.1,0.5];[-0.2,0.2];[-0.2,0.5]};
+% Set regression parameters
+use_trials = move_t > 0.6 & move_t < 0.7;
+t_shifts = {[-0.1,0.5];[-0.3,0.2];[-0.2,0.1];[-0.05,-0.5];[-0.2,0.5]};
 
 sample_shifts = cellfun(@(x) round(x(1)*(sample_rate/downsample_factor)): ...
     round(x(2)*(sample_rate/downsample_factor)),t_shifts,'uni',false);
 lambda = 0;
 zs = [false,false];
 cvfold = 5;
+return_constant = true;
 
-fluor_allcat_predicted = nan(size(fluor_allcat_downsamp));
 
-fluor_kernel = cell(length(regressors),n_rois);
+% Do regression on fluor
+fluor_allcat_predicted = nan(size(fluor_allcat_downsamp_diff));
+
+fluor_kernel = cell(length(regressors)+1,n_rois);
 fluor_expl_var = cell(length(regressors),n_rois);
 for curr_roi = 1:n_rois
     
-    activity = fluor_allcat_downsamp(use_trials,:,curr_roi,1);
+    activity = fluor_allcat_downsamp_diff(use_trials,:,curr_roi,1);
     
     activity_reshape = reshape(activity',[],1)';
     regressors_reshape = cellfun(@(x) ...
@@ -12664,7 +13109,7 @@ for curr_roi = 1:n_rois
     
     [kernel_flat,activity_predicted_reshape,expl_var,activity_predicted_reduced_reshape] = AP_regresskernel( ...
         cellfun(@(x) x(:,~isnan(activity_reshape)),regressors_reshape,'uni',false), ...
-        activity_reshape(~isnan(activity_reshape)),sample_shifts,lambda,zs,cvfold);
+        activity_reshape(~isnan(activity_reshape)),sample_shifts,lambda,zs,cvfold,return_constant);
     
     activity_predicted = nan(size(activity))';
     % (to use full model)
@@ -12672,59 +13117,41 @@ for curr_roi = 1:n_rois
     % (to use reduced model)
 %     activity_predicted(~isnan(activity')) = activity_predicted_reduced_reshape(:,:,1);
     activity_predicted = activity_predicted';    
-    fluor_allcat_predicted(use_trials,:,curr_roi,1) = activity_predicted;
-    
+    fluor_allcat_predicted(use_trials,:,curr_roi,1) = activity_predicted;    
     
     fluor_kernel(:,curr_roi) = cellfun(@(x,t) reshape(x,[],length(t)), ...
-        mat2cell(kernel_flat,cellfun(@(x) size(x,1),regressors_reshape).*cellfun(@length,sample_shifts),1), ...
-        sample_shifts,'uni',false);
+        mat2cell(kernel_flat,[cellfun(@(x) size(x,1),regressors_reshape);1].*[cellfun(@length,sample_shifts);1],1), ...
+        [sample_shifts;{1}],'uni',false);
     
     AP_print_progress_fraction(curr_roi,n_rois);
     
 end
 
+fluor_allcat_residual = fluor_allcat_downsamp_diff - fluor_allcat_predicted;
+
 use_svs = 200;
+% Plot regressors
+for curr_regressor = 1:length(regressors)
+    curr_k_v = permute(cell2mat(permute(fluor_kernel(1,1:use_svs),[1,3,2])),[3,2,1]);
+    curr_k_px = reshape(svdFrameReconstruct(U_master(:,:,1:use_svs), ...
+        reshape(a,use_svs,[])),size(U_master,1),size(U_master,2),[],size(a,3));
+    AP_image_scroll(curr_k_px,sample_shifts{curr_regressor}/(sample_rate/downsample_factor));
+    axis image
+    caxis([-prctile(abs(curr_k_px(:)),100),prctile(abs(curr_k_px(:)),100)]);
+    colormap(brewermap([],'*RdBu'))
+    AP_reference_outline('ccf_aligned','k');
+end
 
-% Stim regressors
-a = permute(cell2mat(permute(fluor_kernel(1,1:use_svs),[1,3,2])),[3,2,1]);
-b = reshape(svdFrameReconstruct(U_master(:,:,1:use_svs),reshape(a,use_svs,[])),size(U_master,1),size(U_master,2),[],size(a,3));
-AP_image_scroll(b,sample_shifts{1}/(sample_rate/downsample_factor));
-set(gcf,'Name','Stim');
-axis image
-caxis([-prctile(abs(b(:)),100),prctile(abs(b(:)),100)]);
-colormap(brewermap([],'*RdBu'))
-AP_reference_outline('ccf_aligned','k');
 
-% Move onset regressors
-a = permute(cell2mat(permute(fluor_kernel(2,1:use_svs),[1,3,2])),[3,2,1]);
-b = reshape(svdFrameReconstruct(U_master(:,:,1:use_svs),reshape(a,use_svs,[])),size(U_master,1),size(U_master,2),[],size(a,3));
-c = b;
-AP_image_scroll(c,sample_shifts{2}/(sample_rate/downsample_factor));
-set(gcf,'Name','Movement onset');
-axis image
-caxis([-prctile(abs(c(:)),100),prctile(abs(c(:)),100)]);
-colormap(brewermap([],'*RdBu'))
-AP_reference_outline('ccf_aligned','k');
 
-% Reward regressors
-a = permute(cell2mat(permute(fluor_kernel(3,1:use_svs),[1,3,2])),[3,2,1]);
-b = reshape(svdFrameReconstruct(U_master(:,:,1:use_svs),reshape(a,use_svs,[])),size(U_master,1),size(U_master,2),[],size(a,3));
-c = b;
-AP_image_scroll(c,sample_shifts{3}/(sample_rate/downsample_factor));
-set(gcf,'Name','Reward');
-axis image
-caxis([-prctile(abs(c(:)),100),prctile(abs(c(:)),100)]);
-colormap(brewermap([],'*RdBu'))
-AP_reference_outline('ccf_aligned','k');
 
 % Settings to plot
 % rxn_time_bins = {[0,0.1],[0.1,0.2],[0.2,0.3],[0.3,0.4]};
 % rxn_time_bins = {[0,0.15],[0.15,0.4],[0.6,0.7]};
 % rxn_time_bins = {[0,0.5],[0.5,1]};
-rxn_time_bins = {[0,0.5]};
+rxn_time_bins = {[0.1,0.3]};
 
-plot_align = 1;
-normalize_px = true;
+normalize_px = false;
 
 % Get major trial types
 vis_L_trials_hit = ...
@@ -12770,15 +13197,26 @@ for curr_rxn = 1:length(rxn_time_bins)
             move_t > rxn_time_bins{curr_rxn}(1) & ...
             move_t < rxn_time_bins{curr_rxn}(2);
         
-        curr_data = squeeze(nanmean(fluor_allcat_predicted(curr_trials,:,1:use_svs,plot_align),1))';
-        curr_px = svdFrameReconstruct(U_master(:,:,1:use_svs),curr_data);
+        curr_data = fluor_allcat_residual(curr_trials,:,1:use_svs);
+
+        % re-align to movement onset
+        t_leeway = 0.5;
+        leeway_samples = round(t_leeway*(sample_rate/downsample_factor));
+        curr_move_idx = move_idx(curr_trials);
+        for i = 1:size(curr_data,1)
+            curr_data(i,:) = circshift(curr_data(i,:),-curr_move_idx(i)+leeway_samples,2);
+        end
+        
+        curr_data_mean = squeeze(nanmean(curr_data,1))';
+        
+        curr_px = svdFrameReconstruct(U_master(:,:,1:use_svs),curr_data_mean);
         
         px_trial_types(:,:,:,curr_trial_type,curr_rxn) = curr_px;
+        
     end
     AP_print_progress_fraction(curr_rxn,length(rxn_time_bins));
 end
 
-t_diff = conv(t,[1,1]/2,'valid');
 
 % Flip and combine trial types
 % 1) visual hit (contra), 2) visual miss (ipsi), 3) zero (L)
@@ -12824,21 +13262,13 @@ colormap(brewermap([],'*RdBu'))
 
 % Do regression on MUA
 
-% Set trials to use
-use_trials = move_t > 0 & move_t < 0.5;
-
-t_shifts = {[-0.1,0.5];[-0.2,0.2];[-0.2,0.5]};
-lambda = 0;
-zs = [false,false];
-cvfold = 5;
-
 mua_allcat_predicted = nan(size(mua_allcat_downsamp));
 
-mua_kernel = cell(length(regressors),n_depths);
+mua_kernel = cell(length(regressors)+1,n_depths);
 mua_expl_var = cell(length(regressors),n_depths);
-for curr_roi = 1:n_depths
+for curr_depth = 1:n_depths
     
-    activity = mua_allcat_downsamp(use_trials,:,curr_roi,1);
+    activity = mua_allcat_downsamp(use_trials,:,curr_depth,1);
     
     activity_reshape = reshape(activity',[],1)';
     regressors_reshape = cellfun(@(x) ...
@@ -12846,7 +13276,7 @@ for curr_roi = 1:n_depths
     
     [kernel_flat,activity_predicted_reshape,expl_var,activity_predicted_reduced_reshape] = AP_regresskernel( ...
         cellfun(@(x) x(:,~isnan(activity_reshape)),regressors_reshape,'uni',false), ...
-        activity_reshape(~isnan(activity_reshape)),sample_shifts,lambda,zs,cvfold);
+        activity_reshape(~isnan(activity_reshape)),sample_shifts,lambda,zs,cvfold,return_constant);
     
     activity_predicted = nan(size(activity))';
     % (to use full model)
@@ -12854,23 +13284,22 @@ for curr_roi = 1:n_depths
     % (to use reduced model)
 %     activity_predicted(~isnan(activity')) = activity_predicted_reduced_reshape(:,:,1);
     activity_predicted = activity_predicted';    
-    mua_allcat_predicted(use_trials,:,curr_roi,1) = activity_predicted;
-    
+    mua_allcat_predicted(use_trials,:,curr_depth,1) = activity_predicted;
     
     mua_kernel(:,curr_roi) = cellfun(@(x,t) reshape(x,[],length(t)), ...
-        mat2cell(kernel_flat,cellfun(@(x) size(x,1),regressors_reshape).*cellfun(@length,sample_shifts),1), ...
-        sample_shifts,'uni',false);
+        mat2cell(kernel_flat,[cellfun(@(x) size(x,1),regressors_reshape);1].*[cellfun(@length,sample_shifts);1],1), ...
+        [sample_shifts;{1}],'uni',false);
     
-    AP_print_progress_fraction(curr_roi,n_depths);
+    AP_print_progress_fraction(curr_depth,n_depths);
     
 end
 
-
+mua_allcat_residual = mua_allcat_downsamp - mua_allcat_predicted;
 
 figure;
-for curr_regressor = 1:3
+for curr_regressor = 1:length(regressors)
     for curr_depth = 1:n_depths
-        subplot(3,n_depths,(curr_regressor-1)*n_depths+curr_depth)
+        subplot(length(regressors),n_depths,(curr_regressor-1)*n_depths+curr_depth)
         imagesc(mua_kernel{curr_regressor,curr_depth})
         colormap(hot);
     end
@@ -12885,8 +13314,17 @@ for curr_rxn = 1:length(rxn_time_bins)
         curr_trials = trial_types(:,curr_trial_type) & ...
             move_t > rxn_time_bins{curr_rxn}(1) & ...
             move_t < rxn_time_bins{curr_rxn}(2);
-        
-        curr_data = mua_allcat_predicted(curr_trials,:,:,plot_align);
+              
+        curr_data = mua_allcat_predicted(curr_trials,:,:);
+
+        % re-align to movement onset
+        t_leeway = 0.5;
+        leeway_samples = round(t_leeway*(sample_rate/downsample_factor));
+        curr_move_idx = move_idx(curr_trials);
+        for i = 1:size(curr_data,1)
+            curr_data(i,:) = circshift(curr_data(i,:),-curr_move_idx(i)+leeway_samples,2);
+        end        
+                
         mua_trial_types(:,:,curr_trial_type,curr_rxn) = squeeze(nanmean(curr_data,1))';
                
     end
@@ -12897,7 +13335,7 @@ figure;
 for i = 1:size(trial_types,2)
    subplot(size(trial_types,2)/2,2,i); hold on;
    set(gca,'ColorOrder',copper(4));
-   plot(mua_trial_types(:,:,i)','linewidth',2);
+   plot(t_downsample_diff,mua_trial_types(:,:,i)','linewidth',2);
 end
 
 

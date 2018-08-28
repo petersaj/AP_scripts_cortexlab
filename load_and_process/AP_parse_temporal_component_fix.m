@@ -1,8 +1,8 @@
 %% If the V's were parsed but the timestamps weren't saved
 
-animal = 'FR135';
-day = '2018-08-14';
-experiments = 3;
+animal = 'JL028';
+day = '2018-08-24';
+experiments = [2];
 
 [data_path,file_exists] = AP_cortexlab_filename(animal,day,[],'imaging');
 dataSummary_fn = [data_path filesep 'dataSummary_blue'];
