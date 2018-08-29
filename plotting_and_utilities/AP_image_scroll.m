@@ -50,11 +50,11 @@ handles.imgSlider = uicontrol('style','slider','units','normalized','position',y
 set(handles.imgSlider,'Callback',{@imgSlider_Listener, gui_fig});
 
 set(handles.imgSlider,'Enable','on');
-if dims == 3;
+if dims < 4
     n_images = size(images,3);
-elseif dims == 4 && ~handles.colored;
+elseif dims == 4 && ~handles.colored
     n_images = size(images,3);
-elseif dims == 4 && handles.colored;
+elseif dims == 4 && handles.colored
     n_images = size(images,4);
 end
 set(handles.imgSlider,'Min',1);
@@ -66,7 +66,7 @@ handles.n_images = n_images;
 
 % Create axes, plot first image
 handles.curr_im = 1;
-if dims == 3;
+if dims < 4
     handles.im = imagesc(handles.data(:,:,handles.curr_im));
 elseif dims == 4 && ~handles.colored;
     handles.im = imagesc(handles.data(:,:,handles.curr_im,handles.curr_condition));

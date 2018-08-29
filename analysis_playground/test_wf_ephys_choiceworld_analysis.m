@@ -13031,19 +13031,19 @@ end
 move_onset_regressors = zeros(size(wheel,1),size(wheel,2),2);
 for curr_trial = 1:size(move_onset_regressors,1)
     
-%     % To use binary
-%     if trial_choice_allcat(curr_trial) == -1
-%         move_onset_regressors(curr_trial,move_idx(curr_trial),1) = 1;        
-%     elseif trial_choice_allcat(curr_trial) == 1
-%         move_onset_regressors(curr_trial,move_idx(curr_trial),2) = 1;         
-%     end
-    
-    % To fold in maximum velocity in chosen direction
+    % To use binary
     if trial_choice_allcat(curr_trial) == -1
-        move_onset_regressors(curr_trial,move_idx(curr_trial),1) = abs(max_vel(curr_trial));
+        move_onset_regressors(curr_trial,move_idx(curr_trial),1) = 1;        
     elseif trial_choice_allcat(curr_trial) == 1
-        move_onset_regressors(curr_trial,move_idx(curr_trial),2) = abs(max_vel(curr_trial));
-    end    
+        move_onset_regressors(curr_trial,move_idx(curr_trial),2) = 1;         
+    end
+    
+%     % To fold in maximum velocity in chosen direction
+%     if trial_choice_allcat(curr_trial) == -1
+%         move_onset_regressors(curr_trial,move_idx(curr_trial),1) = abs(max_vel(curr_trial));
+%     elseif trial_choice_allcat(curr_trial) == 1
+%         move_onset_regressors(curr_trial,move_idx(curr_trial),2) = abs(max_vel(curr_trial));
+%     end    
     
 end
 
@@ -13085,7 +13085,7 @@ regressor_labels = {'Stim','Move onset','Move ongoing','Go cue','Reward'};
 
 % Set regression parameters
 use_trials = move_t > 0;
-t_shifts = {[-0.1,0.5];[-0.3,0.2];[-0.2,0.1];[-0.05,0.5];[-0.2,0.5]};
+t_shifts = {[-0.1,0.3];[-0.2,0.5];[0,0];[-0.05,0.3];[-0.1,0.5]};
 
 sample_shifts = cellfun(@(x) round(x(1)*(sample_rate/downsample_factor)): ...
     round(x(2)*(sample_rate/downsample_factor)),t_shifts,'uni',false);
@@ -13311,7 +13311,8 @@ figure;
 for curr_regressor = 1:length(regressors)
     for curr_depth = 1:n_depths
         subplot(length(regressors),n_depths,(curr_regressor-1)*n_depths+curr_depth)
-        imagesc(mua_kernel{curr_regressor,curr_depth})
+        imagesc(sample_shifts{curr_regressor}/(sample_rate/downsample_factor),[], ...
+            mua_kernel{curr_regressor,curr_depth})
         colormap(hot);
         title(regressor_labels{curr_regressor});
     end
@@ -13445,7 +13446,7 @@ plot_conditions = ...
 %     [0,0; ...
 %     -1,-1; ...
 %     -1,1]';
-use_rxn = move_t > 0.1 & move_t < 0.3;
+use_rxn = move_t > 0.6 & move_t < 0.7;
     
 [~,plot_id] = ismember( ...
     [trial_contrast_allcat,trial_side_allcat,trial_choice_allcat], ...
@@ -13520,13 +13521,13 @@ for curr_plot = 1:3
         curr_trials = plot_id == curr_plot_condition & use_rxn;
         curr_data = plot_data(curr_trials,:,:);
         
-        % re-align to movement onset
-        t_leeway = 0.5;
-        leeway_samples = round(t_leeway*(sample_rate/downsample_factor));
-        curr_move_idx = move_idx(curr_trials);
-        for i = 1:size(curr_data,1)
-            curr_data(i,:) = circshift(curr_data(i,:),-curr_move_idx(i)+leeway_samples,2);
-        end
+%         % re-align to movement onset
+%         t_leeway = 0.5;
+%         leeway_samples = round(t_leeway*(sample_rate/downsample_factor));
+%         curr_move_idx = move_idx(curr_trials);
+%         for i = 1:size(curr_data,1)
+%             curr_data(i,:) = circshift(curr_data(i,:),-curr_move_idx(i)+leeway_samples,2);
+%         end
         
         curr_data_mean = squeeze(nanmean(curr_data,1));
         
