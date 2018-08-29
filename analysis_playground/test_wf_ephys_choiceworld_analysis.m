@@ -8891,11 +8891,11 @@ load('C:\Users\Andrew\OneDrive for Business\Documents\CarandiniHarrisLab\analysi
 % Settings to plot
 % rxn_time_bins = {[0,0.1],[0.1,0.2],[0.2,0.3],[0.3,0.4],[0.6,0.7]};
 % rxn_time_bins = {[0,0.15],[0.15,0.4],[0.6,0.7]};
-% rxn_time_bins = {[0,0.5],[0.5,1]};
-rxn_time_bins = {[0,0.5]};
+rxn_time_bins = {[0.1,0.3],[0.6,0.7]};
+% rxn_time_bins = {[0,0.5]};
 
-plot_align = 1;
-normalize_px = true;
+plot_align = 2;
+normalize_px = false;
 
 % Get major trial types
 vis_L_trials_hit = ...
@@ -8987,7 +8987,7 @@ if normalize_px
 end
 
 % Plot
-plot_rxn = 1;
+plot_rxn = 3;
 AP_image_scroll(cat(4,px_combined(:,:,:,:,plot_rxn),px_combined_hemidiff(:,:,:,:,plot_rxn)),t_diff);
 axis image; caxis([-1,1]); 
 % colormap(colormap_BlueWhiteRed);
@@ -13059,9 +13059,10 @@ wheel_vel_norm = wheel_vel_norm/prctile(abs(wheel_vel_norm(:)),95);
 wheel_vel_norm(abs(wheel_vel_norm) > 1) = sign(wheel_vel_norm(abs(wheel_vel_norm) > 1));
 wheel_regressors = abs(repmat(wheel_vel_norm,1,1,2).*cat(3,wheel_vel_norm < 0,wheel_vel_norm > 0)); 
 
-% Go cue regressor
-go_cue_regressor = zeros(size(wheel,1),size(wheel,2));
-go_cue_regressor(:,find(t_downsample_diff > 0.5,1)) = 1;
+% Go cue regressors - separate for early/late move
+go_cue_regressors = zeros(size(wheel,1),size(wheel,2));
+go_cue_regressors(move_t < 0.5,find(t_downsample_diff > 0.5,1),1) = 1;
+go_cue_regressors(move_t > 0.5,find(t_downsample_diff > 0.5,1),2) = 1;
 
 % Reward regressors
 reward_allcat_downsamp = permute(interp1(t,permute(reward_allcat,[2,1,3,4]),t_downsample_diff,'nearest'),[2,1,3,4]);
@@ -13075,16 +13076,16 @@ for curr_trial = 1:size(reward_allcat,1)
    end
 end
 
-regressors = {stim_regressors;move_onset_regressors;move_ongoing_regressors;go_cue_regressor;reward_allcat_regressor};
-
+regressors = {stim_regressors;move_onset_regressors;move_ongoing_regressors;go_cue_regressors;reward_allcat_regressor};
+regressor_labels = {'Stim','Move onset','Move ongoing','Go cue','Reward'};
 
 
 
 
 
 % Set regression parameters
-use_trials = move_t > 0.6 & move_t < 0.7;
-t_shifts = {[-0.1,0.5];[-0.3,0.2];[-0.2,0.1];[-0.05,-0.5];[-0.2,0.5]};
+use_trials = move_t > 0;
+t_shifts = {[-0.1,0.5];[-0.3,0.2];[-0.2,0.1];[-0.05,0.5];[-0.2,0.5]};
 
 sample_shifts = cellfun(@(x) round(x(1)*(sample_rate/downsample_factor)): ...
     round(x(2)*(sample_rate/downsample_factor)),t_shifts,'uni',false);
@@ -13132,24 +13133,33 @@ fluor_allcat_residual = fluor_allcat_downsamp_diff - fluor_allcat_predicted;
 use_svs = 200;
 % Plot regressors
 for curr_regressor = 1:length(regressors)
-    curr_k_v = permute(cell2mat(permute(fluor_kernel(1,1:use_svs),[1,3,2])),[3,2,1]);
+    curr_k_v = permute(cell2mat(permute(fluor_kernel(curr_regressor,1:use_svs),[1,3,2])),[3,2,1]);
     curr_k_px = reshape(svdFrameReconstruct(U_master(:,:,1:use_svs), ...
-        reshape(a,use_svs,[])),size(U_master,1),size(U_master,2),[],size(a,3));
+        reshape(curr_k_v,use_svs,[])),size(U_master,1),size(U_master,2),[],size(curr_k_v,3));
     AP_image_scroll(curr_k_px,sample_shifts{curr_regressor}/(sample_rate/downsample_factor));
     axis image
     caxis([-prctile(abs(curr_k_px(:)),100),prctile(abs(curr_k_px(:)),100)]);
     colormap(brewermap([],'*RdBu'))
     AP_reference_outline('ccf_aligned','k');
+    title(regressor_labels{curr_regressor});
 end
-
-
-
+% Plot constant
+curr_k_v = permute(cell2mat(permute(fluor_kernel(length(regressors)+1,1:use_svs),[1,3,2])),[3,2,1]);
+curr_k_px = reshape(svdFrameReconstruct(U_master(:,:,1:use_svs), ...
+    reshape(curr_k_v,use_svs,[])),size(U_master,1),size(U_master,2),[],size(curr_k_v,3));
+figure;imagesc(curr_k_px);
+axis image
+caxis([-prctile(abs(curr_k_px(:)),100),prctile(abs(curr_k_px(:)),100)]);
+colormap(brewermap([],'*RdBu'))
+AP_reference_outline('ccf_aligned','k');
+title('Constant');
 
 % Settings to plot
 % rxn_time_bins = {[0,0.1],[0.1,0.2],[0.2,0.3],[0.3,0.4]};
 % rxn_time_bins = {[0,0.15],[0.15,0.4],[0.6,0.7]};
 % rxn_time_bins = {[0,0.5],[0.5,1]};
-rxn_time_bins = {[0.1,0.3]};
+% rxn_time_bins = {[0.1,0.3]};
+rxn_time_bins = {[0.6,0.7]};
 
 normalize_px = false;
 
@@ -13197,7 +13207,7 @@ for curr_rxn = 1:length(rxn_time_bins)
             move_t > rxn_time_bins{curr_rxn}(1) & ...
             move_t < rxn_time_bins{curr_rxn}(2);
         
-        curr_data = fluor_allcat_residual(curr_trials,:,1:use_svs);
+        curr_data = fluor_allcat_predicted(curr_trials,:,1:use_svs);
 
         % re-align to movement onset
         t_leeway = 0.5;
@@ -13286,7 +13296,7 @@ for curr_depth = 1:n_depths
     activity_predicted = activity_predicted';    
     mua_allcat_predicted(use_trials,:,curr_depth,1) = activity_predicted;
     
-    mua_kernel(:,curr_roi) = cellfun(@(x,t) reshape(x,[],length(t)), ...
+    mua_kernel(:,curr_depth) = cellfun(@(x,t) reshape(x,[],length(t)), ...
         mat2cell(kernel_flat,[cellfun(@(x) size(x,1),regressors_reshape);1].*[cellfun(@length,sample_shifts);1],1), ...
         [sample_shifts;{1}],'uni',false);
     
@@ -13302,6 +13312,7 @@ for curr_regressor = 1:length(regressors)
         subplot(length(regressors),n_depths,(curr_regressor-1)*n_depths+curr_depth)
         imagesc(mua_kernel{curr_regressor,curr_depth})
         colormap(hot);
+        title(regressor_labels{curr_regressor});
     end
 end
 
@@ -13315,15 +13326,15 @@ for curr_rxn = 1:length(rxn_time_bins)
             move_t > rxn_time_bins{curr_rxn}(1) & ...
             move_t < rxn_time_bins{curr_rxn}(2);
               
-        curr_data = mua_allcat_predicted(curr_trials,:,:);
+        curr_data = mua_allcat_residual(curr_trials,:,:);
 
-        % re-align to movement onset
-        t_leeway = 0.5;
-        leeway_samples = round(t_leeway*(sample_rate/downsample_factor));
-        curr_move_idx = move_idx(curr_trials);
-        for i = 1:size(curr_data,1)
-            curr_data(i,:) = circshift(curr_data(i,:),-curr_move_idx(i)+leeway_samples,2);
-        end        
+%         % re-align to movement onset
+%         t_leeway = 0.5;
+%         leeway_samples = round(t_leeway*(sample_rate/downsample_factor));
+%         curr_move_idx = move_idx(curr_trials);
+%         for i = 1:size(curr_data,1)
+%             curr_data(i,:) = circshift(curr_data(i,:),-curr_move_idx(i)+leeway_samples,2);
+%         end        
                 
         mua_trial_types(:,:,curr_trial_type,curr_rxn) = squeeze(nanmean(curr_data,1))';
                
