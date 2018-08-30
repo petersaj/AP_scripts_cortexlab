@@ -13658,8 +13658,14 @@ for i = 1:size(fluor_downsamp_roi_move,1)
 end
 
 % Concatenate all activity
-% activity_cat = cat(3,fluor_downsamp_roi,mua_allcat_downsamp);
-activity_cat = cat(3,fluor_predicted_roi,mua_allcat_predicted);
+% Real
+activity_cat = cat(3,fluor_downsamp_roi_move,mua_allcat_downsamp_move);
+% Predicted
+% activity_cat = cat(3,fluor_predicted_roi,mua_allcat_predicted);
+% Predicted with noise
+% activity_cat = cat(3,fluor_predicted_roi_move + randn(size(fluor_predicted_roi))*0.1*nanstd(fluor_predicted_roi(:)), ...
+%     mua_allcat_predicted_move + randn(size(mua_allcat_predicted))*1.5*nanstd(mua_allcat_predicted(:)));
+
 area_labels = [{wf_roi(:,1).area}, ...
     cellfun(@(x) ['Str ' num2str(x)],num2cell(1:n_depths),'uni',false)];
 
@@ -13702,8 +13708,8 @@ AP_image_scroll(corr_grid_cat,area_labels_grid_used);
 axis image;
 colormap(brewermap([],'*RdBu'));
 caxis([-0.5,0.5])
-line([54,54],ylim,'color','k');
-line(xlim,[54,54],'color','k');
+line(repmat(find(t_downsample_diff > 0,1),2,1),ylim,'color','k');
+line(xlim,repmat(find(t_downsample_diff > 0,1),2,1),'color','k');
 line(xlim,ylim,'color','k');
 
 % Get local-lag correlation
@@ -13717,6 +13723,7 @@ corr_diag_norm = bsxfun(@rdivide,corr_diag_local,max(abs(corr_diag_local),[],2))
 % Sort by PC1
 [coeff,score,latent] = pca(corr_diag_norm);
 [~,sort_idx] = sort(score(:,1));
+sort_idx = 1:size(corr_diag_norm,1);
 
 figure;
 imagesc(t_downsample_diff,[],corr_diag_norm(sort_idx,:));
@@ -13802,28 +13809,25 @@ str_str_corr_diag = corr_diag_local(ctx_str_used == 2,:);
 
 figure;
 subplot(4,3,[1,4,7]);
-[coeff,score,latent] = pca(ctx_ctx_corr_diag);
-[~,sort_idx] = sort(score(:,1));
-imagesc(t_downsample_diff,[],ctx_ctx_corr_diag(sort_idx,:));
+imagesc(t_downsample_diff,[],ctx_ctx_corr_diag);
 caxis([-1,1]);
 colormap(brewermap([],'*RdBu'));
 line([0,0],ylim,'color','k');
+title('Cortex-cortex corelations');
 
 subplot(4,3,[2,5,8]);
-[coeff,score,latent] = pca(ctx_str_corr_diag);
-[~,sort_idx] = sort(score(:,1));
-imagesc(t_downsample_diff,[],ctx_str_corr_diag(sort_idx,:));
+imagesc(t_downsample_diff,[],ctx_str_corr_diag);
 caxis([-1,1]);
 colormap(brewermap([],'*RdBu'));
 line([0,0],ylim,'color','k');
+title('Cortex-striatum corelations');
 
 subplot(4,3,[3,6,9]);
-[coeff,score,latent] = pca(str_str_corr_diag);
-[~,sort_idx] = sort(score(:,1));
-imagesc(t_downsample_diff,[],str_str_corr_diag(sort_idx,:));
+imagesc(t_downsample_diff,[],str_str_corr_diag);
 caxis([-1,1]);
 colormap(brewermap([],'*RdBu'));
 line([0,0],ylim,'color','k');
+title('Striatum-striatum corelations');
 
 subplot(4,3,[10,11,12]); hold on
 plot(t_downsample_diff,nanmean(ctx_ctx_corr_diag,1),'linewidth',2);
