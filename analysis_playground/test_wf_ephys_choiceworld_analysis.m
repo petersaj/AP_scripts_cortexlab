@@ -3532,20 +3532,20 @@ if isfield(batch_vars,'kernel_match')
     end
 end
 
-% Save kernels for extracting from fluorescence later (in pixel and V)
-% (turn kernel pixels into V from master U)
-load('C:\Users\Andrew\OneDrive for Business\Documents\CarandiniHarrisLab\analysis\wf_ephys_choiceworld\wf_processing\wf_alignment\U_master');
-n_px = size(U_master,1)*size(U_master,2);
-kernel_V = reshape(reshape(U_master,n_px,[])\reshape(r_px_mean,n_px,[]), ...
-    size(U_master,3),size(r_px_mean,3),n_depths);
-
-ctx_str_kernel.t = t;
-ctx_str_kernel.px = r_px_mean;
-ctx_str_kernel.V = kernel_V;
-
-ctx_str_kernel_fn = 'C:\Users\Andrew\OneDrive for Business\Documents\CarandiniHarrisLab\analysis\wf_ephys_choiceworld\wf_processing\wf_rois\ctx_str_kernel';
-save(ctx_str_kernel_fn,'ctx_str_kernel');
-disp('Saved ctx-str kernels');
+% % Save kernels for extracting from fluorescence later (in pixel and V)
+% % (turn kernel pixels into V from master U)
+% load('C:\Users\Andrew\OneDrive for Business\Documents\CarandiniHarrisLab\analysis\wf_ephys_choiceworld\wf_processing\wf_alignment\U_master');
+% n_px = size(U_master,1)*size(U_master,2);
+% kernel_V = reshape(reshape(U_master,n_px,[])\reshape(r_px_mean,n_px,[]), ...
+%     size(U_master,3),size(r_px_mean,3),n_depths);
+% 
+% ctx_str_kernel.t = t;
+% ctx_str_kernel.px = r_px_mean;
+% ctx_str_kernel.V = kernel_V;
+% 
+% ctx_str_kernel_fn = 'C:\Users\Andrew\OneDrive for Business\Documents\CarandiniHarrisLab\analysis\wf_ephys_choiceworld\wf_processing\wf_rois\ctx_str_kernel';
+% save(ctx_str_kernel_fn,'ctx_str_kernel');
+% disp('Saved ctx-str kernels');
 
 
 % Plot weights over time (only use ipsi ROIs)
@@ -13084,7 +13084,7 @@ regressor_labels = {'Stim','Move onset','Move ongoing','Go cue','Reward'};
 
 
 % Set regression parameters
-use_trials = move_t > 0;
+use_trials = true(size(move_t));
 t_shifts = {[-0.1,0.3];[-0.2,0.5];[0,0];[-0.05,0.3];[-0.1,0.5]};
 
 sample_shifts = cellfun(@(x) round(x(1)*(sample_rate/downsample_factor)): ...
@@ -13379,52 +13379,123 @@ fluor_predicted_roi = permute(reshape(transpose(U_roi(:,1:n_vs)* ...
 fluor_residual_roi = fluor_downsamp_roi - fluor_predicted_roi;
 
 % Plot mean residuals
-
+fluor_downsamp_roi_move = fluor_downsamp_roi;
 fluor_residual_roi_move = fluor_residual_roi;
 % re-align to movement onset
 t_leeway = 0.5;
 leeway_samples = round(t_leeway*(sample_rate/downsample_factor));
-for i = 1:size(fluor_residual_roi_move,1)
-    fluor_residual_roi_move(i,:) = circshift(fluor_residual_roi_move(i,:),-move_idx(i)+leeway_samples,2);
+for i = 1:size(fluor_downsamp_roi_move,1)
+    fluor_downsamp_roi_move(i,:,:) = circshift(fluor_downsamp_roi_move(i,:,:),-move_idx(i)+leeway_samples,2);
+    fluor_residual_roi_move(i,:,:) = circshift(fluor_residual_roi_move(i,:,:),-move_idx(i)+leeway_samples,2);
 end
 
+mua_allcat_downsamp_move = mua_allcat_downsamp;
 mua_allcat_residual_move = mua_allcat_residual;
 % re-align to movement onset
 t_leeway = 0.5;
 leeway_samples = round(t_leeway*(sample_rate/downsample_factor));
-for i = 1:size(mua_allcat_residual_move,1)
-    mua_allcat_residual_move(i,:) = circshift(mua_allcat_residual_move(i,:),-move_idx(i)+leeway_samples,2);
+for i = 1:size(mua_allcat_downsamp_move,1)
+    mua_allcat_downsamp_move(i,:,:) = circshift(mua_allcat_downsamp_move(i,:,:),-move_idx(i)+leeway_samples,2);
+    mua_allcat_residual_move(i,:,:) = circshift(mua_allcat_residual_move(i,:,:),-move_idx(i)+leeway_samples,2);
 end
 
-fluor_residual_mean = bsxfun(@rdivide,squeeze(nanmean(abs(fluor_residual_roi_move),1)), ...
-    nanstd(reshape(fluor_downsamp_roi,[],n_rois),[],1));
-mua_residual_mean = bsxfun(@rdivide,squeeze(nanmean(abs(mua_allcat_residual_move),1)), ...
-    nanstd(reshape(mua_allcat_downsamp,[],n_depths),[],1));
+plot_residual_trials = use_trials & move_t > 0.1 & move_t < 0.3;
 
-fluor_residual_mean_norm = bsxfun(@minus,fluor_residual_mean, ...
-    nanmean(fluor_residual_mean(t_downsample_diff < 0,:),1));
-mua_residual_mean_norm = bsxfun(@minus,mua_residual_mean, ...
-    nanmean(mua_residual_mean(t_downsample_diff < 0,:),1));
+fluor_downsamp_mean = squeeze(nanmean(fluor_downsamp_roi_move(plot_residual_trials,:,:),1));
+fluor_residual_mean = squeeze(nanmean(fluor_residual_roi_move(plot_residual_trials,:,:),1));
+fluor_residual_abs_mean = squeeze(nanmean(abs(fluor_residual_roi_move(plot_residual_trials,:,:)),1));
+% fluor_residual_abs_mean = bsxfun(@minus,fluor_residual_abs_mean, ...
+%     nanmean(fluor_residual_abs_mean(t_downsample_diff < -0.2,:),1));
+
+mua_downsamp_mean = squeeze(nanmean(mua_allcat_downsamp_move(plot_residual_trials,:,:),1));
+mua_residual_mean = squeeze(nanmean(mua_allcat_residual_move(plot_residual_trials,:,:),1));
+mua_residual_abs_mean = squeeze(nanmean(abs(mua_allcat_residual_move(plot_residual_trials,:,:)),1));
+% mua_residual_abs_mean = bsxfun(@minus,mua_residual_abs_mean, ...
+%     nanmean(mua_residual_abs_mean(t_downsample_diff < -0.2,:),1));
+
+fluor_sse_measured = squeeze(nansum(fluor_downsamp_roi_move(plot_residual_trials,:,:).^2,1));
+fluor_sse_residual = squeeze(nansum(fluor_residual_roi_move(plot_residual_trials,:,:).^2,1));
+fluor_expl_var = (fluor_sse_measured - fluor_sse_residual)./fluor_sse_measured;
+
+mua_sse_measured = squeeze(nansum(mua_allcat_downsamp_move(plot_residual_trials,:,:).^2,1));
+mua_sse_residual = squeeze(nansum(mua_allcat_residual_move(plot_residual_trials,:,:).^2,1));
+mua_expl_var = (mua_sse_measured - mua_sse_residual)./mua_sse_measured;
 
 figure;
-subplot(1,2,1); hold on;
+subplot(4,2,1); hold on;
 set(gca,'ColorOrder',jet(size(wf_roi,1)));
-plot(t_downsample_diff,fluor_residual_mean_norm,'linewidth',2);
+plot(t_downsample_diff,fluor_downsamp_mean,'linewidth',2);
 line([0,0],ylim,'color','k');
+ylabel('Mean activity')
+xlabel('Time from move');
 legend({wf_roi.area})
-ylabel('Mean residual (std)')
-xlabel('Time from move');
 
-subplot(1,2,2); hold on;
+subplot(4,2,2); hold on;
 set(gca,'ColorOrder',copper(n_depths));
-plot(t_downsample_diff,mua_residual_mean_norm,'linewidth',2);
+plot(t_downsample_diff,mua_downsamp_mean,'linewidth',2);
 line([0,0],ylim,'color','k');
-ylabel('Mean residual (std)')
+ylabel('Mean activity')
 xlabel('Time from move');
 
+subplot(4,2,3); hold on;
+set(gca,'ColorOrder',jet(size(wf_roi,1)));
+plot(t_downsample_diff,fluor_expl_var,'linewidth',2);
+line([0,0],ylim,'color','k');
+ylabel('Variance explained')
+xlabel('Time from move');
+
+subplot(4,2,4); hold on;
+set(gca,'ColorOrder',copper(n_depths));
+plot(t_downsample_diff,mua_expl_var,'linewidth',2);
+line([0,0],ylim,'color','k');
+ylabel('Variance explained')
+xlabel('Time from move');
+
+subplot(4,2,5); hold on;
+set(gca,'ColorOrder',jet(size(wf_roi,1)));
+plot(t_downsample_diff,fluor_residual_mean,'linewidth',2);
+line([0,0],ylim,'color','k');
+ylabel('Mean residual')
+xlabel('Time from move');
+
+subplot(4,2,6); hold on;
+set(gca,'ColorOrder',copper(n_depths));
+plot(t_downsample_diff,mua_residual_mean,'linewidth',2);
+line([0,0],ylim,'color','k');
+ylabel('Mean residual')
+xlabel('Time from move');
+
+subplot(4,2,7); hold on;
+set(gca,'ColorOrder',jet(size(wf_roi,1)));
+plot(t_downsample_diff,fluor_residual_abs_mean,'linewidth',2);
+line([0,0],ylim,'color','k');
+ylabel('Mean abs residual')
+xlabel('Time from move');
+
+subplot(4,2,8); hold on;
+set(gca,'ColorOrder',copper(n_depths));
+plot(t_downsample_diff,mua_residual_abs_mean,'linewidth',2);
+line([0,0],ylim,'color','k');
+ylabel('Mean abs residual')
+xlabel('Time from move');
+
+% Plot total explained variance
+figure;
+subplot(2,1,1);
+plot((sum(fluor_sse_measured,1)-sum(fluor_sse_residual,1))./ ...
+    sum(fluor_sse_measured,1),'k','linewidth',2)
+set(gca,'XTick',1:length(wf_roi),'XTickLabel',{wf_roi.area});
+ylabel('Explained variance');
+
+subplot(2,1,2);
+plot((sum(mua_sse_measured,1)-sum(mua_sse_residual,1))./ ...
+    sum(mua_sse_measured,1),'k','linewidth',2)
+ylabel('Explained variance');
+
+% Plot all trials measured and predicted
 [~,sort_idx] = sort(move_idx);
-AP_image_scroll([fluor_downsamp_roi(sort_idx,:,:),fluor_predicted_roi(sort_idx,:,:)])
-AP_image_scroll([mua_allcat_downsamp(sort_idx,:,:),mua_allcat_predicted(sort_idx,:,:)])
+AP_image_scroll([fluor_downsamp_roi(sort_idx,:,:),fluor_predicted_roi(sort_idx,:,:),fluor_residual_roi(sort_idx,:,:)],{wf_roi.area})
+AP_image_scroll([mua_allcat_downsamp(sort_idx,:,:),mua_allcat_predicted(sort_idx,:,:),mua_allcat_residual(sort_idx,:,:)])
 
 % Get conditions for each trial, plot selected
 contrasts = [0,0.06,0.125,0.25,0.5,1];
@@ -13441,12 +13512,12 @@ choice_linewidth = [1,3];
 plot_conditions = ...
     [contrasts(2:end),contrasts(2:end); ...
     -ones(1,5),ones(1,5); ...
-    ones(1,5),-ones(1,5)]';
+    -ones(1,5),ones(1,5)]';
 % plot_conditions = ...
 %     [0,0; ...
 %     -1,-1; ...
 %     -1,1]';
-use_rxn = move_t > 0.6 & move_t < 0.7;
+use_rxn = move_t > 0.1 & move_t < 0.3;
     
 [~,plot_id] = ismember( ...
     [trial_contrast_allcat,trial_side_allcat,trial_choice_allcat], ...
@@ -13521,13 +13592,13 @@ for curr_plot = 1:3
         curr_trials = plot_id == curr_plot_condition & use_rxn;
         curr_data = plot_data(curr_trials,:,:);
         
-%         % re-align to movement onset
-%         t_leeway = 0.5;
-%         leeway_samples = round(t_leeway*(sample_rate/downsample_factor));
-%         curr_move_idx = move_idx(curr_trials);
-%         for i = 1:size(curr_data,1)
-%             curr_data(i,:) = circshift(curr_data(i,:),-curr_move_idx(i)+leeway_samples,2);
-%         end
+        % re-align to movement onset
+        t_leeway = 0.5;
+        leeway_samples = round(t_leeway*(sample_rate/downsample_factor));
+        curr_move_idx = move_idx(curr_trials);
+        for i = 1:size(curr_data,1)
+            curr_data(i,:) = circshift(curr_data(i,:),-curr_move_idx(i)+leeway_samples,2);
+        end
         
         curr_data_mean = squeeze(nanmean(curr_data,1));
         
