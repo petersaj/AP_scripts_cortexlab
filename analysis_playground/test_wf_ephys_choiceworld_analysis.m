@@ -9103,43 +9103,7 @@ for curr_rxn = 1:length(rxn_time_bins)
 end
 
 
-% Get fluorescence trace in kernel ROIs
-kernel_roi_fn = 'C:\Users\Andrew\OneDrive for Business\Documents\CarandiniHarrisLab\analysis\wf_ephys_choiceworld\wf_processing\wf_rois\kernel_roi';
-load(kernel_roi_fn);
-n_rois = size(kernel_roi,3);
-fluor_roi = nan(size(fluor_allcat,1),size(fluor_allcat,2)-1,n_rois);
 
-U_roi = bsxfun(@rdivide,transpose(reshape(U_master,[],size(U_master,3))'* ...
-    reshape(kernel_roi,[],size(kernel_roi,3))), ...
-    sum(reshape(kernel_roi,[],size(kernel_roi,3)),1)');
-
-smooth_factor = 3;
-fluor_roi = diff(convn(permute(reshape(transpose(U_roi(:,1:n_vs)* ...
-    reshape(permute(fluor_allcat(:,:,:,1),[3,2,1,4]),n_vs,[])), ...
-    size(fluor_allcat,2),size(fluor_allcat,1),n_rois),[2,1,3]), ...
-    ones(1,smooth_factor)/smooth_factor,'valid'),[],2);
-% (zero negatives, normalize)
-fluor_roi(fluor_roi < 0) = 0;
-fluor_roi = bsxfun(@rdivide,fluor_roi,nanstd(reshape(fluor_roi,[],1,n_rois),[],1));
-
-
-% Do something with this? use this as the new standard?
-
-
-
-% % Get fluor trace from drawn ROI
-% plot_rxn = 1;
-% AP_image_scroll(cat(4,px_combined(:,:,:,:,plot_rxn),px_combined_hemidiff(:,:,:,:,plot_rxn)),t_diff);
-% axis image; caxis([-1,1]); 
-% colormap(brewermap([],'*RdBu'))
-% AP_reference_outline('ccf_aligned','k');
-% 
-% U_roi = nanmean(reshape(U_master(find(repmat(roi.mask,1,1,n_vs))),sum(roi.mask(:)),[]),1);
-% 
-% smooth_factor = 3;
-% fluor_roi = diff(conv2(reshape(nanmean(U_roi*reshape(permute(fluor_allcat(:,:,:,2), ...
-%     [3,2,1,4]),n_vs,[]),1),size(fluor_allcat,2),[])',ones(1,smooth_factor)/smooth_factor,'same'),[],2);
-% fluor_roi(fluor_roi < 0) = 0;
 
 
 %% Plot ROI activity from V-space data
@@ -13003,7 +12967,7 @@ load('C:\Users\Andrew\OneDrive for Business\Documents\CarandiniHarrisLab\analysi
 downsample_factor = 3;
 t_downsample = linspace(t(1),t(end),round(length(t)/downsample_factor));
 
-smooth_factor = 3;
+smooth_factor = 3
 
 t_diff =  conv(t,[1,1]/2,'valid');
 t_downsample_diff = conv(t_downsample,[1,1]/2,'valid');
@@ -13080,12 +13044,8 @@ end
 regressors = {stim_regressors;move_onset_regressors;move_ongoing_regressors;go_cue_regressors;reward_allcat_regressor};
 regressor_labels = {'Stim','Move onset','Move ongoing','Go cue','Reward'};
 
-
-
-
-
 % Set regression parameters
-use_trials = true(size(move_t));
+regress_trials = true(size(move_t));
 t_shifts = {[-0.1,0.3];[-0.2,0.5];[0,0];[-0.05,0.3];[-0.1,0.5]};
 
 sample_shifts = cellfun(@(x) round(x(1)*(sample_rate/downsample_factor)): ...
@@ -13096,18 +13056,18 @@ cvfold = 5;
 return_constant = true;
 
 
-% Do regression on fluor
+%%% Do regression on fluor
 fluor_allcat_predicted = nan(size(fluor_allcat_downsamp_diff));
 
 fluor_kernel = cell(length(regressors)+1,n_rois);
 fluor_expl_var = cell(length(regressors),n_rois);
 for curr_roi = 1:n_rois
     
-    activity = fluor_allcat_downsamp_diff(use_trials,:,curr_roi,1);
+    activity = fluor_allcat_downsamp_diff(regress_trials,:,curr_roi,1);
     
     activity_reshape = reshape(activity',[],1)';
     regressors_reshape = cellfun(@(x) ...
-        reshape(permute(x(use_trials,:,:),[2,1,3]),[],size(x,3))',regressors,'uni',false);
+        reshape(permute(x(regress_trials,:,:),[2,1,3]),[],size(x,3))',regressors,'uni',false);
     
     [kernel_flat,activity_predicted_reshape,expl_var,activity_predicted_reduced_reshape] = AP_regresskernel( ...
         cellfun(@(x) x(:,~isnan(activity_reshape)),regressors_reshape,'uni',false), ...
@@ -13119,7 +13079,7 @@ for curr_roi = 1:n_rois
     % (to use reduced model)
 %     activity_predicted(~isnan(activity')) = activity_predicted_reduced_reshape(:,:,1);
     activity_predicted = activity_predicted';    
-    fluor_allcat_predicted(use_trials,:,curr_roi,1) = activity_predicted;    
+    fluor_allcat_predicted(regress_trials,:,curr_roi,1) = activity_predicted;    
     
     fluor_kernel(:,curr_roi) = cellfun(@(x,t) reshape(x,[],length(t)), ...
         mat2cell(kernel_flat,[cellfun(@(x) size(x,1),regressors_reshape);1].*[cellfun(@length,sample_shifts);1],1), ...
@@ -13229,7 +13189,6 @@ for curr_rxn = 1:length(rxn_time_bins)
     AP_print_progress_fraction(curr_rxn,length(rxn_time_bins));
 end
 
-
 % Flip and combine trial types
 % 1) visual hit (contra), 2) visual miss (ipsi), 3) zero (L)
 px_combined = cat(4, ...
@@ -13269,10 +13228,7 @@ caxis([-1,1]);
 colormap(brewermap([],'*RdBu'))
 
 
-
-
-
-% Do regression on MUA
+%%% Do regression on MUA
 
 mua_allcat_predicted = nan(size(mua_allcat_downsamp));
 
@@ -13280,11 +13236,11 @@ mua_kernel = cell(length(regressors)+1,n_depths);
 mua_expl_var = cell(length(regressors),n_depths);
 for curr_depth = 1:n_depths
     
-    activity = mua_allcat_downsamp(use_trials,:,curr_depth,1);
+    activity = mua_allcat_downsamp(regress_trials,:,curr_depth,1);
     
     activity_reshape = reshape(activity',[],1)';
     regressors_reshape = cellfun(@(x) ...
-        reshape(permute(x(use_trials,:,:),[2,1,3]),[],size(x,3))',regressors,'uni',false);
+        reshape(permute(x(regress_trials,:,:),[2,1,3]),[],size(x,3))',regressors,'uni',false);
     
     [kernel_flat,activity_predicted_reshape,expl_var,activity_predicted_reduced_reshape] = AP_regresskernel( ...
         cellfun(@(x) x(:,~isnan(activity_reshape)),regressors_reshape,'uni',false), ...
@@ -13296,7 +13252,7 @@ for curr_depth = 1:n_depths
     % (to use reduced model)
 %     activity_predicted(~isnan(activity')) = activity_predicted_reduced_reshape(:,:,1);
     activity_predicted = activity_predicted';    
-    mua_allcat_predicted(use_trials,:,curr_depth,1) = activity_predicted;
+    mua_allcat_predicted(regress_trials,:,curr_depth,1) = activity_predicted;
     
     mua_kernel(:,curr_depth) = cellfun(@(x,t) reshape(x,[],length(t)), ...
         mat2cell(kernel_flat,[cellfun(@(x) size(x,1),regressors_reshape);1].*[cellfun(@length,sample_shifts);1],1), ...
@@ -13354,9 +13310,44 @@ for curr_rxn = 1:length(rxn_time_bins)
     end
 end
 
-%% AFTER REGRESSION ABOVE: Line plot results
+% Save regression results
+save_path = 'C:\Users\Andrew\OneDrive for Business\Documents\CarandiniHarrisLab\analysis\wf_ephys_choiceworld\choiceworld';
+save_fn = ['all_trial_activity_regressed'];
+save([save_path filesep save_fn], ...
+    'trial_contrast_allcat','trial_side_allcat','trial_choice_allcat', ...
+    'downsample_factor','t_downsample_diff','wheel', ...
+    'fluor_allcat_downsamp_diff','mua_allcat_downsamp', ...
+    'regressors','regressor_labels','t_shifts','regress_trials', ...
+    'fluor_allcat_predicted','fluor_kernel', ...
+    'mua_allcat_predicted','mua_kernel','-v7.3');
+disp('Saved regression');
 
-n_vs = 200;
+%% Load/prepare regression results from above
+
+% Load regression results
+regression_fn = 'C:\Users\Andrew\OneDrive for Business\Documents\CarandiniHarrisLab\analysis\wf_ephys_choiceworld\choiceworld\all_trial_activity_regressed.mat';
+load(regression_fn);
+
+% Get number of V's/depths
+n_vs = size(fluor_allcat_predicted,3);
+n_depths = size(mua_allcat_predicted,3);
+
+% Get time
+framerate = 35;
+raster_window = [-0.5,3];
+upsample_factor = 3;
+sample_rate = (framerate*upsample_factor);
+t = raster_window(1):1/sample_rate:raster_window(2);
+
+% Get move onset index
+[~,move_idx] = max(abs(wheel(:,:,1)) > 2,[],2);
+move_t = t_downsample_diff(move_idx)';
+
+% Load the master U
+load('C:\Users\Andrew\OneDrive for Business\Documents\CarandiniHarrisLab\analysis\wf_ephys_choiceworld\wf_processing\wf_alignment\U_master');
+
+
+%% Regression >> line plot results
 
 % Get fluorescence in widefield ROIs
 wf_roi_fn = 'C:\Users\Andrew\OneDrive for Business\Documents\CarandiniHarrisLab\analysis\wf_ephys_choiceworld\wf_processing\wf_rois\wf_roi';
@@ -13377,6 +13368,15 @@ fluor_predicted_roi = permute(reshape(transpose(U_roi(:,1:n_vs)* ...
     reshape(permute(fluor_allcat_predicted,[3,2,1,4]),n_vs,[])), ...
     size(fluor_allcat_downsamp_diff,2),size(fluor_allcat_downsamp_diff,1),n_rois),[2,1,3]);
 
+% Get residuals
+fluor_residual_roi = fluor_downsamp_roi - fluor_predicted_roi;
+mua_allcat_residual = mua_allcat_downsamp - mua_allcat_predicted;
+
+% Low-pass filter fluorescence (where does this ~10 Hz crap come from?)
+lowpassCutoff = 6; % Hz
+[b100s, a100s] = butter(2, lowpassCutoff/((sample_rate/downsample_factor)/2), 'low');
+fluor_downsamp_roi = filter(b100s,a100s,fluor_downsamp_roi,[],2);
+fluor_predicted_roi = filter(b100s,a100s,fluor_predicted_roi,[],2);
 fluor_residual_roi = fluor_downsamp_roi - fluor_predicted_roi;
 
 % Plot mean residuals
@@ -13400,7 +13400,7 @@ for i = 1:size(mua_allcat_downsamp_move,1)
     mua_allcat_residual_move(i,:,:) = circshift(mua_allcat_residual_move(i,:,:),-move_idx(i)+leeway_samples,2);
 end
 
-plot_residual_trials = use_trials & move_t > 0.1 & move_t < 0.3;
+plot_residual_trials = regress_trials & move_t > 0.1 & move_t < 0.3;
 
 fluor_downsamp_mean = squeeze(nanmean(fluor_downsamp_roi_move(plot_residual_trials,:,:),1));
 fluor_residual_mean = squeeze(nanmean(fluor_residual_roi_move(plot_residual_trials,:,:),1));
@@ -13510,14 +13510,14 @@ contrast_side_val = unique(sort([-contrasts,contrasts]))';
 choice_linewidth = [1,3];
 
 % contrast, side, choice
-% plot_conditions = ...
-%     [contrasts(2:end),contrasts(2:end); ...
-%     -ones(1,5),ones(1,5); ...
-%     -ones(1,5),ones(1,5)]';
 plot_conditions = ...
-    [0,0; ...
-    -1,-1; ...
-    -1,1]';
+    [contrasts(2:end),contrasts(2:end); ...
+    -ones(1,5),ones(1,5); ...
+    ones(1,5),-ones(1,5)]';
+% plot_conditions = ...
+%     [0,0; ...
+%     -1,-1; ...
+%     -1,1]';
 use_rxn = move_t > 0.1 & move_t < 0.3;
     
 [~,plot_id] = ismember( ...
@@ -13620,7 +13620,7 @@ linkaxes(p_str)
 
 
 
-%% Inter-area correlations by prediction/downsampled
+%% Regression >> inter-area correlations by prediction/downsampled
 
 % Get fluorescence in widefield ROIs
 wf_roi_fn = 'C:\Users\Andrew\OneDrive for Business\Documents\CarandiniHarrisLab\analysis\wf_ephys_choiceworld\wf_processing\wf_rois\wf_roi';
@@ -13643,28 +13643,45 @@ fluor_predicted_roi = permute(reshape(transpose(U_roi(:,1:n_vs)* ...
 
 fluor_residual_roi = fluor_downsamp_roi - fluor_predicted_roi;
 
+% Low-pass filter fluorescence (where does this ~10 Hz crap come from?)
+lowpassCutoff = 6; % Hz
+[b100s, a100s] = butter(2, lowpassCutoff/((sample_rate/downsample_factor)/2), 'low');
+
+fluor_downsamp_roi_filt = filter(b100s,a100s,fluor_downsamp_roi,[],2);
+fluor_predicted_roi_filt = filter(b100s,a100s,fluor_predicted_roi,[],2);
+fluor_residual_roi_filt = fluor_downsamp_roi - fluor_predicted_roi;
+
+mua_allcat_downsamp_filt = filter(b100s,a100s,mua_allcat_downsamp,[],2);
+mua_allcat_predicted_filt = filter(b100s,a100s,mua_allcat_predicted,[],2);
+
 % re-align to movement onset
-fluor_downsamp_roi_move = fluor_downsamp_roi;
-mua_allcat_downsamp_move = mua_allcat_downsamp;
-fluor_predicted_roi_move = fluor_predicted_roi;
-mua_allcat_predicted_move = mua_allcat_predicted;
+fluor_downsamp_roi_filt_move = fluor_downsamp_roi_filt;
+mua_allcat_downsamp_filt_move = mua_allcat_downsamp_filt;
+fluor_predicted_roi_filt_move = fluor_predicted_roi_filt;
+mua_allcat_predicted_filt_move = mua_allcat_predicted_filt;
 t_leeway = 0.5;
 leeway_samples = round(t_leeway*(sample_rate/downsample_factor));
 for i = 1:size(fluor_downsamp_roi_move,1)
-    fluor_downsamp_roi_move(i,:,:) = circshift(fluor_downsamp_roi_move(i,:,:),-move_idx(i)+leeway_samples,2);
-    mua_allcat_downsamp_move(i,:,:) = circshift(mua_allcat_downsamp_move(i,:,:),-move_idx(i)+leeway_samples,2);
-    fluor_predicted_roi_move(i,:,:) = circshift(fluor_predicted_roi_move(i,:,:),-move_idx(i)+leeway_samples,2);
-    mua_allcat_predicted_move(i,:,:) = circshift(mua_allcat_predicted_move(i,:,:),-move_idx(i)+leeway_samples,2);
+    fluor_downsamp_roi_filt_move(i,:,:) = circshift(fluor_downsamp_roi_filt_move(i,:,:),-move_idx(i)+leeway_samples,2);
+    mua_allcat_downsamp_filt_move(i,:,:) = circshift(mua_allcat_downsamp_filt_move(i,:,:),-move_idx(i)+leeway_samples,2);
+    fluor_predicted_roi_filt_move(i,:,:) = circshift(fluor_predicted_roi_filt_move(i,:,:),-move_idx(i)+leeway_samples,2);
+    mua_allcat_predicted_filt_move(i,:,:) = circshift(mua_allcat_predicted_filt_move(i,:,:),-move_idx(i)+leeway_samples,2);
 end
 
 % Concatenate all activity
-% Real
-activity_cat = cat(3,fluor_downsamp_roi_move,mua_allcat_downsamp_move);
-% Predicted
-% activity_cat = cat(3,fluor_predicted_roi,mua_allcat_predicted);
-% Predicted with noise
-% activity_cat = cat(3,fluor_predicted_roi_move + randn(size(fluor_predicted_roi))*0.1*nanstd(fluor_predicted_roi(:)), ...
-%     mua_allcat_predicted_move + randn(size(mua_allcat_predicted))*1.5*nanstd(mua_allcat_predicted(:)));
+%%% Real
+% activity_cat = cat(3,fluor_downsamp_roi_filt,mua_allcat_downsamp_filt);
+%%% Predicted
+% activity_cat = cat(3,fluor_predicted_roi_filt,mua_allcat_predicted_filt);
+%%% Predicted with independent noise
+% activity_cat = cat(3,fluor_predicted_roi_filt + randn(size(fluor_predicted_roi))*0.1*nanstd(fluor_predicted_roi(:)), ...
+%     mua_allcat_predicted_filt + randn(size(mua_allcat_predicted))*1.5*nanstd(mua_allcat_predicted(:)));
+%%% Predicted with common trial noise
+fluor_trial_noise = randn(size(fluor_predicted_roi(:,1,:)))*0.1*nanstd(fluor_predicted_roi(:));
+mua_trial_noise = randn(size(mua_allcat_predicted(:,1,:)))*1*nanstd(mua_allcat_predicted(:));
+activity_cat = cat(3, ...
+    bsxfun(@plus,fluor_predicted_roi_filt,fluor_trial_noise), ...
+    bsxfun(@plus,mua_allcat_predicted_filt,mua_trial_noise));
 
 area_labels = [{wf_roi(:,1).area}, ...
     cellfun(@(x) ['Str ' num2str(x)],num2cell(1:n_depths),'uni',false)];
@@ -13675,6 +13692,9 @@ use_trials = ...
     trial_side_allcat == 1 & ...
     trial_choice_allcat == -1 & ...
     move_t > 0.1 & move_t < 0.3;
+% use_trials = ...
+%     trial_contrast_allcat == 0 & ...
+%     move_t > 0 & move_t < 0.5;
 
 use_align = 1;
 
@@ -13712,6 +13732,9 @@ line(repmat(find(t_downsample_diff > 0,1),2,1),ylim,'color','k');
 line(xlim,repmat(find(t_downsample_diff > 0,1),2,1),'color','k');
 line(xlim,ylim,'color','k');
 
+% Get zero-lag correlation
+corr_diag = cell2mat(arrayfun(@(x) diag(corr_grid_cat(:,:,x)),1:size(corr_grid_cat,3),'uni',false))';
+
 % Get local-lag correlation
 max_lag = 0.05;
 max_lag_samples = round(max_lag*(sample_rate/downsample_factor));
@@ -13729,7 +13752,7 @@ figure;
 imagesc(t_downsample_diff,[],corr_diag_norm(sort_idx,:));
 caxis([-1,1]);
 colormap(brewermap([],'*RdBu'));
-set(gca,'YTick',1:size(corr_diag,1),'YTickLabel',area_labels_grid_used(sort_idx));
+set(gca,'YTick',1:size(corr_diag_local,1),'YTickLabel',area_labels_grid_used(sort_idx));
 line([0,0],ylim,'color','k');
 title('Local-lag correlations')
 
@@ -13750,7 +13773,7 @@ figure;
 imagesc(t_downsample_diff,[],corr_grid_local_diff(sort_idx,:));
 caxis([-max(abs(corr_grid_local_diff(:))),max(abs(corr_grid_local_diff(:)))]);
 colormap(brewermap([],'*RdBu'));
-set(gca,'YTick',1:size(corr_diag,1),'YTickLabel',area_labels_grid_used(sort_idx));
+set(gca,'YTick',1:size(corr_grid_local,1),'YTickLabel',area_labels_grid_used(sort_idx));
 line([0,0],ylim,'color','k');
 title('Forward-back correlations')
 
@@ -13813,21 +13836,21 @@ imagesc(t_downsample_diff,[],ctx_ctx_corr_diag);
 caxis([-1,1]);
 colormap(brewermap([],'*RdBu'));
 line([0,0],ylim,'color','k');
-title('Cortex-cortex corelations');
+title('Cortex-cortex correlations');
 
 subplot(4,3,[2,5,8]);
 imagesc(t_downsample_diff,[],ctx_str_corr_diag);
 caxis([-1,1]);
 colormap(brewermap([],'*RdBu'));
 line([0,0],ylim,'color','k');
-title('Cortex-striatum corelations');
+title('Cortex-striatum correlations');
 
 subplot(4,3,[3,6,9]);
 imagesc(t_downsample_diff,[],str_str_corr_diag);
 caxis([-1,1]);
 colormap(brewermap([],'*RdBu'));
 line([0,0],ylim,'color','k');
-title('Striatum-striatum corelations');
+title('Striatum-striatum correlations');
 
 subplot(4,3,[10,11,12]); hold on
 plot(t_downsample_diff,nanmean(ctx_ctx_corr_diag,1),'linewidth',2);
