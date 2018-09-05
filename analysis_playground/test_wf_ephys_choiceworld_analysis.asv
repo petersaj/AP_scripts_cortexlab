@@ -15090,6 +15090,19 @@ for curr_depth = 1:n_depths
     
 end
 
+mua_allcat_residual = mua_allcat_downsamp_filt - mua_allcat_predicted;
+
+% Get explained variance within time
+t_var = t_downsample_diff > 0 & t_downsample_diff < 0.5;
+mua_sse_measured = squeeze(nansum(mua_allcat_downsamp_filt(:,t_var,:).^2,1));
+mua_sse_residual = squeeze(nansum(mua_allcat_residual(:,t_var,:).^2,1));
+mua_expl_var = (mua_sse_measured - mua_sse_residual)./mua_sse_measured;
+figure;
+plot((sum(mua_sse_measured,1)-sum(mua_sse_residual,1))./ ...
+    sum(mua_sse_measured,1),'k','linewidth',2)
+ylabel('Explained variance');
+xlabel('Striatum depth');
+
 fluor_k_px = reshape(svdFrameReconstruct(U_master(:,:,1:200),reshape(fluor_k_reshape,200,[])), ...
     size(U_master,1),size(U_master,2),length(kernel_frames),[]);
 
@@ -15127,8 +15140,8 @@ end
 figure;
 mua_allcat_predicted_nlin = mua_allcat_predicted;
 for curr_depth = 1:n_depths       
-    measured_data = reshape(mua_allcat_downsamp_filt(:,:,curr_depth),[],1);
-    predicted_data = reshape(mua_allcat_predicted(:,:,curr_depth),[],1);
+    measured_data = reshape(mua_allcat_downsamp_filt(:,:,curr_depth)',[],1);
+    predicted_data = reshape(mua_allcat_predicted(:,:,curr_depth)',[],1);
     
     n_bins = 300;
     activity_bounds = linspace(-1,6,n_bins+1);
@@ -15151,8 +15164,7 @@ for curr_depth = 1:n_depths
         predicted_data_nlin(~isnan(predicted_bins)),[n_bins,1],@mean,nan);
     
     mua_allcat_predicted_nlin(:,:,curr_depth) = ...
-        reshape(predicted_data_nlin, ...
-        size(mua_allcat_predicted,1),size(mua_allcat_predicted,2));
+        predicted_data_nlin;
     
     subplot(1,n_depths,curr_depth); hold on;
     plot(measured_data_binmean,predicted_data_binmean,'linewidth',2);
@@ -15163,19 +15175,6 @@ for curr_depth = 1:n_depths
     ylabel('Predicted')
     axis square;
 end
-
-% Get explained variance within time
-mua_allcat_residual = mua_allcat_downsamp_filt - mua_allcat_predicted_nlin;
-
-t_var = t_downsample_diff > -inf & t_downsample_diff < inf;
-mua_sse_measured = squeeze(nansum(mua_allcat_downsamp_filt(:,t_var,:).^2,1));
-mua_sse_residual = squeeze(nansum(mua_allcat_residual(:,t_var,:).^2,1));
-mua_expl_var = (mua_sse_measured - mua_sse_residual)./mua_sse_measured;
-figure;
-plot((sum(mua_sse_measured,1)-sum(mua_sse_residual,1))./ ...
-    sum(mua_sse_measured,1),'k','linewidth',2)
-ylabel('Explained variance');
-xlabel('Striatum depth');
 
 % Get conditions for each trial, plot selected
 contrasts = [0,0.06,0.125,0.25,0.5,1];
@@ -15223,10 +15222,10 @@ for curr_plot = 1:3
             plot_data = mua_allcat_downsamp_filt;
             plot_title = 'Measured';
         case 2
-            plot_data = mua_allcat_predicted_nlin;
+            plot_data = mua_allcat_predicted;
             plot_title = 'Predicted';
         case 3
-            plot_data = mua_allcat_downsamp_filt - mua_allcat_predicted_nlin;
+            plot_data = mua_allcat_downsamp_filt - mua_allcat_predicted;
             plot_title = 'Residual';
     end    
     
@@ -15236,13 +15235,13 @@ for curr_plot = 1:3
         curr_trials = plot_id == curr_plot_condition & use_rxn;
         curr_data = plot_data(curr_trials,:,:);
         
-%         % re-align to movement onset
-%         t_leeway = 0.5;
-%         leeway_samples = round(t_leeway*(sample_rate/downsample_factor));
-%         curr_move_idx = move_idx(curr_trials);
-%         for i = 1:size(curr_data,1)
-%             curr_data(i,:) = circshift(curr_data(i,:),-curr_move_idx(i)+leeway_samples,2);
-%         end
+        % re-align to movement onset
+        t_leeway = 0.5;
+        leeway_samples = round(t_leeway*(sample_rate/downsample_factor));
+        curr_move_idx = move_idx(curr_trials);
+        for i = 1:size(curr_data,1)
+            curr_data(i,:) = circshift(curr_data(i,:),-curr_move_idx(i)+leeway_samples,2);
+        end
         
         curr_data_mean = squeeze(nanmean(curr_data,1));
         

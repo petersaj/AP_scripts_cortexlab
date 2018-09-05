@@ -56,7 +56,7 @@ for curr_animal = 1:length(animals)
     
     batch_vars = struct;
     
-    for curr_day = 1:length(experiments);
+    for curr_day = 1:length(experiments)
         
         day = experiments(curr_day).day;
         experiment = experiments(curr_day).experiment;
@@ -6551,6 +6551,125 @@ disp('Finished loading all')
 save_path = 'C:\Users\Andrew\OneDrive for Business\Documents\CarandiniHarrisLab\analysis\wf_ephys_choiceworld\choiceworld';
 save_fn = ['all_trial_activity_Udf_kernel-str_' num2str(n_aligned_depths) '_depths_long'];
 save([save_path filesep save_fn],'-v7.3');
+
+%% Batch load and save activity from all passive (common U)
+
+n_aligned_depths = 4;
+
+animals = {'AP024','AP025','AP026','AP027','AP028','AP029'};
+
+fluor_all = cell(length(animals),1);
+mua_all = cell(length(animals),1);
+wheel_all = cell(length(animals),1);
+reward_all = cell(length(animals),1);
+D_all = cell(length(animals),1);
+
+for curr_animal = 1:length(animals)
+    
+    animal = animals{curr_animal};
+    
+    % Only use days with choiceworld (sometimes recorded in cortex, no bhv)
+    protocol = 'vanillaChoiceworld';
+    behavior_experiments = AP_find_experiments(animal,protocol);
+    
+    protocol = 'stimKalatsky';
+    passive_experiments = AP_find_experiments(animal,protocol);
+    
+    behavior_day = ismember({passive_experiments.day},{behavior_experiments.day});
+    
+    experiments = passive_experiments([passive_experiments.imaging] & [passive_experiments.ephys] & behavior_day);
+
+    load_parts.cam = false;
+    load_parts.imaging = true;
+    load_parts.ephys = true;
+    
+    fluor_all{curr_animal} = cell(length(experiments),1);
+    mua_all{curr_animal} = cell(length(experiments),1);
+    wheel_all{curr_animal} = cell(length(experiments),1);
+    D_all{curr_animal} = cell(length(experiments),1);
+    
+    disp(['Loading ' animal]);
+    
+    for curr_day = 1:length(experiments)
+        
+        day = experiments(curr_day).day;
+        experiment = experiments(curr_day).experiment;
+        
+        % Load experiment
+        str_align = 'kernel';
+        AP_load_experiment;
+        
+        % Prepare fluorescence
+        % Convert U to master U
+        load('C:\Users\Andrew\OneDrive for Business\Documents\CarandiniHarrisLab\analysis\wf_ephys_choiceworld\wf_processing\wf_alignment\U_master.mat');
+        Udf_aligned = single(AP_align_widefield(animal,day,Udf));
+        fVdf_recast = ChangeU(Udf_aligned,fVdf,U_master);
+        % Set components to use
+        use_components = 1:200;
+        
+        % Group multiunit by depth
+        % (evenly across recorded striatum)
+        %         n_depths = 6;
+        %         depth_group_edges = round(linspace(str_depth(1),str_depth(2),n_depths+1));
+        %         depth_group_centers = round(depth_group_edges(1:end-1)+diff(depth_group_edges)/2);
+        %         depth_group = discretize(spikeDepths,depth_group_edges);
+        
+        % (aligned striatum depths)
+        n_depths = n_aligned_depths;
+        depth_group = aligned_str_depth_group;
+        
+        % Get event-aligned activity
+        raster_window = [-0.5,3];
+        upsample_factor = 3;
+        raster_sample_rate = 1/(framerate*upsample_factor);
+        t = raster_window(1):raster_sample_rate:raster_window(2);      
+        
+        use_align = stimOn_times;
+        
+        t_peri_event = bsxfun(@plus,use_align,t);
+        
+        % Fluorescence
+        event_aligned_V = ...
+            interp1(frame_t,fVdf_recast(use_components,:)',t_peri_event);
+        
+        % MUA
+        event_aligned_mua = nan(length(stimOn_times),length(t),n_depths);
+        t_bins = [t_peri_event-raster_sample_rate/2,t_peri_event(:,end)+raster_sample_rate/2];
+        for curr_depth = 1:n_depths
+            % (for all spikes in depth group)
+            curr_spikes = spike_times_timeline(depth_group == curr_depth);
+            % (for only msns in depth group)
+            %                 curr_spikes = spike_times_timeline(depth_group == curr_depth & ...
+            %                     ismember(spike_templates,find(msn)));
+            
+            event_aligned_mua(:,:,curr_depth) = cell2mat(arrayfun(@(x) ...
+                histcounts(curr_spikes,t_bins(x,:)), ...
+                [1:size(t_peri_event,1)]','uni',false))./raster_sample_rate;
+        end
+                      
+        % Get stim info
+        D = struct;
+        D.stimulus = stimIDs;
+        
+        % Store activity and stim
+        fluor_all{curr_animal}{curr_day} = event_aligned_V;
+        mua_all{curr_animal}{curr_day} = event_aligned_mua;
+        D_all{curr_animal}{curr_day} = D;
+        
+        AP_print_progress_fraction(curr_day,length(experiments));
+        
+    end
+    
+    clearvars -except n_aligned_depths animals curr_animal fluor_all mua_all D_all
+    
+end
+clearvars -except n_aligned_depths fluor_all mua_all D_all
+disp('Finished loading all')
+
+save_path = 'C:\Users\Andrew\OneDrive for Business\Documents\CarandiniHarrisLab\analysis\wf_ephys_choiceworld\choiceworld';
+save_fn = ['all_trial_activity_Udf_kernel-str_passive_' num2str(n_aligned_depths) '_depths'];
+save([save_path filesep save_fn]);
+
 
 %% Batch logistic regression on saved day-concatenated activity (neural data independently)
 
