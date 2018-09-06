@@ -252,6 +252,13 @@ if block_exists
         (photodiode_trace(1:end-1) & ~photodiode_trace(2:end)))+1;
     photodiode_flip_times = stimScreen_on_t(photodiode_flip)';
     
+    % Get wheel position
+    rotaryEncoder_idx = strcmp({Timeline.hw.inputs.name}, 'rotaryEncoder');
+    % (this is a very strange hack to overcome a problem in the rotary
+    % encoder that's known in the lab and was put on the wiki)
+    wheel_position = Timeline.rawDAQData(:,rotaryEncoder_idx);
+    wheel_position(wheel_position > 2^31) = wheel_position(wheel_position > 2^31) - 2^32;
+    
     % SPECIFIC TO PROTOCOL
     [~,expDef] = fileparts(block.expDef);
     if strcmp(expDef,'vanillaChoiceworld')
@@ -267,13 +274,7 @@ if block_exists
             1:length(signals_events.stimOnTimes));
         stimOn_times = photodiode_flip_times(closest_stimOn_photodiode);
         
-        % Get time from stim on to first wheel movement
-        rotaryEncoder_idx = strcmp({Timeline.hw.inputs.name}, 'rotaryEncoder');
-        % (this is a very strange hack to overcome a problem in the rotary
-        % encoder that's known in the lab and was put on the wiki)
-        wheel_position = Timeline.rawDAQData(:,rotaryEncoder_idx);
-        wheel_position(wheel_position > 2^31) = wheel_position(wheel_position > 2^31) - 2^32;
-        
+        % Get time from stim on to first wheel movement     
         surround_time = [-0.5,2];
         surround_samples = surround_time/Timeline.hw.samplingInterval;
         
@@ -349,12 +350,12 @@ if block_exists
         
     elseif strcmp(expDef,'AP_choiceWorldStimPassive')
         % This is kind of a dumb hack to get the stimOn times, maybe not
-        % permanent unless it works fine: get stim times by photodiode
-        % flips that are separated by > 1s
+        % permanent unless it works fine: get stim times by assuming
+        % photodiode flip times ~1 second were stim
         photodiode_flip_diff = diff(stimScreen_on_t(photodiode_flip));
-        stimOn_idx = find(photodiode_flip_diff > 1);
+        stimOn_idx = find(abs(photodiode_flip_diff-1) < 0.1);
         
-        stimOn_times = stimScreen_on_t(photodiode_flip(stimOn_idx));
+        stimOn_times = stimScreen_on_t(photodiode_flip(stimOn_idx))';
         
         % assume the times correspond to the last n values (this is because
         % sometimes if the buffer time wasn't enough, the first stimuli

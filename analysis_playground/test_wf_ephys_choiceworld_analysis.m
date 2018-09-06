@@ -14826,7 +14826,7 @@ legend([{wf_roi(:,1).area},cellfun(@(x) ...
 %% Regress concatenated fluor -> mua kernel in V-space
 
 % Load data
-use_data = 'task';
+use_data = 'passive';
 
 n_aligned_depths = 4;
 data_path = 'C:\Users\Andrew\OneDrive for Business\Documents\CarandiniHarrisLab\analysis\wf_ephys_choiceworld\choiceworld';
@@ -14835,7 +14835,8 @@ switch use_data
         data_fn = ['all_trial_activity_Udf_kernel-str_4_depths_long'];
         load_task = true;
     case 'passive'
-        data_fn = [];
+%         data_fn = ['all_trial_activity_Udf_kernel-str_passive_4_depths'];
+        data_fn = ['all_trial_activity_Udf_kernel-str_passive_choiceworld_4_depths'];
         load_task = false;
 end
 
@@ -14864,8 +14865,8 @@ use_experiments = arrayfun(@(x) all(vertcat(use_experiments_all{:,x}),1), ...
 D_all = cellfun(@(data,use_expts) data(use_expts),D_all,use_experiments','uni',false);
 fluor_all = cellfun(@(data,use_expts) data(use_expts),fluor_all,use_experiments','uni',false);
 mua_all = cellfun(@(data,use_expts) data(use_expts),mua_all,use_experiments','uni',false);
+wheel_all = cellfun(@(data,use_expts) data(use_expts),wheel_all,use_experiments','uni',false);
 if load_task
-    wheel_all = cellfun(@(data,use_expts) data(use_expts),wheel_all,use_experiments','uni',false);
     reward_all = cellfun(@(data,use_expts) data(use_expts),reward_all,use_experiments','uni',false);
 end
 
@@ -14873,8 +14874,8 @@ use_animals = cellfun(@(x) ~isempty(x),D_all);
 D_all = D_all(use_animals);
 fluor_all = fluor_all(use_animals);
 mua_all = mua_all(use_animals);
+wheel_all = wheel_all(use_animals);
 if load_task
-    wheel_all = wheel_all(use_animals);
     reward_all = reward_all(use_animals);
 end
 
@@ -14974,15 +14975,19 @@ for curr_animal = 1:length(D_all)
             [trial_contrast, trial_side, ...
             trial_choice, ones(size(trial_day))];
         [~,trial_id] = ismember(trial_conditions,conditions,'rows');
+    else
+        % Concatenate stim
+        D = struct;
+        D.stimulus = cell2mat(cellfun(@(x) x.stimulus,D_all{curr_animal},'uni',false));     
+        D_cat.stimulus = vertcat(D_cat.stimulus,D.stimulus);
     end
     
     % Concatenate everything
     fluor_allcat = [fluor_allcat;fluor_cat];
     mua_allcat = [mua_allcat;mua_cat_norm];
+    wheel_allcat = [wheel_allcat;wheel_cat];
     if load_task
-        wheel_allcat = [wheel_allcat;wheel_cat];
-        reward_allcat = [reward_allcat;vertcat(reward_all{curr_animal}{:})];
-        
+        reward_allcat = [reward_allcat;vertcat(reward_all{curr_animal}{:})];        
         trial_contrast_allcat = [trial_contrast_allcat;trial_contrast];
         trial_side_allcat = [trial_side_allcat;trial_side];
         trial_choice_allcat = [trial_choice_allcat;trial_choice];
@@ -14990,11 +14995,9 @@ for curr_animal = 1:length(D_all)
     
 end
 
-if load_task
-    % Get reaction time
-    [~,move_idx] = max(abs(wheel_allcat(:,:,1)) > 2,[],2);
-    move_t = t(move_idx)';
-end
+% Get reaction time
+[~,move_idx] = max(abs(wheel_allcat(:,:,1)) > 2,[],2);
+move_t = t(move_idx)';
 
 % Load the master U
 load('C:\Users\Andrew\OneDrive for Business\Documents\CarandiniHarrisLab\analysis\wf_ephys_choiceworld\wf_processing\wf_alignment\U_master');
@@ -15011,10 +15014,16 @@ if load_task
     [~,move_idx] = max(abs(wheel(:,:,1)) > 2,[],2);
 end
 
-smooth_factor = 3;
+% To use straight fluorescence
+smooth_factor = 1;
+fluor_allcat_downsamp = permute(interp1(t,permute(convn( ...
+    fluor_allcat,ones(1,smooth_factor)/smooth_factor,'same'),[2,1,3,4]),t_downsample_diff),[2,1,3,4]);
 
-fluor_allcat_downsamp = permute(interp1(t_diff,permute(diff(convn( ...
-    fluor_allcat,ones(1,smooth_factor)/smooth_factor,'same'),[],2),[2,1,3,4]),t_downsample_diff),[2,1,3,4]);
+% % To use derivative
+% smooth_factor = 3;
+% fluor_allcat_downsamp = permute(interp1(t_diff,permute(diff(convn( ...
+%     fluor_allcat,ones(1,smooth_factor)/smooth_factor,'same'),[],2),[2,1,3,4]),t_downsample_diff),[2,1,3,4]);
+
 % (there's a nan in one trial??)
 fluor_allcat_downsamp(isnan(fluor_allcat_downsamp)) = 0;
 
@@ -15035,7 +15044,7 @@ lambda = 0;
 return_constant = true;
 
 % Set trials to do regression on (kernel then applied to all trials)
-kernel_trials = true(size(move_t));
+kernel_trials = true(size(fluor_allcat,1),1);
 % kernel_trials = trial_contrast_allcat > 0 & ...
 %     trial_side_allcat == -trial_choice_allcat;
 % kernel_trials = trial_contrast_allcat == 0;
@@ -15105,25 +15114,7 @@ colormap(brewermap([],'*RdBu'));
 caxis([-prctile(abs(fluor_k_px_max(:)),99),prctile(abs(fluor_k_px_max(:)),99)]);
 axis image off;
 
-% Plot measured v predicted
-figure;
-for curr_depth = 1:n_depths   
-    measured_data = reshape(mua_allcat_downsamp_filt(:,:,curr_depth)',[],1);
-    predicted_data = reshape(mua_allcat_predicted(:,:,curr_depth)',[],1);
-    
-    subplot(1,n_depths,curr_depth); hold on;
-    activity_bounds = linspace(min(measured_data),max(measured_data),300);
-    activity_bin_centers = conv2(activity_bounds,[1,1]/2,'valid');
-    bins = discretize(measured_data,activity_bounds);
-    plot(grpstats(measured_data,bins),grpstats(predicted_data,bins),'linewidth',2);
-    xlim([-2,5]);ylim([-2,5]);
-    line(xlim,ylim,'color','k');
-    xlabel('Measured')
-    ylabel('Predicted')
-    axis square;
-end
-
-% Apply empirical static nonlinearity?
+% Apply empirical static nonlinearity
 figure;
 mua_allcat_predicted_nlin = mua_allcat_predicted;
 for curr_depth = 1:n_depths       
@@ -15177,96 +15168,144 @@ plot((sum(mua_sse_measured,1)-sum(mua_sse_residual,1))./ ...
 ylabel('Explained variance');
 xlabel('Striatum depth');
 
-% Get conditions for each trial, plot selected
-contrasts = [0,0.06,0.125,0.25,0.5,1];
-sides = [-1,1];
-choices = [-1,1];
-
-contrast_side_col = colormap_BlueWhiteRed(5);
-contrast_side_col(6,:) = 0;
-contrast_side_val = unique(sort([-contrasts,contrasts]))';
-
-% contrast, side, choice
-plot_conditions = ...
-    [contrasts,contrasts(2:end); ...
-    -ones(1,6),ones(1,5); ...
-    ones(1,6),-ones(1,5)]';
-% plot_conditions = ...
-%     [contrasts(2:end),contrasts(2:end); ...
-%     ones(1,10); ...
-%     ones(1,5),-ones(1,5)]';
-% plot_conditions = ...
-%     [contrasts(2:end),contrasts(2:end); ...
-%     -ones(1,5),ones(1,5); ...
-%     ones(1,5),-ones(1,5)]';
-% plot_conditions = ...
-%     [contrasts(2:end),contrasts(2:end); ...
-%     -ones(1,5),ones(1,5); ...
-%     ones(1,5),ones(1,5)]';
-% plot_conditions = ...
-%     [0,0; ...
-%     -1,-1; ...
-%     -1,1]';
-
-use_rxn = move_t > 0.1 & move_t < 0.3;
+if load_task
     
-[~,plot_id] = ismember( ...
-    [trial_contrast_allcat,trial_side_allcat,trial_choice_allcat], ...
-    plot_conditions,'rows');
-
-% Plot striatum
-figure; hold on;
-for curr_plot = 1:3
+    % Get conditions for each trial, plot selected
+    contrasts = [0,0.06,0.125,0.25,0.5,1];
+    sides = [-1,1];
+    choices = [-1,1];
     
-    switch curr_plot
-        case 1
-            plot_data = mua_allcat_downsamp_filt;
-            plot_title = 'Measured';
-        case 2
-            plot_data = mua_allcat_predicted_nlin;
-            plot_title = 'Predicted';
-        case 3
-            plot_data = mua_allcat_downsamp_filt - mua_allcat_predicted_nlin;
-            plot_title = 'Residual';
-    end    
+    contrast_side_col = colormap_BlueWhiteRed(5);
+    contrast_side_col(6,:) = 0;
+    contrast_side_val = unique(sort([-contrasts,contrasts]))';
     
-    p_str(curr_plot) = subplot(1,3,curr_plot); hold on;
-    for curr_plot_condition = 1:size(plot_conditions,1)
+    % contrast, side, choice
+%     plot_conditions = ...
+%         [contrasts,contrasts(2:end); ...
+%         -ones(1,6),ones(1,5); ...
+%         ones(1,6),-ones(1,5)]';
+    plot_conditions = ...
+        [0.125,1,0.125,1; ...
+        -1,-1,1,1; ...
+        1,1,-1,-1]';
+%     % plot_conditions = ...
+    %     [contrasts(2:end),contrasts(2:end); ...
+    %     ones(1,10); ...
+    %     ones(1,5),-ones(1,5)]';
+    % plot_conditions = ...
+    %     [contrasts(2:end),contrasts(2:end); ...
+    %     -ones(1,5),ones(1,5); ...
+    %     ones(1,5),-ones(1,5)]';
+    % plot_conditions = ...
+    %     [contrasts(2:end),contrasts(2:end); ...
+    %     -ones(1,5),ones(1,5); ...
+    %     ones(1,5),ones(1,5)]';
+    % plot_conditions = ...
+    %     [0,0; ...
+    %     -1,-1; ...
+    %     -1,1]';
+    
+    use_rxn = move_t > 0.5 & move_t < 1;
+    
+    [~,plot_id] = ismember( ...
+        [trial_contrast_allcat,trial_side_allcat,trial_choice_allcat], ...
+        plot_conditions,'rows');    
+    
+    % Plot striatum
+    figure; hold on;
+    for curr_plot = 1:3
         
-        curr_trials = plot_id == curr_plot_condition & use_rxn;
-        curr_data = plot_data(curr_trials,:,:);
-        
-%         % re-align to movement onset
-%         t_leeway = 0.5;
-%         leeway_samples = round(t_leeway*(sample_rate/downsample_factor));
-%         curr_move_idx = move_idx(curr_trials);
-%         for i = 1:size(curr_data,1)
-%             curr_data(i,:) = circshift(curr_data(i,:),-curr_move_idx(i)+leeway_samples,2);
-%         end
-        
-        curr_data_mean = squeeze(nanmean(curr_data,1));
-        
-        curr_contrast_side = max(trial_contrast_allcat(curr_trials))*sign(max(trial_side_allcat(curr_trials)));
-        contrast_side_idx = find(curr_contrast_side == contrast_side_val);
-        curr_col = contrast_side_col(contrast_side_idx,:);
-        
-        if curr_contrast_side == 0
-            switch max(trial_choice_allcat(curr_trials))
-                case -1
-                    curr_col = 'm';
-                case 1
-                    curr_col = 'c';
-            end
+        switch curr_plot
+            case 1
+                plot_data = mua_allcat_downsamp_filt;
+                plot_title = 'Measured';
+            case 2
+                plot_data = mua_allcat_predicted_nlin;
+                plot_title = 'Predicted';
+            case 3
+                plot_data = mua_allcat_downsamp_filt - mua_allcat_predicted_nlin;
+                plot_title = 'Residual';
         end
-                
-        AP_stackplot(curr_data_mean,t_downsample_diff,2,false,curr_col,1:n_depths);
         
+        p_str(curr_plot) = subplot(1,3,curr_plot); hold on;
+        for curr_plot_condition = 1:size(plot_conditions,1)
+            
+            curr_trials = plot_id == curr_plot_condition & use_rxn;
+            curr_data = plot_data(curr_trials,:,:);
+            
+%             % re-align to movement onset
+%             t_leeway = 0.5;
+%             leeway_samples = round(t_leeway*(sample_rate/downsample_factor));
+%             curr_move_idx = move_idx(curr_trials);
+%             for i = 1:size(curr_data,1)
+%                 curr_data(i,:) = circshift(curr_data(i,:),-curr_move_idx(i)+leeway_samples,2);
+%             end
+            
+            curr_data_mean = squeeze(nanmean(curr_data,1));
+            
+            curr_contrast_side = max(trial_contrast_allcat(curr_trials))*sign(max(trial_side_allcat(curr_trials)));
+            contrast_side_idx = find(curr_contrast_side == contrast_side_val);
+            curr_col = contrast_side_col(contrast_side_idx,:);
+            
+            if curr_contrast_side == 0
+                switch max(trial_choice_allcat(curr_trials))
+                    case -1
+                        curr_col = 'm';
+                    case 1
+                        curr_col = 'c';
+                end
+            end
+            
+            AP_stackplot(curr_data_mean,t_downsample_diff,2,false,curr_col,1:n_depths);
+            
+        end
+        line([0,0],ylim,'color','k');
+        xlabel('Time from stim');
+        title(plot_title);
     end
-    line([0,0],ylim,'color','k');
-    xlabel('Time from stim');
-    title(plot_title);
+    linkaxes(p_str)
+    
+else
+    
+    plot_cols = lines(max(D_cat.stimulus));
+    
+    % Plot striatum
+    figure; hold on;
+    for curr_plot = 1:3
+        
+        switch curr_plot
+            case 1
+                plot_data = mua_allcat_downsamp_filt;
+                plot_title = 'Measured';
+            case 2
+                plot_data = mua_allcat_predicted_nlin;
+                plot_title = 'Predicted';
+            case 3
+                plot_data = mua_allcat_downsamp_filt - mua_allcat_predicted_nlin;
+                plot_title = 'Residual';
+        end
+        
+        p_str(curr_plot) = subplot(1,3,curr_plot); hold on;
+        for curr_plot_condition = 1:max(D_cat.stimulus)
+            
+            curr_trials = D_cat.stimulus == curr_plot_condition;
+            curr_data = plot_data(curr_trials,:,:);
+       
+            curr_data_mean = squeeze(nanmean(curr_data,1));            
+
+            curr_col = plot_cols(curr_plot_condition,:);
+
+            AP_stackplot(curr_data_mean,t_downsample_diff,2,false,curr_col,1:n_depths);
+            
+        end
+        line([0,0],ylim,'color','k');
+        xlabel('Time from stim');
+        title(plot_title);
+    end
+    linkaxes(p_str)
+    
 end
-linkaxes(p_str)
+
 
 
 
