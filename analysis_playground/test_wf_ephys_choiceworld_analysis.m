@@ -14947,12 +14947,12 @@ for curr_animal = 1:length(D_all)
     softnorm = 20;
     
     mua_cat_norm = bsxfun(@rdivide,bsxfun(@minus,mua_cat_raw_smoothed,mua_day_baseline),mua_day_std+softnorm);   
- 
-    if load_task
-        % Concatenate wheel
-        wheel_cat = cat(1,wheel_all{curr_animal}{:});
-        %     wheel_cat_norm = wheel_cat./prctile(max(max(abs(wheel_cat),[],2),[],3),95);
+    
+    % Concatenate wheel
+    wheel_cat = cat(1,wheel_all{curr_animal}{:});
+    %     wheel_cat_norm = wheel_cat./prctile(max(max(abs(wheel_cat),[],2),[],3),95);
         
+    if load_task            
         % Concatenate behavioural data
         D = struct;
         D.stimulus = cell2mat(cellfun(@(x) x.stimulus,D_all{curr_animal},'uni',false));
@@ -14999,6 +14999,14 @@ end
 [~,move_idx] = max(abs(wheel_allcat(:,:,1)) > 2,[],2);
 move_t = t(move_idx)';
 
+% %%% TEST: REMOVE MOVE TRIALS FOR PASSIVE
+% move_trials = move_t > 0 & move_t < 1;
+% fluor_allcat(move_trials,:,:) = [];
+% mua_allcat(move_trials,:,:) = [];
+% wheel_allcat(move_trials,:,:) = [];
+% D_cat.stimulus(move_trials) = [];
+% %%%
+
 % Load the master U
 load('C:\Users\Andrew\OneDrive for Business\Documents\CarandiniHarrisLab\analysis\wf_ephys_choiceworld\wf_processing\wf_alignment\U_master');
 
@@ -15044,12 +15052,15 @@ lambda = 0;
 return_constant = true;
 
 % Set trials to do regression on (kernel then applied to all trials)
+% (to use all - for cv)
 kernel_trials = true(size(fluor_allcat,1),1);
-% kernel_trials = trial_contrast_allcat > 0 & ...
-%     trial_side_allcat == -trial_choice_allcat;
-% kernel_trials = trial_contrast_allcat == 0;
+% (to only use incorrect/zero trials)
 % kernel_trials = trial_contrast_allcat == 0 | ...
 %     trial_side_allcat == trial_choice_allcat;
+% (to only use particular choice trials)
+% kernel_trials = trial_choice_allcat == 1;
+% (to only use timing)
+% kernel_trials = move_t > 0.6 & move_t < 0.7;
 
 mua_nonan_trials = ~squeeze(any(any(isnan(mua_allcat),2),4));
 mua_allcat_predicted = nan(size(mua_allcat_downsamp_filt));
@@ -15180,14 +15191,14 @@ if load_task
     contrast_side_val = unique(sort([-contrasts,contrasts]))';
     
     % contrast, side, choice
-%     plot_conditions = ...
-%         [contrasts,contrasts(2:end); ...
-%         -ones(1,6),ones(1,5); ...
-%         ones(1,6),-ones(1,5)]';
     plot_conditions = ...
-        [0.125,1,0.125,1; ...
-        -1,-1,1,1; ...
-        1,1,-1,-1]';
+        [contrasts,contrasts; ...
+        -ones(1,6),-1,ones(1,5); ...
+        ones(1,6),-ones(1,6)]';
+%     plot_conditions = ...
+%         [0.125,1,0.125,1; ...
+%         -1,-1,1,1; ...
+%         1,1,-1,-1]';
 %     % plot_conditions = ...
     %     [contrasts(2:end),contrasts(2:end); ...
     %     ones(1,10); ...
@@ -15205,7 +15216,7 @@ if load_task
     %     -1,-1; ...
     %     -1,1]';
     
-    use_rxn = move_t > 0.5 & move_t < 1;
+    use_rxn = move_t > 0.6 & move_t < 0.7;
     
     [~,plot_id] = ismember( ...
         [trial_contrast_allcat,trial_side_allcat,trial_choice_allcat], ...
@@ -15233,13 +15244,13 @@ if load_task
             curr_trials = plot_id == curr_plot_condition & use_rxn;
             curr_data = plot_data(curr_trials,:,:);
             
-%             % re-align to movement onset
-%             t_leeway = 0.5;
-%             leeway_samples = round(t_leeway*(sample_rate/downsample_factor));
-%             curr_move_idx = move_idx(curr_trials);
-%             for i = 1:size(curr_data,1)
-%                 curr_data(i,:) = circshift(curr_data(i,:),-curr_move_idx(i)+leeway_samples,2);
-%             end
+            % re-align to movement onset
+            t_leeway = 0.5;
+            leeway_samples = round(t_leeway*(sample_rate/downsample_factor));
+            curr_move_idx = move_idx(curr_trials);
+            for i = 1:size(curr_data,1)
+                curr_data(i,:) = circshift(curr_data(i,:),-curr_move_idx(i)+leeway_samples,2);
+            end
             
             curr_data_mean = squeeze(nanmean(curr_data,1));
             
