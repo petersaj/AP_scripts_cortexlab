@@ -58,7 +58,7 @@ if exist('V','var') && ~isempty(V)
     U_roi = bsxfun(@rdivide,transpose(reshape(U,[],size(U,3))'* ...
         reshape(roi_mask,[],size(roi_mask,3))), ...
         sum(reshape(roi_mask,[],size(roi_mask,3)),1)');
-    roi_trace(curr_roi,:) = nanmean(U_roi*V);
+    roi_trace = U_roi*V;
 else
     roi_trace = [];
 end

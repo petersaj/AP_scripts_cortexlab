@@ -12798,13 +12798,13 @@ title('Wheel L - Wheel R')
 %% Regress from task events to activity (V,long)
 % this only uses stim, move onset, move ongoing, reward
 % generates predicted activity to use in other analyses
+%%%% TO DO HERE: low-pass 6hz?
 
 n_aligned_depths = 4;
 
 % Load data
 data_path = 'C:\Users\Andrew\OneDrive for Business\Documents\CarandiniHarrisLab\analysis\wf_ephys_choiceworld\choiceworld';
 data_fn = ['all_trial_activity_Udf_kernel-str_4_depths_long'];
-% data_fn = 'all_trial_activity_df_msn_earlymove.mat';
 
 load([data_path filesep data_fn]);
 n_animals = length(D_all);
@@ -12964,10 +12964,10 @@ max_vel = max_speed.*trial_choice_allcat;
 load('C:\Users\Andrew\OneDrive for Business\Documents\CarandiniHarrisLab\analysis\wf_ephys_choiceworld\wf_processing\wf_alignment\U_master');
 
 % Downsample (otherwise it's too much for regression) and d(smooth(fluor))
-downsample_factor = 3;
+downsample_factor = 4;
 t_downsample = linspace(t(1),t(end),round(length(t)/downsample_factor));
 
-smooth_factor = 3
+smooth_factor = 3;
 
 t_diff =  conv(t,[1,1]/2,'valid');
 t_downsample_diff = conv(t_downsample,[1,1]/2,'valid');
@@ -14826,7 +14826,7 @@ legend([{wf_roi(:,1).area},cellfun(@(x) ...
 %% Regress concatenated fluor -> mua kernel in V-space
 
 % Load data
-use_data = 'passive';
+use_data = 'task';
 
 n_aligned_depths = 4;
 data_path = 'C:\Users\Andrew\OneDrive for Business\Documents\CarandiniHarrisLab\analysis\wf_ephys_choiceworld\choiceworld';
@@ -15022,15 +15022,15 @@ if load_task
     [~,move_idx] = max(abs(wheel(:,:,1)) > 2,[],2);
 end
 
-% To use straight fluorescence
-smooth_factor = 1;
-fluor_allcat_downsamp = permute(interp1(t,permute(convn( ...
-    fluor_allcat,ones(1,smooth_factor)/smooth_factor,'same'),[2,1,3,4]),t_downsample_diff),[2,1,3,4]);
+% % To use straight fluorescence
+% smooth_factor = 1;
+% fluor_allcat_downsamp = permute(interp1(t,permute(convn( ...
+%     fluor_allcat,ones(1,smooth_factor)/smooth_factor,'same'),[2,1,3,4]),t_downsample_diff),[2,1,3,4]);
 
-% % To use derivative
-% smooth_factor = 3;
-% fluor_allcat_downsamp = permute(interp1(t_diff,permute(diff(convn( ...
-%     fluor_allcat,ones(1,smooth_factor)/smooth_factor,'same'),[],2),[2,1,3,4]),t_downsample_diff),[2,1,3,4]);
+% To use derivative
+smooth_factor = 3;
+fluor_allcat_downsamp = permute(interp1(t_diff,permute(diff(convn( ...
+    fluor_allcat,ones(1,smooth_factor)/smooth_factor,'same'),[],2),[2,1,3,4]),t_downsample_diff),[2,1,3,4]);
 
 % (there's a nan in one trial??)
 fluor_allcat_downsamp(isnan(fluor_allcat_downsamp)) = 0;
@@ -15216,7 +15216,7 @@ if load_task
     %     -1,-1; ...
     %     -1,1]';
     
-    use_rxn = move_t > 0.6 & move_t < 0.7;
+    use_rxn = move_t > 0 & move_t < 0.5;
     
     [~,plot_id] = ismember( ...
         [trial_contrast_allcat,trial_side_allcat,trial_choice_allcat], ...
