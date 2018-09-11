@@ -1206,8 +1206,10 @@ load([kernel_path filesep kernel_fn])
 k_px_cat = [ephys_kernel_depth(:).r_px];
 k_px_cat = cat(3,k_px_cat{:});
 
-k_px_cat_norm = mat2gray(bsxfun(@rdivide,k_px_cat,permute(prctile(reshape( ...
-    k_px_cat,[],size(k_px_cat,3)),99,1),[1,3,2])),[0,1]);
+% Not normalizing for now
+% k_px_cat_norm = mat2gray(bsxfun(@rdivide,k_px_cat,permute(prctile(reshape( ...
+%     k_px_cat,[],size(k_px_cat,3)),99,1),[1,3,2])),[0,1]);
+k_px_cat_norm = k_px_cat;
 
 k_px_cat_norm_reshape = reshape(k_px_cat_norm,[],size(k_px_cat_norm,3));
 
@@ -1232,13 +1234,16 @@ k_grp = reshape(grpstats(k_px_cat_norm_reshape(:,use_k_px)',kidx)', ...
 k_grp_ordered = k_grp(:,:,depth_sort_idx);
 
 figure;imagesc(reshape(k_grp_ordered,size(k_px_cat,1),[]))
+caxis([-max(abs(k_grp(:))),max(abs(k_grp(:)))]);
 axis image off;
-colormap(gray);
+colormap(brewermap([],'*RdBu'));
 title('Group kernels');
 
 figure;
 imagesc(corrcoef(k_px_cat_norm_reshape(:,use_k_px(k_sort_idx))))
 title('Sorted kernel correlations');
+caxis([-0.5,0.5]); colormap(brewermap([],'*RdBu'));
+axis square;
 
 % Save template kernels
 kernel_template = k_grp_ordered;
@@ -1304,8 +1309,10 @@ for curr_animal = 1:length(animals)
         curr_day_idx = strcmp(day,ephys_kernel_depth(curr_animal_idx).days);
        
         r_px = ephys_kernel_depth(curr_animal_idx).r_px{curr_day_idx};        
-        kernel_align = mat2gray(bsxfun(@rdivide,r_px,permute(prctile(reshape( ...
-            r_px,[],size(r_px,3)),99,1),[1,3,2])),[0,1]);
+%         kernel_align = mat2gray(bsxfun(@rdivide,r_px,permute(prctile(reshape( ...
+%             r_px,[],size(r_px,3)),99,1),[1,3,2])),[0,1]);
+        % (don't normalize now)
+        kernel_align = r_px;
     
         % Get best match from kernels to kernel templates
         kernel_align_reshape = reshape(kernel_align,[],size(kernel_align,3));
@@ -6266,7 +6273,7 @@ save_fn = ['all_trial_activity_df_kernel-str_' num2str(n_aligned_depths) '_depth
 save([save_path filesep save_fn]);
 
 
-%% Batch load and save activity from all choiceworld (common U)
+%% Batch load and save activity from all choiceworld (common U OLD-ALIGNED)
 
 n_aligned_depths = 4;
 
