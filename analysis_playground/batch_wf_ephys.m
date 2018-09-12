@@ -6560,9 +6560,6 @@ save_fn = ['all_trial_activity_Udf_kernel-str_' num2str(n_aligned_depths) '_dept
 save([save_path filesep save_fn],'-v7.3');
 
 %% Batch load and save activity from all choiceworld (common U - LONG + ctx->str)
-% PROBLEMS: binning in nlin probably doesn't make sense, also at the moment
-% the lambda is for z-scored spikes but they're not z-scored here
-%%%%%%%%%%%%%% FIX THIS
 
 n_aligned_depths = 4;
 
@@ -6627,7 +6624,7 @@ for curr_animal = 1:length(animals)
         
         % Get event-aligned activity
         raster_window = [-0.5,3];
-        upsample_factor = 3;
+        upsample_factor = 2;
         raster_sample_rate = 1/(framerate*upsample_factor);
         t = raster_window(1):raster_sample_rate:raster_window(2);
         
@@ -6672,7 +6669,6 @@ for curr_animal = 1:length(animals)
         end
         
         % Prepare data for regression
-        upsample_factor = 3;
         sample_rate = (1/median(diff(frame_t)))*upsample_factor;
         
         skip_seconds = 60;
@@ -6699,10 +6695,10 @@ for curr_animal = 1:length(animals)
         
         kernel_t = [-0.3,0.3];
         kernel_frames = round(kernel_t(1)*sample_rate):round(kernel_t(2)*sample_rate);
-        zs = [false,false];
+        zs = [false,true];
         cvfold = 10;
         
-        %%% Regress MUA from cortex
+        %%% Regress MUA from cortex      
         [k,predicted_spikes,explained_var] = ...
             AP_regresskernel(dfVdf_resample, ...
             binned_spikes,kernel_frames,lambda,zs,cvfold);
@@ -6711,17 +6707,16 @@ for curr_animal = 1:length(animals)
         predicted_spikes_nlin = predicted_spikes;
         for curr_depth = 1:n_depths
             
-            measured_data = reshape(binned_spikes(curr_depth,:),[],1);
+            measured_data = zscore(reshape(binned_spikes(curr_depth,:),[],1));
             predicted_data = reshape(predicted_spikes(curr_depth,:),[],1);
             
             if any(measured_data)
             % !!!! this might not make sense - bin by stds or something?
-            activity_bin_steps = 10;
+            activity_bin_steps = 0.05;
             activity_bounds = min(predicted_data):activity_bin_steps:max(predicted_data);
             activity_bin_centers = conv2(activity_bounds,[1,1]/2,'valid');
             n_bins = length(activity_bounds);
                         
-            measured_bins = discretize(measured_data,activity_bounds);
             predicted_bins = discretize(predicted_data,activity_bounds);
             
             measured_data_binmean = accumarray(predicted_bins(~isnan(predicted_bins)), ...
@@ -6756,6 +6751,12 @@ for curr_animal = 1:length(animals)
 %             axis square;
             end
         end
+        
+        % Prediction was done with z-scoring for lambda / nlin, re-scale
+        predicted_spikes_scaled = ...
+            predicted_spikes.*nanstd(binned_spikes,[],2) + nanmean(binned_spikes,2);
+        predicted_spikes_nlin_scaled = ...
+            predicted_spikes_nlin.*nanstd(binned_spikes,[],2) + nanmean(binned_spikes,2);
         
         % Align predicted / predicted-nlin
         event_aligned_mua_predicted = ...
@@ -6809,11 +6810,11 @@ for curr_animal = 1:length(animals)
         AP_print_progress_fraction(curr_day,length(experiments));
     end
     
-    clearvars -except n_aligned_depths animals curr_animal ...
+    clearvars -except n_aligned_depths animals curr_animal upsample_factor t...
         fluor_all mua_all mua_predicted_all mua_predicted_nlin_all wheel_all reward_all D_all
     
 end
-clearvars -except n_aligned_depths ...
+clearvars -except n_aligned_depths upsample_factor t...
     fluor_all mua_all mua_predicted_all mua_predicted_nlin_all wheel_all reward_all D_all
 disp('Finished loading all')
 
