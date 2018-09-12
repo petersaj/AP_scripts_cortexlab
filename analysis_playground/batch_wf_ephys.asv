@@ -6560,9 +6560,6 @@ save_fn = ['all_trial_activity_Udf_kernel-str_' num2str(n_aligned_depths) '_dept
 save([save_path filesep save_fn],'-v7.3');
 
 %% Batch load and save activity from all choiceworld (common U - LONG + ctx->str)
-% PROBLEMS: binning in nlin probably doesn't make sense, also at the moment
-% the lambda is for z-scored spikes but they're not z-scored here
-%%%%%%%%%%%%%% FIX THIS
 
 n_aligned_depths = 4;
 
@@ -6570,8 +6567,6 @@ animals = {'AP024','AP025','AP026','AP027','AP028','AP029'};
 
 fluor_all = cell(length(animals),1);
 mua_all = cell(length(animals),1);
-mua_predicted_all = cell(length(animals),1);
-mua_predicted_nlin_all = cell(length(animals),1);
 wheel_all = cell(length(animals),1);
 reward_all = cell(length(animals),1);
 D_all = cell(length(animals),1);
@@ -6590,8 +6585,6 @@ for curr_animal = 1:length(animals)
     
     fluor_all{curr_animal} = cell(length(experiments),1);
     mua_all{curr_animal} = cell(length(experiments),1);
-    mua_predicted_all{curr_animal} = cell(length(experiments),1);
-    mua_predicted_nlin_all{curr_animal} = cell(length(experiments),1);    
     wheel_all{curr_animal} = cell(length(experiments),1);
     D_all{curr_animal} = cell(length(experiments),1);
     
@@ -6659,19 +6652,7 @@ for curr_animal = 1:length(animals)
         %%%%%%%%%%%%%%%%%%%%%%%%
         
         % dFluorescence->MUA
-        
-        % Load lambda from previously estimated and saved
-        lambda_fn = 'C:\Users\Andrew\OneDrive for Business\Documents\CarandiniHarrisLab\analysis\wf_ephys_choiceworld\ephys_processing\ctx-str_lambda';
-        load(lambda_fn);
-        curr_animal_idx = strcmp(animal,{ctx_str_lambda.animal});
-        if any(curr_animal_idx)
-            curr_day_idx = strcmp(day,ctx_str_lambda(curr_animal_idx).day);
-            if any(curr_day_idx)
-                lambda = ctx_str_lambda(curr_animal_idx).best_lambda(curr_day_idx);
-            end
-        end
-        
-        % Prepare data for regression
+        %%% Prepare data for regression
         upsample_factor = 3;
         sample_rate = (1/median(diff(frame_t)))*upsample_factor;
         
@@ -6691,7 +6672,7 @@ for curr_animal = 1:length(animals)
         binned_spikes = zeros(n_depths,length(time_bin_centers));
         for curr_depth = 1:n_depths
             curr_spike_times = spike_times_timeline(depth_group == curr_depth);
-            binned_spikes(curr_depth,:) = histcounts(curr_spike_times,time_bins)./mean(diff(time_bins));
+            binned_spikes(curr_depth,:) = histcounts(curr_spike_times,time_bins);
         end
         
         % Get rid of NaNs (if no data?)
@@ -6710,13 +6691,10 @@ for curr_animal = 1:length(animals)
         %%% Apply nonlinearity
         predicted_spikes_nlin = predicted_spikes;
         for curr_depth = 1:n_depths
-            
             measured_data = reshape(binned_spikes(curr_depth,:),[],1);
             predicted_data = reshape(predicted_spikes(curr_depth,:),[],1);
             
-            if any(measured_data)
-            % !!!! this might not make sense - bin by stds or something?
-            activity_bin_steps = 10;
+            activity_bin_steps = 0.1;
             activity_bounds = min(predicted_data):activity_bin_steps:max(predicted_data);
             activity_bin_centers = conv2(activity_bounds,[1,1]/2,'valid');
             n_bins = length(activity_bounds);
@@ -6742,7 +6720,7 @@ for curr_animal = 1:length(animals)
             
             predicted_spikes_nlin(curr_depth,:) = predicted_data_nlin;
             
-%             % (plot)
+            % (plot)
 %             subplot(1,n_depths,curr_depth); hold on;
 %             plot(predicted_data,measured_data,'.')
 %             plot(predicted_data_binmean,measured_data_binmean,'linewidth',2);
@@ -6754,16 +6732,18 @@ for curr_animal = 1:length(animals)
 %             xlabel('Predicted')
 %             ylabel('Measured')
 %             axis square;
-            end
         end
         
-        % Align predicted / predicted-nlin
-        event_aligned_mua_predicted = ...
-            interp1(time_bin_centers,predicted_spikes',t_peri_event);
-        event_aligned_mua_predicted_nlin = ...
-            interp1(time_bin_centers,predicted_spikes_nlin',t_peri_event);
-            
-        %%%%%%%%%%%%%%%%%%%%%%%%      
+        
+        event_aligned_V = ...
+            interp1(frame_t,fVdf_recast(use_components,:)',t_peri_event);
+        
+        % MUA
+        event_aligned_mua = nan(length(stimOn_times),length(t),n_depths);
+        
+        %%%%%%%%%%%%%%%%%%%%%%%%
+        
+        
         
         % Wheel
         event_aligned_wheel_raw = interp1(Timeline.rawDAQTimestamps, ...
@@ -6800,8 +6780,6 @@ for curr_animal = 1:length(animals)
         % Store activity and stim
         fluor_all{curr_animal}{curr_day} = event_aligned_V(use_trials,:,:,:);
         mua_all{curr_animal}{curr_day} = event_aligned_mua(use_trials,:,:,:);
-        mua_predicted_all{curr_animal}{curr_day} = event_aligned_mua_predicted(use_trials,:,:,:);
-        mua_predicted_nlin_all{curr_animal}{curr_day} = event_aligned_mua_predicted_nlin(use_trials,:,:,:);
         wheel_all{curr_animal}{curr_day} = event_aligned_wheel(use_trials,:,:);
         reward_all{curr_animal}{curr_day} = event_aligned_reward(use_trials,:,:);
         D_all{curr_animal}{curr_day} = D;
@@ -6809,16 +6787,14 @@ for curr_animal = 1:length(animals)
         AP_print_progress_fraction(curr_day,length(experiments));
     end
     
-    clearvars -except n_aligned_depths animals curr_animal ...
-        fluor_all mua_all mua_predicted_all mua_predicted_nlin_all wheel_all reward_all D_all
+    clearvars -except n_aligned_depths animals curr_animal fluor_all mua_all wheel_all reward_all D_all
     
 end
-clearvars -except n_aligned_depths ...
-    fluor_all mua_all mua_predicted_all mua_predicted_nlin_all wheel_all reward_all D_all
+clearvars -except n_aligned_depths fluor_all mua_all wheel_all reward_all D_all
 disp('Finished loading all')
 
 save_path = 'C:\Users\Andrew\OneDrive for Business\Documents\CarandiniHarrisLab\analysis\wf_ephys_choiceworld\choiceworld';
-save_fn = ['all_trial_activity_Udf_kernel-str_' num2str(n_aligned_depths) '_depths_long_predicted'];
+save_fn = ['all_trial_activity_Udf_kernel-str_' num2str(n_aligned_depths) '_depths_long'];
 save([save_path filesep save_fn],'-v7.3');
 
 
