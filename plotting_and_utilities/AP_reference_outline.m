@@ -1,8 +1,10 @@
-function h = AP_reference_outline(type,color,reference_im)
-% h = AP_reference_outline(type,color,reference_im)
+function h = AP_reference_outline(type,color,reference_im,repeats)
+% h = AP_reference_outline(type,color,reference_im,repeats)
 %
 % If a reference image is provided, bregma is defined there
 % type - grid, ccf, ccf_wf, ccf_aligned, retinotopy (master only at the moment)
+%
+% repeats - [pixels_y,pixels_x,repeats_y,repeats_x] (only for ccf_aligned)
 
 if ~exist('color','var')
     color = 'k';
@@ -77,10 +79,27 @@ switch type
         end
         
     case 'ccf_aligned'
-        % Plot CCF borders aligned to master retinotopy
+        % Plot CCF borders aligned to master retinotopy     
         load('C:\Users\Andrew\OneDrive for Business\Documents\Atlases\AllenCCF\cortical_area_boundaries_aligned.mat');
-        h = cellfun(@(areas) cellfun(@(outline) plot(outline(:,2),outline(:,1),'color',color),areas,'uni',false), ...
-            cortical_area_boundaries_aligned,'uni',false);
+
+        if exist('repeats','var') && ~isempty(repeats) && numel(repeats) == 4
+            % Plot multiple in grid
+            h = cell(repeats(3),repeats(4));
+            for curr_y_rep = 1:repeats(3)
+                y_add = repeats(1)*(curr_y_rep-1);
+                for curr_x_rep = 1:repeats(4)
+                    x_add = repeats(2)*(curr_x_rep-1);
+                    h{repeats(3)*repeats(4)} = ...
+                        cellfun(@(areas) cellfun(@(outline) ...
+                        plot(outline(:,2)+x_add,outline(:,1)+y_add,'color',color),areas,'uni',false), ...
+                        cortical_area_boundaries_aligned,'uni',false);
+                end
+            end
+        else
+            % Just plot one
+            h = cellfun(@(areas) cellfun(@(outline) plot(outline(:,2),outline(:,1),'color',color),areas,'uni',false), ...
+                cortical_area_boundaries_aligned,'uni',false);
+        end
         
     case 'retinotopy'
         % Plot master retinotopic borders        

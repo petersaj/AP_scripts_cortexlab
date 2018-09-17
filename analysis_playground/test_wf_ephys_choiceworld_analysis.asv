@@ -15778,20 +15778,13 @@ use_trials = move_t > 0 & move_t < 0.5;
 for curr_depth = 1:n_depths
     p(curr_depth) = subplot(n_depths,1,curr_depth); hold on;
     for curr_grp = 1:size(grp_conditions,1)
-        %To plot residual
-        plot(t_downsample_diff,nanmean(mua_allcat_residual_move( ...
-            grp_id == curr_grp & use_trials,:,curr_depth).^2,1),'linewidth',2);
+        %         plot(t_downsample_diff,nanmean(mua_allcat_residual( ...
+        %             grp_id == curr_grp & use_trials,:,curr_depth),1),'linewidth',2);
         
-%         % To plot explained variance
-%         curr_meas = mua_allcat_downsamp_filt_move( ...
-%             grp_id == curr_grp & use_trials,:,curr_depth);        
-%         curr_res = mua_allcat_downsamp_filt_move( ...
-%             grp_id == curr_grp & use_trials,:,curr_depth) - ...
-%             mua_allcat_predicted_nlin_move( ...
-%             grp_id == curr_grp & use_trials,:,curr_depth);      
-%         expl_var = (nansum(curr_meas.^2,1) - nansum(curr_res.^2))./(nansum(curr_meas.^2));
-%         plot(t_downsample_diff,expl_var,'linewidth',2);
-        
+        curr_Res = nanmean(mua_allcat_residual( ...
+            grp_id == curr_grp & use_trials,:,curr_depth),1)
+        plot(t_downsample_diff,nanmean(mua_allcat_residual( ...
+            grp_id == curr_grp & use_trials,:,curr_depth),1),'linewidth',2);
     end
     xlabel('Time from move');
     ylabel('Sum absolute error');

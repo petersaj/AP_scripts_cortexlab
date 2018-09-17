@@ -6623,10 +6623,12 @@ for curr_animal = 1:length(animals)
         depth_group = aligned_str_depth_group;
         
         % Get event-aligned activity
+        % (override framerate for now b/c uneven? arbitrary anyway)
+        framerate = 35;
         raster_window = [-0.5,3];
         upsample_factor = 2;
-        raster_sample_rate = 1/(framerate*upsample_factor);
-        t = raster_window(1):raster_sample_rate:raster_window(2);
+        sample_rate = (framerate*upsample_factor);
+        t = raster_window(1):1/sample_rate:raster_window(2);
         
         % Align (only to stim)
         use_align = stimOn_times;
@@ -6640,7 +6642,7 @@ for curr_animal = 1:length(animals)
         
         % MUA
         event_aligned_mua = nan(length(stimOn_times),length(t),n_depths);
-        t_bins = [t_peri_event-raster_sample_rate/2,t_peri_event(:,end)+raster_sample_rate/2];
+        t_bins = [t_peri_event-(1/sample_rate)/2,t_peri_event(:,end)+(1/sample_rate)/2];
         for curr_depth = 1:n_depths
             % (for all spikes in depth group)
             curr_spikes = spike_times_timeline(depth_group == curr_depth);
@@ -6650,9 +6652,21 @@ for curr_animal = 1:length(animals)
             
             event_aligned_mua(:,:,curr_depth) = cell2mat(arrayfun(@(x) ...
                 histcounts(curr_spikes,t_bins(x,:)), ...
-                [1:size(t_peri_event,1)]','uni',false))./raster_sample_rate;
+                [1:size(t_peri_event,1)]','uni',false))./(1/sample_rate);
         end
        
+        % Wheel
+        event_aligned_wheel_raw = interp1(Timeline.rawDAQTimestamps, ...
+            wheel_position,t_peri_event);
+        event_aligned_wheel = bsxfun(@minus,event_aligned_wheel_raw, ...
+            nanmedian(event_aligned_wheel_raw(:,t < 0),2));
+        
+        % Reward
+        t_bins = [t_peri_event-(1/sample_rate)/2,t_peri_event(:,end)+(1/sample_rate)/2];      
+        event_aligned_reward = (cell2mat(arrayfun(@(x) ...
+            histcounts(reward_t_timeline,t_bins(x,:)), ...
+            [1:size(t_peri_event,1)]','uni',false))) > 0;
+        
         %%%%%%%%%%%%%%%%%%%%%%%%
         
         % dFluorescence->MUA
@@ -6668,9 +6682,7 @@ for curr_animal = 1:length(animals)
             end
         end
         
-        % Prepare data for regression
-        sample_rate = (1/median(diff(frame_t)))*upsample_factor;
-        
+        % Prepare data for regression        
         skip_seconds = 60;
         time_bins = frame_t(find(frame_t > skip_seconds,1)):1/sample_rate:frame_t(find(frame_t-frame_t(end) < -skip_seconds,1,'last'));
         time_bin_centers = time_bins(1:end-1) + diff(time_bins)/2;
@@ -6760,24 +6772,12 @@ for curr_animal = 1:length(animals)
         
         % Align predicted / predicted-nlin
         event_aligned_mua_predicted = ...
-            interp1(time_bin_centers,predicted_spikes',t_peri_event);
+            interp1(time_bin_centers,predicted_spikes_scaled',t_peri_event);
         event_aligned_mua_predicted_nlin = ...
-            interp1(time_bin_centers,predicted_spikes_nlin',t_peri_event);
+            interp1(time_bin_centers,predicted_spikes_nlin_scaled',t_peri_event);
             
         %%%%%%%%%%%%%%%%%%%%%%%%      
-        
-        % Wheel
-        event_aligned_wheel_raw = interp1(Timeline.rawDAQTimestamps, ...
-            wheel_position,t_peri_event);
-        event_aligned_wheel = bsxfun(@minus,event_aligned_wheel_raw, ...
-            nanmedian(event_aligned_wheel_raw(:,t < 0),2));
-        
-        % Reward
-        t_bins = [t_peri_event-raster_sample_rate/2,t_peri_event(:,end)+raster_sample_rate/2];      
-        event_aligned_reward = (cell2mat(arrayfun(@(x) ...
-            histcounts(reward_t_timeline,t_bins(x,:)), ...
-            [1:size(t_peri_event,1)]','uni',false))./raster_sample_rate) > 0;
-        
+                
         % Pick trials to use
         use_trials = ...
             trial_outcome ~= 0 & ...
