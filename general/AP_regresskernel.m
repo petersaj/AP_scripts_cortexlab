@@ -1,6 +1,6 @@
 function [k,predicted_signals,explained_var,predicted_signals_reduced] = ...
-    AP_regresskernel(regressors,signals,t_shifts,lambdas,zs,cvfold,return_constant)
-% [k,predicted_signals,explained_var,predicted_signals_reduced] = AP_regresskernel(regressors,signals,t_shifts,lambdas,zs,cvfold)
+    AP_regresskernel(regressors,signals,t_shifts,lambdas,zs,cvfold,return_constant,use_constant)
+% [k,predicted_signals,explained_var,predicted_signals_reduced] = AP_regresskernel(regressors,signals,t_shifts,lambdas,zs,cvfold,return_constant,use_constant)
 %
 % Linear regression of kernel from regressors to outputs
 % (note constant term is included and used for prediction, but not output) 
@@ -65,8 +65,13 @@ if ~exist('cvfold','var') || isempty(cvfold)
 end
 
 % Set return_constant false if not entered
-if ~exist('return_constant','var') || isempty(cvfold)
+if ~exist('return_constant','var') || isempty(return_constant)
    return_constant = false; 
+end
+
+% Set use_constant true if not entered
+if ~exist('use_constant','var') || isempty(use_constant)
+   use_constant = true; 
 end
 
 % Create design matrix of all time-shifted regressors
@@ -89,11 +94,11 @@ regressor_design = cell2mat(cellfun(@(regressor_design) ...
 % Ridge regression for reducing noise: add offsets to design matrix to penalize k
 if exist('lambdas','var') && any(lambdas)
     if length(lambdas) == 1
-        ridge_matrix = lambdas*eye(size(regressor_design,2)+1);
+        ridge_matrix = lambdas*eye(size(regressor_design,2)+use_constant);
     elseif length(lambdas) == length(regressors)
         lambda_vector = cell2mat(reshape(cellfun(@(reg,t,lam) repmat(lam,size(reg,1)*length(t),1), ...
             regressors,t_shifts,num2cell(lambdas),'uni',false),[],1));
-        ridge_matrix = bsxfun(@times,eye(size(regressor_design,2)+1),lambda_vector);
+        ridge_matrix = bsxfun(@times,eye(size(regressor_design,2)+use_constant),lambda_vector);
     else
         error('Number of lambdas doesn''t match regressor groups');
     end
@@ -101,8 +106,12 @@ else
     ridge_matrix = [];
 end
 
-% Prepare column of 1's to have a constant term
-constant = ones(size(regressor_design,1),1);
+% Prepare column of 1's to have a constant term (if selected)
+if use_constant
+    constant = ones(size(regressor_design,1),1);
+else
+    constant = [];
+end
 
 % Send everything to the GPU
 regressors_gpu = gpuArray([[regressor_design,constant];ridge_matrix]);
@@ -192,7 +201,7 @@ end
 % Get the final k from averaging
 % (to remove the constant term)
 if ~return_constant
-    k = mean(k_cv(1:end-1,:,:),3);
+    k = mean(k_cv(1:end-use_constant,:,:),3);
     % (to keep constant term)
 elseif return_constant
     k = mean(k_cv,3);
