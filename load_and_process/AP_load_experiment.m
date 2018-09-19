@@ -33,7 +33,7 @@ else
     end
 end
 
-%% Load timeline
+%% Load timeline and associated inputs
 
 [timeline_filename,timeline_exists] = AP_cortexlab_filename(animal,day,experiment,'timeline');
 
@@ -65,6 +65,14 @@ if timeline_exists
     acqLive_trace = Timeline.rawDAQData(:,acqLive_idx) > thresh;
     acqLive_timeline = Timeline.rawDAQTimestamps( ...
         [find(acqLive_trace,1),find(acqLive_trace,1,'last')+1]);
+    
+    % Get wheel position
+    rotaryEncoder_idx = strcmp({Timeline.hw.inputs.name}, 'rotaryEncoder');
+    % (this is a very strange hack to overcome a problem in the rotary
+    % encoder that's known in the lab and was put on the wiki)
+    wheel_position = Timeline.rawDAQData(:,rotaryEncoder_idx);
+    wheel_position(wheel_position > 2^31) = wheel_position(wheel_position > 2^31) - 2^32;
+    
 end
 
 %% Load mpep protocol
@@ -250,14 +258,7 @@ if block_exists
         photodiode_idx),10) > 2;
     photodiode_flip = find((~photodiode_trace(1:end-1) & photodiode_trace(2:end)) | ...
         (photodiode_trace(1:end-1) & ~photodiode_trace(2:end)))+1;
-    photodiode_flip_times = stimScreen_on_t(photodiode_flip)';
-    
-    % Get wheel position
-    rotaryEncoder_idx = strcmp({Timeline.hw.inputs.name}, 'rotaryEncoder');
-    % (this is a very strange hack to overcome a problem in the rotary
-    % encoder that's known in the lab and was put on the wiki)
-    wheel_position = Timeline.rawDAQData(:,rotaryEncoder_idx);
-    wheel_position(wheel_position > 2^31) = wheel_position(wheel_position > 2^31) - 2^32;
+    photodiode_flip_times = stimScreen_on_t(photodiode_flip)';  
     
     % SPECIFIC TO PROTOCOL
     [~,expDef] = fileparts(block.expDef);

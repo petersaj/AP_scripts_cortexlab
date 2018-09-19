@@ -1065,12 +1065,8 @@ for curr_animal = 1:length(animals)
         experiment = experiments(curr_day).experiment;
                 
         % Load data and align striatum by depth
-        str_align = 'depth';  
-        AP_load_experiment 
-        
-        % Load the template kernels
-        kernel_template_fn = ['C:\Users\Andrew\OneDrive for Business\Documents\CarandiniHarrisLab\analysis\wf_ephys_choiceworld\ephys_processing\kernel_template'  '_' num2str(n_aligned_depths) '_depths.mat'];
-        load(kernel_template_fn);
+        str_align = 'none';  
+        AP_load_experiment         
         
         %%% Load lambda from previously estimated and saved
         lambda_fn = 'C:\Users\Andrew\OneDrive for Business\Documents\CarandiniHarrisLab\analysis\wf_ephys_choiceworld\ephys_processing\ctx-str_lambda';
@@ -1142,40 +1138,13 @@ for curr_animal = 1:length(animals)
         % Make single-frames from kernels
         t = kernel_frames/sample_rate;
         use_t = t >= 0 & t <= 0;
-        r_px_max = squeeze(nanmean(r_px(:,:,use_t,:),3));
-        r_px_max_norm = bsxfun(@rdivide,r_px_max, ...
-            permute(max(reshape(r_px_max,[],n_depths),[],1),[1,3,2]));
-        r_px_max_norm(isnan(r_px_max_norm)) = 0;
+        r_px_use = squeeze(nanmean(r_px(:,:,use_t,:),3));
+        r_px_use_norm = bsxfun(@rdivide,r_px_use, ...
+            permute(max(reshape(r_px_use,[],n_depths),[],1),[1,3,2]));
+        r_px_use_norm(isnan(r_px_use_norm)) = 0;
         
-        r_px_max_aligned = AP_align_widefield(animal,day,r_px_max_norm);
-        
-        % Get best match from kernels to kernel templates
-        kernel_align = reshape(AP_align_widefield(animal,day,r_px_max_norm),[],n_depths);
-        kernel_align_medfilt = medfilt2(kernel_align,[1,3]);
-        kernel_corr = (zscore(kernel_align_medfilt,[],1)'* ...
-            zscore(reshape(kernel_template,[],size(kernel_template,3)),[],1))./ ...
-            (size(kernel_align_medfilt,1)-1);
-        [kernel_match_corr,kernel_match_raw] = max(kernel_corr,[],2);
-        
-        % CLEAN UP KERNEL MATCH, NOT SURE HOW TO DO THIS YET
-        % Median filter kernel match to get rid of blips
-        kernel_match = medfilt1(kernel_match_raw,3);
-        
-        % If kernel match goes backwards, then set it to nearest neighbor
-        replace_kernel_match = kernel_match < cummax(kernel_match);
-        kernel_match(replace_kernel_match) = ...
-            interp1(find(~replace_kernel_match),kernel_match(~replace_kernel_match), ...
-            find(replace_kernel_match),'nearest');
-        
-        % Assign depth edges and kernel template index numbers
-        kernel_match_boundary_idx = unique([1;find(diff(kernel_match) ~= 0)+1;n_depths+1]);
-        
-        kernel_match_depth_edges = depth_group_edges(kernel_match_boundary_idx);
-        kernel_match_idx = kernel_match(kernel_match_boundary_idx(1:end-1));
-        
-        % Categorize template by kernel match
-        aligned_str_depth_group = discretize(spikeDepths,kernel_match_depth_edges,kernel_match_idx);
-        
+        r_px_max_aligned = AP_align_widefield(animal,day,r_px_use_norm);
+    
         % Package in structure
         ephys_kernel_depth(curr_animal).animal = animal;
         ephys_kernel_depth(curr_animal).days{curr_day} = day;       
@@ -1225,6 +1194,7 @@ r_px_depth_cat = horzcat(r_px_depths{:});
 r_px_depth_grp = grpstats(r_px_depth_cat(use_k_px),kidx);
 
 % Sort by k-means and group depth
+[~,all_depth_sort_idx] = sort(r_px_depth_cat(use_k_px));
 [~,k_sort_idx] = sort(kidx);
 [~,depth_sort_idx] = sort(r_px_depth_grp);
 
@@ -1233,23 +1203,34 @@ k_grp = reshape(grpstats(k_px_cat_norm_reshape(:,use_k_px)',kidx)', ...
     size(k_px_cat,1),size(k_px_cat,2),[]);
 k_grp_ordered = k_grp(:,:,depth_sort_idx);
 
-figure;imagesc(reshape(k_grp_ordered,size(k_px_cat,1),[]))
-caxis([-max(abs(k_grp(:))),max(abs(k_grp(:)))]);
-axis image off;
-colormap(brewermap([],'*RdBu'));
-title('Group kernels');
-
 figure;
-imagesc(corrcoef(k_px_cat_norm_reshape(:,use_k_px(k_sort_idx))))
+for i = 1:n_aligned_depths
+    subplot(1,n_aligned_depths,i);
+    imagesc(reshape(k_grp_ordered(:,:,i),size(k_px_cat,1),[]))
+    caxis([-max(abs(k_grp(:))),max(abs(k_grp(:)))]);
+    axis image off;
+    colormap(brewermap([],'*RdBu'));
+    AP_reference_outline('ccf_aligned','k');
+end
+
+% Plot correlations of kernels by kidx (renumber by depth)
+kidx_depth = depth_sort_idx(kidx);
+[~,k_depth_sort_idx] = sort(kidx_depth);
+figure;
+imagesc(corrcoef(k_px_cat_norm_reshape(:,use_k_px(k_depth_sort_idx))))
 title('Sorted kernel correlations');
 caxis([-0.5,0.5]); colormap(brewermap([],'*RdBu'));
 axis square;
+for i = 2:n_aligned_depths
+    line(xlim,repmat(sum(kidx_depth < i),2,1),'color','k','linewidth',2);
+    line(repmat(sum(kidx_depth < i),2,1),ylim,'color','k','linewidth',2);
+end
 
-% Save template kernels
-kernel_template = k_grp_ordered;
-kernel_template_fn = ['C:\Users\Andrew\OneDrive for Business\Documents\CarandiniHarrisLab\analysis\wf_ephys_choiceworld\ephys_processing\kernel_template'  '_' num2str(n_aligned_depths) '_depths'];
-save(kernel_template_fn,'kernel_template');
-disp('Saved kernel template');
+% % Save template kernels
+% kernel_template = k_grp_ordered;
+% kernel_template_fn = ['C:\Users\Andrew\OneDrive for Business\Documents\CarandiniHarrisLab\analysis\wf_ephys_choiceworld\ephys_processing\kernel_template'  '_' num2str(n_aligned_depths) '_depths'];
+% save(kernel_template_fn,'kernel_template');
+% disp('Saved kernel template');
 
 
 
@@ -6823,7 +6804,7 @@ save_fn = ['all_trial_activity_Udf_kernel-str_' num2str(n_aligned_depths) '_dept
 save([save_path filesep save_fn],'-v7.3');
 
 
-%% Batch load and save activity from all passive kalatsky (common U)
+%% Batch load and save activity from all passive fullscreen (common U)
 
 n_aligned_depths = 4;
 
@@ -6945,7 +6926,7 @@ clearvars -except n_aligned_depths fluor_all mua_all wheel_all D_all
 disp('Finished loading all')
 
 save_path = 'C:\Users\Andrew\OneDrive for Business\Documents\CarandiniHarrisLab\analysis\wf_ephys_choiceworld\choiceworld';
-save_fn = ['all_trial_activity_Udf_kernel-str_passive_' num2str(n_aligned_depths) '_depths'];
+save_fn = ['all_trial_activity_Udf_kernel-str_passive_fullscreen_' num2str(n_aligned_depths) '_depths'];
 save([save_path filesep save_fn]);
 
 %% Batch load and save activity from all passive choiceworld stim (common U)

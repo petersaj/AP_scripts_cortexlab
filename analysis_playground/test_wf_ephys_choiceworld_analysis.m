@@ -3842,6 +3842,7 @@ xlabel('Mean kernel correlation')
 ylabel('Explained variance')
 legend({ctx_str_lambda.animal})
 
+% TO DO: plot the correlation across kernels?
 
 %% Create ROIs from kernel templates
 
@@ -13263,7 +13264,7 @@ wheel = interp1(t,wheel_allcat(:,:,1)',t_downsample_diff)';
 
 %%% Regression (separate regressors to get partial explained variance)
 
-% Set up stim regressors
+% Stim regressors
 contrasts = unique(trial_contrast_allcat(trial_contrast_allcat > 0));
 contrastsides = sort([-contrasts;contrasts]);
 
@@ -15233,7 +15234,7 @@ legend([{wf_roi(:,1).area},cellfun(@(x) ...
 %% Regress concatenated fluor -> mua kernel in V-space
 
 % Load data
-use_data = 'task';
+use_data = 'passive';
 
 n_aligned_depths = 4;
 data_path = 'C:\Users\Andrew\OneDrive for Business\Documents\CarandiniHarrisLab\analysis\wf_ephys_choiceworld\choiceworld';
@@ -15242,8 +15243,8 @@ switch use_data
         data_fn = ['all_trial_activity_Udf_kernel-str_4_depths_long'];
         load_task = true;
     case 'passive'
-%         data_fn = ['all_trial_activity_Udf_kernel-str_passive_4_depths'];
-        data_fn = ['all_trial_activity_Udf_kernel-str_passive_choiceworld_4_depths'];
+        data_fn = ['all_trial_activity_Udf_kernel-str_passive_fullscreen_4_depths'];
+%         data_fn = ['all_trial_activity_Udf_kernel-str_passive_choiceworld_4_depths'];
         load_task = false;
 end
 
@@ -15425,24 +15426,32 @@ t_diff =  conv(t,[1,1]/2,'valid');
 t_downsample_diff = conv(t_downsample,[1,1]/2,'valid');
 
 if load_task
-    wheel = interp1(t,wheel_allcat(:,:,1)',t_downsample_diff)';
+    wheel = interp1(t,wheel_allcat(:,:,1)',t_downsample)';
     [~,move_idx] = max(abs(wheel(:,:,1)) > 2,[],2);
 end
 
-% % To use straight fluorescence
+% (old - interp doesn't make sense b/c binned)
+% mua_allcat_downsamp = permute(interp1(t,permute(mua_allcat,[2,1,3,4]),t_downsample),[2,1,3,4]);
+% (new - sum)
+mua_allcat_downsamp = permute(reshape(squeeze(sum(reshape(reshape(permute( ...
+    mua_allcat(:,1:end-mod(size(mua_allcat,2),downsample_factor),:), ...
+    [2,1,3]),[],n_depths),downsample_factor,[],n_depths),1)), ...
+    [],size(mua_allcat,1),n_depths),[2,1,3]);
+
+% % To use straight fluorescence (subtract t < 0)
 % smooth_factor = 1;
 % fluor_allcat_downsamp = permute(interp1(t,permute(convn( ...
-%     fluor_allcat,ones(1,smooth_factor)/smooth_factor,'same'),[2,1,3,4]),t_downsample_diff),[2,1,3,4]);
+%     fluor_allcat,ones(1,smooth_factor)/smooth_factor,'same'),[2,1,3,4]),t_downsample),[2,1,3,4]);
+% fluor_allcat_downsamp = bsxfun(@minus,fluor_allcat_downsamp, ...
+%     nanmedian(fluor_allcat_downsamp(:,t_downsample < 0,:),2));
 
 % To use derivative
 smooth_factor = 3;
 fluor_allcat_downsamp = permute(interp1(t_diff,permute(diff(convn( ...
-    fluor_allcat,ones(1,smooth_factor)/smooth_factor,'same'),[],2),[2,1,3,4]),t_downsample_diff),[2,1,3,4]);
+    fluor_allcat,ones(1,smooth_factor)/smooth_factor,'same'),[],2),[2,1,3,4]),t_downsample),[2,1,3,4]);
 
 % (there's a nan in one trial??)
 fluor_allcat_downsamp(isnan(fluor_allcat_downsamp)) = 0;
-
-mua_allcat_downsamp = permute(interp1(t,permute(mua_allcat,[2,1,3,4]),t_downsample_diff),[2,1,3,4]);
 
 % Low-pass filter activity (where does this ~10 Hz crap come from?)
 lowpassCutoff = 6; % Hz
@@ -15451,7 +15460,7 @@ fluor_allcat_downsamp_filt = filter(b100s,a100s,fluor_allcat_downsamp,[],2);
 mua_allcat_downsamp_filt = filter(b100s,a100s,mua_allcat_downsamp,[],2);
 
 % Regress from fluor to MUA (kernel from non-visually guided trials)
-kernel_t = [-0.08,0.08];
+kernel_t = [-0.2,0.2];
 kernel_frames = round(kernel_t(1)*sample_rate/downsample_factor):round(kernel_t(2)*sample_rate/downsample_factor);
 zs = [false,false];
 cvfold = 5;
@@ -15488,7 +15497,7 @@ for curr_depth = 1:n_depths
        
     % To use predicted straight from regression (cross-validated)
     mua_allcat_predicted(curr_kernel_trials,:,curr_depth,:) = ...
-        permute(reshape(curr_mua_predicted',length(t_downsample_diff),sum(curr_kernel_trials)),[2,1,4,3]);
+        permute(reshape(curr_mua_predicted',length(t_downsample),sum(curr_kernel_trials)),[2,1,4,3]);
     
 %     % To apply kernel from regressed subset to all (CV NOT APPLICABLE)
 %     % Create design matrix of all time-shifted regressors
@@ -15511,7 +15520,7 @@ for curr_depth = 1:n_depths
 %     predicted_spikes = regressor_design*fluor_k;
 %     
 %     mua_allcat_predicted(curr_nonan_trials,:,curr_depth,:) = ...
-%         permute(reshape(predicted_spikes',length(t_downsample_diff),sum(curr_nonan_trials)),[2,1,4,3]);
+%         permute(reshape(predicted_spikes',length(t_downsample),sum(curr_nonan_trials)),[2,1,4,3]);
     
     AP_print_progress_fraction(curr_depth,n_depths);
     
@@ -15586,7 +15595,7 @@ end
 % Get explained variance within time
 mua_allcat_residual = mua_allcat_downsamp_filt - mua_allcat_predicted_nlin;
 
-t_var = t_downsample_diff > -inf & t_downsample_diff < inf;
+t_var = t_downsample > -inf & t_downsample < inf;
 mua_sse_measured = squeeze(nansum(mua_allcat_downsamp_filt(:,t_var,:).^2,1));
 mua_sse_residual = squeeze(nansum(mua_allcat_residual(:,t_var,:).^2,1));
 mua_expl_var = (mua_sse_measured - mua_sse_residual)./mua_sse_measured;
@@ -15684,7 +15693,7 @@ if load_task
                 end
             end
             
-            AP_stackplot(curr_data_mean,t_downsample_diff,2,false,curr_col,1:n_depths);
+            AP_stackplot(curr_data_mean,t_downsample,2,false,curr_col,1:n_depths);
             
         end
         line([0,0],ylim,'color','k');
@@ -15723,7 +15732,7 @@ else
 
             curr_col = plot_cols(curr_plot_condition,:);
 
-            AP_stackplot(curr_data_mean,t_downsample_diff,2,false,curr_col,1:n_depths);
+            AP_stackplot(curr_data_mean,t_downsample,2,false,curr_col,1:n_depths);
             
         end
         line([0,0],ylim,'color','k');
@@ -15747,7 +15756,7 @@ for i = 1:size(mua_allcat_downsamp,1)
 end
 mua_allcat_residual_move = mua_allcat_downsamp_filt_move - mua_allcat_predicted_nlin_move;
 
-use_residual_t = t_downsample_diff > -0.1 & t_downsample_diff < 0.1;
+use_residual_t = t_downsample > -0.1 & t_downsample < 0.1;
 mean_residual_t = squeeze(sum(mua_allcat_residual_move(:,use_residual_t,:),2));
 
 grp_conditions = [ ...
@@ -15779,7 +15788,7 @@ for curr_depth = 1:n_depths
     p(curr_depth) = subplot(n_depths,1,curr_depth); hold on;
     for curr_grp = 1:size(grp_conditions,1)
         %To plot residual
-        plot(t_downsample_diff,nanmean(mua_allcat_residual_move( ...
+        plot(t_downsample,nanmean(mua_allcat_residual_move( ...
             grp_id == curr_grp & use_trials,:,curr_depth).^2,1),'linewidth',2);
         
 %         % To plot explained variance
@@ -15790,7 +15799,7 @@ for curr_depth = 1:n_depths
 %             mua_allcat_predicted_nlin_move( ...
 %             grp_id == curr_grp & use_trials,:,curr_depth);      
 %         expl_var = (nansum(curr_meas.^2,1) - nansum(curr_res.^2))./(nansum(curr_meas.^2));
-%         plot(t_downsample_diff,expl_var,'linewidth',2);
+%         plot(t_downsample,expl_var,'linewidth',2);
         
     end
     xlabel('Time from move');
@@ -15840,9 +15849,9 @@ use_trials = find( ...
     move_t > 0 & move_t < 0.5);
 
 % fit in loop - probably dumb way to do it but whatever
-pred_fit = nan(length(t_downsample_diff),2,n_depths);
+pred_fit = nan(length(t_downsample),2,n_depths);
 for curr_depth = 1:n_depths
-    for curr_t = 1:length(t_downsample_diff)
+    for curr_t = 1:length(t_downsample)
                
         use_measured = mua_allcat_downsamp_filt_move(use_trials,curr_t,curr_depth);
         use_predicted = mua_allcat_predicted_nlin_move(use_trials,curr_t,curr_depth);
@@ -15855,12 +15864,12 @@ end
 
 figure; 
 subplot(1,2,1); hold on; set(gca,'ColorOrder',copper(n_depths));
-plot(t_downsample_diff,squeeze(pred_fit(:,1,:)),'linewidth',2);
+plot(t_downsample,squeeze(pred_fit(:,1,:)),'linewidth',2);
 line([0,0],ylim,'color','k');
 ylabel('Multiplicative');
 xlabel('Time from movement');
 subplot(1,2,2); hold on; set(gca,'ColorOrder',copper(n_depths));
-plot(t_downsample_diff,squeeze(pred_fit(:,2,:)),'linewidth',2);
+plot(t_downsample,squeeze(pred_fit(:,2,:)),'linewidth',2);
 line([0,0],ylim,'color','k');
 ylabel('Additive');
 xlabel('Time from movement');
@@ -15917,7 +15926,7 @@ for curr_plot = 1:3
             end
         end
         
-        AP_stackplot(curr_data_mean,t_downsample_diff,2,false,curr_col,1:n_depths);
+        AP_stackplot(curr_data_mean,t_downsample,2,false,curr_col,1:n_depths);
         
     end
     line([0,0],ylim,'color','k');
