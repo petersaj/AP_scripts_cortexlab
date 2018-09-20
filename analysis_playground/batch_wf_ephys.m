@@ -1368,7 +1368,16 @@ batch_vars = struct;
 for curr_animal = 1:length(animals)
     
     animal = animals{curr_animal};
-    experiments = AP_find_experiments(animal,protocol);
+        
+    % Only use days with choiceworld (sometimes recorded in cortex, no bhv)
+    behavior_protocol = 'vanillaChoiceworld';
+    behavior_experiments = AP_find_experiments(animal,behavior_protocol);
+    
+    curr_experiments = AP_find_experiments(animal,protocol);
+    
+    behavior_day = ismember({curr_experiments.day},{behavior_experiments.day});
+    
+    experiments = curr_experiments([curr_experiments.imaging] & [curr_experiments.ephys] & behavior_day);
     
     % Skip if this animal doesn't have this experiment
     if isempty(experiments)
@@ -1376,9 +1385,7 @@ for curr_animal = 1:length(animals)
     end
     
     disp(animal);
-    
-    experiments = experiments([experiments.imaging] & [experiments.ephys]);
-    
+        
     load_parts.cam = false;
     load_parts.imaging = true;
     load_parts.ephys = true;

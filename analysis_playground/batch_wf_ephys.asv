@@ -1183,8 +1183,8 @@ k_px_cat_norm = k_px_cat;
 k_px_cat_norm_reshape = reshape(k_px_cat_norm,[],size(k_px_cat_norm,3));
 
 use_k_px = find(std(k_px_cat_norm_reshape,[],1) ~= 0);
-%%
-n_aligned_depths = 2;
+
+n_aligned_depths = 4;
 kidx = kmeans(k_px_cat_norm_reshape(:,use_k_px)',n_aligned_depths,'Distance','correlation');
 
 % Get average depth for each group
@@ -1210,7 +1210,7 @@ for i = 1:n_aligned_depths
     caxis([-max(abs(k_grp(:))),max(abs(k_grp(:)))]);
     axis image off;
     colormap(brewermap([],'*RdBu'));
-%     AP_reference_outline('ccf_aligned','k');
+    AP_reference_outline('ccf_aligned','k');
 end
 
 % Plot correlations of kernels by kidx (renumber by depth)
@@ -1369,6 +1369,18 @@ for curr_animal = 1:length(animals)
     
     animal = animals{curr_animal};
     experiments = AP_find_experiments(animal,protocol);
+    
+    
+    % Only use days with choiceworld (sometimes recorded in cortex, no bhv)
+    protocol = 'vanillaChoiceworld';
+    behavior_experiments = AP_find_experiments(animal,protocol);
+    
+    protocol = 'stimKalatsky';
+    passive_experiments = AP_find_experiments(animal,protocol);
+    
+    behavior_day = ismember({passive_experiments.day},{behavior_experiments.day});
+    
+    experiments = passive_experiments([passive_experiments.imaging] & [passive_experiments.ephys] & behavior_day);
     
     % Skip if this animal doesn't have this experiment
     if isempty(experiments)
