@@ -1079,8 +1079,6 @@ colormap(colormap_BlueWhiteRed)
 
 %% Signals: sparse noise retinotopy (bootstrap across trials to get less noise)
 
-[Uy,Ux,nSV] = size(U);
-
 ny = size(block.events.stimuliOnValues,1);
 nx = size(block.events.stimuliOnValues,2)/ ...
     size(block.events.stimuliOnTimes,2);
@@ -1088,7 +1086,7 @@ stim_screen = reshape(block.events.stimuliOnValues,ny,nx,[]);
 
 % Get average response to each stimulus
 surround_window = [0.1,0.5]; % 6s = [0.1,0.5], 6f = [0.05,0.2]
-framerate = 1./nanmean(diff(frame_t));
+framerate = 1./nanmedian(diff(frame_t));
 surround_samplerate = 1/(framerate*1);
 surround_time = surround_window(1):surround_samplerate:surround_window(2);
 response_n = nan(ny,nx);
@@ -1096,9 +1094,9 @@ response_grid = cell(ny,nx);
 for px_y = 1:ny
     for px_x = 1:nx
         
-        % Get all square flips to white only
-        align_stims = (stim_screen(px_y,px_x,2:end) - ...
-            stim_screen(px_y,px_x,1:end-1)) > 0;
+        % Get all square flips
+        align_stims = (stim_screen(px_y,px_x,2:end)~= 0) & ...
+            (diff(stim_screen(px_y,px_x,:),[],3) ~= 0);
         
         % Get corresponding stim times (don't add 1: first screen blank
         % with no photodiode flip)
@@ -1219,8 +1217,8 @@ set(ax2,'Visible','off');
 axes(ax2); axis image off;
 set(ax3,'Visible','off');
 axes(ax3); axis image off;
-set(h2,'AlphaData',mat2gray(abs(vfs_median))*0.3);
-colormap(ax2,gray);
+set(h2,'AlphaData',mat2gray(abs(vfs_median))*0.5);
+colormap(colormap_BlueWhiteRed)
 
 % vfs_cutoff = 1.5*std(vfs_mean(:));
 % vis_thresh = abs(vfs_mean) > vfs_cutoff;

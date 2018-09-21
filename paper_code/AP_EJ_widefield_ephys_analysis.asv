@@ -244,7 +244,12 @@ for curr_recording = 1:length(recordings)
     ylabel('Activity (std)');
     legend({'MUA','Fluorescence','Fluorescence derivative'});
     
-    drawnow;    
+    drawnow;
+    
+    % Low-pass filter fluorescence (where does this ~10 Hz crap come from?)
+    lowpassCutoff = 6; % Hz
+    [b100s, a100s] = butter(2, lowpassCutoff/((framerate)/2), 'stop');
+    a = filter(b100s,a100s,fluor_trace_diff,[],2);
     
     
     %% MUA/fluorescence cross-correlation and coherence

@@ -427,8 +427,22 @@ if block_exists
         trial_conditions = trial_conditions(2:end);
         stimIDs = stimIDs(2:end);
         
+    elseif strcmp(expDef,'sparseNoiseAsync_NS2')
+        % Don't median filter trace (why was this done above?)
+        photodiode_trace = medfilt1(Timeline.rawDAQData(stimScreen_on, ...
+            photodiode_idx),1) > 6;
+        photodiode_flip = find((~photodiode_trace(1:end-1) & photodiode_trace(2:end)) | ...
+            (photodiode_trace(1:end-1) & ~photodiode_trace(2:end)))+1;
+        photodiode_flip_times = stimScreen_on_t(photodiode_flip)';       
+        
+        if length(photodiode_flip_times) - length(block.stimWindowRenderTimes) ~= -1
+            error('Maybe skipped frames?');
+        end
+        
+        stimOn_times = photodiode_flip_times;
+        
     else
-        error('Signals protocol with no analysis script')
+        warning(['Signals protocol with no analysis script:' expDef]);
     end
     
     

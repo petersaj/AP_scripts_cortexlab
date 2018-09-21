@@ -1359,10 +1359,10 @@ n_aligned_depths = 4;
 
 animals = {'AP024','AP025','AP026','AP027','AP028','AP029'};
 
-protocol = 'vanillaChoiceworld';
+% protocol = 'vanillaChoiceworld';
 % protocol = 'stimSparseNoiseUncorrAsync';
 % protocol = 'stimKalatsky';
-% protocol = 'AP_choiceWorldStimPassive';
+protocol = 'AP_choiceWorldStimPassive';
 
 batch_vars = struct;
 for curr_animal = 1:length(animals)
@@ -6738,6 +6738,7 @@ for curr_animal = 1:length(animals)
             predicted_spikes_nlin(curr_depth,:) = predicted_data_nlin;
             
 %             % (plot)
+%             figure
 %             subplot(1,n_depths,curr_depth); hold on;
 %             plot(predicted_data,measured_data,'.')
 %             plot(predicted_data_binmean,measured_data_binmean,'linewidth',2);

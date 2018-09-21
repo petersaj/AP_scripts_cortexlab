@@ -3463,6 +3463,9 @@ n_aligned_depths = 4;
 data_path = 'C:\Users\Andrew\OneDrive for Business\Documents\CarandiniHarrisLab\analysis\wf_ephys_choiceworld\wf_ephys';
 
 protocol = 'vanillaChoiceworld';
+% protocol = 'stimSparseNoiseUncorrAsync';
+% protocol = 'stimKalatsky';
+% protocol = 'AP_choiceWorldStimPassive';
 
 map_fn = [data_path filesep 'wf_ephys_maps_' protocol '_' num2str(n_aligned_depths) '_depths_kernel'];
 load(map_fn);
@@ -3557,7 +3560,7 @@ colormap(brewermap([],'*RdBu'));
 AP_reference_outline('ccf_aligned','k');AP_reference_outline('retinotopy','m');
 
 % Plot weights at t = 0
-figure; colormap(brewermap([],'*RdBu'));
+figure('Name','Weights at t = 0'); colormap(brewermap([],'*RdBu'));
 for curr_depth = 1:n_depths
     subplot(1,n_depths,curr_depth);
     imagesc(r_px_mean(:,:,t == 0,curr_depth));
@@ -3822,7 +3825,6 @@ for curr_animal = 1:length(ephys_kernel_align)
 end
 
 % Plot explained variance against kernel correlation
-% (a little surprising - it's uncorrelated?)
 
 % Load lambda from previously estimated and saved
 lambda_fn = 'C:\Users\Andrew\OneDrive for Business\Documents\CarandiniHarrisLab\analysis\wf_ephys_choiceworld\ephys_processing\ctx-str_lambda';
