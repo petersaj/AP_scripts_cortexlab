@@ -1087,7 +1087,7 @@ nx = size(block.events.stimuliOnValues,2)/ ...
 stim_screen = reshape(block.events.stimuliOnValues,ny,nx,[]);
 
 % Get average response to each stimulus
-surround_window = [0.1,0.5]; % 6s = [0.1,0.5], 6f = [0.05,0.2]
+surround_window = [0,0.5]; % 6s = [0.1,0.5], 6f = [0.05,0.2]
 framerate = 1./nanmean(diff(frame_t));
 surround_samplerate = 1/(framerate*1);
 surround_time = surround_window(1):surround_samplerate:surround_window(2);
@@ -1154,7 +1154,7 @@ response_mean_boostrap = cellfun(@(x) bootstrp(n_boot,@mean,x')',response_grid,'
 % (to split trials instead of bootstrap)
 %split_trials = cellfun(@(x) shake(discretize(1:size(x,2),round(linspace(1,size(x,2),n_boot+1)))),response_grid,'uni',false);
 %response_mean_boostrap = cellfun(@(x,y) grpstats(x',y','mean')',response_grid,split_trials,'uni',false);
-use_method = 'com'; % max or com
+use_method = 'max'; % max or com
 vfs_boot = nan(size(Ud,1),size(Ud,2),n_boot);
 for curr_boot = 1:n_boot
     

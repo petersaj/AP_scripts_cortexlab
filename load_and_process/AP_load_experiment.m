@@ -430,7 +430,7 @@ if block_exists
     elseif strcmp(expDef,'sparseNoiseAsync_NS2')
         % Don't median filter trace (why was this done above?)
         photodiode_trace = medfilt1(Timeline.rawDAQData(stimScreen_on, ...
-            photodiode_idx),1) > 6;
+            photodiode_idx),1) > 4;
         photodiode_flip = find((~photodiode_trace(1:end-1) & photodiode_trace(2:end)) | ...
             (photodiode_trace(1:end-1) & ~photodiode_trace(2:end)))+1;
         photodiode_flip_times = stimScreen_on_t(photodiode_flip)';       

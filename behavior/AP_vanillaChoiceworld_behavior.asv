@@ -888,107 +888,35 @@ ylabel('Fraction go left');
 title('Late move');
 
 
-% Predict responses from linear combination of past choices?
-% (do this smarter with log-likelihood later?)
-n_history_trials = 10;
-history_kernel = nan(n_history_trials,length(animals));
-history_choice_mean = nan(n_history_trials,length(animals),2);
-history_correct_prediction = nan(length(animals),1);
-for curr_animal = 1:length(animals)
-    zero_trials = find(trial_condition_cat{curr_animal} == 0)';
-    zero_trials(zero_trials < n_history_trials+1) = [];
-    
-    zero_choices = trial_choice_cat{curr_animal}(zero_trials)';
-    history_trials = bsxfun(@plus,zero_trials,-n_history_trials:-1);
-    history_choices = trial_choice_cat{curr_animal}(history_trials);
-    history_outcome = trial_outcome_cat{curr_animal}(history_trials);
-    
-    % (use only correct trials)
-    history_choices = history_choices.*(history_outcome == 1);
-    
-    history_kernel(:,curr_animal) = history_choices\zero_choices;
-    history_choice_mean(:,curr_animal,1) = ...
-        nanmean(history_choices(zero_choices == -1,:) == -1,1);
-    history_choice_mean(:,curr_animal,2) = ...
-        nanmean(history_choices(zero_choices == 1,:) == -1,1);
-    
-    history_prediction = history_choices*history_kernel(:,curr_animal) < 0.5;
-    history_correct_prediction(curr_animal) = ...
-        sum(history_prediction & zero_choices == -1)./sum(zero_choices ~= 0);
-end
-
-figure; 
-subplot(1,3,1);hold on;
-plot(-n_history_trials:-1,history_kernel);
-plot(-n_history_trials:-1,nanmean(history_kernel,2),'k','linewidth',2);
-xlabel('Past trial');
-ylabel('Weight');
-line(xlim,[0,0],'color','k')
-
-subplot(1,3,2); 
-plot(history_correct_prediction,'k','linewidth',2);
-xlabel('Animal');
-ylabel('Fraction correctly predicted');
-line(xlim,[0.5,0.5],'color','k')
-
-subplot(1,3,3); hold on;
-plot(-n_history_trials:-1,history_choice_mean(:,:,1),'k');
-plot(-n_history_trials:-1,history_choice_mean(:,:,2),'r');
-plot(-n_history_trials:-1,nanmean(history_choice_mean(:,:,1),2),'k','linewidth',2);
-plot(-n_history_trials:-1,nanmean(history_choice_mean(:,:,2),2),'r','linewidth',2);
-xlabel('Past trial');
-ylabel('Fraction move L');
-line(xlim,[0.5,0.5],'color','k')
+% Predict responses from linear com
+cellfun(@(choice,condition) sum(choice == -1)/sum(choice ~= 0), ...
+    trial_choice_cat,trial_condition_cat)
 
 
-% As above, but all animals concatenated
-n_history_trials = 40;
-history_kernel = nan(n_history_trials,1);
-history_choice_mean = nan(n_history_trials,2);
-history_correct_prediction = nan;
 
-a = horzcat(trial_condition_cat{:});
-b = horzcat(trial_choice_cat{:});
-% (use only correct trials)
-c = horzcat(trial_outcome_cat{:});
-b = b.*(c == 1);
 
-zero_trials = find(a == 0)';
-zero_trials(zero_trials < n_history_trials+1) = [];
 
-zero_choices = b(zero_trials)';
-history_trials = bsxfun(@plus,zero_trials,-n_history_trials:-1);
-history_choices = b(history_trials);
 
-history_kernel = history_choices\zero_choices;
-history_choice_mean(:,1) = ...
-    nanmean(history_choices(zero_choices == -1,:) == -1,1);
-history_choice_mean(:,2) = ...
-    nanmean(history_choices(zero_choices == 1,:) == -1,1);
 
-history_prediction = history_choices*history_kernel < 0.5;
-history_correct_prediction = ...
-    sum(history_prediction & zero_choices == -1)./sum(zero_choices ~= 0);
 
-figure; 
-subplot(1,3,1);hold on;
-plot(-n_history_trials:-1,history_kernel,'k','linewidth',2);
-xlabel('Past trial');
-ylabel('Weight');
-line(xlim,[0,0],'color','k')
 
-subplot(1,3,2); 
-plot(history_correct_prediction,'.k','MarkerSize',20);
-xlabel('Animal');
-ylabel('Fraction correctly predicted');
-line(xlim,[0.5,0.5],'color','k')
 
-subplot(1,3,3); hold on;
-plot(-n_history_trials:-1,history_choice_mean(:,1),'k','linewidth',2);
-plot(-n_history_trials:-1,history_choice_mean(:,2),'r','linewidth',2);
-xlabel('Past trial');
-ylabel('Fraction move L');
-line(xlim,[0.5,0.5],'color','k')
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 

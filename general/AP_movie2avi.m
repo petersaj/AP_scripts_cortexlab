@@ -15,9 +15,9 @@ if exist('annotation_text','var') && ~isempty(annotation_text)
 end
 
 if ~isempty(figure_position)
-    f = figure('Position',figure_position);
+    f = figure('Position',figure_position,'color','w');
 else
-    f = figure;
+    f = figure('color','w');
 end
 a = axes('Position',[0,0,1,1]);
 
@@ -26,7 +26,7 @@ axis image off;
 
 % add reference outline(s)
 % AP_reference_outline('retinotopy','b');
-AP_reference_outline('ccf_aligned','k',[],[437,416,3,3]);
+AP_reference_outline('ccf_aligned','k',[],[437,416,1,4]);
 
 for i = 1:size(im,3)
     set(im_plot,'CData',im(:,:,i));
