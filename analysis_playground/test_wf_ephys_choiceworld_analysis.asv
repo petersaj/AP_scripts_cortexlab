@@ -16486,11 +16486,8 @@ vel_t = t(max_vel_idx);
 max_vel = max_speed.*trial_choice_allcat;
 
 %%%%%%%%%%%%%% TEMP: max velocity regardless of final choice
-
-[max_speed,max_vel_idx] = max(abs(wheel_velocity_allcat),[],2);
-max_vel = max_speed.* ...
-    arrayfun(@(x) sign(wheel_velocity_allcat(x,max_vel_idx(x))),1:length(max_vel_idx))';
-
+[max_vel,max_vel_idx] = max(abs(wheel_velocity_allcat),[],2);
+arrayfun(@(x) sign(wheel_velocity_allcat(x,max_vel_idx)),1:size(max
 %%%%%%%%%%%%%%
 
 % Load the master U
@@ -16536,17 +16533,15 @@ fluor_roi_diff_move = fluor_roi_diff_move(:,:,1:n_rois/2) - ...
 
 % Bin maximum velocity
 use_trials = move_t > 0 & move_t < 0.5 & ...
-    trial_side_allcat == -trial_choice_allcat & trial_contrast_allcat > 0;
+    trial_contrast_allcat == 0;
 
 % n_prctiles = 7;
 % use_vel = prctile(max_vel,90);
 % vel_amp_edges = linspace(-use_vel,use_vel,n_prctiles*2);
-n_prctiles = 7;
+n_prctiles = 9;
 vel_amp_edges = prctile(abs(max_vel),linspace(0,100,n_prctiles));
 vel_amp_edges = sort([vel_amp_edges,-vel_amp_edges]);
 vel_amp_bins = discretize(max_vel(use_trials),vel_amp_edges);
-% don't use the middle bin
-vel_amp_bins(vel_amp_bins == n_prctiles) = NaN;
 
 % Plot wheel and activity within bins
 use_wheel = wheel_velocity_allcat_move(use_trials,:);
