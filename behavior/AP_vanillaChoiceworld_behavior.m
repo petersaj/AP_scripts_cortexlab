@@ -709,7 +709,143 @@ xlabel('# Trials')
 legend(animals);
 
     
+%% Plot psychometric and reaction time of only included data
+
+% Load behavior
+bhv_fn = 'C:\Users\Andrew\OneDrive for Business\Documents\CarandiniHarrisLab\analysis\wf_ephys_choiceworld\bhv_processing\bhv.mat';
+load(bhv_fn);
+
+
+
+% Load use experiments and cut out bad ones
+exclude_path = 'C:\Users\Andrew\OneDrive for Business\Documents\CarandiniHarrisLab\analysis\wf_ephys_choiceworld\experiment_exclusion';
+exclude_fn{1} = 'bhv_use_experiments';
+% exclude_fn{2} = 'expl_var_use_experiments';
+use_experiments_all = {};
+for curr_exclude = 1:length(exclude_fn)
+    curr_use_experiments = load([exclude_path filesep exclude_fn{curr_exclude}]);
+    use_experiments_all = [use_experiments_all;curr_use_experiments.use_experiments];
+end
+use_experiments = arrayfun(@(x) all(vertcat(use_experiments_all{:,x}),1), ...
+    1:size(use_experiments_all,2),'uni',false);
+use_animals = cellfun(@any,use_experiments);
+
+for curr_animal = 1:length(bhv)
+    % messy but whatever: chage animal/conditions field then put back
+    temp_name = bhv(curr_animal).animal;
+    temp_conditions = bhv(curr_animal).conditions;
+    bhv(curr_animal).animal = false(size(use_experiments{curr_animal}));
     
+    bhv(curr_animal) = structfun(@(x) x(use_experiments{curr_animal}), ...
+        bhv(curr_animal),'uni',false);
+    
+    bhv(curr_animal).animal = temp_name;
+    bhv(curr_animal).conditions = temp_conditions;
+end
+bhv(~use_animals) = [];
+
+animals = {bhv.animal};
+
+conditions = unique(vertcat(bhv.conditions),'rows');
+trial_choice_cat = arrayfun(@(x) horzcat(bhv(x).trial_choice{:}),1:length(bhv),'uni',false);
+trial_outcome_cat = arrayfun(@(x) horzcat(bhv(x).trial_outcome{:}),1:length(bhv),'uni',false);
+trial_side_cat = arrayfun(@(x) horzcat(bhv(x).trial_side{:}),1:length(bhv),'uni',false);
+trial_contrast_cat = arrayfun(@(x) horzcat(bhv(x).trial_contrast{:}),1:length(bhv),'uni',false);
+trial_condition_cat = cellfun(@(side,contrast) side.*contrast,trial_side_cat,trial_contrast_cat,'uni',false);
+trial_wheel_velocity_cat = arrayfun(@(x) vertcat(bhv(x).trial_wheel_velocity{:})',1:length(bhv),'uni',false);
+stim_to_move_cat = arrayfun(@(x) horzcat(bhv(x).stim_to_move{:}),1:length(bhv),'uni',false);
+stim_to_feedback_cat = arrayfun(@(x) horzcat(bhv(x).stim_to_feedback{:}),1:length(bhv),'uni',false);
+
+% Distinguish early/late movements
+go_time = 0.5;
+trial_timing = arrayfun(@(animal) cellfun(@(x) 1+(x > go_time), ...
+    bhv(animal).stim_to_move,'uni',false),1:length(bhv),'uni',false);
+trial_timing_cat = arrayfun(@(animal) ...
+    horzcat(trial_timing{animal}{:}),1:length(bhv),'uni',false);
+
+% Plot psychometric 
+frac_left = cell2mat(cellfun(@(choice,condition) ...
+    grpstats(choice == -1,condition),trial_choice_cat,trial_condition_cat,'uni',false));
+
+frac_left_earlymove = cell2mat(cellfun(@(choice,condition,stim_to_move) ...
+    grpstats(choice(stim_to_move < 0.5) == -1,condition(stim_to_move < 0.5)), ...
+    trial_choice_cat,trial_condition_cat,stim_to_move_cat,'uni',false));
+
+frac_left_latemove = cell2mat(cellfun(@(choice,condition,stim_to_move) ...
+    grpstats(choice(stim_to_move >= 0.5) == -1,condition(stim_to_move >= 0.5)), ...
+    trial_choice_cat,trial_condition_cat,stim_to_move_cat,'uni',false));
+
+figure;
+
+subplot(1,3,1); hold on;
+plot(conditions,frac_left,'linewidth',2,'color',[0.5,0.5,0.5]);
+plot(conditions,nanmean(frac_left,2),'linewidth',5,'color','k');
+xlim([-1,1]);
+ylim([0,1]);
+line([0,0],ylim,'linestyle','--','color','k');
+line(xlim,[0.5,0.5],'linestyle','--','color','k');
+xlabel('Condition');
+ylabel('Fraction go left');
+title('All trials');
+
+subplot(1,3,2); hold on;
+plot(conditions,frac_left_earlymove,'linewidth',2,'color',[0.5,0.5,0.5]);
+plot(conditions,nanmean(frac_left_earlymove,2),'linewidth',5,'color','k');
+xlim([-1,1]);
+ylim([0,1]);
+line([0,0],ylim,'linestyle','--','color','k');
+line(xlim,[0.5,0.5],'linestyle','--','color','k');
+xlabel('Condition');
+ylabel('Fraction go left');
+title('Early move');
+
+subplot(1,3,3); hold on;
+plot(conditions,frac_left_latemove,'linewidth',2,'color',[0.5,0.5,0.5]);
+plot(conditions,nanmean(frac_left_latemove,2),'linewidth',5,'color','k');
+xlim([-1,1]);
+ylim([0,1]);
+line([0,0],ylim,'linestyle','--','color','k');
+line(xlim,[0.5,0.5],'linestyle','--','color','k');
+xlabel('Condition');
+ylabel('Fraction go left');
+title('Late move');
+
+
+% Plot distribution of stim to move and feedback times
+move_time_bins = 0:0.01:1;
+day_split = 4;
+
+move_time_centers = move_time_bins(1:end-1) + diff(move_time_bins)/2;
+stim_to_move_binned = zeros(day_split,length(move_time_bins)-1,length(bhv));
+
+for curr_animal = 1:length(bhv)
+    for curr_day = 1:length(bhv(curr_animal).stim_to_move)
+        curr_data = bhv(curr_animal).stim_to_move{curr_day};
+        trials_split = round(linspace(1,length(curr_data),day_split+1));
+        for curr_split = 1:day_split
+            stim_to_move_binned(curr_split,:,curr_animal) = ...
+                stim_to_move_binned(curr_split,:,curr_animal) + ...
+                histcounts(curr_data(trials_split(curr_split): ...
+                trials_split(curr_split+1)),move_time_bins);
+        end
+    end
+end
+stim_to_move_binned_norm = bsxfun(@rdivide,stim_to_move_binned, ...
+    sum(sum(stim_to_move_binned,1),2));
+
+figure; hold on;
+for curr_animal = 1:length(bhv)
+    AP_stackplot(stim_to_move_binned_norm(:,:,curr_animal)', ...
+        move_time_centers,0.02,false,[0.5,0.5,0.5],1:day_split);
+end
+AP_stackplot(nanmean(stim_to_move_binned_norm,3)', ...
+    move_time_centers,0.02,false,'k',1:day_split);
+xlabel('Time to movement onset')
+ylabel('Frequency by fraction within day')
+axis tight
+line([0.5,0.5],ylim,'linestyle','--','color','k');
+
+
 
 %% Batch load and save TOTAL behavior (to look for biases on zero-contrast)
 
