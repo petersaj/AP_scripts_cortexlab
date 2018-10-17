@@ -8730,8 +8730,8 @@ title ('Zero L');
 % Load data
 n_aligned_depths = 4;
 data_path = 'C:\Users\Andrew\OneDrive for Business\Documents\CarandiniHarrisLab\analysis\wf_ephys_choiceworld\choiceworld';
-data_fn = ['all_trial_activity_Udf_kernel-str_passive_fullscreen_4_depths'];
-% data_fn = ['all_trial_activity_Udf_kernel-str_passive_choiceworld_4_depths'];
+% data_fn = ['all_trial_activity_Udf_kernel-str_passive_fullscreen_4_depths'];
+data_fn = ['all_trial_activity_Udf_kernel-str_passive_choiceworld_4_depths'];
 
 load([data_path filesep data_fn]);
 n_animals = length(D_all);
@@ -8743,22 +8743,22 @@ upsample_factor = 3;
 sample_rate = (framerate*upsample_factor);
 t = raster_window(1):1/sample_rate:raster_window(2);
 
-% Load use experiments and cut out bad ones
-exclude_path = 'C:\Users\Andrew\OneDrive for Business\Documents\CarandiniHarrisLab\analysis\wf_ephys_choiceworld\experiment_exclusion';
-exclude_fn{1} = 'bhv_use_experiments';
-% exclude_fn{2} = 'expl_var_use_experiments';
-use_experiments_all = {};
-for curr_exclude = 1:length(exclude_fn)
-    curr_use_experiments = load([exclude_path filesep exclude_fn{curr_exclude}]);
-    use_experiments_all = [use_experiments_all;curr_use_experiments.use_experiments];
-end
-use_experiments = arrayfun(@(x) all(vertcat(use_experiments_all{:,x}),1), ...
-    1:size(use_experiments_all,2),'uni',false);
-
-D_all = cellfun(@(data,use_expts) data(use_expts),D_all,use_experiments','uni',false);
-fluor_all = cellfun(@(data,use_expts) data(use_expts),fluor_all,use_experiments','uni',false);
-mua_all = cellfun(@(data,use_expts) data(use_expts),mua_all,use_experiments','uni',false);
-wheel_all = cellfun(@(data,use_expts) data(use_expts),wheel_all,use_experiments','uni',false);
+% % Load use experiments and cut out bad ones
+% exclude_path = 'C:\Users\Andrew\OneDrive for Business\Documents\CarandiniHarrisLab\analysis\wf_ephys_choiceworld\experiment_exclusion';
+% exclude_fn{1} = 'bhv_use_experiments';
+% % exclude_fn{2} = 'expl_var_use_experiments';
+% use_experiments_all = {};
+% for curr_exclude = 1:length(exclude_fn)
+%     curr_use_experiments = load([exclude_path filesep exclude_fn{curr_exclude}]);
+%     use_experiments_all = [use_experiments_all;curr_use_experiments.use_experiments];
+% end
+% use_experiments = arrayfun(@(x) all(vertcat(use_experiments_all{:,x}),1), ...
+%     1:size(use_experiments_all,2),'uni',false);
+% 
+% D_all = cellfun(@(data,use_expts) data(use_expts),D_all,use_experiments','uni',false);
+% fluor_all = cellfun(@(data,use_expts) data(use_expts),fluor_all,use_experiments','uni',false);
+% mua_all = cellfun(@(data,use_expts) data(use_expts),mua_all,use_experiments','uni',false);
+% wheel_all = cellfun(@(data,use_expts) data(use_expts),wheel_all,use_experiments','uni',false);
 
 use_animals = cellfun(@(x) ~isempty(x),D_all);
 D_all = D_all(use_animals);
@@ -8781,7 +8781,7 @@ conditions = combvec(contrasts,sides,choices,timings)';
 n_conditions = size(conditions,1);
 
 % Normalize and concatenate activity/wheel
-fluor_allcat = nan(0,length(t),n_rois,1);
+fluor_allcat = nan(0,length(t),n_vs,1);
 mua_allcat = nan(0,length(t),n_depths,1);
 wheel_allcat = nan(0,length(t),1);
 reward_allcat = nan(0,length(t),1);
@@ -8837,13 +8837,12 @@ for curr_animal = 1:length(D_all)
     
     % Concatenate wheel
     wheel_cat = cat(1,wheel_all{curr_animal}{:});
-    %     wheel_cat_norm = wheel_cat./prctile(max(max(abs(wheel_cat),[],2),[],3),95);
     
     % Concatenate stim
     D = struct;
     D.stimulus = cell2mat(cellfun(@(x) x.stimulus,D_all{curr_animal},'uni',false));
     D_cat.stimulus = vertcat(D_cat.stimulus,D.stimulus);
-    
+   
     % Concatenate everything
     fluor_allcat = [fluor_allcat;fluor_cat];
     mua_allcat = [mua_allcat;mua_cat_norm];
@@ -8851,12 +8850,8 @@ for curr_animal = 1:length(D_all)
     
 end
 
-% Get reaction time
-[~,move_idx] = max(abs(wheel_allcat) > 2,[],2);
-move_t = t(move_idx)';
-
 %%% REMOVE MOVE TRIALS FOR PASSIVE
-move_trials = move_t > 0 & move_t < 2;
+move_trials = any(abs(wheel_allcat(:,t >= -0.5 & t <= 2) > 2),2);
 fluor_allcat(move_trials,:,:) = [];
 mua_allcat(move_trials,:,:) = [];
 wheel_allcat(move_trials,:,:) = [];
@@ -8898,28 +8893,25 @@ end
 
 t_diff = conv(t,[1,1]/2,'valid');
 
-px_stim_hemidiff = px_stim - AP_reflect_widefield(px_stim);
-
-normalize_px = true;
-if normalize_px
-    % Normalize by dividing by max of each frame
-    px_dims = size(px_stim);
-    px_stim = bsxfun(@rdivide,px_stim,max(abs(reshape( ...
-         px_stim,[px_dims(1)*px_dims(2),1,px_dims(3:end)])),[],1));
-     
-    px_stim_hemidiff = bsxfun(@rdivide,px_stim_hemidiff,max(abs(reshape( ...
-         px_stim_hemidiff,[px_dims(1)*px_dims(2),1,px_dims(3:end)])),[],1));
-end
-
 % Plot all together
-AP_image_scroll([reshape(permute(px_stim,[1,2,4,3]), ...
-    size(px_stim,1),[],size(px_stim,3)); ...
-    reshape(permute(px_stim_hemidiff,[1,2,4,3]), ...
-    size(px_stim,1),[],size(px_stim,3))],t_diff);
-axis image; caxis([-1,1]); 
+AP_image_scroll(reshape(permute(px_stim,[1,2,4,3]), ...
+    size(px_stim,1),[],size(px_stim,3)),t_diff);
+axis image; caxis([-1.5e-3,1.5e-3]); 
 colormap(brewermap([],'*RdBu'))
 AP_reference_outline('ccf_aligned','k',[], ...
-    [size(px_stim,1),size(px_stim,2),2,length(unique(D_cat.stimulus))]);
+    [size(px_stim,1),size(px_stim,2),1,length(unique(D_cat.stimulus))]);
+
+% Plot striatum
+plot_cols = lines(max(D_cat.stimulus));
+figure; hold on;
+for curr_plot_condition = 1:max(D_cat.stimulus)    
+    curr_trials = D_cat.stimulus == curr_plot_condition;    
+    curr_data_mean = squeeze(nanmean(mua_allcat(curr_trials,:,:),1));   
+    curr_col = plot_cols(curr_plot_condition,:);   
+    AP_stackplot(curr_data_mean,t,1,false,curr_col,1:n_depths);    
+end
+line([0,0],ylim,'color','k');
+xlabel('Time from stim');
 
 
 
@@ -9870,7 +9862,7 @@ use_rxn = move_t > 0 & move_t < 0.5;
     [trial_contrast_allcat,trial_side_allcat,trial_choice_allcat], ...
     plot_conditions,'rows');
 
-move_align = false;
+move_align = true;
 
 % Get fluorescence in widefield ROIs
 wf_roi_fn = 'C:\Users\Andrew\OneDrive for Business\Documents\CarandiniHarrisLab\analysis\wf_ephys_choiceworld\wf_processing\wf_rois\wf_roi';
@@ -13953,8 +13945,13 @@ for curr_regressor = 1:length(regressors)
         reshape(curr_k_v,n_vs,[]),[],[],roi_mask)', ...
         size(curr_k_v,2),size(curr_k_v,3),n_rois);
     
-    curr_col = colormap_BlueWhiteRed(size(curr_k_roi,2)/2);
-    curr_col(size(curr_k_roi,2)/2+1,:) = [];
+    if size(curr_k_roi,2) > 1
+        curr_col = colormap_BlueWhiteRed(size(curr_k_roi,2)/2);
+        curr_col(size(curr_k_roi,2)/2+1,:) = [];
+    else
+        curr_col = 'k'
+    end
+    
     figure; hold on;
     for curr_subk = 1:size(curr_k_roi,2)
         AP_stackplot(squeeze(curr_k_roi(:,curr_subk,:)), ...
@@ -13970,8 +13967,13 @@ for curr_regressor = 1:length(regressors)
     
     curr_k_cat = permute(cat(3,mua_kernel{curr_regressor,:}),[2,1,3]);
     
-    curr_col = colormap_BlueWhiteRed(size(curr_k_cat,2)/2);
-    curr_col(size(curr_k_cat,2)/2+1,:) = [];
+    if size(curr_k_cat,2) > 1
+        curr_col = colormap_BlueWhiteRed(size(curr_k_cat,2)/2);
+        curr_col(size(curr_k_cat,2)/2+1,:) = [];
+    else
+        curr_col = 'k'
+    end
+    
     figure; hold on;
     for curr_subk = 1:size(curr_k_cat,2)
         AP_stackplot(squeeze(curr_k_cat(:,curr_subk,:)), ...
@@ -15743,8 +15745,8 @@ end
 [~,move_idx] = max(abs(wheel_allcat(:,:,1)) > 2,[],2);
 move_t = t(move_idx)';
 
-% %%% TEST: REMOVE MOVE TRIALS FOR PASSIVE
-% move_trials = move_t > 0 & move_t < 1;
+% %%% REMOVE MOVE TRIALS FOR PASSIVE
+% move_trials = any(abs(wheel_allcat(:,t >= 0 & t <= 2) > 2),2);
 % fluor_allcat(move_trials,:,:) = [];
 % mua_allcat(move_trials,:,:) = [];
 % wheel_allcat(move_trials,:,:) = [];
