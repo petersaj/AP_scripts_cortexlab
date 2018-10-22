@@ -4,6 +4,15 @@ function x_shaken = AP_shake(x,dim)
 % Randomly permute data along the specified direction
 % dim can be multiple dimensions
 
+% If no dim input, major axis if vector and break if not
+if ~exist('dim','var') || isempty(dim)
+    if sum(size(x) > 1) == 1
+        dim = find(size(x) > 1);
+    else
+        error('No dimension specified on non-vector data');
+    end
+end
+
 x_size = size(x);
 
 % Put the relevant dimension(s) first

@@ -41,12 +41,9 @@ if timeline_exists
     if verbose; disp('Loading timeline...'); end
     
     load(timeline_filename);
-    
-    % Set rig-specific timeline names
-    cam_name = 'pcoExposure';
-    acqLive_name = 'acqLive';
-    
+       
     % Get camera times
+    cam_name = 'pcoExposure';
     timeline_cam_idx = strcmp({Timeline.hw.inputs.name}, cam_name);
     
     cam_expose_starts = Timeline.rawDAQTimestamps( ...
@@ -60,6 +57,7 @@ if timeline_exists
     cam_expose_times = cam_expose_stops - cam_expose_starts;
     
     % Get acqLive signal
+    acqLive_name = 'acqLive';
     acqLive_idx = strcmp({Timeline.hw.inputs.name}, acqLive_name);
     thresh = max(Timeline.rawDAQData(:,acqLive_idx))/2;
     acqLive_trace = Timeline.rawDAQData(:,acqLive_idx) > thresh;
@@ -72,6 +70,39 @@ if timeline_exists
     % encoder that's known in the lab and was put on the wiki)
     wheel_position = Timeline.rawDAQData(:,rotaryEncoder_idx);
     wheel_position(wheel_position > 2^31) = wheel_position(wheel_position > 2^31) - 2^32;
+       
+    % Get whether stim was flickering
+    stimScreen_idx = strcmp({Timeline.hw.inputs.name}, 'stimScreen');
+    if any(stimScreen_idx)
+        stimScreen_flicker = max(Timeline.rawDAQData(:,stimScreen_idx)) - ...
+            min(Timeline.rawDAQData(:,stimScreen_idx)) > 2;
+    end
+    
+    % Get photodiode flips (compensate for screen flicker)
+    % (NOTE: this used to be done separately in different protocols)
+    photodiode_idx = strcmp({Timeline.hw.inputs.name}, 'photoDiode');
+    % (define stim screen on from photodiode - sometimes sample-length
+    % offset maybe because of backlight onset delay)
+    stimScreen_on = Timeline.rawDAQData(:,photodiode_idx) > 0.15;
+    stimScreen_on_t = Timeline.rawDAQTimestamps(stimScreen_on);
+    photodiode_thresh = 2; % old: max(Timeline.rawDAQData(:,photodiode_idx))/2
+    photodiode_trace = Timeline.rawDAQData(stimScreen_on,photodiode_idx) > photodiode_thresh;
+    % (medfilt used to be in there because sometimes screen off but
+    % photodiode was only dimmed?)
+%     photodiode_trace_medfilt = medfilt1(Timeline.rawDAQData(stimScreen_on, ...
+%         photodiode_idx),5) > photodiode_thresh;
+    photodiode_flip = find((~photodiode_trace(1:end-1) & photodiode_trace(2:end)) | ...
+        (photodiode_trace(1:end-1) & ~photodiode_trace(2:end)))+1;
+    photodiode_flip_times = stimScreen_on_t(photodiode_flip)';
+    
+    % Get flipper signal (this was added late, might not be present)
+    flipper_name = 'flipper';
+    flipper_idx = strcmp({Timeline.hw.inputs.name}, flipper_name);
+    flipper_thresh = 2; % TTL threshold
+    flipper_trace = Timeline.rawDAQData(:,flipper_idx) > flipper_thresh;
+    flipper_flip = find((~flipper_trace(1:end-1) & flipper_trace(2:end)) | ...
+        (flipper_trace(1:end-1) & ~flipper_trace(2:end)))+1;
+    flipper_flip_times = Timeline.rawDAQTimestamps(flipper_flip)';
     
 end
 
@@ -89,78 +120,21 @@ if protocol_exists
     hwinfo_filename = AP_cortexlab_filename(animal,day,experiment,'hardware');
     load(hwinfo_filename);
     
-    % Get flicker or steady photodiode
+    % Get flicker or steady photodiode (can be 'flicker' or 'steady':
+    % 'flicker shouldn't be used at the moment though)
     photodiode_type = myScreenInfo.SyncSquare.Type;
-    
-    % Get stimulus onsets and parameters
-    photodiode_idx = strcmp({Timeline.hw.inputs.name}, 'photoDiode');
-    
-    % Get stim screen signal index
-    stimScreen_idx = strcmp({Timeline.hw.inputs.name}, 'stimScreen');
-    if any(stimScreen_idx)
-        stimScreen_flicker = max(Timeline.rawDAQData(:,stimScreen_idx)) - ...
-            min(Timeline.rawDAQData(:,stimScreen_idx)) > 2;
-        stimScreen_thresh = max(Timeline.rawDAQData(:,stimScreen_idx))/2;
-        stimScreen_on = Timeline.rawDAQData(:,stimScreen_idx) > stimScreen_thresh;
-    end
-    
     switch lower(photodiode_type)
         case 'flicker'
-            warning('if flickering photodiode and steady screen, write diff')
-            %         % get differential of photodiode
-            %         photodiode_diff = [diff(Timeline.rawDAQData(:,photodiode_idx));0];
-            %
-            %         stimScreen_idx = strcmp({Timeline.hw.inputs.name}, 'stimScreen');
-            %         if any(Timeline.rawDAQData(:,stimScreen_idx) < 1);
-            %             stimScreen_thresh = max(Timeline.rawDAQData(:,stimScreen_idx))/2;
-            %             stimScreen_on = Timeline.rawDAQData(:,stimScreen_idx) > stimScreen_thresh;
-            %             photodiode_diff(~stimScreen_on) = NaN;
-            %             photodiode_
-            %
-            %         end
-            
-            % This is the same as below... can probably just use
-            stimScreen_on = Timeline.rawDAQData(:,photodiode_idx) > 0.15;
-            stimScreen_on_t = Timeline.rawDAQTimestamps(stimScreen_on);
-            photodiode_thresh = max(Timeline.rawDAQData(:,photodiode_idx))/2;
-            % median filter because of weird effect where
-            % photodiode dims instead of off for one sample
-            % while backlight is turning off
-            photodiode_trace = medfilt1(Timeline.rawDAQData(stimScreen_on, ...
-                photodiode_idx),5) > photodiode_thresh;
-            photodiode_flip = find((~photodiode_trace(1:end-1) & photodiode_trace(2:end)) | ...
-                (photodiode_trace(1:end-1) & ~photodiode_trace(2:end)))+1;
-            
-            photodiode = struct('timestamps',[],'values',[]);
-            photodiode.timestamps = stimScreen_on_t(photodiode_flip)';
-            photodiode.values = photodiode_trace(photodiode_flip);
-            
-        case 'steady'
-            
-            % Take into account if the screen flickers
-            
-            % have to redefine periods of screen on, because
-            % sometimes there's a sample or so difference
-            stimScreen_on = Timeline.rawDAQData(:,photodiode_idx) > 0.3;
-            stimScreen_on_t = Timeline.rawDAQTimestamps(stimScreen_on);
-            photodiode_thresh = (max(Timeline.rawDAQData(:,photodiode_idx)) ...
-                - min(Timeline.rawDAQData(:,photodiode_idx)))/2 + ...
-                min(Timeline.rawDAQData(:,photodiode_idx));
-            % median filter because of weird effect where
-            % photodiode dims instead of off for one sample
-            % while backlight is turning off
-            photodiode_trace = medfilt1(Timeline.rawDAQData(stimScreen_on, ...
-                photodiode_idx),10) > photodiode_thresh;
-            photodiode_flip = find((~photodiode_trace(1:end-1) & photodiode_trace(2:end)) | ...
-                (photodiode_trace(1:end-1) & ~photodiode_trace(2:end)))+1;
-            
-            photodiode = struct('timestamps',[],'values',[]);
-            photodiode.timestamps = stimScreen_on_t(photodiode_flip)';
-            photodiode.values = photodiode_trace(photodiode_flip);
+            error('MPEP flicker photodiode - special case needed?')
     end
     
-    photodiode_offsets = photodiode.timestamps(photodiode.values == 0);
-    photodiode_onsets = photodiode.timestamps(photodiode.values == 1);
+    % Stim times should just be odd (on) and even (off)
+    if mod(length(photodiode_flip_times),2) == 0
+        photodiode_onsets = photodiode_flip_times(1:2:end);
+        photodiode_offsets = photodiode_flip_times(2:2:end);
+    else
+        error('Odd number of photodiode flips')
+    end
     
     % Get specific stim onsets by time between last offset and new onset
     % (occasionally there a bad frame so flip but not new stim)
@@ -237,28 +211,7 @@ if block_exists
             signals_events.(block_fieldnames{curr_times}) = ...
                 AP_clock_fix(block.events.(block_fieldnames{curr_times}),reward_t_block,reward_t_timeline);
         end
-    end
-    
-    % Get photodiode flips
-    % (get stim screen flickering, if that happens)
-    stimScreen_idx = strcmp({Timeline.hw.inputs.name}, 'stimScreen');
-    if any(stimScreen_idx)
-        stimScreen_flicker = max(Timeline.rawDAQData(:,stimScreen_idx)) - ...
-            min(Timeline.rawDAQData(:,stimScreen_idx)) > 2;
-        stimScreen_thresh = max(Timeline.rawDAQData(:,stimScreen_idx))/2;
-        stimScreen_on = Timeline.rawDAQData(:,stimScreen_idx) > stimScreen_thresh;
-        stimScreen_on_t = Timeline.rawDAQTimestamps(stimScreen_on);
-    end
-    % median filter because of weird effect where
-    % photodiode dims instead of off for one sample
-    % while backlight is turning off
-    photodiode_name = 'photoDiode';
-    photodiode_idx = strcmp({Timeline.hw.inputs.name}, photodiode_name);
-    photodiode_trace = medfilt1(Timeline.rawDAQData(stimScreen_on, ...
-        photodiode_idx),10) > 2;
-    photodiode_flip = find((~photodiode_trace(1:end-1) & photodiode_trace(2:end)) | ...
-        (photodiode_trace(1:end-1) & ~photodiode_trace(2:end)))+1;
-    photodiode_flip_times = stimScreen_on_t(photodiode_flip)';  
+    end   
     
     % SPECIFIC TO PROTOCOL
     [~,expDef] = fileparts(block.expDef);
@@ -366,14 +319,6 @@ if block_exists
         conditions_params = signals_events.visualParamsValues(:,conditions_idx);
         
     elseif strcmp(expDef,'DS_choiceWorldStimPassive')
-        % photodiode turns gray? change threshold
-        photodiode_idx = strcmp({Timeline.hw.inputs.name}, photodiode_name);
-        photodiode_trace = medfilt1(Timeline.rawDAQData(stimScreen_on, ...
-            photodiode_idx),10) > 6;
-        photodiode_flip = find((~photodiode_trace(1:end-1) & photodiode_trace(2:end)) | ...
-            (photodiode_trace(1:end-1) & ~photodiode_trace(2:end)))+1;
-        photodiode_flip_times = stimScreen_on_t(photodiode_flip)';
-        
         % get stim times - first stim photodiode is messed up so throw it out
         stimOn_times = photodiode_flip_times(2:2:end);
         
@@ -395,14 +340,6 @@ if block_exists
         [~,stimIDs] = ismember(trial_conditions,conditions,'rows');
         
     elseif strcmp(expDef,'AP_localize_choiceWorldStimPassive')
-        % photodiode turns gray? change threshold
-        photodiode_idx = strcmp({Timeline.hw.inputs.name}, photodiode_name);
-        photodiode_trace = medfilt1(Timeline.rawDAQData(stimScreen_on, ...
-            photodiode_idx),10) > 6;
-        photodiode_flip = find((~photodiode_trace(1:end-1) & photodiode_trace(2:end)) | ...
-            (photodiode_trace(1:end-1) & ~photodiode_trace(2:end)))+1;
-        photodiode_flip_times = stimScreen_on_t(photodiode_flip)';
-        
         % get stim times - first stim photodiode is messed up so throw it out
         stimOn_times = photodiode_flip_times(2:2:end);
         
@@ -428,13 +365,6 @@ if block_exists
         stimIDs = stimIDs(2:end);
         
     elseif strcmp(expDef,'sparseNoiseAsync_NS2')
-        % Don't median filter trace (why was this done above?)
-        photodiode_trace = medfilt1(Timeline.rawDAQData(stimScreen_on, ...
-            photodiode_idx),1) > 4;
-        photodiode_flip = find((~photodiode_trace(1:end-1) & photodiode_trace(2:end)) | ...
-            (photodiode_trace(1:end-1) & ~photodiode_trace(2:end)))+1;
-        photodiode_flip_times = stimScreen_on_t(photodiode_flip)';       
-        
         if length(photodiode_flip_times) - length(block.stimWindowRenderTimes) ~= -1
             error('Maybe skipped frames?');
         end
@@ -465,7 +395,7 @@ if exist('Timeline','var') && load_parts.cam
     [eyecam_dir,eyecam_exists] = AP_cortexlab_filename(animal,day,experiment,'eyecam');
     
     if eyecam_exists
-        if verbose; disp('Loading eyecam...'); end;
+        if verbose; disp('Loading eyecam...'); end
         
         % Load camera processed data
         [eyecam_processed_filename,eyecam_processed_exists] = AP_cortexlab_filename(animal,day,experiment,'eyecam_processed');
@@ -714,7 +644,7 @@ if ephys_exists && load_parts.ephys
     
     if verbose; disp('Loading ephys...'); end
     
-    acqLive_channel = 2;
+    acqLive_sync_idx = 2;
     load_lfp = false;
     
     % Load clusters, if they exist
@@ -800,8 +730,8 @@ if ephys_exists && load_parts.ephys
     end
     
     % Get acqLive times for current experiment
-    experiment_ephys_starts = sync(acqLive_channel).timestamps(sync(acqLive_channel).values == 1);
-    experiment_ephys_stops = sync(acqLive_channel).timestamps(sync(acqLive_channel).values == 0);
+    experiment_ephys_starts = sync(acqLive_sync_idx).timestamps(sync(acqLive_sync_idx).values == 1);
+    experiment_ephys_stops = sync(acqLive_sync_idx).timestamps(sync(acqLive_sync_idx).values == 0);
     
     % (get folders with only a number - those're the experiment folders)
     experiments_dir = dir(AP_cortexlab_filename(animal,day,experiment,'expInfo'));
@@ -852,7 +782,7 @@ if ephys_exists && load_parts.ephys
     % Eliminate spikes that were classified as not "good"
     if exist('cluster_groups','var')
         
-        if verbose; disp('Removing non-good/MUA templates'); end;
+        if verbose; disp('Removing non-good/MUA templates'); end
         
         good_templates_idx = uint32(cluster_groups{1}( ...
             strcmp(cluster_groups{2},'good') | strcmp(cluster_groups{2},'mua')));

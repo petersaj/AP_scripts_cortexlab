@@ -15,7 +15,7 @@ depth_group_centers = depth_group_edges(1:end-1)+(diff(depth_group_edges)/2);
 unique_depths = 1:length(depth_group_edges)-1;
 
 spike_binning = 0.01; % seconds
-corr_edges = spike_times_timeline(1):spike_binning:spike_times_timeline(end);
+corr_edges = nanmin(spike_times_timeline):spike_binning:nanmax(spike_times_timeline);
 corr_centers = corr_edges(1:end-1) + diff(corr_edges);
 
 binned_spikes_depth = zeros(length(unique_depths),length(corr_edges)-1);
