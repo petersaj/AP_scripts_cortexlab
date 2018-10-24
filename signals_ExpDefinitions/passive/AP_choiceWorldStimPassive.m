@@ -4,17 +4,17 @@ function AP_choiceWorldStimPassive(t, events, parameters, visStim, inputs, outpu
 
 %% Set up stimuli
 
-staticParameters.numRepeats = 30;
+staticParameters.numRepeats = 50;
 staticParameters.stimTime = 0.5;
 staticParameters.minITI = 2;
-staticParameters.maxITI = 4;
-staticParameters.stepITI = 1;
-staticParameters.bufferTime = 2; % time to delay start and end
+staticParameters.maxITI = 3;
+staticParameters.stepITI = 0.1;
+staticParameters.bufferTime = 2; % time to delay experiment start and end
 
 % Visual stim
 sigma = [20,20];
 azimuths = [-90,90];
-contrasts = [1,0.12,0.06,0];
+contrasts = [1,0.5,0.25,0.125,0.06,0];
 vis_params = mat2cell(CombVec(azimuths,contrasts),2,ones(1,length(azimuths)*length(contrasts)));
 spatialFreq = 1/15;
 
