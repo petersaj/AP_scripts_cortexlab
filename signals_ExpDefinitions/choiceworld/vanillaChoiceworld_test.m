@@ -1,4 +1,4 @@
-function vanillaChoiceworld(t, events, parameters, visStim, inputs, outputs, audio)
+function vanillaChoiceworld_test(t, events, parameters, visStim, inputs, outputs, audio)
 % vanillaChoiceworld(t, events, parameters, visStim, inputs, outputs, audio)
 % 170309 - AP
 %
@@ -30,11 +30,11 @@ staircaseMiss = 1;
 
 % Stimulus/target
 % (which contrasts to use)
-contrasts = [1,0.5,0.25,0.125,0.06,0];
+contrasts = [1,0];
 % (which conrasts to use at the beginning of training)
-startingContrasts = [true,true,false,false,false,false];
+startingContrasts = [true,true];
 % (which contrasts to repeat on miss)
-repeatOnMiss = [true,true,false,false,false,false];
+repeatOnMiss = [false,false];
 % (number of trials to judge rolling performance)
 trialsToBuffer = 50;
 % (number of trials after introducing 12.5% contrast to introduce 0%)
@@ -52,21 +52,19 @@ itiHit = 1;
 itiMiss = 2;
 
 % Sounds
-% audioSampleRate = 192e3; % (Not used after new audio system 20181107)
-audDev = audio.Devices('Strix');
-audioSampleRate = audDev.DefaultSampleRate;
-audioChannels = audDev.NrOutputChannels;
+audioSampleRate = 192e3;
 
-onsetToneAmplitude = 0.3; % Changed from 1 when moving to Strix
+onsetToneAmplitude = 1;
 onsetToneFreq = 12000;
 onsetToneDuration = 0.1;
 onsetToneRampDuration = 0.01;
+audioChannels = 2;
 toneSamples = onsetToneAmplitude*events.expStart.map(@(x) ...
     aud.pureTone(onsetToneFreq,onsetToneDuration,audioSampleRate, ...
     onsetToneRampDuration,audioChannels));
 
 missNoiseDuration = itiMiss;
-missNoiseAmplitude = 0.03; % Changed from 0.05 when moving to Strix
+missNoiseAmplitude = 0.05;
 missNoiseSamples = missNoiseAmplitude*events.expStart.map(@(x) ...
     randn(2, audioSampleRate*missNoiseDuration));
 
@@ -100,8 +98,7 @@ stimOn = at(true,preStimQuiescence);
 interactiveOn = stimOn.delay(cueInteractiveDelay); 
 
 % Play tone at interactive onset
-audio.Strix = toneSamples.at(interactiveOn);
-% (20180711 changed from audio.onsetTone for new audio handling)
+audio.onsetTone = toneSamples.at(interactiveOn);
 
 % Response
 % (wheel displacement zeroed at interactiveOn)
@@ -130,8 +127,7 @@ outputs.reward = water;
 totalWater = water.scan(@plus,0);
 
 % Play noise on miss
-audio.Strix = missNoiseSamples.at(trialData.miss.delay(0.01));
-% (20180711 changed from audio.missNoise for new audio handling)
+audio.missNoise = missNoiseSamples.at(trialData.miss.delay(0.01));
 
 % ITI defined by outcome
 iti = response.delay(trialData.hit.at(response)*itiHit + trialData.miss.at(response)*itiMiss);

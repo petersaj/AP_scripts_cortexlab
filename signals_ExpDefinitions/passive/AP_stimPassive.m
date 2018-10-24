@@ -1,23 +1,17 @@
-function AP_stimReward(t, events, parameters, visStim, inputs, outputs, audio)
-% AP 2017-06-23: pair visual stimuli with rewards
+function AP_stimPassive(t, events, parameters, visStim, inputs, outputs, audio)
+% AP 2017-06-23: show passive gratings
 
 %% Fixed parameters
-
-% Reward
-rewardSize = 3;
 
 % Stimuli
 stimAzimuths = [-90,0,90];
 spatialFreq = 1/15;
-contrast = 1;
-sigma = [90,90];
-stimFlickerFrequency = 5;
-orientation = 45;
+contrast = 0;
+sigma = [20,20];
 
 % Timing
-stimTime = 1.5; % time stimulus is on the screen
-stimRewardTime = 1; % time after stimulus onset when reward is given
-itiTimes = 5:7;
+stimTime = 0.5; % time stimulus is on the screen
+itiTimes = 1:2;
 
 %% Set up trial parameters and events
 
@@ -34,16 +28,12 @@ endTrial = stimOff.delay(trialITI);
 
 %% Visual stimuli
 
-stimFlicker = mod(skipRepeats(floor((t - t.at(stimOn))/(1/stimFlickerFrequency))),2);
-%stim.contrast = trialContrast.at(stimOn)*stimFlicker;
-
 stim = vis.grating(t, 'square', 'gaussian');
 stim.sigma = sigma;
 stim.spatialFreq = spatialFreq;
-stim.phase = pi*stimFlicker;
+stim.phase = 2*pi*events.newTrial.map(@(v)rand);
 stim.azimuth = trialAzimuth.at(stimOn);
 stim.contrast = contrast;
-stim.orientation = orientation;
 stim.show = stimOn.to(stimOff);
 
 visStim.stim = stim;
@@ -52,7 +42,6 @@ visStim.stim = stim;
 
 events.stimOn = stimOn;
 events.stimOff = stimOff;
-events.stimFlicker = stimFlicker;
 events.trialAzimuth = trialAzimuth;
 
 events.endTrial = endTrial;

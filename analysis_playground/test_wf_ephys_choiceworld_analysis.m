@@ -3463,9 +3463,9 @@ n_aligned_depths = 4;
 
 data_path = 'C:\Users\Andrew\OneDrive for Business\Documents\CarandiniHarrisLab\analysis\wf_ephys_choiceworld\wf_ephys';
 
-protocol = 'vanillaChoiceworld';
+% protocol = 'vanillaChoiceworld';
 % protocol = 'stimSparseNoiseUncorrAsync';
-% protocol = 'stimKalatsky';
+protocol = 'stimKalatsky';
 % protocol = 'AP_choiceWorldStimPassive';
 
 map_fn = [data_path filesep 'wf_ephys_maps_' protocol '_' num2str(n_aligned_depths) '_depths_kernel'];
@@ -8731,8 +8731,8 @@ title ('Zero L');
 % Load data
 n_aligned_depths = 4;
 data_path = 'C:\Users\Andrew\OneDrive for Business\Documents\CarandiniHarrisLab\analysis\wf_ephys_choiceworld\choiceworld';
-data_fn = ['all_trial_activity_Udf_kernel-str_passive_fullscreen_4_depths'];
-% data_fn = ['all_trial_activity_Udf_kernel-str_passive_choiceworld_4_depths'];
+% data_fn = ['all_trial_activity_Udf_kernel-str_passive_fullscreen_4_depths'];
+data_fn = ['all_trial_activity_Udf_kernel-str_passive_choiceworld_4_depths'];
 
 load([data_path filesep data_fn]);
 n_animals = length(D_all);
@@ -9891,11 +9891,11 @@ contrast_side_col = colormap_BlueWhiteRed(5);
 contrast_side_col(6,:) = 0;
 contrast_side_val = unique(sort([-contrasts,contrasts]))';
 
-% contrast, side, choice
-plot_conditions = ...
-    [contrasts(2:end),contrasts(2:end); ...
-    -ones(1,5),ones(1,5); ...
-    ones(1,5),-ones(1,5)]';
+% % contrast, side, choice
+% plot_conditions = ...
+%     [contrasts(2:end),contrasts(2:end); ...
+%     -ones(1,5),ones(1,5); ...
+%     ones(1,5),-ones(1,5)]';
 
 % plot_conditions = ...
 %     [1,0,1,1,0,1; ...
@@ -14017,7 +14017,7 @@ for curr_regressor = 1:length(regressors)
     for curr_subk = 1:size(curr_k_roi,2)
         AP_stackplot(squeeze(curr_k_roi(:,curr_subk,:)), ...
             sample_shifts{curr_regressor}/(sample_rate/downsample_factor), ...
-            1.5e-3,false,curr_col(curr_subk,:))
+            1.5e-3,false,curr_col(curr_subk,:));
     end
     title(regressor_labels{curr_regressor});
 end
@@ -14039,7 +14039,7 @@ for curr_regressor = 1:length(regressors)
     for curr_subk = 1:size(curr_k_cat,2)
         AP_stackplot(squeeze(curr_k_cat(:,curr_subk,:)), ...
             sample_shifts{curr_regressor}/(sample_rate/downsample_factor), ...
-            1,false,curr_col(curr_subk,:))
+            1,false,curr_col(curr_subk,:));
     end
     title(regressor_labels{curr_regressor});
 end
@@ -14222,7 +14222,8 @@ plot_conditions = ...
     [1,0,1; ...
     1,-1,-1; ...
     -1,-1,-1]';
-use_rxn = move_t > 0.5  & move_t < 1;
+
+use_rxn = move_t > 0  & move_t < 0.5;
     
 [~,plot_id] = ismember( ...
     [trial_contrast_allcat > 0,trial_side_allcat,trial_choice_allcat], ...
@@ -14341,9 +14342,10 @@ linkaxes(p_str)
 t_shifts = {[-0.1,0.3];[-0.2,0.5];[0,0];[-0.05,0.3];[-0.1,0.5]};
 
 % Settings to plot (only use one bin here)
-rxn_time_bins = {[0,0.5]};
+rxn_time_bins = {[0.3,0.4]};
 
 normalize_px = true;
+move_align = true;
 
 % Get major trial types
 vis_L_trials_hit = ...
@@ -14394,13 +14396,15 @@ for curr_rxn = 1:length(rxn_time_bins)
         curr_data = fluor_allcat_downsamp_diff(curr_trials,:,1:use_svs);
         curr_data_predicted = fluor_allcat_predicted(curr_trials,:,1:use_svs);
         
-        % re-align to movement onset
-        t_leeway = 0.5;
-        leeway_samples = round(t_leeway*(sample_rate/downsample_factor));
-        curr_move_idx = move_idx(curr_trials);
-        for i = 1:size(curr_data,1)
-            curr_data(i,:) = circshift(curr_data(i,:),-curr_move_idx(i)+leeway_samples,2);
-            curr_data_predicted(i,:) = circshift(curr_data_predicted(i,:),-curr_move_idx(i)+leeway_samples,2);
+        if move_align
+            % re-align to movement onset
+            t_leeway = 0.5;
+            leeway_samples = round(t_leeway*(sample_rate/downsample_factor));
+            curr_move_idx = move_idx(curr_trials);
+            for i = 1:size(curr_data,1)
+                curr_data(i,:) = circshift(curr_data(i,:),-curr_move_idx(i)+leeway_samples,2);
+                curr_data_predicted(i,:) = circshift(curr_data_predicted(i,:),-curr_move_idx(i)+leeway_samples,2);
+            end
         end
         
         curr_data_mean = squeeze(nanmean(curr_data,1))';
@@ -16069,13 +16073,13 @@ if load_task
             curr_trials = plot_id == curr_plot_condition & use_rxn;
             curr_data = plot_data(curr_trials,:,:);
             
-%             % re-align to movement onset
-%             t_leeway = 0.5;
-%             leeway_samples = round(t_leeway*(sample_rate/downsample_factor));
-%             curr_move_idx = move_idx(curr_trials);
-%             for i = 1:size(curr_data,1)
-%                 curr_data(i,:) = circshift(curr_data(i,:),-curr_move_idx(i)+leeway_samples,2);
-%             end
+            % re-align to movement onset
+            t_leeway = 0.5;
+            leeway_samples = round(t_leeway*(sample_rate/downsample_factor));
+            curr_move_idx = move_idx(curr_trials);
+            for i = 1:size(curr_data,1)
+                curr_data(i,:) = circshift(curr_data(i,:),-curr_move_idx(i)+leeway_samples,2);
+            end
             
             curr_data_mean = squeeze(nanmean(curr_data,1));
             
@@ -17185,10 +17189,10 @@ fluor_roi_diff = bsxfun(@rdivide,fluor_roi_diff,nanstd(reshape(fluor_roi_diff,[]
 % SVM on each time point
 activity_cat = cat(3,fluor_roi_diff,mua_allcat_filt_move);
 frac_correct_predicted = nan(size(activity_cat,3),length(t));
-for curr_area = 1:size(activity_cat,3)
+for curr_area = 10%1:size(activity_cat,3)
     for curr_t = 1:length(t)        
         use_data = activity_cat(:,curr_t,curr_area);
-        use_trials = ~isnan(use_data) & move_t > 0.5 & move_t < 1 & trial_contrast_allcat > 0;
+        use_trials = ~isnan(use_data) & move_t > 0 & move_t < 0.5 & trial_contrast_allcat == 0;
         
         SVMModel = fitcsvm(use_data(use_trials),trial_choice_allcat(use_trials));
         CVSVMModel = crossval(SVMModel);

@@ -5904,7 +5904,7 @@ save([save_path filesep save_fn],'batch_vars');
 
 disp('Finished batch');
 
-%% Batch load and save activity from all passive
+%% Batch load and save activity from all passive (unused - new below)
 
 n_aligned_depths = 4;
 

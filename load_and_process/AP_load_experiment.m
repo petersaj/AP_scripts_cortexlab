@@ -87,12 +87,12 @@ if timeline_exists
     stimScreen_on_t = Timeline.rawDAQTimestamps(stimScreen_on);
     photodiode_thresh = 2; % old: max(Timeline.rawDAQData(:,photodiode_idx))/2
     photodiode_trace = Timeline.rawDAQData(stimScreen_on,photodiode_idx) > photodiode_thresh;
-    % (medfilt used to be in there because sometimes screen off but
-    % photodiode was only dimmed?)
-%     photodiode_trace_medfilt = medfilt1(Timeline.rawDAQData(stimScreen_on, ...
-%         photodiode_idx),5) > photodiode_thresh;
-    photodiode_flip = find((~photodiode_trace(1:end-1) & photodiode_trace(2:end)) | ...
-        (photodiode_trace(1:end-1) & ~photodiode_trace(2:end)))+1;
+    % (medfilt because photodiode can be intermediate value when backlight
+    % coming on)
+    photodiode_trace_medfilt = medfilt1(Timeline.rawDAQData(stimScreen_on, ...
+        photodiode_idx),3) > photodiode_thresh;
+    photodiode_flip = find((~photodiode_trace_medfilt(1:end-1) & photodiode_trace_medfilt(2:end)) | ...
+        (photodiode_trace_medfilt(1:end-1) & ~photodiode_trace_medfilt(2:end)))+1;
     photodiode_flip_times = stimScreen_on_t(photodiode_flip)';
     
     % Get flipper signal (this was added late, might not be present)
@@ -119,15 +119,7 @@ if protocol_exists
     % Load in hardware info
     hwinfo_filename = AP_cortexlab_filename(animal,day,experiment,'hardware');
     load(hwinfo_filename);
-    
-    % Get flicker or steady photodiode (can be 'flicker' or 'steady':
-    % 'flicker shouldn't be used at the moment though)
-    photodiode_type = myScreenInfo.SyncSquare.Type;
-    switch lower(photodiode_type)
-        case 'flicker'
-            error('MPEP flicker photodiode - special case needed?')
-    end
-    
+        
     % Stim times should just be odd (on) and even (off)
     if mod(length(photodiode_flip_times),2) == 0
         photodiode_onsets = photodiode_flip_times(1:2:end);
@@ -136,19 +128,29 @@ if protocol_exists
         error('Odd number of photodiode flips')
     end
     
-    % Get specific stim onsets by time between last offset and new onset
-    % (occasionally there a bad frame so flip but not new stim)
-    refresh_rate_cutoff = 1/5;
-    stimOn_times = photodiode_onsets( ...
-        [1;find(photodiode_onsets(2:end) - photodiode_offsets(1:end-1) > refresh_rate_cutoff) + 1]);
+    % Get flicker/steady photodiode mode
+    photodiode_type = lower(myScreenInfo.SyncSquare.Type);
     
-    if length(stimOn_times) ~= numel(Protocol.seqnums)
-        error('MPEP/Photodiode error: photodiode doesn''t match stim')
-    end
-    
-    stimIDs = zeros(size(stimOn_times));
-    for q = 1:size(Protocol.seqnums,1)
-        stimIDs(Protocol.seqnums(q,:)) = q;
+    % Get stim on times
+    if strcmp(Protocol.xfile,'stimSparseNoiseUncorrAsync.x')
+        % Sparse noise
+        % (at the moment this is in a sparse noise-specific script)       
+    else
+        % Anything else
+        % Get specific stim onsets by time between last offset and new onset
+        % (occasionally there a bad frame so flip but not new stim)
+        refresh_rate_cutoff = 1/5;
+        stimOn_times = photodiode_onsets( ...
+            [1;find(photodiode_onsets(2:end) - photodiode_offsets(1:end-1) > refresh_rate_cutoff) + 1]);
+        
+        if length(stimOn_times) ~= numel(Protocol.seqnums)
+            error('MPEP/Photodiode error: photodiode doesn''t match stim')
+        end
+        
+        stimIDs = zeros(size(stimOn_times));
+        for q = 1:size(Protocol.seqnums,1)
+            stimIDs(Protocol.seqnums(q,:)) = q;
+        end
     end
     
 end

@@ -882,46 +882,56 @@ stim_screen = cat(3,ss.ImageTextures{:});
 ny = size(stim_screen,1);
 nx = size(stim_screen,2);
 
+% This is garbage: higher threshold for this photodiode flip on flicker
+photodiode_thresh = 4;
+photodiode_trace = Timeline.rawDAQData(stimScreen_on,photodiode_idx) > photodiode_thresh;
+% (medfilt because photodiode can be intermediate value when backlight
+% coming on)
+photodiode_trace_medfilt = medfilt1(Timeline.rawDAQData(stimScreen_on, ...
+    photodiode_idx),3) > photodiode_thresh;
+photodiode_flip = find((~photodiode_trace_medfilt(1:end-1) & photodiode_trace_medfilt(2:end)) | ...
+    (photodiode_trace_medfilt(1:end-1) & ~photodiode_trace_medfilt(2:end)))+1;
+photodiode_flip_times = stimScreen_on_t(photodiode_flip)';
+
 switch lower(photodiode_type)
     case 'flicker'
         % Check for case of mismatch between photodiode and stimuli:
         % odd number of stimuli, but one extra photodiode flip to come back down
         if mod(size(stim_screen,3),2) == 1 && ...
-                length(photodiode.timestamps) == size(stim_screen,3) + 1
-            photodiode.timestamps(end) = [];
-            photodiode.values(end) = [];
+                length(photodiode_flip_times) == size(stim_screen,3) + 1
+            photodiode_flip_times(end) = [];
             warning('Odd number of stimuli, removed last photodiode');
         end
         
-        % If there's still a mismatch, break
-        if size(stim_screen,3) ~= length(photodiode.timestamps)
+        % If there's still a mismatch, attempt to fix
+        if size(stim_screen,3) ~= length(photodiode_flip_times)
             warning([num2str(size(stim_screen,3)) ' stimuli, ', ...
-                num2str(length(photodiode.timestamps)) ' photodiode pulses']);
+                num2str(length(photodiode_flip_times)) ' photodiode pulses']);
             
             % Try to estimate which stim were missed by time difference
-            photodiode_diff = diff(photodiode.timestamps);
-            max_regular_diff_time = prctile(diff(photodiode.timestamps),99);
+            photodiode_diff = diff(photodiode_flip_times);
+            max_regular_diff_time = prctile(diff(photodiode_flip_times),99);
             skip_cutoff = max_regular_diff_time*2;
             photodiode_skip = find(photodiode_diff > skip_cutoff);
             est_n_pulse_skip = ceil(photodiode_diff(photodiode_skip)/max_regular_diff_time)-1;
             stim_skip = cell2mat(arrayfun(@(x) photodiode_skip(x):photodiode_skip(x)+est_n_pulse_skip(x)-1, ...
                 1:length(photodiode_skip),'uni',false));
             
-            if isempty(est_n_pulse_skip) || length(photodiode.timestamps) + sum(est_n_pulse_skip) ~= size(stim_screen,3)
+            if isempty(est_n_pulse_skip) || length(photodiode_flip_times) + sum(est_n_pulse_skip) ~= size(stim_screen,3)
                 error('Can''t match photodiode events to stimuli')
             end
         end
         
-        stim_times = photodiode.timestamps;
+        stim_times = photodiode_flip_times;
         
     case 'steady'
         % If the photodiode is on steady: extrapolate the stim times
-        if length(photodiode.timestamps) ~= 2
+        if length(photodiode_flip_times) ~= 2
             error('Steady photodiode, but not 2 flips')
         end
-        stim_duration = diff(photodiode.timestamps)/size(stim_screen,3);
-        stim_times = linspace(photodiode.timestamps(1), ...
-            photodiode.timestamps(2)-stim_duration,size(stim_screen,3))';
+        stim_duration = diff(photodiode_flip_times)/size(stim_screen,3);
+        stim_times = linspace(photodiode_flip_times(1), ...
+            photodiode_flip_times(2)-stim_duration,size(stim_screen,3))';
         
 end
 
@@ -940,8 +950,8 @@ for px_y = 1:ny
             (diff(stim_screen(px_y,px_x,:),[],3) ~= 0);
         align_times = stim_times(find(align_stims)+1);
         
-        error('What the hell is this? throw away half of the data?')
-        align_times = align_times(round(length(align_times)/2):end);
+%         error('What the hell is this? throw away half of the data?')
+%         align_times = align_times(round(length(align_times)/2):end);
         
         response_n(px_y,px_x) = length(align_times);
         
@@ -1060,6 +1070,7 @@ set(ax3,'Visible','off');
 axes(ax3); axis image off;
 set(h2,'AlphaData',mat2gray(abs(vfs_median))*0.5);
 colormap(colormap_BlueWhiteRed)
+colormap(ax2,gray);
 
 % vfs_cutoff = 1.5*std(vfs_mean(:));
 % vis_thresh = abs(vfs_mean) > vfs_cutoff;

@@ -1748,12 +1748,12 @@ switch lower(photodiode_type)
         
     case 'steady'
         % If the photodiode is on steady: extrapolate the stim times
-        if length(photodiode.timestamps) ~= 2
+        if length(photodiode_flip_times) ~= 2
             error('Steady photodiode, but not 2 flips')
         end
-        stim_duration = diff(photodiode.timestamps)/size(stim_screen,3);
-        stim_times = linspace(photodiode.timestamps(1), ...
-            photodiode.timestamps(2)-stim_duration,size(stim_screen,3))';
+        stim_duration = diff(photodiode_flip_times)/size(stim_screen,3);
+        stim_times = linspace(photodiode_flip_times(1), ...
+            photodiode_flip_times(2)-stim_duration,size(stim_screen,3))';
         
 end
 
@@ -1815,29 +1815,31 @@ params = struct;
 params.makePlots = false;
 params.useSVD = false;
 params.countWindow = [0.05,0.1];
-use_spikes = spike_times_timeline(ismember(spike_templates, ...
-    find(templateDepths > 0 & templateDepths < 1500)));
+% use_spikes = spike_times_timeline(ismember(spike_templates, ...
+%     find(templateDepths > 0 & templateDepths < 1500)));
+use_spikes = spike_times_timeline(aligned_str_depth_group == 2);
 [rf_map,stats] = sparseNoiseRF(use_spikes, ...
     vertcat(stim_times_grid{:}),vertcat(stim_positions{:}),params);
 figure;imagesc(rf_map);axis image off;
 
 % Get stim-triggered MUA average for each stimulus
-use_spikes = spike_times_timeline(ismember(spike_templates, ...
-    find(templateDepths > 0 & templateDepths < 1500)));
+% use_spikes = spike_times_timeline(ismember(spike_templates, ...
+%     find(templateDepths > 0 & templateDepths < 1500)));
 % use_spikes = spike_times_timeline(ismember(spike_templates, ...
 %     find(templateDepths > 0 & templateDepths < 1500)) &...
 %     ismember(spike_templates,find(msn)));
+use_spikes = spike_times_timeline(aligned_str_depth_group == 2);
 
 % Get stim times vector (x,y)
 stim_aligned_avg = cell(nY,nX);
-raster_window = [-0.2,0.2];
+raster_window = [-0.1,0.3];
 smooth_size = 2;
 gw = gausswin(smooth_size,3)';
 smWin = gw./sum(gw);
 for x = 1:nX
     for y = 1:nY      
         
-        psth_bin_size = 0.001;
+        psth_bin_size = 0.01;
         [psth,bins,rasterX,rasterY,spikeCounts] = psthAndBA( ...
             use_spikes,stim_times_grid{y,x}, ...
             raster_window, psth_bin_size);
@@ -1849,7 +1851,7 @@ for x = 1:nX
 end
 stim_aligned_avg_cat = cell2mat(cellfun(@(x) permute(x,[1,3,2]),stim_aligned_avg,'uni',false));
 AP_image_scroll(stim_aligned_avg_cat,raster_window(1):psth_bin_size:raster_window(2));
-
+axis image;
 
 
 
