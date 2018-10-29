@@ -1,6 +1,6 @@
 function AP_preprocess_phase3(animal,day,local_data)
 % AP_preprocess_phase3(animal,day,local_data)
-% if local_data - use data on D:data (used when zserver is down)
+% if local_data - use data already in folder
 
 if ~exist('local_data','var')
     local_data = false;
@@ -8,16 +8,18 @@ end
 
 %% Get paths and filenames
 
+save_paths =  ...
+    {['\\zubjects.cortexlab.net\Subjects\' animal filesep day filesep 'ephys' filesep 'kilosort']};
+
 if exist('local_data','var') && local_data
+    %     data_paths =  ...
+    %         {['D:\data\' animal filesep day '\ephys']};
     data_paths =  ...
-        {['D:\data\' animal filesep day '\ephys']};
+        {['C:\data_temp\kilosort']};
 else
     data_paths =  ...
         {['\\zubjects.cortexlab.net\Subjects\' animal filesep day filesep 'ephys']};
 end
-
-save_paths =  ...
-    {['\\zubjects.cortexlab.net\Subjects\' animal filesep day filesep 'ephys' filesep 'kilosort']};
 
 % Check for multiple sites (assume sites are marked as site#)
 data_path_dir = dir([data_paths{1} filesep 'site*']);
@@ -188,12 +190,12 @@ for curr_site = 1:length(data_paths)
     %% Run kilosort
     
     % Set up local directory and clear out
-    local_kilosort_path = 'E:\data_temp\kilosort';
+    local_kilosort_path = 'C:\data_temp\kilosort';
     rmdir(local_kilosort_path,'s');
     mkdir(local_kilosort_path);
     
     % Clear out whatever's currently in phy (usually not enough room)
-    local_phy_path = 'E:\data_temp\phy';
+    local_phy_path = 'C:\data_temp\phy';
     rmdir(local_phy_path,'s');
     mkdir(local_phy_path);
     
@@ -227,7 +229,7 @@ for curr_site = 1:length(data_paths)
     
     %% Copy kilosort results and raw data to phy folder for clustering
     
-    local_phy_path = 'E:\data_temp\phy';
+    local_phy_path = 'C:\data_temp\phy';
     
     % Clear out whatever's currently in phy
     rmdir(local_phy_path,'s');

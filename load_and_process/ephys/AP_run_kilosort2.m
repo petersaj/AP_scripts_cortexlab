@@ -13,7 +13,6 @@ function AP_run_kilosort2(data_filename,sample_rate)
 
 % Run config script to get options
 AP_kilosort2_config_IMEC_P3O2
-% AP_kilosort2_config_IMEC_P3O2
 
 tic;
 if ops.GPU     
@@ -29,9 +28,6 @@ rez = preprocessDataSub(ops);
 rez = clusterSingleBatches(rez);
 rez = learnAndSolve8b(rez);
 rez = splitAllClusters(rez);
-
-% AutoMerge. rez2Phy will use for clusters the new 5th column of st3 if you run this)
-%     rez = merge_posthoc2(rez);
 
 % Convert results to phy, save
 ks_results_dir = [data_path filesep 'results'];
