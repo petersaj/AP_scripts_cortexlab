@@ -582,7 +582,8 @@ for curr_condition_idx = 1:length(conditions)
 end
 
 AP_image_scroll(peri_stim_df,unique(stimIDs));
-
+axis image;
+ 
 %% Get choiceworld stim spot from AP_localize_choiceWorldStimPassive
 
 % Set options

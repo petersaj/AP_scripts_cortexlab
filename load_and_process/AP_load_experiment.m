@@ -306,10 +306,14 @@ if block_exists
         
     elseif strcmp(expDef,'AP_choiceWorldStimPassive')
         % This is kind of a dumb hack to get the stimOn times, maybe not
-        % permanent unless it works fine: get stim times by assuming
-        % photodiode flip times ~1 second were stim
+        % permanent unless it works fine: get stim times by checking for
+        % close to the median photodiode flip difference
+        block_stim_iti = mean(diff(block.stimWindowUpdateTimes));
+        
         photodiode_flip_diff = diff(stimScreen_on_t(photodiode_flip));
-        stimOn_idx = find(abs(photodiode_flip_diff-1) < 0.1);
+        median_photodiode_flip_diff = mode(round(photodiode_flip_diff*10)/10);
+        
+        stimOn_idx = find(abs(photodiode_flip_diff-median_photodiode_flip_diff) < 0.1);
         
         stimOn_times = stimScreen_on_t(photodiode_flip(stimOn_idx))';
         

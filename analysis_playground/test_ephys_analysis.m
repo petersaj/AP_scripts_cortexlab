@@ -1104,14 +1104,14 @@ vis_modulation = (vis_rate-baseline_rate)./(vis_rate+baseline_rate);
 %% PSTH plot by depth (all stim IDs)
 
 % Group by depth
-n_depth_groups = 20;
+n_depth_groups = 10;
 % depth_group_edges = linspace(0,max(channel_positions(:,2)),n_depth_groups+1);
 depth_group_edges = round(linspace(str_depth(1),str_depth(2),n_depth_groups+1));
 depth_group_centers = round(depth_group_edges(1:end-1)+diff(depth_group_edges)/2);
 depth_group = discretize(spikeDepths,depth_group_edges);
 
-% Group by aligned striatum
-depth_group = aligned_str_depth_group;
+% % Group by aligned striatum
+% depth_group = aligned_str_depth_group;
 
 % Create MUA times grouped according to depth
 mua_times = cell(max(depth_group),1);

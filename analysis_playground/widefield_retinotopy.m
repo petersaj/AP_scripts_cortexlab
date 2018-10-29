@@ -893,6 +893,12 @@ photodiode_flip = find((~photodiode_trace_medfilt(1:end-1) & photodiode_trace_me
     (photodiode_trace_medfilt(1:end-1) & ~photodiode_trace_medfilt(2:end)))+1;
 photodiode_flip_times = stimScreen_on_t(photodiode_flip)';
 
+if strcmp(photodiode_type,'flicker') && length(photodiode_flip_times) ~= size(stim_screen,3)
+    warning('Mismatching stim times: interpolating start/end');
+    photodiode_flip_times = photodiode_flip_times([1,end]);
+    photodiode_type = 'steady';
+end
+
 switch lower(photodiode_type)
     case 'flicker'
         % Check for case of mismatch between photodiode and stimuli:

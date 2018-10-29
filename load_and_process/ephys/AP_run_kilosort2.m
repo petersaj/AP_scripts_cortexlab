@@ -1,5 +1,5 @@
-function AP_run_kilosort(data_filename,sample_rate)
-% AP_run_kilosort(data_filename,sample_rate)
+function AP_run_kilosort2(data_filename,sample_rate)
+% AP_run_kilosort2(data_filename,sample_rate)
 %
 % data_filename = .dat flat binary file of all channels together
 % 
@@ -12,7 +12,7 @@ function AP_run_kilosort(data_filename,sample_rate)
 %% Run Kilosort
 
 % Run config script to get options
-AP_kilosort_config_IMEC_P3O2
+AP_kilosort2_config_IMEC_P3O2
 % AP_kilosort2_config_IMEC_P3O2
 
 tic;
@@ -24,10 +24,11 @@ if strcmp(ops.datatype , 'openEphys')
    ops = convertOpenEphysToRawBInary(ops);  % convert data, only for OpenEphys
 end
 
-% Run kilosort
-[rez, DATA, uproj] = preprocessData(ops); % preprocess data and extract spikes for initialization
-rez                = fitTemplates(rez, DATA, uproj);  % fit templates iteratively
-rez                = fullMPMU(rez, DATA);% extract final spike times (overlapping extraction)
+% Run kilosort 2
+rez = preprocessDataSub(ops);
+rez = clusterSingleBatches(rez);
+rez = learnAndSolve8b(rez);
+rez = splitAllClusters(rez);
 
 % AutoMerge. rez2Phy will use for clusters the new 5th column of st3 if you run this)
 %     rez = merge_posthoc2(rez);

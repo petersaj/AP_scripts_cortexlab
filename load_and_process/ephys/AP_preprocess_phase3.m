@@ -215,8 +215,9 @@ for curr_site = 1:length(data_paths)
     delete(ap_temp_filename);
     
     % Run kilosort on CAR data
-    AP_run_kilosort(ap_temp_car_filename,ap_sample_rate);
-    
+%     AP_run_kilosort(ap_temp_car_filename,ap_sample_rate);
+    % upgrade:
+    AP_run_kilosort2(ap_temp_car_filename,ap_sample_rate);
     
     %% Copy kilosort results to server
     
