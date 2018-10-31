@@ -888,7 +888,7 @@ photodiode_trace = Timeline.rawDAQData(stimScreen_on,photodiode_idx) > photodiod
 % (medfilt because photodiode can be intermediate value when backlight
 % coming on)
 photodiode_trace_medfilt = medfilt1(Timeline.rawDAQData(stimScreen_on, ...
-    photodiode_idx),3) > photodiode_thresh;
+    photodiode_idx),1) > photodiode_thresh;
 photodiode_flip = find((~photodiode_trace_medfilt(1:end-1) & photodiode_trace_medfilt(2:end)) | ...
     (photodiode_trace_medfilt(1:end-1) & ~photodiode_trace_medfilt(2:end)))+1;
 photodiode_flip_times = stimScreen_on_t(photodiode_flip)';
@@ -2015,7 +2015,7 @@ axis image off
 
 %% Sparse noise with my code in batch
 
-animal = 'AP032';
+animal = 'AP034';
 protocol = 'stimSparseNoiseUncorrAsync';
 experiments = AP_find_experiments(animal,protocol);
 
@@ -2046,12 +2046,8 @@ for curr_day = 1:length(experiments)
     % This is garbage: higher threshold for this photodiode flip on flicker
     photodiode_thresh = 4;
     photodiode_trace = Timeline.rawDAQData(stimScreen_on,photodiode_idx) > photodiode_thresh;
-    % (medfilt because photodiode can be intermediate value when backlight
-    % coming on)
-    photodiode_trace_medfilt = medfilt1(Timeline.rawDAQData(stimScreen_on, ...
-        photodiode_idx),3) > photodiode_thresh;
-    photodiode_flip = find((~photodiode_trace_medfilt(1:end-1) & photodiode_trace_medfilt(2:end)) | ...
-        (photodiode_trace_medfilt(1:end-1) & ~photodiode_trace_medfilt(2:end)))+1;
+    photodiode_flip = find((~photodiode_trace(1:end-1) & photodiode_trace(2:end)) | ...
+        (photodiode_trace(1:end-1) & ~photodiode_trace(2:end)))+1;
     photodiode_flip_times = stimScreen_on_t(photodiode_flip)';
     
     if strcmp(photodiode_type,'flicker') && length(photodiode_flip_times) ~= size(stim_screen,3)
@@ -2118,7 +2114,8 @@ for curr_day = 1:length(experiments)
             align_times = stim_times(find(align_stims)+1);
             
 %             align_times = align_times(round(length(align_times)/2):end);
-            
+%             align_times = align_times(1:round(length(align_times)/2));
+
             response_n(px_y,px_x) = length(align_times);
             
             % Don't use times that fall outside of imaging
@@ -2225,38 +2222,42 @@ days = {experiments.day};
 signMap_aligned = AP_align_widefield(animal,days,batch_vars.signMap);
 signMap_mean = nanmean(signMap_aligned,3);
 
-align_fn = ['\\basket.cortexlab.net\data\ajpeters\wf_alignment' filesep animal '_wf_tform'];
+align_fn = ['C:\Users\Andrew\OneDrive for Business\Documents\CarandiniHarrisLab\analysis\wf_ephys_choiceworld\wf_processing\wf_alignment' filesep animal '_wf_tform'];
 load(align_fn);
 ref_path = AP_cortexlab_filename(animal,wf_tform(1).day,[],'imaging');
 ref_im = readNPY([ref_path filesep 'meanImage_blue.npy']);
 
 % Plot
+AP_image_scroll(signMap_aligned,days);
+axis image off; 
+colormap(brewermap([],'*RdBu'));
+set(gcf,'Name',animal);
+
 retinotopy_fig = figure('Name',['Average retinotopy: ' animal]);
 ax1 = axes;
 subplot(1,2,1,ax1);
 imagesc(signMap_mean);
 caxis([-1,1]);
 axes(ax1); axis image off;
-colormap(colormap_BlueWhiteRed)
+colormap(brewermap([],'*RdBu'));
 
 ax2 = axes;
 ax3 = axes;
 subplot(1,2,2,ax2);
 subplot(1,2,2,ax3);
 h1 = imagesc(ax2,ref_im);
-colormap(ax2,gray);
-caxis(ax2,[0 prctile(ref_im(:),99.9)]);
+caxis(ax2,[0 prctile(ref_im(:),95)]);
 h2 = imagesc(ax3,signMap_mean);
-colormap(ax3,colormap_BlueWhiteRed);
 caxis([-1,1]);
 set(ax2,'Visible','off');
 axes(ax2); axis image off;
 set(ax3,'Visible','off');
 axes(ax3); axis image off;
 set(h2,'AlphaData',mat2gray(abs(signMap_mean))*0.3);
-colormap(colormap_BlueWhiteRed)
+colormap(ax2,gray);
+colormap(ax3,brewermap([],'*RdBu'));
 
-retinotopy_path = '\\basket.cortexlab.net\data\ajpeters\retinotopy';
+retinotopy_path = 'C:\Users\Andrew\OneDrive for Business\Documents\CarandiniHarrisLab\analysis\wf_ephys_choiceworld\wf_processing\retinotopy';
 saveas(retinotopy_fig,[retinotopy_path filesep animal '_retinotopy']);
 
 

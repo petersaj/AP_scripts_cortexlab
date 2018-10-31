@@ -212,14 +212,17 @@ end
 
 
 %% Align animals by retinotopy 
-% (just storing this here for now, already done)
+% (just storing this here for now, but should be integrated with the
+% widefield retinotopy pipeline)
 
-% % Load all retinotopic maps in structure 'retinotopy'
-% 
-% ref_im = retinotopy{3};
+% % Load all retinotopic maps in structure 'retinotopy' with fields animal
+% and sign_map (at the moment this was done manually from the saved
+% figures, but fix this in the future)
+
+% ref_animal = 'AP026';
+% ref_animal_idx = strcmp(ref_animal,{retinotopy.animal});
+% ref_im = retinotopy(ref_animal_idx).sign_map;
 % ref_size = size(ref_im);
-% 
-% im_align = retinotopy;
 % 
 % [optimizer, metric] = imregconfig('monomodal');
 % optimizer = registration.optimizer.OnePlusOneEvolutionary();
@@ -227,22 +230,23 @@ end
 % optimizer.GrowthFactor = 1+1e-6;
 % optimizer.InitialRadius = 1e-4;
 % 
-% im_aligned = nan(ref_size(1),ref_size(2),6);
-% for curr_animal = 1:6
-%     tformEstimate_affine = imregtform(im_align{curr_animal},ref_im,'affine',optimizer,metric);
-%     curr_im_reg = imwarp(retinotopy{curr_animal},tformEstimate_affine,'Outputview',imref2d(ref_size));
+% disp('Aligning retinotopy across animals...');
+% im_aligned = nan(ref_size(1),ref_size(2),length(retinotopy));
+% for curr_animal = 1:length(retinotopy)
+%     tformEstimate_affine = imregtform(retinotopy(curr_animal).sign_map,ref_im,'affine',optimizer,metric);
+%     curr_im_reg = imwarp(retinotopy(curr_animal).sign_map,tformEstimate_affine,'Outputview',imref2d(ref_size));
 %     tform_matrix{curr_animal} = tformEstimate_affine.T;
 %     
 %     im_aligned(:,:,curr_animal) = curr_im_reg;
+%     AP_print_progress_fraction(curr_animal,length(retinotopy));
 % end
 % 
 % AP_image_scroll(im_aligned);axis image
 % 
-% animals = {'AP024','AP025','AP026','AP027','AP028','AP029'};
-% wf_tform = struct('animal',animals','t',tform_matrix','im_size',ref_size);    
+% wf_tform = struct('animal',{retinotopy.animal}','t',tform_matrix','im_size',ref_size);    
 % 
-% alignment_filename = ['\\basket.cortexlab.net\data\ajpeters\wf_alignment\mice_wf_tform.mat'];
-% % save(alignment_filename,'wf_tform');
+% alignment_filename = ['C:\Users\Andrew\OneDrive for Business\Documents\CarandiniHarrisLab\analysis\wf_ephys_choiceworld\wf_processing\wf_alignment\animal_wf_tform.mat'];
+% save(alignment_filename,'wf_tform');
 
 
 

@@ -1,1 +1,3 @@
-all of the stuff is kept in AP_align_widefield
+align mean images: AP_align_widefield(animal,{days},'new')
+batch retinotopy: in widefield_retinotopy - probaby put somewhere else
+align retinotopy: in AP_align_widefield - need to fix this

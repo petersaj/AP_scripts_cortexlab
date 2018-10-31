@@ -145,7 +145,7 @@ for curr_animal = 1:length(animals)
     load_parts.ephys = false;
     
     batch_vars = struct;
-    for curr_day = 1:length(experiments);
+    for curr_day = 1:length(experiments)
         
         % Load the experiment
         day = experiments(curr_day).day;
