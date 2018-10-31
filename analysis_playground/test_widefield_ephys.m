@@ -2850,7 +2850,7 @@ depth_groups_used = unique(depth_group);
 depth_group_centers = depth_group_edges(1:end-1)+(diff(depth_group_edges)/2);
 
 % % (to group multiunit by depth within striatum)
-% n_depths = round(diff(str_depth)/100);
+% n_depths = round(diff(str_depth)/500);
 % depth_group_edges = round(linspace(str_depth(1),str_depth(2),n_depths+1));
 % [depth_group_n,depth_group] = histc(spikeDepths,depth_group_edges);
 % depth_groups_used = unique(depth_group);

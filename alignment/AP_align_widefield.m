@@ -19,24 +19,25 @@ else
 end
 
 % Whether to align within animal across days or across animals
-if isempty(days)
-    animal_aligned = true;
-    if ~iscell(animals)
-        animals = {animals};
+if ~new_alignment
+    if isempty(days)
+        animal_aligned = true;
+        if ~iscell(animals)
+            animals = {animals};
+        end
+    else
+        if ~iscell(days)
+            days = {days};
+        end
+        animal_aligned = false;
+        if length(days) ~= length(im_unaligned)
+            error('Different number of days and images')
+        end
     end
-else
-    if ~iscell(days)
-        days = {days};
-    end
-    animal_aligned = false;
-    if length(days) ~= length(im_unaligned)
-        error('Different number of days and images')
-    end
-end
-
-
-if ~animal_aligned && iscell(animals) && length(animals) > 1
+    
+    if ~animal_aligned && iscell(animals) && length(animals) > 1
     error('Only within or across animal alignment possible at a time')
+    end
 end
 
 % Set alignment save path
@@ -80,7 +81,7 @@ if ~new_alignment
         
         im_aligned = nan(n_px_y,n_px_x,n_frames,n_conditions,length(days));
         
-        for curr_day = 1:length(days);
+        for curr_day = 1:length(days)
             
             curr_day_idx = strcmp(days{curr_day},{wf_tform.day});
             if ~any(curr_day_idx)
@@ -117,7 +118,7 @@ if ~new_alignment
         end
         
         im_aligned = nan(animal_wf_tform(1).im_size(1),animal_wf_tform(1).im_size(2),n_frames,n_conditions,length(animals));
-        for curr_animal = 1:length(animals);
+        for curr_animal = 1:length(animals)
             
             curr_animal_idx = strcmp(animals{curr_animal},{animal_wf_tform.animal});
             if ~any(curr_animal_idx)
@@ -174,7 +175,7 @@ if new_alignment
     
     tform_matrix = cell(length(avg_im_blue),1);
     im_aligned = nan(ref_size(1),ref_size(2),length(days));
-    for curr_day = 1:length(days);
+    for curr_day = 1:length(days)
         
         [optimizer, metric] = imregconfig('monomodal');
         optimizer = registration.optimizer.OnePlusOneEvolutionary();
@@ -192,6 +193,13 @@ if new_alignment
         
     end
     
+    % Show aligned images
+    AP_image_scroll(im_aligned,days);
+    axis image off;
+    colormap(gray);
+    caxis([0,prctile(im_aligned(:),95)]);
+    set(gcf,'Name',['Aligned images: ' animals]);
+    
     % Save alignments
     wf_tform = struct('day',reshape(days,[],1),'t',tform_matrix,'im_size',size(ref_im_full));
     
@@ -203,7 +211,7 @@ end
 
 
 
-%% Align animals by retiotopy 
+%% Align animals by retinotopy 
 % (just storing this here for now, already done)
 
 % % Load all retinotopic maps in structure 'retinotopy'

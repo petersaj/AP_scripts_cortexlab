@@ -19,9 +19,10 @@ if ops.GPU
     gpuDevice(1); % initialize GPU (will erase any existing GPU arrays)
 end
 
-if strcmp(ops.datatype , 'openEphys')
-   ops = convertOpenEphysToRawBInary(ops);  % convert data, only for OpenEphys
-end
+% (not used in kilosort2?)
+% if strcmp(ops.datatype , 'openEphys')
+%    ops = convertOpenEphysToRawBInary(ops);  % convert data, only for OpenEphys
+% end
 
 % Run kilosort 2
 rez = preprocessDataSub(ops);
