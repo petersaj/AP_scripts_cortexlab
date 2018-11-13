@@ -1151,7 +1151,7 @@ for curr_animal = 1:length(animals)
         ephys_kernel_depth(curr_animal).r_px{curr_day} = r_px_max_aligned;
                
         AP_print_progress_fraction(curr_day,length(experiments));
-        clearvars -except n_aligned_depths animals animal curr_animal protocol experiments curr_day animal ephys_kernel_align_new load_parts
+        clearvars -except n_aligned_depths animals animal curr_animal protocol experiments curr_day animal ephys_kernel_depth load_parts
         
     end
     disp(['Finished ' animal]);
@@ -6262,6 +6262,7 @@ save([save_path filesep save_fn]);
 
 
 %% Batch load and save activity from all choiceworld (common U OLD-ALIGNED)
+% this saved 2 alignements of shorter time snippets
 
 n_aligned_depths = 4;
 

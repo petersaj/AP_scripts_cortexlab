@@ -243,10 +243,10 @@ end
 % 
 % AP_image_scroll(im_aligned);axis image
 % 
-% wf_tform = struct('animal',{retinotopy.animal}','t',tform_matrix','im_size',ref_size);    
+% animal_wf_tform = struct('animal',{retinotopy.animal}','t',tform_matrix','im_size',ref_size);    
 % 
 % alignment_filename = ['C:\Users\Andrew\OneDrive for Business\Documents\CarandiniHarrisLab\analysis\wf_ephys_choiceworld\wf_processing\wf_alignment\animal_wf_tform.mat'];
-% save(alignment_filename,'wf_tform');
+% save(alignment_filename,'animal_wf_tform');
 
 
 

@@ -1077,13 +1077,19 @@ if ephys_exists && load_parts.ephys && exist('cluster_groups','var')
         % Plot cell type by depth
         celltype_labels = {'Wide','Narrow','MSN','FSI','TAN','UIN'};
         celltypes = wide.*1 + narrow.*2 + msn.*3 + fsi.*4 + tan.*5 + uin.*6;
-        use_colors = {'k','r','m','b','g','c'};
+        use_colors = ...
+            [0,0,0;
+            1,0,0;
+            1,0,1;
+            0,0,1;
+            0,1,0;
+            0,1,1];
         
         plot_celltypes = any([wide,narrow,msn,fsi,tan,uin],1);
         
         figure('Position',[94,122,230,820]);
-        plotSpread(templateDepths,'categoryIdx', ...
-            celltypes,'categoryColors',use_colors(plot_celltypes));
+        scatter(rand(size(templateDepths))-0.5,templateDepths,10,use_colors(celltypes,:),'filled');
+        xlim([-1,1])
         set(gca,'XTick',[]);
         set(gca,'YDir','reverse');
         ylabel('Depth (\mum)');

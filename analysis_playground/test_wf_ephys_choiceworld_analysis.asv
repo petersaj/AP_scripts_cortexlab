@@ -8731,7 +8731,7 @@ title ('Zero L');
 % Load data
 n_aligned_depths = 4;
 data_path = 'C:\Users\Andrew\OneDrive for Business\Documents\CarandiniHarrisLab\analysis\wf_ephys_choiceworld\choiceworld';
-data_fn = ['all_trial_activity_Udf_kernel-str_passive_fullscreen_4_depths_naive'];
+data_fn = ['all_trial_activity_Udf_kernel-str_passive_fullscreen_4_depths'];
 % data_fn = ['all_trial_activity_Udf_kernel-str_passive_choiceworld_4_depths'];
 
 load([data_path filesep data_fn]);
@@ -8894,31 +8894,26 @@ end
 
 t_diff = conv(t,[1,1]/2,'valid');
 
-% Choose stim to plot
-plot_stim = unique(D_cat.stimulus);
-% plot_stim = [2,5,8,10];
-
 % Plot all together
-AP_image_scroll(reshape(permute(px_stim(:,:,:,plot_stim),[1,2,4,3]), ...
+AP_image_scroll(reshape(permute(px_stim,[1,2,4,3]), ...
     size(px_stim,1),[],size(px_stim,3)),t_diff);
 axis image; caxis([-1.5e-3,1.5e-3]); 
 colormap(brewermap([],'*RdBu'))
 AP_reference_outline('ccf_aligned','k',[], ...
-    [size(px_stim,1),size(px_stim,2),1,length(plot_stim)]);
+    [size(px_stim,1),size(px_stim,2),1,length(unique(D_cat.stimulus))]);
 
 % Plot striatum
-plot_cols = lines(length(plot_stim));
+plot_cols = lines(max(D_cat.stimulus));
 figure; hold on;
-p = gobjects(n_depths,length(plot_stim));
-for curr_plot_condition = 1:length(plot_stim)  
-    curr_trials = D_cat.stimulus == plot_stim(curr_plot_condition);
+for curr_plot_condition = 1:max(D_cat.stimulus)    
+    curr_trials = D_cat.stimulus == curr_plot_condition;    
     curr_data_mean = squeeze(nanmean(mua_allcat(curr_trials,:,:),1));   
     curr_col = plot_cols(curr_plot_condition,:);   
-    p(:,curr_plot_condition) = AP_stackplot(curr_data_mean,t,1,false,curr_col,1:n_depths);    
+    AP_stackplot(curr_data_mean,t,1,false,curr_col,1:n_depths);    
 end
 line([0,0],ylim,'color','k');
 xlabel('Time from stim');
-legend(p(1,:),cellfun(@num2str,num2cell(unique(D_cat.stimulus)),'uni',false));
+
 
 % Get fluorescence in widefield ROIs
 wf_roi_fn = 'C:\Users\Andrew\OneDrive for Business\Documents\CarandiniHarrisLab\analysis\wf_ephys_choiceworld\wf_processing\wf_rois\wf_roi';
@@ -8949,10 +8944,10 @@ fluor_roi_diff = bsxfun(@rdivide,fluor_roi_diff,nanstd(reshape(fluor_roi_diff,[]
 t_diff =  conv(t,[1,1]/2,'valid');
 
 figure; hold on;
-plot_cols = lines(length(plot_stim));
-for curr_plot_condition = 1:length(plot_stim)
+plot_cols = lines(max(D_cat.stimulus));
+for curr_plot_condition = 1:max(D_cat.stimulus)    
     
-    curr_trials = D_cat.stimulus == plot_stim(curr_plot_condition);
+    curr_trials = D_cat.stimulus == curr_plot_condition;       
     curr_data = fluor_roi_diff(curr_trials,:,:);
    
     curr_data_mean = squeeze(nanmean(curr_data,1));
