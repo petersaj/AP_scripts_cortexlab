@@ -525,7 +525,7 @@ if imaging_exists && load_parts.imaging
         highpassCutoff = 0.01; % Hz
         [b100s, a100s] = butter(2, highpassCutoff/(framerate/2), 'high');
         dV = detrend(V', 'linear')';
-        fV = single(filtfilt(b100s,a100s,double(dV)')');
+        fV = single(filter(b100s,a100s,double(dV)')');
         
         avg_im = readNPY([data_path filesep meanImage_dir.name]);
         
@@ -623,10 +623,10 @@ if imaging_exists && load_parts.imaging
         
         % Do this for the colors individually, in case they're used
         dVn = detrend(Vn', 'linear')';
-        fVn = single(filtfilt(b100s,a100s,double(dVn)')');
+        fVn = single(filter(b100s,a100s,double(dVn)')');
         
         dVh = detrend(Vh', 'linear')';
-        fVh = single(filtfilt(b100s,a100s,double(dVh)')');
+        fVh = single(filter(b100s,a100s,double(dVh)')');
         
         % set final U/V to use
         fV = fVn_hemo;

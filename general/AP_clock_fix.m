@@ -13,7 +13,7 @@ if length(source_sync) ~= length(target_sync)
     error('Different numbers of sync pulses - cannot align')
 end
 
-t_new = interp1(source_sync,target_sync,t);
+t_new = interp1(source_sync,target_sync,t,'linear','extrap');
 
 
 

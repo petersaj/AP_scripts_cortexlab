@@ -7,8 +7,7 @@
 
 %% Get striatum boundaries
 
-%%% Get correlation of MUA and LFP (use unaligned spike times to include
-%%% all data within the day)
+%%% Get correlation of MUA and LFP
 n_corr_groups = 40;
 depth_group_edges = linspace(0,max(channel_positions(:,2)),n_corr_groups+1);
 depth_group = discretize(templateDepths,depth_group_edges);
