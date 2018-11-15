@@ -63,11 +63,7 @@ server2 = '\\zubjects.cortexlab.net';
 
 % Check that servers are accessible (login needed on restart)
 if ~exist([server1 filesep 'Data'])
-    error('Zserver not available');
-end
-if ~exist([server2 filesep 'Subjects'])
-    error('Zubjects not available');
-end
+    error('Zserver
 
 switch file
     
