@@ -18,7 +18,8 @@ function [k,predicted_signals,explained_var,predicted_signals_reduced] = ...
 % FOR MULTIPLE MODALITIES: make regressors and t_shifts cell arrays
 %
 % Outputs: 
-% k - kernel
+% k - kernel (regressor x t_shifts x signals, cell array if multiple
+% t_shifts)
 % predicted_signals - regressors*k
 % explained_var - .total (total model), 
 %                 .reduced (unique - regressors x signals)
@@ -201,12 +202,29 @@ end
 % Get the final k from averaging
 % (to remove the constant term)
 if ~return_constant
-    k = mean(k_cv(1:end-use_constant,:,:),3);
+    k_vector = mean(k_cv(1:end-use_constant,:,:),3);
     % (to keep constant term)
 elseif return_constant
-    k = mean(k_cv,3);
+    k_vector = mean(k_cv,3);
 end
 
+% Reshape kernel from vector to be regressor x t_shifts x signals
+% (as cell array for each regressor/time shift pair)
+if ~return_constant
+    k = cellfun(@(x,t) reshape(x,[],length(t),size(signals,1)), ...
+        mat2cell(k_vector,cellfun(@(x) ...
+        size(x,1),regressors).*cellfun(@length,t_shifts),size(signals,1)), ...
+        t_shifts,'uni',false);
+elseif return_constant
+    k = cellfun(@(x,t) reshape(x,[],length(t),size(signals,1)), ...
+        mat2cell(k_vector,[cellfun(@(x) size(x,1),regressors);1].*[cellfun(@length,t_shifts);1],1), ...
+        [t_shifts;{1}],'uni',false);
+end
+
+% If kernel length is 1 (only 1 time shift) return as matrix
+if length(k) == 1
+    k = cell2mat(k);
+end
 
 
 
