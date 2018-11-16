@@ -102,7 +102,7 @@ if timeline_exists
     flipper_trace = Timeline.rawDAQData(:,flipper_idx) > flipper_thresh;
     flipper_flip = find((~flipper_trace(1:end-1) & flipper_trace(2:end)) | ...
         (flipper_trace(1:end-1) & ~flipper_trace(2:end)))+1;
-    flipper_flip_times = Timeline.rawDAQTimestamps(flipper_flip)';
+    flipper_flip_times_timeline = Timeline.rawDAQTimestamps(flipper_flip)';
     
 end
 
@@ -735,21 +735,66 @@ if ephys_exists && load_parts.ephys
         lfp_t = [(lfp_load_start/n_channels):(lfp_load_start/n_channels)+lfp_load_samples-1]/lfp_sample_rate;
     end
     
-    % Get acqLive times for current experiment
-    experiment_ephys_starts = sync(acqLive_sync_idx).timestamps(sync(acqLive_sync_idx).values == 1);
-    experiment_ephys_stops = sync(acqLive_sync_idx).timestamps(sync(acqLive_sync_idx).values == 0);
-    
-    % (get folders with only a number - those're the experiment folders)
+    % Get sync points for alignment
+ 
+    % Get experiment index by finding numbered folders
     experiments_dir = dir(AP_cortexlab_filename(animal,day,experiment,'expInfo'));
     experiments_num_idx = cellfun(@(x) ~isempty(x), regexp({experiments_dir.name},'^\d*$'));
     experiment_num = experiment == cellfun(@str2num,{experiments_dir(experiments_num_idx).name});
-    acqlive_ephys_currexpt = [experiment_ephys_starts(experiment_num), ...
-        experiment_ephys_stops(experiment_num)];
+    
+    if ~exist('flipper_flip_times_timeline','var')
+        % (if no flipper, use acqLive)
+        
+        % Get acqLive times for current experiment
+        experiment_ephys_starts = sync(acqLive_sync_idx).timestamps(sync(acqLive_sync_idx).values == 1);
+        experiment_ephys_stops = sync(acqLive_sync_idx).timestamps(sync(acqLive_sync_idx).values == 0);     
+        acqlive_ephys_currexpt = [experiment_ephys_starts(experiment_num), ...
+            experiment_ephys_stops(experiment_num)];
+        
+        sync_timeline = acqLive_timeline;
+        sync_ephys = acqlive_ephys_currexpt;
+        
+        % Check that the experiment time is the same within threshold
+        % (it should be almost exactly the same)
+        if abs(diff(acqLive_timeline) - diff(acqlive_ephys_currexpt)) > 1
+           error('acqLive duration different in timeline and ephys'); 
+        end
+        
+    else
+        % (if flipper, use that)
+        % (at least one experiment the acqLive connection to ephys was bad
+        % so it was delayed - ideally check consistency since it's
+        % redundant)
+        
+        % Get flipper experiment differences by long delays
+        flipper_sync_idx = 4;
+        flip_diff_thresh = 1; % time between flips to define experiment gap (s)
+        flipper_expt_idx = [1;find(diff(sync(flipper_sync_idx).timestamps) > ...
+            flip_diff_thresh)+1;length(sync(flipper_sync_idx).timestamps)+1];
+        
+        flipper_flip_times_ephys = sync(flipper_sync_idx).timestamps( ...
+            flipper_expt_idx(find(experiment_num)):flipper_expt_idx(find(experiment_num)+1)-1);
+        
+        % Check that number of flipper flips in timeline matches ephys
+        if length(flipper_flip_times_ephys) ~= length(flipper_flip_times_timeline)
+            error('Flipper flip times different in timeline/ephys')
+        end
+        
+%         % Plot stim aligned by flipper times for sanity check
+%         figure; hold on;
+%         stim_ephys_timestamps = AP_clock_fix(sync(1).timestamps,flipper_flip_times_ephys,flipper_flip_times_timeline);
+%         plot(stim_ephys_timestamps,sync(1).values*5,'.g')
+%         plot(stimOn_times,5,'ob');
+        
+        sync_timeline = flipper_flip_times_timeline;
+        sync_ephys = flipper_flip_times_ephys;
+        
+    end
     
     % Get the spike/lfp times in timeline time (accounts for clock drifts)
-    spike_times_timeline = AP_clock_fix(spike_times,acqlive_ephys_currexpt,acqLive_timeline);
+    spike_times_timeline = AP_clock_fix(spike_times,sync_ephys,sync_timeline);
     if load_lfp && exist(lfp_filename,'file')
-        lfp_t_timeline = AP_clock_fix(lfp_t,acqlive_ephys_currexpt,acqLive_timeline);
+        lfp_t_timeline = AP_clock_fix(lfp_t,sync_ephys,sync_timeline);
     end
     
     % Get the depths of each template

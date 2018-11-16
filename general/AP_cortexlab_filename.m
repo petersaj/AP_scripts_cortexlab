@@ -15,6 +15,7 @@ function [filename,file_exists] = AP_cortexlab_filename(animal,day,experiment,fi
 % imaging
 % ephys
 % ephysraw
+% probe_histology
 
 % Make inputs strings if they're numbers
 if isnumeric(experiment)
@@ -192,6 +193,17 @@ switch file
             filename = [filepath filesep animal filesep day filesep ...
                 'ephys' site_dir filesep 'experiment1' filesep 'recording1' ...
                 filesep 'continuous' filesep 'Neuropix-3a-100.0' filesep 'continuous.dat'];
+        end
+        
+    case 'probe_histology'
+        % (the output from P Shamash's program for histology to probe)
+        filepath = [server2 filesep 'Subjects'];
+        filepattern = [filepath filesep animal filesep 'histology' filesep 'probe' filesep 'processed' filesep 'probe_points*.mat'];
+        filepattern_dir = dir(filepattern);
+        if ~isempty(filepattern_dir) && length(filepattern_dir) == 1
+            filename = [filepattern_dir.folder filesep filepattern_dir.name];
+        else 
+            filename = filepattern;
         end
         
 end

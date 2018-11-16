@@ -2015,7 +2015,7 @@ axis image off
 
 %% Sparse noise with my code in batch
 
-animal = 'AP034';
+animal = 'AP035';
 protocol = 'stimSparseNoiseUncorrAsync';
 experiments = AP_find_experiments(animal,protocol);
 
@@ -2111,10 +2111,7 @@ for curr_day = 1:length(experiments)
             % Use first frame of dark or light stim
             align_stims = (stim_screen(px_y,px_x,2:end)~= 0) & ...
                 (diff(stim_screen(px_y,px_x,:),[],3) ~= 0);
-            align_times = stim_times(find(align_stims)+1);
-            
-%             align_times = align_times(round(length(align_times)/2):end);
-%             align_times = align_times(1:round(length(align_times)/2));
+            align_times = stim_times(find(align_stims)+1);           
 
             response_n(px_y,px_x) = length(align_times);
             
