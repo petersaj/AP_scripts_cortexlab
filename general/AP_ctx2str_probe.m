@@ -144,15 +144,45 @@ text(-4000,3000,'Ipsi','HorizontalAlignment','center')
 text(4000,3000,'Contra','HorizontalAlignment','center')
 title('Injection sites')
 
+%% ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 
+%% Estimate probe location from widefield
+
+animal = 'AP032';
+day = '2018-10-26';
+experiment = 1;
+verbose = true;
+load_parts.imaging = true;
+AP_load_experiment;
+
+avg_im_aligned = AP_align_widefield(animal,day,avg_im);
+
+figure;imagesc(avg_im_aligned);
+axis image off;
+colormap(gray);caxis([0,5000]);
+title('Click probe start/end');
+probe_wf = ginput(2);
 
 
+x+3 y+1
 
+% Load bregma and master CCF tform
+bregma = allenCCFbregma;
+bregma(3) = bregma(3) + 0.5;
+ccf_tform_fn = ['C:\Users\Andrew\OneDrive for Business\Documents\Atlases\AllenCCF\ccf_tform'];
+load(ccf_tform_fn);
 
+um2pixel = 20.6;
+bregma_resize = bregma*(10/um2pixel);
+bregma_align = [bregma_resize([3,1]),1]*ccf_tform.T;
 
-
-
+load('C:\Users\Andrew\OneDrive for Business\Documents\Atlases\AllenCCF\cortical_area_boundaries.mat');
+figure; hold on; set(gca,'YDir','reverse');axis image;
+for curr_area_idx =1:length(cortical_area_boundaries)
+    p = cellfun(@(outline) plot(outline(:,2),outline(:,1),'color','k'), ...
+        cortical_area_boundaries{curr_area_idx},'uni',false);
+end
 
 
 
