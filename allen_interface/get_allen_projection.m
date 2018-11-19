@@ -15,7 +15,7 @@ disp('Getting injection coordinates...')
 injection_parameters = struct('coordinates',cell(size(projection_coordinates,1),1), ...
     'volume',cell(size(projection_coordinates,1),1), ...
     'density',cell(size(projection_coordinates,1),1));
-for curr_coord = 1:size(projection_coordinates,1);
+for curr_coord = 1:size(projection_coordinates,1)
     
     disp(['Coordinate ' num2str(curr_coord) '/' num2str(size(projection_coordinates,1))]);
 
