@@ -2015,12 +2015,12 @@ axis image off
 
 %% Sparse noise with my code in batch
 
-animal = 'AP035';
+animal = 'AP036';
 protocol = 'stimSparseNoiseUncorrAsync';
 experiments = AP_find_experiments(animal,protocol);
 
-% only use experiments with ephys + imaging
-experiments = experiments([experiments.imaging] & [experiments.ephys]);
+% % (to only use experiments with ephys + imaging)
+% experiments = experiments([experiments.imaging] & [experiments.ephys]);
 
 load_parts.cam = false;
 load_parts.imaging = true;

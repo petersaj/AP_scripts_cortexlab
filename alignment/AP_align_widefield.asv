@@ -212,27 +212,23 @@ end
 %% Align animals by retinotopy 
 % (this is very rarely run: not integrated into function, run manually)
 
-% Set reference animal (never change)
-ref_animal = 'AP026';
-
 % Get retinotopy from all animals
 % (these are kept as figures because I never updated to save as mats)
 retinotopy_path = 'C:\Users\Andrew\OneDrive for Business\Documents\CarandiniHarrisLab\analysis\wf_ephys_choiceworld\wf_processing\retinotopy';
 retinotopy_dir = dir(retinotopy_path);
 
 animal_retinotopy_idx = cellfun(@(x) ~isempty(x), regexp({retinotopy_dir.name},'AP\d*_retinotopy'));
-animals_tokens = cellfun(@(x) regexp({x},'(AP\d*)_retinotopy','tokens'),{retinotopy_dir.name});
-animals = cellfun(@(x) cell2mat(x{:}),animals_tokens(cellfun(@(x) ~isempty(x),animals_tokens)),'uni',false);
 
-retinotopy_unaligned = cell(size(animals));
-for curr_animal = 1:length(animals)
-    h = open([retinotopy_path filesep animals{curr_animal} '_retinotopy.fig']);
-    retinotopy_unaligned{curr_animal} = get(get(subplot(1,2,1),'Children'),'CData');
-    close(h);
-end
+animals = cellfun(@(x) regexp({x},'AP\d*)_retinotopy','tokens'),{retinotopy_dir.name});
 
-ref_animal_idx = strcmp(ref_animal,animals);
-ref_im = retinotopy_unaligned{ref_animal_idx};
+
+% Load all retinotopic maps in structure 'retinotopy' with fields animal
+% and sign_map (at the moment this was done manually from the saved
+% figures, but fix this in the future)
+
+ref_animal = 'AP026';
+ref_animal_idx = strcmp(ref_animal,{retinotopy.animal});
+ref_im = retinotopy(ref_animal_idx).sign_map;
 ref_size = size(ref_im);
 
 [optimizer, metric] = imregconfig('monomodal');

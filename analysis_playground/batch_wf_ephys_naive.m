@@ -1,12 +1,11 @@
-%% WORKING ON THIS
-% (finish after stuff is sorted?)
+%% Batch processes for naive animals
 
 
 %% !!!!                 DEFINE CORTEX-STRIATUM PARAMETERS               !!!!
 
 %% 1) Get boundaries of striatum across experiments
 
-animals = {'AP032','AP033','AP034'};
+animals = {'AP032','AP033','AP034','AP035','AP036'};
 protocol = 'AP_choiceWorldStimPassive';
 
 ephys_depth_align = struct;
@@ -61,7 +60,7 @@ disp('Finished batch');
 
 %% 2) Estimate imaging-ephys lambda
 
-animals = {'AP032','AP033','AP034'};
+animals = {'AP032','AP033','AP034','AP035','AP036'};
 
 protocol = 'AP_choiceWorldStimPassive';
 
@@ -173,7 +172,7 @@ disp('Saved cortex-striatum lambda values');
 
 n_aligned_depths = 4;
 
-animals = {'AP032','AP033','AP034'};
+animals = {'AP032','AP033','AP034','AP035','AP036'};
 
 protocol = 'AP_choiceWorldStimPassive';
 
@@ -309,10 +308,10 @@ disp('Saved ephys depth kernels');
 
 %% 5) Batch align striatum recordings from template kernels
 
-warning('This should be concantenated onto the existing one, not saved separately');
+warning('If done here, needs to be concatenated to original manually')
 
 n_aligned_depths = 4;
-animals = {'AP032','AP033','AP034'};
+animals = {'AP032','AP033','AP034','AP035','AP036'};
 protocol = 'AP_choiceWorldStimPassive';
 
 % Load kernels by depths
@@ -438,7 +437,7 @@ disp('Saved ephys kernel alignment');
 
 n_aligned_depths = 4;
 
-animals = {'AP032','AP033','AP034'};
+animals = {'AP032','AP033','AP034','AP035','AP036'};
 
 fluor_all = cell(length(animals),1);
 mua_all = cell(length(animals),1);
@@ -559,7 +558,7 @@ save([save_path filesep save_fn '_naive']);
 
 n_aligned_depths = 4;
 
-animals = {'AP032','AP033','AP034'};
+animals = {'AP032','AP033','AP034','AP035','AP036'};
 
 fluor_all = cell(length(animals),1);
 mua_all = cell(length(animals),1);
@@ -675,3 +674,11 @@ disp('Finished loading all')
 save_path = 'C:\Users\Andrew\OneDrive for Business\Documents\CarandiniHarrisLab\analysis\wf_ephys_choiceworld\choiceworld';
 save_fn = ['all_trial_activity_Udf_kernel-str_passive_choiceworld_' num2str(n_aligned_depths) '_depths'];
 save([save_path filesep save_fn '_naive'],'-v7.3');
+
+
+
+
+
+
+
+
