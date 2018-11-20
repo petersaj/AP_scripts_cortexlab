@@ -7,13 +7,13 @@ cd 'C:\Users\Andrew\OneDrive for Business\Documents\Atlases\AllenCCF';
 av = readNPY('annotation_volume_10um_by_index.npy'); 
 st = loadStructureTree('structure_tree_safe_2017.csv');
 
-%% Load, align, average widefield retinotopy
+%% Load combined retinotopy
+% (it's in a figure at the moment)
 
-retinotopy_path = 'C:\Users\Andrew\OneDrive for Business\Documents\CarandiniHarrisLab\analysis\wf_ephys_choiceworld\wf_processing\retinotopy';
-retinotopy_fn = [retinotopy_path filesep 'retinotopy'];
-load(retinotopy_fn);
-
-imaged_vfs = nanmean(AP_align_widefield(retinotopy(:,1),[],retinotopy(:,2)),3);
+combined_retinotopy_filename = 'C:\Users\Andrew\OneDrive for Business\Documents\CarandiniHarrisLab\analysis\wf_ephys_choiceworld\wf_processing\retinotopy\combined_retinotopy.fig';
+h = open(combined_retinotopy_filename);
+imaged_vfs = get(get(gca,'Children'),'CData');
+close(h);
 
 %% Make top-down boundaries from scratch (could load but would need st too)
 
@@ -60,51 +60,51 @@ ccf_vfs = zeros(size(top_down_annotation));
 ccf_vfs(ismember(top_down_annotation,used_areas([v1_idx,am_idx,al_idx,li_idx]))) = 1;
 ccf_vfs(ismember(top_down_annotation,used_areas([a_idx,p_idx,pm_idx,rl_idx,lm_idx]))) = -1;
 
-
 %% Define um per pixel (hard coded)
 
 um2pixel = 20.6;
 
 %% Align the imaged VFS to the (downsampled) Allen VFS
+% (unused)
 
-ccf_vfs_d = imresize(ccf_vfs,10/um2pixel,'nearest');
-
-vfs_cutoff = 0.1;
-imaged_vfs_scaled = mat2gray(imaged_vfs+1,[1-vfs_cutoff,1+vfs_cutoff])*2-1;
-
-[optimizer, metric] = imregconfig('monomodal');
-optimizer = registration.optimizer.OnePlusOneEvolutionary();
-optimizer.MaximumIterations = 200;
-optimizer.GrowthFactor = 1+1e-6;
-optimizer.InitialRadius = 1e-4;
-
-tformEstimate_affine = imregtform(imaged_vfs_scaled,ccf_vfs_d,'affine',optimizer,metric);
-curr_im_reg = imwarp(imaged_vfs_scaled,tformEstimate_affine,'Outputview',imref2d(size(ccf_vfs_d)));
-tform_matrix = tformEstimate_affine.T;
-
-% Plot the CCF boundaries over the aligned VFS
-figure; 
-colormap(colormap_BlueWhiteRed);
-
-subplot(1,2,1);
-imagesc(ccf_vfs_d); hold on; axis image off;
-for curr_area_idx =1:length(top_down_cortical_area_boundaries)
-    cellfun(@(outline) plot((outline(:,2)*10)/um2pixel, ...
-        (outline(:,1)*10)/um2pixel,'k'),top_down_cortical_area_boundaries{curr_area_idx},'uni',false);
-end
-
-subplot(1,2,2);
-imagesc(curr_im_reg); hold on; axis image off;
-for curr_area_idx =1:length(top_down_cortical_area_boundaries)
-    cellfun(@(outline) plot((outline(:,2)*10)/um2pixel, ...
-        (outline(:,1)*10)/um2pixel,'k'),top_down_cortical_area_boundaries{curr_area_idx},'uni',false);
-end
+% ccf_vfs_d = imresize(ccf_vfs,10/um2pixel,'nearest');
+% 
+% vfs_cutoff = 0.1;
+% imaged_vfs_scaled = mat2gray(imaged_vfs+1,[1-vfs_cutoff,1+vfs_cutoff])*2-1;
+% 
+% [optimizer, metric] = imregconfig('monomodal');
+% optimizer = registration.optimizer.OnePlusOneEvolutionary();
+% optimizer.MaximumIterations = 200;
+% optimizer.GrowthFactor = 1+1e-6;
+% optimizer.InitialRadius = 1e-4;
+% 
+% tformEstimate_affine = imregtform(imaged_vfs_scaled,ccf_vfs_d,'affine',optimizer,metric);
+% curr_im_reg = imwarp(imaged_vfs_scaled,tformEstimate_affine,'Outputview',imref2d(size(ccf_vfs_d)));
+% tform_matrix = tformEstimate_affine.T;
+% 
+% % Plot the CCF boundaries over the aligned VFS
+% figure; 
+% colormap(colormap_BlueWhiteRed);
+% 
+% subplot(1,2,1);
+% imagesc(ccf_vfs_d); hold on; axis image off;
+% for curr_area_idx =1:length(top_down_cortical_area_boundaries)
+%     cellfun(@(outline) plot((outline(:,2)*10)/um2pixel, ...
+%         (outline(:,1)*10)/um2pixel,'k'),top_down_cortical_area_boundaries{curr_area_idx},'uni',false);
+% end
+% 
+% subplot(1,2,2);
+% imagesc(curr_im_reg); hold on; axis image off;
+% for curr_area_idx =1:length(top_down_cortical_area_boundaries)
+%     cellfun(@(outline) plot((outline(:,2)*10)/um2pixel, ...
+%         (outline(:,1)*10)/um2pixel,'k'),top_down_cortical_area_boundaries{curr_area_idx},'uni',false);
+% end
 
 %% Align the (downsampled) Allen VFS to the imaged VFS
 
 ccf_vfs_d = imresize(ccf_vfs,10/um2pixel,'nearest');
 
-vfs_cutoff = 0.1;
+vfs_cutoff = 0.5;
 imaged_vfs_scaled = mat2gray(imaged_vfs+1,[1-vfs_cutoff,1+vfs_cutoff])*2-1;
 
 [optimizer, metric] = imregconfig('monomodal');
@@ -124,6 +124,15 @@ cortical_area_boundaries_aligned = cellfun(@(areas) cellfun(@(coords) ...
     coords(:,[2,1]),areas,'uni',false),boundaries_tform_long,'uni',false);
 
 figure; 
+
+subplot(1,2,1);
+imagesc(ccf_vfs_d); hold on; axis image off;
+for curr_area_idx =1:length(top_down_cortical_area_boundaries)
+    cellfun(@(outline) plot((outline(:,2)*10)/um2pixel, ...
+        (outline(:,1)*10)/um2pixel,'k'),top_down_cortical_area_boundaries{curr_area_idx},'uni',false);
+end
+
+subplot(1,2,2); 
 imagesc(imaged_vfs_scaled); hold on; axis image off;
 colormap(colormap_BlueWhiteRed);
 for curr_area_idx = 1:length(cortical_area_boundaries_aligned)
@@ -131,24 +140,25 @@ for curr_area_idx = 1:length(cortical_area_boundaries_aligned)
         cortical_area_boundaries_aligned{curr_area_idx},'uni',false);
 end
 
-% % Save master alignment
-% save_path = 'C:\Users\Andrew\OneDrive for Business\Documents\Atlases\AllenCCF';
-% save_ccf_fn = [save_path filesep 'cortical_area_boundaries_aligned'];
-% save_ccf_tform_fn = [save_path filesep 'ccf_tform'];
+% Save master alignment
+save_path = 'C:\Users\Andrew\OneDrive for Business\Documents\Atlases\AllenCCF';
+save_ccf_fn = [save_path filesep 'cortical_area_boundaries_aligned'];
+save_ccf_tform_fn = [save_path filesep 'ccf_tform'];
+
+save(save_ccf_fn,'cortical_area_boundaries_aligned');
+save(save_ccf_tform_fn,'ccf_tform');
+disp('Saved master CCF -> widefield retinotopy alignment')
+
+%% Get bregma in master aligned coordinates 
+% (stored here for reference - used elsewhere also)
+
+% bregma = allenCCFbregma;
+% ccf_tform_fn = ['C:\Users\Andrew\OneDrive for Business\Documents\Atlases\AllenCCF\ccf_tform'];
+% load(ccf_tform_fn);
 % 
-% save(save_ccf_fn,'cortical_area_boundaries_aligned');
-% save(save_ccf_tform_fn,'ccf_tform');
-
-
-%% Get bregma in master aligned coordinates (unused at the moment)
-
-bregma = allenCCFbregma;
-ccf_tform_fn = ['C:\Users\Andrew\OneDrive for Business\Documents\Atlases\AllenCCF\ccf_tform'];
-load(ccf_tform_fn);
-
-um2pixel = 20.6;
-bregma_resize = bregma*(10/um2pixel);
-bregma_align = [bregma_resize([3,1]),1]*ccf_tform.T;
+% um2pixel = 20.6;
+% bregma_resize = bregma*(10/um2pixel);
+% bregma_align = [bregma_resize([3,1]),1]*ccf_tform.T;
 
 
 

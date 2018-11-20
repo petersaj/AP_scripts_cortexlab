@@ -1,9 +1,12 @@
 %% Batch processes for naive animals
+% (these should ultimately be combined with regular animals into a master
+% script that prepares all data for figures)
 
 
 %% !!!!                 DEFINE CORTEX-STRIATUM PARAMETERS               !!!!
 
 %% 1) Get boundaries of striatum across experiments
+disp('Getting boundaries of striatum');
 
 animals = {'AP032','AP033','AP034','AP035','AP036'};
 protocol = 'AP_choiceWorldStimPassive';
@@ -31,7 +34,7 @@ for curr_animal = 1:length(animals)
     for curr_day = 1:length(experiments)
         
         day = experiments(curr_day).day;
-        experiment = experiments(curr_day).experiment;
+        experiment = experiments(curr_day).experiment(end);
         
         AP_load_experiment
        
@@ -59,6 +62,7 @@ disp('Finished batch');
 
 
 %% 2) Estimate imaging-ephys lambda
+disp('Estimating lambda values');
 
 animals = {'AP032','AP033','AP034','AP035','AP036'};
 
@@ -87,7 +91,7 @@ for curr_animal = 1:length(animals)
     for curr_day = 1:length(experiments)
         
         day = experiments(curr_day).day;
-        experiment = experiments(curr_day).experiment;
+        experiment = experiments(curr_day).experiment(end);
         
         str_align = 'none';
         AP_load_experiment
@@ -166,9 +170,10 @@ disp('Saved cortex-striatum lambda values');
 
 
 
-%% 3) Batch get kernels at regular depths along striatum
+%% 3) Get kernels at regular depths along striatum
 % in the future maybe this should concatenate all imaging for the day to
 % have cleaner data (this was done in the code for EJ's paper)
+disp('Getting kernels for regular depths in striatum');
 
 n_aligned_depths = 4;
 
@@ -199,7 +204,7 @@ for curr_animal = 1:length(animals)
     for curr_day = 1:length(experiments)
         
         day = experiments(curr_day).day;
-        experiment = experiments(curr_day).experiment;
+        experiment = experiments(curr_day).experiment(end);
                 
         % Load data and align striatum by depth
         str_align = 'none';  
@@ -306,7 +311,8 @@ disp('Saved ephys depth kernels');
 % Don't do this for naive mice: use the templates from the trained animals
 
 
-%% 5) Batch align striatum recordings from template kernels
+%% 5) Align striatum recordings with template kernels
+disp('Aligning striatum recordings with template kernels');
 
 warning('If done here, needs to be concatenated to original manually')
 
@@ -342,7 +348,7 @@ for curr_animal = 1:length(animals)
     for curr_day = 1:length(experiments)
         
         day = experiments(curr_day).day;
-        experiment = experiments(curr_day).experiment;
+        experiment = experiments(curr_day).experiment(end);
                 
         % Load data
         str_align = 'none';  
@@ -427,7 +433,7 @@ save([save_path filesep save_fn '_naive'],'ephys_kernel_align');
 disp('Saved ephys kernel alignment');
 
 
-%% 6) Batch cortex -> striatum maps with kernel alignment
+%% 6) Cortex -> striatum maps with kernel alignment
 
 % ADD THIS IN LATER: important to see if different striatal domains
 
@@ -467,10 +473,7 @@ for curr_animal = 1:length(animals)
     for curr_day = 1:length(experiments)
         
         day = experiments(curr_day).day;
-        experiment = experiments(curr_day).experiment;
-        
-        % If multiple experiments, use the last one (this happened once)
-        experiment = experiment(end);
+        experiment = experiments(curr_day).experiment(end);
         
         % Load experiment
         str_align = 'kernel';
@@ -588,10 +591,7 @@ for curr_animal = 1:length(animals)
     for curr_day = 1:length(experiments)
         
         day = experiments(curr_day).day;
-        experiment = experiments(curr_day).experiment;
-        
-        % If multiple experiments, use the last one (this happened once)
-        experiment = experiment(end);
+        experiment = experiments(curr_day).experiment(end);
         
         % Load experiment
         str_align = 'kernel';

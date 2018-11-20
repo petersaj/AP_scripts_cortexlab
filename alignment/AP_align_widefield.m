@@ -85,7 +85,7 @@ if ~new_alignment
             
             curr_day_idx = strcmp(days{curr_day},{wf_tform.day});
             if ~any(curr_day_idx)
-                error(['No transform matrix for ' days{curr_day}]);
+                error(['No transform matrix for ' animals ' ' days{curr_day}]);
             end
             
             tform = affine2d;
@@ -210,54 +210,64 @@ end
 
 
 %% Align animals by retinotopy 
-% (this is very rarely run: not integrated into function, run manually)
+% (TO DO: INTEGRATE INTO ABOVE FUNCTION 'ANIMALS' OPTION)
+% (TO DO: SAVE MASTER U AS TARGET ANIMAL)
+% (this creates a new combined retinotopy - run AP_vfs_ccf_align afterwards)
 
-% Set reference animal (never change)
-ref_animal = 'AP026';
+% % Set reference animal (never change)
+% ref_animal = 'AP026';
+% 
+% % Get retinotopy from all animals
+% % (these are kept as figures because I never updated to save as mats)
+% retinotopy_path = 'C:\Users\Andrew\OneDrive for Business\Documents\CarandiniHarrisLab\analysis\wf_ephys_choiceworld\wf_processing\retinotopy';
+% retinotopy_dir = dir(retinotopy_path);
+% 
+% animal_retinotopy_idx = cellfun(@(x) ~isempty(x), regexp({retinotopy_dir.name},'AP\d*_retinotopy'));
+% animals_tokens = cellfun(@(x) regexp({x},'(AP\d*)_retinotopy','tokens'),{retinotopy_dir.name});
+% animals = cellfun(@(x) cell2mat(x{:}),animals_tokens(cellfun(@(x) ~isempty(x),animals_tokens)),'uni',false);
+% 
+% retinotopy_unaligned = cell(size(animals));
+% for curr_animal = 1:length(animals)
+%     h = open([retinotopy_path filesep animals{curr_animal} '_retinotopy.fig']);
+%     retinotopy_unaligned{curr_animal} = get(get(subplot(1,2,1),'Children'),'CData');
+%     close(h);
+% end
+% 
+% ref_animal_idx = strcmp(ref_animal,animals);
+% ref_im = retinotopy_unaligned{ref_animal_idx};
+% ref_size = size(ref_im);
+% 
+% [optimizer, metric] = imregconfig('monomodal');
+% optimizer = registration.optimizer.OnePlusOneEvolutionary();
+% optimizer.MaximumIterations = 200;
+% optimizer.GrowthFactor = 1+1e-6;
+% optimizer.InitialRadius = 1e-4;
+% 
+% disp('Aligning retinotopy across animals...');
+% im_aligned = nan(ref_size(1),ref_size(2),length(animals));
+% for curr_animal = 1:length(animals)
+%     tformEstimate_affine = imregtform(retinotopy_unaligned{curr_animal},ref_im,'affine',optimizer,metric);
+%     curr_im_reg = imwarp(retinotopy_unaligned{curr_animal},tformEstimate_affine,'Outputview',imref2d(ref_size));
+%     tform_matrix{curr_animal} = tformEstimate_affine.T;
+%     
+%     im_aligned(:,:,curr_animal) = curr_im_reg;
+%     AP_print_progress_fraction(curr_animal,length(animals));
+% end
+% 
+% AP_image_scroll(im_aligned,animals);axis image
+% 
+% h = figure;imagesc(nanmean(im_aligned,3));
+% axis image off;
+% colormap(brewermap([],'*RdBu'));
+% caxis([-0.5,0.5]);
+% title('Combined retinotopy');
+% savefig(h,'C:\Users\Andrew\OneDrive for Business\Documents\CarandiniHarrisLab\analysis\wf_ephys_choiceworld\wf_processing\retinotopy\combined_retinotopy')
+% 
+% animal_wf_tform = struct('animal',animals','t',tform_matrix','im_size',ref_size);    
+% 
+% alignment_filename = ['C:\Users\Andrew\OneDrive for Business\Documents\CarandiniHarrisLab\analysis\wf_ephys_choiceworld\wf_processing\wf_alignment\animal_wf_tform.mat'];
+% save(alignment_filename,'animal_wf_tform');
 
-% Get retinotopy from all animals
-% (these are kept as figures because I never updated to save as mats)
-retinotopy_path = 'C:\Users\Andrew\OneDrive for Business\Documents\CarandiniHarrisLab\analysis\wf_ephys_choiceworld\wf_processing\retinotopy';
-retinotopy_dir = dir(retinotopy_path);
-
-animal_retinotopy_idx = cellfun(@(x) ~isempty(x), regexp({retinotopy_dir.name},'AP\d*_retinotopy'));
-animals_tokens = cellfun(@(x) regexp({x},'(AP\d*)_retinotopy','tokens'),{retinotopy_dir.name});
-animals = cellfun(@(x) cell2mat(x{:}),animals_tokens(cellfun(@(x) ~isempty(x),animals_tokens)),'uni',false);
-
-retinotopy_unaligned = cell(size(animals));
-for curr_animal = 1:length(animals)
-    h = open([retinotopy_path filesep animals{curr_animal} '_retinotopy.fig']);
-    retinotopy_unaligned{curr_animal} = get(get(subplot(1,2,1),'Children'),'CData');
-    close(h);
-end
-
-ref_animal_idx = strcmp(ref_animal,animals);
-ref_im = retinotopy_unaligned{ref_animal_idx};
-ref_size = size(ref_im);
-
-[optimizer, metric] = imregconfig('monomodal');
-optimizer = registration.optimizer.OnePlusOneEvolutionary();
-optimizer.MaximumIterations = 200;
-optimizer.GrowthFactor = 1+1e-6;
-optimizer.InitialRadius = 1e-4;
-
-disp('Aligning retinotopy across animals...');
-im_aligned = nan(ref_size(1),ref_size(2),length(retinotopy));
-for curr_animal = 1:length(retinotopy)
-    tformEstimate_affine = imregtform(retinotopy(curr_animal).sign_map,ref_im,'affine',optimizer,metric);
-    curr_im_reg = imwarp(retinotopy(curr_animal).sign_map,tformEstimate_affine,'Outputview',imref2d(ref_size));
-    tform_matrix{curr_animal} = tformEstimate_affine.T;
-    
-    im_aligned(:,:,curr_animal) = curr_im_reg;
-    AP_print_progress_fraction(curr_animal,length(retinotopy));
-end
-
-AP_image_scroll(im_aligned);axis image
-
-animal_wf_tform = struct('animal',{retinotopy.animal}','t',tform_matrix','im_size',ref_size);    
-
-alignment_filename = ['C:\Users\Andrew\OneDrive for Business\Documents\CarandiniHarrisLab\analysis\wf_ephys_choiceworld\wf_processing\wf_alignment\animal_wf_tform.mat'];
-save(alignment_filename,'animal_wf_tform');
 
 
 

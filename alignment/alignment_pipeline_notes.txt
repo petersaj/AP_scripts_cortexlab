@@ -1,4 +1,4 @@
-align mean images: AP_align_widefield(animal,{days},'new')
-batch retinotopy: in widefield_retinotopy - probaby put somewhere else
-align retinotopy across animals: in AP_align_widefield - need to fix this
+align mean images within animal: AP_align_widefield(animal,{days},'new')
+batch retinotopy: in widefield_retinotopy (should put somewhere else)
+align retinotopy across animals: in AP_align_widefield (manually at end, fix)
 align ccf to master retinotopy: AP_vfs_ccf_align

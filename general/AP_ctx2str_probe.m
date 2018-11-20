@@ -43,7 +43,7 @@ probe_depths(eliminate_depths,:) = [];
 %% Plot the probe trajectory and Allen atlas in native orientation
 % (note the CCF is rotated to allow for dim 1 = x)
 
-figure; hold on
+h = figure; hold on
 slice_spacing = 10;
 target_volume = permute(av(1:slice_spacing:end,1:slice_spacing:end,1:slice_spacing:end) > 1,[2,1,3]);
 structure_patch = isosurface(target_volume,0);
@@ -55,7 +55,8 @@ brain_outline = patch('Vertices',structure_wire.vertices*slice_spacing, ...
 
 axis image vis3d;
 view([-30,25]);
-rotate3d;
+cameratoolbar(h,'SetCoordSys','y');
+cameratoolbar(h,'SetMode','orbit');
 
 scatter3(probe_depths(:,1),probe_depths(:,2),probe_depths(:,3),5,'k');
 drawnow;
@@ -145,21 +146,21 @@ text(-4000,3000,'Ipsi','HorizontalAlignment','center')
 text(4000,3000,'Contra','HorizontalAlignment','center')
 title('Injection sites')
 
-%% ~~~~~~~~ HISTOLOGY/WIDEFIELD-ALIGNED ~~~~~~~~~~~
+%% ~~~~~~~~ HISTOLOGY + WIDEFIELD-ALIGNED ~~~~~~~~~~~
 
 
-%% Estimate probe location from average widefield image
+%% Compare probe location from average widefield image and histology
 
 probe_angle = 45; % from horizontal
 
-animal = 'AP032';
+animal = 'AP034';
 day = '2018-10-26';
 [img_path,img_exists] = AP_cortexlab_filename(animal,day,[],'imaging');
 avg_im = readNPY([img_path filesep 'meanImage_blue.npy']);
 
 avg_im_aligned = AP_align_widefield(animal,day,avg_im);
 
-h = figure;imagesc(avg_im_aligned);
+h = figure('units','normalized','outerposition',[0 0 1 1]);imagesc(avg_im_aligned);
 axis image off;
 colormap(gray);caxis([0,5000]);
 title('Click probe start/end');
@@ -178,14 +179,14 @@ probe_ccf_tformed = [probe_wf,[1;1]]*ccf_tform_inverse.T;
 probe_ccf = round(probe_ccf_tformed(:,1:2)*(um2pixel/10));
 
 % Plot probe points on CCF next to average image
-figure; 
+figure('Name',animal); 
 
 subplot(1,2,1);
 imagesc(avg_im_aligned);
 axis image off;
 colormap(gray);caxis([0,5000]);
 AP_reference_outline('ccf_aligned','r');
-line(probe_wf(:,1),probe_wf(:,2),'color','b','linewidth',2,'linestyle','--');
+line(probe_wf(:,1),probe_wf(:,2),'color','b','linewidth',1,'linestyle','--');
 title('Widefield');
 
 subplot(1,2,2); hold on; set(gca,'YDir','reverse');axis image;
@@ -214,18 +215,38 @@ probe_air_ccf = [probe_ccf(2,2),depth_start-probe_sample_height,probe_ccf(2,1)];
 % Concatenate probe CCF coordinates (in up-down direction);
 probe_ccf = [probe_air_ccf;probe_entry_ccf];
 
-% Get estimated probe vector
+% Get estimated probe vector (widefield)
 r0 = mean(probe_ccf,1);
 xyz = bsxfun(@minus,probe_ccf,r0);
 [~,~,V] = svd(xyz,0);
 probe_direction = V(:,1);
 
-probe_vector_evaluate = [1000,-1000];
+probe_vector_evaluate = [0,sign(probe_direction(2))*1000];
 probe_vector_ccf = round(bsxfun(@plus,bsxfun(@times,probe_vector_evaluate',probe_direction'),r0));
+
+% Get estimated probe vector (histology)
+[probe_filename,probe_filename_exists] = AP_cortexlab_filename(animal,[],[],'probe_histology');
+load(probe_filename);
+
+histology_points = pointList.pointList{1};
+r0 = mean(histology_points,1);
+xyz = bsxfun(@minus,histology_points,r0);
+[~,~,V] = svd(xyz,0);
+histology_probe_direction = V(:,1);
+
+probe_vector_evaluate = [-sign(probe_direction(2))*500,sign(probe_direction(2))*500];
+probe_vector = bsxfun(@plus,bsxfun(@times,probe_vector_evaluate',histology_probe_direction'),r0);
+probe_vector_ccf_histology = round(probe_vector(:,[3,2,1]));
+
+% histology done looking A->P so flipped, mirror about bregma
+bregma = allenCCFbregma;
+probe_vector_ccf_histology_mirrored = probe_vector_ccf_histology;
+probe_vector_ccf_histology_mirrored(:,3) = ...
+    bregma(3) - (probe_vector_ccf_histology(:,3) - bregma(3));
 
 % Plot estimated probe location on CCF
 % (note the CCF is rotated to allow for dim 1 = x)
-figure; hold on
+h = figure('Name',animal); ccf_axes = axes; hold on
 slice_spacing = 10;
 target_volume = permute(av(1:slice_spacing:end,1:slice_spacing:end,1:slice_spacing:end) > 1,[2,1,3]);
 structure_patch = isosurface(target_volume,0);
@@ -235,13 +256,25 @@ brain_outline = patch('Vertices',structure_wire.vertices*slice_spacing, ...
     'Faces',structure_wire.faces, ...
     'FaceColor','none','EdgeColor',target_structure_color);
 
-axis image vis3d;
+str_id = find(strcmp(st.safe_name,'Caudoputamen'));
+target_volume = permute(av(1:slice_spacing:end,1:slice_spacing:end,1:slice_spacing:end) == str_id,[2,1,3]);
+structure_patch = isosurface(target_volume,0);
+structure_wire = reducepatch(structure_patch.faces,structure_patch.vertices,0.01);
+target_structure_color = [0.7,0,0.7];
+striatum_outline = patch('Vertices',structure_wire.vertices*slice_spacing, ...
+    'Faces',structure_wire.faces, ...
+    'FaceColor','none','EdgeColor',target_structure_color);
+
+axis image vis3d off;
 view([-30,25]);
-rotate3d;
+cameratoolbar(h,'SetCoordSys','y');
+cameratoolbar(h,'SetMode','orbit');
 
-line(probe_ccf(:,1),probe_ccf(:,2),probe_ccf(:,3),'color','r','linewidth',2);
-line(probe_vector_ccf(:,1),probe_vector_ccf(:,2),probe_vector_ccf(:,3),'color','b','linewidth',1);
-
+% Plot current probe vector
+line(ccf_axes,probe_vector_ccf(:,1),probe_vector_ccf(:,2),probe_vector_ccf(:,3),'color','k','linewidth',3);
+line(ccf_axes,probe_vector_ccf_histology_mirrored(:,1),probe_vector_ccf_histology_mirrored(:,2), ...
+    probe_vector_ccf_histology_mirrored(:,3),'color','r','linewidth',3);
+drawnow;
 
 %% Directly compare regression and projection maps (from widefield avg)
 
@@ -257,7 +290,8 @@ avg_im = readNPY([img_path filesep 'meanImage_blue.npy']);
 
 avg_im_aligned = AP_align_widefield(animal,day,avg_im);
 
-h = figure;imagesc(avg_im_aligned);
+h = figure('units','normalized','outerposition',[0 0 1 1]);
+imagesc(avg_im_aligned);
 axis image off;
 colormap(gray);caxis([0,5000]);
 title('Click probe start/end');
@@ -407,7 +441,7 @@ probe_depths(eliminate_depths,:) = [];
 % Plot the probe trajectory and Allen atlas in native orientation
 % (note the CCF is rotated to allow for dim 1 = x)
 
-figure; hold on
+h = figure; hold on
 slice_spacing = 10;
 target_volume = permute(av(1:slice_spacing:end,1:slice_spacing:end,1:slice_spacing:end) > 1,[2,1,3]);
 structure_patch = isosurface(target_volume,0);
@@ -419,7 +453,8 @@ brain_outline = patch('Vertices',structure_wire.vertices*slice_spacing, ...
 
 axis image vis3d;
 view([-30,25]);
-rotate3d;
+cameratoolbar(h,'SetCoordSys','y');
+cameratoolbar(h,'SetMode','orbit');
 
 scatter3(probe_depths(:,1),probe_depths(:,2),probe_depths(:,3),5,'k');
 drawnow;
@@ -699,7 +734,7 @@ probe_depths(eliminate_depths,:) = [];
 % Plot the probe trajectory and Allen atlas in native orientation
 % (note the CCF is rotated to allow for dim 1 = x)
 
-figure; hold on
+h = figure; hold on
 slice_spacing = 10;
 target_volume = permute(av(1:slice_spacing:end,1:slice_spacing:end,1:slice_spacing:end) > 1,[2,1,3]);
 structure_patch = isosurface(target_volume,0);
@@ -711,7 +746,8 @@ brain_outline = patch('Vertices',structure_wire.vertices*slice_spacing, ...
 
 axis image vis3d;
 view([-30,25]);
-rotate3d;
+cameratoolbar(h,'SetCoordSys','y');
+cameratoolbar(h,'SetMode','orbit');
 
 scatter3(probe_depths(:,1),probe_depths(:,2),probe_depths(:,3),5,'k');
 drawnow;
@@ -878,8 +914,125 @@ for curr_depth = 1:n_aligned_depths
     AP_reference_outline('ccf_aligned','k');
 end
 
+%% ~~~~~~~~ WIDEFIELD-ALIGNED ONLY ~~~~~~~~~~~
 
 
+%% Estimate probe location from average widefield image in batch
+
+probe_angle = 45; % from horizontal
+
+% protocol = 'vanillaChoiceworld';
+protocol = 'AP_choiceWorldStimPassive';
+
+animal = 'AP035';
+experiments = AP_find_experiments(animal,protocol);
+experiments = experiments([experiments.imaging] & [experiments.ephys]);
+
+% Load in the annotated Allen volume and names
+allen_path = 'C:\Users\Andrew\OneDrive for Business\Documents\Atlases\AllenCCF';
+av = readNPY([allen_path filesep 'annotation_volume_10um_by_index.npy']);
+st = loadStructureTree([allen_path filesep 'structure_tree_safe_2017.csv']); % a table of what all the labels mean
+
+% Plot brain to overlay probes
+% (note the CCF is rotated to allow for dim 1 = x)
+h = figure('Name',animal); ccf_axes = axes; hold on
+slice_spacing = 10;
+target_volume = permute(av(1:slice_spacing:end,1:slice_spacing:end,1:slice_spacing:end) > 1,[2,1,3]);
+structure_patch = isosurface(target_volume,0);
+structure_wire = reducepatch(structure_patch.faces,structure_patch.vertices,0.01);
+target_structure_color = [0.7,0.7,0.7];
+brain_outline = patch('Vertices',structure_wire.vertices*slice_spacing, ...
+    'Faces',structure_wire.faces, ...
+    'FaceColor','none','EdgeColor',target_structure_color);
+
+str_id = find(strcmp(st.safe_name,'Caudoputamen'));
+target_volume = permute(av(1:slice_spacing:end,1:slice_spacing:end,1:slice_spacing:end) == str_id,[2,1,3]);
+structure_patch = isosurface(target_volume,0);
+structure_wire = reducepatch(structure_patch.faces,structure_patch.vertices,0.01);
+target_structure_color = [0.7,0,0.7];
+striatum_outline = patch('Vertices',structure_wire.vertices*slice_spacing, ...
+    'Faces',structure_wire.faces, ...
+    'FaceColor','none','EdgeColor',target_structure_color);
+
+axis image vis3d off;
+view([-30,25]);
+cameratoolbar(h,'SetCoordSys','y');
+cameratoolbar(h,'SetMode','orbit');
+
+for curr_day = 1:length(experiments)
+    
+    day = experiments(curr_day).day;
+    
+    [img_path,img_exists] = AP_cortexlab_filename(animal,day,[],'imaging');
+    avg_im = readNPY([img_path filesep 'meanImage_purple.npy']);
+    
+    avg_im_aligned = AP_align_widefield(animal,day,avg_im);
+    
+    h = figure('units','normalized','outerposition',[0 0 1 1]);
+    imagesc(avg_im_aligned);
+    axis image off;
+    colormap(gray);caxis([0,prctile(avg_im_aligned(:),95)]);
+    title('Click probe start/end');
+    probe_wf = ginput(2);
+    close(h)
+    
+    % Load and invert master CCF tform
+    ccf_tform_fn = ['C:\Users\Andrew\OneDrive for Business\Documents\Atlases\AllenCCF\ccf_tform'];
+    load(ccf_tform_fn);
+    ccf_tform_inverse = invert(ccf_tform);
+    
+    % Convert aligned widefield probe points to CCF
+    % (master alignment to downsampled CCF, need to upsample)
+    um2pixel = 20.6;
+    probe_ccf_tformed = [probe_wf,[1;1]]*ccf_tform_inverse.T;
+    probe_ccf = round(probe_ccf_tformed(:,1:2)*(um2pixel/10));
+    
+%     % Plot probe points on CCF next to average image
+%     figure;
+%     
+%     subplot(1,2,1);
+%     imagesc(avg_im_aligned);
+%     axis image off;
+%     colormap(gray);caxis([0,5000]);
+%     AP_reference_outline('ccf_aligned','r');
+%     line(probe_wf(:,1),probe_wf(:,2),'color','b','linewidth',2,'linestyle','--');
+%     title('Widefield');
+%     
+%     subplot(1,2,2); hold on; set(gca,'YDir','reverse');axis image;
+%     load('C:\Users\Andrew\OneDrive for Business\Documents\Atlases\AllenCCF\cortical_area_boundaries.mat');
+%     for curr_area_idx =1:length(cortical_area_boundaries)
+%         p = cellfun(@(outline) plot(outline(:,2),outline(:,1),'color','k'), ...
+%             cortical_area_boundaries{curr_area_idx},'uni',false);
+%     end
+%     line(probe_ccf(:,1),probe_ccf(:,2),'color','r','linewidth',2);
+%     title('CCF');
+    
+    % Estimate probe entry point by clicked probe start
+    depth_start = find(av(probe_ccf(1,2),:,probe_ccf(1,1)) > 1,1);
+    probe_entry_ccf = [probe_ccf(1,2),depth_start,probe_ccf(1,1)];
+    
+    % Estimate height of clicked point from user-set probe angle
+    probe_sample_length = pdist2(probe_ccf(1,:),probe_ccf(2,:));
+    probe_sample_height = round(probe_sample_length/tand(90-probe_angle));
+    probe_air_ccf = [probe_ccf(2,2),depth_start-probe_sample_height,probe_ccf(2,1)];
+    
+    % Concatenate probe CCF coordinates (in up-down direction);
+    probe_ccf = [probe_air_ccf;probe_entry_ccf];
+    
+    % Get estimated probe vector
+    r0 = mean(probe_ccf,1);
+    xyz = bsxfun(@minus,probe_ccf,r0);
+    [~,~,V] = svd(xyz,0);
+    probe_direction = V(:,1);
+    
+    probe_vector_evaluate = [0,sign(probe_direction(2))*1000];
+    probe_vector_ccf = round(bsxfun(@plus,bsxfun(@times,probe_vector_evaluate',probe_direction'),r0));
+    
+    % Plot current probe vector
+    line(ccf_axes,probe_vector_ccf(:,1),probe_vector_ccf(:,2),probe_vector_ccf(:,3),'color','b','linewidth',1);
+    drawnow;
+
+end
 
 
 
