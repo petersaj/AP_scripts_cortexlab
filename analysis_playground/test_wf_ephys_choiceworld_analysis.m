@@ -3463,15 +3463,16 @@ n_aligned_depths = 4;
 
 data_path = 'C:\Users\Andrew\OneDrive for Business\Documents\CarandiniHarrisLab\analysis\wf_ephys_choiceworld\wf_ephys';
 
-% protocol = 'vanillaChoiceworld';
+protocol = 'vanillaChoiceworld';
 % protocol = 'stimSparseNoiseUncorrAsync';
-protocol = 'stimKalatsky';
+% protocol = 'stimKalatsky';
 % protocol = 'AP_choiceWorldStimPassive';
 
 map_fn = [data_path filesep 'wf_ephys_maps_' protocol '_' num2str(n_aligned_depths) '_depths_kernel'];
 load(map_fn);
 
 animals = {'AP024','AP025','AP026','AP027','AP028','AP029'};
+% animals = {'AP032','AP033','AP034','AP035','AP036'};
 
 % (scale r_px's because different lambdas give different weights)
 % (do in a loop because memory can't handle a cellfun??)
@@ -8731,8 +8732,8 @@ title ('Zero L');
 % Load data
 n_aligned_depths = 4;
 data_path = 'C:\Users\Andrew\OneDrive for Business\Documents\CarandiniHarrisLab\analysis\wf_ephys_choiceworld\choiceworld';
-data_fn = ['all_trial_activity_Udf_kernel-str_passive_fullscreen_4_depths_naive'];
-% data_fn = ['all_trial_activity_Udf_kernel-str_passive_choiceworld_4_depths'];
+% data_fn = ['all_trial_activity_Udf_kernel-str_passive_fullscreen_4_depths'];
+data_fn = ['all_trial_activity_Udf_kernel-str_passive_choiceworld_4_depths_naive'];
 
 load([data_path filesep data_fn]);
 n_animals = length(D_all);

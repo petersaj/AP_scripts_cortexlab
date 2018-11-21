@@ -435,7 +435,129 @@ disp('Saved ephys kernel alignment');
 
 %% 6) Cortex -> striatum maps with kernel alignment
 
-% ADD THIS IN LATER: important to see if different striatal domains
+n_aligned_depths = 4;
+
+animals = {'AP032','AP033','AP034','AP035','AP036'};
+protocol = 'AP_choiceWorldStimPassive';
+
+batch_vars = struct;
+for curr_animal = 1:length(animals)
+            
+    animal = animals{curr_animal};
+    experiments = AP_find_experiments(animal,protocol);
+    
+    % Skip if this animal doesn't have this experiment
+    if isempty(experiments)
+        continue
+    end
+    
+    disp(animal);
+    
+    experiments = experiments([experiments.imaging] & [experiments.ephys]);
+        
+    load_parts.cam = false;
+    load_parts.imaging = true;
+    load_parts.ephys = true;
+    
+    for curr_day = 1:length(experiments)
+        
+        day = experiments(curr_day).day;
+        experiment = experiments(curr_day).experiment(end);
+        
+        % Load data and align striatum by depth
+        str_align = 'kernel';        
+        AP_load_experiment;
+                
+        %%% Load lambda from previously estimated and saved
+        lambda_fn = 'C:\Users\Andrew\OneDrive for Business\Documents\CarandiniHarrisLab\analysis\wf_ephys_choiceworld\ephys_processing\ctx-str_lambda_naive';
+        load(lambda_fn);
+        curr_animal_idx = strcmp(animal,{ctx_str_lambda.animal});
+        if any(curr_animal_idx)
+            curr_day_idx = strcmp(day,ctx_str_lambda(curr_animal_idx).day);
+            if any(curr_day_idx)
+                lambda = ctx_str_lambda(curr_animal_idx).best_lambda(curr_day_idx);
+            end
+        end
+        
+        %%% Prepare data for regression                
+        upsample_factor = 2;
+        sample_rate = (1/median(diff(frame_t)))*upsample_factor;
+        
+        skip_seconds = 60;
+        time_bins = frame_t(find(frame_t > skip_seconds,1)):1/sample_rate:frame_t(find(frame_t-frame_t(end) < -skip_seconds,1,'last'));
+        time_bin_centers = time_bins(1:end-1) + diff(time_bins)/2;
+        
+        % Get upsampled dVdf's
+        use_svs = 1:50;
+        dfVdf_resample = interp1(conv2(frame_t,[1,1]/2,'valid'), ...
+            diff(fVdf(use_svs,:),[],2)',time_bin_centers)';
+                
+        % Get striatum depth group by across-experiment alignment
+        n_depths = n_aligned_depths;
+        depth_group = aligned_str_depth_group;
+          
+        binned_spikes = zeros(n_depths,length(time_bin_centers));
+        for curr_depth = 1:n_depths           
+            curr_spike_times = spike_times_timeline(depth_group == curr_depth);    
+            binned_spikes(curr_depth,:) = histcounts(curr_spike_times,time_bins);            
+        end       
+        
+        % Get rid of NaNs (if no data?)
+        binned_spikes(isnan(binned_spikes)) = 0;
+        
+        kernel_t = [-0.3,0.3];
+        kernel_frames = round(kernel_t(1)*sample_rate):round(kernel_t(2)*sample_rate);
+        zs = [false,true];
+        cvfold = 10;      
+
+        %%% Regress MUA from cortex
+        [k,predicted_spikes,explained_var] = ...
+            AP_regresskernel(dfVdf_resample, ...
+            binned_spikes,kernel_frames,lambda,zs,cvfold);
+        
+        % Reshape kernel and convert to pixel space
+        r = reshape(k,length(use_svs),length(kernel_frames),size(binned_spikes,1));
+        
+        aUdf = single(AP_align_widefield(animal,day,Udf));
+        r_px = zeros(size(aUdf,1),size(aUdf,2),size(r,2),size(r,3),'single');
+        for curr_spikes = 1:size(r,3)
+            r_px(:,:,:,curr_spikes) = svdFrameReconstruct(aUdf(:,:,use_svs),r(:,:,curr_spikes));
+        end
+                
+        % Get center of mass for each pixel
+        t = kernel_frames/sample_rate;
+        use_t = t >= 0 & t <= 0;
+        r_px_max = squeeze(nanmean(r_px(:,:,use_t,:),3));
+        r_px_max_norm = bsxfun(@rdivide,r_px_max, ...
+            permute(max(reshape(r_px_max,[],n_depths),[],1),[1,3,2]));
+        r_px_max_norm(isnan(r_px_max_norm)) = 0;      
+        
+        r_px_com = sum(bsxfun(@times,r_px_max_norm,permute(1:n_depths,[1,3,2])),3)./sum(r_px_max_norm,3);        
+        
+        r_px_weight = max(abs(r_px_max),[],3);
+        
+        % Store all variables to save
+        batch_vars(curr_animal).r_px{curr_day} = r_px;
+        batch_vars(curr_animal).r_px_com{curr_day} = r_px_com;
+        batch_vars(curr_animal).r_px_weight{curr_day} = r_px_weight;
+        batch_vars(curr_animal).explained_var{curr_day} = explained_var.total;
+              
+        AP_print_progress_fraction(curr_day,length(experiments));
+        clearvars -except n_aligned_depths animals animal curr_animal protocol experiments curr_day animal batch_vars load_parts
+        
+    end
+      
+    disp(['Finished ' animal]);
+    
+end
+
+% Save
+save_path = ['C:\Users\Andrew\OneDrive for Business\Documents\CarandiniHarrisLab\analysis\wf_ephys_choiceworld\wf_ephys'];
+save_fn = ['wf_ephys_maps_' protocol '_' num2str(n_aligned_depths) '_depths_kernel'];
+save([save_path filesep save_fn '_naive'],'batch_vars','-v7.3');
+warning('saving -v7.3');
+disp('Finished batch');
+
 
 %% !!!!                                                                                                       !!!!
 

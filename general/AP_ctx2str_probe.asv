@@ -279,7 +279,7 @@ drawnow;
 %% Directly compare regression and projection maps (from histology)
 
 %%% Define and load
-animal = 'AP034';
+animal = 'AP033';
 day = '2018-10-26';
 experiment = 1;
 verbose = false;
