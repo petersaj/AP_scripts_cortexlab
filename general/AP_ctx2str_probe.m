@@ -153,8 +153,8 @@ title('Injection sites')
 
 probe_angle = 45; % from horizontal
 
-animal = 'AP034';
-day = '2018-10-26';
+animal = 'AP036';
+day = '2018-11-14';
 [img_path,img_exists] = AP_cortexlab_filename(animal,day,[],'imaging');
 avg_im = readNPY([img_path filesep 'meanImage_blue.npy']);
 
@@ -279,8 +279,9 @@ drawnow;
 %% Directly compare regression and projection maps (from histology)
 
 %%% Define and load
-animal = 'AP034';
-day = '2018-10-26';
+animal = 'AP036';
+% day = '2018-10-26';
+day = '2018-11-14';
 experiment = 1;
 verbose = false;
 

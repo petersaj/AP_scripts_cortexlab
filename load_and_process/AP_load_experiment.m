@@ -447,7 +447,7 @@ if exist('Timeline','var') && load_parts.cam
     [facecam_dir,facecam_exists] = AP_cortexlab_filename(animal,day,experiment,'facecam');
     
     if facecam_exists
-        if verbose; disp('Loading facecam...'); end;
+        if verbose; disp('Loading facecam...'); end
         
         [facecam_processed_filename,facecam_processed_exists] = AP_cortexlab_filename(animal,day,experiment,'facecam_processed');
         if facecam_processed_exists

@@ -127,11 +127,21 @@ switch file
         filepath = [server1 filesep 'Data\EyeCamera'];
         filename = [filepath filesep animal filesep day filesep experiment ...
             filesep 'eye.mj2'];
+        % CHECK SERVER2 IF IT DOESN'T EXIST
+        if ~exist(filename,'file')
+            filepath = [server2 filesep 'Subjects'];
+            filename = [filepath filesep animal filesep day filesep experiment filesep 'eye.mj2'];
+        end
         
     case 'facecam'
         filepath = [server1 filesep 'Data\EyeCamera'];
         filename = [filepath filesep animal filesep day filesep experiment ...
             filesep 'face.mj2'];
+        % CHECK SERVER2 IF IT DOESN'T EXIST
+        if ~exist(filename,'file')
+            filepath = [server2 filesep 'Subjects'];
+            filename = [filepath filesep animal filesep day filesep experiment filesep 'face.mj2'];
+        end
         
     % Old (with etGUI)
 %     case 'eyecam_processed'
