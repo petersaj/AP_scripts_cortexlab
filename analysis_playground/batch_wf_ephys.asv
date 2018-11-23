@@ -1061,7 +1061,7 @@ save_fn = 'ctx-str_lambda';
 save([save_path filesep save_fn],'ctx_str_lambda');
 disp('Saved cortex-striatum lambda values');
 
-%% 3) Batch get kernels at regular depths along striatum (concat experiments)
+%% 3) @@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@
 
 % Parameters for regression
 regression_params.use_svs = 1:50;
@@ -1071,6 +1071,8 @@ regression_params.kernel_t = [-0.3,0.3];
 
 animals = {'AP024','AP025','AP026','AP027','AP028','AP029', ...
     'AP032','AP033','AP034','AP035','AP036'};
+
+protocol = 'vanillaChoiceworld';
 
 ephys_kernel_depth = struct;
 
@@ -1190,9 +1192,141 @@ save_fn = ['ephys_kernel_depth'];
 save([save_path filesep save_fn],'ephys_kernel_depth');
 disp('Saved ephys depth kernels');
 
-%% 4) ** Get template kernels by K-means of depth kernels **
+%% 3) Batch get kernels at regular depths along striatum
 
-warning('Change this to deterministic, not K-means');
+n_aligned_depths = 4;
+
+animals = {'AP024','AP025','AP026','AP027','AP028','AP029', ...
+    'AP032','AP033','AP034','AP035','AP036'};
+
+protocol = 'vanillaChoiceworld';
+
+ephys_kernel_depth = struct;
+
+for curr_animal = 1:length(animals)
+    
+    animal = animals{curr_animal};
+    experiments = AP_find_experiments(animal,protocol);
+    
+    % Skip if this animal doesn't have this experiment
+    if isempty(experiments)
+        continue
+    end
+    
+    disp(animal);
+    
+    experiments = experiments([experiments.imaging] & [experiments.ephys]);
+    
+    load_parts.cam = false;
+    load_parts.imaging = true;
+    load_parts.ephys = true;
+    
+    for curr_day = 1:length(experiments)
+        
+        day = experiments(curr_day).day;
+        experiment = experiments(curr_day).experiment;
+                
+        % Load data and align striatum by depth
+        str_align = 'none';  
+        AP_load_experiment         
+        
+        %%% Load lambda from previously estimated and saved
+        lambda_fn = 'C:\Users\Andrew\OneDrive for Business\Documents\CarandiniHarrisLab\analysis\wf_ephys_choiceworld\ephys_processing\ctx-str_lambda';
+        load(lambda_fn);
+        curr_animal_idx = strcmp(animal,{ctx_str_lambda.animal});
+        if any(curr_animal_idx)
+            curr_day_idx = strcmp(day,ctx_str_lambda(curr_animal_idx).day);
+            if any(curr_day_idx)
+                lambda = ctx_str_lambda(curr_animal_idx).best_lambda(curr_day_idx);
+            end
+        end       
+        
+        % Try not doing this anymore
+%         % Bump it up - no this doesn't make sense, but it makes it better
+%         lambda = lambda*10;
+        
+        % Set upsample value for regression
+        upsample_factor = 2;
+        sample_rate = (1/median(diff(frame_t)))*upsample_factor;
+        
+        % Skip the first/last n seconds to do this
+        skip_seconds = 60;
+        time_bins = frame_t(find(frame_t > skip_seconds,1)):1/sample_rate:frame_t(find(frame_t-frame_t(end) < -skip_seconds,1,'last'));
+        time_bin_centers = time_bins(1:end-1) + diff(time_bins)/2;
+        
+        % Get multiunit in ~200 um depths
+        n_depths = round(diff(str_depth)/200);
+        depth_group_edges = round(linspace(str_depth(1),str_depth(2),n_depths+1));
+        [depth_group_n,depth_group] = histc(spikeDepths,depth_group_edges);
+        depth_groups_used = unique(depth_group);
+        depth_group_centers = depth_group_edges(1:end-1)+(diff(depth_group_edges)/2);
+        
+        binned_spikes = zeros(n_depths,length(time_bins)-1);
+        for curr_depth = 1:n_depths
+            curr_spike_times = spike_times_timeline(depth_group == curr_depth);
+            binned_spikes(curr_depth,:) = histcounts(curr_spike_times,time_bins);
+        end
+        
+        % Get rid of NaNs (if no data?)
+        binned_spikes(isnan(binned_spikes)) = 0;
+        
+        use_svs = 1:50;
+        kernel_t = [-0.3,0.3];
+        kernel_frames = round(kernel_t(1)*sample_rate):round(kernel_t(2)*sample_rate);
+        % (lambda taken from estimate above)
+        zs = [false,true];
+        cvfold = 10;
+        
+        dfVdf_resample = interp1(conv2(frame_t,[1,1]/2,'valid'), ...
+            diff(fVdf(use_svs,:),[],2)',time_bin_centers)';
+        
+%         % Regress from smoothed diff df/f
+%         dfVdf_resample = interp1(conv2(frame_t,[1,1]/2,'valid'), ...
+%             diff(conv2(fVdf(use_svs,:),ones(1,5)/5,'same'),[],2)',time_bin_centers)';
+        
+        % Regress spikes from cortical fluorescence
+        [k,predicted_spikes,explained_var] = ...
+            AP_regresskernel(dfVdf_resample, ...
+            binned_spikes,kernel_frames,lambda,zs,cvfold);
+        
+        % Reshape kernel and convert to pixel space
+        r = reshape(k,length(use_svs),length(kernel_frames),size(binned_spikes,1));
+        
+        r_px = zeros(size(U,1),size(U,2),size(r,2),size(r,3),'single');
+        for curr_spikes = 1:size(r,3)
+            r_px(:,:,:,curr_spikes) = svdFrameReconstruct(Udf(:,:,use_svs),r(:,:,curr_spikes));
+        end
+        
+        % Make single-frames from kernels
+        t = kernel_frames/sample_rate;
+        use_t = t >= 0 & t <= 0;
+        r_px_use = squeeze(nanmean(r_px(:,:,use_t,:),3));
+        r_px_use_norm = bsxfun(@rdivide,r_px_use, ...
+            permute(max(reshape(r_px_use,[],n_depths),[],1),[1,3,2]));
+        r_px_use_norm(isnan(r_px_use_norm)) = 0;
+        
+        r_px_max_aligned = AP_align_widefield(animal,day,r_px_use_norm);
+    
+        % Package in structure
+        ephys_kernel_depth(curr_animal).animal = animal;
+        ephys_kernel_depth(curr_animal).days{curr_day} = day;       
+        ephys_kernel_depth(curr_animal).r_px{curr_day} = r_px_max_aligned;
+               
+        AP_print_progress_fraction(curr_day,length(experiments));
+        clearvars -except n_aligned_depths animals animal curr_animal protocol experiments curr_day animal ephys_kernel_depth load_parts
+        
+    end
+    disp(['Finished ' animal]);
+end
+
+% Save
+save_path = 'C:\Users\Andrew\OneDrive for Business\Documents\CarandiniHarrisLab\analysis\wf_ephys_choiceworld\ephys_processing';
+save_fn = ['ephys_kernel_depth'];
+save([save_path filesep save_fn],'ephys_kernel_depth');
+disp('Saved ephys depth kernels');
+
+
+%% 4) Get template kernels by K-means of depth kernels
 
 % Load kernels by depths
 kernel_path = 'C:\Users\Andrew\OneDrive for Business\Documents\CarandiniHarrisLab\analysis\wf_ephys_choiceworld\ephys_processing';
@@ -1200,7 +1334,7 @@ kernel_fn = ['ephys_kernel_depth'];
 load([kernel_path filesep kernel_fn])
 
 % Concatenate all kernels, do K-means
-k_px_cat = [ephys_kernel_depth(:).k_px];
+k_px_cat = [ephys_kernel_depth(:).r_px];
 k_px_cat = cat(3,k_px_cat{:});
 
 % Not normalizing for now
@@ -1216,15 +1350,15 @@ n_aligned_depths = 4;
 kidx = kmeans(k_px_cat_norm_reshape(:,use_k_px)',n_aligned_depths,'Distance','correlation');
 
 % Get average depth for each group
-total_depths = 1:max(cellfun(@(x) size(x,3),[ephys_kernel_depth.k_px]));
-k_px_depths = cellfun(@(x) total_depths(end-size(x,3)+1:end),[ephys_kernel_depth.k_px],'uni',false);
-k_px_depth_cat = horzcat(k_px_depths{:});
-k_px_depth_grp = grpstats(k_px_depth_cat(use_k_px),kidx);
+total_depths = 1:max(cellfun(@(x) size(x,3),[ephys_kernel_depth.r_px]));
+r_px_depths = cellfun(@(x) total_depths(end-size(x,3)+1:end),[ephys_kernel_depth.r_px],'uni',false);
+r_px_depth_cat = horzcat(r_px_depths{:});
+r_px_depth_grp = grpstats(r_px_depth_cat(use_k_px),kidx);
 
 % Sort by k-means and group depth
-[~,all_depth_sort_idx] = sort(k_px_depth_cat(use_k_px));
+[~,all_depth_sort_idx] = sort(r_px_depth_cat(use_k_px));
 [~,k_sort_idx] = sort(kidx);
-[~,depth_sort_idx] = sort(k_px_depth_grp);
+[~,depth_sort_idx] = sort(r_px_depth_grp);
 
 % Plot k-means groups by depth
 k_grp = reshape(grpstats(k_px_cat_norm_reshape(:,use_k_px)',kidx)', ...
@@ -1267,6 +1401,8 @@ n_aligned_depths = 4;
 animals = {'AP024','AP025','AP026','AP027','AP028','AP029', ...
     'AP032','AP033','AP034','AP035','AP036'};
 
+protocol = 'vanillaChoiceworld';
+
 % Load kernels by depths
 kernel_path = 'C:\Users\Andrew\OneDrive for Business\Documents\CarandiniHarrisLab\analysis\wf_ephys_choiceworld\ephys_processing';
 kernel_fn = ['ephys_kernel_depth'];
@@ -1277,19 +1413,16 @@ ephys_kernel_align_new = struct;
 for curr_animal = 1:length(animals)
     
     animal = animals{curr_animal};
-    % Find experiments
-    % (use only behavior days because cortical recordings afterwards)
-    protocol = 'vanillaChoiceworld';
     experiments = AP_find_experiments(animal,protocol);
-    days = {experiments([experiments.imaging] & [experiments.ephys]).day};
+    
+    % Skip if this animal doesn't have this experiment
     if isempty(experiments)
-        % (if no behavior days then it was a naive mouse - use passive expt)
-        protocol = 'AP_choiceWorldStimPassive';
-        experiments = AP_find_experiments(animal,protocol);
-        days = {experiments([experiments.imaging] & [experiments.ephys]).day};
+        continue
     end
-
-    disp(animal);  
+    
+    disp(animal);
+    
+    experiments = experiments([experiments.imaging] & [experiments.ephys]);
     
     load_parts.cam = false;
     load_parts.imaging = false;
@@ -1319,11 +1452,11 @@ for curr_animal = 1:length(animals)
         curr_animal_idx = strcmp(animal,{ephys_kernel_depth.animal});
         curr_day_idx = strcmp(day,ephys_kernel_depth(curr_animal_idx).days);
        
-        k_px = ephys_kernel_depth(curr_animal_idx).k_px{curr_day_idx};        
-%         kernel_align = mat2gray(bsxfun(@rdivide,k_px,permute(prctile(reshape( ...
-%             k_px,[],size(k_px,3)),99,1),[1,3,2])),[0,1]);
+        r_px = ephys_kernel_depth(curr_animal_idx).r_px{curr_day_idx};        
+%         kernel_align = mat2gray(bsxfun(@rdivide,r_px,permute(prctile(reshape( ...
+%             r_px,[],size(r_px,3)),99,1),[1,3,2])),[0,1]);
         % (don't normalize now)
-        kernel_align = k_px;
+        kernel_align = r_px;
     
         % Get best match from kernels to kernel templates
         kernel_align_reshape = reshape(kernel_align,[],size(kernel_align,3));
@@ -1363,11 +1496,11 @@ for curr_animal = 1:length(animals)
         ephys_kernel_align_new(curr_animal).aligned_str_depth_group{curr_day} = aligned_str_depth_group;
         ephys_kernel_align_new(curr_animal).n_aligned_depths(curr_day) = n_aligned_depths;
                 
-        AP_print_progress_fraction(curr_day,length(days));
+        AP_print_progress_fraction(curr_day,length(experiments));
         
-        clearvars -except n_aligned_depths ...
-            animals animal curr_animal days curr_day...
-            ephys_kernel_depth ephys_kernel_align_new load_parts
+        clearvars -except n_aligned_depths animals ephys_kernel_depth ...
+            animal curr_animal protocol experiments ...
+            curr_day animal ephys_kernel_align_new load_parts
         
     end
     disp(['Finished ' animal]);
@@ -1621,140 +1754,6 @@ save_path = 'C:\Users\Andrew\OneDrive for Business\Documents\CarandiniHarrisLab\
 save_fn = 'ctx-str_lambda';
 save([save_path filesep save_fn],'ctx_str_lambda');
 disp('Saved cortex-striatum lambda values');
-
-%% X) (OLD) Batch get kernels at regular depths along striatum
-
-n_aligned_depths = 4;
-
-animals = {'AP024','AP025','AP026','AP027','AP028','AP029', ...
-    'AP032','AP033','AP034','AP035','AP036'};
-
-protocol = 'vanillaChoiceworld';
-
-ephys_kernel_depth = struct;
-
-for curr_animal = 1:length(animals)
-    
-    animal = animals{curr_animal};
-    experiments = AP_find_experiments(animal,protocol);
-    
-    % Skip if this animal doesn't have this experiment
-    if isempty(experiments)
-        continue
-    end
-    
-    disp(animal);
-    
-    experiments = experiments([experiments.imaging] & [experiments.ephys]);
-    
-    load_parts.cam = false;
-    load_parts.imaging = true;
-    load_parts.ephys = true;
-    
-    for curr_day = 1:length(experiments)
-        
-        day = experiments(curr_day).day;
-        experiment = experiments(curr_day).experiment;
-                
-        % Load data and align striatum by depth
-        str_align = 'none';  
-        AP_load_experiment         
-        
-        %%% Load lambda from previously estimated and saved
-        lambda_fn = 'C:\Users\Andrew\OneDrive for Business\Documents\CarandiniHarrisLab\analysis\wf_ephys_choiceworld\ephys_processing\ctx-str_lambda';
-        load(lambda_fn);
-        curr_animal_idx = strcmp(animal,{ctx_str_lambda.animal});
-        if any(curr_animal_idx)
-            curr_day_idx = strcmp(day,ctx_str_lambda(curr_animal_idx).day);
-            if any(curr_day_idx)
-                lambda = ctx_str_lambda(curr_animal_idx).best_lambda(curr_day_idx);
-            end
-        end       
-        
-        % Try not doing this anymore
-%         % Bump it up - no this doesn't make sense, but it makes it better
-%         lambda = lambda*10;
-        
-        % Set upsample value for regression
-        upsample_factor = 2;
-        sample_rate = (1/median(diff(frame_t)))*upsample_factor;
-        
-        % Skip the first/last n seconds to do this
-        skip_seconds = 60;
-        time_bins = frame_t(find(frame_t > skip_seconds,1)):1/sample_rate:frame_t(find(frame_t-frame_t(end) < -skip_seconds,1,'last'));
-        time_bin_centers = time_bins(1:end-1) + diff(time_bins)/2;
-        
-        % Get multiunit in ~200 um depths
-        n_depths = round(diff(str_depth)/200);
-        depth_group_edges = round(linspace(str_depth(1),str_depth(2),n_depths+1));
-        [depth_group_n,depth_group] = histc(spikeDepths,depth_group_edges);
-        depth_groups_used = unique(depth_group);
-        depth_group_centers = depth_group_edges(1:end-1)+(diff(depth_group_edges)/2);
-        
-        binned_spikes = zeros(n_depths,length(time_bins)-1);
-        for curr_depth = 1:n_depths
-            curr_spike_times = spike_times_timeline(depth_group == curr_depth);
-            binned_spikes(curr_depth,:) = histcounts(curr_spike_times,time_bins);
-        end
-        
-        % Get rid of NaNs (if no data?)
-        binned_spikes(isnan(binned_spikes)) = 0;
-        
-        use_svs = 1:50;
-        kernel_t = [-0.3,0.3];
-        kernel_frames = round(kernel_t(1)*sample_rate):round(kernel_t(2)*sample_rate);
-        % (lambda taken from estimate above)
-        zs = [false,true];
-        cvfold = 10;
-        
-        dfVdf_resample = interp1(conv2(frame_t,[1,1]/2,'valid'), ...
-            diff(fVdf(use_svs,:),[],2)',time_bin_centers)';
-        
-%         % Regress from smoothed diff df/f
-%         dfVdf_resample = interp1(conv2(frame_t,[1,1]/2,'valid'), ...
-%             diff(conv2(fVdf(use_svs,:),ones(1,5)/5,'same'),[],2)',time_bin_centers)';
-        
-        % Regress spikes from cortical fluorescence
-        [k,predicted_spikes,explained_var] = ...
-            AP_regresskernel(dfVdf_resample, ...
-            binned_spikes,kernel_frames,lambda,zs,cvfold);
-        
-        % Reshape kernel and convert to pixel space
-        r = reshape(k,length(use_svs),length(kernel_frames),size(binned_spikes,1));
-        
-        r_px = zeros(size(U,1),size(U,2),size(r,2),size(r,3),'single');
-        for curr_spikes = 1:size(r,3)
-            r_px(:,:,:,curr_spikes) = svdFrameReconstruct(Udf(:,:,use_svs),r(:,:,curr_spikes));
-        end
-        
-        % Make single-frames from kernels
-        t = kernel_frames/sample_rate;
-        use_t = t >= 0 & t <= 0;
-        r_px_use = squeeze(nanmean(r_px(:,:,use_t,:),3));
-        r_px_use_norm = bsxfun(@rdivide,r_px_use, ...
-            permute(max(reshape(r_px_use,[],n_depths),[],1),[1,3,2]));
-        r_px_use_norm(isnan(r_px_use_norm)) = 0;
-        
-        r_px_max_aligned = AP_align_widefield(animal,day,r_px_use_norm);
-    
-        % Package in structure
-        ephys_kernel_depth(curr_animal).animal = animal;
-        ephys_kernel_depth(curr_animal).days{curr_day} = day;       
-        ephys_kernel_depth(curr_animal).r_px{curr_day} = r_px_max_aligned;
-               
-        AP_print_progress_fraction(curr_day,length(experiments));
-        clearvars -except n_aligned_depths animals animal curr_animal protocol experiments curr_day animal ephys_kernel_depth load_parts
-        
-    end
-    disp(['Finished ' animal]);
-end
-
-% Save
-save_path = 'C:\Users\Andrew\OneDrive for Business\Documents\CarandiniHarrisLab\analysis\wf_ephys_choiceworld\ephys_processing';
-save_fn = ['ephys_kernel_depth'];
-save([save_path filesep save_fn],'ephys_kernel_depth');
-disp('Saved ephys depth kernels');
-
 
 %% X) (OLD) Batch cortex -> striatum maps with kernel alignment
 

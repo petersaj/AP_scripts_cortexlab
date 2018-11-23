@@ -58,5 +58,40 @@ ylabel('Activity (std)');
 legend([p1(1),p2(1)],{'MUA','\DeltaFluorescence'});
 xlim([177,200]);
 
+%% Fig 1b: Average regression maps
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 

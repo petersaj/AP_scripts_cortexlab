@@ -1,6 +1,5 @@
 %% Batch processes for naive animals
-% (these should ultimately be combined with regular animals into a master
-% script that prepares all data for figures)
+% (NOTE: THIS IS CURRENTLY BEING FOLDED INTO batch_wf_ephys)
 
 
 %% !!!!                 DEFINE CORTEX-STRIATUM PARAMETERS               !!!!
