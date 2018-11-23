@@ -869,6 +869,7 @@ disp(['Finished batch'])
 %% !!!!                 DEFINE CORTEX-STRIATUM PARAMETERS               !!!!
 
 %% 1) Get boundaries of striatum across experiments
+disp('Getting boundaries of striatum across experiments');
 
 animals = {'AP024','AP025','AP026','AP027','AP028','AP029', ...
     'AP032','AP033','AP034','AP035','AP036'};
@@ -882,12 +883,12 @@ for curr_animal = 1:length(animals)
     % (use only behavior days because cortical recordings afterwards)
     protocol = 'vanillaChoiceworld';
     experiments = AP_find_experiments(animal,protocol);
-    days = {experiments([experiments.imaging] & [experiments.ephys]).day};
+    experiments(~([experiments.imaging] & [experiments.ephys])) = [];
     if isempty(experiments)
         % (if no behavior days then it was a naive mouse - use passive expt)
         protocol = 'AP_choiceWorldStimPassive';
         experiments = AP_find_experiments(animal,protocol);
-        days = {experiments([experiments.imaging] & [experiments.ephys]).day};
+        experiments(~([experiments.imaging] & [experiments.ephys])) = [];
     end
     
     load_parts.cam = false;
@@ -924,6 +925,7 @@ save([save_path filesep 'ephys_depth_align'],'ephys_depth_align');
 disp('Finished batch');
 
 %% 2) Estimate imaging-ephys lambda (concat experiments)
+disp('Estimating imaging-ephys lambda');
 
 % Parameters for regression
 regression_params.use_svs = 1:50;
@@ -1061,7 +1063,8 @@ save_fn = 'ctx-str_lambda';
 save([save_path filesep save_fn],'ctx_str_lambda');
 disp('Saved cortex-striatum lambda values');
 
-%% 3) Batch get kernels at regular depths along striatum (concat experiments)
+%% 3) Get kernels at regular depths along striatum (concat experiments)
+disp('Getting kernels at regular depths along striatum');
 
 % Parameters for regression
 regression_params.use_svs = 1:50;
@@ -1191,6 +1194,7 @@ save([save_path filesep save_fn],'ephys_kernel_depth');
 disp('Saved ephys depth kernels');
 
 %% 4) ** Get template kernels by K-means of depth kernels **
+disp('Getting template kernels');
 
 warning('Change this to deterministic, not K-means');
 
@@ -1261,7 +1265,8 @@ end
 % disp('Saved kernel template');
 
 
-%% 5) Batch align striatum recordings from template kernels
+%% 5) Align striatum recordings from template kernels
+disp('Aligning striatum recordings from template kernels');
 
 n_aligned_depths = 4;
 animals = {'AP024','AP025','AP026','AP027','AP028','AP029', ...
@@ -1382,7 +1387,8 @@ save_fn = ['ephys_kernel_align_' num2str(n_aligned_depths) '_depths'];
 save([save_path filesep save_fn],'ephys_kernel_align');
 disp('Saved ephys kernel alignment');
 
-%% 6) Batch cortex -> kernel-aligned striatum regression (concat experiments)
+%% 6) Cortex -> kernel-aligned striatum regression (concat experiments)
+disp('Cortex -> kernel-aligned striatum regression');
 
 % Parameters for regression
 regression_params.use_svs = 1:50;
