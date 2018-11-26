@@ -650,7 +650,11 @@ if ephys_exists && load_parts.ephys
     
     if verbose; disp('Loading ephys...'); end
     
+    photodiode_sync_idx = 1;
     acqLive_sync_idx = 2;
+    pcoExposure_sync_idx = 3;
+    flipper_sync_idx = 4;
+
     load_lfp = false;
     
     % Load clusters, if they exist
@@ -767,7 +771,6 @@ if ephys_exists && load_parts.ephys
         % redundant)
         
         % Get flipper experiment differences by long delays
-        flipper_sync_idx = 4;
         flip_diff_thresh = 1; % time between flips to define experiment gap (s)
         flipper_expt_idx = [1;find(diff(sync(flipper_sync_idx).timestamps) > ...
             flip_diff_thresh)+1;length(sync(flipper_sync_idx).timestamps)+1];
