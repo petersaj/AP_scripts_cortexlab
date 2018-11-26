@@ -1,6 +1,7 @@
 % Preprocessing to align striatal electrophysiology by relationship to cortex
 
 %% 1) Get boundaries of striatum across experiments
+clear all
 disp('Getting boundaries of striatum across experiments');
 
 animals = {'AP024','AP025','AP026','AP027','AP028','AP029', ...
@@ -30,7 +31,7 @@ for curr_animal = 1:length(animals)
     for curr_day = 1:length(experiments)
         
         day = experiments(curr_day).day;
-        experiment = experiments(curr_day).experiment;
+        experiment = experiments(curr_day).experiment(end);
         
         AP_load_experiment
        
@@ -57,6 +58,7 @@ save([save_path filesep 'ephys_depth_align'],'ephys_depth_align');
 disp('Finished batch');
 
 %% 2) Estimate imaging-ephys lambda (concat experiments)
+clear all
 disp('Estimating imaging-ephys lambda');
 
 % Parameters for regression
@@ -77,79 +79,51 @@ for curr_animal = 1:length(animals)
     % (use only behavior days because cortical recordings afterwards)
     protocol = 'vanillaChoiceworld';
     experiments = AP_find_experiments(animal,protocol);
-    days = {experiments([experiments.imaging] & [experiments.ephys]).day};
+    experiments(~([experiments.imaging] & [experiments.ephys])) = [];
     if isempty(experiments)
         % (if no behavior days then it was a naive mouse - use passive expt)
         protocol = 'AP_choiceWorldStimPassive';
         experiments = AP_find_experiments(animal,protocol);
-        days = {experiments([experiments.imaging] & [experiments.ephys]).day};
+        experiments(~([experiments.imaging] & [experiments.ephys])) = [];
     end
 
     disp(animal); 
     
-    for curr_day = 1:length(days)
-
-        day = days{curr_day};
+    for curr_day = 1:length(experiments)       
+       
+        day = experiments(curr_day).day;
+        experiment = experiments(curr_day).experiment(end);
         
-        % Find all experiments for that day
-        % (get folders with only a number - those're the experiment folders)
-        curr_experiments_dir = dir(AP_cortexlab_filename(animal,day,[],'expInfo'));
-        curr_experiments_idx = cellfun(@(x) ~isempty(x), regexp({curr_experiments_dir.name},'^\d*$'));
-        curr_experiments = cellfun(@str2num,{experiments_dir(curr_experiments_idx).name});
+        str_align = 'none';
+        AP_load_experiment
+                
+        % Set upsample factor and sample rate
+        upsample_factor = 2;
+        sample_rate = (1/median(diff(frame_t)))*upsample_factor;
         
-        % Loop through experiments, collate data
-        time_bin_centers_all = cell(size(curr_experiments));
-        dfVdf_all = cell(size(curr_experiments));
-        binned_spikes_all = cell(size(curr_experiments));     
+        % Skip the first n seconds to do this
+        skip_seconds = 60;
+        time_bins = frame_t(find(frame_t > skip_seconds,1)):1/sample_rate:frame_t(find(frame_t-frame_t(end) < -skip_seconds,1,'last'));
+        time_bin_centers = time_bins(1:end-1) + diff(time_bins)/2;
         
-        disp('Loading and concatenating experiments...');
-        for curr_exp = 1:length(curr_experiments)
-            experiment = curr_experiments(curr_exp);
-            AP_load_experiment;
-            
-            % Get time points to query
-            sample_rate = framerate*regression_params.upsample_factor;
-            time_bins = frame_t(find(frame_t > ...
-                regression_params.skip_seconds,1)):1/sample_rate: ...
-                frame_t(find(frame_t-frame_t(end) < ...
-                -regression_params.skip_seconds,1,'last'));
-            time_bin_centers = time_bins(1:end-1) + diff(time_bins)/2;
-            time_bin_centers_all{curr_exp} = time_bin_centers;
-            
-            % Get upsampled dVdf's
-            dfVdf_resample = interp1(conv2(frame_t,[1,1]/2,'valid'), ...
-                diff(fVdf(regression_params.use_svs,:),[],2)',time_bin_centers)';
-            dfVdf_all{curr_exp} = dfVdf_resample;
-            
-            % Get striatum depth group by across-experiment alignment
-            n_depths = n_aligned_depths;
-            depth_group = aligned_str_depth_group;
-            
-            binned_spikes = zeros(n_depths,length(time_bin_centers));
-            for curr_depth = 1:n_depths
-                curr_spike_times = spike_times_timeline(depth_group == curr_depth);
-                binned_spikes(curr_depth,:) = histcounts(curr_spike_times,time_bins);
-            end
-            
-            binned_spikes_all{curr_exp} = binned_spikes;
-            
-            AP_print_progress_fraction(curr_exp,length(curr_experiments));
-        end
+        % Use all spikes in striatum
+        use_spikes = spike_times_timeline(ismember(spike_templates, ...
+            find(templateDepths > str_depth(1) & templateDepths <= str_depth(2))));
+        binned_spikes = single(histcounts(use_spikes,time_bins));
         
-        % Concatenate all data
-        time_bin_centers = cat(2,time_bin_centers_all{:});
-        dfVdf_resample = cat(2,dfVdf_all{:});
-        binned_spikes = cat(2,binned_spikes_all{:});       
+        use_svs = 1:50;
+        kernel_t = [-0.3,0.3];
+        kernel_frames = round(kernel_t(1)*sample_rate):round(kernel_t(2)*sample_rate);
+        zs = [false,true]; % z-score MUA, not V's
+        cvfold = 2;
         
-        % Do regression over range of lambdas, get explained variance
+        % Resample and get derivative of V
+        dfVdf_resample = interp1(conv2(frame_t,[1,1]/2,'valid'), ...
+            diff(fVdf(use_svs,:),[],2)',time_bin_centers)';
+        
         n_update_lambda = 1;
         lambda_range = [0,1.5]; % ^10 (used to be [3,7] before df/f change
         n_lambdas = 50;
-        
-        kernel_frames = round(regression_params.kernel_t(1)*sample_rate): ...
-            round(regression_params.kernel_t(2)*sample_rate);
-        zs = [false,true];
-        cvfold = 10;
         
         for curr_update_lambda = 1:n_update_lambda
             
@@ -183,8 +157,8 @@ for curr_animal = 1:length(animals)
         ctx_str_lambda(curr_animal).lambdas{curr_day} = lambdas;        
         ctx_str_lambda(curr_animal).explained_var_lambdas{curr_day} = explained_var_lambdas;        
         
-        AP_print_progress_fraction(curr_day,length(days));
-        clearvars -except regression_params animals animal curr_animal protocol days curr_day animal ctx_str_lambda 
+        AP_print_progress_fraction(curr_day,length(experiments));
+        clearvars -except regression_params animals animal curr_animal protocol experiments curr_day animal ctx_str_lambda 
         
     end
 end
@@ -196,6 +170,7 @@ save([save_path filesep save_fn],'ctx_str_lambda');
 disp('Saved cortex-striatum lambda values');
 
 %% 3) Get kernels at regular depths along striatum (concat experiments)
+clear all
 disp('Getting kernels at regular depths along striatum');
 
 % Parameters for regression
@@ -234,14 +209,13 @@ for curr_animal = 1:length(animals)
         % (get folders with only a number - those're the experiment folders)
         curr_experiments_dir = dir(AP_cortexlab_filename(animal,day,[],'expInfo'));
         curr_experiments_idx = cellfun(@(x) ~isempty(x), regexp({curr_experiments_dir.name},'^\d*$'));
-        curr_experiments = cellfun(@str2num,{experiments_dir(curr_experiments_idx).name});
+        curr_experiments = cellfun(@str2num,{curr_experiments_dir(curr_experiments_idx).name});
         
         % Loop through experiments, collate data
         time_bin_centers_all = cell(size(curr_experiments));
         dfVdf_resample_all = cell(size(curr_experiments));
         binned_spikes_all = cell(size(curr_experiments));     
         
-        disp('Loading and concatenating experiments...');
         for curr_exp = 1:length(curr_experiments)
             experiment = curr_experiments(curr_exp);
             str_align = 'none'; 
@@ -274,15 +248,24 @@ for curr_animal = 1:length(animals)
                 binned_spikes(curr_depth,:) = histcounts(curr_spike_times,time_bins);
             end
             
-            binned_spikes_all{curr_exp} = binned_spikes;
-            
-            AP_print_progress_fraction(curr_exp,length(curr_experiments));
+            binned_spikes_all{curr_exp} = binned_spikes;            
         end
         
         % Concatenate all data
         time_bin_centers = cat(2,time_bin_centers_all{:});
         dfVdf_resample = cat(2,dfVdf_resample_all{:});
         binned_spikes = cat(2,binned_spikes_all{:});
+        
+        % Load lambda from previously estimated and saved
+        lambda_fn = 'C:\Users\Andrew\OneDrive for Business\Documents\CarandiniHarrisLab\analysis\wf_ephys_choiceworld\ephys_processing\ctx-str_lambda';
+        load(lambda_fn);
+        curr_animal_idx = strcmp(animal,{ctx_str_lambda.animal});
+        if any(curr_animal_idx)
+            curr_day_idx = strcmp(day,ctx_str_lambda(curr_animal_idx).day);
+            if any(curr_day_idx)
+                lambda = ctx_str_lambda(curr_animal_idx).best_lambda(curr_day_idx);
+            end
+        end       
 
         % Regress fluorescence to spikes
         kernel_frames = round(regression_params.kernel_t(1)*sample_rate): ...
@@ -305,7 +288,7 @@ for curr_animal = 1:length(animals)
         k_px(:,:,:,~any(binned_spikes,2)) = NaN;
         
         % Keep kernel at t = 0
-        k_px_frame = k_px(:,:,kernel_frames == 0,:);
+        k_px_frame = squeeze(k_px(:,:,kernel_frames == 0,:));
     
         % Package in structure
         ephys_kernel_depth(curr_animal).animal = animal;
@@ -326,6 +309,7 @@ save([save_path filesep save_fn],'ephys_kernel_depth');
 disp('Saved ephys depth kernels');
 
 %% 4) ** Get template kernels by K-means of depth kernels **
+clear all
 disp('Getting template kernels');
 
 warning('Change this to deterministic, not K-means');
@@ -398,6 +382,7 @@ end
 
 
 %% 5) Align striatum recordings from template kernels
+clear all
 disp('Aligning striatum recordings from template kernels');
 
 n_aligned_depths = 4;
@@ -435,7 +420,7 @@ for curr_animal = 1:length(animals)
     for curr_day = 1:length(experiments)
         
         day = experiments(curr_day).day;
-        experiment = experiments(curr_day).experiment;
+        experiment = experiments(curr_day).experiment(end);
                 
         % Load data
         str_align = 'none';  
@@ -520,6 +505,7 @@ save([save_path filesep save_fn],'ephys_kernel_align');
 disp('Saved ephys kernel alignment');
 
 %% 6) Cortex -> kernel-aligned striatum regression (concat experiments)
+clear all
 disp('Cortex -> kernel-aligned striatum regression');
 
 % Parameters for regression
@@ -557,14 +543,13 @@ for curr_animal = 1:length(animals)
         % (get folders with only a number - those're the experiment folders)
         curr_experiments_dir = dir(AP_cortexlab_filename(animal,day,[],'expInfo'));
         curr_experiments_idx = cellfun(@(x) ~isempty(x), regexp({curr_experiments_dir.name},'^\d*$'));
-        curr_experiments = cellfun(@str2num,{experiments_dir(curr_experiments_idx).name});
+        curr_experiments = cellfun(@str2num,{curr_experiments_dir(curr_experiments_idx).name});
         
         % Loop through experiments, collate data
         time_bin_centers_all = cell(size(curr_experiments));
         dfVdf_resample_all = cell(size(curr_experiments));
         binned_spikes_all = cell(size(curr_experiments));     
         
-        disp('Loading and concatenating experiments...');
         for curr_exp = 1:length(curr_experiments)
             experiment = curr_experiments(curr_exp);
             AP_load_experiment;
@@ -593,9 +578,7 @@ for curr_animal = 1:length(animals)
                 binned_spikes(curr_depth,:) = histcounts(curr_spike_times,time_bins);
             end
             
-            binned_spikes_all{curr_exp} = binned_spikes;
-            
-            AP_print_progress_fraction(curr_exp,length(curr_experiments));
+            binned_spikes_all{curr_exp} = binned_spikes;            
         end
         
         % Concatenate all data

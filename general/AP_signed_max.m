@@ -1,4 +1,5 @@
 function signed_max = AP_signed_max(x,dim)
+% signed_max = AP_signed_max(x,dim)
 % Maximum amplitude (signed maximum absolute value)
 
 % Maximum value and dimension subscript

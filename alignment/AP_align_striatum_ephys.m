@@ -77,8 +77,7 @@ str_depth = [str_start,str_end];
 switch str_align
     
     case 'none'
-        %%% Don't group striatal templates
-        aligned_str_depth_group = [];
+        %%% Don't do anything
         
     case 'depth'
         %%% Align striatal recordings using saved alignment
@@ -143,7 +142,9 @@ end
 
 %% Plot the aligned groups
 
-if verbose && exist('aligned_str_depth_group','var')
+if verbose && exist('aligned_str_depth_group','var') && ...
+        ~isempty(aligned_str_depth_group)
+        
     [~,idx,~] = unique(spike_templates);
     template_aligned_depth = aligned_str_depth_group(idx)+1;
     template_aligned_depth(isnan(template_aligned_depth)) = 1;

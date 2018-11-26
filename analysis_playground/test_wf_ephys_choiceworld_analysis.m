@@ -9152,7 +9152,7 @@ load('C:\Users\Andrew\OneDrive for Business\Documents\CarandiniHarrisLab\analysi
 % rxn_time_bins = {[0,0.1],[0.1,0.2],[0.2,0.3],[0.3,0.4],[0.6,0.7]};
 % rxn_time_bins = {[0,0.15],[0.15,0.4],[0.6,0.7]};
 % rxn_time_bins = {[0.1,0.3],[0.6,0.7]};
-rxn_time_bins = {[0.5,1]};
+rxn_time_bins = {[0,0.5]};
 
 move_align = false;
 normalize_px = true;
