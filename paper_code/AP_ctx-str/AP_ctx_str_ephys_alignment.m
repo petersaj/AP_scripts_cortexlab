@@ -205,16 +205,14 @@ for curr_animal = 1:length(animals)
         
         day = days{curr_day};
         
-        % Find all experiments for that day
-        % (get folders with only a number - those're the experiment folders)
-        curr_experiments_dir = dir(AP_cortexlab_filename(animal,day,[],'expInfo'));
-        curr_experiments_idx = cellfun(@(x) ~isempty(x), regexp({curr_experiments_dir.name},'^\d*$'));
-        curr_experiments = cellfun(@str2num,{curr_experiments_dir(curr_experiments_idx).name});
+        % Find all protocols for that day, use non-multiples
+        protocols = AP_list_experiments(animal,day);
+        curr_experiments = [protocols(~[protocols.multiple]).experiment];
         
         % Loop through experiments, collate data
         time_bin_centers_all = cell(size(curr_experiments));
         dfVdf_resample_all = cell(size(curr_experiments));
-        binned_spikes_all = cell(size(curr_experiments));     
+        binned_spikes_all = cell(size(curr_experiments));
         
         for curr_exp = 1:length(curr_experiments)
             experiment = curr_experiments(curr_exp);
@@ -539,11 +537,9 @@ for curr_animal = 1:length(animals)
         
         day = days{curr_day};
         
-        % Find all experiments for that day
-        % (get folders with only a number - those're the experiment folders)
-        curr_experiments_dir = dir(AP_cortexlab_filename(animal,day,[],'expInfo'));
-        curr_experiments_idx = cellfun(@(x) ~isempty(x), regexp({curr_experiments_dir.name},'^\d*$'));
-        curr_experiments = cellfun(@str2num,{curr_experiments_dir(curr_experiments_idx).name});
+        % Find all protocols for that day, use non-multiples
+        protocols = AP_list_experiments(animal,day);
+        curr_experiments = [protocols(~[protocols.multiple]).experiment];
         
         % Loop through experiments, collate data
         time_bin_centers_all = cell(size(curr_experiments));

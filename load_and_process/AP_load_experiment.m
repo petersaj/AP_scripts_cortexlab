@@ -742,33 +742,15 @@ if ephys_exists && load_parts.ephys
     % Get sync points for alignment
  
     % Get experiment index by finding numbered folders
-    experiments_dir = dir(AP_cortexlab_filename(animal,day,experiment,'expInfo'));
-    experiments_num_idx = cellfun(@(x) ~isempty(x), regexp({experiments_dir.name},'^\d*$'));
-    experiment_num = experiment == cellfun(@str2num,{experiments_dir(experiments_num_idx).name});
-    
-    if ~exist('flipper_flip_times_timeline','var')
-        % (if no flipper, use acqLive)
-        
-        % Get acqLive times for current experiment
-        experiment_ephys_starts = sync(acqLive_sync_idx).timestamps(sync(acqLive_sync_idx).values == 1);
-        experiment_ephys_stops = sync(acqLive_sync_idx).timestamps(sync(acqLive_sync_idx).values == 0);     
-        acqlive_ephys_currexpt = [experiment_ephys_starts(experiment_num), ...
-            experiment_ephys_stops(experiment_num)];
-        
-        sync_timeline = acqLive_timeline;
-        sync_ephys = acqlive_ephys_currexpt;
-        
-        % Check that the experiment time is the same within threshold
-        % (it should be almost exactly the same)
-        if abs(diff(acqLive_timeline) - diff(acqlive_ephys_currexpt)) > 1
-           error('acqLive duration different in timeline and ephys'); 
-        end
-        
-    else
+    protocols = AP_list_experiments(animal,day);
+    experiment_num = [protocols.experiment];
+
+    if exist('flipper_flip_times_timeline','var')
         % (if flipper, use that)
         % (at least one experiment the acqLive connection to ephys was bad
         % so it was delayed - ideally check consistency since it's
         % redundant)
+        bad_flipper = false; 
         
         % Get flipper experiment differences by long delays
         flip_diff_thresh = 1; % time between flips to define experiment gap (s)
@@ -780,7 +762,8 @@ if ephys_exists && load_parts.ephys
         
         % Check that number of flipper flips in timeline matches ephys
         if length(flipper_flip_times_ephys) ~= length(flipper_flip_times_timeline)
-            error('Flipper flip times different in timeline/ephys')
+            warning([animal ' ' day ':Flipper flip times different in timeline/ephys'])
+            bad_flipper = true;
         end
         
 %         % Plot stim aligned by flipper times for sanity check
@@ -791,7 +774,25 @@ if ephys_exists && load_parts.ephys
         
         sync_timeline = flipper_flip_times_timeline;
         sync_ephys = flipper_flip_times_ephys;
+    end
+    
+    if ~exist('flipper_flip_times_timeline','var') || bad_flipper
+        % (if no flipper or flipper problem, use acqLive)
         
+        % Get acqLive times for current experiment
+        experiment_ephys_starts = sync(acqLive_sync_idx).timestamps(sync(acqLive_sync_idx).values == 1);
+        experiment_ephys_stops = sync(acqLive_sync_idx).timestamps(sync(acqLive_sync_idx).values == 0);
+        acqlive_ephys_currexpt = [experiment_ephys_starts(experiment_num), ...
+            experiment_ephys_stops(experiment_num)];
+        
+        sync_timeline = acqLive_timeline;
+        sync_ephys = acqlive_ephys_currexpt;
+        
+        % Check that the experiment time is the same within threshold
+        % (it should be almost exactly the same)
+        if abs(diff(acqLive_timeline) - diff(acqlive_ephys_currexpt)) > 1
+            error([animal ' ' day ': acqLive duration different in timeline and ephys']);
+        end                     
     end
     
     % Get the spike/lfp times in timeline time (accounts for clock drifts)
