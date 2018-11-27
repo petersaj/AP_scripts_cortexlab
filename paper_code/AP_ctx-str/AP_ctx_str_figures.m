@@ -71,50 +71,37 @@ n_aligned_depths = 4;
 
 data_path = 'C:\Users\Andrew\OneDrive for Business\Documents\CarandiniHarrisLab\analysis\wf_ephys_choiceworld\wf_ephys';
 
-protocol = 'vanillaChoiceworld';
-% protocol = 'stimSparseNoiseUncorrAsync';
-% protocol = 'stimKalatsky';
-% protocol = 'AP_choiceWorldStimPassive';
-
-map_fn = [data_path filesep 'wf_ephys_maps_' protocol '_' num2str(n_aligned_depths) '_depths_kernel'];
-load(map_fn);
-
-animals = {'AP024','AP025','AP026','AP027','AP028','AP029'};
-% animals = {'AP032','AP033','AP034','AP035','AP036'};
+k_fn = [data_path filesep 'wf_ephys_maps_concat_' num2str(n_aligned_depths) '_depths_kernel'];
+load(k_fn);
 
 % (scale r_px's because different lambdas give different weights)
 % (do in a loop because memory can't handle a cellfun??)
-n_depths = n_aligned_depths;
-
-r_px = nan(437,416,43,n_depths,length(animals));
-for curr_animal = 1:length(animals)
-    curr_animal_r_px = nan(437,416,43,n_depths,length(days));
-    for curr_day = 1:length(batch_vars(curr_animal).r_px)        
+k_px = nan(437,416,43,n_aligned_depths,length(batch_vars));
+for curr_animal = 1:length(batch_vars)
+    curr_animal_k_px = nan(437,416,43,n_aligned_depths,length(days));
+    for curr_day = 1:length(batch_vars(curr_animal).k_px)        
         
-        curr_r_px = batch_vars(curr_animal).r_px{curr_day};
-        curr_scaled_r_px = mat2gray(bsxfun(@rdivide, ...
-            curr_r_px,permute(prctile(abs( ...
-            reshape(curr_r_px,[],size(curr_r_px,5))),95)',[2,3,4,5,1])),[-1,1])*2-1;     
+        curr_k_px = batch_vars(curr_animal).k_px{curr_day};
+        curr_scaled_k_px = mat2gray(bsxfun(@rdivide, ...
+            curr_k_px,permute(prctile(abs( ...
+            reshape(curr_k_px,[],size(curr_k_px,5))),95)',[2,3,4,5,1])),[-1,1])*2-1;     
         
         % Set any NaN explained (no MUA data probably) to NaN
-        curr_scaled_r_px(:,:,:,isnan(batch_vars(curr_animal).explained_var{curr_day})) = NaN;
+        curr_scaled_k_px(:,:,:,isnan(batch_vars(curr_animal).explained_var{curr_day})) = NaN;
         
-        curr_animal_r_px(:,:,:,:,curr_day) = curr_scaled_r_px;
+        curr_animal_k_px(:,:,:,:,curr_day) = curr_scaled_k_px;
         
     end
-    r_px(:,:,:,:,curr_animal) = nanmean(curr_animal_r_px,5);
+    k_px(:,:,:,:,curr_animal) = nanmean(curr_animal_k_px,5);
     disp(curr_animal);
 end
 
-com = cell2mat(shiftdim(cellfun(@(x) nanmean(cat(3,x{:}),3),{batch_vars.r_px_com},'uni',false),-1));
-weight = cell2mat(shiftdim(cellfun(@(x) nanmean(cat(3,x{:}),3),{batch_vars.r_px_weight},'uni',false),-1));
-explained_var = cell2mat(cellfun(@(x) nanmean(cat(2,x{:}),2),{batch_vars.explained_var},'uni',false));
+k_px_mean = nanmean(k_px,5);
+AP_image_scroll(k_px_mean);
+caxis([-1,1]); axis image;
+colormap(brewermap([],'*RdBu'))
+AP_reference_outline('ccf_aligned','k');
 
-r_px_mean = nanmean(r_px,5);
-% flip r_px to go forward in time
-r_px_mean = r_px_mean(:,:,end:-1:1,:);
-com_mean = nanmean(com,3);
-weight_mean = nanmean(weight,3);
 
 %% Fig 1b: Allen projection maps vs regression maps?
 % (maybe get average centroid of str 1/2/3/4 then get one map?)

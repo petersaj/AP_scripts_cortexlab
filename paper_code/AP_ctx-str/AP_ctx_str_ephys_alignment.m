@@ -401,12 +401,12 @@ for curr_animal = 1:length(animals)
     % (use only behavior days because cortical recordings afterwards)
     protocol = 'vanillaChoiceworld';
     experiments = AP_find_experiments(animal,protocol);
-    days = {experiments([experiments.imaging] & [experiments.ephys]).day};
+    experiments = experiments([experiments.imaging] & [experiments.ephys]);
     if isempty(experiments)
         % (if no behavior days then it was a naive mouse - use passive expt)
         protocol = 'AP_choiceWorldStimPassive';
         experiments = AP_find_experiments(animal,protocol);
-        days = {experiments([experiments.imaging] & [experiments.ephys]).day};
+        experiments = experiments([experiments.imaging] & [experiments.ephys]);
     end
 
     disp(animal);  
@@ -483,10 +483,10 @@ for curr_animal = 1:length(animals)
         ephys_kernel_align_new(curr_animal).aligned_str_depth_group{curr_day} = aligned_str_depth_group;
         ephys_kernel_align_new(curr_animal).n_aligned_depths(curr_day) = n_aligned_depths;
                 
-        AP_print_progress_fraction(curr_day,length(days));
+        AP_print_progress_fraction(curr_day,length(experiments));
         
         clearvars -except n_aligned_depths ...
-            animals animal curr_animal days curr_day...
+            animals animal curr_animal experiments curr_day...
             ephys_kernel_depth ephys_kernel_align_new load_parts
         
     end
@@ -507,6 +507,7 @@ clear all
 disp('Cortex -> kernel-aligned striatum regression');
 
 % Parameters for regression
+n_aligned_depths = 4;
 regression_params.use_svs = 1:50;
 regression_params.skip_seconds = 60;
 regression_params.upsample_factor = 2;
@@ -621,8 +622,8 @@ for curr_animal = 1:length(animals)
         batch_vars(curr_animal).k_px{curr_day} = k_px;
         batch_vars(curr_animal).explained_var{curr_day} = explained_var.total;
         
-        AP_print_progress_fraction(curr_day,length(experiments));
-        clearvars -except regression_params animals animal curr_animal days curr_day batch_vars        
+        AP_print_progress_fraction(curr_day,length(days));
+        clearvars -except n_aligned_depths regression_params animals animal curr_animal days curr_day batch_vars        
     end
     disp(['Finished ' animal]);
 end

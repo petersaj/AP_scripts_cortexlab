@@ -36,6 +36,9 @@ end
 %% Load timeline and associated inputs
 
 [timeline_filename,timeline_exists] = AP_cortexlab_filename(animal,day,experiment,'timeline');
+if ~timeline_exists
+    error([animal ' ' day ': no timeline']);
+end
 
 if timeline_exists
     if verbose; disp('Loading timeline...'); end
@@ -743,8 +746,8 @@ if ephys_exists && load_parts.ephys
  
     % Get experiment index by finding numbered folders
     protocols = AP_list_experiments(animal,day);
-    experiment_num = [protocols.experiment];
-
+    experiment_idx = experiment == [protocols.experiment];
+ 
     if exist('flipper_flip_times_timeline','var')
         % (if flipper, use that)
         % (at least one experiment the acqLive connection to ephys was bad
@@ -758,7 +761,7 @@ if ephys_exists && load_parts.ephys
             flip_diff_thresh)+1;length(sync(flipper_sync_idx).timestamps)+1];
         
         flipper_flip_times_ephys = sync(flipper_sync_idx).timestamps( ...
-            flipper_expt_idx(find(experiment_num)):flipper_expt_idx(find(experiment_num)+1)-1);
+            flipper_expt_idx(find(experiment_idx)):flipper_expt_idx(find(experiment_idx)+1)-1);
         
         % Check that number of flipper flips in timeline matches ephys
         if length(flipper_flip_times_ephys) ~= length(flipper_flip_times_timeline)
@@ -782,8 +785,8 @@ if ephys_exists && load_parts.ephys
         % Get acqLive times for current experiment
         experiment_ephys_starts = sync(acqLive_sync_idx).timestamps(sync(acqLive_sync_idx).values == 1);
         experiment_ephys_stops = sync(acqLive_sync_idx).timestamps(sync(acqLive_sync_idx).values == 0);
-        acqlive_ephys_currexpt = [experiment_ephys_starts(experiment_num), ...
-            experiment_ephys_stops(experiment_num)];
+        acqlive_ephys_currexpt = [experiment_ephys_starts(experiment_idx), ...
+            experiment_ephys_stops(experiment_idx)];
         
         sync_timeline = acqLive_timeline;
         sync_ephys = acqlive_ephys_currexpt;
