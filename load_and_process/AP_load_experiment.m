@@ -214,7 +214,7 @@ if block_exists
                 continue
             end
             signals_events.(block_fieldnames{curr_times}) = ...
-                AP_clock_fix(block.events.(block_fieldnames{curr_times}),reward_t_block,reward_t_timeline);
+                interp1(reward_t_block,reward_t_timeline,block.events.(block_fieldnames{curr_times}),'linear','extrap');
         end
     end   
     
@@ -653,6 +653,7 @@ if ephys_exists && load_parts.ephys
     
     if verbose; disp('Loading ephys...'); end
     
+    % These are the digital channels going into the FPGA
     photodiode_sync_idx = 1;
     acqLive_sync_idx = 2;
     pcoExposure_sync_idx = 3;
@@ -771,7 +772,7 @@ if ephys_exists && load_parts.ephys
         
 %         % Plot stim aligned by flipper times for sanity check
 %         figure; hold on;
-%         stim_ephys_timestamps = AP_clock_fix(sync(1).timestamps,flipper_flip_times_ephys,flipper_flip_times_timeline);
+%         stim_ephys_timestamps = interp1(flipper_flip_times_ephys,flipper_flip_times_timeline,sync(1).timestamps,'linear','extrap');
 %         plot(stim_ephys_timestamps,sync(1).values*5,'.g')
 %         plot(stimOn_times,5,'ob');
         
@@ -799,9 +800,9 @@ if ephys_exists && load_parts.ephys
     end
     
     % Get the spike/lfp times in timeline time (accounts for clock drifts)
-    spike_times_timeline = AP_clock_fix(spike_times,sync_ephys,sync_timeline);
+    spike_times_timeline = interp1(sync_ephys,sync_timeline,spike_times,'linear','extrap');
     if load_lfp && exist(lfp_filename,'file')
-        lfp_t_timeline = AP_clock_fix(lfp_t,sync_ephys,sync_timeline);
+        lfp_t_timeline = interp1(sync_ephys,sync_timeline,lfp_t,'linear','extrap');
     end
     
     % Get the depths of each template
@@ -881,7 +882,7 @@ end
 %     
 %     % LFP correlation
 %     % (fix the light artifact on each channel with regression)
-%     light_timeline = AP_clock_fix(sync(3).timestamps,acqlive_ephys_currexpt,acqLive_timeline);
+%     light_timeline = interp1(acqlive_ephys_currexpt,acqLive_timeline,sync(3).timestamps,'linear','extrap');
 %     light_on = light_timeline(sync(3).values == 1);
 %     light_off = light_timeline(sync(3).values == 0);
 %     

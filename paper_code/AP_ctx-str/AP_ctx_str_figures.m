@@ -4,6 +4,14 @@
 % - ctx->str alignment now in separate script, running
 % - put other batch preprocessing into separate script
 
+%% Fig 1a: Example average widefield
+
+animal = 'AP028';
+day = '2017-12-16'; 
+[img_path,img_exists] = AP_cortexlab_filename(animal,day,[],'imaging');
+avg_im = readNPY([img_path filesep 'meanImage_blue.npy']);
+
+
 %% Fig 1b: Example traces
 
 warning('Probably not best example, check others');
@@ -74,33 +82,93 @@ data_path = 'C:\Users\Andrew\OneDrive for Business\Documents\CarandiniHarrisLab\
 k_fn = [data_path filesep 'wf_ephys_maps_concat_' num2str(n_aligned_depths) '_depths_kernel'];
 load(k_fn);
 
-% (scale r_px's because different lambdas give different weights)
-% (do in a loop because memory can't handle a cellfun??)
-k_px = nan(437,416,43,n_aligned_depths,length(batch_vars));
-for curr_animal = 1:length(batch_vars)
-    curr_animal_k_px = nan(437,416,43,n_aligned_depths,length(days));
-    for curr_day = 1:length(batch_vars(curr_animal).k_px)        
-        
-        curr_k_px = batch_vars(curr_animal).k_px{curr_day};
-        curr_scaled_k_px = mat2gray(bsxfun(@rdivide, ...
-            curr_k_px,permute(prctile(abs( ...
-            reshape(curr_k_px,[],size(curr_k_px,5))),95)',[2,3,4,5,1])),[-1,1])*2-1;     
-        
-        % Set any NaN explained (no MUA data probably) to NaN
-        curr_scaled_k_px(:,:,:,isnan(batch_vars(curr_animal).explained_var{curr_day})) = NaN;
-        
-        curr_animal_k_px(:,:,:,:,curr_day) = curr_scaled_k_px;
-        
-    end
-    k_px(:,:,:,:,curr_animal) = nanmean(curr_animal_k_px,5);
-    disp(curr_animal);
-end
+t = batch_vars(1).t{1};
 
-k_px_mean = nanmean(k_px,5);
-AP_image_scroll(k_px_mean);
-caxis([-1,1]); axis image;
+% Concatenate and mean
+% (kernel goes backwards in time - flip to correct)
+k_px_trained_cat = cellfun(@(x) x(:,:,end:-1:1,:),[batch_vars(1:6).k_px],'uni',false);
+k_px_naive_cat = cellfun(@(x) x(:,:,end:-1:1,:),[batch_vars(7:11).k_px],'uni',false);
+
+k_px_trained = nanmean(double(cat(5,k_px_trained_cat{:})),5);
+k_px_naive = nanmean(double(cat(5,k_px_naive_cat{:})),5);
+
+AP_image_scroll(k_px_trained,t);
+caxis([-max(abs(caxis)),max(abs(caxis))]);
+axis image;
 colormap(brewermap([],'*RdBu'))
 AP_reference_outline('ccf_aligned','k');
+set(gcf,'Name','Trained');
+
+AP_image_scroll(k_px_naive,t);
+caxis([-max(abs(caxis)),max(abs(caxis))]);
+axis image;
+colormap(brewermap([],'*RdBu'))
+AP_reference_outline('ccf_aligned','k');
+set(gcf,'Name','Naive');
+
+% Get center-of-mass maps
+k_px_trained_positive = k_px_trained;
+k_px_trained_positive(k_px_trained_positive < 0) = 0;
+k_px_trained_com = sum(k_px_trained_positive.*permute(1:n_aligned_depths,[1,3,4,2]),4)./sum(k_px_trained_positive,4);
+k_px_trained_com_colored = nan(size(k_px_trained_com,1),size(k_px_trained_com,2),3,size(k_px_trained_com,3));
+for curr_frame = 1:size(k_px_trained_com,3)
+    k_px_trained_com_colored(:,:,:,curr_frame) = ...
+        ind2rgb(round(mat2gray(k_px_trained_com(:,:,curr_frame),[1,n_aligned_depths])*255),jet(255));
+end
+
+k_px_naive_positive = k_px_naive;
+k_px_naive_positive(k_px_naive_positive < 0) = 0;
+k_px_naive_com = sum(k_px_naive_positive.*permute(1:n_aligned_depths,[1,3,4,2]),4)./sum(k_px_naive_positive,4);
+k_px_naive_com_colored = nan(size(k_px_naive_com,1),size(k_px_naive_com,2),3,size(k_px_naive_com,3));
+for curr_frame = 1:size(k_px_naive_com,3)
+    k_px_naive_com_colored(:,:,:,curr_frame) = ...
+        ind2rgb(round(mat2gray(k_px_naive_com(:,:,curr_frame),[1,n_aligned_depths])*255),jet(255));
+end
+
+% Whiten relative to weight, plot movie
+k_px_trained_com_colored_weighted = k_px_trained_com_colored + ...
+    ((1-(permute(max(abs(k_px_trained_positive),[],4)./ ...
+    prctile(abs(k_px_trained_positive(:)),100),[1,2,4,3]))) .* ...
+    (ones(1,1,3,length(t)) - k_px_trained_com_colored));
+
+k_px_naive_com_colored_weighted = k_px_naive_com_colored + ...
+    ((1-(permute(max(abs(k_px_naive_positive),[],4)./ ...
+    prctile(abs(k_px_naive_positive(:)),100),[1,2,4,3]))) .* ...
+    (ones(1,1,3,length(t)) - k_px_naive_com_colored));
+
+AP_image_scroll(k_px_trained_com_colored_weighted,t,true);
+axis image;
+AP_reference_outline('ccf_aligned','k');
+set(gcf,'Name','Trained');
+
+AP_image_scroll(k_px_naive_com_colored_weighted,t,true);
+axis image;
+AP_reference_outline('ccf_aligned','k');
+set(gcf,'Name','Naive');
+
+% Plot at t == 0 transparency relative to weight
+k_px_trained_t0 = squeeze(k_px_trained(:,:,t == 0,:));
+k_px_trained_weight_norm = mat2gray(max(k_px_trained_t0,[],3), ...
+    [0,prctile(reshape(max(k_px_trained_t0,[],3),[],1),95)]);
+
+k_px_naive_t0 = squeeze(k_px_naive(:,:,t == 0,:));
+k_px_naive_weight_norm = mat2gray(max(k_px_naive_t0,[],3), ...
+    [0,prctile(reshape(max(k_px_naive_t0,[],3),[],1),95)]);
+
+figure;
+subplot(1,2,1);
+p = imagesc(k_px_trained_com_colored(:,:,:,t == 0));
+axis image off;
+set(p,'AlphaData',k_px_trained_weight_norm);
+AP_reference_outline('ccf_aligned','k');
+title('Trained  (t = 0)');
+
+subplot(1,2,2);
+p = imagesc(k_px_naive_com_colored(:,:,:,t == 0));
+axis image off;
+set(p,'AlphaData',k_px_naive_weight_norm);
+AP_reference_outline('ccf_aligned','k');
+title('Naive (t = 0)');
 
 
 %% Fig 1b: Allen projection maps vs regression maps?

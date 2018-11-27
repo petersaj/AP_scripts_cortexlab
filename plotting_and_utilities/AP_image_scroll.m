@@ -9,13 +9,13 @@ function gui_fig = AP_image_scroll(images,t,colored)
 %     requires 'colored' to be true to display color
 % t(optional): timepoints
 %
-% 'r' key: draw ROI and return temporal trace to workspace as 'trace'
+% 'r' key: draw ROI and return temporal trace to workspace as 'roi'
 % 4D condition images:
 % up/down arrows switch between conditions
 % 'r' returns one trace for each condition
 
 dims = ndims(images);
-if dims < 2;
+if dims < 2
     error('Images matrix < 2D')
 end
 
@@ -68,16 +68,16 @@ handles.n_images = n_images;
 handles.curr_im = 1;
 if dims < 4
     handles.im = imagesc(handles.data(:,:,handles.curr_im));
-elseif dims == 4 && ~handles.colored;
+elseif dims == 4 && ~handles.colored
     handles.im = imagesc(handles.data(:,:,handles.curr_im,handles.curr_condition));
-elseif dims == 4 && handles.colored;
+elseif dims == 4 && handles.colored
     handles.im = image(handles.data(:,:,:,handles.curr_im));
 end
 axis off;
 colormap(gray);
 
 % Set the title with the frame number
-if dims == 4 && ~handles.colored;
+if dims == 4 && ~handles.colored
     cond_text = [', Condition: ' num2str(handles.curr_condition)];
 else
     cond_text = [];
@@ -113,14 +113,14 @@ set(handles.imgSlider,'Value',new_im);
 % Update the image
 if handles.dims == 3
     set(handles.im,'Cdata',handles.data(:,:,new_im));
-elseif handles.dims == 4 && ~handles.colored;
+elseif handles.dims == 4 && ~handles.colored
     set(handles.im,'Cdata',handles.data(:,:,new_im,handles.curr_condition));
-elseif handles.dims == 4 && handles.colored;
+elseif handles.dims == 4 && handles.colored
     set(handles.im,'Cdata',handles.data(:,:,:,new_im));
 end
 
 % Update the title
-if handles.dims == 4 && ~handles.colored;
+if handles.dims == 4 && ~handles.colored
     cond_text = [', Condition: ' num2str(handles.curr_condition)];
 else
     cond_text = [];
@@ -159,9 +159,9 @@ end
 % Update the image
 if handles.dims == 3
     set(handles.im,'Cdata',handles.data(:,:,new_im));
-elseif handles.dims == 4 && ~handles.colored;
+elseif handles.dims == 4 && ~handles.colored
     set(handles.im,'Cdata',handles.data(:,:,new_im,handles.curr_condition));
-elseif handles.dims == 4 && handles.colored;
+elseif handles.dims == 4 && handles.colored
     set(handles.im,'Cdata',handles.data(:,:,:,new_im));
 end
 
@@ -169,7 +169,7 @@ end
 set(handles.imgSlider,'Value',new_im);
 
 % Update the title
-if handles.dims == 4 && ~handles.colored;
+if handles.dims == 4 && ~handles.colored
     cond_text = [', Condition: ' num2str(handles.curr_condition)];
 else
     cond_text = [];
@@ -197,9 +197,9 @@ switch eventdata.Key
     case 'r'
         % draw ROI, output average traces and mask to workspace
         roiMask = roipoly;
-        if handles.dims == 3;
+        if handles.dims == 3
             roi.trace = nanmean(reshape(handles.data(repmat(roiMask,1,1,size(handles.data,3))),sum(roiMask(:)),[]),1);
-        elseif handles.dims == 4 && ~handles.colored;
+        elseif handles.dims == 4 && ~handles.colored
             roi.trace = permute(nanmean(reshape(handles.data(repmat(roiMask,1,1,size(handles.data,3),size(handles.data,4))), ...
                 sum(roiMask(:)),[],size(handles.data,4)),1),[3,2,1]);
         end
@@ -208,7 +208,7 @@ switch eventdata.Key
         assignin('base','roi',roi);
         
     case 'uparrow'
-        if handles.dims == 4 && ~handles.colored;            
+        if handles.dims == 4 && ~handles.colored
             new_condition = handles.curr_condition + 1;
             if new_condition > size(handles.data,4)
                 return
@@ -228,7 +228,7 @@ switch eventdata.Key
         end
         
     case 'downarrow'
-        if handles.dims == 4 && ~handles.colored;            
+        if handles.dims == 4 && ~handles.colored
             new_condition = handles.curr_condition - 1;
             if new_condition < 1
                 return
