@@ -887,11 +887,14 @@ end
 % (TO DO: normalize this the same as during task so they're directly
 % comparable)
 
+% saving new trial data here in progress: 
+% C:\Users\Andrew\OneDrive for Business\Documents\CarandiniHarrisLab\analysis\wf_ephys_choiceworld\paper\data
+
 % Load data
 n_aligned_depths = 4;
 data_path = 'C:\Users\Andrew\OneDrive for Business\Documents\CarandiniHarrisLab\analysis\wf_ephys_choiceworld\choiceworld';
 % data_fn = ['all_trial_activity_Udf_kernel-str_passive_fullscreen_4_depths'];
-data_fn = ['all_trial_activity_Udf_kernel-str_passive_choiceworld_4_depths_naive'];
+data_fn = ['all_trial_activity_Udf_kernel-str_passive_choiceworld_4_depths'];
 
 load([data_path filesep data_fn]);
 n_animals = length(D_all);
@@ -1126,10 +1129,30 @@ title('Widefield ROI');
 
 
 
+% Plot tuning curves?
+condition = reshape([0.06,0.125,0.25,0.5,1]'.*[-1,1],[],1);
+[~,condition_sort_idx] = sort(condition);
 
+t_ctx = [0.05,0.15];
+ctx_mean = squeeze(nanmean(fluor_roi_diff(:,t >= t_ctx(1) & t <= t_ctx(2),:),2));
+ctx_condition_mean = grpstats(ctx_mean,D_cat.stimulus,'nanmean');
 
+t_str = [0.05,0.15];
+str_mean = squeeze(nanmean(mua_allcat(:,t >= t_str(1) & t <= t_str(2),:),2));
+str_condition_mean = grpstats(str_mean,D_cat.stimulus,'nanmean');
 
+figure; 
+subplot(1,2,1); hold on;
+set(gca,'ColorOrder',jet(n_rois));
+plot(condition(condition_sort_idx),ctx_condition_mean(condition_sort_idx,:),'linewidth',2)
+ylabel('Fluorescence (std)');
+xlabel('Contrast*side');
 
+subplot(1,2,2); hold on;
+set(gca,'ColorOrder',copper(n_depths));
+plot(condition(condition_sort_idx),str_condition_mean(condition_sort_idx,:),'linewidth',2)
+ylabel('Spikes (std)');
+xlabel('Contrast*side');
 
 
 
