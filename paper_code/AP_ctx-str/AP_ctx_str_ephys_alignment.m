@@ -320,18 +320,12 @@ load([kernel_path filesep kernel_fn])
 % Concatenate all kernels, do K-means
 k_px_cat = [ephys_kernel_depth(:).k_px];
 k_px_cat = cat(3,k_px_cat{:});
+k_px_cat_reshape = reshape(k_px_cat,[],size(k_px_cat,3));
 
-% Not normalizing for now
-% k_px_cat_norm = mat2gray(bsxfun(@rdivide,k_px_cat,permute(prctile(reshape( ...
-%     k_px_cat,[],size(k_px_cat,3)),99,1),[1,3,2])),[0,1]);
-k_px_cat_norm = k_px_cat;
-
-k_px_cat_norm_reshape = reshape(k_px_cat_norm,[],size(k_px_cat_norm,3));
-
-use_k_px = find(std(k_px_cat_norm_reshape,[],1) ~= 0);
+use_k_px = find(std(k_px_cat_reshape,[],1) ~= 0);
 
 n_aligned_depths = 4;
-kidx = kmeans(k_px_cat_norm_reshape(:,use_k_px)',n_aligned_depths,'Distance','correlation');
+kidx = kmeans(k_px_cat_reshape(:,use_k_px)',n_aligned_depths,'Distance','correlation');
 
 % Get average depth for each group
 total_depths = 1:max(cellfun(@(x) size(x,3),[ephys_kernel_depth.k_px]));
@@ -345,7 +339,7 @@ k_px_depth_grp = grpstats(k_px_depth_cat(use_k_px),kidx);
 [~,depth_sort_idx] = sort(k_px_depth_grp);
 
 % Plot k-means groups by depth
-k_grp = reshape(grpstats(k_px_cat_norm_reshape(:,use_k_px)',kidx)', ...
+k_grp = reshape(grpstats(k_px_cat_reshape(:,use_k_px)',kidx)', ...
     size(k_px_cat,1),size(k_px_cat,2),[]);
 k_grp_ordered = k_grp(:,:,depth_sort_idx);
 
@@ -363,7 +357,7 @@ end
 kidx_depth = depth_sort_idx(kidx);
 [~,k_depth_sort_idx] = sort(kidx_depth);
 figure;
-imagesc(corrcoef(k_px_cat_norm_reshape(:,use_k_px(k_depth_sort_idx))))
+imagesc(corrcoef(k_px_cat_reshape(:,use_k_px(k_depth_sort_idx))))
 title('Sorted kernel correlations');
 caxis([-0.5,0.5]); colormap(brewermap([],'*RdBu'));
 axis square;
@@ -372,11 +366,11 @@ for i = 2:n_aligned_depths
     line(repmat(sum(kidx_depth < i),2,1),ylim,'color','k','linewidth',2);
 end
 
-% % Save template kernels
-% kernel_template = k_grp_ordered;
-% kernel_template_fn = ['C:\Users\Andrew\OneDrive for Business\Documents\CarandiniHarrisLab\analysis\wf_ephys_choiceworld\ephys_processing\kernel_template'  '_' num2str(n_aligned_depths) '_depths'];
-% save(kernel_template_fn,'kernel_template');
-% disp('Saved kernel template');
+% Save template kernels
+kernel_template = k_grp_ordered;
+kernel_template_fn = ['C:\Users\Andrew\OneDrive for Business\Documents\CarandiniHarrisLab\analysis\wf_ephys_choiceworld\ephys_processing\kernel_template'  '_' num2str(n_aligned_depths) '_depths'];
+save(kernel_template_fn,'kernel_template');
+disp('Saved kernel template');
 
 
 %% 5) Align striatum recordings from template kernels

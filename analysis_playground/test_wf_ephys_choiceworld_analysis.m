@@ -3701,8 +3701,8 @@ for curr_animal = 1:length(ephys_depth_align)
         str_depth = ephys_depth_align(curr_animal).str_depth(curr_day,:);
         
         subplot(2,n_days,curr_day);
-        imagesc(depth_group_centers,depth_group_centers,mua_corr);colormap(gray);
-        axis square;
+        imagesc(depth_group_centers,depth_group_centers,mua_corr);
+        caxis([0,1]); colormap(hot); axis square;
         line(xlim,[str_depth(1),str_depth(1)],'color','r')
         line([str_depth(1),str_depth(1)],ylim,'color','r')
         line(xlim,[str_depth(2),str_depth(2)],'color','r')

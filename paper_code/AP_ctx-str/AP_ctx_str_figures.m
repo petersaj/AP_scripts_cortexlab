@@ -175,7 +175,174 @@ title('Naive (t = 0)');
 % (maybe get average centroid of str 1/2/3/4 then get one map?)
 % (copy code from AP_ctx2str_probe)
 
+warning('This should probably be the average vector of wf-estimated');
 probe_vector_ccf = [520,240,510;520,511,239];
+
+%%% Get the average relative depth of each kernel template
+
+% Load kernels by depths, get depth relative to maximum extent
+kernel_path = 'C:\Users\Andrew\OneDrive for Business\Documents\CarandiniHarrisLab\analysis\wf_ephys_choiceworld\ephys_processing';
+kernel_fn = ['ephys_kernel_depth'];
+load([kernel_path filesep kernel_fn])
+total_depths = 1:max(cellfun(@(x) size(x,3),[ephys_kernel_depth.k_px]));
+k_px_depths = cellfun(@(x) total_depths(end-size(x,3)+1:end),[ephys_kernel_depth.k_px],'uni',false);
+
+% Load the kernel template matches
+n_aligned_depths = 4;
+kernel_match_path = 'C:\Users\Andrew\OneDrive for Business\Documents\CarandiniHarrisLab\analysis\wf_ephys_choiceworld\ephys_processing';
+kernel_match_fn = ['ephys_kernel_align_' num2str(n_aligned_depths) '_depths.mat'];
+load([kernel_match_path filesep kernel_match_fn]);
+
+% Concatenate all relative depths and kernel matches
+k_depths = cell2mat(k_px_depths);
+k_matches = cell2mat([ephys_kernel_align.kernel_match]')';
+k_match_depths_relative = grpstats(k_depths,k_matches)./max(total_depths);
+
+%%% Query allen at each point using targeted trajectory
+
+% Load in the annotated Allen volume and names
+allen_path = 'C:\Users\Andrew\OneDrive for Business\Documents\Atlases\AllenCCF';
+av = readNPY([allen_path filesep 'annotation_volume_10um_by_index.npy']);
+st = loadStructureTree([allen_path filesep 'structure_tree_safe_2017.csv']); % a table of what all the labels mean
+
+% Get probe location per micron
+probe_size = pdist2(probe_vector_ccf(1,:),probe_vector_ccf(2,:))*10;
+probe_depths = ...
+    round([linspace(probe_vector_ccf(1,1)',probe_vector_ccf(2,1)',probe_size); ...
+    linspace(probe_vector_ccf(1,2)',probe_vector_ccf(2,2)',probe_size); ...
+    linspace(probe_vector_ccf(1,3)',probe_vector_ccf(2,3)',probe_size)]');
+
+% Eliminiate trajectory points that are off the atlas
+eliminate_depths = ...
+    probe_depths(:,1) < 1 | probe_depths(:,1) > size(av,1) | ...
+    probe_depths(:,2) < 1 | probe_depths(:,2) > size(av,2) | ...
+    probe_depths(:,3) < 1 | probe_depths(:,3) > size(av,3);
+probe_depths(eliminate_depths,:) = [];
+
+% Convert probe depths subscripts to indicies
+probe_depths_ind = sub2ind(size(av),probe_depths(:,1),probe_depths(:,2),probe_depths(:,3));
+
+% Get structures that the probe is in
+probe_structures = av(probe_depths_ind);
+
+% Get target relative depths through striatum
+str_id = find(strcmp(st.safe_name,'Caudoputamen'));
+probe_structures_str = probe_structures == str_id;
+probe_str = [probe_depths(find(probe_structures_str,1,'first'),:); ...
+    probe_depths(find(probe_structures_str,1,'last'),:)];
+kernel_depth_ccf = interp1([0,1],probe_str,k_match_depths_relative);
+
+%%%% Just use regular depths?
+regular_centers_borders = linspace(0,1,n_aligned_depths*2+1);
+kernel_depth_ccf = interp1([0,1],probe_str,regular_centers_borders(2:2:end));
+
+% Plot brain to overlay probes
+% (note the CCF is rotated to allow for dim 1 = x)
+h = figure; ccf_axes = axes; hold on
+slice_spacing = 10;
+target_volume = permute(av(1:slice_spacing:end,1:slice_spacing:end,1:slice_spacing:end) > 1,[2,1,3]);
+structure_patch = isosurface(target_volume,0);
+structure_wire = reducepatch(structure_patch.faces,structure_patch.vertices,0.01);
+target_structure_color = [0.7,0.7,0.7];
+brain_outline = patch('Vertices',structure_wire.vertices*slice_spacing, ...
+    'Faces',structure_wire.faces, ...
+    'FaceColor','none','EdgeColor',target_structure_color);
+
+str_id = find(strcmp(st.safe_name,'Caudoputamen'));
+target_volume = permute(av(1:slice_spacing:end,1:slice_spacing:end,1:slice_spacing:end) == str_id,[2,1,3]);
+structure_patch = isosurface(target_volume,0);
+structure_wire = reducepatch(structure_patch.faces,structure_patch.vertices,0.01);
+target_structure_color = [0.7,0,0.7];
+striatum_outline = patch('Vertices',structure_wire.vertices*slice_spacing, ...
+    'Faces',structure_wire.faces, ...
+    'FaceColor','none','EdgeColor',target_structure_color);
+
+axis image vis3d off;
+view([-30,25]);
+cameratoolbar(h,'SetCoordSys','y');
+cameratoolbar(h,'SetMode','orbit');
+
+scatter3(kernel_depth_ccf(:,1),kernel_depth_ccf(:,2),kernel_depth_ccf(:,3), ...
+    100,copper(n_aligned_depths),'filled');
+
+% Mirror all of the locations across the midline and get projections from
+% both (because the cortical injections in the database aren't evenly
+% distributed, so this is more comprehensive)
+kernel_depth_um = round(kernel_depth_ccf*10);
+bregma_um = allenCCFbregma*10;
+ccf_midline = bregma_um(3);
+hemisphere = sign(kernel_depth_um(1,3) - ccf_midline);
+str_depths_mirror = [kernel_depth_um(:,1:2),ccf_midline - hemisphere*abs(kernel_depth_um(:,3)-ccf_midline)];
+
+max_sites = 50;
+str_depths_query = [kernel_depth_um;str_depths_mirror];
+injection_parameters = get_allen_projection(str_depths_query,max_sites);
+injection_coordinates = {injection_parameters.coordinates};
+
+% Standardize injection coordinates by hemisphere (left = contra, right =
+% ipsi)
+injection_coordinates_standardized = injection_coordinates;
+for curr_coord = 1:length(injection_coordinates)
+    
+    target_hemisphere = sign(ccf_midline - str_depths_query(curr_coord,3));
+    injection_coords_ml_offset = abs(injection_coordinates{curr_coord}(:,3) - ccf_midline);
+    injection_coordinates_hemisphere = sign(injection_coordinates{curr_coord}(:,3) - ccf_midline);
+    
+    injection_coords_ipsi = injection_coordinates_hemisphere == target_hemisphere;
+    injection_coords_contra = injection_coordinates_hemisphere == -target_hemisphere;
+    
+    injection_coordinates_standardized{curr_coord}(injection_coords_ipsi,3) = ...
+        ccf_midline + injection_coords_ml_offset(injection_coords_ipsi);
+    injection_coordinates_standardized{curr_coord}(injection_coords_contra,3) = ...
+        ccf_midline - injection_coords_ml_offset(injection_coords_contra);
+    
+end
+
+% Get relative projection density / injection volumes
+% projection_strength = cellfun(@(density,volume) density./volume, ...
+%     {injection_parameters.density},{injection_parameters.volume},'uni',false);
+% (or currently using: just the density, not sure whether good to norm)
+projection_strength = cellfun(@(density,volume) density, ...
+    {injection_parameters.density},{injection_parameters.volume},'uni',false);
+projection_strength_normalized = cellfun(@(x) mat2gray(x, ...
+    [min([projection_strength{:}]),max([projection_strength{:}])]), ...
+    projection_strength,'uni',false);
+
+% Convert points from CCF to widefield
+ccf_tform_fn = ['C:\Users\Andrew\OneDrive for Business\Documents\Atlases\AllenCCF\ccf_tform'];
+load(ccf_tform_fn);
+
+um2pixel = 20.6;
+injection_coordinates_wf = cellfun(@(x) ...
+    [x(:,[3,1]).*(1/(um2pixel)),ones(size(x,1),1)]*ccf_tform.T, ...
+    injection_coordinates_standardized,'uni',false);
+
+% Load kernel templates for overlay
+n_aligned_depths = 4;
+kernel_template_fn = ['C:\Users\Andrew\OneDrive for Business\Documents\CarandiniHarrisLab\analysis\wf_ephys_choiceworld\ephys_processing\kernel_template_' num2str(n_aligned_depths) '_depths.mat'];
+load(kernel_template_fn);
+
+figure; 
+colormap(brewermap([],'*RdBu'));
+for curr_depth = 1:n_aligned_depths
+    subplot(1,n_aligned_depths,curr_depth); hold on; axis image off;
+    set(gca,'YDir','reverse');
+    
+    imagesc(kernel_template(:,:,curr_depth));
+    caxis([-prctile(abs(kernel_template(:)),99),prctile(abs(kernel_template(:)),99)]);
+    
+    % (plot points from both hemispheres)
+    scatter(injection_coordinates_wf{curr_depth}(:,1), ...
+        injection_coordinates_wf{curr_depth}(:,2), ...
+        projection_strength_normalized{curr_depth}*50 + 10, ...
+        'k','filled');
+    scatter(injection_coordinates_wf{n_aligned_depths + curr_depth}(:,1), ...
+        injection_coordinates_wf{n_aligned_depths + curr_depth}(:,2), ...
+        projection_strength_normalized{n_aligned_depths + curr_depth}*50 + 10, ...
+        'k','filled');
+    
+    AP_reference_outline('ccf_aligned','k');
+end
 
 
 %% Fig 2a: Behavior psychometric 
