@@ -217,8 +217,8 @@ if ~return_constant
         t_shifts,'uni',false);
 elseif return_constant
     k = cellfun(@(x,t) reshape(x,[],length(t),size(signals,1)), ...
-        mat2cell(k_vector,[cellfun(@(x) size(x,1),regressors);1].*[cellfun(@length,t_shifts);1],1), ...
-        [t_shifts;{1}],'uni',false);
+        mat2cell(k_vector,[cellfun(@(x) size(x,1),regressors),1].*[cellfun(@length,t_shifts),1],1), ...
+        [t_shifts,{1}]','uni',false);
 end
 
 % If kernel length is 1 (only 1 time shift) return as matrix
