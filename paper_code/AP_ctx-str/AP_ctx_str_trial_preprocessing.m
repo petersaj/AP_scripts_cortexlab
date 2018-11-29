@@ -641,6 +641,7 @@ exclude_data = true;
     AP_load_concat_normalize_ctx_str(data_fn,exclude_data);
 
 n_vs = size(fluor_allcat,3);
+n_depths = size(mua_allcat,3);
 
 % Get trial information
 trial_contrast_allcat = max(D_allcat.stimulus,[],2);

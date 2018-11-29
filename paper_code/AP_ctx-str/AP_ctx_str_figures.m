@@ -38,18 +38,18 @@ load('C:\Users\Andrew\OneDrive for Business\Documents\CarandiniHarrisLab\analysi
 %%% Plot map of cortical activity at time points on correct visual trials
 rxn_time_use = [0.1,0.3];
 
-use_trials = ...
+vis_correct_L_trials = ...
     trial_contrast_allcat > 0 & ...
     trial_side_allcat == 1 & ...
     trial_choice_allcat == -1 & ...
     move_t >= rxn_time_use(1) & ...
     move_t <= rxn_time_use(2);
 
-plot_px = svdFrameReconstruct(U_master(:,:,1:n_vs), ...
-    diff(squeeze(nanmean(fluor_allcat(use_trials,:,:),1))',[],2));
+vis_correct_L_px = svdFrameReconstruct(U_master(:,:,1:n_vs), ...
+    diff(squeeze(nanmean(fluor_allcat(vis_correct_L_trials,:,:),1))',[],2));
 
 t_diff = conv(t,[1,1]/2,'valid');
-AP_image_scroll(plot_px,t_diff);
+AP_image_scroll(vis_correct_L_px,t_diff);
 axis image;
 caxis([0,max(abs(caxis))])
 colormap(brewermap([],'BuGn'));
@@ -62,7 +62,7 @@ figure;
 colormap(brewermap([],'BuGn'));
 for curr_t = 1:length(plot_t)
     subplot(1,length(plot_t),curr_t);
-    imagesc(plot_px(:,:,plot_t(curr_t)));
+    imagesc(vis_correct_L_px(:,:,plot_t(curr_t)));
     caxis([0,max(abs(caxis))]);
     axis image off;
     AP_reference_outline('ccf_aligned','k');
@@ -172,7 +172,7 @@ axis image off;
 %% Fig 1 d/e: Task -> cortex regression
 
 % Load regression results
-regression_fn = 'C:\Users\Andrew\OneDrive for Business\Documents\CarandiniHarrisLab\analysis\wf_ephys_choiceworld\choiceworld\all_trial_activity_regressed.mat';
+regression_fn = 'C:\Users\Andrew\OneDrive for Business\Documents\CarandiniHarrisLab\analysis\wf_ephys_choiceworld\paper\data\trial_activity_choiceworld_task_regression';
 load(regression_fn);
 
 % Get number of V's/depths
@@ -312,6 +312,15 @@ for curr_plot = 1:3
             move_t >= rxn_time_use(1) & ...
             move_t <= rxn_time_use(2);
         curr_data = plot_data(curr_trials,:,:);
+        
+        % Re-align to movement onset
+        t_leeway = -t_downsample_diff(1);
+        leeway_samples = round(t_leeway*(sample_rate/downsample_factor));
+        curr_move_idx = move_idx(curr_trials);
+        for i = 1:size(curr_data,1)
+            curr_data(i,:,:) = circshift(curr_data(i,:,:),-curr_move_idx(i)+leeway_samples,2);
+        end
+        
         curr_data_mean = squeeze(nanmean(curr_data,1));
         
         curr_contrast_side = max(trial_contrast_allcat(curr_trials))*sign(max(trial_side_allcat(curr_trials)));
@@ -327,7 +336,7 @@ for curr_plot = 1:3
             end
         end
         
-        AP_stackplot(curr_data_mean,t_downsample_diff,2e-3,false,curr_col,{wf_roi.area});
+        AP_stackplot(curr_data_mean,t_downsample_diff,6e-3,false,curr_col,{wf_roi.area});
         
     end
     line([0,0],ylim,'color','k');
@@ -378,8 +387,8 @@ imagesc(contrast_slope_diff);
 axis image off;
 AP_reference_outline('ccf_aligned','k');
 caxis([-max(k_px_stim_maxt(:)),max(k_px_stim_maxt(:))])
-colormap(gca,brewermap([],'*RdBu'));
-title('Contrast slope L-R');
+colormap(gca,brewermap([],'RdBu'));
+title('Contrast slope R-L');
 
 subplot(2,2,3);
 imagesc(max(k_px_move_onset_maxt,[],3));
@@ -390,7 +399,7 @@ colormap(gca,brewermap([],'Purples'));
 title('Max move onset kernel weight');
 
 subplot(2,2,4);
-imagesc(k_px_move_max_diff);
+imagesc(k_px_move_onset_maxt_diff);
 axis image off;
 AP_reference_outline('ccf_aligned','k');
 caxis([-max(k_px_move_onset_maxt(:)),max(k_px_move_onset_maxt(:))])

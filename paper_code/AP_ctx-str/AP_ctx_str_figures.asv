@@ -172,7 +172,7 @@ axis image off;
 %% Fig 1 d/e: Task -> cortex regression
 
 % Load regression results
-regression_fn = 'C:\Users\Andrew\OneDrive for Business\Documents\CarandiniHarrisLab\analysis\wf_ephys_choiceworld\choiceworld\all_trial_activity_regressed.mat';
+regression_fn = 'C:\Users\Andrew\OneDrive for Business\Documents\CarandiniHarrisLab\analysis\wf_ephys_choiceworld\paper\data\trial_activity_choiceworld_task_regression';
 load(regression_fn);
 
 % Get number of V's/depths
@@ -312,6 +312,15 @@ for curr_plot = 1:3
             move_t >= rxn_time_use(1) & ...
             move_t <= rxn_time_use(2);
         curr_data = plot_data(curr_trials,:,:);
+        
+        % Re-align to movement onset
+        t_leeway = -t_diff(1);
+        leeway_samples = round(t_leeway*sample_rate);
+        curr_move_idx = move_idx(curr_trials);
+        for i = 1:size(curr_data,1)
+            curr_data(i,:,:) = circshift(curr_data(i,:,:),-curr_move_idx(i)+leeway_samples,2);
+        end
+        
         curr_data_mean = squeeze(nanmean(curr_data,1));
         
         curr_contrast_side = max(trial_contrast_allcat(curr_trials))*sign(max(trial_side_allcat(curr_trials)));
@@ -327,7 +336,7 @@ for curr_plot = 1:3
             end
         end
         
-        AP_stackplot(curr_data_mean,t_downsample_diff,2e-3,false,curr_col,{wf_roi.area});
+        AP_stackplot(curr_data_mean,t_downsample_diff,6e-3,false,curr_col,{wf_roi.area});
         
     end
     line([0,0],ylim,'color','k');
@@ -345,11 +354,11 @@ k_px_stim_maxt = squeeze(max(k_px_stim,[],3));
 
 contrasts = [0.06,0.125,0.25,0.5,1];
 
-contrast_k_L = AP_regresskernel(log(contrasts), ...
+contrast_k_L = AP_regresskernel(contrasts, ...
     reshape(k_px_stim_maxt(:,:,5:-1:1),[],5),0,[],[false,false],1,true,true);
 contrast_slope_L = reshape(contrast_k_L{1},size(U_master,1),size(U_master,2));
 
-contrast_k_R = AP_regresskernel(log(contrasts), ...
+contrast_k_R = AP_regresskernel(contrasts, ...
     reshape(k_px_stim_maxt(:,:,6:10),[],5),0,[],[false,false],1,true,true);
 contrast_slope_R = reshape(contrast_k_R{1},size(U_master,1),size(U_master,2));
 
@@ -369,7 +378,7 @@ subplot(2,2,1);
 imagesc(max(k_px_stim_maxt,[],3))
 axis image off;
 AP_reference_outline('ccf_aligned','k');
-caxis([0,max(caxis)])
+caxis([0,max(k_px_stim_maxt(:))])
 colormap(gca,brewermap([],'Purples'));
 title('Max stim kernel weight');
 
@@ -378,25 +387,24 @@ imagesc(contrast_slope_diff);
 axis image off;
 AP_reference_outline('ccf_aligned','k');
 caxis([-max(k_px_stim_maxt(:)),max(k_px_stim_maxt(:))])
-colormap(gca,brewermap([],'*RdBu'));
-title('Log contrast slope L-R');
+colormap(gca,brewermap([],'RdBu'));
+title('Contrast slope R-L');
 
 subplot(2,2,3);
-imagesc(max(k_px_move_onset_maxt_diff,[],3));
+imagesc(max(k_px_move_onset_maxt,[],3));
 axis image off;
 AP_reference_outline('ccf_aligned','k');
-caxis([0,max(caxis)])
+caxis([0,max(k_px_move_onset_maxt(:))])
 colormap(gca,brewermap([],'Purples'));
 title('Max move onset kernel weight');
 
 subplot(2,2,4);
-imagesc(k_px_move_max_diff);
+imagesc(k_px_move_onset_maxt_diff);
 axis image off;
 AP_reference_outline('ccf_aligned','k');
-caxis([-max(caxis),max(caxis)])
+caxis([-max(k_px_move_onset_maxt(:)),max(k_px_move_onset_maxt(:))])
 colormap(gca,brewermap([],'*RdBu'));
-title('Move contra - move ipsi');
-
+title('Move L-R');
 
 
 % Plot contrast response function in ROIs 
