@@ -769,7 +769,11 @@ regressor_labels = {'Stim','Move onset','Move ongoing','Go cue','Reward'};
 
 % Set regression parameters
 regress_trials = true(size(move_t));
-t_shifts = {[-0.1,0.6];[-0.2,0.5];[0,0];[-0.05,0.3];[-0.1,0.5]};
+t_shifts = {[0,0.5]; ... % stim
+    [-0.2,0.5]; ... % move onset
+    [0,0]; ... % move ongoing
+    [-0.05,0.3]; ... % go cue
+    [-0.1,0.5]}; % reward
 
 sample_shifts = cellfun(@(x) round(x(1)*(sample_rate/downsample_factor)): ...
     round(x(2)*(sample_rate/downsample_factor)),t_shifts,'uni',false);

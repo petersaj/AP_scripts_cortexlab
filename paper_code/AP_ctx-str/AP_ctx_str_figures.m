@@ -208,7 +208,7 @@ for curr_regressor = 1:length(regressors)
     AP_image_scroll(curr_k_px,sample_shifts{curr_regressor}/(sample_rate/downsample_factor));
     axis image
     caxis([0,prctile(abs(curr_k_px(:)),100)]);
-    colormap(brewermap([],'*RdBu'))
+    colormap(brewermap([],'BuGn'))
     AP_reference_outline('ccf_aligned','k');
     set(gcf,'Name',regressor_labels{curr_regressor});
 end
@@ -260,8 +260,7 @@ for curr_regressor = 1:length(regressors)
     title(regressor_labels{curr_regressor});
 end
 
-%%% Plot contrast response function across cortex
-
+% Plot contrast response function across cortex
 stim_regressor = 1;
 k_v_stim = permute(cell2mat(permute(fluor_kernel(stim_regressor,1:use_svs),[1,3,2])),[3,2,1]);
 k_px_stim = reshape(svdFrameReconstruct(U_master(:,:,1:use_svs), ...
@@ -294,20 +293,8 @@ AP_stackplot(stim_max_k_roi',contrast_sides, ...
 xlabel('Contrast*Side');
 title('Stim kernel maximum');
 
-
-
-% Plot actual and predicted
-  'fluor_allcat_downsamp_diff','mua_allcat_downsamp', ...
-    'regressors','regressor_labels','t_shifts','regress_trials', ...
-    'fluor_allcat_predicted',
-
-
-t_downsample_diff
-
-AP_svd_roi();
-
-
-%%% Plot ROI PSTH's
+% Plot ROI actual and predicted
+rxn_time_use = [0.1,0.3];
 contrasts = [0,0.06,0.125,0.25,0.5,1];
 sides = [-1,1];
 choices = [-1,1];
@@ -329,67 +316,41 @@ plot_conditions = ...
 fluor_downsample_diff_roi = permute(reshape( ...
     AP_svd_roi(U_master(:,:,1:n_vs), ...
     reshape(permute(fluor_allcat_downsamp_diff,[3,2,1]),n_vs,[]),[],[],roi_mask), ...
-    size(roi_mask,3),[],size(fluor_allcat,1)),[3,2,1]);
+    size(roi_mask,3),[],size(fluor_allcat_downsamp_diff,1)),[3,2,1]);
 
 fluor_predicted_roi = permute(reshape( ...
     AP_svd_roi(U_master(:,:,1:n_vs), ...
     reshape(permute(fluor_allcat_predicted,[3,2,1]),n_vs,[]),[],[],roi_mask), ...
-    size(roi_mask,3),[],size(fluor_allcat,1)),[3,2,1]);
-
-wf_roi_fn = 'C:\Users\Andrew\OneDrive for Business\Documents\CarandiniHarrisLab\analysis\wf_ephys_choiceworld\wf_processing\wf_rois\wf_roi';
-load(wf_roi_fn);
-wf_roi = wf_roi(:,1);
-n_rois = numel(wf_roi);
-
-roi_mask = cat(3,wf_roi.mask);
-
-U_roi = bsxfun(@rdivide,transpose(reshape(U_master,[],size(U_master,3))'* ...
-    reshape(roi_mask,[],size(roi_mask,3))), ...
-    sum(reshape(roi_mask,[],size(roi_mask,3)),1)');
-
-smooth_size = 1;
-gw = gausswin(smooth_size,3)';
-smWin = gw./sum(gw);
-
-fluor_roi = permute(reshape(transpose(U_roi(:,1:n_vs)* ...
-    reshape(permute(fluor_allcat(:,:,:,1),[3,2,1,4]),n_vs,[])), ...
-    size(fluor_allcat,2),size(fluor_allcat,1),n_rois),[2,1,3]);
-
-fluor_roi_diff = diff(padarray(convn(fluor_roi,smWin,'valid'),[0,floor(size(smWin,2)/2)],'replicate','both'),[],2);
-
-% (zero negatives, normalize)
-fluor_roi_diff(fluor_roi_diff < 0) = 0;
-fluor_roi_diff = bsxfun(@rdivide,fluor_roi_diff,nanstd(reshape(fluor_roi_diff,[],1,size(wf_roi,1)),[],1));
-
-t_diff =  conv(t,[1,1]/2,'valid');
+    size(roi_mask,3),[],size(fluor_allcat_predicted,1)),[3,2,1]);
 
 figure;
-for curr_align = 1:2
-    p(curr_align) = subplot(1,2,curr_align); hold on;
+for curr_plot = 1:3
+    
+    switch curr_plot
+        case 1
+            plot_data = fluor_downsample_diff_roi;
+            plot_title = 'Measured';
+        case 2
+            plot_data = fluor_predicted_roi;
+            plot_title = 'Predicted';
+        case 3
+            plot_data = fluor_downsample_diff_roi - fluor_predicted_roi;
+            plot_title = 'Residual';
+    end
+    
+    p_ctx(curr_plot) = subplot(1,3,curr_plot); hold on;
     for curr_plot_condition = 1:size(plot_conditions,1)
         
         curr_trials = plot_id == curr_plot_condition & ...
             move_t >= rxn_time_use(1) & ...
             move_t <= rxn_time_use(2);
-
-        curr_data = fluor_roi_diff(curr_trials,:,:);
-        
-        if curr_align == 2
-            % Re-align to movement onset
-            t_leeway = -t_diff(1);
-            leeway_samples = round(t_leeway*sample_rate);
-            curr_move_idx = move_idx(curr_trials);
-            for i = 1:size(curr_data,1)
-                curr_data(i,:,:) = circshift(curr_data(i,:,:),-curr_move_idx(i)+leeway_samples,2);
-            end
-        end
-        
+        curr_data = plot_data(curr_trials,:,:);
         curr_data_mean = squeeze(nanmean(curr_data,1));
         
         curr_contrast_side = max(trial_contrast_allcat(curr_trials))*sign(max(trial_side_allcat(curr_trials)));
         contrast_side_idx = find(curr_contrast_side == contrast_side_val);
         curr_col = contrast_side_col(contrast_side_idx,:);
-                
+        
         if curr_contrast_side == 0
             switch max(trial_choice_allcat(curr_trials))
                 case -1
@@ -399,18 +360,14 @@ for curr_align = 1:2
             end
         end
         
-        AP_stackplot(curr_data_mean,t_diff,3.5,false,curr_col,{wf_roi.area},true);
+        AP_stackplot(curr_data_mean,t_downsample_diff,2e-3,false,curr_col,{wf_roi.area});
         
     end
     line([0,0],ylim,'color','k');
-    switch curr_align
-        case 1
-            xlabel('Time from stim');
-        case 2
-            xlabel('Time from move');
-    end   
+    xlabel('Time from stim');
+    title(plot_title);   
 end
-linkaxes(p,'y');
+linkaxes(p_ctx)
 
 
 %% %%%%%%%%%%%%%%% UP-TO-DATE ABOVE %%%%%%%%%%%%%%%%%%
