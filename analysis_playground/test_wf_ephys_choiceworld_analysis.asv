@@ -1859,7 +1859,7 @@ for curr_roi = 1:n_rois
     patch(curr_roi_boundary(:,2),curr_roi_boundary(:,1),roi_col(curr_roi,:));
     
     text(nanmean(curr_roi_boundary(:,2)),nanmean(curr_roi_boundary(:,1)), ...
-        wf_roi(curr_roi).area,'FontSize',12,'HorizontalAlignment','center')
+        wf_roi(curr_roi).area,'FontSize',14,')
 end
 axis image off;
 
