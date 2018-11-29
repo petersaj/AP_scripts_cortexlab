@@ -260,39 +260,6 @@ for curr_regressor = 1:length(regressors)
     title(regressor_labels{curr_regressor});
 end
 
-% Plot contrast response function across cortex
-stim_regressor = 1;
-k_v_stim = permute(cell2mat(permute(fluor_kernel(stim_regressor,1:use_svs),[1,3,2])),[3,2,1]);
-k_px_stim = reshape(svdFrameReconstruct(U_master(:,:,1:use_svs), ...
-    reshape(k_v_stim,use_svs,[])),size(U_master,1),size(U_master,2),[],size(k_v_stim,3));
-k_px_stim_max = squeeze(max(k_px_stim,[],3));
-% (clean up by averaging reflection)
-k_px_stim_max_bilateral = (k_px_stim_max(:,:,6:10) + AP_reflect_widefield(k_px_stim_max(:,:,5:-1:1)))./2;
-
-% Plot map of log congrast slope
-contrasts = [0.06,0.125,0.25,0.5,1];
-contrast_k = AP_regresskernel(log(contrasts),reshape(k_px_stim_max_bilateral,[],5),0,[],[false,false],1,true,true);
-contrast_slope = reshape(contrast_k{1},size(U_master,1),size(U_master,2));
-figure;imagesc(contrast_slope); 
-axis image off;
-AP_reference_outline('ccf_aligned','k');
-caxis([0,max(caxis)])
-colormap(brewermap([],'Purples'));
-title('Log contrast slope (unilateral)');
-
-% Plot contrast response function in ROIs 
-contrast_sides = sort(reshape([0.06,0.125,0.25,0.5,1].*[-1,1]',[],1));
-
-stim_max_k_roi = cell2mat(arrayfun(@(x) ....
-    nanmean(reshape(reshape(repmat(roi_mask(:,:,x),1,1,10).* ...
-    k_px_stim_max,[],10),[],10),1),1:size(roi_mask,3),'uni',false)');
-
-figure;
-AP_stackplot(stim_max_k_roi',contrast_sides, ...
-    range(stim_max_k_roi(:))*1.2,false,[0,0.7,0],{wf_roi.area},true);
-xlabel('Contrast*Side');
-title('Stim kernel maximum');
-
 % Plot ROI actual and predicted
 rxn_time_use = [0.1,0.3];
 contrasts = [0,0.06,0.125,0.25,0.5,1];
@@ -368,6 +335,83 @@ for curr_plot = 1:3
     title(plot_title);   
 end
 linkaxes(p_ctx)
+
+% Get max stim kernel and contrast slope maps
+stim_regressor = strcmp(regressor_labels,'Stim');
+k_v_stim = permute(cell2mat(permute(fluor_kernel(stim_regressor,1:use_svs),[1,3,2])),[3,2,1]);
+k_px_stim = reshape(svdFrameReconstruct(U_master(:,:,1:use_svs), ...
+    reshape(k_v_stim,use_svs,[])),size(U_master,1),size(U_master,2),[],size(k_v_stim,3));
+k_px_stim_maxt = squeeze(max(k_px_stim,[],3));
+
+contrasts = [0.06,0.125,0.25,0.5,1];
+
+contrast_k_L = AP_regresskernel(contrasts, ...
+    reshape(k_px_stim_maxt(:,:,5:-1:1),[],5),0,[],[false,false],1,true,true);
+contrast_slope_L = reshape(contrast_k_L{1},size(U_master,1),size(U_master,2));
+
+contrast_k_R = AP_regresskernel(contrasts, ...
+    reshape(k_px_stim_maxt(:,:,6:10),[],5),0,[],[false,false],1,true,true);
+contrast_slope_R = reshape(contrast_k_R{1},size(U_master,1),size(U_master,2));
+
+contrast_slope_diff = contrast_slope_L - contrast_slope_R;
+
+% Get max move kernel and move ipsi-contra differences
+move_onset_regressor = strcmp(regressor_labels,'Move onset');
+k_v_move_onset = permute(cell2mat(permute(fluor_kernel(move_onset_regressor,1:use_svs),[1,3,2])),[3,2,1]);
+k_px_move_onset = reshape(svdFrameReconstruct(U_master(:,:,1:use_svs), ...
+    reshape(k_v_move_onset,use_svs,[])),size(U_master,1),size(U_master,2),[],size(k_v_move_onset,3));
+k_px_move_onset_maxt = squeeze(max(k_px_move_onset,[],3));
+
+k_px_move_onset_maxt_diff = k_px_move_onset_maxt(:,:,1)-k_px_move_onset_maxt(:,:,2);
+
+figure;
+subplot(2,2,1);
+imagesc(max(k_px_stim_maxt,[],3))
+axis image off;
+AP_reference_outline('ccf_aligned','k');
+caxis([0,max(k_px_stim_maxt(:))])
+colormap(gca,brewermap([],'Purples'));
+title('Max stim kernel weight');
+
+subplot(2,2,2);
+imagesc(contrast_slope_diff); 
+axis image off;
+AP_reference_outline('ccf_aligned','k');
+caxis([-max(k_px_stim_maxt(:)),max(k_px_stim_maxt(:))])
+colormap(gca,brewermap([],'*RdBu'));
+title('Contrast slope L-R');
+
+subplot(2,2,3);
+imagesc(max(k_px_move_onset_maxt,[],3));
+axis image off;
+AP_reference_outline('ccf_aligned','k');
+caxis([0,max(k_px_move_onset_maxt(:))])
+colormap(gca,brewermap([],'Purples'));
+title('Max move onset kernel weight');
+
+subplot(2,2,4);
+imagesc(k_px_move_max_diff);
+axis image off;
+AP_reference_outline('ccf_aligned','k');
+caxis([-max(k_px_move_onset_maxt(:)),max(k_px_move_onset_maxt(:))])
+colormap(gca,brewermap([],'*RdBu'));
+title('Move L-R');
+
+
+% Plot contrast response function in ROIs 
+contrast_sides = sort(reshape([0.06,0.125,0.25,0.5,1].*[-1,1]',[],1));
+
+stim_max_k_roi = cell2mat(arrayfun(@(x) ....
+    nanmean(reshape(reshape(repmat(roi_mask(:,:,x),1,1,10).* ...
+    k_px_stim_maxt,[],10),[],10),1),1:size(roi_mask,3),'uni',false)');
+
+figure;
+AP_stackplot(stim_max_k_roi',contrast_sides, ...
+    range(stim_max_k_roi(:))*1.2,false,[0,0.7,0],{wf_roi.area},true);
+xlabel('Contrast*Side');
+title('Stim kernel maximum');
+
+
 
 
 %% %%%%%%%%%%%%%%% UP-TO-DATE ABOVE %%%%%%%%%%%%%%%%%%

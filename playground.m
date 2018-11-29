@@ -753,21 +753,6 @@ fluor_allcat_downsamp_mirror = reshape(transpose( ...
 fluor_allcat_downsamp = fluor_allcat_downsamp - fluor_allcat_downsamp_mirror;
 
 
-%%
-
-% Plot fluorescence kernels
-for curr_regressor = 1:length(regressors)
-    curr_k_v = permute(cell2mat(permute(fluor_kernel(curr_regressor,1:use_svs),[1,3,2])),[3,2,1]);
-    curr_k_px = reshape(svdFrameReconstruct(U_master(:,:,1:use_svs), ...
-        reshape(curr_k_v,use_svs,[])),size(U_master,1),size(U_master,2),[],size(curr_k_v,3));
-    AP_image_scroll(curr_k_px,sample_shifts{curr_regressor}/(sample_rate/downsample_factor));
-    axis image
-    caxis([0,prctile(abs(curr_k_px(:)),100)]);
-    colormap(brewermap([],'BuGn'))
-    AP_reference_outline('ccf_aligned','k');
-    set(gcf,'Name',regressor_labels{curr_regressor});
-end
-
 
 
 
