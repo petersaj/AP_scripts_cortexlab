@@ -1768,13 +1768,13 @@ n_aligned_depths = 4;
 
 animals = {'AP024','AP025','AP026','AP027','AP028','AP029'};
 
-protocol = 'vanillaChoiceworld';
+% protocol = 'vanillaChoiceworld';
 % protocol = 'stimSparseNoiseUncorrAsync';
-% protocol = 'stimKalatsky';
+protocol = 'stimKalatsky';
 % protocol = 'AP_choiceWorldStimPassive';
 
 batch_vars = struct;
-for curr_animal = 1:length(animals)
+for curr_animal = length(animals)
     
     animal = animals{curr_animal};
         
@@ -1802,7 +1802,7 @@ for curr_animal = 1:length(animals)
     for curr_day = 1:length(experiments)
         
         day = experiments(curr_day).day;
-        experiment = experiments(curr_day).experiment;
+        experiment = experiments(curr_day).experiment(end);
         
         % Load data and align striatum by depth
         str_align = 'kernel';        
@@ -1895,7 +1895,7 @@ end
 save_path = ['C:\Users\Andrew\OneDrive for Business\Documents\CarandiniHarrisLab\analysis\wf_ephys_choiceworld\wf_ephys'];
 save([save_path filesep 'wf_ephys_maps_' protocol '_' num2str(n_aligned_depths) '_depths_kernel'],'batch_vars','-v7.3');
 warning('saving -v7.3');
-disp('Finished batch');
+disp(['Finished batch ' protocol]);
 
 
 %% X) (OLD) Batch align striatum recordings from template kernels
@@ -2098,7 +2098,7 @@ for curr_animal = 1:length(animals)
     disp(animal);
     
     experiments = experiments([experiments.imaging] & [experiments.ephys]);
-    
+
     load_parts.cam = false;
     load_parts.imaging = true;
     load_parts.ephys = true;

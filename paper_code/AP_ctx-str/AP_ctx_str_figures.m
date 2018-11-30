@@ -420,89 +420,11 @@ AP_stackplot(stim_max_k_roi',contrast_sides, ...
 xlabel('Contrast*Side');
 title('Stim kernel maximum');
 
-
-
-
-%% %%%%%%%%%%%%%%% UP-TO-DATE ABOVE %%%%%%%%%%%%%%%%%%
-
-
-
-%% Fig 1a: Example average widefield
-
-animal = 'AP028';
-day = '2017-12-16'; 
-[img_path,img_exists] = AP_cortexlab_filename(animal,day,[],'imaging');
-avg_im = readNPY([img_path filesep 'meanImage_blue.npy']);
-
-
-%% Fig 1b: Example traces
-
-warning('Probably not best example, check others');
-
-% Load and align
-str_align = 'kernel';
-animal = 'AP028'; 
-day = '2017-12-16'; 
-experiment = 1; 
-verbose = false; 
-AP_load_experiment;
-
-avg_im_aligned = AP_align_widefield(animal,day,avg_im);
-Udf_aligned = single(AP_align_widefield(animal,day,Udf));
-
-% Define ROIs and get fluorescence traces
-roi_circle_size = 20;
-roi_x = [131,174,110,51];
-roi_y = [297,96,71,144];
-[x,y] = meshgrid(1:size(avg_im_aligned,1),1:size(avg_im_aligned,2));
-roi_mask = cell2mat(arrayfun(@(roi) sqrt((x-roi_x(roi)).^2 + (y-roi_y(roi)).^2) <= ...
-    roi_circle_size,permute(1:length(roi_x),[1,3,2]),'uni',false));
-roi_trace = AP_svd_roi(Udf_aligned,fVdf,[],[],roi_mask);
-
-roi_trace_deriv = diff(roi_trace,[],2);
-roi_trace_deriv(roi_trace_deriv < 0) = 0;
-frame_t_deriv = conv(frame_t,[1,1]/2,'valid');
-
-% Bin spikes by aligned depth
-n_depths = n_aligned_depths;
-depth_group = aligned_str_depth_group;
-
-time_bins = [frame_t_deriv,frame_t_deriv(end)+1/framerate];
-binned_spikes = zeros(n_depths,length(time_bins)-1);
-for curr_depth = 1:n_depths
-    curr_spike_times = spike_times_timeline(depth_group == curr_depth);
-    binned_spikes(curr_depth,:) = histcounts(curr_spike_times,time_bins);
-end
-
-% Plot ROIs and traces
-figure;
-subplot(1,6,1);
-
-roi_boundaries = bwboundaries(sum(roi_mask,3));
-imagesc(avg_im_aligned);colormap(gray);
-caxis([0,prctile(avg_im_aligned(:),99)]);
-axis image;
-AP_reference_outline('ccf_aligned','r');
-p = cellfun(@(x) plot(x(:,2),x(:,1),'b','linewidth',2),roi_boundaries);
-
-subplot(1,6,2:6); hold on;
-p1 = AP_stackplot(bsxfun(@rdivide,binned_spikes,std(binned_spikes,[],2))', ...
-    frame_t_deriv,10,false,'k');
-p2 = AP_stackplot(bsxfun(@rdivide,roi_trace_deriv,std(roi_trace_deriv,[],2))', ...
-    frame_t_deriv,10,false,[0,0.7,0]);
-xlabel('Time (seconds)');
-ylabel('Activity (std)');
-legend([p1(1),p2(1)],{'MUA','\DeltaFluorescence'});
-xlim([177,200]);
-
-
-%% Fig 1b: Average regression maps
-% (half-done: variable names etc will change when new code finished)
+%% Fig 2c,e: Average regression maps
 
 n_aligned_depths = 4;
 
 data_path = 'C:\Users\Andrew\OneDrive for Business\Documents\CarandiniHarrisLab\analysis\wf_ephys_choiceworld\wf_ephys';
-
 k_fn = [data_path filesep 'wf_ephys_maps_concat_' num2str(n_aligned_depths) '_depths_kernel'];
 load(k_fn);
 
@@ -530,14 +452,37 @@ colormap(brewermap([],'*RdBu'))
 AP_reference_outline('ccf_aligned','k');
 set(gcf,'Name','Naive');
 
+% Plot kernels at t = 0;
+figure;
+colormap(brewermap([],'*RdBu'));
+for curr_depth = 1:n_aligned_depths
+    subplot(2,n_aligned_depths,curr_depth)
+    imagesc(k_px_trained(:,:,t == 0,curr_depth));
+    caxis([-max(caxis),max(caxis)]*0.8)
+    axis image off;
+    AP_reference_outline('ccf_aligned','k');
+    
+    subplot(2,n_aligned_depths,n_aligned_depths + curr_depth)
+    imagesc(k_px_naive(:,:,t == 0,curr_depth));
+    caxis([-max(caxis),max(caxis)]*0.8)
+    axis image off;
+    AP_reference_outline('ccf_aligned','k');
+end
+
 % Get center-of-mass maps
+jet_basic = jet(255);
+dark_colors = max(jet_basic,[],2) ~= 1;
+jet_alt = interp1(1:255,jet_basic,linspace(find(~dark_colors,1,'first'), ...
+    find(~dark_colors,1,'last'),255)) - 0.2;
+use_colormap = jet_alt;
+
 k_px_trained_positive = k_px_trained;
 k_px_trained_positive(k_px_trained_positive < 0) = 0;
 k_px_trained_com = sum(k_px_trained_positive.*permute(1:n_aligned_depths,[1,3,4,2]),4)./sum(k_px_trained_positive,4);
 k_px_trained_com_colored = nan(size(k_px_trained_com,1),size(k_px_trained_com,2),3,size(k_px_trained_com,3));
 for curr_frame = 1:size(k_px_trained_com,3)
     k_px_trained_com_colored(:,:,:,curr_frame) = ...
-        ind2rgb(round(mat2gray(k_px_trained_com(:,:,curr_frame),[1,n_aligned_depths])*255),jet(255));
+        ind2rgb(round(mat2gray(k_px_trained_com(:,:,curr_frame),[1,n_aligned_depths])*255),use_colormap);
 end
 
 k_px_naive_positive = k_px_naive;
@@ -546,7 +491,7 @@ k_px_naive_com = sum(k_px_naive_positive.*permute(1:n_aligned_depths,[1,3,4,2]),
 k_px_naive_com_colored = nan(size(k_px_naive_com,1),size(k_px_naive_com,2),3,size(k_px_naive_com,3));
 for curr_frame = 1:size(k_px_naive_com,3)
     k_px_naive_com_colored(:,:,:,curr_frame) = ...
-        ind2rgb(round(mat2gray(k_px_naive_com(:,:,curr_frame),[1,n_aligned_depths])*255),jet(255));
+        ind2rgb(round(mat2gray(k_px_naive_com(:,:,curr_frame),[1,n_aligned_depths])*255),use_colormap);
 end
 
 % Whiten relative to weight, plot movie
@@ -594,10 +539,83 @@ set(p,'AlphaData',k_px_naive_weight_norm);
 AP_reference_outline('ccf_aligned','k');
 title('Naive (t = 0)');
 
+% Plot at all multiple time points, transparency relative to weight
+plot_t = find(t >= -0.05 & t <= 0.05);
+weight_max = max(k_px_trained(:))*0.8;
+figure;
+for t_idx = 1:length(plot_t)
+    curr_t = plot_t(t_idx);  
+    subplot(1,length(plot_t),t_idx);
+    p = image(k_px_trained_com_colored(:,:,:,curr_t));
+    set(p,'AlphaData', ...
+        mat2gray(max(k_px_trained(:,:,curr_t,:),[],4),[0,weight_max]));
+    axis image off;
+    AP_reference_outline('ccf_aligned','k');
+    title(t(curr_t));
+end
 
-%% Fig 1b: Allen projection maps vs regression maps?
-% (maybe get average centroid of str 1/2/3/4 then get one map?)
-% (copy code from AP_ctx2str_probe)
+%% Fig 2f: Average regression maps across protocols
+
+protocols = {'vanillaChoiceworld', ...
+    'stimSparseNoiseUncorrAsync', ...
+    'stimKalatsky'};
+
+for protocol = protocols
+    
+    curr_protocol = cell2mat(protocol);
+    
+    n_aligned_depths = 4;
+    data_path = 'C:\Users\Andrew\OneDrive for Business\Documents\CarandiniHarrisLab\analysis\wf_ephys_choiceworld\wf_ephys';
+    k_fn = [data_path filesep 'wf_ephys_maps_' curr_protocol '_' num2str(n_aligned_depths) '_depths_kernel'];
+    load(k_fn);
+    
+    framerate = 35;
+    upsample_factor = 2;
+    sample_rate = framerate*upsample_factor;
+    kernel_t = [-0.3,0.3];
+    kernel_frames = round(kernel_t(1)*sample_rate):round(kernel_t(2)*sample_rate);
+    t = kernel_frames/sample_rate;
+    
+    % Concatenate and mean
+    % (kernel goes backwards in time - flip to correct)
+    k_px_cat = cellfun(@(x) x(:,:,end:-1:1,:),[batch_vars.r_px],'uni',false);
+    k_px = nanmean(double(cat(5,k_px_cat{:})),5);
+    
+    % Get center-of-mass maps
+    k_px_positive = k_px;
+    k_px_positive(k_px_positive < 0) = 0;
+    k_px_com = sum(k_px_positive.*permute(1:n_aligned_depths,[1,3,4,2]),4)./sum(k_px_positive,4);
+    k_px_com_colored = nan(size(k_px_com,1),size(k_px_com,2),3,size(k_px_com,3));
+    
+    jet_basic = jet(255);
+    dark_colors = max(jet_basic,[],2) ~= 1;
+    jet_alt = interp1(1:255,jet_basic,linspace(find(~dark_colors,1,'first'), ...
+        find(~dark_colors,1,'last'),255)) - 0.2;
+    use_colormap = jet_alt;
+    
+    for curr_frame = 1:size(k_px_com,3)
+        k_px_com_colored(:,:,:,curr_frame) = ...
+            ind2rgb(round(mat2gray(k_px_com(:,:,curr_frame),[1,n_aligned_depths])*255),use_colormap);
+    end
+    
+    % Plot at t = 0, transparency relative to weight
+    figure;
+    p = image(k_px_com_colored(:,:,:,t == 0));
+    % weight_max = max(k_px(:))*0.8;
+    weight_max = 0.01;
+    set(p,'AlphaData', ...
+        mat2gray(max(k_px(:,:,t == 0,:),[],4),[0,weight_max]));
+    axis image off;
+    AP_reference_outline('ccf_aligned','k');
+    title([curr_protocol ': t = 0']);
+    drawnow;
+    
+end
+
+
+
+%% Fig 2c: Allen projection maps
+% (code from AP_ctx2str_probe)
 
 warning('This should probably be the average vector of wf-estimated');
 probe_vector_ccf = [520,240,510;520,511,239];
@@ -752,8 +770,8 @@ for curr_depth = 1:n_aligned_depths
     subplot(1,n_aligned_depths,curr_depth); hold on; axis image off;
     set(gca,'YDir','reverse');
     
-    imagesc(kernel_template(:,:,curr_depth));
-    caxis([-prctile(abs(kernel_template(:)),99),prctile(abs(kernel_template(:)),99)]);
+%     imagesc(kernel_template(:,:,curr_depth));
+%     caxis([-prctile(abs(kernel_template(:)),99),prctile(abs(kernel_template(:)),99)]);
     
     % (plot points from both hemispheres)
     scatter(injection_coordinates_wf{curr_depth}(:,1), ...
@@ -767,6 +785,84 @@ for curr_depth = 1:n_aligned_depths
     
     AP_reference_outline('ccf_aligned','k');
 end
+
+
+%% %%%%%%%%%%%%%%% UP-TO-DATE ABOVE %%%%%%%%%%%%%%%%%%
+
+
+
+%% Fig 1a: Example average widefield
+
+animal = 'AP028';
+day = '2017-12-16'; 
+[img_path,img_exists] = AP_cortexlab_filename(animal,day,[],'imaging');
+avg_im = readNPY([img_path filesep 'meanImage_blue.npy']);
+
+
+%% Fig 1b: Example traces
+
+warning('Probably not best example, check others');
+
+% Load and align
+str_align = 'kernel';
+animal = 'AP028'; 
+day = '2017-12-16'; 
+experiment = 1; 
+verbose = false; 
+AP_load_experiment;
+
+avg_im_aligned = AP_align_widefield(animal,day,avg_im);
+Udf_aligned = single(AP_align_widefield(animal,day,Udf));
+
+% Define ROIs and get fluorescence traces
+roi_circle_size = 20;
+roi_x = [131,174,110,51];
+roi_y = [297,96,71,144];
+[x,y] = meshgrid(1:size(avg_im_aligned,1),1:size(avg_im_aligned,2));
+roi_mask = cell2mat(arrayfun(@(roi) sqrt((x-roi_x(roi)).^2 + (y-roi_y(roi)).^2) <= ...
+    roi_circle_size,permute(1:length(roi_x),[1,3,2]),'uni',false));
+roi_trace = AP_svd_roi(Udf_aligned,fVdf,[],[],roi_mask);
+
+roi_trace_deriv = diff(roi_trace,[],2);
+roi_trace_deriv(roi_trace_deriv < 0) = 0;
+frame_t_deriv = conv(frame_t,[1,1]/2,'valid');
+
+% Bin spikes by aligned depth
+n_depths = n_aligned_depths;
+depth_group = aligned_str_depth_group;
+
+time_bins = [frame_t_deriv,frame_t_deriv(end)+1/framerate];
+binned_spikes = zeros(n_depths,length(time_bins)-1);
+for curr_depth = 1:n_depths
+    curr_spike_times = spike_times_timeline(depth_group == curr_depth);
+    binned_spikes(curr_depth,:) = histcounts(curr_spike_times,time_bins);
+end
+
+% Plot ROIs and traces
+figure;
+subplot(1,6,1);
+
+roi_boundaries = bwboundaries(sum(roi_mask,3));
+imagesc(avg_im_aligned);colormap(gray);
+caxis([0,prctile(avg_im_aligned(:),99)]);
+axis image;
+AP_reference_outline('ccf_aligned','r');
+p = cellfun(@(x) plot(x(:,2),x(:,1),'b','linewidth',2),roi_boundaries);
+
+subplot(1,6,2:6); hold on;
+p1 = AP_stackplot(bsxfun(@rdivide,binned_spikes,std(binned_spikes,[],2))', ...
+    frame_t_deriv,10,false,'k');
+p2 = AP_stackplot(bsxfun(@rdivide,roi_trace_deriv,std(roi_trace_deriv,[],2))', ...
+    frame_t_deriv,10,false,[0,0.7,0]);
+xlabel('Time (seconds)');
+ylabel('Activity (std)');
+legend([p1(1),p2(1)],{'MUA','\DeltaFluorescence'});
+xlim([177,200]);
+
+
+
+
+
 
 
 %% Fig 2a: Behavior psychometric 

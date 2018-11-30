@@ -1859,7 +1859,7 @@ for curr_roi = 1:n_rois
     patch(curr_roi_boundary(:,2),curr_roi_boundary(:,1),roi_col(curr_roi,:));
     
     text(nanmean(curr_roi_boundary(:,2)),nanmean(curr_roi_boundary(:,1)), ...
-        wf_roi(curr_roi).area,'FontSize',14,')
+        wf_roi(curr_roi).area,'FontSize',12,'HorizontalAlignment','center')
 end
 axis image off;
 
@@ -3850,6 +3850,80 @@ ylabel('Explained variance')
 legend({ctx_str_lambda.animal})
 
 % TO DO: plot the correlation across kernels?
+
+% Load kernels by depths
+kernel_path = 'C:\Users\Andrew\OneDrive for Business\Documents\CarandiniHarrisLab\analysis\wf_ephys_choiceworld\ephys_processing';
+kernel_fn = ['ephys_kernel_depth'];
+load([kernel_path filesep kernel_fn])
+
+% Concatenate kernels and matches
+k_match_cat = cell2mat([ephys_kernel_align(:).kernel_match]');
+k_px_cat = cell2mat(permute([ephys_kernel_depth(:).k_px],[1,3,2]));
+
+% sort by depth instead?
+total_depths = 1:max(cellfun(@(x) size(x,3),[ephys_kernel_depth.k_px]));
+k_px_depths = cellfun(@(x) total_depths(end-size(x,3)+1:end),[ephys_kernel_depth.k_px],'uni',false);
+k_px_depth_cat = horzcat(k_px_depths{:});
+
+
+k_px_cat_medfilt = k_px_cat;
+k_px_cat_medfilt(isnan(k_px_cat_medfilt)) = 0;
+for i = 1:size(k_px_cat_medfilt,3)
+    k_px_cat_medfilt(:,:,i) = ...
+        medfilt2(k_px_cat_medfilt(:,:,i),[30,30]);
+    AP_print_progress_fraction(i,size(k_px_cat_medfilt,3));
+end
+a = reshape(k_px_cat_medfilt,[],size(k_px_cat,3));
+
+% Concatenate all kernels, do K-means
+k_px_cat = [ephys_kernel_depth(:).k_px];
+k_px_cat = cat(3,k_px_cat{:});
+k_px_cat_reshape = reshape(k_px_cat,[],size(k_px_cat,3));
+
+use_k_px = find(std(k_px_cat_reshape,[],1) ~= 0);
+
+n_aligned_depths = 4;
+kidx = kmeans(k_px_cat_reshape(:,use_k_px)',n_aligned_depths,'Distance','correlation');
+
+% Get average depth for each group
+total_depths = 1:max(cellfun(@(x) size(x,3),[ephys_kernel_depth.k_px]));
+k_px_depths = cellfun(@(x) total_depths(end-size(x,3)+1:end),[ephys_kernel_depth.k_px],'uni',false);
+k_px_depth_cat = horzcat(k_px_depths{:});
+k_px_depth_grp = grpstats(k_px_depth_cat(use_k_px),kidx);
+
+% Sort by k-means and group depth
+[~,all_depth_sort_idx] = sort(k_px_depth_cat(use_k_px));
+[~,k_sort_idx] = sort(kidx);
+[~,depth_sort_idx] = sort(k_px_depth_grp);
+
+% Plot k-means groups by depth
+k_grp = reshape(grpstats(k_px_cat_reshape(:,use_k_px)',kidx)', ...
+    size(k_px_cat,1),size(k_px_cat,2),[]);
+k_grp_ordered = k_grp(:,:,depth_sort_idx);
+
+figure;
+for i = 1:n_aligned_depths
+    subplot(1,n_aligned_depths,i);
+    imagesc(reshape(k_grp_ordered(:,:,i),size(k_px_cat,1),[]))
+    caxis([-max(abs(k_grp(:))),max(abs(k_grp(:)))]);
+    axis image off;
+    colormap(brewermap([],'*RdBu'));
+    AP_reference_outline('ccf_aligned','k');
+end
+
+% Plot correlations of kernels by kidx (renumber by depth)
+kidx_depth = depth_sort_idx(kidx);
+[~,k_depth_sort_idx] = sort(kidx_depth);
+figure;
+imagesc(corrcoef(k_px_cat_reshape(:,use_k_px(k_depth_sort_idx))))
+title('Sorted kernel correlations');
+caxis([-0.5,0.5]); colormap(brewermap([],'*RdBu'));
+axis square;
+for i = 2:n_aligned_depths
+    line(xlim,repmat(sum(kidx_depth < i),2,1),'color','k','linewidth',2);
+    line(repmat(sum(kidx_depth < i),2,1),ylim,'color','k','linewidth',2);
+end
+
 
 %% Create ROIs from kernel templates
 

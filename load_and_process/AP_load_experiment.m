@@ -37,7 +37,7 @@ end
 
 [timeline_filename,timeline_exists] = AP_cortexlab_filename(animal,day,experiment,'timeline');
 if ~timeline_exists
-    error([animal ' ' day ': no timeline']);
+    error([animal ' ' day ' ' num2str(experiment) ': no timeline']);
 end
 
 if timeline_exists
