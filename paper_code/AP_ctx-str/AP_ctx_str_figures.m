@@ -420,7 +420,169 @@ AP_stackplot(stim_max_k_roi',contrast_sides, ...
 xlabel('Contrast*Side');
 title('Stim kernel maximum');
 
-%% Fig 2c,e: Average regression maps
+%% Fig 2b: Example traces/kernels
+
+warning('Probably not best example, check others');
+
+% Load and align
+str_align = 'kernel';
+% animal = 'AP028'; 
+% day = '2017-12-20'; % 16
+animal = 'AP027';
+day = '2017-11-25';
+experiment = 1; 
+verbose = false; 
+AP_load_experiment;
+
+avg_im_aligned = AP_align_widefield(animal,day,avg_im);
+Udf_aligned = single(AP_align_widefield(animal,day,Udf));
+
+% Smoothing window
+smooth_size = 9; % MUST BE ODD
+gw = gausswin(smooth_size,3)';
+smWin = gw./sum(gw);
+
+% Define ROIs and get fluorescence traces
+roi_circle_size = 20;
+roi_x = [131,174,110,51]; % roi_x = [131,174,110,51];
+roi_y = [297,96,71,144]; % roi_y = [297,96,71,144];
+[x,y] = meshgrid(1:size(avg_im_aligned,1),1:size(avg_im_aligned,2));
+roi_mask = cell2mat(arrayfun(@(roi) sqrt((x-roi_x(roi)).^2 + (y-roi_y(roi)).^2) <= ...
+    roi_circle_size,permute(1:length(roi_x),[1,3,2]),'uni',false));
+roi_trace = AP_svd_roi(Udf_aligned,fVdf,[],[],roi_mask);
+
+roi_trace_deriv = diff(convn(roi_trace,smWin,'same'),[],2);
+roi_trace_deriv(roi_trace_deriv < 0) = 0;
+frame_t_deriv = conv(frame_t,[1,1]/2,'valid');
+
+% % Bin spikes by aligned depth
+% n_depths = n_aligned_depths;
+% depth_group = aligned_str_depth_group;
+% 
+% time_bins = [frame_t_deriv,frame_t_deriv(end)+1/framerate];
+% binned_spikes = zeros(n_depths,length(time_bins)-1);
+% for curr_depth = 1:n_depths
+%     curr_spike_times = spike_times_timeline(depth_group == curr_depth);
+%     binned_spikes(curr_depth,:) = histcounts(curr_spike_times,time_bins);
+% end
+
+% Bin spikes evenly across striatum
+
+n_depths = 4;
+depth_group_edges = round(linspace(str_depth(1),str_depth(2),n_depths+1));
+depth_group = discretize(spikeDepths,depth_group_edges);
+use_depths = 1:n_depths;
+
+% depth_group_edges = [str_depth(1),str_depth(1)+500, ...
+%     str_depth(2)-500,str_depth(2)];
+% depth_group = discretize(spikeDepths,depth_group_edges);
+% use_depths = [1,max(depth_group)];
+
+% n_depths = round(diff(str_depth)/200);
+% depth_group_edges = round(linspace(str_depth(1),str_depth(2),n_depths+1));
+% depth_group = discretize(spikeDepths,depth_group_edges);
+% use_depths = 1:n_depths;
+
+time_bins = [frame_t_deriv,frame_t_deriv(end)+1/framerate];
+binned_spikes = zeros(length(use_depths),length(time_bins)-1);
+for curr_depth = 1:length(use_depths)
+    curr_spike_times = spike_times_timeline(depth_group == use_depths(curr_depth));
+    binned_spikes(curr_depth,:) = histcounts(curr_spike_times,time_bins);
+end
+binned_spikes_smoothed = convn(binned_spikes,smWin,'same');
+
+% Get spike-triggered average
+skip_seconds = 60;
+surround_times = [-0.2,0.2];
+
+framerate = 1./median(diff(frame_t));
+skip_frames = round(skip_seconds*framerate);
+surround_frames = round(surround_times(1)*framerate):round(surround_times(2)*framerate);
+sta_t = surround_frames./framerate;
+
+sta_im = zeros(size(Udf_aligned,1),size(Udf_aligned,2), ...
+    length(surround_frames),size(binned_spikes,1));
+
+for curr_depth = 1:size(binned_spikes,1)
+    frames_w = repmat(binned_spikes(curr_depth,skip_frames:end-skip_frames)'./ ...
+        sum(binned_spikes(curr_depth,skip_frames:end-skip_frames)),1,length(surround_frames));
+    for curr_sta_frame = 1:length(surround_frames)
+        frames_w(:,curr_sta_frame) = ...
+            circshift(frames_w(:,curr_sta_frame),[surround_frames(curr_sta_frame),0]);
+    end
+    
+    sta_v = diff(fVdf(:,skip_frames:end-skip_frames),[],2)*frames_w;
+    sta_im(:,:,:,curr_depth) = svdFrameReconstruct(Udf_aligned,sta_v);
+end
+
+sta_im_max = squeeze(max(sta_im,[],3));
+
+figure;
+for curr_depth = 1:size(binned_spikes,1)
+    subplot(1,size(binned_spikes,1),curr_depth)
+    imagesc(sta_im_max(:,:,curr_depth));
+    caxis([0,max(abs(caxis))]);
+    colormap(brewermap([],'BuGn'));
+    AP_reference_outline('ccf_aligned','k');
+    axis image off;
+end
+
+% Regress fluorescence to spikes
+use_svs = 1:50;
+skip_seconds = 60;
+upsample_factor = 2;
+kernel_t = [-0.3,0.3];
+
+lambda_fn = 'C:\Users\Andrew\OneDrive for Business\Documents\CarandiniHarrisLab\analysis\wf_ephys_choiceworld\ephys_processing\ctx-str_lambda';
+load(lambda_fn);
+curr_animal_idx = strcmp(animal,{ctx_str_lambda.animal});
+if any(curr_animal_idx)
+    curr_day_idx = strcmp(day,ctx_str_lambda(curr_animal_idx).day);
+    if any(curr_day_idx)
+        lambda = ctx_str_lambda(curr_animal_idx).best_lambda(curr_day_idx);
+    end
+end
+
+kernel_frames = round(regression_params.kernel_t(1)*sample_rate): ...
+    round(regression_params.kernel_t(2)*sample_rate);
+zs = [false,true];
+cvfold = 10;
+
+[k,predicted_spikes,explained_var] = ...
+    AP_regresskernel(dfVdf_resample, ...
+    binned_spikes,kernel_frames,lambda,zs,cvfold);
+
+Udf_aligned = single(AP_align_widefield(animal,day,Udf));
+k_px = zeros(size(Udf_aligned,1),size(Udf_aligned,2),size(k,2),size(k,3),'single');
+for curr_spikes = 1:size(k,3)
+    k_px(:,:,:,curr_spikes) = ...
+        svdFrameReconstruct(Udf_aligned(:,:,regression_params.use_svs),k(:,:,curr_spikes));
+end
+
+% Plot ROIs and traces
+figure;
+subplot(1,6,1);
+
+roi_boundaries = bwboundaries(sum(roi_mask,3));
+imagesc(avg_im_aligned);colormap(gray);
+caxis([0,prctile(avg_im_aligned(:),99)]);
+axis image off;
+AP_reference_outline('ccf_aligned','r');
+p = cellfun(@(x) plot(x(:,2),x(:,1),'b','linewidth',2),roi_boundaries);
+
+subplot(1,6,2:6); hold on;
+p1 = AP_stackplot(bsxfun(@rdivide,binned_spikes_smoothed,std(binned_spikes,[],2))', ...
+    frame_t_deriv,5,false,'k');
+p2 = AP_stackplot(bsxfun(@rdivide,roi_trace_deriv,std(roi_trace_deriv,[],2))', ...
+    frame_t_deriv,5,false,[0,0.7,0]);
+xlabel('Time (seconds)');
+ylabel('Activity (std)');
+legend([p1(1),p2(1)],{'MUA','\DeltaFluorescence'});
+xlim([177,200]);
+
+
+
+%% Fig 2c,e: Average regression maps (concatenated protocols)
 
 n_aligned_depths = 4;
 
@@ -554,7 +716,7 @@ for t_idx = 1:length(plot_t)
     title(t(curr_t));
 end
 
-%% Fig 2f: Average regression maps across protocols
+%% Fig 2f: Average regression maps (protocols separately)
 
 protocols = {'vanillaChoiceworld', ...
     'stimSparseNoiseUncorrAsync', ...
@@ -611,7 +773,6 @@ for protocol = protocols
     drawnow;
     
 end
-
 
 
 %% Fig 2c: Allen projection maps
@@ -799,65 +960,6 @@ day = '2017-12-16';
 avg_im = readNPY([img_path filesep 'meanImage_blue.npy']);
 
 
-%% Fig 1b: Example traces
-
-warning('Probably not best example, check others');
-
-% Load and align
-str_align = 'kernel';
-animal = 'AP028'; 
-day = '2017-12-16'; 
-experiment = 1; 
-verbose = false; 
-AP_load_experiment;
-
-avg_im_aligned = AP_align_widefield(animal,day,avg_im);
-Udf_aligned = single(AP_align_widefield(animal,day,Udf));
-
-% Define ROIs and get fluorescence traces
-roi_circle_size = 20;
-roi_x = [131,174,110,51];
-roi_y = [297,96,71,144];
-[x,y] = meshgrid(1:size(avg_im_aligned,1),1:size(avg_im_aligned,2));
-roi_mask = cell2mat(arrayfun(@(roi) sqrt((x-roi_x(roi)).^2 + (y-roi_y(roi)).^2) <= ...
-    roi_circle_size,permute(1:length(roi_x),[1,3,2]),'uni',false));
-roi_trace = AP_svd_roi(Udf_aligned,fVdf,[],[],roi_mask);
-
-roi_trace_deriv = diff(roi_trace,[],2);
-roi_trace_deriv(roi_trace_deriv < 0) = 0;
-frame_t_deriv = conv(frame_t,[1,1]/2,'valid');
-
-% Bin spikes by aligned depth
-n_depths = n_aligned_depths;
-depth_group = aligned_str_depth_group;
-
-time_bins = [frame_t_deriv,frame_t_deriv(end)+1/framerate];
-binned_spikes = zeros(n_depths,length(time_bins)-1);
-for curr_depth = 1:n_depths
-    curr_spike_times = spike_times_timeline(depth_group == curr_depth);
-    binned_spikes(curr_depth,:) = histcounts(curr_spike_times,time_bins);
-end
-
-% Plot ROIs and traces
-figure;
-subplot(1,6,1);
-
-roi_boundaries = bwboundaries(sum(roi_mask,3));
-imagesc(avg_im_aligned);colormap(gray);
-caxis([0,prctile(avg_im_aligned(:),99)]);
-axis image;
-AP_reference_outline('ccf_aligned','r');
-p = cellfun(@(x) plot(x(:,2),x(:,1),'b','linewidth',2),roi_boundaries);
-
-subplot(1,6,2:6); hold on;
-p1 = AP_stackplot(bsxfun(@rdivide,binned_spikes,std(binned_spikes,[],2))', ...
-    frame_t_deriv,10,false,'k');
-p2 = AP_stackplot(bsxfun(@rdivide,roi_trace_deriv,std(roi_trace_deriv,[],2))', ...
-    frame_t_deriv,10,false,[0,0.7,0]);
-xlabel('Time (seconds)');
-ylabel('Activity (std)');
-legend([p1(1),p2(1)],{'MUA','\DeltaFluorescence'});
-xlim([177,200]);
 
 
 

@@ -578,7 +578,7 @@ probe_angle = 45; % from horizontal
 % protocol = 'vanillaChoiceworld';
 protocol = 'AP_choiceWorldStimPassive';
 
-animal = 'AP035';
+animal = 'AP028';
 experiments = AP_find_experiments(animal,protocol);
 experiments = experiments([experiments.imaging] & [experiments.ephys]);
 
