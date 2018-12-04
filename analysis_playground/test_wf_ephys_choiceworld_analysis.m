@@ -8752,8 +8752,8 @@ title ('Zero L');
 % Load data
 n_aligned_depths = 4;
 data_path = 'C:\Users\Andrew\OneDrive for Business\Documents\CarandiniHarrisLab\analysis\wf_ephys_choiceworld\choiceworld';
-% data_fn = ['all_trial_activity_Udf_kernel-str_passive_fullscreen_4_depths'];
-data_fn = ['all_trial_activity_Udf_kernel-str_passive_choiceworld_4_depths_naive'];
+data_fn = ['all_trial_activity_Udf_kernel-str_passive_fullscreen_4_depths'];
+% data_fn = ['all_trial_activity_Udf_kernel-str_passive_choiceworld_4_depths_naive'];
 
 load([data_path filesep data_fn]);
 n_animals = length(D_all);
@@ -9720,13 +9720,13 @@ for curr_plot = 1:3
         curr_trials = plot_id == curr_plot_condition & use_rxn;
         curr_data = plot_data(curr_trials,:,:);
         
-%         % re-align to movement onset
-%         t_leeway = 0.5;
-%         leeway_samples = round(t_leeway*(1/mean(diff(t))));
-%         curr_move_idx = move_idx(curr_trials);
-%         for i = 1:size(curr_data,1)
-%             curr_data(i,:,:) = circshift(curr_data(i,:,:),-curr_move_idx(i)+leeway_samples,2);
-%         end
+        % re-align to movement onset
+        t_leeway = 0.5;
+        leeway_samples = round(t_leeway*(1/mean(diff(t))));
+        curr_move_idx = move_idx(curr_trials);
+        for i = 1:size(curr_data,1)
+            curr_data(i,:,:) = circshift(curr_data(i,:,:),-curr_move_idx(i)+leeway_samples,2);
+        end
         
         curr_data_mean = squeeze(nanmean(curr_data,1));
         

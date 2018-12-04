@@ -1,6 +1,6 @@
-function [fluor_allcat,mua_allcat,wheel_allcat,reward_allcat,D_allcat] = ...
+function [fluor_allcat,fluor_roi_diff,mua_allcat,wheel_allcat,reward_allcat,D_allcat] = ...
     AP_load_concat_normalize_ctx_str(data_fn,exclude_data)
-% [fluor_allcat,mua_allcat,wheel_allcat,reward_allcat,D_allcat] = ...
+% [fluor_allcat,fluor_roi_diff,mua_allcat,wheel_allcat,reward_allcat,D_allcat] = ...
 %     AP_load_concat_normalize_ctx_str(data_fn,exclude_data)
 %
 % Loads, concatenates, and normalizes trial data for the ctx-str project
@@ -102,8 +102,7 @@ for curr_animal = 1:length(D_all)
         mat2cell(mua_cat_raw_smoothed,cellfun(@(x) size(x,1), mua_all{curr_animal}),length(t),n_depths),'uni',false));
     
     softnorm = 20;
-    
-    mua_cat_norm = bsxfun(@rdivide,bsxfun(@minus,mua_cat_raw_smoothed,mua_day_baseline),mua_day_std+softnorm);
+    mua_cat_norm = (mua_cat_raw_smoothed-mua_day_baseline)./(mua_day_std+softnorm);
     
     % Concatenate wheel
     wheel_cat = cat(1,wheel_all{curr_animal}{:});
@@ -127,5 +126,36 @@ for curr_animal = 1:length(D_all)
     end
     
 end
+
+% Get fluorescence in ROIs
+wf_roi_fn = 'C:\Users\Andrew\OneDrive for Business\Documents\CarandiniHarrisLab\analysis\wf_ephys_choiceworld\wf_processing\wf_rois\wf_roi';
+load(wf_roi_fn);
+wf_roi = wf_roi(:,1);
+n_rois = numel(wf_roi);
+
+% Load the master U
+load('C:\Users\Andrew\OneDrive for Business\Documents\CarandiniHarrisLab\analysis\wf_ephys_choiceworld\wf_processing\wf_alignment\U_master');
+
+roi_mask = cat(3,wf_roi.mask);
+
+fluor_roi = permute(reshape( ...
+    AP_svd_roi(U_master(:,:,1:n_vs), ...
+    reshape(permute(fluor_allcat,[3,2,1]),n_vs,[]),[],[],roi_mask), ...
+    size(roi_mask,3),[],size(fluor_allcat,1)),[3,2,1]);
+
+% (diff, normalize)
+fluor_roi_diff_raw = diff(fluor_roi,[],2);
+fluor_roi_std = nanstd(reshape(fluor_roi_diff_raw,[],1,size(fluor_roi_diff_raw,3)),[],1);
+fluor_roi_diff = fluor_roi_diff_raw./fluor_roi_std;
+
+
+
+
+
+
+
+
+
+
 
 
