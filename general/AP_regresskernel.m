@@ -150,7 +150,7 @@ for curr_cv = 1:cvfold
     predicted_signals(:,test_idx) = ...
         gather(regressors_gpu(test_idx,:)*gpuArray(k_cv(:,:,curr_cv)))';
     
-    % Predict on test set for each regressor modality (if > 1)
+    % Reduced predictions on test set for each regressor modality (if > 1)
     if length(regressors) > 1
         
         regressor_split_size = [cellfun(@(x) size(x,1),regressors).*cellfun(@length,t_shifts),1];

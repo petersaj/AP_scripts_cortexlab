@@ -1,6 +1,6 @@
-function [fluor_allcat,fluor_roi_diff,mua_allcat,wheel_allcat,reward_allcat,D_allcat] = ...
+function [t,fluor_allcat_deriv,fluor_roi_deriv,mua_allcat,wheel_allcat,reward_allcat,D_allcat] = ...
     AP_load_concat_normalize_ctx_str(data_fn,exclude_data)
-% [fluor_allcat,fluor_roi_diff,mua_allcat,wheel_allcat,reward_allcat,D_allcat] = ...
+% [t,fluor_allcat_deriv,fluor_roi_deriv,mua_allcat,wheel_allcat,reward_allcat,D_allcat] = ...
 %     AP_load_concat_normalize_ctx_str(data_fn,exclude_data)
 %
 % Loads, concatenates, and normalizes trial data for the ctx-str project
@@ -13,12 +13,12 @@ data_path = 'C:\Users\Andrew\OneDrive for Business\Documents\CarandiniHarrisLab\
 load([data_path filesep data_fn]);
 n_animals = length(D_all);
 
-% Get time (should save this in the data)
-framerate = 35;
-raster_window = [-0.5,3];
-upsample_factor = 3;
-sample_rate = (framerate*upsample_factor);
-t = raster_window(1):1/sample_rate:raster_window(2);
+% % Get time (should save this in the data)
+% framerate = 35;
+% raster_window = [-0.5,3];
+% upsample_factor = 3;
+% sample_rate = (framerate*upsample_factor);
+% t = raster_window(1):1/sample_rate:raster_window(2);
 
 % Load pre-marked experiments to exclude and cut out bad ones
 if exist('exclude_data','var') && isempty(exclude_data)
@@ -127,6 +127,11 @@ for curr_animal = 1:length(D_all)
     
 end
 
+% Get fluorescence derivative and interpolate to match original t
+t_diff = conv(t,[1,1]/2,'valid');
+fluor_allcat_deriv = permute(interp1(t_diff, ...
+    permute(diff(fluor_allcat,[],2),[2,1,3]),t,'linear','extrap'),[2,1,3]);
+
 % Get fluorescence in ROIs
 wf_roi_fn = 'C:\Users\Andrew\OneDrive for Business\Documents\CarandiniHarrisLab\analysis\wf_ephys_choiceworld\wf_processing\wf_rois\wf_roi';
 load(wf_roi_fn);
@@ -138,17 +143,14 @@ load('C:\Users\Andrew\OneDrive for Business\Documents\CarandiniHarrisLab\analysi
 
 roi_mask = cat(3,wf_roi.mask);
 
-fluor_roi = permute(reshape( ...
+fluor_roi_deriv = permute(reshape( ...
     AP_svd_roi(U_master(:,:,1:n_vs), ...
-    reshape(permute(fluor_allcat,[3,2,1]),n_vs,[]),[],[],roi_mask), ...
-    size(roi_mask,3),[],size(fluor_allcat,1)),[3,2,1]);
+    reshape(permute(fluor_allcat_deriv,[3,2,1]),n_vs,[]),[],[],roi_mask), ...
+    size(roi_mask,3),[],size(fluor_allcat_deriv,1)),[3,2,1]);
 
-% (diff, normalize)
-fluor_roi_diff_raw = diff(fluor_roi,[],2);
-fluor_roi_std = nanstd(reshape(fluor_roi_diff_raw,[],1,size(fluor_roi_diff_raw,3)),[],1);
-fluor_roi_diff = fluor_roi_diff_raw./fluor_roi_std;
-
-
+% % (normalize like MUA?)
+% fluor_roi_std = nanstd(reshape(fluor_roi_deriv_raw,[],1,size(fluor_roi_deriv_raw,3)),[],1);
+% fluor_roi_deriv = fluor_roi_deriv_raw./fluor_roi_std;
 
 
 

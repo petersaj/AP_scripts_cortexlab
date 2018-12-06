@@ -3897,6 +3897,16 @@ for curr_kernel = 1:size(kernel_bw,3)
     kernel_bw(:,:,curr_kernel) = bwareaopen(curr_kernel_bw,smallest_area);
 end
 
+% Only use the ipsilateral side
+bregma = allenCCFbregma;
+ccf_tform_fn = ['C:\Users\Andrew\OneDrive for Business\Documents\Atlases\AllenCCF\ccf_tform'];
+load(ccf_tform_fn);
+
+um2pixel = 20.6;
+bregma_resize = bregma*(10/um2pixel);
+bregma_align = [bregma_resize([3,1]),1]*ccf_tform.T;
+kernel_bw(:,round(bregma_align(1)):end,:) = false;
+
 % Plot the kernels and ROIs
 figure; colormap(gray);
 for i = 1:n_aligned_depths
