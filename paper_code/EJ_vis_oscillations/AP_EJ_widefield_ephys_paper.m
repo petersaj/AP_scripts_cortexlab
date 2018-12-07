@@ -38,7 +38,8 @@ mua_fluor_coherence = cell(size(recordings));
 spectra_corr = cell(size(recordings));
 
 % GCaMP kernel (this is for me)
-gcamp_kernel = cell(size(recordings));
+gcamp_regression_kernel = cell(size(recordings));
+gcamp_fft_kernel = cell(size(recordings));
 
 %% Loop through all recordings
 
@@ -46,7 +47,8 @@ for curr_recording = 1:length(recordings)
        
     %% Clear workspace, set current recording
     clearvars -except curr_recording recordings ...
-        mua_fluor_xcorr mua_fluor_coherence spectra_corr gcamp_kernel
+        mua_fluor_xcorr mua_fluor_coherence spectra_corr ...
+        gcamp_regression_kernel gcamp_fft_kernel
     
     animal = recordings(curr_recording).animal;
     day = recordings(curr_recording).day;
@@ -178,28 +180,28 @@ for curr_recording = 1:length(recordings)
     kernel_frames = -30:30;
     downsample_factor = 1;
     lambda = 3.5;
-    zs = [false,true];
+    zs = [false,false];
     cvfold = 5;
+    return_constant = false;
+    use_constant = false;
     
-    % Regress MUA from fluorescence
-    [k,predicted_spikes,explained_var] = ...
+    % Regress fluorescence to MUA (std)
+    [curr_gcamp_kernel,predicted_spikes,explained_var] = ...
         AP_regresskernel(fVdf(use_svs,:), ...
-        frame_spikes,kernel_frames,lambda,zs,cvfold);
-    
-    % Reshape kernel and convert to pixel space
-    r = reshape(k,length(use_svs),length(kernel_frames),size(frame_spikes,1));
-    
-    r_px = zeros(size(U,1),size(U,2),size(r,2),size(r,3),'single');
-    for curr_spikes = 1:size(r,3)
-        r_px(:,:,:,curr_spikes) = svdFrameReconstruct(Udf(:,:,use_svs),r(:,:,curr_spikes));
+        frame_spikes./nanstd(frame_spikes),kernel_frames,lambda,zs,cvfold,return_constant,use_constant);   
+
+    % Reshape kernel and convert to pixel space   
+    kernel_px = zeros(size(U,1),size(U,2),size(curr_gcamp_kernel,2),size(curr_gcamp_kernel,3),'single');
+    for curr_spikes = 1:size(curr_gcamp_kernel,3)
+        kernel_px(:,:,:,curr_spikes) = svdFrameReconstruct(Udf(:,:,use_svs),curr_gcamp_kernel(:,:,curr_spikes));
     end
     
     % AP_image_scroll(r_px,kernel_frames*downsample_factor/framerate);
     % caxis([-prctile(r_px(:),99.9),prctile(r_px(:),99.9)])
     % colormap(colormap_BlueWhiteRed);
     % axis image;
-    
-    max_weights = max(abs(r_px),[],3);
+   
+    max_weights = max(abs(kernel_px),[],3);
     
     % Draw ROI and get fluorescence using average image and weights
     [fluor_trace,fluor_mask] = AP_svd_roi(Udf,fVdf,avg_im,max_weights);
@@ -229,6 +231,12 @@ for curr_recording = 1:length(recordings)
     title('MUA regression weights')
     
     drawnow;
+    
+    % Get and store kernel in ROI
+    gcamp_regression_kernel_t = kernel_frames/framerate;
+    gcamp_regression_kernel{curr_recording} = ...
+        AP_svd_roi(Udf(:,:,use_svs),curr_gcamp_kernel,[],[],fluor_mask);
+    
     
     %% Plot MUA and fluorescence together
     
@@ -359,10 +367,10 @@ for curr_recording = 1:length(recordings)
     linkaxes([p1,p2],'x')
     
     % Use the corrected impulse response for convolving kernel
-    gcamp_kernel_frames = 1:round(framerate*3);
-    gcamp_kernel_t = (gcamp_kernel_frames-1)/framerate;
-    gcamp_kernel{curr_recording} = x_autonorm(gcamp_kernel_frames);        
-    plot(p2,gcamp_kernel_t,gcamp_kernel{curr_recording},'r');
+    gcamp_fft_kernel_frames = 1:round(framerate*20);
+    gcamp_fft_kernel_t = (gcamp_fft_kernel_frames-1)/framerate;
+    gcamp_fft_kernel{curr_recording} = x_autonorm(gcamp_fft_kernel_frames);        
+    plot(p2,gcamp_fft_kernel_t,gcamp_fft_kernel{curr_recording},'r');
     drawnow;
     
 end
@@ -455,19 +463,25 @@ title('Mean');
 c = colorbar;
 ylabel(c,'Correlation');
 
-% GCaMP kernel
-gcamp_kernel_norm = cellfun(@(x) (x-x(1))/max(x-x(1)),gcamp_kernel,'uni',false);
+% GCaMP fft kernel
+gcamp_kernel_norm = cellfun(@(x) (x-x(1))/max(x-x(1)),gcamp_fft_kernel,'uni',false);
 figure; hold on
-plot(gcamp_kernel_t,vertcat(gcamp_kernel_norm{:})','linewidth',2);
+plot(gcamp_fft_kernel_t,vertcat(gcamp_kernel_norm{:})','linewidth',2);
 legend({recordings.animal});
 title('GCaMP kernel');
 
-% % (I saved AP026 and AP024 averaged together)
-% gcamp6s_kernel_t = gcamp_kernel_t;
-% gcamp6s_kernel_nonnorm = nanmean(vertcat(gcamp_kernel_norm{[1,3]}),1);
-% gcamp6s_kernel = (gcamp6s_kernel_nonnorm-gcamp6s_kernel_nonnorm(1))./ ...
-%     max(gcamp6s_kernel_nonnorm-gcamp6s_kernel_nonnorm(1));
-% save('C:\Users\Andrew\OneDrive for Business\Documents\CarandiniHarrisLab\analysis\wf_ephys_choiceworld\wf_processing\gcamp_kernel\gcamp6s_kernel.mat', ...
-%     'gcamp6s_kernel_t','gcamp6s_kernel');
+% GCaMP regression kernel
+figure;
+plot(gcamp_regression_kernel_t, vertcat(gcamp_regression_kernel{:})');
+
+% Save the GCaMP kernels for deconvolution
+gcamp6s_kernel.fft_t = gcamp_fft_kernel_t;
+gcamp6s_kernel.fft = gcamp_fft_kernel;
+
+gcamp6s_kernel.regression_t = gcamp_regression_kernel_t;
+gcamp6s_kernel.regression = gcamp_regression_kernel;
+
+save('C:\Users\Andrew\OneDrive for Business\Documents\CarandiniHarrisLab\analysis\wf_ephys_choiceworld\wf_processing\gcamp_kernel\gcamp6s_kernel.mat', ...
+    'gcamp6s_kernel');
 
 

@@ -3749,7 +3749,7 @@ end
 
 figure;
 
-subplot(1,2,1);hold on
+subplot(1,2,1); hold on; set(gca,'ColorOrder',jet(length({ctx_str_lambda.animal})));
 for i = 1:length(expl_vars)
     plot(ctx_str_lambda(i).best_lambda, expl_vars{i},'.','MarkerSize',15);
 end
@@ -3757,7 +3757,7 @@ xlabel('\lambda')
 ylabel('Explained variance')
 legend({ctx_str_lambda.animal})
 
-subplot(1,2,2);hold on
+subplot(1,2,2); hold on; set(gca,'ColorOrder',jet(length({ctx_str_lambda.animal})));
 for i = 1:length(expl_vars)
     plot(ctx_str_lambda(i).best_lambda, sqrt(expl_vars{i}),'.','MarkerSize',15);
 end
@@ -3765,8 +3765,9 @@ xlabel('\lambda')
 ylabel('\surdExplained variance')
 legend({ctx_str_lambda.animal})
 
-lambda_cutoff = 5;
-sqrt_expl_var_cutoff = 0.53;
+lambda_cutoff = 18;
+sqrt_expl_var_cutoff = 0.1;
+axis tight;
 line(repmat(lambda_cutoff,2,1),ylim,'linewidth',2);
 line(xlim,repmat(sqrt_expl_var_cutoff,2,1),'linewidth',2);
 
@@ -3776,7 +3777,7 @@ use_experiments = cellfun(@(x) sqrt(x) > sqrt_expl_var_cutoff,expl_vars,'uni',fa
 save_path = 'C:\Users\Andrew\OneDrive for Business\Documents\CarandiniHarrisLab\analysis\wf_ephys_choiceworld\experiment_exclusion';
 save_fn = 'expl_var_use_experiments';
 save([save_path filesep save_fn],'use_experiments');
-
+disp('Saved explained variance experiment cutoff');
 
 %% Plot kernel matches
 
@@ -3849,12 +3850,80 @@ xlabel('Mean kernel correlation')
 ylabel('Explained variance')
 legend({ctx_str_lambda.animal})
 
-% TO DO: plot the correlation across kernels?
+
+% Plot correlations across kernel grouping transitions 
 
 % Load kernels by depths
 kernel_path = 'C:\Users\Andrew\OneDrive for Business\Documents\CarandiniHarrisLab\analysis\wf_ephys_choiceworld\ephys_processing';
 kernel_fn = ['ephys_kernel_depth'];
 load([kernel_path filesep kernel_fn])
+
+% Get within-recording k_px correlation
+k_px_cat = [ephys_kernel_depth(:).k_px];
+k_px_cat_corr = cellfun(@(x) corrcoef(reshape(x,[],size(x,3))),k_px_cat,'uni',false);
+
+% Get all template matches
+k_match_cat = [ephys_kernel_align(:).kernel_match];
+
+% Pull out n to non-n transitions, align and average
+max_depths = max(cellfun(@(x) size(x,3),[ephys_kernel_depth.k_px]));
+k_px_cat_corr_pad = cellfun(@(x) padarray(x,2*max_depths-size(x),NaN,'post'), ...
+    k_px_cat_corr,'uni',false);
+
+k_corr_transition_mean = nan(2*max_depths,2*max_depths,n_aligned_depths,2);
+for curr_template = 1:n_aligned_depths
+    
+    curr_leave_border = cellfun(@(x) find(x(1:end-1) == curr_template & ...
+        x(2:end) ~= curr_template & ~isnan(x(2:end)),1),k_match_cat,'uni',false);
+    curr_use_recordings = cellfun(@any,curr_leave_border);
+    if any(curr_use_recordings)
+        curr_corr_pad_aligned = cell2mat(permute(cellfun(@(corr,border) ...
+            circshift(corr,[max_depths-border,max_depths-border]), ...
+            k_px_cat_corr_pad(curr_use_recordings), ...
+            curr_leave_border(curr_use_recordings),'uni',false),[1,3,2]));
+        k_corr_transition_mean(:,:,curr_template,1) = nanmean(curr_corr_pad_aligned,3);
+    end
+    
+    curr_enter_border = cellfun(@(x) find(x(1:end-1) ~= curr_template & ...
+        x(2:end) == curr_template & ~isnan(x(1:end-1)),1),k_match_cat,'uni',false);
+    curr_use_recordings = cellfun(@any,curr_enter_border);
+    if any(curr_use_recordings)
+        curr_corr_pad_aligned = cell2mat(permute(cellfun(@(corr,border) ...
+            circshift(corr,[max_depths-border,max_depths-border]), ...
+            k_px_cat_corr_pad(curr_use_recordings), ...
+            curr_enter_border(curr_use_recordings),'uni',false),[1,3,2]));
+        k_corr_transition_mean(:,:,curr_template,2) = nanmean(curr_corr_pad_aligned,3);
+    end
+    
+end
+figure;colormap(gray);
+for curr_depth = 1:n_aligned_depths
+   subplot(2,n_aligned_depths,curr_depth);
+   imagesc(k_corr_transition_mean(:,:,curr_depth,1));
+   line([max_depths+0.5,max_depths+0.5],ylim,'color','r');
+   line(xlim,[max_depths+0.5,max_depths+0.5],'color','r');
+   caxis([0,1]);
+   axis square;
+   title('Exiting');
+   
+   subplot(2,n_aligned_depths,n_aligned_depths+curr_depth);
+   imagesc(k_corr_transition_mean(:,:,curr_depth,2));
+   line([max_depths+0.5,max_depths+0.5],ylim,'color','r');
+   line(xlim,[max_depths+0.5,max_depths+0.5],'color','r');
+   caxis([0,1]);
+   axis square;
+   title('Entering');
+end
+
+
+%%%%%%%%% TO DO: plot the correlation across kernels?
+%%%% also something to justify 4 groups
+%%% also transitions between borders
+
+% Get all depth kernels
+k_px_cat = [ephys_kernel_depth(:).k_px];
+k_px_cat = cat(3,k_px_cat{:});
+k_px_cat_reshape = reshape(k_px_cat,[],size(k_px_cat,3));
 
 % Concatenate kernels and matches
 k_match_cat = cell2mat([ephys_kernel_align(:).kernel_match]');
@@ -3866,6 +3935,12 @@ k_px_depths = cellfun(@(x) total_depths(end-size(x,3)+1:end),[ephys_kernel_depth
 k_px_depth_cat = horzcat(k_px_depths{:});
 
 
+
+% % to look at inter/intra-kernel correlation?
+% k_px_corr = corrcoef(k_px_cat_reshape(:,use_k_px(k_depth_sort_idx)));
+% k_px_corr(logical(eye(size(k_px_corr)))) = NaN;
+% n_kidx_depths = histcounts(kidx_depth);
+% k_px_corr_split = mat2cell(k_px_corr,n_kidx_depths,n_kidx_depths);
 
 
 %% Create ROIs from kernel templates

@@ -109,7 +109,7 @@ for curr_animal = 1:length(D_all)
     mua_cat_norm = (mua_cat_raw_smoothed-mua_day_baseline)./(mua_day_std+softnorm);
     
     % Concatenated predicted MUA (already in std - normalize like MUA)
-    % (try doing a nonlinearity here?)
+    % (try 
     predicted_mua_std_cat_raw = cat(1,predicted_mua_std_all{curr_animal}{:});
     predicted_mua_std_cat_baseline = nanmean(reshape(predicted_mua_std_cat_raw(:,t_baseline,:),[],1,n_depths),1);
     predicted_mua_std_cat_std = nanmean(reshape(predicted_mua_std_cat_raw,[],1,n_depths),1);

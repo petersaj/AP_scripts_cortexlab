@@ -13,7 +13,8 @@ function [k,predicted_signals,explained_var,predicted_signals_reduced] = ...
 % zs - length 2 logical vector: zscore 1) regressors, 2) signals
 % (default is [false,true])
 % cvfold - fold cross-validation 
-% return_constant - if true, include constant in kernel (false by default)
+% return_constant - if true, return constant in output (false by default)
+% use_constant - if true, include constant in kernel (true by default)
 %
 % FOR MULTIPLE MODALITIES: make regressors and t_shifts cell arrays
 %

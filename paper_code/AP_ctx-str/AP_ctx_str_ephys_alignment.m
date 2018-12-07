@@ -57,15 +57,18 @@ save_path = 'C:\Users\Andrew\OneDrive for Business\Documents\CarandiniHarrisLab\
 save([save_path filesep 'ephys_depth_align'],'ephys_depth_align');
 disp('Finished batch');
 
-%% 2) Estimate imaging-ephys lambda (concat experiments)
+%% 2) Estimate imaging-ephys lambda (just main protocol)
 clear all
 disp('Estimating imaging-ephys lambda');
 
 % Parameters for regression
 regression_params.use_svs = 1:50;
 regression_params.skip_seconds = 60;
-regression_params.upsample_factor = 2;
-regression_params.kernel_t = [-0.3,0.3];
+regression_params.upsample_factor = 1;
+regression_params.kernel_t = [-0.2,0.2];
+regression_params.zs = [false,false];
+regression_params.cvfold = 5;
+regression_params.use_constant = true;
 
 animals = {'AP024','AP025','AP026','AP027','AP028','AP029', ...
     'AP032','AP033','AP034','AP035','AP036'};
@@ -96,31 +99,25 @@ for curr_animal = 1:length(animals)
         
         str_align = 'none';
         AP_load_experiment
-                
-        % Set upsample factor and sample rate
-        upsample_factor = 2;
-        sample_rate = (1/median(diff(frame_t)))*upsample_factor;
         
-        % Skip the first n seconds to do this
-        skip_seconds = 60;
-        time_bins = frame_t(find(frame_t > skip_seconds,1)):1/sample_rate:frame_t(find(frame_t-frame_t(end) < -skip_seconds,1,'last'));
+        % Get time points to bin
+        sample_rate = framerate*regression_params.upsample_factor;
+        time_bins = frame_t(find(frame_t > ...
+            regression_params.skip_seconds,1)):1/sample_rate: ...
+            frame_t(find(frame_t-frame_t(end) < ...
+            -regression_params.skip_seconds,1,'last'));
         time_bin_centers = time_bins(1:end-1) + diff(time_bins)/2;
         
         % Use all spikes in striatum
         use_spikes = spike_times_timeline(ismember(spike_templates, ...
             find(templateDepths > str_depth(1) & templateDepths <= str_depth(2))));
-        binned_spikes = single(histcounts(use_spikes,time_bins));
-        
-        use_svs = 1:50;
-        kernel_t = [-0.3,0.3];
-        kernel_frames = round(kernel_t(1)*sample_rate):round(kernel_t(2)*sample_rate);
-        zs = [false,true]; % z-score MUA, not V's
-        cvfold = 2;
+        binned_spikes = single(histcounts(use_spikes,time_bins));       
         
         % Resample and get derivative of V
         dfVdf_resample = interp1(conv2(frame_t,[1,1]/2,'valid'), ...
-            diff(fVdf(use_svs,:),[],2)',time_bin_centers)';
+            diff(fVdf(regression_params.use_svs,:),[],2)',time_bin_centers)';
         
+        % Do regression over a range of lambdas
         n_update_lambda = 1;
         lambda_range = [0,1.5]; % ^10 (used to be [3,7] before df/f change
         n_lambdas = 50;
@@ -132,11 +129,16 @@ for curr_animal = 1:length(animals)
             
             for curr_lambda_idx = 1:length(lambdas)
                 
-                curr_lambda = lambdas(curr_lambda_idx);
+                curr_lambda = lambdas(curr_lambda_idx);                
                 
-                [~,~,explained_var] = ...
+                kernel_frames = round(regression_params.kernel_t(1)*sample_rate): ...
+                    round(regression_params.kernel_t(2)*sample_rate);
+                
+                [k,predicted_spikes,explained_var] = ...
                     AP_regresskernel(dfVdf_resample, ...
-                    binned_spikes,kernel_frames,curr_lambda,zs,cvfold);
+                    binned_spikes./nanstd(binned_spikes,[],2),kernel_frames,curr_lambda, ...
+                    regression_params.zs,regression_params.cvfold, ...
+                    false,regression_params.use_constant);
                 
                 explained_var_lambdas(curr_lambda_idx) = explained_var.total;
                 
@@ -171,13 +173,16 @@ disp('Saved cortex-striatum lambda values');
 
 %% 3) Get kernels at regular depths along striatum (concat experiments)
 clear all
-disp('Getting kernels at regular depths along striatum');
+disp('Getting kernels at regular depths along striatum (concat experiments)');
 
 % Parameters for regression
 regression_params.use_svs = 1:50;
 regression_params.skip_seconds = 60;
-regression_params.upsample_factor = 2;
-regression_params.kernel_t = [-0.3,0.3];
+regression_params.upsample_factor = 1;
+regression_params.kernel_t = [-0.2,0.2];
+regression_params.zs = [false,false];
+regression_params.cvfold = 5;
+regression_params.use_constant = true;
 
 animals = {'AP024','AP025','AP026','AP027','AP028','AP029', ...
     'AP032','AP033','AP034','AP035','AP036'};
@@ -263,17 +268,20 @@ for curr_animal = 1:length(animals)
             if any(curr_day_idx)
                 lambda = ctx_str_lambda(curr_animal_idx).best_lambda(curr_day_idx);
             end
-        end       
+        end
 
-        % Regress fluorescence to spikes
+        % Regress fluorescence to spikes (std)
         kernel_frames = round(regression_params.kernel_t(1)*sample_rate): ...
             round(regression_params.kernel_t(2)*sample_rate);
-        zs = [false,true];
-        cvfold = 10;
+        
+        binned_spikes_std = binned_spikes./nanstd(binned_spikes,[],2);
+        binned_spikes_std(isnan(binned_spikes_std)) = 0;
         
         [k,predicted_spikes,explained_var] = ...
             AP_regresskernel(dfVdf_resample, ...
-            binned_spikes,kernel_frames,lambda,zs,cvfold);
+            binned_spikes_std,kernel_frames,lambda, ...
+            regression_params.zs,regression_params.cvfold, ...
+            false,regression_params.use_constant);
         
         Udf_aligned = single(AP_align_widefield(animal,day,Udf));
         k_px = zeros(size(Udf_aligned,1),size(Udf_aligned,2),size(k,2),size(k,3),'single');
@@ -322,7 +330,7 @@ k_px_cat = [ephys_kernel_depth(:).k_px];
 k_px_cat = cat(3,k_px_cat{:});
 k_px_cat_reshape = reshape(k_px_cat,[],size(k_px_cat,3));
 
-use_k_px = find(std(k_px_cat_reshape,[],1) ~= 0);
+use_k_px = find(~any(isnan(k_px_cat_reshape),1));
 
 n_aligned_depths = 4;
 kidx = kmeans(k_px_cat_reshape(:,use_k_px)',n_aligned_depths,'Distance','correlation');
@@ -354,7 +362,8 @@ for i = 1:n_aligned_depths
 end
 
 % Plot correlations of kernels by kidx (renumber by depth)
-kidx_depth = depth_sort_idx(kidx);
+[~,depth_renumber_idx] = ismember(1:n_aligned_depths,depth_sort_idx);
+kidx_depth = depth_renumber_idx(kidx);
 [~,k_depth_sort_idx] = sort(kidx_depth);
 figure;
 imagesc(corrcoef(k_px_cat_reshape(:,use_k_px(k_depth_sort_idx))))
