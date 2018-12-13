@@ -83,9 +83,8 @@ title('Late move');
 % Load data
 data_fn = ['trial_activity_choiceworld_framerate'];
 exclude_data = true;
+AP_load_concat_normalize_ctx_str;
 
-[t,fluor_allcat_deriv,fluor_roi_deriv,mua_allcat,wheel_allcat,reward_allcat,D_allcat] = ...
-    AP_load_concat_normalize_ctx_str(data_fn,exclude_data);
 n_vs = size(fluor_allcat_deriv,3);
 n_depths = size(mua_allcat,3);
 
@@ -172,10 +171,10 @@ end
 % (stim = V1, move onset/ongoing = SMl, beep = PPC, reward = SMf)
 plot_areas = {'V1p_L','RSPa_L','SMl_L','PPC_L','SMf_L'};
 plot_reduction = [1,2,3,4,5]; % (which reduced variable to plot)
-plot_conditions = {unique(trial_contrastside_allcat),1:3,1:3,[1,3],0:1};
+plot_conditions = {unique(trial_contrastside_allcat),[-1,1],1:3,[1,3],0:1};
 plot_conditions_compare = { ...
-    trial_contrastside_allcat, ...
-    discretize(move_t,linspace(0,0.5,4)), ...
+    trial_contrastside_allcat, ...  
+    trial_choice_allcat, ...
     discretize(move_t,linspace(0,0.5,4)), ...
     discretize(move_t,[0.2,0.3,0.6,0.7]), ...
     trial_choice_allcat == -trial_side_allcat};
@@ -184,8 +183,8 @@ stim_col = colormap_BlueWhiteRed(5);
 stim_col(6,:) = 0;
 plot_cols = { ...
     stim_col, ...
-    copper(length(plot_conditions{2})), ...
-    copper(length(plot_conditions{2})), ...
+    [1,0,0;0,0,1], ...
+    copper(3), ...
     [0.5,0.5,0;0.6,0,0.6], ...
     [0,0,0;0,0,0.7]};
 
@@ -410,87 +409,36 @@ axis image off;
 
 %% Fig 2b: Example traces/kernels
 
-warning('Probably not best example, check others');
-
 % Load and align
 str_align = 'kernel';
 
 % animal = 'AP028'; 
 % day = '2017-12-20'; % 16/20 (blood in 16, a little in 20)
 
-animal = 'AP027';
-day = '2017-11-25';
+% animal = 'AP027';
+% day = '2017-11-25'; % some of those pco interger type artifacts
+
+animal = 'AP025';
+day = '2017-10-04';
 
 experiment = 1; 
-verbose = false; 
+verbose = true; 
 AP_load_experiment;
 
 avg_im_aligned = AP_align_widefield(animal,day,avg_im);
 Udf_aligned = single(AP_align_widefield(animal,day,Udf));
 
-% Smoothing window
-smooth_size = 9; % MUST BE ODD
-gw = gausswin(smooth_size,3)';
-smWin = gw./sum(gw);
+% Parameters for regression
+n_aligned_depths = 4;
+regression_params.use_svs = 1:50;
+regression_params.skip_seconds = 60;
+regression_params.upsample_factor = 1;
+regression_params.kernel_t = [-0.2,0.2];
+regression_params.zs = [false,false];
+regression_params.cvfold = 5;
+regression_params.use_constant = true;
 
-% Define ROIs and get fluorescence traces
-roi_circle_size = 10;
-roi_x = [131,160,128,51]; % roi_x = [131,174,110,51];
-roi_y = [297,131,59,144]; % roi_y = [297,96,71,144];
-[x,y] = meshgrid(1:size(avg_im_aligned,1),1:size(avg_im_aligned,2));
-roi_mask = cell2mat(arrayfun(@(roi) sqrt((x-roi_x(roi)).^2 + (y-roi_y(roi)).^2) <= ...
-    roi_circle_size,permute(1:length(roi_x),[1,3,2]),'uni',false));
-roi_trace = AP_svd_roi(Udf_aligned,fVdf,[],[],roi_mask);
-
-roi_trace_deriv = diff(convn(roi_trace,smWin,'same'),[],2);
-roi_trace_deriv(roi_trace_deriv < 0) = 0;
-
-% Bin spikes evenly across striatum
-n_depths = 4;
-depth_group_edges = round(linspace(str_depth(1),str_depth(2),n_depths+1));
-depth_group = discretize(spikeDepths,depth_group_edges);
-use_depths = 1:n_depths;
-
-time_bins = [frame_t,frame_t(end)+1/framerate];
-binned_spikes = zeros(length(use_depths),length(time_bins)-1);
-for curr_depth = 1:length(use_depths)
-    curr_spike_times = spike_times_timeline(depth_group == use_depths(curr_depth));
-    binned_spikes(curr_depth,:) = histcounts(curr_spike_times,time_bins);
-end
-binned_spikes_smoothed = convn(binned_spikes,smWin,'same');
-
-% Get spike-triggered average
-skip_seconds = 60;
-surround_times = [-0.2,0.2];
-
-framerate = 1./median(diff(frame_t));
-skip_frames = round(skip_seconds*framerate);
-surround_frames = round(surround_times(1)*framerate):round(surround_times(2)*framerate);
-sta_t = surround_frames./framerate;
-
-sta_im = zeros(size(Udf_aligned,1),size(Udf_aligned,2), ...
-    length(surround_frames),size(binned_spikes,1));
-
-for curr_depth = 1:size(binned_spikes,1)
-    frames_w = repmat(binned_spikes(curr_depth,skip_frames:end-skip_frames)'./ ...
-        sum(binned_spikes(curr_depth,skip_frames:end-skip_frames)),1,length(surround_frames));
-    for curr_sta_frame = 1:length(surround_frames)
-        frames_w(:,curr_sta_frame) = ...
-            circshift(frames_w(:,curr_sta_frame),[surround_frames(curr_sta_frame),0]);
-    end
-    
-    sta_v = diff(fVdf(:,skip_frames:end-skip_frames),[],2)*frames_w;
-    sta_im(:,:,:,curr_depth) = svdFrameReconstruct(Udf_aligned,sta_v);
-end
-
-sta_im_max = squeeze(max(sta_im,[],3));
-
-% Regress fluorescence to spikes
-use_svs = 1:50;
-skip_seconds = 60;
-upsample_factor = 1;
-kernel_t = [-0.3,0.3];
-
+% Get lambda
 lambda_fn = 'C:\Users\Andrew\OneDrive for Business\Documents\CarandiniHarrisLab\analysis\wf_ephys_choiceworld\ephys_processing\ctx-str_lambda';
 load(lambda_fn);
 curr_animal_idx = strcmp(animal,{ctx_str_lambda.animal});
@@ -501,25 +449,98 @@ if any(curr_animal_idx)
     end
 end
 
-large_lambda = lambda*10;
+% Get time points to bin
+sample_rate = framerate*regression_params.upsample_factor;
+time_bins = frame_t(find(frame_t > ...
+    regression_params.skip_seconds,1)):1/sample_rate: ...
+    frame_t(find(frame_t-frame_t(end) < ...
+    -regression_params.skip_seconds,1,'last'));
+time_bin_centers = time_bins(1:end-1) + diff(time_bins)/2;
 
-kernel_frames = round(kernel_t(1)*framerate): ...
-    round(kernel_t(2)*framerate);
-zs = [false,true];
-cvfold = 10;
+% Get upsampled dVdf's
+deriv_smooth_factor = 3;
+dfVdf_resample = interp1(conv2(frame_t,[1,1]/2,'valid'),diff(convn(fVdf, ...
+    ones(1,deriv_smooth_factor)/deriv_smooth_factor,'same'),[],2)',time_bin_centers)';
+
+% % %%%%%%%%%%% TESTING DECONV
+% 
+% % Deconvolve from the cortical recordings kernel
+% load('C:\Users\Andrew\OneDrive for Business\Documents\CarandiniHarrisLab\analysis\wf_ephys_choiceworld\wf_processing\gcamp_kernel\gcamp6s_kernel.mat');
+% 
+% gcamp6s_kernel_cat = vertcat(gcamp6s_kernel.regression{:});
+% gcamp6s_kernel = nanmean(gcamp6s_kernel_cat./max(gcamp6s_kernel_cat,[],2),1);
+% 
+% fVdf_deconv = convn(fVdf,gcamp6s_kernel,'same');
+%
+% dfVdf_resample = interp1(frame_t,fVdf_deconv',time_bin_centers)';
+% 
+% % %%%%%%%%%%%%
+
+% Get striatum depth group by across-experiment alignment
+n_depths = 4;
+depth_group_edges = round(linspace(str_depth(1),str_depth(2),n_depths+1));
+depth_group = discretize(spikeDepths,depth_group_edges);
+use_depths = 1:n_depths;
+
+binned_spikes = zeros(n_depths,length(time_bin_centers));
+for curr_depth = 1:n_depths
+    curr_spike_times = spike_times_timeline(depth_group == curr_depth);
+    binned_spikes(curr_depth,:) = histcounts(curr_spike_times,time_bins);
+end
+
+% Define ROIs and get fluorescence traces
+roi_circle_size = 10;
+roi_x = [136,176,142,116]; % roi_x = [131,174,110,51];
+roi_y = [299,91,79,87]; % roi_y = [297,96,71,144];
+[x,y] = meshgrid(1:size(avg_im_aligned,1),1:size(avg_im_aligned,2));
+roi_mask = cell2mat(arrayfun(@(roi) sqrt((x-roi_x(roi)).^2 + (y-roi_y(roi)).^2) <= ...
+    roi_circle_size,permute(1:length(roi_x),[1,3,2]),'uni',false));
+roi_trace_deriv = AP_svd_roi(Udf_aligned,dfVdf_resample,[],[],roi_mask);
+
+% Get spike-triggered average
+surround_times = [-0.2,0.2];
+
+surround_frames = round(surround_times(1)*framerate):round(surround_times(2)*framerate);
+sta_t = surround_frames./framerate;
+sta_im = zeros(size(Udf_aligned,1),size(Udf_aligned,2), ...
+    length(surround_frames),size(binned_spikes,1));
+
+for curr_depth = 1:size(binned_spikes,1)
+    frames_w = repmat(binned_spikes(curr_depth,:)'./ ...
+        sum(binned_spikes(curr_depth,:)),1,length(surround_frames));
+    for curr_sta_frame = 1:length(surround_frames)
+        frames_w(:,curr_sta_frame) = ...
+            circshift(frames_w(:,curr_sta_frame),[surround_frames(curr_sta_frame),0]);
+    end
+    
+    sta_v = dfVdf_resample*frames_w;
+    sta_im(:,:,:,curr_depth) = svdFrameReconstruct(Udf_aligned,sta_v);
+end
+
+sta_im_max = squeeze(max(sta_im,[],3));
+
+% Regress fluorescence to spikes
+kernel_frames = round(regression_params.kernel_t(1)*sample_rate): ...
+    round(regression_params.kernel_t(2)*sample_rate);
+
+binned_spikes_std = binned_spikes./nanstd(binned_spikes,[],2);
+binned_spikes_std(isnan(binned_spikes_std)) = 0;
 
 [k,predicted_spikes,explained_var] = ...
-    AP_regresskernel(diff(fVdf(use_svs,:),[],2), ...
-    binned_spikes,kernel_frames,large_lambda,zs,cvfold);
+    AP_regresskernel(dfVdf_resample(regression_params.use_svs,:), ...
+    binned_spikes_std,kernel_frames,lambda, ...
+    regression_params.zs,regression_params.cvfold, ...
+    false,regression_params.use_constant);
 
 Udf_aligned = single(AP_align_widefield(animal,day,Udf));
 k_px = zeros(size(Udf_aligned,1),size(Udf_aligned,2),size(k,2),size(k,3),'single');
 for curr_spikes = 1:size(k,3)
     k_px(:,:,:,curr_spikes) = ...
-        svdFrameReconstruct(Udf_aligned(:,:,use_svs),k(:,:,curr_spikes));
+        svdFrameReconstruct(Udf_aligned(:,:,regression_params.use_svs),k(:,:,curr_spikes));
 end
 
 k_px_max = squeeze(max(k_px,[],3));
+k_px_t0 = squeeze(k_px(:,:,kernel_frames == 0,:));
 
 % Plot STA and regression
 figure;
@@ -532,14 +553,23 @@ for curr_depth = 1:size(binned_spikes,1)
     axis image off;
     
     h = subplot(2,size(binned_spikes,1),size(binned_spikes,1) + curr_depth);
-    imagesc(k_px_max(:,:,curr_depth));
-    caxis([0,max(abs(caxis))]);
-    colormap(h,brewermap([],'BuGn'));
+    imagesc(k_px_t0(:,:,curr_depth));
+    caxis([0,prctile(k_px_t0(:),99)]);
+    colormap(h,brewermap([],'Purples'));
     AP_reference_outline('ccf_aligned','k');
     axis image off;
 end
 
 % Plot ROIs and traces
+
+% Smoothing window
+smooth_size = 9; % MUST BE ODD
+gw = gausswin(smooth_size,3)';
+smWin = gw./sum(gw);
+
+binned_spikes_smoothed = convn(binned_spikes,smWin,'same');
+predicted_spikes_smoothed = convn(predicted_spikes,smWin,'same');
+
 figure;
 
 subplot(1,3,1);
@@ -550,22 +580,22 @@ axis image off;
 AP_reference_outline('ccf_aligned','r');
 p = cellfun(@(x) plot(x(:,2),x(:,1),'b','linewidth',2),roi_boundaries);
 
-p1 = subplot(2,3,2:3);
-AP_stackplot(bsxfun(@rdivide,roi_trace_deriv,std(roi_trace_deriv,[],2))', ...
-    frame_t,5,false,[0,0.7,0]);
+p1 = subplot(2,3,2:3); hold on;
+AP_stackplot(roi_trace_deriv',time_bin_centers,5,true,[0,0.7,0]);
 title('\DeltaFluorescence')
 xlabel('Time (seconds)');
 ylabel('Activity (std)');
 
-p2 = subplot(2,3,5:6);
-AP_stackplot(bsxfun(@rdivide,binned_spikes_smoothed,std(binned_spikes,[],2))', ...
-    frame_t,5,false,'k');
+p2 = subplot(2,3,5:6); hold on;
+AP_stackplot(binned_spikes_smoothed',time_bin_centers,5,true,'k');
+AP_stackplot(predicted_spikes_smoothed',time_bin_centers,5,true,[0.6,0,0.6]);
 title('MUA')
 xlabel('Time (seconds)');
 ylabel('Activity (std)');
 
 linkaxes([p1,p2],'xy');
-xlim([80,107]);
+axis tight;
+xlim([395,433]);
 
 
 %% Fig 2c,e: Average regression maps (concatenated protocols)
@@ -1444,9 +1474,8 @@ end
 % Load data
 data_fn = ['trial_activity_choiceworld_framerate'];
 exclude_data = true;
+AP_load_concat_normalize_ctx_str;
 
-[t,fluor_allcat_deriv,fluor_roi_deriv,mua_allcat,wheel_allcat,reward_allcat,D_allcat] = ...
-    AP_load_concat_normalize_ctx_str(data_fn,exclude_data);
 n_vs = size(fluor_allcat_deriv,3);
 n_depths = size(mua_allcat,3);
 
@@ -1472,20 +1501,23 @@ kernel_roi_fn = 'C:\Users\Andrew\OneDrive for Business\Documents\CarandiniHarris
 load(kernel_roi_fn);
 
 % Get predicted fluorescence in ROIs
-fluor_kernel_roi = permute(reshape( ...
+fluor_kernel_roi_bw = permute(reshape( ...
+    AP_svd_roi(U_master(:,:,1:n_vs), ...
+    reshape(permute(fluor_allcat_deriv,[3,2,1]),n_vs,[]),[],[],kernel_roi.bw), ...
+    size(kernel_roi.bw,3),[],size(fluor_allcat_deriv,1)),[3,2,1]);
+
+fluor_kernel_roi_weighted = permute(reshape( ...
     AP_svd_roi(U_master(:,:,1:n_vs), ...
     reshape(permute(fluor_allcat_deriv,[3,2,1]),n_vs,[]),[],[],kernel_roi.max_weighted), ...
     size(kernel_roi.max_weighted,3),[],size(fluor_allcat_deriv,1)),[3,2,1]);
 
-
-
 % Plot measured and predicted relating to each kernel
 plot_areas = [1,2,3,1,4];
 plot_reduction = [1,2,3,4,5]; % (which reduced variable to plot)
-plot_conditions = {unique(trial_contrastside_allcat),1:3,1:3,[1,3],0:1};
+plot_conditions = {unique(trial_contrastside_allcat),[-1,1],1:3,[1,3],0:1};
 plot_conditions_compare = { ...
-    trial_contrastside_allcat, ...
-    discretize(move_t,linspace(0,0.5,4)), ...
+    trial_contrastside_allcat, ...  
+    trial_choice_allcat, ...
     discretize(move_t,linspace(0,0.5,4)), ...
     discretize(move_t,[0.2,0.3,0.6,0.7]), ...
     trial_choice_allcat == -trial_side_allcat};
@@ -1494,25 +1526,61 @@ stim_col = colormap_BlueWhiteRed(5);
 stim_col(6,:) = 0;
 plot_cols = { ...
     stim_col, ...
-    copper(length(plot_conditions{2})), ...
-    copper(length(plot_conditions{2})), ...
+    [1,0,0;0,0,1], ...
+    copper(3), ...
     [0.5,0.5,0;0.6,0,0.6], ...
     [0,0,0;0,0,0.7]};
 
 figure;
 for curr_area = 1:length(plot_areas)
     area_idx = plot_areas(curr_area);
-
-    p1 = subplot(1,length(plot_areas),curr_area);
+    
+    p1 = subplot(4,length(plot_areas),curr_area);
     hold on; set(gca,'ColorOrder',plot_cols{curr_area});
     for curr_condition = reshape(plot_conditions{curr_area},1,[])
         curr_trials = plot_conditions_compare{curr_area} == curr_condition;
-        curr_data_mean = nanmean(fluor_kernel_roi(curr_trials,:,area_idx),1);
+        curr_data_mean = nanmean(mua_allcat(curr_trials,:,area_idx),1);
         plot(t,curr_data_mean,'linewidth',2);
     end
     ylabel(['Str ' num2str(area_idx) ' Measured']);
     axis tight
     line([0,0],ylim,'color','k');
+    
+    p2 = subplot(4,length(plot_areas),curr_area+length(plot_areas)*1);
+    hold on; set(gca,'ColorOrder',plot_cols{curr_area});
+    for curr_condition = reshape(plot_conditions{curr_area},1,[])
+        curr_trials = plot_conditions_compare{curr_area} == curr_condition;
+        curr_data_mean = nanmean(fluor_kernel_roi_bw(curr_trials,:,area_idx),1);
+        plot(t,curr_data_mean,'linewidth',2);
+    end
+    ylabel(['ROI']);
+    axis tight
+    line([0,0],ylim,'color','k');
+    
+    p3 = subplot(4,length(plot_areas),curr_area+length(plot_areas)*2);
+    hold on; set(gca,'ColorOrder',plot_cols{curr_area});
+    for curr_condition = reshape(plot_conditions{curr_area},1,[])
+        curr_trials = plot_conditions_compare{curr_area} == curr_condition;
+        curr_data_mean = nanmean(fluor_kernel_roi_weighted(curr_trials,:,area_idx),1);
+        plot(t,curr_data_mean,'linewidth',2);
+    end
+    ylabel(['Weighted ROI']);
+    axis tight
+    line([0,0],ylim,'color','k');
+    
+    p4 = subplot(4,length(plot_areas),curr_area+length(plot_areas)*3);
+    hold on; set(gca,'ColorOrder',plot_cols{curr_area});
+    for curr_condition = reshape(plot_conditions{curr_area},1,[])
+        curr_trials = plot_conditions_compare{curr_area} == curr_condition;
+        curr_data_mean = nanmean(predicted_mua_std_allcat(curr_trials,:,area_idx),1);
+        plot(t,curr_data_mean,'linewidth',2);
+    end
+    ylabel(['Experiment kernel predicted']);
+    axis tight
+    line([0,0],ylim,'color','k');
+    
+    linkaxes([p1,p2,p3,p4],'x');
+    
 end
 
 
