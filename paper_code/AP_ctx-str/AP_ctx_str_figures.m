@@ -688,7 +688,7 @@ AP_reference_outline('ccf_aligned','k');
 title('Naive (t = 0)');
 
 % Plot at all multiple time points, transparency relative to weight
-plot_t = find(t >= -0.05 & t <= 0.05);
+plot_t = find(t >= -0.06 & t <= 0.06);
 weight_max = max(k_px_trained(:))*0.8;
 figure;
 for t_idx = 1:length(plot_t)

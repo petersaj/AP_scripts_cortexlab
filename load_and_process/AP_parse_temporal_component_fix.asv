@@ -78,7 +78,7 @@ end
 
 
 %% If the V's were parsed incorrectly
-% Loads in frame information to figure out what went wrong
+% (doesn't save anything, just loads in to look)
 
 animal = ''; % animal name
 day = ''; % yyyy-mm-dd
