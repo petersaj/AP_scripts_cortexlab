@@ -2834,7 +2834,7 @@ set(c2,'YTickLabel',linspace(depth_group_edges(1),depth_group_edges(end),6));
 % AP_estimate_lambda;
 
 % Set upsample value for regression
-upsample_factor = 2;
+upsample_factor = 1;
 sample_rate = (1/median(diff(frame_t)))*upsample_factor;
 
 % Skip the first/last n seconds to do this
@@ -2862,7 +2862,7 @@ depth_group_centers = depth_group_edges(1:end-1)+(diff(depth_group_edges)/2);
 % depth_group = aligned_str_depth_group;
 
 % % (for manual depth)
-% depth_group_edges = [2800,3500];
+% depth_group_edges = [0,500];
 % n_depths = length(depth_group_edges) - 1;
 % [depth_group_n,depth_group] = histc(spikeDepths,depth_group_edges);
 
@@ -2881,11 +2881,11 @@ end
 binned_spikes(isnan(binned_spikes)) = 0;
 
 use_svs = 1:50;
-kernel_t = [-0.3,0.3];
+kernel_t = [-0.2,0.2];
 kernel_frames = round(kernel_t(1)*sample_rate):round(kernel_t(2)*sample_rate);
-lambda = 6; % (COMMENT OUT TO USE LAMBDA ESTIMATION ELSEWHERE)
-zs = [false,true];
-cvfold = 10;
+lambda = 10; % (COMMENT OUT TO USE LAMBDA ESTIMATION ELSEWHERE)
+zs = [false,false];
+cvfold = 5;
 
 fVdf_resample = interp1(frame_t,fVdf(use_svs,:)',time_bin_centers)';
 dfVdf_resample = interp1(conv2(frame_t,[1,1]/2,'valid'), ...
@@ -3059,7 +3059,7 @@ set(c2,'YTickLabel',linspace(depth_group_edges(1),depth_group_edges(end),n_depth
 
 %% Regression from fluor to spikes (AP_regresskernel) templates - RESAMPLE
 
-upsample_factor = 2;
+upsample_factor = 1;
 sample_rate = (1/median(diff(frame_t)))*upsample_factor;
 
 % Skip the first/last n seconds to do this
@@ -3068,16 +3068,16 @@ skip_seconds = 60;
 time_bins = frame_t(find(frame_t > skip_seconds,1)):1/sample_rate:frame_t(find(frame_t-frame_t(end) < -skip_seconds,1,'last'));
 time_bin_centers = time_bins(1:end-1) + diff(time_bins)/2;
 
-% % (to group multiunit by depth from top)
-% n_depths = 6;
-% depth_group_edges = round(linspace(str_depth(1),str_depth(2),n_depths+1));
-% [depth_group_n,depth_group] = histc(spikeDepths,depth_group_edges);
-% depth_groups_used = unique(depth_group);
-% depth_group_centers = depth_group_edges(1:end-1)+(diff(depth_group_edges)/2);
+% (to group multiunit by depth from top)
+n_depths = 4;
+depth_group_edges = round(linspace(str_depth(1),str_depth(2),n_depths+1));
+[depth_group_n,depth_group] = histc(spikeDepths,depth_group_edges);
+depth_groups_used = unique(depth_group);
+depth_group_centers = depth_group_edges(1:end-1)+(diff(depth_group_edges)/2);
 
-% (to use aligned striatum depths)
-n_depths = n_aligned_depths;
-depth_group = aligned_str_depth_group;
+% % (to use aligned striatum depths)
+% n_depths = n_aligned_depths;
+% depth_group = aligned_str_depth_group;
 
 use_templates = unique(spike_templates(~isnan(depth_group)));
 binned_spikes = zeros(length(use_templates),length(time_bins)-1);
@@ -3090,8 +3090,8 @@ end
 use_svs = 1:50;
 kernel_t = [-0.2,0.2];
 kernel_frames = round(kernel_t(1)*sample_rate):round(kernel_t(2)*sample_rate);
-% lambda = 2e5; % (comment out to use lambda from above)
-zs = [false,true];
+lambda = 10; % (comment out to use lambda from above)
+zs = [false,false];
 cvfold = 5;
 
 fVdf_resample = interp1(frame_t,fVdf(use_svs,:)',time_bin_centers)';
@@ -3101,9 +3101,10 @@ fVdf_resample = interp1(frame_t,fVdf(use_svs,:)',time_bin_centers)';
 %     AP_regresskernel(fVdf_resample, ...
 %     binned_spikes,kernel_frames,lambda,zs,cvfold);
 % TO USE dfV
+binned_spikes_std = binned_spikes./nanstd(binned_spikes,[],2);
 [k,predicted_spikes,explained_var] = ...
     AP_regresskernel(conv2(diff(fVdf_resample,[],2),[1,1]/2,'valid'), ...
-    binned_spikes(:,2:end-1),kernel_frames,lambda*10,zs,cvfold);
+    binned_spikes_std(:,2:end-1),kernel_frames,lambda*10,zs,cvfold);
 
 % Reshape kernel and convert to pixel space
 r = reshape(k,length(use_svs),length(kernel_frames),size(binned_spikes,1));
@@ -3111,7 +3112,7 @@ r = reshape(k,length(use_svs),length(kernel_frames),size(binned_spikes,1));
 r_px_max = gpuArray(squeeze(max(reshape(svdFrameReconstruct(Udf(:,:,use_svs), ...
     reshape(r,size(r,1),[])),size(Udf,1),size(Udf,2),[],size(binned_spikes,1)),[],3)));
 r_px_medfilt = nan(size(r_px_max));
-for curr_spikes = 1:size(r,3);
+for curr_spikes = 1:size(r,3)
     curr_medfilt_r = gather(medfilt2(r_px_max(:,:,curr_spikes),[11,11]));
     r_px_medfilt(:,:,curr_spikes) = curr_medfilt_r;
     AP_print_progress_fraction(curr_spikes,size(r,3));
