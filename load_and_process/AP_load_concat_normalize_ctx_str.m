@@ -153,9 +153,13 @@ end
 % %%%%%%%%%%%%
 
 % Get fluorescence derivative and interpolate to match original t
-t_diff = conv(t,[1,1]/2,'valid');
-fluor_allcat_deriv = permute(interp1(t_diff, ...
-    permute(diff(fluor_allcat,[],2),[2,1,3]),t,'linear','extrap'),[2,1,3]);
+deriv_smooth = 3;
+
+t_smooth_diff = conv(conv(t,ones(1,deriv_smooth)/deriv_smooth,'valid'),[1,1]/2,'valid');
+fluor_allcat_deriv = permute(interp1(t_smooth_diff, ...
+    permute(diff( ...
+    convn(fluor_allcat,ones(1,deriv_smooth)/deriv_smooth,'valid'),[],2), ...
+    [2,1,3]),t,'linear','extrap'),[2,1,3]);
 
 % Get fluorescence in ROIs
 wf_roi_fn = 'C:\Users\Andrew\OneDrive for Business\Documents\CarandiniHarrisLab\analysis\wf_ephys_choiceworld\wf_processing\wf_rois\wf_roi';

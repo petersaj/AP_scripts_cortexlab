@@ -1,6 +1,7 @@
 function AP_preprocess_phase3(animal,day,local_data)
 % AP_preprocess_phase3(animal,day,local_data)
 % if local_data - use data already in folder
+% (now using kilosort2, putting into a 'kilosort2' folder)
 
 if ~exist('local_data','var')
     local_data = false;
@@ -8,8 +9,14 @@ end
 
 %% Get paths and filenames
 
+[ephys_path,ephys_exists] = AP_cortexlab_filename(animal,day,[],'ephysraw');
+
+if ~ephys_exists
+    error([animal ' ' day ': No ephys data found']);
+end
+
 save_paths =  ...
-    {['\\zubjects.cortexlab.net\Subjects\' animal filesep day filesep 'ephys' filesep 'kilosort']};
+    {[ephys_path filesep 'kilosort2']};
 
 if exist('local_data','var') && local_data
     %     data_paths =  ...
@@ -18,7 +25,7 @@ if exist('local_data','var') && local_data
         {['C:\data_temp\kilosort']};
 else
     data_paths =  ...
-        {['\\zubjects.cortexlab.net\Subjects\' animal filesep day filesep 'ephys']};
+        {ephys_path};
 end
 
 % Check for multiple sites (assume sites are marked as site#)

@@ -124,14 +124,14 @@ n_rois = numel(wf_roi);
 fluor_predicted_roi = permute(reshape( ...
     AP_svd_roi(U_master(:,:,1:n_vs), ...
     reshape(permute(fluor_allcat_predicted,[3,2,1]),n_vs,[]),[],[],cat(3,wf_roi.mask)), ...
-    length(wf_roi),[],size(fluor_allcat_predicted,1)),[3,2,1]);
+    n_rois,[],size(fluor_allcat_predicted,1)),[3,2,1]);
 
 fluor_predicted_reduced_roi = arrayfun(@(x) ...
     permute(reshape( ...
     AP_svd_roi(U_master(:,:,1:n_vs), ...
     reshape(permute(fluor_allcat_predicted_reduced(:,:,:,x),[3,2,1]), ...
     n_vs,[]),[],[],cat(3,wf_roi.mask)), ...
-    length(wf_roi),[],size(fluor_allcat_predicted,1)),[3,2,1]), ...
+    n_rois,[],size(fluor_allcat_predicted,1)),[3,2,1]), ...
     1:size(fluor_allcat_predicted_reduced,4),'uni',false);
 
 % Plot map of cortical activity at time points on correct visual trials
@@ -1469,7 +1469,7 @@ for curr_area = 1:length(plot_areas)
 end
 
 
-%% %%%%%%% TESTING: fluorescence kernel ROIs
+%% %%%%%%% TESTING: ctx-predicted str stuff
 
 % Load data
 data_fn = ['trial_activity_choiceworld_framerate'];
@@ -1478,6 +1478,10 @@ AP_load_concat_normalize_ctx_str;
 
 n_vs = size(fluor_allcat_deriv,3);
 n_depths = size(mua_allcat,3);
+
+% Load regression results
+regression_fn = 'C:\Users\Andrew\OneDrive for Business\Documents\CarandiniHarrisLab\analysis\wf_ephys_choiceworld\paper\data\trial_activity_choiceworld_task_regression';
+load(regression_fn)
 
 % Get trial information
 trial_contrast_allcat = max(D_allcat.stimulus,[],2);
@@ -1496,6 +1500,9 @@ move_t = t(move_idx)';
 % Load the master U
 load('C:\Users\Andrew\OneDrive for Business\Documents\CarandiniHarrisLab\analysis\wf_ephys_choiceworld\wf_processing\wf_alignment\U_master');
 
+
+%%%%%% Get cortical activity in ROIs similar to kernel
+
 % Load widefield kernel ROIs
 kernel_roi_fn = 'C:\Users\Andrew\OneDrive for Business\Documents\CarandiniHarrisLab\analysis\wf_ephys_choiceworld\wf_processing\wf_rois\kernel_roi';
 load(kernel_roi_fn);
@@ -1511,7 +1518,8 @@ fluor_kernel_roi_weighted = permute(reshape( ...
     reshape(permute(fluor_allcat_deriv,[3,2,1]),n_vs,[]),[],[],kernel_roi.max_weighted), ...
     size(kernel_roi.max_weighted,3),[],size(fluor_allcat_deriv,1)),[3,2,1]);
 
-% Plot measured and predicted relating to each kernel
+
+%%%%%% Plot measured and predicted relating to each kernel
 plot_areas = [1,2,3,1,4];
 plot_reduction = [1,2,3,4,5]; % (which reduced variable to plot)
 plot_conditions = {unique(trial_contrastside_allcat),[-1,1],1:3,[1,3],0:1};
@@ -1583,6 +1591,490 @@ for curr_area = 1:length(plot_areas)
     
 end
 
+
+%%%%%% Plot measured and predicted relating to each kernel (move-aligned)
+
+% Re-align activity to movement onset
+move_onset_regressor_idx = strcmp('Move onset',regressor_labels);
+predicted_mua_std_allcat_move = predicted_mua_std_allcat - predicted_mua_allcat_predicted_reduced(:,:,:,move_onset_regressor_idx);
+mua_allcat_move = mua_allcat - mua_allcat_predicted_reduced(:,:,:,move_onset_regressor_idx);
+t_leeway = -t(1);
+leeway_samples = round(t_leeway*(sample_rate));
+for i = 1:size(fluor_allcat_deriv,1)
+    predicted_mua_std_allcat_move(i,:,:) = circshift(predicted_mua_std_allcat_move(i,:,:),-move_idx(i)+leeway_samples,2);
+    mua_allcat_move(i,:,:) = circshift(mua_allcat_move(i,:,:),-move_idx(i)+leeway_samples,2);
+end
+
+% Plot measured and predicted relating to each kernel
+plot_areas = [1,2,3,4];
+
+plot_conditions = ...
+    [1,-1,1; ...
+    -1,1,1; ...
+    0,-1,1; ...
+    0,1,1];
+plot_condition_col = ... 
+    [1,0,0; ...
+    0,0,1; ...
+    1,0,1; ...
+    0,1,1];
+trial_conditions = ...
+    [sign(trial_contrastside_allcat), trial_choice_allcat, move_t < 0.5];
+[~,trial_id] = ismember(trial_conditions,plot_conditions,'rows');
+
+plot_conditions = {[1:4],[1:4],[1:4],[1:4]};
+plot_conditions_compare = { ...
+    trial_id, ...  
+    trial_id, ...
+    trial_id, ...
+    trial_id};
+
+stim_col = colormap_BlueWhiteRed(5);
+stim_col(6,:) = 0;
+plot_cols = { ...
+    plot_condition_col, ...
+    plot_condition_col, ...
+    plot_condition_col, ...
+    plot_condition_col};
+
+% (reward)
+% plot_condition_col = ... 
+%     [0,0,1; ...
+%     0,0,0];
+% 
+% plot_conditions = {[1,0],[1,0],[1,0],[1,0]};
+% plot_conditions_compare = { ...
+%     trial_side_allcat == -trial_choice_allcat & move_t < 0.5, ...  
+%     trial_side_allcat == -trial_choice_allcat & move_t < 0.5, ...  
+%     trial_side_allcat == -trial_choice_allcat & move_t < 0.5, ...  
+%     trial_side_allcat == -trial_choice_allcat & move_t < 0.5};
+% 
+% plot_cols = { ...
+%     plot_condition_col, ...
+%     plot_condition_col, ...
+%     plot_condition_col, ...
+%     plot_condition_col};
+
+figure;
+for curr_area = 1:length(plot_areas)
+    area_idx = plot_areas(curr_area);
+    
+    p1 = subplot(2,length(plot_areas),curr_area);
+    hold on; set(gca,'ColorOrder',plot_cols{curr_area});
+    for curr_condition = reshape(plot_conditions{curr_area},1,[])
+        curr_trials = plot_conditions_compare{curr_area} == curr_condition;
+        curr_data_mean = nanmean(mua_allcat_move(curr_trials,:,area_idx),1);
+        plot(t,curr_data_mean,'linewidth',2);
+    end
+    ylabel(['Str ' num2str(area_idx) ' Measured']);
+    axis tight
+    line([0,0],ylim,'color','k');
+    
+    p2 = subplot(2,length(plot_areas),curr_area+length(plot_areas)*1);
+    hold on; set(gca,'ColorOrder',plot_cols{curr_area});
+    for curr_condition = reshape(plot_conditions{curr_area},1,[])
+        curr_trials = plot_conditions_compare{curr_area} == curr_condition;
+        curr_data_mean = nanmean(predicted_mua_std_allcat_move(curr_trials,:,area_idx),1);
+        plot(t,curr_data_mean,'linewidth',2);
+    end
+    ylabel(['Experiment kernel predicted']);
+    axis tight
+    line([0,0],ylim,'color','k');
+    
+    linkaxes([p1,p2],'xy');
+    
+end
+
+
+
+%%%% SVM
+
+% L/R stim SVM on each time point
+% (subtract all but stim)
+disp('Predicting stim side...');
+stim_regressor_idx = strcmp('Stim',regressor_labels);
+predicted_mua_std_allcat_stim = predicted_mua_std_allcat - predicted_mua_allcat_predicted_reduced(:,:,:,stim_regressor_idx);
+mua_allcat_stim = mua_allcat - mua_allcat_predicted_reduced(:,:,:,stim_regressor_idx);
+
+activity_cat = cat(3,mua_allcat_stim,predicted_mua_std_allcat_stim);
+stim_frac_correct_predicted = nan(size(activity_cat,3),length(t));
+for curr_area = 1:size(activity_cat,3)
+    for curr_t = 1:length(t)        
+        use_data = activity_cat(:,curr_t,curr_area);
+        use_predict = trial_side_allcat;
+        
+        use_trials = ~isnan(use_data) & move_t < 0.5 & trial_contrast_allcat > 0;
+        
+        SVMModel = fitcsvm(use_data(use_trials),use_predict(use_trials));
+        CVSVMModel = crossval(SVMModel);
+        predicted_val = kfoldPredict(CVSVMModel);
+        stim_frac_correct_predicted(curr_area,curr_t) = ...
+            sum(use_predict(use_trials) == predicted_val)/ ...
+            sum(use_trials);           
+        AP_print_progress_fraction(curr_t,length(t));
+    end
+    AP_print_progress_fraction(curr_area,size(activity_cat,3));
+end
+
+% L/R move SVM on each time point
+% (realign to movement, subtract all but move onset)
+disp('Predicting move direction...');
+move_onset_regressor_idx = strcmp('Move onset',regressor_labels);
+predicted_mua_std_allcat_move = predicted_mua_std_allcat - predicted_mua_allcat_predicted_reduced(:,:,:,move_onset_regressor_idx);
+mua_allcat_move = mua_allcat - mua_allcat_predicted_reduced(:,:,:,move_onset_regressor_idx);
+t_leeway = -t(1);
+leeway_samples = round(t_leeway*(sample_rate));
+for i = 1:size(fluor_allcat_deriv,1)
+    predicted_mua_std_allcat_move(i,:,:) = circshift(predicted_mua_std_allcat_move(i,:,:),-move_idx(i)+leeway_samples,2);
+    mua_allcat_move(i,:,:) = circshift(mua_allcat_move(i,:,:),-move_idx(i)+leeway_samples,2);
+end
+
+activity_cat = cat(3,mua_allcat_move,predicted_mua_std_allcat_move);
+move_frac_correct_predicted = nan(size(activity_cat,3),length(t));
+for curr_area = 1:size(activity_cat,3)
+    for curr_t = 1:length(t)        
+        use_data = activity_cat(:,curr_t,curr_area);
+        use_predict = trial_choice_allcat;
+        
+        use_trials = ~isnan(use_data) & move_t < 0.5;
+        
+        SVMModel = fitcsvm(use_data(use_trials),use_predict(use_trials));
+        CVSVMModel = crossval(SVMModel);
+        predicted_val = kfoldPredict(CVSVMModel);
+        move_frac_correct_predicted(curr_area,curr_t) = ...
+            sum(use_predict(use_trials) == predicted_val)/ ...
+            sum(use_trials);           
+        AP_print_progress_fraction(curr_t,length(t));
+    end
+    AP_print_progress_fraction(curr_area,size(activity_cat,3));
+end
+
+% Reward/no reward SVM on each time point
+% (subtract all but reward)
+disp('Predicting reward...');
+reward_regressor_idx = strcmp('Reward',regressor_labels);
+predicted_mua_std_allcat_reward = predicted_mua_std_allcat - predicted_mua_allcat_predicted_reduced(:,:,:,reward_regressor_idx);
+mua_allcat_reward = mua_allcat - mua_allcat_predicted_reduced(:,:,:,reward_regressor_idx);
+
+activity_cat = cat(3,mua_allcat_reward,predicted_mua_std_allcat_reward);
+reward_frac_correct_predicted = nan(size(activity_cat,3),length(t));
+for curr_area = 1:size(activity_cat,3)
+    for curr_t = 1:length(t)        
+        use_data = activity_cat(:,curr_t,curr_area);
+        use_predict = trial_side_allcat == -trial_choice_allcat;
+        
+        use_trials = ~isnan(use_data) & move_t < 0.5;
+        
+        SVMModel = fitcsvm(use_data(use_trials),use_predict(use_trials));
+        CVSVMModel = crossval(SVMModel);
+        predicted_val = kfoldPredict(CVSVMModel);
+        reward_frac_correct_predicted(curr_area,curr_t) = ...
+            sum(use_predict(use_trials) == predicted_val)/ ...
+            sum(use_trials);           
+        AP_print_progress_fraction(curr_t,length(t));
+    end
+    AP_print_progress_fraction(curr_area,size(activity_cat,3));
+end
+
+% Plot SVM predictions 
+figure; 
+subplot(1,2,1);
+hold on; set(gca,'ColorOrder',[copper(n_depths);cool(n_depths)]);
+plot(t,stim_frac_correct_predicted','linewidth',2);
+line([0,0],ylim,'color','k');
+xlabel('Time from stim')
+ylabel('Fraction correct predicted');
+title('Stim side');
+
+subplot(1,2,2);
+hold on; set(gca,'ColorOrder',[copper(n_depths);cool(n_depths)]);
+plot(t,move_frac_correct_predicted','linewidth',2);
+line([0,0],ylim,'color','k');
+xlabel('Time from move')
+ylabel('Fraction correct predicted');
+title('Move direction');
+
+
+%%%% Get activity related to different predictions
+
+trial_groups = {'Stim','Move onset','Reward'};
+figure;
+for curr_group = 1:length(trial_groups)
+    
+    % Get MUA/predicted using reduced model
+    curr_regressor_idx = strcmp(trial_groups{curr_group},regressor_labels);
+    curr_mua =  mua_allcat - mua_allcat_predicted_reduced(:,:,:,curr_regressor_idx);
+    curr_predicted_mua = predicted_mua_std_allcat - predicted_mua_allcat_predicted_reduced(:,:,:,curr_regressor_idx);
+        
+    % (if movement, align to move onset)
+    if strcmp(trial_groups{curr_group},'Move onset')
+        t_leeway = -t(1);
+        leeway_samples = round(t_leeway*(sample_rate));
+        for i = 1:size(fluor_allcat_deriv,1)
+            curr_mua(i,:,:) = circshift(curr_mua(i,:,:),-move_idx(i)+leeway_samples,2);
+            curr_predicted_mua(i,:,:) = circshift(curr_predicted_mua(i,:,:),-move_idx(i)+leeway_samples,2);
+        end
+    end
+    
+    % Set trials and grouping (-1,1) to use
+    switch trial_groups{curr_group}
+        case 'Stim'
+            use_trials = move_t > 0 & move_t < 1 & trial_contrast_allcat > 0;
+            trial_group = trial_side_allcat;
+            group1 = 1;
+            group2 = -1;
+        case 'Move onset'
+            use_trials = move_t > 0 & move_t < 1;
+            trial_group = trial_choice_allcat;
+            group1 = -1;
+            group2 = 1;
+        case 'Reward'
+            use_trials = move_t > 0 & move_t < 1;
+            trial_group = trial_choice_allcat == -trial_side_allcat;
+            group1 = 1;
+            group2 = 0;
+    end    
+    
+    act_rank = tiedrank(curr_mua(use_trials,:,:));
+    act_rank_difference = squeeze(( ...
+        nanmean(act_rank(trial_group(use_trials) == group1,:,:),1) - ...
+        nanmean(act_rank(trial_group(use_trials) == group2,:,:),1))./sum(use_trials));
+    
+    predicted_act_rank = tiedrank(curr_predicted_mua(use_trials,:,:));
+    predicted_act_rank_difference = squeeze(( ...
+        nanmean(predicted_act_rank(trial_group(use_trials) == group1,:,:),1) - ...
+        nanmean(predicted_act_rank(trial_group(use_trials) == group2,:,:),1))./sum(use_trials));    
+    
+    p1 = subplot(2,length(trial_groups),curr_group); 
+    hold on; set(gca,'ColorOrder',copper(n_depths));
+    plot(t,act_rank_difference,'linewidth',2);
+    axis tight; line([0,0],ylim,'color','k');
+    xlabel('Time');
+    ylabel('Mean rank difference');
+    title([trial_groups{curr_group} ': Measured']);
+    
+    p2 = subplot(2,length(trial_groups),length(trial_groups)+curr_group); 
+    hold on; set(gca,'ColorOrder',copper(n_depths));
+    plot(t,predicted_act_rank_difference,'linewidth',2);
+    axis tight; line([0,0],ylim,'color','k');
+    xlabel('Time');
+    ylabel('Mean rank difference');
+    title([trial_groups{curr_group} ': Predicted']);
+    linkaxes([p1,p2],'xy');        
+    
+%     %%% (testing shuffle)    
+%     n_shuff = 100;
+%     rank_diff_shuff = nan(size(act_rank,2),size(act_rank,3),n_shuff);
+%     rank_diff_predicted_shuff = nan(size(act_rank,2),size(act_rank,3),n_shuff);
+%     for curr_shuff = 1:n_shuff
+%         trial_group_shuff = AP_shake(trial_group(use_trials));
+%         rank_diff_shuff(:,:,curr_shuff) = squeeze(( ...
+%             nanmean(act_rank(trial_group_shuff == group1,:,:),1) - ...
+%             nanmean(act_rank(trial_group_shuff == group2,:,:),1))./sum(use_trials));
+%         rank_diff_predicted_shuff(:,:,curr_shuff) = squeeze(( ...
+%             nanmean(predicted_act_rank(trial_group_shuff == group1,:,:),1) - ...
+%             nanmean(predicted_act_rank(trial_group_shuff == group2,:,:),1))./sum(use_trials));
+%         AP_print_progress_fraction(curr_shuff,n_shuff);
+%     end
+%     
+%     rank_diff_rank = permute(tiedrank(permute(cat(3,act_rank_difference,rank_diff_shuff),[3,1,2])),[2,3,1]);
+%     rank_diff_predicted_rank = permute(tiedrank(permute(cat(3,predicted_act_rank_difference,rank_diff_predicted_shuff),[3,1,2])),[2,3,1]);
+%     
+%     rank_diff_p = rank_diff_rank(:,:,1)./size(rank_diff_rank,3);
+%     rank_diff_predicted_p = rank_diff_predicted_rank(:,:,1)./size(rank_diff_predicted_rank,3);
+%     
+%     max_plot = max(act_rank_difference(:));
+%     spacing = max_plot/10;
+%     
+%     rank_diff_p_plot = +(rank_diff_p > 0.95);
+%     rank_diff_p_plot(~rank_diff_p_plot) = NaN;
+%     rank_diff_p_plot = +rank_diff_p_plot.*(1:n_depths)*spacing+max_plot;  
+%     plot(p1,t,rank_diff_p_plot,'.','MarkerSize',5);
+%     axis tight;
+%     
+%     rank_diff_predicted_p_plot = +(rank_diff_predicted_p > 0.95);
+%     rank_diff_predicted_p_plot(~rank_diff_predicted_p_plot) = NaN;
+%     rank_diff_predicted_p_plot = +rank_diff_predicted_p_plot.*(1:n_depths)*spacing+max_plot;   
+%     plot(p2,t,rank_diff_predicted_p_plot,'.','MarkerSize',5);
+%     axis tight;
+    
+end
+
+
+
+
+
+
+% (same, for fluor)
+trial_groups = {'Stim','Move onset','Reward'};
+figure;
+for curr_group = 1:length(trial_groups)
+    
+    curr_regressor_idx = strcmp(trial_groups{curr_group},regressor_labels);
+    
+    fluor_predicted_roi_reduced = permute(reshape( ...
+        AP_svd_roi(U_master(:,:,1:n_vs), ...
+        reshape(permute(fluor_allcat_predicted_reduced(:,:,:,curr_regressor_idx),[3,2,1]), ...
+        n_vs,[]),[],[],cat(3,wf_roi.mask)), ...
+        n_rois,[],size(fluor_allcat_predicted,1)),[3,2,1]);
+    
+    curr_fluor =  fluor_roi_deriv - fluor_predicted_roi_reduced;
+    
+    % (if movement, align to move onset)
+    if strcmp(trial_groups{curr_group},'Move onset')
+        t_leeway = -t(1);
+        leeway_samples = round(t_leeway*(sample_rate));
+        for i = 1:size(fluor_allcat_deriv,1)
+            curr_fluor(i,:,:) = circshift(curr_fluor(i,:,:),-move_idx(i)+leeway_samples,2);
+        end
+    end
+    
+    % Set trials and grouping (-1,1) to use
+    switch trial_groups{curr_group}
+        case 'Stim'
+            use_trials = move_t < 1 & trial_contrast_allcat > 0;
+            trial_group = trial_side_allcat;
+            group1 = 1;
+            group2 = -1;
+        case 'Move onset'
+            use_trials = move_t < 1;
+            trial_group = trial_choice_allcat;
+            group1 = -1;
+            group2 = 1;
+        case 'Reward'
+            use_trials = move_t < 1;
+            trial_group = trial_choice_allcat == -trial_side_allcat;
+            group1 = 1;
+            group2 = 0;
+    end
+    
+    act_rank = tiedrank(curr_fluor(use_trials,:,:));
+    act_rank_difference = squeeze(( ...
+        nanmean(act_rank(trial_group(use_trials) == group1,:,:),1) - ...
+        nanmean(act_rank(trial_group(use_trials) == group2,:,:),1))./sum(use_trials));   
+    
+    p1 = subplot(1,length(trial_groups),curr_group); 
+    hold on; set(gca,'ColorOrder',jet(n_rois));
+    plot(t,act_rank_difference,'linewidth',2);
+    axis tight; line([0,0],ylim,'color','k');
+    xlabel('Time');
+    ylabel('Mean rank difference');
+    title([trial_groups{curr_group}]);
+   
+    
+    
+    %%% (testing shuffle)    
+    n_shuff = 1000;
+    rank_diff_shuff = nan(size(act_rank,2),size(act_rank,3),n_shuff);
+    for curr_shuff = 1:n_shuff
+        trial_group_shuff = AP_shake(trial_group(use_trials));
+        rank_diff_shuff(:,:,curr_shuff) = squeeze(( ...
+            nanmean(act_rank(trial_group_shuff == group1,:,:),1) - ...
+            nanmean(act_rank(trial_group_shuff == group2,:,:),1))./sum(use_trials));  
+        AP_print_progress_fraction(curr_shuff,n_shuff);
+    end
+    
+    rank_diff_rank = permute(tiedrank(permute(cat(3,act_rank_difference,rank_diff_shuff),[3,1,2])),[2,3,1]);
+    rank_diff_p = rank_diff_rank(:,:,1)./size(rank_diff_rank,3);
+    
+    max_plot = max(act_rank_difference(:));
+    spacing = max_plot/10;
+    
+    rank_diff_p_plot = +(rank_diff_p > 0.95);
+    rank_diff_p_plot(~rank_diff_p_plot) = NaN;
+    rank_diff_p_plot = +rank_diff_p_plot.*(1:n_rois)*spacing+max_plot;  
+    plot(p1,t,rank_diff_p_plot,'.','MarkerSize',5);
+    axis tight;
+    
+   
+    
+    
+end
+
+
+
+
+
+
+%%% Average percentile difference between groups
+act_rank = tiedrank(mua_allcat_move(use_trials,:,:));
+act_rank_difference = squeeze(( ...
+    nanmean(act_rank(trial_choice_allcat(use_trials) == -1,:,:),1) - ...
+    nanmean(act_rank(trial_choice_allcat(use_trials) == 1,:,:),1))./max(act_rank,[],1));
+
+predicted_act_rank = tiedrank(predicted_mua_std_allcat_move(use_trials,:,:));
+predicted_act_rank_difference = squeeze(( ...
+    nanmean(predicted_act_rank(trial_choice_allcat(use_trials) == -1,:,:),1) - ...
+    nanmean(predicted_act_rank(trial_choice_allcat(use_trials) == 1,:,:),1))./max(predicted_act_rank,[],1));
+
+figure;
+p1 = subplot(2,1,1); hold on; set(gca,'ColorOrder',copper(n_depths));
+plot(t,act_rank_difference,'linewidth',2);
+axis tight; line([0,0],ylim,'color','k');
+xlabel('Time from move');
+ylabel('Mean rank difference');
+title('Measured');
+p2 = subplot(2,1,2); hold on; set(gca,'ColorOrder',copper(n_depths));
+plot(t,predicted_act_rank_difference,'linewidth',2);
+axis tight; line([0,0],ylim,'color','k');
+xlabel('Time from move');
+ylabel('Mean rank difference');
+title('Predicted');
+linkaxes([p1,p2],'xy');
+
+
+%%% Average trial across-group percentiles
+
+% % Percentile with tiedrank (slow)
+% loop_trials = find(use_trials & trial_choice_allcat == -1);
+% trial_prctiles = nan(length(loop_trials),length(t),n_depths);
+% for curr_trial = 1:length(loop_trials)
+%    curr_rank = tiedrank([mua_allcat_move(loop_trials(curr_trial),:,:); ...
+%        mua_allcat_move(use_trials & trial_choice_allcat == 1,:,:)]);
+%    trial_prctiles(curr_trial,:,:) = curr_rank(1,:,:)./size(curr_rank,1);
+%    AP_print_progress_fraction(curr_trial,length(loop_trials));
+% end
+
+% Percentile with gpu/sort
+mua_allcat_move_gpu = gpuArray(mua_allcat_move(use_trials,:,:));
+predicted_mua_std_allcat_move_gpu = gpuArray(predicted_mua_std_allcat_move(use_trials,:,:));
+
+loop_trials = find(trial_choice_allcat(use_trials) == -1);
+trial_prctiles = nan(length(loop_trials),length(t),n_depths);
+trial_prctiles_predicted = nan(length(loop_trials),length(t),n_depths);
+for curr_trial = 1:length(loop_trials)
+   [~,curr_sort_idx] = sort([ ...
+       mua_allcat_move_gpu(loop_trials(curr_trial),:,:); ...
+       mua_allcat_move_gpu(trial_choice_allcat(use_trials) == 1,:,:)],1);
+   [~,max_idx] = max((curr_sort_idx == 1),[],1);
+   trial_prctiles(curr_trial,:,:) = gather(max_idx./size(curr_sort_idx,1));
+   
+   [~,curr_sort_idx_predicted] = sort([ ...
+       predicted_mua_std_allcat_move_gpu(loop_trials(curr_trial),:,:); ...
+       predicted_mua_std_allcat_move_gpu(trial_choice_allcat(use_trials) == 1,:,:)],1);
+   [~,max_idx_predicted] = max((curr_sort_idx_predicted == 1),[],1);
+   trial_prctiles_predicted(curr_trial,:,:) = gather(max_idx_predicted./size(curr_sort_idx_predicted,1));
+   
+   AP_print_progress_fraction(curr_trial,length(loop_trials));
+end
+
+trial_prctiles_mean = squeeze(nanmean(trial_prctiles,1));
+trial_prctiles_predicted_mean = squeeze(nanmean(trial_prctiles_predicted,1));
+
+figure;
+p1 = subplot(2,1,1); hold on; set(gca,'ColorOrder',copper(n_depths));
+plot(t,trial_prctiles_mean,'linewidth',2);
+axis tight; line([0,0],ylim,'color','k');
+xlabel('Time from move');
+ylabel('Mean across-group percentile');
+title('Measured');
+p2 = subplot(2,1,2); hold on; set(gca,'ColorOrder',copper(n_depths));
+plot(t,trial_prctiles_predicted_mean,'linewidth',2);
+axis tight; line([0,0],ylim,'color','k');
+xlabel('Time from move');
+ylabel('Mean across-group percentile');
+title('Predicted');
+linkaxes([p1,p2],'xy');
 
 
 
@@ -2052,13 +2544,10 @@ ylabel('MUA');
 
 %% Fig 4?: stim/no-stim move?
 
-warning('in progress')
-
 % Load data
 data_fn = ['trial_activity_choiceworld_framerate'];
 exclude_data = true;
-[t,fluor_allcat_deriv,fluor_roi_deriv,mua_allcat,wheel_allcat,reward_allcat,D_allcat] = ...
-    AP_load_concat_normalize_ctx_str(data_fn,exclude_data);
+AP_load_concat_normalize_ctx_str
 
 % Load regression results
 regression_fn = 'C:\Users\Andrew\OneDrive for Business\Documents\CarandiniHarrisLab\analysis\wf_ephys_choiceworld\paper\data\trial_activity_choiceworld_task_regression';
@@ -2095,6 +2584,54 @@ wheel_velocity_allcat = [zeros(size(wheel_allcat,1),1,1),diff(wheel_allcat,[],2)
 [max_speed,max_vel_idx] = max(abs(wheel_velocity_allcat(:,:,1).* ...
     (bsxfun(@times,wheel_velocity_allcat,trial_choice_allcat) > 0)),[],2);
 max_vel = max_speed.*trial_choice_allcat;
+
+
+
+
+% Plot movement onset regressors across the cortex and striatum?
+move_onset_regressor_idx = strcmp('Move onset',regressor_labels);
+regressor_t = cellfun(@(x) (round(x(1)*(sample_rate)): ...
+    round(x(2)*(sample_rate)))/sample_rate,t_shifts,'uni',false);
+
+ctx_v_move_onset_kernel = permute(cell2mat(permute( ...
+    fluor_kernel(move_onset_regressor_idx,1:n_vs),[1,3,2])),[3,2,1]);
+ctx_px_move_onset_kernel = reshape(svdFrameReconstruct(U_master(:,:,1:n_vs), ...
+    reshape(ctx_v_move_onset_kernel,n_vs,[])),size(U_master,1),size(U_master,2),[],2);
+ctx_roi_move_onset_kernel = reshape(AP_svd_roi(U_master(:,:,1:n_vs), ...
+    reshape(ctx_v_move_onset_kernel,n_vs,[]),[],[],cat(3,wf_roi.mask)),[], ...
+    size(ctx_v_move_onset_kernel,2),size(ctx_v_move_onset_kernel,3));
+
+str_move_onset_kernel = ...
+    permute(cell2mat(permute(mua_kernel(move_onset_regressor_idx,:),[1,3,2])),[3,2,1]);
+
+figure;
+p1 = subplot(2,2,1); hold on; set(gca,'ColorOrder',jet(n_rois));
+plot(regressor_t{2},ctx_roi_move_onset_kernel(:,:,2)','linewidth',2)
+line([0,0],ylim,'color','k');
+line(xlim,[0,0],'color','k');
+legend({wf_roi.area});
+title('Move onset L kernel');
+
+p2 = subplot(2,2,3); hold on; set(gca,'ColorOrder',jet(n_rois));
+plot(regressor_t{2},-diff(ctx_roi_move_onset_kernel,[],3)','linewidth',2)
+line([0,0],ylim,'color','k');
+line(xlim,[0,0],'color','k');
+title('Move onset L-R kernel');
+
+p3 = subplot(2,2,2); hold on; set(gca,'ColorOrder',copper(n_depths));
+plot(regressor_t{2},str_move_onset_kernel(:,:,2)','linewidth',2)
+line([0,0],ylim,'color','k');
+line(xlim,[0,0],'color','k');
+title('Move onset L kernel');
+
+p4 = subplot(2,2,4); hold on; set(gca,'ColorOrder',copper(n_depths));
+plot(regressor_t{2},-diff(str_move_onset_kernel,[],3)','linewidth',2)
+line([0,0],ylim,'color','k');
+line(xlim,[0,0],'color','k');
+title('Move onset L-R kernel');
+
+linkaxes([p1,p2],'xy');
+linkaxes([p3,p4],'xy');
 
 % Get predicted fluorescence in ROIs from reduced model w/o move onset
 move_onset_regressor_idx = strcmp('Move onset',regressor_labels);
@@ -2326,6 +2863,23 @@ for curr_plot = 1:length(compare_types)
     title([trial_types_labels{compare_types{curr_plot}(1)} '-' ...
         trial_types_labels{compare_types{curr_plot}(2)}]);
 end
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 

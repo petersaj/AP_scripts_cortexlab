@@ -1266,8 +1266,7 @@ save([save_path filesep save_fn],'-v7.3');
 data_fn = ['trial_activity_choiceworld_framerate'];
 exclude_data = true;
 
-[t,fluor_allcat_deriv,fluor_roi_deriv,mua_allcat,wheel_allcat,reward_allcat,D_allcat] = ...
-    AP_load_concat_normalize_ctx_str(data_fn,exclude_data);
+AP_load_concat_normalize_ctx_str;
 
 n_vs = size(fluor_allcat_deriv,3);
 n_depths = size(mua_allcat,3);
@@ -1381,7 +1380,7 @@ fluor_allcat_predicted_reduced = ...
 fluor_kernel = cell(length(regressors)+1,n_vs);
 for curr_v = 1:n_vs
     
-    activity = fluor_allcat_deriv(regress_trials,:,curr_v,1);
+    activity = fluor_allcat_deriv(regress_trials,:,curr_v);
     
     activity_reshape = reshape(activity',[],1)';
     regressors_reshape = cellfun(@(x) ...
@@ -1420,7 +1419,7 @@ mua_kernel = cell(length(regressors)+1,n_depths);
 for curr_depth = 1:n_depths
     
     % Convert MUA to single for GPU memory (fluorescence is already single)
-    activity = single(mua_allcat(regress_trials,:,curr_depth,1));
+    activity = single(mua_allcat(regress_trials,:,curr_depth));
     
     activity_reshape = reshape(activity',[],1)';
     regressors_reshape = cellfun(@(x) ...
@@ -1450,13 +1449,55 @@ for curr_depth = 1:n_depths
     
 end
 
+%%% Do regression on ctx-predicted striatum
+disp('Regressing task to cortex-predicted striatum');
+predicted_mua_allcat_predicted = nan(size(mua_allcat));
+predicted_mua_allcat_predicted_reduced = ...
+    repmat(nan(size(mua_allcat)),1,1,1,length(regressors));
+predicted_mua_kernel = cell(length(regressors)+1,n_depths);
+for curr_depth = 1:n_depths
+    
+    % Convert MUA to single for GPU memory (fluorescence is already single)
+    activity = single(predicted_mua_std_allcat(regress_trials,:,curr_depth));
+    
+    activity_reshape = reshape(activity',[],1)';
+    regressors_reshape = cellfun(@(x) ...
+        reshape(permute(x(regress_trials,:,:),[2,1,3]),[],size(x,3))',regressors,'uni',false);
+    
+    [kernel,activity_predicted_reshape,expl_var,activity_predicted_reduced_reshape] = AP_regresskernel( ...
+        cellfun(@(x) x(:,~isnan(activity_reshape)),regressors_reshape,'uni',false), ...
+        activity_reshape(~isnan(activity_reshape)),sample_shifts,lambda,zs,cvfold,return_constant);
+    
+    % Reshape full predictions
+    activity_predicted_transpose = permute(nan(size(activity)),[2,1]);
+    activity_predicted_transpose(~isnan(activity')) = activity_predicted_reshape;
+    
+    % Reshape reduced predictions
+    activity_predicted_reduced_transpose = permute(repmat(nan(size(activity)),1,1,length(regressors)),[2,1,3]);
+    activity_predicted_reduced_transpose(repmat(~isnan(activity'),1,1,length(regressors))) = ...
+        activity_predicted_reduced_reshape;
+    
+    % Store predicted/reduced predicted/kernels
+    predicted_mua_allcat_predicted(regress_trials,:,curr_depth) = ...
+        permute(activity_predicted_transpose,[2,1,3]);
+    predicted_mua_allcat_predicted_reduced(regress_trials,:,curr_depth,:) = ...
+        permute(activity_predicted_reduced_transpose,[2,1,4,3]);   
+    predicted_mua_kernel(:,curr_depth) = kernel;
+    
+    AP_print_progress_fraction(curr_depth,n_depths);
+    
+end
+
+
+
 % Save regression results
 save_path = 'C:\Users\Andrew\OneDrive for Business\Documents\CarandiniHarrisLab\analysis\wf_ephys_choiceworld\paper\data';
 save_fn = ['trial_activity_choiceworld_task_regression'];
 save([save_path filesep save_fn], ...
     'regressors','regressor_labels','t_shifts','regress_trials', ...
     'fluor_allcat_predicted','fluor_allcat_predicted_reduced','fluor_kernel', ...
-    'mua_allcat_predicted','mua_allcat_predicted_reduced','mua_kernel','-v7.3');
+    'mua_allcat_predicted','mua_allcat_predicted_reduced','mua_kernel', ...
+    'predicted_mua_allcat_predicted','predicted_mua_allcat_predicted_reduced','predicted_mua_kernel','-v7.3');
 disp('Saved regression');
 
 
@@ -1607,7 +1648,7 @@ kernel_bw(:,round(bregma_align(1)):end,:) = false;
 kernel_max_weighted = kernel_template./ ...
     max(abs(reshape(kernel_template,1,[],size(kernel_template,3))),[],2);
 
-% Plot the kernels and ROIs
+% Plot the template kernels and ROIs
 figure;
 for i = 1:n_aligned_depths
     subplot(3,n_aligned_depths,i);
@@ -1616,12 +1657,14 @@ for i = 1:n_aligned_depths
     axis image off;
     caxis([-max(abs(caxis)),max(abs(caxis))]);
     colormap(gca,brewermap([],'*RdBu'));
+    title('Kernel template')
     
     subplot(3,n_aligned_depths,i+n_aligned_depths);
     imagesc(kernel_bw(:,:,i));
     AP_reference_outline('ccf_aligned','r');
     axis image off;
     colormap(gca,gray);
+    title('ROI BW')
     
     subplot(3,n_aligned_depths,i+n_aligned_depths*2);
     imagesc(kernel_max_weighted(:,:,i));
@@ -1629,15 +1672,90 @@ for i = 1:n_aligned_depths
     axis image off;
     caxis([-max(abs(caxis)),max(abs(caxis))]);
     colormap(gca,brewermap([],'*RdBu'));
+    title('ROI weighted')
 end
+
+% Get the average full kernel
+n_aligned_depths = 4;
+data_path = 'C:\Users\Andrew\OneDrive for Business\Documents\CarandiniHarrisLab\analysis\wf_ephys_choiceworld\wf_ephys';
+k_fn = [data_path filesep 'wf_ephys_maps_concat_' num2str(n_aligned_depths) '_depths_kernel'];
+load(k_fn);
+k_px_trained_cat = cellfun(@(x) x(:,:,end:-1:1,:),[batch_vars(1:6).k_px],'uni',false);
+k_px_trained = nanmean(double(cat(5,k_px_trained_cat{:})),5);
 
 % Save kernel ROIs
 kernel_roi = struct;
 kernel_roi.bw = kernel_bw;
 kernel_roi.max_weighted = kernel_max_weighted;
+kernel_roi.kernel = k_px_trained;
 kernel_roi_fn = 'C:\Users\Andrew\OneDrive for Business\Documents\CarandiniHarrisLab\analysis\wf_ephys_choiceworld\wf_processing\wf_rois\kernel_roi';
 save(kernel_roi_fn,'kernel_roi');
 disp('Saved kernel ROIs');
+
+
+
+
+%% %%%%%%%%%%%%%%%% TESTING
+
+%% TESTING WHEEL REGRESSION 
+
+data_fn = ['trial_activity_choiceworld_framerate'];
+exclude_data = true;
+
+AP_load_concat_normalize_ctx_str;
+
+n_vs = size(fluor_allcat_deriv,3);
+n_depths = size(mua_allcat,3);
+
+% Get trial information
+trial_contrast_allcat = max(D_allcat.stimulus,[],2);
+[~,side_idx] = max(D_allcat.stimulus > 0,[],2);
+trial_side_allcat = (side_idx-1.5)*2;
+trial_choice_allcat = -(D_allcat.response-1.5)*2;
+
+% Get timing
+sample_rate = 1./mean(diff(t));
+
+% Get reaction time
+[~,move_idx] = max(abs(wheel_allcat(:,:,1)) > 2,[],2);
+move_t = t(move_idx)';
+
+% Get maximum wheel velocity in chosen direction
+wheel_velocity_allcat = [zeros(size(wheel_allcat,1),1,1),diff(wheel_allcat,[],2)];
+[max_speed,max_vel_idx] = max(abs(wheel_velocity_allcat(:,:,1).* ...
+    (bsxfun(@times,wheel_velocity_allcat(:,:,1),trial_choice_allcat) > 0)),[],2);
+vel_t = t(max_vel_idx);
+
+max_vel = max_speed.*trial_choice_allcat;
+
+%%%%% TESTING WHEEL REGRESSION
+use_svs = 50;
+kernel_shifts_t = [-0.3,0];
+kernel_shifts = round(kernel_shifts_t(1)*sample_rate):round(kernel_shifts_t(2)*sample_rate);
+lambda = 10;
+zs = [false,false];
+cvfold = 5;
+
+wheel_std = reshape(permute(wheel_velocity_allcat,[2,1]),1,[])./std(reshape(permute(wheel_velocity_allcat,[2,1]),1,[]));
+
+[k,predicted_wheel,explained_var] = AP_regresskernel( ...
+    reshape(permute(fluor_allcat_deriv(:,:,1:use_svs),[3,2,1]),use_svs,[]), ...
+    wheel_std, ...
+    kernel_shifts,lambda,zs,cvfold,false,true);
+
+k_px = svdFrameReconstruct(U_master(:,:,1:use_svs),k);
+AP_image_scroll(k_px,kernel_shifts)
+caxis([-max(abs(caxis)),max(abs(caxis))]);
+colormap(brewermap([],'*RdBu'));
+AP_reference_outline('ccf_aligned','k');
+axis image
+
+
+% (like ctx->str, looks way cleaner averaging across experiments)
+
+
+
+
 
 
 

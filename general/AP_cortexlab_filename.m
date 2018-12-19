@@ -190,19 +190,23 @@ switch file
         end
         
     case 'ephysraw'
-        filepath = [server1 filesep 'Data\Subjects'];
-        filename = [filepath filesep animal filesep day filesep 'ephys' site_dir filesep 'experiment1_10*-0_0.dat'];
+        % (return the path where the raw ephys lives, check for specific
+        % raw files in order to know whether to check other directories)
+        
+        filename = [server1 filesep 'Data\Subjects' filesep animal filesep day filesep 'ephys' site_dir];
+        check_file = [filename filesep 'experiment1_10*-0_0.dat'];
+        
         % CHECK SERVER2 IF IT DOESN'T EXIST
-        if isempty(dir(filename))
-            filepath = [server2 filesep 'Subjects'];
-            filename = [filepath filesep animal filesep day filesep 'ephys' site_dir filesep 'experiment1_10*-0_0.dat'];
+        if isempty(dir(check_file))
+            filename = [server2 filesep 'Subjects' filesep animal filesep day filesep 'ephys' site_dir];
+            check_file = [filename filesep 'experiment1_10*-0_0.dat'];
         end
         % CHECK NEW OPEN EPHYS ON SERVER2 IF IT DOESN'T EXIST
-        if isempty(dir(filename))
-            filepath = [server2 filesep 'Subjects'];
-            filename = [filepath filesep animal filesep day filesep ...
+        if isempty(dir(check_file))
+            filename = [server2 filesep 'Subjects' filesep animal filesep day filesep ...
                 'ephys' site_dir filesep 'experiment1' filesep 'recording1' ...
-                filesep 'continuous' filesep 'Neuropix-3a-100.0' filesep 'continuous.dat'];
+                filesep 'continuous'  filesep 'Neuropix-3a-100.0'];
+            check_file = [filename filesep 'continuous.dat'];
         end
         
     case 'probe_histology'

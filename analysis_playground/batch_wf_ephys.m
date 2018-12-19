@@ -7986,7 +7986,7 @@ for curr_animal = 1:length(animals)
     load_parts.imaging = true;
     load_parts.ephys = true;
     
-    for curr_day = 1:length(experiments);
+    for curr_day = 1:length(experiments)
         
         day = experiments(curr_day).day;
         experiment = experiments(curr_day).experiment;
@@ -7999,7 +7999,7 @@ for curr_animal = 1:length(animals)
         depth_group = aligned_str_depth_group;
         
         % Set upsample value for regression
-        upsample_factor = 2;
+        upsample_factor = 1;
         sample_rate = (1/median(diff(frame_t)))*upsample_factor;
         
         % Skip the first/last n seconds to do this
@@ -8023,8 +8023,10 @@ for curr_animal = 1:length(animals)
         spikes_nan = any(isnan(binned_spikes_norm),2);
         binned_spikes_norm(spikes_nan,:) = 0;
         
-        kernel_samples = [-40:1:20];
-        lambda = 1e2;
+        kernel_time = [-0.5,0.5];
+        kernel_samples = round(kernel_time(1)*sample_rate): ...
+            round(kernel_time(2)*sample_rate);
+        lambda = 100;
         cv = 5;
         
         [str_wheel_kernel,str_predicted_wheel,str_wheel_expl_var] = AP_regresskernel( ...
@@ -8037,12 +8039,15 @@ for curr_animal = 1:length(animals)
         %%% Regress wheel movement from fluorescence       
         % Resample fV
         use_svs = 1:50;
+        deriv_smooth = 3;
         fVdf_resample = interp1(frame_t,fVdf(use_svs,:)',time_bin_centers)';
         dfVdf_resample = interp1(conv2(frame_t,[1,1]/2,'valid'), ...
-            diff(fVdf(use_svs,:),[],2)',time_bin_centers)';
+            diff(convn(fVdf(use_svs,:),ones(1,deriv_smooth),'same'),[],2)',time_bin_centers)';
         
-        kernel_samples = [-60:1:0];
-        lambda = 1e6;
+        kernel_time = [-0.5,0.5];
+        kernel_samples = round(kernel_time(1)*sample_rate): ...
+            round(kernel_time(2)*sample_rate);
+        lambda = 20;
         cv = 5;
         
         [ctx_wheel_kernel,ctx_predicted_wheel,ctx_wheel_expl_var] = AP_regresskernel( ...

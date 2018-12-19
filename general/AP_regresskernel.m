@@ -3,7 +3,6 @@ function [k,predicted_signals,explained_var,predicted_signals_reduced] = ...
 % [k,predicted_signals,explained_var,predicted_signals_reduced] = AP_regresskernel(regressors,signals,t_shifts,lambdas,zs,cvfold,return_constant,use_constant)
 %
 % Linear regression of kernel from regressors to outputs
-% (note constant term is included and used for prediction, but not output) 
 %
 % Inputs:
 % regressors - dim x time

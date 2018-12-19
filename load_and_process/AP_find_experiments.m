@@ -2,8 +2,12 @@ function experiments = AP_find_experiments(animal,protocol)
 % experiments = AP_find_experiments(animal,protocol)
 %
 % Find all experiments from an animal with a given protocol name
+% (check zserver and zubjects)
 
-% Days can either be on Data\expInfo or Data2 (to be replaced, eventually)
+% If no protocol specified, return all experiments
+if ~exist('protocol','var') || isempty(protocol)
+    protocol = [];
+end
 
 % (look in server 1)
 expInfo_path = ['\\zserver.cortexlab.net\Data\expInfo\' animal];
@@ -33,40 +37,49 @@ imaging_expts = cell(size(days));
 ephys_expts = cell(size(days));
 
 for curr_day = 1:length(days)  
+    
     day = days{curr_day};
-    % Check all experiments of that day (defined as number-only folders)
+    % Find all experiments of that day (defined as number-only folders)
     expDay_dir = dir(days_pathnames{curr_day});
     exp_folders = cellfun(@any,regexp({expDay_dir.name},'^\d*$'));
     exp_nums = cellfun(@str2num,{expDay_dir(exp_folders).name});
-    use_exp = false(size(exp_nums));
-    for curr_exp = 1:length(exp_nums)
-        % Check for signals or MPEP
-        [block_filename, block_exists] = AP_cortexlab_filename(animal,day,exp_nums(curr_exp),'block');
-        [protocol_filename,protocol_exists] = AP_cortexlab_filename(animal,day,exp_nums(curr_exp),'protocol');
-        
-        if block_exists
-            % If signals
-            load(block_filename)
-            if isfield(block,'expDef')
-                [~,expDef] = fileparts(block.expDef);
-                use_exp(curr_exp) = ~isempty(strfind(expDef,protocol));
+    
+    % If looking for specific protocol, find amongst days's experiments
+    if ~isempty(protocol)
+        use_exp = false(size(exp_nums));
+        for curr_exp = 1:length(exp_nums)
+            % Check for signals or MPEP
+            [block_filename, block_exists] = AP_cortexlab_filename(animal,day,exp_nums(curr_exp),'block');
+            [protocol_filename,protocol_exists] = AP_cortexlab_filename(animal,day,exp_nums(curr_exp),'protocol');
+            
+            if block_exists
+                % If signals
+                load(block_filename)
+                if isfield(block,'expDef')
+                    [~,expDef] = fileparts(block.expDef);
+                    use_exp(curr_exp) = ~isempty(strfind(expDef,protocol));
+                end
+            elseif protocol_exists
+                % If MPEP
+                load(protocol_filename)
+                [~,expDef] = fileparts(Protocol.xfile);
+                use_exp(curr_exp) = strcmp(expDef,protocol);
+            else
+                continue
             end
-        elseif protocol_exists
-            % If MPEP
-            load(protocol_filename)
-            [~,expDef] = fileparts(Protocol.xfile);
-            use_exp(curr_exp) = strcmp(expDef,protocol);
-        else
-            continue
-        end       
+        end
+    else
+        use_exp = true(size(exp_nums));
     end
     
+    % Find days with imaging/electrophysiology
     if any(use_exp)
         protocol_expts{curr_day} = exp_nums(use_exp);
         imaging_path = AP_cortexlab_filename(animal,day,exp_nums(use_exp),'imaging');
         imaging_expts{curr_day} = exist([imaging_path filesep 'meanImage_blue.npy'],'file') > 0;
         [~,ephys_expts{curr_day}] = AP_cortexlab_filename(animal,day,exp_nums(use_exp),'ephys');
     end
+    
 end
 
 % Package experiment info
