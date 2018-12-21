@@ -1057,8 +1057,8 @@ legend({'Real','Predicted'});
 
 % Spikes in striatum
 % use_spikes_idx = spikeDepths > 2000 & spikeDepths < 3000;
-% use_spikes_idx = spikeDepths >= str_depth(1) & spikeDepths <= str_depth(2);
-use_spikes_idx = aligned_str_depth_group == 1;
+use_spikes_idx = spikeDepths >= str_depth(1) & spikeDepths <= str_depth(2);
+% use_spikes_idx = aligned_str_depth_group == 1;
 % use_spikes_idx = spike_templates == 30;
 
 use_spikes = spike_times_timeline(use_spikes_idx);
@@ -1082,7 +1082,7 @@ trial_choice = go_right - go_left;
 use_trials = ...
     trial_outcome ~= 0 & ...
     ~signals_events.repeatTrialValues & ...
-    stim_to_feedback < 1.5 & ...
+    stim_to_feedback < 1 & ...
     ~isnan(wheel_move_time);
 
 conditions = combvec([-1,1],[-1,1])';
@@ -1102,7 +1102,7 @@ set(gcf,'Name','Population');
 
 % Template PSTH
 psthViewer(use_spikes,use_templates, ...
-    wheel_move_time(use_trials)',raster_window,trial_id(use_trials));
+    wheel_move_time(use_trials)',raster_window,trial_choice(use_trials));
 set(gcf,'Name','Templates');
 
 % PSTH viewier sorted by choice

@@ -1,5 +1,6 @@
 function AP_pre_phy
 % First-pass blunt good/bad
+% WORKING ON THIS AT THE MOMENT - was unused previously
 
 local_phy_path = 'C:\data_temp\phy';
 local_cluster_groups_filename = [local_phy_path filesep 'cluster_groups.csv'];
@@ -37,9 +38,9 @@ gui_data.waveforms = templates_maxchan;
 gui_data.waveform_classification = waveform_classification;
 
 % Set figure color based on classification
-if gui_data.waveform_classification(gui_data.current_waveform) == 1;
+if gui_data.waveform_classification(gui_data.current_waveform) == 1
     set(gui_fig,'color','g');
-elseif gui_data.waveform_classification(gui_data.current_waveform) == -1;
+elseif gui_data.waveform_classification(gui_data.current_waveform) == -1
     set(gui_fig,'color','r');
 else
     set(gui_fig,'color','w');
@@ -61,14 +62,14 @@ switch eventdata.Key
         % Classify as good, move to next
         gui_data.waveform_classification(gui_data.current_waveform) = 1;
         
-        if gui_data.current_waveform < size(gui_data.waveforms,2);
+        if gui_data.current_waveform < size(gui_data.waveforms,2)
             gui_data.current_waveform = gui_data.current_waveform + 1;
         end
         set(gui_data.waveform_plot,'YData',gui_data.waveforms(:,gui_data.current_waveform));
         
-        if gui_data.waveform_classification(gui_data.current_waveform) == 1;
+        if gui_data.waveform_classification(gui_data.current_waveform) == 1
             set(gui_fig,'color','g');
-        elseif gui_data.waveform_classification(gui_data.current_waveform) == -1;
+        elseif gui_data.waveform_classification(gui_data.current_waveform) == -1
             set(gui_fig,'color','r');
         else
             set(gui_fig,'color','w');
@@ -79,14 +80,14 @@ switch eventdata.Key
         % Classify as bad, move to next
         gui_data.waveform_classification(gui_data.current_waveform) = -1;
         
-        if gui_data.current_waveform < size(gui_data.waveforms,2);
+        if gui_data.current_waveform < size(gui_data.waveforms,2)
             gui_data.current_waveform = gui_data.current_waveform + 1;
         end
         set(gui_data.waveform_plot,'YData',gui_data.waveforms(:,gui_data.current_waveform));
         
-        if gui_data.waveform_classification(gui_data.current_waveform) == 1;
+        if gui_data.waveform_classification(gui_data.current_waveform) == 1
             set(gui_fig,'color','g');
-        elseif gui_data.waveform_classification(gui_data.current_waveform) == -1;
+        elseif gui_data.waveform_classification(gui_data.current_waveform) == -1
             set(gui_fig,'color','r');
         else
             set(gui_fig,'color','w');
@@ -95,14 +96,14 @@ switch eventdata.Key
         
     case 'rightarrow'
         % Move to next waveform
-        if gui_data.current_waveform < size(gui_data.waveforms,2);
+        if gui_data.current_waveform < size(gui_data.waveforms,2)
             gui_data.current_waveform = gui_data.current_waveform + 1;
         end
         set(gui_data.waveform_plot,'YData',gui_data.waveforms(:,gui_data.current_waveform));
         
-        if gui_data.waveform_classification(gui_data.current_waveform) == 1;
+        if gui_data.waveform_classification(gui_data.current_waveform) == 1
             set(gui_fig,'color','g');
-        elseif gui_data.waveform_classification(gui_data.current_waveform) == -1;
+        elseif gui_data.waveform_classification(gui_data.current_waveform) == -1
             set(gui_fig,'color','r');
         else
             set(gui_fig,'color','w');
@@ -111,14 +112,14 @@ switch eventdata.Key
         
     case 'leftarrow'
         % Move to last waveform
-        if gui_data.current_waveform > 1;
+        if gui_data.current_waveform > 1
             gui_data.current_waveform = gui_data.current_waveform - 1;
         end
         set(gui_data.waveform_plot,'YData',gui_data.waveforms(:,gui_data.current_waveform));
         
-        if gui_data.waveform_classification(gui_data.current_waveform) == 1;
+        if gui_data.waveform_classification(gui_data.current_waveform) == 1
             set(gui_fig,'color','g');
-        elseif gui_data.waveform_classification(gui_data.current_waveform) == -1;
+        elseif gui_data.waveform_classification(gui_data.current_waveform) == -1
             set(gui_fig,'color','r');
         else
             set(gui_fig,'color','w');
