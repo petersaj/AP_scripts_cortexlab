@@ -198,8 +198,13 @@ for curr_site = 1:length(data_paths)
     
     % Set up local directory and clear out
     local_kilosort_path = 'C:\data_temp\kilosort';
+    hdd_kilosort_path = 'E:\data_temp\kilosort';
+    
     rmdir(local_kilosort_path,'s');
     mkdir(local_kilosort_path);
+    
+    rmdir(hdd_kilosort_path,'s');
+    mkdir(hdd_kilosort_path);
     
     % Clear out whatever's currently in phy (usually not enough room)
     local_phy_path = 'C:\data_temp\phy';
@@ -216,12 +221,16 @@ for curr_site = 1:length(data_paths)
     disp('Done');
     
     % Subtract common median across AP-band channels
+    % (put in large HDD temporarily for space)    
     ops.NchanTOT = n_channels;
-    medianTrace = applyCARtoDat(ap_temp_filename, ops.NchanTOT);
-    ap_temp_car_filename = [ap_temp_filename(1:end-4) '_CAR.dat'];
+    medianTrace = applyCARtoDat(ap_temp_filename,ops.NchanTOT,hdd_kilosort_path);
     
-    % Get rid of the original non-CAR (usually not enough disk space)
+    ap_temp_car_filename_hdd = [hdd_kilosort_path filesep animal '_' day  '_' 'ephys_apband_CAR.dat'];    
+    ap_temp_car_filename = [local_kilosort_path filesep animal '_' day  '_' 'ephys_apband_CAR.dat']; 
+    
+    % (delete pre-CAR temp file and move CAR to SDD)
     delete(ap_temp_filename);
+    movefile(ap_temp_car_filename_hdd,ap_temp_car_filename);
     
     % Run kilosort on CAR data
 %     AP_run_kilosort(ap_temp_car_filename,ap_sample_rate);

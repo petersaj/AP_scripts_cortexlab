@@ -2454,8 +2454,7 @@ ylabel('MUA');
 data_fn = ['trial_activity_passive_fullscreen_naive'];
 exclude_data = false;
 
-[t,fluor_allcat_deriv,fluor_roi_deriv,mua_allcat,wheel_allcat,reward_allcat,D_allcat] = ...
-    AP_load_concat_normalize_ctx_str(data_fn,exclude_data);
+AP_load_concat_normalize_ctx_str;
 
 n_vs = size(fluor_allcat_deriv,3);
 n_rois = size(fluor_roi_deriv,3);

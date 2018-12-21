@@ -14,12 +14,14 @@ data_path = 'C:\Users\Andrew\OneDrive for Business\Documents\CarandiniHarrisLab\
 load([data_path filesep data_fn]);
 n_animals = length(D_all);
 
-% % Get time (should save this in the data)
-% framerate = 35;
-% raster_window = [-0.5,3];
-% upsample_factor = 3;
-% sample_rate = (framerate*upsample_factor);
-% t = raster_window(1):1/sample_rate:raster_window(2);
+% Get time (should save this in the data in future)
+if ~exist('t','var')
+    framerate = 35;
+    raster_window = [-0.5,3];
+    upsample_factor = 3;
+    sample_rate = (framerate*upsample_factor);
+    t = raster_window(1):1/sample_rate:raster_window(2);
+end
 
 % Load pre-marked experiments to exclude and cut out bad ones
 if exist('exclude_data','var') && isempty(exclude_data)
@@ -51,10 +53,12 @@ use_animals = cellfun(@(x) ~isempty(x),D_all);
 D_all = D_all(use_animals);
 fluor_all = fluor_all(use_animals);
 mua_all = mua_all(use_animals);
-predicted_mua_std_all = predicted_mua_std_all(use_animals);
 wheel_all = wheel_all(use_animals);
 if exist('reward_all','var')
     reward_all = reward_all(use_animals);
+end
+if exist('predicted_mua_std_all','var')
+    predicted_mua_std_all = predicted_mua_std_all(use_animals);
 end
 
 % Get number of widefield components and MUA depths
@@ -110,11 +114,13 @@ for curr_animal = 1:length(D_all)
     
     % Concatenated predicted MUA (already in std - normalize like MUA)
     % (try doing a nonlinearity here?)
-    predicted_mua_std_cat_raw = cat(1,predicted_mua_std_all{curr_animal}{:});
-    predicted_mua_std_cat_baseline = nanmean(reshape(predicted_mua_std_cat_raw(:,t_baseline,:),[],1,n_depths),1);
-    predicted_mua_std_cat_std = nanmean(reshape(predicted_mua_std_cat_raw,[],1,n_depths),1);
-    predicted_mua_std_cat = (predicted_mua_std_cat_raw-predicted_mua_std_cat_baseline)./ ...
-        predicted_mua_std_cat_std;
+    if exist('predicted_mua_std_all','var')
+        predicted_mua_std_cat_raw = cat(1,predicted_mua_std_all{curr_animal}{:});
+        predicted_mua_std_cat_baseline = nanmean(reshape(predicted_mua_std_cat_raw(:,t_baseline,:),[],1,n_depths),1);
+        predicted_mua_std_cat_std = nanmean(reshape(predicted_mua_std_cat_raw,[],1,n_depths),1);
+        predicted_mua_std_cat = (predicted_mua_std_cat_raw-predicted_mua_std_cat_baseline)./ ...
+            predicted_mua_std_cat_std;
+    end
 
     % Concatenate wheel
     wheel_cat = cat(1,wheel_all{curr_animal}{:});
@@ -128,14 +134,16 @@ for curr_animal = 1:length(D_all)
 
     % Concatenate to across-day data
     fluor_allcat = [fluor_allcat;fluor_cat];
-    mua_allcat = [mua_allcat;mua_cat_norm];
-    predicted_mua_std_allcat = [predicted_mua_std_allcat;predicted_mua_std_cat];
+    mua_allcat = [mua_allcat;mua_cat_norm];    
     wheel_allcat = [wheel_allcat;wheel_cat];
     D_allcat.stimulus = vertcat(D_allcat.stimulus,stimulus);
     if exist('reward_all','var')
         reward_allcat = [reward_allcat;vertcat(reward_all{curr_animal}{:})];
         D_allcat.response = vertcat(D_allcat.response,response);
         D_allcat.repeatNum = vertcat(D_allcat.repeatNum,repeatNum);
+    end
+    if exist('predicted_mua_std_all','var')
+        predicted_mua_std_allcat = [predicted_mua_std_allcat;predicted_mua_std_cat];
     end
     
 end

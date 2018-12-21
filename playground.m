@@ -110,16 +110,36 @@ for curr_template = 1:size(templates,1)
     
 end
 
-% Plot template skewness by depth
-skewness_time = max(skewness(templates.^2,[],2),[],3);
-skewness_channel = skewness(sum(templates.^2,2),[],3);
+% Get rid of zero-weight template channels
+templates_permute = permute(templates,[3,2,1]);
+used_template_channels = any(templates_permute,2);
+if length(unique(sum(used_template_channels,1))) ~= 1
+    error('Different number of unused channels');
+end
+templates_used = reshape( ...
+    templates_permute(repmat(used_template_channels,1,size(templates_permute,2),1)), ...
+    [],size(templates_permute,2),size(templates_permute,3));
 
-figure;plot3(skewness_time,skewness_channel,templateDepths,'.k')
-axis vis3d
-set(gca,'ZDir','reverse');
-xlabel('Skewness time');
-ylabel('Skewness channel');
-zlabel('Template depth');
+template_corr = arrayfun(@(x) nanmean(AP_itril(corrcoef(templates_used(:,:,x)'),-1)),1:size(templates_used,3));
+template_channel_skewness = squeeze(skewness(sum(templates_used.^2,2),[],1));
+figure;plot(template_channel_skewness,template_corr,'.k');
+xlabel('Channel skewness');
+ylabel('Channel correlation');
+
+figure;plot3(template_channel_skewness,template_corr,1:size(templates,1),'.k');
+
+
+% 
+% % Plot template skewness by depth
+% skewness_time = max(skewness(templates.^2,[],2),[],3);
+% skewness_channel = skewness(sum(templates.^2,2),[],3);
+% 
+% figure;plot3(skewness_time,skewness_channel,templateDepths,'.k')
+% axis vis3d
+% set(gca,'ZDir','reverse');
+% xlabel('Skewness time');
+% ylabel('Skewness channel');
+% zlabel('Template depth');
 
 
 
