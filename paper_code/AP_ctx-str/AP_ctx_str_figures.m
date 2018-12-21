@@ -2362,8 +2362,7 @@ ylabel('MUA');
 data_fn = ['trial_activity_passive_fullscreen'];
 exclude_data = false;
 
-[t,fluor_allcat_deriv,fluor_roi_deriv,mua_allcat,wheel_allcat,reward_allcat,D_allcat] = ...
-    AP_load_concat_normalize_ctx_str(data_fn,exclude_data);
+AP_load_concat_normalize_ctx_str;
 
 n_vs = size(fluor_allcat_deriv,3);
 n_rois = size(fluor_roi_deriv,3);
@@ -2396,12 +2395,14 @@ use_t = t > 0 & t < 0.5;
 fluor_stim_mean = nan(length(unique_stim),size(fluor_allcat_deriv,2),n_vs);
 fluor_roi_stim_mean = nan(length(unique_stim),size(fluor_roi_deriv,2),n_rois);
 mua_stim_mean = nan(length(unique_stim),size(mua_allcat,2),n_depths);
+predicted_mua_stim_mean = nan(length(unique_stim),size(predicted_mua_std_allcat,2),n_depths);
 for curr_stim_idx = 1:length(unique_stim)
     curr_trials = move_t > 0.5 & ...
         D_allcat.stimulus == unique_stim(curr_stim_idx);
     fluor_stim_mean(curr_stim_idx,:,:) = nanmean(fluor_allcat_deriv(curr_trials,:,:),1);
     fluor_roi_stim_mean(curr_stim_idx,:,:) = nanmean(fluor_roi_deriv(curr_trials,:,:),1);
     mua_stim_mean(curr_stim_idx,:,:) = nanmean(mua_allcat(curr_trials,:,:),1);
+    predicted_mua_stim_mean(curr_stim_idx,:,:) = nanmean(predicted_mua_std_allcat(curr_trials,:,:),1);
 end
 
 figure('Name','Trained passive fullscreen');

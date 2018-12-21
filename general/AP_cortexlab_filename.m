@@ -182,25 +182,33 @@ switch file
         
     case 'ephys'
         
-        % Check for kilosort2
         filepath = [server1 filesep 'Data\Subjects'];
-        filename = [filepath filesep animal filesep day filesep 'ephys' filesep 'kilosort2' site_dir filesep];
+        filename = [filepath filesep animal filesep day filesep 'ephys' filesep 'kilosort' site_dir filesep];
         % CHECK SERVER2 IF IT DOESN'T EXIST
         if ~exist(filename,'dir')
             filepath = [server2 filesep 'Subjects'];
-            filename = [filepath filesep animal filesep day filesep 'ephys' filesep 'kilosort2' site_dir filesep];
+            filename = [filepath filesep animal filesep day filesep 'ephys' filesep 'kilosort' site_dir filesep];
         end
         
-        % If not then check for kilosort
-        if ~exist(filename,'dir')
-            filepath = [server1 filesep 'Data\Subjects'];
-            filename = [filepath filesep animal filesep day filesep 'ephys' filesep 'kilosort' site_dir filesep];
-        end
-        % CHECK SERVER2 IF IT DOESN'T EXIST
-        if ~exist(filename,'dir')
-            filepath = [server2 filesep 'Subjects'];
-            filename = [filepath filesep animal filesep day filesep 'ephys' filesep 'kilosort' site_dir filesep];
-        end
+%         %%%% ONCE KILOSORT2 IS FINISHED AND SORTED?
+%         % Check for kilosort2
+%         filepath = [server1 filesep 'Data\Subjects'];
+%         filename = [filepath filesep animal filesep day filesep 'ephys' filesep 'kilosort2' site_dir filesep];
+%         % CHECK SERVER2 IF IT DOESN'T EXIST
+%         if ~exist(filename,'dir')
+%             filepath = [server2 filesep 'Subjects'];
+%             filename = [filepath filesep animal filesep day filesep 'ephys' filesep 'kilosort2' site_dir filesep];
+%         end       
+%         % If not then check for kilosort1
+%         if ~exist(filename,'dir')
+%             filepath = [server1 filesep 'Data\Subjects'];
+%             filename = [filepath filesep animal filesep day filesep 'ephys' filesep 'kilosort' site_dir filesep];
+%         end
+%         % CHECK SERVER2 IF IT DOESN'T EXIST
+%         if ~exist(filename,'dir')
+%             filepath = [server2 filesep 'Subjects'];
+%             filename = [filepath filesep animal filesep day filesep 'ephys' filesep 'kilosort' site_dir filesep];
+%         end
         
     case 'ephysraw'
         % (return the path where the raw ephys lives, check for specific

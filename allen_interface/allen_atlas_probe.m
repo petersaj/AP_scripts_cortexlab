@@ -6,8 +6,7 @@ function allen_atlas_probe(tv,av,st)
 % Coordinates in: plot [ap,ml,dv], volume [ap,dv,ml]
 %
 % TO DO: 
-% - actual coordinates in bregma (they're off from Paxinos to some degree)
-% - bregma-lambda scaling and angle adjustment
+% - bregma-lambda scaling and angle adjustment?
 % - mouse over structure names?
 
 % Initialize gui_data structure
@@ -256,9 +255,14 @@ switch eventdata.Key
         % Add structure(s) to display
         slice_spacing = 10;
 
-        % Prompt for which structures to show
-        plot_structures = listdlg('PromptString','Select a structure to add:', ...
-            'ListString',gui_data.st.safe_name,'ListSize',[520,500]);
+        % Prompt for which structures to show (only structures which are
+        % labelled in the slice-spacing downsampled annotated volume)
+        parsed_structures = unique(reshape(gui_data.av(1:slice_spacing:end, ...
+            1:slice_spacing:end,1:slice_spacing:end),[],1));
+        plot_structures_parsed = listdlg('PromptString','Select a structure to plot:', ...
+            'ListString',gui_data.st.safe_name(parsed_structures),'ListSize',[520,500]);
+        
+        plot_structures = parsed_structures(plot_structures_parsed);
         
         for curr_plot_structure = plot_structures
             % If this label isn't used, don't plot
