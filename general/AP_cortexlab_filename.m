@@ -14,7 +14,8 @@ function [filename,file_exists] = AP_cortexlab_filename(animal,day,experiment,fi
 % hardware
 % imaging
 % ephys
-% ephysraw
+% ephys_dir
+% ephys_ap
 % probe_histology
 
 % Make inputs strings if they're numbers
@@ -181,6 +182,7 @@ switch file
         end
         
     case 'ephys'
+        % folder with kilosort/phy outputs
         
         filepath = [server1 filesep 'Data\Subjects'];
         filename = [filepath filesep animal filesep day filesep 'ephys' filesep 'kilosort' site_dir filesep];
@@ -210,7 +212,7 @@ switch file
 %             filename = [filepath filesep animal filesep day filesep 'ephys' filesep 'kilosort' site_dir filesep];
 %         end
         
-    case 'ephysraw'
+    case 'ephys_dir'
         % (return the path where the raw ephys lives, check for specific
         % raw files in order to know whether to check other directories)
         
@@ -223,10 +225,35 @@ switch file
             check_file = [filename filesep 'experiment1_10*-0_0.dat'];
         end
         % CHECK NEW OPEN EPHYS ON SERVER2 IF IT DOESN'T EXIST
+        % (after server switch, should never be on zserver)
         if isempty(dir(check_file))
             filename = [server2 filesep 'Subjects' filesep animal filesep day filesep ...
                 'ephys' site_dir filesep 'experiment1' filesep 'recording1'];
             check_file = [filename filesep 'continuous'  filesep 'Neuropix-3a-100.0' filesep 'continuous.dat'];
+        end
+        
+    case 'ephys_ap'
+        % the raw action potential band data file
+        
+        filepath = [server1 filesep 'Data\Subjects' filesep animal filesep day filesep 'ephys' site_dir];
+        filepattern = [filepath filesep 'experiment1_10*-0_0.dat'];
+        filepattern_dir = dir(filepattern);
+        filename = [filepath filesep filepattern_dir.name];
+        
+        % CHECK SERVER2 IF IT DOESN'T EXIST
+        if isempty(filepattern_dir)
+            filepath = [server2 filesep 'Subjects' filesep animal filesep day filesep 'ephys' site_dir];
+            filepattern = [filepath filesep 'experiment1_10*-0_0.dat'];
+            filepattern_dir = dir(filepattern);
+            filename = [filepath filesep filepattern_dir.name];
+        end
+        
+        % CHECK NEW OPEN EPHYS ON SERVER2 IF IT DOESN'T EXIST
+        % (after server switch, should never be on zserver)
+        if isempty(filepattern_dir)
+            filepath = [server2 filesep 'Subjects' filesep animal filesep day filesep ...
+                'ephys' site_dir filesep 'experiment1' filesep 'recording1'];
+            filename = [filepath filesep 'continuous'  filesep 'Neuropix-3a-100.0' filesep 'continuous.dat'];
         end
         
     case 'probe_histology'

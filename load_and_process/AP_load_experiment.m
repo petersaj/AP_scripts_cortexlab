@@ -720,7 +720,7 @@ if ephys_exists && load_parts.ephys
     % Load LFP
     n_channels = str2num(header.n_channels);
     %lfp_filename = [ephys_path filesep 'lfp.dat']; (this is old)
-    [data_path,data_path_exists] = AP_cortexlab_filename(animal,day,experiment,'ephysraw',site);
+    [data_path,data_path_exists] = AP_cortexlab_filename(animal,day,experiment,'ephys_dir',site);
     lfp_dir = dir([data_path 'experiment*-1_0.dat']);
     lfp_filename = [data_path lfp_dir.name];
     if load_lfp && exist(lfp_filename,'file')

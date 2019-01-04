@@ -143,7 +143,7 @@ figure;plot3(template_channel_skewness,template_corr,1:size(templates,1),'.k');
 
 
 
-%% Trying regression with smoothing
+%% Trying regression with deconv
 
 clear all
 disp('Passive fullscreen trial activity (trained)')
@@ -278,9 +278,9 @@ for curr_animal = 1:length(animals)
         load('C:\Users\Andrew\OneDrive for Business\Documents\CarandiniHarrisLab\analysis\wf_ephys_choiceworld\wf_processing\gcamp_kernel\gcamp6s_kernel.mat');        
         gcamp6s_kernel_cat = vertcat(gcamp6s_kernel.regression{:});
         gcamp6s_kernel = nanmean(gcamp6s_kernel_cat./max(gcamp6s_kernel_cat,[],2),1);
-        fluor_allcat_deriv = convn(fVdf,gcamp6s_kernel,'same');
+        fluor_allcat_deriv = convn(fVdf(regression_params.use_svs,:),gcamp6s_kernel,'same');
         dfVdf_resample = interp1(frame_t, ...
-           fluor_allcat_deriv(regression_params.use_svs,:)',time_bin_centers)';
+           fluor_allcat_deriv',time_bin_centers)';
         
         %%%%%% TESTING %%%%%%%
         
@@ -352,13 +352,11 @@ save([save_path filesep save_fn],'-v7.3');
 
 
 
+%%
 
-
-
-
-
-
-
+experiments = AP_find_experiments('AP025','vanillaChoiceworld');
+experiments = experiments([experiments.imaging] & [experiments.ephys]);
+experiments
 
 
 

@@ -19,8 +19,7 @@ end
 %% Get parts of raw filename
 
 [ephys_path,ephys_exists] = AP_cortexlab_filename(animal,day,[],'ephys',site);
-
-[ephys_raw_ap_filename,ephys_raw_ap_exists] = AP_cortexlab_filename(animal,day,[],'ephysraw',site);
+[ephys_raw_ap_filename,ephys_raw_ap_exists] = AP_cortexlab_filename(animal,day,[],'ephys_ap',site);
 
 if ~ephys_exists || ~ephys_raw_ap_exists
     error('No ephys data')

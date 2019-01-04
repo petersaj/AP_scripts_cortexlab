@@ -6,7 +6,7 @@ function AP_preprocess_phase3(animal,day,t_range)
 
 %% Get paths and filenames
 
-[ephys_path,ephys_exists] = AP_cortexlab_filename(animal,day,[],'ephysraw');
+[ephys_path,ephys_exists] = AP_cortexlab_filename(animal,day,[],'ephysdir');
 
 if ~ephys_exists
     error([animal ' ' day ': No ephys data found']);
