@@ -1,11 +1,8 @@
-function AP_preprocess_phase3(animal,day,local_data)
-% AP_preprocess_phase3(animal,day,local_data)
-% if local_data - use data already in folder
+function AP_preprocess_phase3(animal,day,t_range)
+% AP_preprocess_phase3(animal,day,t_range)
+%
+% t_range = specify data time range to use
 % (now using kilosort2, putting into a 'kilosort2' folder)
-
-if ~exist('local_data','var')
-    local_data = false;
-end
 
 %% Get paths and filenames
 
@@ -15,18 +12,8 @@ if ~ephys_exists
     error([animal ' ' day ': No ephys data found']);
 end
 
-save_paths =  ...
-    {[ephys_path filesep 'kilosort2']};
-
-if exist('local_data','var') && local_data
-    %     data_paths =  ...
-    %         {['D:\data\' animal filesep day '\ephys']};
-    data_paths =  ...
-        {['C:\data_temp\kilosort']};
-else
-    data_paths =  ...
-        {ephys_path};
-end
+save_paths = {[ephys_path filesep 'kilosort2']};
+data_paths = {ephys_path};
 
 % Check for multiple sites (assume sites are marked as site#)
 data_path_dir = dir([data_paths{1} filesep 'site*']);
@@ -45,9 +32,9 @@ for curr_site = 1:length(data_paths)
     end
     
     % Switch file formats between old/new versions
-    % (do this by looking for a folder called 'experiment1' created
+    % (do this by looking for a folder called 'continuous' created
     % automatically by open ephys)
-    if exist([curr_data_path filesep 'experiment1'],'dir')
+    if exist([curr_data_path filesep 'continuous'],'dir')
         oe_file_structure = 'new';
     else
         oe_file_structure = 'old';
@@ -71,12 +58,12 @@ for curr_site = 1:length(data_paths)
             
         case 'new'
             % and then they totally changed everything (2018-07-27)
-            ap_data_filename = [curr_data_path filesep 'experiment1' filesep 'recording1' filesep 'continuous' filesep 'Neuropix-3a-100.0' filesep 'continuous.dat'];
-            lfp_data_filename = [curr_data_path filesep 'experiment1' filesep 'recording1' filesep 'continuous' filesep 'Neuropix-3a-100.1' filesep 'continuous.dat'];
-            sync_filename = [curr_data_path filesep 'experiment1' filesep 'recording1' filesep 'events' filesep 'Neuropix-3a-100.0' filesep 'TTL_1' filesep 'channel_states.npy' ];
-            sync_timestamps_filename = [curr_data_path filesep 'experiment1' filesep 'recording1' filesep 'events' filesep 'Neuropix-3a-100.0' filesep 'TTL_1' filesep 'timestamps.npy' ];
-            messages_filename = [curr_data_path filesep 'experiment1' filesep 'recording1' filesep 'sync_messages.txt'];
-            settings_filename = [curr_data_path filesep 'experiment1' filesep 'recording1' filesep 'structure.oebin'];
+            ap_data_filename = [curr_data_path filesep 'continuous' filesep 'Neuropix-3a-100.0' filesep 'continuous.dat'];
+            lfp_data_filename = [curr_data_path filesep 'continuous' filesep 'Neuropix-3a-100.1' filesep 'continuous.dat'];
+            sync_filename = [curr_data_path filesep filesep 'events' filesep 'Neuropix-3a-100.0' filesep 'TTL_1' filesep 'channel_states.npy' ];
+            sync_timestamps_filename = [curr_data_path filesep 'events' filesep 'Neuropix-3a-100.0' filesep 'TTL_1' filesep 'timestamps.npy' ];
+            messages_filename = [curr_data_path filesep 'sync_messages.txt'];
+            settings_filename = [curr_data_path filesep 'structure.oebin'];
             
     end
     
@@ -197,11 +184,12 @@ for curr_site = 1:length(data_paths)
     %% Run kilosort
     
     % Set up local directory and clear out
-    local_kilosort_path = 'C:\data_temp\kilosort';
+    ssd_kilosort_path = 'C:\data_temp\kilosort';
     hdd_kilosort_path = 'E:\data_temp\kilosort';
     
-    rmdir(local_kilosort_path,'s');
-    mkdir(local_kilosort_path);
+    % Clear out local directories
+    rmdir(ssd_kilosort_path,'s');
+    mkdir(ssd_kilosort_path);
     
     rmdir(hdd_kilosort_path,'s');
     mkdir(hdd_kilosort_path);
@@ -211,36 +199,27 @@ for curr_site = 1:length(data_paths)
     rmdir(local_phy_path,'s');
     mkdir(local_phy_path);
     
-    % Copy data locally
-    disp('Copying data to local drive...')
-    ap_temp_filename = [local_kilosort_path filesep animal '_' day  '_' 'ephys_apband.dat'];
-    if ~exist(local_kilosort_path,'dir')
-        mkdir(local_kilosort_path)
-    end
-    copyfile(ap_data_filename,ap_temp_filename);
-    disp('Done');
-    
-    % Subtract common median across AP-band channels
-    % (put in large HDD temporarily for space)    
+    % Common average reference data from server to HDD
     ops.NchanTOT = n_channels;
-    medianTrace = applyCARtoDat(ap_temp_filename,ops.NchanTOT,hdd_kilosort_path);
+    medianTrace = applyCARtoDat(ap_data_filename,ops.NchanTOT,hdd_kilosort_path);  
     
-    ap_temp_car_filename_hdd = [hdd_kilosort_path filesep animal '_' day  '_' 'ephys_apband_CAR.dat'];    
-    ap_temp_car_filename = [local_kilosort_path filesep animal '_' day  '_' 'ephys_apband_CAR.dat']; 
+    [~,ap_car_name,ap_car_ext] = fileparts(ap_data_filename);
+    ap_temp_car_filename_hdd = [hdd_kilosort_path filesep ap_car_name '_CAR' ap_car_ext];      
     
-    % (delete pre-CAR temp file and move CAR to SDD)
-    delete(ap_temp_filename);
-    movefile(ap_temp_car_filename_hdd,ap_temp_car_filename);
-    
-    % Run kilosort on CAR data
+    % Kilosort 1 (old)
 %     AP_run_kilosort(ap_temp_car_filename,ap_sample_rate);
-    % upgrade:
-    AP_run_kilosort2(ap_temp_car_filename,ap_sample_rate);
+
+    % Kilosort 2
+    % Set default time range to be [0,inf]
+    if ~exist('t_range','var')
+        t_range = [0,inf];
+    end
+    AP_run_kilosort2(ap_temp_car_filename_hdd,ap_sample_rate,ssd_kilosort_path,t_range);
     
     %% Copy kilosort results to server
     
     disp('Copying sorted data to server...');
-    ks_results_path = [local_kilosort_path filesep 'results'];
+    ks_results_path = [ssd_kilosort_path filesep 'results'];
     copyfile(ks_results_path,curr_save_path);
     
     %% Copy kilosort results and raw data to phy folder for clustering
@@ -259,8 +238,8 @@ for curr_site = 1:length(data_paths)
     movefile([ks_results_path filesep '*'],local_phy_path)
     
     %% Delete all temporarly local data
-    rmdir(local_kilosort_path,'s');
-    mkdir(local_kilosort_path);
+    rmdir(ssd_kilosort_path,'s');
+    mkdir(ssd_kilosort_path);
     
 end
 

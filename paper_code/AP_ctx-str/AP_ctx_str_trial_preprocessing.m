@@ -540,6 +540,7 @@ for curr_animal = 1:length(animals)
     
     fluor_all{curr_animal} = cell(length(experiments),1);
     mua_all{curr_animal} = cell(length(experiments),1);
+    predicted_mua_std_all{curr_animal} = cell(length(experiments),1);
     wheel_all{curr_animal} = cell(length(experiments),1);
     D_all{curr_animal} = cell(length(experiments),1);
     
@@ -679,17 +680,27 @@ save_path = 'C:\Users\Andrew\OneDrive for Business\Documents\CarandiniHarrisLab\
 save_fn = ['trial_activity_passive_fullscreen'];
 save([save_path filesep save_fn],'-v7.3');
 
-
 %% Passive choiceworld trial activity (trained)
+
 clear all
 disp('Passive choiceworld trial activity (trained)')
 
 n_aligned_depths = 4;
 
+% Regression parameters
+regression_params.use_svs = 1:50;
+regression_params.skip_seconds = 60;
+regression_params.upsample_factor = 1;
+regression_params.kernel_t = [-0.2,0.2];
+regression_params.zs = [false,false];
+regression_params.cvfold = 5;
+regression_params.use_constant = true;
+
 animals = {'AP024','AP025','AP026','AP027','AP028','AP029'};
 
 fluor_all = cell(length(animals),1);
 mua_all = cell(length(animals),1);
+predicted_mua_std_all = cell(length(animals),1);
 wheel_all = cell(length(animals),1);
 D_all = cell(length(animals),1);
 
@@ -714,6 +725,7 @@ for curr_animal = 1:length(animals)
     
     fluor_all{curr_animal} = cell(length(experiments),1);
     mua_all{curr_animal} = cell(length(experiments),1);
+    predicted_mua_std_all{curr_animal} = cell(length(experiments),1);
     wheel_all{curr_animal} = cell(length(experiments),1);
     D_all{curr_animal} = cell(length(experiments),1);
     
@@ -749,19 +761,18 @@ for curr_animal = 1:length(animals)
         
         % Get event-aligned activity
         raster_window = [-0.5,3];
-        upsample_factor = 3;
-        raster_sample_rate = 1/(framerate*upsample_factor);
+        raster_sample_rate = 1/(framerate*regression_params.upsample_factor);
         t = raster_window(1):raster_sample_rate:raster_window(2);      
         
         use_align = stimOn_times;
         
         t_peri_event = bsxfun(@plus,use_align,t);
         
-        % Fluorescence
+        %%% Fluorescence
         event_aligned_V = ...
             interp1(frame_t,fVdf_recast(use_components,:)',t_peri_event);
         
-        % MUA
+        %%% MUA
         event_aligned_mua = nan(length(stimOn_times),length(t),n_depths);
         t_bins = [t_peri_event-raster_sample_rate/2,t_peri_event(:,end)+raster_sample_rate/2];
         for curr_depth = 1:n_depths
@@ -776,7 +787,53 @@ for curr_animal = 1:length(animals)
                 [1:size(t_peri_event,1)]','uni',false))./raster_sample_rate;
         end
         
-        % Wheel
+        %%% Regressed fluorescence -> MUA
+        
+        % Get time points to bin
+        sample_rate = framerate*regression_params.upsample_factor;
+        time_bins = frame_t(find(frame_t > ...
+            regression_params.skip_seconds,1)):1/sample_rate: ...
+            frame_t(find(frame_t-frame_t(end) < ...
+            -regression_params.skip_seconds,1,'last'));
+        time_bin_centers = time_bins(1:end-1) + diff(time_bins)/2;
+        
+        % Get upsampled dVdf's
+        dfVdf_resample = interp1(conv2(frame_t,[1,1]/2,'valid'), ...
+            diff(fVdf(regression_params.use_svs,:),[],2)',time_bin_centers)';      
+        
+        binned_spikes = zeros(n_depths,length(time_bin_centers));
+        for curr_depth = 1:n_depths
+            curr_spike_times = spike_times_timeline(depth_group == curr_depth);
+            binned_spikes(curr_depth,:) = histcounts(curr_spike_times,time_bins);
+        end
+        
+        % Load lambda from previously estimated and saved
+        lambda_fn = 'C:\Users\Andrew\OneDrive for Business\Documents\CarandiniHarrisLab\analysis\wf_ephys_choiceworld\ephys_processing\ctx-str_lambda';
+        load(lambda_fn);
+        curr_animal_idx = strcmp(animal,{ctx_str_lambda.animal});
+        if any(curr_animal_idx)
+            curr_day_idx = strcmp(day,ctx_str_lambda(curr_animal_idx).day);
+            if any(curr_day_idx)
+                lambda = ctx_str_lambda(curr_animal_idx).best_lambda(curr_day_idx);
+            end
+        end
+        
+        kernel_frames = round(regression_params.kernel_t(1)*sample_rate): ...
+            round(regression_params.kernel_t(2)*sample_rate);
+        
+        binned_spikes_std = binned_spikes./nanstd(binned_spikes,[],2);
+        binned_spikes_std(isnan(binned_spikes_std)) = 0;
+        
+        [~,predicted_spikes_std,explained_var] = ...
+            AP_regresskernel(dfVdf_resample, ...
+            binned_spikes_std,kernel_frames,lambda, ...
+            regression_params.zs,regression_params.cvfold, ...
+            false,regression_params.use_constant);
+        
+        event_aligned_predicted_mua_std = ...
+            interp1(time_bin_centers,predicted_spikes_std',t_peri_event);
+        
+        %%% Wheel
         event_aligned_wheel_raw = interp1(Timeline.rawDAQTimestamps, ...
             wheel_position,t_peri_event);
         event_aligned_wheel = bsxfun(@minus,event_aligned_wheel_raw, ...
@@ -789,6 +846,7 @@ for curr_animal = 1:length(animals)
         % Store activity and stim
         fluor_all{curr_animal}{curr_day} = event_aligned_V;
         mua_all{curr_animal}{curr_day} = event_aligned_mua;
+        predicted_mua_std_all{curr_animal}{curr_day} = event_aligned_predicted_mua_std;
         wheel_all{curr_animal}{curr_day} = event_aligned_wheel;
         D_all{curr_animal}{curr_day} = D;
         
@@ -796,15 +854,17 @@ for curr_animal = 1:length(animals)
         
     end
     
-    clearvars -except n_aligned_depths animals curr_animal t fluor_all mua_all wheel_all D_all
+    clearvars -except n_aligned_depths regression_params animals curr_animal ...
+        t fluor_all mua_all predicted_mua_std_all wheel_all D_all
     
 end
-clearvars -except n_aligned_depths t fluor_all mua_all wheel_all D_all
+clearvars -except n_aligned_depths t fluor_all mua_all predicted_mua_std_all wheel_all D_all
 disp('Finished loading all')
 
 save_path = 'C:\Users\Andrew\OneDrive for Business\Documents\CarandiniHarrisLab\analysis\wf_ephys_choiceworld\paper\data';
 save_fn = ['trial_activity_passive_choiceworld'];
 save([save_path filesep save_fn],'-v7.3');
+
 
 %% Passive fullscreen trial activity (naive)
 
@@ -844,6 +904,7 @@ for curr_animal = 1:length(animals)
     
     fluor_all{curr_animal} = cell(length(experiments),1);
     mua_all{curr_animal} = cell(length(experiments),1);
+    predicted_mua_std_all{curr_animal} = cell(length(experiments),1);
     wheel_all{curr_animal} = cell(length(experiments),1);
     D_all{curr_animal} = cell(length(experiments),1);
     
@@ -1538,7 +1599,7 @@ disp('Saved kernel ROIs');
 
 
 
-%% %%%%%%%%%%%%%%%% TESTING
+%% ~~~~~~~~~~~~ TESTING ~~~~~~~~~~~~~~~~~
 
 %% TESTING WHEEL REGRESSION 
 
@@ -1597,7 +1658,7 @@ axis image
 % (like ctx->str, looks way cleaner averaging across experiments)
 
 
-%% %%%%%%%%%%%%%%% UNUSED
+%% ~~~~~~~~~~~ UNUSED ~~~~~~~~~~~~~~~
 
 
 %% Pull out and save activity in each trial (choiceworld - frame sampling rate)

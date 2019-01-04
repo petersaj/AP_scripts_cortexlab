@@ -1,4 +1,4 @@
-%% Kilosort 1 config
+%% Same as kilosort1 config
 
 ops.GPU                 = 1; % whether to run this code on an Nvidia GPU (much faster, mexGPUall first)		
 ops.parfor              = 0; % whether to use parfor to accelerate some parts of the algorithm		
@@ -7,7 +7,7 @@ ops.showfigures         = 1; % whether to plot figures during optimization
 		
 ops.datatype            = 'dat';  % binary ('dat', 'bin') or 'openEphys'		
 ops.fbinary             = data_filename; % will be created for 'openEphys'		
-ops.fproc               = [data_path filesep 'temp_wh.dat']; % residual from RAM of preprocessed data		
+ops.fproc               = [save_path filesep 'temp_wh.dat']; % residual from RAM of preprocessed data		
 ops.root                = data_path; % 'openEphys' only: where raw files are		
 		
 ops.fs                  = sample_rate;        % sampling rate		(omit if already in chanMap file)
@@ -133,8 +133,15 @@ ops.criterionNoiseChannels = 0.2; % fraction of "noise" templates allowed to spa
 ops.whiteningRange = 32;
 
 %% Ghost parameter which is required but listed nowhere 
+% (specifies time range of data to use - t_range = input to AP function)
+% NOTE! loads in ceil(total samp/buffer) so make sure truncated amount
+% is larger than the nearest buffer (65856 samples = 2.195 seconds)
 
-ops.trange           = [0 inf];
+if exist('t_range','var') && ~isempty(t_range)
+   ops.trange = t_range;
+else 
+    ops.trange = [0,inf];
+end
 
 
 

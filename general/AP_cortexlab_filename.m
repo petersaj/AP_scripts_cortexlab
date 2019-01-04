@@ -225,9 +225,8 @@ switch file
         % CHECK NEW OPEN EPHYS ON SERVER2 IF IT DOESN'T EXIST
         if isempty(dir(check_file))
             filename = [server2 filesep 'Subjects' filesep animal filesep day filesep ...
-                'ephys' site_dir filesep 'experiment1' filesep 'recording1' ...
-                filesep 'continuous'  filesep 'Neuropix-3a-100.0'];
-            check_file = [filename filesep 'continuous.dat'];
+                'ephys' site_dir filesep 'experiment1' filesep 'recording1'];
+            check_file = [filename filesep 'continuous'  filesep 'Neuropix-3a-100.0' filesep 'continuous.dat'];
         end
         
     case 'probe_histology'

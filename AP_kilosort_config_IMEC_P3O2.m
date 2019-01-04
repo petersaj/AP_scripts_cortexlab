@@ -1,3 +1,5 @@
+%% Kilosort 1 config
+
 ops.GPU                 = 1; % whether to run this code on an Nvidia GPU (much faster, mexGPUall first)		
 ops.parfor              = 0; % whether to use parfor to accelerate some parts of the algorithm		
 ops.verbose             = 1; % whether to print command line progress		

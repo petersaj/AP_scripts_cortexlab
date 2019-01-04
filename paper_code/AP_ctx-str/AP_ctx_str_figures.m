@@ -2106,13 +2106,6 @@ trial_choice_allcat = -(D_allcat.response-1.5)*2;
 
 trial_contrast_side = trial_contrast_allcat.*trial_side_allcat;
 
-% Get time (make this be saved in trial data)
-framerate = 35;
-raster_window = [-0.5,3];
-upsample_factor = 3;
-sample_rate = (framerate*upsample_factor);
-t = raster_window(1):1/sample_rate:raster_window(2);
-
 % Get reaction time
 [~,move_idx] = max(abs(wheel_allcat(:,:,1)) > 2,[],2);
 move_t = t(move_idx)';
@@ -2181,8 +2174,7 @@ ylabel('MUA');
 data_fn = ['trial_activity_passive_choiceworld'];
 exclude_data = false;
 
-[t,fluor_allcat_deriv,fluor_roi_deriv,mua_allcat,wheel_allcat,reward_allcat,D_allcat] = ...
-    AP_load_concat_normalize_ctx_str(data_fn,exclude_data);
+AP_load_concat_normalize_ctx_str;
 
 n_vs = size(fluor_allcat_deriv,3);
 n_rois = size(fluor_roi_deriv,3);
@@ -2196,27 +2188,18 @@ wf_roi = wf_roi(:,1);
 % Load the master U
 load('C:\Users\Andrew\OneDrive for Business\Documents\CarandiniHarrisLab\analysis\wf_ephys_choiceworld\wf_processing\wf_alignment\U_master');
 
-% Get time (make this be saved in trial data)
-framerate = 35;
-raster_window = [-0.5,3];
-upsample_factor = 3;
-sample_rate = (framerate*upsample_factor);
-t = raster_window(1):1/sample_rate:raster_window(2);
+% Get trials with movement
+move_trials = any(abs(wheel_allcat) > 2,2);
 
-% Get reaction time
-[~,move_idx] = max(abs(wheel_allcat(:,:,1)) > 2,[],2);
-move_t = t(move_idx)';
-
-% Stim and time to plot
+% Get stim values
 unique_stim = unique(D_allcat.stimulus);
-use_t = t > 0 & t < 0.5;
 
 % Get average long reaction time stim responses
 fluor_stim_mean = nan(length(unique_stim),size(fluor_allcat_deriv,2),n_vs);
 fluor_roi_stim_mean = nan(length(unique_stim),size(fluor_roi_deriv,2),n_rois);
 mua_stim_mean = nan(length(unique_stim),size(mua_allcat,2),n_depths);
 for curr_stim_idx = 1:length(unique_stim)
-    curr_trials = move_t > 0.5 & ...
+    curr_trials = ~move_trials & ...
         D_allcat.stimulus == unique_stim(curr_stim_idx);
     fluor_stim_mean(curr_stim_idx,:,:) = nanmean(fluor_allcat_deriv(curr_trials,:,:),1);
     fluor_roi_stim_mean(curr_stim_idx,:,:) = nanmean(fluor_roi_deriv(curr_trials,:,:),1);
@@ -2226,10 +2209,12 @@ end
 figure('Name','Trained passive choiceworld');
 
 % Plot 100/R fluorescence
+use_t = t > 0.2 & t < 0.5;
+
 subplot(2,3,1);
 plot_px = svdFrameReconstruct(U_master(:,:,1:n_vs), ...
     permute(fluor_stim_mean(end,:,:),[3,2,1]));
-plot_px_max = max(plot_px(:,:,use_t),[],3);
+plot_px_max = mean(plot_px(:,:,use_t),3);
 imagesc(plot_px_max);
 caxis([0,max(abs(caxis))]);
 colormap(brewermap([],'BuGn'));
@@ -2267,6 +2252,27 @@ xlabel('Contrast*Side');
 ylabel('MUA');
 
 
+% Plot MUA and fluor-predicted MUA
+figure;
+spacing = max(mua_stim_mean(:));
+
+p1 = subplot(1,2,1); hold on; col = lines(length(unique_stim));
+for curr_stim = 1:length(unique_stim)
+    AP_stackplot(permute(mua_stim_mean(curr_stim,:,:),[2,3,1]),t, ...
+        spacing,false,col(curr_stim,:),1:n_depths,true);
+end
+title('Measured');
+
+p2 = subplot(1,2,2); hold on; col = lines(length(unique_stim));
+for curr_stim = 1:length(unique_stim)
+    AP_stackplot(permute(predicted_mua_stim_mean(curr_stim,:,:),[2,3,1]),t, ...
+        spacing,false,col(curr_stim,:),1:n_depths,true);
+end
+title('Predicted');
+
+linkaxes([p1,p2]);
+
+
 %% Fig 4?: stim responses: passive choiceworld naive
 
 data_fn = ['trial_activity_passive_choiceworld_naive'];
@@ -2287,27 +2293,18 @@ wf_roi = wf_roi(:,1);
 % Load the master U
 load('C:\Users\Andrew\OneDrive for Business\Documents\CarandiniHarrisLab\analysis\wf_ephys_choiceworld\wf_processing\wf_alignment\U_master');
 
-% Get time (make this be saved in trial data)
-framerate = 35;
-raster_window = [-0.5,3];
-upsample_factor = 3;
-sample_rate = (framerate*upsample_factor);
-t = raster_window(1):1/sample_rate:raster_window(2);
+% Get trials with movement
+move_trials = any(abs(wheel_allcat) > 2,2);
 
-% Get reaction time
-[~,move_idx] = max(abs(wheel_allcat(:,:,1)) > 2,[],2);
-move_t = t(move_idx)';
-
-% Stim and time to plot
+% Get stim values
 unique_stim = unique(D_allcat.stimulus);
-use_t = t > 0 & t < 0.5;
 
 % Get average long reaction time stim responses
 fluor_stim_mean = nan(length(unique_stim),size(fluor_allcat_deriv,2),n_vs);
 fluor_roi_stim_mean = nan(length(unique_stim),size(fluor_roi_deriv,2),n_rois);
 mua_stim_mean = nan(length(unique_stim),size(mua_allcat,2),n_depths);
 for curr_stim_idx = 1:length(unique_stim)
-    curr_trials = move_t > 0.5 & ...
+    curr_trials = ~move_trials & ...
         D_allcat.stimulus == unique_stim(curr_stim_idx);
     fluor_stim_mean(curr_stim_idx,:,:) = nanmean(fluor_allcat_deriv(curr_trials,:,:),1);
     fluor_roi_stim_mean(curr_stim_idx,:,:) = nanmean(fluor_roi_deriv(curr_trials,:,:),1);
@@ -2317,10 +2314,12 @@ end
 figure('Name','Naive passive choiceworld');
 
 % Plot 100/R fluorescence
+use_t = t > 0.2 & t < 0.5;
+
 subplot(2,3,1);
 plot_px = svdFrameReconstruct(U_master(:,:,1:n_vs), ...
     permute(fluor_stim_mean(end,:,:),[3,2,1]));
-plot_px_max = max(plot_px(:,:,use_t),[],3);
+plot_px_max = mean(plot_px(:,:,use_t),3);
 imagesc(plot_px_max);
 caxis([0,max(abs(caxis))]);
 colormap(brewermap([],'BuGn'));
@@ -2376,20 +2375,11 @@ wf_roi = wf_roi(:,1);
 % Load the master U
 load('C:\Users\Andrew\OneDrive for Business\Documents\CarandiniHarrisLab\analysis\wf_ephys_choiceworld\wf_processing\wf_alignment\U_master');
 
-% Get time (make this be saved in trial data)
-framerate = 35;
-raster_window = [-0.5,3];
-upsample_factor = 3;
-sample_rate = (framerate*upsample_factor);
-t = raster_window(1):1/sample_rate:raster_window(2);
+% Get trials with movement
+move_trials = any(abs(wheel_allcat) > 2,2);
 
-% Get reaction time
-[~,move_idx] = max(abs(wheel_allcat(:,:,1)) > 2,[],2);
-move_t = t(move_idx)';
-
-% Stim and time to plot
+% Get stim values
 unique_stim = unique(D_allcat.stimulus);
-use_t = t > 0 & t < 0.5;
 
 % Get average long reaction time stim responses
 fluor_stim_mean = nan(length(unique_stim),size(fluor_allcat_deriv,2),n_vs);
@@ -2397,7 +2387,7 @@ fluor_roi_stim_mean = nan(length(unique_stim),size(fluor_roi_deriv,2),n_rois);
 mua_stim_mean = nan(length(unique_stim),size(mua_allcat,2),n_depths);
 predicted_mua_stim_mean = nan(length(unique_stim),size(predicted_mua_std_allcat,2),n_depths);
 for curr_stim_idx = 1:length(unique_stim)
-    curr_trials = move_t > 0.5 & ...
+    curr_trials = ~move_trials & ...
         D_allcat.stimulus == unique_stim(curr_stim_idx);
     fluor_stim_mean(curr_stim_idx,:,:) = nanmean(fluor_allcat_deriv(curr_trials,:,:),1);
     fluor_roi_stim_mean(curr_stim_idx,:,:) = nanmean(fluor_roi_deriv(curr_trials,:,:),1);
@@ -2408,10 +2398,12 @@ end
 figure('Name','Trained passive fullscreen');
 
 % Plot 100/R fluorescence
+use_t = t > 0.2 & t < 0.5;
+
 subplot(2,3,1);
 plot_px = svdFrameReconstruct(U_master(:,:,1:n_vs), ...
     permute(fluor_stim_mean(end,:,:),[3,2,1]));
-plot_px_max = max(plot_px(:,:,use_t),[],3);
+plot_px_max = mean(plot_px(:,:,use_t),3);
 imagesc(plot_px_max);
 caxis([0,max(abs(caxis))]);
 colormap(brewermap([],'BuGn'));
@@ -2449,6 +2441,28 @@ plot(unique_stim,mua_stim_max,'linewidth',2);
 set(gca,'XTick',1:3,'XTickLabel',{'Left','Center','Right'});
 xlabel('Stim');
 ylabel('MUA');
+
+
+% Plot MUA and fluor-predicted MUA
+figure;
+spacing = max(mua_stim_mean(:));
+
+p1 = subplot(1,2,1); hold on; col = lines(length(unique_stim));
+for curr_stim = 1:length(unique_stim)
+    AP_stackplot(permute(mua_stim_mean(curr_stim,:,:),[2,3,1]),t, ...
+        spacing,false,col(curr_stim,:),1:n_depths,true);
+end
+title('Measured');
+
+p2 = subplot(1,2,2); hold on; col = lines(length(unique_stim));
+for curr_stim = 1:length(unique_stim)
+    AP_stackplot(permute(predicted_mua_stim_mean(curr_stim,:,:),[2,3,1]),t, ...
+        spacing,false,col(curr_stim,:),1:n_depths,true);
+end
+title('Predicted');
+
+linkaxes([p1,p2]);
+
 
 %% Fig 4?: stim responses: passive fullscreen naive
 
@@ -2469,40 +2483,35 @@ wf_roi = wf_roi(:,1);
 % Load the master U
 load('C:\Users\Andrew\OneDrive for Business\Documents\CarandiniHarrisLab\analysis\wf_ephys_choiceworld\wf_processing\wf_alignment\U_master');
 
-% Get time (make this be saved in trial data)
-framerate = 35;
-raster_window = [-0.5,3];
-upsample_factor = 3;
-sample_rate = (framerate*upsample_factor);
-t = raster_window(1):1/sample_rate:raster_window(2);
+% Get trials with movement
+move_trials = any(abs(wheel_allcat) > 2,2);
 
-% Get reaction time
-[~,move_idx] = max(abs(wheel_allcat(:,:,1)) > 2,[],2);
-move_t = t(move_idx)';
-
-% Stim and time to plot
+% Get stim values
 unique_stim = unique(D_allcat.stimulus);
-use_t = t > 0 & t < 0.5;
 
 % Get average long reaction time stim responses
 fluor_stim_mean = nan(length(unique_stim),size(fluor_allcat_deriv,2),n_vs);
 fluor_roi_stim_mean = nan(length(unique_stim),size(fluor_roi_deriv,2),n_rois);
 mua_stim_mean = nan(length(unique_stim),size(mua_allcat,2),n_depths);
+predicted_mua_stim_mean = nan(length(unique_stim),size(predicted_mua_std_allcat,2),n_depths);
 for curr_stim_idx = 1:length(unique_stim)
-    curr_trials = move_t > 0.5 & ...
+    curr_trials = ~move_trials & ...
         D_allcat.stimulus == unique_stim(curr_stim_idx);
     fluor_stim_mean(curr_stim_idx,:,:) = nanmean(fluor_allcat_deriv(curr_trials,:,:),1);
     fluor_roi_stim_mean(curr_stim_idx,:,:) = nanmean(fluor_roi_deriv(curr_trials,:,:),1);
     mua_stim_mean(curr_stim_idx,:,:) = nanmean(mua_allcat(curr_trials,:,:),1);
+    predicted_mua_stim_mean(curr_stim_idx,:,:) = nanmean(predicted_mua_std_allcat(curr_trials,:,:),1);
 end
 
 figure('Name','Naive passive fullscreen');
 
 % Plot 100/R fluorescence
+use_t = t > 0.2 & t < 0.5;
+
 subplot(2,3,1);
 plot_px = svdFrameReconstruct(U_master(:,:,1:n_vs), ...
     permute(fluor_stim_mean(end,:,:),[3,2,1]));
-plot_px_max = max(plot_px(:,:,use_t),[],3);
+plot_px_max = mean(plot_px(:,:,use_t),3);
 imagesc(plot_px_max);
 caxis([0,max(abs(caxis))]);
 colormap(brewermap([],'BuGn'));
@@ -2540,6 +2549,47 @@ plot(unique_stim,mua_stim_max,'linewidth',2);
 set(gca,'XTick',1:3,'XTickLabel',{'Left','Center','Right'});
 xlabel('Stim');
 ylabel('MUA');
+
+
+% Plot MUA and fluor-predicted MUA
+figure;
+spacing = max(mua_stim_mean(:));
+
+p1 = subplot(1,2,1); hold on; col = lines(length(unique_stim));
+for curr_stim = 1:length(unique_stim)
+    AP_stackplot(permute(mua_stim_mean(curr_stim,:,:),[2,3,1]),t, ...
+        spacing,false,col(curr_stim,:),1:n_depths,true);
+end
+title('Measured');
+
+p2 = subplot(1,2,2); hold on; col = lines(length(unique_stim));
+for curr_stim = 1:length(unique_stim)
+    AP_stackplot(permute(predicted_mua_stim_mean(curr_stim,:,:),[2,3,1]),t, ...
+        spacing,false,col(curr_stim,:),1:n_depths,true);
+end
+title('Predicted');
+
+linkaxes([p1,p2]);
+
+%% TESTING: compare fullscreen naive/trained
+
+
+data_fn = ['trial_activity_passive_fullscreen'];
+exclude_data = true;
+AP_load_concat_normalize_ctx_str;
+move_trials = any(abs(wheel_allcat) > 2,2);
+stim_trained = D_allcat.stimulus(move_trials);
+mua_allcat_trained = mua_allcat(move_trials,:,:);
+
+
+data_fn = ['trial_activity_passive_fullscreen_naive'];
+exclude_data = false;
+AP_load_concat_normalize_ctx_str;
+move_trials = any(abs(wheel_allcat) > 2,2);
+stim_naive = D_allcat.stimulus(move_trials);
+mua_allcat_naive = mua_allcat(move_trials,:,:);
+
+
 
 
 %% Fig 4?: stim/no-stim move?

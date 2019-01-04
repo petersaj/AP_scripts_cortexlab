@@ -147,20 +147,31 @@ figure;plot3(template_channel_skewness,template_corr,1:size(templates,1),'.k');
 
 %% Run kilosort2 on all old data
 
-animals = {'AP024','AP025','AP026','AP027','AP028','AP029'};
+% (should be done except errored days)
+% animals = {'AP024','AP025','AP026','AP027','AP028','AP029'};
+% 
+% for curr_animal = length(animals)
+%     
+%     animal = animals{curr_animal};
+%     experiments = AP_find_experiments(animal);
+%     ephys_days = {experiments([experiments.ephys]).day};
+%     
+%     for curr_day = 4
+%         disp(['Kilosort2-ing: ' animal ' ' ephys_days{curr_day}])
+%         AP_preprocess_phase3(animal,ephys_days{curr_day});
+%     end
+%       
+% end
 
-for curr_animal = length(animals)
-    
-    animal = animals{curr_animal};
-    experiments = AP_find_experiments(animal);
-    ephys_days = {experiments([experiments.ephys]).day};
-    
-    for curr_day = 4:length(ephys_days)
-        disp(['Kilosort2-ing: ' animal ' ' ephys_days{curr_day}])
-        AP_preprocess_phase3(animal,ephys_days{curr_day});
-    end
-      
-end
+% Errored days: AP029 days 4,7,8
 
+animal = 'AP029';
+experiments = AP_find_experiments(animal);
+ephys_days = {experiments([experiments.ephys]).day};
+
+curr_day = 8;
+t_range = [0,inf]; % (buffer is 65856 = 2.195, amount to leave off the end must be larger than this)
+disp(['Kilosort2-ing: ' animal ' ' ephys_days{curr_day}])
+AP_preprocess_phase3(animal,ephys_days{curr_day},t_range);
 
 
