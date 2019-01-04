@@ -108,8 +108,9 @@ trial_choice_allcat = -(D_allcat.response-1.5)*2;
 sample_rate = 1/mean(diff(t));
 
 % Get reaction time
-[~,move_idx] = max(abs(wheel_allcat(:,:,1)) > 2,[],2);
+[move_trial,move_idx] = max(abs(wheel_allcat(:,:,1)) > 2,[],2);
 move_t = t(move_idx)';
+move_t(~move_trial) = Inf;
 
 % Load the master U
 load('C:\Users\Andrew\OneDrive for Business\Documents\CarandiniHarrisLab\analysis\wf_ephys_choiceworld\wf_processing\wf_alignment\U_master');
@@ -987,8 +988,9 @@ sample_rate = (framerate*upsample_factor);
 t = raster_window(1):1/sample_rate:raster_window(2);
 
 % Get reaction time
-[~,move_idx] = max(abs(wheel_allcat(:,:,1)) > 2,[],2);
+[move_trial,move_idx] = max(abs(wheel_allcat(:,:,1)) > 2,[],2);
 move_t = t(move_idx)';
+move_t(~move_trial) = Inf;
 
 % Get trial types to plot
 rxn_time_use = [0.1,0.3];
@@ -1277,8 +1279,9 @@ trial_choice_allcat = -(D_allcat.response-1.5)*2;
 sample_rate = 1/mean(diff(t));
 
 % Get reaction time
-[~,move_idx] = max(abs(wheel_allcat(:,:,1)) > 2,[],2);
+[move_trial,move_idx] = max(abs(wheel_allcat(:,:,1)) > 2,[],2);
 move_t = t(move_idx)';
+move_t(~move_trial) = Inf;
 
 % Plot striatal activity on correct visual trials
 plot_rxn_time = [0.1,0.3];
@@ -1494,8 +1497,9 @@ trial_choice_allcat = -(D_allcat.response-1.5)*2;
 sample_rate = 1/mean(diff(t));
 
 % Get reaction time
-[~,move_idx] = max(abs(wheel_allcat(:,:,1)) > 2,[],2);
+[move_trial,move_idx] = max(abs(wheel_allcat(:,:,1)) > 2,[],2);
 move_t = t(move_idx)';
+move_t(~move_trial) = Inf;
 
 % Load the master U
 load('C:\Users\Andrew\OneDrive for Business\Documents\CarandiniHarrisLab\analysis\wf_ephys_choiceworld\wf_processing\wf_alignment\U_master');
@@ -2107,8 +2111,9 @@ trial_choice_allcat = -(D_allcat.response-1.5)*2;
 trial_contrast_side = trial_contrast_allcat.*trial_side_allcat;
 
 % Get reaction time
-[~,move_idx] = max(abs(wheel_allcat(:,:,1)) > 2,[],2);
+[move_trial,move_idx] = max(abs(wheel_allcat(:,:,1)) > 2,[],2);
 move_t = t(move_idx)';
+move_t(~move_trial) = Inf;
 
 % Stim and time to plot
 unique_stim = unique(trial_contrast_allcat.*trial_side_allcat);
@@ -2359,7 +2364,7 @@ ylabel('MUA');
 %% Fig 4?: stim responses: passive fullscreen trained
 
 data_fn = ['trial_activity_passive_fullscreen'];
-exclude_data = false;
+exclude_data = true;
 
 AP_load_concat_normalize_ctx_str;
 
@@ -2626,8 +2631,9 @@ trial_contrast_side = trial_contrast_allcat.*trial_side_allcat;
 sample_rate = 1/mean(diff(t));
 
 % Get reaction time
-[~,move_idx] = max(abs(wheel_allcat(:,:,1)) > 2,[],2);
+[move_trial,move_idx] = max(abs(wheel_allcat(:,:,1)) > 2,[],2);
 move_t = t(move_idx)';
+move_t(~move_trial) = Inf;
 
 % Get maximum wheel velocity in chosen direction
 wheel_velocity_allcat = [zeros(size(wheel_allcat,1),1,1),diff(wheel_allcat,[],2)];

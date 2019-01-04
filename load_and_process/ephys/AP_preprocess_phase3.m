@@ -211,6 +211,8 @@ for curr_site = 1:length(data_paths)
 
     % Kilosort 2
     % Set default time range to be [0,inf]
+    % NOTE: should probably change this to be 5-10s cut on each end? Need
+    % to be able to get total time in seconds from file
     if ~exist('t_range','var')
         t_range = [0,inf];
     end

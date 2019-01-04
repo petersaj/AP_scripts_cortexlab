@@ -143,35 +143,226 @@ figure;plot3(template_channel_skewness,template_corr,1:size(templates,1),'.k');
 
 
 
+%% Trying regression with smoothing
+
+clear all
+disp('Passive fullscreen trial activity (trained)')
+
+n_aligned_depths = 4;
+
+% Regression parameters
+regression_params.use_svs = 1:50;
+regression_params.skip_seconds = 60;
+regression_params.upsample_factor = 1;
+regression_params.kernel_t = [-0.2,0.2];
+regression_params.zs = [false,false];
+regression_params.cvfold = 5;
+regression_params.use_constant = true;
+
+animals = {'AP024','AP025','AP026','AP027','AP028','AP029'};
+
+fluor_all = cell(length(animals),1);
+mua_all = cell(length(animals),1);
+predicted_mua_std_all = cell(length(animals),1);
+wheel_all = cell(length(animals),1);
+D_all = cell(length(animals),1);
+
+for curr_animal = 1:length(animals)
+    
+    animal = animals{curr_animal};
+    
+    % Only use days with choiceworld (sometimes recorded in cortex, no bhv)
+    protocol = 'vanillaChoiceworld';
+    behavior_experiments = AP_find_experiments(animal,protocol);
+    
+    protocol = 'stimKalatsky';
+    passive_experiments = AP_find_experiments(animal,protocol);
+    
+    behavior_day = ismember({passive_experiments.day},{behavior_experiments.day});
+    
+    experiments = passive_experiments([passive_experiments.imaging] & [passive_experiments.ephys] & behavior_day);
+
+    load_parts.cam = false;
+    load_parts.imaging = true;
+    load_parts.ephys = true;
+    
+    fluor_all{curr_animal} = cell(length(experiments),1);
+    mua_all{curr_animal} = cell(length(experiments),1);
+    predicted_mua_std_all{curr_animal} = cell(length(experiments),1);
+    wheel_all{curr_animal} = cell(length(experiments),1);
+    D_all{curr_animal} = cell(length(experiments),1);
+    
+    disp(['Loading ' animal]);
+    
+    for curr_day = 1:length(experiments)
+        
+        day = experiments(curr_day).day;
+        experiment = experiments(curr_day).experiment(end);
+        
+        % Load experiment
+        str_align = 'kernel';
+        AP_load_experiment;
+        
+        % Prepare fluorescence
+        % Convert U to master U
+        load('C:\Users\Andrew\OneDrive for Business\Documents\CarandiniHarrisLab\analysis\wf_ephys_choiceworld\wf_processing\wf_alignment\U_master.mat');
+        Udf_aligned = single(AP_align_widefield(animal,day,Udf));
+        fVdf_recast = ChangeU(Udf_aligned,fVdf,U_master);
+        
+        % Set components to use
+        use_components = 1:200;
+        
+        % Group multiunit by depth
+        % (evenly across recorded striatum)
+        %         n_depths = 6;
+        %         depth_group_edges = round(linspace(str_depth(1),str_depth(2),n_depths+1));
+        %         depth_group_centers = round(depth_group_edges(1:end-1)+diff(depth_group_edges)/2);
+        %         depth_group = discretize(spikeDepths,depth_group_edges);
+        
+        % (aligned striatum depths)
+        n_depths = n_aligned_depths;
+        depth_group = aligned_str_depth_group;
+        
+        % Get event-aligned activity
+        raster_window = [-0.5,3];
+        raster_sample_rate = 1/(framerate*regression_params.upsample_factor);
+        t = raster_window(1):raster_sample_rate:raster_window(2);      
+        
+        use_align = stimOn_times;
+        
+        t_peri_event = bsxfun(@plus,use_align,t);
+        
+        %%% Fluorescence
+        event_aligned_V = ...
+            interp1(frame_t,fVdf_recast(use_components,:)',t_peri_event);
+        
+        %%% MUA
+        event_aligned_mua = nan(length(stimOn_times),length(t),n_depths);
+        t_bins = [t_peri_event-raster_sample_rate/2,t_peri_event(:,end)+raster_sample_rate/2];
+        for curr_depth = 1:n_depths
+            % (for all spikes in depth group)
+            curr_spikes = spike_times_timeline(depth_group == curr_depth);
+            % (for only msns in depth group)
+            %                 curr_spikes = spike_times_timeline(depth_group == curr_depth & ...
+            %                     ismember(spike_templates,find(msn)));
+            
+            event_aligned_mua(:,:,curr_depth) = cell2mat(arrayfun(@(x) ...
+                histcounts(curr_spikes,t_bins(x,:)), ...
+                [1:size(t_peri_event,1)]','uni',false))./raster_sample_rate;
+        end
+        
+        %%% Regressed fluorescence -> MUA
+        
+        % Get time points to bin
+        sample_rate = framerate*regression_params.upsample_factor;
+        time_bins = frame_t(find(frame_t > ...
+            regression_params.skip_seconds,1)):1/sample_rate: ...
+            frame_t(find(frame_t-frame_t(end) < ...
+            -regression_params.skip_seconds,1,'last'));
+        time_bin_centers = time_bins(1:end-1) + diff(time_bins)/2;       
+        
+        %%%%%% TESTING %%%%%%%
+%         % Get upsampled dVdf's
+%         dfVdf_resample = interp1(conv2(frame_t,[1,1]/2,'valid'), ...
+%             diff(fVdf(regression_params.use_svs,:),[],2)',time_bin_centers)';
+        
+%         % Use smoothed-trace derivative
+%         deriv_smooth = 3;       
+%         frame_t_smooth_diff = conv(conv(frame_t,ones(1,deriv_smooth)/deriv_smooth,'valid'),[1,1]/2,'valid');
+%         dfVdf_resample = interp1(frame_t_smooth_diff,diff( ...
+%             convn(fVdf(regression_params.use_svs,:), ...
+%             ones(1,deriv_smooth)/deriv_smooth,'valid'),[],2)', ...
+%             time_bin_centers,'linear','extrap')';       
+        
+        % Use deconvolved fluorescence
+        load('C:\Users\Andrew\OneDrive for Business\Documents\CarandiniHarrisLab\analysis\wf_ephys_choiceworld\wf_processing\gcamp_kernel\gcamp6s_kernel.mat');        
+        gcamp6s_kernel_cat = vertcat(gcamp6s_kernel.regression{:});
+        gcamp6s_kernel = nanmean(gcamp6s_kernel_cat./max(gcamp6s_kernel_cat,[],2),1);
+        fluor_allcat_deriv = convn(fVdf,gcamp6s_kernel,'same');
+        dfVdf_resample = interp1(frame_t, ...
+           fluor_allcat_deriv(regression_params.use_svs,:)',time_bin_centers)';
+        
+        %%%%%% TESTING %%%%%%%
+        
+        binned_spikes = zeros(n_depths,length(time_bin_centers));
+        for curr_depth = 1:n_depths
+            curr_spike_times = spike_times_timeline(depth_group == curr_depth);
+            binned_spikes(curr_depth,:) = histcounts(curr_spike_times,time_bins);
+        end
+        
+        % Load lambda from previously estimated and saved
+        lambda_fn = 'C:\Users\Andrew\OneDrive for Business\Documents\CarandiniHarrisLab\analysis\wf_ephys_choiceworld\ephys_processing\ctx-str_lambda';
+        load(lambda_fn);
+        curr_animal_idx = strcmp(animal,{ctx_str_lambda.animal});
+        if any(curr_animal_idx)
+            curr_day_idx = strcmp(day,ctx_str_lambda(curr_animal_idx).day);
+            if any(curr_day_idx)
+                lambda = ctx_str_lambda(curr_animal_idx).best_lambda(curr_day_idx);
+            end
+        end
+        
+        kernel_frames = round(regression_params.kernel_t(1)*sample_rate): ...
+            round(regression_params.kernel_t(2)*sample_rate);
+        
+        binned_spikes_std = binned_spikes./nanstd(binned_spikes,[],2);
+        binned_spikes_std(isnan(binned_spikes_std)) = 0;
+        
+        [~,predicted_spikes_std,explained_var] = ...
+            AP_regresskernel(dfVdf_resample, ...
+            binned_spikes_std,kernel_frames,lambda, ...
+            regression_params.zs,regression_params.cvfold, ...
+            false,regression_params.use_constant);
+        
+        event_aligned_predicted_mua_std = ...
+            interp1(time_bin_centers,predicted_spikes_std',t_peri_event);
+        
+        %%% Wheel
+        event_aligned_wheel_raw = interp1(Timeline.rawDAQTimestamps, ...
+            wheel_position,t_peri_event);
+        event_aligned_wheel = bsxfun(@minus,event_aligned_wheel_raw, ...
+            nanmedian(event_aligned_wheel_raw(:,t < 0),2));
+                      
+        % Get stim info
+        D = struct;
+        D.stimulus = stimIDs;
+        
+        % Store activity and stim
+        fluor_all{curr_animal}{curr_day} = event_aligned_V;
+        mua_all{curr_animal}{curr_day} = event_aligned_mua;
+        predicted_mua_std_all{curr_animal}{curr_day} = event_aligned_predicted_mua_std;
+        wheel_all{curr_animal}{curr_day} = event_aligned_wheel;
+        D_all{curr_animal}{curr_day} = D;
+        
+        AP_print_progress_fraction(curr_day,length(experiments));
+        
+    end
+    
+    clearvars -except n_aligned_depths regression_params animals curr_animal ...
+        t fluor_all mua_all predicted_mua_std_all wheel_all D_all
+    
+end
+clearvars -except n_aligned_depths t fluor_all mua_all predicted_mua_std_all wheel_all D_all
+disp('Finished loading all')
+
+save_path = 'C:\Users\Andrew\OneDrive for Business\Documents\CarandiniHarrisLab\analysis\wf_ephys_choiceworld\paper\data';
+save_fn = ['trial_activity_passive_fullscreen_SMOOTHTEST'];
+save([save_path filesep save_fn],'-v7.3');
 
 
-%% Run kilosort2 on all old data
 
-% (should be done except errored days)
-% animals = {'AP024','AP025','AP026','AP027','AP028','AP029'};
-% 
-% for curr_animal = length(animals)
-%     
-%     animal = animals{curr_animal};
-%     experiments = AP_find_experiments(animal);
-%     ephys_days = {experiments([experiments.ephys]).day};
-%     
-%     for curr_day = 4
-%         disp(['Kilosort2-ing: ' animal ' ' ephys_days{curr_day}])
-%         AP_preprocess_phase3(animal,ephys_days{curr_day});
-%     end
-%       
-% end
 
-% Errored days: AP029 days 4,7,8
 
-animal = 'AP029';
-experiments = AP_find_experiments(animal);
-ephys_days = {experiments([experiments.ephys]).day};
 
-curr_day = 8;
-t_range = [0,inf]; % (buffer is 65856 = 2.195, amount to leave off the end must be larger than this)
-disp(['Kilosort2-ing: ' animal ' ' ephys_days{curr_day}])
-AP_preprocess_phase3(animal,ephys_days{curr_day},t_range);
+
+
+
+
+
+
+
+
+
+
+
 
 
