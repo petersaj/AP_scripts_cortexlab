@@ -506,10 +506,7 @@ if imaging_exists && load_parts.imaging
     if verbose; disp('Loading imaging data...'); end
     
     % Get the imaging file locations
-    spatialComponents_dir = dir([data_path filesep 'svdSpatialComponents*']);
-    temporalComponents_dir = dir([experiment_path filesep 'svdTemporalComponents*']);
-    imaging_timestamps_idx = cellfun(@any,strfind({temporalComponents_dir.name},'timestamps'));
-    
+    spatialComponents_dir = dir([data_path filesep 'svdSpatialComponents*']);   
     meanImage_dir = dir([data_path filesep 'meanImage*']);
     
     cam_color_n = length(spatialComponents_dir);
@@ -519,8 +516,8 @@ if imaging_exists && load_parts.imaging
     if cam_color_n == 1
         
         U = readUfromNPY([data_path filesep spatialComponents_dir.name]);
-        V = readVfromNPY([experiment_path filesep temporalComponents_dir(~imaging_timestamps_idx).name]);
-        frame_t = readNPY([experiment_path filesep temporalComponents_dir(imaging_timestamps_idx).name]);
+        V = readVfromNPY([experiment_path filesep strrep(spatialComponents_dir.name,'Spatial','Temporal')]);
+        frame_t = cam_time;
         
         framerate = 1./nanmean(diff(frame_t));
         
@@ -534,20 +531,20 @@ if imaging_exists && load_parts.imaging
         
     elseif cam_color_n == 2
         
-        % Load in all things as neural (n) or hemodynamic (h)
-        
-        tn = readNPY([experiment_path filesep 'svdTemporalComponents_' cam_color_signal '.timestamps.npy']);
+        % Load in all things as neural (n) or hemodynamic (h)        
         Un = readUfromNPY([data_path filesep 'svdSpatialComponents_' cam_color_signal '.npy']);
         Vn = readVfromNPY([experiment_path filesep 'svdTemporalComponents_' cam_color_signal '.npy']);
         dataSummary_n = load([data_path filesep 'dataSummary_' cam_color_signal '.mat']);
         avg_im_n = readNPY([data_path filesep 'meanImage_' cam_color_signal '.npy']);
         
-        th = readNPY([experiment_path filesep 'svdTemporalComponents_' cam_color_hemo '.timestamps.npy']);
         Uh = readUfromNPY([data_path filesep 'svdSpatialComponents_' cam_color_hemo '.npy']);
         Vh = readVfromNPY([experiment_path filesep 'svdTemporalComponents_' cam_color_hemo '.npy']);
         dataSummary_h = load([data_path filesep 'dataSummary_' cam_color_signal '.mat']);
         avg_im_h = readNPY([data_path filesep 'meanImage_' cam_color_hemo '.npy']);
         
+        % Get frame timestamps (assume odd = blue, even = purple for now)
+        tn = cam_time(1:2:end);
+        th = cam_time(2:2:end);
         framerate = 1./nanmean(diff(tn));
         
         % Correct hemodynamic signal in blue from green
@@ -559,7 +556,7 @@ if imaging_exists && load_parts.imaging
         cam_tl_imaged_diff = length(cam_time) - (size(Vn,2) + size(Vh,2));
         if cam_tl_imaged_diff ~= 0
             warning(sprintf( ...
-                '\n %s %s: %d timeline-imaged frames: assuming dropped at end', ...
+                '\n %s %s: %d timeline-imaged frames, assuming dropped at end', ...
                 animal,day,cam_tl_imaged_diff));
         end
         

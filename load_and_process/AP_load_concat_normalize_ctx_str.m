@@ -180,22 +180,7 @@ fluor_roi_deriv = permute(reshape( ...
 
 % %%%%%%%%%%% TESTING DECONV (overwrites other)
 
-% Load GCaMP6s widefield kernel
-load('C:\Users\Andrew\OneDrive for Business\Documents\CarandiniHarrisLab\analysis\wf_ephys_choiceworld\wf_processing\gcamp_kernel\gcamp6s_kernel.mat');
-gcamp6s_kernel_cat = vertcat(gcamp6s_kernel.regression{:});
-gcamp6s_kernel = nanmean(gcamp6s_kernel_cat./max(abs(gcamp6s_kernel_cat),[],2),1);
-
-% Get valid time from kernel
-t_conv_valid = conv(t,ones(1,length(gcamp6s_kernel))./length(gcamp6s_kernel),'valid');
-
-% Deconvolve fluorescence, interpolate edge points
-fluor_allcat_deriv = permute(interp1(t_conv_valid, ...
-    permute(convn(fluor_allcat,gcamp6s_kernel,'valid'), ...
-    [2,1,3]),t,'linear','extrap'),[2,1,3]);
-
-% subtract the baseline
-fluor_allcat_deriv = fluor_allcat_deriv - ...
-    nanmean(fluor_allcat_deriv(:,t_baseline,:),2);
+fluor_allcat_deriv = AP_deconv_wf(fluor_allcat);
 
 fluor_roi_deriv = permute(reshape( ...
     AP_svd_roi(U_master(:,:,1:n_vs), ...

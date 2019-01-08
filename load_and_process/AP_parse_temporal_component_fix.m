@@ -12,9 +12,9 @@
 % actually recorded, manual inspection is necessary. In that case, run the
 % next cell to load and check frame information.
 
-animal = ''; % animal name
-day = ''; % yyyy-mm-dd
-experiments = []; % all experiments run that day (e.g. [1,2,3,4])
+animal = 'JL030'; % animal name
+day = '2019-01-08'; % yyyy-mm-dd
+experiments = [4]; % all experiments run that day (e.g. [1,2,3,4])
 
 [data_path,file_exists] = AP_cortexlab_filename(animal,day,[],'imaging');
 dataSummary_fn = [data_path filesep 'dataSummary_blue'];
