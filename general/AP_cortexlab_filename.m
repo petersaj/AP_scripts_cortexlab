@@ -184,6 +184,7 @@ switch file
     case 'ephys'
         % folder with kilosort/phy outputs
         
+        %%% TO USE KILOSORT 1 ONLY
         filepath = [server1 filesep 'Data\Subjects'];
         filename = [filepath filesep animal filesep day filesep 'ephys' filesep 'kilosort' site_dir filesep];
         % CHECK SERVER2 IF IT DOESN'T EXIST

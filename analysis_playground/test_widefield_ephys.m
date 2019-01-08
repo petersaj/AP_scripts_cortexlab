@@ -2849,17 +2849,17 @@ time_bin_centers = time_bins(1:end-1) + diff(time_bins)/2;
 % depth_groups_used = unique(depth_group);
 % depth_group_centers = depth_group_edges(1:end-1)+(diff(depth_group_edges)/2);
 
-% (to group multiunit by depth within striatum)
-%n_depths = round(diff(str_depth)/500);
-n_depths = 4;
-depth_group_edges = round(linspace(str_depth(1),str_depth(2),n_depths+1));
-[depth_group_n,depth_group] = histc(spikeDepths,depth_group_edges);
-depth_groups_used = unique(depth_group);
-depth_group_centers = depth_group_edges(1:end-1)+(diff(depth_group_edges)/2);
+% % (to group multiunit by depth within striatum)
+% %n_depths = round(diff(str_depth)/500);
+% n_depths = 4;
+% depth_group_edges = round(linspace(str_depth(1),str_depth(2),n_depths+1));
+% [depth_group_n,depth_group] = histc(spikeDepths,depth_group_edges);
+% depth_groups_used = unique(depth_group);
+% depth_group_centers = depth_group_edges(1:end-1)+(diff(depth_group_edges)/2);
 
-% % (to use aligned striatum depths)
-% n_depths = n_aligned_depths;
-% depth_group = aligned_str_depth_group;
+% (to use aligned striatum depths)
+n_depths = n_aligned_depths;
+depth_group = aligned_str_depth_group;
 
 % % (for manual depth)
 % depth_group_edges = [0,500];
@@ -2877,8 +2877,8 @@ for curr_depth = 1:n_depths
     
 end
 
-% Get rid of NaNs (if no data?)
-binned_spikes(isnan(binned_spikes)) = 0;
+binned_spikes_std = binned_spikes./nanstd(binned_spikes,[],2);
+binned_spikes_std(isnan(binned_spikes_std)) = 0;
 
 use_svs = 1:50;
 kernel_t = [-0.2,0.2];
@@ -2886,6 +2886,8 @@ kernel_frames = round(kernel_t(1)*sample_rate):round(kernel_t(2)*sample_rate);
 lambda = 10; % (COMMENT OUT TO USE LAMBDA ESTIMATION ELSEWHERE)
 zs = [false,false];
 cvfold = 5;
+return_constant = false;
+use_constant = true;
 
 fVdf_resample = interp1(frame_t,fVdf(use_svs,:)',time_bin_centers)';
 dfVdf_resample = interp1(conv2(frame_t,[1,1]/2,'valid'), ...
@@ -2898,7 +2900,7 @@ dfVdf_resample = interp1(conv2(frame_t,[1,1]/2,'valid'), ...
 % TO USE dfV
 [k,predicted_spikes,explained_var] = ...
     AP_regresskernel(dfVdf_resample, ...
-    binned_spikes,kernel_frames,lambda,zs,cvfold);
+    binned_spikes_std,kernel_frames,lambda,zs,cvfold,return_constant,use_constant);
 
 % Reshape kernel and convert to pixel space
 r = reshape(k,length(use_svs),length(kernel_frames),size(binned_spikes,1));
@@ -3094,20 +3096,25 @@ lambda = 10; % (comment out to use lambda from above)
 zs = [false,false];
 cvfold = 5;
 
-fVdf_resample = interp1(frame_t,fVdf(use_svs,:)',time_bin_centers)';
-
 % TO USE fV
 % [k,predicted_spikes,explained_var] = ...
 %     AP_regresskernel(fVdf_resample, ...
 %     binned_spikes,kernel_frames,lambda,zs,cvfold);
 % TO USE dfV
 binned_spikes_std = binned_spikes./nanstd(binned_spikes,[],2);
+
+dfVdf_resample = interp1(conv2(frame_t,[1,1]/2,'valid'), ...
+    diff(fVdf(use_svs,:),[],2)',time_bin_centers)';
+
 [k,predicted_spikes,explained_var] = ...
-    AP_regresskernel(conv2(diff(fVdf_resample,[],2),[1,1]/2,'valid'), ...
-    binned_spikes_std(:,2:end-1),kernel_frames,lambda*10,zs,cvfold);
+    AP_regresskernel(dfVdf_resample, ...
+    binned_spikes_std,kernel_frames,lambda*10,zs,cvfold);
 
 % Reshape kernel and convert to pixel space
 r = reshape(k,length(use_svs),length(kernel_frames),size(binned_spikes,1));
+
+r_px = arrayfun(@(x) svdFrameReconstruct(Udf(:,:,use_svs),r(:,:,x)),1:size(r,3),'uni',false);
+r_px = cat(4,r_px{:});
 
 r_px_max = gpuArray(squeeze(max(reshape(svdFrameReconstruct(Udf(:,:,use_svs), ...
     reshape(r,size(r,1),[])),size(Udf,1),size(Udf,2),[],size(binned_spikes,1)),[],3)));

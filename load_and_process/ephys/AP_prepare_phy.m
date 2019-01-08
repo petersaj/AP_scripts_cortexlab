@@ -48,7 +48,9 @@ end
 %% Copy kilosorted data to local
 
 disp('Copying kilosorted data to local...')
+tic
 copyfile(ephys_path,local_phy_dir);
+toc
 disp('Done.');
 
 %% Copy raw to local
@@ -64,8 +66,10 @@ for i = 1:length(header_info{1})
     header.(header_info{1}{i}) = header_info{2}{i};
 end
     
+tic
 local_ap_filename = [local_phy_dir filesep header.dat_path(2:end-1)];
 copyfile(ephys_raw_ap_filename,local_ap_filename);
+toc
 
 if car
     disp('Doing common-average referencing...')
@@ -81,38 +85,5 @@ if car
 end
 
 disp('Done.');
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
 
 

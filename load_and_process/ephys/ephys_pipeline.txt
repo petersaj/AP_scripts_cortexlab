@@ -1,18 +1,5 @@
-NOTE: this is being changed with different standards:
-- make all functions operate on vectors of spike times/identity
-- sync channel pulses saved separately as .mat file
+1. AP_preprocess_phase3 (get/save settings, do CAR, run kilosort)
+2. AP_prepare_phy (if not already local, above does by default)
+3. AP_save_phy: copy saved clusters to basket
 
-1. kwik2dat (in github repository): convert OE data to raw data
-2. AP_run_kilosort: wrapper for kilosort, copies/computes locally and save to basket
-3. AP_prepare_phy: loads data to local drive
-4. (AP_pre_phy: not written but considered for finding noise template to classify before phy)
-5. Manually check/fix clustering in Phy
-6. Copy saved clusters to basket (AP_save_phy?)
-
-----------------
-This has changed after moving to phase 3, making a new more permanent processing pipeline:
-
-AP_preprocess_phase3 (get/save settings, do CAR, run kilosort)
-[AP_prepare_phy (if not already local, above does by default) - haven't used yet so might not work]
-
-AP_pre_phy - quickly flip through waveform templates to throw out obviously bad ones
+(available: AP_pre_phy - quickly flip through waveform templates to throw out obviously bad ones)

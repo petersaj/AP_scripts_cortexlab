@@ -1,5 +1,5 @@
 % AP_load_concat_normalize_ctx_str(data_fn,exclude_data)
-%
+% 
 % (not a function any more, used to be this)
 % [t,fluor_allcat_deriv,fluor_roi_deriv,mua_allcat,wheel_allcat,reward_allcat,D_allcat] = ...
 %     AP_load_concat_normalize_ctx_str(data_fn,exclude_data)
@@ -105,14 +105,14 @@ for curr_animal = 1:length(D_all)
         [1,3,2,4]),[size(x,1),1]),  ...
         mat2cell(mua_cat_raw_smoothed,cellfun(@(x) size(x,1), mua_all{curr_animal}),length(t),n_depths),'uni',false));
     
-    %     mua_day_std = cell2mat(cellfun(@(x) ...
-    %         repmat(permute(nanstd(reshape(permute(x,[1,2,4,3]),[],n_depths),[],1), ...
-    %         [1,3,2,4]),[size(x,1),1]),  ...
-    %         mat2cell(mua_cat_raw_smoothed,cellfun(@(x) size(x,1), mua_all{curr_animal}),length(t),n_depths),'uni',false));
+%     mua_day_std = cell2mat(cellfun(@(x) ...
+%         repmat(permute(nanstd(reshape(permute(x,[1,2,4,3]),[],n_depths),[],1), ...
+%         [1,3,2,4]),[size(x,1),1]),  ...
+%         mat2cell(mua_cat_raw_smoothed,cellfun(@(x) size(x,1), mua_all{curr_animal}),length(t),n_depths),'uni',false));
     
-    % Soft normalize by mean baseline across days (used to be 20 sp/s)
-    softnorm = permute(arrayfun(@(x) mean(unique(mua_day_baseline(~isnan( ...
-        mua_day_baseline(:,:,x)),:,x))),1:n_depths),[1,3,2]);
+    unique_baseline = arrayfun(@(x) unique(mua_day_baseline(~isnan(mua_day_baseline(:,:,x,:,x)
+
+    softnorm = min(mua_day_baseline); % in spikes/s, ARBITRARY: make something relevant?
     mua_cat_norm = (mua_cat_raw_smoothed-mua_day_baseline)./(mua_day_baseline+softnorm);
     
     % Concatenated predicted MUA (already in std - normalize like MUA)
@@ -123,24 +123,24 @@ for curr_animal = 1:length(D_all)
             padarray(convn(predicted_mua_std_cat_raw,smWin,'valid'),[0,floor(size(smWin,2)/2)],'replicate','both');
         
         predicted_mua_std_cat_baseline = nanmean(reshape(predicted_mua_std_cat_smoothed(:,t_baseline,:),[],1,n_depths),1);
-        %         predicted_mua_std_cat_std = nanmean(reshape(predicted_mua_std_cat_smoothed,[],1,n_depths),1);
+%         predicted_mua_std_cat_std = nanmean(reshape(predicted_mua_std_cat_smoothed,[],1,n_depths),1);
         predicted_mua_std_cat = (predicted_mua_std_cat_smoothed-predicted_mua_std_cat_baseline)./ ...
             predicted_mua_std_cat_baseline;
     end
-    
+
     % Concatenate wheel
     wheel_cat = cat(1,wheel_all{curr_animal}{:});
     
     % Concatenate behavioural data
-    stimulus = cell2mat(cellfun(@(x) x.stimulus,D_all{curr_animal},'uni',false));
+    stimulus = cell2mat(cellfun(@(x) x.stimulus,D_all{curr_animal},'uni',false));    
     if exist('reward_all','var')
         response = cell2mat(cellfun(@(x) x.response,D_all{curr_animal},'uni',false));
-        repeatNum = cell2mat(cellfun(@(x) x.repeatNum,D_all{curr_animal},'uni',false));
+        repeatNum = cell2mat(cellfun(@(x) x.repeatNum,D_all{curr_animal},'uni',false));  
     end
-    
+
     % Concatenate to across-day data
     fluor_allcat = [fluor_allcat;fluor_cat];
-    mua_allcat = [mua_allcat;mua_cat_norm];
+    mua_allcat = [mua_allcat;mua_cat_norm];    
     wheel_allcat = [wheel_allcat;wheel_cat];
     D_allcat.stimulus = vertcat(D_allcat.stimulus,stimulus);
     if exist('reward_all','var')
@@ -162,6 +162,18 @@ fluor_allcat_deriv = permute(interp1(t_smooth_diff, permute(diff( ...
     convn(fluor_allcat,ones(1,deriv_smooth)/deriv_smooth,'valid'),[],2), ...
     [2,1,3]),t,'linear','extrap'),[2,1,3]);
 
+% %%%%%%%%%%% TESTING DECONV
+
+% Deconvolve from the cortical recordings kernel
+load('C:\Users\Andrew\OneDrive for Business\Documents\CarandiniHarrisLab\analysis\wf_ephys_choiceworld\wf_processing\gcamp_kernel\gcamp6s_kernel.mat');
+
+gcamp6s_kernel_cat = vertcat(gcamp6s_kernel.regression{:});
+gcamp6s_kernel = nanmean(gcamp6s_kernel_cat./max(gcamp6s_kernel_cat,[],2),1);
+
+fluor_allcat_deriv = convn(fluor_allcat,gcamp6s_kernel,'same');
+
+% %%%%%%%%%%%%
+
 % Get fluorescence in ROIs
 wf_roi_fn = 'C:\Users\Andrew\OneDrive for Business\Documents\CarandiniHarrisLab\analysis\wf_ephys_choiceworld\wf_processing\wf_rois\wf_roi';
 load(wf_roi_fn);
@@ -178,33 +190,10 @@ fluor_roi_deriv = permute(reshape( ...
     reshape(permute(fluor_allcat_deriv,[3,2,1]),n_vs,[]),[],[],roi_mask), ...
     size(roi_mask,3),[],size(fluor_allcat_deriv,1)),[3,2,1]);
 
-% %%%%%%%%%%% TESTING DECONV (overwrites other)
+% % (normalize like MUA?)
+% fluor_roi_std = nanstd(reshape(fluor_roi_deriv_raw,[],1,size(fluor_roi_deriv_raw,3)),[],1);
+% fluor_roi_deriv = fluor_roi_deriv_raw./fluor_roi_std;
 
-% Load GCaMP6s widefield kernel
-load('C:\Users\Andrew\OneDrive for Business\Documents\CarandiniHarrisLab\analysis\wf_ephys_choiceworld\wf_processing\gcamp_kernel\gcamp6s_kernel.mat');
-gcamp6s_kernel_cat = vertcat(gcamp6s_kernel.regression{:});
-gcamp6s_kernel = nanmean(gcamp6s_kernel_cat./max(abs(gcamp6s_kernel_cat),[],2),1);
-
-% Get valid time from kernel
-t_conv_valid = conv(t,ones(1,length(gcamp6s_kernel))./length(gcamp6s_kernel),'valid');
-
-% Deconvolve fluorescence, interpolate edge points
-fluor_allcat_deriv = permute(interp1(t_conv_valid, ...
-    permute(convn(fluor_allcat,gcamp6s_kernel,'valid'), ...
-    [2,1,3]),t,'linear','extrap'),[2,1,3]);
-
-% subtract the baseline
-fluor_allcat_deriv = fluor_allcat_deriv - ...
-    nanmean(fluor_allcat_deriv(:,t_baseline,:),2);
-
-fluor_roi_deriv = permute(reshape( ...
-    AP_svd_roi(U_master(:,:,1:n_vs), ...
-    reshape(permute(fluor_allcat_deriv,[3,2,1]),n_vs,[]),[],[],roi_mask), ...
-    size(roi_mask,3),[],size(fluor_allcat_deriv,1)),[3,2,1]);
-
-fluor_roi_deriv(fluor_roi_deriv < 0) = 0;
-
-% %%%%%%%%%%
 
 
 

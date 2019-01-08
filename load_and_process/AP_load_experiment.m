@@ -661,18 +661,12 @@ if ephys_exists && load_parts.ephys
 
     load_lfp = false;
     
-    % Load clusters, if they exist
-    cluster_filename = [ephys_path filesep 'cluster_groups.csv'];
-    if exist(cluster_filename,'file')
-        fid = fopen(cluster_filename);
-        cluster_groups = textscan(fid,'%d%s','HeaderLines',1);
-        fclose(fid);
-    end
-    
-    % Apparently now sometimes it's a different filename/type, if that
-    % exists overwrite the other one
-    cluster_filename = [ephys_path filesep 'cluster_group.tsv'];
-    if exist(cluster_filename,'file')
+    % Load phy sorting if it exists 
+    % (old = cluster_groups.csv, new = cluster_group.tsv because fuck me)
+    cluster_filepattern = [ephys_path 'cluster_group*'];
+    cluster_filedir = dir(cluster_filepattern);
+    if ~isempty(cluster_filedir)
+        cluster_filename = [ephys_path cluster_filedir.name];
         fid = fopen(cluster_filename);
         cluster_groups = textscan(fid,'%d%s','HeaderLines',1);
         fclose(fid);

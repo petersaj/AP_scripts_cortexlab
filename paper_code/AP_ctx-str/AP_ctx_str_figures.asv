@@ -2586,9 +2586,9 @@ for curr_stim_idx = 1:length(unique_stim)
     predicted_mua_stim_mean(curr_stim_idx,:,:) = nanmean(predicted_mua_std_allcat(curr_trials,:,:),1);
 end
 
-% Plot 100/R fluorescence, curves, and tuning curves
 figure('Name','Naive passive fullscreen');
 
+% Plot 100/R fluorescence
 use_t = t > 0 & t < 0.2;
 
 subplot(2,3,1);
@@ -2601,7 +2601,8 @@ colormap(brewermap([],'BuGn'));
 AP_reference_outline('ccf_aligned','k');
 axis image off;
 
-fp1 = subplot(2,3,2); hold on;
+% Plot 100/R and contrast curve for visual cortex and striatal depths
+subplot(2,3,2); hold on;
 plot_rois = [1:3,7];
 plot(t,squeeze(fluor_roi_stim_mean(end,:,plot_rois)),'linewidth',2);
 axis tight;
@@ -2610,7 +2611,7 @@ xlim([-0.2,0.5]);
 legend({wf_roi(plot_rois).area});
 ylabel('Fluorescence');
 
-mp1 = subplot(2,3,3); hold on; set(gca,'ColorOrder',copper(n_depths));
+subplot(2,3,3); hold on; set(gca,'ColorOrder',copper(n_depths));
 plot(t,squeeze(mua_stim_mean(end,:,:)),'linewidth',2);
 axis tight;
 line([0,0],ylim,'color','k');
@@ -2618,26 +2619,19 @@ xlim([-0.2,0.5]);
 legend(cellfun(@num2str,num2cell(1:n_depths),'uni',false));
 ylabel('MUA');
 
-fp2 = subplot(2,3,4); hold on;
+subplot(2,3,5); hold on;
 fluor_roi_stim_max = squeeze(max(fluor_roi_stim_mean(:,use_t,:),[],2));
 plot(unique_stim,fluor_roi_stim_max(:,plot_rois),'linewidth',2);
-xlabel('Contrast*Side');
+set(gca,'XTick',1:3,'XTickLabel',{'Left','Center','Right'});
+xlabel('Stim');
 ylabel('Fluorescence');
 
-mp2 = subplot(2,3,5); hold on; set(gca,'ColorOrder',copper(n_depths));
+subplot(2,3,6); hold on; set(gca,'ColorOrder',copper(n_depths));
 mua_stim_max = squeeze(max(mua_stim_mean(:,use_t,:),[],2));
 plot(unique_stim,mua_stim_max,'linewidth',2);
-xlabel('Contrast*Side');
+set(gca,'XTick',1:3,'XTickLabel',{'Left','Center','Right'});
+xlabel('Stim');
 ylabel('MUA');
-
-mp3 = subplot(2,3,6); hold on; set(gca,'ColorOrder',copper(n_depths));
-predicted_mua_stim_max = squeeze(max(predicted_mua_stim_mean(:,use_t,:),[],2));
-plot(unique_stim,predicted_mua_stim_max,'linewidth',2);
-xlabel('Contrast*Side');
-ylabel('Ctx-predicted MUA');
-
-linkaxes([fp1,fp2],'y');
-linkaxes([mp1,mp2,mp3],'y');
 
 
 % Plot MUA and fluor-predicted MUA

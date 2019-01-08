@@ -95,11 +95,11 @@ regressor_design = cell2mat(cellfun(@(regressor_design) ...
 % Ridge regression for reducing noise: add offsets to design matrix to penalize k
 if exist('lambdas','var') && any(lambdas)
     if length(lambdas) == 1
-        ridge_matrix = lambdas*eye(size(regressor_design,2)+use_constant);
+        ridge_matrix = lambdas*eye(size(regressor_design,2));
     elseif length(lambdas) == length(regressors)
         lambda_vector = cell2mat(reshape(cellfun(@(reg,t,lam) repmat(lam,size(reg,1)*length(t),1), ...
             regressors,t_shifts,num2cell(lambdas),'uni',false),[],1));
-        ridge_matrix = bsxfun(@times,eye(size(regressor_design,2)+use_constant),lambda_vector);
+        ridge_matrix = bsxfun(@times,eye(size(regressor_design,2)),lambda_vector);
     else
         error('Number of lambdas doesn''t match regressor groups');
     end
@@ -110,6 +110,10 @@ end
 % Prepare column of 1's to have a constant term (if selected)
 if use_constant
     constant = ones(size(regressor_design,1),1);
+    % if there's a ridge matrix, add another row and column of zeros
+    if ~isempty(ridge_matrix)
+        ridge_matrix(end+1,end+1) = 0;
+    end
 else
     constant = [];
 end

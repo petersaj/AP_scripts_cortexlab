@@ -1039,12 +1039,12 @@ end
 
 %% Plot waveform 
 % (uses Nick's function)
+% (I've got one of my own in playground, not sure if it's different)
 
-plot_template = 239;
-thresh = 0.2;
+plot_template = 267;
+thresh = 0; % 0.2
 figure;plotWaveform(-(squeeze(templates(plot_template,:,:))*winv)', ...
     channel_positions(:,1),channel_positions(:,2),10,2,thresh,[0,0,0]);set(gca,'YDir','reverse')
-axis image;
 
 %% PSTH plot by depth (single stim ID)
 
