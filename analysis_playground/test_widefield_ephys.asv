@@ -3099,11 +3099,11 @@ end
 binned_spikes_std = binned_spikes./nanstd(binned_spikes,[],2);
 
 dfVdf_resample = interp1(conv2(frame_t,[1,1]/2,'valid'), ...
-    diff(fVdf,[],2)',time_bin_centers)';
+    diff(fVdf(use_svs,:),[],2)',time_bin_centers)';
 
 fVdf_deconv = AP_deconv_wf(fVdf);
 fVdf_deconv(isnan(fVdf_deconv)) = 0;
-fVdf_deconv_resample = interp1(frame_t,fVdf_deconv',time_bin_centers)';
+fVdf_deconv_resample = interp1(frame_t,fVdf_deconv(use_svs,:)',time_bin_centers)';
 
 use_svs = 1:50;
 kernel_t = [-0.2,0.2];
@@ -3114,16 +3114,12 @@ cvfold = 5;
 
 % TO USE fV
 % [k,predicted_spikes,explained_var] = ...
-%     AP_regresskernel(fVdf_resample(use_svs,:), ...
+%     AP_regresskernel(fVdf_resample, ...
 %     binned_spikes,kernel_frames,lambda,zs,cvfold);
 % TO USE dfV
-% [k,predicted_spikes,explained_var] = ...
-%     AP_regresskernel(dfVdf_resample(use_svs,:), ...
-%     binned_spikes_std,kernel_frames,lambda*10,zs,cvfold);
-% TO USE DECONV
 [k,predicted_spikes,explained_var] = ...
-    AP_regresskernel(fVdf_deconv_resample(use_svs,:), ...
-    binned_spikes_std,kernel_frames,lambda,zs,cvfold);
+    AP_regresskernel(dfVdf_resample, ...
+    binned_spikes_std,kernel_frames,lambda*10,zs,cvfold);
 
 % Reshape kernel and convert to pixel space
 r = reshape(k,length(use_svs),length(kernel_frames),size(binned_spikes,1));
@@ -3131,10 +3127,42 @@ r = reshape(k,length(use_svs),length(kernel_frames),size(binned_spikes,1));
 r_px = arrayfun(@(x) svdFrameReconstruct(Udf(:,:,use_svs),r(:,:,x)),1:size(r,3),'uni',false);
 r_px = cat(4,r_px{:});
 
-r_px_t0 = squeeze(r_px(:,:,kernel_frames == 0,:));
+r_px_max = gpuArray(squeeze(max(reshape(svdFrameReconstruct(Udf(:,:,use_svs), ...
+    reshape(r,size(r,1),[])),size(Udf,1),size(Udf,2),[],size(binned_spikes,1)),[],3)));
+r_px_medfilt = nan(size(r_px_max));
+for curr_spikes = 1:size(r,3)
+    curr_medfilt_r = gather(medfilt2(r_px_max(:,:,curr_spikes),[11,11]));
+    r_px_medfilt(:,:,curr_spikes) = curr_medfilt_r;
+    AP_print_progress_fraction(curr_spikes,size(r,3));
+end
+r_px_areas = r_px_medfilt.^3;
+
+% Binarize max kernels to get areas
+r_px_binary = false(size(r_px_areas));
+for curr_spikes = 1:size(r_px_areas,3)
+%     r_px_binary(:,:,curr_spikes) = imbinarize(r_px_areas(:,:,curr_spikes), ...
+%         prctile(reshape(r_px_areas(:,:,curr_spikes),[],1),95));
+    
+    r_px_binary(:,:,curr_spikes) = imbinarize(r_px_areas(:,:,curr_spikes), ...
+        2*nanstd(reshape(r_px_areas(:,:,curr_spikes),[],1)));
+end
+r_px_binary_frac = nanmean(r_px_binary,3);
+
+% Plot nonbinary/binary kernels by depth
+[~,sort_idx] = sort(templateDepths(use_templates));
+idx = 1:length(use_templates);
+idx(sort_idx) = 1:length(use_templates);
+plot_labels = cellfun(@(idx,template,depth,expl_var) ...
+    sprintf('idx %d, template %d, %d um, %d%%',idx,template,round(depth),round(expl_var*100)), ...
+    num2cell(idx'),num2cell(use_templates), ...
+    num2cell(templateDepths(use_templates)),num2cell(explained_var.total),'uni',false);
+AP_image_scroll([mat2gray(r_px_areas(:,:,sort_idx), ...
+    [-prctile(r_px_areas(:),95),prctile(r_px_areas(:),95)]), ...
+    r_px_binary(:,:,sort_idx)],plot_labels(sort_idx)); 
+axis image;
 
 % Plot map of cortical pixel by preferred depth of probe
-r_px_com = sum(bsxfun(@times,r_px_t0,permute(templateDepths(use_templates),[2,3,1])),3)./sum(r_px_t0,3);
+r_px_com = sum(bsxfun(@times,r_px_binary,permute(templateDepths(use_templates),[2,3,1])),3)./sum(r_px_binary,3);
 
 depth_range_min = min(templateDepths(use_templates));
 depth_range_max = max(templateDepths(use_templates));

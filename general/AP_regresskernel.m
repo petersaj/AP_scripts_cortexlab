@@ -86,6 +86,9 @@ for curr_regressors = 1:length(regressor_design)
             circshift(regressor_design{curr_regressors}(:,:,curr_kernel_frame), ...
             [t_shifts{curr_regressors}(curr_kernel_frame),0,0]);
     end
+    % Zero the regressors at the ends (invalid, circle shifted)
+    regressor_design{curr_regressors}(1:max(abs(t_shifts{curr_regressors})),:,:) = 0;
+    regressor_design{curr_regressors}(end-max(abs(t_shifts{curr_regressors})):end,:,:) = 0;
 end
 
 regressor_design = cell2mat(cellfun(@(regressor_design) ...

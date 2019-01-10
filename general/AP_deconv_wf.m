@@ -13,14 +13,27 @@ gcamp6s_kernel_mean = nanmean(gcamp6s_kernel_cat./max(abs(gcamp6s_kernel_cat),[]
 t_rel = 1:size(fluorescence,2);
 t_rel_conv_valid = round(conv(t_rel,ones(1,length(gcamp6s_kernel_mean))./length(gcamp6s_kernel_mean),'valid'));
 
+% Remove NaNs to make convolution faster (put back in later)
+fluorescence_nonan = fluorescence;
+fluorescence_nonan(isnan(fluorescence_nonan)) = 0;
+
 % Deconvolve widefield, set invalid points to NaN
 dims = 1:ndims(fluorescence);
 dims_permute = circshift(dims,-1);
 [~,dims_unpermute] = sort(dims_permute);
 
 deconv_fluorescence = permute(interp1(t_rel_conv_valid, ...
-    permute(convn(fluorescence,gcamp6s_kernel_mean,'valid'), ...
+    permute(convn(fluorescence_nonan,gcamp6s_kernel_mean,'valid'), ...
     dims_permute),t_rel),dims_unpermute);
+
+% Put original NaNs back in
+deconv_fluorescence(isnan(fluorescence)) = NaN;
+
+
+
+
+
+
 
 
 

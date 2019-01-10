@@ -7,7 +7,7 @@
 
 
 
-%% Cortex -> kernel-aligned striatum maps (concat experiments)
+ %% Cortex -> kernel-aligned striatum maps (concat experiments)
 clear all
 disp('Cortex -> kernel-aligned striatum regression');
 
@@ -146,7 +146,7 @@ warning('saving -v7.3');
 disp('Finished batch');
 
 
-%% Cortex -> kernel-aligned striatum map (protocols separately)
+ %% Cortex -> kernel-aligned striatum map (protocols separately)
 
 % Parameters for regression
 n_aligned_depths = 4;
@@ -163,13 +163,15 @@ regression_params.use_constant = true;
      'stimKalatsky'};
  
  for protocol = protocols
-    
+     
+     curr_protocol = cell2mat(protocol);
+     
      n_aligned_depths = 4;
      
      animals = {'AP024','AP025','AP026','AP027','AP028','AP029'};
      
      batch_vars = struct;
-     for curr_animal = 1:length(animals)
+     for curr_animal = length(animals)
          
          animal = animals{curr_animal};
          
@@ -177,7 +179,6 @@ regression_params.use_constant = true;
          behavior_protocol = 'vanillaChoiceworld';
          behavior_experiments = AP_find_experiments(animal,behavior_protocol);
          
-         curr_protocol = cell2mat(protocol);
          curr_experiments = AP_find_experiments(animal,curr_protocol);
          
          behavior_day = ismember({curr_experiments.day},{behavior_experiments.day});
@@ -1268,7 +1269,7 @@ for curr_condition_idx = 1:length(contrastsides)
 end
 
 % Move onset regressors (L/R)
-[~,move_idx] = max(abs(wheel_allcat) > 2,[],2);
+[~,move_idx] = max(abs(wheel_allcat(:,:,1)) > 2,[],2);
 move_onset_regressors = zeros(size(wheel_allcat,1),size(wheel_allcat,2),2);
 for curr_trial = 1:size(move_onset_regressors,1)
     
@@ -1289,18 +1290,16 @@ for curr_trial = 1:size(move_onset_regressors,1)
 end
 
 % Move ongoing regressor - (0.5s buffer from move onset, L/R)
-wheel_vel = [zeros(size(wheel_allcat,1),1),diff(wheel_allcat,[],2)];
-move_ongoing_regressors = zeros(size(wheel_allcat,1),size(wheel_allcat,2),2);
-move_ongoing_regressors(:,:,1) = abs(wheel_allcat) > 2 & wheel_vel < -2;
-move_ongoing_regressors(:,:,2) = abs(wheel_allcat) > 2 & wheel_vel > 2;
+wheel_vel = [zeros(size(wheel_allcat,1),1),diff(wheel_allcat(:,:,1),[],2)];
+move_ongoing_regressors = zeros(size(wheel_allcat,1),size(wheel_allcat,2),3);
+move_ongoing_regressors(:,:,1) = wheel_vel < -2;
+move_ongoing_regressors(:,:,2) = wheel_vel > 2;
 
 move_onset_buffer_t = 0.5;
 move_onset_buffer_samples = ones(1,round(move_onset_buffer_t*sample_rate));
 move_onset_buffer = padarray( ...
     convn(any(move_onset_regressors,3),move_onset_buffer_samples,'valid'), ...
     [0,length(move_onset_buffer_samples)-1],0,'pre');
-
-move_ongoing_regressors = +(move_ongoing_regressors & ~move_onset_buffer);
 
 % % Wheel regressors - separate leftward/rightward velocity
 % wheel_vel_norm = [zeros(size(wheel_allcat,1),1),diff(wheel_allcat(:,:,1),[],2)];
@@ -1323,28 +1322,16 @@ for curr_trial = 1:size(reward_allcat,1)
    end
 end
 
-% regressors = {stim_regressors;move_onset_regressors;move_ongoing_regressors;go_cue_regressors;reward_allcat_regressor};
-% regressor_labels = {'Stim','Move onset','Move ongoing','Go cue','Reward'};
-% 
-% % Set regression parameters
-% regress_trials = true(size(move_t));
-% t_shifts = {[-0.1,0.6]; ... % stim
-%     [-0.2,0.5]; ... % move onset
-%     [0,0]; ... % move ongoing
-%     [-0.05,0.3]; ... % go cue
-%     [-0.2,0.6]}; % reward
-
-%%%%% REMOVING MOVE ONGOING
-regressors = {stim_regressors;move_onset_regressors;go_cue_regressors;reward_allcat_regressor};
-regressor_labels = {'Stim','Move onset','Go cue','Reward'};
+regressors = {stim_regressors;move_onset_regressors;move_ongoing_regressors;go_cue_regressors;reward_allcat_regressor};
+regressor_labels = {'Stim','Move onset','Move ongoing','Go cue','Reward'};
 
 % Set regression parameters
 regress_trials = true(size(move_t));
 t_shifts = {[-0.1,0.6]; ... % stim
     [-0.2,0.5]; ... % move onset
+    [0,0]; ... % move ongoing
     [-0.05,0.3]; ... % go cue
     [-0.2,0.6]}; % reward
-%%%%%
 
 sample_shifts = cellfun(@(x) round(x(1)*(sample_rate)): ...
     round(x(2)*(sample_rate)),t_shifts,'uni',false);
