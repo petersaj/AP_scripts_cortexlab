@@ -2,6 +2,10 @@
 %
 % Loads old data (Phase 2 neuropixels?)
 
+%% Old MPEP mouse name
+% Old MPEP required a bad naming convention, check for files using this
+mpep_animal = ['M111111_' animal];
+
 %% Display progress or not
 if ~exist('verbose','var')
     verbose = false;
@@ -36,6 +40,11 @@ end
 
 [timeline_filename,timeline_exists] = AP_cortexlab_filename(animal,day,experiment,'timeline');
 
+% (check old MPEP name if nonexistant)
+if ~timeline_exists
+    [timeline_filename,timeline_exists] = AP_cortexlab_filename(mpep_animal,day,experiment,'timeline');
+end
+
 if timeline_exists
     if verbose; disp('Loading timeline...'); end;
     
@@ -44,6 +53,22 @@ if timeline_exists
     % Set rig-specific timeline names
     cam_name = 'pcoExposure';
     acqLive_name = 'acqLive';
+    
+    % Set rig-specific timeline names
+    if any(strcmp('pcoExposure',{Timeline.hw.inputs.name}))
+        rig = 'kilotrode';
+    else
+        rig = 'bigrig';
+    end
+    
+    switch rig
+        case 'bigrig'
+            cam_name = 'cam2';
+            acqLive_name = 'acqLiveEcho';
+        case 'kilotrode'
+            cam_name = 'pcoExposure';
+            acqLive_name = 'acqLive';
+    end
     
     % Get camera times
     timeline_cam_idx = strcmp({Timeline.hw.inputs.name}, cam_name);
@@ -145,6 +170,11 @@ if protocol_exists
     
     photodiode_offsets = photodiode.timestamps(photodiode.values == 0);
     photodiode_onsets = photodiode.timestamps(photodiode.values == 1);
+    
+    % If more offsets than offsets, clear the first one
+    if photodiode.values(1) == 0
+        photodiode_offsets(1) = [];
+    end
     
     % Get specific stim onsets by time between last offset and new onset
     % (occasionally there a bad frame so flip but not new stim)
@@ -399,6 +429,11 @@ end
 
 [data_path,data_path_exists] = AP_cortexlab_filename(animal,day,experiment,'imaging',site);
 
+% (check old MPEP name if nonexistant)
+if ~data_path_exists
+    [data_path,data_path_exists] = AP_cortexlab_filename(mpep_animal,day,experiment,'imaging',site);
+end
+
 if data_path_exists && load_parts.imaging
     if verbose; disp('Loading imaging data...'); end
     
@@ -414,9 +449,13 @@ if data_path_exists && load_parts.imaging
         
         experiment_path = [data_path filesep num2str(experiment)];
         
-        frame_t = readNPY([experiment_path filesep 'svdTemporalComponents_blue.timestamps.npy']);
-        U = readUfromNPY([data_path filesep 'svdSpatialComponents_blue.npy']);
-        V = readVfromNPY([experiment_path filesep 'svdTemporalComponents_blue.npy']);
+        frame_t_dir = dir([experiment_path filesep 'svdTemporalComponents_*.timestamps.npy']);
+        U_dir = dir([data_path filesep 'svdSpatialComponents_*.npy']);
+        V_dir = dir([experiment_path filesep 'svdTemporalComponents_*.npy']);
+        
+        frame_t = readNPY([frame_t_dir.folder filesep frame_t_dir.name]);
+        U = readUfromNPY([U_dir.folder filesep U_dir.name]);
+        V = readVfromNPY([V_dir(1).folder filesep V_dir(1).name]);
         
         framerate = 1./nanmedian(diff(frame_t));
         
@@ -426,7 +465,8 @@ if data_path_exists && load_parts.imaging
         dV = detrend(V', 'linear')';
         fV = single(filtfilt(b100s,a100s,double(dV)')');
         
-        avg_im = readNPY([data_path filesep 'meanImage_blue.npy']);
+        avg_im_dir = dir([data_path filesep 'meanImage_*.npy']);
+        avg_im = readNPY([avg_im_dir.folder filesep avg_im_dir.name]);
         
     elseif cam_color_n == 2
         
@@ -615,11 +655,11 @@ if ephys_exists && load_parts.ephys
     experiment_num = experiment == cellfun(@str2num,{experiments_dir(experiments_num_idx).name});
     acqlive_ephys_currexpt = [experiment_ephys_starts(experiment_num), ...
         experiment_ephys_stops(experiment_num)];
-    
+        
     % Get the spike/lfp times in timeline time (accounts for clock drifts)
-    spike_times_timeline = AP_clock_fix(spike_times,acqlive_ephys_currexpt,acqLive_timeline);
+    spike_times_timeline = interp1(acqlive_ephys_currexpt,acqLive_timeline,spike_times,'linear','extrap');
     if load_lfp && exist(lfp_filename,'file')
-        lfp_t_timeline = AP_clock_fix(lfp_t,acqlive_ephys_currexpt,acqLive_timeline);
+        lfp_t_timeline = interp1(acqlive_ephys_currexpt,acqLive_timeline,lfp_t,'linear','extrap');
     end
     
     % Get the depths of each template

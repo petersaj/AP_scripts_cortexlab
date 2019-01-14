@@ -57,7 +57,7 @@ save_path = 'C:\Users\Andrew\OneDrive for Business\Documents\CarandiniHarrisLab\
 save([save_path filesep 'ephys_depth_align'],'ephys_depth_align');
 disp('Finished batch');
 
-%% 2) Estimate imaging-ephys lambda (just main protocol)
+%% 2) Estimate imaging-ephys lambda (main protocol, not combined)
 clear all
 disp('Estimating imaging-ephys lambda');
 
@@ -113,37 +113,49 @@ for curr_animal = 1:length(animals)
             find(templateDepths > str_depth(1) & templateDepths <= str_depth(2))));
         binned_spikes = single(histcounts(use_spikes,time_bins));       
         
-        % Resample and get derivative of V
+        % Filter and std-normalize spikes
+        lowpassCutoff = 6; % Hz
+        [b100s, a100s] = butter(2, lowpassCutoff/((sample_rate)/2), 'low');
+        binned_spikes_filt = filter(b100s,a100s,binned_spikes,[],2);
+        binned_spikes_filt_std = binned_spikes_filt./nanstd(binned_spikes_filt,[],2);
+        binned_spikes_filt_std(isnan(binned_spikes_filt_std)) = 0;
+               
+        % Derivative and resample V
         dfVdf_resample = interp1(conv2(frame_t,[1,1]/2,'valid'), ...
             diff(fVdf(regression_params.use_svs,:),[],2)',time_bin_centers)';
         
-        % Do regression over a range of lambdas
-        n_update_lambda = 1;
-        lambda_range = [0,1.5]; % ^10 (used to be [3,7] before df/f change
-        n_lambdas = 50;
+        % Deconvolve and resample V
+        fVdf_deconv = AP_deconv_wf(fVdf);
+        fVdf_deconv(isnan(fVdf_deconv)) = 0;
+        fVdf_deconv_resample = interp1(frame_t,fVdf_deconv(regression_params.use_svs,:)',time_bin_centers)';
         
-        for curr_update_lambda = 1:n_update_lambda
+        % Do regression over a range of lambdas
+        n_lambdas = 60;  
+        
+        % old, logspace
+%         lambda_range = [-1,1]; % ^10 (used to be [3,7] before df/f change, then [0,1.5]
+%         lambdas = logspace(lambda_range(1),lambda_range(2),n_lambdas)';
+%         explained_var_lambdas = nan(n_lambdas,1);
+        
+        lambda_range = [0,6];
+        lambdas = linspace(lambda_range(1),lambda_range(2),n_lambdas)';
+        explained_var_lambdas = nan(n_lambdas,1);
+        
+        for curr_lambda_idx = 1:length(lambdas)
             
-            lambdas = logspace(lambda_range(1),lambda_range(2),n_lambdas)';
-            explained_var_lambdas = nan(n_lambdas,1);
+            curr_lambda = lambdas(curr_lambda_idx);
             
-            for curr_lambda_idx = 1:length(lambdas)
-                
-                curr_lambda = lambdas(curr_lambda_idx);                
-                
-                kernel_frames = round(regression_params.kernel_t(1)*sample_rate): ...
-                    round(regression_params.kernel_t(2)*sample_rate);
-                
-                [k,predicted_spikes,explained_var] = ...
-                    AP_regresskernel(dfVdf_resample, ...
-                    binned_spikes./nanstd(binned_spikes,[],2),kernel_frames,curr_lambda, ...
-                    regression_params.zs,regression_params.cvfold, ...
-                    false,regression_params.use_constant);
-                
-                explained_var_lambdas(curr_lambda_idx) = explained_var.total;
-                
-            end
+            kernel_frames = round(regression_params.kernel_t(1)*sample_rate): ...
+                round(regression_params.kernel_t(2)*sample_rate);
             
+            [k,predicted_spikes,explained_var] = ...
+                AP_regresskernel(fVdf_deconv_resample, ...
+                binned_spikes_filt_std,kernel_frames,curr_lambda, ...
+                regression_params.zs,regression_params.cvfold, ...
+                false,regression_params.use_constant);
+            
+            explained_var_lambdas(curr_lambda_idx) = explained_var.total;
+                      
             lambda_bin_size = diff(lambda_range)/n_lambdas;
             explained_var_lambdas_smoothed = smooth(explained_var_lambdas,10);
             [best_lambda_explained_var,best_lambda_idx] = max(explained_var_lambdas_smoothed);
@@ -152,7 +164,7 @@ for curr_animal = 1:length(animals)
                 [-lambda_bin_size,lambda_bin_size];
             
         end
-                
+        
         ctx_str_lambda(curr_animal).animal = animal;
         ctx_str_lambda(curr_animal).day{curr_day} = day;
         ctx_str_lambda(curr_animal).best_lambda(curr_day) = best_lambda;
@@ -233,10 +245,16 @@ for curr_animal = 1:length(animals)
             time_bin_centers = time_bins(1:end-1) + diff(time_bins)/2;
             time_bin_centers_all{curr_exp} = time_bin_centers;
             
-            % Get upsampled dVdf's
-            dfVdf_resample = interp1(conv2(frame_t,[1,1]/2,'valid'), ...
-                diff(fVdf(regression_params.use_svs,:),[],2)',time_bin_centers)';
-            dfVdf_resample_all{curr_exp} = dfVdf_resample;
+%             % Derivative and resample V
+%             dfVdf_resample = interp1(conv2(frame_t,[1,1]/2,'valid'), ...
+%                 diff(fVdf(regression_params.use_svs,:),[],2)',time_bin_centers)';
+%             dfVdf_resample_all{curr_exp} = dfVdf_resample;
+            
+            % Deconvolve and resample V
+            fVdf_deconv = AP_deconv_wf(fVdf);
+            fVdf_deconv(isnan(fVdf_deconv)) = 0;
+            fVdf_deconv_resample = interp1(frame_t,fVdf_deconv(regression_params.use_svs,:)',time_bin_centers)';
+            dfVdf_resample_all{curr_exp} = fVdf_deconv_resample;
             
             % Get striatum multiunit in ~200 um chunks
             n_depths = round(diff(str_depth)/200);
@@ -270,16 +288,20 @@ for curr_animal = 1:length(animals)
             end
         end
 
-        % Regress fluorescence to spikes (std)
+        % Filter and std-normalize spikes
+        lowpassCutoff = 6; % Hz
+        [b100s, a100s] = butter(2, lowpassCutoff/((sample_rate)/2), 'low');
+        binned_spikes_filt = filter(b100s,a100s,binned_spikes,[],2);
+        binned_spikes_filt_std = binned_spikes_filt./nanstd(binned_spikes_filt,[],2);
+        binned_spikes_filt_std(isnan(binned_spikes_filt_std)) = 0;
+        
+        % Regress fluorescence to spikes
         kernel_frames = round(regression_params.kernel_t(1)*sample_rate): ...
             round(regression_params.kernel_t(2)*sample_rate);
-        
-        binned_spikes_std = binned_spikes./nanstd(binned_spikes,[],2);
-        binned_spikes_std(isnan(binned_spikes_std)) = 0;
-        
+      
         [k,predicted_spikes,explained_var] = ...
             AP_regresskernel(dfVdf_resample, ...
-            binned_spikes_std,kernel_frames,lambda, ...
+            binned_spikes_filt_std,kernel_frames,lambda, ...
             regression_params.zs,regression_params.cvfold, ...
             false,regression_params.use_constant);
         
@@ -293,7 +315,8 @@ for curr_animal = 1:length(animals)
         % NaN-out depths with no spikes
         k_px(:,:,:,~any(binned_spikes,2)) = NaN;
         
-        % Keep kernel at t = 0
+        % Keep kernel one frame (t == 0)
+        error('Which frame? maybe the one with largest weights?')
         k_px_frame = squeeze(k_px(:,:,kernel_frames == 0,:));
     
         % Package in structure
@@ -310,7 +333,7 @@ end
 
 % Save
 save_path = 'C:\Users\Andrew\OneDrive for Business\Documents\CarandiniHarrisLab\analysis\wf_ephys_choiceworld\ephys_processing';
-save_fn = ['ephys_kernel_depth'];
+save_fn = ['ephys_kernel_depth_B'];
 save([save_path filesep save_fn],'ephys_kernel_depth');
 disp('Saved ephys depth kernels');
 

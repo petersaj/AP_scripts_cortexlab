@@ -175,11 +175,16 @@ switch file
     case 'imaging'
         filepath = [server1 filesep 'Data\Subjects'];
         filename = [filepath filesep animal filesep day site_dir filesep];
+        check_file = [filename filesep 'svd*'];
+        
         % CHECK SERVER2 IF IT DOESN'T EXIST
-        if ~exist(filename,'dir')
+        if isempty(dir(check_file))
             filepath = [server2 filesep 'Subjects'];
             filename = [filepath filesep animal filesep day site_dir filesep];
+            check_file = [filename filesep 'svd*'];
         end
+        
+        file_exists = ~isempty(dir(check_file));
         
     case 'ephys'
         % folder with kilosort/phy outputs
@@ -225,6 +230,7 @@ switch file
             filename = [server2 filesep 'Subjects' filesep animal filesep day filesep 'ephys' site_dir];
             check_file = [filename filesep 'experiment1_10*-0_0.dat'];
         end
+        
         % CHECK NEW OPEN EPHYS ON SERVER2 IF IT DOESN'T EXIST
         % (after server switch, should never be on zserver)
         if isempty(dir(check_file))
@@ -232,6 +238,8 @@ switch file
                 'ephys' site_dir filesep 'experiment1' filesep 'recording1'];
             check_file = [filename filesep 'continuous'  filesep 'Neuropix-3a-100.0' filesep 'continuous.dat'];
         end
+        
+        file_exists = ~isempty(dir(check_file));
         
     case 'ephys_ap'
         % the raw action potential band data file
@@ -270,7 +278,14 @@ switch file
         
 end
 
-file_exists = exist(filename) > 0;
+% Check whether the file exists (unless that check was performed above)
+if ~exist('file_exists','var')
+    file_exists = any(exist(filename));
+end
+
+
+
+
 
 
 

@@ -10,21 +10,40 @@
 
 recordings = struct('animal',{},'day',{});
 
-% Recording 1
-recordings(1).animal = 'AP026';
-recordings(1).day = '2017-12-09';
+% Widefield signal weird, also most of brain isn't visible 
+recordings(end+1).animal = 'AP004';
+recordings(end).day = '2016-07-28';
+recordings(end).genotype = 'EMX-GC6s';
 
-% Recording 2
-recordings(2).animal = 'AP027';
-recordings(2).day = '2017-12-09';
+% Epileptiform, The regression location of this is Rsp but probe in Vis?
+recordings(end+1).animal = 'AP006';
+recordings(end).day = '2016-10-01';
+recordings(end).genotype = 'EMX-GC6f';
 
-% Recording 3
-recordings(3).animal = 'AP024';
-recordings(3).day = '2018-07-02';
+% Ok, but probe is in Cg and kernel is in Rsp?
+recordings(end+1).animal = 'AP007';
+recordings(end).day = '2016-12-18';
+recordings(end).genotype = 'SNAP25-GC6s';
 
-% Recording 4
-recordings(4).animal = 'AP029';
-recordings(4).day = '2018-08-15';
+% Good quality
+recordings(end+1).animal = 'AP026';
+recordings(end).day = '2017-12-09';
+recordings(end).genotype = 'tetO-GC6s';
+
+% Good quality
+recordings(end+1).animal = 'AP027';
+recordings(end).day = '2017-12-09';
+recordings(end).genotype = 'tetO-GC6s';
+
+% Good quality
+recordings(end+1).animal = 'AP024';
+recordings(end).day = '2018-07-02';
+recordings(end).genotype = 'tetO-GC6s';
+
+% Good quality
+recordings(end+1).animal = 'AP029';
+recordings(end).day = '2018-08-15';
+recordings(end).genotype = 'tetO-GC6s';
 
 %% Initialize variables to keep
 
@@ -72,7 +91,12 @@ for curr_recording = 1:length(recordings)
     for curr_exp = 1:length(experiments)
         
         experiment = experiments(curr_exp);
-        AP_load_experiment;
+        % Try loading with current conventions, otherwise load old
+        try
+            AP_load_experiment;
+        catch me
+            AP_load_old;
+        end
         
         %% On first experiment: choose templates for cortex MUA
         if curr_exp == 1
@@ -102,7 +126,7 @@ for curr_recording = 1:length(recordings)
             
             template_depth_ax = subplot(1,2,1); hold on;
             plotSpread(template_depth_ax,templateDepths,'distributionColors','k');
-            ylim([0,4000]);
+            ylim([0,max(channel_positions(:,2))]);
             set(gca,'YDir','reverse');
             ylabel('Depth');
             title('Templates by depth');
@@ -113,8 +137,8 @@ for curr_recording = 1:length(recordings)
             caxis([0,prctile(mua_corr(:),95)]);
             colormap(hot)
             axis image;
-            ylim([0,4000]);
-            xlim([0,4000]);
+            ylim([0,max(channel_positions(:,2))]);
+            xlim([0,max(channel_positions(:,2))]);
             set(gca,'YDir','reverse');
             xlabel('Depth');
             ylabel('Depth');
@@ -163,9 +187,7 @@ for curr_recording = 1:length(recordings)
     %% Get fluorescence -> MUA regression map, draw ROI for fluorescence
     
     use_svs = 1:50;
-%     kernel_t = [-0.3,0.3];
-%     kernel_frames = round(kernel_t(1)*framerate):round(kernel_t(2)*framerate);
-    kernel_frames = -10:10;
+    kernel_frames = -10:10; % specified as frames, t gave slight difference
     downsample_factor = 1;
     zs = [false,false];
     cvfold = 5;
@@ -263,98 +285,7 @@ for curr_recording = 1:length(recordings)
     title('MUA regression weights')
     
     drawnow;
-
-    %% Regress from fluorescence trace to MUA
-    
-    % Low-pass filter spikes (higher freqs are incoherent)
-    lowpassCutoff = 6; % Hz
-    [b100s, a100s] = butter(2, lowpassCutoff/((sample_rate)/2), 'low');
-    binned_spikes_filt = filtfilt(b100s,a100s,binned_spikes')';
-%     binned_spikes_filt = binned_spikes;
-    
-    kernel_frames = -20:20;
-    zs = [false,false];
-    cvfold = 10;
-    return_constant = true;
-    use_constant = true;
-
-    % Find optimal regression lambda
-    disp('Finding optimal regression lambda...')
-    lambda_range = [0,0.2]; % ^10
-    n_lambdas = 200;
-    
-    lambdas = linspace(lambda_range(1),lambda_range(2),n_lambdas)';
-    explained_var_lambdas = nan(n_lambdas,1);
-    
-    figure('Name',animal); hold on;
-    plot_expl_var = plot(lambdas,explained_var_lambdas,'.k','MarkerSize',10);
-    xlabel('\lambda');
-    ylabel('Explained variance');
-    drawnow;
-    for curr_lambda_idx = 1:length(lambdas)
-        
-        curr_lambda = lambdas(curr_lambda_idx);
-        
-        [~,~,explained_var] = ...
-            AP_regresskernel(fluor_trace, ...
-            binned_spikes_filt./nanstd(binned_spikes_filt),kernel_frames,curr_lambda, ...
-            zs,cvfold,return_constant,use_constant);
-        
-        explained_var_lambdas(curr_lambda_idx) = explained_var.total;
-        
-        set(plot_expl_var,'YData',explained_var_lambdas);
-        drawnow
-        
-        AP_print_progress_fraction(curr_lambda_idx,length(lambdas));
-    end
-    
-    explained_var_lambdas_smoothed = smooth(explained_var_lambdas,10);
-    [best_lambda_explained_var,best_lambda_idx] = max(explained_var_lambdas_smoothed);
-    best_lambda = lambdas(best_lambda_idx);
-
-    plot(lambdas,explained_var_lambdas_smoothed,'linewidth',2);
-    line(repmat(best_lambda,1,2),ylim,'color','k');
-    
-    % Do regression with the best lambda
-    [curr_gcamp_kernel,predicted_spikes,explained_var] = ...
-        AP_regresskernel(fluor_trace, ...
-        binned_spikes_filt./nanstd(binned_spikes_filt),kernel_frames,best_lambda,zs, ...
-        cvfold,return_constant,use_constant);
-    
-    % Get and store kernel in ROI
-    gcamp_regression_kernel_t = kernel_frames/framerate;
-    gcamp_regression_kernel{curr_recording} = curr_gcamp_kernel{1};
-    
-    
-    %% %%%%%%%%%%%% TESTING: PLOT DECONV AND PREDICTED
-    fVdf_deconv = convn(fVdf_resample,gcamp_regression_kernel{curr_recording},'same');
-    dfVdf_roi = AP_svd_roi(Udf,fVdf_deconv,[],[],fluor_mask);
-    
-    plot_t = [1:length(time_bin_centers)]/sample_rate;
-    figure; hold on
-    plot(plot_t,binned_spikes./nanstd(binned_spikes),'k','linewidth',2);
-    plot(plot_t,binned_spikes_filt./nanstd(binned_spikes_filt),'m','linewidth',2);
-    plot(plot_t,predicted_spikes./nanstd(predicted_spikes),'r','linewidth',2);
-    plot(plot_t,dfVdf_roi./nanstd(dfVdf_roi),'b','linewidth',2);
-    
-    %% Plot MUA and fluorescence together
-    
-    plot_t = [1:length(time_bin_centers)]/sample_rate;
-    fluor_trace_diff = interp1(conv(plot_t,[1,1]/2,'valid'),diff(fluor_trace),plot_t);
-    
-    figure('Name',animal);
-    hold on
-    plot(plot_t,binned_spikes/nanstd(binned_spikes),'k','linewidth',2);
-    plot(plot_t,predicted_spikes/nanstd(predicted_spikes),'r','linewidth',2);
-    plot(plot_t,fluor_trace/nanstd(fluor_trace),'color',[0,0.5,0],'linewidth',2);
-    plot(plot_t,fluor_trace_diff./nanstd(fluor_trace_diff),'color',[0,0,0.8],'linewidth',2);
-    
-    xlabel('Time');
-    ylabel('Activity (std)');
-    legend({'MUA','Predicted MUA','Fluorescence','Fluorescence derivative'});
-    
-    drawnow;    
-    
+  
     
     %% MUA/fluorescence cross-correlation and coherence
     
@@ -575,16 +506,5 @@ title('GCaMP kernel');
 figure;
 plot(gcamp_regression_kernel_t, vertcat(gcamp_regression_kernel{:})');
 
-%% Save GCaMP kernel for deconvolution
-
-% Save the GCaMP kernels for deconvolution
-gcamp6s_kernel.fft_t = gcamp_fft_kernel_t;
-gcamp6s_kernel.fft = gcamp_fft_kernel;
-
-gcamp6s_kernel.regression_t = gcamp_regression_kernel_t;
-gcamp6s_kernel.regression = gcamp_regression_kernel;
-
-save('C:\Users\Andrew\OneDrive for Business\Documents\CarandiniHarrisLab\analysis\wf_ephys_choiceworld\wf_processing\gcamp_kernel\gcamp6s_kernel_NOTCONSTANT.mat', ...
-    'gcamp6s_kernel');
 
 

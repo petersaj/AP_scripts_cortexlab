@@ -187,8 +187,13 @@ fluor_roi_deriv = permute(reshape( ...
     reshape(permute(fluor_allcat_deriv,[3,2,1]),n_vs,[]),[],[],roi_mask), ...
     size(roi_mask,3),[],size(fluor_allcat_deriv,1)),[3,2,1]);
 
-fluor_roi_deriv(fluor_roi_deriv < 0) = 0;
-
+% I have no idea what's right here, can't do < 0 because don't know offset?
+% t_baseline = t < -0.1;
+% fluor_roi_deriv_baseline = nanmean(nanmean(fluor_roi_deriv(:,t_baseline,:),2),1);
+% for curr_roi = 1:n_rois
+%     fluor_roi_deriv(fluor_roi_deriv(:,:,curr_roi) < ...
+%         fluor_roi_deriv_baseline(curr_roi)) = fluor_roi_deriv_baseline(curr_roi);
+% end
 % %%%%%%%%%%
 
 

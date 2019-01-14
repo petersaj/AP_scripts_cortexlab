@@ -1,7 +1,7 @@
-%% AP analysis for EJ's 3-5Hz oscillation paper
-% Simultaneous widefield and cortical electrophysiology
-% Q: are 3-5Hz oscillations that EJ sees represented in spiking
+%% Create kernel to deconvolve tetO-GCaMP6s to spikes
+% (adapted from AP_EJ_widefield_ephys_paper.m)
 %
+% Simultaneous widefield and cortical electrophysiology
 % All animals are tetO-GC6S mice
 % Experiments are concatenated and include: spares noise, full screen
 % flickering stimuli, gray screens spontaneous, and screens off spontaneous
@@ -163,54 +163,56 @@ for curr_recording = 1:length(recordings)
     %% Get fluorescence -> MUA regression map, draw ROI for fluorescence
     
     use_svs = 1:50;
-%     kernel_t = [-0.3,0.3];
-%     kernel_frames = round(kernel_t(1)*framerate):round(kernel_t(2)*framerate);
-    kernel_frames = -10:10;
+    kernel_frames = -10:10; % specified as frames, t gave slight difference
     downsample_factor = 1;
     zs = [false,false];
     cvfold = 5;
-    return_constant = false;
+    return_constant = true;
     use_constant = true;
     
-    % Find optimal regression lambda
-    disp('Finding optimal regression lambda...')
-    lambda_range = [-0.5,1.5]; % ^10
-    n_lambdas = 30;
+    %%% Just set lambda, this step is now only used to pick an ROI
+    %%% (uncomment if a good map is wanted)
+    best_lambda = 10;
     
-    lambdas = logspace(lambda_range(1),lambda_range(2),n_lambdas)';
-    explained_var_lambdas = nan(n_lambdas,1);
-    
-    figure('Name',animal); hold on;
-    plot_expl_var = plot(lambdas,explained_var_lambdas,'linewidth',2);
-    xlabel('\lambda');
-    ylabel('Explained variance');
-    drawnow;
-    for curr_lambda_idx = 1:length(lambdas)
-        
-        curr_lambda = lambdas(curr_lambda_idx);
-        
-        [~,~,explained_var] = ...
-        AP_regresskernel(fVdf_resample(use_svs,:), ...
-        binned_spikes./nanstd(binned_spikes),kernel_frames,curr_lambda, ...
-        zs,cvfold,return_constant,use_constant);   
-        
-        explained_var_lambdas(curr_lambda_idx) = explained_var.total;
-        
-        set(plot_expl_var,'YData',explained_var_lambdas);
-        drawnow
-        
-        AP_print_progress_fraction(curr_lambda_idx,length(lambdas));
-    end
-    
-    lambda_bin_size = diff(lambda_range)/n_lambdas;
-    explained_var_lambdas_smoothed = smooth(explained_var_lambdas,5);
-    [best_lambda_explained_var,best_lambda_idx] = max(explained_var_lambdas_smoothed);
-    best_lambda = lambdas(best_lambda_idx);
-    lambda_range = log10([best_lambda,best_lambda]) + ...
-        [-lambda_bin_size,lambda_bin_size];
-    
-    plot(lambdas,explained_var_lambdas_smoothed,'linewidth',2);
-    line(repmat(best_lambda,1,2),ylim,'color','k');
+%     % Find optimal regression lambda
+%     disp('Finding optimal regression lambda...')
+%     lambda_range = [-1,1]; % ^10
+%     n_lambdas = 30;
+%     
+%     lambdas = logspace(lambda_range(1),lambda_range(2),n_lambdas)';
+%     explained_var_lambdas = nan(n_lambdas,1);
+%     
+%     figure('Name',animal); hold on;
+%     plot_expl_var = plot(lambdas,explained_var_lambdas,'linewidth',2);
+%     xlabel('\lambda');
+%     ylabel('Explained variance');
+%     drawnow;
+%     for curr_lambda_idx = 1:length(lambdas)
+%         
+%         curr_lambda = lambdas(curr_lambda_idx);
+%         
+%         [~,~,explained_var] = ...
+%         AP_regresskernel(fVdf_resample(use_svs,:), ...
+%         binned_spikes./nanstd(binned_spikes),kernel_frames,curr_lambda, ...
+%         zs,cvfold,return_constant,use_constant);   
+%         
+%         explained_var_lambdas(curr_lambda_idx) = explained_var.total;
+%         
+%         set(plot_expl_var,'YData',explained_var_lambdas);
+%         drawnow
+%         
+%         AP_print_progress_fraction(curr_lambda_idx,length(lambdas));
+%     end
+%     
+%     lambda_bin_size = diff(lambda_range)/n_lambdas;
+%     explained_var_lambdas_smoothed = smooth(explained_var_lambdas,5);
+%     [best_lambda_explained_var,best_lambda_idx] = max(explained_var_lambdas_smoothed);
+%     best_lambda = lambdas(best_lambda_idx);
+%     lambda_range = log10([best_lambda,best_lambda]) + ...
+%         [-lambda_bin_size,lambda_bin_size];
+%     
+%     plot(lambdas,explained_var_lambdas_smoothed,'linewidth',2);
+%     line(repmat(best_lambda,1,2),ylim,'color','k');
     
     % Regress using optimal lambda
     [curr_gcamp_kernel,predicted_spikes,explained_var] = ...
@@ -219,9 +221,9 @@ for curr_recording = 1:length(recordings)
         cvfold,return_constant,use_constant);   
     
     % Convert kernel to pixel space
-    kernel_px = zeros(size(U,1),size(U,2),size(curr_gcamp_kernel,2),size(curr_gcamp_kernel,3),'single');
-    for curr_spikes = 1:size(curr_gcamp_kernel,3)
-        kernel_px(:,:,:,curr_spikes) = svdFrameReconstruct(Udf(:,:,use_svs),curr_gcamp_kernel(:,:,curr_spikes));
+    kernel_px = zeros(size(U,1),size(U,2),size(curr_gcamp_kernel{1},2),size(curr_gcamp_kernel{1},3),'single');
+    for curr_spikes = 1:size(curr_gcamp_kernel{1},3)
+        kernel_px(:,:,:,curr_spikes) = svdFrameReconstruct(Udf(:,:,use_svs),curr_gcamp_kernel{1}(:,:,curr_spikes));
     end
     
     % AP_image_scroll(r_px,kernel_frames*downsample_factor/framerate);
@@ -259,32 +261,86 @@ for curr_recording = 1:length(recordings)
     title('MUA regression weights')
     
     drawnow;
+
+    %% Regress from fluorescence trace to MUA
+    
+    % Low-pass filter spikes (higher freqs are incoherent)
+    lowpassCutoff = 6; % Hz
+    [b100s, a100s] = butter(2, lowpassCutoff/((sample_rate)/2), 'low');
+    binned_spikes_filt = filter(b100s,a100s,binned_spikes,[],2);
+    
+    kernel_frames = -20:20;
+    zs = [false,false];
+    cvfold = 10;
+    return_constant = true;
+    use_constant = true;
+
+    % Find optimal regression lambda
+    disp('Finding optimal regression lambda...')
+    lambda_range = [0,0.2]; % ^10
+    n_lambdas = 200;
+    
+    lambdas = linspace(lambda_range(1),lambda_range(2),n_lambdas)';
+    explained_var_lambdas = nan(n_lambdas,1);
+    
+    figure('Name',animal); p = axes; hold on;
+    plot_expl_var = plot(p,lambdas,explained_var_lambdas,'.k','MarkerSize',10);
+    xlabel('\lambda');
+    ylabel('Explained variance');
+    drawnow;
+    for curr_lambda_idx = 1:length(lambdas)
+        
+        curr_lambda = lambdas(curr_lambda_idx);
+        
+        [~,~,explained_var] = ...
+            AP_regresskernel(fluor_trace, ...
+            binned_spikes_filt./nanstd(binned_spikes_filt),kernel_frames,curr_lambda, ...
+            zs,cvfold,return_constant,use_constant);
+        
+        explained_var_lambdas(curr_lambda_idx) = explained_var.total;
+        
+        set(plot_expl_var,'YData',explained_var_lambdas);
+        drawnow
+        
+    end
+    
+    explained_var_lambdas_smoothed = smooth(explained_var_lambdas,10);
+    [best_lambda_explained_var,best_lambda_idx] = max(explained_var_lambdas_smoothed);
+    best_lambda = lambdas(best_lambda_idx);
+
+    plot(p,lambdas,explained_var_lambdas_smoothed,'linewidth',2);
+    line(repmat(best_lambda,1,2),ylim,'color','k');
+    
+    % Do regression with the best lambda
+    [curr_gcamp_kernel,predicted_spikes,explained_var] = ...
+        AP_regresskernel(fluor_trace, ...
+        binned_spikes_filt./nanstd(binned_spikes_filt),kernel_frames,best_lambda,zs, ...
+        cvfold,return_constant,use_constant);
     
     % Get and store kernel in ROI
     gcamp_regression_kernel_t = kernel_frames/framerate;
-    gcamp_regression_kernel{curr_recording} = ...
-        AP_svd_roi(Udf(:,:,use_svs),curr_gcamp_kernel,[],[],fluor_mask);
+    gcamp_regression_kernel{curr_recording} = curr_gcamp_kernel{1};
     
-    %% TESTING PLOT DECONV AND PREDICTED
-    plot_t = [1:length(time_bin_centers)]/sample_rate;
-    figure; hold on
-    plot(plot_t,binned_spikes,'k'
-    
-    %% Plot MUA and fluorescence together
+    %% Plot all traces together (std normalized)
     
     plot_t = [1:length(time_bin_centers)]/sample_rate;
+ 
     fluor_trace_diff = interp1(conv(plot_t,[1,1]/2,'valid'),diff(fluor_trace),plot_t);
+    fVdf_deconv = convn(fVdf_resample,gcamp_regression_kernel{curr_recording},'same');
+    dfVdf_roi = AP_svd_roi(Udf,fVdf_deconv,[],[],fluor_mask);
     
     figure('Name',animal);
     hold on
-    plot(plot_t,binned_spikes/nanstd(binned_spikes),'k','linewidth',2);
-    plot(plot_t,predicted_spikes/nanstd(predicted_spikes),'r','linewidth',2);
-    plot(plot_t,fluor_trace/nanstd(fluor_trace),'color',[0,0.5,0],'linewidth',2);
-    plot(plot_t,fluor_trace_diff./nanstd(fluor_trace_diff),'color',[0,0,0.8],'linewidth',2);
+    plot(plot_t,binned_spikes/nanstd(binned_spikes),'linewidth',2);
+    plot(plot_t,binned_spikes_filt./nanstd(binned_spikes_filt),'linewidth',2);
+    plot(plot_t,predicted_spikes/nanstd(predicted_spikes),'linewidth',2);
+    plot(plot_t,fluor_trace/nanstd(fluor_trace),'linewidth',2);
+    plot(plot_t,fluor_trace_diff./nanstd(fluor_trace_diff),'linewidth',2);
+    plot(plot_t,dfVdf_roi./nanstd(dfVdf_roi),'linewidth',2);
     
     xlabel('Time');
     ylabel('Activity (std)');
-    legend({'MUA','Predicted MUA','Fluorescence','Fluorescence derivative'});
+    legend({'MUA','Filtered MUA','Predicted MUA','Fluorescence','Fluorescence derivative','Fluorescence deconv'});
     
     drawnow;    
     
@@ -517,7 +573,8 @@ gcamp6s_kernel.fft = gcamp_fft_kernel;
 gcamp6s_kernel.regression_t = gcamp_regression_kernel_t;
 gcamp6s_kernel.regression = gcamp_regression_kernel;
 
-save('C:\Users\Andrew\OneDrive for Business\Documents\CarandiniHarrisLab\analysis\wf_ephys_choiceworld\wf_processing\gcamp_kernel\gcamp6s_kernel_NOTCONSTANT.mat', ...
+save('C:\Users\Andrew\OneDrive for Business\Documents\CarandiniHarrisLab\analysis\wf_ephys_choiceworld\wf_processing\gcamp_kernel\gcamp6s_kernel.mat', ...
     'gcamp6s_kernel');
+disp('Saved GCaMP6s deconvolution kernel');
 
 

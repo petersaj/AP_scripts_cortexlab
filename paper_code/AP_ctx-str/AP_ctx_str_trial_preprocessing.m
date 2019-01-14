@@ -1,4 +1,4 @@
-%% !!!!NOTE: do deconvolution for all regression
+%% !!!!NOTE: do everything with deconvolution now (AP_deconv_wf)
 
 % Batch scripts to save preprocessed data here, saved to: 
 % C:\Users\Andrew\OneDrive for Business\Documents\CarandiniHarrisLab\analysis\wf_ephys_choiceworld\paper\data
@@ -1229,7 +1229,7 @@ data_fn = ['trial_activity_choiceworld_DECONVTEST'];
 exclude_data = true;
 
 AP_load_concat_normalize_ctx_str;
-
+ 
 n_vs = size(fluor_allcat_deriv,3);
 n_depths = size(mua_allcat,3);
 
@@ -1409,7 +1409,7 @@ for curr_depth = 1:n_depths
     
     [kernel,activity_predicted_reshape,expl_var,activity_predicted_reduced_reshape] = AP_regresskernel( ...
         cellfun(@(x) x(:,~isnan(activity_reshape)),regressors_reshape,'uni',false), ...
-        activity_reshape(~isnan(activity_reshape)),sample_shifts,lambda,zs,cvfold,return_constant);
+        activity_reshape(~isnan(activity_reshape)),sample_shifts,lambda,zs,cvfold,return_constant,use_constant);
     
     % Reshape full predictions
     activity_predicted_transpose = permute(nan(size(activity)),[2,1]);

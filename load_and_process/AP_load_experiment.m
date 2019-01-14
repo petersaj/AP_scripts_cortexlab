@@ -740,7 +740,7 @@ if ephys_exists && load_parts.ephys
     protocols = AP_list_experiments(animal,day);
     experiment_idx = experiment == [protocols.experiment];
  
-    if exist('flipper_flip_times_timeline','var')
+    if exist('flipper_flip_times_timeline','var') && length(sync) >= flipper_sync_idx
         % (if flipper, use that)
         % (at least one experiment the acqLive connection to ephys was bad
         % so it was delayed - ideally check consistency since it's
@@ -769,9 +769,11 @@ if ephys_exists && load_parts.ephys
         
         sync_timeline = flipper_flip_times_timeline;
         sync_ephys = flipper_flip_times_ephys;
+    else
+        bad_flipper = true;
     end
     
-    if ~exist('flipper_flip_times_timeline','var') || bad_flipper
+    if bad_flipper
         % (if no flipper or flipper problem, use acqLive)
         
         % Get acqLive times for current experiment
@@ -860,7 +862,12 @@ if ephys_exists && load_parts.ephys
         spike_templates = new_spike_idx(spike_templates+1);
         
     elseif ~exist('cluster_groups','var')
-        if verbose; disp('Clusters not yet sorted'); end
+        if verbose; disp('Clusters not yet sorted, re-indexing'); end
+        % If no classifications, keep all and 1-index        
+        good_templates_idx = unique(spike_templates);        
+        new_spike_idx = nan(max(spike_templates)+1,1);
+        new_spike_idx(good_templates_idx+1) = 1:length(good_templates_idx);
+        spike_templates = new_spike_idx(spike_templates+1);
     end
     
 end

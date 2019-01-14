@@ -3736,9 +3736,11 @@ for curr_animal = 1:length(ctx_str_lambda)
     n_days = length(ctx_str_lambda(curr_animal).day);
     for curr_day = 1:n_days       
         
-        subplot(length(ctx_str_lambda),max_days,(curr_animal-1)*max_days+curr_day);
-        semilogx(ctx_str_lambda(curr_animal).lambdas{curr_day}, ...
-            ctx_str_lambda(curr_animal).explained_var_lambdas{curr_day},'color','k','linewidth',2);
+        subplot(length(ctx_str_lambda),max_days,(curr_animal-1)*max_days+curr_day); hold on;
+        plot(ctx_str_lambda(curr_animal).lambdas{curr_day}, ...
+            ctx_str_lambda(curr_animal).explained_var_lambdas{curr_day},'.k','linewidth',2);
+        plot(ctx_str_lambda(curr_animal).lambdas{curr_day}, ...
+            smooth(ctx_str_lambda(curr_animal).explained_var_lambdas{curr_day},10),'linewidth',1);
         
 %         ylim([0,max_expl_var]);
 

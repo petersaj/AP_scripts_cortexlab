@@ -5,8 +5,10 @@ day = '2016-06-08';
 experiment = '2';
 rig = 'bigrig'; % kilotrode or bigrig
 
+mpep_animal = ['M111111_' animal];
+
 % Get the number of colors imaged during the experiment
-data_path = AP_cortexlab_filename(animal,day,experiment,'datapath');
+data_path = AP_cortexlab_filename(animal,day,experiment,'imaging');
 
 spatialComponents_fns = dir([data_path filesep 'svdSpatialComponents*']);
 spatialComponents_names = {spatialComponents_fns.name};
@@ -28,7 +30,7 @@ switch rig
 end
 
 % Load timeline
-timeline_filename = AP_cortexlab_filename(animal,day,experiment,'timeline');
+timeline_filename = AP_cortexlab_filename(mpep_animal,day,experiment,'timeline');
 load(timeline_filename);
 timeline_sample_rate = Timeline.hw.daqSampleRate;
 
@@ -169,7 +171,7 @@ end
 %% Load task/behavior
 
 % Load the block
-[block_filename, block_exists] = AP_cortexlab_filename(animal,day,experiment,'block');
+[block_filename, block_exists] = AP_cortexlab_filename(mpep_animal,day,experiment,'block');
 load(block_filename);
 
 % Get reward times in block and timeline
@@ -413,7 +415,7 @@ disp('Done.')
 flipped_banks = true;
 load_lfp = false;
 
-data_path = ['\\basket.cortexlab.net\data\ajpeters\' animal filesep day filesep 'ephys' filesep num2str(experiment)];
+data_path = ['\\zserver.cortexlab.net\Data\Subjects\' animal filesep day filesep 'ephys' filesep 'kilosort' filesep num2str(experiment)];
 
 % Load clusters, if they exist
 cluster_filename = [data_path filesep 'cluster_groups.csv'];

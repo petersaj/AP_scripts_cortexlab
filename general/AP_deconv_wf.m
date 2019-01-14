@@ -9,6 +9,10 @@ load('C:\Users\Andrew\OneDrive for Business\Documents\CarandiniHarrisLab\analysi
 gcamp6s_kernel_cat = vertcat(gcamp6s_kernel.regression{:});
 gcamp6s_kernel_mean = nanmean(gcamp6s_kernel_cat./max(abs(gcamp6s_kernel_cat),[],2),1);
 
+% Use -300:300ms of the kernel
+use_kernel_t = abs(gcamp6s_kernel.regression_t) < 0.3;
+gcamp6s_kernel_mean = gcamp6s_kernel_mean(use_kernel_t);
+
 % Get valid time from kernel (assume time-symmetric)
 t_rel = 1:size(fluorescence,2);
 t_rel_conv_valid = round(conv(t_rel,ones(1,length(gcamp6s_kernel_mean))./length(gcamp6s_kernel_mean),'valid'));
