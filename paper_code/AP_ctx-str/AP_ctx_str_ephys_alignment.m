@@ -295,13 +295,13 @@ for curr_animal = 1:length(animals)
         binned_spikes_filt_std = binned_spikes_filt./nanstd(binned_spikes_filt,[],2);
         binned_spikes_filt_std(isnan(binned_spikes_filt_std)) = 0;
         
-        % Regress fluorescence to spikes
+        % Regress fluorescence to spikes (lambda*10)
         kernel_frames = round(regression_params.kernel_t(1)*sample_rate): ...
             round(regression_params.kernel_t(2)*sample_rate);
       
         [k,predicted_spikes,explained_var] = ...
             AP_regresskernel(dfVdf_resample, ...
-            binned_spikes_filt_std,kernel_frames,lambda, ...
+            binned_spikes_filt_std,kernel_frames,lambda*10, ...
             regression_params.zs,regression_params.cvfold, ...
             false,regression_params.use_constant);
         
@@ -316,7 +316,6 @@ for curr_animal = 1:length(animals)
         k_px(:,:,:,~any(binned_spikes,2)) = NaN;
         
         % Keep kernel one frame (t == 0)
-        error('Which frame? maybe the one with largest weights?')
         k_px_frame = squeeze(k_px(:,:,kernel_frames == 0,:));
     
         % Package in structure
@@ -333,7 +332,7 @@ end
 
 % Save
 save_path = 'C:\Users\Andrew\OneDrive for Business\Documents\CarandiniHarrisLab\analysis\wf_ephys_choiceworld\ephys_processing';
-save_fn = ['ephys_kernel_depth_B'];
+save_fn = ['ephys_kernel_depth'];
 save([save_path filesep save_fn],'ephys_kernel_depth');
 disp('Saved ephys depth kernels');
 

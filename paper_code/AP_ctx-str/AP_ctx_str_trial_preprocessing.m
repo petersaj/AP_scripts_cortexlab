@@ -1338,12 +1338,19 @@ end
 regressors = {stim_regressors;move_onset_regressors;go_cue_regressors;reward_allcat_regressor};
 regressor_labels = {'Stim','Move onset','Go cue','Reward'};
 
-% Set regression parameters
+% % Set regression parameters
+% regress_trials = true(size(move_t));
+% t_shifts = {[-0.1,0.6]; ... % stim
+%     [-0.2,0.5]; ... % move onset
+%     [-0.05,0.3]; ... % go cue
+%     [-0.2,0.6]}; % reward
+
+% (after sparse regression update)
 regress_trials = true(size(move_t));
-t_shifts = {[-0.1,0.6]; ... % stim
-    [-0.2,0.5]; ... % move onset
-    [-0.05,0.3]; ... % go cue
-    [-0.2,0.6]}; % reward
+t_shifts = {[-0.5,2]; ... % stim
+    [-0.5,2]; ... % move onset
+    [-0.5,2]; ... % go cue
+    [-0.5,2]}; % reward
 %%%%%
 
 sample_shifts = cellfun(@(x) round(x(1)*(sample_rate)): ...

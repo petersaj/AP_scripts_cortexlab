@@ -1504,11 +1504,9 @@ for curr_area = 1:length(plot_areas)
     for curr_chunk = 1:n_chunks
 %         curr_corr = corrcoef(long_trace(chunk_boundaries(curr_chunk):chunk_boundaries(curr_chunk+1)), ...
 %             long_trace_predicted(chunk_boundaries(curr_chunk):chunk_boundaries(curr_chunk+1)));
-%         chunk_corr(curr_chunk) = curr_corr(2);
-
-        curr_corr = sum((long_trace(chunk_boundaries(curr_chunk):chunk_boundaries(curr_chunk+1))- ...
+        curr_corr = nansum((long_trace(chunk_boundaries(curr_chunk):chunk_boundaries(curr_chunk+1))- ...
             long_trace_predicted(chunk_boundaries(curr_chunk):chunk_boundaries(curr_chunk+1))).^2);
-        chunk_corr(curr_chunk) = curr_corr;       
+        
     end
     
     % (plot chunk percentiles)

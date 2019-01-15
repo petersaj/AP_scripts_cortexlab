@@ -671,6 +671,13 @@ for curr_animal = 1:length(animals)
             binned_spikes(curr_depth,:) = histcounts(curr_spike_times,time_bins);
         end
         
+        % Filter and std-normalize spikes
+        lowpassCutoff = 6; % Hz
+        [b100s, a100s] = butter(2, lowpassCutoff/((sample_rate)/2), 'low');
+        binned_spikes_filt = filter(b100s,a100s,binned_spikes,[],2);
+        binned_spikes_filt_std = binned_spikes_filt./nanstd(binned_spikes_filt,[],2);
+        binned_spikes_filt_std(isnan(binned_spikes_filt_std)) = 0;
+        
         % Load lambda from previously estimated and saved
         lambda_fn = 'C:\Users\Andrew\OneDrive for Business\Documents\CarandiniHarrisLab\analysis\wf_ephys_choiceworld\ephys_processing\ctx-str_lambda';
         load(lambda_fn);
@@ -685,9 +692,6 @@ for curr_animal = 1:length(animals)
         kernel_frames = round(regression_params.kernel_t(1)*sample_rate): ...
             round(regression_params.kernel_t(2)*sample_rate);
         
-        binned_spikes_std = binned_spikes./nanstd(binned_spikes,[],2);
-        binned_spikes_std(isnan(binned_spikes_std)) = 0;
-        
 %         [~,predicted_spikes_std,explained_var] = ...
 %             AP_regresskernel(dfVdf_resample, ...
 %             binned_spikes_std,kernel_frames,lambda, ...
@@ -697,7 +701,7 @@ for curr_animal = 1:length(animals)
         %%%% TESTING DECONV
         [~,predicted_spikes_std,explained_var] = ...
             AP_regresskernel(fVdf_deconv_resample, ...
-            binned_spikes_std,kernel_frames,lambda, ...
+            binned_spikes_filt_std,kernel_frames,lambda, ...
             regression_params.zs,regression_params.cvfold, ...
             false,regression_params.use_constant);
         %%%%
@@ -1192,7 +1196,7 @@ for curr_template = 1:size(cluster_mean_waveforms_norm,1)
 end
 
  
-%% (to plot trials)
+%% (to plot fluorescence by trial group)
 
 % Get conditions for each trial, plot selected
 contrasts = [0,0.06,0.125,0.25,0.5,1];
@@ -1372,6 +1376,8 @@ end
 
 
 
+
+
 % Get reduced-model fluorescence
 fluor_allcat_deriv_reduced_stim = fluor_allcat_deriv - fluor_allcat_predicted_reduced(:,:,:,1);
 
@@ -1384,17 +1390,17 @@ for i = 1:size(fluor_allcat_deriv,1)
     fluor_allcat_deriv_reduced_move(i,:,:) = circshift(fluor_allcat_deriv_reduced_move(i,:,:),-move_idx(i)+leeway_samples,2);
 end
 
-plot_rxn_time = [0,0.5];
+plot_rxn_time = [0.1,0.3];
 
 vis_correct_L_trials = ...
     trial_contrast_allcat > 0 & ...
     trial_side_allcat == 1 & ...
-    trial_choice_allcat == 1 & ...
+    trial_choice_allcat == -1 & ...
     move_t >= plot_rxn_time(1) & ...
     move_t <= plot_rxn_time(2);
 
 vis_correct_L_px = svdFrameReconstruct(U_master(:,:,1:n_vs), ...
-    squeeze(nanmean(fluor_allcat_deriv_move(vis_correct_L_trials,:,:),1))');
+    squeeze(nanmean(fluor_allcat_deriv_reduced_move(vis_correct_L_trials,:,:),1))');
 
 AP_image_scroll(vis_correct_L_px,t);
 axis image;
@@ -1545,7 +1551,6 @@ for curr_area = 1:length(plot_areas)
     linkaxes([p1,p2,p3,p4,p5],'xy');
     
 end
-
 
 
 

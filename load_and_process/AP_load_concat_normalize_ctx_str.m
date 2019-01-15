@@ -14,15 +14,15 @@ data_path = 'C:\Users\Andrew\OneDrive for Business\Documents\CarandiniHarrisLab\
 load([data_path filesep data_fn]);
 n_animals = length(D_all);
 
-% Get time (should save this in the data in future)
-if ~exist('t','var')
-    warning('No t saved, assuming old');
-    framerate = 35;
-    raster_window = [-0.5,3];
-    upsample_factor = 3;
-    sample_rate = (framerate*upsample_factor);
-    t = raster_window(1):1/sample_rate:raster_window(2);
-end
+% % Get time (should save this in the data in future)
+% if ~exist('t','var')
+%     warning('No t saved, assuming old');
+%     framerate = 35;
+%     raster_window = [-0.5,3];
+%     upsample_factor = 3;
+%     sample_rate = (framerate*upsample_factor);
+%     t = raster_window(1):1/sample_rate:raster_window(2);
+% end
 
 % Load pre-marked experiments to exclude and cut out bad ones
 if exist('exclude_data','var') && isempty(exclude_data)
@@ -115,8 +115,7 @@ for curr_animal = 1:length(D_all)
         mua_day_baseline(:,:,x)),:,x))),1:n_depths),[1,3,2]);
     mua_cat_norm = (mua_cat_raw_smoothed-mua_day_baseline)./(mua_day_baseline+softnorm);
     
-    % Concatenated predicted MUA (already in std - normalize like MUA)
-    % (try doing a nonlinearity here?)
+    % Concatenated predicted MUA
     if exist('predicted_mua_std_all','var')
         predicted_mua_std_cat_raw = cat(1,predicted_mua_std_all{curr_animal}{:});
         predicted_mua_std_cat_smoothed = ...
@@ -196,7 +195,13 @@ fluor_roi_deriv = permute(reshape( ...
 % end
 % %%%%%%%%%%
 
-
+% (storing filter here - implement later in MUA?
+% % Filter and std-normalize spikes
+% lowpassCutoff = 6; % Hz
+% [b100s, a100s] = butter(2, lowpassCutoff/((sample_rate)/2), 'low');
+% binned_spikes_filt = filter(b100s,a100s,binned_spikes,[],2);
+% binned_spikes_filt_std = binned_spikes_filt./nanstd(binned_spikes_filt,[],2);
+% binned_spikes_filt_std(isnan(binned_spikes_filt_std)) = 0;
 
 
 

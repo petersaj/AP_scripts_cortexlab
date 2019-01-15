@@ -121,9 +121,16 @@ else
     constant = [];
 end
 
-% Send everything to the GPU
-regressors_gpu = gpuArray([[regressor_design,constant];ridge_matrix]);
-signals_gpu = gpuArray([signals';zeros(length(ridge_matrix),size(signals,1))]);
+% If regressors matrix is sparse, sparsify (probably make this argin)
+sparse_regressors = sum(regressor_design(:) == 0)/(numel(regressor_design)) > 0.5;
+if sparse_regressors
+    regressors_gpu = sparse(double([[regressor_design,constant];ridge_matrix]));
+    signals_gpu = sparse(double([signals';zeros(length(ridge_matrix),size(signals,1))]));
+else
+    % Otherwise, send everything to the GPU
+    regressors_gpu = gpuArray([[regressor_design,constant];ridge_matrix]);
+    signals_gpu = gpuArray([signals';zeros(length(ridge_matrix),size(signals,1))]);
+end
 
 % Regression (and cross validation if selected)
 k_cv = zeros(size(regressors_gpu,2),size(signals,1),cvfold,'single');
@@ -152,15 +159,24 @@ for curr_cv = 1:cvfold
     % Used to do manual inv(fluor_gpu'*fluor_gpu)*fluor_gpu'*spikes_gpu
     % but looks like \ works fine on GPU
     k_cv(:,:,curr_cv) = ...
-        gather(regressors_gpu(train_idx,:)\signals_gpu(train_idx,:));
+        full(gather(regressors_gpu(train_idx,:)\signals_gpu(train_idx,:)));
     
-    predicted_signals(:,test_idx) = ...
-        gather(regressors_gpu(test_idx,:)*gpuArray(k_cv(:,:,curr_cv)))';
+    if sparse_regressors
+        predicted_signals(:,test_idx) = ...
+            full(regressors_gpu(test_idx,:)*sparse(double(k_cv(:,:,curr_cv))))';
+    else
+        predicted_signals(:,test_idx) = ...
+            gather(regressors_gpu(test_idx,:)*gpuArray(k_cv(:,:,curr_cv)))';
+    end
     
     % Reduced predictions on test set for each regressor modality (if > 1)
     if length(regressors) > 1
         
-        regressor_split_size = [cellfun(@(x) size(x,1),regressors).*cellfun(@length,t_shifts),1];
+        if use_constant
+            regressor_split_size = [cellfun(@(x) size(x,1),regressors).*cellfun(@length,t_shifts),1];
+        else
+            regressor_split_size = [cellfun(@(x) size(x,1),regressors).*cellfun(@length,t_shifts)];
+        end
         
 %         (use everything BUT particular regressor)
         regressor_split_idx = cellfun(@(x) setdiff(1:size(regressors_gpu,2),x), ...
@@ -171,9 +187,15 @@ for curr_cv = 1:cvfold
         
         for curr_regressor = 1:length(regressors)
             
-            curr_predicted = ...
-                gather(regressors_gpu(test_idx,regressor_split_idx{curr_regressor})* ...
-                gpuArray(k_cv(regressor_split_idx{curr_regressor},:,curr_cv)));
+            if sparse_regressors
+                curr_predicted = ...
+                    full(regressors_gpu(test_idx,regressor_split_idx{curr_regressor})* ...
+                    sparse(double(k_cv(regressor_split_idx{curr_regressor},:,curr_cv))));
+            else
+                curr_predicted = ...
+                    gather(regressors_gpu(test_idx,regressor_split_idx{curr_regressor})* ...
+                    gpuArray(k_cv(regressor_split_idx{curr_regressor},:,curr_cv)));
+            end
             
             predicted_signals_reduced(:,test_idx,curr_regressor) = ...
                 curr_predicted';
@@ -221,7 +243,7 @@ if ~return_constant
     k = cellfun(@(x,t) reshape(x,[],length(t),size(signals,1)), ...
         mat2cell(k_vector,cellfun(@(x) ...
         size(x,1),regressors).*cellfun(@length,t_shifts),size(signals,1)), ...
-        t_shifts,'uni',false);
+        t_shifts','uni',false);
 elseif return_constant
     k = cellfun(@(x,t) reshape(x,[],length(t),size(signals,1)), ...
         mat2cell(k_vector,[cellfun(@(x) size(x,1),regressors),1].*[cellfun(@length,t_shifts),1],size(signals,1)), ...
