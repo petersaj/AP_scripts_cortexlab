@@ -1314,18 +1314,19 @@ go_cue_regressors(move_t <= 0.5,find(t > 0.5,1),1) = 1;
 go_cue_regressors(move_t > 0.5,find(t > 0.5,1),2) = 1;
 
 % Reward regressors
-reward_regressor = zeros(size(reward_allcat,1),length(t));
+reward_allcat_regressor = zeros(size(reward_allcat,1),length(t));
 for curr_trial = 1:size(reward_allcat,1)
    curr_reward = find(reward_allcat(curr_trial,:));
    for i = curr_reward
        curr_reward_t = t(i);
-       reward_regressor(curr_trial,find(t > curr_reward_t,1)) = 1;
+       reward_allcat_regressor(curr_trial,find(t > curr_reward_t,1)) = 1;
    end
 end
 
 % Day regressors
 % (allow a separate offset for each day)
 day_trials = cellfun(@(x) size(x,1),vertcat(fluor_all{:}));
+% double check that the number of trials is correct
 if sum(day_trials) ~= size(fluor_allcat,1)
     error('Incorrect day trial count');
 end
@@ -1348,7 +1349,7 @@ end
 %     [-0.2,0.6]}; % reward
 
 %%%%% REMOVING MOVE ONGOING
-regressors = {stim_regressors;move_onset_regressors;go_cue_regressors;reward_regressor;day_regressors};
+regressors = {stim_regressors;move_onset_regressors;go_cue_regressors;reward_allcat_regressor;day_regressors};
 regressor_labels = {'Stim','Move onset','Go cue','Reward','Day'};
 
 % % Set regression parameters
@@ -1360,18 +1361,18 @@ regressor_labels = {'Stim','Move onset','Go cue','Reward','Day'};
 
 % (after sparse regression update)
 regress_trials = true(size(move_t));
-t_shifts = {[0,1]; ... % stim
+t_shifts = {[-0.5,2]; ... % stim
     [-0.5,2]; ... % move onset
-    [-0.5,1]; ... % go cue
-    [0,1];... % reward
-    [0,0]}; % day
+    [-0.5,2]; ... % go cue
+    [-0.5,2];... % reward
+    [0]}; & day
 %%%%%
 
 sample_shifts = cellfun(@(x) round(x(1)*(sample_rate)): ...
     round(x(2)*(sample_rate)),t_shifts,'uni',false);
 lambda = 0;
 zs = [false,false];
-cvfold = 10;
+cvfold = 5;
 use_constant = true;
 return_constant = true;
 
@@ -1389,11 +1390,9 @@ for curr_v = 1:n_vs
     regressors_reshape = cellfun(@(x) ...
         reshape(permute(x(regress_trials,:,:),[2,1,3]),[],size(x,3))',regressors,'uni',false);
     
-    warning off
     [kernel,activity_predicted_reshape,expl_var,activity_predicted_reduced_reshape] = AP_regresskernel( ...
         cellfun(@(x) x(:,~isnan(activity_reshape)),regressors_reshape,'uni',false), ...
         activity_reshape(~isnan(activity_reshape)),sample_shifts,lambda,zs,cvfold,return_constant,use_constant);
-    warning on
     
     % Reshape full predictions
     activity_predicted_transpose = permute(nan(size(activity)),[2,1]);
@@ -1429,7 +1428,7 @@ for curr_depth = 1:n_depths
     activity_reshape = reshape(activity',[],1)';
     regressors_reshape = cellfun(@(x) ...
         reshape(permute(x(regress_trials,:,:),[2,1,3]),[],size(x,3))',regressors,'uni',false);
-
+    
     [kernel,activity_predicted_reshape,expl_var,activity_predicted_reduced_reshape] = AP_regresskernel( ...
         cellfun(@(x) x(:,~isnan(activity_reshape)),regressors_reshape,'uni',false), ...
         activity_reshape(~isnan(activity_reshape)),sample_shifts,lambda,zs,cvfold,return_constant,use_constant);

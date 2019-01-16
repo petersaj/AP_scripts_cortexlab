@@ -121,13 +121,13 @@ else
     constant = [];
 end
 
-% If regressors matrix is sparse, sparsify (probably make this argin)
+% If regressors matrix is sparse, sparsify (make this argin instead?)
 sparse_regressors = sum(regressor_design(:) == 0)/(numel(regressor_design)) > 0.5;
 if sparse_regressors
     regressors_gpu = sparse(double([[regressor_design,constant];ridge_matrix]));
     signals_gpu = sparse(double([signals';zeros(length(ridge_matrix),size(signals,1))]));
 else
-    % Otherwise, send everything to the GPU
+    % Otherwise, do on the GPU
     regressors_gpu = gpuArray([[regressor_design,constant];ridge_matrix]);
     signals_gpu = gpuArray([signals';zeros(length(ridge_matrix),size(signals,1))]);
 end
@@ -210,22 +210,16 @@ if any(isinf(k_cv(:))) || any(isinf(predicted_signals(:))) || ...
     error('Inf/NaN in kernel or predicted signal')
 end
 
-% Total explained variance
-sse_signals = sum(signals.^2,2);
-sse_total_residual = sum(bsxfun(@minus,predicted_signals,signals).^2,2);
-explained_var.total = (sse_signals - sse_total_residual)./sse_signals;
+% Total explained variance (R^2)
+sse_residual = sum((signals-predicted_signals).^2,2);
+sse_total = sum((signals-nanmean(signals,2)).^2,2);
+explained_var.total = 1-(sse_residual./sse_total);
 
-% Partial explained variance
-sse_complete_model = sum(predicted_signals.^2,2);
+% Partial explained variance (???? no idea if this is right, unused atm)
 if length(regressors) > 1
-    sse_partial = cell2mat(arrayfun(@(x) ...
-        sum(predicted_signals_reduced(:,:,x).^2,2),1:length(regressors),'uni',false));
-    sse_partial_residual = cell2mat(arrayfun(@(x) ...
-        sum(bsxfun(@minus,predicted_signals_reduced(:,:,x),signals).^2,2),1:length(regressors),'uni',false));
-    % (I think this gets unique + confounded expl var?)
-%     explained_var.reduced = bsxfun(@rdivide,bsxfun(@minus,sse_signals,sse_partial_residual),sse_signals);
-    % (this method + leave-one-out above should be unique expl var?)
-    explained_var.reduced = bsxfun(@rdivide,bsxfun(@minus,sse_complete_model,sse_partial),sse_signals);
+    sse_residual_reduced = sum((signals-predicted_signals_reduced).^2,2);
+    sse_residual_full = sum((signals-predicted_signals).^2,2);
+    explained_var.partial = squeeze((sse_residual_reduced-sse_residual_full)./sse_residual_reduced); 
 end
 
 % Get the final k from averaging

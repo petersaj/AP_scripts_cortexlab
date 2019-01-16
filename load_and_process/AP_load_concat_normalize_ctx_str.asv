@@ -99,11 +99,11 @@ for curr_animal = 1:length(D_all)
         curr_mua,curr_mua_day_baseline,curr_mua_day_std,'uni',false);
     mua_cat_norm = cat(1,curr_mua_norm{:});
     
-    % Concatenated predicted MUA (normalize to measured MUA)
+    % Concatenated predicted MUA
     if exist('predicted_mua_std_all','var')
         curr_predicted_mua = predicted_mua_std_all{curr_animal};
         curr_predicted_mua_norm = cellfun(@(raw,baseline,std) (raw-baseline)./std, ...
-            curr_predicted_mua,curr_mua_day_baseline,curr_mua_day_std,'uni',false);
+            curr_predicted_mua,curr_predicted_mua_day_baseline,curr_predicted_mua_day_std,'uni',false);
         predicted_mua_std_cat = cat(1,curr_predicted_mua_norm{:});
     end
     

@@ -1504,9 +1504,11 @@ for curr_area = 1:length(plot_areas)
     for curr_chunk = 1:n_chunks
 %         curr_corr = corrcoef(long_trace(chunk_boundaries(curr_chunk):chunk_boundaries(curr_chunk+1)), ...
 %             long_trace_predicted(chunk_boundaries(curr_chunk):chunk_boundaries(curr_chunk+1)));
-        curr_corr = nansum((long_trace(chunk_boundaries(curr_chunk):chunk_boundaries(curr_chunk+1))- ...
+%         chunk_corr(curr_chunk) = curr_corr(2);
+
+        curr_corr = sum((long_trace(chunk_boundaries(curr_chunk):chunk_boundaries(curr_chunk+1))- ...
             long_trace_predicted(chunk_boundaries(curr_chunk):chunk_boundaries(curr_chunk+1))).^2);
-        
+        chunk_corr(curr_chunk) = curr_corr;       
     end
     
     % (plot chunk percentiles)
@@ -1599,6 +1601,60 @@ plot_cols = { ...
     [0.5,0.5,0;0.6,0,0.6], ...
     [0,0,0;0,0,0.7]};
 
+figure;
+for curr_area = 1:length(plot_areas)
+    area_idx = plot_areas(curr_area);
+    
+    p1 = subplot(4,length(plot_areas),curr_area);
+    hold on; set(gca,'ColorOrder',plot_cols{curr_area});
+    for curr_condition = reshape(plot_conditions{curr_area},1,[])
+        curr_trials = plot_conditions_compare{curr_area} == curr_condition;
+        curr_data_mean = nanmean(mua_allcat(curr_trials,:,area_idx),1);
+        plot(t,curr_data_mean,'linewidth',2);
+    end
+    ylabel(['Str ' num2str(area_idx) ' Measured']);
+    axis tight
+    line([0,0],ylim,'color','k');
+    
+    p2 = subplot(4,length(plot_areas),curr_area+length(plot_areas)*1);
+    hold on; set(gca,'ColorOrder',plot_cols{curr_area});
+    for curr_condition = reshape(plot_conditions{curr_area},1,[])
+        curr_trials = plot_conditions_compare{curr_area} == curr_condition;
+        curr_data_mean = nanmean(fluor_kernel_roi_bw(curr_trials,:,area_idx),1);
+        plot(t,curr_data_mean,'linewidth',2);
+    end
+    ylabel(['ROI']);
+    axis tight
+    line([0,0],ylim,'color','k');
+    
+    p3 = subplot(4,length(plot_areas),curr_area+length(plot_areas)*2);
+    hold on; set(gca,'ColorOrder',plot_cols{curr_area});
+    for curr_condition = reshape(plot_conditions{curr_area},1,[])
+        curr_trials = plot_conditions_compare{curr_area} == curr_condition;
+        curr_data_mean = nanmean(fluor_kernel_roi_weighted(curr_trials,:,area_idx),1);
+        plot(t,curr_data_mean,'linewidth',2);
+    end
+    ylabel(['Weighted ROI']);
+    axis tight
+    line([0,0],ylim,'color','k');
+    
+    p4 = subplot(4,length(plot_areas),curr_area+length(plot_areas)*3);
+    hold on; set(gca,'ColorOrder',plot_cols{curr_area});
+    for curr_condition = reshape(plot_conditions{curr_area},1,[])
+        curr_trials = plot_conditions_compare{curr_area} == curr_condition;
+        curr_data_mean = nanmean(predicted_mua_std_allcat(curr_trials,:,area_idx),1);
+        plot(t,curr_data_mean,'linewidth',2);
+    end
+    ylabel(['Experiment kernel predicted']);
+    axis tight
+    line([0,0],ylim,'color','k');
+    
+    linkaxes([p1,p2,p3,p4],'x');
+    
+end
+
+
+% Plot residuals
 figure;
 for curr_area = 1:length(plot_areas)
     area_idx = plot_areas(curr_area);
@@ -1882,8 +1938,8 @@ for curr_group = 1:length(trial_groups)
     % Get MUA/predicted using reduced model
     curr_regressor_idx = strcmp(trial_groups{curr_group},regressor_labels);
     curr_mua =  mua_allcat - mua_allcat_predicted_reduced(:,:,:,curr_regressor_idx);
-    curr_predicted_mua = predicted_mua_std_allcat - predicted_mua_allcat_predicted_reduced(:,:,:,curr_regressor_idx);
-%     curr_predicted_mua = fluor_kernel_roi_bw - fluor_kernel_roi_bw_reduced(:,:,:,curr_regressor_idx);
+%     curr_predicted_mua = predicted_mua_std_allcat - predicted_mua_allcat_predicted_reduced(:,:,:,curr_regressor_idx);
+    curr_predicted_mua = fluor_kernel_roi_bw - fluor_kernel_roi_bw_reduced(:,:,:,curr_regressor_idx);
 
     % (if movement, align to move onset)
     if any(strfind(lower(trial_groups{curr_group}),'move'))
@@ -2143,59 +2199,59 @@ end
 
 
 
+% Plot long regression example?
+plot_areas = 1:4;
+figure;
+for curr_area = 1:length(plot_areas)
+    plot_area_idx = plot_areas(curr_area);
+    long_trace = reshape(permute(mua_allcat(:,:,plot_area_idx),[2,1]),[],1);
+    long_trace_ctx_predicted = reshape(permute(predicted_mua_std_allcat(:,:,plot_area_idx),[2,1]),[],1);
+    long_trace_task_predicted = reshape(permute(mua_allcat_predicted(:,:,plot_area_idx),[2,1]),[],1);
+    
+    % Filter long trace
+    lowpassCutoff = 6; % Hz
+    [b100s, a100s] = butter(2, lowpassCutoff/((sample_rate)/2), 'low');
+    long_trace = filter(b100s,a100s,long_trace,[],1);
+        
+    % (correlate measured and predicted in chunks)
+    n_chunks = 1000;
+    chunk_boundaries = round(linspace(1,length(long_trace),n_chunks+1));
+    chunk_corr = nan(n_chunks,1);
+    for curr_chunk = 1:n_chunks
+%         curr_corr = corrcoef(long_trace(chunk_boundaries(curr_chunk):chunk_boundaries(curr_chunk+1)), ...
+%             long_trace_predicted(chunk_boundaries(curr_chunk):chunk_boundaries(curr_chunk+1)));
+%         chunk_corr(curr_chunk) = curr_corr(2);
 
-% %%% Average trial across-group percentiles
-% 
-% % % Percentile with tiedrank (slow)
-% % loop_trials = find(use_trials & trial_choice_allcat == -1);
-% % trial_prctiles = nan(length(loop_trials),length(t),n_depths);
-% % for curr_trial = 1:length(loop_trials)
-% %    curr_rank = tiedrank([mua_allcat_move(loop_trials(curr_trial),:,:); ...
-% %        mua_allcat_move(use_trials & trial_choice_allcat == 1,:,:)]);
-% %    trial_prctiles(curr_trial,:,:) = curr_rank(1,:,:)./size(curr_rank,1);
-% %    AP_print_progress_fraction(curr_trial,length(loop_trials));
-% % end
-% 
-% % Percentile with gpu/sort
-% mua_allcat_move_gpu = gpuArray(mua_allcat_move(use_trials,:,:));
-% predicted_mua_std_allcat_move_gpu = gpuArray(predicted_mua_std_allcat_move(use_trials,:,:));
-% 
-% loop_trials = find(trial_choice_allcat(use_trials) == -1);
-% trial_prctiles = nan(length(loop_trials),length(t),n_depths);
-% trial_prctiles_predicted = nan(length(loop_trials),length(t),n_depths);
-% for curr_trial = 1:length(loop_trials)
-%    [~,curr_sort_idx] = sort([ ...
-%        mua_allcat_move_gpu(loop_trials(curr_trial),:,:); ...
-%        mua_allcat_move_gpu(trial_choice_allcat(use_trials) == 1,:,:)],1);
-%    [~,max_idx] = max((curr_sort_idx == 1),[],1);
-%    trial_prctiles(curr_trial,:,:) = gather(max_idx./size(curr_sort_idx,1));
-%    
-%    [~,curr_sort_idx_predicted] = sort([ ...
-%        predicted_mua_std_allcat_move_gpu(loop_trials(curr_trial),:,:); ...
-%        predicted_mua_std_allcat_move_gpu(trial_choice_allcat(use_trials) == 1,:,:)],1);
-%    [~,max_idx_predicted] = max((curr_sort_idx_predicted == 1),[],1);
-%    trial_prctiles_predicted(curr_trial,:,:) = gather(max_idx_predicted./size(curr_sort_idx_predicted,1));
-%    
-%    AP_print_progress_fraction(curr_trial,length(loop_trials));
-% end
-% 
-% trial_prctiles_mean = squeeze(nanmean(trial_prctiles,1));
-% trial_prctiles_predicted_mean = squeeze(nanmean(trial_prctiles_predicted,1));
-% 
-% figure;
-% p1 = subplot(2,1,1); hold on; set(gca,'ColorOrder',copper(n_depths));
-% plot(t,trial_prctiles_mean,'linewidth',2);
-% axis tight; line([0,0],ylim,'color','k');
-% xlabel('Time from move');
-% ylabel('Mean across-group percentile');
-% title('Measured');
-% p2 = subplot(2,1,2); hold on; set(gca,'ColorOrder',copper(n_depths));
-% plot(t,trial_prctiles_predicted_mean,'linewidth',2);
-% axis tight; line([0,0],ylim,'color','k');
-% xlabel('Time from move');
-% ylabel('Mean across-group percentile');
-% title('Predicted');
-% linkaxes([p1,p2],'xy');
+        curr_corr = sum((long_trace(chunk_boundaries(curr_chunk):chunk_boundaries(curr_chunk+1))- ...
+            long_trace_ctx_predicted(chunk_boundaries(curr_chunk):chunk_boundaries(curr_chunk+1))).^2);
+        chunk_corr(curr_chunk) = curr_corr;       
+    end
+    
+    % (plot chunk percentiles)
+    plot_prctiles = [0,25,50,75,100];
+    [chunk_corr_sorted,sort_idx] = sort(chunk_corr);
+    chunk_corr_prctile = prctile(chunk_corr,plot_prctiles);
+    for curr_prctile = 1:length(chunk_corr_prctile)
+        subplot(length(chunk_corr_prctile),length(plot_areas), ...
+            (curr_prctile-1)*length(plot_areas)+curr_area); hold on;
+        curr_plot_chunk_idx = sort_idx(find(chunk_corr_sorted >= chunk_corr_prctile(curr_prctile),1));
+        curr_chunk_plot = chunk_boundaries(curr_plot_chunk_idx):chunk_boundaries(curr_plot_chunk_idx+1);
+        plot([1:length(curr_chunk_plot)]/sample_rate,long_trace(curr_chunk_plot),'color',[0,0.6,0]);
+        plot([1:length(curr_chunk_plot)]/sample_rate,long_trace_ctx_predicted(curr_chunk_plot),'color',[0.6,0,0.6]);
+        plot([1:length(curr_chunk_plot)]/sample_rate,long_trace_task_predicted(curr_chunk_plot),'color',[0.3,0.3,0.8]);
+        ylabel([num2str(plot_prctiles(curr_prctile)) 'th percentile']);
+        if curr_prctile == 1
+            title(plot_areas(curr_area))
+        end
+    end
+end
+
+% Plot all on top of each other 
+figure; hold on;
+curr_depth = 4;
+plot(reshape(mua_allcat(:,:,curr_depth)',[],1));
+plot(reshape(predicted_mua_std_allcat(:,:,curr_depth)',[],1));
+plot(reshape(mua_allcat_predicted(:,:,curr_depth)',[],1));
 
 
 

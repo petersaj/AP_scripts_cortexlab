@@ -788,8 +788,6 @@ animals = {'AP024','AP025','AP026','AP027','AP028','AP029'};
 fluor_all = cell(length(animals),1);
 mua_all = cell(length(animals),1);
 mua_ctxpred_all = cell(length(animals),1);
-mua_taskpred_all = cell(length(animals),1);
-mua_taskpred_reduced_all = cell(length(animals),1);
 wheel_all = cell(length(animals),1);
 reward_all = cell(length(animals),1);
 D_all = cell(length(animals),1);
@@ -808,9 +806,7 @@ for curr_animal = 1:length(animals)
     
     fluor_all{curr_animal} = cell(length(experiments),1);
     mua_all{curr_animal} = cell(length(experiments),1);
-    mua_ctxpred_all{curr_animal} = cell(length(experiments),1);
-    mua_taskpred_all{curr_animal} = cell(length(experiments),1);
-    mua_taskpred_reduced_all{curr_animal} = cell(length(experiments),1);    
+    predicted_mua_std_all{curr_animal} = cell(length(experiments),1);
     wheel_all{curr_animal} = cell(length(experiments),1);
     D_all{curr_animal} = cell(length(experiments),1);
     
@@ -979,9 +975,10 @@ for curr_animal = 1:length(animals)
         
         
         %%%%%%%%%%%%%%%%%%%%%%%%%%% TESTING: TASK REGRESSION
-     
+        
+        
         % Get reaction time
-        [move_trial,move_idx] = max(abs(event_aligned_wheel(use_trials,:)) > 2,[],2);
+        [move_trial,move_idx] = max(abs(event_aligned_wheel(:,:,1)) > 2,[],2);
         move_t = t(move_idx)';
         move_t(~move_trial) = Inf;
         
@@ -991,7 +988,7 @@ for curr_animal = 1:length(animals)
         contrastsides = diff(D.stimulus,[],2);
         unique_contrastsides = sort(unique(contrastsides(contrastsides ~= 0)));
         
-        stim_regressors = zeros(sum(use_trials),length(t),length(unique_contrastsides));
+        stim_regressors = zeros(size(event_aligned_wheel,1),size(event_aligned_wheel,2),length(unique_contrastsides));
         for curr_condition_idx = 1:length(unique_contrastsides)
             stim_regressors(contrastsides == ...
                 contrastsides(curr_condition_idx),find(t > 0,1),curr_condition_idx) = 1;
@@ -999,90 +996,61 @@ for curr_animal = 1:length(animals)
         
         % Move onset regressors (L/R)
         [~,move_idx] = max(abs(event_aligned_wheel) > 2,[],2);
-        move_onset_regressors = zeros(sum(use_trials),length(t),2);
-        for curr_trial = 1:sum(use_trials)           
+        move_onset_regressors = zeros(size(event_aligned_wheel,1),size(event_aligned_wheel,2),2);
+        for curr_trial = 1:size(move_onset_regressors,1)
+            
             % To use binary
             if D.response(curr_trial) == 1
                 move_onset_regressors(curr_trial,move_idx(curr_trial),1) = 1;
             elseif D.response(curr_trial) == 2
                 move_onset_regressors(curr_trial,move_idx(curr_trial),2) = 1;
-            end        
+            end
+            
+            %     % To fold in maximum velocity in chosen direction
+            %     if trial_choice_allcat(curr_trial) == -1
+            %         move_onset_regressors(curr_trial,move_idx(curr_trial),1) = abs(max_vel(curr_trial));
+            %     elseif trial_choice_allcat(curr_trial) == 1
+            %         move_onset_regressors(curr_trial,move_idx(curr_trial),2) = abs(max_vel(curr_trial));
+            %     end
+            
         end
-     
+        
+        % Move ongoing regressor - (0.5s buffer from move onset, L/R)
+        wheel_vel = [zeros(size(wheel_allcat,1),1),diff(wheel_allcat,[],2)];
+        move_ongoing_regressors = zeros(size(wheel_allcat,1),size(wheel_allcat,2),2);
+        move_ongoing_regressors(:,:,1) = abs(wheel_allcat) > 2 & wheel_vel < -2;
+        move_ongoing_regressors(:,:,2) = abs(wheel_allcat) > 2 & wheel_vel > 2;
+        
+        move_onset_buffer_t = 0.5;
+        move_onset_buffer_samples = ones(1,round(move_onset_buffer_t*sample_rate));
+        move_onset_buffer = padarray( ...
+            convn(any(move_onset_regressors,3),move_onset_buffer_samples,'valid'), ...
+            [0,length(move_onset_buffer_samples)-1],0,'pre');
+        
+        move_ongoing_regressors = +(move_ongoing_regressors & ~move_onset_buffer);
+        
+        % % Wheel regressors - separate leftward/rightward velocity
+        % wheel_vel_norm = [zeros(size(wheel_allcat,1),1),diff(wheel_allcat(:,:,1),[],2)];
+        % wheel_vel_norm = wheel_vel_norm/prctile(abs(wheel_vel_norm(:)),95);
+        % wheel_vel_norm(abs(wheel_vel_norm) > 1) = sign(wheel_vel_norm(abs(wheel_vel_norm) > 1));
+        % wheel_regressors = abs(repmat(wheel_vel_norm,1,1,2).*cat(3,wheel_vel_norm < 0,wheel_vel_norm > 0));
+        
         % Go cue regressors - separate for early/late move
-        go_cue_regressors = zeros(sum(use_trials),length(t),2);
+        go_cue_regressors = zeros(size(wheel_allcat,1),size(wheel_allcat,2));
         go_cue_regressors(move_t <= 0.5,find(t > 0.5,1),1) = 1;
         go_cue_regressors(move_t > 0.5,find(t > 0.5,1),2) = 1;
         
         % Reward regressors
-        curr_reward_grid = event_aligned_reward(use_trials,:,:);
-        reward_regressor = zeros(sum(use_trials),length(t));
-        for curr_trial = 1:sum(use_trials)
-            curr_reward = find(curr_reward_grid(curr_trial,:));
+        reward_allcat_regressor = zeros(size(reward_allcat,1),length(t));
+        for curr_trial = 1:size(reward_allcat,1)
+            curr_reward = find(reward_allcat(curr_trial,:));
             for i = curr_reward
                 curr_reward_t = t(i);
-                reward_regressor(curr_trial,find(t > curr_reward_t,1)) = 1;
+                reward_allcat_regressor(curr_trial,find(t > curr_reward_t,1)) = 1;
             end
         end
-               
-        regressors = {stim_regressors;move_onset_regressors;go_cue_regressors;reward_regressor};
-        regressor_labels = {'Stim','Move onset','Go cue','Reward'};     
-        
-        regress_trials = true(size(move_t));
-        t_shifts = {[0,1]; ... % stim
-            [-0.5,2]; ... % move onset
-            [-0.5,1]; ... % go cue
-            [0,1]}; % reward
-        
-        sample_shifts = cellfun(@(x) round(x(1)*(sample_rate)): ...
-            round(x(2)*(sample_rate)),t_shifts,'uni',false);
-        lambda = 0;
-        zs = [false,false];
-        cvfold = 10;
-        use_constant = true;
-        return_constant = true;       
-        
-        % Regression task->MUA (filter for comparison to ctx-prediction)
-        use_mua_task_regress = filter(b100s,a100s,event_aligned_mua(use_trials,:,:),[],2);       
-        mua_allcat_predicted = nan(size(use_mua_task_regress));
-        mua_allcat_predicted_reduced = ...
-            repmat(nan(size(use_mua_task_regress)),1,1,1,length(regressors));       
-        for curr_depth = 1:n_depths
-                        
-            activity = single(use_mua_task_regress(regress_trials,:,curr_depth));
-            
-            % Skip if nothing in this depth
-            if ~any(activity)
-                continue
-            end
-            
-            activity_reshape = reshape(activity',[],1)';
-            regressors_reshape = cellfun(@(x) ...
-                reshape(permute(x(regress_trials,:,:),[2,1,3]),[],size(x,3))',regressors,'uni',false);
-            
-            [kernel,activity_predicted_reshape,expl_var,activity_predicted_reduced_reshape] = AP_regresskernel( ...
-                cellfun(@(x) x(:,~isnan(activity_reshape)),regressors_reshape,'uni',false), ...
-                activity_reshape(~isnan(activity_reshape)),sample_shifts,lambda,zs,cvfold,return_constant,use_constant);
-            
-            % Reshape full predictions
-            activity_predicted_transpose = permute(nan(size(activity)),[2,1]);
-            activity_predicted_transpose(~isnan(activity')) = activity_predicted_reshape;
-            
-            % Reshape reduced predictions
-            activity_predicted_reduced_transpose = permute(repmat(nan(size(activity)),1,1,length(regressors)),[2,1,3]);
-            activity_predicted_reduced_transpose(repmat(~isnan(activity'),1,1,length(regressors))) = ...
-                activity_predicted_reduced_reshape;
-            
-            % Store predicted/reduced predicted/kernels
-            mua_allcat_predicted(regress_trials,:,curr_depth) = ...
-                permute(activity_predicted_transpose,[2,1,3]);
-            mua_allcat_predicted_reduced(regress_trials,:,curr_depth,:) = ...
-                permute(activity_predicted_reduced_transpose,[2,1,4,3]);                      
-        end
-        
-        mua_taskpred_all{curr_animal}{curr_day} = mua_allcat_predicted;
-        mua_taskpred_reduced_all{curr_animal}{curr_day} = mua_allcat_predicted_reduced;
-        
+
+     
         %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
         
         
@@ -1090,7 +1058,7 @@ for curr_animal = 1:length(animals)
     end
     
     clearvars -except n_aligned_depths regression_params animals curr_animal ...
-        t fluor_all mua_all mua_ctxpred_all mua_taskpred_all mua_taskpred_reduced_all wheel_all reward_all D_all
+        t fluor_all mua_all mua_ctxpred_all wheel_all reward_all D_all
     
 end
 clearvars -except n_aligned_depths t fluor_all mua_all mua_ctxpred_all wheel_all reward_all D_all
