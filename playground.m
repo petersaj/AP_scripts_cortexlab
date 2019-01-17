@@ -768,7 +768,7 @@ save_path = 'C:\Users\Andrew\OneDrive for Business\Documents\CarandiniHarrisLab\
 save_fn = ['trial_activity_choiceworld_DECONVTEST'];
 save([save_path filesep save_fn],'-v7.3');
 
-%% DECONV TEST: Choiceworld trial activity W TASK REGRESSION?
+%% DECONV TEST: Choiceworld trial activity W TASK REGRESSION
 clear all
 disp('Choiceworld trial activity')
 
@@ -778,7 +778,7 @@ n_aligned_depths = 4;
 regression_params.use_svs = 1:50;
 regression_params.skip_seconds = 60;
 regression_params.upsample_factor = 1;
-regression_params.kernel_t = [-0.2,0.2];
+regression_params.kernel_t = [-0.5,0.5];
 regression_params.zs = [false,false];
 regression_params.cvfold = 5;
 regression_params.use_constant = true;
@@ -880,12 +880,12 @@ for curr_animal = 1:length(animals)
         
         % Get upsampled dVdf's
         dfVdf_resample = interp1(conv2(frame_t,[1,1]/2,'valid'), ...
-            diff(fVdf(regression_params.use_svs,:),[],2)',time_bin_centers)';
+            diff(fVdf,[],2)',time_bin_centers)';
         
         %%%% TESTING: DECONV
         fVdf_deconv = AP_deconv_wf(fVdf);
         fVdf_deconv(isnan(fVdf_deconv)) = 0;
-        fVdf_deconv_resample = interp1(frame_t,fVdf_deconv(regression_params.use_svs,:)',time_bin_centers)';
+        fVdf_deconv_resample = interp1(frame_t,fVdf_deconv',time_bin_centers)';
         %%%%
         
         binned_spikes = zeros(n_depths,length(time_bin_centers));
@@ -912,6 +912,11 @@ for curr_animal = 1:length(animals)
             end
         end
         
+        %%%%% TEST
+        warning('OVERRIDING LAMBDA')
+        lambda = 10;
+        %%%%%%%
+        
         kernel_frames = round(regression_params.kernel_t(1)*sample_rate): ...
             round(regression_params.kernel_t(2)*sample_rate);
         
@@ -923,7 +928,7 @@ for curr_animal = 1:length(animals)
         
         %%%% TESTING DECONV
         [k,predicted_spikes_std,explained_var] = ...
-            AP_regresskernel(fVdf_deconv_resample, ...
+            AP_regresskernel(fVdf_deconv_resample(regression_params.use_svs,:), ...
             binned_spikes_filt_std,kernel_frames,lambda, ...
             regression_params.zs,regression_params.cvfold, ...
             true,regression_params.use_constant);
@@ -998,7 +1003,6 @@ for curr_animal = 1:length(animals)
         end
         
         % Move onset regressors (L/R)
-        [~,move_idx] = max(abs(event_aligned_wheel) > 2,[],2);
         move_onset_regressors = zeros(sum(use_trials),length(t),2);
         for curr_trial = 1:sum(use_trials)           
             % To use binary
@@ -1038,7 +1042,7 @@ for curr_animal = 1:length(animals)
             round(x(2)*(sample_rate)),t_shifts,'uni',false);
         lambda = 0;
         zs = [false,false];
-        cvfold = 10;
+        cvfold = 5;
         use_constant = true;
         return_constant = true;       
         
@@ -1093,7 +1097,11 @@ for curr_animal = 1:length(animals)
         t fluor_all mua_all mua_ctxpred_all mua_taskpred_all mua_taskpred_reduced_all wheel_all reward_all D_all
     
 end
-clearvars -except n_aligned_depths t fluor_all mua_all mua_ctxpred_all wheel_all reward_all D_all
+
+clearvars -except n_aligned_depths t fluor_all ...
+    mua_all mua_ctxpred_all mua_taskpred_all mua_taskpred_reduced_all ...
+    wheel_all reward_all D_all
+
 disp('Finished loading all')
 
 save_path = 'C:\Users\Andrew\OneDrive for Business\Documents\CarandiniHarrisLab\analysis\wf_ephys_choiceworld\paper\data';
@@ -1749,28 +1757,6 @@ AP_reference_outline('ccf_aligned','k');
 
 
 
-
-
-
-%% Plotting variance explained (to get at trial variability)
-
-lowpassCutoff = 6; % Hz
-[b100s, a100s] = butter(2, lowpassCutoff/((sample_rate)/2), 'low');
-mua_allcat_filt = filter(b100s,a100s,mua_allcat,[],2);
-
-sse_signals = nansum(mua_allcat.^2,1);
-sse_residual_task = nansum((mua_allcat - mua_allcat_predicted).^2,1);
-sse_residual_ctx = nansum((mua_allcat_filt - predicted_mua_std_allcat).^2,1);
-
-explained_var_task = (sse_signals - sse_residual_task)./sse_signals;
-explained_var_ctx = (sse_signals - sse_residual_ctx)./sse_signals;
-
-figure;
-for curr_depth = 1:n_depths
-    subplot(n_depths,1,curr_depth); hold on;
-    plot(t,explained_var_task(:,:,curr_depth));
-    plot(t,explained_var_ctx(:,:,curr_depth));
-end
 
 
 

@@ -9,20 +9,14 @@
 % exclude_data - true/false at the moment (for bad behavior days)
 % (can in future extend this to wonky recording days?)
 
+%%%%%%%%%% TO ADD: 
+% mua_ctxpred_all mua_taskpred_all mua_taskpred_reduced_all
+
+
 % Load data
 data_path = 'C:\Users\Andrew\OneDrive for Business\Documents\CarandiniHarrisLab\analysis\wf_ephys_choiceworld\paper\data';
 load([data_path filesep data_fn]);
 n_animals = length(D_all);
-
-% % Get time (should save this in the data in future)
-% if ~exist('t','var')
-%     warning('No t saved, assuming old');
-%     framerate = 35;
-%     raster_window = [-0.5,3];
-%     upsample_factor = 3;
-%     sample_rate = (framerate*upsample_factor);
-%     t = raster_window(1):1/sample_rate:raster_window(2);
-% end
 
 % Load pre-marked experiments to exclude and cut out bad ones
 if exist('exclude_data','var') && isempty(exclude_data)
@@ -58,8 +52,12 @@ wheel_all = wheel_all(use_animals);
 if exist('reward_all','var')
     reward_all = reward_all(use_animals);
 end
-if exist('predicted_mua_std_all','var')
-    predicted_mua_std_all = predicted_mua_std_all(use_animals);
+if exist('mua_ctxpred_all','var')
+    mua_ctxpred_all = mua_ctxpred_all(use_animals);
+end
+if exist('mua_taskpred_all','var')
+    mua_taskpred_all = mua_taskpred_all(use_animals);
+    mua_taskpred_reduced_all = mua_taskpred_reduced_all(use_animals);
 end
 
 % Get number of widefield components and MUA depths
@@ -69,7 +67,9 @@ n_depths = size(mua_all{1}{1},3);
 % Normalize and concatenate activity/wheel
 fluor_allcat = nan(0,length(t),n_vs,1);
 mua_allcat = nan(0,length(t),n_depths,1);
-predicted_mua_std_allcat = nan(0,length(t),n_depths,1);
+mua_ctxpred_allcat = nan(0,length(t),n_depths,1);
+mua_taskpred_allcat = nan(0,length(t),n_depths,1);
+mua_taskpred_reduced_allcat = nan(0,length(t),n_depths,4);
 wheel_allcat = nan(0,length(t),1);
 reward_allcat = nan(0,length(t),1);
 D_allcat = struct('stimulus',cell(1,1),'response',cell(1,1),'repeatNum',cell(1,1));
@@ -83,7 +83,16 @@ for curr_animal = 1:length(D_all)
     fluor_cat = cat(1,fluor_all{curr_animal}{:});
    
     % Normalize and concatenate MUA
-    curr_mua = mua_all{curr_animal};
+    
+    % (filter to align with widefield and predictions)   
+    sample_rate = 1/mean(diff(t));
+    lowpassCutoff = 6; % Hz
+    [b100s, a100s] = butter(2, lowpassCutoff/((sample_rate)/2), 'low');
+    filter_pad = 10;
+    curr_mua_pad = cellfun(@(x) filter(b100s,a100s, ...
+        padarray(x,[0,filter_pad,0],'both','replicate'),[],2), ...
+        mua_all{curr_animal},'uni',false);
+    curr_mua = cellfun(@(x) x(:,filter_pad+1:end-filter_pad,:),curr_mua_pad,'uni',false);
     
     % (NaN-out trials with no MUA)
     for curr_day = 1:length(curr_mua)
@@ -92,6 +101,7 @@ for curr_animal = 1:length(D_all)
         curr_mua{curr_day} = curr_mua{curr_day}.*curr_unfilled_trials;
     end
     
+    % (subtract baseline, divide by std across recordings)
     t_baseline = t < 0;
     curr_mua_day_baseline = cellfun(@(x) nanmean(reshape(x(:,t_baseline,:),[],1,n_depths),1),curr_mua,'uni',false); 
     curr_mua_day_std = cellfun(@(x) nanstd(reshape(x,[],1,n_depths),[],1),curr_mua,'uni',false);
@@ -99,12 +109,25 @@ for curr_animal = 1:length(D_all)
         curr_mua,curr_mua_day_baseline,curr_mua_day_std,'uni',false);
     mua_cat_norm = cat(1,curr_mua_norm{:});
     
-    % Concatenated predicted MUA (normalize to measured MUA)
-    if exist('predicted_mua_std_all','var')
-        curr_predicted_mua = predicted_mua_std_all{curr_animal};
-        curr_predicted_mua_norm = cellfun(@(raw,baseline,std) (raw-baseline)./std, ...
-            curr_predicted_mua,curr_mua_day_baseline,curr_mua_day_std,'uni',false);
-        predicted_mua_std_cat = cat(1,curr_predicted_mua_norm{:});
+    % Concatenated cortex-predicted MUA (normalize by measured MUA)
+    if exist('mua_ctxpred_all','var')
+        curr_mua_ctxpred = mua_ctxpred_all{curr_animal};
+        curr_mua_ctxpred_norm = cellfun(@(raw,baseline,std) (raw-baseline)./std, ...
+            curr_mua_ctxpred,curr_mua_day_baseline,curr_mua_day_std,'uni',false);
+        mua_ctxpred_cat = cat(1,curr_mua_ctxpred_norm{:});
+    end
+    
+    % Concatenate task-predicted MUA (normalize by measured MUA)
+    if exist('mua_taskpred_all','var')
+        curr_mua_taskpred = mua_taskpred_all{curr_animal};
+        curr_mua_taskpred_norm = cellfun(@(raw,baseline,std) (raw-baseline)./std, ...
+            curr_mua_taskpred,curr_mua_day_baseline,curr_mua_day_std,'uni',false);
+       mua_taskpred_cat = cat(1,curr_mua_taskpred_norm{:});
+        
+        curr_mua_taskpred_reduced = mua_taskpred_reduced_all{curr_animal};
+        curr_mua_taskpred_reduced_norm = cellfun(@(raw,baseline,std) (raw-baseline)./std, ...
+            curr_mua_taskpred_reduced,curr_mua_day_baseline,curr_mua_day_std,'uni',false);
+        mua_taskpred_reduced_cat = cat(1,curr_mua_taskpred_reduced_norm{:});
     end
     
     % Concatenate wheel
@@ -127,8 +150,12 @@ for curr_animal = 1:length(D_all)
         D_allcat.response = vertcat(D_allcat.response,response);
         D_allcat.repeatNum = vertcat(D_allcat.repeatNum,repeatNum);
     end
-    if exist('predicted_mua_std_all','var')
-        predicted_mua_std_allcat = [predicted_mua_std_allcat;predicted_mua_std_cat];
+    if exist('mua_ctxpred_all','var')
+        mua_ctxpred_allcat = [mua_ctxpred_allcat;mua_ctxpred_cat];
+    end
+    if exist('mua_taskpred_all','var')
+        mua_taskpred_allcat = [mua_taskpred_allcat;mua_taskpred_cat];
+        mua_taskpred_reduced_allcat = [mua_taskpred_reduced_allcat;mua_taskpred_reduced_cat];
     end
     
 end

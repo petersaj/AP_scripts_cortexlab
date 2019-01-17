@@ -805,7 +805,7 @@ for protocol = protocols
     
     % Plot at kernel_frames = 1, transparency relative to weight
     figure;
-    plot_frame = kernel_frames == 1;
+    plot_frame = kernel_frames == 0;
     p = image(k_px_com_colored(:,:,:,plot_frame));
     % weight_max = max(k_px(:))*0.8;
     weight_max = 0.01;

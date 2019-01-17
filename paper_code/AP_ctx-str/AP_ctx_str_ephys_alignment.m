@@ -65,7 +65,7 @@ disp('Estimating imaging-ephys lambda');
 regression_params.use_svs = 1:50;
 regression_params.skip_seconds = 60;
 regression_params.upsample_factor = 1;
-regression_params.kernel_t = [-0.2,0.2];
+regression_params.kernel_t = [-0.5,0.5];
 regression_params.zs = [false,false];
 regression_params.cvfold = 5;
 regression_params.use_constant = true;
@@ -119,7 +119,7 @@ for curr_animal = 1:length(animals)
         binned_spikes_filt = filter(b100s,a100s,binned_spikes,[],2);
         binned_spikes_filt_std = binned_spikes_filt./nanstd(binned_spikes_filt,[],2);
         binned_spikes_filt_std(isnan(binned_spikes_filt_std)) = 0;
-               
+        
         % Derivative and resample V
         dfVdf_resample = interp1(conv2(frame_t,[1,1]/2,'valid'), ...
             diff(fVdf(regression_params.use_svs,:),[],2)',time_bin_centers)';
@@ -130,18 +130,18 @@ for curr_animal = 1:length(animals)
         fVdf_deconv_resample = interp1(frame_t,fVdf_deconv(regression_params.use_svs,:)',time_bin_centers)';
         
         % Do regression over a range of lambdas
-        n_lambdas = 60;  
+        n_lambdas = 50;  
         
         % old, logspace
 %         lambda_range = [-1,1]; % ^10 (used to be [3,7] before df/f change, then [0,1.5]
 %         lambdas = logspace(lambda_range(1),lambda_range(2),n_lambdas)';
 %         explained_var_lambdas = nan(n_lambdas,1);
         
-        lambda_range = [0,6];
+        lambda_range = [0,50];
         lambdas = linspace(lambda_range(1),lambda_range(2),n_lambdas)';
-        explained_var_lambdas = nan(n_lambdas,1);
+        explained_var_lambdas = nan(size(binned_spikes,1),n_lambdas);
         
-        for curr_lambda_idx = 1:length(lambdas)
+        for curr_lambda_idx = 1:length(lambdas)   
             
             curr_lambda = lambdas(curr_lambda_idx);
             
@@ -154,16 +154,12 @@ for curr_animal = 1:length(animals)
                 regression_params.zs,regression_params.cvfold, ...
                 false,regression_params.use_constant);
             
-            explained_var_lambdas(curr_lambda_idx) = explained_var.total;
-                      
-            lambda_bin_size = diff(lambda_range)/n_lambdas;
-            explained_var_lambdas_smoothed = smooth(explained_var_lambdas,10);
-            [best_lambda_explained_var,best_lambda_idx] = max(explained_var_lambdas_smoothed);
-            best_lambda = lambdas(best_lambda_idx);
-            lambda_range = log10([best_lambda,best_lambda]) + ...
-                [-lambda_bin_size,lambda_bin_size];
-            
+            explained_var_lambdas(:,curr_lambda_idx) = explained_var.total; 
+            AP_print_progress_fraction(curr_lambda_idx,length(lambdas));
         end
+        
+        [best_lambda_explained_var,best_lambda_idx] = max(explained_var_lambdas);
+        best_lambda = lambdas(best_lambda_idx);
         
         ctx_str_lambda(curr_animal).animal = animal;
         ctx_str_lambda(curr_animal).day{curr_day} = day;
@@ -191,7 +187,7 @@ disp('Getting kernels at regular depths along striatum (concat experiments)');
 regression_params.use_svs = 1:50;
 regression_params.skip_seconds = 60;
 regression_params.upsample_factor = 1;
-regression_params.kernel_t = [-0.2,0.2];
+regression_params.kernel_t = [-0.5,0.5];
 regression_params.zs = [false,false];
 regression_params.cvfold = 5;
 regression_params.use_constant = true;
@@ -295,13 +291,13 @@ for curr_animal = 1:length(animals)
         binned_spikes_filt_std = binned_spikes_filt./nanstd(binned_spikes_filt,[],2);
         binned_spikes_filt_std(isnan(binned_spikes_filt_std)) = 0;
         
-        % Regress fluorescence to spikes (lambda*10)
+        % Regress fluorescence to spikes
         kernel_frames = round(regression_params.kernel_t(1)*sample_rate): ...
             round(regression_params.kernel_t(2)*sample_rate);
       
         [k,predicted_spikes,explained_var] = ...
             AP_regresskernel(dfVdf_resample, ...
-            binned_spikes_filt_std,kernel_frames,lambda*10, ...
+            binned_spikes_filt_std,kernel_frames,lambda, ...
             regression_params.zs,regression_params.cvfold, ...
             false,regression_params.use_constant);
         

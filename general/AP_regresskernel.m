@@ -134,9 +134,9 @@ end
 
 % Regression (and cross validation if selected)
 k_cv = zeros(size(regressors_gpu,2),size(signals,1),cvfold,'single');
-% (use randomly distributed time points for cross validation)
-cv_partition_ordered = round(linspace(1,cvfold,size(regressor_design,1)))';
-cv_partition = cv_partition_ordered(randperm(length(cv_partition_ordered)));
+cv_partition = round(linspace(1,cvfold,size(regressor_design,1)))';
+% (to shuffle points for CV, not valid for time series because autocorr?)
+% cv_partition = cv_partition(randperm(length(cv_partition)));
 
 predicted_signals = nan(size(signals));
 predicted_signals_reduced = nan(size(signals,1),size(signals,2),length(regressors));

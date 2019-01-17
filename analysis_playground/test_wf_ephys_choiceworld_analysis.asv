@@ -17456,48 +17456,29 @@ for curr_area = 1:length(plot_areas)
 end
 
 % Plot R^2 (normalized data together)
-[move_trial,move_idx] = max(abs(wheel_allcat) > 2,[],2);
-mua_allcat_move = mua_allcat;
-mua_ctxpred_allcat_move = mua_ctxpred_allcat;
-mua_taskpred_allcat_move = mua_taskpred_allcat;
-t_leeway = -t(1);
-leeway_samples = round(t_leeway*(sample_rate));
-for i = 1:size(mua_allcat,1)
-    mua_allcat_move(i,:,:) = circshift(mua_allcat_move(i,:,:),-move_idx(i)+leeway_samples,2);
-    mua_ctxpred_allcat_move(i,:,:) = circshift(mua_ctxpred_allcat_move(i,:,:),-move_idx(i)+leeway_samples,2);
-    mua_taskpred_allcat_move(i,:,:) = circshift(mua_taskpred_allcat_move(i,:,:),-move_idx(i)+leeway_samples,2);
-end
-
 predicted_points = +~any(isnan(cat(4,mua_allcat,mua_ctxpred_allcat,mua_taskpred_allcat)),4);
 predicted_points(~predicted_points) = NaN;
 
-sse_total_t = nansum((mua_allcat.*predicted_points-nanmean(mua_allcat.*predicted_points,1)).^2,1);
-sse_residual_ctx_t = nansum((mua_allcat.*predicted_points-mua_ctxpred_allcat.*predicted_points).^2,1);
-sse_residual_task_t = nansum((mua_allcat.*predicted_points-mua_taskpred_allcat.*predicted_points).^2,1);
-explained_var_ctx_t = 1-(sse_residual_ctx_t./sse_total_t);
-explained_var_task_t = 1-(sse_residual_task_t./sse_total_t);
+sse_total = nansum((mua_allcat.*predicted_points-nanmean(mua_allcat.*predicted_points,1)).^2,1);
+sse_residual_ctx = nansum((mua_allcat.*predicted_points-mua_ctxpred_allcat.*predicted_points).^2,1);
+sse_residual_task = nansum((mua_allcat.*predicted_points-mua_taskpred_allcat.*predicted_points).^2,1);
 
-sse_total = nansum((reshape(mua_allcat.*predicted_points,[],n_depths)- ...
-    nanmean(reshape(mua_allcat.*predicted_points,[],n_depths),1)).^2,1);
-sse_residual_ctx = nansum((reshape(mua_allcat.*predicted_points,[],n_depths)- ...
-    reshape(mua_ctxpred_allcat.*predicted_points,[],n_depths)).^2,1);
-sse_residual_task = nansum((reshape(mua_allcat.*predicted_points,[],n_depths)- ...
-    reshape(mua_taskpred_allcat.*predicted_points,[],n_depths)).^2,1);
 explained_var_ctx = 1-(sse_residual_ctx./sse_total);
 explained_var_task = 1-(sse_residual_task./sse_total);
+
+explained_var_ctx_total = squeeze(1-(sum(sse_residual_ctx)./sum(sse_total)));
+explained_var_task_total = squeeze(1-(sum(sse_residual_task)./sum(sse_total)));
 
 figure;
 for curr_depth = 1:n_depths
     subplot(1,n_depths,curr_depth); hold on;
-    p1 = plot(t,explained_var_ctx_t(:,:,curr_depth),'b','linewidth',2);
-    line(xlim,repmat(explained_var_ctx(curr_depth),1,2),'color','b','linewidth',2);
+    plot(t,explained_var_ctx(:,:,curr_depth),'b','linewidth',2);
+    plot(t,explained_var_task(:,:,curr_depth),'r','linewidth',2);
     
-    p2 = plot(t,explained_var_task_t(:,:,curr_depth),'r','linewidth',2);
-    line(xlim,repmat(explained_var_task(curr_depth),1,2),'color','r','linewidth',2);
     
     ylabel('R^2');
     xlabel('Time from stim');
-    legend([p1,p2],{'Cortex','Task'})
+    legend({'Cortex','Task'})
 end
 
 % Plot R^2 (recordings separate)
@@ -17633,55 +17614,6 @@ for curr_group = 1:length(trial_groups)
 end
 
 
-
-% Plot long regression example?
-plot_areas = 1:4;
-figure;
-for curr_area = 1:length(plot_areas)
-    plot_area_idx = plot_areas(curr_area);
-    long_trace = reshape(permute(mua_allcat(:,:,plot_area_idx),[2,1]),[],1);
-    long_trace_ctx_predicted = reshape(permute(mua_ctxpred_allcat(:,:,plot_area_idx),[2,1]),[],1);
-    long_trace_task_predicted = reshape(permute(mua_taskpred_cat(:,:,plot_area_idx),[2,1]),[],1);
-     
-    % (correlate measured and predicted in chunks)
-    n_chunks = 1000;
-    chunk_boundaries = round(linspace(1,length(long_trace),n_chunks+1));
-    chunk_corr = nan(n_chunks,1);
-    for curr_chunk = 1:n_chunks
-%         curr_corr = corrcoef(long_trace(chunk_boundaries(curr_chunk):chunk_boundaries(curr_chunk+1)), ...
-%             long_trace_predicted(chunk_boundaries(curr_chunk):chunk_boundaries(curr_chunk+1)));
-%         chunk_corr(curr_chunk) = curr_corr(2);
-
-        curr_corr = sum((long_trace(chunk_boundaries(curr_chunk):chunk_boundaries(curr_chunk+1))- ...
-            long_trace_ctx_predicted(chunk_boundaries(curr_chunk):chunk_boundaries(curr_chunk+1))).^2);
-        chunk_corr(curr_chunk) = curr_corr;       
-    end
-    
-    % (plot chunk percentiles)
-    plot_prctiles = [0,25,50,75,100];
-    [chunk_corr_sorted,sort_idx] = sort(chunk_corr);
-    chunk_corr_prctile = prctile(chunk_corr,plot_prctiles);
-    for curr_prctile = 1:length(chunk_corr_prctile)
-        subplot(length(chunk_corr_prctile),length(plot_areas), ...
-            (curr_prctile-1)*length(plot_areas)+curr_area); hold on;
-        curr_plot_chunk_idx = sort_idx(find(chunk_corr_sorted >= chunk_corr_prctile(curr_prctile),1));
-        curr_chunk_plot = chunk_boundaries(curr_plot_chunk_idx):chunk_boundaries(curr_plot_chunk_idx+1);
-        plot([1:length(curr_chunk_plot)]/sample_rate,long_trace(curr_chunk_plot),'color',[0,0.6,0]);
-        plot([1:length(curr_chunk_plot)]/sample_rate,long_trace_ctx_predicted(curr_chunk_plot),'color',[0.6,0,0.6]);
-        plot([1:length(curr_chunk_plot)]/sample_rate,long_trace_task_predicted(curr_chunk_plot),'color',[0.3,0.3,0.8]);
-        ylabel([num2str(plot_prctiles(curr_prctile)) 'th percentile']);
-        if curr_prctile == 1
-            title(plot_areas(curr_area))
-        end
-    end
-end
-
-% Plot all on top of each other 
-figure; hold on;
-curr_depth = 2;
-plot(reshape(mua_allcat(:,:,curr_depth)',[],1));
-plot(reshape(mua_ctxpred_allcat(:,:,curr_depth)',[],1));
-plot(reshape(mua_taskpred_allcat(:,:,curr_depth)',[],1));
 
 
 
