@@ -112,13 +112,7 @@ for curr_animal = 1:length(animals)
         use_spikes = spike_times_timeline(ismember(spike_templates, ...
             find(templateDepths > str_depth(1) & templateDepths <= str_depth(2))));
         binned_spikes = single(histcounts(use_spikes,time_bins));       
-        
-        % Filter and std-normalize spikes
-        lowpassCutoff = 6; % Hz
-        [b100s, a100s] = butter(2, lowpassCutoff/((sample_rate)/2), 'low');
-        binned_spikes_filt = filter(b100s,a100s,binned_spikes,[],2);
-        binned_spikes_filt_std = binned_spikes_filt./nanstd(binned_spikes_filt,[],2);
-        binned_spikes_filt_std(isnan(binned_spikes_filt_std)) = 0;
+        binned_spikes_std = binned_spikes./nanstd(binned_spikes,[],2);
         
         % Derivative and resample V
         dfVdf_resample = interp1(conv2(frame_t,[1,1]/2,'valid'), ...
@@ -127,7 +121,7 @@ for curr_animal = 1:length(animals)
         % Deconvolve and resample V
         fVdf_deconv = AP_deconv_wf(fVdf);
         fVdf_deconv(isnan(fVdf_deconv)) = 0;
-        fVdf_deconv_resample = interp1(frame_t,fVdf_deconv(regression_params.use_svs,:)',time_bin_centers)';
+        fVdf_deconv_resample = interp1(frame_t,fVdf_deconv',time_bin_centers)';
         
         % Do regression over a range of lambdas
         n_lambdas = 50;  
@@ -145,12 +139,12 @@ for curr_animal = 1:length(animals)
             
             curr_lambda = lambdas(curr_lambda_idx);
             
-            kernel_frames = round(regression_params.kernel_t(1)*sample_rate): ...
-                round(regression_params.kernel_t(2)*sample_rate);
+            kernel_frames = floor(regression_params.kernel_t(1)*sample_rate): ...
+                ceil(regression_params.kernel_t(2)*sample_rate);
             
             [k,predicted_spikes,explained_var] = ...
-                AP_regresskernel(fVdf_deconv_resample, ...
-                binned_spikes_filt_std,kernel_frames,curr_lambda, ...
+                AP_regresskernel(fVdf_deconv_resample(regression_params.use_svs,:), ...
+                binned_spikes_std,kernel_frames,curr_lambda, ...
                 regression_params.zs,regression_params.cvfold, ...
                 false,regression_params.use_constant);
             
@@ -218,60 +212,94 @@ for curr_animal = 1:length(animals)
         
         day = days{curr_day};
         
-        % Find all protocols for that day, use non-multiples
-        protocols = AP_list_experiments(animal,day);
-        curr_experiments = [protocols(~[protocols.multiple]).experiment];
+        % (to use only the main experiment)
+        experiment = experiments(curr_day).experiment(end);
+        str_align = 'none';
+        AP_load_experiment
         
-        % Loop through experiments, collate data
-        time_bin_centers_all = cell(size(curr_experiments));
-        dfVdf_resample_all = cell(size(curr_experiments));
-        binned_spikes_all = cell(size(curr_experiments));
+        % Get time points to query
+        sample_rate = framerate*regression_params.upsample_factor;
+        time_bins = frame_t(find(frame_t > ...
+            regression_params.skip_seconds,1)):1/sample_rate: ...
+            frame_t(find(frame_t-frame_t(end) < ...
+            -regression_params.skip_seconds,1,'last'));
+        time_bin_centers = time_bins(1:end-1) + diff(time_bins)/2;
         
-        for curr_exp = 1:length(curr_experiments)
-            experiment = curr_experiments(curr_exp);
-            str_align = 'none'; 
-            AP_load_experiment;
-            
-            % Get time points to query
-            sample_rate = framerate*regression_params.upsample_factor;
-            time_bins = frame_t(find(frame_t > ...
-                regression_params.skip_seconds,1)):1/sample_rate: ...
-                frame_t(find(frame_t-frame_t(end) < ...
-                -regression_params.skip_seconds,1,'last'));
-            time_bin_centers = time_bins(1:end-1) + diff(time_bins)/2;
-            time_bin_centers_all{curr_exp} = time_bin_centers;
-            
-%             % Derivative and resample V
-%             dfVdf_resample = interp1(conv2(frame_t,[1,1]/2,'valid'), ...
-%                 diff(fVdf(regression_params.use_svs,:),[],2)',time_bin_centers)';
-%             dfVdf_resample_all{curr_exp} = dfVdf_resample;
-            
-            % Deconvolve and resample V
-            fVdf_deconv = AP_deconv_wf(fVdf);
-            fVdf_deconv(isnan(fVdf_deconv)) = 0;
-            fVdf_deconv_resample = interp1(frame_t,fVdf_deconv(regression_params.use_svs,:)',time_bin_centers)';
-            dfVdf_resample_all{curr_exp} = fVdf_deconv_resample;
-            
-            % Get striatum multiunit in ~200 um chunks
-            n_depths = round(diff(str_depth)/200);
-            depth_group_edges = round(linspace(str_depth(1),str_depth(2),n_depths+1));
-            [depth_group_n,depth_group] = histc(spikeDepths,depth_group_edges);
-            depth_groups_used = unique(depth_group);
-            depth_group_centers = depth_group_edges(1:end-1)+(diff(depth_group_edges)/2);
-            
-            binned_spikes = zeros(n_depths,length(time_bins)-1);
-            for curr_depth = 1:n_depths
-                curr_spike_times = spike_times_timeline(depth_group == curr_depth);
-                binned_spikes(curr_depth,:) = histcounts(curr_spike_times,time_bins);
-            end
-            
-            binned_spikes_all{curr_exp} = binned_spikes;            
+        % Deconvolve and resample V
+        fVdf_deconv = AP_deconv_wf(fVdf);
+        fVdf_deconv(isnan(fVdf_deconv)) = 0;
+        fVdf_deconv_resample = interp1(frame_t,fVdf_deconv(regression_params.use_svs,:)',time_bin_centers)';
+        
+        % Get striatum multiunit in ~200 um chunks
+        n_depths = round(diff(str_depth)/200);
+        depth_group_edges = round(linspace(str_depth(1),str_depth(2),n_depths+1));
+        [depth_group_n,depth_group] = histc(spikeDepths,depth_group_edges);
+        depth_groups_used = unique(depth_group);
+        depth_group_centers = depth_group_edges(1:end-1)+(diff(depth_group_edges)/2);
+        
+        binned_spikes = zeros(n_depths,length(time_bins)-1);
+        for curr_depth = 1:n_depths
+            curr_spike_times = spike_times_timeline(depth_group == curr_depth);
+            binned_spikes(curr_depth,:) = histcounts(curr_spike_times,time_bins);
         end
         
-        % Concatenate all data
-        time_bin_centers = cat(2,time_bin_centers_all{:});
-        dfVdf_resample = cat(2,dfVdf_resample_all{:});
-        binned_spikes = cat(2,binned_spikes_all{:});
+%         % (to concatenate data from whole day)
+%         % Find all protocols for that day, use non-multiples
+%         protocols = AP_list_experiments(animal,day);
+%         curr_experiments = [protocols(~[protocols.multiple]).experiment];
+%         
+%         % Loop through experiments, collate data
+%         time_bin_centers_all = cell(size(curr_experiments));
+%         dfVdf_resample_all = cell(size(curr_experiments));
+%         binned_spikes_all = cell(size(curr_experiments));
+%         
+%         for curr_exp = 1:length(curr_experiments)
+%             experiment = curr_experiments(curr_exp);
+%             str_align = 'none'; 
+%             AP_load_experiment;
+%             
+%             % Get time points to query
+%             sample_rate = framerate*regression_params.upsample_factor;
+%             time_bins = frame_t(find(frame_t > ...
+%                 regression_params.skip_seconds,1)):1/sample_rate: ...
+%                 frame_t(find(frame_t-frame_t(end) < ...
+%                 -regression_params.skip_seconds,1,'last'));
+%             time_bin_centers = time_bins(1:end-1) + diff(time_bins)/2;
+%             time_bin_centers_all{curr_exp} = time_bin_centers;
+%             
+% %             % Derivative and resample V
+% %             dfVdf_resample = interp1(conv2(frame_t,[1,1]/2,'valid'), ...
+% %                 diff(fVdf(regression_params.use_svs,:),[],2)',time_bin_centers)';
+% %             dfVdf_resample_all{curr_exp} = dfVdf_resample;
+%             
+%             % Deconvolve and resample V
+%             fVdf_deconv = AP_deconv_wf(fVdf);
+%             fVdf_deconv(isnan(fVdf_deconv)) = 0;
+%             fVdf_deconv_resample = interp1(frame_t,fVdf_deconv(regression_params.use_svs,:)',time_bin_centers)';
+%             dfVdf_resample_all{curr_exp} = fVdf_deconv_resample;
+%             
+%             % Get striatum multiunit in ~200 um chunks
+%             n_depths = round(diff(str_depth)/200);
+%             depth_group_edges = round(linspace(str_depth(1),str_depth(2),n_depths+1));
+%             [depth_group_n,depth_group] = histc(spikeDepths,depth_group_edges);
+%             depth_groups_used = unique(depth_group);
+%             depth_group_centers = depth_group_edges(1:end-1)+(diff(depth_group_edges)/2);
+%             
+%             binned_spikes = zeros(n_depths,length(time_bins)-1);
+%             for curr_depth = 1:n_depths
+%                 curr_spike_times = spike_times_timeline(depth_group == curr_depth);
+%                 binned_spikes(curr_depth,:) = histcounts(curr_spike_times,time_bins);
+%             end
+%             
+%             binned_spikes_all{curr_exp} = binned_spikes;            
+%         end
+%         
+%         % Concatenate all data
+%         time_bin_centers = cat(2,time_bin_centers_all{:});
+%         dfVdf_resample = cat(2,dfVdf_resample_all{:});
+%         binned_spikes = cat(2,binned_spikes_all{:});
+
+        binned_spikes_std = binned_spikes./nanstd(binned_spikes,[],2);
         
         % Load lambda from previously estimated and saved
         lambda_fn = 'C:\Users\Andrew\OneDrive for Business\Documents\CarandiniHarrisLab\analysis\wf_ephys_choiceworld\ephys_processing\ctx-str_lambda';
@@ -283,21 +311,16 @@ for curr_animal = 1:length(animals)
                 lambda = ctx_str_lambda(curr_animal_idx).best_lambda(curr_day_idx);
             end
         end
-
-        % Filter and std-normalize spikes
-        lowpassCutoff = 6; % Hz
-        [b100s, a100s] = butter(2, lowpassCutoff/((sample_rate)/2), 'low');
-        binned_spikes_filt = filter(b100s,a100s,binned_spikes,[],2);
-        binned_spikes_filt_std = binned_spikes_filt./nanstd(binned_spikes_filt,[],2);
-        binned_spikes_filt_std(isnan(binned_spikes_filt_std)) = 0;
-        
+        warning('Overriding lambda');
+        lambda = 8.16;
+  
         % Regress fluorescence to spikes
-        kernel_frames = round(regression_params.kernel_t(1)*sample_rate): ...
-            round(regression_params.kernel_t(2)*sample_rate);
+        kernel_frames = floor(regression_params.kernel_t(1)*sample_rate): ...
+            ceil(regression_params.kernel_t(2)*sample_rate);
       
         [k,predicted_spikes,explained_var] = ...
-            AP_regresskernel(dfVdf_resample, ...
-            binned_spikes_filt_std,kernel_frames,lambda, ...
+            AP_regresskernel(fVdf_deconv_resample, ...
+            binned_spikes_std,kernel_frames,lambda, ...
             regression_params.zs,regression_params.cvfold, ...
             false,regression_params.use_constant);
         

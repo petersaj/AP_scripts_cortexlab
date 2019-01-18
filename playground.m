@@ -914,11 +914,11 @@ for curr_animal = 1:length(animals)
         
         %%%%% TEST
         warning('OVERRIDING LAMBDA')
-        lambda = 10;
+        lambda = 5;
         %%%%%%%
         
-        kernel_frames = round(regression_params.kernel_t(1)*sample_rate): ...
-            round(regression_params.kernel_t(2)*sample_rate);
+        kernel_frames = floor(regression_params.kernel_t(1)*sample_rate): ...
+            ceil(regression_params.kernel_t(2)*sample_rate);
         
         %         [~,predicted_spikes_std,explained_var] = ...
         %             AP_regresskernel(dfVdf_resample, ...
@@ -1038,8 +1038,8 @@ for curr_animal = 1:length(animals)
             [-0.5,1]; ... % go cue
             [0,1]}; % reward
         
-        sample_shifts = cellfun(@(x) round(x(1)*(sample_rate)): ...
-            round(x(2)*(sample_rate)),t_shifts,'uni',false);
+        sample_shifts = cellfun(@(x) floor(x(1)*(sample_rate)): ...
+            ceil(x(2)*(sample_rate)),t_shifts,'uni',false);
         lambda = 0;
         zs = [false,false];
         cvfold = 5;
@@ -1339,7 +1339,7 @@ n_aligned_depths = 4;
 regression_params.use_svs = 1:50;
 regression_params.skip_seconds = 60;
 regression_params.upsample_factor = 1;
-regression_params.kernel_t = [-0.2,0.2];
+regression_params.kernel_t = [-0.5,0.5];
 regression_params.zs = [false,false];
 regression_params.cvfold = 5;
 regression_params.use_constant = true;
@@ -1402,6 +1402,8 @@ for protocol = protocols
                     lambda = ctx_str_lambda(curr_animal_idx).best_lambda(curr_day_idx);
                 end
             end
+            warning('Overriding lambda');
+            lambda = 10;
             
             %%% Prepare data for regression
             
@@ -1441,8 +1443,8 @@ for protocol = protocols
             binned_spikes_filt_std(isnan(binned_spikes_filt_std)) = 0;
                                  
             %%% Regress MUA from cortex
-            kernel_frames = round(regression_params.kernel_t(1)*sample_rate): ...
-                round(regression_params.kernel_t(2)*sample_rate);
+            kernel_frames = floor(regression_params.kernel_t(1)*sample_rate): ...
+                ceil(regression_params.kernel_t(2)*sample_rate);
             
 %             [k,predicted_spikes,explained_var] = ...
 %                 AP_regresskernel(dfVdf_resample, ...
@@ -1753,10 +1755,6 @@ axis image;
 caxis([-max(abs(caxis)),max(abs(caxis))]);
 colormap(brewermap([],'*RdBu'));
 AP_reference_outline('ccf_aligned','k');
-
-
-
-
 
 
 

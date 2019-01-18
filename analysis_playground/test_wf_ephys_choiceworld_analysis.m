@@ -17416,7 +17416,7 @@ figure;
 for curr_area = 1:length(plot_areas)
     area_idx = plot_areas(curr_area);
     
-    p1 = subplot(3,length(plot_areas),curr_area);
+    p1 = subplot(4,length(plot_areas),curr_area);
     hold on; set(gca,'ColorOrder',plot_cols{curr_area});
     for curr_condition = reshape(plot_conditions{curr_area},1,[])
         curr_trials = plot_conditions_compare{curr_area} == curr_condition;
@@ -17427,7 +17427,7 @@ for curr_area = 1:length(plot_areas)
     axis tight
     line([0,0],ylim,'color','k');
     
-    p2 = subplot(3,length(plot_areas),curr_area+length(plot_areas)*1);
+    p2 = subplot(4,length(plot_areas),curr_area+length(plot_areas)*1);
     hold on; set(gca,'ColorOrder',plot_cols{curr_area});
     for curr_condition = reshape(plot_conditions{curr_area},1,[])
         curr_trials = plot_conditions_compare{curr_area} == curr_condition;
@@ -17439,7 +17439,7 @@ for curr_area = 1:length(plot_areas)
     axis tight
     line([0,0],ylim,'color','k');
     
-    p3 = subplot(3,length(plot_areas),curr_area+length(plot_areas)*2);
+    p3 = subplot(4,length(plot_areas),curr_area+length(plot_areas)*2);
     hold on; set(gca,'ColorOrder',plot_cols{curr_area});
     for curr_condition = reshape(plot_conditions{curr_area},1,[])
         curr_trials = plot_conditions_compare{curr_area} == curr_condition;
@@ -17451,7 +17451,19 @@ for curr_area = 1:length(plot_areas)
     axis tight
     line([0,0],ylim,'color','k');
     
-    linkaxes([p1,p2,p3],'xy');
+    p4 = subplot(4,length(plot_areas),curr_area+length(plot_areas)*3);
+    hold on; set(gca,'ColorOrder',plot_cols{curr_area});
+    for curr_condition = reshape(plot_conditions{curr_area},1,[])
+        curr_trials = plot_conditions_compare{curr_area} == curr_condition;
+        curr_data_mean = nanmean(mua_ctxpred_allcat(curr_trials,:,area_idx) - ...
+            mua_taskpred_allcat(curr_trials,:,area_idx),1);
+        plot(t,curr_data_mean,'linewidth',2);
+    end
+    ylabel(['Str ' num2str(area_idx) ' Ctx - Task']);
+    axis tight
+    line([0,0],ylim,'color','k');
+    
+    linkaxes([p1,p2,p3,p4],'xy');
     
 end
 
@@ -17641,7 +17653,7 @@ for curr_area = 1:length(plot_areas)
     plot_area_idx = plot_areas(curr_area);
     long_trace = reshape(permute(mua_allcat(:,:,plot_area_idx),[2,1]),[],1);
     long_trace_ctx_predicted = reshape(permute(mua_ctxpred_allcat(:,:,plot_area_idx),[2,1]),[],1);
-    long_trace_task_predicted = reshape(permute(mua_taskpred_cat(:,:,plot_area_idx),[2,1]),[],1);
+    long_trace_task_predicted = reshape(permute(mua_taskpred_allcat(:,:,plot_area_idx),[2,1]),[],1);
      
     % (correlate measured and predicted in chunks)
     n_chunks = 1000;

@@ -23,6 +23,9 @@ if ~exist('t','var')
     t = [];
 elseif ~iscell(t)
     t = cellfun(@num2str,num2cell(t),'uni',false);
+    if length(t) ~= size(images,3)
+        error('t not same size as image dim 3')
+    end
 end
 
 if ~exist('colored','var')

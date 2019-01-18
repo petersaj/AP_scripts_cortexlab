@@ -777,7 +777,7 @@ for protocol = protocols
     framerate = 35;
     upsample_factor = 1;
     sample_rate = framerate*upsample_factor;
-    kernel_t = [-0.2,0.2];
+    kernel_t = [-0.5,0.5];
     kernel_frames = round(kernel_t(1)*sample_rate):round(kernel_t(2)*sample_rate);
     t = kernel_frames/sample_rate;
     
