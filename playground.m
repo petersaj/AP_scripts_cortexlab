@@ -893,13 +893,8 @@ for curr_animal = 1:length(animals)
             curr_spike_times = spike_times_timeline(depth_group == curr_depth);
             binned_spikes(curr_depth,:) = histcounts(curr_spike_times,time_bins);
         end
-        
-        % Filter and std-normalize spikes
-        lowpassCutoff = 6; % Hz
-        [b100s, a100s] = butter(2, lowpassCutoff/((sample_rate)/2), 'low');
-        binned_spikes_filt = filter(b100s,a100s,binned_spikes,[],2);
-        binned_spikes_filt_std = binned_spikes_filt./nanstd(binned_spikes_filt,[],2);
-        binned_spikes_filt_std(isnan(binned_spikes_filt_std)) = 0;
+        binned_spikes_std = binned_spikes./nanstd(binned_spikes,[],2);
+        binned_spikes_std(isnan(binned_spikes_std)) = 0;        
         
         % Load lambda from previously estimated and saved
         lambda_fn = 'C:\Users\Andrew\OneDrive for Business\Documents\CarandiniHarrisLab\analysis\wf_ephys_choiceworld\ephys_processing\ctx-str_lambda';
@@ -929,15 +924,15 @@ for curr_animal = 1:length(animals)
         %%%% TESTING DECONV
         [k,predicted_spikes_std,explained_var] = ...
             AP_regresskernel(fVdf_deconv_resample(regression_params.use_svs,:), ...
-            binned_spikes_filt_std,kernel_frames,lambda, ...
+            binned_spikes_std,kernel_frames,lambda, ...
             regression_params.zs,regression_params.cvfold, ...
             true,regression_params.use_constant);
         %%%%
         
         % Re-scale the prediction (subtract offset, multiply, add scaled offset)
         predicted_spikes = (predicted_spikes_std - squeeze(k{end})).* ...
-            nanstd(binned_spikes_filt,[],2) + ...
-            nanstd(binned_spikes_filt,[],2).*squeeze(k{end});
+            nanstd(binned_spikes,[],2) + ...
+            nanstd(binned_spikes,[],2).*squeeze(k{end});
         
         event_aligned_predicted_mua = ...
             interp1(time_bin_centers,predicted_spikes',t_peri_event)./raster_sample_rate;
@@ -1046,8 +1041,8 @@ for curr_animal = 1:length(animals)
         use_constant = true;
         return_constant = true;       
         
-        % Regression task->MUA (filter for comparison to ctx-prediction)
-        use_mua_task_regress = filter(b100s,a100s,event_aligned_mua(use_trials,:,:),[],2);       
+        % Regression task->MUA
+        use_mua_task_regress = event_aligned_mua(use_trials,:,:);       
         mua_allcat_predicted = nan(size(use_mua_task_regress));
         mua_allcat_predicted_reduced = ...
             repmat(nan(size(use_mua_task_regress)),1,1,1,length(regressors));       
@@ -1056,7 +1051,7 @@ for curr_animal = 1:length(animals)
             activity = single(use_mua_task_regress(regress_trials,:,curr_depth));
             
             % Skip if nothing in this depth
-            if ~any(activity)
+            if ~any(activity(:))
                 continue
             end
             

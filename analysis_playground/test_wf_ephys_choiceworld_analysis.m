@@ -17468,6 +17468,8 @@ for curr_area = 1:length(plot_areas)
 end
 
 % Plot R^2 (normalized data together)
+r2_trials = move_t > 0 & move_t < 0.5;
+
 [move_trial,move_idx] = max(abs(wheel_allcat) > 2,[],2);
 mua_allcat_move = mua_allcat;
 mua_ctxpred_allcat_move = mua_ctxpred_allcat;
@@ -17480,21 +17482,21 @@ for i = 1:size(mua_allcat,1)
     mua_taskpred_allcat_move(i,:,:) = circshift(mua_taskpred_allcat_move(i,:,:),-move_idx(i)+leeway_samples,2);
 end
 
-predicted_points = +~any(isnan(cat(4,mua_allcat,mua_ctxpred_allcat,mua_taskpred_allcat)),4);
+predicted_points = +~any(isnan(cat(4,mua_allcat(r2_trials,:,:),mua_ctxpred_allcat(r2_trials,:,:),mua_taskpred_allcat(r2_trials,:,:))),4);
 predicted_points(~predicted_points) = NaN;
 
-sse_total_t = nansum((mua_allcat.*predicted_points-nanmean(mua_allcat.*predicted_points,1)).^2,1);
-sse_residual_ctx_t = nansum((mua_allcat.*predicted_points-mua_ctxpred_allcat.*predicted_points).^2,1);
-sse_residual_task_t = nansum((mua_allcat.*predicted_points-mua_taskpred_allcat.*predicted_points).^2,1);
+sse_total_t = nansum((mua_allcat(r2_trials,:,:).*predicted_points-nanmean(mua_allcat(r2_trials,:,:).*predicted_points,1)).^2,1);
+sse_residual_ctx_t = nansum((mua_allcat(r2_trials,:,:).*predicted_points-mua_ctxpred_allcat(r2_trials,:,:).*predicted_points).^2,1);
+sse_residual_task_t = nansum((mua_allcat(r2_trials,:,:).*predicted_points-mua_taskpred_allcat(r2_trials,:,:).*predicted_points).^2,1);
 explained_var_ctx_t = 1-(sse_residual_ctx_t./sse_total_t);
 explained_var_task_t = 1-(sse_residual_task_t./sse_total_t);
 
-sse_total = nansum((reshape(mua_allcat.*predicted_points,[],n_depths)- ...
-    nanmean(reshape(mua_allcat.*predicted_points,[],n_depths),1)).^2,1);
-sse_residual_ctx = nansum((reshape(mua_allcat.*predicted_points,[],n_depths)- ...
-    reshape(mua_ctxpred_allcat.*predicted_points,[],n_depths)).^2,1);
-sse_residual_task = nansum((reshape(mua_allcat.*predicted_points,[],n_depths)- ...
-    reshape(mua_taskpred_allcat.*predicted_points,[],n_depths)).^2,1);
+sse_total = nansum((reshape(mua_allcat(r2_trials,:,:).*predicted_points,[],n_depths)- ...
+    nanmean(reshape(mua_allcat(r2_trials,:,:).*predicted_points,[],n_depths),1)).^2,1);
+sse_residual_ctx = nansum((reshape(mua_allcat(r2_trials,:,:).*predicted_points,[],n_depths)- ...
+    reshape(mua_ctxpred_allcat(r2_trials,:,:).*predicted_points,[],n_depths)).^2,1);
+sse_residual_task = nansum((reshape(mua_allcat(r2_trials,:,:).*predicted_points,[],n_depths)- ...
+    reshape(mua_taskpred_allcat(r2_trials,:,:).*predicted_points,[],n_depths)).^2,1);
 explained_var_ctx = 1-(sse_residual_ctx./sse_total);
 explained_var_task = 1-(sse_residual_task./sse_total);
 
@@ -17510,18 +17512,34 @@ for curr_depth = 1:n_depths
     ylabel('R^2');
     xlabel('Time from stim');
     legend([p1,p2],{'Cortex','Task'})
+    ylim([0,1]);
 end
 
+
+
 % Plot R^2 (recordings separate)
-sample_rate = 1/mean(diff(t));
-lowpassCutoff = 6; % Hz
-[b100s, a100s] = butter(2, lowpassCutoff/((sample_rate)/2), 'low');
-mua_exp = cellfun(@(x) filter(b100s,a100s,x,[],2),vertcat(mua_all{:}),'uni',false);
-mua_ctxpred_exp = vertcat(mua_ctxpred_all{:});
-mua_taskpred_exp = vertcat(mua_taskpred_all{:});
-wheel_exp = vertcat(wheel_all{:});
+r2_trials = move_t > 0.1 & move_t < 0.3;
+
+% split everthing up by animal or recording
+trials_animal = arrayfun(@(x) size(vertcat(mua_all{x}{:}),1),1:size(mua_all));
+trials_recording = cellfun(@(x) size(x,1),vertcat(mua_all{:}));
+
+use_split = trials_recording;
+
+r2_trials_exp = mat2cell(r2_trials,trials_recording,1);
+move_idx_exp = mat2cell(move_idx,trials_recording,1);
+mua_exp = mat2cell(mua_allcat,trials_recording,length(t),n_depths);
+mua_ctxpred_exp = mat2cell(mua_ctxpred_allcat,trials_recording,length(t),n_depths);
+mua_taskpred_exp = mat2cell(mua_taskpred_allcat,trials_recording,length(t),n_depths);
+
 for curr_exp = 1:length(mua_exp)
 
+    % Get rid of unused trials (dirty but whatever)
+    move_idx_exp{curr_exp}(~r2_trials_exp{curr_exp}) = [];
+    mua_exp{curr_exp}(~r2_trials_exp{curr_exp},:,:) = [];
+    mua_ctxpred_exp{curr_exp}(~r2_trials_exp{curr_exp},:,:) = [];
+    mua_taskpred_exp{curr_exp}(~r2_trials_exp{curr_exp},:,:) = [];
+    
     % Set common nans
     nan_points = any(isnan(cat(4,mua_exp{curr_exp}, ...
         mua_ctxpred_exp{curr_exp},mua_taskpred_exp{curr_exp})),4);
@@ -17529,14 +17547,13 @@ for curr_exp = 1:length(mua_exp)
     mua_ctxpred_exp{curr_exp}(nan_points) = NaN;
     mua_taskpred_exp{curr_exp}(nan_points) = NaN;
     
-%     % (to align to movement)
-%     [move_trial,move_idx] = max(abs(wheel_exp{curr_exp}) > 2,[],2);
+%     % (to align to movement)    
 %     t_leeway = t(1);
 %     leeway_samples = round(-t_leeway*sample_rate);
-%     for i = 1:size(mua_exp{curr_exp},1)
-%         mua_exp{curr_exp}(i,:,:) = circshift(mua_exp{curr_exp}(i,:,:),-move_idx(i)+leeway_samples,2);
-%         mua_ctxpred_exp{curr_exp}(i,:,:) = circshift(mua_ctxpred_exp{curr_exp}(i,:,:),-move_idx(i)+leeway_samples,2);
-%         mua_taskpred_exp{curr_exp}(i,:,:) = circshift(mua_taskpred_exp{curr_exp}(i,:,:),-move_idx(i)+leeway_samples,2);
+%     for i = 1:size(move_idx_exp{curr_exp},1)
+%         mua_exp{curr_exp}(i,:,:) = circshift(mua_exp{curr_exp}(i,:,:),-move_idx_exp{curr_exp}(i)+leeway_samples,2);
+%         mua_ctxpred_exp{curr_exp}(i,:,:) = circshift(mua_ctxpred_exp{curr_exp}(i,:,:),-move_idx_exp{curr_exp}(i)+leeway_samples,2);
+%         mua_taskpred_exp{curr_exp}(i,:,:) = circshift(mua_taskpred_exp{curr_exp}(i,:,:),-move_idx_exp{curr_exp}(i)+leeway_samples,2);
 %     end
 end
 
@@ -17549,6 +17566,9 @@ exp_sse_residual_task = cell2mat(cellfun(@(measured,taskpred) ...
 
 exp_explained_var_ctx = 1-(exp_sse_residual_ctx./exp_sse_total);
 exp_explained_var_task = 1-(exp_sse_residual_task./exp_sse_total);
+
+exp_explained_var_ctx(exp_explained_var_ctx < 0) = 0;
+exp_explained_var_task(exp_explained_var_task < 0) = 0;
 
 figure;
 for curr_depth = 1:n_depths
@@ -17566,9 +17586,11 @@ for curr_depth = 1:n_depths
     hold on;
     plot(t,nanmean(exp_explained_var_ctx(:,:,curr_depth),1),'linewidth',2);
     plot(t,nanmean(exp_explained_var_task(:,:,curr_depth),1),'linewidth',2);
+    plot(t,nanmean(exp_explained_var_ctx(:,:,curr_depth),1) - ...
+        nanmean(exp_explained_var_task(:,:,curr_depth),1),'linewidth',1);
     ylabel('R^2');
-    xlabel('Time from stim');
-    legend({'Cortex','Task'})
+    xlabel('Time');
+    legend({'Cortex','Task','Cortex-Task'})
     
     linkaxes([p1,p2,p3],'x');
 end
@@ -17599,17 +17621,17 @@ for curr_group = 1:length(trial_groups)
     % Set trials and grouping to use
     switch trial_groups{curr_group}
         case 'Stim'
-            use_trials = move_t > 0 & move_t < 1 & trial_contrast_allcat > 0;
+            use_trials = move_t > 0 & move_t < 0.5 & trial_contrast_allcat > 0;
             trial_group = trial_side_allcat;
             group1 = 1;
             group2 = -1;
         case 'Move onset'
-            use_trials = move_t > 0 & move_t < 1;
+            use_trials = move_t > 0 & move_t < 0.5;
             trial_group = trial_choice_allcat;
             group1 = -1;
             group2 = 1;
         case 'Reward'
-            use_trials = move_t > 0 & move_t < 1;
+            use_trials = move_t > 0 & move_t < 0.5;
             trial_group = trial_choice_allcat == -trial_side_allcat;
             group1 = 1;
             group2 = 0;
@@ -17646,7 +17668,7 @@ end
 
 
 
-% Plot long regression example?
+% Plot long regression example
 plot_areas = 1:4;
 figure;
 for curr_area = 1:length(plot_areas)
@@ -17654,23 +17676,33 @@ for curr_area = 1:length(plot_areas)
     long_trace = reshape(permute(mua_allcat(:,:,plot_area_idx),[2,1]),[],1);
     long_trace_ctx_predicted = reshape(permute(mua_ctxpred_allcat(:,:,plot_area_idx),[2,1]),[],1);
     long_trace_task_predicted = reshape(permute(mua_taskpred_allcat(:,:,plot_area_idx),[2,1]),[],1);
-     
+    
+    % Low-pass filter data
+    lowpassCutoff = 6; % Hz
+    [b100s, a100s] = butter(2, lowpassCutoff/((sample_rate)/2), 'low');
+    long_trace(~isnan(long_trace)) = filtfilt(b100s,a100s,long_trace(~isnan(long_trace)));
+    
     % (correlate measured and predicted in chunks)
-    n_chunks = 1000;
-    chunk_boundaries = round(linspace(1,length(long_trace),n_chunks+1));
+    chunk_t = 60; %s
+    chunk_samples = round(chunk_t*sample_rate);
+    chunk_boundaries = 1:chunk_samples:length(long_trace);
     chunk_corr = nan(n_chunks,1);
-    for curr_chunk = 1:n_chunks
-%         curr_corr = corrcoef(long_trace(chunk_boundaries(curr_chunk):chunk_boundaries(curr_chunk+1)), ...
-%             long_trace_predicted(chunk_boundaries(curr_chunk):chunk_boundaries(curr_chunk+1)));
-%         chunk_corr(curr_chunk) = curr_corr(2);
+    for curr_chunk = 1:length(chunk_boundaries)-1
+        chunk_samples = chunk_boundaries(curr_chunk):chunk_boundaries(curr_chunk+1);
+        nonan_chunk_samples = chunk_samples(~isnan(long_trace(chunk_samples)) & ...
+            ~isnan(long_trace_ctx_predicted(chunk_samples)));
+        
+        curr_corr = corrcoef(long_trace(nonan_chunk_samples), ...
+            long_trace_ctx_predicted(nonan_chunk_samples));
+        chunk_corr(curr_chunk) = curr_corr(2);
 
-        curr_corr = sum((long_trace(chunk_boundaries(curr_chunk):chunk_boundaries(curr_chunk+1))- ...
-            long_trace_ctx_predicted(chunk_boundaries(curr_chunk):chunk_boundaries(curr_chunk+1))).^2);
-        chunk_corr(curr_chunk) = curr_corr;       
+%         curr_corr = sum((long_trace(nonan_chunk_samples)- ...
+%             long_trace_ctx_predicted(nonan_chunk_samples)).^2);       
+%         chunk_corr(curr_chunk) = curr_corr;       
     end
     
     % (plot chunk percentiles)
-    plot_prctiles = [0,25,50,75,100];
+    plot_prctiles = [25,50,75];
     [chunk_corr_sorted,sort_idx] = sort(chunk_corr);
     chunk_corr_prctile = prctile(chunk_corr,plot_prctiles);
     for curr_prctile = 1:length(chunk_corr_prctile)
@@ -17678,15 +17710,17 @@ for curr_area = 1:length(plot_areas)
             (curr_prctile-1)*length(plot_areas)+curr_area); hold on;
         curr_plot_chunk_idx = sort_idx(find(chunk_corr_sorted >= chunk_corr_prctile(curr_prctile),1));
         curr_chunk_plot = chunk_boundaries(curr_plot_chunk_idx):chunk_boundaries(curr_plot_chunk_idx+1);
-        plot([1:length(curr_chunk_plot)]/sample_rate,long_trace(curr_chunk_plot),'color',[0,0.6,0]);
-        plot([1:length(curr_chunk_plot)]/sample_rate,long_trace_ctx_predicted(curr_chunk_plot),'color',[0.6,0,0.6]);
+        plot([1:length(curr_chunk_plot)]/sample_rate,long_trace(curr_chunk_plot),'color','k');
+        plot([1:length(curr_chunk_plot)]/sample_rate,long_trace_ctx_predicted(curr_chunk_plot),'color',[0,0.6,0]);
         plot([1:length(curr_chunk_plot)]/sample_rate,long_trace_task_predicted(curr_chunk_plot),'color',[0.3,0.3,0.8]);
         ylabel([num2str(plot_prctiles(curr_prctile)) 'th percentile']);
         if curr_prctile == 1
             title(plot_areas(curr_area))
         end
+        xlabel('Time (s)')
     end
 end
+
 
 % Plot all on top of each other 
 figure; hold on;
@@ -17696,6 +17730,171 @@ plot(reshape(mua_ctxpred_allcat(:,:,curr_depth)',[],1));
 plot(reshape(mua_taskpred_allcat(:,:,curr_depth)',[],1));
 
 
+
+
+
+% Coherence (concatenated)
+coherence_trials = move_t > 0 & move_t < 0.5;
+
+mua_ctxpred_coherence = cell(n_depths,1);
+mua_taskpred_coherence = cell(n_depths,1);
+mua_ctxtaskpred_coherence = cell(n_depths,1);
+for curr_depth = 1:n_depths    
+    measured_data = double(reshape(mua_allcat(coherence_trials,:,curr_depth)',[],1));
+    ctx_predicted_data = double(reshape(mua_ctxpred_allcat(coherence_trials,:,curr_depth)',[],1));
+    task_predicted_data = double(reshape(mua_taskpred_allcat(coherence_trials,:,curr_depth)',[],1));
+    
+    nan_points = isnan(measured_data) | isnan(ctx_predicted_data) | isnan(task_predicted_data);
+    
+    [mua_ctxpred_coherence{curr_depth},coherence_f] = mscohere( ...
+        measured_data(~nan_points), ctx_predicted_data(~nan_points), ...
+        hamming(round(sample_rate*5)),round(sample_rate*2.5),[],sample_rate);   
+    
+    [mua_taskpred_coherence{curr_depth},coherence_f] = mscohere( ...
+        measured_data(~nan_points), task_predicted_data(~nan_points), ...
+        hamming(round(sample_rate*5)),round(sample_rate*2.5),[],sample_rate);
+    
+    [mua_ctxtaskpred_coherence{curr_depth},coherence_f] = mscohere( ...
+        ctx_predicted_data(~nan_points), task_predicted_data(~nan_points), ...
+        hamming(round(sample_rate*5)),round(sample_rate*2.5),[],sample_rate);
+    
+    AP_print_progress_fraction(curr_depth,n_depths);
+end
+mua_ctxpred_coherence = horzcat(mua_ctxpred_coherence{:});
+mua_taskpred_coherence = horzcat(mua_taskpred_coherence{:});
+mua_ctxtaskpred_coherence = horzcat(mua_ctxtaskpred_coherence{:});
+
+figure; 
+subplot(2,2,1); hold on; set(gca,'ColorOrder',copper(n_depths)); set(gca,'XScale','log')
+plot(coherence_f,mua_ctxpred_coherence,'linewidth',2);
+xlabel('Frequency'); ylabel('Coherence with measured');
+title('Cortex predicted');
+subplot(2,2,2); hold on; set(gca,'ColorOrder',copper(n_depths)); set(gca,'XScale','log')
+plot(coherence_f,mua_taskpred_coherence,'linewidth',2);
+xlabel('Frequency'); ylabel('Coherence with measured');
+title('Task predicted');
+subplot(2,2,3); hold on; set(gca,'ColorOrder',copper(n_depths)); set(gca,'XScale','log')
+plot(coherence_f,mua_ctxpred_coherence-mua_taskpred_coherence,'linewidth',2);
+xlabel('Frequency'); ylabel('Coherence with measured');
+title('Cortex - task predicted');
+subplot(2,2,4); hold on; set(gca,'ColorOrder',copper(n_depths)); set(gca,'XScale','log')
+plot(coherence_f,mua_ctxtaskpred_coherence,'linewidth',2);
+xlabel('Frequency'); ylabel('Coherence ctx/task');
+title('Cortex predicted / task predicted');
+
+
+
+% Coherence (by experiment)
+coherence_trials = move_t > 0 & move_t < 0.5;
+
+% split everthing up by animal or recording
+trials_animal = arrayfun(@(x) size(vertcat(mua_all{x}{:}),1),1:size(mua_all));
+trials_recording = cellfun(@(x) size(x,1),vertcat(mua_all{:}));
+
+use_split = trials_recording;
+
+coherence_trials_exp = mat2cell(coherence_trials,trials_recording,1);
+move_idx_exp = mat2cell(move_idx,trials_recording,1);
+mua_exp = mat2cell(mua_allcat,trials_recording,length(t),n_depths);
+mua_ctxpred_exp = mat2cell(mua_ctxpred_allcat,trials_recording,length(t),n_depths);
+mua_taskpred_exp = mat2cell(mua_taskpred_allcat,trials_recording,length(t),n_depths);
+
+exp_mua_ctxpred_coherence = nan(length(use_split),length(coherence_f),n_depths);
+exp_mua_taskpred_coherence = nan(length(use_split),length(coherence_f),n_depths);
+for curr_exp = 1:length(mua_exp)
+    
+    % Set common nans
+    nan_points = any(isnan(cat(4,mua_exp{curr_exp}, ...
+        mua_ctxpred_exp{curr_exp},mua_taskpred_exp{curr_exp})),4);
+    mua_exp{curr_exp}(nan_points) = NaN;
+    mua_ctxpred_exp{curr_exp}(nan_points) = NaN;
+    mua_taskpred_exp{curr_exp}(nan_points) = NaN;
+        
+    for curr_depth = 1:n_depths
+        
+        measured_data = double(reshape(mua_exp{curr_exp}(coherence_trials_exp{curr_exp},:,curr_depth)',[],1));
+        ctx_predicted_data = double(reshape(mua_ctxpred_exp{curr_exp}(coherence_trials_exp{curr_exp},:,curr_depth)',[],1));
+        task_predicted_data = double(reshape(mua_taskpred_exp{curr_exp}(coherence_trials_exp{curr_exp},:,curr_depth)',[],1));
+        
+        nan_points = isnan(measured_data) | isnan(ctx_predicted_data) | isnan(task_predicted_data);
+        
+        if all(nan_points)
+            continue
+        end
+        
+        [exp_mua_ctxpred_coherence(curr_exp,:,curr_depth),coherence_f] = mscohere( ...
+            measured_data(~nan_points), ctx_predicted_data(~nan_points), ...
+            hamming(round(sample_rate*5)),round(sample_rate*2.5),[],sample_rate);
+        
+        [exp_mua_taskpred_coherence(curr_exp,:,curr_depth),coherence_f] = mscohere( ...
+            measured_data(~nan_points), task_predicted_data(~nan_points), ...
+            hamming(round(sample_rate*5)),round(sample_rate*2.5),[],sample_rate);
+           
+    end
+    AP_print_progress_fraction(curr_exp,length(mua_exp));
+end
+
+figure; 
+subplot(1,3,1); hold on; set(gca,'ColorOrder',copper(n_depths)); set(gca,'XScale','log')
+plot(coherence_f,squeeze(nanmean(exp_mua_ctxpred_coherence,1)),'linewidth',2);
+xlabel('Frequency'); ylabel('Coherence with measured');
+title('Cortex predicted');
+subplot(1,3,2); hold on; set(gca,'ColorOrder',copper(n_depths)); set(gca,'XScale','log')
+plot(coherence_f,squeeze(nanmean(exp_mua_taskpred_coherence,1)),'linewidth',2);
+xlabel('Frequency'); ylabel('Coherence with measured');
+title('Task predicted');
+subplot(1,3,3); hold on; set(gca,'ColorOrder',copper(n_depths)); set(gca,'XScale','log')
+plot(coherence_f,squeeze(nanmean(exp_mua_ctxpred_coherence,1))-squeeze(nanmean(exp_mua_taskpred_coherence,1)),'linewidth',2);
+xlabel('Frequency'); ylabel('Coherence with measured');
+title('Cortex - task predicted');
+
+% 
+% % Apply empirical static nonlinearity
+% figure;
+% mua_allcat_predicted_nlin = mua_allcat;
+% for curr_depth = 1:n_depths       
+%     measured_data = double(reshape(mua_allcat(:,:,curr_depth)',[],1));
+%     predicted_data = double(reshape(mua_ctxpred_allcat(:,:,curr_depth)',[],1));
+%     predicted_data(predicted_data < 0) = 0;
+%     
+%     n_bins = 100;
+%     activity_bounds = linspace(0,5,n_bins+1);
+%     activity_bin_centers = conv2(activity_bounds,[1,1]/2,'valid');
+%   
+%     measured_bins = discretize(measured_data,activity_bounds);
+%     predicted_bins = discretize(predicted_data,activity_bounds);
+%     
+%     measured_data_binmean = accumarray(predicted_bins(~isnan(predicted_bins)), ...
+%         measured_data(~isnan(predicted_bins)),[n_bins,1],@nanmedian,nan);
+%     predicted_data_binmean = accumarray(predicted_bins(~isnan(predicted_bins)),...
+%         predicted_data(~isnan(predicted_bins)),[n_bins,1],@nanmedian,nan);
+%     
+%     % smooth out the measured data binmean
+%     measured_data_binmean_smooth = medfilt1(measured_data_binmean,10);
+%     
+%     predicted_data_nlin = nan(size(predicted_data));
+%     predicted_data_nlin(~isnan(predicted_bins)) = measured_data_binmean_smooth(predicted_bins(~isnan(predicted_bins)));
+%     
+%     predicted_data_nlin_bins = discretize(predicted_data_nlin,activity_bounds);
+%     predicted_data_nlin_binmean = accumarray( ...
+%         predicted_bins(~isnan(predicted_bins)), ...
+%         predicted_data_nlin(~isnan(predicted_bins)),[n_bins,1],@mean,nan);
+%     
+%     mua_allcat_predicted_nlin(:,:,curr_depth) = ...
+%         reshape(predicted_data_nlin, ...
+%         size(mua_allcat,2),size(mua_allcat,1))';
+%     
+%     subplot(1,n_depths,curr_depth); hold on;
+%     plot(predicted_data,measured_data,'.')
+%     plot(predicted_data_binmean,measured_data_binmean,'linewidth',2);
+%     plot(predicted_data_binmean,measured_data_binmean_smooth,'linewidth',2);
+%     plot(predicted_data_nlin_binmean,measured_data_binmean,'linewidth',2);
+%     xlim([-2,6]);ylim([-2,6]);
+%     line(xlim,ylim,'color','k');
+%     xlabel('Predicted')
+%     ylabel('Measured')
+%     axis square;
+% end
 
 
 

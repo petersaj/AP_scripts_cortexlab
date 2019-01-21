@@ -133,19 +133,21 @@ else
 end
 
 % Regression (and cross validation if selected)
-k_cv = zeros(size(regressors_gpu,2),size(signals,1),cvfold,'single');
-cv_partition = round(linspace(1,cvfold,size(regressor_design,1)))';
-% (to shuffle points for CV, not valid for time series because autocorr?)
-% cv_partition = cv_partition(randperm(length(cv_partition)));
 
+% Only samples with regressors are predictable
+predictable_samples = any(regressor_design,2);
+cv_partition = nan(size(regressor_design,1),1);
+cv_partition(predictable_samples) = round(linspace(1,cvfold,sum(predictable_samples)))';
+
+k_cv = zeros(size(regressors_gpu,2),size(signals,1),cvfold,'single');
 predicted_signals = nan(size(signals));
 predicted_signals_reduced = nan(size(signals,1),size(signals,2),length(regressors));
 for curr_cv = 1:cvfold
     
     % Get training/test sets
     if cvfold == 1
-        train_idx = true(size(regressors_gpu,1),1);
-        test_idx = true(size(regressor_design,1),1);
+        train_idx = predictable_samples;
+        test_idx = predictable_samples;
     else
         train_idx = [cv_partition ~= curr_cv;true(size(ridge_matrix,1),1)];
         test_idx = cv_partition == curr_cv;
@@ -206,7 +208,7 @@ end
 
 % Throw errors for bad numbers in kernel or predicted signals
 if any(isinf(k_cv(:))) || any(isinf(predicted_signals(:))) || ...
-        any(isnan(k_cv(:))) || any(isnan(predicted_signals(:)))
+        any(isnan(k_cv(:))) || any(any(isnan(predicted_signals(:,predictable_samples))))
     error('Inf/NaN in kernel or predicted signal')
 end
 
