@@ -17340,11 +17340,29 @@ trial_choice_allcat = -(D_allcat.response-1.5)*2;
 sample_rate = 1/mean(diff(t));
 
 % Get reaction time
-[move_trial,move_idx] = max(abs(wheel_allcat(:,:,1)) > 2,[],2);
+[move_trial,move_idx] = max(abs(wheel_allcat) > 2,[],2);
 move_t = t(move_idx)';
 move_t(~move_trial) = Inf;
 
+% Get wheel velocity
+wheel_velocity_allcat = [zeros(size(wheel_allcat,1),1),diff(wheel_allcat,[],2)];
+[max_speed,max_vel_idx] = max(abs(wheel_velocity_allcat(:,:,1).* ...
+    (bsxfun(@times,wheel_velocity_allcat,trial_choice_allcat) > 0)),[],2);
+max_vel = max_speed.*trial_choice_allcat;
 
+% Make move-aligned data
+wheel_velocity_allcat_move = wheel_velocity_allcat;
+mua_allcat_move = mua_allcat;
+mua_ctxpred_allcat_move = mua_ctxpred_allcat;
+mua_taskpred_allcat_move = mua_taskpred_allcat;
+t_leeway = -t(1);
+leeway_samples = round(t_leeway*(sample_rate));
+for i = 1:size(mua_allcat,1)
+    wheel_velocity_allcat_move(i,:,:) = circshift(wheel_velocity_allcat_move(i,:,:),-move_idx(i)+leeway_samples,2);
+    mua_allcat_move(i,:,:) = circshift(mua_allcat_move(i,:,:),-move_idx(i)+leeway_samples,2);
+    mua_ctxpred_allcat_move(i,:,:) = circshift(mua_ctxpred_allcat_move(i,:,:),-move_idx(i)+leeway_samples,2);
+    mua_taskpred_allcat_move(i,:,:) = circshift(mua_taskpred_allcat_move(i,:,:),-move_idx(i)+leeway_samples,2);
+end
 
 
 trial_contrastside_allcat_early = trial_contrastside_allcat;
@@ -17352,7 +17370,6 @@ trial_contrastside_allcat_early(move_t > 0.5) = NaN;
 
 %%%%%% Plot measured and predicted relating to each kernel
 plot_areas = [1,2,3,1,4];
-plot_reduction = [1,2,3,4,5]; % (which reduced variable to plot)
 plot_conditions = {unique(trial_contrastside_allcat),[-1,1],1:3,[1,3],0:1};
 plot_conditions_compare = { ...
     trial_contrastside_allcat_early, ...  
@@ -17467,20 +17484,10 @@ for curr_area = 1:length(plot_areas)
     
 end
 
+
+
 % Plot R^2 (normalized data together)
 r2_trials = move_t > 0 & move_t < 0.5;
-
-[move_trial,move_idx] = max(abs(wheel_allcat) > 2,[],2);
-mua_allcat_move = mua_allcat;
-mua_ctxpred_allcat_move = mua_ctxpred_allcat;
-mua_taskpred_allcat_move = mua_taskpred_allcat;
-t_leeway = -t(1);
-leeway_samples = round(t_leeway*(sample_rate));
-for i = 1:size(mua_allcat,1)
-    mua_allcat_move(i,:,:) = circshift(mua_allcat_move(i,:,:),-move_idx(i)+leeway_samples,2);
-    mua_ctxpred_allcat_move(i,:,:) = circshift(mua_ctxpred_allcat_move(i,:,:),-move_idx(i)+leeway_samples,2);
-    mua_taskpred_allcat_move(i,:,:) = circshift(mua_taskpred_allcat_move(i,:,:),-move_idx(i)+leeway_samples,2);
-end
 
 predicted_points = +~any(isnan(cat(4,mua_allcat(r2_trials,:,:),mua_ctxpred_allcat(r2_trials,:,:),mua_taskpred_allcat(r2_trials,:,:))),4);
 predicted_points(~predicted_points) = NaN;
@@ -17518,34 +17525,49 @@ end
 
 
 % Plot R^2 (recordings separate)
-r2_trials = move_t > 0.1 & move_t < 0.3;
+r2_trials = move_t > 0 & move_t < 0.5;
 
 % split everthing up by animal or recording
 trials_animal = arrayfun(@(x) size(vertcat(mua_all{x}{:}),1),1:size(mua_all));
 trials_recording = cellfun(@(x) size(x,1),vertcat(mua_all{:}));
 
-use_split = trials_recording;
+use_split = trials_animal;
 
-r2_trials_exp = mat2cell(r2_trials,trials_recording,1);
-move_idx_exp = mat2cell(move_idx,trials_recording,1);
-mua_exp = mat2cell(mua_allcat,trials_recording,length(t),n_depths);
-mua_ctxpred_exp = mat2cell(mua_ctxpred_allcat,trials_recording,length(t),n_depths);
-mua_taskpred_exp = mat2cell(mua_taskpred_allcat,trials_recording,length(t),n_depths);
+r2_trials_exp = mat2cell(r2_trials,use_split,1);
+
+move_idx_exp = cellfun(@(x,trials) x(trials,:,:), ...
+    mat2cell(move_idx,use_split,1),r2_trials_exp,'uni',false);
+mua_exp = cellfun(@(x,trials) x(trials,:,:), ...
+    mat2cell(mua_allcat,use_split,length(t),n_depths),r2_trials_exp,'uni',false);
+mua_ctxpred_exp = cellfun(@(x,trials) x(trials,:,:), ...
+    mat2cell(mua_ctxpred_allcat,use_split,length(t),n_depths),r2_trials_exp,'uni',false);
+mua_taskpred_exp = cellfun(@(x,trials) x(trials,:,:), ...
+    mat2cell(mua_taskpred_allcat,use_split,length(t),n_depths),r2_trials_exp,'uni',false);
+
+mua_taskpred_reduced_exp = cellfun(@(x,trials) x(trials,:,:,:), ...
+    mat2cell(mua_taskpred_reduced_allcat,use_split,length(t),n_depths, ...
+    size(mua_taskpred_reduced_allcat,4)),r2_trials_exp,'uni',false);
+
+% remove_regressor = 2;
+% mua_exp = cellfun(@(x,y) x-y(:,:,:,remove_regressor),mua_exp,mua_taskpred_reduced_exp,'uni',false);
+% mua_ctxpred_exp = cellfun(@(x,y) x-y(:,:,:,remove_regressor),mua_ctxpred_exp,mua_taskpred_reduced_exp,'uni',false);
+% mua_taskpred_exp = cellfun(@(x,y) x-y(:,:,:,remove_regressor),mua_taskpred_exp,mua_taskpred_reduced_exp,'uni',false);
 
 for curr_exp = 1:length(mua_exp)
 
-    % Get rid of unused trials (dirty but whatever)
-    move_idx_exp{curr_exp}(~r2_trials_exp{curr_exp}) = [];
-    mua_exp{curr_exp}(~r2_trials_exp{curr_exp},:,:) = [];
-    mua_ctxpred_exp{curr_exp}(~r2_trials_exp{curr_exp},:,:) = [];
-    mua_taskpred_exp{curr_exp}(~r2_trials_exp{curr_exp},:,:) = [];
-    
     % Set common nans
     nan_points = any(isnan(cat(4,mua_exp{curr_exp}, ...
         mua_ctxpred_exp{curr_exp},mua_taskpred_exp{curr_exp})),4);
     mua_exp{curr_exp}(nan_points) = NaN;
     mua_ctxpred_exp{curr_exp}(nan_points) = NaN;
     mua_taskpred_exp{curr_exp}(nan_points) = NaN;
+     
+%     % Low-pass filter data
+%     lowpassCutoff = 6; % Hz
+%     [b100s, a100s] = butter(2, lowpassCutoff/((sample_rate)/2), 'low');
+%     mua_exp{curr_exp}(nan_points) = 0;
+%     mua_exp{curr_exp} = permute(filtfilt(b100s,a100s,permute(mua_exp{curr_exp},[2,1,3])),[2,1,3]);
+%     mua_exp{curr_exp}(nan_points) = NaN;
     
 %     % (to align to movement)    
 %     t_leeway = t(1);
@@ -17558,36 +17580,49 @@ for curr_exp = 1:length(mua_exp)
 end
 
 exp_sse_total = cell2mat(cellfun(@(measured) ...
-    nansum((measured-nanmean(measured,1)).^2,1),mua_exp,'uni',false));
+    nansum((reshape(measured,[],n_depths)-nanmean(reshape(measured,[],n_depths),1)).^2,1),mua_exp,'uni',false));
 exp_sse_residual_ctx = cell2mat(cellfun(@(measured,ctxpred) ...
-    nansum((measured-ctxpred).^2,1),mua_exp,mua_ctxpred_exp,'uni',false));
+    nansum((reshape(measured,[],n_depths)-reshape(ctxpred,[],n_depths)).^2,1),mua_exp,mua_ctxpred_exp,'uni',false));
 exp_sse_residual_task = cell2mat(cellfun(@(measured,taskpred) ...
-    nansum((measured-taskpred).^2,1),mua_exp,mua_taskpred_exp,'uni',false));
+    nansum((reshape(measured,[],n_depths)-reshape(taskpred,[],n_depths)).^2,1),mua_exp,mua_taskpred_exp,'uni',false));
 
 exp_explained_var_ctx = 1-(exp_sse_residual_ctx./exp_sse_total);
 exp_explained_var_task = 1-(exp_sse_residual_task./exp_sse_total);
 
-exp_explained_var_ctx(exp_explained_var_ctx < 0) = 0;
-exp_explained_var_task(exp_explained_var_task < 0) = 0;
+
+exp_sse_total_t = cell2mat(cellfun(@(measured) ...
+    nansum((measured-nanmean(measured,1)).^2,1),mua_exp,'uni',false));
+exp_sse_residual_ctx_t = cell2mat(cellfun(@(measured,ctxpred) ...
+    nansum((measured-ctxpred).^2,1),mua_exp,mua_ctxpred_exp,'uni',false));
+exp_sse_residual_task_t = cell2mat(cellfun(@(measured,taskpred) ...
+    nansum((measured-taskpred).^2,1),mua_exp,mua_taskpred_exp,'uni',false));
+
+exp_explained_var_ctx_t = 1-(exp_sse_residual_ctx_t./exp_sse_total_t);
+exp_explained_var_task_t = 1-(exp_sse_residual_task_t./exp_sse_total_t);
+
+exp_explained_var_ctx_t(exp_explained_var_ctx_t < 0) = 0;
+exp_explained_var_task_t(exp_explained_var_task_t < 0) = 0;
 
 figure;
 for curr_depth = 1:n_depths
     p1 = subplot(3,n_depths,curr_depth); 
-    imagesc(t,[],exp_explained_var_ctx(:,:,curr_depth)); caxis([0,1]); colormap(hot);
+    imagesc(t,[],exp_explained_var_ctx_t(:,:,curr_depth)); caxis([0,1]); colormap(hot);
     title('Expl var cortex');
     ylabel('Experiment');
     
     p2 = subplot(3,n_depths,curr_depth+n_depths); 
-    imagesc(t,[],exp_explained_var_task(:,:,curr_depth)); caxis([0,1]); colormap(hot);
+    imagesc(t,[],exp_explained_var_task_t(:,:,curr_depth)); caxis([0,1]); colormap(hot);
     title('Expl var task');
     ylabel('Experiment');
     
     p3 = subplot(3,n_depths,curr_depth+n_depths*2);     
     hold on;
-    plot(t,nanmean(exp_explained_var_ctx(:,:,curr_depth),1),'linewidth',2);
-    plot(t,nanmean(exp_explained_var_task(:,:,curr_depth),1),'linewidth',2);
-    plot(t,nanmean(exp_explained_var_ctx(:,:,curr_depth),1) - ...
-        nanmean(exp_explained_var_task(:,:,curr_depth),1),'linewidth',1);
+    plot(t,nanmean(exp_explained_var_ctx_t(:,:,curr_depth),1),'b','linewidth',2);
+    plot(t,nanmean(exp_explained_var_task_t(:,:,curr_depth),1),'r','linewidth',2);
+    plot(t,nanmean(exp_explained_var_ctx_t(:,:,curr_depth),1) - ...
+        nanmean(exp_explained_var_task_t(:,:,curr_depth),1),'k','linewidth',1);
+    line(xlim,repmat(nanmean(exp_explained_var_ctx(:,curr_depth)),2,1),'color','b','linewidth',2);
+    line(xlim,repmat(nanmean(exp_explained_var_task(:,curr_depth)),2,1),'color','r','linewidth',2);
     ylabel('R^2');
     xlabel('Time');
     legend({'Cortex','Task','Cortex-Task'})
@@ -17848,53 +17883,289 @@ plot(coherence_f,squeeze(nanmean(exp_mua_ctxpred_coherence,1))-squeeze(nanmean(e
 xlabel('Frequency'); ylabel('Coherence with measured');
 title('Cortex - task predicted');
 
-% 
-% % Apply empirical static nonlinearity
-% figure;
-% mua_allcat_predicted_nlin = mua_allcat;
-% for curr_depth = 1:n_depths       
-%     measured_data = double(reshape(mua_allcat(:,:,curr_depth)',[],1));
-%     predicted_data = double(reshape(mua_ctxpred_allcat(:,:,curr_depth)',[],1));
-%     predicted_data(predicted_data < 0) = 0;
-%     
-%     n_bins = 100;
-%     activity_bounds = linspace(0,5,n_bins+1);
-%     activity_bin_centers = conv2(activity_bounds,[1,1]/2,'valid');
-%   
-%     measured_bins = discretize(measured_data,activity_bounds);
-%     predicted_bins = discretize(predicted_data,activity_bounds);
-%     
-%     measured_data_binmean = accumarray(predicted_bins(~isnan(predicted_bins)), ...
-%         measured_data(~isnan(predicted_bins)),[n_bins,1],@nanmedian,nan);
-%     predicted_data_binmean = accumarray(predicted_bins(~isnan(predicted_bins)),...
-%         predicted_data(~isnan(predicted_bins)),[n_bins,1],@nanmedian,nan);
-%     
-%     % smooth out the measured data binmean
-%     measured_data_binmean_smooth = medfilt1(measured_data_binmean,10);
-%     
-%     predicted_data_nlin = nan(size(predicted_data));
-%     predicted_data_nlin(~isnan(predicted_bins)) = measured_data_binmean_smooth(predicted_bins(~isnan(predicted_bins)));
-%     
-%     predicted_data_nlin_bins = discretize(predicted_data_nlin,activity_bounds);
-%     predicted_data_nlin_binmean = accumarray( ...
-%         predicted_bins(~isnan(predicted_bins)), ...
-%         predicted_data_nlin(~isnan(predicted_bins)),[n_bins,1],@mean,nan);
-%     
-%     mua_allcat_predicted_nlin(:,:,curr_depth) = ...
-%         reshape(predicted_data_nlin, ...
-%         size(mua_allcat,2),size(mua_allcat,1))';
-%     
-%     subplot(1,n_depths,curr_depth); hold on;
-%     plot(predicted_data,measured_data,'.')
-%     plot(predicted_data_binmean,measured_data_binmean,'linewidth',2);
-%     plot(predicted_data_binmean,measured_data_binmean_smooth,'linewidth',2);
-%     plot(predicted_data_nlin_binmean,measured_data_binmean,'linewidth',2);
-%     xlim([-2,6]);ylim([-2,6]);
-%     line(xlim,ylim,'color','k');
-%     xlabel('Predicted')
-%     ylabel('Measured')
-%     axis square;
-% end
+
+
+
+
+% Apply empirical static nonlinearity
+figure;
+mua_allcat_predicted_nlin = mua_allcat;
+for curr_depth = 1:n_depths       
+    measured_data = double(reshape(mua_allcat(:,:,curr_depth)',[],1));
+    predicted_data = double(reshape(mua_ctxpred_allcat(:,:,curr_depth)',[],1));
+    predicted_data(predicted_data < 0) = 0;
+    
+    n_bins = 100;
+    activity_bounds = linspace(0,5,n_bins+1);
+    activity_bin_centers = conv2(activity_bounds,[1,1]/2,'valid');
+  
+    measured_bins = discretize(measured_data,activity_bounds);
+    predicted_bins = discretize(predicted_data,activity_bounds);
+    
+    measured_data_binmean = accumarray(predicted_bins(~isnan(predicted_bins)), ...
+        measured_data(~isnan(predicted_bins)),[n_bins,1],@nanmedian,nan);
+    predicted_data_binmean = accumarray(predicted_bins(~isnan(predicted_bins)),...
+        predicted_data(~isnan(predicted_bins)),[n_bins,1],@nanmedian,nan);
+    
+    % smooth out the measured data binmean
+    measured_data_binmean_smooth = medfilt1(measured_data_binmean,10);
+    
+    predicted_data_nlin = nan(size(predicted_data));
+    predicted_data_nlin(~isnan(predicted_bins)) = measured_data_binmean_smooth(predicted_bins(~isnan(predicted_bins)));
+    
+    predicted_data_nlin_bins = discretize(predicted_data_nlin,activity_bounds);
+    predicted_data_nlin_binmean = accumarray( ...
+        predicted_bins(~isnan(predicted_bins)), ...
+        predicted_data_nlin(~isnan(predicted_bins)),[n_bins,1],@mean,nan);
+    
+    mua_allcat_predicted_nlin(:,:,curr_depth) = ...
+        reshape(predicted_data_nlin, ...
+        size(mua_allcat,2),size(mua_allcat,1))';
+    
+    subplot(1,n_depths,curr_depth); hold on;
+    plot(predicted_data,measured_data,'.')
+    plot(predicted_data_binmean,measured_data_binmean,'linewidth',2);
+    plot(predicted_data_binmean,measured_data_binmean_smooth,'linewidth',2);
+    plot(predicted_data_nlin_binmean,measured_data_binmean,'linewidth',2);
+    xlim([-2,6]);ylim([-2,6]);
+    line(xlim,ylim,'color','k');
+    xlabel('Predicted')
+    ylabel('Measured')
+    axis square;
+end
+
+
+
+%% Get activity by (correct/incorrect) stim and (visual/zero) velocity
+% (after loading)
+
+plot_depth = 2;
+use_rxn = move_t > 0 & move_t < 1;
+plot_t = t > -0.2 & t < 0.5;
+
+
+% Activity by stim
+use_activity = mua_allcat(:,:,plot_depth); - mua_taskpred_reduced_allcat(:,:,plot_depth,1);
+
+correct_trials = use_rxn & ...
+    trial_side_allcat == -trial_choice_allcat & trial_contrast_allcat > 0;
+incorrect_trials = use_rxn & ...
+    trial_side_allcat == trial_choice_allcat & trial_contrast_allcat > 0;
+
+stim_bins = trial_contrast_allcat.*trial_side_allcat;
+
+[correct_stim_used,correct_activity_grp_mean] = ...
+    grpstats(use_activity(correct_trials,:),stim_bins(correct_trials),{'gname','nanmean'});
+[incorrect_stim_used,incorrect_activity_grp_mean] = ...
+    grpstats(use_activity(incorrect_trials,:),stim_bins(incorrect_trials),{'gname','nanmean'});
+
+correct_stim_used = cellfun(@str2num,correct_stim_used);
+incorrect_stim_used = cellfun(@str2num,incorrect_stim_used);
+
+
+figure; 
+col = colormap_BlueWhiteRed(5);
+col(6,:) = [];
+
+p1 = subplot(1,3,1); hold on
+set(gca,'ColorOrder',col)
+plot(t,correct_activity_grp_mean','linewidth',2)
+xlabel('Time from stim');
+ylabel('Activity');
+axis tight
+line([0,0],ylim,'color','k');
+
+p2 = subplot(1,3,2); hold on
+set(gca,'ColorOrder',col)
+plot(t,incorrect_activity_grp_mean','linewidth',2)
+xlabel('Time from stim');
+ylabel('Activity');
+axis tight
+line([0,0],ylim,'color','k');
+
+subplot(1,3,3); hold on;
+l1 = plot(correct_stim_used,max(correct_activity_grp_mean(:,plot_t),[],2),'k','linewidth',2);
+scatter(correct_stim_used,max(correct_activity_grp_mean(:,plot_t),[],2),80,col, ...
+    'Filled','MarkerEdgeColor','k','linewidth',2);
+
+l2 = plot(incorrect_stim_used,max(incorrect_activity_grp_mean(:,plot_t),[],2),'color',[0.7,0.7,0.7],'linewidth',2);
+scatter(incorrect_stim_used,max(incorrect_activity_grp_mean(:,plot_t),[],2),80,col, ...
+    'Filled','MarkerEdgeColor',[0.7,0.7,0.7],'linewidth',2);
+xlabel('Stim');
+ylabel('Max activity');
+
+legend([l1,l2],{'Correct','Incorrect'});
+axis square;
+
+linkaxes([p1,p2]);
+
+
+% Activity by velocity
+
+use_activity = mua_allcat(:,:,plot_depth); - mua_taskpred_reduced_allcat(:,:,plot_depth,2);
+
+[move_trial,move_idx] = max(abs(wheel_allcat) > 2,[],2);
+t_leeway = -t(1);
+leeway_samples = round(t_leeway*(sample_rate));
+wheel_velocity_allcat_move = wheel_velocity_allcat;
+for i = 1:size(mua_allcat,1)
+    use_activity(i,:,:) = circshift(use_activity(i,:,:),-move_idx(i)+leeway_samples,2);
+    wheel_velocity_allcat_move(i,:,:) = circshift(wheel_velocity_allcat_move(i,:,:),-move_idx(i)+leeway_samples,2);
+end
+
+% Bin maximum velocity
+max_speed = max(abs(wheel_velocity_allcat_move(:,plot_t,:).* ...
+    (wheel_velocity_allcat_move(:,plot_t,:).*trial_choice_allcat > 0)),[],2);
+max_vel = max_speed.*trial_choice_allcat;
+
+vis_trials = use_rxn & ...
+    trial_side_allcat == -trial_choice_allcat & trial_contrast_allcat > 0;
+vis_miss_trials = use_rxn & ...
+    trial_side_allcat == trial_choice_allcat & trial_contrast_allcat > 0;
+zero_trials = use_rxn & trial_contrast_allcat == 0;
+
+n_vel_bins = 6;
+vel_amp_edges = prctile(abs(max_vel),linspace(0,100,n_vel_bins));
+% vel_amp_edges = linspace(prctile(abs(max_vel),10),prctile(abs(max_vel),90),n_vel_bins);
+vel_amp_edges = sort([vel_amp_edges,-vel_amp_edges]);
+
+vel_amp_bins = discretize(max_vel,vel_amp_edges);
+vel_amp_bins(vel_amp_bins == n_vel_bins) = NaN; 
+
+% Plot wheel and activity within bins
+[vis_grps_used,vis_max_vel_grp_mean] = ...
+    grpstats(max_vel(vis_trials),vel_amp_bins(vis_trials),{'gname','nanmean'});
+vis_grps_used = cellfun(@str2num,vis_grps_used);
+
+[vis_miss_grps_used,vis_miss_max_vel_grp_mean] = ...
+    grpstats(max_vel(vis_miss_trials),vel_amp_bins(vis_miss_trials),{'gname','nanmean'});
+vis_miss_grps_used = cellfun(@str2num,vis_miss_grps_used);
+
+[zero_grps_used,zero_max_vel_grp_mean] = ...
+    grpstats(max_vel(zero_trials),vel_amp_bins(zero_trials),{'gname','nanmean'});
+zero_grps_used = cellfun(@str2num,zero_grps_used);
+
+vis_wheel_grp_mean = grpstats(wheel_velocity_allcat_move(vis_trials,:),vel_amp_bins(vis_trials));
+vis_activity_grp_mean = grpstats(use_activity(vis_trials,:),vel_amp_bins(vis_trials));
+
+vis_miss_wheel_grp_mean = grpstats(wheel_velocity_allcat_move(vis_miss_trials,:),vel_amp_bins(vis_miss_trials));
+vis_miss_activity_grp_mean = grpstats(use_activity(vis_miss_trials,:),vel_amp_bins(vis_miss_trials));
+
+zero_wheel_grp_mean = grpstats(wheel_velocity_allcat_move(zero_trials,:),vel_amp_bins(zero_trials));
+zero_activity_grp_mean = grpstats(use_activity(zero_trials,:),vel_amp_bins(zero_trials));
+
+figure;
+col = [linspace(0.2,1,n_vel_bins)',0.1*ones(n_vel_bins,1),linspace(0.2,1,n_vel_bins)'; ...
+    0.1*ones(n_vel_bins,1),linspace(1,0.2,n_vel_bins)',0.1*ones(n_vel_bins,1)];
+
+subplot(3,4,1); hold on
+set(gca,'ColorOrder',col(vis_grps_used,:))
+plot(t,vis_wheel_grp_mean','linewidth',2)
+xlabel('Time from move');
+ylabel('Wheel velocity');
+axis tight
+line([0,0],ylim,'color','k');
+
+p1 = subplot(3,4,2); hold on
+set(gca,'ColorOrder',col(vis_grps_used,:))
+plot(t,vis_activity_grp_mean','linewidth',2)
+xlabel('Time from move');
+ylabel('Activity');
+axis tight
+line([0,0],ylim,'color','k');
+
+subplot(3,4,3); hold on;
+set(gca,'ColorOrder',col(vis_grps_used,:))
+plot(vis_wheel_grp_mean(:,plot_t)',vis_activity_grp_mean(:,plot_t)','linewidth',2)
+xlim([-max(abs(xlim)),max(abs(xlim))]);
+xlabel('Wheel speed');
+ylabel('Activity');
+axis tight
+line([0,0],ylim,'color','k');
+line(xlim,[0,0],'color','k');
+
+subplot(3,4,5); hold on
+set(gca,'ColorOrder',col(vis_miss_grps_used,:))
+plot(t,vis_miss_wheel_grp_mean','linewidth',2)
+xlabel('Time from move');
+ylabel('Wheel velocity');
+axis tight
+line([0,0],ylim,'color','k');
+
+p2 = subplot(3,4,6); hold on
+set(gca,'ColorOrder',col(vis_miss_grps_used,:))
+plot(t,vis_miss_activity_grp_mean','linewidth',2)
+xlabel('Time from move');
+ylabel('Activity');
+axis tight
+line([0,0],ylim,'color','k');
+
+subplot(3,4,7); hold on;
+set(gca,'ColorOrder',col(vis_miss_grps_used,:))
+plot(vis_miss_wheel_grp_mean(:,plot_t)',vis_miss_activity_grp_mean(:,plot_t)','linewidth',2)
+xlim([-max(abs(xlim)),max(abs(xlim))]);
+xlabel('Wheel speed');
+ylabel('Activity');
+axis tight
+line([0,0],ylim,'color','k');
+line(xlim,[0,0],'color','k');
+
+subplot(3,4,9); hold on
+set(gca,'ColorOrder',col(zero_grps_used,:))
+plot(t,zero_wheel_grp_mean','linewidth',2)
+xlabel('Time from move');
+ylabel('Wheel velocity');
+axis tight
+line([0,0],ylim,'color','k');
+
+p3 = subplot(3,4,10); hold on
+set(gca,'ColorOrder',col(zero_grps_used,:))
+plot(t,zero_activity_grp_mean','linewidth',2)
+xlabel('Time from move');
+ylabel('Activity');
+axis tight
+line([0,0],ylim,'color','k');
+
+subplot(3,4,11); hold on;
+set(gca,'ColorOrder',col(zero_grps_used,:))
+plot(zero_wheel_grp_mean(:,plot_t)',zero_activity_grp_mean(:,plot_t)','linewidth',2)
+xlim([-max(abs(xlim)),max(abs(xlim))]);
+xlabel('Wheel speed');
+ylabel('Activity');
+axis tight
+line([0,0],ylim,'color','k');
+line(xlim,[0,0],'color','k');
+
+subplot(1,4,4); hold on;
+l1 = plot(vis_max_vel_grp_mean,max(vis_activity_grp_mean(:,plot_t),[],2),'k','linewidth',2);
+scatter(vis_max_vel_grp_mean,max(vis_activity_grp_mean(:,plot_t),[],2),80,col(vis_grps_used,:), ...
+    'Filled','MarkerEdgeColor','k','linewidth',2);
+
+l2 = plot(vis_miss_max_vel_grp_mean,max(vis_miss_activity_grp_mean(:,plot_t),[],2),'color',[0.7,0,0],'linewidth',2);
+scatter(vis_miss_max_vel_grp_mean,max(vis_miss_activity_grp_mean(:,plot_t),[],2),80,col(vis_miss_grps_used,:), ...
+    'Filled','MarkerEdgeColor',[0.7,0,0],'linewidth',2);
+
+l3 = plot(zero_max_vel_grp_mean,max(zero_activity_grp_mean(:,plot_t),[],2),'color',[0.7,0.7,0.7],'linewidth',2);
+scatter(zero_max_vel_grp_mean,max(zero_activity_grp_mean(:,plot_t),[],2),80,col(zero_grps_used,:), ...
+    'Filled','MarkerEdgeColor',[0.7,0.7,0.7],'linewidth',2);
+xlabel('Max velocity');
+ylabel('Max activity');
+
+legend([l1,l2,l3],{'Visual correct','Visual incorrect','Zero-contrast'});
+axis square;
+
+linkaxes([p1,p2,p3]);
+
+
+
+
+
+
+
+
+
+
+
 
 
 

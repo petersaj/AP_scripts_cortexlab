@@ -2963,7 +2963,7 @@ fluor_predicted_roi_reduced = permute(reshape( ...
 
 % Re-align activity to movement onset
 fluor_predicted_roi_reduced_move = fluor_roi_deriv - fluor_predicted_roi_reduced;
-mua_allcat_move = mua_allcat-mua_allcat_predicted_reduced(:,:,:,2);
+mua_allcat_move = mua_allcat-mua_taskpred_reduced_allcat(:,:,:,2);
 wheel_velocity_allcat_move = wheel_velocity_allcat;
 t_leeway = 0.5;
 leeway_samples = round(t_leeway*(sample_rate));
@@ -2997,7 +2997,7 @@ vis_grps_used = cellfun(@str2num,vis_grps_used);
     grpstats(max_vel(zero_trials),vel_amp_bins(zero_trials),{'gname','nanmean'});
 zero_grps_used = cellfun(@str2num,zero_grps_used);
 
-use_activity = mua_allcat_move(:,:,3);
+use_activity = mua_allcat_move(:,:,2);
 % use_activity = fluor_predicted_roi_reduced_move(:,:,7);
 
 vis_wheel_grp_mean = grpstats(wheel_velocity_allcat_move(vis_trials,:),vel_amp_bins(vis_trials));
@@ -3066,12 +3066,12 @@ line([0,0],ylim,'color','k');
 line(xlim,[0,0],'color','k');
 
 subplot(1,4,4); hold on;
-p1 = plot(vis_max_vel_grp_mean,max(vis_activity_grp_mean,[],2),'k','linewidth',2);
-scatter(vis_max_vel_grp_mean,max(vis_activity_grp_mean,[],2),80,col_used, ...
+p1 = plot(vis_max_vel_grp_mean,max(vis_activity_grp_mean(:,plot_t),[],2),'k','linewidth',2);
+scatter(vis_max_vel_grp_mean,max(vis_activity_grp_mean(:,plot_t),[],2),80,col_used, ...
     'Filled','MarkerEdgeColor','k','linewidth',2);
 
-p2 = plot(zero_max_vel_grp_mean,max(zero_activity_grp_mean,[],2),'color',[0.7,0.7,0.7],'linewidth',2);
-scatter(zero_max_vel_grp_mean,max(zero_activity_grp_mean,[],2),80,col_used, ...
+p2 = plot(zero_max_vel_grp_mean,max(zero_activity_grp_mean(:,plot_t),[],2),'color',[0.7,0.7,0.7],'linewidth',2);
+scatter(zero_max_vel_grp_mean,max(zero_activity_grp_mean(:,plot_t),[],2),80,col_used, ...
     'Filled','MarkerEdgeColor',[0.7,0.7,0.7],'linewidth',2);
 xlabel('Max wheel velocity');
 ylabel('Max activity');
