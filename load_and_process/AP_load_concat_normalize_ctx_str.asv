@@ -15,45 +15,42 @@ load([data_path filesep data_fn]);
 n_animals = length(D_all);
 
 % Load pre-marked experiments to exclude and cut out bad ones
-if exist('exclude_data','var') && isempty(exclude_data)
-    if exclude_data
-        exclude_path = 'C:\Users\Andrew\OneDrive for Business\Documents\CarandiniHarrisLab\analysis\wf_ephys_choiceworld\experiment_exclusion';
-        exclude_fn{1} = 'bhv_use_experiments';
-        % exclude_fn{2} = 'expl_var_use_experiments';
-        use_experiments_all = {};
-        for curr_exclude = 1:length(exclude_fn)
-            curr_use_experiments = load([exclude_path filesep exclude_fn{curr_exclude}]);
-            use_experiments_all = [use_experiments_all;curr_use_experiments.use_experiments];
-        end
-        use_experiments = arrayfun(@(x) all(vertcat(use_experiments_all{:,x}),1), ...
-            1:size(use_experiments_all,2),'uni',false);
-        
-        D_all = cellfun(@(data,use_expts) data(use_expts),D_all,use_experiments','uni',false);
-        fluor_all = cellfun(@(data,use_expts) data(use_expts),fluor_all,use_experiments','uni',false);
-        mua_all = cellfun(@(data,use_expts) data(use_expts),mua_all,use_experiments','uni',false);
-        predicted_mua_std_all = cellfun(@(data,use_expts) data(use_expts),predicted_mua_std_all,use_experiments','uni',false);
-        wheel_all = cellfun(@(data,use_expts) data(use_expts),wheel_all,use_experiments','uni',false);
-        if exist('reward_all','var')
-            reward_all = cellfun(@(data,use_expts) data(use_expts),reward_all,use_experiments','uni',false);
-        end
+if exist('exclude_data','var') && exclude_data
+    exclude_path = 'C:\Users\Andrew\OneDrive for Business\Documents\CarandiniHarrisLab\analysis\wf_ephys_choiceworld\experiment_exclusion';
+    exclude_fn{1} = 'bhv_use_experiments';
+    % exclude_fn{2} = 'expl_var_use_experiments';
+    use_experiments_all = {};
+    for curr_exclude = 1:length(exclude_fn)
+        curr_use_experiments = load([exclude_path filesep exclude_fn{curr_exclude}]);
+        use_experiments_all = [use_experiments_all;curr_use_experiments.use_experiments];
     end
-end
-
-% If any animals have empty data, remove them
-use_animals = cellfun(@(x) ~isempty(x),D_all);
-D_all = D_all(use_animals);
-fluor_all = fluor_all(use_animals);
-mua_all = mua_all(use_animals);
-wheel_all = wheel_all(use_animals);
-if exist('reward_all','var')
-    reward_all = reward_all(use_animals);
-end
-if exist('mua_ctxpred_all','var')
-    mua_ctxpred_all = mua_ctxpred_all(use_animals);
-end
-if exist('mua_taskpred_all','var')
-    mua_taskpred_all = mua_taskpred_all(use_animals);
-    mua_taskpred_reduced_all = mua_taskpred_reduced_all(use_animals);
+    use_experiments = arrayfun(@(x) all(vertcat(use_experiments_all{:,x}),1), ...
+        1:size(use_experiments_all,2),'uni',false);
+    
+    use_animals = cellfun(@any,use_experiments);
+    
+    D_all = cellfun(@(data,use_expts) data(use_expts),D_all(use_animals),use_experiments(use_animals)','uni',false);
+    fluor_all = cellfun(@(data,use_expts) data(use_expts),fluor_all(use_animals),use_experiments(use_animals)','uni',false);
+    mua_all = cellfun(@(data,use_expts) data(use_expts),mua_all(use_animals),use_experiments(use_animals)','uni',false);
+    wheel_all = cellfun(@(data,use_expts) data(use_expts),wheel_all(use_animals),use_experiments(use_animals)','uni',false);
+    if exist('reward_all','var')
+        reward_all = cellfun(@(data,use_expts) data(use_expts),reward_all(use_animals),use_experiments(use_animals)','uni',false);
+    end
+    if exist('mua_ctxpred_all','var')
+        mua_ctxpred_all = cellfun(@(data,use_expts) data(use_expts),mua_ctxpred_all(use_animals),use_experiments(use_animals)','uni',false);
+    end
+    if exist('mua_taskpred_all','var')
+        mua_taskpred_all = cellfun(@(data,use_expts) data(use_expts),mua_taskpred_all(use_animals),use_experiments(use_animals)','uni',false);
+    end
+    if exist('ctx_str_k_all','var')
+        ctx_str_k_all = cellfun(@(data,use_expts) data(use_expts),ctx_str_k_all,use_experiments','uni',false);
+    end
+    if exist('ctx_wheel_k_all','var')
+        ctx_wheel_k_all = cellfun(@(data,use_expts) data(use_expts),ctx_wheel_k_all,use_experiments','uni',false);
+    end
+    if exist('wheel_ctxpred_all','var')
+        wheel_ctxpred_all = cellfun(@(data,use_expts) data(use_expts),wheel_ctxpred_all,use_experiments','uni',false);
+    end
 end
 
 % Get number of widefield components and MUA depths
@@ -107,9 +104,9 @@ for curr_animal = 1:length(D_all)
         curr_mua,curr_mua_day_baseline,curr_mua_day_std,'uni',false);
     mua_cat_norm = cat(1,curr_mua_norm{:});
     
-    % Concatenated cortex-predicted MUA (normalize by measured MUA)
+    % Concatenated cortex-predicted MUA ( > 0, normalize by measured MUA)
     if exist('mua_ctxpred_all','var')
-        curr_mua_ctxpred = cellfun(@(x) x.*(x > 0),mua_ctxpred_all{curr_animal},'uni',false)
+        curr_mua_ctxpred = cellfun(@(x) x.*(x > 0),mua_ctxpred_all{curr_animal},'uni',false);
         curr_mua_ctxpred_norm = cellfun(@(raw,baseline,std) (raw-baseline)./std, ...
             curr_mua_ctxpred,curr_mua_day_baseline,curr_mua_day_std,'uni',false);
         mua_ctxpred_cat = cat(1,curr_mua_ctxpred_norm{:});

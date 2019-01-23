@@ -27,37 +27,31 @@ if exist('exclude_data','var') && exclude_data
     use_experiments = arrayfun(@(x) all(vertcat(use_experiments_all{:,x}),1), ...
         1:size(use_experiments_all,2),'uni',false);
     
-    D_all = cellfun(@(data,use_expts) data(use_expts),D_all,use_experiments','uni',false);
-    fluor_all = cellfun(@(data,use_expts) data(use_expts),fluor_all,use_experiments','uni',false);
-    mua_all = cellfun(@(data,use_expts) data(use_expts),mua_all,use_experiments','uni',false);
-    wheel_all = cellfun(@(data,use_expts) data(use_expts),wheel_all,use_experiments','uni',false);
+    use_animals = cellfun(@any,use_experiments);
+    
+    D_all = cellfun(@(data,use_expts) data(use_expts),D_all(use_animals),use_experiments(use_animals)','uni',false);
+    fluor_all = cellfun(@(data,use_expts) data(use_expts),fluor_all(use_animals),use_experiments(use_animals)','uni',false);
+    mua_all = cellfun(@(data,use_expts) data(use_expts),mua_all(use_animals),use_experiments(use_animals)','uni',false);
+    wheel_all = cellfun(@(data,use_expts) data(use_expts),wheel_all(use_animals),use_experiments(use_animals)','uni',false);
     if exist('reward_all','var')
-        reward_all = cellfun(@(data,use_expts) data(use_expts),reward_all,use_experiments','uni',false);
+        reward_all = cellfun(@(data,use_expts) data(use_expts),reward_all(use_animals),use_experiments(use_animals)','uni',false);
     end
     if exist('mua_ctxpred_all','var')
-        mua_ctxpred_all = cellfun(@(data,use_expts) data(use_expts),mua_ctxpred_all,use_experiments','uni',false);
+        mua_ctxpred_all = cellfun(@(data,use_expts) data(use_expts),mua_ctxpred_all(use_animals),use_experiments(use_animals)','uni',false);
     end
     if exist('mua_taskpred_all','var')
-        mua_taskpred_all = cellfun(@(data,use_expts) data(use_expts),mua_taskpred_all,use_experiments','uni',false);
-        mua_taskpred_reduced_all = cellfun(@(data,use_expts) data(use_expts),mua_taskpred_reduced_all,use_experiments','uni',false);
+        mua_taskpred_all = cellfun(@(data,use_expts) data(use_expts),mua_taskpred_all(use_animals),use_experiments(use_animals)','uni',false);
+        mua_taskpred_reduced_all = cellfun(@(data,use_expts) data(use_expts),mua_taskpred_reduced_all(use_animals),use_experiments(use_animals)','uni',false);
     end
-end
-
-% If any animals have empty data, remove them
-use_animals = cellfun(@(x) ~isempty(x),D_all);
-D_all = D_all(use_animals);
-fluor_all = fluor_all(use_animals);
-mua_all = mua_all(use_animals);
-wheel_all = wheel_all(use_animals);
-if exist('reward_all','var')
-    reward_all = reward_all(use_animals);
-end
-if exist('mua_ctxpred_all','var')
-    mua_ctxpred_all = mua_ctxpred_all(use_animals);
-end
-if exist('mua_taskpred_all','var')
-    mua_taskpred_all = mua_taskpred_all(use_animals);
-    mua_taskpred_reduced_all = mua_taskpred_reduced_all(use_animals);
+    if exist('ctx_str_k_all','var')
+        ctx_str_k_all = cellfun(@(data,use_expts) data(use_expts),ctx_str_k_all(use_animals),use_experiments(use_animals)','uni',false);
+    end
+    if exist('ctx_wheel_k_all','var')
+        ctx_wheel_k_all = cellfun(@(data,use_expts) data(use_expts),ctx_wheel_k_all(use_animals),use_experiments(use_animals)','uni',false);
+    end
+    if exist('wheel_ctxpred_all','var')
+        wheel_ctxpred_all = cellfun(@(data,use_expts) data(use_expts),wheel_ctxpred_all(use_animals),use_experiments(use_animals)','uni',false);
+    end
 end
 
 % Get number of widefield components and MUA depths

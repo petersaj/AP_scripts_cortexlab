@@ -768,7 +768,7 @@ save_path = 'C:\Users\Andrew\OneDrive for Business\Documents\CarandiniHarrisLab\
 save_fn = ['trial_activity_choiceworld_DECONVTEST'];
 save([save_path filesep save_fn],'-v7.3');
 
-%% DECONV TEST: Choiceworld trial activity W TASK REGRESSION
+%% DECONV TEST: Choiceworld trial activity W TASK REGRESSION + WHEEL
 clear all
 disp('Choiceworld trial activity')
 
@@ -785,14 +785,30 @@ regression_params.use_constant = true;
 
 animals = {'AP024','AP025','AP026','AP027','AP028','AP029'};
 
-fluor_all = cell(length(animals),1);
-mua_all = cell(length(animals),1);
-mua_ctxpred_all = cell(length(animals),1);
-mua_taskpred_all = cell(length(animals),1);
-mua_taskpred_reduced_all = cell(length(animals),1);
-wheel_all = cell(length(animals),1);
-reward_all = cell(length(animals),1);
-D_all = cell(length(animals),1);
+% fluor_all = cell(length(animals),1);
+% mua_all = cell(length(animals),1);
+% mua_ctxpred_all = cell(length(animals),1);
+% mua_taskpred_all = cell(length(animals),1);
+% mua_taskpred_reduced_all = cell(length(animals),1);
+% wheel_ctxpred_all{curr_animal}{curr_day,1} = event_aligned_predicted_wheel(use_trials,:,:);
+% ctx_str_k_all{curr_animal}{curr_day,1} = ctx_str_k_recast;
+% ctx_wheel_k_all{curr_animal}{curr_day,1} = ctx_wheel_k_recast;
+% wheel_all = cell(length(animals),1);
+% reward_all = cell(length(animals),1);
+% D_all = cell(length(animals),1);
+
+% Initialize all saved variables
+fluor_all = cell(1,1);
+mua_all = cell(1,1);
+mua_ctxpred_all = cell(1,1);
+mua_taskpred_all = cell(1,1);
+mua_taskpred_reduced_all = cell(1,1);
+wheel_ctxpred_all = cell(1,1);
+ctx_str_k_all = cell(1,1);
+ctx_wheel_k_all = cell(1,1);
+wheel_all = cell(1,1);
+reward_all = cell(1,1);
+D_all = cell(1,1);
 
 for curr_animal = 1:length(animals)
     
@@ -806,13 +822,13 @@ for curr_animal = 1:length(animals)
     load_parts.imaging = true;
     load_parts.ephys = true;
     
-    fluor_all{curr_animal} = cell(length(experiments),1);
-    mua_all{curr_animal} = cell(length(experiments),1);
-    mua_ctxpred_all{curr_animal} = cell(length(experiments),1);
-    mua_taskpred_all{curr_animal} = cell(length(experiments),1);
-    mua_taskpred_reduced_all{curr_animal} = cell(length(experiments),1);    
-    wheel_all{curr_animal} = cell(length(experiments),1);
-    D_all{curr_animal} = cell(length(experiments),1);
+%     fluor_all{curr_animal} = cell(length(experiments),1);
+%     mua_all{curr_animal} = cell(length(experiments),1);
+%     mua_ctxpred_all{curr_animal} = cell(length(experiments),1);
+%     mua_taskpred_all{curr_animal} = cell(length(experiments),1);
+%     mua_taskpred_reduced_all{curr_animal} = cell(length(experiments),1);    
+%     wheel_all{curr_animal} = cell(length(experiments),1);
+%     D_all{curr_animal} = cell(length(experiments),1);
     
     disp(['Loading ' animal]);
     
@@ -922,26 +938,55 @@ for curr_animal = 1:length(animals)
         %             false,regression_params.use_constant);
         
         %%%% TESTING DECONV
-        [k,predicted_spikes_std,explained_var] = ...
+        [ctx_str_k,predicted_spikes_std,explained_var] = ...
             AP_regresskernel(fVdf_deconv_resample(regression_params.use_svs,:), ...
             binned_spikes_std,kernel_frames,lambda, ...
             regression_params.zs,regression_params.cvfold, ...
             true,regression_params.use_constant);
-        %%%%
         
+        % Shove the k's into the master to save small V's 
+        ctx_str_k_recast = reshape(ChangeU(Udf_aligned(:,:,regression_params.use_svs), ...
+            reshape(ctx_str_k{1},size(ctx_str_k{1},1),[]),U_master(:,:,regression_params.use_svs)), ...
+            size(ctx_str_k{1}));
+                     
         % Re-scale the prediction (subtract offset, multiply, add scaled offset)
-        predicted_spikes = (predicted_spikes_std - squeeze(k{end})).* ...
+        predicted_spikes = (predicted_spikes_std - squeeze(ctx_str_k{end})).* ...
             nanstd(binned_spikes,[],2) + ...
-            nanstd(binned_spikes,[],2).*squeeze(k{end});
+            nanstd(binned_spikes,[],2).*squeeze(ctx_str_k{end});
         
         event_aligned_predicted_mua = ...
             interp1(time_bin_centers,predicted_spikes',t_peri_event)./raster_sample_rate;
         
-        %%% Wheel
-        event_aligned_wheel_raw = interp1(Timeline.rawDAQTimestamps, ...
-            wheel_position,t_peri_event);
-        event_aligned_wheel = bsxfun(@minus,event_aligned_wheel_raw, ...
-            nanmedian(event_aligned_wheel_raw(:,t < 0),2));
+        %%%%
+        
+        %%%% TESTING CTX->WHEEL VELOCITY
+        % Resample wheel, predict both velocity and speed
+        wheel_velocity_resample = interp1(Timeline.rawDAQTimestamps,wheel_velocity,time_bin_centers);
+        wheel_velspeed_resample = [wheel_velocity_resample;abs(wheel_velocity_resample)];
+        wheel_velspeed_resample_std = wheel_velspeed_resample./std(wheel_velocity_resample);
+        
+        [ctx_wheel_k,predicted_wheel_velspeed_std,explained_var] = ...
+            AP_regresskernel(fVdf_deconv_resample(regression_params.use_svs,:), ...
+            wheel_velspeed_resample_std,kernel_frames,lambda, ...
+            regression_params.zs,regression_params.cvfold, ...
+            false,regression_params.use_constant);
+        
+        predicted_wheel_velspeed = predicted_wheel_velspeed_std.* ...
+            std(wheel_velocity_resample);
+        
+        % Shove the k's into the master to save small V's 
+        ctx_wheel_k_recast = reshape(ChangeU(Udf_aligned(:,:,regression_params.use_svs), ...
+            reshape(ctx_wheel_k,size(ctx_wheel_k,1),[]),U_master(:,:,regression_params.use_svs)), ...
+            size(ctx_wheel_k));
+        
+        event_aligned_wheel_ctxpred = ...
+            interp1(time_bin_centers,predicted_wheel_velocity',t_peri_event);
+        
+        %%%%
+        
+        %%% Wheel velocity
+        event_aligned_wheel = interp1(Timeline.rawDAQTimestamps, ...
+            wheel_velocity,t_peri_event);
         
         %%% Reward
         t_bins = [t_peri_event-raster_sample_rate/2,t_peri_event(:,end)+raster_sample_rate/2];
@@ -967,16 +1012,7 @@ for curr_animal = 1:length(animals)
         
         % D.response = (trial_choice(use_trials)'+1)/2+1;
         D.response = 3-(abs((trial_choice(use_trials)'+1)/2)+1);
-        D.repeatNum = ones(sum(use_trials),1);
-        
-        % Store activity and stim
-        fluor_all{curr_animal}{curr_day} = event_aligned_V(use_trials,:,:,:);
-        mua_all{curr_animal}{curr_day} = event_aligned_mua(use_trials,:,:,:);
-        mua_ctxpred_all{curr_animal}{curr_day} = event_aligned_predicted_mua(use_trials,:,:,:);
-        wheel_all{curr_animal}{curr_day} = event_aligned_wheel(use_trials,:,:);
-        reward_all{curr_animal}{curr_day} = event_aligned_reward(use_trials,:,:);
-        D_all{curr_animal}{curr_day} = D;
-        
+        D.repeatNum = ones(sum(use_trials),1);    
         
         %%%%%%%%%%%%%%%%%%%%%%%%%%% TESTING: TASK REGRESSION
      
@@ -1078,24 +1114,58 @@ for curr_animal = 1:length(animals)
             mua_allcat_predicted_reduced(regress_trials,:,curr_depth,:) = ...
                 permute(activity_predicted_reduced_transpose,[2,1,4,3]);                      
         end
-        
-        mua_taskpred_all{curr_animal}{curr_day} = mua_allcat_predicted;
-        mua_taskpred_reduced_all{curr_animal}{curr_day} = mua_allcat_predicted_reduced;
-        
+
         %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
         
+        % Store everything
+        fluor_all{curr_animal,1}{curr_day,1} = event_aligned_V(use_trials,:,:,:);
+        mua_all{curr_animal,1}{curr_day,1} = event_aligned_mua(use_trials,:,:,:);
+        mua_ctxpred_all{curr_animal,1}{curr_day,1} = event_aligned_predicted_mua(use_trials,:,:,:);
+        
+        mua_taskpred_all{curr_animal,1}{curr_day,1} = mua_allcat_predicted;
+        mua_taskpred_reduced_all{curr_animal,1}{curr_day,1} = mua_allcat_predicted_reduced;
+        
+        wheel_all{curr_animal,1}{curr_day,1} = event_aligned_wheel(use_trials,:,:);
+        wheel_ctxpred_all{curr_animal,1}{curr_day,1} = event_aligned_wheel_ctxpred(use_trials,:,:);
+        
+        ctx_str_k_all{curr_animal,1}{curr_day,1} = ctx_str_k_recast;
+        ctx_wheel_k_all{curr_animal,1}{curr_day,1} = ctx_wheel_k_recast;
+        
+        reward_all{curr_animal,1}{curr_day,1} = event_aligned_reward(use_trials,:,:);
+        D_all{curr_animal,1}{curr_day,1} = D;
         
         AP_print_progress_fraction(curr_day,length(experiments));
     end
     
-    clearvars -except n_aligned_depths regression_params animals curr_animal ...
-        t fluor_all mua_all mua_ctxpred_all mua_taskpred_all mua_taskpred_reduced_all wheel_all reward_all D_all
+    clearvars -except curr_animal ...
+        n_aligned_depths regression_params animals t ...
+        fluor_all ...
+        mua_all ...
+        mua_ctxpred_all ...
+        mua_taskpred_all ...
+        mua_taskpred_reduced_all ...
+        wheel_ctxpred_all ...
+        ctx_str_k_all ...
+        ctx_wheel_k_all ...
+        wheel_all ...
+        reward_all ...
+        D_all
     
 end
 
-clearvars -except n_aligned_depths t fluor_all ...
-    mua_all mua_ctxpred_all mua_taskpred_all mua_taskpred_reduced_all ...
-    wheel_all reward_all D_all
+clearvars -except ...
+    n_aligned_depths regression_params animals t ...
+    fluor_all ...
+    mua_all ...
+    mua_ctxpred_all ...
+    mua_taskpred_all ...
+    mua_taskpred_reduced_all ...
+    wheel_ctxpred_all ...
+    ctx_str_k_all ...
+    ctx_wheel_k_all ...
+    wheel_all ...
+    reward_all ...
+    D_all
 
 disp('Finished loading all')
 

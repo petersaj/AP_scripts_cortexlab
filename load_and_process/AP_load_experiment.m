@@ -240,7 +240,8 @@ if block_exists
         % (wheel velocity by smoothing the wheel trace and taking dt/t)
         wheel_smooth_t = 0.05; % seconds
         wheel_smooth_samples = wheel_smooth_t/Timeline.hw.samplingInterval;
-        wheel_velocity = diff(smooth(wheel_position,wheel_smooth_samples));
+        wheel_velocity = interp1(conv(Timeline.rawDAQTimestamps,[1,1]/2,'valid'), ...
+            diff(smooth(wheel_position,wheel_smooth_samples)),Timeline.rawDAQTimestamps)';
         
         surround_time = surround_time(1):Timeline.hw.samplingInterval:surround_time(2);
         pull_times = bsxfun(@plus,stimOn_times,surround_time);

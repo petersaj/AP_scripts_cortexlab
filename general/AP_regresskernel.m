@@ -213,14 +213,14 @@ if any(isinf(k_cv(:))) || any(isinf(predicted_signals(:))) || ...
 end
 
 % Total explained variance (R^2)
-sse_residual = sum((signals-predicted_signals).^2,2);
-sse_total = sum((signals-nanmean(signals,2)).^2,2);
+sse_residual = sum((signals(:,predictable_samples)-predicted_signals(:,predictable_samples)).^2,2);
+sse_total = sum((signals(:,predictable_samples)-nanmean(signals(:,predictable_samples),2)).^2,2);
 explained_var.total = 1-(sse_residual./sse_total);
 
 % Partial explained variance (???? no idea if this is right, unused atm)
 if length(regressors) > 1
-    sse_residual_reduced = sum((signals-predicted_signals_reduced).^2,2);
-    sse_residual_full = sum((signals-predicted_signals).^2,2);
+    sse_residual_reduced = sum((signals(:,predictable_samples)-predicted_signals_reduced(:,predictable_samples,:)).^2,2);
+    sse_residual_full = sum((signals(:,predictable_samples)-predicted_signals(:,predictable_samples,:)).^2,2);
     explained_var.partial = squeeze((sse_residual_reduced-sse_residual_full)./sse_residual_reduced); 
 end
 

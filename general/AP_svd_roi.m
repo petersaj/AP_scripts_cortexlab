@@ -54,11 +54,8 @@ if exist('V','var') && ~isempty(V)
     %         roi_trace(curr_roi,:) = nanmean(U_roi*V);
     %     end
     
-    % NEW: should be valid to mean U_roi first (faster, less memory)
-    U_roi = bsxfun(@rdivide, ...
-        transpose(reshape(U,[],size(U,3))'* ...
-        reshape(roi_mask,[],size(roi_mask,3))), ...
-        sum(reshape(roi_mask,[],size(roi_mask,3)),1)');
+    % NEW: should be valid to weight U_roi first (faster, less memory)
+    U_roi = transpose(reshape(U,[],size(U,3))'*reshape(roi_mask,[],size(roi_mask,3)));
     roi_trace = U_roi*V;
 else
     roi_trace = [];
