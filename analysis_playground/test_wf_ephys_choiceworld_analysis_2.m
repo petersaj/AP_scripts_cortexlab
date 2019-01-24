@@ -21,12 +21,12 @@ trial_choice_allcat = -(D_allcat.response-1.5)*2;
 sample_rate = 1/mean(diff(t));
 
 % Get reaction time
-[move_trial,move_idx] = max(abs(wheel_allcat) > 2,[],2);
+[move_trial,move_idx] = max(abs(wheel_allcat) > 0.02,[],2);
 move_t = t(move_idx)';
 move_t(~move_trial) = Inf;
 
 % Get wheel velocity
-wheel_velocity_allcat = [zeros(size(wheel_allcat,1),1),diff(wheel_allcat,[],2)];
+wheel_velocity_allcat = wheel_allcat;
 [max_speed,max_vel_idx] = max(abs(wheel_velocity_allcat(:,:,1).* ...
     (bsxfun(@times,wheel_velocity_allcat,trial_choice_allcat) > 0)),[],2);
 max_vel = max_speed.*trial_choice_allcat;
@@ -36,6 +36,8 @@ wheel_velocity_allcat_move = wheel_velocity_allcat;
 mua_allcat_move = mua_allcat;
 mua_ctxpred_allcat_move = mua_ctxpred_allcat;
 mua_taskpred_allcat_move = mua_taskpred_allcat;
+mua_taskpred_reduced_allcat_move = mua_taskpred_reduced_allcat;
+
 t_leeway = -t(1);
 leeway_samples = round(t_leeway*(sample_rate));
 for i = 1:size(mua_allcat,1)
@@ -43,6 +45,7 @@ for i = 1:size(mua_allcat,1)
     mua_allcat_move(i,:,:) = circshift(mua_allcat_move(i,:,:),-move_idx(i)+leeway_samples,2);
     mua_ctxpred_allcat_move(i,:,:) = circshift(mua_ctxpred_allcat_move(i,:,:),-move_idx(i)+leeway_samples,2);
     mua_taskpred_allcat_move(i,:,:) = circshift(mua_taskpred_allcat_move(i,:,:),-move_idx(i)+leeway_samples,2);
+    mua_taskpred_reduced_allcat_move(i,:,:) = circshift(mua_taskpred_reduced_allcat_move(i,:,:),-move_idx(i)+leeway_samples,2);
 end
 
 %% Trial-based ctx/task->str prediction accuracy
@@ -52,6 +55,7 @@ trial_contrastside_allcat_early(move_t > 0.5) = NaN;
 
 %%%%%% Plot measured and predicted relating to each kernel
 plot_areas = [1,2,3,1,4];
+plot_reduction = [1,2,2,3,4]; % (which reduced variable to plot)
 plot_conditions = {unique(trial_contrastside_allcat),[-1,1],1:3,[1,3],0:1};
 plot_conditions_compare = { ...
     trial_contrastside_allcat_early, ...  
@@ -77,7 +81,8 @@ for curr_area = 1:length(plot_areas)
     hold on; set(gca,'ColorOrder',plot_cols{curr_area});
     for curr_condition = reshape(plot_conditions{curr_area},1,[])
         curr_trials = plot_conditions_compare{curr_area} == curr_condition;
-        curr_data_mean = nanmean(mua_allcat(curr_trials,:,area_idx),1);
+        curr_data_mean = nanmean(mua_allcat_move(curr_trials,:,area_idx) - ...
+            mua_taskpred_reduced_allcat_move(curr_trials,:,area_idx,plot_reduction(area_idx)),1);
         plot(t,curr_data_mean,'linewidth',2);
     end
     ylabel(['Str ' num2str(area_idx) ' Measured']);
@@ -213,7 +218,7 @@ r2_trials = move_t > 0 & move_t < 0.5;
 trials_animal = arrayfun(@(x) size(vertcat(mua_all{x}{:}),1),1:size(mua_all));
 trials_recording = cellfun(@(x) size(x,1),vertcat(mua_all{:}));
 
-use_split = trials_animal;
+use_split = trials_recording;
 
 r2_trials_exp = mat2cell(r2_trials,use_split,1);
 
@@ -862,7 +867,6 @@ linkaxes([p1,p2]);
 
 use_activity = mua_allcat(:,:,plot_depth) - mua_taskpred_reduced_allcat(:,:,plot_depth,2);
 
-[move_trial,move_idx] = max(abs(wheel_allcat) > 2,[],2);
 t_leeway = -t(1);
 leeway_samples = round(t_leeway*(sample_rate));
 wheel_velocity_allcat_move = wheel_velocity_allcat;
@@ -872,9 +876,13 @@ for i = 1:size(mua_allcat,1)
 end
 
 % Bin maximum velocity
+% (to use max velocity in chosen direction)
 max_speed = max(abs(wheel_velocity_allcat_move(:,plot_t,:).* ...
     (wheel_velocity_allcat_move(:,plot_t,:).*trial_choice_allcat > 0)),[],2);
 max_vel = max_speed.*trial_choice_allcat;
+
+% (to use max velocity regardless of final choice)
+% max_vel = AP_signed_max(wheel_velocity_allcat_move(:,plot_t,:),2);
 
 vis_trials = use_rxn & ...
     trial_side_allcat == -trial_choice_allcat & trial_contrast_allcat > 0;
@@ -1037,43 +1045,55 @@ ctx_wheel_k_avg = fliplr(nanmean(cell2mat(permute(vertcat(ctx_wheel_k_all{:}),[2
 ctx_wheel_k_px_avg = reshape(svdFrameReconstruct( ...
     U_master(:,:,1:size(ctx_wheel_k_avg,1)), ...
     reshape(ctx_wheel_k_avg,size(ctx_wheel_k_avg,1),[])), ...
-    size(U_master,1),size(U_master,2),[]);
+    size(U_master,1),size(U_master,2),[],size(ctx_wheel_k_avg,3));
 
 AP_image_scroll(ctx_wheel_k_px_avg,kernel_t);
 axis image; caxis([-max(abs(caxis)),max(abs(caxis))]);
 colormap(brewermap([],'*RdBu'));
 AP_reference_outline('ccf_aligned','k');
 
-
-
-
+AP_image_scroll(ctx_wheel_k_px_avg-AP_reflect_widefield(ctx_wheel_k_px_avg),kernel_t);
+axis image; caxis([-max(abs(caxis)),max(abs(caxis))]);
+colormap(brewermap([],'*RdBu'));
+AP_reference_outline('ccf_aligned','k');
 
 % Plot binned measured/cortex-predicted wheel velocity
 wheel_ctxpred_allcat = cell2mat(vertcat(wheel_ctxpred_all{:}));
 figure; hold on;
-plot(reshape(wheel_velocity_allcat',[],1)./nanstd(wheel_velocity_allcat(:)));
-plot(reshape(wheel_ctxpred_allcat',[],1)./nanstd(wheel_ctxpred_allcat(:)));
+plot(reshape(wheel_velocity_allcat',[],1));
+plot(reshape(wheel_ctxpred_allcat',[],1));
 
-n_vel_bins = 6;
-vel_amp_edges = linspace(prctile(abs(reshape(wheel_velocity_allcat',[],1)),10), ...
-    prctile(abs(reshape(wheel_velocity_allcat',[],1)),90),n_vel_bins);
+% there's a scaling error for some reason? correct that
+wheel_scale = nanmean(reshape(wheel_velocity_allcat',[],1)./reshape(wheel_ctxpred_allcat',[],1));
+wheel_ctxpred_allcat = wheel_ctxpred_allcat.*wheel_scale;
+plot(reshape(wheel_ctxpred_allcat',[],1));
+
+n_vel_bins = 10;
+vel_amp_edges = linspace(prctile(abs(reshape(wheel_velocity_allcat',[],1)),0), ...
+    prctile(abs(reshape(wheel_velocity_allcat',[],1)),100),n_vel_bins);
 vel_amp_edges = sort([vel_amp_edges,-vel_amp_edges]);
 
 vel_amp_bins = discretize(wheel_velocity_allcat,vel_amp_edges);
 vel_amp_bins(vel_amp_bins == n_vel_bins) = NaN; 
 
-vel_grp_mean = ...
+[vel_grp_mean,vel_grp_sem] = ...
     grpstats(reshape(wheel_velocity_allcat',[],1), ...
-    reshape(vel_amp_bins',[],1),{'nanmean'});
+    reshape(vel_amp_bins',[],1),{'nanmean','nanstd'});
 
-predicted_vel_grp_mean = ...
+[predicted_vel_grp_mean,predicted_vel_grp_sem] = ...
     grpstats(reshape(wheel_ctxpred_allcat',[],1), ...
-    reshape(vel_amp_bins',[],1),{'nanmean'});
+    reshape(vel_amp_bins',[],1),{'nanmean','nanstd'});
 
 figure;
-plot(vel_grp_mean,predicted_vel_grp_mean,'k','linewidth',2);
+errorbar(vel_grp_mean,predicted_vel_grp_mean,predicted_vel_grp_sem, ...
+    predicted_vel_grp_sem,vel_grp_sem,vel_grp_sem,'k','linewidth',2)
 xlabel('Measured wheel velocity');
 ylabel('Cortex-predicted wheel velocity');
+line(ylim,ylim);
+axis tight
+line(xlim,[0,0])
+line([0,0],ylim)
+
 
 
 
