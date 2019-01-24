@@ -7,9 +7,6 @@ data_fn = ['trial_activity_choiceworld_DECONVTEST'];
 exclude_data = true;
 AP_load_concat_normalize_ctx_str;
 
-n_vs = size(fluor_allcat_deriv,3);
-n_depths = size(mua_allcat,3);
-
 % Get trial information
 trial_contrast_allcat = max(D_allcat.stimulus,[],2);
 [~,side_idx] = max(D_allcat.stimulus > 0,[],2);
@@ -334,7 +331,7 @@ for curr_group = 1:length(trial_groups)
     if any(strfind(lower(trial_groups{curr_group}),'move'))
         t_leeway = -t(1);
         leeway_samples = round(t_leeway*(sample_rate));
-        for i = 1:size(fluor_allcat_deriv,1)
+        for i = 1:size(fluor_allcat_deconv,1)
             curr_mua(i,:,:) = circshift(curr_mua(i,:,:),-move_idx(i)+leeway_samples,2);
             curr_mua_ctx(i,:,:) = circshift(curr_mua_ctx(i,:,:),-move_idx(i)+leeway_samples,2);
         end
@@ -642,7 +639,7 @@ title('Cortex - task predicted');
 % 
 % kernel_roi_t = nan(size(mua_allcat));
 % for curr_depth = 1:n_depths
-%     temp_fluor = reshape(permute(fluor_allcat_deriv,[3,2,1]),n_vs,[]);
+%     temp_fluor = reshape(permute(fluor_allcat_deconv,[3,2,1]),n_vs,[]);
 %     temp_fluor(isnan(temp_fluor)) = 0;
 %     kernel_roi_t(:,:,curr_depth) = ...
 %         reshape(sum(convn(temp_fluor,fliplr(ctx_str_k_avg(:,:,curr_depth)),'same'),1),length(t),size(mua_allcat,1))';
@@ -696,18 +693,18 @@ kernel_roi_bw_hemidiff = kernel_roi.bw - AP_reflect_widefield(kernel_roi.bw);
 % Get predicted fluorescence in ROIs
 fluor_kernel_roi_bw = permute(reshape( ...
     AP_svd_roi(U_master(:,:,1:n_vs), ...
-    reshape(permute(fluor_allcat_deriv,[3,2,1]),n_vs,[]),[],[],kernel_roi.bw), ...
-    size(kernel_roi.bw,3),[],size(fluor_allcat_deriv,1)),[3,2,1]);
+    reshape(permute(fluor_allcat_deconv,[3,2,1]),n_vs,[]),[],[],kernel_roi.bw), ...
+    size(kernel_roi.bw,3),[],size(fluor_allcat_deconv,1)),[3,2,1]);
 
 fluor_kernel_roi_bw_hemidiff = permute(reshape( ...
     AP_svd_roi(U_master(:,:,1:n_vs), ...
-    reshape(permute(fluor_allcat_deriv,[3,2,1]),n_vs,[]),[],[],kernel_roi_bw_hemidiff), ...
-    size(kernel_roi_bw_hemidiff,3),[],size(fluor_allcat_deriv,1)),[3,2,1]);
+    reshape(permute(fluor_allcat_deconv,[3,2,1]),n_vs,[]),[],[],kernel_roi_bw_hemidiff), ...
+    size(kernel_roi_bw_hemidiff,3),[],size(fluor_allcat_deconv,1)),[3,2,1]);
 
 fluor_kernel_roi_weighted = permute(reshape( ...
     AP_svd_roi(U_master(:,:,1:n_vs), ...
-    reshape(permute(fluor_allcat_deriv,[3,2,1]),n_vs,[]),[],[],kernel_roi.max_weighted), ...
-    size(kernel_roi.max_weighted,3),[],size(fluor_allcat_deriv,1)),[3,2,1]);
+    reshape(permute(fluor_allcat_deconv,[3,2,1]),n_vs,[]),[],[],kernel_roi.max_weighted), ...
+    size(kernel_roi.max_weighted,3),[],size(fluor_allcat_deconv,1)),[3,2,1]);
 
 
 fluor_kernel_roi_bw_move = fluor_kernel_roi_bw;
