@@ -520,7 +520,8 @@ if imaging_exists && load_parts.imaging
         V = readVfromNPY([experiment_path filesep strrep(spatialComponents_dir.name,'Spatial','Temporal')]);
         frame_t = cam_time;
         
-        framerate = 1./nanmean(diff(frame_t));
+        % Get average framerate (nearest interger to prevent minor errors)
+        framerate = round(1./nanmean(diff(frame_t)));
         
         % Detrend and high-pass filter
         highpassCutoff = 0.01; % Hz
@@ -546,7 +547,9 @@ if imaging_exists && load_parts.imaging
         % Get frame timestamps (assume odd = blue, even = purple for now)
         tn = cam_time(1:2:end);
         th = cam_time(2:2:end);
-        framerate = 1./nanmean(diff(tn));
+        
+        % Get average framerate (nearest interger to prevent minor errors)
+        framerate = round(1./nanmean(diff(tn)));
         
         % Correct hemodynamic signal in blue from green
         % First need to shift alternating signals to be temporally aligned

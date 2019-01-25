@@ -443,8 +443,8 @@ for curr_animal = 1:length(animals)
         lambda = 5;
         %%%%%%%
         
-        kernel_frames = floor(regression_params.kernel_t(1)*sample_rate): ...
-            ceil(regression_params.kernel_t(2)*sample_rate);
+        kernel_frames = round(regression_params.kernel_t(1)*sample_rate): ...
+            round(regression_params.kernel_t(2)*sample_rate);
         
         %         [~,predicted_spikes_std,explained_var] = ...
         %             AP_regresskernel(dfVdf_resample, ...
@@ -535,9 +535,10 @@ for curr_animal = 1:length(animals)
         D.stimulus(L_trials(use_trials),1) = signals_events.trialContrastValues(L_trials & use_trials);
         D.stimulus(R_trials(use_trials),2) = signals_events.trialContrastValues(R_trials & use_trials);
         
-        % D.response = (trial_choice(use_trials)'+1)/2+1;
         D.response = 3-(abs((trial_choice(use_trials)'+1)/2)+1);
         D.repeatNum = ones(sum(use_trials),1);    
+        
+        D.outcome = trial_outcome(use_trials);
         
         %%%%%%%%%%%%%%%%%%%%%%%%%%% TESTING: TASK REGRESSION
      
@@ -581,12 +582,12 @@ for curr_animal = 1:length(animals)
         regressor_labels = {'Stim','Move onset','Go cue','Outcome'};     
         
         t_shifts = {[0,1]; ... % stim
-            [-0.5,2]; ... % move onset
-            [-0.5,1]; ... % go cue
+            [-0.5,1]; ... % move onset
+            [0,0.5]; ... % go cue
             [0,1]}; % outcome
         
-        sample_shifts = cellfun(@(x) floor(x(1)*(sample_rate)): ...
-            ceil(x(2)*(sample_rate)),t_shifts,'uni',false);
+        sample_shifts = cellfun(@(x) round(x(1)*(sample_rate)): ...
+            round(x(2)*(sample_rate)),t_shifts,'uni',false);
         lambda = 0;
         zs = [false,false];
         cvfold = 5;
