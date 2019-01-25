@@ -1666,6 +1666,12 @@ for curr_animal = 1:length(animals)
                 
         %%% Regression (separate regressors to get partial explained variance)
         
+        % Get reaction time for building regressors
+        [move_trial,move_idx] = max(abs(event_aligned_wheel) > 0.02,[],2);
+        move_idx(~move_trial) = NaN;
+        move_t = nan(size(move_idx));
+        move_t(~isnan(move_idx) & move_trial) = t(move_idx(~isnan(move_idx) & move_trial))';
+        
         % Stim regressors
         unique_stim = unique(contrasts(contrasts > 0).*sides');
         stim_contrastsides = ...
@@ -1678,12 +1684,32 @@ for curr_animal = 1:length(animals)
             stim_regressors(curr_stim,:) = histcounts(curr_stim_times,time_bins);
         end    
         
-        % Move onset regressors (L/R)       
-        [move_trial,move_idx] = max(abs(event_aligned_wheel) > 0.02,[],2);
-        move_idx(~move_trial) = NaN;
-        move_t = nan(size(move_idx));
-        move_t(~isnan(move_idx) & move_trial) = t(move_idx(~isnan(move_idx) & move_trial))';
-        
+        % Stim move regressors (one for each stim when it starts to move)       
+        stim_move_regressors = zeros(length(unique_stim),length(time_bin_centers));
+        for curr_stim = 1:length(unique_stim)
+            
+            % (find the first photodiode flip after the stim azimuth has
+            % moved past a threshold)
+            
+            curr_stimOn_times = stimOn_times(stim_contrastsides == unique_stim(curr_stim));
+            
+            azimuth_move_threshold = 5; % degrees to consider stim moved
+            stim_move_times_signals = ...
+                signals_events.stimAzimuthTimes( ...
+                abs(signals_events.stimAzimuthValues - 90) > azimuth_move_threshold);
+            curr_stim_move_times_signals = arrayfun(@(x) ...
+                stim_move_times_signals(find(stim_move_times_signals > ...
+                curr_stimOn_times(x),1)),1:length(curr_stimOn_times));
+            
+            curr_stim_move_times_photodiode = arrayfun(@(x) ...
+                photodiode_flip_times(find(photodiode_flip_times > ...
+                curr_stim_move_times_signals(x),1)),1:length(curr_stim_move_times_signals));            
+            
+            stim_move_regressors(curr_stim,:) = histcounts(curr_stim_move_times_photodiode,time_bins);
+                        
+        end      
+
+        % Move onset regressors (L/R)          
         move_time_L_absolute = arrayfun(@(x) t_peri_event(x,move_idx(x)), ...
             find(~isnan(move_idx) & trial_choice(1:length(stimOn_times))' == -1));
         move_time_R_absolute = arrayfun(@(x) t_peri_event(x,move_idx(x)), ...
@@ -1692,6 +1718,12 @@ for curr_animal = 1:length(animals)
         move_onset_regressors = zeros(2,length(time_bin_centers));
         move_onset_regressors(1,:) = histcounts(move_time_L_absolute,time_bins);
         move_onset_regressors(2,:) = histcounts(move_time_R_absolute,time_bins);
+        
+        % Move ongoing regressors (L/R)
+        wheel_velocity_interp = interp1(Timeline.rawDAQTimestamps,wheel_velocity,time_bin_centers);
+        move_ongoing_regressors = zeros(2,length(time_bin_centers));
+        move_ongoing_regressors(1,wheel_velocity_interp < 0) = 1;
+        move_ongoing_regressors(2,wheel_velocity_interp > 0) = 1;
         
         % Go cue regressors - separate for early/late move
         % (using signals timing - not precise but looks good)
@@ -1721,15 +1753,15 @@ for curr_animal = 1:length(animals)
         t_shifts = {[0,1]; ... % stim
             [-0.5,1]; ... % move onset
             [0,0.5]; ... % go cue
-            [0,1]}; % outcome
+            [-0.5,1]}; % outcome
         
         sample_shifts = cellfun(@(x) round(x(1)*(sample_rate)): ...
             round(x(2)*(sample_rate)),t_shifts,'uni',false);
         lambda = 0;
         zs = [false,false];
         cvfold = 5;
-        use_constant = true;
-        return_constant = true;       
+        use_constant = false;
+        return_constant = false;       
         
         % Regression task->MUA
         mua_taskpred_k = cell(length(regressors)+return_constant,n_depths);
@@ -1738,7 +1770,8 @@ for curr_animal = 1:length(animals)
             repmat(nan(size(event_aligned_mua)),1,1,1,length(regressors));       
         for curr_depth = 1:n_depths
                         
-            activity = single(binned_spikes(curr_depth,:));
+            baseline = nanmean(reshape(event_aligned_mua(:,t < 0,curr_depth),[],1)*raster_sample_rate);
+            activity = single(binned_spikes(curr_depth,:)) - baseline;
             
             % Skip if nothing in this depth
             if ~any(activity(:))
@@ -1766,8 +1799,9 @@ for curr_animal = 1:length(animals)
         mua_ctxpred_taskpred_reduced = ...
             repmat(nan(size(event_aligned_mua)),1,1,1,length(regressors));       
         for curr_depth = 1:n_depths
-                        
-            activity = single(predicted_spikes(curr_depth,:));
+                      
+            baseline = nanmean(reshape(event_aligned_mua_ctxpred(:,t < 0,curr_depth),[],1)*raster_sample_rate);
+            activity = single(predicted_spikes(curr_depth,:))-baseline;
             
             % Skip if nothing in this depth
             if ~any(activity(:))
