@@ -12,9 +12,9 @@ dim_idx = permute([1:size(x,dim)]',dim_reorder_reverse);
 max_abs_idx = bsxfun(@eq,max_abs_sub,dim_idx);
 signed_max = sum(x.*max_abs_idx,dim);
 
-% sanity check that max values are indexed correctly
-if ~all(max_abs(:) == abs(signed_max(:)))
-    error('indexing error')
+% sanity check that max values are indexed correctly (ignore NaNs)
+if ~all(max_abs(~isnan(signed_max)) == abs(signed_max(~isnan(signed_max))))
+    error('AP_signed_max indexing error')
 end
 
 

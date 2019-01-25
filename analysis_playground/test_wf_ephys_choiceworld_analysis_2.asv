@@ -1040,7 +1040,7 @@ linkaxes([p1,p2,p3]);
 %% Average kernels
 
 figure;
-p = nan(n_regressors,n_depths);
+
 n_regressors = 4;
 task_regressors_avg = cell(n_regressors,n_depths);
 for curr_regressor = 1:n_regressors
@@ -1053,12 +1053,10 @@ for curr_regressor = 1:n_regressors
         task_regressors_avg{curr_regressor,curr_depth} = ...
             nanmean(cat(3,curr_regressors{:}),3);
         
-        p(curr_regressor,curr_depth) = ...
-            subplot(n_regressors,n_depths,curr_depth+(curr_regressor-1)*n_regressors); 
-        plot(task_regressors_avg{curr_regressor,curr_depth}');
+        subplot(n_regressors,n_depths,plot(task_regressors_avg
     end
 end
-linkaxes(p,'y');
+
 
 kernel_t = (round(regression_params.kernel_t(1)*sample_rate): ...
             round(regression_params.kernel_t(2)*sample_rate))/sample_rate;
