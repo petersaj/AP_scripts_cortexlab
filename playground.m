@@ -1691,7 +1691,8 @@ for curr_animal = 1:length(animals)
             % (find the first photodiode flip after the stim azimuth has
             % moved past a threshold)
             
-            curr_stimOn_times = stimOn_times(stim_contrastsides == unique_stim(curr_stim));
+            curr_stimOn_times = stimOn_times(trial_outcome(1:length(stimOn_times)) ~= 0 & ...
+                stim_contrastsides == unique_stim(curr_stim));
             
             azimuth_move_threshold = 5; % degrees to consider stim moved
             stim_move_times_signals = ...
