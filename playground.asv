@@ -1717,8 +1717,8 @@ for curr_animal = 1:length(animals)
         stim_center_regressors = zeros(length(unique_contrasts),length(time_bin_centers));
         for curr_contrast = 1:length(unique_contrasts)
             
-            % (find the last photodiode flip before the reward)
-            curr_stimOn_times = stimOn_times(trial_outcome(1:length(stimOn_times)) == 1 & ... 
+            % (fin
+            curr_stimOn_times = stimOn_times( trial_outcome == 1 & ... 
                 stim_contrasts == unique_contrasts(curr_contrast));
                         
             curr_reward_times = arrayfun(@(x) ...
@@ -1727,9 +1727,23 @@ for curr_animal = 1:length(animals)
             
             curr_prereward_photodiode_times = arrayfun(@(x) ...
                 photodiode_flip_times(find(photodiode_flip_times < ...
-                curr_reward_times(x),1,'last')),1:length(curr_reward_times));                  
+                curr_reward_times(x),1,'last')),1:length(curr_reward_times));
             
-            stim_center_regressors(curr_contrast,:) = histcounts(curr_prereward_photodiode_times,time_bins);
+            
+            
+            azimuth_move_threshold = 5; % degrees to consider stim moved
+            stim_move_times_signals = ...
+                signals_events.stimAzimuthTimes( ...
+                abs(signals_events.stimAzimuthValues - 90) > azimuth_move_threshold);
+            curr_stim_move_times_signals = arrayfun(@(x) ...
+                stim_move_times_signals(find(stim_move_times_signals > ...
+                curr_stimOn_times(x),1)),1:length(curr_stimOn_times));
+            
+            curr_stim_move_times_photodiode = arrayfun(@(x) ...
+                photodiode_flip_times(find(photodiode_flip_times > ...
+                curr_stim_move_times_signals(x),1)),1:length(curr_stim_move_times_signals));            
+            
+            stim_move_regressors(curr_stim,:) = histcounts(curr_stim_move_times_photodiode,time_bins);
                         
         end    
 
@@ -1771,13 +1785,15 @@ for curr_animal = 1:length(animals)
             signals_events.responseTimes(trial_outcome == -1),time_bins);
         
         % Concatenate regressors, set parameters
-        regressors = {stim_regressors;move_onset_regressors;go_cue_regressors;outcome_regressors};
-        regressor_labels = {'Stim','Move onset','Go cue','Outcome'};     
+        regressors = {stim_regressors;stim_move_regressors;...
+            move_onset_regressors;go_cue_regressors;outcome_regressors};
+        regressor_labels = {'Stim','Stim move','Move ongoing','Go cue','Outcome'};     
         
-        t_shifts = {[0,0.5]; ... % stim
+        t_shifts = {[0,1]; ... % stim
+            [0,0.5]; ... % stim move
             [-0.5,1]; ... % move
-            [-0.5,0.5]; ... % go cue
-            [0,1]}; % outcome
+            [0,0.5]; ... % go cue
+            [-0.5,1]}; % outcome
         
         sample_shifts = cellfun(@(x) round(x(1)*(sample_rate)): ...
             round(x(2)*(sample_rate)),t_shifts,'uni',false);
