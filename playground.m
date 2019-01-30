@@ -996,10 +996,11 @@ save([save_path filesep save_fn],'-v7.3');
 
 %% DECONVTEST: Cortex -> kernel-aligned striatum map (protocols separately)
 
-% Parameters for regression
 n_aligned_depths = 4;
+
+% Parameters for regression
 regression_params.use_svs = 1:50;
-regression_params.skip_seconds = 60;
+regression_params.skip_seconds = 20;
 regression_params.upsample_factor = 1;
 regression_params.kernel_t = [-0.5,0.5];
 regression_params.zs = [false,false];
@@ -1013,8 +1014,6 @@ regression_params.use_constant = true;
 protocols = {'vanillaChoiceworld'};
 
 for protocol = protocols
-
-    n_aligned_depths = 4;
     
     animals = {'AP024','AP025','AP026','AP027','AP028','AP029'};
     
@@ -1065,7 +1064,7 @@ for protocol = protocols
                 end
             end
             warning('Overriding lambda');
-            lambda = 10;
+            lambda = 5;
             
             %%% Prepare data for regression
             
@@ -1097,12 +1096,8 @@ for protocol = protocols
                 binned_spikes(curr_depth,:) = histcounts(curr_spike_times,time_bins);
             end
             
-            % Filter and std-normalize spikes
-            lowpassCutoff = 6; % Hz
-            [b100s, a100s] = butter(2, lowpassCutoff/((sample_rate)/2), 'low');
-            binned_spikes_filt = filter(b100s,a100s,binned_spikes,[],2);           
-            binned_spikes_filt_std = binned_spikes_filt./nanstd(binned_spikes_filt,[],2);
-            binned_spikes_filt_std(isnan(binned_spikes_filt_std)) = 0;
+            binned_spikes_std = binned_spikes./nanstd(binned_spikes,[],2);
+            binned_spikes_std(isnan(binned_spikes_std)) = 0;         
                                  
             %%% Regress MUA from cortex
             kernel_frames = floor(regression_params.kernel_t(1)*sample_rate): ...
@@ -1117,7 +1112,7 @@ for protocol = protocols
             %%%% TESTING DECONV
             [k,predicted_spikes_std,explained_var] = ...
                 AP_regresskernel(fVdf_deconv_resample, ...
-                binned_spikes_filt_std,kernel_frames,lambda, ...
+                binned_spikes_std,kernel_frames,lambda, ...
                 regression_params.zs,regression_params.cvfold, ...
                 false,regression_params.use_constant);
             %%%%      
@@ -1251,15 +1246,15 @@ use_rxn = move_t > 0 & move_t < 0.5;
 
 move_align = true;
 
-spacing = nanstd(fluor_roi_deriv(:))*5;
+spacing = nanstd(fluor_roi_deconv(:))*5;
 
-fluor_roi_deriv_hemidiff = fluor_roi_deriv(:,:,1:size(wf_roi,1)) - fluor_roi_deriv(:,:,size(wf_roi,1)+1:end);
+fluor_roi_deconv_hemidiff = fluor_roi_deconv(:,:,1:size(wf_roi,1)) - fluor_roi_deconv(:,:,size(wf_roi,1)+1:end);
 
 figure; hold on;
 for curr_plot_condition = 1:size(plot_conditions,1)
     
     curr_trials = plot_id == curr_plot_condition & use_rxn;    
-    curr_data = fluor_roi_deriv_hemidiff(curr_trials,:,:);
+    curr_data = fluor_roi_deconv_hemidiff(curr_trials,:,:);
     
     if move_align
         % Re-align to movement onset
@@ -1389,34 +1384,585 @@ end
 
 
 % Get reduced-model fluorescence
-fluor_allcat_deriv_reduced_stim = fluor_allcat_deriv - fluor_allcat_predicted_reduced(:,:,:,1);
+% fluor_allcat_deconv_reduced_stim = fluor_allcat_deconv - fluor_allcat_predicted_reduced(:,:,:,1);
 
-fluor_allcat_deriv_move = fluor_allcat_deriv;
-fluor_allcat_deriv_reduced_move = fluor_allcat_deriv - fluor_allcat_predicted_reduced(:,:,:,2);
+fluor_allcat_deconv_move = fluor_allcat_deconv;
+% fluor_allcat_deconv_reduced_move = fluor_allcat_deconv - fluor_allcat_predicted_reduced(:,:,:,2);
 t_leeway = 0.5;
 leeway_samples = round(t_leeway*(sample_rate));
-for i = 1:size(fluor_allcat_deriv,1)
-    fluor_allcat_deriv_move(i,:,:) = circshift(fluor_allcat_deriv_move(i,:,:),-move_idx(i)+leeway_samples,2);
-    fluor_allcat_deriv_reduced_move(i,:,:) = circshift(fluor_allcat_deriv_reduced_move(i,:,:),-move_idx(i)+leeway_samples,2);
+for i = 1:size(fluor_allcat_deconv,1)
+    fluor_allcat_deconv_move(i,:,:) = circshift(fluor_allcat_deconv_move(i,:,:),-move_idx(i)+leeway_samples,2);
+%     fluor_allcat_deconv_reduced_move(i,:,:) = circshift(fluor_allcat_deconv_reduced_move(i,:,:),-move_idx(i)+leeway_samples,2);
 end
 
-plot_rxn_time = [0.1,0.3];
+plot_rxn_time = [0,0.5];
 
-vis_correct_L_trials = ...
+plot_trials = trial_side_allcat == 1 & ...
     trial_contrast_allcat > 0 & ...
-    trial_side_allcat == 1 & ...
     trial_choice_allcat == -1 & ...
     move_t >= plot_rxn_time(1) & ...
     move_t <= plot_rxn_time(2);
 
-vis_correct_L_px = svdFrameReconstruct(U_master(:,:,1:n_vs), ...
-    squeeze(nanmean(fluor_allcat_deriv_reduced_move(vis_correct_L_trials,:,:),1))');
+plot_px = svdFrameReconstruct(U_master(:,:,1:n_vs), ...
+    squeeze(nanmean(fluor_allcat_deconv_move(plot_trials,:,:),1))');
 
-AP_image_scroll(vis_correct_L_px,t);
+AP_image_scroll(plot_px,t);
 axis image;
 caxis([-max(abs(caxis)),max(abs(caxis))]);
 colormap(brewermap([],'*RdBu'));
 AP_reference_outline('ccf_aligned','k');
+
+
+
+
+% Plot fluorescence mirroring and combining sides (side = ipsi/contra now)
+mirror_matrix = reshape(U_master(:,:,1:n_vs),[],n_vs)'* ...
+    reshape(AP_reflect_widefield(U_master(:,:,1:n_vs)),[],n_vs);
+fluor_allcat_deconv_mirror = reshape(transpose( ...
+    mirror_matrix*reshape(fluor_allcat_deconv,[],n_vs)'),size(fluor_allcat_deconv));
+fluor_allcat_deconv_move_mirror = reshape(transpose( ...
+    mirror_matrix*reshape(fluor_allcat_deconv_move,[],n_vs)'),size(fluor_allcat_deconv_move));
+
+plot_rxn_time = [0,0.5];
+
+plot_side = 1;
+plot_choice = 1;
+plot_contrast = trial_contrast_allcat == 0;
+plot_move_t = move_t >= plot_rxn_time(1) & move_t <= plot_rxn_time(2);
+
+curr_trials_standard = ...%trial_side_allcat == plot_side & ...
+    trial_choice_allcat == plot_choice & ...
+    plot_contrast & plot_move_t; 
+curr_trials_mirror = ...%trial_side_allcat == -plot_side & ...
+    trial_choice_allcat == -plot_choice & ...
+    plot_contrast & plot_move_t; 
+
+curr_px = svdFrameReconstruct(U_master(:,:,1:n_vs),squeeze(nanmean( ...
+    [fluor_allcat_deconv_move(curr_trials_standard,:,:); ...
+    fluor_allcat_deconv_move_mirror(curr_trials_mirror,:,:)],1))');
+
+AP_image_scroll(curr_px,t);
+axis image;
+caxis([-max(abs(caxis)),max(abs(caxis))]);
+colormap(brewermap([],'*RdBu'));
+AP_reference_outline('ccf_aligned','k');
+
+
+
+%% testing ctx->wheel with mirror symmetry
+
+clear all
+
+n_aligned_depths = 4;
+
+% Regression parameters
+regression_params.use_svs = 1:50;
+regression_params.skip_seconds = 20;
+regression_params.upsample_factor = 1;
+regression_params.kernel_t = [-0.5,0.5];
+regression_params.zs = [false,false];
+regression_params.cvfold = 5;
+regression_params.use_constant = true;
+
+animals = {'AP024','AP025','AP026','AP027','AP028','AP029'};
+
+% Initialize all saved variables for indexing
+fluor_all = cell(1,1);
+mua_all = cell(1,1);
+mua_ctxpred_all = cell(1,1);
+mua_taskpred_k_all = cell(1,1);
+mua_taskpred_all = cell(1,1);
+mua_taskpred_reduced_all = cell(1,1);
+mua_ctxpred_taskpred_k_all = cell(1,1);
+mua_ctxpred_taskpred_all = cell(1,1);
+mua_ctxpred_taskpred_reduced_all = cell(1,1);
+wheel_ctxpred_all = cell(1,1);
+ctx_str_k_all = cell(1,1);
+ctx_wheel_k_all = cell(1,1);
+wheel_all = cell(1,1);
+outcome_all = cell(1,1);
+D_all = cell(1,1);
+
+for curr_animal = 1:length(animals)
+    
+    animal = animals{curr_animal};
+    protocol = 'vanillaChoiceworld';
+    experiments = AP_find_experiments(animal,protocol);
+    
+    experiments = experiments([experiments.imaging] & [experiments.ephys]);
+    
+    load_parts.cam = false;
+    load_parts.imaging = true;
+    load_parts.ephys = true;    
+    
+    disp(['Loading ' animal]);
+    
+    for curr_day = 1:length(experiments)
+        
+        day = experiments(curr_day).day;
+        experiment = experiments(curr_day).experiment;
+        
+        % Load experiment
+        str_align = 'kernel';
+        AP_load_experiment;
+        
+        % Prepare fluorescence
+        % Convert U to master U
+        load('C:\Users\Andrew\OneDrive for Business\Documents\CarandiniHarrisLab\analysis\wf_ephys_choiceworld\wf_processing\wf_alignment\U_master.mat');
+        Udf_aligned = single(AP_align_widefield(animal,day,Udf));
+        fVdf_recast = ChangeU(Udf_aligned,fVdf,U_master);
+        
+        % Set components to keep
+        use_components = 1:200;
+        
+        % (aligned striatum depths)
+        n_depths = n_aligned_depths;
+        depth_group = aligned_str_depth_group;
+        
+        % Get event-aligned activity
+        raster_window = [-0.5,2];
+        upsample_factor = 1;
+        raster_sample_rate = 1/(framerate*upsample_factor);
+        t = raster_window(1):raster_sample_rate:raster_window(2);
+        
+        % Align (only to stim)
+        use_align = stimOn_times;
+        use_align(isnan(use_align)) = 0;
+        
+        t_peri_event = bsxfun(@plus,use_align,t);
+        
+        %%% Fluorescence
+        event_aligned_V = ...
+            interp1(frame_t,fVdf_recast(use_components,:)',t_peri_event);
+        
+        %%% MUA
+        event_aligned_mua = nan(length(stimOn_times),length(t),n_depths);
+        t_bins = [t_peri_event-raster_sample_rate/2,t_peri_event(:,end)+raster_sample_rate/2];
+        for curr_depth = 1:n_depths
+            curr_spikes = spike_times_timeline(depth_group == curr_depth);
+            % (for only msns in depth group)
+            %                 curr_spikes = spike_times_timeline(depth_group == curr_depth & ...
+            %                     ismember(spike_templates,find(msn)));
+            
+            event_aligned_mua(:,:,curr_depth) = cell2mat(arrayfun(@(x) ...
+                histcounts(curr_spikes,t_bins(x,:)), ...
+                [1:size(t_peri_event,1)]','uni',false))./raster_sample_rate;
+        end
+        
+        %%% Regressed fluorescence -> MUA
+        
+        % Get time points to bin
+        sample_rate = framerate*regression_params.upsample_factor;
+        time_bins = frame_t(find(frame_t > ...
+            regression_params.skip_seconds,1)):1/sample_rate: ...
+            frame_t(find(frame_t-frame_t(end) < ...
+            -regression_params.skip_seconds,1,'last'));
+        time_bin_centers = time_bins(1:end-1) + diff(time_bins)/2;
+        
+        % Get upsampled dVdf's
+        dfVdf_resample = interp1(conv2(frame_t,[1,1]/2,'valid'), ...
+            diff(fVdf,[],2)',time_bin_centers)';
+        
+        %%%% TESTING: DECONV
+        fVdf_deconv = AP_deconv_wf(fVdf);
+        fVdf_deconv(isnan(fVdf_deconv)) = 0;
+        fVdf_deconv_resample = interp1(frame_t,fVdf_deconv',time_bin_centers)';
+        %%%%
+        
+        binned_spikes = zeros(n_depths,length(time_bin_centers));
+        for curr_depth = 1:n_depths
+            curr_spike_times = spike_times_timeline(depth_group == curr_depth);
+            binned_spikes(curr_depth,:) = histcounts(curr_spike_times,time_bins);
+        end
+        binned_spikes_std = binned_spikes./nanstd(binned_spikes,[],2);
+        binned_spikes_std(isnan(binned_spikes_std)) = 0;        
+        
+        % Load lambda from previously estimated and saved
+        lambda_fn = 'C:\Users\Andrew\OneDrive for Business\Documents\CarandiniHarrisLab\analysis\wf_ephys_choiceworld\ephys_processing\ctx-str_lambda';
+        load(lambda_fn);
+        curr_animal_idx = strcmp(animal,{ctx_str_lambda.animal});
+        if any(curr_animal_idx)
+            curr_day_idx = strcmp(day,ctx_str_lambda(curr_animal_idx).day);
+            if any(curr_day_idx)
+                lambda = ctx_str_lambda(curr_animal_idx).best_lambda(curr_day_idx);
+            end
+        end
+        
+        %%%%% TEST
+        warning('OVERRIDING LAMBDA')
+        lambda = 5;
+        %%%%%%%
+        
+        kernel_frames = round(regression_params.kernel_t(1)*sample_rate): ...
+            round(regression_params.kernel_t(2)*sample_rate);
+        
+        %         [~,predicted_spikes_std,explained_var] = ...
+        %             AP_regresskernel(dfVdf_resample, ...
+        %             binned_spikes_std,kernel_frames,lambda, ...
+        %             regression_params.zs,regression_params.cvfold, ...
+        %             false,regression_params.use_constant);
+        
+        %%%% TESTING DECONV
+        [ctx_str_k,predicted_spikes_std,explained_var] = ...
+            AP_regresskernel(fVdf_deconv_resample(regression_params.use_svs,:), ...
+            binned_spikes_std,kernel_frames,lambda, ...
+            regression_params.zs,regression_params.cvfold, ...
+            true,regression_params.use_constant);
+        
+        % Shove the k's into the master to save small V's 
+        ctx_str_k_recast = reshape(ChangeU(Udf_aligned(:,:,regression_params.use_svs), ...
+            reshape(ctx_str_k{1},size(ctx_str_k{1},1),[]),U_master(:,:,regression_params.use_svs)), ...
+            size(ctx_str_k{1}));
+                     
+        % Re-scale the prediction (subtract offset, multiply, add scaled offset)
+        predicted_spikes = (predicted_spikes_std - squeeze(ctx_str_k{end})).* ...
+            nanstd(binned_spikes,[],2) + ...
+            nanstd(binned_spikes,[],2).*squeeze(ctx_str_k{end});
+        
+        event_aligned_mua_ctxpred = ...
+            interp1(time_bin_centers,predicted_spikes',t_peri_event)./raster_sample_rate;
+        
+        %%%%
+        
+        %%%% TESTING CTX->WHEEL VELOCITY
+        
+        % TEST: add mirror to force symmetric kernel
+        mirror_matrix = reshape(Udf,[],size(Udf,3))'* ...
+            reshape(AP_reflect_widefield(Udf),[],size(Udf,3));
+        fVdf_deconv_resample_mirror = mirror_matrix*fVdf_deconv_resample;
+            
+        % Resample wheel, predict both velocity and speed
+        wheel_velocity_resample = interp1(Timeline.rawDAQTimestamps,wheel_velocity,time_bin_centers);
+        wheel_velspeed_resample = [wheel_velocity_resample;abs(wheel_velocity_resample)];
+        wheel_velspeed_resample_std = wheel_velspeed_resample./std(wheel_velocity_resample);
+        
+        [ctx_wheel_k,predicted_wheel_velspeed_std,explained_var] = ...
+            AP_regresskernel(fVdf_deconv_resample_mirror(regression_params.use_svs,:), ...
+            wheel_velspeed_resample_std,kernel_frames,lambda, ...
+            regression_params.zs,regression_params.cvfold, ...
+            false,false);
+        
+        predicted_wheel_velspeed = predicted_wheel_velspeed_std.* ...
+            std(wheel_velocity_resample);
+        
+        % Shove the k's into the master to save small V's 
+        ctx_wheel_k_recast = reshape(ChangeU(Udf_aligned(:,:,regression_params.use_svs), ...
+            reshape(ctx_wheel_k,size(ctx_wheel_k,1),[]),U_master(:,:,regression_params.use_svs)), ...
+            size(ctx_wheel_k));
+        
+        event_aligned_wheel_ctxpred = ...
+            interp1(time_bin_centers,predicted_wheel_velspeed(1,:)',t_peri_event);
+        
+        %%%%
+        
+        %%% Wheel velocity
+        event_aligned_wheel = interp1(Timeline.rawDAQTimestamps, ...
+            wheel_velocity,t_peri_event);
+        
+        %%% Outcome (reward page 1, punish page 2)
+        % (note incorrect outcome imprecise from signals, but looks good)
+        t_bins = [t_peri_event-raster_sample_rate/2,t_peri_event(:,end)+raster_sample_rate/2];
+        
+        event_aligned_outcome = zeros(size(t_peri_event,1),size(t_peri_event,2),2);
+        
+        event_aligned_outcome(trial_outcome == 1,:,1) = ...
+            (cell2mat(arrayfun(@(x) ...
+            histcounts(reward_t_timeline,t_bins(x,:)), ...
+            find(trial_outcome == 1)','uni',false))) > 0;
+        
+        event_aligned_outcome(trial_outcome == -1,:,2) = ...
+            (cell2mat(arrayfun(@(x) ...
+            histcounts(signals_events.responseTimes,t_bins(x,:)), ...
+            find(trial_outcome == -1)','uni',false))) > 0;
+        
+        % Pick trials to use
+        use_trials = ...
+            trial_outcome ~= 0 & ...
+            ~signals_events.repeatTrialValues(1:n_trials) & ...
+            stim_to_feedback < 1.5;
+        
+        % Get behavioural data
+        D = struct;
+        D.stimulus = zeros(sum(use_trials),2);
+        
+        L_trials = signals_events.trialSideValues(1:n_trials) == -1;
+        R_trials = signals_events.trialSideValues(1:n_trials) == 1;
+        
+        D.stimulus(L_trials(use_trials),1) = signals_events.trialContrastValues(L_trials & use_trials);
+        D.stimulus(R_trials(use_trials),2) = signals_events.trialContrastValues(R_trials & use_trials);
+        
+        D.response = 3-(abs((trial_choice(use_trials)'+1)/2)+1);
+        D.repeatNum = ones(sum(use_trials),1);    
+        
+        D.outcome = reshape(trial_outcome(use_trials),[],1);
+        
+        %%%%%%%%%%%%%%%%%%%%%%%%%%% TESTING: TASK REGRESSION (LONG TRACE)
+                
+        %%% Regression (separate regressors to get partial explained variance)
+        
+        % Get reaction time for building regressors
+        [move_trial,move_idx] = max(abs(event_aligned_wheel) > 0.02,[],2);
+        move_idx(~move_trial) = NaN;
+        move_t = nan(size(move_idx));
+        move_t(~isnan(move_idx) & move_trial) = t(move_idx(~isnan(move_idx) & move_trial))';
+        
+        % Stim regressors
+        unique_stim = unique(contrasts(contrasts > 0).*sides');
+        stim_contrastsides = ...
+            signals_events.trialSideValues(1:length(stimOn_times)).* ...
+            signals_events.trialContrastValues(1:length(stimOn_times));
+        
+        stim_regressors = zeros(length(unique_stim),length(time_bin_centers));
+        for curr_stim = 1:length(unique_stim)
+            curr_stim_times = stimOn_times(stim_contrastsides == unique_stim(curr_stim));
+            stim_regressors(curr_stim,:) = histcounts(curr_stim_times,time_bins);
+        end    
+        
+        % Stim move regressors (one for each stim when it starts to move)       
+        stim_move_regressors = zeros(length(unique_stim),length(time_bin_centers));
+        for curr_stim = 1:length(unique_stim)
+            
+            % (find the first photodiode flip after the stim azimuth has
+            % moved past a threshold)
+            
+            curr_stimOn_times = stimOn_times(trial_outcome(1:length(stimOn_times)) ~= 0 & ...
+                stim_contrastsides == unique_stim(curr_stim));
+            
+            azimuth_move_threshold = 5; % degrees to consider stim moved
+            stim_move_times_signals = ...
+                signals_events.stimAzimuthTimes( ...
+                abs(signals_events.stimAzimuthValues - 90) > azimuth_move_threshold);
+            curr_stim_move_times_signals = arrayfun(@(x) ...
+                stim_move_times_signals(find(stim_move_times_signals > ...
+                curr_stimOn_times(x),1)),1:length(curr_stimOn_times));
+            
+            curr_stim_move_times_photodiode = arrayfun(@(x) ...
+                photodiode_flip_times(find(photodiode_flip_times > ...
+                curr_stim_move_times_signals(x),1)),1:length(curr_stim_move_times_signals));            
+            
+            stim_move_regressors(curr_stim,:) = histcounts(curr_stim_move_times_photodiode,time_bins);
+                        
+        end      
+        
+        % Stim center regressors (one for each stim when it's stopped during reward)    
+        unique_contrasts = unique(contrasts(contrasts > 0));
+        stim_contrasts = ...
+            signals_events.trialContrastValues(1:length(stimOn_times));
+        
+        stim_center_regressors = zeros(length(unique_contrasts),length(time_bin_centers));
+        for curr_contrast = 1:length(unique_contrasts)
+            
+            % (find the last photodiode flip before the reward)
+            curr_stimOn_times = stimOn_times(trial_outcome(1:length(stimOn_times)) == 1 & ... 
+                stim_contrasts == unique_contrasts(curr_contrast));
+                        
+            curr_reward_times = arrayfun(@(x) ...
+                reward_t_timeline(find(reward_t_timeline > ...
+                curr_stimOn_times(x),1)),1:length(curr_stimOn_times));
+            
+            curr_prereward_photodiode_times = arrayfun(@(x) ...
+                photodiode_flip_times(find(photodiode_flip_times < ...
+                curr_reward_times(x),1,'last')),1:length(curr_reward_times));                  
+            
+            stim_center_regressors(curr_contrast,:) = histcounts(curr_prereward_photodiode_times,time_bins);
+                        
+        end    
+
+        % Move onset regressors (L/R)          
+        move_time_L_absolute = arrayfun(@(x) t_peri_event(x,move_idx(x)), ...
+            find(~isnan(move_idx) & trial_choice(1:length(stimOn_times))' == -1));
+        move_time_R_absolute = arrayfun(@(x) t_peri_event(x,move_idx(x)), ...
+            find(~isnan(move_idx) & trial_choice(1:length(stimOn_times))' == 1));
+        
+        move_onset_regressors = zeros(2,length(time_bin_centers));
+        move_onset_regressors(1,:) = histcounts(move_time_L_absolute,time_bins);
+        move_onset_regressors(2,:) = histcounts(move_time_R_absolute,time_bins);
+        
+        % Move ongoing regressors (L/R)
+        wheel_velocity_interp = interp1(Timeline.rawDAQTimestamps,wheel_velocity,time_bin_centers);
+        move_ongoing_regressors = zeros(2,length(time_bin_centers));
+        move_ongoing_regressors(1,wheel_velocity_interp < 0) = 1;
+        move_ongoing_regressors(2,wheel_velocity_interp > 0) = 1;
+        
+        % Go cue regressors - separate for early/late move
+        % (using signals timing - not precise but looks good)
+        if length(signals_events.interactiveOnTimes) ~= length(move_t)
+            error('Different number of interactive ons and move times')
+        end
+        
+        go_cue_regressors = zeros(2,length(time_bin_centers));
+        go_cue_regressors(1,:) = histcounts( ...
+            signals_events.interactiveOnTimes(move_t <= 0.5),time_bins);
+        go_cue_regressors(2,:) = histcounts( ...
+            signals_events.interactiveOnTimes(move_t > 0.5),time_bins);
+        
+        % Outcome regressors
+        % (using signals timing - not precise but looks good)
+        outcome_regressors = zeros(2,length(time_bin_centers));
+        
+        outcome_regressors(1,:) = histcounts( ...
+            reward_t_timeline,time_bins);
+        outcome_regressors(2,:) = histcounts( ...
+            signals_events.responseTimes(trial_outcome == -1),time_bins);
+        
+        % Concatenate regressors, set parameters
+        regressors = {stim_regressors;move_onset_regressors;go_cue_regressors;outcome_regressors};
+        regressor_labels = {'Stim','Move onset','Go cue','Outcome'};     
+        
+        t_shifts = {[0,0.5]; ... % stim
+            [-0.5,1]; ... % move
+            [-0.1,0.5]; ... % go cue
+            [-0.5,1]}; % outcome
+        
+        sample_shifts = cellfun(@(x) round(x(1)*(sample_rate)): ...
+            round(x(2)*(sample_rate)),t_shifts,'uni',false);
+        lambda = 0;
+        zs = [false,false];
+        cvfold = 5;
+        use_constant = false;
+        return_constant = false;       
+        
+        % Regression task->MUA
+        mua_taskpred_k = cell(length(regressors)+return_constant,n_depths);
+        mua_taskpred = nan(size(event_aligned_mua));
+        mua_taskpred_reduced = ...
+            repmat(nan(size(event_aligned_mua)),1,1,1,length(regressors));       
+        for curr_depth = 1:n_depths
+                        
+            baseline = nanmean(reshape(event_aligned_mua(:,t < 0,curr_depth),[],1)*raster_sample_rate);
+            activity = single(binned_spikes(curr_depth,:)) - baseline;
+            
+            % Skip if nothing in this depth
+            if ~any(activity(:))
+                continue
+            end
+                   
+            [task_kernel,activity_predicted,expl_var,activity_predicted_reduced] = ...
+                AP_regresskernel(regressors,activity,sample_shifts, ...
+                lambda,zs,cvfold,return_constant,use_constant);
+            
+            mua_taskpred_k(:,curr_depth) = task_kernel;
+            
+            mua_taskpred(:,:,curr_depth) = ...
+                interp1(time_bin_centers,activity_predicted',t_peri_event)./raster_sample_rate;
+            
+            mua_taskpred_reduced(:,:,curr_depth,:) = cell2mat(arrayfun(@(x) ...
+                interp1(time_bin_centers,activity_predicted_reduced(:,:,x)', ...
+                t_peri_event)./raster_sample_rate,permute(1:length(regressors),[1,3,4,2]),'uni',false));       
+            
+        end
+        
+        % Regression task->MUA-ctxpred
+        mua_ctxpred_taskpred_k = cell(length(regressors)+return_constant,n_depths);
+        mua_ctxpred_taskpred = nan(size(event_aligned_mua));
+        mua_ctxpred_taskpred_reduced = ...
+            repmat(nan(size(event_aligned_mua)),1,1,1,length(regressors));       
+        for curr_depth = 1:n_depths
+                      
+            baseline = nanmean(reshape(event_aligned_mua_ctxpred(:,t < 0,curr_depth),[],1)*raster_sample_rate);
+            activity = single(predicted_spikes(curr_depth,:))-baseline;
+            
+            % Skip if nothing in this depth
+            if ~any(activity(:))
+                continue
+            end
+            
+            % (there are NaNs because of skipped edges)
+            nan_samples = isnan(activity);
+            activity_predicted = nan(size(activity));
+            activity_predicted_reduced = nan(size(activity,1), ...
+                size(activity,2),length(regressors));
+            
+            [task_kernel,activity_predicted(~nan_samples), ...
+                expl_var,activity_predicted_reduced(:,~nan_samples,:)] = ...
+                AP_regresskernel( ...
+                cellfun(@(x) x(:,~nan_samples),regressors,'uni',false), ...
+                activity(~nan_samples),sample_shifts, ...
+                lambda,zs,cvfold,return_constant,use_constant);
+            
+            mua_ctxpred_taskpred_k(:,curr_depth) = task_kernel;
+            
+            mua_ctxpred_taskpred(:,:,curr_depth) = ...
+                interp1(time_bin_centers,activity_predicted',t_peri_event)./raster_sample_rate;
+            
+            mua_ctxpred_taskpred_reduced(:,:,curr_depth,:) = cell2mat(arrayfun(@(x) ...
+                interp1(time_bin_centers,activity_predicted_reduced(:,:,x)', ...
+                t_peri_event)./raster_sample_rate,permute(1:length(regressors),[1,3,4,2]),'uni',false));       
+            
+        end
+
+        %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+        
+        % Store everything
+        fluor_all{curr_animal,1}{curr_day,1} = event_aligned_V(use_trials,:,:,:);
+        mua_all{curr_animal,1}{curr_day,1} = event_aligned_mua(use_trials,:,:,:);
+        
+        ctx_str_k_all{curr_animal,1}{curr_day,1} = ctx_str_k_recast;
+        mua_ctxpred_all{curr_animal,1}{curr_day,1} = event_aligned_mua_ctxpred(use_trials,:,:,:);
+        
+        mua_taskpred_k_all{curr_animal,1}{curr_day,1} = mua_taskpred_k;
+        mua_taskpred_all{curr_animal,1}{curr_day,1} = mua_taskpred(use_trials,:,:,:);
+        mua_taskpred_reduced_all{curr_animal,1}{curr_day,1} = mua_taskpred_reduced(use_trials,:,:,:);
+        
+        mua_ctxpred_taskpred_k_all{curr_animal,1}{curr_day,1} = mua_ctxpred_taskpred_k;
+        mua_ctxpred_taskpred_all{curr_animal,1}{curr_day,1} = mua_ctxpred_taskpred(use_trials,:,:,:);
+        mua_ctxpred_taskpred_reduced_all{curr_animal,1}{curr_day,1} = mua_ctxpred_taskpred_reduced(use_trials,:,:,:);
+        
+        wheel_all{curr_animal,1}{curr_day,1} = event_aligned_wheel(use_trials,:,:);
+        
+        ctx_wheel_k_all{curr_animal,1}{curr_day,1} = ctx_wheel_k_recast;
+        wheel_ctxpred_all{curr_animal,1}{curr_day,1} = event_aligned_wheel_ctxpred(use_trials,:,:);   
+        
+        outcome_all{curr_animal,1}{curr_day,1} = event_aligned_outcome(use_trials,:,:);
+        D_all{curr_animal,1}{curr_day,1} = D;
+        
+        AP_print_progress_fraction(curr_day,length(experiments));
+    end
+    
+    clearvars -except curr_animal ...
+        n_aligned_depths regression_params animals t ...
+        fluor_all ...
+        mua_all ...
+        mua_ctxpred_all ...
+        mua_taskpred_k_all ...
+        mua_taskpred_all ...
+        mua_taskpred_reduced_all ...
+        mua_ctxpred_taskpred_k_all ...
+        mua_ctxpred_taskpred_all ...
+        mua_ctxpred_taskpred_reduced_all ...
+        wheel_ctxpred_all ...
+        ctx_str_k_all ...
+        ctx_wheel_k_all ...
+        wheel_all ...
+        outcome_all ...
+        D_all
+    
+end
+
+clearvars -except ...
+    n_aligned_depths regression_params animals t ...
+    fluor_all ...
+    mua_all ...
+    mua_ctxpred_all ...
+    mua_taskpred_k_all ...
+    mua_taskpred_all ...
+    mua_taskpred_reduced_all ...
+    mua_ctxpred_taskpred_k_all ...
+    mua_ctxpred_taskpred_all ...
+    mua_ctxpred_taskpred_reduced_all ...
+    wheel_ctxpred_all ...
+    ctx_str_k_all ...
+    ctx_wheel_k_all ...
+    wheel_all ...
+    outcome_all ...
+    D_all
+
+disp('Finished loading all')
+
+save_path = 'C:\Users\Andrew\OneDrive for Business\Documents\CarandiniHarrisLab\analysis\wf_ephys_choiceworld\paper\data';
+save_fn = ['trial_activity_choiceworld_SYMWHEELTEST'];
+save([save_path filesep save_fn],'-v7.3');
+
 
 
 

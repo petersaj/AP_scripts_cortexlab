@@ -105,7 +105,7 @@ fluor_allcat_deconv = AP_deconv_wf(fluor_allcat);
 load('C:\Users\Andrew\OneDrive for Business\Documents\CarandiniHarrisLab\analysis\wf_ephys_choiceworld\wf_processing\wf_alignment\U_master');
 wf_roi_fn = 'C:\Users\Andrew\OneDrive for Business\Documents\CarandiniHarrisLab\analysis\wf_ephys_choiceworld\wf_processing\wf_rois\wf_roi';
 load(wf_roi_fn);
-wf_roi = wf_roi(:,1);
+% wf_roi = wf_roi(:,1);
 n_rois = numel(wf_roi);
 
 fluor_roi_deconv = permute(reshape( ...

@@ -484,7 +484,7 @@ for curr_animal = 1:length(animals)
             AP_regresskernel(fVdf_deconv_resample(regression_params.use_svs,:), ...
             wheel_velspeed_resample_std,kernel_frames,lambda, ...
             regression_params.zs,regression_params.cvfold, ...
-            false,regression_params.use_constant);
+            false,false);
         
         predicted_wheel_velspeed = predicted_wheel_velspeed_std.* ...
             std(wheel_velocity_resample);
@@ -650,13 +650,13 @@ for curr_animal = 1:length(animals)
             signals_events.responseTimes(trial_outcome == -1),time_bins);
         
         % Concatenate regressors, set parameters
-        regressors = {stim_regressors;move_ongoing_regressors;go_cue_regressors;outcome_regressors};
+        regressors = {stim_regressors;move_onset_regressors;go_cue_regressors;outcome_regressors};
         regressor_labels = {'Stim','Move onset','Go cue','Outcome'};     
         
         t_shifts = {[0,0.5]; ... % stim
             [-0.5,1]; ... % move
-            [-0.5,0.5]; ... % go cue
-            [0,1]}; % outcome
+            [-0.1,0.5]; ... % go cue
+            [-0.5,1]}; % outcome
         
         sample_shifts = cellfun(@(x) round(x(1)*(sample_rate)): ...
             round(x(2)*(sample_rate)),t_shifts,'uni',false);
@@ -804,7 +804,7 @@ clearvars -except ...
 disp('Finished loading all')
 
 save_path = 'C:\Users\Andrew\OneDrive for Business\Documents\CarandiniHarrisLab\analysis\wf_ephys_choiceworld\paper\data';
-save_fn = ['trial_activity_choiceworld_DECONVTEST_MOVEONGOINGTEST'];
+save_fn = ['trial_activity_choiceworld_DECONVTEST'];
 save([save_path filesep save_fn],'-v7.3');
 
 
@@ -1988,14 +1988,14 @@ save_fn = ['trial_activity_passive_choiceworld_naive'];
 save([save_path filesep save_fn],'-v7.3');
 
 
-%% Regress task events to cortex/striatum activity
+%% Regress task events to cortex/striatum activity (all concatenated)
 
 data_fn = ['trial_activity_choiceworld_DECONVTEST'];
 exclude_data = true;
 
 AP_load_concat_normalize_ctx_str;
  
-n_vs = size(fluor_allcat_deriv,3);
+n_vs = size(fluor_allcat_deconv,3);
 n_depths = size(mua_allcat,3);
 
 % Get trial information
@@ -2008,7 +2008,7 @@ trial_choice_allcat = -(D_allcat.response-1.5)*2;
 sample_rate = 1./mean(diff(t));
 
 % Get reaction time
-[move_trial,move_idx] = max(abs(wheel_allcat(:,:,1)) > 2,[],2);
+[move_trial,move_idx] = max(abs(wheel_allcat) > 0.02,[],2);
 move_t = t(move_idx)';
 move_t(~move_trial) = Inf;
 
@@ -2033,9 +2033,8 @@ for curr_condition_idx = 1:length(contrastsides)
 end
 
 % Move onset regressors (L/R)
-[~,move_idx] = max(abs(wheel_allcat) > 2,[],2);
 move_onset_regressors = zeros(size(wheel_allcat,1),size(wheel_allcat,2),2);
-for curr_trial = 1:size(move_onset_regressors,1)
+for curr_trial = find(move_trial)'
     
     % To use binary
     if trial_choice_allcat(curr_trial) == -1
@@ -2078,15 +2077,9 @@ go_cue_regressors = zeros(size(wheel_allcat,1),size(wheel_allcat,2));
 go_cue_regressors(move_t <= 0.5,find(t > 0.5,1),1) = 1;
 go_cue_regressors(move_t > 0.5,find(t > 0.5,1),2) = 1;
 
-% Reward regressors
-reward_regressor = zeros(size(reward_allcat,1),length(t));
-for curr_trial = 1:size(reward_allcat,1)
-   curr_reward = find(reward_allcat(curr_trial,:));
-   for i = curr_reward
-       curr_reward_t = t(i);
-       reward_regressor(curr_trial,find(t > curr_reward_t,1)) = 1;
-   end
-end
+% Outcome regressors
+% (using signals timing - not precise but looks good)
+outcome_regressors = outcome_allcat;
 
 % Day regressors
 % (allow a separate offset for each day)
@@ -2101,58 +2094,43 @@ for curr_day = 1:length(day_trials)
         day_trials_cumulative(curr_day+1),:,curr_day) = 1;
 end
 
-% regressors = {stim_regressors;move_onset_regressors;move_ongoing_regressors;go_cue_regressors;reward_allcat_regressor};
-% regressor_labels = {'Stim','Move onset','Move ongoing','Go cue','Reward'};
-% 
-% % Set regression parameters
-% regress_trials = true(size(move_t));
-% t_shifts = {[-0.1,0.6]; ... % stim
-%     [-0.2,0.5]; ... % move onset
-%     [0,0]; ... % move ongoing
-%     [-0.05,0.3]; ... % go cue
-%     [-0.2,0.6]}; % reward
+% Time in trial
+trial_time_regressors = zeros(size(wheel_allcat));
+trial_time_regressors(:,find(t > 0,1)) = 1;
 
-%%%%% REMOVING MOVE ONGOING
-regressors = {stim_regressors;move_onset_regressors;go_cue_regressors;reward_regressor;day_regressors};
-regressor_labels = {'Stim','Move onset','Go cue','Reward','Day'};
+% Concatenate regressors, set parameters
+regressors = {stim_regressors;move_onset_regressors;go_cue_regressors;outcome_regressors};
+regressor_labels = {'Stim','Move onset','Go cue','Outcome'};
 
-% % Set regression parameters
-% regress_trials = true(size(move_t));
-% t_shifts = {[-0.1,0.6]; ... % stim
-%     [-0.2,0.5]; ... % move onset
-%     [-0.05,0.3]; ... % go cue
-%     [-0.2,0.6]}; % reward
-
-% (after sparse regression update)
-regress_trials = true(size(move_t));
-t_shifts = {[0,1]; ... % stim
-    [-0.5,2]; ... % move onset
-    [-0.5,1]; ... % go cue
-    [0,1];... % reward
-    [0,0]}; % day
-%%%%%
+t_shifts = {[0,0.5]; ... % stim
+    [-0.5,1]; ... % move
+    [-0.1,0.5]; ... % go cue
+    [-0.5,1]; ... % outcome
+    };
 
 sample_shifts = cellfun(@(x) round(x(1)*(sample_rate)): ...
     round(x(2)*(sample_rate)),t_shifts,'uni',false);
 lambda = 0;
 zs = [false,false];
-cvfold = 10;
-use_constant = true;
-return_constant = true;
+cvfold = 5;
+use_constant = false;
+return_constant = false;
+
 
 %%% Do regression on fluor
 disp('Regressing task to cortex');
-fluor_allcat_predicted = nan(size(fluor_allcat_deriv));
+fluor_allcat_predicted = nan(size(fluor_allcat_deconv));
 fluor_allcat_predicted_reduced = ...
-    repmat(nan(size(fluor_allcat_deriv)),1,1,1,length(regressors));
+    repmat(nan(size(fluor_allcat_deconv)),1,1,1,length(regressors));
 fluor_kernel = cell(length(regressors)+return_constant,n_vs);
 for curr_v = 1:n_vs
     
-    activity = fluor_allcat_deriv(regress_trials,:,curr_v);
+    baseline = nanmean(reshape(fluor_allcat_deconv(:,t < 0,curr_v),[],1));   
+    activity = fluor_allcat_deconv(:,:,curr_v) - baseline;
     
     activity_reshape = reshape(activity',[],1)';
     regressors_reshape = cellfun(@(x) ...
-        reshape(permute(x(regress_trials,:,:),[2,1,3]),[],size(x,3))',regressors,'uni',false);
+        reshape(permute(x(:,:,:),[2,1,3]),[],size(x,3))',regressors,'uni',false);
     
     warning off
     [kernel,activity_predicted_reshape,expl_var,activity_predicted_reduced_reshape] = AP_regresskernel( ...
@@ -2170,9 +2148,9 @@ for curr_v = 1:n_vs
         activity_predicted_reduced_reshape;
       
     % Store predicted/reduced predicted/kernels
-    fluor_allcat_predicted(regress_trials,:,curr_v) = ...
+    fluor_allcat_predicted(:,:,curr_v) = ...
         permute(activity_predicted_transpose,[2,1,3]);
-    fluor_allcat_predicted_reduced(regress_trials,:,curr_v,:) = ...
+    fluor_allcat_predicted_reduced(:,:,curr_v,:) = ...
         permute(activity_predicted_reduced_transpose,[2,1,4,3]);   
     fluor_kernel(:,curr_v) = kernel;
     
@@ -2189,11 +2167,12 @@ mua_kernel = cell(length(regressors)+return_constant,n_depths);
 for curr_depth = 1:n_depths
     
     % Convert MUA to single for GPU memory (fluorescence is already single)
-    activity = single(mua_allcat(regress_trials,:,curr_depth));
+    baseline = nanmean(reshape(mua_allcat(:,t < 0,curr_depth),[],1));   
+    activity = single(mua_allcat(:,:,curr_depth)) - baseline;
     
     activity_reshape = reshape(activity',[],1)';
     regressors_reshape = cellfun(@(x) ...
-        reshape(permute(x(regress_trials,:,:),[2,1,3]),[],size(x,3))',regressors,'uni',false);
+        reshape(permute(x(:,:,:),[2,1,3]),[],size(x,3))',regressors,'uni',false);
 
     [kernel,activity_predicted_reshape,expl_var,activity_predicted_reduced_reshape] = AP_regresskernel( ...
         cellfun(@(x) x(:,~isnan(activity_reshape)),regressors_reshape,'uni',false), ...
@@ -2209,9 +2188,9 @@ for curr_depth = 1:n_depths
         activity_predicted_reduced_reshape;
     
     % Store predicted/reduced predicted/kernels
-    mua_allcat_predicted(regress_trials,:,curr_depth) = ...
+    mua_allcat_predicted(:,:,curr_depth) = ...
         permute(activity_predicted_transpose,[2,1,3]);
-    mua_allcat_predicted_reduced(regress_trials,:,curr_depth,:) = ...
+    mua_allcat_predicted_reduced(:,:,curr_depth,:) = ...
         permute(activity_predicted_reduced_transpose,[2,1,4,3]);   
     mua_kernel(:,curr_depth) = kernel;
     
@@ -2228,11 +2207,12 @@ predicted_mua_kernel = cell(length(regressors)+return_constant,n_depths);
 for curr_depth = 1:n_depths
     
     % Convert MUA to single for GPU memory (fluorescence is already single)
-    activity = single(predicted_mua_std_allcat(regress_trials,:,curr_depth));
+    baseline = nanmean(reshape(mua_ctxpred_allcat(:,t < 0,curr_depth),[],1));   
+    activity = single(mua_ctxpred_allcat(:,:,curr_depth)) - baseline;
     
     activity_reshape = reshape(activity',[],1)';
     regressors_reshape = cellfun(@(x) ...
-        reshape(permute(x(regress_trials,:,:),[2,1,3]),[],size(x,3))',regressors,'uni',false);
+        reshape(permute(x(:,:,:),[2,1,3]),[],size(x,3))',regressors,'uni',false);
     
     [kernel,activity_predicted_reshape,expl_var,activity_predicted_reduced_reshape] = AP_regresskernel( ...
         cellfun(@(x) x(:,~isnan(activity_reshape)),regressors_reshape,'uni',false), ...
@@ -2248,9 +2228,9 @@ for curr_depth = 1:n_depths
         activity_predicted_reduced_reshape;
     
     % Store predicted/reduced predicted/kernels
-    predicted_mua_allcat_predicted(regress_trials,:,curr_depth) = ...
+    predicted_mua_allcat_predicted(:,:,curr_depth) = ...
         permute(activity_predicted_transpose,[2,1,3]);
-    predicted_mua_allcat_predicted_reduced(regress_trials,:,curr_depth,:) = ...
+    predicted_mua_allcat_predicted_reduced(:,:,curr_depth,:) = ...
         permute(activity_predicted_reduced_transpose,[2,1,4,3]);   
     predicted_mua_kernel(:,curr_depth) = kernel;
     
@@ -2264,7 +2244,7 @@ end
 save_path = 'C:\Users\Andrew\OneDrive for Business\Documents\CarandiniHarrisLab\analysis\wf_ephys_choiceworld\paper\data';
 save_fn = ['trial_activity_choiceworld_task_regression'];
 save([save_path filesep save_fn], ...
-    'regressors','regressor_labels','t_shifts','regress_trials', ...
+    'regressors','regressor_labels','t_shifts', ...
     'fluor_allcat_predicted','fluor_allcat_predicted_reduced','fluor_kernel', ...
     'mua_allcat_predicted','mua_allcat_predicted_reduced','mua_kernel', ...
     'predicted_mua_allcat_predicted','predicted_mua_allcat_predicted_reduced','predicted_mua_kernel','-v7.3');

@@ -138,9 +138,9 @@ for curr_recording = 1:length(recordings)
         %% Resample and concatenate data
         % Get time points to query
         sample_rate = framerate*upsample_factor;
-        time_bins = frame_t(find(frame_t > ...
+        time_bins = frame_t(find(frame_t >= ...
             skip_seconds,1)):1/sample_rate: ...
-            frame_t(find(frame_t-frame_t(end) < ...
+            frame_t(find(frame_t-frame_t(end) <= ...
             -skip_seconds,1,'last'));
         time_bin_centers = time_bins(1:end-1) + diff(time_bins)/2;
         time_bin_centers_all{curr_exp} = time_bin_centers;
@@ -274,7 +274,7 @@ for curr_recording = 1:length(recordings)
     use_constant = true;
 
     % Find optimal regression lambda
-    lambda_range = [0,0.06];
+    lambda_range = [0,20];
     n_lambdas = 60;
     
     lambdas = linspace(lambda_range(1),lambda_range(2),n_lambdas)';

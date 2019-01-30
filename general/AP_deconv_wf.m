@@ -16,7 +16,7 @@ lowpassCutoff = 10;
 gcamp6s_kernel_mean_filt = single(filtfilt(b100s,a100s,double(gcamp6s_kernel_mean)));
 
 % Use -300:300ms of the kernel
-use_kernel_t = abs(gcamp6s_kernel.regression_t) < 0.3;
+use_kernel_t = abs(gcamp6s_kernel.regression_t) < Inf;
 gcamp6s_kernel_mean_use = gcamp6s_kernel_mean_filt(use_kernel_t);
 
 % Get valid time from kernel (assume time-symmetric)

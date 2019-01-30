@@ -1065,7 +1065,7 @@ for protocol = protocols
                 end
             end
             warning('Overriding lambda');
-            lambda = 10;
+            lambda = 5;
             
             %%% Prepare data for regression
             
@@ -1097,12 +1097,9 @@ for protocol = protocols
                 binned_spikes(curr_depth,:) = histcounts(curr_spike_times,time_bins);
             end
             
-            % Filter and std-normalize spikes
-            lowpassCutoff = 6; % Hz
-            [b100s, a100s] = butter(2, lowpassCutoff/((sample_rate)/2), 'low');
-            binned_spikes_filt = filter(b100s,a100s,binned_spikes,[],2);           
-            binned_spikes_filt_std = binned_spikes_filt./nanstd(binned_spikes_filt,[],2);
-            binned_spikes_filt_std(isnan(binned_spikes_filt_std)) = 0;
+            binned_spikes_std = binned_spikes./nanstd(binned_spikes,[],2);
+            binned_spikes_std(isnan(binned_spikes_std)) = 0;
+         
                                  
             %%% Regress MUA from cortex
             kernel_frames = floor(regression_params.kernel_t(1)*sample_rate): ...
@@ -1251,15 +1248,15 @@ use_rxn = move_t > 0 & move_t < 0.5;
 
 move_align = true;
 
-spacing = nanstd(fluor_roi_deriv(:))*5;
+spacing = nanstd(fluor_roi_deconv(:))*5;
 
-fluor_roi_deriv_hemidiff = fluor_roi_deriv(:,:,1:size(wf_roi,1)) - fluor_roi_deriv(:,:,size(wf_roi,1)+1:end);
+fluor_roi_deconv_hemidiff = fluor_roi_deconv(:,:,1:size(wf_roi,1)) - fluor_roi_deconv(:,:,size(wf_roi,1)+1:end);
 
 figure; hold on;
 for curr_plot_condition = 1:size(plot_conditions,1)
     
     curr_trials = plot_id == curr_plot_condition & use_rxn;    
-    curr_data = fluor_roi_deriv_hemidiff(curr_trials,:,:);
+    curr_data = fluor_roi_deconv_hemidiff(curr_trials,:,:);
     
     if move_align
         % Re-align to movement onset
@@ -1389,30 +1386,29 @@ end
 
 
 % Get reduced-model fluorescence
-fluor_allcat_deriv_reduced_stim = fluor_allcat_deriv - fluor_allcat_predicted_reduced(:,:,:,1);
+% fluor_allcat_deconv_reduced_stim = fluor_allcat_deconv - fluor_allcat_predicted_reduced(:,:,:,1);
 
-fluor_allcat_deriv_move = fluor_allcat_deriv;
-fluor_allcat_deriv_reduced_move = fluor_allcat_deriv - fluor_allcat_predicted_reduced(:,:,:,2);
+fluor_allcat_deconv_move = fluor_allcat_deconv;
+% fluor_allcat_deconv_reduced_move = fluor_allcat_deconv - fluor_allcat_predicted_reduced(:,:,:,2);
 t_leeway = 0.5;
 leeway_samples = round(t_leeway*(sample_rate));
-for i = 1:size(fluor_allcat_deriv,1)
-    fluor_allcat_deriv_move(i,:,:) = circshift(fluor_allcat_deriv_move(i,:,:),-move_idx(i)+leeway_samples,2);
-    fluor_allcat_deriv_reduced_move(i,:,:) = circshift(fluor_allcat_deriv_reduced_move(i,:,:),-move_idx(i)+leeway_samples,2);
+for i = 1:size(fluor_allcat_deconv,1)
+    fluor_allcat_deconv_move(i,:,:) = circshift(fluor_allcat_deconv_move(i,:,:),-move_idx(i)+leeway_samples,2);
+%     fluor_allcat_deconv_reduced_move(i,:,:) = circshift(fluor_allcat_deconv_reduced_move(i,:,:),-move_idx(i)+leeway_samples,2);
 end
 
-plot_rxn_time = [0.1,0.3];
+plot_rxn_time = [0,0.5];
 
-vis_correct_L_trials = ...
+plot_trials = trial_side_allcat == 1 & ...
     trial_contrast_allcat > 0 & ...
-    trial_side_allcat == 1 & ...
     trial_choice_allcat == -1 & ...
     move_t >= plot_rxn_time(1) & ...
     move_t <= plot_rxn_time(2);
 
-vis_correct_L_px = svdFrameReconstruct(U_master(:,:,1:n_vs), ...
-    squeeze(nanmean(fluor_allcat_deriv_reduced_move(vis_correct_L_trials,:,:),1))');
+plot_px = svdFrameReconstruct(U_master(:,:,1:n_vs), ...
+    squeeze(nanmean(fluor_allcat_deconv_move(plot_trials,:,:),1))');
 
-AP_image_scroll(vis_correct_L_px,t);
+AP_image_scroll(plot_px,t);
 axis image;
 caxis([-max(abs(caxis)),max(abs(caxis))]);
 colormap(brewermap([],'*RdBu'));
@@ -1420,10 +1416,44 @@ AP_reference_outline('ccf_aligned','k');
 
 
 
-%% --> Choiceworld trial activity (trying long trace regression)
+
+% Plot fluorescence mirroring and combining sides (side = ipsi/contra now)
+mirror_matrix = reshape(U_master(:,:,1:n_vs),[],n_vs)'* ...
+    reshape(AP_reflect_widefield(U_master(:,:,1:n_vs)),[],n_vs);
+fluor_allcat_deconv_mirror = reshape(transpose( ...
+    mirror_matrix*reshape(fluor_allcat_deconv,[],n_vs)'),size(fluor_allcat_deconv));
+fluor_allcat_deconv_move_mirror = reshape(transpose( ...
+    mirror_matrix*reshape(fluor_allcat_deconv_move,[],n_vs)'),size(fluor_allcat_deconv_move));
+
+plot_rxn_time = [0,0.5];
+
+plot_side = 1;
+plot_choice = 1;
+plot_contrast = trial_contrast_allcat == 0;
+plot_move_t = move_t >= plot_rxn_time(1) & move_t <= plot_rxn_time(2);
+
+curr_trials_standard = ...%trial_side_allcat == plot_side & ...
+    trial_choice_allcat == plot_choice & ...
+    plot_contrast & plot_move_t; 
+curr_trials_mirror = ...%trial_side_allcat == -plot_side & ...
+    trial_choice_allcat == -plot_choice & ...
+    plot_contrast & plot_move_t; 
+
+curr_px = svdFrameReconstruct(U_master(:,:,1:n_vs),squeeze(nanmean( ...
+    [fluor_allcat_deconv_move(curr_trials_standard,:,:); ...
+    fluor_allcat_deconv_move_mirror(curr_trials_mirror,:,:)],1))');
+
+AP_image_scroll(curr_px,t);
+axis image;
+caxis([-max(abs(caxis)),max(abs(caxis))]);
+colormap(brewermap([],'*RdBu'));
+AP_reference_outline('ccf_aligned','k');
+
+
+
+%% testing ctx->wheel with mirror symmetry
 
 clear all
-disp('Choiceworld trial activity')
 
 n_aligned_depths = 4;
 
@@ -1597,16 +1627,22 @@ for curr_animal = 1:length(animals)
         %%%%
         
         %%%% TESTING CTX->WHEEL VELOCITY
+        
+        % TEST: add mirror to force symmetric kernel
+        mirror_matrix = reshape(Udf,[],size(Udf,3))'* ...
+            reshape(AP_reflect_widefield(Udf),[],size(Udf,3));
+        fVdf_deconv_resample_mirror = mirror_matrix*fVdf_deconv_resample;
+            
         % Resample wheel, predict both velocity and speed
         wheel_velocity_resample = interp1(Timeline.rawDAQTimestamps,wheel_velocity,time_bin_centers);
         wheel_velspeed_resample = [wheel_velocity_resample;abs(wheel_velocity_resample)];
         wheel_velspeed_resample_std = wheel_velspeed_resample./std(wheel_velocity_resample);
         
         [ctx_wheel_k,predicted_wheel_velspeed_std,explained_var] = ...
-            AP_regresskernel(fVdf_deconv_resample(regression_params.use_svs,:), ...
+            AP_regresskernel(fVdf_deconv_resample_mirror(regression_params.use_svs,:), ...
             wheel_velspeed_resample_std,kernel_frames,lambda, ...
             regression_params.zs,regression_params.cvfold, ...
-            false,regression_params.use_constant);
+            false,false);
         
         predicted_wheel_velspeed = predicted_wheel_velspeed_std.* ...
             std(wheel_velocity_resample);
@@ -1691,7 +1727,8 @@ for curr_animal = 1:length(animals)
             % (find the first photodiode flip after the stim azimuth has
             % moved past a threshold)
             
-            curr_stimOn_times = stimOn_times(stim_contrastsides == unique_stim(curr_stim));
+            curr_stimOn_times = stimOn_times(trial_outcome(1:length(stimOn_times)) ~= 0 & ...
+                stim_contrastsides == unique_stim(curr_stim));
             
             azimuth_move_threshold = 5; % degrees to consider stim moved
             stim_move_times_signals = ...
@@ -1717,8 +1754,8 @@ for curr_animal = 1:length(animals)
         stim_center_regressors = zeros(length(unique_contrasts),length(time_bin_centers));
         for curr_contrast = 1:length(unique_contrasts)
             
-            % (fin
-            curr_stimOn_times = stimOn_times( trial_outcome == 1 & ... 
+            % (find the last photodiode flip before the reward)
+            curr_stimOn_times = stimOn_times(trial_outcome(1:length(stimOn_times)) == 1 & ... 
                 stim_contrasts == unique_contrasts(curr_contrast));
                         
             curr_reward_times = arrayfun(@(x) ...
@@ -1727,23 +1764,9 @@ for curr_animal = 1:length(animals)
             
             curr_prereward_photodiode_times = arrayfun(@(x) ...
                 photodiode_flip_times(find(photodiode_flip_times < ...
-                curr_reward_times(x),1,'last')),1:length(curr_reward_times));
+                curr_reward_times(x),1,'last')),1:length(curr_reward_times));                  
             
-            
-            
-            azimuth_move_threshold = 5; % degrees to consider stim moved
-            stim_move_times_signals = ...
-                signals_events.stimAzimuthTimes( ...
-                abs(signals_events.stimAzimuthValues - 90) > azimuth_move_threshold);
-            curr_stim_move_times_signals = arrayfun(@(x) ...
-                stim_move_times_signals(find(stim_move_times_signals > ...
-                curr_stimOn_times(x),1)),1:length(curr_stimOn_times));
-            
-            curr_stim_move_times_photodiode = arrayfun(@(x) ...
-                photodiode_flip_times(find(photodiode_flip_times > ...
-                curr_stim_move_times_signals(x),1)),1:length(curr_stim_move_times_signals));            
-            
-            stim_move_regressors(curr_stim,:) = histcounts(curr_stim_move_times_photodiode,time_bins);
+            stim_center_regressors(curr_contrast,:) = histcounts(curr_prereward_photodiode_times,time_bins);
                         
         end    
 
@@ -1785,14 +1808,12 @@ for curr_animal = 1:length(animals)
             signals_events.responseTimes(trial_outcome == -1),time_bins);
         
         % Concatenate regressors, set parameters
-        regressors = {stim_regressors;stim_move_regressors;...
-            move_onset_regressors;go_cue_regressors;outcome_regressors};
-        regressor_labels = {'Stim','Stim move','Move ongoing','Go cue','Outcome'};     
+        regressors = {stim_regressors;move_onset_regressors;go_cue_regressors;outcome_regressors};
+        regressor_labels = {'Stim','Move onset','Go cue','Outcome'};     
         
-        t_shifts = {[0,1]; ... % stim
-            [0,0.5]; ... % stim move
+        t_shifts = {[0,0.5]; ... % stim
             [-0.5,1]; ... % move
-            [0,0.5]; ... % go cue
+            [-0.1,0.5]; ... % go cue
             [-0.5,1]}; % outcome
         
         sample_shifts = cellfun(@(x) round(x(1)*(sample_rate)): ...
@@ -1941,8 +1962,11 @@ clearvars -except ...
 disp('Finished loading all')
 
 save_path = 'C:\Users\Andrew\OneDrive for Business\Documents\CarandiniHarrisLab\analysis\wf_ephys_choiceworld\paper\data';
-save_fn = ['trial_activity_choiceworld_DECONVTEST'];
+save_fn = ['trial_activity_choiceworld_SYMWHEELTEST'];
 save([save_path filesep save_fn],'-v7.3');
+
+
+
 
 
 

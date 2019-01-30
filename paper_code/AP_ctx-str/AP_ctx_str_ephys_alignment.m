@@ -228,7 +228,7 @@ for curr_animal = 1:length(animals)
         % Deconvolve and resample V
         fVdf_deconv = AP_deconv_wf(fVdf);
         fVdf_deconv(isnan(fVdf_deconv)) = 0;
-        fVdf_deconv_resample = interp1(frame_t,fVdf_deconv(regression_params.use_svs,:)',time_bin_centers)';
+        fVdf_deconv_resample = interp1(frame_t,fVdf_deconv',time_bin_centers)';
         
         % Get striatum multiunit in ~200 um chunks
         n_depths = round(diff(str_depth)/200);
@@ -312,14 +312,14 @@ for curr_animal = 1:length(animals)
             end
         end
         warning('Overriding lambda');
-        lambda = 8.16;
+        lambda = 10;
   
         % Regress fluorescence to spikes
         kernel_frames = round(regression_params.kernel_t(1)*sample_rate): ...
             round(regression_params.kernel_t(2)*sample_rate);
       
         [k,predicted_spikes,explained_var] = ...
-            AP_regresskernel(fVdf_deconv_resample, ...
+            AP_regresskernel(fVdf_deconv_resample(regression_params.use_svs,:), ...
             binned_spikes_std,kernel_frames,lambda, ...
             regression_params.zs,regression_params.cvfold, ...
             false,regression_params.use_constant);

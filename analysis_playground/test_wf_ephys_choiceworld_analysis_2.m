@@ -86,8 +86,8 @@ for curr_area = 1:length(plot_areas)
     hold on; set(gca,'ColorOrder',plot_cols{curr_area});
     for curr_condition = reshape(plot_conditions{curr_area},1,[])
         curr_trials = plot_conditions_compare{curr_area} == curr_condition;
-        curr_data_mean = nanmean(mua_allcat(curr_trials,:,area_idx) - ...
-            mua_taskpred_reduced_allcat(curr_trials,:,area_idx,plot_reduction(area_idx)),1);
+        curr_data_mean = nanmean(mua_allcat_move(curr_trials,:,area_idx) - ...
+            mua_taskpred_reduced_allcat_move(curr_trials,:,area_idx,plot_reduction(area_idx)),1);
         plot(t,curr_data_mean,'linewidth',2);
     end
     ylabel(['Str ' num2str(area_idx) ' Measured']);
@@ -98,8 +98,8 @@ for curr_area = 1:length(plot_areas)
     hold on; set(gca,'ColorOrder',plot_cols{curr_area});
     for curr_condition = reshape(plot_conditions{curr_area},1,[])
         curr_trials = plot_conditions_compare{curr_area} == curr_condition;
-        curr_data_mean = nanmean(mua_ctxpred_allcat(curr_trials,:,area_idx) - ...
-            mua_ctxpred_taskpred_reduced_allcat(curr_trials,:,area_idx,plot_reduction(area_idx)),1);
+        curr_data_mean = nanmean(mua_ctxpred_allcat_move(curr_trials,:,area_idx) - ...
+            mua_ctxpred_taskpred_reduced_allcat_move(curr_trials,:,area_idx,plot_reduction(area_idx)),1);
         plot(t,curr_data_mean,'linewidth',2);
     end
     ylabel(['Cortex predicted']);
@@ -110,8 +110,8 @@ for curr_area = 1:length(plot_areas)
     hold on; set(gca,'ColorOrder',plot_cols{curr_area});
     for curr_condition = reshape(plot_conditions{curr_area},1,[])
         curr_trials = plot_conditions_compare{curr_area} == curr_condition;
-        curr_data_mean = nanmean(mua_taskpred_allcat(curr_trials,:,area_idx) - ...
-            mua_taskpred_reduced_allcat(curr_trials,:,area_idx,plot_reduction(area_idx)),1);
+        curr_data_mean = nanmean(mua_taskpred_allcat_move(curr_trials,:,area_idx) - ...
+            mua_taskpred_reduced_allcat_move(curr_trials,:,area_idx,plot_reduction(area_idx)),1);
         plot(t,curr_data_mean,'linewidth',2);
     end
     ylabel(['Task predicted']);
@@ -731,10 +731,11 @@ end
 
 
 trial_contrastside_allcat_early = trial_contrastside_allcat;
-trial_contrastside_allcat_early(move_t > 0.5) = NaN;
+trial_contrastside_allcat_early(move_t < 0 | move_t > 0.5) = NaN;
 
 %%%%%% Plot measured and predicted relating to each kernel
-plot_areas = [1,2,3,1,4];
+% plot_areas = [1,2,3,1,4];
+plot_areas = [2,2,2,2,2];
 plot_conditions = {unique(trial_contrastside_allcat),[-1,1],1:3,[1,3],0:1};
 plot_conditions_compare = { ...
     trial_contrastside_allcat_early, ...  
@@ -760,7 +761,7 @@ for curr_area = 1:length(plot_areas)
     hold on; set(gca,'ColorOrder',plot_cols{curr_area});
     for curr_condition = reshape(plot_conditions{curr_area},1,[])
         curr_trials = plot_conditions_compare{curr_area} == curr_condition;
-        curr_data_mean = nanmean(mua_allcat_move(curr_trials,:,area_idx),1);
+        curr_data_mean = nanmean(mua_allcat(curr_trials,:,area_idx),1);
         plot(t,curr_data_mean,'linewidth',2);
     end
     ylabel(['Str ' num2str(area_idx) ' Measured']);
@@ -771,7 +772,7 @@ for curr_area = 1:length(plot_areas)
     hold on; set(gca,'ColorOrder',plot_cols{curr_area});
     for curr_condition = reshape(plot_conditions{curr_area},1,[])
         curr_trials = plot_conditions_compare{curr_area} == curr_condition;
-        curr_data_mean = nanmean(fluor_kernel_roi_bw_move(curr_trials,:,area_idx),1);
+        curr_data_mean = nanmean(fluor_kernel_roi_bw(curr_trials,:,area_idx),1);
         plot(t,curr_data_mean,'linewidth',2);
     end
     ylabel(['BW kernel ROI']);
@@ -782,7 +783,7 @@ for curr_area = 1:length(plot_areas)
     hold on; set(gca,'ColorOrder',plot_cols{curr_area});
     for curr_condition = reshape(plot_conditions{curr_area},1,[])
         curr_trials = plot_conditions_compare{curr_area} == curr_condition;
-        curr_data_mean = nanmean(fluor_kernel_roi_bw_hemidiff_move(curr_trials,:,area_idx),1);
+        curr_data_mean = nanmean(fluor_kernel_roi_bw_hemidiff(curr_trials,:,area_idx),1);
         plot(t,curr_data_mean,'linewidth',2);
     end
     ylabel(['BW hemidiff kernel ROI']);
@@ -793,7 +794,7 @@ for curr_area = 1:length(plot_areas)
     hold on; set(gca,'ColorOrder',plot_cols{curr_area});
     for curr_condition = reshape(plot_conditions{curr_area},1,[])
         curr_trials = plot_conditions_compare{curr_area} == curr_condition;
-        curr_data_mean = nanmean(fluor_kernel_roi_weighted_move(curr_trials,:,area_idx),1);
+        curr_data_mean = nanmean(fluor_kernel_roi_weighted(curr_trials,:,area_idx),1);
         plot(t,curr_data_mean,'linewidth',2);
     end
     ylabel(['Weighted kernel ROI']);
@@ -891,10 +892,10 @@ end
 % max_vel = max_speed.*trial_choice_allcat;
 
 % (to use max velocity regardless of final choice)
-max_vel = AP_signed_max(wheel_velocity_allcat_move(:,use_move_t),2);
+% max_vel = AP_signed_max(wheel_velocity_allcat_move(:,use_move_t),2);
 
 % (to use total cumulative velocity regardless of final choice)
-% max_vel = sum(wheel_velocity_allcat_move(:,use_move_t),2);
+max_vel = sum(wheel_velocity_allcat_move(:,use_move_t),2);
 
 % (to use max continuously cumulative velocity regardless of final choice)
 % max_vel = AP_signed_max(cumsum(wheel_velocity_allcat_move(:,use_move_t),2),2);
@@ -1039,9 +1040,10 @@ linkaxes([p1,p2,p3]);
 
 %% Average kernels
 
+n_regressors = 4;
+
 figure;
 p = nan(n_regressors,n_depths);
-n_regressors = 4;
 task_regressors_avg = cell(n_regressors,n_depths);
 for curr_regressor = 1:n_regressors
     for curr_depth = 1:n_depths
@@ -1056,6 +1058,7 @@ for curr_regressor = 1:n_regressors
         p(curr_regressor,curr_depth) = ...
             subplot(n_regressors,n_depths,curr_depth+(curr_regressor-1)*n_regressors); 
         plot(task_regressors_avg{curr_regressor,curr_depth}');
+        title(['Regressor ' num2str(curr_regressor) ' depth ' num2str(curr_depth)])
     end
 end
 linkaxes(p,'y');
@@ -1152,7 +1155,7 @@ vel_amp_bins(vel_amp_bins == n_vel_bins) = NaN;
     grpstats(reshape(wheel_ctxpred_allcat',[],1), ...
     reshape(vel_amp_bins',[],1),{'nanmean','nanstd'});
 
-figure;
+figure; hold on;
 errorbar(vel_grp_mean,predicted_vel_grp_mean,predicted_vel_grp_sem, ...
     predicted_vel_grp_sem,vel_grp_sem,vel_grp_sem,'k','linewidth',2)
 xlabel('Measured wheel velocity');
@@ -1163,10 +1166,14 @@ line(xlim,[0,0])
 line([0,0],ylim)
 
 %  Apply a scalar, which makes it look much better?
-wheel_scale = vel_grp_mean\predicted_vel_grp_mean;
+wheel_scale = predicted_vel_grp_mean\vel_grp_mean;
 wheel_ctxpred_allcat_scaled = wheel_ctxpred_allcat.*wheel_scale;
 
-
+[predicted_vel_scaled_grp_mean,predicted_vel_scaled_grp_sem] = ...
+    grpstats(reshape(wheel_ctxpred_allcat_scaled',[],1), ...
+    reshape(vel_amp_bins',[],1),{'nanmean','nanstd'});
+errorbar(vel_grp_mean,predicted_vel_scaled_grp_mean,predicted_vel_scaled_grp_sem, ...
+    predicted_vel_scaled_grp_sem,vel_grp_sem,vel_grp_sem,'r','linewidth',2)
 
 % Get trial choice by velocity / cortex-predicted velocity
 [~,outcome_idx] = max(any(outcome_allcat,3),[],2);
@@ -1191,15 +1198,36 @@ disp(['Velocity choice prediction: ' num2str(nanmean(velocity_choice == trial_ch
     ', Velocity ctxpred choice prediction: ' num2str(nanmean(velocity_ctxpred_choice == trial_choice_allcat))]);
 
 
+stim_correctchoice = nanmean(trial_choice_allcat(trial_contrast_allcat > 0) == ...
+    -trial_side_allcat(trial_contrast_allcat > 0));
+velocity_correctchoice = nanmean(velocity_choice == trial_choice_allcat);
+velocity_ctxpred_correctchoice = nanmean(velocity_ctxpred_choice == trial_choice_allcat);
+velocity_correctchoice_zerocontrast = nanmean(velocity_choice(trial_contrast_allcat == 0) == ...
+    trial_choice_allcat(trial_contrast_allcat == 0));
+velocity_ctxpred_correctchoice_zerocontrast = nanmean(velocity_ctxpred_choice(trial_contrast_allcat == 0) == ...
+    trial_choice_allcat(trial_contrast_allcat == 0));
 
 
+figure;plot([stim_correctchoice,velocity_correctchoice,velocity_ctxpred_correctchoice ...
+    velocity_correctchoice_zerocontrast,velocity_ctxpred_correctchoice_zerocontrast],'linewidth',2);
+ylabel('Fraction correct choice prediction');
+set(gca,'XTick',1:5,'XTickLabel',{'Stim','Vel','Vel-ctxpred','Vel zero','Vel-ctxpred zero'});
 
 
+% (was trying to get choice prediction from mua
 
+r = mua_allcat_move - mua_taskpred_reduced_allcat_move(:,:,:,2);
 
+a = linspace(0,10,100);
+b = nan(size(a));
+for i = 1:length(a)
+    mua_choice = -sign(nanmean(r(:,18:20,2),2)-a(i));
+    b(i) = nanmean(mua_choice == trial_choice_allcat);
+end
 
-
-
+figure;plot(a,b);
+xlabel('Threshold');
+ylabel('Fraction correct');
 
 
 

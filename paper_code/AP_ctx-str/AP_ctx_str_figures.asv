@@ -34,11 +34,10 @@ if exclude_data
     
     % Cut out bad experiments for any experiment data fields
     for curr_field = bhv_fieldnames(experiment_fields)'
-        for curr_animal = 1:length(use_experiments)
-            bhv(curr_animal).(cell2mat(curr_field)) = ...
-                bhv(curr_animal).(cell2mat(curr_field))(use_experiments{curr_animal});
-        end
-    end
+        bhv.(cell2mat(curr_field)) = cellfun(@(x,expts) ...
+            x(expts),bhv.(cell2mat(curr_field)), ...
+            use_experiments,'uni',false);
+    end   
 end
 
 

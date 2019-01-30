@@ -191,7 +191,7 @@ switch eventdata.Key
     case 's'
         
         % Get options
-        disp('Preparing to make movie:')
+        disp('Preparing to make movie:');
         movie_t = input('Start/stop time (e.g. [0 5]): ');
         movie_framerate = input('Framerate: ');
         [save_file,save_path] = uiputfile('.avi','Choose save location');
