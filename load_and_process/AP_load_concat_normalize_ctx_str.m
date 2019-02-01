@@ -99,15 +99,17 @@ mua_ctxpred_taskpred_reduced_allcat = cell2mat(cellfun(@(mua,mua_baseline,mua_st
     vertcat(mua_day_baseline{:}),vertcat(mua_day_std{:}),'uni',false)) ...
     .*mua_nan_trials;
 
-% Deconvolve fluorescence
+% Deconvolve fluorescence, subtract baseline
 fluor_allcat_deconv = AP_deconv_wf(fluor_allcat);
+fluor_allcat_deconv_baseline = nanmean(reshape(fluor_allcat_deconv(:,t_baseline,:),[],1,n_vs));
+fluor_allcat_deconv = fluor_allcat_deconv - fluor_allcat_deconv_baseline;
 
 % Get fluorescence ROIs
 load('C:\Users\Andrew\OneDrive for Business\Documents\CarandiniHarrisLab\analysis\wf_ephys_choiceworld\wf_processing\wf_alignment\U_master');
 wf_roi_fn = 'C:\Users\Andrew\OneDrive for Business\Documents\CarandiniHarrisLab\analysis\wf_ephys_choiceworld\wf_processing\wf_rois\wf_roi';
 load(wf_roi_fn);
-% wf_roi = wf_roi(:,1);
-n_rois = numel(wf_roi);
+% wf_roi = wf_roi(:,1); % (left ROIs)
+n_rois = numel(wf_roi); % (left and right ROIs)
 
 fluor_roi_deconv = permute(reshape( ...
     AP_svd_roi(U_master(:,:,1:n_vs), ...
