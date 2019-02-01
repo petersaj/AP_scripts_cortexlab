@@ -26,12 +26,15 @@ axis image off;
 
 % add reference outline(s)
 % AP_reference_outline('retinotopy','b');
-AP_reference_outline('ccf_aligned','k',[],[437,416,1,4]);
+AP_reference_outline('ccf_aligned','k');
+% AP_reference_outline('ccf_aligned','k',[],[437,416,1,4]);
 
 for i = 1:size(im,3)
     set(im_plot,'CData',im(:,:,i));
     if ~isempty(color_axis)
-        caxis(color_axis)
+        caxis(color_axis);
+    else
+        caxis([-max(abs(caxis)),max(abs(caxis))]);
     end
     
 %     colormap(gray)

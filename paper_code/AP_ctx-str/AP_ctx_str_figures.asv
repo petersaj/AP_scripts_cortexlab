@@ -34,10 +34,11 @@ if exclude_data
     
     % Cut out bad experiments for any experiment data fields
     for curr_field = bhv_fieldnames(experiment_fields)'
-        bhv.(cell2mat(curr_field)) = cellfun(@(x,expts) ...
-            x(expts),bhv.(cell2mat(curr_field)), ...
-            use_experiments,'uni',false);
-    end   
+        for curr_animal = 1:length(use_experiments)
+            bhv(curr_animal).(cell2mat(curr_field)) = ...
+                bhv(curr_animal).(cell2mat(curr_field))(use_experiments{curr_animal});
+        end
+    end
 end
 
 
@@ -810,6 +811,9 @@ for protocol = protocols
     kernel_frames = round(kernel_t(1)*sample_rate):round(kernel_t(2)*sample_rate);
     t = kernel_frames/sample_rate;
     
+    % Concatenate explained variance
+    cellfun(
+    
     % Concatenate and mean
     % (kernel goes backwards in time - flip to correct)
     k_px_cat = cellfun(@(x) x(:,:,end:-1:1,:),[batch_vars.r_px],'uni',false);
@@ -837,7 +841,7 @@ for protocol = protocols
     plot_frame = kernel_frames == 0;
     p = image(k_px_com_colored(:,:,:,plot_frame));
     % weight_max = max(k_px(:))*0.8;
-    weight_max = 0.01;
+    weight_max = 0.005;
     set(p,'AlphaData', ...
         mat2gray(max(k_px(:,:,plot_frame,:),[],4),[0,weight_max]));
     axis image off;

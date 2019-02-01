@@ -811,6 +811,12 @@ for protocol = protocols
     kernel_frames = round(kernel_t(1)*sample_rate):round(kernel_t(2)*sample_rate);
     t = kernel_frames/sample_rate;
     
+    % Concatenate explained variance
+    expl_var_experiment = cell2mat(horzcat(batch_vars.explained_var));
+    expl_var_animal = cell2mat(cellfun(@(x) nanmean(cell2mat(x),2),{batch_vars.explained_var},'uni',false));
+    figure;errorbar(nanmean(expl_var_experiment,2), ...
+        nanstd(expl_var_experiment,[],2)./sqrt(nansum(expl_var_experiment,2)),'k','linewidth',2);
+    
     % Concatenate and mean
     % (kernel goes backwards in time - flip to correct)
     k_px_cat = cellfun(@(x) x(:,:,end:-1:1,:),[batch_vars.r_px],'uni',false);
@@ -838,7 +844,7 @@ for protocol = protocols
     plot_frame = kernel_frames == 0;
     p = image(k_px_com_colored(:,:,:,plot_frame));
     % weight_max = max(k_px(:))*0.8;
-    weight_max = 0.01;
+    weight_max = 0.005;
     set(p,'AlphaData', ...
         mat2gray(max(k_px(:,:,plot_frame,:),[],4),[0,weight_max]));
     axis image off;

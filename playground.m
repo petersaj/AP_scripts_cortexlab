@@ -1404,7 +1404,7 @@ plot_trials = trial_side_allcat == 1 & ...
     move_t <= plot_rxn_time(2);
 
 plot_px = svdFrameReconstruct(U_master(:,:,1:n_vs), ...
-    squeeze(nanmean(fluor_allcat_deconv_move(plot_trials,:,:),1))');
+    squeeze(nanmean(fluor_allcat_deconv(plot_trials,:,:),1))');
 
 AP_image_scroll(plot_px,t);
 axis image;
@@ -1426,8 +1426,8 @@ fluor_allcat_deconv_move_mirror = reshape(transpose( ...
 plot_rxn_time = [0,0.5];
 
 plot_side = 1;
-plot_choice = 1;
-plot_contrast = trial_contrast_allcat == 0;
+plot_choice = -1;
+plot_contrast = trial_contrast_allcat > 0;
 plot_move_t = move_t >= plot_rxn_time(1) & move_t <= plot_rxn_time(2);
 
 curr_trials_standard = ...%trial_side_allcat == plot_side & ...
@@ -1438,8 +1438,8 @@ curr_trials_mirror = ...%trial_side_allcat == -plot_side & ...
     plot_contrast & plot_move_t; 
 
 curr_px = svdFrameReconstruct(U_master(:,:,1:n_vs),squeeze(nanmean( ...
-    [fluor_allcat_deconv_move(curr_trials_standard,:,:); ...
-    fluor_allcat_deconv_move_mirror(curr_trials_mirror,:,:)],1))');
+    [fluor_allcat_deconv(curr_trials_standard,:,:); ...
+    fluor_allcat_deconv_mirror(curr_trials_mirror,:,:)],1))');
 
 AP_image_scroll(curr_px,t);
 axis image;
@@ -1962,6 +1962,294 @@ disp('Finished loading all')
 save_path = 'C:\Users\Andrew\OneDrive for Business\Documents\CarandiniHarrisLab\analysis\wf_ephys_choiceworld\paper\data';
 save_fn = ['trial_activity_choiceworld_SYMWHEELTEST'];
 save([save_path filesep save_fn],'-v7.3');
+
+
+
+
+
+
+%% temp plot for bilab
+
+% figure; hold on
+% 
+% AP_stackplot(squeeze(nanmean(mua_allcat,1)),t,5,false,'k',1:4);
+% 
+% AP_stackplot(squeeze(nanmean(mua_allcat(trial_contrastside_allcat > 0,:,:),1)),t,5,false,'r',1:4);
+% AP_stackplot(squeeze(nanmean(mua_allcat(trial_contrastside_allcat < 0,:,:),1)),t,5,false,'b',1:4);
+% 
+% AP_stackplot(squeeze(nanmean(mua_allcat(trial_choice_allcat == -1,:,:),1)),t,5,false,[0.6,0,0.6],1:4);
+% AP_stackplot(squeeze(nanmean(mua_allcat(trial_choice_allcat == 1,:,:),1)),t,5,false,[0,0.7,0],1:4);
+% 
+% AP_stackplot(squeeze(nanmean(mua_allcat(move_t > 0 & move_t < 0.2,:,:),1)),t,5,false,[0,0.3,0.3],1:4);
+% AP_stackplot(squeeze(nanmean(mua_allcat(move_t > 0.2 & move_t < 0.4,:,:),1)),t,5,false,[0,0.5,0.5],1:4);
+% AP_stackplot(squeeze(nanmean(mua_allcat(move_t > 0.4 & move_t < 0.6,:,:),1)),t,5,false,[0,0.7,0.7],1:4);
+% 
+% AP_stackplot(squeeze(nanmean(mua_allcat(trial_outcome_allcat == -1,:,:),1)),t,5,false,'m',1:4);
+% AP_stackplot(squeeze(nanmean(mua_allcat(trial_outcome_allcat == 1,:,:),1)),t,5,false,'c',1:4);
+
+
+
+% figure; hold on
+% AP_stackplot(squeeze(nanmean(mua_allcat,1)),t,5,false,'k',1:4);
+% AP_stackplot(squeeze(nanmean(mua_ctxpred_allcat,1)),t,5,false,[0,0.7,0],1:4);
+
+
+
+t_shifts = {[0,0.5]; ... % stim
+    [-0.5,1]; ... % move
+    [-0.1,0.5]; ... % go cue
+    [-0.5,1]}; % outcome
+
+sample_shifts = cellfun(@(x) round(x(1)*(sample_rate)): ...
+    round(x(2)*(sample_rate)),t_shifts,'uni',false);
+
+curr_regressor = 4;
+curr_k_v = permute(cell2mat(permute(fluor_kernel(curr_regressor,1:n_vs),[1,3,2])),[3,2,1]);
+curr_k_px = reshape(svdFrameReconstruct(U_master(:,:,1:n_vs), ...
+    reshape(curr_k_v,n_vs,[])),size(U_master,1),size(U_master,2),[],size(curr_k_v,3));
+
+
+
+% figure; 
+% plot_depth = 1;
+% plot_reduction = 1;
+% 
+% p1 = subplot(1,3,1); hold on;
+% plot(t,nanmean(mua_allcat(move_t < 0.5 & trial_side_allcat == 1,:,plot_depth),1));
+% plot(t,nanmean(mua_allcat(move_t < 0.5 & trial_side_allcat == -1,:,plot_depth),1));
+% 
+% p2 = subplot(1,3,2); hold on;
+% plot(t,nanmean(mua_taskpred_reduced_allcat(move_t < 0.5 & trial_side_allcat == 1,:,plot_depth,plot_reduction),1));
+% plot(t,nanmean(mua_taskpred_reduced_allcat(move_t < 0.5 & trial_side_allcat == -1,:,plot_depth,plot_reduction),1));
+% 
+% p3 = subplot(1,3,3); hold on;
+% plot(t,nanmean(mua_allcat(move_t < 0.5 & trial_side_allcat == 1,:,plot_depth),1) - ...
+%     nanmean(mua_taskpred_reduced_allcat(move_t < 0.5 & trial_side_allcat == 1,:,plot_depth,plot_reduction),1));
+% plot(t,nanmean(mua_allcat(move_t < 0.5 & trial_side_allcat == -1,:,1),1) - ...
+%     nanmean(mua_taskpred_reduced_allcat(move_t < 0.5 & trial_side_allcat == -1,:,plot_depth,plot_reduction),1));
+% 
+% linkaxes([p1,p2,p3]);
+
+
+
+%% quick test - apparently the ROIs can distinguish L/R too?? ugh
+
+
+% Load widefield kernel ROIs
+kernel_roi_fn = 'C:\Users\Andrew\OneDrive for Business\Documents\CarandiniHarrisLab\analysis\wf_ephys_choiceworld\wf_processing\wf_rois\kernel_roi';
+load(kernel_roi_fn);
+
+kernel_roi_bw_hemidiff = kernel_roi.bw - AP_reflect_widefield(kernel_roi.bw);
+
+% Get predicted fluorescence in ROIs
+fluor_kernel_roi_bw = permute(reshape( ...
+    AP_svd_roi(U_master(:,:,1:n_vs), ...
+    reshape(permute(fluor_allcat_deconv,[3,2,1]),n_vs,[]),[],[],kernel_roi.bw), ...
+    size(kernel_roi.bw,3),[],size(fluor_allcat_deconv,1)),[3,2,1]);
+
+fluor_kernel_roi_bw_hemidiff = permute(reshape( ...
+    AP_svd_roi(U_master(:,:,1:n_vs), ...
+    reshape(permute(fluor_allcat_deconv,[3,2,1]),n_vs,[]),[],[],kernel_roi_bw_hemidiff), ...
+    size(kernel_roi_bw_hemidiff,3),[],size(fluor_allcat_deconv,1)),[3,2,1]);
+
+fluor_kernel_roi_weighted = permute(reshape( ...
+    AP_svd_roi(U_master(:,:,1:n_vs), ...
+    reshape(permute(fluor_allcat_deconv,[3,2,1]),n_vs,[]),[],[],kernel_roi.max_weighted), ...
+    size(kernel_roi.max_weighted,3),[],size(fluor_allcat_deconv,1)),[3,2,1]);
+
+
+
+
+fluor_kernel_roi_bw_reduced = arrayfun(@(x) ...
+    permute(reshape( ...
+    AP_svd_roi(U_master(:,:,1:n_vs), ...
+    reshape(permute(fluor_allcat_predicted_reduced(:,:,:,x),[3,2,1]), ...
+    n_vs,[]),[],[],kernel_roi.bw), ...
+    size(kernel_roi.bw,3),[],size(fluor_allcat_predicted,1)),[3,2,1]), ...
+    1:size(fluor_allcat_predicted_reduced,4),'uni',false);
+fluor_kernel_roi_bw_reduced = cat(4,fluor_kernel_roi_bw_reduced{:});
+
+
+fluor_roi_deconv_reduced = arrayfun(@(x) ...
+    permute(reshape( ...
+    AP_svd_roi(U_master(:,:,1:n_vs), ...
+    reshape(permute(fluor_allcat_predicted_reduced(:,:,:,x),[3,2,1]), ...
+    n_vs,[]),[],[],cat(3,wf_roi.mask)), ...
+    size(cat(3,wf_roi.mask),3),[],size(fluor_allcat_predicted,1)),[3,2,1]), ...
+    1:size(fluor_allcat_predicted_reduced,4),'uni',false);
+fluor_roi_deconv_reduced = cat(4,fluor_roi_deconv_reduced{:});
+
+
+
+% Rank differences by experiment
+trials_animal = arrayfun(@(x) size(vertcat(mua_all{x}{:}),1),1:size(mua_all));
+trials_recording = cellfun(@(x) size(x,1),vertcat(mua_all{:}));
+use_split = trials_recording;
+
+mua_exp = mat2cell(fluor_roi_deconv,use_split,length(t),n_depths);
+mua_ctxpred_exp = mat2cell(fluor_roi_deconv,use_split,length(t),n_depths);
+
+mua_taskpred_reduced_exp = mat2cell(fluor_roi_deconv_reduced,use_split,length(t),n_depths, ...
+    size(mua_taskpred_reduced_allcat,4));
+mua_ctxpred_taskpred_reduced_exp = mat2cell(fluor_roi_deconv_reduced,use_split,length(t),n_depths, ...
+    size(mua_ctxpred_taskpred_reduced_allcat,4));
+
+move_t_exp = mat2cell(move_t,use_split,1);
+move_idx_exp = mat2cell(move_idx,use_split,1);
+outcome_idx_exp = mat2cell(outcome_idx,use_split,1);
+trial_side_allcat_exp = mat2cell(trial_side_allcat,use_split,1);
+trial_contrast_allcat_exp = mat2cell(trial_contrast_allcat,use_split,1);
+trial_choice_allcat_exp = mat2cell(trial_choice_allcat,use_split,1);
+
+regressor_labels = {'Stim','Move onset','Go cue','Outcome'};
+trial_groups = {'Stim','Move onset','Outcome'};
+t_groups = {[0,0.3],[-0.2,0.2],[0,0.2]};
+
+act_rank_difference = nan(length(t),n_depths,length(use_split),length(trial_groups));
+predicted_act_rank_difference = nan(length(t),n_depths,length(use_split),length(trial_groups));
+
+act_rank_difference_trial = nan(n_depths,length(use_split),length(trial_groups));
+predicted_act_rank_difference_trial = nan(n_depths,length(use_split),length(trial_groups));
+
+for curr_exp = 1:length(mua_exp)
+    for curr_group = 1:length(trial_groups)
+        
+        % Get MUA/predicted using reduced model
+        curr_regressor_idx = strcmp(trial_groups{curr_group},regressor_labels);
+        curr_mua =  mua_exp{curr_exp} - mua_taskpred_reduced_exp{curr_exp}(:,:,:,curr_regressor_idx);
+        curr_mua_ctx = mua_ctxpred_exp{curr_exp} - mua_ctxpred_taskpred_reduced_exp{curr_exp}(:,:,:,curr_regressor_idx);
+        
+        % Set common NaNs
+        nan_samples = isnan(curr_mua) | isnan(curr_mua_ctx);
+        curr_mua(nan_samples) = NaN;
+        curr_mua_ctx(nan_samples) = NaN;
+        
+        % (movement: align to move onset)
+        if any(strfind(lower(trial_groups{curr_group}),'move'))
+            t_leeway = -t(1);
+            leeway_samples = round(t_leeway*(sample_rate));
+            for i = 1:size(curr_mua,1)
+                curr_mua(i,:,:) = circshift(curr_mua(i,:,:),-move_idx_exp{curr_exp}(i)+leeway_samples,2);
+                curr_mua_ctx(i,:,:) = circshift(curr_mua_ctx(i,:,:),-move_idx_exp{curr_exp}(i)+leeway_samples,2);
+            end
+        end
+        
+        % (outcome: align to outcome)
+        if any(strfind(lower(trial_groups{curr_group}),'outcome'))
+            t_leeway = -t(1);
+            leeway_samples = round(t_leeway*(sample_rate));
+            for i = 1:size(curr_mua,1)
+                curr_mua(i,:,:) = circshift(curr_mua(i,:,:),-outcome_idx_exp{curr_exp}(i)+leeway_samples,2);
+                curr_mua_ctx(i,:,:) = circshift(curr_mua_ctx(i,:,:),-outcome_idx_exp{curr_exp}(i)+leeway_samples,2);
+            end
+        end
+        
+        % Set trials and grouping to use
+        switch trial_groups{curr_group}
+            case 'Stim'
+                use_trials = move_t_exp{curr_exp} > 0 & move_t_exp{curr_exp} < 0.5 & trial_contrast_allcat_exp{curr_exp} > 0;
+                trial_group = trial_side_allcat_exp{curr_exp};
+                group1 = 1;
+                group2 = -1;
+            case 'Move onset'
+                use_trials = move_t_exp{curr_exp} > 0 & move_t_exp{curr_exp} < 0.5;
+                trial_group = trial_choice_allcat_exp{curr_exp};
+                group1 = -1;
+                group2 = 1;                
+            case 'Outcome'
+                use_trials = move_t_exp{curr_exp} > 0 & move_t_exp{curr_exp} < 0.5;
+                trial_group = trial_choice_allcat_exp{curr_exp} == -trial_side_allcat_exp{curr_exp};
+                group1 = 1;
+                group2 = 0;
+        end
+        
+        act_rank = tiedrank(curr_mua(use_trials,:,:));
+        predicted_act_rank = tiedrank(curr_mua_ctx(use_trials,:,:));
+        
+        act_rank_difference(:,:,curr_exp,curr_group) = squeeze(( ...
+            nanmean(act_rank(trial_group(use_trials) == group1,:,:),1) - ...
+            nanmean(act_rank(trial_group(use_trials) == group2,:,:),1))./max(act_rank,[],1));
+        predicted_act_rank_difference(:,:,curr_exp,curr_group) = squeeze(( ...
+            nanmean(predicted_act_rank(trial_group(use_trials) == group1,:,:),1) - ...
+            nanmean(predicted_act_rank(trial_group(use_trials) == group2,:,:),1))./max(predicted_act_rank,[],1));
+        
+        use_t = t >= t_groups{curr_group}(1) & t <= t_groups{curr_group}(2);
+        act_rank_trial = tiedrank(squeeze(nanmean(curr_mua(use_trials,use_t,:),2)));
+        predicted_act_rank_trial = tiedrank(squeeze(nanmean(curr_mua_ctx(use_trials,use_t,:),2)));
+        
+        act_rank_difference_trial(:,curr_exp,curr_group) = ...
+            (nanmean(act_rank_trial(trial_group(use_trials) == group1,:),1) - ...
+            nanmean(act_rank_trial(trial_group(use_trials) == group2,:),1))./max(act_rank_trial,[],1);
+        predicted_act_rank_difference_trial(:,curr_exp,curr_group) = ...
+            (nanmean(predicted_act_rank_trial(trial_group(use_trials) == group1,:),1) - ...
+            nanmean(predicted_act_rank_trial(trial_group(use_trials) == group2,:),1))./max(predicted_act_rank_trial,[],1);
+        
+%         n_shuff = 100;
+%         shuff_rank_difference = nan(length(t),n_depths,n_shuff);
+%         shuff_predicted_rank_difference = nan(length(t),n_depths,n_shuff);
+%         for curr_shuff = 1:n_shuff
+%             curr_shake_group = AP_shake(trial_group(use_trials));
+%             shuff_rank_difference(:,:,curr_shuff) = squeeze(( ...
+%                 nanmean(act_rank(curr_shake_group == group1,:,:),1) - ...
+%                 nanmean(act_rank(curr_shake_group == group2,:,:),1))./max(act_rank,[],1));
+%             shuff_predicted_rank_difference(:,:,curr_shuff) = squeeze(( ...
+%                 nanmean(predicted_act_rank(curr_shake_group == group1,:,:),1) - ...
+%                 nanmean(predicted_act_rank(curr_shake_group == group2,:,:),1))./max(predicted_act_rank,[],1));
+%             AP_print_progress_fraction(curr_shuff,n_shuff);
+%         end
+        
+    end
+end
+
+act_rank_difference_mean = squeeze(nanmean(act_rank_difference,3));
+predicted_act_rank_difference_mean = squeeze(nanmean(predicted_act_rank_difference,3));
+
+figure;
+for curr_group = 1:length(trial_groups)
+    p1 = subplot(2,length(trial_groups),curr_group);
+    hold on; set(gca,'ColorOrder',copper(n_depths));
+    plot(t,act_rank_difference_mean(:,:,curr_group),'linewidth',2);
+    axis tight; line([0,0],ylim,'color','k');
+    xlabel('Time');
+    ylabel('Mean rank difference');
+    title([trial_groups{curr_group} ': Measured']);
+    
+    p2 = subplot(2,length(trial_groups),length(trial_groups)+curr_group);
+    hold on; set(gca,'ColorOrder',copper(n_depths));
+    plot(t,predicted_act_rank_difference_mean(:,:,curr_group),'linewidth',2);
+    axis tight; line([0,0],ylim,'color','k');
+    xlabel('Time');
+    ylabel('Mean rank difference');
+    title([trial_groups{curr_group} ': Predicted']);
+    linkaxes([p1,p2],'xy');
+end
+
+figure;
+p1 = subplot(1,2,1);
+errorbar(squeeze(nanmean(act_rank_difference_trial,2)), ...
+    squeeze(nanstd(act_rank_difference_trial,[],2)./ ...
+    sqrt(sum(~isnan(act_rank_difference_trial),2))),'linewidth',2);
+xlabel('Striatum depth');
+ylabel('Rank difference');
+legend(trial_groups);
+title('Striatum');
+
+p2 = subplot(1,2,2);
+errorbar(squeeze(nanmean(predicted_act_rank_difference_trial,2)), ...
+    squeeze(nanstd(predicted_act_rank_difference_trial,[],2)./ ...
+    sqrt(sum(~isnan(predicted_act_rank_difference_trial),2))),'linewidth',2);
+xlabel('Striatum depth');
+ylabel('Rank difference');
+legend(trial_groups);
+title('Cortex-predicted striatum');
+
+linkaxes([p1,p2]);
+
+
+
+
+
+
 
 
 
