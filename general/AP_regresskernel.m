@@ -1,6 +1,7 @@
 function [k,predicted_signals,explained_var,predicted_signals_reduced] = ...
-    AP_regresskernel(regressors,signals,t_shifts,lambdas,zs,cvfold,return_constant,use_constant)
-% [k,predicted_signals,explained_var,predicted_signals_reduced] = AP_regresskernel(regressors,signals,t_shifts,lambdas,zs,cvfold,return_constant,use_constant)
+    AP_regresskernel(regressors,signals,t_shifts,lambdas,zs,cvfold,return_constant,use_constant,discontinuities)
+% [k,predicted_signals,explained_var,predicted_signals_reduced] = ...
+%     AP_regresskernel(regressors,signals,t_shifts,lambdas,zs,cvfold,return_constant,use_constant,discontinuities)
 %
 % Linear regression of kernel from regressors to outputs
 %
@@ -14,6 +15,7 @@ function [k,predicted_signals,explained_var,predicted_signals_reduced] = ...
 % cvfold - fold cross-validation 
 % return_constant - if true, return constant in output (false by default)
 % use_constant - if true, include constant in kernel (true by default)
+% discontinuities - samples at the start of discontinuities
 %
 % FOR MULTIPLE MODALITIES: make regressors and t_shifts cell arrays
 %
@@ -75,20 +77,50 @@ if ~exist('use_constant','var') || isempty(use_constant)
    use_constant = true; 
 end
 
+% Set/check discontinuities
+if ~exist('discontinuities','var') || isempty(discontinuities)
+   discontinuities = zeros(1,size(signals,2)); 
+elseif length(discontinuities) ~= size(signals,2)
+    error('Discontinuities vector doesn''t match signals length')        
+else % standardize dimesion
+    discontinuities = discontinuities(:);
+end
+% (the binning and end are always discontinuities)
+discontinuities([1,end]) = 1;
+
 % Create design matrix of all time-shifted regressors
 regressor_design = cellfun(@(regressors,t_shifts) repmat(regressors', ...
     [1,1,length(t_shifts)]),regressors,t_shifts,'uni',false);
 
-% Temporally shift each page
+% Temporally shift each page (regressors and discontinuities)
 for curr_regressors = 1:length(regressor_design)
+    
+    % Set up discontinuities matrix (none at t shift == 0)
+    curr_discontinuities = repmat(discontinuities,1, ...
+        size(regressor_design{curr_regressors},2), ...
+        size(regressor_design{curr_regressors},3));
+    curr_discontinuities(:,:,t_shifts{curr_regressors} == 0) = 0;
+    
     for curr_kernel_frame = 1:length(t_shifts{curr_regressors})
         regressor_design{curr_regressors}(:,:,curr_kernel_frame) = ...
             circshift(regressor_design{curr_regressors}(:,:,curr_kernel_frame), ...
             [t_shifts{curr_regressors}(curr_kernel_frame),0,0]);
+        
+        curr_discontinuities(:,:,curr_kernel_frame) = ...
+            circshift(curr_discontinuities(:,:,curr_kernel_frame), ...
+            [t_shifts{curr_regressors}(curr_kernel_frame),0,0]);
     end
-    % Zero the regressors at the ends (invalid, circle shifted)
-    regressor_design{curr_regressors}(1:max(abs(t_shifts{curr_regressors})),:,:) = 0;
-    regressor_design{curr_regressors}(end-max(abs(t_shifts{curr_regressors})):end,:,:) = 0;
+    
+    % Cumulative sum the discontinuities in appropriate direction
+    curr_discontinuities_cumulative = curr_discontinuities > 0;
+    curr_discontinuities_cumulative(:,:,t_shifts{curr_regressors} < 0) = ...
+        cumsum(curr_discontinuities(:,:,t_shifts{curr_regressors} < 0),3,'reverse') > 0;
+    curr_discontinuities_cumulative(:,:,t_shifts{curr_regressors} > 0) = ...
+        cumsum(curr_discontinuities(:,:,t_shifts{curr_regressors} > 0),3) > 0;
+    
+    % Zero regressors predicting discontinuous / invalid locations
+    regressor_design{curr_regressors}(curr_discontinuities_cumulative) = 0;
+    
 end
 
 regressor_design = cell2mat(cellfun(@(regressor_design) ...
@@ -149,7 +181,7 @@ for curr_cv = 1:cvfold
         train_idx = predictable_samples;
         test_idx = predictable_samples;
     else
-        train_idx = [cv_partition ~= curr_cv;true(size(ridge_matrix,1),1)];
+        train_idx = [cv_partition ~= curr_cv & predictable_samples;true(size(ridge_matrix,1),1)];
         test_idx = cv_partition == curr_cv;
     end
     

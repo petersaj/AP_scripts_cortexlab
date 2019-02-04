@@ -254,7 +254,7 @@ r2_trials = move_t > 0 & move_t < 1;
 trials_animal = arrayfun(@(x) size(vertcat(mua_all{x}{:}),1),1:size(mua_all));
 trials_recording = cellfun(@(x) size(x,1),vertcat(mua_all{:}));
 
-use_split = trials_recording;
+use_split = trials_animal;
 
 r2_trials_exp = mat2cell(r2_trials,use_split,1);
 
@@ -1010,7 +1010,7 @@ for curr_area = 1:length(plot_areas)
     axis tight
     line([0,0],ylim,'color','k');
     
-    linkaxes([p1,p2,p3],'x');
+    linkaxes([p1,p2,p3,p4],'x');
     
 end
 
