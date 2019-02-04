@@ -3,7 +3,7 @@
 %% Load choiceworld trial data (** NEEDED FOR BELOW **)
 
 % Load data
-data_fn = ['trial_activity_choiceworld_DECONVTEST'];
+data_fn = ['trial_activity_choiceworld_FLUORTASKTEST'];
 exclude_data = true;
 AP_load_concat_normalize_ctx_str;
 
@@ -1015,238 +1015,6 @@ for curr_area = 1:length(plot_areas)
 end
 
 
-
-
-%% Get activity by (correct/incorrect) stim and (visual/zero) velocity
-
-plot_depth = 2;
-use_rxn = move_t > 0 & move_t < 0.5;
-use_stim_t = t > 0 & t < 0.5;
-use_move_t = t > -0.1 & t < 0.2;
-
-
-% Activity by stim
-use_activity = mua_allcat(:,:,plot_depth) - mua_taskpred_reduced_allcat(:,:,plot_depth,1);
-
-correct_trials = use_rxn & ...
-    trial_side_allcat == -trial_choice_allcat & trial_contrast_allcat > 0;
-incorrect_trials = use_rxn & ...
-    trial_side_allcat == trial_choice_allcat & trial_contrast_allcat > 0;
-
-stim_bins = trial_contrast_allcat.*trial_side_allcat;
-
-[correct_stim_used,correct_activity_grp_mean] = ...
-    grpstats(use_activity(correct_trials,:),stim_bins(correct_trials),{'gname','nanmean'});
-[incorrect_stim_used,incorrect_activity_grp_mean] = ...
-    grpstats(use_activity(incorrect_trials,:),stim_bins(incorrect_trials),{'gname','nanmean'});
-
-correct_stim_used = cellfun(@str2num,correct_stim_used);
-incorrect_stim_used = cellfun(@str2num,incorrect_stim_used);
-
-
-figure; 
-col = colormap_BlueWhiteRed(5);
-col(6,:) = [];
-
-p1 = subplot(1,3,1); hold on
-set(gca,'ColorOrder',col)
-plot(t,correct_activity_grp_mean','linewidth',2)
-xlabel('Time from stim');
-ylabel('Activity');
-axis tight
-line([0,0],ylim,'color','k');
-
-p2 = subplot(1,3,2); hold on
-set(gca,'ColorOrder',col)
-plot(t,incorrect_activity_grp_mean','linewidth',2)
-xlabel('Time from stim');
-ylabel('Activity');
-axis tight
-line([0,0],ylim,'color','k');
-
-subplot(1,3,3); hold on;
-l1 = plot(correct_stim_used,nanmean(correct_activity_grp_mean(:,use_stim_t),2),'k','linewidth',2);
-scatter(correct_stim_used,nanmean(correct_activity_grp_mean(:,use_stim_t),2),80,col, ...
-    'Filled','MarkerEdgeColor','k','linewidth',2);
-
-l2 = plot(incorrect_stim_used,nanmean(incorrect_activity_grp_mean(:,use_stim_t),2),'color',[0.7,0.7,0.7],'linewidth',2);
-scatter(incorrect_stim_used,nanmean(incorrect_activity_grp_mean(:,use_stim_t),2),80,col, ...
-    'Filled','MarkerEdgeColor',[0.7,0.7,0.7],'linewidth',2);
-xlabel('Stim');
-ylabel('Max activity');
-
-legend([l1,l2],{'Correct','Incorrect'});
-axis square;
-
-linkaxes([p1,p2]);
-
-
-% Activity by velocity
-
-use_activity = mua_allcat(:,:,plot_depth) - mua_taskpred_reduced_allcat(:,:,plot_depth,2);
-
-t_leeway = -t(1);
-leeway_samples = round(t_leeway*(sample_rate));
-wheel_velocity_allcat_move = wheel_velocity_allcat;
-for i = 1:size(mua_allcat,1)
-    use_activity(i,:,:) = circshift(use_activity(i,:,:),-move_idx(i)+leeway_samples,2);
-    wheel_velocity_allcat_move(i,:,:) = circshift(wheel_velocity_allcat_move(i,:,:),-move_idx(i)+leeway_samples,2);
-end
-
-% Bin maximum velocity (options for how to do this)
-
-% (to use max velocity in chosen direction)
-% max_speed = max(abs(wheel_velocity_allcat_move(:,use_move_t).* ...
-%     (wheel_velocity_allcat_move(:,use_move_t).*trial_choice_allcat > 0)),[],2);
-% max_vel = max_speed.*trial_choice_allcat;
-
-% (to use max velocity regardless of final choice)
-max_vel = AP_signed_max(wheel_velocity_allcat_move(:,:),2);
-
-% (to use total cumulative velocity regardless of final choice)
-% max_vel = sum(wheel_velocity_allcat_move(:,:),2);
-
-% (to use max continuously cumulative velocity regardless of final choice)
-% max_vel = AP_signed_max(cumsum(wheel_velocity_allcat_move(:,:),2),2);
-
-vis_correct_trials = use_rxn & ...
-    trial_outcome_allcat == 1 & trial_contrast_allcat > 0;
-vis_incorrect_trials = use_rxn & ...
-    trial_outcome_allcat == -1 & trial_contrast_allcat > 0;
-zero_trials = use_rxn & trial_contrast_allcat == 0;
-
-n_vel_bins = 6;
-vel_amp_edges = prctile(abs(max_vel),linspace(0,100,n_vel_bins));
-% vel_amp_edges = linspace(prctile(abs(max_vel),10),prctile(abs(max_vel),90),n_vel_bins);
-vel_amp_edges = sort([vel_amp_edges,-vel_amp_edges]);
-
-vel_amp_bins = discretize(max_vel,vel_amp_edges);
-vel_amp_bins(vel_amp_bins == n_vel_bins) = NaN; 
-
-% Plot wheel and activity within bins
-[vis_correct_grps_used,vis_correct_max_vel_grp_mean] = ...
-    grpstats(max_vel(vis_correct_trials),vel_amp_bins(vis_correct_trials),{'gname','nanmean'});
-vis_correct_grps_used = cellfun(@str2num,vis_correct_grps_used);
-
-[vis_incorrect_grps_used,vis_incorrect_max_vel_grp_mean] = ...
-    grpstats(max_vel(vis_incorrect_trials),vel_amp_bins(vis_incorrect_trials),{'gname','nanmean'});
-vis_incorrect_grps_used = cellfun(@str2num,vis_incorrect_grps_used);
-
-[zero_grps_used,zero_max_vel_grp_mean] = ...
-    grpstats(max_vel(zero_trials),vel_amp_bins(zero_trials),{'gname','nanmean'});
-zero_grps_used = cellfun(@str2num,zero_grps_used);
-
-vis_correct_wheel_grp_mean = grpstats(wheel_velocity_allcat_move(vis_correct_trials,:),vel_amp_bins(vis_correct_trials));
-vis_correct_activity_grp_mean = grpstats(use_activity(vis_correct_trials,:),vel_amp_bins(vis_correct_trials));
-
-vis_incorrect_wheel_grp_mean = grpstats(wheel_velocity_allcat_move(vis_incorrect_trials,:),vel_amp_bins(vis_incorrect_trials));
-vis_incorrect_activity_grp_mean = grpstats(use_activity(vis_incorrect_trials,:),vel_amp_bins(vis_incorrect_trials));
-
-zero_wheel_grp_mean = grpstats(wheel_velocity_allcat_move(zero_trials,:),vel_amp_bins(zero_trials));
-zero_activity_grp_mean = grpstats(use_activity(zero_trials,:),vel_amp_bins(zero_trials));
-
-figure;
-col = [linspace(0.2,1,n_vel_bins)',0.1*ones(n_vel_bins,1),linspace(0.2,1,n_vel_bins)'; ...
-    0.1*ones(n_vel_bins,1),linspace(1,0.2,n_vel_bins)',0.1*ones(n_vel_bins,1)];
-
-subplot(3,4,1); hold on
-set(gca,'ColorOrder',col(vis_correct_grps_used,:))
-plot(t,vis_correct_wheel_grp_mean','linewidth',2)
-xlabel('Time from move');
-ylabel('Wheel velocity');
-axis tight
-line([0,0],ylim,'color','k');
-
-p1 = subplot(3,4,2); hold on
-set(gca,'ColorOrder',col(vis_correct_grps_used,:))
-plot(t,vis_correct_activity_grp_mean','linewidth',2)
-xlabel('Time from move');
-ylabel('Activity');
-axis tight
-line([0,0],ylim,'color','k');
-
-subplot(3,4,3); hold on;
-set(gca,'ColorOrder',col(vis_correct_grps_used,:))
-plot(vis_correct_wheel_grp_mean(:,use_move_t)',vis_correct_activity_grp_mean(:,use_move_t)','linewidth',2)
-xlim([-max(abs(xlim)),max(abs(xlim))]);
-xlabel('Wheel speed');
-ylabel('Activity');
-axis tight
-line([0,0],ylim,'color','k');
-line(xlim,[0,0],'color','k');
-
-subplot(3,4,5); hold on
-set(gca,'ColorOrder',col(vis_incorrect_grps_used,:))
-plot(t,vis_incorrect_wheel_grp_mean','linewidth',2)
-xlabel('Time from move');
-ylabel('Wheel velocity');
-axis tight
-line([0,0],ylim,'color','k');
-
-p2 = subplot(3,4,6); hold on
-set(gca,'ColorOrder',col(vis_incorrect_grps_used,:))
-plot(t,vis_incorrect_activity_grp_mean','linewidth',2)
-xlabel('Time from move');
-ylabel('Activity');
-axis tight
-line([0,0],ylim,'color','k');
-
-subplot(3,4,7); hold on;
-set(gca,'ColorOrder',col(vis_incorrect_grps_used,:))
-plot(vis_incorrect_wheel_grp_mean(:,use_move_t)',vis_incorrect_activity_grp_mean(:,use_move_t)','linewidth',2)
-xlim([-max(abs(xlim)),max(abs(xlim))]);
-xlabel('Wheel speed');
-ylabel('Activity');
-axis tight
-line([0,0],ylim,'color','k');
-line(xlim,[0,0],'color','k');
-
-subplot(3,4,9); hold on
-set(gca,'ColorOrder',col(zero_grps_used,:))
-plot(t,zero_wheel_grp_mean','linewidth',2)
-xlabel('Time from move');
-ylabel('Wheel velocity');
-axis tight
-line([0,0],ylim,'color','k');
-
-p3 = subplot(3,4,10); hold on
-set(gca,'ColorOrder',col(zero_grps_used,:))
-plot(t,zero_activity_grp_mean','linewidth',2)
-xlabel('Time from move');
-ylabel('Activity');
-axis tight
-line([0,0],ylim,'color','k');
-
-subplot(3,4,11); hold on;
-set(gca,'ColorOrder',col(zero_grps_used,:))
-plot(zero_wheel_grp_mean(:,use_move_t)',zero_activity_grp_mean(:,use_move_t)','linewidth',2)
-xlim([-max(abs(xlim)),max(abs(xlim))]);
-xlabel('Wheel speed');
-ylabel('Activity');
-axis tight
-line([0,0],ylim,'color','k');
-line(xlim,[0,0],'color','k');
-
-subplot(1,4,4); hold on;
-l1 = plot(vis_correct_max_vel_grp_mean,nanmean(vis_correct_activity_grp_mean(:,use_move_t),2),'k','linewidth',2);
-scatter(vis_correct_max_vel_grp_mean,nanmean(vis_correct_activity_grp_mean(:,use_move_t),2),80,col(vis_correct_grps_used,:), ...
-    'Filled','MarkerEdgeColor','k','linewidth',2);
-
-l2 = plot(vis_incorrect_max_vel_grp_mean,nanmean(vis_incorrect_activity_grp_mean(:,use_move_t),2),'color',[0.7,0,0],'linewidth',2);
-scatter(vis_incorrect_max_vel_grp_mean,nanmean(vis_incorrect_activity_grp_mean(:,use_move_t),2),80,col(vis_incorrect_grps_used,:), ...
-    'Filled','MarkerEdgeColor',[0.7,0,0],'linewidth',2);
-
-l3 = plot(zero_max_vel_grp_mean,nanmean(zero_activity_grp_mean(:,use_move_t),2),'color',[0.7,0.7,0.7],'linewidth',2);
-scatter(zero_max_vel_grp_mean,nanmean(zero_activity_grp_mean(:,use_move_t),2),80,col(zero_grps_used,:), ...
-    'Filled','MarkerEdgeColor',[0.7,0.7,0.7],'linewidth',2);
-xlabel('Max velocity');
-ylabel('Max activity');
-
-legend([l1,l2,l3],{'Visual correct','Visual incorrect','Zero-contrast'});
-axis square;
-
-linkaxes([p1,p2,p3]);
-
 %% Striatum: get activity by (correct/incorrect) stim and (visual/zero) velocity (experiment-separated)
 
 plot_depth = 2;
@@ -1527,17 +1295,18 @@ linkaxes([p1,p2,p3]);
 
 %% Cortex: get activity by (correct/incorrect) stim and (visual/zero) velocity (experiment-separated)
 
-plot_roi = 11;
-min_trials = 0; % minimum trials per group to keep
+plot_roi = 7;
+min_trials = 10; % minimum trials per group to keep
 
 % Split data
+trials_all = size(mua_allcat,1);
 trials_animal = arrayfun(@(x) size(vertcat(mua_all{x}{:}),1),1:size(mua_all));
 trials_recording = cellfun(@(x) size(x,1),vertcat(mua_all{:}));
 use_split = trials_animal;
 
 fluor_roi_deconv_exp = mat2cell(fluor_roi_deconv,use_split,length(t),n_rois);
-fluor_roi_deconv_taskpred_reduced_exp = mat2cell(fluor_roi_deconv_taskpred_reduced,use_split,length(t),n_rois, ...
-    size(fluor_roi_deconv_taskpred_reduced,4));
+fluor_roi_deconv_taskpred_reduced_exp = mat2cell(fluor_roi_taskpred_reduced,use_split,length(t),n_rois, ...
+    size(fluor_roi_taskpred_reduced,4));
 
 wheel_velocity_allcat_exp = mat2cell(wheel_velocity_allcat,use_split,length(t),1);
 
@@ -1566,6 +1335,13 @@ vel_amp_bins(vel_amp_bins == n_vel_bins) = NaN;
 
 max_vel_exp = mat2cell(max_vel,use_split,1);
 vel_amp_bins_exp = mat2cell(vel_amp_bins,use_split,1);
+
+% %%%%%%% TESTING: velocity bins within animal
+% vel_amp_edges = cellfun(@(x) prctile(abs(x),linspace(0,100,n_vel_bins)),max_vel_exp,'uni',false);
+% vel_amp_edges = cellfun(@(x) sort([x,-x]),vel_amp_edges,'uni',false);
+% vel_amp_edges{3} = zeros(size(vel_amp_edges{3}));
+% vel_amp_bins_exp = cellfun(@(x,y) discretize(x,y),max_vel_exp,vel_amp_edges,'uni',false);
+% %%%%%%%%%%%%%%
 
 % Loop through experiments, get context activity
 stim_activity_context = nan(10,length(t),2,length(use_split));
@@ -1614,7 +1390,7 @@ for curr_exp = 1:length(use_split)
     t_leeway = -t(1);
     leeway_samples = round(t_leeway*(sample_rate));
     wheel_velocity_allcat_exp_move = wheel_velocity_allcat_exp{curr_exp};
-    for i = 1:size(mua_allcat_exp{curr_exp},1)
+    for i = 1:size(fluor_roi_deconv_exp{curr_exp},1)
         use_activity(i,:,:) = circshift(use_activity(i,:,:),-move_idx_exp{curr_exp}(i)+leeway_samples,2);
         wheel_velocity_allcat_exp_move(i,:,:) = circshift(wheel_velocity_allcat_exp_move(i,:,:),-move_idx_exp{curr_exp}(i)+leeway_samples,2);
     end
@@ -1688,7 +1464,7 @@ p1 = subplot(1,3,1); hold on
 set(gca,'ColorOrder',col)
 plot(t,stim_activity_context_mean(:,:,1)','linewidth',2)
 xlabel('Time from stim');
-ylabel('Activity');
+ylabel(wf_roi(plot_roi).area);
 axis tight
 line([0,0],ylim,'color','k');
 
@@ -1696,7 +1472,7 @@ p2 = subplot(1,3,2); hold on
 set(gca,'ColorOrder',col)
 plot(t,stim_activity_context_mean(:,:,2)','linewidth',2)
 xlabel('Time from stim');
-ylabel('Activity');
+ylabel(wf_roi(plot_roi).area);
 axis tight
 line([0,0],ylim,'color','k');
 
@@ -1711,7 +1487,7 @@ l2 = errorbar(stims,nanmean(stim_activity_context_max_t(:,2,:),3), ...
 scatter(stims,nanmean(stim_activity_context_max_t(:,2,:),3),80,col, ...
     'Filled','MarkerEdgeColor',[0.7,0.7,0.7],'linewidth',2);
 xlabel('Stim');
-ylabel('Max activity');
+ylabel(wf_roi(plot_roi).area);
 
 legend([l1,l2],{'Correct','Incorrect'});
 axis square;
@@ -1737,7 +1513,7 @@ p1 = subplot(3,3,2); hold on
 set(gca,'ColorOrder',col)
 plot(t,move_activity_context_mean(:,:,1)','linewidth',2)
 xlabel('Time from move');
-ylabel('Activity');
+ylabel(wf_roi(plot_roi).area);
 axis tight
 line([0,0],ylim,'color','k');
 
@@ -1753,7 +1529,7 @@ p2 = subplot(3,3,5); hold on
 set(gca,'ColorOrder',col)
 plot(t,move_activity_context_mean(:,:,2)','linewidth',2)
 xlabel('Time from move');
-ylabel('Activity');
+ylabel(wf_roi(plot_roi).area);
 axis tight
 line([0,0],ylim,'color','k');
 
@@ -1769,7 +1545,7 @@ p3 = subplot(3,3,8); hold on
 set(gca,'ColorOrder',col)
 plot(t,move_activity_context_mean(:,:,3)','linewidth',2)
 xlabel('Time from move');
-ylabel('Activity');
+ylabel(wf_roi(plot_roi).area);
 axis tight
 line([0,0],ylim,'color','k');
 
@@ -1791,7 +1567,7 @@ scatter(1:(n_vel_bins-1)*2+1,nanmean(move_activity_context_max_t(:,3,:),3),80,co
     'Filled','MarkerEdgeColor',[0.7,0.7,0.7],'linewidth',2);
 
 xlabel('Max velocity');
-ylabel('Max activity');
+ylabel(wf_roi(plot_roi).area);
 
 legend([l1,l2,l3],{'Visual correct','Visual incorrect','Zero-contrast'});
 axis square;
@@ -1799,7 +1575,7 @@ axis square;
 linkaxes([p1,p2,p3]);
 
 
-%% Average kernels
+%% Average task -> striatum kernels
 
 n_regressors = 4;
 
@@ -1942,7 +1718,34 @@ colormap(brewermap([],'*RdBu'));
 AP_reference_outline('ccf_aligned','k');
 
 
+%% Average task -> cortex kernels
 
+n_regressors = 4;
+
+t_shifts = {[0,0.5]; ... % stim
+    [-0.5,1]; ... % move
+    [-0.1,0.5]; ... % go cue
+    [-0.5,1]}; % outcome
+
+sample_shifts = cellfun(@(x) round(x(1)*(sample_rate)): ...
+    round(x(2)*(sample_rate)),t_shifts,'uni',false);
+t_shifts = cellfun(@(x) x/sample_rate,sample_shifts,'uni',false);
+regressor_labels = {'Stim','Move onset','Go cue','Outcome'};
+
+for curr_regressor = 1:n_regressors
+    curr_k_cell = cellfun(@(x) x(curr_regressor,:),vertcat(fluor_taskpred_k_all{:}),'uni',false);
+    curr_k_cell = vertcat(curr_k_cell{:});
+    curr_k = permute(cell2mat(permute(arrayfun(@(x) ...
+        nanmean(cat(3,curr_k_cell{:,x}),3),1:n_vs,'uni',false),[1,3,2])),[3,2,1]);
+    curr_k_px = cell2mat(permute(arrayfun(@(x) svdFrameReconstruct(U_master(:,:,1:size(curr_k,1)), ...
+        curr_k(:,:,x)),1:size(curr_k,3),'uni',false),[1,3,4,2]));
+    AP_image_scroll(curr_k_px,t_shifts{curr_regressor});
+    axis image;
+    caxis([-max(abs(caxis)),max(abs(caxis))]);
+    colormap(brewermap([],'*RdBu'));
+    AP_reference_outline('ccf_aligned','k');
+    set(gcf,'Name',regressor_labels{curr_regressor});
+end
 
 
 %% Regression to wheel velocity

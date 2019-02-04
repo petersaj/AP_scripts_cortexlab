@@ -3,7 +3,7 @@
 %% Load choiceworld trial data (** NEEDED FOR BELOW **)
 
 % Load data
-data_fn = ['trial_activity_choiceworld_DECONVTEST'];
+data_fn = ['trial_activity_choiceworld_FLUORTASKTEST'];
 exclude_data = true;
 AP_load_concat_normalize_ctx_str;
 
@@ -1527,21 +1527,17 @@ linkaxes([p1,p2,p3]);
 
 %% Cortex: get activity by (correct/incorrect) stim and (visual/zero) velocity (experiment-separated)
 
-plot_roi = 2;
-min_trials = 10; % minimum trials per group to keep
+plot_roi = 11;
+min_trials = 0; % minimum trials per group to keep
 
 % Split data
 trials_animal = arrayfun(@(x) size(vertcat(mua_all{x}{:}),1),1:size(mua_all));
 trials_recording = cellfun(@(x) size(x,1),vertcat(mua_all{:}));
 use_split = trials_animal;
 
-mua_allcat_exp = mat2cell(mua_allcat,use_split,length(t),n_depths);
-mua_ctxpred_allcat_exp = mat2cell(mua_ctxpred_allcat,use_split,length(t),n_depths);
-
-mua_taskpred_reduced_allcat_exp = mat2cell(mua_taskpred_reduced_allcat,use_split,length(t),n_depths, ...
-    size(mua_taskpred_reduced_allcat,4));
-mua_ctxpred_taskpred_reduced_allcat_exp = mat2cell(mua_ctxpred_taskpred_reduced_allcat,use_split,length(t),n_depths, ...
-    size(mua_ctxpred_taskpred_reduced_allcat,4));
+fluor_roi_deconv_exp = mat2cell(fluor_roi_deconv,use_split,length(t),n_rois);
+fluor_roi_deconv_taskpred_reduced_exp = mat2cell(fluor_roi_deconv_taskpred_reduced,use_split,length(t),n_rois, ...
+    size(fluor_roi_deconv_taskpred_reduced,4));
 
 wheel_velocity_allcat_exp = mat2cell(wheel_velocity_allcat,use_split,length(t),1);
 
@@ -1581,7 +1577,7 @@ for curr_exp = 1:length(use_split)
     use_rxn = move_t_exp{curr_exp} > 0 & move_t_exp{curr_exp} < 0.5;
        
     % Stim activity
-    use_activity = mua_allcat_exp{curr_exp}(:,:,plot_depth) - mua_taskpred_reduced_allcat_exp{curr_exp}(:,:,plot_depth,1);
+    use_activity = fluor_roi_deconv_exp{curr_exp}(:,:,plot_roi) - fluor_roi_deconv_taskpred_reduced_exp{curr_exp}(:,:,plot_roi,1);
     
     % Stim contexts
     correct_trials = use_rxn & ...
@@ -1613,7 +1609,7 @@ for curr_exp = 1:length(use_split)
        
     
     % Move activity
-    use_activity = mua_allcat_exp{curr_exp}(:,:,plot_depth) - mua_taskpred_reduced_allcat_exp{curr_exp}(:,:,plot_depth,2);
+    use_activity = fluor_roi_deconv_exp{curr_exp}(:,:,plot_roi) - fluor_roi_deconv_taskpred_reduced_exp{curr_exp}(:,:,plot_roi,2);
     
     t_leeway = -t(1);
     leeway_samples = round(t_leeway*(sample_rate));
@@ -1803,7 +1799,7 @@ axis square;
 linkaxes([p1,p2,p3]);
 
 
-%% Average kernels
+%% Average task -> striatum kernels
 
 n_regressors = 4;
 
@@ -1946,6 +1942,46 @@ colormap(brewermap([],'*RdBu'));
 AP_reference_outline('ccf_aligned','k');
 
 
+%% Average task -> cortex kernels
+
+n_regressors = 4;
+
+t_shifts = {[0,0.5]; ... % stim
+    [-0.5,1]; ... % move
+    [-0.1,0.5]; ... % go cue
+    [-0.5,1]}; % outcome
+
+sample_shifts = cellfun(@(x) round(x(1)*(sample_rate)): ...
+    round(x(2)*(sample_rate)),t_shifts,'uni',false);
+t_shifts = cellfun(@(x) x/sample_rate,sample_shifts,'uni',false);
+
+
+curr_regressor = 1;
+curr_k_cell = cellfun(@(x) x(curr_regressor,:),vertcat(fluor_taskpred_k_all{:}),'uni',false);
+
+
+
+figure('Name','Striatum');
+p = nan(n_regressors,n_depths);
+task_regressors_avg = cell(n_regressors,n_depths);
+for curr_regressor = 1:n_regressors
+
+    
+    
+    for curr_depth = 1:n_depths
+        % Concatenate, normalize by day's std, average
+        curr_regressors = cellfun(@(x,mua_std) ...
+            x{curr_regressor,curr_depth}./mua_std(curr_depth), ...
+            vertcat(mua_taskpred_k_all{:}),vertcat(mua_day_std{:}),'uni',false);
+
+        task_regressors_avg{curr_regressor,curr_depth} = ...
+            nanmean(cat(3,curr_regressors{:}),3);
+        
+
+        plot(t_shifts{curr_regressor},task_regressors_avg{curr_regressor,curr_depth}','linewidth',2);
+    end
+end
+linkaxes(p,'xy');
 
 
 

@@ -12,10 +12,17 @@ gcamp6s_kernel_mean = nanmean(gcamp6s_kernel_cat./max(abs(gcamp6s_kernel_cat),[]
 
 %% Not fancy way: 
 
-deconv_fluorescence = convn(padarray(fluorescence, ...
+% Remove NaNs for convolution (put them back after)
+fluorescence_nonan = fluorescence;
+fluorescence_nonan(isnan(fluorescence_nonan)) = 0;
+
+% Deconvolve to same size with replication padding
+deconv_fluorescence = convn(padarray(fluorescence_nonan, ...
     [0,floor(length(gcamp6s_kernel_mean)/2)],'replicate','both'), ...
     gcamp6s_kernel_mean,'valid');
 
+% Put original NaNs back in
+deconv_fluorescence(isnan(fluorescence)) = NaN;
 
 %% Fancy way: filter kernel, use only valid convolution points
 
