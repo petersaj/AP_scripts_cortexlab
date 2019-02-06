@@ -3,7 +3,11 @@
 %% Load choiceworld trial data (** NEEDED FOR BELOW **)
 
 % Load data
-data_fn = ['trial_activity_choiceworld_FLUORTASKTEST'];
+% data_fn = 'trial_activity_choiceworld_FLUORTASKTEST';
+% data_fn = 'trial_activity_choiceworld_MOVELTEST';
+% data_fn = 'trial_activity_choiceworld_FWDCTXTEST';
+data_fn = 'trial_activity_choiceworld_STIMRTEST';
+
 exclude_data = true;
 AP_load_concat_normalize_ctx_str;
 
@@ -443,7 +447,7 @@ end
 % Rank differences by experiment
 trials_animal = arrayfun(@(x) size(vertcat(mua_all{x}{:}),1),1:size(mua_all));
 trials_recording = cellfun(@(x) size(x,1),vertcat(mua_all{:}));
-use_split = trials_recording;
+use_split = trials_animal;
 
 mua_exp = mat2cell(mua_allcat,use_split,length(t),n_depths);
 mua_ctxpred_exp = mat2cell(mua_ctxpred_allcat,use_split,length(t),n_depths);
@@ -477,6 +481,11 @@ for curr_exp = 1:length(mua_exp)
         curr_regressor_idx = strcmp(trial_groups{curr_group},regressor_labels);
         curr_mua =  mua_exp{curr_exp} - mua_taskpred_reduced_exp{curr_exp}(:,:,:,curr_regressor_idx);
         curr_mua_ctx = mua_ctxpred_exp{curr_exp} - mua_ctxpred_taskpred_reduced_exp{curr_exp}(:,:,:,curr_regressor_idx);
+        
+        % Skip if there's no data in this experiment
+        if isempty(curr_mua)
+            continue
+        end
         
         % Set common NaNs
         nan_samples = isnan(curr_mua) | isnan(curr_mua_ctx);
@@ -1575,7 +1584,7 @@ axis square;
 linkaxes([p1,p2,p3]);
 
 
-%% Average task -> striatum kernels
+%% Average task/ctx -> striatum kernels
 
 n_regressors = 4;
 
@@ -1685,8 +1694,8 @@ linkaxes(p,'xy');
 
 
 
-kernel_t = (round(regression_params.kernel_t(1)*sample_rate): ...
-            round(regression_params.kernel_t(2)*sample_rate))/sample_rate;
+kernel_t = fliplr(-((round(regression_params.kernel_t(1)*sample_rate): ...
+            round(regression_params.kernel_t(2)*sample_rate))/sample_rate));
 
 % Get average ctx->str kernels (flip in time to be relative to event)
 ctx_str_k_avg = fliplr(nanmean(cell2mat(permute(vertcat(ctx_str_k_all{:}),[2,3,4,1])),4));
@@ -1699,6 +1708,7 @@ AP_image_scroll(ctx_str_k_px_avg,kernel_t);
 axis image; caxis([-max(abs(caxis)),max(abs(caxis))]);
 colormap(brewermap([],'*RdBu'));
 AP_reference_outline('ccf_aligned','k');
+set(gcf,'Name','Ctx->Str');
 
 % Get average ctx->wheel kernels (flip in time to be relative to event)
 ctx_wheel_k_avg = fliplr(nanmean(cell2mat(permute(vertcat(ctx_wheel_k_all{:}),[2,3,4,1])),4));
@@ -1711,11 +1721,13 @@ AP_image_scroll(ctx_wheel_k_px_avg,kernel_t);
 axis image; caxis([-max(abs(caxis)),max(abs(caxis))]);
 colormap(brewermap([],'*RdBu'));
 AP_reference_outline('ccf_aligned','k');
+set(gcf,'Name','Ctx->Wheel');
 
 AP_image_scroll(ctx_wheel_k_px_avg-AP_reflect_widefield(ctx_wheel_k_px_avg),kernel_t);
 axis image; caxis([-max(abs(caxis)),max(abs(caxis))]);
 colormap(brewermap([],'*RdBu'));
 AP_reference_outline('ccf_aligned','k');
+set(gcf,'Name','Ctx->Wheel symmetric');
 
 
 %% Average task -> cortex kernels

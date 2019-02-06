@@ -812,7 +812,10 @@ for protocol = protocols
     t = kernel_frames/sample_rate;
     
     % Concatenate explained variance
-    cellfun(
+    expl_var_experiment = cell2mat(horzcat(batch_vars.explained_var));
+    expl_var_animal = cell2mat(cellfun(@(x) nanmean(cell2mat(x),2),{batch_vars.explained_var},'uni',false));
+    figure;errorbar(nanmean(expl_var_experiment,2), ...
+        nanstd(expl_var_experiment,[],2)./sqrt(nansum(expl_var_experiment,2)),'k','linewidth',2);
     
     % Concatenate and mean
     % (kernel goes backwards in time - flip to correct)
@@ -1029,10 +1032,10 @@ end
 data_fn = ['trial_activity_choiceworld'];
 exclude_data = true;
 
-[t,fluor_allcat_deriv,fluor_roi_deconv,mua_allcat,wheel_allcat,reward_allcat,D_allcat] = ...
+[t,fluor_allcat_deconv,fluor_roi_deconv,mua_allcat,wheel_allcat,reward_allcat,D_allcat] = ...
     AP_load_concat_normalize_ctx_str(data_fn,exclude_data);
 
-n_depths = size(fluor_allcat_deriv,3);
+n_depths = size(fluor_allcat_deconv,3);
 
 % Get trial information
 trial_contrast_allcat = max(D_allcat.stimulus,[],2);
@@ -1128,7 +1131,7 @@ linkaxes(p,'y');
 % Load data
 data_fn = ['trial_activity_choiceworld_framerate'];
 exclude_data = true;
-[t,fluor_allcat_deriv,fluor_roi_deconv,mua_allcat,wheel_allcat,reward_allcat,D_allcat] = ...
+[t,fluor_allcat_deconv,fluor_roi_deconv,mua_allcat,wheel_allcat,reward_allcat,D_allcat] = ...
     AP_load_concat_normalize_ctx_str(data_fn,exclude_data);
 
 % Load regression results
@@ -1321,7 +1324,7 @@ data_fn = ['trial_activity_choiceworld_DECONVTEST'];
 exclude_data = true;
 
 AP_load_concat_normalize_ctx_str;
-n_vs = size(fluor_allcat_deriv,3);
+n_vs = size(fluor_allcat_deconv,3);
 n_depths = size(mua_allcat,3);
 
 % Load regression results
@@ -1570,7 +1573,7 @@ data_fn = ['trial_activity_choiceworld_DECONVTEST'];
 exclude_data = true;
 AP_load_concat_normalize_ctx_str;
 
-n_vs = size(fluor_allcat_deriv,3);
+n_vs = size(fluor_allcat_deconv,3);
 n_depths = size(mua_allcat,3);
 
 % Load regression results
@@ -1605,13 +1608,13 @@ load(kernel_roi_fn);
 % Get predicted fluorescence in ROIs
 fluor_kernel_roi_bw = permute(reshape( ...
     AP_svd_roi(U_master(:,:,1:n_vs), ...
-    reshape(permute(fluor_allcat_deriv,[3,2,1]),n_vs,[]),[],[],kernel_roi.bw), ...
-    size(kernel_roi.bw,3),[],size(fluor_allcat_deriv,1)),[3,2,1]);
+    reshape(permute(fluor_allcat_deconv,[3,2,1]),n_vs,[]),[],[],kernel_roi.bw), ...
+    size(kernel_roi.bw,3),[],size(fluor_allcat_deconv,1)),[3,2,1]);
 
 fluor_kernel_roi_weighted = permute(reshape( ...
     AP_svd_roi(U_master(:,:,1:n_vs), ...
-    reshape(permute(fluor_allcat_deriv,[3,2,1]),n_vs,[]),[],[],kernel_roi.max_weighted), ...
-    size(kernel_roi.max_weighted,3),[],size(fluor_allcat_deriv,1)),[3,2,1]);
+    reshape(permute(fluor_allcat_deconv,[3,2,1]),n_vs,[]),[],[],kernel_roi.max_weighted), ...
+    size(kernel_roi.max_weighted,3),[],size(fluor_allcat_deconv,1)),[3,2,1]);
 
 
 %%%%%% Plot measured and predicted relating to each kernel
@@ -1740,7 +1743,7 @@ predicted_mua_std_allcat_move = predicted_mua_std_allcat - predicted_mua_allcat_
 mua_allcat_move = mua_allcat - mua_allcat_predicted_reduced(:,:,:,move_onset_regressor_idx);
 t_leeway = -t(1);
 leeway_samples = round(t_leeway*(sample_rate));
-for i = 1:size(fluor_allcat_deriv,1)
+for i = 1:size(fluor_allcat_deconv,1)
     predicted_mua_std_allcat_move(i,:,:) = circshift(predicted_mua_std_allcat_move(i,:,:),-move_idx(i)+leeway_samples,2);
     mua_allcat_move(i,:,:) = circshift(mua_allcat_move(i,:,:),-move_idx(i)+leeway_samples,2);
 end
@@ -1941,8 +1944,8 @@ end
 % check the ROIs drawn from the kernels
 fluor_kernel_roi_bw = permute(reshape( ...
     AP_svd_roi(U_master(:,:,1:n_vs), ...
-    reshape(permute(fluor_allcat_deriv,[3,2,1]),n_vs,[]),[],[],kernel_roi.bw), ...
-    size(kernel_roi.bw,3),[],size(fluor_allcat_deriv,1)),[3,2,1]);
+    reshape(permute(fluor_allcat_deconv,[3,2,1]),n_vs,[]),[],[],kernel_roi.bw), ...
+    size(kernel_roi.bw,3),[],size(fluor_allcat_deconv,1)),[3,2,1]);
 
 fluor_kernel_roi_bw_reduced = arrayfun(@(x) ...
     permute(reshape( ...
@@ -1969,7 +1972,7 @@ for curr_group = 1:length(trial_groups)
     if any(strfind(lower(trial_groups{curr_group}),'move'))
         t_leeway = -t(1);
         leeway_samples = round(t_leeway*(sample_rate));
-        for i = 1:size(fluor_allcat_deriv,1)
+        for i = 1:size(fluor_allcat_deconv,1)
             curr_mua(i,:,:) = circshift(curr_mua(i,:,:),-move_idx(i)+leeway_samples,2);
             curr_predicted_mua(i,:,:) = circshift(curr_predicted_mua(i,:,:),-move_idx(i)+leeway_samples,2);
         end
@@ -2075,7 +2078,7 @@ for curr_group = 1:length(trial_groups)
     if any(strfind(lower(trial_groups{curr_group}),'move'))
         t_leeway = -t(1);
         leeway_samples = round(t_leeway*(sample_rate));
-        for i = 1:size(fluor_allcat_deriv,1)
+        for i = 1:size(fluor_allcat_deconv,1)
             curr_mua(i,:,:) = circshift(curr_mua(i,:,:),-move_idx(i)+leeway_samples,2);
             curr_predicted_mua(i,:,:) = circshift(curr_predicted_mua(i,:,:),-move_idx(i)+leeway_samples,2);
         end
@@ -2151,7 +2154,7 @@ for curr_group = 1:length(trial_groups)
     if strcmp(trial_groups{curr_group},'Move onset')
         t_leeway = -t(1);
         leeway_samples = round(t_leeway*(sample_rate));
-        for i = 1:size(fluor_allcat_deriv,1)
+        for i = 1:size(fluor_allcat_deconv,1)
             curr_fluor(i,:,:) = circshift(curr_fluor(i,:,:),-move_idx(i)+leeway_samples,2);
         end
     end
@@ -2281,22 +2284,14 @@ plot(reshape(mua_allcat_predicted(:,:,curr_depth)',[],1));
 
 %% Fig 4?: stim responses: task > 0.5s reaction
 
-data_fn = ['trial_activity_choiceworld'];
+data_fn = ['trial_activity_choiceworld_FLUORTASKTEST'];
 exclude_data = true;
 
 AP_load_concat_normalize_ctx_str;
 
-n_vs = size(fluor_allcat_deriv,3);
+n_vs = size(fluor_allcat_deconv,3);
 n_rois = size(fluor_roi_deconv,3);
 n_depths = size(mua_allcat,3);
-
-% Get ROIs
-wf_roi_fn = 'C:\Users\Andrew\OneDrive for Business\Documents\CarandiniHarrisLab\analysis\wf_ephys_choiceworld\wf_processing\wf_rois\wf_roi';
-load(wf_roi_fn);
-wf_roi = wf_roi(:,1);
-
-% Load the master U
-load('C:\Users\Andrew\OneDrive for Business\Documents\CarandiniHarrisLab\analysis\wf_ephys_choiceworld\wf_processing\wf_alignment\U_master');
 
 % Get trial information
 trial_contrast_allcat = max(D_allcat.stimulus,[],2);
@@ -2315,17 +2310,17 @@ move_t(~move_trial) = Inf;
 unique_stim = unique(trial_contrast_side);
 
 % Get average long reaction time stim responses
-fluor_stim_mean = nan(length(unique_stim),size(fluor_allcat_deriv,2),n_vs);
+fluor_stim_mean = nan(length(unique_stim),size(fluor_allcat_deconv,2),n_vs);
 fluor_roi_stim_mean = nan(length(unique_stim),size(fluor_roi_deconv,2),n_rois);
 mua_stim_mean = nan(length(unique_stim),size(mua_allcat,2),n_depths);
-predicted_mua_stim_mean = nan(length(unique_stim),size(predicted_mua_std_allcat,2),n_depths);
+mua_ctxpred_stim_mean = nan(length(unique_stim),size(mua_ctxpred_allcat,2),n_depths);
 for curr_stim_idx = 1:length(unique_stim)
     curr_trials = move_t > 0.5 & ...
         trial_contrast_side == unique_stim(curr_stim_idx);
-    fluor_stim_mean(curr_stim_idx,:,:) = nanmean(fluor_allcat_deriv(curr_trials,:,:),1);
+    fluor_stim_mean(curr_stim_idx,:,:) = nanmean(fluor_allcat_deconv(curr_trials,:,:),1);
     fluor_roi_stim_mean(curr_stim_idx,:,:) = nanmean(fluor_roi_deconv(curr_trials,:,:),1);
     mua_stim_mean(curr_stim_idx,:,:) = nanmean(mua_allcat(curr_trials,:,:),1);
-    predicted_mua_stim_mean(curr_stim_idx,:,:) = nanmean(predicted_mua_std_allcat(curr_trials,:,:),1);
+    mua_ctxpred_stim_mean(curr_stim_idx,:,:) = nanmean(mua_ctxpred_allcat(curr_trials,:,:),1);
 end
 
 % Plot 100/R fluorescence, curves, and tuning curves
@@ -2373,7 +2368,7 @@ xlabel('Contrast*Side');
 ylabel('MUA');
 
 mp3 = subplot(2,3,6); hold on; set(gca,'ColorOrder',copper(n_depths));
-predicted_mua_stim_max = squeeze(max(predicted_mua_stim_mean(:,use_t,:),[],2));
+predicted_mua_stim_max = squeeze(max(mua_ctxpred_stim_mean(:,use_t,:),[],2));
 plot(unique_stim,predicted_mua_stim_max,'linewidth',2);
 xlabel('Contrast*Side');
 ylabel('Ctx-predicted MUA');
@@ -2386,41 +2381,183 @@ linkaxes([mp1,mp2,mp3],'y');
 figure;
 spacing = max(mua_stim_mean(:));
 
-p1 = subplot(1,2,1); hold on; col = lines(length(unique_stim));
+p1 = subplot(1,3,1); hold on; col = lines(length(unique_stim));
 for curr_stim = 1:length(unique_stim)
     AP_stackplot(permute(mua_stim_mean(curr_stim,:,:),[2,3,1]),t, ...
         spacing,false,col(curr_stim,:),1:n_depths,true);
 end
 title('Measured');
 
-p2 = subplot(1,2,2); hold on; col = lines(length(unique_stim));
+p2 = subplot(1,3,2); hold on; col = lines(length(unique_stim));
 for curr_stim = 1:length(unique_stim)
-    AP_stackplot(permute(predicted_mua_stim_mean(curr_stim,:,:),[2,3,1]),t, ...
+    AP_stackplot(permute(mua_ctxpred_stim_mean(curr_stim,:,:),[2,3,1]),t, ...
         spacing,false,col(curr_stim,:),1:n_depths,true);
 end
 title('Predicted');
 
-linkaxes([p1,p2]);
+p3 = subplot(1,3,3); hold on; col = lines(length(unique_stim));
+for curr_stim = 1:length(unique_stim)
+    AP_stackplot(permute(mua_stim_mean(curr_stim,:,:) - ...
+        mua_ctxpred_stim_mean(curr_stim,:,:),[2,3,1]),t, ...
+        spacing,false,col(curr_stim,:),1:n_depths,true);
+end
+title('Measured - predicted');
+
+linkaxes([p1,p2,p3]);
 
 
-%% Fig 4?: stim responses: passive choiceworld trained
 
-data_fn = ['trial_activity_passive_choiceworld'];
+% Rank differences by experiment
+trials_animal = arrayfun(@(x) size(vertcat(mua_all{x}{:}),1),1:size(mua_all));
+trials_recording = cellfun(@(x) size(x,1),vertcat(mua_all{:}));
+use_split = trials_animal;
+
+mua_exp = mat2cell(mua_allcat,use_split,length(t),n_depths);
+mua_ctxpred_exp = mat2cell(mua_ctxpred_allcat,use_split,length(t),n_depths);
+
+move_t_exp = mat2cell(move_t,use_split,1);
+trial_side_allcat_exp = mat2cell(trial_side_allcat,use_split,1);
+trial_contrast_allcat_exp = mat2cell(trial_contrast_allcat,use_split,1);
+
+stim_exp = mat2cell(trial_side_allcat.*trial_contrast_allcat,use_split,1);
+
+trial_groups = {'Stim'};
+t_groups = {[0,0.3]};
+
+act_rank_difference = nan(length(t),n_depths,length(use_split),length(trial_groups));
+predicted_act_rank_difference = nan(length(t),n_depths,length(use_split),length(trial_groups));
+
+act_rank_difference_trial = nan(n_depths,length(use_split),length(trial_groups));
+predicted_act_rank_difference_trial = nan(n_depths,length(use_split),length(trial_groups));
+
+for curr_exp = 1:length(mua_exp)
+    for curr_group = 1:length(trial_groups)
+        
+        % Get MUA/predicted using reduced model
+        curr_mua =  mua_exp{curr_exp};
+        curr_mua_ctx = mua_ctxpred_exp{curr_exp};
+        
+        % Skip if there's no data in this experiment
+        if isempty(curr_mua)
+            continue
+        end
+        
+        % Set common NaNs
+        nan_samples = isnan(curr_mua) | isnan(curr_mua_ctx);
+        curr_mua(nan_samples) = NaN;
+        curr_mua_ctx(nan_samples) = NaN;       
+        
+        % Set trials and grouping to use
+        switch trial_groups{curr_group}
+            case 'Stim'
+                use_trials = move_t_exp{curr_exp} > 0.5 & move_t_exp{curr_exp} < 1 & trial_contrast_allcat_exp{curr_exp} > 0;
+                trial_group_1 = trial_side_allcat_exp{curr_exp} == 1;
+                trial_group_2 = trial_side_allcat_exp{curr_exp} == -1;
+        end
+        
+        act_rank = tiedrank(curr_mua(use_trials,:,:));
+        predicted_act_rank = tiedrank(curr_mua_ctx(use_trials,:,:));
+        
+        act_rank_difference(:,:,curr_exp,curr_group) = squeeze(( ...
+            nanmean(act_rank(trial_group_1(use_trials),:,:),1) - ...
+            nanmean(act_rank(trial_group_2(use_trials),:,:),1))./max(act_rank,[],1));
+        predicted_act_rank_difference(:,:,curr_exp,curr_group) = squeeze(( ...
+            nanmean(predicted_act_rank(trial_group_1(use_trials),:,:),1) - ...
+            nanmean(predicted_act_rank(trial_group_2(use_trials),:,:),1))./max(predicted_act_rank,[],1));
+        
+        use_t = t >= t_groups{curr_group}(1) & t <= t_groups{curr_group}(2);
+        act_rank_trial = tiedrank(squeeze(nanmean(curr_mua(use_trials,use_t,:),2)));
+        predicted_act_rank_trial = tiedrank(squeeze(nanmean(curr_mua_ctx(use_trials,use_t,:),2)));
+        
+        act_rank_difference_trial(:,curr_exp,curr_group) = ...
+            (nanmean(act_rank_trial(trial_group_1(use_trials),:),1) - ...
+            nanmean(act_rank_trial(trial_group_2(use_trials),:),1))./max(act_rank_trial,[],1);
+        predicted_act_rank_difference_trial(:,curr_exp,curr_group) = ...
+            (nanmean(predicted_act_rank_trial(trial_group_1(use_trials),:),1) - ...
+            nanmean(predicted_act_rank_trial(trial_group_2(use_trials),:),1))./max(predicted_act_rank_trial,[],1);
+      
+    end
+end
+
+act_rank_difference_mean = squeeze(nanmean(act_rank_difference,3));
+predicted_act_rank_difference_mean = squeeze(nanmean(predicted_act_rank_difference,3));
+
+figure;
+for curr_group = 1:length(trial_groups)
+    p1 = subplot(2,length(trial_groups),curr_group);
+    hold on; set(gca,'ColorOrder',copper(n_depths));
+    plot(t,act_rank_difference_mean(:,:,curr_group),'linewidth',2);
+    axis tight; line([0,0],ylim,'color','k');
+    xlabel('Time');
+    ylabel('Mean rank difference');
+    title([trial_groups{curr_group} ': Measured']);
+    
+    p2 = subplot(2,length(trial_groups),length(trial_groups)+curr_group);
+    hold on; set(gca,'ColorOrder',copper(n_depths));
+    plot(t,predicted_act_rank_difference_mean(:,:,curr_group),'linewidth',2);
+    axis tight; line([0,0],ylim,'color','k');
+    xlabel('Time');
+    ylabel('Mean rank difference');
+    title([trial_groups{curr_group} ': Predicted']);
+    linkaxes([p1,p2],'xy');
+end
+
+figure;
+
+subplot(1,2,1); hold on;
+errorbar(squeeze(nanmean(act_rank_difference_trial,2)), ...
+    AP_sem(act_rank_difference_trial,2),'linewidth',2);
+errorbar(squeeze(nanmean(predicted_act_rank_difference_trial,2)), ...
+    AP_sem(predicted_act_rank_difference_trial,2),'linewidth',2);
+set(gca,'XTick',1:n_depths);
+xlim([0.5,n_depths+0.5]);
+line(xlim,[0,0],'color','k');
+xlabel('Striatum depth');
+ylabel('Stim rank difference');
+legend({'Measured','Cortex-predicted'});
+
+% Plot the prediction difference by stimulus
+used_exp = cellfun(@(x) ~isempty(x),stim_exp);
+mua_ctxpred_diff_exp = ...
+    cell2mat(permute(cellfun(@(mua,ctxpred,stim) cell2mat(arrayfun(@(depth) ...
+    grpstats(mua(:,:,depth)-ctxpred(:,:,depth),stim,@nanmean), ...
+    permute(1:n_depths,[1,3,2]),'uni',false)), ...
+    mua_exp(used_exp),mua_ctxpred_exp(used_exp),stim_exp(used_exp),'uni',false),[2,3,4,1]));
+
+t_use = t > 0 & t < 0.2;
+mua_ctxpred_diff_exp_mean_t = squeeze(nanmean(mua_ctxpred_diff_exp(:,t_use,:,:),2));
+
+subplot(1,2,2); hold on
+errorbar(nanmean(mua_ctxpred_diff_exp_mean_t,3), ...
+    AP_sem(mua_ctxpred_diff_exp_mean_t,3)','linewidth',2);
+set(gca,'XTick',1:n_depths);
+xlim([0.5,n_depths+0.5]);
+line(xlim,[0,0],'color','k');
+xlabel('Striatum depth');
+ylabel('Cortex-predicted striatum error');
+legend(cellfun(@num2str,num2cell(unique_stim),'uni',false))
+
+
+
+
+
+%% Fig 4?: passive stim responses 
+
+compare_stim_1 = [1];
+compare_stim_2 = [2];
+
+data_fn = 'trial_activity_passive_choiceworld_trained_DECONVTEST';
+% data_fn = 'trial_activity_passive_choiceworld_naive_DECONVTEST';
+% data_fn = 'trial_activity_passive_fullscreen_trained_DECONVTEST';
+% data_fn = 'trial_activity_passive_fullscreen_naive_DECONVTEST';
+
 exclude_data = false;
 
 AP_load_concat_normalize_ctx_str;
 
-n_vs = size(fluor_allcat_deriv,3);
+n_vs = size(fluor_allcat_deconv,3);
 n_rois = size(fluor_roi_deconv,3);
 n_depths = size(mua_allcat,3);
-
-% Get ROIs
-wf_roi_fn = 'C:\Users\Andrew\OneDrive for Business\Documents\CarandiniHarrisLab\analysis\wf_ephys_choiceworld\wf_processing\wf_rois\wf_roi';
-load(wf_roi_fn);
-wf_roi = wf_roi(:,1);
-
-% Load the master U
-load('C:\Users\Andrew\OneDrive for Business\Documents\CarandiniHarrisLab\analysis\wf_ephys_choiceworld\wf_processing\wf_alignment\U_master');
 
 % Get trials with movement
 move_trials = any(abs(wheel_allcat) > 2,2);
@@ -2429,24 +2566,23 @@ move_trials = any(abs(wheel_allcat) > 2,2);
 unique_stim = unique(D_allcat.stimulus);
 
 % Get average long reaction time stim responses
-fluor_stim_mean = nan(length(unique_stim),size(fluor_allcat_deriv,2),n_vs);
+fluor_stim_mean = nan(length(unique_stim),size(fluor_allcat_deconv,2),n_vs);
 fluor_roi_stim_mean = nan(length(unique_stim),size(fluor_roi_deconv,2),n_rois);
 mua_stim_mean = nan(length(unique_stim),size(mua_allcat,2),n_depths);
-predicted_mua_stim_mean = nan(length(unique_stim),size(predicted_mua_std_allcat,2),n_depths);
+mua_ctxpred_stim_mean = nan(length(unique_stim),size(mua_ctxpred_allcat,2),n_depths);
 for curr_stim_idx = 1:length(unique_stim)
     curr_trials =  ...
         D_allcat.stimulus == unique_stim(curr_stim_idx);
-    fluor_stim_mean(curr_stim_idx,:,:) = nanmean(fluor_allcat_deriv(curr_trials,:,:),1);
+    fluor_stim_mean(curr_stim_idx,:,:) = nanmean(fluor_allcat_deconv(curr_trials,:,:),1);
     fluor_roi_stim_mean(curr_stim_idx,:,:) = nanmean(fluor_roi_deconv(curr_trials,:,:),1);
     mua_stim_mean(curr_stim_idx,:,:) = nanmean(mua_allcat(curr_trials,:,:),1);
-    predicted_mua_stim_mean(curr_stim_idx,:,:) = nanmean(predicted_mua_std_allcat(curr_trials,:,:),1);
+    mua_ctxpred_stim_mean(curr_stim_idx,:,:) = nanmean(mua_ctxpred_allcat(curr_trials,:,:),1);
 end
 
-% Plot 100/R fluorescence, curves, and tuning curves
-figure('Name','Trained passive choiceworld');
-
+% Plot example fluorescence, curves, and tuning curves
 use_t = t > 0 & t < 0.2;
 
+figure;
 subplot(2,3,1);
 plot_px = svdFrameReconstruct(U_master(:,:,1:n_vs), ...
     permute(fluor_stim_mean(end,:,:),[3,2,1]));
@@ -2477,19 +2613,19 @@ ylabel('MUA');
 fp2 = subplot(2,3,4); hold on;
 fluor_roi_stim_max = squeeze(max(fluor_roi_stim_mean(:,use_t,:),[],2));
 plot(unique_stim,fluor_roi_stim_max(:,plot_rois),'linewidth',2);
-xlabel('Contrast*Side');
+xlabel('Stim');
 ylabel('Fluorescence');
 
 mp2 = subplot(2,3,5); hold on; set(gca,'ColorOrder',copper(n_depths));
 mua_stim_max = squeeze(max(mua_stim_mean(:,use_t,:),[],2));
 plot(unique_stim,mua_stim_max,'linewidth',2);
-xlabel('Contrast*Side');
+xlabel('Stim');
 ylabel('MUA');
 
 mp3 = subplot(2,3,6); hold on; set(gca,'ColorOrder',copper(n_depths));
-predicted_mua_stim_max = squeeze(max(predicted_mua_stim_mean(:,use_t,:),[],2));
+predicted_mua_stim_max = squeeze(max(mua_ctxpred_stim_mean(:,use_t,:),[],2));
 plot(unique_stim,predicted_mua_stim_max,'linewidth',2);
-xlabel('Contrast*Side');
+xlabel('Stim');
 ylabel('Ctx-predicted MUA');
 
 linkaxes([fp1,fp2],'y');
@@ -2500,396 +2636,152 @@ linkaxes([mp1,mp2,mp3],'y');
 figure;
 spacing = max(mua_stim_mean(:));
 
-p1 = subplot(1,2,1); hold on; col = lines(length(unique_stim));
+p1 = subplot(1,3,1); hold on; col = lines(length(unique_stim));
 for curr_stim = 1:length(unique_stim)
     AP_stackplot(permute(mua_stim_mean(curr_stim,:,:),[2,3,1]),t, ...
         spacing,false,col(curr_stim,:),1:n_depths,true);
 end
 title('Measured');
 
-p2 = subplot(1,2,2); hold on; col = lines(length(unique_stim));
+p2 = subplot(1,3,2); hold on; col = lines(length(unique_stim));
 for curr_stim = 1:length(unique_stim)
-    AP_stackplot(permute(predicted_mua_stim_mean(curr_stim,:,:),[2,3,1]),t, ...
+    AP_stackplot(permute(mua_ctxpred_stim_mean(curr_stim,:,:),[2,3,1]),t, ...
         spacing,false,col(curr_stim,:),1:n_depths,true);
 end
 title('Predicted');
 
-linkaxes([p1,p2]);
+p3 = subplot(1,3,3); hold on; col = lines(length(unique_stim));
+for curr_stim = 1:length(unique_stim)
+    AP_stackplot(permute(mua_stim_mean(curr_stim,:,:) - ...
+        mua_ctxpred_stim_mean(curr_stim,:,:),[2,3,1]),t, ...
+        spacing,false,col(curr_stim,:),1:n_depths,true);
+end
+title('Measured - predicted');
+
+linkaxes([p1,p2,p3]);
 
 
-%% Fig 4?: stim responses: passive choiceworld naive
+% Rank differences by experiment
+trials_animal = arrayfun(@(x) size(vertcat(mua_all{x}{:}),1),1:size(mua_all));
+trials_recording = cellfun(@(x) size(x,1),vertcat(mua_all{:}));
+use_split = trials_animal;
 
-data_fn = ['trial_activity_passive_choiceworld_naive'];
-exclude_data = false;
+mua_exp = mat2cell(mua_allcat,use_split,length(t),n_depths);
+mua_ctxpred_exp = mat2cell(mua_ctxpred_allcat,use_split,length(t),n_depths);
 
-AP_load_concat_normalize_ctx_str;
+stim_exp = mat2cell(D_allcat.stimulus,use_split,1);
 
-n_vs = size(fluor_allcat_deriv,3);
-n_rois = size(fluor_roi_deconv,3);
-n_depths = size(mua_allcat,3);
+trial_groups = {'Stim'};
+t_groups = {[0,0.3]};
 
-% Get ROIs
-wf_roi_fn = 'C:\Users\Andrew\OneDrive for Business\Documents\CarandiniHarrisLab\analysis\wf_ephys_choiceworld\wf_processing\wf_rois\wf_roi';
-load(wf_roi_fn);
-wf_roi = wf_roi(:,1);
+act_rank_difference = nan(length(t),n_depths,length(use_split),length(trial_groups));
+predicted_act_rank_difference = nan(length(t),n_depths,length(use_split),length(trial_groups));
 
-% Load the master U
-load('C:\Users\Andrew\OneDrive for Business\Documents\CarandiniHarrisLab\analysis\wf_ephys_choiceworld\wf_processing\wf_alignment\U_master');
+act_rank_difference_trial = nan(n_depths,length(use_split),length(trial_groups));
+predicted_act_rank_difference_trial = nan(n_depths,length(use_split),length(trial_groups));
 
-% Get trials with movement
-move_trials = any(abs(wheel_allcat) > 2,2);
-
-% Get stim values
-unique_stim = unique(D_allcat.stimulus);
-
-% Get average long reaction time stim responses
-fluor_stim_mean = nan(length(unique_stim),size(fluor_allcat_deriv,2),n_vs);
-fluor_roi_stim_mean = nan(length(unique_stim),size(fluor_roi_deconv,2),n_rois);
-mua_stim_mean = nan(length(unique_stim),size(mua_allcat,2),n_depths);
-predicted_mua_stim_mean = nan(length(unique_stim),size(predicted_mua_std_allcat,2),n_depths);
-for curr_stim_idx = 1:length(unique_stim)
-    curr_trials =  ...
-        D_allcat.stimulus == unique_stim(curr_stim_idx);
-    fluor_stim_mean(curr_stim_idx,:,:) = nanmean(fluor_allcat_deriv(curr_trials,:,:),1);
-    fluor_roi_stim_mean(curr_stim_idx,:,:) = nanmean(fluor_roi_deconv(curr_trials,:,:),1);
-    mua_stim_mean(curr_stim_idx,:,:) = nanmean(mua_allcat(curr_trials,:,:),1);
-    predicted_mua_stim_mean(curr_stim_idx,:,:) = nanmean(predicted_mua_std_allcat(curr_trials,:,:),1);
+for curr_exp = 1:length(mua_exp)
+    for curr_group = 1:length(trial_groups)
+        
+        % Get MUA/predicted using reduced model
+        curr_mua =  mua_exp{curr_exp};
+        curr_mua_ctx = mua_ctxpred_exp{curr_exp};
+        
+        % Set common NaNs
+        nan_samples = isnan(curr_mua) | isnan(curr_mua_ctx);
+        curr_mua(nan_samples) = NaN;
+        curr_mua_ctx(nan_samples) = NaN;       
+        
+        % Set trials and grouping to use
+        switch trial_groups{curr_group}
+            case 'Stim'
+                use_trials = true(size(stim_exp{curr_exp}));                
+                trial_group_1 = ismember(stim_exp{curr_exp},compare_stim_1);
+                trial_group_2 = ismember(stim_exp{curr_exp},compare_stim_2);  
+        end
+        
+        act_rank = tiedrank(curr_mua(use_trials,:,:));
+        predicted_act_rank = tiedrank(curr_mua_ctx(use_trials,:,:));
+        
+        act_rank_difference(:,:,curr_exp,curr_group) = squeeze(( ...
+            nanmean(act_rank(trial_group_1(use_trials),:,:),1) - ...
+            nanmean(act_rank(trial_group_2(use_trials),:,:),1))./max(act_rank,[],1));
+        predicted_act_rank_difference(:,:,curr_exp,curr_group) = squeeze(( ...
+            nanmean(predicted_act_rank(trial_group_1(use_trials),:,:),1) - ...
+            nanmean(predicted_act_rank(trial_group_2(use_trials),:,:),1))./max(predicted_act_rank,[],1));
+        
+        use_t = t >= t_groups{curr_group}(1) & t <= t_groups{curr_group}(2);
+        act_rank_trial = tiedrank(squeeze(nanmean(curr_mua(use_trials,use_t,:),2)));
+        predicted_act_rank_trial = tiedrank(squeeze(nanmean(curr_mua_ctx(use_trials,use_t,:),2)));
+        
+        act_rank_difference_trial(:,curr_exp,curr_group) = ...
+            (nanmean(act_rank_trial(trial_group_1(use_trials),:),1) - ...
+            nanmean(act_rank_trial(trial_group_2(use_trials),:),1))./max(act_rank_trial,[],1);
+        predicted_act_rank_difference_trial(:,curr_exp,curr_group) = ...
+            (nanmean(predicted_act_rank_trial(trial_group_1(use_trials),:),1) - ...
+            nanmean(predicted_act_rank_trial(trial_group_2(use_trials),:),1))./max(predicted_act_rank_trial,[],1);
+      
+    end
 end
 
-% Plot 100/R fluorescence, curves, and tuning curves
-figure('Name','Naive passive choiceworld');
+act_rank_difference_mean = squeeze(nanmean(act_rank_difference,3));
+predicted_act_rank_difference_mean = squeeze(nanmean(predicted_act_rank_difference,3));
 
-use_t = t > 0 & t < 0.2;
-
-subplot(2,3,1);
-plot_px = svdFrameReconstruct(U_master(:,:,1:n_vs), ...
-    permute(fluor_stim_mean(end,:,:),[3,2,1]));
-plot_px_max = mean(plot_px(:,:,use_t),3);
-imagesc(plot_px_max);
-caxis([0,max(abs(caxis))]);
-colormap(brewermap([],'BuGn'));
-AP_reference_outline('ccf_aligned','k');
-axis image off;
-
-fp1 = subplot(2,3,2); hold on;
-plot_rois = [1:3,7];
-plot(t,squeeze(fluor_roi_stim_mean(end,:,plot_rois)),'linewidth',2);
-axis tight;
-line([0,0],ylim,'color','k');
-xlim([-0.2,0.5]);
-legend({wf_roi(plot_rois).area});
-ylabel('Fluorescence');
-
-mp1 = subplot(2,3,3); hold on; set(gca,'ColorOrder',copper(n_depths));
-plot(t,squeeze(mua_stim_mean(end,:,:)),'linewidth',2);
-axis tight;
-line([0,0],ylim,'color','k');
-xlim([-0.2,0.5]);
-legend(cellfun(@num2str,num2cell(1:n_depths),'uni',false));
-ylabel('MUA');
-
-fp2 = subplot(2,3,4); hold on;
-fluor_roi_stim_max = squeeze(max(fluor_roi_stim_mean(:,use_t,:),[],2));
-plot(unique_stim,fluor_roi_stim_max(:,plot_rois),'linewidth',2);
-xlabel('Contrast*Side');
-ylabel('Fluorescence');
-
-mp2 = subplot(2,3,5); hold on; set(gca,'ColorOrder',copper(n_depths));
-mua_stim_max = squeeze(max(mua_stim_mean(:,use_t,:),[],2));
-plot(unique_stim,mua_stim_max,'linewidth',2);
-xlabel('Contrast*Side');
-ylabel('MUA');
-
-mp3 = subplot(2,3,6); hold on; set(gca,'ColorOrder',copper(n_depths));
-predicted_mua_stim_max = squeeze(max(predicted_mua_stim_mean(:,use_t,:),[],2));
-plot(unique_stim,predicted_mua_stim_max,'linewidth',2);
-xlabel('Contrast*Side');
-ylabel('Ctx-predicted MUA');
-
-linkaxes([fp1,fp2],'y');
-linkaxes([mp1,mp2,mp3],'y');
-
-% Plot MUA and fluor-predicted MUA
 figure;
-spacing = max(mua_stim_mean(:));
-
-p1 = subplot(1,2,1); hold on; col = lines(length(unique_stim));
-for curr_stim = 1:length(unique_stim)
-    AP_stackplot(permute(mua_stim_mean(curr_stim,:,:),[2,3,1]),t, ...
-        spacing,false,col(curr_stim,:),1:n_depths,true);
-end
-title('Measured');
-
-p2 = subplot(1,2,2); hold on; col = lines(length(unique_stim));
-for curr_stim = 1:length(unique_stim)
-    AP_stackplot(permute(predicted_mua_stim_mean(curr_stim,:,:),[2,3,1]),t, ...
-        spacing,false,col(curr_stim,:),1:n_depths,true);
-end
-title('Predicted');
-
-linkaxes([p1,p2]);
-
-
-%% Fig 4?: stim responses: passive fullscreen trained
-
-data_fn = ['trial_activity_passive_fullscreen_DECONVTEST'];
-exclude_data = true;
-
-AP_load_concat_normalize_ctx_str;
-
-n_vs = size(fluor_allcat_deriv,3);
-n_rois = size(fluor_roi_deconv,3);
-n_depths = size(mua_allcat,3);
-
-% Get ROIs
-wf_roi_fn = 'C:\Users\Andrew\OneDrive for Business\Documents\CarandiniHarrisLab\analysis\wf_ephys_choiceworld\wf_processing\wf_rois\wf_roi';
-load(wf_roi_fn);
-wf_roi = wf_roi(:,1);
-
-% Load the master U
-load('C:\Users\Andrew\OneDrive for Business\Documents\CarandiniHarrisLab\analysis\wf_ephys_choiceworld\wf_processing\wf_alignment\U_master');
-
-% Get trials with movement
-move_trials = any(abs(wheel_allcat) > 2,2);
-
-% Get stim values
-unique_stim = unique(D_allcat.stimulus);
-
-% Get average long reaction time stim responses
-fluor_stim_mean = nan(length(unique_stim),size(fluor_allcat_deriv,2),n_vs);
-fluor_roi_stim_mean = nan(length(unique_stim),size(fluor_roi_deconv,2),n_rois);
-mua_stim_mean = nan(length(unique_stim),size(mua_allcat,2),n_depths);
-predicted_mua_stim_mean = nan(length(unique_stim),size(predicted_mua_std_allcat,2),n_depths);
-for curr_stim_idx = 1:length(unique_stim)
-    curr_trials =  ...
-        D_allcat.stimulus == unique_stim(curr_stim_idx);
-    fluor_stim_mean(curr_stim_idx,:,:) = nanmean(fluor_allcat_deriv(curr_trials,:,:),1);
-    fluor_roi_stim_mean(curr_stim_idx,:,:) = nanmean(fluor_roi_deconv(curr_trials,:,:),1);
-    mua_stim_mean(curr_stim_idx,:,:) = nanmean(mua_allcat(curr_trials,:,:),1);
-    predicted_mua_stim_mean(curr_stim_idx,:,:) = nanmean(predicted_mua_std_allcat(curr_trials,:,:),1);
+for curr_group = 1:length(trial_groups)
+    p1 = subplot(2,length(trial_groups),curr_group);
+    hold on; set(gca,'ColorOrder',copper(n_depths));
+    plot(t,act_rank_difference_mean(:,:,curr_group),'linewidth',2);
+    axis tight; line([0,0],ylim,'color','k');
+    xlabel('Time');
+    ylabel('Mean rank difference');
+    title([trial_groups{curr_group} ': Measured']);
+    
+    p2 = subplot(2,length(trial_groups),length(trial_groups)+curr_group);
+    hold on; set(gca,'ColorOrder',copper(n_depths));
+    plot(t,predicted_act_rank_difference_mean(:,:,curr_group),'linewidth',2);
+    axis tight; line([0,0],ylim,'color','k');
+    xlabel('Time');
+    ylabel('Mean rank difference');
+    title([trial_groups{curr_group} ': Predicted']);
+    linkaxes([p1,p2],'xy');
 end
 
-% Get average stim cortex movie
-fluor_stim_mean_px = reshape(svdFrameReconstruct(U_master(:,:,1:n_vs), ...
-    reshape(permute(fluor_stim_mean,[3,2,1]),n_vs,[])), ...
-    size(U_master,1),size(U_master,2),[],length(unique_stim));
-AP_image_scroll(fluor_stim_mean_px,t);
-axis image;
-caxis([-max(abs(caxis)),max(abs(caxis))]);
-colormap(brewermap([],'*RdBu'));
-AP_reference_outline('ccf_aligned','k');
+figure; 
 
-% Plot 100/R fluorescence, curves, and tuning curves
-figure('Name','Trained passive fullscreen');
+subplot(1,2,1); hold on;
+errorbar(squeeze(nanmean(act_rank_difference_trial,2)), ...
+    AP_sem(act_rank_difference_trial,2),'linewidth',2);
+errorbar(squeeze(nanmean(predicted_act_rank_difference_trial,2)), ...
+    AP_sem(predicted_act_rank_difference_trial,2),'linewidth',2);
+set(gca,'XTick',1:n_depths);
+xlim([0.5,n_depths+0.5]);
+line(xlim,[0,0],'color','k');
+xlabel('Striatum depth');
+ylabel('Stim rank difference');
+legend({'Measured','Cortex-predicted'});
 
-use_t = t > 0 & t < 0.2;
+% Plot the prediction difference by stimulus
+mua_ctxpred_diff_exp = ...
+    cell2mat(permute(cellfun(@(mua,ctxpred,stim) cell2mat(arrayfun(@(depth) ...
+    grpstats(mua(:,:,depth)-ctxpred(:,:,depth),stim,@nanmean), ...
+    permute(1:n_depths,[1,3,2]),'uni',false)), ...
+    mua_exp,mua_ctxpred_exp,stim_exp,'uni',false),[2,3,4,1]));
 
-subplot(2,3,1);
-plot_px = svdFrameReconstruct(U_master(:,:,1:n_vs), ...
-    permute(fluor_stim_mean(end,:,:),[3,2,1]));
-plot_px_max = mean(plot_px(:,:,use_t),3);
-imagesc(plot_px_max);
-caxis([0,max(abs(caxis))]);
-colormap(brewermap([],'BuGn'));
-AP_reference_outline('ccf_aligned','k');
-axis image off;
+t_use = t > 0 & t < 0.2;
+mua_ctxpred_diff_exp_mean_t = squeeze(nanmean(mua_ctxpred_diff_exp(:,t_use,:,:),2));
 
-fp1 = subplot(2,3,2); hold on;
-plot_rois = [1:3,6,7];
-plot(t,squeeze(fluor_roi_stim_mean(end,:,plot_rois)),'linewidth',2);
-axis tight;
-line([0,0],ylim,'color','k');
-legend({wf_roi(plot_rois).area});
-ylabel('Fluorescence');
-
-mp1 = subplot(2,3,3); hold on; set(gca,'ColorOrder',copper(n_depths));
-plot(t,squeeze(mua_stim_mean(end,:,:)),'linewidth',2);
-axis tight;
-line([0,0],ylim,'color','k');
-legend(cellfun(@num2str,num2cell(1:n_depths),'uni',false));
-ylabel('MUA');
-
-fp2 = subplot(2,3,4); hold on;
-fluor_roi_stim_max = squeeze(max(fluor_roi_stim_mean(:,use_t,:),[],2));
-plot(unique_stim,fluor_roi_stim_max(:,plot_rois),'linewidth',2);
-xlabel('Contrast*Side');
-ylabel('Fluorescence');
-
-mp2 = subplot(2,3,5); hold on; set(gca,'ColorOrder',copper(n_depths));
-mua_stim_max = squeeze(max(mua_stim_mean(:,use_t,:),[],2));
-plot(unique_stim,mua_stim_max,'linewidth',2);
-xlabel('Contrast*Side');
-ylabel('MUA');
-
-mp3 = subplot(2,3,6); hold on; set(gca,'ColorOrder',copper(n_depths));
-predicted_mua_stim_max = squeeze(max(predicted_mua_stim_mean(:,use_t,:),[],2));
-plot(unique_stim,predicted_mua_stim_max,'linewidth',2);
-xlabel('Contrast*Side');
-ylabel('Ctx-predicted MUA');
-
-linkaxes([fp1,fp2],'y');
-linkaxes([mp1,mp2,mp3],'y');
+subplot(1,2,2); hold on
+errorbar(nanmean(mua_ctxpred_diff_exp_mean_t,3)', ...
+    AP_sem(mua_ctxpred_diff_exp_mean_t,3)','linewidth',2);
+set(gca,'XTick',1:n_depths);
+xlim([0.5,n_depths+0.5]);
+line(xlim,[0,0],'color','k');
+xlabel('Striatum depth');
+ylabel('Cortex-predicted striatum error');
+legend(cellfun(@num2str,num2cell(unique_stim)))
 
 
-% Plot MUA and fluor-predicted MUA
-figure;
-spacing = max(mua_stim_mean(:));
-
-p1 = subplot(1,2,1); hold on; col = lines(length(unique_stim));
-for curr_stim = 1:length(unique_stim)
-    AP_stackplot(permute(mua_stim_mean(curr_stim,:,:),[2,3,1]),t, ...
-        spacing,false,col(curr_stim,:),1:n_depths,true);
-end
-title('Measured');
-
-p2 = subplot(1,2,2); hold on; col = lines(length(unique_stim));
-for curr_stim = 1:length(unique_stim)
-    AP_stackplot(permute(predicted_mua_stim_mean(curr_stim,:,:),[2,3,1]),t, ...
-        spacing,false,col(curr_stim,:),1:n_depths,true);
-end
-title('Predicted');
-
-linkaxes([p1,p2]);
-
-
-%% Fig 4?: stim responses: passive fullscreen naive
-
-data_fn = ['trial_activity_passive_fullscreen_naive_DECONVTEST'];
-exclude_data = false;
-
-AP_load_concat_normalize_ctx_str;
-
-n_vs = size(fluor_allcat_deriv,3);
-n_rois = size(fluor_roi_deconv,3);
-n_depths = size(mua_allcat,3);
-
-% Get ROIs
-wf_roi_fn = 'C:\Users\Andrew\OneDrive for Business\Documents\CarandiniHarrisLab\analysis\wf_ephys_choiceworld\wf_processing\wf_rois\wf_roi';
-load(wf_roi_fn);
-wf_roi = wf_roi(:,1);
-
-% Load the master U
-load('C:\Users\Andrew\OneDrive for Business\Documents\CarandiniHarrisLab\analysis\wf_ephys_choiceworld\wf_processing\wf_alignment\U_master');
-
-% Get trials with movement
-move_trials = any(abs(wheel_allcat) > 2,2);
-
-% Get stim values
-unique_stim = unique(D_allcat.stimulus);
-
-% Get average long reaction time stim responses
-fluor_stim_mean = nan(length(unique_stim),size(fluor_allcat_deriv,2),n_vs);
-fluor_roi_stim_mean = nan(length(unique_stim),size(fluor_roi_deconv,2),n_rois);
-mua_stim_mean = nan(length(unique_stim),size(mua_allcat,2),n_depths);
-predicted_mua_stim_mean = nan(length(unique_stim),size(predicted_mua_std_allcat,2),n_depths);
-for curr_stim_idx = 1:length(unique_stim)
-    curr_trials = ~move_trials & ...
-        D_allcat.stimulus == unique_stim(curr_stim_idx);
-    fluor_stim_mean(curr_stim_idx,:,:) = nanmean(fluor_allcat_deriv(curr_trials,:,:),1);
-    fluor_roi_stim_mean(curr_stim_idx,:,:) = nanmean(fluor_roi_deconv(curr_trials,:,:),1);
-    mua_stim_mean(curr_stim_idx,:,:) = nanmean(mua_allcat(curr_trials,:,:),1);
-    predicted_mua_stim_mean(curr_stim_idx,:,:) = nanmean(predicted_mua_std_allcat(curr_trials,:,:),1);
-end
-
-% Get average stim cortex movie
-fluor_stim_mean_px = reshape(svdFrameReconstruct(U_master(:,:,1:n_vs), ...
-    reshape(permute(fluor_stim_mean,[3,2,1]),n_vs,[])), ...
-    size(U_master,1),size(U_master,2),[],length(unique_stim));
-AP_image_scroll(fluor_stim_mean_px,t);
-axis image;
-caxis([-max(abs(caxis)),max(abs(caxis))]);
-colormap(brewermap([],'*RdBu'));
-AP_reference_outline('ccf_aligned','k');
-
-% Plot 100/R fluorescence, curves, and tuning curves
-figure('Name','Naive passive fullscreen');
-
-use_t = t > 0 & t < 0.2;
-
-subplot(2,3,1);
-plot_px = svdFrameReconstruct(U_master(:,:,1:n_vs), ...
-    permute(fluor_stim_mean(end,:,:),[3,2,1]));
-plot_px_max = mean(plot_px(:,:,use_t),3);
-imagesc(plot_px_max);
-caxis([0,max(abs(caxis))]);
-colormap(brewermap([],'BuGn'));
-AP_reference_outline('ccf_aligned','k');
-axis image off;
-
-fp1 = subplot(2,3,2); hold on;
-plot_rois = [1:3,6,7];
-plot(t,squeeze(fluor_roi_stim_mean(end,:,plot_rois)),'linewidth',2);
-axis tight;
-line([0,0],ylim,'color','k');
-legend({wf_roi(plot_rois).area});
-ylabel('Fluorescence');
-
-mp1 = subplot(2,3,3); hold on; set(gca,'ColorOrder',copper(n_depths));
-plot(t,squeeze(mua_stim_mean(end,:,:)),'linewidth',2);
-axis tight;
-line([0,0],ylim,'color','k');
-legend(cellfun(@num2str,num2cell(1:n_depths),'uni',false));
-ylabel('MUA');
-
-fp2 = subplot(2,3,4); hold on;
-fluor_roi_stim_max = squeeze(max(fluor_roi_stim_mean(:,use_t,:),[],2));
-plot(unique_stim,fluor_roi_stim_max(:,plot_rois),'linewidth',2);
-xlabel('Contrast*Side');
-ylabel('Fluorescence');
-
-mp2 = subplot(2,3,5); hold on; set(gca,'ColorOrder',copper(n_depths));
-mua_stim_max = squeeze(max(mua_stim_mean(:,use_t,:),[],2));
-plot(unique_stim,mua_stim_max,'linewidth',2);
-xlabel('Contrast*Side');
-ylabel('MUA');
-
-mp3 = subplot(2,3,6); hold on; set(gca,'ColorOrder',copper(n_depths));
-predicted_mua_stim_max = squeeze(max(predicted_mua_stim_mean(:,use_t,:),[],2));
-plot(unique_stim,predicted_mua_stim_max,'linewidth',2);
-xlabel('Contrast*Side');
-ylabel('Ctx-predicted MUA');
-
-linkaxes([fp1,fp2],'y');
-linkaxes([mp1,mp2,mp3],'y');
-
-
-% Plot MUA and fluor-predicted MUA
-figure;
-spacing = max(mua_stim_mean(:));
-
-p1 = subplot(1,2,1); hold on; col = lines(length(unique_stim));
-for curr_stim = 1:length(unique_stim)
-    AP_stackplot(permute(mua_stim_mean(curr_stim,:,:),[2,3,1]),t, ...
-        spacing,false,col(curr_stim,:),1:n_depths,true);
-end
-title('Measured');
-
-p2 = subplot(1,2,2); hold on; col = lines(length(unique_stim));
-for curr_stim = 1:length(unique_stim)
-    AP_stackplot(permute(predicted_mua_stim_mean(curr_stim,:,:),[2,3,1]),t, ...
-        spacing,false,col(curr_stim,:),1:n_depths,true);
-end
-title('Predicted');
-
-linkaxes([p1,p2]);
-
-%% TESTING: compare fullscreen naive/trained
-
-
-data_fn = ['trial_activity_passive_fullscreen'];
-exclude_data = true;
-AP_load_concat_normalize_ctx_str;
-move_trials = any(abs(wheel_allcat) > 2,2);
-stim_trained = D_allcat.stimulus(move_trials);
-mua_allcat_trained = mua_allcat(move_trials,:,:);
-
-
-data_fn = ['trial_activity_passive_fullscreen_naive'];
-exclude_data = false;
-AP_load_concat_normalize_ctx_str;
-move_trials = any(abs(wheel_allcat) > 2,2);
-stim_naive = D_allcat.stimulus(move_trials);
-mua_allcat_naive = mua_allcat(move_trials,:,:);
 
 
 
@@ -2905,7 +2797,7 @@ AP_load_concat_normalize_ctx_str
 regression_fn = 'C:\Users\Andrew\OneDrive for Business\Documents\CarandiniHarrisLab\analysis\wf_ephys_choiceworld\paper\data\trial_activity_choiceworld_task_regression';
 load(regression_fn);
 
-n_vs = size(fluor_allcat_deriv,3);
+n_vs = size(fluor_allcat_deconv,3);
 n_rois = size(fluor_roi_deconv,3);
 n_depths = size(mua_allcat,3);
 
@@ -3000,7 +2892,7 @@ mua_allcat_move = mua_allcat-mua_taskpred_reduced_allcat(:,:,:,2);
 wheel_velocity_allcat_move = wheel_velocity_allcat;
 t_leeway = 0.5;
 leeway_samples = round(t_leeway*(sample_rate));
-for i = 1:size(fluor_allcat_deriv,1)
+for i = 1:size(fluor_allcat_deconv,1)
     fluor_predicted_roi_reduced_move(i,:,:) = circshift(fluor_predicted_roi_reduced_move(i,:,:),-move_idx(i)+leeway_samples,2);
     mua_allcat_move(i,:,:) = circshift(mua_allcat_move(i,:,:),-move_idx(i)+leeway_samples,2);
     wheel_velocity_allcat_move(i,:,:) = circshift(wheel_velocity_allcat_move(i,:,:),-move_idx(i)+leeway_samples,2);    
@@ -3121,12 +3013,12 @@ axis square;
 use_rxn = move_t > 0 & move_t < 1;
 
 move_onset_regressor_idx = strcmp('Move onset',regressor_labels);
-fluor_move_activity = fluor_allcat_deriv - fluor_allcat_predicted_reduced(:,:,:,move_onset_regressor_idx);
+fluor_move_activity = fluor_allcat_deconv - fluor_allcat_predicted_reduced(:,:,:,move_onset_regressor_idx);
 mua_allcat_move = mua_allcat-mua_allcat_predicted_reduced(:,:,:,move_onset_regressor_idx);
 
 t_leeway = 0.5;
 leeway_samples = round(t_leeway*(sample_rate));
-for i = 1:size(fluor_allcat_deriv,1)
+for i = 1:size(fluor_allcat_deconv,1)
     fluor_move_activity(i,:,:) = circshift(fluor_move_activity(i,:,:),-move_idx(i)+leeway_samples,2);  
     mua_allcat_move(i,:,:) = circshift(mua_allcat_move(i,:,:),-move_idx(i)+leeway_samples,2);  
 end
