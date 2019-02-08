@@ -298,6 +298,177 @@ regression_params.use_constant = true;
      
  end
  
+ %% DECONVTEST: Cortex -> kernel-aligned striatum map (protocols separately)
+ 
+ n_aligned_depths = 4;
+ 
+ % Parameters for regression
+ regression_params.use_svs = 1:50;
+ regression_params.skip_seconds = 20;
+ regression_params.upsample_factor = 1;
+ regression_params.kernel_t = [-0.5,0.5];
+ regression_params.zs = [false,false];
+ regression_params.cvfold = 5;
+ regression_params.use_constant = true;
+ 
+ %  protocols = {'vanillaChoiceworld', ...
+ %      'stimSparseNoiseUncorrAsync', ...
+ %      'stimKalatsky'};
+ 
+ protocols = {'vanillaChoiceworld'};
+ 
+ for protocol = protocols
+     
+     animals = {'AP024','AP025','AP026','AP027','AP028','AP029'};
+     
+     batch_vars = struct;
+     for curr_animal = 1:length(animals)
+         
+         animal = animals{curr_animal};
+         
+         % Only use days with choiceworld (sometimes recorded in cortex, no bhv)
+         behavior_protocol = 'vanillaChoiceworld';
+         behavior_experiments = AP_find_experiments(animal,behavior_protocol);
+         
+         curr_protocol = cell2mat(protocol);
+         curr_experiments = AP_find_experiments(animal,curr_protocol);
+         
+         behavior_day = ismember({curr_experiments.day},{behavior_experiments.day});
+         
+         experiments = curr_experiments([curr_experiments.imaging] & [curr_experiments.ephys] & behavior_day);
+         
+         % Skip if this animal doesn't have this experiment
+         if isempty(experiments)
+             continue
+         end
+         
+         disp(animal);
+         
+         load_parts.cam = false;
+         load_parts.imaging = true;
+         load_parts.ephys = true;
+         
+         for curr_day = 1:length(experiments)
+             
+             day = experiments(curr_day).day;
+             experiment = experiments(curr_day).experiment(end);
+             
+             % Load data and align striatum by depth
+             str_align = 'kernel';
+             AP_load_experiment;
+             
+             %%% Load lambda from previously estimated and saved
+             lambda_fn = 'C:\Users\Andrew\OneDrive for Business\Documents\CarandiniHarrisLab\analysis\wf_ephys_choiceworld\ephys_processing\ctx-str_lambda';
+             load(lambda_fn);
+             curr_animal_idx = strcmp(animal,{ctx_str_lambda.animal});
+             if any(curr_animal_idx)
+                 curr_day_idx = strcmp(day,ctx_str_lambda(curr_animal_idx).day);
+                 if any(curr_day_idx)
+                     lambda = ctx_str_lambda(curr_animal_idx).best_lambda(curr_day_idx);
+                 end
+             end
+             warning('Overriding lambda');
+             lambda = 5;
+             
+             %%% Prepare data for regression
+             
+             % Get time points to bin
+             sample_rate = framerate*regression_params.upsample_factor;
+             time_bins = frame_t(find(frame_t > ...
+                 regression_params.skip_seconds,1)):1/sample_rate: ...
+                 frame_t(find(frame_t-frame_t(end) < ...
+                 -regression_params.skip_seconds,1,'last'));
+             time_bin_centers = time_bins(1:end-1) + diff(time_bins)/2;
+             
+             % Get upsampled dVdf's
+             dfVdf_resample = interp1(conv2(frame_t,[1,1]/2,'valid'), ...
+                 diff(fVdf(regression_params.use_svs,:),[],2)',time_bin_centers)';
+             
+             %%%% TESTING: DECONV
+             fVdf_deconv = AP_deconv_wf(fVdf);
+             fVdf_deconv(isnan(fVdf_deconv)) = 0;
+             fVdf_deconv_resample = interp1(frame_t,fVdf_deconv(regression_params.use_svs,:)',time_bin_centers)';
+             %%%%
+             
+             % Get striatum depth group by across-experiment alignment
+             n_depths = n_aligned_depths;
+             depth_group = aligned_str_depth_group;
+             
+             binned_spikes = zeros(n_depths,length(time_bin_centers));
+             for curr_depth = 1:n_depths
+                 curr_spike_times = spike_times_timeline(depth_group == curr_depth);
+                 binned_spikes(curr_depth,:) = histcounts(curr_spike_times,time_bins);
+             end
+             
+             binned_spikes_std = binned_spikes./nanstd(binned_spikes,[],2);
+             binned_spikes_std(isnan(binned_spikes_std)) = 0;
+             
+             %%% Regress MUA from cortex
+             kernel_frames = floor(regression_params.kernel_t(1)*sample_rate): ...
+                 ceil(regression_params.kernel_t(2)*sample_rate);
+             
+             %             [k,predicted_spikes,explained_var] = ...
+             %                 AP_regresskernel(dfVdf_resample, ...
+             %                 binned_spikes_std,kernel_frames,lambda, ...
+             %                 regression_params.zs,regression_params.cvfold, ...
+             %                 false,regression_params.use_constant);
+             
+             %%%% TESTING DECONV
+             [k,predicted_spikes_std,explained_var] = ...
+                 AP_regresskernel(fVdf_deconv_resample, ...
+                 binned_spikes_std,kernel_frames,lambda, ...
+                 regression_params.zs,regression_params.cvfold, ...
+                 false,regression_params.use_constant);
+             %%%%
+             
+             % Reshape kernel and convert to pixel space
+             r = reshape(k,length(regression_params.use_svs),length(kernel_frames),size(binned_spikes,1));
+             
+             aUdf = single(AP_align_widefield(animal,day,Udf));
+             r_px = zeros(size(aUdf,1),size(aUdf,2),size(r,2),size(r,3),'single');
+             for curr_spikes = 1:size(r,3)
+                 r_px(:,:,:,curr_spikes) = svdFrameReconstruct(aUdf(:,:,regression_params.use_svs),r(:,:,curr_spikes));
+             end
+             
+             % Get center of mass for each pixel
+             t = kernel_frames/sample_rate;
+             use_t = t >= 0 & t <= 0;
+             r_px_max = squeeze(nanmean(r_px(:,:,use_t,:),3));
+             r_px_max_norm = bsxfun(@rdivide,r_px_max, ...
+                 permute(max(reshape(r_px_max,[],n_depths),[],1),[1,3,2]));
+             r_px_max_norm(isnan(r_px_max_norm)) = 0;
+             
+             r_px_com = sum(bsxfun(@times,r_px_max_norm,permute(1:n_depths,[1,3,2])),3)./sum(r_px_max_norm,3);
+             
+             r_px_weight = max(abs(r_px_max),[],3);
+             
+             % Store all variables to save
+             batch_vars(curr_animal).r_px{curr_day} = r_px;
+             batch_vars(curr_animal).r_px_com{curr_day} = r_px_com;
+             batch_vars(curr_animal).r_px_weight{curr_day} = r_px_weight;
+             batch_vars(curr_animal).explained_var{curr_day} = explained_var.total;
+             
+             AP_print_progress_fraction(curr_day,length(experiments));
+             clearvars -except regression_params n_aligned_depths ...
+                 animals animal curr_animal protocol ...
+                 experiments curr_day animal batch_vars load_parts
+             
+         end
+         
+         disp(['Finished ' animal]);
+         
+     end
+     
+     % Save
+     curr_protocol = cell2mat(protocol);
+     save_path = ['C:\Users\Andrew\OneDrive for Business\Documents\CarandiniHarrisLab\analysis\wf_ephys_choiceworld\wf_ephys'];
+     save([save_path filesep 'wf_ephys_maps_' curr_protocol '_' num2str(n_aligned_depths) '_depths_kernel_DECONVTEST'],'batch_vars','-v7.3');
+     warning('saving -v7.3');
+     disp(['Finished batch ' curr_protocol]);
+     
+ end
+
+ 
 %% Choiceworld trial activity (long trace task regression - probably better)
 
 clear all
@@ -623,11 +794,27 @@ for curr_animal = 1:length(animals)
         move_onset_regressors(1,:) = histcounts(move_time_L_absolute,time_bins);
         move_onset_regressors(2,:) = histcounts(move_time_R_absolute,time_bins);
         
-        % Move ongoing regressors (L/R)
+        % Move ongoing regressors (L/R choice for duration of movement)
         wheel_velocity_interp = interp1(Timeline.rawDAQTimestamps,wheel_velocity,time_bin_centers);
+        
+        move_stopped_t = 0.5;
+        move_stopped_samples = round(sample_rate*move_stopped_t);
+        wheel_moving_conv = convn((abs(wheel_velocity_interp) > 0.02), ...
+            ones(1,move_stopped_samples),'full') > 0;
+        wheel_moving = wheel_moving_conv(end-length(time_bin_centers)+1:end);
+        
+        move_ongoing_L_samples = cell2mat(arrayfun(@(x) ...
+            find(time_bin_centers > x): ...
+            find(time_bin_centers > x & ~wheel_moving,1), ...
+            move_time_L_absolute','uni',false));
+        move_ongoing_R_samples = cell2mat(arrayfun(@(x) ...
+            find(time_bin_centers > x): ...
+            find(time_bin_centers > x & ~wheel_moving,1), ...
+            move_time_R_absolute','uni',false));
+        
         move_ongoing_regressors = zeros(2,length(time_bin_centers));
-        move_ongoing_regressors(1,wheel_velocity_interp < 0) = 1;
-        move_ongoing_regressors(2,wheel_velocity_interp > 0) = 1;
+        move_ongoing_regressors(1,move_ongoing_L_samples) = 1;
+        move_ongoing_regressors(2,move_ongoing_R_samples) = 1;
         
         % Go cue regressors - separate for early/late move
         % (using signals timing - not precise but looks good)
@@ -2350,68 +2537,6 @@ kernel_roi.kernel = k_px_trained;
 kernel_roi_fn = 'C:\Users\Andrew\OneDrive for Business\Documents\CarandiniHarrisLab\analysis\wf_ephys_choiceworld\wf_processing\wf_rois\kernel_roi';
 save(kernel_roi_fn,'kernel_roi');
 disp('Saved kernel ROIs');
-
-
-
-
-%% ~~~~~~~~~~~~ TESTING ~~~~~~~~~~~~~~~~~
-
-%% TESTING WHEEL REGRESSION 
-
-data_fn = ['trial_activity_choiceworld_framerate'];
-exclude_data = true;
-
-AP_load_concat_normalize_ctx_str;
-
-n_vs = size(fluor_allcat_deriv,3);
-n_depths = size(mua_allcat,3);
-
-% Get trial information
-trial_contrast_allcat = max(D_allcat.stimulus,[],2);
-[~,side_idx] = max(D_allcat.stimulus > 0,[],2);
-trial_side_allcat = (side_idx-1.5)*2;
-trial_choice_allcat = -(D_allcat.response-1.5)*2;
-
-% Get timing
-sample_rate = 1./mean(diff(t));
-
-% Get reaction time
-[move_trial,move_idx] = max(abs(wheel_allcat(:,:,1)) > 2,[],2);
-move_t = t(move_idx)';
-move_t(~move_trial) = Inf;
-
-% Get maximum wheel velocity in chosen direction
-wheel_velocity_allcat = [zeros(size(wheel_allcat,1),1,1),diff(wheel_allcat,[],2)];
-[max_speed,max_vel_idx] = max(abs(wheel_velocity_allcat(:,:,1).* ...
-    (bsxfun(@times,wheel_velocity_allcat(:,:,1),trial_choice_allcat) > 0)),[],2);
-vel_t = t(max_vel_idx);
-
-max_vel = max_speed.*trial_choice_allcat;
-
-%%%%% TESTING WHEEL REGRESSION
-use_svs = 50;
-kernel_shifts_t = [-0.3,0];
-kernel_shifts = round(kernel_shifts_t(1)*sample_rate):round(kernel_shifts_t(2)*sample_rate);
-lambda = 10;
-zs = [false,false];
-cvfold = 5;
-
-wheel_std = reshape(permute(wheel_velocity_allcat,[2,1]),1,[])./std(reshape(permute(wheel_velocity_allcat,[2,1]),1,[]));
-
-[k,predicted_wheel,explained_var] = AP_regresskernel( ...
-    reshape(permute(fluor_allcat_deriv(:,:,1:use_svs),[3,2,1]),use_svs,[]), ...
-    wheel_std, ...
-    kernel_shifts,lambda,zs,cvfold,false,true);
-
-k_px = svdFrameReconstruct(U_master(:,:,1:use_svs),k);
-AP_image_scroll(k_px,kernel_shifts)
-caxis([-max(abs(caxis)),max(abs(caxis))]);
-colormap(brewermap([],'*RdBu'));
-AP_reference_outline('ccf_aligned','k');
-axis image
-
-
-% (like ctx->str, looks way cleaner averaging across experiments)
 
 
 %% ~~~~~~~~~~~ UNUSED ~~~~~~~~~~~~~~~
