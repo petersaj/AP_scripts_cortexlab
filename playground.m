@@ -2218,7 +2218,6 @@ save([save_path filesep save_fn],'-v7.3');
 
 
 %% Choiceworld trial activity (TESTING ONLY REGRESSING MOVEMENT-RELATED)
-% THIS IS BROKEN: Inf/NaN in kernel or predicted signal
 
 clear all
 disp('Choiceworld trial activity')
@@ -3415,124 +3414,24 @@ save_fn = ['trial_activity_choiceworld_REGRESSRESIDUAL'];
 save([save_path filesep save_fn],'-v7.3');
 
 
-%% (testing trial time correlation again)
 
 
-fluor_roi_deconv_move = fluor_roi_deconv;
-fluor_roi_taskpred_move = fluor_roi_taskpred;
-fluor_roi_taskpred_reduced_move = fluor_roi_taskpred_reduced;
-fluor_taskpred_reduced_allcat_move = fluor_taskpred_reduced_allcat;
-
-t_leeway = -t(1);
-leeway_samples = round(t_leeway*(sample_rate));
-for i = 1:size(mua_allcat,1)
-    fluor_roi_deconv_move(i,:,:,:) = circshift(fluor_roi_deconv_move(i,:,:,:),-move_idx(i)+leeway_samples,2);
-    fluor_roi_taskpred_move(i,:,:,:) = circshift(fluor_roi_taskpred_move(i,:,:,:),-move_idx(i)+leeway_samples,2);
-    fluor_roi_taskpred_reduced_move(i,:,:,:) = circshift(fluor_roi_taskpred_reduced_move(i,:,:,:),-move_idx(i)+leeway_samples,2);
-    fluor_taskpred_reduced_allcat_move(i,:,:,:) = circshift(fluor_taskpred_reduced_allcat_move(i,:,:,:),-move_idx(i)+leeway_samples,2);
-end
 
 
-use_trials = move_t >= 0 & move_t <= 1;
-% use_act_1 = mua_allcat_move(use_trials,:,2) - mua_taskpred_reduced_allcat_move(use_trials,:,2,2);
-use_act_1 = mua_allcat(use_trials,:,1) - mua_taskpred_reduced_allcat(use_trials,:,1,1);
-
-use_act_2 = fluor_roi_deconv_move(use_trials,:,:) - ...
-    fluor_roi_taskpred_reduced_move(use_trials,:,:,2);
-% use_act_2 = fluor_roi_deconv(use_trials,:,:) - ...
-%     fluor_roi_taskpred_reduced(use_trials,:,:,1);
-
-nan_samples = isnan(use_act_1) | any(isnan(use_act_2),3);
-use_act_1(nan_samples) = 0;
-use_act_2(repmat(nan_samples,1,1,n_rois)) = 0;
-
-act_t_corr = cell2mat(arrayfun(@(x) 1-pdist2(use_act_1', ...
-    use_act_2(:,:,x)','correlation'),permute(1:n_rois,[1,3,2]),'uni',false));
-
-figure;
-p = nan(2,n_rois);
-for curr_roi = 1:n_rois
-    
-    p(1,curr_roi) = subplot(2,n_rois,curr_roi);
-    imagesc(t,t,act_t_corr(:,:,curr_roi)); axis square;
-    caxis([-0.2,0.2])
-    colormap(brewermap([],'*RdBu'));
-    line(xlim,[0,0],'color','k');
-    line([0,0],ylim,'color','k');
-    line(xlim,ylim,'color','k')
-    title(wf_roi(curr_roi).area);
-    
-    p(2,curr_roi) = subplot(2,n_rois,n_rois + curr_roi);
-    imagesc(t,t,act_t_corr(:,:,curr_roi) - act_t_corr(:,:,curr_roi)'); axis square;
-    caxis([-0.2,0.2])
-    colormap(brewermap([],'*RdBu'));
-    line(xlim,[0,0],'color','k');
-    line([0,0],ylim,'color','k');
-    line(xlim,ylim,'color','k')
-    
-end
-linkaxes(p,'xy');
 
 
-% testing by Vs?
-% use_act_1 = mua_allcat_move(use_trials,:,2) - mua_taskpred_reduced_allcat_move(use_trials,:,2,2);
-% use_act_2 = fluor_allcat_deconv_move(use_trials,:,:) - fluor_taskpred_reduced_allcat_move(use_trials,:,:,2);
-
-use_act_1 = mua_allcat(use_trials,:,1) - mua_taskpred_reduced_allcat(use_trials,:,1,1);
-use_act_2 = fluor_allcat_deconv(use_trials,:,:) - fluor_taskpred_reduced_allcat(use_trials,:,:,1);
-
-nan_samples = isnan(use_act_1) | any(isnan(use_act_2),3);
-use_act_1(nan_samples) = 0;
-use_act_2(repmat(nan_samples,1,1,n_vs)) = 0;
-
-mua_fluor_cov = cell2mat(arrayfun(@(x) (use_act_1-nanmean(use_act_1,1))'* ...
-    (use_act_2(:,:,x)-nanmean(use_act_2(:,:,x),1))./(sum(use_trials)-1), ...
-    permute(1:n_vs,[1,3,2]),'uni',false));
-
-mua2fluor_diag = [2,3];
-fluor2mua_diag = [-2,-3];
-
-mua2fluor_cov = cell2mat(arrayfun(@(v) nanmean(cell2mat(arrayfun(@(x) ...
-    padarray(diag(mua_fluor_cov(:,:,v),mua2fluor_diag(x)), ...
-    abs(mua2fluor_diag(x)),nan,'post'), ...
-    1:length(mua2fluor_diag),'uni',false)),2),1:n_vs,'uni',false));
-
-fluor2mua_cov = cell2mat(arrayfun(@(v) nanmean(cell2mat(arrayfun(@(x) ...
-    padarray(diag(mua_fluor_cov(:,:,v),fluor2mua_diag(x)), ...
-    abs(fluor2mua_diag(x)),nan,'post'), ...
-    1:length(fluor2mua_diag),'uni',false)),2),1:n_vs,'uni',false));
-
-mua2fluor_corr_px = svdFrameReconstruct(U_master(:,:,1:n_vs),mua2fluor_cov')./(px_std.*std(use_act_1(:)));
-fluor2mua_corr_px = svdFrameReconstruct(U_master(:,:,1:n_vs),fluor2mua_cov')./(px_std.*std(use_act_1(:)));
-
-AP_image_scroll([fluor2mua_corr_px,mua2fluor_corr_px],t); 
-axis image
-caxis([-max(abs(caxis)),max(abs(caxis))]);
-colormap(brewermap([],'*RdBu'));
-AP_reference_outline('ccf_aligned','k',[],[size(U_master,1),size(U_master,2),1,2]);
 
 
-%% Std of px for corr
-% (I'm pretty sure this isn't actually std)
 
-px_std_sq = zeros(size(U_master,1),size(U_master,2));
 
-temp_v = reshape(permute(use_act_2,[2,1,3]),[],n_vs)';
 
-px_mean = svdFrameReconstruct(U_master(:,:,1:n_vs),nanmean(temp_v,2));
 
-% Do this in chunks of n frames
-n_frames = size(temp_v,2);
-chunk_size = 2000;
-frame_chunks = round(linspace(1,size(temp_v,2),round(n_frames/chunk_size)));
 
-for curr_chunk = 1:length(frame_chunks)-1
-    curr_im = svdFrameReconstruct(U_master(:,:,1:n_vs),temp_v(:,frame_chunks(curr_chunk): ...
-        frame_chunks(curr_chunk+1)));
-    px_std_sq = px_std_sq + sum((curr_im - px_mean).^2,3);
-    AP_print_progress_fraction(curr_chunk,length(frame_chunks)-1);
-end
-px_std = sqrt(px_std_sq./(n_frames-1));
+
+
+
+
+
 
 
 

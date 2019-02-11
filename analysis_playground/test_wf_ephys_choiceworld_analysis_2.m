@@ -3,12 +3,14 @@
 %% Load choiceworld trial data (** NEEDED FOR BELOW **)
 
 % Load data
-% data_fn = 'trial_activity_choiceworld_FLUORTASKTEST';
+data_fn = 'trial_activity_choiceworld_FLUORTASKTEST';
 % data_fn = 'trial_activity_choiceworld_MOVELTEST';
 % data_fn = 'trial_activity_choiceworld_FWDCTXTEST';
 % data_fn = 'trial_activity_choiceworld_STIMRTEST';
 % data_fn = 'trial_activity_choiceworld_MOVEONGOINGTEST';
-data_fn = 'trial_activity_choiceworld_EARLYMOVETEST';
+% data_fn = 'trial_activity_choiceworld_EARLYMOVETEST';
+% data_fn = 'trial_activity_choiceworld_REGRESSRESIDUAL';
+% data_fn = 'trial_activity_choiceworld_CTXSTRMOVEONLY';
 
 exclude_data = true;
 AP_load_concat_normalize_ctx_str;
@@ -40,7 +42,7 @@ wheel_velocity_allcat = wheel_allcat;
     (bsxfun(@times,wheel_velocity_allcat,trial_choice_allcat) > 0)),[],2);
 max_vel = max_speed.*trial_choice_allcat;
 
-% Make move-aligned data
+% Make move-aligned MUA
 wheel_velocity_allcat_move = wheel_velocity_allcat;
 mua_allcat_move = mua_allcat;
 mua_ctxpred_allcat_move = mua_ctxpred_allcat;
@@ -59,6 +61,23 @@ for i = 1:size(mua_allcat,1)
     mua_taskpred_reduced_allcat_move(i,:,:,:) = circshift(mua_taskpred_reduced_allcat_move(i,:,:,:),-move_idx(i)+leeway_samples,2);
     mua_ctxpred_taskpred_allcat_move(i,:,:) = circshift(mua_ctxpred_taskpred_allcat_move(i,:,:),-move_idx(i)+leeway_samples,2);
     mua_ctxpred_taskpred_reduced_allcat_move(i,:,:,:) = circshift(mua_ctxpred_taskpred_reduced_allcat_move(i,:,:,:),-move_idx(i)+leeway_samples,2);
+end
+
+% Make move-aligned fluorescence
+fluor_allcat_deconv_move = fluor_allcat_deconv;
+fluor_taskpred_reduced_allcat_move = fluor_taskpred_reduced_allcat;
+fluor_roi_deconv_move = fluor_roi_deconv;
+fluor_roi_taskpred_move = fluor_roi_taskpred;
+fluor_roi_taskpred_reduced_move = fluor_roi_taskpred_reduced;
+
+t_leeway = -t(1);
+leeway_samples = round(t_leeway*(sample_rate));
+for i = 1:size(mua_allcat,1)
+    fluor_allcat_deconv_move(i,:,:,:) = circshift(fluor_allcat_deconv_move(i,:,:,:),-move_idx(i)+leeway_samples,2);
+    fluor_taskpred_reduced_allcat_move(i,:,:,:) = circshift(fluor_taskpred_reduced_allcat_move(i,:,:,:),-move_idx(i)+leeway_samples,2);
+    fluor_roi_deconv_move(i,:,:,:) = circshift(fluor_roi_deconv_move(i,:,:,:),-move_idx(i)+leeway_samples,2);
+    fluor_roi_taskpred_move(i,:,:,:) = circshift(fluor_roi_taskpred_move(i,:,:,:),-move_idx(i)+leeway_samples,2);
+    fluor_roi_taskpred_reduced_move(i,:,:,:) = circshift(fluor_roi_taskpred_reduced_move(i,:,:,:),-move_idx(i)+leeway_samples,2);
 end
 
 disp('Finished loading trials')
@@ -1906,6 +1925,130 @@ end
 figure;plot(a,b);
 xlabel('Threshold');
 ylabel('Fraction correct');
+
+
+%% Std of px (necessary for cell below)
+
+% In chunks of n frames
+chunk_size = 10000;
+
+use_v = reshape(permute(fluor_allcat_deconv,[2,1,3]),[],n_vs)';
+px_mean = svdFrameReconstruct(U_master(:,:,1:n_vs),nanmean(use_v,2));
+
+n_frames = size(use_v,2);
+frame_chunks = discretize(1:n_frames,linspace(1,n_frames,round(n_frames/chunk_size)));
+
+px_std_sq = zeros(size(U_master,1),size(U_master,2));
+
+for curr_chunk = 1:max(frame_chunks)
+    
+    curr_im = svdFrameReconstruct(U_master(:,:,1:n_vs), ...
+        use_v(:,frame_chunks == curr_chunk));     
+    px_std_sq = px_std_sq + sum((curr_im - px_mean).^2,3);
+    clear curr_im
+    
+    AP_print_progress_fraction(curr_chunk,max(frame_chunks));
+end
+
+px_std = sqrt(px_std_sq./(n_frames-1));
+
+
+%% Timepoint Ctx/Str correlation
+
+% By ROI
+use_trials = move_t >= 0.05;
+
+% use_act_1 = mua_allcat_move(use_trials,:,2) - mua_taskpred_reduced_allcat_move(use_trials,:,2,2);
+use_act_1 = mua_allcat(use_trials,:,1) - mua_taskpred_reduced_allcat(use_trials,:,1,3);
+
+% use_act_2 = fluor_roi_deconv_move(use_trials,:,:) - ...
+%     fluor_roi_taskpred_reduced_move(use_trials,:,:,2);
+use_act_2 = fluor_roi_deconv(use_trials,:,:) - ...
+    fluor_roi_taskpred_reduced(use_trials,:,:,3);
+
+nan_samples = isnan(use_act_1) | any(isnan(use_act_2),3);
+use_act_1(nan_samples) = 0;
+use_act_2(repmat(nan_samples,1,1,n_rois)) = 0;
+
+act_t_corr = cell2mat(arrayfun(@(x) 1-pdist2(use_act_1', ...
+    use_act_2(:,:,x)','correlation'),permute(1:n_rois,[1,3,2]),'uni',false));
+
+figure;
+p = nan(2,n_rois);
+for curr_roi = 1:n_rois
+    
+    p(1,curr_roi) = subplot(2,n_rois,curr_roi);
+    imagesc(t,t,act_t_corr(:,:,curr_roi)); axis square;
+    caxis([-0.2,0.2])
+    colormap(brewermap([],'*RdBu'));
+    line(xlim,[0,0],'color','k');
+    line([0,0],ylim,'color','k');
+    line(xlim,ylim,'color','k')
+    title(wf_roi(curr_roi).area);
+    
+    p(2,curr_roi) = subplot(2,n_rois,n_rois + curr_roi);
+    imagesc(t,t,act_t_corr(:,:,curr_roi) - act_t_corr(:,:,curr_roi)'); axis square;
+    caxis([-0.2,0.2])
+    colormap(brewermap([],'*RdBu'));
+    line(xlim,[0,0],'color','k');
+    line([0,0],ylim,'color','k');
+    line(xlim,ylim,'color','k')
+    
+end
+linkaxes(p,'xy');
+
+
+% By SVD
+use_trials = move_t >= 0 & move_t <= 1;
+
+use_act_1 = mua_allcat_move(use_trials,:,2) - mua_taskpred_reduced_allcat_move(use_trials,:,2,2);
+use_act_2 = fluor_allcat_deconv_move(use_trials,:,:) - fluor_taskpred_reduced_allcat_move(use_trials,:,:,2);
+
+% use_act_1 = mua_allcat(use_trials,:,1) - mua_taskpred_reduced_allcat(use_trials,:,1,1);
+% use_act_2 = fluor_allcat_deconv(use_trials,:,:) - fluor_taskpred_reduced_allcat(use_trials,:,:,1);
+
+nan_samples = isnan(use_act_1) | any(isnan(use_act_2),3);
+use_act_1(nan_samples) = 0;
+use_act_2(repmat(nan_samples,1,1,n_vs)) = 0;
+
+mua_fluor_cov = cell2mat(arrayfun(@(x) (use_act_1-nanmean(use_act_1,1))'* ...
+    (use_act_2(:,:,x)-nanmean(use_act_2(:,:,x),1))./(sum(use_trials)-1), ...
+    permute(1:n_vs,[1,3,2]),'uni',false));
+
+use_diag = 2:3; %2:4;
+
+mua2fluor_cov = cell2mat(arrayfun(@(v) nanmean(cell2mat(arrayfun(@(x) ...
+    padarray(diag(mua_fluor_cov(:,:,v),use_diag(x)), ...
+    abs(use_diag(x)),nan,'post'), ...
+    1:length(use_diag),'uni',false)),2),1:n_vs,'uni',false));
+
+fluor2mua_cov = cell2mat(arrayfun(@(v) nanmean(cell2mat(arrayfun(@(x) ...
+    padarray(diag(mua_fluor_cov(:,:,v),-use_diag(x)), ...
+    use_diag(x),nan,'post'), ...
+    1:length(use_diag),'uni',false)),2),1:n_vs,'uni',false));
+
+mua_fluor_cov_asymm = cell2mat(arrayfun(@(v) nanmean(cell2mat(arrayfun(@(x) ...
+    padarray(diag(mua_fluor_cov(:,:,v)-mua_fluor_cov(:,:,v)',-use_diag(x)), ...
+    use_diag(x),nan,'post'), ...
+    1:length(use_diag),'uni',false)),2),1:n_vs,'uni',false));
+
+mua2fluor_corr_px = svdFrameReconstruct(U_master(:,:,1:n_vs),mua2fluor_cov')./(px_std.*std(use_act_1(:)));
+fluor2mua_corr_px = svdFrameReconstruct(U_master(:,:,1:n_vs),fluor2mua_cov')./(px_std.*std(use_act_1(:)));
+mua_fluor_cov_asymm = svdFrameReconstruct(U_master(:,:,1:n_vs),mua_fluor_cov_asymm')./(px_std.*std(use_act_1(:)));
+
+AP_image_scroll([fluor2mua_corr_px,mua2fluor_corr_px,mua_fluor_cov_asymm],t); 
+axis image
+caxis([-max(abs(caxis)),max(abs(caxis))]);
+colormap(brewermap([],'*RdBu'));
+AP_reference_outline('ccf_aligned','k',[],[size(U_master,1),size(U_master,2),1,3]);
+
+
+
+
+
+
+
+
 
 
 
