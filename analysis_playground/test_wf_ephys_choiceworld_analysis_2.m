@@ -1928,6 +1928,7 @@ ylabel('Fraction correct');
 
 
 %% Std of px (necessary for cell below)
+error('This doesn''t make sense for time point analyses')
 
 % In chunks of n frames
 chunk_size = 10000; 
@@ -1953,105 +1954,15 @@ end
 px_std = sqrt(px_std_sq./(n_frames-1));
 
 
-%% Timepoint Ctx/Str correlation
-
-% By ROI
-use_trials = move_t > 0 & move_t <= 0.5; % & trial_contrast_allcat > 0 & trial_side_allcat == trial_choice_allcat;
-
-% use_act_1 = mua_allcat(use_trials,:,1) - mua_taskpred_reduced_allcat(use_trials,:,1,1);
-% use_act_2 = fluor_roi_deconv(use_trials,:,:) - fluor_roi_taskpred_reduced(use_trials,:,:,1);
-
-use_act_1 = mua_allcat_move(use_trials,:,2) - mua_taskpred_reduced_allcat_move(use_trials,:,2,2);
-use_act_2 = fluor_roi_deconv_move(use_trials,:,:) - fluor_roi_taskpred_reduced_move(use_trials,:,:,2);
-
-nan_samples = isnan(use_act_1) | any(isnan(use_act_2),3);
-use_act_1(nan_samples) = 0;
-use_act_2(repmat(nan_samples,1,1,size(use_act_2,3))) = 0;
-
-act_t_corr = cell2mat(arrayfun(@(x) 1-pdist2(use_act_1', ...
-    use_act_2(:,:,x)','correlation'),permute(1:n_rois,[1,3,2]),'uni',false));
-
-figure;
-p = nan(2,n_rois);
-for curr_roi = 1:n_rois
-    
-    p(1,curr_roi) = subplot(2,n_rois,curr_roi);
-    imagesc(t,t,act_t_corr(:,:,curr_roi)); axis square;
-    caxis([-0.2,0.2])
-    colormap(brewermap([],'*RdBu'));
-    line(xlim,[0,0],'color','k');
-    line([0,0],ylim,'color','k');
-    line(xlim,ylim,'color','k')
-    title(wf_roi(curr_roi).area);
-    
-    p(2,curr_roi) = subplot(2,n_rois,n_rois + curr_roi);
-    imagesc(t,t,act_t_corr(:,:,curr_roi) - act_t_corr(:,:,curr_roi)'); 
-    axis square;
-    caxis([-0.2,0.2])
-    colormap(brewermap([],'*RdBu'));
-    line(xlim,[0,0],'color','k');
-    line([0,0],ylim,'color','k');
-    line(xlim,ylim,'color','k')
-    
-end
-linkaxes(p,'xy');
-
-
-% By SVD
-use_trials = move_t > 0 & move_t <= 0.5;
-
-use_act_1 = mua_allcat_move(use_trials,:,2) - mua_taskpred_reduced_allcat_move(use_trials,:,2,2);
-use_act_2 = fluor_allcat_deconv_move(use_trials,:,:) - fluor_taskpred_reduced_allcat_move(use_trials,:,:,2);
-
-% use_act_1 = mua_allcat(use_trials,:,1) - mua_taskpred_reduced_allcat(use_trials,:,1,1);
-% use_act_2 = fluor_allcat_deconv(use_trials,:,:) - fluor_taskpred_reduced_allcat(use_trials,:,:,1);
-
-nan_samples = isnan(use_act_1) | any(isnan(use_act_2),3);
-use_act_1(nan_samples) = 0;
-use_act_2(repmat(nan_samples,1,1,n_vs)) = 0;
-
-mua_fluor_cov = cell2mat(arrayfun(@(x) (use_act_1-nanmean(use_act_1,1))'* ...
-    (use_act_2(:,:,x)-nanmean(use_act_2(:,:,x),1))./(sum(use_trials)-1), ...
-    permute(1:n_vs,[1,3,2]),'uni',false));
-
-use_diag = 2:3; %2:4;
-
-mua2fluor_cov = cell2mat(arrayfun(@(v) nanmean(cell2mat(arrayfun(@(x) ...
-    padarray(diag(mua_fluor_cov(:,:,v),use_diag(x)), ...
-    abs(use_diag(x)),nan,'post'), ...
-    1:length(use_diag),'uni',false)),2),1:n_vs,'uni',false));
-
-fluor2mua_cov = cell2mat(arrayfun(@(v) nanmean(cell2mat(arrayfun(@(x) ...
-    padarray(diag(mua_fluor_cov(:,:,v),-use_diag(x)), ...
-    use_diag(x),nan,'post'), ...
-    1:length(use_diag),'uni',false)),2),1:n_vs,'uni',false));
-
-mua_fluor_cov_asymm = cell2mat(arrayfun(@(v) nanmean(cell2mat(arrayfun(@(x) ...
-    padarray(diag(mua_fluor_cov(:,:,v)-mua_fluor_cov(:,:,v)',-use_diag(x)), ...
-    use_diag(x),nan,'post'), ...
-    1:length(use_diag),'uni',false)),2),1:n_vs,'uni',false));
-
-mua2fluor_corr_px = svdFrameReconstruct(U_master(:,:,1:n_vs),mua2fluor_cov')./(px_std.*std(use_act_1(:)));
-fluor2mua_corr_px = svdFrameReconstruct(U_master(:,:,1:n_vs),fluor2mua_cov')./(px_std.*std(use_act_1(:)));
-mua_fluor_corr_asymm_px = svdFrameReconstruct(U_master(:,:,1:n_vs),mua_fluor_cov_asymm')./(px_std.*std(use_act_1(:)));
-
-AP_image_scroll([fluor2mua_corr_px,mua2fluor_corr_px,mua_fluor_corr_asymm_px],t); 
-axis image
-caxis([-max(abs(caxis)),max(abs(caxis))]);
-colormap(brewermap([],'*RdBu'));
-AP_reference_outline('ccf_aligned','k',[],[size(U_master,1),size(U_master,2),1,3]);
-
-
 %% Timepoint Ctx/Str correlation (experiment-separated)
 
 plot_depth = 1;
-use_vs = 200;
 
 % Split data
 trials_allcat = size(mua_allcat,1);
 trials_animal = arrayfun(@(x) size(vertcat(mua_all{x}{:}),1),1:size(mua_all));
 trials_recording = cellfun(@(x) size(x,1),vertcat(mua_all{:}));
-use_split = trials_recording;
+use_split = trials_animal;
 
 mua_allcat_exp = mat2cell(mua_allcat,use_split,length(t),n_depths);
 mua_taskpred_allcat_exp = mat2cell(mua_taskpred_allcat,use_split,length(t),n_depths);
@@ -2186,16 +2097,16 @@ end
 linkaxes(p,'xy');
 
 
-% Correlation by V's (do to properly, would need px_std for all splits)
+% Correlation by V's
+muafluor_corr_px = nan(size(U_master,1),size(U_master,2),length(t),length(use_split));
 mua2fluor_corr_px = nan(size(U_master,1),size(U_master,2),length(t),length(use_split));
 fluor2mua_corr_px = nan(size(U_master,1),size(U_master,2),length(t),length(use_split));
-mua_fluor_corr_asymm_px = nan(size(U_master,1),size(U_master,2),length(t),length(use_split));
 for curr_exp = 1:length(use_split)
     
     use_trials = move_t_exp{curr_exp} > 0 & move_t_exp{curr_exp} <= 0.5 & ...
         trial_contrast_allcat_exp{curr_exp} > 0 & ...
         trial_side_allcat_exp{curr_exp} == 1 & ...
-        trial_choice_allcat_exp{curr_exp} == 1;
+        trial_choice_allcat_exp{curr_exp} == -1;
     
     % Set activity to use
     %     use_act_mua = mua_allcat_exp{curr_exp}(use_trials,:,plot_depth) - mua_taskpred_reduced_allcat_exp{curr_exp}(use_trials,:,plot_depth,1);
@@ -2204,11 +2115,11 @@ for curr_exp = 1:length(use_split)
     %     use_act_mua = mua_allcat_exp{curr_exp}(use_trials,:,plot_depth) - mua_taskpred_allcat_exp{curr_exp}(use_trials,:,plot_depth);
     %     use_act_fluor = fluor_allcat_deconv_exp{curr_exp}(use_trials,:,:) - fluor_taskpred_allcat_exp{curr_exp}(use_trials,:,:);
     
-    %     use_act_mua = mua_allcat_exp{curr_exp}(use_trials,:,plot_depth) - mua_ctxpred_allcat_exp{curr_exp}(use_trials,:,plot_depth);
-    %     use_act_fluor = fluor_allcat_deconv_exp{curr_exp}(use_trials,:,:);
+        use_act_mua = mua_allcat_exp{curr_exp}(use_trials,:,plot_depth) - mua_ctxpred_allcat_exp{curr_exp}(use_trials,:,plot_depth);
+        use_act_fluor = fluor_allcat_deconv_exp{curr_exp}(use_trials,:,:);
     
-    use_act_mua = mua_allcat_exp{curr_exp}(use_trials,:,plot_depth) - mua_ctxpred_allcat_exp{curr_exp}(use_trials,:,plot_depth);
-    use_act_fluor = fluor_allcat_deconv_exp{curr_exp}(use_trials,:,:) - fluor_taskpred_allcat_exp{curr_exp}(use_trials,:,:);
+%     use_act_mua = mua_allcat_exp{curr_exp}(use_trials,:,plot_depth) - mua_ctxpred_allcat_exp{curr_exp}(use_trials,:,plot_depth);
+%     use_act_fluor = fluor_allcat_deconv_exp{curr_exp}(use_trials,:,:) - fluor_taskpred_allcat_exp{curr_exp}(use_trials,:,:);
     
     %     use_act_mua = mua_allcat_exp{curr_exp}(use_trials,:,plot_depth) - mua_ctxpred_allcat_exp{curr_exp}(use_trials,:,plot_depth);
     %     use_act_fluor = fluor_allcat_deconv_exp{curr_exp}(use_trials,:,:) - fluor_taskpred_reduced_allcat_exp{curr_exp}(use_trials,:,:,1);
@@ -2234,65 +2145,61 @@ for curr_exp = 1:length(use_split)
         AP_index_ans(nan_samples.*nanmean(use_act_fluor,1), ...
         repmat(nan_samples,1,1,size(use_act_fluor,3)));
     
-    % Get std for correlation calculation
-    % In chunks of n frames
-    chunk_size = 10000;    
-    use_v = reshape(permute(use_act_fluor,[2,1,3]),[],n_vs)';
-    px_mean = svdFrameReconstruct(U_master(:,:,1:n_vs),nanmean(use_v,2));    
-    n_frames = size(use_v,2);
-    frame_chunks = discretize(1:n_frames,linspace(1,n_frames,max(round(n_frames/chunk_size),2)));
-    px_std_sq = zeros(size(U_master,1),size(U_master,2));
-    for curr_chunk = 1:max(frame_chunks)
+    % Get std for correlation calculation (t-by-t, otherwise huge)
+    px_mean = svdFrameReconstruct(U_master(:,:,1:n_vs),permute(nanmean(use_act_fluor,1),[3,2,1]));
+    px_std_sq = zeros(size(U_master,1),size(U_master,2),length(t));
+    for curr_t = 1:length(t)
         curr_im = svdFrameReconstruct(U_master(:,:,1:n_vs), ...
-            use_v(:,frame_chunks == curr_chunk));
-        px_std_sq = px_std_sq + sum((curr_im - px_mean).^2,3);
-        clear curr_im              
+            permute(use_act_fluor(:,curr_t,:),[3,1,2]));
+        px_std_sq(:,:,curr_t) = px_std_sq(:,:,curr_t) + ...
+            sum((curr_im - px_mean(:,:,curr_t)).^2,3);
+        clear curr_im
+%         AP_print_progress_fraction(curr_t,length(t));
     end    
-    px_std = sqrt(px_std_sq./(n_frames-1));
+    px_std = sqrt(px_std_sq./(sum(use_trials)-1));
     
-    mua_std = nanstd(use_act_mua(:));
-
+    mua_std = nanstd(use_act_mua,[],1);
     
+    combined_std = px_std.*permute(mua_std,[1,3,2]);
+   
     % Get MUA-fluor covariance
-    mua_fluor_cov = cell2mat(arrayfun(@(x) (use_act_mua-nanmean(use_act_mua,1))'* ...
-        (use_act_fluor(:,:,x)-nanmean(use_act_fluor(:,:,x),1))./(sum(use_trials)-1), ...
-        permute(1:use_vs,[1,3,2]),'uni',false));
+    mua_fluor_cov = cell2mat(arrayfun(@(x) ((use_act_mua-nanmean(use_act_mua,1))'* ...
+        (use_act_fluor(:,:,x)-nanmean(use_act_fluor(:,:,x),1)))./(sum(use_trials)-1), ...
+        permute(1:n_vs,[1,3,2]),'uni',false));
     
-    % Get forward and backward covariance diagonals (/ std mua)
-    use_diag = 0; % 1:2;
+    % Get forward and backward covariance diagonals
+    on_diag = 0; % (can also use -x:x)
+    off_diag = 1:2;
+    use_diag = 1:2; % 1:2;
+    
+    muafluor_cov = cell2mat(arrayfun(@(v) nanmean(cell2mat(arrayfun(@(x) ...
+        padarray(diag(mua_fluor_cov(:,:,v),on_diag(x)), ...
+        abs(on_diag(x)),nan,'pre'), ...
+        1:length(on_diag),'uni',false)),2),1:n_vs,'uni',false));
     
     mua2fluor_cov = cell2mat(arrayfun(@(v) nanmean(cell2mat(arrayfun(@(x) ...
         padarray(diag(mua_fluor_cov(:,:,v),use_diag(x)), ...
         abs(use_diag(x)),nan,'pre'), ...
-        1:length(use_diag),'uni',false)),2),1:use_vs,'uni',false))./nanstd(use_act_mua(:));
+        1:length(use_diag),'uni',false)),2),1:n_vs,'uni',false));
     
     fluor2mua_cov = cell2mat(arrayfun(@(v) nanmean(cell2mat(arrayfun(@(x) ...
         padarray(diag(mua_fluor_cov(:,:,v),-use_diag(x)), ...
-        abs(use_diag(x)),nan,'pre'), ...
-        1:length(use_diag),'uni',false)),2),1:use_vs,'uni',false))./nanstd(use_act_mua(:));
-    
-    mua_fluor_cov_asymm = cell2mat(arrayfun(@(v) nanmean(cell2mat(arrayfun(@(x) ...
-        padarray(diag(mua_fluor_cov(:,:,v)-mua_fluor_cov(:,:,v)',-use_diag(x)), ...
-        abs(use_diag(x)),nan,'pre'), ...
-        1:length(use_diag),'uni',false)),2),1:use_vs,'uni',false))./nanstd(use_act_mua(:));
-    
+        abs(off_diag(x)),nan,'pre'), ...
+        1:length(off_diag),'uni',false)),2),1:n_vs,'uni',false));
+  
     % Convert into pixels, get correlation
-    mua2fluor_corr_px = svdFrameReconstruct(U_master(:,:,1:use_vs),mua2fluor_cov')./(px_std.*mua_std);
-    fluor2mua_corr_px = svdFrameReconstruct(U_master(:,:,1:use_vs),fluor2mua_cov')./(px_std.*mua_std);
-    mua_fluor_corr_asymm_px = svdFrameReconstruct(U_master(:,:,1:use_vs),mua_fluor_cov_asymm')./(px_std.*mua_std);
+    muafluor_corr_px(:,:,:,curr_exp) = svdFrameReconstruct(U_master(:,:,1:n_vs),muafluor_cov')./combined_std;
+    mua2fluor_corr_px(:,:,:,curr_exp) = svdFrameReconstruct(U_master(:,:,1:n_vs),mua2fluor_cov')./combined_std;
+    fluor2mua_corr_px(:,:,:,curr_exp) = svdFrameReconstruct(U_master(:,:,1:n_vs),fluor2mua_cov')./combined_std;
     
     AP_print_progress_fraction(curr_exp,length(use_split));
 end
 
-mua2fluor_cov_mean = nanmean(mua2fluor_cov,3);
-fluor2mua_cov_mean = nanmean(fluor2mua_cov,3);
-mua_fluor_cov_asymm_mean = nanmean(mua_fluor_cov_asymm,3);
+muafluor_corr_px_mean = nanmean(mua2fluor_corr_px,4);
+mua2fluor_corr_px_mean = nanmean(mua2fluor_corr_px,4);
+fluor2mua_corr_px_mean = nanmean(fluor2mua_corr_px,4);
 
-mua2fluor_corr_px = svdFrameReconstruct(U_master(:,:,1:use_vs),mua2fluor_cov_mean')./(px_std);
-fluor2mua_corr_px = svdFrameReconstruct(U_master(:,:,1:use_vs),fluor2mua_cov_mean')./(px_std);
-mua_fluor_corr_asymm_px = svdFrameReconstruct(U_master(:,:,1:use_vs),mua_fluor_cov_asymm_mean')./(px_std);
-
-AP_image_scroll([fluor2mua_corr_px,mua2fluor_corr_px,mua_fluor_corr_asymm_px],t); 
+AP_image_scroll([muafluor_corr_px_mean;fluor2mua_corr_px_mean,mua2fluor_corr_px_mean],t); 
 axis image
 caxis([-max(abs(caxis)),max(abs(caxis))]);
 colormap(brewermap([],'*RdBu'));
