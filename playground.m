@@ -193,11 +193,16 @@ contrast_side_col = colormap_BlueWhiteRed(5);
 contrast_side_col(6,:) = 0;
 contrast_side_val = unique(sort([-contrasts,contrasts]))';
 
-% % contrast, side, choice
+% contrast, side, choice
 plot_conditions = ...
     [contrasts(2:end),contrasts(2:end); ...
     -ones(1,5),ones(1,5); ...
     ones(1,5),-ones(1,5)]';
+
+% plot_conditions = ...
+%     [contrasts(2:end),contrasts(2:end); ...
+%     -ones(1,5),ones(1,5); ...
+%     -ones(1,5),ones(1,5)]';
 
 % plot_conditions = ...
 %     [1,0,1,1,0,1; ...
@@ -225,9 +230,11 @@ use_rxn = move_t > 0 & move_t < 0.5;
     [trial_contrast_allcat,trial_side_allcat,trial_choice_allcat], ...
     plot_conditions,'rows');
 
-move_align = true;
+spacing = nanstd(fluor_roi_deconv(:))*2;
 
-spacing = nanstd(fluor_roi_deconv(:))*5;
+% fluor_roi_deconv_hemidiff = ...
+%     (fluor_roi_deconv(:,:,1:size(wf_roi,1))-fluor_roi_taskpred_reduced(:,:,1:size(wf_roi,1),2)) - ...
+%     (fluor_roi_deconv(:,:,size(wf_roi,1)+1:end)-fluor_roi_taskpred_reduced(:,:,size(wf_roi,1)+1:end,2));
 
 fluor_roi_deconv_hemidiff = fluor_roi_deconv(:,:,1:size(wf_roi,1)) - fluor_roi_deconv(:,:,size(wf_roi,1)+1:end);
 
@@ -235,17 +242,16 @@ figure; hold on;
 for curr_plot_condition = 1:size(plot_conditions,1)
     
     curr_trials = plot_id == curr_plot_condition & use_rxn;    
-    curr_data = fluor_roi_deconv_hemidiff(curr_trials,:,:);
+%     curr_data = fluor_roi_deconv_hemidiff(curr_trials,:,:); 
+    curr_data = fluor_roi_deconv(curr_trials,:,:) - fluor_roi_taskpred_reduced(curr_trials,:,:,1);
     
-    if move_align
-        % Re-align to movement onset
-        t_leeway = 0.5;
-        leeway_samples = round(t_leeway*sample_rate);
-        curr_move_idx = move_idx(curr_trials);
-        for i = 1:size(curr_data,1)
-            curr_data(i,:,:) = circshift(curr_data(i,:,:),-curr_move_idx(i)+leeway_samples,2);
-        end
-    end
+%     % Re-align to movement onset
+%     t_leeway = 0.5;
+%     leeway_samples = round(t_leeway*sample_rate);
+%     curr_move_idx = move_idx(curr_trials);
+%     for i = 1:size(curr_data,1)
+%         curr_data(i,:,:) = circshift(curr_data(i,:,:),-curr_move_idx(i)+leeway_samples,2);
+%     end
     
     curr_data_mean = squeeze(nanmean(curr_data,1));
 
@@ -264,7 +270,7 @@ for curr_plot_condition = 1:size(plot_conditions,1)
         end
     end
     
-    AP_stackplot(curr_data_mean,t,spacing,false,curr_col,{wf_roi(:,1).area});
+    AP_stackplot(curr_data_mean,t,spacing,false,curr_col,{wf_roi.area});
     
 end
 line([0,0],ylim,'color','k');
@@ -274,26 +280,20 @@ title('Widefield ROI');
 
 
 % (rank difference)
-trial_groups = {'Stim','Move onset','Reward'};
+trial_groups = {'Stim','Move onset','Outcome'};
 figure;
 for curr_group = 1:length(trial_groups)
     
     curr_regressor_idx = strcmp(trial_groups{curr_group},regressor_labels);
     
-    fluor_predicted_roi_reduced = permute(reshape( ...
-        AP_svd_roi(U_master(:,:,1:n_vs), ...
-        reshape(permute(fluor_allcat_predicted_reduced(:,:,:,curr_regressor_idx),[3,2,1]), ...
-        n_vs,[]),[],[],cat(3,wf_roi.mask)), ...
-        n_rois,[],size(fluor_allcat_predicted,1)),[3,2,1]);
-    
-    curr_fluor =  fluor_roi_deriv - fluor_predicted_roi_reduced;
-    curr_fluor = curr_fluor(:,:,1:10) - curr_fluor(:,:,11:end);
+    curr_fluor =  fluor_roi_deconv - fluor_roi_taskpred_reduced(:,:,:,curr_regressor_idx);
+    curr_fluor = curr_fluor(:,:,1:size(wf_roi,1)) - curr_fluor(:,:,size(wf_roi,1)+1:end);
     
     % (if movement, align to move onset)
     if strcmp(trial_groups{curr_group},'Move onset')
         t_leeway = -t(1);
         leeway_samples = round(t_leeway*(sample_rate));
-        for i = 1:size(fluor_allcat_deriv,1)
+        for i = 1:size(fluor_allcat_deconv,1)
             curr_fluor(i,:,:) = circshift(curr_fluor(i,:,:),-move_idx(i)+leeway_samples,2);
         end
     end
@@ -355,9 +355,7 @@ for curr_group = 1:length(trial_groups)
 %     plot(p1,t,rank_diff_p_plot,'.','MarkerSize',5);
 %     axis tight;
     
-   
-    
-    
+
 end
 
 
@@ -365,32 +363,25 @@ end
 
 
 % Get reduced-model fluorescence
-% fluor_allcat_deconv_reduced_stim = fluor_allcat_deconv - fluor_allcat_predicted_reduced(:,:,:,1);
+plot_rxn_time = [0,0.5];
 
-fluor_allcat_deconv_move = fluor_allcat_deconv;
-% fluor_allcat_deconv_reduced_move = fluor_allcat_deconv - fluor_allcat_predicted_reduced(:,:,:,2);
-t_leeway = 0.5;
-leeway_samples = round(t_leeway*(sample_rate));
-for i = 1:size(fluor_allcat_deconv,1)
-    fluor_allcat_deconv_move(i,:,:) = circshift(fluor_allcat_deconv_move(i,:,:),-move_idx(i)+leeway_samples,2);
-%     fluor_allcat_deconv_reduced_move(i,:,:) = circshift(fluor_allcat_deconv_reduced_move(i,:,:),-move_idx(i)+leeway_samples,2);
-end
-
-plot_rxn_time = [0.4,0.5];
+% plot_trials = ...
+%     trial_side_allcat == 1 & ...
+%     trial_contrast_allcat > 0 & ...
+%     trial_choice_allcat == -1 & ...
+%     move_t >= plot_rxn_time(1) & ...
+%     move_t <= plot_rxn_time(2);
 
 plot_trials = ...
-    trial_side_allcat == 1 & ...
-    trial_contrast_allcat > 0 & ...
+    trial_side_allcat == -1 & ...
     trial_choice_allcat == -1 & ...
     move_t >= plot_rxn_time(1) & ...
     move_t <= plot_rxn_time(2);
 
-plot_trials = ...
-    move_t >= plot_rxn_time(1) & ...
-    move_t <= plot_rxn_time(2);
-
 plot_px = svdFrameReconstruct(U_master(:,:,1:n_vs), ...
-    squeeze(nanmean(fluor_allcat_deconv_move(plot_trials,:,:),1))');
+    squeeze(nanmean( ...
+    fluor_allcat_deconv(plot_trials,:,:) - ...
+    fluor_taskpred_reduced_allcat(plot_trials,:,:,1),1))');
 
 AP_image_scroll(plot_px,t);
 axis image;

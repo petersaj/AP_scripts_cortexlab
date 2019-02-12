@@ -1047,7 +1047,7 @@ end
 
 %% Striatum: get activity by (correct/incorrect) stim and (visual/zero) velocity (experiment-separated)
 
-plot_depth = 2;
+plot_depth = 1;
 min_trials = 5; % minimum trials per group to keep
 
 % Split data
@@ -1333,14 +1333,14 @@ linkaxes([p1,p2,p3]);
 
 %% Cortex: get activity by (correct/incorrect) stim and (visual/zero) velocity (experiment-separated)
 
-plot_roi = 7;
+plot_roi = 8;
 min_trials = 5; % minimum trials per group to keep
 
 % Split data
 trials_all = size(mua_allcat,1);
 trials_animal = arrayfun(@(x) size(vertcat(mua_all{x}{:}),1),1:size(mua_all));
 trials_recording = cellfun(@(x) size(x,1),vertcat(mua_all{:}));
-use_split = trials_animal;
+use_split = trials_all;
 
 fluor_roi_deconv_exp = mat2cell(fluor_roi_deconv,use_split,length(t),n_rois);
 fluor_roi_deconv_taskpred_reduced_exp = mat2cell(fluor_roi_taskpred_reduced,use_split,length(t),n_rois, ...
@@ -1483,7 +1483,7 @@ stim_activity_context_mean = nanmean(stim_activity_context,4);
 move_activity_context_mean = nanmean(move_activity_context,4);
 wheel_context_mean = nanmean(wheel_context,4);
 
-use_stim_t = t > 0 & t < 0.2;
+use_stim_t = t > 0.05 & t < 0.1;
 use_move_t = t > -0.1 & t < 0.2;
 stim_activity_context_max_t = squeeze(nanmean(stim_activity_context(:,use_stim_t,:,:),2));
 move_activity_context_max_t = squeeze(nanmean(move_activity_context(:,use_move_t,:,:),2));
@@ -1930,7 +1930,7 @@ ylabel('Fraction correct');
 %% Std of px (necessary for cell below)
 
 % In chunks of n frames
-chunk_size = 10000;
+chunk_size = 10000; 
 
 use_v = reshape(permute(fluor_allcat_deconv,[2,1,3]),[],n_vs)';
 px_mean = svdFrameReconstruct(U_master(:,:,1:n_vs),nanmean(use_v,2));
@@ -1956,19 +1956,17 @@ px_std = sqrt(px_std_sq./(n_frames-1));
 %% Timepoint Ctx/Str correlation
 
 % By ROI
-use_trials = move_t >= 0.05;
+use_trials = move_t > 0 & move_t <= 0.5; % & trial_contrast_allcat > 0 & trial_side_allcat == trial_choice_allcat;
 
-% use_act_1 = mua_allcat_move(use_trials,:,2) - mua_taskpred_reduced_allcat_move(use_trials,:,2,2);
-use_act_1 = mua_allcat(use_trials,:,1) - mua_taskpred_reduced_allcat(use_trials,:,1,3);
+% use_act_1 = mua_allcat(use_trials,:,1) - mua_taskpred_reduced_allcat(use_trials,:,1,1);
+% use_act_2 = fluor_roi_deconv(use_trials,:,:) - fluor_roi_taskpred_reduced(use_trials,:,:,1);
 
-% use_act_2 = fluor_roi_deconv_move(use_trials,:,:) - ...
-%     fluor_roi_taskpred_reduced_move(use_trials,:,:,2);
-use_act_2 = fluor_roi_deconv(use_trials,:,:) - ...
-    fluor_roi_taskpred_reduced(use_trials,:,:,3);
+use_act_1 = mua_allcat_move(use_trials,:,2) - mua_taskpred_reduced_allcat_move(use_trials,:,2,2);
+use_act_2 = fluor_roi_deconv_move(use_trials,:,:) - fluor_roi_taskpred_reduced_move(use_trials,:,:,2);
 
 nan_samples = isnan(use_act_1) | any(isnan(use_act_2),3);
 use_act_1(nan_samples) = 0;
-use_act_2(repmat(nan_samples,1,1,n_rois)) = 0;
+use_act_2(repmat(nan_samples,1,1,size(use_act_2,3))) = 0;
 
 act_t_corr = cell2mat(arrayfun(@(x) 1-pdist2(use_act_1', ...
     use_act_2(:,:,x)','correlation'),permute(1:n_rois,[1,3,2]),'uni',false));
@@ -1987,7 +1985,8 @@ for curr_roi = 1:n_rois
     title(wf_roi(curr_roi).area);
     
     p(2,curr_roi) = subplot(2,n_rois,n_rois + curr_roi);
-    imagesc(t,t,act_t_corr(:,:,curr_roi) - act_t_corr(:,:,curr_roi)'); axis square;
+    imagesc(t,t,act_t_corr(:,:,curr_roi) - act_t_corr(:,:,curr_roi)'); 
+    axis square;
     caxis([-0.2,0.2])
     colormap(brewermap([],'*RdBu'));
     line(xlim,[0,0],'color','k');
@@ -1999,7 +1998,7 @@ linkaxes(p,'xy');
 
 
 % By SVD
-use_trials = move_t >= 0 & move_t <= 1;
+use_trials = move_t > 0 & move_t <= 0.5;
 
 use_act_1 = mua_allcat_move(use_trials,:,2) - mua_taskpred_reduced_allcat_move(use_trials,:,2,2);
 use_act_2 = fluor_allcat_deconv_move(use_trials,:,:) - fluor_taskpred_reduced_allcat_move(use_trials,:,:,2);
@@ -2034,21 +2033,270 @@ mua_fluor_cov_asymm = cell2mat(arrayfun(@(v) nanmean(cell2mat(arrayfun(@(x) ...
 
 mua2fluor_corr_px = svdFrameReconstruct(U_master(:,:,1:n_vs),mua2fluor_cov')./(px_std.*std(use_act_1(:)));
 fluor2mua_corr_px = svdFrameReconstruct(U_master(:,:,1:n_vs),fluor2mua_cov')./(px_std.*std(use_act_1(:)));
-mua_fluor_cov_asymm = svdFrameReconstruct(U_master(:,:,1:n_vs),mua_fluor_cov_asymm')./(px_std.*std(use_act_1(:)));
+mua_fluor_corr_asymm_px = svdFrameReconstruct(U_master(:,:,1:n_vs),mua_fluor_cov_asymm')./(px_std.*std(use_act_1(:)));
 
-AP_image_scroll([fluor2mua_corr_px,mua2fluor_corr_px,mua_fluor_cov_asymm],t); 
+AP_image_scroll([fluor2mua_corr_px,mua2fluor_corr_px,mua_fluor_corr_asymm_px],t); 
 axis image
 caxis([-max(abs(caxis)),max(abs(caxis))]);
 colormap(brewermap([],'*RdBu'));
 AP_reference_outline('ccf_aligned','k',[],[size(U_master,1),size(U_master,2),1,3]);
 
 
+%% Timepoint Ctx/Str correlation (experiment-separated)
+
+plot_depth = 1;
+use_vs = 200;
+
+% Split data
+trials_allcat = size(mua_allcat,1);
+trials_animal = arrayfun(@(x) size(vertcat(mua_all{x}{:}),1),1:size(mua_all));
+trials_recording = cellfun(@(x) size(x,1),vertcat(mua_all{:}));
+use_split = trials_recording;
+
+mua_allcat_exp = mat2cell(mua_allcat,use_split,length(t),n_depths);
+mua_taskpred_allcat_exp = mat2cell(mua_taskpred_allcat,use_split,length(t),n_depths);
+
+mua_ctxpred_allcat_exp = mat2cell(mua_ctxpred_allcat,use_split,length(t),n_depths);
+mua_ctxpred_taskpred_allcat_exp = mat2cell(mua_ctxpred_taskpred_allcat,use_split,length(t),n_depths);
+
+mua_taskpred_reduced_allcat_exp = mat2cell(mua_taskpred_reduced_allcat,use_split,length(t),n_depths, ...
+    size(mua_taskpred_reduced_allcat,4));
+mua_ctxpred_taskpred_reduced_allcat_exp = mat2cell(mua_ctxpred_taskpred_reduced_allcat,use_split,length(t),n_depths, ...
+    size(mua_ctxpred_taskpred_reduced_allcat,4));
+
+fluor_allcat_deconv_exp = mat2cell(fluor_allcat_deconv,use_split,length(t),n_vs);
+fluor_taskpred_allcat_exp = mat2cell(fluor_taskpred_allcat,use_split,length(t),n_vs);
+fluor_taskpred_reduced_allcat_exp = mat2cell(fluor_taskpred_reduced_allcat,use_split,length(t),n_vs, ...
+    size(fluor_taskpred_reduced_allcat,4));
+
+fluor_roi_deconv_exp = mat2cell(fluor_roi_deconv,use_split,length(t),n_rois);
+fluor_roi_taskpred_exp = mat2cell(fluor_roi_taskpred,use_split,length(t),n_rois);
+fluor_roi_taskpred_reduced_exp = mat2cell(fluor_roi_taskpred_reduced,use_split,length(t),n_rois, ...
+    size(fluor_roi_taskpred_reduced,4));
+
+trial_side_allcat_exp = mat2cell(trial_side_allcat,use_split,1);
+trial_contrast_allcat_exp = mat2cell(trial_contrast_allcat,use_split,1);
+trial_choice_allcat_exp = mat2cell(trial_choice_allcat,use_split,1);
+trial_outcome_allcat_exp = mat2cell(trial_outcome_allcat,use_split,1);
+
+move_t_exp = mat2cell(move_t,use_split,1);
+move_idx_exp = mat2cell(move_idx,use_split,1);
+
+act_t_corr = nan(length(t),length(t),n_rois,length(use_split));
+act_t_corr_ctxpred = nan(length(t),length(t),n_rois,length(use_split));
+for curr_exp = 1:length(use_split)
+
+    use_trials = move_t_exp{curr_exp} > 0 & move_t_exp{curr_exp} <= 0.5 & ...
+        trial_contrast_allcat_exp{curr_exp} > 0 & ...
+        trial_side_allcat_exp{curr_exp} == 1 & ...
+        trial_choice_allcat_exp{curr_exp} == -1;       
+    
+    % Set activity to use
+%     use_act_mua = mua_allcat_exp{curr_exp}(use_trials,:,plot_depth) - mua_taskpred_reduced_allcat_exp{curr_exp}(use_trials,:,plot_depth,1);
+%     use_act_mua_ctxpred = mua_ctxpred_allcat_exp{curr_exp}(use_trials,:,plot_depth) - mua_ctxpred_taskpred_reduced_allcat_exp{curr_exp}(use_trials,:,plot_depth,1);    
+%     use_act_fluor = fluor_roi_deconv_exp{curr_exp}(use_trials,:,:) - fluor_roi_taskpred_reduced_exp{curr_exp}(use_trials,:,:,1);
+    
+%     use_act_mua = mua_allcat_exp{curr_exp}(use_trials,:,plot_depth) - mua_taskpred_allcat_exp{curr_exp}(use_trials,:,plot_depth);
+%     use_act_mua_ctxpred = mua_ctxpred_allcat_exp{curr_exp}(use_trials,:,plot_depth) - mua_ctxpred_taskpred_allcat_exp{curr_exp}(use_trials,:,plot_depth);    
+%     use_act_fluor = fluor_roi_deconv_exp{curr_exp}(use_trials,:,:) - fluor_roi_taskpred_exp{curr_exp}(use_trials,:,:);
+ 
+    use_act_mua = mua_allcat_exp{curr_exp}(use_trials,:,plot_depth) - mua_ctxpred_allcat_exp{curr_exp}(use_trials,:,plot_depth);
+    use_act_mua_ctxpred = zeros(size(use_act_mua));
+    use_act_fluor = fluor_roi_deconv_exp{curr_exp}(use_trials,:,:);
+    
+%     use_act_mua = mua_allcat_exp{curr_exp}(use_trials,:,plot_depth) - mua_ctxpred_allcat_exp{curr_exp}(use_trials,:,plot_depth);
+%     use_act_mua_ctxpred = zeros(size(use_act_mua));
+%     use_act_fluor = fluor_roi_deconv_exp{curr_exp}(use_trials,:,:) - fluor_roi_taskpred_reduced_exp{curr_exp}(use_trials,:,:,1);
+        
+ 
+    
+%     use_act_mua = mua_allcat_exp{curr_exp}(use_trials,:,plot_depth) - mua_taskpred_reduced_allcat_exp{curr_exp}(use_trials,:,plot_depth,2);
+%     use_act_mua_ctxpred = mua_ctxpred_allcat_exp{curr_exp}(use_trials,:,plot_depth) - mua_ctxpred_taskpred_reduced_allcat_exp{curr_exp}(use_trials,:,plot_depth,2);    
+%     use_act_fluor = fluor_roi_deconv_exp{curr_exp}(use_trials,:,:) - fluor_roi_taskpred_reduced_exp{curr_exp}(use_trials,:,:,2);       
+        
+%     % (to align to movement)
+%     t_leeway = -t(1);
+%     leeway_samples = round(t_leeway*(sample_rate));
+%     move_idx_use = move_idx_exp{curr_exp}(use_trials);
+%     for i = 1:sum(use_trials)
+%         use_act_mua(i,:,:) = circshift(use_act_mua(i,:,:),-move_idx_use(i)+leeway_samples,2);
+%         use_act_mua_ctxpred(i,:,:) = circshift(use_act_mua_ctxpred(i,:,:),-move_idx_use(i)+leeway_samples,2);
+%         use_act_fluor(i,:,:) = circshift(use_act_fluor(i,:,:),-move_idx_use(i)+leeway_samples,2);
+%     end
+    
+    % Set NaNs to mean to ignore in correlation
+    nan_samples = isnan(use_act_mua) | isnan(use_act_mua_ctxpred) | any(isnan(use_act_fluor),3);
+    use_act_mua(nan_samples) = AP_index_ans(nan_samples.*nanmean(use_act_mua,1),nan_samples);
+    use_act_mua_ctxpred(nan_samples) = AP_index_ans(nan_samples.*nanmean(use_act_mua_ctxpred,1),nan_samples);
+    use_act_fluor(repmat(nan_samples,1,1,size(use_act_fluor,3))) = ...
+        AP_index_ans(nan_samples.*nanmean(use_act_fluor,1), ...
+        repmat(nan_samples,1,1,size(use_act_fluor,3)));
+    
+    % Get correlation of all time points
+    act_t_corr(:,:,:,curr_exp) = cell2mat(arrayfun(@(x) 1-pdist2(use_act_mua', ...
+        use_act_fluor(:,:,x)','correlation'),permute(1:n_rois,[1,3,2]),'uni',false));
+    act_t_corr_ctxpred(:,:,:,curr_exp) = cell2mat(arrayfun(@(x) 1-pdist2(use_act_mua_ctxpred', ...
+        use_act_fluor(:,:,x)','correlation'),permute(1:n_rois,[1,3,2]),'uni',false));
+    
+end
+act_t_corr_mean = nanmean(act_t_corr,4);
+act_t_corr_ctxpred_mean = nanmean(act_t_corr_ctxpred,4);
+
+figure;
+p = nan(4,n_rois);
+for curr_roi = 1:n_rois
+    
+    p(1,curr_roi) = subplot(4,n_rois,curr_roi);
+    imagesc(t,t,act_t_corr_mean(:,:,curr_roi)); axis square;
+    caxis([-0.2,0.2])
+    colormap(brewermap([],'*RdBu'));
+    line(xlim,[0,0],'color','k');
+    line([0,0],ylim,'color','k');
+    line(xlim,ylim,'color','k')
+    title(wf_roi(curr_roi).area);
+    
+    p(2,curr_roi) = subplot(4,n_rois,n_rois + curr_roi);
+    imagesc(t,t,act_t_corr_mean(:,:,curr_roi) - act_t_corr_mean(:,:,curr_roi)'); 
+    axis square;
+    caxis([-0.2,0.2])
+    colormap(brewermap([],'*RdBu'));
+    line(xlim,[0,0],'color','k');
+    line([0,0],ylim,'color','k');
+    line(xlim,ylim,'color','k')
+    
+    p(3,curr_roi) = subplot(4,n_rois,n_rois*2 + curr_roi);
+    imagesc(t,t,act_t_corr_ctxpred_mean(:,:,curr_roi)); axis square;
+    caxis([-0.2,0.2])
+    colormap(brewermap([],'*RdBu'));
+    line(xlim,[0,0],'color','k');
+    line([0,0],ylim,'color','k');
+    line(xlim,ylim,'color','k')
+    title(wf_roi(curr_roi).area);
+    
+    p(4,curr_roi) = subplot(4,n_rois,n_rois*3 + curr_roi);
+    imagesc(t,t,act_t_corr_ctxpred_mean(:,:,curr_roi) - act_t_corr_ctxpred_mean(:,:,curr_roi)'); 
+    axis square;
+    caxis([-0.2,0.2])
+    colormap(brewermap([],'*RdBu'));
+    line(xlim,[0,0],'color','k');
+    line([0,0],ylim,'color','k');
+    line(xlim,ylim,'color','k')    
+    
+end
+linkaxes(p,'xy');
 
 
+% Correlation by V's (do to properly, would need px_std for all splits)
+mua2fluor_corr_px = nan(size(U_master,1),size(U_master,2),length(t),length(use_split));
+fluor2mua_corr_px = nan(size(U_master,1),size(U_master,2),length(t),length(use_split));
+mua_fluor_corr_asymm_px = nan(size(U_master,1),size(U_master,2),length(t),length(use_split));
+for curr_exp = 1:length(use_split)
+    
+    use_trials = move_t_exp{curr_exp} > 0 & move_t_exp{curr_exp} <= 0.5 & ...
+        trial_contrast_allcat_exp{curr_exp} > 0 & ...
+        trial_side_allcat_exp{curr_exp} == 1 & ...
+        trial_choice_allcat_exp{curr_exp} == 1;
+    
+    % Set activity to use
+    %     use_act_mua = mua_allcat_exp{curr_exp}(use_trials,:,plot_depth) - mua_taskpred_reduced_allcat_exp{curr_exp}(use_trials,:,plot_depth,1);
+    %     use_act_fluor = fluor_allcat_deconv_exp{curr_exp}(use_trials,:,:) - fluor_taskpred_reduced_allcat_exp{curr_exp}(use_trials,:,:,1);
+    
+    %     use_act_mua = mua_allcat_exp{curr_exp}(use_trials,:,plot_depth) - mua_taskpred_allcat_exp{curr_exp}(use_trials,:,plot_depth);
+    %     use_act_fluor = fluor_allcat_deconv_exp{curr_exp}(use_trials,:,:) - fluor_taskpred_allcat_exp{curr_exp}(use_trials,:,:);
+    
+    %     use_act_mua = mua_allcat_exp{curr_exp}(use_trials,:,plot_depth) - mua_ctxpred_allcat_exp{curr_exp}(use_trials,:,plot_depth);
+    %     use_act_fluor = fluor_allcat_deconv_exp{curr_exp}(use_trials,:,:);
+    
+    use_act_mua = mua_allcat_exp{curr_exp}(use_trials,:,plot_depth) - mua_ctxpred_allcat_exp{curr_exp}(use_trials,:,plot_depth);
+    use_act_fluor = fluor_allcat_deconv_exp{curr_exp}(use_trials,:,:) - fluor_taskpred_allcat_exp{curr_exp}(use_trials,:,:);
+    
+    %     use_act_mua = mua_allcat_exp{curr_exp}(use_trials,:,plot_depth) - mua_ctxpred_allcat_exp{curr_exp}(use_trials,:,plot_depth);
+    %     use_act_fluor = fluor_allcat_deconv_exp{curr_exp}(use_trials,:,:) - fluor_taskpred_reduced_allcat_exp{curr_exp}(use_trials,:,:,1);
+    
+    %     % (to align to movement)
+    %     t_leeway = -t(1);
+    %     leeway_samples = round(t_leeway*(sample_rate));
+    %     move_idx_use = move_idx_exp{curr_exp}(use_trials);
+    %     for i = 1:sum(use_trials)
+    %         use_act_mua(i,:,:) = circshift(use_act_mua(i,:,:),-move_idx_use(i)+leeway_samples,2);
+    %         use_act_fluor(i,:,:) = circshift(use_act_fluor(i,:,:),-move_idx_use(i)+leeway_samples,2);
+    %     end
+    
+    % Skip of no MUA in this recording
+    if ~any(use_act_mua(:))
+        continue
+    end
+    
+    % Set NaNs to mean to ignore in correlation
+    nan_samples = isnan(use_act_mua) | any(isnan(use_act_fluor),3);
+    use_act_mua(nan_samples) = AP_index_ans(nan_samples.*nanmean(use_act_mua,1),nan_samples);
+    use_act_fluor(repmat(nan_samples,1,1,size(use_act_fluor,3))) = ...
+        AP_index_ans(nan_samples.*nanmean(use_act_fluor,1), ...
+        repmat(nan_samples,1,1,size(use_act_fluor,3)));
+    
+    % Get std for correlation calculation
+    % In chunks of n frames
+    chunk_size = 10000;    
+    use_v = reshape(permute(use_act_fluor,[2,1,3]),[],n_vs)';
+    px_mean = svdFrameReconstruct(U_master(:,:,1:n_vs),nanmean(use_v,2));    
+    n_frames = size(use_v,2);
+    frame_chunks = discretize(1:n_frames,linspace(1,n_frames,max(round(n_frames/chunk_size),2)));
+    px_std_sq = zeros(size(U_master,1),size(U_master,2));
+    for curr_chunk = 1:max(frame_chunks)
+        curr_im = svdFrameReconstruct(U_master(:,:,1:n_vs), ...
+            use_v(:,frame_chunks == curr_chunk));
+        px_std_sq = px_std_sq + sum((curr_im - px_mean).^2,3);
+        clear curr_im              
+    end    
+    px_std = sqrt(px_std_sq./(n_frames-1));
+    
+    mua_std = nanstd(use_act_mua(:));
 
+    
+    % Get MUA-fluor covariance
+    mua_fluor_cov = cell2mat(arrayfun(@(x) (use_act_mua-nanmean(use_act_mua,1))'* ...
+        (use_act_fluor(:,:,x)-nanmean(use_act_fluor(:,:,x),1))./(sum(use_trials)-1), ...
+        permute(1:use_vs,[1,3,2]),'uni',false));
+    
+    % Get forward and backward covariance diagonals (/ std mua)
+    use_diag = 0; % 1:2;
+    
+    mua2fluor_cov = cell2mat(arrayfun(@(v) nanmean(cell2mat(arrayfun(@(x) ...
+        padarray(diag(mua_fluor_cov(:,:,v),use_diag(x)), ...
+        abs(use_diag(x)),nan,'pre'), ...
+        1:length(use_diag),'uni',false)),2),1:use_vs,'uni',false))./nanstd(use_act_mua(:));
+    
+    fluor2mua_cov = cell2mat(arrayfun(@(v) nanmean(cell2mat(arrayfun(@(x) ...
+        padarray(diag(mua_fluor_cov(:,:,v),-use_diag(x)), ...
+        abs(use_diag(x)),nan,'pre'), ...
+        1:length(use_diag),'uni',false)),2),1:use_vs,'uni',false))./nanstd(use_act_mua(:));
+    
+    mua_fluor_cov_asymm = cell2mat(arrayfun(@(v) nanmean(cell2mat(arrayfun(@(x) ...
+        padarray(diag(mua_fluor_cov(:,:,v)-mua_fluor_cov(:,:,v)',-use_diag(x)), ...
+        abs(use_diag(x)),nan,'pre'), ...
+        1:length(use_diag),'uni',false)),2),1:use_vs,'uni',false))./nanstd(use_act_mua(:));
+    
+    % Convert into pixels, get correlation
+    mua2fluor_corr_px = svdFrameReconstruct(U_master(:,:,1:use_vs),mua2fluor_cov')./(px_std.*mua_std);
+    fluor2mua_corr_px = svdFrameReconstruct(U_master(:,:,1:use_vs),fluor2mua_cov')./(px_std.*mua_std);
+    mua_fluor_corr_asymm_px = svdFrameReconstruct(U_master(:,:,1:use_vs),mua_fluor_cov_asymm')./(px_std.*mua_std);
+    
+    AP_print_progress_fraction(curr_exp,length(use_split));
+end
 
+mua2fluor_cov_mean = nanmean(mua2fluor_cov,3);
+fluor2mua_cov_mean = nanmean(fluor2mua_cov,3);
+mua_fluor_cov_asymm_mean = nanmean(mua_fluor_cov_asymm,3);
 
+mua2fluor_corr_px = svdFrameReconstruct(U_master(:,:,1:use_vs),mua2fluor_cov_mean')./(px_std);
+fluor2mua_corr_px = svdFrameReconstruct(U_master(:,:,1:use_vs),fluor2mua_cov_mean')./(px_std);
+mua_fluor_corr_asymm_px = svdFrameReconstruct(U_master(:,:,1:use_vs),mua_fluor_cov_asymm_mean')./(px_std);
 
+AP_image_scroll([fluor2mua_corr_px,mua2fluor_corr_px,mua_fluor_corr_asymm_px],t); 
+axis image
+caxis([-max(abs(caxis)),max(abs(caxis))]);
+colormap(brewermap([],'*RdBu'));
+AP_reference_outline('ccf_aligned','k',[],[size(U_master,1),size(U_master,2),1,3]);
 
 
 
