@@ -2778,7 +2778,6 @@ legend(cellfun(@num2str,num2cell(1:n_depths),'uni',false))
 
 
 %% Passive choiceworld: combined
-% should do stats by shuffling to get null distribution
 
 data_fns = { ...
     'trial_activity_choiceworld_FLUORTASKTEST', ...
@@ -2794,16 +2793,23 @@ predicted_act_rank_difference = nan(n_t,n_depths,n_animals,length(data_fns));
 act_rank_difference_trial = nan(n_depths,n_animals,length(data_fns));
 predicted_act_rank_difference_trial = nan(n_depths,n_animals,length(data_fns));
 
+n_shuff = 1000;
+act_rank_difference_trial_stimshuff = nan(n_depths,n_animals,length(data_fns),n_shuff);
+predicted_act_rank_difference_trial_stimshuff = nan(n_depths,n_animals,length(data_fns),n_shuff);
+
 for curr_data_group = 1:length(data_fns)    
     
     clearvars -except data_fns curr_data_group ...
         act_rank_difference ...
         predicted_act_rank_difference ...
         act_rank_difference_trial ...
-        predicted_act_rank_difference_trial
+        predicted_act_rank_difference_trial ...
+        n_shuff ...
+        act_rank_difference_trial_stimshuff ...
+        predicted_act_rank_difference_trial_stimshuff ...
     
     data_fn = data_fns{curr_data_group};
-    exclude_data = false;
+    exclude_data = true;
     AP_load_concat_normalize_ctx_str;
     
     switch curr_data_group
@@ -2902,6 +2908,23 @@ for curr_data_group = 1:length(data_fns)
         predicted_act_rank_difference_trial(:,curr_exp,curr_data_group) = ...
             (nanmean(predicted_act_rank_trial(trial_group_1(use_trials),:),1) - ...
             nanmean(predicted_act_rank_trial(trial_group_2(use_trials),:),1))./max(predicted_act_rank_trial,[],1);
+        
+        % Shuffle labels to get null difference
+        shuff_trials = (trial_group_1 | trial_group_2) & use_trials;
+       
+        for curr_shuff = 1:n_shuff
+            trial_group_1_shuff = trial_group_1;
+            trial_group_1_shuff(shuff_trials) = AP_shake(trial_group_1(shuff_trials));
+            trial_group_2_shuff = trial_group_2;
+            trial_group_2_shuff(shuff_trials) = AP_shake(trial_group_2(shuff_trials));
+            
+            act_rank_difference_trial_stimshuff(:,curr_exp,curr_data_group,curr_shuff) = ...
+                (nanmean(act_rank_trial(trial_group_1_shuff(use_trials),:),1) - ...
+                nanmean(act_rank_trial(trial_group_2_shuff(use_trials),:),1))./max(act_rank_trial,[],1);
+            predicted_act_rank_difference_trial_stimshuff(:,curr_exp,curr_data_group,curr_shuff) = ...
+                (nanmean(predicted_act_rank_trial(trial_group_1_shuff(use_trials),:),1) - ...
+                nanmean(predicted_act_rank_trial(trial_group_2_shuff(use_trials),:),1))./max(predicted_act_rank_trial,[],1);           
+        end
        
     end
   
@@ -2957,6 +2980,69 @@ end
 
 linkaxes(p(1:2,:),'xy');
 linkaxes(p(3,:),'xy');
+
+% Get significance from shuffled distribution
+
+trained_task_bhv_diff = nanmean(act_rank_difference_trial(:,:,1) - ...
+    act_rank_difference_trial(:,:,2),2);
+trained_task_bhv_ci = prctile(squeeze(nanmean(act_rank_difference_trial_stimshuff(:,:,1,:) - ...
+    act_rank_difference_trial_stimshuff(:,:,2,:),2)),[2.5,97.5],2);
+
+predicted_trained_task_bhv_diff = nanmean(predicted_act_rank_difference_trial(:,:,1) - ...
+    predicted_act_rank_difference_trial(:,:,2),2);
+predicted_trained_task_bhv_ci = prctile(squeeze(nanmean(predicted_act_rank_difference_trial_stimshuff(:,:,1,:) - ...
+    predicted_act_rank_difference_trial_stimshuff(:,:,2,:),2)),[2.5,97.5],2);
+
+trained_naive_diff = nanmean(act_rank_difference_trial(:,:,1) - ...
+    act_rank_difference_trial(:,:,3),2);
+trained_naive_ci = prctile(squeeze(nanmean(act_rank_difference_trial_stimshuff(:,:,1,:) - ...
+    act_rank_difference_trial_stimshuff(:,:,3,:),2)),[2.5,97.5],2);
+
+predicted_trained_naive_diff = nanmean(predicted_act_rank_difference_trial(:,:,1) - ...
+    predicted_act_rank_difference_trial(:,:,3),2);
+predicted_trained_naive_ci = prctile(squeeze(nanmean(predicted_act_rank_difference_trial_stimshuff(:,:,1,:) - ...
+    predicted_act_rank_difference_trial_stimshuff(:,:,3,:),2)),[2.5,97.5],2);
+
+trained_predicted_diff = squeeze(nanmean(act_rank_difference_trial - ...
+    predicted_act_rank_difference_trial,2));
+trained_predicted_diff_ci = prctile(squeeze(nanmean(act_rank_difference_trial_stimshuff - ...
+    predicted_act_rank_difference_trial_stimshuff,2)),[2.5,97.5],3);
+
+figure; 
+subplot(2,3,1); hold on;
+plot(trained_task_bhv_diff,'r','linewidth',2);
+plot(trained_task_bhv_ci,'k','linewidth',2,'linestyle','--');
+xlabel('Striatum depth');
+ylabel('Trained task - trained passive');
+title('Measured');
+
+subplot(2,3,2); hold on;
+plot(trained_naive_diff,'r','linewidth',2);
+plot(trained_naive_ci,'k','linewidth',2,'linestyle','--');
+xlabel('Striatum depth');
+ylabel('Trained - naive');
+title('Measured')
+
+subplot(2,3,3); hold on;
+set(gca,'ColorOrder',lines(length(data_fns)));
+plot(trained_predicted_diff,'linewidth',2);
+plot(reshape(trained_predicted_diff_ci,n_depths,[]),'linewidth',2,'linestyle','--');
+xlabel('Striatum depth');
+ylabel('Measured - Predicted');
+
+subplot(2,3,4); hold on;
+plot(predicted_trained_task_bhv_diff,'r','linewidth',2);
+plot(predicted_trained_task_bhv_ci,'k','linewidth',2,'linestyle','--');
+xlabel('Striatum depth');
+ylabel('Trained task - trained passive');
+title('Cortex-predicted');
+
+subplot(2,3,5); hold on;
+plot(predicted_trained_naive_diff,'r','linewidth',2);
+plot(predicted_trained_naive_ci,'k','linewidth',2,'linestyle','--');
+xlabel('Striatum depth');
+ylabel('Trained - naive');
+title('Cortex-predicted');
 
 
 %% Fig 4?: stim/no-stim move?

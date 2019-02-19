@@ -377,7 +377,9 @@ legend([p1,p2],{'All','> Threshold'},'location','nw');
 % (save good experiments for later use)
 save_path = 'C:\Users\Andrew\OneDrive for Business\Documents\CarandiniHarrisLab\analysis\wf_ephys_choiceworld\experiment_exclusion';
 save_fn = 'bhv_use_experiments';
-save([save_path filesep save_fn],'use_experiments');
+bhv_use_experiments = struct('animals',animals,'use_experiments',use_experiments);
+save([save_path filesep save_fn],'bhv_use_experiments');
+disp(['Saved exclusion experiments: ' save_path save_fn]);
 
 % Plot wheel velocity by correct/incorrect
 [velocity_condition_hit_earlymove_grp,group] = cellfun(@(wheel,outcome,condition,stim_to_move) ...

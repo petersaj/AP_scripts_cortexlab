@@ -22,12 +22,16 @@ experiment_fields = cellfun(@(curr_field) ...
 % Load pre-marked experiments to exclude and cut out bad ones
 if exist('exclude_data','var') && exclude_data
     exclude_path = 'C:\Users\Andrew\OneDrive for Business\Documents\CarandiniHarrisLab\analysis\wf_ephys_choiceworld\experiment_exclusion';
-    exclude_fn = 'bhv_use_experiments';
-    load([exclude_path filesep exclude_fn]);
+    exclude_fn{1} = 'bhv_use_experiments';
+    % exclude_fn{2} = 'expl_var_use_experiments';
+    use_experiments_all = {};
+    for curr_exclude = 1:length(exclude_fn)
+        curr_use_experiments = load([exclude_path filesep exclude_fn{curr_exclude}]);
+        use_experiments_all = [use_experiments_all;curr_use_experiments.use_experiments];
+    end
+    use_experiments = arrayfun(@(x) all(vertcat(use_experiments_all{:,x}),1), ...
+        1:size(use_experiments_all,2),'uni',false)';
     
-    % Pull out used experiments for the animals loaded
-    use_experiments_animals = ismember(data_struct.animals,{bhv_use_experiments.animals});
-    use_experiments = {bhv_use_experiments(use_experiments_animals).use_experiments}';
     
     % (old, when multiple kinds of exclusions
 %     exclude_fn{1} = 'bhv_use_experiments';
@@ -41,12 +45,10 @@ if exist('exclude_data','var') && exclude_data
 %         1:size(use_experiments_all,2),'uni',false)';
     
     % Cut out bad experiments for any experiment data fields
-    if ~isempty(use_experiments)
-        for curr_field = data_struct_fieldnames(experiment_fields)'
-            data_struct.(cell2mat(curr_field)) = cellfun(@(x,expts) ...
-                x(expts),data_struct.(cell2mat(curr_field)), ...
-                use_experiments,'uni',false);
-        end
+    for curr_field = data_struct_fieldnames(experiment_fields)'
+        data_struct.(cell2mat(curr_field)) = cellfun(@(x,expts) ...
+            x(expts),data_struct.(cell2mat(curr_field)), ...
+            use_experiments,'uni',false);
     end
 end
 
