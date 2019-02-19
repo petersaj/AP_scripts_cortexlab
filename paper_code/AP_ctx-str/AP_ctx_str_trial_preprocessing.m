@@ -794,6 +794,18 @@ for curr_animal = 1:length(animals)
         move_onset_regressors(1,:) = histcounts(move_time_L_absolute,time_bins);
         move_onset_regressors(2,:) = histcounts(move_time_R_absolute,time_bins);
         
+        % Move onset x stim regressors (one for each contrast/side)
+        move_onset_stim_time_absolute = arrayfun(@(curr_stim) ...
+            arrayfun(@(x) t_peri_event(x,move_idx(x)), ...
+            find(~isnan(move_idx) & stim_contrastsides' == unique_stim(curr_stim))), ...
+            1:length(unique_stim),'uni',false);
+        
+        move_onset_stim_regressors = zeros(10,length(time_bin_centers));
+        for curr_stim = 1:length(unique_stim)
+           move_onset_stim_regressors(curr_stim,:) = ...
+               histcounts(move_onset_stim_time_absolute{curr_stim},time_bins); 
+        end
+        
         % Move ongoing regressors (L/R choice for duration of movement)
         wheel_velocity_interp = interp1(Timeline.rawDAQTimestamps,wheel_velocity,time_bin_centers);
         

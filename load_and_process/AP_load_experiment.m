@@ -802,10 +802,14 @@ if ephys_exists && load_parts.ephys
         lfp_t_timeline = interp1(sync_ephys,sync_timeline,lfp_t,'linear','extrap');
     end
     
-    % Get the depths of each template
+    % Get the depths of each template (REMOVE DEPENDENCY EVENTUALLY)
     % (by COM - this used to not work but now looks ok)
     [spikeAmps, spikeDepths, templateDepths, tempAmps, tempsUnW, templateDuration, waveforms] = ...
         templatePositionsAmplitudes(templates,winv,channel_positions(:,2),spike_templates,template_amplitudes);
+    
+    % Set the templates to be the unwhitened templates
+    templates = tempsUnW;
+    
     %     % (by max waveform channel)
     %     template_abs = permute(max(abs(templates),[],2),[3,1,2]);
     %     [~,max_channel_idx] =  max(template_abs,[],1);

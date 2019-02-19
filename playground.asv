@@ -195,9 +195,14 @@ contrast_side_val = unique(sort([-contrasts,contrasts]))';
 
 % contrast, side, choice
 plot_conditions = ...
-    [contrasts(2:end),contrasts(2:end); ...
-    -ones(1,5),ones(1,5); ...
-    ones(1,5),-ones(1,5)]';
+    [contrasts,contrasts; ...
+    -ones(1,7),ones(1,5); ...
+    ones(1,6),-ones(1,6)]';
+
+% plot_conditions = ...
+%     [contrasts(2:end),contrasts(2:end); ...
+%     -ones(1,5),ones(1,5); ...
+%     ones(1,5),-ones(1,5)]';
 
 % plot_conditions = ...
 %     [contrasts(2:end),contrasts(2:end); ...
@@ -230,28 +235,29 @@ use_rxn = move_t > 0 & move_t < 0.5;
     [trial_contrast_allcat,trial_side_allcat,trial_choice_allcat], ...
     plot_conditions,'rows');
 
-spacing = nanstd(fluor_roi_deconv(:))*2;
+spacing = nanstd(fluor_roi_deconv(:))*10;
 
 % fluor_roi_deconv_hemidiff = ...
 %     (fluor_roi_deconv(:,:,1:size(wf_roi,1))-fluor_roi_taskpred_reduced(:,:,1:size(wf_roi,1),2)) - ...
 %     (fluor_roi_deconv(:,:,size(wf_roi,1)+1:end)-fluor_roi_taskpred_reduced(:,:,size(wf_roi,1)+1:end,2));
 
-fluor_roi_deconv_hemidiff = fluor_roi_deconv(:,:,1:size(wf_roi,1)) - fluor_roi_deconv(:,:,size(wf_roi,1)+1:end);
+% fluor_roi_deconv_hemidiff = fluor_roi_deconv(:,:,1:size(wf_roi,1)) - fluor_roi_deconv(:,:,size(wf_roi,1)+1:end);
 
 figure; hold on;
 for curr_plot_condition = 1:size(plot_conditions,1)
     
     curr_trials = plot_id == curr_plot_condition & use_rxn;    
 %     curr_data = fluor_roi_deconv_hemidiff(curr_trials,:,:); 
-    curr_data = fluor_roi_deconv(curr_trials,:,:) - fluor_roi_taskpred_reduced(curr_trials,:,:,1);
+    curr_data = fluor_roi_deconv(curr_trials,:,:) - fluor_roi_taskpred_reduced(curr_trials,:,:,2);
+%     curr_data = fluor_roi_deconv(curr_trials,:,:);
     
-%     % Re-align to movement onset
-%     t_leeway = 0.5;
-%     leeway_samples = round(t_leeway*sample_rate);
-%     curr_move_idx = move_idx(curr_trials);
-%     for i = 1:size(curr_data,1)
-%         curr_data(i,:,:) = circshift(curr_data(i,:,:),-curr_move_idx(i)+leeway_samples,2);
-%     end
+    % Re-align to movement onset
+    t_leeway = 0.5;
+    leeway_samples = round(t_leeway*sample_rate);
+    curr_move_idx = move_idx(curr_trials);
+    for i = 1:size(curr_data,1)
+        curr_data(i,:,:) = circshift(curr_data(i,:,:),-curr_move_idx(i)+leeway_samples,2);
+    end
     
     curr_data_mean = squeeze(nanmean(curr_data,1));
 
@@ -287,7 +293,7 @@ for curr_group = 1:length(trial_groups)
     curr_regressor_idx = strcmp(trial_groups{curr_group},regressor_labels);
     
     curr_fluor =  fluor_roi_deconv - fluor_roi_taskpred_reduced(:,:,:,curr_regressor_idx);
-    curr_fluor = curr_fluor(:,:,1:size(wf_roi,1)) - curr_fluor(:,:,size(wf_roi,1)+1:end);
+%     curr_fluor = curr_fluor(:,:,1:size(wf_roi,1)) - curr_fluor(:,:,size(wf_roi,1)+1:end);
     
     % (if movement, align to move onset)
     if strcmp(trial_groups{curr_group},'Move onset')
@@ -330,35 +336,26 @@ for curr_group = 1:length(trial_groups)
     ylabel('Mean rank difference');
     title([trial_groups{curr_group}]);
    
-    
-    
-%     %%% (testing shuffle)    
-%     n_shuff = 1000;
-%     rank_diff_shuff = nan(size(act_rank,2),size(act_rank,3),n_shuff);
-%     for curr_shuff = 1:n_shuff
-%         trial_group_shuff = AP_shake(trial_group(use_trials));
-%         rank_diff_shuff(:,:,curr_shuff) = squeeze(( ...
-%             nanmean(act_rank(trial_group_shuff == group1,:,:),1) - ...
-%             nanmean(act_rank(trial_group_shuff == group2,:,:),1))./sum(use_trials));  
-%         AP_print_progress_fraction(curr_shuff,n_shuff);
-%     end
-%     
-%     rank_diff_rank = permute(tiedrank(permute(cat(3,act_rank_difference,rank_diff_shuff),[3,1,2])),[2,3,1]);
-%     rank_diff_p = rank_diff_rank(:,:,1)./size(rank_diff_rank,3);
-%     
-%     max_plot = max(act_rank_difference(:));
-%     spacing = max_plot/10;
-%     
-%     rank_diff_p_plot = +(rank_diff_p > 0.95);
-%     rank_diff_p_plot(~rank_diff_p_plot) = NaN;
-%     rank_diff_p_plot = +rank_diff_p_plot.*(1:n_rois)*spacing+max_plot;  
-%     plot(p1,t,rank_diff_p_plot,'.','MarkerSize',5);
-%     axis tight;
-    
 
 end
 
 
+
+% Get velocity and bins
+% (to use max velocity regardless of final choice)
+max_vel = AP_signed_max(wheel_velocity_allcat_move(:,t > 0 & t < 0.5),2);
+% (to use summed velocity regardless of final choice)
+% max_vel = sum(wheel_velocity_allcat_move(:,t > 0 & t < 0.5),2);
+% (to use maximum cumulative velocity regardless of final choice)
+% max_vel = AP_signed_max(cumsum(wheel_velocity_allcat_move(:,t > 0 & t < 0.5),2),2);
+
+n_vel_bins = 2;
+vel_amp_edges = prctile(abs(max_vel),linspace(0,100,n_vel_bins+1));
+% vel_amp_edges = linspace(prctile(abs(max_vel),10),prctile(abs(max_vel),90),n_vel_bins);
+vel_amp_edges = sort([vel_amp_edges,-vel_amp_edges]);
+
+vel_amp_bins = discretize(max_vel,vel_amp_edges);
+vel_amp_bins(vel_amp_bins == n_vel_bins+1) = NaN;
 
 
 
@@ -366,22 +363,38 @@ end
 plot_rxn_time = [0,0.5];
 
 % plot_trials = ...
-%     trial_side_allcat == 1 & ...
 %     trial_contrast_allcat > 0 & ...
+%     trial_side_allcat == 1 & ...
+%     trial_choice_allcat == -1 & ...
+%     move_t >= plot_rxn_time(1) & ...
+%     move_t <= plot_rxn_time(2);
+
+% plot_trials = ...
+%     trial_contrast_allcat == 0 & ...
 %     trial_choice_allcat == -1 & ...
 %     move_t >= plot_rxn_time(1) & ...
 %     move_t <= plot_rxn_time(2);
 
 plot_trials = ...
-    trial_side_allcat == -1 & ...
+    trial_contrast_allcat == 0 & ...
+    vel_amp_bins == 1 & ...
+    move_t >= plot_rxn_time(1) & ...
+    move_t <= plot_rxn_time(2);
+
+plot_trials = ...
+    trial_contrast_allcat > 0 & ...
+    trial_side_allcat == 1 & ...
     trial_choice_allcat == -1 & ...
     move_t >= plot_rxn_time(1) & ...
     move_t <= plot_rxn_time(2);
 
+% plot_px = svdFrameReconstruct(U_master(:,:,1:n_vs), ...
+%     squeeze(nanmean( ...
+%     fluor_allcat_deconv(plot_trials,:,:) - ...
+%     fluor_taskpred_reduced_allcat(plot_trials,:,:,1),1))');
+
 plot_px = svdFrameReconstruct(U_master(:,:,1:n_vs), ...
-    squeeze(nanmean( ...
-    fluor_allcat_deconv(plot_trials,:,:) - ...
-    fluor_taskpred_reduced_allcat(plot_trials,:,:,1),1))');
+    squeeze(nanmean(fluor_allcat_deconv_move(plot_trials,:,:)))');
 
 AP_image_scroll(plot_px,t);
 axis image;
@@ -3736,9 +3749,10 @@ for curr_animal = 1:length(animals)
             find(~isnan(move_idx) & stim_contrastsides' == unique_stim(curr_stim))), ...
             1:length(unique_stim),'uni',false);
         
-        move_onset_stim_regressors = size(10,length(time_bin_centers));
+        move_onset_stim_regressors = zeros(10,length(time_bin_centers));
         for curr_stim = 1:length(unique_stim)
-           move_onset_setim_regressors(curr_stim,:) = histcounts(move_onset_stim_time_absolute{curr)stun,time_Bins); 
+           move_onset_stim_regressors(curr_stim,:) = ...
+               histcounts(move_onset_stim_time_absolute{curr_stim},time_bins); 
         end
         
         % Move ongoing regressors (L/R choice for duration of movement)
@@ -3785,11 +3799,12 @@ for curr_animal = 1:length(animals)
             signals_events.responseTimes(trial_outcome == -1),time_bins);
         
         % Concatenate regressors, set parameters
-        regressors = {stim_regressors;move_onset_regressors;go_cue_regressors;outcome_regressors};
-        regressor_labels = {'Stim','Move onset','Go cue','Outcome'};     
+        regressors = {stim_regressors;move_onset_regressors;move_onset_stim_regressors;go_cue_regressors;outcome_regressors};
+        regressor_labels = {'Stim','Move onset','Move onset stim','Go cue','Outcome'};     
         
         t_shifts = {[0,0.5]; ... % stim
-            [-0.5,1]; ... % move
+            [-0.5,1]; ... % move onset
+            [-0.5,1]; ... % move onset stim
             [-0.1,0.5]; ... % go cue
             [-0.5,1]}; % outcome
         
@@ -4064,13 +4079,31 @@ plot(t,nanmean(mua_allcat_move(plot_trials,:,2),1) - ...
     nanmean(mua_taskpred_reduced_allcat_move(plot_trials,:,2,2),1),'color',[0.7,0,0.7],'linewidth',2);
 
 
+%%
+
+c = nan(size(U_master,1),size(U_master,2),size(a,3),size(b,3));
+for curr_a = 1:size(a,3)
+    for curr_b = 1:size(b,3)        
+        c(:,:,curr_a,curr_b) = a(:,:,curr_a).*b(:,:,curr_b);        
+    end
+end
 
 
+stim_k_cell = cellfun(@(x) x(1,:),vertcat(fluor_taskpred_k_all{:}),'uni',false);
+stim_k_cell = vertcat(stim_k_cell{:});
+stim_k_px = cell2mat(arrayfun(@(x) max(svdFrameReconstruct(U_master(:,:,1:n_vs), ...
+    reshape(cat(3,stim_k_cell{x,:}),[],n_vs)'),[],3),permute(1:size(stim_k_cell,1),[1,3,2]),'uni',false));
 
+move_k_cell = cellfun(@(x) x(2,:),vertcat(fluor_taskpred_k_all{:}),'uni',false);
+move_k_cell = vertcat(move_k_cell{:});
+move_k_px = cell2mat(arrayfun(@(x) max(svdFrameReconstruct(U_master(:,:,1:n_vs), ...
+    reshape(cat(3,move_k_cell{x,:}),[],n_vs)'),[],3),permute(1:size(move_k_cell,1),[1,3,2]),'uni',false));
 
-
-
-
+stim_move_dot = nanmean(stim_k_px.*move_k_px,3);
+figure;imagesc(stim_move_dot)
+axis image;
+caxis([-max(abs(caxis)),max(abs(caxis))]);
+colormap(brewermap([],'*RdBu'));
 
 
 
