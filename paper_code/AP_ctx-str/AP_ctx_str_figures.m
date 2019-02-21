@@ -2794,25 +2794,27 @@ act_rank_difference_trial = nan(n_depths,n_animals,length(data_fns));
 predicted_act_rank_difference_trial = nan(n_depths,n_animals,length(data_fns));
 
 n_shuff = 1000;
-act_rank_difference_trial_stimshuff = nan(n_depths,n_animals,length(data_fns),n_shuff);
-predicted_act_rank_difference_trial_stimshuff = nan(n_depths,n_animals,length(data_fns),n_shuff);
+act_rank_difference_trial_shuff = nan(n_depths,n_animals,length(data_fns),n_shuff);
+predicted_act_rank_difference_trial_shuff = nan(n_depths,n_animals,length(data_fns),n_shuff);
+act_rank_difference_trial_predshuff = nan(n_depths,n_animals,length(data_fns),n_shuff);
 
-for curr_data_group = 1:length(data_fns)    
+for curr_group = 1:length(data_fns)    
     
-    clearvars -except data_fns curr_data_group ...
+    clearvars -except data_fns curr_group ...
         act_rank_difference ...
         predicted_act_rank_difference ...
         act_rank_difference_trial ...
         predicted_act_rank_difference_trial ...
         n_shuff ...
-        act_rank_difference_trial_stimshuff ...
-        predicted_act_rank_difference_trial_stimshuff ...
+        act_rank_difference_trial_shuff ...
+        predicted_act_rank_difference_trial_shuff ...
+        act_rank_difference_trial_predshuff
     
-    data_fn = data_fns{curr_data_group};
+    data_fn = data_fns{curr_group};
     exclude_data = true;
     AP_load_concat_normalize_ctx_str;
     
-    switch curr_data_group
+    switch curr_group
         case 1 % trained behavior
             % Get trial information
             stim = D_allcat.stimulus(:,2) - D_allcat.stimulus(:,1);
@@ -2821,8 +2823,8 @@ for curr_data_group = 1:length(data_fns)
             compare_stim_1 = unique_stim(unique_stim > 0);
             compare_stim_2 = unique_stim(unique_stim < 0);
             
-%             compare_stim_1 = [0.125,1];
-%             compare_stim_2 = [-0.125,-1];
+%             compare_stim_1 = [1];
+%             compare_stim_2 = [-1];
             
 %             compare_stim_1 = [0.125];
 %             compare_stim_2 = [-0.125];
@@ -2833,8 +2835,8 @@ for curr_data_group = 1:length(data_fns)
             compare_stim_1 = [3:4];
             compare_stim_2 = [1:2];
 
-%             compare_stim_1 = [3];
-%             compare_stim_2 = [2];
+%             compare_stim_1 = [4];
+%             compare_stim_2 = [1];
             
         case 3 % naive passive
             stim = D_allcat.stimulus;
@@ -2845,8 +2847,8 @@ for curr_data_group = 1:length(data_fns)
 %             compare_stim_1 = [7,10];
 %             compare_stim_2 = [1,4];
             
-%             compare_stim_1 = [7];
-%             compare_stim_2 = [4];
+%             compare_stim_1 = [10];
+%             compare_stim_2 = [1];
             
     end
            
@@ -2891,10 +2893,10 @@ for curr_data_group = 1:length(data_fns)
         act_rank = tiedrank(curr_mua(use_trials,:,:));
         predicted_act_rank = tiedrank(curr_mua_ctx(use_trials,:,:));
         
-        act_rank_difference(:,:,curr_exp,curr_data_group) = squeeze(( ...
+        act_rank_difference(:,:,curr_exp,curr_group) = squeeze(( ...
             nanmean(act_rank(trial_group_1(use_trials),:,:),1) - ...
             nanmean(act_rank(trial_group_2(use_trials),:,:),1))./max(act_rank,[],1));
-        predicted_act_rank_difference(:,:,curr_exp,curr_data_group) = squeeze(( ...
+        predicted_act_rank_difference(:,:,curr_exp,curr_group) = squeeze(( ...
             nanmean(predicted_act_rank(trial_group_1(use_trials),:,:),1) - ...
             nanmean(predicted_act_rank(trial_group_2(use_trials),:,:),1))./max(predicted_act_rank,[],1));
         
@@ -2902,71 +2904,84 @@ for curr_data_group = 1:length(data_fns)
         act_rank_trial = tiedrank(squeeze(nanmean(curr_mua(use_trials,use_t,:),2)));
         predicted_act_rank_trial = tiedrank(squeeze(nanmean(curr_mua_ctx(use_trials,use_t,:),2)));
         
-        act_rank_difference_trial(:,curr_exp,curr_data_group) = ...
+        act_rank_difference_trial(:,curr_exp,curr_group) = ...
             (nanmean(act_rank_trial(trial_group_1(use_trials),:),1) - ...
             nanmean(act_rank_trial(trial_group_2(use_trials),:),1))./max(act_rank_trial,[],1);
-        predicted_act_rank_difference_trial(:,curr_exp,curr_data_group) = ...
+        predicted_act_rank_difference_trial(:,curr_exp,curr_group) = ...
             (nanmean(predicted_act_rank_trial(trial_group_1(use_trials),:),1) - ...
             nanmean(predicted_act_rank_trial(trial_group_2(use_trials),:),1))./max(predicted_act_rank_trial,[],1);
-        
-        % Shuffle labels to get null difference
+
+        % Shuffle for significance
         shuff_trials = (trial_group_1 | trial_group_2) & use_trials;
-       
+        
         for curr_shuff = 1:n_shuff
+            % Shuffle for label significance
             trial_group_1_shuff = trial_group_1;
-            trial_group_1_shuff(shuff_trials) = AP_shake(trial_group_1(shuff_trials));
+            trial_group_1_shuff(shuff_trials) = AP_shake(trial_group_1_shuff(shuff_trials));
             trial_group_2_shuff = trial_group_2;
-            trial_group_2_shuff(shuff_trials) = AP_shake(trial_group_2(shuff_trials));
+            trial_group_2_shuff(shuff_trials) = AP_shake(trial_group_2_shuff(shuff_trials));
             
-            act_rank_difference_trial_stimshuff(:,curr_exp,curr_data_group,curr_shuff) = ...
+            act_rank_difference_trial_shuff(:,curr_exp,curr_group,curr_shuff) = ...
                 (nanmean(act_rank_trial(trial_group_1_shuff(use_trials),:),1) - ...
                 nanmean(act_rank_trial(trial_group_2_shuff(use_trials),:),1))./max(act_rank_trial,[],1);
-            predicted_act_rank_difference_trial_stimshuff(:,curr_exp,curr_data_group,curr_shuff) = ...
+            predicted_act_rank_difference_trial_shuff(:,curr_exp,curr_group,curr_shuff) = ...
                 (nanmean(predicted_act_rank_trial(trial_group_1_shuff(use_trials),:),1) - ...
-                nanmean(predicted_act_rank_trial(trial_group_2_shuff(use_trials),:),1))./max(predicted_act_rank_trial,[],1);           
+                nanmean(predicted_act_rank_trial(trial_group_2_shuff(use_trials),:),1))./max(predicted_act_rank_trial,[],1);
         end
-       
+        
+        % Shuffle for measured/predicted difference
+        % (build an n_shuff sized matrix of half/half, then shake)
+        meas_pred_shuff = AP_shake(cat(3, ...
+            repmat(act_rank_trial,1,1,n_shuff), ...
+            repmat(predicted_act_rank_trial,1,1,n_shuff)),3);
+        
+        act_rank_difference_trial_predshuff(:,curr_exp,curr_group,:) = ...
+            permute((nanmean(meas_pred_shuff(trial_group_1(use_trials),:,1:n_shuff),1) - ...
+            nanmean(meas_pred_shuff(trial_group_2(use_trials),:,1:n_shuff),1))./max(act_rank_trial,[],1) - ...
+             (nanmean(meas_pred_shuff(trial_group_1(use_trials),:,n_shuff+1:end),1) - ...
+            nanmean(meas_pred_shuff(trial_group_2(use_trials),:,n_shuff+1:end),1))./max(act_rank_trial,[],1),[2,1,3,4]);
+        
     end
   
-    AP_print_progress_fraction(curr_data_group,length(data_fns));
+    AP_print_progress_fraction(curr_group,length(data_fns));
     
 end
 
 
 figure; 
 p = nan(3,length(data_fn));
-for curr_data_group = 1:length(data_fns)
+for curr_group = 1:length(data_fns)
     
-    p(1,curr_data_group) = subplot(3,length(data_fns),curr_data_group+length(data_fns)*0); hold on;
+    p(1,curr_group) = subplot(3,length(data_fns),curr_group+length(data_fns)*0); hold on;
 %     set(gca,'ColorOrder',copper(n_depths));
 %     plot(t,nanmean(act_rank_difference(:,:,:,curr_data_group),3),'linewidth',2);
 %     
     col = copper(n_depths);
     for curr_depth = 1:n_depths
-        AP_errorfill(t,nanmean(act_rank_difference(:,curr_depth,:,curr_data_group),3), ...
-            AP_sem(act_rank_difference(:,curr_depth,:,curr_data_group),3),col(curr_depth,:));
+        AP_errorfill(t,nanmean(act_rank_difference(:,curr_depth,:,curr_group),3), ...
+            AP_sem(act_rank_difference(:,curr_depth,:,curr_group),3),col(curr_depth,:));
     end
     xlabel('Time from stim');
     ylabel('Rank difference');
     
-    p(2,curr_data_group) = subplot(3,length(data_fns),curr_data_group+length(data_fns)*1); hold on;
+    p(2,curr_group) = subplot(3,length(data_fns),curr_group+length(data_fns)*1); hold on;
 %     set(gca,'ColorOrder',copper(n_depths));
 %     plot(t,nanmean(predicted_act_rank_difference(:,:,:,curr_data_group),3),'linewidth',2);
 
     col = copper(n_depths);
     for curr_depth = 1:n_depths
-        AP_errorfill(t,nanmean(predicted_act_rank_difference(:,curr_depth,:,curr_data_group),3), ...
-            AP_sem(predicted_act_rank_difference(:,curr_depth,:,curr_data_group),3),col(curr_depth,:));
+        AP_errorfill(t,nanmean(predicted_act_rank_difference(:,curr_depth,:,curr_group),3), ...
+            AP_sem(predicted_act_rank_difference(:,curr_depth,:,curr_group),3),col(curr_depth,:));
     end
     xlabel('Time from stim');
     ylabel('Rank difference');
     
-    p(3,curr_data_group) = subplot(3,length(data_fns),curr_data_group+length(data_fns)*2); hold on;
+    p(3,curr_group) = subplot(3,length(data_fns),curr_group+length(data_fns)*2); hold on;
     
-    errorbar(squeeze(nanmean(act_rank_difference_trial(:,:,curr_data_group),2)), ...
-        AP_sem(act_rank_difference_trial(:,:,curr_data_group),2),'linewidth',2);
-    errorbar(squeeze(nanmean(predicted_act_rank_difference_trial(:,:,curr_data_group),2)), ...
-        AP_sem(predicted_act_rank_difference_trial(:,:,curr_data_group),2),'linewidth',2);
+    errorbar(squeeze(nanmean(act_rank_difference_trial(:,:,curr_group),2)), ...
+        AP_sem(act_rank_difference_trial(:,:,curr_group),2),'linewidth',2);
+    errorbar(squeeze(nanmean(predicted_act_rank_difference_trial(:,:,curr_group),2)), ...
+        AP_sem(predicted_act_rank_difference_trial(:,:,curr_group),2),'linewidth',2);
     set(gca,'XTick',1:n_depths);
     xlim([0.5,n_depths+0.5]);
     line(xlim,[0,0],'color','k');
@@ -2981,68 +2996,246 @@ end
 linkaxes(p(1:2,:),'xy');
 linkaxes(p(3,:),'xy');
 
-% Get significance from shuffled distribution
+% Plot significance
+figure; 
 
-trained_task_bhv_diff = nanmean(act_rank_difference_trial(:,:,1) - ...
-    act_rank_difference_trial(:,:,2),2);
-trained_task_bhv_ci = prctile(squeeze(nanmean(act_rank_difference_trial_stimshuff(:,:,1,:) - ...
-    act_rank_difference_trial_stimshuff(:,:,2,:),2)),[2.5,97.5],2);
+% Cross-group significance
+bhv_passive_diff_ci = prctile(squeeze(nanmean(AP_shake(cat(3, ...
+    repmat(act_rank_difference_trial(:,:,1),1,1,n_shuff/2), ...
+    repmat(act_rank_difference_trial(:,:,3),1,1,n_shuff/2)),3) - ...
+    AP_shake(cat(3, ...
+    repmat(act_rank_difference_trial(:,:,1),1,1,n_shuff/2), ...
+    repmat(act_rank_difference_trial(:,:,3),1,1,n_shuff/2)),3),2)),[2.5,97.5],2);
 
-predicted_trained_task_bhv_diff = nanmean(predicted_act_rank_difference_trial(:,:,1) - ...
-    predicted_act_rank_difference_trial(:,:,2),2);
-predicted_trained_task_bhv_ci = prctile(squeeze(nanmean(predicted_act_rank_difference_trial_stimshuff(:,:,1,:) - ...
-    predicted_act_rank_difference_trial_stimshuff(:,:,2,:),2)),[2.5,97.5],2);
+subplot(1,length(data_fns)+1,1); hold on;
+plot(nanmean(act_rank_difference_trial(:,:,1) - act_rank_difference_trial(:,:,3),2),'r','linewidth',2);
+plot(bhv_passive_diff_ci,'k','linewidth',2,'linestyle','--');
+title('Trained-naive');
 
-trained_naive_diff = nanmean(act_rank_difference_trial(:,:,1) - ...
-    act_rank_difference_trial(:,:,3),2);
-trained_naive_ci = prctile(squeeze(nanmean(act_rank_difference_trial_stimshuff(:,:,1,:) - ...
-    act_rank_difference_trial_stimshuff(:,:,3,:),2)),[2.5,97.5],2);
+% Significance of measured vs predicted
+meas_pred_diff_ci = prctile(squeeze(nanmean(act_rank_difference_trial_predshuff,2)),[2.5,97.5],3);
+for curr_group = 1:length(data_fns)
+    subplot(1,length(data_fns)+1,1+curr_group); hold on;
+    plot(squeeze(nanmean(act_rank_difference_trial(:,:,curr_group),2)) - ...
+        squeeze(nanmean(predicted_act_rank_difference_trial(:,:,1),2)),'r','linewidth',2);
+    plot(reshape(permute(meas_pred_diff_ci(:,curr_group,:),[1,3,2]),n_depths,[]),'k','linewidth',2,'linestyle','--');
+    xlabel('Striatum depth');
+    ylabel('Measured - Predicted');
+    title(data_fns{curr_group});
+end
 
-predicted_trained_naive_diff = nanmean(predicted_act_rank_difference_trial(:,:,1) - ...
-    predicted_act_rank_difference_trial(:,:,3),2);
-predicted_trained_naive_ci = prctile(squeeze(nanmean(predicted_act_rank_difference_trial_stimshuff(:,:,1,:) - ...
-    predicted_act_rank_difference_trial_stimshuff(:,:,3,:),2)),[2.5,97.5],2);
 
-trained_predicted_diff = squeeze(nanmean(act_rank_difference_trial - ...
-    predicted_act_rank_difference_trial,2));
-trained_predicted_diff_ci = prctile(squeeze(nanmean(act_rank_difference_trial_stimshuff - ...
-    predicted_act_rank_difference_trial_stimshuff,2)),[2.5,97.5],3);
+%% Passive full screen: combined
+
+data_fns = { ...
+    'trial_activity_passive_fullscreen_trained_DECONVTEST', ...
+    'trial_activity_passive_fullscreen_naive_DECONVTEST'};
+
+n_t = 88;
+n_depths = 4;
+n_animals = 6;
+
+act_rank_difference = nan(n_t,n_depths,n_animals,length(data_fns));
+predicted_act_rank_difference = nan(n_t,n_depths,n_animals,length(data_fns));
+act_rank_difference_trial = nan(n_depths,n_animals,length(data_fns));
+predicted_act_rank_difference_trial = nan(n_depths,n_animals,length(data_fns));
+
+n_shuff = 1000;
+act_rank_difference_trial_stimshuff = nan(n_depths,n_animals,length(data_fns),n_shuff);
+predicted_act_rank_difference_trial_stimshuff = nan(n_depths,n_animals,length(data_fns),n_shuff);
+act_rank_difference_trial_predshuff = nan(n_depths,n_animals,length(data_fns),n_shuff);
+
+for curr_group = 1:length(data_fns)    
+    
+    clearvars -except data_fns curr_group ...
+        act_rank_difference ...
+        predicted_act_rank_difference ...
+        act_rank_difference_trial ...
+        predicted_act_rank_difference_trial ...
+        n_shuff ...
+        act_rank_difference_trial_stimshuff ...
+        predicted_act_rank_difference_trial_stimshuff ...
+        act_rank_difference_trial_predshuff
+    
+    data_fn = data_fns{curr_group};
+    exclude_data = true;
+    AP_load_concat_normalize_ctx_str;
+       
+    stim = D_allcat.stimulus;
+    compare_stim_1 = 3;
+    compare_stim_2 = 2;
+        
+    % Get trials with movment during stimulus to eliminate
+    move_trial = any(abs(wheel_allcat(:,t >= 0 & t <= 0.5)) > 0.02,2);
+    
+    % Split data
+    trials_animal = arrayfun(@(x) size(vertcat(mua_all{x}{:}),1),1:size(mua_all));
+    trials_recording = cellfun(@(x) size(x,1),vertcat(mua_all{:}));
+    use_split = trials_animal;
+    
+    mua_allcat_exp = mat2cell(mua_allcat,use_split,length(t),n_depths);
+    mua_ctxpred_allcat_exp = mat2cell(mua_ctxpred_allcat,use_split,length(t),n_depths);
+    
+    stim_exp = mat2cell(stim,use_split,1);
+    move_trial_exp = mat2cell(move_trial,use_split,1);
+    
+    % Get rank differences
+    t_stim = [0.05,0.15];
+
+    for curr_exp = 1:length(mua_allcat_exp)
+        
+        % Get MUA/predicted using reduced model
+        curr_mua =  mua_allcat_exp{curr_exp};
+        curr_mua_ctx = mua_ctxpred_allcat_exp{curr_exp};
+        
+        % Skip if no data
+        if isempty(curr_mua(:))
+            continue
+        end
+        
+        % Set common NaNs
+        nan_samples = isnan(curr_mua) | isnan(curr_mua_ctx);
+        curr_mua(nan_samples) = NaN;
+        curr_mua_ctx(nan_samples) = NaN;
+        
+        % Set trials and grouping to use
+        use_trials = ~move_trial_exp{curr_exp};
+        trial_group_1 = ismember(stim_exp{curr_exp},compare_stim_1);
+        trial_group_2 = ismember(stim_exp{curr_exp},compare_stim_2);
+        
+        act_rank = tiedrank(curr_mua(use_trials,:,:));
+        predicted_act_rank = tiedrank(curr_mua_ctx(use_trials,:,:));
+        
+        act_rank_difference(:,:,curr_exp,curr_group) = squeeze(( ...
+            nanmean(act_rank(trial_group_1(use_trials),:,:),1) - ...
+            nanmean(act_rank(trial_group_2(use_trials),:,:),1))./max(act_rank,[],1));
+        predicted_act_rank_difference(:,:,curr_exp,curr_group) = squeeze(( ...
+            nanmean(predicted_act_rank(trial_group_1(use_trials),:,:),1) - ...
+            nanmean(predicted_act_rank(trial_group_2(use_trials),:,:),1))./max(predicted_act_rank,[],1));
+        
+        use_t = t >= t_stim(1) & t <= t_stim(2);
+        act_rank_trial = tiedrank(squeeze(nanmean(curr_mua(use_trials,use_t,:),2)));
+        predicted_act_rank_trial = tiedrank(squeeze(nanmean(curr_mua_ctx(use_trials,use_t,:),2)));
+        
+        act_rank_difference_trial(:,curr_exp,curr_group) = ...
+            (nanmean(act_rank_trial(trial_group_1(use_trials),:),1) - ...
+            nanmean(act_rank_trial(trial_group_2(use_trials),:),1))./max(act_rank_trial,[],1);
+        predicted_act_rank_difference_trial(:,curr_exp,curr_group) = ...
+            (nanmean(predicted_act_rank_trial(trial_group_1(use_trials),:),1) - ...
+            nanmean(predicted_act_rank_trial(trial_group_2(use_trials),:),1))./max(predicted_act_rank_trial,[],1);
+        
+        % Shuffle for label significance
+        shuff_trials = (trial_group_1 | trial_group_2) & use_trials;
+       
+        for curr_shuff = 1:n_shuff
+            trial_group_1_shuff = trial_group_1;
+            trial_group_1_shuff(shuff_trials) = AP_shake(trial_group_1(shuff_trials));
+            trial_group_2_shuff = trial_group_2;
+            trial_group_2_shuff(shuff_trials) = AP_shake(trial_group_2(shuff_trials));
+            
+            act_rank_difference_trial_stimshuff(:,curr_exp,curr_group,curr_shuff) = ...
+                (nanmean(act_rank_trial(trial_group_1_shuff(use_trials),:),1) - ...
+                nanmean(act_rank_trial(trial_group_2_shuff(use_trials),:),1))./max(act_rank_trial,[],1);
+            predicted_act_rank_difference_trial_stimshuff(:,curr_exp,curr_group,curr_shuff) = ...
+                (nanmean(predicted_act_rank_trial(trial_group_1_shuff(use_trials),:),1) - ...
+                nanmean(predicted_act_rank_trial(trial_group_2_shuff(use_trials),:),1))./max(predicted_act_rank_trial,[],1);           
+        end
+        
+        % Shuffle for measured/predicted difference
+        % (build an n_shuff sized matrix of half/half, then shake)
+        meas_pred_shuff = AP_shake(cat(3, ...
+            repmat(act_rank_trial,1,1,n_shuff), ...
+            repmat(predicted_act_rank_trial,1,1,n_shuff)),3);
+        
+        act_rank_difference_trial_predshuff(:,curr_exp,curr_group,:) = ...
+            permute((nanmean(meas_pred_shuff(trial_group_1(use_trials),:,1:n_shuff),1) - ...
+            nanmean(meas_pred_shuff(trial_group_2(use_trials),:,1:n_shuff),1))./max(act_rank_trial,[],1) - ...
+            (nanmean(meas_pred_shuff(trial_group_1(use_trials),:,n_shuff+1:end),1) - ...
+            nanmean(meas_pred_shuff(trial_group_2(use_trials),:,n_shuff+1:end),1))./max(act_rank_trial,[],1),[2,1,3,4]);
+        
+    end
+  
+    AP_print_progress_fraction(curr_group,length(data_fns));
+    
+end
+
 
 figure; 
-subplot(2,3,1); hold on;
-plot(trained_task_bhv_diff,'r','linewidth',2);
-plot(trained_task_bhv_ci,'k','linewidth',2,'linestyle','--');
-xlabel('Striatum depth');
-ylabel('Trained task - trained passive');
-title('Measured');
+p = nan(3,length(data_fn));
+for curr_group = 1:length(data_fns)
+    
+    p(1,curr_group) = subplot(3,length(data_fns),curr_group+length(data_fns)*0); hold on;
+%     set(gca,'ColorOrder',copper(n_depths));
+%     plot(t,nanmean(act_rank_difference(:,:,:,curr_data_group),3),'linewidth',2);
+%     
+    col = copper(n_depths);
+    for curr_depth = 1:n_depths
+        AP_errorfill(t,nanmean(act_rank_difference(:,curr_depth,:,curr_group),3), ...
+            AP_sem(act_rank_difference(:,curr_depth,:,curr_group),3),col(curr_depth,:));
+    end
+    xlabel('Time from stim');
+    ylabel('Rank difference');
+    
+    p(2,curr_group) = subplot(3,length(data_fns),curr_group+length(data_fns)*1); hold on;
+%     set(gca,'ColorOrder',copper(n_depths));
+%     plot(t,nanmean(predicted_act_rank_difference(:,:,:,curr_data_group),3),'linewidth',2);
 
-subplot(2,3,2); hold on;
-plot(trained_naive_diff,'r','linewidth',2);
-plot(trained_naive_ci,'k','linewidth',2,'linestyle','--');
-xlabel('Striatum depth');
-ylabel('Trained - naive');
-title('Measured')
+    col = copper(n_depths);
+    for curr_depth = 1:n_depths
+        AP_errorfill(t,nanmean(predicted_act_rank_difference(:,curr_depth,:,curr_group),3), ...
+            AP_sem(predicted_act_rank_difference(:,curr_depth,:,curr_group),3),col(curr_depth,:));
+    end
+    xlabel('Time from stim');
+    ylabel('Rank difference');
+    
+    p(3,curr_group) = subplot(3,length(data_fns),curr_group+length(data_fns)*2); hold on;
+    
+    errorbar(squeeze(nanmean(act_rank_difference_trial(:,:,curr_group),2)), ...
+        AP_sem(act_rank_difference_trial(:,:,curr_group),2),'linewidth',2);
+    errorbar(squeeze(nanmean(predicted_act_rank_difference_trial(:,:,curr_group),2)), ...
+        AP_sem(predicted_act_rank_difference_trial(:,:,curr_group),2),'linewidth',2);
+    set(gca,'XTick',1:n_depths);
+    xlim([0.5,n_depths+0.5]);
+    line(xlim,[0,0],'color','k');
+    xlabel('Striatum depth');
+    ylabel('Stim rank difference');
+    legend({'Measured','Cortex-predicted'});
+    title(data_fn);
+    drawnow;
+    
+end
 
-subplot(2,3,3); hold on;
-set(gca,'ColorOrder',lines(length(data_fns)));
-plot(trained_predicted_diff,'linewidth',2);
-plot(reshape(trained_predicted_diff_ci,n_depths,[]),'linewidth',2,'linestyle','--');
-xlabel('Striatum depth');
-ylabel('Measured - Predicted');
+linkaxes(p(1:2,:),'xy');
+linkaxes(p(3,:),'xy');
 
-subplot(2,3,4); hold on;
-plot(predicted_trained_task_bhv_diff,'r','linewidth',2);
-plot(predicted_trained_task_bhv_ci,'k','linewidth',2,'linestyle','--');
-xlabel('Striatum depth');
-ylabel('Trained task - trained passive');
-title('Cortex-predicted');
+% Plot significance
+figure; 
 
-subplot(2,3,5); hold on;
-plot(predicted_trained_naive_diff,'r','linewidth',2);
-plot(predicted_trained_naive_ci,'k','linewidth',2,'linestyle','--');
-xlabel('Striatum depth');
-ylabel('Trained - naive');
-title('Cortex-predicted');
+% Cross-group significance
+bhv_passive_diff_ci = prctile(squeeze(nanmean(AP_shake(cat(3, ...
+    repmat(act_rank_difference_trial(:,:,1),1,1,n_shuff/2), ...
+    repmat(act_rank_difference_trial(:,:,2),1,1,n_shuff/2)),3) - ...
+    AP_shake(cat(3, ...
+    repmat(act_rank_difference_trial(:,:,1),1,1,n_shuff/2), ...
+    repmat(act_rank_difference_trial(:,:,2),1,1,n_shuff/2)),3),2)),[2.5,97.5],2);
+
+subplot(1,length(data_fns)+1,1); hold on;
+plot(nanmean(act_rank_difference_trial(:,:,1) - act_rank_difference_trial(:,:,2),2),'r','linewidth',2);
+plot(bhv_passive_diff_ci,'k','linewidth',2,'linestyle','--');
+title('Trained-naive');
+
+% Significance of measured vs predicted
+meas_pred_diff_ci = prctile(squeeze(nanmean(act_rank_difference_trial_predshuff,2)),[2.5,97.5],3);
+for curr_group = 1:length(data_fns)
+    subplot(1,length(data_fns)+1,1+curr_group); hold on;
+    plot(squeeze(nanmean(act_rank_difference_trial(:,:,curr_group),2)) - ...
+        squeeze(nanmean(predicted_act_rank_difference_trial(:,:,1),2)),'r','linewidth',2);
+    plot(reshape(permute(meas_pred_diff_ci(:,curr_group,:),[1,3,2]),n_depths,[]),'k','linewidth',2,'linestyle','--');
+    xlabel('Striatum depth');
+    ylabel('Measured - Predicted');
+    title(data_fns{curr_group});
+end
+
 
 
 %% Fig 4?: stim/no-stim move?

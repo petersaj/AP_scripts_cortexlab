@@ -5288,6 +5288,9 @@ plot(t,nanmean(mua_allcat_move(plot_trials,:,2),1) - ...
     nanmean(mua_taskpred_reduced_allcat_move(plot_trials,:,2,2),1),'color',[0.7,0,0.7],'linewidth',2);
 
 
+
+
+
 %%
 
 c = nan(size(U_master,1),size(U_master,2),size(a,3),size(b,3));
