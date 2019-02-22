@@ -417,7 +417,7 @@ fluor_allcat_deconv_move_mirror = reshape(transpose( ...
     fluor_taskpred_reduced_allcat_move(:,:,:,2), ...
     [],n_vs)'),size(fluor_allcat_deconv_move));
 
-plot_rxn_time = [0,0.5];
+plot_rxn_time = [0.6,1];
 
 plot_side = 1;
 plot_choice = -1;
@@ -426,31 +426,48 @@ plot_move_t = move_t >= plot_rxn_time(1) & move_t <= plot_rxn_time(2);
 
 curr_trials_standard = trial_side_allcat == plot_side & ...
     trial_choice_allcat == plot_choice & ...
-    plot_contrast & plot_move_t & ...
-    vel_amp_bins == 3;
+    plot_contrast & plot_move_t;
+%     vel_amp_bins == 3;
 
 curr_trials_mirror = trial_side_allcat == -plot_side & ...
     trial_choice_allcat == -plot_choice & ...
-    plot_contrast & plot_move_t & ...
-    vel_amp_bins == 5;
+    plot_contrast & plot_move_t;
+%     vel_amp_bins == 5;
 
-% curr_px = svdFrameReconstruct(U_master(:,:,1:n_vs),squeeze(nanmean( ...
-%     [fluor_allcat_deconv(curr_trials_standard,:,:); ...
-%     fluor_allcat_deconv_mirror(curr_trials_mirror,:,:)],1))');
+curr_px = svdFrameReconstruct(U_master(:,:,1:n_vs),squeeze(nanmean( ...
+    [fluor_allcat_deconv(curr_trials_standard,:,:); ...
+    fluor_allcat_deconv_mirror(curr_trials_mirror,:,:)],1))');
 
 % curr_px = svdFrameReconstruct(U_master(:,:,1:n_vs),squeeze(nanmean( ...
 %     [fluor_allcat_deconv_move(curr_trials_standard,:,:); ...
 %     fluor_allcat_deconv_move_mirror(curr_trials_mirror,:,:)],1))');
 
-curr_px = svdFrameReconstruct(U_master(:,:,1:n_vs),squeeze(nanmean( ...
-    [fluor_allcat_deconv_move(curr_trials_standard,:,:)-fluor_taskpred_reduced_allcat_move(curr_trials_standard,:,:,2); ...
-    fluor_allcat_deconv_move_mirror(curr_trials_mirror,:,:)],1))');
+% curr_px = svdFrameReconstruct(U_master(:,:,1:n_vs),squeeze(nanmean( ...
+%     [fluor_allcat_deconv_move(curr_trials_standard,:,:)-fluor_taskpred_reduced_allcat_move(curr_trials_standard,:,:,2); ...
+%     fluor_allcat_deconv_move_mirror(curr_trials_mirror,:,:)],1))');
 
 AP_image_scroll(curr_px,t);
 axis image;
 caxis([-max(abs(caxis)),max(abs(caxis))]);
 colormap(brewermap([],'*RdBu'));
 AP_reference_outline('ccf_aligned','k');
+
+
+
+
+
+
+% (for passive)
+move_trial = any(abs(wheel_allcat(:,t >= 0 & t <= 0.5)) > 0.02,2);
+fluor_stim = nan(length(unique(D_allcat.stimulus)),length(t),n_vs);
+for curr_v = 1:n_vs
+    fluor_stim(:,:,curr_v) = grpstats(fluor_allcat_deconv(~move_trial,:,curr_v),D_allcat.stimulus(~move_trial),'nanmean');
+end
+fluor_stim_px = cell2mat(permute(arrayfun(@(x) svdFrameReconstruct(U_master(:,:,1:n_vs), ...
+    squeeze(fluor_stim(x,:,:))'),1:length(unique(D_allcat.stimulus)),'uni',false),[1,3,4,2]));
+
+
+
 
 
 %% Cortex -> Striatum regression around select events

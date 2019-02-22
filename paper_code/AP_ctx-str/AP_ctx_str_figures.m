@@ -2540,7 +2540,7 @@ legend(cellfun(@num2str,num2cell(1:n_depths),'uni',false))
 
 
 
-%% Fig 4?: passive stim responses 
+%% Fig 4?: passive stim responses (OLD)
 
 compare_stim_1 = [3:4];
 compare_stim_2 = [1:2];
@@ -2550,7 +2550,7 @@ data_fn = 'trial_activity_passive_choiceworld_trained_DECONVTEST';
 % data_fn = 'trial_activity_passive_fullscreen_trained_DECONVTEST';
 % data_fn = 'trial_activity_passive_fullscreen_naive_DECONVTEST';
 
-exclude_data = false;
+exclude_data = true;
 
 AP_load_concat_normalize_ctx_str;
 

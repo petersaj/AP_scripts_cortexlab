@@ -250,7 +250,7 @@ save_path = 'C:\Users\Andrew\OneDrive for Business\Documents\CarandiniHarrisLab\
 save_fn = 'bhv';
 save([save_path filesep save_fn],'bhv');
 
-%% Plot behavior, get days to exclude 
+%% Plot behavior, get pad performance days to exclude 
 
 % Load behavior
 bhv_fn = 'C:\Users\Andrew\OneDrive for Business\Documents\CarandiniHarrisLab\analysis\wf_ephys_choiceworld\bhv_processing\bhv.mat';
