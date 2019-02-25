@@ -239,6 +239,8 @@ end
 animals = {'AP024','AP025','AP026','AP027','AP028','AP029', ...
     'AP032','AP033','AP034','AP035','AP036'};
 
+ephys_depth_align = struct;
+
 for curr_animal = 1:length(animals)
     
     animal = animals{curr_animal};
@@ -260,17 +262,17 @@ for curr_animal = 1:length(animals)
     
     master_day = 1;
     day = experiments(master_day).day;
-    experiment = experiments(master_day).experiment(end);
+    experiment = experiments(curr_day).experiment(end);
     
     AP_load_experiment
-    U_master_animal = Udf;    
     
     wf_alignment_dir = 'C:\Users\Andrew\OneDrive for Business\Documents\CarandiniHarrisLab\analysis\wf_ephys_choiceworld\wf_processing\wf_alignment';
-    U_master_animal_filename = [wf_alignment_dir filesep 'U_master_' animal];
-    save(U_master_animal_filename,'U_master_animal');
     
-    AP_print_progress_fraction(curr_animal,length(animals));
     
+        
+       
+        
+    end
 end
 
 

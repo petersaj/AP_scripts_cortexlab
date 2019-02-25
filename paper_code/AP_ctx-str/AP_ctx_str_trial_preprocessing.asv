@@ -1,6 +1,6 @@
 %% Notes 
 %
-% AP_ctx_str_ephys_alignment - beforehand: gets striatal domains to group MUA
+% This groups striatum MUA AP_ctx_str_ephys_alignment
 %
 % Batch scripts to save preprocessed data here, saved to: 
 % C:\Users\Andrew\OneDrive for Business\Documents\CarandiniHarrisLab\analysis\wf_ephys_choiceworld\paper\data

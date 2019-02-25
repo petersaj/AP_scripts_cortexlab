@@ -5308,31 +5308,28 @@ plot(t,nanmean(mua_allcat_move(plot_trials,:,2),1) - ...
 
 
 
-%%
-
-c = nan(size(U_master,1),size(U_master,2),size(a,3),size(b,3));
-for curr_a = 1:size(a,3)
-    for curr_b = 1:size(b,3)        
-        c(:,:,curr_a,curr_b) = a(:,:,curr_a).*b(:,:,curr_b);        
-    end
-end
+%% batch facecam movement 
 
 
-stim_k_cell = cellfun(@(x) x(1,:),vertcat(fluor_taskpred_k_all{:}),'uni',false);
-stim_k_cell = vertcat(stim_k_cell{:});
-stim_k_px = cell2mat(arrayfun(@(x) max(svdFrameReconstruct(U_master(:,:,1:n_vs), ...
-    reshape(cat(3,stim_k_cell{x,:}),[],n_vs)'),[],3),permute(1:size(stim_k_cell,1),[1,3,2]),'uni',false));
+AP_mouse_movie_movement(animal,day,experiment);
 
-move_k_cell = cellfun(@(x) x(2,:),vertcat(fluor_taskpred_k_all{:}),'uni',false);
-move_k_cell = vertcat(move_k_cell{:});
-move_k_px = cell2mat(arrayfun(@(x) max(svdFrameReconstruct(U_master(:,:,1:n_vs), ...
-    reshape(cat(3,move_k_cell{x,:}),[],n_vs)'),[],3),permute(1:size(move_k_cell,1),[1,3,2]),'uni',false));
 
-stim_move_dot = nanmean(stim_k_px.*move_k_px,3);
-figure;imagesc(stim_move_dot)
-axis image;
-caxis([-max(abs(caxis)),max(abs(caxis))]);
-colormap(brewermap([],'*RdBu'));
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 
