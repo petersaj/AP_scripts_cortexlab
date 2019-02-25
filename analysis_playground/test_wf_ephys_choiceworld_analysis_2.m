@@ -943,30 +943,23 @@ for curr_group = 1:length(trial_groups)
 end
 
 figure;
-p1 = subplot(1,3,1);
-errorbar(squeeze(nanmean(act_rank_difference_trial,2)), ...
-    squeeze(nanstd(act_rank_difference_trial,[],2)./ ...
-    sqrt(sum(~isnan(act_rank_difference_trial),2))),'linewidth',2);
-xlabel('Striatum depth');
-ylabel('Rank difference');
-legend(trial_groups);
-title('Striatum');
-
-p2 = subplot(1,3,2);
-errorbar(squeeze(nanmean(predicted_act_rank_difference_trial,2)), ...
-    squeeze(nanstd(predicted_act_rank_difference_trial,[],2)./ ...
-    sqrt(sum(~isnan(predicted_act_rank_difference_trial),2))),'linewidth',2);
-xlabel('Striatum depth');
-ylabel('Rank difference');
-legend(trial_groups);
-title('Cortex-predicted striatum');
-
-linkaxes([p1,p2]);
+p = nan(length(trial_groups),1);
+for curr_group = 1:length(trial_groups)
+    p(curr_group) = subplot(1,3,curr_group); hold on;
+    errorbar(squeeze(nanmean(act_rank_difference_trial(:,:,curr_group),2)), ...
+        squeeze(AP_sem(act_rank_difference_trial(:,:,curr_group),2)),'linewidth',2,'color','k');
+    errorbar(squeeze(nanmean(predicted_act_rank_difference_trial(:,:,curr_group),2)), ...
+        squeeze(AP_sem(predicted_act_rank_difference_trial(:,:,curr_group),2)),'linewidth',2,'color',[0,0.7,0]);
+    xlabel('Striatum depth');
+    ylabel('Rank difference');
+    legend({'Measured','Predicted'});
+    title(trial_groups{curr_group});
+end
+linkaxes(p);
 
 % Get significance from shuffled distribution
 trained_predicted_diff_ci = prctile(squeeze(nanmean(act_rank_difference_trial_predshuff,2)),[2.5,97.5],3);
-
-p3 = subplot(1,3,3); hold on; 
+figure; hold on;
 set(gca,'ColorOrder',lines(3));
 plot(squeeze(nanmean(act_rank_difference_trial-predicted_act_rank_difference_trial,2)),'linewidth',2);
 plot(reshape(trained_predicted_diff_ci,n_depths,[]),'linewidth',2,'linestyle','--');
@@ -1156,7 +1149,7 @@ end
 %% Striatum: get activity by (correct/incorrect) stim and (visual/zero) velocity (experiment-separated)
 
 plot_depth = 2;
-min_trials = 5; % minimum trials per group to keep
+min_trials = 2; % minimum trials per group to keep
 
 % Split data
 trials_allcat = size(mua_allcat,1);
@@ -1319,8 +1312,8 @@ move_activity_context_mean = nanmean(move_activity_context,4);
 wheel_context_mean = nanmean(wheel_context,4);
 wheel_bin_mean = nanmean(wheel_bin,3);
 
-use_stim_t = t > 0 & t < 0.2;
-use_move_t = t > -0.1 & t < 0.2;
+use_stim_t = t > 0.05 & t < 0.15;
+use_move_t = t > -0.05 & t < 0.05;
 stim_activity_context_max_t = squeeze(nanmean(stim_activity_context(:,use_stim_t,:,:),2));
 move_activity_context_max_t = squeeze(nanmean(move_activity_context(:,use_move_t,:,:),2));
 

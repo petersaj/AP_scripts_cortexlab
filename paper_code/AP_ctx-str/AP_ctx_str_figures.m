@@ -2793,7 +2793,7 @@ predicted_act_rank_difference = nan(n_t,n_depths,n_animals,length(data_fns));
 act_rank_difference_trial = nan(n_depths,n_animals,length(data_fns));
 predicted_act_rank_difference_trial = nan(n_depths,n_animals,length(data_fns));
 
-n_shuff = 1000;
+n_shuff = 10000;
 act_rank_difference_trial_shuff = nan(n_depths,n_animals,length(data_fns),n_shuff);
 predicted_act_rank_difference_trial_shuff = nan(n_depths,n_animals,length(data_fns),n_shuff);
 act_rank_difference_trial_predshuff = nan(n_depths,n_animals,length(data_fns),n_shuff);
@@ -2979,9 +2979,9 @@ for curr_group = 1:length(data_fns)
     p(3,curr_group) = subplot(3,length(data_fns),curr_group+length(data_fns)*2); hold on;
     
     errorbar(squeeze(nanmean(act_rank_difference_trial(:,:,curr_group),2)), ...
-        AP_sem(act_rank_difference_trial(:,:,curr_group),2),'linewidth',2);
+        AP_sem(act_rank_difference_trial(:,:,curr_group),2),'linewidth',2,'color','k');
     errorbar(squeeze(nanmean(predicted_act_rank_difference_trial(:,:,curr_group),2)), ...
-        AP_sem(predicted_act_rank_difference_trial(:,:,curr_group),2),'linewidth',2);
+        AP_sem(predicted_act_rank_difference_trial(:,:,curr_group),2),'linewidth',2,'color',[0,0.7,0]);
     set(gca,'XTick',1:n_depths);
     xlim([0.5,n_depths+0.5]);
     line(xlim,[0,0],'color','k');
@@ -3007,15 +3007,27 @@ bhv_passive_diff_ci = prctile(squeeze(nanmean(AP_shake(cat(3, ...
     repmat(act_rank_difference_trial(:,:,1),1,1,n_shuff/2), ...
     repmat(act_rank_difference_trial(:,:,3),1,1,n_shuff/2)),3),2)),[2.5,97.5],2);
 
-subplot(1,length(data_fns)+1,1); hold on;
+subplot(1,length(data_fns)+2,1); hold on;
 plot(nanmean(act_rank_difference_trial(:,:,1) - act_rank_difference_trial(:,:,3),2),'r','linewidth',2);
 plot(bhv_passive_diff_ci,'k','linewidth',2,'linestyle','--');
 title('Trained-naive');
 
+predicted_bhv_passive_diff_ci = prctile(squeeze(nanmean(AP_shake(cat(3, ...
+    repmat(predicted_act_rank_difference_trial(:,:,1),1,1,n_shuff/2), ...
+    repmat(predicted_act_rank_difference_trial(:,:,3),1,1,n_shuff/2)),3) - ...
+    AP_shake(cat(3, ...
+    repmat(predicted_act_rank_difference_trial(:,:,1),1,1,n_shuff/2), ...
+    repmat(predicted_act_rank_difference_trial(:,:,3),1,1,n_shuff/2)),3),2)),[2.5,97.5],2);
+
+subplot(1,length(data_fns)+2,2); hold on;
+plot(nanmean(predicted_act_rank_difference_trial(:,:,1) - predicted_act_rank_difference_trial(:,:,3),2),'r','linewidth',2);
+plot(bhv_passive_diff_ci,'k','linewidth',2,'linestyle','--');
+title('Trained-naive (predicted)');
+
 % Significance of measured vs predicted
 meas_pred_diff_ci = prctile(squeeze(nanmean(act_rank_difference_trial_predshuff,2)),[2.5,97.5],3);
 for curr_group = 1:length(data_fns)
-    subplot(1,length(data_fns)+1,1+curr_group); hold on;
+    subplot(1,length(data_fns)+2,2+curr_group); hold on;
     plot(squeeze(nanmean(act_rank_difference_trial(:,:,curr_group),2)) - ...
         squeeze(nanmean(predicted_act_rank_difference_trial(:,:,1),2)),'r','linewidth',2);
     plot(reshape(permute(meas_pred_diff_ci(:,curr_group,:),[1,3,2]),n_depths,[]),'k','linewidth',2,'linestyle','--');

@@ -5252,7 +5252,7 @@ save([save_path filesep save_fn],'-v7.3');
 
 figure; hold on
 
-% AP_stackplot(squeeze(nanmean(mua_allcat,1)),t,5,false,'k',1:4);
+AP_stackplot(squeeze(nanmean(mua_allcat,1)),t,5,false,'k',1:4);
 
 % AP_stackplot(squeeze(nanmean(mua_allcat(trial_contrastside_allcat > 0,:,:),1)),t,5,false,'r',1:4);
 % AP_stackplot(squeeze(nanmean(mua_allcat(trial_contrastside_allcat < 0,:,:),1)),t,5,false,'b',1:4);
@@ -5267,14 +5267,14 @@ figure; hold on
 % AP_stackplot(squeeze(nanmean(mua_allcat(trial_outcome_allcat == -1,:,:),1)),t,5,false,'m',1:4);
 % AP_stackplot(squeeze(nanmean(mua_allcat(trial_outcome_allcat == 1,:,:),1)),t,5,false,'c',1:4);
 
-
+spacing = 7;
 figure; hold on;
 plot_trials = move_t > 0 & move_t < 0.5 & trial_contrast_allcat > 0 & ...
     trial_side_allcat == 1 & trial_choice_allcat == -1;
-AP_stackplot(squeeze(nanmean(mua_allcat(plot_trials,:,:),1)),t,5,false,'k',1:4);
-AP_stackplot(squeeze(nanmean(mua_ctxpred_allcat(plot_trials,:,:),1)),t,5,false,[0,0.7,0],1:4);
+AP_stackplot(squeeze(nanmean(mua_allcat(plot_trials,:,:),1)),t,spacing,false,'k',1:4);
+AP_stackplot(squeeze(nanmean(mua_ctxpred_allcat(plot_trials,:,:),1)),t,spacing,false,[0,0.7,0],1:4);
 AP_stackplot(squeeze(nanmean(mua_allcat(plot_trials,:,:),1) - ...
-    nanmean(mua_ctxpred_allcat(plot_trials,:,:),1)),t,5,false,[0.5,0.5,0.5],1:4);
+    nanmean(mua_ctxpred_allcat(plot_trials,:,:),1)),t,spacing,false,[0.5,0.5,0.5],1:4);
 line([0,0],ylim,'color','k');
 line([0,0.5],[0,0],'linewidth',5);
 line([0,0],[0,1],'linewidth',5);
