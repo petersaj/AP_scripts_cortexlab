@@ -7,9 +7,9 @@ function AP_mouse_movie_movement(animal,day,experiment)
 [facecam_fn,facecam_exists] = AP_cortexlab_filename(animal,day,experiment,'facecam');
 
 if facecam_exists
-    disp(['Getting movement for ' animal ' ' day ' ' experiment]);
+    disp(['Getting movement for ' animal ' ' day ' ' num2str(experiment)]);
 else
-    error(['No facecam for ' animal ' ' day ' ' experiment])
+    error(['No facecam for ' animal ' ' day ' ' num2str(experiment)])
 end
 
 % Load in set of frames from middle of experiment

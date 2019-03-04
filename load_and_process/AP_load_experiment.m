@@ -453,11 +453,6 @@ if exist('Timeline','var') && load_parts.cam
     if facecam_exists
         if verbose; disp('Loading facecam...'); end
         
-        [facecam_processed_filename,facecam_processed_exists] = AP_cortexlab_filename(animal,day,experiment,'facecam_processed');
-        if facecam_processed_exists
-            facecam = load(facecam_processed_filename);
-        end
-        
         % Get camera times
         facecam_fn = AP_cortexlab_filename(animal,day,experiment,'facecam');
         facecam_dir = fileparts(facecam_fn);
@@ -488,6 +483,18 @@ if exist('Timeline','var') && load_parts.cam
             end
         elseif exist(facecam_fn,'file') && exist(facecam_t_savefile,'file')
             load(facecam_t_savefile);
+        end
+        
+        % (old/unused: etGUI and facemap)
+        [facecam_processed_filename,facecam_processed_exists] = AP_cortexlab_filename(animal,day,experiment,'facecam_processed');
+        if facecam_processed_exists
+            facecam = load(facecam_processed_filename);
+        end
+        
+        % (output from AP_mouse_movie_movement)
+        [facecam_movement_filename,facecam_movement_exists] = AP_cortexlab_filename(animal,day,experiment,'facecam_movement');
+        if facecam_movement_exists
+            load(facecam_movement_filename);
         end
         
     end

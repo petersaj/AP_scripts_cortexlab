@@ -505,6 +505,7 @@ wheel_ctxpred_all = cell(1,1);
 ctx_str_k_all = cell(1,1);
 ctx_wheel_k_all = cell(1,1);
 wheel_all = cell(1,1);
+movement_all = cell(1,1);
 outcome_all = cell(1,1);
 D_all = cell(1,1);
 
@@ -516,7 +517,7 @@ for curr_animal = 1:length(animals)
     
     experiments = experiments([experiments.imaging] & [experiments.ephys]);
     
-    load_parts.cam = false;
+    load_parts.cam = true;
     load_parts.imaging = true;
     load_parts.ephys = true;    
     
@@ -677,6 +678,10 @@ for curr_animal = 1:length(animals)
         %%% Wheel velocity
         event_aligned_wheel = interp1(Timeline.rawDAQTimestamps, ...
             wheel_velocity,t_peri_event);
+        
+        %%% Facecam movement
+        event_aligned_movement = interp1(facecam_t(~isnan(facecam_t)), ...
+            frame_movement(~isnan(facecam_t)),t_peri_event);
         
         %%% Outcome (reward page 1, punish page 2)
         % (note incorrect outcome imprecise from signals, but looks good)        
@@ -1001,6 +1006,7 @@ for curr_animal = 1:length(animals)
         fluor_taskpred_reduced_all{curr_animal,1}{curr_day,1} = fluor_taskpred_reduced(use_trials,:,:,:);
         
         wheel_all{curr_animal,1}{curr_day,1} = event_aligned_wheel(use_trials,:,:);
+        movement_all{curr_animal,1}{curr_day,1} = event_aligned_movement(use_trials,:,:);
         
         ctx_wheel_k_all{curr_animal,1}{curr_day,1} = ctx_wheel_k_recast;
         wheel_ctxpred_all{curr_animal,1}{curr_day,1} = event_aligned_wheel_ctxpred(use_trials,:,:);   
@@ -1029,6 +1035,7 @@ for curr_animal = 1:length(animals)
         ctx_str_k_all ...
         ctx_wheel_k_all ...
         wheel_all ...
+        movement_all ...
         outcome_all ...
         D_all
     
@@ -1052,6 +1059,7 @@ clearvars -except ...
     ctx_str_k_all ...
     ctx_wheel_k_all ...
     wheel_all ...
+    movement_all ...
     outcome_all ...
     D_all
 

@@ -145,34 +145,34 @@ switch file
             filename = [filepath filesep animal filesep day filesep experiment filesep 'face.mj2'];
         end
         
-        % UNUSED: processing with etGUI/eyeGUI/facemap
+    % UNUSED: processing with etGUI/eyeGUI/facemap
         
-    % Old (with etGUI)
+%     % Old (with etGUI)
 %     case 'eyecam_processed'
 %         filepath = '\\zserver1.cortexlab.net\Data\EyeCamera';
 %         filename = [filepath filesep mouse filesep day filesep experiment ...
 %             filesep day '_' experiment '_' mouse '_eye_processed.mat'];
-% 
-%     % New (with eyeGUI)
-%     case 'eyecam_processed'
-%         filepath = [server1 filesep 'Data\EyeCamera'];
-%         filename = [filepath filesep animal filesep day filesep experiment ...
-%             filesep 'eye_proc.mat'];
-%         
-%     case 'facecam_processed'
-%         filepath = [server1 filesep 'Data\EyeCamera'];
-%         filename = [filepath filesep animal filesep day filesep experiment ...
-%             filesep 'face_proc.mat'];
+
+    % New (with eyeGUI)
+    case 'eyecam_processed'
+        filepath = [server1 filesep 'Data\EyeCamera'];
+        filename = [filepath filesep animal filesep day filesep experiment ...
+            filesep 'eye_proc.mat'];
+        
+    case 'facecam_processed'
+        filepath = [server1 filesep 'Data\EyeCamera'];
+        filename = [filepath filesep animal filesep day filesep experiment ...
+            filesep 'face_proc.mat'];
         
     % Output from AP_mouse_movie_movement
     case 'facecam_movement'
         filepath = [server1 filesep 'Data\EyeCamera'];
         filename = [filepath filesep animal filesep day filesep experiment ...
-            filesep 'face_movement.mat'];
+            filesep 'facecam_movement.mat'];
         % CHECK SERVER2 IF IT DOESN'T EXIST
         if ~exist(filename,'file')
             filepath = [server2 filesep 'Subjects'];
-            filename = [filepath filesep animal filesep day filesep experiment filesep 'face_movement.mat'];
+            filename = [filepath filesep animal filesep day filesep experiment filesep 'facecam_movement.mat'];
         end        
         
     case 'hardware'

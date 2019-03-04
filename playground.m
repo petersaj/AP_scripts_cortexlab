@@ -5310,8 +5310,26 @@ plot(t,nanmean(mua_allcat_move(plot_trials,:,2),1) - ...
 
 %% batch facecam movement 
 
+animals = {'AP024','AP025','AP026','AP027','AP028','AP029'};
 
-AP_mouse_movie_movement(animal,day,experiment);
+for curr_animal = 1:length(animals)
+    
+    animal = animals{curr_animal};
+    protocol = 'vanillaChoiceworld';
+    experiments = AP_find_experiments(animal,protocol);
+    
+    experiments = experiments([experiments.imaging] & [experiments.ephys]);
+    
+    
+    for curr_day = 1:length(experiments)
+        
+        day = experiments(curr_day).day;
+        experiment = experiments(curr_day).experiment;
+        
+        AP_mouse_movie_movement(animal,day,experiment);
+        
+    end
+end
 
 
 
