@@ -247,9 +247,8 @@ if false
 %     animals = {'AP024','AP025','AP026','AP027','AP028','AP029', ...
 %         'AP032','AP033','AP034','AP035','AP036'};
 
-    % (only trained animals at the moment: naive doesn't have wf only days)
-    animals = {'AP024','AP025','AP026','AP027','AP028','AP029'};
-
+animals = {'AP024','AP025','AP026','AP027','AP028','AP029'};
+    
     for curr_animal = 1:length(animals)
         
         clearvars -except animals curr_animal

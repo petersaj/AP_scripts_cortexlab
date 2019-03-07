@@ -242,6 +242,7 @@ for curr_animal = 1:length(animals)
             curr_spike_times = spike_times_timeline(depth_group == curr_depth);
             binned_spikes(curr_depth,:) = histcounts(curr_spike_times,time_bins);
         end
+        binned_spikes_std = binned_spikes./nanstd(binned_spikes,[],2);
         
 %         % (to concatenate data from whole day)
 %         % Find all protocols for that day, use non-multiples
@@ -298,9 +299,9 @@ for curr_animal = 1:length(animals)
 %         time_bin_centers = cat(2,time_bin_centers_all{:});
 %         dfVdf_resample = cat(2,dfVdf_resample_all{:});
 %         binned_spikes = cat(2,binned_spikes_all{:});
+%         binned_spikes_std = binned_spikes./nanstd(binned_spikes,[],2);
 
-        binned_spikes_std = binned_spikes./nanstd(binned_spikes,[],2);
-        
+       
         % Load lambda from previously estimated and saved
         lambda_fn = 'C:\Users\Andrew\OneDrive for Business\Documents\CarandiniHarrisLab\analysis\wf_ephys_choiceworld\ephys_processing\ctx-str_lambda';
         load(lambda_fn);

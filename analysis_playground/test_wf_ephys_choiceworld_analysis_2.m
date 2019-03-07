@@ -3,7 +3,7 @@
 %% Load choiceworld trial data (** NEEDED FOR BELOW **)
 
 % Load data
-data_fn = 'trial_activity_choiceworld_FLUORTASKTEST';
+data_fn = 'trial_activity_choiceworld';
 % data_fn = 'trial_activity_choiceworld_MOVELTEST';
 % data_fn = 'trial_activity_choiceworld_FWDCTXTEST';
 % data_fn = 'trial_activity_choiceworld_STIMRTEST';
@@ -18,72 +18,6 @@ data_fn = 'trial_activity_choiceworld_FLUORTASKTEST';
 exclude_data = true;
 AP_load_concat_normalize_ctx_str;
 
-% Get trial information
-trial_contrast_allcat = max(D_allcat.stimulus,[],2);
-[~,side_idx] = max(D_allcat.stimulus > 0,[],2);
-trial_side_allcat = (side_idx-1.5)*2;
-trial_contrastside_allcat = trial_contrast_allcat.*trial_side_allcat;
-trial_choice_allcat = -(D_allcat.response-1.5)*2;
-
-trial_outcome_allcat = D_allcat.outcome;
- 
-% % Get time (make this be saved in trial data)
-sample_rate = 1/mean(diff(t));
-
-% Get reaction time
-[move_trial,move_idx] = max(abs(wheel_allcat) > 0.02,[],2);
-move_t = t(move_idx)';
-move_t(~move_trial) = Inf;
-
-% Get outcome time
-[~,outcome_idx] = max(any(outcome_allcat,3),[],2);
-outcome_t = t(outcome_idx)';
-
-% Get wheel velocity
-wheel_velocity_allcat = wheel_allcat;
-[max_speed,max_vel_idx] = max(abs(wheel_velocity_allcat(:,:,1).* ...
-    (bsxfun(@times,wheel_velocity_allcat,trial_choice_allcat) > 0)),[],2);
-max_vel = max_speed.*trial_choice_allcat;
-
-% Make move-aligned MUA
-wheel_velocity_allcat_move = wheel_velocity_allcat;
-mua_allcat_move = mua_allcat;
-mua_ctxpred_allcat_move = mua_ctxpred_allcat;
-mua_taskpred_allcat_move = mua_taskpred_allcat;
-mua_taskpred_reduced_allcat_move = mua_taskpred_reduced_allcat;
-mua_ctxpred_taskpred_allcat_move = mua_taskpred_allcat;
-mua_ctxpred_taskpred_reduced_allcat_move = mua_taskpred_reduced_allcat;
-
-t_leeway = -t(1);
-leeway_samples = round(t_leeway*(sample_rate));
-for i = 1:size(mua_allcat,1)
-    wheel_velocity_allcat_move(i,:,:) = circshift(wheel_velocity_allcat_move(i,:,:),-move_idx(i)+leeway_samples,2);
-    mua_allcat_move(i,:,:) = circshift(mua_allcat_move(i,:,:),-move_idx(i)+leeway_samples,2);
-    mua_ctxpred_allcat_move(i,:,:) = circshift(mua_ctxpred_allcat_move(i,:,:),-move_idx(i)+leeway_samples,2);
-    mua_taskpred_allcat_move(i,:,:) = circshift(mua_taskpred_allcat_move(i,:,:),-move_idx(i)+leeway_samples,2);
-    mua_taskpred_reduced_allcat_move(i,:,:,:) = circshift(mua_taskpred_reduced_allcat_move(i,:,:,:),-move_idx(i)+leeway_samples,2);
-    mua_ctxpred_taskpred_allcat_move(i,:,:) = circshift(mua_ctxpred_taskpred_allcat_move(i,:,:),-move_idx(i)+leeway_samples,2);
-    mua_ctxpred_taskpred_reduced_allcat_move(i,:,:,:) = circshift(mua_ctxpred_taskpred_reduced_allcat_move(i,:,:,:),-move_idx(i)+leeway_samples,2);
-end
-
-% Make move-aligned fluorescence
-fluor_allcat_deconv_move = fluor_allcat_deconv;
-fluor_taskpred_reduced_allcat_move = fluor_taskpred_reduced_allcat;
-fluor_roi_deconv_move = fluor_roi_deconv;
-fluor_roi_taskpred_move = fluor_roi_taskpred;
-fluor_roi_taskpred_reduced_move = fluor_roi_taskpred_reduced;
-
-t_leeway = -t(1);
-leeway_samples = round(t_leeway*(sample_rate));
-for i = 1:size(mua_allcat,1)
-    fluor_allcat_deconv_move(i,:,:,:) = circshift(fluor_allcat_deconv_move(i,:,:,:),-move_idx(i)+leeway_samples,2);
-    fluor_taskpred_reduced_allcat_move(i,:,:,:) = circshift(fluor_taskpred_reduced_allcat_move(i,:,:,:),-move_idx(i)+leeway_samples,2);
-    fluor_roi_deconv_move(i,:,:,:) = circshift(fluor_roi_deconv_move(i,:,:,:),-move_idx(i)+leeway_samples,2);
-    fluor_roi_taskpred_move(i,:,:,:) = circshift(fluor_roi_taskpred_move(i,:,:,:),-move_idx(i)+leeway_samples,2);
-    fluor_roi_taskpred_reduced_move(i,:,:,:) = circshift(fluor_roi_taskpred_reduced_move(i,:,:,:),-move_idx(i)+leeway_samples,2);
-end
-
-disp('Finished loading trials')
 
 %% Load concat task regression results (only cortex used)
 
@@ -1180,10 +1114,15 @@ trial_outcome_allcat_exp = mat2cell(trial_outcome_allcat,use_split,1);
 % Get velocity and bins
 % (to use max velocity regardless of final choice)
 max_vel = AP_signed_max(wheel_velocity_allcat_move(:,t > 0 & t < 0.5),2);
+
 % (to use summed velocity regardless of final choice)
 % max_vel = sum(wheel_velocity_allcat_move(:,t > 0 & t < 0.5),2);
+
 % (to use maximum cumulative velocity regardless of final choice)
 % max_vel = AP_signed_max(cumsum(wheel_velocity_allcat_move(:,t > 0 & t < 0.5),2),2);
+
+% (to use mousecam movement signed by choice)
+% max_vel = sum(movement_allcat_move(:,t > 0 & t < 0.5),2).*trial_choice_allcat;
 
 n_vel_bins = 5;
 vel_amp_edges = prctile(abs(max_vel),linspace(0,100,n_vel_bins+1));
@@ -1203,7 +1142,7 @@ wheel_context = nan(n_vel_bins*2+1,length(t),3,length(use_split));
 wheel_bin = nan(n_vel_bins*2+1,3,length(use_split));
 for curr_exp = 1:length(use_split)
         
-    use_rxn = move_t_exp{curr_exp} > 0 & move_t_exp{curr_exp} < 1;
+    use_rxn = move_t_exp{curr_exp} > 0 & move_t_exp{curr_exp} < 0.5;
        
     % Stim activity
     use_activity = (mua_allcat_exp{curr_exp}(:,:,plot_depth) - mua_taskpred_reduced_allcat_exp{curr_exp}(:,:,plot_depth,1));
@@ -1381,7 +1320,7 @@ line([0,0],ylim,'color','k');
 
 subplot(3,3,4); hold on
 set(gca,'ColorOrder',col)
-plot(t,wheel_context_mean(:,:,2)'','linewidth',2)
+plot(t,wheel_context_mean(:,:,2)','linewidth',2)
 xlabel('Time from move');
 ylabel('Wheel velocity');
 axis tight
@@ -1397,7 +1336,7 @@ line([0,0],ylim,'color','k');
 
 subplot(3,3,7); hold on
 set(gca,'ColorOrder',col)
-plot(t,wheel_context_mean(:,:,3)'','linewidth',2)
+plot(t,wheel_context_mean(:,:,3)','linewidth',2)
 xlabel('Time from move');
 ylabel('Wheel velocity');
 axis tight
@@ -1440,7 +1379,7 @@ linkaxes([p1,p2,p3]);
 %% Cortex: get activity by (correct/incorrect) stim and (visual/zero) velocity (experiment-separated)
 
 plot_roi = 9;
-min_trials = 10; % minimum trials per group to keep
+min_trials = 2; % minimum trials per group to keep
 
 % Split data
 trials_all = size(mua_allcat,1);
@@ -1465,13 +1404,18 @@ trial_outcome_allcat_exp = mat2cell(trial_outcome_allcat,use_split,1);
 
 % Get velocity and bins
 % (to use max velocity regardless of final choice)
-max_vel = AP_signed_max(wheel_velocity_allcat_move(:,t > 0 & t < 0.5),2);
+% max_vel = AP_signed_max(wheel_velocity_allcat_move(:,t > 0 & t < 0.5),2);
+
 % (to use summed velocity regardless of final choice)
 % max_vel = sum(wheel_velocity_allcat_move(:,t > 0 & t < 0.5),2);
+
 % (to use maximum cumulative velocity regardless of final choice)
 % max_vel = AP_signed_max(cumsum(wheel_velocity_allcat_move(:,t > 0 & t < 0.5),2),2);
 
-n_vel_bins = 3;
+% (to use mousecam movement signed by choice)
+max_vel = sum(movement_allcat_move(:,t > 0 & t < 0.5),2).*trial_choice_allcat;
+
+n_vel_bins = 5;
 vel_amp_edges = prctile(abs(max_vel),linspace(0,100,n_vel_bins+1));
 % vel_amp_edges = linspace(prctile(abs(max_vel),10),prctile(abs(max_vel),90),n_vel_bins);
 vel_amp_edges = sort([vel_amp_edges,-vel_amp_edges]);

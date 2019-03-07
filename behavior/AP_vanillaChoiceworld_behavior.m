@@ -250,7 +250,7 @@ save_path = 'C:\Users\Andrew\OneDrive for Business\Documents\CarandiniHarrisLab\
 save_fn = 'bhv';
 save([save_path filesep save_fn],'bhv');
 
-%% Plot behavior, get pad performance days to exclude 
+%% Plot behavior, get bad performance days to exclude 
 
 % Load behavior
 bhv_fn = 'C:\Users\Andrew\OneDrive for Business\Documents\CarandiniHarrisLab\analysis\wf_ephys_choiceworld\bhv_processing\bhv.mat';
@@ -716,8 +716,6 @@ legend(animals);
 % Load behavior
 bhv_fn = 'C:\Users\Andrew\OneDrive for Business\Documents\CarandiniHarrisLab\analysis\wf_ephys_choiceworld\bhv_processing\bhv.mat';
 load(bhv_fn);
-
-
 
 % Load use experiments and cut out bad ones
 exclude_path = 'C:\Users\Andrew\OneDrive for Business\Documents\CarandiniHarrisLab\analysis\wf_ephys_choiceworld\experiment_exclusion';

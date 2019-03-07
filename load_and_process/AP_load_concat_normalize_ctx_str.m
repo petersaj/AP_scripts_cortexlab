@@ -73,6 +73,13 @@ if task_dataset
     outcome_allcat = cell2mat(vertcat(outcome_all{:}));
 end
 
+% (movement from mousecam if exists: normalize and concatenate)
+if exist('movement_all','var')
+    movement_all_norm = cellfun(@(x) cellfun(@(x) x./nanstd(x(:)), ...
+        x,'uni',false),movement_all,'uni',false);
+    movement_allcat = cell2mat(vertcat(movement_all_norm{:}));
+end
+
 % Concatenate cortex data
 fluor_allcat = cell2mat(vertcat(fluor_all{:}));
 if task_dataset
@@ -173,7 +180,89 @@ end
 %     AP_svd_roi(U_master(:,:,1:n_vs), ...
 %     reshape(permute(fluor_allcat_deriv,[3,2,1]),n_vs,[]),[],[],cat(3,wf_roi.mask)), ...
 %     n_rois,[],size(fluor_allcat_deriv,1)),[3,2,1]);
-%
+
+% If loading task data, get task-relevant variables and movement info
+if task_dataset
+    
+    % Get trial information
+    trial_contrast_allcat = max(D_allcat.stimulus,[],2);
+    [~,side_idx] = max(D_allcat.stimulus > 0,[],2);
+    trial_side_allcat = (side_idx-1.5)*2;
+    trial_contrastside_allcat = trial_contrast_allcat.*trial_side_allcat;
+    trial_choice_allcat = -(D_allcat.response-1.5)*2;
+    
+    trial_outcome_allcat = D_allcat.outcome;
+    
+    % % Get time (make this be saved in trial data)
+    sample_rate = 1/mean(diff(t));
+    
+    % Get reaction time
+    [move_trial,move_idx] = max(abs(wheel_allcat) > 0.02,[],2);
+    move_t = t(move_idx)';
+    move_t(~move_trial) = Inf;
+    
+    % Get outcome time
+    [~,outcome_idx] = max(any(outcome_allcat,3),[],2);
+    outcome_t = t(outcome_idx)';
+    
+    % Get wheel velocity
+    wheel_velocity_allcat = wheel_allcat;
+    [max_speed,max_vel_idx] = max(abs(wheel_velocity_allcat(:,:,1).* ...
+        (bsxfun(@times,wheel_velocity_allcat,trial_choice_allcat) > 0)),[],2);
+    max_vel = max_speed.*trial_choice_allcat;
+    
+    % Make move-aligned MUA
+    wheel_velocity_allcat_move = wheel_velocity_allcat;
+    mua_allcat_move = mua_allcat;
+    mua_ctxpred_allcat_move = mua_ctxpred_allcat;
+    mua_taskpred_allcat_move = mua_taskpred_allcat;
+    mua_taskpred_reduced_allcat_move = mua_taskpred_reduced_allcat;
+    mua_ctxpred_taskpred_allcat_move = mua_taskpred_allcat;
+    mua_ctxpred_taskpred_reduced_allcat_move = mua_taskpred_reduced_allcat;
+    
+    t_leeway = -t(1);
+    leeway_samples = round(t_leeway*(sample_rate));
+    for i = 1:size(mua_allcat,1)
+        wheel_velocity_allcat_move(i,:,:) = circshift(wheel_velocity_allcat_move(i,:,:),-move_idx(i)+leeway_samples,2);
+        mua_allcat_move(i,:,:) = circshift(mua_allcat_move(i,:,:),-move_idx(i)+leeway_samples,2);
+        mua_ctxpred_allcat_move(i,:,:) = circshift(mua_ctxpred_allcat_move(i,:,:),-move_idx(i)+leeway_samples,2);
+        mua_taskpred_allcat_move(i,:,:) = circshift(mua_taskpred_allcat_move(i,:,:),-move_idx(i)+leeway_samples,2);
+        mua_taskpred_reduced_allcat_move(i,:,:,:) = circshift(mua_taskpred_reduced_allcat_move(i,:,:,:),-move_idx(i)+leeway_samples,2);
+        mua_ctxpred_taskpred_allcat_move(i,:,:) = circshift(mua_ctxpred_taskpred_allcat_move(i,:,:),-move_idx(i)+leeway_samples,2);
+        mua_ctxpred_taskpred_reduced_allcat_move(i,:,:,:) = circshift(mua_ctxpred_taskpred_reduced_allcat_move(i,:,:,:),-move_idx(i)+leeway_samples,2);
+    end
+    
+    % Make move-aligned fluorescence
+    fluor_allcat_deconv_move = fluor_allcat_deconv;
+    fluor_taskpred_reduced_allcat_move = fluor_taskpred_reduced_allcat;
+    fluor_roi_deconv_move = fluor_roi_deconv;
+    fluor_roi_taskpred_move = fluor_roi_taskpred;
+    fluor_roi_taskpred_reduced_move = fluor_roi_taskpred_reduced;
+    
+    t_leeway = -t(1);
+    leeway_samples = round(t_leeway*(sample_rate));
+    for i = 1:size(mua_allcat,1)
+        fluor_allcat_deconv_move(i,:,:,:) = circshift(fluor_allcat_deconv_move(i,:,:,:),-move_idx(i)+leeway_samples,2);
+        fluor_taskpred_reduced_allcat_move(i,:,:,:) = circshift(fluor_taskpred_reduced_allcat_move(i,:,:,:),-move_idx(i)+leeway_samples,2);
+        fluor_roi_deconv_move(i,:,:,:) = circshift(fluor_roi_deconv_move(i,:,:,:),-move_idx(i)+leeway_samples,2);
+        fluor_roi_taskpred_move(i,:,:,:) = circshift(fluor_roi_taskpred_move(i,:,:,:),-move_idx(i)+leeway_samples,2);
+        fluor_roi_taskpred_reduced_move(i,:,:,:) = circshift(fluor_roi_taskpred_reduced_move(i,:,:,:),-move_idx(i)+leeway_samples,2);
+    end
+    
+    % (move-align mousecam movement if it exists)
+    if exist('movement_allcat','var')
+        movement_allcat_move = movement_allcat;
+        
+        t_leeway = -t(1);
+        leeway_samples = round(t_leeway*(sample_rate));
+        for i = 1:size(mua_allcat,1)
+            movement_allcat_move(i,:,:,:) = circshift(movement_allcat_move(i,:,:,:),-move_idx(i)+leeway_samples,2);
+        end
+    end
+        
+end
+
+disp('Finished loading trials')
 
 
 
