@@ -566,8 +566,29 @@ data_fn = 'trial_activity_choiceworld';
 exclude_data = true;
 AP_load_concat_normalize_ctx_str;
 
+% Choose split for data
+trials_allcat = size(mua_allcat,1);
+trials_animal = arrayfun(@(x) size(vertcat(mua_all{x}{:}),1),1:size(mua_all));
+trials_recording = cellfun(@(x) size(x,1),vertcat(mua_all{:}));
+use_split = trials_animal;
 
-% Plot average task>striatum kernels
+% Plot average stimulus-aligned activity in striatum
+mua_allcat_exp = mat2cell(mua_allcat,use_split,length(t),n_depths);
+mua_allcat_exp_mean = cell2mat(permute(cellfun(@(x) ...
+    permute(nanmean(x,1),[3,2,1]),mua_allcat_exp,'uni',false),[2,3,1]));
+
+figure;
+p = nan(n_depths,1);
+for curr_depth = 1:n_depths
+    p(curr_depth) = subplot(n_depths,1,curr_depth);
+    AP_errorfill(t,nanmean(mua_allcat_exp_mean(curr_depth,:,:),3), ...
+        AP_sem(mua_allcat_exp_mean(curr_depth,:,:),3),'k',0.5)
+    xlabel('Time from stimulus');
+    line([0,0],ylim,'color','k');
+end
+linkaxes(p);
+
+% Get task>striatum parameters
 regressor_labels = {'Stim','Move onset','Go cue','Outcome'};
 n_regressors = length(regressor_labels);
 t_shifts = {[0,0.5]; ... % stim
@@ -579,36 +600,68 @@ sample_shifts = cellfun(@(x) round(x(1)*(sample_rate)): ...
     round(x(2)*(sample_rate)),t_shifts,'uni',false);
 t_shifts = cellfun(@(x) x/sample_rate,sample_shifts,'uni',false);
 
-figure('Name','Striatum');
-p = nan(n_depths,n_regressors);
-task_regressors_avg = cell(n_depths,n_regressors);
-for curr_regressor = 1:n_regressors
-    
-    if curr_regressor == 1
-        col = colormap_BlueWhiteRed(5);
-        col(6,:) = [];
-    else
-        col = lines(2);
-    end
-    
-    for curr_depth = 1:n_depths
-        % Concatenate, normalize by day's std, average
-        curr_regressors = cellfun(@(x,mua_std) ...
-            x{curr_regressor,curr_depth}./((1/sample_rate)*mua_std(curr_depth)), ...
-            vertcat(mua_taskpred_k_all{:}),vertcat(mua_norm{:}),'uni',false);
-
-        task_regressors_avg{curr_depth,curr_regressor} = ...
-            nanmean(cat(3,curr_regressors{:}),3);
-        
-        p(curr_depth,curr_regressor) = ...
-            subplot(n_depths,n_regressors,curr_regressor+(curr_depth-1)*n_regressors); 
-        hold on; set(gca,'ColorOrder',col);
-        plot(t_shifts{curr_regressor},task_regressors_avg{curr_depth,curr_regressor}','linewidth',2);
-        title(['Regressor ' num2str(curr_regressor) ' depth ' num2str(curr_depth)])
+% Normalize task>striatum kernels (ridiculous loop makes it clearer to read)
+mua_taskpred_k_all_norm = {};
+for curr_animal = 1:length(mua_taskpred_k_all)
+    for curr_exp = 1:length(mua_taskpred_k_all{curr_animal})
+        for curr_regressor = 1:n_regressors
+            for curr_depth = 1:n_depths
+                mua_taskpred_k_all_norm{curr_animal}{curr_exp}{curr_regressor,curr_depth} = ...
+                    mua_taskpred_k_all{curr_animal}{curr_exp}{curr_regressor,curr_depth}./ ...
+                    ((1/sample_rate)*mua_norm{curr_animal}{curr_exp}(curr_depth));
+            end
+        end
     end
 end
-linkaxes(p,'xy');
 
+% Average and concatenate task>striatum kernels within animals
+task_str_k_animal = cell(n_regressors,n_depths);
+for curr_animal = 1:length(mua_taskpred_k_all_norm)
+    if isempty(mua_taskpred_k_all_norm{curr_animal})
+        continue
+    end
+    curr_k = cat(3,mua_taskpred_k_all_norm{curr_animal}{:});
+    for curr_depth = 1:n_depths
+        for curr_regressor = 1:n_regressors
+            curr_k_mean = nanmean(cat(3,curr_k{curr_regressor,curr_depth,:}),3);
+            task_str_k_animal{curr_regressor,curr_depth} = cat(3, ...
+                task_str_k_animal{curr_regressor,curr_depth},curr_k_mean);
+        end
+    end
+end
+
+% Plot task>striatum kernels
+figure;
+p = nan(n_depths,n_regressors);
+for curr_depth = 1:n_depths
+    for curr_regressor = 1:n_regressors
+        if curr_regressor == 1
+            n_subregressors = 10;
+            col = colormap_BlueWhiteRed(n_subregressors/2);
+            col(6,:) = [];
+        else
+            n_subregressors = 2;
+            col = lines(n_subregressors);
+        end
+        
+        p(curr_depth,curr_regressor) = ...
+            subplot(n_depths,n_regressors,curr_regressor+(curr_depth-1)*n_regressors);  
+        
+        curr_kernels = task_str_k_animal{curr_regressor,curr_depth};
+        for curr_subregressor = 1:n_subregressors
+            AP_errorfill(t_shifts{curr_regressor}, ...
+                nanmean(curr_kernels(curr_subregressor,:,:),3), ...
+                AP_sem(curr_kernels(curr_subregressor,:,:),3), ...
+                col(curr_subregressor,:),0.5);
+        end
+        
+        axis off;
+        line([0,0],ylim,'color','k');
+        
+    end
+end
+
+linkaxes(p);
 
 
 
