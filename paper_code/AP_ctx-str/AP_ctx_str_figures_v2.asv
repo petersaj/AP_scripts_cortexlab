@@ -580,6 +580,9 @@ trials_animal = arrayfun(@(x) size(vertcat(mua_all{x}{:}),1),1:size(mua_all));
 trials_recording = cellfun(@(x) size(x,1),vertcat(mua_all{:}));
 use_split = trials_animal;
 
+split_idx = cell2mat(arrayfun(@(exp,trials) repmat(exp,trials,1), ...
+    [1:length(use_split)]',reshape(use_split,[],1),'uni',false));
+
 % Plot average stimulus-aligned activity in striatum
 mua_allcat_exp = mat2cell(mua_allcat,use_split,length(t),n_depths);
 mua_allcat_exp_mean = cell2mat(permute(cellfun(@(x) ...
@@ -710,6 +713,32 @@ for curr_depth = 1:n_depths
     
 end
 
+% Get R^2 for task regression 
+
+% Set current data
+curr_data = mua_allcat;
+curr_pred_data = mua_taskpred_allcat;
+
+% Set common NaNs
+nan_samples = isnan(curr_data) | isnan(curr_pred_data);
+curr_data(nan_samples) = NaN;
+curr_pred_data(nan_samples) = NaN;
+
+taskpred_r2 = nan(max(split_idx),n_depths);
+for curr_exp = 1:max(split_idx)
+    curr_data = reshape(permute(mua_allcat(split_idx == curr_exp,:,:),[2,1,3]),[],n_depths);
+    curr_pred_data = reshape(permute(mua_taskpred_allcat(split_idx == curr_exp,:,:),[2,1,3]),[],n_depths);
+    
+    curr_r2 = nansum(curr_data-curr_pred_data).^2)
+end
+
+curr_data_e
+split_idx
+taskpred_r2 = nansum((curr_data - curr_pred_data).^2)
+
+
+    trial_r2 = 1 - (nansum((curr_data-curr_pred_data).^2,2)./ ...
+        nansum((curr_data-nanmean(curr_data,2)).^2,2));
 
 %% Fig 2e: interaction between Str 2 sensory and motor activity
 
@@ -748,12 +777,8 @@ stim_contexts = [trial_choice_allcat == -1, ...
     trial_choice_allcat == 1];
 
 % Get stim-isolated activity by trial
-stim_activity = mua_allcat - ...
-    mua_taskpred_reduced_allcat(:,:,:,1);
+stim_activity = mua_allcat - mua_taskpred_reduced_allcat(:,:,:,1);
 stim_trial_activity = nanmean(stim_activity(:,use_stim_t,:),2);
-
-stim_trial_activity = nanmean(mua_allcat(:,use_stim_t,:) - ...
-    mua_taskpred_reduced_allcat(:,use_stim_t,:,1),2);
 
 % Split activity by animal, stim, and correct/incorrect
 stim_bins = unique(trial_contrast_allcat(trial_contrast_allcat ~= 0).*[-1,1]);
@@ -829,15 +854,20 @@ ylabel('Condition difference');
 use_move_t = t > -0.05 & t < 0.05;
 
 % Get velocity bins for each trial
-max_vel = AP_signed_max(wheel_velocity_allcat_move(:,t > 0 & t < 0.5),2);
+max_vel = AP_signed_max(wheel_velocity_allcat_move(:,t > 0 & t < 0.2),2);
 
-n_vel_bins = 5;
-vel_edges = prctile(abs(max_vel),linspace(0,100,n_vel_bins+1));
+% Normalize velocity for each day
+max_vel_exp = mat2cell(max_vel,trials_recording,1);
+max_vel_norm = cell2mat(cellfun(@(x) x./nanmean(abs(x)),max_vel_exp,'uni',false));
+
+n_vel_bins = 4;
+vel_edges = prctile(abs(max_vel_norm),linspace(0,100,n_vel_bins+1));
+vel_edges = linspace(min(abs(max_vel_norm)),max(abs(max_vel_norm)),n_vel_bins+1);
+
 vel_edges = sort([vel_edges,-vel_edges]);
 vel_centers = vel_edges(1:end-1) + diff(vel_edges)/2;
 
-vel_bins = discretize(max_vel,vel_edges);
-vel_bins(vel_bins == n_vel_bins+1) = NaN;
+vel_bins = discretize(max_vel_norm,vel_edges);
 
 % Set contexts for activity
 move_contexts = [trial_side_allcat == 1 & trial_contrast_allcat > 0, ...
@@ -845,8 +875,7 @@ move_contexts = [trial_side_allcat == 1 & trial_contrast_allcat > 0, ...
     trial_contrast_allcat == 0];
 
 % Get move-isolated activity by trial
-move_activity = mua_allcat_move - ...
-    mua_taskpred_reduced_allcat_move(:,:,:,2);
+move_activity = mua_allcat_move - mua_taskpred_reduced_allcat_move(:,:,:,2);
 move_trial_activity = nanmean(move_activity(:,use_move_t,:),2);
 
 % Split activity by animal, velocity, and stim side/zero contrast

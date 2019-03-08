@@ -580,10 +580,16 @@ trials_animal = arrayfun(@(x) size(vertcat(mua_all{x}{:}),1),1:size(mua_all));
 trials_recording = cellfun(@(x) size(x,1),vertcat(mua_all{:}));
 use_split = trials_animal;
 
+split_idx = cell2mat(arrayfun(@(exp,trials) repmat(exp,trials,1), ...
+    [1:length(use_split)]',reshape(use_split,[],1),'uni',false));
+
 % Plot average stimulus-aligned activity in striatum
+plot_trials = trial_contrast_allcat > 0 & trial_side_allcat == 1 & trial_choice_allcat == -1;
+plot_trials_exp = mat2cell(plot_trials,use_split,1);
+
 mua_allcat_exp = mat2cell(mua_allcat,use_split,length(t),n_depths);
-mua_allcat_exp_mean = cell2mat(permute(cellfun(@(x) ...
-    permute(nanmean(x,1),[3,2,1]),mua_allcat_exp,'uni',false),[2,3,1]));
+mua_allcat_exp_mean = cell2mat(permute(cellfun(@(x,trials) ...
+    permute(nanmean(x(trials,:,:),1),[3,2,1]),mua_allcat_exp,plot_trials_exp,'uni',false),[2,3,1]));
 
 figure;
 p = nan(n_depths,1);
@@ -672,32 +678,31 @@ end
 linkaxes(p);
 
 
-% Plot regression examples
+% Plot task>striatum regression examples
 figure;
 for curr_depth = 1:n_depths   
     
-    % Set current data
-    curr_data = mua_allcat(:,:,curr_depth);
-    curr_pred_data = mua_taskpred_allcat(:,:,curr_depth);
-    
-    % Set common NaNs
+    % Set current data (pad trials with NaNs for spacing)
+    n_pad = 10;
+    curr_data = padarray(mua_allcat(:,:,curr_depth),[0,n_pad],NaN,'post');
+    curr_pred_data = padarray(mua_taskpred_allcat(:,:,curr_depth),[0,n_pad],NaN,'post');
     nan_samples = isnan(curr_data) | isnan(curr_pred_data);
-    curr_data(nan_samples) = NaN;
-    curr_pred_data(nan_samples) = NaN;
+
+    % Smooth
+    smooth_filt = ones(1,3)/3;
+    curr_data = conv2(curr_data,smooth_filt,'same');
+    curr_pred_data = conv2(curr_pred_data,smooth_filt,'same');
     
-    % Filter
-    lowpassCutoff = 6; % Hz
-    [b100s, a100s] = butter(2, lowpassCutoff/((sample_rate)/2), 'low');
-    curr_data(nan_samples) = 0;
-    curr_pred_data(nan_samples) = 0;
-    curr_data = filter(b100s,a100s,curr_data,[],2);
-    curr_pred_data = filter(b100s,a100s,curr_pred_data,[],2);
-    curr_data(nan_samples) = NaN;
-    curr_pred_data(nan_samples) = NaN;
+    % Set common NaNs for R^2    
+    curr_data_nonan = curr_data; 
+    curr_data_nonan(nan_samples) = NaN;
+    
+    curr_pred_data_nonan = curr_pred_data; 
+    curr_pred_data(nan_samples) = NaN; 
     
     % Get squared error for each trial
-    trial_r2 = 1 - (nansum((curr_data-curr_pred_data).^2,2)./ ...
-        nansum((curr_data-nanmean(curr_data,2)).^2,2));
+    trial_r2 = 1 - (nansum((curr_data_nonan-curr_pred_data_nonan).^2,2)./ ...
+        nansum((curr_data_nonan-nanmean(curr_data_nonan,2)).^2,2));
     
     [~,trial_r2_rank] = sort(trial_r2);
     
@@ -710,8 +715,27 @@ for curr_depth = 1:n_depths
     
 end
 
+% Get R^2 for task regression 
+taskpred_r2 = nan(max(split_idx),n_depths);
+for curr_exp = 1:max(split_idx)
+    curr_data = reshape(permute(mua_allcat(split_idx == curr_exp,:,:),[2,1,3]),[],n_depths);
+    curr_pred_data = reshape(permute(mua_taskpred_allcat(split_idx == curr_exp,:,:),[2,1,3]),[],n_depths);
+    
+    % Set common NaNs
+    nan_samples = isnan(curr_data) | isnan(curr_pred_data);
+    curr_data(nan_samples) = NaN;
+    curr_pred_data(nan_samples) = NaN;
 
-%% Fig 2e: interaction between Str 2 sensory and motor activity
+    taskpred_r2(curr_exp,:) = 1 - (nansum((curr_data-curr_pred_data).^2,1)./ ...
+        nansum((curr_data-nanmean(curr_data,1)).^2,1));
+end
+figure;
+errorbar(nanmean(taskpred_r2,1),AP_sem(taskpred_r2,1),'k','linewidth',2);
+xlabel('Striatum depth');
+ylabel('Task explained variance');
+
+
+%% Fig 2e: Interaction between Str 2 sensory and motor activity
 
 % Load data
 data_fn = 'trial_activity_choiceworld';
@@ -936,9 +960,274 @@ xlabel('Velocity');
 ylabel('Condition difference');
 
 
+%% Fig 3a-d: Cortical activity, task>cortex regression, cortex>striatum regression
+
+% Load data
+data_fn = 'trial_activity_choiceworld';
+exclude_data = true;
+AP_load_concat_normalize_ctx_str;
+
+% Choose split for data
+trials_allcat = size(mua_allcat,1);
+trials_animal = arrayfun(@(x) size(vertcat(mua_all{x}{:}),1),1:size(mua_all));
+trials_recording = cellfun(@(x) size(x,1),vertcat(mua_all{:}));
+use_split = trials_animal;
+
+split_idx = cell2mat(arrayfun(@(exp,trials) repmat(exp,trials,1), ...
+    [1:length(use_split)]',reshape(use_split,[],1),'uni',false));
 
 
+%%% Cortical activity
 
+% Get average stim-aligned fluorescence 
+plot_trials = trial_contrast_allcat > 0 & trial_side_allcat == 1 & trial_choice_allcat == -1;
+plot_trials_exp = mat2cell(plot_trials,use_split,1);
+
+fluor_allcat_deconv_exp = mat2cell(fluor_allcat_deconv,use_split,length(t),n_vs);
+plot_px = nanmean(cell2mat(permute(cellfun(@(x,trials) svdFrameReconstruct(U_master(:,:,1:n_vs), ...
+    squeeze(nanmean(x(trials,:,:),1))'),fluor_allcat_deconv_exp,plot_trials_exp,'uni',false),[2,3,4,1])),4);
+
+plot_t = [find(t > 0.07,1),find(t > 0.18,1),find(t > 0.3,1),find(t > 0.65,1)];
+figure;
+for curr_t = 1:length(plot_t)
+   subplot(1,length(plot_t),curr_t);
+   imagesc(plot_px(:,:,plot_t(curr_t)));
+   AP_reference_outline('ccf_aligned',[0.5,0.5,0.5]);
+   axis image off;
+   colormap(brewermap([],'Greens'));
+   caxis([0,0.01]);
+   title([num2str(t(plot_t(curr_t))) 's from stim']);
+end
+
+%%% Task>cortex regression results
+
+% Get task>cortex parameters
+n_regressors = 4;
+t_shifts = {[0,0.5]; ... % stim
+    [-0.5,1]; ... % move
+    [-0.1,0.5]; ... % go cue
+    [-0.5,1]}; % outcome
+regressor_labels = {'Stim','Move onset','Go cue','Outcome'};
+
+sample_shifts = cellfun(@(x) round(x(1)*(sample_rate)): ...
+    round(x(2)*(sample_rate)),t_shifts,'uni',false);
+t_shifts = cellfun(@(x) x/sample_rate,sample_shifts,'uni',false);
+
+% Get average task>striatum kernels
+regressor_px = cell(n_regressors,1);
+for curr_regressor = 1:n_regressors
+    curr_k_cell = cellfun(@(x) x(curr_regressor,:),vertcat(fluor_taskpred_k_all{:}),'uni',false);
+    curr_k_cell = vertcat(curr_k_cell{:});
+    curr_k = permute(cell2mat(permute(arrayfun(@(x) ...
+        nanmean(cat(3,curr_k_cell{:,x}),3),1:n_vs,'uni',false),[1,3,2])),[3,2,1]);
+    curr_k_px = cell2mat(permute(arrayfun(@(x) svdFrameReconstruct(U_master(:,:,1:size(curr_k,1)), ...
+        curr_k(:,:,x)),1:size(curr_k,3),'uni',false),[1,3,4,2]));
+    AP_image_scroll(curr_k_px,t_shifts{curr_regressor});
+    axis image;
+    caxis([-max(abs(caxis)),max(abs(caxis))]);
+    colormap(brewermap([],'*RdBu'));
+    AP_reference_outline('ccf_aligned','k');
+    set(gcf,'Name',regressor_labels{curr_regressor});
+    
+    regressor_px{curr_regressor} = curr_k_px;
+end
+
+% Plot max for each kernel across time
+regressor_t_max = cellfun(@(x) squeeze(max(x,[],3)),regressor_px,'uni',false);
+
+figure;
+max_subregressors = max(cellfun(@(x) size(x,3),regressor_t_max));
+max_c = max(abs(cell2mat(cellfun(@(x) x(:),regressor_t_max,'uni',false))));
+for curr_regressor = 1:n_regressors
+    for curr_subregressor = 1:size(regressor_t_max{curr_regressor},3)
+        subplot(n_regressors,max_subregressors, ...
+            curr_subregressor+(curr_regressor-1)*max_subregressors);
+        imagesc(regressor_t_max{curr_regressor}(:,:,curr_subregressor));
+        AP_reference_outline('ccf_aligned','k');
+        axis image off; 
+        colormap(brewermap([],'Greens'));
+        caxis([0,max_c]);
+    end
+end
+
+%%% Cortex>striatum regression results
+
+% Plot cortex>striatum regression examples
+figure;
+for curr_depth = 1:n_depths   
+    
+     % Set current data (pad trials with NaNs for spacing)
+    n_pad = 10;
+    curr_data = padarray(mua_allcat(:,:,curr_depth),[0,n_pad],NaN,'post');
+    curr_pred_data = padarray(mua_ctxpred_allcat(:,:,curr_depth),[0,n_pad],NaN,'post');
+    nan_samples = isnan(curr_data) | isnan(curr_pred_data);
+
+    % Smooth
+    smooth_filt = ones(1,3)/3;
+    curr_data = conv2(curr_data,smooth_filt,'same');
+    curr_pred_data = conv2(curr_pred_data,smooth_filt,'same');
+    
+    % Set common NaNs for R^2    
+    curr_data_nonan = curr_data; 
+    curr_data_nonan(nan_samples) = NaN;
+    
+    curr_pred_data_nonan = curr_pred_data; 
+    curr_pred_data(nan_samples) = NaN; 
+    
+    % Get squared error for each trial
+    trial_r2 = 1 - (nansum((curr_data_nonan-curr_pred_data_nonan).^2,2)./ ...
+        nansum((curr_data_nonan-nanmean(curr_data_nonan,2)).^2,2));
+    
+    [~,trial_r2_rank] = sort(trial_r2);
+    
+    plot_prctiles = round(prctile(1:length(trial_r2),linspace(25,75,20)));
+    plot_trials = trial_r2_rank(plot_prctiles);
+    
+    subplot(n_depths,1,curr_depth); hold on;
+    plot(reshape(curr_data(plot_trials,:)',[],1),'k');
+    plot(reshape(curr_pred_data(plot_trials,:)',[],1),'b');
+    
+end
+
+% Get R^2 for task regression 
+taskpred_r2 = nan(max(split_idx),n_depths);
+for curr_exp = 1:max(split_idx)
+    curr_data = reshape(permute(mua_allcat(split_idx == curr_exp,:,:),[2,1,3]),[],n_depths);
+    curr_pred_data = reshape(permute(mua_ctxpred_allcat(split_idx == curr_exp,:,:),[2,1,3]),[],n_depths);
+    
+    % Set common NaNs
+    nan_samples = isnan(curr_data) | isnan(curr_pred_data);
+    curr_data(nan_samples) = NaN;
+    curr_pred_data(nan_samples) = NaN;
+
+    taskpred_r2(curr_exp,:) = 1 - (nansum((curr_data-curr_pred_data).^2,1)./ ...
+        nansum((curr_data-nanmean(curr_data,1)).^2,1));
+end
+figure;
+errorbar(nanmean(taskpred_r2,1),AP_sem(taskpred_r2,1),'k','linewidth',2);
+xlabel('Striatum depth');
+ylabel('Cortex explained variance');
+
+
+%%% Task>cortex>striatum regression results
+
+% Get task>striatum parameters
+regressor_labels = {'Stim','Move onset','Go cue','Outcome'};
+n_regressors = length(regressor_labels);
+t_shifts = {[0,0.5]; ... % stim
+    [-0.5,1]; ... % move
+    [-0.1,0.5]; ... % go cue
+    [-0.5,1]}; % outcome
+
+sample_shifts = cellfun(@(x) round(x(1)*(sample_rate)): ...
+    round(x(2)*(sample_rate)),t_shifts,'uni',false);
+t_shifts = cellfun(@(x) x/sample_rate,sample_shifts,'uni',false);
+
+% Normalize task kernels (ridiculous loop makes it clearer to read)
+mua_taskpred_k_all_norm = {};
+mua_ctxpred_taskpred_k_all_norm = {};
+for curr_animal = 1:length(mua_ctxpred_taskpred_k_all)
+    for curr_exp = 1:length(mua_ctxpred_taskpred_k_all{curr_animal})
+        for curr_regressor = 1:n_regressors
+            for curr_depth = 1:n_depths
+                mua_taskpred_k_all_norm{curr_animal}{curr_exp}{curr_regressor,curr_depth} = ...
+                    mua_taskpred_k_all{curr_animal}{curr_exp}{curr_regressor,curr_depth}./ ...
+                    ((1/sample_rate)*mua_norm{curr_animal}{curr_exp}(curr_depth));
+                mua_ctxpred_taskpred_k_all_norm{curr_animal}{curr_exp}{curr_regressor,curr_depth} = ...
+                    mua_ctxpred_taskpred_k_all{curr_animal}{curr_exp}{curr_regressor,curr_depth}./ ...
+                    ((1/sample_rate)*mua_norm{curr_animal}{curr_exp}(curr_depth));
+            end
+        end
+    end
+end
+
+% Average and concatenate task kernels within animals
+task_str_k_animal = cell(n_regressors,n_depths);
+task_ctx_str_k_animal = cell(n_regressors,n_depths);
+for curr_animal = 1:length(mua_ctxpred_taskpred_k_all_norm)
+    if isempty(mua_taskpred_k_all_norm{curr_animal})
+        continue
+    end
+    curr_str_k = cat(3,mua_taskpred_k_all_norm{curr_animal}{:});
+    curr_ctx_str_k = cat(3,mua_ctxpred_taskpred_k_all_norm{curr_animal}{:});
+    for curr_depth = 1:n_depths
+        for curr_regressor = 1:n_regressors
+            curr_str_k_mean = nanmean(cat(3,curr_str_k{curr_regressor,curr_depth,:}),3);
+            task_str_k_animal{curr_regressor,curr_depth} = cat(3, ...
+                task_str_k_animal{curr_regressor,curr_depth},curr_str_k_mean);
+            
+            curr_ctx_str_k_mean = nanmean(cat(3,curr_ctx_str_k{curr_regressor,curr_depth,:}),3);
+            task_ctx_str_k_animal{curr_regressor,curr_depth} = cat(3, ...
+                task_ctx_str_k_animal{curr_regressor,curr_depth},curr_ctx_str_k_mean);
+        end
+    end
+end
+
+% Plot task>cortex>striatum kernels
+figure;
+p = nan(n_depths,n_regressors);
+for curr_depth = 1:n_depths
+    for curr_regressor = 1:n_regressors
+        if curr_regressor == 1
+            n_subregressors = 10;
+            col = colormap_BlueWhiteRed(n_subregressors/2);
+            col(6,:) = [];
+        else
+            n_subregressors = 2;
+            col = lines(n_subregressors);
+        end
+        
+        p(curr_depth,curr_regressor) = ...
+            subplot(n_depths,n_regressors,curr_regressor+(curr_depth-1)*n_regressors);  
+        
+        curr_kernels = task_ctx_str_k_animal{curr_regressor,curr_depth};
+        for curr_subregressor = 1:n_subregressors
+            AP_errorfill(t_shifts{curr_regressor}, ...
+                nanmean(curr_kernels(curr_subregressor,:,:),3), ...
+                AP_sem(curr_kernels(curr_subregressor,:,:),3), ...
+                col(curr_subregressor,:),0.5);
+        end
+        
+        axis off;
+        line([0,0],ylim,'color','k');
+        
+    end
+end
+linkaxes(p);
+
+
+% Plot task>cortex>striatum - task>striatum kernels
+figure;
+p = nan(n_depths,n_regressors);
+for curr_depth = 1:n_depths
+    for curr_regressor = 1:n_regressors
+        if curr_regressor == 1
+            n_subregressors = 10;
+            col = colormap_BlueWhiteRed(n_subregressors/2);
+            col(6,:) = [];
+        else
+            n_subregressors = 2;
+            col = lines(n_subregressors);
+        end
+        
+        p(curr_depth,curr_regressor) = ...
+            subplot(n_depths,n_regressors,curr_regressor+(curr_depth-1)*n_regressors);  
+        
+        curr_kernels = task_str_k_animal{curr_regressor,curr_depth} - ...
+            task_ctx_str_k_animal{curr_regressor,curr_depth};
+        for curr_subregressor = 1:n_subregressors
+            AP_errorfill(t_shifts{curr_regressor}, ...
+                nanmean(curr_kernels(curr_subregressor,:,:),3), ...
+                AP_sem(curr_kernels(curr_subregressor,:,:),3), ...
+                col(curr_subregressor,:),0.5);
+        end
+        
+        axis off;
+        line([0,0],ylim,'color','k');
+        
+    end
+end
+linkaxes(p);
 
 
 
