@@ -1142,7 +1142,7 @@ wheel_context = nan(n_vel_bins*2+1,length(t),3,length(use_split));
 wheel_bin = nan(n_vel_bins*2+1,3,length(use_split));
 for curr_exp = 1:length(use_split)
         
-    use_rxn = move_t_exp{curr_exp} > 0 & move_t_exp{curr_exp} < 0.5;
+    use_rxn = move_t_exp{curr_exp} > 0 & move_t_exp{curr_exp} < 1;
        
     % Stim activity
     use_activity = (mua_allcat_exp{curr_exp}(:,:,plot_depth) - mua_taskpred_reduced_allcat_exp{curr_exp}(:,:,plot_depth,1));
