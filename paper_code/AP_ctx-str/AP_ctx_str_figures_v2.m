@@ -718,36 +718,6 @@ data_fn = 'trial_activity_choiceworld';
 exclude_data = true;
 AP_load_concat_normalize_ctx_str;
 
-
-
-% Get velocity and bins
-% (to use max velocity regardless of final choice)
-max_vel = AP_signed_max(wheel_velocity_allcat_move(:,t > 0 & t < 0.5),2);
-
-% (to use summed velocity regardless of final choice)
-% max_vel = sum(wheel_velocity_allcat_move(:,t > 0 & t < 0.5),2);
-
-% (to use maximum cumulative velocity regardless of final choice)
-% max_vel = AP_signed_max(cumsum(wheel_velocity_allcat_move(:,t > 0 & t < 0.5),2),2);
-
-% (to use mousecam movement signed by choice)
-% max_vel = sum(movement_allcat_move(:,t > 0 & t < 0.5),2).*trial_choice_allcat;
-
-n_vel_bins = 5;
-vel_amp_edges = prctile(abs(max_vel),linspace(0,100,n_vel_bins+1));
-vel_amp_edges = sort([vel_amp_edges,-vel_amp_edges]);
-
-vel_amp_bins = discretize(max_vel,vel_amp_edges);
-vel_amp_bins(vel_amp_bins == n_vel_bins+1) = NaN;
-
-max_vel_exp = mat2cell(max_vel,use_split,1);
-vel_amp_bins_exp = mat2cell(vel_amp_bins,use_split,1);
-
-% Set times to use for activity
-use_move_t = t > -0.05 & t < 0.05;
-
-
-
 % Get split index
 trials_allcat = size(mua_allcat,1);
 trials_animal = arrayfun(@(x) size(vertcat(mua_all{x}{:}),1),1:size(mua_all));
@@ -756,6 +726,8 @@ use_split = trials_animal;
 
 split_idx = cell2mat(arrayfun(@(exp,trials) repmat(exp,trials,1), ...
     [1:length(use_split)]',reshape(use_split,[],1),'uni',false));
+
+n_shuff = 10000; % number of shuffles for significance testing
 
 
 %%% STIM ACTIVITY
@@ -768,34 +740,27 @@ stims = unique([0.06,0.125,0.25,0.5,1].*[-1;1]);
 stim_bins = trial_contrast_allcat.*trial_side_allcat;
 stim_bins_idx = discretize(stim_bins,stims);
 
+% Set contexts for activity
+stim_contexts = [trial_choice_allcat == -1, ...
+    trial_choice_allcat == 1];
+
 % Get stim-isolated activity by trial
 stim_trial_activity = nanmean(mua_allcat(:,use_stim_t,:) - ...
     mua_taskpred_reduced_allcat(:,use_stim_t,:,1),2);
 
 % Split activity by animal, stim, and correct/incorrect
 stim_bins = unique(trial_contrast_allcat(trial_contrast_allcat ~= 0).*[-1,1]);
-stim_trial_activity_split = cell(max(split_idx),length(stim_bins),2,n_depths);
+stim_trial_activity_split = cell(max(split_idx),length(stim_bins),size(stim_contexts,2),n_depths);
 for curr_exp = 1:max(split_idx)
     for curr_bin = 1:length(stim_bins)
-        for curr_context = 1:2
-            
-            switch curr_context
-                case 1
-                    curr_context_idx = trial_choice_allcat == -1;
-                case 2
-                    curr_context_idx = trial_choice_allcat == 1;
-            end
-                      
+        for curr_context = 1:2                 
             for curr_depth = 1:n_depths
-                
                 curr_trials = ...
                     split_idx == curr_exp & ...
                     trial_contrast_allcat.*trial_side_allcat == stim_bins(curr_bin) & ...
-                    curr_context_idx;
-                
+                    stim_contexts(:,curr_context);              
                 stim_trial_activity_split{curr_exp,curr_bin,curr_context,curr_depth} = ...
-                    stim_trial_activity(curr_trials,:,curr_depth);
-                
+                    stim_trial_activity(curr_trials,:,curr_depth);                
             end
             
         end
@@ -808,7 +773,7 @@ stim_trial_activity_split_mean = cellfun(@nanmean,stim_trial_activity_split);
 plot_depth = 2;
 
 figure('Name',['Str ' num2str(plot_depth)]);
-hold on;
+subplot(1,2,1); hold on;
 col = colormap_BlueWhiteRed(5);
 col(6,:) = [];
 
@@ -821,6 +786,31 @@ errorbar(stims,nanmean(stim_trial_activity_split_mean(:,:,2,plot_depth),1), ...
     AP_sem(stim_trial_activity_split_mean(:,:,1,plot_depth),1),'color',[0,0.6,0],'linewidth',3);
 scatter(stims,nanmean(stim_trial_activity_split_mean(:,:,2,plot_depth),1),80,col, ...
     'Filled','MarkerEdgeColor',[0,0.6,0],'linewidth',3);
+
+% Get condition difference and compare to shuffle
+subplot(1,2,2); hold on;
+
+stim_condition_diff = nanmean(stim_trial_activity_split_mean(:,:,1,plot_depth) - ...
+    stim_trial_activity_split_mean(:,:,2,plot_depth),1);
+
+stim_condition_shuff_diff = nan(max(split_idx),length(stim_bins),n_shuff);
+for curr_exp = 1:max(split_idx)
+    for curr_bin = 1:length(stim_bins)
+        curr_act = stim_trial_activity_split(curr_exp,curr_bin,:,plot_depth);
+        % Shuffle, split, difference
+        curr_act_shuff = mat2cell(AP_shake(repmat(vertcat( ...
+            curr_act{:}),1,n_shuff),1),cellfun(@length,curr_act),n_shuff);
+        stim_condition_shuff_diff(curr_exp,curr_bin,:) = ...
+            nanmean(curr_act_shuff{1},1) - nanmean(curr_act_shuff{2},1);            
+    end
+end
+stim_condition_diff_ci = squeeze(prctile(nanmean(stim_condition_shuff_diff,1),[2.5,97.5],3));
+
+plot(stims,stim_condition_diff,'k','linewidth',2);
+plot(stims,stim_condition_diff_ci,'r','linewidth',2);
+xlabel('Stim');
+ylabel('Condition difference');
+
 
 
 
