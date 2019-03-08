@@ -1453,7 +1453,6 @@ end
 
 
 
-
 %% ~~~~~~~~~~~~~~ BELOW FROM OLD, REFORMATTING INTO ABOVE ~~~~~~~~~~~~~~
 
 %% Fig 1a: Behavior psychometric 
