@@ -114,45 +114,55 @@ for curr_animal = 1:length(animals)
         binned_spikes = single(histcounts(use_spikes,time_bins));       
         binned_spikes_std = binned_spikes./nanstd(binned_spikes,[],2);
         
-        % Derivative and resample V
-        dfVdf_resample = interp1(conv2(frame_t,[1,1]/2,'valid'), ...
-            diff(fVdf(regression_params.use_svs,:),[],2)',time_bin_centers)';
-        
         % Deconvolve and resample V
         fVdf_deconv = AP_deconv_wf(fVdf);
         fVdf_deconv(isnan(fVdf_deconv)) = 0;
         fVdf_deconv_resample = interp1(frame_t,fVdf_deconv',time_bin_centers)';
         
         % Do regression over a range of lambdas
-        n_lambdas = 50;  
-        
-        % old, logspace
-%         lambda_range = [-1,1]; % ^10 (used to be [3,7] before df/f change, then [0,1.5]
-%         lambdas = logspace(lambda_range(1),lambda_range(2),n_lambdas)';
-%         explained_var_lambdas = nan(n_lambdas,1);
-        
-        lambda_range = [0,50];
+        n_lambdas = 50;
+        lambda_range = [0,20];
         lambdas = linspace(lambda_range(1),lambda_range(2),n_lambdas)';
         explained_var_lambdas = nan(size(binned_spikes,1),n_lambdas);
         
-        for curr_lambda_idx = 1:length(lambdas)   
-            
-            curr_lambda = lambdas(curr_lambda_idx);
-            
-            kernel_frames = round(regression_params.kernel_t(1)*sample_rate): ...
-                round(regression_params.kernel_t(2)*sample_rate);
-            
-            [k,predicted_spikes,explained_var] = ...
-                AP_regresskernel(fVdf_deconv_resample(regression_params.use_svs,:), ...
-                binned_spikes_std,kernel_frames,curr_lambda, ...
-                regression_params.zs,regression_params.cvfold, ...
-                false,regression_params.use_constant);
-            
-            explained_var_lambdas(:,curr_lambda_idx) = explained_var.total; 
-            AP_print_progress_fraction(curr_lambda_idx,length(lambdas));
-        end
+        lambda_search = true;
         
-        [best_lambda_explained_var,best_lambda_idx] = max(explained_var_lambdas);
+        while lambda_search         
+            
+            for curr_lambda_idx = find(isnan(explained_var_lambdas))
+                
+                curr_lambda = lambdas(curr_lambda_idx);
+                
+                kernel_frames = round(regression_params.kernel_t(1)*sample_rate): ...
+                    round(regression_params.kernel_t(2)*sample_rate);
+                
+                [k,predicted_spikes,explained_var] = ...
+                    AP_regresskernel(fVdf_deconv_resample(regression_params.use_svs,:), ...
+                    binned_spikes_std,kernel_frames,curr_lambda, ...
+                    regression_params.zs,regression_params.cvfold, ...
+                    false,regression_params.use_constant);
+                
+                explained_var_lambdas(:,curr_lambda_idx) = explained_var.total;
+                AP_print_progress_fraction(curr_lambda_idx,length(lambdas));
+            end
+            
+            % Get the best lambda values
+            % (if it's near the end, add more values to search)
+            [best_lambda_explained_var,best_lambda_idx] = max(explained_var_lambdas);
+            if best_lambda_idx < length(lambdas)-5
+                lambda_search = false;
+            else
+                frac_extend = 0.5;
+                n_lambdas_extend = round(n_lambdas*frac_extend);
+                lambdas = [lambdas; linspace(lambdas(end), ...
+                    lambdas(end)+diff(lambda_range)*frac_extend, ...
+                    n_lambdas_extend)'];
+                explained_var_lambdas = [explained_var_lambdas, ...
+                    nan(1,n_lambdas_extend)];
+            end
+            
+        end
+               
         best_lambda = lambdas(best_lambda_idx);
         
         ctx_str_lambda(curr_animal).animal = animal;

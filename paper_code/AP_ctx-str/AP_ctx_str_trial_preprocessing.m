@@ -161,7 +161,7 @@
      % Save
      curr_protocol = cell2mat(protocol);
      save_path = ['C:\Users\Andrew\OneDrive for Business\Documents\CarandiniHarrisLab\analysis\wf_ephys_choiceworld\wf_ephys'];
-     save([save_path filesep 'wf_ephys_maps_' curr_protocol '_' num2str(n_aligned_depths) ,'depths'],'batch_vars','-v7.3');
+     save([save_path filesep 'wf_ephys_maps_' curr_protocol '_' num2str(n_aligned_depths) ,'_depths'],'batch_vars','-v7.3');
      warning('saving -v7.3');
      disp(['Finished batch ' curr_protocol]);
      
@@ -306,11 +306,6 @@ for curr_animal = 1:length(animals)
                 lambda = ctx_str_lambda(curr_animal_idx).best_lambda(curr_day_idx);
             end
         end
-        
-        %%%%% TEST
-        warning('OVERRIDING LAMBDA')
-        lambda = 5;
-        %%%%%%%
         
         kernel_frames = round(regression_params.kernel_t(1)*sample_rate): ...
             round(regression_params.kernel_t(2)*sample_rate);
