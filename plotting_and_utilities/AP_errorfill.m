@@ -1,20 +1,25 @@
-function h = AP_errorfill(x,y,ye,color,alpha)
+function h = AP_errorfill(x,y,ye,color,alpha,plot_mean)
 % AP_errorfill(x,y,ye,color,alpha);
 %
 % Draw filled polygon as errorbars
 % ye = y error, can be 1 or 2 vectors (2 elements is ambiguous)
+% plot_mean = plot the mean as a line
 
 % Define defaults, reshape to column vectors
 if isempty(x)
     x = 1:length(y);
 end
 
-if nargin < 4 || isempty(color)
+if ~exist('color','var') || isempty(color)
     color = 'k';
 end
 
-if nargin < 5 || isempty(alpha)
+if ~exist('alpha','var') || isempty(alpha)
     alpha = 0.5;
+end
+
+if ~exist('plot_mean','var') || isempty(plot_mean)
+    plot_mean = true;
 end
 
 x = reshape(x,[],1);
@@ -25,7 +30,7 @@ if d2 > d1
 end
 
 % Set error values
-if size(ye,2) == 1;
+if size(ye,2) == 1
     ye_pos = y + ye;
     ye_neg = y - ye;
 elseif size(ye,2) == 2
@@ -42,7 +47,9 @@ fill([x;flipud(x)],[ye_pos;flipud(ye_neg)], ...
     color,'FaceAlpha',alpha,'EdgeColor','none')
 
 % Plot central line
-h = plot(x,y,'color',color,'linewidth',2);
+if plot_mean
+    h = plot(x,y,'color',color,'linewidth',2);
+end
 
 
 

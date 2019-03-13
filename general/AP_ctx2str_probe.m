@@ -96,9 +96,8 @@ ccf_midline = bregma_um(3);
 hemisphere = sign(str_depths_um(1,3) - ccf_midline);
 str_depths_mirror = [str_depths_um(:,1:2),ccf_midline - hemisphere*abs(str_depths_um(:,3)-ccf_midline)];
 
-max_sites = 50;
 str_depths_query = [str_depths_um;str_depths_mirror];
-injection_parameters = get_allen_projection(str_depths_query,max_sites);
+injection_parameters = get_allen_projection(str_depths_query);
 injection_coordinates = {injection_parameters.coordinates};
 
 % Standardize injection coordinates by hemisphere (left = contra, right =
@@ -153,8 +152,8 @@ title('Injection sites')
 
 probe_angle = 45; % from horizontal
 
-animal = 'AP036';
-day = '2018-11-14';
+animal = 'AP032';
+day = '2018-10-26';
 [img_path,img_exists] = AP_cortexlab_filename(animal,day,[],'imaging');
 avg_im = readNPY([img_path filesep 'meanImage_blue.npy']);
 
@@ -279,9 +278,8 @@ drawnow;
 %% Directly compare regression and projection maps (from histology)
 
 %%% Define and load
-animal = 'AP036';
-% day = '2018-10-26';
-day = '2018-11-14';
+animal = 'AP032';
+day = '2018-10-26';
 experiment = 1;
 verbose = false;
 
@@ -483,9 +481,8 @@ ccf_midline = bregma_um(3);
 hemisphere = sign(depth_str_um(1,3) - ccf_midline);
 str_depths_mirror = [depth_str_um(:,1:2),ccf_midline - hemisphere*abs(depth_str_um(:,3)-ccf_midline)];
 
-max_sites = 50;
 str_depths_query = [depth_str_um;str_depths_mirror];
-injection_parameters = get_allen_projection(str_depths_query,max_sites);
+injection_parameters = get_allen_projection(str_depths_query);
 injection_coordinates = {injection_parameters.coordinates};
 
 % Standardize injection coordinates by hemisphere (left = contra, right =
