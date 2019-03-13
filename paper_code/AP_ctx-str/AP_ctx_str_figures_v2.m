@@ -354,9 +354,8 @@ ccf_midline = bregma_um(3);
 hemisphere = sign(kernel_depth_um(1,3) - ccf_midline);
 str_depths_mirror = [kernel_depth_um(:,1:2),ccf_midline - hemisphere*abs(kernel_depth_um(:,3)-ccf_midline)];
 
-max_sites = 50;
 str_depths_query = [kernel_depth_um;str_depths_mirror];
-injection_parameters = get_allen_projection(str_depths_query,max_sites);
+injection_parameters = get_allen_projection(str_depths_query);
 injection_coordinates = {injection_parameters.coordinates};
 
 % Standardize injection coordinates by hemisphere (left = contra, right =

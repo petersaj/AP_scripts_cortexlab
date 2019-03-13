@@ -1,10 +1,9 @@
-function injection_parameters = get_allen_projection(projection_coordinates,max_sites)
+function injection_parameters = get_allen_projection(projection_coordinates)
 % injection_coordinates = AP_get_allen_projection(projection_coordinates)
 %
 % Load in from Allen projection data
 % INPUTS
 % projection_coordinates - n x 3 array of coordinates to query
-% max_coords - the maximum number of injection coordinates to return
 % OUTPUTS
 % injection_coordinates - cell array of cortical injection sites
 
@@ -21,7 +20,7 @@ for curr_coord = 1:size(projection_coordinates,1)
 
     % Download spatial search
     seed_point = projection_coordinates(curr_coord,:);
-    seed_url = sprintf('http://api.brain-map.org/api/v2/data/query.xml?criteria=service::mouse_connectivity_target_spatial[seed_point$eq%d,%d,%d][num_rows$eq%d][primary_structure_only$eqtrue][injection_structures$eqIsocortex]',seed_point,max_sites);
+    seed_url = sprintf('http://api.brain-map.org/api/v2/data/query.xml?criteria=service::mouse_connectivity_target_spatial[seed_point$eq%d,%d,%d][primary_structure_only$eqtrue][injection_structures$eqIsocortex]',seed_point);
     seed_table_fn = [allen_temp_dir filesep 'seed_experiments'];
     urlwrite(seed_url,seed_table_fn);
     seed_table_raw = xml2struct(seed_table_fn);
@@ -31,9 +30,6 @@ for curr_coord = 1:size(projection_coordinates,1)
     delete(seed_table_fn);
     
     % Get coordinates, injection volume, and projection density
-    injection_coordinates{curr_coord} = nan(length(projection_experiments),3);
-    injection_volume{curr_coord} = nan(length(projection_experiments),1);
-    projection_density{curr_coord} = nan(length(projection_experiments),1);
     for curr_experiment = 1:length(projection_experiments)
         % Injection coordinates are /10 to fit with Allen CCF
         injection_parameters(curr_coord).coordinates(curr_experiment,:) = ...
@@ -46,9 +42,7 @@ for curr_coord = 1:size(projection_coordinates,1)
         injection_parameters(curr_coord).density(curr_experiment) = ...
             str2num(projection_experiments{curr_experiment}.density.Text);
     end    
-    
-    % Get injection volume and projection density 
-    
+        
 end
 disp('Done');
 
