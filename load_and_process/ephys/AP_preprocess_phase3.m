@@ -6,7 +6,7 @@ function AP_preprocess_phase3(animal,day,t_range)
 
 %% Get paths and filenames
 
-[ephys_path,ephys_exists] = AP_cortexlab_filename(animal,day,[],'ephysdir');
+[ephys_path,ephys_exists] = AP_cortexlab_filename(animal,day,[],'ephys_dir');
 
 if ~ephys_exists
     error([animal ' ' day ': No ephys data found']);
@@ -225,19 +225,20 @@ for curr_site = 1:length(data_paths)
     copyfile(ks_results_path,curr_save_path);
     
     %% Copy kilosort results and raw data to phy folder for clustering
+    % (only if clustering immediately afterwards)
     
-    local_phy_path = 'C:\data_temp\phy';
-    
-    % Clear out whatever's currently in phy
-    rmdir(local_phy_path,'s');
-    mkdir(local_phy_path);
-    
-    % Copy the CAR'd data
-    [~,ap_file,ap_ext] = fileparts(ap_temp_car_filename);
-    movefile(ap_temp_car_filename,[local_phy_path filesep ap_file ap_ext])
-    
-    % Copy the results
-    movefile([ks_results_path filesep '*'],local_phy_path)
+%     local_phy_path = 'C:\data_temp\phy';
+%     
+%     % Clear out whatever's currently in phy
+%     rmdir(local_phy_path,'s');
+%     mkdir(local_phy_path);
+%     
+%     % Copy the CAR'd data
+%     [~,ap_file,ap_ext] = fileparts(ap_temp_car_filename_hdd);
+%     movefile(ap_temp_car_filename_hdd,[local_phy_path filesep ap_file ap_ext])
+%     
+%     % Copy the results
+%     movefile([ks_results_path filesep '*'],local_phy_path)
     
     %% Delete all temporarly local data
     rmdir(ssd_kilosort_path,'s');

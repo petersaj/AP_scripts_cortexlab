@@ -5308,6 +5308,20 @@ plot(t,nanmean(mua_allcat_move(plot_trials,:,2),1) - ...
 
 
 
+%% testing U_master from svd across U_animals
+
+animals = {'AP024','AP025','AP026','AP027','AP028','AP029'};
+U_master_path = 'C:\Users\Andrew\OneDrive for Business\Documents\CarandiniHarrisLab\analysis\wf_ephys_choiceworld\wf_processing\wf_alignment';
+
+U_master_animals = cell(size(animals));
+use_
+for curr_animal = 1:length(animals)
+    load([U_master_path filesep 'U_master' animals{curr_animal}]);
+    U_master_animals{curr_animal} = U_master_animal(:,:,1:200)
+end
+
+
+
 
 
 

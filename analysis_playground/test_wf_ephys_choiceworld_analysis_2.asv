@@ -2297,7 +2297,22 @@ for curr_exp = 1:length(use_split)
         clear curr_im
 %         AP_print_progress_fraction(curr_t,length(t));
     end    
-    px_std = sqrt(px_std_sq./(sum(use_trials)-1));  
+    px_std = sqrt(px_std_sq./(sum(use_trials)-1));
+    
+    
+    %%%%%%%%% TESTING SANITY CHECK CORRELATION
+    px_corr = nan(size(U_master,1),size(U_master,2),length(t));
+    for curr_t = find(use_t)
+        curr_im = reshape(svdFrameReconstruct(U_master(:,:,1:n_vs), ...
+            permute(use_act_fluor(:,curr_t,:),[3,1,2])), ...
+            size(U_master,1)*size(U_master,2),[]);
+
+        pdist2(use_act_mua(:,curr_t)
+        
+        clear curr_im
+%         AP_print_progress_fraction(curr_t,length(t));
+    end    
+    
     
     mua_std = nanstd(use_act_mua,[],1);
     
@@ -2354,7 +2369,7 @@ AP_reference_outline('ccf_aligned','k',[],[size(U_master,1),size(U_master,2),1,3
 
 
 
-%%%%% I THINK I'M DOING CORR WRONG? taken from px corr viewer: 
+%%%%% I THINK I'M DOING CORR WRONG, taken from px corr viewer: 
 
 use_act_mua = mua_allcat_exp{curr_exp}(use_trials,:,plot_depth);
 use_act_fluor = fluor_allcat_deconv_exp{curr_exp}(use_trials,:,:);

@@ -21,23 +21,49 @@ if ops.GPU
     gpuDevice(1); % initialize GPU (will erase any existing GPU arrays)
 end
 
-% (not used in kilosort2?)
-% if strcmp(ops.datatype , 'openEphys')
-%    ops = convertOpenEphysToRawBInary(ops);  % convert data, only for OpenEphys
-% end
+%%% Run kilosort 2
 
-% Run kilosort 2
-rez = preprocessDataSub(ops);
-rez = clusterSingleBatches(rez);
-rez = learnAndSolve8b(rez);
-rez = splitAllClusters(rez);
-
-% Convert results to phy, save
+% Set directory to save results
 ks_results_dir = [save_path filesep 'results'];
 mkdir(ks_results_dir);
 
-save([ks_results_dir filesep 'rez.mat'], 'rez', '-v7.3');
+% preprocess data to create temp_wh.dat
+rez = preprocessDataSub(ops);
+
+% time-reordering as a function of drift
+rez = clusterSingleBatches(rez);
+save(fullfile(ks_results_dir, 'rez.mat'), 'rez', '-v7.3');
+
+% main tracking and template matching algorithm
+rez = learnAndSolve8b(rez);
+
+% final merges
+rez = find_merges(rez, 1);
+
+% final splits by SVD
+rez = splitAllClusters(rez, 1);
+
+% final splits by amplitudes
+rez = splitAllClusters(rez, 0);
+
+% decide on cutoff
+rez = set_cutoff(rez);
+
+fprintf('found %d good units \n', sum(rez.good>0))
+
+% write to Phy
+fprintf('Saving results to Phy  \n')
 rezToPhy(rez, ks_results_dir);
+
+%%% Save results 
+
+% discard features in final rez file (too slow to save)
+rez.cProj = [];
+rez.cProjPC = [];
+
+% save final results as rez2
+fprintf('Saving final results in rez2  \n')
+save([ks_results_dir filesep 'rez2.mat'], 'rez', '-v7.3');
 
 
 %% Delete temporary data on local SSD

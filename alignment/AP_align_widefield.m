@@ -7,6 +7,8 @@ function im_aligned = AP_align_widefield(animal,days,im_unaligned)
 % animals - only more than 1 if across-animal (rare, run manually)
 % days - 'yyyy-mm-dd',multiple if unaligned images across days
 % im_unaligned - unaligned images (if 'new', then create and save tform)
+%
+% NOTE: some manual one-time-only code lives at the bottom 
 
 %% Check arguments
 
@@ -171,10 +173,8 @@ if new_alignment
 end
 
 
-%% STORING HERE/RUN ONCE: Align animals by retinotopy
+%% STORING HERE/RUN ONCE: Align animals by retinotopy, save U_master_animal
 % (TO DO: INTEGRATE INTO ABOVE FUNCTION 'ANIMALS' OPTION)
-% (TO DO: SAVE U_master AS TARGET ANIMAL)
-% (Also save U_master for each animal)
 % (this creates a new combined retinotopy - run AP_vfs_ccf_align afterwards)
 
 % Secure this to be manual
@@ -244,6 +244,8 @@ end
 % Secure this to be manual
 if false
     
+    warning('Alignment produces non-orthonormal Us!!')
+    
 %     animals = {'AP024','AP025','AP026','AP027','AP028','AP029', ...
 %         'AP032','AP033','AP034','AP035','AP036'};
 
@@ -290,7 +292,35 @@ if false
 end
 
 
+%% STORING HERE/RUN ONCE: Create U_master from SVD across animals
 
+% Secure this to be manual
+if false
+    
+    % Load the animal master Us
+    animals = {'AP024','AP025','AP026','AP027','AP028','AP029'};
+    U_master_path = 'C:\Users\Andrew\OneDrive for Business\Documents\CarandiniHarrisLab\analysis\wf_ephys_choiceworld\wf_processing\wf_alignment';
+    
+    U_master_animals = cell(size(animals));
+    for curr_animal = 1:length(animals)
+        load([U_master_path filesep 'U_master_' animals{curr_animal}]);
+        U_master_animals{curr_animal} = U_master_animal;
+        clear U_master_animal
+        AP_print_progress_fraction(curr_animal,length(animals))
+    end    
+    
+    % Compute SVD across animal master Us 
+    % (2000 components is over the GPU limit, slow but only run once)
+    n_vs = 2000;
+    U_master_animal_cat = cell2mat(cellfun(@(x) ...
+            reshape(x(:,:,1:n_vs),[],n_vs),U_master_animals,'uni',false));
+        
+    [U_U,~,~] = svd(U_master_animal_cat,'econ');
+      
+    U_master = reshape(U_U(:,1:n_vs),size(U_master_animals{1},1),size(U_master_animals{1},2),n_vs);
+    save([U_master_path filesep 'U_master.mat'],'U_master');    
+    
+end
 
 
 
