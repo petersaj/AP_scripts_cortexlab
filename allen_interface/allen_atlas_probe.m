@@ -1,13 +1,8 @@
 function allen_atlas_probe(tv,av,st)
 % allen_browser_test_gui(tv,av,st)
 %
-% This gui is for looking at trajectories in the brain with the Allen CCF
-% 
-% Coordinates in: plot [ap,ml,dv], volume [ap,dv,ml]
-%
-% TO DO: 
-% - bregma-lambda scaling and angle adjustment?
-% - mouse over structure names?
+% This gui is for looking at trajectories in the brain with the Allen CCF, 
+% keypress function is displayed on startup
 
 % Initialize gui_data structure
 gui_data = struct;
@@ -21,6 +16,9 @@ bregma = allenCCFbregma;
 % If not already loaded in, load in atlas
 if nargin < 3
     allen_atlas_path = 'C:\Users\Andrew\OneDrive for Business\Documents\Atlases\AllenCCF';
+    if isempty(allen_atlas_path)
+        error('Enter path where Allen CCF is stored');
+    end
     tv = readNPY([allen_atlas_path filesep 'template_volume_10um.npy']); % grey-scale "background signal intensity"
     av = readNPY([allen_atlas_path filesep 'annotation_volume_10um_by_index.npy']); % the number at each pixel labels the area, see note below
     st = loadStructureTree([allen_atlas_path filesep 'structure_tree_safe_2017.csv']); % a table of what all the labels mean
@@ -120,10 +118,12 @@ fprintf(['Controls: \n' ...
     'numpad 8/2 : raise and lower probe \n' ...
     'b : toggle brain grid visibility \n' ...
     's : toggle brain slice visibility \n' ...
+    'p: toggle probe trajectory visibility \n' ...
     '+/- : add 3D brain structure \n' ...
     'm : toggle 3D brain structure visibility \n' ...
     'x : export probe coordinates to workspace \n', ...
-    'h : load probe coordiates from histology \n']);
+    'h : load probe coordiates from histology \n', ...
+    'r : toggle rotatability of brain']);
 
 end
 
