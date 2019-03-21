@@ -5881,11 +5881,26 @@ plot(t,nanmean(mua_allcat_move(plot_trials,:,2),1) - ...
     nanmean(mua_taskpred_reduced_allcat_move(plot_trials,:,2,2),1),'color',[0.7,0,0.7],'linewidth',2);
 
 
+%% Kilosort 2 on all choiceworld data
 
+animals = {'AP024','AP025','AP026','AP027','AP028','AP029'};
 
-
-
-
+for curr_animal = 1:length(animals)
+    
+    animal = animals{curr_animal};
+    protocol = 'vanillaChoiceworld';
+    experiments = AP_find_experiments(animal,protocol);
+    
+    experiments = experiments([experiments.imaging] & [experiments.ephys]); 
+    
+    for curr_day = 1:length(experiments)
+        
+        day = experiments(curr_day).day;        
+        disp(['Kilosorting ' animal ' ' day '(' num2str(curr_day) '/' num2str(length(experiments)) ')']);       
+        AP_preprocess_phase3(animal,day);
+                
+    end
+end
 
 
 

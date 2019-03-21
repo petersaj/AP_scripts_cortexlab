@@ -3,7 +3,7 @@
 %% Load choiceworld trial data (** NEEDED FOR BELOW **)
 
 % Load data
-data_fn = 'trial_activity_choiceworld';
+% data_fn = 'trial_activity_choiceworld';
 % data_fn = 'trial_activity_choiceworld_MOVELTEST';
 % data_fn = 'trial_activity_choiceworld_FWDCTXTEST';
 % data_fn = 'trial_activity_choiceworld_STIMRTEST';
@@ -14,6 +14,7 @@ data_fn = 'trial_activity_choiceworld';
 % data_fn = 'trial_activity_choiceworld_MOVExSTIM';
 % data_fn = 'trial_activity_choiceworld_MSN';
 % data_fn = 'trial_activity_choiceworld_FSI';
+data_fn = 'trial_activity_choiceworld_200umdepth';
 
 exclude_data = true;
 AP_load_concat_normalize_ctx_str;
