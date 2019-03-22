@@ -85,24 +85,24 @@ fluor_allcat_downsamp = fluor_allcat_downsamp - fluor_allcat_downsamp_mirror;
 
 %% Checking waveform stuff for eventual spike sorting?
 
-% NEED TO ADD IN WINV TO GET THE RIGHT SCALING
-
 % plot templates by channel
 
-figure; hold on;
+figure; hold on; axis off;
 p = arrayfun(@(x) plot(0,0,'k'),1:size(templates,3));
 for curr_template = 1:size(templates,1)
-    
+        
     y = permute(templates(curr_template,:,:),[3,2,1]);
-    y = y + (max(channel_positions(:,2)) - channel_positions(:,2))/200;   
+    y = y - channel_positions(:,2)*0.2;   
     x = (1:size(templates,2)) + channel_positions(:,1)*7;
     
-    nonzero_channels = squeeze(any(templates(curr_template,:,:),2));
+    template_channel_amp = squeeze(range(templates(curr_template,:,:),2));
+    template_thresh = max(template_channel_amp)*0.2;
+    template_use_channels = template_channel_amp > template_thresh;
     [~,max_channel] = max(max(abs(templates(curr_template,:,:)),[],2),[],3);
     
     arrayfun(@(ch) set(p(ch),'XData',x(ch,:),'YData',y(ch,:)),1:size(templates,3));
-    arrayfun(@(ch) set(p(ch),'Color','r'),find(nonzero_channels));
-    arrayfun(@(ch) set(p(ch),'Color','k'),find(~nonzero_channels));
+    arrayfun(@(ch) set(p(ch),'Color','r'),find(template_use_channels));
+    arrayfun(@(ch) set(p(ch),'Color','k'),find(~template_use_channels));
     set(p(max_channel),'Color','b');
     
 %     ylim([min(reshape(y(nonzero_channels,:),[],1)), ...
@@ -5885,7 +5885,7 @@ plot(t,nanmean(mua_allcat_move(plot_trials,:,2),1) - ...
 
 animals = {'AP024','AP025','AP026','AP027','AP028','AP029'};
 
-for curr_animal = 1:length(animals)
+for curr_animal = 3:length(animals)
     
     animal = animals{curr_animal};
     protocol = 'vanillaChoiceworld';
@@ -5894,6 +5894,11 @@ for curr_animal = 1:length(animals)
     experiments = experiments([experiments.imaging] & [experiments.ephys]); 
     
     for curr_day = 1:length(experiments)
+        
+        % (from server restart)
+        if curr_animal == 3 && curr_day == 1
+            continue
+        end
         
         day = experiments(curr_day).day;        
         disp(['Kilosorting ' animal ' ' day '(' num2str(curr_day) '/' num2str(length(experiments)) ')']);       

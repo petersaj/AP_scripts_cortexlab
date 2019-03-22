@@ -1283,14 +1283,14 @@ pca_data = zscore([squeeze(nanmean(template_psth_smooth(go_left,:,depth_group ==
 
 %% Ephys: rasters by depth
 
-% % (to group striatum depths)
-% n_depths = 4;
-% depth_group_edges = round(linspace(str_depth(1),str_depth(2),n_depths+1));
-% depth_group = discretize(spikeDepths,depth_group_edges);
+% % (for equally separated depths)
+n_depths = 4;
+depth_group_edges = round(linspace(str_depth(1),str_depth(2),n_depths+1));
+depth_group = discretize(spikeDepths,depth_group_edges);
 
 % (to use aligned striatum depths)
-n_depths = n_aligned_depths;
-depth_group = aligned_str_depth_group;
+% n_depths = n_aligned_depths;
+% depth_group = aligned_str_depth_group;
 
 % % (for manual depth)
 % depth_group_edges = [1500,2200];

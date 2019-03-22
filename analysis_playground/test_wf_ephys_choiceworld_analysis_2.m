@@ -2784,3 +2784,73 @@ colormap(brewermap([],'*RdBu'));
 AP_reference_outline('ccf_aligned','k',[],[size(U_master,1),size(U_master,2),1,3]);
 
 
+%% ~~~~~~~~ EXPLORATORY ANALYSIS AGAIN FOR UNITS ~~~~~~~~~~~~~~
+
+
+%% Get PSTH for each unit
+
+n_units = size(templates,1);
+
+% PSTH timing
+raster_window = [-0.5,1];
+psth_bin_size = 0.001;
+t_bins = raster_window(1):psth_bin_size:raster_window(2);
+t = conv2(t_bins,[1,1]/2,'valid');
+
+% Event to align
+use_align = wheel_move_time';
+% use_align = stimOn_times;
+use_align(isnan(use_align)) = [];
+t_peri_event = use_align + t_bins;
+    
+% Get PSTHs
+unit_psth = nan(n_units,length(t_bins)-1);
+for curr_unit = 1:n_units    
+    curr_spikes = spike_times_timeline(spike_templates == curr_unit);   
+    curr_spikes_binned = cell2mat(arrayfun(@(x) ...
+        histcounts(curr_spikes,t_peri_event(x,:)), ...
+        [1:size(t_peri_event,1)]','uni',false))./psth_bin_size;
+    unit_psth(curr_unit,:) = sum(curr_spikes_binned,1);
+end
+
+smooth_size = 50;
+gw = gausswin(smooth_size,3)';
+smWin = gw./sum(gw);
+unit_psth_smoothed = convn(unit_psth,smWin,'same');
+
+% PCA of PSTHs
+[coeff,score,latent] = pca(zscore(unit_psth_smoothed,[],2)');
+
+depth_bins = linspace(0,4000,20);
+depth_centers = depth_bins(1:end-1) + diff(depth_bins)./2;
+depth_group = discretize(templateDepths,depth_bins);
+
+plot_coeffs = 1:4;
+
+figure; 
+subplot(1,2,1); hold on;
+plot(t,score(:,plot_coeffs),'linewidth',2);
+line([0,0],ylim,'color','k');
+xlabel('Time');
+ylabel('Activity');
+
+subplot(1,2,2,'YDir','reverse'); hold on; 
+for curr_coeff = plot_coeffs
+    curr_depth_coeff = accumarray(depth_group,coeff(:,curr_coeff), ...
+        [length(depth_bins)-1,1],@nanmean,nan);
+    plot(smooth(curr_depth_coeff,3),depth_centers,'linewidth',2);
+end
+xlabel('Coeff loading');
+ylabel('Depth');
+
+
+
+
+
+
+
+
+
+
+
+
