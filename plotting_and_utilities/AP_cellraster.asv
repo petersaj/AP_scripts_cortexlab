@@ -36,10 +36,9 @@ cellraster_gui = figure;
 
 unit_axes = subplot(5,5,[1:5:20],'visible','off','YDir','reverse');
 hold on;
-unit_dots = plot(rand(size(templateDepths)),templateDepths,'.k','MarkerSize',20);
+unit_dots = plot(rand(size(templateDepths)),templateDepths,'.k','MarkerSize',20,'ButtonDownFcn',@unit_click);
 curr_unit_dots = plot(0,0,'.r','MarkerSize',20);
 multiunit_lines = arrayfun(@(x) line(xlim,[0,0],'linewidth',2,'visible','off'),1:2);
-
 xlim(unit_axes,[0,1]);
 ylim([-50, max(channel_positions(:,2))+50]);
 
@@ -68,6 +67,7 @@ amplitude_plot = plot(0,0,'.k');
 amplitude_lines = arrayfun(@(x) line([0,0],ylim,'linewidth',2),1:2);
 xlabel('Experiment time (s)');
 ylabel('Template amplitude');
+axis tight
 
 % Set default raster times
 raster_window = [-0.5,1];
@@ -192,7 +192,7 @@ end
 if length(gui_data.curr_unit) == 1
     [raster_y,raster_x] = find(curr_raster);
     set(gui_data.raster_dots,'XData',gui_data.t(raster_x),'YData',raster_y);
-    xlim([gui_data.t_bins(1),gui_data.t_bins(end)]);
+    xlim(get(gui_data.raster_dots,'Parent'),[gui_data.t_bins(1),gui_data.t_bins(end)]);
     ylim(get(gui_data.raster_dots,'Parent'),[0,size(gui_data.t_peri_event,1)]);
 elseif length(gui_data.curr_unit) > 1
     raster_heatmap = imgaussfilt(curr_raster,[5,10]);
@@ -212,14 +212,13 @@ elseif length(gui_data.curr_unit) > 1
     long_bins_t = long_bins(1:end-1) + diff(long_bins)/2;
     long_spikes_binned = discretize(gui_data.spike_times,long_bins);
     amplitude_binned = accumarray(long_spikes_binned(curr_spikes_idx & ~isnan(long_spikes_binned)), ...
-        gui_data.template_amplitudes(curr_spikes_idx & ~isnan(long_spikes_binned)),size(long_bins_t'),@nanmean,NaN);
+        gui_data.template_amplitudes(curr_spikes_idx & ~isnan(long_spikes_binned)),size(long_bins_t'),@nansum,NaN);
     set(gui_data.amplitude_plot,'XData',long_bins_t,'YData',amplitude_binned,'linestyle','-');
 end
 
 [ymin,ymax] = bounds(get(gui_data.amplitude_plot,'YData'));
 set(gui_data.amplitude_lines(1),'XData',repmat(min(gui_data.t_peri_event(:)),2,1),'YData',[ymin,ymax]);
 set(gui_data.amplitude_lines(2),'XData',repmat(max(gui_data.t_peri_event(:)),2,1),'YData',[ymin,ymax]);
-ylim(get(gui_data.amplitude_plot,'Parent'),
 
 end
 
@@ -287,7 +286,19 @@ update_plot(cellraster_gui);
         
 end
 
+function unit_click(cellraster_gui,eventdata)
 
+keyboard
+
+% Get guidata
+gui_data = guidata(cellraster_gui);
+
+% Get the clicked unit
+unit_x = get(gui_data.unit_dots,'XData');
+unit_y = get(gui_data.unit_dots,'YData');
+
+
+end
 
 
 

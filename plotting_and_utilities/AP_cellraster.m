@@ -36,10 +36,9 @@ cellraster_gui = figure;
 
 unit_axes = subplot(5,5,[1:5:20],'visible','off','YDir','reverse');
 hold on;
-unit_dots = plot(rand(size(templateDepths)),templateDepths,'.k','MarkerSize',20);
+unit_dots = plot(rand(size(templateDepths)),templateDepths,'.k','MarkerSize',20,'ButtonDownFcn',@unit_click);
 curr_unit_dots = plot(0,0,'.r','MarkerSize',20);
 multiunit_lines = arrayfun(@(x) line(xlim,[0,0],'linewidth',2,'visible','off'),1:2);
-
 xlim(unit_axes,[0,1]);
 ylim([-50, max(channel_positions(:,2))+50]);
 
@@ -287,7 +286,25 @@ update_plot(cellraster_gui);
         
 end
 
+function unit_click(cellraster_gui,eventdata)
 
+% Get guidata
+gui_data = guidata(cellraster_gui);
+
+% Get the clicked unit, update current unit
+unit_x = get(gui_data.unit_dots,'XData');
+unit_y = get(gui_data.unit_dots,'YData');
+
+[~,clicked_unit] = min(sqrt(sum(([unit_x;unit_y] - ...
+    eventdata.IntersectionPoint(1:2)').^2,1)));
+
+gui_data.curr_unit = clicked_unit;
+
+% Upload gui data and draw
+guidata(cellraster_gui,gui_data);
+update_plot(cellraster_gui);
+
+end
 
 
 
