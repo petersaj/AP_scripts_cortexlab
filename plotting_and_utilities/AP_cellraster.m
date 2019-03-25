@@ -63,12 +63,12 @@ raster_image = imagesc(0,'visible','off'); colormap(raster_axes,hot);
 xlabel('Time from event (s)');
 ylabel('Trial');
 
-amplitude_axes = subplot(5,5,21:25);
+amplitude_axes = subplot(5,5,21:25); hold on;
 amplitude_plot = plot(0,0,'.k');
 amplitude_lines = arrayfun(@(x) line([0,0],ylim,'linewidth',2),1:2);
 xlabel('Experiment time (s)');
 ylabel('Template amplitude');
-axis tight;
+axis tight
 
 % Set default raster times
 raster_window = [-0.5,1];
@@ -193,11 +193,13 @@ end
 if length(gui_data.curr_unit) == 1
     [raster_y,raster_x] = find(curr_raster);
     set(gui_data.raster_dots,'XData',gui_data.t(raster_x),'YData',raster_y);
+    xlim(get(gui_data.raster_dots,'Parent'),[gui_data.t_bins(1),gui_data.t_bins(end)]);
     ylim(get(gui_data.raster_dots,'Parent'),[0,size(gui_data.t_peri_event,1)]);
 elseif length(gui_data.curr_unit) > 1
     raster_heatmap = imgaussfilt(curr_raster,[5,10]);
     set(gui_data.raster_image,'XData',gui_data.t,'YData', ...
         1:size(gui_data.t_peri_event,1),'CData',raster_heatmap);
+    caxis(get(gui_data.raster_image,'Parent'),prctile(raster_heatmap(:),[0.05,99.5]));
 end
 
 % Plot template amplitude over whole experiment
@@ -211,7 +213,7 @@ elseif length(gui_data.curr_unit) > 1
     long_bins_t = long_bins(1:end-1) + diff(long_bins)/2;
     long_spikes_binned = discretize(gui_data.spike_times,long_bins);
     amplitude_binned = accumarray(long_spikes_binned(curr_spikes_idx & ~isnan(long_spikes_binned)), ...
-        gui_data.template_amplitudes(curr_spikes_idx & ~isnan(long_spikes_binned)),size(long_bins_t'),@nanmean,NaN);
+        gui_data.template_amplitudes(curr_spikes_idx & ~isnan(long_spikes_binned)),size(long_bins_t'),@nansum,NaN);
     set(gui_data.amplitude_plot,'XData',long_bins_t,'YData',amplitude_binned,'linestyle','-');
 end
 
