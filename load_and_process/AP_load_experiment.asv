@@ -711,6 +711,41 @@ if ephys_exists && load_parts.ephys
     % Default channel map/positions are from end: make from surface
     channel_positions(:,2) = max(channel_positions(:,2)) - channel_positions(:,2);
     
+    % Unwhiten templates
+    templates = zeros(size(templates_whitened));
+    for t = 1:size(templates_whitened,1)
+        templates(t,:,:) = squeeze(templates_whitened(t,:,:))*winv;
+    end
+    
+    % Get the waveform of all templates (channel with largest amplitude)
+    [~,max_site] = max(max(abs(templates),[],2),[],3);
+    templates_max = nan(size(templates,1),size(templates,2));
+    for curr_template = 1:size(templates,1)
+        templates_max(curr_template,:) = ...
+            templates(curr_template,:,max_site(curr_template));
+    end
+    waveforms = templates_max;
+    
+    % Get depth of each template (by center-of-mass)    
+    template_chan_amp = squeeze(range(templates,2));
+    templateDepths = sum(template_chan_amp.*channel_positions(:,2)',2)./sum(template_chan_amp,2);
+    
+    % Get the depth of each spike (templates are zero-indexed)
+    spikeDepths = templateDepths(spike_templates+1);
+            
+    % Get trough-to-peak time for each template
+    templates_max_signfix = bsxfun(@times,templates_max, ...
+        sign(abs(min(templates_max,[],2)) - abs(max(templates_max,[],2))));
+    
+    [~,waveform_trough] = min(templates_max,[],2);
+    [~,waveform_peak_rel] = arrayfun(@(x) ...
+        max(templates_max(x,waveform_trough(x):end),[],2), ...
+        transpose(1:size(templates_max,1)));
+    waveform_peak = waveform_peak_rel + waveform_trough;
+    
+    templateDuration = waveform_peak - waveform_trough;
+    templateDuration_us = (templateDuration/ephys_sample_rate)*1e6;
+    
     % Load LFP
     n_channels = str2num(header.n_channels);
     %lfp_filename = [ephys_path filesep 'lfp.dat']; (this is old)
@@ -801,63 +836,8 @@ if ephys_exists && load_parts.ephys
         lfp_t_timeline = interp1(sync_ephys,sync_timeline,lfp_t,'linear','extrap');
     end
     
-    % Get the depths of each template (REMOVE DEPENDENCY EVENTUALLY)
-    % (by COM - this used to not work but now looks ok)
-    [spikeAmps, spikeDepths, templateDepths, tempAmps, tempsUnW, templateDuration, waveforms] = ...
-        templatePositionsAmplitudes(templates,winv,channel_positions(:,2),spike_templates,template_amplitudes);
-    
-    %%%%%% GETTING RID OF DEPENDENCY
-    % USED: spikeDepths, templateDepths, tempsUnW
-    
-    % Unwhiten templates
-    templates = zeros(size(templates_whitened));
-    for t = 1:size(templates_whitened,1)
-        templates(t,:,:) = squeeze(templates_whitened(t,:,:))*winv;
-    end
-    
-    % Get the waveform of all templates (channel with largest amplitude)
-    [~,max_site] = max(max(abs(templates),[],2),[],3);
-    templates_max = nan(size(templates,1),size(templates,2));
-    for curr_template = 1:size(templates,1)
-        templates_max(curr_template,:) = ...
-            templates(curr_template,:,max_site(curr_template));
-    end
-    waveforms = templates_max;
-    
-    % Get depth of each template (by center-of-mass)    
-    template_chan_amp = squeeze(range(templates,2));
-    templateDepths = sum(template_chan_amp.*channel_positions(:,2)',2)./sum(template_chan_amp,2);
-    
-
-    
-    
-    %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-
-    
-    %     % (by max waveform channel)
-    %     template_abs = permute(max(abs(templates),[],2),[3,1,2]);
-    %     [~,max_channel_idx] =  max(template_abs,[],1);
-    %     templateDepths = channel_positions(max_channel_idx,2);
-    %     % Get each spike's depth
-    %     spikeDepths = templateDepths(spike_templates+1);
-    
-
-    
-    % Get trough-to-peak time for each template
-    templates_max_signfix = bsxfun(@times,templates_max, ...
-        sign(abs(min(templates_max,[],2)) - abs(max(templates_max,[],2))));
-    
-    [~,waveform_trough] = min(templates_max,[],2);
-    [~,waveform_peak_rel] = arrayfun(@(x) ...
-        max(templates_max(x,waveform_trough(x):end),[],2), ...
-        transpose(1:size(templates_max,1)));
-    waveform_peak = waveform_peak_rel + waveform_trough;
-    
-    templateDuration = waveform_peak - waveform_trough;
-    templateDuration_us = (templateDuration/ephys_sample_rate)*1e6;
-    
     % Eliminate spikes that were classified as not "good"
-    if exist('cluster_groups','var')
+    if kilosort_version == 1 && exist('cluster_groups','var')
         
         if verbose; disp('Removing non-good/MUA templates'); end
         
@@ -880,20 +860,96 @@ if ephys_exists && load_parts.ephys
         spikeDepths = spikeDepths(good_spike_idx);
         spike_times_timeline = spike_times_timeline(good_spike_idx);
         
-        % Re-name the spike templates according to the remaining templates
+        % Rename the spike templates according to the remaining templates
         % (and make 1-indexed from 0-indexed)
         new_spike_idx = nan(max(spike_templates)+1,1);
         new_spike_idx(good_templates_idx+1) = 1:length(good_templates_idx);
         spike_templates = new_spike_idx(spike_templates+1);
         
-    elseif ~exist('cluster_groups','var')
+    elseif kilosort_version == 1 && ~exist('cluster_groups','var')
         if verbose; disp('Clusters not yet sorted, re-indexing'); end
-        % If no classifications, keep all and 1-index        
-        good_templates_idx = unique(spike_templates);        
+        % If no classifications, keep all and 1-index
+        good_templates_idx = unique(spike_templates);
         new_spike_idx = nan(max(spike_templates)+1,1);
         new_spike_idx(good_templates_idx+1) = 1:length(good_templates_idx);
         spike_templates = new_spike_idx(spike_templates+1);
+        
+    elseif kilosort_version == 2
+        % Kilosort 2: not manually sorted, using rudimentary cutoffs
+        
+        % Get SVD of waveforms (first component used)
+        [u,s,v] = svd(waveforms','econ');
+        
+        % 
+        
+        % Get trough/post-trough peak
+        [waveform_trough,waveform_trough_t] = min(waveforms,[],2);
+        [waveform_post_peak,~] = arrayfun(@(x) ...
+            max(waveforms(x,waveform_trough_t(x):end),[],2), ...
+            transpose(1:size(waveforms,1)));
+        
+        fwhm_trough = (sum(waveforms < (waveform_trough/2),2)/ephys_sample_rate)*1e6;
+        fwhm_peak = (sum(waveforms > (waveform_post_peak/2),2)/ephys_sample_rate)*1e6;
+        
+        % Get number of channels with 70% of the max range
+        template_channel_amp = squeeze(range(templates,2));
+        amp_thresh = max(template_channel_amp,[],2)*0.7;
+        large_amp_channel_n = sum(template_channel_amp > amp_thresh,2);
+        
+        figure('Name','Kilosort 2 template triage');
+        p1 = subplot(4,2,[1,3,5]);hold on;
+        plot(v(:,1),fwhm_trough,'.k')
+        line([0,0],ylim);
+        xlabel('Component 1 score');
+        ylabel('FWHM (\mus)');
+        title('Set FWHM cutoff');
+        
+        subplot(4,2,7); hold on;
+        plot(u(:,1),'linewidth',2);
+        ylabel('Component 1');
+        
+        [~,fwhm_trough_cutoff] = ginput(1);
+        line(xlim,[fwhm_trough_cutoff,fwhm_trough_cutoff]);
+        
+        p2 = subplot(4,2,[2,4,6]); hold on;
+        plot(fwhm_trough,large_amp_channel_n,'.k')
+        title('Set large amplitude channel cutoff');
+        ylabel('Number of channels');
+        xlabel('FWHM (\mus)');
+        [~,large_amp_channel_n_cutoff] = ginput(1);
+        line(xlim,[large_amp_channel_n_cutoff,large_amp_channel_n_cutoff]);
+        
+        % Set good templates (and 0-indexed index)
+        good_templates = v(:,1) > 0 & fwhm_trough < fwhm_trough_cutoff & large_amp_channel_n < large_amp_channel_n_cutoff;
+        good_templates_idx = find(good_templates)-1;
+        
+        plot(p1,v(good_templates,1),fwhm_trough(good_templates),'.g');
+        plot(p2,fwhm_trough(good_templates),large_amp_channel_n(good_templates),'.g');
+        drawnow;
+        
+         % Throw out all non-good template data
+        templates = templates(good_templates,:,:);
+        templateDepths = templateDepths(good_templates);
+        waveforms = waveforms(good_templates,:);
+        templateDuration = templateDuration(good_templates);
+        templateDuration_us = templateDuration_us(good_templates);
+        
+        % Throw out all non-good spike data
+        good_spike_idx = ismember(spike_templates,good_templates_idx);
+        spike_times = spike_times(good_spike_idx);
+        spike_templates = spike_templates(good_spike_idx);
+        template_amplitudes = template_amplitudes(good_spike_idx);
+        spikeDepths = spikeDepths(good_spike_idx);
+        spike_times_timeline = spike_times_timeline(good_spike_idx);
+        
+        % Rename the spike templates according to the remaining templates
+        % (and make 1-indexed from 0-indexed)
+        new_spike_idx = nan(max(spike_templates)+1,1);
+        new_spike_idx(good_templates_idx+1) = 1:length(good_templates_idx);
+        spike_templates = new_spike_idx(spike_templates+1);
+        
     end
+    
     
 end
 
@@ -990,7 +1046,7 @@ end
 
 %% Classify spikes
 
-if ephys_exists && load_parts.ephys && exist('cluster_groups','var')
+if ephys_exists && load_parts.ephys
     if verbose; disp('Classifying spikes...'); end
     
     str_templates = templateDepths >= str_depth(1) & templateDepths <= str_depth(2);
