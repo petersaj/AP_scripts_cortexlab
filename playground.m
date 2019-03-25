@@ -5902,7 +5902,7 @@ plot(t,nanmean(mua_allcat_move(plot_trials,:,2),1) - ...
 
 animals = {'AP024','AP025','AP026','AP027','AP028','AP029'};
 
-for curr_animal = 3:length(animals)
+for curr_animal = 5:length(animals)
     
     animal = animals{curr_animal};
     protocol = 'vanillaChoiceworld';
@@ -5913,7 +5913,7 @@ for curr_animal = 3:length(animals)
     for curr_day = 1:length(experiments)
         
         % (from server restart)
-        if curr_animal == 3 && curr_day == 1
+        if curr_animal == 5 && curr_day < 7
             continue
         end
         
