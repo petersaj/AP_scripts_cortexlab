@@ -1,5 +1,10 @@
-function AP_cellraster(align_times,templates,channel_positions,templateDepths,spike_times,spike_templates,template_amplitudes)
+function AP_cellraster(align_times,unit_sort,templates,channel_positions,templateDepths,spike_times,spike_templates,template_amplitudes)
 % Working on: a custom equivalent of psthViewer
+
+% Align times required as input
+if ~exist('align_times','var')
+    error('Align times required');
+end
 
 % Put align_times into cell array if it isn't already
 if ~iscell(align_times)
@@ -29,6 +34,11 @@ end
 
 if ~exist('template_amplitudes','var')
     template_amplitudes = evalin('base','template_amplitudes');
+end
+
+% Sort the units by depth if not specified
+if ~exist('unit_sort','var')
+   [~,unit_sort] = sort(templateDepths); 
 end
 
 % Initialize figure and axes
@@ -101,6 +111,7 @@ gui_data.t_peri_event = t_peri_event;
 
 % (spike data)
 gui_data.align_times = align_times;
+gui_data.unit_sort = unit_sort;
 gui_data.templates = templates;
 gui_data.channel_positions = channel_positions;
 gui_data.spike_times = spike_times;
@@ -234,20 +245,14 @@ unique_templates = unique(gui_data.spike_templates);
 switch eventdata.Key
     case 'rightarrow'
         % Right = next unit
-        curr_unit = max(gui_data.curr_unit);
-        new_unit = unique_templates(find(unique_templates > curr_unit,1));
-        if isempty(new_unit)
-            new_unit = unique_templates(1);
-        end
+        curr_unit_idx = gui_data.curr_unit(1) == gui_data.unit_sort;
+        new_unit = gui_data.unit_sort(circshift(curr_unit_idx,1));
         gui_data.curr_unit = new_unit;
     case 'leftarrow'
         % Left = previous unit
-        curr_unit = min(gui_data.curr_unit);
-        new_unit = unique_templates(find(unique_templates < curr_unit,1,'last'));
-        if isempty(new_unit)
-            new_unit = unique_templates(end);
-        end
-        gui_data.curr_unit = new_unit;        
+        curr_unit_idx = gui_data.curr_unit(end) == gui_data.unit_sort;
+        new_unit = gui_data.unit_sort(circshift(curr_unit_idx,-1));
+        gui_data.curr_unit = new_unit;
     case 'downarrow'
         % Down = next alignment
         next_align = gui_data.curr_align + 1;
