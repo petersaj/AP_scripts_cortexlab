@@ -109,7 +109,11 @@ linkaxes([unit_axes,waveform_axes],'y');
 psth_axes = subplot(5,5,[3,4,5],'YAxisLocation','right');
 hold on;
 max_n_groups = max(cell2mat(cellfun(@(x) 1+sum(diff(sort(x,1),[],1) ~= 0),align_groups,'uni',false)));
-psth_colors = [linspace(0,0.8,max_n_groups)',zeros(max_n_groups,1),zeros(max_n_groups,1)];
+if max_n_groups == 1
+    psth_colors = [0,0,0];
+else
+    psth_colors = [linspace(0,0.8,max_n_groups)',zeros(max_n_groups,1),zeros(max_n_groups,1)];
+end
 
 psth_lines = arrayfun(@(x) plot(NaN,NaN,'linewidth',2,'color',psth_colors(x,:)),1:max_n_groups);
 xlabel('Time from event (s)');
@@ -332,8 +336,8 @@ switch eventdata.Key
         new_unit = gui_data.unit_sort(circshift(curr_unit_idx,-1));
         gui_data.curr_unit = new_unit;
         
-    case 'downarrow'
-        % Down = next alignment
+    case 'uparrow'
+        % Up = next alignment
         new_align = gui_data.curr_align + 1;
         if new_align > length(gui_data.align_times)
             new_align = 1;
@@ -347,8 +351,8 @@ switch eventdata.Key
         gui_data.curr_align = new_align;
         gui_data.t_peri_event = t_peri_event;
         
-    case 'uparrow'
-        % Up = next alignment
+    case 'downarrow'
+        % Down = previous alignment
         new_align = gui_data.curr_align - 1;
         if new_align < 1
             new_align = length(gui_data.align_times);
@@ -358,10 +362,10 @@ switch eventdata.Key
         
         % (handle NaNs by setting rows with NaN times to 0)
         t_peri_event(any(isnan(t_peri_event),2),:) = 0;
-
+        
         gui_data.curr_align = new_align;
         gui_data.t_peri_event = t_peri_event;
-        
+
     case 'pagedown'
         % Page Down = next group
         next_group = gui_data.curr_group + 1;

@@ -3135,8 +3135,7 @@ for curr_unit = 1:max(spike_templates)
 end
 
 
-
-
+%%%%% try just doing a comparison of aligned peaks?
 
 
 
