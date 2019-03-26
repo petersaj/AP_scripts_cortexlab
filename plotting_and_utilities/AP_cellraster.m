@@ -16,8 +16,8 @@ function AP_cellraster(align_times,align_groups,unit_sort)
 % template_amplitudes (output from kilosort)
 %
 % Controls: 
-% left/right - switch between units (clicking on unit also selects)
-% up/down - switch between alignments (if multiple)
+% up/down - switch between units (clicking on unit also selects)
+% left/right - switch between alignments (if multiple)
 % m - select depth range to plot multiunit
 % u - go to unit number
 
@@ -324,20 +324,20 @@ function key_press(cellraster_gui,eventdata)
 gui_data = guidata(cellraster_gui);
 
 switch eventdata.Key
-    case 'rightarrow'
-        % Right = next unit
+    case 'downarrow'
+        % Next unit
         curr_unit_idx = gui_data.curr_unit(1) == gui_data.unit_sort;
         new_unit = gui_data.unit_sort(circshift(curr_unit_idx,1));
         gui_data.curr_unit = new_unit;
         
-    case 'leftarrow'
-        % Left = previous unit
+    case 'uparrow'
+        % Previous unit
         curr_unit_idx = gui_data.curr_unit(end) == gui_data.unit_sort;
         new_unit = gui_data.unit_sort(circshift(curr_unit_idx,-1));
         gui_data.curr_unit = new_unit;
         
-    case 'uparrow'
-        % Up = next alignment
+    case 'rightarrow'
+        % Next alignment
         new_align = gui_data.curr_align + 1;
         if new_align > length(gui_data.align_times)
             new_align = 1;
@@ -351,8 +351,8 @@ switch eventdata.Key
         gui_data.curr_align = new_align;
         gui_data.t_peri_event = t_peri_event;
         
-    case 'downarrow'
-        % Down = previous alignment
+    case 'leftarrow'
+        % Previous alignment
         new_align = gui_data.curr_align - 1;
         if new_align < 1
             new_align = length(gui_data.align_times);
@@ -367,7 +367,7 @@ switch eventdata.Key
         gui_data.t_peri_event = t_peri_event;
 
     case 'pagedown'
-        % Page Down = next group
+        % Next group
         next_group = gui_data.curr_group + 1;
         if next_group > size(gui_data.align_groups{gui_data.curr_align},2)
             next_group = 1;
@@ -375,7 +375,7 @@ switch eventdata.Key
         gui_data.curr_group = next_group;
         
     case 'pageup'
-        % Page Down = next group
+        % Previous group
         next_group = gui_data.curr_group - 1;
         if next_group < 1
             next_group = size(gui_data.align_groups{gui_data.curr_align},2);
@@ -383,7 +383,7 @@ switch eventdata.Key
         gui_data.curr_group = next_group;
                 
     case 'm'
-        % m = multiunit (select on unit depth plot)
+        % Multiunit (select on unit depth plot)
         [~,multiunit_top] = ginput(1);
         set(gui_data.multiunit_lines(1),'visible','on','YData',repmat(multiunit_top,1,2));
         [~,multiunit_bottom] = ginput(1);
@@ -394,7 +394,7 @@ switch eventdata.Key
             template_depths <= multiunit_bottom);       
         
     case 'u'
-        % u = enter and go to unit
+        % Enter and go to unit
         new_unit = str2num(cell2mat(inputdlg('Go to unit:')));
         if ~ismember(new_unit,unique(gui_data.spike_templates))
             error(['Unit ' num2str(new_unit) ' not present'])
