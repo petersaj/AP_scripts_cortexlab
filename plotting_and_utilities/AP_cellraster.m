@@ -19,6 +19,7 @@ function AP_cellraster(align_times,align_groups,unit_sort)
 % left/right - switch between units (clicking on unit also selects)
 % up/down - switch between alignments (if multiple)
 % m - select depth range to plot multiunit
+% u - go to unit number
 
 
 % Initiate align_times
@@ -333,32 +334,32 @@ switch eventdata.Key
         
     case 'downarrow'
         % Down = next alignment
-        next_align = gui_data.curr_align + 1;
-        if next_align > length(gui_data.align_times)
-            next_align = 1;
+        new_align = gui_data.curr_align + 1;
+        if new_align > length(gui_data.align_times)
+            new_align = 1;
         end
-        use_align = reshape(gui_data.align_times{next_align},[],1);
+        use_align = reshape(gui_data.align_times{new_align},[],1);
         t_peri_event = use_align + gui_data.t_bins;
         
         % (handle NaNs by setting rows with NaN times to 0)
         t_peri_event(any(isnan(t_peri_event),2),:) = 0;
         
-        gui_data.curr_align = next_align;
+        gui_data.curr_align = new_align;
         gui_data.t_peri_event = t_peri_event;
         
     case 'uparrow'
         % Up = next alignment
-        next_align = gui_data.curr_align - 1;
-        if next_align < 1
-            next_align = length(gui_data.align_times);
+        new_align = gui_data.curr_align - 1;
+        if new_align < 1
+            new_align = length(gui_data.align_times);
         end
-        use_align = reshape(gui_data.align_times{next_align},[],1);
+        use_align = reshape(gui_data.align_times{new_align},[],1);
         t_peri_event = use_align + gui_data.t_bins;
         
         % (handle NaNs by setting rows with NaN times to 0)
         t_peri_event(any(isnan(t_peri_event),2),:) = 0;
 
-        gui_data.curr_align = next_align;
+        gui_data.curr_align = new_align;
         gui_data.t_peri_event = t_peri_event;
         
     case 'pagedown'
@@ -386,7 +387,16 @@ switch eventdata.Key
         
         template_depths = get(gui_data.unit_dots,'YData');
         gui_data.curr_unit = find(template_depths >= multiunit_top & ...
-            template_depths <= multiunit_bottom);        
+            template_depths <= multiunit_bottom);       
+        
+    case 'u'
+        % u = enter and go to unit
+        new_unit = str2num(cell2mat(inputdlg('Go to unit:')));
+        if ~ismember(new_unit,unique(gui_data.spike_templates))
+            error(['Unit ' num2str(new_unit) ' not present'])
+        end
+        gui_data.curr_unit = new_unit;
+        
 end
 
 % Upload gui data and draw

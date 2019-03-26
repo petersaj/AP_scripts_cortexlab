@@ -2848,15 +2848,6 @@ ylabel('Depth');
 
 %%%% Copied from AP_ctx_str_trial_preprocessing (removed some wf stuff)
 
-% Regression parameters
-regression_params.use_svs = 1:50;
-regression_params.skip_seconds = 20;
-regression_params.upsample_factor = 1;
-regression_params.kernel_t = [-0.5,0.5];
-regression_params.zs = [false,false];
-regression_params.cvfold = 5;
-regression_params.use_constant = true;
-
 % Get event-aligned activity
 raster_window = [-0.5,2];
 upsample_factor = 1;
@@ -2868,7 +2859,6 @@ use_align = stimOn_times;
 use_align(isnan(use_align)) = 0;
 
 t_peri_event = bsxfun(@plus,use_align,t);
-t_bins = [t_peri_event-raster_sample_rate/2,t_peri_event(:,end)+raster_sample_rate/2];
 
 %%% Trial-align wheel velocity
 event_aligned_wheel = interp1(Timeline.rawDAQTimestamps, ...
@@ -2914,14 +2904,6 @@ D.repeatNum = ones(sum(use_trials),1);
 D.outcome = reshape(trial_outcome(use_trials),[],1);
 
 %%% Regress task to cortex/striatum/cortex-predicted striatum
-
-% Get time points to bin
-sample_rate = framerate*regression_params.upsample_factor;
-time_bins = frame_t(find(frame_t > ...
-    regression_params.skip_seconds,1)):1/sample_rate: ...
-    frame_t(find(frame_t-frame_t(end) < ...
-    -regression_params.skip_seconds,1,'last'));
-time_bin_centers = time_bins(1:end-1) + diff(time_bins)/2;
 
 % Get reaction time for building regressors
 [move_trial,move_idx] = max(abs(event_aligned_wheel) > 0.02,[],2);
@@ -3077,37 +3059,47 @@ return_constant = false;
 %%%%%%% New: regression task -> striatum units
 
 %%% Trial-align striatum units
-event_aligned_unit = nan(length(stimOn_times),length(t),max(spike_templates));
+event_aligned_mua = nan(length(stimOn_times),length(t),n_depths);
 t_bins = [t_peri_event-raster_sample_rate/2,t_peri_event(:,end)+raster_sample_rate/2];
-for curr_unit = 1:max(spike_templates)
-    curr_spikes = spike_times_timeline(spike_templates == curr_unit);    
-    event_aligned_unit(:,:,curr_unit) = cell2mat(arrayfun(@(x) ...
+for curr_depth = 1:n_depths
+    curr_spikes = spike_times_timeline(depth_group == curr_depth);
+    % (for only msns in depth group)
+    %                 curr_spikes = spike_times_timeline(depth_group == curr_depth & ...
+    %                     ismember(spike_templates,find(msn)));
+    
+    event_aligned_mua(:,:,curr_depth) = cell2mat(arrayfun(@(x) ...
         histcounts(curr_spikes,t_bins(x,:)), ...
         [1:size(t_peri_event,1)]','uni',false))./raster_sample_rate;
-    AP_print_progress_fraction(curr_unit,max(spike_templates));
 end
 
 %%% Binned unit activity across the experiment
-binned_spikes = zeros(max(spike_templates),length(time_bin_centers));
-for curr_unit = 1:max(spike_templates)
-    curr_spike_times = spike_times_timeline(spike_templates == curr_unit);
-    binned_spikes(curr_unit,:) = histcounts(curr_spike_times,time_bins);
-    AP_print_progress_fraction(curr_unit,max(spike_templates));
+
+% Get time points to bin
+sample_rate = framerate*regression_params.upsample_factor;
+time_bins = frame_t(find(frame_t > ...
+    regression_params.skip_seconds,1)):1/sample_rate: ...
+    frame_t(find(frame_t-frame_t(end) < ...
+    -regression_params.skip_seconds,1,'last'));
+time_bin_centers = time_bins(1:end-1) + diff(time_bins)/2;
+
+binned_spikes = zeros(n_depths,length(time_bin_centers));
+for curr_depth = 1:n_depths
+    curr_spike_times = spike_times_timeline(depth_group == curr_depth);
+    binned_spikes(curr_depth,:) = histcounts(curr_spike_times,time_bins);
 end
 binned_spikes_std = binned_spikes./nanstd(binned_spikes,[],2);
 binned_spikes_std(isnan(binned_spikes_std)) = 0;
 
 
 %%% Task > striatal unit regression
-unit_expl_var = nan(length(regressors)+1,max(spike_templates));
-unit_taskpred_k = cell(length(regressors)+return_constant,max(spike_templates));
-unit_taskpred = nan(size(event_aligned_unit));
-unit_taskpred_reduced = ...
-    repmat(nan(size(event_aligned_unit)),1,1,1,length(regressors));
-for curr_unit = 1:max(spike_templates)
+mua_taskpred_k = cell(length(regressors)+return_constant,n_depths);
+mua_taskpred = nan(size(event_aligned_mua));
+mua_taskpred_reduced = ...
+    repmat(nan(size(event_aligned_mua)),1,1,1,length(regressors));
+for curr_depth = 1:n_depths
     
-    baseline = nanmean(reshape(event_aligned_unit(:,t < 0,curr_unit),[],1)*raster_sample_rate);
-    activity = single(binned_spikes(curr_unit,:)) - baseline;
+    baseline = nanmean(reshape(event_aligned_mua(:,t < 0,curr_depth),[],1)*raster_sample_rate);
+    activity = single(binned_spikes(curr_depth,:)) - baseline;
     
     % Skip if nothing in this depth
     if ~any(activity(:))
@@ -3118,19 +3110,14 @@ for curr_unit = 1:max(spike_templates)
         AP_regresskernel(regressors,activity,sample_shifts, ...
         lambda,zs,cvfold,return_constant,use_constant);
     
-    unit_expl_var(1,curr_unit) = expl_var.total;
-    unit_expl_var(2:end,curr_unit) = expl_var.partial;
+    mua_taskpred_k(:,curr_depth) = task_kernel;
     
-    unit_taskpred_k(:,curr_unit) = task_kernel;
-    
-    unit_taskpred(:,:,curr_unit) = ...
+    mua_taskpred(:,:,curr_depth) = ...
         interp1(time_bin_centers,activity_predicted',t_peri_event)./raster_sample_rate;
     
-    unit_taskpred_reduced(:,:,curr_unit,:) = cell2mat(arrayfun(@(x) ...
+    mua_taskpred_reduced(:,:,curr_depth,:) = cell2mat(arrayfun(@(x) ...
         interp1(time_bin_centers,activity_predicted_reduced(:,:,x)', ...
         t_peri_event)./raster_sample_rate,permute(1:length(regressors),[1,3,4,2]),'uni',false));
-    
-    AP_print_progress_fraction(curr_unit,max(spike_templates));
     
 end
 
