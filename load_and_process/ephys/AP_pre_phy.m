@@ -38,7 +38,7 @@ waveforms = templates_max;
 
 % Get depth of each template (by center-of-mass)
 template_chan_amp = squeeze(range(templates,2));
-templateDepths = sum(template_chan_amp.*channel_positions(:,2)',2)./sum(template_chan_amp,2);
+template_depths = sum(template_chan_amp.*channel_positions(:,2)',2)./sum(template_chan_amp,2);
 
 
 %%%%%%%%%%%%%%%%%%%%%%% (old, not dealt with)
@@ -57,7 +57,7 @@ channel_positions(:,2) = max(channel_positions(:,2)) - channel_positions(:,2);
 
 % Get the depths of each template (REMOVE DEPENDENCY EVENTUALLY)
 % (by COM - this used to not work but now looks ok)
-[spikeAmps, spikeDepths, templateDepths, tempAmps, tempsUnW, templateDuration, waveforms] = ...
+[spikeAmps, spike_depths, template_depths, tempAmps, tempsUnW, templateDuration, waveforms] = ...
     templatePositionsAmplitudes(templates,winv,channel_positions(:,2),spike_templates,template_amplitudes);
 
 % Set the templates to be the unwhitened templates

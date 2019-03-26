@@ -728,10 +728,10 @@ if ephys_exists && load_parts.ephys
     
     % Get depth of each template (by center-of-mass)    
     template_chan_amp = squeeze(range(templates,2));
-    templateDepths = sum(template_chan_amp.*channel_positions(:,2)',2)./sum(template_chan_amp,2);
+    template_depths = sum(template_chan_amp.*channel_positions(:,2)',2)./sum(template_chan_amp,2);
     
     % Get the depth of each spike (templates are zero-indexed)
-    spikeDepths = templateDepths(spike_templates+1);
+    spike_depths = template_depths(spike_templates+1);
             
     % Get trough-to-peak time for each template
     templates_max_signfix = bsxfun(@times,templates_max, ...
@@ -847,7 +847,7 @@ if ephys_exists && load_parts.ephys
         
         % Throw out all non-good template data
         templates = templates(good_templates,:,:);
-        templateDepths = templateDepths(good_templates);
+        template_depths = template_depths(good_templates);
         waveforms = waveforms(good_templates,:);
         templateDuration = templateDuration(good_templates);
         templateDuration_us = templateDuration_us(good_templates);
@@ -857,7 +857,7 @@ if ephys_exists && load_parts.ephys
         spike_times = spike_times(good_spike_idx);
         spike_templates = spike_templates(good_spike_idx);
         template_amplitudes = template_amplitudes(good_spike_idx);
-        spikeDepths = spikeDepths(good_spike_idx);
+        spike_depths = spike_depths(good_spike_idx);
         spike_times_timeline = spike_times_timeline(good_spike_idx);
         
         % Rename the spike templates according to the remaining templates
@@ -932,7 +932,7 @@ if ephys_exists && load_parts.ephys
         
          % Throw out all non-good template data
         templates = templates(good_templates,:,:);
-        templateDepths = templateDepths(good_templates);
+        template_depths = template_depths(good_templates);
         waveforms = waveforms(good_templates,:);
         templateDuration = templateDuration(good_templates);
         templateDuration_us = templateDuration_us(good_templates);
@@ -942,7 +942,7 @@ if ephys_exists && load_parts.ephys
         spike_times = spike_times(good_spike_idx);
         spike_templates = spike_templates(good_spike_idx);
         template_amplitudes = template_amplitudes(good_spike_idx);
-        spikeDepths = spikeDepths(good_spike_idx);
+        spike_depths = spike_depths(good_spike_idx);
         spike_times_timeline = spike_times_timeline(good_spike_idx);
         
         % Rename the spike templates according to the remaining templates
@@ -1052,7 +1052,7 @@ end
 if ephys_exists && load_parts.ephys
     if verbose; disp('Classifying spikes...'); end
     
-    str_templates = templateDepths >= str_depth(1) & templateDepths <= str_depth(2);
+    str_templates = template_depths >= str_depth(1) & template_depths <= str_depth(2);
     non_str_templates = ~str_templates;
     
     % Define the window to look for spiking statistics in (spikes go in and
@@ -1223,7 +1223,7 @@ if ephys_exists && load_parts.ephys
         plot_celltypes = any([wide,narrow,msn,fsi,tan,uin],1);
         
         figure('Position',[94,122,230,820]);
-        scatter(rand(size(templateDepths))-0.5,templateDepths,10,use_colors(celltypes,:),'filled');
+        scatter(rand(size(template_depths))-0.5,template_depths,10,use_colors(celltypes,:),'filled');
         xlim([-1,1])
         set(gca,'XTick',[]);
         set(gca,'YDir','reverse');

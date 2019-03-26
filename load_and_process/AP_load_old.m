@@ -664,14 +664,14 @@ if ephys_exists && load_parts.ephys
     
     % Get the depths of each template
     % (by COM - this used to not work but now looks ok)
-    [spikeAmps, spikeDepths, templateDepths, tempAmps, tempsUnW, templateDuration, waveforms] = ...
+    [spikeAmps, spike_depths, template_depths, tempAmps, tempsUnW, templateDuration, waveforms] = ...
         templatePositionsAmplitudes(templates,winv,channel_positions(:,2),spike_templates,template_amplitudes);
     %     % (by max waveform channel)
     %     template_abs = permute(max(abs(templates),[],2),[3,1,2]);
     %     [~,max_channel_idx] =  max(template_abs,[],1);
-    %     templateDepths = channel_positions(max_channel_idx,2);
+    %     template_depths = channel_positions(max_channel_idx,2);
     %     % Get each spike's depth
-    %     spikeDepths = templateDepths(spike_templates+1);
+    %     spike_depths = template_depths(spike_templates+1);
     
     % Get the waveform duration of all templates (channel with largest amp)
     [~,max_site] = max(max(abs(templates),[],2),[],3);
@@ -705,7 +705,7 @@ if ephys_exists && load_parts.ephys
         
         % Throw out all non-good template data
         templates = templates(good_templates,:,:);
-        templateDepths = templateDepths(good_templates);
+        template_depths = template_depths(good_templates);
         waveforms = waveforms(good_templates,:);
         templateDuration = templateDuration(good_templates);
         templateDuration_us = templateDuration_us(good_templates);
@@ -715,7 +715,7 @@ if ephys_exists && load_parts.ephys
         spike_times = spike_times(good_spike_idx);
         spike_templates = spike_templates(good_spike_idx);
         template_amplitudes = template_amplitudes(good_spike_idx);
-        spikeDepths = spikeDepths(good_spike_idx);
+        spike_depths = spike_depths(good_spike_idx);
         spike_times_timeline = spike_times_timeline(good_spike_idx);
         
         % Re-name the spike templates according to the remaining templates

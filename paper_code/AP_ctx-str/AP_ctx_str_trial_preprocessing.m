@@ -3372,7 +3372,7 @@ for curr_animal = 1:length(animals)
         %         n_depths = 6;
         %         depth_group_edges = round(linspace(str_depth(1),str_depth(2),n_depths+1));
         %         depth_group_centers = round(depth_group_edges(1:end-1)+diff(depth_group_edges)/2);
-        %         depth_group = discretize(spikeDepths,depth_group_edges);
+        %         depth_group = discretize(spike_depths,depth_group_edges);
         
         % (aligned striatum depths)
         n_depths = n_aligned_depths;
@@ -3557,7 +3557,7 @@ for curr_animal = 1:length(animals)
         %         n_depths = 6;
         %         depth_group_edges = round(linspace(str_depth(1),str_depth(2),n_depths+1));
         %         depth_group_centers = round(depth_group_edges(1:end-1)+diff(depth_group_edges)/2);
-        %         depth_group = discretize(spikeDepths,depth_group_edges);
+        %         depth_group = discretize(spike_depths,depth_group_edges);
         
         % (aligned striatum depths)
         n_depths = n_aligned_depths;
@@ -3736,7 +3736,7 @@ for curr_animal = 1:length(animals)
         %         n_depths = 6;
         %         depth_group_edges = round(linspace(str_depth(1),str_depth(2),n_depths+1));
         %         depth_group_centers = round(depth_group_edges(1:end-1)+diff(depth_group_edges)/2);
-        %         depth_group = discretize(spikeDepths,depth_group_edges);
+        %         depth_group = discretize(spike_depths,depth_group_edges);
         
         % (aligned striatum depths)
         n_depths = n_aligned_depths;
@@ -3914,7 +3914,7 @@ for curr_animal = 1:length(animals)
         %         n_depths = 6;
         %         depth_group_edges = round(linspace(str_depth(1),str_depth(2),n_depths+1));
         %         depth_group_centers = round(depth_group_edges(1:end-1)+diff(depth_group_edges)/2);
-        %         depth_group = discretize(spikeDepths,depth_group_edges);
+        %         depth_group = discretize(spike_depths,depth_group_edges);
         
         % (aligned striatum depths)
         n_depths = n_aligned_depths;

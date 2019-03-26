@@ -140,7 +140,7 @@ figure;plot3(template_channel_skewness,template_corr,1:size(templates,1),'.k');
 % skewness_time = max(skewness(templates.^2,[],2),[],3);
 % skewness_channel = skewness(sum(templates.^2,2),[],3);
 % 
-% figure;plot3(skewness_time,skewness_channel,templateDepths,'.k')
+% figure;plot3(skewness_time,skewness_channel,template_depths,'.k')
 % axis vis3d
 % set(gca,'ZDir','reverse');
 % xlabel('Skewness time');

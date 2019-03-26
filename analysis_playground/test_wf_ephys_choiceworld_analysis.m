@@ -3,9 +3,9 @@
 stimIDs = signals_events.trialSideValues.*signals_events.trialContrastValues;
 % stimIDs = discretize(stimIDs,[-Inf,-0.125,-0.01,0.01,0.25,Inf],[-2,-1,0,1,2]);
 
-use_spikes_idx = ismember(spike_templates,find(templateDepths >= str_depth(1) & templateDepths <= str_depth(1)+100));
-% use_spikes_idx = ismember(spike_templates,find(templateDepths >= 500 & templateDepths <= 800));
-% use_spikes_idx = ismember(spike_templates,intersect(find(templateDepths >= 500 & templateDepths <= 1500),find(msn)));
+use_spikes_idx = ismember(spike_templates,find(template_depths >= str_depth(1) & template_depths <= str_depth(1)+100));
+% use_spikes_idx = ismember(spike_templates,find(template_depths >= 500 & template_depths <= 800));
+% use_spikes_idx = ismember(spike_templates,intersect(find(template_depths >= 500 & template_depths <= 1500),find(msn)));
 
 use_spikes = spike_times_timeline(use_spikes_idx);
 
@@ -75,7 +75,7 @@ n_depth_groups = 6;
 depth_group_edges = round(linspace(str_depth(1),str_depth(2),n_depth_groups+1));
 depth_group_centers = round(depth_group_edges(1:end-1)+diff(depth_group_edges)/2);
 
-depth_group = discretize(spikeDepths,depth_group_edges);
+depth_group = discretize(spike_depths,depth_group_edges);
 
 raster_window = [-0.2,1];
 psth_bin_size = 0.001;
@@ -133,7 +133,7 @@ depth_group_edges = round(linspace(str_depth(1),str_depth(2),n_depth_groups+1));
 %depth_group_edges = [0 1300];
 depth_group_centers = round(depth_group_edges(1:end-1)+diff(depth_group_edges)/2);
 
-depth_group = discretize(spikeDepths,depth_group_edges);
+depth_group = discretize(spike_depths,depth_group_edges);
 
 raster_window = [-0.5,2.5];
 psth_bin_size = 0.001;
@@ -209,8 +209,8 @@ ylabel('Depth (\mum)');
 
 stimIDs = signals_events.trialSideValues.*signals_events.trialContrastValues;
 
-% use_spikes_idx = ismember(spike_templates,find(templateDepths >= 1000 & templateDepths <= 2000));
-use_spikes_idx =ismember(spike_templates,find(templateDepths > 1000 & templateDepths < 2000)) &...
+% use_spikes_idx = ismember(spike_templates,find(template_depths >= 1000 & template_depths <= 2000));
+use_spikes_idx =ismember(spike_templates,find(template_depths > 1000 & template_depths < 2000)) &...
     ismember(spike_templates,find(msn));
 use_spikes = spike_times_timeline(use_spikes_idx);
 
@@ -287,9 +287,9 @@ ylabel('Spikes');
 
 stimIDs = signals_events.trialSideValues.*signals_events.trialContrastValues;
 
-use_spikes_idx = ismember(spike_templates,find(templateDepths >= depth_group_edges(3) & templateDepths <= depth_group_edges(4)));
-%use_spikes_idx = ismember(spike_templates,find(templateDepths >= 3000 & templateDepths <= 4000));
-% use_spikes_idx = ismember(spike_templates,intersect(find(templateDepths >= 1000 & templateDepths <= 2000),find(msn)));
+use_spikes_idx = ismember(spike_templates,find(template_depths >= depth_group_edges(3) & template_depths <= depth_group_edges(4)));
+%use_spikes_idx = ismember(spike_templates,find(template_depths >= 3000 & template_depths <= 4000));
+% use_spikes_idx = ismember(spike_templates,intersect(find(template_depths >= 1000 & template_depths <= 2000),find(msn)));
 
 use_spikes = spike_times_timeline(use_spikes_idx);
 
@@ -329,12 +329,12 @@ stimIDs = signals_events.trialSideValues.*signals_events.trialContrastValues;
 
 n_depths = 6;
 depth_group_edges = round(linspace(str_depth(1),str_depth(2),n_depths+1));
-depth_group = discretize(spikeDepths,depth_group_edges);
+depth_group = discretize(spike_depths,depth_group_edges);
 
 use_spikes_idx = depth_group == 2;
 
-% use_spikes_idx = ismember(spike_templates,find(templateDepths >= 500 & templateDepths <= 3500));
-% use_spikes_idx = ismember(spike_templates,intersect(find(templateDepths >= 2000 & templateDepths <= 3000),find(msn)));
+% use_spikes_idx = ismember(spike_templates,find(template_depths >= 500 & template_depths <= 3500));
+% use_spikes_idx = ismember(spike_templates,intersect(find(template_depths >= 2000 & template_depths <= 3000),find(msn)));
 
 use_spikes = spike_times_timeline(use_spikes_idx);
 use_templates = unique(spike_templates(use_spikes_idx));
@@ -491,8 +491,8 @@ event_aligned_df = interp1(conv(frame_t,[1,1]/2,'valid'),diff(roi_trace),t_peri_
 event_aligned_df(event_aligned_df < 0) = 0;
 
 % Pull out MUA at a given depth
-use_spikes = spike_times_timeline(ismember(spike_templates,find(templateDepths > depth_edges(1) & templateDepths < depth_edges(2))));
-% use_spikes = spike_times_timeline(ismember(spike_templates,find(templateDepths > 500 & templateDepths < 1500)) &...
+use_spikes = spike_times_timeline(ismember(spike_templates,find(template_depths > depth_edges(1) & template_depths < depth_edges(2))));
+% use_spikes = spike_times_timeline(ismember(spike_templates,find(template_depths > 500 & template_depths < 1500)) &...
 %     ismember(spike_templates,find(msn)));
 t_peri_event_bins = [t_peri_event - 1/(sample_rate*2), ...
     t_peri_event(:,end) + 1/(sample_rate*2)];
@@ -767,9 +767,9 @@ skip_seconds = 60*1;
 time_bins = frame_t(find(frame_t > skip_seconds,1)):1/sample_rate:frame_t(find(frame_t-frame_t(end) < -skip_seconds,1,'last'));
 time_bin_centers = time_bins(1:end-1) + diff(time_bins)/2;
 
-use_spikes = spike_times_timeline(ismember(spike_templates,find(templateDepths > depth_edges(1) & templateDepths < depth_edges(2))));
+use_spikes = spike_times_timeline(ismember(spike_templates,find(template_depths > depth_edges(1) & template_depths < depth_edges(2))));
 % use_spikes = spike_times_timeline(ismember(spike_templates, ...
-%     find(templateDepths > depth_edges(1) & templateDepths < depth_edges(2))) & ...
+%     find(template_depths > depth_edges(1) & template_depths < depth_edges(2))) & ...
 %     ismember(spike_templates,find(msn)));
 
 binned_spikes = histcounts(use_spikes,time_bins);
@@ -877,8 +877,8 @@ t_peri_event = bsxfun(@plus,align_times,t_surround);
 
 % Pull out MUA at a given depth
 
-use_spikes = spike_times_timeline(ismember(spike_templates,find(templateDepths > depth_edges(1) & templateDepths < depth_edges(2))));
-% use_spikes = spike_times_timeline(ismember(spike_templates,find(templateDepths > depth_edges(1) & templateDepths < depth_edges(2))) &...
+use_spikes = spike_times_timeline(ismember(spike_templates,find(template_depths > depth_edges(1) & template_depths < depth_edges(2))));
+% use_spikes = spike_times_timeline(ismember(spike_templates,find(template_depths > depth_edges(1) & template_depths < depth_edges(2))) &...
 %     ismember(spike_templates,find(msn)));
 
 skip_seconds = 60*1;
@@ -886,7 +886,7 @@ skip_seconds = 60*1;
 time_bins = frame_t(find(frame_t > skip_seconds,1)):1/sample_rate:frame_t(find(frame_t-frame_t(end) < -skip_seconds,1,'last'));
 time_bin_centers = time_bins(1:end-1) + diff(time_bins)/2;
 
-use_spikes = spike_times_timeline(ismember(spike_templates,find(templateDepths > depth_edges(1) & templateDepths < depth_edges(2))));
+use_spikes = spike_times_timeline(ismember(spike_templates,find(template_depths > depth_edges(1) & template_depths < depth_edges(2))));
 binned_spikes = histcounts(use_spikes,time_bins);
 
 event_aligned_spikes = interp1(time_bin_centers,binned_spikes,t_peri_event);
@@ -1056,8 +1056,8 @@ legend({'Real','Predicted'});
 %% PSTH viewer
 
 % Spikes in striatum
-% use_spikes_idx = spikeDepths > 2000 & spikeDepths < 3000;
-use_spikes_idx = spikeDepths >= str_depth(1) & spikeDepths <= str_depth(2);
+% use_spikes_idx = spike_depths > 2000 & spike_depths < 3000;
+use_spikes_idx = spike_depths >= str_depth(1) & spike_depths <= str_depth(2);
 % use_spikes_idx = aligned_str_depth_group == 1;
 % use_spikes_idx = spike_templates == 30;
 
@@ -1153,7 +1153,7 @@ set(gcf,'Name','Templates sorted by choice difference');
 %% Ephys: rasters by template
 
 % Pull out spikes within striatum
-% use_spikes_idx = spikeDepths >= str_depth(1) & spikeDepths <= str_depth(2);
+% use_spikes_idx = spike_depths >= str_depth(1) & spike_depths <= str_depth(2);
 use_spikes_idx = aligned_str_depth_group == 1;
 
 use_spikes = spike_times_timeline(use_spikes_idx);
@@ -1252,7 +1252,7 @@ right_early = ismember(conditions(:,3:4),[1,1],'rows');
 move_diff = permute(nanmean(template_psth_smooth(right_early,:,:,:),1) - ...
     nanmean(template_psth_smooth(left_early,:,:,:),1),[3,2,4,1]);
 
-[~,sort_idx] = sort(templateDepths(use_templates_unique));
+[~,sort_idx] = sort(template_depths(use_templates_unique));
 
 AP_image_scroll(move_diff(sort_idx,:,:))
 caxis([-abs(max(move_diff(:))),abs(max(move_diff(:)))]);
@@ -1267,7 +1267,7 @@ line(repmat(find(t_bins > 0,1),2,1),ylim,'color','k');
 % Group striatum depths
 n_depths = 6;
 depth_group_edges = round(linspace(str_depth(1),str_depth(2),n_depths+1));
-depth_group = discretize(templateDepths(use_templates_unique),depth_group_edges);
+depth_group = discretize(template_depths(use_templates_unique),depth_group_edges);
 
 go_left = ismember(conditions(:,2:3),[1,-1],'rows');
 go_right = ismember(conditions(:,2:3),[1,1],'rows');
@@ -1286,7 +1286,7 @@ pca_data = zscore([squeeze(nanmean(template_psth_smooth(go_left,:,depth_group ==
 % % (for equally separated depths)
 n_depths = 4;
 depth_group_edges = round(linspace(str_depth(1),str_depth(2),n_depths+1));
-depth_group = discretize(spikeDepths,depth_group_edges);
+depth_group = discretize(spike_depths,depth_group_edges);
 
 % (to use aligned striatum depths)
 % n_depths = n_aligned_depths;
@@ -1295,7 +1295,7 @@ depth_group = discretize(spikeDepths,depth_group_edges);
 % % (for manual depth)
 % depth_group_edges = [1500,2200];
 % n_depths = length(depth_group_edges) - 1;
-% [depth_group_n,depth_group] = histc(spikeDepths,depth_group_edges);
+% [depth_group_n,depth_group] = histc(spike_depths,depth_group_edges);
 
 % Define trials to use
 n_trials = length(block.paramsValues);
@@ -1654,7 +1654,7 @@ ddf(size(wf_roi,1)+1:end,:) = ...
 % (group striatum depths)
 n_depths = 6;
 depth_group_edges = round(linspace(str_depth(1),str_depth(2),n_depths+1));
-depth_group = discretize(spikeDepths,depth_group_edges);
+depth_group = discretize(spike_depths,depth_group_edges);
 
 % Get event-aligned activity
 raster_window = [-0.5,1];
@@ -3700,7 +3700,7 @@ for curr_animal = 1:length(ephys_depth_align)
     figure; 
     for curr_day = 1:n_days
         mua_corr = ephys_depth_align(curr_animal).mua_corr{curr_day};
-        templateDepths = ephys_depth_align(curr_animal).templateDepths{curr_day};
+        template_depths = ephys_depth_align(curr_animal).template_depths{curr_day};
         str_depth = ephys_depth_align(curr_animal).str_depth(curr_day,:);
         
         subplot(2,n_days,curr_day);
@@ -3712,7 +3712,7 @@ for curr_animal = 1:length(ephys_depth_align)
         line([str_depth(2),str_depth(2)],ylim,'color','r')
         
         subplot(2,n_days,n_days+curr_day);
-        plotSpread(templateDepths,'distributionColor','k');
+        plotSpread(template_depths,'distributionColor','k');
         set(gca,'YDir','reverse');
         line(xlim,[str_depth(1),str_depth(1)]);
         line(xlim,[str_depth(2),str_depth(2)]);        

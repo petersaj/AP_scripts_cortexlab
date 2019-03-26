@@ -32,7 +32,7 @@ n_depth_groups = 3;
 depth_group_edges = round(linspace(str_depth(1),str_depth(2),n_depth_groups+1));
 depth_group_edges_use = depth_group_edges;
 
-[depth_group_n,depth_group] = histc(spikeDepths,depth_group_edges_use);
+[depth_group_n,depth_group] = histc(spike_depths,depth_group_edges_use);
 depth_groups_used = unique(depth_group);
 depth_group_centers = depth_group_edges_use(1:end-1)+(diff(depth_group_edges_use)/2);
 
@@ -210,7 +210,7 @@ ylabel(p(2),'Variance');
 
 %% Plot spike properties
 
-plot_templates = templateDepths < 1500;
+plot_templates = template_depths < 1500;
 
 % Plot the waveforms and spike statistics
 figure;

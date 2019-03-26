@@ -536,7 +536,7 @@ dfVdf_resample = interp1(conv2(frame_t,[1,1]/2,'valid'),diff(convn(fVdf, ...
 % Get striatum depth group by across-experiment alignment
 n_depths = 4;
 depth_group_edges = round(linspace(str_depth(1),str_depth(2),n_depths+1));
-depth_group = discretize(spikeDepths,depth_group_edges);
+depth_group = discretize(spike_depths,depth_group_edges);
 use_depths = 1:n_depths;
 
 binned_spikes = zeros(n_depths,length(time_bin_centers));

@@ -2823,7 +2823,7 @@ unit_psth_smoothed = convn(unit_psth,smWin,'same');
 
 depth_bins = linspace(0,4000,20);
 depth_centers = depth_bins(1:end-1) + diff(depth_bins)./2;
-depth_group = discretize(templateDepths,depth_bins);
+depth_group = discretize(template_depths,depth_bins);
 
 plot_coeffs = 1:4;
 

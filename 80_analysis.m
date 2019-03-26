@@ -185,7 +185,7 @@ end
 %% Get PSTHs by spike width (only for one contrast)
 
 % Get waveform information
-[spikeAmps, spikeDepths, templateDepths, tempAmps, tempsUnW, templateDuration, waveforms] = ...
+[spikeAmps, spike_depths, template_depths, tempAmps, tempsUnW, templateDuration, waveforms] = ...
     templatePositionsAmplitudes(templates,winv,channel_positions(:,2),spike_templates,template_amplitudes);
 
 % Group by waveform duration

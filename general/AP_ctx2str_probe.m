@@ -426,8 +426,8 @@ str_depth_ccf = [probe_depths(find(probe_structures_str,1,'first'),:); ...
 % template_aligned_depth(isnan(template_aligned_depth)) = 1;
 % 
 % for curr_depth = 1:n_aligned_depths
-%     depth_top = min(spikeDepths(aligned_str_depth_group == curr_depth));
-%     depth_bottom = max(spikeDepths(aligned_str_depth_group == curr_depth));    
+%     depth_top = min(spike_depths(aligned_str_depth_group == curr_depth));
+%     depth_bottom = max(spike_depths(aligned_str_depth_group == curr_depth));    
 %     aligned_depth_relative_ccf = ([depth_top,depth_bottom] - str_depth(2))/10;
 % end
 % % SANITY CHECK THIS WITH A PLOT
@@ -464,8 +464,8 @@ for curr_depth = 1:n_aligned_depths
     if ~any(aligned_str_depth_group == curr_depth)
         continue
     end
-    depth_top = min(spikeDepths(aligned_str_depth_group == curr_depth));
-    depth_bottom = max(spikeDepths(aligned_str_depth_group == curr_depth));  
+    depth_top = min(spike_depths(aligned_str_depth_group == curr_depth));
+    depth_bottom = max(spike_depths(aligned_str_depth_group == curr_depth));  
     depth_center = mean([depth_top,depth_bottom]);
     
     depth_str_relative = (depth_center-str_depth(1))/diff(str_depth);    
@@ -891,8 +891,8 @@ str_depth_ccf = [probe_depths(find(probe_structures_str,1,'first'),:); ...
 % template_aligned_depth(isnan(template_aligned_depth)) = 1;
 % 
 % for curr_depth = 1:n_aligned_depths
-%     depth_top = min(spikeDepths(aligned_str_depth_group == curr_depth));
-%     depth_bottom = max(spikeDepths(aligned_str_depth_group == curr_depth));    
+%     depth_top = min(spike_depths(aligned_str_depth_group == curr_depth));
+%     depth_bottom = max(spike_depths(aligned_str_depth_group == curr_depth));    
 %     aligned_depth_relative_ccf = ([depth_top,depth_bottom] - str_depth(2))/10;
 % end
 % % SANITY CHECK THIS WITH A PLOT
@@ -929,8 +929,8 @@ for curr_depth = 1:n_aligned_depths
     if ~any(aligned_str_depth_group == curr_depth)
         continue
     end
-    depth_top = min(spikeDepths(aligned_str_depth_group == curr_depth));
-    depth_bottom = max(spikeDepths(aligned_str_depth_group == curr_depth));  
+    depth_top = min(spike_depths(aligned_str_depth_group == curr_depth));
+    depth_bottom = max(spike_depths(aligned_str_depth_group == curr_depth));  
     depth_center = mean([depth_top,depth_bottom]);
     
     depth_str_relative = (depth_center-str_depth(1))/diff(str_depth);    

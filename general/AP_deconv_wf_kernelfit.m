@@ -79,7 +79,7 @@ for curr_recording = 1:length(recordings)
             % Get MUA correlation by depth
             n_corr_groups = 40;
             depth_group_edges = linspace(0,max(channel_positions(:,2)),n_corr_groups+1);
-            depth_group = discretize(templateDepths,depth_group_edges);
+            depth_group = discretize(template_depths,depth_group_edges);
             depth_group_centers = depth_group_edges(1:end-1)+(diff(depth_group_edges)/2);
             unique_depths = 1:length(depth_group_edges)-1;
             
@@ -101,7 +101,7 @@ for curr_recording = 1:length(recordings)
             figure('Name',animal);
             
             template_depth_ax = subplot(1,2,1); hold on;
-            plotSpread(template_depth_ax,templateDepths,'distributionColors','k');
+            plotSpread(template_depth_ax,template_depths,'distributionColors','k');
             ylim([0,4000]);
             set(gca,'YDir','reverse');
             ylabel('Depth');
@@ -149,7 +149,7 @@ for curr_recording = 1:length(recordings)
         fVdf_resample_all{curr_exp} = interp1(frame_t,fVdf',time_bin_centers)';
         
         % Get binned cortex MUA  
-        curr_exp_spikes = spikeDepths >= mua_borders(1) & spikeDepths <= mua_borders(2);        
+        curr_exp_spikes = spike_depths >= mua_borders(1) & spike_depths <= mua_borders(2);        
         binned_spikes_all{curr_exp} = histcounts(spike_times_timeline(curr_exp_spikes),time_bins);   
         
     end

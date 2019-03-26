@@ -138,8 +138,8 @@ channel_positions(:,2) = max(channel_positions(:,2)) - channel_positions(:,2);
 
 template_abs = permute(max(abs(templates),[],2),[3,1,2]);
 [~,max_channel_idx] =  max(template_abs,[],1);
-templateDepths = channel_positions(max_channel_idx,2);
-spikeDepths = templateDepths(spike_templates+1);
+template_depths = channel_positions(max_channel_idx,2);
+spike_depths = template_depths(spike_templates+1);
 
 
 % Load LFP
@@ -286,12 +286,12 @@ sta_v_pca = reshape(score,size(sta_v_all,1),size(sta_v_all,2),size(sta_v_all,3))
 
 % use_spikes = spike_times_timeline(spike_templates == 279);
 
-use_spikes = spike_times_timeline(ismember(spike_templates,find(templateDepths > 0 & templateDepths < 1500)));
+use_spikes = spike_times_timeline(ismember(spike_templates,find(template_depths > 0 & template_depths < 1500)));
 
-% use_spikes = spike_times_timeline(ismember(spike_templates,find(templateDepths > 1000 & templateDepths < 2000)) &...
+% use_spikes = spike_times_timeline(ismember(spike_templates,find(template_depths > 1000 & template_depths < 2000)) &...
 %     ismember(spike_templates,find(msn)));
 
-%use_spikes = spike_times_timeline(ismember(spike_templates,find(templateDepths > 0 & templateDepths < 400)) & ...
+%use_spikes = spike_times_timeline(ismember(spike_templates,find(template_depths > 0 & template_depths < 400)) & ...
 %    ismember(spike_templates,use_templates(use_template_narrow)));
 
 frame_edges = [frame_t(1),mean([frame_t(2:end);frame_t(1:end-1)],1),frame_t(end)+1/framerate];
@@ -337,7 +337,7 @@ depth_group_edges = round(linspace(str_depth(1),str_depth(2),n_depth_groups+1));
 depth_group_edges_use = depth_group_edges;
 %depth_group_edges_use = [3500 Inf];
 
-[depth_group_n,depth_group] = histc(spikeDepths,depth_group_edges_use);
+[depth_group_n,depth_group] = histc(spike_depths,depth_group_edges_use);
 depth_groups_used = unique(depth_group);
 depth_group_centers = depth_group_edges_use(1:end-1)+(diff(depth_group_edges_use)/2);
 
@@ -447,7 +447,7 @@ for curr_template_idx = 1:length(good_templates)
 end
 
 % Rearrange STAs by depth
-[~,sort_idx] = sort(templateDepths(good_templates));
+[~,sort_idx] = sort(template_depths(good_templates));
 template_sta = template_sta(:,:,sort_idx);
 
 % Plot
@@ -496,7 +496,7 @@ for curr_template_idx = 1:length(use_templates)
 end
 
 % Rearrange STAs by depth
-[~,sort_idx] = sort(templateDepths(use_templates+1));
+[~,sort_idx] = sort(template_depths(use_templates+1));
 template_sta = template_sta(:,:,sort_idx);
 
 % Plot
@@ -526,7 +526,7 @@ end
 
 % Plot PC scores
 figure;
-scatter3(score(:,1),score(:,2),score(:,3),50,templateDepths(use_templates+1),'filled');
+scatter3(score(:,1),score(:,2),score(:,3),50,template_depths(use_templates+1),'filled');
 xlabel('PC1');ylabel('PC2');zlabel('PC3');
 c = colorbar;
 ylabel(c,'Depth (\mum)');
@@ -535,7 +535,7 @@ axis square
 % Plot first three cluster STAs
 figure;
 scatter3(cluster_sta_nonan(1,:),cluster_sta_nonan(2,:), ...
-    cluster_sta_nonan(3,:),50,templateDepths(use_templates+1),'filled');
+    cluster_sta_nonan(3,:),50,template_depths(use_templates+1),'filled');
 xlabel('PC1');ylabel('PC2');zlabel('PC3');
 c = colorbar;
 ylabel(c,'Depth (\mum)');
@@ -543,7 +543,7 @@ axis square
 
 % Plot template by depth and colored by PC score
 x_vals = rand(size(use_templates));
-figure;scatter(x_vals,templateDepths(use_templates+1),50,'.k')
+figure;scatter(x_vals,template_depths(use_templates+1),50,'.k')
 
 %% Correlation of templates with clustered area traces
 
@@ -586,7 +586,7 @@ for curr_template_idx = 1:length(use_templates)
 end
 
 % Rearrange STAs by depth
-[~,sort_idx] = sort(templateDepths(use_templates+1));
+[~,sort_idx] = sort(template_depths(use_templates+1));
 template_corr = template_corr(:,:,sort_idx);
 
 % Plot correlation by area
@@ -600,7 +600,7 @@ figure;
 % Plot vs depth
 subplot(1,2,1);
 scatter3(cluster_corr(1,:),cluster_corr(2,:), ...
-    cluster_corr(3,:),50,templateDepths(use_templates+1),'filled');
+    cluster_corr(3,:),50,template_depths(use_templates+1),'filled');
 xlabel('ROI 1');ylabel('ROI 2');zlabel('ROI 3');
 c = colorbar;
 ylabel(c,'Depth (\mum)');
@@ -618,19 +618,19 @@ axis square
 % Plot all depth vs. ROI separately
 figure;
 subplot(1,3,1)
-plot(cluster_corr(1,:),templateDepths(use_templates+1),'.k','MarkerSize',10)
+plot(cluster_corr(1,:),template_depths(use_templates+1),'.k','MarkerSize',10)
 set(gca,'YDir','reverse');
 ylabel('Depth (\mum)');
 xlabel('Correlation with fluorescence')
 title('ROI 1')
 subplot(1,3,2)
-plot(cluster_corr(2,:),templateDepths(use_templates+1),'.k','MarkerSize',10)
+plot(cluster_corr(2,:),template_depths(use_templates+1),'.k','MarkerSize',10)
 set(gca,'YDir','reverse');
 ylabel('Depth (\mum)');
 xlabel('Correlation with fluorescence')
 title('ROI 2')
 subplot(1,3,3)
-plot(cluster_corr(3,:),templateDepths(use_templates+1),'.k','MarkerSize',10)
+plot(cluster_corr(3,:),template_depths(use_templates+1),'.k','MarkerSize',10)
 set(gca,'YDir','reverse');
 ylabel('Depth (\mum)');
 xlabel('Correlation with fluorescence')
@@ -641,10 +641,10 @@ title('ROI 3')
 
 % Group by depth
 n_depth_groups = 5;
-depth_group_edges = linspace(0,max(templateDepths),n_depth_groups+1);
+depth_group_edges = linspace(0,max(template_depths),n_depth_groups+1);
 depth_group_edges(end) = Inf;
 
-[depth_group_n,depth_group] = histc(spikeDepths,depth_group_edges);
+[depth_group_n,depth_group] = histc(spike_depths,depth_group_edges);
 depth_groups_used = unique(depth_group);
 depth_group_centers = depth_group_edges(1:end-1)+(diff(depth_group_edges)/2);
 
@@ -775,7 +775,7 @@ U_roi = reshape(U(repmat(roiMask,1,1,size(U,3))),[],size(U,3));
 roi_trace = nanmean(U_roi*fV);
 
 % Get population spikes per frame
-use_spikes = spike_times_timeline(ismember(spike_templates,find(templateDepths > 1000 & templateDepths < Inf)));
+use_spikes = spike_times_timeline(ismember(spike_templates,find(template_depths > 1000 & template_depths < Inf)));
 
 framerate = 1./nanmedian(diff(frame_t));
 frame_edges = [frame_t,frame_t(end)+1/framerate];
@@ -896,10 +896,10 @@ roi_trace_contra = roi_trace(2:2:end,:);
 
 % Raster by depth (color coded by nucleus)
 
-unique_depths = sort(unique(templateDepths));
+unique_depths = sort(unique(template_depths));
 
 nucleus_colors = lines(5);
-nucleus_borders = [0,220,360,500,1150,max(templateDepths)];
+nucleus_borders = [0,220,360,500,1150,max(template_depths)];
 depth_nucleus = discretize(unique_depths,nucleus_borders);
 
 bin_edges = use_time(1):0.001:use_time(end);
@@ -909,7 +909,7 @@ raster_y = cell(length(unique_depths),1);
 binned_spikes_depth = zeros(length(unique_depths),length(corr_edges)-1);
 for curr_depth = 1:length(unique_depths);
     curr_binned_spikes = histcounts(spike_times_timeline( ...
-        ismember(spike_templates,find(templateDepths == unique_depths(curr_depth)))), ...
+        ismember(spike_templates,find(template_depths == unique_depths(curr_depth)))), ...
         bin_edges);
     
     [raster_x,raster_y{curr_depth}] = ...
@@ -935,7 +935,7 @@ set(gca,'YDir','Reverse');
 % Smoothed population rate by nucleus
 
 nucleus_borders = [0,220,360,500,1150,max(unique_depths)];
-template_nucleus = discretize(templateDepths,nucleus_borders);
+template_nucleus = discretize(template_depths,nucleus_borders);
 
 bin_edges = use_time(1):0.001:use_time(end);
 bin_centers = bin_edges(1:end-1) + diff(bin_edges)/2;
@@ -995,7 +995,7 @@ bin_edges = 0:0.001:frame_t(end);
 
 for curr_depth = 1:length(unique_depths);
     vl_spikes = histcounts(spike_times_timeline( ...
-        ismember(spike_templates,find(templateDepths > use_depths(1) & templateDepths < use_depths(2)))), ...
+        ismember(spike_templates,find(template_depths > use_depths(1) & template_depths < use_depths(2)))), ...
         bin_edges);
 end
 figure;
@@ -1017,7 +1017,7 @@ for curr_template_idx = 1:max(spike_templates)+1;
     binned_spikes(curr_template_idx,:) = histcounts(spike_times_timeline(spike_templates == curr_template_idx-1),corr_edges);
 end
 
-[~,sort_idx] = sort(templateDepths,'ascend');
+[~,sort_idx] = sort(template_depths,'ascend');
 binned_spikes_depthsort = binned_spikes(sort_idx,:);
 
 figure;imagesc(corrcoef(binned_spikes_depthsort'));
@@ -1025,12 +1025,12 @@ colormap(hot);
 
 % Nick suggestion: correlation plot by depth MUA
 
-unique_depths = sort(unique(templateDepths));
+unique_depths = sort(unique(template_depths));
 
 n_depth_groups = 30;
-depth_group_edges = linspace(min(templateDepths),max(templateDepths),n_depth_groups+1);
-depth_group = discretize(templateDepths,depth_group_edges);
-depth_group_centers = grpstats(templateDepths,depth_group);
+depth_group_edges = linspace(min(template_depths),max(template_depths),n_depth_groups+1);
+depth_group = discretize(template_depths,depth_group_edges);
+depth_group_centers = grpstats(template_depths,depth_group);
 unique_depths = unique(depth_group);
 
 corr_edges = 0:0.01:frame_t(end);
@@ -1048,10 +1048,10 @@ colormap(hot);
 
 %% TEMPORARY KENNETH FIGURE: STA from thalamic nuclei
 
-unique_depths = sort(unique(templateDepths));
+unique_depths = sort(unique(template_depths));
 
 nucleus_borders = [0,220,360,500,1150,max(unique_depths)];
-template_nucleus = discretize(templateDepths,nucleus_borders);
+template_nucleus = discretize(template_depths,nucleus_borders);
 n_nuclei = length(nucleus_borders) - 1;
 
 bin_edges = [frame_t,frame_t(end)+(1/framerate)];%frame_t(1):0.01:frame_t(end);
@@ -1216,7 +1216,7 @@ roi_trace = roi_trace_full(use_frames);
 framerate = 1./nanmedian(diff(frame_t));
 frame_edges = [frame_t,frame_t(end)+1/framerate];
 
-use_spikes = spike_times_timeline(ismember(spike_templates,find(templateDepths > 0 & templateDepths < 1500)));
+use_spikes = spike_times_timeline(ismember(spike_templates,find(template_depths > 0 & template_depths < 1500)));
 
 [frame_spikes_full,~,spike_frames] = histcounts(use_spikes,frame_edges);
 frame_spikes = frame_spikes_full(use_frames);
@@ -1288,8 +1288,8 @@ use_frames = frame_t > skip_seconds;
 use_t = frame_t(use_frames);
 
 %use_spikes = spike_times_timeline;
-use_spikes = spike_times_timeline(ismember(spike_templates,find(templateDepths > 0 & templateDepths < 1500)));
-%use_spikes = spike_times_timeline(ismember(spike_templates,find(templateDepths > 0 & templateDepths < 400)) & ...
+use_spikes = spike_times_timeline(ismember(spike_templates,find(template_depths > 0 & template_depths < 1500)));
+%use_spikes = spike_times_timeline(ismember(spike_templates,find(template_depths > 0 & template_depths < 400)) & ...
 %    (ismember(spike_templates,use_templates(use_template_narrow))));
 
 framerate = 1./nanmedian(diff(frame_t));
@@ -1356,8 +1356,8 @@ gcamp_kernel = fitted_curve;
 skip_frames = 35*10;
 
 %use_spikes = spike_times_timeline;
-use_spikes = spike_times_timeline(ismember(spike_templates,find(templateDepths > 0 & templateDepths < Inf)));
-%use_spikes = spike_times_timeline(ismember(spike_templates,find(templateDepths > 0 & templateDepths < 400)) & ...
+use_spikes = spike_times_timeline(ismember(spike_templates,find(template_depths > 0 & template_depths < Inf)));
+%use_spikes = spike_times_timeline(ismember(spike_templates,find(template_depths > 0 & template_depths < 400)) & ...
 %    (ismember(spike_templates,use_templates(use_template_narrow))));
 
 framerate = 1./nanmedian(diff(frame_t));
@@ -1394,8 +1394,8 @@ lag = 0; % frames
 skip_frames = 35*10;
 
 %use_spikes = spike_times_timeline;
-use_spikes = spike_times_timeline(ismember(spike_templates,find(templateDepths > 600 & templateDepths < 800)));
-%use_spikes = spike_times_timeline(ismember(spike_templates,find(templateDepths > 0 & templateDepths < 400)) & ...
+use_spikes = spike_times_timeline(ismember(spike_templates,find(template_depths > 600 & template_depths < 800)));
+%use_spikes = spike_times_timeline(ismember(spike_templates,find(template_depths > 0 & template_depths < 400)) & ...
 %    (ismember(spike_templates,use_templates(use_template_narrow))));
 
 % Discretize spikes into frames and count spikes per frame
@@ -1425,10 +1425,10 @@ skip_frames = 35*10;
 
 % Group by depth
 n_depth_groups = 8;
-depth_group_edges = linspace(0,max(templateDepths),n_depth_groups+1);
+depth_group_edges = linspace(0,max(template_depths),n_depth_groups+1);
 depth_group_edges(end) = Inf;
 
-[depth_group_n,depth_group] = histc(spikeDepths,depth_group_edges);
+[depth_group_n,depth_group] = histc(spike_depths,depth_group_edges);
 depth_groups_used = unique(depth_group);
 depth_group_centers = depth_group_edges(1:end-1)+(diff(depth_group_edges)/2);
 
@@ -1495,7 +1495,7 @@ svd_mean = nanmean(svd_xcorr,3);
 framerate = 1./median(diff(frame_t));
 frame_edges = [frame_t,frame_t(end)+1/framerate];
 
-curr_templates = intersect(find(templateDepths > 0 & templateDepths < Inf),use_templates(msn));
+curr_templates = intersect(find(template_depths > 0 & template_depths < Inf),use_templates(msn));
 
 frame_spikes = zeros(length(curr_templates),length(frame_t));
 for curr_template_idx = 1:length(curr_templates);
@@ -1511,7 +1511,7 @@ use_metric = coeff(:,1);
 [~,sort_idx] = sort(use_metric,'descend');
 
 % Plot sort index by depth
-figure;plot(use_metric,templateDepths(curr_templates+1),'.k','MarkerSize',15);
+figure;plot(use_metric,template_depths(curr_templates+1),'.k','MarkerSize',15);
 xlabel('PC1 coefficient')
 ylabel('Depth (\mum)')
 set(gca,'YDir','reverse');
@@ -1607,7 +1607,7 @@ use_metric = coeff(:,1);
 [~,sort_idx] = sort(use_metric,'descend');
 
 % Plot sort index by depth
-figure;plot(use_metric,templateDepths(curr_templates+1),'.k','MarkerSize',15);
+figure;plot(use_metric,template_depths(curr_templates+1),'.k','MarkerSize',15);
 xlabel('PC1 coefficient')
 ylabel('Depth (\mum)')
 set(gca,'YDir','reverse');
@@ -1676,8 +1676,8 @@ legend({'High PC1 spikes','Low PC1 spikes'});
 framerate = 1./nanmedian(diff(frame_t));
 
 %use_spikes = spike_times_timeline;
-%use_spikes = spike_times_timeline(ismember(spike_templates,find(templateDepths > 800 & templateDepths < Inf)));
-%use_spikes = spike_times_timeline(ismember(spike_templates,find(templateDepths > 0 & templateDepths < 400)) & ...
+%use_spikes = spike_times_timeline(ismember(spike_templates,find(template_depths > 800 & template_depths < Inf)));
+%use_spikes = spike_times_timeline(ismember(spike_templates,find(template_depths > 0 & template_depths < 400)) & ...
 %    (ismember(spike_templates,use_templates(use_template_narrow)));
 
 frame_edges = [frame_t(1),mean([frame_t(2:end);frame_t(1:end-1)],1),frame_t(end)+1/framerate];
@@ -1708,8 +1708,8 @@ figure;imagesc(cluster_max_xcorr);colormap(gray);
 %% Correlation between spikes (or any trace) and pixel fluorescence
 
 % Use the corrected impulse response for convolving kernel
-use_spikes = spike_times_timeline(ismember(spike_templates,find(templateDepths > 2500 & templateDepths < 2700)));
-%use_spikes = spike_times_timeline(ismember(spike_templates,find(templateDepths > 0 & templateDepths < Inf)) & ...
+use_spikes = spike_times_timeline(ismember(spike_templates,find(template_depths > 2500 & template_depths < 2700)));
+%use_spikes = spike_times_timeline(ismember(spike_templates,find(template_depths > 0 & template_depths < Inf)) & ...
 %    ismember(spike_templates,use_templates(use_template_narrow)));
 
 frame_edges = [frame_t(1),mean([frame_t(2:end);frame_t(1:end-1)],1),frame_t(end)+1/framerate];
@@ -1800,11 +1800,11 @@ close(h);
 U_roi = reshape(U(repmat(roiMask,1,1,size(U,3))),[],size(U,3));
 roi_trace = nanmean(U_roi*fV);
 
-unique_depths = sort(unique(templateDepths));
+unique_depths = sort(unique(template_depths));
 
-depth_group_edges = linspace(min(templateDepths),max(templateDepths),n_depth_groups+1);
-depth_group = discretize(templateDepths,depth_group_edges);
-depth_group_centers = grpstats(templateDepths,depth_group);
+depth_group_edges = linspace(min(template_depths),max(template_depths),n_depth_groups+1);
+depth_group = discretize(template_depths,depth_group_edges);
+depth_group_centers = grpstats(template_depths,depth_group);
 unique_depths = unique(depth_group);
 
 frame_edges = [frame_t,frame_t(end)+1/framerate];
@@ -1836,8 +1836,8 @@ ylabel('Correlation of conv spikes with fluorescence');
 
 %% Spatiotemporal correlation-fixed spatial kernel for spikes
 
-use_spikes = spike_times_timeline(ismember(spike_templates,find(templateDepths > 2500 & templateDepths < 2700)));
-%use_spikes = spike_times_timeline(ismember(spike_templates,find(templateDepths > 0 & templateDepths < 400)) & ...
+use_spikes = spike_times_timeline(ismember(spike_templates,find(template_depths > 2500 & template_depths < 2700)));
+%use_spikes = spike_times_timeline(ismember(spike_templates,find(template_depths > 0 & template_depths < 400)) & ...
 %    ismember(spike_templates,use_templates(use_template_narrow)));
 
 frame_edges = [frame_t(1),mean([frame_t(2:end);frame_t(1:end-1)],1),frame_t(end)+1/framerate];
@@ -1885,7 +1885,7 @@ for curr_template_idx = 1:length(use_templates)
     
     use_spikes = spike_times_timeline(spike_templates == curr_template);
     
-    %use_spikes = spike_times_timeline(ismember(spike_templates,find(templateDepths > 0 & templateDepths < 400)) & ...
+    %use_spikes = spike_times_timeline(ismember(spike_templates,find(template_depths > 0 & template_depths < 400)) & ...
     %    ismember(spike_templates,use_templates(use_template_narrow)));
     
     frame_edges = [frame_t(1),mean([frame_t(2:end);frame_t(1:end-1)],1),frame_t(end)+1/framerate];
@@ -1915,7 +1915,7 @@ for curr_template_idx = 1:length(use_templates)
 end
 
 % Rearrange STAs by depth
-[~,sort_idx] = sort(templateDepths(good_templates));
+[~,sort_idx] = sort(template_depths(good_templates));
 k2_all = k2_all(:,:,sort_idx);
 
 AP_image_scroll(k2_all);
@@ -1930,7 +1930,7 @@ canonU = zeros(size(U,1),size(U,2),n_depths);
 for i = 1:n_depths;
     
     use_spikes = spike_times_timeline(ismember(spike_templates, ...
-        find(templateDepths > use_depths(i) & templateDepths < use_depths(i+1))));
+        find(template_depths > use_depths(i) & template_depths < use_depths(i+1))));
     
     frame_edges = [frame_t(1),mean([frame_t(2:end);frame_t(1:end-1)],1),frame_t(end)+1/framerate];
     [frame_spikes,~,spike_frames] = histcounts(use_spikes,frame_edges);
@@ -1965,7 +1965,7 @@ AP_image_scroll(canonU_blur);colormap(colormap_blueblackred);
 
 % I don't think any of this makes sense 
 
-use_spikes = spike_times_timeline(ismember(spike_templates,find(templateDepths > 1000 & templateDepths < 1200)));
+use_spikes = spike_times_timeline(ismember(spike_templates,find(template_depths > 1000 & template_depths < 1200)));
 
 frame_edges = [frame_t(1),mean([frame_t(2:end);frame_t(1:end-1)],1),frame_t(end)+1/framerate];
 [frame_spikes,~,spike_frames] = histcounts(use_spikes,frame_edges);
@@ -1988,8 +1988,8 @@ m = svdFrameReconstruct(U,sv_weights');
 % this is probably dumb, didnt' really work
 
 % Use the corrected impulse response for convolving kernel
-use_spikes = spike_times_timeline(ismember(spike_templates,find(templateDepths > 0 & templateDepths < 300)));
-%use_spikes = spike_times_timeline(ismember(spike_templates,find(templateDepths > 0 & templateDepths < 400)) & ...
+use_spikes = spike_times_timeline(ismember(spike_templates,find(template_depths > 0 & template_depths < 300)));
+%use_spikes = spike_times_timeline(ismember(spike_templates,find(template_depths > 0 & template_depths < 400)) & ...
 %    ismember(spike_templates,use_templates(use_template_narrow)));
 
 frame_edges = [frame_t(1),mean([frame_t(2:end);frame_t(1:end-1)],1),frame_t(end)+1/framerate];
@@ -2051,8 +2051,8 @@ use_frames = frame_t > skip_seconds;
 use_t = frame_t(use_frames);
 
 %use_spikes = spike_times_timeline;
-use_spikes = spike_times_timeline(ismember(spike_templates,find(templateDepths > 2500 & templateDepths < 2700)));
-%use_spikes = spike_times_timeline(ismember(spike_templates,find(templateDepths > 0 & templateDepths < 400)) & ...
+use_spikes = spike_times_timeline(ismember(spike_templates,find(template_depths > 2500 & template_depths < 2700)));
+%use_spikes = spike_times_timeline(ismember(spike_templates,find(template_depths > 0 & template_depths < 400)) & ...
 %    (ismember(spike_templates,use_templates(use_template_narrow))));
 
 framerate = 1./nanmedian(diff(frame_t));
@@ -2089,8 +2089,8 @@ use_frames = frame_t > skip_seconds;
 use_t = frame_t(use_frames);
 
 %use_spikes = spike_times_timeline;
-use_spikes = spike_times_timeline(ismember(spike_templates,find(templateDepths > 0 & templateDepths < Inf)));
-%use_spikes = spike_times_timeline(ismember(spike_templates,find(templateDepths > 0 & templateDepths < 400)) & ...
+use_spikes = spike_times_timeline(ismember(spike_templates,find(template_depths > 0 & template_depths < Inf)));
+%use_spikes = spike_times_timeline(ismember(spike_templates,find(template_depths > 0 & template_depths < 400)) & ...
 %    (ismember(spike_templates,use_templates(use_template_narrow))));
 
 framerate = 1./nanmedian(diff(frame_t));
@@ -2318,10 +2318,10 @@ use_frames = frame_t > skip_seconds;
 
 % Group multiunit by depth
 n_depth_groups = 4;
-depth_group_edges = linspace(800,max(templateDepths),n_depth_groups+1);
+depth_group_edges = linspace(800,max(template_depths),n_depth_groups+1);
 depth_group_edges(end) = Inf;
 
-[depth_group_n,depth_group] = histc(spikeDepths,depth_group_edges);
+[depth_group_n,depth_group] = histc(spike_depths,depth_group_edges);
 depth_groups_used = unique(depth_group);
 depth_group_centers = depth_group_edges(1:end-1)+(diff(depth_group_edges)/2);
 
@@ -2386,10 +2386,10 @@ use_frames = (frame_t > skip_seconds & frame_t < (frame_t(end) - skip_seconds));
 %use_frames = (frame_t > skip_seconds) & (frame_t < max(frame_t)/2);
 %use_frames = (frame_t > max(frame_t)/2);
 
-use_spikes = spike_times_timeline(ismember(spike_templates,find(templateDepths > 0 & templateDepths < 600)));
-% use_spikes = spike_times_timeline(ismember(spike_templates,find(templateDepths > 0 & templateDepths < 1500)) &...
+use_spikes = spike_times_timeline(ismember(spike_templates,find(template_depths > 0 & template_depths < 600)));
+% use_spikes = spike_times_timeline(ismember(spike_templates,find(template_depths > 0 & template_depths < 1500)) &...
 %     ismember(spike_templates,find(msn)));
-% use_spikes = spike_times_timeline(ismember(spike_templates,find(templateDepths > 1300 & templateDepths < 2500)) &...
+% use_spikes = spike_times_timeline(ismember(spike_templates,find(template_depths > 1300 & template_depths < 2500)) &...
 %     ismember(spike_templates,find(msn)) & ismember(spike_templates,find(l_r_diff < 0.5)));
 
 frame_edges = [frame_t(1),mean([frame_t(2:end);frame_t(1:end-1)],1),frame_t(end)+1/framerate];
@@ -2435,10 +2435,10 @@ use_frames = (frame_t > skip_seconds & frame_t < (frame_t(end) - skip_seconds));
 %use_frames = (frame_t > skip_seconds) & (frame_t < max(frame_t)/2);
 %use_frames = (frame_t > max(frame_t)/2);
 
-use_spikes = spike_times_timeline(ismember(spike_templates,find(templateDepths > 550 & templateDepths < 1000)));
-% use_spikes = spike_times_timeline(ismember(spike_templates,find(templateDepths > 2000 & templateDepths < 2500)) &...
+use_spikes = spike_times_timeline(ismember(spike_templates,find(template_depths > 550 & template_depths < 1000)));
+% use_spikes = spike_times_timeline(ismember(spike_templates,find(template_depths > 2000 & template_depths < 2500)) &...
 %     ismember(spike_templates,find(msn)));
-% use_spikes = spike_times_timeline(ismember(spike_templates,find(templateDepths > 1300 & templateDepths < 2500)) &...
+% use_spikes = spike_times_timeline(ismember(spike_templates,find(template_depths > 1300 & template_depths < 2500)) &...
 %     ismember(spike_templates,find(msn)) & ismember(spike_templates,find(l_r_diff < 0.5)));
 
 frame_edges = [frame_t(1),mean([frame_t(2:end);frame_t(1:end-1)],1),frame_t(end)+1/framerate];
@@ -2501,7 +2501,7 @@ n_depths = 6;
 depth_group_edges = [0,2000];
 depth_group_edges_use = depth_group_edges;
 
-[depth_group_n,depth_group] = histc(spikeDepths,depth_group_edges_use);
+[depth_group_n,depth_group] = histc(spike_depths,depth_group_edges_use);
 depth_groups_used = unique(depth_group);
 depth_group_centers = depth_group_edges_use(1:end-1)+(diff(depth_group_edges_use)/2);
 
@@ -2551,7 +2551,7 @@ n_depths = 6;
 depth_group_edges = round(linspace(str_depth(1),str_depth(2),n_depths+1));
 depth_group_edges_use = depth_group_edges;
 
-[depth_group_n,depth_group] = histc(spikeDepths,depth_group_edges_use);
+[depth_group_n,depth_group] = histc(spike_depths,depth_group_edges_use);
 depth_groups_used = unique(depth_group);
 depth_group_centers = depth_group_edges_use(1:end-1)+(diff(depth_group_edges_use)/2);
 
@@ -2614,7 +2614,7 @@ disp(['Best lambda = ' num2str(lambda) ', Frac var = ' num2str(explained_var_lam
 % 
 % % Use all spikes in striatum
 % use_spikes = spike_times_timeline(ismember(spike_templates, ...
-%     find(templateDepths > str_depth(1) & templateDepths <= str_depth(2))));
+%     find(template_depths > str_depth(1) & template_depths <= str_depth(2))));
 % binned_spikes = single(histcounts(use_spikes,time_bins));
 % 
 % use_svs = 1:50;
@@ -2748,7 +2748,7 @@ depth_group_edges = round(linspace(str_depth(1),str_depth(2),n_depth_groups+1));
 depth_group_edges_use = depth_group_edges;
 %depth_group_edges_use = [3500 Inf];
 
-[depth_group_n,depth_group] = histc(spikeDepths,depth_group_edges_use);
+[depth_group_n,depth_group] = histc(spike_depths,depth_group_edges_use);
 depth_groups_used = unique(depth_group);
 depth_group_centers = depth_group_edges_use(1:end-1)+(diff(depth_group_edges_use)/2);
 
@@ -2844,8 +2844,8 @@ time_bin_centers = time_bins(1:end-1) + diff(time_bins)/2;
 
 % % (to group multiunit by depth from top)
 % n_depths = 10;
-% depth_group_edges = round(linspace(min(templateDepths),max(templateDepths),n_depths+1));
-% [depth_group_n,depth_group] = histc(spikeDepths,depth_group_edges);
+% depth_group_edges = round(linspace(min(template_depths),max(template_depths),n_depths+1));
+% [depth_group_n,depth_group] = histc(spike_depths,depth_group_edges);
 % depth_groups_used = unique(depth_group);
 % depth_group_centers = depth_group_edges(1:end-1)+(diff(depth_group_edges)/2);
 
@@ -2853,7 +2853,7 @@ time_bin_centers = time_bins(1:end-1) + diff(time_bins)/2;
 %n_depths = round(diff(str_depth)/500);
 n_depths = 4;
 depth_group_edges = round(linspace(str_depth(1),str_depth(2),n_depths+1));
-[depth_group_n,depth_group] = histc(spikeDepths,depth_group_edges);
+[depth_group_n,depth_group] = histc(spike_depths,depth_group_edges);
 depth_groups_used = unique(depth_group);
 depth_group_centers = depth_group_edges(1:end-1)+(diff(depth_group_edges)/2);
 
@@ -2864,7 +2864,7 @@ depth_group_centers = depth_group_edges(1:end-1)+(diff(depth_group_edges)/2);
 % % (for manual depth)
 % depth_group_edges = [0,500];
 % n_depths = length(depth_group_edges) - 1;
-% [depth_group_n,depth_group] = histc(spikeDepths,depth_group_edges);
+% [depth_group_n,depth_group] = histc(spike_depths,depth_group_edges);
 
 binned_spikes = zeros(n_depths,length(time_bins)-1);
 for curr_depth = 1:n_depths
@@ -2970,7 +2970,7 @@ time_bin_centers = time_bins(1:end-1) + diff(time_bins)/2;
 % % (to group multiunit by depth from top)
 % n_depths = 6;
 % depth_group_edges = round(linspace(str_depth(1),str_depth(2),n_depths+1));
-% [depth_group_n,depth_group] = histc(spikeDepths,depth_group_edges);
+% [depth_group_n,depth_group] = histc(spike_depths,depth_group_edges);
 % depth_groups_used = unique(depth_group);
 % depth_group_centers = depth_group_edges(1:end-1)+(diff(depth_group_edges)/2);
 
@@ -2981,7 +2981,7 @@ depth_group = aligned_str_depth_group;
 % % (for manual depth)
 % depth_group_edges = [0,1500];
 % n_depths = length(depth_group_edges) - 1;
-% [depth_group_n,depth_group] = histc(spikeDepths,depth_group_edges);
+% [depth_group_n,depth_group] = histc(spike_depths,depth_group_edges);
 
 [~,depth_group_idx] = unique(spike_templates);
 template_depth_group = depth_group(depth_group_idx);
@@ -3081,7 +3081,7 @@ time_bin_centers = time_bins(1:end-1) + diff(time_bins)/2;
 % (to group multiunit by depth from top)
 n_depths = 4;
 depth_group_edges = round(linspace(str_depth(1),str_depth(2),n_depths+1));
-[depth_group_n,depth_group] = histc(spikeDepths,depth_group_edges);
+[depth_group_n,depth_group] = histc(spike_depths,depth_group_edges);
 depth_groups_used = unique(depth_group);
 depth_group_centers = depth_group_edges(1:end-1)+(diff(depth_group_edges)/2);
 
@@ -3134,10 +3134,10 @@ r_px = cat(4,r_px{:});
 r_px_t0 = squeeze(r_px(:,:,kernel_frames == 0,:));
 
 % Plot map of cortical pixel by preferred depth of probe
-r_px_com = sum(bsxfun(@times,r_px_t0,permute(templateDepths(use_templates),[2,3,1])),3)./sum(r_px_t0,3);
+r_px_com = sum(bsxfun(@times,r_px_t0,permute(template_depths(use_templates),[2,3,1])),3)./sum(r_px_t0,3);
 
-depth_range_min = min(templateDepths(use_templates));
-depth_range_max = max(templateDepths(use_templates));
+depth_range_min = min(template_depths(use_templates));
+depth_range_max = max(template_depths(use_templates));
 
 r_px_binary_frac_aligned = AP_align_widefield(animal,day,r_px_binary_frac);
 r_px_com_aligned = AP_align_widefield(animal,day,r_px_com);
@@ -3166,7 +3166,7 @@ set(c2,'YTickLabel',linspace(depth_range_min,depth_range_max,6));
 AP_reference_outline('ccf_aligned','b');AP_reference_outline('retinotopy','m');
 
 % Trying out a thing: correlation of kernel across depths
-[~,sort_idx] = sort(templateDepths(use_templates));
+[~,sort_idx] = sort(template_depths(use_templates));
 r_px_binary_reshape = reshape(r_px_binary(:,:,sort_idx),[],size(r_px_binary,3));
 r_px_binary_reshape_medfilt = medfilt1(+r_px_binary_reshape',20)';
 figure;imagesc(corrcoef(r_px_binary_reshape_medfilt));
@@ -3203,7 +3203,7 @@ skip_seconds = 10;
 use_frames = frame_t > skip_seconds;
 use_t = frame_t(use_frames);
 
-use_spikes = spike_times_timeline(ismember(spike_templates,find(templateDepths > 800 & templateDepths < Inf)));
+use_spikes = spike_times_timeline(ismember(spike_templates,find(template_depths > 800 & template_depths < Inf)));
 
 framerate = 1./nanmedian(diff(frame_t));
 
@@ -3230,7 +3230,7 @@ AP_image_scroll(r,kernel_frames/framerate);
 skip_seconds = 10;
 use_frames = frame_t > skip_seconds;
 
-use_spikes = spike_times_timeline(ismember(spike_templates,find(templateDepths > 0 & templateDepths < 500)));
+use_spikes = spike_times_timeline(ismember(spike_templates,find(template_depths > 0 & template_depths < 500)));
 frame_edges = [frame_t(1),mean([frame_t(2:end);frame_t(1:end-1)],1),frame_t(end)+1/framerate];
 [frame_spikes,~,spike_frames] = histcounts(use_spikes,frame_edges);
 
@@ -3354,7 +3354,7 @@ AP_image_scroll(px_coherence_allf,f);
 skip_seconds = 10;
 use_frames = (frame_t > skip_seconds);
 
-use_spikes = spike_times_timeline(ismember(spike_templates,find(templateDepths > 0 & templateDepths < 700)));
+use_spikes = spike_times_timeline(ismember(spike_templates,find(template_depths > 0 & template_depths < 700)));
 
 frame_edges = [frame_t(1),mean([frame_t(2:end);frame_t(1:end-1)],1),frame_t(end)+1/framerate];
 [frame_spikes,~,spike_frames] = histcounts(use_spikes,frame_edges);
@@ -3409,8 +3409,8 @@ stim_screen_interp = single([zeros(size(stim_screen_interp,1),1),diff(stim_scree
 skip_seconds = 10;
 use_frames = (frame_t > skip_seconds);
 
-use_spikes = spike_times_timeline(ismember(spike_templates,find(templateDepths > 0 & templateDepths < 800)));
-%use_spikes = spike_times_timeline(ismember(spike_templates,find(templateDepths > 0 & templateDepths < 800)) & ...
+use_spikes = spike_times_timeline(ismember(spike_templates,find(template_depths > 0 & template_depths < 800)));
+%use_spikes = spike_times_timeline(ismember(spike_templates,find(template_depths > 0 & template_depths < 800)) & ...
 %     ismember(spike_templates,find(narrow)));
 
 frame_edges = [frame_t(1),mean([frame_t(2:end);frame_t(1:end-1)],1),frame_t(end)+1/framerate];
@@ -3483,7 +3483,7 @@ for curr_template_idx = 1:length(good_templates)
     
     use_spikes = spike_times_timeline(spike_templates == curr_template);
     
-    %use_spikes = spike_times_timeline(ismember(spike_templates,find(templateDepths > 0 & templateDepths < 400)) & ...
+    %use_spikes = spike_times_timeline(ismember(spike_templates,find(template_depths > 0 & template_depths < 400)) & ...
     %    ismember(spike_templates,use_templates(use_template_narrow)));
     
     frame_edges = [frame_t(1),mean([frame_t(2:end);frame_t(1:end-1)],1),frame_t(end)+1/framerate];
@@ -3547,7 +3547,7 @@ depth_group_edges_use = depth_group_edges;
 %depth_group_edges = [500,2000,Inf];
 depth_group_edges_use(end) = Inf;
 
-[depth_group_n,depth_group] = histc(spikeDepths,depth_group_edges_use);
+[depth_group_n,depth_group] = histc(spike_depths,depth_group_edges_use);
 depth_groups_used = unique(depth_group);
 depth_group_centers = depth_group_edges_use(1:end-1)+(diff(depth_group_edges_use)/2);
 
@@ -3604,7 +3604,7 @@ end
 skip_seconds = 10;
 use_frames = (frame_t > skip_seconds);
 
-use_spikes = spike_times_timeline(ismember(spike_templates,find(templateDepths >= 2400 & templateDepths <= 2600)));
+use_spikes = spike_times_timeline(ismember(spike_templates,find(template_depths >= 2400 & template_depths <= 2600)));
 
 frame_edges = [frame_t(1),mean([frame_t(2:end);frame_t(1:end-1)],1),frame_t(end)+1/framerate];
 [frame_spikes,~,spike_frames] = histcounts(use_spikes,frame_edges);
@@ -3712,7 +3712,7 @@ AP_image_scroll(stim_r,stim_kernel_frames);
 
 %% Fluor/stim (stimID) -> spike regression (templates separately)
 
-use_templates = find(templateDepths >= 2400 & templateDepths <= 2600);
+use_templates = find(template_depths >= 2400 & template_depths <= 2600);
 
 stim_regressors = zeros(max(unique(stimIDs)),length(frame_t),'single');
 for curr_stimID = unique(stimIDs)'
@@ -3777,8 +3777,8 @@ use_frames = (frame_t > skip_seconds & frame_t < (frame_t(end) - skip_seconds));
 %use_frames = (frame_t > skip_seconds) & (frame_t < max(frame_t)/2);
 %use_frames = (frame_t > max(frame_t)/2);
 
-use_spikes = spike_times_timeline(ismember(spike_templates,find(templateDepths > 500 & templateDepths < 1500)));
-% use_spikes = spike_times_timeline(ismember(spike_templates,find(templateDepths > 2000 & templateDepths < 2500)) &...
+use_spikes = spike_times_timeline(ismember(spike_templates,find(template_depths > 500 & template_depths < 1500)));
+% use_spikes = spike_times_timeline(ismember(spike_templates,find(template_depths > 2000 & template_depths < 2500)) &...
 %     ismember(spike_templates,find(msn)));
 
 frame_edges = [frame_t(1),mean([frame_t(2:end);frame_t(1:end-1)],1),frame_t(end)+1/framerate];
@@ -3823,13 +3823,13 @@ use_frames = (frame_t > skip_seconds & frame_t < (frame_t(end) - skip_seconds));
 
 % Group multiunit by depth
 n_depth_groups = 8;
-depth_group_edges = linspace(min(templateDepths),max(templateDepths),n_depth_groups+1);
+depth_group_edges = linspace(min(template_depths),max(template_depths),n_depth_groups+1);
 % depth_group_edges = round(linspace(str_depth(1),str_depth(2),n_depth_groups+1));
 depth_group_edges_use = depth_group_edges;
 %depth_group_edges_use = [400,1500,2000,2300,3000,4000];
 depth_group_edges_use(end) = Inf;
 
-[depth_group_n,depth_group] = histc(spikeDepths,depth_group_edges_use);
+[depth_group_n,depth_group] = histc(spike_depths,depth_group_edges_use);
 depth_groups_used = unique(depth_group);
 depth_group_centers = depth_group_edges_use(1:end-1)+(diff(depth_group_edges_use)/2);
 
@@ -3885,12 +3885,12 @@ use_frames = (frame_t > skip_seconds & frame_t < (frame_t(end) - skip_seconds));
 
 % Group multiunit by depth
 n_depth_groups = 8;
-depth_group_edges = linspace(min(templateDepths),max(templateDepths),n_depth_groups+1);
+depth_group_edges = linspace(min(template_depths),max(template_depths),n_depth_groups+1);
 % depth_group_edges = round(linspace(str_depth(1),str_depth(2),n_depth_groups+1));
 depth_group_edges_use = depth_group_edges;
 depth_group_edges_use(end) = Inf;
 
-[depth_group_n,depth_group] = histc(spikeDepths,depth_group_edges_use);
+[depth_group_n,depth_group] = histc(spike_depths,depth_group_edges_use);
 depth_groups_used = unique(depth_group);
 depth_group_centers = depth_group_edges_use(1:end-1)+(diff(depth_group_edges_use)/2);
 
@@ -3967,7 +3967,7 @@ face_interp = interp1(facecam_t(~isnan(facecam_t)),facecam.proc.data.face.motion
 skip_seconds = 10;
 use_frames = (frame_t > skip_seconds);
 
-use_spikes = spike_times_timeline(ismember(spike_templates,find(templateDepths > 2400 & templateDepths < Inf)));
+use_spikes = spike_times_timeline(ismember(spike_templates,find(template_depths > 2400 & template_depths < Inf)));
 
 frame_edges = [frame_t,frame_t(end)+1/framerate];
 [frame_spikes,~,spike_frames] = histcounts(use_spikes,frame_edges);
@@ -4014,7 +4014,7 @@ depth_group_edges_use = depth_group_edges;
 %depth_group_edges_use = [400,1500,2000,2300,3000,4000];
 depth_group_edges_use(end) = Inf;
 
-[depth_group_n,depth_group] = histc(spikeDepths,depth_group_edges_use);
+[depth_group_n,depth_group] = histc(spike_depths,depth_group_edges_use);
 depth_groups_used = unique(depth_group);
 depth_group_centers = depth_group_edges_use(1:end-1)+(diff(depth_group_edges_use)/2);
 
@@ -4071,7 +4071,7 @@ end
 skip_seconds = 10;
 use_frames = (frame_t > skip_seconds);
 
-use_spikes = spike_times_timeline(ismember(spike_templates,find(templateDepths >= 0 & templateDepths <= 1500)));
+use_spikes = spike_times_timeline(ismember(spike_templates,find(template_depths >= 0 & template_depths <= 1500)));
 
 frame_edges = [frame_t(1),mean([frame_t(2:end);frame_t(1:end-1)],1),frame_t(end)+1/framerate];
 [frame_spikes,~,spike_frames] = histcounts(use_spikes,frame_edges);

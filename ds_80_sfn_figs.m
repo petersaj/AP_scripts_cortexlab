@@ -142,17 +142,17 @@ lfp_t_timeline = AP_clock_fix(lfp_t,sync.timestamps,acqLive_timeline);
 
 % Get the depths of each template 
 % (by COM: this gives totally wonky answers because of artifacts maybe?)
-%[spikeAmps, spikeDepths, templateDepths, tempAmps, tempsUnW, templateDuration, waveforms] = ...
+%[spikeAmps, spike_depths, template_depths, tempAmps, tempsUnW, templateDuration, waveforms] = ...
 %    templatePositionsAmplitudes(templates,winv,channel_positions(:,2),spike_templates,template_amplitudes);
 
 % (by max waveform channel)
 template_abs = permute(max(abs(templates),[],2),[3,1,2]);
 [~,max_channel_idx] =  max(template_abs,[],1);
-templateDepths = channel_positions(max_channel_idx,2);
+template_depths = channel_positions(max_channel_idx,2);
 
 
 % Get each spike's depth
-spikeDepths = templateDepths(spike_templates+1);
+spike_depths = template_depths(spike_templates+1);
 
 % Get the waveform duration of all templates (channel with largest amp)
 [~,max_site] = max(max(abs(templates),[],2),[],3);
@@ -185,8 +185,8 @@ disp('Done');
 start_depth = 0;
 end_depth = 400;
 
-use_spikes = spike_times_timeline(ismember(spike_templates,find(templateDepths > start_depth & templateDepths < end_depth)-1));
-use_spike_templates = spike_templates(ismember(spike_templates,find(templateDepths > start_depth & templateDepths < end_depth)-1));
+use_spikes = spike_times_timeline(ismember(spike_templates,find(template_depths > start_depth & template_depths < end_depth)-1));
+use_spike_templates = spike_templates(ismember(spike_templates,find(template_depths > start_depth & template_depths < end_depth)-1));
 
 align_times = stim_times_timeline;
 
@@ -252,8 +252,8 @@ title(['MUA, ' num2str(start_depth) '-' num2str(end_depth) '\mum'])
 start_depth = 400;
 end_depth = 800;
 
-use_spikes = spike_times_timeline(ismember(spike_templates,find(templateDepths > start_depth & templateDepths < end_depth)-1));
-use_spike_templates = spike_templates(ismember(spike_templates,find(templateDepths > start_depth & templateDepths < end_depth)-1));
+use_spikes = spike_times_timeline(ismember(spike_templates,find(template_depths > start_depth & template_depths < end_depth)-1));
+use_spike_templates = spike_templates(ismember(spike_templates,find(template_depths > start_depth & template_depths < end_depth)-1));
 
 align_times = stim_times_timeline;
 

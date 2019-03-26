@@ -1,4 +1,4 @@
-function AP_cellraster(align_times,templates,channel_positions,templateDepths,spike_times,spike_templates,template_amplitudes)
+function AP_cellraster(align_times,templates,channel_positions,template_depths,spike_times,spike_templates,template_amplitudes)
 % Working on: a custom equivalent of psthViewer
 
 % Put align_times into cell array if it isn't already
@@ -15,8 +15,8 @@ if ~exist('channel_positions','var')
     channel_positions = evalin('base','channel_positions');
 end
 
-if ~exist('templateDepths','var')
-    templateDepths = evalin('base','templateDepths');
+if ~exist('template_depths','var')
+    template_depths = evalin('base','template_depths');
 end
 
 if ~exist('spike_times','var')
@@ -36,7 +36,7 @@ cellraster_gui = figure;
 
 unit_axes = subplot(5,5,[1:5:20],'visible','off','YDir','reverse');
 hold on;
-unit_dots = plot(rand(size(templateDepths)),templateDepths,'.k','MarkerSize',20,'ButtonDownFcn',@unit_click);
+unit_dots = plot(rand(size(template_depths)),template_depths,'.k','MarkerSize',20,'ButtonDownFcn',@unit_click);
 curr_unit_dots = plot(0,0,'.r','MarkerSize',20);
 multiunit_lines = arrayfun(@(x) line(xlim,[0,0],'linewidth',2,'visible','off'),1:2);
 xlim(unit_axes,[0,1]);
@@ -275,9 +275,9 @@ switch eventdata.Key
         [~,multiunit_bottom] = ginput(1);
         set(gui_data.multiunit_lines(2),'visible','on','YData',repmat(multiunit_bottom,1,2));
         
-        templateDepths = get(gui_data.unit_dots,'YData');
-        gui_data.curr_unit = find(templateDepths >= multiunit_top & ...
-            templateDepths <= multiunit_bottom);        
+        template_depths = get(gui_data.unit_dots,'YData');
+        gui_data.curr_unit = find(template_depths >= multiunit_top & ...
+            template_depths <= multiunit_bottom);        
 end
 
 % Upload gui data and draw

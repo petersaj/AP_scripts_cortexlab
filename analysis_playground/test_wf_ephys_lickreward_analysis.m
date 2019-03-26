@@ -139,8 +139,8 @@ stim_hit_licktime(stim_hit) = [stim_hit_licktime_cell{stim_hit}];
 
 %% Get visual striatum MUA PSTH around events
 
-%use_spikes_idx = ismember(spike_templates,find(templateDepths >= 0 & templateDepths <= 1200));
-use_spikes_idx = ismember(spike_templates,find(templateDepths > 2000 & templateDepths < 3000)) & ...
+%use_spikes_idx = ismember(spike_templates,find(template_depths >= 0 & template_depths <= 1200));
+use_spikes_idx = ismember(spike_templates,find(template_depths > 2000 & template_depths < 3000)) & ...
    (ismember(spike_templates,find(msn)));
 
 use_spikes = spike_times_timeline(use_spikes_idx);
@@ -176,7 +176,7 @@ n_depth_groups = 4;
 depth_group_edges = linspace(1000,4000,n_depth_groups+1);
 depth_group_centers = round(depth_group_edges(1:end-1)+diff(depth_group_edges)/2);
 depth_group_edges(end) = Inf;
-depth_group = discretize(spikeDepths,depth_group_edges);
+depth_group = discretize(spike_depths,depth_group_edges);
 depth_groups_used = unique(depth_group);
 
 % Create MUA times grouped according to depth
@@ -220,7 +220,7 @@ alignIDs = azimuths;
 %align_times = stim_hit_licktime(stim_hit & azimuths == 0);
 %align_times = lick_bout_times(rewarded_licks);
 
-use_spikes_idx = ismember(spike_templates,find(templateDepths > 0 & templateDepths < 1200)) & ...
+use_spikes_idx = ismember(spike_templates,find(template_depths > 0 & template_depths < 1200)) & ...
    (ismember(spike_templates,find(msn)));
 
 raster_window = [-3.5,5];
@@ -441,8 +441,8 @@ rewarded_lick_idx = find(rewarded_licks);
 lick_id(rewarded_lick_idx(azimuths(stim_hit) == 0)) = 1;
 lick_id(rewarded_lick_idx(azimuths(stim_hit) == 90)) = 2;
 
-%use_spikes_idx = ismember(spike_templates,find(templateDepths >= 0 & templateDepths <= 1500));
-use_spikes_idx = ismember(spike_templates,find(templateDepths > 2500 & templateDepths < 3000)) & ...
+%use_spikes_idx = ismember(spike_templates,find(template_depths >= 0 & template_depths <= 1500));
+use_spikes_idx = ismember(spike_templates,find(template_depths > 2500 & template_depths < 3000)) & ...
    (ismember(spike_templates,find(msn)));
 
 raster_window = [-1,1];

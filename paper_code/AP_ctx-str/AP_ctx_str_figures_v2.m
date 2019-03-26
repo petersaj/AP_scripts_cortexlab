@@ -43,7 +43,7 @@ fVdf_deconv_resample = interp1(frame_t,fVdf_deconv',time_bin_centers)';
 % Get striatum multiunit in 4 depths for example plot
 n_depths = 4;
 depth_group_edges = round(linspace(str_depth(1),str_depth(2),n_depths+1));
-[depth_group_n,depth_group] = histc(spikeDepths,depth_group_edges);
+[depth_group_n,depth_group] = histc(spike_depths,depth_group_edges);
 depth_groups_used = unique(depth_group);
 depth_group_centers = depth_group_edges(1:end-1)+(diff(depth_group_edges)/2);
 

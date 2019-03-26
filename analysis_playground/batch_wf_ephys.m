@@ -907,7 +907,7 @@ for curr_animal = 1:length(animals)
         ephys_depth_align(curr_animal).animal = animal;
         ephys_depth_align(curr_animal).day{curr_day} = day;
         ephys_depth_align(curr_animal).mua_corr{curr_day} = mua_corr;
-        ephys_depth_align(curr_animal).templateDepths{curr_day} = templateDepths;
+        ephys_depth_align(curr_animal).template_depths{curr_day} = template_depths;
         ephys_depth_align(curr_animal).str_depth(curr_day,:) = str_depth;
         
         AP_print_progress_fraction(curr_day,length(experiments));
@@ -1132,7 +1132,7 @@ for curr_animal = 1:length(animals)
             % Get striatum multiunit in ~200 um chunks
             n_depths = round(diff(str_depth)/200);
             depth_group_edges = round(linspace(str_depth(1),str_depth(2),n_depths+1));
-            [depth_group_n,depth_group] = histc(spikeDepths,depth_group_edges);
+            [depth_group_n,depth_group] = histc(spike_depths,depth_group_edges);
             depth_groups_used = unique(depth_group);
             depth_group_centers = depth_group_edges(1:end-1)+(diff(depth_group_edges)/2);
             
@@ -1312,7 +1312,7 @@ for curr_animal = 1:length(animals)
         % Get depth groups (correspond to depth kernels - save in future?)
         n_depths = round(diff(str_depth)/200);
         depth_group_edges = round(linspace(str_depth(1),str_depth(2),n_depths+1));
-        [depth_group_n,depth_group] = histc(spikeDepths,depth_group_edges);
+        [depth_group_n,depth_group] = histc(spike_depths,depth_group_edges);
         depth_groups_used = unique(depth_group);
         depth_group_centers = depth_group_edges(1:end-1)+(diff(depth_group_edges)/2);
         
@@ -1355,7 +1355,7 @@ for curr_animal = 1:length(animals)
         kernel_match_idx = kernel_match(kernel_match_boundary_idx(1:end-1));
         
         % Categorize template by kernel match
-        aligned_str_depth_group = discretize(spikeDepths,kernel_match_depth_edges,kernel_match_idx);
+        aligned_str_depth_group = discretize(spike_depths,kernel_match_depth_edges,kernel_match_idx);
         
         % Package in structure
         ephys_kernel_align_new(curr_animal).animal = animal;
@@ -1567,7 +1567,7 @@ for curr_animal = 1:length(animals)
         
         % Use all spikes in striatum
         use_spikes = spike_times_timeline(ismember(spike_templates, ...
-            find(templateDepths > str_depth(1) & templateDepths <= str_depth(2))));
+            find(template_depths > str_depth(1) & template_depths <= str_depth(2))));
         binned_spikes = single(histcounts(use_spikes,time_bins));
         
         use_svs = 1:50;
@@ -1693,7 +1693,7 @@ for curr_animal = 1:length(animals)
         % Get multiunit in ~200 um depths
         n_depths = round(diff(str_depth)/200);
         depth_group_edges = round(linspace(str_depth(1),str_depth(2),n_depths+1));
-        [depth_group_n,depth_group] = histc(spikeDepths,depth_group_edges);
+        [depth_group_n,depth_group] = histc(spike_depths,depth_group_edges);
         depth_groups_used = unique(depth_group);
         depth_group_centers = depth_group_edges(1:end-1)+(diff(depth_group_edges)/2);
         
@@ -1967,7 +1967,7 @@ for curr_animal = 1:length(animals)
         % Get multiunit in ~200 um depths
         n_depths = round(diff(str_depth)/200);
         depth_group_edges = round(linspace(str_depth(1),str_depth(2),n_depths+1));
-        [depth_group_n,depth_group] = histc(spikeDepths,depth_group_edges);
+        [depth_group_n,depth_group] = histc(spike_depths,depth_group_edges);
         depth_groups_used = unique(depth_group);
         depth_group_centers = depth_group_edges(1:end-1)+(diff(depth_group_edges)/2);
         
@@ -2042,7 +2042,7 @@ for curr_animal = 1:length(animals)
         kernel_match_idx = kernel_match(kernel_match_boundary_idx(1:end-1));
         
         % Categorize template by kernel match
-        aligned_str_depth_group = discretize(spikeDepths,kernel_match_depth_edges,kernel_match_idx);
+        aligned_str_depth_group = discretize(spike_depths,kernel_match_depth_edges,kernel_match_idx);
         
         % Package in structure
         ephys_kernel_align_new(curr_animal).animal = animal;
@@ -2318,7 +2318,7 @@ for curr_animal = 1:length(animals)
         n_depths = 6;
         depth_group_edges = round(linspace(str_depth(1),str_depth(2),n_depths+1));
         
-        depth_group = discretize(spikeDepths,depth_group_edges);
+        depth_group = discretize(spike_depths,depth_group_edges);
         depth_groups_used = unique(depth_group);
         depth_group_centers = depth_group_edges(1:end-1)+(diff(depth_group_edges)/2);
         
@@ -2511,7 +2511,7 @@ for curr_animal = 1:length(animals)
         n_depths = 6;
         depth_group_edges = round(linspace(str_depth(1),str_depth(2),n_depths+1));
         
-        depth_group = discretize(spikeDepths,depth_group_edges);
+        depth_group = discretize(spike_depths,depth_group_edges);
         depth_groups_used = unique(depth_group);
         depth_group_centers = depth_group_edges(1:end-1)+(diff(depth_group_edges)/2);
         
@@ -2677,7 +2677,7 @@ for curr_animal = 1:length(animals)
         % Estimate lambda using entire striatum       
         use_frames = (frame_t > skip_seconds & frame_t < frame_t(end)-skip_seconds);        
         use_spikes = spike_times_timeline(ismember(spike_templates, ...
-            find(templateDepths > str_depth(1) & templateDepths <= str_depth(2))));
+            find(template_depths > str_depth(1) & template_depths <= str_depth(2))));
         
         [binned_spikes,~,spike_frames] = histcounts(use_spikes,time_bins);
         binned_spikes = single(binned_spikes);
@@ -2724,7 +2724,7 @@ for curr_animal = 1:length(animals)
         % Group striatum depths
         n_depths = 6;
         depth_group_edges = round(linspace(str_depth(1),str_depth(2),n_depths+1));
-        [depth_group_n,~,depth_group] = histcounts(spikeDepths,depth_group_edges);
+        [depth_group_n,~,depth_group] = histcounts(spike_depths,depth_group_edges);
           
         binned_spikes = zeros(n_depths,length(time_bin_centers));
         for curr_depth = 1:n_depths           
@@ -2916,7 +2916,7 @@ for curr_animal = 1:length(animals)
         depth_group_edges = round(linspace(str_depth(1),str_depth(2),n_depths+1));
         depth_group_centers = round(depth_group_edges(1:end-1)+diff(depth_group_edges)/2);
         
-        depth_group = discretize(spikeDepths,depth_group_edges);
+        depth_group = discretize(spike_depths,depth_group_edges);
         
         raster_window = [-0.5,3];
         psth_bin_size = 0.001;
@@ -3069,7 +3069,7 @@ for curr_animal = 1:length(animals)
         depth_group_edges = round(linspace(str_depth(1),str_depth(2),n_depths+1));
         depth_group_centers = round(depth_group_edges(1:end-1)+diff(depth_group_edges)/2);
         
-        depth_group = discretize(spikeDepths,depth_group_edges);
+        depth_group = discretize(spike_depths,depth_group_edges);
         
         % Set times for PSTH
         raster_window = [-0.5,3];
@@ -3199,7 +3199,7 @@ for curr_animal = 1:length(animals)
 %         n_depths = 6;
 %         depth_group_edges = round(linspace(str_depth(1),str_depth(2),n_depths+1));
 %         depth_group_centers = round(depth_group_edges(1:end-1)+diff(depth_group_edges)/2);        
-%         depth_group = discretize(spikeDepths,depth_group_edges);
+%         depth_group = discretize(spike_depths,depth_group_edges);
         
         % (aligned striatum depths)
         n_depths = n_aligned_depths;
@@ -3404,7 +3404,7 @@ for curr_animal = 1:length(animals)
         % Group striatum depths
         n_depths = 6;
         depth_group_edges = round(linspace(str_depth(1),str_depth(2),n_depths+1));
-        [depth_group_n,~,depth_group] = histcounts(spikeDepths,depth_group_edges);
+        [depth_group_n,~,depth_group] = histcounts(spike_depths,depth_group_edges);
      
         % Define times to align
         n_trials = length(block.paramsValues);
@@ -3689,7 +3689,7 @@ for curr_animal = 1:length(animals)
         % Group striatum depths
         n_depths = 6;
         depth_group_edges = round(linspace(str_depth(1),str_depth(2),n_depths+1));
-        [depth_group_n,~,depth_group] = histcounts(spikeDepths,depth_group_edges);
+        [depth_group_n,~,depth_group] = histcounts(spike_depths,depth_group_edges);
      
         % Define times to align
         n_trials = length(block.paramsValues);
@@ -4301,7 +4301,7 @@ for curr_animal = 1:length(animals)
         % Group striatum depths
         n_depths = 6;
         depth_group_edges = round(linspace(str_depth(1),str_depth(2),n_depths+1));
-        [depth_group_n,~,depth_group] = histcounts(spikeDepths,depth_group_edges);
+        [depth_group_n,~,depth_group] = histcounts(spike_depths,depth_group_edges);
      
         % Define times to align   
         sample_rate_factor = 3;
@@ -4490,7 +4490,7 @@ for curr_animal = 1:length(animals)
         % (group striatum depths)
         n_depths = 6;
         depth_group_edges = round(linspace(str_depth(1),str_depth(2),n_depths+1));
-        depth_group = discretize(spikeDepths,depth_group_edges);
+        depth_group = discretize(spike_depths,depth_group_edges);
         
         % Pick trials to use
         use_trials = ...
@@ -4705,7 +4705,7 @@ for curr_animal = 1:length(animals)
         % (group striatum depths)
         n_depths = 6;
         depth_group_edges = round(linspace(str_depth(1),str_depth(2),n_depths+1));
-        depth_group = discretize(spikeDepths,depth_group_edges);
+        depth_group = discretize(spike_depths,depth_group_edges);
         
         % Get event-aligned activity
         raster_window = [-0.5,1];
@@ -4912,7 +4912,7 @@ for curr_animal = 1:length(animals)
         % (group striatum depths)
         n_depths = 6;
         depth_group_edges = round(linspace(str_depth(1),str_depth(2),n_depths+1));
-        depth_group = discretize(spikeDepths,depth_group_edges);
+        depth_group = discretize(spike_depths,depth_group_edges);
         
         % Get event-aligned activity
         raster_window = [-0.5,1];
@@ -5231,7 +5231,7 @@ for curr_animal = 1:length(animals)
         % (group striatum depths)
         n_depths = 6;
         depth_group_edges = round(linspace(str_depth(1),str_depth(2),n_depths+1));
-        depth_group = discretize(spikeDepths,depth_group_edges);
+        depth_group = discretize(spike_depths,depth_group_edges);
         
         % Get event-aligned activity
         raster_window = [-0.5,1];
@@ -5407,7 +5407,7 @@ for curr_animal = 1:length(animals)
         % (group striatum depths)
         n_depths = 6;
         depth_group_edges = round(linspace(str_depth(1),str_depth(2),n_depths+1));
-        depth_group = discretize(spikeDepths,depth_group_edges);
+        depth_group = discretize(spike_depths,depth_group_edges);
         
         
         
@@ -5598,7 +5598,7 @@ for curr_animal = 1:length(animals)
         % Group striatum depths
         n_depths = 6;
         depth_group_edges = round(linspace(str_depth(1),str_depth(2),n_depths+1));
-        [depth_group_n,~,depth_group] = histcounts(spikeDepths,depth_group_edges);
+        [depth_group_n,~,depth_group] = histcounts(spike_depths,depth_group_edges);
           
         binned_spikes = zeros(n_depths,length(t));
         for curr_depth = 1:n_depths           
@@ -5772,7 +5772,7 @@ for curr_animal = 1:length(animals)
         % (group striatum depths)
         n_depths = 6;
         depth_group_edges = round(linspace(str_depth(1),str_depth(2),n_depths+1));
-        depth_group = discretize(spikeDepths,depth_group_edges);
+        depth_group = discretize(spike_depths,depth_group_edges);
         
         % Get event-aligned activity
         raster_window = [-0.5,1];
@@ -6061,7 +6061,7 @@ for curr_animal = 1:length(animals)
         % (group striatum depths)
         n_depths = 6;
         depth_group_edges = round(linspace(str_depth(1),str_depth(2),n_depths+1));
-        depth_group = discretize(spikeDepths,depth_group_edges);
+        depth_group = discretize(spike_depths,depth_group_edges);
         
         % Get event-aligned activity
         raster_window = [-0.5,1];
@@ -6417,7 +6417,7 @@ for curr_animal = 1:length(animals)
         %         n_depths = 6;
         %         depth_group_edges = round(linspace(str_depth(1),str_depth(2),n_depths+1));
         %         depth_group_centers = round(depth_group_edges(1:end-1)+diff(depth_group_edges)/2);
-        %         depth_group = discretize(spikeDepths,depth_group_edges);
+        %         depth_group = discretize(spike_depths,depth_group_edges);
         
         % (aligned striatum depths)
         n_depths = n_aligned_depths;
@@ -6577,7 +6577,7 @@ for curr_animal = 1:length(animals)
         %         n_depths = 6;
         %         depth_group_edges = round(linspace(str_depth(1),str_depth(2),n_depths+1));
         %         depth_group_centers = round(depth_group_edges(1:end-1)+diff(depth_group_edges)/2);
-        %         depth_group = discretize(spikeDepths,depth_group_edges);
+        %         depth_group = discretize(spike_depths,depth_group_edges);
         
         % (aligned striatum depths)
         n_depths = n_aligned_depths;
@@ -6723,7 +6723,7 @@ for curr_animal = 1:length(animals)
         %         n_depths = 6;
         %         depth_group_edges = round(linspace(str_depth(1),str_depth(2),n_depths+1));
         %         depth_group_centers = round(depth_group_edges(1:end-1)+diff(depth_group_edges)/2);
-        %         depth_group = discretize(spikeDepths,depth_group_edges);
+        %         depth_group = discretize(spike_depths,depth_group_edges);
         
         % (aligned striatum depths)
         n_depths = n_aligned_depths;
@@ -6868,7 +6868,7 @@ for curr_animal = 1:length(animals)
         %         n_depths = 6;
         %         depth_group_edges = round(linspace(str_depth(1),str_depth(2),n_depths+1));
         %         depth_group_centers = round(depth_group_edges(1:end-1)+diff(depth_group_edges)/2);
-        %         depth_group = discretize(spikeDepths,depth_group_edges);
+        %         depth_group = discretize(spike_depths,depth_group_edges);
         
         % (aligned striatum depths)
         n_depths = n_aligned_depths;
@@ -7129,7 +7129,7 @@ for curr_animal = 1:length(animals)
         %         n_depths = 6;
         %         depth_group_edges = round(linspace(str_depth(1),str_depth(2),n_depths+1));
         %         depth_group_centers = round(depth_group_edges(1:end-1)+diff(depth_group_edges)/2);
-        %         depth_group = discretize(spikeDepths,depth_group_edges);
+        %         depth_group = discretize(spike_depths,depth_group_edges);
         
         % (aligned striatum depths)
         n_depths = n_aligned_depths;
@@ -7397,7 +7397,7 @@ for curr_animal = 1:length(animals)
         %         n_depths = 6;
         %         depth_group_edges = round(linspace(str_depth(1),str_depth(2),n_depths+1));
         %         depth_group_centers = round(depth_group_edges(1:end-1)+diff(depth_group_edges)/2);
-        %         depth_group = discretize(spikeDepths,depth_group_edges);
+        %         depth_group = discretize(spike_depths,depth_group_edges);
         
         % (aligned striatum depths)
         n_depths = n_aligned_depths;
@@ -7522,7 +7522,7 @@ for curr_animal = 1:length(animals)
         %         n_depths = 6;
         %         depth_group_edges = round(linspace(str_depth(1),str_depth(2),n_depths+1));
         %         depth_group_centers = round(depth_group_edges(1:end-1)+diff(depth_group_edges)/2);
-        %         depth_group = discretize(spikeDepths,depth_group_edges);
+        %         depth_group = discretize(spike_depths,depth_group_edges);
         
         % (aligned striatum depths)
         n_depths = n_aligned_depths;

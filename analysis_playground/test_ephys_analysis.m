@@ -1057,7 +1057,7 @@ depth_group_edges = linspace(0,max(channel_positions(:,2)),n_depth_groups+1);
 % depth_group_edges = round(linspace(str_depth(1),str_depth(2),n_depth_groups+1));
 depth_group_centers = round(depth_group_edges(1:end-1)+diff(depth_group_edges)/2);
 depth_group_edges(end) = Inf;
-depth_group = discretize(spikeDepths,depth_group_edges);
+depth_group = discretize(spike_depths,depth_group_edges);
 depth_groups_used = unique(depth_group);
 
 % Create MUA times grouped according to depth
@@ -1108,7 +1108,7 @@ n_depth_groups = 4;
 % depth_group_edges = linspace(0,max(channel_positions(:,2)),n_depth_groups+1);
 depth_group_edges = round(linspace(str_depth(1),str_depth(2),n_depth_groups+1));
 depth_group_centers = round(depth_group_edges(1:end-1)+diff(depth_group_edges)/2);
-depth_group = discretize(spikeDepths,depth_group_edges);
+depth_group = discretize(spike_depths,depth_group_edges);
 
 % % Group by aligned striatum
 % depth_group = aligned_str_depth_group;
@@ -1162,7 +1162,7 @@ title('Population raster by depth');
 
 % Group by depth
 n_depth_groups = 10;
-depth_group_edges = linspace(0,max(templateDepths),n_depth_groups+1);
+depth_group_edges = linspace(0,max(template_depths),n_depth_groups+1);
 depth_group_edges(end) = Inf;
 depth_group_centers = depth_group_edges(1:end-1) + diff(depth_group_edges)./2;
 
@@ -1472,11 +1472,11 @@ xlabel('Time from stim onset')
 
 % Plot raster by depth
 n_depth_groups = 15;
-depth_group_edges = linspace(0,max(templateDepths),n_depth_groups+1);
+depth_group_edges = linspace(0,max(template_depths),n_depth_groups+1);
 depth_group_edges(end) = Inf;
-[depth_group_n,depth_group] = histc(spikeDepths,depth_group_edges);
+[depth_group_n,depth_group] = histc(spike_depths,depth_group_edges);
 depth_groups_used = unique(depth_group);
-depth_group_centers = grpstats(spikeDepths,depth_group);
+depth_group_centers = grpstats(spike_depths,depth_group);
 
 raster_window = [-2,3];
 psth_bin_size = 0.001;
@@ -1652,8 +1652,8 @@ end
 
 %% Rasters and PSTHs aligned to stimuli
 
-use_spikes_idx = ismember(spike_templates,find(templateDepths >= 1500 & templateDepths <= 2500));
-% use_spikes_idx = ismember(spike_templates,find(templateDepths > 500 & templateDepths < 1500)) & ...
+use_spikes_idx = ismember(spike_templates,find(template_depths >= 1500 & template_depths <= 2500));
+% use_spikes_idx = ismember(spike_templates,find(template_depths > 500 & template_depths < 1500)) & ...
 %    (ismember(spike_templates,find(msn)));
 
 % use_spikes_idx = true(size(spike_times_timeline));
@@ -1816,7 +1816,7 @@ params.makePlots = false;
 params.useSVD = false;
 params.countWindow = [0.05,0.1];
 % use_spikes = spike_times_timeline(ismember(spike_templates, ...
-%     find(templateDepths > 0 & templateDepths < 1500)));
+%     find(template_depths > 0 & template_depths < 1500)));
 use_spikes = spike_times_timeline(aligned_str_depth_group == 2);
 [rf_map,stats] = sparseNoiseRF(use_spikes, ...
     vertcat(stim_times_grid{:}),vertcat(stim_positions{:}),params);
@@ -1824,9 +1824,9 @@ figure;imagesc(rf_map);axis image off;
 
 % Get stim-triggered MUA average for each stimulus
 % use_spikes = spike_times_timeline(ismember(spike_templates, ...
-%     find(templateDepths > 0 & templateDepths < 1500)));
+%     find(template_depths > 0 & template_depths < 1500)));
 % use_spikes = spike_times_timeline(ismember(spike_templates, ...
-%     find(templateDepths > 0 & templateDepths < 1500)) &...
+%     find(template_depths > 0 & template_depths < 1500)) &...
 %     ismember(spike_templates,find(msn)));
 use_spikes = spike_times_timeline(aligned_str_depth_group == 2);
 
@@ -1860,7 +1860,7 @@ axis image;
 % (striatum should now be defined on load)
 % % Define cortical and striatal cells
 % h = figure('Position',[94,122,230,820]);
-% plotSpread(templateDepths);set(gca,'YDir','reverse');
+% plotSpread(template_depths);set(gca,'YDir','reverse');
 % ylim([0 max(channel_positions(:,2))])
 % title('Mark striatum top')
 % [~,striatum_top] = ginput(1);
@@ -1870,7 +1870,7 @@ axis image;
 % 
 % str_depth = [striatum_top,striatum_bottom];
 
-str_templates = templateDepths >= str_depth(1) & templateDepths <= str_depth(2);
+str_templates = template_depths >= str_depth(1) & template_depths <= str_depth(2);
 non_str_templates = ~str_templates;
 
 % Define the window to look for spiking statistics in (spikes go in and
@@ -2061,7 +2061,7 @@ use_colors = {'k','r','m','b','g','c'};
 plot_celltypes = any([wide,narrow,msn,fsi,tan,uin],1);
 
 figure('Position',[94,122,230,820]); 
-plotSpread(templateDepths,'categoryIdx', ...
+plotSpread(template_depths,'categoryIdx', ...
     celltypes,'categoryColors',use_colors(plot_celltypes));
 set(gca,'XTick',[]);
 set(gca,'YDir','reverse');
@@ -2087,7 +2087,7 @@ ylim([0,max(channel_positions(:,2))])
 
 n_depth_groups = 40;
 depth_group_edges = linspace(0,max(channel_positions(:,2)),n_depth_groups+1);
-depth_group = discretize(templateDepths,depth_group_edges);
+depth_group = discretize(template_depths,depth_group_edges);
 depth_group_centers = depth_group_edges(1:end-1)+(diff(depth_group_edges)/2);
 unique_depths = 1:length(depth_group_edges)-1;
 
@@ -2292,10 +2292,10 @@ figure;imagesc(F(plot_f),depth_group_centers,lfp_power_depth);
 spike_binning = 0.01; % seconds
 corr_edges = spike_times_timeline(1):spike_binning:spike_times_timeline(end);
 
-ctx_spikes = spike_times_timeline(ismember(spike_templates,find(templateDepths > 1300 & templateDepths < 3000)));
+ctx_spikes = spike_times_timeline(ismember(spike_templates,find(template_depths > 1300 & template_depths < 3000)));
 binned_spikes_ctx = single(histcounts(ctx_spikes,corr_edges));
 
-use_templates = good_templates(templateDepths(good_templates) > 2400);
+use_templates = good_templates(template_depths(good_templates) > 2400);
 binned_spikes_str = zeros(length(use_templates),length(corr_edges)-1,'single');
 for curr_template_idx = 1:length(use_templates)    
     curr_template = use_templates(curr_template_idx);   
@@ -2315,7 +2315,7 @@ figure;plot(kernel_frames*spike_binning,k);
 line([0,0],ylim,'color','k')
 
 k_max = max(k,[],2);
-use_template_depths = templateDepths(use_templates+1);
+use_template_depths = template_depths(use_templates+1);
 figure;plot(use_template_depths,k_max,'.k');
 ylabel('Maximum weight over time');
 xlabel('Template depth')
@@ -2326,7 +2326,7 @@ depth_group_edges = linspace(1300,double(max(channel_positions(:,2))),n_depth_gr
 depth_group_edges_use = depth_group_edges;
 depth_group_edges_use(end) = Inf;
 
-[depth_group_n,depth_group] = histc(spikeDepths,depth_group_edges_use);
+[depth_group_n,depth_group] = histc(spike_depths,depth_group_edges_use);
 depth_groups_used = unique(depth_group);
 depth_group_centers = depth_group_edges_use(1:end-1)+diff(depth_group_edges_use);
 
@@ -2366,7 +2366,7 @@ kernel_time = [-0.5,0.5];
 kernel_timepoints = kernel_time(1)/spike_binning:kernel_time(2)/spike_binning;
 lambda = 0;
 
-use_depth_templates = templateDepths > 2000 & templateDepths < 2400;
+use_depth_templates = template_depths > 2000 & template_depths < 2400;
 
 msn_spikes = sum(binned_spikes(msn & use_depth_templates,:),1);
 tan_spikes = sum(binned_spikes(tan & use_depth_templates,:),1);
@@ -2401,7 +2401,7 @@ ylabel('Impluse response');
 
 stimIDs = signals_events.trialSideValues.*signals_events.trialContrastValues;
 
-use_spikes_idx = ismember(spike_templates,find(templateDepths >= 500 & templateDepths <= 1500));
+use_spikes_idx = ismember(spike_templates,find(template_depths >= 500 & template_depths <= 1500));
 use_spikes = spike_times_timeline(use_spikes_idx);
 use_spike_templates = spike_templates(use_spikes_idx);
 
