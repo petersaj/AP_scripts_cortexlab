@@ -88,7 +88,6 @@ if timeline_exists
     end
     
     % Get photodiode flips (compensate for screen flicker)
-    % (NOTE: this used to be done separately in different protocols)
     photodiode_idx = strcmp({Timeline.hw.inputs.name}, 'photoDiode');
     % (define stim screen on from photodiode - sometimes sample-length
     % offset maybe because of backlight onset delay)
