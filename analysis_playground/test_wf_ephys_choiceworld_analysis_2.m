@@ -3134,9 +3134,22 @@ for curr_unit = 1:max(spike_templates)
     
 end
 
+% Plot units by depth size-scaled by variance explained
+norm_spike_n = mat2gray(log(accumarray(spike_templates,1)+1));
+
+figure; 
+for curr_regressor = 1:length(regressors)+1
+    subplot(1,length(regressors)+1,curr_regressor,'YDir','reverse');
+    hold on;
+    curr_expl_var = unit_expl_var(curr_regressor,:);
+    curr_expl_var(curr_expl_var < 0) = 0;
+    curr_expl_var(curr_expl_var > 1) = 1;
+    scatter3(norm_spike_n,template_depths, ...
+        1:max(spike_templates),curr_expl_var*100+1,'k','filled')
+end
 
 %%%%% try just doing a comparison of aligned peaks?
-
+event_aligned_unit
 
 
 

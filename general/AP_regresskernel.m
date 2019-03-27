@@ -249,11 +249,15 @@ sse_residual = sum((signals(:,predictable_samples)-predicted_signals(:,predictab
 sse_total = sum((signals(:,predictable_samples)-nanmean(signals(:,predictable_samples),2)).^2,2);
 explained_var.total = 1-(sse_residual./sse_total);
 
-% Partial explained variance (???? no idea if this is right, unused atm)
-if length(regressors) > 1
+% Partial/shared explained variance
+% (this isn't normal R^2 which requires refitting, change later)
+if length(regressors) > 1    
     sse_residual_reduced = sum((signals(:,predictable_samples)-predicted_signals_reduced(:,predictable_samples,:)).^2,2);
-    sse_residual_full = sum((signals(:,predictable_samples)-predicted_signals(:,predictable_samples,:)).^2,2);
-    explained_var.partial = squeeze((sse_residual_reduced-sse_residual_full)./sse_residual_reduced); 
+%     sse_residual_full = sum((signals(:,predictable_samples)-predicted_signals(:,predictable_samples,:)).^2,2);   
+%     explained_var.partial = (sse_residual_reduced - sse_residual_full)./sse_total;
+    
+    expl_var_reduced = 1-(sse_residual_reduced./sse_total);
+    explained_var.partial = explained_var.total - expl_var_reduced;
 end
 
 % Get the final k from averaging

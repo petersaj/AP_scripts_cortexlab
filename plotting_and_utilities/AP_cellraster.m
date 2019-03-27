@@ -87,15 +87,17 @@ end
 cellraster_gui = figure('color','w');
 
 % (plot unit depths by depth and relative number of spikes)
-unit_axes = subplot(5,5,[1:5:20],'visible','off','YDir','reverse');
+unit_axes = subplot(5,5,[1:5:20],'YDir','reverse');
 hold on;
 
 norm_spike_n = mat2gray(log(accumarray(spike_templates,1)+1));
 unit_dots = plot(norm_spike_n,template_depths,'.k','MarkerSize',20,'ButtonDownFcn',@unit_click);
 curr_unit_dots = plot(0,0,'.r','MarkerSize',20);
 multiunit_lines = arrayfun(@(x) line(xlim,[0,0],'linewidth',2,'visible','off'),1:2);
-xlim(unit_axes,[0,1]);
+xlim(unit_axes,[-0.1,1]);
 ylim([-50, max(channel_positions(:,2))+50]);
+ylabel('Depth (\mum)')
+xlabel('Normalized log rate')
 
 % (plot of waveform across the probe)
 waveform_axes = subplot(5,5,[2:5:20],'visible','off','YDir','reverse');
