@@ -16,9 +16,10 @@ function AP_cellraster(align_times,align_groups,unit_sort)
 % template_amplitudes (output from kilosort)
 %
 % Controls: 
-% left/right - switch between units (clicking on unit also selects)
-% up/down - switch between alignments (if multiple)
+% up/down - switch between units (clicking on unit also selects)
+% left/right - switch between alignments (if multiple)
 % m - select depth range to plot multiunit
+% u - go to unit number
 
 
 % Initiate align_times
@@ -86,15 +87,17 @@ end
 cellraster_gui = figure('color','w');
 
 % (plot unit depths by depth and relative number of spikes)
-unit_axes = subplot(5,5,[1:5:20],'visible','off','YDir','reverse');
+unit_axes = subplot(5,5,[1:5:20],'YDir','reverse');
 hold on;
 
 norm_spike_n = mat2gray(log(accumarray(spike_templates,1)+1));
 unit_dots = plot(norm_spike_n,template_depths,'.k','MarkerSize',20,'ButtonDownFcn',@unit_click);
 curr_unit_dots = plot(0,0,'.r','MarkerSize',20);
 multiunit_lines = arrayfun(@(x) line(xlim,[0,0],'linewidth',2,'visible','off'),1:2);
-xlim(unit_axes,[0,1]);
+xlim(unit_axes,[-0.1,1]);
 ylim([-50, max(channel_positions(:,2))+50]);
+ylabel('Depth (\mum)')
+xlabel('Normalized log rate')
 
 % (plot of waveform across the probe)
 waveform_axes = subplot(5,5,[2:5:20],'visible','off','YDir','reverse');
@@ -108,7 +111,13 @@ linkaxes([unit_axes,waveform_axes],'y');
 psth_axes = subplot(5,5,[3,4,5],'YAxisLocation','right');
 hold on;
 max_n_groups = max(cell2mat(cellfun(@(x) 1+sum(diff(sort(x,1),[],1) ~= 0),align_groups,'uni',false)));
-psth_lines = arrayfun(@(x) plot(NaN,NaN,'linewidth',2),1:max_n_groups);
+if max_n_groups == 1
+    psth_colors = [0,0,0];
+else
+    psth_colors = [linspace(0,0.8,max_n_groups)',zeros(max_n_groups,1),zeros(max_n_groups,1)];
+end
+
+psth_lines = arrayfun(@(x) plot(NaN,NaN,'linewidth',2,'color',psth_colors(x,:)),1:max_n_groups);
 xlabel('Time from event (s)');
 ylabel('Spikes/s/trial');
 
@@ -234,14 +243,36 @@ curr_raster = cell2mat(arrayfun(@(x) ...
     histcounts(curr_raster_spike_times,gui_data.t_peri_event(x,:)), ...
     [1:size(gui_data.t_peri_event,1)]','uni',false));
 
+% Set color scheme
+curr_group = gui_data.align_groups{gui_data.curr_align}(:,gui_data.curr_group);
+if length(unique(curr_group)) == 1
+    % Black if one group
+    group_colors = [0,0,0];
+elseif length(unique(sign(curr_group(curr_group ~= 0)))) == 1
+    % Black-to-red single-signed groups
+    n_groups = length(unique(curr_group));
+    group_colors = [linspace(0,0.8,n_groups)',zeros(n_groups,1),zeros(n_groups,1)];
+elseif length(unique(sign(curr_group(curr_group ~= 0)))) == 2
+    % Symmetrical blue-black-red if negative and positive groups
+    n_groups_pos = length(unique(curr_group(curr_group > 0)));
+    group_colors_pos = [linspace(0.2,1,n_groups_pos)',zeros(n_groups_pos,1),zeros(n_groups_pos,1)];
+    
+    n_groups_neg = length(unique(curr_group(curr_group < 0)));
+    group_colors_neg = [zeros(n_groups_neg,1),zeros(n_groups_neg,1),linspace(0.2,1,n_groups_neg)'];
+    
+    n_groups_zero = length(unique(curr_group(curr_group == 0)));
+    group_colors_zero = [zeros(n_groups_zero,1),zeros(n_groups_zero,1),zeros(n_groups_zero,1)];
+    
+    group_colors = [flipud(group_colors_neg);group_colors_zero;group_colors_pos];    
+end
+
 % Plot smoothed PSTH
 smooth_size = 51;
 gw = gausswin(smooth_size,3)';
 smWin = gw./sum(gw);
 bin_t = mean(diff(gui_data.t));
 
-curr_psth = grpstats(curr_raster, ...
-    gui_data.align_groups{gui_data.curr_align}(:,gui_data.curr_group),@(x) mean(x,1));
+curr_psth = grpstats(curr_raster,curr_group,@(x) mean(x,1));
 curr_smoothed_psth = conv2(padarray(curr_psth, ...
     [0,floor(length(smWin)/2)],'replicate','both'), ...
     smWin,'valid')./bin_t;
@@ -249,7 +280,7 @@ curr_smoothed_psth = conv2(padarray(curr_psth, ...
 % (set the first n lines by group, set all others to NaN)
 arrayfun(@(align_groups) set(gui_data.psth_lines(align_groups), ...
     'XData',gui_data.t,'YData',curr_smoothed_psth(align_groups,:)), ...
-    1:size(curr_psth,1));
+    ;C1:size(curr_psth,1));
 arrayfun(@(align_groups) set(gui_data.psth_lines(align_groups), ...
     'XData',NaN,'YData',NaN), ...
     size(curr_psth,1)+1:length(gui_data.psth_lines));
@@ -268,6 +299,7 @@ end
 
 % Plot raster
 if length(gui_data.curr_unit) == 1
+    % (single unit mode)
     [raster_y,raster_x] = find(curr_raster);
     set(gui_data.raster_dots,'XData',gui_data.t(raster_x),'YData',raster_y);
     xlim(get(gui_data.raster_dots,'Parent'),[gui_data.t_bins(1),gui_data.t_bins(end)]);
@@ -276,14 +308,16 @@ if length(gui_data.curr_unit) == 1
     [~,~,row_group] = unique(gui_data.align_groups{gui_data.curr_align}(:,gui_data.curr_group),'sorted');
     psth_colors = get(gui_data.psth_lines,'color');
     if iscell(psth_colors); psth_colors = cell2mat(psth_colors); end
-    raster_dot_color = psth_colors(row_group,:);
+    raster_dot_color = psth_colors(row_group(raster_y),:);
     set(gui_data.raster_dots,'CData',raster_dot_color);
     
 elseif length(gui_data.curr_unit) > 1
+    % (multiunit mode)
     raster_heatmap = imgaussfilt(curr_raster,[5,10]);
     set(gui_data.raster_image,'XData',gui_data.t,'YData', ...
         1:size(gui_data.t_peri_event,1),'CData',raster_heatmap);
     caxis(get(gui_data.raster_image,'Parent'),prctile(raster_heatmap(:),[0.05,99.5]));
+    
 end
 
 % Plot template amplitude over whole experiment
@@ -314,50 +348,52 @@ function key_press(cellraster_gui,eventdata)
 gui_data = guidata(cellraster_gui);
 
 switch eventdata.Key
-    case 'rightarrow'
-        % Right = next unit
+    case 'downarrow'
+        % Next unit
         curr_unit_idx = gui_data.curr_unit(1) == gui_data.unit_sort;
         new_unit = gui_data.unit_sort(circshift(curr_unit_idx,1));
         gui_data.curr_unit = new_unit;
         
-    case 'leftarrow'
-        % Left = previous unit
+    case 'uparrow'
+        % Previous unit
         curr_unit_idx = gui_data.curr_unit(end) == gui_data.unit_sort;
         new_unit = gui_data.unit_sort(circshift(curr_unit_idx,-1));
         gui_data.curr_unit = new_unit;
         
-    case 'downarrow'
-        % Down = next alignment
-        next_align = gui_data.curr_align + 1;
-        if next_align > length(gui_data.align_times)
-            next_align = 1;
+    case 'rightarrow'
+        % Next alignment
+        new_align = gui_data.curr_align + 1;
+        if new_align > length(gui_data.align_times)
+            new_align = 1;
         end
-        use_align = reshape(gui_data.align_times{next_align},[],1);
+        use_align = reshape(gui_data.align_times{new_align},[],1);
         t_peri_event = use_align + gui_data.t_bins;
         
         % (handle NaNs by setting rows with NaN times to 0)
         t_peri_event(any(isnan(t_peri_event),2),:) = 0;
         
-        gui_data.curr_align = next_align;
+        gui_data.curr_align = new_align;
         gui_data.t_peri_event = t_peri_event;
+        gui_data.curr_group = 1;
         
-    case 'uparrow'
-        % Up = next alignment
-        next_align = gui_data.curr_align - 1;
-        if next_align < 1
-            next_align = length(gui_data.align_times);
+    case 'leftarrow'
+        % Previous alignment
+        new_align = gui_data.curr_align - 1;
+        if new_align < 1
+            new_align = length(gui_data.align_times);
         end
-        use_align = reshape(gui_data.align_times{next_align},[],1);
+        use_align = reshape(gui_data.align_times{new_align},[],1);
         t_peri_event = use_align + gui_data.t_bins;
         
         % (handle NaNs by setting rows with NaN times to 0)
         t_peri_event(any(isnan(t_peri_event),2),:) = 0;
+        
+        gui_data.curr_align = new_align;
+        gui_data.t_peri_event = t_peri_event;
+        gui_data.curr_group = 1;
 
-        gui_data.curr_align = next_align;
-        gui_data.t_peri_event = t_peri_event;
-        
     case 'pagedown'
-        % Page Down = next group
+        % Next group
         next_group = gui_data.curr_group + 1;
         if next_group > size(gui_data.align_groups{gui_data.curr_align},2)
             next_group = 1;
@@ -365,7 +401,7 @@ switch eventdata.Key
         gui_data.curr_group = next_group;
         
     case 'pageup'
-        % Page Down = next group
+        % Previous group
         next_group = gui_data.curr_group - 1;
         if next_group < 1
             next_group = size(gui_data.align_groups{gui_data.curr_align},2);
@@ -373,7 +409,7 @@ switch eventdata.Key
         gui_data.curr_group = next_group;
                 
     case 'm'
-        % m = multiunit (select on unit depth plot)
+        % Multiunit (select on unit depth plot)
         [~,multiunit_top] = ginput(1);
         set(gui_data.multiunit_lines(1),'visible','on','YData',repmat(multiunit_top,1,2));
         [~,multiunit_bottom] = ginput(1);
@@ -381,7 +417,16 @@ switch eventdata.Key
         
         template_depths = get(gui_data.unit_dots,'YData');
         gui_data.curr_unit = find(template_depths >= multiunit_top & ...
-            template_depths <= multiunit_bottom);        
+            template_depths <= multiunit_bottom);       
+        
+    case 'u'
+        % Enter and go to unit
+        new_unit = str2num(cell2mat(inputdlg('Go to unit:')));
+        if ~ismember(new_unit,unique(gui_data.spike_templates))
+            error(['Unit ' num2str(new_unit) ' not present'])
+        end
+        gui_data.curr_unit = new_unit;
+        
 end
 
 % Upload gui data and draw

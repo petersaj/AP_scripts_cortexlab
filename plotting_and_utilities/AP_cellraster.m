@@ -111,13 +111,7 @@ linkaxes([unit_axes,waveform_axes],'y');
 psth_axes = subplot(5,5,[3,4,5],'YAxisLocation','right');
 hold on;
 max_n_groups = max(cell2mat(cellfun(@(x) 1+sum(diff(sort(x,1),[],1) ~= 0),align_groups,'uni',false)));
-if max_n_groups == 1
-    psth_colors = [0,0,0];
-else
-    psth_colors = [linspace(0,0.8,max_n_groups)',zeros(max_n_groups,1),zeros(max_n_groups,1)];
-end
-
-psth_lines = arrayfun(@(x) plot(NaN,NaN,'linewidth',2,'color',psth_colors(x,:)),1:max_n_groups);
+psth_lines = arrayfun(@(x) plot(NaN,NaN,'linewidth',2,'color','k',1:max_n_groups);
 xlabel('Time from event (s)');
 ylabel('Spikes/s/trial');
 
@@ -243,23 +237,45 @@ curr_raster = cell2mat(arrayfun(@(x) ...
     histcounts(curr_raster_spike_times,gui_data.t_peri_event(x,:)), ...
     [1:size(gui_data.t_peri_event,1)]','uni',false));
 
+% Set color scheme
+curr_group = gui_data.align_groups{gui_data.curr_align}(:,gui_data.curr_group);
+if length(unique(curr_group)) == 1
+    % Black if one group
+    group_colors = [0,0,0];
+elseif length(unique(sign(curr_group(curr_group ~= 0)))) == 1
+    % Black-to-red single-signed groups
+    n_groups = length(unique(curr_group));
+    group_colors = [linspace(0,0.8,n_groups)',zeros(n_groups,1),zeros(n_groups,1)];
+elseif length(unique(sign(curr_group(curr_group ~= 0)))) == 2
+    % Symmetrical blue-black-red if negative and positive groups
+    n_groups_pos = length(unique(curr_group(curr_group > 0)));
+    group_colors_pos = [linspace(0.3,1,n_groups_pos)',zeros(n_groups_pos,1),zeros(n_groups_pos,1)];
+    
+    n_groups_neg = length(unique(curr_group(curr_group < 0)));
+    group_colors_neg = [zeros(n_groups_neg,1),zeros(n_groups_neg,1),linspace(0.3,1,n_groups_neg)'];
+    
+    n_groups_zero = length(unique(curr_group(curr_group == 0)));
+    group_colors_zero = [zeros(n_groups_zero,1),zeros(n_groups_zero,1),zeros(n_groups_zero,1)];
+    
+    group_colors = [flipud(group_colors_neg);group_colors_zero;group_colors_pos];    
+end
+
 % Plot smoothed PSTH
 smooth_size = 51;
 gw = gausswin(smooth_size,3)';
 smWin = gw./sum(gw);
 bin_t = mean(diff(gui_data.t));
 
-curr_psth = grpstats(curr_raster, ...
-    gui_data.align_groups{gui_data.curr_align}(:,gui_data.curr_group),@(x) mean(x,1));
+curr_psth = grpstats(curr_raster,curr_group,@(x) mean(x,1));
 curr_smoothed_psth = conv2(padarray(curr_psth, ...
     [0,floor(length(smWin)/2)],'replicate','both'), ...
     smWin,'valid')./bin_t;
 
 % (set the first n lines by group, set all others to NaN)
-arrayfun(@(align_groups) set(gui_data.psth_lines(align_groups), ...
-    'XData',gui_data.t,'YData',curr_smoothed_psth(align_groups,:)), ...
-    1:size(curr_psth,1));
-arrayfun(@(align_groups) set(gui_data.psth_lines(align_groups), ...
+arrayfun(@(align_group) set(gui_data.psth_lines(align_group), ...
+    'XData',gui_data.t,'YData',curr_smoothed_psth(align_group,:), ...
+    'Color',group_colors(align_group,:)),1:size(curr_psth,1));
+arrayfun(@(align_group) set(gui_data.psth_lines(align_group), ...
     'XData',NaN,'YData',NaN), ...
     size(curr_psth,1)+1:length(gui_data.psth_lines));
 
@@ -352,6 +368,7 @@ switch eventdata.Key
         
         gui_data.curr_align = new_align;
         gui_data.t_peri_event = t_peri_event;
+        gui_data.curr_group = 1;
         
     case 'leftarrow'
         % Previous alignment
@@ -367,6 +384,7 @@ switch eventdata.Key
         
         gui_data.curr_align = new_align;
         gui_data.t_peri_event = t_peri_event;
+        gui_data.curr_group = 1;
 
     case 'pagedown'
         % Next group
