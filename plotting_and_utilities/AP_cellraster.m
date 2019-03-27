@@ -176,7 +176,7 @@ gui_data.spike_templates = spike_templates;
 gui_data.template_amplitudes = template_amplitudes;
 
 % (current settings)
-gui_data.curr_unit = 1;
+gui_data.curr_unit = unit_sort(1);
 gui_data.curr_align = 1;
 gui_data.curr_group = 1;
 
