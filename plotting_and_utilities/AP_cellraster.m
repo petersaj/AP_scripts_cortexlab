@@ -111,7 +111,7 @@ linkaxes([unit_axes,waveform_axes],'y');
 psth_axes = subplot(5,5,[3,4,5],'YAxisLocation','right');
 hold on;
 max_n_groups = max(cell2mat(cellfun(@(x) 1+sum(diff(sort(x,1),[],1) ~= 0),align_groups,'uni',false)));
-psth_lines = arrayfun(@(x) plot(NaN,NaN,'linewidth',2,'color','k',1:max_n_groups);
+psth_lines = arrayfun(@(x) plot(NaN,NaN,'linewidth',2,'color','k'),1:max_n_groups);
 xlabel('Time from event (s)');
 ylabel('Spikes/s/trial');
 
