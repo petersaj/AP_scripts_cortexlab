@@ -3135,7 +3135,9 @@ for curr_unit = 1:max(spike_templates)
 end
 
 % Plot units by depth size-scaled by variance explained
-norm_spike_n = mat2gray(log(accumarray(spike_templates,1)+1));
+used_spikes = spike_times_timeline > time_bins(1) & ...
+    spike_times_timeline < time_bins(end);
+norm_spike_n = mat2gray(log(accumarray(spike_templates(used_spikes),1)+1));
 
 figure; 
 for curr_regressor = 1:length(regressors)+1
@@ -3149,91 +3151,93 @@ for curr_regressor = 1:length(regressors)+1
     scatter3(norm_spike_n,template_depths, ...
         1:max(spike_templates),curr_expl_var*50+1,'k','filled')
     if curr_regressor == 1
-        title('All')
+        title({'All' animal day})
     else
         title(regressor_labels{curr_regressor-1});
-    end  
-end
-
-
-%%%%% try just doing a comparison of aligned peaks?
-% event_aligned_unit
-
-% Stim-aligned
-stim_aligned_unit = event_aligned_unit;
-
-% Move-aligned
-[move_trial,move_idx] = max(abs(event_aligned_wheel) > 0.02,[],2);
-
-realign_idx = move_idx;
-t_leeway = -t(1);
-leeway_samples = round(t_leeway*(sample_rate));
-curr_realigned = event_aligned_unit;
-for curr_unit = 1:max(spike_templates)
-    for curr_trial = 1:size(curr_realigned,1)
-        curr_realigned(curr_trial,:,curr_unit) = ...
-            circshift(curr_realigned(curr_trial,:,curr_unit),-realign_idx(curr_trial)+leeway_samples,2);
     end
+    xlabel('Normalized n spikes');
+    ylabel('Depth (\mum)');   
 end
 
-move_aligned_unit = curr_realigned;
 
-% Outcome-aligned
-[~,outcome_idx] = max(any(event_aligned_outcome,3),[],2);
-
-realign_idx = outcome_idx;
-t_leeway = -t(1);
-leeway_samples = round(t_leeway*(sample_rate));
-curr_realigned = event_aligned_unit;
-for curr_unit = 1:max(spike_templates)
-    for curr_trial = 1:size(curr_realigned,1)
-        curr_realigned(curr_trial,:,curr_unit) = ...
-            circshift(curr_realigned(curr_trial,:,curr_unit),-realign_idx(curr_trial)+leeway_samples,2);
-    end
-end
-
-outcome_aligned_unit = curr_realigned;
-
-% Get trial-trial correlation
-smooth_size = 10;
-gw = gausswin(smooth_size,4)';
-smWin = gw./sum(gw);
-
-stim_aligned_unit_smoothed = convn(padarray(stim_aligned_unit, ...
-    [0,floor(length(smWin)/2)],'replicate','both'), ...
-    smWin,'valid');
-move_aligned_unit_smoothed = convn(padarray(move_aligned_unit, ...
-    [0,floor(length(smWin)/2)],'replicate','both'), ...
-    smWin,'valid');
-outcome_aligned_unit_smoothed = convn(padarray(outcome_aligned_unit, ...
-    [0,floor(length(smWin)/2)],'replicate','both'), ...
-    smWin,'valid');
-
-trial_corr = nan(3,max(spike_templates));
-for curr_unit = 1:max(spike_templates)
-    trial_corr(1,curr_unit) = nanmean(AP_itril(squareform(1-pdist(stim_aligned_unit_smoothed(:,:,curr_unit),'correlation')),-1));
-    trial_corr(2,curr_unit) = nanmean(AP_itril(squareform(1-pdist(move_aligned_unit_smoothed(:,:,curr_unit),'correlation')),-1));
-    trial_corr(3,curr_unit) = nanmean(AP_itril(squareform(1-pdist(outcome_aligned_unit_smoothed(:,:,curr_unit),'correlation')),-1));
-end
-
-unit_std = std(reshape(stim_aligned_unit_smoothed,[],max(spike_templates)),[],1);
-trial_corr_norm = trial_corr.^2./sum(trial_corr.^2,1).*unit_std;
-
-% Plot units by depth size-scaled by trial-trial correlation
-norm_spike_n = mat2gray(log(accumarray(spike_templates,1)+1));
-
-figure; 
-for curr_align = 1:size(trial_corr,1)
-    subplot(1,size(trial_corr,1),curr_align,'YDir','reverse');
-    hold on;
-    curr_corr = trial_corr_norm(curr_align,:);
-    curr_nan = isnan(curr_corr) | curr_corr < 0 | curr_corr > 1;
-    curr_corr(curr_nan) = NaN;
-    curr_corr = mat2gray(curr_corr);
-    curr_corr(curr_nan) = NaN;
-    scatter3(norm_spike_n,template_depths, ...
-        1:max(spike_templates),curr_corr*50+1,'k','filled')
-end
+% %%%%% try just doing a comparison of aligned peaks?
+% % event_aligned_unit
+% 
+% % Stim-aligned
+% stim_aligned_unit = event_aligned_unit;
+% 
+% % Move-aligned
+% [move_trial,move_idx] = max(abs(event_aligned_wheel) > 0.02,[],2);
+% 
+% realign_idx = move_idx;
+% t_leeway = -t(1);
+% leeway_samples = round(t_leeway*(sample_rate));
+% curr_realigned = event_aligned_unit;
+% for curr_unit = 1:max(spike_templates)
+%     for curr_trial = 1:size(curr_realigned,1)
+%         curr_realigned(curr_trial,:,curr_unit) = ...
+%             circshift(curr_realigned(curr_trial,:,curr_unit),-realign_idx(curr_trial)+leeway_samples,2);
+%     end
+% end
+% 
+% move_aligned_unit = curr_realigned;
+% 
+% % Outcome-aligned
+% [~,outcome_idx] = max(any(event_aligned_outcome,3),[],2);
+% 
+% realign_idx = outcome_idx;
+% t_leeway = -t(1);
+% leeway_samples = round(t_leeway*(sample_rate));
+% curr_realigned = event_aligned_unit;
+% for curr_unit = 1:max(spike_templates)
+%     for curr_trial = 1:size(curr_realigned,1)
+%         curr_realigned(curr_trial,:,curr_unit) = ...
+%             circshift(curr_realigned(curr_trial,:,curr_unit),-realign_idx(curr_trial)+leeway_samples,2);
+%     end
+% end
+% 
+% outcome_aligned_unit = curr_realigned;
+% 
+% % Get trial-trial correlation
+% smooth_size = 10;
+% gw = gausswin(smooth_size,4)';
+% smWin = gw./sum(gw);
+% 
+% stim_aligned_unit_smoothed = convn(padarray(stim_aligned_unit, ...
+%     [0,floor(length(smWin)/2)],'replicate','both'), ...
+%     smWin,'valid');
+% move_aligned_unit_smoothed = convn(padarray(move_aligned_unit, ...
+%     [0,floor(length(smWin)/2)],'replicate','both'), ...
+%     smWin,'valid');
+% outcome_aligned_unit_smoothed = convn(padarray(outcome_aligned_unit, ...
+%     [0,floor(length(smWin)/2)],'replicate','both'), ...
+%     smWin,'valid');
+% 
+% trial_corr = nan(3,max(spike_templates));
+% for curr_unit = 1:max(spike_templates)
+%     trial_corr(1,curr_unit) = nanmean(AP_itril(squareform(1-pdist(stim_aligned_unit_smoothed(:,:,curr_unit),'correlation')),-1));
+%     trial_corr(2,curr_unit) = nanmean(AP_itril(squareform(1-pdist(move_aligned_unit_smoothed(:,:,curr_unit),'correlation')),-1));
+%     trial_corr(3,curr_unit) = nanmean(AP_itril(squareform(1-pdist(outcome_aligned_unit_smoothed(:,:,curr_unit),'correlation')),-1));
+% end
+% 
+% unit_std = std(reshape(stim_aligned_unit_smoothed,[],max(spike_templates)),[],1);
+% trial_corr_norm = trial_corr.^2./sum(trial_corr.^2,1).*unit_std;
+% 
+% % Plot units by depth size-scaled by trial-trial correlation
+% norm_spike_n = mat2gray(log(accumarray(spike_templates,1)+1));
+% 
+% figure; 
+% for curr_align = 1:size(trial_corr,1)
+%     subplot(1,size(trial_corr,1),curr_align,'YDir','reverse');
+%     hold on;
+%     curr_corr = trial_corr_norm(curr_align,:);
+%     curr_nan = isnan(curr_corr) | curr_corr < 0 | curr_corr > 1;
+%     curr_corr(curr_nan) = NaN;
+%     curr_corr = mat2gray(curr_corr);
+%     curr_corr(curr_nan) = NaN;
+%     scatter3(norm_spike_n,template_depths, ...
+%         1:max(spike_templates),curr_corr*50+1,'k','filled')
+% end
 
 
 

@@ -38,7 +38,7 @@ align_times = reshape(cellfun(@(x) reshape(x,[],1),align_times,'uni',false),1,[]
 % Initiate align_groups
 
 % (if no align groups specified, create one group for each alignment)
-if ~exist('align_groups','var') || isempty('align_groups')
+if ~exist('align_groups','var') || isempty(align_groups)
    align_groups =  cellfun(@(x) ones(size(x,1),1),align_times,'uni',false);
 end
 
