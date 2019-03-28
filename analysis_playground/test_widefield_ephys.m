@@ -2958,7 +2958,7 @@ set(c2,'YTickLabel',linspace(depth_group_edges(1),depth_group_edges(end),n_depth
  
 %% Regression from fluor to spikes (AP_regresskernel) MUA depth - RESAMPLE, ZS TEMPLATES
 
-upsample_factor = 2;
+upsample_factor = 1;
 sample_rate = (1/median(diff(frame_t)))*upsample_factor;
 
 % Skip the first/last n seconds to do this
@@ -3078,18 +3078,10 @@ skip_seconds = 60;
 time_bins = frame_t(find(frame_t > skip_seconds,1)):1/sample_rate:frame_t(find(frame_t-frame_t(end) < -skip_seconds,1,'last'));
 time_bin_centers = time_bins(1:end-1) + diff(time_bins)/2;
 
-% (to group multiunit by depth from top)
-n_depths = 4;
-depth_group_edges = round(linspace(str_depth(1),str_depth(2),n_depths+1));
-[depth_group_n,depth_group] = histc(spike_depths,depth_group_edges);
-depth_groups_used = unique(depth_group);
-depth_group_centers = depth_group_edges(1:end-1)+(diff(depth_group_edges)/2);
+use_spikes = spike_times_timeline > time_bins(1) & spike_times_timeline < time_bins(end);
+template_spike_n = accumarray(spike_templates(use_spikes),1,[size(templates,1),1]);
+use_templates = find(template_spike_n > 0);
 
-% % (to use aligned striatum depths)
-% n_depths = n_aligned_depths;
-% depth_group = aligned_str_depth_group;
-
-use_templates = unique(spike_templates(~isnan(depth_group)));
 binned_spikes = zeros(length(use_templates),length(time_bins)-1);
 for curr_template_idx = 1:length(use_templates)    
     curr_template = use_templates(curr_template_idx);   
@@ -3123,15 +3115,20 @@ cvfold = 5;
 % TO USE DECONV
 [k,predicted_spikes,explained_var] = ...
     AP_regresskernel(fVdf_deconv_resample(use_svs,:), ...
-    binned_spikes_std,kernel_frames,lambda,zs,cvfold);
+    binned_spikes_std, ...
+    kernel_frames,lambda,zs,cvfold);
 
 % Reshape kernel and convert to pixel space
-r = reshape(k,length(use_svs),length(kernel_frames),size(binned_spikes,1));
+r = reshape(k,length(use_svs),length(kernel_frames),size(binned_spikes_std,1));
 
 r_px = arrayfun(@(x) svdFrameReconstruct(Udf(:,:,use_svs),r(:,:,x)),1:size(r,3),'uni',false);
 r_px = cat(4,r_px{:});
 
+% (kernel at t = 0)
 r_px_t0 = squeeze(r_px(:,:,kernel_frames == 0,:));
+
+% (kernel t = 0:1 mean)
+r_px_t01 = squeeze(nanmean(r_px(:,:,ismember(kernel_frames,[0,1]),:),3));
 
 % Plot map of cortical pixel by preferred depth of probe
 r_px_com = sum(bsxfun(@times,r_px_t0,permute(template_depths(use_templates),[2,3,1])),3)./sum(r_px_t0,3);

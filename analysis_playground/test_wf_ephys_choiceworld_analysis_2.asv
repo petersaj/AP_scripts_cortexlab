@@ -3276,22 +3276,18 @@ curr_expl_var(curr_expl_var > 1) = NaN;
 curr_expl_var(curr_expl_var < 0) = 0;
 
 
-[~,depth_sort_idx] = sort(template_depths,'descend');
+[~,depth_sort_idx] = sort(curr_expl_var,'descend');
 [~,stim_sort_idx] = sort(unit_expl_var(2,:),'descend');
 [~,move_sort_idx] = sort(unit_expl_var(3,:),'descend');
 [~,go_cue_sort_idx] = sort(unit_expl_var(4,:),'descend');
 [~,outcome_sort_idx] = sort(unit_expl_var(5,:),'descend');
 
+sorted_map_corr = corrcoef(reshape(ctx_str_unit_map(:,:,depth_sort_idx),[],size(templates,1)));
 
 
 % (testing one sort axis)
-expl_var_units_used = ~any(isnan(unit_expl_var),1);
-coeff = nan(size(templates,1),3);
-coeff(expl_var_units_used,:) = pca(zscore(unit_expl_var(2:end,expl_var_units_used),[],2));
-[~,pca_sort_idx] = sort(coeff(:,1));
+[coeff,score,latents] = pca(zscore(unit_expl_var(:,[],2)');
 
-
-sorted_map_corr = corrcoef(reshape(ctx_str_unit_map(:,:,depth_sort_idx),[],size(templates,1)));
 
 
 %% Regress task to ephys units (BATCH)

@@ -153,7 +153,7 @@ else
     constant = [];
 end
 
-% If regressors matrix is sparse, sparsify (make this argin instead?)
+% If regressors matrix is sparse, make sparse matrix class (way faster)
 sparse_regressors = sum(regressor_design(:) == 0)/(numel(regressor_design)) > 0.5;
 if sparse_regressors
     regressors_gpu = sparse(double([[regressor_design,constant];ridge_matrix]));
