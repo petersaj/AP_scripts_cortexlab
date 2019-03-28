@@ -700,7 +700,7 @@ if ephys_exists && load_parts.ephys
         ephys_sample_rate = str2num(header.ap_sample_rate);
     end
     spike_times = double(readNPY([ephys_path filesep 'spike_times.npy']))./ephys_sample_rate;
-    spike_templates = readNPY([ephys_path filesep 'spike_templates.npy']);
+    spike_templates_0idx = readNPY([ephys_path filesep 'spike_templates.npy']);
     templates_whitened = readNPY([ephys_path filesep 'templates.npy']);
     channel_positions = readNPY([ephys_path filesep 'channel_positions.npy']);
     channel_map = readNPY([ephys_path filesep 'channel_map.npy']);
@@ -730,7 +730,7 @@ if ephys_exists && load_parts.ephys
     template_depths = sum(template_chan_amp.*channel_positions(:,2)',2)./sum(template_chan_amp,2);
     
     % Get the depth of each spike (templates are zero-indexed)
-    spike_depths = template_depths(spike_templates+1);
+    spike_depths = template_depths(spike_templates_0idx+1);
             
     % Get trough-to-peak time for each template
     templates_max_signfix = bsxfun(@times,templates_max, ...
@@ -852,107 +852,112 @@ if ephys_exists && load_parts.ephys
         templateDuration_us = templateDuration_us(good_templates);
         
         % Throw out all non-good spike data
-        good_spike_idx = ismember(spike_templates,good_templates_idx);
+        good_spike_idx = ismember(spike_templates_0idx,good_templates_idx);
         spike_times = spike_times(good_spike_idx);
-        spike_templates = spike_templates(good_spike_idx);
+        spike_templates_0idx = spike_templates_0idx(good_spike_idx);
         template_amplitudes = template_amplitudes(good_spike_idx);
         spike_depths = spike_depths(good_spike_idx);
         spike_times_timeline = spike_times_timeline(good_spike_idx);
         
         % Rename the spike templates according to the remaining templates
         % (and make 1-indexed from 0-indexed)
-        new_spike_idx = nan(max(spike_templates)+1,1);
+        new_spike_idx = nan(max(spike_templates_0idx)+1,1);
         new_spike_idx(good_templates_idx+1) = 1:length(good_templates_idx);
-        spike_templates = new_spike_idx(spike_templates+1);
+        spike_templates = new_spike_idx(spike_templates_0idx+1);
         
     elseif kilosort_version == 1 && ~exist('cluster_groups','var')
         if verbose; disp('Clusters not yet sorted, re-indexing'); end
         % If no classifications, keep all and 1-index
-        good_templates_idx = unique(spike_templates);
-        new_spike_idx = nan(max(spike_templates)+1,1);
+        good_templates_idx = unique(spike_templates_0idx);
+        new_spike_idx = nan(max(spike_templates_0idx)+1,1);
         new_spike_idx(good_templates_idx+1) = 1:length(good_templates_idx);
-        spike_templates = new_spike_idx(spike_templates+1);
+        spike_templates = new_spike_idx(spike_templates_0idx+1);
         
     elseif kilosort_version == 2
         % Kilosort 2: not manually sorted, using rudimentary cutoffs
         
-        % Get SVD of waveforms (first component used)
-        [u,s,v] = svd(waveforms','econ');
+%         % Get SVD of waveforms (first component used)
+%         [u,s,v] = svd(waveforms','econ');
+%         
+%         % Standardize sign of first component to be negative
+%         flip_u = -sign(AP_signed_max(u(:,1),1));
+%         u(:,1) = u(:,1)*flip_u;
+%         v(:,1) = v(:,1)*flip_u;
+%         
+%         % Get trough/post-trough peak
+%         [waveform_trough,waveform_trough_t] = min(waveforms,[],2);
+%         [waveform_post_peak,~] = arrayfun(@(x) ...
+%             max(waveforms(x,waveform_trough_t(x):end),[],2), ...
+%             transpose(1:size(waveforms,1)));
+%         
+%         fwhm_trough = (sum(waveforms < (waveform_trough/2),2)/ephys_sample_rate)*1e6;
+%         fwhm_peak = (sum(waveforms > (waveform_post_peak/2),2)/ephys_sample_rate)*1e6;
+%         
+%         % Get number of channels with 70% of the max range
+%         template_channel_amp = squeeze(range(templates,2));
+%         amp_thresh = max(template_channel_amp,[],2)*0.7;
+%         large_amp_channel_n = sum(template_channel_amp > amp_thresh,2);
+%         
+%         figure('Name','Kilosort 2 template triage');
+%         p1 = subplot(4,2,[1,3,5]);hold on;
+%         plot(v(:,1),fwhm_trough,'.k')
+%         line([0,0],ylim);
+%         xlabel('Component 1 score');
+%         ylabel('FWHM (\mus)');
+%         title('Set FWHM cutoff');
+%         
+%         subplot(4,2,7); hold on;
+%         plot(u(:,1),'linewidth',2);
+%         ylabel('Component 1');
+%         
+%         [~,fwhm_trough_cutoff] = ginput(1);
+%         line(xlim,[fwhm_trough_cutoff,fwhm_trough_cutoff]);
+%         
+%         p2 = subplot(4,2,[2,4,6]); hold on;
+%         plot(fwhm_trough,large_amp_channel_n,'.k')
+%         title('Set large amplitude channel cutoff');
+%         ylabel('Number of channels');
+%         xlabel('FWHM (\mus)');
+%         [~,large_amp_channel_n_cutoff] = ginput(1);
+%         line(xlim,[large_amp_channel_n_cutoff,large_amp_channel_n_cutoff]);
+%         
+%         % Set good templates (and 0-indexed index)
+%         good_templates = v(:,1) > 0 & fwhm_trough < fwhm_trough_cutoff & large_amp_channel_n < large_amp_channel_n_cutoff;
+%         good_templates_idx = find(good_templates)-1;
+%         
+%         plot(p1,v(good_templates,1),fwhm_trough(good_templates),'.g');
+%         plot(p2,fwhm_trough(good_templates),large_amp_channel_n(good_templates),'.g');
+%         drawnow;
+%         
+%          % Throw out all non-good template data
+%         templates = templates(good_templates,:,:);
+%         template_depths = template_depths(good_templates);
+%         waveforms = waveforms(good_templates,:);
+%         templateDuration = templateDuration(good_templates);
+%         templateDuration_us = templateDuration_us(good_templates);
+%         
+%         % Throw out all non-good spike data
+%         good_spike_idx = ismember(spike_templates,good_templates_idx);
+%         spike_times = spike_times(good_spike_idx);
+%         spike_templates = spike_templates(good_spike_idx);
+%         template_amplitudes = template_amplitudes(good_spike_idx);
+%         spike_depths = spike_depths(good_spike_idx);
+%         spike_times_timeline = spike_times_timeline(good_spike_idx);
+%         
+%         % Rename the spike templates according to the remaining templates
+%         % (and make 1-indexed from 0-indexed)
+%         new_spike_idx = nan(max(spike_templates)+1,1);
+%         new_spike_idx(good_templates_idx+1) = 1:length(good_templates_idx);
+%         spike_templates = new_spike_idx(spike_templates+1);
         
-        % Standardize sign of first component to be negative
-        flip_u = -sign(AP_signed_max(u(:,1),1));
-        u(:,1) = u(:,1)*flip_u;
-        v(:,1) = v(:,1)*flip_u;
-        
-        % Get trough/post-trough peak
-        [waveform_trough,waveform_trough_t] = min(waveforms,[],2);
-        [waveform_post_peak,~] = arrayfun(@(x) ...
-            max(waveforms(x,waveform_trough_t(x):end),[],2), ...
-            transpose(1:size(waveforms,1)));
-        
-        fwhm_trough = (sum(waveforms < (waveform_trough/2),2)/ephys_sample_rate)*1e6;
-        fwhm_peak = (sum(waveforms > (waveform_post_peak/2),2)/ephys_sample_rate)*1e6;
-        
-        % Get number of channels with 70% of the max range
-        template_channel_amp = squeeze(range(templates,2));
-        amp_thresh = max(template_channel_amp,[],2)*0.7;
-        large_amp_channel_n = sum(template_channel_amp > amp_thresh,2);
-        
-        figure('Name','Kilosort 2 template triage');
-        p1 = subplot(4,2,[1,3,5]);hold on;
-        plot(v(:,1),fwhm_trough,'.k')
-        line([0,0],ylim);
-        xlabel('Component 1 score');
-        ylabel('FWHM (\mus)');
-        title('Set FWHM cutoff');
-        
-        subplot(4,2,7); hold on;
-        plot(u(:,1),'linewidth',2);
-        ylabel('Component 1');
-        
-        [~,fwhm_trough_cutoff] = ginput(1);
-        line(xlim,[fwhm_trough_cutoff,fwhm_trough_cutoff]);
-        
-        p2 = subplot(4,2,[2,4,6]); hold on;
-        plot(fwhm_trough,large_amp_channel_n,'.k')
-        title('Set large amplitude channel cutoff');
-        ylabel('Number of channels');
-        xlabel('FWHM (\mus)');
-        [~,large_amp_channel_n_cutoff] = ginput(1);
-        line(xlim,[large_amp_channel_n_cutoff,large_amp_channel_n_cutoff]);
-        
-        % Set good templates (and 0-indexed index)
-        good_templates = v(:,1) > 0 & fwhm_trough < fwhm_trough_cutoff & large_amp_channel_n < large_amp_channel_n_cutoff;
-        good_templates_idx = find(good_templates)-1;
-        
-        plot(p1,v(good_templates,1),fwhm_trough(good_templates),'.g');
-        plot(p2,fwhm_trough(good_templates),large_amp_channel_n(good_templates),'.g');
-        drawnow;
-        
-         % Throw out all non-good template data
-        templates = templates(good_templates,:,:);
-        template_depths = template_depths(good_templates);
-        waveforms = waveforms(good_templates,:);
-        templateDuration = templateDuration(good_templates);
-        templateDuration_us = templateDuration_us(good_templates);
-        
-        % Throw out all non-good spike data
-        good_spike_idx = ismember(spike_templates,good_templates_idx);
-        spike_times = spike_times(good_spike_idx);
-        spike_templates = spike_templates(good_spike_idx);
-        template_amplitudes = template_amplitudes(good_spike_idx);
-        spike_depths = spike_depths(good_spike_idx);
-        spike_times_timeline = spike_times_timeline(good_spike_idx);
-        
-        % Rename the spike templates according to the remaining templates
-        % (and make 1-indexed from 0-indexed)
-        new_spike_idx = nan(max(spike_templates)+1,1);
+        % KEEPING ALL TEMPLATES AT THE MOMENT
+        % (1-index)
+        good_templates_idx = (1:size(templates,1))-1;
+        new_spike_idx = nan(size(templates,1),1);
         new_spike_idx(good_templates_idx+1) = 1:length(good_templates_idx);
-        spike_templates = new_spike_idx(spike_templates+1);
+        spike_templates = new_spike_idx(spike_templates_0idx+1);
         
-    end
-    
-    
+    end       
 end
 
 %% Regress light artifact out of LFP (unused at the moment)
@@ -1066,7 +1071,7 @@ if ephys_exists && load_parts.ephys
     spiking_stat_bins = [min(spike_times_timeline),max(spike_times_timeline)];
     
     % Get firing rate across the session
-    bin_spikes = nan(max(spike_templates), ...
+    bin_spikes = nan(size(templates,1), ...
         length(spiking_stat_bins)-1);
     for curr_template = unique(spike_templates)'
         bin_spikes(curr_template,:) = ...
@@ -1079,8 +1084,8 @@ if ephys_exists && load_parts.ephys
         (sum(use_spiking_stat_bins,2)*spiking_stat_window);
     
     % Get proportion of ISI > 2s (Yamin/Cohen 2013) and CV2 (Stalnaker/Schoenbaum 2016)
-    prop_long_isi = nan(max(spike_templates),1);
-    cv2 = nan(max(spike_templates),1);
+    prop_long_isi = nan(size(templates,1),1);
+    cv2 = nan(size(templates,1),1);
     for curr_template = unique(spike_templates)'
         
         long_isi_total = 0;

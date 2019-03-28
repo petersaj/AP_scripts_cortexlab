@@ -2789,59 +2789,7 @@ AP_reference_outline('ccf_aligned','k',[],[size(U_master,1),size(U_master,2),1,3
 
 %% Get PSTH for each unit
 
-n_units = size(templates,1);
-
-% PSTH timing
-raster_window = [-0.5,1];
-psth_bin_size = 0.001;
-t_bins = raster_window(1):psth_bin_size:raster_window(2);
-t = conv2(t_bins,[1,1]/2,'valid');
-
-% Event to align
-use_align = wheel_move_time';
-% use_align = stimOn_times;
-use_align(isnan(use_align)) = [];
-t_peri_event = use_align + t_bins;
-
-% Get PSTHs
-unit_psth = nan(n_units,length(t_bins)-1);
-for curr_unit = 1:n_units
-    curr_spikes = spike_times_timeline(spike_templates == curr_unit);
-    curr_spikes_binned = cell2mat(arrayfun(@(x) ...
-        histcounts(curr_spikes,t_peri_event(x,:)), ...
-        [1:size(t_peri_event,1)]','uni',false))./psth_bin_size;
-    unit_psth(curr_unit,:) = sum(curr_spikes_binned,1);
-end
-
-smooth_size = 50;
-gw = gausswin(smooth_size,3)';
-smWin = gw./sum(gw);
-unit_psth_smoothed = convn(unit_psth,smWin,'same');
-
-% PCA of PSTHs
-[coeff,score,latent] = pca(zscore(unit_psth_smoothed,[],2)');
-
-depth_bins = linspace(0,4000,20);
-depth_centers = depth_bins(1:end-1) + diff(depth_bins)./2;
-depth_group = discretize(template_depths,depth_bins);
-
-plot_coeffs = 1:4;
-
-figure;
-subplot(1,2,1); hold on;
-plot(t,score(:,plot_coeffs),'linewidth',2);
-line([0,0],ylim,'color','k');
-xlabel('Time');
-ylabel('Activity');
-
-subplot(1,2,2,'YDir','reverse'); hold on;
-for curr_coeff = plot_coeffs
-    curr_depth_coeff = accumarray(depth_group,coeff(:,curr_coeff), ...
-        [length(depth_bins)-1,1],@nanmean,nan);
-    plot(smooth(curr_depth_coeff,3),depth_centers,'linewidth',2);
-end
-xlabel('Coeff loading');
-ylabel('Depth');
+AP_cellraster({stimOn_times,wheel_move_time,reward_t_timeline});
 
 
 %% Regress task to ephys units
@@ -3080,7 +3028,7 @@ return_constant = false;
 event_aligned_unit = nan(length(stimOn_times),length(t),max(spike_templates));
 t_bins = [t_peri_event-raster_sample_rate/2,t_peri_event(:,end)+raster_sample_rate/2];
 for curr_unit = 1:max(spike_templates)
-    curr_spikes = spike_times_timeline(spike_templates == curr_unit);    
+    curr_spikes = spike_times_timeline(spike_templates == curr_unit);
     event_aligned_unit(:,:,curr_unit) = cell2mat(arrayfun(@(x) ...
         histcounts(curr_spikes,t_bins(x,:)), ...
         [1:size(t_peri_event,1)]','uni',false))./raster_sample_rate;
@@ -3137,9 +3085,9 @@ end
 % Plot units by depth size-scaled by variance explained
 used_spikes = spike_times_timeline > time_bins(1) & ...
     spike_times_timeline < time_bins(end);
-norm_spike_n = mat2gray(log(accumarray(spike_templates(used_spikes),1)+1));
+norm_spike_n = mat2gray(log(accumarray(spike_templates(used_spikes),1,[size(templates,1),1])+1));
 
-figure; 
+figure;
 for curr_regressor = 1:length(regressors)+1
     subplot(1,length(regressors)+1,curr_regressor,'YDir','reverse');
     hold on;
@@ -3156,19 +3104,19 @@ for curr_regressor = 1:length(regressors)+1
         title(regressor_labels{curr_regressor-1});
     end
     xlabel('Normalized n spikes');
-    ylabel('Depth (\mum)');   
+    ylabel('Depth (\mum)');
 end
 
 
 % %%%%% try just doing a comparison of aligned peaks?
 % % event_aligned_unit
-% 
+%
 % % Stim-aligned
 % stim_aligned_unit = event_aligned_unit;
-% 
+%
 % % Move-aligned
 % [move_trial,move_idx] = max(abs(event_aligned_wheel) > 0.02,[],2);
-% 
+%
 % realign_idx = move_idx;
 % t_leeway = -t(1);
 % leeway_samples = round(t_leeway*(sample_rate));
@@ -3179,12 +3127,12 @@ end
 %             circshift(curr_realigned(curr_trial,:,curr_unit),-realign_idx(curr_trial)+leeway_samples,2);
 %     end
 % end
-% 
+%
 % move_aligned_unit = curr_realigned;
-% 
+%
 % % Outcome-aligned
 % [~,outcome_idx] = max(any(event_aligned_outcome,3),[],2);
-% 
+%
 % realign_idx = outcome_idx;
 % t_leeway = -t(1);
 % leeway_samples = round(t_leeway*(sample_rate));
@@ -3195,14 +3143,14 @@ end
 %             circshift(curr_realigned(curr_trial,:,curr_unit),-realign_idx(curr_trial)+leeway_samples,2);
 %     end
 % end
-% 
+%
 % outcome_aligned_unit = curr_realigned;
-% 
+%
 % % Get trial-trial correlation
 % smooth_size = 10;
 % gw = gausswin(smooth_size,4)';
 % smWin = gw./sum(gw);
-% 
+%
 % stim_aligned_unit_smoothed = convn(padarray(stim_aligned_unit, ...
 %     [0,floor(length(smWin)/2)],'replicate','both'), ...
 %     smWin,'valid');
@@ -3212,21 +3160,21 @@ end
 % outcome_aligned_unit_smoothed = convn(padarray(outcome_aligned_unit, ...
 %     [0,floor(length(smWin)/2)],'replicate','both'), ...
 %     smWin,'valid');
-% 
+%
 % trial_corr = nan(3,max(spike_templates));
 % for curr_unit = 1:max(spike_templates)
 %     trial_corr(1,curr_unit) = nanmean(AP_itril(squareform(1-pdist(stim_aligned_unit_smoothed(:,:,curr_unit),'correlation')),-1));
 %     trial_corr(2,curr_unit) = nanmean(AP_itril(squareform(1-pdist(move_aligned_unit_smoothed(:,:,curr_unit),'correlation')),-1));
 %     trial_corr(3,curr_unit) = nanmean(AP_itril(squareform(1-pdist(outcome_aligned_unit_smoothed(:,:,curr_unit),'correlation')),-1));
 % end
-% 
+%
 % unit_std = std(reshape(stim_aligned_unit_smoothed,[],max(spike_templates)),[],1);
 % trial_corr_norm = trial_corr.^2./sum(trial_corr.^2,1).*unit_std;
-% 
+%
 % % Plot units by depth size-scaled by trial-trial correlation
 % norm_spike_n = mat2gray(log(accumarray(spike_templates,1)+1));
-% 
-% figure; 
+%
+% figure;
 % for curr_align = 1:size(trial_corr,1)
 %     subplot(1,size(trial_corr,1),curr_align,'YDir','reverse');
 %     hold on;
@@ -3238,6 +3186,412 @@ end
 %     scatter3(norm_spike_n,template_depths, ...
 %         1:max(spike_templates),curr_corr*50+1,'k','filled')
 % end
+
+
+%% Regress task to ephys units (BATCH)
+
+% Regression parameters
+regression_params.use_svs = 1:50;
+regression_params.skip_seconds = 20;
+regression_params.upsample_factor = 1;
+regression_params.kernel_t = [-0.5,0.5];
+regression_params.zs = [false,false];
+regression_params.cvfold = 5;
+regression_params.use_constant = true;
+
+animals = {'AP024','AP025','AP026','AP027','AP028','AP029'};
+
+unit_kernel_all = struct;
+
+for curr_animal = 1:length(animals)
+    
+    animal = animals{curr_animal};
+    protocol = 'vanillaChoiceworld';
+    experiments = AP_find_experiments(animal,protocol);
+    
+    experiments = experiments([experiments.imaging] & [experiments.ephys]);
+    
+    disp(['Loading ' animal]);
+    
+    for curr_day = 1:length(experiments)
+        
+        day = experiments(curr_day).day;
+        experiment = experiments(curr_day).experiment;
+        
+        % Load experiment
+        str_align = 'none';
+        AP_load_experiment;        
+        
+        % Get event-aligned activity
+        raster_window = [-0.5,2];
+        upsample_factor = 1;
+        raster_sample_rate = 1/(framerate*upsample_factor);
+        t = raster_window(1):raster_sample_rate:raster_window(2);
+        
+        % Get align times
+        use_align = stimOn_times;
+        use_align(isnan(use_align)) = 0;
+        
+        t_peri_event = bsxfun(@plus,use_align,t);
+        t_bins = [t_peri_event-raster_sample_rate/2,t_peri_event(:,end)+raster_sample_rate/2];
+        
+        %%% Trial-align wheel velocity
+        event_aligned_wheel = interp1(Timeline.rawDAQTimestamps, ...
+            wheel_velocity,t_peri_event);
+        
+        %%% Trial-align facecam movement
+        event_aligned_movement = interp1(facecam_t(~isnan(facecam_t)), ...
+            frame_movement(~isnan(facecam_t)),t_peri_event);
+        
+        %%% Trial-align outcome (reward page 1, punish page 2)
+        % (note incorrect outcome imprecise from signals, but looks good)
+        event_aligned_outcome = zeros(size(t_peri_event,1),size(t_peri_event,2),2);
+        
+        event_aligned_outcome(trial_outcome == 1,:,1) = ...
+            (cell2mat(arrayfun(@(x) ...
+            histcounts(reward_t_timeline,t_bins(x,:)), ...
+            find(trial_outcome == 1)','uni',false))) > 0;
+        
+        event_aligned_outcome(trial_outcome == -1,:,2) = ...
+            (cell2mat(arrayfun(@(x) ...
+            histcounts(signals_events.responseTimes,t_bins(x,:)), ...
+            find(trial_outcome == -1)','uni',false))) > 0;
+        
+        % Pick trials to keep
+        use_trials = ...
+            trial_outcome ~= 0 & ...
+            ~signals_events.repeatTrialValues(1:n_trials) & ...
+            stim_to_feedback < 1.5;
+        
+        % Get behavioural data
+        D = struct;
+        D.stimulus = zeros(sum(use_trials),2);
+        
+        L_trials = signals_events.trialSideValues(1:n_trials) == -1;
+        R_trials = signals_events.trialSideValues(1:n_trials) == 1;
+        
+        D.stimulus(L_trials(use_trials),1) = signals_events.trialContrastValues(L_trials & use_trials);
+        D.stimulus(R_trials(use_trials),2) = signals_events.trialContrastValues(R_trials & use_trials);
+        
+        D.response = 3-(abs((trial_choice(use_trials)'+1)/2)+1);
+        D.repeatNum = ones(sum(use_trials),1);
+        
+        D.outcome = reshape(trial_outcome(use_trials),[],1);
+        
+        %%% Regress task to cortex/striatum/cortex-predicted striatum
+        
+        % Get time points to bin
+        sample_rate = framerate*regression_params.upsample_factor;
+        time_bins = frame_t(find(frame_t > ...
+            regression_params.skip_seconds,1)):1/sample_rate: ...
+            frame_t(find(frame_t-frame_t(end) < ...
+            -regression_params.skip_seconds,1,'last'));
+        time_bin_centers = time_bins(1:end-1) + diff(time_bins)/2;
+        
+        % Get reaction time for building regressors
+        [move_trial,move_idx] = max(abs(event_aligned_wheel) > 0.02,[],2);
+        move_idx(~move_trial) = NaN;
+        move_t = nan(size(move_idx));
+        move_t(~isnan(move_idx) & move_trial) = t(move_idx(~isnan(move_idx) & move_trial))';
+        
+        % Stim regressors
+        unique_stim = unique(contrasts(contrasts > 0).*sides');
+        stim_contrastsides = ...
+            signals_events.trialSideValues(1:length(stimOn_times)).* ...
+            signals_events.trialContrastValues(1:length(stimOn_times));
+        
+        stim_regressors = zeros(length(unique_stim),length(time_bin_centers));
+        for curr_stim = 1:length(unique_stim)
+            curr_stim_times = stimOn_times(stim_contrastsides == unique_stim(curr_stim));
+            stim_regressors(curr_stim,:) = histcounts(curr_stim_times,time_bins);
+        end
+        
+        % Stim move regressors (one for each stim when it starts to move)
+        stim_move_regressors = zeros(length(unique_stim),length(time_bin_centers));
+        for curr_stim = 1:length(unique_stim)
+            
+            % (find the first photodiode flip after the stim azimuth has
+            % moved past a threshold)
+            
+            curr_stimOn_times = stimOn_times(trial_outcome(1:length(stimOn_times)) ~= 0 & ...
+                stim_contrastsides == unique_stim(curr_stim));
+            
+            azimuth_move_threshold = 5; % degrees to consider stim moved
+            stim_move_times_signals = ...
+                signals_events.stimAzimuthTimes( ...
+                abs(signals_events.stimAzimuthValues - 90) > azimuth_move_threshold);
+            curr_stim_move_times_signals = arrayfun(@(x) ...
+                stim_move_times_signals(find(stim_move_times_signals > ...
+                curr_stimOn_times(x),1)),1:length(curr_stimOn_times));
+            
+            curr_stim_move_times_photodiode = arrayfun(@(x) ...
+                photodiode_flip_times(find(photodiode_flip_times > ...
+                curr_stim_move_times_signals(x),1)),1:length(curr_stim_move_times_signals));
+            
+            stim_move_regressors(curr_stim,:) = histcounts(curr_stim_move_times_photodiode,time_bins);
+            
+        end
+        
+        % Stim center regressors (one for each stim when it's stopped during reward)
+        unique_contrasts = unique(contrasts(contrasts > 0));
+        stim_contrasts = ...
+            signals_events.trialContrastValues(1:length(stimOn_times));
+        
+        stim_center_regressors = zeros(length(unique_contrasts),length(time_bin_centers));
+        for curr_contrast = 1:length(unique_contrasts)
+            
+            % (find the last photodiode flip before the reward)
+            curr_stimOn_times = stimOn_times(trial_outcome(1:length(stimOn_times)) == 1 & ...
+                stim_contrasts == unique_contrasts(curr_contrast));
+            
+            curr_reward_times = arrayfun(@(x) ...
+                reward_t_timeline(find(reward_t_timeline > ...
+                curr_stimOn_times(x),1)),1:length(curr_stimOn_times));
+            
+            curr_prereward_photodiode_times = arrayfun(@(x) ...
+                photodiode_flip_times(find(photodiode_flip_times < ...
+                curr_reward_times(x),1,'last')),1:length(curr_reward_times));
+            
+            stim_center_regressors(curr_contrast,:) = histcounts(curr_prereward_photodiode_times,time_bins);
+            
+        end
+        
+        % Move onset regressors (L/R)
+        move_time_L_absolute = arrayfun(@(x) t_peri_event(x,move_idx(x)), ...
+            find(~isnan(move_idx) & trial_choice(1:length(stimOn_times))' == -1));
+        move_time_R_absolute = arrayfun(@(x) t_peri_event(x,move_idx(x)), ...
+            find(~isnan(move_idx) & trial_choice(1:length(stimOn_times))' == 1));
+        
+        move_onset_regressors = zeros(2,length(time_bin_centers));
+        move_onset_regressors(1,:) = histcounts(move_time_L_absolute,time_bins);
+        move_onset_regressors(2,:) = histcounts(move_time_R_absolute,time_bins);
+        
+        % Move onset x stim regressors (one for each contrast/side)
+        move_onset_stim_time_absolute = arrayfun(@(curr_stim) ...
+            arrayfun(@(x) t_peri_event(x,move_idx(x)), ...
+            find(~isnan(move_idx) & stim_contrastsides' == unique_stim(curr_stim))), ...
+            1:length(unique_stim),'uni',false);
+        
+        move_onset_stim_regressors = zeros(10,length(time_bin_centers));
+        for curr_stim = 1:length(unique_stim)
+            move_onset_stim_regressors(curr_stim,:) = ...
+                histcounts(move_onset_stim_time_absolute{curr_stim},time_bins);
+        end
+        
+        % Move ongoing regressors (L/R choice for duration of movement)
+        wheel_velocity_interp = interp1(Timeline.rawDAQTimestamps,wheel_velocity,time_bin_centers);
+        
+        move_stopped_t = 0.5;
+        move_stopped_samples = round(sample_rate*move_stopped_t);
+        wheel_moving_conv = convn((abs(wheel_velocity_interp) > 0.02), ...
+            ones(1,move_stopped_samples),'full') > 0;
+        wheel_moving = wheel_moving_conv(end-length(time_bin_centers)+1:end);
+        
+        move_ongoing_L_samples = cell2mat(arrayfun(@(x) ...
+            find(time_bin_centers > x): ...
+            find(time_bin_centers > x & ~wheel_moving,1), ...
+            move_time_L_absolute','uni',false));
+        move_ongoing_R_samples = cell2mat(arrayfun(@(x) ...
+            find(time_bin_centers > x): ...
+            find(time_bin_centers > x & ~wheel_moving,1), ...
+            move_time_R_absolute','uni',false));
+        
+        move_ongoing_regressors = zeros(2,length(time_bin_centers));
+        move_ongoing_regressors(1,move_ongoing_L_samples) = 1;
+        move_ongoing_regressors(2,move_ongoing_R_samples) = 1;
+        
+        % Go cue regressors - separate for early/late move
+        % (using signals timing - not precise but looks good)
+        if length(signals_events.interactiveOnTimes) ~= length(move_t)
+            error('Different number of interactive ons and move times')
+        end
+        
+        go_cue_regressors = zeros(2,length(time_bin_centers));
+        go_cue_regressors(1,:) = histcounts( ...
+            signals_events.interactiveOnTimes(move_t <= 0.5),time_bins);
+        go_cue_regressors(2,:) = histcounts( ...
+            signals_events.interactiveOnTimes(move_t > 0.5),time_bins);
+        
+        % Outcome regressors
+        % (using signals timing - not precise but looks good)
+        outcome_regressors = zeros(2,length(time_bin_centers));
+        
+        outcome_regressors(1,:) = histcounts( ...
+            reward_t_timeline,time_bins);
+        outcome_regressors(2,:) = histcounts( ...
+            signals_events.responseTimes(trial_outcome == -1),time_bins);
+        
+        % Concatenate selected regressors, set parameters
+        regressors = {stim_regressors;move_onset_regressors;go_cue_regressors;outcome_regressors};
+        regressor_labels = {'Stim','Move onset','Go cue','Outcome'};
+        
+        t_shifts = {[0,0.5]; ... % stim
+            [-0.5,1]; ... % move
+            [-0.1,0.5]; ... % go cue
+            [-0.5,1]}; % outcome
+        
+        sample_shifts = cellfun(@(x) round(x(1)*(sample_rate)): ...
+            round(x(2)*(sample_rate)),t_shifts,'uni',false);
+        lambda = 0;
+        zs = [false,false];
+        cvfold = 5;
+        use_constant = false;
+        return_constant = false;
+        
+        
+        %%%%%%% Regress task -> striatum units
+        
+        %%% Trial-align striatum units
+        event_aligned_unit = nan(length(stimOn_times),length(t),max(spike_templates));
+        t_bins = [t_peri_event-raster_sample_rate/2,t_peri_event(:,end)+raster_sample_rate/2];
+        for curr_unit = 1:max(spike_templates)
+            curr_spikes = spike_times_timeline(spike_templates == curr_unit);
+            event_aligned_unit(:,:,curr_unit) = cell2mat(arrayfun(@(x) ...
+                histcounts(curr_spikes,t_bins(x,:)), ...
+                [1:size(t_peri_event,1)]','uni',false))./raster_sample_rate;
+        end
+        
+        %%% Binned unit activity across the experiment
+        binned_spikes = zeros(max(spike_templates),length(time_bin_centers));
+        for curr_unit = 1:max(spike_templates)
+            curr_spike_times = spike_times_timeline(spike_templates == curr_unit);
+            binned_spikes(curr_unit,:) = histcounts(curr_spike_times,time_bins);
+        end
+        binned_spikes_std = binned_spikes./nanstd(binned_spikes,[],2);
+        binned_spikes_std(isnan(binned_spikes_std)) = 0;
+        
+        
+        %%% Task > striatal unit regression
+        unit_expl_var = nan(length(regressors)+1,max(spike_templates));
+        unit_taskpred_k = cell(length(regressors)+return_constant,max(spike_templates));
+        unit_taskpred = nan(size(event_aligned_unit));
+        unit_taskpred_reduced = ...
+            repmat(nan(size(event_aligned_unit)),1,1,1,length(regressors));
+        for curr_unit = 1:max(spike_templates)
+            
+            baseline = nanmean(reshape(event_aligned_unit(:,t < 0,curr_unit),[],1)*raster_sample_rate);
+            activity = single(binned_spikes(curr_unit,:)) - baseline;
+            
+            % Skip if nothing in this depth
+            if ~any(activity(:))
+                continue
+            end
+            
+            [task_kernel,activity_predicted,expl_var,activity_predicted_reduced] = ...
+                AP_regresskernel(regressors,activity,sample_shifts, ...
+                lambda,zs,cvfold,return_constant,use_constant);
+            
+            unit_expl_var(1,curr_unit) = expl_var.total;
+            unit_expl_var(2:end,curr_unit) = expl_var.partial;
+            
+            unit_taskpred_k(:,curr_unit) = task_kernel;
+            
+            unit_taskpred(:,:,curr_unit) = ...
+                interp1(time_bin_centers,activity_predicted',t_peri_event)./raster_sample_rate;
+            
+            unit_taskpred_reduced(:,:,curr_unit,:) = cell2mat(arrayfun(@(x) ...
+                interp1(time_bin_centers,activity_predicted_reduced(:,:,x)', ...
+                t_peri_event)./raster_sample_rate,permute(1:length(regressors),[1,3,4,2]),'uni',false));
+            
+%             AP_print_progress_time(curr_unit,max(spike_templates));
+            
+        end
+        
+        % Plot units by depth size-scaled by variance explained
+        used_spikes = spike_times_timeline > time_bins(1) & ...
+            spike_times_timeline < time_bins(end);
+        norm_spike_n = mat2gray(log(accumarray(spike_templates(used_spikes),1,[size(templates,1),1])+1));
+        
+%         figure;
+%         for curr_regressor = 1:length(regressors)+1
+%             subplot(1,length(regressors)+1,curr_regressor,'YDir','reverse');
+%             hold on;
+%             curr_expl_var = unit_expl_var(curr_regressor,:);
+%             curr_nan = isnan(curr_expl_var) | curr_expl_var < 0 | curr_expl_var > 1;
+%             curr_expl_var(curr_nan) = NaN;
+%             curr_expl_var = mat2gray(curr_expl_var);
+%             curr_expl_var(curr_nan) = NaN;
+%             scatter3(norm_spike_n,template_depths, ...
+%                 1:max(spike_templates),curr_expl_var*50+1,'k','filled')
+%             if curr_regressor == 1
+%                 title({'All' animal day})
+%             else
+%                 title(regressor_labels{curr_regressor-1});
+%             end
+%             xlabel('Normalized n spikes');
+%             ylabel('Depth (\mum)');
+%         end
+
+        % Package
+        unit_kernel_all(curr_animal,curr_day).template_depths = template_depths;
+        unit_kernel_all(curr_animal,curr_day).norm_spike_n = norm_spike_n;
+        unit_kernel_all(curr_animal,curr_day).unit_expl_var = unit_expl_var;
+        unit_kernel_all(curr_animal,curr_day).unit_taskpred_k = unit_taskpred_k;
+        
+        % Clear
+        clearvars -except regression_params animals curr_animal animal days curr_day experiments unit_kernel_all
+        AP_print_progress_fraction(curr_day,length(experiments));
+    end
+end
+
+save_path = 'C:\Users\Andrew\OneDrive for Business\Documents\CarandiniHarrisLab\analysis\wf_ephys_choiceworld\choiceworld';
+save_fn = 'unit_kernel_all.mat';
+save([save_path filesep save_fn],'unit_kernel_all');
+
+
+%% Plot unit kernel results
+
+unit_kernel_fn = 'C:\Users\Andrew\OneDrive for Business\Documents\CarandiniHarrisLab\analysis\wf_ephys_choiceworld\choiceworld\unit_kernel_all.mat';
+load(unit_kernel_fn);
+
+regressor_labels = {'Stim','Move','Go cue','Outcome'};
+
+for curr_animal = 1:size(unit_kernel_all,1)
+    for curr_day = 1:size(unit_kernel_all,2)
+        
+        if isempty(unit_kernel_all(curr_animal,curr_day).unit_expl_var)
+            continue
+        end
+        
+        figure;
+        for curr_plot = 1:size(unit_kernel_all(curr_animal,curr_day),1)
+            subplot(1,size(unit_kernel_all(curr_animal,curr_day),1),curr_plot,'YDir','reverse');
+            hold on;
+            curr_expl_var = unit_kernel_all(curr_animal,curr_day).unit_expl_var(curr_plot,:);            
+            curr_nan = isnan(curr_expl_var) | curr_expl_var < 0 | curr_expl_var > 1;
+            curr_expl_var(curr_nan) = NaN;
+            curr_expl_var = mat2gray(curr_expl_var);
+            curr_expl_var(curr_nan) = NaN;
+            scatter3(unit_kernel_all(curr_animal,curr_day).norm_spike_n, ...
+                unit_kernel_all(curr_animal,curr_day).template_depths, ...
+                1:length(unit_kernel_all(curr_animal,curr_day).template_depths), ...
+                curr_expl_var*50+1,'k','filled')
+            if curr_plot == 1
+                title({'All' [num2str(curr_animal) ' ' num2str(curr_day)]})
+            else
+                title(regressor_labels{curr_plot-1});
+            end
+            xlabel('Normalized n spikes');
+            ylabel('Depth (\mum)');
+        end
+        
+    end
+end
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 
