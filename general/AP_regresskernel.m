@@ -24,7 +24,7 @@ function [k,predicted_signals,explained_var,predicted_signals_reduced] = ...
 % t_shifts)
 % predicted_signals - regressors*k
 % explained_var - .total (total model), 
-%                 .reduced (unique - regressors x signals)
+%                 .partial (2 columns: 1 = alone, 2 = omitted)
 % predicted_signals_reduced - predicted signals with reduced k
 %
 % NOTE IF GPU ERROR: 
@@ -174,6 +174,7 @@ cv_partition(predictable_samples) = round(linspace(1,cvfold,sum(predictable_samp
 k_cv = zeros(size(regressors_gpu,2),size(signals,1),cvfold,'single');
 predicted_signals = nan(size(signals));
 predicted_signals_reduced = nan(size(signals,1),size(signals,2),length(regressors));
+predicted_signals_partial = nan(size(signals,1),size(signals,2),length(regressors),2);
 for curr_cv = 1:cvfold
     
     % Get training/test sets
@@ -212,28 +213,62 @@ for curr_cv = 1:cvfold
             regressor_split_size = [cellfun(@(x) size(x,1),regressors).*cellfun(@length,t_shifts)];
         end
         
-%         (use everything BUT particular regressor)
-        regressor_split_idx = cellfun(@(x) setdiff(1:size(regressors_gpu,2),x), ...
+        % Get indicies to use regressor alone or omitted
+        regressor_alone_idx = mat2cell(1:size(regressors_gpu,2),1,regressor_split_size);
+        regressor_omitted_idx = cellfun(@(x) setdiff(1:size(regressors_gpu,2),x), ...
             mat2cell(1:size(regressors_gpu,2),1,regressor_split_size),'uni',false);
-
-        % (use ONLY particular regressor)
-%         regressor_split_idx = mat2cell(1:size(regressors_gpu,2),1,regressor_split_size);
         
+        % Predict the signal using kernel with current regressor omitted
+        % (for use in isolating responses, e.g. stim response = full
+        % response - predicted move response)
         for curr_regressor = 1:length(regressors)
             
             if sparse_regressors
                 curr_predicted = ...
-                    full(regressors_gpu(test_idx,regressor_split_idx{curr_regressor})* ...
-                    sparse(double(k_cv(regressor_split_idx{curr_regressor},:,curr_cv))));
+                    full(regressors_gpu(test_idx,regressor_omitted_idx{curr_regressor})* ...
+                    sparse(double(k_cv(regressor_omitted_idx{curr_regressor},:,curr_cv))));
             else
                 curr_predicted = ...
-                    gather(regressors_gpu(test_idx,regressor_split_idx{curr_regressor})* ...
-                    gpuArray(k_cv(regressor_split_idx{curr_regressor},:,curr_cv)));
+                    gather(regressors_gpu(test_idx,regressor_omitted_idx{curr_regressor})* ...
+                    gpuArray(k_cv(regressor_omitted_idx{curr_regressor},:,curr_cv)));
             end
             
             predicted_signals_reduced(:,test_idx,curr_regressor) = ...
                 curr_predicted';
             
+        end
+               
+        % Refit the kernel and predict for each regressor
+        % (for calculating partial explained variance, both alone and
+        % omitted)
+        for curr_regressor = 1:length(regressors)
+            for curr_partial = 1:2
+                
+                switch curr_partial
+                    case 1
+                        regressor_split_idx = regressor_alone_idx;
+                    case 2
+                        regressor_split_idx = regressor_omitted_idx;
+                end
+               
+            k_cv_reduced = ...
+                full(gather(regressors_gpu(train_idx,regressor_split_idx{curr_regressor})\ ...
+                signals_gpu(train_idx,:)));
+                       
+            if sparse_regressors
+                curr_predicted = ...
+                    full(regressors_gpu(test_idx,regressor_split_idx{curr_regressor})* ...
+                    sparse(double(k_cv_reduced)));
+            else
+                curr_predicted = ...
+                    gather(regressors_gpu(test_idx,regressor_split_idx{curr_regressor})* ...
+                    gpuArray(k_cv_reduced));
+            end
+            
+            predicted_signals_partial(:,test_idx,curr_regressor,curr_partial) = ...
+                curr_predicted';    
+            
+            end
         end
     end  
 end
@@ -247,17 +282,13 @@ end
 % Total explained variance (R^2)
 sse_residual = sum((signals(:,predictable_samples)-predicted_signals(:,predictable_samples)).^2,2);
 sse_total = sum((signals(:,predictable_samples)-nanmean(signals(:,predictable_samples),2)).^2,2);
-explained_var.total = 1-(sse_residual./sse_total);
+explained_var.total = 1 - (sse_residual./sse_total);
 
-% Partial/shared explained variance
-% (this isn't normal R^2 which requires refitting, change later)
+% Partial (unique if exclusion) explained variance
 if length(regressors) > 1    
-    sse_residual_reduced = sum((signals(:,predictable_samples)-predicted_signals_reduced(:,predictable_samples,:)).^2,2);
-%     sse_residual_full = sum((signals(:,predictable_samples)-predicted_signals(:,predictable_samples,:)).^2,2);   
-%     explained_var.partial = (sse_residual_reduced - sse_residual_full)./sse_total;
-    
-    expl_var_reduced = 1-(sse_residual_reduced./sse_total);
-    explained_var.partial = explained_var.total - expl_var_reduced;
+    sse_residual_reduced = sum((signals(:,predictable_samples)-predicted_signals_partial(:,predictable_samples,:,:)).^2,2);
+    sse_residual_full = sum((signals(:,predictable_samples)-predicted_signals(:,predictable_samples,:)).^2,2);   
+    explained_var.partial = permute(1 - (sse_residual_full./sse_residual_reduced),[1,3,4]);
 end
 
 % Get the final k from averaging

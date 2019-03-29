@@ -545,7 +545,11 @@ for curr_animal = 1:length(animals)
         zs = [false,false];
         cvfold = 5;
         use_constant = false;
-        return_constant = false;       
+        return_constant = false;  
+        
+        %%%%%%%%%%% NOTE FOR LATER
+        error('This should be doable at the same time, don''t loop');
+        %%%%%%%%%%%%%%%%%%%%%%%%%%
         
         % Regression task -> MUA
         mua_taskpred_k = cell(length(regressors)+return_constant,n_depths);
