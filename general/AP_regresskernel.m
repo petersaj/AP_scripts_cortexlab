@@ -166,8 +166,8 @@ end
 
 % Regression (and cross validation if selected)
 
-% Only samples with regressors are predictable
-predictable_samples = any(regressor_design,2);
+% Predictable samples: must have regressors, must have no nans in samples
+predictable_samples = any(regressor_design,2) & ~any(isnan(signals),1)';
 cv_partition = nan(size(regressor_design,1),1);
 cv_partition(predictable_samples) = round(linspace(1,cvfold,sum(predictable_samples)))';
 
@@ -288,7 +288,7 @@ explained_var.total = 1 - (sse_residual./sse_total);
 if length(regressors) > 1    
     sse_residual_reduced = sum((signals(:,predictable_samples)-predicted_signals_partial(:,predictable_samples,:,:)).^2,2);
     sse_residual_full = sum((signals(:,predictable_samples)-predicted_signals(:,predictable_samples,:)).^2,2);   
-    explained_var.partial = permute(1 - (sse_residual_full./sse_residual_reduced),[1,3,4]);
+    explained_var.partial = permute(1 - (sse_residual_full./sse_residual_reduced),[1,3,4,2]);
 end
 
 % Get the final k from averaging
