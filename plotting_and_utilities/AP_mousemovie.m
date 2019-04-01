@@ -114,9 +114,9 @@ switch eventdata.Key
         [save_file,save_path] = uiputfile('.avi','Choose save location');
         save_filename = [save_path save_file];
         
-        frame_times = (1:handles.n_frames)/framerate;
+        frame_times = (1:handles.n_frames)/handles.framerate;
         record_frames = find(frame_times >= record_t(1) & ...
-            frame_Times <= record_t(2));
+            frame_times <= record_t(2));
         n_record_frames = length(record_frames);       
         
         % Run through selected frames and save
