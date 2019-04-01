@@ -203,7 +203,7 @@ switch file
     case 'ephys'
         % folder with kilosort/phy outputs
         
-        kilosort_version = 1; % 1 and 2 available
+        kilosort_version = 2; % 1 and 2 available
         
         % Drop the kilosort version in the base workspace
         assignin('base','kilosort_version',kilosort_version);
