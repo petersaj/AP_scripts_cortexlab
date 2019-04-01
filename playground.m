@@ -5332,7 +5332,7 @@ for curr_animal = 1:length(animals)
         experiment = experiments(curr_day).experiment;
         
         % Load experiment
-        str_align = 'kernel';
+        str_align = 'depth';
         AP_load_experiment;
         
         % Prepare fluorescence

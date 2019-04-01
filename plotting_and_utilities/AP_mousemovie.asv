@@ -11,14 +11,14 @@ gui_fig = figure; colormap(gray)
 set(gui_fig,'WindowScrollWheelFcn',{@imgSlider_MouseWheel, gui_fig});
 set(gui_fig, 'KeyPressFcn', {@im_keypress, gui_fig});
 
-handles.cam_axis = axes('Ydir','reverse'); hold on;
-axis(handles.cam_axis,'image','off');
+handles.cam_axis = axes;
+axis(handles.cam_axis,'image');
 
 % Set up videoreader
 handles.movie_vr = VideoReader(movie_fn);
 movie_frame = 1;
 movie_im = read(handles.movie_vr,movie_frame);
-handles.movie_im = imagesc(handles.cam_axis,movie_im);
+handles.movie_im = imagesc(handles.cam_axis,movie_im); axis(handles.cam_axis,'off');
 handles.n_frames = handles.movie_vr.NumberOfFrames;
 handles.framerate = handles.movie_vr.FrameRate;
 
@@ -35,7 +35,7 @@ set(handles.imgSlider,'SliderStep',[10/handles.n_frames, 100/handles.n_frames]);
 
 % Set up frame title
 handles.frame_text = uicontrol('Style','text','String', ...
-    sprintf('Time: %0.2f s',1/handles.framerate),'FontSize',14,'Units', ...
+    ['Time: ' num2str(1)/handles.framerate],'FontSize',14,'Units', ...
     'Normalized','Position',[0.3,0.93,0.4,0.07]);
 
 % Update guidata
@@ -114,16 +114,17 @@ switch eventdata.Key
         [save_file,save_path] = uiputfile('.avi','Choose save location');
         save_filename = [save_path save_file];
         
-        frame_times = (1:handles.n_frames)/framerate;
-        record_frames = find(frame_times >= record_t(1) & ...
-            frame_Times <= record_t(2));
-        n_record_frames = length(record_frames);       
+        1:handles.
+        
+        movie_wf_frames = find(handles.frame_t > record_t(1) & ...
+            handles.frame_t < record_t(2));
+        n_movie_frames = length(movie_wf_frames);
         
         % Run through selected frames and save
         disp('Recording...')
-        movie_frames(n_record_frames) = struct('cdata',[],'colormap',[]);
-        for curr_movie_frame_idx = 1:n_record_frames
-            curr_movie_frame = record_frames(curr_movie_frame_idx);
+        movie_frames(n_movie_frames) = struct('cdata',[],'colormap',[]);
+        for curr_movie_frame_idx = 1:n_movie_frames
+            curr_movie_frame = movie_wf_frames(curr_movie_frame_idx);
             % Update images
             update_im(handles,gui_fig,curr_movie_frame);
             movie_frames(curr_movie_frame_idx) = getframe(gui_fig);
@@ -152,7 +153,7 @@ movie_im = read(handles.movie_vr,movie_frame);
 set(handles.movie_im,'Cdata',movie_im);
 
 % Update the frame text
-set(handles.frame_text,'String',sprintf('Time: %0.2f s',movie_frame/handles.framerate));
+set(handles.frame_text,'String',['Time: ' num2str(movie_frame/handles.framerate)]);
 
 % Update guidata
 handles.movie_frame = movie_frame;
