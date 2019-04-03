@@ -904,6 +904,8 @@ if ephys_exists && load_parts.ephys
         fwhm_trough = (sum(waveforms < (waveform_trough/2),2)/ephys_sample_rate)*1e6;
         fwhm_peak = (sum(waveforms > (waveform_post_peak/2),2)/ephys_sample_rate)*1e6;
         
+        trough_peak_t_fwhm = trough_peak_t./(fwhm_trough + fwhm_peak);
+        
         % Get number of channels with 50% of the max range
         template_channel_amp = squeeze(range(templates,2));
         amp_thresh = max(template_channel_amp,[],2)*0.5;
@@ -913,9 +915,12 @@ if ephys_exists && load_parts.ephys
         waveform_deviate_check = 24; % the first sample can be weird
         [~,waveform_deviate_t] = max(abs(waveforms(:,waveform_deviate_check:end)./ ...
             max(abs(waveforms(:,waveform_deviate_check:end)),[],2)) > 0.1,[],2);
+        waveform_deviate_t = waveform_deviate_t + waveform_deviate_check;
         
-        % Set automatic cutoffs (characteristic of noise)
-        v_bad = v(:,1) < 0;
+        % Set automatic cutoffs and corresponding bad templates
+        
+        v_cutoff = 0; % upward going spikes might be axons
+        v_bad = v(:,1) < v_cutoff;
         
         large_amp_channel_n_cutoff = 14; % too many large channels
         large_amp_channel_bad = large_amp_channel_n > large_amp_channel_n_cutoff;
@@ -924,19 +929,24 @@ if ephys_exists && load_parts.ephys
         fwhm_trough_bad = fwhm_trough > fwhm_trough_cutoff;
         
         waveform_deviate_t_cutoff = 28; % deviates from baseline too early
-        waveform_deviate_t_bad = (waveform_deviate_t + waveform_deviate_check) < waveform_deviate_t_cutoff;
+        waveform_deviate_t_bad = waveform_deviate_t < waveform_deviate_t_cutoff;
         
-        trough_peak_t_cutoff = 3*(fwhm_trough + fwhm_peak); % non-continuous trough-peak
-        trough_peak_t_bad = trough_peak_t > trough_peak_t_cutoff;
+        trough_peak_t_fwhm_cutoff = 3; % non-proportional peak-trough time
+        trough_peak_t_fwhm_bad = trough_peak_t_fwhm > trough_peak_t_fwhm_cutoff;
                      
+        bad_cutoffs = [v_cutoff,large_amp_channel_n_cutoff, ...
+            fwhm_trough_cutoff, waveform_deviate_t_cutoff, ...
+            trough_peak_t_fwhm_cutoff];
+        bad_values = [v(:,1),large_amp_channel_n,fwhm_trough, ...
+            waveform_deviate_t,trough_peak_t_fwhm];
+        bad_templates = [v_bad,large_amp_channel_bad,fwhm_trough_bad, ...
+            waveform_deviate_t_bad,trough_peak_t_fwhm_bad];
+        bad_labels = {'SVD','Large amp channel','Trough FWHM', ...
+            'Waveform deviation t','Trough-peak/FWHM'};
+        
         % Set good templates (and 0-indexed index)
         good_templates = kilosort2_good_templates & ...
-            ~v_bad & ...
-            ~large_amp_channel_bad & ...
-            ~fwhm_trough_bad & ...
-            ~waveform_deviate_t_bad & ...
-            ~trough_peak_t_bad;
-        
+            ~any(bad_templates,2);       
         good_templates_idx = find(good_templates)-1;
         
         % Plot template triage
@@ -944,48 +954,18 @@ if ephys_exists && load_parts.ephys
             
             figure('Name','Kilosort 2 template triage');
             
-            subplot(5,4,1);
-            plot(waveforms(v_bad,:)'./max(abs(waveforms(v_bad,:)),[],2)','k');
-            title('Bad svd component');
-            subplot(5,4,5);
-            plot(waveforms(large_amp_channel_bad,:)'./max(abs(waveforms(large_amp_channel_bad,:)),[],2)','k');
-            title('Bad large amp channels');
-            subplot(5,4,9);
-            plot(waveforms(~fwhm_trough_bad,:)'./max(abs(waveforms(~fwhm_trough_bad,:)),[],2)','k');
-            title('Bad trough fwhm');
-            subplot(5,4,13);
-            plot(waveforms(waveform_deviate_t_bad,:)'./max(abs(waveforms(waveform_deviate_t_bad,:)),[],2)','k');
-            title('Bad deviation time');
-            subplot(5,4,17);
-            plot(waveforms(trough_peak_t_bad,:)'./max(abs(waveforms(trough_peak_t_bad,:)),[],2)','k');
-            title('Bad trough-peak to fwhm');
-            
-            subplot(1,4,2);hold on;
-            plot(v(:,1),fwhm_trough,'.k')
-            plot(v(kilosort2_good_templates,1), ...
-                fwhm_trough(kilosort2_good_templates),'ob');
-            plot(v(good_templates,1),fwhm_trough(good_templates),'.g');
-            line([0,0],ylim);
-            xlabel('Component 1 score');
-            ylabel('FWHM (\mus)');
-            line(xlim,[fwhm_trough_cutoff,fwhm_trough_cutoff]);         
-            
-            subplot(1,4,3); hold on;
-            plot(fwhm_trough,large_amp_channel_n,'.k')
-            plot(fwhm_trough(kilosort2_good_templates), ...
-                large_amp_channel_n(kilosort2_good_templates),'ob');
-            plot(fwhm_trough(good_templates),large_amp_channel_n(good_templates),'.g');
-            xlabel('FWHM (\mus)');
-            ylabel('Large-amplitude channels');
-            line(xlim,[large_amp_channel_n_cutoff,large_amp_channel_n_cutoff]);
-                       
-            subplot(1,4,4); hold on;
-            plot(v(:,1),waveform_deviate_t,'.k');
-            plot(v(kilosort2_good_templates,1),waveform_deviate_t(kilosort2_good_templates),'ob');
-            plot(v(good_templates,1),waveform_deviate_t(good_templates),'.g');
-            xlabel('Component 1 score');
-            ylabel('Waveform deviation sample');
-            line(xlim,[waveform_deviate_t_cutoff,waveform_deviate_t_cutoff]);
+            for curr_bad = 1:size(bad_templates,2)
+               subplot(size(bad_templates,2),2,1+(curr_bad-1)*2); hold on;
+               plot(waveforms(bad_templates(:,curr_bad),:)'./ ...
+                   max(abs(waveforms(bad_templates(:,curr_bad),:)),[],2)','k')            
+               title(bad_labels{curr_bad});
+               
+               subplot(size(bad_templates,2),2,2+(curr_bad-1)*2); hold on;
+               plot(bad_values(:,curr_bad),'.k');
+               line(xlim,repmat(bad_cutoffs(curr_bad),[1,2]));
+               xlabel('Template');
+               ylabel(bad_labels{curr_bad});
+            end   
             
         end    
         
