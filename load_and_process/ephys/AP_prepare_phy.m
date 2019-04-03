@@ -25,14 +25,16 @@ if ~ephys_exists || ~ephys_raw_ap_exists
     error('No ephys data')
 end
 
-%% TEMPORARY: replace directory kilosort with kilosort2
+%% TEMPORARY: if kilosort 1 directory, switch to kilosort 2
 % (once everything is sorted, AP_cortexlab_filename should default to using
 % kilosort2 if it's available and kilosort if it's not)
 
-warning('Temporary: replacing kilosort with kilosort 2')
-ephys_path = strrep(ephys_path,'kilosort','kilosort2');
-if ~exist(ephys_path,'dir')
-    error('No kilosort2 directory');
+if ~contains(ephys_path,'kilosort2')
+    warning('Temporary: replacing kilosort with kilosort 2')
+    ephys_path = strrep(ephys_path,'kilosort','kilosort2');
+    if ~exist(ephys_path,'dir')
+        error('No kilosort2 directory');
+    end
 end
 
 %% Clear out local phy folder

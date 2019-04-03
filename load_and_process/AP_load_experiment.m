@@ -874,9 +874,18 @@ if ephys_exists && load_parts.ephys
         spike_templates = new_spike_idx(spike_templates_0idx+1);
         
     elseif kilosort_version == 2
-        % Kilosort 2: not manually sorted, using rudimentary cutoffs
-        warning('Using automatic kilosort 2 triage');
+        % (not manually sorted - automatically triage)
         
+        % Load Kilosort 2 automatic labels       
+        kilosort2_label_filename = [ephys_path 'cluster_KSLabel.tsv'];
+        
+        fid = fopen(kilosort2_label_filename);
+        kilosort2_labels = textscan(fid,'%d%s','HeaderLines',1);
+        fclose(fid);
+        
+        kilosort2_good_templates = strcmp(kilosort2_labels{2},'good');
+        kilosort2_good_templates_idx = kilosort2_labels{1}(kilosort2_good_templates);
+                           
         % Get SVD of waveforms (first component used)
         [u,s,v] = svd(waveforms','econ');
         
@@ -887,52 +896,98 @@ if ephys_exists && load_parts.ephys
         
         % Get trough/post-trough peak
         [waveform_trough,waveform_trough_t] = min(waveforms,[],2);
-        [waveform_post_peak,~] = arrayfun(@(x) ...
+        [waveform_post_peak,waveform_post_peak_t] = arrayfun(@(x) ...
             max(waveforms(x,waveform_trough_t(x):end),[],2), ...
             transpose(1:size(waveforms,1)));
+        trough_peak_t = (waveform_post_peak_t/ephys_sample_rate)*1e6;
         
         fwhm_trough = (sum(waveforms < (waveform_trough/2),2)/ephys_sample_rate)*1e6;
         fwhm_peak = (sum(waveforms > (waveform_post_peak/2),2)/ephys_sample_rate)*1e6;
         
-        % Get number of channels with 70% of the max range
+        % Get number of channels with 50% of the max range
         template_channel_amp = squeeze(range(templates,2));
-        amp_thresh = max(template_channel_amp,[],2)*0.7;
+        amp_thresh = max(template_channel_amp,[],2)*0.5;
         large_amp_channel_n = sum(template_channel_amp > amp_thresh,2);
         
-%         figure('Name','Kilosort 2 template triage');
-%         p1 = subplot(4,2,[1,3,5]);hold on;
-%         plot(v(:,1),fwhm_trough,'.k')
-%         line([0,0],ylim);
-%         xlabel('Component 1 score');
-%         ylabel('FWHM (\mus)');
-%         title('Set FWHM cutoff');
-%         
-%         subplot(4,2,7); hold on;
-%         plot(u(:,1),'linewidth',2);
-%         ylabel('Component 1');
-%         
-%         [~,fwhm_trough_cutoff] = ginput(1);
-%         line(xlim,[fwhm_trough_cutoff,fwhm_trough_cutoff]);
-%         
-%         
-%         p2 = subplot(4,2,[2,4,6]); hold on;
-%         plot(fwhm_trough,large_amp_channel_n,'.k')
-%         title('Set large amplitude channel cutoff');
-%         ylabel('Number of channels');
-%         xlabel('FWHM (\mus)');
-%         [~,large_amp_channel_n_cutoff] = ginput(1);
-%         line(xlim,[large_amp_channel_n_cutoff,large_amp_channel_n_cutoff]);
-
-        large_amp_channel_n_cutoff = 14;
-        fwhm_trough_cutoff = 1000;
+        % Get the first timepoint > 10% of the max
+        waveform_deviate_check = 24; % the first sample can be weird
+        [~,waveform_deviate_t] = max(abs(waveforms(:,waveform_deviate_check:end)./ ...
+            max(abs(waveforms(:,waveform_deviate_check:end)),[],2)) > 0.1,[],2);
         
+        % Set automatic cutoffs (characteristic of noise)
+        v_bad = v(:,1) < 0;
+        
+        large_amp_channel_n_cutoff = 14; % too many large channels
+        large_amp_channel_bad = large_amp_channel_n > large_amp_channel_n_cutoff;
+        
+        fwhm_trough_cutoff = 600; % too wide a trough thickness
+        fwhm_trough_bad = fwhm_trough > fwhm_trough_cutoff;
+        
+        waveform_deviate_t_cutoff = 28; % deviates from baseline too early
+        waveform_deviate_t_bad = (waveform_deviate_t + waveform_deviate_check) < waveform_deviate_t_cutoff;
+        
+        trough_peak_t_cutoff = 3*(fwhm_trough + fwhm_peak); % non-continuous trough-peak
+        trough_peak_t_bad = trough_peak_t > trough_peak_t_cutoff;
+                     
         % Set good templates (and 0-indexed index)
-        good_templates = v(:,1) > 0 & fwhm_trough < fwhm_trough_cutoff & large_amp_channel_n < large_amp_channel_n_cutoff;
+        good_templates = kilosort2_good_templates & ...
+            ~v_bad & ...
+            ~large_amp_channel_bad & ...
+            ~fwhm_trough_bad & ...
+            ~waveform_deviate_t_bad & ...
+            ~trough_peak_t_bad;
+        
         good_templates_idx = find(good_templates)-1;
         
-%         plot(p1,v(good_templates,1),fwhm_trough(good_templates),'.g');
-%         plot(p2,fwhm_trough(good_templates),large_amp_channel_n(good_templates),'.g');
-%         drawnow;
+        % Plot template triage
+        if verbose
+            
+            figure('Name','Kilosort 2 template triage');
+            
+            subplot(5,4,1);
+            plot(waveforms(v_bad,:)'./max(abs(waveforms(v_bad,:)),[],2)','k');
+            title('Bad svd component');
+            subplot(5,4,5);
+            plot(waveforms(large_amp_channel_bad,:)'./max(abs(waveforms(large_amp_channel_bad,:)),[],2)','k');
+            title('Bad large amp channels');
+            subplot(5,4,9);
+            plot(waveforms(~fwhm_trough_bad,:)'./max(abs(waveforms(~fwhm_trough_bad,:)),[],2)','k');
+            title('Bad trough fwhm');
+            subplot(5,4,13);
+            plot(waveforms(waveform_deviate_t_bad,:)'./max(abs(waveforms(waveform_deviate_t_bad,:)),[],2)','k');
+            title('Bad deviation time');
+            subplot(5,4,17);
+            plot(waveforms(trough_peak_t_bad,:)'./max(abs(waveforms(trough_peak_t_bad,:)),[],2)','k');
+            title('Bad trough-peak to fwhm');
+            
+            subplot(1,4,2);hold on;
+            plot(v(:,1),fwhm_trough,'.k')
+            plot(v(kilosort2_good_templates,1), ...
+                fwhm_trough(kilosort2_good_templates),'ob');
+            plot(v(good_templates,1),fwhm_trough(good_templates),'.g');
+            line([0,0],ylim);
+            xlabel('Component 1 score');
+            ylabel('FWHM (\mus)');
+            line(xlim,[fwhm_trough_cutoff,fwhm_trough_cutoff]);         
+            
+            subplot(1,4,3); hold on;
+            plot(fwhm_trough,large_amp_channel_n,'.k')
+            plot(fwhm_trough(kilosort2_good_templates), ...
+                large_amp_channel_n(kilosort2_good_templates),'ob');
+            plot(fwhm_trough(good_templates),large_amp_channel_n(good_templates),'.g');
+            xlabel('FWHM (\mus)');
+            ylabel('Large-amplitude channels');
+            line(xlim,[large_amp_channel_n_cutoff,large_amp_channel_n_cutoff]);
+                       
+            subplot(1,4,4); hold on;
+            plot(v(:,1),waveform_deviate_t,'.k');
+            plot(v(kilosort2_good_templates,1),waveform_deviate_t(kilosort2_good_templates),'ob');
+            plot(v(good_templates,1),waveform_deviate_t(good_templates),'.g');
+            xlabel('Component 1 score');
+            ylabel('Waveform deviation sample');
+            line(xlim,[waveform_deviate_t_cutoff,waveform_deviate_t_cutoff]);
+            
+        end    
         
          % Throw out all non-good template data
         templates = templates(good_templates,:,:);

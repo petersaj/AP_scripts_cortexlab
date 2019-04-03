@@ -160,10 +160,83 @@ for curr_template = find(good_templates_putative)'
     
 end
 
+%% Waveform grab test
+
+animal = 'AP024';
+day = '2017-09-29';
+experiment = 1;
+
+[kilosort_path,kilsort_exists] = AP_cortexlab_filename(animal,day,[],'ephys');
+[ephys_ap_filename,ephys_ap_exists] = AP_cortexlab_filename(animal,day,[],'ephys_ap');
+[ephys_path,ephys_exists] = AP_cortexlab_filename(animal,day,[],'ephys_dir');
+
+spike_times = readNPY([kilosort_path filesep 'spike_times.npy']);
+spike_clusters = readNPY([kilosort_path filesep 'spike_clusters.npy']);
+
+gwfparams.dataDir = kilosort_path;
+gwfparams.fileName = ephys_ap_filename;
+gwfparams.dataType = 'int16';
+gwfparams.nCh = 384;
+gwfparams.wfWin = [-40 80];
+gwfparams.nWf = 10;
+gwfparams.spikeTimes = spike_times(spike_clusters == 1);
+gwfparams.spikeClusters = spike_clusters(spike_clusters == 1);
+
+wf = AP_get_waveforms(gwfparams);
+
+cluster_mean_waveforms = permute(wf.waveFormsMean,[1,3,2]);
 
 
 
-%% TESTING: Plot mean waveforms from save_phy
+
+channel_positions = readNPY([kilosort_path filesep 'channel_positions.npy']);
+
+curr_wf = permute(wf.waveForms,[3,4,2,1]);
+
+
+
+template_xscale = 10;
+template_yscale = 1e-1;
+
+template_y = -curr_wf*template_yscale + channel_positions(:,2);
+template_x = (1:size(curr_wf,2)) + channel_positions(:,1)*template_xscale;
+
+a = reshape(permute(template_y,[2,1,3]),size(template_y,2),[]);
+figure;plot(repmat(template_x',1,size(curr_wf,3)),a,'k')
+
+
+
+
+template_channel_amp = range(templates(curr_unit,:,:),2);
+template_thresh = max(template_channel_amp,[],3)*0.2;
+template_use_channels = any(template_channel_amp > template_thresh,1);
+[~,max_channel] = max(max(abs(gui_data.templates(gui_data.curr_unit,:,:)),[],2),[],3);
+
+arrayfun(@(ch) set(gui_data.waveform_lines(ch),'XData',template_x(ch,:),'YData',template_y(ch,:)),1:size(gui_data.templates,3));
+arrayfun(@(ch) set(gui_data.waveform_lines(ch),'Color','r'),find(template_use_channels));
+arrayfun(@(ch) set(gui_data.waveform_lines(ch),'Color','k'),find(~template_use_channels));
+set(gui_data.waveform_lines(max_channel),'Color','b');
+
+
+
+% % Load .dat and KiloSort/Phy output
+% fileName = fullfile(gwfparams.fileName);             
+% filenamestruct = dir(fileName);
+% dataTypeNBytes = numel(typecast(cast(0, gwfparams.dataType), 'uint8')); % determine number of bytes per sample
+% nSamp = filenamestruct.bytes/(gwfparams.nCh*dataTypeNBytes);  % Number of samples per channel
+% wfNSamples = length(gwfparams.wfWin(1):gwfparams.wfWin(end));
+% mmf = memmapfile(fileName, 'Format', {gwfparams.dataType, [gwfparams.nCh nSamp], 'x'});
+% chMap = readNPY(fullfile(gwfparams.dataDir, 'channel_map.npy'))+1;               % Order in which data was streamed to disk; must be 1-indexed for Matlab
+% nChInMap = numel(chMap);
+
+
+
+
+
+
+
+
+%% Plot mean waveforms from save_phy
 
 spike_clusters = readNPY(['C:\data_temp\phy\spike_clusters.npy']);
 unique_clusters = unique(spike_clusters);

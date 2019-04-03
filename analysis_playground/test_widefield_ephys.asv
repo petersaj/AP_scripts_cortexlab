@@ -2862,7 +2862,7 @@ time_bin_centers = time_bins(1:end-1) + diff(time_bins)/2;
 % depth_group = aligned_str_depth_group;
 
 % (for manual depth)
-depth_group_edges = [1700,2200];
+depth_group_edges = [500,500];
 n_depths = length(depth_group_edges) - 1;
 [depth_group_n,depth_group] = histc(spike_depths,depth_group_edges);
 
