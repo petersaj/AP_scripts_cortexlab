@@ -884,7 +884,6 @@ if ephys_exists && load_parts.ephys
         fclose(fid);
         
         kilosort2_good_templates = strcmp(kilosort2_labels{2},'good');
-        kilosort2_good_templates_idx = kilosort2_labels{1}(kilosort2_good_templates);
                            
         % Get SVD of waveforms (first component used)
         [u,s,v] = svd(waveforms','econ');
@@ -969,7 +968,7 @@ if ephys_exists && load_parts.ephys
             
         end    
         
-         % Throw out all non-good template data
+        % Throw out all non-good template data
         templates = templates(good_templates,:,:);
         template_depths = template_depths(good_templates);
         waveforms = waveforms(good_templates,:);
@@ -990,12 +989,11 @@ if ephys_exists && load_parts.ephys
         new_spike_idx(good_templates_idx+1) = 1:length(good_templates_idx);
         spike_templates = new_spike_idx(spike_templates+1);
         
-%         % KEEPING ALL TEMPLATES AT THE MOMENT
-%         % (1-index)
+%         % (to keep all templates, just 1-index)
 %         good_templates_idx = (1:size(templates,1))-1;
 %         new_spike_idx = nan(size(templates,1),1);
 %         new_spike_idx(good_templates_idx+1) = 1:length(good_templates_idx);
-%         spike_templates = new_spike_idx(spike_templates_0idx+1);
+%         spike_templates = new_spike_idx(spike_templates_0idx+1);        
         
     end       
 end
