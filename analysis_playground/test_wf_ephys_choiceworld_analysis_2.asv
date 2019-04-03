@@ -3485,7 +3485,7 @@ for curr_animal = 1:length(animals)
 end
 
 save_path = 'C:\Users\Andrew\OneDrive for Business\Documents\CarandiniHarrisLab\analysis\wf_ephys_choiceworld\choiceworld';
-save_fn = 'unit_kernel_all_triaged.mat';
+save_fn = 'unit_kernel_all.mat';
 save([save_path filesep save_fn],'unit_kernel_all');
 
 %% Plot single unit kernel explained variance
@@ -3497,7 +3497,7 @@ regressor_labels = {'Stim','Move','Go cue','Outcome'};
 regressor_cols = [01,0,0;1,0,1;0.8,0.7,0.2;0,0,1];
 
 % Manual
-curr_animal = 2;
+curr_animal = 6;
 for curr_day = 1:size(unit_kernel_all,2)
     
     if isempty(unit_kernel_all(curr_animal,curr_day).unit_expl_var_total)
@@ -3556,10 +3556,8 @@ end
 
 %% Plot all unit kernel explained variance
 
-unit_kernel_dir = 'C:\Users\Andrew\OneDrive for Business\Documents\CarandiniHarrisLab\analysis\wf_ephys_choiceworld\choiceworld';
-unit_kernel_fn = 'unit_kernel_all.mat';
-% unit_kernel_fn = 'unit_kernel_all_triaged.mat';
-load([unit_kernel_dir filesep unit_kernel_fn]);
+unit_kernel_fn = 'C:\Users\Andrew\OneDrive for Business\Documents\CarandiniHarrisLab\analysis\wf_ephys_choiceworld\choiceworld\unit_kernel_all.mat';
+load(unit_kernel_fn);
 
 regressor_labels = {'Stim','Move','Go cue','Outcome'};
 regressor_cols = [01,0,0;1,0,1;0.8,0.7,0.2;0,0,1];
@@ -3809,15 +3807,8 @@ load([ephys_align_path filesep ephys_align_fn]);
 str_depth_cat = vertcat(ephys_depth_align(1:6).str_depth);
 
 % Get units in striatum
-% str_units = cellfun(@(unit_depths,str_depths) ...
-%     unit_depths >= str_depths(1) & unit_depths <= str_depths(2), ...
-%     AP_index_ans(reshape({unit_kernel_all.template_depths}, ...
-%     size(unit_kernel_all))',animaldays'), ...
-%     mat2cell(str_depth_cat,ones(size(str_depth_cat,1),1),2),'uni',false);
-
-%%% TEMPORARY: use all units
 str_units = cellfun(@(unit_depths,str_depths) ...
-    true(size(unit_depths)), ...
+    unit_depths >= str_depths(1) & unit_depths <= str_depths(2), ...
     AP_index_ans(reshape({unit_kernel_all.template_depths}, ...
     size(unit_kernel_all))',animaldays'), ...
     mat2cell(str_depth_cat,ones(size(str_depth_cat,1),1),2),'uni',false);
@@ -3844,25 +3835,11 @@ norm_spike_n_cat = cellfun(@(x,str_units) x(str_units), ...
     AP_index_ans(reshape({unit_kernel_all.norm_spike_n}, ...
     size(unit_kernel_all))',animaldays'),str_units,'uni',false);
 
-unit_taskpred_kernel_allcat = cellfun(@(x,str_units) ...
-    cellfun(@(x) x(:,:,str_units),x,'uni',false), ...
-    AP_index_ans(reshape({unit_kernel_all.unit_taskpred_k}, ...
-    size(unit_kernel_all))',animaldays'),str_units,'uni',false);
-
-unit_taskpred_kernel_cat = arrayfun(@(regressor) ...
-    cell2mat(permute(cellfun(@(x) x{regressor}, unit_taskpred_kernel_allcat,'uni',false),[2,3,1])), ...
-    1:length(regressor_labels),'uni',false);
+unit_kernel_cat
 
 [~,max_regressor_idx_cat] = cellfun(@(x) max(x(:,:,use_partial),[],2),unit_expl_var_partial_cat,'uni',false);
 
 
-% Just blunt for now: 
-all_depths = cell2mat(template_depths_cat);
-
-a = unit_taskpred_kernel_cat{4}./std(unit_taskpred_kernel_cat{4},[],2);
-
-reward_superficial = nanmean(a(:,:,all_depths < -1500),3);
-reward_deep = nanmean(a(:,:,all_depths >= -1500),3);
 
 
 

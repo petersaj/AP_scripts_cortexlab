@@ -875,7 +875,7 @@ if ephys_exists && load_parts.ephys
         
     elseif kilosort_version == 2
         % Kilosort 2: not manually sorted, using rudimentary cutoffs
-        warning('Using automatic kilosort 2 triage');
+        warning
         
         % Get SVD of waveforms (first component used)
         [u,s,v] = svd(waveforms','econ');
@@ -899,40 +899,36 @@ if ephys_exists && load_parts.ephys
         amp_thresh = max(template_channel_amp,[],2)*0.7;
         large_amp_channel_n = sum(template_channel_amp > amp_thresh,2);
         
-%         figure('Name','Kilosort 2 template triage');
-%         p1 = subplot(4,2,[1,3,5]);hold on;
-%         plot(v(:,1),fwhm_trough,'.k')
-%         line([0,0],ylim);
-%         xlabel('Component 1 score');
-%         ylabel('FWHM (\mus)');
-%         title('Set FWHM cutoff');
-%         
-%         subplot(4,2,7); hold on;
-%         plot(u(:,1),'linewidth',2);
-%         ylabel('Component 1');
-%         
-%         [~,fwhm_trough_cutoff] = ginput(1);
-%         line(xlim,[fwhm_trough_cutoff,fwhm_trough_cutoff]);
-%         
-%         
-%         p2 = subplot(4,2,[2,4,6]); hold on;
-%         plot(fwhm_trough,large_amp_channel_n,'.k')
-%         title('Set large amplitude channel cutoff');
-%         ylabel('Number of channels');
-%         xlabel('FWHM (\mus)');
-%         [~,large_amp_channel_n_cutoff] = ginput(1);
-%         line(xlim,[large_amp_channel_n_cutoff,large_amp_channel_n_cutoff]);
-
-        large_amp_channel_n_cutoff = 14;
-        fwhm_trough_cutoff = 1000;
+        figure('Name','Kilosort 2 template triage');
+        p1 = subplot(4,2,[1,3,5]);hold on;
+        plot(v(:,1),fwhm_trough,'.k')
+        line([0,0],ylim);
+        xlabel('Component 1 score');
+        ylabel('FWHM (\mus)');
+        title('Set FWHM cutoff');
+        
+        subplot(4,2,7); hold on;
+        plot(u(:,1),'linewidth',2);
+        ylabel('Component 1');
+        
+        [~,fwhm_trough_cutoff] = ginput(1);
+        line(xlim,[fwhm_trough_cutoff,fwhm_trough_cutoff]);
+        
+        p2 = subplot(4,2,[2,4,6]); hold on;
+        plot(fwhm_trough,large_amp_channel_n,'.k')
+        title('Set large amplitude channel cutoff');
+        ylabel('Number of channels');
+        xlabel('FWHM (\mus)');
+        [~,large_amp_channel_n_cutoff] = ginput(1);
+        line(xlim,[large_amp_channel_n_cutoff,large_amp_channel_n_cutoff]);
         
         % Set good templates (and 0-indexed index)
         good_templates = v(:,1) > 0 & fwhm_trough < fwhm_trough_cutoff & large_amp_channel_n < large_amp_channel_n_cutoff;
         good_templates_idx = find(good_templates)-1;
         
-%         plot(p1,v(good_templates,1),fwhm_trough(good_templates),'.g');
-%         plot(p2,fwhm_trough(good_templates),large_amp_channel_n(good_templates),'.g');
-%         drawnow;
+        plot(p1,v(good_templates,1),fwhm_trough(good_templates),'.g');
+        plot(p2,fwhm_trough(good_templates),large_amp_channel_n(good_templates),'.g');
+        drawnow;
         
          % Throw out all non-good template data
         templates = templates(good_templates,:,:);
@@ -942,9 +938,9 @@ if ephys_exists && load_parts.ephys
         templateDuration_us = templateDuration_us(good_templates);
         
         % Throw out all non-good spike data
-        good_spike_idx = ismember(spike_templates_0idx,good_templates_idx);
+        good_spike_idx = ismember(spike_templates,good_templates_idx);
         spike_times = spike_times(good_spike_idx);
-        spike_templates = spike_templates_0idx(good_spike_idx);
+        spike_templates = spike_templates(good_spike_idx);
         template_amplitudes = template_amplitudes(good_spike_idx);
         spike_depths = spike_depths(good_spike_idx);
         spike_times_timeline = spike_times_timeline(good_spike_idx);
