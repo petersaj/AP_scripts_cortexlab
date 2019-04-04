@@ -3469,11 +3469,11 @@ for curr_animal = 1:length(animals)
         % Get normalized total number of spikes
         used_spikes = spike_times_timeline > time_bins(1) & ...
             spike_times_timeline < time_bins(end);
-        norm_spike_n = mat2gray(log(accumarray(spike_templates(used_spikes),1,[size(templates,1),1])+1));
+        spike_rate = accumarray(spike_templates(used_spikes),1,[size(templates,1),1])./(time_bins(end)-time_bins(1));
  
         % Package
         unit_kernel_all(curr_animal,curr_day).template_depths = template_depths;
-        unit_kernel_all(curr_animal,curr_day).norm_spike_n = norm_spike_n;
+        unit_kernel_all(curr_animal,curr_day).spike_rate = spike_rate;
         unit_kernel_all(curr_animal,curr_day).unit_expl_var_total = unit_expl_var.total;
         unit_kernel_all(curr_animal,curr_day).unit_expl_var_partial = unit_expl_var.partial;
         unit_kernel_all(curr_animal,curr_day).unit_taskpred_k = unit_taskpred_k;
@@ -3490,8 +3490,10 @@ save([save_path filesep save_fn],'unit_kernel_all');
 
 %% Plot single unit kernel explained variance
 
-unit_kernel_fn = 'C:\Users\Andrew\OneDrive for Business\Documents\CarandiniHarrisLab\analysis\wf_ephys_choiceworld\choiceworld\unit_kernel_all.mat';
-load(unit_kernel_fn);
+unit_kernel_dir = 'C:\Users\Andrew\OneDrive for Business\Documents\CarandiniHarrisLab\analysis\wf_ephys_choiceworld\choiceworld';
+% unit_kernel_fn = 'unit_kernel_all.mat';
+unit_kernel_fn = 'unit_kernel_all_triaged.mat';
+load([unit_kernel_dir filesep unit_kernel_fn]);
 
 regressor_labels = {'Stim','Move','Go cue','Outcome'};
 regressor_cols = [01,0,0;1,0,1;0.8,0.7,0.2;0,0,1];
@@ -3511,7 +3513,7 @@ for curr_day = 1:size(unit_kernel_all,2)
     
     subplot(1,length(regressor_labels)+2,1,'YDir','reverse'); hold on;
     curr_expl_var = unit_kernel_all(curr_animal,curr_day).unit_expl_var_total;
-    scatter3(unit_kernel_all(curr_animal,curr_day).norm_spike_n, ...
+    scatter3(log10(unit_kernel_all(curr_animal,curr_day).spike_rate), ...
         unit_kernel_all(curr_animal,curr_day).template_depths, ...
         1:length(unit_kernel_all(curr_animal,curr_day).template_depths),20, ...
         regressor_cols(max_regressor_idx,:),'filled')
@@ -3523,7 +3525,7 @@ for curr_day = 1:size(unit_kernel_all,2)
     curr_expl_var = unit_kernel_all(curr_animal,curr_day).unit_expl_var_total;
     curr_expl_var_dotsize = 100*mat2gray(curr_expl_var,[0,1]) + 1;
     curr_expl_var_dotsize(isnan(curr_expl_var) | curr_expl_var < -1 | curr_expl_var >= 1) = NaN;
-    scatter3(unit_kernel_all(curr_animal,curr_day).norm_spike_n, ...
+    scatter3(log10(unit_kernel_all(curr_animal,curr_day).spike_rate), ...
         unit_kernel_all(curr_animal,curr_day).template_depths, ...
         1:length(unit_kernel_all(curr_animal,curr_day).template_depths),curr_expl_var_dotsize, ...
         regressor_cols(max_regressor_idx,:),'filled')
@@ -3536,10 +3538,10 @@ for curr_day = 1:size(unit_kernel_all,2)
         subplot(1,length(regressor_labels)+2,curr_regressor+2,'YDir','reverse');
         hold on;
         curr_expl_var = unit_kernel_all(curr_animal,curr_day).unit_expl_var_partial(:,curr_regressor,use_partial);
-        curr_expl_var_dotsize = 100*mat2gray(curr_expl_var,[0,max(curr_expl_var(curr_expl_var < 1))]) + 1;
+        curr_expl_var_dotsize = 100*rescale(curr_expl_var,0,1,'InputMin',0) + 1;
         curr_expl_var_dotsize(isnan(curr_expl_var) | curr_expl_var < -1 | curr_expl_var >= 1) = NaN;
         
-        scatter3(unit_kernel_all(curr_animal,curr_day).norm_spike_n, ...
+        scatter3(log10(unit_kernel_all(curr_animal,curr_day).spike_rate), ...
             unit_kernel_all(curr_animal,curr_day).template_depths, ...
             1:length(unit_kernel_all(curr_animal,curr_day).template_depths), ...
             curr_expl_var_dotsize, ...
@@ -3557,8 +3559,8 @@ end
 %% Plot all unit kernel explained variance
 
 unit_kernel_dir = 'C:\Users\Andrew\OneDrive for Business\Documents\CarandiniHarrisLab\analysis\wf_ephys_choiceworld\choiceworld';
-unit_kernel_fn = 'unit_kernel_all.mat';
-% unit_kernel_fn = 'unit_kernel_all_triaged.mat';
+% unit_kernel_fn = 'unit_kernel_all.mat';
+unit_kernel_fn = 'unit_kernel_all_triaged.mat';
 load([unit_kernel_dir filesep unit_kernel_fn]);
 
 regressor_labels = {'Stim','Move','Go cue','Outcome'};
@@ -3576,7 +3578,7 @@ unit_expl_var_total_cat = AP_index_ans(reshape({unit_kernel_all.unit_expl_var_to
     size(unit_kernel_all))',animaldays');
 unit_expl_var_partial_cat = AP_index_ans(reshape({unit_kernel_all.unit_expl_var_partial}, ...
     size(unit_kernel_all))',animaldays');
-norm_spike_n_cat = AP_index_ans(reshape({unit_kernel_all.norm_spike_n}, ...
+spike_rate_cat = AP_index_ans(reshape({unit_kernel_all.spike_rate}, ...
     size(unit_kernel_all))',animaldays');
 
 [~,max_regressor_idx_cat] = cellfun(@(x) max(x(:,:,use_partial),[],2),unit_expl_var_partial_cat,'uni',false);
@@ -3584,10 +3586,10 @@ norm_spike_n_cat = AP_index_ans(reshape({unit_kernel_all.norm_spike_n}, ...
 h = figure;
 
 subplot(1,length(regressor_labels)+3,1,'YDir','reverse'); hold on;
-scatter(cell2mat(norm_spike_n_cat), ...
+scatter(log10(cell2mat(spike_rate_cat)), ...
     cell2mat(template_depths_cat),20, ...
     regressor_cols(cell2mat(max_regressor_idx_cat),:),'filled')
-xlabel('Normalized n spikes');
+xlabel('log10(spike rate)');
 ylabel('Depth (\mum)');
     title({'All units','Best regressor'})
 
@@ -3595,10 +3597,10 @@ subplot(1,length(regressor_labels)+3,2,'YDir','reverse'); hold on;
 curr_expl_var = cell2mat(unit_expl_var_total_cat);
 curr_expl_var_dotsize = 100*mat2gray(curr_expl_var,[0,1]) + 1;
 curr_expl_var_dotsize(isnan(curr_expl_var) | curr_expl_var < -1 | curr_expl_var >= 1) = NaN;
-scatter(cell2mat(norm_spike_n_cat), ...
+scatter(log10(cell2mat(spike_rate_cat)), ...
     cell2mat(template_depths_cat),curr_expl_var_dotsize, ...
     regressor_cols(cell2mat(max_regressor_idx_cat),:),'filled')
-xlabel('Normalized n spikes');
+xlabel('log10(spike rate)');
 ylabel('Depth (\mum)');
     title({'All regressors'})
 
@@ -3633,12 +3635,12 @@ for curr_regressor = 1:length(regressor_labels)
             norm_type = 'concat normalized';
     end
     
-    scatter(cell2mat(norm_spike_n_cat), ...
+    scatter(log10(cell2mat(spike_rate_cat)), ...
         cell2mat(template_depths_cat), ...
         curr_expl_var_dotsize, ...
         regressor_cols(curr_regressor,:),'filled')
     title({regressor_labels{curr_regressor},norm_type});
-    xlabel('Normalized n spikes');
+    xlabel('log10(spike rate)');
     ylabel('Depth (\mum)');
     
     subplot(2,length(regressor_labels)+3,curr_norm*(length(regressor_labels)+3),'YDir','reverse');
@@ -3692,8 +3694,8 @@ unit_expl_var_total_cat = cellfun(@(x,str_units) x(str_units), ...
 unit_expl_var_partial_cat = cellfun(@(x,str_units) x(str_units,:,:), ...
     AP_index_ans(reshape({unit_kernel_all.unit_expl_var_partial}, ...
     size(unit_kernel_all))',animaldays'),str_units,'uni',false);
-norm_spike_n_cat = cellfun(@(x,str_units) x(str_units), ...
-    AP_index_ans(reshape({unit_kernel_all.norm_spike_n}, ...
+spike_rate_cat = cellfun(@(x,str_units) x(str_units), ...
+    AP_index_ans(reshape({unit_kernel_all.spike_rate}, ...
     size(unit_kernel_all))',animaldays'),str_units,'uni',false);
 
 [~,max_regressor_idx_cat] = cellfun(@(x) max(x(:,:,use_partial),[],2),unit_expl_var_partial_cat,'uni',false);
@@ -3701,10 +3703,10 @@ norm_spike_n_cat = cellfun(@(x,str_units) x(str_units), ...
 h = figure;
 
 subplot(1,length(regressor_labels)+3,1,'YDir','reverse'); hold on;
-scatter(cell2mat(norm_spike_n_cat), ...
+scatter(log10(cell2mat(spike_rate_cat)), ...
     cell2mat(template_depths_cat),20, ...
     regressor_cols(cell2mat(max_regressor_idx_cat),:),'filled')
-xlabel('Normalized n spikes');
+xlabel('log10(spike rate)');
 ylabel('Depth from str end (\mum)');
     title({'All units','Best regressor'})
 line(xlim,[0,0],'color','k','linewidth',2);
@@ -3713,10 +3715,10 @@ subplot(1,length(regressor_labels)+3,2,'YDir','reverse'); hold on;
 curr_expl_var = cell2mat(unit_expl_var_total_cat);
 curr_expl_var_dotsize = 100*mat2gray(curr_expl_var,[0,1]) + 1;
 curr_expl_var_dotsize(isnan(curr_expl_var) | curr_expl_var < -1 | curr_expl_var > 1) = NaN;
-scatter(cell2mat(norm_spike_n_cat), ...
+scatter(log10(cell2mat(spike_rate_cat)), ...
     cell2mat(template_depths_cat),curr_expl_var_dotsize, ...
     regressor_cols(cell2mat(max_regressor_idx_cat),:),'filled')
-xlabel('Normalized n spikes');
+xlabel('log10(spike rate)');
 ylabel('Depth from str end (\mum)');
     title({'All regressors'})
 line(xlim,[0,0],'color','k','linewidth',2);
@@ -3725,7 +3727,7 @@ line(xlim,[0,0],'color','k','linewidth',2);
 for curr_regressor = 1:length(regressor_labels)
     for curr_norm = 1:2
     
-    subplot(2,length(regressor_labels)+3,curr_regressor+2+((length(regressor_labels)+3)*(curr_norm-1)),'YDir','reverse');
+    p1 = subplot(2,length(regressor_labels)+3,curr_regressor+2+((length(regressor_labels)+3)*(curr_norm-1)),'YDir','reverse');
     hold on;
     curr_expl_var = cellfun(@(x) x(:,curr_regressor,use_partial),unit_expl_var_partial_cat,'uni',false);
     
@@ -3733,7 +3735,7 @@ for curr_regressor = 1:length(regressor_labels)
         case 1
             % Normalize within experiment
             curr_expl_var_norm = cell2mat(cellfun(@(x) x./nanmax(x(x < 1)),curr_expl_var,'uni',false));          
-            curr_expl_var_dotsize = 100*mat2gray(curr_expl_var_norm,[0,1]) + 1;
+            curr_expl_var_dotsize = 100*rescale(curr_expl_var_norm,0,1,'InputMin',0) + 1;
             curr_expl_var_dotsize(isnan(curr_expl_var_norm) | curr_expl_var_norm < -1 | curr_expl_var_norm >= 1) = NaN;
             
             curr_expl_var_norm(curr_expl_var_norm < -1 | curr_expl_var_norm >= 1) = NaN;
@@ -3741,34 +3743,39 @@ for curr_regressor = 1:length(regressor_labels)
             norm_type = 'experiment normalized';
         case 2
             % Normalize across experiments
-            curr_expl_var_norm = cell2mat(curr_expl_var);
-            curr_expl_var_norm = curr_expl_var_norm./ ...
-                max(curr_expl_var_norm(curr_expl_var_norm < 1));
-            curr_expl_var_dotsize = 100*mat2gray(curr_expl_var_norm,[0,1]) + 1;
-            curr_expl_var_dotsize(isnan(curr_expl_var_norm) | curr_expl_var_norm < -1 | curr_expl_var_norm >= 1) = NaN;
+            curr_expl_var_cat = cell2mat(curr_expl_var);
+            curr_expl_var_norm = curr_expl_var_cat./ ...
+                max(curr_expl_var_cat(curr_expl_var_cat < 1));
+            curr_expl_var_dotsize = 100*rescale(curr_expl_var_cat,0,1,'InputMin',0) + 1;
+            curr_expl_var_dotsize(isnan(curr_expl_var_cat) | curr_expl_var_cat < -1 | curr_expl_var_cat >= 1) = NaN;
             
-            curr_expl_var_norm(curr_expl_var_norm < -1 | curr_expl_var_norm >= 1) = NaN;
-            curr_expl_var_norm(curr_expl_var_norm < 0) = 0;
+            curr_expl_var_norm(curr_expl_var_cat < -1 | curr_expl_var_cat >= 1) = NaN;
+            curr_expl_var_norm(curr_expl_var_cat < 0) = 0;
             norm_type = 'concat normalized';
     end
     
-    scatter(cell2mat(norm_spike_n_cat), ...
+    scatter(log10(cell2mat(spike_rate_cat)), ...
         cell2mat(template_depths_cat), ...
         curr_expl_var_dotsize, ...
-        regressor_cols(curr_regressor,:),'filled')
+        regressor_cols(curr_regressor,:),'filled');
     title({regressor_labels{curr_regressor},norm_type});
-    xlabel('Normalized n spikes');
+    xlabel('log10(spike rate)');
     ylabel('Depth from str end (\mum)');
     line(xlim,[0,0],'color','k','linewidth',2);
     
-    subplot(2,length(regressor_labels)+3,curr_norm*(length(regressor_labels)+3),'YDir','reverse');
+    p2 = subplot(2,length(regressor_labels)+3,curr_norm*(length(regressor_labels)+3),'YDir','reverse');
     hold on;
     depth_bins = linspace(min(cell2mat(template_depths_cat)), ...
         max(cell2mat(template_depths_cat)),round(range(cell2mat(template_depths_cat))/400));
     depth_bin_centers = depth_bins(1:end-1) + diff(depth_bins)./2;
     curr_depth_groups = discretize(cell2mat(template_depths_cat),depth_bins);
-    curr_expl_var_norm_depth = accumarray(curr_depth_groups, ...
-        curr_expl_var_norm,[length(depth_bin_centers),1],@nanmean);
+    
+    rate_cutoff = 0;
+    use_units = log10(cell2mat(spike_rate_cat)) > rate_cutoff;
+    line(p1,repmat(rate_cutoff,1,2),ylim(p1),'color','k');
+    
+    curr_expl_var_norm_depth = accumarray(curr_depth_groups(use_units), ...
+        curr_expl_var_norm(use_units),[length(depth_bin_centers),1],@nanmean);
     plot(rescale(curr_expl_var_norm_depth,0,1),depth_bin_centers,'color',regressor_cols(curr_regressor,:),'linewidth',2);
     title({'Binned explained var',norm_type});
     xlabel('Normalized explained var');
@@ -3793,8 +3800,10 @@ linkaxes(get(h,'Children'),'y');
 
 %% Plot all unit kernels (to show reward response is different in top and bottom?)
 
-unit_kernel_fn = 'C:\Users\Andrew\OneDrive for Business\Documents\CarandiniHarrisLab\analysis\wf_ephys_choiceworld\choiceworld\unit_kernel_all.mat';
-load(unit_kernel_fn);
+unit_kernel_dir = 'C:\Users\Andrew\OneDrive for Business\Documents\CarandiniHarrisLab\analysis\wf_ephys_choiceworld\choiceworld';
+% unit_kernel_fn = 'unit_kernel_all.mat';
+unit_kernel_fn = 'unit_kernel_all_triaged.mat';
+load([unit_kernel_dir filesep unit_kernel_fn]);
 
 animaldays = reshape(arrayfun(@(x) ~isempty(unit_kernel_all(x).template_depths), ...
     1:numel(unit_kernel_all)),size(unit_kernel_all));
@@ -3809,15 +3818,8 @@ load([ephys_align_path filesep ephys_align_fn]);
 str_depth_cat = vertcat(ephys_depth_align(1:6).str_depth);
 
 % Get units in striatum
-% str_units = cellfun(@(unit_depths,str_depths) ...
-%     unit_depths >= str_depths(1) & unit_depths <= str_depths(2), ...
-%     AP_index_ans(reshape({unit_kernel_all.template_depths}, ...
-%     size(unit_kernel_all))',animaldays'), ...
-%     mat2cell(str_depth_cat,ones(size(str_depth_cat,1),1),2),'uni',false);
-
-%%% TEMPORARY: use all units
 str_units = cellfun(@(unit_depths,str_depths) ...
-    true(size(unit_depths)), ...
+    unit_depths >= str_depths(1) & unit_depths <= str_depths(2), ...
     AP_index_ans(reshape({unit_kernel_all.template_depths}, ...
     size(unit_kernel_all))',animaldays'), ...
     mat2cell(str_depth_cat,ones(size(str_depth_cat,1),1),2),'uni',false);
@@ -3840,8 +3842,8 @@ unit_expl_var_partial_cat = cellfun(@(x,str_units) x(str_units,:,:), ...
     AP_index_ans(reshape({unit_kernel_all.unit_expl_var_partial}, ...
     size(unit_kernel_all))',animaldays'),str_units,'uni',false);
 
-norm_spike_n_cat = cellfun(@(x,str_units) x(str_units), ...
-    AP_index_ans(reshape({unit_kernel_all.norm_spike_n}, ...
+spike_rate_cat = cellfun(@(x,str_units) x(str_units), ...
+    AP_index_ans(reshape({unit_kernel_all.spike_rate}, ...
     size(unit_kernel_all))',animaldays'),str_units,'uni',false);
 
 unit_taskpred_kernel_allcat = cellfun(@(x,str_units) ...
@@ -3858,13 +3860,19 @@ unit_taskpred_kernel_cat = arrayfun(@(regressor) ...
 
 % Just blunt for now: 
 all_depths = cell2mat(template_depths_cat);
+all_log_spike_rate = log10(cell2mat(spike_rate_cat));
 
-a = unit_taskpred_kernel_cat{4}./std(unit_taskpred_kernel_cat{4},[],2);
+spike_cutoff_units = all_log_spike_rate > 0;
 
-reward_superficial = nanmean(a(:,:,all_depths < -1500),3);
-reward_deep = nanmean(a(:,:,all_depths >= -1500),3);
+curr_regressor = 2;
+a = unit_taskpred_kernel_cat{curr_regressor}./std(unit_taskpred_kernel_cat{curr_regressor},[],2);
 
+kernel_superficial = nanmean(a(:,:,spike_cutoff_units & all_depths < -1500),3);
+kernel_deep = nanmean(a(:,:,spike_cutoff_units & all_depths >= -1500),3);
 
+figure;hold on
+plot(kernel_superficial')
+plot(kernel_deep')
 
 
 
