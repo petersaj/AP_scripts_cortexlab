@@ -83,82 +83,37 @@ fluor_allcat_downsamp_mirror = reshape(transpose( ...
 fluor_allcat_downsamp = fluor_allcat_downsamp - fluor_allcat_downsamp_mirror;
 
 
-%% Checking waveform stuff for eventual spike sorting?
+%% Plot template waveform across channels
 
-% Get SVD of waveforms (first component used)
-[u,s,v] = svd(waveforms','econ');
-
-% Get trough/post-trough peak
-[waveform_trough,waveform_trough_t] = min(waveforms,[],2);
-[waveform_post_peak,~] = arrayfun(@(x) ...
-    max(waveforms(x,waveform_trough_t(x):end),[],2), ...
-    transpose(1:size(waveforms,1)));
-
-fwhm_trough = (sum(waveforms < (waveform_trough/2),2)/ephys_sample_rate)*1e6;
-fwhm_peak = (sum(waveforms > (waveform_post_peak/2),2)/ephys_sample_rate)*1e6;
-
-% Get number of channels with 70% of the max range
-template_channel_amp = squeeze(range(templates,2));
-amp_thresh = max(template_channel_amp,[],2)*0.7;
-large_amp_channel_n = sum(template_channel_amp > amp_thresh,2);
-
-figure; 
-p1 = subplot(4,2,[1,3,5]);hold on;
-plot(v(:,1),fwhm_trough,'.k')
-line([0,0],ylim);
-xlabel('Component 1 score');
-ylabel('FWHM (\mus)');
-title('Set FWHM cutoff');
-
-subplot(4,2,7); hold on;
-plot(u(:,1),'linewidth',2);
-ylabel('Component 1');
-
-[~,fwhm_trough_cutoff] = ginput(1);
-line(xlim,[fwhm_trough_cutoff,fwhm_trough_cutoff]);
-
-p2 = subplot(4,2,[2,4,6]); hold on;
-plot(fwhm_trough,large_amp_channel_n,'.k')
-title('Set large amplitude channel cutoff');
-ylabel('Number of channels');
-xlabel('FWHM (\mus)');
-[~,large_amp_channel_n_cutoff] = ginput(1);
-line(xlim,[large_amp_channel_n_cutoff,large_amp_channel_n_cutoff]);
-
-good_templates_putative = v(:,1) > 0 & fwhm_trough < fwhm_trough_cutoff & large_amp_channel_n < large_amp_channel_n_cutoff;
-plot(p1,v(good_templates_putative,1),fwhm_trough(good_templates_putative),'.g')
-plot(p2,fwhm_trough(good_templates_putative),large_amp_channel_n(good_templates_putative),'.g')
-
+curr_template = 9;
 
 % Plot all good templates
 figure; hold on; axis off;
 p = arrayfun(@(x) plot(0,0,'k','linewidth',2),1:size(templates,3));
-for curr_template = find(good_templates_putative)'
-    
-    yscale = 0.4;
-    xscale = 7;
-    
-    y = permute(templates(curr_template,:,:),[3,2,1]);
-    y = y - channel_positions(:,2)*yscale;   
-    x = (1:size(templates,2)) + channel_positions(:,1)*xscale;
-    
-    template_channel_amp = squeeze(range(templates(curr_template,:,:),2));
-    template_thresh = max(template_channel_amp)*0.2;
-    template_use_channels = template_channel_amp > template_thresh;
-    [~,max_channel] = max(max(abs(templates(curr_template,:,:)),[],2),[],3);
-    
-    arrayfun(@(ch) set(p(ch),'XData',x(ch,:),'YData',y(ch,:)),1:size(templates,3));
-    arrayfun(@(ch) set(p(ch),'Color','r'),find(template_use_channels));
-    arrayfun(@(ch) set(p(ch),'Color','k'),find(~template_use_channels));
-    set(p(max_channel),'Color','b');
-    
-    yrange = range(channel_positions(:,2))*yscale*0.08.*[-1,1];
-    ylim([-channel_positions(max_channel,2)*yscale + yrange]);
-    
-    title(curr_template);
-    waitforbuttonpress;
-    
-end
+
+yscale = 0.01;
+xscale = 7;
+
+y = permute(templates_whitened(curr_template,:,:),[3,2,1]);
+y = y - channel_positions(:,2)*yscale;
+x = (1:size(templates,2)) + channel_positions(:,1)*xscale;
+
+template_channel_amp = squeeze(range(templates(curr_template,:,:),2));
+template_thresh = max(template_channel_amp)*0.2;
+template_use_channels = template_channel_amp > template_thresh;
+[~,max_channel] = max(max(abs(templates(curr_template,:,:)),[],2),[],3);
+
+arrayfun(@(ch) set(p(ch),'XData',x(ch,:),'YData',y(ch,:)),1:size(templates,3));
+arrayfun(@(ch) set(p(ch),'Color','r'),find(template_use_channels));
+arrayfun(@(ch) set(p(ch),'Color','k'),find(~template_use_channels));
+set(p(max_channel),'Color','b');
+
+yrange = range(channel_positions(:,2))*yscale*0.08.*[-1,1];
+ylim([-channel_positions(max_channel,2)*yscale + yrange]);
+
+title(curr_template);
+
+
 
 %% Waveform grab test
 

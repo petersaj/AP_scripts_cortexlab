@@ -3770,7 +3770,7 @@ for curr_regressor = 1:length(regressor_labels)
     depth_bin_centers = depth_bins(1:end-1) + diff(depth_bins)./2;
     curr_depth_groups = discretize(cell2mat(template_depths_cat),depth_bins);
     
-    rate_cutoff = 0;
+    rate_cutoff = -0.5;
     use_units = log10(cell2mat(spike_rate_cat)) > rate_cutoff;
     line(p1,repmat(rate_cutoff,1,2),ylim(p1),'color','k');
     
