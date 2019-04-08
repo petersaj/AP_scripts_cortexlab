@@ -90,7 +90,7 @@ cellraster_gui = figure('color','w');
 unit_axes = subplot(5,5,[1:5:20],'YDir','reverse');
 hold on;
 
-norm_spike_n = mat2gray(log(accumarray(spike_templates,1)+1));
+norm_spike_n = mat2gray(log10(accumarray(spike_templates,1)+1));
 unit_dots = plot(norm_spike_n,template_depths,'.k','MarkerSize',20,'ButtonDownFcn',@unit_click);
 curr_unit_dots = plot(0,0,'.r','MarkerSize',20);
 multiunit_lines = arrayfun(@(x) line(xlim,[0,0],'linewidth',2,'visible','off'),1:2);

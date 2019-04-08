@@ -2209,10 +2209,9 @@ end
 
 %% Spectral analysis
 % Power spectrum
-use_trace = r;
-use_t = frame_t(1:end-1);
+use_trace = a;
 
-Fs = 1./median(diff(use_t));
+Fs = 35;
 L = length(use_trace);
 NFFT = 2^nextpow2(L);
 [P,F] = pwelch(double(use_trace)',[],[],NFFT,Fs);
