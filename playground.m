@@ -461,18 +461,18 @@ mirror_matrix = reshape(U_master(:,:,1:n_vs),[],n_vs)'* ...
     reshape(AP_reflect_widefield(U_master(:,:,1:n_vs)),[],n_vs);
 fluor_allcat_deconv_mirror = reshape(transpose( ...
     mirror_matrix*reshape(fluor_allcat_deconv,[],n_vs)'),size(fluor_allcat_deconv));
-% fluor_allcat_deconv_move_mirror = reshape(transpose( ...
-%     mirror_matrix*reshape(fluor_allcat_deconv_move,[],n_vs)'),size(fluor_allcat_deconv_move));
 fluor_allcat_deconv_move_mirror = reshape(transpose( ...
-    mirror_matrix*reshape(fluor_allcat_deconv_move - ...
-    fluor_taskpred_reduced_allcat_move(:,:,:,2), ...
-    [],n_vs)'),size(fluor_allcat_deconv_move));
+    mirror_matrix*reshape(fluor_allcat_deconv_move,[],n_vs)'),size(fluor_allcat_deconv_move));
+% fluor_allcat_deconv_move_mirror = reshape(transpose( ...
+%     mirror_matrix*reshape(fluor_allcat_deconv_move - ...
+%     fluor_taskpred_reduced_allcat_move(:,:,:,2), ...
+%     [],n_vs)'),size(fluor_allcat_deconv_move));
 
-plot_rxn_time = [0.6,1];
+plot_rxn_time = [0,0.5];
 
 plot_side = 1;
 plot_choice = -1;
-plot_contrast = trial_contrast_allcat > 0;
+plot_contrast = trial_contrast_allcat == 0;
 plot_move_t = move_t >= plot_rxn_time(1) & move_t <= plot_rxn_time(2);
 
 curr_trials_standard = trial_side_allcat == plot_side & ...
@@ -486,8 +486,8 @@ curr_trials_mirror = trial_side_allcat == -plot_side & ...
 %     vel_amp_bins == 5;
 
 curr_px = svdFrameReconstruct(U_master(:,:,1:n_vs),squeeze(nanmean( ...
-    [fluor_allcat_deconv(curr_trials_standard,:,:); ...
-    fluor_allcat_deconv_mirror(curr_trials_mirror,:,:)],1))');
+    [fluor_allcat_deconv_move(curr_trials_standard,:,:); ...
+    fluor_allcat_deconv_move_mirror(curr_trials_mirror,:,:)],1))');
 
 % curr_px = svdFrameReconstruct(U_master(:,:,1:n_vs),squeeze(nanmean( ...
 %     [fluor_allcat_deconv_move(curr_trials_standard,:,:); ...
@@ -6246,52 +6246,34 @@ plot(waveforms_cat_maxnorm(good_cat(:,1) & ~good_cat(:,2),:)');
 title('Good manual, bad auto');
 
 
+%% Spectral analysis
+% Power spectrum
 
+Fs = 35;
 
-%%
+warning off
+spect_overlap = 80;
+window_length = 0.2; % in seconds
+window_length_samples = window_length/(1/Fs);
 
-% Set the directory with the patch figures
-patch_dir = 'C:\Users\Andrew\Desktop\patch-timing-20190405T163329Z-001\patch-timing\patch_timing_manual';
-patch_figs = dir([patch_dir filesep 'TC*']);
-n_patch_figs = length(patch_figs);
-
-% Loop through each figure, pull data
-patch_data = struct('recording',cell(n_patch_figs,1), ...
-    'imaging',cell(n_patch_figs,1), ...
-    'ephys',cell(n_patch_figs,1));
-for curr_fig = 1:n_patch_figs
-    h = open([patch_dir filesep patch_figs(curr_fig).name]);
-    curr_axes = get(h,'Children');
+a = nan(size(fluor_allcat_deconv,1),82);
+p = nan(size(fluor_allcat_deconv,1),82);
+for curr_trial = 1:size(fluor_allcat_deconv,1)
+    use_trace = fluor_allcat_deconv_move(curr_trial,:,5);
+    [s,f,t] = spectrogram(use_trace,window_length_samples, ...
+        round(spect_overlap/100*window_length_samples),[],Fs);
     
-    % The first line on the first plot is imaging
-    curr_imaging_lines = get(curr_axes(2),'Children');
-    curr_imaging_t = get(curr_imaging_lines(end),'XData');
-    curr_imaging = get(curr_imaging_lines(end),'YData');
+    f_idx = f >= 3 & f <= 6;
     
-    % The first line on the second plot is ephys
-    curr_ephys_lines = get(curr_axes(1),'Children');
-    curr_ephys_t = get(curr_ephys_lines(end),'XData');
-    curr_ephys = get(curr_ephys_lines(end),'YData');
-    
-    % Package
-    patch_data(curr_fig).recording = patch_figs(curr_fig).name;
-    patch_data(curr_fig).imaging = [curr_imaging_t',curr_imaging'];
-    patch_data(curr_fig).ephys = [curr_ephys_t',curr_ephys'];
-   
-    % Close the figure
-    close(h);
+    a(curr_trial,:) = sum(abs(s(f_idx,:)),1);
+    p(curr_trial,:) = mean(angle(s(f_idx,:)),1);
+    AP_print_progress_fraction(curr_trial,size(fluor_allcat_deconv,1));
 end
+warning on
 
 
 
-for curr_fig = 1:size(patch_data)
-    figure;
-    subplot(2,1,1);
-    plot(patch_data(curr_fig).imaging(:,1),patch_data(curr_fig).imaging(:,2));
-    subplot(2,1,2);
-    plot(patch_data(curr_fig).ephys(:,1),patch_data(curr_fig).ephys(:,2));
-    
-end
+
 
 
 
