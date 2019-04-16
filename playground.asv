@@ -6244,6 +6244,96 @@ plot(waveforms_cat_maxnorm(good_cat(:,1) & ~good_cat(:,2),:)');
 title('Good manual, bad auto');
 
 
+%% Spectral analysis
+% Power spectrum
+
+Fs = 35;
+
+warning off
+spect_overlap = 80;
+window_length = 0.2; % in seconds
+window_length_samples = window_length/(1/Fs);
+
+a = nan(size(fluor_allcat_deconv,1),82);
+p = nan(size(fluor_allcat_deconv,1),82);
+for curr_trial = 1:size(fluor_allcat_deconv,1)
+    use_trace = fluor_allcat_deconv_move(curr_trial,:,5);
+    [s,f,t] = spectrogram(use_trace,window_length_samples, ...
+        round(spect_overlap/100*window_length_samples),[],Fs);
+    
+    f_idx = f >= 3 & f <= 6;
+    
+    a(curr_trial,:) = sum(abs(s(f_idx,:)),1);
+    p(curr_trial,:) = mean(angle(s(f_idx,:)),1);
+    AP_print_progress_fraction(curr_trial,size(fluor_allcat_deconv,1));
+end
+warning on
+
+
+
+
+
+%% Triage kilosort 2 templates
+
+animals = {'AP024','AP025','AP026','AP027','AP028','AP029'};
+for curr_animal = 1:length(animals)
+    animal = animals{curr_animal};
+    protocol = 'vanillaChoiceworld';
+    experiments = AP_find_experiments(animal,protocol);
+    experiments = experiments([experiments.imaging] & [experiments.ephys]);
+    for curr_day = 1:length(experiments)
+        
+        disp([animal ', day ' num2str(curr_day) '/' num2str(length(experiments))]);
+        day = experiments(curr_day).day;
+        
+        AP_prepare_phy(animal,day);       
+        AP_triage_kilosort('local');
+        AP_save_phy(false);
+        
+    end
+end
+
+
+%% Passive: move kilosort 1 to new file location
+
+animals =  {'AP032','AP033','AP034','AP035','AP036'};
+
+for curr_animal = 1:length(animals)
+    
+    animal = animals{curr_animal};
+    % Find experiments
+    % (use only behavior days because cortical recordings afterwards)
+    protocol = 'vanillaChoiceworld';
+    experiments = AP_find_experiments(animal,protocol);
+    experiments(~([experiments.imaging] & [experiments.ephys])) = [];
+    if isempty(experiments)
+        % (if no behavior days then it was a naive mouse - use passive expt)
+        protocol = 'AP_choiceWorldStimPassive';
+        experiments = AP_find_experiments(animal,protocol);
+        experiments(~([experiments.imaging] & [experiments.ephys])) = [];
+    end
+    
+    for curr_day = 1:length(experiments)
+     
+        day = experiments(curr_day).day;
+        % Get the bad/nested kilosort2 path
+        ephys_dir = AP_cortexlab_filename(animal,day,[],'ephys
+        
+    end
+end
+
+
+
+
+
+[ephys_path,ephys_exists] = AP_cortexlab_filename(animal,day,[],'ephys_dir');
+
+if ~ephys_exists
+    error([animal ' ' day ': No ephys data found']);
+end
+
+save_paths = {[ephys_path filesep 'kilosort2']};
+data_paths = {ephys_path};
 
 
 

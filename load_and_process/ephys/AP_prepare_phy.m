@@ -88,4 +88,15 @@ end
 
 disp('Done.');
 
+%% Make a sound to indicate finished
+
+fs = 8192;
+x = 1:fs*0.05;
+y = [sin(5000*x/fs),sin(7500*x/fs),sin(10000*x/fs)]*0.2;
+sound(y);
+
+
+
+
+
 

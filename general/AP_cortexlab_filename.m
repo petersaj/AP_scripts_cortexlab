@@ -202,27 +202,13 @@ switch file
         file_exists = ~isempty(dir(check_file));
         
     case 'ephys_dir'
-        % (return the path where the raw ephys lives, check for specific
-        % raw files in order to know whether to check other directories)
-        
+        % the path where the ephys data is kept
         filename = [server1 filesep 'Data\Subjects' filesep animal filesep day filesep 'ephys' site_dir];
-        check_file = [filename filesep 'experiment1_10*-0_0.dat'];
         
         % CHECK SERVER2 IF IT DOESN'T EXIST
-        if isempty(dir(check_file))
+        if ~exist(filename,'dir')
             filename = [server2 filesep 'Subjects' filesep animal filesep day filesep 'ephys' site_dir];
-            check_file = [filename filesep 'experiment1_10*-0_0.dat'];
         end
-        
-        % CHECK NEW OPEN EPHYS ON SERVER2 IF IT DOESN'T EXIST
-        % (after server switch, should never be on zserver)
-        if isempty(dir(check_file))
-            filename = [server2 filesep 'Subjects' filesep animal filesep day filesep ...
-                'ephys' site_dir filesep 'experiment1' filesep 'recording1'];
-            check_file = [filename filesep 'continuous'  filesep 'Neuropix-3a-100.0' filesep 'continuous.dat'];
-        end
-        
-        file_exists = ~isempty(dir(check_file));
         
     case 'ephys_ap'
         % the raw action potential band data file
@@ -264,7 +250,6 @@ switch file
         elseif kilosort_version == 2
             filename = [ephys_dir filesep 'kilosort2' filesep];
         end
-        
         
     case 'probe_histology'
         % (the output from P Shamash's program for histology to probe)
