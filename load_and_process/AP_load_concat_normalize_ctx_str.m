@@ -143,7 +143,7 @@ fluor_allcat_deconv = fluor_allcat_deconv - fluor_allcat_deconv_baseline;
 load('C:\Users\Andrew\OneDrive for Business\Documents\CarandiniHarrisLab\analysis\wf_ephys_choiceworld\wf_processing\wf_alignment\U_master');
 wf_roi_fn = 'C:\Users\Andrew\OneDrive for Business\Documents\CarandiniHarrisLab\analysis\wf_ephys_choiceworld\wf_processing\wf_rois\wf_roi';
 load(wf_roi_fn);
-wf_roi = wf_roi(:,1); % (left ROIs only)
+% wf_roi = wf_roi(:,1); % (left ROIs only)
 n_rois = numel(wf_roi);
 
 fluor_roi_deconv = permute(reshape( ...

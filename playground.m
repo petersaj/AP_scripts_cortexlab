@@ -87,28 +87,29 @@ fluor_allcat_downsamp = fluor_allcat_downsamp - fluor_allcat_downsamp_mirror;
 
 curr_template = 9;
 
-figure; hold on; axis off;
+figure; axes('YDir','reverse','visible','off'); hold on;
 p = arrayfun(@(x) plot(0,0,'k','linewidth',2),1:size(templates,3));
 
-yscale = 0.4;
-xscale = 7;
+template_xscale = 3;
+template_yscale = 0.5;
 
-y = permute(templates(curr_template,:,:),[3,2,1]);
-y = y - channel_positions(:,2)*yscale;
-x = (1:size(templates,2)) + channel_positions(:,1)*xscale;
+template_y = permute(mean(templates(curr_template,:,:),1),[3,2,1]);
+template_y = -template_y*template_yscale + channel_positions(:,2);
+template_x = (1:size(templates,2)) + channel_positions(:,1)*template_xscale;
 
 template_channel_amp = squeeze(range(templates(curr_template,:,:),2));
 template_thresh = max(template_channel_amp)*0.2;
 template_use_channels = template_channel_amp > template_thresh;
 [~,max_channel] = max(max(abs(templates(curr_template,:,:)),[],2),[],3);
 
-arrayfun(@(ch) set(p(ch),'XData',x(ch,:),'YData',y(ch,:)),1:size(templates,3));
+arrayfun(@(ch) set(p(ch),'XData',template_x(ch,:),'YData',template_y(ch,:)),1:size(templates,3));
 arrayfun(@(ch) set(p(ch),'Color','r'),find(template_use_channels));
 arrayfun(@(ch) set(p(ch),'Color','k'),find(~template_use_channels));
 set(p(max_channel),'Color','b');
 
-yrange = range(channel_positions(:,2))*yscale*0.08.*[-1,1];
-ylim([-channel_positions(max_channel,2)*yscale + yrange]);
+yrange = range(channel_positions(:,2))*0.03.*[-1,1];
+ylim(channel_positions(max_channel,2) + yrange);
+
 
 title(curr_template);
 
@@ -146,7 +147,7 @@ gwfparams.fileName = ephys_ap_filename;
 gwfparams.dataType = 'int16';
 gwfparams.nCh = 384;
 gwfparams.wfWin = [-40 80];
-gwfparams.nWf = 50;
+gwfparams.nWf = 200;
 gwfparams.spikeTimes = spike_times;
 gwfparams.spikeClusters = spike_clusters;
 
@@ -185,10 +186,6 @@ yrange = range(channel_positions(:,2))*yscale*0.08.*[-1,1];
 ylim([-channel_positions(max_channel,2)*yscale + yrange]);
 
 title(curr_template);
-
-
-
-
 
 
 
@@ -5932,6 +5929,35 @@ for curr_animal = 1:length(animals)
     end
 end
 
+%% Kilosort 2 on all passive data
+
+animals =  {'AP032','AP033','AP034','AP035','AP036'};
+
+for curr_animal = 1:length(animals)
+    
+    animal = animals{curr_animal};
+    % Find experiments
+    % (use only behavior days because cortical recordings afterwards)
+    protocol = 'vanillaChoiceworld';
+    experiments = AP_find_experiments(animal,protocol);
+    experiments(~([experiments.imaging] & [experiments.ephys])) = [];
+    if isempty(experiments)
+        % (if no behavior days then it was a naive mouse - use passive expt)
+        protocol = 'AP_choiceWorldStimPassive';
+        experiments = AP_find_experiments(animal,protocol);
+        experiments(~([experiments.imaging] & [experiments.ephys])) = [];
+    end
+    
+    for curr_day = 1:length(experiments)
+              
+        day = experiments(curr_day).day;        
+        disp(['Kilosorting ' animal ' ' day '(' num2str(curr_day) '/' num2str(length(experiments)) ')']);       
+        AP_preprocess_phase3(animal,day);
+                
+    end
+end
+
+
 
 
 %% (for plotting 15-depth MUA)
@@ -5967,34 +5993,6 @@ figure; hold on;
 set(gca,'ColorOrder',copper(12));
 plot(t,c(:,4:end),'linewidth',2);
 
-
-
-
-%% trial raster?
-
-
-time_bins = frame_t;
-time_bin_centers = time_bins(1:end-1) + diff(time_bins)/2;
-
-binned_spikes = zeros(size(templates,1),length(time_bin_centers));
-for curr_unit = 1:size(templates,1)
-    curr_spike_times = spike_times_timeline(spike_templates == curr_unit);
-    binned_spikes(curr_unit,:) = histcounts(curr_spike_times,time_bins);
-end
-
-[~,sort_idx] = sort(template_depths);
-
-raster_plot_t = [0,60*10];
-raster_samples = time_bin_centers > raster_plot_t(1) & time_bin_centers < raster_plot_t(2);
-[raster_y,raster_x] = find(binned_spikes(:,raster_samples));
-
-raster_t = AP_index_ans(time_bin_centers(raster_samples),raster_x);
-raster_depth = template_depths(raster_y);
-
-figure; set(gca,'YDir','reverse'); hold on
-plot(raster_t,raster_depth,'.k')
-xlabel('Time (s)');
-ylabel('Depth');
 
 
 %% (plot the ctx>str kernels for the 15-depth aligned)
@@ -6273,6 +6271,64 @@ warning on
 
 
 
+
+
+%% Triage kilosort 2 templates
+
+animals = {'AP024','AP025','AP026','AP027','AP028','AP029'};
+for curr_animal = 1:length(animals)
+    animal = animals{curr_animal};
+    protocol = 'vanillaChoiceworld';
+    experiments = AP_find_experiments(animal,protocol);
+    experiments = experiments([experiments.imaging] & [experiments.ephys]);
+    for curr_day = 1:length(experiments)
+        
+        disp([animal ', day ' num2str(curr_day) '/' num2str(length(experiments))]);
+        day = experiments(curr_day).day;
+        
+        AP_prepare_phy(animal,day);       
+        AP_triage_kilosort('local');
+        AP_save_phy(false);
+        
+    end
+end
+
+
+%% Triage kilosort 2 templates (passive)
+
+animals =  {'AP032','AP033','AP034','AP035','AP036'};
+
+for curr_animal = 1:length(animals)
+    
+    animal = animals{curr_animal};
+    % Find experiments
+    % (use only behavior days because cortical recordings afterwards)
+    protocol = 'vanillaChoiceworld';
+    experiments = AP_find_experiments(animal,protocol);
+    experiments(~([experiments.imaging] & [experiments.ephys])) = [];
+    if isempty(experiments)
+        % (if no behavior days then it was a naive mouse - use passive expt)
+        protocol = 'AP_choiceWorldStimPassive';
+        experiments = AP_find_experiments(animal,protocol);
+        experiments(~([experiments.imaging] & [experiments.ephys])) = [];
+    end
+    
+    for curr_day = 1:length(experiments)
+        
+        % SKIP ANYTHING ALREADY DONE
+        if curr_animal == 1 && curr_day < 2
+            continue
+        end
+        
+        disp([animal ', day ' num2str(curr_day) '/' num2str(length(experiments))]);
+        day = experiments(curr_day).day;
+        
+        AP_prepare_phy(animal,day);
+        AP_triage_kilosort('local');
+        AP_save_phy(false);
+        
+    end
+end
 
 
 

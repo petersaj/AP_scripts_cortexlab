@@ -226,8 +226,13 @@ arrayfun(@(ch) set(gui_data.waveform_lines(ch),'Color','r'),find(template_use_ch
 arrayfun(@(ch) set(gui_data.waveform_lines(ch),'Color','k'),find(~template_use_channels));
 set(gui_data.waveform_lines(max_channel),'Color','b');
 
-yrange = range(gui_data.channel_positions(:,2))*0.03.*[-1,1];
-ylim(get(gui_data.waveform_lines(1),'Parent'),[gui_data.channel_positions(max_channel,2) + yrange]);
+if length(gui_data.curr_unit) == 1
+    yrange = range(gui_data.channel_positions(:,2))*0.03.*[-1,1];
+    ylim(get(gui_data.waveform_lines(1),'Parent'),[gui_data.channel_positions(max_channel,2) + yrange]);
+elseif length(gui_data.curr_unit) > 1
+    ylim(get(gui_data.waveform_lines(1),'Parent'), ...
+        [min(gui_data.channel_positions(:,2)),max(gui_data.channel_positions(:,2))])
+end
 
 % Bin spikes (use only spikes within time range, big speed-up)
 curr_spikes_idx = ismember(gui_data.spike_templates,gui_data.curr_unit);

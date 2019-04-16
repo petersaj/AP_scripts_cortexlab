@@ -34,6 +34,7 @@ if exist('site','var') && ~isempty(site)
     end
     site_dir = [filesep 'site' site];
 else
+    site = [];
     site_dir = [];
 end
 
@@ -145,15 +146,15 @@ switch file
             filename = [filepath filesep animal filesep day filesep experiment filesep 'face.mj2'];
         end
         
-    % UNUSED: processing with etGUI/eyeGUI/facemap
+        % UNUSED: processing with etGUI/eyeGUI/facemap
         
-%     % Old (with etGUI)
-%     case 'eyecam_processed'
-%         filepath = '\\zserver1.cortexlab.net\Data\EyeCamera';
-%         filename = [filepath filesep mouse filesep day filesep experiment ...
-%             filesep day '_' experiment '_' mouse '_eye_processed.mat'];
-
-    % New (with eyeGUI)
+        %     % Old (with etGUI)
+        %     case 'eyecam_processed'
+        %         filepath = '\\zserver1.cortexlab.net\Data\EyeCamera';
+        %         filename = [filepath filesep mouse filesep day filesep experiment ...
+        %             filesep day '_' experiment '_' mouse '_eye_processed.mat'];
+        
+        % New (with eyeGUI)
     case 'eyecam_processed'
         filepath = [server1 filesep 'Data\EyeCamera'];
         filename = [filepath filesep animal filesep day filesep experiment ...
@@ -164,7 +165,7 @@ switch file
         filename = [filepath filesep animal filesep day filesep experiment ...
             filesep 'face_proc.mat'];
         
-    % Output from AP_mouse_movie_movement
+        % Output from AP_mouse_movie_movement
     case 'facecam_movement'
         filepath = [server1 filesep 'Data\EyeCamera'];
         filename = [filepath filesep animal filesep day filesep experiment ...
@@ -173,7 +174,7 @@ switch file
         if ~exist(filename,'file')
             filepath = [server2 filesep 'Subjects'];
             filename = [filepath filesep animal filesep day filesep experiment filesep 'facecam_movement.mat'];
-        end        
+        end
         
     case 'hardware'
         filepath = [server1 filesep 'Data\expInfo'];
@@ -183,7 +184,7 @@ switch file
         if ~exist(filename,'file')
             filepath = [server2 filesep 'Subjects'];
             filename = [filepath filesep animal filesep day filesep experiment ...
-            filesep day '_' experiment '_' animal '_hardwareInfo.mat'];
+                filesep day '_' experiment '_' animal '_hardwareInfo.mat'];
         end
         
     case 'imaging'
@@ -199,48 +200,6 @@ switch file
         end
         
         file_exists = ~isempty(dir(check_file));
-        
-    case 'ephys'
-        % folder with kilosort/phy outputs
-        
-        kilosort_version = 2; % 1 and 2 available
-        
-        % Drop the kilosort version in the base workspace
-        assignin('base','kilosort_version',kilosort_version);
-
-        %%% Use Kilosort 1
-        if kilosort_version == 1
-            filepath = [server1 filesep 'Data\Subjects'];
-            filename = [filepath filesep animal filesep day filesep 'ephys' filesep 'kilosort' site_dir filesep];
-            % CHECK SERVER2 IF IT DOESN'T EXIST
-            if ~exist(filename,'dir')
-                filepath = [server2 filesep 'Subjects'];
-                filename = [filepath filesep animal filesep day filesep 'ephys' filesep 'kilosort' site_dir filesep];
-            end
-        end
-        
-        %%% Use Kilosort 2
-        if kilosort_version == 2
-            disp('USING KILOSORT2');
-            % Check for kilosort2
-            filepath = [server1 filesep 'Data\Subjects'];
-            filename = [filepath filesep animal filesep day filesep 'ephys' filesep 'kilosort2' site_dir filesep];
-            % CHECK SERVER2 IF IT DOESN'T EXIST
-            if ~exist(filename,'dir')
-                filepath = [server2 filesep 'Subjects'];
-                filename = [filepath filesep animal filesep day filesep 'ephys' filesep 'kilosort2' site_dir filesep];
-            end
-            % If not then check for kilosort1
-            if ~exist(filename,'dir')
-                filepath = [server1 filesep 'Data\Subjects'];
-                filename = [filepath filesep animal filesep day filesep 'ephys' filesep 'kilosort' site_dir filesep];
-            end
-            % CHECK SERVER2 IF IT DOESN'T EXIST
-            if ~exist(filename,'dir')
-                filepath = [server2 filesep 'Subjects'];
-                filename = [filepath filesep animal filesep day filesep 'ephys' filesep 'kilosort' site_dir filesep];
-            end
-        end
         
     case 'ephys_dir'
         % (return the path where the raw ephys lives, check for specific
@@ -289,6 +248,24 @@ switch file
             filename = [filepath filesep 'continuous'  filesep 'Neuropix-3a-100.0' filesep 'continuous.dat'];
         end
         
+    case 'ephys'
+        % folder with kilosort/phy outputs
+        
+        kilosort_version = 2; % 1 and 2 available
+        
+        % Self-call to match ephys_dir above
+        [ephys_dir,~] = AP_cortexlab_filename(animal,day,experiment,'ephys_dir',site);
+   
+        % Drop the kilosort version in the base workspace
+        assignin('base','kilosort_version',kilosort_version); 
+        
+        if kilosort_version == 1
+            filename = [ephys_dir filesep 'kilosort' filesep];
+        elseif kilosort_version == 2
+            filename = [ephys_dir filesep 'kilosort2' filesep];
+        end
+        
+        
     case 'probe_histology'
         % (the output from P Shamash's program for histology to probe)
         filepath = [server2 filesep 'Subjects'];
@@ -296,7 +273,7 @@ switch file
         filepattern_dir = dir(filepattern);
         if ~isempty(filepattern_dir) && length(filepattern_dir) == 1
             filename = [filepattern_dir.folder filesep filepattern_dir.name];
-        else 
+        else
             filename = filepattern;
         end
         

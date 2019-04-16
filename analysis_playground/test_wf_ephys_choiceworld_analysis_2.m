@@ -2100,12 +2100,12 @@ for curr_exp = 1:length(use_split)
     
     %     use_trials = true(size(mua_allcat_exp{curr_exp},1),1);
     
-        use_trials = move_t_exp{curr_exp} > 0 & move_t_exp{curr_exp} <= 0.5;
+    use_trials = move_t_exp{curr_exp} > 0 & move_t_exp{curr_exp} <= 0.5;
     
-%     use_trials = move_t_exp{curr_exp} > 0 & move_t_exp{curr_exp} <= 0.5 & ...
-%         trial_contrast_allcat_exp{curr_exp} > 0 & ...
-%         trial_side_allcat_exp{curr_exp} == 1 & ...
-%         trial_choice_allcat_exp{curr_exp} == -1;
+    %     use_trials = move_t_exp{curr_exp} > 0 & move_t_exp{curr_exp} <= 0.5 & ...
+    %         trial_contrast_allcat_exp{curr_exp} > 0 & ...
+    %         trial_side_allcat_exp{curr_exp} == 1 & ...
+    %         trial_choice_allcat_exp{curr_exp} == -1;
     
     %     use_trials = move_t_exp{curr_exp} > 0 & move_t_exp{curr_exp} <= 0.5 & ...
     %         trial_contrast_allcat_exp{curr_exp} == 0;
@@ -3218,7 +3218,7 @@ for curr_animal = 1:length(animals)
         
         % Load experiment
         str_align = 'none';
-        AP_load_experiment;        
+        AP_load_experiment;
         
         % Get event-aligned activity
         raster_window = [-0.5,2];
@@ -3435,7 +3435,7 @@ for curr_animal = 1:length(animals)
         cvfold = 5;
         use_constant = false;
         return_constant = false;
-         
+        
         %%%%%%% Regress task -> units
         
         %%% Trial-align units
@@ -3446,7 +3446,7 @@ for curr_animal = 1:length(animals)
             event_aligned_unit(:,:,curr_unit) = cell2mat(arrayfun(@(x) ...
                 histcounts(curr_spikes,t_bins(x,:)), ...
                 [1:size(t_peri_event,1)]','uni',false))./raster_sample_rate;
-        end 
+        end
         
         %%% Binned unit activity across the experiment
         binned_spikes = zeros(max(spike_templates),length(time_bin_centers));
@@ -3454,23 +3454,21 @@ for curr_animal = 1:length(animals)
             curr_spike_times = spike_times_timeline(spike_templates == curr_unit);
             binned_spikes(curr_unit,:) = histcounts(curr_spike_times,time_bins);
         end
-        binned_spikes_std = binned_spikes./nanstd(binned_spikes,[],2);
-        binned_spikes_std(isnan(binned_spikes_std)) = 0;
-                
-         %%% Task > striatal units
+        
+        %%% Task > striatal units
         baseline = nanmean(reshape(event_aligned_unit(:,t < 0,:),[], ...
             size(event_aligned_unit,3))*raster_sample_rate)';
         binned_spikes_baselinesubtracted = binned_spikes - baseline;
         
-        [unit_taskpred_k,~,unit_expl_var,~] = ...
+        [unit_taskpred_k,binned_spikes_taskpred,unit_expl_var,~] = ...
             AP_regresskernel(regressors,binned_spikes_baselinesubtracted, ...
-            sample_shifts,lambda,zs,cvfold,return_constant,use_constant);            
+            sample_shifts,lambda,zs,cvfold,return_constant,use_constant);
         
         % Get normalized total number of spikes
         used_spikes = spike_times_timeline > time_bins(1) & ...
             spike_times_timeline < time_bins(end);
         spike_rate = accumarray(spike_templates(used_spikes),1,[size(templates,1),1])./(time_bins(end)-time_bins(1));
- 
+        
         % Package
         unit_kernel_all(curr_animal,curr_day).template_depths = template_depths;
         unit_kernel_all(curr_animal,curr_day).spike_rate = spike_rate;
@@ -3566,7 +3564,7 @@ end
 
 
 
-%% Plot all unit kernel explained variance
+%% Plot all unit regression explained variance
 
 unit_kernel_dir = 'C:\Users\Andrew\OneDrive for Business\Documents\CarandiniHarrisLab\analysis\wf_ephys_choiceworld\choiceworld';
 % unit_kernel_fn = 'unit_kernel_all.mat';
@@ -3601,7 +3599,7 @@ scatter(log10(cell2mat(spike_rate_cat)), ...
     regressor_cols(cell2mat(max_regressor_idx_cat),:),'filled')
 xlabel('log10(spike rate)');
 ylabel('Depth (\mum)');
-    title({'All units','Best regressor'})
+title({'All units','Best regressor'})
 
 subplot(1,length(regressor_labels)+3,2,'YDir','reverse'); hold on;
 curr_expl_var = cell2mat(unit_expl_var_total_cat);
@@ -3612,60 +3610,60 @@ scatter(log10(cell2mat(spike_rate_cat)), ...
     regressor_cols(cell2mat(max_regressor_idx_cat),:),'filled')
 xlabel('log10(spike rate)');
 ylabel('Depth (\mum)');
-    title({'All regressors'})
+title({'All regressors'})
 
 % (plot units size-scaled by explained variance)
 for curr_regressor = 1:length(regressor_labels)
     for curr_norm = 1:2
-    
-    subplot(2,length(regressor_labels)+3,curr_regressor+2+((length(regressor_labels)+3)*(curr_norm-1)),'YDir','reverse');
-    hold on;
-    curr_expl_var = cellfun(@(x) x(:,curr_regressor,use_partial),unit_expl_var_partial_cat,'uni',false);
-    
-    switch curr_norm
-        case 1
-            % Normalize within experiment
-            curr_expl_var_norm = cell2mat(cellfun(@(x) x./nanmax(x(x < 1)),curr_expl_var,'uni',false));          
-            curr_expl_var_dotsize = 100*mat2gray(curr_expl_var_norm,[0,1]) + 1;
-            curr_expl_var_dotsize(isnan(curr_expl_var_norm) | curr_expl_var_norm < -1 | curr_expl_var_norm >= 1) = NaN;
-            
-            curr_expl_var_norm(curr_expl_var_norm < -1 | curr_expl_var_norm >= 1) = NaN;
-            curr_expl_var_norm(curr_expl_var_norm < 0) = 0;
-            norm_type = 'experiment normalized';
-        case 2
-            % Normalize across experiments
-            curr_expl_var_norm = cell2mat(curr_expl_var);
-            curr_expl_var_norm = curr_expl_var_norm./ ...
-                max(curr_expl_var_norm(curr_expl_var_norm < 1));
-            curr_expl_var_dotsize = 100*mat2gray(curr_expl_var_norm,[0,1]) + 1;
-            curr_expl_var_dotsize(isnan(curr_expl_var_norm) | curr_expl_var_norm < -1 | curr_expl_var_norm >= 1) = NaN;
-            
-            curr_expl_var_norm(curr_expl_var_norm < -1 | curr_expl_var_norm >= 1) = NaN;
-            curr_expl_var_norm(curr_expl_var_norm < 0) = 0;
-            norm_type = 'concat normalized';
-    end
-    
-    scatter(log10(cell2mat(spike_rate_cat)), ...
-        cell2mat(template_depths_cat), ...
-        curr_expl_var_dotsize, ...
-        regressor_cols(curr_regressor,:),'filled')
-    title({regressor_labels{curr_regressor},norm_type});
-    xlabel('log10(spike rate)');
-    ylabel('Depth (\mum)');
-    
-    subplot(2,length(regressor_labels)+3,curr_norm*(length(regressor_labels)+3),'YDir','reverse');
-    hold on;
-    depth_bins = linspace(min(cell2mat(template_depths_cat)), ...
-        max(cell2mat(template_depths_cat)),round(range(cell2mat(template_depths_cat))/400));
-    depth_bin_centers = depth_bins(1:end-1) + diff(depth_bins)./2;
-    curr_depth_groups = discretize(cell2mat(template_depths_cat),depth_bins);
-    curr_expl_var_norm_depth = accumarray(curr_depth_groups, ...
-        curr_expl_var_norm,[length(depth_bin_centers),1],@nanmean);
-    plot(rescale(curr_expl_var_norm_depth,0,1),depth_bin_centers,'color',regressor_cols(curr_regressor,:),'linewidth',2);
-    title({'Binned explained var',norm_type});
-    xlabel('Normalized explained var');
-    ylabel('Depth (\mum)')
-    
+        
+        subplot(2,length(regressor_labels)+3,curr_regressor+2+((length(regressor_labels)+3)*(curr_norm-1)),'YDir','reverse');
+        hold on;
+        curr_expl_var = cellfun(@(x) x(:,curr_regressor,use_partial),unit_expl_var_partial_cat,'uni',false);
+        
+        switch curr_norm
+            case 1
+                % Normalize within experiment
+                curr_expl_var_norm = cell2mat(cellfun(@(x) x./nanmax(x(x < 1)),curr_expl_var,'uni',false));
+                curr_expl_var_dotsize = 100*mat2gray(curr_expl_var_norm,[0,1]) + 1;
+                curr_expl_var_dotsize(isnan(curr_expl_var_norm) | curr_expl_var_norm < -1 | curr_expl_var_norm >= 1) = NaN;
+                
+                curr_expl_var_norm(curr_expl_var_norm < -1 | curr_expl_var_norm >= 1) = NaN;
+                curr_expl_var_norm(curr_expl_var_norm < 0) = 0;
+                norm_type = 'experiment normalized';
+            case 2
+                % Normalize across experiments
+                curr_expl_var_norm = cell2mat(curr_expl_var);
+                curr_expl_var_norm = curr_expl_var_norm./ ...
+                    max(curr_expl_var_norm(curr_expl_var_norm < 1));
+                curr_expl_var_dotsize = 100*mat2gray(curr_expl_var_norm,[0,1]) + 1;
+                curr_expl_var_dotsize(isnan(curr_expl_var_norm) | curr_expl_var_norm < -1 | curr_expl_var_norm >= 1) = NaN;
+                
+                curr_expl_var_norm(curr_expl_var_norm < -1 | curr_expl_var_norm >= 1) = NaN;
+                curr_expl_var_norm(curr_expl_var_norm < 0) = 0;
+                norm_type = 'concat normalized';
+        end
+        
+        scatter(log10(cell2mat(spike_rate_cat)), ...
+            cell2mat(template_depths_cat), ...
+            curr_expl_var_dotsize, ...
+            regressor_cols(curr_regressor,:),'filled')
+        title({regressor_labels{curr_regressor},norm_type});
+        xlabel('log10(spike rate)');
+        ylabel('Depth (\mum)');
+        
+        subplot(2,length(regressor_labels)+3,curr_norm*(length(regressor_labels)+3),'YDir','reverse');
+        hold on;
+        depth_bins = linspace(min(cell2mat(template_depths_cat)), ...
+            max(cell2mat(template_depths_cat)),round(range(cell2mat(template_depths_cat))/400));
+        depth_bin_centers = depth_bins(1:end-1) + diff(depth_bins)./2;
+        curr_depth_groups = discretize(cell2mat(template_depths_cat),depth_bins);
+        curr_expl_var_norm_depth = accumarray(curr_depth_groups, ...
+            curr_expl_var_norm,[length(depth_bin_centers),1],@nanmean);
+        plot(rescale(curr_expl_var_norm_depth,0,1),depth_bin_centers,'color',regressor_cols(curr_regressor,:),'linewidth',2);
+        title({'Binned explained var',norm_type});
+        xlabel('Normalized explained var');
+        ylabel('Depth (\mum)')
+        
     end
 end
 
@@ -3718,80 +3716,72 @@ scatter(log10(cell2mat(spike_rate_cat)), ...
     regressor_cols(cell2mat(max_regressor_idx_cat),:),'filled')
 xlabel('log10(spike rate)');
 ylabel('Depth from str end (\mum)');
-    title({'All units','Best regressor'})
+title({'All units','Best regressor'})
 line(xlim,[0,0],'color','k','linewidth',2);
 
 subplot(1,length(regressor_labels)+3,2,'YDir','reverse'); hold on;
 curr_expl_var = cell2mat(unit_expl_var_total_cat);
-curr_expl_var_dotsize = 100*mat2gray(curr_expl_var,[0,1]) + 1;
+curr_expl_var_dotsize = 100*rescale(curr_expl_var.*(curr_expl_var > 0),0,1) + 1;
 curr_expl_var_dotsize(isnan(curr_expl_var) | curr_expl_var < -1 | curr_expl_var > 1) = NaN;
 scatter(log10(cell2mat(spike_rate_cat)), ...
     cell2mat(template_depths_cat),curr_expl_var_dotsize, ...
     regressor_cols(cell2mat(max_regressor_idx_cat),:),'filled')
 xlabel('log10(spike rate)');
 ylabel('Depth from str end (\mum)');
-    title({'All regressors'})
+title({'All regressors'})
 line(xlim,[0,0],'color','k','linewidth',2);
 
 % (plot units size-scaled by explained variance)
 for curr_regressor = 1:length(regressor_labels)
     for curr_norm = 1:2
-    
-    p1 = subplot(2,length(regressor_labels)+3,curr_regressor+2+((length(regressor_labels)+3)*(curr_norm-1)),'YDir','reverse');
-    hold on;
-    curr_expl_var = cellfun(@(x) x(:,curr_regressor,use_partial),unit_expl_var_partial_cat,'uni',false);
-    
-    switch curr_norm
-        case 1
-            % Normalize within experiment
-            curr_expl_var_norm = cell2mat(cellfun(@(x) x./nanmax(x(x < 1)),curr_expl_var,'uni',false));          
-            curr_expl_var_dotsize = 100*rescale(curr_expl_var_norm,0,1,'InputMin',0) + 1;
-            curr_expl_var_dotsize(isnan(curr_expl_var_norm) | curr_expl_var_norm < -1 | curr_expl_var_norm >= 1) = NaN;
-            
-            curr_expl_var_norm(curr_expl_var_norm < -1 | curr_expl_var_norm >= 1) = NaN;
-            curr_expl_var_norm(curr_expl_var_norm < 0) = 0;
-            norm_type = 'experiment normalized';
-        case 2
-            % Normalize across experiments
-            curr_expl_var_cat = cell2mat(curr_expl_var);
-            curr_expl_var_norm = curr_expl_var_cat./ ...
-                max(curr_expl_var_cat(curr_expl_var_cat < 1));
-            curr_expl_var_dotsize = 100*rescale(curr_expl_var_cat,0,1,'InputMin',0) + 1;
-            curr_expl_var_dotsize(isnan(curr_expl_var_cat) | curr_expl_var_cat < -1 | curr_expl_var_cat >= 1) = NaN;
-            
-            curr_expl_var_norm(curr_expl_var_cat < -1 | curr_expl_var_cat >= 1) = NaN;
-            curr_expl_var_norm(curr_expl_var_cat < 0) = 0;
-            norm_type = 'concat normalized';
-    end
-    
-    scatter(log10(cell2mat(spike_rate_cat)), ...
-        cell2mat(template_depths_cat), ...
-        curr_expl_var_dotsize, ...
-        regressor_cols(curr_regressor,:),'filled');
-    title({regressor_labels{curr_regressor},norm_type});
-    xlabel('log10(spike rate)');
-    ylabel('Depth from str end (\mum)');
-    line(xlim,[0,0],'color','k','linewidth',2);
-    
-    p2 = subplot(2,length(regressor_labels)+3,curr_norm*(length(regressor_labels)+3),'YDir','reverse');
-    hold on;
-    depth_bins = linspace(min(cell2mat(template_depths_cat)), ...
-        max(cell2mat(template_depths_cat)),round(range(cell2mat(template_depths_cat))/400));
-    depth_bin_centers = depth_bins(1:end-1) + diff(depth_bins)./2;
-    curr_depth_groups = discretize(cell2mat(template_depths_cat),depth_bins);
-    
-    rate_cutoff = -0.5;
-    use_units = log10(cell2mat(spike_rate_cat)) > rate_cutoff;
-    line(p1,repmat(rate_cutoff,1,2),ylim(p1),'color','k');
-    
-    curr_expl_var_norm_depth = accumarray(curr_depth_groups(use_units), ...
-        curr_expl_var_norm(use_units),[length(depth_bin_centers),1],@nanmean);
-    plot(rescale(curr_expl_var_norm_depth,0,1),depth_bin_centers,'color',regressor_cols(curr_regressor,:),'linewidth',2);
-    title({'Binned explained var',norm_type});
-    xlabel('Normalized explained var');
-    ylabel('Depth from str end (\mum)')
-    line(xlim,[0,0],'color','k','linewidth',2);
-    
+        
+        p1 = subplot(2,length(regressor_labels)+3,curr_regressor+2+((length(regressor_labels)+3)*(curr_norm-1)),'YDir','reverse');
+        hold on;
+        curr_expl_var = cellfun(@(x) x(:,curr_regressor,use_partial),unit_expl_var_partial_cat,'uni',false);
+        
+        switch curr_norm
+            case 1
+                % Normalize within experiment
+                curr_expl_var_norm = cell2mat(cellfun(@(x) x./nanmax(x(x < 1)),curr_expl_var,'uni',false));
+                curr_expl_var_dotsize = 100*rescale(curr_expl_var_norm.*(curr_expl_var_norm > 0),0,1) + 1;
+                norm_type = 'experiment normalized';
+            case 2
+                % Normalize across experiments
+                curr_expl_var_cat = cell2mat(curr_expl_var);
+                curr_expl_var_norm = curr_expl_var_cat./ ...
+                    max(curr_expl_var_cat(curr_expl_var_cat < 1));
+                curr_expl_var_dotsize = 100*rescale(curr_expl_var_norm.*(curr_expl_var_norm > 0),0,1) + 1;
+                norm_type = 'concat normalized';
+        end
+        
+        scatter(log10(cell2mat(spike_rate_cat)), ...
+            cell2mat(template_depths_cat), ...
+            curr_expl_var_dotsize, ...
+            regressor_cols(curr_regressor,:),'filled');
+        title({regressor_labels{curr_regressor},norm_type});
+        xlabel('log10(spike rate)');
+        ylabel('Depth from str end (\mum)');
+        line(xlim,[0,0],'color','k','linewidth',2);
+        
+        p2 = subplot(2,length(regressor_labels)+3,curr_norm*(length(regressor_labels)+3),'YDir','reverse');
+        hold on;
+        depth_bins = linspace(min(cell2mat(template_depths_cat)), ...
+            max(cell2mat(template_depths_cat)),round(range(cell2mat(template_depths_cat))/400));
+        depth_bin_centers = depth_bins(1:end-1) + diff(depth_bins)./2;
+        curr_depth_groups = discretize(cell2mat(template_depths_cat),depth_bins);
+        
+        rate_cutoff = -0.5;
+        use_units = log10(cell2mat(spike_rate_cat)) > rate_cutoff;
+        line(p1,repmat(rate_cutoff,1,2),ylim(p1),'color','k');
+        
+        curr_expl_var_norm_depth = accumarray(curr_depth_groups(use_units), ...
+            curr_expl_var_norm(use_units),[length(depth_bin_centers),1],@nanmean);
+        plot(rescale(curr_expl_var_norm_depth,0,1),depth_bin_centers,'color',regressor_cols(curr_regressor,:),'linewidth',2);
+        title({'Binned explained var',norm_type});
+        xlabel('Normalized explained var');
+        ylabel('Depth from str end (\mum)')
+        line(xlim,[0,0],'color','k','linewidth',2);
+        
     end
 end
 
@@ -3868,21 +3858,25 @@ unit_taskpred_kernel_cat = arrayfun(@(regressor) ...
 [~,max_regressor_idx_cat] = cellfun(@(x) max(x(:,:,use_partial),[],2),unit_expl_var_partial_cat,'uni',false);
 
 
-% Just blunt for now: 
+% Just blunt for now:
 all_depths = cell2mat(template_depths_cat);
 all_log_spike_rate = log10(cell2mat(spike_rate_cat));
 
-spike_cutoff_units = all_log_spike_rate > 0;
+spike_cutoff_units = all_log_spike_rate > -0.5;
 
-curr_regressor = 2;
+curr_regressor = 4;
 a = unit_taskpred_kernel_cat{curr_regressor}./std(unit_taskpred_kernel_cat{curr_regressor},[],2);
 
-kernel_superficial = nanmean(a(:,:,spike_cutoff_units & all_depths < -1500),3);
-kernel_deep = nanmean(a(:,:,spike_cutoff_units & all_depths >= -1500),3);
-
+kernel_mean = nanmean(a,3);
 figure;hold on
-plot(kernel_superficial')
-plot(kernel_deep')
+plot(kernel_mean')
+
+% kernel_superficial = nanmean(a(:,:,spike_cutoff_units & all_depths < -1500),3);
+% kernel_deep = nanmean(a(:,:,spike_cutoff_units & all_depths >= -1500),3);
+%
+% figure;hold on
+% plot(kernel_superficial')
+% plot(kernel_deep')
 
 
 
@@ -3903,10 +3897,10 @@ template_spike_n = accumarray(spike_templates(use_spikes),1,[size(templates,1),1
 use_templates = find(template_spike_n > 0);
 
 binned_spikes = zeros(length(use_templates),length(time_bins)-1);
-for curr_template_idx = 1:length(use_templates)    
-    curr_template = use_templates(curr_template_idx);   
-    curr_spike_times = spike_times_timeline(spike_templates == curr_template);   
-    binned_spikes(curr_template_idx,:) = histcounts(curr_spike_times,time_bins);    
+for curr_template_idx = 1:length(use_templates)
+    curr_template = use_templates(curr_template_idx);
+    curr_spike_times = spike_times_timeline(spike_templates == curr_template);
+    binned_spikes(curr_template_idx,:) = histcounts(curr_spike_times,time_bins);
 end
 binned_spikes_std = binned_spikes./nanstd(binned_spikes,[],2);
 
@@ -3999,7 +3993,1217 @@ xlabel('Unit distance');
 
 
 
+%% Plot MUA vs fluorescence baseline/event (quick and dirty)
 
+% Choose split for data
+trials_allcat = size(mua_allcat,1);
+trials_animal = arrayfun(@(x) size(vertcat(mua_all{x}{:}),1),1:size(mua_all));
+trials_recording = cellfun(@(x) size(x,1),vertcat(mua_all{:}));
+use_split = trials_animal;
+
+
+% (make outcome-aligned data, here for now)
+mua_allcat_outcome = mua_allcat;
+fluor_roi_deconv_outcome = fluor_roi_deconv;
+
+t_leeway = -t(1);
+leeway_samples = round(t_leeway*(sample_rate));
+for i = 1:size(mua_allcat,1)
+    mua_allcat_outcome(i,:,:) = circshift(mua_allcat_outcome(i,:,:),-outcome_idx(i)+leeway_samples,2);
+    fluor_roi_deconv_outcome(i,:,:) = circshift(fluor_roi_deconv_outcome(i,:,:),-outcome_idx(i)+leeway_samples,2);
+end
+
+% Split MUA and fluorescence
+mua_allcat_exp = mat2cell(mua_allcat,use_split,length(t),n_depths);
+fluor_roi_deconv_exp = mat2cell(fluor_roi_deconv,use_split,length(t),n_rois);
+
+mua_allcat_move_exp = mat2cell(mua_allcat_move,use_split,length(t),n_depths);
+fluor_roi_deconv_move_exp = mat2cell(fluor_roi_deconv_move,use_split,length(t),n_rois);
+
+mua_allcat_outcome_exp = mat2cell(mua_allcat_outcome,use_split,length(t),n_depths);
+fluor_roi_deconv_outcome_exp = mat2cell(fluor_roi_deconv_outcome,use_split,length(t),n_rois);
+
+% Get average activity within window
+trial_groups = {'Stim','Move onset'};
+t_baseline = [-0.1,-0.05];
+t_event = {[0.05,0.15],[-0.05,0.05],[0,0.1]};
+
+
+% NOT LOOPING FOR NOW - JUST HARDCODING PLOTS
+
+% STIM
+curr_event = 1;
+
+curr_mua_baseline = cellfun(@(x) nanmean(x(:, ...
+    t >= t_baseline(1) & ...
+    t <= t_baseline(2),:),2), ...
+    mua_allcat_exp,'uni',false);
+
+curr_mua_event = cellfun(@(x) nanmean(x(:, ...
+    t >= t_event{curr_event}(1) & ...
+    t <= t_event{curr_event}(2),:),2), ...
+    mua_allcat_exp,'uni',false);
+
+curr_fluor_baseline = cellfun(@(x) nanmean(x(:, ...
+    t >= t_baseline(1) & ...
+    t <= t_baseline(2),:),2), ...
+    fluor_roi_deconv_exp,'uni',false);
+
+curr_fluor_event = cellfun(@(x) nanmean(x(:, ...
+    t >= t_event{curr_event}(1) & ...
+    t <= t_event{curr_event}(2),:),2), ...
+    fluor_roi_deconv_exp,'uni',false);
+
+
+curr_depth = 1;
+curr_roi = 3;
+
+% (concatenate all data)
+curr_mua_baseline_cat = cell2mat(cellfun(@(x) x(:,:,curr_depth),curr_mua_baseline,'uni',false));
+curr_mua_event_cat = cell2mat(cellfun(@(x) x(:,:,curr_depth),curr_mua_event,'uni',false));
+
+curr_fluor_baseline_cat = cell2mat(cellfun(@(x) x(:,:,curr_roi),curr_fluor_baseline,'uni',false));
+curr_fluor_event_cat = cell2mat(cellfun(@(x) x(:,:,curr_roi),curr_fluor_event,'uni',false));
+
+% (bin data by fluorescence)
+fluor_bin_range = prctile([curr_fluor_baseline_cat;curr_fluor_event_cat],[5,95]);
+fluor_bin_edges = linspace(fluor_bin_range(1),fluor_bin_range(2),10);
+fluor_bin_centers = fluor_bin_edges(1:end-1) + diff(fluor_bin_edges)./2;
+
+fluor_bins_baseline = discretize(curr_fluor_baseline_cat,fluor_bin_edges);
+fluor_bins_event = discretize(curr_fluor_event_cat,fluor_bin_edges);
+
+curr_mua_baseline_binned = ...
+    accumarray(fluor_bins_baseline(~isnan(fluor_bins_baseline)), ...
+    curr_mua_baseline_cat(~isnan(fluor_bins_baseline)), ...
+    [length(fluor_bin_centers),1],@nanmean);
+
+curr_mua_event_binned = ...
+    accumarray(fluor_bins_event(~isnan(fluor_bins_event)), ...
+    curr_mua_event_cat(~isnan(fluor_bins_event)), ...
+    [length(fluor_bin_centers),1],@nanmean);
+
+
+figure;
+
+% Plot MUA vs fluorescence (all and binned)
+subplot(1,3,1); hold on;
+plot(curr_fluor_baseline_cat,curr_mua_baseline_cat,'.','color',[0.5,0.5,0.5])
+plot(curr_fluor_event_cat,curr_mua_event_cat,'.','color',[1,0.5,0.5])
+
+p1 = plot(fluor_bin_centers,curr_mua_baseline_binned,'k','linewidth',3);
+p2 = plot(fluor_bin_centers,curr_mua_event_binned,'r','linewidth',3);
+
+xlabel([wf_roi(curr_roi).area ' fluor']);
+ylabel(['Str ' num2str(curr_depth) ' MUA']);
+legend([p1,p2], ...
+    {['Baseline: t = ' num2str(t_baseline(1)) ':' num2str(t_baseline(2))], ...
+    ['Event: t = ' num2str(t_event{curr_event}(1)) ':' num2str(t_event{curr_event}(2))]});
+
+
+% Plot ROI
+subplot(1,3,2); hold on;
+set(gca,'YDir','reverse');
+AP_reference_outline('ccf_aligned','k');
+curr_roi_boundary = cell2mat(bwboundaries(wf_roi(curr_roi).mask));
+patch(curr_roi_boundary(:,2),curr_roi_boundary(:,1),[0,0.8,0]);
+text(nanmean(curr_roi_boundary(:,2)),nanmean(curr_roi_boundary(:,1)), ...
+    wf_roi(curr_roi).area,'FontSize',12,'HorizontalAlignment','center')
+axis image off;
+title('ROI')
+
+% Plot ctx->str kernel
+n_aligned_depths = 4;
+kernel_template_fn = ['C:\Users\Andrew\OneDrive for Business\Documents\CarandiniHarrisLab\analysis\wf_ephys_choiceworld\ephys_processing\kernel_template_' num2str(n_aligned_depths) '_depths.mat'];
+load(kernel_template_fn);
+n_kernels = n_aligned_depths;
+subplot(1,3,3); hold on;
+set(gca,'YDir','reverse');
+imagesc(kernel_template(:,:,curr_depth));
+axis image off;
+caxis([-prctile(abs(kernel_template(:)),99),prctile(abs(kernel_template(:)),99)]);
+colormap(brewermap([],'*RdBu'));
+AP_reference_outline('ccf_aligned','k');
+title('Cortex->striatum kernel')
+
+
+
+
+% MOVE
+curr_event = 2;
+
+curr_mua_baseline = cellfun(@(x) nanmean(x(:, ...
+    t >= t_baseline(1) & ...
+    t <= t_baseline(2),:),2), ...
+    mua_allcat_exp,'uni',false);
+
+curr_mua_event = cellfun(@(x) nanmean(x(:, ...
+    t >= t_event{curr_event}(1) & ...
+    t <= t_event{curr_event}(2),:),2), ...
+    mua_allcat_move_exp,'uni',false);
+
+curr_fluor_baseline = cellfun(@(x) nanmean(x(:, ...
+    t >= t_baseline(1) & ...
+    t <= t_baseline(2),:),2), ...
+    fluor_roi_deconv_exp,'uni',false);
+
+curr_fluor_event = cellfun(@(x) nanmean(x(:, ...
+    t >= t_event{curr_event}(1) & ...
+    t <= t_event{curr_event}(2),:),2), ...
+    fluor_roi_deconv_move_exp,'uni',false);
+
+curr_depth = 2;
+curr_roi = 7;
+
+% (concatenate all data)
+curr_mua_baseline_cat = cell2mat(cellfun(@(x) x(:,:,curr_depth),curr_mua_baseline,'uni',false));
+curr_mua_event_cat = cell2mat(cellfun(@(x) x(:,:,curr_depth),curr_mua_event,'uni',false));
+
+curr_fluor_baseline_cat = cell2mat(cellfun(@(x) x(:,:,curr_roi),curr_fluor_baseline,'uni',false));
+curr_fluor_event_cat = cell2mat(cellfun(@(x) x(:,:,curr_roi),curr_fluor_event,'uni',false));
+
+% (bin data by fluorescence)
+fluor_bin_range = prctile([curr_fluor_baseline_cat;curr_fluor_event_cat],[5,95]);
+fluor_bin_edges = linspace(fluor_bin_range(1),fluor_bin_range(2),10);
+fluor_bin_centers = fluor_bin_edges(1:end-1) + diff(fluor_bin_edges)./2;
+
+fluor_bins_baseline = discretize(curr_fluor_baseline_cat,fluor_bin_edges);
+fluor_bins_event = discretize(curr_fluor_event_cat,fluor_bin_edges);
+
+curr_mua_baseline_binned = ...
+    accumarray(fluor_bins_baseline(~isnan(fluor_bins_baseline)), ...
+    curr_mua_baseline_cat(~isnan(fluor_bins_baseline)), ...
+    [length(fluor_bin_centers),1],@nanmean);
+
+curr_mua_event_binned = ...
+    accumarray(fluor_bins_event(~isnan(fluor_bins_event)), ...
+    curr_mua_event_cat(~isnan(fluor_bins_event)), ...
+    [length(fluor_bin_centers),1],@nanmean);
+
+
+figure;
+
+% Plot MUA vs fluorescence (all and binned)
+subplot(1,3,1); hold on;
+plot(curr_fluor_baseline_cat,curr_mua_baseline_cat,'.','color',[0.5,0.5,0.5])
+plot(curr_fluor_event_cat,curr_mua_event_cat,'.','color',[1,0.5,0.5])
+
+p1 = plot(fluor_bin_centers,curr_mua_baseline_binned,'k','linewidth',3);
+p2 = plot(fluor_bin_centers,curr_mua_event_binned,'r','linewidth',3);
+
+xlabel([wf_roi(curr_roi).area ' fluor']);
+ylabel(['Str ' num2str(curr_depth) ' MUA']);
+legend([p1,p2], ...
+    {['Baseline: t = ' num2str(t_baseline(1)) ':' num2str(t_baseline(2))], ...
+    ['Event: t = ' num2str(t_event{curr_event}(1)) ':' num2str(t_event{curr_event}(2))]});
+
+
+% Plot ROI
+subplot(1,3,2); hold on;
+set(gca,'YDir','reverse');
+AP_reference_outline('ccf_aligned','k');
+curr_roi_boundary = cell2mat(bwboundaries(wf_roi(curr_roi).mask));
+patch(curr_roi_boundary(:,2),curr_roi_boundary(:,1),[0,0.8,0]);
+text(nanmean(curr_roi_boundary(:,2)),nanmean(curr_roi_boundary(:,1)), ...
+    wf_roi(curr_roi).area,'FontSize',12,'HorizontalAlignment','center')
+axis image off;
+title('ROI')
+
+% Plot ctx->str kernel
+n_aligned_depths = 4;
+kernel_template_fn = ['C:\Users\Andrew\OneDrive for Business\Documents\CarandiniHarrisLab\analysis\wf_ephys_choiceworld\ephys_processing\kernel_template_' num2str(n_aligned_depths) '_depths.mat'];
+load(kernel_template_fn);
+n_kernels = n_aligned_depths;
+subplot(1,3,3); hold on;
+set(gca,'YDir','reverse');
+imagesc(kernel_template(:,:,curr_depth));
+axis image off;
+caxis([-prctile(abs(kernel_template(:)),99),prctile(abs(kernel_template(:)),99)]);
+colormap(brewermap([],'*RdBu'));
+AP_reference_outline('ccf_aligned','k');
+title('Cortex->striatum kernel')
+
+
+
+% OUTCOME
+curr_event = 3;
+
+curr_mua_baseline = cellfun(@(x) nanmean(x(:, ...
+    t >= t_baseline(1) & ...
+    t <= t_baseline(2),:),2), ...
+    mua_allcat_exp,'uni',false);
+
+curr_mua_event = cellfun(@(x) nanmean(x(:, ...
+    t >= t_event{curr_event}(1) & ...
+    t <= t_event{curr_event}(2),:),2), ...
+    mua_allcat_outcome_exp,'uni',false);
+
+curr_fluor_baseline = cellfun(@(x) nanmean(x(:, ...
+    t >= t_baseline(1) & ...
+    t <= t_baseline(2),:),2), ...
+    fluor_roi_deconv_exp,'uni',false);
+
+curr_fluor_event = cellfun(@(x) nanmean(x(:, ...
+    t >= t_event{curr_event}(1) & ...
+    t <= t_event{curr_event}(2),:),2), ...
+    fluor_roi_deconv_outcome_exp,'uni',false);
+
+curr_depth = 4;
+curr_roi = 10;
+
+% (concatenate all data)
+curr_mua_baseline_cat = cell2mat(cellfun(@(x) x(:,:,curr_depth),curr_mua_baseline,'uni',false));
+curr_mua_event_cat = cell2mat(cellfun(@(x) x(:,:,curr_depth),curr_mua_event,'uni',false));
+
+curr_fluor_baseline_cat = cell2mat(cellfun(@(x) x(:,:,curr_roi),curr_fluor_baseline,'uni',false));
+curr_fluor_event_cat = cell2mat(cellfun(@(x) x(:,:,curr_roi),curr_fluor_event,'uni',false));
+
+% (bin data by fluorescence)
+fluor_bin_range = prctile([curr_fluor_baseline_cat;curr_fluor_event_cat],[5,95]);
+fluor_bin_edges = linspace(fluor_bin_range(1),fluor_bin_range(2),10);
+fluor_bin_centers = fluor_bin_edges(1:end-1) + diff(fluor_bin_edges)./2;
+
+fluor_bins_baseline = discretize(curr_fluor_baseline_cat,fluor_bin_edges);
+fluor_bins_event = discretize(curr_fluor_event_cat,fluor_bin_edges);
+
+curr_mua_baseline_binned = ...
+    accumarray(fluor_bins_baseline(~isnan(fluor_bins_baseline)), ...
+    curr_mua_baseline_cat(~isnan(fluor_bins_baseline)), ...
+    [length(fluor_bin_centers),1],@nanmean);
+
+curr_mua_event_binned = ...
+    accumarray(fluor_bins_event(~isnan(fluor_bins_event)), ...
+    curr_mua_event_cat(~isnan(fluor_bins_event)), ...
+    [length(fluor_bin_centers),1],@nanmean);
+
+
+figure;
+
+% Plot MUA vs fluorescence (all and binned)
+subplot(1,3,1); hold on;
+plot(curr_fluor_baseline_cat,curr_mua_baseline_cat,'.','color',[0.5,0.5,0.5])
+plot(curr_fluor_event_cat,curr_mua_event_cat,'.','color',[1,0.5,0.5])
+
+p1 = plot(fluor_bin_centers,curr_mua_baseline_binned,'k','linewidth',3);
+p2 = plot(fluor_bin_centers,curr_mua_event_binned,'r','linewidth',3);
+
+xlabel([wf_roi(curr_roi).area ' fluor']);
+ylabel(['Str ' num2str(curr_depth) ' MUA']);
+legend([p1,p2], ...
+    {['Baseline: t = ' num2str(t_baseline(1)) ':' num2str(t_baseline(2))], ...
+    ['Event: t = ' num2str(t_event{curr_event}(1)) ':' num2str(t_event{curr_event}(2))]});
+
+
+% Plot ROI
+subplot(1,3,2); hold on;
+set(gca,'YDir','reverse');
+AP_reference_outline('ccf_aligned','k');
+curr_roi_boundary = cell2mat(bwboundaries(wf_roi(curr_roi).mask));
+patch(curr_roi_boundary(:,2),curr_roi_boundary(:,1),[0,0.8,0]);
+text(nanmean(curr_roi_boundary(:,2)),nanmean(curr_roi_boundary(:,1)), ...
+    wf_roi(curr_roi).area,'FontSize',12,'HorizontalAlignment','center')
+axis image off;
+title('ROI')
+
+% Plot ctx->str kernel
+n_aligned_depths = 4;
+kernel_template_fn = ['C:\Users\Andrew\OneDrive for Business\Documents\CarandiniHarrisLab\analysis\wf_ephys_choiceworld\ephys_processing\kernel_template_' num2str(n_aligned_depths) '_depths.mat'];
+load(kernel_template_fn);
+n_kernels = n_aligned_depths;
+subplot(1,3,3); hold on;
+set(gca,'YDir','reverse');
+imagesc(kernel_template(:,:,curr_depth));
+axis image off;
+caxis([-prctile(abs(kernel_template(:)),99),prctile(abs(kernel_template(:)),99)]);
+colormap(brewermap([],'*RdBu'));
+AP_reference_outline('ccf_aligned','k');
+title('Cortex->striatum kernel')
+
+
+%% Plot MUA vs fluorescence event by trial type (quick and dirty)
+
+% Choose split for data
+trials_allcat = size(mua_allcat,1);
+trials_animal = arrayfun(@(x) size(vertcat(mua_all{x}{:}),1),1:size(mua_all));
+trials_recording = cellfun(@(x) size(x,1),vertcat(mua_all{:}));
+use_split = trials_animal;
+
+
+% (make outcome-aligned data, here for now)
+mua_allcat_outcome = mua_allcat;
+fluor_roi_deconv_outcome = fluor_roi_deconv;
+
+t_leeway = -t(1);
+leeway_samples = round(t_leeway*(sample_rate));
+for i = 1:size(mua_allcat,1)
+    mua_allcat_outcome(i,:,:) = circshift(mua_allcat_outcome(i,:,:),-outcome_idx(i)+leeway_samples,2);
+    fluor_roi_deconv_outcome(i,:,:) = circshift(fluor_roi_deconv_outcome(i,:,:),-outcome_idx(i)+leeway_samples,2);
+end
+
+% Split MUA and fluorescence
+mua_allcat_exp = mat2cell(mua_allcat,use_split,length(t),n_depths);
+fluor_roi_deconv_exp = mat2cell(fluor_roi_deconv,use_split,length(t),n_rois);
+
+mua_allcat_move_exp = mat2cell(mua_allcat_move,use_split,length(t),n_depths);
+fluor_roi_deconv_move_exp = mat2cell(fluor_roi_deconv_move,use_split,length(t),n_rois);
+
+mua_allcat_outcome_exp = mat2cell(mua_allcat_outcome,use_split,length(t),n_depths);
+fluor_roi_deconv_outcome_exp = mat2cell(fluor_roi_deconv_outcome,use_split,length(t),n_rois);
+
+% Get average activity within window
+trial_groups = {'Stim','Move onset'};
+t_baseline = [-0.1,-0.05];
+t_event = {[0.05,0.15],[-0.05,0.05],[0,0.1]};
+
+
+% NOT LOOPING FOR NOW - JUST HARDCODING PLOTS
+
+% STIM
+curr_event = 1;
+
+curr_mua_baseline = cellfun(@(x) nanmean(x(:, ...
+    t >= t_event{curr_event}(1) & ...
+    t <= t_event{curr_event}(2),:),2), ...
+    mua_allcat_exp,'uni',false);
+
+curr_mua_event = cellfun(@(x) nanmean(x(:, ...
+    t >= t_event{curr_event}(1) & ...
+    t <= t_event{curr_event}(2),:),2), ...
+    mua_allcat_exp,'uni',false);
+
+curr_fluor_baseline = cellfun(@(x) nanmean(x(:, ...
+    t >= t_event{curr_event}(1) & ...
+    t <= t_event{curr_event}(2),:),2), ...
+    fluor_roi_deconv_exp,'uni',false);
+
+curr_fluor_event = cellfun(@(x) nanmean(x(:, ...
+    t >= t_event{curr_event}(1) & ...
+    t <= t_event{curr_event}(2),:),2), ...
+    fluor_roi_deconv_exp,'uni',false);
+
+
+curr_depth = 1;
+curr_roi = 3;
+
+% (concatenate all data)
+curr_mua_baseline_cat = cell2mat(cellfun(@(x) x(:,:,curr_depth),curr_mua_baseline,'uni',false));
+curr_mua_event_cat = cell2mat(cellfun(@(x) x(:,:,curr_depth),curr_mua_event,'uni',false));
+
+curr_mua_baseline_cat = curr_mua_baseline_cat(trial_contrast_allcat > 0 & trial_side_allcat == -1);
+curr_mua_event_cat = curr_mua_event_cat(trial_contrast_allcat > 0 & trial_side_allcat == 1);
+
+curr_fluor_baseline_cat = cell2mat(cellfun(@(x) x(:,:,curr_roi),curr_fluor_baseline,'uni',false));
+curr_fluor_event_cat = cell2mat(cellfun(@(x) x(:,:,curr_roi),curr_fluor_event,'uni',false));
+
+curr_fluor_baseline_cat = curr_fluor_baseline_cat(trial_contrast_allcat > 0 & trial_side_allcat == -1);
+curr_fluor_event_cat = curr_fluor_event_cat(trial_contrast_allcat > 0 & trial_side_allcat == 1);
+
+% (bin data by fluorescence)
+fluor_bin_range = prctile([curr_fluor_baseline_cat;curr_fluor_event_cat],[5,95]);
+fluor_bin_edges = linspace(fluor_bin_range(1),fluor_bin_range(2),10);
+fluor_bin_centers = fluor_bin_edges(1:end-1) + diff(fluor_bin_edges)./2;
+
+fluor_bins_baseline = discretize(curr_fluor_baseline_cat,fluor_bin_edges);
+fluor_bins_event = discretize(curr_fluor_event_cat,fluor_bin_edges);
+
+curr_mua_baseline_binned = ...
+    accumarray(fluor_bins_baseline(~isnan(fluor_bins_baseline)), ...
+    curr_mua_baseline_cat(~isnan(fluor_bins_baseline)), ...
+    [length(fluor_bin_centers),1],@nanmean);
+
+curr_mua_event_binned = ...
+    accumarray(fluor_bins_event(~isnan(fluor_bins_event)), ...
+    curr_mua_event_cat(~isnan(fluor_bins_event)), ...
+    [length(fluor_bin_centers),1],@nanmean);
+
+
+figure;
+
+% Plot MUA vs fluorescence (all and binned)
+subplot(1,3,1); hold on;
+plot(curr_fluor_baseline_cat,curr_mua_baseline_cat,'.','color',[0.5,0.5,0.5])
+plot(curr_fluor_event_cat,curr_mua_event_cat,'.','color',[1,0.5,0.5])
+
+p1 = plot(fluor_bin_centers,curr_mua_baseline_binned,'k','linewidth',3);
+p2 = plot(fluor_bin_centers,curr_mua_event_binned,'r','linewidth',3);
+
+xlabel([wf_roi(curr_roi).area ' fluor']);
+ylabel(['Str ' num2str(curr_depth) ' MUA']);
+legend([p1,p2], ...
+    {['Baseline: t = ' num2str(t_baseline(1)) ':' num2str(t_baseline(2))], ...
+    ['Event: t = ' num2str(t_event{curr_event}(1)) ':' num2str(t_event{curr_event}(2))]});
+
+
+% Plot ROI
+subplot(1,3,2); hold on;
+set(gca,'YDir','reverse');
+AP_reference_outline('ccf_aligned','k');
+curr_roi_boundary = cell2mat(bwboundaries(wf_roi(curr_roi).mask));
+patch(curr_roi_boundary(:,2),curr_roi_boundary(:,1),[0,0.8,0]);
+text(nanmean(curr_roi_boundary(:,2)),nanmean(curr_roi_boundary(:,1)), ...
+    wf_roi(curr_roi).area,'FontSize',12,'HorizontalAlignment','center')
+axis image off;
+title('ROI')
+
+% Plot ctx->str kernel
+n_aligned_depths = 4;
+kernel_template_fn = ['C:\Users\Andrew\OneDrive for Business\Documents\CarandiniHarrisLab\analysis\wf_ephys_choiceworld\ephys_processing\kernel_template_' num2str(n_aligned_depths) '_depths.mat'];
+load(kernel_template_fn);
+n_kernels = n_aligned_depths;
+subplot(1,3,3); hold on;
+set(gca,'YDir','reverse');
+imagesc(kernel_template(:,:,curr_depth));
+axis image off;
+caxis([-prctile(abs(kernel_template(:)),99),prctile(abs(kernel_template(:)),99)]);
+colormap(brewermap([],'*RdBu'));
+AP_reference_outline('ccf_aligned','k');
+title('Cortex->striatum kernel')
+
+% MOVE
+curr_event = 2;
+
+curr_mua_baseline = cellfun(@(x) nanmean(x(:, ...
+    t >= t_event{curr_event}(1) & ...
+    t <= t_event{curr_event}(2),:),2), ...
+    mua_allcat_move_exp,'uni',false);
+
+curr_mua_event = cellfun(@(x) nanmean(x(:, ...
+    t >= t_event{curr_event}(1) & ...
+    t <= t_event{curr_event}(2),:),2), ...
+    mua_allcat_move_exp,'uni',false);
+
+curr_fluor_baseline = cellfun(@(x) nanmean(x(:, ...
+    t >= t_event{curr_event}(1) & ...
+    t <= t_event{curr_event}(2),:),2), ...
+    fluor_roi_deconv_move_exp,'uni',false);
+
+curr_fluor_event = cellfun(@(x) nanmean(x(:, ...
+    t >= t_event{curr_event}(1) & ...
+    t <= t_event{curr_event}(2),:),2), ...
+    fluor_roi_deconv_move_exp,'uni',false);
+
+
+curr_depth = 2;
+curr_roi = 7;
+
+% (concatenate all data)
+curr_mua_baseline_cat = cell2mat(cellfun(@(x) x(:,:,curr_depth),curr_mua_baseline,'uni',false));
+curr_mua_event_cat = cell2mat(cellfun(@(x) x(:,:,curr_depth),curr_mua_event,'uni',false));
+
+curr_mua_baseline_cat = curr_mua_baseline_cat(trial_choice_allcat == 1);
+curr_mua_event_cat = curr_mua_event_cat(trial_choice_allcat == -1);
+
+curr_fluor_baseline_cat = cell2mat(cellfun(@(x) x(:,:,curr_roi),curr_fluor_baseline,'uni',false));
+curr_fluor_event_cat = cell2mat(cellfun(@(x) x(:,:,curr_roi),curr_fluor_event,'uni',false));
+
+curr_fluor_baseline_cat = curr_fluor_baseline_cat(trial_choice_allcat == 1);
+curr_fluor_event_cat = curr_fluor_event_cat(trial_choice_allcat == -1);
+
+% (bin data by fluorescence)
+fluor_bin_range = prctile([curr_fluor_baseline_cat;curr_fluor_event_cat],[5,95]);
+fluor_bin_edges = linspace(fluor_bin_range(1),fluor_bin_range(2),10);
+fluor_bin_centers = fluor_bin_edges(1:end-1) + diff(fluor_bin_edges)./2;
+
+fluor_bins_baseline = discretize(curr_fluor_baseline_cat,fluor_bin_edges);
+fluor_bins_event = discretize(curr_fluor_event_cat,fluor_bin_edges);
+
+curr_mua_baseline_binned = ...
+    accumarray(fluor_bins_baseline(~isnan(fluor_bins_baseline)), ...
+    curr_mua_baseline_cat(~isnan(fluor_bins_baseline)), ...
+    [length(fluor_bin_centers),1],@nanmean);
+
+curr_mua_event_binned = ...
+    accumarray(fluor_bins_event(~isnan(fluor_bins_event)), ...
+    curr_mua_event_cat(~isnan(fluor_bins_event)), ...
+    [length(fluor_bin_centers),1],@nanmean);
+
+
+figure;
+
+% Plot MUA vs fluorescence (all and binned)
+subplot(1,3,1); hold on;
+plot(curr_fluor_baseline_cat,curr_mua_baseline_cat,'.','color',[0.5,0.5,0.5])
+plot(curr_fluor_event_cat,curr_mua_event_cat,'.','color',[1,0.5,0.5])
+
+p1 = plot(fluor_bin_centers,curr_mua_baseline_binned,'k','linewidth',3);
+p2 = plot(fluor_bin_centers,curr_mua_event_binned,'r','linewidth',3);
+
+xlabel([wf_roi(curr_roi).area ' fluor']);
+ylabel(['Str ' num2str(curr_depth) ' MUA']);
+legend([p1,p2], ...
+    {['Baseline: t = ' num2str(t_baseline(1)) ':' num2str(t_baseline(2))], ...
+    ['Event: t = ' num2str(t_event{curr_event}(1)) ':' num2str(t_event{curr_event}(2))]});
+
+
+% Plot ROI
+subplot(1,3,2); hold on;
+set(gca,'YDir','reverse');
+AP_reference_outline('ccf_aligned','k');
+curr_roi_boundary = cell2mat(bwboundaries(wf_roi(curr_roi).mask));
+patch(curr_roi_boundary(:,2),curr_roi_boundary(:,1),[0,0.8,0]);
+text(nanmean(curr_roi_boundary(:,2)),nanmean(curr_roi_boundary(:,1)), ...
+    wf_roi(curr_roi).area,'FontSize',12,'HorizontalAlignment','center')
+axis image off;
+title('ROI')
+
+% Plot ctx->str kernel
+n_aligned_depths = 4;
+kernel_template_fn = ['C:\Users\Andrew\OneDrive for Business\Documents\CarandiniHarrisLab\analysis\wf_ephys_choiceworld\ephys_processing\kernel_template_' num2str(n_aligned_depths) '_depths.mat'];
+load(kernel_template_fn);
+n_kernels = n_aligned_depths;
+subplot(1,3,3); hold on;
+set(gca,'YDir','reverse');
+imagesc(kernel_template(:,:,curr_depth));
+axis image off;
+caxis([-prctile(abs(kernel_template(:)),99),prctile(abs(kernel_template(:)),99)]);
+colormap(brewermap([],'*RdBu'));
+AP_reference_outline('ccf_aligned','k');
+title('Cortex->striatum kernel')
+
+
+% OUTCOME
+curr_event = 3;
+
+curr_mua_baseline = cellfun(@(x) nanmean(x(:, ...
+    t >= t_event{curr_event}(1) & ...
+    t <= t_event{curr_event}(2),:),2), ...
+    mua_allcat_outcome_exp,'uni',false);
+
+curr_mua_event = cellfun(@(x) nanmean(x(:, ...
+    t >= t_event{curr_event}(1) & ...
+    t <= t_event{curr_event}(2),:),2), ...
+    mua_allcat_outcome_exp,'uni',false);
+
+curr_fluor_baseline = cellfun(@(x) nanmean(x(:, ...
+    t >= t_event{curr_event}(1) & ...
+    t <= t_event{curr_event}(2),:),2), ...
+    fluor_roi_deconv_outcome_exp,'uni',false);
+
+curr_fluor_event = cellfun(@(x) nanmean(x(:, ...
+    t >= t_event{curr_event}(1) & ...
+    t <= t_event{curr_event}(2),:),2), ...
+    fluor_roi_deconv_outcome_exp,'uni',false);
+
+
+curr_depth = 4;
+curr_roi = 10;
+
+% (concatenate all data)
+curr_mua_baseline_cat = cell2mat(cellfun(@(x) x(:,:,curr_depth),curr_mua_baseline,'uni',false));
+curr_mua_event_cat = cell2mat(cellfun(@(x) x(:,:,curr_depth),curr_mua_event,'uni',false));
+
+curr_mua_baseline_cat = curr_mua_baseline_cat(trial_outcome_allcat == -1);
+curr_mua_event_cat = curr_mua_event_cat(trial_outcome_allcat == 1);
+
+curr_fluor_baseline_cat = cell2mat(cellfun(@(x) x(:,:,curr_roi),curr_fluor_baseline,'uni',false));
+curr_fluor_event_cat = cell2mat(cellfun(@(x) x(:,:,curr_roi),curr_fluor_event,'uni',false));
+
+curr_fluor_baseline_cat = curr_fluor_baseline_cat(trial_outcome_allcat == -1);
+curr_fluor_event_cat = curr_fluor_event_cat(trial_outcome_allcat == 1);
+
+% (bin data by fluorescence)
+fluor_bin_range = prctile([curr_fluor_baseline_cat;curr_fluor_event_cat],[5,95]);
+fluor_bin_edges = linspace(fluor_bin_range(1),fluor_bin_range(2),10);
+fluor_bin_centers = fluor_bin_edges(1:end-1) + diff(fluor_bin_edges)./2;
+
+fluor_bins_baseline = discretize(curr_fluor_baseline_cat,fluor_bin_edges);
+fluor_bins_event = discretize(curr_fluor_event_cat,fluor_bin_edges);
+
+curr_mua_baseline_binned = ...
+    accumarray(fluor_bins_baseline(~isnan(fluor_bins_baseline)), ...
+    curr_mua_baseline_cat(~isnan(fluor_bins_baseline)), ...
+    [length(fluor_bin_centers),1],@nanmean);
+
+curr_mua_event_binned = ...
+    accumarray(fluor_bins_event(~isnan(fluor_bins_event)), ...
+    curr_mua_event_cat(~isnan(fluor_bins_event)), ...
+    [length(fluor_bin_centers),1],@nanmean);
+
+
+figure;
+
+% Plot MUA vs fluorescence (all and binned)
+subplot(1,3,1); hold on;
+plot(curr_fluor_baseline_cat,curr_mua_baseline_cat,'.','color',[0.5,0.5,0.5])
+plot(curr_fluor_event_cat,curr_mua_event_cat,'.','color',[1,0.5,0.5])
+
+p1 = plot(fluor_bin_centers,curr_mua_baseline_binned,'k','linewidth',3);
+p2 = plot(fluor_bin_centers,curr_mua_event_binned,'r','linewidth',3);
+
+xlabel([wf_roi(curr_roi).area ' fluor']);
+ylabel(['Str ' num2str(curr_depth) ' MUA']);
+legend([p1,p2], ...
+    {['Baseline: t = ' num2str(t_baseline(1)) ':' num2str(t_baseline(2))], ...
+    ['Event: t = ' num2str(t_event{curr_event}(1)) ':' num2str(t_event{curr_event}(2))]});
+
+
+% Plot ROI
+subplot(1,3,2); hold on;
+set(gca,'YDir','reverse');
+AP_reference_outline('ccf_aligned','k');
+curr_roi_boundary = cell2mat(bwboundaries(wf_roi(curr_roi).mask));
+patch(curr_roi_boundary(:,2),curr_roi_boundary(:,1),[0,0.8,0]);
+text(nanmean(curr_roi_boundary(:,2)),nanmean(curr_roi_boundary(:,1)), ...
+    wf_roi(curr_roi).area,'FontSize',12,'HorizontalAlignment','center')
+axis image off;
+title('ROI')
+
+% Plot ctx->str kernel
+n_aligned_depths = 4;
+kernel_template_fn = ['C:\Users\Andrew\OneDrive for Business\Documents\CarandiniHarrisLab\analysis\wf_ephys_choiceworld\ephys_processing\kernel_template_' num2str(n_aligned_depths) '_depths.mat'];
+load(kernel_template_fn);
+n_kernels = n_aligned_depths;
+subplot(1,3,3); hold on;
+set(gca,'YDir','reverse');
+imagesc(kernel_template(:,:,curr_depth));
+axis image off;
+caxis([-prctile(abs(kernel_template(:)),99),prctile(abs(kernel_template(:)),99)]);
+colormap(brewermap([],'*RdBu'));
+AP_reference_outline('ccf_aligned','k');
+title('Cortex->striatum kernel')
+
+%% Additive fit between MUA and cortex
+
+% Choose split for data
+trials_allcat = size(mua_allcat,1);
+trials_animal = arrayfun(@(x) size(vertcat(mua_all{x}{:}),1),1:size(mua_all));
+trials_recording = cellfun(@(x) size(x,1),vertcat(mua_all{:}));
+use_split = trials_animal;
+
+% (make outcome-aligned data, here for now)
+mua_allcat_outcome = mua_allcat;
+fluor_roi_deconv_outcome = fluor_roi_deconv;
+
+t_leeway = -t(1);
+leeway_samples = round(t_leeway*(sample_rate));
+for i = 1:size(mua_allcat,1)
+    mua_allcat_outcome(i,:,:) = circshift(mua_allcat_outcome(i,:,:),-outcome_idx(i)+leeway_samples,2);
+    fluor_roi_deconv_outcome(i,:,:) = circshift(fluor_roi_deconv_outcome(i,:,:),-outcome_idx(i)+leeway_samples,2);
+end
+
+% Split MUA and fluorescence
+mua_allcat_exp = mat2cell(mua_allcat,use_split,length(t),n_depths);
+fluor_roi_deconv_exp = mat2cell(fluor_roi_deconv,use_split,length(t),n_rois);
+
+mua_allcat_move_exp = mat2cell(mua_allcat_move,use_split,length(t),n_depths);
+fluor_roi_deconv_move_exp = mat2cell(fluor_roi_deconv_move,use_split,length(t),n_rois);
+
+mua_allcat_outcome_exp = mat2cell(mua_allcat_outcome,use_split,length(t),n_depths);
+fluor_roi_deconv_outcome_exp = mat2cell(fluor_roi_deconv_outcome,use_split,length(t),n_rois);
+
+% Get average activity within window
+trial_groups = {'Stim','Move onset'};
+t_baseline = [-0.1,-0.05];
+t_event = {[0.05,0.15],[-0.05,0.05],[0,0.1]};
+
+
+% NOT LOOPING FOR NOW - JUST HARDCODING PLOTS
+
+t_col = colormap_BlueWhiteRed(length(t));
+t_col(length(t)+1,:) = [];
+t_col = permute(reshape(t_col',3,[],2),[2,1,3]);
+t_col(:,:,1) = flipud(t_col(:,:,1));
+
+% STIM
+curr_event = 1;
+figure; subplot(1,2,1); hold on;
+trial_type_fit = nan(length(t),2);
+for curr_t = 1:length(t)
+    
+    curr_mua_baseline = cellfun(@(x) nanmean(x(:,curr_t,:),2), ...
+        mua_allcat_exp,'uni',false);
+    
+    curr_mua_event = cellfun(@(x) nanmean(x(:,curr_t,:),2), ...
+        mua_allcat_exp,'uni',false);
+    
+    curr_fluor_baseline = cellfun(@(x) nanmean(x(:,curr_t,:),2), ...
+        fluor_roi_deconv_exp,'uni',false);
+    
+    curr_fluor_event = cellfun(@(x) nanmean(x(:,curr_t,:),2), ...
+        fluor_roi_deconv_exp,'uni',false);
+    
+    
+    curr_depth = 1;
+    curr_roi = 3;
+    
+    % (concatenate all data)
+    curr_mua_baseline_cat = cell2mat(cellfun(@(x) x(:,:,curr_depth),curr_mua_baseline,'uni',false));
+    curr_mua_event_cat = cell2mat(cellfun(@(x) x(:,:,curr_depth),curr_mua_event,'uni',false));
+    
+    curr_mua_baseline_cat = curr_mua_baseline_cat(trial_contrast_allcat > 0 & trial_side_allcat == -1);
+    curr_mua_event_cat = curr_mua_event_cat(trial_contrast_allcat > 0 & trial_side_allcat == 1);
+    
+    curr_fluor_baseline_cat = cell2mat(cellfun(@(x) x(:,:,curr_roi),curr_fluor_baseline,'uni',false));
+    curr_fluor_event_cat = cell2mat(cellfun(@(x) x(:,:,curr_roi),curr_fluor_event,'uni',false));
+    
+    curr_fluor_baseline_cat = curr_fluor_baseline_cat(trial_contrast_allcat > 0 & trial_side_allcat == -1);
+    curr_fluor_event_cat = curr_fluor_event_cat(trial_contrast_allcat > 0 & trial_side_allcat == 1);
+    
+    % (bin data by fluorescence)
+    fluor_bin_range = prctile([curr_fluor_baseline_cat;curr_fluor_event_cat],[5,95]);
+    fluor_bin_edges = linspace(fluor_bin_range(1),fluor_bin_range(2),10);
+    fluor_bin_centers = fluor_bin_edges(1:end-1) + diff(fluor_bin_edges)./2;
+    
+    fluor_bins_baseline = discretize(curr_fluor_baseline_cat,fluor_bin_edges);
+    fluor_bins_event = discretize(curr_fluor_event_cat,fluor_bin_edges);
+    
+    curr_mua_baseline_binned = ...
+        accumarray(fluor_bins_baseline(~isnan(fluor_bins_baseline)), ...
+        curr_mua_baseline_cat(~isnan(fluor_bins_baseline)), ...
+        [length(fluor_bin_centers),1],@nanmean,NaN);
+    
+    curr_mua_event_binned = ...
+        accumarray(fluor_bins_event(~isnan(fluor_bins_event)), ...
+        curr_mua_event_cat(~isnan(fluor_bins_event)), ...
+        [length(fluor_bin_centers),1],@nanmean,NaN);
+          
+%     % (to fit multiplicative and additive)
+%     trial_type_fit(curr_t,:) = ...
+%         [curr_mua_baseline_binned,ones(size(curr_mua_baseline_binned))]\curr_mua_event_binned;
+    
+    % (to fit only additive);
+    trial_type_fit(curr_t,:) = ...
+        ones(size(curr_mua_baseline_binned))\(curr_mua_event_binned - curr_mua_baseline_binned);
+    
+    % Plot
+    plot(fluor_bin_centers,curr_mua_baseline_binned,'color',t_col(curr_t,:,1),'linewidth',2);
+    plot(fluor_bin_centers,curr_mua_event_binned,'color',t_col(curr_t,:,2),'linewidth',2);
+    xlabel([wf_roi(curr_roi).area ' fluorescence']);
+    ylabel(['Str ' num2str(curr_depth) ' MUA']);
+end
+
+subplot(1,2,2); hold on
+plot(t,trial_type_fit,'linewidth',2);
+xlabel('Time from event');
+ylabel('Additive offset');
+
+
+% MOVE
+curr_event = 2;
+figure; subplot(1,2,1); hold on;
+trial_type_fit = nan(length(t),2);
+for curr_t = 1:length(t)
+    
+    curr_mua_baseline = cellfun(@(x) nanmean(x(:,curr_t,:),2), ...
+        mua_allcat_move_exp,'uni',false);
+    
+    curr_mua_event = cellfun(@(x) nanmean(x(:,curr_t,:),2), ...
+        mua_allcat_move_exp,'uni',false);
+    
+    curr_fluor_baseline = cellfun(@(x) nanmean(x(:,curr_t,:),2), ...
+        fluor_roi_deconv_move_exp,'uni',false);
+    
+    curr_fluor_event = cellfun(@(x) nanmean(x(:,curr_t,:),2), ...
+        fluor_roi_deconv_move_exp,'uni',false);
+    
+    
+    curr_depth = 2;
+    curr_roi = 7;
+    
+    % (concatenate all data)
+    curr_mua_baseline_cat = cell2mat(cellfun(@(x) x(:,:,curr_depth),curr_mua_baseline,'uni',false));
+    curr_mua_event_cat = cell2mat(cellfun(@(x) x(:,:,curr_depth),curr_mua_event,'uni',false));
+    
+    curr_mua_baseline_cat = curr_mua_baseline_cat(trial_choice_allcat == 1);
+    curr_mua_event_cat = curr_mua_event_cat(trial_choice_allcat == -1);
+    
+    curr_fluor_baseline_cat = cell2mat(cellfun(@(x) x(:,:,curr_roi),curr_fluor_baseline,'uni',false));
+    curr_fluor_event_cat = cell2mat(cellfun(@(x) x(:,:,curr_roi),curr_fluor_event,'uni',false));
+    
+    curr_fluor_baseline_cat = curr_fluor_baseline_cat(trial_choice_allcat == 1);
+    curr_fluor_event_cat = curr_fluor_event_cat(trial_choice_allcat == -1);
+    
+    % (bin data by fluorescence)
+    fluor_bin_range = prctile([curr_fluor_baseline_cat;curr_fluor_event_cat],[5,95]);
+    fluor_bin_edges = linspace(fluor_bin_range(1),fluor_bin_range(2),10);
+    fluor_bin_centers = fluor_bin_edges(1:end-1) + diff(fluor_bin_edges)./2;
+    
+    fluor_bins_baseline = discretize(curr_fluor_baseline_cat,fluor_bin_edges);
+    fluor_bins_event = discretize(curr_fluor_event_cat,fluor_bin_edges);
+    
+    curr_mua_baseline_binned = ...
+        accumarray(fluor_bins_baseline(~isnan(fluor_bins_baseline)), ...
+        curr_mua_baseline_cat(~isnan(fluor_bins_baseline)), ...
+        [length(fluor_bin_centers),1],@nanmean,NaN);
+    
+    curr_mua_event_binned = ...
+        accumarray(fluor_bins_event(~isnan(fluor_bins_event)), ...
+        curr_mua_event_cat(~isnan(fluor_bins_event)), ...
+        [length(fluor_bin_centers),1],@nanmean,NaN);
+          
+%     % (to fit multiplicative and additive)
+%     trial_type_fit(curr_t,:) = ...
+%         [curr_mua_baseline_binned,ones(size(curr_mua_baseline_binned))]\curr_mua_event_binned;
+    
+    % (to fit only additive);
+    trial_type_fit(curr_t,:) = ...
+        ones(size(curr_mua_baseline_binned))\(curr_mua_event_binned - curr_mua_baseline_binned);
+    
+    % Plot
+    plot(fluor_bin_centers,curr_mua_baseline_binned,'color',t_col(curr_t,:,1),'linewidth',2);
+    plot(fluor_bin_centers,curr_mua_event_binned,'color',t_col(curr_t,:,2),'linewidth',2);
+    xlabel([wf_roi(curr_roi).area ' fluorescence']);
+    ylabel(['Str ' num2str(curr_depth) ' MUA']);
+end
+
+subplot(1,2,2); hold on
+plot(t,trial_type_fit,'linewidth',2);
+xlabel('Time from event');
+ylabel('Additive offset');
+
+
+% OUTCOME
+curr_event = 3;
+figure; subplot(1,2,1); hold on;
+trial_type_fit = nan(length(t),2);
+for curr_t = 1:length(t)
+    
+    curr_mua_baseline = cellfun(@(x) nanmean(x(:,curr_t,:),2), ...
+        mua_allcat_outcome_exp,'uni',false);
+    
+    curr_mua_event = cellfun(@(x) nanmean(x(:,curr_t,:),2), ...
+        mua_allcat_outcome_exp,'uni',false);
+    
+    curr_fluor_baseline = cellfun(@(x) nanmean(x(:,curr_t,:),2), ...
+        fluor_roi_deconv_outcome_exp,'uni',false);
+    
+    curr_fluor_event = cellfun(@(x) nanmean(x(:,curr_t,:),2), ...
+        fluor_roi_deconv_outcome_exp,'uni',false);
+    
+    
+    curr_depth = 4;
+    curr_roi = 10;
+    
+    % (concatenate all data)
+    curr_mua_baseline_cat = cell2mat(cellfun(@(x) x(:,:,curr_depth),curr_mua_baseline,'uni',false));
+    curr_mua_event_cat = cell2mat(cellfun(@(x) x(:,:,curr_depth),curr_mua_event,'uni',false));
+    
+    curr_mua_baseline_cat = curr_mua_baseline_cat(trial_outcome_allcat == -1);
+    curr_mua_event_cat = curr_mua_event_cat(trial_outcome_allcat == 1);
+    
+    curr_fluor_baseline_cat = cell2mat(cellfun(@(x) x(:,:,curr_roi),curr_fluor_baseline,'uni',false));
+    curr_fluor_event_cat = cell2mat(cellfun(@(x) x(:,:,curr_roi),curr_fluor_event,'uni',false));
+    
+    curr_fluor_baseline_cat = curr_fluor_baseline_cat(trial_outcome_allcat == -1);
+    curr_fluor_event_cat = curr_fluor_event_cat(trial_outcome_allcat == 1);
+    
+    % (bin data by fluorescence)
+    fluor_bin_range = prctile([curr_fluor_baseline_cat;curr_fluor_event_cat],[5,95]);
+    fluor_bin_edges = linspace(fluor_bin_range(1),fluor_bin_range(2),10);
+    fluor_bin_centers = fluor_bin_edges(1:end-1) + diff(fluor_bin_edges)./2;
+    
+    fluor_bins_baseline = discretize(curr_fluor_baseline_cat,fluor_bin_edges);
+    fluor_bins_event = discretize(curr_fluor_event_cat,fluor_bin_edges);
+    
+    curr_mua_baseline_binned = ...
+        accumarray(fluor_bins_baseline(~isnan(fluor_bins_baseline)), ...
+        curr_mua_baseline_cat(~isnan(fluor_bins_baseline)), ...
+        [length(fluor_bin_centers),1],@nanmean,NaN);
+    
+    curr_mua_event_binned = ...
+        accumarray(fluor_bins_event(~isnan(fluor_bins_event)), ...
+        curr_mua_event_cat(~isnan(fluor_bins_event)), ...
+        [length(fluor_bin_centers),1],@nanmean,NaN);
+          
+%     % (to fit multiplicative and additive)
+%     trial_type_fit(curr_t,:) = ...
+%         [curr_mua_baseline_binned,ones(size(curr_mua_baseline_binned))]\curr_mua_event_binned;
+    
+    % (to fit only additive);
+    trial_type_fit(curr_t,:) = ...
+        ones(size(curr_mua_baseline_binned))\(curr_mua_event_binned - curr_mua_baseline_binned);
+    
+    % Plot
+    plot(fluor_bin_centers,curr_mua_baseline_binned,'color',t_col(curr_t,:,1),'linewidth',2);
+    plot(fluor_bin_centers,curr_mua_event_binned,'color',t_col(curr_t,:,2),'linewidth',2);
+    xlabel([wf_roi(curr_roi).area ' fluorescence']);
+    ylabel(['Str ' num2str(curr_depth) ' MUA']);
+end
+
+subplot(1,2,2); hold on
+plot(t,trial_type_fit,'linewidth',2);
+xlabel('Time from event');
+ylabel('Additive offset');
+
+
+
+%% (Additive model as above, but using kernel-based ROIs)
+
+% Get fluorescence in kernel-based ROIs
+kernel_roi_fn = 'C:\Users\Andrew\OneDrive for Business\Documents\CarandiniHarrisLab\analysis\wf_ephys_choiceworld\wf_processing\wf_rois\kernel_roi';
+load(kernel_roi_fn);
+fluor_kernel_roi_bw = permute(reshape( ...
+    AP_svd_roi(U_master(:,:,1:n_vs), ...
+    reshape(permute(fluor_allcat_deconv,[3,2,1]),n_vs,[]),[],[],kernel_roi.bw), ...
+    size(kernel_roi.bw,3),[],size(fluor_allcat_deconv,1)),[3,2,1]);
+
+% (align to move)
+fluor_kernel_roi_bw_move = fluor_kernel_roi_bw;
+t_leeway = -t(1);
+leeway_samples = round(t_leeway*(sample_rate));
+for i = 1:size(mua_allcat,1)
+    fluor_kernel_roi_bw_move(i,:,:) = circshift(fluor_kernel_roi_bw_move(i,:,:),-move_idx(i)+leeway_samples,2);
+end
+
+
+
+% Choose split for data
+trials_allcat = size(mua_allcat,1);
+trials_animal = arrayfun(@(x) size(vertcat(mua_all{x}{:}),1),1:size(mua_all));
+trials_recording = cellfun(@(x) size(x,1),vertcat(mua_all{:}));
+use_split = trials_animal;
+
+% (make outcome-aligned data, here for now)
+mua_allcat_outcome = mua_allcat;
+fluor_kernel_roi_bw_outcome = fluor_kernel_roi_bw;
+
+t_leeway = -t(1);
+leeway_samples = round(t_leeway*(sample_rate));
+for i = 1:size(mua_allcat,1)
+    mua_allcat_outcome(i,:,:) = circshift(mua_allcat_outcome(i,:,:),-outcome_idx(i)+leeway_samples,2);
+    fluor_kernel_roi_bw_outcome(i,:,:) = circshift(fluor_kernel_roi_bw_outcome(i,:,:),-outcome_idx(i)+leeway_samples,2);
+end
+
+% Split MUA and fluorescence
+mua_allcat_exp = mat2cell(mua_allcat,use_split,length(t),n_depths);
+fluor_kernel_roi_bw_exp = mat2cell(fluor_kernel_roi_bw,use_split,length(t),n_depths);
+
+mua_allcat_move_exp = mat2cell(mua_allcat_move,use_split,length(t),n_depths);
+fluor_kernel_roi_bw_move_exp = mat2cell(fluor_kernel_roi_bw_move,use_split,length(t),n_depths);
+
+mua_allcat_outcome_exp = mat2cell(mua_allcat_outcome,use_split,length(t),n_depths);
+fluor_kernel_roi_bw_outcome_exp = mat2cell(fluor_kernel_roi_bw_outcome,use_split,length(t),n_depths);
+
+% Get average activity within window
+trial_groups = {'Stim','Move onset'};
+t_baseline = [-0.1,-0.05];
+t_event = {[0.05,0.15],[-0.05,0.05],[0,0.1]};
+
+
+% NOT LOOPING FOR NOW - JUST HARDCODING PLOTS
+
+t_col = colormap_BlueWhiteRed(length(t));
+t_col(length(t)+1,:) = [];
+t_col = permute(reshape(t_col',3,[],2),[2,1,3]);
+t_col(:,:,1) = flipud(t_col(:,:,1));
+
+% STIM
+curr_event = 1;
+figure; subplot(1,2,1); hold on;
+trial_type_fit = nan(length(t),2);
+for curr_t = 1:length(t)
+    
+    curr_mua_baseline = cellfun(@(x) nanmean(x(:,curr_t,:),2), ...
+        mua_allcat_exp,'uni',false);
+    
+    curr_mua_event = cellfun(@(x) nanmean(x(:,curr_t,:),2), ...
+        mua_allcat_exp,'uni',false);
+    
+    curr_fluor_baseline = cellfun(@(x) nanmean(x(:,curr_t,:),2), ...
+        fluor_kernel_roi_bw_exp,'uni',false);
+    
+    curr_fluor_event = cellfun(@(x) nanmean(x(:,curr_t,:),2), ...
+        fluor_kernel_roi_bw_exp,'uni',false);
+    
+    
+    curr_depth = 1;
+    curr_roi = 1;
+    
+    % (concatenate all data)
+    curr_mua_baseline_cat = cell2mat(cellfun(@(x) x(:,:,curr_depth),curr_mua_baseline,'uni',false));
+    curr_mua_event_cat = cell2mat(cellfun(@(x) x(:,:,curr_depth),curr_mua_event,'uni',false));
+    
+    curr_mua_baseline_cat = curr_mua_baseline_cat(trial_contrast_allcat > 0 & trial_side_allcat == -1);
+    curr_mua_event_cat = curr_mua_event_cat(trial_contrast_allcat > 0 & trial_side_allcat == 1);
+    
+    curr_fluor_baseline_cat = cell2mat(cellfun(@(x) x(:,:,curr_roi),curr_fluor_baseline,'uni',false));
+    curr_fluor_event_cat = cell2mat(cellfun(@(x) x(:,:,curr_roi),curr_fluor_event,'uni',false));
+    
+    curr_fluor_baseline_cat = curr_fluor_baseline_cat(trial_contrast_allcat > 0 & trial_side_allcat == -1);
+    curr_fluor_event_cat = curr_fluor_event_cat(trial_contrast_allcat > 0 & trial_side_allcat == 1);
+    
+    % (bin data by fluorescence)
+    fluor_bin_range = prctile([curr_fluor_baseline_cat;curr_fluor_event_cat],[5,95]);
+    fluor_bin_edges = linspace(fluor_bin_range(1),fluor_bin_range(2),10);
+    fluor_bin_centers = fluor_bin_edges(1:end-1) + diff(fluor_bin_edges)./2;
+    
+    fluor_bins_baseline = discretize(curr_fluor_baseline_cat,fluor_bin_edges);
+    fluor_bins_event = discretize(curr_fluor_event_cat,fluor_bin_edges);
+    
+    curr_mua_baseline_binned = ...
+        accumarray(fluor_bins_baseline(~isnan(fluor_bins_baseline)), ...
+        curr_mua_baseline_cat(~isnan(fluor_bins_baseline)), ...
+        [length(fluor_bin_centers),1],@nanmean,NaN);
+    
+    curr_mua_event_binned = ...
+        accumarray(fluor_bins_event(~isnan(fluor_bins_event)), ...
+        curr_mua_event_cat(~isnan(fluor_bins_event)), ...
+        [length(fluor_bin_centers),1],@nanmean,NaN);
+          
+%     % (to fit multiplicative and additive)
+%     trial_type_fit(curr_t,:) = ...
+%         [curr_mua_baseline_binned,ones(size(curr_mua_baseline_binned))]\curr_mua_event_binned;
+    
+    % (to fit only additive);
+    trial_type_fit(curr_t,:) = ...
+        ones(size(curr_mua_baseline_binned))\(curr_mua_event_binned - curr_mua_baseline_binned);
+    
+    % Plot
+    plot(fluor_bin_centers,curr_mua_baseline_binned,'color',t_col(curr_t,:,1),'linewidth',2);
+    plot(fluor_bin_centers,curr_mua_event_binned,'color',t_col(curr_t,:,2),'linewidth',2);
+    ylabel(['Str ' num2str(curr_depth) ' MUA']);
+end
+
+subplot(1,2,2); hold on
+plot(t,trial_type_fit,'linewidth',2);
+xlabel('Time from event');
+ylabel('Additive offset');
+
+
+% MOVE
+curr_event = 2;
+figure; subplot(1,2,1); hold on;
+trial_type_fit = nan(length(t),2);
+for curr_t = 1:length(t)
+    
+    curr_mua_baseline = cellfun(@(x) nanmean(x(:,curr_t,:),2), ...
+        mua_allcat_move_exp,'uni',false);
+    
+    curr_mua_event = cellfun(@(x) nanmean(x(:,curr_t,:),2), ...
+        mua_allcat_move_exp,'uni',false);
+    
+    curr_fluor_baseline = cellfun(@(x) nanmean(x(:,curr_t,:),2), ...
+        fluor_kernel_roi_bw_move_exp,'uni',false);
+    
+    curr_fluor_event = cellfun(@(x) nanmean(x(:,curr_t,:),2), ...
+        fluor_kernel_roi_bw_move_exp,'uni',false);
+    
+    
+    curr_depth = 2;
+    curr_roi = 2;
+    
+    % (concatenate all data)
+    curr_mua_baseline_cat = cell2mat(cellfun(@(x) x(:,:,curr_depth),curr_mua_baseline,'uni',false));
+    curr_mua_event_cat = cell2mat(cellfun(@(x) x(:,:,curr_depth),curr_mua_event,'uni',false));
+    
+    curr_mua_baseline_cat = curr_mua_baseline_cat(trial_choice_allcat == 1);
+    curr_mua_event_cat = curr_mua_event_cat(trial_choice_allcat == -1);
+    
+    curr_fluor_baseline_cat = cell2mat(cellfun(@(x) x(:,:,curr_roi),curr_fluor_baseline,'uni',false));
+    curr_fluor_event_cat = cell2mat(cellfun(@(x) x(:,:,curr_roi),curr_fluor_event,'uni',false));
+    
+    curr_fluor_baseline_cat = curr_fluor_baseline_cat(trial_choice_allcat == 1);
+    curr_fluor_event_cat = curr_fluor_event_cat(trial_choice_allcat == -1);
+    
+    % (bin data by fluorescence)
+    fluor_bin_range = prctile([curr_fluor_baseline_cat;curr_fluor_event_cat],[5,95]);
+    fluor_bin_edges = linspace(fluor_bin_range(1),fluor_bin_range(2),10);
+    fluor_bin_centers = fluor_bin_edges(1:end-1) + diff(fluor_bin_edges)./2;
+    
+    fluor_bins_baseline = discretize(curr_fluor_baseline_cat,fluor_bin_edges);
+    fluor_bins_event = discretize(curr_fluor_event_cat,fluor_bin_edges);
+    
+    curr_mua_baseline_binned = ...
+        accumarray(fluor_bins_baseline(~isnan(fluor_bins_baseline)), ...
+        curr_mua_baseline_cat(~isnan(fluor_bins_baseline)), ...
+        [length(fluor_bin_centers),1],@nanmean,NaN);
+    
+    curr_mua_event_binned = ...
+        accumarray(fluor_bins_event(~isnan(fluor_bins_event)), ...
+        curr_mua_event_cat(~isnan(fluor_bins_event)), ...
+        [length(fluor_bin_centers),1],@nanmean,NaN);
+          
+%     % (to fit multiplicative and additive)
+%     trial_type_fit(curr_t,:) = ...
+%         [curr_mua_baseline_binned,ones(size(curr_mua_baseline_binned))]\curr_mua_event_binned;
+    
+    % (to fit only additive);
+    trial_type_fit(curr_t,:) = ...
+        ones(size(curr_mua_baseline_binned))\(curr_mua_event_binned - curr_mua_baseline_binned);
+    
+    % Plot
+    plot(fluor_bin_centers,curr_mua_baseline_binned,'color',t_col(curr_t,:,1),'linewidth',2);
+    plot(fluor_bin_centers,curr_mua_event_binned,'color',t_col(curr_t,:,2),'linewidth',2);
+    ylabel(['Str ' num2str(curr_depth) ' MUA']);
+end
+
+subplot(1,2,2); hold on
+plot(t,trial_type_fit,'linewidth',2);
+xlabel('Time from event');
+ylabel('Additive offset');
+
+
+% OUTCOME
+curr_event = 3;
+figure; subplot(1,2,1); hold on;
+trial_type_fit = nan(length(t),2);
+for curr_t = 1:length(t)
+    
+    curr_mua_baseline = cellfun(@(x) nanmean(x(:,curr_t,:),2), ...
+        mua_allcat_outcome_exp,'uni',false);
+    
+    curr_mua_event = cellfun(@(x) nanmean(x(:,curr_t,:),2), ...
+        mua_allcat_outcome_exp,'uni',false);
+    
+    curr_fluor_baseline = cellfun(@(x) nanmean(x(:,curr_t,:),2), ...
+        fluor_kernel_roi_bw_outcome_exp,'uni',false);
+    
+    curr_fluor_event = cellfun(@(x) nanmean(x(:,curr_t,:),2), ...
+        fluor_kernel_roi_bw_outcome_exp,'uni',false);
+    
+    
+    curr_depth = 4;
+    curr_roi = 4;
+    
+    % (concatenate all data)
+    curr_mua_baseline_cat = cell2mat(cellfun(@(x) x(:,:,curr_depth),curr_mua_baseline,'uni',false));
+    curr_mua_event_cat = cell2mat(cellfun(@(x) x(:,:,curr_depth),curr_mua_event,'uni',false));
+    
+    curr_mua_baseline_cat = curr_mua_baseline_cat(trial_outcome_allcat == -1);
+    curr_mua_event_cat = curr_mua_event_cat(trial_outcome_allcat == 1);
+    
+    curr_fluor_baseline_cat = cell2mat(cellfun(@(x) x(:,:,curr_roi),curr_fluor_baseline,'uni',false));
+    curr_fluor_event_cat = cell2mat(cellfun(@(x) x(:,:,curr_roi),curr_fluor_event,'uni',false));
+    
+    curr_fluor_baseline_cat = curr_fluor_baseline_cat(trial_outcome_allcat == -1);
+    curr_fluor_event_cat = curr_fluor_event_cat(trial_outcome_allcat == 1);
+    
+    % (bin data by fluorescence)
+    fluor_bin_range = prctile([curr_fluor_baseline_cat;curr_fluor_event_cat],[5,95]);
+    fluor_bin_edges = linspace(fluor_bin_range(1),fluor_bin_range(2),10);
+    fluor_bin_centers = fluor_bin_edges(1:end-1) + diff(fluor_bin_edges)./2;
+    
+    fluor_bins_baseline = discretize(curr_fluor_baseline_cat,fluor_bin_edges);
+    fluor_bins_event = discretize(curr_fluor_event_cat,fluor_bin_edges);
+    
+    curr_mua_baseline_binned = ...
+        accumarray(fluor_bins_baseline(~isnan(fluor_bins_baseline)), ...
+        curr_mua_baseline_cat(~isnan(fluor_bins_baseline)), ...
+        [length(fluor_bin_centers),1],@nanmean,NaN);
+    
+    curr_mua_event_binned = ...
+        accumarray(fluor_bins_event(~isnan(fluor_bins_event)), ...
+        curr_mua_event_cat(~isnan(fluor_bins_event)), ...
+        [length(fluor_bin_centers),1],@nanmean,NaN);
+          
+%     % (to fit multiplicative and additive)
+%     trial_type_fit(curr_t,:) = ...
+%         [curr_mua_baseline_binned,ones(size(curr_mua_baseline_binned))]\curr_mua_event_binned;
+    
+    % (to fit only additive);
+    trial_type_fit(curr_t,:) = ...
+        ones(size(curr_mua_baseline_binned))\(curr_mua_event_binned - curr_mua_baseline_binned);
+    
+    % Plot
+    plot(fluor_bin_centers,curr_mua_baseline_binned,'color',t_col(curr_t,:,1),'linewidth',2);
+    plot(fluor_bin_centers,curr_mua_event_binned,'color',t_col(curr_t,:,2),'linewidth',2);
+    ylabel(['Str ' num2str(curr_depth) ' MUA']);
+end
+
+subplot(1,2,2); hold on
+plot(t,trial_type_fit,'linewidth',2);
+xlabel('Time from event');
+ylabel('Additive offset');
 
 
 

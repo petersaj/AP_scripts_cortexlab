@@ -4,7 +4,7 @@ function AP_prepare_phy(animal,day,site,car)
 % Clears whatever is currently in local phy folder
 % Sets up params file
 % Loads raw and kilosorted data to local file
-% car - if true, does common-average referencing
+% car - if true, does common-average referencing (default false)
 
 %% Set defaults
 

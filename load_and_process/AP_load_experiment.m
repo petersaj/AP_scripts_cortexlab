@@ -245,24 +245,22 @@ if block_exists
         surround_time = surround_time(1):Timeline.hw.samplingInterval:surround_time(2);
         pull_times = bsxfun(@plus,stimOn_times,surround_time);
         
-        stim_aligned_wheel_raw = interp1(Timeline.rawDAQTimestamps, ...
-            wheel_position,pull_times);
-        stim_aligned_wheel = bsxfun(@minus,stim_aligned_wheel_raw, ...
-            nanmedian(stim_aligned_wheel_raw(:,surround_time < 0),2));
+        stim_aligned_wheel = interp1(Timeline.rawDAQTimestamps, ...
+            wheel_velocity,pull_times);
         
-        thresh_displacement = 2;
+        thresh_displacement = 0.02;
         [~,wheel_move_sample] = max(abs(stim_aligned_wheel) > thresh_displacement,[],2);
-        wheel_move_time = arrayfun(@(x) pull_times(x,wheel_move_sample(x)),1:size(pull_times,1));
+        wheel_move_time = arrayfun(@(x) pull_times(x,wheel_move_sample(x)),1:size(pull_times,1))';
         wheel_move_time(wheel_move_sample == 1) = NaN;
         
         % Get conditions for all trials
         % (trial timing)
         n_trials = length(block.paramsValues);
-        trial_outcome = signals_events.hitValues(1:n_trials)-signals_events.missValues(1:n_trials);
-        stim_to_move = padarray(wheel_move_time - stimOn_times',[0,n_trials-length(stimOn_times)],NaN,'post');
-        stim_to_feedback = padarray(signals_events.responseTimes, ...
+        trial_outcome = signals_events.hitValues(1:n_trials)'-signals_events.missValues(1:n_trials)';
+        stim_to_move = padarray(wheel_move_time - stimOn_times,[0,n_trials-length(stimOn_times)],NaN,'post');
+        stim_to_feedback = [padarray(signals_events.responseTimes, ...
             [0,n_trials-length(signals_events.responseTimes)],NaN,'post') - ...
-            padarray(stimOn_times',[0,n_trials-length(stimOn_times)],NaN,'post');
+            padarray(stimOn_times',[0,n_trials-length(stimOn_times)],NaN,'post')]';
         
         % (early vs late move)
         trial_timing = 1 + (stim_to_move > 0.5);
@@ -272,7 +270,7 @@ if block_exists
             (signals_events.trialSideValues == -1 & signals_events.missValues == 1);
         go_right = (signals_events.trialSideValues == -1 & signals_events.hitValues == 1) | ...
             (signals_events.trialSideValues == 1 & signals_events.missValues == 1);
-        trial_choice = go_right - go_left;
+        trial_choice = go_right' - go_left';
         
         % (trial conditions: [contrast,side,choice,timing])
         contrasts = [0,0.06,0.125,0.25,0.5,1];
@@ -284,8 +282,8 @@ if block_exists
         n_conditions = size(conditions,1);
         
         trial_conditions = ...
-            [signals_events.trialContrastValues(1:n_trials); signals_events.trialSideValues(1:n_trials); ...
-            trial_choice(1:n_trials); trial_timing(1:n_trials)]';
+            [signals_events.trialContrastValues(1:n_trials)', signals_events.trialSideValues(1:n_trials)', ...
+            trial_choice(1:n_trials), trial_timing(1:n_trials)];
         [~,trial_id] = ismember(trial_conditions,conditions,'rows');
         
     elseif strcmp(expDef,'AP_visAudioPassive')
@@ -874,9 +872,8 @@ if ephys_exists && load_parts.ephys
         spike_templates = new_spike_idx(spike_templates_0idx+1);
         
     elseif kilosort_version == 2
-        % (not manually sorted - automatically triage)
         
-        % Load Kilosort 2 automatic labels       
+        % Load Kilosort 2 automatic labels (good/mua based on ISI)
         kilosort2_label_filename = [ephys_path 'cluster_KSLabel.tsv'];
         
         fid = fopen(kilosort2_label_filename);
@@ -884,89 +881,27 @@ if ephys_exists && load_parts.ephys
         fclose(fid);
         
         kilosort2_good_templates = strcmp(kilosort2_labels{2},'good');
-                           
-        % Get SVD of waveforms (first component used)
-        [u,s,v] = svd(waveforms','econ');
         
-        % Standardize sign of first component to be negative
-        flip_u = -sign(AP_signed_max(u(:,1),1));
-        u(:,1) = u(:,1)*flip_u;
-        v(:,1) = v(:,1)*flip_u;
+        % Load triage labels
+        triage_label_filename = [ephys_path 'cluster_AP_triage.tsv'];
         
-        % Get trough/post-trough peak
-        [waveform_trough,waveform_trough_t] = min(waveforms,[],2);
-        [waveform_post_peak,waveform_post_peak_t] = arrayfun(@(x) ...
-            max(waveforms(x,waveform_trough_t(x):end),[],2), ...
-            transpose(1:size(waveforms,1)));
-        trough_peak_t = (waveform_post_peak_t/ephys_sample_rate)*1e6;
+        if ~exist(triage_label_filename,'file')
+            error('No kilosort2 triage');
+        end
         
-        fwhm_trough = (sum(waveforms < (waveform_trough/2),2)/ephys_sample_rate)*1e6;
-        fwhm_peak = (sum(waveforms > (waveform_post_peak/2),2)/ephys_sample_rate)*1e6;
+        fid = fopen(triage_label_filename);
+        triage_labels = textscan(fid,'%d%s','HeaderLines',1);
+        fclose(fid);
         
-        trough_peak_t_fwhm = trough_peak_t./(fwhm_trough + fwhm_peak);
-        
-        % Get number of channels with 50% of the max range
-        template_channel_amp = squeeze(range(templates,2));
-        amp_thresh = max(template_channel_amp,[],2)*0.5;
-        large_amp_channel_n = sum(template_channel_amp > amp_thresh,2);
-        
-        % Get the first timepoint > 10% of the max
-        waveform_deviate_check = 24; % the first sample can be weird
-        [~,waveform_deviate_t] = max(abs(waveforms(:,waveform_deviate_check:end)./ ...
-            max(abs(waveforms(:,waveform_deviate_check:end)),[],2)) > 0.1,[],2);
-        waveform_deviate_t = waveform_deviate_t + waveform_deviate_check;
-        
-        % Set automatic cutoffs and corresponding bad templates
-        
-        v_cutoff = 0; % upward going spikes might be axons
-        v_bad = v(:,1) < v_cutoff;
-        
-        large_amp_channel_n_cutoff = 14; % too many large channels
-        large_amp_channel_bad = large_amp_channel_n > large_amp_channel_n_cutoff;
-        
-        fwhm_trough_cutoff = 600; % too wide a trough thickness
-        fwhm_trough_bad = fwhm_trough > fwhm_trough_cutoff;
-        
-        waveform_deviate_t_cutoff = 28; % deviates from baseline too early
-        waveform_deviate_t_bad = waveform_deviate_t < waveform_deviate_t_cutoff;
-        
-        trough_peak_t_fwhm_cutoff = 3; % non-proportional peak-trough time
-        trough_peak_t_fwhm_bad = trough_peak_t_fwhm > trough_peak_t_fwhm_cutoff;
-                     
-        bad_cutoffs = [v_cutoff,large_amp_channel_n_cutoff, ...
-            fwhm_trough_cutoff, waveform_deviate_t_cutoff, ...
-            trough_peak_t_fwhm_cutoff];
-        bad_values = [v(:,1),large_amp_channel_n,fwhm_trough, ...
-            waveform_deviate_t,trough_peak_t_fwhm];
-        bad_templates = [v_bad,large_amp_channel_bad,fwhm_trough_bad, ...
-            waveform_deviate_t_bad,trough_peak_t_fwhm_bad];
-        bad_labels = {'SVD','Large amp channel','Trough FWHM', ...
-            'Waveform deviation t','Trough-peak/FWHM'};
+        triage_good_templates = strcmp(triage_labels{2},'good');
         
         % Set good templates (and 0-indexed index)
-        good_templates = kilosort2_good_templates & ...
-            ~any(bad_templates,2);       
+        %         good_templates = ...
+        %             kilosort2_good_templates & ...
+        %             triage_good_templates;
+        good_templates = ...
+            triage_good_templates;
         good_templates_idx = find(good_templates)-1;
-        
-        % Plot template triage
-        if verbose
-            
-            figure('Name','Kilosort 2 template triage');
-            
-            for curr_bad = 1:size(bad_templates,2)
-               subplot(size(bad_templates,2),2,1+(curr_bad-1)*2); hold on;
-               plot(waveforms(bad_templates(:,curr_bad),:)'./ ...
-                   max(abs(waveforms(bad_templates(:,curr_bad),:)),[],2)','k')            
-               title(bad_labels{curr_bad});
-               
-               subplot(size(bad_templates,2),2,2+(curr_bad-1)*2); hold on;
-               plot(bad_values(:,curr_bad),'.k');
-               line(xlim,repmat(bad_cutoffs(curr_bad),[1,2]));
-               xlabel('Template');
-               ylabel(bad_labels{curr_bad});
-            end   
-            
-        end    
         
         % Throw out all non-good template data
         templates = templates(good_templates,:,:);

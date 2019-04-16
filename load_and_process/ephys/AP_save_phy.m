@@ -1,7 +1,13 @@
-function AP_save_phy
-% AP_save_phy
+function AP_save_phy(confirm)
+% AP_save_phy(confirm)
 %
 % Move clustering data from local phy directory to server
+%
+% confirm - ask for confirmation to overwrite (default true)
+
+if ~exist('confirm','var') || isempty(confirm)
+    confirm = true;
+end
 
 % Local phy directory
 local_phy_dir = 'C:\data_temp\phy';
@@ -23,61 +29,29 @@ day = animal_day{1}{2};
 % Get server kilosort directory
 [ephys_path,ephys_path_exists] = AP_cortexlab_filename(animal,day,[],'ephys');
 
-% TEMPORARY: replace directory kilosort with kilosort2
+% TEMPORARY: if kilosort 1 directory, switch to kilosort 2
 % (once everything is sorted, AP_cortexlab_filename should default to using
 % kilosort2 if it's available and kilosort if it's not)
-warning('Temporary: replacing kilosort with kilosort 2')
-ephys_path = strrep(ephys_path,'kilosort','kilosort2');
-if ~exist(ephys_path,'dir')
-    error('No kilosort2 directory');
+if ~contains(ephys_path,'kilosort2')
+    warning('Temporary: replacing kilosort with kilosort 2')
+    ephys_path = strrep(ephys_path,'kilosort','kilosort2');
+    if ~exist(ephys_path,'dir')
+        error('No kilosort2 directory');
+    end
 end
 
 % User confirm animal and day overwrite
-user_confirm = strcmp(input(['Overwrite phy sorting ' animal ' ' day ' (y/n)? '],'s'),'y');
-if ~user_confirm
-    disp('Not saving');
-    return
+if confirm
+    user_confirm = strcmp(input(['Overwrite phy sorting ' animal ' ' day ' (y/n)? '],'s'),'y');
+    if ~user_confirm
+        disp('Not saving');
+        return
+    end
 end
 
-% Set standard files to copy
-phy_files = {'cluster_group.tsv','spike_clusters.npy'};
-
-% User select save mean cluster waveforms
-user_mean_waveforms = strcmp(input(['Save mean cluster waveforms (y/n)? '],'s'),'y');
-
-% Make cluster mean waveforms if selected
-% cluster x time x channel like templates, rows go in order of
-% unique(spike_clusters)
-if user_mean_waveforms
-    
-    n_waveforms = 200; % number of waveforms to average
-    
-    spike_times = readNPY([local_phy_dir filesep 'spike_times.npy']);
-    spike_clusters = readNPY([local_phy_dir filesep 'spike_clusters.npy']);
-    
-    dat_dir = dir([local_phy_dir filesep '*.dat']);
-    
-    gwfparams.dataDir = local_phy_dir;
-    gwfparams.fileName = [local_phy_dir filesep dat_dir.name];
-    gwfparams.dataType = 'int16';
-    gwfparams.nCh = 384;
-    gwfparams.wfWin = [-40 80];
-    gwfparams.nWf = n_waveforms;
-    gwfparams.spikeTimes = spike_times;
-    gwfparams.spikeClusters = spike_clusters;
-    
-    wf = getWaveForms(gwfparams);
-    
-    cluster_mean_waveforms = permute(wf.waveFormsMean,[1,3,2]);
-    
-    % (baseline subtract and normalize: do this on load)
-    % cluster_mean_waveforms = (templates-templates(:,1,:))./abs(max(max(templates,[],2),[],3));
-    
-    save([local_phy_dir filesep 'cluster_mean_waveforms.mat'],'cluster_mean_waveforms');
-    
-    phy_files{end+1} = 'cluster_mean_waveforms.mat';
-    
-end
+% Set standard files to copy (cluster labels and spike clusters)
+cluster_files = dir([local_phy_dir filesep 'cluster_*']);
+phy_files = [{'spike_clusters.npy'},{cluster_files.name}];
 
 % Move files to server
 for curr_file = 1:length(phy_files)

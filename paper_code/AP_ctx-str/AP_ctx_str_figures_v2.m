@@ -5,8 +5,6 @@
 
 % The original scripts here were in test_wf_ephys_choiceworld_analysis
 
-%% New fig 1: single unit gradient
-
 
 %% Fig 1b left: Example cortex>striatum regression by depth
 

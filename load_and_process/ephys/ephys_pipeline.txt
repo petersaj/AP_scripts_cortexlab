@@ -1,6 +1,6 @@
 1. AP_preprocess_phase3 (get/save settings, do CAR, run kilosort)
 2. AP_prepare_phy (if not already local, above does by default)
-(2.5. AP_triage_kilosort2 - automatically triage units)
+(2.5. AP_triage_kilosort - automatically triage units)
 3. AP_save_phy: copy saved clusters to basket
 
 (available: AP_pre_phy - quickly flip through waveform templates to throw out obviously bad ones)
