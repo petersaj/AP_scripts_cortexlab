@@ -706,7 +706,9 @@ if ephys_exists && load_parts.ephys
     template_amplitudes = readNPY([ephys_path filesep 'amplitudes.npy']);
 
     % Default channel map/positions are from end: make from surface
-    channel_positions(:,2) = max(channel_positions(:,2)) - channel_positions(:,2);
+    % (hardcode this: kilosort2 drops channels)
+    max_depth = 3840;
+    channel_positions(:,2) = max_depth - channel_positions(:,2);
     
     % Unwhiten templates
     templates = zeros(size(templates_whitened));
@@ -723,9 +725,14 @@ if ephys_exists && load_parts.ephys
     end
     waveforms = templates_max;
     
-    % Get depth of each template (by center-of-mass)    
+    % Get depth of each template
+    % (get min-max range for each channel)
     template_chan_amp = squeeze(range(templates,2));
-    template_depths = sum(template_chan_amp.*channel_positions(:,2)',2)./sum(template_chan_amp,2);
+    % (zero-out low amplitude channels)
+    template_chan_amp_thresh = max(template_chan_amp,[],2)*0.3;
+    template_chan_amp_overthresh = template_chan_amp.*(template_chan_amp >= template_chan_amp_thresh);
+    % (get center-of-mass on thresholded channel amplitudes)
+    template_depths = sum(template_chan_amp_overthresh.*channel_positions(:,2)',2)./sum(template_chan_amp_overthresh,2);
     
     % Get the depth of each spike (templates are zero-indexed)
     spike_depths = template_depths(spike_templates_0idx+1);
@@ -834,8 +841,8 @@ if ephys_exists && load_parts.ephys
     end
     
     % Eliminate spikes that were classified as not "good"
-    if kilosort_version == 1 && exist('cluster_groups','var')
-        
+    if exist('cluster_groups','var')
+        % If there's a manual classification
         if verbose; disp('Removing non-good/MUA templates'); end
         
         good_templates_idx = uint32(cluster_groups{1}( ...
@@ -863,7 +870,7 @@ if ephys_exists && load_parts.ephys
         new_spike_idx(good_templates_idx+1) = 1:length(good_templates_idx);
         spike_templates = new_spike_idx(spike_templates_0idx+1);
         
-    elseif kilosort_version == 1 && ~exist('cluster_groups','var')
+    elseif kilosort_version == 1
         if verbose; disp('Clusters not yet sorted, re-indexing'); end
         % If no classifications, keep all and 1-index
         good_templates_idx = unique(spike_templates_0idx);
@@ -872,7 +879,7 @@ if ephys_exists && load_parts.ephys
         spike_templates = new_spike_idx(spike_templates_0idx+1);
         
     elseif kilosort_version == 2
-        
+
         % Load Kilosort 2 automatic labels (good/mua based on ISI)
         kilosort2_label_filename = [ephys_path 'cluster_KSLabel.tsv'];
         
@@ -903,6 +910,7 @@ if ephys_exists && load_parts.ephys
             triage_good_templates;
         good_templates_idx = find(good_templates)-1;
         
+
         % Throw out all non-good template data
         templates = templates(good_templates,:,:);
         template_depths = template_depths(good_templates);

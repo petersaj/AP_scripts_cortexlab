@@ -5958,6 +5958,49 @@ for curr_animal = 1:length(animals)
 end
 
 
+%% Sync files: copy all from ks1 to ks2
+
+animals =  {'AP024','AP025','AP026','AP027','AP028','AP029','AP032','AP033','AP034','AP035','AP036'};
+
+for curr_animal = 1:length(animals)
+    
+    animal = animals{curr_animal};
+    % Find experiments
+    % (use only behavior days because cortical recordings afterwards)
+    protocol = 'vanillaChoiceworld';
+    experiments = AP_find_experiments(animal,protocol);
+    experiments(~([experiments.imaging] & [experiments.ephys])) = [];
+    if isempty(experiments)
+        % (if no behavior days then it was a naive mouse - use passive expt)
+        protocol = 'AP_choiceWorldStimPassive';
+        experiments = AP_find_experiments(animal,protocol);
+        experiments(~([experiments.imaging] & [experiments.ephys])) = [];
+    end
+    
+    for curr_day = 1:length(experiments)
+              
+        day = experiments(curr_day).day;  
+        
+        [ephys_path,ephys_exists] = AP_cortexlab_filename(animal,day,[],'ephys_dir');
+ 
+        sync_ks1_filename = [ephys_path filesep 'kilosort' filesep 'sync.mat'];
+        sync_ks2_filename = [ephys_path filesep 'kilosort2' filesep 'sync.mat'];
+
+        if ~exist(sync_ks1_filename) || ~exist(sync_ks2_filename)
+            error('No sync')
+        end
+        
+        copyfile(sync_ks1_filename,sync_ks2_filename);
+                
+        disp(['Overwrote ' sync_ks1_filename '-->' sync_ks2_filename]);
+        
+    end
+end
+
+
+
+
+
 
 
 %% (for plotting 15-depth MUA)

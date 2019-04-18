@@ -1,10 +1,11 @@
-function AP_prepare_phy(animal,day,site,car)
-% AP_prepare_phy(animal,day,site,car)
+function AP_prepare_phy(animal,day,site,car,staging)
+% AP_prepare_phy(animal,day,site,car,staging)
 %
 % Clears whatever is currently in local phy folder
 % Sets up params file
 % Loads raw and kilosorted data to local file
 % car - if true, does common-average referencing (default false)
+% staging - puts in staging folder (true by default)
 
 %% Set defaults
 
@@ -16,6 +17,10 @@ if ~exist('car','var') || isempty(car)
     car = false;
 end
 
+if ~exist('staging','var') || isempty(staging)
+    staging = true;
+end
+
 %% Get parts of raw filename
 
 [ephys_path,ephys_exists] = AP_cortexlab_filename(animal,day,[],'ephys',site);
@@ -25,27 +30,22 @@ if ~ephys_exists || ~ephys_raw_ap_exists
     error('No ephys data')
 end
 
-%% TEMPORARY: if kilosort 1 directory, switch to kilosort 2
-% (once everything is sorted, AP_cortexlab_filename should default to using
-% kilosort2 if it's available and kilosort if it's not)
-
-if ~contains(ephys_path,'kilosort2')
-    warning('Temporary: replacing kilosort with kilosort 2')
-    ephys_path = strrep(ephys_path,'kilosort','kilosort2');
-    if ~exist(ephys_path,'dir')
-        error('No kilosort2 directory');
-    end
-end
-
 %% Clear out local phy folder
 
-local_phy_dir = 'C:\data_temp\phy';
+if ~staging
+    local_phy_dir = 'C:\data_temp\phy';
+elseif staging
+    local_phy_dir = 'C:\data_temp\phy_staging';
+end
+
 if ~exist(local_phy_dir)
     mkdir(local_phy_dir)
 elseif length(dir(local_phy_dir)) > 2
     rmdir(local_phy_dir,'s');
     mkdir(local_phy_dir);
 end
+
+disp(['Using local phy directory: ' local_phy_dir]);
 
 %% Copy kilosorted data to local
 
@@ -69,6 +69,7 @@ for i = 1:length(header_info{1})
 end
     
 tic
+disp(datestr(now,'yyyy-mm-dd HH:MM'));
 local_ap_filename = [local_phy_dir filesep header.dat_path(2:end-1)];
 copyfile(ephys_raw_ap_filename,local_ap_filename);
 toc

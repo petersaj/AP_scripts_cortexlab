@@ -143,10 +143,10 @@ for curr_site = 1:length(data_paths)
                 % it's not then you get negative numbers at first, so maybe check for
                 % those and then it can be automated? it's not a good sign that it's
                 % variable though... I should probably just switch to spikeglx
-                %         if sync(curr_sync).timestamps(1) - start_time_sec > 0
-                %             sync(curr_sync).timestamps = sync(curr_sync).timestamps - start_time_sec;
-                %         end
-                %         sync(curr_sync).timestamps = sync(curr_sync).timestamps - start_time_sec;
+                if sync(curr_sync).timestamps(1) - start_time_sec > 0
+                    sync(curr_sync).timestamps = sync(curr_sync).timestamps - start_time_sec;
+                end
+                
             end
             
             sync_save_filename = [curr_save_path filesep 'sync.mat'];
@@ -187,7 +187,7 @@ for curr_site = 1:length(data_paths)
     ssd_kilosort_path = 'C:\data_temp\kilosort';
     hdd_kilosort_path = 'E:\data_temp\kilosort';
     
-    % Clear out local directories
+    % Clear out local kilosort directories
     rmdir(ssd_kilosort_path,'s');
     mkdir(ssd_kilosort_path);
     
@@ -199,9 +199,20 @@ for curr_site = 1:length(data_paths)
     rmdir(local_phy_path,'s');
     mkdir(local_phy_path);
     
+    % Copy AP data locally
+    disp('Copying AP data to local drive...')
+    ap_temp_filename = [ssd_kilosort_path filesep animal '_' day  '_' 'ephys_apband.dat'];
+    copyfile(ap_data_filename,ap_temp_filename);
+    disp('Done');
+    
     % Common average reference data from server to HDD
     ops.NchanTOT = n_channels;
-    medianTrace = applyCARtoDat(ap_data_filename,ops.NchanTOT,hdd_kilosort_path);  
+    medianTrace = applyCARtoDat(ap_temp_filename,ops.NchanTOT,hdd_kilosort_path);  
+    
+    %%%%%%%%%%%%%%%%%%%%%%%%%%%%
+    error('WORKING HERE')
+    % move AP temp to HDD for space reasons, then run ks2
+    %%%%%%%%%%%%%%%%%%%%%%%%%%%%
     
     [~,ap_car_name,ap_car_ext] = fileparts(ap_data_filename);
     ap_temp_car_filename_hdd = [hdd_kilosort_path filesep ap_car_name '_CAR' ap_car_ext];      

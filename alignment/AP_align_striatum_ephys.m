@@ -9,7 +9,8 @@
 
 %%% Get correlation of MUA and LFP
 n_corr_groups = 40;
-depth_group_edges = linspace(0,max(channel_positions(:,2)),n_corr_groups+1);
+max_depths = 3840; % (hardcode, sometimes kilosort2 drops channels)
+depth_group_edges = linspace(0,max_depths,n_corr_groups+1);
 depth_group = discretize(template_depths,depth_group_edges);
 depth_group_centers = depth_group_edges(1:end-1)+(diff(depth_group_edges)/2);
 unique_depths = 1:length(depth_group_edges)-1;
