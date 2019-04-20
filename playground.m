@@ -5907,6 +5907,8 @@ plot(t,nanmean(mua_allcat_move(plot_trials,:,2),1),'k','linewidth',2);
 plot(t,nanmean(mua_allcat_move(plot_trials,:,2),1) - ...
     nanmean(mua_taskpred_reduced_allcat_move(plot_trials,:,2,2),1),'color',[0.7,0,0.7],'linewidth',2);
 
+%% ~~~~~~~~~~~~ KILOSORT 2 STUFF ~~~~~~~~~~~~~~~~~~~
+
 
 %% Kilosort 2 on all choiceworld data
 
@@ -5999,63 +6001,6 @@ end
 
 
 
-
-
-
-
-%% (for plotting 15-depth MUA)
-
-animal_partial = cell(length(animals),1);
-for curr_animal = 1:length(animals)
-    curr_partial = cellfun(@(x) x(:,:,2),mua_taskpred_expl_var_partial_all{curr_animal},'uni',false);
-    animal_partial{curr_animal} = cat(3,curr_partial{:});
-end
-
-a = cat(3,animal_partial{:});
-
-b = a;
-b(b < 0) = 0;
-c = nanmean(b,3);
-
-figure; 
-plot(c(4:end,:)./max(c(4:end,:),[],1));
-
-
-smooth_size = 11;
-gw = gausswin(smooth_size,6)';
-smWin = gw./sum(gw);
-
-a = convn(padarray(mua_allcat, ...
-    [0,floor(length(smWin)/2)],'replicate','both'), ...
-    smWin,'valid');
-a(isinf(a)) = NaN;
-b = squeeze(nanmean(a,1));
-c = b./max(b,[],1);
-
-figure; hold on;
-set(gca,'ColorOrder',copper(12));
-plot(t,c(:,4:end),'linewidth',2);
-
-
-
-%% (plot the ctx>str kernels for the 15-depth aligned)
-
-load('C:\Users\Andrew\OneDrive for Business\Documents\CarandiniHarrisLab\analysis\wf_ephys_choiceworld\wf_processing\wf_alignment\U_master');
-
-a = vertcat(ctx_str_k_all{:});
-b = nanmean(cat(4,a{:}),4);
-
-c = cell2mat(arrayfun(@(x) svdFrameReconstruct(U_master(:,:,1:50),b(:,:,x)),permute(1:n_depths,[1,3,4,2]),'uni',false));
-
-c0 = squeeze(c(:,:,19,:));
-
-figure;imagesc(reshape(permute(c0,[1,3,2]),[],size(c0,2)));
-caxis([-max(abs(caxis)),max(abs(caxis))]);
-colormap(brewermap([],'*RdBu'));
-
-AP_reference_outline('ccf_aligned',[0.5,0.5,0.5],[], ...
-    [size(U_master,1),size(U_master,2),n_depths,1]);
-axis image off;
 
 
 

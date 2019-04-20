@@ -257,7 +257,7 @@ if block_exists
         % (trial timing)
         n_trials = length(block.paramsValues);
         trial_outcome = signals_events.hitValues(1:n_trials)'-signals_events.missValues(1:n_trials)';
-        stim_to_move = padarray(wheel_move_time - stimOn_times,[0,n_trials-length(stimOn_times)],NaN,'post');
+        stim_to_move = padarray(wheel_move_time - stimOn_times,[n_trials-length(stimOn_times),0],NaN,'post');
         stim_to_feedback = [padarray(signals_events.responseTimes, ...
             [0,n_trials-length(signals_events.responseTimes)],NaN,'post') - ...
             padarray(stimOn_times',[0,n_trials-length(stimOn_times)],NaN,'post')]';
@@ -843,8 +843,16 @@ if ephys_exists && load_parts.ephys
     % Eliminate spikes that were classified as not "good"
     if exist('cluster_groups','var')
         % If there's a manual classification
-        if verbose; disp('Removing non-good/MUA templates'); end
+        if verbose; disp('Removing manually labeled bad templates...'); end
         
+        % Check that all used spike templates have a label
+        spike_templates_0idx_unique = unique(spike_templates_0idx);
+        if ~all(ismember(spike_templates_0idx_unique,uint32(cluster_groups{1}))) || ...
+            ~all(ismember(cluster_groups{2},{'good','mua','noise'}))
+           error('Not all templates labeled')
+        end
+        
+        % Define good units from labels
         good_templates_idx = uint32(cluster_groups{1}( ...
             strcmp(cluster_groups{2},'good') | strcmp(cluster_groups{2},'mua')));
         good_templates = ismember(0:size(templates,1)-1,good_templates_idx);
@@ -870,73 +878,77 @@ if ephys_exists && load_parts.ephys
         new_spike_idx(good_templates_idx+1) = 1:length(good_templates_idx);
         spike_templates = new_spike_idx(spike_templates_0idx+1);
         
-    elseif kilosort_version == 1
-        if verbose; disp('Clusters not yet sorted, re-indexing'); end
+    else
+        % Error at the moment (everything should be sorted)
+        error([animal ' ' day ' - no cluster groups']);
+        
+        if verbose; disp('No manual labeling, keeping all and re-indexing'); end
         % If no classifications, keep all and 1-index
         good_templates_idx = unique(spike_templates_0idx);
         new_spike_idx = nan(max(spike_templates_0idx)+1,1);
         new_spike_idx(good_templates_idx+1) = 1:length(good_templates_idx);
         spike_templates = new_spike_idx(spike_templates_0idx+1);
         
-    elseif kilosort_version == 2
-
-        % Load Kilosort 2 automatic labels (good/mua based on ISI)
-        kilosort2_label_filename = [ephys_path 'cluster_KSLabel.tsv'];
-        
-        fid = fopen(kilosort2_label_filename);
-        kilosort2_labels = textscan(fid,'%d%s','HeaderLines',1);
-        fclose(fid);
-        
-        kilosort2_good_templates = strcmp(kilosort2_labels{2},'good');
-        
-        % Load triage labels
-        triage_label_filename = [ephys_path 'cluster_AP_triage.tsv'];
-        
-        if ~exist(triage_label_filename,'file')
-            error('No kilosort2 triage');
-        end
-        
-        fid = fopen(triage_label_filename);
-        triage_labels = textscan(fid,'%d%s','HeaderLines',1);
-        fclose(fid);
-        
-        triage_good_templates = strcmp(triage_labels{2},'good');
-        
-        % Set good templates (and 0-indexed index)
-        %         good_templates = ...
-        %             kilosort2_good_templates & ...
-        %             triage_good_templates;
-        good_templates = ...
-            triage_good_templates;
-        good_templates_idx = find(good_templates)-1;
-        
-
-        % Throw out all non-good template data
-        templates = templates(good_templates,:,:);
-        template_depths = template_depths(good_templates);
-        waveforms = waveforms(good_templates,:);
-        templateDuration = templateDuration(good_templates);
-        templateDuration_us = templateDuration_us(good_templates);
-        
-        % Throw out all non-good spike data
-        good_spike_idx = ismember(spike_templates_0idx,good_templates_idx);
-        spike_times = spike_times(good_spike_idx);
-        spike_templates = spike_templates_0idx(good_spike_idx);
-        template_amplitudes = template_amplitudes(good_spike_idx);
-        spike_depths = spike_depths(good_spike_idx);
-        spike_times_timeline = spike_times_timeline(good_spike_idx);
-        
-        % Rename the spike templates according to the remaining templates
-        % (and make 1-indexed from 0-indexed)
-        new_spike_idx = nan(max(spike_templates)+1,1);
-        new_spike_idx(good_templates_idx+1) = 1:length(good_templates_idx);
-        spike_templates = new_spike_idx(spike_templates+1);
-        
-%         % (to keep all templates, just 1-index)
-%         good_templates_idx = (1:size(templates,1))-1;
-%         new_spike_idx = nan(size(templates,1),1);
+%     elseif kilosort_version == 2
+%         % (this was to use kilosort MUA/AP_triage)
+% 
+%         % Load Kilosort 2 automatic labels (good/mua based on ISI)
+%         kilosort2_label_filename = [ephys_path 'cluster_KSLabel.tsv'];
+%         
+%         fid = fopen(kilosort2_label_filename);
+%         kilosort2_labels = textscan(fid,'%d%s','HeaderLines',1);
+%         fclose(fid);
+%         
+%         kilosort2_good_templates = strcmp(kilosort2_labels{2},'good');
+%         
+%         % Load triage labels
+%         triage_label_filename = [ephys_path 'cluster_AP_triage.tsv'];
+%         
+%         if ~exist(triage_label_filename,'file')
+%             error('No kilosort2 triage');
+%         end
+%         
+%         fid = fopen(triage_label_filename);
+%         triage_labels = textscan(fid,'%d%s','HeaderLines',1);
+%         fclose(fid);
+%         
+%         triage_good_templates = strcmp(triage_labels{2},'good');
+%         
+%         % Set good templates (and 0-indexed index)
+%         %         good_templates = ...
+%         %             kilosort2_good_templates & ...
+%         %             triage_good_templates;
+%         good_templates = ...
+%             triage_good_templates;
+%         good_templates_idx = find(good_templates)-1;
+%         
+% 
+%         % Throw out all non-good template data
+%         templates = templates(good_templates,:,:);
+%         template_depths = template_depths(good_templates);
+%         waveforms = waveforms(good_templates,:);
+%         templateDuration = templateDuration(good_templates);
+%         templateDuration_us = templateDuration_us(good_templates);
+%         
+%         % Throw out all non-good spike data
+%         good_spike_idx = ismember(spike_templates_0idx,good_templates_idx);
+%         spike_times = spike_times(good_spike_idx);
+%         spike_templates = spike_templates_0idx(good_spike_idx);
+%         template_amplitudes = template_amplitudes(good_spike_idx);
+%         spike_depths = spike_depths(good_spike_idx);
+%         spike_times_timeline = spike_times_timeline(good_spike_idx);
+%         
+%         % Rename the spike templates according to the remaining templates
+%         % (and make 1-indexed from 0-indexed)
+%         new_spike_idx = nan(max(spike_templates)+1,1);
 %         new_spike_idx(good_templates_idx+1) = 1:length(good_templates_idx);
-%         spike_templates = new_spike_idx(spike_templates_0idx+1);        
+%         spike_templates = new_spike_idx(spike_templates+1);
+%         
+% %         % (to keep all templates, just 1-index)
+% %         good_templates_idx = (1:size(templates,1))-1;
+% %         new_spike_idx = nan(size(templates,1),1);
+% %         new_spike_idx(good_templates_idx+1) = 1:length(good_templates_idx);
+% %         spike_templates = new_spike_idx(spike_templates_0idx+1);        
         
     end       
 end

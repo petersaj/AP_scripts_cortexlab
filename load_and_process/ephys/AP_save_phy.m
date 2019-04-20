@@ -57,8 +57,12 @@ phy_files = [{'spike_clusters.npy'},{cluster_files.name}];
 for curr_file = 1:length(phy_files)
     local_filename = [local_phy_dir filesep phy_files{curr_file}];
     server_filename = [ephys_path filesep phy_files{curr_file}];
-    copyfile(local_filename,server_filename);
-    disp(['Overwrote ' server_filename]);
+    copy_success = copyfile(local_filename,server_filename);
+    if copy_success
+        disp(['Overwrote ' server_filename]);
+    else
+        disp(['COULD NOT COPY ' server_filename]);
+    end
 end
 
 disp('Saved phy clustering to server');
