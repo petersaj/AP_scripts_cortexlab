@@ -439,9 +439,8 @@ clear all
 disp('Aligning striatum recordings from template kernels');
 
 n_aligned_depths = 4;
-% animals = {'AP024','AP025','AP026','AP027','AP028','AP029', ...
-%     'AP032','AP033','AP034','AP035','AP036'};
-animals = {'AP024','AP025','AP026','AP027','AP028','AP029'};
+animals = {'AP024','AP025','AP026','AP027','AP028','AP029', ...
+    'AP032','AP033','AP034','AP035','AP036'};
 
 % Load kernels by depths
 kernel_path = 'C:\Users\Andrew\OneDrive for Business\Documents\CarandiniHarrisLab\analysis\wf_ephys_choiceworld\ephys_processing';

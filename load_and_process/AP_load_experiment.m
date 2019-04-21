@@ -849,6 +849,7 @@ if ephys_exists && load_parts.ephys
         spike_templates_0idx_unique = unique(spike_templates_0idx);
         if ~all(ismember(spike_templates_0idx_unique,uint32(cluster_groups{1}))) || ...
             ~all(ismember(cluster_groups{2},{'good','mua','noise'}))
+        keyboard
            error('Not all templates labeled')
         end
         
