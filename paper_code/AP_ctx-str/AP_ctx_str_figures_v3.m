@@ -7,6 +7,82 @@
 
 % (this is addendum to AP_ctx_str_figures_v2)
 
+%% Figure 1f: Cortical task-explained variance
+
+use_t = true(size(t));
+spatial_downsample = 10;
+
+correct_trials = trial_side_allcat == -trial_choice_allcat;
+incorrect_trials = trial_side_allcat == trial_choice_allcat;
+
+visual_trials = trial_contrast_allcat > 0;
+zero_trials = trial_contrast_allcat == 0;
+
+ctx_expl_var_correct = AP_spatial_explained_var(U_master(:,:,1:n_vs), ...
+    reshape(permute(fluor_allcat_deconv(correct_trials,use_t,:),[2,1,3]),[],n_vs)', ...
+    reshape(permute(fluor_taskpred_allcat(correct_trials,use_t,:),[2,1,3]),[],n_vs)',spatial_downsample);
+ctx_expl_var_incorrect = AP_spatial_explained_var(U_master(:,:,1:n_vs), ...
+    reshape(permute(fluor_allcat_deconv(incorrect_trials,use_t,:),[2,1,3]),[],n_vs)', ...
+    reshape(permute(fluor_taskpred_allcat(incorrect_trials,use_t,:),[2,1,3]),[],n_vs)',spatial_downsample);
+
+ctx_expl_var_visual = AP_spatial_explained_var(U_master(:,:,1:n_vs), ...
+    reshape(permute(fluor_allcat_deconv(visual_trials,use_t,:),[2,1,3]),[],n_vs)', ...
+    reshape(permute(fluor_taskpred_allcat(visual_trials,use_t,:),[2,1,3]),[],n_vs)',spatial_downsample);
+ctx_expl_var_zero = AP_spatial_explained_var(U_master(:,:,1:n_vs), ...
+    reshape(permute(fluor_allcat_deconv(zero_trials,use_t,:),[2,1,3]),[],n_vs)', ...
+    reshape(permute(fluor_taskpred_allcat(zero_trials,use_t,:),[2,1,3]),[],n_vs)',spatial_downsample);
+
+figure;
+subplot(2,3,1);
+imagesc(ctx_expl_var_correct);
+axis image off; 
+colormap(brewermap([],'*RdBu'))
+caxis([-1,1]); c = colorbar; ylabel(c,'Variance explained');
+AP_reference_outline('ccf_aligned','k');
+title('Correct trials');
+
+subplot(2,3,2);
+imagesc(ctx_expl_var_incorrect);
+axis image off; 
+colormap(brewermap([],'*RdBu'))
+caxis([-1,1]); c = colorbar; ylabel(c,'Variance explained');
+AP_reference_outline('ccf_aligned','k');
+title('Incorrect trials');
+
+subplot(2,3,3);
+imagesc(ctx_expl_var_correct - ctx_expl_var_incorrect);
+axis image off; 
+colormap(brewermap([],'*RdBu'))
+caxis([-1,1]); c = colorbar; ylabel(c,'Variance explained');
+AP_reference_outline('ccf_aligned','k');
+title('Correct - incorrect');
+
+subplot(2,3,4);
+imagesc(ctx_expl_var_visual);
+axis image off; 
+colormap(brewermap([],'*RdBu'))
+caxis([-1,1]); c = colorbar; ylabel(c,'Variance explained');
+AP_reference_outline('ccf_aligned','k');
+title('Visual trials');
+
+subplot(2,3,5);
+imagesc(ctx_expl_var_zero);
+axis image off; 
+colormap(brewermap([],'*RdBu'))
+caxis([-1,1]); c = colorbar; ylabel(c,'Variance explained');
+AP_reference_outline('ccf_aligned','k');
+title('Zero trials');
+
+subplot(2,3,6);
+imagesc(ctx_expl_var_visual - ctx_expl_var_zero);
+axis image off; 
+colormap(brewermap([],'*RdBu'))
+caxis([-1,1]); c = colorbar; ylabel(c,'Variance explained');
+AP_reference_outline('ccf_aligned','k');
+title('Visual - zero');
+
+
+
 %% Figure 1: Example raster plot
 
 animal = 'AP025'; 

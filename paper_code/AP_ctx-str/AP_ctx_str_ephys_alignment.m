@@ -310,7 +310,6 @@ for curr_animal = 1:length(animals)
 %         dfVdf_resample = cat(2,dfVdf_resample_all{:});
 %         binned_spikes = cat(2,binned_spikes_all{:});
 %         binned_spikes_std = binned_spikes./nanstd(binned_spikes,[],2);
-
        
         % Load lambda from previously estimated and saved
         lambda_fn = 'C:\Users\Andrew\OneDrive for Business\Documents\CarandiniHarrisLab\analysis\wf_ephys_choiceworld\ephys_processing\ctx-str_lambda';
@@ -322,8 +321,6 @@ for curr_animal = 1:length(animals)
                 lambda = ctx_str_lambda(curr_animal_idx).best_lambda(curr_day_idx);
             end
         end
-        warning('Overriding lambda');
-        lambda = 10;
   
         % Regress fluorescence to spikes
         kernel_frames = round(regression_params.kernel_t(1)*sample_rate): ...

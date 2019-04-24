@@ -237,7 +237,7 @@ switch file
     case 'ephys'
         % folder with kilosort/phy outputs
         
-        kilosort_version = 2; % 1 and 2 available
+        kilosort_version = 2; % 1 and 2 available (1 probably obsolete)
         
         % Self-call to match ephys_dir above
         [ephys_dir,~] = AP_cortexlab_filename(animal,day,experiment,'ephys_dir',site);

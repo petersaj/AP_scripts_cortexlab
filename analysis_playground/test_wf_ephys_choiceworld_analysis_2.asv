@@ -5206,6 +5206,29 @@ xlabel('Time from event');
 ylabel('Additive offset');
 
 
+%% Spatial explained variance
+
+% copied from somewhere else, make this work
+
+use_t = t > 0 & t < 0.5;
+use_trials = move_t > 0 & move_t < 0.5;
+
+spatial_explained_var = AP_spatial_explained_var(U_master(:,:,1:n_vs), ...
+    reshape(permute(fluor_allcat_deconv(use_trials,use_t,:),[2,1,3]),[],n_vs)', ...
+    reshape(permute(fluor_roi_taskpred(use_trials,use_t,:),[2,1,3]),[],n_vs)',10);
+
+figure;imagesc(spatial_explained_var);
+axis image off; 
+colormap(brewermap([],'Reds'));
+caxis([0,1]); colorbar;
+AP_reference_outline('ccf_aligned','k');
+
+
+
+
+
+
+
 
 
 

@@ -383,30 +383,30 @@ for curr_animal = 1:length(animals)
         event_aligned_outcome(trial_outcome == 1,:,1) = ...
             (cell2mat(arrayfun(@(x) ...
             histcounts(reward_t_timeline,t_bins(x,:)), ...
-            find(trial_outcome == 1)','uni',false))) > 0;
+            find(trial_outcome == 1),'uni',false))) > 0;
         
         event_aligned_outcome(trial_outcome == -1,:,2) = ...
             (cell2mat(arrayfun(@(x) ...
             histcounts(signals_events.responseTimes,t_bins(x,:)), ...
-            find(trial_outcome == -1)','uni',false))) > 0;
+            find(trial_outcome == -1),'uni',false))) > 0;
         
         % Pick trials to keep
         use_trials = ...
             trial_outcome ~= 0 & ...
-            ~signals_events.repeatTrialValues(1:n_trials) & ...
+            ~signals_events.repeatTrialValues(1:n_trials)' & ...
             stim_to_feedback < 1.5;
         
         % Get behavioural data
         D = struct;
         D.stimulus = zeros(sum(use_trials),2);
         
-        L_trials = signals_events.trialSideValues(1:n_trials) == -1;
-        R_trials = signals_events.trialSideValues(1:n_trials) == 1;
+        L_trials = signals_events.trialSideValues(1:n_trials)' == -1;
+        R_trials = signals_events.trialSideValues(1:n_trials)' == 1;
         
         D.stimulus(L_trials(use_trials),1) = signals_events.trialContrastValues(L_trials & use_trials);
         D.stimulus(R_trials(use_trials),2) = signals_events.trialContrastValues(R_trials & use_trials);
         
-        D.response = 3-(abs((trial_choice(use_trials)'+1)/2)+1);
+        D.response = 3-(abs((trial_choice(use_trials)+1)/2)+1);
         D.repeatNum = ones(sum(use_trials),1);
         
         D.outcome = reshape(trial_outcome(use_trials),[],1);
@@ -422,8 +422,8 @@ for curr_animal = 1:length(animals)
         % Stim regressors
         unique_stim = unique(contrasts(contrasts > 0).*sides');
         stim_contrastsides = ...
-            signals_events.trialSideValues(1:length(stimOn_times)).* ...
-            signals_events.trialContrastValues(1:length(stimOn_times));
+            signals_events.trialSideValues(1:length(stimOn_times))'.* ...
+            signals_events.trialContrastValues(1:length(stimOn_times))';
         
         stim_regressors = zeros(length(unique_stim),length(time_bin_centers));
         for curr_stim = 1:length(unique_stim)
@@ -460,7 +460,7 @@ for curr_animal = 1:length(animals)
         % Stim center regressors (one for each stim when it's stopped during reward)
         unique_contrasts = unique(contrasts(contrasts > 0));
         stim_contrasts = ...
-            signals_events.trialContrastValues(1:length(stimOn_times));
+            signals_events.trialContrastValues(1:length(stimOn_times))';
         
         stim_center_regressors = zeros(length(unique_contrasts),length(time_bin_centers));
         for curr_contrast = 1:length(unique_contrasts)
@@ -483,9 +483,9 @@ for curr_animal = 1:length(animals)
         
         % Move onset regressors (L/R)
         move_time_L_absolute = arrayfun(@(x) t_peri_event(x,move_idx(x)), ...
-            find(~isnan(move_idx) & trial_choice(1:length(stimOn_times))' == -1));
+            find(~isnan(move_idx) & trial_choice(1:length(stimOn_times)) == -1));
         move_time_R_absolute = arrayfun(@(x) t_peri_event(x,move_idx(x)), ...
-            find(~isnan(move_idx) & trial_choice(1:length(stimOn_times))' == 1));
+            find(~isnan(move_idx) & trial_choice(1:length(stimOn_times)) == 1));
         
         move_onset_regressors = zeros(2,length(time_bin_centers));
         move_onset_regressors(1,:) = histcounts(move_time_L_absolute,time_bins);
@@ -494,7 +494,7 @@ for curr_animal = 1:length(animals)
         % Move onset x stim regressors (one for each contrast/side)
         move_onset_stim_time_absolute = arrayfun(@(curr_stim) ...
             arrayfun(@(x) t_peri_event(x,move_idx(x)), ...
-            find(~isnan(move_idx) & stim_contrastsides' == unique_stim(curr_stim))), ...
+            find(~isnan(move_idx) & stim_contrastsides == unique_stim(curr_stim))), ...
             1:length(unique_stim),'uni',false);
         
         move_onset_stim_regressors = zeros(10,length(time_bin_centers));
