@@ -356,6 +356,55 @@ plot_t = [134,152];
 
 raster_fig = figure;
 
+% (wheel velocity)
+wheel_axes = subplot(6,1,1);
+plot_wheel_idx = Timeline.rawDAQTimestamps >= plot_t(1) & ...
+    Timeline.rawDAQTimestamps <= plot_t(2);
+plot(wheel_axes,Timeline.rawDAQTimestamps(plot_wheel_idx), ...
+    wheel_velocity(plot_wheel_idx),'k','linewidth',2);
+ylabel('Wheel velocity');
+
+% (stimuli)
+stim_col = colormap_BlueWhiteRed(5);
+[~,trial_contrast_idx] = ...
+    ismember(trial_conditions(:,1).*trial_conditions(:,2),unique(contrasts'.*sides),'rows');
+stim_lines = arrayfun(@(x) line(wheel_axes,repmat(stimOn_times(x),1,2),ylim(wheel_axes),'color', ...
+    stim_col(trial_contrast_idx(x),:),'linewidth',2), ...
+    find(stimOn_times >= plot_t(1) & stimOn_times <= plot_t(2)));
+
+% (movement starts)
+move_col = [0.6,0,0.6;0,0.6,0];
+[~,trial_choice_idx] = ismember(trial_conditions(:,3),[-1;1],'rows');
+move_lines = arrayfun(@(x) line(wheel_axes,repmat(wheel_move_time(x),1,2),ylim(wheel_axes),'color', ...
+    move_col(trial_choice_idx(x),:),'linewidth',2), ...
+    find(wheel_move_time >= plot_t(1) & wheel_move_time <= plot_t(2)));
+
+% (go cues)
+go_col = [0.8,0.8,0.2];
+go_cue_times = signals_events.interactiveOnTimes(1:n_trials);
+go_cue_lines = arrayfun(@(x) line(wheel_axes,repmat(go_cue_times(x),1,2),ylim(wheel_axes),'color', ...
+    go_col,'linewidth',2,'linestyle','--'), ...
+    find(go_cue_times >= plot_t(1) & go_cue_times <= plot_t(2)));
+
+% (outcomes)
+outcome_col = [0,0,0.8;0.5,0.5,0.5];
+reward_lines = arrayfun(@(x) line(wheel_axes,repmat(reward_t_timeline(x),1,2),ylim(wheel_axes),'color', ...
+    outcome_col(1,:),'linewidth',2,'linestyle','--'), ...
+    find(reward_t_timeline >= plot_t(1) & reward_t_timeline <= plot_t(2)));
+punish_times = signals_events.responseTimes(trial_outcome == -1);
+punish_lines = arrayfun(@(x) line(wheel_axes,repmat(punish_times(x),1,2),ylim(wheel_axes),'color', ...
+    outcome_col(2,:),'linewidth',2,'linestyle','--'), ...
+    find(punish_times >= plot_t(1) & punish_times <= plot_t(2)));
+
+% (striatum raster)
+raster_axes = subplot(6,1,2:4,'YDir','reverse'); hold on;
+plot_spikes = spike_times_timeline >= plot_t(1) & ...
+    spike_times_timeline <= plot_t(2) & ...
+    spike_depths >= str_depth(1) & spike_depths <= str_depth(2);
+plot(raster_axes,spike_times_timeline(plot_spikes),spike_depths(plot_spikes),'.k');
+ylabel('Depth (\mum)');
+xlabel('Time (s)')
+
 % (fluorescence from select ROIs)
 wf_roi_fn = 'C:\Users\Andrew\OneDrive for Business\Documents\CarandiniHarrisLab\analysis\wf_ephys_choiceworld\wf_processing\wf_rois\wf_roi';
 load(wf_roi_fn);
@@ -364,63 +413,16 @@ roi_trace_taskpred = AP_svd_roi(aUdf(:,:,use_components),fluor_taskpred,[],[],ca
 
 plot_rois = [1,7,9];
 fluor_spacing = 70;
-fluor_axes = subplot(6,1,1:2); hold on;
+fluor_axes = subplot(6,1,5:6); hold on;
 plot_fluor_idx = frame_t >= plot_t(1) & frame_t <= plot_t(2);
 AP_stackplot(roi_trace(plot_rois,plot_fluor_idx)', ...
     frame_t(plot_fluor_idx),fluor_spacing,false,[0,0.7,0],{wf_roi(plot_rois).area});
 AP_stackplot(roi_trace_taskpred(plot_rois,plot_fluor_idx)', ...
     frame_t(plot_fluor_idx),fluor_spacing,false,'b',{wf_roi(plot_rois).area});
 
-% (striatum raster)
-raster_axes = subplot(6,1,3:5,'YDir','reverse'); hold on;
-plot_spikes = spike_times_timeline >= plot_t(1) & ...
-    spike_times_timeline <= plot_t(2) & ...
-    spike_depths >= str_depth(1) & spike_depths <= str_depth(2);
-plot(raster_axes,spike_times_timeline(plot_spikes),spike_depths(plot_spikes),'.k');
-ylabel('Depth (\mum)');
-xlabel('Time (s)')
 
-% (wheel velocity)
-wheel_axes = subplot(6,1,6);
-plot_wheel_idx = Timeline.rawDAQTimestamps >= plot_t(1) & ...
-    Timeline.rawDAQTimestamps <= plot_t(2);
-plot(wheel_axes,Timeline.rawDAQTimestamps(plot_wheel_idx), ...
-    wheel_velocity(plot_wheel_idx),'k','linewidth',2);
-ylabel('Wheel velocity');
+linkaxes([wheel_axes,raster_axes,fluor_axes],'x');
 
-linkaxes([fluor_axes,raster_axes,wheel_axes],'x');
-
-% (stimuli)
-stim_col = colormap_BlueWhiteRed(5);
-[~,trial_contrast_idx] = ...
-    ismember(trial_conditions(:,1).*trial_conditions(:,2),unique(contrasts'.*sides),'rows');
-stim_lines = arrayfun(@(x) line(raster_axes,repmat(stimOn_times(x),1,2),ylim(raster_axes),'color', ...
-    stim_col(trial_contrast_idx(x),:),'linewidth',2), ...
-    find(stimOn_times >= plot_t(1) & stimOn_times <= plot_t(2)));
-
-% (movement starts)
-move_col = [0.6,0,0.6;0,0.6,0];
-[~,trial_choice_idx] = ismember(trial_conditions(:,3),[-1;1],'rows');
-move_lines = arrayfun(@(x) line(raster_axes,repmat(wheel_move_time(x),1,2),ylim(raster_axes),'color', ...
-    move_col(trial_choice_idx(x),:),'linewidth',2), ...
-    find(wheel_move_time >= plot_t(1) & wheel_move_time <= plot_t(2)));
-
-% (go cues)
-go_col = [0.8,0.8,0.2];
-go_cue_times = signals_events.interactiveOnTimes(1:n_trials);
-go_cue_lines = arrayfun(@(x) line(raster_axes,repmat(go_cue_times(x),1,2),ylim(raster_axes),'color', ...
-    go_col,'linewidth',2,'linestyle','--'), ...
-    find(go_cue_times >= plot_t(1) & go_cue_times <= plot_t(2)));
-
-% (outcomes)
-outcome_col = [0,0,0.8;0.5,0.5,0.5];
-reward_lines = arrayfun(@(x) line(raster_axes,repmat(reward_t_timeline(x),1,2),ylim(raster_axes),'color', ...
-    outcome_col(1,:),'linewidth',2,'linestyle','--'), ...
-    find(reward_t_timeline >= plot_t(1) & reward_t_timeline <= plot_t(2)));
-punish_times = signals_events.responseTimes(trial_outcome == -1);
-punish_lines = arrayfun(@(x) line(raster_axes,repmat(punish_times(x),1,2),ylim(raster_axes),'color', ...
-    outcome_col(2,:),'linewidth',2,'linestyle','--'), ...
-    find(punish_times >= plot_t(1) & punish_times <= plot_t(2)));
 
 % % Write legend
 % [~,unique_contrasts_h] = unique(trial_contrast_idx);
@@ -434,15 +436,14 @@ punish_lines = arrayfun(@(x) line(raster_axes,repmat(punish_times(x),1,2),ylim(r
 % Plot fluorescence at regular intervals within time range
 
 % plot_frames_idx = [4721,4833,4924,5008]; % (across 4 trials)
-plot_frames_idx = [4829,4833,4836,4840]; % (within one trial)
 plot_frames_idx = [4827,4831,4834,4838]; % (within one trial)
 
 plot_frames = svdFrameReconstruct(aUdf(:,:,use_components),fVdf_deconv(use_components,plot_frames_idx));
 plot_frames_taskpred = svdFrameReconstruct(aUdf(:,:,use_components),fluor_taskpred(:,plot_frames_idx));
 
 wf_fig = figure;
-for curr_frame = 1:n_frames_plot
-    subplot(2,n_frames_plot,curr_frame);
+for curr_frame = 1:length(plot_frames_idx)
+    subplot(2,length(plot_frames_idx),curr_frame);
     imagesc(plot_frames(:,:,curr_frame));
     colormap(crameri('cork'));
     caxis([-0.03,0.03]);
@@ -450,7 +451,7 @@ for curr_frame = 1:n_frames_plot
     title(sprintf('Deconv - %0.2fs',frame_t(plot_frames_idx(curr_frame))));
     axis image off;
     
-    subplot(2,n_frames_plot,n_frames_plot + curr_frame);
+    subplot(2,length(plot_frames_idx),length(plot_frames_idx) + curr_frame);
     imagesc(plot_frames_taskpred(:,:,curr_frame));
     colormap(crameri('cork'));
     caxis([-0.03,0.03]);
@@ -462,6 +463,21 @@ end
 % (draw lines on the ROI plot where the frames were taken from)
 frame_lines = arrayfun(@(x) line(fluor_axes,repmat(frame_t(x),1,2), ...
     ylim(fluor_axes),'color','k','linewidth',2),plot_frames_idx);
+
+
+% Plot ROIs
+figure; hold on
+set(gca,'YDir','reverse');
+AP_reference_outline('ccf_aligned','k');
+for curr_roi = plot_rois
+    curr_roi_boundary = cell2mat(bwboundaries(wf_roi(curr_roi).mask()));
+    patch(curr_roi_boundary(:,2),curr_roi_boundary(:,1),[0,0.8,0]);   
+    text(nanmean(curr_roi_boundary(:,2)),nanmean(curr_roi_boundary(:,1)), ...
+        wf_roi(curr_roi).area,'FontSize',12,'HorizontalAlignment','center')
+end
+axis image off;
+
+
 
 
 
