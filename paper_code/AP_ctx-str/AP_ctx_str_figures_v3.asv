@@ -199,7 +199,7 @@ for curr_frame = 1:n_frames_plot
     title(sprintf('Raw - %0.2fs',frame_t(plot_frames_idx(curr_frame))));
     axis image off;
     
-    subplot(3,n_frames_plot,n_frames_plot + curr_frame);
+    subplot(2,n_frames_plot,n_frames_plot + curr_frame);
     imagesc(plot_frames(:,:,curr_frame));
     colormap(crameri('cork'));
     caxis([-0.015,0.015]);
@@ -446,21 +446,24 @@ activity = interp1(frame_t,fVdf_deconv(use_components,:)',time_bin_centers)' - b
     AP_regresskernel(regressors,activity,sample_shifts, ...
     lambda,zs,cvfold,return_constant,use_constant);
 
-fluor_taskpred = interp1(time_bin_centers,fluor_taskpred_short',frame_t)' + baseline;
+fluor_taskpred = interp1(time_bin_centers,fluor_taskpred_short',frame_t)';
 
 
 % Plot ROIs and fluorescence of task->cortex regression
+figure;
 
 % (ROI fluorescence)
 roi_trace_taskpred = AP_svd_roi(aUdf(:,:,use_components),fluor_taskpred,[],[],cat(3,wf_roi.mask));
-axes(fluor_axes)
-AP_stackplot(roi_trace_taskpred(plot_rois,:)',frame_t,fluor_spacing,false,'b',{wf_roi(plot_rois).area});
+
+fluor_taskpred_axes = subplot(6,1,1:2); hold on;
+AP_stackplot(roi_trace_taskpred(plot_rois,:)',frame_t,fluor_spacing,false,[0,0.7,0],{wf_roi(plot_rois).area});
+xlim(fluor_taskpred_axes,plot_t);
 
 % (frames)
 plot_frames_taskpred = svdFrameReconstruct(aUdf(:,:,use_components),fluor_taskpred(:,plot_frames_idx));
-figure(wf_fig);
+
 for curr_frame = 1:n_frames_plot
-    subplot(3,n_frames_plot,n_frames_plot*2 + curr_frame);
+    subplot(6,n_frames_plot,n_frames_plot*2 + curr_frame);
     imagesc(plot_frames_taskpred(:,:,curr_frame));
     colormap(crameri('cork'));
     caxis([-0.015,0.015]);

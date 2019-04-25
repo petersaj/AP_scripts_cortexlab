@@ -26,9 +26,10 @@ end
 % Stack from top to bottom
 spacing_add = spacing*[size(x,2):-1:1];
 if ~zs
-    x_spaced = bsxfun(@plus,x,spacing_add);
+    x_spaced = x + spacing_add;
 elseif zs
-    x_spaced = bsxfun(@plus,zscore(x,[],1),spacing_add);
+    % (zscore ignoring nans)
+    x_spaced = (x-nanmean(x,1))./nanstd(x,[],1) + spacing_add;
 end
 
 if exist('color','var') && ~isempty(color)

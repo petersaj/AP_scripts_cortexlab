@@ -64,8 +64,6 @@ if any(curr_animal_idx)
         lambda = ctx_str_lambda(curr_animal_idx).best_lambda(curr_day_idx);
     end
 end
-warning('Overriding lambda');
-lambda = 10;
 
 % Regress fluorescence to spikes
 kernel_frames = round(regression_params.kernel_t(1)*sample_rate): ...

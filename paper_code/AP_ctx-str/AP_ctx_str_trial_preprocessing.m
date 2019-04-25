@@ -104,25 +104,16 @@ for protocol = protocols
             end
             
             binned_spikes_std = binned_spikes./nanstd(binned_spikes,[],2);
-            binned_spikes_std(isnan(binned_spikes_std)) = 0;
             
             %%% Regress MUA from cortex
             kernel_frames = floor(regression_params.kernel_t(1)*sample_rate): ...
                 ceil(regression_params.kernel_t(2)*sample_rate);
-            
-            %             [k,predicted_spikes,explained_var] = ...
-            %                 AP_regresskernel(dfVdf_resample, ...
-            %                 binned_spikes_std,kernel_frames,lambda, ...
-            %                 regression_params.zs,regression_params.cvfold, ...
-            %                 false,regression_params.use_constant);
-            
-            %%%% TESTING DECONV
+
             [k,ctxpred_spikes_std,explained_var] = ...
                 AP_regresskernel(fVdf_deconv_resample, ...
                 binned_spikes_std,kernel_frames,lambda, ...
                 regression_params.zs,regression_params.cvfold, ...
                 false,regression_params.use_constant);
-            %%%%
             
             % Reshape kernel and convert to pixel space
             r = reshape(k,length(regression_params.use_svs),length(kernel_frames),size(binned_spikes,1));
@@ -308,7 +299,6 @@ for curr_animal = 1:length(animals)
             binned_spikes(curr_depth,:) = histcounts(curr_spike_times,time_bins);
         end
         binned_spikes_std = binned_spikes./nanstd(binned_spikes,[],2);
-        binned_spikes_std(isnan(binned_spikes_std)) = 0;
         
         % Load lambda from previously estimated and saved
         lambda_fn = 'C:\Users\Andrew\OneDrive for Business\Documents\CarandiniHarrisLab\analysis\wf_ephys_choiceworld\ephys_processing\ctx-str_lambda';
@@ -560,7 +550,6 @@ for curr_animal = 1:length(animals)
         cvfold = 5;
         use_constant = false;
         return_constant = false;
-        
         
         % Regression task -> MUA
         baseline = nanmean(reshape(event_aligned_mua(:,t < 0,:),[], ...

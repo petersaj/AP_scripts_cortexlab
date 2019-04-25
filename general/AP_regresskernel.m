@@ -309,8 +309,8 @@ if length(regressors) > 1
         predicted_signals_partial(predictable_signals,predictable_samples,:,:)).^2,2);
     sse_residual_full = sum((signals(predictable_signals,predictable_samples) - ...
         predicted_signals(predictable_signals,predictable_samples,:)).^2,2);   
-    explained_var.partial = nan(size(signals,1),length(regressors));
-    explained_var.partial(predictable_signals,:) = ...
+    explained_var.partial = nan(size(signals,1),length(regressors),2);
+    explained_var.partial(predictable_signals,:,:) = ...
         permute(1 - (sse_residual_full./sse_residual_reduced),[1,3,4,2]);
 end
 

@@ -100,8 +100,8 @@ if ~new_alignment
         im_aligned(:,:,:,:,curr_day) = imwarp(curr_im,tform, ...
             'Outputview',imref2d([n_px_y,n_px_x]));
     end
-    % Squeeze any extra dimensions out
-    im_aligned = squeeze(im_aligned);
+    % Squeeze any extra dimensions out, cast to original data type
+    im_aligned = cast(squeeze(im_aligned),class(im_unaligned{curr_day}));
     
 end
 
