@@ -3773,13 +3773,13 @@ axis tight;
 line(repmat(lambda_cutoff,2,1),ylim,'linewidth',2);
 line(xlim,repmat(sqrt_expl_var_cutoff,2,1),'linewidth',2);
 
-% Set cutoff for explained variance, eliminate other experiments
-use_experiments = cellfun(@(x) sqrt(x) > sqrt_expl_var_cutoff,expl_vars,'uni',false);
-
-save_path = 'C:\Users\Andrew\OneDrive for Business\Documents\CarandiniHarrisLab\analysis\wf_ephys_choiceworld\experiment_exclusion';
-save_fn = 'expl_var_use_experiments';
-save([save_path filesep save_fn],'use_experiments');
-disp('Saved explained variance experiment cutoff');
+% % Set cutoff for explained variance, eliminate other experiments
+% use_experiments = cellfun(@(x) sqrt(x) > sqrt_expl_var_cutoff,expl_vars,'uni',false);
+% 
+% save_path = 'C:\Users\Andrew\OneDrive for Business\Documents\CarandiniHarrisLab\analysis\wf_ephys_choiceworld\experiment_exclusion';
+% save_fn = 'expl_var_use_experiments';
+% save([save_path filesep save_fn],'use_experiments');
+% disp('Saved explained variance experiment cutoff');
 
 %% Plot kernel matches
 

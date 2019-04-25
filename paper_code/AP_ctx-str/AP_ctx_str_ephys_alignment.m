@@ -208,19 +208,19 @@ for curr_animal = 1:length(animals)
     % (use only behavior days because cortical recordings afterwards)
     protocol = 'vanillaChoiceworld';
     experiments = AP_find_experiments(animal,protocol);
-    days = {experiments([experiments.imaging] & [experiments.ephys]).day};
+    experiments(~([experiments.imaging] & [experiments.ephys])) = [];
     if isempty(experiments)
         % (if no behavior days then it was a naive mouse - use passive expt)
         protocol = 'AP_choiceWorldStimPassive';
         experiments = AP_find_experiments(animal,protocol);
-        days = {experiments([experiments.imaging] & [experiments.ephys]).day};
+        experiments(~([experiments.imaging] & [experiments.ephys])) = [];
     end
 
     disp(animal); 
     
-    for curr_day = 1:length(days)
+    for curr_day = 1:length(experiments)
         
-        day = days{curr_day};
+        day = experiments(curr_day).day;
         
         % (to use only the main experiment)
         experiment = experiments(curr_day).experiment(end);
@@ -338,10 +338,7 @@ for curr_animal = 1:length(animals)
             k_px(:,:,:,curr_spikes) = ...
                 svdFrameReconstruct(Udf_aligned(:,:,regression_params.use_svs),k(:,:,curr_spikes));
         end
-        
-        % NaN-out depths with no spikes
-        k_px(:,:,:,~any(binned_spikes,2)) = NaN;
-        
+                
         % Keep kernel one frame (t == 0)
         k_px_frame = squeeze(k_px(:,:,kernel_frames == 0,:));
     
@@ -350,8 +347,8 @@ for curr_animal = 1:length(animals)
         ephys_kernel_depth(curr_animal).days{curr_day} = day;       
         ephys_kernel_depth(curr_animal).k_px{curr_day} = k_px_frame;
                
-        AP_print_progress_fraction(curr_day,length(days));
-        clearvars -except regression_params animals animal curr_animal days curr_day ephys_kernel_depth
+        AP_print_progress_fraction(curr_day,length(experiments));
+        clearvars -except regression_params animals animal curr_animal experiments curr_day ephys_kernel_depth
         
     end
     disp(['Finished ' animal]);

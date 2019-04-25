@@ -77,9 +77,7 @@ for protocol = protocols
                     lambda = ctx_str_lambda(curr_animal_idx).best_lambda(curr_day_idx);
                 end
             end
-            warning('Overriding lambda');
-            lambda = 5;
-            
+             
             %%% Prepare data for regression
             
             % Get time points to bin
@@ -868,11 +866,6 @@ for curr_animal = 1:length(animals)
             end
         end
         
-        %%%%% TEST
-        warning('OVERRIDING LAMBDA')
-        lambda = 5;
-        %%%%%%%
-        
         kernel_frames = round(regression_params.kernel_t(1)*sample_rate): ...
             round(regression_params.kernel_t(2)*sample_rate);
         
@@ -1121,12 +1114,7 @@ for curr_animal = 1:length(animals)
                 lambda = ctx_str_lambda(curr_animal_idx).best_lambda(curr_day_idx);
             end
         end
-        
-        %%%%% TEST
-        warning('OVERRIDING LAMBDA')
-        lambda = 5;
-        %%%%%%%
-        
+               
         kernel_frames = round(regression_params.kernel_t(1)*sample_rate): ...
             round(regression_params.kernel_t(2)*sample_rate);
         
@@ -1383,12 +1371,7 @@ for curr_animal = 1:length(animals)
                 lambda = ctx_str_lambda(curr_animal_idx).best_lambda(curr_day_idx);
             end
         end
-        
-        %%%%% TEST
-        warning('OVERRIDING LAMBDA')
-        lambda = 5;
-        %%%%%%%
-        
+                
         kernel_frames = round(regression_params.kernel_t(1)*sample_rate): ...
             round(regression_params.kernel_t(2)*sample_rate);
         
@@ -1639,12 +1622,7 @@ for curr_animal = 1:length(animals)
                 lambda = ctx_str_lambda(curr_animal_idx).best_lambda(curr_day_idx);
             end
         end
-        
-        %%%%% TEST
-        warning('OVERRIDING LAMBDA')
-        lambda = 5;
-        %%%%%%%
-        
+               
         kernel_frames = round(regression_params.kernel_t(1)*sample_rate): ...
             round(regression_params.kernel_t(2)*sample_rate);
         
@@ -2974,12 +2952,7 @@ for curr_animal = 1:length(animals)
                 lambda = ctx_str_lambda(curr_animal_idx).best_lambda(curr_day_idx);
             end
         end
-        
-        %%%%% TEST
-        warning('OVERRIDING LAMBDA')
-        lambda = 5;
-        %%%%%%%
-        
+          
         kernel_frames = round(regression_params.kernel_t(1)*sample_rate): ...
             round(regression_params.kernel_t(2)*sample_rate);
         

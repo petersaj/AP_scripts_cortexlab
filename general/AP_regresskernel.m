@@ -27,6 +27,10 @@ function [k,predicted_signals,explained_var,predicted_signals_reduced] = ...
 %                 .partial (2 columns: 1 = alone, 2 = omitted)
 % predicted_signals_reduced - predicted signals with reduced k
 %
+% NaN handling: signals with all NaNs are ignored, common NaNs across
+% signals are ignored, unique NaNs across signals gives an error (handling
+% this would require separate matrix divisions)
+%
 % NOTE IF GPU ERROR: 
 % The GPU is by default set to time out quickly if it can't update the
 % monitor because it's busy. If there is a GPU error, this time (TDR) can be
@@ -166,12 +170,21 @@ end
 
 % Regression (and cross validation if selected)
 
+% Check for NaNs: 
+% Any signals which are all NaN won't be regressed
+predictable_signals = ~all(isnan(signals),2);
+% If there are NaNs not shared across the remaining signals, error out
+if ~all(all(isnan(signals(predictable_signals,:)),1) | ...
+        all(~isnan(signals(predictable_signals,:)),1))
+    error('NaN values vary across signals')
+end
+    
 % Predictable samples: must have regressors, must have no nans in samples
-predictable_samples = any(regressor_design,2) & ~any(isnan(signals),1)';
+predictable_samples = any(regressor_design,2) & ~any(isnan(signals(predictable_signals,:)),1)';
 cv_partition = nan(size(regressor_design,1),1);
 cv_partition(predictable_samples) = round(linspace(1,cvfold,sum(predictable_samples)))';
 
-k_cv = zeros(size(regressors_gpu,2),size(signals,1),cvfold,'single');
+k_cv = nan(size(regressors_gpu,2),size(signals,1),cvfold,'single');
 predicted_signals = nan(size(signals));
 predicted_signals_reduced = nan(size(signals,1),size(signals,2),length(regressors));
 predicted_signals_partial = nan(size(signals,1),size(signals,2),length(regressors),2);
@@ -193,15 +206,15 @@ for curr_cv = 1:cvfold
     
     % Used to do manual inv(fluor_gpu'*fluor_gpu)*fluor_gpu'*spikes_gpu
     % but looks like \ works fine on GPU
-    k_cv(:,:,curr_cv) = ...
-        full(gather(regressors_gpu(train_idx,:)\signals_gpu(train_idx,:)));
+    k_cv(:,predictable_signals,curr_cv) = ...
+        full(gather(regressors_gpu(train_idx,:)\signals_gpu(train_idx,predictable_signals)));
     
     if sparse_regressors
-        predicted_signals(:,test_idx) = ...
-            full(regressors_gpu(test_idx,:)*sparse(double(k_cv(:,:,curr_cv))))';
+        predicted_signals(predictable_signals,test_idx) = ...
+            full(regressors_gpu(test_idx,:)*sparse(double(k_cv(:,predictable_signals,curr_cv))))';
     else
-        predicted_signals(:,test_idx) = ...
-            gather(regressors_gpu(test_idx,:)*gpuArray(k_cv(:,:,curr_cv)))';
+        predicted_signals(predictable_signals,test_idx) = ...
+            gather(regressors_gpu(test_idx,:)*gpuArray(k_cv(:,predictable_signals,curr_cv)))';
     end
     
     % Reduced predictions on test set for each regressor modality (if > 1)
@@ -226,14 +239,14 @@ for curr_cv = 1:cvfold
             if sparse_regressors
                 curr_predicted = ...
                     full(regressors_gpu(test_idx,regressor_omitted_idx{curr_regressor})* ...
-                    sparse(double(k_cv(regressor_omitted_idx{curr_regressor},:,curr_cv))));
+                    sparse(double(k_cv(regressor_omitted_idx{curr_regressor},predictable_signals,curr_cv))));
             else
                 curr_predicted = ...
                     gather(regressors_gpu(test_idx,regressor_omitted_idx{curr_regressor})* ...
-                    gpuArray(k_cv(regressor_omitted_idx{curr_regressor},:,curr_cv)));
+                    gpuArray(k_cv(regressor_omitted_idx{curr_regressor},predictable_signals,curr_cv)));
             end
             
-            predicted_signals_reduced(:,test_idx,curr_regressor) = ...
+            predicted_signals_reduced(predictable_signals,test_idx,curr_regressor) = ...
                 curr_predicted';
             
         end
@@ -253,7 +266,7 @@ for curr_cv = 1:cvfold
                
             k_cv_reduced = ...
                 full(gather(regressors_gpu(train_idx,regressor_split_idx{curr_regressor})\ ...
-                signals_gpu(train_idx,:)));
+                signals_gpu(train_idx,predictable_signals)));
                        
             if sparse_regressors
                 curr_predicted = ...
@@ -265,7 +278,7 @@ for curr_cv = 1:cvfold
                     gpuArray(k_cv_reduced));
             end
             
-            predicted_signals_partial(:,test_idx,curr_regressor,curr_partial) = ...
+            predicted_signals_partial(predictable_signals,test_idx,curr_regressor,curr_partial) = ...
                 curr_predicted';    
             
             end
@@ -274,21 +287,31 @@ for curr_cv = 1:cvfold
 end
 
 % Throw errors for bad numbers in kernel or predicted signals
-if any(isinf(k_cv(:))) || any(isinf(predicted_signals(:))) || ...
-        any(isnan(k_cv(:))) || any(any(isnan(predicted_signals(:,predictable_samples))))
+if ...
+        any(reshape(isnan(k_cv(:,predictable_signals,:)),[],1)) || ...
+        any(reshape(isnan(predicted_signals(predictable_signals,predictable_samples)),[],1)) || ...
+        any(reshape(isinf(k_cv(:,predictable_signals,:)),[],1)) || ...
+        any(reshape(isinf(predicted_signals(predictable_signals,:)),[],1)) ...
     error('Inf/NaN in kernel or predicted signal')
 end
 
 % Total explained variance (R^2)
-sse_residual = sum((signals(:,predictable_samples)-predicted_signals(:,predictable_samples)).^2,2);
-sse_total = sum((signals(:,predictable_samples)-nanmean(signals(:,predictable_samples),2)).^2,2);
-explained_var.total = 1 - (sse_residual./sse_total);
+sse_residual = sum((signals(predictable_signals,predictable_samples) - ...
+    predicted_signals(predictable_signals,predictable_samples)).^2,2);
+sse_total = sum((signals(predictable_signals,predictable_samples) - ...
+    nanmean(signals(predictable_signals,predictable_samples),2)).^2,2);
+explained_var.total = nan(size(signals,1),1);
+explained_var.total(predictable_signals) = 1 - (sse_residual./sse_total);
 
 % Partial (unique if exclusion) explained variance
 if length(regressors) > 1    
-    sse_residual_reduced = sum((signals(:,predictable_samples)-predicted_signals_partial(:,predictable_samples,:,:)).^2,2);
-    sse_residual_full = sum((signals(:,predictable_samples)-predicted_signals(:,predictable_samples,:)).^2,2);   
-    explained_var.partial = permute(1 - (sse_residual_full./sse_residual_reduced),[1,3,4,2]);
+    sse_residual_reduced = sum((signals(predictable_signals,predictable_samples) - ...
+        predicted_signals_partial(predictable_signals,predictable_samples,:,:)).^2,2);
+    sse_residual_full = sum((signals(predictable_signals,predictable_samples) - ...
+        predicted_signals(predictable_signals,predictable_samples,:)).^2,2);   
+    explained_var.partial = nan(size(signals,1),length(regressors));
+    explained_var.partial(predictable_signals,:) = ...
+        permute(1 - (sse_residual_full./sse_residual_reduced),[1,3,4,2]);
 end
 
 % Get the final k from averaging
