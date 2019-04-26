@@ -77,7 +77,7 @@ for protocol = protocols
                     lambda = ctx_str_lambda(curr_animal_idx).best_lambda(curr_day_idx);
                 end
             end
-             
+            
             %%% Prepare data for regression
             
             % Get time points to bin
@@ -108,7 +108,7 @@ for protocol = protocols
             %%% Regress MUA from cortex
             kernel_frames = floor(regression_params.kernel_t(1)*sample_rate): ...
                 ceil(regression_params.kernel_t(2)*sample_rate);
-
+            
             [k,ctxpred_spikes_std,explained_var] = ...
                 AP_regresskernel(fVdf_deconv_resample, ...
                 binned_spikes_std,kernel_frames,lambda, ...
@@ -273,6 +273,10 @@ for curr_animal = 1:length(animals)
             %                 curr_spikes = spike_times_timeline(depth_group == curr_depth & ...
             %                     ismember(spike_templates,find(msn)));
             
+            if isempty(curr_spikes)
+                continue
+            end
+            
             event_aligned_mua(:,:,curr_depth) = cell2mat(arrayfun(@(x) ...
                 histcounts(curr_spikes,t_bins(x,:)), ...
                 [1:size(t_peri_event,1)]','uni',false))./raster_sample_rate;
@@ -293,9 +297,14 @@ for curr_animal = 1:length(animals)
         fVdf_deconv(isnan(fVdf_deconv)) = 0;
         fVdf_deconv_resample = interp1(frame_t,fVdf_deconv',time_bin_centers)';
         
-        binned_spikes = zeros(n_depths,length(time_bin_centers));
+        % Bin spikes across the experiment
+        binned_spikes = nan(n_depths,length(time_bin_centers));
         for curr_depth = 1:n_depths
             curr_spike_times = spike_times_timeline(depth_group == curr_depth);
+            % Skip if no spikes at this depth
+            if isempty(curr_spike_times)
+                continue
+            end
             binned_spikes(curr_depth,:) = histcounts(curr_spike_times,time_bins);
         end
         binned_spikes_std = binned_spikes./nanstd(binned_spikes,[],2);
@@ -447,15 +456,13 @@ for curr_animal = 1:length(animals)
         
         % Stim center regressors (one for each stim when it's stopped during reward)
         unique_contrasts = unique(contrasts(contrasts > 0));
-        stim_contrasts = ...
-            signals_events.trialContrastValues(1:length(stimOn_times))';
         
         stim_center_regressors = zeros(length(unique_contrasts),length(time_bin_centers));
         for curr_contrast = 1:length(unique_contrasts)
             
             % (find the last photodiode flip before the reward)
             curr_stimOn_times = stimOn_times(trial_outcome(1:length(stimOn_times)) == 1 & ...
-                stim_contrasts == unique_contrasts(curr_contrast));
+                abs(stim_contrastsides) == unique_contrasts(curr_contrast));
             
             curr_reward_times = arrayfun(@(x) ...
                 reward_t_timeline(find(reward_t_timeline > ...
@@ -1103,7 +1110,7 @@ for curr_animal = 1:length(animals)
                 lambda = ctx_str_lambda(curr_animal_idx).best_lambda(curr_day_idx);
             end
         end
-               
+        
         kernel_frames = round(regression_params.kernel_t(1)*sample_rate): ...
             round(regression_params.kernel_t(2)*sample_rate);
         
@@ -1360,7 +1367,7 @@ for curr_animal = 1:length(animals)
                 lambda = ctx_str_lambda(curr_animal_idx).best_lambda(curr_day_idx);
             end
         end
-                
+        
         kernel_frames = round(regression_params.kernel_t(1)*sample_rate): ...
             round(regression_params.kernel_t(2)*sample_rate);
         
@@ -1611,7 +1618,7 @@ for curr_animal = 1:length(animals)
                 lambda = ctx_str_lambda(curr_animal_idx).best_lambda(curr_day_idx);
             end
         end
-               
+        
         kernel_frames = round(regression_params.kernel_t(1)*sample_rate): ...
             round(regression_params.kernel_t(2)*sample_rate);
         
@@ -2941,7 +2948,7 @@ for curr_animal = 1:length(animals)
                 lambda = ctx_str_lambda(curr_animal_idx).best_lambda(curr_day_idx);
             end
         end
-          
+        
         kernel_frames = round(regression_params.kernel_t(1)*sample_rate): ...
             round(regression_params.kernel_t(2)*sample_rate);
         

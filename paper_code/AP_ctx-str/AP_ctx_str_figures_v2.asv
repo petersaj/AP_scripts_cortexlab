@@ -632,25 +632,38 @@ sample_shifts = cellfun(@(x) round(x(1)*(sample_rate)): ...
     round(x(2)*(sample_rate)),t_shifts,'uni',false);
 t_shifts = cellfun(@(x) x/sample_rate,sample_shifts,'uni',false);
 
-% Normalize task > striatum kernels across experiments with mua_norm
-mua_taskpred_k_all_norm = cellfun(@(kernel_animal,mua_norm_animal) ...
-    cellfun(@(kernel_exp,mua_norm_exp) ...
-    cellfun(@(kernel_regressor) ...
-    kernel_regressor./(mua_norm_exp/sample_rate), ...
-    kernel_exp,'uni',false),kernel_animal,mua_norm_animal,'uni',false), ...
-    mua_taskpred_k_all,mua_norm,'uni',false);
+% Normalize task>striatum kernels (ridiculous loop makes it clearer to read)
+
+
+cellfun(@(r_a) cellfun(@(exp) cellfun(@(regressor), ...
+    regressor
+
+mua_taskpred_k_all_norm = {};
+for curr_animal = 1:length(mua_taskpred_k_all)
+    for curr_exp = 1:length(mua_taskpred_k_all{curr_animal})
+        for curr_regressor = 1:n_regressors
+            for curr_depth = 1:n_depths
+                mua_taskpred_k_all_norm{curr_animal}{curr_exp}{curr_regressor}(:,:,curr_depth) = ...
+                    mua_taskpred_k_all{curr_animal}{curr_exp}{curr_regressor}(:,:,curr_depth)./ ...
+                    ((1/sample_rate)*mua_norm{curr_animal}{curr_exp}(curr_depth));
+            end
+        end
+    end
+end
 
 % Average and concatenate task>striatum kernels within animals
-task_str_k_animal = cell(n_regressors,1);
+task_str_k_animal = cell(n_regressors,n_depths);
 for curr_animal = 1:length(mua_taskpred_k_all_norm)
     if isempty(mua_taskpred_k_all_norm{curr_animal})
         continue
     end
-    curr_k = cat(2,mua_taskpred_k_all_norm{curr_animal}{:});
-    for curr_regressor = 1:n_regressors
-        curr_k_mean = nanmean(cat(4,curr_k{curr_regressor,:}),4);        
-        task_str_k_animal{curr_regressor} = cat(4, ...
-            task_str_k_animal{curr_regressor},curr_k_mean);
+    curr_k = cat(3,mua_taskpred_k_all_norm{curr_animal}{:});
+    for curr_depth = 1:n_depths
+        for curr_regressor = 1:n_regressors
+            curr_k_mean = nanmean(cat(3,curr_k{curr_regressor,curr_depth,:}),3);
+            task_str_k_animal{curr_regressor,curr_depth} = cat(3, ...
+                task_str_k_animal{curr_regressor,curr_depth},curr_k_mean);
+        end
     end
 end
 
@@ -671,7 +684,7 @@ for curr_depth = 1:n_depths
         p(curr_depth,curr_regressor) = ...
             subplot(n_depths,n_regressors,curr_regressor+(curr_depth-1)*n_regressors);  
         
-        curr_kernels = squeeze(task_str_k_animal{curr_regressor}(:,:,curr_depth,:));
+        curr_kernels = task_str_k_animal{curr_regressor,curr_depth};
         for curr_subregressor = 1:n_subregressors
             AP_errorfill(t_shifts{curr_regressor}, ...
                 nanmean(curr_kernels(curr_subregressor,:,:),3), ...
