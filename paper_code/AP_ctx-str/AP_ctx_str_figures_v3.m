@@ -41,6 +41,8 @@ group_align = {stim_align,move_align,outcome_align};
 % Set areas and labels
 plot_areas = [1,7,9];
 area_labels = {wf_roi(plot_areas).area};
+% plot_areas = 1:4;
+% area_labels = {'1','2','3','4'};
 
 % Set activity percentiles and bins
 act_prctile = [10,90];
@@ -54,8 +56,10 @@ act_line_fig = figure;
 for curr_group = 1:length(group_labels)
     
     % (set allcat activity and predicted activity)
-    curr_act_allcat = fluor_roi_deconv;
-    curr_act_pred_allcat = fluor_roi_taskpred;
+        curr_act_allcat = fluor_roi_deconv;
+        curr_act_pred_allcat = fluor_roi_taskpred;
+%     curr_act_allcat = single(mua_allcat);
+%     curr_act_pred_allcat = single(mua_ctxpred_allcat);
     
     % (re-align and split activity)
     curr_act = mat2cell(...
