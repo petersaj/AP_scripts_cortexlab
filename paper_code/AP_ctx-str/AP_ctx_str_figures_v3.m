@@ -7,6 +7,23 @@
 
 % (this is addendum to AP_ctx_str_figures_v2, make comprehensive later)
 
+%% Load in task data
+
+% Load data
+data_fn = 'trial_activity_choiceworld';
+exclude_data = true;
+AP_load_concat_normalize_ctx_str;
+
+% Choose split for data
+trials_allcat = size(mua_allcat,1);
+trials_animal = arrayfun(@(x) size(vertcat(mua_all{x}{:}),1),1:size(mua_all));
+trials_recording = cellfun(@(x) size(x,1),vertcat(mua_all{:}));
+use_split = trials_animal;
+
+split_idx = cell2mat(arrayfun(@(exp,trials) repmat(exp,trials,1), ...
+    [1:length(use_split)]',reshape(use_split,[],1),'uni',false));
+
+
 %% Figure 1f: Cortical task-explained variance
 
 use_t = true(size(t));
@@ -83,7 +100,7 @@ title('Visual - zero');
 
 
 
-%% Figure 1: Example recordings
+%% Figure 1b: Example recordings
 
 animal = 'AP025'; 
 day = '2017-10-01'; 
@@ -482,7 +499,7 @@ axis image off;
 
 
 
-%% Figure 1: Task -> striatum unit regression
+%% Figure 1g-h: Task -> striatum unit regression (example and summary histogram)
 
 % Load the unit kernel results
 unit_kernel_dir = 'C:\Users\Andrew\OneDrive for Business\Documents\CarandiniHarrisLab\analysis\wf_ephys_choiceworld\choiceworld';
@@ -702,7 +719,11 @@ x_bounds = [10877,12010];
 xlim(p(1),x_bounds);
 
 
-%% Figure 3: Compare kernels with domain maps
+%% ~~~~~~~~~~~~~ UNUSED ~~~~~~~~~~~
+
+
+
+%% Compare kernels with domain maps
 
 % Load data
 data_fn = 'trial_activity_choiceworld';
