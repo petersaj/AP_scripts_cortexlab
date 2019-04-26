@@ -26,17 +26,6 @@ split_idx = cell2mat(arrayfun(@(exp,trials) repmat(exp,trials,1), ...
 
 %% Figure 1f (AND OTHERS?): Measured v predicted (task,ctx,str)
 
-% Split data
-mua_exp = mat2cell(mua_allcat,use_split,length(t),n_depths);
-mua_ctxpred_exp = mat2cell(mua_ctxpred_allcat,use_split,length(t),n_depths);
-mua_taskpred_exp = mat2cell(mua_taskpred_allcat,use_split,length(t),n_depths);
-
-fluor_roi_exp = mat2cell(fluor_roi_deconv,use_split,length(t),n_rois);
-fluor_roi_taskpred_exp = mat2cell(fluor_roi_taskpred,use_split,length(t),n_rois);
-
-trial_contrastside_allcat_exp = mat2cell(trial_contrastside_allcat,use_split);
-trial_choice_allcat_exp = mat2cell(trial_choice_allcat,use_split);
-
 % Set alignment shifts
 t_leeway = -t(1);
 leeway_samples = round(t_leeway*(sample_rate));
@@ -50,11 +39,15 @@ group_t = {[0.05,0.15],[-0.05,0.05],[0,0.1]};
 group_align = {stim_align,move_align,outcome_align};
 
 % Set activity percentiles and bins
+plot_rois = [1,7,9];
 act_prctile = [10,90];
 n_act_bins = 10;
 
-figure;
-
+% Plot binned predicted v measured activity
+act_v_pred_fig = figure;
+act_fig = figure; 
+act_pred_fig = figure;
+act_line_fig = figure;
 for curr_group = 1:length(group_labels)
     
     % (set allcat activity and predicted activity)
@@ -109,7 +102,7 @@ for curr_group = 1:length(group_labels)
         curr_act_pred_avg_zs,trial_bins,use_trials,'uni',false),[2,3,1]));
     
     % Plot binned predicted v measured
-    plot_rois = [1,3,7,9];
+    figure(act_v_pred_fig);
     subplot(1,length(trial_groups),curr_group); hold on;
     set(gca,'ColorOrder',copper(length(plot_rois)));
     errorbar(nanmean(act_binmean(:,plot_rois,:),3), ...
@@ -124,7 +117,59 @@ for curr_group = 1:length(group_labels)
     legend({wf_roi(plot_rois).area},'location','northwest');
     title(group_labels{curr_group});
     
+    % Plot sorted activity and predicted activity
+    [~,sort_idx] = sort(move_idx);
+    figure(act_fig);
+    for curr_roi_idx = 1:length(plot_rois)
+        curr_roi = plot_rois(curr_roi_idx);
+        subplot(length(plot_rois),length(group_labels), ...
+            sub2ind(fliplr([length(plot_rois),length(group_labels)]),curr_group,curr_roi_idx));
+        curr_act_recat = cell2mat(curr_act);      
+        imagesc(t,[],curr_act_recat(sort_idx,:,curr_roi));
+        line([0,0],ylim,'color','k');
+        caxis([-max(abs(caxis)),max(abs(caxis))]);
+        colormap(crameri('cork'));
+        title([group_labels{curr_group} ' ' wf_roi(curr_roi).area]);
+        ylabel('Trial (rxn sorted)');
+        xlabel('Time (s)');     
+    end
+    
+    figure(act_pred_fig);
+    for curr_roi_idx = 1:length(plot_rois)
+        curr_roi = plot_rois(curr_roi_idx);
+        subplot(length(plot_rois),length(group_labels), ...
+            sub2ind(fliplr([length(plot_rois),length(group_labels)]),curr_group,curr_roi_idx));
+        curr_act_pred_recat = cell2mat(curr_act_pred);      
+        imagesc(t,[],curr_act_pred_recat(sort_idx,:,curr_roi));
+        line([0,0],ylim,'color','k');
+        caxis([-max(abs(caxis)),max(abs(caxis))]);
+        colormap(crameri('cork'));
+        title([group_labels{curr_group} ' ' wf_roi(curr_roi).area]);
+        ylabel('Trial (rxn sorted)');
+        xlabel('Time (s)');     
+    end
+    
+    % Plot average timecourse
+    figure(act_line_fig);
+    for curr_roi_idx = 1:length(plot_rois)
+        curr_roi = plot_rois(curr_roi_idx);
+        subplot(length(plot_rois),length(group_labels), ...
+            sub2ind(fliplr([length(plot_rois),length(group_labels)]),curr_group,curr_roi_idx));
+        hold on;
+        curr_act_recat = cell2mat(curr_act);
+        curr_act_pred_recat = cell2mat(curr_act_pred);
+        plot(t,nanmean(curr_act_recat(:,:,curr_roi),1),'linewidth',2,'color',[0,0.7,0]);
+        plot(t,nanmean(curr_act_pred_recat(:,:,curr_roi),1),'linewidth',2,'color',[0,0,0.8]);
+        line([0,0],ylim,'color','k');
+        title([group_labels{curr_group} ' ' wf_roi(curr_roi).area]);
+        ylabel('Average activity');
+        xlabel('Time (s)');    
+    end
+    
 end
+
+
+
 
 
 
