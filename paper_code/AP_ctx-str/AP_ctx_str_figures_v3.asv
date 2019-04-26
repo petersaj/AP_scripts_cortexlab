@@ -40,14 +40,14 @@ trial_choice_allcat_exp = mat2cell(trial_choice_allcat,use_split);
 % Set alignment shifts
 t_leeway = -t(1);
 leeway_samples = round(t_leeway*(sample_rate));
-stim_align_exp = cellfun(@(x) zeros(x,1),num2cell(use_split)','uni',false);
-move_align_exp = mat2cell(-move_idx + leeway_samples,use_split,1);
-outcome_align_exp = mat2cell(-outcome_idx + leeway_samples,use_split,1);
+stim_align = zeros(size(trial_contrast_allcat));
+move_align = -move_idx+leeway_samples;
+outcome_align = -outcome_idx + leeway_samples;
 
 % Set windows to average activity
-trial_groups = {'Stim','Move onset','Outcome'};
-t_event = {[0.05,0.15],[-0.05,0.05],[0,0.1]};
-t_align = {stim_align_exp,move_align_exp,outcome_align_exp};
+group_labels = {'Stim','Move onset','Outcome'};
+group_t = {[0.05,0.15],[-0.05,0.05],[0,0.1]};
+group_align = {stim_align,move_align,outcome_align};
 
 % Set activity percentiles and bins
 act_prctile = [10,90];
@@ -55,25 +55,33 @@ n_act_bins = 10;
 
 figure;
 
-for curr_group = 1:length(trial_groups)
+for curr_group = 1:length(group_labels)
     
+    % (set allcat activity and predicted activity)
+    curr_act_allcat = fluor_roi_deconv;
+    curr_act_pred_allcat = fluor_roi_taskpred;
     
-%%%%% SET ALIGNMENT
-t_leeway = -t(1);
-leeway_samples = round(t_leeway*(sample_rate));
-for i = 1:size(curr_mua,1)
-    curr_mua(i,:,:) = circshift(curr_mua(i,:,:),-move_idx_exp{curr_exp}(i)+leeway_samples,2);
-    curr_mua_ctx(i,:,:) = circshift(curr_mua_ctx(i,:,:),-move_idx_exp{curr_exp}(i)+leeway_samples,2);
-end
+    % (re-align and split activity)
+    curr_act_realigned = ...
+        cell2mat(arrayfun(@(trial) circshift(curr_act_allcat(trial,:,:), ...
+        group_align{curr_group}(trial),2),transpose(1:size(curr_act,1)),'uni',false));
+    
+    curr_act_predrealigned = ...
+        cell2mat(arrayfun(@(trial) circshift(curr_act_pred_allcat(trial,:,:), ...
+        group_align{curr_group}(trial),2),transpose(1:size(curr_act,1)),'uni',false));
+    
     
     % (set and align activity and predicted activity)
-    cellfun(@(x) arrayfun(@(x) 
+    curr_act = cellfun(@(act,align) single(cell2mat(arrayfun(@(trial) ...
+        circshift(act(trial,:,:),align(trial),2),transpose(1:size(act,1)),'uni',false))), ...
+        fluor_roi_exp,group_align{curr_group},'uni',false);
     
-    curr_act = fluor_roi_exp;
-    curr_act_pred = fluor_roi_taskpred_exp;
+    curr_act_pred = cellfun(@(act,align) single(cell2mat(arrayfun(@(trial) ...
+        circshift(act(trial,:,:),align(trial),2),transpose(1:size(act,1)),'uni',false))), ...
+        fluor_roi_taskpred_exp,group_align{curr_group},'uni',false);
     
     % (get average activity within window)
-    curr_event_t = t > t_event{curr_group}(1) & t < t_event{curr_group}(2);
+    curr_event_t = t > group_t{curr_group}(1) & t < group_t{curr_group}(2);
     curr_act_avg = cellfun(@(x) squeeze(nanmean(x(:,curr_event_t,:),2)),curr_act,'uni',false);
     curr_act_pred_avg = cellfun(@(x) squeeze(nanmean(x(:,curr_event_t,:),2)),curr_act_pred,'uni',false);
     
@@ -122,6 +130,7 @@ end
     xlabel('Measured activity (z-scored)')
     ylabel('Task-predicted activity (z-scored)');
     legend({wf_roi(plot_rois).area},'location','northwest');
+    title(group_labels{curr_group});
     
 end
 
