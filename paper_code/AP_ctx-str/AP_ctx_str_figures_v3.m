@@ -28,7 +28,9 @@ split_idx = cell2mat(arrayfun(@(exp,trials) repmat(exp,trials,1), ...
 
 % (SOMETHING'S WEIRD HERE)
 % the predicted v measured for task > str or ctx > str looks great, but
-% task > ctx roi looks bad??
+% task > ctx roi looks bad?? It looks like it's off by a slope of exactly
+% 2?? Is it possible this happens during ROI generation in loading? 
+% (I don't think so because looks present in V's also)
 
 
 % Set alignment shifts
@@ -61,10 +63,11 @@ act_line_fig = figure;
 for curr_group = 1:length(group_labels)
     
     % (set allcat activity and predicted activity)
-        curr_act_allcat = fluor_roi_deconv;
-        curr_act_pred_allcat = fluor_roi_taskpred;
+    curr_act_allcat = fluor_roi_deconv;
+    curr_act_pred_allcat = fluor_roi_taskpred;
 %     curr_act_allcat = single(mua_allcat);
 %     curr_act_pred_allcat = single(mua_ctxpred_allcat);
+
     
     % (re-align and split activity)
     curr_act = mat2cell(...
