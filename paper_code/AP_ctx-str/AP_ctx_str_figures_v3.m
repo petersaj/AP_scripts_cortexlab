@@ -223,6 +223,8 @@ end
 
 
 
+
+
 %% Figure 1b: Example recordings
 
 animal = 'AP025'; 
