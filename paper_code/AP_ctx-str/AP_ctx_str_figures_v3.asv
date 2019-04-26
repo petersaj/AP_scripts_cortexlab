@@ -45,9 +45,9 @@ move_align_exp = mat2cell(-move_idx + leeway_samples,use_split,1);
 outcome_align_exp = mat2cell(-outcome_idx + leeway_samples,use_split,1);
 
 % Set windows to average activity
-group_labels = {'Stim','Move onset','Outcome'};
-group_t = {[0.05,0.15],[-0.05,0.05],[0,0.1]};
-group_align = {stim_align_exp,move_align_exp,outcome_align_exp};
+trial_groups = {'Stim','Move onset','Outcome'};
+t_event = {[0.05,0.15],[-0.05,0.05],[0,0.1]};
+t_align = {stim_align_exp,move_align_exp,outcome_align_exp};
 
 % Set activity percentiles and bins
 act_prctile = [10,90];
@@ -55,19 +55,25 @@ n_act_bins = 10;
 
 figure;
 
-for curr_group = 1:length(group_labels)
+for curr_group = 1:length(trial_groups)
+    
+    
+%%%%% SET ALIGNMENT
+t_leeway = -t(1);
+leeway_samples = round(t_leeway*(sample_rate));
+for i = 1:size(curr_mua,1)
+    curr_mua(i,:,:) = circshift(curr_mua(i,:,:),-move_idx_exp{curr_exp}(i)+leeway_samples,2);
+    curr_mua_ctx(i,:,:) = circshift(curr_mua_ctx(i,:,:),-move_idx_exp{curr_exp}(i)+leeway_samples,2);
+end
     
     % (set and align activity and predicted activity)
-    curr_act = cellfun(@(act,align) single(cell2mat(arrayfun(@(trial) ...
-        circshift(act(trial,:,:),align(trial),2),transpose(1:size(act,1)),'uni',false))), ...
-        fluor_roi_exp,group_align{curr_group},'uni',false);
+    cellfun(@(x) arrayfun(@(x) 
     
-    curr_act_pred = cellfun(@(act,align) single(cell2mat(arrayfun(@(trial) ...
-        circshift(act(trial,:,:),align(trial),2),transpose(1:size(act,1)),'uni',false))), ...
-        fluor_roi_taskpred_exp,group_align{curr_group},'uni',false);
+    curr_act = fluor_roi_exp;
+    curr_act_pred = fluor_roi_taskpred_exp;
     
     % (get average activity within window)
-    curr_event_t = t > group_t{curr_group}(1) & t < group_t{curr_group}(2);
+    curr_event_t = t > t_event{curr_group}(1) & t < t_event{curr_group}(2);
     curr_act_avg = cellfun(@(x) squeeze(nanmean(x(:,curr_event_t,:),2)),curr_act,'uni',false);
     curr_act_pred_avg = cellfun(@(x) squeeze(nanmean(x(:,curr_event_t,:),2)),curr_act_pred,'uni',false);
     

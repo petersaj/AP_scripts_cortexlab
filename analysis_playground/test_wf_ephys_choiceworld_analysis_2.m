@@ -3484,7 +3484,7 @@ for curr_animal = 1:length(animals)
 end
 
 save_path = 'C:\Users\Andrew\OneDrive for Business\Documents\CarandiniHarrisLab\analysis\wf_ephys_choiceworld\choiceworld';
-save_fn = 'unit_kernel_all_triaged.mat';
+save_fn = 'unit_kernel_all.mat';
 save([save_path filesep save_fn],'unit_kernel_all');
 
 %% Plot single unit kernel explained variance
