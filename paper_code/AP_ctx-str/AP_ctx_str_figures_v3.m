@@ -38,8 +38,11 @@ group_labels = {'Stim','Move onset','Outcome'};
 group_t = {[0.05,0.15],[-0.05,0.05],[0,0.1]};
 group_align = {stim_align,move_align,outcome_align};
 
+% Set areas and labels
+plot_areas = [1,7,9];
+area_labels = {wf_roi(plot_areas).area};
+
 % Set activity percentiles and bins
-plot_rois = [1,7,9];
 act_prctile = [10,90];
 n_act_bins = 10;
 
@@ -104,73 +107,69 @@ for curr_group = 1:length(group_labels)
     % Plot binned predicted v measured
     figure(act_v_pred_fig);
     subplot(1,length(trial_groups),curr_group); hold on;
-    set(gca,'ColorOrder',copper(length(plot_rois)));
-    errorbar(nanmean(act_binmean(:,plot_rois,:),3), ...
-        nanmean(act_pred_binmean(:,plot_rois,:),3), ...
-        AP_sem(act_pred_binmean(:,plot_rois,:),3),'linewidth',2);
+    set(gca,'ColorOrder',copper(length(plot_areas)));
+    errorbar(nanmean(act_binmean(:,plot_areas,:),3), ...
+        nanmean(act_pred_binmean(:,plot_areas,:),3), ...
+        AP_sem(act_pred_binmean(:,plot_areas,:),3),'linewidth',2);
     [plot_min,plot_max] = bounds([xlim,ylim]);
     xlim([plot_min,plot_max]);ylim([plot_min,plot_max]);
     axis square
     line(xlim,xlim,'color','k','linestyle','--');
     xlabel('Measured activity (z-scored)')
     ylabel('Task-predicted activity (z-scored)');
-    legend({wf_roi(plot_rois).area},'location','northwest');
+    legend(area_labels,'location','northwest');
     title(group_labels{curr_group});
     
     % Plot sorted activity and predicted activity
     [~,sort_idx] = sort(move_idx);
     figure(act_fig);
-    for curr_roi_idx = 1:length(plot_rois)
-        curr_roi = plot_rois(curr_roi_idx);
-        subplot(length(plot_rois),length(group_labels), ...
-            sub2ind(fliplr([length(plot_rois),length(group_labels)]),curr_group,curr_roi_idx));
+    for curr_area_idx = 1:length(plot_areas)
+        curr_area = plot_areas(curr_area_idx);
+        subplot(length(plot_areas),length(group_labels), ...
+            sub2ind(fliplr([length(plot_areas),length(group_labels)]),curr_group,curr_area_idx));
         curr_act_recat = cell2mat(curr_act);      
-        imagesc(t,[],curr_act_recat(sort_idx,:,curr_roi));
+        imagesc(t,[],curr_act_recat(sort_idx,:,curr_area));
         line([0,0],ylim,'color','k');
         caxis([-max(abs(caxis)),max(abs(caxis))]);
         colormap(crameri('cork'));
-        title([group_labels{curr_group} ' ' wf_roi(curr_roi).area]);
+        title([group_labels{curr_group} ' ' area_labels{curr_area_idx}]);
         ylabel('Trial (rxn sorted)');
         xlabel('Time (s)');     
     end
     
     figure(act_pred_fig);
-    for curr_roi_idx = 1:length(plot_rois)
-        curr_roi = plot_rois(curr_roi_idx);
-        subplot(length(plot_rois),length(group_labels), ...
-            sub2ind(fliplr([length(plot_rois),length(group_labels)]),curr_group,curr_roi_idx));
+    for curr_area_idx = 1:length(plot_areas)
+        curr_area = plot_areas(curr_area_idx);
+        subplot(length(plot_areas),length(group_labels), ...
+            sub2ind(fliplr([length(plot_areas),length(group_labels)]),curr_group,curr_area_idx));
         curr_act_pred_recat = cell2mat(curr_act_pred);      
-        imagesc(t,[],curr_act_pred_recat(sort_idx,:,curr_roi));
+        imagesc(t,[],curr_act_pred_recat(sort_idx,:,curr_area));
         line([0,0],ylim,'color','k');
         caxis([-max(abs(caxis)),max(abs(caxis))]);
         colormap(crameri('cork'));
-        title([group_labels{curr_group} ' ' wf_roi(curr_roi).area]);
+        title([group_labels{curr_group} ' ' area_labels{curr_area_idx}]);
         ylabel('Trial (rxn sorted)');
         xlabel('Time (s)');     
     end
     
     % Plot average timecourse
     figure(act_line_fig);
-    for curr_roi_idx = 1:length(plot_rois)
-        curr_roi = plot_rois(curr_roi_idx);
-        subplot(length(plot_rois),length(group_labels), ...
-            sub2ind(fliplr([length(plot_rois),length(group_labels)]),curr_group,curr_roi_idx));
+    for curr_area_idx = 1:length(plot_areas)
+        curr_area = plot_areas(curr_area_idx);
+        subplot(length(plot_areas),length(group_labels), ...
+            sub2ind(fliplr([length(plot_areas),length(group_labels)]),curr_group,curr_area_idx));
         hold on;
         curr_act_recat = cell2mat(curr_act);
         curr_act_pred_recat = cell2mat(curr_act_pred);
-        plot(t,nanmean(curr_act_recat(:,:,curr_roi),1),'linewidth',2,'color',[0,0.7,0]);
-        plot(t,nanmean(curr_act_pred_recat(:,:,curr_roi),1),'linewidth',2,'color',[0,0,0.8]);
+        plot(t,nanmean(curr_act_recat(:,:,curr_area),1),'linewidth',2,'color',[0,0.7,0]);
+        plot(t,nanmean(curr_act_pred_recat(:,:,curr_area),1),'linewidth',2,'color',[0,0,0.8]);
         line([0,0],ylim,'color','k');
-        title([group_labels{curr_group} ' ' wf_roi(curr_roi).area]);
+        title([group_labels{curr_group} ' ' area_labels{curr_area_idx}]);
         ylabel('Average activity');
         xlabel('Time (s)');    
     end
     
 end
-
-
-
-
 
 
 
