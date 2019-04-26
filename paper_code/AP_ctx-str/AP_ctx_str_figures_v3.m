@@ -26,6 +26,11 @@ split_idx = cell2mat(arrayfun(@(exp,trials) repmat(exp,trials,1), ...
 
 %% Figure 1f (AND OTHERS?): Measured v predicted (task,ctx,str)
 
+% (SOMETHING'S WEIRD HERE)
+% the predicted v measured for task > str or ctx > str looks great, but
+% task > ctx roi looks bad??
+
+
 % Set alignment shifts
 t_leeway = -t(1);
 leeway_samples = round(t_leeway*(sample_rate));
@@ -175,6 +180,46 @@ for curr_group = 1:length(group_labels)
     
 end
 
+
+
+% Plot regression examples
+figure;
+for curr_area_idx = 1:length(plot_areas)
+    
+    curr_area = plot_areas(curr_area_idx);
+    
+    % Set current data (pad trials with NaNs for spacing)
+    n_pad = 10;
+    curr_act_allcat_pad = padarray(curr_act_allcat(:,:,curr_area),[0,n_pad],NaN,'post');
+    curr_act_pred_allcat_pad = padarray(curr_act_pred_allcat(:,:,curr_area),[0,n_pad],NaN,'post');
+    nan_samples = isnan(curr_act_allcat_pad) | isnan(curr_act_pred_allcat_pad);
+
+    % Smooth
+    smooth_filt = ones(1,3)./3;
+    curr_act_allcat_pad = conv2(curr_act_allcat_pad,smooth_filt,'same');
+    curr_act_pred_allcat_pad = conv2(curr_act_pred_allcat_pad,smooth_filt,'same');
+    
+    % Set common NaNs for R^2    
+    curr_data_nonan = curr_act_allcat_pad; 
+    curr_data_nonan(nan_samples) = NaN;
+    
+    curr_pred_data_nonan = curr_act_pred_allcat_pad; 
+    curr_act_pred_allcat_pad(nan_samples) = NaN; 
+    
+    % Get squared error for each trial
+    trial_r2 = 1 - (nansum((curr_data_nonan-curr_pred_data_nonan).^2,2)./ ...
+        nansum((curr_data_nonan-nanmean(curr_data_nonan,2)).^2,2));
+    
+    [~,trial_r2_rank] = sort(trial_r2);
+    
+    plot_prctiles = round(prctile(1:length(trial_r2),linspace(25,75,20)));
+    plot_trials = trial_r2_rank(plot_prctiles);
+    
+    subplot(length(plot_areas),1,curr_area_idx); hold on;
+    plot(reshape(curr_act_allcat_pad(plot_trials,:)',[],1),'k');
+    plot(reshape(curr_act_pred_allcat_pad(plot_trials,:)',[],1),'b');
+    
+end
 
 
 
