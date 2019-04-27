@@ -5223,13 +5223,13 @@ str_ctx_trial_conditions = ...
     [trial_outcome_allcat == 1, trial_outcome_allcat == -1]};
 
 % Loop across area pairs, plot binned predicted v measured activity
-for curr_str_ctx = 4:length(plot_str_ctx)
+for curr_str_ctx = 1:length(plot_str_ctx)
     
     plot_str = plot_str_ctx{curr_str_ctx}(1);
     plot_ctx = plot_str_ctx{curr_str_ctx}(2);
     trial_conditions = str_ctx_trial_conditions{curr_str_ctx};
     
-    str_v_ctx_fig = figure;
+    str_v_ctx_fig = figure('color','w');
     for curr_mua = 1:3
         
         % (set striatum activity to use)
