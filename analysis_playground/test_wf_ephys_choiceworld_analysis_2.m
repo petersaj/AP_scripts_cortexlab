@@ -5226,15 +5226,24 @@ for curr_mua = 1:3
     switch curr_mua
         case 1
 %             curr_str_act_allcat = single(mua_allcat);
-            curr_str_act_allcat = single(mua_allcat - mua_taskpred_reduced_allcat(:,:,:,1));
+
+            curr_str_act_reduced = mua_taskpred_reduced_allcat(:,:,:,1);
+            curr_str_act_reduced(isnan(curr_str_act_reduced)) = 0;
+            curr_str_act_allcat = single(mua_allcat - curr_str_act_reduced);
             mua_label = 'Measured';
         case 2
 %             curr_str_act_allcat = single(mua_taskpred_allcat);
-            curr_str_act_allcat = single(mua_taskpred_allcat - mua_taskpred_reduced_allcat(:,:,:,1));
+
+            curr_str_act_reduced = mua_taskpred_reduced_allcat(:,:,:,1);
+            curr_str_act_reduced(isnan(curr_str_act_reduced)) = 0;
+            curr_str_act_allcat = single(mua_taskpred_allcat - curr_str_act_reduced);
             mua_label = 'Task-pred';
         case 3
 %             curr_str_act_allcat = single(mua_ctxpred_allcat);
-            curr_str_act_allcat = single(mua_ctxpred_allcat - mua_ctxpred_taskpred_reduced_allcat(:,:,:,1));
+
+            curr_str_act_reduced = mua_ctxpred_taskpred_reduced_allcat(:,:,:,1);
+            curr_str_act_reduced(isnan(curr_str_act_reduced)) = 0;
+            curr_str_act_allcat = single(mua_ctxpred_allcat - curr_str_act_reduced);
             mua_label = 'Ctx-pred';
     end
     
@@ -5242,7 +5251,9 @@ for curr_mua = 1:3
         
         % (set cortex activity to use)
 %         curr_ctx_act_allcat = fluor_roi_deconv;
-        curr_ctx_act_allcat = fluor_roi_deconv - fluor_roi_taskpred_reduced(:,:,:,1);
+        curr_ctx_act_reduced = fluor_roi_taskpred_reduced(:,:,:,1);
+        curr_ctx_act_reduced(isnan(curr_ctx_reduced)) = 0;
+        curr_ctx_act_allcat = fluor_roi_deconv - curr_ctx_act_reduced;
         
         % (set trials to use for each context)
 %         trial_conditions = ...

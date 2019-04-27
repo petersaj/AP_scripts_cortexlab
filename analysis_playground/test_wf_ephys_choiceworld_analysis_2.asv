@@ -5225,31 +5225,26 @@ for curr_mua = 1:3
     % (set striatum activity to use) 
     switch curr_mua
         case 1
-            curr_str_act_allcat = single(mua_allcat);
-%             curr_str_act_allcat = single(mua_allcat - mua_taskpred_reduced_allcat(:,:,:,1));
+%             curr_str_act_allcat = single(mua_allcat);
+            curr_str_act_allcat = single(mua_allcat - mua_taskpred_reduced_allcat(:,:,:,1));
             mua_label = 'Measured';
         case 2
-            curr_str_act_allcat = single(mua_taskpred_allcat);
-%             curr_str_act_allcat = single(mua_taskpred_allcat - mua_taskpred_reduced_allcat(:,:,:,1));
+%             curr_str_act_allcat = single(mua_taskpred_allcat);
+            curr_str_act_allcat = single(mua_taskpred_allcat - mua_taskpred_reduced_allcat(:,:,:,1));
             mua_label = 'Task-pred';
         case 3
-            curr_str_act_allcat = single(mua_ctxpred_allcat);
-%             curr_str_act_allcat = single(mua_ctxpred_allcat - mua_ctxpred_taskpred_reduced_allcat(:,:,:,1));
+%             curr_str_act_allcat = single(mua_ctxpred_allcat);
+            curr_str_act_allcat = single(mua_ctxpred_allcat - mua_ctxpred_taskpred_reduced_allcat(:,:,:,1));
             mua_label = 'Ctx-pred';
     end
     
     for curr_group = 1:length(group_labels)
         
         % (set cortex activity to use)
-        curr_ctx_act_allcat = fluor_roi_deconv;
-%         curr_ctx_act_allcat = fluor_roi_deconv - fluor_roi_taskpred_reduced(:,:,:,1);
-
-        % TESTING: NORMALIZE ROI ACTIVITY BY DAY?
-        warning('testing ROI norm')
-        a = cell2mat(cellfun(@(x) repmat(nanstd(reshape(x,[],1,n_rois),[],1),size(x,1),1), ...
-        mat2cell(fluor_roi_deconv,trials_recording,length(t),n_rois),'uni',false));
-    curr_ctx_act_allcat = 
-
+%         curr_ctx_act_allcat = fluor_roi_deconv;
+        curr_ctx_reduced = fluor_roi_taskpred_reduced(:,:,:,1);
+        curr_ctx_reduced(isnan(curr_ctx)
+        curr_ctx_act_allcat = fluor_roi_deconv - fluor_roi_taskpred_reduced(:,:,:,1);
         
         % (set trials to use for each context)
 %         trial_conditions = ...
