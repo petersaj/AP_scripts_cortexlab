@@ -5211,37 +5211,46 @@ group_t = {[-0.2,-0.1],[0.05,0.15],[-0.05,0.05]};
 group_align = {stim_align,stim_align,move_align,outcome_align};
 
 % Set areas and labels
-plot_str = 1;
-plot_ctx = 3;
+plot_str = 2;
+plot_ctx = 7;
 
 % Set activity percentiles and bins
 act_prctile = [20,80];
-n_act_bins = 8;
+n_act_bins = 5;
 
 % Plot binned predicted v measured activity
 str_v_ctx_fig = figure;
 for curr_mua = 1:3
+    
+    % (set striatum activity to use) 
     switch curr_mua
         case 1
             curr_str_act_allcat = single(mua_allcat);
+%             curr_str_act_allcat = single(mua_allcat - mua_taskpred_reduced_allcat(:,:,:,1));
             mua_label = 'Measured';
         case 2
             curr_str_act_allcat = single(mua_taskpred_allcat);
+%             curr_str_act_allcat = single(mua_taskpred_allcat - mua_taskpred_reduced_allcat(:,:,:,1));
             mua_label = 'Task-pred';
         case 3
             curr_str_act_allcat = single(mua_ctxpred_allcat);
+%             curr_str_act_allcat = single(mua_ctxpred_allcat - mua_ctxpred_taskpred_reduced_allcat(:,:,:,1));
             mua_label = 'Ctx-pred';
     end
     
     for curr_group = 1:length(group_labels)
         
-        % (set allcat activity and predicted activity)
-        curr_ctx_act_allcat = fluor_roi_deconv;        
+        % (set cortex activity to use)
+        curr_ctx_act_allcat = fluor_roi_deconv;
+%         curr_ctx_act_allcat = fluor_roi_deconv - fluor_roi_taskpred_reduced(:,:,:,1);
         
         % (set trials to use for each context)
+%         trial_conditions = ...
+%             [sign(trial_contrastside_allcat) == 1, ...
+%             sign(trial_contrastside_allcat) == -1];
         trial_conditions = ...
-            [sign(trial_contrastside_allcat) == 1, ...
-            sign(trial_contrastside_allcat) == -1];
+            [trial_choice_allcat == -1, ...
+            trial_choice_allcat == 1];
         trial_conditions_exp = mat2cell(trial_conditions,use_split,size(trial_conditions,2));
         
         % (re-align and split activity)
@@ -5261,7 +5270,7 @@ for curr_mua = 1:3
         curr_str_act_avg = cellfun(@(x) squeeze(nanmean(x(:,curr_event_t,:),2)),curr_str_act,'uni',false);
         
         % (bin measured data across percentile range)
-        bin_range = prctile(cell2mat(cellfun(@(x) x(:),curr_ctx_act_avg,'uni',false)),act_prctile);
+        bin_range = prctile(cell2mat(cellfun(@(x) x(:,plot_ctx),curr_ctx_act_avg,'uni',false)),act_prctile);
         bin_edges = linspace(bin_range(1),bin_range(2),n_act_bins+1);
         bin_centers = bin_edges(1:end-1) + diff(bin_edges)./2;
         
@@ -5281,7 +5290,7 @@ for curr_mua = 1:3
             act(use_trials(:,area) & trial_cond(:,condition),area), ...
             [n_act_bins,1],@nanmean,single(NaN)), 1:size(act,2),'uni',false)), ...
             curr_ctx_act_avg,trial_bins,trial_conditions_exp,nonan_trials,'uni',false),[2,3,1])), ...
-            permute(1:size(trials_conditions,2),[1,3,4,2]),'uni',false));
+            permute(1:size(trial_conditions,2),[1,3,4,2]),'uni',false));
         
         str_act_binmean = cell2mat(arrayfun(@(condition) ...
             cell2mat(permute(cellfun(@(act,bins,trial_cond,use_trials) cell2mat(arrayfun(@(area) ...
@@ -5289,7 +5298,7 @@ for curr_mua = 1:3
             act(use_trials(:,area) & trial_cond(:,condition),area), ...
             [n_act_bins,1],@nanmean,single(NaN)), 1:size(act,2),'uni',false)), ...
             curr_str_act_avg,trial_bins,trial_conditions_exp,nonan_trials,'uni',false),[2,3,1])), ...
-            permute(1:size(trials_conditions,2),[1,3,4,2]),'uni',false));
+            permute(1:size(trial_conditions,2),[1,3,4,2]),'uni',false));
         
         % Plot binned predicted v measured
         figure(str_v_ctx_fig);
