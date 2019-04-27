@@ -3,18 +3,8 @@
 %% Load choiceworld trial data (** NEEDED FOR BELOW **)
 
 % Load data
-data_fn = 'trial_activity_choiceworld';
-% data_fn = 'trial_activity_choiceworld_MOVELTEST';
-% data_fn = 'trial_activity_choiceworld_FWDCTXTEST';
-% data_fn = 'trial_activity_choiceworld_STIMRTEST';
-% data_fn = 'trial_activity_choiceworld_MOVEONGOINGTEST';
-% data_fn = 'trial_activity_choiceworld_EARLYMOVETEST';
-% data_fn = 'trial_activity_choiceworld_REGRESSRESIDUAL';
-% data_fn = 'trial_activity_choiceworld_CTXSTRMOVEONLY';
-% data_fn = 'trial_activity_choiceworld_MOVExSTIM';
-% data_fn = 'trial_activity_choiceworld_MSN';
-% data_fn = 'trial_activity_choiceworld_FSI';
-% data_fn = 'trial_activity_choiceworld_200umdepth';
+% data_fn = 'trial_activity_choiceworld';
+data_fn = 'trial_activity_choiceworld_1gocue_shortreward';
 
 exclude_data = true;
 AP_load_concat_normalize_ctx_str;
@@ -4354,7 +4344,7 @@ fluor_roi_deconv_outcome_exp = mat2cell(fluor_roi_deconv_outcome,use_split,lengt
 % Get average activity within window
 trial_groups = {'Stim','Move onset'};
 t_baseline = [-0.1,-0.05];
-t_event = {[0.05,0.15],[-0.05,0.05],[0,0.1]};
+t_event = {[0.05,0.15],[-0.05,0.05]};
 
 
 % NOT LOOPING FOR NOW - JUST HARDCODING PLOTS
@@ -5206,7 +5196,103 @@ plot(t,trial_type_fit,'linewidth',2);
 xlabel('Time from event');
 ylabel('Additive offset');
 
+%% MUA vs fluorescence (as above, cleaned up)
 
+% Set alignment shifts
+t_leeway = -t(1);
+leeway_samples = round(t_leeway*(sample_rate));
+stim_align = zeros(size(trial_contrast_allcat));
+move_align = -move_idx+leeway_samples;
+outcome_align = -outcome_idx + leeway_samples;
+
+% Set windows to average activity
+group_labels = {'Pre-stim','Stim','Move onset','Outcome'};
+group_t = {[-0.2,-0.1],[0.05,0.15],[-0.05,0.05],[0,0.1]};
+group_align = {stim_align,stim_align,move_align,outcome_align};
+
+% Set areas and labels
+plot_str = 1;
+plot_ctx = 3;
+
+% Set activity percentiles and bins
+act_prctile = [20,80];
+n_act_bins = 8;
+
+% Plot binned predicted v measured activity
+str_v_ctx_fig = figure;
+for curr_group = 1:length(group_labels)
+    
+    % (set allcat activity and predicted activity)
+    curr_act_allcat = fluor_roi_deconv;
+    curr_act_pred_allcat = single(mua_ctxpred_allcat);
+    
+    % (set trials to use for each context)
+    trial_conditions = ...
+        [sign(trial_contrastside_allcat) == 1, ...
+        sign(trial_contrastside_allcat) == -1];
+    trial_conditions_exp = mat2cell(trial_conditions,use_split,size(trial_conditions,2));
+
+    % (re-align and split activity)
+    curr_act = mat2cell(...
+        cell2mat(arrayfun(@(trial) circshift(curr_act_allcat(trial,:,:), ...
+        group_align{curr_group}(trial),2),transpose(1:size(curr_act_allcat,1)),'uni',false)), ...
+        use_split,length(t),size(curr_act_allcat,3));
+    
+    curr_act_pred = mat2cell(...
+        cell2mat(arrayfun(@(trial) circshift(curr_act_pred_allcat(trial,:,:), ...
+        group_align{curr_group}(trial),2),transpose(1:size(curr_act_pred_allcat,1)),'uni',false)), ...
+        use_split,length(t),size(curr_act_pred_allcat,3));
+    
+    % (get average activity within window)
+    curr_event_t = t > group_t{curr_group}(1) & t < group_t{curr_group}(2);
+    curr_act_avg = cellfun(@(x) squeeze(nanmean(x(:,curr_event_t,:),2)),curr_act,'uni',false);
+    curr_act_pred_avg = cellfun(@(x) squeeze(nanmean(x(:,curr_event_t,:),2)),curr_act_pred,'uni',false);
+
+    % (bin measured data across percentile range)
+    bin_range = prctile(cell2mat(cellfun(@(x) x(:),curr_act_avg,'uni',false)),act_prctile);
+    bin_edges = linspace(bin_range(1),bin_range(2),n_act_bins+1);
+    bin_centers = bin_edges(1:end-1) + diff(bin_edges)./2;
+    
+    trial_bins = cellfun(@(x) discretize(x,bin_centers),curr_act_avg,'uni',false);
+    
+    % (get trials to use: no NaNs in either time series or bins)
+    nonan_trials = cellfun(@(act,act_pred,trial_bins) ...
+        squeeze(~any(isnan(act(:,curr_event_t,plot_ctx)),2)) & ...
+        squeeze(~any(isnan(act_pred(:,curr_event_t,plot_str)),2)) & ...
+        ~isnan(trial_bins), ...
+        curr_act,curr_act_pred,trial_bins,'uni',false);
+    
+    % (get average binned activity for measured/predicted by condition)
+    act_binmean = cell2mat(arrayfun(@(condition) ...
+        cell2mat(permute(cellfun(@(act,bins,trial_cond,use_trials) cell2mat(arrayfun(@(area) ...
+        accumarray(bins(use_trials(:,area) & trial_cond(:,condition),area), ...
+        act(use_trials(:,area) & trial_cond(:,condition),area), ...
+        [n_act_bins,1],@nanmean,single(NaN)), 1:size(act,2),'uni',false)), ...
+        curr_act_avg,trial_bins,trial_conditions_exp,nonan_trials,'uni',false),[2,3,1])), ...
+        permute(1:size(trials_conditions,2),[1,3,4,2]),'uni',false));
+    
+    act_pred_binmean = cell2mat(arrayfun(@(condition) ...
+        cell2mat(permute(cellfun(@(act,bins,trial_cond,use_trials) cell2mat(arrayfun(@(area) ...
+        accumarray(bins(use_trials(:,area) & trial_cond(:,condition),area), ...
+        act(use_trials(:,area) & trial_cond(:,condition),area), ...
+        [n_act_bins,1],@nanmean,single(NaN)), 1:size(act,2),'uni',false)), ...
+        curr_act_pred_avg,trial_bins,trial_conditions_exp,nonan_trials,'uni',false),[2,3,1])), ...
+        permute(1:size(trials_conditions,2),[1,3,4,2]),'uni',false));
+    
+    % Plot binned predicted v measured
+    figure(str_v_ctx_fig);
+    subplot(1,length(group_labels),curr_group); hold on;
+    errorbar( ...
+        squeeze(nanmean(act_binmean(:,plot_ctx,:,:),3)), ...
+        squeeze(nanmean(act_pred_binmean(:,plot_str,:,:),3)), ...
+        squeeze(AP_sem(act_pred_binmean(:,plot_str,:,:),3)),'linewidth',2);
+    xlabel('Measured activity')
+    ylabel('Task-predicted activity');
+    title(group_labels{curr_group});
+    
+end
+
+% Link axes of all plots
 
 
 

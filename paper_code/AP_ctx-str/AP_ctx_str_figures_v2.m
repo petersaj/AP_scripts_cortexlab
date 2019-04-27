@@ -621,16 +621,8 @@ end
 linkaxes(p);
 
 % Get task>striatum parameters
-regressor_labels = {'Stim','Move onset','Go cue','Outcome'};
-n_regressors = length(regressor_labels);
-t_shifts = {[0,0.5]; ... % stim
-    [-0.5,1]; ... % move
-    [-0.1,0.5]; ... % go cue
-    [-0.5,1]}; % outcome
-
-sample_shifts = cellfun(@(x) round(x(1)*(sample_rate)): ...
-    round(x(2)*(sample_rate)),t_shifts,'uni',false);
-t_shifts = cellfun(@(x) x/sample_rate,sample_shifts,'uni',false);
+n_regressors = length(task_regressor_labels);
+task_regressor_t_shifts = cellfun(@(x) x/sample_rate,task_regressor_sample_shifts,'uni',false);
 
 % Normalize task > striatum kernels across experiments with mua_norm
 mua_taskpred_k_all_norm = cellfun(@(kernel_animal,mua_norm_animal) ...
@@ -673,7 +665,7 @@ for curr_depth = 1:n_depths
         
         curr_kernels = permute(task_str_k_animal{curr_regressor}(:,:,curr_depth,:),[1,2,4,3]);
         for curr_subregressor = 1:n_subregressors
-            AP_errorfill(t_shifts{curr_regressor}, ...
+            AP_errorfill(task_regressor_t_shifts{curr_regressor}, ...
                 nanmean(curr_kernels(curr_subregressor,:,:),3), ...
                 AP_sem(curr_kernels(curr_subregressor,:,:),3), ...
                 col(curr_subregressor,:),0.5);
@@ -1012,16 +1004,8 @@ end
 %%% Task>cortex regression results
 
 % Get task>cortex parameters
-n_regressors = 4;
-t_shifts = {[0,0.5]; ... % stim
-    [-0.5,1]; ... % move
-    [-0.1,0.5]; ... % go cue
-    [-0.5,1]}; % outcome
-regressor_labels = {'Stim','Move onset','Go cue','Outcome'};
-
-sample_shifts = cellfun(@(x) round(x(1)*(sample_rate)): ...
-    round(x(2)*(sample_rate)),t_shifts,'uni',false);
-t_shifts = cellfun(@(x) x/sample_rate,sample_shifts,'uni',false);
+n_regressors = length(task_regressor_labels);
+task_regressor_t_shifts = cellfun(@(x) x/sample_rate,task_regressor_sample_shifts,'uni',false);
 
 % Get average task > cortex kernels
 regressor_px = cell(n_regressors,1);
@@ -1031,12 +1015,12 @@ for curr_regressor = 1:n_regressors
     curr_k = nanmean(cat(4,curr_k_cell{:}),4); 
     curr_k_px = cell2mat(arrayfun(@(x) svdFrameReconstruct(U_master(:,:,1:n_vs), ...
         permute(curr_k(x,:,:),[3,2,1])),permute(1:size(curr_k,1),[1,3,4,2]),'uni',false));   
-    AP_image_scroll(curr_k_px,t_shifts{curr_regressor});
+    AP_image_scroll(curr_k_px,task_regressor_t_shifts{curr_regressor});
     axis image;
     caxis([-max(abs(caxis)),max(abs(caxis))]);
     colormap(brewermap([],'*RdBu'));
     AP_reference_outline('ccf_aligned','k');
-    set(gcf,'Name',regressor_labels{curr_regressor});
+    set(gcf,'Name',task_regressor_labels{curr_regressor});
     
     regressor_px{curr_regressor} = curr_k_px;
 end
@@ -1120,18 +1104,6 @@ ylabel('Cortex explained variance');
 
 %%% Task>cortex>striatum regression results
 
-% Get task>striatum parameters
-regressor_labels = {'Stim','Move onset','Go cue','Outcome'};
-n_regressors = length(regressor_labels);
-t_shifts = {[0,0.5]; ... % stim
-    [-0.5,1]; ... % move
-    [-0.1,0.5]; ... % go cue
-    [-0.5,1]}; % outcome
-
-sample_shifts = cellfun(@(x) round(x(1)*(sample_rate)): ...
-    round(x(2)*(sample_rate)),t_shifts,'uni',false);
-t_shifts = cellfun(@(x) x/sample_rate,sample_shifts,'uni',false);
-
 % Normalize task > striatum/ctx-str kernels across experiments with mua_norm
 mua_taskpred_k_all_norm = cellfun(@(kernel_animal,mua_norm_animal) ...
     cellfun(@(kernel_exp,mua_norm_exp) ...
@@ -1187,7 +1159,7 @@ for curr_depth = 1:n_depths
         curr_kernels = permute(task_ctx_str_k_animal{curr_regressor}(:,:,curr_depth,:),[1,2,4,3]);
         
         for curr_subregressor = 1:n_subregressors
-            AP_errorfill(t_shifts{curr_regressor}, ...
+            AP_errorfill(task_regressor_t_shifts{curr_regressor}, ...
                 nanmean(curr_kernels(curr_subregressor,:,:),3), ...
                 AP_sem(curr_kernels(curr_subregressor,:,:),3), ...
                 col(curr_subregressor,:),0.5);
@@ -1222,7 +1194,7 @@ for curr_depth = 1:n_depths
             permute(task_ctx_str_k_animal{curr_regressor}(:,:,curr_depth,:),[1,2,4,3]);
         
         for curr_subregressor = 1:n_subregressors
-            AP_errorfill(t_shifts{curr_regressor}, ...
+            AP_errorfill(task_regressor_t_shifts{curr_regressor}, ...
                 nanmean(curr_kernels(curr_subregressor,:,:),3), ...
                 AP_sem(curr_kernels(curr_subregressor,:,:),3), ...
                 col(curr_subregressor,:),0.5);
@@ -1508,14 +1480,14 @@ split_idx = cell2mat(arrayfun(@(exp,trials) repmat(exp,trials,1), ...
 % Get task>striatum parameters
 regressor_labels = {'Stim','Move onset','Go cue','Outcome'};
 n_regressors = length(regressor_labels);
-t_shifts = {[0,0.5]; ... % stim
+task_regressor_t_shifts = {[0,0.5]; ... % stim
     [-0.5,1]; ... % move
     [-0.1,0.5]; ... % go cue
     [-0.5,1]}; % outcome
 
-sample_shifts = cellfun(@(x) round(x(1)*(sample_rate)): ...
-    round(x(2)*(sample_rate)),t_shifts,'uni',false);
-t_shifts = cellfun(@(x) x/sample_rate,sample_shifts,'uni',false);
+task_regressor_sample_shifts = cellfun(@(x) round(x(1)*(sample_rate)): ...
+    round(x(2)*(sample_rate)),task_regressor_t_shifts,'uni',false);
+task_regressor_t_shifts = cellfun(@(x) x/sample_rate,task_regressor_sample_shifts,'uni',false);
 
 % Normalize task kernels (ridiculous loop makes it clearer to read)
 mua_taskpred_k_all_norm = {};
@@ -1578,11 +1550,11 @@ for curr_depth = 1:n_depths
         curr_task_ctx_str_kernels = task_ctx_str_k_animal{curr_regressor,curr_depth};
         for curr_subregressor = 1:n_subregressors
             
-            plot(t_shifts{curr_regressor}, ...
+            plot(task_regressor_t_shifts{curr_regressor}, ...
                 nanmean(curr_task_str_kernels(curr_subregressor,:,:),3), ...
                 'color',col(curr_subregressor,:),'linewidth',2);
             
-            AP_errorfill(t_shifts{curr_regressor}, ...
+            AP_errorfill(task_regressor_t_shifts{curr_regressor}, ...
                 nanmean(curr_task_ctx_str_kernels(curr_subregressor,:,:),3), ...
                 AP_sem(curr_task_ctx_str_kernels(curr_subregressor,:,:),3), ...
                 col(curr_subregressor,:),0.5,false);

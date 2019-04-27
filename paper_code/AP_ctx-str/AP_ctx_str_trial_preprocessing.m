@@ -416,6 +416,8 @@ for curr_animal = 1:length(animals)
         move_t = nan(size(move_idx));
         move_t(~isnan(move_idx) & move_trial) = t(move_idx(~isnan(move_idx) & move_trial))';
         
+        % Build regressors (only a subset of these are used)
+        
         % Stim regressors
         unique_stim = unique(contrasts(contrasts > 0).*sides');
         stim_contrastsides = ...
@@ -492,7 +494,7 @@ for curr_animal = 1:length(animals)
             find(~isnan(move_idx) & stim_contrastsides == unique_stim(curr_stim))), ...
             1:length(unique_stim),'uni',false);
         
-        move_onset_stim_regressors = zeros(10,length(time_bin_centers));
+        move_onset_stim_regressors = zeros(length(unique_stim),length(time_bin_centers));
         for curr_stim = 1:length(unique_stim)
             move_onset_stim_regressors(curr_stim,:) = ...
                 histcounts(move_onset_stim_time_absolute{curr_stim},time_bins);
@@ -537,25 +539,38 @@ for curr_animal = 1:length(animals)
         
         % Outcome regressors
         % (using signals timing - not precise but looks good)
-        outcome_regressors = zeros(2,length(time_bin_centers));
         
-        outcome_regressors(1,:) = histcounts( ...
-            reward_t_timeline,time_bins);
-        outcome_regressors(2,:) = histcounts( ...
-            signals_events.responseTimes(trial_outcome == -1),time_bins);
+        outcome_regressors = histcounts(reward_t_timeline,time_bins);
+        % (old: regressors for both hit and miss)
+%         outcome_regressors = zeros(2,length(time_bin_centers));
+%         outcome_regressors(1,:) = histcounts( ...
+%             reward_t_timeline,time_bins);
+%         outcome_regressors(2,:) = histcounts( ...
+%             signals_events.responseTimes(trial_outcome == -1),time_bins);
         
         % Concatenate selected regressors, set parameters
-        regressors = {stim_regressors;move_onset_regressors;go_cue_regressors;outcome_regressors};
-        regressor_labels = {'Stim','Move onset','Go cue','Outcome'};
         
-        t_shifts = {[0,0.5]; ... % stim
+%         task_regressors = {stim_regressors;move_onset_regressors;go_cue_regressors;outcome_regressors};
+%         task_regressor_labels = {'Stim','Move onset','Go cue','Outcome'};
+%         
+%         task_t_shifts = { ...
+%             [0,0.5]; ... % stim
+%             [-0.5,1]; ... % move
+%             [0,0.5]; ... % go cue
+%             [0,0.5]}; % outcome
+
+        task_regressors = {stim_regressors;move_onset_regressors;move_onset_stim_regressors;go_cue_regressors;outcome_regressors};
+        task_regressor_labels = {'Stim','Move','Stim x move','Go cue','Outcome'};
+        
+        task_t_shifts = { ...
+            [0,0.5]; ... % stim
             [-0.5,1]; ... % move
-            [-0.1,0.5]; ... % go cue
+            [-0.5,1]; ... % stim x move
+            [0,0.5]; ... % go cue
             [0,0.5]}; % outcome
-%             [-0.5,1]}; % outcome
-        
-        sample_shifts = cellfun(@(x) round(x(1)*(sample_rate)): ...
-            round(x(2)*(sample_rate)),t_shifts,'uni',false);
+       
+        task_regressor_sample_shifts = cellfun(@(x) round(x(1)*(sample_rate)): ...
+            round(x(2)*(sample_rate)),task_t_shifts,'uni',false);
         lambda = 0;
         zs = [false,false];
         cvfold = 5;
@@ -568,7 +583,7 @@ for curr_animal = 1:length(animals)
         activity = single(binned_spikes) - baseline;
         
         [mua_taskpred_k,mua_taskpred_long,mua_taskpred_expl_var,mua_taskpred_reduced_long] = ...
-            AP_regresskernel(regressors,activity,sample_shifts, ...
+            AP_regresskernel(task_regressors,activity,task_regressor_sample_shifts, ...
             lambda,zs,cvfold,return_constant,use_constant);
         
         mua_taskpred = ...
@@ -576,7 +591,7 @@ for curr_animal = 1:length(animals)
         
         mua_taskpred_reduced = cell2mat(arrayfun(@(x) ...
             interp1(time_bin_centers,mua_taskpred_reduced_long(:,:,x)', ...
-            t_peri_event)./raster_sample_rate,permute(1:length(regressors),[1,3,4,2]),'uni',false));
+            t_peri_event)./raster_sample_rate,permute(1:length(task_regressors),[1,3,4,2]),'uni',false));
         
         % Regression task -> MUA-ctxpred
         baseline = nanmean(reshape(event_aligned_mua_ctxpred(:,t < 0,:),[], ...
@@ -584,7 +599,7 @@ for curr_animal = 1:length(animals)
         activity = single(ctxpred_spikes) - baseline;
         
         [mua_ctxpred_taskpred_k,mua_ctxpred_taskpred_long,mua_ctxpred_taskpred_expl_var,mua_ctxpred_taskpred_reduced_long] = ...
-            AP_regresskernel(regressors,activity,sample_shifts, ...
+            AP_regresskernel(task_regressors,activity,task_regressor_sample_shifts, ...
             lambda,zs,cvfold,return_constant,use_constant);
         
         mua_ctxpred_taskpred = ...
@@ -592,7 +607,7 @@ for curr_animal = 1:length(animals)
         
         mua_ctxpred_taskpred_reduced = cell2mat(arrayfun(@(x) ...
             interp1(time_bin_centers,mua_ctxpred_taskpred_reduced_long(:,:,x)', ...
-            t_peri_event)./raster_sample_rate,permute(1:length(regressors),[1,3,4,2]),'uni',false));
+            t_peri_event)./raster_sample_rate,permute(1:length(task_regressors),[1,3,4,2]),'uni',false));
         
         % Regression task -> (master U, deconvolved) fluor
         event_aligned_V_deconv = AP_deconv_wf(event_aligned_V);
@@ -602,7 +617,7 @@ for curr_animal = 1:length(animals)
         activity = single(fVdf_deconv_resample_recast(use_components,:))-baseline;
         
         [fluor_taskpred_k,fluor_taskpred_long,fluor_taskpred_expl_var,fluor_taskpred_reduced_long] = ...
-            AP_regresskernel(regressors,activity,sample_shifts, ...
+            AP_regresskernel(task_regressors,activity,task_regressor_sample_shifts, ...
             lambda,zs,cvfold,return_constant,use_constant);
         
         fluor_taskpred = ...
@@ -610,7 +625,7 @@ for curr_animal = 1:length(animals)
         
         fluor_taskpred_reduced = cell2mat(arrayfun(@(x) ...
             interp1(time_bin_centers,fluor_taskpred_reduced_long(:,:,x)', ...
-            t_peri_event),permute(1:length(regressors),[1,3,4,2]),'uni',false));
+            t_peri_event),permute(1:length(task_regressors),[1,3,4,2]),'uni',false));
         
         %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
         
@@ -682,7 +697,10 @@ for curr_animal = 1:length(animals)
             wheel_all ...
             movement_all ...
             outcome_all ...
-            D_all
+            D_all ...
+            ...
+            task_regressor_labels ...
+            task_regressor_sample_shifts
         
     end
 end
@@ -718,13 +736,17 @@ clearvars -except ...
     wheel_all ...
     movement_all ...
     outcome_all ...
-    D_all
+    D_all ...
+    ...
+    task_regressor_labels ...
+    task_regressor_sample_shifts
 
 disp('Finished loading all')
 
 save_path = 'C:\Users\Andrew\OneDrive for Business\Documents\CarandiniHarrisLab\analysis\wf_ephys_choiceworld\paper\data';
-save_fn = ['trial_activity_choiceworld_1gocue_shortreward'];
+save_fn = ['trial_activity_choiceworld_stimxmove'];
 save([save_path filesep save_fn],'-v7.3');
+
 
 %% Passive choiceworld trial activity (trained)
 
@@ -1852,8 +1874,8 @@ trial_time_regressors = zeros(size(wheel_allcat));
 trial_time_regressors(:,find(t > 0,1)) = 1;
 
 % Concatenate regressors, set parameters
-regressors = {stim_regressors;move_onset_regressors;go_cue_regressors;outcome_regressors};
-regressor_labels = {'Stim','Move onset','Go cue','Outcome'};
+task_regressors = {stim_regressors;move_onset_regressors;go_cue_regressors;outcome_regressors};
+task_regressor_labels = {'Stim','Move onset','Go cue','Outcome'};
 
 t_shifts = {[0,0.5]; ... % stim
     [-0.5,1]; ... % move
@@ -1874,8 +1896,8 @@ return_constant = false;
 disp('Regressing task to cortex');
 fluor_allcat_predicted = nan(size(fluor_allcat_deconv));
 fluor_allcat_predicted_reduced = ...
-    repmat(nan(size(fluor_allcat_deconv)),1,1,1,length(regressors));
-fluor_kernel = cell(length(regressors)+return_constant,n_vs);
+    repmat(nan(size(fluor_allcat_deconv)),1,1,1,length(task_regressors));
+fluor_kernel = cell(length(task_regressors)+return_constant,n_vs);
 for curr_v = 1:n_vs
     
     baseline = nanmean(reshape(fluor_allcat_deconv(:,t < 0,curr_v),[],1));
@@ -1883,7 +1905,7 @@ for curr_v = 1:n_vs
     
     activity_reshape = reshape(activity',[],1)';
     regressors_reshape = cellfun(@(x) ...
-        reshape(permute(x(:,:,:),[2,1,3]),[],size(x,3))',regressors,'uni',false);
+        reshape(permute(x(:,:,:),[2,1,3]),[],size(x,3))',task_regressors,'uni',false);
     
     warning off
     [kernel,activity_predicted_reshape,expl_var,activity_predicted_reduced_reshape] = AP_regresskernel( ...
@@ -1896,8 +1918,8 @@ for curr_v = 1:n_vs
     activity_predicted_transpose(~isnan(activity')) = activity_predicted_reshape;
     
     % Reshape reduced predictions
-    activity_predicted_reduced_transpose = permute(repmat(nan(size(activity)),1,1,length(regressors)),[2,1,3]);
-    activity_predicted_reduced_transpose(repmat(~isnan(activity'),1,1,length(regressors))) = ...
+    activity_predicted_reduced_transpose = permute(repmat(nan(size(activity)),1,1,length(task_regressors)),[2,1,3]);
+    activity_predicted_reduced_transpose(repmat(~isnan(activity'),1,1,length(task_regressors))) = ...
         activity_predicted_reduced_reshape;
     
     % Store predicted/reduced predicted/kernels
@@ -1915,8 +1937,8 @@ end
 disp('Regressing task to striatum');
 mua_allcat_predicted = nan(size(mua_allcat));
 mua_allcat_predicted_reduced = ...
-    repmat(nan(size(mua_allcat)),1,1,1,length(regressors));
-mua_kernel = cell(length(regressors)+return_constant,n_depths);
+    repmat(nan(size(mua_allcat)),1,1,1,length(task_regressors));
+mua_kernel = cell(length(task_regressors)+return_constant,n_depths);
 for curr_depth = 1:n_depths
     
     % Convert MUA to single for GPU memory (fluorescence is already single)
@@ -1925,7 +1947,7 @@ for curr_depth = 1:n_depths
     
     activity_reshape = reshape(activity',[],1)';
     regressors_reshape = cellfun(@(x) ...
-        reshape(permute(x(:,:,:),[2,1,3]),[],size(x,3))',regressors,'uni',false);
+        reshape(permute(x(:,:,:),[2,1,3]),[],size(x,3))',task_regressors,'uni',false);
     
     [kernel,activity_predicted_reshape,expl_var,activity_predicted_reduced_reshape] = AP_regresskernel( ...
         cellfun(@(x) x(:,~isnan(activity_reshape)),regressors_reshape,'uni',false), ...
@@ -1936,8 +1958,8 @@ for curr_depth = 1:n_depths
     activity_predicted_transpose(~isnan(activity')) = activity_predicted_reshape;
     
     % Reshape reduced predictions
-    activity_predicted_reduced_transpose = permute(repmat(nan(size(activity)),1,1,length(regressors)),[2,1,3]);
-    activity_predicted_reduced_transpose(repmat(~isnan(activity'),1,1,length(regressors))) = ...
+    activity_predicted_reduced_transpose = permute(repmat(nan(size(activity)),1,1,length(task_regressors)),[2,1,3]);
+    activity_predicted_reduced_transpose(repmat(~isnan(activity'),1,1,length(task_regressors))) = ...
         activity_predicted_reduced_reshape;
     
     % Store predicted/reduced predicted/kernels
@@ -1955,8 +1977,8 @@ end
 disp('Regressing task to cortex-predicted striatum');
 predicted_mua_allcat_predicted = nan(size(mua_allcat));
 predicted_mua_allcat_predicted_reduced = ...
-    repmat(nan(size(mua_allcat)),1,1,1,length(regressors));
-predicted_mua_kernel = cell(length(regressors)+return_constant,n_depths);
+    repmat(nan(size(mua_allcat)),1,1,1,length(task_regressors));
+predicted_mua_kernel = cell(length(task_regressors)+return_constant,n_depths);
 for curr_depth = 1:n_depths
     
     % Convert MUA to single for GPU memory (fluorescence is already single)
@@ -1965,7 +1987,7 @@ for curr_depth = 1:n_depths
     
     activity_reshape = reshape(activity',[],1)';
     regressors_reshape = cellfun(@(x) ...
-        reshape(permute(x(:,:,:),[2,1,3]),[],size(x,3))',regressors,'uni',false);
+        reshape(permute(x(:,:,:),[2,1,3]),[],size(x,3))',task_regressors,'uni',false);
     
     [kernel,activity_predicted_reshape,expl_var,activity_predicted_reduced_reshape] = AP_regresskernel( ...
         cellfun(@(x) x(:,~isnan(activity_reshape)),regressors_reshape,'uni',false), ...
@@ -1976,8 +1998,8 @@ for curr_depth = 1:n_depths
     activity_predicted_transpose(~isnan(activity')) = activity_predicted_reshape;
     
     % Reshape reduced predictions
-    activity_predicted_reduced_transpose = permute(repmat(nan(size(activity)),1,1,length(regressors)),[2,1,3]);
-    activity_predicted_reduced_transpose(repmat(~isnan(activity'),1,1,length(regressors))) = ...
+    activity_predicted_reduced_transpose = permute(repmat(nan(size(activity)),1,1,length(task_regressors)),[2,1,3]);
+    activity_predicted_reduced_transpose(repmat(~isnan(activity'),1,1,length(task_regressors))) = ...
         activity_predicted_reduced_reshape;
     
     % Store predicted/reduced predicted/kernels
@@ -3088,8 +3110,8 @@ for curr_animal = 1:length(animals)
         % Outcome regressors
         outcome_regressors = event_aligned_outcome(use_trials,:,:);
         
-        regressors = {stim_regressors;move_onset_regressors;go_cue_regressors;outcome_regressors};
-        regressor_labels = {'Stim','Move onset','Go cue','Outcome'};
+        task_regressors = {stim_regressors;move_onset_regressors;go_cue_regressors;outcome_regressors};
+        task_regressor_labels = {'Stim','Move onset','Go cue','Outcome'};
         
         t_shifts = {[0,1]; ... % stim
             [-0.5,1]; ... % move onset
@@ -3106,10 +3128,10 @@ for curr_animal = 1:length(animals)
         
         % Regression task->MUA
         use_mua_task_regress = event_aligned_mua(use_trials,:,:);
-        mua_taskpred_k = cell(length(regressors)+return_constant,n_depths);
+        mua_taskpred_k = cell(length(task_regressors)+return_constant,n_depths);
         mua_taskpred = nan(size(use_mua_task_regress));
         mua_taskpred_reduced = ...
-            repmat(nan(size(use_mua_task_regress)),1,1,1,length(regressors));
+            repmat(nan(size(use_mua_task_regress)),1,1,1,length(task_regressors));
         for curr_depth = 1:n_depths
             
             activity = single(use_mua_task_regress(:,:,curr_depth));
@@ -3121,7 +3143,7 @@ for curr_animal = 1:length(animals)
             
             activity_reshape = reshape(activity',[],1)';
             regressors_reshape = cellfun(@(x) ...
-                reshape(permute(x,[2,1,3]),[],size(x,3))',regressors,'uni',false);
+                reshape(permute(x,[2,1,3]),[],size(x,3))',task_regressors,'uni',false);
             
             [task_kernel,activity_predicted_reshape,expl_var,activity_predicted_reduced_reshape] = AP_regresskernel( ...
                 cellfun(@(x) x(:,~isnan(activity_reshape)),regressors_reshape,'uni',false), ...
@@ -3132,8 +3154,8 @@ for curr_animal = 1:length(animals)
             activity_predicted_transpose(~isnan(activity')) = activity_predicted_reshape;
             
             % Reshape reduced predictions
-            activity_predicted_reduced_transpose = permute(repmat(nan(size(activity)),1,1,length(regressors)),[2,1,3]);
-            activity_predicted_reduced_transpose(repmat(~isnan(activity'),1,1,length(regressors))) = ...
+            activity_predicted_reduced_transpose = permute(repmat(nan(size(activity)),1,1,length(task_regressors)),[2,1,3]);
+            activity_predicted_reduced_transpose(repmat(~isnan(activity'),1,1,length(task_regressors))) = ...
                 activity_predicted_reduced_reshape;
             
             % Store predicted/reduced predicted/kernels
@@ -3146,10 +3168,10 @@ for curr_animal = 1:length(animals)
         
         % Regression task->MUA-ctxpred
         use_mua_task_regress = event_aligned_mua_ctxpred(use_trials,:,:);
-        mua_ctxpred_taskpred_k = cell(length(regressors)+return_constant,n_depths);
+        mua_ctxpred_taskpred_k = cell(length(task_regressors)+return_constant,n_depths);
         mua_ctxpred_taskpred = nan(size(use_mua_task_regress));
         mua_ctxpred_taskpred_reduced = ...
-            repmat(nan(size(use_mua_task_regress)),1,1,1,length(regressors));
+            repmat(nan(size(use_mua_task_regress)),1,1,1,length(task_regressors));
         for curr_depth = 1:n_depths
             
             activity = single(use_mua_task_regress(:,:,curr_depth));
@@ -3161,7 +3183,7 @@ for curr_animal = 1:length(animals)
             
             activity_reshape = reshape(activity',[],1)';
             regressors_reshape = cellfun(@(x) ...
-                reshape(permute(x,[2,1,3]),[],size(x,3))',regressors,'uni',false);
+                reshape(permute(x,[2,1,3]),[],size(x,3))',task_regressors,'uni',false);
             
             [task_kernel,activity_predicted_reshape,expl_var,activity_predicted_reduced_reshape] = AP_regresskernel( ...
                 cellfun(@(x) x(:,~isnan(activity_reshape)),regressors_reshape,'uni',false), ...
@@ -3172,8 +3194,8 @@ for curr_animal = 1:length(animals)
             activity_predicted_transpose(~isnan(activity')) = activity_predicted_reshape;
             
             % Reshape reduced predictions
-            activity_predicted_reduced_transpose = permute(repmat(nan(size(activity)),1,1,length(regressors)),[2,1,3]);
-            activity_predicted_reduced_transpose(repmat(~isnan(activity'),1,1,length(regressors))) = ...
+            activity_predicted_reduced_transpose = permute(repmat(nan(size(activity)),1,1,length(task_regressors)),[2,1,3]);
+            activity_predicted_reduced_transpose(repmat(~isnan(activity'),1,1,length(task_regressors))) = ...
                 activity_predicted_reduced_reshape;
             
             % Store predicted/reduced predicted/kernels

@@ -10,7 +10,9 @@
 %% Load in task data
 
 % Load data
-data_fn = 'trial_activity_choiceworld_1gocue';
+data_fn = 'trial_activity_choiceworld';
+% data_fn = 'trial_activity_choiceworld_stimxmove';
+
 exclude_data = true;
 AP_load_concat_normalize_ctx_str;
 
@@ -22,12 +24,6 @@ use_split = trials_animal;
 
 split_idx = cell2mat(arrayfun(@(exp,trials) repmat(exp,trials,1), ...
     [1:length(use_split)]',reshape(use_split,[],1),'uni',false));
-
-%% CURRENTLY BUILDING: show additivity between stim and movement 
-
-
-
-
 
 
 
@@ -72,8 +68,7 @@ for curr_group = 1:length(group_labels)
     
     % (set allcat activity and predicted activity)
     curr_act_allcat = fluor_roi_deconv;
-%     curr_act_pred_allcat = fluor_roi_taskpred;
-curr_act_pred_allcat = fluor_roi_taskpred_reduced(:,:,:,1);
+    curr_act_pred_allcat = fluor_roi_taskpred;
 
 %     curr_act_allcat = single(mua_allcat);
 %     curr_act_pred_allcat = single(mua_ctxpred_allcat);
