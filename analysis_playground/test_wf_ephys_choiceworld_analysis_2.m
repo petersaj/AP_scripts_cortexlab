@@ -5225,24 +5225,24 @@ for curr_mua = 1:3
     % (set striatum activity to use) 
     switch curr_mua
         case 1
-            curr_str_act_allcat = single(mua_allcat);
-%             curr_str_act_allcat = single(mua_allcat - mua_taskpred_reduced_allcat(:,:,:,1));
+%             curr_str_act_allcat = single(mua_allcat);
+            curr_str_act_allcat = single(mua_allcat - mua_taskpred_reduced_allcat(:,:,:,1));
             mua_label = 'Measured';
         case 2
-            curr_str_act_allcat = single(mua_taskpred_allcat);
-%             curr_str_act_allcat = single(mua_taskpred_allcat - mua_taskpred_reduced_allcat(:,:,:,1));
+%             curr_str_act_allcat = single(mua_taskpred_allcat);
+            curr_str_act_allcat = single(mua_taskpred_allcat - mua_taskpred_reduced_allcat(:,:,:,1));
             mua_label = 'Task-pred';
         case 3
-            curr_str_act_allcat = single(mua_ctxpred_allcat);
-%             curr_str_act_allcat = single(mua_ctxpred_allcat - mua_ctxpred_taskpred_reduced_allcat(:,:,:,1));
+%             curr_str_act_allcat = single(mua_ctxpred_allcat);
+            curr_str_act_allcat = single(mua_ctxpred_allcat - mua_ctxpred_taskpred_reduced_allcat(:,:,:,1));
             mua_label = 'Ctx-pred';
     end
     
     for curr_group = 1:length(group_labels)
         
         % (set cortex activity to use)
-        curr_ctx_act_allcat = fluor_roi_deconv;
-%         curr_ctx_act_allcat = fluor_roi_deconv - fluor_roi_taskpred_reduced(:,:,:,1);
+%         curr_ctx_act_allcat = fluor_roi_deconv;
+        curr_ctx_act_allcat = fluor_roi_deconv - fluor_roi_taskpred_reduced(:,:,:,1);
         
         % (set trials to use for each context)
 %         trial_conditions = ...
@@ -5274,7 +5274,7 @@ for curr_mua = 1:3
         bin_edges = linspace(bin_range(1),bin_range(2),n_act_bins+1);
         bin_centers = bin_edges(1:end-1) + diff(bin_edges)./2;
         
-        trial_bins = cellfun(@(x) discretize(x,bin_centers),curr_ctx_act_avg,'uni',false);
+        trial_bins = cellfun(@(x) discretize(x,bin_edges),curr_ctx_act_avg,'uni',false);
         
         % (get trials to use: no NaNs in either time series or bins)
         nonan_trials = cellfun(@(ctx_act,str_act,trial_bins) ...
@@ -5321,7 +5321,9 @@ linkaxes(get(str_v_ctx_fig,'Children'));
 
 
 
-
+% NOTE
+% WHY ARE LOTS OF BINS UNFILLED IN MOVE ONSET?
+% IS IT BECAUSE OF SKEWED ROI ACTIVITY?
 
 
 

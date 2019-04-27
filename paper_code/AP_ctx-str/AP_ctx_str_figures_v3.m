@@ -99,7 +99,7 @@ for curr_group = 1:length(group_labels)
     bin_edges = linspace(bin_range(1),bin_range(2),n_act_bins+1);
     bin_centers = bin_edges(1:end-1) + diff(bin_edges)./2;
     
-    trial_bins = cellfun(@(x) discretize(x,bin_centers),curr_act_avg_zs,'uni',false);
+    trial_bins = cellfun(@(x) discretize(x,bin_edges),curr_act_avg_zs,'uni',false);
     
     % (get trials to use: no NaNs in either time series or bins)
     use_trials = cellfun(@(act,act_pred,trial_bins) ...
