@@ -3,8 +3,8 @@
 %% Load choiceworld trial data (** NEEDED FOR BELOW **)
 
 % Load data
-% data_fn = 'trial_activity_choiceworld';
-data_fn = 'trial_activity_choiceworld_1gocue_shortreward';
+data_fn = 'trial_activity_choiceworld';
+% data_fn = 'trial_activity_choiceworld_stimxmove';
 
 exclude_data = true;
 AP_load_concat_normalize_ctx_str;
@@ -5298,9 +5298,9 @@ for curr_mua = 1:3
         errorbar( ...
             squeeze(nanmean(ctx_act_binmean(:,plot_ctx,:,:),3)), ...
             squeeze(nanmean(str_act_binmean(:,plot_str,:,:),3)), ...
-            squeeze(AP_sem(str_act_binmean(:,plot_str,:,:),3)),'linewidth',2);
-        xlabel('Measured activity')
-        ylabel('Task-predicted activity');
+            squeeze(AP_sem(str_act_binmean(:,plot_str,:,:),3)),'linewidth',2);        
+        xlabel(['Ctx (' wf_roi(plot_ctx).area ')']);
+        ylabel([mua_label ' Str (' num2str(plot_str) ')'])
         title(group_labels{curr_group});
         
     end
