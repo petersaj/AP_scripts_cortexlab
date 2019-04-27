@@ -664,14 +664,14 @@ for curr_depth = 1:n_depths
             col = colormap_BlueWhiteRed(n_subregressors/2);
             col(6,:) = [];
         else
-            n_subregressors = 2;
+            n_subregressors = size(task_str_k_animal{curr_regressor},1);
             col = lines(n_subregressors);
         end
         
         p(curr_depth,curr_regressor) = ...
             subplot(n_depths,n_regressors,curr_regressor+(curr_depth-1)*n_regressors);  
         
-        curr_kernels = squeeze(task_str_k_animal{curr_regressor}(:,:,curr_depth,:));
+        curr_kernels = permute(task_str_k_animal{curr_regressor}(:,:,curr_depth,:),[1,2,4,3]);
         for curr_subregressor = 1:n_subregressors
             AP_errorfill(t_shifts{curr_regressor}, ...
                 nanmean(curr_kernels(curr_subregressor,:,:),3), ...
@@ -1177,14 +1177,14 @@ for curr_depth = 1:n_depths
             col = colormap_BlueWhiteRed(n_subregressors/2);
             col(6,:) = [];
         else
-            n_subregressors = 2;
+            n_subregressors = size(task_ctx_str_k_animal{curr_regressor},1);
             col = lines(n_subregressors);
         end
         
         p(curr_depth,curr_regressor) = ...
             subplot(n_depths,n_regressors,curr_regressor+(curr_depth-1)*n_regressors);  
         
-        curr_kernels = squeeze(task_ctx_str_k_animal{curr_regressor}(:,:,curr_depth,:));
+        curr_kernels = permute(task_ctx_str_k_animal{curr_regressor}(:,:,curr_depth,:),[1,2,4,3]);
         
         for curr_subregressor = 1:n_subregressors
             AP_errorfill(t_shifts{curr_regressor}, ...
@@ -1211,15 +1211,15 @@ for curr_depth = 1:n_depths
             col = colormap_BlueWhiteRed(n_subregressors/2);
             col(6,:) = [];
         else
-            n_subregressors = 2;
+            n_subregressors = size(task_str_k_animal{curr_regressor},1);
             col = lines(n_subregressors);
         end
         
         p(curr_depth,curr_regressor) = ...
             subplot(n_depths,n_regressors,curr_regressor+(curr_depth-1)*n_regressors);  
         
-        curr_kernels = squeeze(task_str_k_animal{curr_regressor}(:,:,curr_depth,:)) - ...
-            squeeze(task_ctx_str_k_animal{curr_regressor}(:,:,curr_depth,:));
+        curr_kernels = permute(task_str_k_animal{curr_regressor}(:,:,curr_depth,:),[1,2,4,3]) - ...
+            permute(task_ctx_str_k_animal{curr_regressor}(:,:,curr_depth,:),[1,2,4,3]);
         
         for curr_subregressor = 1:n_subregressors
             AP_errorfill(t_shifts{curr_regressor}, ...

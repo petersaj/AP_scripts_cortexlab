@@ -10,7 +10,7 @@
 %% Load in task data
 
 % Load data
-data_fn = 'trial_activity_choiceworld';
+data_fn = 'trial_activity_choiceworld_1gocue';
 exclude_data = true;
 AP_load_concat_normalize_ctx_str;
 
@@ -22,6 +22,14 @@ use_split = trials_animal;
 
 split_idx = cell2mat(arrayfun(@(exp,trials) repmat(exp,trials,1), ...
     [1:length(use_split)]',reshape(use_split,[],1),'uni',false));
+
+%% CURRENTLY BUILDING: show additivity between stim and movement 
+
+
+
+
+
+
 
 
 %% Figure 1f (AND OTHERS?): Measured v predicted (task,ctx,str)
@@ -64,7 +72,9 @@ for curr_group = 1:length(group_labels)
     
     % (set allcat activity and predicted activity)
     curr_act_allcat = fluor_roi_deconv;
-    curr_act_pred_allcat = fluor_roi_taskpred;
+%     curr_act_pred_allcat = fluor_roi_taskpred;
+curr_act_pred_allcat = fluor_roi_taskpred_reduced(:,:,:,1);
+
 %     curr_act_allcat = single(mua_allcat);
 %     curr_act_pred_allcat = single(mua_ctxpred_allcat);
 
@@ -118,7 +128,7 @@ for curr_group = 1:length(group_labels)
     
     % Plot binned predicted v measured
     figure(act_v_pred_fig);
-    subplot(1,length(trial_groups),curr_group); hold on;
+    subplot(1,length(group_labels),curr_group); hold on;
     set(gca,'ColorOrder',copper(length(plot_areas)));
     errorbar(nanmean(act_binmean(:,plot_areas,:),3), ...
         nanmean(act_pred_binmean(:,plot_areas,:),3), ...

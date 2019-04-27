@@ -526,9 +526,9 @@ for curr_animal = 1:length(animals)
             error('Different number of interactive ons and move times')
         end
         
-        go_cue_regressors = histcounts( ...
-            signals_events.interactiveOnTimes(move_t > 0.5),time_bins);
-        % (old: use go cue with movement before and after)
+        go_cue_regressors(1,:) = histcounts( ...
+            signals_events.interactiveOnTimes(move_t <= 0.5),time_bins);
+        
 %         go_cue_regressors = zeros(1,length(time_bin_centers));
 %         go_cue_regressors(1,:) = histcounts( ...
 %             signals_events.interactiveOnTimes(move_t <= 0.5),time_bins);
@@ -551,8 +551,7 @@ for curr_animal = 1:length(animals)
         t_shifts = {[0,0.5]; ... % stim
             [-0.5,1]; ... % move
             [-0.1,0.5]; ... % go cue
-            [0,0.5]}; % outcome
-%             [-0.5,1]}; % outcome
+            [-0.5,1]}; % outcome
         
         sample_shifts = cellfun(@(x) round(x(1)*(sample_rate)): ...
             round(x(2)*(sample_rate)),t_shifts,'uni',false);
@@ -723,7 +722,7 @@ clearvars -except ...
 disp('Finished loading all')
 
 save_path = 'C:\Users\Andrew\OneDrive for Business\Documents\CarandiniHarrisLab\analysis\wf_ephys_choiceworld\paper\data';
-save_fn = ['trial_activity_choiceworld_1gocue_shortreward'];
+save_fn = ['trial_activity_choiceworld_1gocue'];
 save([save_path filesep save_fn],'-v7.3');
 
 %% Passive choiceworld trial activity (trained)
