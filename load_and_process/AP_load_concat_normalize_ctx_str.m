@@ -51,8 +51,9 @@ end
 arrayfun(@(x) assignin('base',cell2mat(x),data_struct.(cell2mat(x))),data_struct_fieldnames);
 clear data_struct
 
-% Get sample rate
+% Get sample rate and set "baseline" time
 sample_rate = 1/mean(diff(t));
+t_baseline = t < 0;
 
 % Get if this is a task dataset
 task_dataset = exist('outcome_all','var');
@@ -67,12 +68,12 @@ D_allcat = cell2struct(arrayfun(@(curr_field) ...
 % Concatenate wheel
 wheel_allcat = cell2mat(vertcat(wheel_all{:}));
 
-% (movement from mousecam if exists: normalize and concatenate)
-if exist('movement_all','var')
-    movement_all_norm = cellfun(@(x) cellfun(@(x) x./nanstd(x(:)), ...
-        x,'uni',false),movement_all,'uni',false);
-    movement_allcat = cell2mat(vertcat(movement_all_norm{:}));
-end
+% % (movement from mousecam if exists: normalize and concatenate)
+% if exist('movement_all','var')
+%     movement_all_norm = cellfun(@(x) cellfun(@(x) x./nanstd(x(:)), ...
+%         x,'uni',false),movement_all,'uni',false);
+%     movement_allcat = cell2mat(vertcat(movement_all_norm{:}));
+% end
 
 %% Get task-relevant variables if task data
 
@@ -105,7 +106,7 @@ if task_dataset
     
     t_leeway = -t(1);
     leeway_samples = round(t_leeway*(sample_rate));
-    for i = 1:size(mua_allcat,1)
+    for i = 1:size(wheel_velocity_allcat,1)
         wheel_velocity_allcat_move(i,:,:) = circshift(wheel_velocity_allcat_move(i,:,:),-move_idx(i)+leeway_samples,2);
     end 
         
@@ -172,7 +173,7 @@ if task_dataset
     
     t_leeway = -t(1);
     leeway_samples = round(t_leeway*(sample_rate));
-    for i = 1:size(mua_allcat,1)
+    for i = 1:size(fluor_allcat_deconv,1)
         fluor_allcat_deconv_move(i,:,:,:) = circshift(fluor_allcat_deconv_move(i,:,:,:),-move_idx(i)+leeway_samples,2);
         fluor_taskpred_reduced_allcat_move(i,:,:,:) = circshift(fluor_taskpred_reduced_allcat_move(i,:,:,:),-move_idx(i)+leeway_samples,2);
         fluor_roi_deconv_move(i,:,:,:) = circshift(fluor_roi_deconv_move(i,:,:,:),-move_idx(i)+leeway_samples,2);
@@ -189,7 +190,6 @@ if exist('mua_all','var')
     n_depths = size(mua_all{end}{end},3);
     
     % Normalize MUA by experiment and concatenate
-    t_baseline = t < 0;
     mua_day_baseline = cellfun(@(mua_animal) cellfun(@(mua_day) ...
         nanmean(reshape(mua_day(:,t_baseline,:),[],1,n_depths)), ...
         mua_animal,'uni',false),mua_all,'uni',false);

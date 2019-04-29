@@ -10,17 +10,17 @@
 %% Load in task data
 
 % Load data
-data_fn = 'trial_activity_choiceworld';
+% data_fn = 'trial_activity_choiceworld';
 % data_fn = 'trial_activity_choiceworld_stimxmove';
-% data_fn = 'trial_activity_choiceworld_wfonly';
+data_fn = 'trial_activity_choiceworld_wfonly';
 
-exclude_data = true;
+exclude_data = false;
 AP_load_concat_normalize_ctx_str;
 
 % Choose split for data
-trials_allcat = size(mua_allcat,1);
-trials_animal = arrayfun(@(x) size(vertcat(mua_all{x}{:}),1),1:size(mua_all));
-trials_recording = cellfun(@(x) size(x,1),vertcat(mua_all{:}));
+trials_allcat = size(wheel_allcat,1);
+trials_animal = arrayfun(@(x) size(vertcat(wheel_all{x}{:}),1),1:size(wheel_all));
+trials_recording = cellfun(@(x) size(x,1),vertcat(wheel_all{:}));
 use_split = trials_animal;
 
 split_idx = cell2mat(arrayfun(@(exp,trials) repmat(exp,trials,1), ...
