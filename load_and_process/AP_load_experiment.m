@@ -225,17 +225,20 @@ if block_exists
     
     % SPECIFIC TO PROTOCOL
     [~,expDef] = fileparts(block.expDef);
-    if strcmp(expDef,'vanillaChoiceworld')
+    if strcmp(expDef,'vanillaChoiceworld')       
         
-        % dumb signals thing, fix
+        % Hit/miss recorded for last trial, circshift to align
         signals_events.hitValues = circshift(signals_events.hitValues,[0,-1]);
         signals_events.missValues = circshift(signals_events.missValues,[0,-1]);
+        
+        % Get number of completed trials (if uncompleted last trial)
+        n_trials = length(signals_events.endTrialTimes);
         
         % Get stim on times by closest photodiode flip
         [~,closest_stimOn_photodiode] = ...
             arrayfun(@(x) min(abs(signals_events.stimOnTimes(x) - ...
             photodiode_flip_times)), ...
-            1:length(signals_events.stimOnTimes));
+            1:n_trials);
         stimOn_times = photodiode_flip_times(closest_stimOn_photodiode);
         
         % Get time from stim on to first wheel movement     
@@ -253,10 +256,9 @@ if block_exists
         wheel_move_time = arrayfun(@(x) pull_times(x,wheel_move_sample(x)),1:size(pull_times,1))';
         wheel_move_time(wheel_move_sample == 1) = NaN;
         
-        % Get conditions for all trials
-        % (trial timing)
-        n_trials = length(block.paramsValues);
-        trial_outcome = signals_events.hitValues(1:n_trials)'-signals_events.missValues(1:n_trials)';
+        % Get conditions for all trials      
+        
+        % (trial_timing)
         stim_to_move = padarray(wheel_move_time - stimOn_times,[n_trials-length(stimOn_times),0],NaN,'post');
         stim_to_feedback = [padarray(signals_events.responseTimes, ...
             [0,n_trials-length(signals_events.responseTimes)],NaN,'post') - ...
@@ -265,12 +267,13 @@ if block_exists
         % (early vs late move)
         trial_timing = 1 + (stim_to_move > 0.5);
         
-        % (left vs right choice)
+        % (choice and outcome)
         go_left = (signals_events.trialSideValues == 1 & signals_events.hitValues == 1) | ...
             (signals_events.trialSideValues == -1 & signals_events.missValues == 1);
         go_right = (signals_events.trialSideValues == -1 & signals_events.hitValues == 1) | ...
             (signals_events.trialSideValues == 1 & signals_events.missValues == 1);
         trial_choice = go_right' - go_left';
+        trial_outcome = signals_events.hitValues(1:n_trials)'-signals_events.missValues(1:n_trials)';
         
         % (trial conditions: [contrast,side,choice,timing])
         contrasts = [0,0.06,0.125,0.25,0.5,1];

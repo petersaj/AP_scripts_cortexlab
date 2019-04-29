@@ -520,10 +520,6 @@ for curr_animal = 1:length(animals)
         
         % Go cue regressors - separate for early/late move
         % (using signals timing - not precise but looks good)
-        if length(signals_events.interactiveOnTimes) ~= length(move_t)
-            error('Different number of interactive ons and move times')
-        end
-        
         go_cue_regressors = histcounts( ...
             signals_events.interactiveOnTimes(move_t > 0.5),time_bins);
         % (old: use go cue with movement before and after)
@@ -984,11 +980,7 @@ for curr_animal = 1:length(animals)
         move_ongoing_regressors(2,move_ongoing_R_samples) = 1;
         
         % Go cue regressors - separate for early/late move
-        % (using signals timing - not precise but looks good)
-        if length(signals_events.interactiveOnTimes) ~= length(move_t)
-            error('Different number of interactive ons and move times')
-        end
-        
+        % (using signals timing - not precise but looks good)        
         go_cue_regressors = histcounts( ...
             signals_events.interactiveOnTimes(move_t > 0.5),time_bins);
         % (old: use go cue with movement before and after)
