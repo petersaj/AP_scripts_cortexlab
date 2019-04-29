@@ -6245,5 +6245,3 @@ title('Good manual, bad auto');
 
 
 
-
-

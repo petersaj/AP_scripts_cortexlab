@@ -4537,7 +4537,7 @@ outcome_align = -outcome_idx + leeway_samples;
 
 % Set windows to average activity
 group_labels = {'Pre-stim','Stim','Move onset','Outcome'};
-group_t = {[-0.2,-0.1],[0.05,0.15],[-0.05,0.05],[0,0.1]};
+group_t = {[-0.2,-0.1],[0.05,0.15],[-0.05,0.05],[0.05,0.15]};
 group_align = {stim_align,stim_align,move_align,outcome_align};
 
 % Set activity percentiles and bins
@@ -4553,7 +4553,7 @@ trial_condition_groups = ...
     [trial_outcome_allcat == 1, trial_outcome_allcat == -1]};
 
 % Loop across area pairs, plot binned predicted v measured activity
-for curr_str_ctx = 4:length(plot_str_ctx)
+for curr_str_ctx = 1:length(plot_str_ctx)
     
     plot_str = plot_str_ctx{curr_str_ctx}(1);
     plot_ctx = plot_str_ctx{curr_str_ctx}(2);
@@ -4567,35 +4567,35 @@ for curr_str_ctx = 4:length(plot_str_ctx)
         % (set striatum activity to use)
         switch curr_mua
             case 1
-%                 curr_str_act_allcat = single(mua_allcat);
+                curr_str_act_allcat = single(mua_allcat);
                 
-                            curr_str_act_reduced = mua_taskpred_reduced_allcat(:,:,:,use_reduced);
-                            curr_str_act_reduced(isnan(curr_str_act_reduced)) = 0;
-                            curr_str_act_allcat = single(mua_allcat - curr_str_act_reduced);
+%                 curr_str_act_reduced = mua_taskpred_reduced_allcat(:,:,:,use_reduced);
+%                 curr_str_act_reduced(isnan(curr_str_act_reduced)) = 0;
+%                 curr_str_act_allcat = single(mua_allcat - curr_str_act_reduced);
                 mua_label = 'Measured';
             case 2
-%                 curr_str_act_allcat = single(mua_taskpred_allcat);
+                curr_str_act_allcat = single(mua_taskpred_allcat);
                 
-                            curr_str_act_reduced = mua_taskpred_reduced_allcat(:,:,:,use_reduced);
-                            curr_str_act_reduced(isnan(curr_str_act_reduced)) = 0;
-                            curr_str_act_allcat = single(mua_taskpred_allcat - curr_str_act_reduced);
+%                 curr_str_act_reduced = mua_taskpred_reduced_allcat(:,:,:,use_reduced);
+%                 curr_str_act_reduced(isnan(curr_str_act_reduced)) = 0;
+%                 curr_str_act_allcat = single(mua_taskpred_allcat - curr_str_act_reduced);
                 mua_label = 'Task-pred';
             case 3
-%                 curr_str_act_allcat = single(mua_ctxpred_allcat);
+                curr_str_act_allcat = single(mua_ctxpred_allcat);
                 
-                            curr_str_act_reduced = mua_ctxpred_taskpred_reduced_allcat(:,:,:,use_reduced);
-                            curr_str_act_reduced(isnan(curr_str_act_reduced)) = 0;
-                            curr_str_act_allcat = single(mua_ctxpred_allcat - curr_str_act_reduced);
+%                 curr_str_act_reduced = mua_ctxpred_taskpred_reduced_allcat(:,:,:,use_reduced);
+%                 curr_str_act_reduced(isnan(curr_str_act_reduced)) = 0;
+%                 curr_str_act_allcat = single(mua_ctxpred_allcat - curr_str_act_reduced);
                 mua_label = 'Ctx-pred';
         end
         
         for curr_group = 1:length(group_labels)
             
             % (set cortex activity to use)
-%             curr_ctx_act_allcat = fluor_roi_deconv;
-            curr_ctx_act_reduced = fluor_roi_taskpred_reduced(:,:,:,use_reduced);
-            curr_ctx_act_reduced(isnan(curr_ctx_act_reduced)) = 0;
-            curr_ctx_act_allcat = fluor_roi_deconv - curr_ctx_act_reduced;
+            curr_ctx_act_allcat = fluor_roi_deconv;
+%             curr_ctx_act_reduced = fluor_roi_taskpred_reduced(:,:,:,use_reduced);
+%             curr_ctx_act_reduced(isnan(curr_ctx_act_reduced)) = 0;
+%             curr_ctx_act_allcat = fluor_roi_deconv - curr_ctx_act_reduced;
                
             % (re-align and split activity and conditions)
             curr_ctx_act = mat2cell(...
@@ -4677,7 +4677,7 @@ outcome_align = -outcome_idx + leeway_samples;
 
 % Set windows to average activity
 group_labels = {'Pre-stim','Stim','Move onset','Outcome'};
-group_t = {[-0.2,-0.1],[0.05,0.15],[-0.05,0.05],[0,0.1]};
+group_t = {[-0.2,-0.1],[0.05,0.15],[-0.05,0.05],[0.05,0.15]};
 group_align = {stim_align,stim_align,move_align,outcome_align};
 
 % Set activity percentiles and bins
@@ -4685,7 +4685,7 @@ act_prctile = [20,80];
 n_act_bins = 5;
 
 % Set areas and conditions
-plot_areas = [3,7,10];
+plot_areas = [1,3,7,10];
 trial_condition_groups = ...
     {[sign(trial_contrastside_allcat) == 1,sign(trial_contrastside_allcat) == -1], ...
     [trial_choice_allcat == -1,trial_choice_allcat == 1], ...
@@ -4693,15 +4693,14 @@ trial_condition_groups = ...
     [trial_outcome_allcat == 1, trial_outcome_allcat == -1]};
 
 % Loop across area pairs, plot binned predicted v measured activity
+measured_v_taskpred_fig = figure('color','w');
 for curr_area = 1:length(plot_areas)
     
     plot_area = plot_areas(curr_area);
     
-    curr_act_allcat = fluor_roi_deconv(:,:,plot_area);
-    curr_act_taskpred_allcat = fluor_roi_taskpred(:,:,plot_area);
+    curr_act_allcat = fluor_roi_deconv;
+    curr_act_taskpred_allcat = fluor_roi_taskpred;
     trial_conditions = trial_condition_groups{curr_area};
-    
-    measured_v_taskpred_fig = figure('color','w');
         
         for curr_group = 1:length(group_labels)
             
@@ -4724,7 +4723,7 @@ for curr_area = 1:length(plot_areas)
             curr_act_taskpred_act = cellfun(@(x) squeeze(nanmean(x(:,curr_event_t,:),2)),curr_act_taskpred,'uni',false);
             
             % (bin measured data across percentile range)
-            bin_range = prctile(cell2mat(cellfun(@(x) x(:,plot_ctx),curr_act_avg,'uni',false)),act_prctile);
+            bin_range = prctile(cell2mat(cellfun(@(x) x(:,plot_area),curr_act_avg,'uni',false)),act_prctile);
             bin_edges = linspace(bin_range(1),bin_range(2),n_act_bins+1);
             bin_centers = bin_edges(1:end-1) + diff(bin_edges)./2;
             
@@ -4756,14 +4755,14 @@ for curr_area = 1:length(plot_areas)
             
             % Plot binned predicted v measured
             figure(measured_v_taskpred_fig);
-            subplot(3,length(group_labels), ...
-                sub2ind(fliplr([3,length(group_labels)]),curr_group,curr_mua));
+            subplot(length(plot_areas),length(group_labels), ...
+                sub2ind(fliplr([length(plot_areas),length(group_labels)]),curr_group,curr_area));
             errorbar( ...
                 squeeze(nanmean(act_binmean(:,plot_ctx,:,:),3)), ...
                 squeeze(nanmean(act_taskpred_binmean(:,plot_str,:,:),3)), ...
                 squeeze(AP_sem(act_taskpred_binmean(:,plot_str,:,:),3)),'linewidth',2);
-            xlabel(['Measured']);
-            ylabel(['Task-predicted'])
+            xlabel(['Measured (' num2str(plot_area) ')']);
+            ylabel(['Task-predicted (' num2str(plot_area) ')'])
             title(group_labels{curr_group});
             
         end
