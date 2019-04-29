@@ -1,13 +1,8 @@
 % AP_load_concat_normalize_ctx_str(data_fn,exclude_data)
 %
-% (not a function any more, used to be this)
-% [t,fluor_allcat_deriv,fluor_roi_deriv,mua_allcat,wheel_allcat,reward_allcat,D_allcat] = ...
-%     AP_load_concat_normalize_ctx_str(data_fn,exclude_data)
-%
 % Loads, concatenates, and normalizes trial data for the ctx-str project
 % data_fn - filename (e.g. trial_activity_choiceworld)
 % exclude_data - true/false at the moment (for bad behavior days)
-% (can in future extend this to wonky recording days?)
 
 %% Load in and unpack data
 
