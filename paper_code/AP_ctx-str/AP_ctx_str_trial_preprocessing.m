@@ -255,6 +255,7 @@ for curr_animal = 1:length(animals)
         use_align(isnan(use_align)) = 0;
         
         t_peri_event = bsxfun(@plus,use_align,t);
+        t_peri_event_bins = [t_peri_event-raster_sample_rate/2,t_peri_event(:,end)+raster_sample_rate/2];
         
         %%% Trial-align cortex
         event_aligned_V = ...
@@ -262,7 +263,6 @@ for curr_animal = 1:length(animals)
         
         %%% Trial-align striatum
         event_aligned_mua = nan(length(stimOn_times),length(t),n_depths);
-        t_bins = [t_peri_event-raster_sample_rate/2,t_peri_event(:,end)+raster_sample_rate/2];
         for curr_depth = 1:n_depths
             curr_spikes = spike_times_timeline(depth_group == curr_depth);
             % (for only msns in depth group)
@@ -274,7 +274,7 @@ for curr_animal = 1:length(animals)
             end
             
             event_aligned_mua(:,:,curr_depth) = cell2mat(arrayfun(@(x) ...
-                histcounts(curr_spikes,t_bins(x,:)), ...
+                histcounts(curr_spikes,t_peri_event_bins(x,:)), ...
                 [1:size(t_peri_event,1)]','uni',false))./raster_sample_rate;
         end
         
@@ -375,12 +375,12 @@ for curr_animal = 1:length(animals)
         
         event_aligned_outcome(trial_outcome == 1,:,1) = ...
             (cell2mat(arrayfun(@(x) ...
-            histcounts(reward_t_timeline,t_bins(x,:)), ...
+            histcounts(reward_t_timeline,t_peri_event_bins(x,:)), ...
             find(trial_outcome == 1),'uni',false))) > 0;
         
         event_aligned_outcome(trial_outcome == -1,:,2) = ...
             (cell2mat(arrayfun(@(x) ...
-            histcounts(signals_events.responseTimes,t_bins(x,:)), ...
+            histcounts(signals_events.responseTimes,t_peri_event_bins(x,:)), ...
             find(trial_outcome == -1),'uni',false))) > 0;
         
         % Pick trials to keep
@@ -804,14 +804,14 @@ for curr_animal = 1:length(animals)
         raster_window = [-0.5,2];
         upsample_factor = 1;
         raster_sample_rate = 1/(framerate*upsample_factor);
-        t = raster_window(1):raster_sample_rate:raster_window(2);
-        t_bins = [t_peri_event-raster_sample_rate/2,t_peri_event(:,end)+raster_sample_rate/2];
+        t = raster_window(1):raster_sample_rate:raster_window(2);       
         
         % Get align times
         use_align = stimOn_times;
         use_align(isnan(use_align)) = 0;
         
         t_peri_event = bsxfun(@plus,use_align,t);
+        t_peri_event_bins = [t_peri_event-raster_sample_rate/2,t_peri_event(:,end)+raster_sample_rate/2];
         
         %%% Trial-align cortex
         event_aligned_V = ...
@@ -840,12 +840,12 @@ for curr_animal = 1:length(animals)
         
         event_aligned_outcome(trial_outcome == 1,:,1) = ...
             (cell2mat(arrayfun(@(x) ...
-            histcounts(reward_t_timeline,t_bins(x,:)), ...
+            histcounts(reward_t_timeline,t_peri_event_bins(x,:)), ...
             find(trial_outcome == 1),'uni',false))) > 0;
         
         event_aligned_outcome(trial_outcome == -1,:,2) = ...
             (cell2mat(arrayfun(@(x) ...
-            histcounts(signals_events.responseTimes,t_bins(x,:)), ...
+            histcounts(signals_events.responseTimes,t_peri_event_bins(x,:)), ...
             find(trial_outcome == -1),'uni',false))) > 0;
         
         % Pick trials to keep
@@ -1234,7 +1234,7 @@ for curr_animal = 1:length(animals)
         
         %%% MUA
         event_aligned_mua = nan(length(stimOn_times),length(t),n_depths);
-        t_bins = [t_peri_event-raster_sample_rate/2,t_peri_event(:,end)+raster_sample_rate/2];
+        t_peri_event_bins = [t_peri_event-raster_sample_rate/2,t_peri_event(:,end)+raster_sample_rate/2];
         for curr_depth = 1:n_depths
             curr_spikes = spike_times_timeline(depth_group == curr_depth);
             % (for only msns in depth group)
@@ -1242,7 +1242,7 @@ for curr_animal = 1:length(animals)
             %                     ismember(spike_templates,find(msn)));
             
             event_aligned_mua(:,:,curr_depth) = cell2mat(arrayfun(@(x) ...
-                histcounts(curr_spikes,t_bins(x,:)), ...
+                histcounts(curr_spikes,t_peri_event_bins(x,:)), ...
                 [1:size(t_peri_event,1)]','uni',false))./raster_sample_rate;
         end
         
@@ -1483,7 +1483,7 @@ for curr_animal = 1:length(animals)
         
         %%% MUA
         event_aligned_mua = nan(length(stimOn_times),length(t),n_depths);
-        t_bins = [t_peri_event-raster_sample_rate/2,t_peri_event(:,end)+raster_sample_rate/2];
+        t_peri_event_bins = [t_peri_event-raster_sample_rate/2,t_peri_event(:,end)+raster_sample_rate/2];
         for curr_depth = 1:n_depths
             curr_spikes = spike_times_timeline(depth_group == curr_depth);
             % (for only msns in depth group)
@@ -1491,7 +1491,7 @@ for curr_animal = 1:length(animals)
             %                     ismember(spike_templates,find(msn)));
             
             event_aligned_mua(:,:,curr_depth) = cell2mat(arrayfun(@(x) ...
-                histcounts(curr_spikes,t_bins(x,:)), ...
+                histcounts(curr_spikes,t_peri_event_bins(x,:)), ...
                 [1:size(t_peri_event,1)]','uni',false))./raster_sample_rate;
         end
         
@@ -1740,7 +1740,7 @@ for curr_animal = 1:length(animals)
         
         %%% MUA
         event_aligned_mua = nan(length(stimOn_times),length(t),n_depths);
-        t_bins = [t_peri_event-raster_sample_rate/2,t_peri_event(:,end)+raster_sample_rate/2];
+        t_peri_event_bins = [t_peri_event-raster_sample_rate/2,t_peri_event(:,end)+raster_sample_rate/2];
         for curr_depth = 1:n_depths
             curr_spikes = spike_times_timeline(depth_group == curr_depth);
             % (for only msns in depth group)
@@ -1748,7 +1748,7 @@ for curr_animal = 1:length(animals)
             %                     ismember(spike_templates,find(msn)));
             
             event_aligned_mua(:,:,curr_depth) = cell2mat(arrayfun(@(x) ...
-                histcounts(curr_spikes,t_bins(x,:)), ...
+                histcounts(curr_spikes,t_peri_event_bins(x,:)), ...
                 [1:size(t_peri_event,1)]','uni',false))./raster_sample_rate;
         end
         
@@ -1991,7 +1991,7 @@ for curr_animal = 1:length(animals)
         
         %%% MUA
         event_aligned_mua = nan(length(stimOn_times),length(t),n_depths);
-        t_bins = [t_peri_event-raster_sample_rate/2,t_peri_event(:,end)+raster_sample_rate/2];
+        t_peri_event_bins = [t_peri_event-raster_sample_rate/2,t_peri_event(:,end)+raster_sample_rate/2];
         for curr_depth = 1:n_depths
             curr_spikes = spike_times_timeline(depth_group == curr_depth);
             % (for only msns in depth group)
@@ -1999,7 +1999,7 @@ for curr_animal = 1:length(animals)
             %                     ismember(spike_templates,find(msn)));
             
             event_aligned_mua(:,:,curr_depth) = cell2mat(arrayfun(@(x) ...
-                histcounts(curr_spikes,t_bins(x,:)), ...
+                histcounts(curr_spikes,t_peri_event_bins(x,:)), ...
                 [1:size(t_peri_event,1)]','uni',false))./raster_sample_rate;
         end
         
@@ -2843,7 +2843,7 @@ for curr_animal = 1:length(animals)
         
         %%% MUA
         event_aligned_mua = nan(length(stimOn_times),length(t),n_depths);
-        t_bins = [t_peri_event-raster_sample_rate/2,t_peri_event(:,end)+raster_sample_rate/2];
+        t_peri_event_bins = [t_peri_event-raster_sample_rate/2,t_peri_event(:,end)+raster_sample_rate/2];
         for curr_depth = 1:n_depths
             curr_spikes = spike_times_timeline(depth_group == curr_depth);
             % (for only msns in depth group)
@@ -2851,7 +2851,7 @@ for curr_animal = 1:length(animals)
             %                     ismember(spike_templates,find(msn)));
             
             event_aligned_mua(:,:,curr_depth) = cell2mat(arrayfun(@(x) ...
-                histcounts(curr_spikes,t_bins(x,:)), ...
+                histcounts(curr_spikes,t_peri_event_bins(x,:)), ...
                 [1:size(t_peri_event,1)]','uni',false))./raster_sample_rate;
         end
         
@@ -2908,9 +2908,9 @@ for curr_animal = 1:length(animals)
             nanmedian(event_aligned_wheel_raw(:,t < 0),2));
         
         %%% Reward
-        t_bins = [t_peri_event-raster_sample_rate/2,t_peri_event(:,end)+raster_sample_rate/2];
+        t_peri_event_bins = [t_peri_event-raster_sample_rate/2,t_peri_event(:,end)+raster_sample_rate/2];
         event_aligned_reward = (cell2mat(arrayfun(@(x) ...
-            histcounts(reward_t_timeline,t_bins(x,:)), ...
+            histcounts(reward_t_timeline,t_peri_event_bins(x,:)), ...
             [1:size(t_peri_event,1)]','uni',false))./raster_sample_rate) > 0;
         
         % Pick trials to use
@@ -3029,7 +3029,7 @@ for curr_animal = 1:length(animals)
         
         % MUA
         event_aligned_mua = nan(length(stimOn_times),length(t),n_depths);
-        t_bins = [t_peri_event-raster_sample_rate/2,t_peri_event(:,end)+raster_sample_rate/2];
+        t_peri_event_bins = [t_peri_event-raster_sample_rate/2,t_peri_event(:,end)+raster_sample_rate/2];
         for curr_depth = 1:n_depths
             curr_spikes = spike_times_timeline(depth_group == curr_depth);
             % (for only msns in depth group)
@@ -3037,7 +3037,7 @@ for curr_animal = 1:length(animals)
             %                     ismember(spike_templates,find(msn)));
             
             event_aligned_mua(:,:,curr_depth) = cell2mat(arrayfun(@(x) ...
-                histcounts(curr_spikes,t_bins(x,:)), ...
+                histcounts(curr_spikes,t_peri_event_bins(x,:)), ...
                 [1:size(t_peri_event,1)]','uni',false))./raster_sample_rate;
         end
         
@@ -3048,9 +3048,9 @@ for curr_animal = 1:length(animals)
             nanmedian(event_aligned_wheel_raw(:,t < 0),2));
         
         % Reward
-        t_bins = [t_peri_event-raster_sample_rate/2,t_peri_event(:,end)+raster_sample_rate/2];
+        t_peri_event_bins = [t_peri_event-raster_sample_rate/2,t_peri_event(:,end)+raster_sample_rate/2];
         event_aligned_reward = (cell2mat(arrayfun(@(x) ...
-            histcounts(reward_t_timeline,t_bins(x,:)), ...
+            histcounts(reward_t_timeline,t_peri_event_bins(x,:)), ...
             [1:size(t_peri_event,1)]','uni',false))./raster_sample_rate) > 0;
         
         % Pick trials to use
@@ -3167,7 +3167,7 @@ for curr_animal = 1:length(animals)
         
         % MUA
         event_aligned_mua = nan(length(stimOn_times),length(t),n_depths);
-        t_bins = [t_peri_event-raster_sample_rate/2,t_peri_event(:,end)+raster_sample_rate/2];
+        t_peri_event_bins = [t_peri_event-raster_sample_rate/2,t_peri_event(:,end)+raster_sample_rate/2];
         for curr_depth = 1:n_depths
             curr_spikes = spike_times_timeline(depth_group == curr_depth);
             % (for only msns in depth group)
@@ -3175,7 +3175,7 @@ for curr_animal = 1:length(animals)
             %                     ismember(spike_templates,find(msn)));
             
             event_aligned_mua(:,:,curr_depth) = cell2mat(arrayfun(@(x) ...
-                histcounts(curr_spikes,t_bins(x,:)), ...
+                histcounts(curr_spikes,t_peri_event_bins(x,:)), ...
                 [1:size(t_peri_event,1)]','uni',false))./raster_sample_rate;
         end
         
@@ -3186,9 +3186,9 @@ for curr_animal = 1:length(animals)
             nanmedian(event_aligned_wheel_raw(:,t < 0),2));
         
         % Reward
-        t_bins = [t_peri_event-raster_sample_rate/2,t_peri_event(:,end)+raster_sample_rate/2];
+        t_peri_event_bins = [t_peri_event-raster_sample_rate/2,t_peri_event(:,end)+raster_sample_rate/2];
         event_aligned_reward = (cell2mat(arrayfun(@(x) ...
-            histcounts(reward_t_timeline,t_bins(x,:)), ...
+            histcounts(reward_t_timeline,t_peri_event_bins(x,:)), ...
             [1:size(t_peri_event,1)]','uni',false))./raster_sample_rate) > 0;
         
         % Pick trials to use
@@ -3321,7 +3321,7 @@ for curr_animal = 1:length(animals)
         
         %%% MUA
         event_aligned_mua = nan(length(stimOn_times),length(t),n_depths);
-        t_bins = [t_peri_event-raster_sample_rate/2,t_peri_event(:,end)+raster_sample_rate/2];
+        t_peri_event_bins = [t_peri_event-raster_sample_rate/2,t_peri_event(:,end)+raster_sample_rate/2];
         for curr_depth = 1:n_depths
             curr_spikes = spike_times_timeline(depth_group == curr_depth);
             % (for only msns in depth group)
@@ -3329,7 +3329,7 @@ for curr_animal = 1:length(animals)
             %                     ismember(spike_templates,find(msn)));
             
             event_aligned_mua(:,:,curr_depth) = cell2mat(arrayfun(@(x) ...
-                histcounts(curr_spikes,t_bins(x,:)), ...
+                histcounts(curr_spikes,t_peri_event_bins(x,:)), ...
                 [1:size(t_peri_event,1)]','uni',false))./raster_sample_rate;
         end
         
@@ -3434,18 +3434,18 @@ for curr_animal = 1:length(animals)
         
         %%% Outcome (reward page 1, punish page 2)
         % (note incorrect outcome imprecise from signals, but looks good)
-        t_bins = [t_peri_event-raster_sample_rate/2,t_peri_event(:,end)+raster_sample_rate/2];
+        t_peri_event_bins = [t_peri_event-raster_sample_rate/2,t_peri_event(:,end)+raster_sample_rate/2];
         
         event_aligned_outcome = zeros(size(t_peri_event,1),size(t_peri_event,2),2);
         
         event_aligned_outcome(trial_outcome == 1,:,1) = ...
             (cell2mat(arrayfun(@(x) ...
-            histcounts(reward_t_timeline,t_bins(x,:)), ...
+            histcounts(reward_t_timeline,t_peri_event_bins(x,:)), ...
             find(trial_outcome == 1)','uni',false))) > 0;
         
         event_aligned_outcome(trial_outcome == -1,:,2) = ...
             (cell2mat(arrayfun(@(x) ...
-            histcounts(signals_events.responseTimes,t_bins(x,:)), ...
+            histcounts(signals_events.responseTimes,t_peri_event_bins(x,:)), ...
             find(trial_outcome == -1)','uni',false))) > 0;
         
         % Pick trials to use
@@ -3769,7 +3769,7 @@ for curr_animal = 1:length(animals)
         
         %%% MUA
         event_aligned_mua = nan(length(stimOn_times),length(t),n_depths);
-        t_bins = [t_peri_event-raster_sample_rate/2,t_peri_event(:,end)+raster_sample_rate/2];
+        t_peri_event_bins = [t_peri_event-raster_sample_rate/2,t_peri_event(:,end)+raster_sample_rate/2];
         for curr_depth = 1:n_depths
             % (for all spikes in depth group)
             curr_spikes = spike_times_timeline(depth_group == curr_depth);
@@ -3778,7 +3778,7 @@ for curr_animal = 1:length(animals)
             %                     ismember(spike_templates,find(msn)));
             
             event_aligned_mua(:,:,curr_depth) = cell2mat(arrayfun(@(x) ...
-                histcounts(curr_spikes,t_bins(x,:)), ...
+                histcounts(curr_spikes,t_peri_event_bins(x,:)), ...
                 [1:size(t_peri_event,1)]','uni',false))./raster_sample_rate;
         end
         
@@ -3954,7 +3954,7 @@ for curr_animal = 1:length(animals)
         
         %%% MUA
         event_aligned_mua = nan(length(stimOn_times),length(t),n_depths);
-        t_bins = [t_peri_event-raster_sample_rate/2,t_peri_event(:,end)+raster_sample_rate/2];
+        t_peri_event_bins = [t_peri_event-raster_sample_rate/2,t_peri_event(:,end)+raster_sample_rate/2];
         for curr_depth = 1:n_depths
             % (for all spikes in depth group)
             curr_spikes = spike_times_timeline(depth_group == curr_depth);
@@ -3963,7 +3963,7 @@ for curr_animal = 1:length(animals)
             %                     ismember(spike_templates,find(msn)));
             
             event_aligned_mua(:,:,curr_depth) = cell2mat(arrayfun(@(x) ...
-                histcounts(curr_spikes,t_bins(x,:)), ...
+                histcounts(curr_spikes,t_peri_event_bins(x,:)), ...
                 [1:size(t_peri_event,1)]','uni',false))./raster_sample_rate;
         end
         
@@ -4133,7 +4133,7 @@ for curr_animal = 1:length(animals)
         
         %%% MUA
         event_aligned_mua = nan(length(stimOn_times),length(t),n_depths);
-        t_bins = [t_peri_event-raster_sample_rate/2,t_peri_event(:,end)+raster_sample_rate/2];
+        t_peri_event_bins = [t_peri_event-raster_sample_rate/2,t_peri_event(:,end)+raster_sample_rate/2];
         for curr_depth = 1:n_depths
             % (for all spikes in depth group)
             curr_spikes = spike_times_timeline(depth_group == curr_depth);
@@ -4142,7 +4142,7 @@ for curr_animal = 1:length(animals)
             %                     ismember(spike_templates,find(msn)));
             
             event_aligned_mua(:,:,curr_depth) = cell2mat(arrayfun(@(x) ...
-                histcounts(curr_spikes,t_bins(x,:)), ...
+                histcounts(curr_spikes,t_peri_event_bins(x,:)), ...
                 [1:size(t_peri_event,1)]','uni',false))./raster_sample_rate;
         end
         
@@ -4311,7 +4311,7 @@ for curr_animal = 1:length(animals)
         
         %%% MUA
         event_aligned_mua = nan(length(stimOn_times),length(t),n_depths);
-        t_bins = [t_peri_event-raster_sample_rate/2,t_peri_event(:,end)+raster_sample_rate/2];
+        t_peri_event_bins = [t_peri_event-raster_sample_rate/2,t_peri_event(:,end)+raster_sample_rate/2];
         for curr_depth = 1:n_depths
             % (for all spikes in depth group)
             curr_spikes = spike_times_timeline(depth_group == curr_depth);
@@ -4320,7 +4320,7 @@ for curr_animal = 1:length(animals)
             %                     ismember(spike_templates,find(msn)));
             
             event_aligned_mua(:,:,curr_depth) = cell2mat(arrayfun(@(x) ...
-                histcounts(curr_spikes,t_bins(x,:)), ...
+                histcounts(curr_spikes,t_peri_event_bins(x,:)), ...
                 [1:size(t_peri_event,1)]','uni',false))./raster_sample_rate;
         end
         
