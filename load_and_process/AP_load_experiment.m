@@ -887,15 +887,12 @@ if ephys_exists && load_parts.ephys
         spike_templates = new_spike_idx(spike_templates_0idx+1);
         
     else
-        % Error at the moment (everything should be sorted)
-        error([animal ' ' day ' - no cluster groups']);
+        warning([animal ' ' day ' - no cluster groups']);
         
         if verbose; disp('No manual labeling, keeping all and re-indexing'); end
         % If no classifications, keep all and 1-index
-        good_templates_idx = unique(spike_templates_0idx);
-        new_spike_idx = nan(max(spike_templates_0idx)+1,1);
-        new_spike_idx(good_templates_idx+1) = 1:length(good_templates_idx);
-        spike_templates = new_spike_idx(spike_templates_0idx+1);
+        good_templates_idx = 1:size(templates,1);
+        spike_templates = spike_templates_0idx + 1;
         
 %     elseif kilosort_version == 2
 %         % (this was to use kilosort MUA/AP_triage)
