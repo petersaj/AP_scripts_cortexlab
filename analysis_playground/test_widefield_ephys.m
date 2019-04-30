@@ -415,11 +415,11 @@ set(c2,'YTickLabel',linspace(depth_group_edges(1),depth_group_edges(end),6));
 
 
 %% STA for templates
-template_sta = zeros(size(U,1),size(U,2),size(good_templates));
+template_sta = zeros(size(U,1),size(U,2),length(good_templates_idx));
 
-for curr_template_idx = 1:length(good_templates)
+for curr_template_idx = 1:length(good_templates_idx)
     
-    curr_template = good_templates(curr_template_idx);
+    curr_template = good_templates_idx(curr_template_idx) + 1;
     
     use_spikes = spike_times_timeline(spike_templates == curr_template);
         
@@ -433,7 +433,7 @@ for curr_template_idx = 1:length(good_templates)
         
     % Prepare weighting matrix for each frame
     frames_w = repmat(frame_spikes'./sum(frame_spikes),1,length(surround_frames));
-    for curr_sta_frame = 1:length(surround_frames);
+    for curr_sta_frame = 1:length(surround_frames)
         frames_w(:,curr_sta_frame) = ...
             circshift(frames_w(:,curr_sta_frame),[surround_frames(curr_sta_frame),0]);
     end
@@ -447,11 +447,11 @@ for curr_template_idx = 1:length(good_templates)
 end
 
 % Rearrange STAs by depth
-[~,sort_idx] = sort(template_depths(good_templates));
+[~,sort_idx] = sort(template_depths(good_templates_idx));
 template_sta = template_sta(:,:,sort_idx);
 
 % Plot
-AP_image_scroll(template_sta,good_templates(sort_idx));
+AP_image_scroll(template_sta,good_templates_idx(sort_idx));
 
 
 %% STA for templates by clustered area
