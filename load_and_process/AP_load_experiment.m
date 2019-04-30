@@ -145,16 +145,20 @@ if protocol_exists
         % (at the moment this is in a sparse noise-specific script)       
     else
         % Anything else
-        % Get specific stim onsets by time between last offset and new onset
-        % (occasionally there a bad frame so flip but not new stim)
-        refresh_rate_cutoff = 1/5;
-        stimOn_times = photodiode_onsets( ...
-            [1;find(photodiode_onsets(2:end) - photodiode_offsets(1:end-1) > refresh_rate_cutoff) + 1]);
-        
-        if length(stimOn_times) ~= numel(Protocol.seqnums)
-            error('MPEP/Photodiode error: photodiode doesn''t match stim')
+        if length(photodiode_onsets) == numel(Protocol.seqnums)
+            % If photodiode onsets matches number of stimuli, use those
+            stimOn_times = photodiode_onsets;
+        else
+            % Get specific stim onsets by time between last offset and new onset
+            % (occasionally there a bad frame so flip but not new stim)
+            refresh_rate_cutoff = 1/5;
+            stimOn_times = photodiode_onsets( ...
+                [1;find(photodiode_onsets(2:end) - photodiode_offsets(1:end-1) > refresh_rate_cutoff) + 1]);
+            
+            if length(stimOn_times) ~= numel(Protocol.seqnums)
+                error('MPEP/Photodiode error: photodiode doesn''t match stim')
+            end
         end
-        
         stimIDs = zeros(size(stimOn_times));
         for q = 1:size(Protocol.seqnums,1)
             stimIDs(Protocol.seqnums(q,:)) = q;

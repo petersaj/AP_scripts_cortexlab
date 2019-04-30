@@ -1,21 +1,8 @@
-%% Retinotopy via sweep fourier
+%% Retinotopy via sweep fourier (set to use for hemodynamic)
 
 % Downsample U
 U_downsample_factor = 4; %2 if max method
-Ud = imresize(U,1/U_downsample_factor,'bilinear');
-
-refresh_rate_cutoff = 1/10;
-stim_onsets = photodiode_onsets( ...
-    [1;find(diff(photodiode_onsets) > refresh_rate_cutoff) + 1]);
-
-if length(stim_onsets) ~= numel(Protocol.seqnums)
-    error('Mismatching number of stims and photodiode events')
-end
-
-stimIDs = zeros(size(stim_onsets));
-for q = 1:size(Protocol.seqnums,1)
-    stimIDs(Protocol.seqnums(q,:)) = q;
-end
+Ud = imresize(Uh,1/U_downsample_factor,'bilinear');
 
 framerate = 1./nanmedian(diff(frame_t));
 
@@ -41,10 +28,10 @@ im_stim = nan(size(Ud,1),size(Ud,2),length(surround_time),max(unique(stimIDs)));
 for curr_condition = unique(stimIDs)'
     
     use_stims = find(stimIDs == curr_condition);
-    use_stim_onsets = stim_onsets(use_stims);
+    use_stim_onsets = stimOn_times(use_stims);
     
     stim_surround_times = bsxfun(@plus, use_stim_onsets(:), surround_time);
-    peri_stim_v = interp1(frame_t,fV',stim_surround_times)';
+    peri_stim_v = permute(nanmean(interp1(frame_t,fVh',stim_surround_times),1),[3,2,1]);
     
     im_stim(:,:,:,curr_condition) = svdFrameReconstruct(Ud,peri_stim_v);
 end

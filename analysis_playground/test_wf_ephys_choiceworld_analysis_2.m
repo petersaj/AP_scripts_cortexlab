@@ -4559,7 +4559,7 @@ for curr_str_ctx = 1:length(plot_str_ctx)
     plot_ctx = plot_str_ctx{curr_str_ctx}(2);
     trial_conditions = trial_condition_groups{curr_str_ctx};
     
-    use_reduced = 4;
+%     use_reduced = 4;
     
     str_v_ctx_fig = figure('color','w');
     for curr_mua = 1:3
@@ -4685,7 +4685,7 @@ timeavg_t = {[-0.2,-0.1],[0.05,0.15],[-0.05,0.05],[0.05,0.15]};
 timeavg_align = {stim_align,stim_align,move_align,outcome_align};
 
 % Set activity percentiles and bins
-act_prctile = [20,80];
+act_prctile = [10,90];
 n_act_bins = 5;
 
 % Set areas and conditions
