@@ -58,13 +58,13 @@ for curr_site = 1:length(data_paths)
             
         case 'new'
             % and then they totally changed everything (2018-07-27)
-            exp_rec_dir = ['experiment1' filesep 'recording1'];
-            ap_data_filename = [curr_data_path filesep exp_rec_dir filesep 'continuous' filesep 'Neuropix-3a-100.0' filesep 'continuous.dat'];
-            lfp_data_filename = [curr_data_path filesep exp_rec_dir filesep 'continuous' filesep 'Neuropix-3a-100.1' filesep 'continuous.dat'];
-            sync_filename = [curr_data_path filesep filesep exp_rec_dir filesep 'events' filesep 'Neuropix-3a-100.0' filesep 'TTL_1' filesep 'channel_states.npy' ];
-            sync_timestamps_filename = [curr_data_path filesep exp_rec_dir filesep 'events' filesep 'Neuropix-3a-100.0' filesep 'TTL_1' filesep 'timestamps.npy' ];
-            messages_filename = [curr_data_path filesep exp_rec_dir filesep 'sync_messages.txt'];
-            settings_filename = [curr_data_path filesep exp_rec_dir filesep 'structure.oebin'];
+            exprec_dir = ['experiment1' filesep 'recording1'];
+            ap_data_filename = [curr_data_path filesep exprec_dir'continuous' filesep 'Neuropix-3a-100.0' filesep 'continuous.dat'];
+            lfp_data_filename = [curr_data_path filesep 'continuous' filesep 'Neuropix-3a-100.1' filesep 'continuous.dat'];
+            sync_filename = [curr_data_path filesep filesep 'events' filesep 'Neuropix-3a-100.0' filesep 'TTL_1' filesep 'channel_states.npy' ];
+            sync_timestamps_filename = [curr_data_path filesep 'events' filesep 'Neuropix-3a-100.0' filesep 'TTL_1' filesep 'timestamps.npy' ];
+            messages_filename = [curr_data_path filesep 'sync_messages.txt'];
+            settings_filename = [curr_data_path filesep 'structure.oebin'];
             
     end
     
