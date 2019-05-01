@@ -6233,6 +6233,50 @@ title('Good manual, bad auto');
 
 
 
+%% Troubleshooting
+
+
+% (get average binned activity)
+act_binmean = cell2mat(arrayfun(@(condition) ...
+    cell2mat(permute(cellfun(@(act,bins,trial_cond,use_trials) cell2mat(arrayfun(@(area) ...
+    accumarray(bins(use_trials(:,area) & trial_cond(:,condition),area), ...
+    act(use_trials(:,area) & trial_cond(:,condition),area), ...
+    [n_act_bins,1],@nanmean,cast(NaN,class(act))), 1:size(act,2),'uni',false)), ...
+    curr_act_avg,trial_bins,trial_conditions_exp,nonan_trials,'uni',false),[2,3,1])), ...
+    permute(1:size(trial_conditions,2),[1,3,4,2]),'uni',false));
+
+act_pred_binmean = cell2mat(arrayfun(@(condition) ...
+    cell2mat(permute(cellfun(@(act,bins,trial_cond,use_trials) cell2mat(arrayfun(@(area) ...
+    accumarray(bins(use_trials(:,area) & trial_cond(:,condition),area), ...
+    act(use_trials(:,area) & trial_cond(:,condition),area), ...
+    [n_act_bins,1],@nanmean,cast(NaN,class(act))), 1:size(act,2),'uni',false)), ...
+    curr_act_pred_avg,trial_bins,trial_conditions_exp,nonan_trials,'uni',false),[2,3,1])), ...
+    permute(1:size(trial_conditions,2),[1,3,4,2]),'uni',false));
+
+
+
+a = cell2mat(curr_act_avg);
+b = cell2mat(curr_act_pred_avg);
+c = discretize(b(:,1),bin_edges);
+
+a0 = accumarray(c(~isnan(c)),a(~isnan(c),1),[n_act_bins,1],@nanmean,cast(nan,class(a)));
+a1 = accumarray(c(~isnan(c) & trial_conditions(:,1)),a(~isnan(c) & trial_conditions(:,1),1),[n_act_bins,1],@nanmean,cast(nan,class(a)));
+a2 = accumarray(c(~isnan(c) & trial_conditions(:,2)),a(~isnan(c) & trial_conditions(:,2),1),[n_act_bins,1],@nanmean,cast(nan,class(a)));
+
+b0 = accumarray(c(~isnan(c)),b(~isnan(c),1),[n_act_bins,1],@nanmean,cast(nan,class(b)));
+b1 = accumarray(c(~isnan(c) & trial_conditions(:,1)),b(~isnan(c) & trial_conditions(:,1),1),[n_act_bins,1],@nanmean,cast(nan,class(b)));
+b2 = accumarray(c(~isnan(c) & trial_conditions(:,2)),b(~isnan(c) & trial_conditions(:,2),1),[n_act_bins,1],@nanmean,cast(nan,class(b)));
+
+figure; hold on;
+plot(a(trial_conditions(:,1),1),b(trial_conditions(:,1),1),'.r');
+plot(a(trial_conditions(:,2),1),b(trial_conditions(:,2),1),'.b');
+
+plot(a0,b0,'k','linewidth',2)
+plot(a1,b1,'m','linewidth',2)
+plot(a2,b2,'g','linewidth',2)
+
+
+
 
 
 

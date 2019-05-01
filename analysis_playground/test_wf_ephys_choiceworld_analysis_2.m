@@ -4621,7 +4621,8 @@ for curr_str_ctx = 1:length(plot_str_ctx)
             bin_centers = bin_edges(1:end-1) + diff(bin_edges)./2;
             
             trial_bins = cellfun(@(x) discretize(x,bin_edges),curr_ctx_act_avg,'uni',false);
-            
+            total_bins = cellfun(@(x) discretize(x,[bin_edges(1),bin_edges(end)]),curr_ctx_act_avg,'uni',false);
+
             % (get trials to use: no NaNs in either time series or bins)
             nonan_trials = cellfun(@(ctx_act,str_act,trial_bins) ...
                 squeeze(~any(isnan(ctx_act(:,curr_event_t,plot_ctx)),2)) & ...
@@ -4646,9 +4647,7 @@ for curr_str_ctx = 1:length(plot_str_ctx)
                 curr_str_act_avg,trial_bins,trial_conditions_exp,nonan_trials,'uni',false),[2,3,1])), ...
                 permute(1:size(trial_conditions,2),[1,3,4,2]),'uni',false));
             
-            % (get the average total activity)
-            total_bins = cellfun(@(x) discretize(x,[bin_edges(1),bin_edges(end)]),curr_ctx_act_avg,'uni',false);
-            
+            % (get the average total activity)            
             ctx_act_totalmean = cell2mat(arrayfun(@(condition) ...
                 cell2mat(permute(cellfun(@(act,bins,trial_cond,use_trials) cell2mat(arrayfun(@(area) ...
                 accumarray(bins(use_trials(:,area) & trial_cond(:,condition),area), ...
@@ -4761,6 +4760,7 @@ for curr_area = 1:length(plot_areas)
             bin_centers = bin_edges(1:end-1) + diff(bin_edges)./2;
             
             trial_bins = cellfun(@(x) discretize(x,bin_edges),curr_act_avg,'uni',false);
+            total_bins = cellfun(@(x) discretize(x,[bin_edges(1),bin_edges(end)]),curr_act_avg,'uni',false);
             
             % (get trials to use: no NaNs in either time series or bins)
             nonan_trials = cellfun(@(act,act_taskpred,trial_bins) ...
@@ -4786,9 +4786,7 @@ for curr_area = 1:length(plot_areas)
                 curr_act_pred_avg,trial_bins,trial_conditions_exp,nonan_trials,'uni',false),[2,3,1])), ...
                 permute(1:size(trial_conditions,2),[1,3,4,2]),'uni',false));
             
-            % (get the average total activity)
-            total_bins = cellfun(@(x) discretize(x,[bin_edges(1),bin_edges(end)]),curr_act_avg,'uni',false);
-            
+            % (get the average total activity)            
             act_totalmean = cell2mat(arrayfun(@(condition) ...
                 cell2mat(permute(cellfun(@(act,bins,trial_cond,use_trials) cell2mat(arrayfun(@(area) ...
                 accumarray(bins(use_trials(:,area) & trial_cond(:,condition),area), ...
