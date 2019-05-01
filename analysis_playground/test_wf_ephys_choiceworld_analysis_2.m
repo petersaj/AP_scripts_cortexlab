@@ -4829,7 +4829,7 @@ for curr_area = 1:length(plot_areas)
                 squeeze(AP_sem(act_totalmean(:,plot_area,:,:),3)), ...
                 '.','linewidth',3,'CapSize',0);
             xlabel(['Measured (' num2str(plot_area) ')']);
-            ylabel(['Task-predicted (' num2str(plot_area) ')'])
+            ylabel(['Predicted (' num2str(plot_area) ')'])
             title(timeavg_labels{curr_timeavg});
             
         end
