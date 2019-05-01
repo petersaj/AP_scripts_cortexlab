@@ -850,7 +850,7 @@ if ephys_exists && load_parts.ephys
     % Get "good" templates from labels  
     if exist('cluster_groups','var')
         % If there's a manual classification
-        if verbose; disp('Removing manually labeled bad templates...'); end
+        if verbose; disp('Keeping manually labelled good units...'); end
         
         % Check that all used spike templates have a label
         spike_templates_0idx_unique = unique(spike_templates_0idx);
@@ -867,6 +867,7 @@ if ephys_exists && load_parts.ephys
         
     elseif exist([ephys_path 'cluster_AP_triage.tsv'],'file')
         % If no manual but AP_triage clusters are available
+        if verbose; disp('Keeping AP_triage good units...'); end
 
         % Load triage labels
         triage_label_filename = [ephys_path 'cluster_AP_triage.tsv'];        
@@ -875,8 +876,8 @@ if ephys_exists && load_parts.ephys
         triage_labels = textscan(fid,'%d%s','HeaderLines',1);
         fclose(fid);
         
-        triage_good_templates = strcmp(triage_labels{2},'good');
-        
+        triage_good_templates = strcmp(triage_labels{2},'good');      
+      
         good_templates = ...
             triage_good_templates;
         good_templates_idx = find(good_templates)-1;
