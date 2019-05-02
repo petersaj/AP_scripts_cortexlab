@@ -520,46 +520,47 @@ for curr_animal = 1:length(animals)
         
         % Go cue regressors - separate for early/late move
         % (using signals timing - not precise but looks good)
-        go_cue_regressors = histcounts( ...
-            signals_events.interactiveOnTimes(move_t > 0.5),time_bins);
-        % (old: use go cue with movement before and after)
-%         go_cue_regressors = zeros(1,length(time_bin_centers));
-%         go_cue_regressors(1,:) = histcounts( ...
-%             signals_events.interactiveOnTimes(move_t <= 0.5),time_bins);
-%         go_cue_regressors(2,:) = histcounts( ...
+        % (for go cue only on late move trials)
+%         go_cue_regressors = histcounts( ...
 %             signals_events.interactiveOnTimes(move_t > 0.5),time_bins);
+        % (for go cue with early/late move trials)
+        go_cue_regressors = zeros(1,length(time_bin_centers));
+        go_cue_regressors(1,:) = histcounts( ...
+            signals_events.interactiveOnTimes(move_t <= 0.5),time_bins);
+        go_cue_regressors(2,:) = histcounts( ...
+            signals_events.interactiveOnTimes(move_t > 0.5),time_bins);
         
         % Outcome regressors
         % (using signals timing - not precise but looks good)
-        
-        outcome_regressors = histcounts(reward_t_timeline,time_bins);
-        % (old: regressors for both hit and miss)
-%         outcome_regressors = zeros(2,length(time_bin_centers));
-%         outcome_regressors(1,:) = histcounts( ...
-%             reward_t_timeline,time_bins);
-%         outcome_regressors(2,:) = histcounts( ...
-%             signals_events.responseTimes(trial_outcome == -1),time_bins);
+        % (regressors for hit only)
+%         outcome_regressors = histcounts(reward_t_timeline,time_bins);
+        % (regressors for both hit and miss)
+        outcome_regressors = zeros(2,length(time_bin_centers));
+        outcome_regressors(1,:) = histcounts( ...
+            reward_t_timeline,time_bins);
+        outcome_regressors(2,:) = histcounts( ...
+            signals_events.responseTimes(trial_outcome == -1),time_bins);
         
         % Concatenate selected regressors, set parameters
         
-%         task_regressors = {stim_regressors;move_onset_regressors;go_cue_regressors;outcome_regressors};
-%         task_regressor_labels = {'Stim','Move onset','Go cue','Outcome'};
-%         
-%         task_t_shifts = { ...
-%             [0,0.5]; ... % stim
-%             [-0.5,1]; ... % move
-%             [0,0.5]; ... % go cue
-%             [0,0.5]}; % outcome
-
-        task_regressors = {stim_regressors;move_onset_regressors;move_onset_stim_regressors;go_cue_regressors;outcome_regressors};
-        task_regressor_labels = {'Stim','Move','Stim x move','Go cue','Outcome'};
+        task_regressors = {stim_regressors;move_onset_regressors;go_cue_regressors;outcome_regressors};
+        task_regressor_labels = {'Stim','Move onset','Go cue','Outcome'};
         
         task_t_shifts = { ...
             [0,0.5]; ... % stim
             [-0.5,1]; ... % move
-            [-0.5,1]; ... % stim x move
             [0,0.5]; ... % go cue
             [0,0.5]}; % outcome
+
+%         task_regressors = {stim_regressors;move_onset_regressors;move_onset_stim_regressors;go_cue_regressors;outcome_regressors};
+%         task_regressor_labels = {'Stim','Move','Stim x move','Go cue','Outcome'};
+%         
+%         task_t_shifts = { ...
+%             [0,0.5]; ... % stim
+%             [-0.5,1]; ... % move
+%             [-0.5,1]; ... % stim x move
+%             [0,0.5]; ... % go cue
+%             [0,0.5]}; % outcome
        
         task_regressor_sample_shifts = cellfun(@(x) round(x(1)*(sample_rate)): ...
             round(x(2)*(sample_rate)),task_t_shifts,'uni',false);
@@ -736,7 +737,7 @@ clearvars -except ...
 disp('Finished loading all')
 
 save_path = 'C:\Users\Andrew\OneDrive for Business\Documents\CarandiniHarrisLab\analysis\wf_ephys_choiceworld\paper\data';
-save_fn = ['trial_activity_choiceworld_stimxmove'];
+save_fn = ['trial_activity_choiceworld_oldregressors'];
 save([save_path filesep save_fn],'-v7.3');
 
 %% Choiceworld trial activity (with task regression, wf-only days)
