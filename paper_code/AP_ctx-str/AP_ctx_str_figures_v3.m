@@ -10,9 +10,10 @@
 %% Load in task data
 
 % Load data
-data_fn = 'trial_activity_choiceworld';
+% data_fn = 'trial_activity_choiceworld';
 % data_fn = 'trial_activity_choiceworld_stimxmove';
 % data_fn = 'trial_activity_choiceworld_wfonly';
+data_fn = 'trial_activity_choiceworld_oldregressors';
 
 exclude_data = true;
 AP_load_concat_normalize_ctx_str;
