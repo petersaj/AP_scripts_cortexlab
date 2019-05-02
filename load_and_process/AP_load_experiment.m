@@ -264,9 +264,7 @@ if block_exists
         
         % (trial_timing)
         stim_to_move = padarray(wheel_move_time - stimOn_times,[n_trials-length(stimOn_times),0],NaN,'post');
-        stim_to_feedback = [padarray(signals_events.responseTimes, ...
-            [0,n_trials-length(signals_events.responseTimes)],NaN,'post') - ...
-            padarray(stimOn_times',[0,n_trials-length(stimOn_times)],NaN,'post')]';
+        stim_to_feedback = signals_events.responseTimes(1:n_trials)' - stimOn_times(1:n_trials);
         
         % (early vs late move)
         trial_timing = 1 + (stim_to_move > 0.5);
