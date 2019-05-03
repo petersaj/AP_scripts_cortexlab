@@ -8,7 +8,7 @@ data_fn = 'trial_activity_choiceworld';
 % data_fn = 'trial_activity_choiceworld_wfonly';
 % data_fn = 'trial_activity_choiceworld_oldregressors';
 
-exclude_data = true;
+exclude_data = false;
 AP_load_concat_normalize_ctx_str;
 
 % Choose split for data
@@ -4730,33 +4730,30 @@ n_act_bins = 5;
 % Set areas and conditions
 
 % plot_areas = [1,3,7,10];
-% plot_areas = [1,2,3,4];
-% trial_condition_groups = ...
-%     {[sign(trial_contrastside_allcat) == 1,sign(trial_contrastside_allcat) == -1], ...
-%     [trial_choice_allcat == -1,trial_choice_allcat == 1], ...
-%     [trial_choice_allcat == -1,trial_choice_allcat == 1], ...
-%     [trial_outcome_allcat == 1, trial_outcome_allcat == -1]};
+plot_areas = [1,2,3,4];
+trial_condition_groups = ...
+    {[sign(trial_contrastside_allcat) == 1,sign(trial_contrastside_allcat) == -1], ...
+    [trial_choice_allcat == -1,trial_choice_allcat == 1], ...
+    [trial_choice_allcat == -1,trial_choice_allcat == 1], ...
+    [trial_outcome_allcat == 1, trial_outcome_allcat == -1]};
 
 % plot_areas = [1,2];
 % trial_condition_groups = ...
 %     {[sign(trial_contrastside_allcat) == 1,sign(trial_contrastside_allcat) == 0,sign(trial_contrastside_allcat) == -1], ...
 %     [trial_choice_allcat == -1,trial_choice_allcat == 1]};
 
-plot_areas = [1];
+% plot_areas = [1];
 % trial_condition_groups = ...
 %     {[sign(trial_contrastside_allcat) == 1 & trial_choice_allcat == 1, ...
 %     sign(trial_contrastside_allcat) == 1 & trial_choice_allcat == -1]};
-trial_condition_groups = ...
-    {[sign(trial_contrastside_allcat) == 1, ...
-    sign(trial_contrastside_allcat) == -1]};
 
 % Loop across area pairs, plot binned predicted v measured activity
 % curr_act_allcat = fluor_roi_deconv;
 % curr_act_pred_allcat = fluor_roi_taskpred;
 
 curr_act_allcat = mua_allcat;
-curr_act_pred_allcat = mua_taskpred_allcat;
-% curr_act_pred_allcat = mua_ctxpred_allcat;
+% curr_act_pred_allcat = mua_taskpred_allcat;
+curr_act_pred_allcat = mua_ctxpred_allcat;
 
 measured_v_pred_fig = figure('color','w');
 for curr_area_idx = 1:length(plot_areas)

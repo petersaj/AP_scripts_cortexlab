@@ -600,9 +600,12 @@ set(gui_data.probe_coordinates_text,'String',probe_text);
 
 % Update the probe areas (make new text every time - dirty but different n)
 set(gui_data.handles.probe_areas_plot,'YData',[1:length(probe_areas)]*10,'CData',probe_areas)
-delete([gui_data.handles.probe_areas_text(:)]);
+old_areas_text = gui_data.handles.probe_areas_text;
 gui_data.handles.probe_areas_text = text(gui_data.handles.axes_probe_areas, ...
     repmat(0.5,length(probe_area_labels),1),probe_area_centers*10,probe_area_labels);
+
+delete(old_areas_text(:));
+ = new_areas_text;
 
 % Upload gui_data
 guidata(probe_atlas_gui, gui_data);
