@@ -8,7 +8,7 @@ data_fn = 'trial_activity_choiceworld';
 % data_fn = 'trial_activity_choiceworld_wfonly';
 % data_fn = 'trial_activity_choiceworld_oldregressors';
 
-exclude_data = false;
+exclude_data = true;
 AP_load_concat_normalize_ctx_str;
 
 % Choose split for data
@@ -4538,8 +4538,6 @@ xlabel('Time from event');
 ylabel('Additive offset');
 
 %% MUA (measured, task-pred, ctx-pred) v fluorescence by condition
-
-% NEXT ONE DOWN DOES ONLY WITHIN ONE AREA - MAKE THIS LIKE THAT
 
 % Set alignment shifts
 t_leeway = -t(1);
