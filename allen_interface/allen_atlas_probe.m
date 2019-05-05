@@ -48,12 +48,17 @@ ylim([-10,ml_max+10])
 zlim([-10,dv_max+10])
 
 % Set up the probe area axes
-axes_probe_areas = subplot(1,4,4,'YDir','reverse');
-probe_areas_plot = imagesc(0);
-probe_areas_text = text(0,0,'');
-set(axes_probe_areas,'XTick','','YLim',[0,3840]);
-ylabel(axes_probe_areas,'Depth (mm)');
+axes_probe_areas = subplot(1,16,13);
+axes_probe_areas.ActivePositionProperty = 'position';
+set(axes_probe_areas,'FontSize',12);
+yyaxis(axes_probe_areas,'left');
+probe_areas_plot = image(0);
+set(axes_probe_areas,'XTick','','YLim',[0,3840],'YColor','k','YDir','reverse');
+ylabel(axes_probe_areas,'Depth (\mum)');
 colormap(axes_probe_areas,cmap);
+caxis([1,size(cmap,1)])
+yyaxis(axes_probe_areas,'right');
+set(axes_probe_areas,'XTick','','YLim',[0,3840],'YColor','k','YDir','reverse');
 
 % Set the current axes to the atlas (dirty, but some gca requirements)
 axes(axes_atlas);
@@ -109,7 +114,6 @@ gui_data.handles.slice_plot = surface('EdgeColor','none'); % Slice on 3D atlas
 gui_data.handles.probe_ref_line = probe_ref_line; % Probe reference line on 3D atlas
 gui_data.handles.probe_line = probe_line; % Probe reference line on 3D atlas
 gui_data.handles.probe_areas_plot = probe_areas_plot; % Color-coded probe regions
-gui_data.handles.probe_areas_text = probe_areas_text; % Probe region text
 gui_data.probe_coordinates_text = probe_coordinates_text; % Probe coordinates text
 
 % Set functions for key presses
@@ -561,11 +565,11 @@ trajectory_n_coords = max(abs(diff(probe_ref_vector,[],2)));
     linspace(probe_ref_vector(2,1),probe_ref_vector(2,2),trajectory_n_coords), ...
     linspace(probe_ref_vector(3,1),probe_ref_vector(3,2),trajectory_n_coords));
 
-probe_n_coords = max(abs(diff(probe_vector,[],2)));
+probe_n_coords = sqrt(sum(diff(probe_vector,[],2).^2));
 [probe_xcoords,probe_ycoords,probe_zcoords] = deal( ...
-    linspace(probe_ref_vector(1,1),probe_ref_vector(1,2),probe_n_coords), ...
-    linspace(probe_ref_vector(2,1),probe_ref_vector(2,2),probe_n_coords), ...
-    linspace(probe_ref_vector(3,1),probe_ref_vector(3,2),probe_n_coords));
+    linspace(probe_vector(1,1),probe_vector(1,2),probe_n_coords), ...
+    linspace(probe_vector(2,1),probe_vector(2,2),probe_n_coords), ...
+    linspace(probe_vector(3,1),probe_vector(3,2),probe_n_coords));
 
 % Get brain labels across the probe and trajectory, and intersection with brain
 pixel_space = 5;
@@ -598,11 +602,10 @@ probe_text = ['Probe: ' ....
     num2str(gui_data.probe_angle(2)) char(176) ' from horizontal'];
 set(gui_data.probe_coordinates_text,'String',probe_text);
 
-% Update the probe areas (make new text every time - dirty but different n)
-set(gui_data.handles.probe_areas_plot,'YData',[1:length(probe_areas)]*10,'CData',probe_areas)
-delete([gui_data.handles.probe_areas_text(:)]);
-gui_data.handles.probe_areas_text = text(gui_data.handles.axes_probe_areas, ...
-    repmat(0.5,length(probe_area_labels),1),probe_area_centers*10,probe_area_labels);
+% Update the probe areas
+yyaxis(gui_data.handles.axes_probe_areas,'right');
+set(gui_data.handles.probe_areas_plot,'YData',[1:length(probe_areas)]*10,'CData',probe_areas); 
+set(gui_data.handles.axes_probe_areas,'YTick',probe_area_centers*10,'YTickLabels',probe_area_labels);
 
 % Upload gui_data
 guidata(probe_atlas_gui, gui_data);

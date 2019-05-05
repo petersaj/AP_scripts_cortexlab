@@ -51,9 +51,11 @@ zlim([-10,dv_max+10])
 axes_probe_areas = subplot(1,4,4,'YDir','reverse');
 probe_areas_plot = imagesc(0);
 probe_areas_text = text(0,0,'');
+yyaxis(axes_probe_areas,'left');
 set(axes_probe_areas,'XTick','','YLim',[0,3840]);
 ylabel(axes_probe_areas,'Depth (mm)');
 colormap(axes_probe_areas,cmap);
+yyaxis(axes_probe_areas,'right');
 
 % Set the current axes to the atlas (dirty, but some gca requirements)
 axes(axes_atlas);
@@ -599,13 +601,15 @@ probe_text = ['Probe: ' ....
 set(gui_data.probe_coordinates_text,'String',probe_text);
 
 % Update the probe areas (make new text every time - dirty but different n)
-set(gui_data.handles.probe_areas_plot,'YData',[1:length(probe_areas)]*10,'CData',probe_areas)
-old_areas_text = gui_data.handles.probe_areas_text;
-gui_data.handles.probe_areas_text = text(gui_data.handles.axes_probe_areas, ...
-    repmat(0.5,length(probe_area_labels),1),probe_area_centers*10,probe_area_labels);
+% set(gui_data.handles.probe_areas_plot,'YData',[1:length(probe_areas)]*10,'CData',probe_areas)
+% delete([gui_data.handles.probe_areas_text(:)]);
+% gui_data.handles.probe_areas_text = text(gui_data.handles.axes_probe_areas, ...
+%     repmat(0.5,length(probe_area_labels),1),probe_area_centers*10,probe_area_labels);
 
-delete(old_areas_text(:));
- = new_areas_text;
+%%%% TESTING: ylabels
+yyaxis(
+set(gui_data.handles.probe_areas_plot,'YData',[1:length(probe_areas)]*10,'CData',probe_areas); 
+set(gui_data.handles.axes_probe_areas,'YTick',probe_area_centers*10,'YTickLabels',probe_area_labels);
 
 % Upload gui_data
 guidata(probe_atlas_gui, gui_data);
