@@ -1,23 +1,26 @@
-function allen_atlas_probe(tv,av,st)
-% allen_browser_test_gui(tv,av,st)
+function allen_ccf_npx(tv,av,st)
+% allen_ccf_npx(tv,av,st)
 %
-% This gui is for looking at trajectories in the brain with the Allen CCF,
-% keypress function is displayed on startup
+% GUI for planning Neuropixels trajectories with the Allen CCF
+% Part of repository: https://github.com/cortex-lab/allenCCF
+% - directions for installing atlas in repository readme
+% - some dependent functions from that repository
+%
+% (optional inputs - if CCF path written in Line 23, loaded automatically)
+% tv, av, st = CCF template volume, annotated volume, structure tree
 
 % Initialize gui_data structure
 gui_data = struct;
 
-% Allen CCF-bregma transform (this is total estimate)
-% [AP,DV,ML,angle]
-% bregma = [540,0,570,0];
-% Get this from Nick's function
-bregma = allenCCFbregma;
+% Allen CCF-bregma transform (estimated from eyeballing Paxinos->CCF)
+% [AP,DV,ML]
+bregma = [540,0,570];
 
 % If not already loaded in, load in atlas
 if nargin < 3
     allen_atlas_path = 'C:\Users\Andrew\OneDrive for Business\Documents\Atlases\AllenCCF';
     if isempty(allen_atlas_path)
-        error('Enter path where Allen CCF is stored');
+        error('Enter path where Allen CCF is stored at Line 23');
     end
     tv = readNPY([allen_atlas_path filesep 'template_volume_10um.npy']); % grey-scale "background signal intensity"
     av = readNPY([allen_atlas_path filesep 'annotation_volume_10um_by_index.npy']); % the number at each pixel labels the area, see note below
@@ -31,11 +34,12 @@ load(cmap_filename);
 
 % Set up the gui
 probe_atlas_gui = figure('Toolbar','none','Menubar','none','color','w', ...
-    'Name','Atlas-probe viewer');
+    'Name','Atlas-probe viewer','Units','normalized','Position',[0.2,0.2,0.7,0.7]);
 colormap(gray);
 
 % Set up the atlas axes
-axes_atlas = subplot(1,4,1:3,'ZDir','reverse','YDir','reverse');
+axes_atlas = subplot(1,2,1);
+[~, brain_outline] = plotBrainGrid([],axes_atlas);
 hold(axes_atlas,'on');
 axis vis3d equal off manual
 view([-30,25]);
@@ -46,9 +50,9 @@ ylim([-10,ml_max+10])
 zlim([-10,dv_max+10])
 
 % Set up the probe area axes
-axes_probe_areas = subplot(1,16,13);
+axes_probe_areas = subplot(1,2,2);
 axes_probe_areas.ActivePositionProperty = 'position';
-set(axes_probe_areas,'FontSize',12);
+set(axes_probe_areas,'FontSize',11);
 yyaxis(axes_probe_areas,'left');
 probe_areas_plot = image(0);
 set(axes_probe_areas,'XTick','','YLim',[0,3840],'YColor','k','YDir','reverse');
@@ -58,25 +62,12 @@ caxis([1,size(cmap,1)])
 yyaxis(axes_probe_areas,'right');
 set(axes_probe_areas,'XTick','','YLim',[0,3840],'YColor','k','YDir','reverse');
 
+% Position the axes
+set(axes_atlas,'Position',[-0.15,-0.1,1,1.2]);
+set(axes_probe_areas,'Position',[0.7,0.1,0.03,0.8]);
+
 % Set the current axes to the atlas (dirty, but some gca requirements)
 axes(axes_atlas);
-
-% Plot outline of the brain
-
-% (with downsampled polygons - faster but grosser)
-% slice_spacing = 10;
-% target_volume = permute(av(1:slice_spacing:end,1:slice_spacing:end,1:slice_spacing:end) > 1,[3,1,2]);
-% structure_patch = isosurface(target_volume,0);
-% structure_wire = reducepatch(structure_patch.faces,structure_patch.vertices,0.01);
-% target_structure_color = [0.7,0.7,0.7];
-% brain_outline = patch('Vertices',structure_wire.vertices*slice_spacing, ...
-%     'Faces',structure_wire.faces, ...
-%     'FaceColor','none','EdgeColor',target_structure_color);
-
-% (with Nick's method)
-% brain_outline = gridIn3D(double(av > 1),0.5,100,bregma);
-[~, brain_outline] = plotBrainGrid([],axes_atlas);
-axis manual
 
 % Set up the probe reference/actual
 probe_ref_top = [bregma(1),bregma(3),0];
@@ -116,18 +107,17 @@ gui_data.handles.probe_line = probe_line; % Probe reference line on 3D atlas
 gui_data.handles.probe_areas_plot = probe_areas_plot; % Color-coded probe regions
 gui_data.probe_coordinates_text = probe_coordinates_text; % Probe coordinates text
 
-% Set functions for key presses
-set(probe_atlas_gui,'KeyPressFcn',@key_press);
-
 % Make 3D rotation the default state (toggle on/off with 'r')
 h = rotate3d(axes_atlas);
 h.Enable = 'on';
 % Update the slice whenever a rotation is completed
 h.ActionPostCallback = @update_slice;
-%(need to restore key-press functionality with rotation)
+
+% Set functions for key presses
 hManager = uigetmodemanager(probe_atlas_gui);
 [hManager.WindowListenerHandles.Enabled] = deal(false);
 set(probe_atlas_gui,'KeyPressFcn',@key_press);
+set(probe_atlas_gui,'KeyReleaseFcn',@key_release);
 
 % Upload gui_data
 guidata(probe_atlas_gui, gui_data);
@@ -176,11 +166,9 @@ switch eventdata.Key
             ap_offset = -10;
             set(gui_data.handles.probe_ref_line,'XData',get(gui_data.handles.probe_ref_line,'XData') + ap_offset);
             set(gui_data.handles.probe_line,'XData',get(gui_data.handles.probe_line,'XData') + ap_offset);
-            update_slice(probe_atlas_gui);
-            update_probe_coordinates(probe_atlas_gui);
         elseif any(strcmp(eventdata.Modifier,'shift'))
             % Ctrl-up: increase DV angle
-            angle_change = [0;1];
+            angle_change = [0;-1];
             new_angle = gui_data.probe_angle + angle_change;
             gui_data.probe_angle = new_angle;
             update_probe_angle(probe_atlas_gui);
@@ -195,9 +183,7 @@ switch eventdata.Key
             new_probe_vector = bsxfun(@plus,old_probe_vector,move_probe_vector);
             
             set(gui_data.handles.probe_line,'XData',new_probe_vector(1,:), ...
-                'YData',new_probe_vector(2,:),'ZData',new_probe_vector(3,:));
-            
-            update_probe_coordinates(probe_atlas_gui);
+                'YData',new_probe_vector(2,:),'ZData',new_probe_vector(3,:));            
         end
         
     case 'downarrow'
@@ -206,11 +192,9 @@ switch eventdata.Key
             ap_offset = 10;
             set(gui_data.handles.probe_ref_line,'XData',get(gui_data.handles.probe_ref_line,'XData') + ap_offset);
             set(gui_data.handles.probe_line,'XData',get(gui_data.handles.probe_line,'XData') + ap_offset);
-            update_slice(probe_atlas_gui);
-            update_probe_coordinates(probe_atlas_gui);
         elseif any(strcmp(eventdata.Modifier,'shift'))
             % Ctrl-down: decrease DV angle
-            angle_change = [0;-1];
+            angle_change = [0;1];
             new_angle = gui_data.probe_angle + angle_change;
             gui_data.probe_angle = new_angle;
             update_probe_angle(probe_atlas_gui);
@@ -225,9 +209,7 @@ switch eventdata.Key
             new_probe_vector = bsxfun(@plus,old_probe_vector,move_probe_vector);
             
             set(gui_data.handles.probe_line,'XData',new_probe_vector(1,:), ...
-                'YData',new_probe_vector(2,:),'ZData',new_probe_vector(3,:));
-            
-            update_probe_coordinates(probe_atlas_gui);           
+                'YData',new_probe_vector(2,:),'ZData',new_probe_vector(3,:));           
         end
         
     case 'rightarrow'
@@ -236,8 +218,6 @@ switch eventdata.Key
             ml_offset = 10;
             set(gui_data.handles.probe_ref_line,'YData',get(gui_data.handles.probe_ref_line,'YData') + ml_offset);
             set(gui_data.handles.probe_line,'YData',get(gui_data.handles.probe_line,'YData') + ml_offset);
-            update_slice(probe_atlas_gui);
-            update_probe_coordinates(probe_atlas_gui);
         elseif any(strcmp(eventdata.Modifier,'shift'))
             % Ctrl-right: increase vertical angle
             angle_change = [1;0];
@@ -252,8 +232,6 @@ switch eventdata.Key
             ml_offset = -10;
             set(gui_data.handles.probe_ref_line,'YData',get(gui_data.handles.probe_ref_line,'YData') + ml_offset);
             set(gui_data.handles.probe_line,'YData',get(gui_data.handles.probe_line,'YData') + ml_offset);
-            update_slice(probe_atlas_gui);
-            update_probe_coordinates(probe_atlas_gui);
         elseif any(strcmp(eventdata.Modifier,'shift'))
             % Ctrl-right: increase vertical angle
             angle_change = [-1;0];
@@ -281,6 +259,7 @@ switch eventdata.Key
         current_visibility = gui_data.handles.slice_plot(1).Visible;
         switch current_visibility; case 'on'; new_visibility = 'off'; case 'off'; new_visibility = 'on'; end;
         set(gui_data.handles.slice_plot,'Visible',new_visibility);
+        update_slice(probe_atlas_gui);
         
     case 'p'
         % Toggle probe visibility
@@ -325,31 +304,55 @@ switch eventdata.Key
             plot_structures_parsed = listdlg('PromptString','Select a structure to plot:', ...
                 'ListString',gui_data.st.safe_name(parsed_structures),'ListSize',[520,500]);
             plot_structures = parsed_structures(plot_structures_parsed);
+            
+            
+            if ~isempty(plot_structures)
+                for curr_plot_structure = reshape(plot_structures,[],1)
+                    % If this label isn't used, don't plot
+                    if ~any(reshape(gui_data.av( ...
+                            1:slice_spacing:end,1:slice_spacing:end,1:slice_spacing:end),[],1) == curr_plot_structure)
+                        disp(['"' gui_data.st.safe_name{curr_plot_structure} '" is not parsed in the atlas'])
+                        continue
+                    end
+                    
+                    gui_data.structure_plot_idx(end+1) = curr_plot_structure;
+                    
+                    plot_structure_color = hex2dec(reshape(gui_data.st.color_hex_triplet{curr_plot_structure},3,[]))./255;
+                    structure_3d = isosurface(permute(gui_data.av(1:slice_spacing:end, ...
+                        1:slice_spacing:end,1:slice_spacing:end) == curr_plot_structure,[3,1,2]),0);
+                    
+                    structure_alpha = 0.2;
+                    gui_data.handles.structure_patch(end+1) = patch('Vertices',structure_3d.vertices*slice_spacing, ...
+                        'Faces',structure_3d.faces, ...
+                        'FaceColor',plot_structure_color,'EdgeColor','none','FaceAlpha',structure_alpha);
+                end
+            end
+            
         elseif any(strcmp(eventdata.Modifier,'shift'))
             % (shift: use hierarchy search)
             plot_structures = hierarchicalSelect(gui_data.st);
-        end
-        
-        if ~isempty(plot_structures)
-            for curr_plot_structure = reshape(plot_structures,[],1)
-                % If this label isn't used, don't plot
-                if ~any(reshape(gui_data.av( ...
-                        1:slice_spacing:end,1:slice_spacing:end,1:slice_spacing:end),[],1) == curr_plot_structure)
-                    disp(['"' gui_data.st.safe_name{curr_plot_structure} '" is not parsed in the atlas'])
-                    continue
-                end
+            
+            if ~isempty(plot_structures) % will be empty if dialog was cancelled
+                % get all children of this one
+                thisID = gui_data.st.id(plot_structures);
+                idStr = sprintf('/%d/', thisID);
+                theseCh = find(cellfun(@(x)contains(x,idStr), gui_data.st.structure_id_path));
                 
-                gui_data.structure_plot_idx(end+1) = curr_plot_structure;
-                
-                plot_structure_color = hex2dec(reshape(gui_data.st.color_hex_triplet{curr_plot_structure},3,[]))./255;
-                structure_3d = isosurface(permute(gui_data.av(1:slice_spacing:end, ...
-                    1:slice_spacing:end,1:slice_spacing:end) == curr_plot_structure,[3,1,2]),0);
+                % plot the structure
+                slice_spacing = 5;
+                plot_structure_color = hex2dec(reshape(gui_data.st.color_hex_triplet{plot_structures},3,[]))./255;
+                structure_3d = isosurface(permute(ismember(gui_data.av(1:slice_spacing:end, ...
+                    1:slice_spacing:end,1:slice_spacing:end),theseCh),[3,1,2]),0);
                 
                 structure_alpha = 0.2;
+                gui_data.structure_plot_idx(end+1) = plot_structures;
                 gui_data.handles.structure_patch(end+1) = patch('Vertices',structure_3d.vertices*slice_spacing, ...
                     'Faces',structure_3d.faces, ...
                     'FaceColor',plot_structure_color,'EdgeColor','none','FaceAlpha',structure_alpha);
+                
             end
+            
+            
         end
         
     case {'hyphen','subtract'}
@@ -379,92 +382,115 @@ guidata(probe_atlas_gui, gui_data);
 
 end
 
+function key_release(probe_atlas_gui,eventdata)
+
+% Get guidata
+gui_data = guidata(probe_atlas_gui);
+
+switch eventdata.Key
+    case {'rightarrow','leftarrow','uparrow','downarrow'}
+        % Update the probe info/slice on arrow release 
+        update_probe_coordinates(probe_atlas_gui);
+        update_slice(probe_atlas_gui);
+end
+
+% Upload gui_data
+guidata(probe_atlas_gui, gui_data);
+
+end
+
+
 function update_slice(probe_atlas_gui,varargin)
 
 % Get guidata
 gui_data = guidata(probe_atlas_gui);
 
-% Get current position of camera
-curr_campos = campos;
-
-% Get probe vector
-probe_ref_top = [gui_data.handles.probe_ref_line.XData(1), ...
-    gui_data.handles.probe_ref_line.YData(1),gui_data.handles.probe_ref_line.ZData(1)];
-probe_ref_bottom = [gui_data.handles.probe_ref_line.XData(2), ...
-    gui_data.handles.probe_ref_line.YData(2),gui_data.handles.probe_ref_line.ZData(2)];
-probe_vector = probe_ref_top - probe_ref_bottom;
-
-% Get probe-camera vector
-probe_camera_vector = probe_ref_top - curr_campos;
-
-% Get the vector to plot the plane in (along with probe vector)
-plot_vector = cross(probe_camera_vector,probe_vector);
-
-% Get the normal vector of the plane
-normal_vector = cross(plot_vector,probe_vector);
-
-% Get the plane offset through the probe
-plane_offset = -(normal_vector*probe_ref_top');
-
-% Define a plane of points to index
-% (the plane grid is defined based on the which cardinal plan is most
-% orthogonal to the plotted plane. this is janky but it works)
-slice_px_space = 3;
-%[~,cam_plane] = max(abs((campos - camtarget)./norm(campos - camtarget)));
-
-[~,cam_plane] = max(abs(normal_vector./norm(normal_vector)));
-
-switch cam_plane
+% Only update the slice if it's visible
+if strcmp(gui_data.handles.slice_plot(1).Visible,'on')
     
-    case 1
-        [plane_y,plane_z] = meshgrid(1:slice_px_space:size(gui_data.tv,3),1:slice_px_space:size(gui_data.tv,2));
-        plane_x = ...
-            (normal_vector(2)*plane_y+normal_vector(3)*plane_z + plane_offset)/ ...
-            -normal_vector(1);
+    % Get current position of camera
+    curr_campos = campos;
+    
+    % Get probe vector
+    probe_ref_top = [gui_data.handles.probe_ref_line.XData(1), ...
+        gui_data.handles.probe_ref_line.YData(1),gui_data.handles.probe_ref_line.ZData(1)];
+    probe_ref_bottom = [gui_data.handles.probe_ref_line.XData(2), ...
+        gui_data.handles.probe_ref_line.YData(2),gui_data.handles.probe_ref_line.ZData(2)];
+    probe_vector = probe_ref_top - probe_ref_bottom;
+    
+    % Get probe-camera vector
+    probe_camera_vector = probe_ref_top - curr_campos;
+    
+    % Get the vector to plot the plane in (along with probe vector)
+    plot_vector = cross(probe_camera_vector,probe_vector);
+    
+    % Get the normal vector of the plane
+    normal_vector = cross(plot_vector,probe_vector);
+    
+    % Get the plane offset through the probe
+    plane_offset = -(normal_vector*probe_ref_top');
+    
+    % Define a plane of points to index
+    % (the plane grid is defined based on the which cardinal plan is most
+    % orthogonal to the plotted plane. this is janky but it works)
+    slice_px_space = 3;
+    %[~,cam_plane] = max(abs((campos - camtarget)./norm(campos - camtarget)));
+    
+    [~,cam_plane] = max(abs(normal_vector./norm(normal_vector)));
+    
+    switch cam_plane
         
-    case 2
-        [plane_x,plane_z] = meshgrid(1:slice_px_space:size(gui_data.tv,1),1:slice_px_space:size(gui_data.tv,2));
-        plane_y = ...
-            (normal_vector(1)*plane_x+normal_vector(3)*plane_z + plane_offset)/ ...
-            -normal_vector(2);
-        
-    case 3
-        [plane_x,plane_y] = meshgrid(1:slice_px_space:size(gui_data.tv,1),1:slice_px_space:size(gui_data.tv,3));
-        plane_z = ...
-            (normal_vector(1)*plane_x+normal_vector(2)*plane_y + plane_offset)/ ...
-            -normal_vector(3);
-        
+        case 1
+            [plane_y,plane_z] = meshgrid(1:slice_px_space:size(gui_data.tv,3),1:slice_px_space:size(gui_data.tv,2));
+            plane_x = ...
+                (normal_vector(2)*plane_y+normal_vector(3)*plane_z + plane_offset)/ ...
+                -normal_vector(1);
+            
+        case 2
+            [plane_x,plane_z] = meshgrid(1:slice_px_space:size(gui_data.tv,1),1:slice_px_space:size(gui_data.tv,2));
+            plane_y = ...
+                (normal_vector(1)*plane_x+normal_vector(3)*plane_z + plane_offset)/ ...
+                -normal_vector(2);
+            
+        case 3
+            [plane_x,plane_y] = meshgrid(1:slice_px_space:size(gui_data.tv,1),1:slice_px_space:size(gui_data.tv,3));
+            plane_z = ...
+                (normal_vector(1)*plane_x+normal_vector(2)*plane_y + plane_offset)/ ...
+                -normal_vector(3);
+            
+    end
+    
+    % Get the coordiates on the plane
+    x_idx = round(plane_x);
+    y_idx = round(plane_y);
+    z_idx = round(plane_z);
+    
+    % Find plane coordinates in bounds with the volume
+    use_xd = x_idx > 0 & x_idx < size(gui_data.tv,1);
+    use_yd = y_idx > 0 & y_idx < size(gui_data.tv,3);
+    use_zd = z_idx > 0 & z_idx < size(gui_data.tv,2);
+    use_idx = use_xd & use_yd & use_zd;
+    
+    curr_slice_idx = sub2ind(size(gui_data.tv),x_idx(use_idx),z_idx(use_idx),y_idx(use_idx));
+    
+    % Find plane coordinates that contain brain
+    curr_slice_isbrain = false(size(use_idx));
+    curr_slice_isbrain(use_idx) = gui_data.av(curr_slice_idx) > 1;
+    
+    % Index coordinates in bounds + with brain
+    grab_pix_idx = sub2ind(size(gui_data.tv),x_idx(curr_slice_isbrain),z_idx(curr_slice_isbrain),y_idx(curr_slice_isbrain));
+    
+    % Grab pixels from volume
+    curr_slice = nan(size(use_idx));
+    curr_slice(curr_slice_isbrain) = gui_data.tv(grab_pix_idx);
+    
+    % Update the slice display
+    set(gui_data.handles.slice_plot,'XData',plane_x,'YData',plane_y,'ZData',plane_z,'CData',curr_slice);
+    
+    % Upload gui_data
+    guidata(probe_atlas_gui, gui_data);
+    
 end
-
-% Get the coordiates on the plane
-x_idx = round(plane_x);
-y_idx = round(plane_y);
-z_idx = round(plane_z);
-
-% Find plane coordinates in bounds with the volume
-use_xd = x_idx > 0 & x_idx < size(gui_data.tv,1);
-use_yd = y_idx > 0 & y_idx < size(gui_data.tv,3);
-use_zd = z_idx > 0 & z_idx < size(gui_data.tv,2);
-use_idx = use_xd & use_yd & use_zd;
-
-curr_slice_idx = sub2ind(size(gui_data.tv),x_idx(use_idx),z_idx(use_idx),y_idx(use_idx));
-
-% Find plane coordinates that contain brain
-curr_slice_isbrain = false(size(use_idx));
-curr_slice_isbrain(use_idx) = gui_data.av(curr_slice_idx) > 1;
-
-% Index coordinates in bounds + with brain
-grab_pix_idx = sub2ind(size(gui_data.tv),x_idx(curr_slice_isbrain),z_idx(curr_slice_isbrain),y_idx(curr_slice_isbrain));
-
-% Grab pixels from volume
-curr_slice = nan(size(use_idx));
-curr_slice(curr_slice_isbrain) = gui_data.tv(grab_pix_idx);
-
-% Update the slice display
-set(gui_data.handles.slice_plot,'XData',plane_x,'YData',plane_y,'ZData',plane_z,'CData',curr_slice);
-
-% Upload gui_data
-guidata(probe_atlas_gui, gui_data);
 
 end
 
@@ -551,10 +577,6 @@ set(gui_data.handles.probe_line,'XData',probe_vector(1,:), ...
 % Upload gui_data
 guidata(probe_atlas_gui, gui_data);
 
-% Update the slice and probe coordinates
-update_slice(probe_atlas_gui);
-update_probe_coordinates(probe_atlas_gui);
-
 end
 
 
@@ -602,10 +624,10 @@ probe_depth = round(sqrt(sum((trajectory_brain_intersect - probe_vector(:,2)).^2
     sign(probe_vector(3,2)-trajectory_brain_intersect(3));
 
 % Update the text
-probe_text = ['Probe: ' ....
+probe_text = ['Probe insertion: ' ....
     num2str(probe_bregma_coordinate(1)) ' AP, ', ...
-    num2str(probe_bregma_coordinate(2)) ' ML, ', ...
-    num2str(probe_depth) ' Depth, ' ...
+    num2str(-probe_bregma_coordinate(2)) ' ML, ', ...
+    num2str(probe_depth) ' Probe-axis, ' ...
     num2str(gui_data.probe_angle(1)) char(176) ' from midline, ' ...
     num2str(gui_data.probe_angle(2)) char(176) ' from horizontal'];
 set(gui_data.probe_coordinates_text,'String',probe_text);
