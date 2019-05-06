@@ -14,6 +14,7 @@ data_struct = load([data_path filesep data_fn]);
 data_struct_fieldnames = fieldnames(data_struct);
 experiment_fields = cellfun(@(curr_field) ...
     length(data_struct.(curr_field)) == length(data_struct.animals) && ...
+    iscell(data_struct.(curr_field)) && ...
     all(cellfun(@(x) iscell(x),data_struct.(curr_field))),data_struct_fieldnames);
 
 % Load pre-marked experiments to exclude and cut out bad ones
@@ -75,7 +76,7 @@ wheel_allcat = cell2mat(vertcat(wheel_all{:}));
 %     movement_allcat = cell2mat(vertcat(movement_all_norm{:}));
 % end
 
-%% Get task-relevant variables if task data
+%% Get task/stim-relevant
 
 if task_dataset
     
@@ -109,7 +110,17 @@ if task_dataset
     for i = 1:size(wheel_velocity_allcat,1)
         wheel_velocity_allcat_move(i,:,:) = circshift(wheel_velocity_allcat_move(i,:,:),-move_idx(i)+leeway_samples,2);
     end 
-        
+   
+elseif isfield(D_allcat,'stimulus')
+    
+    % Hard-code stimulus IDs for now
+    if length(unique(D_allcat.stimulus)) == 3
+        trial_stim_allcat = D_allcat.stimulus;
+    else
+        stimcontrasts = unique([0.06,0.125,0.25,0.5,1].*[1;-1]);
+        trial_contrastside_allcat = stimcontrasts(D_allcat.stimulus);
+    end
+    
 end
 
 %% Cortical fluorescence

@@ -1,5 +1,5 @@
 function h = AP_errorfill(x,y,ye,color,alpha,plot_mean)
-% AP_errorfill(x,y,ye,color,alpha);
+% AP_errorfill(x,y,ye,color,alpha,plot_mean);
 %
 % Draw filled polygon as errorbars
 % ye = y error, can be 1 or 2 vectors (2 elements is ambiguous)
