@@ -3,17 +3,17 @@
 %% Load in task data
 
 % Load data
-data_fn = 'trial_activity_choiceworld';
+% data_fn = 'trial_activity_choiceworld';
 % data_fn = 'trial_activity_choiceworld_stimxmove';
 % data_fn = 'trial_activity_choiceworld_wfonly';
 % data_fn = 'trial_activity_choiceworld_oldregressors';
-exclude_data = true;
+% exclude_data = true;
 
 % data_fn = 'trial_activity_AP_choiceWorldStimPassive_trained';
-% data_fn = 'trial_activity_AP_choiceWorldStimPassive_naive';
+data_fn = 'trial_activity_AP_choiceWorldStimPassive_naive';
 % data_fn = 'trial_activity_stimKalatsky_naive';
 % data_fn = 'trial_activity_stimKalatsky_trained';
-% exclude_data = false;
+exclude_data = false;
 
 AP_load_concat_normalize_ctx_str;
 
@@ -5291,20 +5291,20 @@ end
 % Set alignment shifts
 t_leeway = -t(1);
 leeway_samples = round(t_leeway*(sample_rate));
-% stim_align = zeros(size(trial_stim_allcat));
+stim_align = zeros(size(mua_allcat,1),1);
 
-stim_align = zeros(size(trial_contrast_allcat));
-move_align = -move_idx + leeway_samples;
-outcome_align = -outcome_idx + leeway_samples;
+% stim_align = zeros(size(trial_contrast_allcat));
+% move_align = -move_idx + leeway_samples;
+% outcome_align = -outcome_idx + leeway_samples;
 
 % Set windows to average activity
-timeavg_labels = {'Pre-stim','Stim','Move onset','Outcome'};
-timeavg_t = {[-0.2,-0.1],[0.05,0.15],[-0.05,0.05],[0.05,0.15]};
-timeavg_align = {stim_align,stim_align,move_align,outcome_align};
+% timeavg_labels = {'Pre-stim','Stim','Move onset','Outcome'};
+% timeavg_t = {[-0.2,-0.1],[0.05,0.15],[-0.05,0.05],[0.05,0.15]};
+% timeavg_align = {stim_align,stim_align,move_align,outcome_align};
 
-% timeavg_labels = {'Pre-stim','Stim'};
-% timeavg_t = {[-0.2,-0.1],[0.05,0.15]};
-% timeavg_align = {stim_align,stim_align};
+timeavg_labels = {'Pre-stim','Stim'};
+timeavg_t = {[-0.2,-0.1],[0.05,0.15]};
+timeavg_align = {stim_align,stim_align};
 
 % Set activity percentiles and bins
 act_prctile = [10,90];
@@ -5315,11 +5315,11 @@ n_act_bins = 5;
 % plot_areas = [1,3,7,10];
 plot_areas = [1,2,3,4];
 
-trial_condition_groups = ...
-    {[sign(trial_contrastside_allcat) == 1,sign(trial_contrastside_allcat) == -1], ...
-    [trial_choice_allcat == -1,trial_choice_allcat == 1], ...
-    [trial_choice_allcat == -1,trial_choice_allcat == 1], ...
-    [trial_outcome_allcat == 1, trial_outcome_allcat == -1]};
+% trial_condition_groups = ...
+%     {[sign(trial_contrastside_allcat) == 1,sign(trial_contrastside_allcat) == -1], ...
+%     [trial_choice_allcat == -1,trial_choice_allcat == 1], ...
+%     [trial_choice_allcat == -1,trial_choice_allcat == 1], ...
+%     [trial_outcome_allcat == 1, trial_outcome_allcat == -1]};
 
 % trial_condition_groups = ...
 %     {[sign(trial_contrastside_allcat) == 1 & trial_choice_allcat == -1, ...
@@ -5336,11 +5336,11 @@ trial_condition_groups = ...
 %     [trial_choice_allcat == -1 & trial_outcome_allcat == 1, ... 
 %     trial_choice_allcat == 1 & trial_outcome_allcat == 1]};
 
-% trial_condition_groups = ...
-%     {[sign(trial_contrastside_allcat) == 1,sign(trial_contrastside_allcat) == -1], ...
-%     [sign(trial_contrastside_allcat) == 1,sign(trial_contrastside_allcat) == -1], ...
-%     [sign(trial_contrastside_allcat) == 1,sign(trial_contrastside_allcat) == -1], ...
-%     [sign(trial_contrastside_allcat) == 1,sign(trial_contrastside_allcat) == -1]};
+trial_condition_groups = ...
+    {[sign(trial_contrastside_allcat) == 1,sign(trial_contrastside_allcat) == -1], ...
+    [sign(trial_contrastside_allcat) == 1,sign(trial_contrastside_allcat) == -1], ...
+    [sign(trial_contrastside_allcat) == 1,sign(trial_contrastside_allcat) == -1], ...
+    [sign(trial_contrastside_allcat) == 1,sign(trial_contrastside_allcat) == -1]};
 
 % trial_condition_groups = ...
 %     {[trial_stim_allcat == 1, trial_stim_allcat == 2, trial_stim_allcat == 3], ...
@@ -5352,9 +5352,9 @@ trial_condition_groups = ...
 % curr_act_allcat = fluor_roi_deconv;
 % curr_act_pred_allcat = fluor_roi_taskpred;
 
-curr_act_allcat = mua_allcat - mua_taskpred_reduced_allcat(:,:,:,4);
+curr_act_allcat = mua_allcat;% - mua_taskpred_reduced_allcat(:,:,:,4);
 % curr_act_pred_allcat = mua_taskpred_allcat;
-curr_act_pred_allcat = mua_ctxpred_allcat - mua_ctxpred_taskpred_reduced_allcat(:,:,:,4);
+curr_act_pred_allcat = mua_ctxpred_allcat;% - mua_ctxpred_taskpred_reduced_allcat(:,:,:,4);
 
 measured_v_pred_fig = figure('color','w');
 for curr_area_idx = 1:length(plot_areas)

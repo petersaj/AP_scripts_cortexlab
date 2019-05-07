@@ -117,13 +117,11 @@ elseif isfield(D_allcat,'stimulus')
     if length(unique(D_allcat.stimulus)) == 3
         trial_stim_allcat = D_allcat.stimulus;
     elseif length(unique(D_allcat.stimulus)) == 4
-        stimcontrasts = unique([0.125,1].*[1;-1]);
+        stimcontrasts = unique([0.125,0.25,0.5,1].*[1;-1]);
         trial_contrastside_allcat = stimcontrasts(D_allcat.stimulus);
     elseif length(unique(D_allcat.stimulus)) == 10
         stimcontrasts = unique([0.06,0.125,0.25,0.5,1].*[1;-1]);
         trial_contrastside_allcat = stimcontrasts(D_allcat.stimulus);
-    else
-        error('Undefined stimuli')
     end
     
 end
