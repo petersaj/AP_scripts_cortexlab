@@ -3965,7 +3965,7 @@ kernel_bw = false(size(kernel_template));
 % end
 
 % Set cutoff by std, get rid of small islands
-kernel_std_prctile = 1;
+kernel_std_prctile = 2;
 smallest_area = 2000;
 
 for curr_kernel = 1:size(kernel_bw,3)

@@ -3,15 +3,18 @@
 %% Load in task data
 
 % Load data
-% data_fn = 'trial_activity_choiceworld';
+data_fn = 'trial_activity_choiceworld';
 % data_fn = 'trial_activity_choiceworld_stimxmove';
 % data_fn = 'trial_activity_choiceworld_wfonly';
 % data_fn = 'trial_activity_choiceworld_oldregressors';
+exclude_data = true;
+
+% data_fn = 'trial_activity_AP_choiceWorldStimPassive_trained';
 % data_fn = 'trial_activity_AP_choiceWorldStimPassive_naive';
 % data_fn = 'trial_activity_stimKalatsky_naive';
-data_fn = 'trial_activity_stimKalatsky_trained';
+% data_fn = 'trial_activity_stimKalatsky_trained';
+% exclude_data = false;
 
-exclude_data = false;
 AP_load_concat_normalize_ctx_str;
 
 % Choose split for data
@@ -4961,7 +4964,9 @@ act_prctile = [10,90];
 n_act_bins = 5;
 
 % Set areas and conditions
-plot_str_ctx = {[1,3],[2,7],[3,8],[4,10]};
+% plot_str_ctx = {[1,3],[2,7],[3,8],[4,10]};
+plot_str_ctx = {[1,1],[2,2],[3,3],[4,4]};
+
 trial_condition_groups = ...
     {[sign(trial_contrastside_allcat) == 1,sign(trial_contrastside_allcat) == -1], ...
     [trial_choice_allcat == -1,trial_choice_allcat == 1], ...
@@ -5006,7 +5011,8 @@ for curr_str_ctx = 1:length(plot_str_ctx)
         for curr_timeavg = 1:length(timeavg_labels)
             
             % (set cortex activity to use)
-            curr_ctx_act_allcat = fluor_roi_deconv;    
+%             curr_ctx_act_allcat = fluor_roi_deconv;
+            curr_ctx_act_allcat = fluor_kernelroi_deconv;   
             
             % (re-align and split activity and conditions)
             curr_ctx_act = mat2cell(...
@@ -5104,20 +5110,20 @@ for curr_str_ctx = 1:length(plot_str_ctx)
                             col(curr_cond,:),0.5,false);
                     end
             end
-            xlabel(['Ctx (' wf_roi(plot_ctx).area ')']);
+            xlabel(['Ctx (' num2str(plot_ctx) ')']);
             ylabel([mua_label ' Str (' num2str(plot_str) ')'])
             title(timeavg_labels{curr_timeavg});
             
         end
         
     end
-    % Link axes of all plots
-    linkaxes(get(str_v_ctx_fig,'Children'));
 end
 
+% Link axes of all plots
+linkaxes(get(str_v_ctx_fig,'Children'));
 
 
-%% MUA (active/passive) v fluorescence by stim (overlay measured/ctx-pred)
+%% MUA (passive) v fluorescence by stim (overlay measured/ctx-pred)
 
 % Set alignment shifts
 t_leeway = -t(1);
@@ -5134,7 +5140,8 @@ act_prctile = [10,90];
 n_act_bins = 5;
 
 % Set areas and conditions
-plot_str_ctx = {[1,3],[2,7]};
+% plot_str_ctx = {[1,3],[2,7]};
+plot_str_ctx = {[1,1],[2,2]};
 % trial_condition_groups = ...
 %     {[sign(trial_contrastside_allcat) == 1,sign(trial_contrastside_allcat) == -1], ...
 %     [sign(trial_contrastside_allcat) == 1,sign(trial_contrastside_allcat) == -1]};
@@ -5168,7 +5175,8 @@ for curr_str_ctx = 1:length(plot_str_ctx)
         for curr_timeavg = 1:length(timeavg_labels)
             
             % (set cortex activity to use)
-            curr_ctx_act_allcat = fluor_roi_deconv;    
+%             curr_ctx_act_allcat = fluor_roi_deconv;    
+            curr_ctx_act_allcat = fluor_kernelroi_deconv;    
             
             % (re-align and split activity and conditions)
             curr_ctx_act = mat2cell(...
@@ -5278,11 +5286,13 @@ for curr_str_ctx = 1:length(plot_str_ctx)
 end
 
 
-%% Measured vs task-predicted (by condition)
+%% Measured vs predicted (by condition)
 
 % Set alignment shifts
 t_leeway = -t(1);
 leeway_samples = round(t_leeway*(sample_rate));
+% stim_align = zeros(size(trial_stim_allcat));
+
 stim_align = zeros(size(trial_contrast_allcat));
 move_align = -move_idx + leeway_samples;
 outcome_align = -outcome_idx + leeway_samples;
@@ -5291,6 +5301,10 @@ outcome_align = -outcome_idx + leeway_samples;
 timeavg_labels = {'Pre-stim','Stim','Move onset','Outcome'};
 timeavg_t = {[-0.2,-0.1],[0.05,0.15],[-0.05,0.05],[0.05,0.15]};
 timeavg_align = {stim_align,stim_align,move_align,outcome_align};
+
+% timeavg_labels = {'Pre-stim','Stim'};
+% timeavg_t = {[-0.2,-0.1],[0.05,0.15]};
+% timeavg_align = {stim_align,stim_align};
 
 % Set activity percentiles and bins
 act_prctile = [10,90];
@@ -5322,13 +5336,25 @@ trial_condition_groups = ...
 %     [trial_choice_allcat == -1 & trial_outcome_allcat == 1, ... 
 %     trial_choice_allcat == 1 & trial_outcome_allcat == 1]};
 
+% trial_condition_groups = ...
+%     {[sign(trial_contrastside_allcat) == 1,sign(trial_contrastside_allcat) == -1], ...
+%     [sign(trial_contrastside_allcat) == 1,sign(trial_contrastside_allcat) == -1], ...
+%     [sign(trial_contrastside_allcat) == 1,sign(trial_contrastside_allcat) == -1], ...
+%     [sign(trial_contrastside_allcat) == 1,sign(trial_contrastside_allcat) == -1]};
+
+% trial_condition_groups = ...
+%     {[trial_stim_allcat == 1, trial_stim_allcat == 2, trial_stim_allcat == 3], ...
+%     [trial_stim_allcat == 1, trial_stim_allcat == 2, trial_stim_allcat == 3], ...
+%     [trial_stim_allcat == 1, trial_stim_allcat == 2, trial_stim_allcat == 3], ...
+%     [trial_stim_allcat == 1, trial_stim_allcat == 2, trial_stim_allcat == 3]};
+
 % Loop across area pairs, plot binned predicted v measured activity
 % curr_act_allcat = fluor_roi_deconv;
 % curr_act_pred_allcat = fluor_roi_taskpred;
 
-curr_act_allcat = mua_allcat - mua_taskpred_reduced_allcat(:,:,:,1);
+curr_act_allcat = mua_allcat - mua_taskpred_reduced_allcat(:,:,:,4);
 % curr_act_pred_allcat = mua_taskpred_allcat;
-curr_act_pred_allcat = mua_ctxpred_allcat - mua_ctxpred_taskpred_reduced_allcat(:,:,:,1);
+curr_act_pred_allcat = mua_ctxpred_allcat - mua_ctxpred_taskpred_reduced_allcat(:,:,:,4);
 
 measured_v_pred_fig = figure('color','w');
 for curr_area_idx = 1:length(plot_areas)
@@ -5336,8 +5362,9 @@ for curr_area_idx = 1:length(plot_areas)
     plot_area = plot_areas(curr_area_idx);
     trial_conditions = trial_condition_groups{curr_area_idx};
     
-    % Set up the explained variance
+    % Set up the summary values
     curr_act_pred_diff = nan(size(trial_conditions,2),length(use_split),length(timeavg_labels));
+    curr_act_pred_rank_diff = nan(size(trial_conditions,2),length(use_split),length(timeavg_labels));
     curr_expl_var = nan(size(trial_conditions,2),length(use_split),length(timeavg_labels));
     
     for curr_timeavg = 1:length(timeavg_labels)
@@ -5412,10 +5439,17 @@ for curr_area_idx = 1:length(plot_areas)
             curr_act_pred_avg,total_bins,trial_conditions_exp,use_trials,'uni',false)'), ...
             permute(1:size(trial_conditions,2),[1,3,2]),'uni',false));
         
-        % Get average act-pred difference (ALL TRIALS)
+        % Get average act-pred difference (amplitude and rank) (ALL TRIALS)
+        curr_act_pred_diff(:,:,curr_timeavg) = ...
+            cell2mat(arrayfun(@(cond) cellfun(@(act,pred,trial_cond,use_trials) ...
+            nanmean(act(trial_cond(:,cond)) - ...
+            pred(trial_cond(:,cond))), ...
+            curr_act_avg,curr_act_pred_avg,trial_conditions_exp,use_trials), ...
+            1:size(trial_conditions,2),'uni',false))';
+        
         curr_act_avg_rank = cellfun(@(x) tiedrank(x)./max(tiedrank(x)),curr_act_avg,'uni',false);
         curr_act_pred_avg_rank = cellfun(@(x) tiedrank(x)./max(tiedrank(x)),curr_act_pred_avg,'uni',false);
-        curr_act_pred_diff(:,:,curr_timeavg) = ...
+        curr_act_pred_rank_diff(:,:,curr_timeavg) = ...
             cell2mat(arrayfun(@(cond) cellfun(@(act,pred,trial_cond,use_trials) ...
             nanmean(act(trial_cond(:,cond)) - ...
             pred(trial_cond(:,cond))), ...
@@ -5434,8 +5468,8 @@ for curr_area_idx = 1:length(plot_areas)
         
         % Plot binned predicted v measured
         figure(measured_v_pred_fig);
-        subplot(length(plot_areas),length(timeavg_labels)+2, ...
-            sub2ind(fliplr([length(plot_areas),length(timeavg_labels)+2]),curr_timeavg,curr_area_idx));
+        subplot(length(plot_areas),length(timeavg_labels)+3, ...
+            sub2ind(fliplr([length(plot_areas),length(timeavg_labels)+3]),curr_timeavg,curr_area_idx));
         hold on;
         
         errorbar( ...
@@ -5457,34 +5491,49 @@ for curr_area_idx = 1:length(plot_areas)
         
     end
     
-    % Plot measured - predicted
-    subplot(length(plot_areas),length(timeavg_labels)+2, ...
-        sub2ind(fliplr([length(plot_areas),length(timeavg_labels)+2]),length(timeavg_labels)+1,curr_area_idx));
+    % Plot measured - predicted (amplitude and rank)
+    subplot(length(plot_areas),length(timeavg_labels)+3, ...
+        sub2ind(fliplr([length(plot_areas),length(timeavg_labels)+3]),length(timeavg_labels)+1,curr_area_idx));
      hold on;
     errorbar( ...
         permute(nanmean(curr_act_pred_diff,2),[3,1,2]), ...
         permute(AP_sem(curr_act_pred_diff,2),[3,1,2]),'linewidth',2);
     ylabel('Act-pred');
-    set(gca,'XTick',1:4,'XTickLabels',timeavg_labels,'XTickLabelRotation',45) 
+    set(gca,'XTick',1:4,'XTickLabels',timeavg_labels,'XTickLabelRotation',45)
+    xlim([0.5,length(timeavg_labels)+0.5]);
+    
+    subplot(length(plot_areas),length(timeavg_labels)+3, ...
+        sub2ind(fliplr([length(plot_areas),length(timeavg_labels)+3]),length(timeavg_labels)+2,curr_area_idx));
+     hold on;
+    errorbar( ...
+        permute(nanmean(curr_act_pred_rank_diff,2),[3,1,2]), ...
+        permute(AP_sem(curr_act_pred_rank_diff,2),[3,1,2]),'linewidth',2);
+    ylabel('Act-pred (rank)');
+    set(gca,'XTick',1:4,'XTickLabels',timeavg_labels,'XTickLabelRotation',45)
+    xlim([0.5,length(timeavg_labels)+0.5]);
   
     % Plot explained variance
-    subplot(length(plot_areas),length(timeavg_labels)+2, ...
-        sub2ind(fliplr([length(plot_areas),length(timeavg_labels)+2]),length(timeavg_labels)+2,curr_area_idx));
+    subplot(length(plot_areas),length(timeavg_labels)+3, ...
+        sub2ind(fliplr([length(plot_areas),length(timeavg_labels)+3]),length(timeavg_labels)+3,curr_area_idx));
     hold on;
     errorbar( ...
         permute(nanmean(curr_expl_var,2),[3,1,2]), ...
         permute(AP_sem(curr_expl_var,2),[3,1,2]),'linewidth',2);
     ylabel('R^2');
     set(gca,'XTick',1:4,'XTickLabels',timeavg_labels,'XTickLabelRotation',45)
+    xlim([0.5,length(timeavg_labels)+0.5]);
     
 end
 
 % Link axes of all predicted v measured and all explained var
 all_axes = get(measured_v_pred_fig,'Children');
 linkaxes(all_axes(setdiff(1:length(all_axes), ...
-    [1:length(timeavg_labels)+2:length(all_axes),2:length(timeavg_labels)+2:length(all_axes)])))
-linkaxes(all_axes(intersect(1:length(all_axes),1:length(timeavg_labels)+2:length(all_axes))));
-linkaxes(all_axes(intersect(1:length(all_axes),2:length(timeavg_labels)+2:length(all_axes))));
+    [1:length(timeavg_labels)+3:length(all_axes), ...
+    2:length(timeavg_labels)+3:length(all_axes), ...
+    3:length(timeavg_labels)+3:length(all_axes)])))
+linkaxes(all_axes(intersect(1:length(all_axes),1:length(timeavg_labels)+3:length(all_axes))));
+linkaxes(all_axes(intersect(1:length(all_axes),2:length(timeavg_labels)+3:length(all_axes))));
+linkaxes(all_axes(intersect(1:length(all_axes),3:length(timeavg_labels)+3:length(all_axes))));
 
 
 

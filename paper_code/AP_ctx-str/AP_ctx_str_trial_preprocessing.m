@@ -1172,13 +1172,15 @@ for animal_group = {'trained','naive'}
         
         disp(['Passive trial activity: ' animal_group ' ' protocol])
         
-        % Initialize all saved variables for indexing
-        fluor_all = cell(1,1);
-        mua_all = cell(1,1);
-        mua_ctxpred_all = cell(1,1);
-        ctx_str_k_all = cell(1,1);
-        wheel_all = cell(1,1);
-        D_all = cell(1,1);
+        % Initialize all saved variables for indexing and common structure
+        init_array = cellfun(@(x) cell(0,0),animals','uni',false);
+        
+        fluor_all = init_array;
+        mua_all = init_array;
+        mua_ctxpred_all = init_array;
+        ctx_str_k_all = init_array;
+        wheel_all = init_array;
+        D_all = init_array;
         
         for curr_animal = 1:length(animals)
             

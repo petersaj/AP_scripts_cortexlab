@@ -141,24 +141,37 @@ fluor_allcat_deconv_baseline = nanmean(reshape(fluor_allcat_deconv(:,t_baseline,
 fluor_allcat_deconv = fluor_allcat_deconv - fluor_allcat_deconv_baseline;
 
 % Get fluorescence ROIs
+% (by cortical area)
 load('C:\Users\Andrew\OneDrive for Business\Documents\CarandiniHarrisLab\analysis\wf_ephys_choiceworld\wf_processing\wf_alignment\U_master');
 wf_roi_fn = 'C:\Users\Andrew\OneDrive for Business\Documents\CarandiniHarrisLab\analysis\wf_ephys_choiceworld\wf_processing\wf_rois\wf_roi';
 load(wf_roi_fn);
-% wf_roi = wf_roi(:,1); % (left ROIs only)
 n_rois = numel(wf_roi);
-
 fluor_roi_deconv = permute(reshape( ...
     AP_svd_roi(U_master(:,:,1:n_vs), ...
     reshape(permute(fluor_allcat_deconv,[3,2,1]),n_vs,[]),[],[],cat(3,wf_roi.mask)), ...
     n_rois,[],size(fluor_allcat_deconv,1)),[3,2,1]);
 
+% (from striatum kernels)
+kernel_roi_fn = 'C:\Users\Andrew\OneDrive for Business\Documents\CarandiniHarrisLab\analysis\wf_ephys_choiceworld\wf_processing\wf_rois\kernel_roi';
+load(kernel_roi_fn);
+fluor_kernelroi_deconv = permute(reshape( ...
+    AP_svd_roi(U_master(:,:,1:n_vs), ...
+    reshape(permute(fluor_allcat_deconv,[3,2,1]),n_vs,[]),[],[],kernel_roi), ...
+    size(kernel_roi,3),[],size(fluor_allcat_deconv,1)),[3,2,1]);
+
 % Normalize ROI fluorescence by day
-warning('TESTING ROI NORM')
+% warning('TESTING ROI NORM')
 n_trials_day = cellfun(@(x) size(x,1),vertcat(fluor_all{:}));
 fluor_roi_deconv_std = ...
     cell2mat(cellfun(@(x) repmat(nanstd(reshape(x,[],1,n_rois),[],1),size(x,1),1), ...
     mat2cell(fluor_roi_deconv,n_trials_day,length(t),n_rois),'uni',false));
+fluor_kernelroi_deconv_std = ...
+    cell2mat(cellfun(@(x) repmat(nanstd(reshape(x,[],1,size(kernel_roi,3)),[],1),size(x,1),1), ...
+    mat2cell(fluor_kernelroi_deconv,n_trials_day,length(t),size(kernel_roi,3)),'uni',false));
+% fluor_roi_deconv_std = 1;
+% fluor_kernelroi_deconv_std = 1;
 fluor_roi_deconv = fluor_roi_deconv./fluor_roi_deconv_std;
+fluor_kernelroi_deconv = fluor_kernelroi_deconv./fluor_kernelroi_deconv_std;
 
 if task_dataset
     % Get task-predicted activity
