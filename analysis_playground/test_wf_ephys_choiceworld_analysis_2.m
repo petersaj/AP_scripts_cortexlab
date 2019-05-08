@@ -5292,7 +5292,7 @@ for curr_str_ctx = 1:length(plot_str_ctx)
             end
             xlabel(['Ctx (' num2str(plot_ctx) ')']);
             ylabel([mua_label ' Str (' num2str(plot_str) ')'])
-            title([timeavg_labels{curr_timeavg} '(- ' task_regressor_labels{curr_task_reduction} ')']);
+            title([timeavg_labels{curr_timeavg} '(' task_regressor_labels{curr_task_reduction} '-reduced)']);
             
         end
         
