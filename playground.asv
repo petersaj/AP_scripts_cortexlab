@@ -6235,6 +6235,19 @@ plot(waveforms_cat_maxnorm(good_cat(:,1) & ~good_cat(:,2),:)');
 title('Good manual, bad auto');
 
 
+%%
+
+real_diff = squeeze(nanmean(curr_act_pred_diff(1,:,:) - curr_act_pred_diff(2,:,:),2));
+shuff_diff = nan(4,1000);
+for i = 1:1000
+    curr_sha
+    shuff_diff(:,i) = squeeze(nanmean(shake(curr_act_pred_diff(1,:,:) - curr_act_pred_diff(2,:,:),2))
+end
+
+
+
+
+
 
 
 
