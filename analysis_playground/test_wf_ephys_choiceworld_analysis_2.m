@@ -5291,7 +5291,7 @@ for curr_str_ctx = 1:length(plot_str_ctx)
                     end
             end
             xlabel(['Ctx (' num2str(plot_ctx) ')']);
-            ylabel([mua_label ' Str (' num2str(plot_str) ')'])
+            ylabel([' Str (' num2str(plot_str) ')'])
             title([timeavg_labels{curr_timeavg} '(' task_regressor_labels{curr_task_reduction} '-reduced)']);
             
         end
@@ -5788,10 +5788,9 @@ for curr_area_idx = 1:length(plot_areas)
     
     % Set up the summary values
     curr_act_pred_diff = nan(2,length(use_split),length(timeavg_labels));
-    curr_act_pred_rank_diff = nan(2,length(use_split),length(timeavg_labels));
+    curr_act_pred_rank_condition_diff = nan(length(use_split),length(timeavg_labels));
     n_shuff = 1000;
-    curr_act_pred_diff_shuff = nan(2,length(use_split),n_shuff,length(timeavg_labels));
-    curr_expl_var = nan(2,length(use_split),length(timeavg_labels));
+    curr_act_pred_rank_condition_diff_shuff = nan(length(use_split),n_shuff,length(timeavg_labels));
     
     for curr_timeavg = 1:length(timeavg_labels)
         
@@ -5867,7 +5866,7 @@ for curr_area_idx = 1:length(plot_areas)
             curr_act_pred_avg,total_bins,trial_conditions_exp,use_trials,'uni',false)'), ...
             permute(1:size(trial_conditions,2),[1,3,2]),'uni',false));
         
-        % Get average act-pred difference (amplitude and rank) (ALL TRIALS)
+        % Get average act-pred difference (ALL TRIALS)
         curr_act_pred_diff(:,:,curr_timeavg) = ...
             cell2mat(arrayfun(@(cond) cellfun(@(act,pred,trial_cond,use_trials) ...
             nanmean(act(trial_cond(:,cond)) - ...
@@ -5875,41 +5874,31 @@ for curr_area_idx = 1:length(plot_areas)
             curr_act_avg,curr_act_pred_avg,trial_conditions_exp,use_trials), ...
             1:size(trial_conditions,2),'uni',false))';
         
+        % Get condition  difference (assume 2 conditions)
         curr_act_avg_rank = cellfun(@(x) tiedrank(x)./max(tiedrank(x)),curr_act_avg,'uni',false);
-        curr_act_pred_avg_rank = cellfun(@(x) tiedrank(x)./max(tiedrank(x)),curr_act_pred_avg,'uni',false);
-        curr_act_pred_rank_diff(:,:,curr_timeavg) = ...
-            cell2mat(arrayfun(@(cond) cellfun(@(act,pred,trial_cond,use_trials) ...
-            nanmean(act(trial_cond(:,cond)) - ...
-            pred(trial_cond(:,cond))), ...
-            curr_act_avg_rank,curr_act_pred_avg_rank,trial_conditions_exp,use_trials), ...
-            1:size(trial_conditions,2),'uni',false))';
+        curr_act_pred_avg_rank = cellfun(@(x) tiedrank(x)./max(tiedrank(x)),curr_act_pred_avg,'uni',false);        
+        curr_act_pred_condition_diff(:,curr_timeavg) = ...
+            cellfun(@(act,pred,trial_cond,use_trials) ...       
+            nanmean(act(trial_cond(:,1)) - pred(trial_cond(:,1))) - ...
+            nanmean(act(trial_cond(:,2)) - pred(trial_cond(:,2))), ...
+            curr_act_avg,curr_act_pred_avg,trial_conditions_exp,use_trials);
         
         % Get condition-shuffled act-pred difference
-        % (unused at the moment)
-        trial_conditions_exp_shuff = mat2cell(AP_shake(repmat(trial_conditions,1,1,n_shuff),2), ...
-            use_split,size(trial_conditions,2),n_shuff);        
-        curr_act_pred_diff_shuff(:,:,:,curr_timeavg) = ...
+        trial_conditions_exp_shuff = cellfun(@(x) AP_shake(repmat(x,1,1,n_shuff),1), ...
+            trial_conditions_exp,'uni',false);   
+                
+        curr_act_pred_condition_diff_shuff(:,:,curr_timeavg) = ...
             cell2mat(arrayfun(@(shuff) ...
-            cell2mat(arrayfun(@(cond) cellfun(@(act,pred,trial_cond,use_trials) ...
-            nanmean(act(trial_cond(:,cond,shuff)) - ...
-            pred(trial_cond(:,cond,shuff))), ...
+            cellfun(@(act,pred,trial_cond,use_trials) ...
+            nanmean(act(trial_cond(:,1,shuff)) - pred(trial_cond(:,1,shuff))) - ...
+            nanmean(act(trial_cond(:,2,shuff)) - pred(trial_cond(:,2,shuff))), ...
             curr_act_avg,curr_act_pred_avg,trial_conditions_exp_shuff,use_trials), ...
-            1:size(trial_conditions,2),'uni',false))',permute(1:n_shuff,[1,3,2]),'uni',false));
-        
-        % Get the explained variance by condition
-        curr_expl_var(:,:,curr_timeavg) = ...
-            cell2mat(cellfun(@(act,pred,trial_cond,use_trials) cell2mat(arrayfun(@(condition) ...
-            1 - (nansum((act(use_trials & trial_cond(:,condition)) - ...
-            pred(use_trials & trial_cond(:,condition))).^2)./ ...
-            (nansum((act(use_trials & trial_cond(:,condition)) - ...
-            nanmean(act(use_trials & trial_cond(:,condition)),1)).^2,1))), ...
-            [1:size(trial_conditions,2)]','uni',false)), ...
-            curr_act_avg,curr_act_pred_avg,trial_conditions_exp,use_trials,'uni',false)');
+            1:n_shuff,'uni',false));
         
         % Plot binned predicted v measured
         figure(measured_v_pred_fig);
-        subplot(length(plot_areas),length(timeavg_labels)+3, ...
-            sub2ind(fliplr([length(plot_areas),length(timeavg_labels)+3]),curr_timeavg,curr_area_idx));
+        subplot(length(plot_areas),length(timeavg_labels)+2, ...
+            sub2ind(fliplr([length(plot_areas),length(timeavg_labels)+2]),curr_timeavg,curr_area_idx));
         hold on;
         
         errorbar( ...
@@ -5928,70 +5917,66 @@ for curr_area_idx = 1:length(plot_areas)
         xlabel(['Predicted (' num2str(plot_area) ')']);
         ylabel(['Measured (' num2str(plot_area) ')'])
         ylim(xlim); axis square;
-        title(timeavg_labels{curr_timeavg});
+        title([timeavg_labels{curr_timeavg} ' (' task_regressor_labels{curr_task_reduction} '-reduced)']);
         
     end
     
     % Plot measured - predicted (amplitude and rank)
-    subplot(length(plot_areas),length(timeavg_labels)+3, ...
-        sub2ind(fliplr([length(plot_areas),length(timeavg_labels)+3]),length(timeavg_labels)+1,curr_area_idx));
+    subplot(length(plot_areas),length(timeavg_labels)+2, ...
+        sub2ind(fliplr([length(plot_areas),length(timeavg_labels)+2]),length(timeavg_labels)+1,curr_area_idx));
      hold on;
     errorbar( ...
         permute(nanmean(curr_act_pred_diff,2),[3,1,2]), ...
         permute(AP_sem(curr_act_pred_diff,2),[3,1,2]),'linewidth',2,'CapSize',0);
-    ylabel('Act-pred');
+    ylabel('Meas - Pred');
     set(gca,'XTick',1:4,'XTickLabels',timeavg_labels,'XTickLabelRotation',45)
     xlim([0.5,length(timeavg_labels)+0.5]);
     
-    subplot(length(plot_areas),length(timeavg_labels)+3, ...
-        sub2ind(fliplr([length(plot_areas),length(timeavg_labels)+3]),length(timeavg_labels)+2,curr_area_idx));
+    subplot(length(plot_areas),length(timeavg_labels)+2, ...
+        sub2ind(fliplr([length(plot_areas),length(timeavg_labels)+2]),length(timeavg_labels)+2,curr_area_idx));
      hold on;
     errorbar( ...
-        permute(nanmean(curr_act_pred_rank_diff,2),[3,1,2]), ...
-        permute(AP_sem(curr_act_pred_rank_diff,2),[3,1,2]),'linewidth',2,'CapSize',0);
-    ylabel('Act-pred (rank)');
+        nanmean(curr_act_pred_condition_diff,1), ...
+        AP_sem(curr_act_pred_condition_diff,1),'linewidth',2,'CapSize',0);
+    ylabel('Condition difference');
     set(gca,'XTick',1:4,'XTickLabels',timeavg_labels,'XTickLabelRotation',45)
     xlim([0.5,length(timeavg_labels)+0.5]);
     
-    % Get/plot measured - predicted significance
-    subplot(length(plot_areas),length(timeavg_labels)+3, ...
-        sub2ind(fliplr([length(plot_areas),length(timeavg_labels)+3]),length(timeavg_labels)+1,curr_area_idx));
-    real_diff = squeeze(nanmean(curr_act_pred_diff(1,:,:) - curr_act_pred_diff(2,:,:),2));
-    shuff_diff_ci = permute(prctile(nanmean(curr_act_pred_diff_shuff(1,:,:,:) - ...
-        curr_act_pred_diff_shuff(2,:,:,:),2),[2.5,97.5],3),[4,3,2,1]);
-    sig_diff = real_diff < shuff_diff_ci(:,1) | real_diff > shuff_diff_ci(:,2);
-    plot(find(sig_diff),repmat(max(ylim),sum(sig_diff),1),'*','color','k','MarkerSize',5)
-  
-    % Plot explained variance
-    subplot(length(plot_areas),length(timeavg_labels)+3, ...
-        sub2ind(fliplr([length(plot_areas),length(timeavg_labels)+3]),length(timeavg_labels)+3,curr_area_idx));
-    hold on;
-    errorbar( ...
-        permute(nanmean(curr_expl_var,2),[3,1,2]), ...
-        permute(AP_sem(curr_expl_var,2),[3,1,2]),'linewidth',2,'CapSize',0);
-    ylabel('R^2');
-    set(gca,'XTick',1:4,'XTickLabels',timeavg_labels,'XTickLabelRotation',45)
-    xlim([0.5,length(timeavg_labels)+0.5]);
+    % Get and plot significance (rank difference between conditions)
+    % (condition shuffle?)
+    real_diff = nanmean(curr_act_pred_condition_diff,1); 
+    alpha = [5/2/3,100-(5/2/3)];
+    shuff_diff_ci = squeeze(nanmean(prctile(curr_act_pred_condition_diff_shuff,alpha,2),1));
+    sig_diff = real_diff < shuff_diff_ci(1,:) | real_diff > shuff_diff_ci(2,:);
+    subplot(length(plot_areas),length(timeavg_labels)+2, ...
+        sub2ind(fliplr([length(plot_areas),length(timeavg_labels)+2]),length(timeavg_labels)+1,curr_area_idx));
+    plot(find(sig_diff),repmat(max(ylim),sum(sig_diff),1),'*','color','k','MarkerSize',5);
+    subplot(length(plot_areas),length(timeavg_labels)+2, ...
+        sub2ind(fliplr([length(plot_areas),length(timeavg_labels)+2]),length(timeavg_labels)+2,curr_area_idx));
+    plot(shuff_diff_ci','r');
+    plot(find(sig_diff),repmat(max(ylim),sum(sig_diff),1),'*','color','k','MarkerSize',5);
     
 end
 
 % Link axes of all predicted v measured and all explained var
 all_axes = get(measured_v_pred_fig,'Children');
 meas_pred_axes = all_axes(setdiff(1:length(all_axes), ...
-    [1:length(timeavg_labels)+3:length(all_axes), ...
-    2:length(timeavg_labels)+3:length(all_axes), ...
-    3:length(timeavg_labels)+3:length(all_axes)]));
+    [1:length(timeavg_labels)+2:length(all_axes), ...
+    2:length(timeavg_labels)+2:length(all_axes)]));
 linkaxes(meas_pred_axes)
-linkaxes(all_axes(intersect(1:length(all_axes),1:length(timeavg_labels)+3:length(all_axes))));
-linkaxes(all_axes(intersect(1:length(all_axes),2:length(timeavg_labels)+3:length(all_axes))));
-linkaxes(all_axes(intersect(1:length(all_axes),3:length(timeavg_labels)+3:length(all_axes))));
+linkaxes(all_axes(1:length(timeavg_labels)+2:length(all_axes)));
+linkaxes(all_axes(2:length(timeavg_labels)+2:length(all_axes)));
 
 for curr_axes = 1:length(meas_pred_axes)
    line(meas_pred_axes(curr_axes),xlim(meas_pred_axes(curr_axes)), ...
        xlim(meas_pred_axes(curr_axes)),'color','k'); 
 end
-
-
+for curr_axes = 1:length(timeavg_labels)+2:length(all_axes)
+   line(all_axes(curr_axes),xlim(all_axes(curr_axes)),[0,0],'color','k');
+end
+for curr_axes = 2:length(timeavg_labels)+2:length(all_axes)
+   line(all_axes(curr_axes),xlim(all_axes(curr_axes)),[0,0],'color','k');
+end
 
 
 

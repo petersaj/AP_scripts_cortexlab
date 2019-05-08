@@ -547,11 +547,16 @@ for curr_animal = 1:length(animals)
         task_regressors = {stim_regressors;move_onset_regressors;go_cue_regressors;outcome_regressors};
         task_regressor_labels = {'Stim','Move onset','Go cue','Outcome'};
         
-        task_t_shifts = { ...
-            [0,0.5]; ... % stim
+        task_t_shifts = {[0,0.5]; ... % stim
             [-0.5,1]; ... % move
-            [0,0.5]; ... % go cue
-            [0,0.5]}; % outcome
+            [-0.1,0.5]; ... % go cue
+            [-0.5,1]}; % outcome
+        
+%         task_t_shifts = { ...
+%             [0,0.5]; ... % stim
+%             [-0.5,1]; ... % move
+%             [0,0.5]; ... % go cue
+%             [0,0.5]}; % outcome
         
         %         task_regressors = {stim_regressors;move_onset_regressors;move_onset_stim_regressors;go_cue_regressors;outcome_regressors};
         %         task_regressor_labels = {'Stim','Move','Stim x move','Go cue','Outcome'};
