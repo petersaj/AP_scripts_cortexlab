@@ -6,13 +6,6 @@
 % C:\Users\Andrew\OneDrive for Business\Documents\CarandiniHarrisLab\analysis\wf_ephys_choiceworld\paper\data
 
 
-
-%% ~~~~~~ ADD HERE: TASK -> UNIT REGRESSION
-
-% (lives in test_wf_ephys_choiceworld_analysis_2)
-% (do once regression params are finished)
-
-
 %% Cortex -> kernel-aligned striatum map (protocols separately)
 
 n_aligned_depths = 4;
@@ -162,6 +155,314 @@ for protocol = protocols
     disp(['Finished batch ' curr_protocol]);
     
 end
+
+%% Choiceworld task -> striatum unit regression 
+
+% Regression parameters
+regression_params.use_svs = 1:50;
+regression_params.skip_seconds = 20;
+regression_params.upsample_factor = 1;
+regression_params.kernel_t = [-0.5,0.5];
+regression_params.zs = [false,false];
+regression_params.cvfold = 5;
+regression_params.use_constant = true;
+
+animals = {'AP024','AP025','AP026','AP027','AP028','AP029'};
+
+unit_kernel_all = struct;
+
+for curr_animal = 1:length(animals)
+    
+    animal = animals{curr_animal};
+    protocol = 'vanillaChoiceworld';
+    experiments = AP_find_experiments(animal,protocol);
+    
+    experiments = experiments([experiments.imaging] & [experiments.ephys]);
+    
+    disp(['Loading ' animal]);
+    
+    for curr_day = 1:length(experiments)
+        
+        day = experiments(curr_day).day;
+        experiment = experiments(curr_day).experiment;
+        
+        % Load experiment
+        str_align = 'none';
+        AP_load_experiment;
+        
+        % Get event-aligned activity
+        raster_window = [-0.5,2];
+        upsample_factor = 1;
+        raster_sample_rate = 1/(framerate*upsample_factor);
+        t = raster_window(1):raster_sample_rate:raster_window(2);
+        
+        % Get align times
+        use_align = stimOn_times;
+        use_align(isnan(use_align)) = 0;
+        
+        t_peri_event = bsxfun(@plus,use_align,t);
+        t_bins = [t_peri_event-raster_sample_rate/2,t_peri_event(:,end)+raster_sample_rate/2];
+        
+        %%% Trial-align wheel velocity
+        event_aligned_wheel = interp1(Timeline.rawDAQTimestamps, ...
+            wheel_velocity,t_peri_event);
+        
+        %%% Trial-align facecam movement
+        event_aligned_movement = interp1(facecam_t(~isnan(facecam_t)), ...
+            frame_movement(~isnan(facecam_t)),t_peri_event);
+        
+        %%% Trial-align outcome (reward page 1, punish page 2)
+        % (note incorrect outcome imprecise from signals, but looks good)
+        event_aligned_outcome = zeros(size(t_peri_event,1),size(t_peri_event,2),2);
+        
+        event_aligned_outcome(trial_outcome == 1,:,1) = ...
+            (cell2mat(arrayfun(@(x) ...
+            histcounts(reward_t_timeline,t_bins(x,:)), ...
+            find(trial_outcome == 1),'uni',false))) > 0;
+        
+        event_aligned_outcome(trial_outcome == -1,:,2) = ...
+            (cell2mat(arrayfun(@(x) ...
+            histcounts(signals_events.responseTimes,t_bins(x,:)), ...
+            find(trial_outcome == -1),'uni',false))) > 0;
+        
+        % Pick trials to keep
+        use_trials = ...
+            trial_outcome ~= 0 & ...
+            ~signals_events.repeatTrialValues(1:n_trials)' & ...
+            stim_to_feedback < 1.5;
+        
+        % Get behavioural data
+        D = struct;
+        D.stimulus = zeros(sum(use_trials),2);
+        
+        L_trials = signals_events.trialSideValues(1:n_trials) == -1;
+        R_trials = signals_events.trialSideValues(1:n_trials) == 1;
+        
+        D.stimulus(L_trials(use_trials),1) = signals_events.trialContrastValues(L_trials & use_trials');
+        D.stimulus(R_trials(use_trials),2) = signals_events.trialContrastValues(R_trials & use_trials');
+        
+        D.response = 3-(abs((trial_choice(use_trials)'+1)/2)+1);
+        D.repeatNum = ones(sum(use_trials),1);
+        
+        D.outcome = reshape(trial_outcome(use_trials),[],1);
+        
+        %%% Regress task to cortex/striatum/cortex-predicted striatum
+        
+        % Get time points to bin
+        sample_rate = framerate*regression_params.upsample_factor;
+        time_bins = frame_t(find(frame_t > ...
+            regression_params.skip_seconds,1)):1/sample_rate: ...
+            frame_t(find(frame_t-frame_t(end) < ...
+            -regression_params.skip_seconds,1,'last'));
+        time_bin_centers = time_bins(1:end-1) + diff(time_bins)/2;
+        
+           % Get reaction time for building regressors
+        [move_trial,move_idx] = max(abs(event_aligned_wheel) > 0.02,[],2);
+        move_idx(~move_trial) = NaN;
+        move_t = nan(size(move_idx));
+        move_t(~isnan(move_idx) & move_trial) = t(move_idx(~isnan(move_idx) & move_trial))';
+        
+        % Build regressors (only a subset of these are used)
+        
+        % Stim regressors
+        unique_stim = unique(contrasts(contrasts > 0).*sides');
+        stim_contrastsides = ...
+            signals_events.trialSideValues(1:length(stimOn_times))'.* ...
+            signals_events.trialContrastValues(1:length(stimOn_times))';
+        
+        stim_regressors = zeros(length(unique_stim),length(time_bin_centers));
+        for curr_stim = 1:length(unique_stim)
+            curr_stim_times = stimOn_times(stim_contrastsides == unique_stim(curr_stim));
+            stim_regressors(curr_stim,:) = histcounts(curr_stim_times,time_bins);
+        end
+        
+        % Stim move regressors (one for each stim when it starts to move)
+        stim_move_regressors = zeros(length(unique_stim),length(time_bin_centers));
+        for curr_stim = 1:length(unique_stim)
+            
+            % (find the first photodiode flip after the stim azimuth has
+            % moved past a threshold)
+            
+            curr_stimOn_times = stimOn_times(trial_outcome(1:length(stimOn_times)) ~= 0 & ...
+                stim_contrastsides == unique_stim(curr_stim));
+            
+            azimuth_move_threshold = 5; % degrees to consider stim moved
+            stim_move_times_signals = ...
+                signals_events.stimAzimuthTimes( ...
+                abs(signals_events.stimAzimuthValues - 90) > azimuth_move_threshold);
+            curr_stim_move_times_signals = arrayfun(@(x) ...
+                stim_move_times_signals(find(stim_move_times_signals > ...
+                curr_stimOn_times(x),1)),1:length(curr_stimOn_times));
+            
+            curr_stim_move_times_photodiode = arrayfun(@(x) ...
+                photodiode_flip_times(find(photodiode_flip_times > ...
+                curr_stim_move_times_signals(x),1)),1:length(curr_stim_move_times_signals));
+            
+            stim_move_regressors(curr_stim,:) = histcounts(curr_stim_move_times_photodiode,time_bins);
+            
+        end
+        
+        % Stim center regressors (one for each stim when it's stopped during reward)
+        unique_contrasts = unique(contrasts(contrasts > 0));
+        
+        stim_center_regressors = zeros(length(unique_contrasts),length(time_bin_centers));
+        for curr_contrast = 1:length(unique_contrasts)
+            
+            % (find the last photodiode flip before the reward)
+            curr_stimOn_times = stimOn_times(trial_outcome(1:length(stimOn_times)) == 1 & ...
+                abs(stim_contrastsides) == unique_contrasts(curr_contrast));
+            
+            curr_reward_times = arrayfun(@(x) ...
+                reward_t_timeline(find(reward_t_timeline > ...
+                curr_stimOn_times(x),1)),1:length(curr_stimOn_times));
+            
+            curr_prereward_photodiode_times = arrayfun(@(x) ...
+                photodiode_flip_times(find(photodiode_flip_times < ...
+                curr_reward_times(x),1,'last')),1:length(curr_reward_times));
+            
+            stim_center_regressors(curr_contrast,:) = histcounts(curr_prereward_photodiode_times,time_bins);
+            
+        end
+        
+        % Move onset regressors (L/R)
+        move_time_L_absolute = arrayfun(@(x) t_peri_event(x,move_idx(x)), ...
+            find(~isnan(move_idx) & trial_choice(1:length(stimOn_times)) == -1));
+        move_time_R_absolute = arrayfun(@(x) t_peri_event(x,move_idx(x)), ...
+            find(~isnan(move_idx) & trial_choice(1:length(stimOn_times)) == 1));
+        
+        move_onset_regressors = zeros(2,length(time_bin_centers));
+        move_onset_regressors(1,:) = histcounts(move_time_L_absolute,time_bins);
+        move_onset_regressors(2,:) = histcounts(move_time_R_absolute,time_bins);
+        
+        % Move onset x stim regressors (one for each contrast/side)
+        move_onset_stim_time_absolute = arrayfun(@(curr_stim) ...
+            arrayfun(@(x) t_peri_event(x,move_idx(x)), ...
+            find(~isnan(move_idx) & stim_contrastsides == unique_stim(curr_stim))), ...
+            1:length(unique_stim),'uni',false);
+        
+        move_onset_stim_regressors = zeros(length(unique_stim),length(time_bin_centers));
+        for curr_stim = 1:length(unique_stim)
+            move_onset_stim_regressors(curr_stim,:) = ...
+                histcounts(move_onset_stim_time_absolute{curr_stim},time_bins);
+        end
+        
+        % Move ongoing regressors (L/R choice for duration of movement)
+        wheel_velocity_interp = interp1(Timeline.rawDAQTimestamps,wheel_velocity,time_bin_centers);
+        
+        move_stopped_t = 0.5;
+        move_stopped_samples = round(sample_rate*move_stopped_t);
+        wheel_moving_conv = convn((abs(wheel_velocity_interp) > 0.02), ...
+            ones(1,move_stopped_samples),'full') > 0;
+        wheel_moving = wheel_moving_conv(end-length(time_bin_centers)+1:end);
+        
+        move_ongoing_L_samples = cell2mat(arrayfun(@(x) ...
+            find(time_bin_centers > x): ...
+            find(time_bin_centers > x & ~wheel_moving,1), ...
+            move_time_L_absolute','uni',false));
+        move_ongoing_R_samples = cell2mat(arrayfun(@(x) ...
+            find(time_bin_centers > x): ...
+            find(time_bin_centers > x & ~wheel_moving,1), ...
+            move_time_R_absolute','uni',false));
+        
+        move_ongoing_regressors = zeros(2,length(time_bin_centers));
+        move_ongoing_regressors(1,move_ongoing_L_samples) = 1;
+        move_ongoing_regressors(2,move_ongoing_R_samples) = 1;
+        
+        % Go cue regressors - separate for early/late move
+        % (using signals timing - not precise but looks good)
+        % (for go cue only on late move trials)
+        go_cue_regressors = histcounts( ...
+            signals_events.interactiveOnTimes(move_t > 0.5),time_bins);
+        % (for go cue with early/late move trials)
+%         go_cue_regressors = zeros(1,length(time_bin_centers));
+%         go_cue_regressors(1,:) = histcounts( ...
+%             signals_events.interactiveOnTimes(move_t <= 0.5),time_bins);
+%         go_cue_regressors(2,:) = histcounts( ...
+%             signals_events.interactiveOnTimes(move_t > 0.5),time_bins);
+        
+        % Outcome regressors
+        % (using signals timing - not precise but looks good)
+        % (regressors for hit only)
+        outcome_regressors = histcounts(reward_t_timeline,time_bins);
+        % (regressors for both hit and miss)
+%         outcome_regressors = zeros(2,length(time_bin_centers));
+%         outcome_regressors(1,:) = histcounts( ...
+%             reward_t_timeline,time_bins);
+%         outcome_regressors(2,:) = histcounts( ...
+%             signals_events.responseTimes(trial_outcome == -1),time_bins);
+        
+        % Concatenate selected regressors, set parameters        
+        task_regressors = {stim_regressors;move_onset_regressors;go_cue_regressors;outcome_regressors};
+        task_regressor_labels = {'Stim','Move onset','Go cue','Outcome'};
+                       
+        task_t_shifts = { ...
+            [0,0.5]; ... % stim
+            [-0.5,1]; ... % move
+            [0,0.5]; ... % go cue
+            [0,0.5]}; % outcome      
+        
+        task_regressor_sample_shifts = cellfun(@(x) round(x(1)*(sample_rate)): ...
+            round(x(2)*(sample_rate)),task_t_shifts,'uni',false);
+        lambda = 0;
+        zs = [false,false];
+        cvfold = 5;
+        use_constant = false;
+        return_constant = false;        
+        
+        %%%%%%% Regress task -> units
+        
+        %%% Trial-align units
+        event_aligned_unit = nan(length(stimOn_times),length(t),max(spike_templates));
+        t_bins = [t_peri_event-raster_sample_rate/2,t_peri_event(:,end)+raster_sample_rate/2];
+        for curr_unit = 1:max(spike_templates)
+            curr_spikes = spike_times_timeline(spike_templates == curr_unit);
+            event_aligned_unit(:,:,curr_unit) = cell2mat(arrayfun(@(x) ...
+                histcounts(curr_spikes,t_bins(x,:)), ...
+                [1:size(t_peri_event,1)]','uni',false))./raster_sample_rate;
+        end
+        
+        %%% Binned unit activity across the experiment
+        binned_spikes = nan(max(spike_templates),length(time_bin_centers));
+        for curr_unit = 1:max(spike_templates)
+            curr_spike_times = spike_times_timeline(spike_templates == curr_unit);
+            if isempty(curr_spike_times)
+                continue
+            end
+            binned_spikes(curr_unit,:) = histcounts(curr_spike_times,time_bins);
+        end
+        
+        %%% Task > striatal units
+        baseline = nanmean(reshape(event_aligned_unit(:,t < 0,:),[], ...
+            size(event_aligned_unit,3))*raster_sample_rate)';
+        binned_spikes_baselinesubtracted = binned_spikes - baseline;
+        
+        [unit_taskpred_k,binned_spikes_taskpred,unit_expl_var,~] = ...
+            AP_regresskernel(task_regressors,binned_spikes_baselinesubtracted, ...
+            task_regressor_sample_shifts,lambda,zs,cvfold,return_constant,use_constant);
+        
+        % Get normalized total number of spikes
+        used_spikes = spike_times_timeline > time_bins(1) & ...
+            spike_times_timeline < time_bins(end);
+        spike_rate = accumarray(spike_templates(used_spikes),1,[size(templates,1),1])./(time_bins(end)-time_bins(1));
+        
+        % Package
+        unit_kernel_all(curr_animal,curr_day).template_depths = template_depths;
+        unit_kernel_all(curr_animal,curr_day).spike_rate = spike_rate;
+        unit_kernel_all(curr_animal,curr_day).unit_expl_var_total = unit_expl_var.total;
+        unit_kernel_all(curr_animal,curr_day).unit_expl_var_partial = unit_expl_var.partial;
+        unit_kernel_all(curr_animal,curr_day).unit_taskpred_k = unit_taskpred_k;
+        
+        % Clear
+        clearvars -except ...
+            task_regressor_labels task_regressor_sample_shifts ...
+            regression_params animals curr_animal animal days curr_day experiments unit_kernel_all
+        AP_print_progress_fraction(curr_day,length(experiments));
+    end
+end
+
+save_path = 'C:\Users\Andrew\OneDrive for Business\Documents\CarandiniHarrisLab\analysis\wf_ephys_choiceworld\paper\data';
+save_fn = 'unit_kernel_all.mat';
+save([save_path filesep save_fn],'unit_kernel_all');
 
 
 %% Choiceworld trial activity (with cortical and task regression)
@@ -522,42 +823,44 @@ for curr_animal = 1:length(animals)
         % Go cue regressors - separate for early/late move
         % (using signals timing - not precise but looks good)
         % (for go cue only on late move trials)
-        %         go_cue_regressors = histcounts( ...
-        %             signals_events.interactiveOnTimes(move_t > 0.5),time_bins);
-        % (for go cue with early/late move trials)
-        go_cue_regressors = zeros(1,length(time_bin_centers));
-        go_cue_regressors(1,:) = histcounts( ...
-            signals_events.interactiveOnTimes(move_t <= 0.5),time_bins);
-        go_cue_regressors(2,:) = histcounts( ...
+        go_cue_regressors = histcounts( ...
             signals_events.interactiveOnTimes(move_t > 0.5),time_bins);
+        % (for go cue with early/late move trials)
+%         go_cue_regressors = zeros(1,length(time_bin_centers));
+%         go_cue_regressors(1,:) = histcounts( ...
+%             signals_events.interactiveOnTimes(move_t <= 0.5),time_bins);
+%         go_cue_regressors(2,:) = histcounts( ...
+%             signals_events.interactiveOnTimes(move_t > 0.5),time_bins);
         
         % Outcome regressors
         % (using signals timing - not precise but looks good)
         % (regressors for hit only)
-        %         outcome_regressors = histcounts(reward_t_timeline,time_bins);
+        outcome_regressors = histcounts(reward_t_timeline,time_bins);
         % (regressors for both hit and miss)
-        outcome_regressors = zeros(2,length(time_bin_centers));
-        outcome_regressors(1,:) = histcounts( ...
-            reward_t_timeline,time_bins);
-        outcome_regressors(2,:) = histcounts( ...
-            signals_events.responseTimes(trial_outcome == -1),time_bins);
+%         outcome_regressors = zeros(2,length(time_bin_centers));
+%         outcome_regressors(1,:) = histcounts( ...
+%             reward_t_timeline,time_bins);
+%         outcome_regressors(2,:) = histcounts( ...
+%             signals_events.responseTimes(trial_outcome == -1),time_bins);
         
         % Concatenate selected regressors, set parameters
         
         task_regressors = {stim_regressors;move_onset_regressors;go_cue_regressors;outcome_regressors};
         task_regressor_labels = {'Stim','Move onset','Go cue','Outcome'};
-        
-        task_t_shifts = {[0,0.5]; ... % stim
+                       
+        task_t_shifts = { ...
+            [0,0.5]; ... % stim
             [-0.5,1]; ... % move
-            [-0.1,0.5]; ... % go cue
-            [-0.5,1]}; % outcome
+            [0,0.5]; ... % go cue
+            [0,0.5]}; % outcome       
         
-%         task_t_shifts = { ...
-%             [0,0.5]; ... % stim
-%             [-0.5,1]; ... % move
-%             [0,0.5]; ... % go cue
-%             [0,0.5]}; % outcome
-        
+        % (old extended timings)
+        %         task_t_shifts = {[0,0.5]; ... % stim
+        %             [-0.5,1]; ... % move
+        %             [-0.1,0.5]; ... % go cue
+        %             [-0.5,1]}; % outcome
+
+        % (to include stim x move)
         %         task_regressors = {stim_regressors;move_onset_regressors;move_onset_stim_regressors;go_cue_regressors;outcome_regressors};
         %         task_regressor_labels = {'Stim','Move','Stim x move','Go cue','Outcome'};
         %
@@ -743,7 +1046,7 @@ clearvars -except ...
 disp('Finished loading all')
 
 save_path = 'C:\Users\Andrew\OneDrive for Business\Documents\CarandiniHarrisLab\analysis\wf_ephys_choiceworld\paper\data';
-save_fn = ['trial_activity_choiceworld_oldregressors'];
+save_fn = ['trial_activity_choiceworld'];
 save([save_path filesep save_fn],'-v7.3');
 
 %% Choiceworld trial activity (with task regression, wf-only days)

@@ -13,9 +13,15 @@
 % data_fn = 'trial_activity_choiceworld';
 % data_fn = 'trial_activity_choiceworld_stimxmove';
 % data_fn = 'trial_activity_choiceworld_wfonly';
-data_fn = 'trial_activity_choiceworld_oldregressors';
+% data_fn = 'trial_activity_choiceworld_oldregressors';
+% exclude_data = true;
 
-exclude_data = true;
+data_fn = 'trial_activity_AP_choiceWorldStimPassive_trained';
+% data_fn = 'trial_activity_AP_choiceWorldStimPassive_naive';
+% data_fn = 'trial_activity_stimKalatsky_naive';
+% data_fn = 'trial_activity_stimKalatsky_trained';
+exclude_data = false;
+
 AP_load_concat_normalize_ctx_str;
 
 % Choose split for data
@@ -26,11 +32,6 @@ use_split = trials_animal;
 
 split_idx = cell2mat(arrayfun(@(exp,trials) repmat(exp,trials,1), ...
     [1:length(use_split)]',reshape(use_split,[],1),'uni',false));
-
-
-%% Figure 1f (AND OTHERS?): Measured v predicted (task,ctx,str)
-
-% THIS WAS OLD: now have a condition split version in anaylsis_2
 
 
 %% Figure 1b: Example recordings
