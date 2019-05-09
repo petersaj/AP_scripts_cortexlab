@@ -5910,6 +5910,7 @@ plot(t,nanmean(mua_allcat_move(plot_trials,:,2),1),'k','linewidth',2);
 plot(t,nanmean(mua_allcat_move(plot_trials,:,2),1) - ...
     nanmean(mua_taskpred_reduced_allcat_move(plot_trials,:,2,2),1),'color',[0.7,0,0.7],'linewidth',2);
 
+
 %% ~~~~~~~~~~~~ KILOSORT 2 STUFF ~~~~~~~~~~~~~~~~~~~
 
 
@@ -6235,6 +6236,47 @@ plot(waveforms_cat_maxnorm(good_cat(:,1) & ~good_cat(:,2),:)');
 title('Good manual, bad auto');
 
 
+%% Test str 6-depth plot aligned to different things
+
+use_trials = move_t < 0.5 & trial_side_allcat == 1 & trial_outcome_allcat == 1;
+
+% Set alignment shifts
+t_leeway = -t(1);
+leeway_samples = round(t_leeway*(sample_rate));
+stim_align = zeros(size(trial_contrast_allcat));
+move_align = -move_idx + leeway_samples;
+outcome_align = -outcome_idx + leeway_samples;
+
+mua_stim = cell2mat(arrayfun(@(trial) circshift(mua_allcat(trial,:,:), ...
+    stim_align(trial),2),transpose(1:size(mua_allcat,1)),'uni',false));
+mua_move = cell2mat(arrayfun(@(trial) circshift(mua_allcat(trial,:,:), ...
+    move_align(trial),2),transpose(1:size(mua_allcat,1)),'uni',false));
+mua_outcome = cell2mat(arrayfun(@(trial) circshift(mua_allcat(trial,:,:), ...
+    outcome_align(trial),2),transpose(1:size(mua_allcat,1)),'uni',false));
+
+figure; hold on
+subplot(1,3,1);
+AP_stackplot(squeeze(nanmean(mua_stim(use_trials,:,:),1)),t,1,[],'k');
+line([0,0],ylim,'color','k');
+xlabel('Time (s)');
+ylabel('Striatal depth')
+title('Stim-aligned');
+
+subplot(1,3,2);
+AP_stackplot(squeeze(nanmean(mua_move(use_trials,:,:),1)),t,1,[],'k');
+line([0,0],ylim,'color','k');
+xlabel('Time (s)');
+ylabel('Striatal depth')
+title('Move-aligned');
+
+subplot(1,3,3);
+AP_stackplot(squeeze(nanmean(mua_outcome(use_trials,:,:),1)),t,1,[],'k');
+line([0,0],ylim,'color','k');
+xlabel('Time (s)');
+ylabel('Striatal depth')
+title('Reward-aligned');
+
+linkaxes(get(gcf,'Children'));
 
 
 
