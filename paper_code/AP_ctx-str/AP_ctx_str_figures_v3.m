@@ -5,11 +5,11 @@
 %% Load in task data
 
 % Load data
-% data_fn = 'trial_activity_choiceworld';
-data_fn = 'trial_activity_choiceworld_strdepth';
-% data_fn = 'trial_activity_choiceworld_stimxmove';
-% data_fn = 'trial_activity_choiceworld_wfonly';
-% data_fn = 'trial_activity_choiceworld_oldregressors';
+% data_fn = 'trial_activity_choiceworld'; % Primary dataset
+data_fn = 'trial_activity_choiceworld_strdepth'; % Depth-aligned striatum
+% data_fn = 'trial_activity_choiceworld_stimxmove'; % Including stim x move regressors (no real difference)
+% data_fn = 'trial_activity_choiceworld_wfonly'; % Widefield-only days (no craniotomy, so cleaner)
+% data_fn = 'trial_activity_choiceworld_oldregressors'; % Longer timeshifts and go early/late and outcome correct/incorrect
 exclude_data = true;
 
 % data_fn = 'trial_activity_AP_choiceWorldStimPassive_trained';
