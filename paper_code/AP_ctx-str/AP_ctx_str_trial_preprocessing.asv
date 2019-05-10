@@ -41,7 +41,8 @@ for protocol = protocols
         behavior_protocol = 'vanillaChoiceworld';
         behavior_experiments = AP_find_experiments(animal,behavior_protocol);
         
-        curr_experiments = AP_find_experiments(animal,protocol);
+        curr_protocol = cell2mat(protocol);
+        curr_experiments = AP_find_experiments(animal,curr_protocol);
         
         behavior_day = ismember({curr_experiments.day},{behavior_experiments.day});
         
