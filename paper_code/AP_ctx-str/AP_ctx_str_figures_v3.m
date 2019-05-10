@@ -715,16 +715,14 @@ end
 
 
 %% Fig 2b,e: Average cortex > striatum domain regression kernels
-error('Needs updating');
 
 protocols = {'vanillaChoiceworld','stimSparseNoiseUncorrAsync'};
 
 for protocol = protocols 
     protocol = cell2mat(protocol);
     
-    n_aligned_depths = 4;
     data_path = 'C:\Users\Andrew\OneDrive for Business\Documents\CarandiniHarrisLab\analysis\wf_ephys_choiceworld\paper\data';
-    k_fn = [data_path filesep 'wf_ephys_maps_' protocol];
+    k_fn = [data_path filesep 'ctx_str_kernels_' protocol];
     load(k_fn);
     
     framerate = 35;
@@ -735,18 +733,17 @@ for protocol = protocols
     t = kernel_frames/sample_rate;
     
     % Concatenate explained variance
-    expl_var_experiment = cell2mat(horzcat(batch_vars.explained_var));
-    expl_var_animal = cell2mat(cellfun(@(x) nanmean(cell2mat(x),2),{batch_vars.explained_var},'uni',false));
+    expl_var_animal = cell2mat(cellfun(@(x) nanmean(horzcat(x{:}),2),ctx_str_expl_var','uni',false));
     figure('Name',protocol);
-    errorbar(nanmean(expl_var_experiment,2), ...
-        nanstd(expl_var_experiment,[],2)./sqrt(nansum(expl_var_experiment,2)),'k','linewidth',2);
+    errorbar(nanmean(expl_var_animal,2),AP_sem(expl_var_animal,2),'k','linewidth',2);
     xlabel('Striatal depth');
     ylabel('Fraction explained variance');
     
     % Concatenate and mean
-    % (kernel goes backwards in time - flip to correct)
-    k_px_cat = cellfun(@(x) x(:,:,end:-1:1,:),[batch_vars.r_px],'uni',false);
-    k_px = nanmean(double(cat(5,k_px_cat{:})),5);
+    % (kernel is -:+ fluorescence lag, flip to be spike-oriented)
+    k_px_timeflipped = cellfun(@(x) cellfun(@(x) x(:,:,end:-1:1,:),x,'uni',false),ctx_str_kernel,'uni',false);
+    k_px_animal = cellfun(@(x) nanmean(cat(5,x{:}),5),k_px_timeflipped,'uni',false);
+    k_px = nanmean(double(cat(5,k_px_animal{:})),5);
     
     % Get center-of-mass maps
     k_px_positive = k_px;
