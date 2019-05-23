@@ -465,7 +465,7 @@ disp('Finished');
 clear all
 disp('Choiceworld trial activity')
 
-n_aligned_depths = 6;
+n_aligned_depths = 4;
 
 % Regression parameters
 regression_params.use_svs = 1:50;
@@ -1041,7 +1041,7 @@ clearvars -except ...
 disp('Finished loading all')
 
 save_path = 'C:\Users\Andrew\OneDrive for Business\Documents\CarandiniHarrisLab\analysis\wf_ephys_choiceworld\paper\data';
-save_fn = ['trial_activity_choiceworld_strdepth'];
+save_fn = ['trial_activity_choiceworld_' num2str(n_aligned_depths) 'strdepth'];
 save([save_path filesep save_fn],'-v7.3');
 
 

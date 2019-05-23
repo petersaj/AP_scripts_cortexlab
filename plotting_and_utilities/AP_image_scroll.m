@@ -19,17 +19,22 @@ if dims < 2
     error('Images matrix < 2D')
 end
 
+if ~exist('colored','var')
+    colored = false;
+end
+
 if ~exist('t','var')
     t = [];
-elseif ~iscell(t)
+elseif ~iscell(t) && ~colored
     t = cellfun(@num2str,num2cell(t),'uni',false);
     if length(t) ~= size(images,3)
         error('t not same size as image dim 3')
     end
-end
-
-if ~exist('colored','var')
-    colored = false;
+elseif ~iscell(t) && colored
+    t = cellfun(@num2str,num2cell(t),'uni',false);
+    if length(t) ~= size(images,4)
+        error('t not same size as image dim 4 (colored)')
+    end
 end
 
 % Set up handles structure
