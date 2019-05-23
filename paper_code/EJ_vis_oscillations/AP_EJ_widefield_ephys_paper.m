@@ -10,20 +10,7 @@
 
 recordings = struct('animal',{},'day',{});
 
-% Widefield signal weird, also most of brain isn't visible 
-recordings(end+1).animal = 'AP004';
-recordings(end).day = '2016-07-28';
-recordings(end).genotype = 'EMX-GC6s';
-
-% Epileptiform, The regression location of this is Rsp but probe in Vis?
-recordings(end+1).animal = 'AP006';
-recordings(end).day = '2016-10-01';
-recordings(end).genotype = 'EMX-GC6f';
-
-% Ok, but probe is in Cg and kernel is in Rsp?
-recordings(end+1).animal = 'AP007';
-recordings(end).day = '2016-12-18';
-recordings(end).genotype = 'SNAP25-GC6s';
+% (these are good quality)
 
 % Good quality
 recordings(end+1).animal = 'AP026';
@@ -44,6 +31,23 @@ recordings(end).genotype = 'tetO-GC6s';
 recordings(end+1).animal = 'AP029';
 recordings(end).day = '2018-08-15';
 recordings(end).genotype = 'tetO-GC6s';
+
+% (these are excluded)
+
+% % Widefield signal weird, also most of brain isn't visible 
+% recordings(end+1).animal = 'AP004';
+% recordings(end).day = '2016-07-28';
+% recordings(end).genotype = 'EMX-GC6s';
+% 
+% % Epileptiform, The regression location of this is Rsp but probe in Vis?
+% recordings(end+1).animal = 'AP006';
+% recordings(end).day = '2016-10-01';
+% recordings(end).genotype = 'EMX-GC6f';
+% 
+% % Ok, but probe is in Cg and kernel is in Rsp?
+% recordings(end+1).animal = 'AP007';
+% recordings(end).day = '2016-12-18';
+% recordings(end).genotype = 'SNAP25-GC6s';
 
 %% Initialize variables to keep
 
@@ -93,6 +97,7 @@ for curr_recording = 1:length(recordings)
         experiment = experiments(curr_exp);
         % Try loading with current conventions, otherwise load old
         try
+            kilosort_version = 1;
             AP_load_experiment;
         catch me
             AP_load_old;
@@ -414,18 +419,26 @@ figure;
 for curr_recording = 1:length(recordings)
     
     p1 = subplot(2,1,1); hold on;
-    plot(lags_t,mua_fluor_xcorr{curr_recording},'linewidth',2)
+    plot(lags_t,mua_fluor_xcorr{curr_recording},'linewidth',1)
     xlabel('MUA Lag (s)');
     ylabel('Normalized cross-correlation')
     
     p2 = subplot(2,1,2); hold on;
-    plot(coherence_f,mua_fluor_coherence{curr_recording},'linewidth',2)
+    plot(coherence_f,mua_fluor_coherence{curr_recording},'linewidth',1)
     xlabel('Freqency');
     ylabel('Coherence');
     
 end
+subplot(2,1,1); 
+mua_fluor_xcorr_mean = nanmean(vertcat(mua_fluor_xcorr{:}),1);
+plot(lags_t,mua_fluor_xcorr_mean,'k','linewidth',2);
+
+subplot(2,1,2); 
+mua_fluor_xcorr_mean = nanmean(horzcat(mua_fluor_coherence{:}),2);
+plot(coherence_f,mua_fluor_xcorr_mean,'k','linewidth',2);
+
 line(p1,[0,0],ylim(p1),'linestyle','--','color','r');
-legend(p1,{recordings.animal});
+legend(p1,[{recordings.animal},'Average']);
 axis(p1,'tight');
 
 % Spectral correlation (individual)
@@ -502,9 +515,6 @@ plot(gcamp_fft_kernel_t,vertcat(gcamp_kernel_norm{:})','linewidth',2);
 legend({recordings.animal});
 title('GCaMP kernel');
 
-% GCaMP regression kernel
-figure;
-plot(gcamp_regression_kernel_t, vertcat(gcamp_regression_kernel{:})');
 
 
 

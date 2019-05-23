@@ -15,6 +15,7 @@ function [filename,file_exists] = AP_cortexlab_filename(animal,day,experiment,fi
 % hardware
 % imaging
 % ephys
+% ephys_ks1
 % ephys_dir
 % ephys_ap
 % probe_histology
@@ -237,13 +238,30 @@ switch file
     case 'ephys'
         % folder with kilosort/phy outputs
         
-        kilosort_version = 2; % 1 and 2 available (1 probably obsolete)
+        kilosort_version = 2; % (kilosort 2 by default)
         
         % Self-call to match ephys_dir above
         [ephys_dir,~] = AP_cortexlab_filename(animal,day,experiment,'ephys_dir',site);
    
         % Drop the kilosort version in the base workspace
         assignin('base','kilosort_version',kilosort_version); 
+        
+        if kilosort_version == 1
+            filename = [ephys_dir filesep 'kilosort' filesep];
+        elseif kilosort_version == 2
+            filename = [ephys_dir filesep 'kilosort2' filesep];
+        end
+        
+    case 'ephys_ks1'
+        % folder with kilosort/phy outputs
+        
+        kilosort_version = 1; % (1 is old)
+        
+        % Self-call to match ephys_dir above
+        [ephys_dir,~] = AP_cortexlab_filename(animal,day,experiment,'ephys_dir',site);
+        
+        % Drop the kilosort version in the base workspace
+        assignin('base','kilosort_version',kilosort_version);
         
         if kilosort_version == 1
             filename = [ephys_dir filesep 'kilosort' filesep];

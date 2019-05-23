@@ -305,7 +305,7 @@ if block_exists
             error('Different number of signals/timeline stim ons')
         end
         
-    else
+    elseif isfield(signals_events,'stimOnTimes')
         % Specialized: get stim on/off times BY ASSUMING MINIMUM STIM DOWNTIME
         min_stim_downtime = 1; % minimum time between pd flips to get stim
         stimOn_times = photodiode_flip_times([true;diff(photodiode_flip_times) > min_stim_downtime]);

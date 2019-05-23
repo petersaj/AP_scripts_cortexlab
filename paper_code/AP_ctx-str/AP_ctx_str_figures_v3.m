@@ -7,8 +7,8 @@
 % Load data
 
 % (task)
-data_fn = 'trial_activity_choiceworld'; % Primary dataset
-% data_fn = 'trial_activity_choiceworld_4strdepth'; % Depth-aligned striatum
+% data_fn = 'trial_activity_choiceworld'; % Primary dataset
+data_fn = 'trial_activity_choiceworld_4strdepth'; % Depth-aligned striatum
 % data_fn = 'trial_activity_choiceworld_6strdepth'; % Depth-aligned striatum
 exclude_data = true;
 
@@ -456,7 +456,7 @@ for curr_align = 1:length(use_align)
     
 end
     
-linkaxes(p(:),'y');
+linkaxes(p(:),'xy');
 
 
 %% Fig 2a: Example cortex > striatum regression by depth
