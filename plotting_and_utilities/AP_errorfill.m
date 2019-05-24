@@ -40,9 +40,12 @@ else
     error('Y error size wrong');
 end
 
-hold on;
+% Set NaN error values to 0
+ye_pos(isnan(ye_pos)) = 0;
+ye_neg(isnan(ye_neg)) = 0;
 
 % Draw 
+hold on;
 fill([x;flipud(x)],[ye_pos;flipud(ye_neg)], ...
     color,'FaceAlpha',alpha,'EdgeColor','none')
 
