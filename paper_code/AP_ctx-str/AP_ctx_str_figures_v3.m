@@ -7,8 +7,8 @@
 % Load data
 
 % (task)
-% data_fn = 'trial_activity_choiceworld'; % Primary dataset
-data_fn = 'trial_activity_choiceworld_4strdepth'; % Depth-aligned striatum
+data_fn = 'trial_activity_choiceworld'; % Primary dataset
+% data_fn = 'trial_activity_choiceworld_4strdepth'; % Depth-aligned striatum
 % data_fn = 'trial_activity_choiceworld_6strdepth'; % Depth-aligned striatum
 exclude_data = true;
 
@@ -997,6 +997,63 @@ figure;
 errorbar(nanmean(taskpred_r2,1),AP_sem(taskpred_r2,1),'k','linewidth',2);
 xlabel('Striatum depth');
 ylabel('Task explained variance');
+
+
+%%%%%% IN PROGRESS: raster plots and psth fits
+
+figure; colormap(gray);
+for curr_depth = 1:n_depths    
+    
+    % Get trials to plot, sort by reaction time
+    nonan_trials = ~all(isnan(mua_allcat(:,:,curr_depth)),2);
+    curr_trials_idx = find(plot_trials & nonan_trials);
+    [~,rxn_sort_idx] = sort(move_t(curr_trials_idx));
+    
+    sorted_plot_trials = curr_trials_idx(rxn_sort_idx);
+    curr_plot = mua_allcat(sorted_plot_trials,:,curr_depth);
+    
+    % Smooth and plot with stim/move/reward times
+    smooth_sigma = [10,1];
+    curr_plot_smooth = imgaussfilt(curr_plot,smooth_sigma);
+    
+    subplot(n_depths,3,1+(curr_depth-1)*3,'YDir','reverse'); hold on
+
+    imagesc(t,[],curr_plot_smooth);   
+    plot(zeros(size(curr_trials_idx)),1:length(curr_trials_idx),'.','MarkerSize',1,'color','r');
+    plot(move_t(sorted_plot_trials),1:length(curr_trials_idx),'.','MarkerSize',1,'color',[0.8,0,0.8]);
+    plot(outcome_t(sorted_plot_trials),1:length(curr_trials_idx),'.','MarkerSize',1,'color','b');
+    axis tight;
+    xlim([-0.2,1]);
+    caxis([0,3]);    
+    
+    % Plot PSTH
+    subplot(n_depths,3,2+(curr_depth-1)*3); hold on
+    AP_errorfill(t,nanmean(mua_allcat_exp_mean(curr_depth,:,:),3), ...
+        AP_sem(mua_allcat_exp_mean(curr_depth,:,:),3),'k',0.5);
+    xlim([-0.2,1])
+    ylim([-0.2,2.5])
+    line([0,0],ylim,'color','r');
+    line(repmat(median(move_t(sorted_plot_trials)),1,2),ylim,'color',[0.8,0,0.8],'linestyle','--');
+    line(repmat(median(outcome_t(sorted_plot_trials)),1,2),ylim,'color','b','linestyle','--');
+    
+    % Plot PSTH predicted by each task regressor
+    subplot(n_depths,3,3+(curr_depth-1)*3); hold on
+    plot(t,nanmean(mua_taskpred_allcat(sorted_plot_trials,:,curr_depth) - ...
+        mua_taskpred_reduced_allcat(sorted_plot_trials,:,curr_depth,1),1),'color','r','linewidth',2);
+    plot(t,nanmean(mua_taskpred_allcat(sorted_plot_trials,:,curr_depth) - ...
+        mua_taskpred_reduced_allcat(sorted_plot_trials,:,curr_depth,2),1),'color',[0.8,0,0.8],'linewidth',2);
+    plot(t,nanmean(mua_taskpred_allcat(sorted_plot_trials,:,curr_depth) - ...
+        mua_taskpred_reduced_allcat(sorted_plot_trials,:,curr_depth,3),1),'color',[0.8,0.8,0],'linewidth',2);
+    plot(t,nanmean(mua_taskpred_allcat(sorted_plot_trials,:,curr_depth) - ...
+        mua_taskpred_reduced_allcat(sorted_plot_trials,:,curr_depth,4),1),'color','b','linewidth',2);
+    xlim([-0.2,1])
+    ylim([-0.2,2.5])
+    
+end
+
+
+
+
 
 %% Fig 3d: Striatum 2 stim/move activity interaction
 
