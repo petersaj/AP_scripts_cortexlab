@@ -6356,6 +6356,62 @@ for curr_depth = 1:n_depths
    
 end
 
+%%
+
+% Set alignment shifts
+t_leeway = -t(1);
+leeway_samples = round(t_leeway*(sample_rate));
+stim_align = zeros(size(trial_contrast_allcat));
+move_align = -move_idx + leeway_samples;
+outcome_align = -outcome_idx + leeway_samples;
+
+% Set windows to average activity
+align_times = {stim_align,move_align,outcome_align};
+align_labels = {'Stim','Move onset','Outcome'};
+align_trials = ...
+    {[sign(trial_contrastside_allcat) == 1,sign(trial_contrastside_allcat) == -1], ...
+    [trial_choice_allcat == -1,trial_choice_allcat == 1], ...
+    [trial_outcome_allcat == 1, trial_outcome_allcat == -1]};
+align_reduction = [1,2,4];
+
+figure;
+for curr_align = 1:length(align_times)      
+    
+    % Re-align and split activity
+    curr_act = mat2cell(...
+        cell2mat(arrayfun(@(trial) circshift( ...
+        mua_allcat(trial,:,:) - mua_taskpred_reduced_allcat(trial,:,:,align_reduction(curr_align)), ...
+        align_times{curr_align}(trial),2),transpose(1:size(mua_allcat,1)),'uni',false)), ...
+        use_split,length(t),n_depths);
+    
+    curr_act_taskpred = mat2cell(...
+        cell2mat(arrayfun(@(trial) circshift( ...
+        mua_taskpred_allcat(trial,:,:) - mua_taskpred_reduced_allcat(trial,:,:,align_reduction(curr_align)), ...
+        align_times{curr_align}(trial),2),transpose(1:size(mua_allcat,1)),'uni',false)), ...
+        use_split,length(t),n_depths);
+    
+    curr_act_ctxpred = mat2cell(...
+        cell2mat(arrayfun(@(trial) circshift( ...
+        mua_ctxpred_allcat(trial,:,:) - mua_ctxpred_taskpred_reduced_allcat(trial,:,:,align_reduction(curr_align)), ...
+        align_times{curr_align}(trial),2),transpose(1:size(mua_allcat,1)),'uni',false)), ...
+        use_split,length(t),n_depths);
+  
+    trial_conditions_exp = mat2cell(align_trials{curr_align},use_split,size(trial_conditions,2));
+    
+    for curr_depth = 1:n_depths
+        subplot(n_depths,length(align_times), ...
+            sub2ind([length(align_times),n_depths],curr_align,curr_depth));
+        
+        curr_act
+        plot(nanmean(
+        
+    end
+    
+end
+
+
+
+
 
 
 

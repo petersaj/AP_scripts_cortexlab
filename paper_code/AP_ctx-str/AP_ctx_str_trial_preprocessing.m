@@ -1403,14 +1403,14 @@ for curr_animal = 1:length(animals)
         % Go cue regressors - separate for early/late move
         % (using signals timing - not precise but looks good)
         % (for go cue only on late move trials)
-        go_cue_regressors = histcounts( ...
-            signals_events.interactiveOnTimes(move_t > 0.5),time_bins);
-        % (for go cue with early/late move trials)
-%         go_cue_regressors = zeros(1,length(time_bin_centers));
-%         go_cue_regressors(1,:) = histcounts( ...
-%             signals_events.interactiveOnTimes(move_t <= 0.5),time_bins);
-%         go_cue_regressors(2,:) = histcounts( ...
+%         go_cue_regressors = histcounts( ...
 %             signals_events.interactiveOnTimes(move_t > 0.5),time_bins);
+        % (for go cue with early/late move trials)
+        go_cue_regressors = zeros(1,length(time_bin_centers));
+        go_cue_regressors(1,:) = histcounts( ...
+            signals_events.interactiveOnTimes(move_t <= 0.5),time_bins);
+        go_cue_regressors(2,:) = histcounts( ...
+            signals_events.interactiveOnTimes(move_t > 0.5),time_bins);
         
         % Outcome regressors
         % (using signals timing - not precise but looks good)
@@ -1626,7 +1626,7 @@ clearvars -except ...
 disp('Finished loading all')
 
 save_path = 'C:\Users\Andrew\OneDrive for Business\Documents\CarandiniHarrisLab\analysis\wf_ephys_choiceworld\paper\data';
-save_fn = ['trial_activity_choiceworld'];
+save_fn = ['trial_activity_choiceworld_2gocue'];
 save([save_path filesep save_fn],'-v7.3');
 
 
