@@ -9,6 +9,7 @@
 % (task)
 % data_fn = 'trial_activity_choiceworld'; % Primary dataset
 data_fn = 'trial_activity_choiceworld_2gocue'; % 2 outcome/2 go
+% data_fn = 'trial_activity_choiceworld_sqrtstr'; % ctx->str on sqrt(str)
 % data_fn = 'trial_activity_choiceworld_4strdepth'; % Depth-aligned striatum
 % data_fn = 'trial_activity_choiceworld_6strdepth'; % Depth-aligned striatum
 exclude_data = true;
@@ -864,152 +865,132 @@ end
 
 %% Fig 3a,b: Striatal domain activity and task regression
 
-% Plot average stimulus-aligned activity in striatum on correct contra trials
-plot_trials = move_t < 0.5 & trial_contrast_allcat > 0 & trial_side_allcat == 1 & trial_choice_allcat == -1;
-
-figure; colormap(gray);
-for curr_depth = 1:n_depths    
+% Plot stim-aligned/sorted measured and predicted striatum activity
+% (correct contra trials)
+for curr_trial_set = 1:2
+    switch curr_trial_set
+        case 1
+            plot_trials = move_t < Inf & trial_contrast_allcat > 0 & trial_side_allcat == 1 & trial_choice_allcat == -1;
+            figure('Name','Correct contra trials'); 
+        case 2
+            plot_trials = move_t < 0.5 & trial_contrast_allcat > 0 & trial_side_allcat == -1 & trial_choice_allcat == 1;
+            figure('Name','Correct ipsi trials'); 
+    end
     
-    % Get trials to plot, sort by reaction time
-    curr_trials = plot_trials & ~all(isnan(mua_allcat(:,:,curr_depth)),2);
-    curr_trials_idx = find(curr_trials);
-    [~,rxn_sort_idx] = sort(move_t(curr_trials_idx));
-    
-    sorted_plot_trials = curr_trials_idx(rxn_sort_idx);
-    curr_plot = mua_allcat(sorted_plot_trials,:,curr_depth);
-    
-    % Smooth and plot with stim/move/reward times
-    smooth_sigma = [20,2];
-    curr_plot_smooth = imgaussfilt(curr_plot,smooth_sigma);
-    
-    subplot(n_depths,3,1+(curr_depth-1)*3,'YDir','reverse'); hold on
-
-    imagesc(t,[],curr_plot_smooth);   
-    plot(zeros(size(curr_trials_idx)),1:length(curr_trials_idx),'.','MarkerSize',1,'color','r');
-    plot(move_t(sorted_plot_trials),1:length(curr_trials_idx),'.','MarkerSize',1,'color',[0.8,0,0.8]);
-    plot(outcome_t(sorted_plot_trials),1:length(curr_trials_idx),'.','MarkerSize',1,'color','b');
-    axis tight;
-    xlim([-0.2,1]);
-    caxis([0,3]);
-    xlabel('Time from stim');
-    ylabel('Trials (rxn sorted)');
-    
-    % Split and average trials by animal
-    curr_trials_exp = mat2cell(curr_trials,use_split,1);
-    
-    curr_mua_exp = mat2cell(mua_allcat(:,:,curr_depth),use_split,length(t));
-    curr_mua_exp_mean = cell2mat(cellfun(@(data,trials) nanmean(data(trials,:),1), ...
-        curr_mua_exp,curr_trials_exp,'uni',false));
-    
-    curr_taskpred_mua_exp = mat2cell(mua_taskpred_allcat(:,:,curr_depth),use_split,length(t));
-    curr_taskpred_mua_exp_mean = cell2mat(cellfun(@(data,trials) nanmean(data(trials,:),1), ...
-        curr_taskpred_mua_exp,curr_trials_exp,'uni',false));
-    
-    curr_ctxpred_mua_exp = mat2cell(mua_ctxpred_allcat(:,:,curr_depth),use_split,length(t));
-    curr_ctxpred_mua_exp_mean = cell2mat(cellfun(@(data,trials) nanmean(data(trials,:),1), ...
-        curr_ctxpred_mua_exp,curr_trials_exp,'uni',false));
-    
-    % Plot PSTH
-    subplot(n_depths,3,2+(curr_depth-1)*3); hold on
-    AP_errorfill(t,nanmean(curr_mua_exp_mean,1), ...
-        AP_sem(curr_mua_exp_mean,1),'k',0.5);
-    xlim([-0.2,1])
-    ylim([-0.2,2.5])
-    line([0,0],ylim,'color','r');
-    line(repmat(median(move_t(sorted_plot_trials)),1,2),ylim,'color',[0.8,0,0.8],'linestyle','--');
-    line(repmat(median(outcome_t(sorted_plot_trials)),1,2),ylim,'color','b','linestyle','--');
-    xlabel('Time from stim');
-    ylabel('Spikes (std)');
-    
-    % Plot PSTH predicted by cortex
-    subplot(n_depths,3,3+(curr_depth-1)*3); hold on
-    AP_errorfill(t,nanmean(curr_taskpred_mua_exp_mean,1), ...
-        AP_sem(curr_taskpred_mua_exp_mean,1),[0.7,0,0],0.5);
-    AP_errorfill(t,nanmean(curr_ctxpred_mua_exp_mean,1), ...
-        AP_sem(curr_ctxpred_mua_exp_mean,1),[0,0.7,0],0.5);
-    xlim([-0.2,1])
-    ylim([-0.2,2.5])
-    line([0,0],ylim,'color','r');
-    line(repmat(median(move_t(sorted_plot_trials)),1,2),ylim,'color',[0.8,0,0.8],'linestyle','--');
-    line(repmat(median(outcome_t(sorted_plot_trials)),1,2),ylim,'color','b','linestyle','--');
-    xlabel('Time from stim');
-    ylabel('Spikes (std)');
-   
+    colormap(brewermap([],'Greys'));
+    for curr_depth = 1:n_depths
+        
+        % Get trials to plot, sort by reaction time
+        curr_trials = plot_trials & ~all(isnan(mua_allcat(:,:,curr_depth)),2);
+        curr_trials_idx = find(curr_trials);
+        [~,rxn_sort_idx] = sort(move_t(curr_trials_idx));
+        
+        sorted_plot_trials = curr_trials_idx(rxn_sort_idx);
+        
+        curr_plot = mua_allcat(sorted_plot_trials,:,curr_depth);
+        curr_taskpred_plot = mua_taskpred_allcat(sorted_plot_trials,:,curr_depth);
+        curr_ctxpred_plot = mua_ctxpred_allcat(sorted_plot_trials,:,curr_depth);
+        
+        % Smooth and plot with stim/move/reward times
+        % (as conv(nans-zeroed)./conv(non-nan) to ignore in nans in conv)
+        smooth_filt = [50,1]; % (trials x frames)
+        
+        curr_plot_smooth = conv2(curr_plot,ones(smooth_filt),'same')./ ...
+            conv2(~isnan(curr_plot),ones(smooth_filt),'same');
+        
+        curr_taskpred_plot_smooth = curr_taskpred_plot;
+        curr_taskpred_plot_smooth(isnan(curr_taskpred_plot_smooth)) = 0;
+        curr_taskpred_plot_smooth = conv2(curr_taskpred_plot_smooth,ones(smooth_filt),'same')./ ...
+            conv2(~isnan(curr_taskpred_plot),ones(smooth_filt),'same');
+        
+        curr_ctxpred_plot_smooth = curr_ctxpred_plot;
+        curr_ctxpred_plot_smooth(isnan(curr_ctxpred_plot_smooth)) = 0;
+        curr_ctxpred_plot_smooth = conv2(curr_ctxpred_plot_smooth,ones(smooth_filt),'same')./ ...
+            conv2(~isnan(curr_ctxpred_plot),ones(smooth_filt),'same');
+        
+        subplot(n_depths,4,1+(curr_depth-1)*4,'YDir','reverse'); hold on
+        imagesc(t,[],curr_plot_smooth);
+        plot(zeros(size(curr_trials_idx)),1:length(curr_trials_idx),'.','MarkerSize',1,'color','r');
+        plot(move_t(sorted_plot_trials),1:length(curr_trials_idx),'.','MarkerSize',1,'color',[0.8,0,0.8]);
+        plot(outcome_t(sorted_plot_trials),1:length(curr_trials_idx),'.','MarkerSize',1,'color','b');
+        axis tight;
+        xlim([-0.2,1]);
+        caxis([0,3]);
+        xlabel('Time from stim');
+        ylabel('Trials (rxn sorted)');
+        title('Measured');
+        
+        subplot(n_depths,4,2+(curr_depth-1)*4,'YDir','reverse'); hold on
+        imagesc(t,[],curr_taskpred_plot_smooth);
+        plot(zeros(size(curr_trials_idx)),1:length(curr_trials_idx),'.','MarkerSize',1,'color','r');
+        plot(move_t(sorted_plot_trials),1:length(curr_trials_idx),'.','MarkerSize',1,'color',[0.8,0,0.8]);
+        plot(outcome_t(sorted_plot_trials),1:length(curr_trials_idx),'.','MarkerSize',1,'color','b');
+        axis tight;
+        xlim([-0.2,1]);
+        caxis([0,3]);
+        xlabel('Time from stim');
+        ylabel('Trials (rxn sorted)');
+        title('Task-predicted');
+        
+        subplot(n_depths,4,3+(curr_depth-1)*4,'YDir','reverse'); hold on
+        imagesc(t,[],curr_ctxpred_plot_smooth);
+        plot(zeros(size(curr_trials_idx)),1:length(curr_trials_idx),'.','MarkerSize',1,'color','r');
+        plot(move_t(sorted_plot_trials),1:length(curr_trials_idx),'.','MarkerSize',1,'color',[0.8,0,0.8]);
+        plot(outcome_t(sorted_plot_trials),1:length(curr_trials_idx),'.','MarkerSize',1,'color','b');
+        axis tight;
+        xlim([-0.2,1]);
+        caxis([0,3]);
+        xlabel('Time from stim');
+        ylabel('Trials (rxn sorted)');
+        title('Cortex-predicted');
+        
+        % Split and average trials by animal
+        curr_trials_exp = mat2cell(curr_trials,use_split,1);
+        
+        curr_mua_exp = mat2cell(mua_allcat(:,:,curr_depth),use_split,length(t));
+        curr_mua_exp_mean = cell2mat(cellfun(@(data,trials) nanmean(data(trials,:),1), ...
+            curr_mua_exp,curr_trials_exp,'uni',false));
+        
+        curr_taskpred_mua_exp = mat2cell(mua_taskpred_allcat(:,:,curr_depth),use_split,length(t));
+        curr_taskpred_mua_exp_mean = cell2mat(cellfun(@(data,trials) nanmean(data(trials,:),1), ...
+            curr_taskpred_mua_exp,curr_trials_exp,'uni',false));
+        
+        curr_ctxpred_mua_exp = mat2cell(mua_ctxpred_allcat(:,:,curr_depth),use_split,length(t));
+        curr_ctxpred_mua_exp_mean = cell2mat(cellfun(@(data,trials) nanmean(data(trials,:),1), ...
+            curr_ctxpred_mua_exp,curr_trials_exp,'uni',false));
+        
+        % Plot PSTH
+        subplot(n_depths,4,4+(curr_depth-1)*4); hold on
+        AP_errorfill(t,nanmean(curr_mua_exp_mean,1), ...
+            AP_sem(curr_mua_exp_mean,1),'k',0.5);
+        xlim([-0.2,1])
+        ylim([-0.2,2.5])
+        line([0,0],ylim,'color','r');
+        line(repmat(median(move_t(sorted_plot_trials)),1,2),ylim,'color',[0.8,0,0.8],'linestyle','--');
+        line(repmat(median(outcome_t(sorted_plot_trials)),1,2),ylim,'color','b','linestyle','--');
+        xlabel('Time from stim');
+        ylabel('Spikes (std)');
+        
+        % Plot PSTH predicted by cortex
+        subplot(n_depths,4,4+(curr_depth-1)*4); hold on
+        AP_errorfill(t,nanmean(curr_taskpred_mua_exp_mean,1), ...
+            AP_sem(curr_taskpred_mua_exp_mean,1),[0.7,0,0],0.5);
+        AP_errorfill(t,nanmean(curr_ctxpred_mua_exp_mean,1), ...
+            AP_sem(curr_ctxpred_mua_exp_mean,1),[0,0.7,0],0.5);
+        xlim([-0.2,1])
+        ylim([-0.2,2.5])
+        line([0,0],ylim,'color','r');
+        line(repmat(median(move_t(sorted_plot_trials)),1,2),ylim,'color',[0.8,0,0.8],'linestyle','--');
+        line(repmat(median(outcome_t(sorted_plot_trials)),1,2),ylim,'color','b','linestyle','--');
+        xlabel('Time from stim');
+        ylabel('Spikes (std)');
+        
+    end
+    p = get(gcf,'Children');
+    linkaxes(p(1:4:end));
 end
 
 
-% (Supplemental: correct ipsi trials)
-plot_trials = move_t < 0.5 & trial_contrast_allcat > 0 & trial_side_allcat == -1 & trial_choice_allcat == 1;
-
-figure; colormap(gray);
-for curr_depth = 1:n_depths    
-    
-    % Get trials to plot, sort by reaction time
-    curr_trials = plot_trials & ~all(isnan(mua_allcat(:,:,curr_depth)),2);
-    curr_trials_idx = find(curr_trials);
-    [~,rxn_sort_idx] = sort(move_t(curr_trials_idx));
-    
-    sorted_plot_trials = curr_trials_idx(rxn_sort_idx);
-    curr_plot = mua_allcat(sorted_plot_trials,:,curr_depth);
-    
-    % Smooth and plot with stim/move/reward times
-    smooth_sigma = [20,2];
-    curr_plot_smooth = imgaussfilt(curr_plot,smooth_sigma);
-    
-    subplot(n_depths,3,1+(curr_depth-1)*3,'YDir','reverse'); hold on
-
-    imagesc(t,[],curr_plot_smooth);   
-    plot(zeros(size(curr_trials_idx)),1:length(curr_trials_idx),'.','MarkerSize',1,'color','r');
-    plot(move_t(sorted_plot_trials),1:length(curr_trials_idx),'.','MarkerSize',1,'color',[0.8,0,0.8]);
-    plot(outcome_t(sorted_plot_trials),1:length(curr_trials_idx),'.','MarkerSize',1,'color','b');
-    axis tight;
-    xlim([-0.2,1]);
-    caxis([0,3]);
-    xlabel('Time from stim');
-    ylabel('Trials (rxn sorted)');
-    
-    % Split and average trials by animal
-    curr_trials_exp = mat2cell(curr_trials,use_split,1);
-    
-    curr_mua_exp = mat2cell(mua_allcat(:,:,curr_depth),use_split,length(t));
-    curr_mua_exp_mean = cell2mat(cellfun(@(data,trials) nanmean(data(trials,:),1), ...
-        curr_mua_exp,curr_trials_exp,'uni',false));
-    
-    curr_taskpred_mua_exp = mat2cell(mua_taskpred_allcat(:,:,curr_depth),use_split,length(t));
-    curr_taskpred_mua_exp_mean = cell2mat(cellfun(@(data,trials) nanmean(data(trials,:),1), ...
-        curr_taskpred_mua_exp,curr_trials_exp,'uni',false));
-    
-    curr_ctxpred_mua_exp = mat2cell(mua_ctxpred_allcat(:,:,curr_depth),use_split,length(t));
-    curr_ctxpred_mua_exp_mean = cell2mat(cellfun(@(data,trials) nanmean(data(trials,:),1), ...
-        curr_ctxpred_mua_exp,curr_trials_exp,'uni',false));
-    
-    % Plot PSTH
-    subplot(n_depths,3,2+(curr_depth-1)*3); hold on
-    AP_errorfill(t,nanmean(curr_mua_exp_mean,1), ...
-        AP_sem(curr_mua_exp_mean,1),'k',0.5);
-    xlim([-0.2,1])
-    ylim([-0.2,2.5])
-    line([0,0],ylim,'color','r');
-    line(repmat(median(move_t(sorted_plot_trials)),1,2),ylim,'color',[0.8,0,0.8],'linestyle','--');
-    line(repmat(median(outcome_t(sorted_plot_trials)),1,2),ylim,'color','b','linestyle','--');
-    xlabel('Time from stim');
-    ylabel('Spikes (std)');
-    
-    % Plot PSTH predicted by cortex
-    subplot(n_depths,3,3+(curr_depth-1)*3); hold on
-    AP_errorfill(t,nanmean(curr_taskpred_mua_exp_mean,1), ...
-        AP_sem(curr_taskpred_mua_exp_mean,1),[0.7,0,0],0.5);
-    AP_errorfill(t,nanmean(curr_ctxpred_mua_exp_mean,1), ...
-        AP_sem(curr_ctxpred_mua_exp_mean,1),[0,0.7,0],0.5);
-    xlim([-0.2,1])
-    ylim([-0.2,2.5])
-    line([0,0],ylim,'color','r');
-    line(repmat(median(move_t(sorted_plot_trials)),1,2),ylim,'color',[0.8,0,0.8],'linestyle','--');
-    line(repmat(median(outcome_t(sorted_plot_trials)),1,2),ylim,'color','b','linestyle','--');
-    xlabel('Time from stim');
-    ylabel('Spikes (std)');
-   
-end
 
 % Get task>striatum parameters
 n_regressors = length(task_regressor_labels);

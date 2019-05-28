@@ -7117,7 +7117,116 @@ for curr_axes = 2:length(timeavg_labels)+2:length(all_axes)
 end
 
 
+%% (testing max-norm task kernel max)
 
+% Get task>striatum parameters
+n_regressors = length(task_regressor_labels);
+
+% Normalize task > striatum kernels across experiments with mua_norm
+mua_taskpred_k_all_norm = cellfun(@(kernel_animal,mua_norm_animal) ...
+    cellfun(@(kernel_exp,mua_norm_exp) ...
+    cellfun(@(kernel_regressor) ...
+    kernel_regressor./(mua_norm_exp/sample_rate), ...
+    kernel_exp,'uni',false),kernel_animal,mua_norm_animal,'uni',false), ...
+    mua_taskpred_k_all,mua_norm,'uni',false);
+
+mua_ctxpred_taskpred_k_all_norm = cellfun(@(kernel_animal,mua_norm_animal) ...
+    cellfun(@(kernel_exp,mua_norm_exp) ...
+    cellfun(@(kernel_regressor) ...
+    kernel_regressor./(mua_norm_exp/sample_rate), ...
+    kernel_exp,'uni',false),kernel_animal,mua_norm_animal,'uni',false), ...
+    mua_ctxpred_taskpred_k_all,mua_norm,'uni',false);
+
+% Average and concatenate task>striatum kernels within animals
+task_str_k_animal = cell(n_regressors,1);
+task_ctxpred_str_k_animal = cell(n_regressors,1);
+for curr_animal = 1:length(mua_taskpred_k_all_norm)
+    if isempty(mua_taskpred_k_all_norm{curr_animal})
+        continue
+    end
+    
+    curr_k = cat(2,mua_taskpred_k_all_norm{curr_animal}{:});
+    curr_ctxpred_k = cat(2,mua_ctxpred_taskpred_k_all_norm{curr_animal}{:});
+    for curr_regressor = 1:n_regressors
+        curr_k_mean = nanmean(cat(4,curr_k{curr_regressor,:}),4);        
+        task_str_k_animal{curr_regressor} = cat(4, ...
+            task_str_k_animal{curr_regressor},curr_k_mean);
+        
+        curr_ctxpred_k_mean = nanmean(cat(4,curr_ctxpred_k{curr_regressor,:}),4);        
+        task_ctxpred_str_k_animal{curr_regressor} = cat(4, ...
+            task_ctxpred_str_k_animal{curr_regressor},curr_ctxpred_k_mean);
+    end
+end
+
+% Plot task>striatum kernel max by condition
+task_str_k_animal_max = cellfun(@(x) permute(max(x,[],2),[1,3,4,2]),task_str_k_animal,'uni',false);
+task_ctxpred_str_k_animal_max = cellfun(@(x) permute(max(x,[],2),[1,3,4,2]),task_ctxpred_str_k_animal,'uni',false);
+
+% (testing: max-normalize kernel max)
+task_str_k_animal_max = cellfun(@(x) x./max(x,[],1),task_str_k_animal_max,'uni',false);
+task_ctxpred_str_k_animal_max = cellfun(@(x) x./max(x,[],1),task_ctxpred_str_k_animal_max,'uni',false);
+
+str_col = copper(n_depths);
+figure;
+for curr_regressor = 1:n_regressors
+    if curr_regressor == 1
+        x = unique([0.06,0.125,0.25,0.5,1].*[-1;1]);
+    else
+        x = 1:size(task_str_k_animal_max{curr_regressor},1);
+    end
+    
+    subplot(n_regressors,2,curr_regressor*2-1); hold on;
+    for curr_depth = 1:n_depths
+        errorbar(x,nanmean(task_str_k_animal_max{curr_regressor}(:,curr_depth,:),3), ...
+            AP_sem(task_str_k_animal_max{curr_regressor}(:,curr_depth,:),3), ...
+            'color',str_col(curr_depth,:),'linewidth',2);
+    end
+    title(task_regressor_labels{curr_regressor});
+    ylabel('Max weight');
+    xlabel('Condition');
+    
+    subplot(n_regressors,2,curr_regressor*2); hold on;
+    for curr_depth = 1:n_depths
+        errorbar(x,nanmean(task_ctxpred_str_k_animal_max{curr_regressor}(:,curr_depth,:),3), ...
+            AP_sem(task_ctxpred_str_k_animal_max{curr_regressor}(:,curr_depth,:),3), ...
+            'color',str_col(curr_depth,:),'linewidth',2);
+    end   
+    title([task_regressor_labels{curr_regressor} '(ctx-pred)']);
+    ylabel('Max weight');
+    xlabel('Condition');
+    
+end
+
+% Plot task>striatum kernel max by condition (different layout)
+figure;
+for curr_regressor = 1:n_regressors
+    if curr_regressor == 1
+        x = unique([0.06,0.125,0.25,0.5,1].*[-1;1]);
+    else
+        x = 1:size(task_str_k_animal_max{curr_regressor},1);
+    end
+      
+    for curr_depth = 1:n_depths
+        subplot(n_depths,n_regressors, ...
+            sub2ind([n_regressors,n_depths],curr_regressor,curr_depth));
+        hold on
+        
+        errorbar(x,nanmean(task_str_k_animal_max{curr_regressor}(:,curr_depth,:),3), ...
+            AP_sem(task_str_k_animal_max{curr_regressor}(:,curr_depth,:),3), ...
+            'color','b','linewidth',2);
+        errorbar(x,nanmean(task_ctxpred_str_k_animal_max{curr_regressor}(:,curr_depth,:),3), ...
+            AP_sem(task_ctxpred_str_k_animal_max{curr_regressor}(:,curr_depth,:),3), ...
+            'color',[0,0.7,0],'linewidth',2);
+        
+        title(task_regressor_labels{curr_regressor});
+        ylabel('Max weight');
+        xlabel('Condition');
+        if curr_regressor == 1 && curr_depth == 1
+            legend({'Task>Str','Task>Ctx-Str'});
+        end
+    end
+end
+linkaxes(get(gcf,'Children'),'y');
 
 
 
