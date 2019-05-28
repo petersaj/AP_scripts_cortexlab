@@ -7,8 +7,8 @@
 % Load data
 
 % (task)
-% data_fn = 'trial_activity_choiceworld'; % Primary dataset
-data_fn = 'trial_activity_choiceworld_2gocue'; % 2 outcome/2 go
+data_fn = 'trial_activity_choiceworld'; % Primary dataset
+% data_fn = 'trial_activity_choiceworld_1gocue'; % only late-move go cue
 % data_fn = 'trial_activity_choiceworld_sqrtstr'; % ctx->str on sqrt(str)
 % data_fn = 'trial_activity_choiceworld_4strdepth'; % Depth-aligned striatum
 % data_fn = 'trial_activity_choiceworld_6strdepth'; % Depth-aligned striatum
@@ -870,7 +870,7 @@ end
 for curr_trial_set = 1:2
     switch curr_trial_set
         case 1
-            plot_trials = move_t < Inf & trial_contrast_allcat > 0 & trial_side_allcat == 1 & trial_choice_allcat == -1;
+            plot_trials = move_t < 0.5 & trial_contrast_allcat > 0 & trial_side_allcat == 1 & trial_choice_allcat == -1;
             figure('Name','Correct contra trials'); 
         case 2
             plot_trials = move_t < 0.5 & trial_contrast_allcat > 0 & trial_side_allcat == -1 & trial_choice_allcat == 1;
@@ -959,23 +959,13 @@ for curr_trial_set = 1:2
         curr_ctxpred_mua_exp_mean = cell2mat(cellfun(@(data,trials) nanmean(data(trials,:),1), ...
             curr_ctxpred_mua_exp,curr_trials_exp,'uni',false));
         
-        % Plot PSTH
+        % Plot PSTH (measured, task-predicted, cortex-predicted);
         subplot(n_depths,4,4+(curr_depth-1)*4); hold on
-        AP_errorfill(t,nanmean(curr_mua_exp_mean,1), ...
+        p1 = AP_errorfill(t,nanmean(curr_mua_exp_mean,1), ...
             AP_sem(curr_mua_exp_mean,1),'k',0.5);
-        xlim([-0.2,1])
-        ylim([-0.2,2.5])
-        line([0,0],ylim,'color','r');
-        line(repmat(median(move_t(sorted_plot_trials)),1,2),ylim,'color',[0.8,0,0.8],'linestyle','--');
-        line(repmat(median(outcome_t(sorted_plot_trials)),1,2),ylim,'color','b','linestyle','--');
-        xlabel('Time from stim');
-        ylabel('Spikes (std)');
-        
-        % Plot PSTH predicted by cortex
-        subplot(n_depths,4,4+(curr_depth-1)*4); hold on
-        AP_errorfill(t,nanmean(curr_taskpred_mua_exp_mean,1), ...
-            AP_sem(curr_taskpred_mua_exp_mean,1),[0.7,0,0],0.5);
-        AP_errorfill(t,nanmean(curr_ctxpred_mua_exp_mean,1), ...
+        p2 = AP_errorfill(t,nanmean(curr_taskpred_mua_exp_mean,1), ...
+            AP_sem(curr_taskpred_mua_exp_mean,1),[0,0,0.7],0.5);
+        p3 = AP_errorfill(t,nanmean(curr_ctxpred_mua_exp_mean,1), ...
             AP_sem(curr_ctxpred_mua_exp_mean,1),[0,0.7,0],0.5);
         xlim([-0.2,1])
         ylim([-0.2,2.5])
@@ -984,10 +974,11 @@ for curr_trial_set = 1:2
         line(repmat(median(outcome_t(sorted_plot_trials)),1,2),ylim,'color','b','linestyle','--');
         xlabel('Time from stim');
         ylabel('Spikes (std)');
+        legend([p1,p2,p3],{'Measured','Task-predicted','Cortex-predicted'});
         
     end
     p = get(gcf,'Children');
-    linkaxes(p(1:4:end));
+    linkaxes(p(2:5:end));
 end
 
 
