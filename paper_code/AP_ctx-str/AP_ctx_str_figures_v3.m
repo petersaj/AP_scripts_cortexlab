@@ -7,7 +7,7 @@
 % Load data
 
 % (task)
-data_fn = 'trial_activity_choiceworld'; % Primary dataset
+% data_fn = 'trial_activity_choiceworld'; % Primary dataset
 data_fn = 'trial_activity_choiceworld_2gocue'; % 2 outcome/2 go
 % data_fn = 'trial_activity_choiceworld_4strdepth'; % Depth-aligned striatum
 % data_fn = 'trial_activity_choiceworld_6strdepth'; % Depth-aligned striatum
@@ -251,16 +251,16 @@ fluor_allcat_deconv_exp = mat2cell(fluor_allcat_deconv,use_split,length(t),n_vs)
 plot_px = nanmean(cell2mat(permute(cellfun(@(x,trials) svdFrameReconstruct(U_master(:,:,1:n_vs), ...
     squeeze(nanmean(x(trials,:,:),1))'),fluor_allcat_deconv_exp,plot_trials_exp,'uni',false),[2,3,4,1])),4);
 
-plot_t = [find(t > 0.07,1),find(t > 0.18,1),find(t > 0.3,1),find(t > 0.65,1)];
+plot_t = [find(t > 0.07,1),find(t > 0.18,1),find(t > 0.65,1)];
 figure;
 for curr_t = 1:length(plot_t)
-   subplot(1,length(plot_t),curr_t);
+   subplot(length(plot_t),1,curr_t);
    imagesc(plot_px(:,:,plot_t(curr_t)));
    AP_reference_outline('ccf_aligned',[0.5,0.5,0.5]);
    axis image off;
    colormap(brewermap([],'Greens'));
    caxis([0,0.015]);
-   title([num2str(t(plot_t(curr_t))) 's from stim']);
+   title([num2str(round(t(plot_t(curr_t))*1000)) 'ms from stim']);
 end
 
 %% Fig 1c: Task > cortex kernels
@@ -327,8 +327,8 @@ plot_rois = [1,7,9,10];
 
 stim_col = colormap_BlueWhiteRed(5);
 move_col = [0.6,0,0.6;0,0.6,0];
-go_col = [0.8,0.8,0.2];
-outcome_col = [0,0,0.8];
+go_col = [0.5,0.5,0.5;0.8,0.8,0.2];
+outcome_col = [0,0,0.8;0.8,0,0];
 task_regressor_cols = {stim_col,move_col,go_col,outcome_col};
 figure;
 p = nan(length(plot_rois),n_regressors);
@@ -350,6 +350,7 @@ end
 
 % Plot task>cortex ROI regression examples
 plot_rois = [1,7,10];
+plot_prctiles = linspace(0,100,5);
 
 figure;
 for curr_roi_idx = 1:length(plot_rois)
@@ -379,14 +380,15 @@ for curr_roi_idx = 1:length(plot_rois)
     trial_r2 = 1 - (nansum((curr_data_nonan-curr_pred_data_nonan).^2,2)./ ...
         nansum((curr_data_nonan-nanmean(curr_data_nonan,2)).^2,2));
     
-    [~,trial_r2_rank] = sort(trial_r2);
+    trial_r2_nonan_idx = find(~isnan(trial_r2));
+    [~,trial_r2_rank] = sort(trial_r2(trial_r2_nonan_idx));
     
-    plot_prctiles = round(prctile(1:length(trial_r2),linspace(25,75,20)));
-    plot_trials = trial_r2_rank(plot_prctiles);
+    plot_prctile_trials = round(prctile(1:length(trial_r2_nonan_idx),plot_prctiles));
+    plot_trials = trial_r2_nonan_idx(trial_r2_rank(plot_prctile_trials));
     
     subplot(length(plot_rois),1,curr_roi_idx); hold on;
-    plot(reshape(curr_data(plot_trials,:)',[],1),'k');
-    plot(reshape(curr_pred_data(plot_trials,:)',[],1),'b');
+    plot(reshape(curr_data(plot_trials,:)',[],1),'k','linewidth',2);
+    plot(reshape(curr_pred_data(plot_trials,:)',[],1),'b','linewidth',2);
     title(wf_roi(curr_roi,1).area)
     
 end
@@ -1009,10 +1011,8 @@ for curr_depth = 1:n_depths
    
 end
 
-
 % Get task>striatum parameters
 n_regressors = length(task_regressor_labels);
-task_regressor_t_shifts = cellfun(@(x) x/sample_rate,task_regressor_sample_shifts,'uni',false);
 
 % Normalize task > striatum kernels across experiments with mua_norm
 mua_taskpred_k_all_norm = cellfun(@(kernel_animal,mua_norm_animal) ...
@@ -1066,6 +1066,7 @@ move_col = [0.6,0,0.6;0,0.6,0];
 go_col = [0.8,0.8,0.2;0.5,0.5,0.5];
 outcome_col = [0,0,0.8;0.8,0,0];
 task_regressor_cols = {stim_col,move_col,go_col,outcome_col};
+task_regressor_t_shifts = cellfun(@(x) x/sample_rate,task_regressor_sample_shifts,'uni',false);
 
 figure;
 p = nan(n_depths,n_regressors);
@@ -1095,6 +1096,113 @@ linkaxes(p);
 
 
 %% Fig 3x: Striatum task v cortex regression
+
+% Get task>striatum parameters
+n_regressors = length(task_regressor_labels);
+
+% Normalize task > striatum kernels across experiments with mua_norm
+mua_taskpred_k_all_norm = cellfun(@(kernel_animal,mua_norm_animal) ...
+    cellfun(@(kernel_exp,mua_norm_exp) ...
+    cellfun(@(kernel_regressor) ...
+    kernel_regressor./(mua_norm_exp/sample_rate), ...
+    kernel_exp,'uni',false),kernel_animal,mua_norm_animal,'uni',false), ...
+    mua_taskpred_k_all,mua_norm,'uni',false);
+
+mua_ctxpred_taskpred_k_all_norm = cellfun(@(kernel_animal,mua_norm_animal) ...
+    cellfun(@(kernel_exp,mua_norm_exp) ...
+    cellfun(@(kernel_regressor) ...
+    kernel_regressor./(mua_norm_exp/sample_rate), ...
+    kernel_exp,'uni',false),kernel_animal,mua_norm_animal,'uni',false), ...
+    mua_ctxpred_taskpred_k_all,mua_norm,'uni',false);
+
+% Average and concatenate task>striatum kernels within animals
+task_str_k_animal = cell(n_regressors,1);
+task_ctxpred_str_k_animal = cell(n_regressors,1);
+for curr_animal = 1:length(mua_taskpred_k_all_norm)
+    if isempty(mua_taskpred_k_all_norm{curr_animal})
+        continue
+    end
+    
+    curr_k = cat(2,mua_taskpred_k_all_norm{curr_animal}{:});
+    curr_ctxpred_k = cat(2,mua_ctxpred_taskpred_k_all_norm{curr_animal}{:});
+    for curr_regressor = 1:n_regressors
+        curr_k_mean = nanmean(cat(4,curr_k{curr_regressor,:}),4);        
+        task_str_k_animal{curr_regressor} = cat(4, ...
+            task_str_k_animal{curr_regressor},curr_k_mean);
+        
+        curr_ctxpred_k_mean = nanmean(cat(4,curr_ctxpred_k{curr_regressor,:}),4);        
+        task_ctxpred_str_k_animal{curr_regressor} = cat(4, ...
+            task_ctxpred_str_k_animal{curr_regressor},curr_ctxpred_k_mean);
+    end
+end
+
+% Plot task>striatum kernel max by condition
+task_str_k_animal_max = cellfun(@(x) permute(max(x,[],2),[1,3,4,2]),task_str_k_animal,'uni',false);
+task_ctxpred_str_k_animal_max = cellfun(@(x) permute(max(x,[],2),[1,3,4,2]),task_ctxpred_str_k_animal,'uni',false);
+
+str_col = copper(n_depths);
+figure;
+for curr_regressor = 1:n_regressors
+    if curr_regressor == 1
+        x = unique([0.06,0.125,0.25,0.5,1].*[-1;1]);
+    else
+        x = 1:size(task_str_k_animal_max{curr_regressor},1);
+    end
+    
+    subplot(n_regressors,2,curr_regressor*2-1); hold on;
+    for curr_depth = 1:n_depths
+        errorbar(x,nanmean(task_str_k_animal_max{curr_regressor}(:,curr_depth,:),3), ...
+            AP_sem(task_str_k_animal_max{curr_regressor}(:,curr_depth,:),3), ...
+            'color',str_col(curr_depth,:),'linewidth',2);
+    end
+    title(task_regressor_labels{curr_regressor});
+    ylabel('Max weight');
+    xlabel('Condition');
+    
+    subplot(n_regressors,2,curr_regressor*2); hold on;
+    for curr_depth = 1:n_depths
+        errorbar(x,nanmean(task_ctxpred_str_k_animal_max{curr_regressor}(:,curr_depth,:),3), ...
+            AP_sem(task_ctxpred_str_k_animal_max{curr_regressor}(:,curr_depth,:),3), ...
+            'color',str_col(curr_depth,:),'linewidth',2);
+    end   
+    title([task_regressor_labels{curr_regressor} '(ctx-pred)']);
+    ylabel('Max weight');
+    xlabel('Condition');
+    
+end
+
+% Plot task>striatum kernel max by condition (different layout)
+figure;
+for curr_regressor = 1:n_regressors
+    if curr_regressor == 1
+        x = unique([0.06,0.125,0.25,0.5,1].*[-1;1]);
+    else
+        x = 1:size(task_str_k_animal_max{curr_regressor},1);
+    end
+      
+    for curr_depth = 1:n_depths
+        subplot(n_depths,n_regressors, ...
+            sub2ind([n_regressors,n_depths],curr_regressor,curr_depth));
+        hold on
+        
+        errorbar(x,nanmean(task_str_k_animal_max{curr_regressor}(:,curr_depth,:),3), ...
+            AP_sem(task_str_k_animal_max{curr_regressor}(:,curr_depth,:),3), ...
+            'color','b','linewidth',2);
+        errorbar(x,nanmean(task_ctxpred_str_k_animal_max{curr_regressor}(:,curr_depth,:),3), ...
+            AP_sem(task_ctxpred_str_k_animal_max{curr_regressor}(:,curr_depth,:),3), ...
+            'color',[0,0.7,0],'linewidth',2);
+        
+        title(task_regressor_labels{curr_regressor});
+        ylabel('Max weight');
+        xlabel('Condition');
+        if curr_regressor == 1 && curr_depth == 1
+            legend({'Task>Str','Task>Ctx-Str'});
+        end
+    end
+end
+linkaxes(get(gcf,'Children'),'y');
+
+
 
 % Plot task>striatum regression examples
 figure;
@@ -1401,10 +1509,14 @@ outcome_align = -outcome_idx + leeway_samples;
 align_times = {stim_align,move_align,outcome_align};
 align_labels = {'Stim','Move onset','Outcome'};
 align_reduction = [1,2,4];
+% align_trials = { ...
+%     [move_t < 0.5 & trial_contrast_allcat > 0 & trial_side_allcat == 1], ...
+%     [move_t < 0.5 & trial_choice_allcat == -1], ...
+%     [move_t < 0.5 & trial_outcome_allcat == 1]};
 align_trials = { ...
-    [move_t < 0.5 & trial_contrast_allcat > 0 & trial_side_allcat == 1], ...
-    [move_t < 0.5 & trial_choice_allcat == -1], ...
-    [move_t < 0.5 & trial_outcome_allcat == 1]};
+    [move_t < 0.5 & trial_contrast_allcat > 0 & trial_side_allcat == -1], ...
+    [move_t < 0.5 & trial_choice_allcat == 1], ...
+    [move_t < 0.5 & trial_outcome_allcat == -1]};
 
 figure;
 for curr_align = 1:length(align_times)      
@@ -1428,24 +1540,24 @@ for curr_align = 1:length(align_times)
         align_times{curr_align}(trial),2),transpose(1:size(mua_allcat,1)),'uni',false)), ...
         use_split,length(t),n_depths);
     
-%     % Re-align and split activity (reduced)
-%     curr_act = mat2cell(...
-%         cell2mat(arrayfun(@(trial) circshift( ...
-%         mua_allcat(trial,:,:) - mua_taskpred_reduced_allcat(trial,:,:,align_reduction(curr_align)), ...
-%         align_times{curr_align}(trial),2),transpose(1:size(mua_allcat,1)),'uni',false)), ...
-%         use_split,length(t),n_depths);
-%     
-%     curr_act_taskpred = mat2cell(...
-%         cell2mat(arrayfun(@(trial) circshift( ...
-%         mua_taskpred_allcat(trial,:,:) - mua_taskpred_reduced_allcat(trial,:,:,align_reduction(curr_align)), ...
-%         align_times{curr_align}(trial),2),transpose(1:size(mua_allcat,1)),'uni',false)), ...
-%         use_split,length(t),n_depths);
-%     
-%     curr_act_ctxpred = mat2cell(...
-%         cell2mat(arrayfun(@(trial) circshift( ...
-%         mua_ctxpred_allcat(trial,:,:) - mua_ctxpred_taskpred_reduced_allcat(trial,:,:,align_reduction(curr_align)), ...
-%         align_times{curr_align}(trial),2),transpose(1:size(mua_allcat,1)),'uni',false)), ...
-%         use_split,length(t),n_depths);
+    % Re-align and split activity (reduced)
+    curr_act_reduced = mat2cell(...
+        cell2mat(arrayfun(@(trial) circshift( ...
+        mua_allcat(trial,:,:) - mua_taskpred_reduced_allcat(trial,:,:,align_reduction(curr_align)), ...
+        align_times{curr_align}(trial),2),transpose(1:size(mua_allcat,1)),'uni',false)), ...
+        use_split,length(t),n_depths);
+    
+    curr_act_taskpred_reduced = mat2cell(...
+        cell2mat(arrayfun(@(trial) circshift( ...
+        mua_taskpred_allcat(trial,:,:) - mua_taskpred_reduced_allcat(trial,:,:,align_reduction(curr_align)), ...
+        align_times{curr_align}(trial),2),transpose(1:size(mua_allcat,1)),'uni',false)), ...
+        use_split,length(t),n_depths);
+    
+    curr_act_ctxpred_reduced = mat2cell(...
+        cell2mat(arrayfun(@(trial) circshift( ...
+        mua_ctxpred_allcat(trial,:,:) - mua_ctxpred_taskpred_reduced_allcat(trial,:,:,align_reduction(curr_align)), ...
+        align_times{curr_align}(trial),2),transpose(1:size(mua_allcat,1)),'uni',false)), ...
+        use_split,length(t),n_depths);
   
     % Get average for chosen trials
     curr_trials = mat2cell(align_trials{curr_align},use_split);
@@ -1457,20 +1569,32 @@ for curr_align = 1:length(align_times)
     curr_act_ctxpred_trialmean = cell2mat(cellfun(@(act,trials) ...
         nanmean(act(trials,:,:),1),curr_act_ctxpred,curr_trials,'uni',false));
     
+    curr_act_reduced_trialmean = cell2mat(cellfun(@(act,trials) ...
+        nanmean(act(trials,:,:),1),curr_act_reduced,curr_trials,'uni',false));
+    curr_act_taskpred_reduced_trialmean = cell2mat(cellfun(@(act,trials) ...
+        nanmean(act(trials,:,:),1),curr_act_taskpred_reduced,curr_trials,'uni',false));
+    curr_act_ctxpred_reduced_trialmean = cell2mat(cellfun(@(act,trials) ...
+        nanmean(act(trials,:,:),1),curr_act_ctxpred_reduced,curr_trials,'uni',false));
+    
     % Plot
     for curr_depth = 1:n_depths
         subplot(n_depths,length(align_times), ...
             sub2ind([length(align_times),n_depths],curr_align,curr_depth));
-        
-        plot(t,nanmean(curr_act_trialmean(:,:,curr_depth),1),'k','linewidth',2);
-        AP_errorfill(t,nanmean(curr_act_taskpred_trialmean(:,:,curr_depth),1), ...
-            AP_sem(curr_act_taskpred_trialmean(:,:,curr_depth),1),'b',0.5,false);
-        AP_errorfill(t,nanmean(curr_act_ctxpred_trialmean(:,:,curr_depth),1), ...
-            AP_sem(curr_act_ctxpred_trialmean(:,:,curr_depth),1),[0,0.7,0],0.5,false);
+        hold on
+               
+        plot(t,nanmean(curr_act_trialmean(:,:,curr_depth),1),'--k','linewidth',1);
+        plot(t,nanmean(curr_act_reduced_trialmean(:,:,curr_depth),1),'k','linewidth',2);
+        AP_errorfill(t,nanmean(curr_act_taskpred_reduced_trialmean(:,:,curr_depth),1), ...
+            AP_sem(curr_act_taskpred_reduced_trialmean(:,:,curr_depth),1),'b',0.5,false);
+        AP_errorfill(t,nanmean(curr_act_ctxpred_reduced_trialmean(:,:,curr_depth),1), ...
+            AP_sem(curr_act_ctxpred_reduced_trialmean(:,:,curr_depth),1),[0,0.7,0],0.5,false);
         
         xlabel(['Time from ' align_labels{curr_align}]);
         ylabel(['Str ' num2str(curr_depth)])
         line([0,0],ylim,'color','k');
+        if curr_align == 1 && curr_depth == 1
+            legend({'Measured','Measured (task-reduced)','Task-pred','Ctx-pred'});
+        end
     end
     
 end
@@ -3023,6 +3147,79 @@ for curr_plot = 1:length(task_regressor_labels)+1
     set(gca,'Children',circshift(get(gca,'Children'),-size(str_depth_cat,1)));
 end
 
+%% TESTING supplemental task>ctx-str
 
+% Get task>striatum parameters
+n_regressors = length(task_regressor_labels);
+
+% Normalize task > striatum kernels across experiments with mua_norm
+mua_taskpred_k_all_norm = cellfun(@(kernel_animal,mua_norm_animal) ...
+    cellfun(@(kernel_exp,mua_norm_exp) ...
+    cellfun(@(kernel_regressor) ...
+    kernel_regressor./(mua_norm_exp/sample_rate), ...
+    kernel_exp,'uni',false),kernel_animal,mua_norm_animal,'uni',false), ...
+    mua_taskpred_k_all,mua_norm,'uni',false);
+
+mua_ctxpred_taskpred_k_all_norm = cellfun(@(kernel_animal,mua_norm_animal) ...
+    cellfun(@(kernel_exp,mua_norm_exp) ...
+    cellfun(@(kernel_regressor) ...
+    kernel_regressor./(mua_norm_exp/sample_rate), ...
+    kernel_exp,'uni',false),kernel_animal,mua_norm_animal,'uni',false), ...
+    mua_ctxpred_taskpred_k_all,mua_norm,'uni',false);
+
+% Average and concatenate task>striatum kernels within animals
+task_str_k_animal = cell(n_regressors,1);
+task_ctxpred_str_k_animal = cell(n_regressors,1);
+for curr_animal = 1:length(mua_taskpred_k_all_norm)
+    if isempty(mua_taskpred_k_all_norm{curr_animal})
+        continue
+    end
+    
+    curr_k = cat(2,mua_taskpred_k_all_norm{curr_animal}{:});
+    curr_ctxpred_k = cat(2,mua_ctxpred_taskpred_k_all_norm{curr_animal}{:});
+    for curr_regressor = 1:n_regressors
+        curr_k_mean = nanmean(cat(4,curr_k{curr_regressor,:}),4);        
+        task_str_k_animal{curr_regressor} = cat(4, ...
+            task_str_k_animal{curr_regressor},curr_k_mean);
+        
+        curr_ctxpred_k_mean = nanmean(cat(4,curr_ctxpred_k{curr_regressor,:}),4);        
+        task_ctxpred_str_k_animal{curr_regressor} = cat(4, ...
+            task_ctxpred_str_k_animal{curr_regressor},curr_ctxpred_k_mean);
+    end
+end
+
+% Plot task>striatum kernels
+stim_col = colormap_BlueWhiteRed(5);
+move_col = [0.6,0,0.6;0,0.6,0];
+go_col = [0.8,0.8,0.2;0.5,0.5,0.5];
+outcome_col = [0,0,0.8;0.8,0,0];
+task_regressor_cols = {stim_col,move_col,go_col,outcome_col};
+task_regressor_t_shifts = cellfun(@(x) x/sample_rate,task_regressor_sample_shifts,'uni',false);
+
+figure;
+p = nan(n_depths,n_regressors);
+for curr_depth = 1:n_depths
+    for curr_regressor = 1:n_regressors  
+        p(curr_depth,curr_regressor) = ...
+            subplot(n_depths,n_regressors,curr_regressor+(curr_depth-1)*n_regressors);  
+        
+        curr_kernels = permute(task_ctxpred_str_k_animal{curr_regressor}(:,:,curr_depth,:),[1,2,4,3]);
+        n_subregressors = size(task_ctxpred_str_k_animal{curr_regressor},1);
+        col = task_regressor_cols{curr_regressor};
+        for curr_subregressor = 1:n_subregressors
+            AP_errorfill(task_regressor_t_shifts{curr_regressor}, ...
+                nanmean(curr_kernels(curr_subregressor,:,:),3), ...
+                AP_sem(curr_kernels(curr_subregressor,:,:),3), ...
+                col(curr_subregressor,:),0.5);
+        end
+        
+        xlabel('Time (s)');
+        ylabel('Weight');
+        title(task_regressor_labels{curr_regressor});
+        line([0,0],ylim,'color','k');
+        
+    end
+end
+linkaxes(p);
 
 

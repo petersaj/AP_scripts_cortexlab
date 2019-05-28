@@ -5528,12 +5528,13 @@ trial_condition_groups = ...
 %     [trial_stim_allcat == 1, trial_stim_allcat == 2, trial_stim_allcat == 3]};
 
 % Loop across area pairs, plot binned predicted v measured activity
-% curr_act_allcat = fluor_roi_deconv;
-% curr_act_pred_allcat = fluor_roi_taskpred;
-
-curr_act_allcat = mua_allcat - mua_taskpred_reduced_allcat(:,:,:,1);
-% curr_act_pred_allcat = mua_taskpred_allcat;
-curr_act_pred_allcat = mua_ctxpred_allcat - mua_ctxpred_taskpred_reduced_allcat(:,:,:,1);
+% (cortex)
+curr_act_allcat = fluor_roi_deconv;
+curr_act_pred_allcat = fluor_roi_taskpred;
+% (striatum)
+% curr_act_allcat = mua_allcat - mua_taskpred_reduced_allcat(:,:,:,1);
+% % curr_act_pred_allcat = mua_taskpred_allcat;
+% curr_act_pred_allcat = mua_ctxpred_allcat - mua_ctxpred_taskpred_reduced_allcat(:,:,:,1);
 
 measured_v_pred_fig = figure('color','w');
 for curr_area_idx = 1:length(plot_areas)
@@ -6197,7 +6198,54 @@ for curr_axes = 2:length(timeavg_labels)+2:length(all_axes)
    line(all_axes(curr_axes),xlim(all_axes(curr_axes)),[0,0],'color','k');
 end
 
+%% Str/Ctx->Str nonlinearity (concatenated)
 
+% Apply empirical static nonlinearity
+figure;
+mua_allcat_predicted_nlin = mua_allcat;
+for curr_depth = 1:n_depths
+    measured_data = double(reshape(mua_allcat(:,:,curr_depth)',[],1));
+    predicted_data = double(reshape(mua_ctxpred_allcat(:,:,curr_depth)',[],1));
+    predicted_data(predicted_data < 0) = 0;
+
+    n_bins = 100;
+    activity_bounds = linspace(0,5,n_bins+1);
+    activity_bin_centers = conv2(activity_bounds,[1,1]/2,'valid');
+
+    measured_bins = discretize(measured_data,activity_bounds);
+    predicted_bins = discretize(predicted_data,activity_bounds);
+
+    measured_data_binmean = accumarray(predicted_bins(~isnan(predicted_bins)), ...
+        measured_data(~isnan(predicted_bins)),[n_bins,1],@nanmedian,nan);
+    predicted_data_binmean = accumarray(predicted_bins(~isnan(predicted_bins)),...
+        predicted_data(~isnan(predicted_bins)),[n_bins,1],@nanmedian,nan);
+
+    % smooth out the measured data binmean
+    measured_data_binmean_smooth = medfilt1(measured_data_binmean,10);
+
+    predicted_data_nlin = nan(size(predicted_data));
+    predicted_data_nlin(~isnan(predicted_bins)) = measured_data_binmean_smooth(predicted_bins(~isnan(predicted_bins)));
+
+    predicted_data_nlin_bins = discretize(predicted_data_nlin,activity_bounds);
+    predicted_data_nlin_binmean = accumarray( ...
+        predicted_bins(~isnan(predicted_bins)), ...
+        predicted_data_nlin(~isnan(predicted_bins)),[n_bins,1],@mean,nan);
+
+    mua_allcat_predicted_nlin(:,:,curr_depth) = ...
+        reshape(predicted_data_nlin, ...
+        size(mua_allcat,2),size(mua_allcat,1))';
+
+    subplot(1,n_depths,curr_depth); hold on;
+    plot(predicted_data,measured_data,'.')
+    plot(predicted_data_binmean,measured_data_binmean,'linewidth',2);
+    plot(predicted_data_binmean,measured_data_binmean_smooth,'linewidth',2);
+    plot(predicted_data_nlin_binmean,measured_data_binmean,'linewidth',2);
+    xlim([-2,6]);ylim([-2,6]);
+    line(xlim,ylim,'color','k');
+    xlabel('Predicted')
+    ylabel('Measured')
+    axis square;
+end
 
 
 
