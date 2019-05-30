@@ -7603,14 +7603,8 @@ for curr_animal = 1:length(animals)
         end
         binned_spikes_std = binned_spikes./nanstd(binned_spikes,[],2);
         
-        %%%%%%%%% TESTING: LOWPASS STR SPIKES
+        %%%%%%%%% TESTING: LOWPASS S
         
-        lowpassCutoff = 10;
-        [b100s, a100s] = butter(2, lowpassCutoff/((sample_rate)/2),'low');
-        binned_spikes = filtfilt(b100s,a100s,binned_spikes')';
-        binned_spikes_std = binned_spikes./nanstd(binned_spikes,[],2);
-        
-        %%%%%%%%%%%%%        
         
         % Load lambda from previously estimated and saved
         lambda_fn = 'C:\Users\Andrew\OneDrive for Business\Documents\CarandiniHarrisLab\analysis\wf_ephys_choiceworld\ephys_processing\ctx-str_lambda';

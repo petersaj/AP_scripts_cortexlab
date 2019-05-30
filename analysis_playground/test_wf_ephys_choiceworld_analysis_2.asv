@@ -6926,37 +6926,29 @@ outcome_align = -outcome_idx + leeway_samples;
 
 use_align = stim_align;
 use_trials = move_t < 0.5;
-plot_str = 1; % 1,2
-plot_ctx_L = 3; % 3,7
-plot_ctx_R = plot_ctx_L + size(wf_roi,1);
+plot_str = 1;
+plot_ctx_L = 3;
+plot_ctx_R = plot_ctx_L + 
 
 % Re-align activity
 curr_str = cell2mat(arrayfun(@(trial) circshift( ...
-    mua_allcat(trial,:,plot_str), ...
-    use_align(trial),2),find(use_trials),'uni',false));
+    mua_allcat(trial,:,:), ...
+    use_align(trial),2),transpose(1:length(use_align)),'uni',false));
 
 curr_ctx_L = cell2mat(arrayfun(@(trial) circshift( ...
-    fluor_roi_deconv(trial,:,plot_ctx_L), ...
-    use_align(trial),2),find(use_trials),'uni',false));
+    fluor_kernelroi_deconv(trial,:,:), ...
+    use_align(trial),2),transpose(1:length(use_align)),'uni',false));
 
 curr_ctx_R = cell2mat(arrayfun(@(trial) circshift( ...
-    fluor_roi_deconv(trial,:,plot_ctx_R), ...
-    use_align(trial),2),find(use_trials),'uni',false));
+    fluor_kernelroiR_deconv(trial,:,:), ...
+    use_align(trial),2),transpose(1:length(use_align)),'uni',false));
 
-% % Re-align activity (reduced)
-% use_reduction = 1;
-% 
-% curr_str = cell2mat(arrayfun(@(trial) circshift( ...
-%     mua_allcat(trial,:,plot_str) - mua_taskpred_reduced_allcat(trial,:,plot_str,use_reduction), ...
-%     use_align(trial),2),find(use_trials),'uni',false));
-% 
-% curr_ctx_L = cell2mat(arrayfun(@(trial) circshift( ...
-%     fluor_roi_deconv(trial,:,plot_ctx_L) - fluor_roi_taskpred_reduced(trial,:,plot_ctx_L,use_reduction), ...
-%     use_align(trial),2),find(use_trials),'uni',false));
-% 
-% curr_ctx_R = cell2mat(arrayfun(@(trial) circshift( ...
-%     fluor_roi_deconv(trial,:,plot_ctx_R) - fluor_roi_taskpred_reduced(trial,:,plot_ctx_R,use_reduction), ...
-%     use_align(trial),2),find(use_trials),'uni',false));
+curr_str = mua_allcat(use_trials,:,1);
+curr_ctx_L = fluor_roi_deconv(use_trials,:,3);
+curr_ctx_R = fluor_roi_deconv(use_trials,:,13);
+
+% curr_ctx_L = fluor_kernelroi_deconv(use_trials,:,1);
+% curr_ctx_R = fluor_kernelroiR_deconv(use_trials,:,1);
 
 % Regress Str from Ctx L,R and get cross-validated expl var
 k = nan(length(t),3);
@@ -7031,7 +7023,7 @@ ylabel('Explained variance');
 xlim([0.5,3.5])
 
 % Plot Xc
-col = colormap_BlueWhiteRed(length(unique(abs(trial_contrastside_allcat(trial_contrastside_allcat ~= 0)))));
+col = colormap_BlueWhiteRed(length(unique(abs(trial_contrastside_allcat))));
 if ~any(trial_contrastside_allcat == 0)
     col(ceil(size(col,1)/2),:) = [];
 end

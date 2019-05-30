@@ -818,25 +818,25 @@ for curr_animal = 1:length(animals)
         % Go cue regressors - separate for early/late move
         % (using signals timing - not precise but looks good)
         % (for go cue only on late move trials)
-        go_cue_regressors = histcounts( ...
-            signals_events.interactiveOnTimes(move_t > 0.5),time_bins);
-        % (for go cue with early/late move trials)
-%         go_cue_regressors = zeros(1,length(time_bin_centers));
-%         go_cue_regressors(1,:) = histcounts( ...
-%             signals_events.interactiveOnTimes(move_t <= 0.5),time_bins);
-%         go_cue_regressors(2,:) = histcounts( ...
+%         go_cue_regressors = histcounts( ...
 %             signals_events.interactiveOnTimes(move_t > 0.5),time_bins);
+        % (for go cue with early/late move trials)
+        go_cue_regressors = zeros(1,length(time_bin_centers));
+        go_cue_regressors(1,:) = histcounts( ...
+            signals_events.interactiveOnTimes(move_t <= 0.5),time_bins);
+        go_cue_regressors(2,:) = histcounts( ...
+            signals_events.interactiveOnTimes(move_t > 0.5),time_bins);
         
         % Outcome regressors
         % (using signals timing - not precise but looks good)
         % (regressors for hit only)
-        outcome_regressors = histcounts(reward_t_timeline,time_bins);
+%         outcome_regressors = histcounts(reward_t_timeline,time_bins);
         % (regressors for both hit and miss)
-%         outcome_regressors = zeros(2,length(time_bin_centers));
-%         outcome_regressors(1,:) = histcounts( ...
-%             reward_t_timeline,time_bins);
-%         outcome_regressors(2,:) = histcounts( ...
-%             signals_events.responseTimes(trial_outcome == -1),time_bins);
+        outcome_regressors = zeros(2,length(time_bin_centers));
+        outcome_regressors(1,:) = histcounts( ...
+            reward_t_timeline,time_bins);
+        outcome_regressors(2,:) = histcounts( ...
+            signals_events.responseTimes(trial_outcome == -1),time_bins);
         
         % Concatenate selected regressors, set parameters
         
@@ -1626,7 +1626,7 @@ clearvars -except ...
 disp('Finished loading all')
 
 save_path = 'C:\Users\Andrew\OneDrive for Business\Documents\CarandiniHarrisLab\analysis\wf_ephys_choiceworld\paper\data';
-save_fn = ['trial_activity_choiceworld_2gocue'];
+save_fn = ['trial_activity_choiceworld'];
 save([save_path filesep save_fn],'-v7.3');
 
 
@@ -1872,25 +1872,26 @@ for curr_animal = 1:length(animals)
         
         % Go cue regressors - separate for early/late move
         % (using signals timing - not precise but looks good)
-        go_cue_regressors = histcounts( ...
+        % (for go cue only on late move trials)
+%         go_cue_regressors = histcounts( ...
+%             signals_events.interactiveOnTimes(move_t > 0.5),time_bins);
+        % (for go cue with early/late move trials)
+        go_cue_regressors = zeros(1,length(time_bin_centers));
+        go_cue_regressors(1,:) = histcounts( ...
+            signals_events.interactiveOnTimes(move_t <= 0.5),time_bins);
+        go_cue_regressors(2,:) = histcounts( ...
             signals_events.interactiveOnTimes(move_t > 0.5),time_bins);
-        % (old: use go cue with movement before and after)
-        %         go_cue_regressors = zeros(1,length(time_bin_centers));
-        %         go_cue_regressors(1,:) = histcounts( ...
-        %             signals_events.interactiveOnTimes(move_t <= 0.5),time_bins);
-        %         go_cue_regressors(2,:) = histcounts( ...
-        %             signals_events.interactiveOnTimes(move_t > 0.5),time_bins);
         
         % Outcome regressors
         % (using signals timing - not precise but looks good)
-        
-        outcome_regressors = histcounts(reward_t_timeline,time_bins);
-        % (old: regressors for both hit and miss)
-        %         outcome_regressors = zeros(2,length(time_bin_centers));
-        %         outcome_regressors(1,:) = histcounts( ...
-        %             reward_t_timeline,time_bins);
-        %         outcome_regressors(2,:) = histcounts( ...
-        %             signals_events.responseTimes(trial_outcome == -1),time_bins);
+        % (regressors for hit only)
+%         outcome_regressors = histcounts(reward_t_timeline,time_bins);
+        % (regressors for both hit and miss)
+        outcome_regressors = zeros(2,length(time_bin_centers));
+        outcome_regressors(1,:) = histcounts( ...
+            reward_t_timeline,time_bins);
+        outcome_regressors(2,:) = histcounts( ...
+            signals_events.responseTimes(trial_outcome == -1),time_bins);
         
         % Concatenate selected regressors, set parameters
         task_regressors = {stim_regressors;move_onset_regressors;go_cue_regressors;outcome_regressors};
