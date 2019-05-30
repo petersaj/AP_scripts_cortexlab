@@ -6915,7 +6915,7 @@ xlabel('Time');
 legend({'Concat time','Timepoint'})
 
 
-%% Ctx -> Str regression: constant vs time-varying ctx weights
+%% Ctx -> Str regression: constant vs time-varying ctx weights (ROIs)
 
 % Set alignment shifts
 t_leeway = -t(1);
@@ -6942,6 +6942,7 @@ curr_ctx_L = cell2mat(arrayfun(@(trial) circshift( ...
 curr_ctx_R = cell2mat(arrayfun(@(trial) circshift( ...
     fluor_roi_deconv(trial,:,plot_ctx_R), ...
     use_align(trial),2),find(use_trials),'uni',false));
+
 
 % % Re-align activity (reduced)
 % use_reduction = 1;
@@ -7042,6 +7043,121 @@ plot(t,xc','linewidth',2);
 line([0,0],ylim,'color','k');
 line(xlim,[0,0],'color','k');
 
+%% Ctx -> Str regression: constant vs time-varying ctx weights (Vs)
+
+% Set alignment shifts
+t_leeway = -t(1);
+leeway_samples = round(t_leeway*(sample_rate));
+stim_align = zeros(size(trial_contrast_allcat));
+move_align = -move_idx + leeway_samples;
+outcome_align = -outcome_idx + leeway_samples;
+
+use_align = stim_align;
+use_trials = move_t < 0.5;
+plot_str = 3; % 1,2
+
+use_vs = 1:50;
+lambda = 10;
+
+% Re-align activity
+curr_str = cell2mat(arrayfun(@(trial) circshift( ...
+    mua_allcat(trial,:,plot_str), ...
+    use_align(trial),2),find(use_trials),'uni',false));
+
+curr_ctx = cell2mat(arrayfun(@(trial) circshift( ...
+    fluor_allcat_deconv(trial,:,use_vs), ...
+    use_align(trial),2),find(use_trials),'uni',false));
+
+% Regress Str from Ctx and get cross-validated expl var
+k = nan(length(use_vs),length(t));
+ev = nan(length(t),2);
+predicted_str_t = nan(sum(use_trials),length(t));
+for curr_t = 1:length(t)
+        
+    [kLR,predicted_signals,evLR] = ...
+        AP_regresskernel(permute(curr_ctx(:,curr_t,:),[3,1,2]), ...
+        curr_str(:,curr_t)',0,lambda,[false,false],10,1,1,[]);   
+    
+    predicted_str_t(:,curr_t) = predicted_signals;
+    k(:,curr_t) = kLR{1};
+    
+end
+
+figure; 
+AP_image_scroll(svdFrameReconstruct(U_master(:,:,use_vs),k));
+caxis([-max(caxis),max(caxis)]);
+colormap(brewermap([],'*RdBu'));
+AP_reference_outline('ccf_aligned',[0.5,0.5,0.5]);
+axis image off
+
+
+% Kenneth asked: fit a*Ctx_L + b*Ctx_R + Xc in stages
+% (get static a and b first, estimate Xc from residual, refit a/b)
+% (compare this to a changing a and b)
+% (wants this towards: does changing weights buy anything?)
+
+% Regress Str from Ctx L,R, estimate Xc from residual
+[k,predicted_str_noxc,expl_var] = ...
+    AP_regresskernel(reshape(permute(curr_ctx,[2,1,3]),[],length(use_vs))', ...
+    reshape(curr_str',[],1)',0,lambda,[false,false],10,1,1,[]);
+
+predicted_str_allt_noxc = reshape(predicted_str_noxc,length(t),[])';
+
+xc = grpstats(curr_str - reshape(predicted_str_noxc,[],sum(use_trials))', ...
+    trial_contrastside_allcat(use_trials),@nanmean);
+
+% Regress (Str - Xc) from Ctx L,R
+[~,contrastside_idx] = ismember(trial_contrastside_allcat(use_trials), ...
+    unique(trial_contrastside_allcat),'rows');
+xc_trial = xc(contrastside_idx,:);
+
+curr_str_xc = curr_str - xc_trial;
+
+[k_xc,predicted_str_minusxc,expl_var_xc] = ...
+    AP_regresskernel(reshape(permute(curr_ctx,[2,1,3]),[],length(use_vs))', ...
+    reshape(curr_str_xc',[],1)',0,0,[false,false],10,1,1,[]);
+
+predicted_str_xc = predicted_str_minusxc + reshape(xc_trial',[],1)';
+
+predicted_str_allt = reshape(predicted_str_xc,length(t),[])';
+
+figure; 
+imagesc(svdFrameReconstruct(U_master(:,:,use_vs),k_xc{1}));
+caxis([-max(caxis),max(caxis)]);
+colormap(brewermap([],'*RdBu'));
+AP_reference_outline('ccf_aligned',[0.5,0.5,0.5]);
+axis image off
+
+
+% Get R^2 for both predictions
+sse_total = nansum((reshape(curr_str',[],1) - nanmean(reshape(curr_str',[],1))).^2);
+sse_residual_t = nansum((reshape(curr_str',[],1) - reshape(predicted_str_t',[],1)).^2);
+sse_residual_allt_noxc = nansum((reshape(curr_str',[],1) - reshape(predicted_str_allt_noxc',[],1)).^2);
+sse_residual_allt = nansum((reshape(curr_str',[],1) - reshape(predicted_str_allt',[],1)).^2);
+
+expl_var_t = 1 - (sse_residual_t/sse_total);
+expl_var_allt_noxc = 1 - (sse_residual_allt_noxc/sse_total);
+expl_var_allt = 1 - (sse_residual_allt/sse_total);
+
+figure; 
+plot([expl_var_t,expl_var_allt_noxc,expl_var_allt],'k','linewidth',2);
+set(gca,'XTick',1:3,'XTickLabel',{'Timepoint','All time (no X_c)','All time (with X_c)'});
+ylabel('Explained variance');
+xlim([0.5,3.5])
+
+% Plot Xc
+col = colormap_BlueWhiteRed(length(unique(abs(trial_contrastside_allcat(trial_contrastside_allcat ~= 0)))));
+if ~any(trial_contrastside_allcat == 0)
+    col(ceil(size(col,1)/2),:) = [];
+end
+
+figure; hold on
+set(gca,'ColorOrder',col);
+plot(t,xc','linewidth',2);
+line([0,0],ylim,'color','k');
+line(xlim,[0,0],'color','k');
+xlabel('Time');
+ylabel('X_c');
 
 %% Ctx -> Str regression: iterating Xc 
 
