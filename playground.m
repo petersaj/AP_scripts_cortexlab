@@ -8671,7 +8671,7 @@ clearvars -except ...
 disp('Finished loading all')
 
 save_path = 'C:\Users\Andrew\OneDrive for Business\Documents\CarandiniHarrisLab\analysis\wf_ephys_choiceworld\paper\data';
-save_fn = ['trial_activity_choiceworld'];
+save_fn = ['trial_activity_choiceworld_ctxtaskpred'];
 save([save_path filesep save_fn],'-v7.3');
 
 
@@ -8809,8 +8809,11 @@ plot_areas = [1,2,3,4];
 % Loop across area pairs, plot binned predicted v measured activity
 curr_act_allcat = mua_allcat;
 curr_act_taskpred_reduced_allcat = mua_taskpred_reduced_allcat;
-curr_act_pred_allcat = mua_ctxpred_allcat;
-curr_act_pred_taskpred_reduced_allcat = mua_ctxpred_taskpred_reduced_allcat;
+% curr_act_pred_allcat = mua_ctxpred_allcat;
+% curr_act_pred_taskpred_reduced_allcat = mua_ctxpred_taskpred_reduced_allcat;
+
+curr_act_pred_allcat = mua_taskpred_allcat;
+curr_act_pred_taskpred_reduced_allcat = mua_taskpred_reduced_allcat;
 
 % Get "fixing" matrix: difference between task predicted str/ctx-pred str
 task_fix = mua_taskpred_allcat - mua_ctxpred_taskpred_allcat;
@@ -8841,17 +8844,17 @@ for curr_area_idx = 1:length(plot_areas)
             timeavg_align{curr_timeavg}(trial),2),transpose(1:size(curr_act_allcat,1)),'uni',false)), ...
             use_split,length(t));
         
-%         curr_act_pred = mat2cell(...
-%             cell2mat(arrayfun(@(trial) circshift( ...
-%             curr_act_pred_allcat(trial,:,plot_area), ...
-%             timeavg_align{curr_timeavg}(trial),2),transpose(1:size(curr_act_pred_allcat,1)),'uni',false)), ...
-%             use_split,length(t));
-        
         curr_act_pred = mat2cell(...
             cell2mat(arrayfun(@(trial) circshift( ...
-            curr_act_pred_allcat(trial,:,plot_area) + curr_act_pred_fix(trial,:,plot_area), ...
+            curr_act_pred_allcat(trial,:,plot_area), ...
             timeavg_align{curr_timeavg}(trial),2),transpose(1:size(curr_act_pred_allcat,1)),'uni',false)), ...
             use_split,length(t));
+        
+%         curr_act_pred = mat2cell(...
+%             cell2mat(arrayfun(@(trial) circshift( ...
+%             curr_act_pred_allcat(trial,:,plot_area) + curr_act_pred_fix(trial,:,plot_area), ...
+%             timeavg_align{curr_timeavg}(trial),2),transpose(1:size(curr_act_pred_allcat,1)),'uni',false)), ...
+%             use_split,length(t));
         
         trial_conditions_exp = mat2cell(trial_conditions,use_split,size(trial_conditions,2));
         
@@ -9019,6 +9022,7 @@ end
 
 
 %% Fig 4d,e,f: Striatum v Cortex by condition (TESTING ERROR FIX)
+% I THINK THIS WAS JUST COPIED, NOT STARTED YET
 
 % Set alignment shifts
 t_leeway = -t(1);

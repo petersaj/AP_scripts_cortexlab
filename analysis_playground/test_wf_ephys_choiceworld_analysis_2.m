@@ -7331,6 +7331,11 @@ curr_ctx_L = cell2mat(arrayfun(@(trial) circshift( ...
 % ylim([0,max(ylim)]);
 
 
+%%%%%%%% WAS WORKING HERE: 
+% doing non-cv should have a hot diagonal (weights from t are best for t)
+% but it didn't, looked like something was wrong
+% (and anyway all this is pointless if prediction error can't be fixed)
+
 % Alternate Method: 
 % str = W*fluor + Xc + mu for a time point 
 % (regressor matrix is fluor and trial x contrast X matrix)
