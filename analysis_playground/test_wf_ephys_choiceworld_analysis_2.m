@@ -7210,11 +7210,226 @@ xlabel('Xc iteration');
 ylabel('Explained variance');
 
 
+%% Ctx -> Str: w*ctx + Xc, w from pre-stim or stim
+
+% Set alignment shifts
+t_leeway = -t(1);
+leeway_samples = round(t_leeway*(sample_rate));
+stim_align = zeros(size(trial_contrast_allcat));
+move_align = -move_idx + leeway_samples;
+outcome_align = -outcome_idx + leeway_samples;
+
+%%%%%% TESTING NEW ALIGNMENT: 
+% max stim response for each contrast (better than stim onset)
+str1_stimresponses = grpstats(mua_allcat(:,:,1),trial_contrastside_allcat,@nanmean);
+[~,stimresponse_max_idx] = max(str1_stimresponses(:,t < 0.5),[],2);
+stimresponse_max_idx(1:6) = stimresponse_max_idx(7);
+[~,stim_idx] = ismember(trial_contrastside_allcat,unique(trial_contrastside_allcat),'rows');
+stim_max_align = -stimresponse_max_idx(stim_idx) + leeway_samples;
+%%%%%%
+
+use_align = stim_align;
+plot_str = 1; % 1,2
+plot_ctx_L = 3; % 3,7
+plot_ctx_R = plot_ctx_L + size(wf_roi,1);
+
+use_trials = move_t < 0.5 & ...
+    ~any(isnan(mua_allcat(:,:,plot_str)),2) & ...
+    ~any(isnan(fluor_roi_deconv(:,:,plot_ctx_L)),2);
+
+% Re-align activity
+curr_str = cell2mat(arrayfun(@(trial) circshift( ...
+    mua_allcat(trial,:,plot_str), ...
+    use_align(trial),2),find(use_trials),'uni',false));
+
+curr_ctx_L = cell2mat(arrayfun(@(trial) circshift( ...
+    fluor_roi_deconv(trial,:,plot_ctx_L), ...
+    use_align(trial),2),find(use_trials),'uni',false));
+
+% % Re-align activity (reduced)
+% use_reduction = 1;
+% 
+% curr_str = cell2mat(arrayfun(@(trial) circshift( ...
+%     mua_allcat(trial,:,plot_str) - mua_taskpred_reduced_allcat(trial,:,plot_str,use_reduction), ...
+%     use_align(trial),2),find(use_trials),'uni',false));
+% 
+% curr_ctx_L = cell2mat(arrayfun(@(trial) circshift( ...
+%     fluor_roi_deconv(trial,:,plot_ctx_L) - fluor_roi_taskpred_reduced(trial,:,plot_ctx_L,use_reduction), ...
+%     use_align(trial),2),find(use_trials),'uni',false));
 
 
+% % Regress Str = W*Ctx + Xc
+% % NOTE THIS CROSS-VAL IS JANKY AT THE MOMENT:
+% % it's using the average W across cv (should use proper train/test
+% % combinations for each cv's W)
+% 
+% t_shifts = 0;
+% lambdas = 0;
+% zs = [false,false];
+% cvfold = 10;
+% return_constant = true;
+% use_constant = true; 
+% 
+% expl_var = nan(length(t));
+% expl_var_xc = nan(length(t));
+% for curr_t = 1:length(t)
+%     
+%     % Get K from one time point
+%     k_ctx = ...
+%         AP_regresskernel(curr_ctx_L(:,curr_t)',curr_str(:,curr_t)', ...
+%         t_shifts,lambdas,zs,cvfold,return_constant,use_constant);
+%     
+%     % Apply K to all time points
+%     ctx_str = reshape(cell2mat(k_ctx)'* ...
+%         [reshape(curr_ctx_L',[],1),ones(numel(curr_ctx_L),1)]',length(t),[])';
+%     
+%     % Estimate offset by contrast
+%     xc = grpstats(curr_str - ctx_str, ...
+%         trial_contrastside_allcat(use_trials),@nanmean);
+%     
+%     [~,contrastside_idx] = ismember(trial_contrastside_allcat(use_trials), ...
+%         unique(trial_contrastside_allcat),'rows');
+%     xc_trial = xc(contrastside_idx,:);
+% 
+%     % Get R^2 for each time point
+%     sse_total = nansum((curr_str - nanmean(curr_str,1)).^2);
+%     sse_residual = nansum((curr_str - ctx_str).^2);
+%     sse_residual_xc = nansum((curr_str - (ctx_str + xc_trial)).^2);
+%     
+%     expl_var(curr_t,:) = 1 - (sse_residual./sse_total);
+%     expl_var_xc(curr_t,:) = 1 - (sse_residual_xc./sse_total);
+%     
+%     AP_print_progress_fraction(curr_t,length(t));
+%     
+% end
+% 
+% figure;
+% 
+% subplot(6,1,1:4);
+% imagesc(t,t,expl_var_xc - expl_var);
+% caxis([-max(caxis),max(caxis)]);
+% line([0,0],ylim,'color','k');
+% line(xlim,[0,0],'color','k');
+% ylabel('Trained weights');
+% xlabel('Tested fit');
+% title('\DeltaExpl var: with X_c - without X_c');
+% c = colorbar; ylabel(c,'Fraction expl var');
+% colormap(brewermap([],'*RdBu'));
+% axis square
+% 
+% subplot(6,1,5);
+% plot(t,nanmean(expl_var_xc - expl_var,1),'k','linewidth',2);
+% xlabel('Time');
+% ylabel('\DeltaExpl var')
+% 
+% stim_t = 21;
+% line(repmat(t(stim_t),2,1),ylim,'color','r');
+% subplot(6,1,6);
+% plot(t,expl_var_xc(:,stim_t) - expl_var(:,stim_t),'k','linewidth',2);
+% xlabel('Trained weights');
+% ylabel('\DeltaExpl var');
+% ylim([0,max(ylim)]);
 
 
+% Alternate Method: 
+% str = W*fluor + Xc + mu for a time point 
+% (regressor matrix is fluor and trial x contrast X matrix)
+% apply W and mu to all other time points, estimate Xc from residual 
 
+cvfold = 10;
+curr_contrastside = trial_contrastside_allcat(use_trials);
+[~,contrastside_idx] = ismember(curr_contrastside,stim_used,'rows');
+
+% Set up Xr regressors (trial x contrast)
+stim_used = unique(curr_contrastside);
+Xr = zeros(sum(use_trials),length(stim_used));
+for curr_stim_idx = 1:length(stim_used)
+    Xr(curr_contrastside == ...
+        stim_used(curr_stim_idx),curr_stim_idx) = 1;
+end
+
+expl_var_cv = nan(1,length(t));
+expl_var_xc = nan(length(t));
+for curr_t = 1:length(t)
+    
+    % (doing regression manually here to correctly cross-weight cv)   
+    cv_set = AP_shake(round(linspace(1,cvfold,sum(use_trials)))');
+    
+    ctx_str_cv = nan(size(curr_str,1),1);
+    ctx_str_xc = nan(size(curr_str));
+    for curr_cv = 1:cvfold
+        
+        train_trials = cv_set ~= curr_cv;
+        test_trials = cv_set == curr_cv;
+        
+        % (cancel CV)
+        train_trials = true(size(cv_set));
+        test_trials = true(size(cv_set));
+        
+        % Do standard cross-validated regression 
+        k_cv = [curr_ctx_L(train_trials,curr_t),ones(sum(train_trials),1),Xr(train_trials,:)]\ ...
+            curr_str(train_trials,curr_t);
+        
+        ctx_str_cv(test_trials) = [curr_ctx_L(test_trials,curr_t),ones(sum(test_trials),1),Xr(test_trials,:)]*k_cv;
+                
+        % Do cross-time weights
+        % (get W/mu from timepoint train trials)
+        k = [curr_ctx_L(train_trials,curr_t),ones(sum(train_trials),1)]\ ...
+            curr_str(train_trials,curr_t);
+        
+        % (apply W/mu to all time test sets)
+        ctx_str_test = reshape([reshape(curr_ctx_L(test_trials,:)',[],1), ...
+            ones(numel(curr_ctx_L(test_trials,:)),1)]*k(1:2),length(t),[])';
+        
+        % (estimate Xc on all test sets from residual)
+        Xc = Xr(test_trials,:)\(curr_str(test_trials,:) - ctx_str_test);  
+        Xc_trial = Xc(contrastside_idx(test_trials),:);
+        
+        ctx_str_xc(test_trials,:) = ctx_str_test + Xc_trial;
+        
+    end
+        
+    % Get R^2 for each time point
+    sse_total = nansum((curr_str - nanmean(curr_str,1)).^2);
+    sse_residual_cv = nansum((curr_str(:,curr_t) - ctx_str_cv).^2);
+    sse_residual_xc = nansum((curr_str - ctx_str_xc).^2);
+        
+    expl_var_cv(curr_t) = 1 - (sse_residual_cv./sse_total(curr_t));
+    expl_var_xc(curr_t,:) = 1 - (sse_residual_xc./sse_total);
+    
+    AP_print_progress_fraction(curr_t,length(t));
+    
+end
+
+figure;
+
+subplot(6,1,1:4);
+imagesc(t,t,expl_var_xc);
+caxis([-max(abs(caxis)),max(abs(caxis))]);
+line([0,0],ylim,'color','k');
+line(xlim,[0,0],'color','k');
+line(xlim,xlim,'color','k');
+ylabel('Trained time');
+xlabel('Tested time');
+c = colorbar; ylabel(c,'Expl var');
+colormap(brewermap([],'*RdBu'));
+axis square
+
+subplot(6,1,5); hold on;
+plot(t,nanmean(expl_var_cv,1),'k','linewidth',2);
+plot(t,nanmean(expl_var_xc,1),'r','linewidth',2);
+xlabel('Time');
+ylabel('Expl var')
+legend({'Cross-val','Cross weight'});
+
+stim_t = find(t > 0,1);
+line(repmat(t(stim_t),2,1),ylim,'color','r');
+subplot(6,1,6);
+plot(t,expl_var_xc(:,stim_t) - expl_var_cv(stim_t),'k','linewidth',2);
+xlabel('Trained weights');
+ylabel('\DeltaExpl var');
+line(repmat(t(stim_t),2,1),ylim,'color','r');
+line(xlim,[0,0],'color','k');
 
 
 

@@ -54,6 +54,7 @@ end
 % Standardize orientations
 regressors = reshape(regressors,1,[]);
 t_shifts = reshape(t_shifts,1,[]);
+lambdas = reshape(lambdas,1,[]);
 
 % Z-score all regressors and signals to get beta weights if selected
 if ~exist('zs','var') || isempty(zs)

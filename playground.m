@@ -8055,6 +8055,628 @@ save_fn = ['trial_activity_choiceworld_strfilt'];
 save([save_path filesep save_fn],'-v7.3');
 
 
+%% (choiceworld trials: trying regression from (ctx and task) -> str
+
+clear all
+disp('Choiceworld trial activity')
+
+n_aligned_depths = 4;
+
+% Regression parameters
+regression_params.use_svs = 1:50;
+regression_params.skip_seconds = 20;
+regression_params.upsample_factor = 1;
+regression_params.kernel_t = [-0.5,0.5];
+regression_params.zs = [false,false];
+regression_params.cvfold = 5;
+regression_params.use_constant = true;
+
+animals = {'AP024','AP025','AP026','AP027','AP028','AP029'};
+
+% Initialize all saved variables for indexing
+fluor_all = cell(1,1);
+mua_all = cell(1,1);
+mua_ctxpred_all = cell(1,1);
+
+mua_taskpred_k_all = cell(1,1);
+mua_taskpred_all = cell(1,1);
+mua_taskpred_reduced_all = cell(1,1);
+mua_taskpred_expl_var_total_all = cell(1,1);
+mua_taskpred_expl_var_partial_all = cell(1,1);
+
+mua_ctxpred_taskpred_k_all = cell(1,1);
+mua_ctxpred_taskpred_all = cell(1,1);
+mua_ctxpred_taskpred_reduced_all = cell(1,1);
+mua_ctxpred_taskpred_expl_var_total_all = cell(1,1);
+mua_ctxpred_taskpred_expl_var_partial_all = cell(1,1);
+
+fluor_taskpred_k_all = cell(1,1);
+fluor_taskpred_all = cell(1,1);
+fluor_taskpred_reduced_all = cell(1,1);
+fluor_taskpred_expl_var_total_all = cell(1,1);
+fluor_taskpred_expl_var_partial_all = cell(1,1);
+
+mua_ctxtaskpred_all = cell(1,1);
+
+wheel_ctxpred_all = cell(1,1);
+ctx_str_k_all = cell(1,1);
+ctx_wheel_k_all = cell(1,1);
+wheel_all = cell(1,1);
+movement_all = cell(1,1);
+outcome_all = cell(1,1);
+D_all = cell(1,1);
+
+for curr_animal = 1:length(animals)
+    
+    animal = animals{curr_animal};
+    protocol = 'vanillaChoiceworld';
+    experiments = AP_find_experiments(animal,protocol);
+    
+    experiments = experiments([experiments.imaging] & [experiments.ephys]);
+    
+    disp(['Loading ' animal]);
+    
+    for curr_day = 1:length(experiments)
+        
+        day = experiments(curr_day).day;
+        experiment = experiments(curr_day).experiment;
+        
+        % Load experiment
+        str_align = 'kernel';
+        AP_load_experiment;
+        
+        % Prepare fluorescence
+        % Convert U to master U
+        load('C:\Users\Andrew\OneDrive for Business\Documents\CarandiniHarrisLab\analysis\wf_ephys_choiceworld\wf_processing\wf_alignment\U_master.mat');
+        Udf_aligned = single(AP_align_widefield(animal,day,Udf));
+        fVdf_recast = ChangeU(Udf_aligned,fVdf,U_master);
+        
+        % Set components to keep
+        use_components = 1:200;
+        
+        % (aligned striatum depths)
+        n_depths = n_aligned_depths;
+        depth_group = aligned_str_depth_group;
+        
+        % Get event-aligned activity
+        raster_window = [-0.5,2];
+        upsample_factor = 1;
+        raster_sample_rate = 1/(framerate*upsample_factor);
+        t = raster_window(1):raster_sample_rate:raster_window(2);
+        
+        % Get align times
+        use_align = stimOn_times;
+        use_align(isnan(use_align)) = 0;
+        
+        t_peri_event = bsxfun(@plus,use_align,t);
+        t_peri_event_bins = [t_peri_event-raster_sample_rate/2,t_peri_event(:,end)+raster_sample_rate/2];
+        
+        %%% Trial-align cortex
+        event_aligned_V = ...
+            interp1(frame_t,fVdf_recast(use_components,:)',t_peri_event);
+        
+        %%% Trial-align striatum
+        event_aligned_mua = nan(length(stimOn_times),length(t),n_depths);
+        for curr_depth = 1:n_depths
+            curr_spikes = spike_times_timeline(depth_group == curr_depth);
+            % (for only msns in depth group)
+            %                 curr_spikes = spike_times_timeline(depth_group == curr_depth & ...
+            %                     ismember(spike_templates,find(msn)));
+            
+            if isempty(curr_spikes)
+                continue
+            end
+            
+            event_aligned_mua(:,:,curr_depth) = cell2mat(arrayfun(@(x) ...
+                histcounts(curr_spikes,t_peri_event_bins(x,:)), ...
+                [1:size(t_peri_event,1)]','uni',false))./raster_sample_rate;
+        end
+        
+        %%% Regress cortex to striatum
+        
+        % Get time points to bin
+        sample_rate = framerate*regression_params.upsample_factor;
+        time_bins = frame_t(find(frame_t > ...
+            regression_params.skip_seconds,1)):1/sample_rate: ...
+            frame_t(find(frame_t-frame_t(end) < ...
+            -regression_params.skip_seconds,1,'last'));
+        time_bin_centers = time_bins(1:end-1) + diff(time_bins)/2;
+        
+        % Deconvolve fluoresence
+        fVdf_deconv = AP_deconv_wf(fVdf);
+        fVdf_deconv(isnan(fVdf_deconv)) = 0;
+        fVdf_deconv_resample = interp1(frame_t,fVdf_deconv',time_bin_centers)';
+        
+        % Bin spikes across the experiment
+        binned_spikes = nan(n_depths,length(time_bin_centers));
+        for curr_depth = 1:n_depths
+            curr_spike_times = spike_times_timeline(depth_group == curr_depth);
+            % Skip if no spikes at this depth
+            if isempty(curr_spike_times)
+                continue
+            end
+            binned_spikes(curr_depth,:) = histcounts(curr_spike_times,time_bins);
+        end
+        binned_spikes_std = binned_spikes./nanstd(binned_spikes,[],2);
+        
+        % Load lambda from previously estimated and saved
+        lambda_fn = 'C:\Users\Andrew\OneDrive for Business\Documents\CarandiniHarrisLab\analysis\wf_ephys_choiceworld\ephys_processing\ctx-str_lambda';
+        load(lambda_fn);
+        curr_animal_idx = strcmp(animal,{ctx_str_lambda.animal});
+        if any(curr_animal_idx)
+            curr_day_idx = strcmp(day,ctx_str_lambda(curr_animal_idx).day);
+            if any(curr_day_idx)
+                ctx_lambda = ctx_str_lambda(curr_animal_idx).best_lambda(curr_day_idx);
+            end
+        end
+        
+        kernel_frames = round(regression_params.kernel_t(1)*sample_rate): ...
+            round(regression_params.kernel_t(2)*sample_rate);
+        
+        % Regress cortex to striatum
+        [ctx_str_k,ctxpred_spikes_std,explained_var] = ...
+            AP_regresskernel(fVdf_deconv_resample(regression_params.use_svs,:), ...
+            binned_spikes_std,kernel_frames,ctx_lambda, ...
+            regression_params.zs,regression_params.cvfold, ...
+            true,regression_params.use_constant);
+        
+        % Recast the k's into the master U
+        ctx_str_k_recast = reshape(ChangeU(Udf_aligned(:,:,regression_params.use_svs), ...
+            reshape(ctx_str_k{1},size(ctx_str_k{1},1),[]),U_master(:,:,regression_params.use_svs)), ...
+            size(ctx_str_k{1}));
+        
+        % Re-scale the prediction (subtract offset, multiply, add scaled offset)
+        ctxpred_spikes = (ctxpred_spikes_std - squeeze(ctx_str_k{end})).* ...
+            nanstd(binned_spikes,[],2) + ...
+            nanstd(binned_spikes,[],2).*squeeze(ctx_str_k{end});
+        
+        event_aligned_mua_ctxpred = ...
+            interp1(time_bin_centers,ctxpred_spikes',t_peri_event)./raster_sample_rate;
+        
+        % Regress cortex to wheel velocity/speed
+        wheel_velocity_resample = interp1(Timeline.rawDAQTimestamps,wheel_velocity,time_bin_centers);
+        wheel_velspeed_resample = [wheel_velocity_resample;abs(wheel_velocity_resample)];
+        wheel_velspeed_resample_std = wheel_velspeed_resample./std(wheel_velocity_resample);
+        
+        [ctx_wheel_k,predicted_wheel_velspeed_std,explained_var] = ...
+            AP_regresskernel(fVdf_deconv_resample(regression_params.use_svs,:), ...
+            wheel_velspeed_resample_std,kernel_frames,ctx_lambda, ...
+            regression_params.zs,regression_params.cvfold, ...
+            false,false);
+        
+        predicted_wheel_velspeed = predicted_wheel_velspeed_std.* ...
+            std(wheel_velocity_resample);
+        
+        % Recast the k's into the master U
+        ctx_wheel_k_recast = reshape(ChangeU(Udf_aligned(:,:,regression_params.use_svs), ...
+            reshape(ctx_wheel_k,size(ctx_wheel_k,1),[]),U_master(:,:,regression_params.use_svs)), ...
+            size(ctx_wheel_k));
+        
+        event_aligned_wheel_ctxpred = ...
+            interp1(time_bin_centers,predicted_wheel_velspeed(1,:)',t_peri_event);
+        
+        %%% Trial-align wheel velocity
+        event_aligned_wheel = interp1(Timeline.rawDAQTimestamps, ...
+            wheel_velocity,t_peri_event);
+        
+        %%% Trial-align facecam movement
+        event_aligned_movement = interp1(facecam_t(~isnan(facecam_t)), ...
+            frame_movement(~isnan(facecam_t)),t_peri_event);
+        
+        %%% Trial-align outcome (reward page 1, punish page 2)
+        % (note incorrect outcome imprecise from signals, but looks good)
+        event_aligned_outcome = zeros(size(t_peri_event,1),size(t_peri_event,2),2);
+        
+        event_aligned_outcome(trial_outcome == 1,:,1) = ...
+            (cell2mat(arrayfun(@(x) ...
+            histcounts(reward_t_timeline,t_peri_event_bins(x,:)), ...
+            find(trial_outcome == 1),'uni',false))) > 0;
+        
+        event_aligned_outcome(trial_outcome == -1,:,2) = ...
+            (cell2mat(arrayfun(@(x) ...
+            histcounts(signals_events.responseTimes,t_peri_event_bins(x,:)), ...
+            find(trial_outcome == -1),'uni',false))) > 0;
+        
+        % Pick trials to keep
+        use_trials = ...
+            trial_outcome ~= 0 & ...
+            ~signals_events.repeatTrialValues(1:n_trials)' & ...
+            stim_to_feedback < 1.5;
+        
+        % Get behavioural data
+        D = struct;
+        D.stimulus = zeros(sum(use_trials),2);
+        
+        L_trials = signals_events.trialSideValues(1:n_trials)' == -1;
+        R_trials = signals_events.trialSideValues(1:n_trials)' == 1;
+        
+        D.stimulus(L_trials(use_trials),1) = signals_events.trialContrastValues(L_trials & use_trials);
+        D.stimulus(R_trials(use_trials),2) = signals_events.trialContrastValues(R_trials & use_trials);
+        
+        D.response = 3-(abs((trial_choice(use_trials)+1)/2)+1);
+        D.repeatNum = ones(sum(use_trials),1);
+        
+        D.outcome = reshape(trial_outcome(use_trials),[],1);
+        
+        %%% Regress task to cortex/striatum/cortex-predicted striatum
+        
+        % Get reaction time for building regressors
+        [move_trial,move_idx] = max(abs(event_aligned_wheel) > 0.02,[],2);
+        move_idx(~move_trial) = NaN;
+        move_t = nan(size(move_idx));
+        move_t(~isnan(move_idx) & move_trial) = t(move_idx(~isnan(move_idx) & move_trial))';
+        
+        % Build regressors (only a subset of these are used)
+        
+        % Stim regressors
+        unique_stim = unique(contrasts(contrasts > 0).*sides');
+        stim_contrastsides = ...
+            signals_events.trialSideValues(1:length(stimOn_times))'.* ...
+            signals_events.trialContrastValues(1:length(stimOn_times))';
+        
+        stim_regressors = zeros(length(unique_stim),length(time_bin_centers));
+        for curr_stim = 1:length(unique_stim)
+            curr_stim_times = stimOn_times(stim_contrastsides == unique_stim(curr_stim));
+            stim_regressors(curr_stim,:) = histcounts(curr_stim_times,time_bins);
+        end
+        
+        % Stim move regressors (one for each stim when it starts to move)
+        stim_move_regressors = zeros(length(unique_stim),length(time_bin_centers));
+        for curr_stim = 1:length(unique_stim)
+            
+            % (find the first photodiode flip after the stim azimuth has
+            % moved past a threshold)
+            
+            curr_stimOn_times = stimOn_times(trial_outcome(1:length(stimOn_times)) ~= 0 & ...
+                stim_contrastsides == unique_stim(curr_stim));
+            
+            azimuth_move_threshold = 5; % degrees to consider stim moved
+            stim_move_times_signals = ...
+                signals_events.stimAzimuthTimes( ...
+                abs(signals_events.stimAzimuthValues - 90) > azimuth_move_threshold);
+            curr_stim_move_times_signals = arrayfun(@(x) ...
+                stim_move_times_signals(find(stim_move_times_signals > ...
+                curr_stimOn_times(x),1)),1:length(curr_stimOn_times));
+            
+            curr_stim_move_times_photodiode = arrayfun(@(x) ...
+                photodiode_flip_times(find(photodiode_flip_times > ...
+                curr_stim_move_times_signals(x),1)),1:length(curr_stim_move_times_signals));
+            
+            stim_move_regressors(curr_stim,:) = histcounts(curr_stim_move_times_photodiode,time_bins);
+            
+        end
+        
+        % Stim center regressors (one for each stim when it's stopped during reward)
+        unique_contrasts = unique(contrasts(contrasts > 0));
+        
+        stim_center_regressors = zeros(length(unique_contrasts),length(time_bin_centers));
+        for curr_contrast = 1:length(unique_contrasts)
+            
+            % (find the last photodiode flip before the reward)
+            curr_stimOn_times = stimOn_times(trial_outcome(1:length(stimOn_times)) == 1 & ...
+                abs(stim_contrastsides) == unique_contrasts(curr_contrast));
+            
+            curr_reward_times = arrayfun(@(x) ...
+                reward_t_timeline(find(reward_t_timeline > ...
+                curr_stimOn_times(x),1)),1:length(curr_stimOn_times));
+            
+            curr_prereward_photodiode_times = arrayfun(@(x) ...
+                photodiode_flip_times(find(photodiode_flip_times < ...
+                curr_reward_times(x),1,'last')),1:length(curr_reward_times));
+            
+            stim_center_regressors(curr_contrast,:) = histcounts(curr_prereward_photodiode_times,time_bins);
+            
+        end
+        
+        % Move onset regressors (L/R)
+        move_time_L_absolute = arrayfun(@(x) t_peri_event(x,move_idx(x)), ...
+            find(~isnan(move_idx) & trial_choice(1:length(stimOn_times)) == -1));
+        move_time_R_absolute = arrayfun(@(x) t_peri_event(x,move_idx(x)), ...
+            find(~isnan(move_idx) & trial_choice(1:length(stimOn_times)) == 1));
+        
+        move_onset_regressors = zeros(2,length(time_bin_centers));
+        move_onset_regressors(1,:) = histcounts(move_time_L_absolute,time_bins);
+        move_onset_regressors(2,:) = histcounts(move_time_R_absolute,time_bins);
+        
+        % Move onset x stim regressors (one for each contrast/side)
+        move_onset_stim_time_absolute = arrayfun(@(curr_stim) ...
+            arrayfun(@(x) t_peri_event(x,move_idx(x)), ...
+            find(~isnan(move_idx) & stim_contrastsides == unique_stim(curr_stim))), ...
+            1:length(unique_stim),'uni',false);
+        
+        move_onset_stim_regressors = zeros(length(unique_stim),length(time_bin_centers));
+        for curr_stim = 1:length(unique_stim)
+            move_onset_stim_regressors(curr_stim,:) = ...
+                histcounts(move_onset_stim_time_absolute{curr_stim},time_bins);
+        end
+        
+        % Move ongoing regressors (L/R choice for duration of movement)
+        wheel_velocity_interp = interp1(Timeline.rawDAQTimestamps,wheel_velocity,time_bin_centers);
+        
+        move_stopped_t = 0.5;
+        move_stopped_samples = round(sample_rate*move_stopped_t);
+        wheel_moving_conv = convn((abs(wheel_velocity_interp) > 0.02), ...
+            ones(1,move_stopped_samples),'full') > 0;
+        wheel_moving = wheel_moving_conv(end-length(time_bin_centers)+1:end);
+        
+        move_ongoing_L_samples = cell2mat(arrayfun(@(x) ...
+            find(time_bin_centers > x): ...
+            find(time_bin_centers > x & ~wheel_moving,1), ...
+            move_time_L_absolute','uni',false));
+        move_ongoing_R_samples = cell2mat(arrayfun(@(x) ...
+            find(time_bin_centers > x): ...
+            find(time_bin_centers > x & ~wheel_moving,1), ...
+            move_time_R_absolute','uni',false));
+        
+        move_ongoing_regressors = zeros(2,length(time_bin_centers));
+        move_ongoing_regressors(1,move_ongoing_L_samples) = 1;
+        move_ongoing_regressors(2,move_ongoing_R_samples) = 1;
+        
+        % Go cue regressors - separate for early/late move
+        % (using signals timing - not precise but looks good)
+        % (for go cue only on late move trials)
+%         go_cue_regressors = histcounts( ...
+%             signals_events.interactiveOnTimes(move_t > 0.5),time_bins);
+        % (for go cue with early/late move trials)
+        go_cue_regressors = zeros(1,length(time_bin_centers));
+        go_cue_regressors(1,:) = histcounts( ...
+            signals_events.interactiveOnTimes(move_t <= 0.5),time_bins);
+        go_cue_regressors(2,:) = histcounts( ...
+            signals_events.interactiveOnTimes(move_t > 0.5),time_bins);
+        
+        % Outcome regressors
+        % (using signals timing - not precise but looks good)
+        % (regressors for hit only)
+%         outcome_regressors = histcounts(reward_t_timeline,time_bins);
+        % (regressors for both hit and miss)
+        outcome_regressors = zeros(2,length(time_bin_centers));
+        outcome_regressors(1,:) = histcounts( ...
+            reward_t_timeline,time_bins);
+        outcome_regressors(2,:) = histcounts( ...
+            signals_events.responseTimes(trial_outcome == -1),time_bins);
+        
+        % Concatenate selected regressors, set parameters
+        
+        task_regressors = {stim_regressors;move_onset_regressors;go_cue_regressors;outcome_regressors};
+        task_regressor_labels = {'Stim','Move onset','Go cue','Outcome'};
+                       
+        task_t_shifts = { ...
+            [0,0.5]; ... % stim
+            [-0.5,1]; ... % move
+            [0,0.5]; ... % go cue
+            [0,0.5]}; % outcome       
+        
+        % (old extended timings)
+        %         task_t_shifts = {[0,0.5]; ... % stim
+        %             [-0.5,1]; ... % move
+        %             [-0.1,0.5]; ... % go cue
+        %             [-0.5,1]}; % outcome
+
+        % (to include stim x move)
+        %         task_regressors = {stim_regressors;move_onset_regressors;move_onset_stim_regressors;go_cue_regressors;outcome_regressors};
+        %         task_regressor_labels = {'Stim','Move','Stim x move','Go cue','Outcome'};
+        %
+        %         task_t_shifts = { ...
+        %             [0,0.5]; ... % stim
+        %             [-0.5,1]; ... % move
+        %             [-0.5,1]; ... % stim x move
+        %             [0,0.5]; ... % go cue
+        %             [0,0.5]}; % outcome
+        
+        task_regressor_sample_shifts = cellfun(@(x) round(x(1)*(sample_rate)): ...
+            round(x(2)*(sample_rate)),task_t_shifts,'uni',false);
+        lambda = 0;
+        zs = [false,false];
+        cvfold = 5;
+        use_constant = false;
+        return_constant = false;
+        
+        % Regression task -> MUA
+        baseline = nanmean(reshape(event_aligned_mua(:,t < 0,:),[], ...
+            size(event_aligned_mua,3))*raster_sample_rate,1)';
+        activity = single(binned_spikes) - baseline;
+        
+        [mua_taskpred_k,mua_taskpred_long,mua_taskpred_expl_var,mua_taskpred_reduced_long] = ...
+            AP_regresskernel(task_regressors,activity,task_regressor_sample_shifts, ...
+            lambda,zs,cvfold,return_constant,use_constant);
+        
+        mua_taskpred = ...
+            interp1(time_bin_centers,mua_taskpred_long',t_peri_event)./raster_sample_rate;
+        
+        mua_taskpred_reduced = cell2mat(arrayfun(@(x) ...
+            interp1(time_bin_centers,mua_taskpred_reduced_long(:,:,x)', ...
+            t_peri_event)./raster_sample_rate,permute(1:length(task_regressors),[1,3,4,2]),'uni',false));
+        
+        % Regression task -> MUA-ctxpred
+        baseline = nanmean(reshape(event_aligned_mua_ctxpred(:,t < 0,:),[], ...
+            size(event_aligned_mua_ctxpred,3))*raster_sample_rate,1)';
+        activity = single(ctxpred_spikes) - baseline;
+        
+        [mua_ctxpred_taskpred_k,mua_ctxpred_taskpred_long,mua_ctxpred_taskpred_expl_var,mua_ctxpred_taskpred_reduced_long] = ...
+            AP_regresskernel(task_regressors,activity,task_regressor_sample_shifts, ...
+            lambda,zs,cvfold,return_constant,use_constant);
+        
+        mua_ctxpred_taskpred = ...
+            interp1(time_bin_centers,mua_ctxpred_taskpred_long',t_peri_event)./raster_sample_rate;
+        
+        mua_ctxpred_taskpred_reduced = cell2mat(arrayfun(@(x) ...
+            interp1(time_bin_centers,mua_ctxpred_taskpred_reduced_long(:,:,x)', ...
+            t_peri_event)./raster_sample_rate,permute(1:length(task_regressors),[1,3,4,2]),'uni',false));
+        
+        % Regression task -> (master U, deconvolved) fluor
+        event_aligned_V_deconv = AP_deconv_wf(event_aligned_V);
+        fVdf_deconv_resample_recast = ChangeU(Udf_aligned,fVdf_deconv_resample,U_master);
+        
+        baseline = nanmean(reshape(event_aligned_V_deconv(:,t < 0,:),[],size(event_aligned_V_deconv,3)))';
+        activity = single(fVdf_deconv_resample_recast(use_components,:))-baseline;
+        
+        [fluor_taskpred_k,fluor_taskpred_long,fluor_taskpred_expl_var,fluor_taskpred_reduced_long] = ...
+            AP_regresskernel(task_regressors,activity,task_regressor_sample_shifts, ...
+            lambda,zs,cvfold,return_constant,use_constant);
+        
+        fluor_taskpred = ...
+            interp1(time_bin_centers,fluor_taskpred_long',t_peri_event);
+        
+        fluor_taskpred_reduced = cell2mat(arrayfun(@(x) ...
+            interp1(time_bin_centers,fluor_taskpred_reduced_long(:,:,x)', ...
+            t_peri_event),permute(1:length(task_regressors),[1,3,4,2]),'uni',false));
+        
+        %%%% TESTING: Regression (ctx and task) -> str
+        fVdf_deconv_resample_recast = ChangeU(Udf_aligned,fVdf_deconv_resample,U_master); 
+        
+        ctx_activity = single(fVdf_deconv_resample_recast(regression_params.use_svs,:));
+        str_activity = single(binned_spikes);
+        str_activity_std = str_activity./nanstd(str_activity,[],2);
+        
+        task_regressors_single = cellfun(@single,task_regressors,'uni',false);
+        
+        [ctx_task_k,mua_ctxtaskpred_std_long] = AP_regresskernel( ...
+            [{ctx_activity};task_regressors_single], ... & Task and ctx regressors
+            str_activity_std, ... % Str activity (std)
+            [{kernel_frames};task_regressor_sample_shifts], ... & time shifts for ctx and task
+            [ctx_lambda;zeros(size(task_regressors))], ... % lambdas for ctx and zeros for task
+            [false,false], ... % don't auto zscore anything
+            5,1,1); % cvfold, return and use constant
+        
+        % re-scale spikes 
+        mua_ctxtaskpred_long = (mua_ctxtaskpred_std_long - squeeze(ctx_task_k{end})).* ...
+            nanstd(str_activity,[],2) + ...
+            nanstd(str_activity,[],2).*squeeze(ctx_task_k{end});
+        
+        mua_ctxtaskpred = ...
+            interp1(time_bin_centers,mua_ctxtaskpred_long',t_peri_event)./raster_sample_rate;    
+        
+        %%%%%%%%%%%%%%
+        
+        %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+        
+        % Store everything
+        fluor_all{curr_animal,1}{curr_day,1} = event_aligned_V(use_trials,:,:,:);
+        mua_all{curr_animal,1}{curr_day,1} = event_aligned_mua(use_trials,:,:,:);
+        
+        ctx_str_k_all{curr_animal,1}{curr_day,1} = ctx_str_k_recast;
+        mua_ctxpred_all{curr_animal,1}{curr_day,1} = event_aligned_mua_ctxpred(use_trials,:,:,:);
+        
+        mua_taskpred_k_all{curr_animal,1}{curr_day,1} = mua_taskpred_k;
+        mua_taskpred_all{curr_animal,1}{curr_day,1} = mua_taskpred(use_trials,:,:,:);
+        mua_taskpred_reduced_all{curr_animal,1}{curr_day,1} = mua_taskpred_reduced(use_trials,:,:,:);
+        mua_taskpred_expl_var_total_all{curr_animal,1}{curr_day,1} = mua_taskpred_expl_var.total;
+        mua_taskpred_expl_var_partial_all{curr_animal,1}{curr_day,1} = mua_taskpred_expl_var.partial;
+        
+        mua_ctxpred_taskpred_k_all{curr_animal,1}{curr_day,1} = mua_ctxpred_taskpred_k;
+        mua_ctxpred_taskpred_all{curr_animal,1}{curr_day,1} = mua_ctxpred_taskpred(use_trials,:,:,:);
+        mua_ctxpred_taskpred_reduced_all{curr_animal,1}{curr_day,1} = mua_ctxpred_taskpred_reduced(use_trials,:,:,:);
+        mua_ctxpred_taskpred_expl_var_total_all{curr_animal,1}{curr_day,1} = mua_ctxpred_taskpred_expl_var.total;
+        mua_ctxpred_taskpred_expl_var_partial_all{curr_animal,1}{curr_day,1} = mua_ctxpred_taskpred_expl_var.partial;
+        
+        fluor_taskpred_k_all{curr_animal,1}{curr_day,1} = fluor_taskpred_k;
+        fluor_taskpred_all{curr_animal,1}{curr_day,1} = fluor_taskpred(use_trials,:,:,:);
+        fluor_taskpred_reduced_all{curr_animal,1}{curr_day,1} = fluor_taskpred_reduced(use_trials,:,:,:);
+        fluor_taskpred_expl_var_total_all{curr_animal,1}{curr_day,1} = fluor_taskpred_expl_var.total;
+        fluor_taskpred_expl_var_partial_all{curr_animal,1}{curr_day,1} = fluor_taskpred_expl_var.partial;
+        
+        mua_ctxtaskpred_all{curr_animal,1}{curr_day,1} = mua_ctxtaskpred(use_trials,:,:);
+        
+        wheel_all{curr_animal,1}{curr_day,1} = event_aligned_wheel(use_trials,:,:);
+        movement_all{curr_animal,1}{curr_day,1} = event_aligned_movement(use_trials,:,:);
+        
+        ctx_wheel_k_all{curr_animal,1}{curr_day,1} = ctx_wheel_k_recast;
+        wheel_ctxpred_all{curr_animal,1}{curr_day,1} = event_aligned_wheel_ctxpred(use_trials,:,:);
+        
+        outcome_all{curr_animal,1}{curr_day,1} = event_aligned_outcome(use_trials,:,:);
+        D_all{curr_animal,1}{curr_day,1} = D;
+        
+        AP_print_progress_fraction(curr_day,length(experiments));
+        
+        % Clear for next loop
+        clearvars -except curr_animal animal protocol experiments load_parts curr_day ...
+            n_aligned_depths regression_params animals t ...
+            ...
+            fluor_all ...
+            mua_all ...
+            mua_ctxpred_all ...
+            ...
+            mua_taskpred_k_all ...
+            mua_taskpred_all ...
+            mua_taskpred_reduced_all ...
+            mua_taskpred_expl_var_total_all ...
+            mua_taskpred_expl_var_partial_all ...
+            ...
+            mua_ctxpred_taskpred_k_all ...
+            mua_ctxpred_taskpred_all ...
+            mua_ctxpred_taskpred_reduced_all ...
+            mua_ctxpred_taskpred_expl_var_total_all ...
+            mua_ctxpred_taskpred_expl_var_partial_all ...
+            ...
+            fluor_taskpred_k_all ...
+            fluor_taskpred_all ...
+            fluor_taskpred_reduced_all ...
+            fluor_taskpred_expl_var_total_all ...
+            fluor_taskpred_expl_var_partial_all ...
+            ...
+            mua_ctxtaskpred_all ...
+            ...
+            wheel_ctxpred_all ...
+            ctx_str_k_all ...
+            ctx_wheel_k_all ...
+            wheel_all ...
+            movement_all ...
+            outcome_all ...
+            D_all ...
+            ...
+            task_regressor_labels ...
+            task_regressor_sample_shifts
+        
+    end
+end
+
+clearvars -except ...
+    n_aligned_depths regression_params animals t ...
+    ...
+    fluor_all ...
+    mua_all ...
+    mua_ctxpred_all ...
+    ...
+    mua_taskpred_k_all ...
+    mua_taskpred_all ...
+    mua_taskpred_reduced_all ...
+    mua_taskpred_expl_var_total_all ...
+    mua_taskpred_expl_var_partial_all ...
+    ...
+    mua_ctxpred_taskpred_k_all ...
+    mua_ctxpred_taskpred_all ...
+    mua_ctxpred_taskpred_reduced_all ...
+    mua_ctxpred_taskpred_expl_var_total_all ...
+    mua_ctxpred_taskpred_expl_var_partial_all ...
+    ...
+    fluor_taskpred_k_all ...
+    fluor_taskpred_all ...
+    fluor_taskpred_reduced_all ...
+    fluor_taskpred_expl_var_total_all ...
+    fluor_taskpred_expl_var_partial_all ...
+    ...
+    mua_ctxtaskpred_all ...
+    ...
+    wheel_ctxpred_all ...
+    ctx_str_k_all ...
+    ctx_wheel_k_all ...
+    wheel_all ...
+    movement_all ...
+    outcome_all ...
+    D_all ...
+    ...
+    task_regressor_labels ...
+    task_regressor_sample_shifts
+
+disp('Finished loading all')
+
+save_path = 'C:\Users\Andrew\OneDrive for Business\Documents\CarandiniHarrisLab\analysis\wf_ephys_choiceworld\paper\data';
+save_fn = ['trial_activity_choiceworld'];
+save([save_path filesep save_fn],'-v7.3');
+
+
+
+
 %% [ctx L, ctxR] \ str
 
 % Get flipped kernel ROIs and fluorescence (do once, not in load)
@@ -8154,7 +8776,7 @@ legend({'Ctx L & Ctx R','Ctx L'});
 
 
 
-%% Fig 4g: Cortex-predicted striatum error
+%% Fig 4g: Cortex-predicted striatum error (TESTING ERROR FIX)
 
 % Set alignment shifts
 t_leeway = -t(1);
@@ -8164,12 +8786,18 @@ move_align = -move_idx + leeway_samples;
 outcome_align = -outcome_idx + leeway_samples;
 
 % Set windows to average activity
-timeavg_labels = {'Pre-stim','Stim'};
-timeavg_t = {[-0.2,-0.1],[0.05,0.15]};
-timeavg_align = {stim_align,stim_align};
+timeavg_labels = {'Stim','Move onset','Outcome'};
+timeavg_t = {[0.05,0.15],[-0.05,0.05],[0.05,0.15]};
+timeavg_align = {stim_align,move_align,outcome_align};
 timeavg_trial_conditions = ...
-    {[trial_contrastside_allcat > 0,trial_contrastside_allcat < 0], ...
-    [trial_contrastside_allcat > 0,trial_contrastside_allcat < 0]};
+    {[trial_contrastside_allcat >= 0.5,trial_contrastside_allcat <= -0.5], ...
+    [trial_choice_allcat == -1,trial_choice_allcat == 1], ...
+    [trial_outcome_allcat == 1, trial_outcome_allcat == -1]};
+timeavg_task_reduction = [1,2,4];
+
+% timeavg_labels = {'Pre-stim','Stim'};
+% timeavg_t = {[-0.2,-0.1],[0.05,0.15]};
+% timeavg_align = {stim_align,stim_align};
 
 % Set activity percentiles and bins
 act_prctile = [10,90];
@@ -8180,10 +8808,13 @@ plot_areas = [1,2,3,4];
 
 % Loop across area pairs, plot binned predicted v measured activity
 curr_act_allcat = mua_allcat;
+curr_act_taskpred_reduced_allcat = mua_taskpred_reduced_allcat;
 curr_act_pred_allcat = mua_ctxpred_allcat;
+curr_act_pred_taskpred_reduced_allcat = mua_ctxpred_taskpred_reduced_allcat;
 
-curr_act_pred_allcat(:,:,1) = curr_act_pred_allcat(:,:,1) + xc_trial_1;
-curr_act_pred_allcat(:,:,2) = curr_act_pred_allcat(:,:,2) + xc_trial_2;
+% Get "fixing" matrix: difference between task predicted str/ctx-pred str
+task_fix = mua_taskpred_allcat - mua_ctxpred_taskpred_allcat;
+task_fix_reduced = mua_taskpred_reduced_allcat - mua_ctxpred_taskpred_reduced_allcat;
 
 measured_v_pred_fig = figure('color','w');
 for curr_area_idx = 1:length(plot_areas)
@@ -8192,13 +8823,16 @@ for curr_area_idx = 1:length(plot_areas)
     
     % Set up the summary values
     curr_act_pred_diff = nan(2,length(use_split),length(timeavg_labels));
-    curr_act_pred_rank_condition_diff = nan(length(use_split),length(timeavg_labels));
+    curr_act_pred_condition_diff = nan(length(use_split),length(timeavg_labels));
     n_shuff = 1000;
-    curr_act_pred_rank_condition_diff_shuff = nan(length(use_split),n_shuff,length(timeavg_labels));
+    curr_act_pred_condition_diff_shuff = nan(length(use_split),n_shuff,length(timeavg_labels));
     
     for curr_timeavg = 1:length(timeavg_labels)
         
         trial_conditions = timeavg_trial_conditions{curr_timeavg};
+        curr_task_reduction = timeavg_task_reduction(curr_timeavg);
+        
+        curr_act_pred_fix = task_fix;
         
         % (re-align and split activity)
         curr_act = mat2cell(...
@@ -8207,16 +8841,22 @@ for curr_area_idx = 1:length(plot_areas)
             timeavg_align{curr_timeavg}(trial),2),transpose(1:size(curr_act_allcat,1)),'uni',false)), ...
             use_split,length(t));
         
+%         curr_act_pred = mat2cell(...
+%             cell2mat(arrayfun(@(trial) circshift( ...
+%             curr_act_pred_allcat(trial,:,plot_area), ...
+%             timeavg_align{curr_timeavg}(trial),2),transpose(1:size(curr_act_pred_allcat,1)),'uni',false)), ...
+%             use_split,length(t));
+        
         curr_act_pred = mat2cell(...
             cell2mat(arrayfun(@(trial) circshift( ...
-            curr_act_pred_allcat(trial,:,plot_area), ...
+            curr_act_pred_allcat(trial,:,plot_area) + curr_act_pred_fix(trial,:,plot_area), ...
             timeavg_align{curr_timeavg}(trial),2),transpose(1:size(curr_act_pred_allcat,1)),'uni',false)), ...
             use_split,length(t));
         
         trial_conditions_exp = mat2cell(trial_conditions,use_split,size(trial_conditions,2));
         
         % (get average activity within window)
-        curr_event_t = t > timeavg_t{curr_timeavg}(1) & t < timeavg_t{curr_timeavg}(2);
+        curr_event_t = t > timeavg_t{curr_timeavg}(1) & t <= timeavg_t{curr_timeavg}(2);
         curr_act_avg = cellfun(@(x) squeeze(nanmean(x(:,curr_event_t,:),2)),curr_act,'uni',false);
         curr_act_pred_avg = cellfun(@(x) squeeze(nanmean(x(:,curr_event_t,:),2)),curr_act_pred,'uni',false);
 
@@ -8229,9 +8869,9 @@ for curr_area_idx = 1:length(plot_areas)
         total_bins = cellfun(@(x) discretize(x,[bin_edges(1),bin_edges(end)]),curr_act_pred_avg,'uni',false);
         
         % (get trials to use: no NaNs in either time series or bins)
-        use_trials = cellfun(@(act,act_taskpred,trial_bins) ...
+        use_trials = cellfun(@(act,act_pred,trial_bins) ...
             squeeze(~any(isnan(act(:,curr_event_t)),2)) & ...
-            squeeze(~any(isnan(act_taskpred(:,curr_event_t)),2)) & ...
+            squeeze(~any(isnan(act_pred(:,curr_event_t)),2)) & ...
             ~isnan(trial_bins), ...
             curr_act,curr_act_pred,trial_bins,'uni',false);
         
@@ -8272,17 +8912,15 @@ for curr_area_idx = 1:length(plot_areas)
         % Get average act-pred difference (ALL TRIALS)
         curr_act_pred_diff(:,:,curr_timeavg) = ...
             cell2mat(arrayfun(@(cond) cellfun(@(act,pred,trial_cond,use_trials) ...
-            nanmean(act(trial_cond(:,cond)) - pred(trial_cond(:,cond))), ...
+            nanmean(abs(act(trial_cond(:,cond)) - pred(trial_cond(:,cond)))), ...
             curr_act_avg,curr_act_pred_avg,trial_conditions_exp,use_trials), ...
             1:size(trial_conditions,2),'uni',false))';
         
         % Get condition  difference (assume 2 conditions)
-        curr_act_avg_rank = cellfun(@(x) tiedrank(x)./max(tiedrank(x)),curr_act_avg,'uni',false);
-        curr_act_pred_avg_rank = cellfun(@(x) tiedrank(x)./max(tiedrank(x)),curr_act_pred_avg,'uni',false);        
         curr_act_pred_condition_diff(:,curr_timeavg) = ...
             cellfun(@(act,pred,trial_cond,use_trials) ...       
-            nanmean(act(trial_cond(:,1)) - pred(trial_cond(:,1))) - ...
-            nanmean(act(trial_cond(:,2)) - pred(trial_cond(:,2))), ...
+            nanmean(abs(act(trial_cond(:,1)) - pred(trial_cond(:,1)))) - ...
+            nanmean(abs(act(trial_cond(:,2)) - pred(trial_cond(:,2)))), ...
             curr_act_avg,curr_act_pred_avg,trial_conditions_exp,use_trials);
         
         % Get condition-shuffled act-pred difference
@@ -8292,8 +8930,8 @@ for curr_area_idx = 1:length(plot_areas)
         curr_act_pred_condition_diff_shuff(:,:,curr_timeavg) = ...
             cell2mat(arrayfun(@(shuff) ...
             cellfun(@(act,pred,trial_cond,use_trials) ...
-            nanmean(act(trial_cond(:,1,shuff)) - pred(trial_cond(:,1,shuff))) - ...
-            nanmean(act(trial_cond(:,2,shuff)) - pred(trial_cond(:,2,shuff))), ...
+            nanmean(abs(act(trial_cond(:,1,shuff)) - pred(trial_cond(:,1,shuff)))) - ...
+            nanmean(abs(act(trial_cond(:,2,shuff)) - pred(trial_cond(:,2,shuff)))), ...
             curr_act_avg,curr_act_pred_avg,trial_conditions_exp_shuff,use_trials), ...
             1:n_shuff,'uni',false));
         
@@ -8319,7 +8957,7 @@ for curr_area_idx = 1:length(plot_areas)
         xlabel(['Predicted (' num2str(plot_area) ')']);
         ylabel(['Measured (' num2str(plot_area) ')'])
         ylim(xlim); axis square;
-        title([timeavg_labels{curr_timeavg}]);
+        title([timeavg_labels{curr_timeavg} ' (' task_regressor_labels{curr_task_reduction} '-reduced)']);
         
     end
     
@@ -8330,7 +8968,7 @@ for curr_area_idx = 1:length(plot_areas)
     errorbar( ...
         permute(nanmean(curr_act_pred_diff,2),[3,1,2]), ...
         permute(AP_sem(curr_act_pred_diff,2),[3,1,2]),'linewidth',2,'CapSize',0);
-    ylabel('Meas - Pred');
+    ylabel('Abs(Meas - Pred)');
     set(gca,'XTick',1:4,'XTickLabels',timeavg_labels,'XTickLabelRotation',45)
     xlim([0.5,length(timeavg_labels)+0.5]);
     
@@ -8380,8 +9018,181 @@ for curr_axes = 2:length(timeavg_labels)+2:length(all_axes)
 end
 
 
+%% Fig 4d,e,f: Striatum v Cortex by condition (TESTING ERROR FIX)
 
+% Set alignment shifts
+t_leeway = -t(1);
+leeway_samples = round(t_leeway*(sample_rate));
+stim_align = zeros(size(trial_contrast_allcat));
+move_align = -move_idx + leeway_samples;
+outcome_align = -outcome_idx + leeway_samples;
 
+% Set windows to average activity
+timeavg_labels = {'Stim','Move onset','Outcome'};
+timeavg_t = {[0.05,0.15],[-0.05,0.05],[0.05,0.15]};
+timeavg_align = {stim_align,move_align,outcome_align};
+timeavg_trial_conditions = ...
+    {[sign(trial_contrastside_allcat) == 1,sign(trial_contrastside_allcat) == -1], ...
+    [trial_choice_allcat == -1,trial_choice_allcat == 1], ...
+    [trial_outcome_allcat == 1, trial_outcome_allcat == -1]};
+timeavg_task_reduction = [1,2,4];
+
+% Set activity percentiles and bins
+act_prctile = [10,90];
+n_act_bins = 5;
+
+% Set areas and conditions
+plot_str_ctx = {[1,1],[2,2],[3,3],[4,4]};
+
+% Get "fixing" matrix: difference between task predicted str/ctx-pred str
+task_fix = mua_taskpred_allcat - mua_ctxpred_taskpred_allcat;
+task_fix_reduced = mua_taskpred_reduced_allcat - mua_ctxpred_taskpred_reduced_allcat;
+
+% Loop across area pairs, plot binned predicted v measured activity
+str_v_ctx_fig = figure('color','w');
+for curr_str_ctx = 1:length(plot_str_ctx)
+    
+    plot_str = plot_str_ctx{curr_str_ctx}(1);
+    plot_ctx = plot_str_ctx{curr_str_ctx}(2);
+
+    for curr_mua = 1:2
+        
+        % (set striatum activity to use)
+        switch curr_mua
+            case 1
+                curr_str_act_allcat = single(mua_allcat);
+                curr_str_act_taskpred_reduced_allcat = single(mua_taskpred_reduced_allcat);
+                mua_label = 'Measured';
+            case 2
+                curr_str_act_allcat = single(mua_ctxpred_allcat);
+                curr_str_act_taskpred_reduced_allcat = single(mua_ctxpred_taskpred_reduced_allcat);
+                
+                curr_str_act_taskpred_reduced_allcat = ...
+                    curr_str_act_taskpred_reduced_allcat + task_fix_reduced;
+                
+                
+                mua_label = 'Ctx-pred';
+        end
+        
+        for curr_timeavg = 1:length(timeavg_labels)
+            
+            trial_conditions = timeavg_trial_conditions{curr_timeavg};
+            curr_task_reduction = timeavg_task_reduction(curr_timeavg);
+            
+            % (set cortex activity to use)
+%             curr_ctx_act_allcat = fluor_roi_deconv;
+            curr_ctx_act_allcat = fluor_kernelroi_deconv;   
+            curr_ctx_act_taskpred_reduced_allcat = fluor_kernelroi_taskpred_reduced;
+            
+            % (re-align and split activity and conditions)
+            curr_ctx_act = mat2cell(...
+                cell2mat(arrayfun(@(trial) circshift( ...
+                curr_ctx_act_allcat(trial,:,:) - curr_ctx_act_taskpred_reduced_allcat(trial,:,:,curr_task_reduction), ...
+                timeavg_align{curr_timeavg}(trial),2),transpose(1:size(curr_ctx_act_allcat,1)),'uni',false)), ...
+                use_split,length(t),size(curr_ctx_act_allcat,3));
+            
+            curr_str_act = mat2cell(...
+                cell2mat(arrayfun(@(trial) circshift( ...
+                curr_str_act_allcat(trial,:,:) - curr_str_act_taskpred_reduced_allcat(trial,:,:,curr_task_reduction), ...
+                timeavg_align{curr_timeavg}(trial),2),transpose(1:size(curr_str_act_allcat,1)),'uni',false)), ...
+                use_split,length(t),size(curr_str_act_allcat,3));
+            
+            trial_conditions_exp = mat2cell(trial_conditions,use_split,size(trial_conditions,2));
+            
+            % (get average activity within window)
+            curr_event_t = t > timeavg_t{curr_timeavg}(1) & t < timeavg_t{curr_timeavg}(2);
+            curr_ctx_act_avg = cellfun(@(x) squeeze(nanmean(x(:,curr_event_t,:),2)),curr_ctx_act,'uni',false);
+            curr_str_act_avg = cellfun(@(x) squeeze(nanmean(x(:,curr_event_t,:),2)),curr_str_act,'uni',false);
+            
+            % (bin measured data across percentile range)
+            bin_range = prctile(cell2mat(cellfun(@(x) x(:,plot_ctx),curr_ctx_act_avg,'uni',false)),act_prctile);
+            bin_edges = linspace(bin_range(1),bin_range(2),n_act_bins+1);
+            bin_centers = bin_edges(1:end-1) + diff(bin_edges)./2;
+            
+            trial_bins = cellfun(@(x) discretize(x,bin_edges),curr_ctx_act_avg,'uni',false);
+            total_bins = cellfun(@(x) discretize(x,[bin_edges(1),bin_edges(end)]),curr_ctx_act_avg,'uni',false);
+            
+            % (get trials to use: no NaNs in either time series or bins)
+            nonan_trials = cellfun(@(ctx_act,str_act,trial_bins) ...
+                squeeze(~any(isnan(ctx_act(:,curr_event_t,plot_ctx)),2)) & ...
+                squeeze(~any(isnan(str_act(:,curr_event_t,plot_str)),2)) & ...
+                ~isnan(trial_bins), ...
+                curr_ctx_act,curr_str_act,trial_bins,'uni',false);
+            
+            % (get average binned activity for measured/predicted by condition)
+            ctx_act_binmean = cell2mat(arrayfun(@(condition) ...
+                cell2mat(permute(cellfun(@(act,bins,trial_cond,use_trials) cell2mat(arrayfun(@(area) ...
+                accumarray(bins(use_trials(:,area) & trial_cond(:,condition),area), ...
+                act(use_trials(:,area) & trial_cond(:,condition),area), ...
+                [n_act_bins,1],@nanmean,cast(NaN,class(act))), 1:size(act,2),'uni',false)), ...
+                curr_ctx_act_avg,trial_bins,trial_conditions_exp,nonan_trials,'uni',false),[2,3,1])), ...
+                permute(1:size(trial_conditions,2),[1,3,4,2]),'uni',false));
+            
+            str_act_binmean = cell2mat(arrayfun(@(condition) ...
+                cell2mat(permute(cellfun(@(act,bins,trial_cond,use_trials) cell2mat(arrayfun(@(area) ...
+                accumarray(bins(use_trials(:,area) & trial_cond(:,condition),area), ...
+                act(use_trials(:,area) & trial_cond(:,condition),area), ...
+                [n_act_bins,1],@nanmean,cast(NaN,class(act))), 1:size(act,2),'uni',false)), ...
+                curr_str_act_avg,trial_bins,trial_conditions_exp,nonan_trials,'uni',false),[2,3,1])), ...
+                permute(1:size(trial_conditions,2),[1,3,4,2]),'uni',false));
+            
+            % (get the average total activity)
+            ctx_act_totalmean = cell2mat(arrayfun(@(condition) ...
+                cell2mat(permute(cellfun(@(act,bins,trial_cond,use_trials) cell2mat(arrayfun(@(area) ...
+                accumarray(bins(use_trials(:,area) & trial_cond(:,condition),area), ...
+                act(use_trials(:,area) & trial_cond(:,condition),area), ...
+                [1,1],@nanmean,cast(NaN,class(act))), 1:size(act,2),'uni',false)), ...
+                curr_ctx_act_avg,total_bins,trial_conditions_exp,nonan_trials,'uni',false),[2,3,1])), ...
+                permute(1:size(trial_conditions,2),[1,3,4,2]),'uni',false));
+            
+            str_act_totalmean = cell2mat(arrayfun(@(condition) ...
+                cell2mat(permute(cellfun(@(act,bins,trial_cond,use_trials) cell2mat(arrayfun(@(area) ...
+                accumarray(bins(use_trials(:,area) & trial_cond(:,condition),area), ...
+                act(use_trials(:,area) & trial_cond(:,condition),area), ...
+                [1,1],@nanmean,cast(NaN,class(act))), 1:size(act,2),'uni',false)), ...
+                curr_str_act_avg,total_bins,trial_conditions_exp,nonan_trials,'uni',false),[2,3,1])), ...
+                permute(1:size(trial_conditions,2),[1,3,4,2]),'uni',false));
+            
+            % Plot binned predicted v measured           
+            subplot(length(plot_str_ctx),length(timeavg_labels), ...
+                sub2ind(fliplr([length(plot_str_ctx),length(timeavg_labels)]),curr_timeavg,curr_str_ctx));
+            hold on;
+            col = lines(size(trial_conditions,2));
+            switch curr_mua
+                case 1
+                    errorbar( ...
+                        squeeze(nanmean(ctx_act_binmean(:,plot_ctx,:,:),3)), ...
+                        squeeze(nanmean(str_act_binmean(:,plot_str,:,:),3)), ...
+                        squeeze(AP_sem(str_act_binmean(:,plot_str,:,:),3)), ...
+                        'linewidth',2,'CapSize',0);
+%                     errorbar( ...
+%                         squeeze(nanmean(ctx_act_totalmean(:,plot_ctx,:,:),3)), ...
+%                         squeeze(nanmean(str_act_totalmean(:,plot_str,:,:),3)), ...
+%                         squeeze(AP_sem(str_act_totalmean(:,plot_str,:,:),3)), ...
+%                         squeeze(AP_sem(str_act_totalmean(:,plot_str,:,:),3)), ...
+%                         squeeze(AP_sem(ctx_act_totalmean(:,plot_ctx,:,:),3)), ...
+%                         squeeze(AP_sem(ctx_act_totalmean(:,plot_ctx,:,:),3)), ...
+%                         '.','linewidth',3,'CapSize',0);
+                case 2
+                    for curr_cond = 1:size(trial_conditions,2)
+                        AP_errorfill( ...
+                            squeeze(nanmean(ctx_act_binmean(:,plot_ctx,:,curr_cond),3)), ...
+                            squeeze(nanmean(str_act_binmean(:,plot_str,:,curr_cond),3)), ...
+                            squeeze(AP_sem(str_act_binmean(:,plot_str,:,curr_cond),3)), ...
+                            col(curr_cond,:),0.5,false);
+                    end
+            end
+            xlabel(['Ctx (' num2str(plot_ctx) ')']);
+            ylabel([' Str (' num2str(plot_str) ')'])
+            title([timeavg_labels{curr_timeavg} '(' task_regressor_labels{curr_task_reduction} '-reduced)']);
+            
+        end
+        
+    end
+end
+
+% Link axes of all plots
+linkaxes(get(str_v_ctx_fig,'Children'));
 
 
 

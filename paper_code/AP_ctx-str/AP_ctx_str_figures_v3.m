@@ -8,6 +8,7 @@
 
 % (task)
 data_fn = 'trial_activity_choiceworld'; % Primary dataset
+% data_fn = 'trial_activity_choiceworld_strfilt'; % Ctx->lowpass(str)
 % data_fn = 'trial_activity_choiceworld_ctxLonly'; % Left cortex pred only
 % data_fn = 'trial_activity_choiceworld_1gocue'; % only late-move go cue
 % data_fn = 'trial_activity_choiceworld_sqrtstr'; % ctx->str on sqrt(str)
