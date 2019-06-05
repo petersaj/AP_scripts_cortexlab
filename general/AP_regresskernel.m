@@ -185,6 +185,9 @@ predictable_samples = any(regressor_design,2) & ~any(isnan(signals(predictable_s
 cv_partition = nan(size(regressor_design,1),1);
 cv_partition(predictable_samples) = round(linspace(1,cvfold,sum(predictable_samples)))';
 
+% (to shuffle CV points instead of using consecutive chunks)
+cv_partition(predictable_samples) = AP_shake(round(linspace(1,cvfold,sum(predictable_samples)))');
+
 k_cv = nan(size(regressors_gpu,2),size(signals,1),cvfold,'single');
 predicted_signals = nan(size(signals));
 predicted_signals_reduced = nan(size(signals,1),size(signals,2),length(regressors));

@@ -41,7 +41,7 @@ switch type
         bregma_offset_x = bregma_align(1);
         bregma_offset_y = bregma_align(2);
         
-        spacing_um = 1000;
+        spacing_um = 500;
         spacing_pixels = spacing_um/um2pixel;
         
         xlines_pos = bregma_offset_y + spacing_pixels*(ceil((min(ylim)-bregma_offset_y)./spacing_pixels):floor((max(ylim)-bregma_offset_y)./spacing_pixels));

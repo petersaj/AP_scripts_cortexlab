@@ -7617,28 +7617,14 @@ move_align = -move_idx + leeway_samples;
 outcome_align = -outcome_idx + leeway_samples;
 
 % Set windows to average activity
-% timeavg_labels = {'Stim','Move onset','Outcome'};
-% timeavg_t = {[0.05,0.15],[-0.05,0.05],[0.05,0.15]};
-% timeavg_align = {stim_align,move_align,outcome_align};
-% timeavg_trial_conditions = ...
-%     {[sign(trial_contrastside_allcat) == 1,sign(trial_contrastside_allcat) == -1], ...
-%     [trial_choice_allcat == -1,trial_choice_allcat == 1], ...
-%     [trial_outcome_allcat == 1, trial_outcome_allcat == -1]};
-% timeavg_task_reduction = [1,2,4];
-
-timeavg_labels = {'Stim'};
-timeavg_t = {[0.05,0.15]};
-timeavg_align = {stim_align};
+timeavg_labels = {'Stim','Move onset','Outcome'};
+timeavg_t = {[0.05,0.15],[-0.05,0.05],[0.05,0.15]};
+timeavg_align = {stim_align,move_align,outcome_align};
 timeavg_trial_conditions = ...
-    {[trial_contrastside_allcat > 0,trial_contrastside_allcat < 0]};
-timeavg_task_reduction = [1];
-
-% timeavg_labels = {'Move'};
-% timeavg_t = {[-0.05,0.05]};
-% timeavg_align = {move_align};
-% timeavg_trial_conditions = ...
-%     {[trial_choice_allcat == -1,trial_choice_allcat == 1]};
-% timeavg_task_reduction = [2];
+    {[sign(trial_contrastside_allcat) == 1,sign(trial_contrastside_allcat) == -1], ...
+    [trial_choice_allcat == -1,trial_choice_allcat == 1], ...
+    [trial_outcome_allcat == 1, trial_outcome_allcat == -1]};
+timeavg_task_reduction = [1,2,4];
 
 % timeavg_labels = {'Pre-stim','Stim'};
 % timeavg_t = {[-0.2,-0.1],[0.05,0.15]};
@@ -7649,31 +7635,24 @@ act_prctile = [10,90];
 n_act_bins = 5;
 
 % Set areas and conditions
-% plot_areas = [1,2,3,4];
-plot_areas = [1];
+plot_areas = [1,2,3,4];
 
 % Loop across area pairs, plot binned predicted v measured activity
 curr_act_allcat = mua_allcat;
 curr_act_taskpred_reduced_allcat = mua_taskpred_reduced_allcat;
-
-% (ctx-predicted)
 curr_act_pred_allcat = mua_ctxpred_allcat;
 curr_act_pred_taskpred_reduced_allcat = mua_ctxpred_taskpred_reduced_allcat;
 
-% (task-predicted)
-% curr_act_pred_allcat = mua_taskpred_allcat;
-% curr_act_pred_taskpred_reduced_allcat = mua_taskpred_reduced_allcat;
-
-% % (ctx + task predicted)
-% task_fix = mua_taskpred_allcat - mua_ctxpred_taskpred_allcat;
-% task_fix_reduced = mua_taskpred_reduced_allcat - mua_ctxpred_taskpred_reduced_allcat;
-% curr_act_pred_allcat = mua_ctxpred_allcat + task_fix;
-% curr_act_pred_taskpred_reduced_allcat = mua_ctxpred_taskpred_reduced_allcat + task_fix_reduced;
-
-for curr_area_idx = 1:length(plot_areas)   
+measured_v_pred_fig = figure('color','w');
+for curr_area_idx = 1:length(plot_areas)
     
     plot_area = plot_areas(curr_area_idx);
-    measured_v_pred_fig = figure('color','w','Name',['Str ' num2str(plot_area)]);
+    
+    % Set up the summary values
+    curr_act_pred_diff = nan(2,length(use_split),length(timeavg_labels));
+    curr_act_pred_rank_condition_diff = nan(length(use_split),length(timeavg_labels));
+    n_shuff = 1000;
+    curr_act_pred_rank_condition_diff_shuff = nan(length(use_split),n_shuff,length(timeavg_labels));
     
     for curr_timeavg = 1:length(timeavg_labels)
         
@@ -7683,28 +7662,15 @@ for curr_area_idx = 1:length(plot_areas)
         % (re-align and split activity)
         curr_act = mat2cell(...
             cell2mat(arrayfun(@(trial) circshift( ...
-            curr_act_allcat(trial,:,plot_area), ...
+            curr_act_allcat(trial,:,plot_area) - curr_act_taskpred_reduced_allcat(trial,:,plot_area,curr_task_reduction), ...
             timeavg_align{curr_timeavg}(trial),2),transpose(1:size(curr_act_allcat,1)),'uni',false)), ...
             use_split,length(t));
         
         curr_act_pred = mat2cell(...
             cell2mat(arrayfun(@(trial) circshift( ...
-            curr_act_pred_allcat(trial,:,plot_area), ...
+            curr_act_pred_allcat(trial,:,plot_area) - curr_act_pred_taskpred_reduced_allcat(trial,:,plot_area,curr_task_reduction), ...
             timeavg_align{curr_timeavg}(trial),2),transpose(1:size(curr_act_pred_allcat,1)),'uni',false)), ...
             use_split,length(t));
-        
-%         % (re-align, REDUCE, and split activity)
-%         curr_act = mat2cell(...
-%             cell2mat(arrayfun(@(trial) circshift( ...
-%             curr_act_allcat(trial,:,plot_area) - curr_act_taskpred_reduced_allcat(trial,:,plot_area,curr_task_reduction), ...
-%             timeavg_align{curr_timeavg}(trial),2),transpose(1:size(curr_act_allcat,1)),'uni',false)), ...
-%             use_split,length(t));
-%         
-%         curr_act_pred = mat2cell(...
-%             cell2mat(arrayfun(@(trial) circshift( ...
-%             curr_act_pred_allcat(trial,:,plot_area) - curr_act_pred_taskpred_reduced_allcat(trial,:,plot_area,curr_task_reduction), ...
-%             timeavg_align{curr_timeavg}(trial),2),transpose(1:size(curr_act_pred_allcat,1)),'uni',false)), ...
-%             use_split,length(t));
         
         trial_conditions_exp = mat2cell(trial_conditions,use_split,size(trial_conditions,2));
         
@@ -7717,7 +7683,7 @@ for curr_area_idx = 1:length(plot_areas)
         act_bin_range = prctile(cell2mat(curr_act_avg),act_prctile);
         act_bin_edges = linspace(act_bin_range(1),act_bin_range(2),n_act_bins+1);
         act_bin_centers = act_bin_edges(1:end-1) + diff(act_bin_edges)./2;       
-        act_trial_bins = cellfun(@(x) discretize(x,act_bin_edges),curr_act_avg,'uni',false);
+        act_trial_bins = cellfun(@(x) discretize(x,act_bin_edges),curr_act_pred_avg,'uni',false);
         
         % (bin predicted data across percentile range)
         pred_bin_range = prctile(cell2mat(curr_act_pred_avg),act_prctile);
@@ -7771,42 +7737,88 @@ for curr_area_idx = 1:length(plot_areas)
             curr_act_pred_avg,pred_trial_bins,trial_conditions_exp,pred_use_trials,'uni',false)'), ...
             permute(1:size(trial_conditions,2),[1,3,2]),'uni',false));
         
-        % Plot 
-        
-        % (measured vs binned predicted)
-        subplot(2,length(timeavg_labels), ...
-            sub2ind(fliplr([2,length(timeavg_labels)]),curr_timeavg,1));
+        % Plot binned predicted v measured
+        figure(measured_v_pred_fig);
+        subplot(length(plot_areas),length(timeavg_labels)+2, ...
+            sub2ind(fliplr([length(plot_areas),length(timeavg_labels)+2]),curr_timeavg,curr_area_idx));
         hold on;
         
         errorbar( ...
-            squeeze(nanmean(act_pred_predbinmean,2)), ...
-            squeeze(nanmean(act_predbinmean,2)), ...
-            squeeze(AP_sem(act_predbinmean,2)), ...
+            squeeze(nanmean(act_pred_binmean,2)), ...
+            squeeze(nanmean(act_binmean,2)), ...
+            squeeze(AP_sem(act_binmean,2)), ...
             'linewidth',2,'CapSize',0);
+        errorbar( ...
+            squeeze(nanmean(act_pred_totalmean,2)), ...
+            squeeze(nanmean(act_totalmean,2)), ...
+            squeeze(AP_sem(act_totalmean,2)), ...
+            squeeze(AP_sem(act_totalmean,2)), ...
+            squeeze(AP_sem(act_pred_totalmean,2)), ...
+            squeeze(AP_sem(act_pred_totalmean,2)), ...
+            '.','linewidth',3,'CapSize',0);
         xlabel(['Predicted (' num2str(plot_area) ')']);
         ylabel(['Measured (' num2str(plot_area) ')'])
         ylim(xlim); axis square;
         title([timeavg_labels{curr_timeavg} ' (' task_regressor_labels{curr_task_reduction} '-reduced)']);
-              
-        % (predicted vs binned measured)
-        subplot(2,length(timeavg_labels), ...
-            sub2ind(fliplr([2,length(timeavg_labels)]),curr_timeavg,2));
-        hold on;
-        
-        errorbar( ...
-            squeeze(nanmean(act_actbinmean,2)), ...
-            squeeze(nanmean(act_pred_actbinmean,2)), ...
-            squeeze(AP_sem(act_pred_actbinmean,2)), ...
-            'linewidth',2,'CapSize',0);
-        xlabel(['Measured (' num2str(plot_area) ')']);
-        ylabel(['Predicted (' num2str(plot_area) ')'])
-        ylim(xlim); axis square;
-        title([timeavg_labels{curr_timeavg} ' (' task_regressor_labels{curr_task_reduction} '-reduced)']);
         
     end
+    
+    % Plot measured - predicted
+    subplot(length(plot_areas),length(timeavg_labels)+2, ...
+        sub2ind(fliplr([length(plot_areas),length(timeavg_labels)+2]),length(timeavg_labels)+1,curr_area_idx));
+     hold on;
+    errorbar( ...
+        permute(nanmean(curr_act_pred_diff,2),[3,1,2]), ...
+        permute(AP_sem(curr_act_pred_diff,2),[3,1,2]),'linewidth',2,'CapSize',0);
+    ylabel('Meas - Pred');
+    set(gca,'XTick',1:4,'XTickLabels',timeavg_labels,'XTickLabelRotation',45)
+    xlim([0.5,length(timeavg_labels)+0.5]);
+    
+    subplot(length(plot_areas),length(timeavg_labels)+2, ...
+        sub2ind(fliplr([length(plot_areas),length(timeavg_labels)+2]),length(timeavg_labels)+2,curr_area_idx));
+     hold on;
+    errorbar( ...
+        nanmean(curr_act_pred_condition_diff,1), ...
+        AP_sem(curr_act_pred_condition_diff,1),'linewidth',2,'CapSize',0);
+    ylabel('Condition difference');
+    set(gca,'XTick',1:4,'XTickLabels',timeavg_labels,'XTickLabelRotation',45)
+    xlim([0.5,length(timeavg_labels)+0.5]);
+    
+    % Get and plot significance
+    real_diff = nanmean(curr_act_pred_condition_diff,1); 
+    alpha = [5/2/3,100-(5/2/3)];
+    shuff_diff_ci = permute(nanmean(prctile(curr_act_pred_condition_diff_shuff,alpha,2),1),[2,3,1]);
+    sig_diff = real_diff < shuff_diff_ci(1,:) | real_diff > shuff_diff_ci(2,:);
+    subplot(length(plot_areas),length(timeavg_labels)+2, ...
+        sub2ind(fliplr([length(plot_areas),length(timeavg_labels)+2]),length(timeavg_labels)+1,curr_area_idx));
+    plot(find(sig_diff),repmat(max(ylim),sum(sig_diff),1),'*','color','k','MarkerSize',5);
+    subplot(length(plot_areas),length(timeavg_labels)+2, ...
+        sub2ind(fliplr([length(plot_areas),length(timeavg_labels)+2]),length(timeavg_labels)+2,curr_area_idx));
+    plot(shuff_diff_ci','r');
+    plot(find(sig_diff),repmat(max(ylim),sum(sig_diff),1),'*','color','k','MarkerSize',5);
+    
 end
 
-linkaxes(get(gcf,'Children'),'xy');
+% Link axes of all predicted v measured and all explained var
+all_axes = get(measured_v_pred_fig,'Children');
+meas_pred_axes = all_axes(setdiff(1:length(all_axes), ...
+    [1:length(timeavg_labels)+2:length(all_axes), ...
+    2:length(timeavg_labels)+2:length(all_axes)]));
+linkaxes(meas_pred_axes)
+linkaxes(all_axes(1:length(timeavg_labels)+2:length(all_axes)));
+linkaxes(all_axes(2:length(timeavg_labels)+2:length(all_axes)));
+
+for curr_axes = 1:length(meas_pred_axes)
+   line(meas_pred_axes(curr_axes),xlim(meas_pred_axes(curr_axes)), ...
+       xlim(meas_pred_axes(curr_axes)),'color','k'); 
+end
+for curr_axes = 1:length(timeavg_labels)+2:length(all_axes)
+   line(all_axes(curr_axes),xlim(all_axes(curr_axes)),[0,0],'color','k');
+end
+for curr_axes = 2:length(timeavg_labels)+2:length(all_axes)
+   line(all_axes(curr_axes),xlim(all_axes(curr_axes)),[0,0],'color','k');
+end
+
 
 
 
