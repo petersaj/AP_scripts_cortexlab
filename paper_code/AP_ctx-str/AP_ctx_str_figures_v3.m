@@ -14,8 +14,8 @@
 % data_fn = 'trial_activity_choiceworld_sqrtstr'; % ctx->str on sqrt(str)
 % data_fn = 'trial_activity_choiceworld_4strdepth'; % Depth-aligned striatum
 % data_fn = 'trial_activity_choiceworld_6strdepth'; % Depth-aligned striatum
-data_fn = 'trial_activity_choiceworld_ctxtaskpred'; % includes simultaneous ctxtask fit
-% data_fn = 'trial_activity_choiceworld_strsmooth'; % uses a smoothed (5) striatum
+% data_fn = 'trial_activity_choiceworld_ctxtaskpred'; % includes simultaneous ctxtask fit
+data_fn = 'trial_activity_choiceworld_strsmooth'; % uses a smoothed (5) striatum
 exclude_data = true;
 
 % (passive)

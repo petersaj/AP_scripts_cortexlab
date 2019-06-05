@@ -7612,11 +7612,21 @@ ev_xc = 1-(sse_residual_xc./sse_total);
 % Set alignment shifts
 t_leeway = -t(1);
 leeway_samples = round(t_leeway*(sample_rate));
-stim_align = zeros(size(trial_contrast_allcat));
-move_align = -move_idx + leeway_samples;
-outcome_align = -outcome_idx + leeway_samples;
+stim_align = zeros(size(mua_allcat,1),1);
+% move_align = -move_idx + leeway_samples;
+% outcome_align = -outcome_idx + leeway_samples;
+
+% %%%%%% TESTING NEW ALIGNMENT: 
+% % max stim response for each contrast (better than stim onset)
+% str1_stimresponses = grpstats(mua_allcat(:,:,1),trial_contrastside_allcat,@nanmean);
+% [~,stimresponse_max_idx] = max(str1_stimresponses(:,t < 0.5),[],2);
+% stimresponse_max_idx(1:6) = stimresponse_max_idx(7);
+% [~,stim_idx] = ismember(trial_contrastside_allcat,unique(trial_contrastside_allcat),'rows');
+% stim_max_align = -stimresponse_max_idx(stim_idx) + leeway_samples;
+% %%%%%%
 
 % Set windows to average activity
+
 % timeavg_labels = {'Stim','Move onset','Outcome'};
 % timeavg_t = {[0.05,0.15],[-0.05,0.05],[0.05,0.15]};
 % timeavg_align = {stim_align,move_align,outcome_align};
@@ -7626,12 +7636,31 @@ outcome_align = -outcome_idx + leeway_samples;
 %     [trial_outcome_allcat == 1, trial_outcome_allcat == -1]};
 % timeavg_task_reduction = [1,2,4];
 
+% timeavg_labels = {'Stim'};
+% timeavg_t = {[0.05,0.15]};
+% timeavg_align = {stim_align};
+% timeavg_trial_conditions = ...
+%     {[trial_contrastside_allcat > 0,trial_contrastside_allcat < 0]};
+% timeavg_task_reduction = [1];
+
 timeavg_labels = {'Stim'};
 timeavg_t = {[0.05,0.15]};
 timeavg_align = {stim_align};
+% timeavg_trial_conditions = ...
+%     {[trial_contrastside_allcat > 0,trial_contrastside_allcat < 0]};
 timeavg_trial_conditions = ...
-    {[trial_contrastside_allcat > 0,trial_contrastside_allcat < 0]};
+    {[trial_stim_allcat == 1,trial_stim_allcat == 2,trial_stim_allcat == 3]};
 timeavg_task_reduction = [1];
+
+% timeavg_labels = {'Pre-stim','Stim','Post-stim','Post-stim+'};
+% timeavg_t = {[-0.15,-0.05],[0.05,0.15],[0.2,0.3],[0.8,0.9]};
+% timeavg_align = {stim_align,stim_align,stim_align,stim_align};
+% timeavg_trial_conditions = ...
+%     {[trial_contrastside_allcat > 0,trial_contrastside_allcat < 0], ...
+%     [trial_contrastside_allcat > 0,trial_contrastside_allcat < 0], ...
+%     [trial_contrastside_allcat > 0,trial_contrastside_allcat < 0], ...
+%     [trial_contrastside_allcat > 0,trial_contrastside_allcat < 0]};
+% timeavg_task_reduction = [1,1,1,1];
 
 % timeavg_labels = {'Move'};
 % timeavg_t = {[-0.05,0.05]};
@@ -7654,21 +7683,24 @@ plot_areas = [1];
 
 % Loop across area pairs, plot binned predicted v measured activity
 curr_act_allcat = mua_allcat;
-curr_act_taskpred_reduced_allcat = mua_taskpred_reduced_allcat;
+% curr_act_taskpred_reduced_allcat = mua_taskpred_reduced_allcat;
 
 % (ctx-predicted)
 curr_act_pred_allcat = mua_ctxpred_allcat;
-curr_act_pred_taskpred_reduced_allcat = mua_ctxpred_taskpred_reduced_allcat;
+% curr_act_pred_taskpred_reduced_allcat = mua_ctxpred_taskpred_reduced_allcat;
 
 % (task-predicted)
 % curr_act_pred_allcat = mua_taskpred_allcat;
 % curr_act_pred_taskpred_reduced_allcat = mua_taskpred_reduced_allcat;
 
-% % (ctx + task predicted)
+% (ctx + task predicted)
 % task_fix = mua_taskpred_allcat - mua_ctxpred_taskpred_allcat;
 % task_fix_reduced = mua_taskpred_reduced_allcat - mua_ctxpred_taskpred_reduced_allcat;
 % curr_act_pred_allcat = mua_ctxpred_allcat + task_fix;
 % curr_act_pred_taskpred_reduced_allcat = mua_ctxpred_taskpred_reduced_allcat + task_fix_reduced;
+
+% (ctx & task predicted) (in trial_activity_choiceworld_ctxtaskpred)
+% curr_act_pred_allcat = mua_ctxtaskpred_allcat;
 
 for curr_area_idx = 1:length(plot_areas)   
     
@@ -7681,6 +7713,8 @@ for curr_area_idx = 1:length(plot_areas)
         curr_task_reduction = timeavg_task_reduction(curr_timeavg);
         
         % (re-align and split activity)
+        act_title = timeavg_labels{curr_timeavg};
+        
         curr_act = mat2cell(...
             cell2mat(arrayfun(@(trial) circshift( ...
             curr_act_allcat(trial,:,plot_area), ...
@@ -7693,7 +7727,9 @@ for curr_area_idx = 1:length(plot_areas)
             timeavg_align{curr_timeavg}(trial),2),transpose(1:size(curr_act_pred_allcat,1)),'uni',false)), ...
             use_split,length(t));
         
-%         % (re-align, REDUCE, and split activity)
+        % (re-align, REDUCE, and split activity)
+%         act_title = [timeavg_labels{curr_timeavg} ' (' task_regressor_labels{curr_task_reduction} '-reduced)']
+%         
 %         curr_act = mat2cell(...
 %             cell2mat(arrayfun(@(trial) circshift( ...
 %             curr_act_allcat(trial,:,plot_area) - curr_act_taskpred_reduced_allcat(trial,:,plot_area,curr_task_reduction), ...
@@ -7771,7 +7807,62 @@ for curr_area_idx = 1:length(plot_areas)
             curr_act_pred_avg,pred_trial_bins,trial_conditions_exp,pred_use_trials,'uni',false)'), ...
             permute(1:size(trial_conditions,2),[1,3,2]),'uni',false));
         
-        % Plot 
+        % Plot binned measured, predicted, and error (by predicted bins)
+        measured_pred_fig = figure('color','w','Name', ...
+            ['Str ' num2str(plot_area)' ', ' timeavg_labels{curr_timeavg}]);
+        n_col_bins = n_act_bins + 2;
+        
+        [binned_act_pred_t,binned_act_pred_grp] = grpstats(cell2mat(curr_act_pred), ...
+            [cell2mat(pred_trial_bins),trial_conditions],{'nanmean','gname'});
+        binned_act_pred_grp = cellfun(@str2num,binned_act_pred_grp);        
+        
+        [binned_act_t,binned_act_grp] = grpstats(cell2mat(curr_act), ...
+            [cell2mat(pred_trial_bins),trial_conditions],{'nanmean','gname'});
+        binned_act_grp = cellfun(@str2num,binned_act_grp);
+        
+        binned_act_t_error = binned_act_t - binned_act_pred_t;
+        
+        % (plot predicted data)
+        for curr_cond = 1:size(trial_conditions,2)           
+            subplot(3,size(trial_conditions,2), ...
+                sub2ind(fliplr([3,size(trial_conditions,2)]),curr_cond,1)); hold on;
+            set(gca,'ColorOrder',[brewermap(n_col_bins,'*Greens')]);
+            plot(t,binned_act_pred_t(binned_act_pred_grp(:,curr_cond + 1) == 1,:)','linewidth',2);
+            xlabel('Time'); ylabel('Predicted data'); 
+            title(['Condition ' num2str(curr_cond)]);
+            line(repmat(timeavg_t{curr_timeavg}(1),2,1),ylim,'color','k');
+            line(repmat(timeavg_t{curr_timeavg}(2),2,1),ylim,'color','k');            
+        end
+ 
+        % (plot measured data)        
+        for curr_cond = 1:size(trial_conditions,2)           
+            subplot(3,size(trial_conditions,2), ...
+                sub2ind(fliplr([3,size(trial_conditions,2)]),curr_cond,2)); hold on;
+            set(gca,'ColorOrder',[brewermap(n_col_bins,'*Greys')]);
+            plot(t,binned_act_t(binned_act_grp(:,curr_cond + 1) == 1,:)','linewidth',2);
+            xlabel('Time'); ylabel('Measured data'); 
+            title(['Condition ' num2str(curr_cond)]);
+            line(repmat(timeavg_t{curr_timeavg}(1),2,1),ylim,'color','k');
+            line(repmat(timeavg_t{curr_timeavg}(2),2,1),ylim,'color','k');            
+        end        
+        
+        % (plot error)      
+        for curr_cond = 1:size(trial_conditions,2)           
+            subplot(3,size(trial_conditions,2), ...
+                sub2ind(fliplr([3,size(trial_conditions,2)]),curr_cond,3)); hold on;
+            set(gca,'ColorOrder',[brewermap(n_col_bins,'*OrRd')]);
+            plot(t,binned_act_t_error(binned_act_grp(:,curr_cond + 1) == 1,:)','linewidth',2);
+            xlabel('Time'); ylabel('Measured data'); 
+            title(['Condition ' num2str(curr_cond)]);
+            line(repmat(timeavg_t{curr_timeavg}(1),2,1),ylim,'color','k');
+            line(repmat(timeavg_t{curr_timeavg}(2),2,1),ylim,'color','k');
+            line(xlim,[0,0],'color','k')
+        end          
+        
+        linkaxes(get(measured_pred_fig,'Children'),'xy');       
+        
+        % Plot measured v predicted in bins
+        figure(measured_v_pred_fig)
         
         % (measured vs binned predicted)
         subplot(2,length(timeavg_labels), ...
@@ -7786,7 +7877,8 @@ for curr_area_idx = 1:length(plot_areas)
         xlabel(['Predicted (' num2str(plot_area) ')']);
         ylabel(['Measured (' num2str(plot_area) ')'])
         ylim(xlim); axis square;
-        title([timeavg_labels{curr_timeavg} ' (' task_regressor_labels{curr_task_reduction} '-reduced)']);
+        title(act_title);
+        line(xlim,xlim,'color','k');
               
         % (predicted vs binned measured)
         subplot(2,length(timeavg_labels), ...
@@ -7801,12 +7893,13 @@ for curr_area_idx = 1:length(plot_areas)
         xlabel(['Measured (' num2str(plot_area) ')']);
         ylabel(['Predicted (' num2str(plot_area) ')'])
         ylim(xlim); axis square;
-        title([timeavg_labels{curr_timeavg} ' (' task_regressor_labels{curr_task_reduction} '-reduced)']);
+        title([act_title]);
+        line(xlim,xlim,'color','k');
         
     end
 end
 
-linkaxes(get(gcf,'Children'),'xy');
+linkaxes(get(measured_v_pred_fig,'Children'),'xy');
 
 
 
