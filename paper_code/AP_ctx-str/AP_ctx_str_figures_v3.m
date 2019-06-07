@@ -1705,8 +1705,7 @@ act_prctile = [10,90];
 n_act_bins = 5;
 
 % Set areas and conditions
-% plot_areas = [1,2,3,4];
-plot_areas = 1;
+plot_areas = [1,2];
 
 % Loop across area pairs, plot binned predicted v measured activity
 curr_act_allcat = mua_allcat;
