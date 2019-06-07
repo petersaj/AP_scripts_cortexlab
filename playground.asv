@@ -10382,6 +10382,24 @@ xlabel('measured');ylabel('error');
 linkaxes(get(gcf,'Children'),'xy');
 
 
+%% 
+
+
+
+[a,b] = cellfun(@(act,bins,conds) ...
+    grpstats(act,[bins,conds],{'nanmean','gname'}), ...
+    curr_act_pred,pred_trial_bins,trial_conditions_exp,'uni',false);
+
+
+
+a2 = nan(n_act_bins,size(trial_conditions,2),length(use_split));
+for curr_exp = 1:length(use_split)
+    curr_grps = cellfun(@str2num,b{curr_exp});
+    for curr_bin = 1:n_act_bins
+end
+
+
+
 
 
 
