@@ -7636,22 +7636,22 @@ stim_max_align = -stimresponse_max_idx(stim_idx) + leeway_samples;
 %     [trial_outcome_allcat == 1, trial_outcome_allcat == -1]};
 % timeavg_task_reduction = [1,2,4];
 
-timeavg_labels = {'Stim'};
-timeavg_t = {[0.05,0.15]};
-timeavg_align = {stim_align};
-timeavg_trial_conditions = ...
-    {[trial_contrastside_allcat > 0,trial_contrastside_allcat < 0]};
-timeavg_task_reduction = [1];
-
-% timeavg_labels = {'Pre-stim','Stim','Post-stim','Post-stim+'};
-% timeavg_t = {[-0.15,-0.05],[0.05,0.15],[0.2,0.3],[0.8,0.9]};
-% timeavg_align = {stim_align,stim_align,stim_align,stim_align};
+% timeavg_labels = {'Stim'};
+% timeavg_t = {[0.05,0.15]};
+% timeavg_align = {stim_align};
 % timeavg_trial_conditions = ...
-%     {[trial_contrastside_allcat > 0,trial_contrastside_allcat < 0], ...
-%     [trial_contrastside_allcat > 0,trial_contrastside_allcat < 0], ...
-%     [trial_contrastside_allcat > 0,trial_contrastside_allcat < 0], ...
-%     [trial_contrastside_allcat > 0,trial_contrastside_allcat < 0]};
-% timeavg_task_reduction = [1,1,1,1];
+%     {[trial_contrastside_allcat > 0,trial_contrastside_allcat < 0]};
+% timeavg_task_reduction = [1];
+
+timeavg_labels = {'Pre-stim','Stim','Post-stim','Post-stim+'};
+timeavg_t = {[-0.15,-0.05],[0.05,0.15],[0.2,0.3],[0.8,0.9]};
+timeavg_align = {stim_align,stim_align,stim_align,stim_align};
+timeavg_trial_conditions = ...
+    {[trial_contrastside_allcat > 0,trial_contrastside_allcat < 0], ...
+    [trial_contrastside_allcat > 0,trial_contrastside_allcat < 0], ...
+    [trial_contrastside_allcat > 0,trial_contrastside_allcat < 0], ...
+    [trial_contrastside_allcat > 0,trial_contrastside_allcat < 0]};
+timeavg_task_reduction = [1,1,1,1];
 
 % timeavg_labels = {'Move'};
 % timeavg_t = {[-0.05,0.05]};
@@ -7660,9 +7660,19 @@ timeavg_task_reduction = [1];
 %     {[trial_choice_allcat == -1,trial_choice_allcat == 1]};
 % timeavg_task_reduction = [2];
 
-% timeavg_labels = {'Pre-stim','Stim'};
-% timeavg_t = {[-0.2,-0.1],[0.05,0.15]};
-% timeavg_align = {stim_align,stim_align};
+% timeavg_labels = {'Go cue'};
+% timeavg_t = {[0.55,0.65]};
+% timeavg_align = {stim_align};
+% timeavg_trial_conditions = ...
+%     {[move_t < 0.5,move_t >= 0.5]};
+% timeavg_task_reduction = [1];
+
+% timeavg_labels = {'Outcome'};
+% timeavg_t = {[-0.05,0.05]};
+% timeavg_align = {outcome_align};
+% timeavg_trial_conditions = ...
+%     {[trial_outcome_allcat == 1,trial_outcome_allcat == -1]};
+% timeavg_task_reduction = [4];
 
 % Set activity percentiles and bins
 act_prctile = [10,90];
@@ -7677,10 +7687,10 @@ curr_act_allcat = mua_allcat;
 curr_act_taskpred_reduced_allcat = mua_taskpred_reduced_allcat;
 
 % (ctx-predicted)
-% curr_act_pred_allcat = mua_ctxpred_allcat;
-% curr_act_pred_taskpred_reduced_allcat = mua_ctxpred_taskpred_reduced_allcat;
+curr_act_pred_allcat = mua_ctxpred_allcat;
+curr_act_pred_taskpred_reduced_allcat = mua_ctxpred_taskpred_reduced_allcat;
 
-% (task-predicted)
+% % (task-predicted)
 % curr_act_pred_allcat = mua_taskpred_allcat;
 % curr_act_pred_taskpred_reduced_allcat = mua_taskpred_reduced_allcat;
 
@@ -7690,11 +7700,11 @@ curr_act_taskpred_reduced_allcat = mua_taskpred_reduced_allcat;
 % curr_act_pred_allcat = mua_ctxpred_allcat + task_fix;
 % curr_act_pred_taskpred_reduced_allcat = mua_ctxpred_taskpred_reduced_allcat + task_fix_reduced;
 
-% (ctx + task predicted (by event))
-fix_reduced = 1;
-task_fix = (mua_taskpred_allcat - mua_taskpred_reduced_allcat(:,:,:,fix_reduced)) - ...
-    (mua_ctxpred_taskpred_allcat - mua_ctxpred_taskpred_reduced_allcat(:,:,:,fix_reduced));
-curr_act_pred_allcat = mua_ctxpred_allcat + task_fix;
+% % (ctx + task predicted (by event))
+% fix_reduced = 1;
+% task_fix = (mua_taskpred_allcat - mua_taskpred_reduced_allcat(:,:,:,fix_reduced)) - ...
+%     (mua_ctxpred_taskpred_allcat - mua_ctxpred_taskpred_reduced_allcat(:,:,:,fix_reduced));
+% curr_act_pred_allcat = mua_ctxpred_allcat + task_fix;
 
 % (ctx & task predicted) (in trial_activity_choiceworld_ctxtaskpred)
 % curr_act_pred_allcat = mua_ctxtaskpred_allcat;
@@ -7742,7 +7752,7 @@ for curr_area_idx = 1:length(plot_areas)
         trial_conditions_exp = mat2cell(trial_conditions,use_split,size(trial_conditions,2));
         
         % (get average activity within window)
-        curr_event_t = t > timeavg_t{curr_timeavg}(1) & t < timeavg_t{curr_timeavg}(2);
+        curr_event_t = t >= timeavg_t{curr_timeavg}(1) & t <= timeavg_t{curr_timeavg}(2);
         curr_act_avg = cellfun(@(x) squeeze(nanmean(x(:,curr_event_t,:),2)),curr_act,'uni',false);
         curr_act_pred_avg = cellfun(@(x) squeeze(nanmean(x(:,curr_event_t,:),2)),curr_act_pred,'uni',false);
 
@@ -7849,7 +7859,7 @@ for curr_area_idx = 1:length(plot_areas)
                 sub2ind(fliplr([3,size(trial_conditions,2)]),curr_cond,3)); hold on;
             set(gca,'ColorOrder',[brewermap(n_col_bins,'*OrRd')]);
             plot(t,binned_act_t_error(binned_act_grp(:,curr_cond + 1) == 1,:)','linewidth',2);
-            xlabel('Time'); ylabel('Measured data'); 
+            xlabel('Time'); ylabel('Prediction error'); 
             title(['Condition ' num2str(curr_cond)]);
             line(repmat(timeavg_t{curr_timeavg}(1),2,1),ylim,'color','k');
             line(repmat(timeavg_t{curr_timeavg}(2),2,1),ylim,'color','k');
