@@ -10381,10 +10381,86 @@ xlabel('measured');ylabel('error');
 
 linkaxes(get(gcf,'Children'),'xy');
 
+%% Testing Fig 4 bin plot examples
 
+curr_act_cat = cell2mat(curr_act);
+curr_act_pred_cat = cell2mat(curr_act_pred);
 
+unique_stim = unique(trial_contrastside_allcat);
 
+% Plot trials on top of each other, separated by contrast
+plot_prctiles = linspace(10,90,10);
 
+figure; 
+col = colormap_BlueWhiteRed(5);
+col(6,:) = [0.5,0.5,0.5];
+for curr_stim = 1:length(unique_stim)
+    subplot(1,length(unique_stim),curr_stim); hold on;
+        
+    curr_trials = find(~any(isnan(curr_act_pred_cat(:,curr_event_t)),2) & ...
+        trial_contrastside_allcat == unique_stim(curr_stim));
+    trial_act = nanmean(curr_act_pred_cat(curr_trials,curr_event_t),2);
+    [~,sort_idx] = sort(trial_act);
+    
+    plot_trials = curr_trials(sort_idx(round(prctile(1:length(curr_trials),plot_prctiles))));
+    
+    plot(t,curr_act_pred_cat(plot_trials,:)','color',col(curr_stim,:));
+    plot(t,nanmean(curr_act_pred_cat(curr_trials,:),1),'color',max(col(curr_stim,:)-0.2,0),'linewidth',2);
+    title(['Stim: ' num2str(unique_stim(curr_stim))]);
+end
+linkaxes(get(gcf,'Children'),'xy');
+
+% Plot average +/- std for each trial condition
+figure;
+for curr_cond = 1:size(trial_conditions,2)
+    subplot(1,size(trial_conditions,2),curr_cond);
+    AP_errorfill(t,nanmean(curr_act_pred_cat(trial_conditions(:,curr_cond),:),1), ...
+        prctile(curr_act_pred_cat(trial_conditions(:,curr_cond),:),[10,90],1) - ...
+        nanmean(curr_act_pred_cat(trial_conditions(:,curr_cond),:),1), ...
+        'k',0.5,true);
+    for curr_edge = 1:length(pred_bin_edges)
+        line(xlim,repmat(pred_bin_edges(curr_edge),2,1),'color','k');
+    end
+end
+linkaxes(get(gcf,'Children'),'xy');
+
+% Plot distribution of activity by contrast
+figure; hold on
+distributionPlot(cell2mat(curr_act_pred_avg), ...
+    'groups',trial_contrastside_allcat, ...
+    'color',mat2cell(col,ones(11,1),3), ...
+    'xvalues',1:11,'showMM',0,'globalNorm',1);
+for curr_edge = 1:length(pred_bin_edges)
+   line(xlim,repmat(pred_bin_edges(curr_edge),2,1),'color','k');
+end
+xlabel('Contrast*Side');
+ylabel('Cortex')
+
+% Split cortex into high/low, plot cortex and striatum
+figure; 
+for curr_stim = 1:length(unique_stim)
+    subplot(1,length(unique_stim),curr_stim); hold on;
+        
+    curr_trials = find(~any(isnan(curr_act_pred_cat(:,curr_event_t)),2) & ...
+        trial_contrastside_allcat == unique_stim(curr_stim));
+    
+    trial_act = nanmean(curr_act_pred_cat(curr_trials,curr_event_t),2);
+    [~,sort_idx] = sort(trial_act);
+    
+    high_ctx_trials = curr_trials(sort_idx(round(prctile(1:length(curr_trials),50))+1:length(curr_trials)));
+    low_ctx_trials = curr_trials(sort_idx(1:round(prctile(1:length(curr_trials),50))));
+    
+    subplot(2,length(unique_stim),curr_stim); hold on;
+    plot(t,nanmean(curr_act_pred_cat(high_ctx_trials,:),1),'linewidth',2,'color',[0.3,0.8,0.3]);
+    plot(t,nanmean(curr_act_pred_cat(low_ctx_trials,:),1),'linewidth',2,'color',[0,0.3,0]);
+    title(['Stim: ' num2str(unique_stim(curr_stim))]);
+    
+    subplot(2,length(unique_stim),curr_stim + length(unique_stim)); hold on;
+    plot(t,nanmean(curr_act_cat(high_ctx_trials,:),1),'linewidth',2,'color',[0.6,0.6,0.6]);
+    plot(t,nanmean(curr_act_cat(low_ctx_trials,:),1),'linewidth',2,'color',[0.3,0.3,0.3]);
+    
+end
+linkaxes(get(gcf,'Children'),'xy');
 
 
 

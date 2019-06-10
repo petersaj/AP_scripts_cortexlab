@@ -7,7 +7,7 @@
 % Load data
 
 % (task)
-% data_fn = 'trial_activity_choiceworld'; % Primary dataset
+data_fn = 'trial_activity_choiceworld'; % Primary dataset
 % data_fn = 'trial_activity_choiceworld_strfilt'; % Ctx->lowpass(str)
 % data_fn = 'trial_activity_choiceworld_ctxLonly'; % Left cortex pred only
 % data_fn = 'trial_activity_choiceworld_1gocue'; % only late-move go cue
@@ -16,14 +16,14 @@
 % data_fn = 'trial_activity_choiceworld_6strdepth'; % Depth-aligned striatum
 % data_fn = 'trial_activity_choiceworld_ctxtaskpred'; % includes simultaneous ctxtask fit
 % data_fn = 'trial_activity_choiceworld_strsmooth'; % uses a smoothed (5) striatum
-% exclude_data = true;
+exclude_data = true;
 
 % (passive)
-data_fn = 'trial_activity_AP_choiceWorldStimPassive_trained';
+% data_fn = 'trial_activity_AP_choiceWorldStimPassive_trained';
 % data_fn = 'trial_activity_AP_choiceWorldStimPassive_naive';
 % data_fn = 'trial_activity_stimKalatsky_naive';
 % data_fn = 'trial_activity_stimKalatsky_trained';
-exclude_data = false;
+% exclude_data = false;
 
 % (unused at the moment)
 % data_fn = 'trial_activity_choiceworld_1outcome'; % New timing, only 1 outcome regressor (reward)
@@ -1472,6 +1472,7 @@ plot(vel_centers,move_condition_diff_3_ci,'color',col(3,:),'linewidth',2,'linest
 xlabel('Velocity');
 ylabel('Condition difference');
 
+
 %% Fig 4x: Striatum vs Cortex-predicted (and all task event fix)
 
 % Set alignment shifts
@@ -1498,9 +1499,17 @@ timeavg_labels = {'Stim'};
 timeavg_t = {[0.05,0.15]};
 timeavg_align = {stim_align};
 timeavg_trial_conditions = ...
-    {[trial_contrastside_allcat > 0,trial_contrastside_allcat < 0]};
+    {[trial_contrastside_allcat > 0,trial_contrast_allcat == 0,trial_contrastside_allcat < 0]};
 timeavg_condition_colors = ...
-    {[1,0,0;0,0,1]};
+    {[1,0,0;0,0,0;0,0,1]};
+
+% timeavg_labels = {'Move'};
+% timeavg_t = {[-0.05,0.05]};
+% timeavg_align = {move_align};
+% timeavg_trial_conditions = ...
+%     {[trial_choice_allcat == -1 ,trial_choice_allcat == 1]};
+% timeavg_condition_colors = ...
+%     {[0.6,0,0.6;0,0.6,0]};
 
 % Set activity percentiles and bins
 act_prctile = [10,90];
@@ -1609,12 +1618,10 @@ for curr_area_idx = 1:length(plot_areas)
             [cell2mat(pred_trial_bins),trial_conditions],{'nanmean','gname'});
         binned_act_grp = cellfun(@str2num,binned_act_grp);
         
-        binned_act_t_error = binned_act_t - binned_act_pred_t;
-        
         % (plot predicted data)
         for curr_cond = 1:size(trial_conditions,2)           
-            subplot(3,size(trial_conditions,2), ...
-                sub2ind(fliplr([3,size(trial_conditions,2)]),curr_cond,1)); hold on;
+            subplot(2,size(trial_conditions,2), ...
+                sub2ind(fliplr([2,size(trial_conditions,2)]),curr_cond,1)); hold on;
             set(gca,'ColorOrder',[brewermap(n_col_bins,'*Greens')]);
             plot(t,binned_act_pred_t(binned_act_pred_grp(:,curr_cond + 1) == 1,:)','linewidth',2);
             xlabel('Time'); ylabel('Predicted data'); 
@@ -1625,8 +1632,8 @@ for curr_area_idx = 1:length(plot_areas)
  
         % (plot measured data)        
         for curr_cond = 1:size(trial_conditions,2)           
-            subplot(3,size(trial_conditions,2), ...
-                sub2ind(fliplr([3,size(trial_conditions,2)]),curr_cond,2)); hold on;
+            subplot(2,size(trial_conditions,2), ...
+                sub2ind(fliplr([2,size(trial_conditions,2)]),curr_cond,2)); hold on;
             set(gca,'ColorOrder',[brewermap(n_col_bins,'*Greys')]);
             plot(t,binned_act_t(binned_act_grp(:,curr_cond + 1) == 1,:)','linewidth',2);
             xlabel('Time'); ylabel('Measured data'); 
@@ -1634,19 +1641,6 @@ for curr_area_idx = 1:length(plot_areas)
             line(repmat(timeavg_t{curr_timeavg}(1),2,1),ylim,'color','k');
             line(repmat(timeavg_t{curr_timeavg}(2),2,1),ylim,'color','k');            
         end        
-        
-        % (plot error)      
-        for curr_cond = 1:size(trial_conditions,2)           
-            subplot(3,size(trial_conditions,2), ...
-                sub2ind(fliplr([3,size(trial_conditions,2)]),curr_cond,3)); hold on;
-            set(gca,'ColorOrder',[brewermap(n_col_bins,'*OrRd')]);
-            plot(t,binned_act_t_error(binned_act_grp(:,curr_cond + 1) == 1,:)','linewidth',2);
-            xlabel('Time'); ylabel('Prediction error'); 
-            title(['Condition ' num2str(curr_cond)]);
-            line(repmat(timeavg_t{curr_timeavg}(1),2,1),ylim,'color','k');
-            line(repmat(timeavg_t{curr_timeavg}(2),2,1),ylim,'color','k');
-            line(xlim,[0,0],'color','k')
-        end          
         
         linkaxes(get(measured_pred_fig,'Children'),'xy');       
         
@@ -1672,7 +1666,18 @@ for curr_area_idx = 1:length(plot_areas)
             squeeze(nanmean(act_pred_predbinmean,2)), ...
             squeeze(nanmean(act_predbinmean,2)), ...
             squeeze(AP_sem(act_predbinmean,2)), ...
-            '.','MarkerSize',15,'linewidth',2,'CapSize',10);
+            '.','MarkerSize',50,'linestyle','none','linewidth',2,'CapSize',10);
+        
+        str_col = brewermap(n_col_bins,'*Greys');
+        ctx_col = brewermap(n_col_bins,'*Greens');        
+        scatter( ...
+            reshape(squeeze(nanmean(act_pred_predbinmean,2)),[],1), ...
+            reshape(squeeze(nanmean(act_predbinmean,2)),[],1), ...
+            150,repmat(ctx_col(1:n_act_bins,:),size(trial_conditions,2),1),'filled');
+        scatter( ...
+            reshape(squeeze(nanmean(act_pred_predbinmean,2)),[],1), ...
+            reshape(squeeze(nanmean(act_predbinmean,2)),[],1), ...
+            50,repmat(str_col(1:n_act_bins,:),size(trial_conditions,2),1),'filled');
         
         xlabel(['Predicted (' num2str(plot_area) ')']);
         ylabel(['Measured (' num2str(plot_area) ')'])
@@ -2135,7 +2140,10 @@ timeavg_trial_conditions = ...
     {[trial_contrastside_allcat > 0,trial_contrastside_allcat < 0], ...
     [trial_choice_allcat == -1,trial_choice_allcat == 1], ...
     [trial_outcome_allcat == 1, trial_outcome_allcat == -1]};
-timavg_event_fix = [1,2,4];
+timeavg_condition_colors = ...
+    {[1,0,0;0,0,1], ...
+    [0.6,0,0.6;0,0.6,0], ...
+    [0,0,0.7;0,0,0]};
 
 % Set activity percentiles and bins
 act_prctile = [10,90];
@@ -2244,7 +2252,7 @@ for curr_area_idx = 1:length(plot_areas)
             permute(1:size(trial_conditions,2),[1,3,2]),'uni',false));
         
         act_predpartialfix_predbinmean = ...
-            nan(n_act_bins,length(animals),size(trial_conditions,2),length(task_regressor_labels));
+            nan(n_act_bins,length(use_split),size(trial_conditions,2),length(task_regressor_labels));
         for curr_partial = 1:length(task_regressor_labels)
             act_predpartialfix_predbinmean(:,:,:,curr_partial) = ...
                 cell2mat(arrayfun(@(condition) ...
@@ -2317,7 +2325,7 @@ for curr_area_idx = 1:length(plot_areas)
         subplot(1+length(task_regressor_labels),length(timeavg_labels), ...
             sub2ind(fliplr([1+length(task_regressor_labels),length(timeavg_labels)]),curr_timeavg,1));
         hold on;
-        set(gca,'ColorOrder',[1,0,0;0,0,1;0,1,0]);
+        set(gca,'ColorOrder',timeavg_condition_colors{curr_timeavg});
         
         errorbar( ...
             squeeze(nanmean(act_pred_predbinmean,2)), ...
@@ -2325,26 +2333,25 @@ for curr_area_idx = 1:length(plot_areas)
             squeeze(AP_sem(act_predbinmean,2)), ...
             '.','MarkerSize',30,'linewidth',2,'CapSize',20);
         
-        cond_col = {'r','b','g'};
+        cond_col = timeavg_condition_colors{curr_timeavg};
         for curr_cond = 1:size(trial_conditions,2)
             AP_errorfill( ...
                 squeeze(nanmean(act_pred_predbinmean(:,:,curr_cond),2)), ...
                 squeeze(nanmean(act_predfix_predbinmean(:,:,curr_cond),2)), ...
-                squeeze(AP_sem(act_predfix_predbinmean(:,:,curr_cond),2)),cond_col{curr_cond},0.5,true);
+                squeeze(AP_sem(act_predfix_predbinmean(:,:,curr_cond),2)),cond_col(curr_cond,:),0.5,true);
         end
         
         xlabel(['Predicted (' num2str(plot_area) ')']);
         ylabel(['Measured (' num2str(plot_area) ')'])
         ylim(xlim); axis square;
         title({act_title,'Task-fixed'});
-        line(xlim,xlim,'color','k');
         
         % (measured vs binned predicted with partial task fixes)
         for curr_partial = 1:length(task_regressor_labels)
             subplot(1+length(task_regressor_labels),length(timeavg_labels), ...
                 sub2ind(fliplr([1+length(task_regressor_labels),length(timeavg_labels)]),curr_timeavg,1+curr_partial));
             hold on;
-            set(gca,'ColorOrder',[1,0,0;0,0,1;0,1,0]);
+            set(gca,'ColorOrder',timeavg_condition_colors{curr_timeavg});
             
             errorbar( ...
                 squeeze(nanmean(act_pred_predbinmean,2)), ...
@@ -2352,19 +2359,18 @@ for curr_area_idx = 1:length(plot_areas)
                 squeeze(AP_sem(act_predbinmean,2)), ...
                 '.','MarkerSize',30,'linewidth',2,'CapSize',20);
             
-            cond_col = {'r','b','g'};
+            cond_col = timeavg_condition_colors{curr_timeavg};
             for curr_cond = 1:size(trial_conditions,2)
                 AP_errorfill( ...
                     squeeze(nanmean(act_pred_predbinmean(:,:,curr_cond),2)), ...
                     squeeze(nanmean(act_predpartialfix_predbinmean(:,:,curr_cond,curr_partial),2)), ...
-                    squeeze(AP_sem(act_predpartialfix_predbinmean(:,:,curr_cond,curr_partial),2)),cond_col{curr_cond},0.5,true);
+                    squeeze(AP_sem(act_predpartialfix_predbinmean(:,:,curr_cond,curr_partial),2)),cond_col(curr_cond,:),0.5,true);
             end
             
             xlabel(['Predicted (' num2str(plot_area) ')']);
             ylabel(['Measured (' num2str(plot_area) ')'])
             ylim(xlim); axis square;
             title({act_title,[task_regressor_labels{curr_partial} '-fixed']});
-            line(xlim,xlim,'color','k');
         end
         linkaxes(get(measured_v_pred_fig,'Children'),'xy');
         
