@@ -10410,13 +10410,16 @@ for curr_stim = 1:length(unique_stim)
 end
 linkaxes(get(gcf,'Children'),'xy');
 
-% Plot average +/- std for each trial condition
+% Plot average +/- percentile for each trial condition
 figure;
 for curr_cond = 1:size(trial_conditions,2)
     subplot(1,size(trial_conditions,2),curr_cond);
-    AP_errorfill(t,nanmean(curr_act_pred_cat(trial_conditions(:,curr_cond),:),1), ...
-        prctile(curr_act_pred_cat(trial_conditions(:,curr_cond),:),[10,90],1) - ...
-        nanmean(curr_act_pred_cat(trial_conditions(:,curr_cond),:),1), ...
+    curr_trials = trial_conditions(:,curr_cond) & ...
+        ~any(isnan(curr_act_pred_cat(:,curr_event_t)),2);
+    
+    AP_errorfill(t,nanmean(curr_act_pred_cat(curr_trials,:),1), ...
+        prctile(curr_act_pred_cat(curr_trials,:),[10,90],1) - ...
+        nanmean(curr_act_pred_cat(curr_trials,:),1), ...
         'k',0.5,true);
     for curr_edge = 1:length(pred_bin_edges)
         line(xlim,repmat(pred_bin_edges(curr_edge),2,1),'color','k');
@@ -10434,7 +10437,7 @@ for curr_edge = 1:length(pred_bin_edges)
    line(xlim,repmat(pred_bin_edges(curr_edge),2,1),'color','k');
 end
 xlabel('Contrast*Side');
-ylabel('Cortex')
+ylabel('Cortex');
 
 % Split cortex into high/low, plot cortex and striatum
 figure; 
@@ -10461,6 +10464,15 @@ for curr_stim = 1:length(unique_stim)
     
 end
 linkaxes(get(gcf,'Children'),'xy');
+
+
+
+
+
+
+
+
+
 
 
 
