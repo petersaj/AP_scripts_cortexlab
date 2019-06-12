@@ -7,7 +7,7 @@
 % Load data
 
 % (task)
-data_fn = 'trial_activity_choiceworld'; % Primary dataset
+% data_fn = 'trial_activity_choiceworld'; % Primary dataset
 % data_fn = 'trial_activity_choiceworld_strfilt'; % Ctx->lowpass(str)
 % data_fn = 'trial_activity_choiceworld_ctxLonly'; % Left cortex pred only
 % data_fn = 'trial_activity_choiceworld_1gocue'; % only late-move go cue
@@ -16,14 +16,14 @@ data_fn = 'trial_activity_choiceworld'; % Primary dataset
 % data_fn = 'trial_activity_choiceworld_6strdepth'; % Depth-aligned striatum
 % data_fn = 'trial_activity_choiceworld_ctxtaskpred'; % includes simultaneous ctxtask fit
 % data_fn = 'trial_activity_choiceworld_strsmooth'; % uses a smoothed (5) striatum
-exclude_data = true;
+% exclude_data = true;
 
 % (passive)
-% data_fn = 'trial_activity_AP_choiceWorldStimPassive_trained';
+data_fn = 'trial_activity_AP_choiceWorldStimPassive_trained';
 % data_fn = 'trial_activity_AP_choiceWorldStimPassive_naive';
 % data_fn = 'trial_activity_stimKalatsky_naive';
 % data_fn = 'trial_activity_stimKalatsky_trained';
-% exclude_data = false;
+exclude_data = false;
 
 % (unused at the moment)
 % data_fn = 'trial_activity_choiceworld_1outcome'; % New timing, only 1 outcome regressor (reward)
@@ -1473,7 +1473,8 @@ xlabel('Velocity');
 ylabel('Condition difference');
 
 
-%% Fig 4x: Striatum vs Cortex-predicted (and all task event fix)
+
+%% Fig 4a,b: Striatum vs Cortex-predicted (and all task event fix)
 
 % Set alignment shifts
 t_leeway = -t(1);
@@ -1483,57 +1484,68 @@ move_align = -move_idx + leeway_samples;
 outcome_align = -outcome_idx + leeway_samples;
 
 % Set windows to average activity
-% timeavg_labels = {'Stim','Move onset','Outcome'};
-% timeavg_t = {[0.05,0.15],[-0.05,0.05],[0,0.1]};
-% timeavg_align = {stim_align,move_align,outcome_align};
-% timeavg_trial_conditions = ...
-%     {[trial_contrastside_allcat > 0,trial_contrastside_allcat < 0], ...
-%     [trial_choice_allcat == -1,trial_choice_allcat == 1], ...
-%     [trial_outcome_allcat == 1, trial_outcome_allcat == -1]};
-% timeavg_condition_colors = ...
-%     {[1,0,0;0,0,1], ...
-%     [0.6,0,0.6;0,0.6,0], ...
-%     [0,0,0.7;0,0,0]};
-
-timeavg_labels = {'Stim'};
-timeavg_t = {[0.05,0.15]};
-timeavg_align = {stim_align};
+timeavg_labels = {'Stim','Move early','Move late','Outcome'};
+timeavg_t = {[0.05,0.15],[-0.05,0.05],[0.05,0.15],[0.05,0.15]};
+timeavg_align = {stim_align,move_align,move_align,outcome_align};
 timeavg_trial_conditions = ...
-    {[trial_contrastside_allcat > 0,trial_contrast_allcat == 0,trial_contrastside_allcat < 0]};
+    {[trial_contrastside_allcat > 0,trial_contrastside_allcat == 0,trial_contrastside_allcat < 0], ...
+    [trial_choice_allcat == -1,trial_choice_allcat == 1], ...
+    [trial_choice_allcat == -1,trial_choice_allcat == 1], ...
+    [trial_outcome_allcat == 1, trial_outcome_allcat == -1]};
 timeavg_condition_colors = ...
-    {[1,0,0;0,0,0;0,0,1]};
+    {[1,0,0;0,0,0;0,0,1], ...
+    [0.6,0,0.6;0,0.6,0], ...
+    [0.6,0,0.6;0,0.6,0], ...
+    [0,0,0.7;0,0,0]};
 
-% timeavg_labels = {'Move'};
-% timeavg_t = {[-0.05,0.05]};
-% timeavg_align = {move_align};
+% timeavg_labels = {'Stim'};
+% timeavg_t = {[0.05,0.15]};
+% timeavg_align = {stim_align};
 % timeavg_trial_conditions = ...
-%     {[trial_choice_allcat == -1,trial_choice_allcat == 1]};
+%     {[trial_contrastside_allcat > 0,trial_contrastside_allcat == 0,trial_contrastside_allcat < 0]};
 % timeavg_condition_colors = ...
-%     {[0.6,0,0.6;0,0.6,0]};
+%     {[1,0,0;0,0,0;0,0,1]};
+
+% timeavg_labels = {'Move 1','Move 2'};
+% timeavg_t = {[-0.05,0.05],[0.05,0.15]};
+% timeavg_align = repmat({move_align},length(timeavg_t),1);
+% timeavg_trial_conditions = ...
+%     repmat({[trial_choice_allcat == -1,trial_choice_allcat == 1]},length(timeavg_t),1);
+% timeavg_condition_colors = ...
+%     repmat({[0.6,0,0.6;0,0.6,0]},length(timeavg_t),1);
+
+% timeavg_labels = {'Outcome 1'};
+% timeavg_t = {[0.05,0.15]};
+% timeavg_align = repmat({outcome_align},length(timeavg_t),1);
+% timeavg_trial_conditions = ...
+%     repmat({[trial_outcome_allcat == 1,trial_outcome_allcat == -1]},length(timeavg_t),1);
+% timeavg_condition_colors = ...
+%     repmat({[0,0,0.6;0,0,0]},length(timeavg_t),1);
 
 % Set activity percentiles and bins
 act_prctile = [5,95];
 n_act_bins = 5;
 
 % Set areas and conditions
-% plot_areas = [1,2,3,4];
-plot_areas = 1;
+plot_areas = [1,2,3,4];
 
 % Loop across area pairs, plot binned predicted v measured activity
 curr_act_allcat = mua_allcat;
-
-% (ctx-predicted)
 curr_act_pred_allcat = mua_ctxpred_allcat;
 
-% (fix by all events)
-% task_fix = mua_taskpred_allcat - mua_ctxpred_taskpred_allcat;
-% curr_act_pred_fix_allcat = mua_ctxpred_allcat + task_fix;
+task_fix = mua_taskpred_allcat - mua_ctxpred_taskpred_allcat;
+curr_act_pred_fix_allcat = curr_act_pred_allcat + task_fix;
 
-% (fix by one event)
-curr_partial = 2;
-task_fix = (mua_taskpred_allcat - mua_taskpred_reduced_allcat(:,:,:,curr_partial)) - ...
-    (mua_ctxpred_taskpred_allcat - mua_ctxpred_taskpred_reduced_allcat(:,:,:,curr_partial));
-curr_act_pred_fix_allcat = mua_ctxpred_allcat + task_fix;
+% (test single event)
+% curr_partial = 2;
+% 
+% curr_act_allcat = mua_allcat - mua_taskpred_reduced_allcat(:,:,curr_partial);
+% curr_act_pred_allcat = mua_ctxpred_allcat - mua_ctxpred_taskpred_reduced_allcat(:,:,curr_partial);
+% 
+% task_fix = ...
+%     (mua_taskpred_allcat - mua_taskpred_reduced_allcat(:,:,:,curr_partial)) - ...
+%     (mua_ctxpred_taskpred_allcat - mua_ctxpred_taskpred_reduced_allcat(:,:,:,curr_partial));
+% curr_act_pred_fix_allcat = curr_act_pred_allcat + task_fix;
 
 measured_v_pred_fig = figure('color','w');
 for curr_area_idx = 1:length(plot_areas)   
@@ -1579,9 +1591,9 @@ for curr_area_idx = 1:length(plot_areas)
         pred_trial_bins = cellfun(@(x) discretize(x,pred_bin_edges),curr_act_pred_avg,'uni',false);         
         
         % (get activity binned by predicted)        
-        pred_use_trials = cellfun(@(act,act_taskpred,trial_bins) ...
+        pred_use_trials = cellfun(@(act,act_pred,trial_bins) ...
             squeeze(~any(isnan(act(:,curr_event_t)),2)) & ...
-            squeeze(~any(isnan(act_taskpred(:,curr_event_t)),2)) & ...
+            squeeze(~any(isnan(act_pred(:,curr_event_t)),2)) & ...
             ~isnan(trial_bins), ...
             curr_act,curr_act_pred,pred_trial_bins,'uni',false);
         
@@ -1686,7 +1698,7 @@ for curr_area_idx = 1:length(plot_areas)
             
             AP_errorfill(t,curr_mean,curr_std,'k',0.5,true);
             
-            set(gca,'ColorOrder',[brewermap(n_col_bins,'*Greens')]);
+            set(gca,'ColorOrder',brewermap(n_col_bins,'*Greens'));
             plot(t,binned_act_pred_t(binned_act_pred_grp(:,curr_cond + 1) == 1,:)','linewidth',2);
             xlabel('Time'); ylabel('Predicted data'); 
             title(['Condition ' num2str(curr_cond)]);
@@ -1775,8 +1787,8 @@ for curr_area_idx = 1:length(plot_areas)
 end
 
 
-%% Fig 4x: Striatum vs Cortex-predicted (passive choiceworld)
-% UPDATE THIS TO BE COPIED FROM ABOVE
+%% Fig 4c: Striatum vs Cortex-predicted (passive choiceworld)
+% (do separately for trained and naive)
 
 % Set alignment shifts
 t_leeway = -t(1);
@@ -1792,7 +1804,7 @@ timeavg_condition_colors = ...
     {[1,0,0;0,0,1]};
 
 % Set activity percentiles and bins
-act_prctile = [10,90];
+act_prctile = [5,95];
 n_act_bins = 5;
 
 % Set areas and conditions
@@ -1865,15 +1877,14 @@ for curr_area_idx = 1:length(plot_areas)
         curr_act_predfix_avg = cellfun(@(x) squeeze(nanmean(x(:,curr_event_t,:),2)),curr_act_predfix,'uni',false);
         
         % (bin predicted data across percentile range)
-        pred_bin_range = prctile(cell2mat(curr_act_pred_avg),act_prctile);
-        pred_bin_edges = linspace(pred_bin_range(1),pred_bin_range(2),n_act_bins+1);
+        pred_bin_edges = prctile(cell2mat(curr_act_pred_avg),linspace(act_prctile(1),act_prctile(2),n_act_bins+1));
         pred_bin_centers = pred_bin_edges(1:end-1) + diff(pred_bin_edges)./2;        
         pred_trial_bins = cellfun(@(x) discretize(x,pred_bin_edges),curr_act_pred_avg,'uni',false);         
         
         % (get activity binned by predicted)        
-        pred_use_trials = cellfun(@(act,act_taskpred,trial_bins) ...
+        pred_use_trials = cellfun(@(act,act_pred,trial_bins) ...
             squeeze(~any(isnan(act(:,curr_event_t)),2)) & ...
-            squeeze(~any(isnan(act_taskpred(:,curr_event_t)),2)) & ...
+            squeeze(~any(isnan(act_pred(:,curr_event_t)),2)) & ...
             ~isnan(trial_bins), ...
             curr_act,curr_act_pred,pred_trial_bins,'uni',false);
         
@@ -1902,59 +1913,54 @@ for curr_area_idx = 1:length(plot_areas)
             curr_act_predfix_avg,pred_trial_bins,trial_conditions_exp,pred_use_trials,'uni',false)'), ...
             permute(1:size(trial_conditions,2),[1,3,2]),'uni',false));
         
-        % Plot binned measured, predicted, and error (by predicted bins)
-        measured_pred_fig = figure('color','w','Name', ...
-            ['Str ' num2str(plot_area)' ', ' timeavg_labels{curr_timeavg}]);
-        n_col_bins = n_act_bins + 2;
+        % Get condition difference significance from shuffle
+        n_shuff = 1000;
+        trial_conditions_shuff = cellfun(@(x) AP_shake(x,1), ...
+            repmat(trial_conditions_exp,1,n_shuff),'uni',false);
         
-        [binned_act_pred_t,binned_act_pred_grp] = grpstats(cell2mat(curr_act_pred), ...
-            [cell2mat(pred_trial_bins),trial_conditions],{'nanmean','gname'});
-        binned_act_pred_grp = cellfun(@str2num,binned_act_pred_grp);        
+        act_predbinmean_condshuff = cell2mat(arrayfun(@(curr_shuff) ...
+            cell2mat(arrayfun(@(condition) ...
+            cell2mat(cellfun(@(act,bins,trial_cond,use_trials) ...
+            accumarray(bins(use_trials & trial_cond(:,condition)), ...
+            act(use_trials & trial_cond(:,condition)), ...
+            [n_act_bins,1],@nanmean,cast(NaN,class(act))), ...
+            curr_act_avg,pred_trial_bins,trial_conditions_shuff(:,curr_shuff), ...
+            pred_use_trials,'uni',false)'), ...
+            permute(1:size(trial_conditions,2),[1,3,2]),'uni',false)), ...
+            permute(1:n_shuff,[1,3,4,2]),'uni',false));
         
-        [binned_act_t,binned_act_grp] = grpstats(cell2mat(curr_act), ...
-            [cell2mat(pred_trial_bins),trial_conditions],{'nanmean','gname'});
-        binned_act_grp = cellfun(@str2num,binned_act_grp);
+        act_predfix_predbinmean_condshuff = cell2mat(arrayfun(@(curr_shuff) ...
+            cell2mat(arrayfun(@(condition) ...
+            cell2mat(cellfun(@(act,bins,trial_cond,use_trials) ...
+            accumarray(bins(use_trials & trial_cond(:,condition)), ...
+            act(use_trials & trial_cond(:,condition)), ...
+            [n_act_bins,1],@nanmean,cast(NaN,class(act))), ...
+            curr_act_predfix_avg,pred_trial_bins,trial_conditions_shuff(:,curr_shuff), ...
+            pred_use_trials,'uni',false)'), ...
+            permute(1:size(trial_conditions,2),[1,3,2]),'uni',false)), ...
+            permute(1:n_shuff,[1,3,4,2]),'uni',false));
         
-        binned_act_t_error = binned_act_t - binned_act_pred_t;
-        
-        % (plot predicted data)
-        for curr_cond = 1:size(trial_conditions,2)           
-            subplot(3,size(trial_conditions,2), ...
-                sub2ind(fliplr([3,size(trial_conditions,2)]),curr_cond,1)); hold on;
-            set(gca,'ColorOrder',[brewermap(n_col_bins,'*Greens')]);
-            plot(t,binned_act_pred_t(binned_act_pred_grp(:,curr_cond + 1) == 1,:)','linewidth',2);
-            xlabel('Time'); ylabel('Predicted data'); 
-            title(['Condition ' num2str(curr_cond)]);
-            line(repmat(timeavg_t{curr_timeavg}(1),2,1),ylim,'color','k');
-            line(repmat(timeavg_t{curr_timeavg}(2),2,1),ylim,'color','k');            
-        end
- 
-        % (plot measured data)        
-        for curr_cond = 1:size(trial_conditions,2)           
-            subplot(3,size(trial_conditions,2), ...
-                sub2ind(fliplr([3,size(trial_conditions,2)]),curr_cond,2)); hold on;
-            set(gca,'ColorOrder',[brewermap(n_col_bins,'*Greys')]);
-            plot(t,binned_act_t(binned_act_grp(:,curr_cond + 1) == 1,:)','linewidth',2);
-            xlabel('Time'); ylabel('Measured data'); 
-            title(['Condition ' num2str(curr_cond)]);
-            line(repmat(timeavg_t{curr_timeavg}(1),2,1),ylim,'color','k');
-            line(repmat(timeavg_t{curr_timeavg}(2),2,1),ylim,'color','k');            
-        end        
-        
-        % (plot error)      
-        for curr_cond = 1:size(trial_conditions,2)           
-            subplot(3,size(trial_conditions,2), ...
-                sub2ind(fliplr([3,size(trial_conditions,2)]),curr_cond,3)); hold on;
-            set(gca,'ColorOrder',[brewermap(n_col_bins,'*OrRd')]);
-            plot(t,binned_act_t_error(binned_act_grp(:,curr_cond + 1) == 1,:)','linewidth',2);
-            xlabel('Time'); ylabel('Prediction error'); 
-            title(['Condition ' num2str(curr_cond)]);
-            line(repmat(timeavg_t{curr_timeavg}(1),2,1),ylim,'color','k');
-            line(repmat(timeavg_t{curr_timeavg}(2),2,1),ylim,'color','k');
-            line(xlim,[0,0],'color','k')
-        end          
-        
-        linkaxes(get(measured_pred_fig,'Children'),'xy');       
+        % (measured data: null = no difference between conditions)
+        cond_combos = nchoosek(1:size(trial_conditions,2),2);
+        cond_sig_diff = false(n_act_bins,size(cond_combos,1));
+        predfix_cond_sig_diff = false(n_act_bins,size(cond_combos,1));
+        for curr_cond_combo = 1:size(cond_combos,1)
+            curr_combo_diff = nanmean(act_predbinmean(:,:,cond_combos(curr_cond_combo,1)) - ...
+                 act_predbinmean(:,:,cond_combos(curr_cond_combo,2)),2);
+            shuff_prctile = squeeze(prctile(nanmean(act_predbinmean_condshuff(:,:,cond_combos(curr_cond_combo,1),:) - ...
+                act_predbinmean_condshuff(:,:,cond_combos(curr_cond_combo,2),:),2),[2.5,97.5],4));
+            cond_sig_diff(:,curr_cond_combo) = ...
+                curr_combo_diff < shuff_prctile(:,1) | ...
+                curr_combo_diff > shuff_prctile(:,2);
+            
+            predfix_curr_combo_diff = nanmean(act_predfix_predbinmean(:,:,cond_combos(curr_cond_combo,1)) - ...
+                 act_predfix_predbinmean(:,:,cond_combos(curr_cond_combo,2)),2);
+            predfix_shuff_prctile = squeeze(prctile(nanmean(act_predfix_predbinmean_condshuff(:,:,cond_combos(curr_cond_combo,1),:) - ...
+                act_predfix_predbinmean_condshuff(:,:,cond_combos(curr_cond_combo,2),:),2),[2.5,97.5],4));
+            predfix_cond_sig_diff(:,curr_cond_combo) = ...
+                predfix_curr_combo_diff < predfix_shuff_prctile(:,1) | ...
+                predfix_curr_combo_diff > predfix_shuff_prctile(:,2);
+        end 
         
         % Plot measured v predicted in bins
         figure(measured_v_pred_fig)
@@ -1982,8 +1988,36 @@ for curr_area_idx = 1:length(plot_areas)
         
         xlabel(['Predicted (' num2str(plot_area) ')']);
         ylabel(['Measured (' num2str(plot_area) ')'])
-        ylim(xlim); axis square;
+        axis square;
         title(act_title);
+        
+        % (plot significant measured condition differences)
+        % (* and o = significant in both measured and "fixed" predicted)
+        curr_ylim = max(ylim);
+        for curr_cond_combo = 1:size(cond_combos,1)
+            % (plot * for measured condition differences)
+            sig_y = curr_ylim + 0.1*curr_cond_combo;
+            sig_x = pred_bin_centers;
+            if any(cond_sig_diff(:,curr_cond_combo))
+                plot(sig_x(cond_sig_diff(:,curr_cond_combo)),sig_y, ...
+                    '*','MarkerSize',10,'color', ...
+                    timeavg_condition_colors{curr_timeavg}(cond_combos(curr_cond_combo,1),:));
+                plot(sig_x(cond_sig_diff(:,curr_cond_combo)),sig_y, ...
+                    '*','MarkerSize',5,'color', ...
+                    timeavg_condition_colors{curr_timeavg}(cond_combos(curr_cond_combo,2),:));
+            end
+            % (plot o for [predicted condition differences)
+            if any(predfix_cond_sig_diff(:,curr_cond_combo))
+                plot(sig_x(predfix_cond_sig_diff(:,curr_cond_combo)),sig_y, ...
+                    'o','MarkerSize',15,'color', ...
+                    timeavg_condition_colors{curr_timeavg}(cond_combos(curr_cond_combo,1),:));
+                plot(sig_x(predfix_cond_sig_diff(:,curr_cond_combo)),sig_y, ...
+                    'o','MarkerSize',10,'color', ...
+                    timeavg_condition_colors{curr_timeavg}(cond_combos(curr_cond_combo,2),:));
+            end
+        end
+        
+        drawnow;
         
     end
 end
