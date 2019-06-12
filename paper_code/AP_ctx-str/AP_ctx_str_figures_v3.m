@@ -1795,11 +1795,16 @@ t_leeway = -t(1);
 leeway_samples = round(t_leeway*(sample_rate));
 stim_align = zeros(size(mua_allcat,1),1);
 
+% Get trials with movement during stim to exclude
+quiescent_trials = ~any(abs(wheel_allcat(:,t >= 0 & t <= 0.5)) > 0.02,2);
+
+% Set windows to average activity
 timeavg_labels = {'Stim'};
 timeavg_t = {[0.05,0.15]};
 timeavg_align = {stim_align};
 timeavg_trial_conditions = ...
-    {[trial_contrastside_allcat > 0,trial_contrastside_allcat < 0]};
+    {[trial_contrastside_allcat > 0 & quiescent_trials, ...
+    trial_contrastside_allcat < 0 & quiescent_trials]};
 timeavg_condition_colors = ...
     {[1,0,0;0,0,1]};
 
@@ -1808,7 +1813,7 @@ act_prctile = [5,95];
 n_act_bins = 5;
 
 % Set areas and conditions
-plot_areas = [1,2];
+plot_areas = [1];
 
 % Loop across area pairs, plot binned predicted v measured activity
 curr_act_allcat = mua_allcat;
@@ -1817,19 +1822,26 @@ curr_act_allcat = mua_allcat;
 curr_act_pred_allcat = mua_ctxpred_allcat;
 
 % (fix by average stim response within experiment)
-mua_allcat_exp = mat2cell(mua_allcat,trials_recording,length(t),n_depths);
-mua_ctxpred_allcat_exp = mat2cell(mua_ctxpred_allcat,trials_recording,length(t),n_depths);
-trial_contrastside_allcat_exp = mat2cell(trial_contrastside_allcat,trials_recording,1);
+mua_allcat_exp = mat2cell(mua_allcat,use_split,length(t),n_depths);
+mua_ctxpred_allcat_exp = mat2cell(mua_ctxpred_allcat,use_split,length(t),n_depths);
+trial_contrastside_allcat_exp = mat2cell(trial_contrastside_allcat,use_split,1);
+trial_conditions_exp = mat2cell(timeavg_trial_conditions{1},use_split, ...
+    size(timeavg_trial_conditions{1},2));
 
+str_stim_exp = nan(length(unique(trial_contrastside_allcat)),length(t),n_depths,length(use_split));
+ctx_stim_exp = nan(length(unique(trial_contrastside_allcat)),length(t),n_depths,length(use_split));
 curr_act_pred_fix_allcat_exp = mua_ctxpred_allcat_exp;
-
-for curr_exp = 1:length(trials_recording)
+for curr_exp = 1:length(use_split)
     
     curr_stim = unique(trial_contrastside_allcat_exp{curr_exp});
     for curr_stim_idx = 1:length(curr_stim)
-        curr_trials = trial_contrastside_allcat_exp{curr_exp} == curr_stim(curr_stim_idx);
+        curr_trials = any(trial_conditions_exp{curr_exp},2) & ...
+            trial_contrastside_allcat_exp{curr_exp} == curr_stim(curr_stim_idx);
         curr_act_stim_avg = nanmean(mua_allcat_exp{curr_exp}(curr_trials,:,:),1);
         curr_act_pred_stim_avg = nanmean(mua_ctxpred_allcat_exp{curr_exp}(curr_trials,:,:),1);
+        
+        str_stim_exp(curr_stim_idx,:,:,curr_exp) = curr_act_stim_avg;
+        ctx_stim_exp(curr_stim_idx,:,:,curr_exp) = curr_act_pred_stim_avg;
         
         curr_stim_fix = curr_act_stim_avg - curr_act_pred_stim_avg;        
         curr_act_pred_fix_allcat_exp{curr_exp}(curr_trials,:,:) = ...
@@ -1837,6 +1849,43 @@ for curr_exp = 1:length(trials_recording)
     end  
 end
 curr_act_pred_fix_allcat = cell2mat(curr_act_pred_fix_allcat_exp);
+
+% Plot stim response
+stim_col = colormap_BlueWhiteRed(5);
+stim_col(6,:) = 0.5;
+stim_col_contrastside = unique([0,0.06,0.125,0.25,0.5,1].*[-1;1]);
+[~,used_stim_idx] = ismember(unique(trial_contrastside_allcat), ...
+    stim_col_contrastside,'rows');
+
+str_stim_avg = nanmean(str_stim_exp,4);
+figure('color','w');
+for curr_area_idx = 1:length(plot_areas)
+    curr_area = plot_areas(curr_area_idx);
+    subplot(length(plot_areas),2,length(plot_areas)*(curr_area_idx-1)+1); 
+    hold on;
+    for curr_stim_idx = 1:size(str_stim_avg,1)
+        AP_errorfill(t, ...
+            nanmean(str_stim_exp(curr_stim_idx,:,curr_area,:),4), ...
+            AP_sem(str_stim_exp(curr_stim_idx,:,curr_area,:),4), ...
+            stim_col(used_stim_idx(curr_stim_idx),:),0.5,true);
+    end
+    line([0,0],ylim,'color','k');
+    ylabel(['Measured (' num2str(curr_area) ')']);
+    xlabel('Time from stim');
+    
+    subplot(length(plot_areas),2,length(plot_areas)*(curr_area_idx-1)+2); 
+    hold on;
+    for curr_stim_idx = 1:size(str_stim_avg,1)
+        AP_errorfill(t, ...
+            nanmean(ctx_stim_exp(curr_stim_idx,:,curr_area,:),4), ...
+            AP_sem(ctx_stim_exp(curr_stim_idx,:,curr_area,:),4), ...
+            stim_col(used_stim_idx(curr_stim_idx),:),0.5,true);
+    end
+    line([0,0],ylim,'color','k');
+    ylabel(['Predicted (' num2str(curr_area) ')']);
+    xlabel('Time from stim');
+end
+linkaxes(get(gcf,'Children'),'xy');
 
 measured_v_pred_fig = figure('color','w');
 for curr_area_idx = 1:length(plot_areas)   
