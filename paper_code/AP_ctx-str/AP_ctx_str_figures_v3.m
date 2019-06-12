@@ -7,7 +7,7 @@
 % Load data
 
 % (task)
-% data_fn = 'trial_activity_choiceworld'; % Primary dataset
+data_fn = 'trial_activity_choiceworld'; % Primary dataset
 % data_fn = 'trial_activity_choiceworld_strfilt'; % Ctx->lowpass(str)
 % data_fn = 'trial_activity_choiceworld_ctxLonly'; % Left cortex pred only
 % data_fn = 'trial_activity_choiceworld_1gocue'; % only late-move go cue
@@ -16,14 +16,14 @@
 % data_fn = 'trial_activity_choiceworld_6strdepth'; % Depth-aligned striatum
 % data_fn = 'trial_activity_choiceworld_ctxtaskpred'; % includes simultaneous ctxtask fit
 % data_fn = 'trial_activity_choiceworld_strsmooth'; % uses a smoothed (5) striatum
-% exclude_data = true;
+exclude_data = true;
 
 % (passive)
-data_fn = 'trial_activity_AP_choiceWorldStimPassive_trained';
+% data_fn = 'trial_activity_AP_choiceWorldStimPassive_trained';
 % data_fn = 'trial_activity_AP_choiceWorldStimPassive_naive';
 % data_fn = 'trial_activity_stimKalatsky_naive';
 % data_fn = 'trial_activity_stimKalatsky_trained';
-exclude_data = false;
+% exclude_data = false;
 
 % (unused at the moment)
 % data_fn = 'trial_activity_choiceworld_1outcome'; % New timing, only 1 outcome regressor (reward)

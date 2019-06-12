@@ -6,6 +6,8 @@
 
 %% Load in and unpack data
 
+disp(['Loading ' data_fn '...']);
+
 % Load data into structure
 data_path = 'C:\Users\Andrew\OneDrive for Business\Documents\CarandiniHarrisLab\analysis\wf_ephys_choiceworld\paper\data';
 data_struct = load([data_path filesep data_fn]);
