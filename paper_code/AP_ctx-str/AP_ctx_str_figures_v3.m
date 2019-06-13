@@ -44,7 +44,7 @@ split_idx = cell2mat(arrayfun(@(exp,trials) repmat(exp,trials,1), ...
     [1:length(use_split)]',reshape(use_split,[],1),'uni',false));
 
 
-%% Fig 1a,S1: Psychometric and reaction time
+%% Fig 1a, S1: Psychometric and reaction time
 
 % Load behavior
 bhv_fn = 'C:\Users\Andrew\OneDrive for Business\Documents\CarandiniHarrisLab\analysis\wf_ephys_choiceworld\bhv_processing\bhv.mat';
@@ -867,7 +867,7 @@ for protocol = protocols
 end
 
 
-%% Fig 3a,b,S6: Striatal domain activity and task regression
+%% Fig 3a,b, S6: Striatal domain activity and task regression
 
 % Plot stim-aligned/sorted measured and predicted striatum activity
 % (correct contra trials)
@@ -1736,6 +1736,307 @@ end
 linkaxes(get(measured_v_pred_fig,'Children'),'xy');
 
 
+
+%% Fig S2a: Widefield hemodynamic correction and deconvolution
+
+% Load and plot deconvolution kernel
+load('C:\Users\Andrew\OneDrive for Business\Documents\CarandiniHarrisLab\analysis\wf_ephys_choiceworld\wf_processing\gcamp_kernel\gcamp6s_kernel.mat');
+gcamp6s_kernel_cat = vertcat(gcamp6s_kernel.regression{:});
+gcamp6s_kernel_cat_norm = gcamp6s_kernel_cat./max(abs(gcamp6s_kernel_cat),[],2);
+gcamp6s_kernel_mean = nanmean(gcamp6s_kernel_cat_norm,1);
+
+figure; hold on;
+plot(-gcamp6s_kernel.regression_t,gcamp6s_kernel_cat_norm','color',[0.5,0.5,0.5]);
+plot(-gcamp6s_kernel.regression_t,gcamp6s_kernel_mean,'color','k','linewidth',2);
+line([0,0],ylim,'color','k','linestyle','--');
+line(xlim,[0,0],'color','k','linestyle','--');
+xlabel('Time from spike');
+ylabel('Max-normalized weight');
+
+% Load sample cortical recording
+animal = 'AP026';
+day = '2017-12-09';
+experiment = 2;
+verbose = true;
+kilosort_version = 1;
+AP_load_experiment;
+
+% Get raw, hemo-corrected and deconvolved fluorescence in craniotomy
+
+[roi_trace_raw,roi_mask] = AP_svd_roi(Un,fVn,avg_im);
+
+roi_trace_hemo = AP_svd_roi(Udf,fVdf,avg_im,[],roi_mask);
+
+fVdf_deconv = AP_deconv_wf(fVdf);
+roi_trace_deconv = AP_svd_roi(Udf,fVdf_deconv,avg_im,[],roi_mask);
+
+% Get cortical multiunit binned by imaged frame
+ctx_depth = [0,1600];
+
+% Get event-aligned activity
+raster_window = [-0.5,5];
+raster_sample_rate = 1/framerate;
+t = raster_window(1):raster_sample_rate:raster_window(2);
+t_peri_event = bsxfun(@plus,stimOn_times,t);
+t_peri_event_bins = [t_peri_event-raster_sample_rate/2,t_peri_event(:,end)+raster_sample_rate/2];
+
+ctx_spikes = spike_times_timeline(spike_depths >= ctx_depth(1) & spike_depths <= ctx_depth(2));
+stim_aligned_mua = cell2mat(arrayfun(@(x) ...
+    histcounts(ctx_spikes,t_peri_event_bins(x,:)), ...
+    [1:size(t_peri_event,1)]','uni',false))./raster_sample_rate;
+
+stim_aligned_fluor_raw = interp1(frame_t,roi_trace_raw',t_peri_event);
+stim_aligned_fluor_hemo = interp1(frame_t,roi_trace_hemo',t_peri_event);
+stim_aligned_fluor_deconv = interp1(frame_t,roi_trace_deconv',t_peri_event);
+
+% Subtract baseline, average across one stimulus
+baseline_t = t < 0;
+stim_aligned_mua_baselined = stim_aligned_mua - nanmean(stim_aligned_mua(:,baseline_t,:),2);
+stim_aligned_fluor_raw_baselined = stim_aligned_fluor_raw - nanmean(stim_aligned_fluor_raw(:,baseline_t,:),2);
+stim_aligned_fluor_hemo_baselined = stim_aligned_fluor_hemo - nanmean(stim_aligned_fluor_hemo(:,baseline_t,:),2);
+stim_aligned_fluor_deconv_baselined = stim_aligned_fluor_deconv - nanmean(stim_aligned_fluor_deconv(:,baseline_t,:),2);
+
+plot_stim = 2;
+stim_mua = nanmean(stim_aligned_mua_baselined(stimIDs == plot_stim,:),1);
+stim_fluor_raw = nanmean(stim_aligned_fluor_raw_baselined(stimIDs == plot_stim,:),1);
+stim_fluor_hemo = nanmean(stim_aligned_fluor_hemo_baselined(stimIDs == plot_stim,:),1);
+stim_fluor_deconv = nanmean(stim_aligned_fluor_deconv_baselined(stimIDs == plot_stim,:),1);
+
+figure; hold on
+plot(t,stim_mua./max(stim_mua),'k','linewidth',2);
+plot(t,stim_fluor_raw./max(stim_fluor_raw),'g','linewidth',2);
+plot(t,stim_fluor_hemo./max(stim_fluor_hemo),'r','linewidth',2);
+plot(t,stim_fluor_deconv./max(stim_fluor_deconv),'b','linewidth',2);
+line([0,0],ylim,'color','k','linestyle','--');
+xlabel('Time from stimulus');
+ylabel('Max-normalized activity');
+legend({'Multiunit','Fluorescence (Raw)','Fluorescence (Hemo-corrected)','Fluorescence(Deconvolved)'});
+
+
+%% Fig S2b: Widefield alignment
+
+% Show average images across days for one animal
+animal = 'AP025';
+
+protocol = 'vanillaChoiceworld';
+experiments = AP_find_experiments(animal,protocol);
+experiments = experiments([experiments.imaging] & [experiments.ephys]);
+
+figure;
+for curr_day = 1:length(experiments)
+    
+    day = experiments(curr_day).day;
+    
+    [img_path,img_exists] = AP_cortexlab_filename(animal,day,[],'imaging');
+    avg_im = readNPY([img_path filesep 'meanImage_blue.npy']);
+        
+    subplot(1,length(experiments),curr_day);
+    imagesc(avg_im);
+    axis image off;
+    colormap(gray);
+    caxis([0,40000]);
+    title([animal ' Day ' num2str(curr_day)]);
+    
+end
+
+% Show retinotopy for all animals
+% (grab retinotopy from figs)
+retinotopy_path = 'C:\Users\Andrew\OneDrive for Business\Documents\CarandiniHarrisLab\analysis\wf_ephys_choiceworld\wf_processing\retinotopy';
+retinotopy_dir = dir(retinotopy_path);
+
+animal_retinotopy_idx = cellfun(@(x) ~isempty(x), regexp({retinotopy_dir.name},'AP\d*_retinotopy'));
+animals_tokens = cellfun(@(x) regexp({x},'(AP\d*)_retinotopy','tokens'),{retinotopy_dir.name});
+animals = cellfun(@(x) cell2mat(x{:}),animals_tokens(cellfun(@(x) ~isempty(x),animals_tokens)),'uni',false);
+
+retinotopy_unaligned = cell(size(animals));
+for curr_animal = 1:length(animals)
+    h = open([retinotopy_path filesep animals{curr_animal} '_retinotopy.fig']);
+    retinotopy_unaligned{curr_animal} = get(get(subplot(1,2,1),'Children'),'CData');
+    close(h);
+end
+
+figure;
+for curr_animal = 1:6
+   subplot(1,6,curr_animal);
+   imagesc(retinotopy_unaligned{curr_animal});
+   axis image off
+   colormap(brewermap([],'*RdBu'));
+   caxis([-1,1]);
+   title(animals{curr_animal});
+end
+
+% Show colored CCF and master retinotopy with aligned CCF
+
+% (these steps are normally done in AP_vfs_ccf_align)
+
+% Load CCF av and st
+ccf_path = 'C:\Users\Andrew\OneDrive for Business\Documents\Atlases\AllenCCF';
+av = readNPY([ccf_path filesep 'annotation_volume_10um_by_index.npy']); 
+st = loadStructureTree([ccf_path filesep 'structure_tree_safe_2017.csv']);
+
+% Get first brain pixel from top-down, get annotation at that point
+[~,top_down_depth] = max(av>1, [], 2);
+top_down_depth = squeeze(top_down_depth);
+
+[xx,yy] = meshgrid(1:size(top_down_depth,2), 1:size(top_down_depth,1));
+top_down_annotation = reshape(av(sub2ind(size(av),yy(:),top_down_depth(:),xx(:))), size(av,1), size(av,3));
+
+% Get all labelled areas
+used_areas = unique(top_down_annotation(:));
+
+% Restrict to only cortical areas
+structure_id_path = cellfun(@(x) textscan(x(2:end),'%d', 'delimiter',{'/'}),st.structure_id_path);
+
+ctx_path = [997,8,567,688,695,315];
+ctx_idx = find(cellfun(@(id) length(id) > length(ctx_path) & ...
+    all(id(min(length(id),length(ctx_path))) == ctx_path(min(length(id),length(ctx_path)))),structure_id_path));
+
+plot_areas = intersect(used_areas,ctx_idx);
+
+bregma = allenCCFbregma;
+
+% Get outlines of all areas
+top_down_cortical_area_boundaries = cell(size(plot_areas));
+for curr_area_idx = 1:length(plot_areas)
+    top_down_cortical_area_boundaries{curr_area_idx} = bwboundaries(top_down_annotation == plot_areas(curr_area_idx));
+end
+
+% Color CCF by VFS
+a_idx = find(cellfun(@(name) strcmp(name,'Anterior area layer 1'),st.safe_name(used_areas)));
+al_idx = find(cellfun(@(name) strcmp(name,'Anterolateral visual area layer 1'),st.safe_name(used_areas)));
+am_idx = find(cellfun(@(name) strcmp(name,'Anteromedial visual area layer 1'),st.safe_name(used_areas)));
+lm_idx = find(cellfun(@(name) strcmp(name,'Lateral visual area layer 1'),st.safe_name(used_areas)));
+v1_idx = find(cellfun(@(name) strcmp(name,'Primary visual area layer 1'),st.safe_name(used_areas)));
+p_idx = find(cellfun(@(name) strcmp(name,'Posterolateral visual area layer 1'),st.safe_name(used_areas)));
+pm_idx = find(cellfun(@(name) strcmp(name,'posteromedial visual area layer 1'),st.safe_name(used_areas)));
+li_idx = find(cellfun(@(name) strcmp(name,'Laterointermediate area layer 1'),st.safe_name(used_areas)));
+rl_idx = find(cellfun(@(name) strcmp(name,'Rostrolateral area layer 1'),st.safe_name(used_areas)));
+
+ccf_vfs = zeros(size(top_down_annotation));
+ccf_vfs(ismember(top_down_annotation,used_areas([v1_idx,am_idx,al_idx,li_idx]))) = 1;
+ccf_vfs(ismember(top_down_annotation,used_areas([a_idx,p_idx,pm_idx,rl_idx,lm_idx]))) = -1;
+
+% Load master retinotopy
+combined_retinotopy_filename = 'C:\Users\Andrew\OneDrive for Business\Documents\CarandiniHarrisLab\analysis\wf_ephys_choiceworld\wf_processing\retinotopy\combined_retinotopy.fig';
+h = open(combined_retinotopy_filename);
+imaged_vfs = get(get(gca,'Children'),'CData');
+close(h);
+
+% Load widefield correlation borders
+combined_borders_filename = 'C:\Users\Andrew\OneDrive for Business\Documents\CarandiniHarrisLab\analysis\wf_ephys_choiceworld\wf_processing\wf_borders\combined_wf_borders.fig';
+h = open(combined_borders_filename);
+imaged_corr_borders = get(get(gca,'Children'),'CData');
+close(h);
+
+
+% Plot CCF VFS, imaged VFS, and imaged correlation borders
+figure;
+
+subplot(1,3,1,'YDir','reverse'); hold on;
+imagesc(ccf_vfs);
+cellfun(@(area) plot(area(:,2),area(:,1),'color',[0.5,0.5,0.5]), ...
+    vertcat(top_down_cortical_area_boundaries{:}),'uni',false);
+axis image off;
+colormap(brewermap([],'*RdBu'));
+caxis([-1,1]);    
+title('CCF');
+
+subplot(1,3,2);
+imagesc(imaged_vfs);
+axis image off;
+colormap(brewermap([],'*RdBu'));
+caxis([-1,1]);
+title('Combined');
+AP_reference_outline('ccf_aligned',[0.5,0.5,0.5]);
+
+subplot(1,3,3);
+imagesc(imaged_corr_borders);
+axis image off;
+colormap(brewermap([],'*RdBu'));
+caxis([-max(caxis),max(caxis)]);
+title('Correlation borders');
+AP_reference_outline('ccf_aligned',[0.5,0.5,0.5]);
+
+
+
+%% Fig S3: Striatum border estimation (histology and electrophysiology)
+
+animal = 'AP032';
+
+% Get probe areas estimated from histology
+load(['C:\Users\Andrew\OneDrive for Business\Documents\CarandiniHarrisLab\analysis\histology\' animal '\processed\probe_areas']);
+
+% Get and plot striatum boundaries
+ephys_align_path = 'C:\Users\Andrew\OneDrive for Business\Documents\CarandiniHarrisLab\analysis\wf_ephys_choiceworld\ephys_processing';
+ephys_align_fn = ['ephys_depth_align'];
+load([ephys_align_path filesep ephys_align_fn])
+
+% Parameters from batch
+n_corr_groups = 40;
+depth_group_edges = linspace(0,3820,n_corr_groups+1);
+depth_group_centers = depth_group_edges(1:end-1)+(diff(depth_group_edges)/2);
+
+curr_animal = find(strcmp({ephys_depth_align.animal},animal));
+
+% Plot first day and histology-estimated boundaries
+str_id = 574;
+str_start_histology = probe_areas.y(find(probe_areas.av == str_id,1,'first'));
+str_end_histology = probe_areas.y(find(probe_areas.av == str_id,1,'last'));
+
+curr_day = 1;
+mua_corr = ephys_depth_align(curr_animal).mua_corr{curr_day};
+template_depths = ephys_depth_align(curr_animal).template_depths{curr_day};
+str_depth = ephys_depth_align(curr_animal).str_depth(curr_day,:);
+
+figure;
+imagesc(depth_group_centers,depth_group_centers,mua_corr);
+caxis([0,1]); colormap(hot); axis square;
+line(xlim,[str_start_histology,str_start_histology],'color','w')
+line([str_start_histology,str_start_histology],ylim,'color','w')
+line(xlim,[str_end_histology,str_end_histology],'color','w')
+line([str_end_histology,str_end_histology],ylim,'color','w')
+xlabel('Depth (\mum)');
+ylabel('Depth (\mum)');
+title(['Day ' num2str(curr_day) ' (histology-approximated)']);
+    
+% Plot all days and ephys-estimated boundaries
+n_days = length(ephys_depth_align(curr_animal).mua_corr);
+figure;
+for curr_day = 1:n_days
+    mua_corr = ephys_depth_align(curr_animal).mua_corr{curr_day};
+    template_depths = ephys_depth_align(curr_animal).template_depths{curr_day};
+    str_depth = ephys_depth_align(curr_animal).str_depth(curr_day,:);
+    
+    subplot(1,n_days,curr_day);
+    imagesc(depth_group_centers,depth_group_centers,mua_corr);
+    caxis([0,1]); colormap(hot); axis square;
+    line(xlim,[str_depth(1),str_depth(1)],'color','w');
+    line([str_depth(1),str_depth(1)],ylim,'color','w');
+    line(xlim,[str_depth(2),str_depth(2)],'color','w');
+    line([str_depth(2),str_depth(2)],ylim,'color','w');
+    xlabel('Depth (\mum)');
+    ylabel('Depth (\mum)');
+    title(['Day ' num2str(curr_day)]);
+end
+set(gcf,'Name',ephys_depth_align(curr_animal).animal);
+
+
+
+
+
+%% Fig S4
+
+
+
+%% Fig S5
+
+
+
+%% Fig S6
+
+
+
+%% Fig S7
 
 
 
