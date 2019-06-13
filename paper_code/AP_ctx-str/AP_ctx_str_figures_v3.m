@@ -2021,23 +2021,33 @@ end
 set(gcf,'Name',ephys_depth_align(curr_animal).animal);
 
 
+%% Fig S5: Corticostriatal kernel alignment
 
+% Load kernels by depths
+kernel_path = 'C:\Users\Andrew\OneDrive for Business\Documents\CarandiniHarrisLab\analysis\wf_ephys_choiceworld\ephys_processing';
+kernel_fn = ['ephys_kernel_depth'];
+load([kernel_path filesep kernel_fn])
 
+plot_animals = [4,5,6];
+plot_day = 1;
 
-%% Fig S4
-
-
-
-%% Fig S5
-
-
-
-%% Fig S6
-
-
-
-%% Fig S7
-
+figure;
+for curr_animal = 1:length(plot_animals)
+    subplot(1,length(plot_animals),curr_animal);
+    
+    curr_k = ephys_kernel_depth(plot_animals(curr_animal)).k_px{plot_day};
+    curr_k_norm = curr_k./nanstd(reshape(curr_k,[],1,size(curr_k,3)),[],1);
+    
+    
+    max(max(abs(curr_k),[],1),[],2);
+    
+    imagesc(reshape(permute(curr_k_norm,[1,3,2]),[],size(curr_k,2)));
+    axis image off;
+    caxis([-5,5]);
+    colormap(brewermap([],'*RdBu'));
+    title(ephys_kernel_depth(plot_animals(curr_animal)).animal);
+    
+end
 
 
 
