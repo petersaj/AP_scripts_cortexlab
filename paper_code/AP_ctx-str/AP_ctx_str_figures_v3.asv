@@ -69,18 +69,13 @@ n_trial_prctile = 4;
 trial_bin = arrayfun(@(x) min(floor(linspace(1,n_trial_prctile+1,x)), ...
     n_trial_prctile)',trials_recording,'uni',false);
 
-move_t_bins = -0.5:1/sample_rate:1;
-move_t_bin_centers = move_t_bins(1:end-1) + diff(move_t_bins)./2;
+move_t_bins = 0:0.01:1;
 move_t_bin = mat2cell(discretize(move_t,move_t_bins),trials_recording,1);
 
-move_t_hist = cell2mat(permute(cellfun(@(trial_bin,move_t_bin) ...
-    accumarray([trial_bin(~isnan(move_t_bin)),move_t_bin(~isnan(move_t_bin))], ...
-    1/sum(~isnan(move_t_bin)),[n_trial_prctile,length(move_t_bins)-1],@nansum,0), ...
-    trial_bin,move_t_bin,'uni',false),[2,3,1]));
-
-
-
-
+move_t_hist = permute(cell2mat(cellfun(@(trial_bin,move_t_bin) ...
+    accumarray([trial_bin(~isnan(move_t_bin)),move_t_bin(~isnan(move_t_bin))],1, ...
+    [n_trial_prctile,length(move_t_bins)],@nansum,NaN), ...
+    trial_bin,move_t_bin,'uni',false)));
 
 
 

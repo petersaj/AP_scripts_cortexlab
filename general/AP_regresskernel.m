@@ -183,7 +183,7 @@ end
 % Predictable samples: must have regressors, must have no nans in samples
 predictable_samples = any(regressor_design,2) & ~any(isnan(signals(predictable_signals,:)),1)';
 cv_partition = nan(size(regressor_design,1),1);
-cv_partition(predictable_samples) = round(linspace(1,cvfold,sum(predictable_samples)))';
+cv_partition(predictable_samples) = min(floor(linspace(1,cvfold+1,sum(predictable_samples))),cvfold)';
 
 % (to shuffle CV points instead of using consecutive chunks)
 cv_partition(predictable_samples) = AP_shake(round(linspace(1,cvfold,sum(predictable_samples)))');
