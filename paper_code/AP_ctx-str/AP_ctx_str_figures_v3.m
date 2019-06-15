@@ -8,14 +8,7 @@
 
 % (task)
 data_fn = 'trial_activity_choiceworld'; % Primary dataset
-% data_fn = 'trial_activity_choiceworld_strfilt'; % Ctx->lowpass(str)
-% data_fn = 'trial_activity_choiceworld_ctxLonly'; % Left cortex pred only
-% data_fn = 'trial_activity_choiceworld_1gocue'; % only late-move go cue
-% data_fn = 'trial_activity_choiceworld_sqrtstr'; % ctx->str on sqrt(str)
 % data_fn = 'trial_activity_choiceworld_4strdepth'; % Depth-aligned striatum
-% data_fn = 'trial_activity_choiceworld_6strdepth'; % Depth-aligned striatum
-% data_fn = 'trial_activity_choiceworld_ctxtaskpred'; % includes simultaneous ctxtask fit
-% data_fn = 'trial_activity_choiceworld_strsmooth'; % uses a smoothed (5) striatum
 exclude_data = true;
 
 % (passive)
@@ -46,8 +39,6 @@ split_idx = cell2mat(arrayfun(@(exp,trials) repmat(exp,trials,1), ...
 
 %% Fig 1a, S1: Psychometric and reaction time
 
-%%%%% REPLACE THIS with just loading regular data
-
 % Plot psychometric
 stim_conditions = unique(trial_contrastside_allcat);
 [~,stim_idx] = ismember(trial_contrastside_allcat,stim_conditions,'rows');
@@ -62,14 +53,17 @@ frac_orient_right = cell2mat(cellfun(@(stim,choice) ...
 figure; hold on; axis square;
 plot(stim_conditions,frac_orient_right,'color',[0.5,0.5,0.5]);
 plot(stim_conditions,nanmean(frac_orient_right,2),'k','linewidth',3);
-
+line([0,0],ylim,'color','k','linestyle','--');
+line(xlim,[0.5,0.5],'color','k','linestyle','--');
+xlabel('Stimulus side and contrast');
+ylabel('Fraction orient right');
 
 % Plot reaction time by trial percentile within session
 n_trial_prctile = 4;
 trial_bin = arrayfun(@(x) min(floor(linspace(1,n_trial_prctile+1,x)), ...
     n_trial_prctile)',trials_recording,'uni',false);
 
-move_t_bins = -0.5:1/sample_rate:1;
+move_t_bins = -0.2:1/sample_rate:1;
 move_t_bin_centers = move_t_bins(1:end-1) + diff(move_t_bins)./2;
 move_t_bin = mat2cell(discretize(move_t,move_t_bins),trials_recording,1);
 
@@ -78,120 +72,21 @@ move_t_hist = cell2mat(permute(cellfun(@(trial_bin,move_t_bin) ...
     1/sum(~isnan(move_t_bin)),[n_trial_prctile,length(move_t_bins)-1],@nansum,0), ...
     trial_bin,move_t_bin,'uni',false),[2,3,1]));
 
-
-
-
-
-
-
-AP_errorfill(conditions,nanmean(frac_go_left,2),AP_sem(frac_go_left,2), ...
-    'k',0.5,true);
-
-xlim([-1,1]);
-ylim([0,1]);
-line([0,0],ylim,'linestyle','--','color','k');
-line(xlim,[0.5,0.5],'linestyle','--','color','k');
-xlabel('Stimulus side*contrast');
-ylabel('Fraction go left');
-
-
-% Load behavior
-bhv_fn = 'C:\Users\Andrew\OneDrive for Business\Documents\CarandiniHarrisLab\analysis\wf_ephys_choiceworld\bhv_processing\bhv.mat';
-load(bhv_fn);
-
-% Exclude bad behavior sessions
-exclude_data = false;
-
-bhv_fieldnames = fieldnames(bhv);
-experiment_fields = cellfun(@(curr_field) ...
-    length([bhv.(curr_field)]) == length([bhv.days]),bhv_fieldnames);
-
-% Load pre-marked experiments to exclude and cut out bad ones
-if exclude_data
-    exclude_path = 'C:\Users\Andrew\OneDrive for Business\Documents\CarandiniHarrisLab\analysis\wf_ephys_choiceworld\experiment_exclusion';
-    exclude_fn = 'bhv_use_experiments';
-    load([exclude_path filesep exclude_fn]);
-    
-    % Pull out used experiments for the animals loaded
-    use_experiments_animals = ismember({bhv.animal},{bhv_use_experiments.animals});
-    use_experiments = {bhv_use_experiments(use_experiments_animals).use_experiments}';
-    
-    % Cut out bad experiments for any experiment data fields
-    for curr_field = bhv_fieldnames(experiment_fields)'
-        for curr_animal = 1:length(use_experiments)
-            bhv(curr_animal).(cell2mat(curr_field)) = ...
-                bhv(curr_animal).(cell2mat(curr_field))(use_experiments{curr_animal});
-        end
-    end
+figure;
+for curr_trial_prctile = 1:n_trial_prctile
+    subplot(n_trial_prctile,1,curr_trial_prctile); hold on;
+    plot(move_t_bin_centers, ...
+        squeeze(move_t_hist(curr_trial_prctile,:,:)), ...
+        'color',[0.5,0.5,0.5]);
+    plot(move_t_bin_centers, ...
+        nanmean(squeeze(move_t_hist(curr_trial_prctile,:,:)),2), ...
+        'color','k','linewidth',3);
+    xlabel('Time from stim onset');
+    ylabel('Fraction of reaction times');
+    line([0,0],ylim,'color','k');
+    title(['Trial percentile ' num2str(curr_trial_prctile)]);
 end
-
-conditions = unique(vertcat(bhv.conditions),'rows');
-trial_choice_cat = arrayfun(@(x) horzcat(bhv(x).trial_choice{:}),1:length(bhv),'uni',false);
-trial_outcome_cat = arrayfun(@(x) horzcat(bhv(x).trial_outcome{:}),1:length(bhv),'uni',false);
-trial_side_cat = arrayfun(@(x) horzcat(bhv(x).trial_side{:}),1:length(bhv),'uni',false);
-trial_contrast_cat = arrayfun(@(x) horzcat(bhv(x).trial_contrast{:}),1:length(bhv),'uni',false);
-trial_condition_cat = cellfun(@(side,contrast) side.*contrast,trial_side_cat,trial_contrast_cat,'uni',false);
-trial_wheel_velocity_cat = arrayfun(@(x) vertcat(bhv(x).trial_wheel_velocity{:})',1:length(bhv),'uni',false);
-stim_to_move_cat = arrayfun(@(x) horzcat(bhv(x).stim_to_move{:}),1:length(bhv),'uni',false);
-stim_to_feedback_cat = arrayfun(@(x) horzcat(bhv(x).stim_to_feedback{:}),1:length(bhv),'uni',false);
-
-
-trial_choice_exp = horzcat(bhv(:).trial_choice);
-trial_side_exp = horzcat(bhv(:).trial_side);
-trial_contrast_exp = horzcat(bhv(:).trial_contrast);
-[~,trial_condition_idx] = cellfun(@(side,contrast) ...
-    ismember(side'.*contrast',conditions','rows'), ...
-    trial_side_exp,trial_contrast_exp,'uni',false);
-
-frac_go_left = cell2mat(cellfun(@(choice,condition) ...
-    accumarray(condition,choice == -1,[length(conditions),1],@nanmean,NaN), ...
-    trial_choice_exp,trial_condition_idx,'uni',false));
-
-% Plot psychometric 
-figure; hold on; axis square;
-AP_errorfill(conditions,nanmean(frac_go_left,2),AP_sem(frac_go_left,2), ...
-    'k',0.5,true);
-
-xlim([-1,1]);
-ylim([0,1]);
-line([0,0],ylim,'linestyle','--','color','k');
-line(xlim,[0.5,0.5],'linestyle','--','color','k');
-xlabel('Stimulus side*contrast');
-ylabel('Fraction go left');
-
-% Plot distribution of stim to move (reaction) times
-move_time_bins = 0:0.01:1;
-day_split = 4;
-
-move_time_centers = move_time_bins(1:end-1) + diff(move_time_bins)/2;
-stim_to_move_binned = zeros(day_split,length(move_time_bins)-1,length(bhv));
-
-for curr_animal = 1:length(bhv)
-    for curr_day = 1:length(bhv(curr_animal).stim_to_move)
-        curr_data = bhv(curr_animal).stim_to_move{curr_day};
-        trials_split = round(linspace(1,length(curr_data),day_split+1));
-        for curr_split = 1:day_split
-            stim_to_move_binned(curr_split,:,curr_animal) = ...
-                stim_to_move_binned(curr_split,:,curr_animal) + ...
-                histcounts(curr_data(trials_split(curr_split): ...
-                trials_split(curr_split+1)),move_time_bins);
-        end
-    end
-end
-stim_to_move_binned_norm = bsxfun(@rdivide,stim_to_move_binned, ...
-    sum(sum(stim_to_move_binned,1),2));
-
-figure; hold on;
-for curr_animal = 1:length(bhv)
-    AP_stackplot(stim_to_move_binned_norm(:,:,curr_animal)', ...
-        move_time_centers,0.02,false,[0.5,0.5,0.5],1:day_split);
-end
-AP_stackplot(nanmean(stim_to_move_binned_norm,3)', ...
-    move_time_centers,0.02,false,'k',1:day_split);
-xlabel('Time to movement onset')
-ylabel('Frequency by fraction within day')
-axis tight
-line([0.5,0.5],ylim,'linestyle','--','color','k');
+linkaxes(get(gcf,'Children'),'xy');
 
 
 %% Fig 1b: Example recording
@@ -222,6 +117,7 @@ plot_wheel_idx = Timeline.rawDAQTimestamps >= plot_t(1) & ...
 plot(wheel_axes,Timeline.rawDAQTimestamps(plot_wheel_idx), ...
     wheel_velocity(plot_wheel_idx),'k','linewidth',2);
 ylabel('Wheel velocity');
+axis off
 
 % (stimuli)
 stim_col = colormap_BlueWhiteRed(5);
@@ -242,17 +138,17 @@ move_lines = arrayfun(@(x) line(wheel_axes,repmat(wheel_move_time(x),1,2),ylim(w
 go_col = [0.8,0.8,0.2];
 go_cue_times = signals_events.interactiveOnTimes(1:n_trials);
 go_cue_lines = arrayfun(@(x) line(wheel_axes,repmat(go_cue_times(x),1,2),ylim(wheel_axes),'color', ...
-    go_col,'linewidth',2,'linestyle','--'), ...
+    go_col,'linewidth',2), ...
     find(go_cue_times >= plot_t(1) & go_cue_times <= plot_t(2)));
 
 % (outcomes)
 outcome_col = [0,0,0.8;0.5,0.5,0.5];
 reward_lines = arrayfun(@(x) line(wheel_axes,repmat(reward_t_timeline(x),1,2),ylim(wheel_axes),'color', ...
-    outcome_col(1,:),'linewidth',2,'linestyle','--'), ...
+    outcome_col(1,:),'linewidth',2), ...
     find(reward_t_timeline >= plot_t(1) & reward_t_timeline <= plot_t(2)));
 punish_times = signals_events.responseTimes(trial_outcome == -1);
 punish_lines = arrayfun(@(x) line(wheel_axes,repmat(punish_times(x),1,2),ylim(wheel_axes),'color', ...
-    outcome_col(2,:),'linewidth',2,'linestyle','--'), ...
+    outcome_col(2,:),'linewidth',2), ...
     find(punish_times >= plot_t(1) & punish_times <= plot_t(2)));
 
 % (striatum raster)
@@ -262,7 +158,10 @@ plot_spikes = spike_times_timeline >= plot_t(1) & ...
     spike_depths >= str_depth(1) & spike_depths <= str_depth(2);
 plot(raster_axes,spike_times_timeline(plot_spikes),spike_depths(plot_spikes),'.k');
 ylabel('Depth (\mum)');
-xlabel('Time (s)')
+xlabel('Time (s)');
+depth_scale = 1000;
+line(repmat(min(xlim),2,1),[min(ylim),min(ylim) + depth_scale],'color','k','linewidth',3);
+axis off
 
 % (fluorescence from select ROIs)
 wf_roi_fn = 'C:\Users\Andrew\OneDrive for Business\Documents\CarandiniHarrisLab\analysis\wf_ephys_choiceworld\wf_processing\wf_rois\wf_roi';
@@ -275,6 +174,12 @@ fluor_axes = subplot(6,1,1:2); hold on;
 plot_fluor_idx = frame_t >= plot_t(1) & frame_t <= plot_t(2);
 AP_stackplot(roi_trace(plot_rois,plot_fluor_idx)', ...
     frame_t(plot_fluor_idx),fluor_spacing,false,[0,0.7,0],{wf_roi(plot_rois).area});
+
+y_scale = 50;
+t_scale = 2;
+line([min(xlim),min(xlim) + t_scale],repmat(min(ylim),2,1),'color','k','linewidth',3);
+line(repmat(min(xlim),2,1),[min(ylim),min(ylim) + y_scale],'color','k','linewidth',3);
+axis off
 
 linkaxes([wheel_axes,raster_axes,fluor_axes],'x');
 
@@ -315,8 +220,8 @@ for curr_t = 1:length(plot_t)
    imagesc(plot_px(:,:,plot_t(curr_t)));
    AP_reference_outline('ccf_aligned',[0.5,0.5,0.5]);
    axis image off;
-   colormap(brewermap([],'Greens'));
-   caxis([0,0.015]);
+   colormap(brewermap([],'PRGn'));
+   caxis([-0.015,0.015]);
    title([num2str(round(t(plot_t(curr_t))*1000)) 'ms from stim']);
 end
 
@@ -351,9 +256,9 @@ for curr_regressor = 1:n_regressors
     AP_image_scroll(curr_k_px,task_regressor_t_shifts{curr_regressor});
 
     axis image;
-    caxis([-max(caxis),max(caxis)])
-    colormap(crameri('cork'));
-    AP_reference_outline('ccf_aligned','k');
+    caxis([-0.015,0.015]);
+    colormap(brewermap([],'PrGn'));
+    AP_reference_outline('ccf_aligned',[0.5,0.5,0.5]);
     set(gcf,'Name',task_regressor_labels{curr_regressor});
     
     regressor_px{curr_regressor} = curr_k_px;
@@ -371,8 +276,8 @@ for curr_regressor = 1:n_regressors
     imagesc(max(regressor_t_max{curr_regressor},[],3));
     AP_reference_outline('ccf_aligned',[0.5,0.5,0.5]);
     axis image off;
-    colormap(brewermap([],'Greens'));
-    caxis([0,max_c]);
+    colormap(brewermap([],'PrGn'));
+    caxis([-max_c,max_c]);
     title(task_regressor_labels{curr_regressor});
 end
 
@@ -381,7 +286,7 @@ plot_rois = [1,7,9,10];
 
 stim_col = colormap_BlueWhiteRed(5);
 stim_col(6,:) = 0.5;
-move_col = [0.6,0,0.6;0,0.6,0];
+move_col = [0.6,0,0.6;0.8,0.5,0];
 go_col = [0.5,0.5,0.5;0.8,0.8,0.2];
 outcome_col = [0,0,0.8;0.8,0,0];
 task_regressor_cols = {stim_col,move_col,go_col,outcome_col};
@@ -405,11 +310,11 @@ for curr_roi_idx = 1:length(plot_rois)
         xlabel('Time (s)');
         line([0,0],ylim,'color','k');
     end
-    linkaxes(p(curr_roi_idx,:),'y');
 end
+linkaxes(get(gcf,'Children'),'x')
 
 % Plot task>cortex ROI regression examples
-plot_rois = [1,7,10];
+plot_rois = [1,9,10];
 plot_prctiles = linspace(0,100,5);
 
 figure;
@@ -446,12 +351,21 @@ for curr_roi_idx = 1:length(plot_rois)
     plot_prctile_trials = round(prctile(1:length(trial_r2_nonan_idx),plot_prctiles));
     plot_trials = trial_r2_nonan_idx(trial_r2_rank(plot_prctile_trials));
     
+    
+    t = (1:length(reshape(curr_data(plot_trials,:)',[],1)))/sample_rate;
+    
     subplot(length(plot_rois),1,curr_roi_idx); hold on;
-    plot(reshape(curr_data(plot_trials,:)',[],1),'color',[0,0.6,0],'linewidth',2);
-    plot(reshape(curr_pred_data(plot_trials,:)',[],1),'b','linewidth',2);
-    title(wf_roi(curr_roi,1).area)
+    plot(t,reshape(curr_data(plot_trials,:)',[],1),'color',[0,0.6,0],'linewidth',2);
+    plot(t,reshape(curr_pred_data(plot_trials,:)',[],1),'b','linewidth',2);
+    title([wf_roi(curr_roi,1).area ', Percentiles: ' num2str(plot_prctiles)]);
+    axis off
     
 end
+linkaxes(get(gcf,'Children'),'xy');
+y_scale = 2;
+t_scale = 1;
+line([min(xlim),min(xlim)+t_scale],repmat(min(ylim),2,1),'linewidth',3,'color','k');
+line(repmat(min(xlim),2,1),[min(ylim),min(ylim)+y_scale],'linewidth',3,'color','k');
 
 
 
@@ -467,14 +381,22 @@ AP_load_experiment;
 
 outcome_time = signals_events.responseTimes';
 
-AP_cellraster({stimOn_times,wheel_move_time,outcome_time}, ...
-    {trial_conditions(1:n_trials,1).*trial_conditions(1:n_trials,2), ...
-    trial_choice(1:n_trials),trial_outcome(1:n_trials)});
+% AP_cellraster({stimOn_times,wheel_move_time,outcome_time}, ...
+%     {trial_conditions(1:n_trials,1).*trial_conditions(1:n_trials,2), ...
+%     trial_choice(1:n_trials),trial_outcome(1:n_trials)});
+
+plot_trials = ...
+    (trial_conditions(1:n_trials,1).*trial_conditions(1:n_trials,2)) > 0 & ...
+    trial_choice(1:n_trials) == -1 & ...
+    trial_outcome(1:n_trials == 1);
+
+AP_cellraster({stimOn_times(plot_trials), ...
+    wheel_move_time(plot_trials),outcome_time(plot_trials)});
 
 % Examples used: 
 % stim = 545
 % move = 328 (nice but not right-orienting), 324/258?
-% reward = 79/109/96/467
+% reward = 79 (alt: 467 late, 109/96 sharp)
 
 %% Fig 1g: Striatum multiunit end-of-striatum depth aligned
 
@@ -494,7 +416,8 @@ use_align_labels = {'Stim','Move onset','Outcome'};
 use_align = {stim_align,move_align,outcome_align};
 
 figure;
-p = gobjects(n_depths,length(use_align));
+p = gobjects(n_depths,1);
+align_col = [1,0,0;0.8,0,0.8;0,0,0.8];
 for curr_align = 1:length(use_align)
         
     % (re-align and split activity)
@@ -507,20 +430,30 @@ for curr_align = 1:length(use_align)
     curr_str_act_plottrial_mean = cell2mat(permute( ...
         cellfun(@(act,trials) permute(nanmean(act(trials,:,:),1),[3,2,1]), ...
         curr_str_act,plot_trials_exp,'uni',false),[2,3,1]));
+        
+    curr_t_offset = (nanmean(stim_align(cell2mat(plot_trials_exp)) - ...
+        use_align{curr_align}(cell2mat(plot_trials_exp))))/sample_rate;
     
     for curr_depth = 1:n_depths
-        p(curr_depth,curr_align) = subplot(n_depths,length(use_align), ...
-            sub2ind([length(use_align),n_depths],curr_align,curr_depth));
-        AP_errorfill(t,nanmean(curr_str_act_plottrial_mean(curr_depth,:,:),3), ...
-            AP_sem(curr_str_act_plottrial_mean(curr_depth,:,:),3),'k',0.5)
+        p(curr_depth,1) = subplot(n_depths,1,curr_depth); hold on;
+        
+        AP_errorfill(t + curr_t_offset,nanmean(curr_str_act_plottrial_mean(curr_depth,:,:),3), ...
+            AP_sem(curr_str_act_plottrial_mean(curr_depth,:,:),3),align_col(curr_align,:),0.5)
         xlabel(['Time from ' use_align_labels{curr_align}]);
         ylabel('Spikes (std)');
-        line([0,0],ylim,'color','k');
+        line(repmat(curr_t_offset,2,1),ylim,'color','k');
     end
     
 end
-    
-linkaxes(p(:),'xy');
+linkaxes(get(gcf,'Children'),'xy');
+xlim([-0.1,1]);
+
+y_scale = 1;
+t_scale = 0.2;
+line([min(xlim),min(xlim)+t_scale],repmat(min(ylim),2,1),'linewidth',3,'color','k');
+line(repmat(min(xlim),2,1),[min(ylim),min(ylim)+y_scale],'linewidth',3,'color','k');
+
+
 
 
 %% Fig 2a: Example cortex > striatum regression by depth
@@ -2231,8 +2164,8 @@ for curr_regressor = 1:n_regressors
         imagesc(regressor_t_max{curr_regressor}(:,:,curr_subregressor));
         AP_reference_outline('ccf_aligned','k');
         axis image off; 
-        colormap(brewermap([],'Greens'));
-        caxis([0,max_c]);
+        colormap(brewermap([],'PRGn'));
+        caxis([-max_c,max_c]);
     end
 end
 
@@ -2624,7 +2557,7 @@ wf_fig = figure;
 for curr_frame = 1:length(plot_frames_idx)
     subplot(2,length(plot_frames_idx),curr_frame);
     imagesc(plot_frames(:,:,curr_frame));
-    colormap(crameri('cork'));
+    colormap(brewermap([],'PrGn'));
     caxis([-0.03,0.03]);
     AP_reference_outline('ccf_aligned',[0.5,0.5,0.5]);
     title(sprintf('Deconv - %0.2fs',frame_t(plot_frames_idx(curr_frame))));
@@ -2632,7 +2565,7 @@ for curr_frame = 1:length(plot_frames_idx)
     
     subplot(2,length(plot_frames_idx),length(plot_frames_idx) + curr_frame);
     imagesc(plot_frames_taskpred(:,:,curr_frame));
-    colormap(crameri('cork'));
+    colormap(brewermap([],'PrGn'));
     caxis([-0.03,0.03]);
     AP_reference_outline('ccf_aligned',[0.5,0.5,0.5]);
     title(sprintf('Task predicted - %0.2fs',frame_t(plot_frames_idx(curr_frame))));
