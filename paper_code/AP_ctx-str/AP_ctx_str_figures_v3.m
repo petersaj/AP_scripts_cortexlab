@@ -206,24 +206,51 @@ axis image off;
 %% Fig 1c: Average stim-aligned cortex
 
 % Get average stim-aligned fluorescence 
-plot_trials = move_t < 0.5 & trial_contrast_allcat > 0 & trial_side_allcat == 1 & trial_choice_allcat == -1;
+plot_trials = move_t < 0.5 & trial_contrastside_allcat == 1 & trial_choice_allcat == -1;
 plot_trials_exp = mat2cell(plot_trials,use_split,1);
 
 fluor_allcat_deconv_exp = mat2cell(fluor_allcat_deconv,use_split,length(t),n_vs);
-plot_px = nanmean(cell2mat(permute(cellfun(@(x,trials) svdFrameReconstruct(U_master(:,:,1:n_vs), ...
-    squeeze(nanmean(x(trials,:,:),1))'),fluor_allcat_deconv_exp,plot_trials_exp,'uni',false),[2,3,4,1])),4);
 
-plot_t = [find(t > 0.07,1),find(t > 0.18,1),find(t > 0.65,1)];
+% Set alignment shifts
+t_leeway = -t(1);
+leeway_samples = round(t_leeway*(sample_rate));
+stim_align = zeros(size(trial_contrast_allcat));
+move_align = -move_idx + leeway_samples;
+outcome_align = -outcome_idx + leeway_samples;
+
+% Set windows to average activity
+use_align_labels = {'Stim','Move onset','Outcome'};
+use_align = {stim_align,move_align,outcome_align};
+plot_t = [0.08,0,0.08];
+
 figure;
-for curr_t = 1:length(plot_t)
-   subplot(length(plot_t),1,curr_t);
-   imagesc(plot_px(:,:,plot_t(curr_t)));
-   AP_reference_outline('ccf_aligned',[0.5,0.5,0.5]);
-   axis image off;
-   colormap(brewermap([],'PRGn'));
-   caxis([-0.015,0.015]);
-   title([num2str(round(t(plot_t(curr_t))*1000)) 'ms from stim']);
+for curr_align = 1:length(use_align)
+    
+    % (re-align activity)
+    curr_ctx_act = cellfun(@(act,trials,shift) cell2mat(arrayfun(@(trial) ...
+        circshift(act(trial,:,:),shift(trial),2), ...
+        find(trials),'uni',false)), ...
+        fluor_allcat_deconv_exp,plot_trials_exp, ...
+        mat2cell(use_align{curr_align},use_split,1),'uni',false);
+    
+    curr_ctx_act_mean = ...
+        permute(nanmean(cell2mat(cellfun(@(x) nanmean(x,1), ...
+        curr_ctx_act,'uni',false)),1),[3,2,1]);
+    
+    curr_ctx_act_mean_t = interp1(t,curr_ctx_act_mean',plot_t(curr_align))';
+    curr_ctx_act_mean_t_px = svdFrameReconstruct(U_master(:,:,1:n_vs), ...
+        curr_ctx_act_mean_t);
+    
+    subplot(length(use_align),1,curr_align);
+    imagesc(curr_ctx_act_mean_t_px);
+    AP_reference_outline('ccf_aligned',[0.5,0.5,0.5]);
+    axis image off;
+    colormap(brewermap([],'PRGn'));
+    caxis([-0.015,0.015]);
+    title([use_align_labels{curr_align} ': ' num2str(plot_t(curr_align)) ' sec']);
+    
 end
+
 
 %% Fig 1c,d,e: Task > cortex kernels
 
@@ -231,8 +258,8 @@ end
 n_regressors = length(task_regressor_labels);
 task_regressor_t_shifts = cellfun(@(x) x/sample_rate,task_regressor_sample_shifts,'uni',false);
 
-% Get average task > cortex kernels (pixels and ROIs)
-regressor_px = cell(n_regressors,1);
+% Get average task > cortex kernels (V's and ROIs)
+regressor_v = cell(n_regressors,1);
 regressor_roi = cell(n_regressors,1);
 for curr_regressor = 1:n_regressors
     
@@ -249,20 +276,33 @@ for curr_regressor = 1:n_regressors
         end
     end
     
-    curr_k_mean = nanmean(curr_k,4);
-    curr_k_px = cell2mat(arrayfun(@(x) svdFrameReconstruct(U_master(:,:,1:n_vs), ...
-        permute(curr_k_mean(x,:,:),[3,2,1])),permute(1:size(curr_k_mean,1),[1,3,4,2]),'uni',false));
+    curr_k_v = nanmean(curr_k,4);
     
-    AP_image_scroll(curr_k_px,task_regressor_t_shifts{curr_regressor});
-
-    axis image;
-    caxis([-0.015,0.015]);
-    colormap(brewermap([],'PrGn'));
-    AP_reference_outline('ccf_aligned',[0.5,0.5,0.5]);
-    set(gcf,'Name',task_regressor_labels{curr_regressor});
-    
-    regressor_px{curr_regressor} = curr_k_px;
+    regressor_v{curr_regressor} = curr_k_v;
     regressor_roi{curr_regressor} = curr_k_roi;
+    
+    AP_print_progress_fraction(curr_regressor,n_regressors);
+end
+
+% Plot example frame for each kernel group
+plot_subregressor = [10,1,2,1];
+plot_t = [0.08,0,0.05,0.08];
+
+figure;
+for curr_regressor = 1:length(task_regressor_labels)
+    subplot(length(task_regressor_labels),1,curr_regressor);
+    
+    curr_k_v_t = interp1(task_regressor_t_shifts{curr_regressor}, ...
+        permute(regressor_v{curr_regressor}(plot_subregressor(curr_regressor),:,:),[2,3,1]), ...
+        plot_t(curr_regressor))';
+    curr_k_px_t = svdFrameReconstruct(U_master(:,:,1:n_vs),curr_k_v_t);
+    
+    imagesc(curr_k_px_t);
+    AP_reference_outline('ccf_aligned',[0.5,0.5,0.5]);
+    axis image off;
+    colormap(brewermap([],'PRGn'));
+    caxis([-0.015,0.015]);
+    title([task_regressor_labels{curr_regressor} ': ' num2str(plot_t(curr_regressor)) ' sec']);
     
 end
 
@@ -352,11 +392,11 @@ for curr_roi_idx = 1:length(plot_rois)
     plot_trials = trial_r2_nonan_idx(trial_r2_rank(plot_prctile_trials));
     
     
-    t = (1:length(reshape(curr_data(plot_trials,:)',[],1)))/sample_rate;
+    curr_t = (1:length(reshape(curr_data(plot_trials,:)',[],1)))/sample_rate;
     
     subplot(length(plot_rois),1,curr_roi_idx); hold on;
-    plot(t,reshape(curr_data(plot_trials,:)',[],1),'color',[0,0.6,0],'linewidth',2);
-    plot(t,reshape(curr_pred_data(plot_trials,:)',[],1),'b','linewidth',2);
+    plot(curr_t,reshape(curr_data(plot_trials,:)',[],1),'color',[0,0.6,0],'linewidth',2);
+    plot(curr_t,reshape(curr_pred_data(plot_trials,:)',[],1),'b','linewidth',2);
     title([wf_roi(curr_roi,1).area ', Percentiles: ' num2str(plot_prctiles)]);
     axis off
     
