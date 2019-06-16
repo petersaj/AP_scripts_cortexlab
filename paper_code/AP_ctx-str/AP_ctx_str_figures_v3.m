@@ -7,16 +7,16 @@
 % Load data
 
 % (task)
-data_fn = 'trial_activity_choiceworld'; % Primary dataset
+% data_fn = 'trial_activity_choiceworld'; % Primary dataset
 % data_fn = 'trial_activity_choiceworld_4strdepth'; % Depth-aligned striatum
-exclude_data = true;
+% exclude_data = true;
 
 % (passive)
 % data_fn = 'trial_activity_AP_choiceWorldStimPassive_trained';
-% data_fn = 'trial_activity_AP_choiceWorldStimPassive_naive';
+data_fn = 'trial_activity_AP_choiceWorldStimPassive_naive';
 % data_fn = 'trial_activity_stimKalatsky_naive';
 % data_fn = 'trial_activity_stimKalatsky_trained';
-% exclude_data = false;
+exclude_data = false;
 
 % (unused at the moment)
 % data_fn = 'trial_activity_choiceworld_1outcome'; % New timing, only 1 outcome regressor (reward)
@@ -771,7 +771,7 @@ load(kernel_template_fn);
 figure; 
 colormap(brewermap([],'*RdBu'));
 for curr_depth = 1:n_aligned_depths
-    subplot(1,n_aligned_depths,curr_depth); hold on; axis image off;
+    subplot(n_aligned_depths,1,curr_depth); hold on; axis image off;
     set(gca,'YDir','reverse');
     
 %     imagesc(kernel_template(:,:,curr_depth));
@@ -845,22 +845,18 @@ for protocol = protocols
     k_px_com = sum(k_px_positive.*permute(1:n_aligned_depths,[1,3,4,2]),4)./sum(k_px_positive,4);
     k_px_com_colored = nan(size(k_px_com,1),size(k_px_com,2),3,size(k_px_com,3));
     
-    jet_basic = jet(255);
-    dark_colors = max(jet_basic,[],2) ~= 1;
-    jet_alt = interp1(1:255,jet_basic,linspace(find(~dark_colors,1,'first'), ...
-        find(~dark_colors,1,'last'),255)) - 0.2;
-    use_colormap = jet_alt;
-    
+    use_colormap = min(jet(255)-0.2,1);
     for curr_frame = 1:size(k_px_com,3)
         k_px_com_colored(:,:,:,curr_frame) = ...
-            ind2rgb(round(mat2gray(k_px_com(:,:,curr_frame),[1,n_aligned_depths])*255),use_colormap);
+            ind2rgb(round(mat2gray(k_px_com(:,:,curr_frame),...
+            [1,n_aligned_depths])*size(use_colormap,1)),use_colormap);
     end
     
     % Plot center kernel frames independently at t = 0
     figure('Name',protocol);
     plot_frame = kernel_frames == 0;
     for curr_depth = 1:n_aligned_depths
-       subplot(1,n_aligned_depths,curr_depth);
+       subplot(n_aligned_depths,1,curr_depth);
        imagesc(k_px(:,:,plot_frame,curr_depth));
        AP_reference_outline('ccf_aligned',[0.5,0.5,0.5]);
        axis image off;
@@ -868,21 +864,32 @@ for protocol = protocols
        caxis([-0.01,0.01]);
     end
     
-    % Plot center-of-mass color across time
-    plot_t = find(t >= -0.1 & t <= 0.1);
+    % Plot center-of-mass color at select time points 
+    plot_t = [-0.05:0.025:0.05];
+    
+    k_px_com_colored_t = ...
+        permute(reshape(interp1(t,permute(reshape(k_px_com_colored,[],3,length(t)), ...
+        [3,1,2]),plot_t),length(plot_t),size(k_px_com_colored,1), ...
+        size(k_px_com_colored,2),3),[2,3,4,1]);
+    
+    k_px_max = squeeze(max(k_px,[],4));
+    k_px_max_t = ...
+        permute(reshape(interp1(t,reshape(k_px_max,[],length(t))', ...
+        plot_t),length(plot_t),size(k_px_max,1), ...
+        size(k_px_max,2)),[2,3,1]);
+    
     weight_max = 0.005;
     figure('Name',protocol);
     for t_idx = 1:length(plot_t)
-        curr_t = plot_t(t_idx);
         subplot(1,length(plot_t),t_idx);
-        p = image(k_px_com_colored(:,:,:,curr_t));
+        p = image(k_px_com_colored_t(:,:,:,t_idx));
         set(p,'AlphaData', ...
-            mat2gray(max(k_px(:,:,curr_t,:),[],4),[0,weight_max]));
+            mat2gray(k_px_max_t(:,:,t_idx),[0,weight_max]));
         axis image off;
-        AP_reference_outline('ccf_aligned','k');
-        title(t(curr_t));
-    end
-    
+        AP_reference_outline('ccf_aligned',[0.5,0.5,0.5]);
+        title([num2str(plot_t(t_idx)),' s']);
+    end    
+        
     % Plot movie of kernels
     AP_image_scroll(reshape(permute(k_px,[1,4,2,3]),size(k_px,1)*size(k_px,4),size(k_px,2),length(t)),t);
     colormap(brewermap([],'*RdBu'));
@@ -909,6 +916,7 @@ for curr_trial_set = 1:2
             figure('Name','Correct ipsi trials'); 
     end
     
+    p = gobjects(n_depths,4);
     colormap(brewermap([],'Greys'));
     for curr_depth = 1:n_depths
         
@@ -940,7 +948,7 @@ for curr_trial_set = 1:2
         curr_ctxpred_plot_smooth = conv2(curr_ctxpred_plot_smooth,ones(smooth_filt),'same')./ ...
             conv2(~isnan(curr_ctxpred_plot),ones(smooth_filt),'same');
         
-        subplot(n_depths,4,1+(curr_depth-1)*4,'YDir','reverse'); hold on
+        p(curr_depth,1) = subplot(n_depths,4,1+(curr_depth-1)*4,'YDir','reverse'); hold on
         imagesc(t,[],curr_plot_smooth);
         plot(zeros(size(curr_trials_idx)),1:length(curr_trials_idx),'MarkerSize',1,'color','r');
         plot(move_t(sorted_plot_trials),1:length(curr_trials_idx),'MarkerSize',1,'color',[0.8,0,0.8]);
@@ -952,7 +960,7 @@ for curr_trial_set = 1:2
         ylabel('Trials (rxn sorted)');
         title('Measured');
         
-        subplot(n_depths,4,2+(curr_depth-1)*4,'YDir','reverse'); hold on
+        p(curr_depth,2) = subplot(n_depths,4,2+(curr_depth-1)*4,'YDir','reverse'); hold on
         imagesc(t,[],curr_taskpred_plot_smooth);
         plot(zeros(size(curr_trials_idx)),1:length(curr_trials_idx),'MarkerSize',1,'color','r');
         plot(move_t(sorted_plot_trials),1:length(curr_trials_idx),'MarkerSize',1,'color',[0.8,0,0.8]);
@@ -964,7 +972,7 @@ for curr_trial_set = 1:2
         ylabel('Trials (rxn sorted)');
         title('Task-predicted');
         
-        subplot(n_depths,4,3+(curr_depth-1)*4,'YDir','reverse'); hold on
+        p(curr_depth,3) = subplot(n_depths,4,3+(curr_depth-1)*4,'YDir','reverse'); hold on
         imagesc(t,[],curr_ctxpred_plot_smooth);
         plot(zeros(size(curr_trials_idx)),1:length(curr_trials_idx),'MarkerSize',1,'color','r');
         plot(move_t(sorted_plot_trials),1:length(curr_trials_idx),'MarkerSize',1,'color',[0.8,0,0.8]);
@@ -992,7 +1000,7 @@ for curr_trial_set = 1:2
             curr_ctxpred_mua_exp,curr_trials_exp,'uni',false));
         
         % Plot PSTH (measured, task-predicted, cortex-predicted);
-        subplot(n_depths,4,4+(curr_depth-1)*4); hold on
+        p(curr_depth,4) = subplot(n_depths,4,4+(curr_depth-1)*4); hold on
         p1 = AP_errorfill(t,nanmean(curr_mua_exp_mean,1), ...
             AP_sem(curr_mua_exp_mean,1),'k',0.5);
         p2 = AP_errorfill(t,nanmean(curr_taskpred_mua_exp_mean,1), ...
@@ -1009,8 +1017,16 @@ for curr_trial_set = 1:2
         legend([p1,p2,p3],{'Measured','Task-predicted','Cortex-predicted'});
         
     end
-    p = get(gcf,'Children');
-    linkaxes(p(2:5:end));
+    linkaxes(p(:,1:3),'xy');
+    
+    trial_scale = 500;
+    t_scale = 0.5;
+    y_scale = 1;
+    line(p(1,1),min(xlim(p(1,1))) + [0,t_scale],repmat(min(ylim(p(1,1))),2,1),'color','k','linewidth',3);
+    line(p(1,4),min(xlim(p(1,4))) + [0,t_scale],repmat(min(ylim(p(1,4))),2,1),'color','k','linewidth',3);
+    line(p(1,1),repmat(min(xlim(p(1,1))),2,1),min(ylim(p(1,1))) + [0,trial_scale],'color','k','linewidth',3);
+    line(p(1,4),repmat(min(xlim(p(1,4))),2,1),min(ylim(p(1,4))) + [0,y_scale],'color','k','linewidth',3);
+    
 end
 
 % Get task>striatum parameters
@@ -1057,6 +1073,10 @@ for curr_depth = 1:n_depths
     end
 end
 linkaxes(p);
+y_scale = 1;
+t_scale = 0.5;
+line(min(xlim) + [0,t_scale],repmat(min(ylim),2,1),'color','k','linewidth',3);
+line(repmat(min(xlim),2,1),min(ylim) + [0,y_scale],'color','k','linewidth',3);
 
 
 %% Fig 3e,f,g, S7: Striatum task v cortex regression
