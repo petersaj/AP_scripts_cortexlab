@@ -7,16 +7,16 @@
 % Load data
 
 % (task)
-% data_fn = 'trial_activity_choiceworld'; % Primary dataset
+data_fn = 'trial_activity_choiceworld'; % Primary dataset
 % data_fn = 'trial_activity_choiceworld_4strdepth'; % Depth-aligned striatum
-% exclude_data = true;
+exclude_data = true;
 
 % (passive)
 % data_fn = 'trial_activity_AP_choiceWorldStimPassive_trained';
-data_fn = 'trial_activity_AP_choiceWorldStimPassive_naive';
+% data_fn = 'trial_activity_AP_choiceWorldStimPassive_naive';
 % data_fn = 'trial_activity_stimKalatsky_naive';
 % data_fn = 'trial_activity_stimKalatsky_trained';
-exclude_data = false;
+% exclude_data = false;
 
 % (unused at the moment)
 % data_fn = 'trial_activity_choiceworld_1outcome'; % New timing, only 1 outcome regressor (reward)
@@ -304,21 +304,6 @@ for curr_regressor = 1:length(task_regressor_labels)
     caxis([-0.015,0.015]);
     title([task_regressor_labels{curr_regressor} ': ' num2str(plot_t(curr_regressor)) ' sec']);
     
-end
-
-% Plot max for each kernel group
-regressor_t_max = cellfun(@(x) squeeze(max(x,[],3)),regressor_px,'uni',false);
-
-figure; hold on;
-max_c = max(abs(cell2mat(cellfun(@(x) x(:),regressor_t_max,'uni',false))));
-for curr_regressor = 1:n_regressors
-    subplot(n_regressors,1,curr_regressor)
-    imagesc(max(regressor_t_max{curr_regressor},[],3));
-    AP_reference_outline('ccf_aligned',[0.5,0.5,0.5]);
-    axis image off;
-    colormap(brewermap([],'PrGn'));
-    caxis([-max_c,max_c]);
-    title(task_regressor_labels{curr_regressor});
 end
 
 % Get ROI traces for each subregressor
@@ -2065,10 +2050,12 @@ for curr_depth = 1:n_depths
     plot_prctile_trials = round(prctile(1:length(trial_r2_rank),plot_prctiles));
     plot_trials = trial_r2_nonan_idx(trial_r2_rank(plot_prctile_trials));
     
+    curr_t = (1:length(reshape(curr_data(plot_trials,:)',[],1)))/sample_rate;
+    
     subplot(n_depths,1,curr_depth); hold on;
-    plot(reshape(curr_data(plot_trials,:)',[],1),'k','linewidth',2);
-    plot(reshape(curr_taskpred_data(plot_trials,:)',[],1),'b','linewidth',2);
-    plot(reshape(curr_ctxpred_data(plot_trials,:)',[],1),'color',[0,0.7,0],'linewidth',2);
+    plot(curr_t,reshape(curr_data(plot_trials,:)',[],1),'k','linewidth',2);
+    plot(curr_t,reshape(curr_taskpred_data(plot_trials,:)',[],1),'b','linewidth',2);
+    plot(curr_t,reshape(curr_ctxpred_data(plot_trials,:)',[],1),'color',[0,0.7,0],'linewidth',2);
     
     xlabel('Time (s)');
     ylabel('Spikes (std)');
@@ -2076,6 +2063,11 @@ for curr_depth = 1:n_depths
     legend({'Measured','Task-predicted','Cortex-predicted'});
 
 end
+linkaxes(get(gcf,'Children'),'xy');
+y_scale = 2;
+t_scale = 1;
+line([min(xlim),min(xlim)+t_scale],repmat(min(ylim),2,1),'linewidth',3,'color','k');
+line(repmat(min(xlim),2,1),[min(ylim),min(ylim)+y_scale],'linewidth',3,'color','k');
 
 
 % Get R^2 for task regression 
