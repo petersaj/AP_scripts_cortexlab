@@ -89,6 +89,12 @@ switch file
         filepath = [server1 filesep 'Data\expInfo'];
         filename = [filepath filesep animal filesep day filesep experiment ...
             filesep day '_' experiment '_' animal '_Timeline.mat'];
+        % CHECK ANIMAL FOLDER IF IT DOESN'T EXIST
+        if ~exist(filename,'file')
+            filepath = [server1 filesep 'Data' filesep 'Subjects'];
+            filename = [filepath filesep animal filesep day filesep experiment ...
+                filesep day '_' experiment '_' animal '_Timeline.mat'];
+        end
         % CHECK SERVER2 IF IT DOESN'T EXIST
         if ~exist(filename,'file')
             filepath = [server2 filesep 'Subjects'];
@@ -121,6 +127,11 @@ switch file
     case 'protocol'
         filepath = [server1 filesep 'Data\trodes'];
         filename = [filepath filesep animal filesep day filesep experiment filesep 'Protocol.mat'];
+        % CHECK ANIMAL FOLDER IF IT DOESN'T EXIST
+        if ~exist(filename,'file')
+            filepath = [server1 filesep 'Data' filesep 'Subjects'];
+            filename = [filepath filesep animal filesep day filesep experiment filesep 'Protocol.mat'];
+        end
         % CHECK SERVER2 IF IT DOESN'T EXIST
         if ~exist(filename,'file')
             filepath = [server2 filesep 'Subjects'];
@@ -181,6 +192,12 @@ switch file
         filepath = [server1 filesep 'Data\expInfo'];
         filename = [filepath filesep animal filesep day filesep experiment ...
             filesep day '_' experiment '_' animal '_hardwareInfo.mat'];
+        % CHECK ANIMAL FOLDER IF IT DOESN'T EXIST
+        if ~exist(filename,'file')
+            filepath = [server1 filesep 'Data' filesep 'Subjects'];
+            filename = [filepath filesep animal filesep day filesep experiment ...
+            filesep day '_' experiment '_' animal '_hardwareInfo.mat'];
+        end
         % CHECK SERVER2 IF IT DOESN'T EXIST
         if ~exist(filename,'file')
             filepath = [server2 filesep 'Subjects'];
