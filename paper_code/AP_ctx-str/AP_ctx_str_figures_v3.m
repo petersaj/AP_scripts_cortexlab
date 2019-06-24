@@ -419,9 +419,10 @@ AP_cellraster({stimOn_times(plot_trials), ...
     wheel_move_time(plot_trials),outcome_time(plot_trials)});
 
 % Examples used: 
-% stim = 545
-% move = 328 (nice but not right-orienting), 324/258?
-% reward = 79 (alt: 467 late, 109/96 sharp)
+% stim (depth 1) = 545
+% move (depth 2) = 328
+% move (depth 3) = 258
+% reward (depth 4) = 79 (alt: 467 late, 109/96 sharp)
 
 %% Fig 1g: Striatum multiunit end-of-striatum depth aligned
 
