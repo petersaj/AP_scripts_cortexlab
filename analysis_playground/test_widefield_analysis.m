@@ -561,7 +561,7 @@ AP_image_scroll(im_stim_avg,unique(stimIDs));
 axis image;
 
 % Average (single frame) responses to stimuli
-surround_window = [0,0.2];
+surround_window = [0.05,0.15];
 framerate = 1./mean(diff(frame_t));
 surround_samplerate = 1/(framerate*1);
 surround_time = surround_window(1):surround_samplerate:surround_window(2);
@@ -581,6 +581,23 @@ for curr_condition_idx = 1:length(conditions)
 end
 
 AP_image_scroll(peri_stim_df,unique(stimIDs));
+axis image;
+
+% Average responses to stimuli (deconv)
+unique_stim = unique(stimIDs);
+
+surround_window = [0.05,0.15];
+surround_times = surround_window(1):1/framerate:surround_window(2);
+grab_times = stimOn_times + surround_times;
+
+event_fVdf_deconv = permute(interp1(frame_t,fVdf_deconv',grab_times),[3,2,1]);
+event_px = nan(size(Udf,1),size(Udf,2),length(unique_stim));
+for curr_stim_idx = 1:length(unique_stim)
+   curr_v = nanmean(event_fVdf_deconv(:,:,stimIDs == unique_stim(curr_stim_idx)),3); 
+   curr_px = nanmean(svdFrameReconstruct(Udf,curr_v),3);
+   event_px(:,:,curr_stim_idx) = curr_px;
+end
+AP_image_scroll(event_px);
 axis image;
  
 %% Get choiceworld stim spot from AP_localize_choiceWorldStimPassive

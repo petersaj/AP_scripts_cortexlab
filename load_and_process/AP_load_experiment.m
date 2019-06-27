@@ -866,7 +866,7 @@ if ephys_exists && load_parts.ephys
         % Define good units from labels
         good_templates_idx = uint32(cluster_groups{1}( ...
             strcmp(cluster_groups{2},'good') | strcmp(cluster_groups{2},'mua')));
-        good_templates = ismember(0:size(templates,1)-1,good_templates_idx);        
+        good_templates = ismember(0:size(templates,1)-1,good_templates_idx);
         
     elseif exist([ephys_path 'cluster_AP_triage.tsv'],'file')
         % If no manual but AP_triage clusters are available
@@ -889,8 +889,8 @@ if ephys_exists && load_parts.ephys
         % If no cluster groups at all, keep all
         warning([animal ' ' day ' - no cluster groups']);      
         if verbose; disp('No manual labeling, keeping all and re-indexing'); end
-        good_templates_idx = 1:size(templates,1);
-        good_templates = true(size(templates,1),1);
+        good_templates_idx = unique(spike_templates_0idx);
+        good_templates = ismember(0:size(templates,1)-1,good_templates_idx);
     end
     
     % Throw out all non-good template data

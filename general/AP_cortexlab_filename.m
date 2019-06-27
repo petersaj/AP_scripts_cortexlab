@@ -258,32 +258,34 @@ switch file
         kilosort_version = 2; % (kilosort 2 by default)
         
         % Self-call to match ephys_dir above
-        [ephys_dir,~] = AP_cortexlab_filename(animal,day,experiment,'ephys_dir',site);
+        [ephys_dir_site,~] = AP_cortexlab_filename(animal,day,experiment,'ephys_dir',site);
+        ephys_dir_parent = ephys_dir_site(1:end-length(site_dir));
    
         % Drop the kilosort version in the base workspace
         assignin('base','kilosort_version',kilosort_version); 
         
         if kilosort_version == 1
-            filename = [ephys_dir filesep 'kilosort' filesep];
+            filename = [ephys_dir_parent filesep 'kilosort' filesep site_dir];
         elseif kilosort_version == 2
-            filename = [ephys_dir filesep 'kilosort2' filesep];
+            filename = [ephys_dir_parent filesep 'kilosort2' filesep site_dir];
         end
         
     case 'ephys_ks1'
         % folder with kilosort/phy outputs
         
-        kilosort_version = 1; % (1 is old)
+        kilosort_version = 1; % (kilosort 2 by default)
         
         % Self-call to match ephys_dir above
-        [ephys_dir,~] = AP_cortexlab_filename(animal,day,experiment,'ephys_dir',site);
-        
+        [ephys_dir_site,~] = AP_cortexlab_filename(animal,day,experiment,'ephys_dir',site);
+        ephys_dir_parent = ephys_dir_site(1:end-length(site_dir));
+   
         % Drop the kilosort version in the base workspace
-        assignin('base','kilosort_version',kilosort_version);
+        assignin('base','kilosort_version',kilosort_version); 
         
         if kilosort_version == 1
-            filename = [ephys_dir filesep 'kilosort' filesep];
+            filename = [ephys_dir_parent filesep 'kilosort' filesep site_dir];
         elseif kilosort_version == 2
-            filename = [ephys_dir filesep 'kilosort2' filesep];
+            filename = [ephys_dir_parent filesep 'kilosort2' filesep site_dir];
         end
         
     case 'probe_histology'
