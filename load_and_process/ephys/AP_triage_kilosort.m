@@ -1,5 +1,5 @@
-function AP_triage_kilosort(animal,day)
-% AP_triage_kilosort(animal,day)
+function AP_triage_kilosort(animal,day,site)
+% AP_triage_kilosort(animal,day,site)
 %
 % Automatic triage of kilosort units (by template and waveform)
 % Creates cluster file in kilosort location (cluster_AP_triage.tsv)
@@ -8,14 +8,18 @@ function AP_triage_kilosort(animal,day)
 
 %% Set paths
 
+if ~exist('site','var')
+    site = [];
+end
+
 if strcmpi(animal,'local')
     kilosort_path = 'C:\data_temp\phy';
     local_dat = dir([kilosort_path filesep '*.dat']);
     % (if multiple use first, sometimes a CAR file might exist)
     ephys_ap_filename = [local_dat(1).folder filesep local_dat(1).name];
 else
-    [kilosort_path,kilsort_exists] = AP_cortexlab_filename(animal,day,[],'ephys');
-    [ephys_ap_filename,ephys_ap_exists] = AP_cortexlab_filename(animal,day,[],'ephys_ap');
+    [kilosort_path,kilsort_exists] = AP_cortexlab_filename(animal,day,[],'ephys',site);
+    [ephys_ap_filename,ephys_ap_exists] = AP_cortexlab_filename(animal,day,[],'ephys_ap',site);
     
     if ~kilsort_exists || ~ephys_ap_exists
         error('Ephys files not found on server');

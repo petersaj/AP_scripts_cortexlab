@@ -3028,12 +3028,12 @@ AP_reference_outline('ccf_aligned','k',[],[size(U_master,1),size(U_master,2),1,3
 
 %% Get PSTH for each unit
 
-AP_cellraster({stimOn_times,wheel_move_time,reward_t_timeline});
+% AP_cellraster({stimOn_times,wheel_move_time,reward_t_timeline});
 
-
-% AP_cellraster({stimOn_times,wheel_move_time,outcome_time}, ...
-%     {trial_conditions(1:n_trials,1).*trial_conditions(1:n_trials,2), ...
-%     trial_choice(1:n_trials),trial_outcome(1:n_trials)});
+outcome_time = signals_events.responseTimes';
+AP_cellraster({stimOn_times,wheel_move_time,outcome_time}, ...
+    {trial_conditions(1:n_trials,1).*trial_conditions(1:n_trials,2), ...
+    trial_choice(1:n_trials),trial_outcome(1:n_trials)});
 
 
 

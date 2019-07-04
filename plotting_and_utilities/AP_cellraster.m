@@ -17,7 +17,8 @@ function AP_cellraster(align_times,align_groups,unit_sort)
 %
 % Controls: 
 % up/down - switch between units (clicking on unit also selects)
-% left/right - switch between alignments (if multiple)
+% left/right - switch between alignments
+% pageup/pagedown - switch between trial groupings
 % m - select depth range to plot multiunit
 % u - go to unit number
 

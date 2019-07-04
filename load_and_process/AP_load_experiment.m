@@ -679,10 +679,10 @@ if ephys_exists && load_parts.ephys
     
     % Load phy sorting if it exists 
     % (old = cluster_groups.csv, new = cluster_group.tsv because fuck me)
-    cluster_filepattern = [ephys_path 'cluster_group*'];
+    cluster_filepattern = [ephys_path filesep 'cluster_group*'];
     cluster_filedir = dir(cluster_filepattern);
     if ~isempty(cluster_filedir)
-        cluster_filename = [ephys_path cluster_filedir.name];
+        cluster_filename = [ephys_path filesep cluster_filedir.name];
         fid = fopen(cluster_filename);
         cluster_groups = textscan(fid,'%d%s','HeaderLines',1);
         fclose(fid);
@@ -868,12 +868,12 @@ if ephys_exists && load_parts.ephys
             strcmp(cluster_groups{2},'good') | strcmp(cluster_groups{2},'mua')));
         good_templates = ismember(0:size(templates,1)-1,good_templates_idx);
         
-    elseif exist([ephys_path 'cluster_AP_triage.tsv'],'file')
+    elseif exist([ephys_path filesep 'cluster_AP_triage.tsv'],'file')
         % If no manual but AP_triage clusters are available
         if verbose; disp('Keeping AP_triage good units...'); end
 
         % Load triage labels
-        triage_label_filename = [ephys_path 'cluster_AP_triage.tsv'];        
+        triage_label_filename = [ephys_path filesep 'cluster_AP_triage.tsv'];        
         
         fid = fopen(triage_label_filename);
         triage_labels = textscan(fid,'%d%s','HeaderLines',1);
