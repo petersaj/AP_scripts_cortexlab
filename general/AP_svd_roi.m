@@ -57,6 +57,13 @@ if exist('V','var') && ~isempty(V)
     % NEW: should be valid to weight U_roi first (faster, less memory)
     U_roi = transpose(reshape(U,[],size(U,3))'*reshape(roi_mask,[],size(roi_mask,3)));
     roi_trace = U_roi*V;
+    
+    % If mask was binary, divide by n pixels to make trace ROI average
+    % (if mask was weighted, then shouldn't divide)
+    if all(ismember(roi_mask(:),[0,1]))
+        roi_trace = roi_trace./sum(roi_mask(:));
+    end
+    
 else
     roi_trace = [];
 end

@@ -1,4 +1,5 @@
 % Generate figures for ctx-str paper 
+% CURRENTLY BUILDING
 % (trials data is prepared in AP_ctx_str_trial_preprocessing)
 
 %% Load in task data
@@ -245,13 +246,13 @@ for curr_align = 1:length(use_align)
     AP_reference_outline('ccf_aligned',[0.5,0.5,0.5]);
     axis image off;
     colormap(brewermap([],'PRGn'));
-    caxis([-0.02,0.02]);
+    caxis([-0.015,0.015]);
     title([use_align_labels{curr_align} ': ' num2str(plot_t(curr_align)) ' sec']);
     
 end
 
 
-%% Fig 1c,d,e, S2: Task > cortex kernels
+%% Fig 1c,d,e: Task > cortex kernels
 
 % Get task>cortex parameters
 n_regressors = length(task_regressor_labels);
@@ -300,13 +301,13 @@ for curr_regressor = 1:length(task_regressor_labels)
     AP_reference_outline('ccf_aligned',[0.5,0.5,0.5]);
     axis image off;
     colormap(brewermap([],'PRGn'));
-    caxis([-0.02,0.02]);
+    caxis([-0.015,0.015]);
     title([task_regressor_labels{curr_regressor} ': ' num2str(plot_t(curr_regressor)) ' sec']);
     
 end
 
 % Get ROI traces for each subregressor
-plot_rois = [1,9,10];
+plot_rois = [1,7,9,10];
 
 stim_col = colormap_BlueWhiteRed(5);
 stim_col(6,:) = 0.5;
@@ -339,7 +340,7 @@ linkaxes(get(gcf,'Children'),'x')
 
 % Plot task>cortex ROI regression examples
 plot_rois = [1,9,10];
-plot_prctiles = [25,50,75];
+plot_prctiles = linspace(0,100,5);
 
 figure;
 for curr_roi_idx = 1:length(plot_rois)
@@ -386,7 +387,7 @@ for curr_roi_idx = 1:length(plot_rois)
     
 end
 linkaxes(get(gcf,'Children'),'xy');
-y_scale = 1;
+y_scale = 2;
 t_scale = 1;
 line([min(xlim),min(xlim)+t_scale],repmat(min(ylim),2,1),'linewidth',3,'color','k');
 line(repmat(min(xlim),2,1),[min(ylim),min(ylim)+y_scale],'linewidth',3,'color','k');
@@ -1088,7 +1089,7 @@ timeavg_condition_colors = ...
     [0.6,0,0.6;0,0.6,0], ...
     [0.6,0,0.6;0,0.6,0], ...
     [0,0,0.7;0,0,0]};
-timeavg_event_offset = {'Stim','Move onset','Move onset','Outcome'};
+timavg_event_offset = {'Stim','Move onset','Move onset','Outcome'};
 
 % Set activity percentiles and bins
 act_prctile = [5,95];
@@ -1118,9 +1119,9 @@ for curr_area_idx = 1:length(plot_areas)
     for curr_timeavg = 1:length(timeavg_labels)
         
         trial_conditions = timeavg_trial_conditions{curr_timeavg};
-        curr_event_offset_idx = find(strcmp(timeavg_event_offset{curr_timeavg},task_regressor_labels));
-        curr_act_pred_fix_allcat_event = ...
-            curr_act_pred_fix_allcat(:,:,:,curr_event_offset_idx);
+        curr_event_offset_idx = find(strcmp
+        curr_act_pred_fix_allcat_event = 
+        curr_act_pred_fix_allcat
         
         % (re-align and split activity)
         act_title = timeavg_labels{curr_timeavg};
@@ -1139,8 +1140,8 @@ for curr_area_idx = 1:length(plot_areas)
         
         curr_act_predfix = mat2cell(...
             cell2mat(arrayfun(@(trial) circshift( ...
-            curr_act_pred_fix_allcat_event(trial,:,plot_area), ...
-            timeavg_align{curr_timeavg}(trial),2),transpose(1:size(curr_act_pred_fix_allcat_event,1)),'uni',false)), ...
+            curr_act_pred_fix_allcat(trial,:,plot_area), ...
+            timeavg_align{curr_timeavg}(trial),2),transpose(1:size(curr_act_pred_fix_allcat,1)),'uni',false)), ...
             use_split,length(t));
         
         trial_conditions_exp = mat2cell(trial_conditions,use_split,size(trial_conditions,2));
@@ -1648,7 +1649,7 @@ linkaxes(get(measured_v_pred_fig,'Children'),'xy');
 
 
 
-%% Fig S3a: Widefield hemodynamic correction and deconvolution
+%% Fig S2a: Widefield hemodynamic correction and deconvolution
 
 % Load and plot deconvolution kernel
 load('C:\Users\Andrew\OneDrive for Business\Documents\CarandiniHarrisLab\analysis\wf_ephys_choiceworld\wf_processing\gcamp_kernel\gcamp6s_kernel.mat');
@@ -1724,7 +1725,7 @@ ylabel('Max-normalized activity');
 legend({'Multiunit','Fluorescence (Raw)','Fluorescence (Hemo-corrected)','Fluorescence(Deconvolved)'});
 
 
-%% Fig S3b: Widefield alignment
+%% Fig S2b: Widefield alignment
 
 % Show average images across days for one animal
 animal = 'AP025';
@@ -1870,7 +1871,7 @@ AP_reference_outline('ccf_aligned',[0.5,0.5,0.5]);
 
 
 
-%% Fig S4: Striatum border estimation (histology and electrophysiology)
+%% Fig S3: Striatum border estimation (histology and electrophysiology)
 
 animal = 'AP032';
 
