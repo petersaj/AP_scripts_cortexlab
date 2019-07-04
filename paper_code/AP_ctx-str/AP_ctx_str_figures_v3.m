@@ -251,7 +251,7 @@ for curr_align = 1:length(use_align)
 end
 
 
-%% Fig 1c,d,e, S2: Task > cortex kernels
+%% Fig 1d,e, S2: Task > cortex kernels
 
 % Get task>cortex parameters
 n_regressors = length(task_regressor_labels);
