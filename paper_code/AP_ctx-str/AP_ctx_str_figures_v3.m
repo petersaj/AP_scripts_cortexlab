@@ -337,6 +337,11 @@ for curr_roi_idx = 1:length(plot_rois)
 end
 linkaxes(get(gcf,'Children'),'x')
 
+% Plot ROI average trace and task fit
+plot_rois = [1,9,10];
+
+
+
 % Plot task>cortex ROI regression examples
 plot_rois = [1,9,10];
 plot_prctiles = [25,50,75];

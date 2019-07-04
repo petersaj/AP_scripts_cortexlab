@@ -60,8 +60,8 @@ if exist('V','var') && ~isempty(V)
     
     % If mask was binary, divide by n pixels to make trace ROI average
     % (if mask was weighted, then shouldn't divide)
-    if all(ismember(roi_mask(:),[0,1]))
-        roi_trace = roi_trace./sum(roi_mask(:));
+    if all(ismember(roi_mask(:),[0,1]))    
+        roi_trace = roi_trace./sum(reshape(roi_mask,[],size(roi_mask,3),1))';
     end
     
 else
