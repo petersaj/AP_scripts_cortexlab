@@ -208,7 +208,7 @@ for curr_cv = 1:cvfold
         warning('Regressors in fold unfilled (not enough trials?)');
     end
     
-    % Used to do manual inv(fluor_gpu'*fluor_gpu)*fluor_gpu'*spikes_gpu
+    % Used to do manual inv(regressors_gpu'*regressors_gpu)*regressors_gpu'*spikes_gpu
     % but looks like \ works fine on GPU
     k_cv(:,predictable_signals,curr_cv) = ...
         full(gather(regressors_gpu(train_idx,:)\signals_gpu(train_idx,predictable_signals)));

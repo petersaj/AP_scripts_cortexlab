@@ -1730,7 +1730,7 @@ for curr_day = 1:length(experiments)
     day = experiments(curr_day).day;
     
     [img_path,img_exists] = AP_cortexlab_filename(animal,day,[],'imaging');
-    avg_im = readNPY([img_path filesep 'meanImage_blue.npy']);
+    avg_im = readNPY([img_path filesep 'meanImage_purple.npy']);
         
     subplot(1,length(experiments),curr_day);
     imagesc(avg_im);
