@@ -168,13 +168,13 @@ load(wf_roi_fn);
 roi_trace = AP_svd_roi(aUdf(:,:,use_components),fVdf_deconv(use_components,:),[],[],cat(3,wf_roi.mask));
 
 plot_rois = [1,9,10];
-fluor_spacing = 70;
+fluor_spacing = 0.04;
 fluor_axes = subplot(6,1,1:2); hold on;
 plot_fluor_idx = frame_t >= plot_t(1) & frame_t <= plot_t(2);
 AP_stackplot(roi_trace(plot_rois,plot_fluor_idx)', ...
     frame_t(plot_fluor_idx),fluor_spacing,false,[0,0.7,0],{wf_roi(plot_rois).area});
 
-y_scale = 50;
+y_scale = 0.02;
 t_scale = 2;
 line([min(xlim),min(xlim) + t_scale],repmat(min(ylim),2,1),'color','k','linewidth',3);
 line(repmat(min(xlim),2,1),[min(ylim),min(ylim) + y_scale],'color','k','linewidth',3);
@@ -339,8 +339,20 @@ linkaxes(get(gcf,'Children'),'x')
 
 % Plot ROI average trace and task fit
 plot_rois = [1,9,10];
+plot_trials = move_t < 0.5 & trial_contrast_allcat > 0 & trial_side_allcat == 1 & trial_choice_allcat == -1;
 
-
+figure;
+for curr_roi_idx = 1:length(plot_rois)
+    subplot(length(plot_rois),1,curr_roi_idx);
+    
+    curr_roi = plot_rois(curr_roi_idx);
+    
+    AP_errorfill(t,nanmean(fluor_roi_deconv(plot_trials,:,curr_roi),1), ...
+        AP_sem(fluor_roi_deconv(plot_trials,:,curr_roi),1),'k',0.5,true);
+    AP_errorfill(t,nanmean(fluor_roi_taskpred(plot_trials,:,curr_roi),1), ...
+        AP_sem(fluor_roi_taskpred(plot_trials,:,curr_roi),1),'b',0.5,true);  
+    
+end
 
 % Plot task>cortex ROI regression examples
 plot_rois = [1,9,10];
@@ -391,8 +403,8 @@ for curr_roi_idx = 1:length(plot_rois)
     
 end
 linkaxes(get(gcf,'Children'),'xy');
-y_scale = 1;
-t_scale = 1;
+y_scale = 10e-3;
+t_scale = 0.5;
 line([min(xlim),min(xlim)+t_scale],repmat(min(ylim),2,1),'linewidth',3,'color','k');
 line(repmat(min(xlim),2,1),[min(ylim),min(ylim)+y_scale],'linewidth',3,'color','k');
 
