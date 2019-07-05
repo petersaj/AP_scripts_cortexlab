@@ -1,5 +1,5 @@
-function AP_movie2avi(im,framerate,color_axis,figure_position,savefile,annotation_text)
-% AP_movie2avi(im,framerate,color_axis,figure_position,savefile,annotation_text)
+function AP_movie2avi(im,framerate,color_map,color_axis,figure_position,savefile,annotation_text,ccf_overlay)
+% AP_movie2avi(im,framerate,color_map,color_axis,figure_position,savefile,annotation_text,ccf_overlay)
 % 
 %
 % Makes AVI movie from 3D matrix
@@ -24,10 +24,10 @@ a = axes('Position',[0,0,1,1]);
 im_plot = imagesc(a,im(:,:,1));
 axis image off;
 
-% add reference outline(s)
-% AP_reference_outline('retinotopy','b');
-AP_reference_outline('ccf_aligned','k');
-% AP_reference_outline('ccf_aligned','k',[],[437,416,1,4]);
+% Add dorsal cortex CCF outline
+if exist('ccf_overlay','var') && ~isempty(ccf_overlay)
+    AP_reference_outline('ccf_aligned','k',[],[size(im,1),size(im,2)/ccf_overlay,1,ccf_overlay]);
+end
 
 for i = 1:size(im,3)
     set(im_plot,'CData',im(:,:,i));
@@ -37,8 +37,7 @@ for i = 1:size(im,3)
         caxis([-max(abs(caxis)),max(abs(caxis))]);
     end
     
-%     colormap(gray)
-    colormap(brewermap([],'*RdBu'));
+    colormap(color_map);
    
    if exist('annotation_text','var') && ~isempty(annotation_text)
        annotation('textbox','Position',[0,0.93,0,0.07], ...
