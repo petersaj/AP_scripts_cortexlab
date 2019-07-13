@@ -1,51 +1,75 @@
-function AP_movie2avi(im,framerate,color_map,color_axis,figure_position,savefile,annotation_text,ccf_overlay)
-% AP_movie2avi(im,framerate,color_map,color_axis,figure_position,savefile,annotation_text,ccf_overlay)
+function AP_movie2avi(im,framerate,color_map,color_axis,figure_position,savefile,t_annotation,movie_annotation)
+% AP_movie2avi(im,framerate,color_map,color_axis,figure_position,savefile,t_annotation,movie_annotation)
 % 
-%
 % Makes AVI movie from 3D matrix
-% annotation_text - optional: string or cell array of text to put on each frame
+% im - 3D (time in dim 3) or 4D (multiple movies in dim 4)
+% t_annotation - annotation for text (upper left corner)
+% movie_annotation - title of each movie (if 4D)
 
-if exist('annotation_text','var') && ~isempty(annotation_text)
-   if ~iscell(annotation_text)
-       annotation_text = repmat({annotation_text},size(im,3));
+% Prepare annotation text
+if exist('t_annotation','var') && ~isempty(t_annotation)
+   if ~iscell(t_annotation)
+       t_annotation = repmat({t_annotation},size(im,3));
    end
-   if length(annotation_text) ~= size(im,3)
+   if length(t_annotation) ~= size(im,3)
        error('Annotation text different size than frame numbers')
    end
 end
 
+% Create figure
 if ~isempty(figure_position)
     f = figure('Position',figure_position,'color','w');
 else
     f = figure('color','w');
 end
-a = axes('Position',[0,0,1,1]);
 
-im_plot = imagesc(a,im(:,:,1));
-axis image off;
-
-% Add dorsal cortex CCF outline
-if exist('ccf_overlay','var') && ~isempty(ccf_overlay)
-    AP_reference_outline('ccf_aligned','k',[],[size(im,1),size(im,2)/ccf_overlay,1,ccf_overlay]);
-end
-
-for i = 1:size(im,3)
-    set(im_plot,'CData',im(:,:,i));
-    if ~isempty(color_axis)
-        caxis(color_axis);
-    else
-        caxis([-max(abs(caxis)),max(abs(caxis))]);
+% Make one axis per movie (if > 4 movies, split into 2 rows)
+n_movies = size(im,4);
+ax = gobjects(1,n_movies);
+im_plot = gobjects(1,n_movies);
+for curr_movie = 1:n_movies
+    if n_movies <= 4
+        subplot_y = 1;
+        subplot_x = n_movies;
+    elseif n_movies > 4
+        subplot_y = 2;
+        subplot_x = ceil(n_movies/subplot_y);
     end
     
+    ax(curr_movie) = subplot(subplot_y,subplot_x,curr_movie);
+    im_plot(curr_movie) = imagesc(ax(curr_movie),im(:,:,1,curr_movie));
+    axis image off;
+    
+    if ~isempty(color_axis)
+        caxis(ax(curr_movie),color_axis);
+    else
+        caxis(ax(curr_movie),[-max(abs(caxis)),max(abs(caxis))]);
+    end
     colormap(color_map);
-   
-   if exist('annotation_text','var') && ~isempty(annotation_text)
-       annotation('textbox','Position',[0,0.93,0,0.07], ...
-           'FitBoxToText','on','String',annotation_text{i},'Color','w','BackgroundColor','k','FontSize',20)
-   end
-   
-   frames(i) = getframe(f);
+    
+    if exist('movie_annotation','var') && ~isempty(movie_annotation)
+        title(movie_annotation{curr_movie},'FontSize',12);
+    end
+
 end
+
+% Add dorsal cortex CCF outline
+for curr_movie = 1:n_movies
+    axes(ax(curr_movie));
+    AP_reference_outline('ccf_aligned',[0.5,0.5,0.5]);
+end
+
+for curr_t = 1:size(im,3)
+    for curr_movie = 1:n_movies
+        set(im_plot(curr_movie),'CData',im(:,:,curr_t,curr_movie));             
+        if curr_movie == 1 && exist('t_annotation','var') && ~isempty(t_annotation)
+            annotation('textbox','Position',[0,0.93,0,0.07], ...
+                'FitBoxToText','on','String',t_annotation{curr_t},'Color','w','BackgroundColor','k','FontSize',12)
+        end
+    end
+    frames(curr_t) = getframe(f);
+end
+
 close(f);
 drawnow;
 

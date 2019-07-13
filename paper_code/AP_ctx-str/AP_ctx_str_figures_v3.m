@@ -284,7 +284,7 @@ for curr_regressor = 1:n_regressors
 end
 
 % Plot example frame for each kernel group
-plot_subregressor = [10,1,2,1];
+plot_subregressor = [10,1,1,1];
 plot_t = [0.08,0,0.05,0.08];
 
 figure;
@@ -299,8 +299,9 @@ for curr_regressor = 1:length(task_regressor_labels)
     imagesc(curr_k_px_t);
     AP_reference_outline('ccf_aligned',[0.5,0.5,0.5]);
     axis image off;
-    colormap(brewermap([],'PRGn'));
-    caxis([-0.02,0.02]);
+    colormap(brewermap([],'Greys'));
+%     caxis([-0.02,0.02]);
+    caxis([0,max(curr_k_px_t(:))]);
     title([task_regressor_labels{curr_regressor} ': ' num2str(plot_t(curr_regressor)) ' sec']);
     
 end
@@ -618,7 +619,7 @@ end
 
 
 
-%% Fig 2c,d: Cortex > striatum projections (Allen connectivity database)
+%% Fig 2c: Cortex > striatum projections (Allen connectivity database)
 
 % Define the probe vector manually according to the targeted trajectory
 probe_vector_ccf = [520,240,510;520,511,239];
@@ -810,7 +811,7 @@ for curr_depth = 1:n_aligned_depths
 end
 
 
-%% Fig 2b,e: Average cortex > striatum domain regression kernels
+%% Fig 2b,d: Average cortex > striatum domain regression kernels
 
 protocols = {'vanillaChoiceworld','stimSparseNoiseUncorrAsync'};
 
@@ -1949,7 +1950,7 @@ end
 set(gcf,'Name',ephys_depth_align(curr_animal).animal);
 
 
-%% Fig S5: Corticostriatal kernel alignment
+%% Fig S6: Corticostriatal kernel alignment
 
 % Load kernels by depths
 kernel_path = 'C:\Users\Andrew\OneDrive for Business\Documents\CarandiniHarrisLab\analysis\wf_ephys_choiceworld\ephys_processing';
@@ -1978,7 +1979,7 @@ for curr_animal = 1:length(plot_animals)
 end
 
 
-%% Fig S7: Striatum task v cortex regression
+%% Fig S8: Striatum task v cortex regression
 
 % Get task>striatum parameters
 n_regressors = length(task_regressor_labels);
@@ -2099,6 +2100,7 @@ line(repmat(min(xlim),2,1),[min(ylim),min(ylim)+y_scale],'linewidth',3,'color','
 
 % Get R^2 for task regression 
 taskpred_r2 = nan(max(split_idx),n_depths);
+ctxpred_r2 = nan(max(split_idx),n_depths);
 for curr_exp = 1:max(split_idx)
     curr_data = reshape(permute(mua_allcat(split_idx == curr_exp,:,:),[2,1,3]),[],n_depths);
     curr_taskpred_data = reshape(permute(mua_taskpred_allcat(split_idx == curr_exp,:,:),[2,1,3]),[],n_depths);
@@ -2125,40 +2127,39 @@ legend({'Task','Cortex'});
 
 %% Movie 1: Average widefield 
 
+%%%% TO DO: match trial contrasts so there's no avg contrast difference?
+
 % Get average stim-aligned fluorescence on trial subsets
 plot_trials = { ...
     move_t < 0.5 & trial_contrastside_allcat > 0 & trial_choice_allcat == -1, ...
-    move_t < 0.5 & trial_contrastside_allcat > 0 & trial_choice_allcat == 1, ...
     move_t < 0.5 & trial_contrastside_allcat < 0 & trial_choice_allcat == 1, ...
-    move_t < 0.5 & trial_contrastside_allcat < 0 & trial_choice_allcat == -1, ...
     move_t < 0.5 & trial_contrastside_allcat == 0 & trial_outcome_allcat == 1, ...
+    move_t < 0.5 & trial_contrastside_allcat > 0 & trial_choice_allcat == 1, ...
+    move_t < 0.5 & trial_contrastside_allcat < 0 & trial_choice_allcat == -1, ...
     move_t < 0.5 & trial_contrastside_allcat == 0 & trial_outcome_allcat == -1};
 
-plot_labels = {'correct_right','incorrect_right','correct_left','incorrect_left','rewarded zero','unrewarded zero'};
-
-movie_rate = sample_rate/3;
-color_map = brewermap([],'Greens');
-color_axis = [0,0.015];
-figure_position = [651,371,574,450];
-save_path = 'C:\Users\Andrew\OneDrive for Business\Documents\CarandiniHarrisLab\analysis\wf_ephys_choiceworld\paper\figs\movies';
-
+plot_trials_exp = cellfun(@(x) mat2cell(x,use_split,1),plot_trials,'uni',false);
 fluor_allcat_deconv_exp = mat2cell(fluor_allcat_deconv,use_split,length(t),n_vs);
+movie_annotation = {'Correct right stim','Correct left stim','Rewarded 0%', ...
+    'Incorrect right stim','Uncorrect left stim','Unrewarded 0%'};
 
-% Make movies of each trial group average
-for curr_trials = 1:length(plot_trials)
-    curr_plot_trials = plot_trials{curr_trials};     
-    plot_trials_exp = mat2cell(curr_plot_trials,use_split,1);
+fluor_allcat_deconv_mean_px = cellfun(@(trials) nanmean(cell2mat( ...
+    permute(cellfun(@(trials,fluor) ...
+    svdFrameReconstruct(U_master(:,:,1:n_vs), ...
+    permute(nanmean(fluor(trials,:,:),1),[3,2,1])), ...
+    trials,fluor_allcat_deconv_exp,'uni',false),[2,3,4,1])),4), ...
+    plot_trials_exp,'uni',false);
     
-    fluor_allcat_deconv_mean_px = nanmean(cell2mat(permute(cellfun(@(x,trials) ...
-        svdFrameReconstruct(U_master(:,:,1:n_vs),permute(nanmean(x(trials,:,:),1),[3,2,1])), ...
-        fluor_allcat_deconv_exp,plot_trials_exp,'uni',false),[2,3,4,1])),4);
-    
-    savefile = [save_path filesep plot_labels{curr_trials}];
-    annotation_text = cellfun(@(x) sprintf('Time from stimulus: %0.2f sec',x),num2cell(t),'uni',false);
-    
-    AP_movie2avi(fluor_allcat_deconv_mean_px,movie_rate,color_map,color_axis,figure_position,savefile,annotation_text)
-    
-end
+% Make movie of average fluorescence for all trial groups
+movie_rate = sample_rate/5;
+color_map = brewermap([],'Greens');
+color_axis = [0,0.02];
+figure_position = [24,408,1868,399];
+save_path = 'C:\Users\Andrew\OneDrive for Business\Documents\CarandiniHarrisLab\analysis\wf_ephys_choiceworld\paper\figs\movies';
+savefile = [save_path filesep 'movie_1_avg_fluor'];
+t_annotation = cellfun(@(x) sprintf('Time from stimulus: %0.2f sec',x),num2cell(t),'uni',false);
+AP_movie2avi(cat(4,fluor_allcat_deconv_mean_px{:}), ...
+    movie_rate,color_map,color_axis,figure_position,savefile,t_annotation,movie_annotation);
 
 
 %% Movie 2: Task->cortex kernels
@@ -2197,22 +2198,38 @@ regressor_px = cellfun(@(v) cell2mat(arrayfun(@(subregressor) ...
     permute(1:size(v,1),[1,3,4,2]),'uni',false)),regressor_v,'uni',false);
 
 % Make movies of regressor groups
-movie_rate = sample_rate/3;
-color_map = brewermap([],'PRGn');
-color_axis = [-0.015,0.015];
-figure_position = [651,371,574,450];
+movie_rate = sample_rate/5;
+% color_map = brewermap([],'PRGn');
+% color_axis = [-0.015,0.015];
+color_map = brewermap([],'Greys');
+figure_position = [24,408,1868,399];
 save_path = 'C:\Users\Andrew\OneDrive for Business\Documents\CarandiniHarrisLab\analysis\wf_ephys_choiceworld\paper\figs\movies';
 
 for curr_regressor = 1:length(regressor_px)
-    n_subregressors = size(regressor_px{curr_regressor},4);
-    curr_px = reshape(permute(regressor_px{curr_regressor},[1,2,4,3]), ...
-        size(U_master,1),size(U_master,2)*n_subregressors,[]);
-    
-    savefile = [save_path filesep task_regressor_labels{curr_regressor} '_regressor'];
-    annotation_text = cellfun(@(x) sprintf('Time from event: %0.2f sec',x), ...
+    movie_num = 2 + (curr_regressor-1);
+    savefile = [save_path filesep 'movie_' nu2str(movie_num) '_' task_regressor_labels{curr_regressor}];
+    t_annotation = cellfun(@(x) sprintf('Time from event: %0.2f sec',x), ...
         num2cell(task_regressor_t_shifts{curr_regressor}),'uni',false);
+    switch curr_regressor
+        case 1
+            movie_annotation = {'Left 100%','Left 50%','Left 25%','Left 12.5%','Left 6%',...
+                'Right 100%','Right 50%','Right 25%','Right 12.5%','Right 6%'};
+            curr_im = regressor_px{curr_regressor}(:,:,:,[1:5,10:-1:6]);
+        case 2
+            movie_annotation = {'Orient right','Orient left'};
+            curr_im = regressor_px{curr_regressor};
+        case 3
+            movie_annotation = {'Go cue (already moving)','Go cue (not moving)'};
+            curr_im = regressor_px{curr_regressor};
+        case 4
+            movie_annotation = {'Rewarded','Not rewarded'};
+            curr_im = regressor_px{curr_regressor};
+    end
     
-    AP_movie2avi(curr_px,movie_rate,color_map,color_axis,figure_position,savefile,annotation_text,n_subregressors)
+    color_axis = [0,max(curr_im(:))];
+    
+    AP_movie2avi(curr_im,movie_rate,color_map,color_axis, ...
+        figure_position,savefile,t_annotation,movie_annotation);
 end
 
 
@@ -2240,76 +2257,54 @@ for protocol = protocols
     k_px_animal = cellfun(@(x) nanmean(cat(5,x{:}),5),k_px_timeflipped,'uni',false);
     k_px = nanmean(double(cat(5,k_px_animal{:})),5);
     
-    % Get center-of-mass maps
-    k_px_positive = k_px;
-    k_px_positive(k_px_positive < 0) = 0;
-    k_px_com = sum(k_px_positive.*permute(1:n_aligned_depths,[1,3,4,2]),4)./sum(k_px_positive,4);
-    k_px_com_colored = nan(size(k_px_com,1),size(k_px_com,2),3,size(k_px_com,3));
+    % Normalize to max weight
+    k_px_norm = k_px./max(max(max(k_px,[],1),[],2),[],3);
     
-    use_colormap = min(jet(255)-0.2,1);
-    for curr_frame = 1:size(k_px_com,3)
-        k_px_com_colored(:,:,:,curr_frame) = ...
-            ind2rgb(round(mat2gray(k_px_com(:,:,curr_frame),...
-            [1,n_aligned_depths])*size(use_colormap,1)),use_colormap);
-    end
+    % Make movie of ctx-str kernels by depth
+    movie_rate = sample_rate/5;
+    color_map = brewermap([],'*RdBu');
+    color_axis = [-1,1];
+    figure_position = [24,408,1868,399];
+    save_path = 'C:\Users\Andrew\OneDrive for Business\Documents\CarandiniHarrisLab\analysis\wf_ephys_choiceworld\paper\figs\movies';
+    savefile = [save_path filesep 'movie_6_ctx_str_kernel'];
+    t_annotation = cellfun(@(x) sprintf('Lag from multiunit: %0.2f sec',x), ...
+        num2cell(t),'uni',false);    
+    movie_annotation = {'Medial domain','Centromedial domain','Centrolateral domain','Lateral domain'};
     
-    % Plot center kernel frames independently at t = 0
-    figure('Name',protocol);
-    plot_frame = kernel_frames == 0;
-    for curr_depth = 1:n_aligned_depths
-       subplot(n_aligned_depths,1,curr_depth);
-       imagesc(k_px(:,:,plot_frame,curr_depth));
-       AP_reference_outline('ccf_aligned',[0.5,0.5,0.5]);
-       axis image off;
-       colormap(brewermap([],'*RdBu'));
-       caxis([-0.01,0.01]);
-    end
-    
-    %%%%%%%%%%%%%%%%%%% WRITING
-    
-    % (use something like this to whiten relative to transparency)
-    k_px_trained_com_colored_weighted = k_px_trained_com_colored + ...
-        ((1-(permute(max(abs(k_px_trained_positive),[],4)./ ...
-        prctile(abs(k_px_trained_positive(:)),100),[1,2,4,3]))) .* ...
-        (ones(1,1,3,length(t)) - k_px_trained_com_colored));
-    
-    %%%%%%%%%%%%%%%%%%%%%%%%%%%%
-    
-    % Plot center-of-mass color at select time points 
-    plot_t = [-0.05:0.025:0.05];
-    
-    k_px_com_colored_t = ...
-        permute(reshape(interp1(t,permute(reshape(k_px_com_colored,[],3,length(t)), ...
-        [3,1,2]),plot_t),length(plot_t),size(k_px_com_colored,1), ...
-        size(k_px_com_colored,2),3),[2,3,4,1]);
-    
-    k_px_max = squeeze(max(k_px,[],4));
-    k_px_max_t = ...
-        permute(reshape(interp1(t,reshape(k_px_max,[],length(t))', ...
-        plot_t),length(plot_t),size(k_px_max,1), ...
-        size(k_px_max,2)),[2,3,1]);
-    
-    weight_max = 0.005;
-    figure('Name',protocol);
-    for t_idx = 1:length(plot_t)
-        subplot(1,length(plot_t),t_idx);
-        p = image(k_px_com_colored_t(:,:,:,t_idx));
-        set(p,'AlphaData', ...
-            mat2gray(k_px_max_t(:,:,t_idx),[0,weight_max]));
-        axis image off;
-        AP_reference_outline('ccf_aligned',[0.5,0.5,0.5]);
-        title([num2str(plot_t(t_idx)),' s']);
-    end    
-        
-    % Plot movie of kernels
-    AP_image_scroll(reshape(permute(k_px,[1,4,2,3]),size(k_px,1)*size(k_px,4),size(k_px,2),length(t)),t);
-    colormap(brewermap([],'*RdBu'));
-    caxis([-max(caxis),max(caxis)]);
-    AP_reference_outline('ccf_aligned',[0.5,0.5,0.5],[],[size(k_px,1),size(k_px,2),size(k_px,4),1]);
-    axis image off
-    
-    drawnow;
-    
+    AP_movie2avi(k_px_norm,movie_rate,color_map,color_axis,figure_position,savefile,t_annotation,movie_annotation);
+  
+%     % (Colored: not done at the moment: requires a colored AP_movie2avi)
+%     % Get center-of-mass maps
+%     k_px_positive = k_px;
+%     k_px_positive(k_px_positive < 0) = 0;
+%     k_px_com = sum(k_px_positive.*permute(1:n_aligned_depths,[1,3,4,2]),4)./sum(k_px_positive,4);
+%     k_px_com_colored = nan(size(k_px_com,1),size(k_px_com,2),3,size(k_px_com,3));
+%     
+%     use_colormap = min(jet(255)-0.2,1);
+%     for curr_frame = 1:size(k_px_com,3)
+%         k_px_com_colored(:,:,:,curr_frame) = ...
+%             ind2rgb(round(mat2gray(k_px_com(:,:,curr_frame),...
+%             [1,n_aligned_depths])*size(use_colormap,1)),use_colormap);
+%     end
+%            
+%     % Whiten colored kernel by transparency
+%     k_px_com_colored_transparent = k_px_com_colored + ...
+%         ((1-(permute(max(abs(k_px),[],4)./ ...
+%         prctile(abs(k_px(:)),100),[1,2,4,3]))) .* ...
+%         (ones(1,1,3,length(t)) - k_px_com_colored));
+%     
+%     % Make movie of colored kernel
+%     movie_rate = sample_rate/3;
+%     color_map = brewermap([],'PRGn');
+%     color_axis = [-0.015,0.015];
+%     figure_position = [651,371,574,450];
+%     save_path = 'C:\Users\Andrew\OneDrive for Business\Documents\CarandiniHarrisLab\analysis\wf_ephys_choiceworld\paper\figs\movies';
+%             
+%     savefile = [save_path filesep '_ctx_str_colored'];
+%     annotation_text = cellfun(@(x) sprintf('Time from event: %0.2f sec',x), ...
+%         num2cell(task_regressor_t_shifts{curr_regressor}),'uni',false);    
+% %     AP_movie2avi(k_px_com_colored_transparent,movie_rate,color_map,color_axis,figure_position,savefile,annotation_text,n_subregressors)
+       
 end
 
 
@@ -4028,5 +4023,225 @@ plot(vel_centers,move_condition_diff_3,'color',col(3,:),'linewidth',2);
 plot(vel_centers,move_condition_diff_3_ci,'color',col(3,:),'linewidth',2,'linestyle','--');
 xlabel('Velocity');
 ylabel('Condition difference');
+
+%% for Matteo: R2 comparison between single ROIs and kernel (Fig S8 addition)
+
+% Load kernel templates
+n_aligned_depths = 4;
+kernel_template_fn = ['C:\Users\Andrew\OneDrive for Business\Documents\CarandiniHarrisLab\analysis\wf_ephys_choiceworld\ephys_processing\kernel_template_' num2str(n_aligned_depths) '_depths.mat'];
+load(kernel_template_fn);
+
+% Get bregma to include/exclude ipsilateral side
+bregma = allenCCFbregma;
+ccf_tform_fn = ['C:\Users\Andrew\OneDrive for Business\Documents\Atlases\AllenCCF\ccf_tform'];
+load(ccf_tform_fn);
+
+um2pixel = 20.6;
+bregma_resize = bregma*(10/um2pixel);
+bregma_align = [bregma_resize([3,1]),1]*ccf_tform.T;
+
+% Get top n percentile pixels
+prctile_cutoff = 95;
+kernel_roi = false(size(kernel_template));
+for curr_kernel = 1:size(kernel_roi,3)
+    curr_kernel_full = kernel_template(:,:,curr_kernel);    
+    
+    % (only use ipsilateral side)
+    curr_kernel_full(:,round(bregma_align(1)):end,:) = 0;
+    
+    curr_kernel_cutoff = prctile(reshape(curr_kernel_full,[],1),prctile_cutoff);
+    curr_kernel_bw = curr_kernel_full > curr_kernel_cutoff;
+    kernel_roi(:,:,curr_kernel) = curr_kernel_bw;
+end
+
+% Plot the kernels and ROIs
+figure; colormap(gray);
+for i = 1:n_aligned_depths
+    p1 = subplot(n_aligned_depths,2,(i-1)*2+1);
+    imagesc(kernel_template(:,:,i));
+    caxis([-max(abs(caxis)),max(abs(caxis))])
+    colormap(p1,brewermap([],'*RdBu'));
+    AP_reference_outline('ccf_aligned',[0.5,0.5,0.5]);
+    axis image off;
+    
+    p2 = subplot(n_aligned_depths,2,(i-1)*2+2);
+    imagesc(kernel_roi(:,:,i));
+    AP_reference_outline('ccf_aligned',[0.5,0.5,0.5]);
+    colormap(p2,brewermap([],'Greys'));
+    axis image off;
+end
+
+% Get fluorescence within kernel ROIs
+fluor_kernelroi_deconv = permute(reshape( ...
+    AP_svd_roi(U_master(:,:,1:n_vs), ...
+    reshape(permute(fluor_allcat_deconv,[3,2,1]),n_vs,[]),[],[],kernel_roi), ...
+    size(kernel_roi,3),[],size(fluor_allcat_deconv,1)),[3,2,1]);
+
+% Regress kernel ROI activity to striatum domain activity (per recording)
+regression_params.kernel_t = [-0.5,0.5];
+regression_params.zs = [false,false];
+regression_params.cvfold = 5;
+regression_params.use_constant = true;
+lambda = 0;
+kernel_frames = floor(regression_params.kernel_t(1)*sample_rate): ...
+    ceil(regression_params.kernel_t(2)*sample_rate);
+
+fluor_kernelroi_deconv_exp = mat2cell(fluor_kernelroi_deconv,trials_recording,length(t),n_depths);
+mua_allcat_exp = mat2cell(mua_allcat,trials_recording,length(t),n_depths);
+
+mua_ctxroipred_exp = cellfun(@(x) nan(size(x)),mua_allcat_exp,'uni',false);
+for curr_exp = 1:length(trials_recording)
+    for curr_depth = 1:n_depths
+        
+        curr_mua = reshape(mua_allcat_exp{curr_exp}(:,:,curr_depth)',[],1)';
+        curr_fluor_kernelroi = reshape(fluor_kernelroi_deconv_exp{curr_exp}(:,:,curr_depth)',[],1)';
+        
+        % Skip if no data
+        if all(isnan(curr_mua))
+            continue
+        end
+        
+        % Set discontinuities in trial data
+        trial_discontinuities = false(size(mua_allcat_exp{curr_exp}(:,:,curr_depth)));
+        trial_discontinuities(:,1) = true;
+        trial_discontinuities = reshape(trial_discontinuities',[],1)';
+        
+        % Do regression
+        [k,curr_mua_kernelroipred,explained_var] = ...
+            AP_regresskernel(curr_fluor_kernelroi, ...
+            curr_mua,kernel_frames,lambda, ...
+            regression_params.zs,regression_params.cvfold, ...
+            false,regression_params.use_constant,trial_discontinuities);
+              
+        mua_ctxroipred_exp{curr_exp}(:,:,curr_depth) = ...
+            reshape(curr_mua_kernelroipred,length(t),[])';
+
+    end
+    AP_print_progress_fraction(curr_exp,length(trials_recording));
+end
+mua_ctxroipred_allcat = cell2mat(mua_ctxroipred_exp);
+
+
+
+
+% Plot task>striatum regression examples
+figure;
+plot_prctiles = [25,50,75];
+for curr_depth = 1:n_depths   
+    
+    % Set current data (pad trials with NaNs for spacing)
+    n_pad = 10;
+    curr_data = padarray(mua_allcat(:,:,curr_depth),[0,n_pad],NaN,'post');
+    curr_taskpred_data = padarray(mua_taskpred_allcat(:,:,curr_depth),[0,n_pad],NaN,'post');
+    curr_ctxpred_data = padarray(mua_ctxpred_allcat(:,:,curr_depth),[0,n_pad],NaN,'post');
+    curr_ctxroipred_data = padarray(mua_ctxroipred_allcat(:,:,curr_depth),[0,n_pad],NaN,'post');
+    nan_samples = isnan(curr_data) | isnan(curr_taskpred_data) | isnan(curr_ctxpred_data) | isnan(curr_ctxroipred_data);
+
+    % Smooth
+    n_smooth = 3;
+    smooth_filt = ones(1,n_smooth)/n_smooth;
+    curr_data = conv2(curr_data,smooth_filt,'same');
+    curr_taskpred_data = conv2(curr_taskpred_data,smooth_filt,'same');
+    curr_ctxpred_data = conv2(curr_ctxpred_data,smooth_filt,'same');
+    curr_ctxroipred_data = conv2(curr_ctxroipred_data,smooth_filt,'same');
+    
+    % Set common NaNs for R^2    
+    curr_data_nonan = curr_data; 
+    curr_data_nonan(nan_samples) = NaN;
+    
+    curr_taskpred_data_nonan = curr_taskpred_data; 
+    curr_taskpred_data(nan_samples) = NaN; 
+    
+    curr_ctxpred_data_nonan = curr_ctxpred_data; 
+    curr_ctxpred_data(nan_samples) = NaN; 
+    
+    curr_ctxroipred_data_nonan = curr_ctxroipred_data; 
+    curr_ctxroipred_data(nan_samples) = NaN; 
+    
+    % Get squared error for each trial (for task prediction)
+    trial_r2 = 1 - (nansum((curr_data_nonan-curr_taskpred_data_nonan).^2,2)./ ...
+        nansum((curr_data_nonan-nanmean(curr_data_nonan,2)).^2,2));
+    
+    trial_r2_nonan_idx = find(~isnan(trial_r2));
+    [~,trial_r2_rank] = sort(trial_r2(trial_r2_nonan_idx));
+    
+    plot_prctile_trials = round(prctile(1:length(trial_r2_rank),plot_prctiles));
+    plot_trials = trial_r2_nonan_idx(trial_r2_rank(plot_prctile_trials));
+    
+    curr_t = (1:length(reshape(curr_data(plot_trials,:)',[],1)))/sample_rate;
+    
+    subplot(n_depths,1,curr_depth); hold on;
+    plot(curr_t,reshape(curr_data(plot_trials,:)',[],1),'k','linewidth',2);
+    plot(curr_t,reshape(curr_taskpred_data(plot_trials,:)',[],1),'b','linewidth',2);
+    plot(curr_t,reshape(curr_ctxpred_data(plot_trials,:)',[],1),'color',[0,0.7,0],'linewidth',2);
+    plot(curr_t,reshape(curr_ctxroipred_data(plot_trials,:)',[],1),'color',[1,0.5,0],'linewidth',2);
+    
+    xlabel('Time (s)');
+    ylabel('Spikes (std)');
+    title(['R^2 percentiles plotted: ' num2str(plot_prctiles)]);
+    legend({'Measured','Task-predicted','Cortex-predicted (full)','Cortex-predicted (ROI)'});
+
+end
+linkaxes(get(gcf,'Children'),'xy');
+y_scale = 2;
+t_scale = 1;
+line([min(xlim),min(xlim)+t_scale],repmat(min(ylim),2,1),'linewidth',3,'color','k');
+line(repmat(min(xlim),2,1),[min(ylim),min(ylim)+y_scale],'linewidth',3,'color','k');
+
+% Get R^2 for task, cortex full, and cortex ROI predictions
+taskpred_r2 = nan(max(split_idx),n_depths);
+ctxpred_r2 = nan(max(split_idx),n_depths);
+ctxroipred_r2 = nan(max(split_idx),n_depths);
+for curr_exp = 1:max(split_idx)
+       
+    curr_data = reshape(permute(mua_allcat(split_idx == curr_exp,:,:),[2,1,3]),[],n_depths);
+    curr_taskpred_data = reshape(permute(mua_taskpred_allcat(split_idx == curr_exp,:,:),[2,1,3]),[],n_depths);
+    curr_ctxpred_data = reshape(permute(mua_ctxpred_allcat(split_idx == curr_exp,:,:),[2,1,3]),[],n_depths);
+    curr_ctxroipred_data = reshape(permute(mua_ctxroipred_allcat(split_idx == curr_exp,:,:),[2,1,3]),[],n_depths);
+    
+    % Set common NaNs
+    nan_samples = isnan(curr_data) | isnan(curr_taskpred_data) | isnan(curr_ctxpred_data) | isnan(curr_ctxroipred_data);
+    curr_data(nan_samples) = NaN;
+    curr_taskpred_data(nan_samples) = NaN;
+    curr_ctxpred_data(nan_samples) = NaN;
+    curr_ctxroipred_data(nan_samples) = NaN;
+
+    taskpred_r2(curr_exp,:) = 1 - (nansum((curr_data-curr_taskpred_data).^2,1)./ ...
+        nansum((curr_data-nanmean(curr_data,1)).^2,1));
+    ctxpred_r2(curr_exp,:) = 1 - (nansum((curr_data-curr_ctxpred_data).^2,1)./ ...
+        nansum((curr_data-nanmean(curr_data,1)).^2,1));
+    ctxroipred_r2(curr_exp,:) = 1 - (nansum((curr_data-curr_ctxroipred_data).^2,1)./ ...
+        nansum((curr_data-nanmean(curr_data,1)).^2,1));
+end
+figure; hold on;
+errorbar(nanmean(taskpred_r2,1),AP_sem(taskpred_r2,1),'b','linewidth',2,'CapSize',0);
+errorbar(nanmean(ctxpred_r2,1),AP_sem(ctxpred_r2,1),'color',[0,0.6,0],'linewidth',2,'CapSize',0);
+errorbar(nanmean(ctxroipred_r2,1),AP_sem(ctxroipred_r2,1),'color',[1,0.5,0],'linewidth',2,'CapSize',0);
+xlabel('Striatum depth');
+ylabel('Task explained variance');
+legend({'Task','Cortex (Full)','Cortex (ROI)'});
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 
