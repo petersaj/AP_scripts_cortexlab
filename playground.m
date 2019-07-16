@@ -10467,6 +10467,41 @@ linkaxes(get(gcf,'Children'),'xy');
 
 
 
+%%
+
+figure('Position',[587,56,314,917],'color','w'); 
+im_h = imagesc(a(:,:,1));
+text_h = title('Lag from spikes: xx','FontSize',14,'FontName','Myriad Pro', ...
+    'Units','normalized','Position',[0.5,-0.05,0]);
+axis image off;
+caxis([-max(abs(a(:))),max(abs(a(:)))]);
+colormap(brewermap([],'*RdBu'));
+AP_reference_outline('ccf_aligned',[0.5,0.5,0.5],[],[size(k_px_norm,1),size(k_px_norm,2),4,1]);
+
+plot_frames = find(t >= -0.15 & t <= 0.15);
+for curr_frame = plot_frames
+   set(im_h,'CData',a(:,:,curr_frame));
+   set(text_h,'String',sprintf('Lag from spikes: %0.2f s',t(curr_frame)));
+   pause(0.2);
+end
+
+
+figure;
+for curr_frame_idx = 1:length(plot_frames)
+    subplot(1,length(plot_frames),curr_frame_idx);
+    imagesc(a(:,:,plot_frames(curr_frame_idx)));
+    axis image off;
+    caxis([-1,1]);
+    colormap(brewermap([],'*RdBu'));
+    AP_reference_outline('ccf_aligned',[0.5,0.5,0.5],[],[size(k_px_norm,1),size(k_px_norm,2),4,1]);
+end
+
+
+
+
+
+
+
 
 
 
