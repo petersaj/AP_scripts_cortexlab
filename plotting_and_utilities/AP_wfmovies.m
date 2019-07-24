@@ -43,12 +43,17 @@ gui_fig = figure; colormap(gray)
 set(gui_fig,'WindowScrollWheelFcn',{@imgSlider_MouseWheel, gui_fig});
 set(gui_fig, 'KeyPressFcn', {@im_keypress, gui_fig});
 
-if handles.plot_facecam || handles.plot_eyecam || handles.plot_trace
+handles.wf_axis = subplot(2,2,3);
+if handles.plot_eyecam
     handles.eyecam_axis = subplot(2,2,1);
+end
+if handles.plot_facecam
     handles.facecam_axis = subplot(2,2,2);
-    handles.wf_axis = subplot(2,2,3);
+end
+if handles.plot_trace
     handles.trace_axis = subplot(2,2,4);
-else
+end
+if ~any([handles.plot_eyecam,handles.plot_facecam,handles.plot_eyecam,handles.plot_trace])
     handles.wf_axis = subplot(1,1,1);
 end
 
@@ -231,15 +236,15 @@ function update_im(handles, gui_fig, wf_frame)
 
 handles.t = handles.frame_t(wf_frame);
 
-% Update the images
+% Update the images (with the closest frame in case skip/offset)
 if handles.plot_eyecam
-    eyecam_frame = find(handles.eyecam_frame_idx == wf_frame,1);
+    [~,eyecam_frame] = min(abs(wf_frame - handles.eyecam_frame_idx));
     eyecam_im = read(handles.eyecam_vr,eyecam_frame);
     set(handles.eyecam_im,'Cdata',eyecam_im);
 end
 
 if handles.plot_facecam
-    facecam_frame = find(handles.facecam_frame_idx == wf_frame,1);
+    [~,facecam_frame] = min(abs(wf_frame - handles.facecam_frame_idx));
     facecam_im = read(handles.facecam_vr,facecam_frame);
     set(handles.facecam_im,'Cdata',facecam_im);
 end
