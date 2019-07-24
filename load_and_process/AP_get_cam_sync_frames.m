@@ -105,6 +105,7 @@ imagesc(read(vr,strobe_end_frame));
 colormap(gray); axis image off; caxis([0,255]);
 title('Sync frame (end)');
 
+drawnow;
 
 
 

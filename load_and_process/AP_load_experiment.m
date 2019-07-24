@@ -446,7 +446,7 @@ if exist('Timeline','var') && load_parts.cam
                 n_eyecam_frames_syncd_movie = diff(eyecam_sync_frames) + 1;
                 [~,eyecam_strobe_sync_end] = min(abs(camSync_flip(3) - eyeCamStrobe_up));
                 n_eyecam_frames_syncd_timeline = eyecam_strobe_sync_end - eyecam_strobe_sync;
-                if abs(n_eyecam_frames_syncd_movie - n_eyecam_frames_syncd_timeline) > 1
+                if abs(n_eyecam_frames_syncd_movie - n_eyecam_frames_syncd_timeline) > 2
                    error('Eyecam: different n frames video vs timeline'); 
                 end
                 
@@ -495,13 +495,13 @@ if exist('Timeline','var') && load_parts.cam
                 n_facecam_frames_syncd_movie = diff(facecam_sync_frames) + 1;
                 [~,facecam_strobe_sync_end] = min(abs(camSync_flip(3) - faceCamStrobe_up));
                 n_facecam_frames_syncd_timeline = facecam_strobe_sync_end - facecam_strobe_sync;
-                if abs(n_facecam_frames_syncd_movie - n_facecam_frames_syncd_timeline) > 1
+                if abs(n_facecam_frames_syncd_movie - n_facecam_frames_syncd_timeline) > 2
                    error('Facecam: different n frames video vs timeline'); 
                 end
                 
                 % Get times of cam frames in timeline
                 facecam_t = nan(n_facecam_frames,1);
-                facecam_t(facecam_frame_idx) = faceCamStrobe_up_t;
+                facecam_t(facecam_frame_idx(facecam_frame_idx > 0)) = faceCamStrobe_up_t(facecam_frame_idx > 0);
                 
                 save(facecam_t_savefile,'facecam_t');
             end
