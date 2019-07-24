@@ -37,28 +37,30 @@ disp('Getting sync frames...')
 % Find the start strobe (within first n frames);
 n_frames = vr.NumberOfFrames;
 
-read_frames = 1:min(6000,n_frames);
-strobe_roi = zeros(length(read_frames),1);
-for curr_frame_idx = 1:length(read_frames);
-    curr_frame = read_frames(curr_frame_idx);
+read_frames_start = 1:min(6000,n_frames);
+strobe_roi_start = zeros(length(read_frames_start),1);
+for curr_frame_idx = 1:length(read_frames_start)
+    curr_frame = read_frames_start(curr_frame_idx);
     curr_im = read(vr,curr_frame);
-    strobe_roi(curr_frame_idx) = nanmean(curr_im(roiMask));
+    strobe_roi_start(curr_frame_idx) = nanmean(curr_im(roiMask));
 end
-strobe_roi_thresh = prctile(strobe_roi,90)/2;
-strobe_start_frame = read_frames(find(strobe_roi < strobe_roi_thresh,1));
+strobe_roi_thresh = prctile(strobe_roi_start,50)/1.5;
+strobe_start_frame_idx = find(strobe_roi_start < strobe_roi_thresh,1);
+strobe_start_frame = read_frames_start(strobe_start_frame_idx);
 
 % Find the end strobe (longer, within n frames?)
-read_frames = max(1,(n_frames-10000)):n_frames;
-strobe_roi = zeros(length(read_frames),1);
-for curr_frame_idx = 1:length(read_frames);
-    curr_frame = read_frames(curr_frame_idx);
+read_frames_end = max(1,(n_frames-10000)):n_frames;
+strobe_roi_end = zeros(length(read_frames_end),1);
+for curr_frame_idx = 1:length(read_frames_end)
+    curr_frame = read_frames_end(curr_frame_idx);
     curr_im = read(vr,curr_frame);
-    strobe_roi(curr_frame_idx) = nanmean(curr_im(roiMask));
+    strobe_roi_end(curr_frame_idx) = nanmean(curr_im(roiMask));
 end
-strobe_roi_thresh = prctile(strobe_roi,90)/2;
-strobe_stop_frame = read_frames(find(strobe_roi < strobe_roi_thresh,1));
+strobe_roi_thresh = prctile(strobe_roi_end,50)/1.5;
+strobe_end_frame_idx = find(strobe_roi_end < strobe_roi_thresh,1);
+strobe_end_frame = read_frames_end(strobe_end_frame_idx);
 
-cam_sync_frames = [strobe_start_frame,strobe_stop_frame];
+cam_sync_frames = [strobe_start_frame,strobe_end_frame];
 
 if length(cam_sync_frames) ~= 2
     display('Cam sync not detected')
@@ -66,4 +68,43 @@ if length(cam_sync_frames) ~= 2
     return
 end
 
+% Plot the thresholds and crossings
+figure;
+subplot(2,2,1);
+plot(strobe_roi_start,'k');
+line(repmat(strobe_start_frame,1,2),ylim,'color','r','linewidth',2);
+line(xlim,repmat(strobe_roi_start(strobe_start_frame_idx),2,1),'color','r','linewidth',2);
+xlabel('Frame');
+ylabel('Intensity');
+title({'Recording start',fn},'interpreter','none')
+
+subplot(2,4,5);
+imagesc(read(vr,strobe_start_frame-1));
+colormap(gray); axis image off; caxis([0,255]);
+title('Pre-sync frame (start)');
+subplot(2,4,6);
+imagesc(read(vr,strobe_start_frame));
+colormap(gray); axis image off; caxis([0,255]);
+title('Sync frame (start)');
+
+subplot(2,2,2);
+plot(strobe_roi_end,'k');
+line(repmat(find(read_frames_end == strobe_end_frame),1,2),ylim,'color','r','linewidth',2);
+line(xlim,repmat(strobe_roi_end(strobe_end_frame_idx),2,1),'color','r','linewidth',2);
+xlabel('Frame');
+ylabel('Intensity');
+title({'Recording stop',fn},'interpreter','none')
 disp('Done')
+
+subplot(2,4,7);
+imagesc(read(vr,strobe_end_frame-1));
+colormap(gray); axis image off; caxis([0,255]);
+title('Pre-sync frame (end)');
+subplot(2,4,8);
+imagesc(read(vr,strobe_end_frame));
+colormap(gray); axis image off; caxis([0,255]);
+title('Sync frame (end)');
+
+
+
+
