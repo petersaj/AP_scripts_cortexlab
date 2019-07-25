@@ -6,4 +6,5 @@ Dependency repositories:
 
 ## Widefield alignment
 ### AP_align_widefield
+(readme in progress)
 ![test image](https://github.com/petersaj/AP_scripts_cortexlab/blob/master/readme/test.jpg)
