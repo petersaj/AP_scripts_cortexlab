@@ -10,7 +10,8 @@ warning('REFLECTION ISN''T PEFRECT');
 % Load bregma and master CCF tform
 bregma = allenCCFbregma;
 bregma(3) = bregma(3) + 0.5;
-ccf_tform_fn = ['C:\Users\Andrew\OneDrive for Business\Documents\CarandiniHarrisLab\analysis\widefield_alignment\ccf_tform'];
+alignment_path = 'C:\Users\Andrew\OneDrive for Business\Documents\CarandiniHarrisLab\analysis\widefield_alignment';
+ccf_tform_fn = [alignment_path filesep 'ccf_tform.mat'];
 load(ccf_tform_fn);
 
 midline_align = [1,0,0]*ccf_tform.T;

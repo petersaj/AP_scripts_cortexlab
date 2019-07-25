@@ -185,11 +185,6 @@ switch align_type
             AP_print_progress_fraction(curr_loop,n_loops);
         end
         
-        AP_image_scroll(cat(3,vfs_ref,ref_reg));
-        axis image;
-        colormap(brewermap([],'*RdBu'));
-        caxis([-1,1]);
-        
         % Set make symmetric-average map the master
         symm_vfs = ref_reg(:,:,end);
         symm_vfs_mirror_avg = (symm_vfs + fliplr(symm_vfs))./2;
@@ -204,11 +199,15 @@ switch align_type
         title('Master VFS');
         
         % Save the master
-        confirm_save = input(['Overwrite animal transform for ' animal '? (y/n): '],'s');
+        confirm_save = input(['Overwrite master VFS? (y/n): '],'s');
         if strcmp(confirm_save,'y')
             master_vfs_fn = [alignment_path filesep 'master_vfs.mat'];
             save(master_vfs_fn,'master_vfs');
-            disp('Saved new master VFS.')
+            disp('Saved new master VFS.');
+            confirm_align_ccf = input(['Align CCF to new master VFS? (y/n): '],'s');
+            if strcmp(confirm_save,'y')
+                AP_vfs_ccf_align;
+            end
         else
             disp('Not saved.')
         end

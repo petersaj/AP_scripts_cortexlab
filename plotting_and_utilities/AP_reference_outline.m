@@ -26,6 +26,8 @@ end
 
 hold on;
 
+alignment_path = 'C:\Users\Andrew\OneDrive for Business\Documents\CarandiniHarrisLab\analysis\widefield_alignment';
+
 switch type   
     
     case 'grid'
@@ -34,7 +36,7 @@ switch type
         % Get bregma from aligned (assume aligned atm)
         bregma = allenCCFbregma;
         bregma(3) = bregma(3) + 0.5;
-        ccf_tform_fn = ['C:\Users\Andrew\OneDrive for Business\Documents\Atlases\AllenCCF\ccf_tform'];
+        ccf_tform_fn = [alignment_path filesep 'ccf_tform.mat'];
         load(ccf_tform_fn);
         bregma_resize = bregma*(10/um2pixel);
         bregma_align = [bregma_resize([3,1]),1]*ccf_tform.T;
@@ -61,7 +63,7 @@ switch type
                 
     case 'ccf'
         % Plot allen CCF outlines       
-        load('C:\Users\Andrew\OneDrive for Business\Documents\Atlases\AllenCCF\cortical_area_boundaries.mat');
+        load([alignment_path filesep 'cortical_area_boundaries.mat']);
         bregma = allenCCFbregma;
         for curr_area_idx =1:length(cortical_area_boundaries)
             h = cellfun(@(outline) plot((outline(:,2)-bregma(3))*10, ...
@@ -70,7 +72,7 @@ switch type
         
     case 'ccf_wf'        
         % Plot allen CCF outlines scaled for widefield
-        load('C:\Users\Andrew\OneDrive for Business\Documents\Atlases\AllenCCF\cortical_area_boundaries.mat');
+        load([alignment_path filesep 'cortical_area_boundaries.mat']);
         bregma = allenCCFbregma;
         for curr_area_idx =1:length(cortical_area_boundaries)
             h = cellfun(@(outline) plot(bregma_offset_x + ((outline(:,2)-bregma(3))*10)/um2pixel, ...
@@ -80,7 +82,7 @@ switch type
         
     case 'ccf_aligned'
         % Plot CCF borders aligned to master retinotopy     
-        load('C:\Users\Andrew\OneDrive for Business\Documents\Atlases\AllenCCF\cortical_area_boundaries_aligned.mat');
+        load([alignment_path filesep 'cortical_area_boundaries_aligned.mat']);
 
         if exist('repeats','var') && ~isempty(repeats) && numel(repeats) == 4
             % Plot multiple in grid
