@@ -1,7 +1,9 @@
-# AP_scripts_cortexlab
+# Scripts for general use
 
-# This is a test
+Dependency repositories: 
+https://github.com/cortex-lab
+https://github.com/kwikteam/npy-matlab 
 
-## This is another test
+## Widefield alignment
 
 ![test image](https://github.com/petersaj/AP_scripts_cortexlab/blob/master/readme/test.jpg)
