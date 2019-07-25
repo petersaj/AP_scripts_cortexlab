@@ -2,39 +2,52 @@ function im_aligned = AP_align_widefield(im_unaligned,animal,day,align_type)
 % im_aligned = AP_align_widefield(im_unaligned,animal,day,align_type)
 %
 % Align widefield images across days and animals
-%
 % im_unaligned - unaligned images
 % animal - animal corresponding to im_unaligned, e.g. 'XX001'
-% day - 'yyyy-mm-dd' corresponding to im_unaligned (cell array if multiple)
-% align_type - type of alignment:
-% > default (otherwise/empty) - apply saved day/animal transform to image(s)
-% > 'new_days' - make new alignment within animal across days
-% > 'new_animal' - make new alignment from animal to master 
-% > 'create_master' - create new master alignment reference
+% day - 'yyyy-mm-dd' corresponding to im_unaligned
+% align_type - type of alignment: 
+% default (otherwise/empty) - align im_unaligned with saved animal/day tform
+% new_days - make new alignment within animal across days (im_unaligned =
+% cell array of average vasculatures, day = cell array of corresponding
+% days)
+% new_animal - 
+% create_master - create new master alignment (NOTE: 
+% 
 %
+% Usage: 
+%
+% 0) Create master alignment (visual field sign/VFS)
+% 1) Align days within animal (ideally from average vasulature images)
+% - across-animal transform matricies 
+%
+% im_unaligned - 
+% animals - only more than 1 if across-animal (rare, run manually)
+% days - 'yyyy-mm-dd',multiple if unaligned images across days
+% im_unaligned - unaligned images (if 'new', then create and save tform)
+%
+%   VFS = visual field sign
+
 % USAGE: 
-% 0) Create master alignment reference ('create_master') from average aligned VFSs from multiple animals
-% 1) Across-day align ('new_days') using vasulature from all days of one animal
-% 2) Across-animal align ('new_animal) using the aligned average VFS from new animal
-% 3) Apply saved alignments to any images (specifying animal and day source)
+%
+% create new master VFS to align across animals: 
+% AP_align_widefield(vfs_unaligned,[],[],'create_master');
+% vfs_unaligned - cell array of VFS's to build master from
 
 
-%% Initialize
+%% Set alignment save path, load transform matricies
 
-% Set path with saved alignments
 alignment_path = 'C:\Users\Andrew\OneDrive for Business\Documents\CarandiniHarrisLab\analysis\widefield_alignment';
 
 % Load transform structure
 wf_tform_fn = [alignment_path filesep 'wf_tform.mat'];
 % (if it doesn't exist yet, create it)
-if ~exist(wf_tform_fn,'file')
+if ~exist('wf_tform_fn','file')
     wf_tform = struct('animal',cell(0),'day',cell(0),'day_tform',cell(0),'animal_tform',cell(0));
     save(wf_tform_fn,'wf_tform');
-else
-    load(wf_tform_fn);
 end
+load(wf_tform_fn);
 
-% Set empty align_type if unassigned
+% Set empty new_align if unassigned
 if ~exist('align_type','var')
     align_type = [];
 end
@@ -144,7 +157,7 @@ switch align_type
         optimizer.MaximumIterations = 200;
         optimizer.GrowthFactor = 1+1e-6;
         optimizer.InitialRadius = 1e-4;
-        
+             
         n_loops = 5;
         for curr_loop = 1:n_loops
             
@@ -162,7 +175,7 @@ switch align_type
         
         % Symmetrize the average aligned VFS
         disp('Symmetrizing aligned average VFS...')
-        
+
         n_loops = 10;
         ref_size = size(vfs_ref);
         
@@ -213,7 +226,9 @@ switch align_type
             disp('Not saved.')
         end
         
-
+        
+        
+        
     case 'new_animal'
         %% Align animal to master VFS
         
@@ -238,32 +253,36 @@ switch align_type
         
         figure;
         subplot(1,2,1);
-        imshowpair(master_vfs,im_unaligned);
+        imshowpair(master_vfs,-im_unaligned);
         title('Unaligned');
         subplot(1,2,2);
-        imshowpair(master_vfs,im_aligned);
+        imshowpair(master_vfs,-im_aligned);
         title('Aligned');
         
         % Save transform matrix into structure
         curr_animal_idx = strcmp(animal,{wf_tform.animal});
-        if isempty(curr_animal_idx) || ~any(curr_animal_idx)
+        if ~curr_animal_idx
             % (if not already extant, make new)
             new_animal_idx = length(wf_tform) + 1;
             wf_tform(new_animal_idx).animal = animal;
             wf_tform(new_animal_idx).animal_tform = tform_matrix;
-            save(wf_tform_fn,'wf_tform');
-            disp(['Saved new animal alignment for ' animal '.'])
         else
             % (if extant, prompt to overwrite)
             confirm_save = input(['Overwrite animal transform for ' animal '? (y/n): '],'s');
             if strcmp(confirm_save,'y')
                 wf_tform(curr_animal_idx).animal_tform = tform_matrix;
-                save(wf_tform_fn,'wf_tform');
-                disp(['Saved new animal alignment for ' animal '.'])
             else
                 disp('Not overwriting.')
             end
-        end        
+        end
+        
+        
+        
+        
+        
+        
+        
+        
         
         
     otherwise

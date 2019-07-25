@@ -10467,10 +10467,100 @@ linkaxes(get(gcf,'Children'),'xy');
 
 
 %%
+    
 
-for i = 1:length(retinotopy)
-    AP_align_widefield(retinotopy(i).vfs,retinotopy(i).animal,[],'new_animal');
+vfs_unaligned = retinotopy_unaligned;
+[vfs_y,vfs_x] = cellfun(@size,vfs_unaligned);
+
+vfs_y_max = max(vfs_y);
+vfs_x_max = max(vfs_x);
+
+vfs_unaligned_pad = ...
+    cell2mat(reshape(cellfun(@(vfs) padarray(vfs, ...
+    [vfs_y_max - size(vfs,1),vfs_y_max - size(vfs,2)],0,'post'), ...
+    vfs_unaligned,'uni',false),1,1,[]));
+
+
+vfs_ref = nanmean(vfs_unaligned_pad,3);
+
+
+
+ref_size = size(vfs_ref);
+
+[optimizer, metric] = imregconfig('monomodal');
+optimizer = registration.optimizer.OnePlusOneEvolutionary();
+optimizer.MaximumIterations = 200;
+optimizer.GrowthFactor = 1+1e-6;
+optimizer.InitialRadius = 1e-4;
+
+disp('Aligning retinotopy across animals...');
+im_aligned = nan(ref_size(1),ref_size(2),length(animals));
+for curr_animal = 1:length(animals)
+    tformEstimate_affine = imregtform(vfs_unaligned{curr_animal},vfs_ref,'affine',optimizer,metric);
+    curr_im_reg = imwarp(vfs_unaligned{curr_animal},tformEstimate_affine,'Outputview',imref2d(ref_size));
+    tform_matrix{curr_animal} = tformEstimate_affine.T;
+    
+    im_aligned(:,:,curr_animal) = curr_im_reg;
+    AP_print_progress_fraction(curr_animal,length(animals));
 end
+
+
+
+
+n_loops = 10;
+ref_im = ref_retinotopy;
+ref_size = size(ref_im);
+
+ref_reg = nan(size(ref_im,1),size(ref_im,2),n_loops);
+
+for curr_loop = 1:n_loops
+    ref_im_symm = (ref_im + fliplr(ref_im))./2;
+    
+    [optimizer, metric] = imregconfig('monomodal');
+    optimizer = registration.optimizer.OnePlusOneEvolutionary();
+    optimizer.MaximumIterations = 200;
+    optimizer.GrowthFactor = 1+1e-6;
+    optimizer.InitialRadius = 1e-4;
+    
+    tformEstimate_affine = imregtform(ref_im,ref_im_symm,'rigid',optimizer,metric);
+    curr_im_reg = imwarp(ref_im,tformEstimate_affine,'Outputview',imref2d(ref_size));
+    tform_matrix = tformEstimate_affine.T;
+    ref_im = curr_im_reg;
+    
+    ref_reg(:,:,curr_loop) = ref_im;
+    AP_print_progress_fraction(curr_loop,n_loops);
+end
+
+AP_image_scroll(cat(3,ref_retinotopy,ref_reg));
+axis image;
+colormap(brewermap([],'*RdBu'));
+caxis([-1,1]);
+
+% Set make symmetric-average map the master
+symm_vfs = ref_reg(:,:,end);
+symm_vfs_mirror_avg = (symm_vfs + fliplr(symm_vfs))./2;
+
+master_vfs = symm_vfs_mirror_avg;
+
+figure;
+imagesc(master_vfs);
+axis image off
+colormap(brewermap([],'*RdBu'));
+caxis([-1,1]);
+title('Master VFS');
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 

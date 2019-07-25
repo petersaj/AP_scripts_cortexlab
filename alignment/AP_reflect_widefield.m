@@ -10,7 +10,7 @@ warning('REFLECTION ISN''T PEFRECT');
 % Load bregma and master CCF tform
 bregma = allenCCFbregma;
 bregma(3) = bregma(3) + 0.5;
-ccf_tform_fn = ['C:\Users\Andrew\OneDrive for Business\Documents\Atlases\AllenCCF\ccf_tform'];
+ccf_tform_fn = ['C:\Users\Andrew\OneDrive for Business\Documents\CarandiniHarrisLab\analysis\widefield_alignment\ccf_tform'];
 load(ccf_tform_fn);
 
 midline_align = [1,0,0]*ccf_tform.T;
