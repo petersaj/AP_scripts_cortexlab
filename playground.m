@@ -10468,9 +10468,52 @@ linkaxes(get(gcf,'Children'),'xy');
 
 %%
 
-for i = 1:length(retinotopy)
-    AP_align_widefield(retinotopy(i).vfs,retinotopy(i).animal,[],'new_animal');
+% (do again after aligning days)
+% for i = 1:length(retinotopy)
+%     AP_align_widefield(retinotopy(i).vfs,retinotopy(i).animal,[],'new_animal');
+% end
+
+animals = {'AP024','AP025','AP026','AP027','AP028','AP029', ...
+    'AP032','AP033','AP034','AP035','AP036'};
+
+for curr_animal = 1
+    
+    animal = animals{curr_animal};
+    % Find experiments
+    % (use only behavior days because cortical recordings afterwards)
+    protocol = 'vanillaChoiceworld';
+    experiments = AP_find_experiments(animal,protocol);
+    experiments(~[experiments.imaging]) = [];
+    if isempty(experiments)
+        % (if no behavior days then it was a naive mouse - use passive expt)
+        protocol = 'AP_choiceWorldStimPassive';
+        experiments = AP_find_experiments(animal,protocol);
+        experiments(~[experiments.imaging]) = [];
+    end
+    
+    avg_im_days = cell(size(experiments));
+    for curr_day = 1:length(experiments)
+        day = experiments(curr_day).day;
+        [img_path,img_exists] = AP_cortexlab_filename(animal,day,[],'imaging');
+        avg_im = readNPY([img_path filesep 'meanImage_purple.npy']);
+        avg_im_days{curr_day} = avg_im;
+        AP_print_progress_fraction(curr_day,length(experiments));
+    end
+    
+    
+    
+    
 end
+
+
+
+
+
+
+
+
+
+
 
 
 

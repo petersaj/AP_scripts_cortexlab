@@ -26,7 +26,8 @@ end
 
 hold on;
 
-alignment_path = 'C:\Users\Andrew\OneDrive for Business\Documents\CarandiniHarrisLab\analysis\widefield_alignment';
+alignment_path = 'C:\Users\Andrew\OneDrive for Business\Documents\Atlases\AllenCCF';
+% alignment_path = 'C:\Users\Andrew\OneDrive for Business\Documents\CarandiniHarrisLab\analysis\widefield_alignment';
 
 switch type   
     

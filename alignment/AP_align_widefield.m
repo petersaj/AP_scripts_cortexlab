@@ -44,8 +44,56 @@ end
 switch align_type
     
     case 'new_days'
-        %% If new tform, register average images and save tform
-        % (this should only be run once per animal)
+        %% Align all days from one animal
+        % (only run once for each animal - aligns to iterative average)
+        
+        
+        
+         % Pad and concatenate unaligned images
+        [im_y,im_x] = cellfun(@size,im_unaligned);
+        
+        im_y_max = max(im_y);
+        im_x_max = max(im_x);
+        
+        im_unaligned_pad = ...
+            cell2mat(reshape(cellfun(@(im) padarray(im, ...
+            [im_y_max - size(im,1),im_y_max - size(im,2)],0,'post'), ...
+            im_unaligned,'uni',false),1,1,[]));
+        
+        
+        
+        
+ 
+        % Iterate averaging the VFS and the aligning
+        disp('Iterating aligning average image...')
+        
+        vfs_ref = nanmean(vfs_unaligned_pad,3);
+        ref_size = size(vfs_ref);
+        
+        [optimizer, metric] = imregconfig('monomodal');
+        optimizer = registration.optimizer.OnePlusOneEvolutionary();
+        optimizer.MaximumIterations = 200;
+        optimizer.GrowthFactor = 1+1e-6;
+        optimizer.InitialRadius = 1e-4;
+        
+        n_loops = 5;
+        for curr_loop = 1:n_loops
+            
+            vfs_aligned = nan(ref_size(1),ref_size(2),length(im_unaligned));
+            for curr_animal = 1:length(im_unaligned)
+                tformEstimate_affine = imregtform(im_unaligned{curr_animal},vfs_ref,'affine',optimizer,metric);
+                curr_im_reg = imwarp(im_unaligned{curr_animal},tformEstimate_affine,'Outputview',imref2d(ref_size));
+                tform_matrix{curr_animal} = tformEstimate_affine.T;
+                vfs_aligned(:,:,curr_animal) = curr_im_reg;
+            end
+            
+            vfs_ref = nanmean(vfs_aligned,3);
+            AP_print_progress_fraction(curr_loop,n_loops);
+        end
+        
+        
+        
+        
         
         error('NOT UPDATED YET');
         
