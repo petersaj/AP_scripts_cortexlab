@@ -47,116 +47,88 @@ switch align_type
         %% Align all days from one animal
         % (only run once for each animal - aligns to iterative average)
         
-        
-        
-         % Pad and concatenate unaligned images
+        % Set output size as the largest image
         [im_y,im_x] = cellfun(@size,im_unaligned);
         
         im_y_max = max(im_y);
         im_x_max = max(im_x);
+        ref_size = [im_y_max,im_x_max];
         
         im_unaligned_pad = ...
             cell2mat(reshape(cellfun(@(im) padarray(im, ...
             [im_y_max - size(im,1),im_y_max - size(im,2)],0,'post'), ...
             im_unaligned,'uni',false),1,1,[]));
         
-        
-        
-        
- 
-        % Iterate averaging the VFS and the aligning
-        disp('Iterating aligning average image...')
-        
-        vfs_ref = nanmean(vfs_unaligned_pad,3);
-        ref_size = size(vfs_ref);
-        
+        % (set transform optimizer)
         [optimizer, metric] = imregconfig('monomodal');
         optimizer = registration.optimizer.OnePlusOneEvolutionary();
         optimizer.MaximumIterations = 200;
         optimizer.GrowthFactor = 1+1e-6;
         optimizer.InitialRadius = 1e-4;
         
-        n_loops = 5;
-        for curr_loop = 1:n_loops
+        % (first pass: rigid transform to day 1)             
+        im_ref = im_unaligned{1};
+        im_rigid_aligned = nan(ref_size(1),ref_size(2),length(im_unaligned));       
+        rigid_tform = cell(size(im_unaligned));        
+        for curr_im = 1:length(im_unaligned)
+            tformEstimate_affine = imregtform(im_unaligned{curr_im},im_ref,'rigid',optimizer,metric);
+            curr_im_reg = imwarp(im_unaligned{curr_im},tformEstimate_affine,'Outputview',imref2d(ref_size));
+            rigid_tform{curr_im} = tformEstimate_affine.T;
+            im_rigid_aligned(:,:,curr_im) = curr_im_reg;
+        end
+        
+        AP_image_scroll(im_rigid_aligned); axis image    
+        
+        % (user draw ROI around most stable area for alignment reference)               
+        f = AP_image_scroll(im_rigid_aligned, ...
+            repmat({'Draw ROI over largest stable area'},length(im_unaligned),1));
+        axis image;
+        h = imrect;
+        position = round(wait(h));
+        close(f);
+
+        im_rigid_aligned_roi = im_rigid_aligned( ...
+            position(2):position(2)+position(4), ...
+            position(1):position(1)+position(3),:);
+        
+        im_ref = im_rigid_aligned_roi(:,:,1);
+        im_aligned = nan(ref_size(1),ref_size(2),length(im_unaligned));
+        tform_matrix = cell(length(im_unaligned),1);
+        for curr_im = 1:length(im_unaligned)
+            tformEstimate_affine = imregtform(im_rigid_aligned_roi(:,:,curr_im),im_ref,'affine',optimizer,metric);
             
-            vfs_aligned = nan(ref_size(1),ref_size(2),length(im_unaligned));
-            for curr_animal = 1:length(im_unaligned)
-                tformEstimate_affine = imregtform(im_unaligned{curr_animal},vfs_ref,'affine',optimizer,metric);
-                curr_im_reg = imwarp(im_unaligned{curr_animal},tformEstimate_affine,'Outputview',imref2d(ref_size));
-                tform_matrix{curr_animal} = tformEstimate_affine.T;
-                vfs_aligned(:,:,curr_animal) = curr_im_reg;
+            tform_combine = rigid_tform{curr_im}*tformEstimate_affine.T;
+            tform_matrix{curr_im} = tform_combine;
+            
+            curr_tform = affine2d;
+            curr_tform.T = tform_combine;
+            curr_im_reg = imwarp(im_unaligned{curr_im},curr_tform,'Outputview',imref2d(ref_size));
+            
+            tform_matrix{curr_im} = tformEstimate_affine.T;
+            im_aligned(:,:,curr_im) = curr_im_reg;
+        end
+        
+        f = AP_image_scroll(im_aligned, ...
+            cellfun(@(x) ['Final alignment: ' animal ' ' x],day,'uni',false));
+        axis image;
+        confirm_save = input(['Save day transforms for ' animal '? (y/n): '],'s');
+        close(f)
+        
+        % Save transform matrix into structure
+        if strcmp(confirm_save,'y')
+            curr_animal_idx = strcmp(animal,{wf_tform.animal});
+            if isempty(curr_animal_idx) || ~any(curr_animal_idx)
+                % (if not already extant, make new)
+                curr_animal_idx = length(wf_tform) + 1;
+                wf_tform(curr_animal_idx).animal = animal;
             end
-            
-            vfs_ref = nanmean(vfs_aligned,3);
-            AP_print_progress_fraction(curr_loop,n_loops);
+            wf_tform(curr_animal_idx).day = reshape(day,[],1);
+            wf_tform(curr_animal_idx).day_tform = tform_matrix;
+            save(wf_tform_fn,'wf_tform');
+            disp(['Saved day transforms for ' animal '.'])
+        else
+            disp('Not saved');
         end
-        
-        
-        
-        
-        
-        error('NOT UPDATED YET');
-        
-        disp('Aligning animal across days...')
-        
-        avg_im_blue = cell(length(day),1);
-        for curr_day = 1:length(day)
-            [img_path,img_exists] = AP_cortexlab_filename(animal,day{curr_day},[],'imaging');
-            avg_im_blue{curr_day} = readNPY([img_path filesep 'meanImage_blue.npy']);
-        end
-        
-        avg_im_purple = cell(length(day),1);
-        for curr_day = 1:length(day)
-            [img_path,img_exists] = AP_cortexlab_filename(animal,day{curr_day},[],'imaging');
-            avg_im_purple{curr_day} = readNPY([img_path filesep 'meanImage_purple.npy']);
-        end
-        
-        % Choose reference image
-        % (currently: align to first day, align with purple)
-        ref_im_full = avg_im_purple{1};
-        ref_size = size(ref_im_full);
-        
-        border_pixels = 30; % default: 50
-        
-        % Remove border for aligning
-        im_align = cellfun(@(x) x(border_pixels:end-border_pixels+1,border_pixels:end-border_pixels+1),avg_im_purple,'uni',false);
-        ref_im = ref_im_full(border_pixels:end-border_pixels+1,border_pixels:end-border_pixels+1);
-        
-        fprintf('Registering average images:')
-        fprintf('\n');
-        
-        tform_matrix = cell(length(avg_im_blue),1);
-        im_aligned = nan(ref_size(1),ref_size(2),length(day));
-        for curr_day = 1:length(day)
-            
-            [optimizer, metric] = imregconfig('monomodal');
-            optimizer = registration.optimizer.OnePlusOneEvolutionary();
-            optimizer.MaximumIterations = 200; % default: 200
-            optimizer.GrowthFactor = 1+1e-6; % default: 1+1e-6
-            optimizer.InitialRadius = 1e-4; % default: 1e-4
-            
-            tformEstimate_affine = imregtform(im_align{curr_day},ref_im,'affine',optimizer,metric);
-            curr_im_reg = imwarp(avg_im_blue{curr_day},tformEstimate_affine,'Outputview',imref2d(ref_size));
-            tform_matrix{curr_day} = tformEstimate_affine.T;
-            
-            im_aligned(:,:,curr_day) = curr_im_reg;
-            
-            AP_print_progress_fraction(curr_day,length(day))
-            
-        end
-        
-        % Show aligned images
-        AP_image_scroll(im_aligned,day);
-        axis image off;
-        colormap(gray);
-        caxis([0,prctile(im_aligned(:),95)]);
-        set(gcf,'Name',['Aligned images: ' animal]);
-        
-        % Save alignments
-        wf_tform = struct('day',reshape(day,[],1),'t',tform_matrix,'im_size',size(ref_im_full));
-        
-        alignment_filename = [alignment_path filesep animal '_wf_tform'];
-        save(alignment_filename,'wf_tform');
         
         
     case 'create_master'

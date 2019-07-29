@@ -10500,12 +10500,10 @@ for curr_animal = 1
         AP_print_progress_fraction(curr_day,length(experiments));
     end
     
-    
+    AP_align_widefield(avg_im_days,animal,{experiments.day},'new_days');
     
     
 end
-
-
 
 
 

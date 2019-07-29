@@ -518,7 +518,7 @@ end
 %% Align widefield to events
 
 % Set options
-surround_window = [-0.5,3];
+surround_window = [-0.5,5];
 baseline_window = [-0.5,0];
 
 surround_samplerate = 1/(framerate*1);
@@ -541,8 +541,8 @@ for curr_condition_idx = 1:length(conditions)
     stim_surround_times = bsxfun(@plus, use_stimOn_times(:), surround_time);
     stim_baseline_surround_times = bsxfun(@plus, use_stimOn_times(:), baseline_surround_time);
     
-    peri_stim_v = permute(mean(interp1(frame_t,fVdf_deconv',stim_surround_times),1),[3,2,1]);
-    baseline_v = nanmean(permute(mean(interp1(frame_t,fVdf_deconv',stim_baseline_surround_times),1),[3,2,1]),2);
+    peri_stim_v = permute(mean(interp1(frame_t,fVdf',stim_surround_times),1),[3,2,1]);
+    baseline_v = nanmean(permute(mean(interp1(frame_t,fVdf',stim_baseline_surround_times),1),[3,2,1]),2);
 
     peri_stim_v_baseline_corrected = peri_stim_v - baseline_v;
     
