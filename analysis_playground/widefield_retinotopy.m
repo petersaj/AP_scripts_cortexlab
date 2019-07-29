@@ -2005,7 +2005,7 @@ axis image off
 % animals = {'AP024','AP025','AP026','AP027','AP028','AP029', ...
 %     'AP032','AP033','AP034','AP035','AP036'};
 
-animal = 'AP024';
+animal = 'AP025';
 protocol = 'stimSparseNoiseUncorrAsync';
 experiments = AP_find_experiments(animal,protocol);
 experiments = experiments([experiments.imaging]);
@@ -2014,7 +2014,7 @@ load_parts.cam = false;
 load_parts.imaging = true;
 load_parts.ephys = false;
 
-vfs_all = cell(0,0);
+vfs = cell(length(experiments),1);
 for curr_day = 1:length(experiments)
     
     day = experiments(curr_day).day;
@@ -2023,17 +2023,26 @@ for curr_day = 1:length(experiments)
     AP_load_experiment;
 
     lilrig_retinotopy;
-    vfs_all{curr_day} = vfs_median;
+    vfs{curr_day} = vfs_median;
 
-    AP_print_progress_fraction(curr_day,length(days));
-    clearvars -except animal experiments load_parts curr_day  vfs_all 
+    AP_print_progress_fraction(curr_day,length(experiments));
+    clearvars -except animal experiments load_parts curr_day  vfs 
     
 end
 
 disp('Finished batch.')
 
-%%%% CHANGE HOW/WHERE THIS IS SAVED
+% Save retinotopy from all days
+retinotopy = struct('day',{experiments.day},'vfs',vfs);
+
 alignment_path = 'C:\Users\Andrew\OneDrive for Business\Documents\CarandiniHarrisLab\analysis\widefield_alignment';
+retinotopy_path = [alignment_path filesep 'retinotopy'];
+retinotopy_fn = [retinotopy_path filesep animal '_retinotopy.mat'];
+save(retinotopy_fn,'retinotopy');
+
+
+
+
 
 % 
 % % Align
