@@ -10501,8 +10501,7 @@ for curr_animal = 1
     end
     
     AP_align_widefield(avg_im_days,animal,{experiments.day},'new_days');
-    
-    
+        
 end
 
 
