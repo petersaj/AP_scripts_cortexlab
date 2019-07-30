@@ -49,7 +49,7 @@ switch align_type
         
         % Intensity-normalize the unaligned images
         % (if there are big differences, this greatly improves alignment)
-        im_unaligned_norm = cellfun(@(x) x./std(x(:)),im_unaligned,'uni',false);
+        im_unaligned_norm = cellfun(@(x) x./mad(x(:),true),im_unaligned,'uni',false);
         
         % Set output size as the largest image
         [im_y,im_x] = cellfun(@size,im_unaligned_norm);
@@ -87,6 +87,7 @@ switch align_type
         while draw_roi
             f = AP_image_scroll(im_rigid_aligned, ...
                 repmat({'Draw ROI over largest stable area'},length(im_unaligned_norm),1));
+            caxis([0,prctile(im_unaligned_pad(:),99)]);
             axis image;
             h = imrect;
             position = round(wait(h));
@@ -110,12 +111,13 @@ switch align_type
                 curr_tform.T = tform_combine;
                 curr_im_reg = imwarp(im_unaligned_norm{curr_im},curr_tform,'Outputview',imref2d(ref_size));
                 
-                tform_matrix{curr_im} = tformEstimate_affine.T;
+                tform_matrix{curr_im} = tform_combine;
                 im_aligned(:,:,curr_im) = curr_im_reg;
             end
             
             f = AP_image_scroll(im_aligned, ...
                 cellfun(@(x) ['Final alignment: ' animal ' ' x],day,'uni',false));
+            caxis([0,prctile(im_aligned(:),99)]);
             axis image;
             confirm_save = input(['Save day transforms for ' animal '? (y/n/redo): '],'s');
             close(f)
@@ -133,9 +135,11 @@ switch align_type
                 curr_animal_idx = length(wf_tform) + 1;
                 wf_tform(curr_animal_idx).animal = animal;
             end
+            
             wf_tform(curr_animal_idx).day = reshape(day,[],1);
             wf_tform(curr_animal_idx).day_tform = tform_matrix;
             wf_tform(curr_animal_idx).ref_size = ref_size;
+            
             save(wf_tform_fn,'wf_tform');
             disp(['Saved day transforms for ' animal '.'])
         else
@@ -307,7 +311,7 @@ switch align_type
         if ~any(curr_animal_idx)
             disp(['No alignments found for ' animal]);
         elseif ~any(curr_day_idx)
-            disp(['No ' animal 'alignment found for ' day]);
+            error(['No ' animal ' alignment found for ' day]);
         end
         
         % Get transform for day

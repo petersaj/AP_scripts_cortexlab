@@ -10471,14 +10471,14 @@ linkaxes(get(gcf,'Children'),'xy');
 animals = {'AP024','AP025','AP026','AP027','AP028','AP029', ...
     'AP032','AP033','AP034','AP035','AP036'};
 
-for curr_animal = 8:length(animals)
+for curr_animal = 11:length(animals)
     
     animal = animals{curr_animal};
     % Find experiments
     % (use only behavior days because cortical recordings afterwards)
     protocol = 'vanillaChoiceworld';
     experiments = AP_find_experiments(animal,protocol);
-    experiments(~([experiments.imaging])) = [];
+    experiments(~([experiments.imaging] & [experiments.ephys])) = [];
     if isempty(experiments)
         % (if no behavior days then it was a naive mouse - use passive expt)
         protocol = 'AP_choiceWorldStimPassive';
@@ -10498,7 +10498,6 @@ for curr_animal = 8:length(animals)
         
 end
 
-
 %% (make new master retinotopy)
 
 retinotopy_path = 'C:\Users\Andrew\OneDrive for Business\Documents\CarandiniHarrisLab\analysis\widefield_alignment\retinotopy';
@@ -10513,20 +10512,8 @@ for curr_animal = 1:length(animals)
     animal = animals{curr_animal};
     load([retinotopy_path filesep animal '_retinotopy'])
     
-    aligned_vfs = cell(length(retinotopy),1);
-    for curr_day = 1:length(retinotopy)
-        try
-        aligned_vfs{curr_day} = AP_align_widefield(retinotopy(curr_day).vfs,animal,retinotopy(curr_day).day);
-        catch me
-           disp(['Skipping ' animal ' ' retinotopy(curr_day).day]); 
-        end
-    end
-    
-    vfs_animal{curr_animal} = nanmean(cat(3,aligned_vfs{:}),3);
     
 end
-
-AP_align_widefield(vfs_animal,[],[],'create_master');
 
 
 

@@ -67,14 +67,16 @@ um2pixel = 20.6;
 
 ccf_vfs_d = imresize(ccf_vfs,10/um2pixel,'nearest');
 
-vfs_cutoff = 0.3;
-master_vfs_scaled = mat2gray(master_vfs+1,[1-vfs_cutoff,1+vfs_cutoff])*2-1;
+vfs_cutoff = 0.05;
+master_vfs_scaled = zeros(size(master_vfs));
+master_vfs_scaled(master_vfs < -vfs_cutoff) = -1;
+master_vfs_scaled(master_vfs > vfs_cutoff) = 1;
 
 [optimizer, metric] = imregconfig('monomodal');
 optimizer = registration.optimizer.OnePlusOneEvolutionary();
 optimizer.MaximumIterations = 200;
 optimizer.GrowthFactor = 1+1e-6;
-optimizer.InitialRadius = 1e-3;
+optimizer.InitialRadius = 1e-4;
 
 ccf_tform = imregtform(ccf_vfs_d,master_vfs_scaled,'affine',optimizer,metric);
 tform_matrix = ccf_tform.T;
