@@ -66,7 +66,8 @@ switch align_type
         optimizer.GrowthFactor = 1+1e-6;
         optimizer.InitialRadius = 1e-4;
         
-        % (first pass: rigid transform to day 1)             
+        % (first pass: rigid transform to day 1)  
+        disp('Rigid-aligning images...')
         im_ref = im_unaligned{1};
         im_rigid_aligned = nan(ref_size(1),ref_size(2),length(im_unaligned));       
         rigid_tform = cell(size(im_unaligned));        
@@ -89,6 +90,7 @@ switch align_type
             position(2):position(2)+position(4), ...
             position(1):position(1)+position(3),:);
         
+        disp('Affine aligning selection...')
         im_ref = im_rigid_aligned_roi(:,:,1);
         im_aligned = nan(ref_size(1),ref_size(2),length(im_unaligned));
         tform_matrix = cell(length(im_unaligned),1);

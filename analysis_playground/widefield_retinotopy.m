@@ -2002,93 +2002,53 @@ axis image off
 
 %% Sparse noise with my code in batch
 
-% animals = {'AP024','AP025','AP026','AP027','AP028','AP029', ...
-%     'AP032','AP033','AP034','AP035','AP036'};
+animals = {'AP024','AP025','AP026','AP027','AP028','AP029', ...
+    'AP032','AP033','AP034','AP035','AP036'};
 
-animal = 'AP025';
-protocol = 'stimSparseNoiseUncorrAsync';
-experiments = AP_find_experiments(animal,protocol);
-experiments = experiments([experiments.imaging]);
-
-load_parts.cam = false;
-load_parts.imaging = true;
-load_parts.ephys = false;
-
-vfs = cell(length(experiments),1);
-for curr_day = 1:length(experiments)
+for curr_animal = 8:length(animals)
     
-    day = experiments(curr_day).day;
-    experiment = experiments(curr_day).experiment;
+    animal = animals{curr_animal};
+    disp(animal);
     
-    AP_load_experiment;
-
-    lilrig_retinotopy;
-    vfs{curr_day} = vfs_median;
-
-    AP_print_progress_fraction(curr_day,length(experiments));
-    clearvars -except animal experiments load_parts curr_day  vfs 
+    % animal = 'AP025';
+    protocol = 'stimSparseNoiseUncorrAsync';
+    experiments = AP_find_experiments(animal,protocol);
+    experiments = experiments([experiments.imaging]);
+    
+    load_parts.cam = false;
+    load_parts.imaging = true;
+    load_parts.ephys = false;
+    
+    vfs = cell(length(experiments),1);
+    for curr_day = 1:length(experiments)
+        
+        day = experiments(curr_day).day;
+        experiment = experiments(curr_day).experiment(end);
+        
+        AP_load_experiment;
+        
+        lilrig_retinotopy;
+        vfs{curr_day} = vfs_median;
+        
+        AP_print_progress_fraction(curr_day,length(experiments));
+        clearvars -except animal experiments load_parts curr_day  vfs animals curr_animal
+        
+    end
+    
+    disp('Finished batch.')
+    
+    % Save retinotopy from all days
+    retinotopy = struct('day',reshape({experiments.day},[],1),'vfs',vfs);
+    
+    alignment_path = 'C:\Users\Andrew\OneDrive for Business\Documents\CarandiniHarrisLab\analysis\widefield_alignment';
+    retinotopy_path = [alignment_path filesep 'retinotopy'];
+    retinotopy_fn = [retinotopy_path filesep animal '_retinotopy.mat'];
+    save(retinotopy_fn,'retinotopy');
+    
+    clearvars -except animals curr_animal
     
 end
 
-disp('Finished batch.')
-
-% Save retinotopy from all days
-retinotopy = struct('day',{experiments.day},'vfs',vfs);
-
-alignment_path = 'C:\Users\Andrew\OneDrive for Business\Documents\CarandiniHarrisLab\analysis\widefield_alignment';
-retinotopy_path = [alignment_path filesep 'retinotopy'];
-retinotopy_fn = [retinotopy_path filesep animal '_retinotopy.mat'];
-save(retinotopy_fn,'retinotopy');
-
-
-
-
-
-% 
-% % Align
-% days = {experiments.day};
-% 
-% signMap_aligned = AP_align_widefield(animal,days,batch_vars.signMap);
-% signMap_mean = nanmean(signMap_aligned,3);
-% 
-% align_fn = ['C:\Users\Andrew\OneDrive for Business\Documents\CarandiniHarrisLab\analysis\wf_ephys_choiceworld\wf_processing\wf_alignment' filesep animal '_wf_tform'];
-% load(align_fn);
-% ref_path = AP_cortexlab_filename(animal,wf_tform(1).day,[],'imaging');
-% ref_im = readNPY([ref_path filesep 'meanImage_blue.npy']);
-% 
-% % Plot
-% AP_image_scroll(signMap_aligned,days);
-% axis image off; 
-% colormap(brewermap([],'*RdBu'));
-% set(gcf,'Name',animal);
-% 
-% retinotopy_fig = figure('Name',['Average retinotopy: ' animal]);
-% ax1 = axes;
-% subplot(1,2,1,ax1);
-% imagesc(signMap_mean);
-% caxis([-1,1]);
-% axes(ax1); axis image off;
-% colormap(brewermap([],'*RdBu'));
-% 
-% ax2 = axes;
-% ax3 = axes;
-% subplot(1,2,2,ax2);
-% subplot(1,2,2,ax3);
-% h1 = imagesc(ax2,ref_im);
-% caxis(ax2,[0 prctile(ref_im(:),95)]);
-% h2 = imagesc(ax3,signMap_mean);
-% caxis([-1,1]);
-% set(ax2,'Visible','off');
-% axes(ax2); axis image off;
-% set(ax3,'Visible','off');
-% axes(ax3); axis image off;
-% set(h2,'AlphaData',mat2gray(abs(signMap_mean))*0.3);
-% colormap(ax2,gray);
-% colormap(ax3,brewermap([],'*RdBu'));
-% 
-% retinotopy_path = 'C:\Users\Andrew\OneDrive for Business\Documents\CarandiniHarrisLab\analysis\wf_ephys_choiceworld\wf_processing\retinotopy';
-% saveas(retinotopy_fig,[retinotopy_path filesep animal '_retinotopy']);
-% 
 
 
 

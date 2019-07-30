@@ -10468,15 +10468,10 @@ linkaxes(get(gcf,'Children'),'xy');
 
 %%
 
-% (do again after aligning days)
-% for i = 1:length(retinotopy)
-%     AP_align_widefield(retinotopy(i).vfs,retinotopy(i).animal,[],'new_animal');
-% end
-
 animals = {'AP024','AP025','AP026','AP027','AP028','AP029', ...
     'AP032','AP033','AP034','AP035','AP036'};
 
-for curr_animal = 1
+for curr_animal = 2:length(animals)
     
     animal = animals{curr_animal};
     % Find experiments
@@ -10497,7 +10492,6 @@ for curr_animal = 1
         [img_path,img_exists] = AP_cortexlab_filename(animal,day,[],'imaging');
         avg_im = readNPY([img_path filesep 'meanImage_purple.npy']);
         avg_im_days{curr_day} = avg_im;
-        AP_print_progress_fraction(curr_day,length(experiments));
     end
     
     AP_align_widefield(avg_im_days,animal,{experiments.day},'new_days');

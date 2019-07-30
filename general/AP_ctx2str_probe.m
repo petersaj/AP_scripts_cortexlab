@@ -58,7 +58,7 @@ view([-30,25]);
 cameratoolbar(h,'SetCoordSys','y');
 cameratoolbar(h,'SetMode','orbit');
 
-scatter3(probe_depths(:,1),probe_depths(:,2),probe_depths(:,3),5,'k');
+scatter3(probe_depths(:,1),probe_depths(:,2),probe_depths(:,3),15,'k','filled');
 drawnow;
 
 %% Get the Allen projection sites in regular intervals in probe striatum
