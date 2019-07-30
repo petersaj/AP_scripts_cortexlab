@@ -10471,7 +10471,7 @@ linkaxes(get(gcf,'Children'),'xy');
 animals = {'AP024','AP025','AP026','AP027','AP028','AP029', ...
     'AP032','AP033','AP034','AP035','AP036'};
 
-for curr_animal = 2:length(animals)
+for curr_animal = 1:length(animals)
     
     animal = animals{curr_animal};
     % Find experiments

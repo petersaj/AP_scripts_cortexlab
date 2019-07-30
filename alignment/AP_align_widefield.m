@@ -78,41 +78,48 @@ switch align_type
             im_rigid_aligned(:,:,curr_im) = curr_im_reg;
         end
                 
-        % (user draw ROI around most stable area for alignment reference)               
-        f = AP_image_scroll(im_rigid_aligned, ...
-            repmat({'Draw ROI over largest stable area'},length(im_unaligned),1));
-        axis image;
-        h = imrect;
-        position = round(wait(h));
-        close(f);
-
-        im_rigid_aligned_roi = im_rigid_aligned( ...
-            position(2):position(2)+position(4), ...
-            position(1):position(1)+position(3),:);
-        
-        disp('Affine aligning selection...')
-        im_ref = im_rigid_aligned_roi(:,:,1);
-        im_aligned = nan(ref_size(1),ref_size(2),length(im_unaligned));
-        tform_matrix = cell(length(im_unaligned),1);
-        for curr_im = 1:length(im_unaligned)
-            tformEstimate_affine = imregtform(im_rigid_aligned_roi(:,:,curr_im),im_ref,'affine',optimizer,metric);
+        % (user draw ROI around most stable area for alignment reference)
+        draw_roi = true;
+        while draw_roi
+            f = AP_image_scroll(im_rigid_aligned, ...
+                repmat({'Draw ROI over largest stable area'},length(im_unaligned),1));
+            axis image;
+            h = imrect;
+            position = round(wait(h));
+            close(f);
             
-            tform_combine = rigid_tform{curr_im}*tformEstimate_affine.T;
-            tform_matrix{curr_im} = tform_combine;
+            im_rigid_aligned_roi = im_rigid_aligned( ...
+                position(2):position(2)+position(4), ...
+                position(1):position(1)+position(3),:);
+                                    
+            disp('Affine aligning selection...')
+            im_ref = im_rigid_aligned_roi(:,:,1);
+            im_aligned = nan(ref_size(1),ref_size(2),length(im_unaligned));
+            tform_matrix = cell(length(im_unaligned),1);
+            for curr_im = 1:length(im_unaligned)
+                tformEstimate_affine = imregtform(im_rigid_aligned_roi(:,:,curr_im),im_ref,'rigid',optimizer,metric);
+                
+                tform_combine = rigid_tform{curr_im}*tformEstimate_affine.T;
+                tform_matrix{curr_im} = tform_combine;
+                
+                curr_tform = affine2d;
+                curr_tform.T = tform_combine;
+                curr_im_reg = imwarp(im_unaligned{curr_im},curr_tform,'Outputview',imref2d(ref_size));
+                
+                tform_matrix{curr_im} = tformEstimate_affine.T;
+                im_aligned(:,:,curr_im) = curr_im_reg;
+            end
             
-            curr_tform = affine2d;
-            curr_tform.T = tform_combine;
-            curr_im_reg = imwarp(im_unaligned{curr_im},curr_tform,'Outputview',imref2d(ref_size));
+            f = AP_image_scroll(im_aligned, ...
+                cellfun(@(x) ['Final alignment: ' animal ' ' x],day,'uni',false));
+            axis image;
+            confirm_save = input(['Save day transforms for ' animal '? (y/n/redo): '],'s');
+            close(f)
             
-            tform_matrix{curr_im} = tformEstimate_affine.T;
-            im_aligned(:,:,curr_im) = curr_im_reg;
+            if ~strcmp(confirm_save,'redo')
+                draw_roi = false;
+            end
         end
-        
-        f = AP_image_scroll(im_aligned, ...
-            cellfun(@(x) ['Final alignment: ' animal ' ' x],day,'uni',false));
-        axis image;
-        confirm_save = input(['Save day transforms for ' animal '? (y/n): '],'s');
-        close(f)
         
         % Save transform matrix into structure
         if strcmp(confirm_save,'y')
