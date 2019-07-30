@@ -10471,19 +10471,19 @@ linkaxes(get(gcf,'Children'),'xy');
 animals = {'AP024','AP025','AP026','AP027','AP028','AP029', ...
     'AP032','AP033','AP034','AP035','AP036'};
 
-for curr_animal = 1:length(animals)
+for curr_animal = 11:length(animals)
     
     animal = animals{curr_animal};
     % Find experiments
     % (use only behavior days because cortical recordings afterwards)
     protocol = 'vanillaChoiceworld';
     experiments = AP_find_experiments(animal,protocol);
-    experiments(~[experiments.imaging]) = [];
+    experiments(~([experiments.imaging] & [experiments.ephys])) = [];
     if isempty(experiments)
         % (if no behavior days then it was a naive mouse - use passive expt)
         protocol = 'AP_choiceWorldStimPassive';
         experiments = AP_find_experiments(animal,protocol);
-        experiments(~[experiments.imaging]) = [];
+        experiments(~([experiments.imaging] & [experiments.ephys])) = [];
     end
     
     avg_im_days = cell(size(experiments));

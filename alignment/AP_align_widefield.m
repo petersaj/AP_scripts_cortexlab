@@ -47,8 +47,12 @@ switch align_type
         %% Align all days from one animal
         % (only run once for each animal - aligns to iterative average)
         
+        % Intensity-normalize the unaligned images
+        % (if there are big differences, this greatly improves alignment)
+        im_unaligned_norm = cellfun(@(x) x./std(x(:)),im_unaligned,'uni',false);
+        
         % Set output size as the largest image
-        [im_y,im_x] = cellfun(@size,im_unaligned);
+        [im_y,im_x] = cellfun(@size,im_unaligned_norm);
         
         im_y_max = max(im_y);
         im_x_max = max(im_x);
@@ -56,33 +60,33 @@ switch align_type
         
         im_unaligned_pad = ...
             cell2mat(reshape(cellfun(@(im) padarray(im, ...
-            [im_y_max - size(im,1),im_y_max - size(im,2)],0,'post'), ...
-            im_unaligned,'uni',false),1,1,[]));
+            [im_y_max - size(im,1),im_x_max - size(im,2)],0,'post'), ...
+            im_unaligned_norm,'uni',false),1,1,[]));
         
         % (set transform optimizer)
         [optimizer, metric] = imregconfig('monomodal');
         optimizer = registration.optimizer.OnePlusOneEvolutionary();
         optimizer.MaximumIterations = 200;
         optimizer.GrowthFactor = 1+1e-6;
-        optimizer.InitialRadius = 1e-4;
+        optimizer.InitialRadius = 1e-4;      
         
         % (first pass: rigid transform to day 1)  
-        disp('Rigid-aligning images...')
-        im_ref = im_unaligned{1};
-        im_rigid_aligned = nan(ref_size(1),ref_size(2),length(im_unaligned));       
-        rigid_tform = cell(size(im_unaligned));        
-        for curr_im = 1:length(im_unaligned)
-            tformEstimate_affine = imregtform(im_unaligned{curr_im},im_ref,'rigid',optimizer,metric);
-            curr_im_reg = imwarp(im_unaligned{curr_im},tformEstimate_affine,'Outputview',imref2d(ref_size));
+        disp('Rigid aligning images...')
+        im_ref = im_unaligned_norm{1};
+        im_rigid_aligned = nan(ref_size(1),ref_size(2),length(im_unaligned_norm));       
+        rigid_tform = cell(size(im_unaligned_norm));        
+        for curr_im = 1:length(im_unaligned_norm)
+            tformEstimate_affine = imregtform(im_unaligned_norm{curr_im},im_ref,'rigid',optimizer,metric);
+            curr_im_reg = imwarp(im_unaligned_norm{curr_im},tformEstimate_affine,'Outputview',imref2d(ref_size));
             rigid_tform{curr_im} = tformEstimate_affine.T;
             im_rigid_aligned(:,:,curr_im) = curr_im_reg;
         end
-                
+        
         % (user draw ROI around most stable area for alignment reference)
         draw_roi = true;
         while draw_roi
             f = AP_image_scroll(im_rigid_aligned, ...
-                repmat({'Draw ROI over largest stable area'},length(im_unaligned),1));
+                repmat({'Draw ROI over largest stable area'},length(im_unaligned_norm),1));
             axis image;
             h = imrect;
             position = round(wait(h));
@@ -92,11 +96,11 @@ switch align_type
                 position(2):position(2)+position(4), ...
                 position(1):position(1)+position(3),:);
                                     
-            disp('Affine aligning selection...')
+            disp('Rigid aligning selection...')
             im_ref = im_rigid_aligned_roi(:,:,1);
-            im_aligned = nan(ref_size(1),ref_size(2),length(im_unaligned));
-            tform_matrix = cell(length(im_unaligned),1);
-            for curr_im = 1:length(im_unaligned)
+            im_aligned = nan(ref_size(1),ref_size(2),length(im_unaligned_norm));
+            tform_matrix = cell(length(im_unaligned_norm),1);
+            for curr_im = 1:length(im_unaligned_norm)
                 tformEstimate_affine = imregtform(im_rigid_aligned_roi(:,:,curr_im),im_ref,'rigid',optimizer,metric);
                 
                 tform_combine = rigid_tform{curr_im}*tformEstimate_affine.T;
@@ -104,7 +108,7 @@ switch align_type
                 
                 curr_tform = affine2d;
                 curr_tform.T = tform_combine;
-                curr_im_reg = imwarp(im_unaligned{curr_im},curr_tform,'Outputview',imref2d(ref_size));
+                curr_im_reg = imwarp(im_unaligned_norm{curr_im},curr_tform,'Outputview',imref2d(ref_size));
                 
                 tform_matrix{curr_im} = tformEstimate_affine.T;
                 im_aligned(:,:,curr_im) = curr_im_reg;
