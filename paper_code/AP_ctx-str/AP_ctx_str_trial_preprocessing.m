@@ -463,7 +463,7 @@ disp('Finished');
 %% Choiceworld trial activity (striatum depth)
 
 clear all
-disp('Choiceworld trial activity')
+disp('Choiceworld trial activity (striatum depth)')
 
 n_aligned_depths = 4;
 
@@ -1045,10 +1045,10 @@ save_fn = ['trial_activity_choiceworld_' num2str(n_aligned_depths) 'strdepth'];
 save([save_path filesep save_fn],'-v7.3');
 
 
-%% Choiceworld trial activity (striatum ctx-domain)
+%% Choiceworld trial activity (striatum domain)
 
 clear all
-disp('Choiceworld trial activity')
+disp('Choiceworld trial activity (striatum domain)')
 
 n_aligned_depths = 4;
 
@@ -1633,7 +1633,7 @@ save([save_path filesep save_fn],'-v7.3');
 %% Choiceworld trial activity (wf-only days)
 
 clear all
-disp('Choiceworld trial activity')
+disp('Choiceworld trial activity (wf-only days)')
 
 animals = {'AP024','AP025','AP026','AP027','AP028','AP029'};
 
@@ -2270,7 +2270,7 @@ end
 
 %% ~~~~~~~~~~~~~ Widefield ROIs ~~~~~~~~~~~~~
 
-% (lock this code)
+%% (lock on)
 if false
 
 %% Make reference image for drawing widefield ROIs
@@ -2463,12 +2463,12 @@ kernel_roi_fn = 'C:\Users\Andrew\OneDrive for Business\Documents\CarandiniHarris
 save(kernel_roi_fn,'kernel_roi');
 disp('Saved kernel ROIs');
 
-%% (lock)
+%% (lock off)
 end
 
 %% ~~~~~~~~~~~ UNUSED ~~~~~~~~~~~~~~~
 
-% (lock this code)
+%% (lock on)
 if false
 
 %% Passive choiceworld trial activity (trained)
@@ -5532,5 +5532,5 @@ save_path = 'C:\Users\Andrew\OneDrive for Business\Documents\CarandiniHarrisLab\
 save_fn = ['trial_activity_passive_choiceworld_naive'];
 save([save_path filesep save_fn],'-v7.3');
 
-%% (lock)
+%% (lock off)
 end
