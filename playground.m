@@ -10516,7 +10516,7 @@ for curr_animal = 1:length(animals)
     aligned_vfs = cell(length(retinotopy),1);
     for curr_day = 1:length(retinotopy)
         try
-        aligned_vfs{curr_day} = AP_align_widefield(retinotopy(curr_day).vfs,animal,retinotopy(curr_day).day);
+        aligned_vfs{curr_day} = AP_align_widefield(retinotopy(curr_day).vfs,animal,retinotopy(curr_day).day,'day_only');
         catch me
            disp(['Skipping ' animal ' ' retinotopy(curr_day).day]); 
         end
@@ -10527,6 +10527,70 @@ for curr_animal = 1:length(animals)
 end
 
 AP_align_widefield(vfs_animal,[],[],'create_master');
+
+%% (re-align animals to master)
+
+retinotopy_path = 'C:\Users\Andrew\OneDrive for Business\Documents\CarandiniHarrisLab\analysis\widefield_alignment\retinotopy';
+retinotopy_dir = dir(retinotopy_path);
+
+animal_retinotopy_idx = cellfun(@(x) ~isempty(x), regexp({retinotopy_dir.name},'AP\d*_retinotopy'));
+animals_tokens = cellfun(@(x) regexp({x},'(AP\d*)_retinotopy','tokens'),{retinotopy_dir.name});
+animals = cellfun(@(x) cell2mat(x{:}),animals_tokens(cellfun(@(x) ~isempty(x),animals_tokens)),'uni',false);
+
+vfs_animal = cell(length(animals),1);
+for curr_animal = 1:length(animals)
+    animal = animals{curr_animal};
+    load([retinotopy_path filesep animal '_retinotopy'])
+    
+    aligned_vfs = cell(length(retinotopy),1);
+    for curr_day = 1:length(retinotopy)
+        try
+        aligned_vfs{curr_day} = AP_align_widefield(retinotopy(curr_day).vfs,animal,retinotopy(curr_day).day,'day_only');
+        catch me
+           disp(['Skipping ' animal ' ' retinotopy(curr_day).day]); 
+        end
+    end
+    
+    vfs_mean = nanmean(cat(3,aligned_vfs{:}),3);
+    AP_align_widefield(vfs_mean,animal,[],'new_animal');
+
+end
+
+%% (check master)
+
+retinotopy_path = 'C:\Users\Andrew\OneDrive for Business\Documents\CarandiniHarrisLab\analysis\widefield_alignment\retinotopy';
+retinotopy_dir = dir(retinotopy_path);
+
+animal_retinotopy_idx = cellfun(@(x) ~isempty(x), regexp({retinotopy_dir.name},'AP\d*_retinotopy'));
+animals_tokens = cellfun(@(x) regexp({x},'(AP\d*)_retinotopy','tokens'),{retinotopy_dir.name});
+animals = cellfun(@(x) cell2mat(x{:}),animals_tokens(cellfun(@(x) ~isempty(x),animals_tokens)),'uni',false);
+
+vfs_animal = cell(length(animals),1);
+for curr_animal = 1:length(animals)
+    animal = animals{curr_animal};
+    load([retinotopy_path filesep animal '_retinotopy'])
+    
+    aligned_vfs = cell(length(retinotopy),1);
+    for curr_day = 1:length(retinotopy)
+        try
+        aligned_vfs{curr_day} = AP_align_widefield(retinotopy(curr_day).vfs,animal,retinotopy(curr_day).day);
+%             aligned_vfs{curr_day} = AP_align_widefield_old(animal,retinotopy(curr_day).day,retinotopy(curr_day).vfs);
+        catch me
+           disp(['Skipping ' animal ' ' retinotopy(curr_day).day]); 
+        end
+    end
+    
+    vfs_animal{curr_animal} = nanmean(cat(3,aligned_vfs{:}),3);
+    
+end
+
+
+
+
+
+
+
+
 
 
 

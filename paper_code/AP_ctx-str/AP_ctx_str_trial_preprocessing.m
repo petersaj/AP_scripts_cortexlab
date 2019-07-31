@@ -116,7 +116,7 @@ for protocol = protocols
                 false,regression_params.use_constant);
             
             % Reshape kernel and convert to pixel space            
-            aUdf = single(AP_align_widefield(animal,day,Udf));
+            aUdf = AP_align_widefield(Udf,animal,day);
             k_px = zeros(size(aUdf,1),size(aUdf,2),size(k,2),size(k,3),'single');
             for curr_spikes = 1:size(k,3)
                 k_px(:,:,:,curr_spikes) = svdFrameReconstruct(aUdf(:,:,regression_params.use_svs),k(:,:,curr_spikes));
@@ -531,7 +531,7 @@ for curr_animal = 1:length(animals)
         % Prepare fluorescence
         % Convert U to master U
         load('C:\Users\Andrew\OneDrive for Business\Documents\CarandiniHarrisLab\analysis\wf_ephys_choiceworld\wf_processing\wf_alignment\U_master.mat');
-        Udf_aligned = single(AP_align_widefield(animal,day,Udf));
+        Udf_aligned = AP_align_widefield(Udf,animal,day);
         fVdf_recast = ChangeU(Udf_aligned,fVdf,U_master);
         
         % Set components to keep
@@ -1116,7 +1116,7 @@ for curr_animal = 1:length(animals)
         % Prepare fluorescence
         % Convert U to master U
         load('C:\Users\Andrew\OneDrive for Business\Documents\CarandiniHarrisLab\analysis\wf_ephys_choiceworld\wf_processing\wf_alignment\U_master.mat');
-        Udf_aligned = single(AP_align_widefield(animal,day,Udf));
+        Udf_aligned = AP_align_widefield(Udf,animal,day);
         fVdf_recast = ChangeU(Udf_aligned,fVdf,U_master);
         
         % Set components to keep
@@ -1681,7 +1681,7 @@ for curr_animal = 1:length(animals)
         % Prepare fluorescence
         % Convert U to master U
         load('C:\Users\Andrew\OneDrive for Business\Documents\CarandiniHarrisLab\analysis\wf_ephys_choiceworld\wf_processing\wf_alignment\U_master.mat');
-        Udf_aligned = single(AP_align_widefield(animal,day,Udf));
+        Udf_aligned = AP_align_widefield(Udf,animal,day);
         fVdf_recast = ChangeU(Udf_aligned,fVdf,U_master);
         
         % Set components to keep
@@ -2106,7 +2106,7 @@ for animal_group = {'trained','naive'}
                 % Prepare fluorescence
                 % Convert U to master U
                 load('C:\Users\Andrew\OneDrive for Business\Documents\CarandiniHarrisLab\analysis\wf_ephys_choiceworld\wf_processing\wf_alignment\U_master.mat');
-                Udf_aligned = single(AP_align_widefield(animal,day,Udf));
+                Udf_aligned = AP_align_widefield(Udf,animal,day);
                 fVdf_recast = ChangeU(Udf_aligned,fVdf,U_master);
                 
                 % Set components to keep
@@ -2269,6 +2269,9 @@ end
 
 
 %% ~~~~~~~~~~~~~ Widefield ROIs ~~~~~~~~~~~~~
+
+% (lock this code)
+if false
 
 %% Make reference image for drawing widefield ROIs
 
@@ -2460,8 +2463,13 @@ kernel_roi_fn = 'C:\Users\Andrew\OneDrive for Business\Documents\CarandiniHarris
 save(kernel_roi_fn,'kernel_roi');
 disp('Saved kernel ROIs');
 
+%% (lock)
+end
 
 %% ~~~~~~~~~~~ UNUSED ~~~~~~~~~~~~~~~
+
+% (lock this code)
+if false
 
 %% Passive choiceworld trial activity (trained)
 
@@ -5524,5 +5532,5 @@ save_path = 'C:\Users\Andrew\OneDrive for Business\Documents\CarandiniHarrisLab\
 save_fn = ['trial_activity_passive_choiceworld_naive'];
 save([save_path filesep save_fn],'-v7.3');
 
-
-
+%% (lock)
+end

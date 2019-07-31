@@ -796,7 +796,8 @@ if ephys_exists && load_parts.ephys
         fid = fopen(lfp_filename);
         % define where/how much of LFP to load
         lfp_skip_minutes = 10; % move to N minutes after recording start
-        lfp_load_start = (lfp_sample_rate*60*lfp_skip_minutes*n_channels);
+        n_bytes = 2; % int16 is 2 bytes and fseek works in bytes
+        lfp_load_start = (lfp_sample_rate*60*lfp_skip_minutes*n_channels*n_bytes);
         lfp_load_samples = 1e6;
         % load LFP
         fseek(fid,lfp_load_start,'bof');

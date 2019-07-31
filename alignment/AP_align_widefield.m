@@ -8,6 +8,7 @@ function im_aligned = AP_align_widefield(im_unaligned,animal,day,align_type)
 % day - 'yyyy-mm-dd' corresponding to im_unaligned (cell array if multiple)
 % align_type - type of alignment:
 % > default (otherwise/empty) - apply saved day/animal transform to image(s)
+% > 'day_only' - apply saved day (only) transform to image(s)
 % > 'new_days' - make new alignment within animal across days
 % > 'new_animal' - make new alignment from animal to master 
 % > 'create_master' - create new master alignment reference
@@ -166,7 +167,7 @@ switch align_type
         
         vfs_unaligned_pad = ...
             cell2mat(reshape(cellfun(@(vfs) padarray(vfs, ...
-            [vfs_y_max - size(vfs,1),vfs_y_max - size(vfs,2)],0,'post'), ...
+            [vfs_y_max - size(vfs,1),vfs_x_max - size(vfs,2)],0,'post'), ...
             im_unaligned,'uni',false),1,1,[]));
         
         % Iterate averaging the VFS and the aligning
@@ -240,8 +241,8 @@ switch align_type
             master_vfs_fn = [alignment_path filesep 'master_vfs.mat'];
             save(master_vfs_fn,'master_vfs');
             disp('Saved new master VFS.');
-            confirm_align_ccf = input(['Align CCF to new master VFS? (y/n): '],'s');
-            if strcmp(confirm_save,'y')
+            confirm_align_ccf = strcmp(input(['Align CCF to new master VFS? (y/n): '],'s'),'y');
+            if confirm_align_ccf
                 AP_vfs_ccf_align;
             end
         else
@@ -283,22 +284,23 @@ switch align_type
         curr_animal_idx = strcmp(animal,{wf_tform.animal});
         if isempty(curr_animal_idx) || ~any(curr_animal_idx)
             % (if not already extant, make new)
-            new_animal_idx = length(wf_tform) + 1;
-            wf_tform(new_animal_idx).animal = animal;
-            wf_tform(new_animal_idx).animal_tform = tform_matrix;
+            curr_animal_idx = length(wf_tform) + 1;
+            confirm_save = true;
+        else
+            % (if extant, prompt to overwrite)
+            confirm_save = strcmp(input(['Overwrite animal transform for ' animal '? (y/n): '],'s'),'y');
+        end
+        if confirm_save
+            wf_tform(curr_animal_idx).animal = animal;
+            wf_tform(curr_animal_idx).animal_tform = tform_matrix;
+            wf_tform(curr_animal_idx).master_ref_size = ref_size;
             save(wf_tform_fn,'wf_tform');
             disp(['Saved new animal alignment for ' animal '.'])
         else
-            % (if extant, prompt to overwrite)
-            confirm_save = input(['Overwrite animal transform for ' animal '? (y/n): '],'s');
-            if strcmp(confirm_save,'y')
-                wf_tform(curr_animal_idx).animal_tform = tform_matrix;
-                save(wf_tform_fn,'wf_tform');
-                disp(['Saved new animal alignment for ' animal '.'])
-            else
-                disp('Not overwriting.')
-            end
-        end        
+            disp('Not overwriting.')
+        end
+        
+
         
         
     otherwise
@@ -318,12 +320,13 @@ switch align_type
         curr_day_tform = wf_tform(curr_animal_idx).day_tform{curr_day_idx};
         
         % Get transform for animal (if it exists) and set image size
-        if ~isempty(wf_tform(curr_animal_idx).animal_tform)
+        if ~isempty(wf_tform(curr_animal_idx).animal_tform) && ...
+                ~strcmp(align_type,'day_only')
             curr_animal_tform = wf_tform(curr_animal_idx).animal_tform;
             curr_tform = curr_day_tform*curr_animal_tform;
-            ref_size = wf_tform.master_ref_size;
+            ref_size = wf_tform(curr_animal_idx).master_ref_size;
         else
-            warning(['No master animal alignment for ' animal]);
+            warning(['Not animal-aligning']);
             curr_tform = curr_day_tform;
             ref_size = wf_tform(curr_animal_idx).ref_size;
         end

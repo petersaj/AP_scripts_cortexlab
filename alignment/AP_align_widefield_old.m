@@ -177,7 +177,7 @@ if new_alignment
 end
 
 
-%% STORING HERE/RUN ONCE: Align animals by retinotopy, save U_master_animal
+%% STORING HERE/RUN ONCE: Align animals by retinotopy
 % (TO DO: INTEGRATE INTO ABOVE FUNCTION 'ANIMALS' OPTION)
 % (this creates a new combined retinotopy - run AP_vfs_ccf_align afterwards)
 
@@ -245,6 +245,8 @@ end
 % (using last day before ephys as master day since probably best
 % performance and least bugs)
 
+% NOTE: this was adapted after current function became _old
+
 % (lock this)
 if false
     
@@ -283,7 +285,9 @@ if false
         
         % Align U's of the day to master alignment, save as animal master U
         AP_load_experiment
-        U_master_animal = single(AP_align_widefield(animal,day,Udf));
+        % (old)
+%         U_master_animal = single(AP_align_widefield(animal,day,Udf));
+        U_master_animal = AP_align_widefield(Udf,animal,day);
         
         wf_alignment_dir = 'C:\Users\Andrew\OneDrive for Business\Documents\CarandiniHarrisLab\analysis\wf_ephys_choiceworld\wf_processing\wf_alignment';
         U_master_animal_filename = [wf_alignment_dir filesep 'U_master_' animal];

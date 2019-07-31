@@ -332,7 +332,7 @@ for curr_animal = 1:length(animals)
             regression_params.zs,regression_params.cvfold, ...
             false,regression_params.use_constant);
         
-        Udf_aligned = single(AP_align_widefield(animal,day,Udf));
+        Udf_aligned = AP_align_widefield(Udf,animal,day);
         k_px = zeros(size(Udf_aligned,1),size(Udf_aligned,2),size(k,2),size(k,3),'single');
         for curr_spikes = 1:size(k,3)
             k_px(:,:,:,curr_spikes) = ...
