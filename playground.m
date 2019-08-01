@@ -419,7 +419,7 @@ plot_rxn_time = [0,0.5];
 
 plot_trials = ...
     trial_contrast_allcat == 0 & ...
-    trial_choice_allcat == -1 & ...
+    trial_choice_allcat == 1 & ...
     move_t >= plot_rxn_time(1) & ...
     move_t <= plot_rxn_time(2);
 
@@ -440,12 +440,12 @@ plot_trials = ...
 %     squeeze(nanmean( ...
 %     fluor_allcat_deconv_move(plot_trials,:,:) - ...
 %     fluor_taskpred_reduced_allcat_move(plot_trials,:,:,2),1))');
-% 
-% plot_trials = ...
-%     trial_stim_allcat <= 5;
+
+% plot_px = svdFrameReconstruct(U_master(:,:,1:n_vs), ...
+%     squeeze(nanmean(fluor_allcat_deconv(plot_trials,:,:)))');
 
 plot_px = svdFrameReconstruct(U_master(:,:,1:n_vs), ...
-    squeeze(nanmean(fluor_allcat_deconv(plot_trials,:,:)))');
+    squeeze(nanmean(fluor_allcat_deconv_move(plot_trials,:,:)))');
 
 AP_image_scroll(plot_px,t);
 axis image;
@@ -472,7 +472,7 @@ plot_rxn_time = [0,0.5];
 
 plot_side = 1;
 plot_choice = -1;
-plot_contrast = trial_contrast_allcat == 0;
+plot_contrast = trial_contrast_allcat > 0;
 plot_move_t = move_t >= plot_rxn_time(1) & move_t <= plot_rxn_time(2);
 
 curr_trials_standard = trial_side_allcat == plot_side & ...
@@ -509,13 +509,36 @@ AP_reference_outline('ccf_aligned','k');
 
 
 % (for passive)
-move_trial = any(abs(wheel_allcat(:,t >= 0 & t <= 0.5)) > 0.02,2);
+
+% Get trials with movement during stim to exclude
+quiescent_trials = ~any(abs(wheel_allcat(:,t >= 0 & t <= 0.5)) > 0.02,2);
+
 fluor_stim = nan(length(unique(D_allcat.stimulus)),length(t),n_vs);
 for curr_v = 1:n_vs
-    fluor_stim(:,:,curr_v) = grpstats(fluor_allcat_deconv(~move_trial,:,curr_v),D_allcat.stimulus(~move_trial),'nanmean');
+    fluor_stim(:,:,curr_v) = grpstats(fluor_allcat_deconv(quiescent_trials,:,curr_v),D_allcat.stimulus(quiescent_trials),'nanmean');
 end
 fluor_stim_px = cell2mat(permute(arrayfun(@(x) svdFrameReconstruct(U_master(:,:,1:n_vs), ...
     squeeze(fluor_stim(x,:,:))'),1:length(unique(D_allcat.stimulus)),'uni',false),[1,3,4,2]));
+
+AP_image_scroll(fluor_stim_px,t);
+axis image;
+caxis([-max(abs(caxis)),max(abs(caxis))]);
+colormap(brewermap([],'*RdBu'));
+AP_reference_outline('ccf_aligned','k');
+
+
+
+quiescent_trials = ~any(abs(wheel_allcat(:,t >= 0 & t <= 0.5)) > 0.02,2);
+plot_trials = quiescent_trials & trial_contrastside_allcat == 1;
+
+plot_px = svdFrameReconstruct(U_master(:,:,1:n_vs), ...
+    squeeze(nanmean(fluor_allcat_deconv(plot_trials,:,:)))');
+
+AP_image_scroll(plot_px,t);
+axis image;
+caxis([-max(abs(caxis)),max(abs(caxis))]);
+colormap(brewermap([],'*RdBu'));
+AP_reference_outline('ccf_aligned','k');
 
 
 

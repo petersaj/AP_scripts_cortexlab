@@ -2275,34 +2275,9 @@ if false
 
 %% Make reference image for drawing widefield ROIs
 
-data_fn = ['trial_activity_choiceworld'];
+data_fn = 'trial_activity_choiceworld';
 exclude_data = true;
-
-[t,fluor_allcat_deriv,fluor_roi_deriv,mua_allcat,wheel_allcat,reward_allcat,D_allcat] = ...
-    AP_load_concat_normalize_ctx_str(data_fn,exclude_data);
-
-n_vs = size(fluor_allcat,3);
-
-% Get trial information
-trial_contrast_allcat = max(D_allcat.stimulus,[],2);
-[~,side_idx] = max(D_allcat.stimulus > 0,[],2);
-trial_side_allcat = (side_idx-1.5)*2;
-trial_choice_allcat = -(D_allcat.response-1.5)*2;
-
-% Get time (make this be saved in trial data)
-framerate = 35;
-raster_window = [-0.5,3];
-upsample_factor = 3;
-sample_rate = (framerate*upsample_factor);
-t = raster_window(1):1/sample_rate:raster_window(2);
-
-% Get reaction time
-[move_trial,move_idx] = max(abs(wheel_allcat(:,:,1)) > 2,[],2);
-move_t = t(move_idx)';
-move_t(~move_trial) = Inf;
-
-% Load the master U
-load('C:\Users\Andrew\OneDrive for Business\Documents\CarandiniHarrisLab\analysis\wf_ephys_choiceworld\wf_processing\wf_alignment\U_master');
+AP_load_concat_normalize_ctx_str;
 
 %%% Generate reference image for widefield ROIs
 rxn_time_use = [0.1,0.3];
@@ -2317,9 +2292,7 @@ use_trials = ...
 plot_px = svdFrameReconstruct(U_master(:,:,1:n_vs), ...
     diff(squeeze(nanmean(fluor_allcat(use_trials,:,:),1))',[],2));
 
-t_diff = conv(t,[1,1]/2,'valid');
-
-use_t = t_diff >= 0 & t_diff <= 0.8;
+use_t = t >= 0 & t <= 0.8;
 plot_px_use_t = double(plot_px(:,:,use_t));
 plot_px_use_t(plot_px_use_t < 0) = 0;
 plot_px_use_t = bsxfun(@rdivide,plot_px_use_t,max(max(plot_px_use_t,[],1),[],2));
@@ -2449,9 +2422,9 @@ end
 % Get the average full kernel
 n_aligned_depths = 4;
 data_path = 'C:\Users\Andrew\OneDrive for Business\Documents\CarandiniHarrisLab\analysis\wf_ephys_choiceworld\wf_ephys';
-k_fn = [data_path filesep 'wf_ephys_maps_concat_' num2str(n_aligned_depths) '_depths_kernel'];
+k_fn = [data_path filesep 'wf_ephys_maps_vanillaChoiceworld_' num2str(n_aligned_depths) '_depths'];
 load(k_fn);
-k_px_trained_cat = cellfun(@(x) x(:,:,end:-1:1,:),[batch_vars(1:6).k_px],'uni',false);
+k_px_trained_cat = cellfun(@(x) x(:,:,end:-1:1,:),[batch_vars(1:6).r_px],'uni',false);
 k_px_trained = nanmean(double(cat(5,k_px_trained_cat{:})),5);
 
 % Save kernel ROIs

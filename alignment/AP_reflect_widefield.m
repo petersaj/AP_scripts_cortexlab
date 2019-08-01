@@ -5,8 +5,6 @@ function im_reflected = AP_reflect_widefield(im)
 % time on it and it's too close to be worth not just running with at the
 % moment
 
-warning('REFLECTION ISN''T PEFRECT');
-
 % Load bregma and master CCF tform
 bregma = allenCCFbregma;
 bregma(3) = bregma(3) + 0.5;

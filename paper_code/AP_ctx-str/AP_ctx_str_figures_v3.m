@@ -251,7 +251,7 @@ for curr_align = 1:length(use_align)
 end
 
 
-%% Fig 1d,e, S2: Task > cortex kernels
+%% Fig 1c,d, S2: Task > cortex kernels
 
 % Get task>cortex parameters
 n_regressors = length(task_regressor_labels);
@@ -411,7 +411,7 @@ line(repmat(min(xlim),2,1),[min(ylim),min(ylim)+y_scale],'linewidth',3,'color','
 
 
 
-%% Fig 1f: Striatal unit PSTH/raster examples
+%% Fig 1e: Striatal unit PSTH/raster examples
 
 animal = 'AP025'; 
 day = '2017-10-01'; 
@@ -441,7 +441,7 @@ AP_cellraster({stimOn_times(plot_trials), ...
 % move (depth 3) = 258
 % reward (depth 4) = 79 (alt: 467 late, 109/96 sharp)
 
-%% Fig 1g: Striatum multiunit end-of-striatum depth aligned
+%% Fig 1f: Striatum multiunit end-of-striatum depth aligned
 
 % Plot average stimulus-aligned activity in striatum
 plot_trials = move_t < 0.5 & trial_contrast_allcat > 0 & trial_side_allcat == 1 & trial_choice_allcat == -1;
@@ -912,10 +912,10 @@ end
 for curr_trial_set = 1:2
     switch curr_trial_set
         case 1
-            plot_trials = move_t < 0.5 & trial_contrast_allcat > 0 & trial_side_allcat == 1 & trial_choice_allcat == -1;
+            plot_trials = move_t < Inf & trial_contrast_allcat > 0 & trial_side_allcat == 1 & trial_choice_allcat == -1;
             figure('Name','Correct contra trials'); 
         case 2
-            plot_trials = move_t < 0.5 & trial_contrast_allcat > 0 & trial_side_allcat == -1 & trial_choice_allcat == 1;
+            plot_trials = move_t < Inf & trial_contrast_allcat > 0 & trial_side_allcat == -1 & trial_choice_allcat == 1;
             figure('Name','Correct ipsi trials'); 
     end
     
@@ -2341,8 +2341,6 @@ end
 
 
 %% Movie 1: Average widefield 
-
-%%%% TO DO: match trial contrasts so there's no avg contrast difference?
 
 % Get average stim-aligned fluorescence on trial subsets
 plot_trials = { ...
