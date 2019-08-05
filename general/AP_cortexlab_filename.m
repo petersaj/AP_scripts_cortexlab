@@ -79,8 +79,13 @@ switch file
     case 'expInfo'
         filepath = [server1 filesep 'Data\expInfo'];
         filename = [filepath filesep animal filesep day filesep];
+        % CHECK ANIMAL FOLDER IF IT DOESN'T EXIST
+        if ~exist(filename,'dir')
+            filepath = [server1 filesep 'Data' filesep 'Subjects'];
+            filename = [filepath filesep animal filesep day];
+        end
         % CHECK SERVER2 IF IT DOESN'T EXIST
-        if ~exist(filename,'file')
+        if ~exist(filename,'dir')
             filepath = [server2 filesep 'Subjects'];
             filename = [filepath filesep animal filesep day filesep];
         end
@@ -217,13 +222,13 @@ switch file
         
     case 'imaging'
         filepath = [server1 filesep 'Data\Subjects'];
-        filename = [filepath filesep animal filesep day site_dir filesep];
+        filename = [filepath filesep animal filesep day];
         check_file = [filename filesep 'svd*'];
         
         % CHECK SERVER2 IF IT DOESN'T EXIST
         if isempty(dir(check_file))
             filepath = [server2 filesep 'Subjects'];
-            filename = [filepath filesep animal filesep day site_dir filesep];
+            filename = [filepath filesep animal filesep day];
             check_file = [filename filesep 'svd*'];
         end
         

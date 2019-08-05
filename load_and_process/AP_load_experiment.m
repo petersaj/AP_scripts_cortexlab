@@ -527,7 +527,7 @@ end
 
 %% Load imaging data
 
-[data_path,data_path_exists] = AP_cortexlab_filename(animal,day,experiment,'imaging',site);
+[data_path,data_path_exists] = AP_cortexlab_filename(animal,day,experiment,'imaging');
 experiment_path = [data_path filesep num2str(experiment)];
 
 % (check for specific imaging file since data path is just root)
