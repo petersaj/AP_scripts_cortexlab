@@ -1,10 +1,10 @@
-function AP_choiceWorldStimPassive(t, events, parameters, visStim, inputs, outputs, audio)
-% AP 2017-12-13: present choiceworld stimuli passively
+function AP_lcrGratingPassive(t, events, parameters, visStim, inputs, outputs, audio)
+% Present static grating (as in choiceworld) passively left/center/right 100% contrast
 % NOTE: SET ONLY ONE TRIAL IN MC, RUNS THROUGH ALL STIM
 
 %% Set up stimuli
 
-staticParameters.numRepeats = 50;
+staticParameters.numRepeats = 100;
 staticParameters.stimTime = 0.5;
 staticParameters.minITI = 2;
 staticParameters.maxITI = 3;
@@ -13,8 +13,8 @@ staticParameters.bufferTime = 10; % time to delay experiment start and end to wa
 
 % Visual stim
 sigma = [20,20];
-azimuths = [-90,90];
-contrasts = [1,0.5,0.25,0.125,0.06];
+azimuths = [-90,0,90];
+contrasts = [1];
 vis_params = mat2cell(CombVec(azimuths,contrasts),2,ones(1,length(azimuths)*length(contrasts)));
 spatialFreq = 1/15;
 
