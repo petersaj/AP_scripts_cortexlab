@@ -1,6 +1,9 @@
 function [filename,file_exists] = AP_cortexlab_filename(animal,day,experiment,file,site)
 % [filename,file_exists] = AP_cortexlab_filename(animal,day,experiment,file,site)
 %
+% This is an absolute mess because things changed locations a hundred times
+% so new possible locations had to be manually added many times
+%
 % file - can include:
 % expInfo
 % timeline
@@ -259,9 +262,17 @@ switch file
             filename = [filepath filesep filepattern_dir.name];
         end
         
+        % CHECK NEW OPEN EPHYS ON SERVER1 IF IT DOESN'T EXIST
+        % (after server switch, should never be on zserver)
+        if ~exist(filename,'file')
+            filepath = [server1 filesep 'Data' filesep 'Subjects' filesep animal filesep day filesep ...
+                'ephys' site_dir filesep 'experiment1' filesep 'recording1'];
+            filename = [filepath filesep 'continuous'  filesep 'Neuropix-3a-100.0' filesep 'continuous.dat'];
+        end
+        
         % CHECK NEW OPEN EPHYS ON SERVER2 IF IT DOESN'T EXIST
         % (after server switch, should never be on zserver)
-        if isempty(filepattern_dir)
+        if ~exist(filename,'file')
             filepath = [server2 filesep 'Subjects' filesep animal filesep day filesep ...
                 'ephys' site_dir filesep 'experiment1' filesep 'recording1'];
             filename = [filepath filesep 'continuous'  filesep 'Neuropix-3a-100.0' filesep 'continuous.dat'];

@@ -622,9 +622,7 @@ if imaging_exists && load_parts.imaging
         
         Vh_Un = ChangeU(Uh,Vh,Un);
         
-        % Make/load hemo tform
-        % (NOTE: added '2' after extended hemo_freq and skip_seconds)
-        hemo_tform_fn = [experiment_path filesep 'hemo_tform2.mat'];
+        hemo_tform_fn = [experiment_path filesep 'hemo_tform.mat'];
         if exist(hemo_tform_fn,'file')
             % If the hemo tform matrix has been computed, load and fix
             if verbose; disp('Using old hemo tform...'); end
@@ -632,23 +630,42 @@ if imaging_exists && load_parts.imaging
             zVh_Un = bsxfun(@minus, Vh_Un, nanmean(Vh_Un,2));
             Vn_hemo = transpose(Vn_th' - zVh_Un'*hemo_tform');
         else
-            % If no hemo tform matrix, compute and save
+            % If no p hemo tform matrix, compute and save
             if verbose; disp('Computing hemo tform...'); end
             hemo_freq = [5,15];
             skip_seconds = 20; % the beginning and end can be wonky
-            skip_frames = 1 + round(skip_seconds*framerate);
-            [~,hemo_tform] = HemoCorrectLocal(Un, ...
-                Vn_th(:,skip_frames:end-skip_frames-1), ...
-                Vh_Un(:,skip_frames:end-skip_frames-1), ...
-                framerate,hemo_freq,3);
-            
-            zVh_Un = bsxfun(@minus, Vh_Un, nanmean(Vh_Un,2));
-            Vn_hemo = transpose(Vn_th' - zVh_Un'*hemo_tform'); 
-            
+            skip_frames = round(skip_seconds*framerate);
+            [~,hemo_tform] = HemoCorrectLocal(Un,Vn_th(:,,Vh_Un(,framerate,hemo_freq,3);
             save(hemo_tform_fn,'hemo_tform');
             % Close the figures (hacky - but function isn't mine)
             close(gcf)
             close(gcf)
+            %%%%%%%% TESTING
+            error('testing')
+            
+            
+            hemo_freq = [5,15];
+            [~,hemo_tform] = HemoCorrectLocal(Un,Vn_th(:,50:end-50),Vh_Un(:,50:end-50),framerate,hemo_freq,3);
+            zVh_Un = bsxfun(@minus, Vh_Un, nanmean(Vh_Un,2));
+            Vn_hemo = transpose(Vn_th' - zVh_Un'*hemo_tform');
+            
+            
+            hemo_freq = [5,10];
+            
+            % now filter for heart-frequency
+            [b, a] = butter(2,hemo_freq/(framerate/2));
+            fV = filter(b,a,Vn_th');
+            fVaux = filter(b,a,Vh_Un');
+            
+            % get scaling factor for each component            
+            s = nan(size(fV,2),1);
+            for i = 1:size(fV,2)
+               s(i) = fVaux(50:end-50,i)\fV(50:end-50,i); 
+            end
+            
+            Vn_hemo = Vn_th - s.*Vh_Un;
+            
+            %%%%%%%%%%%%
         end
         
         if verbose; disp('Filtering...'); end

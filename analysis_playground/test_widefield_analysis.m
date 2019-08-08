@@ -1109,27 +1109,27 @@ end
 
 %% Get STD of pixels (for use in getting normalized xcorr)
 
-px_std_sq = zeros(size(U,1),size(U,2));
+px_std_sq = zeros(size(Udf,1),size(Udf,2));
 
-px_mean = svdFrameReconstruct(U,nanmean(fV,2));
+px_mean = svdFrameReconstruct(Udf,nanmean(fVdf,2));
 
 % Do this in chunks of 1000 frames
 % Don't use the first n frames (can be weird)
 skip_start_frames = 35*10;
-n_frames = size(fV,2) - skip_start_frames + 1;
+n_frames = size(fVdf,2) - skip_start_frames + 1;
 chunk_size = 1000;
-frame_chunks = unique([skip_start_frames:chunk_size:size(fV,2),size(fV,2)]);
+frame_chunks = unique([skip_start_frames:chunk_size:size(fVdf,2),size(fVdf,2)]);
 
 for curr_chunk = 1:length(frame_chunks)-1
-    curr_im = svdFrameReconstruct(U,fV(:,frame_chunks(curr_chunk): ...
+    curr_im = svdFrameReconstruct(Udf,fVdf(:,frame_chunks(curr_chunk): ...
         frame_chunks(curr_chunk+1)));
     px_std_sq = px_std_sq + sum((bsxfun(@minus,curr_im,px_mean).^2./n_frames),3);
     disp(curr_chunk/(length(frame_chunks)-1));
 end
 px_std = sqrt(px_std_sq);
 
-% don't know if this is legit
-px_10prct = svdFrameReconstruct(U,prctile(fV(:,skip_start_frames:end),10,2));
+
+
 
 
 %% Get average fluorescence to Signals event

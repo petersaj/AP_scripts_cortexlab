@@ -2221,7 +2221,7 @@ xlabel('Frequency');
 ylabel('Log Power');
 
 % Notch filter
-freqs = [3 5];
+freqs = [7 13];
 for ff = 1:length(freqs)
     f = fdesign.notch('N,F0,Q',2,freqs(ff),10,Fs);
     h = design(f);

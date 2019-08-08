@@ -5,7 +5,7 @@ function AP_prepare_phy(animal,day,site,car,staging)
 % Sets up params file
 % Loads raw and kilosorted data to local file
 % car - if true, does common-average referencing (default false)
-% staging - puts in staging folder (true by default)
+% staging - puts in staging folder (false by default)
 
 %% Set defaults
 
@@ -18,7 +18,7 @@ if ~exist('car','var') || isempty(car)
 end
 
 if ~exist('staging','var') || isempty(staging)
-    staging = true;
+    staging = false;
 end
 
 %% Get parts of raw filename

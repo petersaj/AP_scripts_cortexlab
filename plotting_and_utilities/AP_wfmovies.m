@@ -100,7 +100,7 @@ end
 trace_time_surround = 1; % in seconds
 if handles.plot_trace
     if size(trace,2) < 3
-        handles.trace_plot = plot(handles.trace_axis,trace_t,trace);
+        handles.trace_plot = plot(handles.trace_axis,trace_t,trace,'linewidth',3);
         handles.trace_xlim = [handles.t-trace_time_surround,handles.t+trace_time_surround];
         handles.trace_tmark = line([handles.t,handles.t],ylim,'color','k');
     else
