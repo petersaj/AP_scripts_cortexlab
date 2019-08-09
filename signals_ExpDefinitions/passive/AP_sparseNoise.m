@@ -1,12 +1,12 @@
 function AP_sparseNoise(t,events,parameters,visStim,inputs,outputs,audio)
-% AP_sparseNoise: sparse noise for 10 minutes
-% (adapted from sparseNoiseAsync_NS2)
+% AP_sparseNoise: sparse noise for 1 sec, n trials = n seconds
+% (same as / modified sparseNoiseAsync_NS2)
 
 %% Parameters
-sparseNoiseTime = 10;
+sparseNoiseTime = 1;
 stimPersistence = 1/6;
 stimulusRate = 0.12;
-samplerFs = 60;
+samplerFs = 20; % slow enough too be detected during flicker screen
 
 nAz = 10;
 nAl = 36;

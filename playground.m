@@ -1,4 +1,5 @@
 %% post to alyx
+% this is all obsolete - old code
 
 onLoad; % initializes missing-http
 
@@ -10,9 +11,18 @@ use_time = datestr(now,'HH:MM');
 clear d
 d.user = 'andy';
 
-animals = {'AP030','AP031'};
+animals = {'AP040','AP041'};
 
-water = [1.2,1.2];
+weight = [23.3,23.4];
+for curr_animal = 1:length(animals)
+    d.subject = animals{curr_animal};
+    d.weight = weight(curr_animal);
+    d.date_time = sprintf('%sT%s',use_date,use_time);
+    newWeight = alyx.postData(myAlyx, 'weighings', d);
+end
+
+
+water = [1.5,1.5];
 for curr_animal = 1:length(animals)
     d.subject = animals{curr_animal};
     d.water_administered = water(curr_animal);
@@ -20,13 +30,6 @@ for curr_animal = 1:length(animals)
     newWater = alyx.postData(myAlyx, 'water-administrations', d);
 end
 
-weight = [26.7,26.3];
-for curr_animal = 1:length(animals)
-    d.subject = animals{curr_animal};
-    d.weight = weight(curr_animal);
-    d.date_time = sprintf('%sT%s',use_date,use_time);
-    newWeight = alyx.postData(myAlyx, 'weighings', d);
-end
 
 
 %% Hemidiff in V (V-V_mirror) - keep for future reference

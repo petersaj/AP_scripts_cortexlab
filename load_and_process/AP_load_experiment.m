@@ -91,7 +91,7 @@ if timeline_exists
     photodiode_idx = strcmp({Timeline.hw.inputs.name}, 'photoDiode');
     % (define stim screen on from photodiode - sometimes sample-length
     % offset maybe because of backlight onset delay)
-    stimScreen_on = Timeline.rawDAQData(:,photodiode_idx) > 0.15;
+    stimScreen_on = Timeline.rawDAQData(:,photodiode_idx) > 0.2;
     stimScreen_on_t = Timeline.rawDAQTimestamps(stimScreen_on);
     photodiode_thresh = 2; % old: max(Timeline.rawDAQData(:,photodiode_idx))/2
     photodiode_trace = Timeline.rawDAQData(stimScreen_on,photodiode_idx) > photodiode_thresh;

@@ -525,9 +525,6 @@ surround_samplerate = 1/(framerate*1);
 surround_time = surround_window(1):surround_samplerate:surround_window(2);
 baseline_surround_time = baseline_window(1):surround_samplerate:baseline_window(2);
 
-% Gui for plotting responses
-pixelTuningCurveViewerSVD(Udf,fVdf,frame_t,stimOn_times,stimIDs,surround_window);
-
 % Average (time course) responses
 conditions = unique(stimIDs);
 im_stim = nan(size(U,1),size(U,2),length(surround_time),length(conditions));
@@ -551,6 +548,9 @@ end
 
 AP_image_scroll(im_stim,surround_time);
 axis image;
+
+% Gui for plotting responses
+pixelTuningCurveViewerSVD(Udf,fVdf,frame_t,stimOn_times,stimIDs,surround_window);
 
 % Get average responses
 avg_window = [0.05,0.2];
