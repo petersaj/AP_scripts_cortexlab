@@ -1,56 +1,78 @@
 function AP_lcrGratingPassive(t, events, parameters, visStim, inputs, outputs, audio)
 % Present static grating (as in choiceworld) passively left/center/right 100% contrast
-% NOTE: SET ONLY ONE TRIAL IN MC, RUNS THROUGH ALL STIM
+% Pseudorandom (each stim presented once for each trial)
+% Number of trials = number of repeats
+
+% this doesn't work
+% why the actual fuck doesn't this work and why is it so hard
+
 
 %% Set up stimuli
 
-staticParameters.numRepeats = 100;
-staticParameters.stimTime = 0.5;
-staticParameters.minITI = 2;
-staticParameters.maxITI = 3;
-staticParameters.stepITI = 0.1;
-staticParameters.bufferTime = 10; % time to delay experiment start and end to wait for timeline etc
+stim_time = 0.5;
+min_iti = 2;
+max_iti = 3;
+step_iti = 0.1;
 
 % Visual stim
 sigma = [20,20];
 azimuths = [-90,0,90];
 contrasts = [1];
-vis_params = mat2cell(CombVec(azimuths,contrasts),2,ones(1,length(azimuths)*length(contrasts)));
+vis_params = CombVec(azimuths,contrasts);
 spatialFreq = 1/15;
 
 
-%% Stim times
+%% Set trial data
 
-% Visual
-visual_stim_uniform = repmat(vis_params,staticParameters.numRepeats,1);
-visual_stim_shuffle = visual_stim_uniform(randperm(numel(visual_stim_uniform)));
+% Signals garbage: things can't happen at the exact same time as newTrial
+new_trial_set = events.newTrial.delay(0);
 
-visual_itiTimes = randsample(staticParameters.minITI:staticParameters.stepITI:staticParameters.maxITI,length(visual_stim_shuffle),true);
-visual_startTimes = staticParameters.bufferTime + cumsum(visual_itiTimes + staticParameters.stimTime);
+% Start clock for trial
+trial_t = t - t.at(new_trial_set);
+
+% Set the stim order and ITIs for this trial
+stim_order = new_trial_set.map(@(x) randperm(size(vis_params,2)));
+stim_itis = new_trial_set.map(@(x) randsample(min_iti:step_iti:max_iti,size(vis_params,2),true));
+
+% Get the stim on times and the trial end time
+stimOn_times = stim_itis.map(@(x) [0,cumsum(x(1:end-1) + stim_time)]);
+trial_end_time = stim_itis.map(@(x) sum(x) + stim_time);
 
 
 %% Present stim
 
-% Visual
-visualOnset = t.map(@(t) sum(t > visual_startTimes)).skipRepeats;
+% % Visual
+
+stim_num = trial_t.ge(stimOn_times).sum.skipRepeats;
+stim_id = map2(stim_order,stim_num,@(stim_order,stim_num) stim_order(stim_num));
+stim_azimuth = stim_id.map(@(x) vis_params(1,x));
+stim_contrast = stim_id.map(@(x) vis_params(2,x));
 
 stim = vis.grating(t, 'square', 'gaussian');
 stim.spatialFreq = spatialFreq;
 stim.sigma = sigma;
-stim.phase = 2*pi*events.newTrial.map(@(v)rand);
+stim.phase = 2*pi*events.newTrial.map(@(x)rand);
 
-stim.azimuth = visualOnset.at(visualOnset).map(@(x) visual_stim_shuffle{x}(1));
-stim.contrast = visualOnset.at(visualOnset).map(@(x) visual_stim_shuffle{x}(2));
+stim.azimuth = stim_azimuth;
+stim.contrast = stim_contrast;
 
-stim.show = visualOnset.to(visualOnset.delay(staticParameters.stimTime));
+stim.show = stim_id.to(stim_id.delay(stim_time));
 visStim.stim = stim;
 
-endTrial = t.ge(staticParameters.bufferTime + visual_startTimes(end)).skipRepeats;
+endTrial = events.newTrial.setTrigger(trial_t.gt(trial_end_time));
 
 %% Events
 
-events.visualOnset = visualOnset;
-events.visualParams = events.expStart.map(@(x) visual_stim_shuffle);
+% events.trial_t = trial_t;
+% events.stim_order = stim_order;
+% events.stim_itis = stim_itis;
+% events.trial_end_time = trial_end_time;
+
+events.stim_num = stim_num;
+events.stim_id = stim_id;
+
+events.stim_azimuth = stim_azimuth;
+events.stim_contrast = stim_contrast;
 
 events.endTrial = endTrial;
 
