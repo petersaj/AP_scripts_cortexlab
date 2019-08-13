@@ -3,9 +3,6 @@ function AP_lcrGratingPassive(t, events, parameters, visStim, inputs, outputs, a
 % Pseudorandom (each stim presented once for each trial)
 % Number of trials = number of repeats
 
-% this doesn't work
-% why the actual fuck doesn't this work and why is it so hard
-
 
 %% Set up stimuli
 
@@ -45,16 +42,16 @@ trial_end_time = stim_itis.map(@(x) sum(x) + stim_time);
 
 stim_num = trial_t.ge(stimOn_times).sum.skipRepeats;
 stim_id = map2(stim_order,stim_num,@(stim_order,stim_num) stim_order(stim_num));
-stim_azimuth = stim_id.map(@(x) vis_params(1,x));
-stim_contrast = stim_id.map(@(x) vis_params(2,x));
+stimAzimuth = stim_id.map(@(x) vis_params(1,x));
+stimContrast = stim_id.map(@(x) vis_params(2,x));
 
 stim = vis.grating(t, 'square', 'gaussian');
 stim.spatialFreq = spatialFreq;
 stim.sigma = sigma;
 stim.phase = 2*pi*events.newTrial.map(@(x)rand);
 
-stim.azimuth = stim_azimuth;
-stim.contrast = stim_contrast;
+stim.azimuth = stimAzimuth;
+stim.contrast = stimContrast;
 
 stim.show = stim_id.to(stim_id.delay(stim_time));
 visStim.stim = stim;
@@ -63,16 +60,8 @@ endTrial = events.newTrial.setTrigger(trial_t.gt(trial_end_time));
 
 %% Events
 
-% events.trial_t = trial_t;
-% events.stim_order = stim_order;
-% events.stim_itis = stim_itis;
-% events.trial_end_time = trial_end_time;
-
-events.stim_num = stim_num;
-events.stim_id = stim_id;
-
-events.stim_azimuth = stim_azimuth;
-events.stim_contrast = stim_contrast;
+events.stimAzimuth = stimAzimuth;
+events.stimContrast = stimContrast;
 
 events.endTrial = endTrial;
 
