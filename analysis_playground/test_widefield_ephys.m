@@ -2851,7 +2851,7 @@ time_bin_centers = time_bins(1:end-1) + diff(time_bins)/2;
 
 % (to group multiunit by depth within striatum)
 %n_depths = round(diff(str_depth)/500);
-n_depths = 4;
+n_depths = 6;
 depth_group_edges = round(linspace(str_depth(1),str_depth(2),n_depths+1));
 [depth_group_n,depth_group] = histc(spike_depths,depth_group_edges);
 depth_groups_used = unique(depth_group);

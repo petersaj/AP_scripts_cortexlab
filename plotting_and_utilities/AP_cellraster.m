@@ -310,12 +310,21 @@ end
 % Plot raster
 if length(gui_data.curr_unit) == 1
     % (single unit mode)
-    [raster_y,raster_x] = find(curr_raster);
+    
+    % (sort raster by group)
+    [~,trial_sort] = sort(curr_group);
+    curr_raster_sorted = curr_raster(trial_sort,:);
+    
+    % (plot raster matrix as x,y)
+    [raster_y,raster_x] = find(curr_raster_sorted);
     set(gui_data.raster_dots,'XData',gui_data.t(raster_x),'YData',raster_y);
     xlim(get(gui_data.raster_dots,'Parent'),[gui_data.t_bins(1),gui_data.t_bins(end)]);
     ylim(get(gui_data.raster_dots,'Parent'),[0,size(gui_data.t_peri_event,1)]);
+    
     % (set dot color by group)
-    [~,~,row_group] = unique(gui_data.align_groups{gui_data.curr_align}(:,gui_data.curr_group),'sorted');
+    % (this was for unsorted trials)
+%     [~,~,row_group] = unique(curr_group,'sorted');
+    [~,~,row_group] = unique(curr_group(trial_sort),'sorted');
     psth_colors = get(gui_data.psth_lines,'color');
     if iscell(psth_colors); psth_colors = cell2mat(psth_colors); end
     raster_dot_color = psth_colors(row_group(raster_y),:);
@@ -323,7 +332,13 @@ if length(gui_data.curr_unit) == 1
     
 elseif length(gui_data.curr_unit) > 1
     % (multiunit mode)
-    raster_heatmap = imgaussfilt(curr_raster,[5,10]);
+    
+     % (sort raster by group)
+    [~,trial_sort] = sort(curr_group);
+    curr_raster_sorted = curr_raster(trial_sort,:);
+    
+    % (plot raster matrix as smoothed heatmap)
+    raster_heatmap = imgaussfilt(curr_raster_sorted,[5,10]);
     set(gui_data.raster_image,'XData',gui_data.t,'YData', ...
         1:size(gui_data.t_peri_event,1),'CData',raster_heatmap);
     caxis(get(gui_data.raster_image,'Parent'),prctile(raster_heatmap(:),[0.05,99.5]));

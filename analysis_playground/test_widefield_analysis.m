@@ -519,7 +519,7 @@ end
 
 % Set options
 surround_window = [-0.5,5];
-baseline_window = [-0.5,0];
+baseline_window = [-0.1,0];
 
 surround_samplerate = 1/(framerate*1);
 surround_time = surround_window(1):surround_samplerate:surround_window(2);

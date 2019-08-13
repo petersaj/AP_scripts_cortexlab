@@ -330,14 +330,13 @@ if block_exists
             signals_events.visualOnsetValues(end-length(stimOn_times)+1:end))','rows');
         conditions_params = signals_events.visualParamsValues(:,conditions_idx);
         
-    elseif strcmp(expDef,'DS_choiceWorldStimPassive')
-        % get stim times - first stim photodiode is messed up so throw it out
+    elseif strcmp(expDef,'AP_lcrGratingPassive')
+        % Get stim times (first flip is initializing gray to black)
         stimOn_times = photodiode_flip_times(2:2:end);
         
-        % sanity check: times between stim on times in signals
-        signals_photodiode_iti_diff = diff(signals_events.stimOnTimes(2:end)) - diff(stimOn_times)';
-        if any(signals_photodiode_iti_diff > 0.1)
-            error('mismatching signals/photodiode stim ITIs')
+        % Check number of stim matches photodiode
+        if length(signals_events.stimAzimuthValues) ~= length(stimOn_times)
+            error('Different stim number signals and photodiode')
         end
         
         % Get stim ID and conditions
@@ -348,7 +347,7 @@ if block_exists
         n_conditions = size(conditions,1);
         
         trial_conditions = ...
-            [signals_events.stimContrastValues(2:end); signals_events.stimAzimuthValues(2:end)]';
+            [signals_events.stimContrastValues; signals_events.stimAzimuthValues]';
         [~,stimIDs] = ismember(trial_conditions,conditions,'rows');
         
     elseif strcmp(expDef,'AP_localize_choiceWorldStimPassive')
