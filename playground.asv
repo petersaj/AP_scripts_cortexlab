@@ -10615,16 +10615,8 @@ end
 
 avg_stim = grpstats(fluor_allcat_deconv(:,:,1),trial_stim_allcat);
 
-stim_px = nan(size(U_master,1),size(U_master,2),length(t),3);
-for curr_stim = 1:3
-   curr_v = permute(nanmean(fluor_allcat(trial_stim_allcat == curr_stim,:,:),1),[3,2,1]);
-   curr_px = svdFrameReconstruct(U_master(:,:,1:n_vs),curr_v);
-   stim_px(:,:,:,curr_stim) = curr_px;
-end
+stim_px = size(U_master,1nan(200,length(t),3)
 
-AP_image_scroll(stim_px,t);
-axis image;
-AP_reference_outline('ccf_aligned','k');
 
 
 
