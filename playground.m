@@ -10611,7 +10611,7 @@ for curr_animal = 1:length(animals)
 end
 
 
-%% Average full screen flicker naive animals
+%% Average full screen flicker
 
 avg_stim = grpstats(fluor_allcat_deconv(:,:,1),trial_stim_allcat);
 

@@ -74,6 +74,9 @@ missNoiseSamples = missNoiseAmplitude*events.expStart.map(@(x) ...
 quiescThreshold = 1;
 wheelGain = 2;
 
+% Key press for manual reward
+rewardKeyPressed = inputs.keyboard.strcmp('w');
+
 %% Initialize trial data
 
 trialDataInit = events.expStart.mapn( ...
@@ -125,7 +128,7 @@ trialContrast = trialData.trialContrast;
 % Give reward on hit
 % NOTE: there is a 10ms delay for water output, because otherwise water and
 % stim output compete and stim is delayed
-water = at(rewardSize,trialData.hit.delay(0.01));  
+water = at(rewardSize,merge(rewardKeyPressed,trialData.hit.delay(0.01)));  
 outputs.reward = water;
 totalWater = water.scan(@plus,0);
 

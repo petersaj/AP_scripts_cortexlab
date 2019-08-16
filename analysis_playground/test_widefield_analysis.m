@@ -518,7 +518,7 @@ end
 %% Align widefield to events
 
 % Set options
-surround_window = [-0.5,5];
+surround_window = [-0.5,3];
 baseline_window = [-0.1,0];
 
 surround_samplerate = 1/(framerate*1);
@@ -526,6 +526,8 @@ surround_time = surround_window(1):surround_samplerate:surround_window(2);
 baseline_surround_time = baseline_window(1):surround_samplerate:baseline_window(2);
 
 % Average (time course) responses
+use_vs = 1:2000;
+
 conditions = unique(stimIDs);
 im_stim = nan(size(U,1),size(U,2),length(surround_time),length(conditions));
 for curr_condition_idx = 1:length(conditions)
@@ -543,7 +545,8 @@ for curr_condition_idx = 1:length(conditions)
 
     peri_stim_v_baseline_corrected = peri_stim_v - baseline_v;
     
-    im_stim(:,:,:,curr_condition_idx) = svdFrameReconstruct(Udf,peri_stim_v_baseline_corrected);   
+    im_stim(:,:,:,curr_condition_idx) = svdFrameReconstruct(Udf(:,:,use_vs), ...
+        peri_stim_v_baseline_corrected(use_vs,:));   
 end
 
 AP_image_scroll(im_stim,surround_time);
