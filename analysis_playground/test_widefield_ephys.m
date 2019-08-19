@@ -2851,7 +2851,7 @@ time_bin_centers = time_bins(1:end-1) + diff(time_bins)/2;
 
 % (to group multiunit by depth within striatum)
 %n_depths = round(diff(str_depth)/500);
-n_depths = 6;
+n_depths = 4;
 depth_group_edges = round(linspace(str_depth(1),str_depth(2),n_depths+1));
 [depth_group_n,depth_group] = histc(spike_depths,depth_group_edges);
 depth_groups_used = unique(depth_group);
@@ -2954,7 +2954,7 @@ ylabel(c2,'Depth (\mum)');
 colormap(c2,jet);
 set(c2,'YDir','reverse');
 set(c2,'YTick',linspace(0,1,n_depths));
-set(c2,'YTickLabel',linspace(depth_group_edges(1),depth_group_edges(end),n_depths));
+set(c2,'YTickLabel',round(linspace(depth_group_edges(1),depth_group_edges(end),n_depths)));
  
 %% Regression from fluor to spikes (AP_regresskernel) MUA depth - RESAMPLE, ZS TEMPLATES
 

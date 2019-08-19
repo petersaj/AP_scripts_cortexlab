@@ -526,7 +526,7 @@ surround_time = surround_window(1):surround_samplerate:surround_window(2);
 baseline_surround_time = baseline_window(1):surround_samplerate:baseline_window(2);
 
 % Average (time course) responses
-use_vs = 1:2000;
+use_vs = 1:size(U,3);
 
 conditions = unique(stimIDs);
 im_stim = nan(size(U,1),size(U,2),length(surround_time),length(conditions));
@@ -540,17 +540,19 @@ for curr_condition_idx = 1:length(conditions)
     stim_surround_times = bsxfun(@plus, use_stimOn_times(:), surround_time);
     stim_baseline_surround_times = bsxfun(@plus, use_stimOn_times(:), baseline_surround_time);
     
-    peri_stim_v = permute(mean(interp1(frame_t,fVdf_deconv',stim_surround_times),1),[3,2,1]);
-    baseline_v = nanmean(permute(mean(interp1(frame_t,fVdf_deconv',stim_baseline_surround_times),1),[3,2,1]),2);
+    peri_stim_v = permute(interp1(frame_t,fVdf',stim_surround_times),[3,2,1]);
+    baseline_v = permute(nanmean(interp1(frame_t,fVdf',stim_baseline_surround_times),2),[3,2,1]);
 
-    peri_stim_v_baseline_corrected = peri_stim_v - baseline_v;
+    stim_v_mean = nanmean(peri_stim_v - baseline_v,3);
     
     im_stim(:,:,:,curr_condition_idx) = svdFrameReconstruct(Udf(:,:,use_vs), ...
-        peri_stim_v_baseline_corrected(use_vs,:));   
+        stim_v_mean(use_vs,:));   
 end
 
 AP_image_scroll(im_stim,surround_time);
 axis image;
+caxis([-max(abs(caxis)),max(abs(caxis))]);
+colormap(brewermap([],'*RdBu'));
 
 % Gui for plotting responses
 pixelTuningCurveViewerSVD(Udf,fVdf,frame_t,stimOn_times,stimIDs,surround_window);
@@ -1131,6 +1133,9 @@ for curr_chunk = 1:length(frame_chunks)-1
 end
 px_std = sqrt(px_std_sq);
 
+figure;imagesc(px_std)
+axis image;
+colormap(gray);
 
 
 

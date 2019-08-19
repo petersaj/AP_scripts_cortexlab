@@ -8,17 +8,28 @@ stimPersistence = 1/6;
 stimulusRate = 0.12;
 samplerFs = 20; % slow enough too be detected during flicker screen
 
-nAz = 10;
-nAl = 36;
+nAltitude = 10;
+nAzimuth = 36;
 
 %% Stim times
-sampler = skipRepeats(floor(t*samplerFs)); % to run a command at a certain sampling rate
+
+% Set timer for end of "trial"
+trial_end = events.newTrial.delay(sparseNoiseTime);
+
+% High at timer start (when 'start' pressed, before expStart)
+t_start = skipRepeats(t > 0);
+
+% Stimulus timer from trial start to stops
+trial_running = events.newTrial.delay(0).to(events.newTrial.delay(sparseNoiseTime));
+
+sampler = keepWhen(skipRepeats(floor(t*samplerFs)),trial_running); % to run a command at a certain sampling rate
 
 stimuliTracker = sampler.scan(...
     @sparseNoiseTrackBW_internal, ...
-    zeros(nAz, nAl), 'pars', stimPersistence, stimulusRate, samplerFs);
+    zeros(nAltitude, nAzimuth), 'pars', stimPersistence, stimulusRate, samplerFs);
 
-stimuliOn = skipRepeats((stimuliTracker>0)*2-1);
+% Default to black (-1) on timer start, display stimulus on expStart
+stimuliOn = merge(at(-1.*ones(nAltitude,nAzimuth),t_start),skipRepeats((stimuliTracker>0)*2-1));
 
 %% Generate stimuli
 myNoise = vis.checker6(t);
@@ -27,8 +38,7 @@ myNoise.pattern = stimuliOn;
 visStim.myNoise = myNoise;
 
 %% End trial after alloted time
-trialEnd = events.newTrial.delay(sparseNoiseTime);
-events.endTrial = trialEnd;
+events.endTrial = trial_end;
 
 %% Save events
 events.stimuliOn = stimuliOn;
@@ -38,7 +48,7 @@ events.sampler = sampler;
 end
 
 
-% Function for creating stim change times
+% Function for creating stimulus
 function out = sparseNoiseTrackBW_internal(state, ~, stimPersistence, stimulusRate, samplerFs)
 out = max(abs(state)-1/samplerFs, 0).*sign(state); % subtract the time since last frame (but don't go negative)
 newlyOnW = rand(size(state))<stimulusRate/samplerFs/2; % these squares will turn on next
