@@ -113,21 +113,16 @@ if task_dataset
         wheel_velocity_allcat_move(i,:,:) = circshift(wheel_velocity_allcat_move(i,:,:),-move_idx(i)+leeway_samples,2);
     end 
    
-elseif isfield(D_allcat,'stimulus')
+elseif isfield(D_allcat,'stimulus')  
     
-    % Hard-code stimulus IDs for now
     if length(unique(D_allcat.stimulus)) == 3
+        % Hard-code kalatsky
         trial_stim_allcat = D_allcat.stimulus;
-    elseif length(unique(D_allcat.stimulus)) == 4
-        stimcontrasts = unique([0.125,1].*[1;-1]);
-        trial_contrastside_allcat = stimcontrasts(D_allcat.stimulus);
-    elseif length(unique(D_allcat.stimulus)) == 10
-        stimcontrasts = unique([0.06,0.125,0.25,0.5,1].*[1;-1]);
-        trial_contrastside_allcat = stimcontrasts(D_allcat.stimulus);
     else
-        error('Undefined stimuli')
+        % Passive choiceworld uses stimID = side*contrast
+        trial_contrastside_allcat = D_allcat.stimulus;
     end
-    
+
 end
 
 %% Cortical fluorescence

@@ -82,7 +82,7 @@ caxis(caxis/2)
 title('SVD');
 
 % Check with user that it looks good, then load and process all frames
-user_check =input('Get movement on all frames? (y/n) ','s');
+user_check = input('Get movement on all frames? (y/n) ','s');
 close(f);
 
 if strcmp(lower(user_check),'y')

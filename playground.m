@@ -1,36 +1,3 @@
-%% post to alyx
-% this is all obsolete - old code
-
-onLoad; % initializes missing-http
-
-myAlyx = alyx.getToken([], 'andy', 'xpr1mnt');
-
-use_date = datestr(now,'yyyy-mm-dd');
-use_time = datestr(now,'HH:MM');
-
-clear d
-d.user = 'andy';
-
-animals = {'AP040','AP041'};
-
-weight = [23.3,23.4];
-for curr_animal = 1:length(animals)
-    d.subject = animals{curr_animal};
-    d.weight = weight(curr_animal);
-    d.date_time = sprintf('%sT%s',use_date,use_time);
-    newWeight = alyx.postData(myAlyx, 'weighings', d);
-end
-
-
-water = [1.5,1.5];
-for curr_animal = 1:length(animals)
-    d.subject = animals{curr_animal};
-    d.water_administered = water(curr_animal);
-    d.date_time = sprintf('%sT%s',use_date,use_time);
-    newWater = alyx.postData(myAlyx, 'water-administrations', d);
-end
-
-
 
 %% Hemidiff in V (V-V_mirror) - keep for future reference
 % (PUT THIS INTO A FUNCTION)
@@ -10613,8 +10580,6 @@ end
 
 %% Average full screen flicker
 
-avg_stim = grpstats(fluor_allcat_deconv(:,:,1),trial_stim_allcat);
-
 stim_px = nan(size(U_master,1),size(U_master,2),length(t),3);
 for curr_stim = 1:3
    curr_v = permute(nanmean(fluor_allcat(trial_stim_allcat == curr_stim,:,:),1),[3,2,1]);
@@ -10625,8 +10590,48 @@ end
 AP_image_scroll(stim_px,t);
 axis image;
 AP_reference_outline('ccf_aligned','k');
+caxis([-max(abs(caxis)),max(abs(caxis))]);
+colormap(brewermap([],'*RdBu'));
+
+%% Average passive choiceworld 
+
+% Get trials with movement during stim to exclude
+quiescent_trials = ~any(abs(wheel_allcat(:,t >= 0 & t <= 0.5)) > 0.02,2);
+
+use_stim = [-1;1];
+
+stim_px = nan(size(U_master,1),size(U_master,2),length(t),length(use_stim));
+for curr_stim = 1:length(use_stim)
+   curr_v = permute(nanmean(fluor_allcat(quiescent_trials & ...
+       trial_contrastside_allcat == use_stim(curr_stim),:,:),1),[3,2,1]);
+   curr_px = svdFrameReconstruct(U_master(:,:,1:n_vs),curr_v);
+   stim_px(:,:,:,curr_stim) = curr_px;
+end
+
+AP_image_scroll(stim_px,t);
+axis image;
+AP_reference_outline('ccf_aligned','k');
+caxis([-max(abs(caxis)),max(abs(caxis))]);
+colormap(brewermap([],'*RdBu'));
 
 
+%% Align vasculature for animal
+
+animal = 'AP040';
+
+protocol = 'vanillaChoiceworld';
+experiments = AP_find_experiments(animal,protocol);
+experiments(~([experiments.imaging])) = [];
+
+avg_im_days = cell(size(experiments));
+for curr_day = 1:length(experiments)
+    day = experiments(curr_day).day;
+    [img_path,img_exists] = AP_cortexlab_filename(animal,day,[],'imaging');
+    avg_im = readNPY([img_path filesep 'meanImage_purple.npy']);
+    avg_im_days{curr_day} = avg_im;
+end
+
+AP_align_widefield(avg_im_days,animal,{experiments.day},'new_days');
 
 
 

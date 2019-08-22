@@ -323,12 +323,13 @@ if block_exists
         
         stimOn_times = stimScreen_on_t(photodiode_flip(stimOn_idx))';
         
-        % assume the times correspond to the last n values (this is because
-        % sometimes if the buffer time wasn't enough, the first stimuli
-        % weren't shown or weren't shown completely)
-        [conditions,conditions_idx,stimIDs] = unique(signals_events.visualParamsValues(:, ...
-            signals_events.visualOnsetValues(end-length(stimOn_times)+1:end))','rows');
-        conditions_params = signals_events.visualParamsValues(:,conditions_idx);
+        % Set stimID as the contrast*side
+        % (use last n values - sometimes short buffer times means some
+        % stimuli in the beginning could be missed)
+        use_signals_stim = size(signals_events.visualParamsValues,2)-length(stimOn_times)+1: ...
+            size(signals_events.visualParamsValues,2);
+        stimIDs = sign(signals_events.visualParamsValues(1,use_signals_stim))'.* ...
+            signals_events.visualParamsValues(2,use_signals_stim)';
         
     elseif strcmp(expDef,'AP_lcrGratingPassive')
         % Get stim times (first flip is initializing gray to black)
@@ -374,13 +375,6 @@ if block_exists
         % Get rid of the first one for now
         trial_conditions = trial_conditions(2:end);
         stimIDs = stimIDs(2:end);
-        
-    elseif strcmp(expDef,'sparseNoiseAsync_NS2')
-        if length(photodiode_flip_times) - length(block.stimWindowRenderTimes) ~= -1
-            error('Maybe skipped frames?');
-        end
-        
-        stimOn_times = photodiode_flip_times;
         
     else
         warning(['Signals protocol with no analysis script:' expDef]);
@@ -822,8 +816,8 @@ if ephys_exists && load_parts.ephys
     % Get sync points for alignment
  
     % Get experiment index by finding numbered folders
-    protocols = AP_list_experiments(animal,day);
-    experiment_idx = experiment == [protocols.experiment];
+    protocols_list = AP_list_experiments(animal,day);
+    experiment_idx = experiment == [protocols_list.experiment];
  
     if exist('flipper_flip_times_timeline','var') && length(sync) >= flipper_sync_idx
         % (if flipper, use that)

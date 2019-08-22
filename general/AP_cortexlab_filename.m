@@ -206,6 +206,12 @@ switch file
         filepath = [server1 filesep 'Data\EyeCamera'];
         filename = [filepath filesep animal filesep day filesep experiment ...
             filesep 'facecam_movement.mat'];
+        % CHECK ANIMAL FOLDER IF IT DOESN'T EXIST
+        if ~exist(filename,'file')
+            filepath = [server1 filesep 'Data' filesep 'Subjects'];
+            filename = [filepath filesep animal filesep day filesep experiment ...
+            filesep 'facecam_movement.mat'];
+        end
         % CHECK SERVER2 IF IT DOESN'T EXIST
         if ~exist(filename,'file')
             filepath = [server2 filesep 'Subjects'];

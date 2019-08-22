@@ -540,8 +540,8 @@ for curr_condition_idx = 1:length(conditions)
     stim_surround_times = bsxfun(@plus, use_stimOn_times(:), surround_time);
     stim_baseline_surround_times = bsxfun(@plus, use_stimOn_times(:), baseline_surround_time);
     
-    peri_stim_v = permute(interp1(frame_t,fVdf',stim_surround_times),[3,2,1]);
-    baseline_v = permute(nanmean(interp1(frame_t,fVdf',stim_baseline_surround_times),2),[3,2,1]);
+    peri_stim_v = permute(interp1(frame_t,fVdf_deconv',stim_surround_times),[3,2,1]);
+    baseline_v = permute(nanmean(interp1(frame_t,fVdf_deconv',stim_baseline_surround_times),2),[3,2,1]);
 
     stim_v_mean = nanmean(peri_stim_v - baseline_v,3);
     

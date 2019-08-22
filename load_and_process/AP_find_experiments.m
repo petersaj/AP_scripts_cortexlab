@@ -2,34 +2,56 @@ function experiments = AP_find_experiments(animal,protocol)
 % experiments = AP_find_experiments(animal,protocol)
 %
 % Find all experiments from an animal with a given protocol name
-% (check zserver and zubjects)
+% 
+% Note: file locations changed many times so this is necessarily totally
+% disorganized and ridiculous
 
 % If no protocol specified, return all experiments
 if ~exist('protocol','var') || isempty(protocol)
     protocol = [];
 end
 
-% (look in server 1)
+% Initialize pathname, add to it with each server location
+days_combined = {};
+days_pathnames_combined = {};
+
+% (look in server 1 expInfo - old)
 expInfo_path = ['\\zserver.cortexlab.net\Data\expInfo\' animal];
 expInfo_dir = dir(expInfo_path);
 day_paths = cellfun(@(x) ~isempty(regexp(x,'\d\d\d\d-\d\d-\d\d')),{expInfo_dir.name}) &...
     [expInfo_dir.isdir];
-days_Data = {expInfo_dir(day_paths).name};
-days_Data_pathname = cellfun(@(x) [expInfo_path filesep x],days_Data,'uni',false);
+curr_days = {expInfo_dir(day_paths).name};
+curr_days_pathname = cellfun(@(x) [expInfo_path filesep x],curr_days,'uni',false);
+
+days_combined = [days_combined,curr_days];
+days_pathnames_combined = [days_pathnames_combined,curr_days_pathname];
+
+% (look in server 1 subjects - new)
+expInfo_path = ['\\zserver.cortexlab.net\Data\Subjects\' animal];
+expInfo_dir = dir(expInfo_path);
+day_paths = cellfun(@(x) ~isempty(regexp(x,'\d\d\d\d-\d\d-\d\d')),{expInfo_dir.name}) &...
+    [expInfo_dir.isdir];
+curr_days = {expInfo_dir(day_paths).name};
+curr_days_pathname = cellfun(@(x) [expInfo_path filesep x],curr_days,'uni',false);
+
+days_combined = [days_combined,curr_days];
+days_pathnames_combined = [days_pathnames_combined,curr_days_pathname];
 
 % (look in server 2)
 expInfo_path = ['\\zubjects.cortexlab.net\Subjects\' animal];
 expInfo_dir = dir(expInfo_path);
 day_paths = cellfun(@(x) ~isempty(regexp(x,'\d\d\d\d-\d\d-\d\d')),{expInfo_dir.name}) &...
     [expInfo_dir.isdir];
-days_Data2 = {expInfo_dir(day_paths).name};
-days_Data2_pathname = cellfun(@(x) [expInfo_path filesep x],days_Data2,'uni',false);
+curr_days = {expInfo_dir(day_paths).name};
+curr_days_pathname = cellfun(@(x) [expInfo_path filesep x],curr_days,'uni',false);
 
-% (take unique days from both)
-days_combined = [days_Data,days_Data2];
-days_pathname_combined = [days_Data_pathname,days_Data2_pathname];
+days_combined = [days_combined,curr_days];
+days_pathnames_combined = [days_pathnames_combined,curr_days_pathname];
+
+% If multiple days: experiment number folders should be preserved across
+% all folders so just pick one
 [days,unique_day_idx] = unique(days_combined);
-days_pathnames = days_pathname_combined(unique_day_idx);
+days_pathnames = days_pathnames_combined(unique_day_idx);
 
 % Find experiments with chosen protocol and which modalities were recorded
 protocol_expts = cell(size(days));
