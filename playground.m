@@ -10619,7 +10619,7 @@ colormap(brewermap([],'*RdBu'));
 
 animal = 'AP040';
 
-protocol = 'vanillaChoiceworld';
+protocol = 'AP_lcrGratingPassive';
 experiments = AP_find_experiments(animal,protocol);
 experiments(~([experiments.imaging])) = [];
 

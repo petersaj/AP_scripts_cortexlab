@@ -66,6 +66,10 @@ for curr_day = 1:length(experiments)
 end
 
 
+im_stim_all_align = cellfun(@(im,day) AP_align_widefield(im,animal,day), ...
+    im_stim_all,{experiments.day}','uni',false);
+
+
 
 
 %% Get task -> widefield kernel
