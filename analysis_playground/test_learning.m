@@ -36,7 +36,7 @@ for curr_day = 1:length(experiments)
     quiescent_trials = ~any(abs(event_aligned_wheel) > wheel_thresh,2);
     
     % Set options
-    surround_window = [-0.5,3];
+    surround_window = [-0.5,1];
     baseline_window = [-0.1,0];
     
     surround_samplerate = 1/(framerate*1);
@@ -57,8 +57,8 @@ for curr_day = 1:length(experiments)
         stim_surround_times = bsxfun(@plus, use_stimOn_times(:), surround_time);
         stim_baseline_surround_times = bsxfun(@plus, use_stimOn_times(:), baseline_surround_time);
         
-        peri_stim_v = permute(interp1(frame_t,fVdf_deconv',stim_surround_times),[3,2,1]);
-        baseline_v = permute(nanmean(interp1(frame_t,fVdf_deconv',stim_baseline_surround_times),2),[3,2,1]);
+        peri_stim_v = permute(interp1(frame_t,fVdf',stim_surround_times),[3,2,1]);
+        baseline_v = permute(nanmean(interp1(frame_t,fVdf',stim_baseline_surround_times),2),[3,2,1]);
         
         stim_v_mean = nanmean(peri_stim_v - baseline_v,3);
         
