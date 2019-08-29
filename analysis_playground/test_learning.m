@@ -26,6 +26,15 @@ for curr_day = 1:length(experiments)
     
     fVdf_deconv = AP_deconv_wf(fVdf);
     
+    % Get wheel movements during stim
+    wheel_window = [0,0.5];
+    wheel_window_t = wheel_window(1):1/framerate:wheel_window(2);
+    wheel_window_t_peri_event = bsxfun(@plus,stimOn_times,wheel_window_t);
+    event_aligned_wheel = interp1(Timeline.rawDAQTimestamps, ...
+        wheel_velocity,wheel_window_t_peri_event);
+    wheel_thresh = 0.025;
+    quiescent_trials = ~any(abs(event_aligned_wheel) > wheel_thresh,2);
+    
     % Set options
     surround_window = [-0.5,3];
     baseline_window = [-0.1,0];
@@ -42,9 +51,8 @@ for curr_day = 1:length(experiments)
     for curr_condition_idx = 1:length(conditions)
         curr_condition = conditions(curr_condition_idx);
         
-        use_stims = find(stimIDs == curr_condition);
-        use_stimOn_times = stimOn_times(use_stims(2:end));
-        use_stimOn_times([1,end]) = [];
+        use_stims = find(stimIDs == curr_condition & quiescent_trials);
+        use_stimOn_times = stimOn_times(use_stims);
         
         stim_surround_times = bsxfun(@plus, use_stimOn_times(:), surround_time);
         stim_baseline_surround_times = bsxfun(@plus, use_stimOn_times(:), baseline_surround_time);
@@ -65,6 +73,22 @@ for curr_day = 1:length(experiments)
     AP_print_progress_fraction(curr_day,length(experiments));
 end
 
+im_stim_cat = cell2mat(permute(cellfun(@(im) ...
+    reshape(permute(im,[1,2,4,3]),size(im,1),[],size(im,3)), ...
+    im_stim_all,'uni',false),[2,3,4,1]));
+
+AP_image_scroll(im_stim_cat);
+axis image;
+caxis([-max(abs(caxis)),max(abs(caxis))]);
+colormap(brewermap([],'*RdBu'));
+
+t_stim = 20:22;
+im_stim_avg = squeeze(max(im_stim_cat(:,:,t_stim,:),[],3));
+AP_image_scroll(im_stim_avg);
+axis image;
+caxis([-max(abs(caxis)),max(abs(caxis))]);
+colormap(brewermap([],'*RdBu'));
+
 
 
 
@@ -81,7 +105,7 @@ regression_params.use_constant = true;
 
 % Prepare fluorescence
 
-% NOT YET
+% NOT YET ANIMAL ALIGNED
 % % Convert U to master U
 % load('C:\Users\Andrew\OneDrive for Business\Documents\CarandiniHarrisLab\analysis\wf_ephys_choiceworld\wf_processing\wf_alignment\U_master.mat');
 % Udf_aligned = AP_align_widefield(Udf,animal,day);
@@ -131,7 +155,9 @@ event_aligned_wheel = interp1(Timeline.rawDAQTimestamps, ...
 %%% Regress task to cortex/striatum/cortex-predicted striatum
 
 % Get reaction time for building regressors
-[move_trial,move_idx] = max(abs(event_aligned_wheel) > 0.02,[],2);
+% (wheel thresh is the max in the quiescent period)
+wheel_thresh = max(reshape(abs(event_aligned_wheel(:,t < -0.2)),[],1));
+[move_trial,move_idx] = max(abs(event_aligned_wheel) > wheel_thresh,[],2);
 move_idx(~move_trial) = NaN;
 move_t = nan(size(move_idx));
 move_t(~isnan(move_idx) & move_trial) = t(move_idx(~isnan(move_idx) & move_trial))';
@@ -278,6 +304,7 @@ task_t_shifts = { ...
 
 task_regressor_sample_shifts = cellfun(@(x) round(x(1)*(sample_rate)): ...
     round(x(2)*(sample_rate)),task_t_shifts,'uni',false);
+
 lambda = 0;
 zs = [false,false];
 cvfold = 5;

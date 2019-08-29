@@ -10662,6 +10662,58 @@ for curr_im = 1:length(im_fns)
     AP_print_progress_fraction(curr_im,length(im_fns));
 end
 
+%% Testing histology image preprocessing
+
+% Get and sort image files
+im_path = 'C:\Users\Andrew\Desktop\test_histology';
+im_path_dir = dir([im_path filesep '*.ome.tiff']);
+im_fn = natsortfiles(cellfun(@(path,fn) [path filesep fn], ...
+    {im_path_dir.folder},{im_path_dir.name},'uni',false));
+
+
+
+
+n_im = length(im_fn);
+
+im_rescale_factor = 1/10;
+im_small = cell(n_im,1);
+
+curr_col = 3;
+
+for curr_im = 1:n_im
+    im_small{curr_im} = imresize(imread(im_fn{curr_im},curr_col),im_rescale_factor);
+    AP_print_progress_fraction(curr_im,n_im);
+end
+
+figure;
+im_montage = montage(im_small);
+caxis([0,max(im_montage.CData(:))])
+
+bg_roi = roipoly;
+signal_roi = roipoly;
+
+figure; hold on
+histogram(im_montage.CData(bg_roi))
+histogram(im_montage.CData(signal_roi))
+
+cmin = max(im_montage.CData(bg_roi));
+cmax = max(im_montage.CData(signal_roi));
+caxis([cmin,cmax]);
+
+
+% Fit 2 mixed gaussians
+gauss_fit = fitgmdist(single(im_montage.CData(im_montage.CData > 0)),2,'RegularizationValue',0.01);
+cmin = norminv(0.99,gauss_fit.mu(1),sqrt(gauss_fit.Sigma(1)));
+cmax = 2*norminv(0.99,gauss_fit.mu(2),sqrt(gauss_fit.Sigma(2)));
+caxis([cmin,cmax]);
+
+
+[~,threshold] = edge(im_montage.CData(im_montage.CData > 0),'sobel');
+fudgeFactor = 0.1;
+BWs = edge(im_montage.CData,'sobel',threshold * fudgeFactor);
+
+
+
 
 
 

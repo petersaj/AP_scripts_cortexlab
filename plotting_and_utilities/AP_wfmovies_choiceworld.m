@@ -75,7 +75,7 @@ if handles.plot_eyecam
     handles.eyecam_vr = VideoReader(eyecam_fn);
     handles.eyecam_frame_idx = discretize(eyecam_t,discretize_times);
     
-    eyecam_frame = find(handles.eyecam_frame_idx == wf_frame,1);
+    [~,eyecam_frame] = min(abs(wf_frame - handles.eyecam_frame_idx));
     eyecam_im = read(handles.eyecam_vr,eyecam_frame);
     handles.eyecam_im = imagesc(handles.eyecam_axis,eyecam_im); axis(handles.eyecam_axis,'off','image');  
     caxis(handles.eyecam_axis,[0,255]);
@@ -85,7 +85,7 @@ if handles.plot_facecam
     handles.facecam_vr = VideoReader(facecam_fn);
     handles.facecam_frame_idx = discretize(facecam_t,discretize_times);
         
-    facecam_frame = find(handles.facecam_frame_idx == wf_frame,1);
+    [~,facecam_frame] = min(abs(wf_frame - handles.facecam_frame_idx));
     facecam_im = read(handles.facecam_vr,facecam_frame);
     handles.facecam_im = imagesc(handles.facecam_axis,facecam_im); axis(handles.facecam_axis,'off','image');
     caxis(handles.facecam_axis,[0,255]);
@@ -228,13 +228,13 @@ handles.t = handles.frame_t(wf_frame);
 
 % Update the images
 if handles.plot_eyecam
-    eyecam_frame = find(handles.eyecam_frame_idx == wf_frame,1);
+    [~,eyecam_frame] = min(abs(wf_frame - handles.eyecam_frame_idx));
     eyecam_im = read(handles.eyecam_vr,eyecam_frame);
     set(handles.eyecam_im,'Cdata',eyecam_im);
 end
 
 if handles.plot_facecam
-    facecam_frame = find(handles.facecam_frame_idx == wf_frame,1);
+    [~,facecam_frame] = min(abs(wf_frame - handles.facecam_frame_idx));
     facecam_im = read(handles.facecam_vr,facecam_frame);
     set(handles.facecam_im,'Cdata',facecam_im);
 end
