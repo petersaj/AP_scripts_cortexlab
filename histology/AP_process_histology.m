@@ -199,11 +199,20 @@ function update_slide(slice_fig)
 
 slice_data = guidata(slice_fig);
 
-slice_data.curr_slide = slice_data.curr_slide + 1;
-
+% After the first slice, pull the images from selected slices
 if slice_data.curr_slide > 1
     pull_slice_rgb(slice_fig);
+    slice_data = guidata(slice_fig);
 end
+
+% After the last slice, save the images and close out
+if slice_data.curr_slide == length(slice_data.im_rgb)
+    save_slice_rgb(slice_fig);
+    close(slice_fig);
+    return
+end
+
+slice_data.curr_slide = slice_data.curr_slide + 1;
 
 min_slice = (1000/10)^2; % (um/10(CCF))^2
 dilate_size = 20;
@@ -235,6 +244,7 @@ end
 
 
 function pull_slice_rgb(slice_fig)
+% When changing slide, pull the selected slice images
 
 slice_data = guidata(slice_fig);
 
@@ -242,8 +252,8 @@ n_slices = size(slice_data.user_masks,3);
 curr_slice_rgb = cell(n_slices,1);
 for curr_slice = 1:n_slices
     % Pull a rectangular area, exclude spaces (e.g. between torn piece)
-    curr_mask = logical(any(slice_data.user_masks(:,:,1),2).* ...
-        any(slice_data.user_masks(:,:,1),1));
+    curr_mask = logical(any(slice_data.user_masks(:,:,curr_slice),2).* ...
+        any(slice_data.user_masks(:,:,curr_slice),1));
     
     curr_rgb = reshape(slice_data.im_rgb{slice_data.curr_slide}( ...
         repmat(curr_mask,1,3)),sum(any(curr_mask,2)),sum(any(curr_mask,1)),3);
@@ -254,8 +264,27 @@ end
 
 slice_data.slice_rgb{slice_data.curr_slide} = curr_slice_rgb;
 
+guidata(slice_fig, slice_data);
+
 end
 
 
+function save_slice_rgb(slice_fig)
+% After the last slide, save the slice images
+save_dir = 'C:\Users\Andrew\Desktop\test_histology\processed\slices';
+
+slice_data = guidata(slice_fig);
+
+slice_rgb_cat = vertcat(slice_data.slice_rgb{:});
+
+for curr_im = 1:length(slice_rgb_cat)
+    curr_fn = [save_dir filesep num2str(curr_im) '.tif'];
+    imwrite(slice_rgb_cat{curr_im},curr_fn,'tif');
+end
+
+% TO DO: SAVE ORIGINAL COORDINATES SO THAT THEY CAN BE PULLED FROM ORIGINAL
+% RESOLUTION IMAGES
+
+end
 
 
