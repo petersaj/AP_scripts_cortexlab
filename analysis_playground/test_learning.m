@@ -10,7 +10,7 @@
 % frame_movement, wheel velocity
 
 
-animal = 'AP040';
+animal = 'AP041';
 
 protocol = 'AP_lcrGratingPassive';
 experiments = AP_find_experiments(animal,protocol);
@@ -83,7 +83,7 @@ caxis([-max(abs(caxis)),max(abs(caxis))]);
 colormap(brewermap([],'*RdBu'));
 
 t_stim = 20:22;
-im_stim_avg = squeeze(max(im_stim_cat(:,:,t_stim,:),[],3));
+im_stim_avg = squeeze(mean(im_stim_cat(:,:,t_stim,:),3));
 AP_image_scroll(im_stim_avg);
 axis image;
 caxis([-max(abs(caxis)),max(abs(caxis))]);

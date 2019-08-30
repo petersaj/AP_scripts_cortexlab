@@ -6,130 +6,255 @@ function AP_process_histology
 
 %% Testing histology image preprocessing
 
-% Get and sort image files
-im_path = 'C:\Users\Andrew\Desktop\test_histology';
-im_path_dir = dir([im_path filesep '*.ome.tiff']);
+% % Get and sort image files
+% im_path = 'C:\Users\Andrew\Desktop\test_histology';
+% im_path_dir = dir([im_path filesep '*.ome.tiff']);
+% im_fn = natsortfiles(cellfun(@(path,fn) [path filesep fn], ...
+%     {im_path_dir.folder},{im_path_dir.name},'uni',false));
+% 
+% 
+% % Get microns/pixel from metadata (ome.tiff) 
+% % NOTE: apparently PhysicalSizeX isn't necessarily real??
+% 
+% im_info = imfinfo(im_fn{1});
+% im_description = im_info(1).ImageDescription;
+% 
+% im_um = regexp(im_description,'PhysicalSizeX="(\S*)".*PhysicalSizeY="(\S*)"','tokens');
+% im_um_x = str2num(im_um{1}{1});
+% im_um_y = str2num(im_um{1}{2});
+% 
+% if im_um_x ~= im_um_y
+%    error('Pixel X/Y values different') 
+% end
+% 
+% % Set resize factor to match to Allen CCF
+% allen_um2px = 10;
+% im_rescale_factor = im_um_x/allen_um2px;
+% 
+% 
+% n_im = length(im_fn);
+% 
+% im_resized = cell(n_im,3);
+% 
+% h = waitbar(0,'Loading and resizing images...');
+% for curr_im = 1:n_im
+%     for curr_channel = 1:3
+%         im_resized{curr_im,curr_channel} = imresize(imread(im_fn{curr_im},curr_channel),im_rescale_factor);
+%     end
+%     waitbar(curr_im/n_im,h,['Loading and resizing images (' num2str(curr_im) '/' num2str(n_im) ')...']);
+% end
+% close(h);
+% 
+% h = figure;
+% im_montage = cell(3,1);
+% channel_caxis = nan(3,2);
+% for curr_channel = 1:3
+%     
+%    curr_montage = montage(im_resized(:,curr_channel));
+%    
+%    im_montage{curr_channel} = curr_montage.CData;
+%    
+%    % Estimate white balance
+%    % (very dirty: assume one peak for background, one for signal)
+%    im_hist = histcounts(im_montage{curr_channel}(im_montage{curr_channel} > 0),0:max(im_montage{curr_channel}(:)));
+%    im_hist_deriv = diff(smooth(im_hist,10));
+%    
+%    [~,bg_median] = max(im_hist);
+%    bg_signal_min = find(im_hist_deriv(bg_median:end) > 0,1) + bg_median;
+%    [~,bg_median_rel] = max(im_hist(bg_signal_min:end));
+%    signal_median = bg_median_rel + bg_signal_min;
+%    
+%    cmin = bg_signal_min;
+%    cmax = signal_median*3;
+%    caxis([cmin,cmax]);
+%    
+%    channel_caxis(curr_channel,:) = [cmin,cmax];
+%    
+%    white_confirm = questdlg('White balance ok?');
+%    
+% end
+% close(h)
+% 
+% color_order = [2,3,1]; % (which channel is R,G,B)
+% im_montage_rgb = cell2mat(arrayfun(@(ch) rescale(im_montage{ch}, ...
+%     'InputMin',channel_caxis(ch,1),'InputMax',channel_caxis(ch,2)), ...
+%     permute(color_order,[1,3,2]),'uni',false));
+% 
+% figure;imshow(im_montage_rgb);
+% 
+% 
+% im_rgb = cellfun(@(x) zeros(size(x,1),size(x,2),size(im_resized,3),class(x)),im_resized(:,1),'uni',false);
+% for curr_im = 1:n_im
+%     im_rgb{curr_im} = cell2mat(arrayfun(@(ch) rescale(im_resized{curr_im,ch}, ...
+%         'InputMin',channel_caxis(ch,1),'InputMax',channel_caxis(ch,2)), ...
+%         permute(color_order,[1,3,2]),'uni',false));  
+% end
+
+
+% %%% TEMP: saving for input to Philip's gui
+% save_dir = 'C:\Users\Andrew\Desktop\test_histology\processed';
+% for curr_im = 1:n_im
+%   curr_fn = [save_dir filesep num2str(curr_im) '.tif'];
+%   imwrite(im_rgb{curr_im},curr_fn,'tif');
+% end
+
+
+% TEMP: load pre-processed
+im_path = 'C:\Users\Andrew\Desktop\test_histology\processed';
+im_path_dir = dir([im_path filesep '*.tif']);
 im_fn = natsortfiles(cellfun(@(path,fn) [path filesep fn], ...
     {im_path_dir.folder},{im_path_dir.name},'uni',false));
-
-
-% Get microns/pixel from metadata (ome.tiff) 
-% NOTE: apparently PhysicalSizeX isn't necessarily real??
-
-im_info = imfinfo(im_fn{1});
-im_description = im_info(1).ImageDescription;
-
-im_um = regexp(im_description,'PhysicalSizeX="(\S*)".*PhysicalSizeY="(\S*)"','tokens');
-im_um_x = str2num(im_um{1}{1});
-im_um_y = str2num(im_um{1}{2});
-
-if im_um_x ~= im_um_y
-   error('Pixel X/Y values different') 
+im_rgb = cell(length(im_fn),1);
+for curr_im = 1:length(im_fn)
+   im_rgb{curr_im} = imread(im_fn{curr_im}); 
 end
 
-% Set resize factor to match to Allen CCF
-allen_um2px = 10;
-im_rescale_factor = im_um_x/allen_um2px;
+
+slice_fig = figure('KeyPressFcn',@slice_keypress);
+
+slice_data = struct;
+slice_data.im_rgb = im_rgb;
+slice_data.curr_slide = 0;
+slice_data.slice_rgb = cell(0,0);
+guidata(slice_fig, slice_data);
 
 
-n_im = length(im_fn);
 
-im_resized = cell(n_im,3);
+update_slide(slice_fig);
 
-h = waitbar(0,'Loading and resizing images...');
-for curr_im = 1:n_im
-    for curr_channel = 1:3
-        im_resized{curr_im,curr_channel} = imresize(imread(im_fn{curr_im},curr_channel),im_rescale_factor);
-    end
-    waitbar(curr_im/n_im,h,'Loading and resizing images...');
+
+
+
+
+% Keep the relative coordinates of the slices so they can be pulled from
+% the original-resolution images
+
+
+
+
+
+
+
 end
-close(h);
 
-h = figure;
-im_montage = cell(3,1);
-channel_caxis = nan(3,2);
-for curr_channel = 1:3
+function slice_click(slice_fig,eventdata)
+
+slice_data = guidata(slice_fig);
+
+selected_slice_bw = bwselect(slice_data.mask,eventdata.IntersectionPoint(1),eventdata.IntersectionPoint(2));
+
+if eventdata.Button == 1
+    % If left button pressed, create new slice ROI
+    roi_num = size(slice_data.user_masks,3) + 1;
     
-   curr_montage = montage(im_resized(:,curr_channel));
-   
-   im_montage{curr_channel} = curr_montage.CData;
-   
-   % Estimate white balance
-   % (very dirty: assume one peak for background, one for signal)
-   im_hist = histcounts(im_montage{curr_channel}(im_montage{curr_channel} > 0),0:max(im_montage{curr_channel}(:)));
-   im_hist_deriv = diff(smooth(im_hist,10));
-   
-   [~,bg_median] = max(im_hist);
-   bg_signal_min = find(im_hist_deriv(bg_median:end) > 0,1) + bg_median;
-   [~,bg_median_rel] = max(im_hist(bg_signal_min:end));
-   signal_median = bg_median_rel + bg_signal_min;
-   
-   cmin = bg_signal_min;
-   cmax = signal_median*3;
-   caxis([cmin,cmax]);
-   
-   channel_caxis(curr_channel,:) = [cmin,cmax];
-   
-   white_confirm = questdlg('White balance ok?');
-   
-end
-close(h)
-
-color_order = [2,3,1]; % (which channel is R,G,B)
-im_montage_rgb = cell2mat(arrayfun(@(ch) rescale(im_montage{ch}, ...
-    'InputMin',channel_caxis(ch,1),'InputMax',channel_caxis(ch,2)), ...
-    permute(color_order,[1,3,2]),'uni',false));
-
-figure;imshow(im_montage_rgb);
-
-
-im_rgb = cellfun(@(x) zeros(size(x,1),size(x,2),size(im_resized,3),class(x)),im_resized(:,1),'uni',false);
-for curr_im = 1:n_im
-    im_rgb{curr_im} = cell2mat(arrayfun(@(ch) rescale(im_resized{curr_im,ch}, ...
-        'InputMin',channel_caxis(ch,1),'InputMax',channel_caxis(ch,2)), ...
-        permute(color_order,[1,3,2]),'uni',false));  
+    % Make new mask with object
+    slice_data.user_masks(:,:,roi_num) = selected_slice_bw;
+    
+    % Draw bounding box around object
+    box_x = find(any(slice_data.user_masks(:,:,roi_num),1),1);
+    box_y = find(any(slice_data.user_masks(:,:,roi_num),2),1);
+    box_w = find(any(slice_data.user_masks(:,:,roi_num),1),1,'last') - box_x;
+    box_h = find(any(slice_data.user_masks(:,:,roi_num),2),1,'last') - box_y;
+    slice_data.user_rectangles(roi_num) = ...
+        rectangle('Position',[box_x,box_y,box_w,box_h],'EdgeColor','w');
+    
+    
+elseif eventdata.Button == 3
+    % if right button pressed, join to last slice ROI
+    roi_num = size(slice_data.user_masks,3);
+    
+    % Join old and new objects in mask
+    slice_data.user_masks(:,:,roi_num) = ...
+        slice_data.user_masks(:,:,roi_num) | selected_slice_bw;
+    
+    % Draw bounding box around object
+    box_x = find(any(slice_data.user_masks(:,:,roi_num),1),1);
+    box_y = find(any(slice_data.user_masks(:,:,roi_num),2),1);
+    box_w = find(any(slice_data.user_masks(:,:,roi_num),1),1,'last') - box_x;
+    box_h = find(any(slice_data.user_masks(:,:,roi_num),2),1,'last') - box_y;
+    set(slice_data.user_rectangles(roi_num),'Position', ...
+        [box_x,box_y,box_w,box_h]);
+    
 end
 
+guidata(slice_fig, slice_data);
 
-
-curr_im = 4;
-
-min_blob = 1000;
-curr_mask = bwareaopen(mean(im_rgb{curr_im},3) > 0.01,min_blob);
-cc = bwconncomp(curr_mask);
-
-blob_boundaries = bwboundaries(curr_mask);
-
-figure;
-imshow(im_rgb{curr_im}); hold on;
-blob_line = gobjects(length(blob_boundaries),1);
-for curr_blob = 1:length(blob_boundaries)
-   blob_line(curr_blob) = line(blob_boundaries{curr_blob}(:,2), ...
-       blob_boundaries{curr_blob}(:,1),'color',[0.5,0.5,0.5],'linewidth',3,'LineSmoothing','on');
 end
 
-title('Select slices');
-[blob_x,blob_y] = ginput;
-blob_ind = sub2ind(size(curr_mask),round(blob_y),round(blob_x));
-selected_blob = cellfun(@(x) any(ismember(x,blob_ind)),cc.PixelIdxList);
-set(blob_line(selected_blob),'color','w');
+function slice_keypress(slice_fig,eventdata)
 
 
-% dilate the mask, save that as the ROI
+if strcmp(eventdata.Key,'space')
+    disp('Next slide');
+    update_slide(slice_fig)
+    
+    
+    
+end
+
+end
 
 
+function update_slide(slice_fig)
+
+slice_data = guidata(slice_fig);
+
+slice_data.curr_slide = slice_data.curr_slide + 1;
+
+if slice_data.curr_slide > 1
+    pull_slice_rgb(slice_fig);
+end
+
+min_slice = (1000/10)^2; % (um/10(CCF))^2
+dilate_size = 20;
+slice_mask = imdilate(bwareaopen(mean( ...
+    slice_data.im_rgb{slice_data.curr_slide},3) > 0.01,min_slice),ones(dilate_size));
+slice_conncomp = bwconncomp(slice_mask);
+
+im_handle = imshow(slice_data.im_rgb{slice_data.curr_slide});
+set(im_handle,'ButtonDownFcn',@slice_click);
+
+slice_boundaries = bwboundaries(slice_mask);
+slice_lines = gobjects(length(slice_boundaries),1);
+for curr_slice = 1:length(slice_boundaries)
+    slice_lines(curr_slice) = line(slice_boundaries{curr_slice}(:,2), ...
+        slice_boundaries{curr_slice}(:,1),'color','w','linewidth',2,'LineSmoothing','on','linestyle','--');
+end
 
 
+slice_data.im_h = im_handle;
+slice_data.mask = slice_mask;
+slice_data.lines = slice_lines;
+slice_data.user_masks = zeros(size(slice_mask,1),size(slice_mask,2),0,'logical');
+slice_data.user_rectangles = gobjects(0);
 
 
+guidata(slice_fig, slice_data);
+
+end
 
 
+function pull_slice_rgb(slice_fig)
 
+slice_data = guidata(slice_fig);
 
+n_slices = size(slice_data.user_masks,3);
+curr_slice_rgb = cell(n_slices,1);
+for curr_slice = 1:n_slices
+    % Pull a rectangular area, exclude spaces (e.g. between torn piece)
+    curr_mask = logical(any(slice_data.user_masks(:,:,1),2).* ...
+        any(slice_data.user_masks(:,:,1),1));
+    
+    curr_rgb = reshape(slice_data.im_rgb{slice_data.curr_slide}( ...
+        repmat(curr_mask,1,3)),sum(any(curr_mask,2)),sum(any(curr_mask,1)),3);
+    
+    curr_slice_rgb{curr_slice} = curr_rgb;
+    
+end
 
+slice_data.slice_rgb{slice_data.curr_slide} = curr_slice_rgb;
 
-
-
+end
 
 
 

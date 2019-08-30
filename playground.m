@@ -10617,7 +10617,7 @@ colormap(brewermap([],'*RdBu'));
 
 %% Align vasculature for animal
 
-animal = 'AP040';
+animal = 'AP041';
 
 protocol = 'AP_lcrGratingPassive';
 experiments = AP_find_experiments(animal,protocol);
