@@ -118,22 +118,7 @@ slice_data.curr_slide = 0;
 slice_data.slice_rgb = cell(0,0);
 guidata(slice_fig, slice_data);
 
-
-
 update_slide(slice_fig);
-
-
-
-
-
-% Keep the relative coordinates of the slices so they can be pulled from
-% the original-resolution images
-
-
-
-
-
-
 
 end
 
@@ -183,17 +168,11 @@ end
 
 function slice_keypress(slice_fig,eventdata)
 
-
 if strcmp(eventdata.Key,'space')
-    disp('Next slide');
-    update_slide(slice_fig)
-    
-    
-    
+    update_slide(slice_fig) 
 end
 
 end
-
 
 function update_slide(slice_fig)
 
@@ -215,9 +194,8 @@ end
 slice_data.curr_slide = slice_data.curr_slide + 1;
 
 min_slice = (1000/10)^2; % (um/10(CCF))^2
-dilate_size = 20;
-slice_mask = imdilate(bwareaopen(mean( ...
-    slice_data.im_rgb{slice_data.curr_slide},3) > 0.01,min_slice),ones(dilate_size));
+slice_mask = bwareaopen(mean( ...
+    slice_data.im_rgb{slice_data.curr_slide},3) > 0.01,min_slice);
 slice_conncomp = bwconncomp(slice_mask);
 
 im_handle = imshow(slice_data.im_rgb{slice_data.curr_slide});
@@ -252,8 +230,9 @@ n_slices = size(slice_data.user_masks,3);
 curr_slice_rgb = cell(n_slices,1);
 for curr_slice = 1:n_slices
     % Pull a rectangular area, exclude spaces (e.g. between torn piece)
-    curr_mask = logical(any(slice_data.user_masks(:,:,curr_slice),2).* ...
-        any(slice_data.user_masks(:,:,curr_slice),1));
+    dilate_size = 30;
+    curr_mask = imdilate(logical(any(slice_data.user_masks(:,:,curr_slice),2).* ...
+        any(slice_data.user_masks(:,:,curr_slice),1)),ones(dilate_size));
     
     curr_rgb = reshape(slice_data.im_rgb{slice_data.curr_slide}( ...
         repmat(curr_mask,1,3)),sum(any(curr_mask,2)),sum(any(curr_mask,1)),3);
@@ -282,9 +261,78 @@ for curr_im = 1:length(slice_rgb_cat)
     imwrite(slice_rgb_cat{curr_im},curr_fn,'tif');
 end
 
+disp(['Slices saved in ' save_dir]);
+
 % TO DO: SAVE ORIGINAL COORDINATES SO THAT THEY CAN BE PULLED FROM ORIGINAL
 % RESOLUTION IMAGES
 
 end
+
+
+%% temporary - storing here for now 
+function asdf
+
+slice_path = 'C:\Users\Andrew\Desktop\test_histology\processed\slices';
+slice_dir = dir([slice_path filesep '*.tif']);
+slice_fn = natsortfiles(cellfun(@(path,fn) [path filesep fn], ...
+    {slice_dir.folder},{slice_dir.name},'uni',false));
+
+slice_im = cell(length(slice_fn),1);
+for curr_slice = 1:length(slice_fn)
+   slice_im{curr_slice} = imread(slice_fn{curr_slice});  
+end
+
+% Pad all slices centrally to the largest slice and make matrix
+slice_size_max = max(cell2mat(cellfun(@size,slice_im,'uni',false)),[],1);
+slice_im_pad = ...
+    cell2mat(cellfun(@(x) x(1:slice_size_max(1),1:slice_size_max(2),:), ...
+    reshape(cellfun(@(im) padarray(im, ...
+    [ceil((slice_size_max(1) - size(im,1))./2), ...
+    ceil((slice_size_max(2) - size(im,2))./2)],0,'both'), ...
+    slice_im,'uni',false),1,1,1,[]),'uni',false));
+
+% Draw line to indicate midline for rotation
+rotation_fig = figure;
+
+align_axis = nan(2,2,length(slice_im));
+for curr_im = 1:length(slice_im)
+    imshow(slice_im_pad(:,:,:,curr_im));
+    title('Click and drag reference line (e.g. midline)')
+    curr_line = imline;
+    align_axis(:,:,curr_im) = curr_line.getPosition;  
+end
+close(rotation_fig);
+
+% NOTE FOR FUTURE: make target angle either vert or horiz for whatever's
+% closest to the average reference? then switch dx vs dy below
+target_angle = 90;
+target_position = round(slice_size_max(2)./2);
+
+% Get angle for all axes
+align_angle = squeeze(acosd(diff(align_axis(:,1,:),[],1)./diff(align_axis(:,2,:),[],1)));
+align_center = squeeze(nanmean(align_axis,1));
+
+im_aligned = zeros(size(slice_im_pad),class(slice_im_pad));
+
+for curr_im = 1:length(slice_im)
+    
+    angle_diff = align_angle(curr_im) - target_angle;
+    x_diff = target_position - align_center(1,curr_im);
+    y_diff = 0;
+    
+    im_aligned(:,:,:,curr_im) = ...
+        imrotate(imtranslate(slice_im_pad(:,:,:,curr_im), ...
+        [x_diff,y_diff]),angle_diff,'bilinear','crop');
+    
+end
+
+% Need to be able to flip and re-order here?
+
+
+
+
+end
+
+
 
 

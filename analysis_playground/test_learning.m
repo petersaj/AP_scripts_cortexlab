@@ -57,8 +57,8 @@ for curr_day = 1:length(experiments)
         stim_surround_times = bsxfun(@plus, use_stimOn_times(:), surround_time);
         stim_baseline_surround_times = bsxfun(@plus, use_stimOn_times(:), baseline_surround_time);
         
-        peri_stim_v = permute(interp1(frame_t,fVdf',stim_surround_times),[3,2,1]);
-        baseline_v = permute(nanmean(interp1(frame_t,fVdf',stim_baseline_surround_times),2),[3,2,1]);
+        peri_stim_v = permute(interp1(frame_t,fVdf_deconv',stim_surround_times),[3,2,1]);
+        baseline_v = permute(nanmean(interp1(frame_t,fVdf_deconv',stim_baseline_surround_times),2),[3,2,1]);
         
         stim_v_mean = nanmean(peri_stim_v - baseline_v,3);
         
@@ -83,7 +83,7 @@ caxis([-max(abs(caxis)),max(abs(caxis))]);
 colormap(brewermap([],'*RdBu'));
 
 t_stim = 20:22;
-im_stim_avg = squeeze(mean(im_stim_cat(:,:,t_stim,:),3));
+im_stim_avg = squeeze(max(im_stim_cat(:,:,t_stim,:),[],3));
 AP_image_scroll(im_stim_avg);
 axis image;
 caxis([-max(abs(caxis)),max(abs(caxis))]);
