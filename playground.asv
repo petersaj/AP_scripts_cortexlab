@@ -10664,38 +10664,12 @@ end
 
 
 
-%% Testing: plot outline of CCF slice
+%% Testing atlas by plane?
 
-% from Shamash's gui - av_slice and curr_hist
+plane_x = 500;
+ [plane_y,plane_z] = meshgrid(1:slice_px_space:size(gui_data.tv,3),1:slice_px_space:size(gui_data.tv,2));
 
-b = round(conv2(av_slice,ones(3)./9,'same'));
-
-
-
-r = bwboundaries(av_slice == b,4);
-
-figure;
-imagesc(curr_hist);
-
-caxis([1,1305]);
-colormap(allen_ccf_colormap)
-axis image off
-
-for i = 1:length(r)
-   line(r{i}(:,2),r{i}(:,1),'color',[0.5,0.5,0.5],'linewidth',1); 
-end
-
-
-example_slice_fn = 'C:\Users\Andrew\Desktop\test_histology\processed\ps_slices\12.tif
-
-
-
-% fitgeotrans(slice_points,reference_points,'affine');
-% R = imref2d(size(ud.ref));
-% ud.curr_slice_trans = imwarp(current_slice_image, ud.transform, 'OutputView',R);
-
-                    
-                    
+a = slice(tv,
 
 
 
