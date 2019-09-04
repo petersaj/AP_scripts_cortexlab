@@ -47,41 +47,27 @@ gui_data.slice_atlas_overlay_ax = subplot(1,3,3,'YDir','reverse');
 hold on; axis image off; title('Aligned atlas over histology');
 gui_data.slice_atlas_overlay_im_h = image(gui_data.slice_im{1},'Parent',gui_data.slice_atlas_overlay_ax); 
 
-
-
-
-
-
-
-
-% Testing 3d atlas?
-bregma = allenCCFbregma;
-probe_ref_top = [bregma(1),bregma(3),0];
-
-gui_data.atlas_vector = ...
-    [bregma(1),bregma(3),0; ...
-    bregma(1),bregma(3),size(gui_data.tv,2)];
-
+% Set up 3D atlas axis
 gui_data.atlas_ax = subplot(1,3,2,'ZDir','reverse');
 hold on
-axis vis3d equal off manual
+axis off vis3d equal manual
 view([90,0]);
 [ap_max,dv_max,ml_max] = size(tv);
-xlim([-10,ap_max+10])
-ylim([-10,ml_max+10])
-zlim([-10,dv_max+10])
+xlim([1,ap_max])
+ylim([1,ml_max])
+zlim([1,dv_max])
+colormap(gui_data.atlas_ax,'gray');
+caxis([0,max(gui_data.tv(:))]);
 
+% Create slice object and first slice point
 gui_data.slice_plot = surface(gui_data.atlas_ax,'EdgeColor','none'); % Slice on 3D atlas
-
-
+gui_data.slice_point = camtarget;
 
 % Upload gui data
-guidata(gui_fig, gui_data);
+guidata(gui_fig,gui_data);
 
-
+% Draw the first slice
 update_slice_3d(gui_fig);
-
-
 
 end 
 
@@ -92,13 +78,27 @@ function scroll_slice(gui_fig,eventdata)
 % Get guidata
 gui_data = guidata(gui_fig);
 
-gui_data.atlas_vector = gui_data.atlas_vector + ...
-    [eventdata.VerticalScrollCount,0,0; ...
-    eventdata.VerticalScrollCount,0,0];
+% Move slice point along camera -> center axis
+
+% Grab current camera angle
+[cam_az,cam_el] = view;
+
+% Camera azimuth is 90 degrees offset from spherical standard
+cam_az_sphere = cam_az - 90;
+% Camera elevation is reversed (because of CCF orientation)
+cam_el_sphere = -cam_el;
+
+[cam_vector_x,cam_vector_y,cam_vector_z] = ...
+    sph2cart(deg2rad(cam_az_sphere),deg2rad(cam_el_sphere),eventdata.VerticalScrollCount);
+cam_vector = [cam_vector_x,cam_vector_y,cam_vector_z];
+
+% Move slice point
+gui_data.slice_point = gui_data.slice_point + cam_vector;
 
 % Upload gui data
 guidata(gui_fig, gui_data);
 
+% Uodate slice
 update_slice_3d(gui_fig)
 
 end
@@ -119,24 +119,10 @@ switch eventdata.Key
         set(gui_data.atlas_ax,'View',get(gui_data.atlas_ax,'View') + [-1,0]);
         update_slice_3d(gui_fig)
     case 'uparrow'
-        set(gui_data.atlas_ax,'View',get(gui_data.atlas_ax,'View') + [0,-1]);
-        gui_data.atlas_vector = gui_data.atlas_vector + ...
-            [0,1,0; ...
-            0,1,0];
-        
-        % Upload gui_data
-        guidata(gui_fig, gui_data);
-        
+        set(gui_data.atlas_ax,'View',get(gui_data.atlas_ax,'View') + [0,-1]);      
         update_slice_3d(gui_fig)
     case 'downarrow'
-        set(gui_data.atlas_ax,'View',get(gui_data.atlas_ax,'View') + [0,1]);
-        gui_data.atlas_vector = gui_data.atlas_vector + ...
-            [0,1,0; ...
-            0,1,0];
-        
-        % Upload gui_data
-        guidata(gui_fig, gui_data);
-        
+        set(gui_data.atlas_ax,'View',get(gui_data.atlas_ax,'View') + [0,1]);      
         update_slice_3d(gui_fig)
 end
 
@@ -146,107 +132,51 @@ end
 
 function update_slice_3d(gui_fig,varargin)
 
-% attempting modifying allen_ccf_npx
+% Get guidata
+gui_data = guidata(gui_fig);
 
+% Get plane normal to the camera -> center axis, grab voxels on plane
 
-%%%% NEW
-
-% points from center perpendicular to camera
-
-figure; hold on;
-view([30,30])
-axis vis3d
-xlim([-2,2]);ylim([-2,2]);zlim([-2,2]);
-
-% Camera azimuth and elevation
+% Grab current camera angle
 [cam_az,cam_el] = view;
 
-% vector from camera to center
-curr_campos = campos;
-curr_camtarget = camtarget;
-cam_vector = curr_campos - curr_camtarget;
+% Camera azimuth is 90 degrees offset from spherical standard
+cam_az_sphere = cam_az - 90;
+% Camera elevation is reversed (because of CCF orientation)
+cam_el_sphere = -cam_el;
 
-
-line([curr_campos(1),curr_camtarget(1)], ...
-    [curr_campos(2),curr_camtarget(2)], ...
-    [curr_campos(3),curr_camtarget(3)],'color','k');
-
-
-% Matlab defines spherical azimuth as +x to +y, and camera azimuth as -y to
-% +x ?! convert by subtracting 90 degrees from azimuth
-[x,y,z] = sph2cart(deg2rad(cam_az-90),deg2rad(cam_el),1);
-
-a = curr_camtarget;
-b = a + [x,y,z];
-
-plot3(a(1),a(2),a(3),'.r','MarkerSize',20);
-plot3(b(1),b(2),b(3),'.b','MarkerSize',20)
-line([a(1),b(1)],[a(2),b(2)],[a(3),b(3)],'color','k');
-
-[x,y,z] = sph2cart(deg2rad(cam_az-90+90),deg2rad(cam_el),1);
-
-a = camtarget;
-b = a + [x,y,z];
-
-plot3(a(1),a(2),a(3),'.r','MarkerSize',20);
-plot3(b(1),b(2),b(3),'.b','MarkerSize',20)
-line([a(1),b(1)],[a(2),b(2)],[a(3),b(3)],'color','k');
-
-
-%%%% OLD
-
-% Get current position of camera
-curr_campos = campos;
-
-% Get probe vector
-probe_ref_top = [gui_data.handles.probe_ref_line.XData(1), ...
-    gui_data.handles.probe_ref_line.YData(1),gui_data.handles.probe_ref_line.ZData(1)];
-probe_ref_bottom = [gui_data.handles.probe_ref_line.XData(2), ...
-    gui_data.handles.probe_ref_line.YData(2),gui_data.handles.probe_ref_line.ZData(2)];
-probe_vector = probe_ref_top - probe_ref_bottom;
-
-% Get probe-camera vector
-probe_camera_vector = probe_ref_top - curr_campos;
-
-% Get the vector to plot the plane in (along with probe vector)
-plot_vector = cross(probe_camera_vector,probe_vector);
-
-% Get the normal vector of the plane
-normal_vector = cross(plot_vector,probe_vector);
-
-% Get the plane offset through the probe
-plane_offset = -(normal_vector*probe_ref_top');
+[cam_vector_x,cam_vector_y,cam_vector_z] = sph2cart(deg2rad(cam_az_sphere),deg2rad(cam_el_sphere),1);
+cam_vector = [cam_vector_x,cam_vector_y,cam_vector_z];
+plane_offset = -(cam_vector*gui_data.slice_point');
 
 % Define a plane of points to index
 % (the plane grid is defined based on the which cardinal plan is most
 % orthogonal to the plotted plane. this is janky but it works)
 slice_px_space = 3;
-%[~,cam_plane] = max(abs((campos - camtarget)./norm(campos - camtarget)));
 
-[~,cam_plane] = max(abs(normal_vector./norm(normal_vector)));
+[~,cam_plane] = max(abs(cam_vector./norm(cam_vector)));
 
 switch cam_plane
     
     case 1
         [plane_y,plane_z] = meshgrid(1:slice_px_space:size(gui_data.tv,3),1:slice_px_space:size(gui_data.tv,2));
         plane_x = ...
-            (normal_vector(2)*plane_y+normal_vector(3)*plane_z + plane_offset)/ ...
-            -normal_vector(1);
+            (cam_vector(2)*plane_y+cam_vector(3)*plane_z + plane_offset)/ ...
+            -cam_vector(1);
         
     case 2
         [plane_x,plane_z] = meshgrid(1:slice_px_space:size(gui_data.tv,1),1:slice_px_space:size(gui_data.tv,2));
         plane_y = ...
-            (normal_vector(1)*plane_x+normal_vector(3)*plane_z + plane_offset)/ ...
-            -normal_vector(2);
+            (cam_vector(1)*plane_x+cam_vector(3)*plane_z + plane_offset)/ ...
+            -cam_vector(2);
         
     case 3
         [plane_x,plane_y] = meshgrid(1:slice_px_space:size(gui_data.tv,1),1:slice_px_space:size(gui_data.tv,3));
         plane_z = ...
-            (normal_vector(1)*plane_x+normal_vector(2)*plane_y + plane_offset)/ ...
-            -normal_vector(3);
+            (cam_vector(1)*plane_x+cam_vector(2)*plane_y + plane_offset)/ ...
+            -cam_vector(3);
         
 end
-
 
 % Get the coordiates on the plane
 x_idx = round(plane_x);
@@ -261,23 +191,22 @@ use_idx = use_xd & use_yd & use_zd;
 
 curr_slice_idx = sub2ind(size(gui_data.tv),x_idx(use_idx),z_idx(use_idx),y_idx(use_idx));
 
+% Find plane coordinates that contain brain
+curr_slice_isbrain = false(size(use_idx));
+curr_slice_isbrain(use_idx) = gui_data.av(curr_slice_idx) > 0;
+
 % Index coordinates in bounds + with brain
-grab_pix_idx = sub2ind(size(gui_data.tv),x_idx,z_idx,y_idx);
+grab_pix_idx = sub2ind(size(gui_data.tv),x_idx(curr_slice_isbrain),z_idx(curr_slice_isbrain),y_idx(curr_slice_isbrain));
 
 % Grab pixels from (selected) volume
-curr_slice = gui_data.tv(grab_pix_idx);
-colormap(gui_data.atlas_ax,'gray');
-caxis([0,255]);
-
-
+curr_slice = nan(size(use_idx));
+curr_slice(curr_slice_isbrain) = gui_data.tv(grab_pix_idx);
 
 % Update the slice display
 set(gui_data.slice_plot,'XData',plane_x,'YData',plane_y,'ZData',plane_z,'CData',curr_slice);
 
 % Upload gui_data
 guidata(gui_fig, gui_data);
-
-
 
 end
 
