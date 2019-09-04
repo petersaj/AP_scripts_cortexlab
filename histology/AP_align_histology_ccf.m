@@ -1,5 +1,17 @@
 function AP_align_histology_ccf(tv,av,st,slice_im_path)
 
+
+% Currently: need to have the plane to draw always be normal to the camera
+% axis and then the scroll wheel would need to move along that axis,
+% actually going to take a lot of work to figure out I think
+
+% at the moment a probe axis is defined straight down - instead, have the
+% probe axis run through a plane perpendicular to the camera, then define
+% the translation by the axis from the camera?
+
+% can plane just be gotten from campos somehow?
+
+
 % Meant to be a non-shitty version of AtlasTransformBrowser
 
 % Initialize guidata
@@ -106,11 +118,25 @@ switch eventdata.Key
     case 'rightarrow'
         set(gui_data.atlas_ax,'View',get(gui_data.atlas_ax,'View') + [-1,0]);
         update_slice_3d(gui_fig)
-    case 'rightarrow'
-        set(gui_data.atlas_ax,'View',get(gui_data.atlas_ax,'View') + [-1,0]);
+    case 'uparrow'
+        set(gui_data.atlas_ax,'View',get(gui_data.atlas_ax,'View') + [0,-1]);
+        gui_data.atlas_vector = gui_data.atlas_vector + ...
+            [0,1,0; ...
+            0,1,0];
+        
+        % Upload gui_data
+        guidata(gui_fig, gui_data);
+        
         update_slice_3d(gui_fig)
-    case 'rightarrow'
-        set(gui_data.atlas_ax,'View',get(gui_data.atlas_ax,'View') + [-1,0]);
+    case 'downarrow'
+        set(gui_data.atlas_ax,'View',get(gui_data.atlas_ax,'View') + [0,1]);
+        gui_data.atlas_vector = gui_data.atlas_vector + ...
+            [0,1,0; ...
+            0,1,0];
+        
+        % Upload gui_data
+        guidata(gui_fig, gui_data);
+        
         update_slice_3d(gui_fig)
 end
 
@@ -122,26 +148,74 @@ function update_slice_3d(gui_fig,varargin)
 
 % attempting modifying allen_ccf_npx
 
-% Get guidata
-gui_data = guidata(gui_fig);
+
+%%%% NEW
+
+% points from center perpendicular to camera
+
+figure; hold on;
+view([30,30])
+axis vis3d
+xlim([-2,2]);ylim([-2,2]);zlim([-2,2]);
+
+% Camera azimuth and elevation
+[cam_az,cam_el] = view;
+
+% vector from camera to center
+curr_campos = campos;
+curr_camtarget = camtarget;
+cam_vector = curr_campos - curr_camtarget;
+
+
+line([curr_campos(1),curr_camtarget(1)], ...
+    [curr_campos(2),curr_camtarget(2)], ...
+    [curr_campos(3),curr_camtarget(3)],'color','k');
+
+
+% Matlab defines spherical azimuth as +x to +y, and camera azimuth as -y to
+% +x ?! convert by subtracting 90 degrees from azimuth
+[x,y,z] = sph2cart(deg2rad(cam_az-90),deg2rad(cam_el),1);
+
+a = curr_camtarget;
+b = a + [x,y,z];
+
+plot3(a(1),a(2),a(3),'.r','MarkerSize',20);
+plot3(b(1),b(2),b(3),'.b','MarkerSize',20)
+line([a(1),b(1)],[a(2),b(2)],[a(3),b(3)],'color','k');
+
+[x,y,z] = sph2cart(deg2rad(cam_az-90+90),deg2rad(cam_el),1);
+
+a = camtarget;
+b = a + [x,y,z];
+
+plot3(a(1),a(2),a(3),'.r','MarkerSize',20);
+plot3(b(1),b(2),b(3),'.b','MarkerSize',20)
+line([a(1),b(1)],[a(2),b(2)],[a(3),b(3)],'color','k');
+
+
+%%%% OLD
 
 % Get current position of camera
 curr_campos = campos;
 
-% Get constant atlas vector
-atlas_vector = diff(gui_data.atlas_vector,[],1);
+% Get probe vector
+probe_ref_top = [gui_data.handles.probe_ref_line.XData(1), ...
+    gui_data.handles.probe_ref_line.YData(1),gui_data.handles.probe_ref_line.ZData(1)];
+probe_ref_bottom = [gui_data.handles.probe_ref_line.XData(2), ...
+    gui_data.handles.probe_ref_line.YData(2),gui_data.handles.probe_ref_line.ZData(2)];
+probe_vector = probe_ref_top - probe_ref_bottom;
 
 % Get probe-camera vector
-probe_camera_vector = gui_data.atlas_vector(1,:) - curr_campos;
+probe_camera_vector = probe_ref_top - curr_campos;
 
 % Get the vector to plot the plane in (along with probe vector)
-plot_vector = cross(probe_camera_vector,atlas_vector);
+plot_vector = cross(probe_camera_vector,probe_vector);
 
 % Get the normal vector of the plane
-normal_vector = cross(plot_vector,atlas_vector);
+normal_vector = cross(plot_vector,probe_vector);
 
 % Get the plane offset through the probe
-plane_offset = -(normal_vector*gui_data.atlas_vector(1,:)');
+plane_offset = -(normal_vector*probe_ref_top');
 
 % Define a plane of points to index
 % (the plane grid is defined based on the which cardinal plan is most
@@ -172,6 +246,7 @@ switch cam_plane
             -normal_vector(3);
         
 end
+
 
 % Get the coordiates on the plane
 x_idx = round(plane_x);
