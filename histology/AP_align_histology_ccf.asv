@@ -1,6 +1,5 @@
 function AP_align_histology_ccf(tv,av,st,slice_im_path)
 % Align histology slices and matched CCF slices
-% Andy Peters (peters.andrew.j@gmail.com)
 
 % Initialize guidata
 gui_data = struct;

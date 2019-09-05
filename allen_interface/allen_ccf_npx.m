@@ -1,5 +1,6 @@
 function allen_ccf_npx(tv,av,st)
 % allen_ccf_npx(tv,av,st)
+% Andy Peters (peters.andrew.j@gmail.com)
 %
 % GUI for planning Neuropixels trajectories with the Allen CCF
 % Part of repository: https://github.com/cortex-lab/allenCCF
