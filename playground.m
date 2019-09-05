@@ -10664,16 +10664,11 @@ end
 
 
 
-%% Testing atlas by plane?
+%% Keeping the new histology functions here for remembering
 
-
-slice_px_space = 10;
-
-plane_x = 500;
-[plane_y,plane_z] = meshgrid(1:slice_px_space:size(tv,3),1:slice_px_space:size(tv,2));
-
-a = slice(tv,500,20,20);
-
+AP_process_histology;
+AP_grab_histology_ccf;
+AP_align_histology_ccf;
 
 
 
