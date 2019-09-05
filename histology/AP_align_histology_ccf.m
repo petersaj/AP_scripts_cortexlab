@@ -29,51 +29,43 @@ for curr_slice = 1:length(slice_im_fn)
     gui_data.slice_im{curr_slice} = imread(slice_im_fn{curr_slice});
 end
 
-% Make figure with axes for 1) image, 2) atlas, 3) overlay
-gui_fig = figure('WindowScrollWheelFcn',@scroll_slice, ...
+% Set up axis for histology image
+gui_fig = figure('WindowScrollWheelFcn',@scroll_atlas_slice, ...
     'KeyPressFcn',@keypress);
 
-gui_data.slice_ax = subplot(1,3,1,'YDir','reverse'); 
-hold on; axis image off; title('Histology');
-gui_data.slice_im_h = image(gui_data.slice_im{1},'Parent',gui_data.slice_ax); 
-
-% gui_data.atlas_ax = subplot(1,3,2,'YDir','reverse'); 
-% hold on; axis image off; colormap(gui_data.atlas_ax,gray); title('Atlas');
-% caxis([0,max(tv(:))]);
-% gui_data.curr_atlas_slice = 500;
-% gui_data.atlas_im_h = imagesc(permute(gui_data.tv(gui_data.curr_atlas_slice,:,:),[2,3,1]),'Parent',gui_data.atlas_ax); 
-
-gui_data.slice_atlas_overlay_ax = subplot(1,3,3,'YDir','reverse'); 
-hold on; axis image off; title('Aligned atlas over histology');
-gui_data.slice_atlas_overlay_im_h = image(gui_data.slice_im{1},'Parent',gui_data.slice_atlas_overlay_ax); 
+gui_data.histology_ax = subplot(1,2,1,'YDir','reverse'); 
+hold on; axis image off;
+gui_data.histology_im_h = image(gui_data.slice_im{1},'Parent',gui_data.histology_ax);
+gui_data.curr_histology_slice = 1;
 
 % Set up 3D atlas axis
-gui_data.atlas_ax = subplot(1,3,2,'ZDir','reverse');
+gui_data.atlas_ax = subplot(1,2,2,'ZDir','reverse','color','k', ...
+    'XTick',[],'YTick',[],'ZTick',[]);
 hold on
-axis off vis3d equal manual
+axis vis3d equal manual
 view([90,0]);
 [ap_max,dv_max,ml_max] = size(tv);
-xlim([1,ap_max])
-ylim([1,ml_max])
-zlim([1,dv_max])
+xlim([1,ap_max]);
+ylim([1,ml_max]);
+zlim([1,dv_max]);
 colormap(gui_data.atlas_ax,'gray');
-caxis([0,max(gui_data.tv(:))]);
+caxis([0,400]);
 
 % Create slice object and first slice point
-gui_data.slice_plot = surface(gui_data.atlas_ax,'EdgeColor','none'); % Slice on 3D atlas
-gui_data.slice_point = camtarget;
+gui_data.atlas_slice_plot = surface(gui_data.atlas_ax,'EdgeColor','none'); % Slice on 3D atlas
+gui_data.atlas_slice_point = camtarget;
 
 % Upload gui data
 guidata(gui_fig,gui_data);
 
 % Draw the first slice
-update_slice_3d(gui_fig);
+update_atlas_slice(gui_fig);
 
 end 
 
 
 
-function scroll_slice(gui_fig,eventdata)
+function scroll_atlas_slice(gui_fig,eventdata)
 
 % Get guidata
 gui_data = guidata(gui_fig);
@@ -81,7 +73,7 @@ gui_data = guidata(gui_fig);
 % Move slice point along camera -> center axis
 
 % Grab current camera angle
-[cam_az,cam_el] = view;
+[cam_az,cam_el] = view(gui_data.atlas_ax);
 
 % Camera azimuth is 90 degrees offset from spherical standard
 cam_az_sphere = cam_az - 90;
@@ -93,13 +85,13 @@ cam_el_sphere = -cam_el;
 cam_vector = [cam_vector_x,cam_vector_y,cam_vector_z];
 
 % Move slice point
-gui_data.slice_point = gui_data.slice_point + cam_vector;
+gui_data.atlas_slice_point = gui_data.atlas_slice_point + cam_vector;
 
 % Upload gui data
 guidata(gui_fig, gui_data);
 
 % Uodate slice
-update_slice_3d(gui_fig)
+update_atlas_slice(gui_fig)
 
 end
 
@@ -114,23 +106,45 @@ disp(eventdata.Key);
 switch eventdata.Key
     case 'leftarrow'
         set(gui_data.atlas_ax,'View',get(gui_data.atlas_ax,'View') + [1,0]);
-        update_slice_3d(gui_fig)
+        update_atlas_slice(gui_fig)
     case 'rightarrow'
         set(gui_data.atlas_ax,'View',get(gui_data.atlas_ax,'View') + [-1,0]);
-        update_slice_3d(gui_fig)
+        update_atlas_slice(gui_fig)
     case 'uparrow'
-        set(gui_data.atlas_ax,'View',get(gui_data.atlas_ax,'View') + [0,-1]);      
-        update_slice_3d(gui_fig)
+        set(gui_data.atlas_ax,'View',get(gui_data.atlas_ax,'View') + [0,-1]);
+        update_atlas_slice(gui_fig)
     case 'downarrow'
-        set(gui_data.atlas_ax,'View',get(gui_data.atlas_ax,'View') + [0,1]);      
-        update_slice_3d(gui_fig)
+        set(gui_data.atlas_ax,'View',get(gui_data.atlas_ax,'View') + [0,1]);
+        update_atlas_slice(gui_fig)
+    case '1'
+        gui_data.curr_histology_slice = ...
+            min(gui_data.curr_histology_slice + 1,length(gui_data.slice_im));
+        guidata(gui_fig, gui_data);
+        update_histology_slice(gui_fig);
+    case '2'
+        gui_data.curr_histology_slice = max(gui_data.curr_histology_slice - 1,1);
+        guidata(gui_fig, gui_data);
+        update_histology_slice(gui_fig);
 end
 
 
 end
 
+function update_histology_slice(gui_fig)
 
-function update_slice_3d(gui_fig,varargin)
+% Get guidata
+gui_data = guidata(gui_fig);
+
+% Set next histology slice
+set(gui_data.histology_im_h,'CData',gui_data.slice_im{gui_data.curr_histology_slice})
+
+% Upload gui data
+guidata(gui_fig, gui_data);
+
+end
+
+
+function update_atlas_slice(gui_fig)
 
 % Get guidata
 gui_data = guidata(gui_fig);
@@ -138,7 +152,7 @@ gui_data = guidata(gui_fig);
 % Get plane normal to the camera -> center axis, grab voxels on plane
 
 % Grab current camera angle
-[cam_az,cam_el] = view;
+[cam_az,cam_el] = view(gui_data.atlas_ax);
 
 % Camera azimuth is 90 degrees offset from spherical standard
 cam_az_sphere = cam_az - 90;
@@ -147,7 +161,7 @@ cam_el_sphere = -cam_el;
 
 [cam_vector_x,cam_vector_y,cam_vector_z] = sph2cart(deg2rad(cam_az_sphere),deg2rad(cam_el_sphere),1);
 cam_vector = [cam_vector_x,cam_vector_y,cam_vector_z];
-plane_offset = -(cam_vector*gui_data.slice_point');
+plane_offset = -(cam_vector*gui_data.atlas_slice_point');
 
 % Define a plane of points to index
 % (the plane grid is defined based on the which cardinal plan is most
@@ -203,7 +217,7 @@ curr_slice = nan(size(use_idx));
 curr_slice(curr_slice_isbrain) = gui_data.tv(grab_pix_idx);
 
 % Update the slice display
-set(gui_data.slice_plot,'XData',plane_x,'YData',plane_y,'ZData',plane_z,'CData',curr_slice);
+set(gui_data.atlas_slice_plot,'XData',plane_x,'YData',plane_y,'ZData',plane_z,'CData',curr_slice);
 
 % Upload gui_data
 guidata(gui_fig, gui_data);
