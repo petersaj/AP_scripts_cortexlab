@@ -1,7 +1,7 @@
 function AP_view_aligned_histology_volume(tv,av,st,slice_im_path)
 % AP_view_aligned_histology_volume(tv,av,st,slice_im_path)
 %
-% Plot histology warped onto CCF volume?
+% Plot histology warped onto CCF volume
 % Andy Peters (peters.andrew.j@gmail.com)
 
 % Initialize guidata

@@ -10680,7 +10680,7 @@ AP_grab_histology_ccf(tv,av,st,slice_path);
 AP_align_histology_ccf(tv,av,st,slice_path);
 AP_view_aligned_histology(tv,av,st,slice_path);
 AP_view_aligned_histology_volume(tv,av,st,slice_im_path);
-
+AP_get_probe_histology(slice_path);
 
 
 
