@@ -30,6 +30,20 @@ ccf_alignment_fn = [slice_im_path filesep 'histology_ccf_alignment.mat'];
 load(ccf_alignment_fn);
 gui_data.histology_ccf_alignment = histology_ccf_alignment;
 
+% Warp area labels by histology alignment
+gui_data.histology_aligned_av_slices = cell(length(gui_data.slice_im),1);
+for curr_slice = 1:length(gui_data.slice_im)
+    curr_av_slice = gui_data.histology_ccf(curr_slice).av_slices;
+    curr_av_slice(isnan(curr_av_slice)) = 1;
+    curr_slice_im = gui_data.slice_im{curr_slice};
+    
+    tform = fitgeotrans(gui_data.histology_ccf_alignment.atlas_control_points{curr_slice}, ...
+        gui_data.histology_ccf_alignment.histology_control_points{curr_slice},'affine');
+    tform_size = imref2d([size(curr_slice_im,1),size(curr_slice_im,2)]);
+    gui_data.histology_aligned_av_slices{curr_slice} = ...
+        imwarp(curr_av_slice,tform,'nearest','OutputView',tform_size);
+end
+
 % Create figure, set button functions
 gui_fig = figure('KeyPressFcn',@keypress,'WindowButtonMotionFcn',@mousehover);
 gui_data.curr_slice = 1;
@@ -39,6 +53,9 @@ gui_data.histology_ax = axes('YDir','reverse');
 hold on; colormap(gray); axis image off;
 gui_data.histology_im_h = image(gui_data.slice_im{1}, ...
     'Parent',gui_data.histology_ax);
+
+% Create title to write area in
+gui_data.histology_ax_title = title(gui_data.histology_ax,'');
 
 % Set up histology-aligned atlas overlay
 % (and make it invisible to mouse clicks)
@@ -82,7 +99,26 @@ end
 
 function mousehover(gui_fig,eventdata)
 % Display area of atlas on mouse hover
-keyboard
+
+% Get guidata
+gui_data = guidata(gui_fig);
+
+% Get mouse position
+mouse_position = get(gui_data.histology_ax,'CurrentPoint');
+mouse_x = round(mouse_position(1,1));
+mouse_y = round(mouse_position(1,2));
+
+curr_av_slice_warp = gui_data.histology_aligned_av_slices{gui_data.curr_slice};
+
+if ~ismember(mouse_x,1:size(curr_av_slice_warp,2)) || ...
+        ~ismember(mouse_y,1:size(curr_av_slice_warp,1))
+    return
+end
+    
+curr_av = curr_av_slice_warp(mouse_y,mouse_x);
+curr_area_name = gui_data.st.safe_name(curr_av);
+set(gui_data.histology_ax_title,'String',curr_area_name);
+
 end
 
 function align_ccf_to_histology(gui_fig)
@@ -90,15 +126,7 @@ function align_ccf_to_histology(gui_fig)
 % Get guidata
 gui_data = guidata(gui_fig);
 
-curr_av_slice = gui_data.histology_ccf(gui_data.curr_slice).av_slices;
-curr_av_slice(isnan(curr_av_slice)) = 1;
-curr_slice_im = gui_data.slice_im{gui_data.curr_slice};
-
-tform = fitgeotrans(gui_data.histology_ccf_alignment.atlas_control_points{gui_data.curr_slice}, ...
-    gui_data.histology_ccf_alignment.histology_control_points{gui_data.curr_slice},'affine');
-tform_size = imref2d([size(curr_slice_im,1),size(curr_slice_im,2)]);
-curr_av_slice_warp = imwarp(curr_av_slice, tform, 'OutputView',tform_size);
-
+curr_av_slice_warp = gui_data.histology_aligned_av_slices{gui_data.curr_slice};
 av_warp_boundaries = round(conv2(curr_av_slice_warp,ones(3)./9,'same')) ~= curr_av_slice_warp;
 
 set(gui_data.histology_aligned_atlas_boundaries, ...
