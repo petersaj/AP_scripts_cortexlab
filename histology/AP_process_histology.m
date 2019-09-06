@@ -22,7 +22,7 @@ if im_um_x ~= im_um_y
 end
 
 % Set resize factor to match to Allen CCF
-allen_um2px = 10;
+allen_um2px = 10; % Allen CCF: 10 um/voxel
 im_rescale_factor = im_um_x/allen_um2px;
 
 % Load and resize images

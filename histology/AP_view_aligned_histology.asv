@@ -46,7 +46,7 @@ for curr_slice = 1:length(gui_data.slice_im)
     
     % Automated outline
     tform = affine2d;
-    tform.T = gui_data.histology_ccf_auto_alignment{curr_slice};
+    tform.T = gui_data.histology_ccf_auto_alignment{
     
     tform_size = imref2d([size(curr_slice_im,1),size(curr_slice_im,2)]);
     gui_data.histology_aligned_av_slices{curr_slice} = ...

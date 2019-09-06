@@ -136,7 +136,7 @@ switch eventdata.Key
             close(h);
             
             save_fn = [gui_data.slice_im_path filesep 'histology_ccf.mat'];
-            save(save_fn,'histology_ccf');
+            save(save_fn,'histology_ccf','-v7.3');
             close(gui_fig);            
         end
 end

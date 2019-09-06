@@ -82,6 +82,25 @@ switch eventdata.Key
         guidata(gui_fig,gui_data);
         update_slice(gui_fig);
         
+    % C: clear current points
+    case 'c'
+        gui_data.histology_control_points{gui_data.curr_slice} = zeros(0,2);
+        gui_data.atlas_control_points{gui_data.curr_slice} = zeros(0,2);
+        
+        guidata(gui_fig,gui_data);
+        update_slice(gui_fig);
+        
+    % S: save
+    case 's'
+        histology_ccf_alignment.histology_control_points = ...
+            gui_data.histology_control_points;
+        histology_ccf_alignment.atlas_control_points = ...
+            gui_data.atlas_control_points;
+        
+        save_fn = [gui_data.slice_im_path filesep 'histology_ccf_alignment.mat'];
+        save(save_fn,'histology_ccf_alignment');
+        disp(['Saved ' save_fn]);
+        
     % Escape: save and exit
     case 'escape'
         opts.Default = 'Yes';

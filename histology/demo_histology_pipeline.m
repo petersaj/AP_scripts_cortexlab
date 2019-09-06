@@ -7,7 +7,7 @@ av = readNPY([allen_atlas_path filesep 'annotation_volume_10um_by_index.npy']);
 st = loadStructureTree([allen_atlas_path filesep 'structure_tree_safe_2017.csv']);
 
 % Set paths for histology images and directory to save slice/alignment
-im_path = 'C:\Users\Andrew\Desktop\test_histology\subset';
+im_path = 'C:\Users\Andrew\Desktop\test_histology';
 slice_path = [im_path filesep 'slices'];
 
 % Set white balance and resize slide images, extract slice images
@@ -20,13 +20,16 @@ AP_rotate_histology(slice_path);
 AP_grab_histology_ccf(tv,av,st,slice_path);
 
 % Align CCF slices and histology slices
+% (manually, control points)
 AP_align_histology_ccf(tv,av,st,slice_path);
+% (automatically, by outline)
+AP_auto_align_histology_ccf(slice_im_path)
 
 % Display aligned CCF over histology slices
 AP_view_aligned_histology(st,slice_path);
 
 % Display histology within 3D CCF
-AP_view_aligned_histology_volume(tv,av,st,slice_im_path);
+AP_view_aligned_histology_volume(tv,av,st,slice_path);
 
 % Get probe trajectory from histology, convert to CCF coordinates
 AP_get_probe_histology(slice_path);

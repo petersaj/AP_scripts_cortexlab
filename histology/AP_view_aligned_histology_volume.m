@@ -62,7 +62,7 @@ zlim([-10,dv_max+10])
 colormap(hot);
 
 % Draw all aligned slices
-plot_channel = 1;
+plot_channel = 2;
 histology_surf = gobjects(length(gui_data.slice_im));
 for curr_slice = 1:length(gui_data.slice_im)     
         histology_surf(curr_slice) = surface(gui_data.histology_ccf(curr_slice).plane_x, ...

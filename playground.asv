@@ -10634,6 +10634,10 @@ end
 AP_align_widefield(avg_im_days,animal,{experiments.day},'new_days');
 
 
+%% Testing aligning outlines
+% this actually works well enough to replace control point
+
+
 
 
 
