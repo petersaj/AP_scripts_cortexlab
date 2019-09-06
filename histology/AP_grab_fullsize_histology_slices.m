@@ -43,12 +43,12 @@ for curr_im = 1:n_im
         [grab_px_x,grab_px_y,grab_px_z] = meshgrid(curr_x,curr_y,1:3);
         grab_px_ind = sub2ind(size(curr_slide_im),grab_px_y(:),grab_px_x(:),grab_px_z(:));
         
-        curr_slice_channel = reshape(curr_slide_im(grab_px_ind),length(curr_y),length(curr_x),3);
+        curr_slice_im = reshape(curr_slide_im(grab_px_ind),length(curr_y),length(curr_x),3);
         
         curr_slice_fn = [slice_fullsize_dir filesep num2str(curr_slice_write) '.tif'];
-        imwrite(curr_slice_channel,curr_slice_fn,'tif');
+        imwrite(curr_slice_im,curr_slice_fn,'tif');
         
-        curr_slice_write = curr_slice + 1;
+        curr_slice_write = curr_slice_write + 1;
         
         waitbar(curr_im/n_im,h,['Loading and resizing images (' ...
             num2str(curr_slice) '/' num2str(length(slice_slide_locations{curr_im})) ' on slide)...']);
@@ -56,7 +56,8 @@ for curr_im = 1:n_im
     end
     
 end
-   
+
+close(h);
 
 
 
