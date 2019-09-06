@@ -9,7 +9,7 @@ im_path_dir = dir([im_path filesep '*.tif*']);
 im_fn = natsortfiles(cellfun(@(path,fn) [path filesep fn], ...
     {im_path_dir.folder},{im_path_dir.name},'uni',false));
 
-% Get microns/pixel from metadata (ome.tiff) 
+% Get microns/pixel from metadata (if ome.tiff) 
 im_info = imfinfo(im_fn{1});
 im_description = im_info(1).ImageDescription;
 
@@ -171,13 +171,14 @@ end
 
 slice_data.curr_slide = slice_data.curr_slide + 1;
 
-min_slice = (1000/10)^2; % (um/10(CCF))^2
+min_slice = (1000/10)^2; % (um/10(CCF units))^2
 slice_mask = bwareaopen(mean( ...
     slice_data.im_rgb{slice_data.curr_slide},3) > 0.01,min_slice);
 slice_conncomp = bwconncomp(slice_mask);
 
 im_handle = imshow(slice_data.im_rgb{slice_data.curr_slide});
 set(im_handle,'ButtonDownFcn',@slice_click);
+title('Click slices to save, spacebar to finish slide');
 
 slice_boundaries = bwboundaries(slice_mask);
 slice_lines = gobjects(length(slice_boundaries),1);
@@ -244,9 +245,6 @@ for curr_im = 1:length(slice_rgb_cat)
 end
 
 disp(['Slices saved in ' save_dir]);
-
-% TO DO: SAVE ORIGINAL COORDINATES SO THAT THEY CAN BE PULLED FROM ORIGINAL
-% RESOLUTION IMAGES
 
 end
 

@@ -1,14 +1,14 @@
 % Example pipeline for processing histology
 
-% Load CCF atlas
+% Load 
 allen_atlas_path = 'C:\Users\Andrew\OneDrive for Business\Documents\Atlases\AllenCCF';
 tv = readNPY([allen_atlas_path filesep 'template_volume_10um.npy']);
 av = readNPY([allen_atlas_path filesep 'annotation_volume_10um_by_index.npy']);
 st = loadStructureTree([allen_atlas_path filesep 'structure_tree_safe_2017.csv']);
 
-% Set paths for histology images and directory to save slice/alignment
 im_path = 'C:\Users\Andrew\Desktop\test_histology\subset';
 slice_path = [im_path filesep 'slices'];
+
 
 % Set white balance and resize slide images, extract slice images
 AP_process_histology(im_path);
