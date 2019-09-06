@@ -1,20 +1,15 @@
 function AP_process_histology(im_path)
-% AP_process_histology
+% AP_process_histology(im_path)
+%
+% Resize histology images and extract images of each slice
 % Andy Peters (peters.andrew.j@gmail.com)
 
-
-%% Testing histology image preprocessing
-
 % Get and sort image files
-im_path = 'C:\Users\Andrew\Desktop\test_histology';
 im_path_dir = dir([im_path filesep '*.ome.tiff']);
 im_fn = natsortfiles(cellfun(@(path,fn) [path filesep fn], ...
     {im_path_dir.folder},{im_path_dir.name},'uni',false));
 
-
 % Get microns/pixel from metadata (ome.tiff) 
-% NOTE: apparently PhysicalSizeX isn't necessarily real??
-
 im_info = imfinfo(im_fn{1});
 im_description = im_info(1).ImageDescription;
 
@@ -30,9 +25,8 @@ end
 allen_um2px = 10;
 im_rescale_factor = im_um_x/allen_um2px;
 
-
+% Load and resize images
 n_im = length(im_fn);
-
 im_resized = cell(n_im,3);
 
 h = waitbar(0,'Loading and resizing images...');
@@ -44,6 +38,8 @@ for curr_im = 1:n_im
 end
 close(h);
 
+% Estimate white balance within each channel
+% (dirty: assume one peak for background, one for signal)
 h = figure;
 im_montage = cell(3,1);
 channel_caxis = nan(3,2);
@@ -52,9 +48,7 @@ for curr_channel = 1:3
    curr_montage = montage(im_resized(:,curr_channel));
    
    im_montage{curr_channel} = curr_montage.CData;
-   
-   % Estimate white balance
-   % (very dirty: assume one peak for background, one for signal)
+
    im_hist = histcounts(im_montage{curr_channel}(im_montage{curr_channel} > 0),0:max(im_montage{curr_channel}(:)));
    im_hist_deriv = diff(smooth(im_hist,10));
    
@@ -74,14 +68,14 @@ for curr_channel = 1:3
 end
 close(h)
 
+% Display montage of final balanced image, sort color channels by RGB
 color_order = [2,3,1]; % (which channel is R,G,B)
 im_montage_rgb = cell2mat(arrayfun(@(ch) rescale(im_montage{ch}, ...
     'InputMin',channel_caxis(ch,1),'InputMax',channel_caxis(ch,2)), ...
     permute(color_order,[1,3,2]),'uni',false));
-
 figure;imshow(im_montage_rgb);
 
-
+% Save RGB for each slide
 im_rgb = cellfun(@(x) zeros(size(x,1),size(x,2),size(im_resized,3),class(x)),im_resized(:,1),'uni',false);
 for curr_im = 1:n_im
     im_rgb{curr_im} = cell2mat(arrayfun(@(ch) rescale(im_resized{curr_im,ch}, ...
@@ -89,10 +83,11 @@ for curr_im = 1:n_im
         permute(color_order,[1,3,2]),'uni',false));  
 end
 
-
+% Set up GUI to pick slices on slide to extract
 slice_fig = figure('KeyPressFcn',@slice_keypress);
 
 slice_data = struct;
+slice_data.im_path = im_path;
 slice_data.im_rgb = im_rgb;
 slice_data.curr_slide = 0;
 slice_data.slice_rgb = cell(0,0);
@@ -103,6 +98,7 @@ update_slide(slice_fig);
 end
 
 function slice_click(slice_fig,eventdata)
+% On slice click, mark to extract
 
 slice_data = guidata(slice_fig);
 
@@ -122,8 +118,7 @@ if eventdata.Button == 1
     box_h = find(any(slice_data.user_masks(:,:,roi_num),2),1,'last') - box_y;
     slice_data.user_rectangles(roi_num) = ...
         rectangle('Position',[box_x,box_y,box_w,box_h],'EdgeColor','w');
-    
-    
+       
 elseif eventdata.Button == 3
     % if right button pressed, join to last slice ROI
     roi_num = size(slice_data.user_masks,3);
@@ -142,11 +137,13 @@ elseif eventdata.Button == 3
     
 end
 
+% Update gui data
 guidata(slice_fig, slice_data);
 
 end
 
 function slice_keypress(slice_fig,eventdata)
+% Move to next slide with spacebar
 
 if strcmp(eventdata.Key,'space')
     update_slide(slice_fig) 
@@ -155,12 +152,13 @@ end
 end
 
 function update_slide(slice_fig)
+% Find slices on slide by over-threshold objects of a large enough size
 
 slice_data = guidata(slice_fig);
 
-% After the first slice, pull the images from selected slices
-if slice_data.curr_slide > 1
-    pull_slice_rgb(slice_fig);
+% Pull the images from selected slices (not during initialization)
+if slice_data.curr_slide > 0
+    extract_slice_rgb(slice_fig);
     slice_data = guidata(slice_fig);
 end
 
@@ -188,21 +186,20 @@ for curr_slice = 1:length(slice_boundaries)
         slice_boundaries{curr_slice}(:,1),'color','w','linewidth',2,'LineSmoothing','on','linestyle','--');
 end
 
-
 slice_data.im_h = im_handle;
 slice_data.mask = slice_mask;
 slice_data.lines = slice_lines;
 slice_data.user_masks = zeros(size(slice_mask,1),size(slice_mask,2),0,'logical');
 slice_data.user_rectangles = gobjects(0);
 
-
+% Update gui data
 guidata(slice_fig, slice_data);
 
 end
 
 
-function pull_slice_rgb(slice_fig)
-% When changing slide, pull the selected slice images
+function extract_slice_rgb(slice_fig)
+% When changing slide, extract the selected slice images
 
 slice_data = guidata(slice_fig);
 
@@ -223,6 +220,7 @@ end
 
 slice_data.slice_rgb{slice_data.curr_slide} = curr_slice_rgb;
 
+% Update gui data
 guidata(slice_fig, slice_data);
 
 end
@@ -230,9 +228,13 @@ end
 
 function save_slice_rgb(slice_fig)
 % After the last slide, save the slice images
-save_dir = 'C:\Users\Andrew\Desktop\test_histology\processed\slices';
 
 slice_data = guidata(slice_fig);
+
+save_dir = [slice_data.im_path filesep 'slices'];
+if ~exist(save_dir,'dir')
+    mkdir(save_dir)
+end
 
 slice_rgb_cat = vertcat(slice_data.slice_rgb{:});
 
@@ -247,72 +249,6 @@ disp(['Slices saved in ' save_dir]);
 % RESOLUTION IMAGES
 
 end
-
-
-%% temporary - storing here for now 
-function asdf
-
-slice_path = 'C:\Users\Andrew\Desktop\test_histology\processed\slices';
-slice_dir = dir([slice_path filesep '*.tif']);
-slice_fn = natsortfiles(cellfun(@(path,fn) [path filesep fn], ...
-    {slice_dir.folder},{slice_dir.name},'uni',false));
-
-slice_im = cell(length(slice_fn),1);
-for curr_slice = 1:length(slice_fn)
-   slice_im{curr_slice} = imread(slice_fn{curr_slice});  
-end
-
-% Pad all slices centrally to the largest slice and make matrix
-slice_size_max = max(cell2mat(cellfun(@size,slice_im,'uni',false)),[],1);
-slice_im_pad = ...
-    cell2mat(cellfun(@(x) x(1:slice_size_max(1),1:slice_size_max(2),:), ...
-    reshape(cellfun(@(im) padarray(im, ...
-    [ceil((slice_size_max(1) - size(im,1))./2), ...
-    ceil((slice_size_max(2) - size(im,2))./2)],0,'both'), ...
-    slice_im,'uni',false),1,1,1,[]),'uni',false));
-
-% Draw line to indicate midline for rotation
-rotation_fig = figure;
-
-align_axis = nan(2,2,length(slice_im));
-for curr_im = 1:length(slice_im)
-    imshow(slice_im_pad(:,:,:,curr_im));
-    title('Click and drag reference line (e.g. midline)')
-    curr_line = imline;
-    align_axis(:,:,curr_im) = curr_line.getPosition;  
-end
-close(rotation_fig);
-
-% NOTE FOR FUTURE: make target angle either vert or horiz for whatever's
-% closest to the average reference? then switch dx vs dy below
-target_angle = 90;
-target_position = round(slice_size_max(2)./2);
-
-% Get angle for all axes
-align_angle = squeeze(acosd(diff(align_axis(:,1,:),[],1)./diff(align_axis(:,2,:),[],1)));
-align_center = squeeze(nanmean(align_axis,1));
-
-im_aligned = zeros(size(slice_im_pad),class(slice_im_pad));
-
-for curr_im = 1:length(slice_im)
-    
-    angle_diff = align_angle(curr_im) - target_angle;
-    x_diff = target_position - align_center(1,curr_im);
-    y_diff = 0;
-    
-    im_aligned(:,:,:,curr_im) = ...
-        imrotate(imtranslate(slice_im_pad(:,:,:,curr_im), ...
-        [x_diff,y_diff]),angle_diff,'bilinear','crop');
-    
-end
-
-% Need to be able to flip and re-order here?
-
-
-
-
-end
-
 
 
 

@@ -1,5 +1,6 @@
 function AP_grab_histology_ccf(tv,av,st,slice_im_path)
 % Grab CCF slices corresponding to histology slices
+% Andy Peters (peters.andrew.j@gmail.com)
 
 % Initialize guidata
 gui_data = struct;
@@ -121,8 +122,6 @@ switch eventdata.Key
                 'plane_z',histology_ccf_init);
             
             h = waitbar(0,'Saving atlas slices...');
-            histology_ccf.tv_slices = cell(length(gui_data.slice_im),1);
-            histology_ccf.av_slices = cell(length(gui_data.slice_im),1);
             for curr_slice = 1:length(gui_data.slice_im)
                 gui_data.atlas_slice_point = gui_data.slice_points(curr_slice,:);
                 [histology_ccf(curr_slice).tv_slices, ...
@@ -136,7 +135,7 @@ switch eventdata.Key
             end                     
             close(h);
             
-            save_fn = [gui_data.slice_im_path filesep 'ccf_slices'];
+            save_fn = [gui_data.slice_im_path filesep 'histology_ccf'];
             save(save_fn,'histology_ccf');
             close(gui_fig);            
         end

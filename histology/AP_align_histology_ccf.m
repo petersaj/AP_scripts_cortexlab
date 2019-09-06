@@ -1,4 +1,6 @@
 function AP_align_histology_ccf(tv,av,st,slice_im_path)
+% AP_align_histology_ccf(tv,av,st,slice_im_path)
+%
 % Align histology slices and matched CCF slices
 % Andy Peters (peters.andrew.j@gmail.com)
 
@@ -19,7 +21,7 @@ for curr_slice = 1:length(slice_im_fn)
 end
 
 % Load corresponding CCF slices
-ccf_slice_fn = [slice_im_path filesep 'ccf_slices.mat'];
+ccf_slice_fn = [slice_im_path filesep 'histology_ccf.mat'];
 load(ccf_slice_fn);
 gui_data.histology_ccf = histology_ccf;
 
@@ -29,7 +31,7 @@ gui_data.curr_slice = 1;
 
 % Set up axis for histology image
 gui_data.histology_ax = subplot(1,2,1,'YDir','reverse'); 
-hold on; axis image off;
+hold on; colormap(gray); axis image off;
 gui_data.histology_im_h = image(gui_data.slice_im{1}, ...
     'Parent',gui_data.histology_ax,'ButtonDownFcn',@mouseclick_histology);
 
@@ -44,7 +46,7 @@ gui_data.histology_aligned_atlas_boundaries = ...
 % Set up axis for atlas slice
 gui_data.atlas_ax = subplot(1,2,2,'YDir','reverse'); 
 hold on; axis image off; colormap(gray); caxis([0,400]);
-gui_data.atlas_im_h = imagesc(gui_data.histology_ccf.tv_slices{1}, ...
+gui_data.atlas_im_h = imagesc(gui_data.histology_ccf(1).tv_slices, ...
     'Parent',gui_data.atlas_ax,'ButtonDownFcn',@mouseclick_atlas);
 
 % Initialize alignment control points
@@ -87,15 +89,14 @@ switch eventdata.Key
         user_confirm = questdlg('\fontsize{15} Save and quit?','Confirm exit',opts);
         if strcmp(user_confirm,'Yes')
             
-            keyboard
             histology_ccf_alignment.histology_control_points = ...
-                histology_control_points;
+                gui_data.histology_control_points;
             histology_ccf_alignment.atlas_control_points = ...
-                atlas_control_points;
-            
-            save_fn = [gui_data.slice_im_path filesep 'histology_ccf_alignment'];
-%             save(save_fn,'histology_ccf');
-%             close(gui_fig);
+                gui_data.atlas_control_points;
+                       
+            save_fn = [gui_data.slice_im_path filesep 'histology_ccf_alignment.mat'];
+            save(save_fn,'histology_ccf_alignment');
+            close(gui_fig);
             
         end
         
@@ -178,7 +179,7 @@ if size(gui_data.histology_control_points{gui_data.curr_slice},1) ~= ...
     return
 end
 
-curr_av_slice = gui_data.histology_ccf.av_slices{gui_data.curr_slice};
+curr_av_slice = gui_data.histology_ccf(gui_data.curr_slice).av_slices;
 curr_av_slice(isnan(curr_av_slice)) = 1;
 curr_slice_im = gui_data.slice_im{gui_data.curr_slice};
 
@@ -207,7 +208,7 @@ gui_data = guidata(gui_fig);
 
 % Set next histology slice
 set(gui_data.histology_im_h,'CData',gui_data.slice_im{gui_data.curr_slice})
-set(gui_data.atlas_im_h,'CData',gui_data.histology_ccf.tv_slices{gui_data.curr_slice});
+set(gui_data.atlas_im_h,'CData',gui_data.histology_ccf(gui_data.curr_slice).tv_slices);
 
 % Plot control points for slice
 set(gui_data.histology_control_points_plot, ...

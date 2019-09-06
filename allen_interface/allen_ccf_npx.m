@@ -7,7 +7,7 @@ function allen_ccf_npx(tv,av,st)
 % - directions for installing atlas in repository readme
 % - some dependent functions from that repository
 %
-% (optional inputs - if CCF path written in Line 23, loaded automatically)
+% (optional inputs - if CCF path written in Line 22, loaded automatically)
 % tv, av, st = CCF template volume, annotated volume, structure tree
 
 % Initialize gui_data structure

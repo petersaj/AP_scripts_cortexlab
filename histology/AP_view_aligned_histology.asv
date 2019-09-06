@@ -1,7 +1,7 @@
-function AP_align_histology_ccf(tv,av,st,slice_im_path)
-% AP_align_histology_ccf(tv,av,st,slice_im_path)
+function AP_view_aligned_histology(tv,av,st,slice_im_path)
+% AP_view_aligned_histology(tv,av,st,slice_im_path)
 %
-% Align histology slices and matched CCF slices
+% View histology slices with overlaid aligned CCF areas
 % Andy Peters (peters.andrew.j@gmail.com)
 
 % Initialize guidata
@@ -21,16 +21,21 @@ for curr_slice = 1:length(slice_im_fn)
 end
 
 % Load corresponding CCF slices
-ccf_slice_fn = [slice_im_path filesep 'ccf_slices.mat'];
+ccf_slice_fn = [slice_im_path filesep 'histology_ccf.mat'];
 load(ccf_slice_fn);
 gui_data.histology_ccf = histology_ccf;
+
+% Load histology/CCF alignment
+ccf_alignment_fn = [slice_im_path filesep 'histology_ccf_alignment.mat'];
+load(ccf_alignment_fn);
+gui_data.histology_ccf_alignment = histology_ccf_alignment;
 
 % Create figure, set button functions
 gui_fig = figure('KeyPressFcn',@keypress);
 gui_data.curr_slice = 1;
 
 % Set up axis for histology image
-gui_data.histology_ax = subplot(1,2,1,'YDir','reverse'); 
+gui_data.histology_ax = axes('YDir','reverse'); 
 hold on; axis image off;
 gui_data.histology_im_h = image(gui_data.slice_im{1}, ...
     'Parent',gui_data.histology_ax,'ButtonDownFcn',@mouseclick_histology);
@@ -43,18 +48,11 @@ gui_data.histology_aligned_atlas_boundaries = ...
     imagesc(histology_aligned_atlas_boundaries_init,'Parent',gui_data.histology_ax, ...
     'AlphaData',histology_aligned_atlas_boundaries_init,'PickableParts','none');
 
-% Set up axis for atlas slice
-gui_data.atlas_ax = subplot(1,2,2,'YDir','reverse'); 
-hold on; axis image off; colormap(gray); caxis([0,400]);
-gui_data.atlas_im_h = imagesc(gui_data.histology_ccf(1).tv_slices, ...
-    'Parent',gui_data.atlas_ax,'ButtonDownFcn',@mouseclick_atlas);
-
 % Initialize alignment control points
 gui_data.histology_control_points = repmat({zeros(0,2)},length(gui_data.slice_im),1);
 gui_data.atlas_control_points = repmat({zeros(0,2)},length(gui_data.slice_im),1);
 
 gui_data.histology_control_points_plot = plot(gui_data.histology_ax,nan,nan,'.w','MarkerSize',20);
-gui_data.atlas_control_points_plot = plot(gui_data.atlas_ax,nan,nan,'.r','MarkerSize',20);
 
 % Upload gui data
 guidata(gui_fig,gui_data);
@@ -89,76 +87,17 @@ switch eventdata.Key
         user_confirm = questdlg('\fontsize{15} Save and quit?','Confirm exit',opts);
         if strcmp(user_confirm,'Yes')
             
-            keyboard
             histology_ccf_alignment.histology_control_points = ...
                 gui_data.histology_control_points;
             histology_ccf_alignment.atlas_control_points = ...
                 gui_data.atlas_control_points;
-            
-            save_fn = [gui_data.slice_im_path filesep 'histology_ccf_alignment'];
-%             save(save_fn,'histology_ccf');
-%             close(gui_fig);
+                       
+            save_fn = [gui_data.slice_im_path filesep 'histology_ccf_alignment.mat'];
+            save(save_fn,'histology_ccf_alignment');
+            close(gui_fig);
             
         end
         
-end
-
-end
-
-
-function mouseclick_histology(gui_fig,eventdata)
-% Draw new point for alignment
-
-% Get guidata
-gui_data = guidata(gui_fig);
-
-% Add clicked location to control points
-gui_data.histology_control_points{gui_data.curr_slice} = ...
-    vertcat(gui_data.histology_control_points{gui_data.curr_slice}, ...
-    eventdata.IntersectionPoint(1:2));
-
-set(gui_data.histology_control_points_plot, ...
-    'XData',gui_data.histology_control_points{gui_data.curr_slice}(:,1), ...
-    'YData',gui_data.histology_control_points{gui_data.curr_slice}(:,2));
-
-% Upload gui data
-guidata(gui_fig, gui_data);
-
-% If equal number of histology/atlas control points > 3, draw boundaries
-if size(gui_data.histology_control_points{gui_data.curr_slice},1) == ...
-        size(gui_data.atlas_control_points{gui_data.curr_slice},1) || ...
-        (size(gui_data.histology_control_points{gui_data.curr_slice},1) > 3 && ...
-        size(gui_data.atlas_control_points{gui_data.curr_slice},1) > 3)
-    align_ccf_to_histology(gui_fig)
-end
-
-end
-
-
-function mouseclick_atlas(gui_fig,eventdata)
-% Draw new point for alignment
-
-% Get guidata
-gui_data = guidata(gui_fig);
-
-% Add clicked location to control points
-gui_data.atlas_control_points{gui_data.curr_slice} = ...
-    vertcat(gui_data.atlas_control_points{gui_data.curr_slice}, ...
-    eventdata.IntersectionPoint(1:2));
-
-set(gui_data.atlas_control_points_plot, ...
-    'XData',gui_data.atlas_control_points{gui_data.curr_slice}(:,1), ...
-    'YData',gui_data.atlas_control_points{gui_data.curr_slice}(:,2));
-
-% Upload gui data
-guidata(gui_fig, gui_data);
-
-% If equal number of histology/atlas control points > 3, draw boundaries
-if size(gui_data.histology_control_points{gui_data.curr_slice},1) == ...
-        size(gui_data.atlas_control_points{gui_data.curr_slice},1) || ...
-        (size(gui_data.histology_control_points{gui_data.curr_slice},1) > 3 && ...
-        size(gui_data.atlas_control_points{gui_data.curr_slice},1) > 3)
-    align_ccf_to_histology(gui_fig)
 end
 
 end
@@ -168,17 +107,6 @@ function align_ccf_to_histology(gui_fig)
 
 % Get guidata
 gui_data = guidata(gui_fig);
-
-% Check for same number > 3 of control points
-if size(gui_data.histology_control_points{gui_data.curr_slice},1) ~= ...
-        size(gui_data.atlas_control_points{gui_data.curr_slice},1) || ...
-        (size(gui_data.histology_control_points{gui_data.curr_slice},1) < 3 && ...
-        size(gui_data.atlas_control_points{gui_data.curr_slice},1) < 3)
-    
-    % Upload gui data
-    guidata(gui_fig, gui_data);
-    return
-end
 
 curr_av_slice = gui_data.histology_ccf(gui_data.curr_slice).av_slices;
 curr_av_slice(isnan(curr_av_slice)) = 1;
@@ -199,7 +127,6 @@ set(gui_data.histology_aligned_atlas_boundaries, ...
 guidata(gui_fig, gui_data);
 
 end
-
 
 function update_slice(gui_fig)
 % Draw histology and CCF slice

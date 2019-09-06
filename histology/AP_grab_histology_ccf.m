@@ -135,7 +135,7 @@ switch eventdata.Key
             end                     
             close(h);
             
-            save_fn = [gui_data.slice_im_path filesep 'ccf_slices'];
+            save_fn = [gui_data.slice_im_path filesep 'histology_ccf.mat'];
             save(save_fn,'histology_ccf');
             close(gui_fig);            
         end
