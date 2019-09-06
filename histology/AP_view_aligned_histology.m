@@ -1,13 +1,11 @@
-function AP_view_aligned_histology(tv,av,st,slice_im_path)
-% AP_view_aligned_histology(tv,av,st,slice_im_path)
+function AP_view_aligned_histology(st,slice_im_path)
+% AP_view_aligned_histology(st,slice_im_path)
 %
 % View histology slices with overlaid aligned CCF areas
 % Andy Peters (peters.andrew.j@gmail.com)
 
 % Initialize guidata
 gui_data = struct;
-gui_data.tv = tv;
-gui_data.av = av;
 gui_data.st = st;
 
 % Load in slice images

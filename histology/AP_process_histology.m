@@ -5,7 +5,7 @@ function AP_process_histology(im_path)
 % Andy Peters (peters.andrew.j@gmail.com)
 
 % Get and sort image files
-im_path_dir = dir([im_path filesep '*.ome.tiff']);
+im_path_dir = dir([im_path filesep '*.tif*']);
 im_fn = natsortfiles(cellfun(@(path,fn) [path filesep fn], ...
     {im_path_dir.folder},{im_path_dir.name},'uni',false));
 
