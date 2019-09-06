@@ -258,13 +258,23 @@ for curr_im = 1:length(slice_rgb_cat)
     imwrite(slice_rgb_cat{curr_im},curr_fn,'tif');
 end
 
-% Save full-size mask for each slice (to apply to original images later)
-slice_mask_fullsize = cellfun(@(x) cellfun(@(x) ...
+% Get rows and columns for each slice corresponding to full size image
+slice_masks = cell(size(slice_data.slice_mask));
+for curr_slide = 1:size(slice_data.slice_mask)
+    for curr_slice = 1:
+
+mask_x = find(interp1(1:size(x,2),+any(x,1),linspace(1,size(x,2), ...
+    round(size(x,2)/slice_data.im_rescale_factor)),'nearest'));
+mask_y = find(interp1(1:size(x,1),+any(x,2),linspace(1,size(x,1), ...
+    round(size(x,1)/slice_data.im_rescale_factor)),'nearest'));
+
+
+slice_masks = cellfun(@(x) cellfun(@(x) ...
     imresize(x,1/slice_data.im_rescale_factor,'nearest'),x,'uni',false), ...
     slice_data.slice_mask,'uni',false);
-imresize(imread(im_fn{curr_im},curr_channel),im_rescale_factor);
+slice_mask_fn = [save_dir filesep 'slice_masks.mat'];
+save(slice_mask_fn,'slice_masks');
 
-mask_fn = [save_dir filesep 'slice_mask.mat']
 disp(['Slices saved in ' save_dir]);
 
 end

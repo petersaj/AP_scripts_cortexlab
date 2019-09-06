@@ -31,6 +31,15 @@ AP_view_aligned_histology_volume(tv,av,st,slice_im_path);
 % Get probe trajectory from histology, convert to CCF coordinates
 AP_get_probe_histology(slice_path);
 
+% Extract slices from full-resolution images
+% (not worth it at the moment, each slice is 200 MB)
+% AP_grab_fullsize_histology_slices(im_path)
+
+
+
+
+
+
 
 
 

@@ -1,0 +1,69 @@
+function AP_grab_fullsize_histology_slices(im_path)
+% AP_grab_fullsize_histology_slices(im_path)
+%
+% Grab and save slices from original fullsize images
+% Andy Peters (peters.andrew.j@gmail.com)
+
+% Get and sort image files
+im_path_dir = dir([im_path filesep '*.tif*']);
+im_fn = natsortfiles(cellfun(@(path,fn) [path filesep fn], ...
+    {im_path_dir.folder},{im_path_dir.name},'uni',false));
+
+% Get slice slide_locations
+slice_dir = [im_path filesep 'slices'];
+slice_slide_locations_fn = [slice_dir filesep 'slice_slide_locations.mat'];
+load(slice_slide_locations_fn);
+
+% Load slides and pull full resolution slices
+curr_slice = 1; % Counter for naming slices
+n_im = length(im_fn);
+
+h = waitbar(0,'Loading and resizing images...');
+for curr_im = 1:n_im
+    
+    % Load slide
+    im_info = imfinfo(im_fn{curr_im});
+    curr_slide_im = zeros(im_info(1).Height,im_info
+    for curr_channel = 1:3
+    
+    for curr_channel = 1:3
+        curr_slide_channel = imread(im_fn{curr_im},curr_channel);
+        
+        for curr_slice = 1:length(slice_slide_locations{curr_im})            
+            curr_y = slice_slide_locations{curr_im}{curr_slice}{1};
+            curr_x = slice_slide_locations{curr_im}{curr_slice}{2};
+            
+            [grab_px_x,grab_px_y] = meshgrid(curr_x,curr_y);
+            grab_px_ind = sub2ind(size(curr_slide_channel),grab_px_y(:),grab_px_x(:));
+            
+            curr_slice_channel = reshape(curr_slide_channel(grab_px_ind),size(grab_px_x));
+        end
+        
+    end
+    
+    waitbar(curr_im/n_im,h,['Loading and resizing images (' num2str(curr_im) '/' num2str(n_im) ')...']);
+end
+close(h);
+
+
+
+
+% Write all slice images to separate files
+for curr_im = 1:length(slice_rgb_cat)
+    curr_fn = [save_dir filesep num2str(curr_im) '.tif'];
+    imwrite(slice_rgb_cat{curr_im},curr_fn,'tif');
+end
+
+% Save full-size mask for each slice (to apply to original images later)
+slice_masks = cellfun(@(x) cellfun(@(x) ...
+    imresize(x,1/slice_data.im_rescale_factor,'nearest'),x,'uni',false), ...
+    slice_data.slice_mask,'uni',false);
+slice_mask_fn = [save_dir filesep 'slice_masks.mat'];
+save(slice_mask_fn,'slice_masks');
+
+disp(['Slices saved in ' save_dir]);
+
+end
+
+
+
