@@ -55,7 +55,7 @@ gui_data.histology_im_h = image(gui_data.slice_im{1}, ...
     'Parent',gui_data.histology_ax);
 
 % Create title to write area in
-gui_data.histology_ax_title = title(gui_data.histology_ax,'');
+gui_data.histology_ax_title = title(gui_data.histology_ax,'','FontSize',14);
 
 % Set up histology-aligned atlas overlay
 % (and make it invisible to mouse clicks)
@@ -110,12 +110,20 @@ mouse_y = round(mouse_position(1,2));
 
 curr_av_slice_warp = gui_data.histology_aligned_av_slices{gui_data.curr_slice};
 
+% Don't use if mouse out of bounds
 if ~ismember(mouse_x,1:size(curr_av_slice_warp,2)) || ...
         ~ismember(mouse_y,1:size(curr_av_slice_warp,1))
     return
 end
     
 curr_av = curr_av_slice_warp(mouse_y,mouse_x);
+
+% Don't use if AV = 0
+if curr_av == 0
+    return
+end
+
+% Grab area name and set title
 curr_area_name = gui_data.st.safe_name(curr_av);
 set(gui_data.histology_ax_title,'String',curr_area_name);
 
