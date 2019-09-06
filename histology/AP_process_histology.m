@@ -1,7 +1,7 @@
 function AP_process_histology(im_path)
 % AP_process_histology(im_path)
 %
-% Resize histology images and extract images of each slice
+% Resize and white balance histology images and extract images of each slice
 % Andy Peters (peters.andrew.j@gmail.com)
 
 % Get and sort image files
@@ -93,6 +93,7 @@ slice_data.im_fn = im_fn;
 slice_data.im_rescale_factor = im_rescale_factor;
 slice_data.im_rgb = im_rgb;
 slice_data.curr_slide = 0;
+slice_data.slice_mask = cell(0,0);
 slice_data.slice_rgb = cell(0,0);
 
 % Update gui data
@@ -184,7 +185,7 @@ slice_conncomp = bwconncomp(slice_mask);
 
 im_handle = imshow(slice_data.im_rgb{slice_data.curr_slide});
 set(im_handle,'ButtonDownFcn',@slice_click);
-title('Click slices to save, spacebar to finish slide');
+title('Click slices to extract (left = new, right = add to last), spacebar to finish slide');
 
 slice_boundaries = bwboundaries(slice_mask);
 slice_lines = gobjects(length(slice_boundaries),1);
@@ -227,7 +228,8 @@ for curr_slice = 1:n_slices
     
 end
 
-% Store the image for each slice
+% Store the image and mask for each slice
+slice_data.slice_mask{slice_data.curr_slide} = curr_slice_mask;
 slice_data.slice_rgb{slice_data.curr_slide} = curr_slice_rgb;
 
 % Update gui data
@@ -241,17 +243,27 @@ function save_slice_rgb(slice_fig)
 
 slice_data = guidata(slice_fig);
 
+% Set save directory as subdirectory within original
 save_dir = [slice_data.im_path filesep 'slices'];
 if ~exist(save_dir,'dir')
     mkdir(save_dir)
 end
 
+% Concatenate all slice images
 slice_rgb_cat = vertcat(slice_data.slice_rgb{:});
 
+% Write all slice images to separate files
 for curr_im = 1:length(slice_rgb_cat)
     curr_fn = [save_dir filesep num2str(curr_im) '.tif'];
     imwrite(slice_rgb_cat{curr_im},curr_fn,'tif');
 end
+
+% Save full-size mask for each slice (to apply to original images later)
+slice_masks = cellfun(@(x) cellfun(@(x) ...
+    imresize(x,1/slice_data.im_rescale_factor,'nearest'),x,'uni',false), ...
+    slice_data.slice_mask,'uni',false);
+slice_mask_fn = [save_dir filesep 'slice_masks.mat'];
+save(slice_mask_fn,'slice_masks');
 
 disp(['Slices saved in ' save_dir]);
 
