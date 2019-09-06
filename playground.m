@@ -10617,7 +10617,7 @@ colormap(brewermap([],'*RdBu'));
 
 %% Align vasculature for animal
 
-animal = 'AP041';
+animal = 'AP040';
 
 protocol = 'AP_lcrGratingPassive';
 experiments = AP_find_experiments(animal,protocol);
@@ -10632,37 +10632,6 @@ for curr_day = 1:length(experiments)
 end
 
 AP_align_widefield(avg_im_days,animal,{experiments.day},'new_days');
-
-
-%% 3-slice tiff to RGB
-
-im_fns = dir('C:\Users\Andrew\Desktop\test_histology\*.ome.tiff');
-
-
-for curr_im = 1:length(im_fns)
-    
-    im_fn = ['C:\Users\Andrew\Desktop\test_histology\' im_fns(curr_im).name];
-    
-    tiff_info = imfinfo(im_fn);
-    
-    im_rgb = zeros(tiff_info(1).Height,tiff_info(1).Width,3,'uint16');
-    
-    % native color order: brg
-    color_order = [3,1,2];
-    for i = 1:3
-        im_rgb(:,:,color_order(i)) = imread(im_fn,'tiff',i,'Info',tiff_info);
-    end
-    
-    % Save RGB image
-    rgb_path = 'C:\Users\Andrew\Desktop\test_histology\rgb';
-    rgb_fn = [rgb_path filesep im_fns(curr_im).name(1:end-9) '_RGB.tif'];
-    
-    imwrite(im_rgb,rgb_fn,'tif','Compression','none','WriteMode','overwrite');
-   
-    AP_print_progress_fraction(curr_im,length(im_fns));
-end
-
-
 
 
 

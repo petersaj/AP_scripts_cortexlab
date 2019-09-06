@@ -10,7 +10,7 @@
 % frame_movement, wheel velocity
 
 
-animal = 'AP041';
+animal = 'AP040';
 
 protocol = 'AP_lcrGratingPassive';
 experiments = AP_find_experiments(animal,protocol);
