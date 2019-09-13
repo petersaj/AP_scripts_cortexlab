@@ -2850,8 +2850,8 @@ time_bin_centers = time_bins(1:end-1) + diff(time_bins)/2;
 % depth_group_centers = depth_group_edges(1:end-1)+(diff(depth_group_edges)/2);
 
 % (to group multiunit by depth within striatum)
-%n_depths = round(diff(str_depth)/500);
-n_depths = 4;
+% n_depths = round(diff(str_depth)/500);
+n_depths = 6;
 depth_group_edges = round(linspace(str_depth(1),str_depth(2),n_depths+1));
 [depth_group_n,depth_group] = histc(spike_depths,depth_group_edges);
 depth_groups_used = unique(depth_group);
@@ -2861,8 +2861,8 @@ depth_group_centers = depth_group_edges(1:end-1)+(diff(depth_group_edges)/2);
 % n_depths = n_aligned_depths;
 % depth_group = aligned_str_depth_group;
 
-% % (for manual depth)
-% depth_group_edges = [2500,3500];
+% (for manual depth)
+% depth_group_edges = [2700,3200];
 % n_depths = length(depth_group_edges) - 1;
 % [depth_group_n,depth_group] = histc(spike_depths,depth_group_edges);
 
@@ -2883,7 +2883,7 @@ binned_spikes_std(isnan(binned_spikes_std)) = 0;
 use_svs = 1:50;
 kernel_t = [-0.5,0.5];
 kernel_frames = round(kernel_t(1)*sample_rate):round(kernel_t(2)*sample_rate);
-lambda = 2; % (COMMENT OUT TO USE LAMBDA ESTIMATION ELSEWHERE)
+lambda = 5; % (COMMENT OUT TO USE LAMBDA ESTIMATION ELSEWHERE)
 zs = [false,false];
 cvfold = 5;
 return_constant = false;

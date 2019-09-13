@@ -1,4 +1,4 @@
-function [filename,file_exists] = AP_cortexlab_filename(animal,day,experiment,file,site)
+function [filename,file_exists] = AP_cortexlab_filename(animal,day,experiment,file,site,recording)
 % [filename,file_exists] = AP_cortexlab_filename(animal,day,experiment,file,site)
 %
 % This is an absolute mess because things changed locations a hundred times
@@ -32,6 +32,7 @@ if isnumeric(day)
     experiment = num2str(day);
 end
 
+% Site = multiple probes
 if exist('site','var') && ~isempty(site)
     if isnumeric(site)
         site = num2str(site);
@@ -42,28 +43,16 @@ else
     site_dir = [];
 end
 
-%%%% DATE FORMAT: NOT USED ANY MORE (the standard is yyyy-mm-dd)
-% % There is no lab convention for dates so it's all mixed up, make both
-% % versions and use as necessary
-% isdaydash = any(strfind(day,'-'));
-% if isdaydash
-%     day_dash = day;
-%     day_8digit = datestr(datenum(day,'yyyy-mm-dd'),'yyyymmdd');
-% elseif ~isdaydash
-%     day_dash = datestr(datenum(day,'yyyymmdd'),'yyyy-mm-dd');
-%     day_8digit = day;
-% end
-%
-% % Switch the used day format if necessary
-% if exist('dayformat','var') && ~isempty(dayformat)
-%     switch dayformat
-%         case 'dash'
-%             day = day_dash;
-%         case '8digit'
-%             day = day_8digit;
-%     end
-% end
-%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+% Recording = separated recordings from single probe
+if exist('recording','var') && ~isempty(recording)
+    if isnumeric(recording)
+        recording = num2str(recording);
+    end
+    recording_dir = [filesep 'experiment' recording];
+else
+    recording = [];
+    recording_dir = [];
+end
 
 % server1 = '\\zclone.cortexlab.net';
 server1 = '\\zserver.cortexlab.net';
@@ -251,7 +240,7 @@ switch file
         
     case 'ephys_dir'
         % the path where the ephys data is kept
-        filename = [server1 filesep 'Data\Subjects' filesep animal filesep day filesep 'ephys' site_dir];
+        filename = [server1 filesep 'Data\Subjects' filesep animal filesep day filesep 'ephys' site_dir];        
         
         % CHECK SERVER2 IF IT DOESN'T EXIST
         if ~exist(filename,'dir')
@@ -303,9 +292,9 @@ switch file
         assignin('base','kilosort_version',kilosort_version); 
         
         if kilosort_version == 1
-            filename = [ephys_dir_parent filesep 'kilosort' filesep site_dir];
+            filename = [ephys_dir_parent filesep 'kilosort' filesep site_dir filesep recording_dir];
         elseif kilosort_version == 2
-            filename = [ephys_dir_parent filesep 'kilosort2' filesep site_dir];
+            filename = [ephys_dir_parent filesep 'kilosort2' filesep site_dir filesep recording_dir];
         end
         
     case 'ephys_ks1'

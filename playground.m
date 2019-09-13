@@ -10617,7 +10617,7 @@ colormap(brewermap([],'*RdBu'));
 
 %% Align vasculature for animal
 
-animal = 'AP040';
+animal = 'AP041';
 
 protocol = 'AP_lcrGratingPassive';
 experiments = AP_find_experiments(animal,protocol);
@@ -10632,6 +10632,40 @@ for curr_day = 1:length(experiments)
 end
 
 AP_align_widefield(avg_im_days,animal,{experiments.day},'new_days');
+
+
+%%
+
+
+animal = 'AP041';
+
+a = cell(17,1);
+for i = 1:17
+   a{i} = AP_align_widefield(retinotopy(i+1).vfs,animal,retinotopy(i+1).day); 
+end
+avg_vfs = nanmean(cat(3,a{:}),3);
+
+[img_path,img_exists] = AP_cortexlab_filename(animal,retinotopy(end).day,[],'imaging');
+avg_im = readNPY([img_path filesep 'meanImage_blue.npy']);
+avg_im_aligned = AP_align_widefield(avg_im,animal,retinotopy(end).day);
+
+figure;
+
+ax2 = axes;
+ax3 = axes;
+h1 = imagesc(ax2,avg_im_aligned);
+colormap(ax2,gray);
+caxis(ax2,[0 prctile(avg_im_aligned(:),99)]);
+h2 = imagesc(ax3,avg_vfs);
+colormap(ax3,brewermap([],'*RdBu'));
+caxis([-1,1]);
+set(ax2,'Visible','off');
+axes(ax2); axis image off;
+set(ax3,'Visible','off');
+axes(ax3); axis image off;
+set(h2,'AlphaData',mat2gray(abs(avg_vfs))*0.5);
+colormap(ax2,gray);
+
 
 
 

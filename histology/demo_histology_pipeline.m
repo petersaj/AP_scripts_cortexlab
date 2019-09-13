@@ -7,7 +7,7 @@ av = readNPY([allen_atlas_path filesep 'annotation_volume_10um_by_index.npy']);
 st = loadStructureTree([allen_atlas_path filesep 'structure_tree_safe_2017.csv']);
 
 % Set paths for histology images and directory to save slice/alignment
-im_path = 'C:\Users\Andrew\Desktop\test_histology';
+im_path = 'C:\Users\Andrew\Desktop\test_histology_2';
 slice_path = [im_path filesep 'slices'];
 
 % Set white balance and resize slide images, extract slice images

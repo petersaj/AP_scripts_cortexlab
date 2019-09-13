@@ -32,7 +32,12 @@ im_resized = cell(n_im,3);
 h = waitbar(0,'Loading and resizing images...');
 for curr_im = 1:n_im
     for curr_channel = 1:3
-        im_resized{curr_im,curr_channel} = imresize(imread(im_fn{curr_im},curr_channel),im_rescale_factor);
+        try
+            im_resized{curr_im,curr_channel} = imresize(imread(im_fn{curr_im},curr_channel),im_rescale_factor);
+        catch me
+            % channel is bad (doesn't exist or not an image) - for some
+            % reason OME always has an extra page with nothing in it?
+        end
     end
     waitbar(curr_im/n_im,h,['Loading and resizing images (' num2str(curr_im) '/' num2str(n_im) ')...']);
 end

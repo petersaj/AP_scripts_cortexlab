@@ -2002,16 +2002,15 @@ axis image off
 
 %% Sparse noise with my code in batch
 
-animals = {'AP024','AP025','AP026','AP027','AP028','AP029', ...
-    'AP032','AP033','AP034','AP035','AP036'};
+animals = {'AP041'};
 
-for curr_animal = 8:length(animals)
+for curr_animal = 1:length(animals)
     
     animal = animals{curr_animal};
     disp(animal);
     
-    % animal = 'AP025';
-    protocol = 'stimSparseNoiseUncorrAsync';
+%     protocol = 'stimSparseNoiseUncorrAsync';
+    protocol = 'AP_sparseNoise';
     experiments = AP_find_experiments(animal,protocol);
     experiments = experiments([experiments.imaging]);
     

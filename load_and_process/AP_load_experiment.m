@@ -10,9 +10,14 @@ end
 
 %% Define what to load
 
-% Site is optional
+% Site (multiple probes) is optional
 if ~exist('site','var')
     site = [];
+end
+
+% Recording (multiple recordings on one probe) is optional
+if ~exist('recording','var')
+    recording = [];
 end
 
 % If nothing specified, load everything
@@ -685,9 +690,9 @@ end
 
 % Pick kilosort version (2 by default, 1 old if selected)
 if ~exist('kilosort_version','var') || kilosort_version == 2
-    [ephys_path,ephys_exists] = AP_cortexlab_filename(animal,day,experiment,'ephys',site);
+    [ephys_path,ephys_exists] = AP_cortexlab_filename(animal,day,experiment,'ephys',site,recording);
 elseif exist('kilosort_version','var') && kilosort_version == 1
-    [ephys_path,ephys_exists] = AP_cortexlab_filename(animal,day,experiment,'ephys_ks1',site);
+    [ephys_path,ephys_exists] = AP_cortexlab_filename(animal,day,experiment,'ephys_ks1',site,recording);
 end
 
 if ephys_exists && load_parts.ephys
