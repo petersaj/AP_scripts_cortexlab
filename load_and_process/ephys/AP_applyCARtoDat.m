@@ -1,4 +1,4 @@
-function medianTrace = AP_applyCARtoDat(filenames, nChansTotal, outputDir)
+function medianTrace = AP_applyCARtoDat(filenames, nChansTotal, outputFilename)
 % Subtracts median of each channel, then subtracts median of each time
 % point.
 %
@@ -17,14 +17,6 @@ end
 chunkSize = 1000000;
 
 % Create file to write (take name of the first one)
-[pathstr, name, ext] = fileparts(filenames{1});
-if nargin < 3
-    outputFilename  = [pathstr filesep name '_CAR' ext];
-    mdTraceFilename = [pathstr filesep name '_medianTrace.mat'];
-else
-    outputFilename  = [outputDir filesep name '_CAR' ext];
-    mdTraceFilename = [outputDir filesep name '_medianTrace.mat'];
-end
 fidOut = fopen(outputFilename, 'w');
 
 for curr_filename = 1:length(filenames)
@@ -40,7 +32,7 @@ for curr_filename = 1:length(filenames)
     medianTrace = zeros(1, nSampsTotal);
     while 1
         
-        fprintf(1, 'chunk %d/%d\n', chunkInd, nChunksTotal);
+        AP_print_progress_fraction(chunkInd,nChunksTotal);
         
         dat = fread(fid, [nChansTotal chunkSize], '*int16');
         
@@ -63,9 +55,10 @@ for curr_filename = 1:length(filenames)
     
     fclose(fid);
     
+    disp(['CAR''d ' filenames{curr_filename} '...']);
+    
 end
 
-save(mdTraceFilename, 'medianTrace', '-v7.3');
 fclose(fidOut);
 
 end

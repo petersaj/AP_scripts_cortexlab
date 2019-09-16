@@ -1119,11 +1119,12 @@ px_std_sq = zeros(size(Udf,1),size(Udf,2));
 px_mean = svdFrameReconstruct(Udf,nanmean(fVdf,2));
 
 % Do this in chunks of 1000 frames
-% Don't use the first n frames (can be weird)
-skip_start_frames = 35*10;
-n_frames = size(fVdf,2) - skip_start_frames + 1;
+% Skip frames in the beginning and end (can be weird)
+skip_frames = 35*10;
+n_frames = size(fVdf,2) - skip_frames*2 + 1;
 chunk_size = 1000;
-frame_chunks = unique([skip_start_frames:chunk_size:size(fVdf,2),size(fVdf,2)]);
+frame_chunks = unique([skip_frames:chunk_size:size(fVdf,2)-skip_frames, ...
+    size(fVdf,2)-skip_frames]);
 
 for curr_chunk = 1:length(frame_chunks)-1
     curr_im = svdFrameReconstruct(Udf,fVdf(:,frame_chunks(curr_chunk): ...

@@ -1,4 +1,4 @@
-function AP_get_probe_histology(slice_im_path)
+function AP_get_probe_histology(tv,av,st,slice_im_path)
 % AP_get_probe_histology(tv,av,st,slice_im_path)
 %
 % Get probe trajectory in hostology and convert to ccf
@@ -19,8 +19,18 @@ ccf_slice_fn = [slice_im_path filesep 'histology_ccf.mat'];
 load(ccf_slice_fn);
 
 % Load histology/CCF alignment
+% Manual control point (control points)
 ccf_alignment_fn = [slice_im_path filesep 'histology_ccf_alignment.mat'];
-load(ccf_alignment_fn);
+if exist(ccf_alignment_fn,'file')
+    load(ccf_alignment_fn);
+    gui_data.histology_ccf_alignment = histology_ccf_alignment;
+end
+% Automated outline (affine transform matrix)
+auto_ccf_alignment_fn = [slice_im_path filesep 'atlas2histology_tform.mat'];
+if exist(auto_ccf_alignment_fn,'file')
+    load(auto_ccf_alignment_fn);
+    gui_data.histology_ccf_auto_alignment = atlas2histology_tform;
+end
 
 % Draw line along probe trajectory
 probe_fig = figure;
@@ -44,8 +54,21 @@ probe_ccf = zeros(0,3);
 for curr_slice = 1:length(slice_im)
     
     % Transform histology to atlas slice
-    tform = fitgeotrans(histology_ccf_alignment.histology_control_points{curr_slice}, ...
-        histology_ccf_alignment.atlas_control_points{curr_slice},'affine');    
+    
+    % Manual control points
+    if isfield(gui_data,'histology_ccf_alignment')
+        tform = fitgeotrans(gui_data.histology_ccf_alignment.histology_control_points{curr_slice}, ...
+            gui_data.histology_ccf_alignment.atlas_control_points{curr_slice},'affine');
+    end
+    
+    % Automated outline
+    if isfield(gui_data,'histology_ccf_auto_alignment')
+        tform = affine2d;
+        tform.T = gui_data.histology_ccf_auto_alignment{curr_slice};
+        % (transform is CCF to histology, invert for other direction)
+        tform = invert(tform);
+    end
+    
     probe_points_atlas_slice = round([probe_points_histology(:,:,curr_slice),zeros(2,1)]*tform.T);
     
     % Get CCF coordinates corresponding to atlas slice points
@@ -65,18 +88,21 @@ for curr_slice = 1:length(slice_im)
     
 end
 
-% Create 3D axis with CCF outlne
-figure;
-axes_atlas = axes;
-[~, brain_outline] = plotBrainGrid([],axes_atlas);
-hold(axes_atlas,'on');
-axis vis3d equal off manual
-view([-30,25]);
-caxis([0 300]);
-[ap_max,dv_max,ml_max] = deal(1320,800,1140);
-xlim([-10,ap_max+10])
-ylim([-10,ml_max+10])
-zlim([-10,dv_max+10])
+% % Create 3D axis with CCF outlne
+% figure;
+% axes_atlas = axes;
+% [~, brain_outline] = plotBrainGrid([],axes_atlas);
+% hold(axes_atlas,'on');
+% axis vis3d equal off manual
+% view([-30,25]);
+% caxis([0 300]);
+% [ap_max,dv_max,ml_max] = deal(1320,800,1140);
+% xlim([-10,ap_max+10])
+% ylim([-10,ml_max+10])
+% zlim([-10,dv_max+10])
+
+% Show thresholded histology within CCF with overlaid probe trajectory
+AP_view_aligned_histology_volume(tv,av,st,slice_im_path);
 
 % Plot points and line of best fit
 r0 = mean(probe_ccf,1);
@@ -86,11 +112,11 @@ histology_probe_direction = V(:,1);
 
 line_eval = [-1000,1000];
 probe_fit_line = bsxfun(@plus,bsxfun(@times,line_eval',histology_probe_direction'),r0);
-plot3(probe_ccf(:,1),probe_ccf(:,2),probe_ccf(:,3),'.r','MarkerSize',20);
-line(probe_fit_line(:,1),probe_fit_line(:,2),probe_fit_line(:,3),'color','k','linewidth',2)
+plot3(probe_ccf(:,1),probe_ccf(:,3),probe_ccf(:,2),'.r','MarkerSize',20);
+line(probe_fit_line(:,1),probe_fit_line(:,3),probe_fit_line(:,2),'color','k','linewidth',2)
 
 % Make 3D rotation the default state (toggle on/off with 'r')
-h = rotate3d(axes_atlas);
+h = rotate3d(gca);
 h.Enable = 'on';
 
 % Save probe CCF points

@@ -21,23 +21,21 @@ if im_um_x ~= im_um_y
    error('Pixel X/Y values different') 
 end
 
+% Get number of imaged channels (ome.tiff has extra page with nothing?)
+n_channels = sum(any([im_info.Height;im_info.Width],1));
+
 % Set resize factor to match to Allen CCF
 allen_um2px = 10; % Allen CCF: 10 um/voxel
 im_rescale_factor = im_um_x/allen_um2px;
 
 % Load and resize images
 n_im = length(im_fn);
-im_resized = cell(n_im,3);
+im_resized = cell(n_im,n_channels);
 
 h = waitbar(0,'Loading and resizing images...');
 for curr_im = 1:n_im
-    for curr_channel = 1:3
-        try
+    for curr_channel = 1:n_channels
             im_resized{curr_im,curr_channel} = imresize(imread(im_fn{curr_im},curr_channel),im_rescale_factor);
-        catch me
-            % channel is bad (doesn't exist or not an image) - for some
-            % reason OME always has an extra page with nothing in it?
-        end
     end
     waitbar(curr_im/n_im,h,['Loading and resizing images (' num2str(curr_im) '/' num2str(n_im) ')...']);
 end
@@ -46,9 +44,10 @@ close(h);
 % Estimate white balance within each channel
 % (dirty: assume one peak for background, one for signal)
 h = figure;
-im_montage = cell(3,1);
-channel_caxis = nan(3,2);
-for curr_channel = 1:3
+im_montage = cell(n_channels,1);
+channel_caxis = nan(n_channels,2);
+channel_color = cell(n_channels,1);
+for curr_channel = 1:n_channels
     
    curr_montage = montage(im_resized(:,curr_channel));
    
@@ -68,24 +67,32 @@ for curr_channel = 1:3
    
    channel_caxis(curr_channel,:) = [cmin,cmax];
    
-   white_confirm = questdlg('White balance ok?');
+   channel_color{curr_channel} = questdlg('What color should this be?', ...
+       'Set color','red','green','blue','red');
    
 end
 close(h)
 
+% Get order of colors
+color_order_gun = {'red';'green';'blue'};
+[~,color_order_slide] = ismember(channel_color,color_order_gun,'rows');
+
 % Display montage of final balanced image, sort color channels by RGB
-color_order = [2,3,1]; % (which channel is R,G,B)
-im_montage_rgb = cell2mat(arrayfun(@(ch) rescale(im_montage{ch}, ...
+im_montage_rgb = zeros(size(im_montage{1},1),size(im_montage{1},2),3);
+im_montage_rgb(:,:,color_order_slide) = ...
+    cell2mat(arrayfun(@(ch) rescale(im_montage{ch}, ...
     'InputMin',channel_caxis(ch,1),'InputMax',channel_caxis(ch,2)), ...
-    permute(color_order,[1,3,2]),'uni',false));
+    permute(1:n_channels,[1,3,2]),'uni',false));
 figure;imshow(im_montage_rgb);
+title('Overview of all images');
 
 % Store RGB for each slide
-im_rgb = cellfun(@(x) zeros(size(x,1),size(x,2),size(im_resized,3),class(x)),im_resized(:,1),'uni',false);
+im_rgb = cellfun(@(x) zeros(size(x,1),size(x,2),3),im_resized(:,1),'uni',false);
 for curr_im = 1:n_im
-    im_rgb{curr_im} = cell2mat(arrayfun(@(ch) rescale(im_resized{curr_im,ch}, ...
+    im_rgb{curr_im}(:,:,color_order_slide) = ...
+        cell2mat(arrayfun(@(ch) rescale(im_resized{curr_im,ch}, ...
         'InputMin',channel_caxis(ch,1),'InputMax',channel_caxis(ch,2)), ...
-        permute(color_order,[1,3,2]),'uni',false));  
+        permute(1:n_channels,[1,3,2]),'uni',false));  
 end
 
 % Set up GUI to pick slices on slide to extract
@@ -190,7 +197,8 @@ slice_conncomp = bwconncomp(slice_mask);
 
 im_handle = imshow(slice_data.im_rgb{slice_data.curr_slide});
 set(im_handle,'ButtonDownFcn',@slice_click);
-title('Click slices to extract (left = new, right = add to last), spacebar to finish slide');
+title('Finding slice boundaries...');
+drawnow;
 
 slice_boundaries = bwboundaries(slice_mask);
 slice_lines = gobjects(length(slice_boundaries),1);
@@ -198,6 +206,7 @@ for curr_slice = 1:length(slice_boundaries)
     slice_lines(curr_slice) = line(slice_boundaries{curr_slice}(:,2), ...
         slice_boundaries{curr_slice}(:,1),'color','w','linewidth',2,'LineSmoothing','on','linestyle','--');
 end
+title('Click slices to extract (left = new, right = add to last), spacebar to finish slide');
 
 slice_data.im_h = im_handle;
 slice_data.mask = slice_mask;
