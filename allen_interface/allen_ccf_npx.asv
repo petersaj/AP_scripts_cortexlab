@@ -678,10 +678,9 @@ function probe_histology
 load([probe_path,probe_file]);
 
 if exist('pointList','var')
-    histology_points = pointList.pointList{1};
-elseif exist('probe_ccf','var')
-    histology_points = probe_ccf;
-end
+histology_points = pointList.pointList{1};
+elseif exist('probe_ccf','var');
+    histology_
 
 r0 = mean(histology_points,1);
 xyz = bsxfun(@minus,histology_points,r0);
@@ -690,14 +689,8 @@ histology_probe_direction = V(:,1);
 
 t = [-1000,1000];
 P = bsxfun(@plus,bsxfun(@times,t',histology_probe_direction'),r0);
-
-% Philip's GUI: not saved in native CCF order?
-% plot3(histology_points(:,3),histology_points(:,1),histology_points(:,2),'.b','MarkerSize',20);
-% line(P(:,3),P(:,1),P(:,2),'color','k','linewidth',2)
-
-% Mine: saved in native CCF order [AP,DV,ML]
-plot3(histology_points(:,1),histology_points(:,3),histology_points(:,2),'.b','MarkerSize',20);
-line(P(:,1),P(:,3),P(:,2),'color','k','linewidth',2)
+plot3(histology_points(:,3),histology_points(:,1),histology_points(:,2),'.b','MarkerSize',20);
+line(P(:,3),P(:,1),P(:,2),'color','k','linewidth',2)
 
 end
 

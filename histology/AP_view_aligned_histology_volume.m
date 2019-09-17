@@ -56,50 +56,34 @@ for curr_slice = 1:length(gui_data.slice_im)
     if isfield(gui_data,'histology_ccf_auto_alignment')
         tform = affine2d;
         tform.T = gui_data.histology_ccf_auto_alignment{curr_slice};
-        % (transform is CCF to histology, invert for other direction)
+        % (transform is CCF -> histology, invert for other direction)
         tform = invert(tform);
     end
 
     tform_size = imref2d([size(gui_data.histology_ccf(curr_slice).av_slices,1), ...
         size(gui_data.histology_ccf(curr_slice).av_slices,2)]);
+    
     gui_data.atlas_aligned_histology{curr_slice} = ...
         imwarp(curr_slice_im,tform,'nearest','OutputView',tform_size);
+    
 end
 
 % Create figure
 gui_fig = figure;
 
 % Set up 3D plot for volume viewing
-% % (plotBrainGrid randomly permutes)
-% axes_atlas = axes;
-% [~, brain_outline] = plotBrainGrid([],axes_atlas);
-% set(axes_atlas,'YDir','reverse','ZDir','reverse');
-% hold(axes_atlas,'on');
-% axis vis3d equal off manual
-% view([-30,25]);
-% caxis([0 300]);
-% [ap_max,dv_max,ml_max] = size(tv);
-% xlim([-10,ap_max+10])
-% ylim([-10,ml_max+10])
-% zlim([-10,dv_max+10])
-% colormap(hot);
-
-% (native way)
-h = figure; 
-axes_atlas = axes; hold on;
-slice_spacing = 10;
-target_volume = av(1:slice_spacing:end,1:slice_spacing:end,1:slice_spacing:end) > 1;
-structure_patch = isosurface(target_volume,0);
-structure_wire = reducepatch(structure_patch.faces,structure_patch.vertices,0.01);
-target_structure_color = [0.7,0.7,0.7];
-brain_outline = patch('Vertices',structure_wire.vertices*slice_spacing, ...
-    'Faces',structure_wire.faces, ...
-    'FaceColor','none','EdgeColor',target_structure_color);
-
-axis image vis3d;
+axes_atlas = axes;
+[~, brain_outline] = plotBrainGrid([],axes_atlas);
+set(axes_atlas,'YDir','reverse','ZDir','reverse');
+hold(axes_atlas,'on');
+axis vis3d equal off manual
 view([-30,25]);
-cameratoolbar(h,'SetCoordSys','y');
-cameratoolbar(h,'SetMode','orbit');
+caxis([0 300]);
+[ap_max,dv_max,ml_max] = size(tv);
+xlim([-10,ap_max+10])
+ylim([-10,ml_max+10])
+zlim([-10,dv_max+10])
+colormap(hot);
 
 % Turn on rotation by default
 h = rotate3d(axes_atlas);
@@ -110,9 +94,9 @@ plot_channel = 1; % Probes are usually in red
 histology_surf = gobjects(length(gui_data.slice_im));
 for curr_slice = 1:length(gui_data.slice_im)     
         histology_surf(curr_slice) = surface( ...
-            gui_data.histology_ccf(curr_slice).plane_x, ...
-            gui_data.histology_ccf(curr_slice).plane_y, ...
-            gui_data.histology_ccf(curr_slice).plane_z);
+            gui_data.histology_ccf(curr_slice).plane_ap, ...
+            gui_data.histology_ccf(curr_slice).plane_ml, ...
+            gui_data.histology_ccf(curr_slice).plane_dv);
         histology_surf(curr_slice).FaceColor = 'texturemap';
         histology_surf(curr_slice).FaceAlpha = 'texturemap';
         histology_surf(curr_slice).EdgeColor = 'none';
