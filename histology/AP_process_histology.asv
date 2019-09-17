@@ -191,8 +191,8 @@ end
 slice_data.curr_slide = slice_data.curr_slide + 1;
 
 min_slice = (1000/10)^2; % (um/10(CCF units))^2
-slice_mask = bwareaopen(mean( ...
-    slice_data.im_rgb{slice_data.curr_slide},3) > 0.01,min_slice);
+slice_mask = imfill(bwareaopen(mean( ...
+    slice_data.im_rgb{slice_data.curr_slide},3) > 0.01,min_slice),'holes');
 slice_conncomp = bwconncomp(slice_mask);
 
 im_handle = imshow(slice_data.im_rgb{slice_data.curr_slide});
