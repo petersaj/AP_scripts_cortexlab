@@ -57,18 +57,80 @@ for curr_im = 1:length(slice_im)
     
 end
 
-% Overwrite old images with new ones
-for curr_im = 1:length(slice_im)
-    imwrite(im_aligned(:,:,:,curr_im),slice_fn{curr_im},'tif');
+% Pull up slice viewer to scroll through slices with option to flip
+
+% Create figure, set button functions
+gui_fig = figure('KeyPressFcn',@keypress);
+gui_data.curr_slice = 1;
+gui_data.im_aligned = im_aligned;
+gui_data.slice_fn = slice_fn;
+
+% Set up axis for histology image
+gui_data.histology_ax = axes('YDir','reverse'); 
+hold on; colormap(gray); axis image off;
+gui_data.histology_im_h = image(gui_data.im_aligned(:,:,:,1), ...
+    'Parent',gui_data.histology_ax);
+
+% Create title to write area in
+gui_data.histology_ax_title = title(gui_data.histology_ax,'','FontSize',14);
+
+% Upload gui data
+guidata(gui_fig,gui_data);
+
+
+
 end
 
-disp(['Saved padded/centered/rotated slices']);
 
+function keypress(gui_fig,eventdata)
 
+% Get guidata
+gui_data = guidata(gui_fig);
 
+switch eventdata.Key
+    
+    % 1/2: move slice
+    case '1'
+        gui_data.curr_slice = max(gui_data.curr_slice - 1,1);
+        set(gui_data.histology_im_h,'CData',gui_data.im_aligned(:,:,:,gui_data.curr_slice))
+        guidata(gui_fig,gui_data);
+        
+    case '2'
+        gui_data.curr_slice = ...
+            min(gui_data.curr_slice + 1,size(gui_data.im_aligned,4));
+        set(gui_data.histology_im_h,'CData',gui_data.im_aligned(:,:,:,gui_data.curr_slice))
+        guidata(gui_fig,gui_data);
+        
+    % Arrow keys: flip slice
+    case {'leftarrow','rightarrow'}
+        gui_data.im_aligned(:,:,:,gui_data.curr_slice) = ...
+            fliplr(gui_data.im_aligned(:,:,:,gui_data.curr_slice));
+        set(gui_data.histology_im_h,'CData',gui_data.im_aligned(:,:,:,gui_data.curr_slice))
+        guidata(gui_fig,gui_data);
+        
+    case {'uparrow','downarrow'}
+        gui_data.im_aligned(:,:,:,gui_data.curr_slice) = ...
+            flipud(gui_data.im_aligned(:,:,:,gui_data.curr_slice));
+        set(gui_data.histology_im_h,'CData',gui_data.im_aligned(:,:,:,gui_data.curr_slice))
+        guidata(gui_fig,gui_data);
+        
+    % Escape: save and close
+    case 'escape'
+        opts.Default = 'Yes';
+        opts.Interpreter = 'tex';
+        user_confirm = questdlg('\fontsize{15} Save and quit?','Confirm exit',opts);
+        if strcmp(user_confirm,'Yes')
+            % Overwrite old images with new ones
+            for curr_im = 1:size(gui_data.im_aligned,4)
+                imwrite(gui_data.im_aligned(:,:,:,curr_im),gui_data.slice_fn{curr_im},'tif');
+            end
+            disp(['Saved padded/centered/rotated slices']);
+            close(gui_fig)
+        end
+        
+end
 
-
-
+end
 
 
 
