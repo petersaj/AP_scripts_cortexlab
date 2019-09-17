@@ -72,7 +72,8 @@ gui_data.histology_im_h = image(gui_data.im_aligned(:,:,:,1), ...
     'Parent',gui_data.histology_ax);
 
 % Create title to write area in
-gui_data.histology_ax_title = title(gui_data.histology_ax,'','FontSize',14);
+gui_data.histology_ax_title = title(gui_data.histology_ax, ...
+    '1/2: change slice, Arrows: flip, Esc: save & quit','FontSize',14);
 
 % Upload gui data
 guidata(gui_fig,gui_data);
