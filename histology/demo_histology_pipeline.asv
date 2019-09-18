@@ -11,11 +11,8 @@ im_path = 'C:\Users\Andrew\Desktop\temp_histology';
 slice_path = [im_path filesep 'slices'];
 
 % Set white balance and resize slide images, extract slice images
-% (Note: this resizes the images purely for file size reasons - the CCF can
-% be aligned to histology no matter what the scaling. If pixel size is
-% available in metadata then automatically scales to CCF resolution,
-% otherwise user can specify the resize factor as a second argument)
-% AP_process_histology(im_path,resize_factor); % user-specified resize factor
+% (note: if pixel size not available for images, a second argument here
+% gives res
 AP_process_histology(im_path);
 
 % (optional) Rotate, pad, and center slice images
