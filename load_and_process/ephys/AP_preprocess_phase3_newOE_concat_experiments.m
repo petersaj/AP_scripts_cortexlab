@@ -40,13 +40,19 @@ for curr_site = 1:length(data_paths)
         end
               
         % Get OE filenames (check for multiple experiments, do separately)
-        exp_rec_dir = [ephys_exp_paths(curr_exp).name filesep 'recording1'];
-        ap_data_filename = [curr_data_path filesep exp_rec_dir filesep 'continuous' filesep 'Neuropix-3a-100.0' filesep 'continuous.dat'];
-        lfp_data_filename = [curr_data_path filesep exp_rec_dir filesep 'continuous' filesep 'Neuropix-3a-100.1' filesep 'continuous.dat'];
-        sync_filename = [curr_data_path filesep filesep exp_rec_dir filesep 'events' filesep 'Neuropix-3a-100.0' filesep 'TTL_1' filesep 'channel_states.npy' ];
-        sync_timestamps_filename = [curr_data_path filesep exp_rec_dir filesep 'events' filesep 'Neuropix-3a-100.0' filesep 'TTL_1' filesep 'timestamps.npy' ];
-        messages_filename = [curr_data_path filesep exp_rec_dir filesep 'sync_messages.txt'];
-        settings_filename = [curr_data_path filesep exp_rec_dir filesep 'structure.oebin'];
+        exp_rec_dirs = cellfun(@(x) [x filesep 'recording1'],{ephys_exp_paths.name},'uni',false');
+        ap_data_filename = cellfun(@(exp_rec_dir) ...
+            [curr_data_path filesep exp_rec_dir filesep 'continuous' filesep 'Neuropix-3a-100.0' filesep 'continuous.dat'], ...
+            exp_rec_dirs,'uni',false);
+        sync_filename = cellfun(@(exp_rec_dir) ...
+            [curr_data_path filesep filesep exp_rec_dir filesep 'events' filesep 'Neuropix-3a-100.0' filesep 'TTL_1' filesep 'channel_states.npy' ], ...
+            exp_rec_dirs,'uni',false);
+        sync_timestamps_filename = cellfun(@(exp_rec_dir) ...
+            [curr_data_path filesep exp_rec_dir filesep 'events' filesep 'Neuropix-3a-100.0' filesep 'TTL_1' filesep 'timestamps.npy' ], ...
+            exp_rec_dirs,'uni',false);
+        messages_filename = cellfun(@(exp_rec_dir) ...
+            [curr_data_path filesep exp_rec_dir filesep 'sync_messages.txt'], ...
+            exp_rec_dirs,'uni',false);
         
         
         %% Get and save recording parameters
@@ -82,27 +88,39 @@ for curr_site = 1:length(data_paths)
         
         
         %% Get/save digital input events
+                
+        % DOING: need to get size of AP recordings and add to sync
+        n_ap_samples = nan(length(ap_data_filename),1);
+        for curr_recording = 1:length(ephys_exp_paths)
+            d = dir(ap_data_filename{curr_recording});
+            n_ap_samples(curr_recording) = d.bytes/n_channels/2;
+        end
         
-        % This way of getting start times is garbage too, assume AP
-        % band is listed third (1 = software, 2 = AP, 3 = LFP)
-        % (unused at the moment - I guess that assumes start time = 0)
-        messages_id = fopen(messages_filename);
-        messages_text = textscan(messages_id,'%*s %d@%dHz','delimiter',{'time: '});
-        fclose(messages_id);
-        
-        start_time_sec = messages_text{1}(2)/messages_text{2}(2);
-        
-        % Get/save digital input event times,
-        sync_data = readNPY(sync_filename);
-        sync_timestamps_int = readNPY(sync_timestamps_filename);
-        sync_timestamps = double(sync_timestamps_int)/ap_sample_rate;
-        
-        sync_channels = unique(abs(sync_data));
-        sync = struct('timestamps',cell(size(sync_channels)),'values',cell(size(sync_channels)));
-        for curr_sync = 1:length(sync_channels)
-            sync_events = abs(sync_data) == (sync_channels(curr_sync));
-            sync(curr_sync).timestamps = sync_timestamps(sync_events);
-            sync(curr_sync).values = sign(sync_data(sync_events)) == 1;
+        % Get/save digital input event times
+        for curr_recording = 1:length(ephys_exp_paths)
+            sync_data = readNPY(sync_filename{curr_recording});
+            sync_timestamps_int = readNPY(sync_timestamps_filename{curr_recording});
+     
+            % If first recording, initialize sync
+            if curr_recording == 1
+                sync_channels = unique(abs(sync_data));
+                sync = struct('timestamps',cell(size(sync_channels)),'values',cell(size(sync_channels)));
+            end
+            
+            % If not first recording, add offset 
+            % (assumes 0-idx - no idea if that's true)
+            if curr_recording > 1
+                sync_timestamps_int = sync_timestamps_int + ...
+                    n_ap_samples(curr_recording  - 1) - 1;
+            end
+  
+            sync_timestamps = double(sync_timestamps_int)/ap_sample_rate;          
+            
+            for curr_sync = 1:length(sync_channels)
+                sync_events = abs(sync_data) == (sync_channels(curr_sync));
+                sync(curr_sync).timestamps = [sync(curr_sync).timestamps;sync_timestamps(sync_events)];
+                sync(curr_sync).values = [sync(curr_sync).values;sign(sync_data(sync_events)) == 1];
+            end            
         end
         
         sync_save_filename = [curr_save_path filesep 'sync.mat'];
@@ -128,18 +146,26 @@ for curr_site = 1:length(data_paths)
         
         % Copy AP data locally
         disp('Copying AP data to local drive...')
-        ap_temp_filename = [ssd_kilosort_path filesep animal '_' day  '_' 'ephys_apband.dat'];
-        copyfile(ap_data_filename,ap_temp_filename);
+        ap_temp_filename = cellfun(@(recording_name) ...
+            [ssd_kilosort_path filesep animal '_' day  ...
+                '_' 'ephys_apband_' recording_name '.dat'], ...
+                {ephys_exp_paths.name},'uni',false);
+        for curr_recording = 1:length(ephys_exp_paths)
+            copyfile(ap_data_filename{curr_recording},ap_temp_filename{curr_recording});
+            AP_print_progress_fraction(curr_recording,length(ephys_exp_paths));
+        end
         disp('Done');
-        
+                     
         % Common average reference data from server to HDD
+        % (input multiple filenames, concatenate into one file)
         ops.NchanTOT = n_channels;
-        medianTrace = applyCARtoDat(ap_temp_filename,ops.NchanTOT,hdd_kilosort_path);
-        [~,ap_car_name,ap_car_ext] = fileparts(ap_temp_filename);
-        ap_temp_car_filename_hdd = [hdd_kilosort_path filesep ap_car_name '_CAR' ap_car_ext];
-        
+        ap_car_filename = [hdd_kilosort_path filesep animal '_' day '_' 'ephys_apband_CAR.dat'];
+        AP_applyCARtoDat(ap_temp_filename,ops.NchanTOT,ap_car_filename);
+                
         % Delete the un-CAR'd data
-        delete(ap_temp_filename);
+        for curr_recording = 1:length(ephys_exp_paths)
+            delete(ap_temp_filename{curr_recording});
+        end
         
         % Kilosort 1 (old)
         %     AP_run_kilosort(ap_temp_car_filename,ap_sample_rate);
@@ -151,7 +177,7 @@ for curr_site = 1:length(data_paths)
         if ~exist('t_range','var')
             t_range = [0,inf];
         end
-        AP_run_kilosort2(ap_temp_car_filename_hdd,ap_sample_rate,ssd_kilosort_path,t_range);
+        AP_run_kilosort2(ap_car_filename,ap_sample_rate,ssd_kilosort_path,t_range);
         
         %% Copy kilosort results to server
         

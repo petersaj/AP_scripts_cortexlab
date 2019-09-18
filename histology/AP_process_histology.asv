@@ -15,37 +15,31 @@ im_path_dir = dir([im_path filesep '*.tif*']);
 im_fn = natsortfiles(cellfun(@(path,fn) [path filesep fn], ...
     {im_path_dir.folder},{im_path_dir.name},'uni',false));
 
-% Get image metadata
+% Get microns/pixel from metadata (if ome.tiff) 
 im_info = imfinfo(im_fn{1});
 im_description = im_info(1).ImageDescription;
 
-% Get microns/pixel from metadata if present (ome.tiff) 
 im_um = regexp(im_description,'PhysicalSizeX="(\S*)".*PhysicalSizeY="(\S*)"','tokens');
-
-% Get number of imaged channels (ome.tiff has extra page with nothing?)
-n_channels = sum(any([im_info.Height;im_info.Width],1));
 
 % Set resize factor from user (if provided), or if no resize factor
 % provided and pixel size is available, resize to match CCF
-if exist('resize_factor','var') && ~isempty(resize_factor)
-    % (resize_factor already set by user)
-    
-elseif ~exist('resize_factor','var') && ~isempty(im_um)
+if exist('resize_factor','var'
+if ~isempty(im_um)
     im_um_x = str2num(im_um{1}{1});
     im_um_y = str2num(im_um{1}{2});
     
     if im_um_x ~= im_um_y
         error('Pixel X/Y values different (not accounted for yet)')
     end
-  
-    % Set resize factor to match to Allen CCF
-    allen_um2px = 10; % Allen CCF: 10 um/voxel
-    rescale_factor = im_um_x/allen_um2px;
-    
-else
-    error('No resize factor provided and pixel size not in metadata');
     
 end
+
+% Get number of imaged channels (ome.tiff has extra page with nothing?)
+n_channels = sum(any([im_info.Height;im_info.Width],1));
+
+% Set resize factor to match to Allen CCF
+allen_um2px = 10; % Allen CCF: 10 um/voxel
+rescale_factor = im_um_x/allen_um2px;
 
 % Load and resize images
 n_im = length(im_fn);
