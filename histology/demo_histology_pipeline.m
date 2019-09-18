@@ -18,7 +18,7 @@ slice_path = [im_path filesep 'slices'];
 % AP_process_histology(im_path,resize_factor); % user-specified resize factor
 AP_process_histology(im_path);
 
-% (optional) Rotate, pad, and center slice images
+% (optional) Rotate, center, pad, flip slice images
 AP_rotate_histology(slice_path);
 
 % Find CCF slices corresponding to each histology slice
