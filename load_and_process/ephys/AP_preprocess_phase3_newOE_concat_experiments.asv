@@ -89,7 +89,7 @@ for curr_site = 1:length(data_paths)
     
     %% Get/save digital input events
     
-    % Get size of AP recordings and add to sync
+    %  get size of AP recordings and add to sync
     n_ap_samples = nan(length(ap_data_filename),1);
     for curr_recording = 1:length(ephys_exp_paths)
         d = dir(ap_data_filename{curr_recording});

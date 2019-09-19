@@ -1,7 +1,16 @@
 1. AP_preprocess_phase3 (get/save settings, do CAR, run kilosort)
---> changed to AP_preprocess_phase3_newOE (only uses new OE format) to allow for multiple experiments
+
+ALT (new OE only, and when multiple on/off recordings): 
+--> AP_preprocess_phase3_newOE: each recording separately
+--> AP_preprocess_phase3_newOE_concat_experiments: recordings concatenated
+
 2. AP_prepare_phy (if not already local, above does by default)
+
+ALT (when multiple on/off recordings): 
+--> AP_prepare_phy_concat_experiments: recordings concatenated
+
 (2.5. AP_triage_kilosort - automatically triage units)
+
 3. AP_save_phy: copy saved clusters to basket
 
 (available: AP_pre_phy - quickly flip through waveform templates to throw out obviously bad ones)

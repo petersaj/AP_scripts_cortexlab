@@ -18,10 +18,7 @@ data_fn = 'trial_activity_AP_choiceWorldStimPassive_trained';
 exclude_data = false;
 
 % (unused at the moment)
-% data_fn = 'trial_activity_choiceworld_1outcome'; % New timing, only 1 outcome regressor (reward)
-% data_fn = 'trial_activity_choiceworld_stimxmove'; % Including stim x move regressors (no real difference)
 % data_fn = 'trial_activity_choiceworld_wfonly'; % Widefield-only days (no craniotomy, so cleaner)
-% data_fn = 'trial_activity_choiceworld_oldregressors'; % Longer timeshifts and go early/late and outcome correct/incorrect
 % exclude_data = true;
 
 AP_load_concat_normalize_ctx_str;

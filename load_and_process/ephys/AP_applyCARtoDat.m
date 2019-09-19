@@ -1,4 +1,6 @@
 function medianTrace = AP_applyCARtoDat(filenames, nChansTotal, outputFilename)
+% medianTrace = AP_applyCARtoDat(filenames, nChansTotal, outputFilename)
+%
 % Subtracts median of each channel, then subtracts median of each time
 % point.
 %
