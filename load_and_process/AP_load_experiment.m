@@ -1,6 +1,9 @@
 % AP_load_experiment(animal,day,experiment,site)
 %
 % Loads data from experiments
+%
+% Settings: 
+% load_parts.(cam/imaging/ephys)
 
 
 %% Display progress or not
