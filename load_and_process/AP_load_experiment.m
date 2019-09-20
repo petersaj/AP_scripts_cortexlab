@@ -1,9 +1,12 @@
-% AP_load_experiment(animal,day,experiment,site)
-%
 % Loads data from experiments
 %
 % Settings: 
+% (what to load)
 % load_parts.(cam/imaging/ephys)
+%
+% (ephys)
+% site (if multiple probes)
+% recording (if multiple on/off recordings within probe)
 
 
 %% Display progress or not

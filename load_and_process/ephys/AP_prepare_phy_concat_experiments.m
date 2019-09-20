@@ -1,20 +1,22 @@
-function AP_prepare_phy_concat_experiments(animal,day,site,car,staging)
-% AP_prepare_phy_concat_experiments(animal,day,site,car,staging)
+function AP_prepare_phy_concat_experiments(animal,day,site,staging)
+% AP_prepare_phy_concat_experiments(animal,day,site,staging)
 %
-% Clears whatever is currently in local phy folder
-% Sets up params file
-% Loads raw and kilosorted data to local file
-% car - if true, does common-average referencing (default false)
+% Prepares data for Phy
+% - clears local phy folder
+% - sets up params file
+% - copies kilosorted data from server to local
+% - copies AND CONCATENATES AP band recordings 
+% -- NOTE: if this is present on HDD, then copies from there, otherwise
+% copies, CAR's, and concatenates from server
+%
 % staging - puts in staging folder (false by default)
+%
+%
 
 %% Set defaults
 
 if ~exist('site','var')
     site = [];
-end
-
-if ~exist('car','var') || isempty(car)
-    car = false;
 end
 
 if ~exist('staging','var') || isempty(staging)
@@ -66,7 +68,6 @@ toc
 disp('Done.');
 
 %% Copy raw to local
-disp('Copying raw data to local...')
 
 % Get the expected filename from params
 header_path = [local_phy_dir filesep 'params.py'];
@@ -78,40 +79,56 @@ for i = 1:length(header_info{1})
     header.(header_info{1}{i}) = header_info{2}{i};
 end
 
+% Set local AP data name
+local_ap_filename = [local_phy_dir filesep header.dat_path(2:end-1)];
+
 % Copy AP data from all experiments to local HDD
 % (set HDD path and clear out)
 hdd_phy_path = 'E:\data_temp\phy';
 rmdir(hdd_phy_path,'s');
 mkdir(hdd_phy_path);
 
-% (set temp HDD filename)
-ap_temp_filename = cellfun(@(recording_name) ...
-    [hdd_phy_path filesep animal '_' day  ...
-    '_' 'ephys_apband_' recording_name '.dat'], ...
-    {ephys_exp_paths.name},'uni',false);
+% Check whether CAR/concatenated data is on HDD
+% (this is part of the pipeline from
+% AP_preprocess_phase3_newOE_concat_experiments)
+hdd_storage_path = ['E:\local_data\' animal filesep day];
+hdd_storage_fn = [hdd_storage_path filesep header.dat_path(2:end-1)];
 
-% (copy AP files to HDD)
-disp('Copying AP files to HDD...')
-tic
-disp(datestr(now,'yyyy-mm-dd HH:MM'));
-for curr_recording = 1:length(ephys_exp_paths)
-    copyfile(ap_data_filename{curr_recording},ap_temp_filename{curr_recording});
-    AP_print_progress_fraction(curr_recording,length(ephys_exp_paths));
+if exist(hdd_storage_fn,'file')
+    % If the file is on the HDD, copy from there to SDD
+    disp('Copying preprocessed AP file from HDD to SDD...')
+    copyfile(hdd_storage_fn,local_ap_filename);
+    
+else
+    % Otherwise, copy/CAR/concatenate from server
+    % (set temp HDD filename)
+    ap_temp_filename = cellfun(@(recording_name) ...
+        [hdd_phy_path filesep animal '_' day  ...
+        '_' 'ephys_apband_' recording_name '.dat'], ...
+        {ephys_exp_paths.name},'uni',false);
+    
+    % (copy AP files to HDD)
+    disp('Copying AP files from server to HDD...')
+    tic
+    disp(datestr(now,'yyyy-mm-dd HH:MM'));
+    for curr_recording = 1:length(ephys_exp_paths)
+        copyfile(ap_data_filename{curr_recording},ap_temp_filename{curr_recording});
+        AP_print_progress_fraction(curr_recording,length(ephys_exp_paths));
+    end
+    disp(datestr(now,'yyyy-mm-dd HH:MM'));
+    toc
+    
+    % (CAR/copy/concatenate AP files into SDD phy folder)
+    % (CAR not necessary, but read anyway and self-contained so might as well)
+    disp('Car/copy/concatenating AP files HDD to SDD...')
+    tic
+    disp(datestr(now,'yyyy-mm-dd HH:MM'));
+    n_chan = 384;
+    AP_applyCARtoDat(ap_temp_filename,n_chan,local_ap_filename);
+    disp(datestr(now,'yyyy-mm-dd HH:MM'));
+    toc
+
 end
-disp(datestr(now,'yyyy-mm-dd HH:MM'));
-toc
-
-% (CAR/copy/concatenate AP files into SDD phy folder)
-% (CAR not necessary, but read anyway and self-contained so might as well)
-local_ap_filename = [local_phy_dir filesep header.dat_path(2:end-1)];
-
-disp('Car/copy/concatenating AP files HDD to SDD...')
-tic
-disp(datestr(now,'yyyy-mm-dd HH:MM'));
-n_chan = 384;
-AP_applyCARtoDat(ap_temp_filename,n_chan,local_ap_filename);
-disp(datestr(now,'yyyy-mm-dd HH:MM'));
-toc
 
 disp('Done.');
 

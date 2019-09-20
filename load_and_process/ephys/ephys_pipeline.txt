@@ -4,7 +4,7 @@ ALT (new OE only, and when multiple on/off recordings):
 --> AP_preprocess_phase3_newOE: each recording separately
 --> AP_preprocess_phase3_newOE_concat_experiments: recordings concatenated
 
-2. AP_prepare_phy (if not already local, above does by default)
+2. AP_prepare_phy
 
 ALT (when multiple on/off recordings): 
 --> AP_prepare_phy_concat_experiments: recordings concatenated

@@ -1,13 +1,11 @@
 function AP_preprocess_phase3_newOE_concat_experiments(animal,day,t_range)
-% AP_preprocess_phase3(animal,day,t_range)
+% AP_preprocess_phase3_newOE_concat_experiments(animal,day,t_range)
+%
+% Preprocess action potential data
+% (if multiple recordings, concatenate and run together)
 %
 % t_range = specify data time range to use
 % (now using kilosort2, putting into a 'kilosort2' folder)
-%
-% Copied from AP_preprocess_phase3_newOE:
-% doesn't accomodate old OE, done when started multiple experiments
-% (stopped and started ephys recordings, which creates multiple experiment
-% folders)
 
 %% Get paths and filenames
 
@@ -26,6 +24,8 @@ if ~isempty(data_path_dir)
     data_paths = cellfun(@(x) [data_paths{1} filesep x],{data_path_dir.name},'uni',false);
     save_paths = cellfun(@(x) [save_paths{1} filesep x],{data_path_dir.name},'uni',false);
 end
+
+disp(['Preprocessing ' animal ' ' day ' with concatenated recordings']);
 
 for curr_site = 1:length(data_paths)
     
@@ -201,13 +201,25 @@ for curr_site = 1:length(data_paths)
     %     % Copy the results
     %     movefile([ks_results_path filesep '*'],local_phy_path)
     
-    %% Delete all temporarly local data
+    %% Move concatenated CAR'd data to HDD data folder
+    % (because it takes a long time to make this, so might as well keep it
+    % locally until phy is complete since usually run more than one right
+    % after each other)
+    
+    hdd_localstorage_path = ['E:\local_data' filesep animal filesep day];
+    if ~exist(hdd_localstorage_path,'dir')
+        mkdir(hdd_localstorage_path);
+    end
+    ap_car_localstorage_filename = [hdd_localstorage_path filesep animal '_' day '_' 'ephys_apband_CAR.dat'];
+    movefile(ap_car_filename,ap_car_localstorage_filename);
+    
+    %% Delete all temporarly local SSD data
     rmdir(ssd_kilosort_path,'s');
     mkdir(ssd_kilosort_path);
     
     
 end
 
-disp('Done processing phase 3 data.');
+disp(['Done processing phase 3 data for ' animal ' ' day]);
 
 
