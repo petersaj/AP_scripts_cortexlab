@@ -1130,8 +1130,9 @@ for curr_chunk = 1:length(frame_chunks)-1
     curr_im = svdFrameReconstruct(Udf,fVdf(:,frame_chunks(curr_chunk): ...
         frame_chunks(curr_chunk+1)));
     
-    h = fspecial('gaussian',20,3);
-    curr_im = convn(curr_im,h,'same');
+%     % to blur: for corticostriatal     
+%     h = fspecial('gaussian',20,3);
+%     curr_im = convn(curr_im,h,'same');
     
     px_std_sq = px_std_sq + sum((bsxfun(@minus,curr_im,px_mean).^2./n_frames),3);
     disp(curr_chunk/(length(frame_chunks)-1));

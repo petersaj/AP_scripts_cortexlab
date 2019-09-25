@@ -10676,3 +10676,46 @@ AP_reference_outline('ccf_aligned',[0.5,0.5,0.5]);
 title('Master-aligned average VFS');
 
 
+%% (temp data club) Get number of spikes for each template within each experiment
+
+n_spikes_exp = nan(max(spike_templates),4);
+
+for curr_exp = 1:4
+    
+    curr_exp_start = sync(2).timestamps(curr_exp*2 - 1);
+    curr_exp_stop = sync(2).timestamps(curr_exp*2);
+    
+    curr_use_spikes = spike_times >= curr_exp_start & ...
+        spike_times <= curr_exp_stop;
+    
+    n_spikes_exp(:,curr_exp) = ...
+        accumarray(spike_templates(curr_use_spikes),1,[max(spike_templates),1])./ ...
+        (curr_exp_stop - curr_exp_start);
+    
+end
+
+figure; 
+for i = 1:4
+   subplot(1,4,i);
+   plot(n_spikes_exp(:,i),template_depths,'.k');
+   set(gca,'YDir','reverse');
+end
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+

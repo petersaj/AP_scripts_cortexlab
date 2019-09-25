@@ -25,21 +25,16 @@ AP_process_histology(im_path);
 % (optional) Rotate, center, pad, flip slice images
 AP_rotate_histology(slice_path);
 
-%% 3) Align CCF to slices
+%% 3) Align CCF to 
 
 % Find CCF slices corresponding to each histology slice
 AP_grab_histology_ccf(tv,av,st,slice_path);
 
 % Align CCF slices and histology slices
-% Two options: manually by control points or automatically. This should
-% probably be replaced by an automatic step, then manual quality-control
 % (manually, control points)
 AP_align_histology_ccf(tv,av,st,slice_path);
 % (automatically, by outline)
 AP_auto_align_histology_ccf(slice_path)
-
-
-%% 4) Utilize aligned CCF
 
 % Display aligned CCF over histology slices
 AP_view_aligned_histology(st,slice_path);

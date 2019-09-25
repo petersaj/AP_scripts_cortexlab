@@ -1815,9 +1815,9 @@ params = struct;
 params.makePlots = false;
 params.useSVD = false;
 params.countWindow = [0.05,0.1];
-% use_spikes = spike_times_timeline(ismember(spike_templates, ...
-%     find(template_depths > 0 & template_depths < 1500)));
-use_spikes = spike_times_timeline(aligned_str_depth_group == 2);
+use_spikes = spike_times_timeline(ismember(spike_templates, ...
+    find(template_depths > 0 & template_depths < 2800)));
+% use_spikes = spike_times_timeline(aligned_str_depth_group == 2);
 [rf_map,stats] = sparseNoiseRF(use_spikes, ...
     vertcat(stim_times_grid{:}),vertcat(stim_positions{:}),params);
 figure;imagesc(rf_map);axis image off;
