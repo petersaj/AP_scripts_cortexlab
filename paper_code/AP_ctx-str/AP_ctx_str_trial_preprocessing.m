@@ -250,7 +250,7 @@ for curr_animal = 1:length(animals)
         time_bin_centers = time_bins(1:end-1) + diff(time_bins)/2;
         
         % Get reaction time for building regressors
-        [move_trial,move_idx] = max(abs(event_aligned_wheel) > 0.02,[],2);
+        [move_trial,move_idx] = max(abs(event_aligned_wheel) > 0.025,[],2);
         move_idx(~move_trial) = NaN;
         move_t = nan(size(move_idx));
         move_t(~isnan(move_idx) & move_trial) = t(move_idx(~isnan(move_idx) & move_trial))';
@@ -344,7 +344,7 @@ for curr_animal = 1:length(animals)
         
         move_stopped_t = 0.5;
         move_stopped_samples = round(sample_rate*move_stopped_t);
-        wheel_moving_conv = convn((abs(wheel_velocity_interp) > 0.02), ...
+        wheel_moving_conv = convn((abs(wheel_velocity_interp) > 0.025), ...
             ones(1,move_stopped_samples),'full') > 0;
         wheel_moving = wheel_moving_conv(end-length(time_bin_centers)+1:end);
         
@@ -704,7 +704,7 @@ for curr_animal = 1:length(animals)
         %%% Regress task to cortex/striatum/cortex-predicted striatum
         
         % Get reaction time for building regressors
-        [move_trial,move_idx] = max(abs(event_aligned_wheel) > 0.02,[],2);
+        [move_trial,move_idx] = max(abs(event_aligned_wheel) > 0.025,[],2);
         move_idx(~move_trial) = NaN;
         move_t = nan(size(move_idx));
         move_t(~isnan(move_idx) & move_trial) = t(move_idx(~isnan(move_idx) & move_trial))';
@@ -798,7 +798,7 @@ for curr_animal = 1:length(animals)
         
         move_stopped_t = 0.5;
         move_stopped_samples = round(sample_rate*move_stopped_t);
-        wheel_moving_conv = convn((abs(wheel_velocity_interp) > 0.02), ...
+        wheel_moving_conv = convn((abs(wheel_velocity_interp) > 0.025), ...
             ones(1,move_stopped_samples),'full') > 0;
         wheel_moving = wheel_moving_conv(end-length(time_bin_centers)+1:end);
         
@@ -1289,7 +1289,7 @@ for curr_animal = 1:length(animals)
         %%% Regress task to cortex/striatum/cortex-predicted striatum
         
         % Get reaction time for building regressors
-        [move_trial,move_idx] = max(abs(event_aligned_wheel) > 0.02,[],2);
+        [move_trial,move_idx] = max(abs(event_aligned_wheel) > 0.025,[],2);
         move_idx(~move_trial) = NaN;
         move_t = nan(size(move_idx));
         move_t(~isnan(move_idx) & move_trial) = t(move_idx(~isnan(move_idx) & move_trial))';
@@ -1383,7 +1383,7 @@ for curr_animal = 1:length(animals)
         
         move_stopped_t = 0.5;
         move_stopped_samples = round(sample_rate*move_stopped_t);
-        wheel_moving_conv = convn((abs(wheel_velocity_interp) > 0.02), ...
+        wheel_moving_conv = convn((abs(wheel_velocity_interp) > 0.025), ...
             ones(1,move_stopped_samples),'full') > 0;
         wheel_moving = wheel_moving_conv(end-length(time_bin_centers)+1:end);
         
@@ -1759,7 +1759,7 @@ for curr_animal = 1:length(animals)
         %%% Regress task to cortex/striatum/cortex-predicted striatum
         
         % Get reaction time for building regressors
-        [move_trial,move_idx] = max(abs(event_aligned_wheel) > 0.02,[],2);
+        [move_trial,move_idx] = max(abs(event_aligned_wheel) > 0.025,[],2);
         move_idx(~move_trial) = NaN;
         move_t = nan(size(move_idx));
         move_t(~isnan(move_idx) & move_trial) = t(move_idx(~isnan(move_idx) & move_trial))';
@@ -1853,7 +1853,7 @@ for curr_animal = 1:length(animals)
         
         move_stopped_t = 0.5;
         move_stopped_samples = round(sample_rate*move_stopped_t);
-        wheel_moving_conv = convn((abs(wheel_velocity_interp) > 0.02), ...
+        wheel_moving_conv = convn((abs(wheel_velocity_interp) > 0.025), ...
             ones(1,move_stopped_samples),'full') > 0;
         wheel_moving = wheel_moving_conv(end-length(time_bin_centers)+1:end);
         
@@ -3479,7 +3479,7 @@ trial_choice_allcat = -(D_allcat.response-1.5)*2;
 sample_rate = 1./mean(diff(t));
 
 % Get reaction time
-[move_trial,move_idx] = max(abs(wheel_allcat) > 0.02,[],2);
+[move_trial,move_idx] = max(abs(wheel_allcat) > 0.025,[],2);
 move_t = t(move_idx)';
 move_t(~move_trial) = Inf;
 
@@ -4575,7 +4575,7 @@ for curr_animal = 1:length(animals)
         %%%%%%%%%%%%%%%%%%%%%%%%%%% TESTING: TASK REGRESSION
         
         % Get reaction time
-        [move_trial,move_idx] = max(abs(event_aligned_wheel(use_trials,:)) > 0.02,[],2);
+        [move_trial,move_idx] = max(abs(event_aligned_wheel(use_trials,:)) > 0.025,[],2);
         move_t = t(move_idx)';
         move_t(~move_trial) = Inf;
         

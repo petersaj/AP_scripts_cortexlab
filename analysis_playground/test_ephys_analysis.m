@@ -1823,12 +1823,12 @@ use_spikes = spike_times_timeline(aligned_str_depth_group == 2);
 figure;imagesc(rf_map);axis image off;
 
 % Get stim-triggered MUA average for each stimulus
-% use_spikes = spike_times_timeline(ismember(spike_templates, ...
-%     find(template_depths > 0 & template_depths < 1500)));
+use_spikes = spike_times_timeline(ismember(spike_templates, ...
+    find(template_depths > 2800 & template_depths < 3500)));
 % use_spikes = spike_times_timeline(ismember(spike_templates, ...
 %     find(template_depths > 0 & template_depths < 1500)) &...
 %     ismember(spike_templates,find(msn)));
-use_spikes = spike_times_timeline(aligned_str_depth_group == 2);
+% use_spikes = spike_times_timeline(aligned_str_depth_group == 2);
 
 % Get stim times vector (x,y)
 stim_aligned_avg = cell(nY,nX);
@@ -1850,7 +1850,7 @@ for x = 1:nX
     end
 end
 stim_aligned_avg_cat = cell2mat(cellfun(@(x) permute(x,[1,3,2]),stim_aligned_avg,'uni',false));
-AP_image_scroll(stim_aligned_avg_cat,raster_window(1):psth_bin_size:raster_window(2));
+AP_image_scroll(stim_aligned_avg_cat,bins);
 axis image;
 
 

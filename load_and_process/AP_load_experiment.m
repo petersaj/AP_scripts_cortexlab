@@ -266,7 +266,7 @@ if block_exists
         stim_aligned_wheel = interp1(Timeline.rawDAQTimestamps, ...
             wheel_velocity,pull_times);
         
-        thresh_displacement = 0.02;
+        thresh_displacement = 0.025;
         [~,wheel_move_sample] = max(abs(stim_aligned_wheel) > thresh_displacement,[],2);
         wheel_move_time = arrayfun(@(x) pull_times(x,wheel_move_sample(x)),1:size(pull_times,1))';
         wheel_move_time(wheel_move_sample == 1) = NaN;

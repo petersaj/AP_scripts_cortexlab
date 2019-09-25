@@ -540,8 +540,8 @@ for curr_condition_idx = 1:length(conditions)
     stim_surround_times = bsxfun(@plus, use_stimOn_times(:), surround_time);
     stim_baseline_surround_times = bsxfun(@plus, use_stimOn_times(:), baseline_surround_time);
     
-    peri_stim_v = permute(interp1(frame_t,fVdf_deconv',stim_surround_times),[3,2,1]);
-    baseline_v = permute(nanmean(interp1(frame_t,fVdf_deconv',stim_baseline_surround_times),2),[3,2,1]);
+    peri_stim_v = permute(interp1(frame_t,fVdf',stim_surround_times),[3,2,1]);
+    baseline_v = permute(nanmean(interp1(frame_t,fVdf',stim_baseline_surround_times),2),[3,2,1]);
 
     stim_v_mean = nanmean(peri_stim_v - baseline_v,3);
     
@@ -1129,6 +1129,10 @@ frame_chunks = unique([skip_frames:chunk_size:size(fVdf,2)-skip_frames, ...
 for curr_chunk = 1:length(frame_chunks)-1
     curr_im = svdFrameReconstruct(Udf,fVdf(:,frame_chunks(curr_chunk): ...
         frame_chunks(curr_chunk+1)));
+    
+    h = fspecial('gaussian',20,3);
+    curr_im = convn(curr_im,h,'same');
+    
     px_std_sq = px_std_sq + sum((bsxfun(@minus,curr_im,px_mean).^2./n_frames),3);
     disp(curr_chunk/(length(frame_chunks)-1));
 end

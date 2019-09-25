@@ -105,15 +105,16 @@ regression_params.use_constant = true;
 
 % Prepare fluorescence
 
-% NOT YET ANIMAL ALIGNED
-% % Convert U to master U
-% load('C:\Users\Andrew\OneDrive for Business\Documents\CarandiniHarrisLab\analysis\wf_ephys_choiceworld\wf_processing\wf_alignment\U_master.mat');
-% Udf_aligned = AP_align_widefield(Udf,animal,day);
-% fVdf_recast = ChangeU(Udf_aligned,fVdf,U_master);
+% (if aligned)
+% Convert U to master U
+load('C:\Users\Andrew\OneDrive for Business\Documents\CarandiniHarrisLab\analysis\wf_ephys_choiceworld\wf_processing\wf_alignment\U_master.mat');
+Udf_aligned = AP_align_widefield(Udf,animal,day);
+fVdf_recast = ChangeU(Udf_aligned,fVdf,U_master);
 
-U_master = Udf;
-Udf_aligned = Udf;
-fVdf_recast = fVdf;
+% (if not aligned)
+% U_master = Udf;
+% Udf_aligned = Udf;
+% fVdf_recast = fVdf;
 
 % Set components to keep
 use_components = 1:200;
@@ -329,7 +330,7 @@ regressor_px = cellfun(@(v) cell2mat(arrayfun(@(subregressor) ...
     permute(1:size(v,1),[1,3,4,2]),'uni',false)),fluor_taskpred_k,'uni',false);
 
 
-AP_image_scroll(regressor_px{1});
+AP_image_scroll(regressor_px{4});
 axis image;
 caxis([-max(abs(caxis)),max(abs(caxis))]);
 colormap(brewermap([],'*RdBu'));

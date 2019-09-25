@@ -3,7 +3,7 @@
 
 %% Plot psychometrics and reaction times
 
-animal = 'AP041';
+animal = 'AP040';
 protocol = 'vanillaChoiceworld';
 experiments = AP_find_experiments(animal,protocol);
 
@@ -95,25 +95,10 @@ end
 n_trials_all = cellfun(@length,{bhv.move_t});
 
 figure; 
-
-subplot(2,1,1);
 plot(n_trials_all,'k','linewidth',2);
-xlabel('Session');
-ylabel('Number of trials');
-
-subplot(2,1,2);
-imagesc(frac_left_all');
-colormap(brewermap([],'*RdBu'));
 
 
-
-
-
-
-
-
-
-
+a = cellfun(@(x) datenum(x),{bhv.day});
 
 
 

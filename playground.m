@@ -10619,7 +10619,7 @@ colormap(brewermap([],'*RdBu'));
 
 animal = 'AP041';
 
-protocol = 'AP_lcrGratingPassive';
+protocol = 'AP_sparseNoise';
 experiments = AP_find_experiments(animal,protocol);
 experiments(~([experiments.imaging])) = [];
 
@@ -10633,6 +10633,46 @@ end
 
 AP_align_widefield(avg_im_days,animal,{experiments.day},'new_days');
 
+%% Average retinotopy, align to master
 
+retinotopy_path = 'C:\Users\Andrew\OneDrive for Business\Documents\CarandiniHarrisLab\analysis\widefield_alignment\retinotopy';
+retinotopy_dir = dir(retinotopy_path);
+
+animal = 'AP040';
+load([retinotopy_path filesep animal '_retinotopy'])
+
+aligned_vfs = cell(length(retinotopy),1);
+for curr_day = 1:length(retinotopy)
+    try
+        aligned_vfs{curr_day} = AP_align_widefield(retinotopy(curr_day).vfs,animal,retinotopy(curr_day).day,'day_only');
+    catch me
+        disp(['Skipping ' animal ' ' retinotopy(curr_day).day]);
+    end
+end
+
+% Plot day-aligned VFS
+AP_image_scroll(cat(3,aligned_vfs{:}));
+colormap(brewermap([],'*RdBu'));
+axis image off;
+title('Day-aligned VFS')
+
+% Align across-day mean VFS to master animal
+vfs_mean = nanmean(cat(3,aligned_vfs{:}),3);
+AP_align_widefield(vfs_mean,animal,[],'new_animal');
+
+% Plot master-aligned average VFS with CCF overlay
+master_aligned_vfs = cell(length(retinotopy),1);
+for curr_day = 1:length(retinotopy)
+    try
+        master_aligned_vfs{curr_day} = AP_align_widefield(retinotopy(curr_day).vfs,animal,retinotopy(curr_day).day);
+    catch me
+        disp(['Skipping ' animal ' ' retinotopy(curr_day).day]);
+    end
+end
+figure;imagesc(nanmean(cat(3,master_aligned_vfs{:}),3));
+colormap(brewermap([],'*RdBu'));
+axis image off;
+AP_reference_outline('ccf_aligned',[0.5,0.5,0.5]);
+title('Master-aligned average VFS');
 
 

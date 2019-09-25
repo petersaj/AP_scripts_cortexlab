@@ -10619,7 +10619,7 @@ colormap(brewermap([],'*RdBu'));
 
 animal = 'AP041';
 
-protocol = 'AP_lcrGratingPassive';
+protocol = 'AP_sparseNoise';
 experiments = AP_find_experiments(animal,protocol);
 experiments(~([experiments.imaging])) = [];
 
@@ -10633,11 +10633,32 @@ end
 
 AP_align_widefield(avg_im_days,animal,{experiments.day},'new_days');
 
-%% Kilosort process muscimol recordings
+%% Average retinotopy, align to master
+
+retinotopy_path = 'C:\Users\Andrew\OneDrive for Business\Documents\CarandiniHarrisLab\analysis\widefield_alignment\retinotopy';
+retinotopy_dir = dir(retinotopy_path);
+
+animal = 'AP040';
+load([retinotopy_path filesep animal '_retinotopy'])
+
+aligned_vfs = cell(length(retinotopy),1);
+for curr_day = 1:length(retinotopy)
+    try
+        aligned_vfs{curr_day} = AP_align_widefield(retinotopy(curr_day).vfs,animal,retinotopy(curr_day).day,'day_only');
+    catch me
+        disp(['Skipping ' animal ' ' retinotopy(curr_day).day]);
+    end
+end
+
+
+
+vfs_mean = nanmean(cat(3,aligned_vfs{:}),3);
+AP_align_widefield(vfs_mean,animal,[],'new_animal');
 
 
 
 
 
-AP_preprocess_phase3_newOE_concat_experiments('AP041','2019-09-12')
+
+
 
