@@ -10596,13 +10596,13 @@ colormap(brewermap([],'*RdBu'));
 %% Average passive choiceworld 
 
 % Get trials with movement during stim to exclude
-quiescent_trials = ~any(abs(wheel_allcat(:,t >= 0 & t <= 0.5)) > 0.02,2);
+quiescent_trials = ~any(abs(wheel_allcat(:,t >= 0 & t <= 0.5)) > 0.025,2);
 
 use_stim = [-1;1];
 
 stim_px = nan(size(U_master,1),size(U_master,2),length(t),length(use_stim));
 for curr_stim = 1:length(use_stim)
-   curr_v = permute(nanmean(fluor_allcat(quiescent_trials & ...
+   curr_v = permute(nanmean(fluor_allcat_deconv(quiescent_trials & ...
        trial_contrastside_allcat == use_stim(curr_stim),:,:),1),[3,2,1]);
    curr_px = svdFrameReconstruct(U_master(:,:,1:n_vs),curr_v);
    stim_px(:,:,:,curr_stim) = curr_px;
@@ -10610,7 +10610,7 @@ end
 
 AP_image_scroll(stim_px,t);
 axis image;
-AP_reference_outline('ccf_aligned','k');
+AP_reference_outline('ccf_aligned',[0.5,0.5,0.5]);
 caxis([-max(abs(caxis)),max(abs(caxis))]);
 colormap(brewermap([],'*RdBu'));
 
@@ -10679,8 +10679,9 @@ title('Master-aligned average VFS');
 %% (temp data club) Get number of spikes for each template within each experiment
 
 n_spikes_exp = nan(max(spike_templates),4);
+n_exp = length(sync(2).timestamps)/2;
 
-for curr_exp = 1:4
+for curr_exp = 1:n_exp
     
     curr_exp_start = sync(2).timestamps(curr_exp*2 - 1);
     curr_exp_stop = sync(2).timestamps(curr_exp*2);
@@ -10695,15 +10696,62 @@ for curr_exp = 1:4
 end
 
 figure; 
-for i = 1:4
-   subplot(1,4,i);
+for i = 1:n_exp
+   subplot(1,n_exp,i);
    plot(n_spikes_exp(:,i),template_depths,'.k');
    set(gca,'YDir','reverse');
 end
 
+use_baseline = 1:2;
+use_muscimol = 4:5;
+
+baseline_spikes = nanmean(n_spikes_exp(:,use_baseline),2);
+muscimol_spikes = nanmean(n_spikes_exp(:,use_muscimol),2);
+
+figure; hold on; colormap(jet);
+scatter(baseline_spikes,muscimol_spikes,50,template_depths,'filled');
+axis square; ylim(xlim);
+xlabel('Baseline spikes/s');
+ylabel('Muscimol spikes/s');
+line(xlim,xlim,'color','k');
 
 
+%% (temp data club) Plot measured/ctx-predicted spikes
 
+% Set options
+surround_window = [-0.5,3];
+baseline_window = [-0.1,0];
+
+surround_samplerate = 1/(framerate*1);
+surround_time = surround_window(1):surround_samplerate:surround_window(2);
+baseline_surround_time = baseline_window(1):surround_samplerate:baseline_window(2);
+
+% (passive)
+% use_stims = find(stimIDs == 3);
+% (choiceworld)
+stimIDs = trial_conditions(:,1).*trial_conditions(:,2);
+use_stims = find(stimIDs < 0 & move_t < 0.5);
+
+use_stimOn_times = stimOn_times(use_stims(2:end));
+use_stimOn_times([1,end]) = [];
+
+stim_surround_times = bsxfun(@plus, use_stimOn_times(:), surround_time);
+stim_baseline_surround_times = bsxfun(@plus, use_stimOn_times(:), baseline_surround_time);
+
+psth_measured_stim = permute(interp1(time_bin_centers,binned_spikes_std',stim_surround_times),[3,2,1]);
+psth_predicted_stim = permute(interp1(time_bin_centers,predicted_spikes',stim_surround_times),[3,2,1]);
+
+psth_measured_baseline = permute(nanmean(interp1(time_bin_centers,binned_spikes_std',stim_baseline_surround_times),2),[3,2,1]);
+psth_predicted_baseline = permute(nanmean(interp1(time_bin_centers,predicted_spikes',stim_baseline_surround_times),2),[3,2,1]);
+
+psth_measured = nanmean(psth_measured_stim - psth_measured_baseline,3);
+psth_predicted = nanmean(psth_predicted_stim - psth_predicted_baseline,3);
+
+figure; hold on;
+% AP_stackplot(psth_measured',surround_time,3,false,'k');
+% AP_stackplot(psth_predicted',surround_time,3,false,'r');
+plot(surround_time,psth_measured,'k','linewidth',2);
+plot(surround_time,psth_predicted,'r','linewidth',2);
 
 
 
