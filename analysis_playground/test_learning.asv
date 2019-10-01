@@ -1,14 +1,128 @@
 %% Test analysis for recording across learning
 
-%% Passive stim during choiceworld
-% AP040/AP041 so far: plot average passive response over days
-% (make sure to take out traces with wheel movement, but really should
-% probably get movement based on camera with AP_mouse_movie_movement)
+%% Plot psychometrics and reaction times
+
+animal = 'AP025';
+protocol = 'vanillaChoiceworld';
+experiments = AP_find_experiments(animal,protocol);
+
+% experiments = experiments([experiments.imaging] & [experiments.ephys]);
+experiments = experiments([experiments.imaging] & ~[experiments.ephys]);
+
+init_array = cell(size(experiments));
+bhv = struct('move_t',init_array,'stim_contrastsides',init_array,'trial_choice',init_array);
+
+for curr_day = 1:length(experiments)
+    
+    load_parts.cam = false;
+    load_parts.imaging = false;
+    load_parts.ephys = false;
+    
+    day = experiments(curr_day).day;
+    experiment = experiments(curr_day).experiment(end);
+    
+    AP_load_experiment
+    framerate = 35;
+    
+    % Get event-aligned activity
+    raster_window = [-0.5,2];
+    upsample_factor = 1;
+    raster_sample_rate = 1/(framerate*upsample_factor);
+    t = raster_window(1):raster_sample_rate:raster_window(2);
+    
+    % Get align times
+    use_align = stimOn_times;
+    use_align(isnan(use_align)) = 0;
+    
+    t_peri_event = bsxfun(@plus,use_align,t);
+    t_bins = [t_peri_event-raster_sample_rate/2,t_peri_event(:,end)+raster_sample_rate/2];
+    
+    %%% Trial-align wheel velocity
+    event_aligned_wheel = interp1(Timeline.rawDAQTimestamps, ...
+        wheel_velocity,t_peri_event);
+    
+    % Get reaction time for building regressors
+    [move_trial,move_idx] = max(abs(event_aligned_wheel) > 0.03,[],2);
+    move_idx(~move_trial) = NaN;
+    move_t = nan(size(move_idx));
+    move_t(~isnan(move_idx) & move_trial) = t(move_idx(~isnan(move_idx) & move_trial))';
+    
+    % Get stim
+    unique_stim = unique(contrasts(contrasts > 0).*sides');
+    stim_contrastsides = ...
+        signals_events.trialSideValues(1:length(stimOn_times))'.* ...
+        signals_events.trialContrastValues(1:length(stimOn_times))';
+    
+    % Package
+    bhv(curr_day).day = day;
+    bhv(curr_day).move_t = move_t;
+    bhv(curr_day).stim_contrastsides = stim_contrastsides;
+    bhv(curr_day).trial_choice = trial_choice;
+    
+    AP_print_progress_fraction(curr_day,length(experiments));
+    
+end
+
+% Plot all psychometrics and reaction times overlaid
+figure; hold on
+psychometric_ax = subplot(1,2,1); hold on;
+line(psychometric_ax,[-1,1],[0.5,0.5],'linestyle','--','color','k');
+line(psychometric_ax,[0,0],[0,1],'linestyle','--','color','k');
+
+rxn_ax = subplot(1,2,2); hold on;
+line(rxn_ax,[-1,1],[0.5,0.5],'linestyle','--','color','k');
+line(rxn_ax,[0,0],[0,1],'linestyle','--','color','k');
+
+% Plot psychometric and number of trials over days
+unique_stim_contrastsides = unique(vertcat(bhv.stim_contrastsides));
+frac_left_all = nan(length(bhv),11);
+rxn_all = nan(length(bhv),11);
+for i = 1:length(bhv)
+    n_trials = length(bhv(i).move_t);
+    frac_left = grpstats(bhv(i).trial_choice(1:n_trials) == -1,bhv(i).stim_contrastsides(1:n_trials));
+    plot(psychometric_ax,unique(bhv(i).stim_contrastsides),frac_left,'k','linewidth',2);
+    
+    rxn = grpstats(bhv(i).move_t(1:n_trials),bhv(i).stim_contrastsides(1:n_trials),{'nanmedian'});
+    plot(rxn_ax,unique(bhv(i).stim_contrastsides),rxn,'k','linewidth',2);
+    
+    curr_stim_contrastsides = unique(bhv(i).stim_contrastsides(1:n_trials));
+    [~,curr_stim_contrastsides_idx] = ismember(curr_stim_contrastsides,unique_stim_contrastsides);
+    frac_left_all(i,curr_stim_contrastsides_idx) = frac_left;
+    rxn_all(i,curr_stim_contrastsides_idx) = rxn;
+end
+
+n_trials_all = cellfun(@length,{bhv.move_t});
+
+figure('name',animal); 
+
+subplot(3,1,1);
+plot(n_trials_all,'k','linewidth',2);
+ylabel('Number of trials');
+c = colorbar;
+set(c,'visible','off');
+set(gca,'XTick',1:length(experiments))
+set(gca,'XTickLabel',{experiments.day})
+set(gca,'XTickLabelRotation',30)
+
+subplot(3,1,2);
+imagesc([],unique_stim_contrastsides,frac_left_all','AlphaData',~isnan(frac_left_all'));
+colormap(brewermap([],'*RdBu'));
+set(gca,'color',[0.5,0.5,0.5]);
+c = colorbar; ylabel(c,'Fraction orient left');
+xlabel('Session');
+ylabel('Stim contrast*side');
+
+subplot(3,1,3);
+imagesc([],unique_stim_contrastsides,rxn_all','AlphaData',~isnan(rxn_all'));
+colormap(brewermap([],'*RdBu'));
+set(gca,'color',[0.5,0.5,0.5]);
+caxis([0.2,0.8]);
+c = colorbar; ylabel(c,'Time to first move');
+xlabel('Session');
+ylabel('Stim contrast*side');
 
 
-% get within stim window: 
-% frame_movement, wheel velocity
-
+%% Passive stim during choiceworld (pixels)
 
 animal = 'AP040';
 
@@ -170,11 +284,29 @@ axis image off;
 colormap(brewermap([],'*RdBu'));
 caxis([-max(abs(caxis)),max(abs(caxis))]);
 
+% Plot mean or median within each day
+a = cell2mat(permute(cellfun(@(x) svdFrameReconstruct(U_master,nanmedian(x,3)),stim_v_all(:,1),'uni',false),[2,3,4,1]));
+AP_image_scroll(a);
+axis image off;
+colormap(brewermap([],'*RdBu'));
+caxis([-max(abs(caxis)),max(abs(caxis))]);
+
+b = squeeze(nanmean(a(:,:,20:22,:),3));
+AP_image_scroll(b);
+axis image off;
+colormap(brewermap([],'*RdBu'));
+caxis([-max(abs(caxis)),max(abs(caxis))]);
+
 % Plot smoothed average
 a = cat(3,stim_v_all{:,1});
-b = convn(a,ones(1,1,150)./150,'same');
-c = squeeze(nanmean(b(:,21:23,:),2));
-curr_px = svdFrameReconstruct(U_master,nanmean(cat(3,stim_v_all{:,1}),3));
+b = squeeze(nanmean(a(:,21:23,:),2));
+c = convn(b,ones(1,30)./30,'same');
+curr_px = svdFrameReconstruct(U_master,c);
+AP_image_scroll(curr_px);
+axis image off;
+colormap(brewermap([],'*RdBu'));
+caxis([-max(abs(caxis)),max(abs(caxis))]);
+
 
 
 

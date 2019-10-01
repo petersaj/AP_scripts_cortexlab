@@ -10727,10 +10727,10 @@ surround_time = surround_window(1):surround_samplerate:surround_window(2);
 baseline_surround_time = baseline_window(1):surround_samplerate:baseline_window(2);
 
 % (passive)
-% use_stims = find(stimIDs == 3);
+use_stims = find(stimIDs == 3);
 % (choiceworld)
-stimIDs = trial_conditions(:,1).*trial_conditions(:,2);
-use_stims = find(stimIDs < 0 & move_t < 0.5);
+% stimIDs = trial_conditions(:,1).*trial_conditions(:,2);
+% use_stims = find(stimIDs < 0 & move_t < 0.5);
 
 use_stimOn_times = stimOn_times(use_stims(2:end));
 use_stimOn_times([1,end]) = [];
@@ -10748,19 +10748,10 @@ psth_measured = nanmean(psth_measured_stim - psth_measured_baseline,3);
 psth_predicted = nanmean(psth_predicted_stim - psth_predicted_baseline,3);
 
 figure; hold on;
-% AP_stackplot(psth_measured',surround_time,3,false,'k');
-% AP_stackplot(psth_predicted',surround_time,3,false,'r');
+% AP_stackplot(psth_measured',surround_time,2,false,'k');
+% AP_stackplot(psth_predicted',surround_time,2,false,'r');
 plot(surround_time,psth_measured,'k','linewidth',2);
 plot(surround_time,psth_predicted,'r','linewidth',2);
-
-
-
-
-
-
-
-
-
 
 
 

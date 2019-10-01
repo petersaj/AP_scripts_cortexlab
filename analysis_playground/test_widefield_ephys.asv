@@ -2862,7 +2862,7 @@ time_bin_centers = time_bins(1:end-1) + diff(time_bins)/2;
 % depth_group = aligned_str_depth_group;
 
 % (for manual depth)
-depth_group_edges = [500,1500];
+depth_group_edges = [1000,1000];
 n_depths = length(depth_group_edges) - 1;
 [depth_group_n,depth_group] = histc(spike_depths,depth_group_edges);
 
@@ -2883,7 +2883,7 @@ binned_spikes_std(isnan(binned_spikes_std)) = 0;
 use_svs = 1:50;
 kernel_t = [-0.5,0.5];
 kernel_frames = round(kernel_t(1)*sample_rate):round(kernel_t(2)*sample_rate);
-lambda = 0;
+lambda = 5;
 zs = [false,false];
 cvfold = 5;
 return_constant = false;
@@ -2900,12 +2900,12 @@ fVdf_deconv_resample = interp1(frame_t,fVdf_deconv(use_svs,:)',time_bin_centers)
 % TO USE fV
 % [k,predicted_spikes,explained_var] = ...
 %     AP_regresskernel(fVdf_resample, ...
-%     binned_spikes_std,kernel_frames,lambda,zs,cvfold);
+%     binned_spikes,kernel_frames,lambda,zs,cvfold);
 % TO USE dfV
 % [k,predicted_spikes,explained_var] = ...
 %     AP_regresskernel(dfVdf_resample, ...
 %     binned_spikes_std,kernel_frames,lambda,zs,cvfold,return_constant,use_constant);
-% TO USE DECONV
+% % TO USE DECONV
 [k,predicted_spikes,explained_var] = ...
     AP_regresskernel(fVdf_deconv_resample, ...
     binned_spikes_std,kernel_frames,lambda,zs,cvfold,return_constant,use_constant);
@@ -2925,9 +2925,9 @@ axis image;
 % (get max r for each pixel, filter out big ones)
 r_px_max = squeeze(max(r_px,[],3));
 r_px_max(isnan(r_px_max)) = 0;
-% for i = 1:n_depths
-%     r_px_max(:,:,i) = medfilt2(r_px_max(:,:,i),[10,10]);
-% end
+for i = 1:n_depths
+    r_px_max(:,:,i) = medfilt2(r_px_max(:,:,i),[10,10]);
+end
 r_px_max_norm = bsxfun(@rdivide,r_px_max, ...
     permute(max(reshape(r_px_max,[],n_depths),[],1),[1,3,2]));
 r_px_max_norm(isnan(r_px_max_norm)) = 0;
