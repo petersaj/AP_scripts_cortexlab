@@ -1,7 +1,7 @@
 %% Get and plot single mouse behavior
 % TO DO: add estimate of reaction time to this
 
-animal = 'AP041';
+animal = 'AP044';
 protocol = 'vanillaChoiceworld';
 experiments = AP_find_experiments(animal,protocol);
 bhv = struct;
@@ -31,13 +31,6 @@ for curr_day = 1:length(experiments)
         n_trials = length(block.paramsValues);
         total_water = sum(block.outputs.rewardValues);
         
-        % Wheel movements/biases
-        wheel_movement = diff(block.inputs.wheelValues);
-        left_wheel_movement = abs(wheel_movement.*(wheel_movement < 0));
-        right_wheel_movement = abs(wheel_movement.*(wheel_movement > 0));
-        wheel_bias = (sum(right_wheel_movement)-sum(left_wheel_movement))/ ...
-            (sum(right_wheel_movement)+sum(left_wheel_movement));
-        
         % Estimate reaction time
         % (evenly resample velocity - not even natively);
         wheel_resample_rate = 1000;
@@ -58,6 +51,12 @@ for curr_day = 1:length(experiments)
             wheel_starts(find(wheel_starts > block.events.stimOnTimes(x),1)), ...
             response_trials);      
         trial_move_t = trial_wheel_starts - block.events.stimOnTimes(response_trials);
+        
+        % Wheel movements/biases
+        left_wheel_velocity = abs(wheel_velocity.*(wheel_velocity < 0));
+        right_wheel_velocity = abs(wheel_velocity.*(wheel_velocity > 0));
+        wheel_bias = (sum(right_wheel_movement)-sum(left_wheel_velocity))/ ...
+            (sum(right_wheel_movement)+sum(left_wheel_velocity));
         
         % Get reaction times for each stimulus
         trial_stim = block.events.trialContrastValues(response_trials).*block.events.trialSideValues(response_trials);
@@ -94,7 +93,7 @@ day_labels = cellfun(@(x) x(6:end),{experiments.day},'uni',false);
 figure('Name',animal)
 
 % Trials and water
-subplot(2,2,1);
+subplot(3,2,1);
 yyaxis left
 plot(day_num,bhv.n_trials./bhv.session_duration,'linewidth',2);
 ylabel('Trials/min');
@@ -108,7 +107,7 @@ set(gca,'XTickLabelRotation',90);
 
 imaging_days = day_num([experiments.imaging]);
 for i = 1:length(imaging_days)
-    line(repmat(imaging_days(i),1,2),ylim,'color','b');
+    line(repmat(imaging_days(i),1,2),ylim,'color','k');
 end
 
 ephys_days = day_num([experiments.ephys]);
@@ -117,7 +116,7 @@ for i = 1:length(ephys_days)
 end
 
 % Wheel movement and bias
-subplot(2,2,2);
+subplot(3,2,2);
 yyaxis left
 plot(day_num,bhv.wheel_movement./bhv.session_duration,'linewidth',2);
 ylabel('Wheel movement / min');
@@ -132,7 +131,7 @@ set(gca,'XTickLabelRotation',90);
 
 imaging_days = day_num([experiments.imaging]);
 for i = 1:length(imaging_days)
-    line(repmat(imaging_days(i),1,2),ylim,'color','b');
+    line(repmat(imaging_days(i),1,2),ylim,'color','k');
 end
 
 ephys_days = day_num([experiments.ephys]);
@@ -141,7 +140,7 @@ for i = 1:length(ephys_days)
 end
 
 % Psychometric over all days
-subplot(3,2,4);
+subplot(3,2,3);
 im = imagesc(bhv.conditions,1:size(bhv.go_left_trials),bhv.go_left_trials./bhv.n_trials_condition);
 set(im,'AlphaData',~isnan(get(im,'CData')));
 set(gca,'color',[0.5,0.5,0.5]);
@@ -162,7 +161,7 @@ if any([experiments.ephys])
 end
 
 % Reaction time over days
-subplot(3,2,5);
+subplot(3,2,4);
 im = imagesc(bhv.conditions,1:size(bhv.go_left_trials),bhv.stim_rxn_time);
 set(im,'AlphaData',~isnan(get(im,'CData')));
 set(gca,'color',[0.5,0.5,0.5]);
@@ -184,7 +183,7 @@ if any([experiments.ephys])
 end
 
 % Psychometric of combined days that use all contrasts
-subplot(3,2,9); hold on;
+subplot(3,2,5); hold on;
 combine_days = bhv.use_all_contrasts;
 combine_days_performance = bhv.go_left_trials(combine_days,:)./bhv.n_trials_condition(combine_days,:);
 errorbar(bhv.conditions,nanmean(combine_days_performance,1), ...
@@ -198,7 +197,7 @@ xlabel('Condition');
 ylabel('Fraction go left');
 
 % Reaction time of combined days that use all contrasts
-subplot(3,2,12); hold on;
+subplot(3,2,6); hold on;
 combine_days = bhv.use_all_contrasts;
 combine_days_rxn_time = bhv.stim_rxn_time(combine_days,:);
 errorbar(bhv.conditions,nanmean(combine_days_rxn_time,1), ...

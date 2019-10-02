@@ -697,12 +697,17 @@ probe_line_endpoints = bsxfun(@plus,bsxfun(@times,probe_eval_points',histology_p
 % plot3(histology_points(:,3),histology_points(:,1),histology_points(:,2),'.b','MarkerSize',20);
 % line(P(:,3),P(:,1),P(:,2),'color','k','linewidth',2)
 
-% % Mine: saved in native CCF order [AP,DV,ML]
-% plot3(histology_points(:,1),histology_points(:,3),histology_points(:,2),'.b','MarkerSize',20);
-% line(probe_line_endpoints(:,1),probe_line_endpoints(:,3),probe_line_endpoints(:,2),'color','k','linewidth',2)
+% Mine: saved in native CCF order [AP,DV,ML]
+plot3(histology_points(:,1),histology_points(:,3),histology_points(:,2),'.b','MarkerSize',20);
+line(probe_line_endpoints(:,1),probe_line_endpoints(:,3),probe_line_endpoints(:,2),'color','k','linewidth',2)
 
-% Place the probe on the histology best-fit axis
+
+
+
+% Update the probe and trajectory reference
 [ap_max,dv_max,ml_max] = size(gui_data.tv);
+
+max_ref_length = sqrt(sum(([ap_max,dv_max,ml_max].^2)));
 
 probe_ref_top = probe_line_endpoints(1,[1,3,2]);
 probe_ref_bottom = probe_line_endpoints(2,[1,3,2]);
@@ -719,12 +724,13 @@ set(gui_data.handles.probe_line,'XData',probe_vector(1,:), ...
 
 % Upload gui_data
 [theta,phi] = cart2sph(diff(probe_ref_vector(1,:)),diff(probe_ref_vector(2,:)),diff(probe_ref_vector(3,:)));
-gui_data.probe_angle = ([theta,phi]/(2*pi))*360;
+gui_data.probe_angle = (probe_angle_rad/(2*pi))*360;
 guidata(probe_atlas_gui, gui_data);
 
 % Update the slice and probe coordinates
 update_slice(probe_atlas_gui);
 update_probe_coordinates(probe_atlas_gui);
+
 
 
 end

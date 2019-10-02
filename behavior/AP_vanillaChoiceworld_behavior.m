@@ -1,7 +1,6 @@
 %% Get and plot single mouse behavior
-% TO DO: add estimate of reaction time to this
 
-animal = 'AP041';
+animal = 'AP044';
 protocol = 'vanillaChoiceworld';
 experiments = AP_find_experiments(animal,protocol);
 bhv = struct;
@@ -31,13 +30,6 @@ for curr_day = 1:length(experiments)
         n_trials = length(block.paramsValues);
         total_water = sum(block.outputs.rewardValues);
         
-        % Wheel movements/biases
-        wheel_movement = diff(block.inputs.wheelValues);
-        left_wheel_movement = abs(wheel_movement.*(wheel_movement < 0));
-        right_wheel_movement = abs(wheel_movement.*(wheel_movement > 0));
-        wheel_bias = (sum(right_wheel_movement)-sum(left_wheel_movement))/ ...
-            (sum(right_wheel_movement)+sum(left_wheel_movement));
-        
         % Estimate reaction time
         % (evenly resample velocity - not even natively);
         wheel_resample_rate = 1000;
@@ -59,6 +51,12 @@ for curr_day = 1:length(experiments)
             response_trials);      
         trial_move_t = trial_wheel_starts - block.events.stimOnTimes(response_trials);
         
+        % Wheel movements/biases
+        left_wheel_velocity = abs(wheel_velocity.*(wheel_velocity < 0));
+        right_wheel_velocity = abs(wheel_velocity.*(wheel_velocity > 0));
+        wheel_bias = (nansum(right_wheel_velocity)-nansum(left_wheel_velocity))/ ...
+            (nansum(right_wheel_velocity)+nansum(left_wheel_velocity));
+        
         % Get reaction times for each stimulus
         trial_stim = block.events.trialContrastValues(response_trials).*block.events.trialSideValues(response_trials);
         stim_list = unique(reshape(unique(block.events.contrastsValues).*[-1;1],[],1));
@@ -75,7 +73,7 @@ for curr_day = 1:length(experiments)
         bhv.session_duration(curr_day) = session_duration;
         bhv.n_trials(curr_day) = n_trials;
         bhv.total_water(curr_day) = total_water;
-        bhv.wheel_movement(curr_day) = sum(abs(wheel_movement));
+        bhv.wheel_velocity(curr_day) = nansum(abs(wheel_velocity));
         bhv.wheel_bias(curr_day) = wheel_bias;
         bhv.conditions = performance(1,:);
         bhv.n_trials_condition(curr_day,:) = performance(2,:);
@@ -119,7 +117,7 @@ end
 % Wheel movement and bias
 subplot(3,2,2);
 yyaxis left
-plot(day_num,bhv.wheel_movement./bhv.session_duration,'linewidth',2);
+plot(day_num,bhv.wheel_velocity./bhv.session_duration,'linewidth',2);
 ylabel('Wheel movement / min');
 yyaxis right
 plot(day_num,bhv.wheel_bias,'linewidth',2);
