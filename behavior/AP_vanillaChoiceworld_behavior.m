@@ -81,7 +81,7 @@ for curr_day = 1:length(experiments)
         bhv.use_all_contrasts(curr_day) = use_all_contrasts;
         bhv.stim_rxn_time(curr_day,:) = stim_rxn_time;
         
-        disp(['Behavior: day ' num2str(curr_day) '/' num2str(length(experiments))]);
+        AP_print_progress_fraction(curr_day,length(experiments));
     end
     
 end
