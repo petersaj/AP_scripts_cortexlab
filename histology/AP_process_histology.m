@@ -142,6 +142,23 @@ slice_data = guidata(slice_fig);
 
 selected_slice_bw = bwselect(slice_data.mask,eventdata.IntersectionPoint(1),eventdata.IntersectionPoint(2));
 
+% If the selected slice is already part of a mask, delete that ROI
+if size(slice_data.user_masks,3) > 0
+    overlap_roi = any(selected_slice_bw(:) & reshape(slice_data.user_masks,[],size(slice_data.user_masks,3)),1);
+    if any(overlap_roi)
+        % Clear overlapping mask
+        slice_data.user_masks(:,:,overlap_roi) = [];
+        
+        % Delete and clear bounding box
+        delete(slice_data.user_rectangles(overlap_roi));
+        slice_data.user_rectangles(overlap_roi) = [];
+        
+        % Update gui data
+        guidata(slice_fig, slice_data);
+        return
+    end
+end
+
 if eventdata.Button == 1
     % If left button pressed, create new slice ROI
     roi_num = size(slice_data.user_masks,3) + 1;
@@ -172,23 +189,7 @@ elseif eventdata.Button == 3
         rectangle('Position',manual_roi.getPosition,'EdgeColor','w');
     
     % Delete the ROI
-    manual_roi.delete;
-    
-elseif eventdata.Button == 2
-    % if middle button pressed, join to last slice ROI
-    roi_num = size(slice_data.user_masks,3);
-    
-    % Join old and new objects in mask
-    slice_data.user_masks(:,:,roi_num) = ...
-        slice_data.user_masks(:,:,roi_num) | selected_slice_bw;
-    
-    % Draw bounding box around object
-    box_x = find(any(slice_data.user_masks(:,:,roi_num),1),1);
-    box_y = find(any(slice_data.user_masks(:,:,roi_num),2),1);
-    box_w = find(any(slice_data.user_masks(:,:,roi_num),1),1,'last') - box_x;
-    box_h = find(any(slice_data.user_masks(:,:,roi_num),2),1,'last') - box_y;
-    set(slice_data.user_rectangles(roi_num),'Position', ...
-        [box_x,box_y,box_w,box_h]);
+    manual_roi.delete;    
     
 end
 
@@ -242,7 +243,7 @@ for curr_slice = 1:length(slice_boundaries)
     slice_lines(curr_slice) = line(slice_boundaries{curr_slice}(:,2), ...
         slice_boundaries{curr_slice}(:,1),'color','w','linewidth',2,'LineSmoothing','on','linestyle','--');
 end
-title('Click slices to extract (left = auto, right = manual, middle = combine with last), spacebar to finish slide');
+title('Click to save/remove (left = auto, right = manual), spacebar to finish slide');
 
 slice_data.im_h = im_handle;
 slice_data.mask = slice_mask;

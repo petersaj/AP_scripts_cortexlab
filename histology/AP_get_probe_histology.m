@@ -109,7 +109,8 @@ end
 % zlim([-10,dv_max+10])
 
 % Show thresholded histology within CCF with overlaid probe trajectory
-AP_view_aligned_histology_volume(tv,av,st,slice_im_path);
+% (use channel 2: probe is red)
+AP_view_aligned_histology_volume(tv,av,st,slice_im_path,1);
 
 % Plot points and line of best fit
 r0 = mean(probe_ccf,1);
