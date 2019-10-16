@@ -54,6 +54,7 @@ else
     recording_dir = [];
 end
 
+% List servers
 % server1 = '\\zclone.cortexlab.net';
 server1 = '\\zserver.cortexlab.net';
 server2 = '\\zubjects.cortexlab.net';
@@ -65,6 +66,19 @@ end
 if ~exist([server2 filesep 'Subjects'])
     error('Zubjects not available');
 end
+
+
+% TO DO HERE: clean up this script, add znas
+% % List all folders to check
+% % (files used to be kept in separate folders, then only in animal folders,
+% % and across 3 servers)
+% server_location = cell(0);
+% server_location{end+1} = '\\zserver.cortexlab.net\Data\Subjects';
+% server_location{end+1} = '\\zserver.cortexlab.net\expInfo';
+% server_location{end+1} = '\\zserver.cortexlab.net\trodes';
+% server_location{end+1} = '\\zserver.cortexlab.net\EyeCamera';
+% server_location{end+1} = '\\zubjects.cortexlab.net\Subjects';
+
 
 switch file
     

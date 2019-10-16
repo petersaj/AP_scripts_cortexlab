@@ -85,40 +85,53 @@ caxis([0 300]);
 xlim([-10,ap_max+10])
 ylim([-10,ml_max+10])
 zlim([-10,dv_max+10])
-colormap(hot);
+
+switch channel
+    case 1
+        colormap(brewermap([],'Reds'));
+    case 2
+        colormap(brewermap([],'Greens'));
+    case 3
+        colormap(brewermap([],'Blues'));
+end
 
 % Turn on rotation by default
 h = rotate3d(axes_atlas);
 h.Enable = 'on';
 
-% % Draw all aligned slices
-% histology_surf = gobjects(length(gui_data.slice_im));
-% for curr_slice = 1:length(gui_data.slice_im)
-%     
-%     % Get thresholded image
-%     curr_slice_im = gui_data.atlas_aligned_histology{curr_slice}(:,:,channel);
-%     slice_alpha = curr_slice_im;
-%     slice_alpha(slice_alpha < 100) = 0;
-%     
-%     % Draw if thresholded pixels (ignore if not)
-%     if any(slice_alpha(:))
-%         histology_surf(curr_slice) = surface( ...
-%             gui_data.histology_ccf(curr_slice).plane_ap, ...
-%             gui_data.histology_ccf(curr_slice).plane_ml, ...
-%             gui_data.histology_ccf(curr_slice).plane_dv);
-%         histology_surf(curr_slice).FaceColor = 'texturemap';
-%         histology_surf(curr_slice).FaceAlpha = 'texturemap';
-%         histology_surf(curr_slice).EdgeColor = 'none';
-%         histology_surf(curr_slice).CData = gui_data.atlas_aligned_histology{curr_slice}(:,:,channel);
-%         
-%         slice_alpha = gui_data.atlas_aligned_histology{curr_slice}(:,:,channel);
-%         slice_alpha(slice_alpha < 100) = 0;
-%         histology_surf(curr_slice).AlphaData = slice_alpha;
-%         drawnow;
-%     end
-% end
+% Draw all aligned slices
+histology_surf = gobjects(length(gui_data.slice_im));
+for curr_slice = 1:length(gui_data.slice_im)
+    
+    % Get thresholded image
+    curr_slice_im = gui_data.atlas_aligned_histology{curr_slice}(:,:,channel);
+    slice_alpha = curr_slice_im;
+    slice_alpha(slice_alpha < 100) = 0;
+    
+    % Draw if thresholded pixels (ignore if not)
+    if any(slice_alpha(:))
+        histology_surf(curr_slice) = surface( ...
+            gui_data.histology_ccf(curr_slice).plane_ap, ...
+            gui_data.histology_ccf(curr_slice).plane_ml, ...
+            gui_data.histology_ccf(curr_slice).plane_dv);
+        histology_surf(curr_slice).FaceColor = 'texturemap';
+        histology_surf(curr_slice).FaceAlpha = 'texturemap';
+        histology_surf(curr_slice).EdgeColor = 'none';
+        histology_surf(curr_slice).CData = gui_data.atlas_aligned_histology{curr_slice}(:,:,channel);
+        
+        slice_alpha = gui_data.atlas_aligned_histology{curr_slice}(:,:,channel);
+        slice_alpha(slice_alpha < 100) = 0;
+        histology_surf(curr_slice).AlphaData = slice_alpha;
+        drawnow;
+    end
+end
 
-% TESTING: thresholding and filling volume?
+
+
+
+% Attempt plotting as 3D surface
+
+keyboard
 
 thresh_volume = false(size(tv));
 
@@ -129,7 +142,7 @@ for curr_slice = 1:length(gui_data.slice_im)
     slice_alpha = curr_slice_im;
     slice_alpha(slice_alpha < 100) = 0;
     
-    slice_thresh = curr_slice_im > 100;
+    slice_thresh = curr_slice_im > 200;
     
     slice_thresh_ap = round(gui_data.histology_ccf(curr_slice).plane_ap(slice_thresh));
     slice_thresh_dv = round(gui_data.histology_ccf(curr_slice).plane_dv(slice_thresh));
@@ -140,13 +153,21 @@ for curr_slice = 1:length(gui_data.slice_im)
     
 end
 
-% Dilate all points
-thresh_volume_dilate = imdilate(thresh_volume,strel('sphere',20));
+thresh_volume_dilate = imdilate(thresh_volume,strel('sphere',5));
 
-keyboard
+sphere_size = (4/3)*pi*5^3;
+a = bwareaopen(thresh_volume_dilate,round(sphere_size*20));
+b = imdilate(a,strel('sphere',5));
+c = imresize3(+b,1/10,'nearest');
 
+ap = linspace(1,size(tv,1),size(c,1));
+dv = linspace(1,size(tv,2),size(c,2));
+ml = linspace(1,size(tv,3),size(c,3));
 
-
+figure;
+plotBrainGrid([],gca); hold on;
+isosurface(ap,ml,dv,permute(c,[3,1,2]));
+camlight;
 
 
 

@@ -110,6 +110,11 @@ switch eventdata.Key
         guidata(gui_fig,gui_data);
         update_slice(gui_fig);
         
+    case 'space'
+        curr_visibility = ...
+            get(gui_data.histology_aligned_atlas_boundaries,'Visible');
+        set(gui_data.histology_aligned_atlas_boundaries,'Visible', ...
+            cell2mat(setdiff({'on','off'},curr_visibility)))
 end
 
 end

@@ -1,5 +1,7 @@
-function experiments = AP_find_experiments(animal,protocol)
-% experiments = AP_find_experiments(animal,protocol)
+function experiments = AP_find_experiments(animal,protocol,flexible_name)
+% experiments = AP_find_experiments(animal,protocol,flexible_name)
+%
+% flexible_name - if true, uses strfind(lower)
 %
 % Find all experiments from an animal with a given protocol name
 % 
@@ -9,6 +11,11 @@ function experiments = AP_find_experiments(animal,protocol)
 % If no protocol specified, return all experiments
 if ~exist('protocol','var') || isempty(protocol)
     protocol = [];
+end
+
+% If no flexible name specified, use exact
+if ~exist('flexible_name','var') || isempty(flexible_name)
+    flexible_name = false;
 end
 
 % Initialize pathname, add to it with each server location
@@ -77,15 +84,31 @@ for curr_day = 1:length(days)
             if block_exists
                 % If signals
                 load(block_filename)
-                if isfield(block,'expDef')
+                if isfield(block,'expType') % old name
+                    [~,expDef] = fileparts(block.expType);
+                    if flexible_name
+                        use_exp(curr_exp) = contains(lower(expDef),lower(protocol));
+                    elseif ~flexible_name
+                        use_exp(curr_exp) = strcmp(expDef,protocol);
+                    end
+                end
+                if isfield(block,'expDef') % new name
                     [~,expDef] = fileparts(block.expDef);
-                    use_exp(curr_exp) = ~isempty(strfind(expDef,protocol));
+                    if flexible_name
+                        use_exp(curr_exp) = contains(lower(expDef),lower(protocol));
+                    elseif ~flexible_name
+                        use_exp(curr_exp) = strcmp(expDef,protocol);
+                    end
                 end
             elseif protocol_exists
                 % If MPEP
                 load(protocol_filename)
                 [~,expDef] = fileparts(Protocol.xfile);
-                use_exp(curr_exp) = strcmp(expDef,protocol);
+                if flexible_name
+                    use_exp(curr_exp) = contains(lower(expDef),lower(protocol));
+                elseif ~flexible_name
+                    use_exp(curr_exp) = strcmp(expDef,protocol);
+                end
             else
                 continue
             end
