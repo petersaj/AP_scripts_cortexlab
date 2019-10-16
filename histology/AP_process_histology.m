@@ -73,7 +73,7 @@ for curr_channel = 1:n_channels
    im_montage{curr_channel} = curr_montage.CData;
 
    im_hist = histcounts(im_montage{curr_channel}(im_montage{curr_channel} > 0),0:max(im_montage{curr_channel}(:)));
-   im_hist_deriv = diff(smooth(im_hist,10));
+   im_hist_deriv = [0;diff(smooth(im_hist,10))];
    
    [~,bg_median] = max(im_hist);
    bg_signal_min = find(im_hist_deriv(bg_median:end) > 0,1) + bg_median;

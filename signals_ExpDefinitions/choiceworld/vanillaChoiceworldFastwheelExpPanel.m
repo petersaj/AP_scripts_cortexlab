@@ -1,4 +1,4 @@
-classdef vanillaChoiceworldExpPanel < eui.ExpPanel
+classdef vanillaChoiceworldFastwheelExpPanel < eui.ExpPanel
   %vanillaChoiceWorldExpPanel 
   % AP 2017-03-31
   % plotting panel for vanillaChoiceWorld
@@ -17,7 +17,7 @@ classdef vanillaChoiceworldExpPanel < eui.ExpPanel
   
   
   methods
-    function obj = vanillaChoiceworldExpPanel(parent, ref, params, logEntry)
+    function obj = vanillaChoiceworldFastwheelExpPanel(parent, ref, params, logEntry)
       obj = obj@eui.ExpPanel(parent, ref, params, logEntry);
       obj.LabelsMap = containers.Map();
     end
@@ -114,7 +114,7 @@ classdef vanillaChoiceworldExpPanel < eui.ExpPanel
           obj.SignalUpdates(obj.NumSignalUpdates+1:newNUpdates) = updates;
           obj.NumSignalUpdates = newNUpdates;
           
-          %%%% AP: UPDATE PLOTS %%%%         
+          %%%% AP: UPDATE PLOTS %%%%
           sessionPerformanceIdx = strmatch('events.sessionPerformance',{evt.Data.name});
           if ~isempty(sessionPerformanceIdx)
               curr_performance_data = evt.Data(sessionPerformanceIdx).value;
