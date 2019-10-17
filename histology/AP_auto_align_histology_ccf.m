@@ -70,7 +70,7 @@ end
 save_fn = [slice_im_path filesep 'atlas2histology_tform.mat'];
 save(save_fn,'atlas2histology_tform');
 
-
+disp(['Finished auto-alignment, saved in ' save_fn]);
 
 
 

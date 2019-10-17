@@ -1,5 +1,5 @@
-function AP_align_histology_ccf(tv,av,st,slice_im_path)
-% AP_align_histology_ccf(tv,av,st,slice_im_path)
+function AP_manual_align_histology_ccf(tv,av,st,slice_im_path)
+% AP_manual_align_histology_ccf(tv,av,st,slice_im_path)
 %
 % Align histology slices and matched CCF slices
 % Andy Peters (peters.andrew.j@gmail.com)
@@ -56,16 +56,20 @@ hold on; axis image off; colormap(gray); caxis([0,400]);
 gui_data.atlas_im_h = imagesc(gui_data.histology_ccf(1).tv_slices, ...
     'Parent',gui_data.atlas_ax,'ButtonDownFcn',@mouseclick_atlas);
 
-% Initialize alignment control points
+% Initialize alignment control points and tform matricies
 gui_data.histology_control_points = repmat({zeros(0,2)},length(gui_data.slice_im),1);
 gui_data.atlas_control_points = repmat({zeros(0,2)},length(gui_data.slice_im),1);
 
 gui_data.histology_control_points_plot = plot(gui_data.histology_ax,nan,nan,'.w','MarkerSize',20);
 gui_data.atlas_control_points_plot = plot(gui_data.atlas_ax,nan,nan,'.r','MarkerSize',20);
 
+gui_data.histology_ccf_manual_alignment = gui_data.histology_ccf_auto_alignment;
+
 % Upload gui data
 guidata(gui_fig,gui_data);
 
+% Initialize alignment
+align_ccf_to_histology(gui_fig);
 
 end
 
@@ -77,13 +81,13 @@ gui_data = guidata(gui_fig);
 
 switch eventdata.Key
     
-    % Left/right: move slice
-    case 'leftarrow'
+    % 1/2: move slice
+    case '1'
         gui_data.curr_slice = max(gui_data.curr_slice - 1,1);
         guidata(gui_fig,gui_data);
         update_slice(gui_fig);
         
-    case 'rightarrow'
+    case '2'
         gui_data.curr_slice = ...
             min(gui_data.curr_slice + 1,length(gui_data.slice_im));
         guidata(gui_fig,gui_data);
@@ -99,13 +103,10 @@ switch eventdata.Key
         
     % S: save
     case 's'
-        histology_ccf_alignment.histology_control_points = ...
-            gui_data.histology_control_points;
-        histology_ccf_alignment.atlas_control_points = ...
-            gui_data.atlas_control_points;
-        
-        save_fn = [gui_data.slice_im_path filesep 'histology_ccf_alignment.mat'];
-        save(save_fn,'histology_ccf_alignment');
+        atlas2histology_tform = ...
+            gui_data.histology_ccf_manual_alignment;
+        save_fn = [gui_data.slice_im_path filesep 'atlas2histology_tform.mat'];
+        save(save_fn,'atlas2histology_tform');
         disp(['Saved ' save_fn]);
         
     % Escape: save and exit
@@ -113,17 +114,13 @@ switch eventdata.Key
         opts.Default = 'Yes';
         opts.Interpreter = 'tex';
         user_confirm = questdlg('\fontsize{15} Save and quit?','Confirm exit',opts);
-        if strcmp(user_confirm,'Yes')
-            
-            histology_ccf_alignment.histology_control_points = ...
-                gui_data.histology_control_points;
-            histology_ccf_alignment.atlas_control_points = ...
-                gui_data.atlas_control_points;
-                       
-            save_fn = [gui_data.slice_im_path filesep 'histology_ccf_alignment.mat'];
-            save(save_fn,'histology_ccf_alignment');
-            close(gui_fig);
-            
+        if strcmp(user_confirm,'Yes')            
+            atlas2histology_tform = ...
+                gui_data.histology_ccf_manual_alignment;
+            save_fn = [gui_data.slice_im_path filesep 'atlas2histology_tform.mat'];
+            save(save_fn,'atlas2histology_tform');
+            disp(['Saved ' save_fn]);
+            close(gui_fig);            
         end
         
 end
@@ -201,13 +198,13 @@ if size(gui_data.histology_control_points{gui_data.curr_slice},1) == ...
     % If same number of >= 3 control points, use control point alignment
     tform = fitgeotrans(gui_data.atlas_control_points{gui_data.curr_slice}, ...
         gui_data.histology_control_points{gui_data.curr_slice},'affine');
-    title(gui_data.histology_ax,'Manually aligned');
+    title(gui_data.histology_ax,'New alignment');
     
       
 elseif size(gui_data.histology_control_points{gui_data.curr_slice},1) >= 1 ||  ...
         size(gui_data.atlas_control_points{gui_data.curr_slice},1) >= 1
     % If less than 3 or nonmatching points, use auto but don't draw
-    title(gui_data.histology_ax,'Manually aligned');
+    title(gui_data.histology_ax,'New alignment');
     
     % Upload gui data
     guidata(gui_fig, gui_data);
@@ -218,7 +215,7 @@ else
     if isfield(gui_data,'histology_ccf_auto_alignment')
         tform = affine2d;
         tform.T = gui_data.histology_ccf_auto_alignment{gui_data.curr_slice};
-        title(gui_data.histology_ax,'Auto-aligned');
+        title(gui_data.histology_ax,'Previous alignment');
     end
 end
 
@@ -234,6 +231,9 @@ av_warp_boundaries = round(conv2(curr_av_slice_warp,ones(3)./9,'same')) ~= curr_
 set(gui_data.histology_aligned_atlas_boundaries, ...
     'CData',av_warp_boundaries, ...
     'AlphaData',av_warp_boundaries*0.3);
+
+% Update transform matrix
+gui_data.histology_ccf_manual_alignment{gui_data.curr_slice} = tform.T;
 
 % Upload gui data
 guidata(gui_fig, gui_data);

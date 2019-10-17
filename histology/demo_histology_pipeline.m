@@ -31,17 +31,10 @@ AP_rotate_histology(slice_path);
 AP_grab_histology_ccf(tv,av,st,slice_path);
 
 % Align CCF slices and histology slices
-% Two options: manually by control points or automatically. This should
-% probably be replaced by an automatic step, then manual quality-control
-% (manually, control points - probably obsolete)
-AP_align_histology_ccf(tv,av,st,slice_path);
-
-% (automatically, by outline)
+% (first: automatically, by outline)
 AP_auto_align_histology_ccf(slice_path)
-
-% TO DO HERE: refurbishing manual alignment to happen post-auto
-% (include button to toggle visibility of alignment)
-% AP_align_histology_ccf(tv,av,st,slice_path);
+% (second: curate manually)
+AP_manual_align_histology_ccf(tv,av,st,slice_path);
 
 
 %% 4) Utilize aligned CCF
