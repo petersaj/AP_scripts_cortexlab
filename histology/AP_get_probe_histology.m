@@ -19,18 +19,9 @@ ccf_slice_fn = [slice_im_path filesep 'histology_ccf.mat'];
 load(ccf_slice_fn);
 
 % Load histology/CCF alignment
-% Manual control point (control points)
-ccf_alignment_fn = [slice_im_path filesep 'histology_ccf_alignment.mat'];
-if exist(ccf_alignment_fn,'file')
-    load(ccf_alignment_fn);
-    gui_data.histology_ccf_alignment = histology_ccf_alignment;
-end
-% Automated outline (affine transform matrix)
-auto_ccf_alignment_fn = [slice_im_path filesep 'atlas2histology_tform.mat'];
-if exist(auto_ccf_alignment_fn,'file')
-    load(auto_ccf_alignment_fn);
-    gui_data.histology_ccf_auto_alignment = atlas2histology_tform;
-end
+ccf_alignment_fn = [slice_im_path filesep 'atlas2histology_tform.mat'];
+load(ccf_alignment_fn);
+gui_data.histology_ccf_alignment = atlas2histology_tform;
 
 % Draw line along probe trajectory
 probe_fig = figure;
@@ -54,20 +45,10 @@ probe_ccf = zeros(0,3);
 for curr_slice = 1:length(slice_im)
     
     % Transform histology to atlas slice
-    
-    % Manual control points
-    if isfield(gui_data,'histology_ccf_alignment')
-        tform = fitgeotrans(gui_data.histology_ccf_alignment.histology_control_points{curr_slice}, ...
-            gui_data.histology_ccf_alignment.atlas_control_points{curr_slice},'affine');
-    end
-    
-    % Automated outline
-    if isfield(gui_data,'histology_ccf_auto_alignment')
-        tform = affine2d;
-        tform.T = gui_data.histology_ccf_auto_alignment{curr_slice};
-        % (transform is CCF -> histology, invert for other direction)
-        tform = invert(tform);
-    end
+    tform = affine2d;
+    tform.T = gui_data.histology_ccf_alignment{curr_slice};
+    % (transform is CCF -> histology, invert for other direction)
+    tform = invert(tform);
     
     % Transform and round to nearest index
     [probe_points_atlas_x,probe_points_atlas_y] = ...

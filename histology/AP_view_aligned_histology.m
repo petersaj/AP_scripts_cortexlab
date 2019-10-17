@@ -24,18 +24,9 @@ load(ccf_slice_fn);
 gui_data.histology_ccf = histology_ccf;
 
 % Load histology/CCF alignment
-% Manual control point (control points)
-ccf_alignment_fn = [slice_im_path filesep 'histology_ccf_alignment.mat'];
-if exist(ccf_alignment_fn,'file')
-    load(ccf_alignment_fn);
-    gui_data.histology_ccf_alignment = histology_ccf_alignment;
-end
-% Automated outline (affine transform matrix)
-auto_ccf_alignment_fn = [slice_im_path filesep 'atlas2histology_tform.mat'];
-if exist(auto_ccf_alignment_fn,'file')
-    load(auto_ccf_alignment_fn);
-    gui_data.histology_ccf_auto_alignment = atlas2histology_tform;
-end
+ccf_alignment_fn = [slice_im_path filesep 'atlas2histology_tform.mat'];
+load(ccf_alignment_fn);
+gui_data.histology_ccf_alignment = atlas2histology_tform;
 
 % Warp area labels by histology alignment
 gui_data.histology_aligned_av_slices = cell(length(gui_data.slice_im),1);
@@ -44,18 +35,8 @@ for curr_slice = 1:length(gui_data.slice_im)
     curr_av_slice(isnan(curr_av_slice)) = 1;
     curr_slice_im = gui_data.slice_im{curr_slice};
     
-    % Manual control points
-    if isfield(gui_data,'histology_ccf_alignment')
-        tform = fitgeotrans(gui_data.histology_ccf_alignment.atlas_control_points{curr_slice}, ...
-            gui_data.histology_ccf_alignment.histology_control_points{curr_slice},'affine');
-    end
-    
-    % Automated outline
-    if isfield(gui_data,'histology_ccf_auto_alignment')
-        tform = affine2d;
-        tform.T = gui_data.histology_ccf_auto_alignment{curr_slice};
-    end
-    
+    tform = affine2d;
+    tform.T = gui_data.histology_ccf_alignment{curr_slice};   
     tform_size = imref2d([size(curr_slice_im,1),size(curr_slice_im,2)]);
     gui_data.histology_aligned_av_slices{curr_slice} = ...
         imwarp(curr_av_slice,tform,'nearest','OutputView',tform_size);

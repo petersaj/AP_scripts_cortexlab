@@ -28,18 +28,9 @@ load(ccf_slice_fn);
 gui_data.histology_ccf = histology_ccf;
 
 % Load histology/CCF alignment
-% Manual control point (control points)
-ccf_alignment_fn = [slice_im_path filesep 'histology_ccf_alignment.mat'];
-if exist(ccf_alignment_fn,'file')
-    load(ccf_alignment_fn);
-    gui_data.histology_ccf_alignment = histology_ccf_alignment;
-end
-% Automated outline (affine transform matrix)
-auto_ccf_alignment_fn = [slice_im_path filesep 'atlas2histology_tform.mat'];
-if exist(auto_ccf_alignment_fn,'file')
-    load(auto_ccf_alignment_fn);
-    gui_data.histology_ccf_auto_alignment = atlas2histology_tform;
-end
+ccf_alignment_fn = [slice_im_path filesep 'atlas2histology_tform.mat'];
+load(ccf_alignment_fn);
+gui_data.histology_ccf_alignment = atlas2histology_tform;
 
 % Warp histology to CCF
 gui_data.atlas_aligned_histology = cell(length(gui_data.slice_im),1);
@@ -48,19 +39,10 @@ for curr_slice = 1:length(gui_data.slice_im)
     curr_av_slice(isnan(curr_av_slice)) = 1;
     curr_slice_im = gui_data.slice_im{curr_slice};
     
-    % Manual control points
-    if isfield(gui_data,'histology_ccf_alignment')
-        tform = fitgeotrans(gui_data.histology_ccf_alignment.histology_control_points{curr_slice}, ...
-            gui_data.histology_ccf_alignment.atlas_control_points{curr_slice},'affine');
-    end
-    
-    % Automated outline
-    if isfield(gui_data,'histology_ccf_auto_alignment')
-        tform = affine2d;
-        tform.T = gui_data.histology_ccf_auto_alignment{curr_slice};
-        % (transform is CCF -> histology, invert for other direction)
-        tform = invert(tform);
-    end
+    tform = affine2d;
+    tform.T = gui_data.histology_ccf_alignment{curr_slice};
+    % (transform is CCF -> histology, invert for other direction)
+    tform = invert(tform);
 
     tform_size = imref2d([size(gui_data.histology_ccf(curr_slice).av_slices,1), ...
         size(gui_data.histology_ccf(curr_slice).av_slices,2)]);
@@ -127,47 +109,45 @@ for curr_slice = 1:length(gui_data.slice_im)
 end
 
 
-
-
-% Attempt plotting as 3D surface
-
-keyboard
-
-thresh_volume = false(size(tv));
-
-for curr_slice = 1:length(gui_data.slice_im)
-    
-    % Get thresholded image
-    curr_slice_im = gui_data.atlas_aligned_histology{curr_slice}(:,:,channel);
-    slice_alpha = curr_slice_im;
-    slice_alpha(slice_alpha < 100) = 0;
-    
-    slice_thresh = curr_slice_im > 200;
-    
-    slice_thresh_ap = round(gui_data.histology_ccf(curr_slice).plane_ap(slice_thresh));
-    slice_thresh_dv = round(gui_data.histology_ccf(curr_slice).plane_dv(slice_thresh));
-    slice_thresh_ml = round(gui_data.histology_ccf(curr_slice).plane_ml(slice_thresh));
-    
-    thresh_idx = sub2ind(size(tv),slice_thresh_ap,slice_thresh_dv,slice_thresh_ml);
-    thresh_volume(thresh_idx) = true;
-    
-end
-
-thresh_volume_dilate = imdilate(thresh_volume,strel('sphere',5));
-
-sphere_size = (4/3)*pi*5^3;
-a = bwareaopen(thresh_volume_dilate,round(sphere_size*20));
-b = imdilate(a,strel('sphere',5));
-c = imresize3(+b,1/10,'nearest');
-
-ap = linspace(1,size(tv,1),size(c,1));
-dv = linspace(1,size(tv,2),size(c,2));
-ml = linspace(1,size(tv,3),size(c,3));
-
-figure;
-plotBrainGrid([],gca); hold on;
-isosurface(ap,ml,dv,permute(c,[3,1,2]));
-camlight;
+% % Attempt plotting as 3D surface
+% 
+% keyboard
+% 
+% thresh_volume = false(size(tv));
+% 
+% for curr_slice = 1:length(gui_data.slice_im)
+%     
+%     % Get thresholded image
+%     curr_slice_im = gui_data.atlas_aligned_histology{curr_slice}(:,:,channel);
+%     slice_alpha = curr_slice_im;
+%     slice_alpha(slice_alpha < 100) = 0;
+%     
+%     slice_thresh = curr_slice_im > 200;
+%     
+%     slice_thresh_ap = round(gui_data.histology_ccf(curr_slice).plane_ap(slice_thresh));
+%     slice_thresh_dv = round(gui_data.histology_ccf(curr_slice).plane_dv(slice_thresh));
+%     slice_thresh_ml = round(gui_data.histology_ccf(curr_slice).plane_ml(slice_thresh));
+%     
+%     thresh_idx = sub2ind(size(tv),slice_thresh_ap,slice_thresh_dv,slice_thresh_ml);
+%     thresh_volume(thresh_idx) = true;
+%     
+% end
+% 
+% thresh_volume_dilate = imdilate(thresh_volume,strel('sphere',5));
+% 
+% sphere_size = (4/3)*pi*5^3;
+% a = bwareaopen(thresh_volume_dilate,round(sphere_size*20));
+% b = imdilate(a,strel('sphere',5));
+% c = imresize3(+b,1/10,'nearest');
+% 
+% ap = linspace(1,size(tv,1),size(c,1));
+% dv = linspace(1,size(tv,2),size(c,2));
+% ml = linspace(1,size(tv,3),size(c,3));
+% 
+% figure;
+% plotBrainGrid([],gca); hold on;
+% isosurface(ap,ml,dv,permute(c,[3,1,2]));
+% camlight;
 
 
 
