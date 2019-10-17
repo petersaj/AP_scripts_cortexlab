@@ -10617,7 +10617,7 @@ colormap(brewermap([],'*RdBu'));
 
 %% Align vasculature for animal
 
-animal = 'AP041';
+animal = 'AP048';
 
 protocol = 'AP_sparseNoise';
 experiments = AP_find_experiments(animal,protocol);
@@ -10628,6 +10628,7 @@ for curr_day = 1:length(experiments)
     day = experiments(curr_day).day;
     [img_path,img_exists] = AP_cortexlab_filename(animal,day,[],'imaging');
     avg_im = readNPY([img_path filesep 'meanImage_purple.npy']);
+%     avg_im = readNPY([img_path filesep 'meanImage_blue.npy']);
     avg_im_days{curr_day} = avg_im;
 end
 

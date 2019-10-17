@@ -1,6 +1,6 @@
 %% Get and plot single mouse behavior (vanillaChoiceworld)
 
-animal = 'AP045';
+animal = 'AP05';
 protocol = 'vanillaChoiceworld';
 flexible_name = true;
 experiments = AP_find_experiments(animal,protocol,flexible_name);
@@ -346,19 +346,17 @@ yyaxis left; hold on
 choiceworld_days = day_num(strcmp({experiments.protocol},'ChoiceWorld'));
 scatter(choiceworld_days,repmat(0,1,length(choiceworld_days)),20,'r','filled');
 
-%% Get and plot multiple animals
+%% Historical data - ChoiceWorld only
 
-% % To use historical data on saved list
-% load('training_list.mat');
-% 
-% valid_task = find(cellfun(@ischar,training_list(:,2)));
-% use_tasks = {'Burgess AFC','Burgess NFC','vanillaChoiceworld','Multisensory'};
-% use_task_mice = valid_task(ismember(training_list(valid_task,2),use_tasks));
-% 
-% animals = training_list(use_task_mice,1);
+load('training_list.mat');
 
-% To enter animals manually
-animals = {'AP045','AP047','AP048'};
+valid_task = find(cellfun(@ischar,training_list(:,2)));
+use_tasks = {'Burgess AFC','Burgess NFC','vanillaChoiceworld','Multisensory'};
+use_task_mice = valid_task(ismember(training_list(valid_task,2),use_tasks));
+
+animals = training_list(use_task_mice,1);
+
+animals = {'AP024','AP025','AP026','AP027','AP028','AP029','AP030','AP031','AP040','AP041','AP043','AP044','AP045','AP047','AP048'};
 
 bhv = struct;
 
@@ -447,7 +445,7 @@ for curr_animal = 1:length(animals)
         wheel_bias = (nansum(right_wheel_velocity)-nansum(left_wheel_velocity))/ ...
             (nansum(right_wheel_velocity)+nansum(left_wheel_velocity));
         
-%          % > Trial contrasts (one contrast per side)
+         % > Trial contrasts (one contrast per side)
 %         trial_contrasts = cell2mat(arrayfun(@(x) ...
 %             block.trial(x).condition.visCueContrast,1:length(block.trial),'uni',false));
 %         trial_outcome = [block.trial(:).feedbackType];
@@ -532,43 +530,43 @@ end
 %     set(gca,'XTickLabelRotation',0);   
 % end
 
-% % Plot summary (overlaid)
-% figure;
-% for curr_animal = 1:length(bhv)
-%     
-%     if isempty(bhv(curr_animal).date)
-%        continue 
-%     end
-%     
-%     % % (to have spaces on days without training)
-%     % day_num = cellfun(@(x) datenum(x),{experiments.day});
-%     % day_labels = cellfun(@(x) x(6:end),{experiments.day},'uni',false);
-%     % (to only plot days with training)
-%     day_num = 1:length(bhv(curr_animal).session_duration);
-%     
-%     % Trials and water
-%     subplot(1,3,1); hold on;
-%     plot(day_num,bhv(curr_animal).n_trials./bhv(curr_animal).session_duration,'k');
-%     ylabel('Trials/min');
-%     xlabel('Session');
-%     set(gca,'XTick',day_num);
-%     
-%     % Performance (on easy trials)
-%     subplot(1,3,2); hold on;
-%     plot(day_num,bhv(curr_animal).frac_correct(1,:),'color','b');
-%     plot(day_num,bhv(curr_animal).frac_correct(2,:),'color','r');
-%     ylabel('Fraction correct');
-%     xlabel('Session');
-%     set(gca,'XTick',day_num);
-%     
-%     % Wheel movement and bias
-%     subplot(1,3,3); hold on;
-%     plot(day_num,bhv(curr_animal).wheel_velocity./bhv(curr_animal).session_duration,'k');
-%     ylabel('Wheel movement / min');
-%     xlabel('Session');
-%     set(gca,'XTick',day_num);
-%     
-% end
+% Plot summary (overlaid)
+figure;
+for curr_animal = 1:length(bhv)
+    
+    if isempty(bhv(curr_animal).date)
+       continue 
+    end
+    
+    % % (to have spaces on days without training)
+    % day_num = cellfun(@(x) datenum(x),{experiments.day});
+    % day_labels = cellfun(@(x) x(6:end),{experiments.day},'uni',false);
+    % (to only plot days with training)
+    day_num = 1:length(bhv(curr_animal).session_duration);
+    
+    % Trials and water
+    subplot(1,3,1); hold on;
+    plot(day_num,bhv(curr_animal).n_trials./bhv(curr_animal).session_duration,'k');
+    ylabel('Trials/min');
+    xlabel('Session');
+    set(gca,'XTick',day_num);
+    
+    % Performance (on easy trials)
+    subplot(1,3,2); hold on;
+    plot(day_num,bhv(curr_animal).frac_correct(1,:),'color','b');
+    plot(day_num,bhv(curr_animal).frac_correct(2,:),'color','r');
+    ylabel('Fraction correct');
+    xlabel('Session');
+    set(gca,'XTick',day_num);
+    
+    % Wheel movement and bias
+    subplot(1,3,3); hold on;
+    plot(day_num,bhv(curr_animal).wheel_velocity./bhv(curr_animal).session_duration,'k');
+    ylabel('Wheel movement / min');
+    xlabel('Session');
+    set(gca,'XTick',day_num);
+    
+end
 
 % Pad and concatenate data
 max_sessions = max(cellfun(@length,{bhv.date}));

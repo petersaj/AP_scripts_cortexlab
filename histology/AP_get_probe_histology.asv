@@ -4,10 +4,18 @@ function AP_get_probe_histology(tv,av,st,slice_im_path)
 % Get probe trajectory in histology and convert to ccf
 % Andy Peters (peters.andrew.j@gmail.com)
 
+
+
+%%%%%%%%%%% DOING HERE:
+% make this a real gui
+% move back and forth between slices
+% keep probe lines for each slice (keep interactive)
+% allow for multiple probes
+
+
+
 % Initialize guidata
 gui_data = struct;
-gui_data.tv = tv;
-gui_data.av = av;
 gui_data.st = st;
 
 % Query number of probes from user
@@ -110,8 +118,7 @@ switch eventdata.Key
         end
         gui_data.probe_points_histology{gui_data.curr_slice,curr_probe} = ...
             curr_line.getPosition;
-        set(gui_data.histology_ax_title,'String', ...
-            ['Press number to draw probe [' num2str(1:gui_data.n_probes) ']']);
+        set(gui_data.histology_ax_title,'String','');
         
         % Delete movable line, draw line object
         curr_line.delete;
@@ -157,22 +164,20 @@ switch eventdata.Key
                         ccf_ap = gui_data.histology_ccf(curr_slice). ...
                             plane_ap(probe_points_atlas_y(curr_point), ...
                             probe_points_atlas_x(curr_point));
-                        ccf_ml = gui_data.histology_ccf(curr_slice). ...
+                        ccf_ml = histology_ccf(curr_slice). ...
                             plane_ml(probe_points_atlas_y(curr_point), ...
                             probe_points_atlas_x(curr_point));
-                        ccf_dv = gui_data.histology_ccf(curr_slice). ...
+                        ccf_dv = histology_ccf(curr_slice). ...
                             plane_dv(probe_points_atlas_y(curr_point), ...
                             probe_points_atlas_x(curr_point));
-                        probe_ccf{curr_probe} = ...
-                            vertcat(probe_ccf{curr_probe},[ccf_ap,ccf_dv,ccf_ml]);
+                        probe_ccf{curr_probe} = vertcat(probe_ccf,[ccf_ap,ccf_dv,ccf_ml]);
                     end              
                 end
             end
             
             % Save probe CCF points
-            save_fn = [gui_data.slice_im_path filesep 'probe_ccf.mat'];
+            save_fn = [slice_im_path filesep 'probe_ccf.mat'];
             save(save_fn,'probe_ccf');
-            disp(['Saved probe locations in ' save_fn])
             
             % Close GUI
             close(gui_fig)
@@ -204,29 +209,12 @@ for curr_probe = find(~cellfun(@isempty,gui_data.probe_points_histology(gui_data
         'linewidth',3,'color',gui_data.probe_color(curr_probe,:));
 end
 
-set(gui_data.histology_ax_title,'String', ...
-            ['Press number to draw probe [' num2str(1:gui_data.n_probes) ']']);
-        
 % Upload gui data
 guidata(gui_fig, gui_data);
 
 end
 
 function plot_probe(gui_data,probe_ccf)
-
-% Set up 3D plot with brain outline
-figure('Name','Probe trajectories');
-axes_atlas = axes;
-[~, brain_outline] = plotBrainGrid([],axes_atlas);
-set(axes_atlas,'YDir','reverse','ZDir','reverse');
-hold(axes_atlas,'on');
-axis vis3d equal off manual
-view([-30,25]);
-caxis([0 300]);
-[ap_max,dv_max,ml_max] = size(gui_data.tv);
-xlim([-10,ap_max+10])
-ylim([-10,ml_max+10])
-zlim([-10,dv_max+10])
 
 for curr_probe = 1:length(probe_ccf)
     % Plot points and line of best fit
@@ -237,8 +225,7 @@ for curr_probe = 1:length(probe_ccf)
     
     line_eval = [-1000,1000];
     probe_fit_line = bsxfun(@plus,bsxfun(@times,line_eval',histology_probe_direction'),r0);
-    plot3(probe_ccf{curr_probe}(:,1),probe_ccf{curr_probe}(:,3),probe_ccf{curr_probe}(:,2), ...
-        '.','color',gui_data.probe_color(curr_probe,:),'MarkerSize',20);
+    plot3(probe_ccf{curr_probe}(:,1),probe_ccf{curr_probe}(:,3),probe_ccf{curr_probe}(:,2),'.k','MarkerSize',20);
     line(probe_fit_line(:,1),probe_fit_line(:,3),probe_fit_line(:,2), ...
         'color',gui_data.probe_color(curr_probe,:),'linewidth',2)
 end
