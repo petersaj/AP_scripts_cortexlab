@@ -19,8 +19,8 @@ slice_path = [im_path filesep ''];
 % be aligned to histology no matter what the scaling. If pixel size is
 % available in metadata then automatically scales to CCF resolution,
 % otherwise user can specify the resize factor as a second argument)
-% AP_process_histology(im_path,resize_factor); % user-specified resize factor
 AP_process_histology(im_path);
+% AP_process_histology(im_path,resize_factor); % user-specified resize factor
 
 % (optional) Rotate, center, pad, flip slice images
 AP_rotate_histology(slice_path);
