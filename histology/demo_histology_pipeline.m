@@ -9,8 +9,8 @@ av = readNPY([allen_atlas_path filesep 'annotation_volume_10um_by_index.npy']);
 st = loadStructureTree([allen_atlas_path filesep 'structure_tree_safe_2017.csv']);
 
 % Set paths for histology images and directory to save slice/alignment
-im_path = 'C:\Users\Andrew\Desktop\AP042_histology';
-slice_path = [im_path filesep 'slices'];
+im_path = 'C:\Users\Andrew\Desktop\test_histology';
+slice_path = [im_path filesep ''];
 
 %% 2) Preprocess slide images to produce slice images
 
@@ -33,10 +33,15 @@ AP_grab_histology_ccf(tv,av,st,slice_path);
 % Align CCF slices and histology slices
 % Two options: manually by control points or automatically. This should
 % probably be replaced by an automatic step, then manual quality-control
-% (manually, control points)
+% (manually, control points - probably obsolete)
 AP_align_histology_ccf(tv,av,st,slice_path);
+
 % (automatically, by outline)
 AP_auto_align_histology_ccf(slice_path)
+
+% TO DO HERE: refurbishing manual alignment to happen post-auto
+% (include button to toggle visibility of alignment)
+% AP_align_histology_ccf(tv,av,st,slice_path);
 
 
 %% 4) Utilize aligned CCF

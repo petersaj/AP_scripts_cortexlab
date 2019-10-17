@@ -17,9 +17,11 @@ end
 % Load corresponding CCF slices
 ccf_slice_fn = [slice_im_path filesep 'histology_ccf.mat'];
 load(ccf_slice_fn);
-histology_ccf = histology_ccf;
-%%
+
 % Align outlines of histology/atlas slices
+fig_last_aligned = figure;
+ax_last_aligned = axes;
+
 atlas2histology_tform = cell(size(slice_im));
 for curr_slice = 1:length(slice_im)
     
@@ -44,13 +46,25 @@ for curr_slice = 1:length(slice_im)
     
     av_aligned_boundaries = round(conv2(curr_av_aligned,ones(3)./9,'same')) ~= curr_av_aligned;
     
-    figure;
-    ax = axes; hold on;
-    imshow(curr_histology,'Parent',ax);
-    imagesc(av_aligned_boundaries,'Parent',ax,'AlphaData',av_aligned_boundaries*0.3);
+    % (recreate figure if closed)
+    if ~isvalid(fig_last_aligned)
+        fig_last_aligned = figure;
+    end
+    if ~isvalid(ax_last_aligned)
+        ax_last_aligned = axes(fig_last_aligned);
+    end
+    figure(fig_last_aligned);
+    imshow(curr_histology,'Parent',ax_last_aligned); hold on
+    imagesc(av_aligned_boundaries,'Parent',ax_last_aligned,'AlphaData',av_aligned_boundaries*0.3);
     colormap(gray);
+    title(['Aligning slices ' num2str(curr_slice) '/' num2str(length(slice_im)) '...']);
+    hold off;
     drawnow;
     
+end
+
+if isvalid(fig_last_aligned)
+    close(fig_last_aligned);
 end
 
 save_fn = [slice_im_path filesep 'atlas2histology_tform.mat'];

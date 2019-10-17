@@ -25,6 +25,13 @@ ccf_slice_fn = [slice_im_path filesep 'histology_ccf.mat'];
 load(ccf_slice_fn);
 gui_data.histology_ccf = histology_ccf;
 
+% Load automated alignment
+auto_ccf_alignment_fn = [slice_im_path filesep 'atlas2histology_tform.mat'];
+if exist(auto_ccf_alignment_fn,'file')
+    load(auto_ccf_alignment_fn);
+    gui_data.histology_ccf_auto_alignment = atlas2histology_tform;
+end
+
 % Create figure, set button functions
 gui_fig = figure('KeyPressFcn',@keypress);
 gui_data.curr_slice = 1;
@@ -187,23 +194,38 @@ function align_ccf_to_histology(gui_fig)
 % Get guidata
 gui_data = guidata(gui_fig);
 
-% Check for same number > 3 of control points
-if size(gui_data.histology_control_points{gui_data.curr_slice},1) ~= ...
-        size(gui_data.atlas_control_points{gui_data.curr_slice},1) || ...
-        (size(gui_data.histology_control_points{gui_data.curr_slice},1) < 3 && ...
-        size(gui_data.atlas_control_points{gui_data.curr_slice},1) < 3)
+if size(gui_data.histology_control_points{gui_data.curr_slice},1) == ...
+        size(gui_data.atlas_control_points{gui_data.curr_slice},1) && ...
+        (size(gui_data.histology_control_points{gui_data.curr_slice},1) >= 3 && ...
+        size(gui_data.atlas_control_points{gui_data.curr_slice},1) >= 3)    
+    % If same number of >= 3 control points, use control point alignment
+    tform = fitgeotrans(gui_data.atlas_control_points{gui_data.curr_slice}, ...
+        gui_data.histology_control_points{gui_data.curr_slice},'affine');
+    title(gui_data.histology_ax,'Manually aligned');
+    
+      
+elseif size(gui_data.histology_control_points{gui_data.curr_slice},1) >= 1 ||  ...
+        size(gui_data.atlas_control_points{gui_data.curr_slice},1) >= 1
+    % If less than 3 or nonmatching points, use auto but don't draw
+    title(gui_data.histology_ax,'Manually aligned');
     
     % Upload gui data
     guidata(gui_fig, gui_data);
     return
+    
+else
+    % If no points, use automated outline
+    if isfield(gui_data,'histology_ccf_auto_alignment')
+        tform = affine2d;
+        tform.T = gui_data.histology_ccf_auto_alignment{gui_data.curr_slice};
+        title(gui_data.histology_ax,'Auto-aligned');
+    end
 end
 
 curr_av_slice = gui_data.histology_ccf(gui_data.curr_slice).av_slices;
 curr_av_slice(isnan(curr_av_slice)) = 1;
 curr_slice_im = gui_data.slice_im{gui_data.curr_slice};
 
-tform = fitgeotrans(gui_data.atlas_control_points{gui_data.curr_slice}, ...
-    gui_data.histology_control_points{gui_data.curr_slice},'affine');
 tform_size = imref2d([size(curr_slice_im,1),size(curr_slice_im,2)]);
 curr_av_slice_warp = imwarp(curr_av_slice, tform, 'OutputView',tform_size);
 
