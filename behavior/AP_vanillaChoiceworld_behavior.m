@@ -1,6 +1,6 @@
 %% Get and plot single mouse behavior (vanillaChoiceworld)
 
-animal = 'AP045';
+animal = 'AP044';
 protocol = 'vanillaChoiceworld';
 flexible_name = true;
 experiments = AP_find_experiments(animal,protocol,flexible_name);
@@ -127,6 +127,7 @@ ylabel('Wheel movement');
 yyaxis right
 plot(day_num,bhv.wheel_bias,'linewidth',2);
 ylim([-1,1]);
+line(xlim,[0,0]);
 ylabel('Wheel bias');
 xlabel('Session');
 set(gca,'XTick',day_num);

@@ -41,13 +41,15 @@ itiHit = 1;
 itiMiss = 2;
 
 % Sounds
-audioSampleRate = 192e3;
+% audioSampleRate = 192e3; % (Not used after new audio system 20181107)
+audDev = audio.Devices('Strix');
+audioSampleRate = audDev.DefaultSampleRate;
+audioChannels = audDev.NrOutputChannels;
 
-onsetToneAmplitude = 1;
+onsetToneAmplitude = 0.3; % Changed from 1 when moving to Strix
 onsetToneFreq = 12000;
 onsetToneDuration = 0.1;
 onsetToneRampDuration = 0.01;
-audioChannels = 2;
 toneSamples = onsetToneAmplitude*events.expStart.map(@(x) ...
     aud.pureTone(onsetToneFreq,onsetToneDuration,audioSampleRate, ...
     onsetToneRampDuration,audioChannels));
@@ -60,6 +62,9 @@ missNoiseSamples = missNoiseAmplitude*events.expStart.map(@(x) ...
 % Wheel parameters
 quiescThreshold = 1;
 wheelGain = 2;
+
+% Key press for manual reward
+rewardKeyPressed = inputs.keyboard.strcmp('w');
 
 %% Initialize trial data
 
@@ -87,7 +92,8 @@ stimOn = at(true,preStimQuiescence);
 interactiveOn = stimOn.delay(cueInteractiveDelay); 
 
 % Play tone at interactive onset
-audio.onsetTone = toneSamples.at(interactiveOn);
+audio.Strix = toneSamples.at(interactiveOn);
+% (20180711 changed from audio.onsetTone for new audio handling)
 
 % Response
 % (wheel displacement zeroed at interactiveOn)
@@ -111,12 +117,13 @@ trialContrast = trialData.trialContrast;
 % Give reward on hit
 % NOTE: there is a 10ms delay for water output, because otherwise water and
 % stim output compete and stim is delayed
-water = at(rewardSize,trialData.hit.delay(0.01));  
+water = at(rewardSize,merge(rewardKeyPressed,trialData.hit.delay(0.01)));  
 outputs.reward = water;
 totalWater = water.scan(@plus,0);
 
 % Play noise on miss
-audio.missNoise = missNoiseSamples.at(trialData.miss.delay(0.01));
+audio.Strix = missNoiseSamples.at(trialData.miss.delay(0.01));
+% (20180711 changed from audio.missNoise for new audio handling)
 
 % ITI defined by outcome
 iti = response.delay(trialData.hit.at(response)*itiHit + trialData.miss.at(response)*itiMiss);

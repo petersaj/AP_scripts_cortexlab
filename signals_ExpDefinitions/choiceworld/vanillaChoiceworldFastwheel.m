@@ -23,7 +23,7 @@ function vanillaChoiceworldFastwheel(t, events, parameters, visStim, inputs, out
 %% Fixed parameters
 
 % Reward
-rewardSize = 4; % 191004 Changed from 2 QQ
+rewardSize = 4; % 191004 Changed from 2
 
 % Trial choice parameters
 % Staircase trial choice
@@ -78,7 +78,7 @@ missNoiseSamples = missNoiseAmplitude*events.expStart.map(@(x) ...
 
 % Wheel parameters
 quiescThreshold = 1;
-wheelGain = 4; % 191004 Changed from 2 QQ
+wheelGain = 4; % 191004 Changed from 2
 
 % Key press for manual reward
 rewardKeyPressed = inputs.keyboard.strcmp('w');
