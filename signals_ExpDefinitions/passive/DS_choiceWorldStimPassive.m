@@ -1,5 +1,6 @@
 function DS_choiceWorldStimPassive(t, events, parameters, visStim, inputs, outputs, audio)
 % AP 2017-12-13: present choiceworld stimuli passively
+error('Zero stim doesn''t work')
 
 %% Set up stimuli
 

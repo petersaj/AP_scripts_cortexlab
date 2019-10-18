@@ -1,7 +1,9 @@
-classdef vanillaChoiceworldBias_ExpPanel < eui.ExpPanel
-  %vanillaChoiceworldNoUpdate_ExpPanel 
+classdef vanillaChoiceworldBiasExpPanel < eui.ExpPanel
+  %vanillaChoiceWorldExpPanel 
   % AP 2017-03-31
   % plotting panel for vanillaChoiceWorld
+  % (should be the same as _ExpPanel, but the naming convention was changed
+  % when someone updated something)
   
   properties
     SignalUpdates = struct('name', cell(500,1), 'value', cell(500,1), 'timestamp', cell(500,1))
@@ -15,7 +17,7 @@ classdef vanillaChoiceworldBias_ExpPanel < eui.ExpPanel
   
   
   methods
-    function obj = vanillaChoiceworldBias_ExpPanel(parent, ref, params, logEntry)
+    function obj = vanillaChoiceworldBiasExpPanel(parent, ref, params, logEntry)
       obj = obj@eui.ExpPanel(parent, ref, params, logEntry);
       obj.LabelsMap = containers.Map();
     end
@@ -23,13 +25,13 @@ classdef vanillaChoiceworldBias_ExpPanel < eui.ExpPanel
     function update(obj)
       update@eui.ExpPanel(obj);
       processUpdates(obj); % update labels with latest signal values
-      labels = cell2mat(values(obj.LabelsMap))';
-      if ~isempty(labels) % colour decay by recency on labels
-        dt = cellfun(@(t)etime(clock,t),...
-          ensureCell(get(labels, 'UserData')));
-        c = num2cell(exp(-dt/1.5)*obj.RecentColour, 2);
-        set(labels, {'ForegroundColor'}, c);
-      end
+%       labels = cell2mat(values(obj.LabelsMap))';
+%       if ~isempty(labels) % colour decay by recency on labels
+%         dt = cellfun(@(t)etime(clock,t),...
+%           ensureCell(get(labels, 'UserData')));
+%         c = num2cell(exp(-dt/1.5)*obj.RecentColour, 2);
+%         set(labels, {'ForegroundColor'}, c);
+%       end
     end
   end
   
@@ -82,7 +84,10 @@ classdef vanillaChoiceworldBias_ExpPanel < eui.ExpPanel
       for ui = 1:length(updates)
         signame = updates(ui).name;
         switch signame
-          otherwise
+%           otherwise
+            %%%%%%% AP: define which ones to display
+            case {'events.expStart','events.newTrial', ...
+                    'events.trialNum','events.totalWater'}
             if ~isKey(obj.LabelsMap, signame)
               obj.LabelsMap(signame) = obj.addInfoField(signame, '');
             end
@@ -171,7 +176,7 @@ classdef vanillaChoiceworldBias_ExpPanel < eui.ExpPanel
       obj.MainVBox = uiextras.VBox('Parent', obj.Root, 'Spacing', 5);
       
       obj.InfoGrid = uiextras.Grid('Parent', obj.MainVBox);
-      obj.InfoGrid.ColumnSizes = [150, -1];
+%       obj.InfoGrid.ColumnSizes = [150, -1];
       %panel for subclasses to add their own controls to
       obj.CustomPanel = uiextras.HBox('Parent', obj.MainVBox);
       
@@ -189,7 +194,7 @@ classdef vanillaChoiceworldBias_ExpPanel < eui.ExpPanel
       %info grid size will be updated as fields are added, the other
       %default panels get reasonable space, and the custom panel gets
       %whatever's left
-      obj.MainVBox.Sizes = [0 -1 15 80 24];
+      obj.MainVBox.Sizes = [0 -1 5 1 24]; % default: [0 -1 15 80 24]
       
       %add the default set of info fields to the grid
       obj.StatusLabel = obj.addInfoField('Status', 'Pending');

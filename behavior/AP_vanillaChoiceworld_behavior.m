@@ -1,6 +1,6 @@
 %% Get and plot single mouse behavior (vanillaChoiceworld)
 
-animal = 'AP044';
+animal = 'AP045';
 protocol = 'vanillaChoiceworld';
 flexible_name = true;
 experiments = AP_find_experiments(animal,protocol,flexible_name);
@@ -10,11 +10,9 @@ for curr_day = 1:length(experiments)
     
     day = experiments(curr_day).day;
     experiment_num = experiments(curr_day).experiment;
-    
-    if length(experiment_num) > 1
-        warning('NOT USING ALL EXPERIMENTS AT THE MOMENT')
-    end
-    
+
+    % If multiple experiments, only use the last one (usually multiple
+    % happens if mess ups and final one is good)
     for curr_experiment = length(experiment_num)
         
         experiment = experiment_num(curr_experiment);
@@ -23,6 +21,9 @@ for curr_day = 1:length(experiments)
         
         % Load the block file
         load(block_filename)
+        
+        % Get protocol name
+        [~,protocol] = fileparts(block.expDef);
         
         % Time of session (in minutes)
         session_duration = block.duration/60;
@@ -71,6 +72,7 @@ for curr_day = 1:length(experiments)
         use_all_contrasts = all(block.events.useContrastsValues(end-10:end));
         
         % Store in behavior structure
+        bhv.protocol{curr_day} = protocol;
         bhv.session_duration(curr_day) = session_duration;
         bhv.n_trials(curr_day) = n_trials;
         bhv.total_water(curr_day) = total_water;
@@ -89,7 +91,8 @@ end
 
 % Plot summary
 day_num = cellfun(@(x) datenum(x),{experiments.day});
-day_labels = cellfun(@(x) x(6:end),{experiments.day},'uni',false);
+day_labels = cellfun(@(day,protocol) [protocol(19:end) ' ' day(6:end)], ...
+    {experiments.day},bhv.protocol,'uni',false);
 figure('Name',animal)
 
 % Trials and water

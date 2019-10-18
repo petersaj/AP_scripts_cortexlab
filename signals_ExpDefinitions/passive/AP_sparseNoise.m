@@ -13,12 +13,6 @@ nAzimuth = 36;
 
 %% Stim times
 
-% Set timer for end of "trial"
-trial_end = events.newTrial.delay(sparseNoiseTime);
-
-% High at timer start (when 'start' pressed, before expStart)
-t_start = skipRepeats(t > 0);
-
 % Stimulus timer from trial start to stops
 trial_running = events.newTrial.delay(0).to(events.newTrial.delay(sparseNoiseTime));
 
@@ -28,8 +22,10 @@ stimuliTracker = sampler.scan(...
     @sparseNoiseTrackBW_internal, ...
     zeros(nAltitude, nAzimuth), 'pars', stimPersistence, stimulusRate, samplerFs);
 
-% Default to black (-1) on timer start, display stimulus on expStart
-stimuliOn = merge(at(-1.*ones(nAltitude,nAzimuth),t_start),skipRepeats((stimuliTracker>0)*2-1));
+% Default to black (-1) on t start, display stimulus on expStart
+stimuliOn = merge( ...
+    at(-1.*ones(nAltitude,nAzimuth),skipRepeats(t > 0)), ...
+    skipRepeats((stimuliTracker>0)*2-1));
 
 %% Generate stimuli
 myNoise = vis.checker6(t);
@@ -38,7 +34,7 @@ myNoise.pattern = stimuliOn;
 visStim.myNoise = myNoise;
 
 %% End trial after alloted time
-events.endTrial = trial_end;
+events.endTrial = events.newTrial.delay(sparseNoiseTime);
 
 %% Save events
 events.stimuliOn = stimuliOn;
