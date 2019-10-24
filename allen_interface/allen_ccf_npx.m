@@ -631,13 +631,13 @@ probe_n_coords = sqrt(sum(diff(probe_vector,[],2).^2));
 % Get brain labels across the probe and trajectory, and intersection with brain
 pixel_space = 5;
 trajectory_areas = interp3(single(gui_data.av(1:pixel_space:end,1:pixel_space:end,1:pixel_space:end)), ...
-    round(trajectory_zcoords/pixel_space),round(trajectory_xcoords/pixel_space),round(trajectory_ycoords/pixel_space));
+    round(trajectory_zcoords/pixel_space),round(trajectory_xcoords/pixel_space),round(trajectory_ycoords/pixel_space),'nearest');
 trajectory_brain_idx = find(trajectory_areas > 1,1);
 trajectory_brain_intersect = ...
     [trajectory_xcoords(trajectory_brain_idx),trajectory_ycoords(trajectory_brain_idx),trajectory_zcoords(trajectory_brain_idx)]';
 
 probe_areas = interp3(single(gui_data.av(1:pixel_space:end,1:pixel_space:end,1:pixel_space:end)), ...
-    round(probe_zcoords/pixel_space),round(probe_xcoords/pixel_space),round(probe_ycoords/pixel_space))';
+    round(probe_zcoords/pixel_space),round(probe_xcoords/pixel_space),round(probe_ycoords/pixel_space),'nearest')';
 probe_area_boundaries = intersect(unique([find(~isnan(probe_areas),1,'first'); ...
     find(diff(probe_areas) ~= 0);find(~isnan(probe_areas),1,'last')]),find(~isnan(probe_areas)));
 probe_area_centers = probe_area_boundaries(1:end-1) + diff(probe_area_boundaries)/2;

@@ -198,7 +198,11 @@ switch eventdata.Key
                     trajectory_ycoords(~trajectory_coords_outofbounds), ...
                     trajectory_zcoords(~trajectory_coords_outofbounds));
                 
-                trajectory_areas = gui_data.av(trajectory_coords_idx)';
+                trajectory_areas =
+                
+                pixel_space = 1;
+                trajectory_areas = interp3(single(gui_data.av(1:pixel_space:end,1:pixel_space:end,1:pixel_space:end)), ...
+                    round(trajectory_zcoords/pixel_space),round(trajectory_xcoords/pixel_space),round(trajectory_ycoords/pixel_space),'nearest')';
                 
                 % Get rid of any non-brain areas
                 trajectory_areas(isnan(trajectory_areas) | trajectory_areas <= 1) = [];
@@ -291,6 +295,7 @@ figure('Name','Trajectory areas');
 allenCCF_path = fileparts(which('allenCCFbregma'));
 cmap_filename = [allenCCF_path filesep 'allen_ccf_colormap_2017.mat'];
 load(cmap_filename);
+keyboard
 for curr_probe = 1:length(probe_ccf)
     curr_axes = subplot(1,gui_data.n_probes,curr_probe);
     
