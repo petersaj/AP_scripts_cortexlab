@@ -40,7 +40,7 @@ for curr_slice = 1:length(slice_im)
     bg_signal_min = find(im_hist_deriv(bg_down:end) > 0,1) + bg_down;
     slice_threshold = im_hist_edges(bg_signal_min);
     
-    curr_histology_thresh = +(curr_im_bw > slice_threshold);
+    curr_histology_thresh = +(nanmean(curr_histology,3) > 0.2);
     
     [optimizer, metric] = imregconfig('monomodal');
     optimizer.MaximumIterations = 200;

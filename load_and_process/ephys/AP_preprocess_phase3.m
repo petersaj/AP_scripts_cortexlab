@@ -210,7 +210,7 @@ for curr_site = 1:length(data_paths)
     ops.NchanTOT = n_channels;
     medianTrace = applyCARtoDat(ap_temp_filename,ops.NchanTOT,hdd_kilosort_path);         
     [~,ap_car_name,ap_car_ext] = fileparts(ap_temp_filename);
-    ap_temp_car_filename_hdd = [hdd_kilosort_path filesep ap_car_name '_CAR' ap_car_ext];   
+    ap_temp_car_filename_hdd = [hdd_kilosort_path filesep ap_car_name '_CAR' ap_car_ext];
     
     % Delete the un-CAR'd data
     delete(ap_temp_filename);

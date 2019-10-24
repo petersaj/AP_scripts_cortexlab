@@ -6,17 +6,17 @@ function AP_auditoryStim(t, events, parameters, visStim, inputs, outputs, audio)
 
 %% Set up stimuli
 
+% Duration and ITI
 stim_time = 0.5;
-tone_volume = 0.05;
-noise_volume = 0.05;
 min_iti = 2;
 max_iti = 3;
 step_iti = 0.1;
 
 % Sounds
-audio_freqs = linspace(5000,20000,3);
+audio_freqs = linspace(8000,20000,4);
 audioRampDuration = 0.01;
-audioChannels = 2;
+tone_volume = 0.05;
+noise_volume = 0.05;
 
 audDev = audio.Devices('Strix');
 audioSampleRate = audDev.DefaultSampleRate;

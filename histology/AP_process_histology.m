@@ -15,15 +15,17 @@ im_path_dir = dir([im_path filesep '*.tif*']);
 im_fn = natsortfiles(cellfun(@(path,fn) [path filesep fn], ...
     {im_path_dir.folder},{im_path_dir.name},'uni',false));
 
-% Get image metadata
+% Check image metadata for pixel size (if ome.tiff)
 im_info = imfinfo(im_fn{1});
-im_description = im_info(1).ImageDescription;
+if isfield(im_info,'ImageDescription')
+    im_description = im_info(1).ImageDescription;
+    im_um = regexp(im_description,'PhysicalSizeX="(\S*)".*PhysicalSizeY="(\S*)"','tokens');
+else
+    im_um = [];
+end
 
-% Get microns/pixel from metadata if present (ome.tiff) 
-im_um = regexp(im_description,'PhysicalSizeX="(\S*)".*PhysicalSizeY="(\S*)"','tokens');
-
-% Get number of imaged channels (ome.tiff has extra page with nothing?)
-n_channels = sum(any([im_info.Height;im_info.Width],1));
+% If image is RGB, set flag
+im_rgb = strcmp(im_info(1).PhotometricInterpretation,'RGB');
 
 % Set resize factor from user (if provided), or if no resize factor
 % provided and pixel size is available, resize to match CCF
@@ -37,81 +39,93 @@ elseif ~exist('resize_factor','var') && ~isempty(im_um)
     if im_um_x ~= im_um_y
         error('Pixel X/Y values different (not accounted for yet)')
     end
-  
+    
     % Set resize factor to match to Allen CCF
     allen_um2px = 10; % Allen CCF: 10 um/voxel
-    rescale_factor = im_um_x/allen_um2px;
+    resize_factor = im_um_x/allen_um2px;
     
 else
     error('No resize factor provided and pixel size not in metadata');
-    
 end
 
 % Load and resize images
 n_im = length(im_fn);
-im_resized = cell(n_im,n_channels);
 
-h = waitbar(0,'Loading and resizing images...');
-for curr_im = 1:n_im
-    for curr_channel = 1:n_channels
-            im_resized{curr_im,curr_channel} = imresize(imread(im_fn{curr_im},curr_channel),rescale_factor);
-    end
-    waitbar(curr_im/n_im,h,['Loading and resizing images (' num2str(curr_im) '/' num2str(n_im) ')...']);
-end
-close(h);
+if ~im_rgb
+    % If channels separated as b/w, load in separately and white balance
 
-% Estimate white balance within each channel
-% (dirty: assume one peak for background, one for signal)
-h = figure;
-im_montage = cell(n_channels,1);
-channel_caxis = nan(n_channels,2);
-channel_color = cell(n_channels,1);
-for curr_channel = 1:n_channels
+    n_channels = sum(any([im_info.Height;im_info.Width],1));
+    im_resized = cell(n_im,n_channels);
     
-   curr_montage = montage(im_resized(:,curr_channel));
-   
-   im_montage{curr_channel} = curr_montage.CData;
-
-   im_hist = histcounts(im_montage{curr_channel}(im_montage{curr_channel} > 0),0:max(im_montage{curr_channel}(:)));
-   im_hist_deriv = [0;diff(smooth(im_hist,10))];
-   
-   [~,bg_median] = max(im_hist);
-   bg_signal_min = find(im_hist_deriv(bg_median:end) > 0,1) + bg_median;
-   [~,bg_median_rel] = max(im_hist(bg_signal_min:end));
-   signal_median = bg_median_rel + bg_signal_min;
-   
-   cmin = bg_signal_min;
-   cmax = signal_median*3;
-   caxis([cmin,cmax]);
-   
-   channel_caxis(curr_channel,:) = [cmin,cmax];
-   
-   channel_color{curr_channel} = questdlg('What color should this be?', ...
-       'Set color','red','green','blue','red');
-   
-end
-close(h)
-
-% Get order of colors
-color_order_gun = {'red';'green';'blue'};
-[~,color_order_slide] = ismember(channel_color,color_order_gun);
-
-% Display montage of final balanced image, sort color channels by RGB
-im_montage_rgb = zeros(size(im_montage{1},1),size(im_montage{1},2),3);
-im_montage_rgb(:,:,color_order_slide) = ...
-    cell2mat(arrayfun(@(ch) rescale(im_montage{ch}, ...
-    'InputMin',channel_caxis(ch,1),'InputMax',channel_caxis(ch,2)), ...
-    permute(1:n_channels,[1,3,2]),'uni',false));
-figure;imshow(im_montage_rgb);
-title('Overview of all images');
-
-% Store RGB for each slide
-im_rgb = cellfun(@(x) zeros(size(x,1),size(x,2),3),im_resized(:,1),'uni',false);
-for curr_im = 1:n_im
-    im_rgb{curr_im}(:,:,color_order_slide) = ...
-        cell2mat(arrayfun(@(ch) rescale(im_resized{curr_im,ch}, ...
-        'InputMin',channel_caxis(ch,1),'InputMax',channel_caxis(ch,2)), ...
-        permute(1:n_channels,[1,3,2]),'uni',false));  
+    h = waitbar(0,'Loading and resizing images...');
+    for curr_im = 1:n_im
+        for curr_channel = 1:n_channels
+            im_resized{curr_im,curr_channel} = imresize(imread(im_fn{curr_im},curr_channel),resize_factor);
+        end
+        waitbar(curr_im/n_im,h,['Loading and resizing images (' num2str(curr_im) '/' num2str(n_im) ')...']);
+    end
+    close(h);
+    
+    % Estimate white balance within each channel
+    % (dirty: assume one peak for background, one for signal)
+    h = figure;
+    im_montage = cell(n_channels,1);
+    channel_caxis = nan(n_channels,2);
+    channel_color = cell(n_channels,1);
+    for curr_channel = 1:n_channels
+        
+        curr_montage = montage(im_resized(:,curr_channel));
+        
+        im_montage{curr_channel} = curr_montage.CData;
+        
+        im_hist = histcounts(im_montage{curr_channel}(im_montage{curr_channel} > 0),0:max(im_montage{curr_channel}(:)));
+        im_hist_deriv = [0;diff(smooth(im_hist,10))];
+        
+        [~,bg_down] = min(im_hist_deriv);
+        bg_signal_min = find(im_hist_deriv(bg_down:end) > 0,1) + bg_down;
+        [~,bg_median_rel] = max(im_hist(bg_signal_min:end));
+        signal_median = bg_median_rel + bg_signal_min;
+        
+        cmin = bg_signal_min;
+        cmax = signal_median*3;
+        caxis([cmin,cmax]);
+        
+        channel_caxis(curr_channel,:) = [cmin,cmax];
+        
+        channel_color{curr_channel} = questdlg('What color should this be?', ...
+            'Set color','red','green','blue','red');
+        
+    end
+    close(h)
+    
+    % Get order of colors
+    color_order_gun = {'red';'green';'blue'};
+    [~,color_order_slide] = ismember(channel_color,color_order_gun);
+    
+%     % Display montage of final balanced image, sort color channels by RGB
+%     im_montage_rgb = zeros(size(im_montage{1},1),size(im_montage{1},2),3);
+%     im_montage_rgb(:,:,color_order_slide) = ...
+%         cell2mat(arrayfun(@(ch) rescale(im_montage{ch}, ...
+%         'InputMin',channel_caxis(ch,1),'InputMax',channel_caxis(ch,2)), ...
+%         permute(1:n_channels,[1,3,2]),'uni',false));
+%     figure;imshow(im_montage_rgb);
+%     title('Overview of all images');
+    
+    % Store RGB for each slide
+    im_rgb = cellfun(@(x) zeros(size(x,1),size(x,2),3),im_resized(:,1),'uni',false);
+    for curr_im = 1:n_im
+        im_rgb{curr_im}(:,:,color_order_slide) = ...
+            cell2mat(arrayfun(@(ch) rescale(im_resized{curr_im,ch}, ...
+            'InputMin',channel_caxis(ch,1),'InputMax',channel_caxis(ch,2)), ...
+            permute(1:n_channels,[1,3,2]),'uni',false));
+    end
+    
+elseif im_rgb
+    % If images are already RGB, just load in and resize 
+    im_rgb = cell(n_im,1);
+    for curr_im = 1:n_im
+        im_rgb{curr_im} = imresize(imread(im_fn{curr_im}),resize_factor);
+    end 
 end
 
 % Set up GUI to pick slices on slide to extract
@@ -121,7 +135,7 @@ slice_fig = figure('KeyPressFcn',@slice_keypress);
 slice_data = struct;
 slice_data.im_path = im_path;
 slice_data.im_fn = im_fn;
-slice_data.im_rescale_factor = rescale_factor;
+slice_data.im_rescale_factor = resize_factor;
 slice_data.im_rgb = im_rgb;
 slice_data.curr_slide = 0;
 slice_data.slice_mask = cell(0,0);
@@ -227,9 +241,20 @@ end
 
 slice_data.curr_slide = slice_data.curr_slide + 1;
 
-min_slice = (1000/10)^2; % (um/10(CCF units))^2
+% Minimum slice size
+min_slice = 1000; %(1000/10)^2; % (um/10(CCF units))^2
+
+% Estimate slice white threshold
+curr_im_bw = nanmean(slice_data.im_rgb{slice_data.curr_slide},3);
+[im_hist,im_hist_edges] = histcounts(curr_im_bw(curr_im_bw > 0), ...
+    linspace(min(curr_im_bw(:)),max(curr_im_bw(:)),100));
+im_hist_deriv = [0;diff(smooth(im_hist,10))];
+[~,bg_down] = min(im_hist_deriv);
+bg_signal_min = find(im_hist_deriv(bg_down:end) > 0,1) + bg_down;
+slice_threshold = im_hist_edges(bg_signal_min);
+
 slice_mask = imfill(bwareaopen(mean( ...
-    slice_data.im_rgb{slice_data.curr_slide},3) > 0.01,min_slice),'holes');
+    slice_data.im_rgb{slice_data.curr_slide},3) > slice_threshold,min_slice),'holes');
 slice_conncomp = bwconncomp(slice_mask);
 
 im_handle = imshow(slice_data.im_rgb{slice_data.curr_slide});

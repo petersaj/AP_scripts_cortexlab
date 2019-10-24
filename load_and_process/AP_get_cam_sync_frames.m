@@ -44,7 +44,7 @@ for curr_frame_idx = 1:length(read_frames_start)
     curr_im = read(vr,curr_frame);
     strobe_roi_start(curr_frame_idx) = nanmean(curr_im(roiMask));
 end
-strobe_roi_thresh = prctile(strobe_roi_start,50)/1.5;
+strobe_roi_thresh = prctile(strobe_roi_start,50)/1.2;
 strobe_start_frame_idx = find(strobe_roi_start < strobe_roi_thresh,1);
 strobe_start_frame = read_frames_start(strobe_start_frame_idx);
 
@@ -56,7 +56,7 @@ for curr_frame_idx = 1:length(read_frames_end)
     curr_im = read(vr,curr_frame);
     strobe_roi_end(curr_frame_idx) = nanmean(curr_im(roiMask));
 end
-strobe_roi_thresh = prctile(strobe_roi_end,50)/1.5;
+strobe_roi_thresh = prctile(strobe_roi_end,50)/1.2;
 strobe_end_frame_idx = find(strobe_roi_end < strobe_roi_thresh,1);
 strobe_end_frame = read_frames_end(strobe_end_frame_idx);
 

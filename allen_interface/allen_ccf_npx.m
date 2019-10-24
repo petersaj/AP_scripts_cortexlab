@@ -150,7 +150,7 @@ msgbox( ...
     '\bf Other: \rm' ...
     'r : toggle clickable rotation' ...
     'x : export probe coordinates to workspace' ...
-    'h : load and plot SHARP-Track histology'}, ...
+    'h : load and plot histology-defined trajectory'}, ...
     'Controls',CreateStruct);
 
 end
@@ -671,7 +671,9 @@ end
 
 
 function probe_histology(probe_atlas_gui)
-% Load histology points from Shamash's or Peters' program and draw best-fit line
+% Load histology points
+% UNDER CONSTRUCTION
+% (used to use SHARP-Track, now using mine)
 
 % Get guidata
 gui_data = guidata(probe_atlas_gui);
@@ -682,7 +684,7 @@ load([probe_path,probe_file]);
 if exist('pointList','var')
     histology_points = pointList.pointList{1};
 elseif exist('probe_ccf','var')
-    histology_points = probe_ccf;
+    histology_points = probe_ccf{1}; % only use first probe
 end
 
 r0 = mean(histology_points,1);
@@ -698,8 +700,8 @@ probe_line_endpoints = bsxfun(@plus,bsxfun(@times,probe_eval_points',histology_p
 % line(P(:,3),P(:,1),P(:,2),'color','k','linewidth',2)
 
 % % Mine: saved in native CCF order [AP,DV,ML]
-% plot3(histology_points(:,1),histology_points(:,3),histology_points(:,2),'.b','MarkerSize',20);
-% line(probe_line_endpoints(:,1),probe_line_endpoints(:,3),probe_line_endpoints(:,2),'color','k','linewidth',2)
+plot3(histology_points(:,1),histology_points(:,3),histology_points(:,2),'.b','MarkerSize',20);
+line(probe_line_endpoints(:,1),probe_line_endpoints(:,3),probe_line_endpoints(:,2),'color','k','linewidth',2)
 
 % Place the probe on the histology best-fit axis
 [ap_max,dv_max,ml_max] = size(gui_data.tv);
