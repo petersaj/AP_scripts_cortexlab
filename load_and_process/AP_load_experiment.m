@@ -240,155 +240,167 @@ if block_exists
     
     % SPECIFIC TO PROTOCOL
     [~,expDef] = fileparts(block.expDef);
-    if strcmp(expDef,'vanillaChoiceworld')       
-        
-        % Hit/miss recorded for last trial, circshift to align
-        signals_events.hitValues = circshift(signals_events.hitValues,[0,-1]);
-        signals_events.missValues = circshift(signals_events.missValues,[0,-1]);
-        
-        % Get number of completed trials (if uncompleted last trial)
-        n_trials = length(signals_events.endTrialTimes);
-        
-        % Get stim on times by closest photodiode flip
-        [~,closest_stimOn_photodiode] = ...
-            arrayfun(@(x) min(abs(signals_events.stimOnTimes(x) - ...
-            photodiode_flip_times)), ...
-            1:n_trials);
-        stimOn_times = photodiode_flip_times(closest_stimOn_photodiode);
-        
-        % Get time from stim on to first wheel movement     
-        surround_time = [-0.5,2];
-        surround_samples = surround_time/Timeline.hw.samplingInterval;
-     
-        surround_time = surround_time(1):Timeline.hw.samplingInterval:surround_time(2);
-        pull_times = bsxfun(@plus,stimOn_times,surround_time);
-        
-        stim_aligned_wheel = interp1(Timeline.rawDAQTimestamps, ...
-            wheel_velocity,pull_times);
-        
-        thresh_displacement = 0.025;
-        [~,wheel_move_sample] = max(abs(stim_aligned_wheel) > thresh_displacement,[],2);
-        wheel_move_time = arrayfun(@(x) pull_times(x,wheel_move_sample(x)),1:size(pull_times,1))';
-        wheel_move_time(wheel_move_sample == 1) = NaN;
-        
-        % Get conditions for all trials      
-        
-        % (trial_timing)
-        stim_to_move = padarray(wheel_move_time - stimOn_times,[n_trials-length(stimOn_times),0],NaN,'post');
-        stim_to_feedback = signals_events.responseTimes(1:n_trials)' - stimOn_times(1:n_trials);
-        
-        % (early vs late move)
-        trial_timing = 1 + (stim_to_move > 0.5);
-        
-        % (choice and outcome)
-        go_left = (signals_events.trialSideValues == 1 & signals_events.hitValues == 1) | ...
-            (signals_events.trialSideValues == -1 & signals_events.missValues == 1);
-        go_right = (signals_events.trialSideValues == -1 & signals_events.hitValues == 1) | ...
-            (signals_events.trialSideValues == 1 & signals_events.missValues == 1);
-        trial_choice = go_right' - go_left';
-        trial_outcome = signals_events.hitValues(1:n_trials)'-signals_events.missValues(1:n_trials)';
-        
-        % (trial conditions: [contrast,side,choice,timing])
-        contrasts = [0,0.06,0.125,0.25,0.5,1];
-        sides = [-1,1];
-        choices = [-1,1];
-        timings = [1,2];
-        
-        conditions = combvec(contrasts,sides,choices,timings)';
-        n_conditions = size(conditions,1);
-        
-        trial_conditions = ...
-            [signals_events.trialContrastValues(1:n_trials)', signals_events.trialSideValues(1:n_trials)', ...
-            trial_choice(1:n_trials), trial_timing(1:n_trials)];
-        [~,trial_id] = ismember(trial_conditions,conditions,'rows');
-        
-    elseif strcmp(expDef,'AP_visAudioPassive')
-        %         min_stim_downtime = 0.5; % minimum time between pd flips to get stim
-        %         stimOn_times_pd = photodiode_flip_times([true;diff(photodiode_flip_times) > min_stim_downtime]);
-        %         stimOff_times_pd = photodiode_flip_times([diff(photodiode_flip_times) > min_stim_downtime;true]);
-        %         warning('visAudioPassive: THIS IS TEMPORARY BECAUSE NO BUFFER TIME')
-        %
-        %         stimOn_times = nan(size(signals_events.visualOnsetTimes));
-        %         stimOn_times(end-(length(stimOn_times_pd)-1):end) = stimOn_times_pd;
-        %
-        %         stimOff_times = nan(size(signals_events.visualOnsetTimes));
-        %         stimOff_times(end-(length(stimOff_times_pd)-1):end) = stimOff_times_pd;
-        %
-        %
-        %         % sanity check
-        %         if length(signals_events.visualOnsetValues) ~= length(stimOn_times)
-        %             error('Different number of signals/timeline stim ons')
-        %         end
-        error('AP_visAudioPassive isn''t reliable yet')
-        
-    elseif strcmp(expDef,'AP_choiceWorldStimPassive')
-        % This is kind of a dumb hack to get the stimOn times, maybe not
-        % permanent unless it works fine: get stim times by checking for
-        % close to the median photodiode flip difference
-        block_stim_iti = mean(diff(block.stimWindowUpdateTimes));
-        
-        photodiode_flip_diff = diff(stimScreen_on_t(photodiode_flip));
-        median_photodiode_flip_diff = mode(round(photodiode_flip_diff*10)/10);
-        
-        stimOn_idx = find(abs(photodiode_flip_diff-median_photodiode_flip_diff) < 0.1);
-        
-        stimOn_times = stimScreen_on_t(photodiode_flip(stimOn_idx))';
-        
-        % Set stimID as the contrast*side
-        % (use last n values - sometimes short buffer times means some
-        % stimuli in the beginning could be missed)
-        use_signals_stim = size(signals_events.visualParamsValues,2)-length(stimOn_times)+1: ...
-            size(signals_events.visualParamsValues,2);
-        stimIDs = sign(signals_events.visualParamsValues(1,use_signals_stim))'.* ...
-            signals_events.visualParamsValues(2,use_signals_stim)';
-        
-    elseif strcmp(expDef,'AP_lcrGratingPassive')
-        % Get stim times (first flip is initializing gray to black)
-        stimOn_times = photodiode_flip_times(2:2:end);
-        
-        % Check number of stim matches photodiode
-        if length(signals_events.stimAzimuthValues) ~= length(stimOn_times)
-            error('Different stim number signals and photodiode')
-        end
-        
-        % Get stim ID and conditions
-        contrasts = unique(signals_events.stimContrastValues);
-        azimuths = unique(signals_events.stimAzimuthValues);
-        
-        conditions = combvec(contrasts,azimuths)';
-        n_conditions = size(conditions,1);
-        
-        trial_conditions = ...
-            [signals_events.stimContrastValues; signals_events.stimAzimuthValues]';
-        [~,stimIDs] = ismember(trial_conditions,conditions,'rows');
-        
-    elseif strcmp(expDef,'AP_localize_choiceWorldStimPassive')
-        % get stim times - first stim photodiode is messed up so throw it out
-        stimOn_times = photodiode_flip_times(2:2:end);
-        
-        % sanity check: times between stim on times in signals
-        signals_photodiode_iti_diff = diff(signals_events.stimOnTimes(2:end)) - diff(stimOn_times)';
-        if any(signals_photodiode_iti_diff > 0.1)
-            error('mismatching signals/photodiode stim ITIs')
-        end
-        
-        % Get stim ID and conditions
-        azimuths = unique(signals_events.stimAzimuthValues);
-        altitudes = unique(signals_events.stimAltitudeValues);
-
-        trial_conditions = reshape(signals_events.visualParamsValues,2,[])';
-        
-        conditions = unique(trial_conditions,'rows');
-        n_conditions = size(conditions,1);
-        
-        [~,stimIDs] = ismember(trial_conditions,conditions,'rows');
-        
-        % Get rid of the first one for now
-        trial_conditions = trial_conditions(2:end);
-        stimIDs = stimIDs(2:end);
-        
-    else
-        warning(['Signals protocol with no analysis script:' expDef]);
+    switch expDef
+        case 'vanillaChoiceworld'            
+            % Hit/miss recorded for last trial, circshift to align
+            signals_events.hitValues = circshift(signals_events.hitValues,[0,-1]);
+            signals_events.missValues = circshift(signals_events.missValues,[0,-1]);
+            
+            % Get number of completed trials (if uncompleted last trial)
+            n_trials = length(signals_events.endTrialTimes);
+            
+            % Get stim on times by closest photodiode flip
+            [~,closest_stimOn_photodiode] = ...
+                arrayfun(@(x) min(abs(signals_events.stimOnTimes(x) - ...
+                photodiode_flip_times)), ...
+                1:n_trials);
+            stimOn_times = photodiode_flip_times(closest_stimOn_photodiode);
+            
+            % Get time from stim on to first wheel movement
+            surround_time = [-0.5,2];
+            surround_samples = surround_time/Timeline.hw.samplingInterval;
+            
+            surround_time = surround_time(1):Timeline.hw.samplingInterval:surround_time(2);
+            pull_times = bsxfun(@plus,stimOn_times,surround_time);
+            
+            stim_aligned_wheel = interp1(Timeline.rawDAQTimestamps, ...
+                wheel_velocity,pull_times);
+            
+            thresh_displacement = 0.025;
+            [~,wheel_move_sample] = max(abs(stim_aligned_wheel) > thresh_displacement,[],2);
+            wheel_move_time = arrayfun(@(x) pull_times(x,wheel_move_sample(x)),1:size(pull_times,1))';
+            wheel_move_time(wheel_move_sample == 1) = NaN;
+            
+            % Get conditions for all trials
+            
+            % (trial_timing)
+            stim_to_move = padarray(wheel_move_time - stimOn_times,[n_trials-length(stimOn_times),0],NaN,'post');
+            stim_to_feedback = signals_events.responseTimes(1:n_trials)' - stimOn_times(1:n_trials);
+            
+            % (early vs late move)
+            trial_timing = 1 + (stim_to_move > 0.5);
+            
+            % (choice and outcome)
+            go_left = (signals_events.trialSideValues == 1 & signals_events.hitValues == 1) | ...
+                (signals_events.trialSideValues == -1 & signals_events.missValues == 1);
+            go_right = (signals_events.trialSideValues == -1 & signals_events.hitValues == 1) | ...
+                (signals_events.trialSideValues == 1 & signals_events.missValues == 1);
+            trial_choice = go_right' - go_left';
+            trial_outcome = signals_events.hitValues(1:n_trials)'-signals_events.missValues(1:n_trials)';
+            
+            % (trial conditions: [contrast,side,choice,timing])
+            contrasts = [0,0.06,0.125,0.25,0.5,1];
+            sides = [-1,1];
+            choices = [-1,1];
+            timings = [1,2];
+            
+            conditions = combvec(contrasts,sides,choices,timings)';
+            n_conditions = size(conditions,1);
+            
+            trial_conditions = ...
+                [signals_events.trialContrastValues(1:n_trials)', signals_events.trialSideValues(1:n_trials)', ...
+                trial_choice(1:n_trials), trial_timing(1:n_trials)];
+            [~,trial_id] = ismember(trial_conditions,conditions,'rows');
+            
+        case 'AP_visAudioPassive'
+            %         min_stim_downtime = 0.5; % minimum time between pd flips to get stim
+            %         stimOn_times_pd = photodiode_flip_times([true;diff(photodiode_flip_times) > min_stim_downtime]);
+            %         stimOff_times_pd = photodiode_flip_times([diff(photodiode_flip_times) > min_stim_downtime;true]);
+            %         warning('visAudioPassive: THIS IS TEMPORARY BECAUSE NO BUFFER TIME')
+            %
+            %         stimOn_times = nan(size(signals_events.visualOnsetTimes));
+            %         stimOn_times(end-(length(stimOn_times_pd)-1):end) = stimOn_times_pd;
+            %
+            %         stimOff_times = nan(size(signals_events.visualOnsetTimes));
+            %         stimOff_times(end-(length(stimOff_times_pd)-1):end) = stimOff_times_pd;
+            %
+            %
+            %         % sanity check
+            %         if length(signals_events.visualOnsetValues) ~= length(stimOn_times)
+            %             error('Different number of signals/timeline stim ons')
+            %         end
+            error('AP_visAudioPassive isn''t reliable yet')
+            
+        case 'AP_choiceWorldStimPassive'
+            % This is kind of a dumb hack to get the stimOn times, maybe not
+            % permanent unless it works fine: get stim times by checking for
+            % close to the median photodiode flip difference
+            block_stim_iti = mean(diff(block.stimWindowUpdateTimes));
+            
+            photodiode_flip_diff = diff(stimScreen_on_t(photodiode_flip));
+            median_photodiode_flip_diff = mode(round(photodiode_flip_diff*10)/10);
+            
+            stimOn_idx = find(abs(photodiode_flip_diff-median_photodiode_flip_diff) < 0.1);
+            
+            stimOn_times = stimScreen_on_t(photodiode_flip(stimOn_idx))';
+            
+            % Set stimID as the contrast*side
+            % (use last n values - sometimes short buffer times means some
+            % stimuli in the beginning could be missed)
+            use_signals_stim = size(signals_events.visualParamsValues,2)-length(stimOn_times)+1: ...
+                size(signals_events.visualParamsValues,2);
+            stimIDs = sign(signals_events.visualParamsValues(1,use_signals_stim))'.* ...
+                signals_events.visualParamsValues(2,use_signals_stim)';
+            
+        case 'AP_lcrGratingPassive'
+            % Get stim times (first flip is initializing gray to black)
+            stimOn_times = photodiode_flip_times(2:2:end);
+            
+            % Check number of stim matches photodiode
+            if length(signals_events.stimAzimuthValues) ~= length(stimOn_times)
+                error('Different stim number signals and photodiode')
+            end
+            
+            % Get stim ID and conditions
+            contrasts = unique(signals_events.stimContrastValues);
+            azimuths = unique(signals_events.stimAzimuthValues);
+            
+            conditions = combvec(contrasts,azimuths)';
+            n_conditions = size(conditions,1);
+            
+            trial_conditions = ...
+                [signals_events.stimContrastValues; signals_events.stimAzimuthValues]';
+            [~,stimIDs] = ismember(trial_conditions,conditions,'rows');
+            
+        case 'AP_localize_choiceWorldStimPassive'
+            % get stim times - first stim photodiode is messed up so throw it out
+            stimOn_times = photodiode_flip_times(2:2:end);
+            
+            % sanity check: times between stim on times in signals
+            signals_photodiode_iti_diff = diff(signals_events.stimOnTimes(2:end)) - diff(stimOn_times)';
+            if any(signals_photodiode_iti_diff > 0.1)
+                error('mismatching signals/photodiode stim ITIs')
+            end
+            
+            % Get stim ID and conditions
+            azimuths = unique(signals_events.stimAzimuthValues);
+            altitudes = unique(signals_events.stimAltitudeValues);
+            
+            trial_conditions = reshape(signals_events.visualParamsValues,2,[])';
+            
+            conditions = unique(trial_conditions,'rows');
+            n_conditions = size(conditions,1);
+            
+            [~,stimIDs] = ismember(trial_conditions,conditions,'rows');
+            
+            % Get rid of the first one for now
+            trial_conditions = trial_conditions(2:end);
+            stimIDs = stimIDs(2:end);
+            
+        case 'AP_auditoryStim'
+            % Auditory stim only, use audioOut to get times
+            speaker_idx = strcmp({Timeline.hw.inputs.name}, 'audioOut');
+            speaker_threshold = 0.02; % eyeballed this
+            speaker_flip_times = ...
+                Timeline.rawDAQTimestamps( ...
+                find(abs(Timeline.rawDAQData(1:end-1,speaker_idx)) < speaker_threshold & ...
+                abs(Timeline.rawDAQData(2:end,speaker_idx)) > speaker_threshold)+1);
+            
+            iti_min = 1.9;
+            stimOn_times = speaker_flip_times([1,find(diff(speaker_flip_times) > iti_min)+1]);
+            
+        otherwise
+            warning(['Signals protocol with no analysis script:' expDef]);
     end
     
     
