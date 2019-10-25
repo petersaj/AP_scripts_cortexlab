@@ -1,5 +1,5 @@
 %% Get and plot single mouse behavior (vanillaChoiceworld)
-animal = 'AP054';
+animal = 'AP041';
 protocol = 'vanillaChoiceworld';
 flexible_name = true;
 experiments = AP_find_experiments(animal,protocol,flexible_name);

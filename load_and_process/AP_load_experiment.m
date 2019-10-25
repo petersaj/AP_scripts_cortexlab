@@ -362,6 +362,28 @@ if block_exists
                 [signals_events.stimContrastValues; signals_events.stimAzimuthValues]';
             [~,stimIDs] = ismember(trial_conditions,conditions,'rows');
             
+        case 'AP_lcrGratingPassiveFlicker'
+            % Flickering stim: get first photodiode after long gap
+            % (ignore the first flip because that's initializing)
+            iti_min = 0.5;
+            stimOn_times = photodiode_flip_times([find(diff(photodiode_flip_times) > iti_min)+1]);
+            
+            % Check number of stim matches photodiode
+            if length(signals_events.stimAzimuthValues) ~= length(stimOn_times)
+                error('Different stim number signals and photodiode')
+            end
+            
+            % Get stim ID and conditions
+            contrasts = unique(signals_events.stimContrastValues);
+            azimuths = unique(signals_events.stimAzimuthValues);
+            
+            conditions = combvec(contrasts,azimuths)';
+            n_conditions = size(conditions,1);
+            
+            trial_conditions = ...
+                [signals_events.stimContrastValues; signals_events.stimAzimuthValues]';
+            [~,stimIDs] = ismember(trial_conditions,conditions,'rows');
+            
         case 'AP_localize_choiceWorldStimPassive'
             % get stim times - first stim photodiode is messed up so throw it out
             stimOn_times = photodiode_flip_times(2:2:end);
@@ -390,7 +412,7 @@ if block_exists
         case 'AP_auditoryStim'
             % Auditory stim only, use audioOut to get times
             speaker_idx = strcmp({Timeline.hw.inputs.name}, 'audioOut');
-            speaker_threshold = 0.02; % eyeballed this
+            speaker_threshold = 0.04; % eyeballed this
             speaker_flip_times = ...
                 Timeline.rawDAQTimestamps( ...
                 find(abs(Timeline.rawDAQData(1:end-1,speaker_idx)) < speaker_threshold & ...
@@ -398,6 +420,25 @@ if block_exists
             
             iti_min = 1.9;
             stimOn_times = speaker_flip_times([1,find(diff(speaker_flip_times) > iti_min)+1]);
+            
+            % TEMPORARY: use first and last to interpolate Signals
+            first_last_stim_tl = stimOn_times([1,end]);
+            first_last_stim_block = block.events.stimOnTimes([1,end]);
+            
+            block_fieldnames = fieldnames(block.events);
+            block_values_idx = cellfun(@(x) ~isempty(x),strfind(block_fieldnames,'Values'));
+            block_times_idx = cellfun(@(x) ~isempty(x),strfind(block_fieldnames,'Times'));
+            for curr_times = find(block_times_idx)'
+                if isempty(signals_events.(block_fieldnames{curr_times}))
+                    % skip if empty
+                    continue
+                end
+                signals_events.(block_fieldnames{curr_times}) = ...
+                    interp1(first_last_stim_block,first_last_stim_tl, ...
+                    block.events.(block_fieldnames{curr_times}),'linear','extrap');
+            end
+            stimOn_times = signals_events.stimOnTimes;
+            stimIDs = signals_events.stimFrequencyValues;
             
         otherwise
             warning(['Signals protocol with no analysis script:' expDef]);

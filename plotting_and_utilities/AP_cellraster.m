@@ -417,7 +417,7 @@ switch eventdata.Key
         gui_data.t_peri_event = t_peri_event;
         gui_data.curr_group = 1;
 
-    case 'pagedown'
+    case {'pagedown','space'}
         % Next group
         next_group = gui_data.curr_group + 1;
         if next_group > size(gui_data.align_groups{gui_data.curr_align},2)
