@@ -33,7 +33,7 @@ stimITIs = new_trial_set.map(@(x) randsample(min_iti:step_iti:max_iti,size(vis_p
 
 % Get the stim on times and the trial end time
 trial_stimOn_times = stimITIs.map(@(x) [0,cumsum(x(1:end-1) + stim_time)]);
-trial_end_time = stimITIs.map(@(x) sum(x) + stim_time);
+trial_end_time = stimITIs.map(@(x) sum(x) + stim_time*size(vis_params,2));
 
 
 %% Present stim

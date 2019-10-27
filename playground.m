@@ -10617,7 +10617,7 @@ colormap(brewermap([],'*RdBu'));
 
 %% Align vasculature for animal
 
-animal = 'AP048';
+animal = 'AP045';
 
 protocol = 'AP_sparseNoise';
 experiments = AP_find_experiments(animal,protocol);
@@ -10639,7 +10639,7 @@ AP_align_widefield(avg_im_days,animal,{experiments.day},'new_days');
 retinotopy_path = 'C:\Users\Andrew\OneDrive for Business\Documents\CarandiniHarrisLab\analysis\widefield_alignment\retinotopy';
 retinotopy_dir = dir(retinotopy_path);
 
-animal = 'AP040';
+animal = 'AP045';
 load([retinotopy_path filesep animal '_retinotopy'])
 
 aligned_vfs = cell(length(retinotopy),1);

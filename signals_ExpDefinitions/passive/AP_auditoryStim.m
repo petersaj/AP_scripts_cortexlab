@@ -2,6 +2,9 @@ function AP_auditoryStim(t, events, parameters, visStim, inputs, outputs, audio)
 % Present tones and white noise
 % Pseudorandom (each stim presented once for each trial)
 % Number of trials = number of repeats
+%
+% (invisible stim comes on with sound so that photodiode flip can be used
+% as a sync)
 
 
 %% Set up stimuli
@@ -44,7 +47,7 @@ stimITIs = new_trial_set.map(@(x) randsample(min_iti:step_iti:max_iti,length(aud
 
 % Get the stim on times and the trial end time
 trial_stimOn_times = stimITIs.map(@(x) [0,cumsum(x(1:end-1) + stim_time)]);
-trial_end_time = stimITIs.map(@(x) sum(x) + stim_time);
+trial_end_time = stimITIs.map(@(x) sum(x) + stim_time*length(audio_samples));
 
 
 %% Present stim
@@ -52,8 +55,16 @@ trial_end_time = stimITIs.map(@(x) sum(x) + stim_time);
 % Auditory
 stim_num = trial_t.ge(trial_stimOn_times).sum.skipRepeats;
 stim_id = map2(stimOrder,stim_num,@(stim_order,stim_num) stim_order(stim_num));
-
 audio.Strix = stim_id.map(@(x) audio_samples{x});
+
+% Visual
+% (this is a quick and bad hack: have a 0% contrast come up on the screen
+% so that there's something to synchronize the auditory with)
+vis_stim = vis.grating(t, 'square', 'gaussian');
+vis_stim.contrast = 0;
+vis_stimOn = stim_id.to(stim_id.delay(stim_time));
+vis_stim.show = vis_stimOn;
+visStim.stim = stim;
 
 endTrial = events.newTrial.setTrigger(trial_t.gt(trial_end_time));
 
@@ -61,6 +72,7 @@ endTrial = events.newTrial.setTrigger(trial_t.gt(trial_end_time));
 
 events.stimITIs = stimITIs;
 events.stimOn = t.at(stim_id);
+events.vis_stimOn = vis_stimOn; % hack to get photodiode flip with sound
 
 events.stimFrequency = stim_id.map(@(x) audio_labels(x));
 
