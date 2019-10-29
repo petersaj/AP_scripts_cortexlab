@@ -241,7 +241,7 @@ if block_exists
     % SPECIFIC TO PROTOCOL
     [~,expDef] = fileparts(block.expDef);
     switch expDef
-        case 'vanillaChoiceworld'            
+        case {'vanillaChoiceworld','vanillaChoiceworldBias','vanillaChoiceworldNoRepeats'}       
             % Hit/miss recorded for last trial, circshift to align
             signals_events.hitValues = circshift(signals_events.hitValues,[0,-1]);
             signals_events.missValues = circshift(signals_events.missValues,[0,-1]);

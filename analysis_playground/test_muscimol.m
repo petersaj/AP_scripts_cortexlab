@@ -1,7 +1,7 @@
 %% Test analysis for muscimol during recording
 % (AP040 and AP041 at the moment)
 
-%% Plot psychometrics and reaction times
+%% Plot psychometrics and reaction times (only one choiceworld)
 
 animal = 'AP041';
 protocol = 'vanillaChoiceworld';
@@ -105,12 +105,76 @@ subplot(2,1,2);
 imagesc(frac_left_all');
 colormap(brewermap([],'*RdBu'));
 
+%% Plot psychometrics and reaction times (pre/post muscimol choiceworld)
+
+animal = 'AP055';
+protocol = 'vanillaChoiceworld';
+experiments = AP_find_experiments(animal,protocol);
+
+experiments = experiments([experiments.imaging] & [experiments.ephys]);
+
+init_array = cell(size(experiments));
+bhv = struct('move_t',init_array,'stim_contrastsides',init_array,'trial_choice',init_array);
+
+curr_day = 1;
 
 
 
+experiment = experiment_num(curr_experiment);
 
+[block_filename, block_exists] = AP_cortexlab_filename(animal,day,experiment,'block');
 
+% Load the block file
+load(block_filename)
 
+% Get protocol name
+[~,protocol] = fileparts(block.expDef);
+
+% Time of session (in minutes)
+session_duration = block.duration/60;
+
+% Trial counts
+n_trials = length(block.paramsValues);
+total_water = sum(block.outputs.rewardValues);
+
+% Estimate reaction time
+% (evenly resample velocity - not even natively);
+wheel_resample_rate = 1000;
+wheel_t_resample = block.inputs.wheelTimes(1):1/wheel_resample_rate:block.inputs.wheelTimes(end);
+wheel_values_resample = interp1(block.inputs.wheelTimes,block.inputs.wheelValues,wheel_t_resample);
+
+wheel_smooth_t = 0.05; % seconds
+wheel_smooth_samples = round(wheel_smooth_t*wheel_resample_rate);
+wheel_velocity = interp1(conv(wheel_t_resample,[1,1]/2,'valid'), ...
+    diff(smooth(wheel_values_resample,wheel_smooth_samples)),wheel_t_resample)';
+
+wheel_thresh = 0.025;
+wheel_starts = wheel_t_resample(abs(wheel_velocity(1:end-1)) < wheel_thresh & ...
+    abs(wheel_velocity(2:end)) > wheel_thresh);
+
+response_trials = 1:length(block.events.responseValues);
+trial_wheel_starts = arrayfun(@(x) ...
+    wheel_starts(find(wheel_starts > block.events.stimOnTimes(x),1)), ...
+    response_trials);
+trial_move_t = trial_wheel_starts - block.events.stimOnTimes(response_trials);
+
+% Wheel movements/biases
+left_wheel_velocity = abs(wheel_velocity.*(wheel_velocity < 0));
+right_wheel_velocity = abs(wheel_velocity.*(wheel_velocity > 0));
+wheel_bias = (nansum(right_wheel_velocity)-nansum(left_wheel_velocity))/ ...
+    (nansum(right_wheel_velocity)+nansum(left_wheel_velocity));
+
+% Get reaction times for each stimulus
+trial_stim = block.events.trialContrastValues(response_trials).*block.events.trialSideValues(response_trials);
+stim_list = unique(reshape(unique(block.events.contrastsValues).*[-1;1],[],1));
+[~,trial_stim_idx] = ismember(trial_stim,stim_list);
+stim_rxn_time = accumarray(trial_stim_idx(response_trials)',trial_move_t',[11,1],@nanmedian,nan);
+
+% Performance (note that this excludes repeat on incorrect trials)
+performance = block.events.sessionPerformanceValues(:,end-10:end);
+
+% Get whether all contrasts were used
+use_all_contrasts = all(block.events.useContrastsValues(end-10:end));
 
 
 

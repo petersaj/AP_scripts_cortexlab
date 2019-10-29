@@ -55,7 +55,7 @@ toneSamples = onsetToneAmplitude*events.expStart.map(@(x) ...
     onsetToneRampDuration,audioChannels));
 
 missNoiseDuration = itiMiss;
-missNoiseAmplitude = 0.05;
+missNoiseAmplitude = 0.03;
 missNoiseSamples = missNoiseAmplitude*events.expStart.map(@(x) ...
     randn(2, audioSampleRate*missNoiseDuration));
 

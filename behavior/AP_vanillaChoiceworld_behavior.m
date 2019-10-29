@@ -1,223 +1,229 @@
 %% Get and plot single mouse behavior (vanillaChoiceworld)
-animal = 'AP047';
+animals = {'AP043','AP044','AP047','AP048','AP053'};
 protocol = 'vanillaChoiceworld';
 flexible_name = true;
-experiments = AP_find_experiments(animal,protocol,flexible_name);
-bhv = struct;
 
-for curr_day = 1:length(experiments)
+for curr_animal = 1:length(animals)
     
-    day = experiments(curr_day).day;
-    experiment_num = experiments(curr_day).experiment;
-
-    % If multiple experiments, only use the last one (usually multiple
-    % happens if mess ups and final one is good)
-    for curr_experiment = length(experiment_num)
+    animal = animals{curr_animal};
+    experiments = AP_find_experiments(animal,protocol,flexible_name);
+    bhv = struct;
+    
+    for curr_day = 1:length(experiments)
         
-        experiment = experiment_num(curr_experiment);
+        day = experiments(curr_day).day;
+        experiment_num = experiments(curr_day).experiment;
         
-        [block_filename, block_exists] = AP_cortexlab_filename(animal,day,experiment,'block');
+        % If multiple experiments, only use the last one (usually multiple
+        % happens if mess ups and final one is good)
+        for curr_experiment = length(experiment_num)
+            
+            experiment = experiment_num(curr_experiment);
+            
+            [block_filename, block_exists] = AP_cortexlab_filename(animal,day,experiment,'block');
+            
+            % Load the block file
+            load(block_filename)
+            
+            % Get protocol name
+            [~,curr_protocol] = fileparts(block.expDef);
+            
+            % Time of session (in minutes)
+            session_duration = block.duration/60;
+            
+            % Trial counts
+            n_trials = length(block.paramsValues);
+            total_water = sum(block.outputs.rewardValues);
+            
+            % Estimate reaction time
+            % (evenly resample velocity - not even natively);
+            wheel_resample_rate = 1000;
+            wheel_t_resample = block.inputs.wheelTimes(1):1/wheel_resample_rate:block.inputs.wheelTimes(end);
+            wheel_values_resample = interp1(block.inputs.wheelTimes,block.inputs.wheelValues,wheel_t_resample);
+            
+            wheel_smooth_t = 0.05; % seconds
+            wheel_smooth_samples = round(wheel_smooth_t*wheel_resample_rate);
+            wheel_velocity = interp1(conv(wheel_t_resample,[1,1]/2,'valid'), ...
+                diff(smooth(wheel_values_resample,wheel_smooth_samples)),wheel_t_resample)';
+            
+            wheel_thresh = 0.025;
+            wheel_starts = wheel_t_resample(abs(wheel_velocity(1:end-1)) < wheel_thresh & ...
+                abs(wheel_velocity(2:end)) > wheel_thresh);
+            
+            response_trials = 1:length(block.events.responseValues);
+            trial_wheel_starts = arrayfun(@(x) ...
+                wheel_starts(find(wheel_starts > block.events.stimOnTimes(x),1)), ...
+                response_trials);
+            trial_move_t = trial_wheel_starts - block.events.stimOnTimes(response_trials);
+            
+            % Wheel movements/biases
+            left_wheel_velocity = abs(wheel_velocity.*(wheel_velocity < 0));
+            right_wheel_velocity = abs(wheel_velocity.*(wheel_velocity > 0));
+            wheel_bias = (nansum(right_wheel_velocity)-nansum(left_wheel_velocity))/ ...
+                (nansum(right_wheel_velocity)+nansum(left_wheel_velocity));
+            
+            % Get reaction times for each stimulus
+            trial_stim = block.events.trialContrastValues(response_trials).*block.events.trialSideValues(response_trials);
+            stim_list = unique(reshape(unique(block.events.contrastsValues).*[-1;1],[],1));
+            [~,trial_stim_idx] = ismember(trial_stim,stim_list);
+            stim_rxn_time = accumarray(trial_stim_idx(response_trials)',trial_move_t',[11,1],@nanmedian,nan);
+            
+            % Performance (note that this excludes repeat on incorrect trials)
+            performance = block.events.sessionPerformanceValues(:,end-10:end);
+            
+            % Get whether all contrasts were used
+            use_all_contrasts = all(block.events.useContrastsValues(end-10:end));
+            
+            % Store in behavior structure
+            bhv.protocol{curr_day} = curr_protocol;
+            bhv.session_duration(curr_day) = session_duration;
+            bhv.n_trials(curr_day) = n_trials;
+            bhv.total_water(curr_day) = total_water;
+            bhv.wheel_velocity(curr_day) = nansum(abs(wheel_velocity));
+            bhv.wheel_bias(curr_day) = wheel_bias;
+            bhv.conditions = performance(1,:);
+            bhv.n_trials_condition(curr_day,:) = performance(2,:);
+            bhv.go_left_trials(curr_day,:) = performance(end,:);
+            bhv.use_all_contrasts(curr_day) = use_all_contrasts;
+            bhv.stim_rxn_time(curr_day,:) = stim_rxn_time;
+            
+            AP_print_progress_fraction(curr_day,length(experiments));
+        end
         
-        % Load the block file
-        load(block_filename)
-        
-        % Get protocol name
-        [~,protocol] = fileparts(block.expDef);
-        
-        % Time of session (in minutes)
-        session_duration = block.duration/60;
-        
-        % Trial counts
-        n_trials = length(block.paramsValues);
-        total_water = sum(block.outputs.rewardValues);
-        
-        % Estimate reaction time
-        % (evenly resample velocity - not even natively);
-        wheel_resample_rate = 1000;
-        wheel_t_resample = block.inputs.wheelTimes(1):1/wheel_resample_rate:block.inputs.wheelTimes(end);
-        wheel_values_resample = interp1(block.inputs.wheelTimes,block.inputs.wheelValues,wheel_t_resample);
-        
-        wheel_smooth_t = 0.05; % seconds
-        wheel_smooth_samples = round(wheel_smooth_t*wheel_resample_rate);
-        wheel_velocity = interp1(conv(wheel_t_resample,[1,1]/2,'valid'), ...
-            diff(smooth(wheel_values_resample,wheel_smooth_samples)),wheel_t_resample)';
-        
-        wheel_thresh = 0.025;        
-        wheel_starts = wheel_t_resample(abs(wheel_velocity(1:end-1)) < wheel_thresh & ...
-            abs(wheel_velocity(2:end)) > wheel_thresh);       
-        
-        response_trials = 1:length(block.events.responseValues);
-        trial_wheel_starts = arrayfun(@(x) ...
-            wheel_starts(find(wheel_starts > block.events.stimOnTimes(x),1)), ...
-            response_trials);      
-        trial_move_t = trial_wheel_starts - block.events.stimOnTimes(response_trials);
-        
-        % Wheel movements/biases
-        left_wheel_velocity = abs(wheel_velocity.*(wheel_velocity < 0));
-        right_wheel_velocity = abs(wheel_velocity.*(wheel_velocity > 0));
-        wheel_bias = (nansum(right_wheel_velocity)-nansum(left_wheel_velocity))/ ...
-            (nansum(right_wheel_velocity)+nansum(left_wheel_velocity));
-        
-        % Get reaction times for each stimulus
-        trial_stim = block.events.trialContrastValues(response_trials).*block.events.trialSideValues(response_trials);
-        stim_list = unique(reshape(unique(block.events.contrastsValues).*[-1;1],[],1));
-        [~,trial_stim_idx] = ismember(trial_stim,stim_list);
-        stim_rxn_time = accumarray(trial_stim_idx(response_trials)',trial_move_t',[11,1],@nanmedian,nan);
-        
-        % Performance (note that this excludes repeat on incorrect trials)
-        performance = block.events.sessionPerformanceValues(:,end-10:end);
-        
-        % Get whether all contrasts were used
-        use_all_contrasts = all(block.events.useContrastsValues(end-10:end));
-        
-        % Store in behavior structure
-        bhv.protocol{curr_day} = protocol;
-        bhv.session_duration(curr_day) = session_duration;
-        bhv.n_trials(curr_day) = n_trials;
-        bhv.total_water(curr_day) = total_water;
-        bhv.wheel_velocity(curr_day) = nansum(abs(wheel_velocity));
-        bhv.wheel_bias(curr_day) = wheel_bias;
-        bhv.conditions = performance(1,:);
-        bhv.n_trials_condition(curr_day,:) = performance(2,:);
-        bhv.go_left_trials(curr_day,:) = performance(end,:);
-        bhv.use_all_contrasts(curr_day) = use_all_contrasts;
-        bhv.stim_rxn_time(curr_day,:) = stim_rxn_time;
-        
-        AP_print_progress_fraction(curr_day,length(experiments));
     end
     
+    % Plot summary
+    day_num = cellfun(@(x) datenum(x),{experiments.day});
+    day_labels = cellfun(@(day,protocol) [protocol(19:end) ' ' day(6:end)], ...
+        {experiments.day},bhv.protocol,'uni',false);
+    figure('Name',animal)
+    
+    % Trials and water
+    subplot(3,2,1);
+    yyaxis left
+    % plot(day_num,bhv.n_trials./bhv.session_duration,'linewidth',2);
+    % ylabel('Trials/min');
+    plot(day_num,bhv.n_trials,'linewidth',2);
+    ylabel('Trials');
+    yyaxis right
+    plot(day_num,bhv.total_water,'linewidth',2);
+    ylabel('Total water');
+    xlabel('Session');
+    set(gca,'XTick',day_num);
+    set(gca,'XTickLabel',day_labels);
+    set(gca,'XTickLabelRotation',90);
+    
+    imaging_days = day_num([experiments.imaging]);
+    for i = 1:length(imaging_days)
+        line(repmat(imaging_days(i),1,2),ylim,'color','k');
+    end
+    
+    ephys_days = day_num([experiments.ephys]);
+    for i = 1:length(ephys_days)
+        line(repmat(ephys_days(i),1,2),ylim,'color','r','linestyle','--');
+    end
+    
+    % Wheel movement and bias
+    subplot(3,2,2);
+    yyaxis left
+    % plot(day_num,bhv.wheel_velocity./bhv.session_duration,'linewidth',2);
+    % ylabel('Wheel movement / min');
+    plot(day_num,bhv.wheel_velocity,'linewidth',2);
+    ylabel('Wheel movement');
+    yyaxis right
+    plot(day_num,bhv.wheel_bias,'linewidth',2);
+    ylim([-1,1]);
+    line(xlim,[0,0]);
+    ylabel('Wheel bias');
+    xlabel('Session');
+    set(gca,'XTick',day_num);
+    set(gca,'XTickLabel',day_labels);
+    set(gca,'XTickLabelRotation',90);
+    
+    imaging_days = day_num([experiments.imaging]);
+    for i = 1:length(imaging_days)
+        line(repmat(imaging_days(i),1,2),ylim,'color','k');
+    end
+    
+    ephys_days = day_num([experiments.ephys]);
+    for i = 1:length(ephys_days)
+        line(repmat(ephys_days(i),1,2),ylim,'color','r','linestyle','--');
+    end
+    
+    % Psychometric over all days
+    subplot(3,2,3);
+    im = imagesc(bhv.conditions,1:size(bhv.go_left_trials),bhv.go_left_trials./bhv.n_trials_condition);
+    set(im,'AlphaData',~isnan(get(im,'CData')));
+    set(gca,'color',[0.5,0.5,0.5]);
+    colormap(brewermap([],'*RdBu'));
+    c = colorbar;
+    ylabel(c,'Go left (frac)');
+    xlabel('Condition');
+    ylabel('Session');
+    set(gca,'YTick',1:length(experiments));
+    set(gca,'YTickLabel',day_labels);
+    axis square;
+    hold on;
+    if any([experiments.imaging])
+        plot(0,find([experiments.imaging]),'.k');
+    end
+    if any([experiments.ephys])
+        plot(0,find([experiments.ephys]),'ok');
+    end
+    
+    % Reaction time over days
+    subplot(3,2,4);
+    im = imagesc(bhv.conditions,1:size(bhv.go_left_trials),bhv.stim_rxn_time);
+    set(im,'AlphaData',~isnan(get(im,'CData')));
+    set(gca,'color',[0.5,0.5,0.5]);
+    colormap(brewermap([],'*RdBu'));
+    caxis([0.2,0.8])
+    c = colorbar;
+    ylabel(c,'Reaction time');
+    xlabel('Condition');
+    ylabel('Session');
+    set(gca,'YTick',1:length(experiments));
+    set(gca,'YTickLabel',day_labels);
+    axis square;
+    hold on;
+    if any([experiments.imaging])
+        plot(0,find([experiments.imaging]),'.k');
+    end
+    if any([experiments.ephys])
+        plot(0,find([experiments.ephys]),'ok');
+    end
+    
+    % Psychometric of combined days that use all contrasts
+    subplot(3,2,5); hold on;
+    combine_days = bhv.use_all_contrasts;
+    combine_days_performance = bhv.go_left_trials(combine_days,:)./bhv.n_trials_condition(combine_days,:);
+    errorbar(bhv.conditions,nanmean(combine_days_performance,1), ...
+        nanstd(combine_days_performance,[],1)./sqrt(sum(~isnan(combine_days_performance))),'k','linewidth',2);
+    xlim([-1,1]);
+    ylim([0,1]);
+    line(xlim,[0.5,0.5],'color','k','linestyle','--');
+    line([0,0],ylim,'color','k','linestyle','--');
+    axis square;
+    xlabel('Condition');
+    ylabel('Fraction go left');
+    
+    % Reaction time of combined days that use all contrasts
+    subplot(3,2,6); hold on;
+    combine_days = bhv.use_all_contrasts;
+    combine_days_rxn_time = bhv.stim_rxn_time(combine_days,:);
+    errorbar(bhv.conditions,nanmean(combine_days_rxn_time,1), ...
+        nanstd(combine_days_rxn_time,[],1)./sqrt(sum(~isnan(combine_days_rxn_time))),'k','linewidth',2);
+    xlim([-1,1]);
+    line(xlim,[0.5,0.5],'color','k','linestyle','--');
+    axis square;
+    xlabel('Condition');
+    ylabel('Reaction time');
+    
 end
-
-% Plot summary
-day_num = cellfun(@(x) datenum(x),{experiments.day});
-day_labels = cellfun(@(day,protocol) [protocol(19:end) ' ' day(6:end)], ...
-    {experiments.day},bhv.protocol,'uni',false);
-figure('Name',animal)
-
-% Trials and water
-subplot(3,2,1);
-yyaxis left
-% plot(day_num,bhv.n_trials./bhv.session_duration,'linewidth',2);
-% ylabel('Trials/min');
-plot(day_num,bhv.n_trials,'linewidth',2);
-ylabel('Trials');
-yyaxis right
-plot(day_num,bhv.total_water,'linewidth',2);
-ylabel('Total water');
-xlabel('Session');
-set(gca,'XTick',day_num);
-set(gca,'XTickLabel',day_labels);
-set(gca,'XTickLabelRotation',90);
-
-imaging_days = day_num([experiments.imaging]);
-for i = 1:length(imaging_days)
-    line(repmat(imaging_days(i),1,2),ylim,'color','k');
-end
-
-ephys_days = day_num([experiments.ephys]);
-for i = 1:length(ephys_days)
-    line(repmat(ephys_days(i),1,2),ylim,'color','r','linestyle','--');
-end
-
-% Wheel movement and bias
-subplot(3,2,2);
-yyaxis left
-% plot(day_num,bhv.wheel_velocity./bhv.session_duration,'linewidth',2);
-% ylabel('Wheel movement / min');
-plot(day_num,bhv.wheel_velocity,'linewidth',2);
-ylabel('Wheel movement');
-yyaxis right
-plot(day_num,bhv.wheel_bias,'linewidth',2);
-ylim([-1,1]);
-line(xlim,[0,0]);
-ylabel('Wheel bias');
-xlabel('Session');
-set(gca,'XTick',day_num);
-set(gca,'XTickLabel',day_labels);
-set(gca,'XTickLabelRotation',90);
-
-imaging_days = day_num([experiments.imaging]);
-for i = 1:length(imaging_days)
-    line(repmat(imaging_days(i),1,2),ylim,'color','k');
-end
-
-ephys_days = day_num([experiments.ephys]);
-for i = 1:length(ephys_days)
-    line(repmat(ephys_days(i),1,2),ylim,'color','r','linestyle','--');
-end
-
-% Psychometric over all days
-subplot(3,2,3);
-im = imagesc(bhv.conditions,1:size(bhv.go_left_trials),bhv.go_left_trials./bhv.n_trials_condition);
-set(im,'AlphaData',~isnan(get(im,'CData')));
-set(gca,'color',[0.5,0.5,0.5]);
-colormap(brewermap([],'*RdBu'));
-c = colorbar;
-ylabel(c,'Go left (frac)');
-xlabel('Condition');
-ylabel('Session');
-set(gca,'YTick',1:length(experiments));
-set(gca,'YTickLabel',day_labels);
-axis square;
-hold on;
-if any([experiments.imaging])
-    plot(0,find([experiments.imaging]),'.k');
-end
-if any([experiments.ephys])
-    plot(0,find([experiments.ephys]),'ok');
-end
-
-% Reaction time over days
-subplot(3,2,4);
-im = imagesc(bhv.conditions,1:size(bhv.go_left_trials),bhv.stim_rxn_time);
-set(im,'AlphaData',~isnan(get(im,'CData')));
-set(gca,'color',[0.5,0.5,0.5]);
-colormap(brewermap([],'*RdBu'));
-caxis([0.2,0.8])
-c = colorbar;
-ylabel(c,'Reaction time');
-xlabel('Condition');
-ylabel('Session');
-set(gca,'YTick',1:length(experiments));
-set(gca,'YTickLabel',day_labels);
-axis square;
-hold on;
-if any([experiments.imaging])
-    plot(0,find([experiments.imaging]),'.k');
-end
-if any([experiments.ephys])
-    plot(0,find([experiments.ephys]),'ok');
-end
-
-% Psychometric of combined days that use all contrasts
-subplot(3,2,5); hold on;
-combine_days = bhv.use_all_contrasts;
-combine_days_performance = bhv.go_left_trials(combine_days,:)./bhv.n_trials_condition(combine_days,:);
-errorbar(bhv.conditions,nanmean(combine_days_performance,1), ...
-    nanstd(combine_days_performance,[],1)./sqrt(sum(~isnan(combine_days_performance))),'k','linewidth',2);
-xlim([-1,1]);
-ylim([0,1]);
-line(xlim,[0.5,0.5],'color','k','linestyle','--');
-line([0,0],ylim,'color','k','linestyle','--');
-axis square;
-xlabel('Condition');
-ylabel('Fraction go left');
-
-% Reaction time of combined days that use all contrasts
-subplot(3,2,6); hold on;
-combine_days = bhv.use_all_contrasts;
-combine_days_rxn_time = bhv.stim_rxn_time(combine_days,:);
-errorbar(bhv.conditions,nanmean(combine_days_rxn_time,1), ...
-    nanstd(combine_days_rxn_time,[],1)./sqrt(sum(~isnan(combine_days_rxn_time))),'k','linewidth',2);
-xlim([-1,1]);
-line(xlim,[0.5,0.5],'color','k','linestyle','--');
-axis square;
-xlabel('Condition');
-ylabel('Reaction time');
 
 %% Get and plot single mouse behavior (ChoiceWorld (old) + vanillaChoiceWorld)
 clear all;
-animal = 'AP025';
+animal = 'AP024';
 
 protocol = 'ChoiceWorld';
 choiceworld_experiments = AP_find_experiments(animal,protocol);
