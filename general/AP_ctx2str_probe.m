@@ -574,9 +574,11 @@ probe_angle = 45; % from horizontal
 
 protocol = 'vanillaChoiceworld';
 % protocol = 'AP_choiceWorldStimPassive';
+flexible_name = true;
 
-animal = 'AP025';
-experiments = AP_find_experiments(animal,protocol);
+animal = 'AP054';
+
+experiments = AP_find_experiments(animal,protocol,flexible_name);
 experiments = experiments([experiments.imaging] & [experiments.ephys]);
 
 % Load in the annotated Allen volume and names
@@ -615,9 +617,9 @@ for curr_day = 1:length(experiments)
     day = experiments(curr_day).day;
     
     [img_path,img_exists] = AP_cortexlab_filename(animal,day,[],'imaging');
-    avg_im = readNPY([img_path filesep 'meanImage_purple.npy']);
+    avg_im = readNPY([img_path filesep 'meanImage_blue.npy']);
     
-    avg_im_aligned = AP_align_widefield(animal,day,avg_im);
+    avg_im_aligned = AP_align_widefield(avg_im,animal,day);
     
     h = figure('units','normalized','outerposition',[0 0 1 1]);
     imagesc(avg_im_aligned);

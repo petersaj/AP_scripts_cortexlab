@@ -1,6 +1,6 @@
 %% Get and plot single mouse behavior (vanillaChoiceworld)
 % animals = {'AP043','AP044','AP047','AP048','AP053','AP045'};
-animals = {'AP045'};
+% animals = {'AP045'};
 protocol = 'vanillaChoiceworld';
 flexible_name = true;
 
@@ -15,8 +15,8 @@ for curr_animal = 1:length(animals)
         day = experiments(curr_day).day;
         experiment_num = experiments(curr_day).experiment;
         
-        % If multiple experiments, only use the last one 
-        % (usually multiple happens if mess ups and final one is good)
+        % If multiple experiments, only use the last one (usually multiple
+        % happens if mess ups and final one is good)
         for curr_experiment = length(experiment_num)
             
             experiment = experiment_num(curr_experiment);

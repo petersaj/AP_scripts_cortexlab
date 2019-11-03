@@ -2883,7 +2883,7 @@ binned_spikes_std(isnan(binned_spikes_std)) = 0;
 use_svs = 1:50;
 kernel_t = [-0.5,0.5];
 kernel_frames = round(kernel_t(1)*sample_rate):round(kernel_t(2)*sample_rate);
-lambda = 10;
+lambda = 2;
 zs = [false,false];
 cvfold = 5;
 return_constant = false;
@@ -2902,13 +2902,13 @@ fVdf_deconv_resample = interp1(frame_t,fVdf_deconv(use_svs,:)',time_bin_centers)
 %     AP_regresskernel(fVdf_resample, ...
 %     binned_spikes_std,kernel_frames,lambda,zs,cvfold);
 % TO USE dfV
-[k,predicted_spikes,explained_var] = ...
-    AP_regresskernel(dfVdf_resample, ...
-    binned_spikes_std,kernel_frames,lambda,zs,cvfold,return_constant,use_constant);
-% TO USE DECONV
 % [k,predicted_spikes,explained_var] = ...
-%     AP_regresskernel(fVdf_deconv_resample, ...
+%     AP_regresskernel(dfVdf_resample, ...
 %     binned_spikes_std,kernel_frames,lambda,zs,cvfold,return_constant,use_constant);
+% TO USE DECONV
+[k,predicted_spikes,explained_var] = ...
+    AP_regresskernel(fVdf_deconv_resample, ...
+    binned_spikes_std,kernel_frames,lambda,zs,cvfold,return_constant,use_constant);
 
 % Convert kernel to pixel space
 r_px = zeros(size(Udf,1),size(Udf,2),size(k,2),size(k,3),'single');

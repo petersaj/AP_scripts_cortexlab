@@ -2002,7 +2002,7 @@ axis image off
 
 %% Sparse noise with my code in batch
 
-animals = {'AP054'};
+animals = {'AP045'};
 
 for curr_animal = 1:length(animals)
     
