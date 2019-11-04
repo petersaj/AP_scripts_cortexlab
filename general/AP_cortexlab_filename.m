@@ -1,5 +1,5 @@
 function [filename,file_exists] = AP_cortexlab_filename(animal,day,experiment,file,site,recording)
-% [filename,file_exists] = AP_cortexlab_filename(animal,day,experiment,file,site)
+% [filename,file_exists] = AP_cortexlab_filename(animal,day,experiment,file,site,recording)
 %
 % This is an absolute mess because of lab-wide inconsistency
 %
