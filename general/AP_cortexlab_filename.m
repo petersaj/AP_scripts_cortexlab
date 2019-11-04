@@ -86,7 +86,9 @@ switch file
     case 'expInfo'
         filepattern = [animal filesep day filesep];
         [filename,file_exists] = check_locations(filepattern,server_location);
-        filename = fileparts(filename{1});
+        if file_exists
+            filename = fileparts(filename{1});
+        end
         
     case 'timeline'
         filepattern = [animal filesep day filesep experiment ...
@@ -136,13 +138,17 @@ switch file
     case 'imaging'
         filepattern = [animal filesep day filesep filesep 'svd*'];
         [filename,file_exists] = check_locations(filepattern,server_location);
-        filename = fileparts(filename{1});
+        if file_exists
+            filename = fileparts(filename{1});
+        end
         
     case 'ephys_dir'
         % (the path where the ephys data is kept)
         filepattern = [animal filesep day filesep 'ephys' site_dir];
         [filename,file_exists] = check_locations(filepattern,server_location);
-        filename = fileparts(filename{1});
+        if file_exists
+            filename = fileparts(filename{1});
+        end
         
     case 'ephys_ap'
         % (the raw action potential band data file)
