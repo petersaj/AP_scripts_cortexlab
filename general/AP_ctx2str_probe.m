@@ -576,7 +576,7 @@ protocol = 'vanillaChoiceworld';
 % protocol = 'AP_choiceWorldStimPassive';
 flexible_name = true;
 
-animal = 'AP054';
+animal = 'AP045';
 
 experiments = AP_find_experiments(animal,protocol,flexible_name);
 experiments = experiments([experiments.imaging] & [experiments.ephys]);

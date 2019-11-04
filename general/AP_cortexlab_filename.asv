@@ -1,9 +1,10 @@
 function [filename,file_exists] = AP_cortexlab_filename(animal,day,experiment,file,site,recording)
 % [filename,file_exists] = AP_cortexlab_filename(animal,day,experiment,file,site)
 %
-% This is an absolute mess because of lab-wide inconsistency
+% This is an absolute mess because things changed locations a hundred times
+% so new possible locations had to be manually added many times
 %
-% file types:
+% file - can include:
 % expInfo
 % timeline
 % block
@@ -20,6 +21,7 @@ function [filename,file_exists] = AP_cortexlab_filename(animal,day,experiment,fi
 % ephys_ks1
 % ephys_dir
 % ephys_ap
+% probe_histology
 
 % Make inputs strings if they're numbers
 if isnumeric(experiment)
@@ -83,7 +85,7 @@ server_location{end+1} = [server1 filesep 'EyeCamera'];
 
 switch file
     
-    case 'expInfo'
+    case 'expInfo'      
         filepattern = [animal filesep day filesep];
         [filename,file_exists] = check_locations(filepattern,server_location);
         filename = fileparts(filename{1});
@@ -91,7 +93,7 @@ switch file
     case 'timeline'
         filepattern = [animal filesep day filesep experiment ...
             filesep day '_' experiment '_' animal '_Timeline.mat'];
-        [filename,file_exists] = check_locations(filepattern,server_location);
+        [filename,file_exists] = check_locations(filepattern,server_location);      
         
     case 'block'
         filepattern = [animal filesep day filesep experiment ...
@@ -102,7 +104,7 @@ switch file
         filepattern = [animal filesep day filesep experiment ...
             filesep day '_' experiment '_' animal '_parameters.mat'];
         [filename,file_exists] = check_locations(filepattern,server_location);
-        
+             
     case 'protocol'
         filepattern = [animal filesep day filesep experiment filesep 'Protocol.mat'];
         [filename,file_exists] = check_locations(filepattern,server_location);
@@ -114,7 +116,7 @@ switch file
     case 'facecam'
         filepattern = [animal filesep day filesep experiment filesep 'face.mj2'];
         [filename,file_exists] = check_locations(filepattern,server_location);
-        
+      
     case 'eyecam_processed'
         filepattern = [animal filesep day filesep experiment filesep 'eye_proc.mat'];
         [filename,file_exists] = check_locations(filepattern,server_location);
@@ -132,7 +134,7 @@ switch file
         filepattern = [animal filesep day filesep experiment ...
             filesep day '_' experiment '_' animal '_hardwareInfo.mat'];
         [filename,file_exists] = check_locations(filepattern,server_location);
-        
+  
     case 'imaging'
         filepattern = [animal filesep day filesep filesep 'svd*'];
         [filename,file_exists] = check_locations(filepattern,server_location);
@@ -143,34 +145,54 @@ switch file
         filepattern = [animal filesep day filesep 'ephys' site_dir];
         [filename,file_exists] = check_locations(filepattern,server_location);
         filename = fileparts(filename{1});
-        
+     
     case 'ephys_ap'
         % (the raw action potential band data file)
-        
-        % Old open ephys
         filepattern = [animal filesep day filesep 'ephys' site_dir filesep 'experiment1_10*-0_0.dat'];
         [filename,file_exists] = check_locations(filepattern,server_location);
         
-        % New open ephys
-        if ~file_exists
-            filepattern = [animal filesep day filesep ...
-                'ephys' site_dir filesep 'experiment1' filesep 'recording1' ...
-                filesep 'continuous'  filesep 'Neuropix-3a-100.0' filesep 'continuous.dat'];
-            [filename,file_exists] = check_locations(filepattern,server_location);
+
+        
+        % CHECK SERVER2 IF IT DOESN'T EXIST
+        if isempty(filepattern_dir)
+            filepath = [server2 filesep 'Subjects' filesep animal filesep day filesep 'ephys' site_dir];
+            filepattern = [filepath filesep 'experiment1_10*-0_0.dat'];
+            filepattern_dir = dir(filepattern);
+            filename = [filepath filesep filepattern_dir.name];
+        end
+        
+        % CHECK NEW OPEN EPHYS ON SERVER1 IF IT DOESN'T EXIST
+        % (after server switch, should never be on zserver)
+        if ~exist(filename,'file')
+            filepath = [server1 filesep 'Data' filesep 'Subjects' filesep animal filesep day filesep ...
+                'ephys' site_dir filesep 'experiment1' filesep 'recording1'];
+            filename = [filepath filesep 'continuous'  filesep 'Neuropix-3a-100.0' filesep 'continuous.dat'];
+        end
+        
+        % CHECK NEW OPEN EPHYS ON SERVER2 IF IT DOESN'T EXIST
+        % (after server switch, should never be on zserver)
+        if ~exist(filename,'file')
+            filepath = [server2 filesep 'Subjects' filesep animal filesep day filesep ...
+                'ephys' site_dir filesep 'experiment1' filesep 'recording1'];
+            filename = [filepath filesep 'continuous'  filesep 'Neuropix-3a-100.0' filesep 'continuous.dat'];
         end
         
     case 'ephys'
-        % (folder with kilosort/phy outputs)
+        % folder with kilosort/phy outputs
         
         kilosort_version = 2; % (kilosort 2 by default)
         
+        % Self-call to match ephys_dir above
+        [ephys_dir_site,~] = AP_cortexlab_filename(animal,day,experiment,'ephys_dir',site);
+        ephys_dir_parent = ephys_dir_site(1:end-length(site_dir));
+   
         % Drop the kilosort version in the base workspace
-        assignin('base','kilosort_version',kilosort_version);
+        assignin('base','kilosort_version',kilosort_version); 
         
-        filepattern = [animal filesep day filesep 'ephys' site_dir filesep 'kilosort2' filesep recording_dir];
-        [filename,file_exists] = check_locations(filepattern,server_location);
-        if file_exists
-            filename = fileparts(filename{1});
+        if kilosort_version == 1
+            filename = [ephys_dir_parent filesep 'kilosort' filesep site_dir filesep recording_dir];
+        elseif kilosort_version == 2
+            filename = [ephys_dir_parent filesep 'kilosort2' filesep site_dir filesep recording_dir];
         end
         
     case 'ephys_ks1'
@@ -178,16 +200,37 @@ switch file
         
         kilosort_version = 1; % (kilosort 2 by default)
         
+        % Self-call to match ephys_dir above
+        [ephys_dir_site,~] = AP_cortexlab_filename(animal,day,experiment,'ephys_dir',site);
+        ephys_dir_parent = ephys_dir_site(1:end-length(site_dir));
+   
         % Drop the kilosort version in the base workspace
-        assignin('base','kilosort_version',kilosort_version);
+        assignin('base','kilosort_version',kilosort_version); 
         
-        filepattern = [animal filesep day filesep 'ephys' site_dir filesep 'kilosort' filesep recording_dir];
-        [filename,file_exists] = check_locations(filepattern,server_location);
-        if file_exists
-            filename = fileparts(filename{1});
+        if kilosort_version == 1
+            filename = [ephys_dir_parent filesep 'kilosort' filesep site_dir];
+        elseif kilosort_version == 2
+            filename = [ephys_dir_parent filesep 'kilosort2' filesep site_dir];
+        end
+        
+    case 'probe_histology'
+        % (the output from P Shamash's program for histology to probe)
+        filepath = [server2 filesep 'Subjects'];
+        filepattern = [filepath filesep animal filesep 'histology' filesep 'probe' filesep 'processed' filesep 'probe_points*.mat'];
+        filepattern_dir = dir(filepattern);
+        if ~isempty(filepattern_dir) && length(filepattern_dir) == 1
+            filename = [filepattern_dir.folder filesep filepattern_dir.name];
+        else
+            filename = filepattern;
         end
         
 end
+
+% Check whether the file exists (unless that check was performed above)
+if ~exist('file_exists','var')
+    file_exists = any(exist(filename));
+end
+
 end
 
 
