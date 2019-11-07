@@ -68,18 +68,14 @@ if ~exist([server3 filesep 'Subjects'])
     error('Znas not available');
 end
 
-% TO DO HERE: clean up this script, add znas
-% % List all folders to check
-% % (files used to be kept in separate folders, then only in animal folders,
-% % and across 3 servers)
+% List all folders to check
 server_location = cell(0);
 server_location{end+1} = [server3 filesep 'Subjects'];
 server_location{end+1} = [server2 filesep 'Subjects'];
 server_location{end+1} = [server1 filesep 'Data' filesep 'Subjects'];
-server_location{end+1} = [server1 filesep 'expInfo'];
-server_location{end+1} = [server1 filesep 'trodes'];
-server_location{end+1} = [server1 filesep 'EyeCamera'];
-
+server_location{end+1} = [server1 filesep 'Data' filesep 'expInfo'];
+server_location{end+1} = [server1 filesep 'Data' filesep 'trodes'];
+server_location{end+1} = [server1 filesep 'Data' filesep 'EyeCamera'];
 
 switch file
     

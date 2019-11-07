@@ -1988,7 +1988,7 @@ align_times = wheel_move_time(use_trials)';
 
 surround_time = [-0.5,1];
 
-roi_trace = AP_svd_roi(aUdf,fVdf,avg_im);
+roi_trace = AP_svd_roi(Udf,fVdf,avg_im);
 
 t_surround = surround_time(1):1/framerate:surround_time(2);
 time_around_event = bsxfun(@plus,align_times,t_surround);

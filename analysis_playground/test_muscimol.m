@@ -116,7 +116,7 @@ experiments = experiments([experiments.imaging] & [experiments.ephys]);
 
 init_array = cell(size(experiments));
 
-curr_day = 2;
+curr_day = length(experiments);
 day = experiments(curr_day).day;
 
 if length(experiments(curr_day).experiment) ~= 2
