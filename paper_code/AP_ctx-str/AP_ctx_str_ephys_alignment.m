@@ -595,14 +595,9 @@ for curr_animal = 1:length(animals)
     % Find experiments
     % (use only behavior days because cortical recordings afterwards)
     protocol = 'vanillaChoiceworld';
-    experiments = AP_find_experiments(animal,protocol);
+    flexible_name = true;
+    experiments = AP_find_experiments(animal,protocol,flexible_name);
     experiments(~([experiments.imaging] & [experiments.ephys])) = [];
-    if isempty(experiments)
-        % (if no behavior days then it was a naive mouse - use passive expt)
-        protocol = 'AP_choiceWorldStimPassive';
-        experiments = AP_find_experiments(animal,protocol);
-        experiments(~([experiments.imaging] & [experiments.ephys])) = [];
-    end
 
     disp(animal); 
     
