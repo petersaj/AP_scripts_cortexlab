@@ -3030,7 +3030,7 @@ AP_reference_outline('ccf_aligned','k',[],[size(U_master,1),size(U_master,2),1,3
 
 % AP_cellraster({stimOn_times,wheel_move_time,reward_t_timeline});
 
-outcome_time = signals_events.responseTimes';
+outcome_time = signals_events.responseTimes(1:n_trials)';
 
 % (all trials)
 AP_cellraster({stimOn_times,wheel_move_time,outcome_time}, ...

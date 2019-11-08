@@ -203,7 +203,7 @@ line([-1,1],[0.5,0.5],'color','k','linestyle','--');
 
 %% Plot psychometrics and reaction times (pre/post muscimol choiceworld, BATCH)
 
-animals = {'AP054','AP055'};
+animals = {'AP045','AP054','AP055'};
 
 bhv = struct('frac_go_left',cell(length(animals),1), ...
     'rxn_time',cell(length(animals),1));
@@ -311,7 +311,7 @@ line([-1,1],[0.5,0.5],'color','k','linestyle','--');
 
 %% Get VFS pre/post musicmol
 
-animals = {'AP054','AP055'};
+animals = {'AP045','AP054','AP055'};
 
 vfs = cell(length(animals),1);
 
@@ -347,6 +347,7 @@ for curr_animal = 1:length(animals)
     end
 end
 
+% Plot pre/post for each animal and day
 for curr_animal = 1:length(vfs)
     figure('Name',animals{curr_animal});
     for curr_day = 1:size(vfs{curr_animal},1)
@@ -363,6 +364,32 @@ for curr_animal = 1:length(vfs)
         AP_reference_outline('ccf_aligned',[0.5,0.5,0.5]);
     end
 end
+
+% Plot pre/post mean
+vfs_cat = vertcat(vfs{:});
+vfs_pre_mean = nanmean(cat(3,vfs_cat{:,1}),3);
+vfs_post_mean = nanmean(cat(3,vfs_cat{:,2}),3);
+
+figure; 
+subplot(1,2,1);
+imagesc(vfs_pre_mean);
+axis image off
+colormap(brewermap([],'*RdBu'));
+caxis([-1,1])
+AP_reference_outline('ccf_aligned',[0.5,0.5,0.5]);
+title('Pre-muscimol');
+
+subplot(1,2,2);
+imagesc(vfs_post_mean);
+axis image off
+colormap(brewermap([],'*RdBu'));
+caxis([-1,1])
+AP_reference_outline('ccf_aligned',[0.5,0.5,0.5]);
+title('Post-muscimol');
+
+
+
+
 
 
 

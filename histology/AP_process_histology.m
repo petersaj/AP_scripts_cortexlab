@@ -246,7 +246,7 @@ min_slice = 1000; %(1000/10)^2; % (um/10(CCF units))^2
 
 % Estimate slice white threshold
 curr_im_bw = nanmean(slice_data.im_rgb{slice_data.curr_slide},3);
-[im_hist,im_hist_edges] = histcounts(curr_im_bw(curr_im_bw > 0), ...
+[im_hist,im_hist_edges] = histcounts(curr_im_bw, ...
     linspace(min(curr_im_bw(:)),max(curr_im_bw(:)),100));
 im_hist_deriv = [0;diff(smooth(im_hist,10))];
 [~,bg_down] = min(im_hist_deriv);

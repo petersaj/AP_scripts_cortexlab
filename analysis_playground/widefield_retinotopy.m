@@ -2002,7 +2002,7 @@ axis image off
 
 %% Sparse noise with my code in batch
 
-animals = {'AP045'};
+animals = {'AP055'};
 
 for curr_animal = 1:length(animals)
     
@@ -2012,7 +2012,8 @@ for curr_animal = 1:length(animals)
 %     protocol = 'stimSparseNoiseUncorrAsync';
     protocol = 'AP_sparseNoise';
     experiments = AP_find_experiments(animal,protocol);
-    experiments = experiments([experiments.imaging]);
+%     experiments = experiments([experiments.imaging]);
+    experiments = experiments([experiments.imaging] & ~[experiments.ephys]);
     
     load_parts.cam = false;
     load_parts.imaging = true;

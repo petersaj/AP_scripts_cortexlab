@@ -1,8 +1,8 @@
 %% Get and plot single mouse behavior (vanillaChoiceworld)
 % animals = {'AP043','AP047','AP048'};
 % animals = {'AP049','AP050','AP051'};
-% animals = {'JF001','JF002','JF003'};
-animals = {'AP045'};
+% animals = {'AP044','AP053'};
+animals = {'AP056'};
 protocol = 'vanillaChoiceworld';
 flexible_name = true;
 
@@ -221,6 +221,8 @@ for curr_animal = 1:length(animals)
     axis square;
     xlabel('Condition');
     ylabel('Reaction time');
+    
+    drawnow;
     
 end
 

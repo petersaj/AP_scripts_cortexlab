@@ -684,7 +684,7 @@ load([probe_path,probe_file]);
 if exist('pointList','var')
     histology_points = pointList.pointList{1};
 elseif exist('probe_ccf','var')
-    histology_points = probe_ccf{1}; % only use first probe
+    histology_points = probe_ccf(1).points; % only use first probe
 end
 
 r0 = mean(histology_points,1);

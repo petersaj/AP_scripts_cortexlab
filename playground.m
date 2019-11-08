@@ -10634,12 +10634,34 @@ end
 
 AP_align_widefield(avg_im_days,animal,{experiments.day},'new_days');
 
+%% View aligned vasculature (to check that it's been done correctly)
+
+animal = 'AP045';
+
+protocol = 'AP_sparseNoise';
+experiments = AP_find_experiments(animal,protocol);
+experiments(~([experiments.imaging])) = [];
+
+avg_im_aligned = cell(size(experiments));
+for curr_day = 1:length(experiments)
+    day = experiments(curr_day).day;
+    [img_path,img_exists] = AP_cortexlab_filename(animal,day,[],'imaging');
+    avg_im_h = readNPY([img_path filesep 'meanImage_purple.npy']);
+    avg_im_n = readNPY([img_path filesep 'meanImage_blue.npy']);
+    avg_im_aligned{curr_day} = [AP_align_widefield(avg_im_n,animal,day), ...
+        AP_align_widefield(avg_im_h,animal,day)];
+end
+
+AP_image_scroll(cat(3,avg_im_aligned{:}));
+axis image;
+set(gcf,'Name',animal);
+
 %% Average retinotopy, align to master
 
 retinotopy_path = 'C:\Users\Andrew\OneDrive for Business\Documents\CarandiniHarrisLab\analysis\widefield_alignment\retinotopy';
 retinotopy_dir = dir(retinotopy_path);
 
-animal = 'AP045';
+animal = 'AP055';
 load([retinotopy_path filesep animal '_retinotopy'])
 
 aligned_vfs = cell(length(retinotopy),1);
