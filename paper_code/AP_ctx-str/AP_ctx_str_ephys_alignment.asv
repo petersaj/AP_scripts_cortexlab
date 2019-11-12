@@ -575,17 +575,13 @@ animals = {'AP045','AP054','AP055'};
 % Load alignment structures
 n_aligned_depths = 4;
 alignment_path = 'C:\Users\Andrew\OneDrive for Business\Documents\CarandiniHarrisLab\analysis\wf_ephys_choiceworld\ephys_processing';
-ctx_lambda_fn = [alignment_path filesep 'ctx-str_lambda'];
+ctx_str_lambda_fn = [alignment_path filesep 'ctx-str_lambda'];
 ephys_kernel_depth_fn = [alignment_path filesep 'ephys_kernel_depth'];
 ephys_kernel_align_fn = [alignment_path filesep 'ephys_kernel_align_' num2str(n_aligned_depths) '_depths'];
 
-load(lambda_fn);
+load(ctx_str_lambda_fn);
 load(ephys_kernel_depth_fn);
 load(ephys_kernel_align_fn);
-
-%%%%%% IN PROGRESS HERE
-%%%%%%%%%%%%%%%
-%%%%%%%%%%%%%%%%%
 
 for curr_animal = 1:length(animals)
     
@@ -593,14 +589,9 @@ for curr_animal = 1:length(animals)
     % Find experiments
     % (use only behavior days because cortical recordings afterwards)
     protocol = 'vanillaChoiceworld';
-    experiments = AP_find_experiments(animal,protocol);
+    flexible_name = true;
+    experiments = AP_find_experiments(animal,protocol,flexible_name);
     experiments(~([experiments.imaging] & [experiments.ephys])) = [];
-    if isempty(experiments)
-        % (if no behavior days then it was a naive mouse - use passive expt)
-        protocol = 'AP_choiceWorldStimPassive';
-        experiments = AP_find_experiments(animal,protocol);
-        experiments(~([experiments.imaging] & [experiments.ephys])) = [];
-    end
 
     disp(animal); 
     
@@ -619,7 +610,7 @@ for curr_animal = 1:length(animals)
         str_align = 'none';
         AP_load_experiment
         
-        %%% Get lambda
+        %~~~~~~~~~~~~~~~~~~~~~~~ Get lambda
         
         % Get time points to bin
         sample_rate = framerate*regression_params.upsample_factor;
@@ -691,26 +682,136 @@ for curr_animal = 1:length(animals)
         ctx_str_lambda(curr_animal_idx).best_lambda(curr_day) = best_lambda;
         ctx_str_lambda(curr_animal_idx).lambdas{curr_day} = lambdas;        
         ctx_str_lambda(curr_animal_idx).explained_var_lambdas{curr_day} = explained_var_lambdas;     
-        save([save_path filesep save_fn],'ctx_str_lambda');
+        save(ctx_str_lambda_fn,'ctx_str_lambda');
+        
+        %~~~~~~~~~~~~~~~~~~~~~~~ Get kernels at regular striatal depths
+        
+        % Get time points to query
+        sample_rate = framerate*regression_params.upsample_factor;
+        time_bins = frame_t(find(frame_t > ...
+            regression_params.skip_seconds,1)):1/sample_rate: ...
+            frame_t(find(frame_t-frame_t(end) < ...
+            -regression_params.skip_seconds,1,'last'));
+        time_bin_centers = time_bins(1:end-1) + diff(time_bins)/2;
+        
+        % Deconvolve and resample V
+        fVdf_deconv = AP_deconv_wf(fVdf);
+        fVdf_deconv(isnan(fVdf_deconv)) = 0;
+        fVdf_deconv_resample = interp1(frame_t,fVdf_deconv',time_bin_centers)';
+        
+        % Get striatum multiunit in ~200 um chunks
+        n_depths = round(diff(str_depth)/200);
+        depth_group_edges = round(linspace(str_depth(1),str_depth(2),n_depths+1));
+        [depth_group_n,depth_group] = histc(spike_depths,depth_group_edges);
+        depth_groups_used = unique(depth_group);
+        depth_group_centers = depth_group_edges(1:end-1)+(diff(depth_group_edges)/2);
+        
+        binned_spikes = zeros(n_depths,length(time_bins)-1);
+        for curr_depth = 1:n_depths
+            curr_spike_times = spike_times_timeline(depth_group == curr_depth);
+            binned_spikes(curr_depth,:) = histcounts(curr_spike_times,time_bins);
+        end
+        binned_spikes_std = binned_spikes./nanstd(binned_spikes,[],2);
+   
+        % Load lambda from previously estimated and saved
+        lambda = ctx_str_lambda(curr_animal_idx).best_lambda(curr_day);
+      
+        % Regress fluorescence to spikes
+        kernel_frames = round(regression_params.kernel_t(1)*sample_rate): ...
+            round(regression_params.kernel_t(2)*sample_rate);
+      
+        [k,predicted_spikes,explained_var] = ...
+            AP_regresskernel(fVdf_deconv_resample(regression_params.use_svs,:), ...
+            binned_spikes_std,kernel_frames,lambda, ...
+            regression_params.zs,regression_params.cvfold, ...
+            false,regression_params.use_constant);
+        
+        Udf_aligned = AP_align_widefield(Udf,animal,day);
+        k_px = zeros(size(Udf_aligned,1),size(Udf_aligned,2),size(k,2),size(k,3),'single');
+        for curr_spikes = 1:size(k,3)
+            k_px(:,:,:,curr_spikes) = ...
+                svdFrameReconstruct(Udf_aligned(:,:,regression_params.use_svs),k(:,:,curr_spikes));
+        end
+                
+        % Keep kernel one frame (t == 0)
+        k_px_frame = squeeze(k_px(:,:,kernel_frames == 0,:));
+    
+        % Package in structure
+        ephys_kernel_depth(curr_animal_idx).animal = animal;
+        ephys_kernel_depth(curr_animal_idx).days{curr_day} = day;       
+        ephys_kernel_depth(curr_animal_idx).k_px{curr_day} = k_px_frame;
+        save(ephys_kernel_depth_fn,'ephys_kernel_depth');
+        
+        %~~~~~~~~~~~~~~~~~~~~~~~ Align striatum to template kernels
+        
+        % Load the template kernels
+        kernel_template_fn = ['C:\Users\Andrew\OneDrive for Business\Documents\CarandiniHarrisLab\analysis\wf_ephys_choiceworld\ephys_processing\kernel_template'  '_' num2str(n_aligned_depths) '_depths.mat'];
+        load(kernel_template_fn);
+        
+        % Pull out the relevant kernels and normalize
+        curr_animal_idx = strcmp(animal,{ephys_kernel_depth.animal});
+        curr_day_idx = strcmp(day,ephys_kernel_depth(curr_animal_idx).days);
+       
+        k_px = ephys_kernel_depth(curr_animal_idx).k_px{curr_day_idx};        
+        kernel_align = k_px;
+    
+        % Get best match from kernels to kernel templates
+        kernel_align_reshape = reshape(kernel_align,[],size(kernel_align,3));
+        kernel_align_medfilt = medfilt2(kernel_align_reshape,[1,1]);
+        kernel_corr = (zscore(kernel_align_medfilt,[],1)'* ...
+            zscore(reshape(kernel_template,[],size(kernel_template,3)),[],1))./ ...
+            (size(kernel_align_medfilt,1)-1);
+        [kernel_match_corr,kernel_match_raw] = max(kernel_corr,[],2);
+        
+        % CLEAN UP KERNEL MATCH, NOT SURE HOW TO DO THIS YET
+        % Median filter kernel match to get rid of blips
+        kernel_match = medfilt1(kernel_match_raw,3);
+        
+        % If kernel match goes backwards, then set it to nearest neighbor
+        replace_kernel_match = kernel_match < cummax(kernel_match);
+        kernel_match(replace_kernel_match) = ...
+            interp1(find(~replace_kernel_match),kernel_match(~replace_kernel_match), ...
+            find(replace_kernel_match),'nearest');
+        
+        % Assign depth edges and kernel template index numbers
+        kernel_match_boundary_idx = unique([1;find(diff(kernel_match) ~= 0)+1;n_depths+1]);
+        
+        kernel_match_depth_edges = depth_group_edges(kernel_match_boundary_idx);
+        kernel_match_idx = kernel_match(kernel_match_boundary_idx(1:end-1));
+        
+        % Categorize template by kernel match
+        aligned_str_depth_group = discretize(spike_depths,kernel_match_depth_edges,kernel_match_idx);
+        
+        % Package in structure
+        ephys_kernel_align(curr_animal_idx).animal = animal;
+        ephys_kernel_align(curr_animal_idx).days{curr_day} = day;       
 
+        ephys_kernel_align(curr_animal_idx).kernel_corr{curr_day} = kernel_corr;
+        ephys_kernel_align(curr_animal_idx).kernel_match_raw{curr_day} = kernel_match_raw;
+        ephys_kernel_align(curr_animal_idx).kernel_match{curr_day} = kernel_match;
         
-        %%% Get kernels at regular striatal depths
+        ephys_kernel_align(curr_animal_idx).aligned_str_depth_group{curr_day} = aligned_str_depth_group;
+        ephys_kernel_align(curr_animal_idx).n_aligned_depths(curr_day) = n_aligned_depths;
+        
+        save(ephys_kernel_align_fn,'ephys_kernel_depth');
         
         
-        %%% Align striatum to template kernels
-        
-        
-        
-        
+        %~~~~~~~~~~~~~~~~~~~~~~~ Print progress, clear for next
         
         AP_print_progress_fraction(curr_day,length(experiments));
-        clearvars -except  
+        clearvars -except  ...
+            regression_params animals curr_animal...
+            ctx_str_lambda_fn ephys_kernel_depth_fn
+            ctx_str_lambda ephys_kernel_depth ephys_kernel_align ...
+             animal curr_animal_idx experiments curr_day
         
     end
 end
 
 
-
+load(ctx_str_lambda_fn);
+load(ephys_kernel_depth_fn);
+load(ephys_kernel_align_fn);
 
  
  

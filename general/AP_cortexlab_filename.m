@@ -169,7 +169,7 @@ switch file
         % Drop the kilosort version in the base workspace
         assignin('base','kilosort_version',kilosort_version);
         
-        filepattern = [animal filesep day filesep 'ephys' site_dir filesep 'kilosort2' filesep recording_dir];
+        filepattern = [animal filesep day filesep 'ephys'  filesep 'kilosort2' filesep site_dir filesep recording_dir];
         [filename,file_exists] = check_locations(filepattern,server_location);
         if file_exists
             filename = fileparts(filename{1});
@@ -183,7 +183,7 @@ switch file
         % Drop the kilosort version in the base workspace
         assignin('base','kilosort_version',kilosort_version);
         
-        filepattern = [animal filesep day filesep 'ephys' site_dir filesep 'kilosort' filesep recording_dir];
+        filepattern = [animal filesep day filesep 'ephys' filesep 'kilosort' filesep site_dir filesep recording_dir];
         [filename,file_exists] = check_locations(filepattern,server_location);
         if file_exists
             filename = fileparts(filename{1});

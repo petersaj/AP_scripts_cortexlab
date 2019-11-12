@@ -559,12 +559,6 @@ disp('Saved ephys kernel alignment');
 
 %% Estimate lambda, get kernels in segments, align to templates (MUSCIMOL)
 
-%%%%%%%%%%%%%%%
-%%%%%%%%%%%%% TEST THIS I THINK IT'S READY
-%%%%%%%%%%%%%%
-
-
-
 clear all
 
 % Parameters for regression
@@ -688,7 +682,7 @@ for curr_animal = 1:length(animals)
         ctx_str_lambda(curr_animal_idx).best_lambda(curr_day) = best_lambda;
         ctx_str_lambda(curr_animal_idx).lambdas{curr_day} = lambdas;        
         ctx_str_lambda(curr_animal_idx).explained_var_lambdas{curr_day} = explained_var_lambdas;     
-        save(ctx_str_lambda_fn,'ctx_str_lambda');
+        save(ctx_str_lambda_fn,'ctx_str_lambda','-v7.3');
         
         %~~~~~~~~~~~~~~~~~~~~~~~ Get kernels at regular striatal depths
         
@@ -746,7 +740,7 @@ for curr_animal = 1:length(animals)
         ephys_kernel_depth(curr_animal_idx).animal = animal;
         ephys_kernel_depth(curr_animal_idx).days{curr_day} = day;       
         ephys_kernel_depth(curr_animal_idx).k_px{curr_day} = k_px_frame;
-        save(ephys_kernel_depth_fn,'ephys_kernel_depth');
+        save(ephys_kernel_depth_fn,'ephys_kernel_depth','-v7.3');
         
         %~~~~~~~~~~~~~~~~~~~~~~~ Align striatum to template kernels
         
@@ -799,7 +793,7 @@ for curr_animal = 1:length(animals)
         ephys_kernel_align(curr_animal_idx).aligned_str_depth_group{curr_day} = aligned_str_depth_group;
         ephys_kernel_align(curr_animal_idx).n_aligned_depths(curr_day) = n_aligned_depths;
         
-        save(ephys_kernel_align_fn,'ephys_kernel_depth');
+        save(ephys_kernel_align_fn,'ephys_kernel_align','-v7.3');
         
         
         %~~~~~~~~~~~~~~~~~~~~~~~ Print progress, clear for next
@@ -807,13 +801,12 @@ for curr_animal = 1:length(animals)
         AP_print_progress_fraction(curr_day,length(experiments));
         clearvars -except  ...
             regression_params animals curr_animal...
+            ctx_str_lambda_fn ephys_kernel_depth_fn ephys_kernel_align_fn ...
             ctx_str_lambda ephys_kernel_depth ephys_kernel_align ...
              animal curr_animal_idx experiments curr_day
         
     end
 end
-
-
 
 
  

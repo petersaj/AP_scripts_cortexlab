@@ -9,10 +9,13 @@
 % data_fn = 'trial_activity_choiceworld_oldregressors';
 % exclude_data = true;
 
-data_fn = 'trial_activity_AP_choiceWorldStimPassive_trained';
+% data_fn = 'trial_activity_AP_choiceWorldStimPassive_trained';
 % data_fn = 'trial_activity_AP_choiceWorldStimPassive_naive';
 % data_fn = 'trial_activity_stimKalatsky_naive';
 % data_fn = 'trial_activity_stimKalatsky_trained';
+data_fn = 'trial_activity_AP_lcrGratingPassive_pre_muscimol';
+% data_fn = 'trial_activity_AP_lcrGratingPassive_post_muscimol';
+
 exclude_data = false;
 
 AP_load_concat_normalize_ctx_str;
