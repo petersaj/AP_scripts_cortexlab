@@ -79,7 +79,7 @@ if ~im_rgb
         im_montage{curr_channel} = curr_montage.CData;
         
         im_hist = histcounts(im_montage{curr_channel}(im_montage{curr_channel} > 0),0:max(im_montage{curr_channel}(:)));
-        im_hist_deriv = [0;diff(smooth(im_hist,50))];
+        im_hist_deriv = [0;diff(smooth(im_hist,100))];
         
         [~,bg_down] = min(im_hist_deriv);
         bg_signal_min = find(im_hist_deriv(bg_down:end) > 0,1) + bg_down;

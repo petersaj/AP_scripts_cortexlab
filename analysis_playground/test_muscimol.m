@@ -365,8 +365,9 @@ for curr_animal = 1:length(vfs)
     end
 end
 
-% Plot pre/post mean
 vfs_cat = vertcat(vfs{:});
+
+% Plot pre/post mean
 vfs_pre_mean = nanmean(cat(3,vfs_cat{:,1}),3);
 vfs_post_mean = nanmean(cat(3,vfs_cat{:,2}),3);
 
@@ -387,6 +388,59 @@ caxis([-1,1])
 AP_reference_outline('ccf_aligned',[0.5,0.5,0.5]);
 title('Post-muscimol');
 
+
+% Save this somewhere
+save_path = 'C:\Users\Andrew\OneDrive for Business\Documents\CarandiniHarrisLab\analysis\tests\muscimol_test';
+save_fn = 'muscimol_vfs.mat';
+save([save_path filesep save_fn],'vfs');
+
+
+
+%% Get cortex/striatum activity pre/post muscimol
+
+data_fns = { ...
+    'trial_activity_AP_lcrGratingPassive_pre_muscimol', ...
+    'trial_activity_AP_lcrGratingPassive_post_muscimol'};
+
+mua_stim_act_exp = [];
+
+for curr_data = 1:length(data_fns)
+    
+    % Load data
+    data_fn = data_fns{curr_data};
+    AP_load_concat_normalize_ctx_str;
+    
+    % Split data by experiment
+    trials_recording = cellfun(@(x) size(x,1),vertcat(wheel_all{:}));
+    
+    trial_stim_allcat_exp = mat2cell(trial_stim_allcat,trials_recording,1);
+    mua_allcat_exp = mat2cell(mua_allcat, ...
+        trials_recording,size(mua_allcat,2),size(mua_allcat,3));
+    fluor_roi_deconv_exp = mat2cell(fluor_roi_deconv, ...
+        trials_recording,size(fluor_roi_deconv,2),size(fluor_roi_deconv,3));
+    
+    % Get trials with movement during stim to exclude
+    quiescent_trials = ~any(abs(wheel_allcat(:,t >= 0 & t <= 0.5)) > 0.02,2);
+    quiescent_trials_exp = mat2cell(quiescent_trials,trials_recording,1);
+    
+    % Get stimulus activity for each recording
+    use_stim_time = t >= 0.05 & t <= 0.15;
+    
+    mua_stim_act_exp(:,:,curr_data) = cell2mat(cellfun(@(act,stim,quiescent) ...
+        squeeze(nanmean(nanmean(act(stim == 3 & quiescent,use_stim_time,:,:),2),1)), ...
+        mua_allcat_exp,trial_stim_allcat_exp,quiescent_trials_exp,'uni',false)');
+    
+    fluor_roi_stim_act_exp(:,:,curr_data) = cell2mat(cellfun(@(act,stim,quiescent) ...
+        squeeze(nanmean(nanmean(act(stim == 3 & quiescent,use_stim_time,:,:),2),1)), ...
+        fluor_roi_deconv_exp,trial_stim_allcat_exp,quiescent_trials_exp,'uni',false)');
+    
+    clearvars -except data_fns curr_data mua_stim_act_exp fluor_roi_stim_act_exp
+    
+    AP_print_progress_fraction(curr_data,length(data_fns));
+    
+end
+
+% Nothing plotted at the moment
 
 
 

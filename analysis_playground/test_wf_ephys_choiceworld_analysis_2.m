@@ -13,8 +13,10 @@
 % data_fn = 'trial_activity_AP_choiceWorldStimPassive_naive';
 % data_fn = 'trial_activity_stimKalatsky_naive';
 % data_fn = 'trial_activity_stimKalatsky_trained';
-data_fn = 'trial_activity_AP_lcrGratingPassive_pre_muscimol';
+% data_fn = 'trial_activity_AP_lcrGratingPassive_pre_muscimol';
 % data_fn = 'trial_activity_AP_lcrGratingPassive_post_muscimol';
+% data_fn = 'trial_activity_vanillaChoiceworldNoRepeats_pre_muscimol';
+data_fn = 'trial_activity_vanillaChoiceworldNoRepeats_post_muscimol';
 
 exclude_data = false;
 
@@ -24,7 +26,7 @@ AP_load_concat_normalize_ctx_str;
 trials_allcat = size(wheel_allcat,1);
 trials_animal = arrayfun(@(x) size(vertcat(wheel_all{x}{:}),1),1:size(wheel_all));
 trials_recording = cellfun(@(x) size(x,1),vertcat(wheel_all{:}));
-use_split = trials_animal;
+use_split = trials_recording;
 
 split_idx = cell2mat(arrayfun(@(exp,trials) repmat(exp,trials,1), ...
     [1:length(use_split)]',reshape(use_split,[],1),'uni',false));

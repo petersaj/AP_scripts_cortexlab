@@ -7,7 +7,7 @@ function protocols = AP_list_experiments(animal,day)
 % Find all experiments for that day (numbered folder)
 experiments_dir = dir(AP_cortexlab_filename(animal,day,1,'expInfo'));
 experiments_num_idx = cellfun(@(x) ~isempty(x), regexp({experiments_dir.name},'^\d*$'));
-experiment_num = cellfun(@str2num,{experiments_dir(experiments_num_idx).name});
+experiment_num = sort(cellfun(@str2num,{experiments_dir(experiments_num_idx).name}));
 
 % Get protocol for each experiment
 protocols = struct('experiment',num2cell(experiment_num), ...
