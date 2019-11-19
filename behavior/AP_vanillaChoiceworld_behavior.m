@@ -1,7 +1,7 @@
 %% Get and plot single mouse behavior (vanillaChoiceworld)
-% animals = {'AP043','AP047','AP048'};
-% animals = {'AP044','AP053'};
-animals = {'AP056'};
+% animals = {'AP043','AP047'};
+% animals = {'AP053'};
+animals = {'AP043'};
 protocol = 'vanillaChoiceworld';
 flexible_name = true;
 
@@ -382,10 +382,10 @@ for curr_animal = 1:length(animals)
     protocol = 'choiceworld';
     experiments = AP_find_experiments(animal,protocol,true);
     
-    % If there's more than 20 days, just load the first 20
-    if length(experiments) > 20
-        experiments = experiments(1:20);
-    end
+%     % If there's more than 20 days, just load the first 20
+%     if length(experiments) > 20
+%         experiments = experiments(1:20);
+%     end
     
     for curr_day = 1:length(experiments)
         

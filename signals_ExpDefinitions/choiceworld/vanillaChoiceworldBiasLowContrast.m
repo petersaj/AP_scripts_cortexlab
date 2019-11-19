@@ -1,7 +1,8 @@
-function vanillaChoiceworldBias(t, events, parameters, visStim, inputs, outputs, audio)
-% vanillaChoiceworldBias(t, events, parameters, visStim, inputs, outputs, audio)
+function vanillaChoiceworldBiasLowContrast(t, events, parameters, visStim, inputs, outputs, audio)
+% vanillaChoiceworldBiasLowContrasts(t, events, parameters, visStim, inputs, outputs, audio)
 %
-% Choice world that only uses 2 contrasts and tries to balance bias
+% Choice world that only uses 6%/0% contrast and tries to balance bias
+% (for mice that only pay attention to one side of the screen)
 %
 % Task structure: 
 % Start trial
@@ -22,9 +23,9 @@ rewardSize = 2;
 % (which contrasts to use)
 contrasts = [1,0.5,0.25,0.125,0.06,0];
 % (which conrasts to use at the beginning of training)
-startingContrasts = [true,true,false,false,false,false];
+startingContrasts = [false,false,false,false,true,true];
 % (which contrasts to repeat on miss)
-repeatOnMiss = [true,true,false,false,false,false];
+repeatOnMiss = [false,false,false,false,true,false];
 % (number of trials to judge rolling performance)
 trialsToBuffer = 5;
 

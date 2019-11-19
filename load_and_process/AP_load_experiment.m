@@ -1259,7 +1259,7 @@ if ephys_exists && load_parts.ephys
         grid on;
         axis vis3d;
         
-        % Plot cell type by depth
+        % Plot depth vs. firing rate colored by cell type
         celltype_labels = {'Wide','Narrow','MSN','FSI','TAN','UIN'};
         celltypes = wide.*1 + narrow.*2 + msn.*3 + fsi.*4 + tan.*5 + uin.*6;
         use_colors = ...
@@ -1272,11 +1272,13 @@ if ephys_exists && load_parts.ephys
         
         plot_celltypes = any([wide,narrow,msn,fsi,tan,uin],1);
         
+        norm_spike_n = mat2gray(log10(accumarray(spike_templates,1)+1));
+        
         figure('Position',[94,122,230,820]);
-        scatter(rand(size(template_depths))-0.5,template_depths,10,use_colors(celltypes,:),'filled');
-        xlim([-1,1])
-        set(gca,'XTick',[]);
+        gscatter(norm_spike_n,template_depths,celltypes,use_colors,[],20);
+        xlim([0,1])
         set(gca,'YDir','reverse');
+        xlabel('Norm log_{10} spike rate');
         ylabel('Depth (\mum)');
         legend(celltype_labels(plot_celltypes));
         ylim([0,max(channel_positions(:,2))])

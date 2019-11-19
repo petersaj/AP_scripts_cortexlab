@@ -72,7 +72,7 @@ missNoiseSamples = missNoiseAmplitude*events.expStart.map(@(x) ...
 
 % Wheel parameters
 quiescThreshold = 1;
-wheelGain = 2;
+wheelGain = 8; % deg/mm
 
 % Key press for manual reward
 rewardKeyPressed = inputs.keyboard.strcmp('w');
@@ -86,7 +86,7 @@ trialDataInit = events.expStart.mapn( ...
 
 %% Set up wheel 
 
-wheel = inputs.wheel.skipRepeats();
+wheel = inputs.wheelMM.skipRepeats();
 
 %% Trial event times
 % (this is set up to be independent of trial conditon, that way the trial

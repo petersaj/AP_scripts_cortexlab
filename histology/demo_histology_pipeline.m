@@ -52,6 +52,13 @@ AP_get_probe_histology(tv,av,st,slice_path);
 % (not worth it at the moment, each slice is 200 MB)
 % AP_grab_fullsize_histology_slices(im_path)
 
+%% TO DO: use ephys metrics to get probe location from trajectory?
+
+
+
+
+
+
 
 
 

@@ -532,7 +532,7 @@ return_constant = false;
 
 % Regression task -> (master U, deconvolved) fluor
 event_aligned_V_deconv = AP_deconv_wf(event_aligned_V);
-fVdf_deconv_resample_recast = ChangeU(Udf_aligned,fVdf_deconv_resample,U_master);
+fVdf_deconv_resample_recast = ChangeU(Udf_aligned,fVdf_deconv_resample,Udf_aligned);
 
 baseline = nanmean(reshape(event_aligned_V_deconv(:,t < 0,:),[],size(event_aligned_V_deconv,3)))';
 activity = single(fVdf_deconv_resample_recast(use_components,:))-baseline;

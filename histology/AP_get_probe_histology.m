@@ -169,6 +169,11 @@ switch eventdata.Key
                             vertcat(probe_ccf(curr_probe).points,[ccf_ap,ccf_dv,ccf_ml]);
                     end              
                 end
+                
+                % Sort probe points by DV (probe always top->bottom)
+                [~,dv_sort_idx] = sort(probe_ccf(curr_probe).points(:,2));
+                probe_ccf(curr_probe).points = probe_ccf(curr_probe).points(dv_sort_idx,:);
+                
             end
             
             % Get areas along probe trajectory            
