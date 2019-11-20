@@ -1280,7 +1280,7 @@ if ephys_exists && load_parts.ephys
         set(gca,'YDir','reverse');
         xlabel('Norm log_{10} spike rate');
         ylabel('Depth (\mum)');
-        legend(celltype_labels(plot_celltypes));
+        legend(celltype_labels(plot_celltypes),'location','NW');
         ylim([0,max(channel_positions(:,2))])
         
         drawnow;

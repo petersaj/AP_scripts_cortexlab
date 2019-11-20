@@ -130,10 +130,8 @@ switch eventdata.Key
         if strcmp(user_confirm,'Yes')
             
             % Initialize structure to save
-            probe_ccf = struct( ...
-                'points',cell(gui_data.n_probes,1), ...
-                'trajectory_coords',cell(gui_data.n_probes,1), ....
-                'trajectory_areas',cell(gui_data.n_probes,1));
+            probe_ccf = struct('points',cell(gui_data.n_probes,1), ...
+                'areas',cell(gui_data.n_probes,1));
             
             % Convert probe points to CCF points by alignment and save                     
             for curr_probe = 1:gui_data.n_probes             
@@ -199,26 +197,25 @@ switch eventdata.Key
                 trajectory_coords_outofbounds = ...
                     any([trajectory_ap_ccf;trajectory_dv_ccf;trajectory_ml_ccf] < 1,1) | ...
                     any([trajectory_ap_ccf;trajectory_dv_ccf;trajectory_ml_ccf] > size(gui_data.av)',1);
-                              
-                trajectory_coords = ...
-                    [trajectory_ap_ccf(~trajectory_coords_outofbounds)' ...
-                    trajectory_dv_ccf(~trajectory_coords_outofbounds)', ...
-                    trajectory_ml_ccf(~trajectory_coords_outofbounds)'];
-                
+                                
                 trajectory_coords_idx = sub2ind(size(gui_data.av), ...
-                    trajectory_coords(:,1),trajectory_coords(:,2),trajectory_coords(:,3));
+                    trajectory_ap_ccf(~trajectory_coords_outofbounds), ...
+                    trajectory_dv_ccf(~trajectory_coords_outofbounds), ...
+                    trajectory_ml_ccf(~trajectory_coords_outofbounds));
                 
                 trajectory_areas_uncut = gui_data.av(trajectory_coords_idx)';
                 
                 % Get rid of any non-brain areas
                 use_trajectory_areas = ~isnan(trajectory_areas_uncut) & trajectory_areas_uncut > 1;
-                trajectory_areas = reshape(trajectory_areas_uncut(use_trajectory_areas),[],1);
+                trajectory_areas = trajectory_areas_uncut(use_trajectory_areas);
                 
-                probe_ccf(curr_probe).trajectory_coords = trajectory_coords(use_trajectory_areas,:);
-                probe_ccf(curr_probe).trajectory_areas = trajectory_areas;
+                tra
+        
+                probe_ccf(curr_probe).areas = trajectory_areas;
+                probe_ccf(curr_probe).areas = trajectory_areas;
                 
             end
-            
+                                  
             % Save probe CCF points
             save_fn = [gui_data.slice_im_path filesep 'probe_ccf.mat'];
             save(save_fn,'probe_ccf');
@@ -307,11 +304,11 @@ for curr_probe = 1:length(probe_ccf)
     curr_axes = subplot(1,gui_data.n_probes,curr_probe);
     
     trajectory_area_boundaries = ...
-        [1;find(diff(probe_ccf(curr_probe).trajectory_areas) ~= 0);length(probe_ccf(curr_probe).trajectory_areas)];    
+        [1;find(diff(probe_ccf(curr_probe).areas) ~= 0);length(probe_ccf(curr_probe).areas)];    
     trajectory_area_centers = trajectory_area_boundaries(1:end-1) + diff(trajectory_area_boundaries)/2;
-    trajectory_area_labels = gui_data.st.safe_name(probe_ccf(curr_probe).trajectory_areas(round(trajectory_area_centers)));
+    trajectory_area_labels = gui_data.st.safe_name(probe_ccf(curr_probe).areas(round(trajectory_area_centers)));
       
-    image(probe_ccf(curr_probe).trajectory_areas);
+    image(probe_ccf(curr_probe).areas);
     colormap(curr_axes,cmap);
     caxis([1,size(cmap,1)])
     set(curr_axes,'YTick',trajectory_area_centers,'YTickLabels',trajectory_area_labels);

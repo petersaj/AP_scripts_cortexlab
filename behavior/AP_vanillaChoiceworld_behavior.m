@@ -1,7 +1,7 @@
 %% Get and plot single mouse behavior (vanillaChoiceworld)
 % animals = {'AP043','AP047'};
 % animals = {'AP053'};
-animals = {'AP043'};
+animals = {'AP056'};
 protocol = 'vanillaChoiceworld';
 flexible_name = true;
 

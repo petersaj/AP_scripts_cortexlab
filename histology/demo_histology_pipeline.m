@@ -53,9 +53,13 @@ AP_get_probe_histology(tv,av,st,slice_path);
 % AP_grab_fullsize_histology_slices(im_path)
 
 %% TO DO: use ephys metrics to get probe location from trajectory?
+% (make this be a function with spike_templates and spike depths input)
 
+% Load ephys data
+animal = 'AP046'; day = '2019-10-21'; experiment = 1; verbose = true; load_parts.ephys = true; AP_load_experiment;
 
-
+% Align histology to electrophysiology
+AP_align_probe_histology(st,slice_path,spike_times,spike_templates,template_depths)
 
 
 
