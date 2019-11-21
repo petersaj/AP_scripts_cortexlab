@@ -156,6 +156,9 @@ switch eventdata.Key
             % Save the appended probe_ccf structure
             save(gui_data.probe_ccf_fn,'probe_ccf');
             
+            % Close the figure
+            close(gui_fig);
+            
         end
         
 end
