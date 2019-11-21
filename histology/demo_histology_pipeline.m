@@ -48,18 +48,14 @@ AP_view_aligned_histology_volume(tv,av,st,slice_path,1);
 % Get probe trajectory from histology, convert to CCF coordinates
 AP_get_probe_histology(tv,av,st,slice_path);
 
+% Align histology to electrophysiology
+AP_align_probe_histology(st,slice_path,spike_times,spike_templates,template_depths);
+
 % Extract slices from full-resolution images
 % (not worth it at the moment, each slice is 200 MB)
 % AP_grab_fullsize_histology_slices(im_path)
 
-%% TO DO: use ephys metrics to get probe location from trajectory?
-% (make this be a function with spike_templates and spike depths input)
 
-% Load ephys data
-animal = 'AP046'; day = '2019-10-21'; experiment = 1; verbose = true; load_parts.ephys = true; AP_load_experiment;
-
-% Align histology to electrophysiology
-AP_align_probe_histology(st,slice_path,spike_times,spike_templates,template_depths)
 
 
 
