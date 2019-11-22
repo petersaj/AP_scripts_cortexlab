@@ -1,5 +1,5 @@
 %% Get and plot single mouse behavior (vanillaChoiceworld)
-animals = {'AP059','AP060','AP061'};
+animals = {'AP043'};
 protocol = 'vanillaChoiceworld';
 flexible_name = true;
 
@@ -302,30 +302,29 @@ for curr_animal = 1:length(animals)
                 (nansum(right_wheel_velocity)+nansum(left_wheel_velocity));
             
             % Get reaction times for each stimulus
+            full_stim_set = sort(unique([1,0.5,0.25,0.125,0.06,0]'*[1,-1]));
+            
             trial_stim = trial_contrast(response_trials).*trial_side(response_trials);
-            stim_list = unique(reshape(unique(trial_contrast).*[-1;1],[],1));
-            [~,trial_stim_idx] = ismember(trial_stim,stim_list);
+            [~,trial_stim_idx] = ismember(trial_stim,full_stim_set);
             stim_rxn_time = accumarray(trial_stim_idx(response_trials)',trial_move_t',[11,1],@nanmedian,nan);
             
-            % Performance (note that this excludes repeat on incorrect trials)
+            % Performance and reaction time
             if contains(curr_protocol,'vanilla')
+              
                 performance = block.events.sessionPerformanceValues(:,end-10:end);
             else
                 % Not sure whether this is right yet
                 non_repeat_trials = block.events.repeatNumValues(response_trials) == 1;
-                
+                                
                 n_trials_subset = accumarray(trial_stim_idx(non_repeat_trials)', ...
-                    1,[length(stim_list),1],@sum,nan);
+                    1,[11,1],@sum,nan);
                 go_left_subset = accumarray(trial_stim_idx(non_repeat_trials)', ...
-                    block.events.responseValues(non_repeat_trials)' == -1,[length(stim_list),1],@sum,nan);
-                
-                full_stim_set = sort(unique([1,0.5,0.25,0.125,0.06,0]'*[1,-1]));
-                [~,used_stim_idx] = ismember(stim_list,full_stim_set);
-                
+                    block.events.responseValues(non_repeat_trials)' == 1,[11,1],@sum,nan);
+                                              
                 performance = nan(3,11);
                 performance(1,:) = full_stim_set;
-                performance(2,used_stim_idx) = n_trials_subset;
-                performance(3,used_stim_idx) = go_left_subset;
+                performance(2,:) = n_trials_subset;
+                performance(3,:) = go_left_subset;
             end
             
             % Get whether all contrasts were used

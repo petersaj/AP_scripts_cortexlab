@@ -107,7 +107,7 @@ colormap(brewermap([],'*RdBu'));
 
 %% Plot psychometrics and reaction times (pre/post muscimol choiceworld)
 
-animal = 'AP045';
+animal = 'AP053';
 protocol = 'vanillaChoiceworld';
 flexible_name = true;
 experiments = AP_find_experiments(animal,protocol,flexible_name);
