@@ -2015,6 +2015,102 @@ colormap(colormap_BlueWhiteRed);
 c = colorbar;
 ylabel(c,'Explained variance')
 
+%% ~~~~~~~~~~~~~~~~ WIDEFIELD ALIGNMENT ~~~~~~~~~~~~~~~~
+% put this somewhere better?
+
+%% Align vasculature for animal
+
+animal = 'AP045';
+
+protocol = 'AP_sparseNoise';
+experiments = AP_find_experiments(animal,protocol);
+experiments(~([experiments.imaging])) = [];
+
+avg_im_days = cell(size(experiments));
+for curr_day = 1:length(experiments)
+    day = experiments(curr_day).day;
+    [img_path,img_exists] = AP_cortexlab_filename(animal,day,[],'imaging');
+    avg_im = readNPY([img_path filesep 'meanImage_purple.npy']);
+%     avg_im = readNPY([img_path filesep 'meanImage_blue.npy']);
+    avg_im_days{curr_day} = avg_im;
+end
+
+AP_align_widefield(avg_im_days,animal,{experiments.day},'new_days');
+
+%% View aligned vasculature (to check that it's been done correctly)
+
+animal = 'AP045';
+
+protocol = 'AP_sparseNoise';
+experiments = AP_find_experiments(animal,protocol);
+experiments(~([experiments.imaging])) = [];
+
+avg_im_aligned = cell(size(experiments));
+for curr_day = 1:length(experiments)
+    day = experiments(curr_day).day;
+    [img_path,img_exists] = AP_cortexlab_filename(animal,day,[],'imaging');
+    avg_im_h = readNPY([img_path filesep 'meanImage_purple.npy']);
+    avg_im_n = readNPY([img_path filesep 'meanImage_blue.npy']);
+    avg_im_aligned{curr_day} = [AP_align_widefield(avg_im_n,animal,day), ...
+        AP_align_widefield(avg_im_h,animal,day)];
+end
+
+AP_image_scroll(cat(3,avg_im_aligned{:}));
+axis image;
+set(gcf,'Name',animal);
+
+%% Average retinotopy, align to master
+
+retinotopy_path = 'C:\Users\Andrew\OneDrive for Business\Documents\CarandiniHarrisLab\analysis\widefield_alignment\retinotopy';
+retinotopy_dir = dir(retinotopy_path);
+
+animal = 'AP055';
+load([retinotopy_path filesep animal '_retinotopy'])
+
+aligned_vfs = cell(length(retinotopy),1);
+for curr_day = 1:length(retinotopy)
+    try
+        aligned_vfs{curr_day} = AP_align_widefield(retinotopy(curr_day).vfs,animal,retinotopy(curr_day).day,'day_only');
+    catch me
+        disp(['Skipping ' animal ' ' retinotopy(curr_day).day]);
+    end
+end
+
+% Plot day-aligned VFS
+AP_image_scroll(cat(3,aligned_vfs{:}));
+colormap(brewermap([],'*RdBu'));
+axis image off;
+title('Day-aligned VFS')
+
+% Align across-day mean VFS to master animal
+vfs_mean = nanmean(cat(3,aligned_vfs{:}),3);
+AP_align_widefield(vfs_mean,animal,[],'new_animal');
+
+% Plot master-aligned average VFS with CCF overlay
+master_aligned_vfs = cell(length(retinotopy),1);
+for curr_day = 1:length(retinotopy)
+    try
+        master_aligned_vfs{curr_day} = AP_align_widefield(retinotopy(curr_day).vfs,animal,retinotopy(curr_day).day);
+    catch me
+        disp(['Skipping ' animal ' ' retinotopy(curr_day).day]);
+    end
+end
+figure;imagesc(nanmean(cat(3,master_aligned_vfs{:}),3));
+colormap(brewermap([],'*RdBu'));
+axis image off;
+AP_reference_outline('ccf_aligned',[0.5,0.5,0.5]);
+title('Master-aligned average VFS');
+
+
+
+
+
+
+
+
+
+
+
 
 
 

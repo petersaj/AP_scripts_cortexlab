@@ -1275,7 +1275,7 @@ if ephys_exists && load_parts.ephys
         norm_spike_n = mat2gray(log10(accumarray(spike_templates,1)+1));
         
         figure('Position',[94,122,230,820]);
-        gscatter(norm_spike_n,template_depths,celltypes,use_colors,[],20);
+        gscatter(norm_spike_n,template_depths,celltypes,use_colors,[],10);
         xlim([0,1])
         set(gca,'YDir','reverse');
         xlabel('Norm log_{10} spike rate');
