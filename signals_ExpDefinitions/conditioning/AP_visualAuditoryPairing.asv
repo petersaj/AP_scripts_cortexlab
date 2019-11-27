@@ -1,0 +1,98 @@
+function AP_visualAuditoryPairing(t, events, parameters, visStim, inputs, outputs, audio)
+
+% Pair one visual stimulus with noise
+
+%% Stimuli
+
+% Duration and ITI
+stim_time = 0.5;
+min_iti = 2;
+max_iti = 3;
+step_iti = 0.1;
+
+% Visual stimuli
+azimuths = [35,90];
+sigma = [20,20];
+contrast = 1;
+spatialFreq = 1/15;
+
+% Auditory stim
+noise_volume = 0.05;
+
+audDev = audio.Devices('Strix');
+audioSampleRate = audDev.DefaultSampleRate;
+audioChannels = audDev.NrOutputChannels;
+
+noise_samples = {randn(2,audioSampleRate*stim_time)*noise_volume};
+
+% Concatenate conditions
+
+
+
+%% Set up trial parameters and events
+
+% Choose trial parameters (random: azimuth and ITI)
+trialAzimuth = events.newTrial.mapn(@(x) randsample(stimAzimuths,1));
+trialITI = events.newTrial.mapn(@(x) randsample(itiTimes,1));
+
+% Turn stim on for fixed interval 
+% (delay this by 10 ms because concurrent events causes a crash)
+stimOn = delay(at(true,events.newTrial),0.01); 
+stimOff = stimOn.delay(stimTime);
+
+% Reward on rewarded stimulus after set time
+water = at(rewardSize*trialAzimuth.eq(rewardedStim),stimOn.delay(stimRewardTime));  
+outputs.reward = water;
+totalWater = water.scan(@plus,0);
+
+% Start the ITI after the stimulus turns off
+endTrial = stimOff.delay(trialITI.at(stimOff));
+
+%% Visual stimuli
+
+stimFlicker = mod(skipRepeats(floor((t - t.at(stimOn))/(1/stimFlickerFrequency))),2);
+%stim.contrast = trialContrast.at(stimOn)*stimFlicker;
+
+stim = vis.grating(t, 'square', 'gaussian');
+stim.sigma = sigma;
+stim.spatialFreq = spatialFreq;
+stim.phase = pi*stimFlicker;
+stim.azimuth = trialAzimuth.at(stimOn);
+stim.contrast = contrast;
+stim.orientation = orientation;
+stim.show = stimOn.to(stimOff);
+
+visStim.stim = stim;
+
+%% Events
+
+events.stimOn = stimOn;
+events.stimOff = stimOff;
+events.stimFlicker = stimFlicker;
+events.trialAzimuth = trialAzimuth;
+events.totalWater = totalWater;
+
+events.endTrial = endTrial;
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+

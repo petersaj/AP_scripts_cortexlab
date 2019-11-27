@@ -1,0 +1,18 @@
+function AP_visualAuditoryPassive(t, events, parameters, visStim, inputs, outputs, audio)
+
+% to write for Nao: 
+% - visual stimuli (contra anterior, contra posterior, center, ipsi)
+% - auditory stimuli (white noise, 8/14/20 kHz)
+% - randomly interleaved (take from AP_auditory
+
+
+
+
+
+
+
+
+
+
+
+

@@ -2044,6 +2044,7 @@ for curr_animal = 1:length(animals)
     retinotopy_path = [alignment_path filesep 'retinotopy'];
     retinotopy_fn = [retinotopy_path filesep animal '_retinotopy.mat'];
     save(retinotopy_fn,'retinotopy');
+    disp(['Saved ' retinotopy_fn]);
     
     clearvars -except animals curr_animal
     
