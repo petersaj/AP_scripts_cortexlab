@@ -1,4 +1,4 @@
-%% Test analysis for muscimol during recording
+%% ~~~~~~ Test analysis for muscimol during recording ~~~~~~
 % (AP040 and AP041 at the moment)
 
 %% Plot psychometrics and reaction times (only one choiceworld)
@@ -107,12 +107,12 @@ colormap(brewermap([],'*RdBu'));
 
 %% Plot psychometrics and reaction times (pre/post muscimol choiceworld)
 
-animal = 'AP053';
+animal = 'AP047';
 protocol = 'vanillaChoiceworld';
 flexible_name = true;
 experiments = AP_find_experiments(animal,protocol,flexible_name);
 
-experiments = experiments([experiments.imaging] & [experiments.ephys]);
+% experiments = experiments([experiments.imaging] & [experiments.ephys]);
 
 init_array = cell(size(experiments));
 
@@ -311,7 +311,7 @@ line([-1,1],[0.5,0.5],'color','k','linestyle','--');
 
 %% Get VFS pre/post musicmol
 
-animals = {'AP045','AP054','AP055'};
+animals = {'AP045','AP054','AP055','AP053'};
 
 vfs = cell(length(animals),1);
 

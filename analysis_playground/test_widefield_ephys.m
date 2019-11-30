@@ -2842,6 +2842,9 @@ skip_seconds = 60;
 time_bins = frame_t(find(frame_t > skip_seconds,1)):1/sample_rate:frame_t(find(frame_t-frame_t(end) < -skip_seconds,1,'last'));
 time_bin_centers = time_bins(1:end-1) + diff(time_bins)/2;
 
+time_bins = frame_t(find(frame_t > 140,1)):1/sample_rate:frame_t(find(frame_t < 240,1,'last'));
+time_bin_centers = time_bins(1:end-1) + diff(time_bins)/2;
+
 % % (to group multiunit by depth from top)
 % n_depths = 10;
 % depth_group_edges = round(linspace(min(template_depths),max(template_depths),n_depths+1));
@@ -2862,7 +2865,7 @@ depth_group_centers = depth_group_edges(1:end-1)+(diff(depth_group_edges)/2);
 % depth_group = aligned_str_depth_group;
 
 % % (for manual depth)
-% depth_group_edges = [500,2000];
+% depth_group_edges = [0,3500];
 % n_depths = length(depth_group_edges) - 1;
 % [depth_group_n,depth_group] = histc(spike_depths,depth_group_edges);
 

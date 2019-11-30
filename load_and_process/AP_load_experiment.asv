@@ -979,12 +979,11 @@ end
 %%%%%%%%%%% THIS IS A WORK IN PROGRESS
 % Light artifact removal looks good
 %
-% BUT LFP IS TOO LARGE TO LOAD IN: so now loads single channel
+% BUT LFP IS TOO LARGE TO LOAD IN: so now loads  single channel
 %
 %
 
 load_lfp = false;
-load_channel = 100;
 
 if load_lfp
     
@@ -1011,21 +1010,27 @@ if load_lfp
     lfp_load_start = (lfp_sample_rate*acqlive_ephys_currexpt(1)*n_channels*n_bytes);
     lfp_load_samples = (lfp_sample_rate*diff(acqlive_ephys_currexpt)+1);
     
-%     % Load LFP (all channels: too big)
-%     fseek(fid,lfp_load_start,'bof');
-%     if verbose; disp('Loading LFP...'); end;
-%     lfp_all = fread(fid,[n_channels,lfp_load_samples],'int16');
-%     fclose(fid);
-%     % eliminate non-connected channels
-%     lfp = lfp_all(channel_map+1,:);
-%     clear lfp_all;  
-        
-    % Load LFP (single-channel)
+    % Load LFP (whole thing: probably too big)
+    fseek(fid,lfp_load_start,'bof');
+    if verbose; disp('Loading LFP...'); end;
+    lfp_all = fread(fid,[n_channels,lfp_load_samples],'int16');
+    fclose(fid);
+    
+    % eliminate non-connected channels
+    lfp = lfp_all(channel_map+1,:);
+    clear lfp_all;  
+    
+    %%%%%%% WORKING HERE
+    
+    % Load LFP (single-channel) (ONLY FIRST CHANNEL AT THE MOMENT)
+    load_channel = 100;
     fseek(fid,lfp_load_start,'bof');
     if verbose; disp('Loading LFP...'); end;
     lfp_load_start_channel = lfp_load_start + (load_channel-1)*n_bytes;
     lfp = fread(fid,[1,lfp_load_samples],'int16',n_channels*n_bytes-n_bytes);
     fclose(fid);
+
+    %%%%%%%%%%%%    
         
     % Get LFP times and convert to timeline time
     lfp_t = [(lfp_load_start/n_channels):(lfp_load_start/n_channels)+lfp_load_samples-1]/lfp_sample_rate;
@@ -1093,7 +1098,9 @@ if load_lfp
 %     freqCutoff = 300; % Hz
 %     [b100s, a100s] = butter(2,freqCutoff/(lfp_sample_rate/2),'low');
 %     lfp_lightfix = single(filtfilt(b100s,a100s,double(lfp_lightfix)')');
- 
+    
+    
+    
 end
 
 

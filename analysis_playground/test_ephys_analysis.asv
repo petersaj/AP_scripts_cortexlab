@@ -2228,6 +2228,7 @@ light_off = light_t_timeline(sync(3).values == 0);
 light_on_median = median(light_off - light_on);
 light_off_median = median(light_on(2:end) - light_off(1:end-1));
 
+warning('Blue resets at the start of experiments - this could be wrong')
 blue_on = light_on(1:2:end);
 blue_off = light_off(1:2:end);
 violet_on = light_on(2:2:end);
@@ -2248,8 +2249,8 @@ violet_on_lfp = interp1(lfp_t_timeline,lfp',violet_on_pull_t);
 
 % Subtract baseline
 baseline_t = find(light_surround_t < 0,1,'last');
-blue_on_lfp_baselinesub = blue_on_lfp - blue_on_lfp(:,baseline_t,:);
-violet_on_lfp_baselinesub = violet_on_lfp - violet_on_lfp(:,baseline_t,:);
+blue_on_lfp_baselinesub = blue_on_lfp - blue_on_lfp(:,baseline_t);
+violet_on_lfp_baselinesub = violet_on_lfp - violet_on_lfp(:,baseline_t);
 
 % Get rolling median (allow light artifact to change slightly)
 n_light = 500;
@@ -2257,26 +2258,19 @@ blue_on_lfp_baselinesub_med = movmedian(blue_on_lfp_baselinesub,n_light,1);
 violet_on_lfp_baselinesub_med = movmedian(violet_on_lfp_baselinesub,n_light,1);
 
 % Interpolate out the artifact to remove
-n_lfp_channels = size(lfp,1);
-blue_light_remove = interp1( ...
-    reshape(permute(blue_on_pull_t,[2,1]),[],1), ...
-    reshape(permute(blue_on_lfp_baselinesub_med,[2,1,3]),[],n_lfp_channels), ...
-    lfp_t_timeline)';
-violet_light_remove = interp1( ...
-    reshape(permute(violet_on_pull_t,[2,1]),[],1), ...
-    reshape(permute(violet_on_lfp_baselinesub_med,[2,1,3]),[],n_lfp_channels), ...
-    lfp_t_timeline)';
+blue_light_remove = interp1(reshape(blue_on_pull_t',[],1),reshape(blue_on_lfp_baselinesub_med',[],1),lfp_t_timeline);
+violet_light_remove = interp1(reshape(violet_on_pull_t',[],1),reshape(violet_on_lfp_baselinesub_med',[],1),lfp_t_timeline);
 
 % Zero-out any NaNs (e.g. remove nothing)
 blue_light_remove(isnan(blue_light_remove)) = 0;
 violet_light_remove(isnan(violet_light_remove)) = 0;
 
-% Remove the artifact
-lfp_lightfix = lfp - (blue_light_remove + violet_light_remove);
+% Store the artifact-removed trace
+lfp_lightfix(curr_channel,:) = lfp(curr_channel,:) - (blue_light_remove + violet_light_remove);
 
 
 
-% ~~~~ 2) By regression (as effective as above but less efficient)
+% 2) By regression
 light_timeline = AP_clock_fix(sync(3).timestamps,acqlive_ephys_currexpt,acqLive_timeline);
 light_on = light_timeline(sync(3).values == 1);
 light_off = light_timeline(sync(3).values == 0);
