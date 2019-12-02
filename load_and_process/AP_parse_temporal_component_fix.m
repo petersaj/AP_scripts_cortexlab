@@ -178,9 +178,9 @@ end
 %% If the V's were parsed incorrectly into experiments
 % Loads in frame information to figure out what went wrong
 
-animal = 'AP048'; % animal name
-day = '2019-10-09'; % yyyy-mm-dd
-experiments = [1:4]; % all experiments run that day (e.g. [1,2,3,4])
+animal = 'AP047'; % animal name
+day = '2019-10-11'; % yyyy-mm-dd
+experiments = [2:4]; % all experiments run that day (e.g. [1,2,3,4])
 
 [data_path,file_exists] = AP_cortexlab_filename(animal,day,[],'imaging');
 
@@ -239,6 +239,8 @@ frame_diff = ...
     (cellfun(@(x) length(x),cam_times_blue) + cellfun(@(x) length(x),cam_times_purple)) - ...
     (cellfun(@(x) size(x,1),V_blue) + cellfun(@(x) size(x,1),V_purple));
 
+% Check that the total frames match the camera times
+sum(cellfun(@length,cam_times_blue)) == sum(cellfun(@(x) size(x,1),V_blue));
 
 
 
