@@ -2457,7 +2457,7 @@ regression_params.zs = [false,false];
 regression_params.cvfold = 5;
 regression_params.use_constant = true;
 
-animals = {'AP045','AP054','AP055'};
+animals = {'AP045','AP054','AP055','AP053','AP047','AP048'};
 protocol = 'vanillaChoiceworldNoRepeats';
 exp_conditions = {'pre_muscimol','post_muscimol'};
 
@@ -3015,7 +3015,7 @@ regression_params.zs = [false,false];
 regression_params.cvfold = 5;
 regression_params.use_constant = true;
 
-animals = {'AP045','AP054','AP055'};
+animals = {'AP045','AP054','AP055','AP053','AP047','AP048'};
 protocol = 'AP_lcrGratingPassive';
 exp_conditions = {'pre_muscimol','post_muscimol'};
 

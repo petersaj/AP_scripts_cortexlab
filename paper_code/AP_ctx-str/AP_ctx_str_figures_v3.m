@@ -1377,7 +1377,8 @@ leeway_samples = round(t_leeway*(sample_rate));
 stim_align = zeros(size(mua_allcat,1),1);
 
 % Get trials with movement during stim to exclude
-quiescent_trials = ~any(abs(wheel_allcat(:,t >= 0 & t <= 0.5)) > 0.02,2);
+wheel_thresh = 0.025;
+quiescent_trials = ~any(abs(wheel_allcat(:,t >= 0 & t <= 0.5)) > wheel_thresh,2);
 
 % Set windows to average activity
 timeavg_labels = {'Stim'};

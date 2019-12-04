@@ -78,9 +78,9 @@ end
 
 %% If the V's were not parsed into experiments
 
-animal = 'AL019'; % animal name
-day = '2019-10-11'; % yyyy-mm-dd
-experiments = [2:7]; % all experiments run that day (e.g. [1,2,3,4])
+animal = 'AP047'; % animal name
+day = '2019-10-14'; % yyyy-mm-dd
+experiments = [1:3]; % all experiments run that day (e.g. [1,2,3,4])
 
 [data_path,file_exists] = AP_cortexlab_filename(animal,day,[],'imaging');
 
@@ -148,8 +148,8 @@ V_blue_exp = mat2cell(V_blue,n_cam_blue,size(V_blue,2));
 V_purple_exp = mat2cell(V_purple,n_cam_purple,size(V_purple,2));
 
 % % To manually parse (if something lost or messed up)
-% V_blue_exp = mat2cell(V_blue,n_cam_blue + [0;0;size(V_blue,1)-sum(n_cam_blue);0],size(V_blue,2));
-% V_purple_exp = mat2cell(V_purple,n_cam_purple + [0;0;size(V_purple,1)-sum(n_cam_purple);0],size(V_purple,2));
+% V_blue_exp = mat2cell(V_blue,n_cam_blue + [0;0;size(V_blue,1)-sum(n_cam_blue);0],size(V_blue,1));
+% V_purple_exp = mat2cell(V_purple,n_cam_purple + [0;0;size(V_purple,1)-sum(n_cam_purple);0],size(V_purple,1));
 
 for curr_exp_idx = 1:length(experiments)
     curr_exp = experiments(curr_exp_idx);

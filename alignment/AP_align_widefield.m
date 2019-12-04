@@ -69,7 +69,7 @@ switch align_type
         optimizer = registration.optimizer.OnePlusOneEvolutionary();
         optimizer.MaximumIterations = 200;
         optimizer.GrowthFactor = 1+1e-6;
-        optimizer.InitialRadius = 1e-4;      
+        optimizer.InitialRadius = 1e-5;      
         
         % (first pass: rigid transform to day 1)  
         disp('Rigid aligning images...')

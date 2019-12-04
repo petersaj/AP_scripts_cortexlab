@@ -2020,7 +2020,7 @@ ylabel(c,'Explained variance')
 
 %% Align vasculature for animal
 
-animal = 'AP047';
+animal = 'AP048';
 
 protocol = 'AP_sparseNoise';
 experiments = AP_find_experiments(animal,protocol);
@@ -2039,7 +2039,7 @@ AP_align_widefield(avg_im_days,animal,{experiments.day},'new_days');
 
 %% View aligned vasculature (to check that it's been done correctly)
 
-animal = 'AP053';
+animal = 'AP047';
 
 protocol = 'AP_sparseNoise';
 experiments = AP_find_experiments(animal,protocol);
@@ -2064,7 +2064,7 @@ set(gcf,'Name',animal);
 retinotopy_path = 'C:\Users\Andrew\OneDrive for Business\Documents\CarandiniHarrisLab\analysis\widefield_alignment\retinotopy';
 retinotopy_dir = dir(retinotopy_path);
 
-animal = 'AP047';
+animal = 'AP048';
 load([retinotopy_path filesep animal '_retinotopy'])
 
 aligned_vfs = cell(length(retinotopy),1);

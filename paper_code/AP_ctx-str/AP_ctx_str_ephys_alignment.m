@@ -570,7 +570,7 @@ regression_params.zs = [false,false];
 regression_params.cvfold = 5;
 regression_params.use_constant = true;
 
-animals = {'AP045','AP054','AP055'};
+animals = {'AP045','AP054','AP055','AP053','AP047','AP048'};
 
 % Load alignment structures
 n_aligned_depths = 4;

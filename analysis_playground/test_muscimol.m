@@ -394,7 +394,7 @@ save_path = 'C:\Users\Andrew\OneDrive for Business\Documents\CarandiniHarrisLab\
 save_fn = 'muscimol_vfs.mat';
 save([save_path filesep save_fn],'vfs');
 
-
+%% ~~~~~~~~ After preprocessing/saving trial activity ~~~~~~~~
 
 %% Get cortex/striatum activity pre/post muscimol
 
@@ -416,11 +416,14 @@ for curr_data = 1:length(data_fns)
     trial_stim_allcat_exp = mat2cell(trial_stim_allcat,trials_recording,1);
     mua_allcat_exp = mat2cell(mua_allcat, ...
         trials_recording,size(mua_allcat,2),size(mua_allcat,3));
+    mua_ctxpred_allcat_exp = mat2cell(mua_ctxpred_allcat, ...
+        trials_recording,size(mua_ctxpred_allcat,2),size(mua_ctxpred_allcat,3));
     fluor_roi_deconv_exp = mat2cell(fluor_roi_deconv, ...
         trials_recording,size(fluor_roi_deconv,2),size(fluor_roi_deconv,3));
     
     % Get trials with movement during stim to exclude
-    quiescent_trials = ~any(abs(wheel_allcat(:,t >= 0 & t <= 0.5)) > 0.02,2);
+    wheel_thresh = 0.025;
+    quiescent_trials = ~any(abs(wheel_allcat(:,t >= 0 & t <= 0.5)) > wheel_thresh,2);
     quiescent_trials_exp = mat2cell(quiescent_trials,trials_recording,1);
     
     % Get stimulus activity for each recording
@@ -430,11 +433,15 @@ for curr_data = 1:length(data_fns)
         squeeze(nanmean(nanmean(act(stim == 3 & quiescent,use_stim_time,:,:),2),1)), ...
         mua_allcat_exp,trial_stim_allcat_exp,quiescent_trials_exp,'uni',false)');
     
+    mua_ctxpred_stim_act_exp(:,:,curr_data) = cell2mat(cellfun(@(act,stim,quiescent) ...
+        squeeze(nanmean(nanmean(act(stim == 3 & quiescent,use_stim_time,:,:),2),1)), ...
+        mua_ctxpred_allcat_exp,trial_stim_allcat_exp,quiescent_trials_exp,'uni',false)');
+    
     fluor_roi_stim_act_exp(:,:,curr_data) = cell2mat(cellfun(@(act,stim,quiescent) ...
         squeeze(nanmean(nanmean(act(stim == 3 & quiescent,use_stim_time,:,:),2),1)), ...
         fluor_roi_deconv_exp,trial_stim_allcat_exp,quiescent_trials_exp,'uni',false)');
     
-    clearvars -except data_fns curr_data mua_stim_act_exp fluor_roi_stim_act_exp
+    clearvars -except data_fns curr_data mua_stim_act_exp mua_ctxpred_stim_act_exp fluor_roi_stim_act_exp
     
     AP_print_progress_fraction(curr_data,length(data_fns));
     

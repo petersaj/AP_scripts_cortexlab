@@ -10696,7 +10696,7 @@ AP_stackplot(psth_predicted',surround_time,2,false,'r');
 
 %% Plot lilrig water calibration
 
-load //zserver.cortexlab.net/Code/Rigging/config/zym3/hardware.mat
+load //zserver.cortexlab.net/Code/Rigging/config/LILRIG-STIM/hardware.mat
 
 figure; hold on;
 n_cal = length(daqController.SignalGenerators(1, 1).Calibrations);
