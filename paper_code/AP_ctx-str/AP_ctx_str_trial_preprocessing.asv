@@ -2694,8 +2694,8 @@ for curr_exp_condition = 1:2
             %%% Regress task to cortex/striatum/cortex-predicted striatum
             
             % Get reaction time for building regressors
-            wheel_thresh = 0.025;
-            [move_trial,move_idx] = max(abs(event_aligned_wheel) > wheel_thresh,[],2);
+            wheel_thresh = 0.03
+            [move_trial,move_idx] = max(abs(event_aligned_wheel) > 0.025,[],2);
             move_idx(~move_trial) = NaN;
             move_t = nan(size(move_idx));
             move_t(~isnan(move_idx) & move_trial) = t(move_idx(~isnan(move_idx) & move_trial))';

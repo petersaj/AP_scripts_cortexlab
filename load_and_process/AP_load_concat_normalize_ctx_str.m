@@ -91,7 +91,8 @@ if task_dataset
     trial_outcome_allcat = D_allcat.outcome;
     
     % Get reaction time
-    [move_trial,move_idx] = max(abs(wheel_allcat) > 0.02,[],2);
+    wheel_thresh = 0.025;
+    [move_trial,move_idx] = max(abs(wheel_allcat) > wheel_thresh,[],2);
     move_t = t(move_idx)';
     move_t(~move_trial) = Inf;
     
@@ -116,8 +117,13 @@ if task_dataset
 elseif isfield(D_allcat,'stimulus')  
     
     if length(unique(D_allcat.stimulus)) == 3
-        % Hard-code kalatsky
+        % Use stim IDs
         trial_stim_allcat = D_allcat.stimulus;
+        % For both mpep and signals, ID is 1 = left, 2 = center, 3 = right
+        trial_contrastside_allcat = trial_stim_allcat;
+        trial_contrastside_allcat(trial_contrastside_allcat == 1) = -1;
+        trial_contrastside_allcat(trial_contrastside_allcat == 2) = 0;
+        trial_contrastside_allcat(trial_contrastside_allcat == 3) = 1;
     else
         % Passive choiceworld uses stimID = side*contrast
         trial_contrastside_allcat = D_allcat.stimulus;

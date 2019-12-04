@@ -470,7 +470,8 @@ wheel_velocity_interp = interp1(Timeline.rawDAQTimestamps,wheel_velocity,time_bi
 
 move_stopped_t = 0.5;
 move_stopped_samples = round(sample_rate*move_stopped_t);
-wheel_moving_conv = convn((abs(wheel_velocity_interp) > 0.02), ...
+wheel_thresh = 0.025;
+wheel_moving_conv = convn((abs(wheel_velocity_interp) > wheel_thresh), ...
     ones(1,move_stopped_samples),'full') > 0;
 wheel_moving = wheel_moving_conv(end-length(time_bin_centers)+1:end);
 

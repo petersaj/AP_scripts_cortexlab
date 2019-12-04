@@ -15,8 +15,8 @@
 % data_fn = 'trial_activity_stimKalatsky_trained';
 % data_fn = 'trial_activity_AP_lcrGratingPassive_pre_muscimol';
 % data_fn = 'trial_activity_AP_lcrGratingPassive_post_muscimol';
-% data_fn = 'trial_activity_vanillaChoiceworldNoRepeats_pre_muscimol';
-data_fn = 'trial_activity_vanillaChoiceworldNoRepeats_post_muscimol';
+data_fn = 'trial_activity_vanillaChoiceworldNoRepeats_pre_muscimol';
+% data_fn = 'trial_activity_vanillaChoiceworldNoRepeats_post_muscimol';
 
 exclude_data = false;
 
@@ -2643,8 +2643,8 @@ fluor_roi_deconv_exp = mat2cell(fluor_roi_deconv,use_split,length(t),n_rois);
 
 stim_exp = mat2cell(D_allcat.stimulus,use_split,1);
 
-
-move_trial = any(abs(wheel_allcat(:,t >= 0 & t <= 0.5)) > 0.02,2);
+wheel_thresh = 0.025;
+move_trial = any(abs(wheel_allcat(:,t >= 0 & t <= 0.5)) > wheel_thresh,2);
 move_trial_exp =  mat2cell(move_trial,use_split,1);
 
 
@@ -3130,7 +3130,8 @@ time_bins = frame_t(find(frame_t > ...
 time_bin_centers = time_bins(1:end-1) + diff(time_bins)/2;
 
 % Get reaction time for building regressors
-[move_trial,move_idx] = max(abs(event_aligned_wheel) > 0.02,[],2);
+wheel_thresh = 0.025;
+[move_trial,move_idx] = max(abs(event_aligned_wheel) > wheel_thresh,[],2);
 move_idx(~move_trial) = NaN;
 move_t = nan(size(move_idx));
 move_t(~isnan(move_idx) & move_trial) = t(move_idx(~isnan(move_idx) & move_trial))';

@@ -6,16 +6,16 @@
 % Load data
 
 % (task)
-% data_fn = 'trial_activity_choiceworld'; % Primary dataset
+data_fn = 'trial_activity_choiceworld'; % Primary dataset
 % data_fn = 'trial_activity_choiceworld_4strdepth'; % Depth-aligned striatum
-% exclude_data = true;
+exclude_data = true;
 
 % (passive)
 % data_fn = 'trial_activity_AP_choiceWorldStimPassive_trained';
-data_fn = 'trial_activity_AP_choiceWorldStimPassive_naive';
+% data_fn = 'trial_activity_AP_choiceWorldStimPassive_naive';
 % data_fn = 'trial_activity_stimKalatsky_naive';
 % data_fn = 'trial_activity_stimKalatsky_trained';
-exclude_data = false;
+% exclude_data = false;
 
 % (unused at the moment)
 % data_fn = 'trial_activity_choiceworld_wfonly'; % Widefield-only days (no craniotomy, so cleaner)
@@ -1428,7 +1428,7 @@ for curr_exp = 1:length(use_split)
         curr_stim_fix = curr_act_stim_avg - curr_act_pred_stim_avg;        
         curr_act_pred_fix_allcat_exp{curr_exp}(curr_trials,:,:) = ...
             curr_act_pred_fix_allcat_exp{curr_exp}(curr_trials,:,:) + curr_stim_fix;       
-    end  
+    end
 end
 curr_act_pred_fix_allcat = cell2mat(curr_act_pred_fix_allcat_exp);
 
