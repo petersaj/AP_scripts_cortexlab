@@ -979,14 +979,14 @@ end
 %%%%%%%%%%% THIS IS A WORK IN PROGRESS
 % Light artifact removal looks good
 %
-% BUT LFP IS TOO LARGE TO LOAD IN: so now loads single channel
-%
-%
+% Nick uses memmap which looks like a better way for loading/averaging?
 
 load_lfp = false;
 load_channel = 100;
 
-if load_lfp
+if ephys_exists && load_parts.ephys && load_lfp
+    
+    error('Not working yet: check notes above')
     
     % Load LFP
     n_channels = str2num(header.n_channels);
@@ -1020,18 +1020,19 @@ if load_lfp
 %     lfp = lfp_all(channel_map+1,:);
 %     clear lfp_all;  
         
-    % Load LFP (single-channel)
-    fseek(fid,lfp_load_start,'bof');
+    % Load LFP (single-channel)    
     if verbose; disp('Loading LFP...'); end;
     lfp_load_start_channel = lfp_load_start + (load_channel-1)*n_bytes;
+    fseek(fid,lfp_load_start_channel,'bof');
     lfp = fread(fid,[1,lfp_load_samples],'int16',n_channels*n_bytes-n_bytes);
     fclose(fid);
         
     % Get LFP times and convert to timeline time
-    lfp_t = [(lfp_load_start/n_channels):(lfp_load_start/n_channels)+lfp_load_samples-1]/lfp_sample_rate;
+    lfp_load_start_t = lfp_load_start/(lfp_sample_rate*n_channels*n_bytes);
+    lfp_t = [0:size(lfp,2)-1]/lfp_sample_rate + lfp_load_start_t;
     lfp_t_timeline = interp1(sync_ephys,sync_timeline,lfp_t,'linear','extrap');
     
-    %%% Regress out light artifact
+    %%% Remove light artifact
     if verbose; disp('Cleaning LFP...'); end;
     
     % Get light times (assume blue/violet alternate)

@@ -10668,10 +10668,10 @@ surround_time = surround_window(1):surround_samplerate:surround_window(2);
 baseline_surround_time = baseline_window(1):surround_samplerate:baseline_window(2);
 
 % (passive)
-use_stims = find(stimIDs == 3);
+% use_stims = find(stimIDs == 3);
 % (choiceworld)
-% stimIDs = trial_conditions(:,1).*trial_conditions(:,2);
-% use_stims = find(stimIDs < 0);
+stimIDs = trial_conditions(:,1).*trial_conditions(:,2);
+use_stims = find(stimIDs < 0);
 
 use_stimOn_times = stimOn_times(use_stims);
 use_stimOn_times([1,end]) = [];
@@ -10711,6 +10711,5 @@ plot([daqController.SignalGenerators(1, 1).Calibrations(n_cal).measuredDeliverie
     'linewidth',3,'color','r')
 title(datestr(daqController.SignalGenerators(1, 1).Calibrations(n_cal).dateTime))
 xlabel('duration (sec)'); ylabel('volume (uL)')
-
 
 

@@ -64,7 +64,7 @@ vis_stim = vis.grating(t, 'square', 'gaussian');
 vis_stim.contrast = 0;
 vis_stimOn = stim_id.to(stim_id.delay(stim_time));
 vis_stim.show = vis_stimOn;
-visStim.stim = stim;
+visStim.stim = vis_stim;
 
 endTrial = events.newTrial.setTrigger(trial_t.gt(trial_end_time));
 

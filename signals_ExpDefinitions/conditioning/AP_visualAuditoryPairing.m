@@ -23,8 +23,9 @@ audDev = audio.Devices('Strix');
 audioSampleRate = audDev.DefaultSampleRate;
 audioChannels = audDev.NrOutputChannels;
 
-noise_samples = {randn(2,audioSampleRate*stim_time)*noise_volume};
+noise_samples = {randn(audioChannels,audioSampleRate*stim_time)*noise_volume};
 auditory_samples = [cell(1,1),noise_samples];
+condition_auditory_labels = [NaN,0];
 
 
 %% Set trial data
@@ -36,7 +37,7 @@ new_trial_set = events.newTrial.delay(0);
 trial_t = t - t.at(new_trial_set);
 
 % Set the stim order and ITIs for this trial
-stimOrder = new_trial_set.map(@(x) randperm(length(azimuths));
+stimOrder = new_trial_set.map(@(x) randperm(length(azimuths)));
 stimITIs = new_trial_set.map(@(x) randsample(min_iti:step_iti:max_iti,length(azimuths),true));
 
 % Get the stim on times and the trial end time
@@ -50,14 +51,14 @@ condition_num = trial_t.ge(trial_stimOn_times).sum.skipRepeats;
 condition_id = map2(stimOrder,condition_num,@(stim_order,stim_num) stim_order(stim_num));
 
 % Visual
-vis_azimuth = stim_id.map(@(x) azimuths(x));
+vis_azimuth = condition_id.map(@(x) azimuths(x));
 
 vis_stim = vis.grating(t, 'square', 'gaussian');
 vis_stim.azimuth = vis_azimuth;
 vis_stim.contrast = 1;
 vis_stimOn = condition_id.to(condition_id.delay(stim_time));
 vis_stim.show = vis_stimOn;
-visStim.stim = stim;
+visStim.stim = vis_stim;
 
 % Auditory
 audio.Strix = condition_id.map(@(x) auditory_samples{x});
@@ -65,6 +66,16 @@ audio.Strix = condition_id.map(@(x) auditory_samples{x});
 % End trial after all stim are presented
 endTrial = events.newTrial.setTrigger(trial_t.gt(trial_end_time));
 
+
+%% Events
+
+events.stimITIs = stimITIs;
+events.stimOn = vis_stimOn;
+
+events.visAzimuth = vis_azimuth;
+events.auditoryFrequency = condition_id.map(@(x) condition_auditory_labels(x));
+
+events.endTrial = endTrial;
 
 
 

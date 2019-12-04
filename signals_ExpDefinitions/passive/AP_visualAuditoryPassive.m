@@ -29,7 +29,7 @@ audioChannels = audDev.NrOutputChannels;
 tone_samples = arrayfun(@(freq) ...
     aud.pureTone(freq,stim_time,audioSampleRate, ...
     audioRampDuration,audioChannels)*tone_volume,audio_freqs,'uni',false);
-noise_samples = {randn(2,audioSampleRate*stim_time)*noise_volume};
+noise_samples = {randn(audioChannels,audioSampleRate*stim_time)*noise_volume};
 
 audio_samples = [tone_samples,noise_samples];
 audio_labels = [audio_freqs,0];
@@ -64,15 +64,15 @@ condition_num = trial_t.ge(trial_stimOn_times).sum.skipRepeats;
 condition_id = map2(stimOrder,condition_num,@(stim_order,stim_num) stim_order(stim_num));
 
 % Visual
-vis_azimuth = stim_id.map(@(x) condition_vis_azimuth(x));
-vis_contrast = stim_id.map(@(x) condition_vis_contrast(x));
+vis_azimuth = condition_id.map(@(x) condition_vis_azimuth(x));
+vis_contrast = condition_id.map(@(x) condition_vis_contrast(x));
 
 vis_stim = vis.grating(t, 'square', 'gaussian');
 vis_stim.azimuth = vis_azimuth;
 vis_stim.contrast = vis_contrast;
 vis_stimOn = condition_id.to(condition_id.delay(stim_time));
 vis_stim.show = vis_stimOn;
-visStim.stim = stim;
+visStim.stim = vis_stim;
 
 % Auditory
 audio.Strix = condition_id.map(@(x) condition_auditory_samples{x});
