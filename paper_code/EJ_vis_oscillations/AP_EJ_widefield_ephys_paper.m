@@ -214,7 +214,7 @@ for curr_recording = 1:length(recordings)
         lfp = double(lfp_memmap.Data.lfp(lfp_channel,lfp_load_start:lfp_load_stop));
   
         % Get LFP times and convert to timeline time
-        lfp_load_start_t = lfp_load_start/(lfp_sample_rate*n_channels*n_bytes);
+        lfp_load_start_t = lfp_load_start/lfp_sample_rate;
         lfp_t = [0:size(lfp,2)-1]/lfp_sample_rate + lfp_load_start_t;
         lfp_t_timeline = interp1(acqlive_ephys_currexpt,acqLive_timeline,lfp_t,'linear','extrap');
         
