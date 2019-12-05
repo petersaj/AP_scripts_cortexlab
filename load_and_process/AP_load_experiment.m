@@ -986,7 +986,7 @@ load_channel = 100;
 
 if ephys_exists && load_parts.ephys && load_lfp
     
-    error('Not working yet: check notes above')
+    error('Double check this works before using')
     
     % Load LFP
     n_channels = str2num(header.n_channels);
@@ -1006,27 +1006,15 @@ if ephys_exists && load_parts.ephys && load_lfp
     acqlive_ephys_currexpt = [experiment_ephys_starts(experiment_idx), ...
         experiment_ephys_stops(experiment_idx)];
     
-    % Get LFP sample index for current experiment
-    n_bytes = 2; % int16 is 2 bytes and fseek works in bytes
-    lfp_load_start = (lfp_sample_rate*acqlive_ephys_currexpt(1)*n_channels*n_bytes);
-    lfp_load_samples = (lfp_sample_rate*diff(acqlive_ephys_currexpt)+1);
+    % Load single LFP channel within experiment bounds
+    n_bytes = 2; % LFP = int16 = 2 bytes
+    lfp_fileinfo = dir(lfp_filename);
+    n_lfp_samples = lfp_fileinfo.bytes/n_bytes/n_channels;
+    lfp_memmap = memmapfile(lfp_filename, 'Format', {'int16', [n_channels n_lfp_samples], 'lfp'});
+    lfp_load_start = round((lfp_sample_rate*acqlive_ephys_currexpt(1)));
+    lfp_load_stop = round((lfp_sample_rate*acqlive_ephys_currexpt(2)));
+    lfp = lfp_memmap.Data.lfp(lfp_channel,lfp_load_start:lfp_load_stop);
     
-%     % Load LFP (all channels: too big)
-%     fseek(fid,lfp_load_start,'bof');
-%     if verbose; disp('Loading LFP...'); end;
-%     lfp_all = fread(fid,[n_channels,lfp_load_samples],'int16');
-%     fclose(fid);
-%     % eliminate non-connected channels
-%     lfp = lfp_all(channel_map+1,:);
-%     clear lfp_all;  
-        
-    % Load LFP (single-channel)    
-    if verbose; disp('Loading LFP...'); end;
-    lfp_load_start_channel = lfp_load_start + (load_channel-1)*n_bytes;
-    fseek(fid,lfp_load_start_channel,'bof');
-    lfp = fread(fid,[1,lfp_load_samples],'int16',n_channels*n_bytes-n_bytes);
-    fclose(fid);
-        
     % Get LFP times and convert to timeline time
     lfp_load_start_t = lfp_load_start/(lfp_sample_rate*n_channels*n_bytes);
     lfp_t = [0:size(lfp,2)-1]/lfp_sample_rate + lfp_load_start_t;

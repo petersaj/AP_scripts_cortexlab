@@ -15,8 +15,8 @@
 % data_fn = 'trial_activity_stimKalatsky_trained';
 % data_fn = 'trial_activity_AP_lcrGratingPassive_pre_muscimol';
 % data_fn = 'trial_activity_AP_lcrGratingPassive_post_muscimol';
-data_fn = 'trial_activity_vanillaChoiceworldNoRepeats_pre_muscimol';
-% data_fn = 'trial_activity_vanillaChoiceworldNoRepeats_post_muscimol';
+% data_fn = 'trial_activity_vanillaChoiceworldNoRepeats_pre_muscimol';
+data_fn = 'trial_activity_vanillaChoiceworldNoRepeats_post_muscimol';
 
 exclude_data = false;
 

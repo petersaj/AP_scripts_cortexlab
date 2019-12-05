@@ -54,14 +54,17 @@ recordings(end).genotype = 'tetO-GC6s';
 % Cross-correlation
 mua_fluor_xcorr = cell(size(recordings));
 lfp_fluor_xcorr = cell(size(recordings));
+mua_lfp_xcorr = cell(size(recordings));
 
 % Coherence
 mua_fluor_coherence = cell(size(recordings));
 lfp_fluor_coherence = cell(size(recordings));
+mua_lfp_coherence = cell(size(recordings));
 
 % Spectra correlations
 mua_fluor_spectra_corr = cell(size(recordings));
 lfp_fluor_spectra_corr = cell(size(recordings));
+mua_lfp_spectra_corr = cell(size(recordings));
 
 % GCaMP kernel (this is for me)
 gcamp_regression_kernel = cell(size(recordings));
@@ -73,7 +76,9 @@ for curr_recording = 1:length(recordings)
        
     %% Clear workspace, set current recording
     clearvars -except curr_recording recordings ...
-        mua_fluor_xcorr mua_fluor_coherence spectra_corr ...
+        mua_fluor_xcorr lfp_fluor_xcorr mua_lfp_xcorr  ...
+        mua_fluor_coherence lfp_fluor_coherence mua_lfp_coherence ...
+        mua_fluor_spectra_corr lfp_fluor_spectra_corr mua_lfp_spectra_corr ...
         gcamp_regression_kernel gcamp_fft_kernel
     
     animal = recordings(curr_recording).animal;
@@ -96,8 +101,7 @@ for curr_recording = 1:length(recordings)
     binned_spikes_all = cell(size(experiments));
     lfp_all = cell(size(experiments));
     
-    warning('DISABLING MULTI EXPERIMENT CONCATENATION')
-    for curr_exp = 1 %1:length(experiments)
+    for curr_exp = 1:length(experiments)
         
         experiment = experiments(curr_exp);
         % Try loading with current conventions, otherwise load old
@@ -181,15 +185,18 @@ for curr_recording = 1:length(recordings)
         %lfp_filename = [ephys_path filesep 'lfp.dat']; (this is old)
         [data_path,data_path_exists] = AP_cortexlab_filename(animal,day,experiment,'ephys_dir',site);
         lfp_dir = dir([data_path filesep 'experiment*-1_0.dat']);
-        lfp_filename = [data_path filesep lfp_dir.name];
+        if ~isempty(lfp_dir)
+            lfp_filename = [data_path filesep lfp_dir.name];
+        else
+            % For one dataset new open ephys: just do this manually
+            lfp_filename = [data_path filesep 'experiment1\recording1\continuous\Neuropix-3a-100.1\continuous.dat'];
+        end
         if ~exist(lfp_filename)
             error('LFP filename incorrect')
         end
-        
+            
         lfp_sample_rate = str2num(header.lfp_sample_rate);
-        lfp_cutoff = str2num(header.filter_cutoff);
-        
-        fid = fopen(lfp_filename);
+        lfp_cutoff = str2num(header.filter_cutoff);     
         
         % Get acqLive times for current experiment
         experiment_ephys_starts = sync(acqLive_sync_idx).timestamps(sync(acqLive_sync_idx).values == 1);
@@ -197,17 +204,15 @@ for curr_recording = 1:length(recordings)
         acqlive_ephys_currexpt = [experiment_ephys_starts(experiment_idx), ...
             experiment_ephys_stops(experiment_idx)];
         
-        % Get LFP sample index for current experiment
-        n_bytes = 2; % int16 is 2 bytes and fseek works in bytes
-        lfp_load_start = (lfp_sample_rate*acqlive_ephys_currexpt(1)*n_channels*n_bytes);
-        lfp_load_samples = (lfp_sample_rate*diff(acqlive_ephys_currexpt)+1);
-       
-        % Load LFP (single-channel)     
-        lfp_load_start_channel = lfp_load_start + (lfp_channel-1)*n_bytes;
-        fseek(fid,lfp_load_start_channel,'bof');
-        lfp = fread(fid,[1,lfp_load_samples],'int16',n_channels*n_bytes-n_bytes);
-        fclose(fid);
-        
+        % Load single LFP channel within experiment bounds
+        n_bytes = 2; % LFP = int16 = 2 bytes
+        lfp_fileinfo = dir(lfp_filename); 
+        n_lfp_samples = lfp_fileinfo.bytes/n_bytes/n_channels;
+        lfp_memmap = memmapfile(lfp_filename, 'Format', {'int16', [n_channels n_lfp_samples], 'lfp'});
+        lfp_load_start = round((lfp_sample_rate*acqlive_ephys_currexpt(1)));
+        lfp_load_stop = round((lfp_sample_rate*acqlive_ephys_currexpt(2)));
+        lfp = double(lfp_memmap.Data.lfp(lfp_channel,lfp_load_start:lfp_load_stop));
+  
         % Get LFP times and convert to timeline time
         lfp_load_start_t = lfp_load_start/(lfp_sample_rate*n_channels*n_bytes);
         lfp_t = [0:size(lfp,2)-1]/lfp_sample_rate + lfp_load_start_t;
@@ -300,7 +305,7 @@ for curr_recording = 1:length(recordings)
     time_bin_centers = cat(2,time_bin_centers_all{:});
     fVdf_resample = cat(2,fVdf_resample_all{:});
     binned_spikes = cat(2,binned_spikes_all{:});
-    lfp = cell2mat(cellfun(@(x) x - mean(x),lfp_all,'uni',false));
+    lfp = cat(2,lfp_all{:});
  
     %% Get fluorescence -> MUA regression map, draw ROI for fluorescence
     
@@ -451,11 +456,39 @@ for curr_recording = 1:length(recordings)
     subplot(2,1,1);
     plot(lags_t,lfp_fluor_xcorr{curr_recording},'k','linewidth',2)
     line([0,0],ylim,'linestyle','--','color','r');
-    xlabel('MUA Lag (s)');
+    xlabel('LFP Lag (s)');
     ylabel('Normalized cross-correlation')
     
     subplot(2,1,2);
     plot(coherence_f,lfp_fluor_coherence{curr_recording},'k','linewidth',2)
+    xlabel('Freqency');
+    ylabel('Coherence');
+    
+    drawnow;
+    
+    %% MUA/LFP cross-correlation and coherence
+    
+    % Cross-correlation
+    corr_lag = 5; % in seconds
+    corr_lag_samples = round(corr_lag*framerate);
+    [mua_lfp_xcorr{curr_recording},lags] = xcorr(lfp,binned_spikes,corr_lag_samples,'coeff');
+    lags_t = lags./framerate;
+    
+    % Coherence
+    [mua_lfp_coherence{curr_recording},coherence_f] = mscohere(binned_spikes',lfp', ...
+        hamming(round(framerate*5)),round(framerate*2.5),[],framerate);
+    
+    % Plot
+    figure('Name',animal);
+    
+    subplot(2,1,1);
+    plot(lags_t,mua_lfp_xcorr{curr_recording},'k','linewidth',2)
+    line([0,0],ylim,'linestyle','--','color','r');
+    xlabel('MUA Lag (s)');
+    ylabel('Normalized cross-correlation')
+    
+    subplot(2,1,2);
+    plot(coherence_f,mua_lfp_coherence{curr_recording},'k','linewidth',2)
     xlabel('Freqency');
     ylabel('Coherence');
     
@@ -510,8 +543,8 @@ for curr_recording = 1:length(recordings)
     
     subplot(1,3,3);
     imagesc(spect_f,spect_f,mua_fluor_spectra_corr{curr_recording}{3});
-    xlabel('Fluor frequency');
-    ylabel('MUA frequency');
+    xlabel('MUA frequency');
+    ylabel('Fluor frequency');
     axis square; caxis(c);
     
     drawnow;
@@ -565,8 +598,63 @@ for curr_recording = 1:length(recordings)
     
     subplot(1,3,3);
     imagesc(spect_f,spect_f,lfp_fluor_spectra_corr{curr_recording}{3});
-    xlabel('Fluor frequency');
+    xlabel('LFP frequency');
+    ylabel('Fluor frequency');
+    axis square; caxis(c);
+    
+    drawnow;
+    
+    %% MUA/LFP spectral correlation
+    
+    % Spectrogram settings
+    spect_overlap = 80;
+    window_length = 3; % in seconds
+    window_length_samples = round(window_length/(1/framerate));
+    N = window_length_samples; % window length
+    df = framerate/N; % frequency increment
+    
+    % Power spectrum of MUA
+    use_trace = binned_spikes(1:end-1);
+    
+    [mua_spect,spect_f,spect_t] = spectrogram(use_trace,window_length_samples, ...
+        round(spect_overlap/100*window_length_samples),[],framerate);
+    mua_spect_norm = (mua_spect/framerate).*conj(mua_spect/framerate);  % framerate is used to normalize the FFT amplitudes
+    mua_spect_power = mua_spect_norm*2*df;
+    
+    % Power spectrum of LFP
+    use_trace = lfp(1:end-1);
+    
+    [lfp_spect,spect_f,spect_t] = spectrogram(use_trace,window_length_samples, ...
+        round(spect_overlap/100*window_length_samples),[],framerate);
+    lfp_spect_norm = (lfp_spect/framerate).*conj(lfp_spect/framerate);  % framerate is used to normalize the FFT amplitudes
+    lfp_spect_power = lfp_spect_norm*2*df;
+    
+    % Correlate power spectra of LFP and fluorescence
+    spectra_corr_full = mat2cell(corrcoef([mua_spect_power',lfp_spect_power']),...
+        repmat(length(spect_f),1,2),repmat(length(spect_f),1,2));
+    mua_lfp_spectra_corr{curr_recording} = spectra_corr_full([1,4,2]);
+    
+    figure('Name',animal);
+    colormap(hot);
+    c = [min(reshape(cell2mat(mua_lfp_spectra_corr{curr_recording}),[],1)), ...
+        max(reshape(cell2mat(mua_lfp_spectra_corr{curr_recording}),[],1))];
+    
+    subplot(1,3,1);
+    imagesc(spect_f,spect_f,mua_lfp_spectra_corr{curr_recording}{1});
+    xlabel('MUA frequency');
+    ylabel('MUA frequency');
+    axis square; caxis(c);
+    
+    subplot(1,3,2);
+    imagesc(spect_f,spect_f,mua_lfp_spectra_corr{curr_recording}{2});
+    xlabel('LFP frequency');
     ylabel('LFP frequency');
+    axis square; caxis(c);
+    
+    subplot(1,3,3);
+    imagesc(spect_f,spect_f,mua_lfp_spectra_corr{curr_recording}{3});
+    xlabel('LFP frequency');
+    ylabel('MUA frequency');
     axis square; caxis(c);
     
     drawnow;
@@ -614,26 +702,67 @@ end
 figure;
 for curr_recording = 1:length(recordings)
     
-    p1 = subplot(2,1,1); hold on;
+    p1 = subplot(3,2,1); hold on;
     plot(lags_t,mua_fluor_xcorr{curr_recording},'linewidth',1)
     xlabel('MUA Lag (s)');
-    ylabel('Normalized cross-correlation')
+    ylabel('MUA-fluor norm. cross-correlation')
     
-    p2 = subplot(2,1,2); hold on;
+    p2 = subplot(3,2,2); hold on;
     plot(coherence_f,mua_fluor_coherence{curr_recording},'linewidth',1)
     xlabel('Freqency');
-    ylabel('Coherence');
+    ylabel('MUA-fluor Coherence');
+    
+    p3 = subplot(3,2,3); hold on;
+    plot(lags_t,lfp_fluor_xcorr{curr_recording},'linewidth',1)
+    xlabel('LFP Lag (s)');
+    ylabel('LFP-fluor norm. cross-correlation')
+    
+    p4 = subplot(3,2,4); hold on;
+    plot(coherence_f,lfp_fluor_coherence{curr_recording},'linewidth',1)
+    xlabel('Freqency');
+    ylabel('LFP-fluor Coherence');
+    
+    p5 = subplot(3,2,5); hold on;
+    plot(lags_t,mua_lfp_xcorr{curr_recording},'linewidth',1)
+    xlabel('MUA Lag (s)');
+    ylabel('MUA-LFP norm. cross-correlation')
+    
+    p6 = subplot(3,2,6); hold on;
+    plot(coherence_f,mua_lfp_coherence{curr_recording},'linewidth',1)
+    xlabel('Freqency');
+    ylabel('MUA-LFP Coherence');
     
 end
-subplot(2,1,1); 
+
+subplot(3,2,1); 
 mua_fluor_xcorr_mean = nanmean(vertcat(mua_fluor_xcorr{:}),1);
 plot(lags_t,mua_fluor_xcorr_mean,'k','linewidth',2);
 
-subplot(2,1,2); 
-mua_fluor_xcorr_mean = nanmean(horzcat(mua_fluor_coherence{:}),2);
-plot(coherence_f,mua_fluor_xcorr_mean,'k','linewidth',2);
+subplot(3,2,2); 
+mua_fluor_coherence_mean = nanmean(horzcat(mua_fluor_coherence{:}),2);
+plot(coherence_f,mua_fluor_coherence_mean,'k','linewidth',2);
+
+subplot(3,2,3); 
+lfp_fluor_xcorr_mean = nanmean(vertcat(lfp_fluor_xcorr{:}),1);
+plot(lags_t,lfp_fluor_xcorr_mean,'k','linewidth',2);
+
+subplot(3,2,4); 
+lfp_fluor_coherence_mean = nanmean(horzcat(lfp_fluor_coherence{:}),2);
+plot(coherence_f,lfp_fluor_coherence_mean,'k','linewidth',2);
+
+subplot(3,2,5); 
+mua_lfp_xcorr_mean = nanmean(vertcat(mua_lfp_xcorr{:}),1);
+plot(lags_t,mua_lfp_xcorr_mean,'k','linewidth',2);
+
+subplot(3,2,6); 
+mua_lfp_coherence_mean = nanmean(horzcat(mua_lfp_coherence{:}),2);
+plot(coherence_f,mua_lfp_coherence_mean,'k','linewidth',2);
 
 line(p1,[0,0],ylim(p1),'linestyle','--','color','r');
+legend(p1,[{recordings.animal},'Average']);
+axis(p1,'tight');
+
+line(p1,[0,0],ylim(p3),'linestyle','--','color','r');
 legend(p1,[{recordings.animal},'Average']);
 axis(p1,'tight');
 
@@ -672,12 +801,20 @@ end
 % Spectral correlation (mean)
 figure; colormap(hot);
 
-spectra_corr_mean = arrayfun(@(curr_spect) ...
+mua_fluor_spectra_corr_mean = arrayfun(@(curr_spect) ...
     nanmean(cell2mat(permute(cellfun(@(s) s{curr_spect}, ...
     mua_fluor_spectra_corr,'uni',false),[1,3,2])),3),1:3,'uni',false);
 
-subplot(1,3,1);
-imagesc(spect_f,spect_f,spectra_corr_mean{1});
+lfp_fluor_spectra_corr_mean = arrayfun(@(curr_spect) ...
+    nanmean(cell2mat(permute(cellfun(@(s) s{curr_spect}, ...
+    lfp_fluor_spectra_corr,'uni',false),[1,3,2])),3),1:3,'uni',false);
+
+mua_lfp_spectra_corr_mean = arrayfun(@(curr_spect) ...
+    nanmean(cell2mat(permute(cellfun(@(s) s{curr_spect}, ...
+    mua_lfp_spectra_corr,'uni',false),[1,3,2])),3),1:3,'uni',false);
+
+subplot(3,3,1);
+imagesc(spect_f,spect_f,mua_fluor_spectra_corr_mean{1});
 xlabel('MUA frequency');
 ylabel('MUA frequency');
 axis square; caxis([0,1]);
@@ -685,8 +822,8 @@ title('Mean');
 c = colorbar;
 ylabel(c,'Correlation');
 
-subplot(1,3,2);
-imagesc(spect_f,spect_f,spectra_corr_mean{2});
+subplot(3,3,2);
+imagesc(spect_f,spect_f,mua_fluor_spectra_corr_mean{2});
 xlabel('Fluor frequency');
 ylabel('Fluor frequency');
 axis square; caxis([0,1]);
@@ -694,15 +831,72 @@ title('Mean');
 c = colorbar;
 ylabel(c,'Correlation');
 
-subplot(1,3,3);
-imagesc(spect_f,spect_f,spectra_corr_mean{3});
-xlabel('Fluor frequency');
-ylabel('MUA frequency');
+subplot(3,3,3);
+imagesc(spect_f,spect_f,mua_fluor_spectra_corr_mean{3});
+xlabel('MUA frequency');
+ylabel('Fluor frequency');
 axis square; caxis([0,1]);
 title(recordings(curr_recording).animal);
 title('Mean');
 c = colorbar;
 ylabel(c,'Correlation');
+
+subplot(3,3,4);
+imagesc(spect_f,spect_f,lfp_fluor_spectra_corr_mean{1});
+xlabel('LFP frequency');
+ylabel('LFP frequency');
+axis square; caxis([0,1]);
+title('Mean');
+c = colorbar;
+ylabel(c,'Correlation');
+
+subplot(3,3,5);
+imagesc(spect_f,spect_f,lfp_fluor_spectra_corr_mean{2});
+xlabel('Fluor frequency');
+ylabel('Fluor frequency');
+axis square; caxis([0,1]);
+title('Mean');
+c = colorbar;
+ylabel(c,'Correlation');
+
+subplot(3,3,6);
+imagesc(spect_f,spect_f,lfp_fluor_spectra_corr_mean{3});
+xlabel('LFP frequency');
+ylabel('Fluor frequency');
+axis square; caxis([0,1]);
+title(recordings(curr_recording).animal);
+title('Mean');
+c = colorbar;
+ylabel(c,'Correlation');
+
+subplot(3,3,7);
+imagesc(spect_f,spect_f,mua_lfp_spectra_corr_mean{1});
+xlabel('MUA frequency');
+ylabel('MUA frequency');
+axis square; caxis([0,1]);
+title('Mean');
+c = colorbar;
+ylabel(c,'Correlation');
+
+subplot(3,3,8);
+imagesc(spect_f,spect_f,mua_lfp_spectra_corr_mean{2});
+xlabel('LFP frequency');
+ylabel('LFP frequency');
+axis square; caxis([0,1]);
+title('Mean');
+c = colorbar;
+ylabel(c,'Correlation');
+
+subplot(3,3,9);
+imagesc(spect_f,spect_f,mua_lfp_spectra_corr_mean{3});
+xlabel('MUA frequency');
+ylabel('LFP frequency');
+axis square; caxis([0,1]);
+title(recordings(curr_recording).animal);
+title('Mean');
+c = colorbar;
+ylabel(c,'Correlation');
+
 
 % GCaMP fft kernel
 gcamp_kernel_norm = cellfun(@(x) (x-x(1))/max(x-x(1)),gcamp_fft_kernel,'uni',false);
