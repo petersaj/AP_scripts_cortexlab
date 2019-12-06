@@ -302,24 +302,16 @@ if block_exists
                 trial_choice(1:n_trials), trial_timing(1:n_trials)];
             [~,trial_id] = ismember(trial_conditions,conditions,'rows');
             
-        case 'AP_visAudioPassive'
-            %         min_stim_downtime = 0.5; % minimum time between pd flips to get stim
-            %         stimOn_times_pd = photodiode_flip_times([true;diff(photodiode_flip_times) > min_stim_downtime]);
-            %         stimOff_times_pd = photodiode_flip_times([diff(photodiode_flip_times) > min_stim_downtime;true]);
-            %         warning('visAudioPassive: THIS IS TEMPORARY BECAUSE NO BUFFER TIME')
-            %
-            %         stimOn_times = nan(size(signals_events.visualOnsetTimes));
-            %         stimOn_times(end-(length(stimOn_times_pd)-1):end) = stimOn_times_pd;
-            %
-            %         stimOff_times = nan(size(signals_events.visualOnsetTimes));
-            %         stimOff_times(end-(length(stimOff_times_pd)-1):end) = stimOff_times_pd;
-            %
-            %
-            %         % sanity check
-            %         if length(signals_events.visualOnsetValues) ~= length(stimOn_times)
-            %             error('Different number of signals/timeline stim ons')
-            %         end
-            error('AP_visAudioPassive isn''t reliable yet')
+        case {'AP_visualAuditoryPassive','AP_visualAuditoryPairing','AP_visualAuditoryPairingHalf'}
+            % Get stim times (first flip is initializing gray to black)
+            stimOn_times = photodiode_flip_times(2:2:end);
+            vis_azimuth = signals_events.visAzimuthValues;
+            aud_freq = signals_events.auditoryFrequencyValues;
+            if isfield(signals_events,'visContrastValues')
+                vis_contrast = signals_events.visContrastValues;
+            else
+                vis_contrast = ones(size(vis_azimuth));
+            end
             
         case 'AP_choiceWorldStimPassive'
             % This is kind of a dumb hack to get the stimOn times, maybe not

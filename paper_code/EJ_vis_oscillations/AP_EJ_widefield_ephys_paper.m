@@ -8,9 +8,12 @@
 
 %% Set experiments
 
-recordings = struct('animal',{},'day',{});
+% Initialize data structure and save filename
+save_fn = 'C:\Users\Andrew\OneDrive for Business\Documents\CarandiniHarrisLab\analysis\EJ_ctx_widefield_ephys\revision2\ctx_wf_traces.mat';
+ctx_wf_traces = struct;
 
-% (these are good quality)
+% Set recordings to use
+recordings = struct('animal',{},'day',{});
 
 % Good quality
 recordings(end+1).animal = 'AP026';
@@ -75,7 +78,9 @@ gcamp_fft_kernel = cell(size(recordings));
 for curr_recording = 1:length(recordings)
        
     %% Clear workspace, set current recording
-    clearvars -except curr_recording recordings ...
+    clearvars -except ...
+        save_fn ctx_wf_traces...
+        curr_recording recordings ...
         mua_fluor_xcorr lfp_fluor_xcorr mua_lfp_xcorr  ...
         mua_fluor_coherence lfp_fluor_coherence mua_lfp_coherence ...
         mua_fluor_spectra_corr lfp_fluor_spectra_corr mua_lfp_spectra_corr ...
@@ -300,13 +305,15 @@ for curr_recording = 1:length(recordings)
         lfp_all{curr_exp} = lfp_lightfix_lowpass_resample;
         
     end
+ 
     
-    % Concatenate all data
+     %% Concatenate all data for analyzing
     time_bin_centers = cat(2,time_bin_centers_all{:});
     fVdf_resample = cat(2,fVdf_resample_all{:});
     binned_spikes = cat(2,binned_spikes_all{:});
     lfp = cat(2,lfp_all{:});
- 
+
+    
     %% Get fluorescence -> MUA regression map, draw ROI for fluorescence
     
     use_svs = 1:50;
@@ -410,6 +417,15 @@ for curr_recording = 1:length(recordings)
     drawnow;
   
     
+    %% Save data
+    ctx_wf_traces(curr_recording).time_bin_centers = time_bin_centers_all;
+    ctx_wf_traces(curr_recording).fluor_trace_all = ...
+        mat2cell(fluor_trace,1,cellfun(@length,time_bin_centers_all));
+    ctx_wf_traces(curr_recording).binned_spikes_all = binned_spikes_all;
+    ctx_wf_traces(curr_recording).lfp_all = lfp_all;
+    save(save_fn,'ctx_wf_traces')
+    disp(['Saved ' save_fn])
+    
     %% MUA/fluorescence cross-correlation and coherence
     
     % Cross-correlation
@@ -433,7 +449,7 @@ for curr_recording = 1:length(recordings)
     
     subplot(2,1,2);
     plot(coherence_f,mua_fluor_coherence{curr_recording},'k','linewidth',2)
-    xlabel('Freqency');
+    xlabel('Frequency');
     ylabel('Coherence');
     
     drawnow;
@@ -461,7 +477,7 @@ for curr_recording = 1:length(recordings)
     
     subplot(2,1,2);
     plot(coherence_f,lfp_fluor_coherence{curr_recording},'k','linewidth',2)
-    xlabel('Freqency');
+    xlabel('Frequency');
     ylabel('Coherence');
     
     drawnow;
@@ -489,7 +505,7 @@ for curr_recording = 1:length(recordings)
     
     subplot(2,1,2);
     plot(coherence_f,mua_lfp_coherence{curr_recording},'k','linewidth',2)
-    xlabel('Freqency');
+    xlabel('Frequency');
     ylabel('Coherence');
     
     drawnow;
@@ -709,7 +725,7 @@ for curr_recording = 1:length(recordings)
     
     p2 = subplot(3,2,2); hold on;
     plot(coherence_f,mua_fluor_coherence{curr_recording},'linewidth',1)
-    xlabel('Freqency');
+    xlabel('Frequency');
     ylabel('MUA-fluor Coherence');
     
     p3 = subplot(3,2,3); hold on;
@@ -719,7 +735,7 @@ for curr_recording = 1:length(recordings)
     
     p4 = subplot(3,2,4); hold on;
     plot(coherence_f,lfp_fluor_coherence{curr_recording},'linewidth',1)
-    xlabel('Freqency');
+    xlabel('Frequency');
     ylabel('LFP-fluor Coherence');
     
     p5 = subplot(3,2,5); hold on;
@@ -729,7 +745,7 @@ for curr_recording = 1:length(recordings)
     
     p6 = subplot(3,2,6); hold on;
     plot(coherence_f,mua_lfp_coherence{curr_recording},'linewidth',1)
-    xlabel('Freqency');
+    xlabel('Frequency');
     ylabel('MUA-LFP Coherence');
     
 end

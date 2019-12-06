@@ -8,9 +8,12 @@
 
 %% Set experiments
 
-recordings = struct('animal',{},'day',{});
+% Initialize data structure and save filename
+save_fn = 'C:\Users\Andrew\OneDrive for Business\Documents\CarandiniHarrisLab\analysis\EJ_ctx_widefield_ephys\revision2\ctx_wf_traces.mat';
+ctx_wf_traces = struct;
 
-% (these are good quality)
+% Set recordings to use
+recordings = struct('animal',{},'day',{});
 
 % Good quality
 recordings(end+1).animal = 'AP026';
@@ -75,7 +78,9 @@ gcamp_fft_kernel = cell(size(recordings));
 for curr_recording = 1:length(recordings)
        
     %% Clear workspace, set current recording
-    clearvars -except curr_recording recordings ...
+    clearvars -except ...
+        save_fn ctx_wf_traces...
+        curr_recording recordings ...
         mua_fluor_xcorr lfp_fluor_xcorr mua_lfp_xcorr  ...
         mua_fluor_coherence lfp_fluor_coherence mua_lfp_coherence ...
         mua_fluor_spectra_corr lfp_fluor_spectra_corr mua_lfp_spectra_corr ...
@@ -196,9 +201,7 @@ for curr_recording = 1:length(recordings)
         end
             
         lfp_sample_rate = str2num(header.lfp_sample_rate);
-        lfp_cutoff = str2num(header.filter_cutoff);
-        
-        fid = fopen(lfp_filename);
+        lfp_cutoff = str2num(header.filter_cutoff);     
         
         % Get acqLive times for current experiment
         experiment_ephys_starts = sync(acqLive_sync_idx).timestamps(sync(acqLive_sync_idx).values == 1);
@@ -206,19 +209,17 @@ for curr_recording = 1:length(recordings)
         acqlive_ephys_currexpt = [experiment_ephys_starts(experiment_idx), ...
             experiment_ephys_stops(experiment_idx)];
         
-        % Get LFP sample index for current experiment
-        n_bytes = 2; % int16 is 2 bytes and fseek works in bytes
-        lfp_load_start = (lfp_sample_rate*acqlive_ephys_currexpt(1)*n_channels*n_bytes);
-        lfp_load_samples = (lfp_sample_rate*diff(acqlive_ephys_currexpt)+1);
-       
-        % Load LFP (single-channel)     
-        lfp_load_start_channel = lfp_load_start + (lfp_channel-1)*n_bytes;
-        fseek(fid,lfp_load_start_channel,'bof');
-        lfp = fread(fid,[1,lfp_load_samples],'int16',n_channels*n_bytes-n_bytes);
-        fclose(fid);
-        
+        % Load single LFP channel within experiment bounds
+        n_bytes = 2; % LFP = int16 = 2 bytes
+        lfp_fileinfo = dir(lfp_filename); 
+        n_lfp_samples = lfp_fileinfo.bytes/n_bytes/n_channels;
+        lfp_memmap = memmapfile(lfp_filename, 'Format', {'int16', [n_channels n_lfp_samples], 'lfp'});
+        lfp_load_start = round((lfp_sample_rate*acqlive_ephys_currexpt(1)));
+        lfp_load_stop = round((lfp_sample_rate*acqlive_ephys_currexpt(2)));
+        lfp = double(lfp_memmap.Data.lfp(lfp_channel,lfp_load_start:lfp_load_stop));
+  
         % Get LFP times and convert to timeline time
-        lfp_load_start_t = lfp_load_start/(lfp_sample_rate*n_channels*n_bytes);
+        lfp_load_start_t = lfp_load_start/lfp_sample_rate;
         lfp_t = [0:size(lfp,2)-1]/lfp_sample_rate + lfp_load_start_t;
         lfp_t_timeline = interp1(acqlive_ephys_currexpt,acqLive_timeline,lfp_t,'linear','extrap');
         
@@ -304,13 +305,15 @@ for curr_recording = 1:length(recordings)
         lfp_all{curr_exp} = lfp_lightfix_lowpass_resample;
         
     end
+ 
     
-    % Concatenate all data
+     %% Concatenate all data for analyzing
     time_bin_centers = cat(2,time_bin_centers_all{:});
     fVdf_resample = cat(2,fVdf_resample_all{:});
     binned_spikes = cat(2,binned_spikes_all{:});
-    lfp = cell2mat(cellfun(@(x) x - median(x),lfp_all,'uni',false));
- 
+    lfp = cat(2,lfp_all{:});
+
+    
     %% Get fluorescence -> MUA regression map, draw ROI for fluorescence
     
     use_svs = 1:50;
@@ -414,6 +417,16 @@ for curr_recording = 1:length(recordings)
     drawnow;
   
     
+    %% Save data
+    ctx_wf_traces(curr_recording).time_bin_centers = time_bin_centers_all;
+    ctx_wf_traces(curr_recording).fluor_trace_all = ...
+        mat2cell(fluor_trace,1,cellfun(@length,time_bin_centers_all));
+    ctx_wf_traces(curr_recording).binned_spikes_all = binned_spikes_all;
+    ctx_wf_traces(curr_recording).lfp_all = lfp_all;
+    save(save_fn,'ctx_wf_traces')
+    
+    keyboard 
+    
     %% MUA/fluorescence cross-correlation and coherence
     
     % Cross-correlation
@@ -437,7 +450,7 @@ for curr_recording = 1:length(recordings)
     
     subplot(2,1,2);
     plot(coherence_f,mua_fluor_coherence{curr_recording},'k','linewidth',2)
-    xlabel('Freqency');
+    xlabel('Frequency');
     ylabel('Coherence');
     
     drawnow;
@@ -465,7 +478,7 @@ for curr_recording = 1:length(recordings)
     
     subplot(2,1,2);
     plot(coherence_f,lfp_fluor_coherence{curr_recording},'k','linewidth',2)
-    xlabel('Freqency');
+    xlabel('Frequency');
     ylabel('Coherence');
     
     drawnow;
@@ -493,7 +506,7 @@ for curr_recording = 1:length(recordings)
     
     subplot(2,1,2);
     plot(coherence_f,mua_lfp_coherence{curr_recording},'k','linewidth',2)
-    xlabel('Freqency');
+    xlabel('Frequency');
     ylabel('Coherence');
     
     drawnow;
@@ -713,7 +726,7 @@ for curr_recording = 1:length(recordings)
     
     p2 = subplot(3,2,2); hold on;
     plot(coherence_f,mua_fluor_coherence{curr_recording},'linewidth',1)
-    xlabel('Freqency');
+    xlabel('Frequency');
     ylabel('MUA-fluor Coherence');
     
     p3 = subplot(3,2,3); hold on;
@@ -723,7 +736,7 @@ for curr_recording = 1:length(recordings)
     
     p4 = subplot(3,2,4); hold on;
     plot(coherence_f,lfp_fluor_coherence{curr_recording},'linewidth',1)
-    xlabel('Freqency');
+    xlabel('Frequency');
     ylabel('LFP-fluor Coherence');
     
     p5 = subplot(3,2,5); hold on;
@@ -733,7 +746,7 @@ for curr_recording = 1:length(recordings)
     
     p6 = subplot(3,2,6); hold on;
     plot(coherence_f,mua_lfp_coherence{curr_recording},'linewidth',1)
-    xlabel('Freqency');
+    xlabel('Frequency');
     ylabel('MUA-LFP Coherence');
     
 end
@@ -743,24 +756,24 @@ mua_fluor_xcorr_mean = nanmean(vertcat(mua_fluor_xcorr{:}),1);
 plot(lags_t,mua_fluor_xcorr_mean,'k','linewidth',2);
 
 subplot(3,2,2); 
-mua_fluor_xcorr_mean = nanmean(horzcat(mua_fluor_coherence{:}),2);
-plot(coherence_f,mua_fluor_xcorr_mean,'k','linewidth',2);
+mua_fluor_coherence_mean = nanmean(horzcat(mua_fluor_coherence{:}),2);
+plot(coherence_f,mua_fluor_coherence_mean,'k','linewidth',2);
 
 subplot(3,2,3); 
 lfp_fluor_xcorr_mean = nanmean(vertcat(lfp_fluor_xcorr{:}),1);
 plot(lags_t,lfp_fluor_xcorr_mean,'k','linewidth',2);
 
 subplot(3,2,4); 
-lfp_fluor_xcorr_mean = nanmean(horzcat(lfp_fluor_coherence{:}),2);
-plot(coherence_f,lfp_fluor_xcorr_mean,'k','linewidth',2);
+lfp_fluor_coherence_mean = nanmean(horzcat(lfp_fluor_coherence{:}),2);
+plot(coherence_f,lfp_fluor_coherence_mean,'k','linewidth',2);
 
 subplot(3,2,5); 
-mua_lfp_xcorr_mean = nanmean(vertcat(lfp_fluor_xcorr{:}),1);
-plot(lags_t,lfp_fluor_xcorr_mean,'k','linewidth',2);
+mua_lfp_xcorr_mean = nanmean(vertcat(mua_lfp_xcorr{:}),1);
+plot(lags_t,mua_lfp_xcorr_mean,'k','linewidth',2);
 
 subplot(3,2,6); 
-lfp_fluor_xcorr_mean = nanmean(horzcat(lfp_fluor_coherence{:}),2);
-plot(coherence_f,lfp_fluor_xcorr_mean,'k','linewidth',2);
+mua_lfp_coherence_mean = nanmean(horzcat(mua_lfp_coherence{:}),2);
+plot(coherence_f,mua_lfp_coherence_mean,'k','linewidth',2);
 
 line(p1,[0,0],ylim(p1),'linestyle','--','color','r');
 legend(p1,[{recordings.animal},'Average']);
