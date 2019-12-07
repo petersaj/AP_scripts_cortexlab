@@ -10615,48 +10615,6 @@ caxis([-max(abs(caxis)),max(abs(caxis))]);
 colormap(brewermap([],'*RdBu'));
 
 
-
-
-%% (temp data club) Get number of spikes for each template within each experiment
-
-n_spikes_exp = nan(max(spike_templates),4);
-n_exp = length(sync(2).timestamps)/2;
-
-for curr_exp = 1:n_exp
-    
-    curr_exp_start = sync(2).timestamps(curr_exp*2 - 1);
-    curr_exp_stop = sync(2).timestamps(curr_exp*2);
-    
-    curr_use_spikes = spike_times >= curr_exp_start & ...
-        spike_times <= curr_exp_stop;
-    
-    n_spikes_exp(:,curr_exp) = ...
-        accumarray(spike_templates(curr_use_spikes),1,[max(spike_templates),1])./ ...
-        (curr_exp_stop - curr_exp_start);
-    
-end
-
-figure; 
-for i = 1:n_exp
-   subplot(1,n_exp,i);
-   plot(n_spikes_exp(:,i),template_depths,'.k');
-   set(gca,'YDir','reverse');
-end
-
-use_baseline = 1:2;
-use_muscimol = 4:5;
-
-baseline_spikes = nanmean(n_spikes_exp(:,use_baseline),2);
-muscimol_spikes = nanmean(n_spikes_exp(:,use_muscimol),2);
-
-figure; hold on; colormap(jet);
-scatter(baseline_spikes,muscimol_spikes,50,template_depths,'filled');
-axis square; ylim(xlim);
-xlabel('Baseline spikes/s');
-ylabel('Muscimol spikes/s');
-line(xlim,xlim,'color','k');
-
-
 %% (temp data club) Plot measured/ctx-predicted spikes
 
 % Set options
@@ -10668,10 +10626,10 @@ surround_time = surround_window(1):surround_samplerate:surround_window(2);
 baseline_surround_time = baseline_window(1):surround_samplerate:baseline_window(2);
 
 % (passive)
-% use_stims = find(stimIDs == 3);
+use_stims = find(stimIDs == 3);
 % (choiceworld)
-stimIDs = trial_conditions(:,1).*trial_conditions(:,2);
-use_stims = find(stimIDs < 0);
+% stimIDs = trial_conditions(:,1).*trial_conditions(:,2);
+% use_stims = find(stimIDs > 0);
 
 use_stimOn_times = stimOn_times(use_stims);
 use_stimOn_times([1,end]) = [];
@@ -10689,8 +10647,8 @@ psth_measured = nanmean(psth_measured_stim - psth_measured_baseline,3);
 psth_predicted = nanmean(psth_predicted_stim - psth_predicted_baseline,3);
 
 figure; hold on;
-AP_stackplot(psth_measured',surround_time,2,false,'k');
-AP_stackplot(psth_predicted',surround_time,2,false,'r');
+AP_stackplot(psth_measured',surround_time,3,false,'k');
+AP_stackplot(psth_predicted',surround_time,3,false,'r');
 % plot(surround_time,psth_measured,'k','linewidth',2);
 % plot(surround_time,psth_predicted,'r','linewidth',2);
 

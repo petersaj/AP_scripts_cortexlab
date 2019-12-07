@@ -394,6 +394,50 @@ save_path = 'C:\Users\Andrew\OneDrive for Business\Documents\CarandiniHarrisLab\
 save_fn = 'muscimol_vfs.mat';
 save([save_path filesep save_fn],'vfs');
 
+%% Plot pre/post of cortical muscimol recordings
+
+spike_rate_exp = nan(max(spike_templates),4);
+n_exp = length(sync(2).timestamps)/2;
+
+for curr_exp = 1:n_exp
+    
+    curr_exp_start = sync(2).timestamps(curr_exp*2 - 1);
+    curr_exp_stop = sync(2).timestamps(curr_exp*2);
+    
+    curr_use_spikes = spike_times >= curr_exp_start & ...
+        spike_times <= curr_exp_stop;
+    
+    spike_rate_exp(:,curr_exp) = ...
+        accumarray(spike_templates(curr_use_spikes),1,[max(spike_templates),1])./ ...
+        (curr_exp_stop - curr_exp_start);
+    
+end
+
+figure; 
+p = gobjects(n_exp,1);
+for i = 1:n_exp
+   p(i) = subplot(1,n_exp,i);
+   plot(log10(spike_rate_exp(:,i)),template_depths,'.k');
+   set(gca,'YDir','reverse');
+   xlabel('Log_{10} norm spikes/s')
+end
+linkaxes(p,'x');
+
+use_baseline = 1:2;
+use_muscimol = 3:4;
+
+baseline_spikes = nanmean(spike_rate_exp(:,use_baseline),2);
+muscimol_spikes = nanmean(spike_rate_exp(:,use_muscimol),2);
+
+figure; hold on; colormap(jet);
+scatter(baseline_spikes,muscimol_spikes,50,template_depths,'filled');
+axis square; ylim(xlim);
+xlabel('Baseline spikes/s');
+ylabel('Muscimol spikes/s');
+line(xlim,xlim,'color','k');
+
+
+
 %% ~~~~~~~~ After preprocessing/saving trial activity ~~~~~~~~
 
 %% Get cortex/striatum activity pre/post muscimol

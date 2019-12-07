@@ -984,14 +984,13 @@ if ephys_exists && load_parts.ephys && load_lfp
     n_channels = str2num(header.n_channels);
     %lfp_filename = [ephys_path filesep 'lfp.dat']; (this is old)
     [data_path,data_path_exists] = AP_cortexlab_filename(animal,day,experiment,'ephys_dir',site);
-    lfp_dir = dir([data_path filesep 'experiment*-1_0.dat']);
-    lfp_filename = [data_path filesep lfp_dir.name];
+    lfp_path = [data_path filesep 'experiment1\recording1\continuous\Neuropix-3a-100.1'];
+    lfp_dir = dir([lfp_path filesep 'continuous.dat']);
+    lfp_filename = [lfp_dir.folder filesep lfp_dir.name];
 
     lfp_sample_rate = str2num(header.lfp_sample_rate);
     lfp_cutoff = str2num(header.filter_cutoff);
-    
-    fid = fopen(lfp_filename);
-        
+            
     % Get acqLive times for current experiment
     experiment_ephys_starts = sync(acqLive_sync_idx).timestamps(sync(acqLive_sync_idx).values == 1);
     experiment_ephys_stops = sync(acqLive_sync_idx).timestamps(sync(acqLive_sync_idx).values == 0);
