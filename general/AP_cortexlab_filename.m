@@ -134,8 +134,10 @@ switch file
     case 'imaging'
         filepattern = [animal filesep day filesep filesep 'svd*'];
         [filename,file_exists] = check_locations(filepattern,server_location);
-        if file_exists
+        if file_exists && iscell(filename)
             filename = fileparts(filename{1});
+        elseif file_exists && isstr(filename)
+            filename = fileparts(filename);
         end
         
     case 'ephys_dir'
