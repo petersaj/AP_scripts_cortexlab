@@ -705,36 +705,14 @@ ylabel(c,'Correlation');
 
 %% ~~~~ MUSCIMOL ~~~~
 
-% Initialize data structure and save filename
-save_fn = 'C:\Users\Andrew\OneDrive for Business\Documents\CarandiniHarrisLab\analysis\EJ_ctx_widefield_ephys\revision2\muscimol_traces.mat';
-muscimol_traces = struct;
 
 % Set recordings to use
 recordings = struct('animal',{},'day',{});
 
+% Good quality
 recordings(end+1).animal = 'AP040';
 recordings(end).day = '2019-09-12';
 
-recordings(end+1).animal = 'AP041';
-recordings(end).day = '2019-09-12';
-
-recordings(end+1).animal = 'AP054';
-recordings(end).day = '2019-10-27';
-
-recordings(end+1).animal = 'AP055';
-recordings(end).day = '2019-10-27';
-
-recordings(end+1).animal = 'AP045';
-recordings(end).day = '2019-11-03';
-
-recordings(end+1).animal = 'AP053';
-recordings(end).day = '2019-11-22';
-
-recordings(end+1).animal = 'AP047';
-recordings(end).day = '2019-11-29';
-
-recordings(end+1).animal = 'AP048';
-recordings(end).day = '2019-12-02';
 
 for curr_recording = 1:length(recordings)
     
@@ -743,62 +721,43 @@ for curr_recording = 1:length(recordings)
     
     experiments = AP_list_experiments(animal,day);
     use_experiments = [experiments(strcmp({experiments.protocol},'AP_sparseNoise')).experiment];
-    if length(use_experiments) ~= 2
-        error([animal ' ' day ' ~= 2 experiments'])
+    if length(use_experiments ~= 2)
+        error(['~= 2 experiments')
     end
     
-    for curr_experiment_idx = 1:length(use_experiments)
-        
-        % Load experiment
-        experment = use_experiments(curr_experiment_idx);
-        load_parts.imaging = true;
-        AP_load_experiment;
-        
-        avg_im_aligned = AP_align_widefield(avg_im,animal,day);
-        Udf_aligned = AP_align_widefield(Udf,animal,day);
-        
-        % Draw ROI over craniotomy on first experiment
-        if curr_experiment_idx == 1
-            [muscimol_trace,muscimol_mask] = AP_svd_roi(Udf_aligned,fVdf,avg_im_aligned);
-            intact_mask = fliplr(muscimol_mask);
-            intact_trace = AP_svd_roi(Udf_aligned,fVdf,[],[],intact_mask);
-        else
-            muscimol_trace = AP_svd_roi(Udf_aligned,fVdf,[],[],muscimol_mask);
-            intact_trace = AP_svd_roi(Udf_aligned,fVdf,[],[],intact_mask);
-        end
-               
-        % Save
-        if curr_experiment_idx == 1
-            muscimol_traces(curr_recording).muscimolhemi_premuscimol = muscimol_trace;
-            muscimol_traces(curr_recording).intacthemi_premuscimol = intact_trace;
-        elseif curr_experiment_idx == 2
-            muscimol_traces(curr_recording).muscimolhemi_postmuscimol = muscimol_trace;
-            muscimol_traces(curr_recording).intacthemi_postmuscimol = intact_trace;
-        end
-        
-    end
- 
 end
 
-% %%%%%% AFTER ABOVE LOADED: plot pre/post power ratio
-% Fs = framerate;
-% L = length(muscimol_trace);
-% NFFT = 2^nextpow2(L);
-% [P_muscimol,F] = pwelch(double(muscimol_trace)',[],[],NFFT,Fs);
-% Pc_muscimol = smooth(P_muscimol,50);
-% [P_intact,F] = pwelch(double(intact_trace)',[],[],NFFT,Fs);
-% Pc_intact = smooth(P_intact,50);
-% figure;
-% subplot(2,1,1); hold on;
-% plot(F,log10(Pc_intact),'k')
-% plot(F,log10(Pc_muscimol),'r')
-% xlabel('Frequency');
-% ylabel('Log Power');
-% subplot(2,1,2); hold on;
-% plot(F,Pc_muscimol./Pc_intact,'k');
-% line(xlim,[1,1],'linestyle','--','linewidth',2);
-% xlabel('Frequency');
-% ylabel('Power (muscimol/intact)');
+
+animal = 'AP040'; day = '2019-09-12'; experiment = 4; load_parts.imaging = true; verbose = true; AP_load_experiment;
+% (exp 1 = pre, exp 4 = post)
+
+avg_im_aligned = AP_align_widefield(avg_im,animal,day);
+Udf_aligned = AP_align_widefield(Udf,animal,day);
+
+[muscimol_trace,muscimol_mask] = AP_svd_roi(Udf_aligned,fVdf,avg_im_aligned);
+intact_mask = fliplr(muscimol_mask);
+intact_trace = AP_svd_roi(Udf_aligned,fVdf,[],[],intact_mask);
+
+%%%%%%%%%%% PLOT BASIC PROPERTIES
+
+Fs = framerate;
+L = length(muscimol_trace);
+NFFT = 2^nextpow2(L);
+[P_muscimol,F] = pwelch(double(muscimol_trace)',[],[],NFFT,Fs);
+Pc_muscimol = smooth(P_muscimol,50);
+[P_intact,F] = pwelch(double(intact_trace)',[],[],NFFT,Fs);
+Pc_intact = smooth(P_intact,50);
+figure;
+subplot(2,1,1); hold on;
+plot(F,log10(Pc_intact),'k')
+plot(F,log10(Pc_muscimol),'r')
+xlabel('Frequency');
+ylabel('Log Power');
+subplot(2,1,2); hold on;
+plot(F,Pc_muscimol./Pc_intact,'k');
+line(xlim,[1,1],'linestyle','--','linewidth',2);
+xlabel('Frequency');
+ylabel('Power (muscimol/intact)');
 
 
 

@@ -2329,7 +2329,7 @@ xlabel('Frequency');
 ylabel('Log Power');
 
 % Notch filter
-freqs = [7 13];
+freqs = [3 6];
 for ff = 1:length(freqs)
     f = fdesign.notch('N,F0,Q',2,freqs(ff),10,Fs);
     h = design(f);
@@ -2358,9 +2358,9 @@ window_length_samples = window_length/(1/Fs);
 N = window_length_samples; % window length
 df = Fs/N; % frequency increment
 s_squared = (s/Fs).*conj(s/Fs);  % Fs is used to normalize the FFT amplitudes
-power_0_2 = 2*sum(s_squared( f >= 0.1 & f <= 2,:))*df; 
-power_3_6 = 2*sum(s_squared( f >= 3 & f <= 6,:))*df; 
-power_10_14 = 2*sum(s_squared( f >= 10 & f <= 14,:))*df; 
+power_0_2 = 2*sum(s_squared(f >= 0.1 & f <= 2,:))*df; 
+power_3_6 = 2*sum(s_squared(f >= 3 & f <= 6,:))*df; 
+power_10_14 = 2*sum(s_squared(f >= 10 & f <= 14,:))*df; 
 
 figure; hold on;
 plot(power_0_2,'k');

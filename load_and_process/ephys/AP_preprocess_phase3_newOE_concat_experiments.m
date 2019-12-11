@@ -25,9 +25,11 @@ if ~isempty(data_path_dir)
     save_paths = cellfun(@(x) [save_paths{1} filesep x],{data_path_dir.name},'uni',false);
 end
 
-disp(['Preprocessing ' animal ' ' day ' with concatenated recordings']);
-
 for curr_site = 1:length(data_paths)
+    
+    disp(['Preprocessing ' animal ' ' day ...
+        ' site ' num2str(curr_site) '/' num2str(length(data_paths)) ...
+        ' with concatenated recordings']);
     
     % Get experiments (if turned off between)
     curr_data_path = data_paths{curr_site};
