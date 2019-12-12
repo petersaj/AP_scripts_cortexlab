@@ -10632,7 +10632,6 @@ use_stims = find(stimIDs == 3);
 % use_stims = find(stimIDs > 0);
 
 use_stimOn_times = stimOn_times(use_stims);
-use_stimOn_times([1,end]) = [];
 
 stim_surround_times = bsxfun(@plus, use_stimOn_times(:), surround_time);
 stim_baseline_surround_times = bsxfun(@plus, use_stimOn_times(:), baseline_surround_time);

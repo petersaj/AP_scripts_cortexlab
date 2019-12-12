@@ -8,6 +8,8 @@
 % site (if multiple probes)
 % recording (if multiple on/off recordings within probe)
 
+% Turn warnings off
+warning on
 
 %% Display progress or not
 if ~exist('verbose','var')
@@ -861,20 +863,26 @@ if ephys_exists && load_parts.ephys
         flipper_flip_times_ephys = sync(flipper_sync_idx).timestamps( ...
             flipper_expt_idx(find(experiment_idx)):flipper_expt_idx(find(experiment_idx)+1)-1);
         
-        % Check that number of flipper flips in timeline matches ephys
-        if length(flipper_flip_times_ephys) ~= length(flipper_flip_times_timeline)
+        % Pick flipper times to use for alignment
+        if length(flipper_flip_times_ephys) == length(flipper_flip_times_timeline)
+            % If same number of flips in ephys/timeline, use all
+            sync_timeline = flipper_flip_times_timeline;
+            sync_ephys = flipper_flip_times_ephys;
+        elseif length(flipper_flip_times_ephys) ~= length(flipper_flip_times_timeline)
+            % If different number of flips in ephys/timeline, best
+            % contiguous set via xcorr of diff
             warning([animal ' ' day ':Flipper flip times different in timeline/ephys'])
-            bad_flipper = true;
+            error('this probably doesn''t work yet');
+            [flipper_xcorr,flipper_lags] = ...
+                xcorr(diff(flipper_flip_times_timeline),diff(flipper_flip_times_ephys));
+            [~,flipper_lag_idx] = max(flipper_xcorr);
+            flipper_lag = flipper_lags(flipper_lag_idx);
+            % (at the moment, assuming only dropped from ephys)
+            sync_ephys = flipper_flip_times_ephys;
+            sync_timeline = flipper_flip_times_timeline(flipper_lag+1: ...
+                flipper_lag+1:flipper_lag+length(flipper_flip_times_ephys));
         end
-        
-%         % Plot stim aligned by flipper times for sanity check
-%         figure; hold on;
-%         stim_ephys_timestamps = interp1(flipper_flip_times_ephys,flipper_flip_times_timeline,sync(1).timestamps,'linear','extrap');
-%         plot(stim_ephys_timestamps,sync(1).values*5,'.g')
-%         plot(stimOn_times,5,'ob');
-        
-        sync_timeline = flipper_flip_times_timeline;
-        sync_ephys = flipper_flip_times_ephys;
+
     else
         bad_flipper = true;
     end

@@ -16,29 +16,42 @@
 % Initialize data structure and save filename
 save_fn = 'C:\Users\Andrew\OneDrive for Business\Documents\CarandiniHarrisLab\analysis\EJ_ctx_widefield_ephys\revision2\ctx_wf_traces.mat';
 ctx_wf_traces = struct;
+warning on;
 
 % Set recordings to use
 recordings = struct('animal',{},'day',{});
 
-% Good quality
+recordings(end+1).animal = 'AP060';
+recordings(end).day = '2019-12-07';
+recordings(end).genotype = 'tetO-GC6s';
+recordings(end).site = 2;
+recordings(end).kilosort_version = 2;
+
+recordings(end+1).animal = 'AP043';
+recordings(end).day = '2019-12-07';
+recordings(end).genotype = 'tetO-GC6s';
+recordings(end).site = 2;
+recordings(end).kilosort_version = 2;
+
 recordings(end+1).animal = 'AP026';
 recordings(end).day = '2017-12-09';
 recordings(end).genotype = 'tetO-GC6s';
+recordings(end).kilosort_version = 1;
 
-% Good quality
 recordings(end+1).animal = 'AP027';
 recordings(end).day = '2017-12-09';
 recordings(end).genotype = 'tetO-GC6s';
+recordings(end).kilosort_version = 1;
 
-% Good quality
 recordings(end+1).animal = 'AP024';
 recordings(end).day = '2018-07-02';
 recordings(end).genotype = 'tetO-GC6s';
+recordings(end).kilosort_version = 1;
 
-% Good quality
 recordings(end+1).animal = 'AP029';
 recordings(end).day = '2018-08-15';
 recordings(end).genotype = 'tetO-GC6s';
+recordings(end).kilosort_version = 1;
 
 % (these are excluded)
 
@@ -65,13 +78,11 @@ for curr_recording = 1:length(recordings)
     %% Clear workspace, set current recording
     clearvars -except ...
         save_fn ctx_wf_traces...
-        curr_recording recordings ...
-        mua_fluor_xcorr lfp_fluor_xcorr mua_lfp_xcorr  ...
-        mua_fluor_coherence lfp_fluor_coherence mua_lfp_coherence ...
-        mua_fluor_spectra_corr lfp_fluor_spectra_corr mua_lfp_spectra_corr ...
+        curr_recording recordings
     
     animal = recordings(curr_recording).animal;
     day = recordings(curr_recording).day;
+    site = recordings(curr_recording).site;
     
     %% Load and concantenate data from an animal/day
 
@@ -90,12 +101,15 @@ for curr_recording = 1:length(recordings)
     binned_spikes_all = cell(size(experiments));
     lfp_all = cell(size(experiments));
     
+    lfp_200Hz_all = cell(size(experiments));
+    lfp_200Hz_t_all = cell(size(experiments));
+    
     for curr_exp = 1:length(experiments)
         
         experiment = experiments(curr_exp);
         % Try loading with current conventions, otherwise load old
         try
-            kilosort_version = 1;
+            kilosort_version = recordings(curr_recording).kilosort_version;
             AP_load_experiment;
         catch me
             AP_load_old;
@@ -242,9 +256,9 @@ for curr_recording = 1:length(recordings)
         
         % Get rolling median (allow light artifact to change slightly)
         n_light = 500;
-        blue_on_lfp_baselinesub_med = movmedian(blue_on_lfp_baselinesub,n_light,1);
-        violet_on_lfp_baselinesub_med = movmedian(violet_on_lfp_baselinesub,n_light,1);
-        
+        blue_on_lfp_baselinesub_med = movmedian(blue_on_lfp_baselinesub,n_light,1,'omitnan');
+        violet_on_lfp_baselinesub_med = movmedian(violet_on_lfp_baselinesub,n_light,1,'omitnan');
+                
         % Interpolate out the artifact to remove
         n_lfp_channels = size(lfp,1);
         blue_light_remove = interp1( ...
@@ -281,13 +295,22 @@ for curr_recording = 1:length(recordings)
         curr_exp_spikes = spike_depths >= mua_borders(1) & spike_depths <= mua_borders(2);        
         binned_spikes_all{curr_exp} = histcounts(spike_times_timeline(curr_exp_spikes),time_bins);   
         
-        % Filter and downsample LFP
+        % Filter and downsample LFP (framerate)
         lowpassCutoff = framerate/2; % Hz
         [b100s, a100s] = butter(2, lowpassCutoff/(lfp_sample_rate/2), 'low');
         lfp_lightfix_lowpass = filter(b100s,a100s,lfp_lightfix);  
         lfp_lightfix_lowpass_resample = interp1(lfp_t_timeline,lfp_lightfix_lowpass,time_bin_centers);
         lfp_all{curr_exp} = lfp_lightfix_lowpass_resample;
         
+        % Filter and downsample LFP (200 Hz)
+        lowpassCutoff = 200/2; % Hz
+        [b100s, a100s] = butter(2, lowpassCutoff/(lfp_sample_rate/2), 'low');
+        lfp_lightfix_200Hz_lowpass = filter(b100s,a100s,lfp_lightfix);  
+        lfp_200Hz_t = time_bin_centers(1):(1/200):time_bin_centers(end);
+        lfp_lightfix_200Hz_lowpass_resample = interp1(lfp_t_timeline,lfp_lightfix_200Hz_lowpass,lfp_200Hz_t);
+        lfp_200Hz_all{curr_exp} = lfp_lightfix_200Hz_lowpass_resample;
+        lfp_200Hz_t_all{curr_exp} = lfp_200Hz_t;
+
     end
  
     
@@ -406,6 +429,9 @@ for curr_recording = 1:length(recordings)
         mat2cell(fluor_trace,1,cellfun(@length,time_bin_centers_all));
     ctx_wf_traces(curr_recording).binned_spikes_all = binned_spikes_all;
     ctx_wf_traces(curr_recording).lfp_all = lfp_all;
+    ctx_wf_traces(curr_recording).lfp_200Hz_all = lfp_200Hz_all;
+    ctx_wf_traces(curr_recording).lfp_200Hz_t_all = lfp_200Hz_t_all;
+    
     save(save_fn,'ctx_wf_traces')
     disp(['Saved ' save_fn])
     
@@ -437,6 +463,9 @@ mua_fluor_spectra_corr = cell(1,n_recordings);
 lfp_fluor_spectra_corr = cell(1,n_recordings);
 mua_lfp_spectra_corr = cell(1,n_recordings);
 
+% Power band correlation (LFP gamma/delta, MUA 3-6 Hz, Fluor 3-6 Hz)
+lfp_mua_fluor_power_corr = cell(1,n_recordings);
+
 %% Set windowing options
 framerate = 35;
 window_length = 2; % in seconds
@@ -453,10 +482,12 @@ for curr_recording = 1:n_recordings
     fluor_trace = horzcat(ctx_wf_traces(curr_recording).fluor_trace_all{:});
     binned_spikes = horzcat(ctx_wf_traces(curr_recording).binned_spikes_all{:});
     lfp = horzcat(ctx_wf_traces(curr_recording).lfp_all{:});
+    lfp_200Hz = horzcat(ctx_wf_traces(curr_recording).lfp_200Hz_all{:});
     
     % (median-center LFP)
     lfp = lfp - nanmean(lfp);
-        
+    lfp_200Hz = lfp_200Hz - nanmean(lfp_200Hz);
+    
     %% Cross-correlation and coherence
     
     % Cross-correlation
@@ -511,7 +542,6 @@ for curr_recording = 1:n_recordings
     
     median_spikes = median(spect_t_binned_spikes_highpass);
     % (NOTE: SET THIS MANUALLY)
-    warning on;
 %     warning('Using <= median spikes time points');
 %     use_t = spect_t_binned_spikes_highpass <= median_spikes;
 %     warning('Using > median spikes time points')
@@ -532,6 +562,35 @@ for curr_recording = 1:n_recordings
         repmat(length(spect_f),1,2),repmat(length(spect_f),1,2));
     mua_lfp_spectra_corr{curr_recording} = mua_lfp_spectra_corr_full([1,4,2]);
     
+    
+    %%%%%%%%% NEW THING:
+    % correlate gamma/delta LFP with 3-6 Hz in widefield
+    
+    % Power spectrum of 200 Hz LFP
+    window_length_samples_200Hz = round(window_length/(1/200));
+    window_overlap_samples_200Hz = round(window_overlap/(1/200));
+    
+    [lfp200Hz_spect,spect_f_200Hz,spect_t_200Hz,lfp200Hz_spect_power] = ...
+        spectrogram(lfp_200Hz,window_length_samples_200Hz, ...
+        window_overlap_samples_200Hz,[],200);
+    
+    delta_f = spect_f >= 1 & spect_f <= 4;
+    rest_f = spect_f >= 3 & spect_f <= 6;
+    gamma_f = spect_f >= 20 & spect_f <= 80;
+    
+    delta_f_200Hz = spect_f_200Hz >= 1 & spect_f_200Hz <= 4;
+    rest_f_200Hz = spect_f_200Hz >= 3 & spect_f_200Hz <= 6;
+    gamma_f_200Hz = spect_f_200Hz >= 20 & spect_f_200Hz <= 80;
+    
+    lfp200Hz_gamma_delta_ratio = ...
+        nanmean(lfp200Hz_spect_power(gamma_f_200Hz,:),1)./ ...
+        nanmean(lfp200Hz_spect_power(delta_f_200Hz,:),1);
+    
+    mua_3_6_power = nanmean(mua_spect_power(rest_f,:),1);
+    fluor_3_6_power = nanmean(fluor_spect_power(rest_f,:),1);
+    
+    lfp_mua_fluor_power_corr{curr_recording} = ...
+        corrcoef([lfp200Hz_gamma_delta_ratio',mua_3_6_power',fluor_3_6_power']);
     
 end
 
@@ -702,8 +761,33 @@ title('Mean');
 c = colorbar;
 ylabel(c,'Correlation');
 
+% Power band correlation 
+% (order of variables: LFP gamma/delta, MUA 3-6Hz, Fluor 3-6Hz)
+lfp_mua_fluor_power_corr_cat = cat(3,lfp_mua_fluor_power_corr{:});
+figure;
+subplot(1,2,1);
+imagesc(nanmean(lfp_mua_fluor_power_corr_cat,3));
+caxis([-1,1]); axis image;
+set(gca,'YTick',1:3,'YTickLabel',{'LFP \gamma/\delta','MUA 3-6Hz','LFP 3-6Hz'});
+set(gca,'XTick',1:3,'XTickLabel',{'LFP \gamma/\delta','MUA 3-6Hz','LFP 3-6Hz'});
+c = colorbar; 
+ylabel(c,'Correlation');
+colormap(brewermap([],'*RdBu'));
+subplot(1,2,2); hold on;
+plot_corr = [squeeze(lfp_mua_fluor_power_corr_cat(1,2,:)), ...
+    squeeze(lfp_mua_fluor_power_corr_cat(1,3,:)), ...
+    squeeze(lfp_mua_fluor_power_corr_cat(2,3,:))];
+plot(plot_corr','color',[0.5,0.5,0.5]);
+plot(nanmean(plot_corr,1),'linewidth',2,'color','k');
+set(gca,'XTick',1:3,'XTickLabel',{'LFP \gamma/\delta:MUA 3-6Hz', ...
+    'LFP \gamma/\delta:Fluor 3-6Hz','MUA 3-6Hz:Fluor 3-6Hz'});
+ylabel('Correlation');
+xlim([0.5,3.5]);
+line(xlim,[0,0],'linestyle','--','color','r');
 
 %% ~~~~ MUSCIMOL ~~~~
+
+%% >>>> PREPROCESS AND SAVE DATA <<<<
 
 % Initialize data structure and save filename
 save_fn = 'C:\Users\Andrew\OneDrive for Business\Documents\CarandiniHarrisLab\analysis\EJ_ctx_widefield_ephys\revision2\muscimol_traces.mat';
@@ -750,7 +834,7 @@ for curr_recording = 1:length(recordings)
     for curr_experiment_idx = 1:length(use_experiments)
         
         % Load experiment
-        experment = use_experiments(curr_experiment_idx);
+        experiment = use_experiments(curr_experiment_idx);
         load_parts.imaging = true;
         AP_load_experiment;
         
@@ -780,33 +864,82 @@ for curr_recording = 1:length(recordings)
  
 end
 
-% %%%%%% AFTER ABOVE LOADED: plot pre/post power ratio
-% Fs = framerate;
-% L = length(muscimol_trace);
-% NFFT = 2^nextpow2(L);
-% [P_muscimol,F] = pwelch(double(muscimol_trace)',[],[],NFFT,Fs);
-% Pc_muscimol = smooth(P_muscimol,50);
-% [P_intact,F] = pwelch(double(intact_trace)',[],[],NFFT,Fs);
-% Pc_intact = smooth(P_intact,50);
-% figure;
-% subplot(2,1,1); hold on;
-% plot(F,log10(Pc_intact),'k')
-% plot(F,log10(Pc_muscimol),'r')
-% xlabel('Frequency');
-% ylabel('Log Power');
-% subplot(2,1,2); hold on;
-% plot(F,Pc_muscimol./Pc_intact,'k');
-% line(xlim,[1,1],'linestyle','--','linewidth',2);
-% xlabel('Frequency');
-% ylabel('Power (muscimol/intact)');
+save(save_fn,'muscimol_traces');
+disp(['Saved ' save_fn]);
 
 
+%% >>>> LOAD, ANALYZE, PLOT <<<<
 
+% Load data
+muscimol_fn = 'C:\Users\Andrew\OneDrive for Business\Documents\CarandiniHarrisLab\analysis\EJ_ctx_widefield_ephys\revision2\muscimol_traces.mat';
+load(muscimol_fn);
+framerate = 35;
 
+muscimol_power_pre = cell(length(muscimol_traces),1);
+intact_power_pre = cell(length(muscimol_traces),1);
+muscimol_power_post = cell(length(muscimol_traces),1);
+intact_power_post = cell(length(muscimol_traces),1);
 
+for curr_recording = 1:length(muscimol_traces)
+    
+    muscimol_trace_pre = muscimol_traces(curr_recording).muscimolhemi_premuscimol;
+    intact_trace_pre = muscimol_traces(curr_recording).intacthemi_premuscimol;
+    
+    muscimol_trace_post = muscimol_traces(curr_recording).muscimolhemi_postmuscimol;
+    intact_trace_post = muscimol_traces(curr_recording).intacthemi_postmuscimol;
+    
+    Fs = framerate;
+    L = length(muscimol_trace_pre);
+    freqs = 0.1:0.2:15;
+    [P_muscimol_pre,F] = pwelch(double(muscimol_trace_pre)',[],[],freqs,Fs);
+    [P_intact_pre,F] = pwelch(double(intact_trace_pre)',[],[],freqs,Fs);
+    [P_muscimol_post,F] = pwelch(double(muscimol_trace_post)',[],[],freqs,Fs);
+    [P_intact_post,F] = pwelch(double(intact_trace_post)',[],[],freqs,Fs);
+    
+    muscimol_power_pre{curr_recording} = P_muscimol_pre;
+    intact_power_pre{curr_recording} = P_intact_pre;
+    muscimol_power_post{curr_recording} = P_muscimol_post;
+    intact_power_post{curr_recording} = P_intact_post;
 
+end
 
+figure; 
+p1 = subplot(2,2,1); hold on;
+plot(F,log10(vertcat(intact_power_pre{:}))','color',[0.5,0.5,0.5]);
+plot(F,log10(vertcat(muscimol_power_pre{:}))','color',[1,0.5,0.5]);
+plot(F,log10(nanmean(vertcat(intact_power_pre{:})',2)),'k','linewidth',2);
+plot(F,log10(nanmean(vertcat(muscimol_power_pre{:})',2)),'r','linewidth',2);
+xlabel('Frequency');
+ylabel('Log_10 power');
+title('Pre-muscimol');
 
+p2 = subplot(2,2,2); hold on;
+plot(F,log10(vertcat(intact_power_post{:}))','color',[0.5,0.5,0.5]);
+plot(F,log10(vertcat(muscimol_power_post{:}))','color',[1,0.5,0.5]);
+plot(F,log10(nanmean(vertcat(intact_power_post{:})',2)),'k','linewidth',2);
+plot(F,log10(nanmean(vertcat(muscimol_power_post{:})',2)),'r','linewidth',2);
+xlabel('Frequency');
+ylabel('Log_10 power');
+title('Post-muscimol');
+
+p3 = subplot(2,2,3); hold on;
+plot(F,[vertcat(muscimol_power_pre{:})./vertcat(intact_power_pre{:})],'color',[0.5,0.5,0.5]);
+plot(F,nanmean([vertcat(muscimol_power_pre{:})./vertcat(intact_power_pre{:})]',2),'k','linewidth',2);
+line(xlim,[1,1],'color','r','linestyle','--');
+xlabel('Frequency');
+ylabel('Muscimol/intact ratio')
+title('Pre-muscimol');
+
+p4 = subplot(2,2,4); hold on;
+plot(F,[vertcat(muscimol_power_post{:})./vertcat(intact_power_post{:})]','color',[0.5,0.5,0.5]);
+plot(F,nanmean([vertcat(muscimol_power_post{:})./vertcat(intact_power_post{:})]',2),'k','linewidth',2);
+line(xlim,[1,1],'color','r','linestyle','--');
+xlabel('Frequency');
+ylabel('Muscimol/intact ratio')
+title('Post-muscimol');
+
+linkaxes([p1,p2]);
+linkaxes([p3,p4]);
 
 
 
