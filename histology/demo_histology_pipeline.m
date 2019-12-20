@@ -43,13 +43,14 @@ AP_manual_align_histology_ccf(tv,av,st,slice_path);
 AP_view_aligned_histology(st,slice_path);
 
 % Display histology within 3D CCF
-AP_view_aligned_histology_volume(tv,av,st,slice_path,2);
+AP_view_aligned_histology_volume(tv,av,st,slice_path,1);
 
 % Get probe trajectory from histology, convert to CCF coordinates
 AP_get_probe_histology(tv,av,st,slice_path);
 
 % Align histology to electrophysiology
-AP_align_probe_histology(st,slice_path,spike_times,spike_templates,template_depths);
+use_probe = 2;
+AP_align_probe_histology(st,slice_path,spike_times,spike_templates,template_depths,use_probe);
 
 % Extract slices from full-resolution images
 % (not worth it at the moment, each slice is 200 MB)

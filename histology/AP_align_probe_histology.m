@@ -1,4 +1,5 @@
 function AP_align_probe_histology(st,slice_path,spike_times,spike_templates,template_depths,use_probe)
+% AP_align_probe_histology(st,slice_path,spike_times,spike_templates,template_depths,use_probe)
 
 % If no probe specified, use probe 1
 if ~exist('use_probe','var') || isempty(use_probe)
