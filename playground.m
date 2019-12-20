@@ -481,7 +481,8 @@ AP_reference_outline('ccf_aligned','k');
 % (for passive)
 
 % Get trials with movement during stim to exclude
-quiescent_trials = ~any(abs(wheel_allcat(:,t >= 0 & t <= 0.5)) > 0.02,2);
+wheel_thresh = 0.025;
+quiescent_trials = ~any(abs(wheel_allcat(:,t >= 0 & t <= 0.5)) > wheel_thresh,2);
 
 fluor_stim = nan(length(unique(D_allcat.stimulus)),length(t),n_vs);
 for curr_v = 1:n_vs
@@ -497,8 +498,8 @@ colormap(brewermap([],'*RdBu'));
 AP_reference_outline('ccf_aligned','k');
 
 
-
-quiescent_trials = ~any(abs(wheel_allcat(:,t >= 0 & t <= 0.5)) > 0.02,2);
+wheel_thresh = 0.025;
+quiescent_trials = ~any(abs(wheel_allcat(:,t >= 0 & t <= 0.5)) > wheel_thresh,2);
 plot_trials = quiescent_trials & trial_contrastside_allcat == 1;
 
 plot_px = svdFrameReconstruct(U_master(:,:,1:n_vs), ...
@@ -10668,5 +10669,32 @@ plot([daqController.SignalGenerators(1, 1).Calibrations(n_cal).measuredDeliverie
     'linewidth',3,'color','r')
 title(datestr(daqController.SignalGenerators(1, 1).Calibrations(n_cal).dateTime))
 xlabel('duration (sec)'); ylabel('volume (uL)')
+
+
+%%
+
+%%% Get correlation of MUA and LFP
+n_corr_groups = 40;
+max_depths = 3840; % (hardcode, sometimes kilosort2 drops channels)
+depth_group_edges = linspace(0,max_depths,n_corr_groups+1);
+depth_group = discretize(template_depths,depth_group_edges);
+depth_group_centers = depth_group_edges(1:end-1)+(diff(depth_group_edges)/2);
+unique_depths = 1:length(depth_group_edges)-1;
+
+spike_binning = 0.01; % seconds
+corr_edges = nanmin(frame_t):spike_binning:nanmax(frame_t);
+corr_centers = corr_edges(1:end-1) + diff(corr_edges);
+
+binned_spikes_depth = zeros(length(unique_depths),length(corr_edges)-1);
+for curr_depth = 1:length(unique_depths)
+    binned_spikes_depth(curr_depth,:) = histcounts(spike_times_timeline( ...
+        ismember(spike_templates,find(depth_group == unique_depths(curr_depth)))), ...
+        corr_edges);
+end
+
+
+
+
+
 
 

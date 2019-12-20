@@ -209,7 +209,7 @@ colormap(brewermap([],'*RdBu'));
 
 %% Passive stim during choiceworld (U master)
 
-animal = 'AP040';
+animal = 'AP045';
 
 protocol = 'AP_lcrGratingPassive';
 experiments = AP_find_experiments(animal,protocol);

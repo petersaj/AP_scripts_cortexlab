@@ -73,7 +73,7 @@ gui_data.histology_im_h = image(gui_data.im_aligned(:,:,:,1), ...
 
 % Create title to write area in
 gui_data.histology_ax_title = title(gui_data.histology_ax, ...
-    '1/2: change slice, Arrows: flip, Esc: save & quit','FontSize',14);
+    '1/2: change slice, Shift 1/2: re-order slice, Arrows: flip, Esc: save & quit','FontSize',14);
 
 % Upload gui data
 guidata(gui_fig,gui_data);
@@ -85,22 +85,40 @@ end
 
 function keypress(gui_fig,eventdata)
 
+shift_on = any(strcmp(eventdata.Modifier,'shift'));
+
 % Get guidata
 gui_data = guidata(gui_fig);
 
 switch eventdata.Key
     
-    % 1/2: move slice
+    % 1/2: switch slice
+    % Shift + 1/2: move slice in stack
+
     case '1'
-        gui_data.curr_slice = max(gui_data.curr_slice - 1,1);
-        set(gui_data.histology_im_h,'CData',gui_data.im_aligned(:,:,:,gui_data.curr_slice))
-        guidata(gui_fig,gui_data);
+        if ~shift_on
+            gui_data.curr_slice = max(gui_data.curr_slice - 1,1);
+            set(gui_data.histology_im_h,'CData',gui_data.im_aligned(:,:,:,gui_data.curr_slice))
+            guidata(gui_fig,gui_data);
+        elseif shift_on && gui_data.curr_slice ~= 1
+            slice_flip = [gui_data.curr_slice-1,gui_data.curr_slice];
+            gui_data.im_aligned(:,:,:,slice_flip) = flip(gui_data.im_aligned(:,:,:,slice_flip),4);
+            gui_data.curr_slice = slice_flip(1);
+            guidata(gui_fig,gui_data);
+        end
         
     case '2'
-        gui_data.curr_slice = ...
-            min(gui_data.curr_slice + 1,size(gui_data.im_aligned,4));
-        set(gui_data.histology_im_h,'CData',gui_data.im_aligned(:,:,:,gui_data.curr_slice))
-        guidata(gui_fig,gui_data);
+        if ~shift_on
+            gui_data.curr_slice = ...
+                min(gui_data.curr_slice + 1,size(gui_data.im_aligned,4));
+            set(gui_data.histology_im_h,'CData',gui_data.im_aligned(:,:,:,gui_data.curr_slice))
+            guidata(gui_fig,gui_data);
+        elseif shift_on && gui_data.curr_slice ~= size(gui_data.im_aligned,4)
+            slice_flip = [gui_data.curr_slice,gui_data.curr_slice+1];
+            gui_data.im_aligned(:,:,:,slice_flip) = flip(gui_data.im_aligned(:,:,:,slice_flip),4);
+            gui_data.curr_slice = slice_flip(2);
+            guidata(gui_fig,gui_data);
+        end
         
     % Arrow keys: flip slice
     case {'leftarrow','rightarrow'}
@@ -108,7 +126,7 @@ switch eventdata.Key
             fliplr(gui_data.im_aligned(:,:,:,gui_data.curr_slice));
         set(gui_data.histology_im_h,'CData',gui_data.im_aligned(:,:,:,gui_data.curr_slice))
         guidata(gui_fig,gui_data);
-        
+               
     case {'uparrow','downarrow'}
         gui_data.im_aligned(:,:,:,gui_data.curr_slice) = ...
             flipud(gui_data.im_aligned(:,:,:,gui_data.curr_slice));

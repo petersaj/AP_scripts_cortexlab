@@ -1,5 +1,5 @@
 %% Get and plot single mouse behavior (vanillaChoiceworld)
-animals = {'AP061'};
+animals = {'AP045'};
 protocol = 'vanillaChoiceworld';
 flexible_name = true;
 
@@ -224,7 +224,7 @@ for curr_animal = 1:length(animals)
 end
 
 %% Get and plot single mouse behavior (milesChoiceworld/vanillaChoiceworld)
-animals = {'AP061'};
+animals = {'JF004'};
 protocol = 'choiceworld';
 flexible_name = true;
 

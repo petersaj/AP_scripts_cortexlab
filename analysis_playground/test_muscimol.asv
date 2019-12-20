@@ -298,39 +298,19 @@ frac_orient_right_cat = cell2mat(permute(cat(2,bhv.frac_orient_right),[1,3,2]));
 rxn_time_cat = cell2mat(permute(cat(2,bhv.rxn_time),[1,3,2]));
 
 figure; 
-subplot(2,2,1); hold on;
+subplot(1,2,1); hold on;
 plot(performance(1,:),squeeze(frac_orient_right_cat(1,:,:)),'color',[0.5,0.5,0.5],'linewidth',1);
 plot(performance(1,:),squeeze(frac_orient_right_cat(2,:,:)),'color',[1,0.5,0.5],'linewidth',1);
 plot(performance(1,:),nanmean(frac_orient_right_cat(1,:,:),3),'color','k','linewidth',3);
 plot(performance(1,:),nanmean(frac_orient_right_cat(2,:,:),3),'color','r','linewidth',3);
 line(xlim,[0.5,0.5],'color','k','linestyle','--');
 line([0,0],[0,1],'color','k','linestyle','--');
-xlabel('Side*Contrast');
-ylabel('Fraction orient right')
+yla
 
-subplot(2,2,2); hold on;
-plot(performance(1,:),squeeze(rxn_time_cat(1,:,:)),'color',[0.5,0.5,0.5],'linewidth',1);
-plot(performance(1,:),squeeze(rxn_time_cat(2,:,:)),'color',[1,0.5,0.5],'linewidth',1);
-plot(performance(1,:),nanmean(rxn_time_cat(1,:,:),3),'color','k','linewidth',3);
-plot(performance(1,:),nanmean(rxn_time_cat(2,:,:),3),'color','r','linewidth',3);
+subplot(1,2,2); hold on;
+plot(performance(1,:),squeeze(rxn_time_cat(1,:,:)),'k','linewidth',2);
+plot(performance(1,:),squeeze(rxn_time_cat(2,:,:)),'r','linewidth',2);
 line([-1,1],[0.5,0.5],'color','k','linestyle','--');
-xlabel('Side*Contrast');
-ylabel('Reaction time');
-
-subplot(2,2,3); hold on;
-plot(performance(1,:),squeeze(diff(frac_orient_right_cat,[],1)),'color',[0.5,0.5,0.5],'linewidth',1);
-plot(performance(1,:),nanmean(diff(frac_orient_right_cat,[],1),3),'color','k','linewidth',3);
-line(xlim,[0,0],'color','k','linestyle','--');
-line([0,0],[-1,1],'color','k','linestyle','--');
-xlabel('Side*Contrast');
-ylabel('\Delta Fraction orient right')
-
-subplot(2,2,4); hold on;
-plot(performance(1,:),squeeze(diff(rxn_time_cat,[],1)),'color',[0.5,0.5,0.5],'linewidth',1);
-plot(performance(1,:),nanmean(diff(rxn_time_cat,[],1),3),'color','k','linewidth',3);
-line([-1,1],[0,0],'color','k','linestyle','--');
-xlabel('Side*Contrast');
-ylabel('\Delta Reaction time');
 
 %% Get VFS pre/post musicmol
 
@@ -496,18 +476,17 @@ for curr_data = 1:length(data_fns)
     
     % Get stimulus activity for each recording
     use_stim_time = t >= 0.05 & t <= 0.15;
-    use_stim = 3;
     
     mua_stim_act_exp(:,:,curr_data) = cell2mat(cellfun(@(act,stim,quiescent) ...
-        squeeze(nanmean(nanmean(act(stim == use_stim & quiescent,use_stim_time,:,:),2),1)), ...
+        squeeze(nanmean(nanmean(act(stim == 3 & quiescent,use_stim_time,:,:),2),1)), ...
         mua_allcat_exp,trial_stim_allcat_exp,quiescent_trials_exp,'uni',false)');
     
     mua_ctxpred_stim_act_exp(:,:,curr_data) = cell2mat(cellfun(@(act,stim,quiescent) ...
-        squeeze(nanmean(nanmean(act(stim == use_stim & quiescent,use_stim_time,:,:),2),1)), ...
+        squeeze(nanmean(nanmean(act(stim == 3 & quiescent,use_stim_time,:,:),2),1)), ...
         mua_ctxpred_allcat_exp,trial_stim_allcat_exp,quiescent_trials_exp,'uni',false)');
     
     fluor_roi_stim_act_exp(:,:,curr_data) = cell2mat(cellfun(@(act,stim,quiescent) ...
-        squeeze(nanmean(nanmean(act(stim == use_stim & quiescent,use_stim_time,:,:),2),1)), ...
+        squeeze(nanmean(nanmean(act(stim == 3 & quiescent,use_stim_time,:,:),2),1)), ...
         fluor_roi_deconv_exp,trial_stim_allcat_exp,quiescent_trials_exp,'uni',false)');
     
     clearvars -except data_fns curr_data mua_stim_act_exp mua_ctxpred_stim_act_exp fluor_roi_stim_act_exp
@@ -516,27 +495,11 @@ for curr_data = 1:length(data_fns)
     
 end
 
-% Load WF ROIs
-wf_roi_fn = 'C:\Users\Andrew\OneDrive for Business\Documents\CarandiniHarrisLab\analysis\wf_ephys_choiceworld\wf_processing\wf_rois\wf_roi';
-load(wf_roi_fn);
+% Nothing plotted at the moment
 
-% Plot (pre-post)/(pre+post) for all areas
-mua_change_idx = (mua_stim_act_exp(:,:,1)-mua_stim_act_exp(:,:,2))./(mua_stim_act_exp(:,:,1)+mua_stim_act_exp(:,:,2));
-fluor_change_idx = (fluor_roi_stim_act_exp(:,:,1)-fluor_roi_stim_act_exp(:,:,2))./(fluor_roi_stim_act_exp(:,:,1)+fluor_roi_stim_act_exp(:,:,2));
 
-figure; 
-subplot(1,5,1:4);
-plot(nanmedian(fluor_change_idx,2),'k','linewidth',2)
-set(gca,'XTick',1:numel(wf_roi),'XTickLabel',{wf_roi.area});
-ylim([-1,1]);
-line(xlim,[0,0]);
-ylabel('(Pre-Post)/(Pre+Post)')
-subplot(1,5,5);
-plot(nanmedian(mua_change_idx,2),'k','linewidth',2)
-set(gca,'XTick',1:4,'XTickLabel',cellfun(@(x) ['Str ' num2str(x)],num2cell(1:4),'uni',false));
-ylim([-1,1]);
-line(xlim,[0,0]);
-ylabel('(Pre-Post)/(Pre+Post)')
+
+
 
 
 
