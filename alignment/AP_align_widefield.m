@@ -65,11 +65,12 @@ switch align_type
             im_unaligned_norm,'uni',false),1,1,[]));
         
         % (set transform optimizer)
+        % (for oneplusoneevolutionary)
         [optimizer, metric] = imregconfig('monomodal');
         optimizer = registration.optimizer.OnePlusOneEvolutionary();
-        optimizer.MaximumIterations = 200;
-        optimizer.GrowthFactor = 1+1e-6;
-        optimizer.InitialRadius = 1e-5;      
+        optimizer.MaximumIterations = 200; % 200
+        optimizer.GrowthFactor = 1+1e-6; % 1+1e-6
+        optimizer.InitialRadius = 1e-5; % 1e-5
         
         % (first pass: rigid transform to day 1)  
         disp('Rigid aligning images...')
@@ -84,6 +85,9 @@ switch align_type
         end
         
         % (user draw ROI around most stable area for alignment reference)
+        % (and lower the search radius)
+        optimizer.GrowthFactor = 1+1e-6;
+        optimizer.InitialRadius = 5e-5;
         draw_roi = true;
         while draw_roi
             f = AP_image_scroll(im_rigid_aligned, ...

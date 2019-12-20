@@ -2027,17 +2027,15 @@ experiments = AP_find_experiments(animal,protocol);
 experiments(~([experiments.imaging])) = [];
 
 avg_im_days_blue = cell(size(experiments));
-avg_im_days_purple = cell(size(experiments));
 for curr_day = 1:length(experiments)
     day = experiments(curr_day).day;
     [img_path,img_exists] = AP_cortexlab_filename(animal,day,[],'imaging');
-    avg_im_blue = readNPY([img_path filesep 'meanImage_blue.npy']);
-    avg_im_purple = readNPY([img_path filesep 'meanImage_purple.npy']);
-    avg_im_days_blue{curr_day} = avg_im_blue;
-    avg_im_days_blue{curr_day} = avg_im_purple;
+    avg_im = readNPY([img_path filesep 'meanImage_purple.npy']);
+%     avg_im = readNPY([img_path filesep 'meanImage_blue.npy']);
+    avg_im_days_blue{curr_day} = avg_im;
 end
 
-AP_align_widefield(avg_im_days_blue,animal,{experiments.day},'new_days');
+AP_align_widefield(avg_im_days,animal,{experiments.day},'new_days');
 
 %% View aligned vasculature (to check that it's been done correctly)
 
@@ -2066,7 +2064,7 @@ set(gcf,'Name',animal);
 retinotopy_path = 'C:\Users\Andrew\OneDrive for Business\Documents\CarandiniHarrisLab\analysis\widefield_alignment\retinotopy';
 retinotopy_dir = dir(retinotopy_path);
 
-animal = 'AP061';
+animal = 'AP048';
 load([retinotopy_path filesep animal '_retinotopy'])
 
 aligned_vfs = cell(length(retinotopy),1);
