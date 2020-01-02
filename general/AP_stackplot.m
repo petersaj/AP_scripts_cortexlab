@@ -24,7 +24,7 @@ if ~exist('zero_lines','var') || isempty(zero_lines)
 end
 
 % Stack from top to bottom
-spacing_add = spacing*[size(x,2):-1:1];
+spacing_add = spacing*cast([size(x,2):-1:1],class(spacing));
 if ~zs
     x_spaced = x + spacing_add;
 elseif zs

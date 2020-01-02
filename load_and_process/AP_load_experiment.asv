@@ -1111,7 +1111,7 @@ elseif ephys_exists && load_parts.ephys && exist('lfp_channel','var') && strcmp(
     lfp_t = [0:size(lfp,2)-1]/lfp_sample_rate + lfp_load_start_t;
     
     % Get power spectrum of LFP
-    window_length = 2; % in seconds
+    window_length = 5; % in seconds
     window_overlap = 1; % in seconds
     window_length_samples = round(window_length/(1/lfp_sample_rate));
     window_overlap_samples = round(window_overlap/(1/lfp_sample_rate));

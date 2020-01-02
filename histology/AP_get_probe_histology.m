@@ -93,8 +93,8 @@ switch eventdata.Key
         update_slice(gui_fig);
         
     % Number: add coordinates for the numbered probe
-    case cellfun(@num2str,num2cell(1:9),'uni',false)
-        curr_probe = str2num(eventdata.Key);
+    case [cellfun(@num2str,num2cell(1:9),'uni',false),cellfun(@(x) ['numpad' num2str(x)],num2cell(1:9),'uni',false)]
+        curr_probe = str2num(eventdata.Key(end));
         
         if curr_probe > gui_data.n_probes
            disp(['Probe ' eventdata.Key ' selected, only ' num2str(gui_data.n_probes) ' available']);
