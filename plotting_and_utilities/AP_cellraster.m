@@ -218,7 +218,7 @@ template_y = -template_y*template_yscale + gui_data.channel_positions(:,2);
 template_x = (1:size(gui_data.templates,2)) + gui_data.channel_positions(:,1)*template_xscale;
 
 template_channel_amp = range(gui_data.templates(gui_data.curr_unit,:,:),2);
-template_thresh = max(template_channel_amp,[],3)*0.2;
+template_thresh = max(template_channel_amp,[],3)*0.5;
 template_use_channels = any(template_channel_amp > template_thresh,1);
 [~,max_channel] = max(max(abs(gui_data.templates(gui_data.curr_unit,:,:)),[],2),[],3);
 

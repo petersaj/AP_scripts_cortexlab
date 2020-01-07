@@ -9,7 +9,7 @@ av = readNPY([allen_atlas_path filesep 'annotation_volume_10um_by_index.npy']);
 st = loadStructureTree([allen_atlas_path filesep 'structure_tree_safe_2017.csv']);
 
 % Set paths for histology images and directory to save slice/alignment
-im_path = 'C:\Users\Andrew\Desktop\temp_histology\AP043';
+im_path = 'C:\Users\Andrew\Desktop\temp_histology\AP060';
 slice_path = [im_path filesep 'slices'];
 
 %% 2) Preprocess slide images to produce slice images
@@ -52,7 +52,7 @@ AP_get_probe_histology(tv,av,st,slice_path);
 use_probe = 2;
 AP_align_probe_histology(st,slice_path, ...
     spike_times,spike_templates,template_depths, ...
-    lfp_power_freq,channel_positions(:,2),lfp_power, ...
+    lfp,channel_positions(:,2), ...
     use_probe);
 
 % Extract slices from full-resolution images

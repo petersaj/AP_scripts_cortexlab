@@ -1,8 +1,8 @@
 function AP_align_probe_histology(st,slice_path, ...
     spike_times,spike_templates,template_depths, ...
-    lfp_power_freq,lfp_channel_positions,lfp_power, ...
+    lfp,lfp_channel_positions, ...
     use_probe)
-% AP_align_probe_histology(st,slice_path,spike_times,spike_templates,template_depths,use_probe)
+% AP_align_probe_histology(st,slice_path,spike_times,spike_templates,template_depths,lfp,lfp_channel_positions,use_probe)
 
 % If no probe specified, use probe 1
 if ~exist('use_probe','var') || isempty(use_probe)
@@ -60,16 +60,20 @@ title('MUA correlation');
 set(multiunit_ax,'FontSize',12)
 xlabel(multiunit_ax,'Multiunit depth');
 
-% Plot LFP power
+% Plot LFP median-subtracted correlation
+lfp_moving_median = 10; % channels to take sliding median
 lfp_ax = subplot('Position',[0.5,0.1,0.3,0.8]);
-imagesc(lfp_power_freq,lfp_channel_positions,log10(lfp_power'));
-xlim([0,100]);
+imagesc(lfp_channel_positions,lfp_channel_positions, ...
+    corrcoef((movmedian(zscore(double(lfp),[],2),lfp_moving_median,1) - ...
+    nanmedian(zscore(double(lfp),[],2),1))'));
+xlim([0,max_depths]);
 ylim([0,max_depths]);
 set(lfp_ax,'YTick',[]);
 title('LFP power');
 set(lfp_ax,'FontSize',12)
-caxis(prctile(reshape(log10(lfp_power'),[],1),[5,100]))
-xlabel(lfp_ax,'Frequency'); 
+caxis([-1,1])
+xlabel(lfp_ax,'Depth (\mum)'); 
+colormap(lfp_ax,brewermap([],'*RdBu'));
 
 % Plot probe areas (interactive)
 % (load the colormap - located in the repository, find by associated fcn)
@@ -162,7 +166,7 @@ switch eventdata.Key
             
             % Get the probe depths corresponding to the trajectory areas
             % (*10 = in um)
-            probe_depths = ([1:length(probe_ccf.trajectory_areas)]'-1 - ...
+            probe_depths = ([1:length(probe_ccf(gui_data.use_probe).trajectory_areas)]'-1 - ...
                 round(gui_data.probe_areas_ax_ylim(1)/10))*10;
             probe_ccf(gui_data.use_probe).probe_depths = probe_depths;
             

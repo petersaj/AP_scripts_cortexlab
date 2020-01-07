@@ -7,26 +7,31 @@
 
 %% Get striatum boundaries
 
-%%% Get correlation of MUA and LFP
-n_corr_groups = 40;
+%%% Get correlation of MUA in sliding sindows
+depth_corr_window = 100; % MUA window in microns
+depth_corr_window_spacing = 50; % MUA window spacing in microns
+
 max_depths = 3840; % (hardcode, sometimes kilosort2 drops channels)
-depth_group_edges = linspace(0,max_depths,n_corr_groups+1);
-depth_group = discretize(template_depths,depth_group_edges);
-depth_group_centers = depth_group_edges(1:end-1)+(diff(depth_group_edges)/2);
-unique_depths = 1:length(depth_group_edges)-1;
 
-spike_binning = 0.01; % seconds
-corr_edges = nanmin(spike_times):spike_binning:nanmax(spike_times);
-corr_centers = corr_edges(1:end-1) + diff(corr_edges);
+depth_corr_bins = [0:depth_corr_window_spacing:(max_depths-depth_corr_window); ...
+    (0:depth_corr_window_spacing:(max_depths-depth_corr_window))+depth_corr_window];
+depth_corr_bin_centers = depth_corr_bins(1,:) + diff(depth_corr_bins,[],1)/2;
 
-binned_spikes_depth = zeros(length(unique_depths),length(corr_edges)-1);
-for curr_depth = 1:length(unique_depths)
+spike_binning_t = 0.01; % seconds
+spike_binning_t_edges = nanmin(spike_times):spike_binning_t:nanmax(spike_times);
+
+binned_spikes_depth = zeros(size(depth_corr_bins,2),length(spike_binning_t_edges)-1);
+for curr_depth = 1:size(depth_corr_bins,2)
+    curr_depth_templates_idx = ...
+        find(template_depths >= depth_corr_bins(1,curr_depth) & ...
+        template_depths < depth_corr_bins(2,curr_depth));
+    
     binned_spikes_depth(curr_depth,:) = histcounts(spike_times( ...
-        ismember(spike_templates,find(depth_group == unique_depths(curr_depth)))), ...
-        corr_edges);
+        ismember(spike_templates,curr_depth_templates_idx)),spike_binning_t_edges);
 end
 
 mua_corr = corrcoef(binned_spikes_depth');
+
 
 %%% Estimate start and end depths of striatum
 
@@ -36,32 +41,10 @@ mua_corr_end = medfilt2(mua_corr(end-groups_back+1:end,end-groups_back+1:end),[3
 mua_corr_end(triu(true(length(mua_corr_end)),0)) = nan;
 median_corr = medfilt1(nanmedian(mua_corr_end,2),3);
 [x,max_corr_drop] = min(diff(median_corr));
-str_end = depth_group_centers(end-groups_back+max_corr_drop);
+str_end = depth_corr_bin_centers(end-groups_back+max_corr_drop);
 
-% start of striatum: look for ventricle (dropoff in templates)
-
-% (by template density)
-%     n_template_bins = 40;
-%     size_template_bins = max(channel_positions(:,2))/n_template_bins;
-%     template_density_bins = linspace(0,max(channel_positions(:,2)),n_template_bins);
-%     template_density = histcounts(template_depths,template_density_bins);
-%
-%     str_end_bin = floor(str_end/size_template_bins);
-%
-%     n_bins_check = 3;
-%     bins_conv = ones(1,n_bins_check)/n_bins_check;
-%     template_gaps = conv(+(fliplr(template_density(1:str_end_bin)) < 2),bins_conv);
-%
-%     sorted_template_depths = sort([0;template_depths]);
-%
-%     if any(template_gaps)
-%         str_gap_stop = length(template_gaps) - n_bins_check - find(template_gaps(n_bins_check:end),1);
-%         str_start = sorted_template_depths(find(sorted_template_depths > template_density_bins(str_gap_stop),1)) - 1;
-%     else
-%         str_start = sorted_template_depths(2);
-%     end
-
-% (by biggest gap)
+% start of striatum: look for ventricle
+% (by biggest gap between templates)
 min_gap = 200;
 sorted_template_depths = sort([0;template_depths]);
 [max_gap,max_gap_idx] = max(diff(sorted_template_depths));

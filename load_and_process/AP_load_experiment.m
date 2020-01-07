@@ -822,7 +822,7 @@ if ephys_exists && load_parts.ephys
     % (get min-max range for each channel)
     template_chan_amp = squeeze(range(templates,2));
     % (zero-out low amplitude channels)
-    template_chan_amp_thresh = max(template_chan_amp,[],2)*0.3;
+    template_chan_amp_thresh = max(template_chan_amp,[],2)*0.5;
     template_chan_amp_overthresh = template_chan_amp.*(template_chan_amp >= template_chan_amp_thresh);
     % (get center-of-mass on thresholded channel amplitudes)
     template_depths = sum(template_chan_amp_overthresh.*channel_positions(:,2)',2)./sum(template_chan_amp_overthresh,2);
@@ -873,7 +873,7 @@ if ephys_exists && load_parts.ephys
             % If different number of flips in ephys/timeline, best
             % contiguous set via xcorr of diff
             warning([animal ' ' day ':Flipper flip times different in timeline/ephys'])
-            error('this probably doesn''t work yet');
+            warning(['The fix for this is probably no robust: always check'])
             [flipper_xcorr,flipper_lags] = ...
                 xcorr(diff(flipper_flip_times_timeline),diff(flipper_flip_times_ephys));
             [~,flipper_lag_idx] = max(flipper_xcorr);
@@ -1078,7 +1078,7 @@ if ephys_exists && load_parts.ephys && exist('lfp_channel','var') && isnumeric(l
 %     [b100s, a100s] = butter(2,freqCutoff/(lfp_sample_rate/2),'low');
 %     lfp_lightfix = single(filtfilt(b100s,a100s,double(lfp_lightfix)')');
  
-elseif ephys_exists && load_parts.ephys && exist('lfp_channel','var') && strcmp(lfp_channel,'all');
+elseif ephys_exists && load_parts.ephys && exist('lfp_channel','var') && strcmp(lfp_channel,'all')
     
     % Load short LFP segment (from start = no light) from all channels
     if verbose; disp('Loading LFP (all channels snippet)...'); end;
@@ -1092,12 +1092,20 @@ elseif ephys_exists && load_parts.ephys && exist('lfp_channel','var') && strcmp(
     
     lfp_sample_rate = str2num(header.lfp_sample_rate);
     lfp_cutoff = str2num(header.filter_cutoff);
+    
+    % (NOTE: LFP channel map is different from kilosort channel map because
+    % kilosort2 drops channels without spikes)
+    channel_map_fn = 'C:\Users\Andrew\OneDrive for Business\Documents\CarandiniHarrisLab\kilosort_channelmaps\forPRBimecP3opt3.mat';
+    channel_map_full = load(channel_map_fn);
+    max_depth = 3840;
+    lfp_channel_positions = max_depth - channel_map_full.ycoords;
 
     % Choose snippet of recording time before first experiment (no light)
     t_load = 10; % time to load (in seconds)
+    t_load_pre_exp = 1; % time before first experiment to load up to
     experiment_ephys_starts = sync(acqLive_sync_idx).timestamps(sync(acqLive_sync_idx).values == 1);
-    lfp_load_start = round((lfp_sample_rate*(experiment_ephys_starts(1)-1-t_load)));
-    lfp_load_stop = round((lfp_sample_rate*(experiment_ephys_starts(1)-1)));      
+    lfp_load_start = round((lfp_sample_rate*(experiment_ephys_starts(1)-t_load_pre_exp-t_load)));
+    lfp_load_stop = round((lfp_sample_rate*(experiment_ephys_starts(1)-t_load_pre_exp)));      
     
     % Load single LFP channel within experiment bounds
     n_bytes = 2; % LFP = int16 = 2 bytes
@@ -1105,6 +1113,11 @@ elseif ephys_exists && load_parts.ephys && exist('lfp_channel','var') && strcmp(
     n_lfp_samples = lfp_fileinfo.bytes/n_bytes/n_channels;
     lfp_memmap = memmapfile(lfp_filename, 'Format', {'int16', [n_channels n_lfp_samples], 'lfp'});
     lfp = lfp_memmap.Data.lfp(:,lfp_load_start:lfp_load_stop);
+    
+    % Sort LFP so it goes from surface to depth
+    [~,lfp_sort_idx] = sort(lfp_channel_positions);
+    lfp_channel_positions = lfp_channel_positions(lfp_sort_idx);
+    lfp = lfp(lfp_sort_idx,:);
     
     % Get LFP times and convert to timeline time
     lfp_load_start_t = lfp_load_start/lfp_sample_rate;
@@ -1115,18 +1128,34 @@ elseif ephys_exists && load_parts.ephys && exist('lfp_channel','var') && strcmp(
     window_overlap = 1; % in seconds
     window_length_samples = round(window_length/(1/lfp_sample_rate));
     window_overlap_samples = round(window_overlap/(1/lfp_sample_rate));
-    [lfp_power,lfp_power_freq] = pwelch(double(lfp)', ...
+    [lfp_power,lfp_power_freq] = pwelch(zscore(double(lfp),[],2)', ...
         window_length_samples,window_overlap_samples,[],lfp_sample_rate);
     
     if verbose
         figure;
-        imagesc(lfp_power_freq,channel_positions(:,2),log10(lfp_power'));
+        
+        p1 = subplot(1,2,1);
+        imagesc(lfp_power_freq,lfp_channel_positions,log10(lfp_power'));
         xlabel('Frequency');
         ylabel('Depth (\mum)');
         c = colorbar;
         ylabel(c,'Log_{10} power');
         xlim([0,100]);
-        colormap(hot);
+        colormap(p1,hot);
+        title('LFP power');
+        
+        p2 = subplot(1,2,2);
+        imagesc(lfp_channel_positions,lfp_channel_positions, ...
+            corrcoef((movmedian(zscore(double(lfp),[],2),10,1) - ...
+            nanmedian(zscore(double(lfp),[],2),1))'));
+        axis image
+        colormap(p2,brewermap([],'*RdBu'));
+        caxis([-1,1])
+        xlabel('Depth (\mum)');
+        ylabel('Depth (\mum)');
+        c = colorbar;
+        ylabel(c,'Med. sub. correlation');
+        
     end
 
 end
@@ -1153,7 +1182,7 @@ if ephys_exists && load_parts.ephys
     
     if verbose
        figure;
-       imagesc(depth_group_centers,depth_group_centers,mua_corr);
+       imagesc(depth_corr_bin_centers,depth_corr_bin_centers,mua_corr);
        axis tight equal;
        colormap(hot)
        line([str_depth(1),str_depth(1)],ylim,'color','b','linewidth',2);

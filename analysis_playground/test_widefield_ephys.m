@@ -2862,7 +2862,7 @@ depth_group_centers = depth_group_edges(1:end-1)+(diff(depth_group_edges)/2);
 % depth_group = aligned_str_depth_group;
 
 % % (for manual depth)
-% depth_group_edges = linspace(1500,2500,5);
+% depth_group_edges = linspace(2200,2920,5);
 % n_depths = length(depth_group_edges) - 1;
 % [depth_group_n,depth_group] = histc(spike_depths,depth_group_edges);
 
@@ -3096,10 +3096,10 @@ fVdf_deconv = AP_deconv_wf(fVdf);
 fVdf_deconv(isnan(fVdf_deconv)) = 0;
 fVdf_deconv_resample = interp1(frame_t,fVdf_deconv',time_bin_centers)';
 
-use_svs = 1:50;
+use_svs = 1:200;
 kernel_t = [-0.2,0.2];
 kernel_frames = round(kernel_t(1)*sample_rate):round(kernel_t(2)*sample_rate);
-lambda = 0; % (comment out to use lambda from above)
+lambda = 2; % (comment out to use lambda from above)
 zs = [false,false];
 cvfold = 5;
 
