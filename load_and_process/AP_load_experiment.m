@@ -857,8 +857,12 @@ if ephys_exists && load_parts.ephys
         bad_flipper = false; 
         
         % Get flipper experiment differences by long delays
+        % (note: this is absolute difference, if recording stopped and
+        % started then the clock starts over again, although I thought it
+        % wasn't supposed to when I grab the concatenated sync, so
+        % something might be wrong)
         flip_diff_thresh = 1; % time between flips to define experiment gap (s)
-        flipper_expt_idx = [1;find(diff(sync(flipper_sync_idx).timestamps) > ...
+        flipper_expt_idx = [1;find(abs(diff(sync(flipper_sync_idx).timestamps)) > ...
             flip_diff_thresh)+1;length(sync(flipper_sync_idx).timestamps)+1];
         
         flipper_flip_times_ephys = sync(flipper_sync_idx).timestamps( ...

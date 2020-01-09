@@ -1,40 +1,46 @@
-%% Test analysis for recording cortex + striatum (+wf) simultaneous ephys
+%% Test analysis for wf + cortex ephys + striatum ephys
 
-
-%% (TESTING) 
+%% (TESTING)
 
 % Load experiment
 animal = 'AP061';
-day = '2019-12-10';
+day = '2019-12-09';
 experiment = 1;
 site = 2;
 lfp_channel = 'all';
 verbose = true;
 AP_load_experiment;
 
-% Get LFP median-subtracted correlation
-lfp_medsub_corr = ...
-    corrcoef((movmedian(zscore(double(lfp),[],2),10,1) - ...
-    nanmedian(zscore(double(lfp),[],2),1))');
-lfp_medsub_corr(triu(true(length(lfp_medsub_corr)),0)) = nan;
-
-% Find cortex start by dim2 correlation falling below 70% of range
-% (have a buffer from the start: channels across air/saline border have a
-% big shift in correlation too)
-saline_start_buffer = 500; % microns
-saline_start_buffer_channel = find(lfp_channel_positions > saline_start_buffer,1);
-
-lfp_medsub_corr_avg_2 = smooth(nanmean(lfp_medsub_corr,2),10);
-
-corr_drop = find(lfp_medsub_corr_avg_2(saline_start_buffer_channel:end) > ...
-    min(lfp_medsub_corr_avg_2(saline_start_buffer_channel:end)) + ...
-    range(lfp_medsub_corr_avg_2(saline_start_buffer_channel:end))*0.7,1,'last');
-ctx_start = lfp_channel_positions(saline_start_buffer_channel + corr_drop);
 
 % Find cortex end by largest gap between templates
 sorted_template_depths = sort([template_depths]);
 [max_gap,max_gap_idx] = max(diff(sorted_template_depths));
 ctx_end = sorted_template_depths(max_gap_idx)+1;
+
+% Get LFP median-subtracted correlation
+lfp_medsub_corr = ...
+    corrcoef((movmedian(zscore(double(lfp),[],2),10,1) - ...
+    nanmedian(zscore(double(lfp),[],2),1))');
+
+% Get average correlation along the diagonal
+on_diag = 0; % (can also use -x:x)
+off_diag = 1:20;
+
+lfp_medsub_corr_diag = nanmean(cell2mat(arrayfun(@(x) ...
+    padarray(diag(lfp_medsub_corr,off_diag(x)), ...
+    abs(off_diag(x)),nan,'pre'), ...
+    1:length(off_diag),'uni',false)),2);
+
+% Get average LFP correlation within cortex units
+lfp_ctx_units_channels = lfp_channel_positions > min(template_depths) & ...
+    lfp_channel_positions < ctx_end;
+lfp_medsub_corr_diag_ctx = nanmedian(lfp_medsub_corr_diag(lfp_ctx_units_channels));
+
+% Define the cortex as reaching 70% ctx lfp corr average after cortex
+lfp_corr_thresh = lfp_medsub_corr_diag_ctx*0.9;
+lfp_corr_rise_idx = ...
+    find(lfp_medsub_corr_diag(find(lfp_ctx_units_channels,1):-1:1) > lfp_corr_thresh,1);
+ctx_start = lfp_channel_positions(find(lfp_ctx_units_channels,1) - lfp_corr_rise_idx);
 
 % Get final cortex borders
 ctx_depth = [ctx_start,ctx_end];
@@ -63,293 +69,253 @@ line(repmat(ctx_start,2,1),ylim,'color','k','linewidth',2)
 line(repmat(ctx_end,2,1),ylim,'color','k','linewidth',2)
 title('LFP med sub corr');
 
-
-%%%%%%%%% TESTING: REGRESSION/PREDICTED RESPONSES
-
-% Set upsample value for regression
-upsample_factor = 1;
-sample_rate = (1/median(diff(frame_t)))*upsample_factor;
-
-% Skip the first/last n seconds to do this
+% Set binning time
 skip_seconds = 60;
-time_bins = frame_t(find(frame_t > skip_seconds,1)):1/sample_rate:frame_t(find(frame_t-frame_t(end) < -skip_seconds,1,'last'));
-time_bin_centers = time_bins(1:end-1) + diff(time_bins)/2;
+spike_binning_t = 1/framerate; % seconds
+spike_binning_t_edges = frame_t(1)+skip_seconds:spike_binning_t:frame_t(end)-skip_seconds;
+spike_binning_t_centers = spike_binning_t_edges(1:end-1) + diff(spike_binning_t_edges)/2;
 
-% (to group multiunit by depth within striatum)
-n_depths = round(diff(ctx_depth)/200);
-% n_depths = 1;
-depth_group_edges = round(linspace(ctx_depth(1),ctx_depth(2),n_depths+1));
-[depth_group_n,depth_group] = histc(spike_depths,depth_group_edges);
-depth_groups_used = unique(depth_group);
-depth_group_centers = depth_group_edges(1:end-1)+(diff(depth_group_edges)/2);
-
-binned_spikes = zeros(n_depths,length(time_bins)-1);
-for curr_depth = 1:n_depths  
-    curr_spike_times = spike_times_timeline(depth_group == curr_depth);    
-    binned_spikes(curr_depth,:) = histcounts(curr_spike_times,time_bins);  
-end
-
-binned_spikes_std = binned_spikes./nanstd(binned_spikes,[],2);
-binned_spikes_std(isnan(binned_spikes_std)) = 0;
-
-use_svs = 1:200;
-kernel_t = [-0.5,0.5];
-kernel_frames = round(kernel_t(1)*sample_rate):round(kernel_t(2)*sample_rate);
-lambda = 2;
-zs = [false,false];
-cvfold = 5;
-return_constant = false;
-use_constant = true;
-
-fVdf_resample = interp1(frame_t,fVdf(use_svs,:)',time_bin_centers)';
-dfVdf_resample = interp1(conv2(frame_t,[1,1]/2,'valid'), ...
-            diff(fVdf(use_svs,:),[],2)',time_bin_centers)';
-        
-fVdf_deconv = AP_deconv_wf(fVdf);
-fVdf_deconv(isnan(fVdf_deconv)) = 0;
-fVdf_deconv_resample = interp1(frame_t,fVdf_deconv(use_svs,:)',time_bin_centers)';
-        
-% % TO USE fV
-% [k,predicted_spikes,explained_var] = ...
-%     AP_regresskernel(fVdf_resample, ...
-%     binned_spikes_std,kernel_frames,lambda,zs,cvfold);
-% % TO USE dfV
-% [k,predicted_spikes,explained_var] = ...
-%     AP_regresskernel(dfVdf_resample, ...
-%     binned_spikes_std,kernel_frames,lambda,zs,cvfold,return_constant,use_constant);
-% TO USE DECONV
-[k,predicted_spikes,explained_var] = ...
-    AP_regresskernel(fVdf_deconv_resample, ...
-    binned_spikes_std,kernel_frames,lambda,zs,cvfold,return_constant,use_constant);
-
-% Convert kernel to pixel space
-r_px = zeros(size(Udf,1),size(Udf,2),size(k,2),size(k,3),'single');
-for curr_spikes = 1:size(k,3)
-    r_px(:,:,:,curr_spikes) = svdFrameReconstruct(Udf(:,:,use_svs),k(:,:,curr_spikes));
-end
-
-AP_image_scroll(r_px,kernel_frames/framerate);
-caxis([-prctile(r_px(:),99.9),prctile(r_px(:),99.9)])
-colormap(colormap_BlueWhiteRed);
-axis image;
-
-% Get center of mass for each pixel
-% (get max r for each pixel, filter out big ones)
-r_px_max = squeeze(max(r_px,[],3));
-r_px_max(isnan(r_px_max)) = 0;
-% for i = 1:n_depths
-%     r_px_max(:,:,i) = medfilt2(r_px_max(:,:,i),[10,10]);
-% end
-r_px_max_norm = bsxfun(@rdivide,r_px_max, ...
-    permute(max(reshape(r_px_max,[],n_depths),[],1),[1,3,2]));
-r_px_max_norm(isnan(r_px_max_norm)) = 0;
-r_px_com = sum(bsxfun(@times,r_px_max_norm,permute(1:n_depths,[1,3,2])),3)./sum(r_px_max_norm,3);
-
-% Plot map of cortical pixel by preferred depth of probe
-r_px_com_col = ind2rgb(round(mat2gray(r_px_com,[1,n_depths])*255),jet(255));
-figure;
-a1 = axes('YDir','reverse');
-imagesc(avg_im); colormap(gray); caxis([0,prctile(avg_im(:),99.7)]);
-axis off; axis image;
-a2 = axes('Visible','off'); 
-p = imagesc(r_px_com_col);
-axis off; axis image;
-set(p,'AlphaData',mat2gray(max(r_px_max_norm,[],3), ...
-     [0,double(prctile(reshape(max(r_px_max_norm,[],3),[],1),95))]));
-set(gcf,'color','w');
-
-c1 = colorbar('peer',a1,'Visible','off');
-c2 = colorbar('peer',a2);
-ylabel(c2,'Depth (\mum)');
-colormap(c2,jet);
-set(c2,'YDir','reverse');
-set(c2,'YTick',linspace(0,1,n_depths));
-set(c2,'YTickLabel',round(linspace(depth_group_edges(1),depth_group_edges(end),n_depths)));
- 
-
-% Plot measured/widefield-predicted spikes
-
-% Set options
-surround_window = [-0.5,3];
-baseline_window = [-0.1,0];
-
-surround_samplerate = 1/(framerate*1);
-surround_time = surround_window(1):surround_samplerate:surround_window(2);
-baseline_surround_time = baseline_window(1):surround_samplerate:baseline_window(2);
-
-% (passive)
-use_stims = find(stimIDs == 3);
-% (choiceworld)
-% stimIDs = trial_conditions(:,1).*trial_conditions(:,2);
-% use_stims = find(stimIDs > 0);
-
-use_stimOn_times = stimOn_times(use_stims);
-
-stim_surround_times = bsxfun(@plus, use_stimOn_times(:), surround_time);
-stim_baseline_surround_times = bsxfun(@plus, use_stimOn_times(:), baseline_surround_time);
-
-psth_measured_stim = permute(interp1(time_bin_centers,binned_spikes_std',stim_surround_times),[3,2,1]);
-psth_predicted_stim = permute(interp1(time_bin_centers,predicted_spikes',stim_surround_times),[3,2,1]);
-
-psth_measured_baseline = permute(nanmean(interp1(time_bin_centers,binned_spikes_std',stim_baseline_surround_times),2),[3,2,1]);
-psth_predicted_baseline = permute(nanmean(interp1(time_bin_centers,predicted_spikes',stim_baseline_surround_times),2),[3,2,1]);
-
-psth_measured = nanmean(psth_measured_stim - psth_measured_baseline,3);
-psth_predicted = nanmean(psth_predicted_stim - psth_predicted_baseline,3);
-
-figure; hold on;
-AP_stackplot(psth_measured',surround_time,3,false,'k');
-AP_stackplot(psth_predicted',surround_time,3,false,[0,0.7,0]);
-% plot(surround_time,psth_measured,'k','linewidth',2);
-% plot(surround_time,psth_predicted,'r','linewidth',2);
-
-
-
-%%%%%%%%% TESTING: FLUORESCENCE BY DEPTH
-
-%%% Get sliding MUA
-depth_corr_window = 100; % MUA window in microns
+% Get cortical MUA in sliding window
+depth_corr_window = 200; % MUA window in microns
 depth_corr_window_spacing = 50; % MUA window spacing in microns
 
 depth_corr_bins = [ctx_depth(1):depth_corr_window_spacing:(ctx_depth(2)-depth_corr_window); ...
     (ctx_depth(1):depth_corr_window_spacing:(ctx_depth(2)-depth_corr_window))+depth_corr_window];
 depth_corr_bin_centers = depth_corr_bins(1,:) + diff(depth_corr_bins,[],1)/2;
 
-skip_seconds = 60;
-
-spike_binning_t = 1/framerate; % seconds
-spike_binning_t_edges = frame_t(1)+skip_seconds:spike_binning_t:frame_t(end)-skip_seconds;
-spike_binning_t_centers = spike_binning_t_edges(1:end-1) + diff(spike_binning_t_edges)/2;
-
-binned_spikes_depth = zeros(size(depth_corr_bins,2),length(spike_binning_t_edges)-1);
+cortex_mua = zeros(size(depth_corr_bins,2),length(spike_binning_t_centers));
 for curr_depth = 1:size(depth_corr_bins,2)
     curr_depth_templates_idx = ...
         find(template_depths >= depth_corr_bins(1,curr_depth) & ...
         template_depths < depth_corr_bins(2,curr_depth));
     
-    binned_spikes_depth(curr_depth,:) = histcounts(spike_times_timeline( ...
+    cortex_mua(curr_depth,:) = histcounts(spike_times_timeline( ...
         ismember(spike_templates,curr_depth_templates_idx)),spike_binning_t_edges);
 end
 
+% Get cortical SUA
+cortex_units = find(template_depths >= ctx_depth(1) & template_depths <= ctx_depth(2));
+cortex_sua = zeros(length(cortex_units),length(spike_binning_t_centers));
+for curr_unit = 1:length(cortex_units)
+    cortex_sua(curr_unit,:) = histcounts(spike_times_timeline( ...
+        ismember(spike_templates,cortex_units(curr_unit))),spike_binning_t_edges);
+end
+
+% Load striatal spikes and bin by depth
+
+clear load_parts
+load_parts.ephys = true;
+site = 1;
+AP_load_experiment;
+
+% Set binning time
+skip_seconds = 60;
+spike_binning_t = 1/framerate; % seconds
+spike_binning_t_edges = frame_t(1)+skip_seconds:spike_binning_t:frame_t(end)-skip_seconds;
+spike_binning_t_centers = spike_binning_t_edges(1:end-1) + diff(spike_binning_t_edges)/2;
+
+depth_corr_window = 200; % MUA window in microns
+depth_corr_window_spacing = 50; % MUA window spacing in microns
+
+depth_corr_bins = [str_depth(1):depth_corr_window_spacing:(str_depth(2)-depth_corr_window); ...
+    (str_depth(1):depth_corr_window_spacing:(str_depth(2)-depth_corr_window))+depth_corr_window];
+depth_corr_bin_centers = depth_corr_bins(1,:) + diff(depth_corr_bins,[],1)/2;
+
+striatum_mua = zeros(size(depth_corr_bins,2),length(spike_binning_t_edges)-1);
+for curr_depth = 1:size(depth_corr_bins,2)
+    curr_depth_templates_idx = ...
+        find(template_depths >= depth_corr_bins(1,curr_depth) & ...
+        template_depths < depth_corr_bins(2,curr_depth));
+    
+    striatum_mua(curr_depth,:) = histcounts(spike_times_timeline( ...
+        ismember(spike_templates,curr_depth_templates_idx)),spike_binning_t_edges);
+end
+
+ctx_str_corr = 1-pdist2(cortex_mua,striatum_mua,'correlation');
+figure;
+subplot(4,4,[1,2,3,5,6,7,9,10,11])
+imagesc(ctx_str_corr);
+colormap(brewermap([],'*RdBu'));
+caxis([-1,1]);
+title('MUA correlation');
+
+subplot(4,4,[13,14,15]);
+plot(nanmean(ctx_str_corr,1),'k','linewidth',2);
+xlabel('Striatal depth');
+subplot(4,4,[4,8,12]);
+plot(nanmean(ctx_str_corr,2),1:size(ctx_str_corr,1),'k','linewidth',2);
+set(gca,'YDir','reverse');
+ylabel('Cortical depth');
+set(gca,'YAxisLocation','right')
+
+drawnow;
+
+% Get fluorescence in ROI
+fVdf_deconv = AP_deconv_wf(fVdf);
 fluor_roi = AP_svd_roi(Udf,fVdf_deconv,avg_im);
 fluor_roi_interp = interp1(frame_t,fluor_roi,spike_binning_t_centers);
 
-fluor_mua_corr = corrcoef([fluor_roi_interp',binned_spikes_depth']);
+% Plot stim-aligned responses
 
-figure;
-subplot(1,2,1);
-imagesc(fluor_mua_corr);
-caxis([-1,1])
-colormap(colormap_BlueWhiteRed);
-axis image;
+% Set options
+surround_window = [-0.5,3];
 
-subplot(1,2,2);
-plot(depth_corr_bin_centers,fluor_mua_corr(1,2:end),'k','linewidth',2);
-ylabel('Fluor-MUA correlation');
-xlabel('Cortex depth (\mum)');
+surround_samplerate = 1/(framerate*1);
+surround_time = surround_window(1):surround_samplerate:surround_window(2);
 
-% Regress from multiunit to fluorescence
-binned_spikes_depth_std = binned_spikes_depth./nanstd(binned_spikes_depth,[],2);
-binned_spikes_depth_std(isnan(binned_spikes_depth_std)) = 0;
-fluor_roi_interp_std = fluor_roi_interp./nanstd(fluor_roi_interp);
+stimIDs = trial_conditions(:,1).*trial_conditions(:,2);
+use_stims = find(stimIDs > 0);
+use_stimOn_times = stimOn_times(use_stims);
+psth_times = bsxfun(@plus, use_stimOn_times(:), surround_time);
 
-n_lambdas = 10;
-lambda_range = [0,300];
-lambdas = linspace(lambda_range(1),lambda_range(2),n_lambdas)';
-explained_var_lambdas = nan(n_lambdas,1);
+fluor_psth = permute(interp1(spike_binning_t_centers,fluor_roi_interp',psth_times),[3,2,1]);
+cortex_psth = permute(interp1(spike_binning_t_centers,cortex_mua',psth_times),[3,2,1]);
+striatum_psth = permute(interp1(spike_binning_t_centers,striatum_mua',psth_times),[3,2,1]);
 
-figure;
-h = plot(lambdas,explained_var_lambdas,'k','linewidth',2);drawnow;
-for curr_lambda = 1:n_lambdas
-    [~,~,curr_explained_var] = ...
-        AP_regresskernel(binned_spikes_depth_std, ...
-        fluor_roi_interp_std,kernel_frames,lambdas(curr_lambda),zs,cvfold,return_constant,use_constant);
-    explained_var_lambdas(curr_lambda) = curr_explained_var.total;
-    set(h,'YData',explained_var_lambdas);
-    drawnow;
-end
+baseline_samples = surround_time < 0;
 
-all_lambdas = lambda_range(1):lambda_range(end);
-explained_var_lambdas_interp = interp1(lambdas,explained_var_lambdas,all_lambdas,'pchip');
-plot(all_lambdas,explained_var_lambdas_interp,'r');
+fluor_psth_norm_mean = ...
+    nanmean(fluor_psth - nanmean(fluor_psth(:,baseline_samples,:),2),3)./ ...
+    nanstd(reshape(fluor_psth(:,baseline_samples,:),size(fluor_psth,1),[]),[],2);
+cortex_psth_norm_mean = ...
+    nanmean(cortex_psth - nanmean(cortex_psth(:,baseline_samples,:),2),3)./ ...
+    nanstd(reshape(cortex_psth(:,baseline_samples,:),size(cortex_psth,1),[]),[],2);
+striatum_psth_norm_mean = ...
+    nanmean(striatum_psth - nanmean(striatum_psth(:,baseline_samples,:),2),3)./ ...
+    nanstd(reshape(striatum_psth(:,baseline_samples,:),size(striatum_psth,1),[]),[],2);
 
-[~,lambda_idx] = max(explained_var_lambdas_interp);
-lambda = all_lambdas(lambda_idx);
+% Regress cortex to multiunit
+use_svs = 1:100;
+kernel_t = [-0.5,0.5];
+kernel_frames = round(kernel_t(1)*framerate):round(kernel_t(2)*framerate);
+lambda = 2;
+zs = [false,false];
+cvfold = 5;
+return_constant = false;
+use_constant = true;
 
-fluor_roi_interp_std = fluor_roi_interp./nanstd(fluor_roi_interp);
-[mua_k,mua_predicted_fluor,explained_var] = ...
-    AP_regresskernel(binned_spikes_depth_std, ...
-    fluor_roi_interp_std,kernel_frames,lambda,zs,cvfold,return_constant,use_constant);
+fVdf_deconv = AP_deconv_wf(fVdf);
+fVdf_deconv(isnan(fVdf_deconv)) = 0;
+fVdf_deconv_resample = interp1(frame_t,fVdf_deconv(use_svs,:)',spike_binning_t_centers)';
+        
+cortex_mua_std = cortex_mua./nanstd(cortex_mua,[],2);
+cortex_mua_std(isnan(cortex_mua_std)) = 0;
+[k,cortex_mua_fluorpred,cortex_mua_explained_var] = ...
+    AP_regresskernel(fVdf_deconv_resample, ...
+    cortex_mua_std,kernel_frames,lambda,zs,cvfold,return_constant,use_constant);
 
-% Regress from single units to fluorescence
-ctx_units = find(template_depths >= ctx_depth(1) & template_depths <= ctx_depth(2));
-unit_spikes = zeros(length(ctx_units),length(spike_binning_t_centers));
-for curr_unit_idx = 1:length(ctx_units)
-    unit_spikes(curr_unit_idx,:) = histcounts(spike_times_timeline( ...
-        spike_templates == ctx_units(curr_unit_idx)),spike_binning_t_edges);
-end
-unit_spikes_std = unit_spikes./std(unit_spikes,[],2);
-unit_spikes_std(isnan(unit_spikes_std)) = 0;
+striatum_mua_std = striatum_mua./nanstd(striatum_mua,[],2);
+striatum_mua_std(isnan(striatum_mua_std)) = 0;
+[k,striatum_mua_fluorpred,striatum_mua_explained_var] = ...
+    AP_regresskernel(fVdf_deconv_resample, ...
+    striatum_mua_std,kernel_frames,lambda,zs,cvfold,return_constant,use_constant);
 
-n_lambdas = 10;
-lambda_range = [0,300];
-lambdas = linspace(lambda_range(1),lambda_range(2),n_lambdas)';
-explained_var_lambdas = nan(n_lambdas,1);
+cortex_fluorpred_psth = permute(interp1(spike_binning_t_centers,cortex_mua_fluorpred',psth_times),[3,2,1]);
+striatum_fluorpred_psth = permute(interp1(spike_binning_t_centers,striatum_mua_fluorpred',psth_times),[3,2,1]);
 
-figure; hold on;
-h = plot(lambdas,explained_var_lambdas,'k','linewidth',2);drawnow;
-for curr_lambda = 1:n_lambdas
-    [~,~,curr_explained_var] = ...
-        AP_regresskernel(unit_spikes_std, ...
-        fluor_roi_interp_std,kernel_frames,lambdas(curr_lambda),zs,cvfold,return_constant,use_constant);
-    explained_var_lambdas(curr_lambda) = curr_explained_var.total;
-    set(h,'YData',explained_var_lambdas);
-    drawnow;
-end
+cortex_fluorpred_psth_norm_mean = ...
+    nanmean(cortex_fluorpred_psth - nanmean(cortex_fluorpred_psth(:,baseline_samples,:),2),3)./ ...
+    nanstd(reshape(cortex_fluorpred_psth(:,baseline_samples,:),size(cortex_fluorpred_psth,1),[]),[],2);
+striatum_fluorpred_psth_norm_mean = ...
+    nanmean(striatum_fluorpred_psth - nanmean(striatum_fluorpred_psth(:,baseline_samples,:),2),3)./ ...
+    nanstd(reshape(striatum_fluorpred_psth(:,baseline_samples,:),size(striatum_fluorpred_psth,1),[]),[],2);
 
-all_lambdas = lambda_range(1):lambda_range(end);
-explained_var_lambdas_interp = interp1(lambdas,explained_var_lambdas,all_lambdas,'pchip');
-plot(all_lambdas,explained_var_lambdas_interp,'r');
-
-[~,lambda_idx] = max(explained_var_lambdas_interp);
-lambda = all_lambdas(lambda_idx);
-
-[sua_k,sua_predicted_fluor,explained_var] = ...
-    AP_regresskernel(unit_spikes_std, ...
-    fluor_roi_interp_std,kernel_frames,lambda,zs,cvfold,return_constant,use_constant);
-
-% Plot MUA/SUA kernels
-figure;
-subplot(2,2,1);
-imagesc([],depth_corr_bin_centers-ctx_depth(1),mua_k);
-caxis([-max(abs(caxis)),max(abs(caxis))]);
+figure; 
+subplot(2,4,1);
+imagesc(cortex_psth_norm_mean);
+caxis([-5,5]);
 colormap(brewermap([],'*RdBu'));
-ylabel('MUA depth from ctx surface');
-title('MUA > fluorescence kernel');
-
-subplot(2,2,2);
-[~,sort_idx] = sort(template_depths(ctx_units));
-imagesc(sua_k(sort_idx,:));
-caxis([-max(abs(caxis)),max(abs(caxis))]);
+title('Spikes')
+subplot(2,4,2);
+imagesc(cortex_fluorpred_psth_norm_mean);
+caxis([-5,5]);
 colormap(brewermap([],'*RdBu'));
-ylabel('MUA depth (sorted)');
-title('MUA > fluorescence kernel');
-
-subplot(2,2,3);
-plot(max(mua_k,[],2),depth_corr_bin_centers-ctx_depth(1),'k','linewidth',2);
-ylabel('MUA depth from ctx surface');
+title('Fluor-pred spikes')
+subplot(2,4,3);
+imagesc(cortex_psth_norm_mean-cortex_fluorpred_psth_norm_mean);
+caxis([-5,5]);
+colormap(brewermap([],'*RdBu'));
+title('Difference')
+subplot(2,4,4);
+plot(cortex_mua_explained_var.total,1:size(cortex_mua,1),'k','linewidth',2);
 set(gca,'YDir','reverse');
+xlabel('Fluorescence explained variance')
 
-subplot(2,2,4);
-plot(max(sua_k,[],2),template_depths(ctx_units)-ctx_depth(1),'.k');
-ylabel('MUA depth from ctx surface');
+subplot(2,4,5);
+imagesc(striatum_psth_norm_mean);
+caxis([-5,5]);
+colormap(brewermap([],'*RdBu'));
+subplot(2,4,6);
+imagesc(striatum_fluorpred_psth_norm_mean);
+caxis([-5,5]);
+colormap(brewermap([],'*RdBu'));
+subplot(2,4,7);
+imagesc(striatum_psth_norm_mean-striatum_fluorpred_psth_norm_mean);
+caxis([-5,5]);
+colormap(brewermap([],'*RdBu'));
+subplot(2,4,8);
+plot(striatum_mua_explained_var.total,1:size(striatum_mua,1),'k','linewidth',2);
 set(gca,'YDir','reverse');
+xlabel('Fluorescence explained variance')
+
+% Note: the above is normalized within measured and prediction instead of
+% being normalized the same across both, looks more accurate when
+% normalizing within
+
+% Regress cortex MUA to striatum MUA
+[k,striatum_mua_ctxmuapred,striatum_mua_explained_var] = ...
+    AP_regresskernel(cortex_mua_std, ...
+    striatum_mua_std,kernel_frames,lambda,zs,cvfold,return_constant,use_constant);
+
+% % Regress cortex SUA to striatum MUA (lots of units makes this take long
+% % time - probably not enough memory for long enough recording)
+% cortex_sua_std = cortex_sua./nanstd(cortex_sua,[],2);
+% cortex_sua_std(isnan(cortex_sua_std)) = 0;
+% [k,striatum_mua_ctxsuapred,striatum_sua_explained_var] = ...
+%     AP_regresskernel(cortex_sua_std, ...
+%     striatum_mua_std,kernel_frames,lambda,zs,cvfold,return_constant,use_constant);
+
+striatum_ctxmuapred_psth = permute(interp1(spike_binning_t_centers,striatum_mua_ctxmuapred',psth_times),[3,2,1]);
+str_std_psth = permute(interp1(spike_binning_t_centers,striatum_mua_std',psth_times),[3,2,1]);
+
+figure;
+subplot(2,3,1);
+imagesc(nanmean(str_std_psth,3));
+caxis([-5,5]);
+colormap(brewermap([],'*RdBu'));
+title('Striatum')
+
+subplot(2,3,2);
+imagesc(nanmean(striatum_fluorpred_psth,3));
+caxis([-5,5]);
+colormap(brewermap([],'*RdBu'));
+title('WF-pred striatum')
+
+subplot(2,3,5)
+imagesc(nanmean(str_std_psth,3) - nanmean(striatum_fluorpred_psth,3));
+caxis([-5,5]);
+colormap(brewermap([],'*RdBu'));
+title('Diff')
+
+subplot(2,3,3);
+imagesc(nanmean(striatum_ctxmuapred_psth,3));
+caxis([-5,5]);
+colormap(brewermap([],'*RdBu'));
+title('AM ephys-pred striatum');
+
+subplot(2,3,6)
+imagesc(nanmean(str_std_psth,3) - nanmean(striatum_ctxmuapred_psth,3));
+caxis([-5,5]);
+colormap(brewermap([],'*RdBu'));
+title('Diff')
 
 
 
 
 
 %% Get cortex widefield/ephys relationship by depth (batch)
+% (IN PROGRESS: still need to fix depth estimation)
+% (hopefully just get rid of regression and use correlation)
 
 animals = {'AP043','AP060','AP061'};
 data = struct;
@@ -363,42 +329,51 @@ for curr_animal = 1:length(animals)
     experiments = AP_find_experiments(animal,protocol);
     experiments = experiments([experiments.imaging] & [experiments.ephys]);
     
-    for curr_exp = 1:length(experiments)
+    for curr_day = 1:length(experiments)
         
         % Load experiment
-        day = experiments(curr_exp).day;
+        day = experiments(curr_day).day;
         % (only one doubled experiment, and the second one was worse)
-        experiment = experiments(curr_exp).experiment(1);
+        experiment = experiments(curr_day).experiment(1);
         site = 2; % cortex probe is always site 2
         lfp_channel = 'all';
         verbose = false;
         AP_load_experiment
-          
+        
         %%% FIND CORTEX BOUNDARIES
-        
-        % Get LFP median-subtracted correlation
-        lfp_medsub_corr = ...
-            corrcoef((movmedian(zscore(double(lfp),[],2),10,1) - ...
-            nanmedian(zscore(double(lfp),[],2),1))');
-        lfp_medsub_corr(triu(true(length(lfp_medsub_corr)),0)) = nan;
-        
-        % Find cortex start by dim2 correlation falling below 70% of range
-        % (have a buffer from the start: channels across air/saline border have a
-        % big shift in correlation too)
-        saline_start_buffer = 500; % microns
-        saline_start_buffer_channel = find(lfp_channel_positions > saline_start_buffer,1);
-        
-        lfp_medsub_corr_avg_2 = smooth(nanmean(lfp_medsub_corr,2),10);
-        
-        corr_drop = find(lfp_medsub_corr_avg_2(saline_start_buffer_channel:end) > ...
-            min(lfp_medsub_corr_avg_2(saline_start_buffer_channel:end)) + ...
-            range(lfp_medsub_corr_avg_2(saline_start_buffer_channel:end))*0.7,1,'last');
-        ctx_start = lfp_channel_positions(saline_start_buffer_channel + corr_drop);       
         
         % Find cortex end by largest gap between templates
         sorted_template_depths = sort([template_depths]);
         [max_gap,max_gap_idx] = max(diff(sorted_template_depths));
         ctx_end = sorted_template_depths(max_gap_idx)+1;
+        
+        % Get LFP median-subtracted correlation
+        lfp_medsub_corr = ...
+            corrcoef((movmedian(zscore(double(lfp),[],2),10,1) - ...
+            nanmedian(zscore(double(lfp),[],2),1))');
+        
+        % Get average correlation along the diagonal
+        on_diag = 0; % (can also use -x:x)
+        off_diag = 1:20;
+        
+        lfp_medsub_corr_diag = nanmean(cell2mat(arrayfun(@(x) ...
+            padarray(diag(lfp_medsub_corr,off_diag(x)), ...
+            abs(off_diag(x)),nan,'pre'), ...
+            1:length(off_diag),'uni',false)),2);
+        
+        % Get average LFP correlation within cortex units
+        lfp_ctx_units_channels = lfp_channel_positions > min(template_depths) & ...
+            lfp_channel_positions < ctx_end;
+        lfp_medsub_corr_diag_ctx = nanmedian(lfp_medsub_corr_diag(lfp_ctx_units_channels));
+        
+        % Define the cortex as reaching 70% ctx lfp corr average after cortex
+        lfp_corr_thresh = lfp_medsub_corr_diag_ctx*0.9;
+        lfp_corr_rise_idx = ...
+            find(lfp_medsub_corr_diag(find(lfp_ctx_units_channels,1):-1:1) > lfp_corr_thresh,1);
+        ctx_start = lfp_channel_positions(find(lfp_ctx_units_channels,1) - lfp_corr_rise_idx);
+        
+        % Get final cortex borders
+        ctx_depth = [ctx_start,ctx_end];
         
         % Plot cortex start/end
         figure('Name',[animal ' ' day]);
@@ -425,9 +400,7 @@ for curr_animal = 1:length(animals)
         title('LFP med sub corr');
         
         drawnow;
-        
-        ctx_depth = [ctx_start,ctx_end];
-        
+                
         %%% GET FLUORESCENCE AND SPIKES BY DEPTH        
         
         % Set binning time
@@ -471,7 +444,7 @@ for curr_animal = 1:length(animals)
         end
         
         %%% CROSS-CORRELATION OF FLUORESCENCE AND SPIKES
-        maxlag = framerate*0.5;
+        maxlag = round(framerate*0.5);
         
         mua_xcorr = nan(size(mua_spikes,1),maxlag*2+1);
         for curr_depth = 1:size(mua_spikes,1)
@@ -481,118 +454,14 @@ for curr_animal = 1:length(animals)
         sua_xcorr = nan(size(sua_spikes,1),maxlag*2+1);
         for curr_unit = 1:size(sua_spikes,1)
             [sua_xcorr(curr_unit,:),lags] = xcorr(fluor_roi_interp,sua_spikes(curr_unit,:),maxlag,'unbiased');
-        end
-    
-        % Regression setup
-        sua_spikes_std = sua_spikes./nanstd(sua_spikes,[],2);
-        sua_spikes_std(isnan(sua_spikes_std)) = 0;
+        end        
         
-        mua_spikes_std = mua_spikes./nanstd(mua_spikes,[],2);
-        mua_spikes_std(isnan(mua_spikes_std)) = 0;
-        
-        fluor_roi_interp_std = fluor_roi_interp./nanstd(fluor_roi_interp);
-        
-        kernel_frames = round(-0.5*framerate):round(0.5*framerate);
-        zs = [false,false];
-        cvfold = 5;
-        return_constant = false;
-        use_constant = true;
-        
-        n_lambdas = 10;
-        lambda_range = [0,300];
-        lambdas = linspace(lambda_range(1),lambda_range(2),n_lambdas)';
-        explained_var_lambdas = nan(n_lambdas,1);
-        
-        % Regress multiunit to fluorescence
-        figure;
-        h = plot(lambdas,explained_var_lambdas,'k','linewidth',2);drawnow;
-        for curr_lambda = 1:n_lambdas
-            [~,~,curr_explained_var] = ...
-                AP_regresskernel(mua_spikes_std, ...
-                fluor_roi_interp_std,kernel_frames,lambdas(curr_lambda),zs,cvfold,return_constant,use_constant);
-            explained_var_lambdas(curr_lambda) = curr_explained_var.total;
-            set(h,'YData',explained_var_lambdas);
-            drawnow;
-        end
-        
-        all_lambdas = lambda_range(1):lambda_range(end);
-        explained_var_lambdas_interp = interp1(lambdas,explained_var_lambdas,all_lambdas,'pchip');
-        plot(all_lambdas,explained_var_lambdas_interp,'r');
-        
-        [~,lambda_idx] = max(explained_var_lambdas_interp);
-        lambda = all_lambdas(lambda_idx);
-        
-        [mua_k,mua_predicted_fluor,~] = ...
-            AP_regresskernel(binned_spikes_depth_std, ...
-            fluor_roi_interp_std,kernel_frames,lambda,zs,cvfold,return_constant,use_constant);
-        
-        % Regress single units to fluorescence
-        figure; hold on;
-        h = plot(lambdas,explained_var_lambdas,'k','linewidth',2);drawnow;
-        for curr_lambda = 1:n_lambdas
-            [~,~,curr_explained_var] = ...
-                AP_regresskernel(sua_spikes_std, ...
-                fluor_roi_interp_std,kernel_frames,lambdas(curr_lambda),zs,cvfold,return_constant,use_constant);
-            explained_var_lambdas(curr_lambda) = curr_explained_var.total;
-            set(h,'YData',explained_var_lambdas);
-            drawnow;
-        end
-        
-        all_lambdas = lambda_range(1):lambda_range(end);
-        explained_var_lambdas_interp = interp1(lambdas,explained_var_lambdas,all_lambdas,'pchip');
-        plot(all_lambdas,explained_var_lambdas_interp,'r');
-        
-        [~,lambda_idx] = max(explained_var_lambdas_interp);
-        lambda = all_lambdas(lambda_idx);
-        
-        [sua_k,sua_predicted_fluor,~] = ...
-            AP_regresskernel(sua_spikes_std, ...
-            fluor_roi_interp_std,kernel_frames,lambda,zs,cvfold,return_constant,use_constant);
-        
-        % Gather and save metrics
+        % Package data to save
         data(curr_animal,curr_day).mua_depth = depth_corr_bin_centers-ctx_depth(1);
         data(curr_animal,curr_day).sua_depth = template_depths(ctx_units)-ctx_depth(1);
         
         data(curr_animal,curr_day).fluor_mua_xcorr = max(mua_xcorr,[],2);
         data(curr_animal,curr_day).fluor_sua_xcorr = max(sua_xcorr,[],2);
-        
-        data(curr_animal,curr_day).fluor_mua_weight = max(mua_k,[],2);
-        data(curr_animal,curr_day).fluor_sua_weight = max(sua_k,[],2);
-        
-        % Plot MUA/SUA kernels
-        figure;
-        subplot(2,2,1);
-        imagesc([],depth_corr_bin_centers-ctx_depth(1),mua_k);
-        caxis([-max(abs(caxis)),max(abs(caxis))]);
-        colormap(brewermap([],'*RdBu'));
-        ylabel('MUA depth from ctx surface');
-        title('MUA > fluorescence kernel');
-        
-        subplot(2,2,2);
-        [~,sort_idx] = sort(template_depths(ctx_units));
-        imagesc(sua_k(sort_idx,:));
-        caxis([-max(abs(caxis)),max(abs(caxis))]);
-        colormap(brewermap([],'*RdBu'));
-        ylabel('MUA depth (sorted)');
-        title('MUA > fluorescence kernel');
-        
-        subplot(2,2,3); hold on;
-        plot(max(sua_k,[],2),template_depths(ctx_units)-ctx_depth(1),'.k');
-        plot(max(mua_k,[],2),depth_corr_bin_centers-ctx_depth(1),'r','linewidth',2);
-        ylabel('Depth from ctx surface');
-        xlabel('Max weight');
-        set(gca,'YDir','reverse');
-        legend({'SUA','MUA'});
-
-        subplot(2,2,4); hold on;
-        plot(max(sua_xcorr,[],2),template_depths(ctx_units)-ctx_depth(1),'.k');
-        plot(max(mua_xcorr,[],2),depth_corr_bin_centers-ctx_depth(1),'r','linewidth',2);
-        ylabel('Depth from ctx surface');
-        xlabel('Max xcorr');
-        set(gca,'YDir','reverse');
-        legend({'SUA','MUA'});
-        
-        drawnow;        
         
         % Clear variables for next experiment
         clearvars -except animals curr_animal animal ...
@@ -602,6 +471,39 @@ for curr_animal = 1:length(animals)
     end
     
 end
+
+% Plot MUA 
+figure; 
+subplot(2,2,1);
+[mua_xcorr_mean,mua_xcorr_sem,mua_group_depth] = grpstats(fluor_mua_xcorr_cat,mua_depth_cat,{'mean','sem','gname'});
+mua_group_depth = cellfun(@str2num,mua_group_depth);
+errorbar(mua_xcorr_mean,mua_group_depth,mua_xcorr_sem,'horizontal','linewidth',2);
+ylabel('Cortical depth');
+xlabel('MUA xcorr');
+set(gca,'YDir','reverse');
+
+% Plot SUA
+sua_depth_groups = 0:100:1400;
+sua_depth_group_centers = sua_depth_groups(1:end-1)+diff(sua_depth_groups)/2;
+use_data = ~cellfun(@isempty,{data.sua_depth});
+sua_depth_cat = {data(use_data).sua_depth};
+
+fluor_sua_xcorr_cat = {data(use_data).fluor_sua_xcorr};
+fluor_sua_xcorr_binned = ...
+    cell2mat(cellfun(@(sua_depth,fluor_sua_xcorr) ...
+    accumarray(discretize(sua_depth,sua_depth_groups), ...
+    fluor_sua_xcorr,[length(sua_depth_groups)-1,1],@nanmean,NaN), ...
+    sua_depth_cat,fluor_sua_xcorr_cat,'uni',false));
+
+subplot(2,2,3);hold on;
+plot(vertcat(data(:).fluor_sua_xcorr),vertcat(data(:).sua_depth),'.k');
+errorbar(nanmean(fluor_sua_xcorr_binned,2), ...
+    sua_depth_group_centers,AP_sem(fluor_sua_xcorr_binned,2), ...
+    'horizontal','linewidth',2,'color','r');
+set(gca,'YDir','reverse');
+ylabel('Cortical depth');
+xlabel('SUA xcorr');
+
 
 
 

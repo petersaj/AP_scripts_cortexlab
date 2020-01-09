@@ -822,7 +822,7 @@ if ephys_exists && load_parts.ephys
     % (get min-max range for each channel)
     template_chan_amp = squeeze(range(templates,2));
     % (zero-out low amplitude channels)
-    template_chan_amp_thresh = max(template_chan_amp,[],2)*0.3;
+    template_chan_amp_thresh = max(template_chan_amp,[],2)*0.5;
     template_chan_amp_overthresh = template_chan_amp.*(template_chan_amp >= template_chan_amp_thresh);
     % (get center-of-mass on thresholded channel amplitudes)
     template_depths = sum(template_chan_amp_overthresh.*channel_positions(:,2)',2)./sum(template_chan_amp_overthresh,2);
@@ -857,8 +857,11 @@ if ephys_exists && load_parts.ephys
         bad_flipper = false; 
         
         % Get flipper experiment differences by long delays
+        % (note: this is absolute difference, if recording stopped and
+        % started then the clock starts over again, although I thought it
+        % wasn't supposed to when I grab the concatenated syn)
         flip_diff_thresh = 1; % time between flips to define experiment gap (s)
-        flipper_expt_idx = [1;find(diff(sync(flipper_sync_idx).timestamps) > ...
+        flipper_expt_idx = [1;find(abs(diff(sync(flipper_sync_idx).timestamps)) > ...
             flip_diff_thresh)+1;length(sync(flipper_sync_idx).timestamps)+1];
         
         flipper_flip_times_ephys = sync(flipper_sync_idx).timestamps( ...
@@ -873,7 +876,7 @@ if ephys_exists && load_parts.ephys
             % If different number of flips in ephys/timeline, best
             % contiguous set via xcorr of diff
             warning([animal ' ' day ':Flipper flip times different in timeline/ephys'])
-            error('this probably doesn''t work yet');
+            warning(['The fix for this is probably no robust: always check'])
             [flipper_xcorr,flipper_lags] = ...
                 xcorr(diff(flipper_flip_times_timeline),diff(flipper_flip_times_ephys));
             [~,flipper_lag_idx] = max(flipper_xcorr);
@@ -1097,9 +1100,8 @@ elseif ephys_exists && load_parts.ephys && exist('lfp_channel','var') && strcmp(
     % kilosort2 drops channels without spikes)
     channel_map_fn = 'C:\Users\Andrew\OneDrive for Business\Documents\CarandiniHarrisLab\kilosort_channelmaps\forPRBimecP3opt3.mat';
     channel_map_full = load(channel_map_fn);
-    lfp_channel_positions = ;
     max_depth = 3840;
-    lfp_channel_positions = max_depth - channel_positions(:,2);
+    lfp_channel_positions = max_depth - channel_map_full.ycoords;
 
     % Choose snippet of recording time before first experiment (no light)
     t_load = 10; % time to load (in seconds)
@@ -1114,6 +1116,11 @@ elseif ephys_exists && load_parts.ephys && exist('lfp_channel','var') && strcmp(
     n_lfp_samples = lfp_fileinfo.bytes/n_bytes/n_channels;
     lfp_memmap = memmapfile(lfp_filename, 'Format', {'int16', [n_channels n_lfp_samples], 'lfp'});
     lfp = lfp_memmap.Data.lfp(:,lfp_load_start:lfp_load_stop);
+    
+    % Sort LFP so it goes from surface to depth
+    [~,lfp_sort_idx] = sort(lfp_channel_positions);
+    lfp_channel_positions = lfp_channel_positions(lfp_sort_idx);
+    lfp = lfp(lfp_sort_idx,:);
     
     % Get LFP times and convert to timeline time
     lfp_load_start_t = lfp_load_start/lfp_sample_rate;

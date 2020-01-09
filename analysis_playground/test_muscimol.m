@@ -418,6 +418,25 @@ save_fn = 'muscimol_vfs.mat';
 save([save_path filesep save_fn],'vfs');
 disp(['Saved ' [save_path filesep save_fn]]);
 
+
+%% Quantify/plot VFS pre/post musicmol
+
+muscimiol_vfs_fn = 'C:\Users\Andrew\OneDrive for Business\Documents\CarandiniHarrisLab\analysis\tests\muscimol_test\muscimol_vfs.mat';
+load(muscimiol_vfs_fn);
+
+vfs_cat = cell2mat(permute(vertcat(vfs{:}),[3,2,1]));
+AP_image_scroll(vfs_cat)
+axis image
+colormap(brewermap([],'*RdBu'));
+caxis([-1,1]);
+
+
+vfs_diff = diff(abs(cell2mat(permute(vertcat(vfs{:}),[3,4,1,2]))),[],4);
+
+
+
+
+
 %% Plot pre/post of cortical muscimol recordings
 
 spike_rate_exp = nan(max(spike_templates),4);
@@ -537,6 +556,150 @@ set(gca,'XTick',1:4,'XTickLabel',cellfun(@(x) ['Str ' num2str(x)],num2cell(1:4),
 ylim([-1,1]);
 line(xlim,[0,0]);
 ylabel('(Pre-Post)/(Pre+Post)')
+
+%% Get stim responses during task with muscimol
+
+data_fns = { ...
+    'trial_activity_vanillaChoiceworldNoRepeats_pre_muscimol', ...
+    'trial_activity_vanillaChoiceworldNoRepeats_post_muscimol'};
+
+task_str_kernel = cell(2,1);
+task_str_ctxpred_kernel = cell(2,1);
+mua_norm_exp = cell(2,1);
+
+for curr_data = 1:length(data_fns)
+    
+    % Load data
+    data_fn = data_fns{curr_data};
+    AP_load_concat_normalize_ctx_str;
+
+    % Keep task > str kernels, task > ctx-pred str norm factor
+    task_str_kernel{curr_data} = vertcat(mua_taskpred_k_all{:});
+    task_str_ctxpred_kernel{curr_data} = vertcat(mua_ctxpred_taskpred_k_all{:});
+    mua_norm_exp{curr_data} = vertcat(mua_norm{:});
+    
+end
+
+mua_task_k_premuscimol = arrayfun(@(regressor) ...
+    cell2mat(permute(cellfun(@(x) x{regressor}, ...
+    cellfun(@(kernel_set,mua_norm) cellfun(@(kernel) ...
+    kernel./(mua_norm/sample_rate),kernel_set,'uni',false), ...
+    task_str_kernel{1},mua_norm_exp{1},'uni',false), ...
+    'uni',false),[2,3,4,1])),1:length(task_regressor_labels),'uni',false)';
+
+mua_ctxpred_task_k_premuscimol = arrayfun(@(regressor) ...
+    cell2mat(permute(cellfun(@(x) x{regressor}, ...
+    cellfun(@(kernel_set,mua_norm) cellfun(@(kernel) ...
+    kernel./(mua_norm/sample_rate),kernel_set,'uni',false), ...
+    task_str_ctxpred_kernel{1},mua_norm_exp{1},'uni',false), ...
+    'uni',false),[2,3,4,1])),1:length(task_regressor_labels),'uni',false)';
+
+mua_task_k_postmuscimol = arrayfun(@(regressor) ...
+    cell2mat(permute(cellfun(@(x) x{regressor}, ...
+    cellfun(@(kernel_set,mua_norm) cellfun(@(kernel) ...
+    kernel./(mua_norm/sample_rate),kernel_set,'uni',false), ...
+    task_str_kernel{2},mua_norm_exp{1},'uni',false), ...
+    'uni',false),[2,3,4,1])),1:length(task_regressor_labels),'uni',false)';
+
+mua_ctxpred_task_k_postmuscimol = arrayfun(@(regressor) ...
+    cell2mat(permute(cellfun(@(x) x{regressor}, ...
+    cellfun(@(kernel_set,mua_norm) cellfun(@(kernel) ...
+    kernel./(mua_norm/sample_rate),kernel_set,'uni',false), ...
+    task_str_ctxpred_kernel{2},mua_norm_exp{1},'uni',false), ...
+    'uni',false),[2,3,4,1])),1:length(task_regressor_labels),'uni',false)';
+
+% Get task>striatum parameters
+n_regressors = length(task_regressor_labels);
+
+% Plot task>striatum kernels
+stim_col = colormap_BlueWhiteRed(5);
+stim_col(6,:) = [];
+move_col = [0.6,0,0.6;0,0.6,0];
+go_col = [0.8,0.8,0.2;0.5,0.5,0.5];
+outcome_col = [0,0,0.8;0.8,0,0];
+task_regressor_cols = {stim_col,move_col,go_col,outcome_col};
+task_regressor_t_shifts = cellfun(@(x) x/sample_rate,task_regressor_sample_shifts,'uni',false);
+
+figure;
+p = nan(n_depths,n_regressors);
+for curr_depth = 1:n_depths
+    for curr_regressor = 1:n_regressors  
+        p(curr_depth,curr_regressor) = ...
+            subplot(n_depths,n_regressors,curr_regressor+(curr_depth-1)*n_regressors);  
+        
+        curr_kernels = mua_ctxpred_task_k_premuscimol{curr_regressor}(:,:,curr_depth,:);
+        n_subregressors = size(mua_ctxpred_task_k_premuscimol{curr_regressor},1);
+        col = task_regressor_cols{curr_regressor};
+        for curr_subregressor = 1:n_subregressors
+            AP_errorfill(task_regressor_t_shifts{curr_regressor}, ...
+                nanmean(curr_kernels(curr_subregressor,:,:,:),4), ...
+                AP_sem(curr_kernels(curr_subregressor,:,:,:),4), ...
+                col(curr_subregressor,:),0.5);
+        end
+        
+        xlabel('Time (s)');
+        ylabel('Weight');
+        title(task_regressor_labels{curr_regressor});
+        line([0,0],ylim,'color','k');
+        
+    end
+end
+linkaxes(p);
+y_scale = 1;
+t_scale = 0.5;
+line(min(xlim) + [0,t_scale],repmat(min(ylim),2,1),'color','k','linewidth',3);
+line(repmat(min(xlim),2,1),min(ylim) + [0,y_scale],'color','k','linewidth',3);
+
+
+figure;
+p = nan(n_depths,n_regressors);
+for curr_depth = 1:n_depths
+    for curr_regressor = 1:n_regressors  
+        p(curr_depth,curr_regressor) = ...
+            subplot(n_depths,n_regressors,curr_regressor+(curr_depth-1)*n_regressors);  
+        
+        curr_kernels = mua_task_k_postmuscimol{curr_regressor}(:,:,curr_depth,:);
+        n_subregressors = size(mua_task_k_postmuscimol{curr_regressor},1);
+        col = task_regressor_cols{curr_regressor};
+        for curr_subregressor = 1:n_subregressors
+            AP_errorfill(task_regressor_t_shifts{curr_regressor}, ...
+                nanmean(curr_kernels(curr_subregressor,:,:,:),4), ...
+                AP_sem(curr_kernels(curr_subregressor,:,:,:),4), ...
+                col(curr_subregressor,:),0.5);
+        end
+        
+        xlabel('Time (s)');
+        ylabel('Weight');
+        title(task_regressor_labels{curr_regressor});
+        line([0,0],ylim,'color','k');
+        
+    end
+end
+linkaxes(p);
+y_scale = 1;
+t_scale = 0.5;
+line(min(xlim) + [0,t_scale],repmat(min(ylim),2,1),'color','k','linewidth',3);
+line(repmat(min(xlim),2,1),min(ylim) + [0,y_scale],'color','k','linewidth',3);
+
+use_stim_time = [0.05,0.15];
+use_regressor_time = task_regressor_t_shifts{1} >= use_stim_time(1) & ...
+    task_regressor_t_shifts{1} <= use_stim_time(2);
+
+a = permute(nanmean(mua_task_k_premuscimol{1}(:,use_regressor_time,:,:),2),[1,3,4,2]);
+b = permute(nanmean(mua_task_k_postmuscimol{1}(:,use_regressor_time,:,:),2),[1,3,4,2]);
+c = permute(nanmean(mua_ctxpred_task_k_premuscimol{1}(:,use_regressor_time,:,:),2),[1,3,4,2]);
+d = permute(nanmean(mua_ctxpred_task_k_postmuscimol{1}(:,use_regressor_time,:,:),2),[1,3,4,2]);
+
+stim = unique([0.06,0.125,0.25,0.5,1].*[-1;1]);
+
+figure; hold on;
+plot(stim,nanmean(a(:,1,:),3))
+plot(stim,nanmean(b(:,1,:),3))
+plot(stim,nanmean(c(:,1,:),3))
+plot(stim,nanmean(d(:,1,:),3))
+
+% (do something here to see if the change in striatum is proportional to
+% the change in associated cortex)
 
 
 

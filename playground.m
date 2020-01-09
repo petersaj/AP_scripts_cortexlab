@@ -10673,5 +10673,41 @@ xlabel('duration (sec)'); ylabel('volume (uL)')
 
 
 
+%%
+
+% Find cortex end by largest gap between templates
+sorted_template_depths = sort([template_depths]);
+[max_gap,max_gap_idx] = max(diff(sorted_template_depths));
+ctx_end = sorted_template_depths(max_gap_idx)+1;
+
+% Get LFP median-subtracted correlation
+lfp_medsub_corr = ...
+    corrcoef((movmedian(zscore(double(lfp),[],2),10,1) - ...
+    nanmedian(zscore(double(lfp),[],2),1))');
+
+% Get average correlation along the diagonal
+on_diag = 0; % (can also use -x:x)
+off_diag = 1:20;
+
+lfp_medsub_corr_diag = nanmean(cell2mat(arrayfun(@(x) ...
+    padarray(diag(lfp_medsub_corr,off_diag(x)), ...
+    abs(off_diag(x)),nan,'pre'), ...
+    1:length(off_diag),'uni',false)),2);
+
+% Get average LFP correlation within cortex units
+lfp_ctx_units_channels = lfp_channel_positions > min(template_depths) & ...
+    lfp_channel_positions < ctx_end;
+lfp_medsub_corr_diag_ctx = nanmedian(lfp_medsub_corr_diag(lfp_ctx_units_channels));
+
+% Define the cortex as reaching 70% ctx lfp corr average after cortex
+lfp_corr_thresh = lfp_medsub_corr_diag_ctx*0.9;
+lfp_corr_rise_idx = ...
+    find(lfp_medsub_corr_diag(find(lfp_ctx_units_channels,1):-1:1) > lfp_corr_thresh,1);
+ctx_start = lfp_channel_positions(find(lfp_ctx_units_channels,1) - lfp_corr_rise_idx);
+
+
+
+
+
 
 

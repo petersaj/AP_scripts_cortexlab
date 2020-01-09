@@ -1043,6 +1043,7 @@ mua_taskpred_k_allcat_norm = arrayfun(@(regressor) ...
 
 % Plot task>striatum kernels
 stim_col = colormap_BlueWhiteRed(5);
+stim_col(6,:) = [];
 move_col = [0.6,0,0.6;0,0.6,0];
 go_col = [0.8,0.8,0.2;0.5,0.5,0.5];
 outcome_col = [0,0,0.8;0.8,0,0];

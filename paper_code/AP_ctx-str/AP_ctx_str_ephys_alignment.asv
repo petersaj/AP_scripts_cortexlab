@@ -808,7 +808,7 @@ for curr_animal = 1:length(animals)
     end
 end
 
-%% Estimate lambda, get kernels in segments, align to templates (AM RECORDINGS)
+%% Estimate lambda, get kernels in segments, align to templates (C RECORDINGS)
 
 clear all
 
@@ -821,7 +821,7 @@ regression_params.zs = [false,false];
 regression_params.cvfold = 5;
 regression_params.use_constant = true;
 
-animals = {'AP060','AP043','AP061'};
+animals = {'AP045','AP054','AP055','AP053','AP047','AP048'};
 
 % Load alignment structures
 n_aligned_depths = 4;
@@ -855,8 +855,7 @@ for curr_animal = 1:length(animals)
     for curr_day = 1:length(experiments)       
        
         day = experiments(curr_day).day;
-        experiment = experiments(curr_day).experiment(1); % (one doubled experiment, first one is good)
-        site = 1; % (striatum is site 1, AM is site 2)
+        experiment = experiments(curr_day).experiment(1); % USE THE FIRST (MUSCIMOL IS SECOND)    
         
         % Load experiment
         str_align = 'none';
