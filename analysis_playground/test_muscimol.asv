@@ -483,15 +483,13 @@ line(xlim,xlim,'color','k');
 
 %% ~~~~~~~~ After preprocessing/saving trial activity ~~~~~~~~
 
-%% Get muscimol change in passive
+%% Get cortex/striatum activity pre/post muscimol
 
 data_fns = { ...
     'trial_activity_AP_lcrGratingPassive_pre_muscimol', ...
     'trial_activity_AP_lcrGratingPassive_post_muscimol'};
 
-stimIDs = cell(2,1);
-mua_nonnorm = cell(2,1);
-fluor_roi = cell(2,1);
+mua_stim_act_exp = [];
 
 for curr_data = 1:length(data_fns)
     
@@ -499,84 +497,65 @@ for curr_data = 1:length(data_fns)
     data_fn = data_fns{curr_data};
     AP_load_concat_normalize_ctx_str;
     
-    % Split by experiment
+    % Split data by experiment
     trials_recording = cellfun(@(x) size(x,1),vertcat(wheel_all{:}));
+    
+    trial_stim_allcat_exp = mat2cell(trial_stim_allcat,trials_recording,1);
+    mua_allcat_exp = mat2cell(mua_allcat, ...
+        trials_recording,size(mua_allcat,2),size(mua_allcat,3));
+    mua_ctxpred_allcat_exp = mat2cell(mua_ctxpred_allcat, ...
+        trials_recording,size(mua_ctxpred_allcat,2),size(mua_ctxpred_allcat,3));
+    fluor_roi_deconv_exp = mat2cell(fluor_roi_deconv, ...
+        trials_recording,size(fluor_roi_deconv,2),size(fluor_roi_deconv,3));
     
     % Get trials with movement during stim to exclude
     wheel_thresh = 0.025;
-    quiescent_trials = ~any(abs(wheel_allcat(:,t >= -0.5 & t <= 0.5)) > wheel_thresh,2);
+    quiescent_trials = ~any(abs(wheel_allcat(:,t >= 0 & t <= 0.5)) > wheel_thresh,2);
     quiescent_trials_exp = mat2cell(quiescent_trials,trials_recording,1);
     
-    % Get stim by experiment
-    trial_stim_allcat_exp = mat2cell(trial_stim_allcat,trials_recording,1);
+    % Get stimulus activity for each recording
+    use_stim_time = t >= 0.05 & t <= 0.15;
+    use_stim = 3;
     
-    % Get fluorescence in ROIs deconv but not baseline-subtracted
-    fluor_roi_deconv_exp = mat2cell(fluor_roi_deconv,trials_recording,length(t),numel(wf_roi));
-    mua_allcat_exp = mat2cell(mua_allcat,trials_recording,length(t),n_depths);
-        
-    % Grab data
-    stimIDs{curr_data} = cellfun(@(data,trials) data(trials,:,:), ...
-        trial_stim_allcat_exp,quiescent_trials_exp,'uni',false);
+    mua_stim_act_exp(:,:,curr_data) = cell2mat(cellfun(@(act,stim,quiescent) ...
+        squeeze(nanmean(nanmean(act(stim == use_stim & quiescent,use_stim_time,:,:),2),1)), ...
+        mua_allcat_exp,trial_stim_allcat_exp,quiescent_trials_exp,'uni',false)');
     
-    mua_nonnorm{curr_data} = cellfun(@(data,trials) data(trials,:,:), ...
-        mua_allcat_exp,quiescent_trials_exp,'uni',false);
+    mua_ctxpred_stim_act_exp(:,:,curr_data) = cell2mat(cellfun(@(act,stim,quiescent) ...
+        squeeze(nanmean(nanmean(act(stim == use_stim & quiescent,use_stim_time,:,:),2),1)), ...
+        mua_ctxpred_allcat_exp,trial_stim_allcat_exp,quiescent_trials_exp,'uni',false)');
     
-    fluor_roi{curr_data} = cellfun(@(data,trials) data(trials,:,:), ...
-        fluor_roi_deconv_exp,quiescent_trials_exp,'uni',false);
-        
+    fluor_roi_stim_act_exp(:,:,curr_data) = cell2mat(cellfun(@(act,stim,quiescent) ...
+        squeeze(nanmean(nanmean(act(stim == use_stim & quiescent,use_stim_time,:,:),2),1)), ...
+        fluor_roi_deconv_exp,trial_stim_allcat_exp,quiescent_trials_exp,'uni',false)');
+    
+    clearvars -except data_fns curr_data mua_stim_act_exp mua_ctxpred_stim_act_exp fluor_roi_stim_act_exp
+    
+    AP_print_progress_fraction(curr_data,length(data_fns));
+    
 end
 
-% Plot pre/post stim
-use_stim = 3;
-mua_contra_stim_premuscimol_mean = ...
-    cell2mat(cellfun(@(x,stim) nanmean(x(stim == use_stim,:,:),1),mua_nonnorm{1},stimIDs{1},'uni',false));
-mua_contra_stim_postmuscimol_mean = ...
-    cell2mat(cellfun(@(x,stim) nanmean(x(stim == use_stim,:,:),1),mua_nonnorm{2},stimIDs{2},'uni',false));
+% Load WF ROIs
+wf_roi_fn = 'C:\Users\Andrew\OneDrive for Business\Documents\CarandiniHarrisLab\analysis\wf_ephys_choiceworld\wf_processing\wf_rois\wf_roi';
+load(wf_roi_fn);
 
-fluor_contra_stim_premuscimol_mean = ...
-    cell2mat(cellfun(@(x,stim) nanmean(x(stim == use_stim,:,:),1),fluor_roi{1},stimIDs{1},'uni',false));
-fluor_contra_stim_postmuscimol_mean = ...
-    cell2mat(cellfun(@(x,stim) nanmean(x(stim == use_stim,:,:),1),fluor_roi{2},stimIDs{2},'uni',false));
+% Plot (pre-post)/(pre+post) for all areas
+mua_change_idx = (mua_stim_act_exp(:,:,1)-mua_stim_act_exp(:,:,2))./(mua_stim_act_exp(:,:,1)+mua_stim_act_exp(:,:,2));
+fluor_change_idx = (fluor_roi_stim_act_exp(:,:,1)-fluor_roi_stim_act_exp(:,:,2))./(fluor_roi_stim_act_exp(:,:,1)+fluor_roi_stim_act_exp(:,:,2));
 
 figure; 
-subplot(1,3,1);hold on;
-plot_str = 1;
-plot(t,nanmean(mua_contra_stim_premuscimol_mean(:,:,plot_str),1),'k','linewidth',2);
-plot(t,nanmean(mua_contra_stim_postmuscimol_mean(:,:,plot_str),1),'r','linewidth',2);
-xlabel('Time from stim (s)')
-ylabel(['Str ' num2str(plot_str)]);
-
-subplot(1,3,2);hold on;
-plot_ctx = 3;
-plot(t,nanmean(fluor_contra_stim_premuscimol_mean(:,:,plot_ctx),1),'k','linewidth',2);
-plot(t,nanmean(fluor_contra_stim_postmuscimol_mean(:,:,plot_ctx),1),'r','linewidth',2);
-xlabel('Time from stim (s)')
-ylabel(wf_roi(plot_ctx).area);
-
-% Get average responses
-t_stim = t >= 0.05 & t <= 0.15;
-mua_avg_premuscimol = permute(nanmean(mua_contra_stim_premuscimol_mean(:,t_stim,:),2),[1,3,2]);
-mua_avg_postmuscimol = permute(nanmean(mua_contra_stim_postmuscimol_mean(:,t_stim,:),2),[1,3,2]);
-mua_avg_postpre_change = (mua_avg_postmuscimol-mua_avg_premuscimol)./(abs(mua_avg_postmuscimol)+abs(mua_avg_premuscimol));
-
-fluor_avg_premuscimol = permute(nanmean(fluor_contra_stim_premuscimol_mean(:,t_stim,:),2),[1,3,2]);
-fluor_avg_postmuscimol = permute(nanmean(fluor_contra_stim_postmuscimol_mean(:,t_stim,:),2),[1,3,2]);
-fluor_avg_postpre_change = (fluor_avg_postmuscimol-fluor_avg_premuscimol)./(abs(fluor_avg_postmuscimol)+abs(fluor_avg_premuscimol));
-
-subplot(1,3,3);
-plot_str = 1;
-plot_ctx = 3;
-plot(fluor_avg_postpre_change(:,plot_ctx),mua_avg_postpre_change(:,plot_str),'.k','MarkerSize',20)
-xlabel(wf_roi(plot_ctx).area);
-ylabel(['Str ' num2str(plot_str)]);
-line([-1,1],[-1,1],'color','r');
-
-nonan_points = ~isnan(mua_avg_postpre_change(:,plot_str)) & ...
-    ~isnan(fluor_avg_postpre_change(:,plot_ctx));
-[r,p] = corrcoef(fluor_avg_postpre_change(nonan_points,plot_ctx), ...
-    mua_avg_postpre_change(nonan_points,plot_str));
-
-
+subplot(1,5,1:4);
+plot(nanmedian(fluor_change_idx,2),'k','linewidth',2)
+set(gca,'XTick',1:numel(wf_roi),'XTickLabel',{wf_roi.area});
+ylim([-1,1]);
+line(xlim,[0,0]);
+ylabel('(Pre-Post)/(Pre+Post)')
+subplot(1,5,5);
+plot(nanmedian(mua_change_idx,2),'k','linewidth',2)
+set(gca,'XTick',1:4,'XTickLabel',cellfun(@(x) ['Str ' num2str(x)],num2cell(1:4),'uni',false));
+ylim([-1,1]);
+line(xlim,[0,0]);
+ylabel('(Pre-Post)/(Pre+Post)')
 
 %% Get task> stim kernels with muscimol
 
@@ -722,6 +701,97 @@ plot(stim,nanmean(d(:,1,:),3))
 % (do something here to see if the change in striatum is proportional to
 % the change in associated cortex)
 
+
+%% Check change in baseline activity? 
+% (this is bad: not sure how to normalize, also days without spikes aren't
+% nan'd)
+
+data_fns = { ...
+    'trial_activity_AP_lcrGratingPassive_pre_muscimol', ...
+    'trial_activity_AP_lcrGratingPassive_post_muscimol'};
+
+stimIDs = cell(2,1);
+mua_nonnorm = cell(2,1);
+fluor_roi = cell(2,1);
+
+for curr_data = 1:length(data_fns)
+    
+    % Load data
+    data_fn = data_fns{curr_data};
+    AP_load_concat_normalize_ctx_str;
+    
+    % Split by experiment
+    trials_recording = cellfun(@(x) size(x,1),vertcat(wheel_all{:}));
+    
+    % Get trials with movement during stim to exclude
+    wheel_thresh = 0.025;
+    quiescent_trials = ~any(abs(wheel_allcat(:,t >= -0.5 & t <= 0.5)) > wheel_thresh,2);
+    quiescent_trials_exp = mat2cell(quiescent_trials,trials_recording,1);
+    
+    % Get stim by experiment
+    trial_stim_allcat_exp = mat2cell(trial_stim_allcat,trials_recording,1);
+    
+    % Get fluorescence in ROIs deconv but not baseline-subtracted
+    fluor_roi_deconv_exp = mat2cell(fluor_roi_deconv,trials_recording,length(t),numel(wf_roi));
+    mua_allcat_exp = mat2cell(mua_allcat,trials_recording,length(t),n_depths);
+        
+    % Grab data
+    stimIDs{curr_data} = cellfun(@(data,trials) data(trials,:,:), ...
+        trial_stim_allcat_exp,quiescent_trials_exp,'uni',false);
+    
+    mua_nonnorm{curr_data} = cellfun(@(data,trials) data(trials,:,:), ...
+        mua_allcat_exp,quiescent_trials_exp,'uni',false);
+    
+    fluor_roi{curr_data} = cellfun(@(data,trials) data(trials,:,:), ...
+        fluor_roi_deconv_exp,quiescent_trials_exp,'uni',false);
+        
+end
+
+% Plot pre/post stim
+use_stim = 3;
+mua_contra_stim_premuscimol_mean = ...
+    cell2mat(cellfun(@(x,stim) nanmean(x(stim == use_stim,:,:),1),mua_nonnorm{1},stimIDs{1},'uni',false));
+mua_contra_stim_postmuscimol_mean = ...
+    cell2mat(cellfun(@(x,stim) nanmean(x(stim == use_stim,:,:),1),mua_nonnorm{2},stimIDs{2},'uni',false));
+
+fluor_contra_stim_premuscimol_mean = ...
+    cell2mat(cellfun(@(x,stim) nanmean(x(stim == use_stim,:,:),1),fluor_roi{1},stimIDs{1},'uni',false));
+fluor_contra_stim_postmuscimol_mean = ...
+    cell2mat(cellfun(@(x,stim) nanmean(x(stim == use_stim,:,:),1),fluor_roi{2},stimIDs{2},'uni',false));
+
+figure; 
+subplot(1,2,1);hold on;
+plot_str = 1;
+plot(t,nanmean(mua_contra_stim_premuscimol_mean(:,:,plot_str),1),'k','linewidth',2);
+plot(t,nanmean(mua_contra_stim_postmuscimol_mean(:,:,plot_str),1),'r','linewidth',2);
+xlabel('Time from stim (s)')
+ylabel(['Str ' num2str(plot_str)]);
+subplot(1,2,2);hold on;
+plot_ctx = 3;
+plot(t,nanmean(fluor_contra_stim_premuscimol_mean(:,:,plot_ctx),1),'k','linewidth',2);
+plot(t,nanmean(fluor_contra_stim_postmuscimol_mean(:,:,plot_ctx),1),'r','linewidth',2);
+xlabel('Time from stim (s)')
+ylabel(wf_roi(plot_ctx).area);
+
+% Get average responses
+t_stim = t >= 0.05 & t <= 0.15;
+mua_avg_premuscimol = permute(nanmean(mua_contra_stim_premuscimol_mean(:,t_stim,:),2),[1,3,2]);
+mua_avg_postmuscimol = permute(nanmean(mua_contra_stim_postmuscimol_mean(:,t_stim,:),2),[1,3,2]);
+mua_avg_postpre_change = (mua_avg_postmuscimol-mua_avg_premuscimol)./(abs(mua_avg_postmuscimol)+abs(mua_avg_premuscimol));
+
+fluor_avg_premuscimol = permute(nanmean(fluor_contra_stim_premuscimol_mean(:,t_stim,:),2),[1,3,2]);
+fluor_avg_postmuscimol = permute(nanmean(fluor_contra_stim_postmuscimol_mean(:,t_stim,:),2),[1,3,2]);
+fluor_avg_postpre_change = (fluor_avg_postmuscimol-fluor_avg_premuscimol)./(abs(fluor_avg_postmuscimol)+abs(fluor_avg_premuscimol));
+
+figure;
+plot_str = 1;
+plot_ctx = 3;
+plot(fluor_avg_postpre_change(:,plot_ctx),mua_avg_postpre_change(:,plot_str),'.k')
+xlabel(wf_roi(plot_ctx).area);
+ylabel(['Str ' num2str(plot_str)]);
+
+nonan_points = ~isnan(mua_avg_postpre_change(:,plot_str)) & ...
+    ~isnan(fluor_avg_postpre_change(:,plot_ctx));
 
 
 

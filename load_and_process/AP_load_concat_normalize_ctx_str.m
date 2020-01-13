@@ -241,7 +241,9 @@ if exist('mua_all','var')
         mua_animal,'uni',false),mua_all,'uni',false);
     
     % Choose what to normalize MUA by (std or baseline)
-    mua_norm = mua_day_std;
+%     mua_norm = mua_day_baseline;
+    mua_softnorm_factor = 1;
+    mua_norm = cellfun(@(x) cellfun(@(x) x + mua_softnorm_factor,x,'uni',false),mua_day_baseline,'uni',false);
     
     % (NaN-out any trials that are all zeros)
     mua_nan_trials = +any(cell2mat(vertcat(mua_all{:})),2);
