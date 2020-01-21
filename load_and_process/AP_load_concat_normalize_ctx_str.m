@@ -236,15 +236,21 @@ if exist('mua_all','var')
     mua_day_baseline = cellfun(@(mua_animal) cellfun(@(mua_day) ...
         nanmean(reshape(mua_day(:,t_baseline,:),[],1,n_depths)), ...
         mua_animal,'uni',false),mua_all,'uni',false);
+%     mua_day_std = cellfun(@(mua_animal) cellfun(@(mua_day) ...
+%         nanstd(reshape(mua_day(:,:,:),[],1,n_depths)), ...
+%         mua_animal,'uni',false),mua_all,'uni',false);
+%   (test: normalize by std of baseline rather than whole thing)
     mua_day_std = cellfun(@(mua_animal) cellfun(@(mua_day) ...
-        nanstd(reshape(mua_day(:,:,:),[],1,n_depths)), ...
+        nanstd(reshape(mua_day(:,t_baseline,:),[],1,n_depths)), ...
         mua_animal,'uni',false),mua_all,'uni',false);
     
     % Choose what to normalize MUA by (std or baseline)
-%     mua_norm = mua_day_baseline;
-    mua_softnorm_factor = 1;
-    mua_norm = cellfun(@(x) cellfun(@(x) x + mua_softnorm_factor,x,'uni',false),mua_day_baseline,'uni',false);
-    
+    mua_norm = mua_day_std;
+%     mua_softnorm_factor = 1;
+%     mua_norm = cellfun(@(x) cellfun(@(x) x + mua_softnorm_factor,x,'uni',false),mua_day_baseline,'uni',false);
+%     mua_softnorm_factor = 5;
+%     mua_norm = cellfun(@(x) cellfun(@(x) x + mua_softnorm_factor,x,'uni',false),mua_day_std,'uni',false);
+
     % (NaN-out any trials that are all zeros)
     mua_nan_trials = +any(cell2mat(vertcat(mua_all{:})),2);
     mua_nan_trials(~mua_nan_trials) = NaN;
