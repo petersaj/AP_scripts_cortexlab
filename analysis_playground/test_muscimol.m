@@ -1348,6 +1348,8 @@ data_fns = { ...
     'trial_activity_AP_lcrGratingPassive_pre_muscimol', ...
     'trial_activity_AP_lcrGratingPassive_post_muscimol'};
 
+ctx_v_error = cell(2,2);
+
 for curr_data = 1:length(data_fns)
     
     % Load data
@@ -1360,8 +1362,7 @@ for curr_data = 1:length(data_fns)
     use_split = trials_recording;
     split_idx = cell2mat(arrayfun(@(exp,trials) repmat(exp,trials,1), ...
         [1:length(use_split)]',reshape(use_split,[],1),'uni',false));
-    
-    
+       
     % Set alignment shifts
     t_leeway = -t(1);
     leeway_samples = round(t_leeway*(sample_rate));
@@ -1651,13 +1652,46 @@ for curr_data = 1:length(data_fns)
         end
     end
     
+    %%%%%%%%%% TESTING %%%%%%%%%%%%%
+    
+    predfit = [];
+    for i = 1:size(act_predbinmean,2)
+        use_points = ~isnan(act_predbinmean(:,i,1)) & ~isnan(act_predbinmean(:,i,1));
+        predfit(i,:) = polyfit(act_predbinmean(use_points,i,1),act_predbinmean(use_points,i,2),1);
+    end
+    
+    % Store error in bins
+    use_cond = 1;
+    curr_offset = nanmean(act_predbinmean(:,:,1) - act_predbinmean(:,:,2),1);
+    ctx_v_error{curr_data,1} = ...
+        cellfun(@(x,cond,pred_use_trials) ...
+        nanmean(x(pred_use_trials & cond(:,use_cond)),1), ...
+        curr_act_pred_avg,trial_conditions_exp,pred_use_trials);
+    ctx_v_error{curr_data,2} = ...
+        curr_offset';
+    
     linkaxes(get(measured_v_pred_fig,'Children'),'xy');
     
 end
 
+% Plot striatum/cortex offset relative to cortical activity
+ctx_change = (ctx_v_error{2,1} - ctx_v_error{1,1})./(abs(ctx_v_error{2,1}) + abs(ctx_v_error{1,1}));
+error_change = (ctx_v_error{2,2} - ctx_v_error{1,2})./(abs(ctx_v_error{2,2}) + abs(ctx_v_error{1,2}));
+figure; 
+plot(ctx_change,error_change,'.k','MarkerSize',20);
+line([-1,1],[0,0],'color','k','linestyle','--');
+line([0,0],[-1,1],'color','k','linestyle','--');
+line([-1,1],[-1,1],'color','k');
+xlabel('Cortex (pred striatum) change');
+ylabel('Error change');
+
+nonan_points = ~isnan(ctx_change) & ~isnan(error_change);
+[r,p] = corrcoef(ctx_change(nonan_points),error_change(nonan_points));
+disp(r(2));
+disp(p(2));
 
 
-
+a = (act_predbinmean(:,:,1) - act_predbinmean(:,:,2))./(abs(act_predbinmean(:,:,1)) + abs(act_predbinmean(:,:,2)));
 
 
 

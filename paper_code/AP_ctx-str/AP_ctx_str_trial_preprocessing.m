@@ -2462,7 +2462,7 @@ exp_conditions = {'pre_muscimol','post_muscimol'};
 
 for curr_exp_condition = 1:2
     
-    protocols = {'vanillaChoiceworldNoRepeats','AP_sparse_noise'};
+    protocols = {'vanillaChoiceworldNoRepeats','AP_sparseNoise'};
     
     for protocol = protocols
         protocol = cell2mat(protocol);
@@ -2572,8 +2572,9 @@ for curr_exp_condition = 1:2
                 clearvars -except regression_params n_aligned_depths ...
                     animals animal curr_animal protocol ...
                     experiments curr_day animal load_parts ...
-                    ctx_str_kernel ctx_str_expl_var
-                
+                    ctx_str_kernel ctx_str_expl_var ...
+                    exp_conditions curr_exp_condition ...
+                              
             end
             
             disp(['Finished ' animal]);
@@ -2582,9 +2583,10 @@ for curr_exp_condition = 1:2
         
         % Save
         save_path = ['C:\Users\Andrew\OneDrive for Business\Documents\CarandiniHarrisLab\analysis\wf_ephys_choiceworld\paper\data'];
-        save([save_path filesep 'ctx_str_kernels_' protocol '_' exp_conditions{curr_exp_condition}],'-v7.3');
+        save_fn = [save_path filesep 'ctx_str_kernels_' protocol '_' exp_conditions{curr_exp_condition}];
+        save(save_fn,'-v7.3');
         warning('saving -v7.3');
-        disp(['Finished ' protocol]);
+        disp(['Saved ' save_fn]);
         
     end
     

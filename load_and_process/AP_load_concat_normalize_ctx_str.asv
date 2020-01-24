@@ -252,8 +252,8 @@ if exist('mua_all','var')
 %     mua_norm = cellfun(@(x) cellfun(@(x) x + mua_softnorm_factor,x,'uni',false),mua_day_std,'uni',false);
 
     % (NaN-out days with no spikes)
-    mua_nan_trials = cell2mat(cellfun(@(x) ...
-        +repmat(any(reshape(x,[],1,n_depths),1),size(x,1),1),vertcat(mua_all{:}),'uni',false));
+    mua_nospike_days = cellfun(@(x) ~any(reshape(x,[],n_depths),1)
+    mua_nan_trials = +any(cell2mat(vertcat(mua_all{:})),2);
     mua_nan_trials(~mua_nan_trials) = NaN;
     
     mua_allcat = cell2mat(cellfun(@(mua,mua_baseline,mua_norm) ...
