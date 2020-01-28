@@ -555,6 +555,80 @@ caxis([-max(abs(caxis)),max(abs(caxis))]);
 colormap(brewermap([],'*RdBu'));
 
 
+%% Previous passive data: get stimulus responses across days
+% Q: does stimulus response change in passive over days?
+
+% Load passive data
+data_fn = 'trial_activity_AP_choiceWorldStimPassive_naive';
+exclude_data = false;
+AP_load_concat_normalize_ctx_str;
+
+% Split data into experiment
+trials_allcat = size(wheel_allcat,1);
+trials_animal = arrayfun(@(x) size(vertcat(wheel_all{x}{:}),1),1:size(wheel_all));
+trials_recording = cellfun(@(x) size(x,1),vertcat(wheel_all{:}));
+
+% Reshape data into day x animal
+animal_n_days = cellfun(@length,fluor_all);
+day_animal_idx = false(max(animal_n_days),length(fluor_all));
+for curr_animal = 1:length(fluor_all)
+   day_animal_idx(1:animal_n_days(curr_animal),curr_animal) = true; 
+end
+
+fluor_allcat_deconv_exp = mat2cell(fluor_allcat_deconv,trials_recording,length(t),n_vs);
+fluor_allcat_deconv_exp_reshape = cell(max(animal_n_days),length(fluor_all));
+fluor_allcat_deconv_exp_reshape(day_animal_idx) = fluor_allcat_deconv_exp;
+
+stim_exp = mat2cell(D_allcat.stimulus,trials_recording,1);
+stim_exp_reshape = cell(max(animal_n_days),length(fluor_all));
+stim_exp_reshape(day_animal_idx) = stim_exp;
+
+wheel_thresh = 0.025;
+quiescent_trials = ~any(abs(wheel_allcat(:,t >= 0 & t <= 0.5)) > wheel_thresh,2);
+quiescent_trials_exp = mat2cell(quiescent_trials,trials_recording,1);
+quiescent_trials_exp_reshape = cell(max(animal_n_days),length(fluor_all));
+quiescent_trials_exp_reshape(day_animal_idx) = quiescent_trials_exp;
+
+% Get averages of single stimuli during quiescent trials
+fluor_stim = cellfun(@(fluor,stim,quiescent) ...
+    permute(nanmean(fluor(stim == 1 & quiescent,:,:),1),[3,2,1]), ...
+    fluor_allcat_deconv_exp_reshape,stim_exp_reshape,quiescent_trials_exp_reshape,'uni',false);
+
+fluor_stim_day = cell(max(animal_n_days),1);
+for curr_day = 1:max(animal_n_days)
+    use_animals = cellfun(@(x) ~isempty(x),fluor_stim(curr_day,:));
+    use_animals(2) = false;
+    curr_fluor = nanmean(cat(3,fluor_stim{curr_day,use_animals}),3);
+    fluor_stim_day{curr_day} = svdFrameReconstruct(U_master(:,:,1:n_vs),curr_fluor);
+end
+
+fluor_stim_day = cat(4,fluor_stim_day{:});
+
+AP_image_scroll(fluor_stim_day,t);
+axis image;
+caxis([-max(abs(caxis)),max(abs(caxis))]);
+colormap(brewermap([],'*RdBu'));
+AP_reference_outline('ccf_aligned','k');
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 

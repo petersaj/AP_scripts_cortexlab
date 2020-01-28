@@ -588,16 +588,12 @@ st = loadStructureTree([allen_path filesep 'structure_tree_safe_2017.csv']); % a
 h = figure; 
 ccf_axes = subplot(2,2,1); hold on
 sagittal_axes = subplot(2,2,2,'YDir','reverse'); hold on;
-axis image off;
-horizontal_axes = subplot(2,2,3,'YDir','reverse'); hold on;
-axis image off;
+horizontal_axes = subplot(2,2,3); hold on;
 coronal_axes = subplot(2,2,4,'YDir','reverse'); hold on;
-axis image off;
 
 % Plot 1 = 3D
 % (Use wire mesh - can add other structures)
-slice_spacing = 10;
-
+% slice_spacing = 10;
 % target_volume = permute(av(1:slice_spacing:end,1:slice_spacing:end,1:slice_spacing:end) > 1,[2,1,3]);
 % structure_patch = isosurface(target_volume,0);
 % structure_wire = reducepatch(structure_patch.faces,structure_patch.vertices,0.01);
@@ -606,21 +602,20 @@ slice_spacing = 10;
 %     'Faces',structure_wire.faces, ...
 %     'FaceColor','none','EdgeColor',target_structure_color);
 % 
-str_id = find(strcmp(st.safe_name,'Caudoputamen'));
-target_volume = permute(av(1:slice_spacing:end,1:slice_spacing:end,1:slice_spacing:end) == str_id,[2,1,3]);
-structure_patch = isosurface(target_volume,0);
-structure_wire = reducepatch(structure_patch.faces,structure_patch.vertices,0.01);
-target_structure_color = [0,0,1];
-striatum_outline = patch(ccf_axes, ...
-    'Vertices',structure_wire.vertices*slice_spacing, ...
-    'Faces',structure_wire.faces, ...
-    'FaceAlpha',0.5,'FaceColor',target_structure_color,'EdgeColor','none');
+% str_id = find(strcmp(st.safe_name,'Caudoputamen'));
+% target_volume = permute(av(1:slice_spacing:end,1:slice_spacing:end,1:slice_spacing:end) == str_id,[2,1,3]);
+% structure_patch = isosurface(target_volume,0);
+% structure_wire = reducepatch(structure_patch.faces,structure_patch.vertices,0.01);
+% target_structure_color = [0.7,0,0.7];
+% striatum_outline = patch('Vertices',structure_wire.vertices*slice_spacing, ...
+%     'Faces',structure_wire.faces, ...
+%     'FaceColor','none','EdgeColor',target_structure_color);
 
 % (Use Nick's outline, but rotate to make dim 1 = x)
 brainGridData = readNPY([fileparts(which('plotBrainGrid')) filesep 'brainGridData.npy']);
 plotBrainGrid(brainGridData(:,[1,3,2]),ccf_axes);
 
-axes(ccf_axes);
+a
 axis image vis3d off;
 view([-30,25]);
 cameratoolbar(h,'SetCoordSys','y');
@@ -631,24 +626,9 @@ coronal_outline = bwboundaries(permute((max(av,[],1)) > 1,[2,3,1]));
 horizontal_outline = bwboundaries(permute((max(av,[],2)) > 1,[3,1,2]));
 sagittal_outline = bwboundaries(permute((max(av,[],3)) > 1,[2,1,3]));
 
-str_id = find(strcmp(st.safe_name,'Caudoputamen'));
-str_coronal_outline = bwboundaries(permute((max(av == str_id,[],1)) > 0,[2,3,1]));
-str_horizontal_outline = bwboundaries(permute((max(av == str_id,[],2)) > 0,[3,1,2]));
-str_sagittal_outline = bwboundaries(permute((max(av == str_id,[],3)) > 0,[2,1,3]));
-
 plot(sagittal_axes,sagittal_outline{1}(:,2),sagittal_outline{1}(:,1),'k','linewidth',2);
-plot(sagittal_axes,str_sagittal_outline{1}(:,2),str_sagittal_outline{1}(:,1),'b','linewidth',2);
-axis image off;
-
 plot(horizontal_axes,horizontal_outline{1}(:,2),horizontal_outline{1}(:,1),'k','linewidth',2);
-plot(horizontal_axes,str_horizontal_outline{1}(:,2),str_horizontal_outline{1}(:,1),'b','linewidth',2);
-plot(horizontal_axes,str_horizontal_outline{2}(:,2),str_horizontal_outline{2}(:,1),'b','linewidth',2);
-axis image off;
-
 plot(coronal_axes,coronal_outline{1}(:,2),coronal_outline{1}(:,1),'k','linewidth',2);
-plot(coronal_axes,str_coronal_outline{1}(:,2),str_coronal_outline{1}(:,1),'b','linewidth',2);
-plot(coronal_axes,str_coronal_outline{2}(:,2),str_coronal_outline{2}(:,1),'b','linewidth',2);
-axis image off;
 
 probe_color = lines(length(animals));
 
@@ -730,13 +710,6 @@ for curr_animal = 1:length(animals)
         % Plot current probe vector
         line(ccf_axes,probe_vector_ccf(:,1),probe_vector_ccf(:,2),probe_vector_ccf(:,3), ...
             'color',probe_color(curr_animal,:),'linewidth',2);
-        line(sagittal_axes,probe_vector_ccf(:,1),probe_vector_ccf(:,2), ...
-            'color',probe_color(curr_animal,:),'linewidth',2);
-        line(horizontal_axes,probe_vector_ccf(:,1),probe_vector_ccf(:,3), ...
-            'color',probe_color(curr_animal,:),'linewidth',2);
-        line(coronal_axes,probe_vector_ccf(:,3),probe_vector_ccf(:,2), ...
-            'color',probe_color(curr_animal,:),'linewidth',2);
-        
         drawnow;
         
     end
