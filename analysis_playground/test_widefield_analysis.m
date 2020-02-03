@@ -531,6 +531,7 @@ baseline_surround_time = baseline_window(1):surround_samplerate:baseline_window(
 % end
 
 %%%% TESTING 
+Udf = Udf;
 fVdf_deconv = fVdf;
 
 % Average (time course) responses
@@ -1139,7 +1140,7 @@ for curr_chunk = 1:length(frame_chunks)-1
     curr_im = svdFrameReconstruct(Udf,fVdf(:,frame_chunks(curr_chunk): ...
         frame_chunks(curr_chunk+1)));
     
-    % to blur: for corticostriatal     
+% %     to blur: for corticostriatal     
 %     h = fspecial('gaussian',20,5);
 %     curr_im = convn(curr_im,h,'same');
 %     curr_im = imgaussfilt(curr_im,5);
