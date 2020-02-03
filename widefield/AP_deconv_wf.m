@@ -6,7 +6,11 @@ function deconv_fluorescence = AP_deconv_wf(fluorescence)
 
 %% Load GCaMP6s widefield kernel
 
-load('C:\Users\Andrew\OneDrive for Business\Documents\CarandiniHarrisLab\analysis\wf_ephys_choiceworld\wf_processing\gcamp_kernel\gcamp6s_kernel.mat');
+% Use the kernel within the directory with the function
+kernel_path = fileparts(mfilename('fullpath'));
+kernel_fn = [kernel_path filesep 'gcamp6s_kernel.mat'];
+load(kernel_fn);
+
 gcamp6s_kernel_cat = vertcat(gcamp6s_kernel.regression{:});
 gcamp6s_kernel_mean = nanmean(gcamp6s_kernel_cat./max(abs(gcamp6s_kernel_cat),[],2),1);
 

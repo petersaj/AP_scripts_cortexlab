@@ -526,9 +526,12 @@ surround_time = surround_window(1):surround_samplerate:surround_window(2);
 baseline_surround_time = baseline_window(1):surround_samplerate:baseline_window(2);
 
 % Deconv widefield if it's not already
-if ~exist('fVdf_deconv','var')
-    fVdf_deconv = AP_deconv_wf(fVdf);
-end
+% if ~exist('fVdf_deconv','var')
+%     fVdf_deconv = AP_deconv_wf(fVdf);
+% end
+
+%%%% TESTING 
+fVdf_deconv = fVdf;
 
 % Average (time course) responses
 use_vs = 1:size(U,3);
@@ -558,6 +561,7 @@ AP_image_scroll(im_stim,surround_time);
 axis image;
 caxis([-max(abs(caxis)),max(abs(caxis))]);
 colormap(brewermap([],'*RdBu'));
+set(gcf,'Name',animal);
 
 % Gui for plotting responses
 pixelTuningCurveViewerSVD(Udf,fVdf,frame_t,stimOn_times,stimIDs,surround_window);

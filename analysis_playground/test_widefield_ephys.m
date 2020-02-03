@@ -2849,17 +2849,17 @@ time_bin_centers = time_bins(1:end-1) + diff(time_bins)/2;
 % depth_groups_used = unique(depth_group);
 % depth_group_centers = depth_group_edges(1:end-1)+(diff(depth_group_edges)/2);
 
-% % (to group multiunit by depth within striatum)
-% % n_depths = round(diff(str_depth)/500);
-% n_depths = 4;
-% depth_group_edges = round(linspace(str_depth(1),str_depth(2),n_depths+1));
-% [depth_group_n,depth_group] = histc(spike_depths,depth_group_edges);
-% depth_groups_used = unique(depth_group);
-% depth_group_centers = depth_group_edges(1:end-1)+(diff(depth_group_edges)/2);
+% (to group multiunit by depth within striatum)
+% n_depths = round(diff(str_depth)/500);
+n_depths = 4;
+depth_group_edges = round(linspace(str_depth(1),str_depth(2),n_depths+1));
+[depth_group_n,depth_group] = histc(spike_depths,depth_group_edges);
+depth_groups_used = unique(depth_group);
+depth_group_centers = depth_group_edges(1:end-1)+(diff(depth_group_edges)/2);
 
-% (to use aligned striatum depths)
-n_depths = n_aligned_depths;
-depth_group = aligned_str_depth_group;
+% % (to use aligned striatum depths)
+% n_depths = n_aligned_depths;
+% depth_group = aligned_str_depth_group;
 
 % % (for manual depth)
 % depth_group_edges = linspace(2200,2920,5);

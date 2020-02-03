@@ -26,7 +26,7 @@ brain_fig = figure('Color','w','Position', [398,84,1157,898]);
 brain_color = [1,0.6,0.6];
 brain_av = av(1:slice_spacing:end,1:slice_spacing:end,1:slice_spacing:end) > 1;
 brain_3d = isosurface(permute(brain_av,[3,1,2]),0);
-brain_3d_smoothed = smoothpatch(brain_3d,1,10);
+brain_3d_smoothed = smoothpatch(brain_3d,1,20);
 brain_patch = patch('Vertices',brain_3d_smoothed.vertices*slice_spacing, ...
     'Faces',brain_3d_smoothed.faces, ...
     'FaceColor',brain_color,'EdgeColor','none','FaceAlpha',structure_alpha, ...
@@ -36,7 +36,7 @@ striatum_id = 574;
 striatum_color = [0,0,0.8];
 striatum_av = av(1:slice_spacing:end,1:slice_spacing:end,1:slice_spacing:end) == striatum_id;
 striatum_3d = isosurface(permute(striatum_av,[3,1,2]),0);
-striatum_3d_smoothed = smoothpatch(striatum_3d,1,10);
+striatum_3d_smoothed = smoothpatch(striatum_3d,1,5);
 striatum_patch = patch('Vertices',striatum_3d_smoothed.vertices*slice_spacing, ...
     'Faces',striatum_3d_smoothed.faces, ...
     'FaceColor',striatum_color,'EdgeColor','none','FaceAlpha',structure_alpha, ...
@@ -54,6 +54,26 @@ set(h,'style','infinite');
 lighting gouraud
 
 camlight(h,'headlight');
+
+% FOR FUTURE: rotate whole brain
+view([-45,45]);
+n_steps = 60;
+[az_start,el_start] = view;
+cam_steps = [linspace(az_start,az_start-360,n_steps); ...
+    linspace(el_start,el_start,n_steps)];
+movie_frames = struct('cdata',[],'colormap',[]);
+for i = 1:length(cam_steps)
+    view([cam_steps(1,i),cam_steps(2,i)]);
+    camlight(h,'left');
+    movie_frames(i) = getframe(brain_fig);
+end
+movie_file = [embo_folder filesep 'brain_rotate.avi'];
+writerObj = VideoWriter(movie_file);
+writerObj.FrameRate = length(cam_steps)/3;
+open(writerObj);
+writeVideo(writerObj,movie_frames);
+close(writerObj);
+
 
 % Rotate brain side to top
 cam_steps = [linspace(180,90,30);linspace(0,90,30)];
