@@ -315,7 +315,6 @@ title('Diff')
 
 %% Get cortex widefield/ephys relationship by depth (batch)
 % (IN PROGRESS: still need to fix depth estimation)
-% (hopefully just get rid of regression and use correlation)
 
 animals = {'AP043','AP060','AP061'};
 data = struct;
@@ -340,7 +339,7 @@ for curr_animal = 1:length(animals)
         verbose = false;
         AP_load_experiment
         
-        %%% FIND CORTEX BOUNDARIES
+        %%% FIND CORTEX BOUNDARIES      
         
         % Find cortex end by largest gap between templates
         sorted_template_depths = sort([template_depths]);
@@ -348,9 +347,9 @@ for curr_animal = 1:length(animals)
         ctx_end = sorted_template_depths(max_gap_idx)+1;
         
         % Get LFP median-subtracted correlation
-        lfp_medsub_corr = ...
-            corrcoef((movmedian(zscore(double(lfp),[],2),10,1) - ...
-            nanmedian(zscore(double(lfp),[],2),1))');
+         lfp_medsub_corr = ...
+            corrcoef((movmedian(double(lfp - nanmedian(lfp,2)),10,1) - ...
+            nanmedian(double(lfp - nanmedian(lfp,2)),1))');
         
         % Get average correlation along the diagonal
         on_diag = 0; % (can also use -x:x)
@@ -366,11 +365,23 @@ for curr_animal = 1:length(animals)
             lfp_channel_positions < ctx_end;
         lfp_medsub_corr_diag_ctx = nanmedian(lfp_medsub_corr_diag(lfp_ctx_units_channels));
         
-        % Define the cortex as reaching 70% ctx lfp corr average after cortex
-        lfp_corr_thresh = lfp_medsub_corr_diag_ctx*0.9;
-        lfp_corr_rise_idx = ...
-            find(lfp_medsub_corr_diag(find(lfp_ctx_units_channels,1):-1:1) > lfp_corr_thresh,1);
-        ctx_start = lfp_channel_positions(find(lfp_ctx_units_channels,1) - lfp_corr_rise_idx);
+%         % Define the cortex start as reaching 70% ctx lfp corr average after cortex
+%         lfp_corr_thresh = lfp_medsub_corr_diag_ctx*0.9;
+%         lfp_corr_rise_idx = ...
+%             find(lfp_medsub_corr_diag(find(lfp_ctx_units_channels,1):-1:1) > lfp_corr_thresh,1);
+%         ctx_start = lfp_channel_positions(find(lfp_ctx_units_channels,1) - lfp_corr_rise_idx);        
+
+        % Define the cortex start as a zero-crossing in correlation
+        % (assume at least first n channels are outside brain)
+        outside_channels = 50:100;
+        lfp_outside_corr = nanmean(lfp_medsub_corr(:,outside_channels),2);
+        ctx_start = lfp_channel_positions(find(lfp_outside_corr < 0,1));
+
+        % Get LFP power in brain-ish band
+        lfp_beta_power = medfilt1(nanmean(lfp_power(lfp_power_freq > 10 & lfp_power_freq < 60,:),1),10);
+        lfp_beta_power_thresh = 0.2*prctile(lfp_beta_power,95);
+        lfp_beta_power_flip = lfp_beta_power(1:end-1) < lfp_beta_power_thresh & ...
+            lfp_beta_power(2:end) > lfp_beta_power_thresh;
         
         % Get final cortex borders
         ctx_depth = [ctx_start,ctx_end];
@@ -378,18 +389,24 @@ for curr_animal = 1:length(animals)
         % Plot cortex start/end
         figure('Name',[animal ' ' day]);
         
-        subplot(1,3,1);
+        p1 = subplot(1,4,1);
         norm_spike_n = mat2gray(log10(accumarray(spike_templates,1)+1));
         gscatter(norm_spike_n,template_depths,[],'k',[],10);
         xlim([0,1])
         set(gca,'YDir','reverse');
         xlabel('Norm log_{10} spike rate');
         ylabel('Depth (\mum)');
-        ylim([0,max(channel_positions(:,2))])
         line(xlim,repmat(ctx_start,2,1),'color','b','linewidth',2)
         line(xlim,repmat(ctx_end,2,1),'color','b','linewidth',2)
         
-        subplot(1,3,2:3);
+        p2 = subplot(1,4,2,'YDir','reverse'); hold on;
+        plot(lfp_beta_power,lfp_channel_positions,'k','linewidth',2);
+        title('LFP 30-40 Hz');
+        xlabel('log_{10} power')
+        line(xlim,repmat(ctx_start,2,1),'color','b','linewidth',2)
+        line(xlim,repmat(ctx_end,2,1),'color','b','linewidth',2)       
+        
+        p3 = subplot(1,4,3:4);
         imagesc(lfp_channel_positions,lfp_channel_positions,lfp_medsub_corr)
         colormap(brewermap([],'*RdBu'));
         caxis([-1,1]);
@@ -398,6 +415,9 @@ for curr_animal = 1:length(animals)
         line(repmat(ctx_start,2,1),ylim,'color','k','linewidth',2)
         line(repmat(ctx_end,2,1),ylim,'color','k','linewidth',2)
         title('LFP med sub corr');
+        
+        ylim([0,max(channel_positions(:,2))])
+        linkaxes([p1,p2,p3],'y');
         
         drawnow;
                 
