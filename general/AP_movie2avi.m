@@ -48,7 +48,7 @@ for curr_movie = 1:n_movies
     colormap(color_map);
     
     if exist('movie_annotation','var') && ~isempty(movie_annotation)
-        title(movie_annotation{curr_movie},'FontSize',12);
+        title(movie_annotation{curr_movie},'FontSize',16);
     end
 
 end
@@ -64,7 +64,7 @@ for curr_t = 1:size(im,3)
         set(im_plot(curr_movie),'CData',im(:,:,curr_t,curr_movie));             
         if curr_movie == 1 && exist('t_annotation','var') && ~isempty(t_annotation)
             annotation('textbox','Position',[0,0.93,0,0.07], ...
-                'FitBoxToText','on','String',t_annotation{curr_t},'Color','w','BackgroundColor','k','FontSize',12)
+                'FitBoxToText','on','String',t_annotation{curr_t},'Color','w','BackgroundColor','k','FontSize',16)
         end
     end
     frames(curr_t) = getframe(f);

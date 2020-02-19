@@ -6,16 +6,16 @@
 % Load data
 
 % (task)
-% data_fn = 'trial_activity_choiceworld'; % Primary dataset
+data_fn = 'trial_activity_choiceworld'; % Primary dataset
 % data_fn = 'trial_activity_choiceworld_4strdepth'; % Depth-aligned striatum
 % exclude_data = true;
 
 % (passive)
-data_fn = 'trial_activity_AP_choiceWorldStimPassive_trained';
+% data_fn = 'trial_activity_AP_choiceWorldStimPassive_trained';
 % data_fn = 'trial_activity_AP_choiceWorldStimPassive_naive';
 % data_fn = 'trial_activity_stimKalatsky_naive';
 % data_fn = 'trial_activity_stimKalatsky_trained';
-exclude_data = false;
+% exclude_data = false;
 
 % (unused at the moment)
 % data_fn = 'trial_activity_choiceworld_wfonly'; % Widefield-only days (no craniotomy, so cleaner)
@@ -98,7 +98,7 @@ AP_load_experiment;
 
 % Align U's, deconvolve widefield
 use_components = 1:200;
-aUdf = AP_align_widefield(animal,day,Udf);
+aUdf = AP_align_widefield(Udf,animal,day);
 fVdf_deconv = AP_deconv_wf(fVdf);
 
 % Set time to plot
@@ -1018,7 +1018,7 @@ for curr_trial_set = 1:2
         
     end
     linkaxes(p(:,1:3),'xy');
-    linkaxes(p(:,4),'xy');
+    linkaxes(p(:,4),'x');
     
     trial_scale = 500;
     t_scale = 0.5;
@@ -1999,10 +1999,10 @@ mua_ctxpred_taskpred_k_allcat_norm = arrayfun(@(regressor) ...
     'uni',false),[2,3,4,1])),1:length(task_regressor_labels),'uni',false)';
 
 % Get max value for each kernel
-mua_taskpred_k_allcat_norm_max = cellfun(@(x) squeeze(max(x,[],2)), ...
+mua_taskpred_k_allcat_norm_sum = cellfun(@(x) squeeze(sum(x,2)), ...
     mua_taskpred_k_allcat_norm,'uni',false);
 
-mua_ctxpred_taskpred_k_allcat_norm_max = cellfun(@(x) squeeze(max(x,[],2)), ...
+mua_ctxpred_taskpred_k_allcat_norm_sum = cellfun(@(x) squeeze(sum(x,2)), ...
     mua_ctxpred_taskpred_k_allcat_norm,'uni',false);
 
 % Plot max task>striatum and task>ctx-str kernel by condition
@@ -2011,7 +2011,7 @@ for curr_regressor = 1:n_regressors
     if curr_regressor == 1
         x = unique([0.06,0.125,0.25,0.5,1].*[-1;1]);
     else
-        x = 1:size(mua_taskpred_k_allcat_norm_max{curr_regressor},1);
+        x = 1:size(mua_taskpred_k_allcat_norm_sum{curr_regressor},1);
     end
       
     for curr_depth = 1:n_depths
@@ -2019,24 +2019,25 @@ for curr_regressor = 1:n_regressors
             sub2ind([n_regressors,n_depths],curr_regressor,curr_depth));
         hold on
         
-        errorbar(x,nanmean(mua_taskpred_k_allcat_norm_max{curr_regressor}(:,curr_depth,:),3), ...
-            AP_sem(mua_taskpred_k_allcat_norm_max{curr_regressor}(:,curr_depth,:),3), ...
+        errorbar(x,nanmean(mua_taskpred_k_allcat_norm_sum{curr_regressor}(:,curr_depth,:),3), ...
+            AP_sem(mua_taskpred_k_allcat_norm_sum{curr_regressor}(:,curr_depth,:),3), ...
             'color','b','linewidth',2);
         
-        errorbar(x,nanmean(mua_ctxpred_taskpred_k_allcat_norm_max{curr_regressor}(:,curr_depth,:),3), ...
-            AP_sem(mua_ctxpred_taskpred_k_allcat_norm_max{curr_regressor}(:,curr_depth,:),3), ...
+        errorbar(x,nanmean(mua_ctxpred_taskpred_k_allcat_norm_sum{curr_regressor}(:,curr_depth,:),3), ...
+            AP_sem(mua_ctxpred_taskpred_k_allcat_norm_sum{curr_regressor}(:,curr_depth,:),3), ...
             'color',[0,0.7,0],'linewidth',2);
         
         title(task_regressor_labels{curr_regressor});
-        ylabel('Max weight');
+        ylabel('Sum weight');
         xlabel('Condition');
-        if curr_regressor == 1 && curr_depth == 1
-            legend({'Task>Str','Task>Ctx-Str'});
-        end
+        
     end
 end
-linkaxes(get(gcf,'Children'),'y');
-
+ax_handles = reshape(flipud(get(gcf,'Children')),n_depths,curr_regressor);
+for curr_depth = 1:n_depths
+    linkaxes(ax_handles(curr_depth,:),'y');
+end
+legend(ax_handles(1,1),{'Task>Str','Task>Ctx-Str'});
 
 % Plot task>striatum regression examples
 figure;

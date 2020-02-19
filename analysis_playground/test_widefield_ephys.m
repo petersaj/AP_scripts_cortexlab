@@ -297,7 +297,7 @@ use_spikes = spike_times_timeline(ismember(spike_templates,find(template_depths 
 frame_edges = [frame_t(1),mean([frame_t(2:end);frame_t(1:end-1)],1),frame_t(end)+1/framerate];
 [frame_spikes,~,spike_frames] = histcounts(use_spikes,frame_edges);
 
-surround_times = [-3,3];
+surround_times = [-0.5,0.5];
 framerate = 1./median(diff(frame_t));
 surround_frames = round(surround_times(1)*framerate):round(surround_times(2)*framerate);
 sta_t = surround_frames./framerate;

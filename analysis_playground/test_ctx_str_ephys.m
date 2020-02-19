@@ -333,10 +333,10 @@ for curr_animal = 1:length(animals)
         
         % Load experiment
         day = experiments(curr_day).day;
-        % (only one doubled experiment, and the second one was worse)
-        experiment = experiments(curr_day).experiment(1);
+        experiment = experiments(curr_day).experiment(1); % (only one doubled experiment, and the second one was worse)
         site = 2; % cortex probe is always site 2
         lfp_channel = 'all';
+        str_align = 'none'; % (because this is on cortex)
         verbose = false;
         AP_load_experiment
         
@@ -471,6 +471,16 @@ for curr_animal = 1:length(animals)
     end
     
 end
+
+% Plot fluorescence/MUA correlation for each experiment
+figure; hold on;
+for curr_exp = 1:numel(data)
+    plot(data(curr_exp).mua_depth,data(curr_exp).fluor_mua_xcorr);
+end
+
+% Concatenate data
+mua_depth_cat = horzcat(data(:).mua_depth)';
+fluor_mua_xcorr_cat = vertcat(data(:).fluor_mua_xcorr);
 
 % Plot MUA 
 figure; 

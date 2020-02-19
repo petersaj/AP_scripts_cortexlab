@@ -124,7 +124,7 @@ ylabel('Stim contrast*side');
 
 %% Passive stim during choiceworld (pixels)
 
-animal = 'AP040';
+animal = 'AP056';
 
 protocol = 'AP_lcrGratingPassive';
 experiments = AP_find_experiments(animal,protocol);

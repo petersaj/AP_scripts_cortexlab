@@ -526,13 +526,13 @@ surround_time = surround_window(1):surround_samplerate:surround_window(2);
 baseline_surround_time = baseline_window(1):surround_samplerate:baseline_window(2);
 
 % Deconv widefield if it's not already
-% if ~exist('fVdf_deconv','var')
-%     fVdf_deconv = AP_deconv_wf(fVdf);
-% end
+if ~exist('fVdf_deconv','var')
+    fVdf_deconv = AP_deconv_wf(fVdf);
+end
 
-%%%% TESTING 
-Udf = Udf;
+%%%%%%%%%%% TESTING
 fVdf_deconv = fVdf;
+%%%%%%%%%%%
 
 % Average (time course) responses
 use_vs = 1:size(U,3);
@@ -565,7 +565,7 @@ colormap(brewermap([],'*RdBu'));
 set(gcf,'Name',animal);
 
 % Gui for plotting responses
-pixelTuningCurveViewerSVD(Udf,fVdf,frame_t,stimOn_times,stimIDs,surround_window);
+pixelTuningCurveViewerSVD(Udf,fVdf_deconv,frame_t,stimOn_times,stimIDs,surround_window);
 
 % Get average responses
 avg_window = [0.05,0.2];
@@ -2025,9 +2025,9 @@ ylabel(c,'Explained variance')
 
 %% Align vasculature for animal
 
-animal = 'AP043';
+animal = 'AP056';
 
-protocol = 'AP_sparseNoise';
+protocol = 'AP_lcrGratingPassive';
 experiments = AP_find_experiments(animal,protocol);
 experiments(~([experiments.imaging])) = [];
 

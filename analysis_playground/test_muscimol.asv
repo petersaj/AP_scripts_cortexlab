@@ -298,7 +298,7 @@ end
 
 % Save for quick loading later
 save_path = 'C:\Users\Andrew\OneDrive for Business\Documents\CarandiniHarrisLab\analysis\tests\muscimol_test';
-save_fn = [save_path filesep 'muscimol_bhv.mat'];
+save_fn = [save_path filesep 'muscimol_bhv.m'];
 save(save_fn,'bhv');
 disp(['Saved ' save_fn]);
 
@@ -600,20 +600,9 @@ for curr_str = 1:n_depths
 end
 linkaxes(get(gcf,'Children'))
 
-% Plot all ctx responses
-figure;
-for curr_ctx = 1:size(wf_roi,1)
-    subplot(size(wf_roi,1),1,curr_ctx);
-    AP_errorfill(t,nanmean(fluor_roi_premuscimol_mean(:,:,curr_ctx),1), ...
-        AP_sem(fluor_roi_premuscimol_mean(:,:,curr_ctx),1),'k');
-    AP_errorfill(t,nanmean(fluor_roi_postmuscimol_mean(:,:,curr_ctx),1), ...
-        AP_sem(fluor_roi_postmuscimol_mean(:,:,curr_ctx),1),'r');
-    ylabel(wf_roi(curr_ctx).area);
-end
-linkaxes(get(gcf,'Children'))
 
 % Plot pre/post muscimol for pair of str/ctx
-plot_str = 1;
+plot_str = 2;
 plot_ctx = 3;
 
 figure;
@@ -693,18 +682,22 @@ nonan_points = ~isnan(mua_ctxpred_avg_postpre_change(:,plot_str)) & ...
 
 %%%%%%% TESTING
 
-% fluor_premuscimol_mean = cell2mat(permute(cellfun(@(x) ...
-%     svdFrameReconstruct(U_master(:,:,1:200),permute(x,[3,2,1])), ...
-%     cellfun(@(x,stim) nanmean(x(stim == use_stim,:,:),1), ...
-%     fluor_muscimol{1},stimIDs{1},'uni',false),'uni',false),[2,3,4,1]));
-% 
-% fluor_postmuscimol_mean = cell2mat(permute(cellfun(@(x) ...
-%     svdFrameReconstruct(U_master(:,:,1:200),permute(x,[3,2,1])), ...
-%     cellfun(@(x,stim) nanmean(x(stim == use_stim,:,:),1), ...
-%     fluor_muscimol{2},stimIDs{2},'uni',false),'uni',false),[2,3,4,1]));
-% 
-% fluor_avg_premuscimol = squeeze(nanmean(fluor_premuscimol_mean(:,:,t_stim,:),3));
-% fluor_avg_postmuscimol = squeeze(nanmean(fluor_postmuscimol_mean(:,:,t_stim,:),3));
+fluor_premuscimol_mean = cell2mat(permute(cellfun(@(x) ...
+    svdFrameReconstruct(U_master(:,:,1:200),permute(x,[3,2,1])), ...
+    cellfun(@(x,stim) nanmean(x(stim == use_stim,:,:),1), ...
+    fluor_muscimol{1},stimIDs{1},'uni',false),'uni',false),[2,3,4,1]));
+
+fluor_postmuscimol_mean = cell2mat(permute(cellfun(@(x) ...
+    svdFrameReconstruct(U_master(:,:,1:200),permute(x,[3,2,1])), ...
+    cellfun(@(x,stim) nanmean(x(stim == use_stim,:,:),1), ...
+    fluor_muscimol{2},stimIDs{2},'uni',false),'uni',false),[2,3,4,1]));
+
+fluor_avg_premuscimol = squeeze(nanmean(fluor_premuscimol_mean(:,:,t_stim,:),3));
+fluor_avg_postmuscimol = squeeze(nanmean(fluor_postmuscimol_mean(:,:,t_stim,:),3));
+
+a = mua_avg_postmuscimol - mua_avg_premuscimol;
+b = fluor_avg_postmuscimol - fluor_avg_premuscimol;
+m = reshape(1-pdist2(a(:,1)',reshape(b,[],size(b,3)),'correlation'),size(b,1),size(b,2));
 
 
 
