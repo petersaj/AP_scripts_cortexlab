@@ -511,8 +511,10 @@ for curr_animal = 1:length(animals)
         
         % Package data to save
         data(curr_animal,curr_day).cortex_mua_depth = depth_corr_bin_centers-ctx_depth(1);        
-        data(curr_animal,curr_day).cortex_fluor_xcorr = max(cortex_fluor_xcorr,[],2);
-        data(curr_animal,curr_day).cortex_str_xcorr = permute(max(cortex_striatum_xcorr,[],2),[1,3,2]);
+%         data(curr_animal,curr_day).cortex_fluor_xcorr = max(cortex_fluor_xcorr,[],2);
+%         data(curr_animal,curr_day).cortex_str_xcorr = permute(max(cortex_striatum_xcorr,[],2),[1,3,2]);
+        data(curr_animal,curr_day).cortex_fluor_corr = cortex_fluor_corr;
+        data(curr_animal,curr_day).cortex_striatum_corr = cortex_striatum_corr;
         
         % Clear variables for next experiment
         clearvars -except animals curr_animal animal ...
@@ -523,11 +525,7 @@ for curr_animal = 1:length(animals)
     
 end
 
-% Plot fluorescence/MUA correlation for each experiment
-figure; hold on;
-for curr_exp = 1:numel(data)
-    plot(data(curr_exp).cortex_mua_depth,mat2gray(data(curr_exp).cortex_fluor_xcorr));
-end
+use_data = cellfun(@(x) ~isempty(x),{data.cortex_mua_depth});
 
 % Concatenate data
 % % (raw)
@@ -535,26 +533,44 @@ end
 % fluor_mua_xcorr_cat = vertcat(data(:).fluor_mua_xcorr);
 
 % (0-1 normalized)
-use_data = cellfun(@(x) ~isempty(x),{data.cortex_fluor_xcorr});
 mua_depth_norm = cellfun(@(x) round(mat2gray(x)'*10)/10, ...
     {data(use_data).cortex_mua_depth},'uni',false)';
-fluor_mua_xcorr_norm = cellfun(@mat2gray, ...
-    {data(use_data).cortex_fluor_xcorr},'uni',false)';
+cortex_fluor_corr_norm = cellfun(@mat2gray, ...
+    {data(use_data).cortex_fluor_corr},'uni',false)';
 
 % Plot MUA 
-figure; hold on;
+figure; 
+
+subplot(1,2,1); hold on;
 for curr_exp = 1:sum(use_data)
-  plot(fluor_mua_xcorr_norm{curr_exp},mua_depth_norm{curr_exp},'color',[0.5,0.5,0.5]);
+  plot(cortex_fluor_corr_norm{curr_exp},mua_depth_norm{curr_exp},'color',[0.5,0.5,0.5]);
 end
-[mua_xcorr_mean,mua_xcorr_sem,mua_group_depth] = grpstats( ...
-    vertcat(fluor_mua_xcorr_norm{:}),vertcat(mua_depth_norm{:}),{'mean','sem','gname'});
+[mua_corr_mean,mua_corr_sem,mua_group_depth] = grpstats( ...
+    vertcat(cortex_fluor_corr_norm{:}),vertcat(mua_depth_norm{:}),{'mean','sem','gname'});
 mua_group_depth = cellfun(@str2num,mua_group_depth);
-errorbar(mua_xcorr_mean,mua_group_depth,mua_xcorr_sem,'horizontal','linewidth',2,'color','k');
+errorbar(mua_corr_mean,mua_group_depth,mua_corr_sem,'horizontal','linewidth',2,'color','k');
 ylabel('Cortical depth (max normalized)');
 xlabel('MUA-Fluorescence correlation (max normalized)');
 set(gca,'YDir','reverse');
 
+% Plot cortex/striatum MUA correlation
+cortex_striatum_corr_norm = cellfun(@(x) x, ...
+    {data(use_data).cortex_striatum_corr},'uni',false)';
 
+subplot(1,2,2); hold on;
+set(gca,'ColorOrder',copper(4));
+% for curr_exp = 1:sum(use_data)
+%   plot(cortex_striatum_corr_norm{curr_exp},mua_depth_norm{curr_exp});
+% end
+
+cortex_striatum_corr_norm_cat = vertcat(cortex_striatum_corr_norm{:});
+for curr_depth = 1:size(cortex_striatum_corr_norm_cat,2)
+    [mua_corr_mean,mua_corr_sem,mua_group_depth] = grpstats( ...
+        cortex_striatum_corr_norm_cat(:,curr_depth),vertcat(mua_depth_norm{:}),{'mean','sem','gname'});
+    mua_group_depth = cellfun(@str2num,mua_group_depth);
+    errorbar(mua_corr_mean,mua_group_depth,mua_corr_sem,'horizontal','linewidth',2);
+end
+set(gca,'YDir','reverse');
 
 
 
