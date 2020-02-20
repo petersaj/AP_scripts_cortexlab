@@ -1182,22 +1182,8 @@ if ephys_exists && load_parts.ephys
         str_align = 'kernel';
     end
     
-    AP_align_striatum_ephys
-    
-    if verbose
-       figure;
-       imagesc(depth_corr_bin_centers,depth_corr_bin_centers,mua_corr);
-       axis tight equal;
-       colormap(hot)
-       line([str_depth(1),str_depth(1)],ylim,'color','b','linewidth',2);
-       line([str_depth(2),str_depth(2)],ylim,'color','b','linewidth',2);
-       line(xlim,[str_depth(1),str_depth(1)],'color','b','linewidth',2);
-       line(xlim,[str_depth(2),str_depth(2)],'color','b','linewidth',2);
-       xlabel('Probe depth (\mum)');
-       ylabel('Probe depth (\mum)');
-       title('MUA correlation: striatum location');
-    end
-    
+    [str_depth,aligned_str_depth_group] = AP_align_striatum_ephys;
+
 end
 
 %% Classify spikes

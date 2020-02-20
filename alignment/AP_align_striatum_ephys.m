@@ -1,9 +1,23 @@
-% AP_align_striatum_ephys
+function [str_depth,aligned_str_depth_group] = AP_align_striatum_ephys
 % Align striatum ephys across experiments
 %
 % requires:
 % str_align - 'depth' or 'kernel'
 % 'depth' requires n_aligned_depths
+
+%% Pull variables from base workspace
+% (bad practice - but this used to be a script instead of a function and I
+% wanted to not store all the intermediate variables because they're
+% common)
+
+animal = evalin('base','animal');
+day = evalin('base','day');
+spike_times = evalin('base','spike_times');
+spike_templates = evalin('base','spike_templates');
+template_depths = evalin('base','template_depths');
+verbose = evalin('base','verbose');
+str_align = evalin('base','str_align');
+n_aligned_depths = evalin('base','n_aligned_depths');
 
 %% Get striatum boundaries
 
@@ -62,6 +76,7 @@ switch str_align
     
     case 'none'
         %%% Don't do anything
+        aligned_str_depth_group = [];
         
     case 'depth'
         %%% Align striatal recordings using saved alignment
@@ -117,18 +132,34 @@ switch str_align
                 end
             end
         end
-        % If the number of spike depths doesn't match depth groups, error
-        if exist('aligned_str_depth_group','var') && length(spike_depths) ~= length(aligned_str_depth_group)
+        % Check that there's an aligned group for every spike
+        if exist('aligned_str_depth_group','var') && length(spike_times) ~= length(aligned_str_depth_group)
             error('Not 1:1 raw and aligned spike depths')
         end
         
 end
 
-%% Plot the aligned groups
+%% Plot the aligned groups and MUA correlation
+
+if verbose
+    % Plot MUA correlation    
+    figure;
+    imagesc(depth_corr_bin_centers,depth_corr_bin_centers,mua_corr);
+    axis tight equal;
+    colormap(hot)
+    line([str_depth(1),str_depth(1)],ylim,'color','b','linewidth',2);
+    line([str_depth(2),str_depth(2)],ylim,'color','b','linewidth',2);
+    line(xlim,[str_depth(1),str_depth(1)],'color','b','linewidth',2);
+    line(xlim,[str_depth(2),str_depth(2)],'color','b','linewidth',2);
+    xlabel('Probe depth (\mum)');
+    ylabel('Probe depth (\mum)');
+    title('MUA correlation: striatum location');
+    drawnow;
+end
 
 if verbose && exist('aligned_str_depth_group','var') && ...
         ~isempty(aligned_str_depth_group)
-        
+    % Plot group depth
     [~,idx,~] = unique(spike_templates);
     template_aligned_depth = aligned_str_depth_group(idx)+1;
     template_aligned_depth(isnan(template_aligned_depth)) = 1;
@@ -142,5 +173,4 @@ if verbose && exist('aligned_str_depth_group','var') && ...
     line(xlim,[str_depth(2),str_depth(2)]);
     drawnow;
 end
-
 
