@@ -601,7 +601,7 @@ axis image;
 % Average responses to stimuli (deconv)
 unique_stim = unique(stimIDs);
 
-surround_window = [0,0.1];
+surround_window = [0,0.5];
 surround_times = surround_window(1):1/framerate:surround_window(2);
 grab_times = stimOn_times + surround_times;
 

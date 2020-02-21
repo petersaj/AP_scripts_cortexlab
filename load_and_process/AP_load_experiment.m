@@ -261,9 +261,9 @@ if block_exists
             
             % Get time from stim on to first wheel movement
             surround_time = [-0.5,2];
-            surround_samples = surround_time/Timeline.hw.samplingInterval;
+            surround_sample_rate = 1/35; % (match this to framerate)
             
-            surround_time = surround_time(1):Timeline.hw.samplingInterval:surround_time(2);
+            surround_time = surround_time(1):surround_sample_rate:surround_time(2);
             pull_times = bsxfun(@plus,stimOn_times,surround_time);
             
             stim_aligned_wheel = interp1(Timeline.rawDAQTimestamps, ...
