@@ -192,7 +192,7 @@ fluor_kernelroi_day_baseline_std = ...
 % fluor_roi_deconv_std = 1;
 % fluor_kernelroi_deconv_std = 1;
 fluor_roi_deconv = (fluor_roi_deconv - cell2mat(fluor_roi_trial_baseline))./cell2mat(fluor_roi_day_baseline_std);
-fluor_kernelroi_deconv = (fluor_kernelroi_deconv - cell2mat(fluor_kernelroi_trial_baseline))./cell2mat(fluor_kernelroi_day_baseline_std);
+fluor_kernelroi_deconv = fluor_kernelroi_deconv./fluor_kernelroi_day_baseline_std;
 
 if task_dataset
     % Get task-predicted activity

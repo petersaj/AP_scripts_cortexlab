@@ -1,4 +1,4 @@
-classdef vanillaChoiceworldExpPanel < eui.ExpPanel
+classdef vanillaChoiceworldKilotrodeExpPanel < eui.ExpPanel
     %vanillaChoiceWorldExpPanel
     % AP 2017-03-31
     % plotting panel for vanillaChoiceWorld
@@ -17,7 +17,7 @@ classdef vanillaChoiceworldExpPanel < eui.ExpPanel
     
     
     methods
-        function obj = vanillaChoiceworldExpPanel(parent, ref, params, logEntry)
+        function obj = vanillaChoiceworldKilotrodeExpPanel(parent, ref, params, logEntry)
             obj = obj@eui.ExpPanel(parent, ref, params, logEntry);
             obj.LabelsMap = containers.Map();
         end
@@ -156,7 +156,7 @@ classdef vanillaChoiceworldExpPanel < eui.ExpPanel
             
         end
         
-        function build(obj, parent) 
+        function build(obj, parent)
             obj.Root = uiextras.BoxPanel('Parent', parent,...
                 'Title', obj.Ref,... %default title is the experiment reference
                 'TitleColor', [0.98 0.65 0.22],...%amber title area
@@ -185,7 +185,7 @@ classdef vanillaChoiceworldExpPanel < eui.ExpPanel
             %info grid size will be updated as fields are added, the other
             %default panels get reasonable space, and the custom panel gets
             %whatever's left
-            obj.MainVBox.Sizes = [0 -1 15 80 24]; % default: [0 -1 15 80 24] (old: 0,-1,5,1,24)
+            obj.MainVBox.Sizes = [0 -1 5 1 24]; % default: [0 -1 15 80 24]
             
             %add the default set of info fields to the grid
             obj.StatusLabel = obj.addInfoField('Status', 'Pending');

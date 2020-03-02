@@ -16,7 +16,7 @@ max_iti = 3;
 step_iti = 0.1;
 
 % Sounds
-audio_freqs = linspace(8000,20000,4);
+audio_freqs = [8000,14000,20000];
 audioRampDuration = 0.01;
 tone_volume = 0.05;
 noise_volume = 0.05;
@@ -28,7 +28,7 @@ audioChannels = audDev.NrOutputChannels;
 tone_samples = arrayfun(@(freq) ...
     aud.pureTone(freq,stim_time,audioSampleRate, ...
     audioRampDuration,audioChannels)*tone_volume,audio_freqs,'uni',false);
-noise_samples = {randn(2,audioSampleRate*stim_time)*noise_volume};
+noise_samples = {randn(audioChannels,audioSampleRate*stim_time)*noise_volume};
 
 audio_samples = [tone_samples,noise_samples];
 audio_labels = [audio_freqs,0];

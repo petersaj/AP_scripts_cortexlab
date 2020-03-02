@@ -1,4 +1,4 @@
-function vanillaChoiceworld(t, events, parameters, visStim, inputs, outputs, audio)
+function vanillaChoiceworldKilotrode(t, events, parameters, visStim, inputs, outputs, audio)
 % vanillaChoiceworld(t, events, parameters, visStim, inputs, outputs, audio)
 % 170309 - AP
 %
@@ -12,7 +12,8 @@ function vanillaChoiceworld(t, events, parameters, visStim, inputs, outputs, aud
 % Infinite time for response, fix stim azimuth on response
 % Short ITI on reward, long ITI on punish, then turn stim off
 % End trial
-
+%
+% Modified to run on kilotrode
 
 %% Fixed parameters
 
@@ -53,11 +54,11 @@ itiMiss = 2;
 
 % Sounds
 % audioSampleRate = 192e3; % (Not used after new audio system 20181107)
-audDev = audio.Devices('Strix');
+audDev = audio.Devices('default');
 audioSampleRate = audDev.DefaultSampleRate;
 audioChannels = audDev.NrOutputChannels;
 
-onsetToneAmplitude = 0.3; % Changed from 1 when moving to Strix
+onsetToneAmplitude = 1; % Changed from 1 when moving to Strix
 onsetToneFreq = 12000;
 onsetToneDuration = 0.1;
 onsetToneRampDuration = 0.01;
@@ -66,9 +67,9 @@ toneSamples = onsetToneAmplitude*events.expStart.map(@(x) ...
     onsetToneRampDuration,audioChannels));
 
 missNoiseDuration = 0.5;
-missNoiseAmplitude = 0.03; % Changed from 0.05 when moving to Strix
+missNoiseAmplitude = 0.1; % Changed from 0.05 when moving to Strix
 missNoiseSamples = missNoiseAmplitude*events.expStart.map(@(x) ...
-    randn(audioChannels,audioSampleRate*missNoiseDuration));
+    randn(2, audioSampleRate*missNoiseDuration));
 
 % Wheel parameters
 quiescThreshold = 1;
@@ -103,7 +104,7 @@ stimOn = at(true,preStimQuiescence);
 interactiveOn = stimOn.delay(cueInteractiveDelay); 
 
 % Play tone at interactive onset
-audio.Strix = toneSamples.at(interactiveOn);
+audio.default = toneSamples.at(interactiveOn);
 % (20180711 changed from audio.onsetTone for new audio handling)
 
 % Response
@@ -133,7 +134,7 @@ outputs.reward = water;
 totalWater = water.scan(@plus,0);
 
 % Play noise on miss
-audio.Strix = missNoiseSamples.at(trialData.miss.delay(0.01));
+audio.default = missNoiseSamples.at(trialData.miss.delay(0.01));
 % (20180711 changed from audio.missNoise for new audio handling)
 
 % ITI defined by outcome

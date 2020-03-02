@@ -14,8 +14,8 @@ step_iti = 0.1;
 % Visual stim
 sigma = [20,20];
 azimuths = [-90,0,90];
-contrasts = [1];
-vis_params = CombVec(azimuths,contrasts);
+contrasts = [1,1,1]; %before 170220: [1];
+vis_params = [azimuths; contrasts];%before 170220: CombVec(azimuths,contrasts);
 spatialFreq = 1/15;
 
 

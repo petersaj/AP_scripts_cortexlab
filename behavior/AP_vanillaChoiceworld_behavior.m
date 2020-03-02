@@ -13,7 +13,7 @@ for curr_animal = 1:length(animals)
         
         day = experiments(curr_day).day;
         experiment_num = experiments(curr_day).experiment;
-        
+         
         % If multiple experiments, only use the last one 
         % (usually multiple happens if mess ups and final one is good)
         for curr_experiment = length(experiment_num)
@@ -481,7 +481,7 @@ end
 
 %% Get and plot single mouse behavior (ChoiceWorld (old) + vanillaChoiceWorld)
 clear all;
-animal = 'AP024';
+animal = 'AP026';
 
 protocol = 'ChoiceWorld';
 choiceworld_experiments = AP_find_experiments(animal,protocol);

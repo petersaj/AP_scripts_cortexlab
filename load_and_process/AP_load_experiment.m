@@ -275,7 +275,7 @@ if block_exists
             wheel_over_thresh_fullconv = convn( ...
                 abs(stim_aligned_wheel) > thresh_displacement, ...
                 ones(1,samples_over_thresh)) >= samples_over_thresh;
-            wheel_over_thresh = wheel_over_thresh(:,end-size(stim_aligned_wheel,2)+1:end);
+            wheel_over_thresh = wheel_over_thresh_fullconv(:,end-size(stim_aligned_wheel,2)+1:end);
             
             [~,wheel_move_sample] = max(wheel_over_thresh,[],2);
             wheel_move_time = arrayfun(@(x) pull_times(x,wheel_move_sample(x)),1:size(pull_times,1))';

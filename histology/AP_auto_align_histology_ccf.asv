@@ -33,14 +33,15 @@ for curr_slice = 1:length(slice_im)
     
     % Estimate slice white threshold
     curr_im_bw = nanmean(curr_histology,3);
-    [im_hist,im_hist_edges] = histcounts(curr_im_bw(curr_im_bw > 0), ...
-        linspace(min(curr_im_bw(:)),max(curr_im_bw(:)),100));
+    % (get histogram of values > 0 in case unimaged are
+    [im_hist,im_hist_edges] = histcounts(curr_im_bw, ...
+        linspace(max(1,min(curr_im_bw(:))),max(curr_im_bw(:)),100));
     im_hist_deriv = [0;diff(smooth(im_hist,10))];
     [~,bg_down] = min(im_hist_deriv);
     bg_signal_min = find(im_hist_deriv(bg_down:end) > 0,1) + bg_down;
     slice_threshold = im_hist_edges(bg_signal_min);
     
-    curr_histology_thresh = +(nanmean(curr_histology,3) > 0.2);
+    curr_histology_thresh = +(curr_im_bw > slice_threshold);
     
     [optimizer, metric] = imregconfig('monomodal');
     optimizer.MaximumIterations = 200;

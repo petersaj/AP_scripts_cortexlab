@@ -5,7 +5,7 @@ function AP_visualAuditoryPassive(t, events, parameters, visStim, inputs, output
 %% Set up stimuli
 
 % Duration and ITI
-vis_stim_time = 1;
+vis_stim_time = 0.5;
 aud_stim_time = 0.5;
 min_iti = 2;
 max_iti = 3;
@@ -13,7 +13,7 @@ step_iti = 0.1;
 
 % Visual stim
 sigma = [9,9];
-azimuths = [-90,-45,0,90];
+azimuths = [-90,0,90];
 contrast = 1;
 spatialFreq = 1/15;
 

@@ -10594,7 +10594,7 @@ AP_reference_outline('ccf_aligned','k');
 caxis([-max(abs(caxis)),max(abs(caxis))]);
 colormap(brewermap([],'*RdBu'));
 
-%% Average passive choiceworld 
+%% Widefield average passive choiceworld 
 
 % Get trials with movement during stim to exclude
 quiescent_trials = ~any(abs(wheel_allcat(:,t >= 0 & t <= 0.5)) > 0.025,2);
@@ -10788,13 +10788,6 @@ timeavg_trial_conditions = ...
     trial_contrastside_allcat < 0 & quiescent_trials]};
 timeavg_condition_colors = ...
     {[1,0,0;0,0,1]};
-
-% Set activity percentiles and bins
-act_prctile = [5,95];
-n_act_bins = 5;
-
-% Set areas and conditions
-plot_areas = [1];
 
 % Loop across area pairs, plot binned predicted v measured activity
 curr_act_allcat = mua_allcat;

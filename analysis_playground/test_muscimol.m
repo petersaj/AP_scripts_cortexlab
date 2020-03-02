@@ -307,42 +307,43 @@ frac_orient_right_cat = cell2mat(permute(cat(2,bhv.frac_orient_right),[1,3,2]));
 rxn_time_cat = cell2mat(permute(cat(2,bhv.rxn_time),[1,3,2]));
 rxn_time_gocue_cat = cell2mat(permute(cat(2,bhv.rxn_time_gocue),[1,3,2]));
 
-figure; 
+contrastsides = unique([1,0.5,0.25,0.125,0.06,0].*[-1;1]);
 
 figure;
 subplot(2,2,1); hold on;
-plot(performance(1,:),squeeze(frac_orient_right_cat(1,:,:)),'color',[0.5,0.5,0.5],'linewidth',1);
-plot(performance(1,:),squeeze(frac_orient_right_cat(2,:,:)),'color',[1,0.5,0.5],'linewidth',1);
-plot(performance(1,:),nanmean(frac_orient_right_cat(1,:,:),3),'color','k','linewidth',3);
-plot(performance(1,:),nanmean(frac_orient_right_cat(2,:,:),3),'color','r','linewidth',3);
+plot(contrastsides,squeeze(frac_orient_right_cat(1,:,:)),'color',[0.5,0.5,0.5],'linewidth',1);
+plot(contrastsides,squeeze(frac_orient_right_cat(2,:,:)),'color',[1,0.5,0.5],'linewidth',1);
+plot(contrastsides,nanmean(frac_orient_right_cat(1,:,:),3),'color','k','linewidth',3);
+plot(contrastsides,nanmean(frac_orient_right_cat(2,:,:),3),'color','r','linewidth',3);
 line(xlim,[0.5,0.5],'color','k','linestyle','--');
 line([0,0],[0,1],'color','k','linestyle','--');
 xlabel('Side*Contrast');
 ylabel('Fraction orient right')
 
 subplot(2,2,2); hold on;
-plot(performance(1,:),squeeze(rxn_time_cat(1,:,:)),'color',[0.5,0.5,0.5],'linewidth',1);
-plot(performance(1,:),squeeze(rxn_time_cat(2,:,:)),'color',[1,0.5,0.5],'linewidth',1);
-plot(performance(1,:),nanmean(rxn_time_cat(1,:,:),3),'color','k','linewidth',3);
-plot(performance(1,:),nanmean(rxn_time_cat(2,:,:),3),'color','r','linewidth',3);
+plot(contrastsides,squeeze(rxn_time_cat(1,:,:)),'color',[0.5,0.5,0.5],'linewidth',1);
+plot(contrastsides,squeeze(rxn_time_cat(2,:,:)),'color',[1,0.5,0.5],'linewidth',1);
+plot(contrastsides,nanmean(rxn_time_cat(1,:,:),3),'color','k','linewidth',3);
+plot(contrastsides,nanmean(rxn_time_cat(2,:,:),3),'color','r','linewidth',3);
 line([-1,1],[0.5,0.5],'color','k','linestyle','--');
 xlabel('Side*Contrast');
 ylabel('Reaction time');
 
 subplot(2,2,3); hold on;
-plot(performance(1,:),squeeze(diff(frac_orient_right_cat,[],1)),'color',[0.5,0.5,0.5],'linewidth',1);
-plot(performance(1,:),nanmean(diff(frac_orient_right_cat,[],1),3),'color','k','linewidth',3);
+plot(contrastsides,squeeze(diff(frac_orient_right_cat,[],1)),'color',[0.5,0.5,0.5],'linewidth',1);
+plot(contrastsides,nanmean(diff(frac_orient_right_cat,[],1),3),'color','k','linewidth',3);
 line(xlim,[0,0],'color','k','linestyle','--');
 line([0,0],[-1,1],'color','k','linestyle','--');
 xlabel('Side*Contrast');
 ylabel('\Delta Fraction orient right')
 
 subplot(2,2,4); hold on;
-plot(performance(1,:),squeeze(diff(rxn_time_cat,[],1)),'color',[0.5,0.5,0.5],'linewidth',1);
-plot(performance(1,:),nanmean(diff(rxn_time_cat,[],1),3),'color','k','linewidth',3);
+plot(contrastsides,squeeze(diff(rxn_time_cat,[],1)),'color',[0.5,0.5,0.5],'linewidth',1);
+plot(contrastsides,nanmean(diff(rxn_time_cat,[],1),3),'color','k','linewidth',3);
 line([-1,1],[0,0],'color','k','linestyle','--');
 xlabel('Side*Contrast');
 ylabel('\Delta Reaction time');
+
 
 %% Get VFS pre/post musicmol
 
@@ -555,7 +556,7 @@ end
 % Plot average fluorescence
 load('C:\Users\Andrew\OneDrive for Business\Documents\CarandiniHarrisLab\analysis\wf_ephys_choiceworld\wf_processing\wf_alignment\U_master.mat');
 
-use_stim = 3;
+use_stim = 1;
 
 fluor_premuscimol_mean = ...
     svdFrameReconstruct(U_master(:,:,1:200), ...
@@ -594,20 +595,22 @@ figure;
 for curr_str = 1:n_depths
     subplot(n_depths,1,curr_str);
     AP_errorfill(t,nanmean(mua_premuscimol_mean(:,:,curr_str),1), ...
-    AP_sem(mua_premuscimol_mean(:,:,curr_str),1),'k');
+    AP_sem(mua_premuscimol_mean(:,:,curr_str),1),'k',1,false);
     AP_errorfill(t,nanmean(mua_postmuscimol_mean(:,:,curr_str),1), ...
-    AP_sem(mua_postmuscimol_mean(:,:,curr_str),1),'r');
+    AP_sem(mua_postmuscimol_mean(:,:,curr_str),1),'r',1,false);
 end
 linkaxes(get(gcf,'Children'))
 
-% Plot all ctx responses
+% Plot ctx responses
 figure;
-for curr_ctx = 1:size(wf_roi,1)
-    subplot(size(wf_roi,1),1,curr_ctx);
+plot_ctx = [1,3,7];
+for curr_ctx_idx = 1:length(plot_ctx)
+    curr_ctx = plot_ctx(curr_ctx_idx);
+    subplot(length(plot_ctx),1,curr_ctx_idx);
     AP_errorfill(t,nanmean(fluor_roi_premuscimol_mean(:,:,curr_ctx),1), ...
-        AP_sem(fluor_roi_premuscimol_mean(:,:,curr_ctx),1),'k');
+        AP_sem(fluor_roi_premuscimol_mean(:,:,curr_ctx),1),'k',1,false);
     AP_errorfill(t,nanmean(fluor_roi_postmuscimol_mean(:,:,curr_ctx),1), ...
-        AP_sem(fluor_roi_postmuscimol_mean(:,:,curr_ctx),1),'r');
+        AP_sem(fluor_roi_postmuscimol_mean(:,:,curr_ctx),1),'r',1,false);
     ylabel(wf_roi(curr_ctx).area);
 end
 linkaxes(get(gcf,'Children'))
@@ -651,15 +654,15 @@ axis square
 t_stim = t >= 0.05 & t <= 0.15;
 mua_avg_premuscimol = permute(nanmean(mua_premuscimol_mean(:,t_stim,:),2),[1,3,2]);
 mua_avg_postmuscimol = permute(nanmean(mua_postmuscimol_mean(:,t_stim,:),2),[1,3,2]);
-mua_avg_postpre_change = (mua_avg_postmuscimol-mua_avg_premuscimol)./(abs(mua_avg_postmuscimol)+abs(mua_avg_premuscimol));
+mua_avg_postpre_change = (mua_avg_postmuscimol-mua_avg_premuscimol)./(mua_avg_premuscimol);
 
 mua_ctxpred_avg_premuscimol = permute(nanmean(mua_ctxpred_premuscimol_mean(:,t_stim,:),2),[1,3,2]);
 mua_ctxpred_avg_postmuscimol = permute(nanmean(mua_ctxpred_postmuscimol_mean(:,t_stim,:),2),[1,3,2]);
-mua_ctxpred_avg_postpre_change = (mua_ctxpred_avg_postmuscimol-mua_ctxpred_avg_premuscimol)./(abs(mua_ctxpred_avg_postmuscimol)+abs(mua_ctxpred_avg_premuscimol));
+mua_ctxpred_avg_postpre_change = (mua_ctxpred_avg_postmuscimol-mua_ctxpred_avg_premuscimol)./(mua_ctxpred_avg_premuscimol);
 
 fluor_avg_premuscimol = permute(nanmean(fluor_roi_premuscimol_mean(:,t_stim,:),2),[1,3,2]);
 fluor_avg_postmuscimol = permute(nanmean(fluor_roi_postmuscimol_mean(:,t_stim,:),2),[1,3,2]);
-fluor_avg_postpre_change = (fluor_avg_postmuscimol-fluor_avg_premuscimol)./(abs(fluor_avg_postmuscimol)+abs(fluor_avg_premuscimol));
+fluor_avg_postpre_change = (fluor_avg_postmuscimol-fluor_avg_premuscimol)./(fluor_avg_premuscimol);
 
 subplot(2,3,3);
 plot(fluor_avg_postpre_change(:,plot_ctx),mua_avg_postpre_change(:,plot_str),'.k','MarkerSize',20)
@@ -840,14 +843,14 @@ for curr_depth = 1:n_depths
         p(curr_depth,curr_regressor) = ...
             subplot(n_depths,n_regressors,curr_regressor+(curr_depth-1)*n_regressors);
         
-        curr_kernels = mua_task_k_postmuscimol{curr_regressor}(:,:,curr_depth,:);
+        curr_kernels = mua_task_k_premuscimol{curr_regressor}(:,:,curr_depth,:);
         n_subregressors = size(mua_task_k_postmuscimol{curr_regressor},1);
         col = task_regressor_cols{curr_regressor};
         for curr_subregressor = 1:n_subregressors
             AP_errorfill(task_regressor_t_shifts{curr_regressor}, ...
                 nanmean(curr_kernels(curr_subregressor,:,:,:),4), ...
                 AP_sem(curr_kernels(curr_subregressor,:,:,:),4), ...
-                col(curr_subregressor,:),0.5);
+                col(curr_subregressor,:));
         end
         
         xlabel('Time (s)');

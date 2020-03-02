@@ -2,7 +2,7 @@
 
 %% Plot psychometrics and reaction times
 
-animal = 'AP040';
+animal = 'AP041';
 protocol = 'vanillaChoiceworld';
 experiments = AP_find_experiments(animal,protocol);
 
@@ -122,15 +122,15 @@ xlabel('Session');
 ylabel('Stim contrast*side');
 
 
-%% Passive stim during choiceworld (pixels)
+%% Passive stim (pixels)
 
-animal = 'AP056';
+animal = 'AP040';
 
 protocol = 'AP_lcrGratingPassive';
 experiments = AP_find_experiments(animal,protocol);
 
-% Remove ephys days - those had muscimol
-experiments = experiments([experiments.imaging] & ~[experiments.ephys]);
+% Use only days with imaging
+experiments = experiments([experiments.imaging]);
 
 im_stim_all = cell(size(experiments));
 for curr_day = 1:length(experiments)
@@ -199,7 +199,7 @@ axis image;
 caxis([-max(abs(caxis)),max(abs(caxis))]);
 colormap(brewermap([],'*RdBu'));
 
-t_stim = 20:22;
+t_stim = 21:23;
 im_stim_avg = squeeze(max(im_stim_cat(:,:,t_stim,:),[],3));
 AP_image_scroll(im_stim_avg);
 axis image;
@@ -207,7 +207,7 @@ caxis([-max(abs(caxis)),max(abs(caxis))]);
 colormap(brewermap([],'*RdBu'));
 
 
-%% Passive stim during choiceworld (U master)
+%% Passive stim (U master)
 
 animal = 'AP045';
 
