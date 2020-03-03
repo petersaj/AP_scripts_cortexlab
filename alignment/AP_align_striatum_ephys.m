@@ -14,6 +14,7 @@ animal = evalin('base','animal');
 day = evalin('base','day');
 spike_times = evalin('base','spike_times');
 spike_templates = evalin('base','spike_templates');
+spike_depths = evalin('base','spike_depths');
 template_depths = evalin('base','template_depths');
 verbose = evalin('base','verbose');
 str_align = evalin('base','str_align');

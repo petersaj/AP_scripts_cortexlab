@@ -91,6 +91,7 @@ if task_dataset
     trial_outcome_allcat = D_allcat.outcome;
     
     % Get reaction time
+    % (BAD PRACTICE - save in trial info)
     wheel_thresh = 0.025;
     [move_trial,move_idx] = max(abs(wheel_allcat) > wheel_thresh,[],2);
     move_t = t(move_idx)';
