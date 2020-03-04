@@ -59,9 +59,11 @@ trial_info.repeatNum = ones(sum(use_trials),1);
 
 trial_info.outcome = reshape(trial_outcome(use_trials),[],1);
 
-trial_info.stim_to_move = stim_to_move;
+trial_info.stim_to_move = stim_to_move(use_trials);
 
 %% Trial-align data
+
+if verbose; disp('Trial-aligning data...'); end;
 
 % Cortical fluorescence
 event_aligned_V = ...
@@ -105,6 +107,8 @@ event_aligned_outcome(trial_outcome == -1,:,2) = ...
     find(trial_outcome == -1),'uni',false))) > 0;
 
 %% Regress cortex to striatum and trial-align
+
+if verbose; disp('Regressing cortex to striatum...'); end;
 
 % Parameters for regression
 regression_params.use_svs = 1:100;
@@ -177,6 +181,8 @@ event_aligned_mua_ctxpred = ...
 
 %% Regress cortex to wheel velocity and speed and trial-align
 
+if verbose; disp('Regressing cortex to wheel...'); end;
+
 wheel_velocity_resample = interp1(Timeline.rawDAQTimestamps,wheel_velocity,time_bin_centers);
 wheel_velspeed_resample = [wheel_velocity_resample;abs(wheel_velocity_resample)];
 wheel_velspeed_resample_std = wheel_velspeed_resample./std(wheel_velocity_resample);
@@ -200,6 +206,8 @@ event_aligned_wheel_ctxpred = ...
 
 
 %% Regress task to cortex/striatum/cortex-predicted striatum
+
+if verbose; disp('Regressing task to neural data...'); end;
 
 % Build regressors (only a subset of these are used)
 
@@ -359,6 +367,42 @@ fluor_taskpred_reduced = cell2mat(arrayfun(@(x) ...
     interp1(time_bin_centers,fluor_taskpred_reduced_long(:,:,x)', ...
     t_peri_event),permute(1:length(task_regressors),[1,3,4,2]),'uni',false));
 
+%% Store everything into structure
+
+trial_data = struct;
+
+trial_data.fluor_all = event_aligned_V(use_trials,:,:,:);
+trial_data.mua_all = event_aligned_mua(use_trials,:,:,:);
+
+trial_data.ctx_str_k_all = ctx_str_k_recast;
+trial_data.mua_ctxpred_all = event_aligned_mua_ctxpred(use_trials,:,:,:);
+
+trial_data.mua_taskpred_k_all = mua_taskpred_k;
+trial_data.mua_taskpred_all = mua_taskpred(use_trials,:,:,:);
+trial_data.mua_taskpred_reduced_all = mua_taskpred_reduced(use_trials,:,:,:);
+trial_data.mua_taskpred_expl_var_total_all = mua_taskpred_expl_var.total;
+trial_data.mua_taskpred_expl_var_partial_all = mua_taskpred_expl_var.partial;
+
+trial_data.mua_ctxpred_taskpred_k_all = mua_ctxpred_taskpred_k;
+trial_data.mua_ctxpred_taskpred_all = mua_ctxpred_taskpred(use_trials,:,:,:);
+trial_data.mua_ctxpred_taskpred_reduced_all = mua_ctxpred_taskpred_reduced(use_trials,:,:,:);
+trial_data.mua_ctxpred_taskpred_expl_var_total_all = mua_ctxpred_taskpred_expl_var.total;
+trial_data.mua_ctxpred_taskpred_expl_var_partial_all = mua_ctxpred_taskpred_expl_var.partial;
+
+trial_data.fluor_taskpred_k_all = fluor_taskpred_k;
+trial_data.fluor_taskpred_all = fluor_taskpred(use_trials,:,:,:);
+trial_data.fluor_taskpred_reduced_all = fluor_taskpred_reduced(use_trials,:,:,:);
+trial_data.fluor_taskpred_expl_var_total_all = fluor_taskpred_expl_var.total;
+trial_data.fluor_taskpred_expl_var_partial_all = fluor_taskpred_expl_var.partial;
+
+trial_data.wheel_all = event_aligned_wheel(use_trials,:,:);
+trial_data.movement_all = event_aligned_movement(use_trials,:,:);
+
+trial_data.ctx_wheel_k_all = ctx_wheel_k_recast;
+trial_data.wheel_ctxpred_all = event_aligned_wheel_ctxpred(use_trials,:,:);
+
+trial_data.outcome_all = event_aligned_outcome(use_trials,:,:);
+trial_data.trial_info_all = trial_info;
 
 
 

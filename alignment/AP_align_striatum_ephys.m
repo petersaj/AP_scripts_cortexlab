@@ -50,13 +50,25 @@ mua_corr = corrcoef(binned_spikes_depth');
 
 %%% Estimate start and end depths of striatum
 
-% end of striatum: biggest (smoothed) drop in MUA correlation near end
-groups_back = 15;
+% % end of striatum: biggest (smoothed) drop in MUA correlation near end
+% groups_back = 30;
+% mua_corr_end = medfilt2(mua_corr(end-groups_back+1:end,end-groups_back+1:end),[3,3]);
+% mua_corr_end(triu(true(length(mua_corr_end)),0)) = nan;
+% median_corr = medfilt1(nanmedian(mua_corr_end,2),3);
+% [x,max_corr_drop] = min(diff(median_corr));
+% str_end = depth_corr_bin_centers(end-groups_back+max_corr_drop);
+
+% (new method)
+% end of striatum: minimum correlation on dim 1 * dim 2
+% (to look for the biggest dead space between correlated blocks)
+groups_back = 20;
 mua_corr_end = medfilt2(mua_corr(end-groups_back+1:end,end-groups_back+1:end),[3,3]);
 mua_corr_end(triu(true(length(mua_corr_end)),0)) = nan;
-median_corr = medfilt1(nanmedian(mua_corr_end,2),3);
-[x,max_corr_drop] = min(diff(median_corr));
-str_end = depth_corr_bin_centers(end-groups_back+max_corr_drop);
+mean_corr_dim1 = nanmean(mua_corr_end,2);
+mean_corr_dim2 = nanmean(mua_corr_end,1);
+mean_corr_mult = mean_corr_dim1.*mean_corr_dim2';
+[~,mean_corr_mult_min_idx] = min(mean_corr_mult);
+str_end = depth_corr_bin_centers(end-groups_back + mean_corr_mult_min_idx - 2); % err early: back up 2 (100 um)
 
 % start of striatum: look for ventricle
 % (by biggest gap between templates)

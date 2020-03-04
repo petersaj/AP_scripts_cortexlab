@@ -37,6 +37,48 @@ for curr_animal = 1:length(animals)
         
         AP_load_experiment
        
+        % Get MUA correlation (copied from AP_align_striatum_ephys - run in
+        % load but not output from function)        
+        
+        %%% Get correlation of MUA in sliding sindows
+        depth_corr_window = 100; % MUA window in microns
+        depth_corr_window_spacing = 50; % MUA window spacing in microns
+        
+        max_depths = 3840; % (hardcode, sometimes kilosort2 drops channels)
+        
+        depth_corr_bins = [0:depth_corr_window_spacing:(max_depths-depth_corr_window); ...
+            (0:depth_corr_window_spacing:(max_depths-depth_corr_window))+depth_corr_window];
+        depth_corr_bin_centers = depth_corr_bins(1,:) + diff(depth_corr_bins,[],1)/2;
+        
+        spike_binning_t = 0.01; % seconds
+        spike_binning_t_edges = nanmin(spike_times):spike_binning_t:nanmax(spike_times);
+        
+        binned_spikes_depth = zeros(size(depth_corr_bins,2),length(spike_binning_t_edges)-1);
+        for curr_depth = 1:size(depth_corr_bins,2)
+            curr_depth_templates_idx = ...
+                find(template_depths >= depth_corr_bins(1,curr_depth) & ...
+                template_depths < depth_corr_bins(2,curr_depth));
+            
+            binned_spikes_depth(curr_depth,:) = histcounts(spike_times( ...
+                ismember(spike_templates,curr_depth_templates_idx)),spike_binning_t_edges);
+        end
+        
+        mua_corr = corrcoef(binned_spikes_depth');
+        
+        % Plot MUA corr and depth
+        figure('Name',[animal ' ' day]);
+        imagesc(depth_corr_bin_centers,depth_corr_bin_centers,mua_corr);
+        axis tight equal;
+        colormap(hot)
+        line([str_depth(1),str_depth(1)],ylim,'color','b','linewidth',2);
+        line([str_depth(2),str_depth(2)],ylim,'color','b','linewidth',2);
+        line(xlim,[str_depth(1),str_depth(1)],'color','b','linewidth',2);
+        line(xlim,[str_depth(2),str_depth(2)],'color','b','linewidth',2);
+        xlabel('Probe depth (\mum)');
+        ylabel('Probe depth (\mum)');
+        title('MUA correlation: striatum location');
+        drawnow;
+        
         % Store MUA corr, template by depth, str depths
         % (this is all calculated during load)
         ephys_depth_align(curr_animal).animal = animal;
@@ -64,7 +106,7 @@ clear all
 disp('Estimating imaging-ephys lambda');
 
 % Parameters for regression
-regression_params.use_svs = 1:50;
+regression_params.use_svs = 1:100;
 regression_params.skip_seconds = 60;
 regression_params.upsample_factor = 1;
 regression_params.kernel_t = [-0.5,0.5];
@@ -808,7 +850,7 @@ for curr_animal = 1:length(animals)
     end
 end
 
-%% Estimate lambda, get kernels in segments, align to templates (AM RECORDINGS)
+%% Estimate lambda, get kernels in segments, align to templates (CORTEX EPHYS RECORDINGS)
 
 clear all
 
