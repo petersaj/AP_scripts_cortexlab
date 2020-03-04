@@ -327,6 +327,7 @@ for curr_animal = 1:length(animals)
     animal = animals{curr_animal};
     
     protocol = 'vanillaChoiceworld';
+%     protocol = 'AP_lcrGratingPassive';   
     flexible_name = true;
     experiments = AP_find_experiments(animal,protocol);
     experiments = experiments([experiments.imaging] & [experiments.ephys]);
@@ -429,7 +430,7 @@ for curr_animal = 1:length(animals)
         linkaxes([p1,p2,p3],'y');
         
         drawnow;
-                
+                        
         %%% GET FLUORESCENCE AND SPIKES BY DEPTH        
         
         % Set binning time
@@ -507,7 +508,79 @@ for curr_animal = 1:length(animals)
         
         %%% REGULAR CORRELATION
         cortex_fluor_corr = 1-pdist2(cortex_mua,fluor_roi_interp,'correlation');
-        cortex_striatum_corr = 1-pdist2(cortex_mua,striatum_mua,'correlation');
+        cortex_striatum_corr = 1-pdist2(cortex_mua,striatum_mua,'correlation');      
+                
+%         %%%%%%%%%%% TESTING
+%         
+%         figure('Name',[animal ' ' day]);
+%         subplot(1,3,1);
+%         imagesc(avg_im);
+%         colormap(gray);
+%         axis image off;
+%         drawnow; 
+%         
+%         % Get and plot fluorescence kernel for cortex spikes        
+%         use_svs = 1:100;
+%         kernel_t = [-0.5,0.5];
+%         kernel_frames = round(kernel_t(1)*framerate):round(kernel_t(2)*framerate);
+%         lambda = 10;
+%         zs = [false,false];
+%         cvfold = 5;
+%         return_constant = false;
+%         use_constant = true;
+%         
+%         for curr_plot = 1:2
+%             
+%             switch curr_plot
+%                 case 1
+%                     mua_std = cortex_mua./nanstd(cortex_mua,[],2);
+%                     mua_std(isnan(mua_std)) = 0;
+%                 case 2
+%                     mua_std = striatum_mua./nanstd(striatum_mua,[],2);
+%                     mua_std(isnan(mua_std)) = 0;
+%             end
+%             n_depths = size(mua_std,1);
+%             
+%             fVdf_deconv_resample = interp1(frame_t,fVdf_deconv(use_svs,:)',spike_binning_t_centers)';
+%             
+%             [k,predicted_spikes,explained_var] = ...
+%                 AP_regresskernel(fVdf_deconv_resample, ...
+%                 mua_std,kernel_frames,lambda,zs,cvfold,return_constant,use_constant);
+%             
+%             r_px = zeros(size(Udf,1),size(Udf,2),size(k,2),size(k,3),'single');
+%             for curr_spikes = 1:size(k,3)
+%                 r_px(:,:,:,curr_spikes) = svdFrameReconstruct(Udf(:,:,use_svs),k(:,:,curr_spikes));
+%             end
+%             
+%             % Get center of mass for each pixel
+%             % (get max r for each pixel, filter out big ones)
+%             r_px_max = squeeze(max(r_px,[],3));
+%             r_px_max(isnan(r_px_max)) = 0;
+%             % for i = 1:n_depths
+%             %     r_px_max(:,:,i) = medfilt2(r_px_max(:,:,i),[10,10]);
+%             % end
+%             r_px_max_norm = bsxfun(@rdivide,r_px_max, ...
+%                 permute(max(reshape(r_px_max,[],n_depths),[],1),[1,3,2]));
+%             r_px_max_norm(isnan(r_px_max_norm)) = 0;
+%             r_px_com = sum(bsxfun(@times,r_px_max_norm,permute(1:n_depths,[1,3,2])),3)./sum(r_px_max_norm,3);
+%             
+%             % Plot map of cortical pixel by preferred depth of probe
+%             r_px_com_col = ind2rgb(round(mat2gray(r_px_com,[1,n_depths])*255),jet(255));
+%             
+%             a1 = subplot(1,3,curr_plot+1,'YDir','reverse'); hold on;
+%             imagesc(avg_im); colormap(gray); caxis([0,prctile(avg_im(:),99.7)]);
+%             axis off; axis image;
+%             p = imagesc(r_px_com_col);
+%             axis off; axis image;
+%             set(p,'AlphaData',mat2gray(max(r_px_max_norm,[],3), ...
+%                 [0,double(prctile(reshape(max(r_px_max_norm,[],3),[],1),95))]));
+%             
+%             drawnow;
+%             
+%         end
+%         
+%         %%%%%%%%%%%%%
+        
         
         % Package data to save
         data(curr_animal,curr_day).cortex_mua_depth = depth_corr_bin_centers-ctx_depth(1);        

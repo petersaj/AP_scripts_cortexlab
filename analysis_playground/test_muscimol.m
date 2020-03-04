@@ -1738,7 +1738,7 @@ for curr_data = 1:length(data_fns)
     end
     
     %%%%%%%%%% TESTING %%%%%%%%%%%%%
-    
+ 
     predfit = [];
     for i = 1:size(act_predbinmean,2)
         use_points = ~isnan(act_predbinmean(:,i,1)) & ~isnan(act_predbinmean(:,i,1));
@@ -1760,8 +1760,8 @@ for curr_data = 1:length(data_fns)
 end
 
 % Plot striatum/cortex offset relative to cortical activity
-ctx_change = (ctx_v_error{2,1} - ctx_v_error{1,1})./(abs(ctx_v_error{2,1}) + abs(ctx_v_error{1,1}));
-error_change = (ctx_v_error{2,2} - ctx_v_error{1,2})./(abs(ctx_v_error{2,2}) + abs(ctx_v_error{1,2}));
+ctx_change = (ctx_v_error{2,1} - ctx_v_error{1,1})./ctx_v_error{1,1};
+error_change = (ctx_v_error{2,2} - ctx_v_error{1,2})./ctx_v_error{1,2};
 figure; 
 plot(ctx_change,error_change,'.k','MarkerSize',20);
 line([-1,1],[0,0],'color','k','linestyle','--');

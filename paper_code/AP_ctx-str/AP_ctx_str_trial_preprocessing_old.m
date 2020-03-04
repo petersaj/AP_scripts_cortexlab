@@ -1,3 +1,7 @@
+% THIS SCRIPT IS NOW REPLACED BY 
+% AP_ctx_str_trial_preprocessing / AP_ctx_str_grab_trial_data
+% (moved to a general grab trial script and pulled/saved by group)
+
 %% Notes
 %
 % AP_ctx_str_ephys_alignment - beforehand: gets striatal domains to group MUA
