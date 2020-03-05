@@ -187,7 +187,7 @@ for curr_animal = 1:length(animals)
                     false,regression_params.use_constant);
                 
                 explained_var_lambdas(:,curr_lambda_idx) = explained_var.total;
-%                 AP_print_progress_fraction(curr_lambda_idx,length(lambdas));
+                AP_print_progress_fraction(curr_lambda_idx,length(lambdas));
             end
             
             % Get the best lambda values
@@ -604,7 +604,7 @@ disp('Saved ephys kernel alignment');
 clear all
 
 % Parameters for regression
-regression_params.use_svs = 1:100;
+regression_params.use_svs = 1:50;
 regression_params.skip_seconds = 60;
 regression_params.upsample_factor = 1;
 regression_params.kernel_t = [-0.5,0.5];
@@ -855,7 +855,7 @@ end
 clear all
 
 % Parameters for regression
-regression_params.use_svs = 1:100;
+regression_params.use_svs = 1:50;
 regression_params.skip_seconds = 60;
 regression_params.upsample_factor = 1;
 regression_params.kernel_t = [-0.5,0.5];

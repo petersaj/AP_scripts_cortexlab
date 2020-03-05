@@ -83,13 +83,15 @@ wheel_allcat = cell2mat(vertcat(wheel_all{:}));
 if task_dataset
     
     % Get trial information
-    trial_stim_allcat = trial_info_allcat.stimulus;
+    trial_contrast_allcat = max(trial_info_allcat.stimulus,[],2);
+    [~,side_idx] = max(trial_info_allcat.stimulus > 0,[],2);
+    trial_side_allcat = (side_idx-1.5)*2;
+    trial_contrastside_allcat = trial_contrast_allcat.*trial_side_allcat;
     trial_choice_allcat = -(trial_info_allcat.response-1.5)*2;    
     trial_outcome_allcat = trial_info_allcat.outcome;
     
-    % Get reaction time and t index for movement onset
-    move_t = trial_info_allcat.stim_to_move;
-    [~,move_idx] = min(abs(move_t - t),[],2);
+    % Get reaction time
+    move_t = trial_info_all.stim_to_move;   
     
     % Get outcome time
     outcome_allcat = cell2mat(vertcat(outcome_all{:}));
@@ -115,12 +117,13 @@ elseif isfield(trial_info_allcat,'stimulus')
         % Use stim IDs
         trial_stim_allcat = trial_info_allcat.stimulus;
         % For both mpep and signals, ID is 1 = left, 2 = center, 3 = right
-        trial_stim_allcat(trial_stim_allcat == 1) = -1;
-        trial_stim_allcat(trial_stim_allcat == 2) = 0;
-        trial_stim_allcat(trial_stim_allcat == 3) = 1;
+        trial_contrastside_allcat = trial_stim_allcat;
+        trial_contrastside_allcat(trial_contrastside_allcat == 1) = -1;
+        trial_contrastside_allcat(trial_contrastside_allcat == 2) = 0;
+        trial_contrastside_allcat(trial_contrastside_allcat == 3) = 1;
     else
         % Passive choiceworld uses stimID = side*contrast
-        trial_stim_allcat = trial_info_allcat.stimulus;
+        trial_contrastside_allcat = trial_info_allcat.stimulus;
     end
 
 end
