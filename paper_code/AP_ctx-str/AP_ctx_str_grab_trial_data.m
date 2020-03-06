@@ -2,8 +2,8 @@
 
 %% Get if task if passive dataset
 
-% Task contains 'vanillaChoiceworld'
-task_dataset = contains(expDef,'vanillaChoiceworld');
+% Task dataset if signals (expDef) and contains 'vanillaChoiceworld'
+task_dataset = exist('expDef','var') && contains(expDef,'vanillaChoiceworld');
 
 
 %% Set parameters for cortical fluoresence

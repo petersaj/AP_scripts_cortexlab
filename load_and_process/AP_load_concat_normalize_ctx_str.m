@@ -17,7 +17,7 @@ data_struct_fieldnames = fieldnames(trial_data_all);
 experiment_fields = cellfun(@(curr_field) ...
     length(trial_data_all.(curr_field)) == length(trial_data_all.animals) && ...
     iscell(trial_data_all.(curr_field)) && ...
-    all(cellfun(@(x) iscell(x),trial_data_all.(curr_field))),data_struct_fieldnames);
+    any(cellfun(@(x) iscell(x),trial_data_all.(curr_field))),data_struct_fieldnames);
 
 % Load pre-marked experiments to exclude and cut out bad ones
 if exist('exclude_data','var') && exclude_data
@@ -50,9 +50,16 @@ if exist('exclude_data','var') && exclude_data
     end
 end
 
-% Unpack data structure into workspace
+% If any animals don't have any data - throw away
+nodata_animals = cellfun(@(x) isempty(x),trial_data_all.trial_info_all);
+trial_data_all.animals(nodata_animals) = [];
+for curr_field = data_struct_fieldnames(experiment_fields)'
+            trial_data_all.(cell2mat(curr_field))(nodata_animals) = [];
+end
+
+% Unpack data structure into workspace then throw away
 arrayfun(@(x) assignin('base',cell2mat(x),trial_data_all.(cell2mat(x))),data_struct_fieldnames);
-clear data_struct
+clear trial_data_all
 
 % Get sample rate and set "baseline" time
 sample_rate = 1/mean(diff(t));
