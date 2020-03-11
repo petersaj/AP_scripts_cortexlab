@@ -35,7 +35,7 @@ classdef vanillaChoiceworldBiasLowContrastExpPanel < eui.ExpPanel
     end
   end
   
-  methods %(Access = protected)
+  methods (Access = protected)
     function newTrial(obj, num, condition)
     end
     

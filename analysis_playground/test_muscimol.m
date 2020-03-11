@@ -573,7 +573,7 @@ axis image;
 colormap(brewermap([],'*RdBu'));
 
 % Get pre/post stim response
-use_stim = 3;
+use_stim = 1;
 
 mua_premuscimol_mean = ...
     cell2mat(cellfun(@(x,stim) nanmean(x(stim == use_stim,:,:),1),mua_muscimol{1},stimIDs{1},'uni',false));

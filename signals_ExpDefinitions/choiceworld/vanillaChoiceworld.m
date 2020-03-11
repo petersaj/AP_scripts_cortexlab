@@ -66,7 +66,7 @@ toneSamples = onsetToneAmplitude*events.expStart.map(@(x) ...
     onsetToneRampDuration,audioChannels));
 
 missNoiseDuration = 0.5;
-missNoiseAmplitude = 0.03; % Changed from 0.05 when moving to Strix
+missNoiseAmplitude = 0.03;
 missNoiseSamples = missNoiseAmplitude*events.expStart.map(@(x) ...
     randn(audioChannels,audioSampleRate*missNoiseDuration));
 

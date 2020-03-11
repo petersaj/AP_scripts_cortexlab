@@ -55,10 +55,10 @@ toneSamples = onsetToneAmplitude*events.expStart.map(@(x) ...
     aud.pureTone(onsetToneFreq,onsetToneDuration,audioSampleRate, ...
     onsetToneRampDuration,audioChannels));
 
-missNoiseDuration = itiMiss;
+missNoiseDuration = 0.5;
 missNoiseAmplitude = 0.03;
 missNoiseSamples = missNoiseAmplitude*events.expStart.map(@(x) ...
-    randn(2, audioSampleRate*missNoiseDuration));
+    randn(audioChannels,audioSampleRate*missNoiseDuration));
 
 % Wheel parameters
 quiescThreshold = 1;
