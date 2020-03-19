@@ -89,7 +89,6 @@ switch str_align
     
     case 'none'
         %%% Don't do anything
-        aligned_str_depth_group = [];
         
     case 'depth'
         %%% Align striatal recordings using saved alignment
@@ -150,6 +149,11 @@ switch str_align
             error('Not 1:1 raw and aligned spike depths')
         end
         
+end
+
+% If alignment isn't available, return empty
+if ~exist('aligned_str_depth_group','var')
+    aligned_str_depth_group = [];
 end
 
 %% Plot the aligned groups and MUA correlation
