@@ -10,7 +10,7 @@ if ~exist('confirm','var') || isempty(confirm)
 end
 
 % Local phy directory
-local_phy_dir = 'C:\data_temp\phy';
+local_phy_dir = 'G:\data_temp\phy';
 
 % Get animal and day from header
 header_filename = [local_phy_dir filesep 'dat_params.txt'];

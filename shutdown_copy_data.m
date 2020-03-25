@@ -1,5 +1,8 @@
 %% Copy all data to local drive for shutdown prep (not raw ephys)
 
+% NOTE: this didn't really work: old ephys has .dat in main path but new
+% ephys has it 3 subfolders deep, so very annoying to avoid
+
 
 %% Set animals
 
@@ -18,7 +21,7 @@ animals = [trained_animals, ...
 %% Set local and server locations
 
 % Local path
-local_drive = 'E:\full_data_backup';
+local_drive = 'G:\full_data_backup';
 
 % List servers
 server1 = '\\zserver.cortexlab.net';
@@ -75,7 +78,7 @@ for curr_animal = 1:length(animals)
                 copyfile(curr_server_pull,curr_local_drop);
             end
             
-            % If ephys, copy everything not .dat
+            % If ephys, only copy kilosort output
             ephys_copy_idx = strmatch('ephys',{curr_day_dir.name});
             if any(ephys_copy_idx)
                 ephys_copy_dir = dir([curr_path filesep curr_day filesep curr_day_dir(ephys_copy_idx).name]);
