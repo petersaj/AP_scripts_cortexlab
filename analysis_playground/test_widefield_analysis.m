@@ -2046,9 +2046,9 @@ AP_align_widefield(avg_im_days_blue,animal,{experiments.day},'new_days');
 
 %% View aligned vasculature (to check that it's been done correctly)
 
-animal = 'AP047';
+animal = 'AP063';
 
-protocol = 'AP_sparseNoise';
+protocol = 'AP_lcrGratingPassive';
 experiments = AP_find_experiments(animal,protocol);
 experiments(~([experiments.imaging])) = [];
 

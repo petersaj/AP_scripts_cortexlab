@@ -599,7 +599,7 @@ disp('Saved ephys kernel alignment');
 %% ~~~~~~~~ FOR LATER RECORDINGS ~~~~~~~~
 
 
-%% Estimate lambda, get kernels in segments, align to templates (MUSCIMOL)
+%% [MUSCIMOL] Estimate lambda, get kernels in segments, align to templates
 
 clear all
 
@@ -850,7 +850,7 @@ for curr_animal = 1:length(animals)
     end
 end
 
-%% Estimate lambda, get kernels in segments, align to templates (CORTEX EPHYS RECORDINGS)
+%% [CORTEX EPHYS] Estimate lambda, get kernels in segments, align to templates
 
 clear all
 
@@ -1102,7 +1102,111 @@ for curr_animal = 1:length(animals)
     end
 end
 
+
+%% [CORTICOSTRIATAL] Depth-align
+
+animals = {'AP063','AP068'};
+
+alignment_path = 'C:\Users\Andrew\OneDrive for Business\Documents\CarandiniHarrisLab\analysis\wf_ephys_choiceworld\ephys_processing';
+ephys_depth_align_fn = [alignment_path filesep 'ephys_depth_align'];
+load(ephys_depth_align_fn);
+
+for curr_animal = 1:length(animals)
+    
+    animal = animals{curr_animal};
+    % Find experiments
+    % (use only behavior days because cortical recordings afterwards)
+    protocol = 'vanillaChoiceworld';
+    experiments = AP_find_experiments(animal,protocol);
+    experiments(~([experiments.imaging] & [experiments.ephys])) = [];
+    
+    load_parts.cam = false;
+    load_parts.imaging = false;
+    load_parts.ephys = true;
+    
+    for curr_day = 1:length(experiments)
+        
+        day = experiments(curr_day).day;
+        experiment = experiments(curr_day).experiment(end);
+        
+        AP_load_experiment
+        
+        % Get MUA correlation (copied from AP_align_striatum_ephys - run in
+        % load but not output from function)
+        
+        %%% Get correlation of MUA in sliding sindows
+        depth_corr_window = 100; % MUA window in microns
+        depth_corr_window_spacing = 50; % MUA window spacing in microns
+        
+        max_depths = 3840; % (hardcode, sometimes kilosort2 drops channels)
+        
+        depth_corr_bins = [0:depth_corr_window_spacing:(max_depths-depth_corr_window); ...
+            (0:depth_corr_window_spacing:(max_depths-depth_corr_window))+depth_corr_window];
+        depth_corr_bin_centers = depth_corr_bins(1,:) + diff(depth_corr_bins,[],1)/2;
+        
+        spike_binning_t = 0.01; % seconds
+        spike_binning_t_edges = nanmin(spike_times):spike_binning_t:nanmax(spike_times);
+        
+        binned_spikes_depth = zeros(size(depth_corr_bins,2),length(spike_binning_t_edges)-1);
+        for curr_depth = 1:size(depth_corr_bins,2)
+            curr_depth_templates_idx = ...
+                find(template_depths >= depth_corr_bins(1,curr_depth) & ...
+                template_depths < depth_corr_bins(2,curr_depth));
+            
+            binned_spikes_depth(curr_depth,:) = histcounts(spike_times( ...
+                ismember(spike_templates,curr_depth_templates_idx)),spike_binning_t_edges);
+        end
+        
+        mua_corr = corrcoef(binned_spikes_depth');
+        
+        % Plot MUA corr and depth
+        figure('Name',[animal ' ' day]);
+        imagesc(depth_corr_bin_centers,depth_corr_bin_centers,mua_corr);
+        axis tight equal;
+        colormap(hot)
+        line([str_depth(1),str_depth(1)],ylim,'color','b','linewidth',2);
+        line([str_depth(2),str_depth(2)],ylim,'color','b','linewidth',2);
+        line(xlim,[str_depth(1),str_depth(1)],'color','b','linewidth',2);
+        line(xlim,[str_depth(2),str_depth(2)],'color','b','linewidth',2);
+        xlabel('Probe depth (\mum)');
+        ylabel('Probe depth (\mum)');
+        title('MUA correlation: striatum location');
+        drawnow;
+        
+        % Store MUA corr, template by depth, str depths       
+        % (find animal and day index structure)
+        curr_animal_idx = strcmp(animal,{ephys_depth_align.animal});
+        if ~any(curr_animal_idx)
+            curr_animal_idx = [curr_animal_idx,true];
+        end
+        
+        ephys_depth_align(curr_animal_idx).animal = animal;
+        ephys_depth_align(curr_animal_idx).day{curr_day} = day;
+        ephys_depth_align(curr_animal_idx).mua_corr{curr_day} = mua_corr;
+        ephys_depth_align(curr_animal_idx).template_depths{curr_day} = template_depths;
+        ephys_depth_align(curr_animal_idx).str_depth(curr_day,:) = str_depth;
+        
+        AP_print_progress_fraction(curr_day,length(experiments));
+        clearvars -except animals animal curr_animal ...
+            protocol experiments curr_day animal load_parts ...
+            ephys_depth_align_fn ephys_depth_align
+        
+    end
+    
+    disp(['Finished ' animal])
+    
+end
+
+% Save
+save(ephys_depth_align_fn,'ephys_depth_align');
+disp('Finished batch');
  
- 
- 
+
+
+
+
+
+
+
+
  

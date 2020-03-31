@@ -1,11 +1,14 @@
 %% Testing for corticostriatal-specific imaging
 
+%% ~~~~~~~~~ TESTS ~~~~~~~~~
+
 %% Get explained variance in sliding window
 
 % Load data
-animal = 'AP063';
-day = '2020-03-15';
+animal = 'AP068';
+day = '2020-03-17';
 experiments = AP_list_experiments(animal,day);
+% experiment = experiments(find(contains({experiments.protocol},'vanillaChoiceworld'),1,'first')).experiment;
 experiment = experiments(find(contains({experiments.protocol},'AP_lcrGratingPassive'),1,'last')).experiment;
 verbose = true;
 AP_load_experiment;
@@ -43,7 +46,7 @@ striatum_mua_std(isnan(striatum_mua_std)) = 0;
 use_svs = 1:200;
 kernel_t = [-0.5,0.5];
 kernel_frames = round(kernel_t(1)*framerate):round(kernel_t(2)*framerate);
-lambda = 20;
+lambda = 10;
 zs = [false,false];
 cvfold = 5;
 return_constant = false;
@@ -121,9 +124,6 @@ surround_samplerate = 1/(framerate*1);
 surround_time = surround_window(1):surround_samplerate:surround_window(2);
 baseline_surround_time = baseline_window(1):surround_samplerate:baseline_window(2);
 
-% (passive)
-% use_stims = find(stimIDs == 3);
-% (choiceworld)
 stimIDs = trial_conditions(:,1).*trial_conditions(:,2);
 use_stims = find(stimIDs > 0);
 
@@ -146,68 +146,218 @@ psth_measured = nanmean(psth_measured_stim - psth_measured_baseline,3);
 psth_predicted = nanmean(psth_predicted_stim - psth_predicted_baseline,3);
 
 figure; hold on;
-AP_stackplot(psth_measured',surround_time,2,false,'k');
-AP_stackplot(psth_predicted',surround_time,2,false,'r');
+AP_stackplot(psth_measured',surround_time,2,false,'k',mua_bin_centers);
+AP_stackplot(psth_predicted',surround_time,2,false,[0,0.7,0]);
 line([0,0],ylim,'color','k','linestyle','--');
 
+%% ~~~~~~~~~ ALIGNMENT ~~~~~~~~~
 
+%% Get and save average response to right grating (for animal alignment)
 
-%% Load and average stim-aligned image
-
-animals = {'AP063','AP064','AP066','AP068'};
-day = '2020-02-03';
-experiment = 1;
-verbose = true; 
-
-im_stim_all = cell(length(animals),1);
+animals = {'AP063','AP068'};
 
 for curr_animal = 1:length(animals)
     
     animal = animals{curr_animal};
-    AP_load_experiment;
+    protocol = 'AP_lcrGratingPassive';
+    flexible_name = true;
+    experiments = AP_find_experiments(animal,protocol,flexible_name);
+    experiments = experiments([experiments.imaging]);
     
-    % Set options
-    surround_window = [-0.5,3];
-    baseline_window = [-0.1,0];
+    im_stim_all = cell(length(experiments),1);
     
-    surround_samplerate = 1/(framerate*1);
-    surround_time = surround_window(1):surround_samplerate:surround_window(2);
-    baseline_surround_time = baseline_window(1):surround_samplerate:baseline_window(2);
-    
-    % Average (time course) responses
-    use_vs = 1:size(U,3);
-    
-    conditions = unique(stimIDs);
-    im_stim = nan(size(U,1),size(U,2),length(surround_time),length(conditions));
-    for curr_condition_idx = 1:length(conditions)
-        curr_condition = conditions(curr_condition_idx);
+    for curr_day = 1:length(experiments)
         
-        use_stims = find(stimIDs == curr_condition);
-        use_stimOn_times = stimOn_times(use_stims(2:end));
-        use_stimOn_times([1,end]) = [];
+        day = experiments(curr_day).day;
+        experiment = experiments(curr_day).experiment(end);
+        AP_load_experiment;
         
-        stim_surround_times = bsxfun(@plus, use_stimOn_times(:), surround_time);
-        stim_baseline_surround_times = bsxfun(@plus, use_stimOn_times(:), baseline_surround_time);
+        Udf_aligned = AP_align_widefield(Udf,animal,day,'day_only');
+        fVdf_deconv = AP_deconv_wf(fVdf);
         
-        peri_stim_v = permute(interp1(frame_t,fVdf',stim_surround_times),[3,2,1]);
-        baseline_v = permute(nanmean(interp1(frame_t,fVdf',stim_baseline_surround_times),2),[3,2,1]);
+        % Set options
+        surround_window = [-0.5,3];
+        baseline_window = [-0.1,0];
         
-        stim_v_mean = nanmean(peri_stim_v - baseline_v,3);
+        surround_samplerate = 1/(framerate*1);
+        surround_time = surround_window(1):surround_samplerate:surround_window(2);
+        baseline_surround_time = baseline_window(1):surround_samplerate:baseline_window(2);
         
-        im_stim(:,:,:,curr_condition_idx) = svdFrameReconstruct(Udf(:,:,use_vs), ...
-            stim_v_mean(use_vs,:));
+        % Average (time course) responses
+        use_vs = 1:size(U,3);
+        
+        conditions = unique(stimIDs);
+        im_stim = nan(size(Udf_aligned,1),size(Udf_aligned,2),length(surround_time),length(conditions));
+        for curr_condition_idx = 1:length(conditions)
+            curr_condition = conditions(curr_condition_idx);
+            
+            use_stims = find(stimIDs == curr_condition);
+            use_stimOn_times = stimOn_times(use_stims(2:end));
+            use_stimOn_times([1,end]) = [];
+            
+            stim_surround_times = bsxfun(@plus, use_stimOn_times(:), surround_time);
+            stim_baseline_surround_times = bsxfun(@plus, use_stimOn_times(:), baseline_surround_time);
+            
+            peri_stim_v = permute(interp1(frame_t,fVdf_deconv',stim_surround_times),[3,2,1]);
+            baseline_v = permute(nanmean(interp1(frame_t,fVdf_deconv',stim_baseline_surround_times),2),[3,2,1]);
+            
+            stim_v_mean = nanmean(peri_stim_v - baseline_v,3);
+            
+            im_stim(:,:,:,curr_condition_idx) = svdFrameReconstruct(Udf_aligned(:,:,use_vs), ...
+                stim_v_mean(use_vs,:));
+        end        
+        
+        use_stim = 3;
+        im_stim_all{curr_day} = im_stim(:,:,:,use_stim);
+        
+        AP_print_progress_fraction(curr_day,length(experiments));
+        
     end
     
-    im_stim_all{curr_animal} = im_stim;
+    % Get average stim response across days
+    stim_time = [0.05,0.15];
+    use_time = surround_time >= stim_time(1) & surround_time <= stim_time(2);
+    right_grating = nanmean(cell2mat(reshape(cellfun(@(x) ...
+        nanmean(x(:,:,use_time),3),im_stim_all,'uni',false),1,1,[])),3);
+   
+    % Save average stim response
+    save_path = 'C:\Users\Andrew\OneDrive for Business\Documents\CarandiniHarrisLab\analysis\widefield_alignment\right_grating';
+    save_fn = [save_path filesep animal '_right_grating.mat'];
+    save(save_fn,'right_grating');
     
 end
 
-im_stim_cat = cat(5,im_stim_all{:});
-AP_image_scroll(nanmean(im_stim_cat(:,:,:,2,:),5));
+
+%% Align corticostriatal across animals (using right grating response)
+
+animal = 'AP068';
+
+right_grating_path = 'C:\Users\Andrew\OneDrive for Business\Documents\CarandiniHarrisLab\analysis\widefield_alignment\right_grating';
+right_grating_fn = [right_grating_path filesep animal '_right_grating.mat'];
+load(right_grating_fn);
+
+% Make master from passive grating response
+data_fn = 'trial_activity_AP_choiceWorldStimPassive_trained';
+AP_load_concat_normalize_ctx_str;
+
+stim_time = [0.05,0.15];
+use_time = t >= stim_time(1) & t <= stim_time(2);
+right_grating_master = svdFrameReconstruct(U_master(:,:,1:n_vs), ...
+    squeeze(nanmean(nanmean(fluor_allcat_deconv(trial_stim_allcat == 1,use_time,:),2),1)));
+
+% Align animal to master
+AP_align_widefield(right_grating,animal,[],'new_animal',right_grating_master);
+
+
+%% ~~~~~~~~~ BATCH ANALYSIS ~~~~~~~~~
+
+%% Get passive responses before/after training
+
+animals = {'AP063','AP068'};
+
+im_stim_all = cell(size(animals));
+
+for curr_animal = 1:length(animals)
+    
+    animal = animals{curr_animal};
+    protocol = 'AP_lcrGratingPassive';
+    flexible_name = true;
+    experiments = AP_find_experiments(animal,protocol,flexible_name);
+    experiments = experiments([experiments.imaging]);
+        
+    disp(animal);
+    
+    for curr_day = 1:length(experiments)
+        
+        day = experiments(curr_day).day;
+        experiment = experiments(curr_day).experiment(end);
+        load_parts.imaging = true;
+        AP_load_experiment;
+        
+        Udf_aligned = AP_align_widefield(Udf,animal,day);
+        fVdf_deconv = AP_deconv_wf(fVdf);
+        
+        % Set options
+        surround_window = [-0.5,3];
+        baseline_window = [-0.1,0];
+        
+        surround_samplerate = 1/(framerate*1);
+        surround_time = surround_window(1):surround_samplerate:surround_window(2);
+        baseline_surround_time = baseline_window(1):surround_samplerate:baseline_window(2);
+        
+        % Average (time course) responses
+        use_vs = 1:size(U,3);
+        
+        conditions = unique(stimIDs);
+        im_stim = nan(size(Udf_aligned,1),size(Udf_aligned,2),length(surround_time),length(conditions));
+        for curr_condition_idx = 1:length(conditions)
+            curr_condition = conditions(curr_condition_idx);
+            
+            use_stims = find(stimIDs == curr_condition);
+            use_stimOn_times = stimOn_times(use_stims(2:end));
+            use_stimOn_times([1,end]) = [];
+            
+            stim_surround_times = bsxfun(@plus, use_stimOn_times(:), surround_time);
+            stim_baseline_surround_times = bsxfun(@plus, use_stimOn_times(:), baseline_surround_time);
+            
+            peri_stim_v = permute(interp1(frame_t,fVdf_deconv',stim_surround_times),[3,2,1]);
+            baseline_v = permute(nanmean(interp1(frame_t,fVdf_deconv',stim_baseline_surround_times),2),[3,2,1]);
+            
+            stim_v_mean = nanmean(peri_stim_v - baseline_v,3);
+            
+            im_stim(:,:,:,curr_condition_idx) = svdFrameReconstruct(Udf_aligned(:,:,use_vs), ...
+                stim_v_mean(use_vs,:));
+        end        
+        
+        im_stim_all{curr_animal}{curr_day} = im_stim;       
+        AP_print_progress_fraction(curr_day,length(experiments));
+        
+    end    
+    
+end
+
+use_stim = 3;
+use_animal = 2;
+curr_im = cell2mat(reshape(cellfun(@(x) x(:,:,:,use_stim), ...
+    im_stim_all{use_animal},'uni',false),1,1,1,[]));
+
+AP_image_scroll(curr_im);
+axis image;
+caxis([-max(abs(caxis)),max(abs(caxis))]);
+colormap(brewermap([],'*RdBu'));
+
+
+
+
+
+%% Load corticostriatal trial data
+
+% Task
+data_fn = 'trial_activity_choiceworld_corticostriatal';
+AP_load_concat_normalize_ctx_str;
+
+% Passive
+data_fn = 'trial_activity_AP_lcrGratingPassive_corticostriatal';
+AP_load_concat_normalize_ctx_str;
+
+
+
+
+% (testing: look at cortex>striatum kernel - garbage at the moment)
+% Get average ctx>str kernel in pixels (flip time to be lag-to-MUA)
+ctx_str_k_mean = fliplr(nanmean(cell2mat(permute(vertcat(ctx_str_k_all{:}),[2,3,4,5,1])),5));
+ctx_str_k_mean_px = cell2mat(arrayfun(@(x) svdFrameReconstruct(U_master(:,:,1:100), ...
+    ctx_str_k_mean(:,:,x)),permute(1:n_depths,[1,3,4,2]),'uni',false));
+
+ctx_str_kernel_frames_t = [-0.5,0.5];
+ctx_str_kernel_frames = round(ctx_str_kernel_frames_t(1)*sample_rate): ...
+    round(ctx_str_kernel_frames_t(2)*sample_rate);
+ctx_str_kernel_t = ctx_str_kernel_frames./sample_rate;
+
+AP_image_scroll(ctx_str_k_mean_px,ctx_str_kernel_t)
 axis image
-
-
-
+caxis([-max(abs(caxis)),max(abs(caxis))]);
+colormap(brewermap([],'*RdBu'));
 
 
 

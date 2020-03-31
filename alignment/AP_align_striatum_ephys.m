@@ -93,6 +93,7 @@ switch str_align
     case 'depth'
         %%% Align striatal recordings using saved alignment
         % (this requires an input for n_aligned_depths)
+        % (NEW WAY: hardcode striatum length, doesn't need anything saved)
         if exist('n_aligned_depths','var')
             ephys_align_path = 'C:\Users\Andrew\OneDrive for Business\Documents\CarandiniHarrisLab\analysis\wf_ephys_choiceworld\ephys_processing';
             ephys_align_fn = ['ephys_depth_align.mat'];
@@ -105,14 +106,19 @@ switch str_align
                     if any(curr_day_idx)
                         if verbose; disp('Aligning striatum by saved depths...'); end
                         
-                        % Get the maximum striatal length, split evenly
-                        all_str_lengths = diff(vertcat(ephys_depth_align(:).str_depth),[],2);
-                        max_str_length = max(all_str_lengths);
+%                         % Get max striatum length and divide evenly
+%                         all_str_lengths = diff(vertcat(ephys_depth_align(:).str_depth),[],2);
+%                         max_str_length = max(all_str_lengths);
+%                         global_str_depth_edges = linspace(0,max_str_length,n_aligned_depths+1);
+                        
+                        % ALTERNATE: set max striatum length, divide evenly
+                        max_str_length = 3000; % Based on CCF trajectory
                         global_str_depth_edges = linspace(0,max_str_length,n_aligned_depths+1);
                         
                         % Set current striatum depth edges by global length
                         % assuming that the end is actually the end
                         str_depth_edges = sort(str_depth(2) - global_str_depth_edges);
+                        str_depth_edges(1) = -Inf; % In case longer than max 
                         
                         % Get spike depths, setting all outside the striatum to NaN
                         str_spike_depths = spike_depths;

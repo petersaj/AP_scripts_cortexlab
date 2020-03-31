@@ -1,4 +1,4 @@
-function im_aligned = AP_align_widefield(im_unaligned,animal,day,align_type)
+function im_aligned = AP_align_widefield(im_unaligned,animal,day,align_type,master_align)
 % im_aligned = AP_align_widefield(im_unaligned,animal,day,align_type)
 %
 % Align widefield images across days and animals
@@ -12,6 +12,7 @@ function im_aligned = AP_align_widefield(im_unaligned,animal,day,align_type)
 % > 'new_days' - make new alignment within animal across days
 % > 'new_animal' - make new alignment from animal to master 
 % > 'create_master' - create new master alignment reference
+% master_align - if 'new_animal', use this instead of master_vfs
 %
 % USAGE: 
 % 1) Create master alignment reference ('create_master') from average aligned VFSs from multiple animals
@@ -257,14 +258,19 @@ switch align_type
     case 'new_animal'
         %% Align animal to master VFS
         
-        disp('Aligning animal VFS to master VFS...')
-        
-        % Load master VFS
-        master_vfs_fn = [alignment_path filesep 'master_vfs.mat'];
-        load(master_vfs_fn);
-        
-        % Align animal VFS to master VFS
-        ref_size = size(master_vfs);
+        if ~exist('master_align') || isempty(master_align)
+            % Align master VFS by default          
+            disp('Aligning animal VFS to master VFS...')
+            % Load master VFS
+            master_vfs_fn = [alignment_path filesep 'master_vfs.mat'];
+            load(master_vfs_fn);
+            master_align = master_vfs;
+        else
+            disp('Aligning animal image to master image')
+        end
+  
+        % Align animal image to master image
+        ref_size = size(master_align);
         
         [optimizer, metric] = imregconfig('monomodal');
         optimizer = registration.optimizer.OnePlusOneEvolutionary();
@@ -272,16 +278,16 @@ switch align_type
         optimizer.GrowthFactor = 1+1e-6;
         optimizer.InitialRadius = 1e-4;
         
-        tformEstimate_affine = imregtform(im_unaligned,master_vfs,'affine',optimizer,metric);
+        tformEstimate_affine = imregtform(im_unaligned,master_align,'affine',optimizer,metric);
         im_aligned = imwarp(im_unaligned,tformEstimate_affine,'Outputview',imref2d(ref_size));
         tform_matrix = tformEstimate_affine.T;
         
         figure;
         subplot(1,2,1);
-        imshowpair(master_vfs,im_unaligned);
+        imshowpair(master_align,im_unaligned);
         title('Unaligned');
         subplot(1,2,2);
-        imshowpair(master_vfs,im_aligned);
+        imshowpair(master_align,im_aligned);
         title('Aligned');
         
         % Save transform matrix into structure
