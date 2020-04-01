@@ -313,8 +313,8 @@ title('Diff')
 
 % Load experiment (with one LFP channel)
 animal = 'AP061';
-day = '2019-12-12';
-experiment = 4;
+day = '2019-12-09';
+experiment = 3;
 site = 2;
 lfp_channel = 1;
 str_align = 'none';
@@ -323,12 +323,15 @@ verbose = true;
 AP_load_experiment;
 
 
+% TO DO HERE: Loop through all LFP channels and get avg stim response
+
 % Load in each channel, light-fix, get average stim response
 % (loading script sets up a bunch of this already): load in each channel
+
 use_stims = trial_conditions(:,2) == 90;
 use_stimOn_times = stimOn_times(use_stims);
 
-stim_surround_window = [-0.1,0.6];
+stim_surround_window = [-0.5,1];
 stim_surround_t = stim_surround_window(1):1/lfp_sample_rate:stim_surround_window(2);
 
 pull_times = use_stimOn_times + stim_surround_t;
@@ -337,7 +340,7 @@ lfp_stim_align_avg = nan(n_channels,length(stim_surround_t));
 
 for curr_lfp_channel = 1:n_channels
     
-    lfp = double(lfp_memmap{lfp_load_file}.Data.lfp(curr_lfp_channel,lfp_load_start_rel:lfp_load_stop_rel));
+    lfp = double(lfp_memmap.Data.lfp(curr_lfp_channel,lfp_load_start:lfp_load_stop));
         
     % Pull out LFP around light on
     use_blue_on = blue_on >= lfp_t_timeline(1) & blue_on <= lfp_t_timeline(end);
@@ -379,62 +382,48 @@ for curr_lfp_channel = 1:n_channels
     % Get average stim response
     lfp_stim_align = interp1(lfp_t_timeline,lfp_lightfix,pull_times);
     
-    baseline_time = stim_surround_t < 0;
+    baseline_time = stim_surround_t >-0.05 & stim_surround_t < 0;
     lfp_stim_align_avg(curr_lfp_channel,:) = nanmean((lfp_stim_align - nanmean(lfp_stim_align(:,baseline_time),2)),1);
       
     AP_print_progress_fraction(curr_lfp_channel,n_channels);
     
 end
 
-% Average channels at same depth and smooth
-n_channel_smooth = 10;
-[lfp_stim_depth,lfp_stim_align_avg_depth] = grpstats(lfp_stim_align_avg,lfp_channel_positions,{'gname','mean'});
-lfp_stim_depth = cellfun(@str2num,lfp_stim_depth);
-lfp_stim_align_avg_depth_smooth = movmean(lfp_stim_align_avg_depth,n_channel_smooth,1);
+% Average channels at same depth
+lfp_stim_align_avg_depth = accumarray(lfp_channel_positions,lfp_stim_align_avg,[],@nanmean);
 
-% Interpolate LFP for line plots
-plot_lfp_depths = 0:200:max(lfp_stim_depth);
-plot_lfp = interp1(lfp_stim_depth,lfp_stim_align_avg_depth_smooth,plot_lfp_depths);
-yscale = -0.2; % flip because YDir is reversed
+% Smooth across channels
+n_channels_smooth = 20;
+lfp_stim_align_avg_smooth = movmean(lfp_stim_align_avg,20,1);
 
 figure;
 
 % Plot template depths
-p1 = subplot(1,3,1);
+subplot(1,3,1);
 norm_spike_n = mat2gray(log10(accumarray(spike_templates,1)+1));
 scatter(norm_spike_n,template_depths,20,'k','Filled');
 ylabel('Depth (\mum)');
 xlabel('Norm spike rate');
 ylim([min(lfp_channel_positions),max(lfp_channel_positions)]);
-set(gca,'YDir','reverse');
+set(gca,'YDir','reverse')
 
 % Plot LFP stim response (all channels)
-p2 = subplot(1,3,2);
-imagesc(stim_surround_t,lfp_stim_depth,lfp_stim_align_avg_depth_smooth);
+subplot(1,3,2);
+imagesc(stim_surround_t,lfp_channel_positions,lfp_stim_align_avg_smooth);
 line([0,0],ylim,'color','k');
 colormap(brewermap([],'*RdBu'));
 caxis([-max(abs(caxis)),max(abs(caxis))]);
 
-AP_stackplot(plot_lfp',stim_surround_t,plot_lfp_depths,yscale,'k');
+% Plot LFP stim response (subset of channels)
+subplot(1,4,3);
+n_plot_channels = 20;
+AP_stackplot(lfp_stim_align_avg_smooth(round(linspace(1,n_channels,n_plot_channels)),:)',stim_surround_t,1e3,false,'k');
 
 % Estimate LFP CSD
-lfp_stim_align_avg_depth_smooth_d1 = movmean(diff(lfp_stim_align_avg_depth_smooth,1,1),n_channel_smooth,1);
-lfp_stim_align_avg_depth_smooth_d2 = movmean(diff(lfp_stim_align_avg_depth_smooth_d1,1,1),n_channel_smooth,1);
-lfp_stim_align_avg_depth_smooth_csd = -lfp_stim_align_avg_depth_smooth_d2; 
+a = interp2(stim_surround_t,lfp_channel_positions,lfp_stim_align_avg_smooth,stim_surround_t, ...
+    linspace(min(lfp_channel_positions),max(lfp_channel_positions),100));
 
-lfp_stim_depth_d2 = conv(conv(lfp_stim_depth,[1,1]/2,'valid'),[1,1]/2,'valid');
-
-p3 = subplot(1,3,3);
-imagesc(stim_surround_t,lfp_stim_depth_d2,lfp_stim_align_avg_depth_smooth_d2);
-line([0,0],ylim,'color','k');
-colormap(brewermap([],'*RdBu'));
-caxis([-max(abs(caxis)),max(abs(caxis))]);
-
-AP_stackplot(plot_lfp',stim_surround_t,plot_lfp_depths,yscale,'k');
-
-% Link axes
-linkaxes([p1,p2,p3],'y')
-linkaxes([p2,p3],'x')
+lfp_stim_csd = movmean(lfp_stim_align_avg,20,1);
 
 
 %% Get cortex widefield/ephys relationship by depth (batch)

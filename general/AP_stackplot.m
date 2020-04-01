@@ -1,10 +1,10 @@
-function h = AP_stackplot(x,t,spacing,zs,color,ylabels,zero_lines)
+function h = AP_stackplot(x,t,spacing,yscale,color,ylabels,zero_lines)
 % h = AP_stackplot(x,t,spacing,zs,color,ylabels,zero_lines)
 %
 % Plot lines stacked on each other
 % x - matrix to plot, N points x M lines
-% spacing - spacing between lines
-% zscore - true/false, zscore traces
+% spacing - number: spacing between traces, vector: y-position of traces
+% yscale - value to rescale y-values
 % ylabels - can set the ylabels for each line being plotted
 % zero_lines - plot horizontal lines at zero for each line
 
@@ -15,22 +15,29 @@ end
 if ~exist('spacing','var') || isempty(spacing)
     % default spacing is a little larger than the range of the data
     spacing = range(x(:))*1.2;
+elseif length(spacing) > 1 && length(spacing) ~= size(x,2)
+    error('Different number of lines and y-values');
+else
+    % Force row orientation of spacing vector
+    spacing = reshape(spacing,1,[]);
 end
-if ~exist('zs','var') || isempty(zs)
-   zs = false; 
+if ~exist('yscale','var') || isempty(yscale)
+   yscale = 1; 
 end
 if ~exist('zero_lines','var') || isempty(zero_lines)
     zero_lines = false;
 end
 
+% Hold the current plot to retain properties
+hold on
+
 % Stack from top to bottom
-spacing_add = spacing*cast([size(x,2):-1:1],class(spacing));
-if ~zs
-    x_spaced = x + spacing_add;
-elseif zs
-    % (zscore ignoring nans)
-    x_spaced = (x-nanmean(x,1))./nanstd(x,[],1) + spacing_add;
+if length(spacing) == 1
+    spacing_add = spacing*cast([size(x,2):-1:1],class(spacing));
+else
+    spacing_add = spacing;
 end
+x_spaced = x*yscale + spacing_add;
 
 if exist('color','var') && ~isempty(color)
     if length(color) == 1

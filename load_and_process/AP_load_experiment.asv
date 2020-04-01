@@ -1049,28 +1049,31 @@ if ephys_exists && load_parts.ephys && exist('lfp_channel','var') && isnumeric(l
     %%% Remove light artifact
     if verbose; disp('Cleaning LFP...'); end;
     
-    % Get light times (assume blue/violet alternate)
-    light_t_timeline = interp1(sync_ephys,sync_timeline,sync(led_sync_idx).timestamps,'linear','extrap');
-    use_light_times = light_t_timeline >= lfp_t_timeline(1) & light_t_timeline <= lfp_t_timeline(end);
-    light_on = light_t_timeline(sync(led_sync_idx).values == 1 & use_light_times);
-    light_off = light_t_timeline(sync(led_sync_idx).values == 0 & use_light_times);
+    % Get light times in current experiment (assume blue/violet alternate)
+    flip_diff_thresh = 1; % time between flips to define experiment gap (s)
+    flipper_expt_idx = [1;find(abs(diff(sync(flipper_sync_idx).timestamps)) > ...
+        flip_diff_thresh)+1;length(sync(flipper_sync_idx).timestamps)+1];
     
-    % (cut uncoupled off/on from start/end)
-    if light_off(1) < light_on(1)
-        light_off(1) = [];
+    
+    experiment_idx
+    
+    
+    light_t_timeline = interp1(sync_ephys,sync_timeline,sync(led_sync_idx).timestamps,'linear','extrap');
+    if sync(led_sync_idx).values(1) ~= 1
+       error('Ephys sync missed first LED onset') 
     end
-    if light_on(end) > light_off(end)
-        light_on(end) = [];
-    end
+    light_on = light_t_timeline(sync(led_sync_idx).values == 1);
+    light_off = light_t_timeline(sync(led_sync_idx).values == 0);
+    
+    light_on_median = median(light_off - light_on(1:length(light_off)));
+    light_off_median = median(light_on(2:length(light_off)) - light_off(1:end-1));
     
     blue_on = light_on(1:2:end);
     blue_off = light_off(1:2:end);
     violet_on = light_on(2:2:end);
     violet_off = light_off(2:2:end);
     
-    light_on_mean = mean(light_off - light_on);
-    light_off_mean = mean(light_on(2:end) - light_off(1:end-1));
-    light_surround_t = [-(light_off_mean/2):1/lfp_sample_rate:(light_on_mean+(light_off_mean/2))];
+    light_surround_t = [-(light_off_median/2):1/lfp_sample_rate:(light_on_median+(light_off_median/2))];
         
     % Pull out LFP around light on
     use_blue_on = blue_on >= lfp_t_timeline(1) & blue_on <= lfp_t_timeline(end);
