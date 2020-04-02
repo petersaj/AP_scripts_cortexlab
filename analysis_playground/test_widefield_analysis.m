@@ -530,9 +530,9 @@ if ~exist('fVdf_deconv','var')
     fVdf_deconv = AP_deconv_wf(fVdf);
 end
 
-% %%%%%%%%%%% TESTING
-fVdf_deconv = fVdf;
-% %%%%%%%%%%%
+%%%%%%%%%%% TESTING
+% fVdf_deconv = fVdf;
+%%%%%%%%%%%
 
 % Average (time course) responses
 use_vs = 1:size(U,3);
