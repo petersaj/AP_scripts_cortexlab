@@ -309,201 +309,8 @@ caxis([-5,5]);
 colormap(brewermap([],'*RdBu'));
 title('Diff')
 
-%% Get CSD to identify layer 4 boundary
+%% ~~~~ Align LFP and get correlation between fluorescence and spikes
 
-animals = {'AP043','AP060','AP061'};
-
-vis_ctx_ephys = struct;
-
-for curr_animal = 1:length(animals)
-    
-    animal = animals{curr_animal};
-    
-    protocol = 'AP_lcrGratingPassive';
-    flexible_name = true;
-    experiments = AP_find_experiments(animal,protocol);
-    experiments = experiments([experiments.imaging] & [experiments.ephys]);
-    
-    for curr_day = 1:length(experiments)
-        
-        % Load experiment
-        day = experiments(curr_day).day;
-        experiment = experiments(curr_day).experiment(end);
-        site = 2; % cortex probe is always site 2
-        lfp_channel = 1; % initialize the single-channel variables
-        str_align = 'none'; % (because this is on cortex)
-        load_parts.ephys = true;
-        verbose = false;
-        AP_load_experiment
-        
-        % Estimate boundaries of cortex (the dumb way: first template/gap)      
-        sorted_template_depths = sort(template_depths);      
-        ctx_start = sorted_template_depths(1) - 1;
-        [max_gap,max_gap_idx] = max(diff(sorted_template_depths));
-        ctx_end = sorted_template_depths(max_gap_idx)+1;
-        ctx_depth = [ctx_start,ctx_end];
-        
-        % Load in each channel, light-fix, get average stim response
-        % (loading script sets up a bunch of this already): load in each channel
-        use_stims = trial_conditions(:,2) == 90;
-        use_stimOn_times = stimOn_times(use_stims);
-        
-        stim_surround_window = [-0.05,0.1];
-        stim_surround_t = stim_surround_window(1):1/lfp_sample_rate:stim_surround_window(2);
-        
-        pull_times = use_stimOn_times + stim_surround_t;
-        
-        lfp_stim_align_avg = nan(n_channels,length(stim_surround_t));
-        
-        for curr_lfp_channel = 1:n_channels
-            
-            lfp = double(lfp_memmap{lfp_load_file}.Data.lfp(curr_lfp_channel,lfp_load_start_rel:lfp_load_stop_rel));
-            
-            % Pull out LFP around light on
-            use_blue_on = blue_on >= lfp_t_timeline(1) & blue_on <= lfp_t_timeline(end);
-            blue_on_pull_t = blue_on(use_blue_on) + light_surround_t;
-            blue_on_lfp = interp1(lfp_t_timeline,lfp',blue_on_pull_t);
-            
-            use_violet_on = violet_on >= lfp_t_timeline(1) & violet_on <= lfp_t_timeline(end);
-            violet_on_pull_t = violet_on(use_violet_on) + light_surround_t;
-            violet_on_lfp = interp1(lfp_t_timeline,lfp',violet_on_pull_t);
-            
-            % Subtract baseline
-            baseline_t = find(light_surround_t < 0,1,'last');
-            blue_on_lfp_baselinesub = blue_on_lfp - blue_on_lfp(:,baseline_t,:);
-            violet_on_lfp_baselinesub = violet_on_lfp - violet_on_lfp(:,baseline_t,:);
-            
-            % Get rolling median (allow light artifact to change slightly)
-            n_light = 500;
-            blue_on_lfp_baselinesub_med = movmedian(blue_on_lfp_baselinesub,n_light,1);
-            violet_on_lfp_baselinesub_med = movmedian(violet_on_lfp_baselinesub,n_light,1);
-            
-            % Interpolate out the artifact to remove
-            n_lfp_channels = size(lfp,1);
-            blue_light_remove = interp1( ...
-                reshape(permute(blue_on_pull_t,[2,1]),[],1), ...
-                reshape(permute(blue_on_lfp_baselinesub_med,[2,1,3]),[],n_lfp_channels), ...
-                reshape(lfp_t_timeline,[],1))';
-            violet_light_remove = interp1( ...
-                reshape(permute(violet_on_pull_t,[2,1]),[],1), ...
-                reshape(permute(violet_on_lfp_baselinesub_med,[2,1,3]),[],n_lfp_channels), ...
-                reshape(lfp_t_timeline,[],1))';
-            
-            % Zero-out any NaNs (e.g. remove nothing)
-            blue_light_remove(isnan(blue_light_remove)) = 0;
-            violet_light_remove(isnan(violet_light_remove)) = 0;
-            
-            % Remove the artifact
-            lfp_lightfix = lfp - (blue_light_remove + violet_light_remove);
-            
-            % Additional 300Hz filter: artifact blips sometimes still there
-            freqCutoff = 300; % Hz
-            [b100s, a100s] = butter(2,freqCutoff/(lfp_sample_rate/2),'low');
-            lfp_lightfix_filt = single(filtfilt(b100s,a100s,double(lfp_lightfix)')');
-             
-            % Get average stim response
-            lfp_stim_align = interp1(lfp_t_timeline,lfp_lightfix_filt,pull_times);
-            
-            baseline_time = stim_surround_t < 0;
-            lfp_stim_align_avg(curr_lfp_channel,:) = nanmean((lfp_stim_align - nanmean(lfp_stim_align(:,baseline_time),2)),1);
-            
-            AP_print_progress_fraction(curr_lfp_channel,n_channels);
-            
-        end
-        
-        % Average channels at same depth and smooth
-        n_channel_smooth = 10;
-        
-        lfp_connected_channels = channel_map_full.connected;       
-        [lfp_stim_depth,lfp_stim_align_avg_depth] = grpstats( ...
-            lfp_stim_align_avg(lfp_connected_channels,:), ...
-            lfp_channel_positions(lfp_connected_channels),{'gname','mean'});
-        lfp_stim_depth = cellfun(@str2num,lfp_stim_depth);
-        lfp_stim_align_avg_depth_smooth = movmean(lfp_stim_align_avg_depth,n_channel_smooth,1);
-        
-        % Calculate CSD (2nd spatial derivative of LFP)
-        lfp_stim_align_avg_depth_smooth_d1 = movmean(diff(lfp_stim_align_avg_depth_smooth,1,1),n_channel_smooth,1);
-        lfp_stim_align_avg_depth_smooth_d2 = movmean(diff(lfp_stim_align_avg_depth_smooth_d1,1,1),n_channel_smooth,1);
-        lfp_stim_csd = -lfp_stim_align_avg_depth_smooth_d2;            
-        lfp_stim_csd_depth = conv(conv(lfp_stim_depth,[1,1]/2,'valid'),[1,1]/2,'valid');
-        
-        % Get a time slice of the CSD to align/determine layers
-        csd_slice_t = [0.04,0.06]; % time to use after stim (s)
-        csd_slice_samples = stim_surround_t >= csd_slice_t(1) & stim_surround_t <= csd_slice_t(2);
-        csd_slice = nanmean(lfp_stim_csd(:,csd_slice_samples),2);
-        % (unused: estimate L4)
-        [~,csd_slice_min_idx] = min(csd_slice);
-        L4_boundary = lfp_stim_csd_depth(csd_slice_min_idx + ...
-            find(csd_slice(csd_slice_min_idx:end) > 0,1,'first'));
-     
-        % Plot
-        figure('Name',[animal ' ' day]); 
-              
-        % Plot template depths
-        p1 = subplot(1,3,1);
-        norm_spike_n = mat2gray(log10(accumarray(spike_templates,1)+1));
-        scatter(norm_spike_n,template_depths,20,'k','Filled');
-        ylim([min(lfp_channel_positions),max(lfp_channel_positions)]);
-        set(gca,'YDir','reverse');
-        line(xlim,repmat(ctx_depth(1),2,1),'linewidth',2,'color',[0.5,0.5,0.5]);
-        line(xlim,repmat(ctx_depth(2),2,1),'linewidth',2,'color',[0.5,0.5,0.5]);
-        ylabel('Depth (\mum)');
-        xlabel('Norm spike rate');
-        title('Units')
-
-        % Plot LFP stim response (all channels)
-        p2 = subplot(1,3,2);
-        imagesc(stim_surround_t,lfp_stim_depth,lfp_stim_align_avg_depth_smooth);
-        line([0,0],ylim,'color','k');
-        colormap(brewermap([],'*RdBu'));
-        caxis([-max(abs(caxis)),max(abs(caxis))]);
-        line(xlim,repmat(ctx_depth(1),2,1),'linewidth',2,'color',[0.5,0.5,0.5]);
-        line(xlim,repmat(ctx_depth(2),2,1),'linewidth',2,'color',[0.5,0.5,0.5]);
-        xlabel('Time from stim (s)');
-        title('LFP');
-            
-        % Plot CSD and overlay LFP lineplot
-        p3 = subplot(1,3,3);
-        imagesc(stim_surround_t,lfp_stim_csd_depth,lfp_stim_csd);
-        line([0,0],ylim,'color','k');
-        colormap(brewermap([],'*RdBu'));
-        caxis([-max(abs(caxis)),max(abs(caxis))]);
-        line(xlim,repmat(ctx_depth(1),2,1),'linewidth',2,'color',[0.5,0.5,0.5]);
-        line(xlim,repmat(ctx_depth(2),2,1),'linewidth',2,'color',[0.5,0.5,0.5]);
-        
-        % (interpolate LFP for line plots)
-        plot_lfp_depths = 0:200:max(lfp_stim_depth);
-        plot_lfp = interp1(lfp_stim_depth,lfp_stim_align_avg_depth_smooth,plot_lfp_depths);
-        yscale = -0.2; % flip because YDir is reversed
-        AP_stackplot(plot_lfp',stim_surround_t,plot_lfp_depths,yscale,'k');
-        title('CSD');
-        xlabel('Time from stim (s)');
-        
-        % Link axes
-        linkaxes([p1,p2,p3],'y')
-        linkaxes([p2,p3],'x')
-        drawnow;
-        
-        % Package
-        vis_ctx_ephys(curr_animal).animal = animal;
-        vis_ctx_ephys(curr_animal).day{curr_day} = day;
-        
-        vis_ctx_ephys(curr_animal).stim_lfp_t{curr_day} = stim_surround_t;
-        
-        vis_ctx_ephys(curr_animal).stim_lfp{curr_day} = lfp_stim_align_avg_depth_smooth;
-        vis_ctx_ephys(curr_animal).stim_lfp_depth{curr_day} = lfp_stim_depth;
-        
-        vis_ctx_ephys(curr_animal).stim_csd{curr_day} = lfp_stim_csd;
-        vis_ctx_ephys(curr_animal).stim_csd_depth{curr_day} = lfp_stim_csd_depth;
-        vis_ctx_ephys(curr_animal).csd_slice{curr_day} = csd_slice;
-                
-    end
-end
-
-save_path = 'C:\Users\Andrew\OneDrive for Business\Documents\CarandiniHarrisLab\analysis\wf_ephys_choiceworld\ephys_processing';
-save_fn = [save_path filesep 'vis_ctx_csd.mat'];
-save(save_fn,'vis_ctx_csd');
-disp(['Saved ' save_fn]);
 
 %% 1) Get stim-aligned LFP
 
@@ -678,6 +485,7 @@ for curr_animal = 1:length(vis_ctx_ephys)
     end
 end
 
+% Save csd into struct
 save(vis_ctx_ephys_fn,'vis_ctx_ephys');
 disp(['Saved ' vis_ctx_ephys_fn]);
  
@@ -692,6 +500,7 @@ load(vis_ctx_ephys_fn);
 animal_cat = cellfun(@(x,y) repmat({x},1,length(y)),{vis_ctx_ephys.animal},{vis_ctx_ephys.day},'uni',false);
 animal_cat = horzcat(animal_cat{:});
 day_cat = [vis_ctx_ephys(:).day];
+n_recordings = length(day_cat);
 
 stim_lfp_t = vis_ctx_ephys(1).stim_lfp_t{1};
 stim_lfp_depth = vis_ctx_ephys(1).stim_lfp_depth{1};
@@ -701,100 +510,320 @@ stim_lfp_cat = cell2mat(permute([vis_ctx_ephys(:).stim_lfp],[1,3,2]));
 stim_csd_cat = cell2mat(permute([vis_ctx_ephys(:).stim_csd],[1,3,2]));
 csd_slice_cat = cell2mat([vis_ctx_ephys(:).csd_slice]);
 
-% Get points to align (first sink, first source)
-[~,csd_slice_sink_idx] = min(csd_slice_cat,[],1);
+% Anchor points: biggest sink,superficial source
 
-[~,csd_slice_source_idx_rel] = arrayfun(@(x) ...
-    max(csd_slice_cat(csd_slice_sink_idx(x):-1:1,x)), ...
-    1:length(csd_slice_sink_idx));
-csd_slice_source_idx = csd_slice_sink_idx - csd_slice_source_idx_rel - 1;
+% Get median distance between anchor points across recordings
+csd_slice_cat = cell2mat([vis_ctx_ephys(:).csd_slice]);
 
-csd_slice_sink_depth = stim_csd_depth(csd_slice_sink_idx);
-csd_slice_source_depth = stim_csd_depth(csd_slice_source_idx);
+[~,csd_slice_cat_sink_idx] = min(csd_slice_cat,[],1);
+[~,csd_slice_cat_source_idx_rel] = arrayfun(@(x) ...
+    max(csd_slice_cat(csd_slice_cat_sink_idx(x):-1:1,x)), ...
+    1:length(csd_slice_cat_sink_idx));
+csd_slice_cat_source_idx = csd_slice_cat_sink_idx - csd_slice_cat_source_idx_rel - 1;
 
-% Align by anchoring source and sink
-stim_csd_depth_aligned = [-500:20:2000];
-sink_source_dist = median(csd_slice_sink_depth - csd_slice_source_depth);
+csd_slice_cat_sink_depth = vis_ctx_ephys(1).stim_csd_depth{1}(csd_slice_cat_sink_idx);
+csd_slice_cat_source_depth = vis_ctx_ephys(1).stim_csd_depth{1}(csd_slice_cat_source_idx);
+sink_source_dist = median(csd_slice_cat_sink_depth - csd_slice_cat_source_depth);
 
-csd_slice_cat_aligned = nan(length(stim_csd_depth_aligned),size(csd_slice_cat,2));
-stim_csd_cat_aligned = nan(length(stim_csd_depth_aligned),length(stim_lfp_t),size(stim_csd_cat,3));
-for curr_recording = 1:size(csd_slice_cat,2)
-    
-    % Scale relative depth: 0 at first source, constant distance to sink
-    curr_rel_depth = ...
-        (stim_csd_depth - csd_slice_source_depth(curr_recording))/ ...
-        (csd_slice_sink_depth(curr_recording) - csd_slice_source_depth(curr_recording))* ...
-        sink_source_dist;
-    
-    % Interpolate to aligned depth
-    csd_slice_cat_aligned(:,curr_recording) = interp1(...
-        curr_rel_depth,csd_slice_cat(:,curr_recording),stim_csd_depth_aligned, ...
-        'linear','extrap');
-    
-    stim_csd_cat_aligned(:,:,curr_recording) = interp1(...
-        curr_rel_depth,stim_csd_cat(:,:,curr_recording),stim_csd_depth_aligned, ...
-        'linear','extrap');
-    
+% Get aligned depth for each recording, plot, save
+figure;
+curr_recording = 1;
+stim_csd_aligned_scaled_cat = nan(0);
+for curr_animal = 1:length(vis_ctx_ephys)
+    for curr_day = 1:length(vis_ctx_ephys(curr_animal).day)
+        
+        stim_csd = vis_ctx_ephys(curr_animal).stim_csd{curr_day};
+        csd_slice = vis_ctx_ephys(curr_animal).csd_slice{curr_day};
+        stim_csd_depth = vis_ctx_ephys(curr_animal).stim_csd_depth{curr_day};
+        
+        % Get anchor points
+        [~,csd_slice_sink_idx] = min(csd_slice);
+        [~,csd_slice_source_idx_rel] = max(csd_slice(csd_slice_sink_idx:-1:1));
+        csd_slice_source_idx = csd_slice_sink_idx - csd_slice_source_idx_rel - 1;
+        
+        csd_slice_sink_depth = stim_csd_depth(csd_slice_sink_idx);
+        csd_slice_source_depth = stim_csd_depth(csd_slice_source_idx);
+        
+        % Scale relative depth: 0 at first source, constant distance to sink
+        stim_csd_depth_aligned = ...
+            (stim_csd_depth - csd_slice_source_depth)/ ...
+            (csd_slice_sink_depth - csd_slice_source_depth)* ...
+            sink_source_dist;
+        
+        % Plot aligned CSD
+        depth_align_interp = [-500:20:2000];
+        stim_csd_aligned = interp1(...
+            stim_csd_depth_aligned,stim_csd_cat(:,:,curr_recording),depth_align_interp, ...
+            'linear','extrap');
+        
+        animal = vis_ctx_ephys(curr_animal).animal;
+        day = vis_ctx_ephys(curr_animal).day{curr_day};
+        stim_lfp_t = vis_ctx_ephys(curr_animal).stim_lfp_t{curr_day};
+        stim_lfp_depth = vis_ctx_ephys(curr_animal).stim_lfp_depth{curr_day};
+        stim_lfp = vis_ctx_ephys(curr_animal).stim_lfp{curr_day};
+        
+        subplot(3,n_recordings,curr_recording);
+        imagesc(stim_lfp_t,stim_lfp_depth,stim_lfp);
+        caxis([-max(abs(caxis))/2,max(abs(caxis))/2]);
+        colormap(brewermap([],'*RdBu'));
+        title({animal,day,'LFP'});
+        
+        subplot(3,n_recordings,size(stim_csd_cat,3)+curr_recording);
+        imagesc(stim_lfp_t,stim_csd_depth,stim_csd);
+        caxis([-max(abs(caxis))/2,max(abs(caxis))/2]);
+        colormap(brewermap([],'*RdBu'));
+        title('CSD');
+        
+        subplot(3,n_recordings,size(stim_csd_cat,3)*2+curr_recording);
+        imagesc(stim_lfp_t,stim_csd_depth_aligned,stim_csd_aligned);
+        caxis([-max(abs(caxis))/2,max(abs(caxis))/2]);
+        colormap(brewermap([],'*RdBu'));
+        title('Aligned CSD');
+                
+        % Keep aligned CSD for averaging
+        stim_csd_aligned_scaled_cat(:,:,curr_recording) = stim_csd_aligned./min(csd_slice);
+        
+        % Store aligned depth
+        vis_ctx_ephys(curr_animal).stim_csd_depth_aligned{curr_day} = stim_csd_depth_aligned;
+        
+        % Iterate recording index (only used for plotting)
+        curr_recording = curr_recording + 1;
+
+    end
 end
 
-% Plot CSD slice alignments
+% Plot average aligned CSD
 figure;
-subplot(1,2,1,'YDir','reverse'); hold on
-imagesc([],stim_csd_depth,zscore(csd_slice_cat,[],1));
-colormap(brewermap([],'*RdBu'));
-caxis([-max(abs(caxis)),max(abs(caxis))]);
-plot(csd_slice_source_depth,'r','linewidth',3);
-plot(csd_slice_sink_depth,'b','linewidth',3);
-ylabel('Depth');
-xlabel('Recording');
-title('CSD slice')
-
-subplot(1,2,2,'YDir','reverse'); hold on
-imagesc([],stim_csd_depth_aligned,zscore(csd_slice_cat_aligned,[],1));
-colormap(brewermap([],'*RdBu'));
-caxis([-max(abs(caxis)),max(abs(caxis))]);
-ylabel('Aligned depth');
-xlabel('Recording');
-title('Aligned CSD slice')
-
-
-% Plot LFP, CSD, aligned CSD
-figure;
-for i = 1:size(stim_csd_cat,3)
-    subplot(3,size(stim_csd_cat,3),i);
-    imagesc(stim_lfp_t,stim_lfp_depth,stim_lfp_cat(:,:,i));
-    caxis([-max(abs(caxis))/2,max(abs(caxis))/2]);
-    colormap(brewermap([],'*RdBu'));
-    title({animal_cat{i},day_cat{i},'LFP'});
-
-    subplot(3,size(stim_csd_cat,3),size(stim_csd_cat,3)+i);
-    imagesc(stim_lfp_t,stim_csd_depth,stim_csd_cat(:,:,i));
-    caxis([-max(abs(caxis))/2,max(abs(caxis))/2]);
-    colormap(brewermap([],'*RdBu'));
-    title('CSD');
-    
-    subplot(3,size(stim_csd_cat,3),size(stim_csd_cat,3)*2+i);
-    imagesc(stim_lfp_t,stim_csd_depth_aligned,stim_csd_cat_aligned(:,:,i));
-    caxis([-max(abs(caxis))/2,max(abs(caxis))/2]);
-    colormap(brewermap([],'*RdBu'));
-    title('Aligned CSD');
-end
-
-% Plot average aligned stim CSD (normalized by sink)
-stim_csd_aligned_avg = ...
-    nanmean(stim_csd_cat_aligned./permute(min(csd_slice_cat,[],1),[1,3,2]),3);
-figure;imagesc(stim_lfp_t,stim_csd_depth_aligned,stim_csd_aligned_avg);
+imagesc(stim_lfp_t,depth_align_interp,nanmean(stim_csd_aligned_scaled_cat,3));
 caxis([-1,1]);
+line([0,0],ylim,'color','k');
 colormap(brewermap([],'*RdBu'));
 xlabel('Time from stim');
 ylabel('Aligned depth');
 title('Average aligned CSD')
 
-%% TO DO HERE ~~~~~~~~~~~~~~~~
-%
-% > after this - get superficial vs deep AND by aligned depth
-% > at least one cortex dataset is garbage - check them all
 
+% Save alignment into struct
+save(vis_ctx_ephys_fn,'vis_ctx_ephys');
+disp(['Saved ' vis_ctx_ephys_fn]);
+
+
+%% 4) Draw cortical widefield ROIs for each cortical recording
+
+% Load stim LFP
+vis_ctx_ephys_fn = 'C:\Users\Andrew\OneDrive for Business\Documents\CarandiniHarrisLab\analysis\wf_ephys_choiceworld\ephys_processing\vis_ctx_ephys.mat';
+load(vis_ctx_ephys_fn);
+
+% Draw cortical probe ROI for each recording
+for curr_animal = 1:length(vis_ctx_ephys)
+    for curr_day = 1:length(vis_ctx_ephys(curr_animal).day)
+        animal = vis_ctx_ephys(curr_animal).animal;
+        day = vis_ctx_ephys(curr_animal).day{curr_day};
+        [img_path,img_exists] = AP_cortexlab_filename(animal,day,[],'imaging');
+        avg_im_blue = readNPY([img_path filesep 'meanImage_blue.npy']);
+        
+        h = figure;imagesc(avg_im_blue);
+        axis image off; 
+        caxis([0,prctile(avg_im_blue(:),99)]);
+        colormap(gray)
+        title(['Draw ROI: ' animal ' ' day]);
+        curr_mask = roipoly;
+        vis_ctx_ephys(curr_animal).ctx_roi{curr_day} = curr_mask;
+        close(h);
+    end
+end
+
+% Save ROIs into struct
+save(vis_ctx_ephys_fn,'vis_ctx_ephys');
+disp(['Saved ' vis_ctx_ephys_fn]);
+
+
+%% Get activity correlation cortex wf/mua and ctx ephys/str mua (task)
+
+animals = {'AP043','AP060','AP061'};
+
+% Load ephys alignment
+vis_ctx_ephys_fn = 'C:\Users\Andrew\OneDrive for Business\Documents\CarandiniHarrisLab\analysis\wf_ephys_choiceworld\ephys_processing\vis_ctx_ephys.mat';
+load(vis_ctx_ephys_fn);
+
+data = struct;
+for curr_animal = 1:length(animals)
+    
+    animal = animals{curr_animal};
+    
+    protocol = 'vanillaChoiceworld';
+    flexible_name = true;
+    experiments = AP_find_experiments(animal,protocol);
+    experiments = experiments([experiments.imaging] & [experiments.ephys]);
+    
+    for curr_day = 1:length(experiments)
+        
+        % Load experiment
+        day = experiments(curr_day).day;
+        experiment = experiments(curr_day).experiment(1); % (only one doubled experiment, and the second one was worse)
+        site = 2; % cortex probe is always site 2
+        lfp_channel = 'all';
+        str_align = 'none'; % (because this is on cortex)
+        verbose = false;
+        AP_load_experiment
+        
+        %%% DEPTH-ALIGN TEMPLATES, FIND CORTEX BOUNDARY
+        curr_animal_idx = strcmp(animal,{vis_ctx_ephys.animal});
+        curr_day_idx = strcmp(day,vis_ctx_ephys(curr_animal_idx).day);
+        curr_csd_depth = vis_ctx_ephys(curr_animal_idx).stim_csd_depth{curr_day_idx};
+        curr_csd_depth_aligned = vis_ctx_ephys(curr_animal_idx).stim_csd_depth_aligned{curr_day_idx};
+        template_depths_aligned = interp1(curr_csd_depth,curr_csd_depth_aligned,template_depths);
+
+        % Find cortex end by largest gap between templates
+        sorted_template_depths = sort([template_depths_aligned]);
+        [max_gap,max_gap_idx] = max(diff(sorted_template_depths));
+        ctx_end = sorted_template_depths(max_gap_idx)+1;
+        
+        ctx_depth = [sorted_template_depths(1),ctx_end];
+        ctx_units = template_depths_aligned <= ctx_depth(2);
+              
+        %%% GET FLUORESCENCE AND SPIKES BY DEPTH        
+        
+        % Set binning time
+        skip_seconds = 60;       
+        spike_binning_t = 1/framerate; % seconds
+        spike_binning_t_edges = frame_t(1)+skip_seconds:spike_binning_t:frame_t(end)-skip_seconds;
+        spike_binning_t_centers = spike_binning_t_edges(1:end-1) + diff(spike_binning_t_edges)/2;
+        
+        % Get fluorescence in pre-drawn ROI
+        curr_ctx_roi = vis_ctx_ephys(curr_animal_idx).ctx_roi{curr_day_idx};
+        
+        fVdf_deconv = AP_deconv_wf(fVdf);
+        fluor_roi = AP_svd_roi(Udf,fVdf_deconv,avg_im,[],curr_ctx_roi);
+        fluor_roi_interp = interp1(frame_t,fluor_roi,spike_binning_t_centers);
+   
+        % Set sliding depth window of MUA
+        depth_corr_range = [-200,1500];
+        depth_corr_window = 200; % MUA window in microns
+        depth_corr_window_spacing = 50; % MUA window spacing in microns
+        
+        depth_corr_bins = [depth_corr_range(1):depth_corr_window_spacing:(depth_corr_range(2)-depth_corr_window); ...
+            (depth_corr_range(1):depth_corr_window_spacing:(depth_corr_range(2)-depth_corr_window))+depth_corr_window];
+        depth_corr_bin_centers = depth_corr_bins(1,:) + diff(depth_corr_bins,[],1)/2;
+        
+        cortex_mua = zeros(size(depth_corr_bins,2),length(spike_binning_t_centers));
+        for curr_depth = 1:size(depth_corr_bins,2)
+            curr_depth_templates_idx = ...
+                find(ctx_units & ...
+                template_depths_aligned >= depth_corr_bins(1,curr_depth) & ...
+                template_depths_aligned < depth_corr_bins(2,curr_depth));
+            
+            cortex_mua(curr_depth,:) = histcounts(spike_times_timeline( ...
+                ismember(spike_templates,curr_depth_templates_idx)),spike_binning_t_edges);
+        end
+        
+        % Plot cortex units and depth bins
+        norm_spike_n = mat2gray(log10(accumarray(spike_templates,1)+1));
+        figure; set(gca,'YDir','reverse'); hold on;
+        plot(norm_spike_n(ctx_units),template_depths_aligned(ctx_units),'.b','MarkerSize',20);
+        plot(norm_spike_n(~ctx_units),template_depths_aligned(~ctx_units),'.k','MarkerSize',20);
+        line(xlim,repmat(depth_corr_range(1),2,1),'color','r','linewidth',2);
+        line(xlim,repmat(depth_corr_range(2),2,1),'color','r','linewidth',2);
+        for i = 1:length(depth_corr_bin_centers)
+            line(xlim,repmat(depth_corr_bin_centers(i),2,1),'color','r');
+        end
+        xlabel('Norm firing rate');
+        ylabel('Aligned depth');
+        title([animal ' ' day]);
+        drawnow;
+        
+        %%% LOAD STRIATUM EPHYS AND GET MUA BY DEPTH        
+        clear load_parts
+        load_parts.ephys = true;
+        site = 1; % (striatum is always on probe 1)
+        str_align = 'kernel';
+        AP_load_experiment;
+        
+        striatum_mua = nan(n_aligned_depths,length(spike_binning_t_centers));
+        for curr_depth = 1:n_aligned_depths
+            curr_spike_times = spike_times_timeline(aligned_str_depth_group == curr_depth);
+            % Skip if no spikes at this depth
+            if isempty(curr_spike_times)
+                continue
+            end
+            striatum_mua(curr_depth,:) = histcounts(curr_spike_times,spike_binning_t_edges);
+        end
+        
+        %%% REGULAR CORRELATION
+        cortex_fluor_corr = 1-pdist2(cortex_mua,fluor_roi_interp,'correlation');
+        cortex_striatum_corr = 1-pdist2(cortex_mua,striatum_mua,'correlation');                      
+        
+        %%% PACKAGE AND SAVE
+        data(curr_animal).cortex_mua_depth{curr_day} = depth_corr_bin_centers;
+        data(curr_animal).cortex_fluor_corr{curr_day} = cortex_fluor_corr;
+        data(curr_animal).cortex_striatum_corr{curr_day} = cortex_striatum_corr;
+        
+        % Clear variables for next experiment
+        clearvars -except animals vis_ctx_ephys ...
+            curr_animal animal ...
+            protocol flexible_name experiments curr_exp ...
+            data
+
+    end
+    
+end
+
+data_path = 'C:\Users\Andrew\OneDrive for Business\Documents\CarandiniHarrisLab\analysis\wf_ephys_choiceworld\paper\data';
+data_fn = [data_path filesep 'ctx_fluor_mua_corr_ ' protocol];
+save(data_fn,'data');
+
+
+%% Plot data from above
+
+use_data = cellfun(@(x) ~isempty(x),{data.cortex_mua_depth});
+
+mua_depth = data(1).cortex_mua_depth;
+cortex_fluor_corr_cat = cell2mat({data(use_data).cortex_fluor_corr});
+cortex_striatum_corr_cat = cell2mat(permute({data(use_data).cortex_striatum_corr},[1,3,2]));
+
+figure; 
+
+subplot(1,3,1,'YDir','reverse'); hold on;
+plot(cortex_fluor_corr_cat',mua_depth,'color',[0.2,0.8,0.2]);
+errorbar(nanmean(cortex_fluor_corr_cat,2), ...
+    mua_depth,AP_sem(cortex_fluor_corr_cat,2), ...
+    'horizontal','color',[0,0.6,0],'linewidth',2)
+xlabel('Correlation');
+ylabel('Cortical MUA aligned depth');
+title('Cortical fluorescence');
+
+subplot(1,3,2,'YDir','reverse'); hold on;
+set(gca,'ColorOrder',copper(4));
+plot_str = 1;
+plot(permute(cortex_striatum_corr_cat(:,plot_str,:),[1,3,2]),mua_depth,'color',[0.5,0.5,0.5]);
+errorbar(nanmean(cortex_striatum_corr_cat(:,plot_str,:),3), ...
+    mua_depth,AP_sem(cortex_striatum_corr_cat(:,plot_str,:),3),'k','horizontal','linewidth',2)
+xlabel('Correlation');
+ylabel('Cortical MUA aligned depth');
+title(['Str ' num2str(plot_str) ' multiunit']);
+
+subplot(2,3,3); hold on;
+for i = 1:size(cortex_fluor_corr_cat,2)
+    plot(cortex_fluor_corr_cat(:,i), ...
+        cortex_striatum_corr_cat(:,plot_str,i), ...
+        'color',[0.5,0.5,0.5]);
+end
+plot(nanmean(cortex_fluor_corr_cat,2), ...
+    nanmean(cortex_striatum_corr_cat(:,plot_str,:),3),'k','linewidth',2);
+xlabel('Fluorescence - cortical MUA correlation');
+ylabel('Cortical MUA - striatal MUA correlation')
+
+subplot(2,3,6); hold on;
+plot(permute(max(cortex_striatum_corr_cat,[],1),[2,3,1]),'color',[0.5,0.5,0.5]);
+errorbar(squeeze(nanmean(max(cortex_striatum_corr_cat,[],1),3)), ...
+    squeeze(AP_sem(max(cortex_striatum_corr_cat,[],1),3)),'k','linewidth',2);
+xlim([0.5,4.5]);
+xlabel('Striatal domain');
+ylabel('Cortical MUA max corr');
+
+
+
+%% ~~~ OLD, didn't work as well
 
 
 %% Get cortex widefield/ephys relationship by depth (using LFP CSD)
