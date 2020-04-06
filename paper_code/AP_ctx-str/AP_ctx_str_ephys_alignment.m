@@ -540,10 +540,9 @@ for curr_animal = 1:length(animals)
     
         % Get best match from kernels to kernel templates
         kernel_align_reshape = reshape(kernel_align,[],size(kernel_align,3));
-        kernel_align_medfilt = medfilt2(kernel_align_reshape,[1,1]);
-        kernel_corr = (zscore(kernel_align_medfilt,[],1)'* ...
+        kernel_corr = (zscore(kernel_align_reshape,[],1)'* ...
             zscore(reshape(kernel_template,[],size(kernel_template,3)),[],1))./ ...
-            (size(kernel_align_medfilt,1)-1);
+            (size(kernel_align_reshape,1)-1);
         [kernel_match_corr,kernel_match_raw] = max(kernel_corr,[],2);
         
         % CLEAN UP KERNEL MATCH, NOT SURE HOW TO DO THIS YET
@@ -799,10 +798,9 @@ for curr_animal = 1:length(animals)
     
         % Get best match from kernels to kernel templates
         kernel_align_reshape = reshape(kernel_align,[],size(kernel_align,3));
-        kernel_align_medfilt = medfilt2(kernel_align_reshape,[1,1]);
-        kernel_corr = (zscore(kernel_align_medfilt,[],1)'* ...
+        kernel_corr = (zscore(kernel_align_reshape,[],1)'* ...
             zscore(reshape(kernel_template,[],size(kernel_template,3)),[],1))./ ...
-            (size(kernel_align_medfilt,1)-1);
+            (size(kernel_align_reshape,1)-1);
         [kernel_match_corr,kernel_match_raw] = max(kernel_corr,[],2);
         
         % CLEAN UP KERNEL MATCH, NOT SURE HOW TO DO THIS YET
@@ -1051,10 +1049,9 @@ for curr_animal = 1:length(animals)
     
         % Get best match from kernels to kernel templates
         kernel_align_reshape = reshape(kernel_align,[],size(kernel_align,3));
-        kernel_align_medfilt = medfilt2(kernel_align_reshape,[1,1]);
-        kernel_corr = (zscore(kernel_align_medfilt,[],1)'* ...
+        kernel_corr = (zscore(kernel_align_reshape,[],1)'* ...
             zscore(reshape(kernel_template,[],size(kernel_template,3)),[],1))./ ...
-            (size(kernel_align_medfilt,1)-1);
+            (size(kernel_align_reshape,1)-1);
         [kernel_match_corr,kernel_match_raw] = max(kernel_corr,[],2);
         
         % CLEAN UP KERNEL MATCH, NOT SURE HOW TO DO THIS YET

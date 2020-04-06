@@ -769,17 +769,22 @@ for curr_animal = 1:length(animals)
 end
 
 data_path = 'C:\Users\Andrew\OneDrive for Business\Documents\CarandiniHarrisLab\analysis\wf_ephys_choiceworld\paper\data';
-data_fn = [data_path filesep 'ctx_fluor_mua_corr_ ' protocol];
+data_fn = [data_path filesep 'ctx_fluor_mua_corr_' protocol];
 save(data_fn,'data');
 
 
 %% Plot data from above
 
-use_data = cellfun(@(x) ~isempty(x),{data.cortex_mua_depth});
+use_protocol = 'vanillaChoiceworld';
+% use_protocol = 'AP_sparseNoise';
 
-mua_depth = data(1).cortex_mua_depth;
-cortex_fluor_corr_cat = cell2mat({data(use_data).cortex_fluor_corr});
-cortex_striatum_corr_cat = cell2mat(permute({data(use_data).cortex_striatum_corr},[1,3,2]));
+data_path = 'C:\Users\Andrew\OneDrive for Business\Documents\CarandiniHarrisLab\analysis\wf_ephys_choiceworld\paper\data';
+data_fn = [data_path filesep 'ctx_fluor_mua_corr_' use_protocol];
+load(data_fn); 
+
+mua_depth = data(1).cortex_mua_depth{1}; % they're all the same, use 1st
+cortex_fluor_corr_cat = cell2mat(horzcat(data.cortex_fluor_corr));
+cortex_striatum_corr_cat = cell2mat(permute(horzcat(data.cortex_striatum_corr),[1,3,2]));
 
 figure; 
 
@@ -820,6 +825,11 @@ errorbar(squeeze(nanmean(max(cortex_striatum_corr_cat,[],1),3)), ...
 xlim([0.5,4.5]);
 xlabel('Striatal domain');
 ylabel('Cortical MUA max corr');
+
+
+%% TO DO: example recording?
+
+% AP060 2019-12-06 looks like the best?
 
 
 
