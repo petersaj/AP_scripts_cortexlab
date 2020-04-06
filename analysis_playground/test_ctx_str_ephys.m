@@ -310,7 +310,7 @@ colormap(brewermap([],'*RdBu'));
 title('Diff')
 
 %% ~~~~ Align LFP and get correlation between fluorescence and spikes
-
+% (this is now moved into trial preprocessing and revision fig scripts)
 
 %% 1) Get stim-aligned LFP
 
@@ -827,10 +827,125 @@ xlabel('Striatal domain');
 ylabel('Cortical MUA max corr');
 
 
-%% TO DO: example recording?
+%% IN PROGRESS: example recording
 
 % AP060 2019-12-06 looks like the best?
 
+animal = 'AP060'; 
+day = '2019-12-06'; 
+experiment = 3; 
+site = 2; % (cortex)
+str_align= 'none'; % (cortex)
+verbose = true; 
+AP_load_experiment;
+
+
+
+
+% Plot CSD
+vis_ctx_ephys_fn = 'C:\Users\Andrew\OneDrive for Business\Documents\CarandiniHarrisLab\analysis\wf_ephys_choiceworld\ephys_processing\vis_ctx_ephys.mat';
+load(vis_ctx_ephys_fn);
+
+curr_animal_idx = strcmp(animal,{vis_ctx_ephys.animal});
+curr_day_idx = strcmp(day,vis_ctx_ephys(curr_animal_idx).day);
+
+figure;
+imagesc(vis_ctx_ephys(curr_animal_idx).stim_lfp_t{curr_day_idx}, ...
+    vis_ctx_ephys(curr_animal_idx).stim_csd_depth{curr_day_idx}, ...
+    vis_ctx_ephys(curr_animal_idx).stim_csd{curr_day_idx});
+caxis([-max(abs(caxis))/2,max(abs(caxis))/2]);
+colormap(brewermap([],'*RdBu'));
+ylabel('Depth (\mum)');
+xlabel('Time from stim');
+colorbar;
+
+% (COPIED FROM ABOVE: PLOT CORTEX MULTIUNIT AND FLUORESCENCE)
+
+%%% DEPTH-ALIGN TEMPLATES, FIND CORTEX BOUNDARY
+curr_animal_idx = strcmp(animal,{vis_ctx_ephys.animal});
+curr_day_idx = strcmp(day,vis_ctx_ephys(curr_animal_idx).day);
+curr_csd_depth = vis_ctx_ephys(curr_animal_idx).stim_csd_depth{curr_day_idx};
+curr_csd_depth_aligned = vis_ctx_ephys(curr_animal_idx).stim_csd_depth_aligned{curr_day_idx};
+template_depths_aligned = interp1(curr_csd_depth,curr_csd_depth_aligned,template_depths);
+
+% Find cortex end by largest gap between templates
+sorted_template_depths = sort([template_depths_aligned]);
+[max_gap,max_gap_idx] = max(diff(sorted_template_depths));
+ctx_end = sorted_template_depths(max_gap_idx)+1;
+
+ctx_depth = [sorted_template_depths(1),ctx_end];
+ctx_units = template_depths_aligned <= ctx_depth(2);
+
+%%% GET FLUORESCENCE AND SPIKES BY DEPTH
+
+% Set binning time
+skip_seconds = 60;
+spike_binning_t = 1/framerate; % seconds
+spike_binning_t_edges = frame_t(1)+skip_seconds:spike_binning_t:frame_t(end)-skip_seconds;
+spike_binning_t_centers = spike_binning_t_edges(1:end-1) + diff(spike_binning_t_edges)/2;
+
+% Get fluorescence in pre-drawn ROI
+curr_ctx_roi = vis_ctx_ephys(curr_animal_idx).ctx_roi{curr_day_idx};
+
+fVdf_deconv = AP_deconv_wf(fVdf);
+fluor_roi = AP_svd_roi(Udf,fVdf_deconv,avg_im,[],curr_ctx_roi);
+fluor_roi_interp = interp1(frame_t,fluor_roi,spike_binning_t_centers);
+
+% Set sliding depth window of MUA
+depth_corr_range = [-200,1500];
+depth_corr_window = 200; % MUA window in microns
+depth_corr_window_spacing = 50; % MUA window spacing in microns
+
+depth_corr_bins = [depth_corr_range(1):depth_corr_window_spacing:(depth_corr_range(2)-depth_corr_window); ...
+    (depth_corr_range(1):depth_corr_window_spacing:(depth_corr_range(2)-depth_corr_window))+depth_corr_window];
+depth_corr_bin_centers = depth_corr_bins(1,:) + diff(depth_corr_bins,[],1)/2;
+
+cortex_mua = zeros(size(depth_corr_bins,2),length(spike_binning_t_centers));
+for curr_depth = 1:size(depth_corr_bins,2)
+    curr_depth_templates_idx = ...
+        find(ctx_units & ...
+        template_depths_aligned >= depth_corr_bins(1,curr_depth) & ...
+        template_depths_aligned < depth_corr_bins(2,curr_depth));
+    
+    cortex_mua(curr_depth,:) = histcounts(spike_times_timeline( ...
+        ismember(spike_templates,curr_depth_templates_idx)),spike_binning_t_edges);
+end
+
+%%% LOAD STRIATUM EPHYS AND GET MUA BY DEPTH
+clear load_parts
+load_parts.ephys = true;
+site = 1; % (striatum is always on probe 1)
+str_align = 'kernel';
+AP_load_experiment;
+
+striatum_mua = nan(n_aligned_depths,length(spike_binning_t_centers));
+for curr_depth = 1:n_aligned_depths
+    curr_spike_times = spike_times_timeline(aligned_str_depth_group == curr_depth);
+    % Skip if no spikes at this depth
+    if isempty(curr_spike_times)
+        continue
+    end
+    striatum_mua(curr_depth,:) = histcounts(curr_spike_times,spike_binning_t_edges);
+end
+
+figure;
+subplot(5,1,1);
+plot(spike_binning_t_centers,fluor_roi_interp,'linewidth',2,'color',[0,0.7,0]);
+title('Fluorescence');
+subplot(5,1,2:4);
+imagesc(spike_binning_t_centers,[],cortex_mua)
+caxis([0,10]);
+colormap(brewermap([],'Greys'));
+title('Cortex MUA');
+subplot(5,1,5);
+imagesc(spike_binning_t_centers,[],striatum_mua);
+caxis([0,10]);
+title('Striatum MUA');
+
+linkaxes(get(gcf,'Children'),'x');
+
+plot_t = [128,132];
+xlim(plot_t);
 
 
 %% ~~~ OLD, didn't work as well
