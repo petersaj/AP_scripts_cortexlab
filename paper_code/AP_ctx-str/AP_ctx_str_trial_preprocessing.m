@@ -7,6 +7,83 @@
 
 %% ~~~~~~~~~~~~~ Main experiment ~~~~~~~~~~~~~
 
+%% Get widefield correlation boundaries
+
+animals = {'AP024','AP025','AP026','AP027','AP028','AP029'};
+protocol = 'vanillaChoiceworld';
+
+wf_corr_borders = struct;
+
+for curr_animal = 1:length(animals)
+    
+    animal = animals{curr_animal};
+    disp(animal);
+    
+    experiments = AP_find_experiments(animal,protocol);    
+    % (wf-only days: no craniotomy)
+    experiments = experiments([experiments.imaging] & ~[experiments.ephys]);
+    
+    load_parts.cam = false;
+    load_parts.imaging = true;
+    load_parts.ephys = false;
+        
+    for curr_day = 1:length(experiments)
+        
+        day = experiments(curr_day).day;
+        experiment = experiments(curr_day).experiment;
+        
+        AP_load_experiment
+        
+        % Get V covariance
+        Ur = reshape(U, size(U,1)*size(U,2),[]); % P x S
+        covV = cov(fV'); % S x S % this is the only one that takes some time really
+        varP = dot((Ur*covV)', Ur'); % 1 x P
+        
+        ySize = size(U,1); xSize = size(U,2);
+        
+        px_spacing = 20;
+        use_y = 1:px_spacing:size(U,1);
+        use_x = 1:px_spacing:size(U,2);
+        corr_map = cell(length(use_y),length(use_x));
+        for curr_x_idx = 1:length(use_x)
+            curr_x = use_x(curr_x_idx);
+            for curr_y_idx = 1:length(use_y)
+                curr_y = use_y(curr_y_idx);
+                
+                pixel = [curr_y,curr_x];
+                pixelInd = sub2ind([ySize, xSize], pixel(1), pixel(2));
+                
+                covP = Ur(pixelInd,:)*covV*Ur'; % 1 x P
+                stdPxPy = varP(pixelInd).^0.5 * varP.^0.5; % 1 x P
+                corrMat = reshape(covP./stdPxPy,ySize,xSize); % 1 x P
+                
+                corr_map{curr_y_idx,curr_x_idx} = corrMat;
+            end
+        end
+        
+        % Correlation map edge detection
+        corr_map_cat = cat(3,corr_map{:});
+        corr_map_edge = imgaussfilt(corr_map_cat,5)-imgaussfilt(corr_map_cat,20);
+        corr_map_edge_norm = reshape(zscore(reshape(corr_map_edge,[], ...
+            size(corr_map_edge,3)),[],1),size(corr_map_edge));
+        
+        corr_edges = nanmean(corr_map_edge,3);
+        corr_edges_aligned = AP_align_widefield(corr_edges,animal,day);
+               
+        wf_corr_borders(curr_animal).corr_edges{curr_day} = corr_edges_aligned;
+                     
+        clearvars -except animals animal curr_animal protocol experiments curr_day animal wf_corr_borders load_parts
+        
+        AP_print_progress_fraction(curr_day,length(experiments));
+    end    
+end
+
+% Save widefield correlation borders
+save_path = ['C:\Users\Andrew\OneDrive for Business\Documents\CarandiniHarrisLab\analysis\wf_ephys_choiceworld\wf_processing\wf_borders'];
+save_fn = [save_path filesep 'wf_corr_borders'];
+save(save_fn,'wf_corr_borders');
+disp(['Saved ' save_fn]);
+
 
 %% Cortex -> kernel-aligned striatum map (protocols separately)
 
