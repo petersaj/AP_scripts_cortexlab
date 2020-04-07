@@ -152,7 +152,7 @@ title('Injection sites')
 
 probe_angle = 45; % from horizontal
 
-animal = 'AP034';
+animal = 'AP033';
 day = '2018-10-26';
 [img_path,img_exists] = AP_cortexlab_filename(animal,day,[],'imaging');
 avg_im = readNPY([img_path filesep 'meanImage_blue.npy']);
@@ -161,7 +161,7 @@ avg_im_aligned = AP_align_widefield(avg_im,animal,day);
 
 h = figure('units','normalized','outerposition',[0 0 1 1]);imagesc(avg_im_aligned);
 axis image off;
-colormap(gray);caxis([0,prctile(avg_im_aligned(:),95)]);
+colormap(gray);caxis([0,prctile(avg_im_aligned(:),98)]);
 title('Click probe start/end');
 probe_wf = ginput(2);
 close(h)
@@ -183,7 +183,7 @@ figure('Name',animal);
 subplot(1,2,1);
 imagesc(avg_im_aligned);
 axis image off;
-colormap(gray);caxis([0,prctile(avg_im_aligned(:),95)]);
+colormap(gray);caxis([0,prctile(avg_im_aligned(:),99)]);
 AP_reference_outline('ccf_aligned','r');
 line(probe_wf(:,1),probe_wf(:,2),'color','b','linewidth',1,'linestyle','--');
 title('Widefield');

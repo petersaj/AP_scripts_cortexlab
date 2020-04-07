@@ -61,14 +61,10 @@ animal_days = {...
     'AP034','2018-10-26';
     'AP036','2018-11-14';
     'AP043','2019-12-09';
-    'AP060','2019-12-06';
+    'AP060','2019-12-06'
     'AP061','2019-12-09'};
 
-ccf_fig = figure;
-plot_x = ceil(sqrt(length(animal_days)));
-plot_y = plot_x;
-
-wf_fig = figure;
+figure;
 
 for curr_animal_day = 1:length(animal_days)
     
@@ -101,9 +97,9 @@ for curr_animal_day = 1:length(animal_days)
     probe_ccf = round(probe_ccf_tformed(:,1:2)*(um2pixel/10));
     
     % Plot probe points on CCF next to average image
-    figure(wf_fig);
+    figure('Name',animal);
     
-    subplot(length(animal_days),2,((curr_animal_day-1)*2)+1);
+    subplot(1,2,1);
     imagesc(avg_im_aligned);
     axis image off;
     colormap(gray);caxis([0,prctile(avg_im_aligned(:),95)]);
@@ -111,8 +107,7 @@ for curr_animal_day = 1:length(animal_days)
     line(probe_wf(:,1),probe_wf(:,2),'color','b','linewidth',1,'linestyle','--');
     title('Widefield');
     
-    subplot(length(animal_days),2,((curr_animal_day-1)*2)+2);
-    hold on; set(gca,'YDir','reverse');axis image;
+    subplot(1,2,2); hold on; set(gca,'YDir','reverse');axis image;
     load('C:\Users\Andrew\OneDrive for Business\Documents\Atlases\AllenCCF\cortical_area_boundaries.mat');
     for curr_area_idx =1:length(cortical_area_boundaries)
         p = cellfun(@(outline) plot(outline(:,2),outline(:,1),'color','k'), ...
@@ -170,8 +165,7 @@ for curr_animal_day = 1:length(animal_days)
     
     % Plot estimated probe location on CCF
     % (note the CCF is rotated to allow for dim 1 = x)
-    figure(ccf_fig);
-    ccf_axes = subplot(plot_y,plot_x,curr_animal_day); hold on
+    h = figure('Name',animal); ccf_axes = axes; hold on
     slice_spacing = 10;
     target_volume = permute(av(1:slice_spacing:end,1:slice_spacing:end,1:slice_spacing:end) > 1,[2,1,3]);
     structure_patch = isosurface(target_volume,0);
@@ -192,8 +186,8 @@ for curr_animal_day = 1:length(animal_days)
     
     axis image vis3d off;
     view([-30,25]);
-    cameratoolbar(ccf_fig,'SetCoordSys','y');
-    cameratoolbar(ccf_fig,'SetMode','orbit');
+    cameratoolbar(h,'SetCoordSys','y');
+    cameratoolbar(h,'SetMode','orbit');
     title([animal ' ' day]);
     
     % Plot current probe vector

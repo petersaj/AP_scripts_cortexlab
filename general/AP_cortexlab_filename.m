@@ -191,6 +191,12 @@ switch file
             filename = fileparts(filename{1});
         end
         
+    case 'probe_ccf'
+        % Histology probe location from AP histology
+        % (sometimes upper/lowecase "Histology" folder)
+        filepattern = [animal filesep '*istology' filesep 'slices' filesep 'probe_ccf.mat'];
+        [filename,file_exists] = check_locations(filepattern,server_location);
+        
 end
 end
 
