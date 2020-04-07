@@ -9,7 +9,7 @@ av = readNPY([allen_atlas_path filesep 'annotation_volume_10um_by_index.npy']);
 st = loadStructureTree([allen_atlas_path filesep 'structure_tree_safe_2017.csv']);
 
 % Set paths for histology images and directory to save slice/alignment
-im_path = 'C:\Users\Andrew\Desktop\temp_histology\AP056';
+im_path = 'C:\Users\Andrew\Desktop\temp_histology\AP036';
 slice_path = [im_path filesep 'slices'];
 
 %% 2) Preprocess slide images to produce slice images
@@ -20,6 +20,7 @@ slice_path = [im_path filesep 'slices'];
 % available in metadata then automatically scales to CCF resolution,
 % otherwise user can specify the resize factor as a second argument)
 AP_process_histology(im_path);
+% resize_factor = 1/10;
 % AP_process_histology(im_path,resize_factor); % user-specified resize factor
 
 % (optional) Rotate, center, pad, flip slice images

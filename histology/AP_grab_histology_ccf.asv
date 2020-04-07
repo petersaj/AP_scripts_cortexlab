@@ -129,10 +129,8 @@ switch eventdata.Key
             % Check that a CCF slice point exists for each histology slice
             if any(isnan(gui_data.slice_points(:)))
                 createmode = struct;
-                createmode.Interpreter = 'tex';
-                createmode.WindowStyle = 'modal';
-                msgbox('\fontsize{12} Some histology slice(s) not assigned CCF slice', ...
-                    'Not saving','error',createmode);
+                createmode.Interpreter 
+                msgbox('\fontsize{12} Not saving: some histology slices not assigned CCF slice',[],'error',opts);
                 return
             end
             

@@ -152,16 +152,16 @@ title('Injection sites')
 
 probe_angle = 45; % from horizontal
 
-animal = 'AP032';
-day = '2018-10-26';
+animal = 'AP043';
+day = '2019-12-09';
 [img_path,img_exists] = AP_cortexlab_filename(animal,day,[],'imaging');
 avg_im = readNPY([img_path filesep 'meanImage_blue.npy']);
 
-avg_im_aligned = AP_align_widefield(animal,day,avg_im);
+avg_im_aligned = AP_align_widefield(avg_im,animal,day);
 
 h = figure('units','normalized','outerposition',[0 0 1 1]);imagesc(avg_im_aligned);
 axis image off;
-colormap(gray);caxis([0,5000]);
+colormap(gray);caxis([0,prctile(avg_im_aligned(:),99)]);
 title('Click probe start/end');
 probe_wf = ginput(2);
 close(h)
@@ -183,7 +183,7 @@ figure('Name',animal);
 subplot(1,2,1);
 imagesc(avg_im_aligned);
 axis image off;
-colormap(gray);caxis([0,5000]);
+colormap(gray);caxis([0,prctile(avg_im_aligned(:),99)]);
 AP_reference_outline('ccf_aligned','r');
 line(probe_wf(:,1),probe_wf(:,2),'color','b','linewidth',1,'linestyle','--');
 title('Widefield');
@@ -227,7 +227,8 @@ probe_vector_ccf = round(bsxfun(@plus,bsxfun(@times,probe_vector_evaluate',probe
 [probe_filename,probe_filename_exists] = AP_cortexlab_filename(animal,[],[],'probe_histology');
 load(probe_filename);
 
-histology_points = pointList.pointList{1};
+use_probe = 1;
+histology_points = probe_ccf(1).points;
 r0 = mean(histology_points,1);
 xyz = bsxfun(@minus,histology_points,r0);
 [~,~,V] = svd(xyz,0);
@@ -235,7 +236,7 @@ histology_probe_direction = V(:,1);
 
 probe_vector_evaluate = [-sign(probe_direction(2))*500,sign(probe_direction(2))*500];
 probe_vector = bsxfun(@plus,bsxfun(@times,probe_vector_evaluate',histology_probe_direction'),r0);
-probe_vector_ccf_histology = round(probe_vector(:,[3,2,1]));
+probe_vector_ccf_histology = round(probe_vector);
 
 % histology done looking A->P so flipped, mirror about bregma
 bregma = allenCCFbregma;
@@ -268,13 +269,19 @@ axis image vis3d off;
 view([-30,25]);
 cameratoolbar(h,'SetCoordSys','y');
 cameratoolbar(h,'SetMode','orbit');
+title([animal ' ' day]);
 
 % Plot current probe vector
-line(ccf_axes,probe_vector_ccf(:,1),probe_vector_ccf(:,2),probe_vector_ccf(:,3),'color','k','linewidth',3);
-line(ccf_axes,probe_vector_ccf_histology_mirrored(:,1),probe_vector_ccf_histology_mirrored(:,2), ...
+probe_wf_line = line(ccf_axes,probe_vector_ccf(:,1),probe_vector_ccf(:,2),probe_vector_ccf(:,3),'color','k','linewidth',3);
+probe_histology_line = line(ccf_axes, ...
+    probe_vector_ccf_histology_mirrored(:,1), ...
+    probe_vector_ccf_histology_mirrored(:,2), ...
     probe_vector_ccf_histology_mirrored(:,3),'color','r','linewidth',3);
 drawnow;
 
+legend([probe_wf_line,probe_histology_line],{'Widefield-estimated','Histology'},'location','nw');
+
+    
 %% Directly compare regression and projection maps (from histology)
 
 %%% Define and load
@@ -339,7 +346,7 @@ cvfold = 10;
 % Reshape kernel and convert to pixel space
 r = reshape(k,length(use_svs),length(kernel_frames),size(binned_spikes,1));
 
-aUdf = single(AP_align_widefield(animal,day,Udf));
+aUdf = single(AP_align_widefield(Udf,animal,day));
 r_px = zeros(size(aUdf,1),size(aUdf,2),size(r,2),size(r,3),'single');
 for curr_spikes = 1:size(r,3)
     r_px(:,:,:,curr_spikes) = svdFrameReconstruct(aUdf(:,:,use_svs),r(:,:,curr_spikes));
@@ -754,7 +761,7 @@ str_align = 'kernel';
 [img_path,img_exists] = AP_cortexlab_filename(animal,day,[],'imaging');
 avg_im = readNPY([img_path filesep 'meanImage_blue.npy']);
 
-avg_im_aligned = AP_align_widefield(animal,day,avg_im);
+avg_im_aligned = AP_align_widefield(avg_im,animal,day);
 
 h = figure('units','normalized','outerposition',[0 0 1 1]);
 imagesc(avg_im_aligned);
@@ -877,7 +884,7 @@ cvfold = 10;
 % Reshape kernel and convert to pixel space
 r = reshape(k,length(use_svs),length(kernel_frames),size(binned_spikes,1));
 
-aUdf = single(AP_align_widefield(animal,day,Udf));
+aUdf = single(AP_align_widefield(Udf,animal,day));
 r_px = zeros(size(aUdf,1),size(aUdf,2),size(r,2),size(r,3),'single');
 for curr_spikes = 1:size(r,3)
     r_px(:,:,:,curr_spikes) = svdFrameReconstruct(aUdf(:,:,use_svs),r(:,:,curr_spikes));
