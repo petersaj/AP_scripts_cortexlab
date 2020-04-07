@@ -34,9 +34,8 @@ use_split = trials_recording;
 split_idx = cell2mat(arrayfun(@(exp,trials) repmat(exp,trials,1), ...
     [1:length(use_split)]',reshape(use_split,[],1),'uni',false));
 
-%% ~~~~~~~~ MISC
 
-%% Widefield correlation borders
+%% ~~~~~~~~ Widefield correlation borders
 
 wf_corr_borders_fn = 'C:\Users\Andrew\OneDrive for Business\Documents\CarandiniHarrisLab\analysis\wf_ephys_choiceworld\wf_processing\wf_borders\wf_corr_borders.mat';
 load(wf_corr_borders_fn);
