@@ -34,6 +34,23 @@ use_split = trials_recording;
 split_idx = cell2mat(arrayfun(@(exp,trials) repmat(exp,trials,1), ...
     [1:length(use_split)]',reshape(use_split,[],1),'uni',false));
 
+%% ~~~~~~~~ MISC
+
+%% Widefield correlation borders
+
+wf_corr_borders_fn = 'C:\Users\Andrew\OneDrive for Business\Documents\CarandiniHarrisLab\analysis\wf_ephys_choiceworld\wf_processing\wf_borders\wf_corr_borders.mat';
+load(wf_corr_borders_fn);
+
+wf_corr_borders_cat = cell2mat(reshape([wf_corr_borders(:).corr_edges],1,1,[]));
+figure;
+imagesc(nanmean(wf_corr_borders_cat,3));
+axis image off;
+caxis([0,max(caxis)])
+colormap(brewermap([],'Greys'))
+ccf_outline = AP_reference_outline('ccf_aligned',[1,0,0]);
+cellfun(@(x) set(x,'linewidth',2),vertcat(ccf_outline{:}));
+
+
 
 %% ~~~~~~~~ Widefield + Striatum + Cortex ephys
 

@@ -5,7 +5,8 @@
 % Batch scripts to save preprocessed data here, saved to:
 % C:\Users\Andrew\OneDrive for Business\Documents\CarandiniHarrisLab\analysis\wf_ephys_choiceworld\paper\data
 
-%% ~~~~~~~~~~~~~ Main experiment ~~~~~~~~~~~~~
+
+%% ~~~~~~~~~~~~~ PRIMARY RECORDINGS ~~~~~~~~~~~~~
 
 %% Get widefield correlation boundaries
 

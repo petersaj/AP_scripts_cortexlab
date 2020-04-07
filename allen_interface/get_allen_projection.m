@@ -8,6 +8,9 @@ function injection_parameters = get_allen_projection(projection_coordinates)
 % injection_coordinates - cell array of cortical injection sites
 
 allen_temp_dir = 'C:\data_temp\AllenAPI';
+if ~exist(allen_temp_dir,'dir')
+    mkdir(allen_temp_dir)
+end
 
 % Loop through all input coordinates
 disp('Getting injection coordinates...')
