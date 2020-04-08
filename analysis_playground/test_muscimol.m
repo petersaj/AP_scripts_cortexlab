@@ -452,6 +452,125 @@ caxis([-1,1]);
 
 
 
+%% ~~~~~~~~ Cortical recording verification
+
+
+%% Gratings: spike rate and CSD
+
+animal_days = { ...
+    'AP052','2019-09-20';
+    'AP058','2019-12-06'};
+
+figure;
+
+for curr_animalday = 1:length(animal_days)
+    
+    animal = animal_days{curr_animalday,1};
+    day = animal_days{curr_animalday,2};
+    curr_protocols = AP_list_experiments(animal,day);
+    
+    protocol = 'AP_lcrGratingPassive';
+    curr_use_exp = [curr_protocols(strmatch(protocol, ...
+        {curr_protocols.protocol})).experiment];
+    
+    % (2 expts: 1 pre-muscimol, 2 post-muscimol)
+    for curr_exp = 1:length(curr_use_exp)
+        
+        experiment = curr_use_exp(curr_exp);
+        lfp_channel = 1;
+        AP_load_experiment;
+        
+        % Estimate boundaries of cortex (the dumb way: first template/gap)
+        sorted_template_depths = sort(template_depths);
+        ctx_start = sorted_template_depths(1) - 1;
+        [max_gap,max_gap_idx] = max(diff(sorted_template_depths));
+        ctx_end = sorted_template_depths(max_gap_idx)+1;
+        ctx_depth = [ctx_start,ctx_end];
+        
+        % Load in each channel, light-fix, get average stim response
+        % (loading script sets up a bunch of this already): load in each channel
+        use_stims = trial_conditions(:,2) == -90;
+        use_stimOn_times = stimOn_times(use_stims);
+        
+        stim_surround_window = [-0.05,0.1];
+        stim_lfp_t = stim_surround_window(1):1/lfp_sample_rate:stim_surround_window(2);
+        
+        pull_times = use_stimOn_times + stim_lfp_t;
+        
+        lfp_stim_align_avg = nan(n_channels,length(stim_lfp_t));
+        
+        for curr_lfp_channel = 1:n_channels
+            
+            lfp = double(lfp_memmap{lfp_load_file}.Data.lfp(curr_lfp_channel,lfp_load_start_rel:lfp_load_stop_rel));
+            
+            % Get average stim response
+            lfp_stim_align = interp1(lfp_t_timeline,lfp,pull_times);
+            
+            baseline_time = stim_lfp_t < 0;
+            lfp_stim_align_avg(curr_lfp_channel,:) = nanmean((lfp_stim_align - nanmean(lfp_stim_align(:,baseline_time),2)),1);
+            
+            AP_print_progress_fraction(curr_lfp_channel,n_channels);
+            
+        end
+        
+        % Average channels at same depth
+        lfp_connected_channels = channel_map_full.connected;
+        [stim_lfp_depth,stim_lfp] = grpstats( ...
+            lfp_stim_align_avg(lfp_connected_channels,:), ...
+            lfp_channel_positions(lfp_connected_channels),{'gname','mean'});
+        stim_lfp_depth = cellfun(@str2num,stim_lfp_depth);
+        
+        % Calculate CSD (2nd derivative, smooth at each step)
+        n_channel_smooth = 10;
+        stim_lfp_smooth = movmean(stim_lfp,n_channel_smooth,1);
+        stim_lfp_smooth_d1 = movmean(diff(stim_lfp_smooth,1,1),n_channel_smooth,1);
+        stim_lfp_smooth_d2 = movmean(diff(stim_lfp_smooth_d1,1,1),n_channel_smooth,1);
+        stim_csd = -stim_lfp_smooth_d2;
+        stim_csd_depth = conv(conv(stim_lfp_depth,[1,1]/2,'valid'),[1,1]/2,'valid');
+        
+        % Get CSD profile at time slice
+        csd_slice_t = [0.04,0.06]; % time to use after stim (s)
+        csd_slice_samples = stim_lfp_t >= csd_slice_t(1) & stim_lfp_t <= csd_slice_t(2);
+        csd_slice = nanmean(stim_csd(:,csd_slice_samples),2);
+        
+        % Get spike rate in current experiment
+        curr_exp_start = sync(2).timestamps(find(experiment_idx)*2 - 1);
+        curr_exp_stop = sync(2).timestamps(find(experiment_idx)*2);
+        curr_use_spikes = spike_times >= curr_exp_start & ...
+            spike_times <= curr_exp_stop;
+        curr_spike_rate = accumarray(spike_templates(curr_use_spikes),1, ...
+            [max(spike_templates),1])./(curr_exp_stop - curr_exp_start);
+        
+        % Plot CSD and slice
+        switch curr_exp
+            case 1
+                cond_label = 'pre-muscimol';
+            case 2
+                cond_label = 'post-muscimol';
+        end
+        
+        subplot(length(animal_days),2,(curr_animalday-1)*2+1,'YDir','reverse'); hold on;
+        plot(curr_spike_rate,template_depths,'.k','MarkerSize',10);
+        line(xlim,repmat(ctx_start,2,1));
+        line(xlim,repmat(ctx_end,2,1));
+        xlabel('Norm spike rate');
+        ylabel('Depth (\mum)');
+        title(['CSD ' cond_label]);
+        
+        subplot(length(animal_days),2,(curr_animalday-1)*2+2;
+        imagesc(stim_lfp_t,stim_csd_depth,stim_csd);
+        colormap(brewermap([],'*RdBu'));
+        caxis([-max(abs(caxis)),max(abs(caxis))]);
+        line([0,0],ylim,'color','k');
+        xlabel('Time from stim (s)');
+        ylabel('Depth (\mum)');
+        title(['Spike rate ' cond_label]);
+        
+        linkaxes(get(gcf,'Children'),'y')
+        
+    end
+    
+end
 
 
 %% Plot pre/post of cortical muscimol recordings
