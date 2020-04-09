@@ -648,23 +648,67 @@ load(muscimol_wf_fn);
 std_cat = vertcat(muscimol_wf.std);
 vfs_cat = vertcat(muscimol_wf.vfs);
 
+std_change = (cat(3,std_cat{:,2})-cat(3,std_cat{:,1}))./(cat(3,std_cat{:,2})+cat(3,std_cat{:,1}));
+vfs_softnorm = 0.2;
+vfs_change = (abs(cat(3,vfs_cat{:,2}))-abs(cat(3,vfs_cat{:,1})))./(vfs_softnorm+abs(cat(3,vfs_cat{:,2}))+abs(cat(3,vfs_cat{:,1})));
+
 figure; 
 
-subplot(1,2,1);
+% Plot std
+subplot(2,3,1);
+imagesc(nanmean(cat(3,std_cat{:,1}),3));
+axis image off;
+caxis([0,0.03]);
+colormap(gca,brewermap([],'*Greys'));
+AP_reference_outline('ccf_aligned','r');
+title('Std (pre-muscimol');
+colorbar
+
+subplot(2,3,2);
+imagesc(nanmean(cat(3,std_cat{:,2}),3));
+axis image off;
+caxis([0,0.03]);
+colormap(gca,brewermap([],'*Greys'));
+AP_reference_outline('ccf_aligned','r');
+title('Std (post-muscimol');
+colorbar
+
+subplot(2,3,3);
+imagesc(nanmean(std_change,3));
+axis image off;
+caxis([-0.5,0.5]);
+colormap(gca,brewermap([],'*RdBu'));
+AP_reference_outline('ccf_aligned',[0.5,0.5,0.5]);
+title('(post-pre)/(post+pre)');
+colorbar
+
+% Plot VFS
+subplot(2,3,4);
 imagesc(nanmean(cat(3,vfs_cat{:,1}),3));
 axis image off;
 caxis([-1,1]);
-colormap(brewermap([],'*RdBu'));
+colormap(gca,brewermap([],'*RdBu'));
 AP_reference_outline('ccf_aligned',[0.5,0.5,0.5]);
 title('VFS pre-muscimol');
+colorbar
 
-subplot(1,2,2);
+subplot(2,3,5);
 imagesc(nanmean(cat(3,vfs_cat{:,2}),3));
 axis image off;
 caxis([-1,1]);
-colormap(brewermap([],'*RdBu'));
+colormap(gca,brewermap([],'*RdBu'));
 AP_reference_outline('ccf_aligned',[0.5,0.5,0.5]);
 title('VFS post-muscimol');
+colorbar
+
+subplot(2,3,6);
+imagesc(nanmean(vfs_change,3));
+axis image off;
+caxis([-0.5,0.5]);
+colormap(gca,brewermap([],'*RdBu'));
+AP_reference_outline('ccf_aligned',[0.5,0.5,0.5]);
+title('(post-pre)/(post+pre)');
+colorbar
 
 
 %% Cortex/striatum passive gratings pre/post muscimol
