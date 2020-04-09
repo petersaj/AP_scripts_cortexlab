@@ -86,7 +86,7 @@ save(save_fn,'wf_corr_borders');
 disp(['Saved ' save_fn]);
 
 
-%% Cortex -> kernel-aligned striatum map (protocols separately)
+%% Striatum cortical kernels
 
 disp('Cortex -> striatum regression maps across protocols');
 
@@ -622,7 +622,96 @@ end
 
 %% ~~~~~~~~~~~ MUSCIMOL ~~~~~~~~~~~~~
 
-%% Cortex -> kernel-aligned striatum map (protocols separately) (MUSCIMOL)
+%% Widefield VFS and std dev (pre/post muscimol)
+
+animals = {'AP045','AP054','AP055','AP053','AP047','AP048'};
+
+% Load master U
+load('C:\Users\Andrew\OneDrive for Business\Documents\CarandiniHarrisLab\analysis\wf_ephys_choiceworld\wf_processing\wf_alignment\U_master.mat');
+
+muscimol_wf = struct;
+
+for curr_animal = 1:length(animals)
+    
+    animal = animals{curr_animal};
+    disp(animal);
+
+    % Get standard deviation from task and retinotopy from sparse noise
+    task_experiments = AP_find_experiments(animal,'vanillaChoiceworldNoRepeats');
+    task_experiments = task_experiments([task_experiments.imaging] & [task_experiments.ephys]);
+    
+    retinotopy_experiments = AP_find_experiments(animal,'AP_sparseNoise');
+    retinotopy_experiments = retinotopy_experiments([retinotopy_experiments.imaging] & [retinotopy_experiments.ephys]);
+        
+    for curr_day = 1:length(task_experiments)
+        
+        day = task_experiments(curr_day).day;
+        
+        if length(task_experiments(curr_day).experiment) ~= 2
+            warning([animal ' ' day '~= 2 experiments, using first/last']);
+            task_experiments(curr_day).experiment = task_experiments(curr_day).experiment([1,end]);
+        end
+        
+        if length(retinotopy_experiments(curr_day).experiment) ~= 2
+            warning([animal ' ' day '~= 2 experiments, using first/last']);
+            retinotopy_experiments(curr_day).experiment = retinotopy_experiments(curr_day).experiment([1,end]);
+        end
+        
+        for curr_exp = 1:2
+            
+            % Get retinotopy (from sparse noise)
+            experiment = retinotopy_experiments(curr_day).experiment(curr_exp);           
+            load_parts.imaging = true;
+            AP_load_experiment;
+            lilrig_retinotopy;
+            close(gcf);
+            vfs_aligned = AP_align_widefield(vfs_median,animal,day);
+            
+            % Get standard deviation (from task)
+            % (do this in master-U space)
+            experiment = task_experiments(curr_day).experiment(curr_exp);
+            load_parts.imaging = true;
+            AP_load_experiment;
+            
+            px_std_sq = zeros(size(Udf,1),size(Udf,2));
+            px_mean = svdFrameReconstruct(Udf,nanmean(fVdf,2));
+            
+            skip_frames = 35*10;
+            n_frames = size(fVdf,2) - skip_frames*2 + 1;
+            chunk_size = 5000;
+            frame_chunks = unique([skip_frames:chunk_size:size(fVdf,2)-skip_frames, ...
+                size(fVdf,2)-skip_frames]);
+            
+            for curr_chunk = 1:length(frame_chunks)-1
+                curr_im = svdFrameReconstruct(Udf,fVdf(:,frame_chunks(curr_chunk): ...
+                    frame_chunks(curr_chunk+1)));
+                px_std_sq = px_std_sq + sum((bsxfun(@minus,curr_im,px_mean).^2./n_frames),3);
+                clear curr_im
+            end
+            px_std = sqrt(px_std_sq);
+            px_std_aligned = AP_align_widefield(px_std,animal,day);
+            avg_im_aligned = AP_align_widefield(avg_im,animal,day);
+            
+            % Package final
+            muscimol_wf(curr_animal).vfs{curr_day,curr_exp} = vfs_aligned;
+            muscimol_wf(curr_animal).std{curr_day,curr_exp} = px_std_aligned;
+            muscimol_wf(curr_animal).avg{curr_day,curr_exp} = avg_im_aligned;
+            
+        end
+        
+        AP_print_progress_fraction(curr_day,length(task_experiments));    
+        
+    end
+end
+
+% Save
+save_path = ['C:\Users\Andrew\OneDrive for Business\Documents\CarandiniHarrisLab\analysis\wf_ephys_choiceworld\paper\data'];
+save_fn = 'muscimol_wf.mat';
+save([save_path filesep save_fn],'muscimol_wf');
+disp(['Saved ' [save_path filesep save_fn]]);
+
+
+%% Striatum cortical kernels (pre/post muscimol)
 
 disp('Cortex -> striatum regression maps across protocols');
 
@@ -771,8 +860,7 @@ for curr_exp_condition = 1:2
     
 end
 
-
-%% Choiceworld trial activity (MUSCIMOL)
+%% Choiceworld trial activity (pre/post muscimol)
 clear all
 
 animals = {'AP045','AP054','AP055','AP053','AP047','AP048'};
@@ -849,7 +937,7 @@ end
 
 
 
-%% Passive trial activity (MUSCIMOL)
+%% Passive trial activity (pre/post muscimol)
 clear all
 
 animals = {'AP045','AP054','AP055','AP053','AP047','AP048'};

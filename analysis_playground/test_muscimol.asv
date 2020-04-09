@@ -804,7 +804,7 @@ title('VFS post-muscimol');
 
 %% ~~~~~~~~ After preprocessing/saving trial activity ~~~~~~~~
 
-%% Passive gratings pre/post muscimol
+%% Get muscimol change in passive
 
 data_fns = { ...
     'trial_activity_AP_lcrGratingPassive_pre_muscimol', ...
@@ -985,8 +985,8 @@ axis square
 
 subplot(1,3,3);
 plot(fluor_avg_postpre_change(:,plot_ctx),mua_avg_postpre_change(:,plot_str),'.k','MarkerSize',20)
-xlabel([wf_roi(plot_ctx).area  ' (post-pre)/pre']);
-ylabel(['Str ' num2str(plot_str) ' (post-pre)/pre']);
+xlabel([wf_roi(plot_ctx).area  ' (post-pre)/post']);
+ylabel(['Str ' num2str(plot_str) ' (post-pre)/post']);
 line([-1,1],[-1,1],'color','k');
 line([-1,1],[0,0],'color','k','linestyle','--');
 line([0,0],[-1,1],'color','k','linestyle','--');
@@ -1013,166 +1013,9 @@ nonan_points = ~isnan(mua_avg_postpre_change(:,plot_str)) & ...
 % fluor_avg_premuscimol = squeeze(nanmean(fluor_premuscimol_mean(:,:,t_stim,:),3));
 % fluor_avg_postmuscimol = squeeze(nanmean(fluor_postmuscimol_mean(:,:,t_stim,:),3));
 
-%% Striatal average task activity pre/post muscimol
-
-data_fns = { ...
-    'trial_activity_vanillaChoiceworldNoRepeats_pre_muscimol', ...
-    'trial_activity_vanillaChoiceworldNoRepeats_post_muscimol'};
-
-for curr_data = 1:length(data_fns)
-    
-    % Load data
-    data_fn = data_fns{curr_data};
-    AP_load_concat_normalize_ctx_str;
-    
-    % Split data by recording
-    trials_allcat = size(wheel_allcat,1);
-    trials_recording = cellfun(@(x) size(x,1),vertcat(wheel_all{:}));
-    use_split = trials_recording;
-    split_idx = cell2mat(arrayfun(@(exp,trials) repmat(exp,trials,1), ...
-        [1:length(use_split)]',reshape(use_split,[],1),'uni',false));
-    
-    % Plot stim-aligned/sorted measured and predicted striatum activity
-    % (correct contra trials)      
-    switch curr_data
-        case 1
-            cond_name = 'Pre-muscimol';
-        case 2
-            cond_name = 'Post-muscimol';
-    end
-    
-    for curr_trial_set = 1:2
-        switch curr_trial_set
-            case 1
-                plot_trials = move_t < Inf & trial_stim_allcat > 0 & trial_choice_allcat == -1;
-                figure('Name',[cond_name ': Correct contra trials']);
-            case 2
-                plot_trials = move_t < Inf & trial_stim_allcat < 0 & trial_choice_allcat == 1;
-                figure('Name',[cond_name ': Correct ipsi trials']);
-        end
-        
-        p = gobjects(n_depths,4);
-        colormap(brewermap([],'Greys'));
-        for curr_depth = 1:n_depths
-            
-            % Get trials to plot, sort by reaction time
-            curr_trials = plot_trials & ~all(isnan(mua_allcat(:,:,curr_depth)),2);
-            curr_trials_idx = find(curr_trials);
-            [~,rxn_sort_idx] = sort(move_t(curr_trials_idx));
-            
-            sorted_plot_trials = curr_trials_idx(rxn_sort_idx);
-            
-            curr_plot = mua_allcat(sorted_plot_trials,:,curr_depth);
-            curr_taskpred_plot = mua_taskpred_allcat(sorted_plot_trials,:,curr_depth);
-            curr_ctxpred_plot = mua_ctxpred_allcat(sorted_plot_trials,:,curr_depth);
-            
-            % Smooth and plot with stim/move/reward times
-            % (as conv(nans-zeroed)./conv(non-nan) to ignore in nans in conv)
-            smooth_filt = [50,1]; % (trials x frames)
-            
-            curr_plot_smooth = conv2(curr_plot,ones(smooth_filt),'same')./ ...
-                conv2(~isnan(curr_plot),ones(smooth_filt),'same');
-            
-            curr_taskpred_plot_smooth = curr_taskpred_plot;
-            curr_taskpred_plot_smooth(isnan(curr_taskpred_plot_smooth)) = 0;
-            curr_taskpred_plot_smooth = conv2(curr_taskpred_plot_smooth,ones(smooth_filt),'same')./ ...
-                conv2(~isnan(curr_taskpred_plot),ones(smooth_filt),'same');
-            
-            curr_ctxpred_plot_smooth = curr_ctxpred_plot;
-            curr_ctxpred_plot_smooth(isnan(curr_ctxpred_plot_smooth)) = 0;
-            curr_ctxpred_plot_smooth = conv2(curr_ctxpred_plot_smooth,ones(smooth_filt),'same')./ ...
-                conv2(~isnan(curr_ctxpred_plot),ones(smooth_filt),'same');
-            
-            p(curr_depth,1) = subplot(n_depths,4,1+(curr_depth-1)*4,'YDir','reverse'); hold on
-            imagesc(t,[],curr_plot_smooth);
-            plot(zeros(size(curr_trials_idx)),1:length(curr_trials_idx),'MarkerSize',1,'color','r');
-            plot(move_t(sorted_plot_trials),1:length(curr_trials_idx),'MarkerSize',1,'color',[0.8,0,0.8]);
-            %         plot(outcome_t(sorted_plot_trials),1:length(curr_trials_idx),'.','MarkerSize',1,'color','b');
-            axis tight;
-            xlim([-0.2,1]);
-            xlabel('Time from stim');
-            ylabel('Trials (rxn sorted)');
-            title('Measured');
-            
-            p(curr_depth,2) = subplot(n_depths,4,2+(curr_depth-1)*4,'YDir','reverse'); hold on
-            imagesc(t,[],curr_taskpred_plot_smooth);
-            plot(zeros(size(curr_trials_idx)),1:length(curr_trials_idx),'MarkerSize',1,'color','r');
-            plot(move_t(sorted_plot_trials),1:length(curr_trials_idx),'MarkerSize',1,'color',[0.8,0,0.8]);
-            %         plot(outcome_t(sorted_plot_trials),1:length(curr_trials_idx),'.','MarkerSize',1,'color','b');
-            axis tight;
-            xlim([-0.2,1]);
-            xlabel('Time from stim');
-            ylabel('Trials (rxn sorted)');
-            title('Task-predicted');
-            
-            p(curr_depth,3) = subplot(n_depths,4,3+(curr_depth-1)*4,'YDir','reverse'); hold on
-            imagesc(t,[],curr_ctxpred_plot_smooth);
-            plot(zeros(size(curr_trials_idx)),1:length(curr_trials_idx),'MarkerSize',1,'color','r');
-            plot(move_t(sorted_plot_trials),1:length(curr_trials_idx),'MarkerSize',1,'color',[0.8,0,0.8]);
-            %         plot(outcome_t(sorted_plot_trials),1:length(curr_trials_idx),'.','MarkerSize',1,'color','b');
-            axis tight;
-            xlim([-0.2,1]);
-            xlabel('Time from stim');
-            ylabel('Trials (rxn sorted)');
-            title('Cortex-predicted');
-            
-            % Split and average trials by animal
-            curr_trials_exp = mat2cell(curr_trials,use_split,1);
-            
-            curr_mua_exp = mat2cell(mua_allcat(:,:,curr_depth),use_split,length(t));
-            curr_mua_exp_mean = cell2mat(cellfun(@(data,trials) nanmean(data(trials,:),1), ...
-                curr_mua_exp,curr_trials_exp,'uni',false));
-            
-            curr_taskpred_mua_exp = mat2cell(mua_taskpred_allcat(:,:,curr_depth),use_split,length(t));
-            curr_taskpred_mua_exp_mean = cell2mat(cellfun(@(data,trials) nanmean(data(trials,:),1), ...
-                curr_taskpred_mua_exp,curr_trials_exp,'uni',false));
-            
-            curr_ctxpred_mua_exp = mat2cell(mua_ctxpred_allcat(:,:,curr_depth),use_split,length(t));
-            curr_ctxpred_mua_exp_mean = cell2mat(cellfun(@(data,trials) nanmean(data(trials,:),1), ...
-                curr_ctxpred_mua_exp,curr_trials_exp,'uni',false));
-            
-            % Plot PSTH (measured, task-predicted, cortex-predicted);
-            p(curr_depth,4) = subplot(n_depths,4,4+(curr_depth-1)*4); hold on
-            p1 = AP_errorfill(t,nanmean(curr_mua_exp_mean,1), ...
-                AP_sem(curr_mua_exp_mean,1),'k',0.5);
-            p2 = AP_errorfill(t,nanmean(curr_taskpred_mua_exp_mean,1), ...
-                AP_sem(curr_taskpred_mua_exp_mean,1),[0,0,0.7],0.5);
-            p3 = AP_errorfill(t,nanmean(curr_ctxpred_mua_exp_mean,1), ...
-                AP_sem(curr_ctxpred_mua_exp_mean,1),[0,0.7,0],0.5);
-            xlim([-0.2,1])
-            line([0,0],ylim,'color','r');
-            line(repmat(median(move_t(sorted_plot_trials)),1,2),ylim,'color',[0.8,0,0.8],'linestyle','--');
-            line(repmat(median(outcome_t(sorted_plot_trials)),1,2),ylim,'color','b','linestyle','--');
-            xlabel('Time from stim');
-            ylabel('Spikes (std)');
-            legend([p1,p2,p3],{'Measured','Task-predicted','Cortex-predicted'});
-            
-        end
-        % Link the x-axes, set the c/y-axes same within a row
-        linkaxes(p(:),'x');
-        
-        for curr_row = 1:size(p,1)
-            curr_ylim = ylim(p(curr_row,4));
-            caxis(p(curr_row,1),[0,curr_ylim(2)]);
-            caxis(p(curr_row,2),[0,curr_ylim(2)]);
-            caxis(p(curr_row,3),[0,curr_ylim(2)]);
-        end
-        
-        trial_scale = 500;
-        t_scale = 0.5;
-        y_scale = 1;
-        line(p(1,1),min(xlim(p(1,1))) + [0,t_scale],repmat(min(ylim(p(1,1))),2,1),'color','k','linewidth',3);
-        line(p(1,4),min(xlim(p(1,4))) + [0,t_scale],repmat(min(ylim(p(1,4))),2,1),'color','k','linewidth',3);
-        line(p(1,1),repmat(min(xlim(p(1,1))),2,1),min(ylim(p(1,1))) + [0,trial_scale],'color','k','linewidth',3);
-        line(p(1,4),repmat(min(xlim(p(1,4))),2,1),min(ylim(p(1,4))) + [0,y_scale],'color','k','linewidth',3);
-        drawnow;
-        
-    end
-    
-end
 
 
-%% Get task stim kernels pre/post muscimol
+%% Get task stim kernels with muscimol
 
 data_fns = { ...
     'trial_activity_vanillaChoiceworldNoRepeats_pre_muscimol', ...
@@ -1220,7 +1063,12 @@ for curr_data = 1:length(data_fns)
     
 end
 
-% Normalize and concatenate task kernels
+
+
+
+
+
+
 mua_task_k_premuscimol = arrayfun(@(regressor) ...
     cell2mat(permute(cellfun(@(x) x{regressor}, ...
     cellfun(@(kernel_set,mua_norm) cellfun(@(kernel) ...
@@ -1298,8 +1146,8 @@ for curr_depth = 1:n_depths
         p(curr_depth,curr_regressor) = ...
             subplot(n_depths,n_regressors,curr_regressor+(curr_depth-1)*n_regressors);
         
-        curr_kernels = mua_task_k_postmuscimol{curr_regressor}(:,:,curr_depth,:);
-        n_subregressors = size(mua_task_k_postmuscimol{curr_regressor},1);
+        curr_kernels = mua_ctxpred_task_k_postmuscimol{curr_regressor}(:,:,curr_depth,:);
+        n_subregressors = size(mua_ctxpred_task_k_postmuscimol{curr_regressor},1);
         col = task_regressor_cols{curr_regressor};
         for curr_subregressor = 1:n_subregressors
             AP_errorfill(task_regressor_t_shifts{curr_regressor}, ...
@@ -1321,7 +1169,8 @@ t_scale = 0.5;
 line(min(xlim) + [0,t_scale],repmat(min(ylim),2,1),'color','k','linewidth',3);
 line(repmat(min(xlim),2,1),min(ylim) + [0,y_scale],'color','k','linewidth',3);
 
-% Plot kernel sums pre/post muscimol
+
+% Plot 
 str_k_sum_premuscimol = cellfun(@(x) permute(sum(x,2),[1,3,4,2]),mua_task_k_premuscimol,'uni',false);
 str_k_sum_postmuscimol = cellfun(@(x) permute(sum(x,2),[1,3,4,2]),mua_task_k_postmuscimol,'uni',false);
 
@@ -1329,28 +1178,14 @@ figure;
 p = nan(n_depths,n_regressors);
 for curr_depth = 1:n_depths
     for curr_regressor = 1:n_regressors
-        if curr_regressor == 1
-            x = unique([0.06,0.125,0.25,0.5,1].*[-1;1]);
-        else
-            x = 1:size(str_k_sum_premuscimol{curr_regressor},1);
-        end
-        
         p(curr_depth,curr_regressor) = ...
             subplot(n_depths,n_regressors,curr_regressor+(curr_depth-1)*n_regressors);
         hold on
         
-        errorbar(x,nanmean(str_k_sum_premuscimol{curr_regressor}(:,curr_depth,:),3), ...
-            AP_sem(str_k_sum_premuscimol{curr_regressor}(:,curr_depth,:),3),'k','linewidth',2);
-        
-        errorbar(x,nanmean(str_k_sum_postmuscimol{curr_regressor}(:,curr_depth,:),3), ...
-            AP_sem(str_k_sum_postmuscimol{curr_regressor}(:,curr_depth,:),3),'r','linewidth',2);
-        
-        axis tight
-        xlim(xlim + [-0.2,0.2]);
-        
-        xlabel('Condition');
-        ylabel('Weight sum');
-        title(task_regressor_labels{curr_regressor});
+        AP_errorfill([],nanmean(str_k_sum_premuscimol{curr_regressor}(:,curr_depth,:),3), ...
+            AP_sem(str_k_sum_premuscimol{curr_regressor}(:,curr_depth,:),3),'k');
+        AP_errorfill([],nanmean(str_k_sum_postmuscimol{curr_regressor}(:,curr_depth,:),3), ...
+            AP_sem(str_k_sum_postmuscimol{curr_regressor}(:,curr_depth,:),3),'r');
         
     end
 end
