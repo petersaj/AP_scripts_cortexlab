@@ -149,6 +149,8 @@ switch str_align
                     n_aligned_depths = ephys_kernel_align(curr_animal_idx).n_aligned_depths(curr_day_idx);
                 end
             end
+        else
+            error(['No ephys alignment file: ' ephys_kernel_align_fn]);
         end
         % Check that there's an aligned group for every spike
         if exist('aligned_str_depth_group','var') && length(spike_times) ~= length(aligned_str_depth_group)
