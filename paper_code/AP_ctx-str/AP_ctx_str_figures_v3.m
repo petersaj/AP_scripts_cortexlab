@@ -747,7 +747,8 @@ injection_coordinates_bilateral = arrayfun(@(x) ...
     1:n_aligned_depths,'uni',false);
 
 % Convert points from CCF to widefield
-ccf_tform_fn = ['C:\Users\Andrew\OneDrive for Business\Documents\Atlases\AllenCCF\ccf_tform'];
+alignment_path = 'C:\Users\Andrew\OneDrive for Business\Documents\CarandiniHarrisLab\analysis\widefield_alignment';
+ccf_tform_fn = [alignment_path filesep 'ccf_tform.mat'];
 load(ccf_tform_fn);
 
 um2pixel = 20.6;
@@ -2136,7 +2137,8 @@ load(kernel_template_fn);
 
 % Get bregma to include/exclude ipsilateral side
 bregma = allenCCFbregma;
-ccf_tform_fn = ['C:\Users\Andrew\OneDrive for Business\Documents\Atlases\AllenCCF\ccf_tform'];
+alignment_path = 'C:\Users\Andrew\OneDrive for Business\Documents\CarandiniHarrisLab\analysis\widefield_alignment';
+ccf_tform_fn = [alignment_path filesep 'ccf_tform.mat'];
 load(ccf_tform_fn);
 
 um2pixel = 20.6;

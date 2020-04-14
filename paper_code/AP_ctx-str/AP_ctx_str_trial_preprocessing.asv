@@ -20,14 +20,14 @@ for curr_animal = 1:length(animals)
     animal = animals{curr_animal};
     disp(animal);
     
-    experiments = AP_find_experiments(animal,protocol);
+    experiments = AP_find_experiments(animal,protocol);    
     % (wf-only days: no craniotomy)
     experiments = experiments([experiments.imaging] & ~[experiments.ephys]);
     
     load_parts.cam = false;
     load_parts.imaging = true;
     load_parts.ephys = false;
-    
+        
     for curr_day = 1:length(experiments)
         
         day = experiments(curr_day).day;
@@ -70,13 +70,13 @@ for curr_animal = 1:length(animals)
         
         corr_edges = nanmean(corr_map_edge,3);
         corr_edges_aligned = AP_align_widefield(corr_edges,animal,day);
-        
+               
         wf_corr_borders(curr_animal).corr_edges{curr_day} = corr_edges_aligned;
-        
+                     
         clearvars -except animals animal curr_animal protocol experiments curr_day animal wf_corr_borders load_parts
         
         AP_print_progress_fraction(curr_day,length(experiments));
-    end
+    end    
 end
 
 % Save widefield correlation borders
@@ -195,12 +195,12 @@ for protocol = protocols
                 regression_params.zs,regression_params.cvfold, ...
                 false,regression_params.use_constant);
             
-            % Reshape kernel and convert to pixel space
+            % Reshape kernel and convert to pixel space            
             aUdf = AP_align_widefield(Udf,animal,day);
             k_px = zeros(size(aUdf,1),size(aUdf,2),size(k,2),size(k,3),'single');
             for curr_spikes = 1:size(k,3)
                 k_px(:,:,:,curr_spikes) = svdFrameReconstruct(aUdf(:,:,regression_params.use_svs),k(:,:,curr_spikes));
-            end
+            end    
             
             % Store
             ctx_str_kernel{curr_animal}{curr_day} = k_px;
@@ -264,7 +264,7 @@ for curr_animal = 1:length(animals)
         trial_data_fieldnames = fieldnames(trial_data);
         for curr_trial_data_field = trial_data_fieldnames'
             trial_data_all.(cell2mat(curr_trial_data_field)){curr_animal,1}{curr_day,1} = ...
-                trial_data.(cell2mat(curr_trial_data_field));
+                trial_data.(cell2mat(curr_trial_data_field));       
         end
         
         % Store general info
@@ -272,12 +272,12 @@ for curr_animal = 1:length(animals)
         trial_data_all.t = t;
         trial_data_all.task_regressor_labels = task_regressor_labels;
         trial_data_all.task_regressor_sample_shifts = task_regressor_sample_shifts;
-        
+      
         AP_print_progress_fraction(curr_day,length(experiments));
         
         % Clear for next loop
         clearvars -except animals curr_animal animal protocol experiments curr_day ...
-            trial_data_all
+            trial_data_all         
         
     end
 end
@@ -327,7 +327,7 @@ for curr_animal = 1:length(animals)
         trial_data_fieldnames = fieldnames(trial_data);
         for curr_trial_data_field = trial_data_fieldnames'
             trial_data_all.(cell2mat(curr_trial_data_field)){curr_animal,1}{curr_day,1} = ...
-                trial_data.(cell2mat(curr_trial_data_field));
+                trial_data.(cell2mat(curr_trial_data_field));       
         end
         
         % Store general info
@@ -335,12 +335,12 @@ for curr_animal = 1:length(animals)
         trial_data_all.t = t;
         trial_data_all.task_regressor_labels = task_regressor_labels;
         trial_data_all.task_regressor_sample_shifts = task_regressor_sample_shifts;
-        
+      
         AP_print_progress_fraction(curr_day,length(experiments));
         
         % Clear for next loop
         clearvars -except animals curr_animal animal protocol experiments curr_day ...
-            trial_data_all
+            trial_data_all         
         
     end
 end
@@ -374,7 +374,7 @@ for animal_group = {'trained','naive'}
     end
     
     for protocol = protocols
-        protocol = cell2mat(protocol);
+        protocol = cell2mat(protocol);        
         
         disp(['Passive trial activity: ' animal_group ' ' protocol])
         
@@ -396,7 +396,7 @@ for animal_group = {'trained','naive'}
                 experiments = AP_find_experiments(animal,protocol);
                 experiments = experiments([experiments.imaging] & [experiments.ephys]);
             end
-            
+                        
             disp(['Loading ' animal]);
             
             for curr_day = 1:length(experiments)
@@ -430,7 +430,7 @@ for animal_group = {'trained','naive'}
                 trained_animals naive_animals protocols ...
                 protocol animal_group animals curr_animal ...
                 animals curr_animal animal protocol experiments curr_day ...
-                trial_data_all
+                trial_data_all            
             
         end
         
@@ -439,7 +439,7 @@ for animal_group = {'trained','naive'}
             protocol animal_group animals...
             trial_data_all
         disp('Finished loading all')
-        
+
         save_path = 'C:\Users\Andrew\OneDrive for Business\Documents\CarandiniHarrisLab\analysis\wf_ephys_choiceworld\paper\data';
         save_fn = ['trial_activity_' protocol '_' animal_group];
         save([save_path filesep save_fn],'-v7.3');
@@ -453,171 +453,171 @@ end
 
 %% [[lock on]]
 if false
+
+%% Make reference image for drawing widefield ROIs
+
+data_fn = 'trial_activity_choiceworld';
+exclude_data = true;
+AP_load_concat_normalize_ctx_str;
+
+%%% Generate reference image for widefield ROIs
+rxn_time_use = [0.1,0.3];
+
+use_trials = ...
+    trial_contrast_allcat > 0 & ...
+    trial_side_allcat == 1 & ...
+    trial_choice_allcat == -1 & ...
+    move_t >= rxn_time_use(1) & ...
+    move_t <= rxn_time_use(2);
+
+plot_px = svdFrameReconstruct(U_master(:,:,1:n_vs), ...
+    diff(squeeze(nanmean(fluor_allcat(use_trials,:,:),1))',[],2));
+
+use_t = t >= 0 & t <= 0.8;
+plot_px_use_t = double(plot_px(:,:,use_t));
+plot_px_use_t(plot_px_use_t < 0) = 0;
+plot_px_use_t = bsxfun(@rdivide,plot_px_use_t,max(max(plot_px_use_t,[],1),[],2));
+
+plot_px_com = sum((plot_px_use_t.*permute(1:sum(use_t),[1,3,2])),3)./sum(plot_px_use_t,3);
+
+t_leeway = 20;
+plot_px_colored = ...
+    ind2rgb(round(mat2gray(plot_px_com,[t_leeway,sum(use_t)-t_leeway])*255),jet(255));
+
+plot_px_alpha = mat2gray(max(plot_px_use_t,[],3), ...
+    [0,prctile(reshape(max(plot_px_use_t,[],3),[],1),99)]);
+
+f = figure;
+
+h = image(plot_px_colored);
+set(h,'AlphaData',plot_px_alpha);
+
+axis image off
+AP_reference_outline('ccf_aligned','k');
+title('Widefield ROI reference image')
+
+wf_roi_ref = plot_px_colored;
+wf_roi_ref_alpha = plot_px_alpha;
+
+wf_roi_path = 'C:\Users\Andrew\OneDrive for Business\Documents\CarandiniHarrisLab\analysis\wf_ephys_choiceworld\wf_processing\wf_rois';
+wf_ref_fn = 'wf_roi_ref';
+savefig(f,[wf_roi_path filesep wf_ref_fn]);
+
+
+%% Draw widefield ROIs
+
+% Set ROIs to draw
+roi_areas = {'V1p','V1c','AM','RSPa','RSPp','PPC','FRm','FRa','SMl','SMf'};
+
+% Load reference image
+wf_roi_path = 'C:\Users\Andrew\OneDrive for Business\Documents\CarandiniHarrisLab\analysis\wf_ephys_choiceworld\wf_processing\wf_rois';
+wf_ref_fn = 'wf_roi_ref.fig';
+openfig([wf_roi_path filesep wf_ref_fn]);
+
+wf_roi = struct('area',cell(length(roi_areas),2),'mask',cell(length(roi_areas),2));
+for curr_area = 1:length(roi_areas)
     
-    %% Make reference image for drawing widefield ROIs
+    % Get ROI from left hemisphere
+    title(['Draw ' roi_areas{curr_area} '_L']);
+    curr_mask_L = roipoly;
+    wf_roi(curr_area,1).area = [roi_areas{curr_area} '_L'];
+    wf_roi(curr_area,1).mask = curr_mask_L;
     
-    data_fn = 'trial_activity_choiceworld';
-    exclude_data = true;
-    AP_load_concat_normalize_ctx_str;
+    % Reflect ROI to right hemisphere
+    curr_mask_R = AP_reflect_widefield(curr_mask_L) > 0;
+    wf_roi(curr_area,2).area = [roi_areas{curr_area} '_R'];
+    wf_roi(curr_area,2).mask = curr_mask_R;
     
-    %%% Generate reference image for widefield ROIs
-    rxn_time_use = [0.1,0.3];
+    % Draw ROIs
+    curr_roi_L = cell2mat(bwboundaries(curr_mask_L));
+    curr_roi_R = cell2mat(bwboundaries(curr_mask_R));
+    plot(curr_roi_L(:,2),curr_roi_L(:,1),'m','linewidth',2);
+    plot(curr_roi_R(:,2),curr_roi_R(:,1),'m','linewidth',2);
+    drawnow;
     
-    use_trials = ...
-        trial_contrast_allcat > 0 & ...
-        trial_side_allcat == 1 & ...
-        trial_choice_allcat == -1 & ...
-        move_t >= rxn_time_use(1) & ...
-        move_t <= rxn_time_use(2);
-    
-    plot_px = svdFrameReconstruct(U_master(:,:,1:n_vs), ...
-        diff(squeeze(nanmean(fluor_allcat(use_trials,:,:),1))',[],2));
-    
-    use_t = t >= 0 & t <= 0.8;
-    plot_px_use_t = double(plot_px(:,:,use_t));
-    plot_px_use_t(plot_px_use_t < 0) = 0;
-    plot_px_use_t = bsxfun(@rdivide,plot_px_use_t,max(max(plot_px_use_t,[],1),[],2));
-    
-    plot_px_com = sum((plot_px_use_t.*permute(1:sum(use_t),[1,3,2])),3)./sum(plot_px_use_t,3);
-    
-    t_leeway = 20;
-    plot_px_colored = ...
-        ind2rgb(round(mat2gray(plot_px_com,[t_leeway,sum(use_t)-t_leeway])*255),jet(255));
-    
-    plot_px_alpha = mat2gray(max(plot_px_use_t,[],3), ...
-        [0,prctile(reshape(max(plot_px_use_t,[],3),[],1),99)]);
-    
-    f = figure;
-    
-    h = image(plot_px_colored);
-    set(h,'AlphaData',plot_px_alpha);
-    
-    axis image off
+end
+
+wf_roi_fn = 'C:\Users\Andrew\OneDrive for Business\Documents\CarandiniHarrisLab\analysis\wf_ephys_choiceworld\wf_processing\wf_rois\wf_roi';
+save(wf_roi_fn,'wf_roi');
+disp('Saved new widefield ROIs');
+
+%% Create ROIs from kernel templates
+
+% Load kernel templates
+n_aligned_depths = 4;
+kernel_template_fn = ['C:\Users\Andrew\OneDrive for Business\Documents\CarandiniHarrisLab\analysis\wf_ephys_choiceworld\ephys_processing\kernel_template_' num2str(n_aligned_depths) '_depths.mat'];
+load(kernel_template_fn);
+
+kernel_bw = false(size(kernel_template));
+
+% Set cutoff by std, get rid of small islands, keep only ipsi side
+kernel_std_prctile = 1;
+smallest_area = 2000;
+
+for curr_kernel = 1:size(kernel_bw,3)
+    curr_kernel_cutoff = std(abs(reshape(kernel_template(:,:,curr_kernel),[],1)));
+    curr_kernel_bw = kernel_template(:,:,curr_kernel) > kernel_std_prctile*curr_kernel_cutoff;
+    kernel_bw(:,:,curr_kernel) = bwareaopen(curr_kernel_bw,smallest_area);
+end
+
+bregma = allenCCFbregma;
+ccf_tform_fn = ['C:\Users\Andrew\OneDrive for Business\Documents\Atlases\AllenCCF\ccf_tform'];
+load(ccf_tform_fn);
+
+um2pixel = 20.6;
+bregma_resize = bregma*(10/um2pixel);
+bregma_align = [bregma_resize([3,1]),1]*ccf_tform.T;
+kernel_bw(:,round(bregma_align(1)):end,:) = false;
+
+% Make a max-weighted version of each kernel
+kernel_max_weighted = kernel_template./ ...
+    max(abs(reshape(kernel_template,1,[],size(kernel_template,3))),[],2);
+
+% Plot the template kernels and ROIs
+figure;
+for i = 1:n_aligned_depths
+    subplot(3,n_aligned_depths,i);
+    imagesc(kernel_template(:,:,i));
     AP_reference_outline('ccf_aligned','k');
-    title('Widefield ROI reference image')
+    axis image off;
+    caxis([-max(abs(caxis)),max(abs(caxis))]);
+    colormap(gca,brewermap([],'*RdBu'));
+    title('Kernel template')
     
-    wf_roi_ref = plot_px_colored;
-    wf_roi_ref_alpha = plot_px_alpha;
+    subplot(3,n_aligned_depths,i+n_aligned_depths);
+    imagesc(kernel_bw(:,:,i));
+    AP_reference_outline('ccf_aligned','r');
+    axis image off;
+    colormap(gca,gray);
+    title('ROI BW')
     
-    wf_roi_path = 'C:\Users\Andrew\OneDrive for Business\Documents\CarandiniHarrisLab\analysis\wf_ephys_choiceworld\wf_processing\wf_rois';
-    wf_ref_fn = 'wf_roi_ref';
-    savefig(f,[wf_roi_path filesep wf_ref_fn]);
-    
-    
-    %% Draw widefield ROIs
-    
-    % Set ROIs to draw
-    roi_areas = {'V1p','V1c','AM','RSPa','RSPp','PPC','FRm','FRa','SMl','SMf'};
-    
-    % Load reference image
-    wf_roi_path = 'C:\Users\Andrew\OneDrive for Business\Documents\CarandiniHarrisLab\analysis\wf_ephys_choiceworld\wf_processing\wf_rois';
-    wf_ref_fn = 'wf_roi_ref.fig';
-    openfig([wf_roi_path filesep wf_ref_fn]);
-    
-    wf_roi = struct('area',cell(length(roi_areas),2),'mask',cell(length(roi_areas),2));
-    for curr_area = 1:length(roi_areas)
-        
-        % Get ROI from left hemisphere
-        title(['Draw ' roi_areas{curr_area} '_L']);
-        curr_mask_L = roipoly;
-        wf_roi(curr_area,1).area = [roi_areas{curr_area} '_L'];
-        wf_roi(curr_area,1).mask = curr_mask_L;
-        
-        % Reflect ROI to right hemisphere
-        curr_mask_R = AP_reflect_widefield(curr_mask_L) > 0;
-        wf_roi(curr_area,2).area = [roi_areas{curr_area} '_R'];
-        wf_roi(curr_area,2).mask = curr_mask_R;
-        
-        % Draw ROIs
-        curr_roi_L = cell2mat(bwboundaries(curr_mask_L));
-        curr_roi_R = cell2mat(bwboundaries(curr_mask_R));
-        plot(curr_roi_L(:,2),curr_roi_L(:,1),'m','linewidth',2);
-        plot(curr_roi_R(:,2),curr_roi_R(:,1),'m','linewidth',2);
-        drawnow;
-        
-    end
-    
-    wf_roi_fn = 'C:\Users\Andrew\OneDrive for Business\Documents\CarandiniHarrisLab\analysis\wf_ephys_choiceworld\wf_processing\wf_rois\wf_roi';
-    save(wf_roi_fn,'wf_roi');
-    disp('Saved new widefield ROIs');
-    
-    %% Create ROIs from kernel templates
-    
-    % Load kernel templates
-    n_aligned_depths = 4;
-    kernel_template_fn = ['C:\Users\Andrew\OneDrive for Business\Documents\CarandiniHarrisLab\analysis\wf_ephys_choiceworld\ephys_processing\kernel_template_' num2str(n_aligned_depths) '_depths.mat'];
-    load(kernel_template_fn);
-    
-    kernel_bw = false(size(kernel_template));
-    
-    % Set cutoff by std, get rid of small islands, keep only ipsi side
-    kernel_std_prctile = 1;
-    smallest_area = 2000;
-    
-    for curr_kernel = 1:size(kernel_bw,3)
-        curr_kernel_cutoff = std(abs(reshape(kernel_template(:,:,curr_kernel),[],1)));
-        curr_kernel_bw = kernel_template(:,:,curr_kernel) > kernel_std_prctile*curr_kernel_cutoff;
-        kernel_bw(:,:,curr_kernel) = bwareaopen(curr_kernel_bw,smallest_area);
-    end
-    
-    bregma = allenCCFbregma;
-    ccf_tform_fn = ['C:\Users\Andrew\OneDrive for Business\Documents\Atlases\AllenCCF\ccf_tform'];
-    load(ccf_tform_fn);
-    
-    um2pixel = 20.6;
-    bregma_resize = bregma*(10/um2pixel);
-    bregma_align = [bregma_resize([3,1]),1]*ccf_tform.T;
-    kernel_bw(:,round(bregma_align(1)):end,:) = false;
-    
-    % Make a max-weighted version of each kernel
-    kernel_max_weighted = kernel_template./ ...
-        max(abs(reshape(kernel_template,1,[],size(kernel_template,3))),[],2);
-    
-    % Plot the template kernels and ROIs
-    figure;
-    for i = 1:n_aligned_depths
-        subplot(3,n_aligned_depths,i);
-        imagesc(kernel_template(:,:,i));
-        AP_reference_outline('ccf_aligned','k');
-        axis image off;
-        caxis([-max(abs(caxis)),max(abs(caxis))]);
-        colormap(gca,brewermap([],'*RdBu'));
-        title('Kernel template')
-        
-        subplot(3,n_aligned_depths,i+n_aligned_depths);
-        imagesc(kernel_bw(:,:,i));
-        AP_reference_outline('ccf_aligned','r');
-        axis image off;
-        colormap(gca,gray);
-        title('ROI BW')
-        
-        subplot(3,n_aligned_depths,i+n_aligned_depths*2);
-        imagesc(kernel_max_weighted(:,:,i));
-        AP_reference_outline('ccf_aligned','k');
-        axis image off;
-        caxis([-max(abs(caxis)),max(abs(caxis))]);
-        colormap(gca,brewermap([],'*RdBu'));
-        title('ROI weighted')
-    end
-    
-    % Get the average full kernel
-    n_aligned_depths = 4;
-    data_path = 'C:\Users\Andrew\OneDrive for Business\Documents\CarandiniHarrisLab\analysis\wf_ephys_choiceworld\wf_ephys';
-    k_fn = [data_path filesep 'wf_ephys_maps_vanillaChoiceworld_' num2str(n_aligned_depths) '_depths'];
-    load(k_fn);
-    k_px_trained_cat = cellfun(@(x) x(:,:,end:-1:1,:),[batch_vars(1:6).r_px],'uni',false);
-    k_px_trained = nanmean(double(cat(5,k_px_trained_cat{:})),5);
-    
-    % Save kernel ROIs
-    kernel_roi = struct;
-    kernel_roi.bw = kernel_bw;
-    kernel_roi.max_weighted = kernel_max_weighted;
-    kernel_roi.kernel = k_px_trained;
-    kernel_roi_fn = 'C:\Users\Andrew\OneDrive for Business\Documents\CarandiniHarrisLab\analysis\wf_ephys_choiceworld\wf_processing\wf_rois\kernel_roi';
-    save(kernel_roi_fn,'kernel_roi');
-    disp('Saved kernel ROIs');
-    
-    %% [[lock off]]
+    subplot(3,n_aligned_depths,i+n_aligned_depths*2);
+    imagesc(kernel_max_weighted(:,:,i));
+    AP_reference_outline('ccf_aligned','k');
+    axis image off;
+    caxis([-max(abs(caxis)),max(abs(caxis))]);
+    colormap(gca,brewermap([],'*RdBu'));
+    title('ROI weighted')
+end
+
+% Get the average full kernel
+n_aligned_depths = 4;
+data_path = 'C:\Users\Andrew\OneDrive for Business\Documents\CarandiniHarrisLab\analysis\wf_ephys_choiceworld\wf_ephys';
+k_fn = [data_path filesep 'wf_ephys_maps_vanillaChoiceworld_' num2str(n_aligned_depths) '_depths'];
+load(k_fn);
+k_px_trained_cat = cellfun(@(x) x(:,:,end:-1:1,:),[batch_vars(1:6).r_px],'uni',false);
+k_px_trained = nanmean(double(cat(5,k_px_trained_cat{:})),5);
+
+% Save kernel ROIs
+kernel_roi = struct;
+kernel_roi.bw = kernel_bw;
+kernel_roi.max_weighted = kernel_max_weighted;
+kernel_roi.kernel = k_px_trained;
+kernel_roi_fn = 'C:\Users\Andrew\OneDrive for Business\Documents\CarandiniHarrisLab\analysis\wf_ephys_choiceworld\wf_processing\wf_rois\kernel_roi';
+save(kernel_roi_fn,'kernel_roi');
+disp('Saved kernel ROIs');
+
+%% [[lock off]]
 end
 
 %% ~~~~~~~~~~~ MUSCIMOL ~~~~~~~~~~~~~
@@ -635,14 +635,14 @@ for curr_animal = 1:length(animals)
     
     animal = animals{curr_animal};
     disp(animal);
-    
+
     % Get standard deviation from task and retinotopy from sparse noise
     task_experiments = AP_find_experiments(animal,'vanillaChoiceworldNoRepeats');
     task_experiments = task_experiments([task_experiments.imaging] & [task_experiments.ephys]);
     
     retinotopy_experiments = AP_find_experiments(animal,'AP_sparseNoise');
     retinotopy_experiments = retinotopy_experiments([retinotopy_experiments.imaging] & [retinotopy_experiments.ephys]);
-    
+        
     for curr_day = 1:length(task_experiments)
         
         day = task_experiments(curr_day).day;
@@ -660,7 +660,7 @@ for curr_animal = 1:length(animals)
         for curr_exp = 1:2
             
             % Get retinotopy (from sparse noise)
-            experiment = retinotopy_experiments(curr_day).experiment(curr_exp);
+            experiment = retinotopy_experiments(curr_day).experiment(curr_exp);           
             load_parts.imaging = true;
             AP_load_experiment;
             lilrig_retinotopy;
@@ -699,7 +699,7 @@ for curr_animal = 1:length(animals)
             
         end
         
-        AP_print_progress_fraction(curr_day,length(task_experiments));
+        AP_print_progress_fraction(curr_day,length(task_experiments));    
         
     end
 end
@@ -842,7 +842,7 @@ for curr_exp_condition = 1:2
                     experiments curr_day animal load_parts ...
                     ctx_str_kernel ctx_str_expl_var ...
                     exp_conditions curr_exp_condition ...
-                    
+                              
             end
             
             disp(['Finished ' animal]);
@@ -873,7 +873,7 @@ for curr_exp_condition = 1:2
     trial_data_all = struct;
     
     for curr_animal = 1:length(animals)
-        
+              
         animal = animals{curr_animal};
         
         experiments = AP_find_experiments(animal,protocol);
@@ -895,7 +895,7 @@ for curr_exp_condition = 1:2
             
             % Load experiment
             str_align = 'kernel';
-            AP_load_experiment;
+            AP_load_experiment;           
             
             % Pull out trial data
             AP_ctx_str_grab_trial_data;
@@ -926,7 +926,7 @@ for curr_exp_condition = 1:2
     
     clearvars -except ...
         exp_conditions curr_exp_condition animals protocol...
-        trial_data_all
+        trial_data_all           
     disp('Finished loading all')
     
     save_path = 'C:\Users\Andrew\OneDrive for Business\Documents\CarandiniHarrisLab\analysis\wf_ephys_choiceworld\paper\data';
@@ -965,8 +965,8 @@ for curr_exp_condition = 1:2
             % last (because the failures always hapened post)
             n_experiments = length(experiments(curr_day).experiment);
             if n_experiments ~= 2
-                warning([animal ' ' day ': ' num2str(n_experiments) ' experiments, using first/last'])
-            end
+                warning([animal ' ' day ': ' num2str(n_experiments) ' experiments, using first/last'])               
+            end           
             condition_experiments = experiments(curr_day).experiment([1,end]);
             experiment = condition_experiments(curr_exp_condition);
             
@@ -997,12 +997,12 @@ for curr_exp_condition = 1:2
                 trial_data_all
             
             AP_print_progress_fraction(curr_day,length(experiments));
-        end
+        end   
     end
     
     clearvars -except ...
-        exp_conditions curr_exp_condition animals protocol ...
-        trial_data_all
+                exp_conditions curr_exp_condition animals protocol ...
+                trial_data_all
     disp('Finished loading all')
     
     save_path = 'C:\Users\Andrew\OneDrive for Business\Documents\CarandiniHarrisLab\analysis\wf_ephys_choiceworld\paper\data';
@@ -1044,8 +1044,8 @@ for curr_animal = 1:length(animals)
         verbose = false;
         AP_load_experiment
         
-        % Estimate boundaries of cortex (the dumb way: first template/gap)
-        sorted_template_depths = sort(template_depths);
+        % Estimate boundaries of cortex (the dumb way: first template/gap)      
+        sorted_template_depths = sort(template_depths);      
         ctx_start = sorted_template_depths(1) - 1;
         [max_gap,max_gap_idx] = max(diff(sorted_template_depths));
         ctx_end = sorted_template_depths(max_gap_idx)+1;
@@ -1108,7 +1108,7 @@ for curr_animal = 1:length(animals)
             freqCutoff = 300; % Hz
             [b100s, a100s] = butter(2,freqCutoff/(lfp_sample_rate/2),'low');
             lfp_lightfix_filt = single(filtfilt(b100s,a100s,double(lfp_lightfix)')');
-            
+             
             % Get average stim response
             lfp_stim_align = interp1(lfp_t_timeline,lfp_lightfix_filt,pull_times);
             
@@ -1120,7 +1120,7 @@ for curr_animal = 1:length(animals)
         end
         
         % Average channels at same depth
-        lfp_connected_channels = channel_map_full.connected;
+        lfp_connected_channels = channel_map_full.connected;       
         [lfp_stim_depth,lfp_stim_align_avg_depth] = grpstats( ...
             lfp_stim_align_avg(lfp_connected_channels,:), ...
             lfp_channel_positions(lfp_connected_channels),{'gname','mean'});
@@ -1134,7 +1134,7 @@ for curr_animal = 1:length(animals)
         
         vis_ctx_ephys(curr_animal).stim_lfp{curr_day} = lfp_stim_align_avg_depth;
         vis_ctx_ephys(curr_animal).stim_lfp_depth{curr_day} = lfp_stim_depth;
-        
+                
     end
 end
 
@@ -1169,7 +1169,7 @@ for curr_animal = 1:length(vis_ctx_ephys)
         csd_slice_t = [0.04,0.06]; % time to use after stim (s)
         csd_slice_samples = stim_lfp_t >= csd_slice_t(1) & stim_lfp_t <= csd_slice_t(2);
         csd_slice = nanmean(stim_csd(:,csd_slice_samples),2);
-        
+
         % Plot CSD and slice
         figure;
         subplot(1,3,1:2);
@@ -1193,11 +1193,11 @@ end
 % Save csd into struct
 save(vis_ctx_ephys_fn,'vis_ctx_ephys');
 disp(['Saved ' vis_ctx_ephys_fn]);
-
+ 
 
 %% 3) Align CSD across recordings
 
-% Load CSD
+% Load CSD 
 vis_ctx_ephys_fn = 'C:\Users\Andrew\OneDrive for Business\Documents\CarandiniHarrisLab\analysis\wf_ephys_choiceworld\ephys_processing\vis_ctx_ephys.mat';
 load(vis_ctx_ephys_fn);
 
@@ -1284,7 +1284,7 @@ for curr_animal = 1:length(vis_ctx_ephys)
         caxis([-max(abs(caxis))/2,max(abs(caxis))/2]);
         colormap(brewermap([],'*RdBu'));
         title('Aligned CSD');
-        
+                
         % Keep aligned CSD for averaging
         stim_csd_aligned_scaled_cat(:,:,curr_recording) = stim_csd_aligned./min(csd_slice);
         
@@ -1293,7 +1293,7 @@ for curr_animal = 1:length(vis_ctx_ephys)
         
         % Iterate recording index (only used for plotting)
         curr_recording = curr_recording + 1;
-        
+
     end
 end
 
@@ -1315,38 +1315,38 @@ disp(['Saved ' vis_ctx_ephys_fn]);
 %% [[lock on - only draw ROIs once]]
 
 if false
-    
-    %% 4) Draw cortical widefield ROIs for each cortical recording
-    
-    % Load stim LFP
-    vis_ctx_ephys_fn = 'C:\Users\Andrew\OneDrive for Business\Documents\CarandiniHarrisLab\analysis\wf_ephys_choiceworld\ephys_processing\vis_ctx_ephys.mat';
-    load(vis_ctx_ephys_fn);
-    
-    % Draw cortical probe ROI for each recording
-    for curr_animal = 1:length(vis_ctx_ephys)
-        for curr_day = 1:length(vis_ctx_ephys(curr_animal).day)
-            animal = vis_ctx_ephys(curr_animal).animal;
-            day = vis_ctx_ephys(curr_animal).day{curr_day};
-            [img_path,img_exists] = AP_cortexlab_filename(animal,day,[],'imaging');
-            avg_im_blue = readNPY([img_path filesep 'meanImage_blue.npy']);
-            
-            h = figure;imagesc(avg_im_blue);
-            axis image off;
-            caxis([0,prctile(avg_im_blue(:),99)]);
-            colormap(gray)
-            title(['Draw ROI: ' animal ' ' day]);
-            curr_mask = roipoly;
-            vis_ctx_ephys(curr_animal).ctx_roi{curr_day} = curr_mask;
-            close(h);
-        end
+
+%% 4) Draw cortical widefield ROIs for each cortical recording
+
+% Load stim LFP
+vis_ctx_ephys_fn = 'C:\Users\Andrew\OneDrive for Business\Documents\CarandiniHarrisLab\analysis\wf_ephys_choiceworld\ephys_processing\vis_ctx_ephys.mat';
+load(vis_ctx_ephys_fn);
+
+% Draw cortical probe ROI for each recording
+for curr_animal = 1:length(vis_ctx_ephys)
+    for curr_day = 1:length(vis_ctx_ephys(curr_animal).day)
+        animal = vis_ctx_ephys(curr_animal).animal;
+        day = vis_ctx_ephys(curr_animal).day{curr_day};
+        [img_path,img_exists] = AP_cortexlab_filename(animal,day,[],'imaging');
+        avg_im_blue = readNPY([img_path filesep 'meanImage_blue.npy']);
+        
+        h = figure;imagesc(avg_im_blue);
+        axis image off; 
+        caxis([0,prctile(avg_im_blue(:),99)]);
+        colormap(gray)
+        title(['Draw ROI: ' animal ' ' day]);
+        curr_mask = roipoly;
+        vis_ctx_ephys(curr_animal).ctx_roi{curr_day} = curr_mask;
+        close(h);
     end
-    
-    % Save ROIs into struct
-    save(vis_ctx_ephys_fn,'vis_ctx_ephys');
-    disp(['Saved ' vis_ctx_ephys_fn]);
-    
-    %% [[lock off]]
-    
+end
+
+% Save ROIs into struct
+save(vis_ctx_ephys_fn,'vis_ctx_ephys');
+disp(['Saved ' vis_ctx_ephys_fn]);
+
+%% [[lock off]]
+
 end
 
 %% Get activity correlation cortex wf/mua and ctx ephys/str mua (task)
@@ -1384,7 +1384,7 @@ for curr_animal = 1:length(animals)
         curr_csd_depth = vis_ctx_ephys(curr_animal_idx).stim_csd_depth{curr_day_idx};
         curr_csd_depth_aligned = vis_ctx_ephys(curr_animal_idx).stim_csd_depth_aligned{curr_day_idx};
         template_depths_aligned = interp1(curr_csd_depth,curr_csd_depth_aligned,template_depths);
-        
+
         % Find cortex end by largest gap between templates
         sorted_template_depths = sort([template_depths_aligned]);
         [max_gap,max_gap_idx] = max(diff(sorted_template_depths));
@@ -1392,11 +1392,11 @@ for curr_animal = 1:length(animals)
         
         ctx_depth = [sorted_template_depths(1),ctx_end];
         ctx_units = template_depths_aligned <= ctx_depth(2);
-        
-        %%% GET FLUORESCENCE AND SPIKES BY DEPTH
+              
+        %%% GET FLUORESCENCE AND SPIKES BY DEPTH        
         
         % Set binning time
-        skip_seconds = 60;
+        skip_seconds = 60;       
         spike_binning_t = 1/framerate; % seconds
         spike_binning_t_edges = frame_t(1)+skip_seconds:spike_binning_t:frame_t(end)-skip_seconds;
         spike_binning_t_centers = spike_binning_t_edges(1:end-1) + diff(spike_binning_t_edges)/2;
@@ -1407,7 +1407,7 @@ for curr_animal = 1:length(animals)
         fVdf_deconv = AP_deconv_wf(fVdf);
         fluor_roi = AP_svd_roi(Udf,fVdf_deconv,avg_im,[],curr_ctx_roi);
         fluor_roi_interp = interp1(frame_t,fluor_roi,spike_binning_t_centers);
-        
+   
         % Set sliding depth window of MUA
         depth_corr_range = [-200,1500];
         depth_corr_window = 200; % MUA window in microns
@@ -1443,7 +1443,7 @@ for curr_animal = 1:length(animals)
         title([animal ' ' day]);
         drawnow;
         
-        %%% LOAD STRIATUM EPHYS AND GET MUA BY DEPTH
+        %%% LOAD STRIATUM EPHYS AND GET MUA BY DEPTH        
         clear load_parts
         load_parts.ephys = true;
         site = 1; % (striatum is always on probe 1)
@@ -1462,7 +1462,7 @@ for curr_animal = 1:length(animals)
         
         %%% REGULAR CORRELATION
         cortex_fluor_corr = 1-pdist2(cortex_mua,fluor_roi_interp,'correlation');
-        cortex_striatum_corr = 1-pdist2(cortex_mua,striatum_mua,'correlation');
+        cortex_striatum_corr = 1-pdist2(cortex_mua,striatum_mua,'correlation');                      
         
         %%% PACKAGE AND SAVE
         data(curr_animal).cortex_mua_depth{curr_day} = depth_corr_bin_centers;
@@ -1474,7 +1474,7 @@ for curr_animal = 1:length(animals)
             curr_animal animal ...
             protocol flexible_name experiments curr_exp ...
             data
-        
+
     end
     
 end
@@ -1518,7 +1518,7 @@ for curr_animal = 1:length(animals)
         curr_csd_depth = vis_ctx_ephys(curr_animal_idx).stim_csd_depth{curr_day_idx};
         curr_csd_depth_aligned = vis_ctx_ephys(curr_animal_idx).stim_csd_depth_aligned{curr_day_idx};
         template_depths_aligned = interp1(curr_csd_depth,curr_csd_depth_aligned,template_depths);
-        
+
         % Find cortex end by largest gap between templates
         sorted_template_depths = sort([template_depths_aligned]);
         [max_gap,max_gap_idx] = max(diff(sorted_template_depths));
@@ -1526,11 +1526,11 @@ for curr_animal = 1:length(animals)
         
         ctx_depth = [sorted_template_depths(1),ctx_end];
         ctx_units = template_depths_aligned <= ctx_depth(2);
-        
-        %%% GET FLUORESCENCE AND SPIKES BY DEPTH
+              
+        %%% GET FLUORESCENCE AND SPIKES BY DEPTH        
         
         % Set binning time
-        skip_seconds = 60;
+        skip_seconds = 60;       
         spike_binning_t = 1/framerate; % seconds
         spike_binning_t_edges = frame_t(1)+skip_seconds:spike_binning_t:frame_t(end)-skip_seconds;
         spike_binning_t_centers = spike_binning_t_edges(1:end-1) + diff(spike_binning_t_edges)/2;
@@ -1541,7 +1541,7 @@ for curr_animal = 1:length(animals)
         fVdf_deconv = AP_deconv_wf(fVdf);
         fluor_roi = AP_svd_roi(Udf,fVdf_deconv,avg_im,[],curr_ctx_roi);
         fluor_roi_interp = interp1(frame_t,fluor_roi,spike_binning_t_centers);
-        
+   
         % Set sliding depth window of MUA
         depth_corr_range = [-200,1500];
         depth_corr_window = 200; % MUA window in microns
@@ -1577,7 +1577,7 @@ for curr_animal = 1:length(animals)
         title([animal ' ' day]);
         drawnow;
         
-        %%% LOAD STRIATUM EPHYS AND GET MUA BY DEPTH
+        %%% LOAD STRIATUM EPHYS AND GET MUA BY DEPTH        
         clear load_parts
         load_parts.ephys = true;
         site = 1; % (striatum is always on probe 1)
@@ -1596,7 +1596,7 @@ for curr_animal = 1:length(animals)
         
         %%% REGULAR CORRELATION
         cortex_fluor_corr = 1-pdist2(cortex_mua,fluor_roi_interp,'correlation');
-        cortex_striatum_corr = 1-pdist2(cortex_mua,striatum_mua,'correlation');
+        cortex_striatum_corr = 1-pdist2(cortex_mua,striatum_mua,'correlation');                      
         
         %%% PACKAGE AND SAVE
         data(curr_animal).cortex_mua_depth{curr_day} = depth_corr_bin_centers;
@@ -1608,7 +1608,7 @@ for curr_animal = 1:length(animals)
             curr_animal animal ...
             protocol flexible_name experiments curr_exp ...
             data
-        
+
     end
     
 end
@@ -1618,122 +1618,6 @@ data_fn = [data_path filesep 'ctx_fluor_mua_corr_' protocol];
 save(data_fn,'data');
 
 
-%% Task trial activity (ctx/str MUA separately)
-clear all
-
-animals = {'AP043','AP060','AP061'};
-protocol = 'vanillaChoiceworld';
-recording_site = {'ctxstrephys_str','ctxstrephys_ctx'};
-
-% Load ephys alignment
-vis_ctx_ephys_fn = 'C:\Users\Andrew\OneDrive for Business\Documents\CarandiniHarrisLab\analysis\wf_ephys_choiceworld\ephys_processing\vis_ctx_ephys.mat';
-load(vis_ctx_ephys_fn);
-
-for curr_site = 1:2
-    
-    % Initialize save variable
-    trial_data_all = struct;
-    
-    for curr_animal = 1:length(animals)
-        
-        animal = animals{curr_animal};
-        
-        experiments = AP_find_experiments(animal,protocol);
-        experiments = experiments([experiments.imaging] & [experiments.ephys]);
-        
-        disp(['Loading ' animal]);
-        
-        for curr_day = 1:length(experiments)
-            
-            day = experiments(curr_day).day;
-            experiment = experiments(curr_day).experiment(1);
-            
-            % Load experiment
-            site = curr_site;
-            switch site
-                case 1
-                    % Site 1 = striautm
-                    str_align = 'kernel';
-                case 2
-                    % Site 2 = cortex
-                    str_align = 'none';
-            end
-            AP_load_experiment;
-            
-            % If cortical experiment - depth-align cortical MUA
-            if site == 2
-                % Get depth group boundaries
-                % (these are just manual based on the CSD)
-                n_aligned_depths = 2;
-                ctx_depth_edges = linspace(0,1200,n_aligned_depths+1);
-                
-                % Depth-align templates
-                curr_animal_idx = strcmp(animal,{vis_ctx_ephys.animal});
-                curr_day_idx = strcmp(day,vis_ctx_ephys(curr_animal_idx).day);
-                curr_csd_depth = vis_ctx_ephys(curr_animal_idx).stim_csd_depth{curr_day_idx};
-                curr_csd_depth_aligned = vis_ctx_ephys(curr_animal_idx).stim_csd_depth_aligned{curr_day_idx};
-                
-                template_depths_aligned = interp1(curr_csd_depth,curr_csd_depth_aligned,template_depths);
-                spike_depths_aligned = template_depths_aligned(spike_templates);
-                
-                % Find cortex end by largest gap between templates
-                sorted_template_depths = sort([template_depths_aligned]);
-                [max_gap,max_gap_idx] = max(diff(sorted_template_depths));
-                ctx_end = sorted_template_depths(max_gap_idx)+1;               
-                ctx_depth = [sorted_template_depths(1),ctx_end];
-                ctx_units = template_depths_aligned <= ctx_depth(2);
-                
-                % Assign templates to depth groups
-                % (NOTE: variable still called 'str' to make it easier to
-                % fit into other code)
-                ctx_spike_depths = spike_depths_aligned;
-                ctx_spike_depths(spike_depths_aligned < ctx_depth(1) | spike_depths_aligned > ctx_depth(2)) = NaN;                        
-                aligned_str_depth_group = discretize(ctx_spike_depths,ctx_depth_edges);               
-            end
-            
-            % Pull out trial data
-            AP_ctx_str_grab_trial_data;
-            
-            % Store trial data into master structure
-            trial_data_fieldnames = fieldnames(trial_data);
-            for curr_trial_data_field = trial_data_fieldnames'
-                trial_data_all.(cell2mat(curr_trial_data_field)){curr_animal,1}{curr_day,1} = ...
-                    trial_data.(cell2mat(curr_trial_data_field));
-            end
-            
-            % Store general info
-            trial_data_all.animals = animals;
-            trial_data_all.t = t;
-            trial_data_all.task_regressor_labels = task_regressor_labels;
-            trial_data_all.task_regressor_sample_shifts = task_regressor_sample_shifts;
-                        
-            % Clear for next loop
-            clearvars -except ...
-                vis_ctx_ephys ...
-                recording_site curr_site ...
-                animals curr_animal animal protocol experiments curr_day ...
-                trial_data_all
-            
-            AP_print_progress_fraction(curr_day,length(experiments));
-        end
-    end
-    
-    clearvars -except ...
-        vis_ctx_ephys ...
-        recording_site curr_site animals protocol ...
-        trial_data_all
-    
-    disp('Finished loading all')
-    
-    save_path = 'C:\Users\Andrew\OneDrive for Business\Documents\CarandiniHarrisLab\analysis\wf_ephys_choiceworld\paper\data';
-    save_fn = ['trial_activity_' protocol '_' recording_site{curr_site}];
-    save([save_path filesep save_fn],'-v7.3');
-    disp(['Saved ' save_fn]);
-    
-end
-
-
-
 %% Passive trial activity (ctx/str MUA separately)
 clear all
 
@@ -1741,10 +1625,6 @@ animals = {'AP043','AP060','AP061'};
 protocol = 'AP_lcrGratingPassive';
 recording_site = {'ctxstrephys_str','ctxstrephys_ctx'};
 
-% Load ephys alignment
-vis_ctx_ephys_fn = 'C:\Users\Andrew\OneDrive for Business\Documents\CarandiniHarrisLab\analysis\wf_ephys_choiceworld\ephys_processing\vis_ctx_ephys.mat';
-load(vis_ctx_ephys_fn);
-
 for curr_site = 1:2
     
     % Initialize save variable
@@ -1765,47 +1645,9 @@ for curr_site = 1:2
             experiment = experiments(curr_day).experiment(1);
             
             % Load experiment
-            site = curr_site;
-            switch site
-                case 1
-                    % Site 1 = striautm
-                    str_align = 'kernel';
-                case 2
-                    % Site 2 = cortex
-                    str_align = 'none';
-            end
+            site = curr_site
+            str_align = 'kernel';
             AP_load_experiment;
-            
-            % If cortical experiment - depth-align cortical MUA
-            if site == 2
-                % Get depth group boundaries
-                % (these are just manual based on the CSD)
-                n_aligned_depths = 2;
-                ctx_depth_edges = linspace(0,1200,n_aligned_depths+1);
-                
-                % Depth-align templates
-                curr_animal_idx = strcmp(animal,{vis_ctx_ephys.animal});
-                curr_day_idx = strcmp(day,vis_ctx_ephys(curr_animal_idx).day);
-                curr_csd_depth = vis_ctx_ephys(curr_animal_idx).stim_csd_depth{curr_day_idx};
-                curr_csd_depth_aligned = vis_ctx_ephys(curr_animal_idx).stim_csd_depth_aligned{curr_day_idx};
-                
-                template_depths_aligned = interp1(curr_csd_depth,curr_csd_depth_aligned,template_depths);
-                spike_depths_aligned = template_depths_aligned(spike_templates);
-                
-                % Find cortex end by largest gap between templates
-                sorted_template_depths = sort([template_depths_aligned]);
-                [max_gap,max_gap_idx] = max(diff(sorted_template_depths));
-                ctx_end = sorted_template_depths(max_gap_idx)+1;               
-                ctx_depth = [sorted_template_depths(1),ctx_end];
-                ctx_units = template_depths_aligned <= ctx_depth(2);
-                
-                % Assign templates to depth groups
-                % (NOTE: variable still called 'str' to make it easier to
-                % fit into other code)
-                ctx_spike_depths = spike_depths_aligned;
-                ctx_spike_depths(spike_depths_aligned < ctx_depth(1) | spike_depths_aligned > ctx_depth(2)) = NaN;                        
-                aligned_str_depth_group = discretize(ctx_spike_depths,ctx_depth_edges);               
-            end
             
             % Pull out trial data
             AP_ctx_str_grab_trial_data;
@@ -1820,29 +1662,27 @@ for curr_site = 1:2
             % Store general info
             trial_data_all.animals = animals;
             trial_data_all.t = t;
-                        
+            
+            AP_print_progress_fraction(curr_day,length(experiments));
+            
             % Clear for next loop
             clearvars -except ...
-                vis_ctx_ephys ...
-                recording_site curr_site ...
+                exp_conditions curr_exp_condition ...
                 animals curr_animal animal protocol experiments curr_day ...
                 trial_data_all
             
             AP_print_progress_fraction(curr_day,length(experiments));
-        end
+        end   
     end
     
     clearvars -except ...
-        vis_ctx_ephys ...
-        recording_site curr_site animals protocol ...
-        trial_data_all
-    
+                recording_site curr_site animals protocol ...
+                trial_data_all
     disp('Finished loading all')
     
     save_path = 'C:\Users\Andrew\OneDrive for Business\Documents\CarandiniHarrisLab\analysis\wf_ephys_choiceworld\paper\data';
-    save_fn = ['trial_activity_' protocol '_' recording_site{curr_site}];
+    save_fn = ['trial_activity_' protocol '_' recording_site{curr_exp_condition}];
     save([save_path filesep save_fn],'-v7.3');
-    disp(['Saved ' save_fn]);
     
 end
 
@@ -1890,7 +1730,7 @@ for curr_animal = 1:length(animals)
         trial_data_fieldnames = fieldnames(trial_data);
         for curr_trial_data_field = trial_data_fieldnames'
             trial_data_all.(cell2mat(curr_trial_data_field)){curr_animal,1}{curr_day,1} = ...
-                trial_data.(cell2mat(curr_trial_data_field));
+                trial_data.(cell2mat(curr_trial_data_field));       
         end
         
         % Store general info
@@ -1898,12 +1738,12 @@ for curr_animal = 1:length(animals)
         trial_data_all.t = t;
         trial_data_all.task_regressor_labels = task_regressor_labels;
         trial_data_all.task_regressor_sample_shifts = task_regressor_sample_shifts;
-        
+      
         AP_print_progress_fraction(curr_day,length(experiments));
         
         % Clear for next loop
         clearvars -except animals curr_animal animal protocol experiments curr_day ...
-            trial_data_all lambda
+            trial_data_all lambda    
         
     end
 end
@@ -1952,18 +1792,18 @@ for curr_animal = 1:length(animals)
         trial_data_fieldnames = fieldnames(trial_data);
         for curr_trial_data_field = trial_data_fieldnames'
             trial_data_all.(cell2mat(curr_trial_data_field)){curr_animal,1}{curr_day,1} = ...
-                trial_data.(cell2mat(curr_trial_data_field));
+                trial_data.(cell2mat(curr_trial_data_field));       
         end
         
         % Store general info
         trial_data_all.animals = animals;
         trial_data_all.t = t;
-        
+      
         AP_print_progress_fraction(curr_day,length(experiments));
         
         % Clear for next loop
         clearvars -except animals curr_animal animal protocol experiments curr_day ...
-            trial_data_all lambda
+            trial_data_all lambda    
         
     end
 end

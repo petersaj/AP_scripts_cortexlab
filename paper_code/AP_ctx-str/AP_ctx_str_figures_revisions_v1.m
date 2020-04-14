@@ -89,7 +89,8 @@ for curr_animal_day = 1:length(animal_days)
     close(h)
     
     % Load and invert master CCF tform
-    ccf_tform_fn = ['C:\Users\Andrew\OneDrive for Business\Documents\Atlases\AllenCCF\ccf_tform'];
+    alignment_path = 'C:\Users\Andrew\OneDrive for Business\Documents\CarandiniHarrisLab\analysis\widefield_alignment';
+    ccf_tform_fn = [alignment_path filese 'ccf_tform.mat'];
     load(ccf_tform_fn);
     ccf_tform_inverse = invert(ccf_tform);
     
