@@ -9819,19 +9819,19 @@ linkaxes(get(str_v_ctx_fig,'Children'));
 % Apply empirical static nonlinearity
 figure;
 mua_ctxpred_allcat_nlin = nan(size(mua_ctxpred_allcat));
-% mua_ctxpred_taskpred_allcat_nlin = nan(size(mua_ctxpred_taskpred_allcat));
+mua_ctxpred_taskpred_allcat_nlin = nan(size(mua_ctxpred_taskpred_allcat));
 
 for curr_depth = 1:n_depths       
     measured_data = reshape(mua_allcat(:,:,curr_depth),[],1);
     predicted_data = double(reshape(mua_ctxpred_allcat(:,:,curr_depth),[],1));
-%     predicted_data_task = double(reshape(mua_ctxpred_taskpred_allcat(:,:,curr_depth),[],1));
+    predicted_data_task = double(reshape(mua_ctxpred_taskpred_allcat(:,:,curr_depth),[],1));
     
     n_bins = 1000;
     activity_bounds = linspace(-1,9,n_bins+1);
     activity_bin_centers = conv2(activity_bounds,[1,1]/2,'valid');
   
     predicted_bins = discretize(predicted_data,activity_bounds);
-%     predicted_task_bins = discretize(predicted_data_task,activity_bounds);
+    predicted_task_bins = discretize(predicted_data_task,activity_bounds);
     
     measured_data_binmean = accumarray(predicted_bins(~isnan(predicted_bins)), ...
         measured_data(~isnan(predicted_bins)),[n_bins,1],@mean,nan);
@@ -9844,8 +9844,8 @@ for curr_depth = 1:n_depths
     predicted_data_nlin = nan(size(predicted_data));
     predicted_data_nlin(~isnan(predicted_bins)) = measured_data_binmean_smooth(predicted_bins(~isnan(predicted_bins)));
     
-%     predicted_data_task_nlin = nan(size(predicted_data_task));
-%     predicted_data_task_nlin(~isnan(predicted_task_bins)) = measured_data_binmean_smooth(predicted_task_bins(~isnan(predicted_task_bins)));
+    predicted_data_task_nlin = nan(size(predicted_data_task));
+    predicted_data_task_nlin(~isnan(predicted_task_bins)) = measured_data_binmean_smooth(predicted_task_bins(~isnan(predicted_task_bins)));
     
     predicted_data_nlin_binmean = accumarray( ...
         predicted_bins(~isnan(predicted_bins)), ...
@@ -9856,9 +9856,9 @@ for curr_depth = 1:n_depths
         reshape(predicted_data_nlin, ...
         size(mua_ctxpred_allcat_nlin,1),size(mua_ctxpred_allcat_nlin,2));
     
-%     mua_ctxpred_taskpred_allcat_nlin(:,:,curr_depth) = ...
-%         reshape(predicted_data_task_nlin, ...
-%         size(mua_ctxpred_taskpred_allcat_nlin,1),size(mua_ctxpred_taskpred_allcat_nlin,2));
+    mua_ctxpred_taskpred_allcat_nlin(:,:,curr_depth) = ...
+        reshape(predicted_data_task_nlin, ...
+        size(mua_ctxpred_taskpred_allcat_nlin,1),size(mua_ctxpred_taskpred_allcat_nlin,2));
     
     % Plot linear and nonlinear predictions 
     subplot(2,n_depths,curr_depth); hold on;
@@ -10919,7 +10919,8 @@ quiescent_trials = ~any(abs(wheel_allcat(:,t >= 0 & t <= 0.5)) > wheel_thresh,2)
 % Set windows to average activity
 timeavg_labels = {'Stim'};
 % timeavg_t = {[0.02,0.1]};
-timeavg_t = {[0.0,0.15]};
+% timeavg_t = {[0.02,0.1]};
+
 timeavg_align = {stim_align};
 timeavg_trial_conditions = ...
     {[trial_stim_allcat > 0 & quiescent_trials, ...
@@ -10932,7 +10933,7 @@ act_prctile = [5,95];
 n_act_bins = 5;
 
 % Set areas and conditions
-plot_areas = [1];
+plot_areas = [2];
 
 % Loop across area pairs, plot binned predicted v measured activity
 curr_act_allcat = mua_allcat;
@@ -11048,11 +11049,6 @@ for curr_area_idx = 1:length(plot_areas)
         pred_bin_edges = prctile(cell2mat(curr_act_pred_avg),linspace(act_prctile(1),act_prctile(2),n_act_bins+1));
         pred_bin_centers = pred_bin_edges(1:end-1) + diff(pred_bin_edges)./2;        
         pred_trial_bins = cellfun(@(x) discretize(x,pred_bin_edges),curr_act_pred_avg,'uni',false);         
-        
-%         %TESTING:  (bin MEASURED data across percentile range)
-%         pred_bin_edges = prctile(cell2mat(curr_act_avg),linspace(act_prctile(1),act_prctile(2),n_act_bins+1));
-%         pred_bin_centers = pred_bin_edges(1:end-1) + diff(pred_bin_edges)./2;        
-%         pred_trial_bins = cellfun(@(x) discretize(x,pred_bin_edges),curr_act_avg,'uni',false);         
         
         % (get activity binned by predicted)        
         pred_use_trials = cellfun(@(act,act_pred,trial_bins) ...
@@ -11231,15 +11227,13 @@ figure;plot(use_lowpass,mua_fluorpred_corr);
 
 % (filter the original data)
 a = reshape(permute(mua_allcat,[2,1,3]),[],size(mua_allcat,3));
-a(isnan(a)) = 0; % quick and dirty
 
 lowpassCutoff = 6; % Hz
 [b100s, a100s] = butter(2, lowpassCutoff/(sample_rate/2), 'low');
 a_filt_reshape = filtfilt(b100s,a100s,a);
 
 a_filt = permute(reshape(a_filt_reshape,size(permute(mua_allcat,[2,1,3]))),[2,1,3]);
-mua_allcat = a_filt;
-disp('Filtered mua_allcat');
+
 
 
 

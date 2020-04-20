@@ -4320,14 +4320,14 @@ for curr_t = 1:length(t)
     curr_mua_baseline_cat = cell2mat(cellfun(@(x) x(:,:,curr_depth),curr_mua_baseline,'uni',false));
     curr_mua_event_cat = cell2mat(cellfun(@(x) x(:,:,curr_depth),curr_mua_event,'uni',false));
     
-    curr_mua_baseline_cat = curr_mua_baseline_cat(trial_contrast_allcat > 0 & trial_side_allcat == -1);
-    curr_mua_event_cat = curr_mua_event_cat(trial_contrast_allcat > 0 & trial_side_allcat == 1);
+    curr_mua_baseline_cat = curr_mua_baseline_cat(trial_stim_allcat < 0);
+    curr_mua_event_cat = curr_mua_event_cat(trial_stim_allcat > 0);
     
     curr_fluor_baseline_cat = cell2mat(cellfun(@(x) x(:,:,curr_roi),curr_fluor_baseline,'uni',false));
     curr_fluor_event_cat = cell2mat(cellfun(@(x) x(:,:,curr_roi),curr_fluor_event,'uni',false));
     
-    curr_fluor_baseline_cat = curr_fluor_baseline_cat(trial_contrast_allcat > 0 & trial_side_allcat == -1);
-    curr_fluor_event_cat = curr_fluor_event_cat(trial_contrast_allcat > 0 & trial_side_allcat == 1);
+    curr_fluor_baseline_cat = curr_fluor_baseline_cat(trial_stim_allcat < 0);
+    curr_fluor_event_cat = curr_fluor_event_cat(trial_stim_allcat > 0);
     
     % (bin data by fluorescence)
     fluor_bin_range = prctile([curr_fluor_baseline_cat;curr_fluor_event_cat],[5,95]);

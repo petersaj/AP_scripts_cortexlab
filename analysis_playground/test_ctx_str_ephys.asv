@@ -1454,13 +1454,10 @@ set(gca,'YDir','reverse');
 
 %% Checking trial data
 
-data_fn = 'trial_activity_vanillaChoiceworld_ctxstrephys_ctx';
+% data_fn = 'trial_activity_vanillaChoiceworld_ctxstrephys_ctx';
 % data_fn = 'trial_activity_vanillaChoiceworld_ctxstrephys_str';
 
-% data_fn = 'trial_activity_AP_lcrGratingPassive_ctxstrephys_ctx_smooth';
-% data_fn = 'trial_activity_AP_lcrGratingPassive_ctxstrephys_ctx';
-% data_fn = 'trial_activity_AP_lcrGratingPassive_ctxstrephys_str';
-
+data_fn = 'trial_activity_AP_lcrGratingPassive_ctxstrephys_str';
 AP_load_concat_normalize_ctx_str;
 
 % Choose split for data
@@ -1475,13 +1472,12 @@ split_idx = cell2mat(arrayfun(@(exp,trials) repmat(exp,trials,1), ...
 % Split data
 mua_allcat_exp = mat2cell(mua_allcat,use_split,length(t),n_depths);
 mua_ctxpred_allcat_exp = mat2cell(mua_ctxpred_allcat,use_split,length(t),n_depths);
-fluor_roi_deconv_exp = mat2cell(fluor_roi_deconv,use_split,length(t),n_rois);
 trial_stim_allcat_exp = mat2cell(trial_stim_allcat,use_split,1);
 
 
 % try additive offset?
 % I'm pretty sure this is just plotting the fucking average difference
-% turns out I'm a goddamn idiot
+
 
 % (TO DO HERE: CAN PROBABLY FIT SIMULTANEOUSLY WITH ONE \)
 

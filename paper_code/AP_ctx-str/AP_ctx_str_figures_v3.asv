@@ -6,16 +6,16 @@
 % Load data
 
 % (task)
-data_fn = 'trial_activity_choiceworld'; % Primary dataset
+% data_fn = 'trial_activity_choiceworld'; % Primary dataset
 % data_fn = 'trial_activity_choiceworld_4strdepth'; % Depth-aligned striatum
-exclude_data = true;
+% exclude_data = true;
 
 % (passive)
 % data_fn = 'trial_activity_AP_choiceWorldStimPassive_trained';
 % data_fn = 'trial_activity_AP_choiceWorldStimPassive_naive';
 % data_fn = 'trial_activity_stimKalatsky_naive';
 % data_fn = 'trial_activity_stimKalatsky_trained';
-% exclude_data = false;
+exclude_data = false;
 
 % (unused at the moment)
 % data_fn = 'trial_activity_choiceworld_wfonly'; % Widefield-only days (no craniotomy, so cleaner)
@@ -2306,42 +2306,34 @@ line(repmat(min(xlim),2,1),[min(ylim),min(ylim)+y_scale],'linewidth',3,'color','
 taskpred_r2 = nan(max(split_idx),n_depths);
 ctxpred_r2 = nan(max(split_idx),n_depths);
 ctxroipred_r2 = nan(max(split_idx),n_depths);
-ctxpred_taskpred_r2 = nan(max(split_idx),n_depths);
 for curr_exp = 1:max(split_idx)
        
     curr_data = reshape(permute(mua_allcat(split_idx == curr_exp,:,:),[2,1,3]),[],n_depths);
     curr_taskpred_data = reshape(permute(mua_taskpred_allcat(split_idx == curr_exp,:,:),[2,1,3]),[],n_depths);
     curr_ctxpred_data = reshape(permute(mua_ctxpred_allcat(split_idx == curr_exp,:,:),[2,1,3]),[],n_depths);
     curr_ctxroipred_data = reshape(permute(mua_ctxroipred_allcat(split_idx == curr_exp,:,:),[2,1,3]),[],n_depths);
-    curr_ctxpred_taskpred_data = reshape(permute(mua_ctxpred_taskpred_allcat(split_idx == curr_exp,:,:),[2,1,3]),[],n_depths);
-     
+    
     % Set common NaNs
-    nan_samples = isnan(curr_data) | isnan(curr_taskpred_data) | ...
-        isnan(curr_ctxpred_data) | isnan(curr_ctxroipred_data) | ...
-        isnan(curr_ctxpred_taskpred_data);
+    nan_samples = isnan(curr_data) | isnan(curr_taskpred_data) | isnan(curr_ctxpred_data) | isnan(curr_ctxroipred_data);
     curr_data(nan_samples) = NaN;
     curr_taskpred_data(nan_samples) = NaN;
     curr_ctxpred_data(nan_samples) = NaN;
     curr_ctxroipred_data(nan_samples) = NaN;
-    curr_ctxpred_taskpred_data(nan_samples) = NaN;
-    
+
     taskpred_r2(curr_exp,:) = 1 - (nansum((curr_data-curr_taskpred_data).^2,1)./ ...
         nansum((curr_data-nanmean(curr_data,1)).^2,1));
     ctxpred_r2(curr_exp,:) = 1 - (nansum((curr_data-curr_ctxpred_data).^2,1)./ ...
         nansum((curr_data-nanmean(curr_data,1)).^2,1));
     ctxroipred_r2(curr_exp,:) = 1 - (nansum((curr_data-curr_ctxroipred_data).^2,1)./ ...
         nansum((curr_data-nanmean(curr_data,1)).^2,1));
-    ctxpred_taskpred_r2(curr_exp,:) = 1 - (nansum((curr_ctxpred_data-curr_ctxpred_taskpred_data).^2,1)./ ...
-        nansum((curr_ctxpred_data-nanmean(curr_ctxpred_data,1)).^2,1));
 end
 figure; hold on;
 errorbar(nanmean(taskpred_r2,1),AP_sem(taskpred_r2,1),'b','linewidth',2,'CapSize',0);
 errorbar(nanmean(ctxpred_r2,1),AP_sem(ctxpred_r2,1),'color',[0,0.6,0],'linewidth',2,'CapSize',0);
 errorbar(nanmean(ctxroipred_r2,1),AP_sem(ctxroipred_r2,1),'color',[1,0.5,0],'linewidth',2,'CapSize',0);
-errorbar(nanmean(ctxpred_taskpred_r2,1),AP_sem(ctxpred_taskpred_r2,1),'color',[1,0,0],'linewidth',2,'CapSize',0);
 xlabel('Striatum depth');
 ylabel('Task explained variance');
-legend({'Task','Cortex (Full)','Cortex (ROI)','Task (wf: kernel)'});
+legend({'Task','Cortex (Full)','Cortex (ROI)'});
 
 % Get significance between cortex kernel and ROI
 ctx_kernel_roi_p = nan(n_depths,1);

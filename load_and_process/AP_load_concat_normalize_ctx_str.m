@@ -90,7 +90,7 @@ wheel_allcat = cell2mat(vertcat(wheel_all{:}));
 if task_dataset
     
     % Get trial information
-    trial_stim_allcat = trial_info_allcat.stimulus;
+    trial_stim_allcat = trial_info_allcat.stimulus; % old: diff(trial_info_allcat.stimulus,[],2);
     trial_choice_allcat = -(trial_info_allcat.response-1.5)*2;    
     trial_outcome_allcat = trial_info_allcat.outcome;
     
@@ -272,6 +272,17 @@ if exist('mua_all','var')
     mua_use_baseline = mua_trial_baseline;
     mua_norm = mua_day_baseline_std;
 
+%     % (TESTING: separate normalization for ctxpred)
+%     mua_ctxpred_trial_baseline = cellfun(@(mua_animal) cellfun(@(mua_day) ...
+%         nanmean(mua_day(:,t_baseline,:),2), ...
+%         mua_animal,'uni',false),mua_ctxpred_all,'uni',false);    
+%     mua_ctxpred_day_baseline_std = cellfun(@(mua_animal,baseline) cellfun(@(mua_day,baseline) ...
+%         nanstd(reshape(mua_day(:,t_baseline,:) - baseline,[],1,n_depths)), ...
+%         mua_animal,baseline,'uni',false),mua_ctxpred_all,mua_trial_baseline,'uni',false);
+%     
+%     mua_ctxpred_use_baseline = mua_ctxpred_trial_baseline;
+%     mua_ctxpred_norm = mua_ctxpred_day_baseline_std;
+    
 %     % (TESTING: to not normalize MUA at all - just use 1's)
 %     warning('NOT NORMALIZING MUA');
 %     mua_day_ones = cellfun(@(mua_animal) cellfun(@(mua_day) ...
