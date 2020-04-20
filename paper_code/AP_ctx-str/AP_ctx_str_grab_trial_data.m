@@ -23,7 +23,7 @@ fVdf_deconv = AP_deconv_wf(fVdf);
 fVdf_deconv(isnan(fVdf_deconv)) = 0;
 
 
-%% Set parameters for stiatal multiunit
+%% Set parameters for striatal multiunit
 
 n_depths = n_aligned_depths;
 depth_group = aligned_str_depth_group;
