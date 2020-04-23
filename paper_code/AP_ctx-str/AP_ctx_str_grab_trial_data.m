@@ -1,5 +1,12 @@
 %% ~~~ AP_ctx_str_grab_trial_data: pull out data organized by trials ~~~
 
+%% Set flags
+
+% filter_mua: convolve MUA with filter to match widefield fluorescence
+if ~exist('filter_mua','var')
+    filter_mua = false;
+end
+
 %% Get if task if passive dataset
 
 % Task dataset if signals (expDef) and contains 'vanillaChoiceworld'
@@ -100,6 +107,11 @@ for curr_depth = 1:n_depths
         [1:size(t_peri_event,1)]','uni',false))./raster_sample_rate;
 end
 
+% (filter MUA if selected)
+if filter_mua
+    event_aligned_mua = AP_deconv_wf(event_aligned_mua,true);
+end
+
 % Wheel velocity
 event_aligned_wheel = interp1(Timeline.rawDAQTimestamps, ...
     wheel_velocity,t_peri_event);
@@ -165,6 +177,12 @@ for curr_depth = 1:n_depths
     binned_spikes(curr_depth,:) = histcounts(curr_spike_times,time_bins);
 end
 binned_spikes_std = binned_spikes./nanstd(binned_spikes,[],2);
+
+% (filter MUA if selected)
+if filter_mua
+    binned_spikes = AP_deconv_wf(binned_spikes,true);
+    binned_spikes_std = binned_spikes./nanstd(binned_spikes,[],2);
+end
 
 % Load lambda from previously estimated and saved
 lambda_fn = 'C:\Users\Andrew\OneDrive for Business\Documents\CarandiniHarrisLab\analysis\wf_ephys_choiceworld\ephys_processing\ctx-str_lambda';

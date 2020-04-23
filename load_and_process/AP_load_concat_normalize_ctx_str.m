@@ -273,6 +273,7 @@ if exist('mua_all','var')
     mua_norm = mua_day_baseline_std;
 
 %     % (TESTING: separate normalization for ctxpred)
+%     warning('USING SEPARATE NORMALIZATION FOR MUA_CTXPRED');
 %     mua_ctxpred_trial_baseline = cellfun(@(mua_animal) cellfun(@(mua_day) ...
 %         nanmean(mua_day(:,t_baseline,:),2), ...
 %         mua_animal,'uni',false),mua_ctxpred_all,'uni',false);    

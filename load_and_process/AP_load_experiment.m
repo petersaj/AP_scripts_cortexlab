@@ -988,7 +988,7 @@ end
 %% Load LFP
 % (either single channel full or all channel snippet)
 
-if ephys_exists && load_parts.ephys
+if ephys_exists && load_parts.ephys && exist('lfp_channel','var') && strcmp(lfp_channel,'all');
     
     % Get LFP file info
     n_channels = str2num(header.n_channels);

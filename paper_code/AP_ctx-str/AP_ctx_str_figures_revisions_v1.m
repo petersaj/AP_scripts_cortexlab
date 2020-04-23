@@ -35,7 +35,219 @@ split_idx = cell2mat(arrayfun(@(exp,trials) repmat(exp,trials,1), ...
     [1:length(use_split)]',reshape(use_split,[],1),'uni',false));
 
 
-%% ~~~~~~~~ Widefield correlation borders
+%% Task > cortex goodness-of-fit
+
+% Load kernel templates
+n_aligned_depths = 4;
+kernel_template_fn = ['C:\Users\Andrew\OneDrive for Business\Documents\CarandiniHarrisLab\analysis\wf_ephys_choiceworld\ephys_processing\kernel_template_' num2str(n_aligned_depths) '_depths.mat'];
+load(kernel_template_fn);
+
+% Get bregma to include/exclude ipsilateral side
+bregma = allenCCFbregma;
+alignment_path = 'C:\Users\Andrew\OneDrive for Business\Documents\CarandiniHarrisLab\analysis\widefield_alignment';
+ccf_tform_fn = [alignment_path filesep 'ccf_tform.mat'];
+load(ccf_tform_fn);
+
+um2pixel = 20.6;
+bregma_resize = bregma*(10/um2pixel);
+bregma_align = [bregma_resize([3,1]),1]*ccf_tform.T;
+
+% (to make kernel ROIs as a circle around the max)
+% Define ROIs and get fluorescence traces
+roi_circle_size = 20;
+[x,y] = meshgrid(1:size(U_master,2),1:size(U_master,1));
+kernel_roi = false(size(kernel_template));
+for curr_kernel = 1:size(kernel_roi,3) 
+    [~,max_idx] = max(reshape(kernel_template(:,:,curr_kernel),[],1));
+    [roi_y,roi_x] = ind2sub(size(kernel_template(:,:,curr_kernel)),max_idx);
+    kernel_roi(:,:,curr_kernel) = sqrt((x-roi_x).^2 + (y-roi_y).^2) <= roi_circle_size;
+end
+
+% Plot the kernels and ROIs
+figure; colormap(gray);
+for i = 1:n_aligned_depths
+    p1 = subplot(n_aligned_depths,2,(i-1)*2+1);
+    imagesc(kernel_template(:,:,i));
+    caxis([-max(abs(caxis)),max(abs(caxis))])
+    colormap(p1,brewermap([],'*RdBu'));
+    AP_reference_outline('ccf_aligned',[0.5,0.5,0.5]);
+    axis image off;
+    
+    p2 = subplot(n_aligned_depths,2,(i-1)*2+2);
+    imagesc(kernel_roi(:,:,i));
+    AP_reference_outline('ccf_aligned',[0.5,0.5,0.5]);
+    colormap(p2,brewermap([],'Greys'));
+    axis image off;
+end
+
+% Get fluorescence within kernel ROIs
+fluor_kernelroi_deconv = permute(reshape( ...
+    AP_svd_roi(U_master(:,:,1:n_vs), ...
+    reshape(permute(fluor_allcat_deconv,[3,2,1]),n_vs,[]),[],[],kernel_roi), ...
+    size(kernel_roi,3),[],size(fluor_allcat_deconv,1)),[3,2,1]);
+
+% Regress kernel ROI activity to striatum domain activity (per recording)
+regression_params.kernel_t = [-0.5,0.5];
+regression_params.zs = [false,false];
+regression_params.cvfold = 5;
+regression_params.use_constant = true;
+lambda = 0;
+kernel_frames = floor(regression_params.kernel_t(1)*sample_rate): ...
+    ceil(regression_params.kernel_t(2)*sample_rate);
+
+fluor_kernelroi_deconv_exp = mat2cell(fluor_kernelroi_deconv,trials_recording,length(t),n_depths);
+mua_allcat_exp = mat2cell(mua_allcat,trials_recording,length(t),n_depths);
+
+mua_ctxroipred_exp = cellfun(@(x) nan(size(x)),mua_allcat_exp,'uni',false);
+for curr_exp = 1:length(trials_recording)
+    for curr_depth = 1:n_depths
+        
+        curr_mua = reshape(mua_allcat_exp{curr_exp}(:,:,curr_depth)',[],1)';
+        curr_fluor_kernelroi = reshape(fluor_kernelroi_deconv_exp{curr_exp}(:,:,curr_depth)',[],1)';
+        
+        % Skip if no data
+        if all(isnan(curr_mua))
+            continue
+        end
+        
+        % Set discontinuities in trial data
+        trial_discontinuities = false(size(mua_allcat_exp{curr_exp}(:,:,curr_depth)));
+        trial_discontinuities(:,1) = true;
+        trial_discontinuities = reshape(trial_discontinuities',[],1)';
+        
+        % Do regression
+        [k,curr_mua_kernelroipred,explained_var] = ...
+            AP_regresskernel(curr_fluor_kernelroi, ...
+            curr_mua,kernel_frames,lambda, ...
+            regression_params.zs,regression_params.cvfold, ...
+            false,regression_params.use_constant,trial_discontinuities);
+              
+        mua_ctxroipred_exp{curr_exp}(:,:,curr_depth) = ...
+            reshape(curr_mua_kernelroipred,length(t),[])';
+
+    end
+    AP_print_progress_fraction(curr_exp,length(trials_recording));
+end
+mua_ctxroipred_allcat = cell2mat(mua_ctxroipred_exp);
+
+
+% Get R^2 for task, cortex full, and cortex ROI predictions
+taskpred_r2 = nan(max(split_idx),n_depths);
+ctxpred_r2 = nan(max(split_idx),n_depths);
+ctxroipred_r2 = nan(max(split_idx),n_depths);
+ctxpred_taskpred_r2 = nan(max(split_idx),n_depths);
+for curr_exp = 1:max(split_idx)
+       
+    curr_data = reshape(permute(mua_allcat(split_idx == curr_exp,:,:),[2,1,3]),[],n_depths);
+    curr_taskpred_data = reshape(permute(mua_taskpred_allcat(split_idx == curr_exp,:,:),[2,1,3]),[],n_depths);
+    curr_ctxpred_data = reshape(permute(mua_ctxpred_allcat(split_idx == curr_exp,:,:),[2,1,3]),[],n_depths);
+    curr_ctxroipred_data = reshape(permute(mua_ctxroipred_allcat(split_idx == curr_exp,:,:),[2,1,3]),[],n_depths);
+    curr_ctxpred_taskpred_data = reshape(permute(mua_ctxpred_taskpred_allcat(split_idx == curr_exp,:,:),[2,1,3]),[],n_depths);
+     
+    % Set common NaNs
+    nan_samples = isnan(curr_data) | isnan(curr_taskpred_data) | ...
+        isnan(curr_ctxpred_data) | isnan(curr_ctxroipred_data) | ...
+        isnan(curr_ctxpred_taskpred_data);
+    curr_data(nan_samples) = NaN;
+    curr_taskpred_data(nan_samples) = NaN;
+    curr_ctxpred_data(nan_samples) = NaN;
+    curr_ctxroipred_data(nan_samples) = NaN;
+    curr_ctxpred_taskpred_data(nan_samples) = NaN;
+    
+    taskpred_r2(curr_exp,:) = 1 - (nansum((curr_data-curr_taskpred_data).^2,1)./ ...
+        nansum((curr_data-nanmean(curr_data,1)).^2,1));
+    ctxpred_r2(curr_exp,:) = 1 - (nansum((curr_data-curr_ctxpred_data).^2,1)./ ...
+        nansum((curr_data-nanmean(curr_data,1)).^2,1));
+    ctxroipred_r2(curr_exp,:) = 1 - (nansum((curr_data-curr_ctxroipred_data).^2,1)./ ...
+        nansum((curr_data-nanmean(curr_data,1)).^2,1));
+    ctxpred_taskpred_r2(curr_exp,:) = 1 - (nansum((curr_ctxpred_data-curr_ctxpred_taskpred_data).^2,1)./ ...
+        nansum((curr_ctxpred_data-nanmean(curr_ctxpred_data,1)).^2,1));
+end
+figure; hold on;
+errorbar(nanmean(taskpred_r2,1),AP_sem(taskpred_r2,1),'b','linewidth',2,'CapSize',0);
+errorbar(nanmean(ctxpred_r2,1),AP_sem(ctxpred_r2,1),'color',[0,0.6,0],'linewidth',2,'CapSize',0);
+errorbar(nanmean(ctxroipred_r2,1),AP_sem(ctxroipred_r2,1),'color',[1,0.5,0],'linewidth',2,'CapSize',0);
+errorbar(nanmean(ctxpred_taskpred_r2,1),AP_sem(ctxpred_taskpred_r2,1),'color',[1,0,0],'linewidth',2,'CapSize',0);
+xlabel('Striatum depth');
+ylabel('Task explained variance');
+legend({'Task','Cortex (Full)','Cortex (ROI)','Task (wf: kernel)'});
+
+% Get significance between cortex kernel and ROI
+ctx_kernel_roi_p = nan(n_depths,1);
+for curr_depth = 1:n_depths
+   ctx_kernel_roi_p(curr_depth) = signrank(ctxroipred_r2(:,curr_depth), ...
+       ctxpred_r2(:,curr_depth));
+   disp(['Str ' num2str(curr_depth) ' kernel vs ROI: p = ' ...
+       num2str(ctx_kernel_roi_p(curr_depth))]);
+end
+
+
+% Cortex explained variance
+
+% (spatial explained variance in pixels)
+px_taskpred_r2 = nan(size(U_master,1),size(U_master,2),max(split_idx));
+for curr_exp = 1:max(split_idx)  
+    px_taskpred_r2(:,:,curr_exp) = AP_spatial_explained_var(U_master(:,:,1:n_vs), ...
+        reshape(permute(fluor_allcat_deconv(split_idx == curr_exp,:,:),[2,1,3]),[],n_vs)', ...
+        reshape(permute(fluor_taskpred_allcat(split_idx == curr_exp,:,:),[2,1,3]),[],n_vs)',10);
+    AP_print_progress_fraction(curr_exp,max(split_idx));
+end
+
+figure;imagesc(nanmedian(px_taskpred_r2,3));
+axis image off; 
+colormap(brewermap([],'Reds'));
+caxis([0,1]); 
+c = colorbar;
+ylabel(c,'Task R^2');
+AP_reference_outline('ccf_aligned',[0.5,0.5,0.5]);
+
+% (explained variance in ROIs)
+fluor_roi_taskpred_r2 = nan(max(split_idx),n_rois);
+fluor_roi_taskpred_partial_r2 = nan(max(split_idx),n_rois,length(task_regressor_labels));
+for curr_exp = 1:max(split_idx)
+    
+    curr_data = reshape(permute(fluor_roi_deconv(split_idx == curr_exp,:,:),[2,1,3]),[],n_rois);
+    curr_taskpred_data = reshape(permute(fluor_roi_taskpred(split_idx == curr_exp,:,:),[2,1,3]),[],n_rois);
+    curr_taskpred_reduced_data = reshape(permute(fluor_roi_taskpred_reduced(split_idx == curr_exp,:,:), ...
+        [2,1,3,4]),[],n_rois,length(task_regressor_labels));
+    
+    % Set common NaNs
+    nan_samples = isnan(curr_data) | isnan(curr_taskpred_data) | ...
+        any(isnan(curr_taskpred_reduced_data),3);
+    curr_data(nan_samples) = NaN;
+    curr_taskpred_data(nan_samples) = NaN;
+    
+    % Total explained variance
+    fluor_roi_taskpred_r2(curr_exp,:) = 1 - (nansum((curr_data-curr_taskpred_data).^2,1)./ ...
+        nansum((curr_data-nanmean(curr_data,1)).^2,1));
+    
+    % Partial (unique) explained variance
+    sse_residual_reduced = nansum((curr_data - curr_taskpred_reduced_data).^2,1);
+    sse_residual_full = nansum((curr_data - curr_taskpred_data).^2,1);
+    %     fluor_roi_taskpred_partial_r2(curr_exp,:,:) = ...
+    %         1 - (sse_residual_full./sse_residual_reduced);
+    fluor_roi_taskpred_partial_r2(curr_exp,:,:) = 1 - ...
+        (nansum((curr_data-curr_taskpred_reduced_data).^2,1)./ ...
+        nansum((curr_data-nanmean(curr_data,1)).^2,1));
+
+end
+
+figure; hold on;
+errorbar(nanmean(fluor_roi_taskpred_r2,1),AP_sem(fluor_roi_taskpred_r2,1), ...
+    'color',[0,0.7,0],'linewidth',2,'CapSize',0);
+task_colors = {'r',[0.7,0,0.7],[0.5,0.5,0.5],'b'};
+for curr_task_regressor = 1:length(task_regressor_labels)
+    errorbar(nanmean(fluor_roi_taskpred_partial_r2(:,:,curr_task_regressor),1), ...
+        AP_sem(fluor_roi_taskpred_partial_r2(:,:,curr_task_regressor),1), ...
+        'color',task_colors{curr_task_regressor},'linewidth',2,'CapSize',0);
+end
+set(gca,'XTick',1:n_rois,'XTickLabel',{wf_roi.area});
+xlabel('Cortex ROI');
+ylabel('Task explained variance');
+legend([{'Total'},task_regressor_labels]);
+
+
+%% Widefield correlation borders
 
 wf_corr_borders_fn = 'C:\Users\Andrew\OneDrive for Business\Documents\CarandiniHarrisLab\analysis\wf_ephys_choiceworld\wf_processing\wf_borders\wf_corr_borders.mat';
 load(wf_corr_borders_fn);
@@ -50,9 +262,8 @@ ccf_outline = AP_reference_outline('ccf_aligned',[1,0,0]);
 cellfun(@(x) set(x,'linewidth',2),vertcat(ccf_outline{:}));
 
 
-%% ~~~~~~~~ Probe location variation
-
-%% Plot widefield-estimated/histology-aligned probe location
+%% Probe location variation
+% (plot widefield-estimated/histology-aligned probe location)
 
 animal_days = {...
     'AP032','2018-10-26';
@@ -220,10 +431,10 @@ for curr_animal_day = 1:length(animal_days)
 end
 
 
-%% ~~~~~~~~ Widefield + Striatum + Cortex ephys
+%% Widefield + Striatum + Cortex ephys
 
 
-%% Correlation between wf/ctx-mua and ctx-mua/str-mua
+%% ^^^ Correlation between wf/ctx-mua and ctx-mua/str-mua
 
 use_protocol = 'vanillaChoiceworld';
 % use_protocol = 'AP_sparseNoise';
@@ -277,7 +488,7 @@ xlabel('Striatal domain');
 ylabel('Cortical MUA max corr');
 
 
-%% IN PROGRESS: example recording
+%% ^^^ IN PROGRESS: example recording
 
 % AP060 2019-12-06 looks like the best?
 
@@ -398,10 +609,10 @@ plot_t = [128,132];
 xlim(plot_t);
 
 
-%% ~~~~~~~~ Cortical muscimol
+%%  Cortical muscimol
 
 
-%% Cortical spike rate pre/post muscimol
+%% ^^^ Cortical spike rate pre/post muscimol
 % (use spike rate over all experiments pre/post muscimol)
 
 animal_days = { ...
@@ -473,7 +684,7 @@ for curr_animalday = 1:length(animal_days)
     
 end
 
-%% VFS pre/post musicmol
+%% ^^^ VFS pre/post musicmol
 
 muscimol_wf_fn = 'C:\Users\Andrew\OneDrive for Business\Documents\CarandiniHarrisLab\analysis\wf_ephys_choiceworld\paper\data\muscimol_wf.mat';
 load(muscimol_wf_fn);
@@ -544,7 +755,7 @@ title('(post-pre)/(post+pre)');
 colorbar
 
 
-%% Striatal spike rate pre/post muscimol
+%% ^^^ Striatal spike rate pre/post muscimol
 
 animals = {'AP045','AP054','AP055','AP053','AP047','AP048'};
 
@@ -618,7 +829,7 @@ ylabel('Striatal depth');
 title('Muscimol change');
 
 
-%% Striatum cortical kernels pre/post muscimol
+%% ^^^ Striatum cortical kernels pre/post muscimol
 
 protocols = {'vanillaChoiceworldNoRepeats_pre_muscimol','vanillaChoiceworldNoRepeats_post_muscimol'};
 
@@ -712,7 +923,7 @@ for protocol = protocols
 end
 
 
-%% Cortex/striatum passive gratings pre/post muscimol
+%% ^^^ Cortex/striatum passive gratings pre/post muscimol
 
 data_fns = { ...
     'trial_activity_AP_lcrGratingPassive_pre_muscimol', ...
@@ -921,7 +1132,7 @@ nonan_points = ~isnan(mua_avg_postpre_change(:,plot_str)) & ...
 % fluor_avg_premuscimol = squeeze(nanmean(fluor_premuscimol_mean(:,:,t_stim,:),3));
 % fluor_avg_postmuscimol = squeeze(nanmean(fluor_postmuscimol_mean(:,:,t_stim,:),3));
 
-%% Striatal task trial activity pre/post muscimol
+%% ^^^ Striatal task trial activity pre/post muscimol
 
 data_fns = { ...
     'trial_activity_vanillaChoiceworldNoRepeats_pre_muscimol', ...
@@ -1080,7 +1291,7 @@ for curr_data = 1:length(data_fns)
 end
 
 
-%% Striatal task kernels pre/post muscimol
+%% ^^^ Striatal task kernels pre/post muscimol
 
 data_fns = { ...
     'trial_activity_vanillaChoiceworldNoRepeats_pre_muscimol', ...

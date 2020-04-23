@@ -1454,12 +1454,18 @@ set(gca,'YDir','reverse');
 
 %% Checking trial data
 
-data_fn = 'trial_activity_vanillaChoiceworld_ctxstrephys_ctx';
+% data_fn = 'trial_activity_vanillaChoiceworld_ctxstrephys_ctx';
 % data_fn = 'trial_activity_vanillaChoiceworld_ctxstrephys_str';
+
+% data_fn = 'trial_activity_vanillaChoiceworld_ctxstrephys_str_filt';
+% data_fn = 'trial_activity_vanillaChoiceworld_ctxstrephys_ctx_filt';
 
 % data_fn = 'trial_activity_AP_lcrGratingPassive_ctxstrephys_ctx_smooth';
 % data_fn = 'trial_activity_AP_lcrGratingPassive_ctxstrephys_ctx';
 % data_fn = 'trial_activity_AP_lcrGratingPassive_ctxstrephys_str';
+
+data_fn = 'trial_activity_AP_lcrGratingPassive_ctxstrephys_ctx_muafilt';
+% data_fn = 'trial_activity_AP_lcrGratingPassive_ctxstrephys_str_muafilt';
 
 AP_load_concat_normalize_ctx_str;
 
@@ -1471,53 +1477,6 @@ use_split = trials_recording;
 
 split_idx = cell2mat(arrayfun(@(exp,trials) repmat(exp,trials,1), ...
     [1:length(use_split)]',reshape(use_split,[],1),'uni',false));
-
-% Split data
-mua_allcat_exp = mat2cell(mua_allcat,use_split,length(t),n_depths);
-mua_ctxpred_allcat_exp = mat2cell(mua_ctxpred_allcat,use_split,length(t),n_depths);
-fluor_roi_deconv_exp = mat2cell(fluor_roi_deconv,use_split,length(t),n_rois);
-trial_stim_allcat_exp = mat2cell(trial_stim_allcat,use_split,1);
-
-
-% try additive offset?
-% I'm pretty sure this is just plotting the fucking average difference
-% turns out I'm a goddamn idiot
-
-% (TO DO HERE: CAN PROBABLY FIT SIMULTANEOUSLY WITH ONE \)
-
-plot_str = 1;
-plot_stim = 1;
-
-use_trials = cellfun(@(mua,mua_ctxpred,stim) ...
-    stim == plot_stim & ...
-    ~any(isnan(mua(:,:,plot_str)),2) & ...
-    ~any(isnan(mua_ctxpred(:,:,plot_str)),2), ...
-    mua_allcat_exp,mua_ctxpred_allcat_exp,trial_stim_allcat_exp,'uni',false);
-
-average_act = cellfun(@(mua,mua_ctxpred,use_trials) ...
-    [nanmean(mua(use_trials,:,plot_str),1);nanmean(mua_ctxpred(use_trials,:,plot_str),1)], ...
-    mua_allcat_exp,mua_ctxpred_allcat_exp,use_trials,'uni',false);
-average_act_cat = cat(3,average_act{:});
-
-additive_fit = cellfun(@(mua,mua_ctxpred,use_trials) ...
-    ones(sum(use_trials),1)\(mua(use_trials,:,plot_str) - mua_ctxpred(use_trials,:,plot_str)), ...
-    mua_allcat_exp,mua_ctxpred_allcat_exp,use_trials,'uni',false);
-additive_fit_cat = vertcat(additive_fit{:});
-
-figure;
-p1 = AP_errorfill(t,nanmean(average_act_cat(1,:,:),3),AP_sem(average_act_cat(1,:,:),3));
-p2 = AP_errorfill(t,nanmean(average_act_cat(2,:,:),3),AP_sem(average_act_cat(2,:,:),3),'r');
-p3 = AP_errorfill(t,nanmean(additive_fit_cat,1),AP_sem(additive_fit_cat,1),'b');
-legend([p1,p2,p3],{'Measured','Predicted','Additive fit'});
-
-
-%         % (to fit multiplicative and additive)
-%         trial_type_fit(curr_t,:) = ...
-%             [curr_mua_baseline_binned,ones(size(curr_mua_baseline_binned))]\curr_mua_event_binned;
-    
-
-
-
 
 
 

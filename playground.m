@@ -10905,7 +10905,7 @@ end
 
 
 %% Testing fig 4 passive: ROI instead of prediction
-% DON'T COPY THIS CODE FOR ANYTHING, POSSIBLE THINGS CHANGED
+% DON'T COPY THIS CODE FOR ANYTHING, PLAYED WITH LOTS OF THINGS
 
 % Set alignment shifts
 t_leeway = -t(1);
@@ -10918,8 +10918,8 @@ quiescent_trials = ~any(abs(wheel_allcat(:,t >= 0 & t <= 0.5)) > wheel_thresh,2)
 
 % Set windows to average activity
 timeavg_labels = {'Stim'};
-% timeavg_t = {[0.02,0.1]};
-timeavg_t = {[0.0,0.15]};
+timeavg_t = {[-0.3,-0.2]};
+% timeavg_t = {[0.05,0.15]};
 timeavg_align = {stim_align};
 timeavg_trial_conditions = ...
     {[trial_stim_allcat > 0 & quiescent_trials, ...
@@ -11206,8 +11206,73 @@ linkaxes(get(measured_v_pred_fig,'Children'),'xy');
 
 
 
+% Plot long trace measured + predicted with stim marked
+plot_trials = trial_stim_allcat == 1;
+
+figure; hold on;
+plot(reshape(mua_allcat(plot_trials,:,plot_areas)',[],1));
+plot(reshape(mua_ctxpred_allcat(plot_trials,:,plot_areas)',[],1));
+
+stim_matrix = zeros(size(mua_allcat(plot_trials,:,1)));
+stim_matrix(:,find(t >= 0,1)) = 1;
+stim_idx = find(stim_matrix');
+for i = 1:length(stim_idx)
+   line(repmat(stim_idx(i),2,1),ylim,'color','k');
+end
+
+% Plot distributions
+curr_act_avg_cat = cell2mat(curr_act_avg);
+curr_act_pred_avg_cat = cell2mat(curr_act_pred_avg);
+
+figure;
+subplot(1,2,1);
+AP_heatscatter(reshape(mua_ctxpred_allcat(:,:,plot_areas),[],1),reshape(mua_allcat(:,:,plot_areas),[],1),50)
+line(xlim,xlim)
+xlabel('Fluorescence');
+ylabel('MUA');
+title('All points')
+
+subplot(1,2,2); hold on;
+use_bins = linspace(-2,10,100);
+act_dist_1 = histcounts2(curr_act_pred_avg_cat(trial_stim_allcat == 1), ...
+    curr_act_avg_cat(trial_stim_allcat == 1),use_bins,use_bins);
+act_dist_2 = histcounts2(curr_act_pred_avg_cat(trial_stim_allcat == -1), ...
+    curr_act_avg_cat(trial_stim_allcat == -1),use_bins,use_bins);
+imagesc(imgaussfilt(act_dist_1',2)-imgaussfilt(act_dist_2',2));
+line(xlim,xlim)
+caxis([-max(abs(caxis)),max(abs(caxis))]);
+colormap(gca,brewermap([],'*RdBu'));
+title('Stim act distr difference');
+
+figure;
+plot_trials = trial_stim_allcat ~= 0;
+scatterhist(curr_act_pred_avg_cat(plot_trials), ...
+    curr_act_avg_cat(plot_trials), ...
+    'Group',trial_stim_allcat(plot_trials), ...
+    'Kernel','on','Color','br','Marker','.');
 
 
+
+
+figure; hold on;
+use_bins = linspace(-2,10,100);
+act_dist_1 = histcounts2( ...
+    reshape(mua_ctxpred_allcat(trial_stim_allcat == 1,:,plot_areas)',[],1), ...
+    reshape(mua_allcat(trial_stim_allcat == 1,:,plot_areas)',[],1), ...
+    use_bins,use_bins);
+act_dist_2 = histcounts2( ...
+    reshape(mua_ctxpred_allcat(trial_stim_allcat == -1,:,plot_areas)',[],1), ...
+    reshape(mua_allcat(trial_stim_allcat == -1,:,plot_areas)',[],1), ...
+    use_bins,use_bins);
+imagesc(imgaussfilt(act_dist_1',2)-imgaussfilt(act_dist_2',2));
+line(xlim,xlim)
+caxis([-max(abs(caxis)),max(abs(caxis))]);
+colormap(gca,brewermap([],'*RdBu'));
+title('Stim act distr difference (whole trials)');
+
+
+
+        
 %% Finding filter for fluor <-> mua?
 
 a = reshape(mua_allcat(:,:,1)',[],1);

@@ -13,7 +13,7 @@ y(nan_points) = [];
 
 % Set heat/scatter threshold
 % (don't need to change: number of overlapping dots is constant)
-max_bin_point_plot = 20; % threshold for heatmap vs scatter
+max_bin_point_plot = 10; % threshold for heatmap vs scatter
 
 % Set bins and bin data
 x_bins = linspace(min(x),max(x),n_bins+1);
