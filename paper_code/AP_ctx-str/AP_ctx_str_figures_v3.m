@@ -11,10 +11,10 @@
 % exclude_data = true;
 
 % (passive)
-data_fn = 'trial_activity_AP_choiceWorldStimPassive_trained';
+% data_fn = 'trial_activity_AP_choiceWorldStimPassive_trained';
 % data_fn = 'trial_activity_AP_choiceWorldStimPassive_naive';
 % data_fn = 'trial_activity_stimKalatsky_naive';
-% data_fn = 'trial_activity_stimKalatsky_trained';
+data_fn = 'trial_activity_stimKalatsky_trained';
 exclude_data = false;
 
 % (unused at the moment)
