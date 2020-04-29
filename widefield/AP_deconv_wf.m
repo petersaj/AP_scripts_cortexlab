@@ -28,9 +28,11 @@ load(kernel_fn);
 if ~spikes_flag
     kernel_cat = vertcat(gcamp6s_kernel.regression{:});
     kernel_mean = nanmean(kernel_cat./max(abs(kernel_cat),[],2),1);
+    kernel = kernel_mean./sum(kernel_mean);
 elseif spikes_flag
     kernel_cat = vertcat(gcamp6s_kernel.spikes_regression{:});
     kernel_mean = nanmean(kernel_cat./max(abs(kernel_cat),[],2),1);
+    kernel = kernel_mean./sum(kernel_mean);
 end
 
 
@@ -42,8 +44,8 @@ activity_nonan(isnan(activity_nonan)) = 0;
 
 % Deconvolve to same size with replication padding
 convolved_activity = convn(padarray(activity_nonan, ...
-    [0,floor(length(kernel_mean)/2)],'replicate','both'), ...
-    kernel_mean,'valid');
+    [0,floor(length(kernel)/2)],'replicate','both'), ...
+    kernel,'valid');
 
 % Put original NaNs back in
 convolved_activity(isnan(activity)) = NaN;

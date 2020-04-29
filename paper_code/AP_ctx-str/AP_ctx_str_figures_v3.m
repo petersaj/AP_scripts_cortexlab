@@ -11,10 +11,10 @@
 % exclude_data = true;
 
 % (passive)
-% data_fn = 'trial_activity_AP_choiceWorldStimPassive_trained';
+data_fn = 'trial_activity_AP_choiceWorldStimPassive_trained';
 % data_fn = 'trial_activity_AP_choiceWorldStimPassive_naive';
 % data_fn = 'trial_activity_stimKalatsky_naive';
-data_fn = 'trial_activity_stimKalatsky_trained';
+% data_fn = 'trial_activity_stimKalatsky_trained';
 exclude_data = false;
 
 % (unused at the moment)
@@ -1452,8 +1452,8 @@ for curr_area_idx = 1:length(plot_areas)
     hold on;
     for curr_stim_idx = 1:size(str_stim_avg,1)
         AP_errorfill(t, ...
-            nanmean(str_stim_exp(curr_stim_idx,:,curr_area,:),4), ...
-            AP_sem(str_stim_exp(curr_stim_idx,:,curr_area,:),4), ...
+            nanmean(str_stim_exp(curr_stim_idx,:,curr_area,:),4)', ...
+            AP_sem(str_stim_exp(curr_stim_idx,:,curr_area,:),4)', ...
             stim_col(used_stim_idx(curr_stim_idx),:),0.5,true);
     end
     line([0,0],ylim,'color','k');
@@ -1464,8 +1464,8 @@ for curr_area_idx = 1:length(plot_areas)
     hold on;
     for curr_stim_idx = 1:size(str_stim_avg,1)
         AP_errorfill(t, ...
-            nanmean(ctx_stim_exp(curr_stim_idx,:,curr_area,:),4), ...
-            AP_sem(ctx_stim_exp(curr_stim_idx,:,curr_area,:),4), ...
+            nanmean(ctx_stim_exp(curr_stim_idx,:,curr_area,:),4)', ...
+            AP_sem(ctx_stim_exp(curr_stim_idx,:,curr_area,:),4)', ...
             stim_col(used_stim_idx(curr_stim_idx),:),0.5,true);
     end
     line([0,0],ylim,'color','k');

@@ -1040,10 +1040,10 @@ fluor_roi_postmuscimol_mean = ...
 figure;
 for curr_str = 1:n_depths
     subplot(n_depths,1,curr_str);
-    AP_errorfill(t,nanmean(mua_premuscimol_mean(:,:,curr_str),1), ...
-        AP_sem(mua_premuscimol_mean(:,:,curr_str),1),'k',1,false);
-    AP_errorfill(t,nanmean(mua_postmuscimol_mean(:,:,curr_str),1), ...
-        AP_sem(mua_postmuscimol_mean(:,:,curr_str),1),'r',1,false);
+    AP_errorfill(t,nanmean(mua_premuscimol_mean(:,:,curr_str),1)', ...
+        AP_sem(mua_premuscimol_mean(:,:,curr_str),1)','k',1,false);
+    AP_errorfill(t,nanmean(mua_postmuscimol_mean(:,:,curr_str),1)', ...
+        AP_sem(mua_postmuscimol_mean(:,:,curr_str),1)','r',1,false);
     xlabel('Time from stim (s)');
     ylabel('Spikes (std)');
     title(['Str ' num2str(curr_str)]);
@@ -1056,9 +1056,9 @@ plot_ctx = [1,3,7];
 for curr_ctx_idx = 1:length(plot_ctx)
     curr_ctx = plot_ctx(curr_ctx_idx);
     subplot(length(plot_ctx),1,curr_ctx_idx);
-    AP_errorfill(t,nanmean(fluor_roi_premuscimol_mean(:,:,curr_ctx),1), ...
-        AP_sem(fluor_roi_premuscimol_mean(:,:,curr_ctx),1),'k',1,false);
-    AP_errorfill(t,nanmean(fluor_roi_postmuscimol_mean(:,:,curr_ctx),1), ...
+    AP_errorfill(t,nanmean(fluor_roi_premuscimol_mean(:,:,curr_ctx),1)', ...
+        AP_sem(fluor_roi_premuscimol_mean(:,:,curr_ctx),1)','k',1,false);
+    AP_errorfill(t,nanmean(fluor_roi_postmuscimol_mean(:,:,curr_ctx),1)', ...
         AP_sem(fluor_roi_postmuscimol_mean(:,:,curr_ctx),1),'r',1,false);
     ylabel(wf_roi(curr_ctx).area);
 end
@@ -1083,20 +1083,20 @@ fluor_avg_postpre_change = (fluor_avg_postmuscimol-fluor_avg_premuscimol)./(fluo
 
 figure;
 subplot(1,3,1);hold on;
-AP_errorfill(t,nanmean(mua_premuscimol_mean(:,:,plot_str),1), ...
-    AP_sem(mua_premuscimol_mean(:,:,plot_str),1),'k');
-AP_errorfill(t,nanmean(mua_postmuscimol_mean(:,:,plot_str),1), ...
-    AP_sem(mua_postmuscimol_mean(:,:,plot_str),1),'r');
+AP_errorfill(t,nanmean(mua_premuscimol_mean(:,:,plot_str),1)', ...
+    AP_sem(mua_premuscimol_mean(:,:,plot_str),1)','k');
+AP_errorfill(t,nanmean(mua_postmuscimol_mean(:,:,plot_str),1)', ...
+    AP_sem(mua_postmuscimol_mean(:,:,plot_str),1)','r');
 xlim([-0.2,1])
 xlabel('Time from stim (s)')
 ylabel(['Str ' num2str(plot_str)]);
 axis square
 
 subplot(1,3,2);hold on;
-AP_errorfill(t,nanmean(fluor_roi_premuscimol_mean(:,:,plot_ctx),1), ...
-    AP_sem(fluor_roi_premuscimol_mean(:,:,plot_ctx),1),'k');
-AP_errorfill(t,nanmean(fluor_roi_postmuscimol_mean(:,:,plot_ctx),1), ...
-    AP_sem(fluor_roi_postmuscimol_mean(:,:,plot_ctx),1),'r');
+AP_errorfill(t,nanmean(fluor_roi_premuscimol_mean(:,:,plot_ctx),1)', ...
+    AP_sem(fluor_roi_premuscimol_mean(:,:,plot_ctx),1)','k');
+AP_errorfill(t,nanmean(fluor_roi_postmuscimol_mean(:,:,plot_ctx),1)', ...
+    AP_sem(fluor_roi_postmuscimol_mean(:,:,plot_ctx),1)','r');
 xlim([-0.2,1])
 xlabel('Time from stim (s)')
 ylabel(wf_roi(plot_ctx).area);

@@ -7,6 +7,8 @@
 %% Load in and unpack data
 
 disp(['Loading ' data_fn '...']);
+% (turn on warnings)
+warning on;
 
 % Load data (saved as structure trial_data_all)
 trial_data_path = 'C:\Users\Andrew\OneDrive for Business\Documents\CarandiniHarrisLab\analysis\wf_ephys_choiceworld\paper\data';
@@ -190,6 +192,7 @@ fluor_kernelroi_day_baseline_std = ...
     mat2cell(fluor_kernelroi_deconv,n_trials_day,length(t),n_kernel_rois),fluor_kernelroi_trial_baseline,'uni',false);
 
 % Normalize as (fluor-baseline)/baseline std
+% warning('Not normalizing fluor ROIs');
 % fluor_roi_deconv_std = 1;
 % fluor_kernelroi_deconv_std = 1;
 fluor_roi_deconv = (fluor_roi_deconv - cell2mat(fluor_roi_trial_baseline))./cell2mat(fluor_roi_day_baseline_std);
@@ -270,7 +273,10 @@ if exist('mua_all','var')
     
     % Set baseline and normalize factor for MUA (from above)
     mua_use_baseline = mua_trial_baseline;
+    % (norm = baseline std)
     mua_norm = mua_day_baseline_std;
+    % (norm = soft baseline mean)
+%     mua_norm = cellfun(@(x) cellfun(@(x) x+20,x,'uni',false),mua_day_baseline,'uni',false); 
 
 %     % (TESTING: separate normalization for ctxpred)
 %     warning('USING SEPARATE NORMALIZATION FOR MUA_CTXPRED');

@@ -154,34 +154,8 @@ for curr_exp = 1:length(trials_recording)
         curr_fluor = reshape(permute( ...
             fluor_allcat_deconv_exp{curr_exp},[2,1,3]),[],n_vs)';
         
-        %         % Zero out region of cortex related to each depth
-        %         curr_fluor_regionzero = nan(n_vs,size(curr_fluor,2),n_depths);
-        %         for curr_regionzero = 1:n_depths
-        %             wf_region_zero = kernel_roi.bw(:,:,curr_regionzero) + ...
-        %                 AP_reflect_widefield(kernel_roi.bw(:,:,curr_regionzero));
-        %             U_master_regionzero = U_master.*~wf_region_zero;
-        %             fVdf_regionzero_altU = ChangeU(U_master(:,:,1:n_vs),curr_fluor,U_master_regionzero(:,:,1:n_vs));
-        %             % (those U's aren't orthonormal, recast back to original Udf_aligned)
-        %             fVdf_regionzero = ChangeU(U_master_regionzero(:,:,1:n_vs),fVdf_regionzero_altU,U_master(:,:,1:n_vs));
-        %             curr_fluor_regionzero(:,:,curr_regionzero) = fVdf_regionzero;
-        %         end
-        
-        % Load kernel templates
-        n_aligned_depths = 4;
-        kernel_template_fn = ['C:\Users\Andrew\OneDrive for Business\Documents\CarandiniHarrisLab\analysis\wf_ephys_choiceworld\ephys_processing\kernel_template_' num2str(n_aligned_depths) '_depths.mat'];
-        load(kernel_template_fn);
-        
-        % Get regions to zero based on kernel template weight
-        frac_max_weight = 0.1; % zero pixels > max weight * this
-        min_px = 1000; % get rid of small islands
-        dilate_px = 30; % pixels to dilate the zeroed regions
-        wf_region_zero_depths = kernel_template > ...
-            max(reshape(kernel_template,[],1,n_depths),[],1)*frac_max_weight;
-        wf_region_zero = imdilate(bwareaopen( ...
-            wf_region_zero_depths(:,:,curr_depth),min_px),ones(dilate_px+1));
-        
         % Zero out only current depth region      
-        U_master_regionzero = U_master.*~wf_region_zero;
+        U_master_regionzero = U_master.*~wf_region_zero_depths(:,:,curr_depth);
         fVdf_regionzero_altU = ChangeU(U_master(:,:,1:n_vs),curr_fluor,U_master_regionzero(:,:,1:n_vs));
         % (those U's aren't orthonormal, recast back to original Udf_aligned)
         fVdf_regionzero = ChangeU(U_master_regionzero(:,:,1:n_vs),fVdf_regionzero_altU,U_master(:,:,1:n_vs));
@@ -292,6 +266,315 @@ errorbar(nanmean(ctxtrialpred_regionzero_r2,1),AP_sem(ctxpred_r2,1),'linewidth',
 xlabel('Striatum depth');
 ylabel('Explained variance');
 legend({'Cortex (full)','Cortex (trial)','Cortex (trial,region-zero)'})
+
+%% Predict striatum with zeroed-out cortical regions (for passive)
+
+
+% (load in a dataset first)
+
+% (just plot one depth)
+plot_depth = 1;
+
+% Regress kernel ROI activity to striatum domain activity (per recording)
+regression_params.use_svs = 1:100;
+regression_params.kernel_t = [-0.1,0.1];
+regression_params.zs = [false,false];
+regression_params.cvfold = 2;
+regression_params.use_constant = false;
+lambda = 10;
+kernel_frames = floor(regression_params.kernel_t(1)*sample_rate): ...
+    ceil(regression_params.kernel_t(2)*sample_rate);
+
+% use_t = t < 0;
+% use_t = t > 0.05 & t < 0.1;
+% use_t = t > 0.5;
+use_t = true(size(t));
+
+mua_allcat_exp = mat2cell(mua_allcat,trials_recording,length(t),n_depths);
+fluor_allcat_deconv_exp = mat2cell(fluor_allcat_deconv,use_split,length(t),n_vs);
+
+mua_ctxtrialpred_exp = cellfun(@(x) nan(size(x)),mua_allcat_exp,'uni',false);
+mua_ctxtrialpred_k = nan(length(regression_params.use_svs),length(kernel_frames),n_depths,length(use_split));
+mua_ctxtrialpred_regionzero_exp = cellfun(@(x) nan(size(x)),mua_allcat_exp,'uni',false);
+mua_ctxtrialpred_regionzero_k = nan(length(regression_params.use_svs),length(kernel_frames),n_depths,length(use_split));
+
+for curr_exp = 1:length(trials_recording)
+    for curr_depth = plot_depth
+               
+        curr_mua = reshape(mua_allcat_exp{curr_exp}(:,use_t,curr_depth)',1,[]);
+        
+        curr_fluor = reshape(permute( ...
+            fluor_allcat_deconv_exp{curr_exp}(:,use_t,:),[2,1,3]),[],n_vs)';
+        curr_fluor_full = reshape(permute( ...
+            fluor_allcat_deconv_exp{curr_exp}(:,:,:),[2,1,3]),[],n_vs)';
+               
+        % Zero out region
+                ctx_zero = false(size(U_master(:,:,1)));
+
+        % (zero anterior)
+%         ctx_zero(1:250,:) = true;
+        % (zero posterior)
+%         ctx_zero(220:end,:) = true;
+        % (zero left)
+%         ctx_zero(:,1:212) = true;
+        % (zero right)
+%         ctx_zero(:,212:end) = true;
+        % (zero bottom left)
+        ctx_zero(220:end,1:212) = true;
+      
+        U_master_regionzero = U_master.*~ctx_zero;
+        fVdf_regionzero_altU = ChangeU(U_master(:,:,1:n_vs),curr_fluor,U_master_regionzero(:,:,1:n_vs));
+        % (those U's aren't orthonormal, recast back to original Udf_aligned)
+        fVdf_regionzero = ChangeU(U_master_regionzero(:,:,1:n_vs),fVdf_regionzero_altU,U_master(:,:,1:n_vs));
+        curr_fluor_regionzero = fVdf_regionzero;
+        
+        % Skip if no data
+        if all(isnan(curr_mua))
+            continue
+        end
+        
+        % Set discontinuities in trial data
+        trial_discontinuities = false(size(mua_allcat_exp{curr_exp}(:,use_t,curr_depth)));
+        trial_discontinuities(:,1) = true;
+        trial_discontinuities = reshape(trial_discontinuities',[],1)';
+        
+        % Full cortex regression
+        [k_fluor,curr_mua_fluorpred,explained_var_trial] = ...
+            AP_regresskernel(curr_fluor(regression_params.use_svs,:), ...
+            curr_mua,kernel_frames,lambda, ...
+            regression_params.zs,regression_params.cvfold, ...
+            false,regression_params.use_constant,trial_discontinuities);
+        
+        mua_ctxtrialpred_k(:,:,curr_depth,curr_exp) = k_fluor;
+%         mua_ctxtrialpred_exp{curr_exp}(:,use_t,curr_depth) = ...
+%             reshape(curr_mua_fluorpred,sum(use_t),[])';
+        % (apply kernel to full time)
+        mua_ctxtrialpred_exp{curr_exp}(:,:,curr_depth) = ...
+            sum(cell2mat(arrayfun(@(x) ...
+            convn(fluor_allcat_deconv_exp{curr_exp}(:,:,regression_params.use_svs(x)), ...
+            k_fluor(x,:)','same'),permute(1:length(regression_params.use_svs),[1,3,2]),'uni',false)),3);
+    
+        % Region-zeroed cortex regression
+        [k_fluorregionzero,curr_mua_fluorregionzeropred,explained_var_trial_regionzero] = ...
+            AP_regresskernel(curr_fluor_regionzero(regression_params.use_svs,:), ...
+            curr_mua,kernel_frames,lambda, ...
+            regression_params.zs,regression_params.cvfold, ...
+            false,regression_params.use_constant,trial_discontinuities);
+        
+        mua_ctxtrialpred_regionzero_k(:,:,curr_depth,curr_exp) = k_fluorregionzero;
+%         mua_ctxtrialpred_regionzero_exp{curr_exp}(:,use_t,curr_depth) = ...
+%             reshape(curr_mua_fluorregionzeropred,sum(use_t),[])';
+        % (apply kernel to full time)
+        mua_ctxtrialpred_regionzero_exp{curr_exp}(:,:,curr_depth) = ...
+            sum(cell2mat(arrayfun(@(x) ...
+            convn(fluor_allcat_deconv_exp{curr_exp}(:,:,regression_params.use_svs(x)), ...
+            k_fluorregionzero(x,:)','same'),permute(1:length(regression_params.use_svs),[1,3,2]),'uni',false)),3);
+        
+    end   
+    AP_print_progress_fraction(curr_exp,length(trials_recording));   
+end
+
+% Get average cortex->striatum kernel
+ctx_str_k_mean = nanmean(cell2mat(permute(vertcat(ctx_str_k_all{:}),[2,3,4,5,1])),5);
+ctx_str_k_mean_px = cell2mat(arrayfun(@(x) svdFrameReconstruct(U_master(:,:,1:100), ...
+    ctx_str_k_mean(:,:,x)),permute(1:n_depths,[1,3,4,2]),'uni',false));
+
+mua_ctxtrialpred_k_mean = nanmean(mua_ctxtrialpred_k,4);
+mua_ctxtrialpred_k_mean_px = cell2mat(arrayfun(@(x) ...
+    svdFrameReconstruct(U_master(:,:,regression_params.use_svs), ...
+    mua_ctxtrialpred_k_mean(:,:,x)),permute(1:n_depths,[1,3,4,2]),'uni',false));
+
+mua_ctxtrialpred_regionzero_k_mean = nanmean(mua_ctxtrialpred_regionzero_k,4);
+mua_ctxtrialpred_regionzero_k_mean_px = cell2mat(arrayfun(@(x) ...
+    svdFrameReconstruct(U_master(:,:,regression_params.use_svs), ...
+    mua_ctxtrialpred_regionzero_k_mean(:,:,x)),permute(1:n_depths,[1,3,4,2]),'uni',false));
+
+% AP_image_scroll([ctx_str_k_mean_px,mua_ctxtrialpred_k_mean_px,mua_ctxtrialpred_regionzero_k_mean_px]);
+AP_image_scroll([mua_ctxtrialpred_k_mean_px,mua_ctxtrialpred_regionzero_k_mean_px]);
+caxis([-max(abs(caxis)),max(abs(caxis))]);
+colormap(gca,brewermap([],'*RdBu'));
+axis image;
+
+% Plot stim-aligned
+figure; hold on;
+subplot(1,2,1); hold on;
+plot_trials = trial_stim_allcat == 1;
+plot(t,nanmean(mua_allcat(plot_trials,:,plot_depth)));
+plot(t,nanmean(mua_ctxpred_allcat(plot_trials,:,plot_depth)));
+plot(t,nanmean(AP_index_ans(vertcat(mua_ctxtrialpred_exp{:}),plot_trials,[],plot_depth)));
+plot(t,nanmean(AP_index_ans(vertcat(mua_ctxtrialpred_regionzero_exp{:}),plot_trials,[],plot_depth)));
+title('Contra');
+
+subplot(1,2,2); hold on;
+plot_trials = trial_stim_allcat == -1;
+plot(t,nanmean(mua_allcat(plot_trials,:,plot_depth)));
+plot(t,nanmean(mua_ctxpred_allcat(plot_trials,:,plot_depth)));
+plot(t,nanmean(AP_index_ans(vertcat(mua_ctxtrialpred_exp{:}),plot_trials,[],plot_depth)));
+plot(t,nanmean(AP_index_ans(vertcat(mua_ctxtrialpred_regionzero_exp{:}),plot_trials,[],plot_depth)));
+title('Ipsi');
+legend({'MUA','MUA ctxpred','MUA ctxtrialpred','MUA ctxtrialpred regionzero'});
+
+linkaxes(get(gcf,'Children'));
+
+% Get R^2 for task, cortex full, and cortex ROI predictions
+mua_ctxtrialpred_allcat = cell2mat(mua_ctxtrialpred_exp);
+mua_ctxtrialpred_regionzero_allcat = cell2mat(mua_ctxtrialpred_regionzero_exp);
+
+ctxpred_r2 = nan(max(split_idx),n_depths);
+ctxtrialpred_r2 = nan(max(split_idx),n_depths);
+ctxtrialpred_regionzero_r2 = nan(max(split_idx),n_depths);
+
+for curr_exp = 1:max(split_idx)
+       
+    curr_data = reshape(permute(mua_allcat(split_idx == curr_exp,:,:),[2,1,3]),[],n_depths);
+    curr_ctxpred_data = reshape(permute(mua_ctxpred_allcat(split_idx == curr_exp,:,:),[2,1,3]),[],n_depths);
+    curr_ctxtrialpred_data = reshape(permute(mua_ctxtrialpred_allcat(split_idx == curr_exp,:,:),[2,1,3]),[],n_depths);
+    curr_ctxtrialpred_regionzero_data = reshape(permute(mua_ctxtrialpred_regionzero_allcat(split_idx == curr_exp,:,:),[2,1,3]),[],n_depths);
+    
+    % Set common NaNs
+    nan_samples = isnan(curr_data) | isnan(curr_ctxpred_data) ...
+        | isnan(curr_ctxtrialpred_data) | isnan(curr_ctxtrialpred_regionzero_data);
+    curr_data(nan_samples) = NaN;
+    curr_ctxpred_data(nan_samples) = NaN;
+    curr_ctxtrialpred_data(nan_samples) = NaN;
+    curr_ctxtrialpred_regionzero_data(nan_samples) = NaN;
+    
+    ctxpred_r2(curr_exp,:) = 1 - (nansum((curr_data-curr_ctxpred_data).^2,1)./ ...
+        nansum((curr_data-nanmean(curr_data,1)).^2,1));
+    ctxtrialpred_r2(curr_exp,:) = 1 - (nansum((curr_data-curr_ctxtrialpred_data).^2,1)./ ...
+        nansum((curr_data-nanmean(curr_data,1)).^2,1));
+    ctxtrialpred_regionzero_r2(curr_exp,:) = 1 - (nansum((curr_data-curr_ctxtrialpred_regionzero_data).^2,1)./ ...
+        nansum((curr_data-nanmean(curr_data,1)).^2,1));
+
+end
+figure; hold on;
+errorbar(nanmean(ctxpred_r2,1),AP_sem(ctxpred_r2,1),'linewidth',2,'CapSize',0);
+errorbar(nanmean(ctxtrialpred_r2,1),AP_sem(ctxpred_r2,1),'linewidth',2,'CapSize',0);
+errorbar(nanmean(ctxtrialpred_regionzero_r2,1),AP_sem(ctxpred_r2,1),'linewidth',2,'CapSize',0);
+
+xlabel('Striatum depth');
+ylabel('Explained variance');
+legend({'Cortex (full)','Cortex (trial)','Cortex (trial,region-zero)'})
+
+%% Predict striatum EACH TIME POINT (for passive)
+
+% (load in a dataset first)
+% (just do one depth at a time)
+plot_depth = 1;
+
+% Regress kernel ROI activity to striatum domain activity (per recording)
+regression_params.use_svs = 1:100;
+regression_params.kernel_t = [0,0];
+regression_params.zs = [false,false];
+regression_params.cvfold = 2;
+regression_params.use_constant = false;
+lambda = 10;
+kernel_frames = floor(regression_params.kernel_t(1)*sample_rate): ...
+    ceil(regression_params.kernel_t(2)*sample_rate);
+
+mua_allcat_exp = mat2cell(mua_allcat,trials_recording,length(t),n_depths);
+fluor_allcat_deconv_exp = mat2cell(fluor_allcat_deconv,use_split,length(t),n_vs);
+
+mua_ctxtrialpred_exp = cellfun(@(x) nan([size(x),length(t)]),mua_allcat_exp,'uni',false);
+mua_ctxtrialpred_k = nan(length(regression_params.use_svs), ...
+    length(kernel_frames),n_depths,length(t),length(use_split));
+
+for curr_exp = 1:length(trials_recording)
+    for curr_depth = plot_depth
+        for curr_t = 1:length(t)
+            
+            use_t = false(size(t));
+            use_t(curr_t) = true;
+            
+            curr_mua = reshape(mua_allcat_exp{curr_exp}(:,use_t,curr_depth)',1,[]);            
+            curr_fluor = reshape(permute( ...
+                fluor_allcat_deconv_exp{curr_exp}(:,use_t,:),[2,1,3]),[],n_vs)';
+            
+            % Skip if no data
+            if all(isnan(curr_mua))
+                continue
+            end
+            
+            % Set discontinuities in trial data
+            trial_discontinuities = false(size(mua_allcat_exp{curr_exp}(:,use_t,curr_depth)));
+            trial_discontinuities(:,1) = true;
+            trial_discontinuities = reshape(trial_discontinuities',[],1)';
+            
+            % Full cortex regression
+            [k_fluor,curr_mua_fluorpred,explained_var_trial] = ...
+                AP_regresskernel(curr_fluor(regression_params.use_svs,:), ...
+                curr_mua,kernel_frames,lambda, ...
+                regression_params.zs,regression_params.cvfold, ...
+                false,regression_params.use_constant,trial_discontinuities);
+            
+            mua_ctxtrialpred_k(:,:,curr_depth,curr_t,curr_exp) = k_fluor;
+            %         mua_ctxtrialpred_exp{curr_exp}(:,use_t,curr_depth) = ...
+            %             reshape(curr_mua_fluorpred,sum(use_t),[])';
+            % (apply kernel to full time)
+            mua_ctxtrialpred_exp{curr_exp}(:,:,curr_depth,curr_t) = ...
+                sum(cell2mat(arrayfun(@(x) ...
+                convn(fluor_allcat_deconv_exp{curr_exp}(:,:,regression_params.use_svs(x)), ...
+                k_fluor(x,:)','same'),permute(1:length(regression_params.use_svs),[1,3,2]),'uni',false)),3);
+            
+        end
+    end
+    AP_print_progress_fraction(curr_exp,length(trials_recording));
+end
+
+% Get average cortex->striatum kernel
+ctx_str_k_mean = nanmean(cell2mat(permute(vertcat(ctx_str_k_all{:}),[2,3,4,5,1])),5);
+ctx_str_k_mean_px = cell2mat(arrayfun(@(x) svdFrameReconstruct(U_master(:,:,1:100), ...
+    ctx_str_k_mean(:,:,x)),permute(1:n_depths,[1,3,4,2]),'uni',false));
+
+mua_ctxtrialpred_k_mean = nanmean(mua_ctxtrialpred_k,5);
+mua_ctxtrialpred_k_mean_px = cell2mat(arrayfun(@(x) svdFrameReconstruct(U_master(:,:,1:100), ...
+    reshape(mua_ctxtrialpred_k_mean(:,:,x,:),100,[])),permute(1:n_depths,[1,3,4,2]),'uni',false));
+
+AP_image_scroll(mua_ctxtrialpred_k_mean_px);
+caxis([-max(abs(caxis)),max(abs(caxis))]);
+colormap(gca,brewermap([],'*RdBu'));
+axis image;
+
+% Plot stim-aligned
+figure; hold on;
+p1 = subplot(2,2,1); hold on;
+set(gca,'ColorOrder',[copper(length(t));1,0,0;0,0.7,0]);
+plot_trials = trial_stim_allcat == 1;
+plot(t,squeeze(nanmean(AP_index_ans(vertcat(mua_ctxtrialpred_exp{:}),plot_trials,[],plot_depth,[]))));
+plot(t,nanmean(mua_allcat(plot_trials,:,plot_depth)),'linewidth',2);
+plot(t,nanmean(mua_ctxpred_allcat(plot_trials,:,plot_depth)),'linewidth',2);
+title('Contra');
+
+subplot(2,2,3); 
+imagesc(squeeze(nanmean(mua_allcat(plot_trials,:,plot_depth) - ...
+    AP_index_ans(vertcat(mua_ctxtrialpred_exp{:}),plot_trials,[],plot_depth,[]))));
+caxis([-0.5,0.5])
+colormap(gca,brewermap([],'*RdBu'));
+xlabel('Time trained');
+ylabel('Time tested');
+
+p2 = subplot(2,2,2); hold on;
+set(gca,'ColorOrder',[copper(length(t));1,0,0;0,0.7,0]);
+plot_trials = trial_stim_allcat == -1;
+plot(t,squeeze(nanmean(AP_index_ans(vertcat(mua_ctxtrialpred_exp{:}),plot_trials,[],plot_depth,[]))));
+plot(t,nanmean(mua_allcat(plot_trials,:,plot_depth)),'linewidth',2);
+plot(t,nanmean(mua_ctxpred_allcat(plot_trials,:,plot_depth)),'linewidth',2);
+title('Contra');
+legend({'MUA','MUA ctxpred','MUA ctxtrialpred','MUA ctxtrialpred regionzero'});
+
+subplot(2,2,4); 
+imagesc(squeeze(nanmean(mua_allcat(plot_trials,:,plot_depth) - ... 
+    AP_index_ans(vertcat(mua_ctxtrialpred_exp{:}),plot_trials,[],plot_depth,[]))));
+caxis([-0.5,0.5])
+colormap(gca,brewermap([],'*RdBu'));
+xlabel('Time trained');
+ylabel('Time tested');
+
+linkaxes([p1,p2]);
+
+
+
+
 
 
 %% CTX EPHYS: passive trial activity WITH NEW MUA FILTER

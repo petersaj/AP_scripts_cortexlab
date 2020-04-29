@@ -550,16 +550,7 @@ if false
     
     kernel_bw = false(size(kernel_template));
     
-    % Set cutoff by std, get rid of small islands, keep only ipsi side
-    kernel_std_prctile = 1;
-    smallest_area = 2000;
-    
-    for curr_kernel = 1:size(kernel_bw,3)
-        curr_kernel_cutoff = std(abs(reshape(kernel_template(:,:,curr_kernel),[],1)));
-        curr_kernel_bw = kernel_template(:,:,curr_kernel) > kernel_std_prctile*curr_kernel_cutoff;
-        kernel_bw(:,:,curr_kernel) = bwareaopen(curr_kernel_bw,smallest_area);
-    end
-    
+    % Set cutoff by fraction of max weight, keep large blobs ipsi
     bregma = allenCCFbregma;
     ccf_tform_fn = ['C:\Users\Andrew\OneDrive for Business\Documents\Atlases\AllenCCF\ccf_tform'];
     load(ccf_tform_fn);
@@ -567,7 +558,17 @@ if false
     um2pixel = 20.6;
     bregma_resize = bregma*(10/um2pixel);
     bregma_align = [bregma_resize([3,1]),1]*ccf_tform.T;
-    kernel_bw(:,round(bregma_align(1)):end,:) = false;
+    ipsi_side = true(size(kernel_template(:,:,1)));
+    ipsi_side(:,round(bregma_align(1)):end,:) = false;
+    
+    frac_max_weight = 0.8; % zero pixels > max weight * this
+    min_px = 100; % get rid of small islands
+    for curr_depth = 1:n_aligned_depths
+        kernel_bw(:,:,curr_depth) = ...
+            bwareaopen(kernel_template(:,:,curr_depth) > ...
+            max(reshape(kernel_template(:,:,curr_depth), ...
+            [],1),[],1)*frac_max_weight,min_px).*ipsi_side;
+    end 
     
     % Make a max-weighted version of each kernel
     kernel_max_weighted = kernel_template./ ...
@@ -600,19 +601,19 @@ if false
         title('ROI weighted')
     end
     
-    % Get the average full kernel
-    n_aligned_depths = 4;
-    data_path = 'C:\Users\Andrew\OneDrive for Business\Documents\CarandiniHarrisLab\analysis\wf_ephys_choiceworld\wf_ephys';
-    k_fn = [data_path filesep 'wf_ephys_maps_vanillaChoiceworld_' num2str(n_aligned_depths) '_depths'];
-    load(k_fn);
-    k_px_trained_cat = cellfun(@(x) x(:,:,end:-1:1,:),[batch_vars(1:6).r_px],'uni',false);
-    k_px_trained = nanmean(double(cat(5,k_px_trained_cat{:})),5);
+%     % Get the average full kernel
+%     n_aligned_depths = 4;
+%     data_path = 'C:\Users\Andrew\OneDrive for Business\Documents\CarandiniHarrisLab\analysis\wf_ephys_choiceworld\wf_ephys';
+%     k_fn = [data_path filesep 'wf_ephys_maps_vanillaChoiceworld_' num2str(n_aligned_depths) '_depths'];
+%     load(k_fn);
+%     k_px_trained_cat = cellfun(@(x) x(:,:,end:-1:1,:),[batch_vars(1:6).r_px],'uni',false);
+%     k_px_trained = nanmean(double(cat(5,k_px_trained_cat{:})),5);
     
     % Save kernel ROIs
     kernel_roi = struct;
     kernel_roi.bw = kernel_bw;
     kernel_roi.max_weighted = kernel_max_weighted;
-    kernel_roi.kernel = k_px_trained;
+%     kernel_roi.kernel = k_px_trained;
     kernel_roi_fn = 'C:\Users\Andrew\OneDrive for Business\Documents\CarandiniHarrisLab\analysis\wf_ephys_choiceworld\wf_processing\wf_rois\kernel_roi';
     save(kernel_roi_fn,'kernel_roi');
     disp('Saved kernel ROIs');
