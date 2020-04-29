@@ -10343,8 +10343,8 @@ m = convn(mua_allcat,ones(1,5)./5,'same');
 r = m(:,15:30,1) - mua_ctxpred_allcat(:,15:30,1);
 
 % additive offset by contrast
-z = grpstats(r(:,:,1),trial_contrastside_allcat);
-[~,cond_idx] = ismember(trial_contrastside_allcat,unique(trial_contrastside_allcat),'rows');
+z = grpstats(r(:,:,1),trial_stim_allcat);
+[~,cond_idx] = ismember(trial_stim_allcat,unique(trial_stim_allcat),'rows');
 z_tr = z(cond_idx,:);
 rz = r - z_tr;
 
@@ -10620,6 +10620,7 @@ fluor_allcat_deconv_exp_norm = cellfun(@(fluor,norm) fluor./reshape(norm,1,1,[])
 % Get trials with movement during stim to exclude
 quiescent_trials = ~any(abs(wheel_allcat(:,t >= 0 & t <= 0.5)) > 0.025,2);
 % quiescent_trials = move_t > 0.5;
+% quiescent_trials = move_t < 0.5;
 
 unique_stim = unique(trial_stim_allcat);
 
@@ -10668,7 +10669,7 @@ end
 plot_fluor = 3;
 plot_str = 1;
 
-stim_all = unique([0.06,0.125,0.25,0.5,1].*[-1;1]);
+stim_all = unique([0,0.06,0.125,0.25,0.5,1].*[-1;1]);
 col_all = brewermap(11,'*RdBu');
 [~,stim_idx] = ismember(unique_stim,stim_all,'rows');
 col = col_all(stim_idx,:);
@@ -11630,11 +11631,11 @@ quiescent_trials = ~any(abs(wheel_allcat(:,t >= 0 & t <= 0.5)) > wheel_thresh,2)
 
 % Set windows to average activity
 timeavg_labels = {'Stim'};
-timeavg_t = {[0.05,0.15]};
+timeavg_t = {[0,0.2]};
 timeavg_align = {stim_align};
 timeavg_trial_conditions = ...
-    {[trial_stim_allcat > 0 & quiescent_trials, ...
-    trial_stim_allcat < 0 & quiescent_trials]};
+    {[trial_stim_allcat == 1 & quiescent_trials, ...
+    trial_stim_allcat == -1 & quiescent_trials]};
 timeavg_condition_colors = ...
     {[1,0,0;0,0,1]};
 
@@ -11646,10 +11647,10 @@ n_act_bins = 5;
 plot_areas = [1];
 
 % Loop across area pairs, plot binned predicted v measured activity
-curr_act_allcat = mua_ctxpred_allcat; %fluor_kernelroi_deconv;
+curr_act_allcat = fluor_kernelroi_deconv; % fluor_kernelroi_deconv, mua_ctxpred_allcat, mua_allcat
 
 % (ctx-predicted)
-curr_act_pred_allcat = mua_allcat;
+curr_act_pred_allcat = mua_allcat; % fluor_kernelroi_deconv, mua_ctxpred_allcat, mua_allcat
 
 % (fix by average stim response within experiment)
 mua_allcat_exp = mat2cell(mua_allcat,use_split,length(t),n_depths);
@@ -11664,6 +11665,7 @@ curr_act_pred_fix_allcat_exp = mua_ctxpred_allcat_exp;
 for curr_exp = 1:length(use_split)
     
     curr_stim = unique(trial_stim_allcat_exp{curr_exp});
+    
     for curr_stim_idx = 1:length(curr_stim)
         curr_trials = any(trial_conditions_exp{curr_exp},2) & ...
             trial_stim_allcat_exp{curr_exp} == curr_stim(curr_stim_idx);
@@ -11917,52 +11919,61 @@ linkaxes(get(measured_v_pred_fig,'Children'),'xy');
 curr_act_avg_cat = cell2mat(curr_act_avg);
 curr_act_pred_avg_cat = cell2mat(curr_act_pred_avg);
 
+t_smooth_n = sum(t >= timeavg_t{1}(1) & t <= timeavg_t{1}(2));
+t_smooth = ones(t_smooth_n,1)./t_smooth_n;
+
 figure;
-subplot(1,2,1);
-AP_heatscatter(reshape(mua_ctxpred_allcat(:,:,plot_areas),[],1),reshape(mua_allcat(:,:,plot_areas),[],1),150)
+subplot(2,2,1);
+AP_heatscatter(conv(reshape(mua_ctxpred_allcat(:,:,plot_areas),[],1),t_smooth,'same'), ...
+    conv(reshape(mua_allcat(:,:,plot_areas),[],1),t_smooth,'same'),150);
 line(xlim,xlim)
 xlabel('Fluorescence');
 ylabel('MUA');
 title('All points')
 
-subplot(1,2,2); hold on;
 use_bins = linspace(-2,10,100);
 act_dist_1 = histcounts2(curr_act_pred_avg_cat(trial_stim_allcat == 1), ...
     curr_act_avg_cat(trial_stim_allcat == 1),use_bins,use_bins);
 act_dist_2 = histcounts2(curr_act_pred_avg_cat(trial_stim_allcat == -1), ...
     curr_act_avg_cat(trial_stim_allcat == -1),use_bins,use_bins);
+
+subplot(2,2,2); hold on;
 imagesc(imgaussfilt(act_dist_1',2)-imgaussfilt(act_dist_2',2));
 line(xlim,xlim)
 caxis([-max(abs(caxis)),max(abs(caxis))]);
 colormap(gca,brewermap([],'*RdBu'));
 title('Stim act distr difference');
 
+subplot(2,2,3); hold on;
+imagesc(act_dist_1');
+line(xlim,xlim)
+caxis([-max(abs(caxis)),max(abs(caxis))]);
+colormap(gca,brewermap([],'*RdBu'));
+title('Contra distribution');
+
+subplot(2,2,4); hold on;
+imagesc(act_dist_2');
+line(xlim,xlim)
+caxis([-max(abs(caxis)),max(abs(caxis))]);
+colormap(gca,brewermap([],'*RdBu'));
+title('Ipsi distribution');
+
 figure;
-plot_trials = trial_stim_allcat ~= 0;
-scatterhist(curr_act_pred_avg_cat(plot_trials), ...
-    curr_act_avg_cat(plot_trials), ...
-    'Group',trial_stim_allcat(plot_trials), ...
-    'Kernel','on','Color','br','Marker','.');
+
+stim_all = unique([0,0.06,0.125,0.25,0.5,1].*[-1;1]);
+unique_stim = unique(trial_stim_allcat);
+col_all = brewermap(11,'*RdBu');
+[~,stim_idx] = ismember(unique_stim,stim_all,'rows');
+col = col_all(stim_idx,:);
+
+scatterhist(curr_act_pred_avg_cat, ...
+    curr_act_avg_cat, ...
+    'Group',trial_stim_allcat, ...
+    'Kernel','on','Color',col,'Marker','.');
 xlabel('Striatum');
 ylabel('Cortex-predicted');
 
 
-
-figure; hold on;
-use_bins = linspace(-2,10,100);
-act_dist_1 = histcounts2( ...
-    reshape(mua_ctxpred_allcat(trial_stim_allcat == 1,:,plot_areas)',[],1), ...
-    reshape(mua_allcat(trial_stim_allcat == 1,:,plot_areas)',[],1), ...
-    use_bins,use_bins);
-act_dist_2 = histcounts2( ...
-    reshape(mua_ctxpred_allcat(trial_stim_allcat == -1,:,plot_areas)',[],1), ...
-    reshape(mua_allcat(trial_stim_allcat == -1,:,plot_areas)',[],1), ...
-    use_bins,use_bins);
-imagesc(imgaussfilt(act_dist_1',2)-imgaussfilt(act_dist_2',2));
-line(xlim,xlim)
-caxis([-max(abs(caxis)),max(abs(caxis))]);
-colormap(gca,brewermap([],'*RdBu'));
-title('Stim act distr difference (whole trials)');
 
 
         

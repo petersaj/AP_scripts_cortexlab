@@ -10343,8 +10343,8 @@ m = convn(mua_allcat,ones(1,5)./5,'same');
 r = m(:,15:30,1) - mua_ctxpred_allcat(:,15:30,1);
 
 % additive offset by contrast
-z = grpstats(r(:,:,1),trial_contrastside_allcat);
-[~,cond_idx] = ismember(trial_contrastside_allcat,unique(trial_contrastside_allcat),'rows');
+z = grpstats(r(:,:,1),trial_stim_allcat);
+[~,cond_idx] = ismember(trial_stim_allcat,unique(trial_stim_allcat),'rows');
 z_tr = z(cond_idx,:);
 rz = r - z_tr;
 
@@ -10620,6 +10620,7 @@ fluor_allcat_deconv_exp_norm = cellfun(@(fluor,norm) fluor./reshape(norm,1,1,[])
 % Get trials with movement during stim to exclude
 quiescent_trials = ~any(abs(wheel_allcat(:,t >= 0 & t <= 0.5)) > 0.025,2);
 % quiescent_trials = move_t > 0.5;
+% quiescent_trials = move_t < 0.5;
 
 unique_stim = unique(trial_stim_allcat);
 
@@ -10667,11 +10668,11 @@ end
 
 plot_fluor = 3;
 plot_str = 1;
-if length(unique_stim) == 3
-    col = [0,0,1;0,0,0;1,0,0];
-else
-    col = brewermap(length(unique_stim),'*RdBu');
-end
+
+stim_all = unique([0,0.06,0.125,0.25,0.5,1].*[-1;1]);
+col_all = brewermap(11,'*RdBu');
+[~,stim_idx] = ismember(unique_stim,stim_all,'rows');
+col = col_all(stim_idx,:);
 
 figure;
 subplot(1,4,1); hold on;
@@ -10698,8 +10699,35 @@ linkaxes(get(gcf,'Children'),'xy');
 
 
 % Plot cortex vs fluorescence in timepoint
-use_t = t > 0 & t < 0.15;
+use_t = t > 0 & t < 0.2;
 
+plot_fluor = 3;
+plot_str = 1;
+
+figure; 
+subplot(1,2,1); hold on;
+plot_x = squeeze(nanmean(mua_stim_avg(:,use_t,plot_str,:),2));
+plot_y = squeeze(nanmean(fluor_kernelroi_stim_avg(:,use_t,plot_str,:),2));
+errorbar(nanmean(plot_x,2),nanmean(plot_y,2), ...
+    AP_sem(plot_y,2),AP_sem(plot_y,2), ...
+    AP_sem(plot_x,2),AP_sem(plot_x,2),'linestyle','none','color','k');
+scatter(nanmean(plot_x,2),nanmean(plot_y,2), ...
+    30,col,'filled','MarkerEdgeColor','k');
+xlabel(['Striatum (' num2str(plot_str) ')']);
+ylabel(['Cortex ROI (' num2str(plot_str) ')']);
+line(xlim,xlim,'color','k')
+
+subplot(1,2,2); hold on;
+plot_x = squeeze(nanmean(mua_stim_avg(:,use_t,plot_str,:),2));
+plot_y = squeeze(nanmean(mua_ctxpred_stim_avg(:,use_t,plot_str,:),2));
+errorbar(nanmean(plot_x,2),nanmean(plot_y,2), ...
+    AP_sem(plot_y,2),AP_sem(plot_y,2), ...
+    AP_sem(plot_x,2),AP_sem(plot_x,2),'linestyle','none','color','k');
+scatter(nanmean(plot_x,2),nanmean(plot_y,2), ...
+    30,col,'filled','MarkerEdgeColor','k');
+xlabel(['Striatum (' num2str(plot_str) ')']);
+ylabel(['Cortex kernel (' num2str(plot_str) ')']);
+line(xlim,xlim,'color','k')
 
 
 
@@ -11603,7 +11631,7 @@ quiescent_trials = ~any(abs(wheel_allcat(:,t >= 0 & t <= 0.5)) > wheel_thresh,2)
 
 % Set windows to average activity
 timeavg_labels = {'Stim'};
-timeavg_t = {[0.05,0.15]};
+timeavg_t = {[0,0.2]};
 timeavg_align = {stim_align};
 timeavg_trial_conditions = ...
     {[trial_stim_allcat > 0 & quiescent_trials, ...
@@ -11619,7 +11647,7 @@ n_act_bins = 5;
 plot_areas = [1];
 
 % Loop across area pairs, plot binned predicted v measured activity
-curr_act_allcat = mua_ctxpred_allcat; %fluor_kernelroi_deconv;
+curr_act_allcat = fluor_kernelroi_deconv; % fluor_kernelroi_deconv, mua_ctxpred_allcat
 
 % (ctx-predicted)
 curr_act_pred_allcat = mua_allcat;
@@ -11890,9 +11918,12 @@ linkaxes(get(measured_v_pred_fig,'Children'),'xy');
 curr_act_avg_cat = cell2mat(curr_act_avg);
 curr_act_pred_avg_cat = cell2mat(curr_act_pred_avg);
 
+t_smooth = ones(1,sum(t >= timeavg_t{1}(1) & t <= timeavg_t{1}(2)));
+
 figure;
 subplot(1,2,1);
-AP_heatscatter(reshape(mua_ctxpred_allcat(:,:,plot_areas),[],1),reshape(mua_allcat(:,:,plot_areas),[],1),150)
+AP_heatscatter(conv(reshape(mua_ctxpred_allcat(:,:,plot_areas),[],1),t_smooth,'same'), ...
+    conv(reshape(mua_allcat(:,:,plot_areas),[],1),t_smooth,'same'),150);
 line(xlim,xlim)
 xlabel('Fluorescence');
 ylabel('MUA');
