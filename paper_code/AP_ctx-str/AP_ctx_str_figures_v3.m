@@ -6,16 +6,16 @@
 % Load data
 
 % (task)
-% data_fn = 'trial_activity_choiceworld'; % Primary dataset
+data_fn = 'trial_activity_choiceworld'; % Primary dataset
 % data_fn = 'trial_activity_choiceworld_4strdepth'; % Depth-aligned striatum
-% exclude_data = true;
+exclude_data = true;
 
 % (passive)
 % data_fn = 'trial_activity_AP_choiceWorldStimPassive_trained';
 % data_fn = 'trial_activity_AP_choiceWorldStimPassive_naive';
-data_fn = 'trial_activity_stimKalatsky_naive';
+% data_fn = 'trial_activity_stimKalatsky_naive';
 % data_fn = 'trial_activity_stimKalatsky_trained';
-exclude_data = false;
+% exclude_data = false;
 
 % (unused at the moment)
 % data_fn = 'trial_activity_choiceworld_wfonly'; % Widefield-only days (no craniotomy, so cleaner)
@@ -999,12 +999,12 @@ for curr_trial_set = 1:2
         
         % Plot PSTH (measured, task-predicted, cortex-predicted);
         p(curr_depth,4) = subplot(n_depths,4,4+(curr_depth-1)*4); hold on
-        p1 = AP_errorfill(t,nanmean(curr_mua_exp_mean,1), ...
-            AP_sem(curr_mua_exp_mean,1),'k',0.5);
-        p2 = AP_errorfill(t,nanmean(curr_taskpred_mua_exp_mean,1), ...
-            AP_sem(curr_taskpred_mua_exp_mean,1),[0,0,0.7],0.5);
-        p3 = AP_errorfill(t,nanmean(curr_ctxpred_mua_exp_mean,1), ...
-            AP_sem(curr_ctxpred_mua_exp_mean,1),[0,0.7,0],0.5);
+        p1 = AP_errorfill(t,nanmean(curr_mua_exp_mean,1)', ...
+            AP_sem(curr_mua_exp_mean,1)','k',0.5);
+        p2 = AP_errorfill(t,nanmean(curr_taskpred_mua_exp_mean,1)', ...
+            AP_sem(curr_taskpred_mua_exp_mean,1)',[0,0,0.7],0.5);
+        p3 = AP_errorfill(t,nanmean(curr_ctxpred_mua_exp_mean,1)', ...
+            AP_sem(curr_ctxpred_mua_exp_mean,1)',[0,0.7,0],0.5);
         xlim([-0.2,1])
         line([0,0],ylim,'color','r');
         line(repmat(median(move_t(sorted_plot_trials)),1,2),ylim,'color',[0.8,0,0.8],'linestyle','--');
@@ -1066,8 +1066,8 @@ for curr_depth = 1:n_depths
         col = task_regressor_cols{curr_regressor};
         for curr_subregressor = 1:n_subregressors
             AP_errorfill(task_regressor_t_shifts{curr_regressor}, ...
-                nanmean(curr_kernels(curr_subregressor,:,:,:),4), ...
-                AP_sem(curr_kernels(curr_subregressor,:,:,:),4), ...
+                nanmean(curr_kernels(curr_subregressor,:,:,:),4)', ...
+                AP_sem(curr_kernels(curr_subregressor,:,:,:),4)', ...
                 col(curr_subregressor,:),0.5);
         end
         

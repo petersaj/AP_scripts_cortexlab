@@ -1,5 +1,28 @@
 %% Playground for assorted paper revision code tests
 
+%% Load in data
+
+% New datasets
+
+data_fn = 'trial_activity_choiceworld_filtmua';
+% data_fn = 'trial_activity_AP_lcrGratingPassive_ctxstrephys_str';
+% data_fn = 'trial_activity_AP_lcrGratingPassive_ctxstrephys_ctx';
+% data_fn = 'trial_activity_AP_lcrGratingPassive_pre_muscimol';
+
+AP_load_concat_normalize_ctx_str;
+
+% Choose split for data
+trials_allcat = size(wheel_allcat,1);
+trials_animal = arrayfun(@(x) size(vertcat(wheel_all{x}{:}),1),1:size(wheel_all));
+trials_recording = cellfun(@(x) size(x,1),vertcat(wheel_all{:}));
+use_split = trials_recording;
+
+split_idx = cell2mat(arrayfun(@(exp,trials) repmat(exp,trials,1), ...
+    [1:length(use_split)]',reshape(use_split,[],1),'uni',false));
+
+
+
+
 %% Testing: "baseline" cortical prediction: remove cortical regions
 
 % Set example experiment to use
@@ -269,7 +292,6 @@ legend({'Cortex (full)','Cortex (trial)','Cortex (trial,region-zero)'})
 
 %% Predict striatum with zeroed-out cortical regions (for passive)
 
-
 % (load in a dataset first)
 
 % (just plot one depth)
@@ -277,16 +299,17 @@ plot_depth = 1;
 
 % Regress kernel ROI activity to striatum domain activity (per recording)
 regression_params.use_svs = 1:100;
-regression_params.kernel_t = [-0.1,0.1];
+regression_params.kernel_t = [0,0];
 regression_params.zs = [false,false];
 regression_params.cvfold = 2;
 regression_params.use_constant = false;
-lambda = 10;
+lambda = 20;
 kernel_frames = floor(regression_params.kernel_t(1)*sample_rate): ...
     ceil(regression_params.kernel_t(2)*sample_rate);
 
 % use_t = t < 0;
 % use_t = t > 0.05 & t < 0.1;
+% use_t = t > 0.5 & t < 1;
 % use_t = t > 0.5;
 use_t = true(size(t));
 
@@ -309,10 +332,10 @@ for curr_exp = 1:length(trials_recording)
             fluor_allcat_deconv_exp{curr_exp}(:,:,:),[2,1,3]),[],n_vs)';
                
         % Zero out region
-                ctx_zero = false(size(U_master(:,:,1)));
+        ctx_zero = false(size(U_master(:,:,1)));
 
         % (zero anterior)
-%         ctx_zero(1:250,:) = true;
+%         ctx_zero(1:220,:) = true;
         % (zero posterior)
 %         ctx_zero(220:end,:) = true;
         % (zero left)
@@ -321,6 +344,8 @@ for curr_exp = 1:length(trials_recording)
 %         ctx_zero(:,212:end) = true;
         % (zero bottom left)
         ctx_zero(220:end,1:212) = true;
+        % (zero top left)
+%         ctx_zero(1:220,1:212) = true;
       
         U_master_regionzero = U_master.*~ctx_zero;
         fVdf_regionzero_altU = ChangeU(U_master(:,:,1:n_vs),curr_fluor,U_master_regionzero(:,:,1:n_vs));
@@ -448,9 +473,9 @@ for curr_exp = 1:max(split_idx)
 
 end
 figure; hold on;
-errorbar(nanmean(ctxpred_r2,1),AP_sem(ctxpred_r2,1),'linewidth',2,'CapSize',0);
-errorbar(nanmean(ctxtrialpred_r2,1),AP_sem(ctxpred_r2,1),'linewidth',2,'CapSize',0);
-errorbar(nanmean(ctxtrialpred_regionzero_r2,1),AP_sem(ctxpred_r2,1),'linewidth',2,'CapSize',0);
+errorbar(nanmean(ctxpred_r2,1),AP_sem(ctxpred_r2,1),'.','linewidth',2,'CapSize',0,'MarkerSize',50);
+errorbar(nanmean(ctxtrialpred_r2,1),AP_sem(ctxpred_r2,1),'.','linewidth',2,'CapSize',0,'MarkerSize',50);
+errorbar(nanmean(ctxtrialpred_regionzero_r2,1),AP_sem(ctxpred_r2,1),'.','linewidth',2,'CapSize',0,'MarkerSize',50);
 
 xlabel('Striatum depth');
 ylabel('Explained variance');
