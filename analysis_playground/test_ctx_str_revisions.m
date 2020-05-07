@@ -4,10 +4,15 @@
 
 % New datasets
 
-data_fn = 'trial_activity_choiceworld_filtmua';
-% data_fn = 'trial_activity_AP_lcrGratingPassive_ctxstrephys_str';
+data_fn = 'trial_activity_choiceworld_muafilt';
+
+% data_fn = 'trial_activity_AP_choiceWorldStimPassive_trained_muafilt';
+% data_fn = 'trial_activity_AP_choiceWorldStimPassive_naive_muafilt';
+
+% data_fn = 'trial_activity_AP_lcrGratingPassive_ctxstrephys_str_muafilt';
 % data_fn = 'trial_activity_AP_lcrGratingPassive_ctxstrephys_ctx';
-% data_fn = 'trial_activity_AP_lcrGratingPassive_pre_muscimol';
+
+% data_fn = 'trial_activity_AP_lcrGratingPassive_pre_muscimol_muafilt';
 
 AP_load_concat_normalize_ctx_str;
 
@@ -290,12 +295,12 @@ xlabel('Striatum depth');
 ylabel('Explained variance');
 legend({'Cortex (full)','Cortex (trial)','Cortex (trial,region-zero)'})
 
-%% Predict striatum with zeroed-out cortical regions (for passive)
+%% Predict striatum with zeroed-out cortical regions
 
 % (load in a dataset first)
 
-% (just plot one depth)
-plot_depth = 1;
+% Choose depths to run
+plot_depth = 1:4;
 
 % Regress kernel ROI activity to striatum domain activity (per recording)
 regression_params.use_svs = 1:100;
@@ -303,7 +308,7 @@ regression_params.kernel_t = [0,0];
 regression_params.zs = [false,false];
 regression_params.cvfold = 2;
 regression_params.use_constant = false;
-lambda = 20;
+lambda = 10;
 kernel_frames = floor(regression_params.kernel_t(1)*sample_rate): ...
     ceil(regression_params.kernel_t(2)*sample_rate);
 
@@ -341,9 +346,9 @@ for curr_exp = 1:length(trials_recording)
         % (zero left)
 %         ctx_zero(:,1:212) = true;
         % (zero right)
-%         ctx_zero(:,212:end) = true;
+        ctx_zero(:,212:end) = true;
         % (zero bottom left)
-        ctx_zero(220:end,1:212) = true;
+%         ctx_zero(220:end,1:212) = true;
         % (zero top left)
 %         ctx_zero(1:220,1:212) = true;
       
@@ -422,23 +427,24 @@ axis image;
 
 % Plot stim-aligned
 figure; hold on;
-subplot(1,2,1); hold on;
-plot_trials = trial_stim_allcat == 1;
-plot(t,nanmean(mua_allcat(plot_trials,:,plot_depth)));
-plot(t,nanmean(mua_ctxpred_allcat(plot_trials,:,plot_depth)));
-plot(t,nanmean(AP_index_ans(vertcat(mua_ctxtrialpred_exp{:}),plot_trials,[],plot_depth)));
-plot(t,nanmean(AP_index_ans(vertcat(mua_ctxtrialpred_regionzero_exp{:}),plot_trials,[],plot_depth)));
-title('Contra');
-
-subplot(1,2,2); hold on;
-plot_trials = trial_stim_allcat == -1;
-plot(t,nanmean(mua_allcat(plot_trials,:,plot_depth)));
-plot(t,nanmean(mua_ctxpred_allcat(plot_trials,:,plot_depth)));
-plot(t,nanmean(AP_index_ans(vertcat(mua_ctxtrialpred_exp{:}),plot_trials,[],plot_depth)));
-plot(t,nanmean(AP_index_ans(vertcat(mua_ctxtrialpred_regionzero_exp{:}),plot_trials,[],plot_depth)));
-title('Ipsi');
-legend({'MUA','MUA ctxpred','MUA ctxtrialpred','MUA ctxtrialpred regionzero'});
-
+for curr_depth = 1:length(plot_depth)
+    subplot(length(plot_depth),2,(curr_depth-1)*2+1); hold on;
+    plot_trials = trial_stim_allcat == 1;
+    plot(t,nanmean(mua_allcat(plot_trials,:,plot_depth(curr_depth))));
+    plot(t,nanmean(mua_ctxpred_allcat(plot_trials,:,plot_depth(curr_depth))));
+    plot(t,nanmean(AP_index_ans(vertcat(mua_ctxtrialpred_exp{:}),plot_trials,[],plot_depth(curr_depth))));
+    plot(t,nanmean(AP_index_ans(vertcat(mua_ctxtrialpred_regionzero_exp{:}),plot_trials,[],plot_depth(curr_depth))));
+    title('Contra');
+    
+    subplot(length(plot_depth),2,(curr_depth-1)*2+2); hold on;
+    plot_trials = trial_stim_allcat == -1;
+    plot(t,nanmean(mua_allcat(plot_trials,:,plot_depth(curr_depth))));
+    plot(t,nanmean(mua_ctxpred_allcat(plot_trials,:,plot_depth(curr_depth))));
+    plot(t,nanmean(AP_index_ans(vertcat(mua_ctxtrialpred_exp{:}),plot_trials,[],plot_depth(curr_depth))));
+    plot(t,nanmean(AP_index_ans(vertcat(mua_ctxtrialpred_regionzero_exp{:}),plot_trials,[],plot_depth(curr_depth))));
+    title('Ipsi');
+    legend({'MUA','MUA ctxpred','MUA ctxtrialpred','MUA ctxtrialpred regionzero'});
+end
 linkaxes(get(gcf,'Children'));
 
 % Get R^2 for task, cortex full, and cortex ROI predictions
@@ -473,13 +479,43 @@ for curr_exp = 1:max(split_idx)
 
 end
 figure; hold on;
-errorbar(nanmean(ctxpred_r2,1),AP_sem(ctxpred_r2,1),'.','linewidth',2,'CapSize',0,'MarkerSize',50);
-errorbar(nanmean(ctxtrialpred_r2,1),AP_sem(ctxpred_r2,1),'.','linewidth',2,'CapSize',0,'MarkerSize',50);
-errorbar(nanmean(ctxtrialpred_regionzero_r2,1),AP_sem(ctxpred_r2,1),'.','linewidth',2,'CapSize',0,'MarkerSize',50);
+errorbar(nanmean(ctxpred_r2,1),AP_sem(ctxpred_r2,1),'.-','linewidth',2,'CapSize',0,'MarkerSize',50);
+errorbar(nanmean(ctxtrialpred_r2,1),AP_sem(ctxpred_r2,1),'.-','linewidth',2,'CapSize',0,'MarkerSize',50);
+errorbar(nanmean(ctxtrialpred_regionzero_r2,1),AP_sem(ctxpred_r2,1),'.-','linewidth',2,'CapSize',0,'MarkerSize',50);
 
 xlabel('Striatum depth');
 ylabel('Explained variance');
 legend({'Cortex (full)','Cortex (trial)','Cortex (trial,region-zero)'})
+
+%% Apply kernel (from above) to whole dataset
+
+plot_depth = 1;
+
+use_k = asdf; %nanmean(mua_ctxtrialpred_k(:,:,plot_depth,:),4);
+
+mua_kpred = ...
+    sum(cell2mat(arrayfun(@(x) ...
+    convn(fluor_allcat_deconv(:,:,x), ...
+    use_k(x,:)','same'),permute(1:size(use_k,1),[1,3,2]),'uni',false)),3);
+
+
+% Plot stim-aligned
+figure; hold on;
+subplot(1,2,1); hold on;
+plot_trials = trial_stim_allcat == 1;
+plot(t,nanmean(mua_allcat(plot_trials,:,plot_depth)));
+plot(t,nanmean(mua_kpred(plot_trials,:)));
+title('Contra');
+
+subplot(1,2,2); hold on;
+plot_trials = trial_stim_allcat == -1;
+plot(t,nanmean(mua_allcat(plot_trials,:,plot_depth)));
+plot(t,nanmean(mua_kpred(plot_trials,:)));
+title('Ipsi');
+legend({'MUA','MUA ctxpred','MUA ctxtrialpred','MUA ctxtrialpred regionzero'});
+
+linkaxes(get(gcf,'Children'));
+
 
 %% Predict striatum EACH TIME POINT (for passive)
 

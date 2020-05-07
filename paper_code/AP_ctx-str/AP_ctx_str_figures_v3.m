@@ -1282,7 +1282,7 @@ for curr_area_idx = 1:length(plot_areas)
                 act(use_trials & cond(:,curr_cond),:), ...
                 curr_act_pred,pred_use_trials,trial_conditions_exp,'uni',false)),[],1);
             
-            AP_errorfill(t,curr_mean,curr_std,'k',0.5,true);
+            AP_errorfill(t,curr_mean',curr_std','k',0.5,true);
             
             set(gca,'ColorOrder',brewermap(n_col_bins,'*Greens'));
             plot(t,binned_act_pred_t(binned_act_pred_grp(:,curr_cond + 1) == 1,:)','linewidth',2);

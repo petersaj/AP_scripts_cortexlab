@@ -1,7 +1,10 @@
 function [cam_sync_frames,n_frames] = AP_get_cam_sync_frames(fn,draw_roi)
-% cam_strobe_frames = AP_get_cam_strobe_frames(fn)
+% cam_strobe_frames = AP_get_cam_strobe_frames(fn,draw_roi)
 %
 % Get the frames for the onset of the sync strobes
+%
+% fn - video filename
+% draw_roi - true/false(default), manually draw roi or use lower half
 
 if ~exist('draw_roi','var') || isempty(draw_roi)
     draw_roi = false;

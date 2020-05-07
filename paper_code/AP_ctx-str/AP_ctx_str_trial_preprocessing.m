@@ -561,7 +561,7 @@ if false
     ipsi_side = true(size(kernel_template(:,:,1)));
     ipsi_side(:,round(bregma_align(1)):end,:) = false;
     
-    frac_max_weight = 0.8; % zero pixels > max weight * this
+    frac_max_weight = 0.5; % zero pixels > max weight * this
     min_px = 100; % get rid of small islands
     for curr_depth = 1:n_aligned_depths
         kernel_bw(:,:,curr_depth) = ...

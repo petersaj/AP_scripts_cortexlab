@@ -10665,7 +10665,7 @@ for curr_exp = 1:length(use_split)
     end
 end
 
-plot_str = 4;
+plot_str = 1;
 
 stim_all = unique([0,0.06,0.125,0.25,0.5,1].*[-1;1]);
 col_all = brewermap(11,'*RdBu');
@@ -11354,8 +11354,8 @@ n_act_bins = 5;
 plot_areas = [1];
 
 % Loop across area pairs, plot binned predicted v measured activity
-curr_act_allcat = mua_allcat;
-curr_act_pred_allcat = mua_ctxpred_allcat;
+curr_act_allcat = mua_ctxpred_allcat;
+curr_act_pred_allcat = mua_allcat;
 
 % (old: to use all events)
 % task_fix = mua_taskpred_allcat - mua_ctxpred_taskpred_allcat;
@@ -11621,14 +11621,14 @@ quiescent_trials = ~any(abs(wheel_allcat(:,t >= 0 & t <= 0.5)) > wheel_thresh,2)
 
 % Set windows to average activity
 timeavg_labels = {'Stim'};
-timeavg_t = {[0.05,0.15]};
+timeavg_t = {[0,0.2]};
 timeavg_align = {stim_align};
-timeavg_trial_conditions = ...
-    {[trial_stim_allcat > 0 & quiescent_trials, ...
-    trial_stim_allcat < 0 & quiescent_trials]};
 % timeavg_trial_conditions = ...
-%     {[trial_stim_allcat > 0, ...
-%     trial_stim_allcat < 0]};
+%     {[trial_stim_allcat > 0 & quiescent_trials, ...
+%     trial_stim_allcat < 0 & quiescent_trials]};
+timeavg_trial_conditions = ...
+    {[trial_stim_allcat == 1, ...
+    trial_stim_allcat == -1]};
 % timeavg_trial_conditions = ...
 %     {[trial_choice_allcat == 1, ...
 %     trial_choice_allcat == -1]};
@@ -11646,7 +11646,7 @@ n_act_bins = 5;
 plot_areas = [1];
 
 % Loop across area pairs, plot binned predicted v measured activity
-curr_act_allcat = mua_ctxpred_allcat; % fluor_kernelroi_deconv, mua_ctxpred_allcat, mua_allcat
+curr_act_allcat = repmat(fluor_roi_deconv(:,:,3),1,1,4); % fluor_kernelroi_deconv, mua_ctxpred_allcat, mua_allcat
 
 % (ctx-predicted)
 curr_act_pred_allcat = mua_allcat; % fluor_kernelroi_deconv, mua_ctxpred_allcat, mua_allcat
@@ -11724,8 +11724,8 @@ for curr_area_idx = 1:length(plot_areas)
         
         % (get average activity within window)
         curr_event_t = t >= timeavg_t{curr_timeavg}(1) & t <= timeavg_t{curr_timeavg}(2);
-        curr_act_avg = cellfun(@(x) squeeze(nanmean(x(:,curr_event_t,:),2)),curr_act,'uni',false);
-        curr_act_pred_avg = cellfun(@(x) squeeze(nanmean(x(:,curr_event_t,:),2)),curr_act_pred,'uni',false);
+        curr_act_avg = cellfun(@(x) tiedrank(squeeze(nanmean(x(:,curr_event_t,:),2)))./size(x,1),curr_act,'uni',false);
+        curr_act_pred_avg = cellfun(@(x) tiedrank(squeeze(nanmean(x(:,curr_event_t,:),2)))./size(x,1),curr_act_pred,'uni',false);
         
         % (bin predicted data across percentile range)
         pred_bin_edges = prctile(cell2mat(curr_act_pred_avg),linspace(act_prctile(1),act_prctile(2),n_act_bins+1));
@@ -11859,8 +11859,8 @@ subplot(2,2,1);
 AP_heatscatter(conv(reshape(curr_act_pred_allcat(:,t < 0,plot_areas),[],1),t_smooth,'same'), ...
     conv(reshape(curr_act_allcat(:,t < 0,plot_areas),[],1),t_smooth,'same'),100);
 line(xlim,xlim)
-xlabel('Fluorescence');
-ylabel('MUA');
+xlabel('MUA');
+ylabel('Fluorescence');
 title('ITI points')
 
 use_bins = linspace(-2,6,100);
