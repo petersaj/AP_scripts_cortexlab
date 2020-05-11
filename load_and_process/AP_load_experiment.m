@@ -259,6 +259,17 @@ if block_exists
                 1:n_trials);
             stimOn_times = photodiode_flip_times(closest_stimOn_photodiode);
             
+            % Check that the stim times aren't off by a certain threshold
+            stim_time_offset_thresh = 0.1;
+            if any(abs(stimOn_times - signals_events.stimOnTimes(1:n_trials)') >= ...
+                    stim_time_offset_thresh)
+                figure;
+                plot(stimOn_times - signals_events.stimOnTimes(1:n_trials)','.k')
+                line(xlim,repmat(stim_time_offset_thresh,2,1),'color','r');
+                line(xlim,repmat(-stim_time_offset_thresh,2,1),'color','r');
+                error('Stim signals/photodiode offset over threshold');
+            end
+            
             % Get first movement time after stim onset
             surround_time = [-0.5,2];
             surround_sample_rate = 1/Timeline.hw.samplingInterval; % (match this to framerate)       

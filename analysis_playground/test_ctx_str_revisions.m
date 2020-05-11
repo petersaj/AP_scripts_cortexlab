@@ -4,10 +4,10 @@
 
 % New datasets
 
-data_fn = 'trial_activity_choiceworld_muafilt';
+% data_fn = 'trial_activity_choiceworld_muafilt';
 
 % data_fn = 'trial_activity_AP_choiceWorldStimPassive_trained_muafilt';
-% data_fn = 'trial_activity_AP_choiceWorldStimPassive_naive_muafilt';
+data_fn = 'trial_activity_AP_choiceWorldStimPassive_naive_muafilt';
 
 % data_fn = 'trial_activity_AP_lcrGratingPassive_ctxstrephys_str_muafilt';
 % data_fn = 'trial_activity_AP_lcrGratingPassive_ctxstrephys_ctx';
@@ -529,7 +529,7 @@ regression_params.kernel_t = [0,0];
 regression_params.zs = [false,false];
 regression_params.cvfold = 2;
 regression_params.use_constant = false;
-lambda = 10;
+lambda = 20;
 kernel_frames = floor(regression_params.kernel_t(1)*sample_rate): ...
     ceil(regression_params.kernel_t(2)*sample_rate);
 
