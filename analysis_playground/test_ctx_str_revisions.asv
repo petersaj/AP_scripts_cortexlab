@@ -4,8 +4,7 @@
 
 % New datasets
 
-% data_fn = 'trial_activity_choiceworld_muafilt';
-data_fn = 'trial_activity_choiceworld_3depth_muafilt';
+data_fn = 'trial_activity_choiceworld_muafilt';
 
 % data_fn = 'trial_activity_AP_choiceWorldStimPassive_trained_muafilt';
 % data_fn = 'trial_activity_AP_choiceWorldStimPassive_naive_muafilt';
@@ -301,15 +300,15 @@ legend({'Cortex (full)','Cortex (trial)','Cortex (trial,region-zero)'})
 % (load in a dataset first)
 
 % Choose depths to run
-plot_depth = 1;
+plot_depth = 2;
 
 % Regress kernel ROI activity to striatum domain activity (per recording)
 regression_params.use_svs = 1:200;
-regression_params.kernel_t = [0,0];
+regression_params.kernel_t = [-0.1,0.1];
 regression_params.zs = [false,false];
 regression_params.cvfold = 2;
 regression_params.use_constant = false;
-lambda = 100;
+lambda = 30;
 kernel_frames = floor(regression_params.kernel_t(1)*sample_rate): ...
     ceil(regression_params.kernel_t(2)*sample_rate);
 
@@ -524,10 +523,10 @@ linkaxes(get(gcf,'Children'));
 % (load in a dataset first)
 
 % Choose depths to run
-plot_depth = 1:3;
+plot_depth = 1:4;
 
 % Regress kernel ROI activity to striatum domain activity (per recording)
-regression_params.use_svs = 1:200;
+regression_params.use_svs = 1:100;
 regression_params.kernel_t = [0,0];
 regression_params.zs = [false,false];
 regression_params.cvfold = 2;
@@ -559,12 +558,12 @@ use_t = true(size(t));
 
 % (zero all EXCEPT quadrants)
 ctx_zero = true(size(U_master,1),size(U_master,2),6);
-ctx_zero(1:180,1:220,1) = false;
-ctx_zero(1:180,220:end,2) = false;
-ctx_zero(180:end,1:220,3) = false;
-ctx_zero(180:end,220:end,4) = false;
-ctx_zero(:,220:end,5) = false;
-ctx_zero(:,1:220,6) = false;
+ctx_zero(1:220,1:212,1) = false;
+ctx_zero(1:220,212:end,2) = false;
+ctx_zero(220:end,1:212,3) = false;
+ctx_zero(220:end,212:end,4) = false;
+ctx_zero(:,212:end,5) = false;
+ctx_zero(:,1:212,6) = false;
 
 mua_allcat_exp = mat2cell(mua_allcat,trials_recording,length(t),n_depths);
 fluor_allcat_deconv_exp = mat2cell(fluor_allcat_deconv,use_split,length(t),n_vs);
@@ -654,7 +653,7 @@ mua_ctxtrialpred_k_mean_px = cell2mat(arrayfun(@(x) ...
 mua_ctxtrialpred_regionzero_k_mean = nanmean(mua_ctxtrialpred_regionzero_k,4);
 mua_ctxtrialpred_regionzero_k_mean_px = cell2mat(arrayfun(@(x) ...
     svdFrameReconstruct(U_master(:,:,regression_params.use_svs), ...
-    reshape(mua_ctxtrialpred_regionzero_k_mean(:,:,x,:),length(regression_params.use_svs),[])), ...
+    reshape(mua_ctxtrialpred_regionzero_k_mean(:,:,x,:),100,[])), ...
     permute(1:n_depths,[1,3,4,2]),'uni',false));
 
 AP_image_scroll(cat(3,mua_ctxtrialpred_k_mean_px,mua_ctxtrialpred_regionzero_k_mean_px));
@@ -858,7 +857,7 @@ linkaxes([p1,p2]);
 
 
 
-%% ~~~~~~~~~~ Trial activity tests
+
 
 %% CTX EPHYS: passive trial activity WITH NEW MUA FILTER
 clear all
@@ -975,163 +974,7 @@ end
 
 
 
-%% Choiceworld trial activity (striatum domain) - MUA filt + 3 depth
 
-clear all
-disp('Choiceworld trial activity (striatum domain)')
 
-animals = {'AP024','AP025','AP026','AP027','AP028','AP029'};
-
-% Initialize save variable
-trial_data_all = struct;
-
-for curr_animal = 1:length(animals)
-    
-    animal = animals{curr_animal};
-    protocol = 'vanillaChoiceworld';
-    experiments = AP_find_experiments(animal,protocol);
-    
-    experiments = experiments([experiments.imaging] & [experiments.ephys]);
-    
-    disp(['Loading ' animal]);
-    
-    for curr_day = 1:length(experiments)
-        
-        day = experiments(curr_day).day;
-        experiment = experiments(curr_day).experiment;
-        
-        % Load experiment
-        n_aligned_depths = 3;
-        str_align = 'kernel';
-        AP_load_experiment;
-        
-        % Pull out trial data
-        filter_mua = true; % Filter MUA to match widefield
-        AP_ctx_str_grab_trial_data;
-        
-        % Store trial data into master structure
-        trial_data_fieldnames = fieldnames(trial_data);
-        for curr_trial_data_field = trial_data_fieldnames'
-            trial_data_all.(cell2mat(curr_trial_data_field)){curr_animal,1}{curr_day,1} = ...
-                trial_data.(cell2mat(curr_trial_data_field));
-        end
-        
-        % Store general info
-        trial_data_all.animals = animals;
-        trial_data_all.t = t;
-        trial_data_all.task_regressor_labels = task_regressor_labels;
-        trial_data_all.task_regressor_sample_shifts = task_regressor_sample_shifts;
-        
-        AP_print_progress_fraction(curr_day,length(experiments));
-        
-        % Clear for next loop
-        clearvars -except animals curr_animal animal protocol experiments curr_day ...
-            trial_data_all
-        
-    end
-end
-
-clearvars -except trial_data_all
-disp('Finished loading all')
-
-% Save
-save_path = 'C:\Users\Andrew\OneDrive for Business\Documents\CarandiniHarrisLab\analysis\wf_ephys_choiceworld\paper\data';
-save_filename = [save_path filesep 'trial_activity_choiceworld_3depth_muafilt'];
-save(save_filename,'-v7.3');
-disp(['Saved ' save_filename]);
-
-%% Passive trial activity (3 depths + mua filt)
-
-clear all
-
-trained_animals = {'AP024','AP025','AP026','AP027','AP028','AP029'};
-naive_animals = {'AP032','AP033','AP034','AP035','AP036'};
-protocols = {'AP_choiceWorldStimPassive'};
-
-for animal_group = {'trained','naive'}
-    animal_group = cell2mat(animal_group);
-    
-    switch animal_group
-        case 'trained'
-            animals = trained_animals;
-        case 'naive'
-            animals = naive_animals;
-    end
-    
-    for protocol = protocols
-        protocol = cell2mat(protocol);
-        
-        disp(['Passive trial activity: ' animal_group ' ' protocol])
-        
-        % Initialize save variable
-        trial_data_all = struct;
-        
-        for curr_animal = 1:length(animals)
-            
-            animal = animals{curr_animal};
-            
-            if strcmp(animal_group,'trained')
-                % Only use days with choiceworld (sometimes recorded in cortex, no bhv)
-                bhv_protocol = 'vanillaChoiceworld';
-                behavior_experiments = AP_find_experiments(animal,bhv_protocol);
-                passive_experiments = AP_find_experiments(animal,protocol);
-                behavior_day = ismember({passive_experiments.day},{behavior_experiments.day});
-                experiments = passive_experiments([passive_experiments.imaging] & [passive_experiments.ephys] & behavior_day);
-            elseif strcmp(animal_group,'naive')
-                experiments = AP_find_experiments(animal,protocol);
-                experiments = experiments([experiments.imaging] & [experiments.ephys]);
-            end
-            
-            disp(['Loading ' animal]);
-            
-            for curr_day = 1:length(experiments)
-                
-                day = experiments(curr_day).day;
-                experiment = experiments(curr_day).experiment(end);
-                
-                % Load experiment
-                n_aligned_depths = 3;
-                str_align = 'kernel';
-                AP_load_experiment;
-                
-                % Pull out trial data
-                filter_mua = true; % Filter MUA to match widefield
-                AP_ctx_str_grab_trial_data;
-                
-                % Store trial data into master structure
-                trial_data_fieldnames = fieldnames(trial_data);
-                for curr_trial_data_field = trial_data_fieldnames'
-                    trial_data_all.(cell2mat(curr_trial_data_field)){curr_animal,1}{curr_day,1} = ...
-                        trial_data.(cell2mat(curr_trial_data_field));
-                end
-                
-                % Store general info
-                trial_data_all.animals = animals;
-                trial_data_all.t = t;
-                
-                AP_print_progress_fraction(curr_day,length(experiments));
-            end
-            
-            % Clear for next loop
-            clearvars -except ...
-                trained_animals naive_animals protocols ...
-                protocol animal_group animals curr_animal ...
-                animals curr_animal animal protocol experiments curr_day ...
-                trial_data_all
-            
-        end
-        
-        clearvars -except ...
-            trained_animals naive_animals protocols ...
-            protocol animal_group animals...
-            trial_data_all
-        disp('Finished loading all')
-        
-        save_path = 'C:\Users\Andrew\OneDrive for Business\Documents\CarandiniHarrisLab\analysis\wf_ephys_choiceworld\paper\data';
-        save_fn = ['trial_activity_' protocol '_' animal_group '_3depth_muafilt'];
-        save([save_path filesep save_fn],'-v7.3');
-        
-    end
-end
 
 

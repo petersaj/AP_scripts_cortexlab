@@ -415,38 +415,19 @@ kernel_path = 'C:\Users\Andrew\OneDrive for Business\Documents\CarandiniHarrisLa
 kernel_fn = ['ephys_kernel_depth'];
 load([kernel_path filesep kernel_fn])
 
+%%%% TESTING
+a = [ephys_kernel_depth.k_px];
+b = cellfun(@(x) padarray(x,[0,0,16-size(x,3)],nan,'pre'),a,'uni',false);
+c = nanmean(cat(4,b{:}),4);
+AP_image_scroll(nanmean(c,4))
+caxis([-max(abs(c(:))),max(abs(c(:)))]);
+
 % Concatenate all kernels, do K-means
 k_px_cat = [ephys_kernel_depth(:).k_px];
 k_px_cat = cat(3,k_px_cat{:});
 k_px_cat_reshape = reshape(k_px_cat,[],size(k_px_cat,3));
+
 use_k_px = find(~any(isnan(k_px_cat_reshape),1));
-
-%%%%%%%%%%%%% TESTING
-warning on;
-warning('testing');
-
-% Pad from the start for equal depth divisions
-k_px_depthpad = cell2mat(cellfun(@(x) padarray(x,[0,0,16-size(x,3)],nan,'pre'), ...
-    permute([ephys_kernel_depth.k_px],[1,3,4,2]),'uni',false));
-
-% Only use depths in > 50% of recordings
-recording_depth_frac = nanmean(any(reshape(k_px_depthpad,[], ...
-    size(k_px_depthpad,3),size(k_px_depthpad,4)),1),3);
-recording_depth_frac_cutoff = 0.5;
-plot_depths = recording_depth_frac > recording_depth_frac_cutoff;
-
-k_px_depthmean = nanmean(k_px_depthpad(:,:,plot_depths,:),4);
-AP_image_scroll(k_px_depthmean)
-caxis([-max(abs(caxis)),max(abs(caxis))]);
-colormap(brewermap([],'*RdBu'));
-
-kernel_corr = (zscore(k_px_cat_reshape,[],1)'* ...
-    zscore(reshape(k_px_depthmean,[],size(k_px_depthmean,3)),[],1))./ ...
-    (size(k_px_cat_reshape,1)-1);
-[kernel_match_corr,kernel_match_raw] = max(kernel_corr,[],2);
-
-
-%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
 n_aligned_depths = 4;
 kidx = kmeans(k_px_cat_reshape(:,use_k_px)',n_aligned_depths,'Distance','correlation');
@@ -482,8 +463,7 @@ end
 kidx_depth = depth_renumber_idx(kidx);
 [~,k_depth_sort_idx] = sort(kidx_depth);
 figure;
-k_sort_corr = corrcoef(k_px_cat_reshape(:,use_k_px(k_depth_sort_idx)));
-imagesc(k_sort_corr)
+imagesc(corrcoef(k_px_cat_reshape(:,use_k_px(k_depth_sort_idx))))
 title('Sorted kernel correlations');
 caxis([-0.5,0.5]); colormap(brewermap([],'*RdBu'));
 axis square;
@@ -491,7 +471,6 @@ for i = 2:n_aligned_depths
     line(xlim,repmat(sum(kidx_depth < i),2,1),'color','k','linewidth',2);
     line(repmat(sum(kidx_depth < i),2,1),ylim,'color','k','linewidth',2);
 end
-k_sort_corr_grp = mat2cell(k_sort_corr,accumarray(reshape(kidx_depth,[],1),1),accumarray(reshape(kidx_depth,[],1),1));
 
 % Save template kernels
 kernel_template = k_grp_ordered;
@@ -581,7 +560,7 @@ for curr_animal = 1:length(animals)
         replace_kernel_match = kernel_match < cummax(kernel_match);
         kernel_match(replace_kernel_match) = ...
             interp1(find(~replace_kernel_match),kernel_match(~replace_kernel_match), ...
-            find(replace_kernel_match),'nearest','extrap');
+            find(replace_kernel_match),'nearest');
         
         % Assign depth edges and kernel template index numbers
         kernel_match_boundary_idx = unique([1;find(diff(kernel_match) ~= 0)+1;n_depths+1]);

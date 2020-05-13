@@ -11351,7 +11351,7 @@ act_prctile = [5,95];
 n_act_bins = 5;
 
 % Set areas and conditions
-plot_areas = [1];
+plot_areas = [1:n_depths];
 
 % Loop across area pairs, plot binned predicted v measured activity
 curr_act_allcat = mua_ctxpred_allcat;
@@ -11646,7 +11646,7 @@ n_act_bins = 5;
 plot_areas = [1];
 
 % Loop across area pairs, plot binned predicted v measured activity
-curr_act_allcat = repmat(fluor_roi_deconv(:,:,3),1,1,4); % fluor_kernelroi_deconv, mua_ctxpred_allcat, mua_allcat
+curr_act_allcat = mua_ctxpred_allcat; % fluor_kernelroi_deconv, mua_ctxpred_allcat, mua_allcat
 
 % (ctx-predicted)
 curr_act_pred_allcat = mua_allcat; % fluor_kernelroi_deconv, mua_ctxpred_allcat, mua_allcat
@@ -11655,7 +11655,8 @@ figure('color','w');
 for curr_area_idx = 1:length(plot_areas)
     curr_area = plot_areas(curr_area_idx);
   
-    [~,grp_idx] = max(timeavg_trial_conditions{1},[],2);
+    [grp_max,grp_idx] = max(timeavg_trial_conditions{1},[],2);
+    grp_idx(grp_max == 0) = 0;
     curr_act_avg = nan(max(grp_idx),length(t),length(use_split));
     curr_act_pred_avg = nan(max(grp_idx),length(t),length(use_split));
     for curr_exp = 1:length(use_split)
@@ -11724,8 +11725,8 @@ for curr_area_idx = 1:length(plot_areas)
         
         % (get average activity within window)
         curr_event_t = t >= timeavg_t{curr_timeavg}(1) & t <= timeavg_t{curr_timeavg}(2);
-        curr_act_avg = cellfun(@(x) tiedrank(squeeze(nanmean(x(:,curr_event_t,:),2)))./size(x,1),curr_act,'uni',false);
-        curr_act_pred_avg = cellfun(@(x) tiedrank(squeeze(nanmean(x(:,curr_event_t,:),2)))./size(x,1),curr_act_pred,'uni',false);
+        curr_act_avg = cellfun(@(x) squeeze(nanmean(x(:,curr_event_t,:),2)),curr_act,'uni',false);
+        curr_act_pred_avg = cellfun(@(x) squeeze(nanmean(x(:,curr_event_t,:),2)),curr_act_pred,'uni',false);
         
         % (bin predicted data across percentile range)
         pred_bin_edges = prctile(cell2mat(curr_act_pred_avg),linspace(act_prctile(1),act_prctile(2),n_act_bins+1));
@@ -11982,38 +11983,77 @@ title('Stim activity and fit lines');
 linkaxes(get(gcf,'Children'),'xy');
 
 
-%% Finding filter for fluor <-> mua?
+%% Cortex ROI task kernels
 
-a = reshape(mua_allcat(:,:,1)',[],1);
-b = reshape(mua_ctxpred_allcat(:,:,1)',[],1);
-% c = reshape(fluor_roi_deconv(:,:,3)',[],1);
 
-use_lowpass = 1:15;
-mua_fluorpred_corr = nan(size(use_lowpass));
+% Get task>cortex parameters
+n_regressors = length(task_regressor_labels);
+task_regressor_t_shifts = cellfun(@(x) x/sample_rate,task_regressor_sample_shifts,'uni',false);
 
-for curr_lowpass = 1:length(use_lowpass)
-    lowpassCutoff = use_lowpass(curr_lowpass); % Hz
-    [b100s, a100s] = butter(2, lowpassCutoff/(sample_rate/2), 'low');
-    a_filt = filtfilt(b100s,a100s,a);
- 
-    curr_corr = corrcoef(a_filt(~isnan(b)),b(~isnan(b)));
-    mua_fluorpred_corr(curr_lowpass) = curr_corr(2);
+% Get average task > cortex kernels (V's and ROIs)
+regressor_v = cell(n_regressors,1);
+regressor_roi = cell(n_regressors,1);
+for curr_regressor = 1:n_regressors
+    
+    curr_k = cell2mat(cellfun(@(x) x{curr_regressor}, ...
+        permute(vertcat(fluor_taskpred_k_all{:}),[2,3,4,1]),'uni',false));
+    
+    curr_k_roi = nan(size(curr_k,1),size(curr_k,2),n_depths,size(curr_k,4));
+    for curr_subregressor = 1:size(curr_k,1)
+        for curr_exp = 1:size(curr_k,4)
+            curr_k_roi(curr_subregressor,:,:,curr_exp) = ...
+                permute(AP_svd_roi(U_master(:,:,1:n_vs), ...
+                permute(curr_k(curr_subregressor,:,:,curr_exp),[3,2,1]), ...
+                [],[],kernel_roi.bw),[3,2,1]);        
+        end
+    end
+    
+    curr_k_v = nanmean(curr_k,4);
+    
+    regressor_v{curr_regressor} = curr_k_v;
+    regressor_roi{curr_regressor} = curr_k_roi;
+    
+    AP_print_progress_fraction(curr_regressor,n_regressors);
 end
 
-figure;plot(use_lowpass,mua_fluorpred_corr);
 
+% Normalize regressor ROIs
+fluor_kernelroi_norm = ...
+    squeeze(cell2mat(cellfun(@(x) x(1,:,:),fluor_kernelroi_day_baseline_std,'uni',false)));
 
-% (filter the original data)
-a = reshape(permute(mua_allcat,[2,1,3]),[],size(mua_allcat,3));
-a(isnan(a)) = 0; % quick and dirty
+regressor_roi_norm = cellfun(@(x) x./permute(fluor_kernelroi_norm,[3,4,2,1]), ...
+    regressor_roi,'uni',false);
 
-lowpassCutoff = 6; % Hz
-[b100s, a100s] = butter(2, lowpassCutoff/(sample_rate/2), 'low');
-a_filt_reshape = filtfilt(b100s,a100s,a);
+% Get ROI traces for each subregressor
+plot_rois = [1:4];
 
-a_filt = permute(reshape(a_filt_reshape,size(permute(mua_allcat,[2,1,3]))),[2,1,3]);
-mua_allcat = a_filt;
-disp('Filtered mua_allcat');
+stim_col = brewermap(10,'*RdBu');
+move_col = [0.6,0,0.6;0.8,0.5,0];
+go_col = [0.5,0.5,0.5;0.8,0.8,0.2];
+outcome_col = [0,0,0.8;0.8,0,0];
+task_regressor_cols = {stim_col,move_col,go_col,outcome_col};
+figure;
+p = nan(length(plot_rois),n_regressors);
+for curr_roi_idx = 1:length(plot_rois)
+    curr_roi = plot_rois(curr_roi_idx);    
+    for curr_regressor = 1:n_regressors
+        p(curr_roi_idx,curr_regressor) = ...
+            subplot(length(plot_rois),n_regressors, ...
+            sub2ind([n_regressors,length(plot_rois)],curr_regressor,curr_roi_idx)); hold on;
+        
+        for curr_subregressor = 1:size(regressor_roi_norm{curr_regressor},1)
+           AP_errorfill(task_regressor_t_shifts{curr_regressor}, ...
+            nanmean(regressor_roi_norm{curr_regressor}(curr_subregressor,:,curr_roi,:),4)', ...
+            AP_sem(regressor_roi_norm{curr_regressor}(curr_subregressor,:,curr_roi,:),4)', ...
+            task_regressor_cols{curr_regressor}(curr_subregressor,:), ...
+            0.5,true);
+        end
+        ylabel([num2str(curr_roi) ' \DeltaF/F_0']);
+        xlabel('Time (s)');
+        line([0,0],ylim,'color','k');
+    end
+end
+linkaxes(get(gcf,'Children'),'xy')
 
 
 

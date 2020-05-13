@@ -260,14 +260,18 @@ if block_exists
             stimOn_times = photodiode_flip_times(closest_stimOn_photodiode);
             
             % Check that the stim times aren't off by a certain threshold
+            % (skip the first one - that's usually delayed a little)
             stim_time_offset_thresh = 0.1;
-            if any(abs(stimOn_times - signals_events.stimOnTimes(1:n_trials)') >= ...
+            if any(abs(stimOn_times(2:end) - signals_events.stimOnTimes(2:n_trials)') >= ...
                     stim_time_offset_thresh)
                 figure;
                 plot(stimOn_times - signals_events.stimOnTimes(1:n_trials)','.k')
                 line(xlim,repmat(stim_time_offset_thresh,2,1),'color','r');
                 line(xlim,repmat(-stim_time_offset_thresh,2,1),'color','r');
-                error('Stim signals/photodiode offset over threshold');
+                warning('Stim signals/photodiode offset over threshold');
+                xlabel('Stim number');
+                ylabel('Photodiode - signals stim time');
+                title([animal ' ' day ' ' num2str(experiment)]);
             end
             
             % Get first movement time after stim onset
