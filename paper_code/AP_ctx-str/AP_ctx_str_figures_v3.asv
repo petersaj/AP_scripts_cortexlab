@@ -6,7 +6,7 @@
 % Load data
 
 % (task)
-% data_fn = 'trial_activity_choiceworld'; % Primary dataset
+data_fn = 'trial_activity_choiceworld'; % Primary dataset
 % data_fn = 'trial_activity_choiceworld_4strdepth'; % Depth-aligned striatum
 % exclude_data = true;
 
@@ -14,8 +14,8 @@
 % data_fn = 'trial_activity_AP_choiceWorldStimPassive_trained';
 % data_fn = 'trial_activity_AP_choiceWorldStimPassive_naive';
 % data_fn = 'trial_activity_stimKalatsky_naive';
-data_fn = 'trial_activity_stimKalatsky_trained';
-exclude_data = false;
+% data_fn = 'trial_activity_stimKalatsky_trained';
+% exclude_data = false;
 
 % (unused at the moment)
 % data_fn = 'trial_activity_choiceworld_wfonly'; % Widefield-only days (no craniotomy, so cleaner)
@@ -2131,7 +2131,7 @@ legend({'Task','Cortex'});
 %% Fig S8a (addition): comparison of cortex kernel vs ROI
 
 % Load kernel templates
-n_aligned_depths = 3;
+n_aligned_depths = 4;
 kernel_template_fn = ['C:\Users\Andrew\OneDrive for Business\Documents\CarandiniHarrisLab\analysis\wf_ephys_choiceworld\ephys_processing\kernel_template_' num2str(n_aligned_depths) '_depths.mat'];
 load(kernel_template_fn);
 
@@ -4036,7 +4036,7 @@ end
 %% Striatum 2 stim/move activity interaction
 
 % Depth to plot
-plot_depth = 2;
+plot_depth = 7;
 
 % Set number of shuffles for significance testing
 n_shuff = 1000; 
@@ -4055,7 +4055,7 @@ stim_contexts = [trial_choice_allcat == -1, ...
     trial_choice_allcat == 1];
 
 % Get stim-isolated activity by trial
-stim_activity = mua_allcat - mua_taskpred_reduced_allcat(:,:,:,1);
+stim_activity = fluor_roi_deconv;
 stim_trial_activity = nanmean(stim_activity(:,use_stim_t,:),2);
 
 % Split activity by animal, stim, and correct/incorrect
@@ -4064,7 +4064,7 @@ stim_trial_activity_split = cell(max(split_idx),length(stim_bins),size(stim_cont
 for curr_exp = 1:max(split_idx)
     for curr_bin = 1:length(stim_bins)
         for curr_context = 1:size(stim_contexts,2)               
-            for curr_depth = 1:n_depths
+            for curr_depth = 1:n_rois
                 % Get activity of all group trials (exclude NaNs)
                 curr_trials = ...
                     split_idx == curr_exp & ...

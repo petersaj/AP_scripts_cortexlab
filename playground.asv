@@ -12138,7 +12138,7 @@ curr_corr = nan(n_depths,length(use_split));
 
 for curr_exp = 1:length(use_split)
     
-    a = reshape(permute(mua_allcat(split_idx == curr_exp,t < 0,:),[2,1,3]),[],n_depths);
+    a = reshape(permute(mua_allcat(split_idx == curr_exp,t > 0.05 & t < 0.2,:),[2,1,3]),[],n_depths);
     b = reshape(permute(fluor_kernelroi_deconv(split_idx == curr_exp,t < 0,:),[2,1,3]),[],n_depths);
     
     curr_corr(:,curr_exp) = diag(corr(a,b,'rows','complete','type','spearman'));

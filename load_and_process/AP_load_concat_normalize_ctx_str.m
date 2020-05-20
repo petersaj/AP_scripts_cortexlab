@@ -230,6 +230,7 @@ if task_dataset
     fluor_roi_deconv_move = fluor_roi_deconv;
     fluor_roi_taskpred_move = fluor_roi_taskpred;
     fluor_roi_taskpred_reduced_move = fluor_roi_taskpred_reduced;
+    fluor_kernelroi_deconv_move = fluor_kernelroi_deconv;
     
     t_leeway = -t(1);
     leeway_samples = round(t_leeway*(sample_rate));
@@ -239,6 +240,7 @@ if task_dataset
         fluor_roi_deconv_move(i,:,:,:) = circshift(fluor_roi_deconv_move(i,:,:,:),-move_idx(i)+leeway_samples,2);
         fluor_roi_taskpred_move(i,:,:,:) = circshift(fluor_roi_taskpred_move(i,:,:,:),-move_idx(i)+leeway_samples,2);
         fluor_roi_taskpred_reduced_move(i,:,:,:) = circshift(fluor_roi_taskpred_reduced_move(i,:,:,:),-move_idx(i)+leeway_samples,2);
+        fluor_kernelroi_deconv_move(i,:,:,:) = circshift(fluor_kernelroi_deconv_move(i,:,:,:),-move_idx(i)+leeway_samples,2);
     end
 end
 

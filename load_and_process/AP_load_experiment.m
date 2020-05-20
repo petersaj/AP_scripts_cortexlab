@@ -1199,9 +1199,9 @@ if ephys_exists && load_parts.ephys
     
     % str_align = alignment method ('none', 'depth', or 'kernel')
     
-    % requires n_aligned_depths for alignment, default 4
+    % requires n_aligned_depths for alignment, set default
     if ~exist('n_aligned_depths','var')
-        n_aligned_depths = 4;
+        n_aligned_depths = 3;
     end
     
     % if no alignment specified, default kernel

@@ -3784,7 +3784,7 @@ line(xlim,repmat(sqrt_expl_var_cutoff,2,1),'linewidth',2);
 %% Plot kernel matches
 
 % Load and plot the kernel templates
-n_aligned_depths = 4;
+n_aligned_depths = 3;
 kernel_template_fn = ['C:\Users\Andrew\OneDrive for Business\Documents\CarandiniHarrisLab\analysis\wf_ephys_choiceworld\ephys_processing\kernel_template_' num2str(n_aligned_depths) '_depths.mat'];
 load(kernel_template_fn);
 n_kernels = n_aligned_depths;

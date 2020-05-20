@@ -90,13 +90,13 @@ disp(['Saved ' save_fn]);
 
 disp('Cortex -> striatum regression maps across protocols');
 
-n_aligned_depths = 4;
+n_aligned_depths = 3;
 
 % Parameters for regression
-regression_params.use_svs = 1:100;
+regression_params.use_svs = 1:200;
 regression_params.skip_seconds = 20;
 regression_params.upsample_factor = 1;
-regression_params.kernel_t = [-0.5,0.5];
+regression_params.kernel_t = [-0.1,0.1];
 regression_params.zs = [false,false];
 regression_params.cvfold = 5;
 regression_params.use_constant = true;
@@ -316,7 +316,6 @@ for curr_animal = 1:length(animals)
         experiment = experiments(curr_day).experiment;
         
         % Load experiment
-        n_aligned_depths = 4;
         str_align = 'kernel';
         AP_load_experiment;
         
@@ -543,8 +542,30 @@ if false
     
     %% Create ROIs from kernel templates
     
+    %%%%%%%% TESTING: make kernel BW roi from average kernels
+    
+    protocol = 'vanillaChoiceworld';
+    data_path = 'C:\Users\Andrew\OneDrive for Business\Documents\CarandiniHarrisLab\analysis\wf_ephys_choiceworld\paper\data';
+    k_fn = [data_path filesep 'ctx_str_kernels_' protocol];
+    load(k_fn);
+    
+    kernel_cat = cell2mat(permute(horzcat(ctx_str_kernel{:}),[1,3,4,5,2]));
+    kernel_cat_frame = nanmean(squeeze(kernel_cat(:,:,median(1:size(kernel_cat,3)),:,:)),4);
+    
+    kernel_bw = false(size(kernel_template));
+    frac_max_weight = 0.5; % zero pixels > max weight * this
+    min_px = 1e3; % get rid of small islands
+    for curr_depth = 1:n_aligned_depths
+        kernel_bw(:,:,curr_depth) = ...
+            bwareaopen(kernel_cat_frame(:,:,curr_depth) > ...
+            max(reshape(kernel_cat_frame(:,:,curr_depth), ...
+            [],1),[],1)*frac_max_weight,min_px).*ipsi_side;
+    end 
+
+    %%%%%%%%
+    
     % Load kernel templates
-    n_aligned_depths = 4;
+    n_aligned_depths = 3;
     kernel_template_fn = ['C:\Users\Andrew\OneDrive for Business\Documents\CarandiniHarrisLab\analysis\wf_ephys_choiceworld\ephys_processing\kernel_template_' num2str(n_aligned_depths) '_depths.mat'];
     load(kernel_template_fn);
     
@@ -716,13 +737,13 @@ disp(['Saved ' [save_path filesep save_fn]]);
 
 disp('Cortex -> striatum regression maps across protocols');
 
-n_aligned_depths = 4;
+n_aligned_depths = 3;
 
 % Parameters for regression
-regression_params.use_svs = 1:100;
+regression_params.use_svs = 1:200;
 regression_params.skip_seconds = 20;
 regression_params.upsample_factor = 1;
-regression_params.kernel_t = [-0.5,0.5];
+regression_params.kernel_t = [-0.1,0.1];
 regression_params.zs = [false,false];
 regression_params.cvfold = 5;
 regression_params.use_constant = true;
@@ -1009,6 +1030,7 @@ for curr_exp_condition = 1:2
     save_path = 'C:\Users\Andrew\OneDrive for Business\Documents\CarandiniHarrisLab\analysis\wf_ephys_choiceworld\paper\data';
     save_fn = ['trial_activity_' protocol '_' exp_conditions{curr_exp_condition}];
     save([save_path filesep save_fn],'-v7.3');
+    disp(['Saved ' save_fn]);
     
 end
 

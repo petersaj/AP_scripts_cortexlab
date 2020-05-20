@@ -1112,7 +1112,7 @@ plot(fluor_avg_postpre_change(:,plot_str),mua_avg_postpre_change(:,plot_str),'.k
 xlabel(['Cortex ROI (post-pre)']);
 ylabel(['Str ' num2str(plot_str) ' (post-pre)']);
 line(xlim,[0,0],'color','k','linestyle','--');
-line([0,0],ylim,'color','k','linestyle','--');
+line([0,0],[-1,1],'color','k','linestyle','--');
 axis square;
 
 nonan_points = ~isnan(mua_avg_postpre_change(:,plot_str)) & ...
@@ -1120,7 +1120,6 @@ nonan_points = ~isnan(mua_avg_postpre_change(:,plot_str)) & ...
 [r,p] = corrcoef(fluor_avg_postpre_change(nonan_points,plot_str), ...
     mua_avg_postpre_change(nonan_points,plot_str));
 
-error('I think this analysis is fucked and I''ll come back to it later')
 
 %%%%%%% TESTING
 

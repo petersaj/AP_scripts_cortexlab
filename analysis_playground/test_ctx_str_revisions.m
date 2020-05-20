@@ -5,15 +5,18 @@
 % New datasets
 
 % data_fn = 'trial_activity_choiceworld_muafilt';
-data_fn = 'trial_activity_choiceworld_3depth_muafilt';
+% data_fn = 'trial_activity_choiceworld_3depth_muafilt';
 
 % data_fn = 'trial_activity_AP_choiceWorldStimPassive_trained_muafilt';
 % data_fn = 'trial_activity_AP_choiceWorldStimPassive_naive_muafilt';
 
+% data_fn = 'trial_activity_AP_choiceWorldStimPassive_trained_3depth_muafilt';
+% data_fn = 'trial_activity_AP_choiceWorldStimPassive_naive_3depth_muafilt';
+
 % data_fn = 'trial_activity_AP_lcrGratingPassive_ctxstrephys_str_muafilt';
 % data_fn = 'trial_activity_AP_lcrGratingPassive_ctxstrephys_ctx';
 
-% data_fn = 'trial_activity_AP_lcrGratingPassive_pre_muscimol_muafilt';
+data_fn = 'trial_activity_AP_lcrGratingPassive_pre_muscimol';
 
 AP_load_concat_normalize_ctx_str;
 
@@ -309,15 +312,16 @@ regression_params.kernel_t = [0,0];
 regression_params.zs = [false,false];
 regression_params.cvfold = 2;
 regression_params.use_constant = false;
-lambda = 100;
+lambda = 30;
 kernel_frames = floor(regression_params.kernel_t(1)*sample_rate): ...
     ceil(regression_params.kernel_t(2)*sample_rate);
 
 % use_t = t < 0;
-% use_t = t > 0.05 & t < 0.1;
+use_t = t > 0 & t < 0.2;
 % use_t = t > 0.5 & t < 1;
 % use_t = t > 0.5;
-use_t = true(size(t));
+% use_t = t > 1.5;
+% use_t = true(size(t));
 
 mua_allcat_exp = mat2cell(mua_allcat,trials_recording,length(t),n_depths);
 fluor_allcat_deconv_exp = mat2cell(fluor_allcat_deconv,use_split,length(t),n_vs);
@@ -515,7 +519,7 @@ plot_trials = trial_stim_allcat == -1;
 plot(t,nanmean(mua_allcat(plot_trials,:,plot_depth)));
 plot(t,nanmean(mua_kpred(plot_trials,:)));
 title('Ipsi');
-legend({'MUA','MUA ctxpred','MUA ctxtrialpred','MUA ctxtrialpred regionzero'});
+legend({'MUA','MUA saved kernel'});
 
 linkaxes(get(gcf,'Children'));
 
@@ -528,11 +532,11 @@ plot_depth = 1:3;
 
 % Regress kernel ROI activity to striatum domain activity (per recording)
 regression_params.use_svs = 1:200;
-regression_params.kernel_t = [0,0];
+regression_params.kernel_t = [-0.1,0.1];
 regression_params.zs = [false,false];
 regression_params.cvfold = 2;
 regression_params.use_constant = false;
-lambda = 20;
+lambda = 50;
 kernel_frames = floor(regression_params.kernel_t(1)*sample_rate): ...
     ceil(regression_params.kernel_t(2)*sample_rate);
 
@@ -559,10 +563,10 @@ use_t = true(size(t));
 
 % (zero all EXCEPT quadrants)
 ctx_zero = true(size(U_master,1),size(U_master,2),6);
-ctx_zero(1:180,1:220,1) = false;
-ctx_zero(1:180,220:end,2) = false;
-ctx_zero(180:end,1:220,3) = false;
-ctx_zero(180:end,220:end,4) = false;
+ctx_zero(1:260,1:220,1) = false;
+ctx_zero(1:260,220:end,2) = false;
+ctx_zero(260:end,1:220,3) = false;
+ctx_zero(260:end,220:end,4) = false;
 ctx_zero(:,220:end,5) = false;
 ctx_zero(:,1:220,6) = false;
 
@@ -578,6 +582,7 @@ for curr_exp = 1:length(trials_recording)
     for curr_depth = plot_depth
         
         curr_mua = reshape(mua_allcat_exp{curr_exp}(:,use_t,curr_depth)',1,[]);
+        curr_mua_std = curr_mua./nanstd(curr_mua);
         
         curr_fluor = reshape(permute( ...
             fluor_allcat_deconv_exp{curr_exp}(:,use_t,:),[2,1,3]),[],n_vs)';
@@ -604,11 +609,12 @@ for curr_exp = 1:length(trials_recording)
         trial_discontinuities = reshape(trial_discontinuities',[],1)';
         
         % Full cortex regression
-        [k_fluor,curr_mua_fluorpred,explained_var_trial] = ...
+        [k_fluor,curr_mua_fluorpred_std,explained_var_trial] = ...
             AP_regresskernel(curr_fluor(regression_params.use_svs,:), ...
-            curr_mua,kernel_frames,lambda, ...
+            curr_mua_std,kernel_frames,lambda, ...
             regression_params.zs,regression_params.cvfold, ...
             false,regression_params.use_constant,trial_discontinuities);
+        curr_mua_fluorpred = curr_mua_fluorpred_std*nanstd(curr_mua);
         
         mua_ctxtrialpred_k(:,:,curr_depth,curr_exp) = k_fluor;
         mua_ctxtrialpred_exp{curr_exp}(:,use_t,curr_depth) = ...
@@ -621,11 +627,12 @@ for curr_exp = 1:length(trials_recording)
         
         % Region-zeroed cortex regression
         for curr_zero = 1:size(ctx_zero,3)
-            [k_fluorregionzero,curr_mua_fluorregionzeropred,explained_var_trial_regionzero] = ...
+            [k_fluorregionzero,curr_mua_fluorregionzeropred_std,explained_var_trial_regionzero] = ...
                 AP_regresskernel(curr_fluor_regionzero(regression_params.use_svs,:,curr_zero), ...
-                curr_mua,kernel_frames,lambda, ...
+                curr_mua_std,kernel_frames,lambda, ...
                 regression_params.zs,regression_params.cvfold, ...
                 false,regression_params.use_constant,trial_discontinuities);
+            curr_mua_fluorregionzeropred = curr_mua_fluorregionzeropred_std*nanstd(curr_mua);
             
             mua_ctxtrialpred_regionzero_k(:,:,curr_depth,curr_exp,curr_zero) = k_fluorregionzero;
             mua_ctxtrialpred_regionzero_exp{curr_exp}(:,use_t,curr_depth,curr_zero) = ...
@@ -643,7 +650,7 @@ end
 
 % Get average cortex->striatum kernel
 ctx_str_k_mean = nanmean(cell2mat(permute(vertcat(ctx_str_k_all{:}),[2,3,4,5,1])),5);
-ctx_str_k_mean_px = cell2mat(arrayfun(@(x) svdFrameReconstruct(U_master(:,:,1:100), ...
+ctx_str_k_mean_px = cell2mat(arrayfun(@(x) svdFrameReconstruct(U_master(:,:,1:200), ...
     ctx_str_k_mean(:,:,x)),permute(1:n_depths,[1,3,4,2]),'uni',false));
 
 mua_ctxtrialpred_k_mean = nanmean(mua_ctxtrialpred_k,4);
@@ -1130,8 +1137,159 @@ for animal_group = {'trained','naive'}
         save_path = 'C:\Users\Andrew\OneDrive for Business\Documents\CarandiniHarrisLab\analysis\wf_ephys_choiceworld\paper\data';
         save_fn = ['trial_activity_' protocol '_' animal_group '_3depth_muafilt'];
         save([save_path filesep save_fn],'-v7.3');
+        disp(['Saved ' save_fn]);
         
     end
 end
+
+
+%% Striatum cortical kernels (3 depth, MUA filt, more SVs, less time)
+
+disp('Cortex -> striatum regression maps across protocols');
+
+n_aligned_depths = 3;
+
+% Parameters for regression
+regression_params.use_svs = 1:200;
+regression_params.skip_seconds = 30;
+regression_params.upsample_factor = 1;
+regression_params.kernel_t = [-0.1,0.1];
+regression_params.zs = [false,false];
+regression_params.cvfold = 5;
+regression_params.use_constant = true;
+
+protocols = {'vanillaChoiceworld'};
+
+for protocol = protocols
+    protocol = cell2mat(protocol);
+    
+    animals = {'AP024','AP025','AP026','AP027','AP028','AP029'};
+    
+    init_array = cellfun(@(x) cell(0,0),animals','uni',false);
+    ctx_str_kernel = init_array;
+    ctx_str_expl_var = init_array;
+    
+    for curr_animal = 1:length(animals)
+        
+        animal = animals{curr_animal};
+        disp(['Loading ' animal ' ' protocol]);
+        
+        % Only use days with choiceworld (sometimes recorded in cortex, no bhv)
+        behavior_protocol = 'vanillaChoiceworld';
+        behavior_experiments = AP_find_experiments(animal,behavior_protocol);
+        
+        curr_experiments = AP_find_experiments(animal,protocol);
+        
+        behavior_day = ismember({curr_experiments.day},{behavior_experiments.day});
+        
+        experiments = curr_experiments([curr_experiments.imaging] & [curr_experiments.ephys] & behavior_day);
+        
+        % Skip if this animal doesn't have this experiment
+        if isempty(experiments)
+            continue
+        end
+        
+        disp(animal);
+        
+        load_parts.cam = false;
+        load_parts.imaging = true;
+        load_parts.ephys = true;
+        
+        for curr_day = 1:length(experiments)
+            
+            day = experiments(curr_day).day;
+            experiment = experiments(curr_day).experiment(end);
+            
+            % Load data and align striatum by depth
+            str_align = 'kernel';
+            AP_load_experiment;
+            
+            %%% Load lambda from previously estimated and saved
+            lambda_fn = 'C:\Users\Andrew\OneDrive for Business\Documents\CarandiniHarrisLab\analysis\wf_ephys_choiceworld\ephys_processing\ctx-str_lambda';
+            load(lambda_fn);
+            curr_animal_idx = strcmp(animal,{ctx_str_lambda.animal});
+            if any(curr_animal_idx)
+                curr_day_idx = strcmp(day,ctx_str_lambda(curr_animal_idx).day);
+                if any(curr_day_idx)
+                    lambda = ctx_str_lambda(curr_animal_idx).best_lambda(curr_day_idx);
+                end
+            end
+            lambda = 20;
+            
+            %%% Prepare data for regression
+            
+            % Get time points to bin
+            sample_rate = framerate*regression_params.upsample_factor;
+            time_bins = frame_t(find(frame_t > ...
+                regression_params.skip_seconds,1)):1/sample_rate: ...
+                frame_t(find(frame_t-frame_t(end) < ...
+                -regression_params.skip_seconds,1,'last'));
+            time_bin_centers = time_bins(1:end-1) + diff(time_bins)/2;
+            
+            % Deconvolve fluorescence
+            fVdf_deconv = AP_deconv_wf(fVdf);
+            fVdf_deconv(isnan(fVdf_deconv)) = 0;
+            fVdf_deconv_resample = interp1(frame_t,fVdf_deconv(regression_params.use_svs,:)',time_bin_centers)';
+            
+            % Get striatum depth group by across-experiment alignment
+            n_depths = n_aligned_depths;
+            depth_group = aligned_str_depth_group;
+            
+            binned_spikes = zeros(n_depths,length(time_bin_centers));
+            for curr_depth = 1:n_depths
+                curr_spike_times = spike_times_timeline(depth_group == curr_depth);
+                binned_spikes(curr_depth,:) = histcounts(curr_spike_times,time_bins);
+            end
+            
+            binned_spikes_filt = AP_deconv_wf(binned_spikes,true);
+            binned_spikes_std = binned_spikes_filt./nanstd(binned_spikes_filt,[],2);
+            
+            %%% Regress MUA from cortex
+            kernel_frames = floor(regression_params.kernel_t(1)*sample_rate): ...
+                ceil(regression_params.kernel_t(2)*sample_rate);
+            
+            [k,ctxpred_spikes_std,explained_var] = ...
+                AP_regresskernel(fVdf_deconv_resample, ...
+                binned_spikes_std,kernel_frames,lambda, ...
+                regression_params.zs,regression_params.cvfold, ...
+                false,regression_params.use_constant);
+            
+            % Reshape kernel and convert to pixel space
+            aUdf = AP_align_widefield(Udf,animal,day);
+            k_px = zeros(size(aUdf,1),size(aUdf,2),size(k,2),size(k,3),'single');
+            for curr_spikes = 1:size(k,3)
+                k_px(:,:,:,curr_spikes) = svdFrameReconstruct(aUdf(:,:,regression_params.use_svs),k(:,:,curr_spikes));
+            end
+            
+            % Store
+            ctx_str_kernel{curr_animal}{curr_day} = k_px;
+            ctx_str_expl_var{curr_animal}{curr_day} = explained_var.total;
+            
+            AP_print_progress_fraction(curr_day,length(experiments));
+            clearvars -except regression_params n_aligned_depths ...
+                animals animal curr_animal protocol ...
+                experiments curr_day animal load_parts ...
+                ctx_str_kernel ctx_str_expl_var
+            
+        end
+        
+        disp(['Finished ' animal]);
+        
+    end
+    
+    % Save
+    save_path = ['C:\Users\Andrew\OneDrive for Business\Documents\CarandiniHarrisLab\analysis\wf_ephys_choiceworld\paper\data'];
+    save([save_path filesep 'ctx_str_kernels_' protocol '_TESTING'],'-v7.3');
+    warning('saving -v7.3');
+    disp(['Finished ' protocol]);
+    
+end
+
+
+
+
+
+
+
 
 

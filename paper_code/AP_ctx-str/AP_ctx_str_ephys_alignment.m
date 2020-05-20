@@ -106,10 +106,10 @@ clear all
 disp('Estimating imaging-ephys lambda');
 
 % Parameters for regression
-regression_params.use_svs = 1:100;
+regression_params.use_svs = 1:200;
 regression_params.skip_seconds = 60;
 regression_params.upsample_factor = 1;
-regression_params.kernel_t = [-0.5,0.5];
+regression_params.kernel_t = [-0.1,0.1];
 regression_params.zs = [false,false];
 regression_params.cvfold = 5;
 regression_params.use_constant = true;
@@ -164,8 +164,8 @@ for curr_animal = 1:length(animals)
         fVdf_deconv_resample = interp1(frame_t,fVdf_deconv',time_bin_centers)';
         
         % Do regression over a range of lambdas
-        n_lambdas = 50;
-        lambda_range = [0,20];
+        n_lambdas = 20; % [50]
+        lambda_range = [0,100]; % [0,20]
         lambdas = linspace(lambda_range(1),lambda_range(2),n_lambdas)';
         explained_var_lambdas = nan(size(binned_spikes,1),n_lambdas);
         
@@ -232,10 +232,10 @@ clear all
 disp('Getting kernels at regular depths along striatum');
 
 % Parameters for regression
-regression_params.use_svs = 1:100;
+regression_params.use_svs = 1:200;
 regression_params.skip_seconds = 60;
 regression_params.upsample_factor = 1;
-regression_params.kernel_t = [-0.5,0.5];
+regression_params.kernel_t = [0,0]; % no time here - just want map
 regression_params.zs = [false,false];
 regression_params.cvfold = 5;
 regression_params.use_constant = true;
@@ -355,16 +355,19 @@ for curr_animal = 1:length(animals)
 %         binned_spikes = cat(2,binned_spikes_all{:});
 %         binned_spikes_std = binned_spikes./nanstd(binned_spikes,[],2);
        
-        % Load lambda from previously estimated and saved
-        lambda_fn = 'C:\Users\Andrew\OneDrive for Business\Documents\CarandiniHarrisLab\analysis\wf_ephys_choiceworld\ephys_processing\ctx-str_lambda';
-        load(lambda_fn);
-        curr_animal_idx = strcmp(animal,{ctx_str_lambda.animal});
-        if any(curr_animal_idx)
-            curr_day_idx = strcmp(day,ctx_str_lambda(curr_animal_idx).day);
-            if any(curr_day_idx)
-                lambda = ctx_str_lambda(curr_animal_idx).best_lambda(curr_day_idx);
-            end
-        end
+%         % Load lambda from previously estimated and saved
+%         lambda_fn = 'C:\Users\Andrew\OneDrive for Business\Documents\CarandiniHarrisLab\analysis\wf_ephys_choiceworld\ephys_processing\ctx-str_lambda';
+%         load(lambda_fn);
+%         curr_animal_idx = strcmp(animal,{ctx_str_lambda.animal});
+%         if any(curr_animal_idx)
+%             curr_day_idx = strcmp(day,ctx_str_lambda(curr_animal_idx).day);
+%             if any(curr_day_idx)
+%                 lambda = ctx_str_lambda(curr_animal_idx).best_lambda(curr_day_idx);
+%             end
+%         end
+        
+        % Large lambda for smoothed approximation
+        lambda = 500;
   
         % Regress fluorescence to spikes
         kernel_frames = round(regression_params.kernel_t(1)*sample_rate): ...
@@ -448,8 +451,9 @@ kernel_corr = (zscore(k_px_cat_reshape,[],1)'* ...
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%
 
-n_aligned_depths = 4;
-kidx = kmeans(k_px_cat_reshape(:,use_k_px)',n_aligned_depths,'Distance','correlation');
+n_aligned_depths = 3;
+k_px_cat_reshape_norm = k_px_cat_reshape./max(k_px_cat_reshape,[],1);
+kidx = kmeans(k_px_cat_reshape_norm(:,use_k_px)',n_aligned_depths,'Distance','correlation');
 
 % Get average depth for each group
 total_depths = 1:max(cellfun(@(x) size(x,3),[ephys_kernel_depth.k_px]));
@@ -463,7 +467,7 @@ k_px_depth_grp = grpstats(k_px_depth_cat(use_k_px),kidx);
 [~,depth_sort_idx] = sort(k_px_depth_grp);
 
 % Plot k-means groups by depth
-k_grp = reshape(grpstats(k_px_cat_reshape(:,use_k_px)',kidx)', ...
+k_grp = reshape(grpstats(k_px_cat_reshape_norm(:,use_k_px)',kidx)', ...
     size(k_px_cat,1),size(k_px_cat,2),[]);
 k_grp_ordered = k_grp(:,:,depth_sort_idx);
 
@@ -504,7 +508,7 @@ disp('Saved kernel template');
 clear all
 disp('Aligning striatum recordings from template kernels');
 
-n_aligned_depths = 4;
+n_aligned_depths = 3;
 animals = {'AP024','AP025','AP026','AP027','AP028','AP029', ...
     'AP032','AP033','AP034','AP035','AP036'};
 
@@ -631,10 +635,10 @@ disp('Saved ephys kernel alignment');
 clear all
 
 % Parameters for regression
-regression_params.use_svs = 1:100;
-regression_params.skip_seconds = 60;
+regression_params.use_svs = 1:200;
+regression_params.skip_seconds = 20;
 regression_params.upsample_factor = 1;
-regression_params.kernel_t = [-0.5,0.5];
+regression_params.kernel_t = [-0.1,0.1];
 regression_params.zs = [false,false];
 regression_params.cvfold = 5;
 regression_params.use_constant = true;
@@ -642,7 +646,7 @@ regression_params.use_constant = true;
 animals = {'AP045','AP054','AP055','AP053','AP047','AP048'};
 
 % Load alignment structures
-n_aligned_depths = 4;
+n_aligned_depths = 3;
 alignment_path = 'C:\Users\Andrew\OneDrive for Business\Documents\CarandiniHarrisLab\analysis\wf_ephys_choiceworld\ephys_processing';
 ctx_str_lambda_fn = [alignment_path filesep 'ctx-str_lambda'];
 ephys_kernel_depth_fn = [alignment_path filesep 'ephys_kernel_depth'];
@@ -701,8 +705,8 @@ for curr_animal = 1:length(animals)
         fVdf_deconv_resample = interp1(frame_t,fVdf_deconv',time_bin_centers)';
         
         % Do regression over a range of lambdas
-        n_lambdas = 50;
-        lambda_range = [0,20];
+        n_lambdas = 20; % [50]
+        lambda_range = [0,100]; % [0,20]
         lambdas = linspace(lambda_range(1),lambda_range(2),n_lambdas)';
         explained_var_lambdas = nan(size(binned_spikes,1),n_lambdas);
         
@@ -724,7 +728,7 @@ for curr_animal = 1:length(animals)
                     false,regression_params.use_constant);
                 
                 explained_var_lambdas(:,curr_lambda_idx) = explained_var.total;
-                AP_print_progress_fraction(curr_lambda_idx,length(lambdas));
+%                 AP_print_progress_fraction(curr_lambda_idx,length(lambdas));
             end
             
             % Get the best lambda values
@@ -783,11 +787,13 @@ for curr_animal = 1:length(animals)
         binned_spikes_std = binned_spikes./nanstd(binned_spikes,[],2);
    
         % Load lambda from previously estimated and saved
-        lambda = ctx_str_lambda(curr_animal_idx).best_lambda(curr_day);
+%         lambda = ctx_str_lambda(curr_animal_idx).best_lambda(curr_day);
+        lambda = 500;
       
         % Regress fluorescence to spikes
-        kernel_frames = round(regression_params.kernel_t(1)*sample_rate): ...
-            round(regression_params.kernel_t(2)*sample_rate);
+%         kernel_frames = round(regression_params.kernel_t(1)*sample_rate): ...
+%             round(regression_params.kernel_t(2)*sample_rate);
+        kernel_frames = [0];
       
         [k,predicted_spikes,explained_var] = ...
             AP_regresskernel(fVdf_deconv_resample(regression_params.use_svs,:), ...
@@ -881,10 +887,10 @@ end
 clear all
 
 % Parameters for regression
-regression_params.use_svs = 1:100;
-regression_params.skip_seconds = 60;
+regression_params.use_svs = 1:200;
+regression_params.skip_seconds = 20;
 regression_params.upsample_factor = 1;
-regression_params.kernel_t = [-0.5,0.5];
+regression_params.kernel_t = [-0.1,0.1];
 regression_params.zs = [false,false];
 regression_params.cvfold = 5;
 regression_params.use_constant = true;
@@ -892,7 +898,7 @@ regression_params.use_constant = true;
 animals = {'AP060','AP043','AP061'};
 
 % Load alignment structures
-n_aligned_depths = 4;
+n_aligned_depths = 3;
 alignment_path = 'C:\Users\Andrew\OneDrive for Business\Documents\CarandiniHarrisLab\analysis\wf_ephys_choiceworld\ephys_processing';
 ctx_str_lambda_fn = [alignment_path filesep 'ctx-str_lambda'];
 ephys_kernel_depth_fn = [alignment_path filesep 'ephys_kernel_depth'];
@@ -952,8 +958,8 @@ for curr_animal = 1:length(animals)
         fVdf_deconv_resample = interp1(frame_t,fVdf_deconv',time_bin_centers)';
         
         % Do regression over a range of lambdas
-        n_lambdas = 50;
-        lambda_range = [0,20];
+        n_lambdas = 20; % [50]
+        lambda_range = [0,100]; % [0,20]
         lambdas = linspace(lambda_range(1),lambda_range(2),n_lambdas)';
         explained_var_lambdas = nan(size(binned_spikes,1),n_lambdas);
         
@@ -975,7 +981,7 @@ for curr_animal = 1:length(animals)
                     false,regression_params.use_constant);
                 
                 explained_var_lambdas(:,curr_lambda_idx) = explained_var.total;
-                AP_print_progress_fraction(curr_lambda_idx,length(lambdas));
+%                 AP_print_progress_fraction(curr_lambda_idx,length(lambdas));
             end
             
             % Get the best lambda values
@@ -1034,11 +1040,13 @@ for curr_animal = 1:length(animals)
         binned_spikes_std = binned_spikes./nanstd(binned_spikes,[],2);
    
         % Load lambda from previously estimated and saved
-        lambda = ctx_str_lambda(curr_animal_idx).best_lambda(curr_day);
+%         lambda = ctx_str_lambda(curr_animal_idx).best_lambda(curr_day);
+        lambda = 500;
       
         % Regress fluorescence to spikes
-        kernel_frames = round(regression_params.kernel_t(1)*sample_rate): ...
-            round(regression_params.kernel_t(2)*sample_rate);
+%         kernel_frames = round(regression_params.kernel_t(1)*sample_rate): ...
+%             round(regression_params.kernel_t(2)*sample_rate);
+        kernel_frames = [0];
       
         [k,predicted_spikes,explained_var] = ...
             AP_regresskernel(fVdf_deconv_resample(regression_params.use_svs,:), ...
