@@ -1,5 +1,5 @@
 function h = AP_stackplot(x,t,spacing,yscale,color,ylabels,zero_lines)
-% h = AP_stackplot(x,t,spacing,zs,color,ylabels,zero_lines)
+% h = AP_stackplot(x,t,spacing,yscale,color,ylabels,zero_lines)
 %
 % Plot lines stacked on each other
 % x - matrix to plot, N points x M lines

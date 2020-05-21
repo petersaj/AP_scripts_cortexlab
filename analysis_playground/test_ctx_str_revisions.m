@@ -13,10 +13,10 @@
 % data_fn = 'trial_activity_AP_choiceWorldStimPassive_trained_3depth_muafilt';
 % data_fn = 'trial_activity_AP_choiceWorldStimPassive_naive_3depth_muafilt';
 
-% data_fn = 'trial_activity_AP_lcrGratingPassive_ctxstrephys_str_muafilt';
+data_fn = 'trial_activity_AP_lcrGratingPassive_ctxstrephys_str';
 % data_fn = 'trial_activity_AP_lcrGratingPassive_ctxstrephys_ctx';
 
-data_fn = 'trial_activity_AP_lcrGratingPassive_pre_muscimol';
+% data_fn = 'trial_activity_AP_lcrGratingPassive_pre_muscimol';
 
 AP_load_concat_normalize_ctx_str;
 
@@ -528,7 +528,7 @@ linkaxes(get(gcf,'Children'));
 % (load in a dataset first)
 
 % Choose depths to run
-plot_depth = 1:3;
+plot_depth = 1:n_depths;
 
 % Regress kernel ROI activity to striatum domain activity (per recording)
 regression_params.use_svs = 1:200;

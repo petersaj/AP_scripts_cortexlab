@@ -233,6 +233,7 @@ clear all
 disp('Choiceworld trial activity (striatum depth)')
 
 animals = {'AP024','AP025','AP026','AP027','AP028','AP029'};
+n_aligned_depths = 15;
 
 % Initialize save variable
 trial_data_all = struct;
@@ -252,8 +253,7 @@ for curr_animal = 1:length(animals)
         day = experiments(curr_day).day;
         experiment = experiments(curr_day).experiment;
         
-        % Load experiment
-        n_aligned_depths = 4;
+        % Load experiment      
         str_align = 'depth';
         AP_load_experiment;
         
@@ -276,17 +276,18 @@ for curr_animal = 1:length(animals)
         AP_print_progress_fraction(curr_day,length(experiments));
         
         % Clear for next loop
-        clearvars -except animals curr_animal animal protocol experiments curr_day ...
+        clearvars -except animals n_aligned_depths ...
+            curr_animal animal protocol experiments curr_day ...
             trial_data_all
         
     end
 end
 
-clearvars -except trial_data_all
+clearvars -except trial_data_all n_aligned_depths
 disp('Finished loading all')
 
 save_path = 'C:\Users\Andrew\OneDrive for Business\Documents\CarandiniHarrisLab\analysis\wf_ephys_choiceworld\paper\data';
-save_fn = ['trial_activity_choiceworld_4strdepth'];
+save_fn = ['trial_activity_choiceworld_' num2str(n_aligned_depths) 'strdepth'];
 save([save_path filesep save_fn],'-v7.3');
 
 

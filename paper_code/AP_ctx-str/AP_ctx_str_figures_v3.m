@@ -11,10 +11,10 @@
 % exclude_data = true;
 
 % (passive)
-% data_fn = 'trial_activity_AP_choiceWorldStimPassive_trained';
+data_fn = 'trial_activity_AP_choiceWorldStimPassive_trained';
 % data_fn = 'trial_activity_AP_choiceWorldStimPassive_naive';
 % data_fn = 'trial_activity_stimKalatsky_naive';
-data_fn = 'trial_activity_stimKalatsky_trained';
+% data_fn = 'trial_activity_stimKalatsky_trained';
 exclude_data = false;
 
 % (unused at the moment)
@@ -477,8 +477,8 @@ for curr_align = 1:length(use_align)
     for curr_depth = 1:n_depths
         p(curr_depth,1) = subplot(n_depths,1,curr_depth); hold on;
         
-        AP_errorfill(t + curr_t_offset,nanmean(curr_str_act_plottrial_mean(curr_depth,:,:),3), ...
-            AP_sem(curr_str_act_plottrial_mean(curr_depth,:,:),3),align_col(curr_align,:),0.5)
+        AP_errorfill(t + curr_t_offset,nanmean(curr_str_act_plottrial_mean(curr_depth,:,:),3)', ...
+            AP_sem(curr_str_act_plottrial_mean(curr_depth,:,:),3)',align_col(curr_align,:),0.5);
         xlabel(['Time from ' use_align_labels{curr_align}]);
         ylabel('Spikes (std)');
         line(repmat(curr_t_offset,2,1),ylim,'color','k');

@@ -11628,8 +11628,8 @@ timeavg_align = {stim_align};
 %     {[trial_stim_allcat > 0 & quiescent_trials, ...
 %     trial_stim_allcat < 0 & quiescent_trials]};
 timeavg_trial_conditions = ...
-    {[trial_stim_allcat == 1 & quiescent_trials, ...
-    trial_stim_allcat == -1 & quiescent_trials]};
+    {[trial_stim_allcat == 1, ...
+    trial_stim_allcat == -1]};
 % timeavg_trial_conditions = ...
 %     {[trial_stim_allcat > 0, ...
 %     trial_stim_allcat < 0]};
@@ -11989,26 +11989,25 @@ linkaxes(get(gcf,'Children'),'xy');
 
 
 % combining binning on each axis?
-use_stim = 1;
+a = reshape(nanmean(curr_act_pred_allcat(trial_stim_allcat == 1,t > 0 & t < 0.2,plot_areas),2),[],1);
+b = reshape(nanmean(curr_act_allcat(trial_stim_allcat == 1,t > 0 & t < 0.2,plot_areas),2),[],1);
 
-a = reshape(curr_act_pred_allcat(trial_stim_allcat == use_stim,t > 0 & t < 0.15,plot_areas),[],1);
-b = reshape(curr_act_allcat(trial_stim_allcat == use_stim,t > 0 & t < 0.15,plot_areas),[],1);
+% c = reshape(nanmean(curr_act_pred_allcat(trial_stim_allcat == -1,t > 0 & t < 0.2,plot_areas),2),[],1);
+% d = reshape(nanmean(curr_act_allcat(trial_stim_allcat == -1,t > 0 & t < 0.2,plot_areas),2),[],1);
+c = convn(reshape(curr_act_pred_allcat(:,t < 0,plot_areas),[],1),t_smooth,'same');
+d = convn(reshape(curr_act_allcat(:,t < 0,plot_areas),[],1),t_smooth,'same');
 
-c = reshape(curr_act_pred_allcat(:,t < 0 | t > 1.5,plot_areas),[],1);
-d = reshape(curr_act_allcat(:,t < 0 | t > 1.5,plot_areas),[],1);
-
-use_bins = linspace(-4,4,6);
+use_bins = linspace(-2,2,5);
 bin_centers = (use_bins(1:end-1) + diff(use_bins)/2);
+
 a_bins = discretize(a,use_bins);
 b_bins = discretize(b,use_bins);
-
 a_b_bins = accumarray(b_bins(~isnan(b_bins)),a(~isnan(b_bins)),[length(bin_centers),1],@nanmean);
 b_a_bins = accumarray(a_bins(~isnan(a_bins)),b(~isnan(a_bins)),[length(bin_centers),1],@nanmean);
 
 
 c_bins = discretize(c,use_bins);
 d_bins = discretize(d,use_bins);
-
 c_d_bins = accumarray(d_bins(~isnan(d_bins)),c(~isnan(d_bins)),[length(bin_centers),1],@nanmean);
 d_c_bins = accumarray(c_bins(~isnan(c_bins)),d(~isnan(c_bins)),[length(bin_centers),1],@nanmean);
 
@@ -12025,33 +12024,6 @@ plot(c_d_bins,d_c_bins,'linewidth',2);
 plot(a_b_bins,b_a_bins,'linewidth',2);
 
 
-
-% testing timepoints relative to stim
-use_stim = 1;
-
-use_bins = linspace(-5,10,10);
-bin_centers = (use_bins(1:end-1) + diff(use_bins)/2);
-
-r = nan(length(bin_centers),length(t),2);
-
-set(gca,'ColorOrder',copper(length(t)));
-for curr_t = 1:length(t)
-    a = reshape(curr_act_pred_allcat(trial_stim_allcat == use_stim,curr_t,plot_areas),[],1);
-    b = reshape(curr_act_allcat(trial_stim_allcat == use_stim,curr_t,plot_areas),[],1);
- 
-    a_bins = discretize(a,use_bins);
-    b_bins = discretize(b,use_bins);
-    
-    a_b_bins = accumarray(b_bins(~isnan(b_bins)),a(~isnan(b_bins)),[length(bin_centers),1],@nanmean);
-    b_a_bins = accumarray(a_bins(~isnan(a_bins)),b(~isnan(a_bins)),[length(bin_centers),1],@nanmean);   
-    
-    r(:,curr_t,1) = a_b_bins;
-    r(:,curr_t,2) = b_a_bins;    
-end
-
-figure; hold on
-surf(imgaussfilt(r(:,:,1),2),imgaussfilt(r(:,:,2),2),repmat(t,length(bin_centers),1))
-axis vis3d
 
 
 
@@ -12149,6 +12121,14 @@ figure;
 errorbar(nanmean(curr_corr,2),AP_sem(curr_corr,2),'k','linewidth',2);
 ylabel('ITI correlation');
 xlabel('Str');
+
+
+
+
+
+
+
+
 
 
 
