@@ -12124,9 +12124,113 @@ xlabel('Str');
 
 
 
+%%
 
 
+% Set alignment shifts
+t_leeway = -t(1);
+leeway_samples = round(t_leeway*(sample_rate));
+stim_align = zeros(size(mua_allcat,1),1);
 
+% Get trials with movement during stim to exclude
+wheel_thresh = 0.025;
+quiescent_trials = ~any(abs(wheel_allcat(:,t >= 0 & t <= 0.5)) > wheel_thresh,2);
+
+% Set windows to average activity
+timeavg_labels = {'Stim'};
+timeavg_t = {[0,0.2]};
+timeavg_align = {stim_align};
+% timeavg_trial_conditions = ...
+%     {[trial_stim_allcat > 0 & quiescent_trials, ...
+%     trial_stim_allcat < 0 & quiescent_trials]};
+timeavg_trial_conditions = ...
+    {[trial_stim_allcat == 1, ...
+    trial_stim_allcat == -1]};
+% timeavg_trial_conditions = ...
+%     {[trial_stim_allcat > 0, ...
+%     trial_stim_allcat < 0]};
+% timeavg_trial_conditions = ...
+%     {[trial_choice_allcat == 1, ...
+%     trial_choice_allcat == -1]};
+% timeavg_trial_conditions = ...
+%     {[trial_outcome_allcat == 1, ...
+%     trial_outcome_allcat == -1]};
+timeavg_condition_colors = ...
+    {[1,0,0;0,0,1]};
+
+% Set activity percentiles and bins
+act_prctile = [5,95];
+n_act_bins = 5;
+
+% Set areas and conditions
+plot_areas = [1];
+
+% Loop across area pairs, plot binned predicted v measured activity
+curr_act_allcat = fluor_kernelroi_deconv; % fluor_kernelroi_deconv, mua_ctxpred_allcat, mua_allcat
+
+% (ctx-predicted)
+curr_act_pred_allcat = mua_allcat; % fluor_kernelroi_deconv, mua_ctxpred_allcat, mua_allcat
+
+figure('color','w');
+for curr_area_idx = 1:length(plot_areas)
+    curr_area = plot_areas(curr_area_idx);
+  
+    [grp_max,grp_idx] = max(timeavg_trial_conditions{1},[],2);
+    grp_idx(grp_max == 0) = 0;
+    curr_act_avg = nan(max(grp_idx),length(t),length(use_split));
+    curr_act_pred_avg = nan(max(grp_idx),length(t),length(use_split));
+    for curr_exp = 1:length(use_split)
+        for curr_grp = 1:max(grp_idx)
+            curr_act_avg(curr_grp,:,curr_exp) = ...
+                nanmean(curr_act_allcat(grp_idx == curr_grp & ...
+                split_idx == curr_exp,:,curr_area),1);
+            curr_act_pred_avg(curr_grp,:,curr_exp) = ...
+                nanmean(curr_act_pred_allcat(grp_idx == curr_grp & ...
+                split_idx == curr_exp,:,curr_area),1);
+        end
+    end
+
+    subplot(length(plot_areas),2,(curr_area_idx-1)*2+1); 
+    AP_errorfill(t, ...
+            nanmean(curr_act_avg,3)', ...
+            AP_sem(curr_act_avg,3)', ...
+            timeavg_condition_colors{1}); 
+    line([0,0],ylim,'color','k');
+    line(repmat(timeavg_t{1}(1),2,1),ylim,'color','g');
+    line(repmat(timeavg_t{1}(2),2,1),ylim,'color','g');
+    ylabel(['Measured (' num2str(curr_area) ')']);
+    xlabel('Time from stim');
+    
+    subplot(length(plot_areas),2,(curr_area_idx-1)*2+2); 
+    AP_errorfill(t, ...
+            nanmean(curr_act_pred_avg,3)', ...
+            AP_sem(curr_act_pred_avg,3)', ...
+            timeavg_condition_colors{1}); 
+    line([0,0],ylim,'color','k');
+    line(repmat(timeavg_t{1}(1),2,1),ylim,'color','g');
+    line(repmat(timeavg_t{1}(2),2,1),ylim,'color','g');
+    ylabel(['Predicted (' num2str(curr_area) ')']);
+    xlabel('Time from stim');
+    
+  
+end
+linkaxes(get(gcf,'Children'),'xy');
+
+m = nan(size(mua_allcat(:,:,1)));
+f = nan(size(mua_allcat(:,:,1)));
+for curr_t = 1:length(t)
+   
+    curr_trials = trial_stim_allcat == 1 & ...
+        fluor_kernelroi_deconv(:,curr_t,1) > 0.5 & ...
+        fluor_kernelroi_deconv(:,curr_t,1) < 1.5;
+    
+    f(curr_trials,curr_t) = fluor_kernelroi_deconv(curr_trials,curr_t,1);
+    m(curr_trials,curr_t) = mua_allcat(curr_trials,curr_t,1);
+end
+
+figure; hold on
+plot(t,nanmean(m))
+plot(t,nanmean(f))
 
 
 

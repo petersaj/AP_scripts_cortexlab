@@ -941,7 +941,7 @@ for curr_data = 1:length(data_fns)
     % Load data
     data_fn = data_fns{curr_data};
     AP_load_concat_normalize_ctx_str;
-    
+
     % Split by experiment
     trials_recording = cellfun(@(x) size(x,1),vertcat(wheel_all{:}));
     
@@ -1080,11 +1080,11 @@ plot_str = 1;
 t_stim = t >= 0 & t <= 0.2;
 mua_avg_premuscimol = permute(nanmean(mua_premuscimol_mean(:,t_stim,:),2),[1,3,2]);
 mua_avg_postmuscimol = permute(nanmean(mua_postmuscimol_mean(:,t_stim,:),2),[1,3,2]);
-mua_avg_postpre_change = (mua_avg_postmuscimol-mua_avg_premuscimol);
+mua_avg_postpre_change = (mua_avg_postmuscimol-mua_avg_premuscimol)./(mua_avg_premuscimol+mua_avg_postmuscimol);
 
 fluor_avg_premuscimol = permute(nanmean(fluor_kernelroi_premuscimol_mean(:,t_stim,:),2),[1,3,2]);
 fluor_avg_postmuscimol = permute(nanmean(fluor_kernelroi_postmuscimol_mean(:,t_stim,:),2),[1,3,2]);
-fluor_avg_postpre_change = (fluor_avg_postmuscimol-fluor_avg_premuscimol);
+fluor_avg_postpre_change = (fluor_avg_postmuscimol-fluor_avg_premuscimol)./(fluor_avg_premuscimol+fluor_avg_postmuscimol);
 
 figure;
 subplot(1,3,1);hold on;
@@ -1111,8 +1111,11 @@ subplot(1,3,3);
 plot(fluor_avg_postpre_change(:,plot_str),mua_avg_postpre_change(:,plot_str),'.k','MarkerSize',20)
 xlabel(['Cortex ROI (post-pre)']);
 ylabel(['Str ' num2str(plot_str) ' (post-pre)']);
-line(xlim,[0,0],'color','k','linestyle','--');
-line([0,0],ylim,'color','k','linestyle','--');
+line([-1,1],[0,0],'color','k','linestyle','--');
+line([0,0],[-1,1],'color','k','linestyle','--');
+line([-1,1],[-1,1],'color','k');
+xlim([-1,1]);
+ylim([-1,1]);
 axis square;
 
 nonan_points = ~isnan(mua_avg_postpre_change(:,plot_str)) & ...

@@ -6,16 +6,16 @@
 % Load data
 
 % (task)
-% data_fn = 'trial_activity_choiceworld'; % Primary dataset
-% data_fn = 'trial_activity_choiceworld_4strdepth'; % Depth-aligned striatum
-% exclude_data = true;
+data_fn = 'trial_activity_choiceworld'; % Primary dataset
+% data_fn = 'trial_activity_choiceworld_15strdepth'; % Depth-aligned striatum
+exclude_data = true;
 
 % (passive)
-data_fn = 'trial_activity_AP_choiceWorldStimPassive_trained';
+% data_fn = 'trial_activity_AP_choiceWorldStimPassive_trained';
 % data_fn = 'trial_activity_AP_choiceWorldStimPassive_naive';
 % data_fn = 'trial_activity_stimKalatsky_naive';
 % data_fn = 'trial_activity_stimKalatsky_trained';
-exclude_data = false;
+% exclude_data = false;
 
 % (unused at the moment)
 % data_fn = 'trial_activity_choiceworld_wfonly'; % Widefield-only days (no craniotomy, so cleaner)
@@ -2127,6 +2127,7 @@ errorbar(nanmean(ctxpred_r2,1),AP_sem(ctxpred_r2,1),'color',[0,0.7,0],'linewidth
 xlabel('Striatum depth');
 ylabel('Task explained variance');
 legend({'Task','Cortex'});
+
 
 %% Fig S8a (addition): comparison of cortex kernel vs ROI
 

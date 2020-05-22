@@ -14,7 +14,7 @@
 % data_fn = 'trial_activity_AP_choiceWorldStimPassive_naive_3depth_muafilt';
 
 % data_fn = 'trial_activity_AP_lcrGratingPassive_ctxstrephys_str';
-data_fn = 'trial_activity_AP_lcrGratingPassive_ctxstrephys_ctx';
+% data_fn = 'trial_activity_AP_lcrGratingPassive_ctxstrephys_ctx';
 
 % data_fn = 'trial_activity_AP_lcrGratingPassive_pre_muscimol';
 
@@ -308,7 +308,7 @@ plot_depth = 1;
 
 % Regress kernel ROI activity to striatum domain activity (per recording)
 regression_params.use_svs = 1:200;
-regression_params.kernel_t = [0,0];
+regression_params.kernel_t = [-0.2,0.2];
 regression_params.zs = [false,false];
 regression_params.cvfold = 2;
 regression_params.use_constant = false;
