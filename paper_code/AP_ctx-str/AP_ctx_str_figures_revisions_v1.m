@@ -436,6 +436,7 @@ end
 
 %% ^^^ Correlation between wf/ctx-mua and ctx-mua/str-mua
 
+%%% Load correlation data
 use_protocol = 'vanillaChoiceworld';
 % use_protocol = 'AP_sparseNoise';
 
@@ -443,13 +444,97 @@ data_path = 'C:\Users\Andrew\OneDrive for Business\Documents\CarandiniHarrisLab\
 data_fn = [data_path filesep 'ctx_fluor_mua_corr_' use_protocol];
 load(data_fn);
 
+%%% Get average aligned CSD
+
+% Load CSD 
+vis_ctx_ephys_fn = 'C:\Users\Andrew\OneDrive for Business\Documents\CarandiniHarrisLab\analysis\wf_ephys_choiceworld\ephys_processing\vis_ctx_ephys.mat';
+load(vis_ctx_ephys_fn);
+
+% Concatenate for plotting
+animal_cat = cellfun(@(x,y) repmat({x},1,length(y)),{vis_ctx_ephys.animal},{vis_ctx_ephys.day},'uni',false);
+animal_cat = horzcat(animal_cat{:});
+day_cat = [vis_ctx_ephys(:).day];
+n_recordings = length(day_cat);
+
+stim_lfp_t = vis_ctx_ephys(1).stim_lfp_t{1};
+stim_lfp_depth = vis_ctx_ephys(1).stim_lfp_depth{1};
+stim_csd_depth = vis_ctx_ephys(1).stim_csd_depth{1};
+
+stim_lfp_cat = cell2mat(permute([vis_ctx_ephys(:).stim_lfp],[1,3,2]));
+stim_csd_cat = cell2mat(permute([vis_ctx_ephys(:).stim_csd],[1,3,2]));
+csd_slice_cat = cell2mat([vis_ctx_ephys(:).csd_slice]);
+
+% Get aligned depth for each recording, plot, save
+figure;
+curr_recording = 1;
+stim_csd_aligned_scaled_cat = nan(0);
+for curr_animal = 1:length(vis_ctx_ephys)
+    for curr_day = 1:length(vis_ctx_ephys(curr_animal).day)
+        
+        stim_csd = vis_ctx_ephys(curr_animal).stim_csd{curr_day};
+        csd_slice = vis_ctx_ephys(curr_animal).csd_slice{curr_day};
+        stim_csd_depth = vis_ctx_ephys(curr_animal).stim_csd_depth{curr_day};
+        stim_csd_depth_aligned = vis_ctx_ephys(curr_animal).stim_csd_depth_aligned{curr_day};
+                
+        % Plot aligned CSD
+        depth_align_interp = [-500:20:2000];
+        stim_csd_aligned = interp1(...
+            stim_csd_depth_aligned,stim_csd_cat(:,:,curr_recording),depth_align_interp, ...
+            'linear','extrap');
+        
+        animal = vis_ctx_ephys(curr_animal).animal;
+        day = vis_ctx_ephys(curr_animal).day{curr_day};
+        stim_lfp_t = vis_ctx_ephys(curr_animal).stim_lfp_t{curr_day};
+        stim_lfp_depth = vis_ctx_ephys(curr_animal).stim_lfp_depth{curr_day};
+        stim_lfp = vis_ctx_ephys(curr_animal).stim_lfp{curr_day};
+        
+        subplot(3,n_recordings,curr_recording);
+        imagesc(stim_lfp_t,stim_lfp_depth,stim_lfp);
+        caxis([-max(abs(caxis))/2,max(abs(caxis))/2]);
+        colormap(brewermap([],'*RdBu'));
+        title({animal,day,'LFP'});
+        
+        subplot(3,n_recordings,size(stim_csd_cat,3)+curr_recording);
+        imagesc(stim_lfp_t,stim_csd_depth,stim_csd);
+        caxis([-max(abs(caxis))/2,max(abs(caxis))/2]);
+        colormap(brewermap([],'*RdBu'));
+        title('CSD');
+        
+        subplot(3,n_recordings,size(stim_csd_cat,3)*2+curr_recording);
+        imagesc(stim_lfp_t,stim_csd_depth_aligned,stim_csd_aligned);
+        caxis([-max(abs(caxis))/2,max(abs(caxis))/2]);
+        colormap(brewermap([],'*RdBu'));
+        title('Aligned CSD');
+                
+        % Keep aligned CSD for averaging
+        stim_csd_aligned_scaled_cat(:,:,curr_recording) = stim_csd_aligned./min(csd_slice);       
+        
+        % Iterate recording index (only used for plotting)
+        curr_recording = curr_recording + 1;
+
+    end
+end
+
+stim_csd_aligned_mean = nanmean(stim_csd_aligned_scaled_cat,3);
+
+%%% Plot correlations
+
 mua_depth = data(1).cortex_mua_depth{1}; % they're all the same, use 1st
 cortex_fluor_corr_cat = cell2mat(horzcat(data.cortex_fluor_corr));
 cortex_striatum_corr_cat = cell2mat(permute(horzcat(data.cortex_striatum_corr),[1,3,2]));
 
 figure;
 
-subplot(1,3,1,'YDir','reverse'); hold on;
+subplot(1,4,1,'YDir','reverse');
+imagesc(stim_lfp_t,depth_align_interp,stim_csd_aligned_mean);
+caxis([-1,1]);
+line([0,0],ylim,'color','k');
+colormap(brewermap([],'*RdBu'));
+xlabel('Time from stim');
+ylabel('Aligned depth');
+title('Average aligned CSD')
+
+subplot(1,4,2,'YDir','reverse'); hold on;
 plot(cortex_fluor_corr_cat',mua_depth,'color',[0.2,0.8,0.2]);
 errorbar(nanmean(cortex_fluor_corr_cat,2), ...
     mua_depth,AP_sem(cortex_fluor_corr_cat,2), ...
@@ -458,7 +543,7 @@ xlabel('Correlation');
 ylabel('Cortical MUA aligned depth');
 title('Cortical fluorescence');
 
-subplot(1,3,2,'YDir','reverse'); hold on;
+subplot(1,4,3,'YDir','reverse'); hold on;
 set(gca,'ColorOrder',copper(4));
 plot_str = 1;
 plot(permute(cortex_striatum_corr_cat(:,plot_str,:),[1,3,2]),mua_depth,'color',[0.5,0.5,0.5]);
@@ -468,7 +553,7 @@ xlabel('Correlation');
 ylabel('Cortical MUA aligned depth');
 title(['Str ' num2str(plot_str) ' multiunit']);
 
-subplot(2,3,3); hold on;
+subplot(2,4,4); hold on;
 for i = 1:size(cortex_fluor_corr_cat,2)
     plot(cortex_fluor_corr_cat(:,i), ...
         cortex_striatum_corr_cat(:,plot_str,i), ...
@@ -479,11 +564,11 @@ plot(nanmean(cortex_fluor_corr_cat,2), ...
 xlabel('Fluorescence - cortical MUA correlation');
 ylabel('Cortical MUA - striatal MUA correlation')
 
-subplot(2,3,6); hold on;
+subplot(2,4,8); hold on;
 plot(permute(max(cortex_striatum_corr_cat,[],1),[2,3,1]),'color',[0.5,0.5,0.5]);
 errorbar(squeeze(nanmean(max(cortex_striatum_corr_cat,[],1),3)), ...
     squeeze(AP_sem(max(cortex_striatum_corr_cat,[],1),3)),'k','linewidth',2);
-xlim([0.5,4.5]);
+xlim([0.5,3.5]);
 xlabel('Striatal domain');
 ylabel('Cortical MUA max corr');
 
@@ -494,14 +579,15 @@ ylabel('Cortical MUA max corr');
 
 animal = 'AP060';
 day = '2019-12-06';
-experiment = 3;
+experiment = 1;
 site = 2; % (cortex)
 str_align= 'none'; % (cortex)
 verbose = true;
 AP_load_experiment;
 
-
-
+mua_fig = figure;
+raster_fig = figure;
+plot_t = [100,300];
 
 % Plot CSD
 vis_ctx_ephys_fn = 'C:\Users\Andrew\OneDrive for Business\Documents\CarandiniHarrisLab\analysis\wf_ephys_choiceworld\ephys_processing\vis_ctx_ephys.mat';
@@ -528,6 +614,7 @@ curr_day_idx = strcmp(day,vis_ctx_ephys(curr_animal_idx).day);
 curr_csd_depth = vis_ctx_ephys(curr_animal_idx).stim_csd_depth{curr_day_idx};
 curr_csd_depth_aligned = vis_ctx_ephys(curr_animal_idx).stim_csd_depth_aligned{curr_day_idx};
 template_depths_aligned = interp1(curr_csd_depth,curr_csd_depth_aligned,template_depths);
+spike_depths_aligned = interp1(curr_csd_depth,curr_csd_depth_aligned,spike_depths);
 
 % Find cortex end by largest gap between templates
 sorted_template_depths = sort([template_depths_aligned]);
@@ -572,6 +659,22 @@ for curr_depth = 1:size(depth_corr_bins,2)
         ismember(spike_templates,curr_depth_templates_idx)),spike_binning_t_edges);
 end
 
+% Plot cortex raster
+figure(raster_fig);
+subplot(3,1,1); hold on;
+plot_t_idx = spike_binning_t_centers >= plot_t(1) & ...
+    spike_binning_t_centers <= plot_t(2);
+plot(spike_binning_t_centers(plot_t_idx), ...
+    fluor_roi_interp(plot_t_idx),'linewidth',2,'color',[0,0.7,0]);
+
+subplot(3,1,2,'YDir','reverse'); hold on;
+plot_spikes = spike_times_timeline >= plot_t(1) & ...
+    spike_times_timeline <= plot_t(2) & ...
+    spike_depths_aligned <= ctx_depth(2);
+plot(spike_times_timeline(plot_spikes),spike_depths(plot_spikes),'.k');
+ylabel('Depth (\mum)');
+xlabel('Time (s)');
+
 %%% LOAD STRIATUM EPHYS AND GET MUA BY DEPTH
 clear load_parts
 load_parts.ephys = true;
@@ -589,7 +692,20 @@ for curr_depth = 1:n_aligned_depths
     striatum_mua(curr_depth,:) = histcounts(curr_spike_times,spike_binning_t_edges);
 end
 
-figure;
+% Plot striatum raster
+figure(raster_fig);
+subplot(3,1,3,'YDir','reverse'); hold on;
+plot_spikes = spike_times_timeline >= plot_t(1) & ...
+    spike_times_timeline <= plot_t(2) & ...
+    spike_depths >= str_depth(1) & spike_depths <= str_depth(2);
+plot(spike_times_timeline(plot_spikes),spike_depths(plot_spikes),'.k');
+ylabel('Depth (\mum)');
+xlabel('Time (s)');
+linkaxes(get(raster_fig,'Children'),'x');
+
+
+% Plot multiunit
+figure(mua_fig);
 subplot(5,1,1);
 plot(spike_binning_t_centers,fluor_roi_interp,'linewidth',2,'color',[0,0.7,0]);
 title('Fluorescence');
@@ -605,8 +721,55 @@ title('Striatum MUA');
 
 linkaxes(get(gcf,'Children'),'x');
 
-plot_t = [128,132];
 xlim(plot_t);
+
+
+
+
+% %%%%%% TESTING
+% 
+% 
+% % (wheel velocity)
+% wheel_axes = subplot(6,1,6);
+% plot_wheel_idx = Timeline.rawDAQTimestamps >= plot_t(1) & ...
+%     Timeline.rawDAQTimestamps <= plot_t(2);
+% plot(wheel_axes,Timeline.rawDAQTimestamps(plot_wheel_idx), ...
+%     wheel_velocity(plot_wheel_idx),'k','linewidth',2);
+% ylabel('Wheel velocity');
+% axis off
+% 
+% % (stimuli)
+% stim_col = colormap_BlueWhiteRed(5);
+% [~,trial_contrast_idx] = ...
+%     ismember(trial_conditions(:,1).*trial_conditions(:,2),unique(contrasts'.*sides),'rows');
+% stim_lines = arrayfun(@(x) line(wheel_axes,repmat(stimOn_times(x),1,2),ylim(wheel_axes),'color', ...
+%     stim_col(trial_contrast_idx(x),:),'linewidth',2), ...
+%     find(stimOn_times >= plot_t(1) & stimOn_times <= plot_t(2)));
+% 
+% % (movement starts)
+% move_col = [0.6,0,0.6;0,0.6,0];
+% [~,trial_choice_idx] = ismember(trial_conditions(:,3),[-1;1],'rows');
+% move_lines = arrayfun(@(x) line(wheel_axes,repmat(wheel_move_time(x),1,2),ylim(wheel_axes),'color', ...
+%     move_col(trial_choice_idx(x),:),'linewidth',2), ...
+%     find(wheel_move_time >= plot_t(1) & wheel_move_time <= plot_t(2)));
+% 
+% % (go cues)
+% go_col = [0.8,0.8,0.2];
+% go_cue_times = signals_events.interactiveOnTimes(1:n_trials);
+% go_cue_lines = arrayfun(@(x) line(wheel_axes,repmat(go_cue_times(x),1,2),ylim(wheel_axes),'color', ...
+%     go_col,'linewidth',2), ...
+%     find(go_cue_times >= plot_t(1) & go_cue_times <= plot_t(2)));
+% 
+% % (outcomes)
+% outcome_col = [0,0,0.8;0.5,0.5,0.5];
+% reward_lines = arrayfun(@(x) line(wheel_axes,repmat(reward_t_timeline(x),1,2),ylim(wheel_axes),'color', ...
+%     outcome_col(1,:),'linewidth',2), ...
+%     find(reward_t_timeline >= plot_t(1) & reward_t_timeline <= plot_t(2)));
+% punish_times = signals_events.responseTimes(trial_outcome == -1);
+% punish_lines = arrayfun(@(x) line(wheel_axes,repmat(punish_times(x),1,2),ylim(wheel_axes),'color', ...
+%     outcome_col(2,:),'linewidth',2), ...
+%     find(punish_times >= plot_t(1) & punish_times <= plot_t(2)));
+
 
 
 %%  Cortical muscimol

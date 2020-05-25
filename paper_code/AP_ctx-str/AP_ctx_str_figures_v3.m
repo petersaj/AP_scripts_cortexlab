@@ -6,8 +6,8 @@
 % Load data
 
 % (task)
-data_fn = 'trial_activity_choiceworld'; % Primary dataset
-% data_fn = 'trial_activity_choiceworld_15strdepth'; % Depth-aligned striatum
+% data_fn = 'trial_activity_choiceworld'; % Primary dataset
+data_fn = 'trial_activity_choiceworld_15strdepth'; % Depth-aligned striatum
 exclude_data = true;
 
 % (passive)

@@ -1455,7 +1455,7 @@ set(gca,'YDir','reverse');
 %% Checking trial data
 
 % data_fn = 'trial_activity_vanillaChoiceworld_ctxstrephys_ctx';
-% data_fn = 'trial_activity_vanillaChoiceworld_ctxstrephys_str';
+data_fn = 'trial_activity_vanillaChoiceworld_ctxstrephys_str';
 
 % data_fn = 'trial_activity_vanillaChoiceworld_ctxstrephys_str_filt';
 % data_fn = 'trial_activity_vanillaChoiceworld_ctxstrephys_ctx_filt';

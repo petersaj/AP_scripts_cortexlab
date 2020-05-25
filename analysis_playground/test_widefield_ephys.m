@@ -376,7 +376,7 @@ end
 
 sta_im = nan(size(U,1),size(U,2),length(surround_frames),size(frame_spikes,1));
 for curr_depth = 1:size(frame_spikes,1)
-   curr_surround_v = fVdf*permute(frames_w(:,curr_depth,:),[1,3,2]); 
+   curr_surround_v = fVdf_deconv*permute(frames_w(:,curr_depth,:),[1,3,2]); 
    sta_im(:,:,:,curr_depth) = svdFrameReconstruct(Udf,curr_surround_v);
 end
 

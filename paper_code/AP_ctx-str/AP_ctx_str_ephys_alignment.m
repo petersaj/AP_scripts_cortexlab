@@ -106,7 +106,7 @@ clear all
 disp('Estimating imaging-ephys lambda');
 
 % Parameters for regression
-regression_params.use_svs = 1:200;
+regression_params.use_svs = 1:100;
 regression_params.skip_seconds = 60;
 regression_params.upsample_factor = 1;
 regression_params.kernel_t = [-0.1,0.1];
@@ -232,7 +232,7 @@ clear all
 disp('Getting kernels at regular depths along striatum');
 
 % Parameters for regression
-regression_params.use_svs = 1:200;
+regression_params.use_svs = 1:100;
 regression_params.skip_seconds = 60;
 regression_params.upsample_factor = 1;
 regression_params.kernel_t = [0,0]; % no time here - just want map
@@ -367,7 +367,7 @@ for curr_animal = 1:length(animals)
 %         end
         
         % Large lambda for smoothed approximation
-        lambda = 500;
+        lambda = 100;
   
         % Regress fluorescence to spikes
         kernel_frames = round(regression_params.kernel_t(1)*sample_rate): ...
@@ -410,8 +410,6 @@ disp('Saved ephys depth kernels');
 %% 4) Get template kernels by K-means of depth kernels
 clear all
 disp('Getting template kernels');
-
-warning('Change this to deterministic, not K-means');
 
 % Load kernels by depths
 kernel_path = 'C:\Users\Andrew\OneDrive for Business\Documents\CarandiniHarrisLab\analysis\wf_ephys_choiceworld\ephys_processing';
@@ -635,7 +633,7 @@ disp('Saved ephys kernel alignment');
 clear all
 
 % Parameters for regression
-regression_params.use_svs = 1:200;
+regression_params.use_svs = 1:100;
 regression_params.skip_seconds = 20;
 regression_params.upsample_factor = 1;
 regression_params.kernel_t = [-0.1,0.1];
@@ -788,7 +786,7 @@ for curr_animal = 1:length(animals)
    
         % Load lambda from previously estimated and saved
 %         lambda = ctx_str_lambda(curr_animal_idx).best_lambda(curr_day);
-        lambda = 500;
+        lambda = 100;
       
         % Regress fluorescence to spikes
 %         kernel_frames = round(regression_params.kernel_t(1)*sample_rate): ...
@@ -887,7 +885,7 @@ end
 clear all
 
 % Parameters for regression
-regression_params.use_svs = 1:200;
+regression_params.use_svs = 1:100;
 regression_params.skip_seconds = 20;
 regression_params.upsample_factor = 1;
 regression_params.kernel_t = [-0.1,0.1];
@@ -1041,7 +1039,7 @@ for curr_animal = 1:length(animals)
    
         % Load lambda from previously estimated and saved
 %         lambda = ctx_str_lambda(curr_animal_idx).best_lambda(curr_day);
-        lambda = 500;
+        lambda = 100;
       
         % Regress fluorescence to spikes
 %         kernel_frames = round(regression_params.kernel_t(1)*sample_rate): ...

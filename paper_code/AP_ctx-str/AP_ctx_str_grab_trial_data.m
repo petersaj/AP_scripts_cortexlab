@@ -145,7 +145,7 @@ end
 if verbose; disp('Regressing cortex to striatum...'); end;
 
 % Parameters for regression
-regression_params.use_svs = 1:200;
+regression_params.use_svs = 1:100;
 regression_params.skip_seconds = 20;
 regression_params.upsample_factor = 1;
 regression_params.kernel_t = [-0.1,0.1];
