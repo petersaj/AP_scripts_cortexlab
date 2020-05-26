@@ -1,8 +1,7 @@
 % Generate figures for ctx-str paper 
 % (trials data is prepared in AP_ctx_str_trial_preprocessing)
 %
-% Submission 1
-% (note: changed slightly after submission when working on new figs)
+% Submission 2
 
 %% Load in task data
 
@@ -168,13 +167,13 @@ load(wf_roi_fn);
 roi_trace = AP_svd_roi(aUdf(:,:,use_components),fVdf_deconv(use_components,:),[],[],cat(3,wf_roi.mask));
 
 plot_rois = [1,9,10];
-fluor_spacing = 0.04;
+fluor_spacing = 0.2;
 fluor_axes = subplot(6,1,1:2); hold on;
 plot_fluor_idx = frame_t >= plot_t(1) & frame_t <= plot_t(2);
 AP_stackplot(roi_trace(plot_rois,plot_fluor_idx)', ...
-    frame_t(plot_fluor_idx),fluor_spacing,false,[0,0.7,0],{wf_roi(plot_rois).area});
+    frame_t(plot_fluor_idx),fluor_spacing,[],[0,0.7,0],{wf_roi(plot_rois).area});
 
-y_scale = 0.02;
+y_scale = 0.2;
 t_scale = 2;
 line([min(xlim),min(xlim) + t_scale],repmat(min(ylim),2,1),'color','k','linewidth',3);
 line(repmat(min(xlim),2,1),[min(ylim),min(ylim) + y_scale],'color','k','linewidth',3);
@@ -326,8 +325,8 @@ for curr_roi_idx = 1:length(plot_rois)
         
         for curr_subregressor = 1:size(regressor_roi{curr_regressor},1)
            AP_errorfill(task_regressor_t_shifts{curr_regressor}, ...
-            nanmean(regressor_roi{curr_regressor}(curr_subregressor,:,curr_roi,:),4), ...
-            AP_sem(regressor_roi{curr_regressor}(curr_subregressor,:,curr_roi,:),4), ...
+            nanmean(regressor_roi{curr_regressor}(curr_subregressor,:,curr_roi,:),4)', ...
+            AP_sem(regressor_roi{curr_regressor}(curr_subregressor,:,curr_roi,:),4)', ...
             task_regressor_cols{curr_regressor}(curr_subregressor,:), ...
             0.5,true);
         end
@@ -348,10 +347,10 @@ for curr_roi_idx = 1:length(plot_rois)
     
     curr_roi = plot_rois(curr_roi_idx);
     
-    AP_errorfill(t,nanmean(fluor_roi_deconv(plot_trials,:,curr_roi),1), ...
-        AP_sem(fluor_roi_deconv(plot_trials,:,curr_roi),1),'k',0.5,true);
-    AP_errorfill(t,nanmean(fluor_roi_taskpred(plot_trials,:,curr_roi),1), ...
-        AP_sem(fluor_roi_taskpred(plot_trials,:,curr_roi),1),'b',0.5,true);  
+    AP_errorfill(t,nanmean(fluor_roi_deconv(plot_trials,:,curr_roi),1)', ...
+        AP_sem(fluor_roi_deconv(plot_trials,:,curr_roi),1)','k',0.5,true);
+    AP_errorfill(t,nanmean(fluor_roi_taskpred(plot_trials,:,curr_roi),1)', ...
+        AP_sem(fluor_roi_taskpred(plot_trials,:,curr_roi),1)','b',0.5,true);  
     
 end
 
@@ -458,9 +457,11 @@ outcome_align = -outcome_idx + leeway_samples;
 use_align_labels = {'Stim','Move onset','Outcome'};
 use_align = {stim_align,move_align,outcome_align};
 
-figure;
-p = gobjects(n_depths,1);
+line_fig = figure;
+heatmap_fig = figure;
+
 align_col = [1,0,0;0.8,0,0.8;0,0,0.8];
+align_t = {[-0.05,0.15],[0.15,0.6],[0.6,1]};
 for curr_align = 1:length(use_align)
         
     % (re-align and split activity)
@@ -470,27 +471,37 @@ for curr_align = 1:length(use_align)
         use_align{curr_align}(trial),2),transpose(1:size(mua_allcat,1)),'uni',false)), ...
         use_split,length(t),size(mua_allcat,3));
     
-    curr_str_act_plottrial_mean = cell2mat(permute( ...
+    curr_str_act_plottrial_expmean = cell2mat(permute( ...
         cellfun(@(act,trials) permute(nanmean(act(trials,:,:),1),[3,2,1]), ...
         curr_str_act,plot_trials_exp,'uni',false),[2,3,1]));
         
     curr_t_offset = (nanmean(stim_align(cell2mat(plot_trials_exp)) - ...
         use_align{curr_align}(cell2mat(plot_trials_exp))))/sample_rate;
     
+    curr_t = t + curr_t_offset;
+    curr_t_plot = curr_t >= align_t{curr_align}(1) & ...
+        curr_t <= align_t{curr_align}(2);
+    
     for curr_depth = 1:n_depths
-        p(curr_depth,1) = subplot(n_depths,1,curr_depth); hold on;
-        
-        AP_errorfill(t + curr_t_offset,nanmean(curr_str_act_plottrial_mean(curr_depth,:,:),3)', ...
-            AP_sem(curr_str_act_plottrial_mean(curr_depth,:,:),3)',align_col(curr_align,:),0.5);
-        xlabel(['Time from ' use_align_labels{curr_align}]);
-        ylabel('Spikes (std)');
-        line(repmat(curr_t_offset,2,1),ylim,'color','k');
+        figure(line_fig);
+        subplot(n_depths,1,curr_depth); hold on; axis off;       
+        AP_errorfill(curr_t(curr_t_plot),nanmean(curr_str_act_plottrial_expmean(curr_depth,curr_t_plot,:),3)', ...
+            AP_sem(curr_str_act_plottrial_expmean(curr_depth,curr_t_plot,:),3)',align_col(curr_align,:),0.5);
+        line(repmat(curr_t_offset,2,1),ylim,'color',align_col(curr_align,:));
     end
     
+    curr_str_act_plottrial_mean = nanmean(curr_str_act_plottrial_expmean,3);
+    figure(heatmap_fig)
+    subplot(1,3,curr_align);
+    imagesc(curr_t,[],curr_str_act_plottrial_mean./max(curr_str_act_plottrial_mean,[],2));
+    line(repmat(curr_t_offset,2,1),ylim,'color',align_col(curr_align,:));
+    colormap(gca,brewermap([],'Greys'));
+    xlim(align_t{curr_align});
+    
 end
-linkaxes(get(gcf,'Children'),'xy');
-xlim([-0.1,1]);
 
+figure(line_fig);
+linkaxes(get(line_fig,'Children'),'xy');
 y_scale = 1;
 t_scale = 0.2;
 line([min(xlim),min(xlim)+t_scale],repmat(min(ylim),2,1),'linewidth',3,'color','k');
@@ -498,124 +509,60 @@ line(repmat(min(xlim),2,1),[min(ylim),min(ylim)+y_scale],'linewidth',3,'color','
 
 
 
+%% (TESTING) Fig 2a: Cortex > striatum kernels by depth
 
-%% Fig 2a: Example cortex > striatum regression by depth
+% testing new thing: showing gradient, then moving to domains
 
-% Set example experiment to use
-animal = 'AP025';
-day = '2017-10-04';
-experiment = 1;
+% Load kernels by depths
+kernel_path = 'C:\Users\Andrew\OneDrive for Business\Documents\CarandiniHarrisLab\analysis\wf_ephys_choiceworld\ephys_processing';
+kernel_fn = ['ephys_kernel_depth'];
+load([kernel_path filesep kernel_fn])
 
-% Parameters for regression
-regression_params.use_svs = 1:50;
-regression_params.skip_seconds = 60;
-regression_params.upsample_factor = 1;
-regression_params.kernel_t = [-0.5,0.5];
-regression_params.zs = [false,false];
-regression_params.cvfold = 5;
-regression_params.use_constant = true;
+% Concatenate all kernels, do K-means
+k_px_cat = [ephys_kernel_depth(:).k_px];
+k_px_cat = cat(3,k_px_cat{:});
+k_px_cat_reshape = reshape(k_px_cat,[],size(k_px_cat,3));
+use_k_px = find(~any(isnan(k_px_cat_reshape),1));
 
-% Load full data
-str_align = 'none';
-verbose = true;
-AP_load_experiment
+% Pad from the start for equal depth divisions
+k_px_depthpad = cell2mat(cellfun(@(x) padarray(x,[0,0,16-size(x,3)],nan,'pre'), ...
+    permute([ephys_kernel_depth.k_px],[1,3,4,2]),'uni',false));
 
-% Get time points to query
-sample_rate = framerate*regression_params.upsample_factor;
-time_bins = frame_t(find(frame_t > ...
-    regression_params.skip_seconds,1)):1/sample_rate: ...
-    frame_t(find(frame_t-frame_t(end) < ...
-    -regression_params.skip_seconds,1,'last'));
-time_bin_centers = time_bins(1:end-1) + diff(time_bins)/2;
+% Only use depths in > 50% of recordings
+recording_depth_frac = nanmean(any(reshape(k_px_depthpad,[], ...
+    size(k_px_depthpad,3),size(k_px_depthpad,4)),1),3);
+recording_depth_frac_cutoff = 0.5;
+plot_depths = recording_depth_frac > recording_depth_frac_cutoff;
 
-% Deconvolve and resample V
-fVdf_deconv = AP_deconv_wf(fVdf);
-fVdf_deconv(isnan(fVdf_deconv)) = 0;
-fVdf_deconv_resample = interp1(frame_t,fVdf_deconv',time_bin_centers)';
+k_px_depthmean = nanmean(k_px_depthpad(:,:,plot_depths,:),4);
+AP_image_scroll(k_px_depthmean)
+caxis([-max(abs(caxis)),max(abs(caxis))]);
+colormap(brewermap([],'*RdBu'));
+AP_reference_outline('ccf_aligned',[0.5,0.5,0.5]);
+axis image off
 
-% Get striatum multiunit in 4 depths for example plot
-n_depths = 4;
-depth_group_edges = round(linspace(str_depth(1),str_depth(2),n_depths+1));
-[depth_group_n,depth_group] = histc(spike_depths,depth_group_edges);
-depth_groups_used = unique(depth_group);
-depth_group_centers = depth_group_edges(1:end-1)+(diff(depth_group_edges)/2);
+% Plot center-of-mass by color
+k_px_com = sum(k_px_depthmean.*permute(1:size(k_px_depthmean,3),[1,3,2]),3)./sum(k_px_depthmean,3);
 
-binned_spikes = zeros(n_depths,length(time_bins)-1);
-for curr_depth = 1:n_depths
-    curr_spike_times = spike_times_timeline(depth_group == curr_depth);
-    binned_spikes(curr_depth,:) = histcounts(curr_spike_times,time_bins);
-end
-binned_spikes_std = binned_spikes./nanstd(binned_spikes,[],2);
+use_colormap = min(jet(255)-0.2,1);
+k_px_com_colored = ...
+        ind2rgb(round(mat2gray(k_px_com,...
+        [1,size(k_px_depthmean,3)])*size(use_colormap,1)),use_colormap);
 
-% Load lambda from previously estimated and saved
-lambda_fn = 'C:\Users\Andrew\OneDrive for Business\Documents\CarandiniHarrisLab\analysis\wf_ephys_choiceworld\ephys_processing\ctx-str_lambda';
-load(lambda_fn);
-curr_animal_idx = strcmp(animal,{ctx_str_lambda.animal});
-if any(curr_animal_idx)
-    curr_day_idx = strcmp(day,ctx_str_lambda(curr_animal_idx).day);
-    if any(curr_day_idx)
-        lambda = ctx_str_lambda(curr_animal_idx).best_lambda(curr_day_idx);
-    end
-end
-
-% Regress fluorescence to spikes
-kernel_frames = round(regression_params.kernel_t(1)*sample_rate): ...
-    round(regression_params.kernel_t(2)*sample_rate);
-
-[k,predicted_spikes,explained_var] = ...
-    AP_regresskernel(fVdf_deconv_resample(regression_params.use_svs,:), ...
-    binned_spikes_std,kernel_frames,lambda, ...
-    regression_params.zs,regression_params.cvfold, ...
-    false,regression_params.use_constant);
-
-Udf_aligned = single(AP_align_widefield(animal,day,Udf));
-k_px = zeros(size(Udf_aligned,1),size(Udf_aligned,2),size(k,2),size(k,3),'single');
-for curr_spikes = 1:size(k,3)
-    k_px(:,:,:,curr_spikes) = ...
-        svdFrameReconstruct(Udf_aligned(:,:,regression_params.use_svs),k(:,:,curr_spikes));
-end
-
-% NaN-out depths with no spikes
-k_px(:,:,:,~any(binned_spikes,2)) = NaN;
-
-% Keep kernel one frame (t == 0)
-k_px_frame = squeeze(k_px(:,:,kernel_frames == 0,:));
-
-% Define ROIs and get fluorescence traces
-roi_circle_size = 20;
-roi_x = [136,176,142,116]; % roi_x = [131,174,110,51];
-roi_y = [299,91,79,87]; % roi_y = [297,96,71,144];
-[x,y] = meshgrid(1:size(Udf_aligned,1),1:size(Udf_aligned,2));
-roi_mask = cell2mat(arrayfun(@(roi) sqrt((x-roi_x(roi)).^2 + (y-roi_y(roi)).^2) <= ...
-    roi_circle_size,permute(1:length(roi_x),[1,3,2]),'uni',false));
-roi_trace = AP_svd_roi(Udf_aligned,fVdf_deconv_resample,[],[],roi_mask);
-
-% Plot ROIs
+weight_max = 0.0015;
+k_px_depthmean_max = max(k_px_depthmean,[],3);
 figure;
-for i = 1:n_depths
-   subplot(n_depths,1,i,'YDir','reverse'); hold on;
-   curr_roi_boundaries = cell2mat(bwboundaries(roi_mask(:,:,i)));
-   plot(curr_roi_boundaries(:,2),curr_roi_boundaries(:,1),'color',[0,0.8,0],'linewidth',2);
-   axis image off;
-   AP_reference_outline('ccf_aligned',[0.5,0.5,0.5]);
-end
+image(k_px_com_colored,'AlphaData',mat2gray(k_px_depthmean_max,[0,weight_max]));
+AP_reference_outline('ccf_aligned',[0.5,0.5,0.5]);
+axis image off
 
-% Plot overlaid striatal activity and and ROI fluorescence
-figure; hold on
-AP_stackplot(binned_spikes',time_bin_centers,10,true,'k');
-AP_stackplot(roi_trace',time_bin_centers,10,true,[0,0.7,0]);
-xlim([185,205]);
 
-% Plot kernel frames
-figure;
-for i = 1:n_depths
-   subplot(n_depths,1,i);
-   imagesc(k_px_frame(:,:,i)); hold on;
-   axis image off;
-   colormap(brewermap([],'*RdBu'));
-   caxis([-0.012,0.012]); 
-   AP_reference_outline('ccf_aligned',[0.5,0.5,0.5]);
-end
+
+
+
+
+
+
 
 
 
@@ -861,11 +808,25 @@ for protocol = protocols
     plot_frame = kernel_frames == 0;
     for curr_depth = 1:n_aligned_depths
        subplot(n_aligned_depths,1,curr_depth);
-       imagesc(k_px(:,:,plot_frame,curr_depth));
+       
+       curr_k_px_norm = k_px(:,:,plot_frame,curr_depth)./ ...
+           max(reshape(k_px(:,:,plot_frame,curr_depth),[],1));
+       imagesc(curr_k_px_norm);
        AP_reference_outline('ccf_aligned',[0.5,0.5,0.5]);
        axis image off;
        colormap(brewermap([],'*RdBu'));
-       caxis([-0.01,0.01]);
+       caxis([-1,1]);
+       
+    end
+    
+    % Plot kernel frames at all timepoints
+    figure('Name',protocol);
+    for curr_depth = 1:n_aligned_depths
+        subplot(n_aligned_depths,1,curr_depth);
+        imagesc(reshape(k_px(:,:,:,curr_depth),size(k_px,1),[]));
+        colormap(brewermap([],'*RdBu'));
+        axis image
+        caxis([-max(abs(caxis)),max(abs(caxis))]);       
     end
     
     % Plot center-of-mass color at select time points 
@@ -882,7 +843,7 @@ for protocol = protocols
         plot_t),length(plot_t),size(k_px_max,1), ...
         size(k_px_max,2)),[2,3,1]);
     
-    weight_max = 0.005;
+    weight_max = 0.0015;
     figure('Name',protocol);
     for t_idx = 1:length(plot_t)
         subplot(1,length(plot_t),t_idx);

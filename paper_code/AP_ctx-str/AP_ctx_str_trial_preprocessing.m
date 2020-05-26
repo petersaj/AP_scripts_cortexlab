@@ -689,29 +689,7 @@ if false
     save(wf_roi_fn,'wf_roi');
     disp('Saved new widefield ROIs');
     
-    %% Create ROIs from kernel templates
-    
-    %%%%%%%% TESTING: make kernel BW roi from average kernels
-    
-    protocol = 'vanillaChoiceworld';
-    data_path = 'C:\Users\Andrew\OneDrive for Business\Documents\CarandiniHarrisLab\analysis\wf_ephys_choiceworld\paper\data';
-    k_fn = [data_path filesep 'ctx_str_kernels_' protocol];
-    load(k_fn);
-    
-    kernel_cat = cell2mat(permute(horzcat(ctx_str_kernel{:}),[1,3,4,5,2]));
-    kernel_cat_frame = nanmean(squeeze(kernel_cat(:,:,median(1:size(kernel_cat,3)),:,:)),4);
-    
-    kernel_bw = false(size(kernel_template));
-    frac_max_weight = 0.5; % zero pixels > max weight * this
-    min_px = 1e3; % get rid of small islands
-    for curr_depth = 1:n_aligned_depths
-        kernel_bw(:,:,curr_depth) = ...
-            bwareaopen(kernel_cat_frame(:,:,curr_depth) > ...
-            max(reshape(kernel_cat_frame(:,:,curr_depth), ...
-            [],1),[],1)*frac_max_weight,min_px).*ipsi_side;
-    end
-    
-    %%%%%%%%
+    %% Create ROIs from kernel templates   
     
     % Load kernel templates
     n_aligned_depths = 3;
@@ -731,7 +709,7 @@ if false
     ipsi_side = true(size(kernel_template(:,:,1)));
     ipsi_side(:,round(bregma_align(1)):end,:) = false;
     
-    frac_max_weight = 0.5; % zero pixels > max weight * this
+    frac_max_weight = 0.75; % zero pixels > max weight * this
     min_px = 100; % get rid of small islands
     for curr_depth = 1:n_aligned_depths
         kernel_bw(:,:,curr_depth) = ...

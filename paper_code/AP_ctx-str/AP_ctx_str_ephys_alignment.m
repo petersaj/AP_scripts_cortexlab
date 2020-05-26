@@ -422,33 +422,6 @@ k_px_cat = cat(3,k_px_cat{:});
 k_px_cat_reshape = reshape(k_px_cat,[],size(k_px_cat,3));
 use_k_px = find(~any(isnan(k_px_cat_reshape),1));
 
-%%%%%%%%%%%%% TESTING
-warning on;
-warning('testing');
-
-% Pad from the start for equal depth divisions
-k_px_depthpad = cell2mat(cellfun(@(x) padarray(x,[0,0,16-size(x,3)],nan,'pre'), ...
-    permute([ephys_kernel_depth.k_px],[1,3,4,2]),'uni',false));
-
-% Only use depths in > 50% of recordings
-recording_depth_frac = nanmean(any(reshape(k_px_depthpad,[], ...
-    size(k_px_depthpad,3),size(k_px_depthpad,4)),1),3);
-recording_depth_frac_cutoff = 0.5;
-plot_depths = recording_depth_frac > recording_depth_frac_cutoff;
-
-k_px_depthmean = nanmean(k_px_depthpad(:,:,plot_depths,:),4);
-AP_image_scroll(k_px_depthmean)
-caxis([-max(abs(caxis)),max(abs(caxis))]);
-colormap(brewermap([],'*RdBu'));
-
-kernel_corr = (zscore(k_px_cat_reshape,[],1)'* ...
-    zscore(reshape(k_px_depthmean,[],size(k_px_depthmean,3)),[],1))./ ...
-    (size(k_px_cat_reshape,1)-1);
-[kernel_match_corr,kernel_match_raw] = max(kernel_corr,[],2);
-
-
-%%%%%%%%%%%%%%%%%%%%%%%%%%%
-
 n_aligned_depths = 3;
 k_px_cat_reshape_norm = k_px_cat_reshape./max(k_px_cat_reshape,[],1);
 kidx = kmeans(k_px_cat_reshape_norm(:,use_k_px)',n_aligned_depths,'Distance','correlation');

@@ -11647,10 +11647,10 @@ act_prctile = [5,95];
 n_act_bins = 5;
 
 % Set areas and conditions
-plot_areas = [1];
+plot_areas = [2];
 
 % Loop across area pairs, plot binned predicted v measured activity
-curr_act_allcat = fluor_kernelroi_deconv; % fluor_kernelroi_deconv, mua_ctxpred_allcat, mua_allcat
+curr_act_allcat = mua_ctxpred_allcat; % fluor_kernelroi_deconv, mua_ctxpred_allcat, mua_allcat
 
 % (ctx-predicted)
 curr_act_pred_allcat = mua_allcat; % fluor_kernelroi_deconv, mua_ctxpred_allcat, mua_allcat
@@ -12128,6 +12128,13 @@ xlabel('Str');
 
 trial_stim_allcat_exp = mat2cell(trial_stim_allcat,use_split,1);
 
+
+% testing tsne
+a = vertcat(mua_all{:});
+b = cellfun(@(act,stim) nanmean(act(stim > 0,:,:),1),a,trial_stim_allcat_exp,'uni',false);
+b = squeeze(cat(3,b{:}))';
+
+
 % sort and plot all
 a = vertcat(mua_all{:});
 b = cellfun(@(act,stim) nanmean(act(stim > 0,:,:),1),a,trial_stim_allcat_exp,'uni',false);
@@ -12305,5 +12312,16 @@ colormap(brewermap([],'*RdBu'));
 title('Unsorted half (ipsi move)');
 
 linkaxes(get(gcf,'Children'),'xy');
+
+
+
+
+
+
+
+
+
+
+
 
 

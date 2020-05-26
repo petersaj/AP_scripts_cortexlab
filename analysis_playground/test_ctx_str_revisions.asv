@@ -993,8 +993,9 @@ for protocol = protocols
     
     % Concatenate and mean
     % (kernel is -:+ fluorescence lag, flip to be spike-oriented)
-    k_px_timeflipped = cellfun(@(x) cellfun(@(x) x(:,:,end:-1:1,:),x,'uni',false),ctx_str_kernel,'uni',false);
-    k_px_animal = cellfun(@(x) nanmean(cat(5,x{:}),5),k_px_timeflipped,'uni',false);
+    k_px_norm_timeflipped = cellfun(@(x) cellfun(@(x) x(:,:,end:-1:1,:)./ ...
+        max(max(max(x,[],1),[],2),[],3),x,'uni',false),ctx_str_kernel,'uni',false);  
+    k_px_animal = cellfun(@(x) nanmean(cat(5,x{:}),5),k_px_norm_timeflipped,'uni',false);
     k_px = nanmean(double(cat(5,k_px_animal{:})),5);
     
     % Get center-of-mass maps
