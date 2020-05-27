@@ -292,7 +292,7 @@ if exist('mua_all','var')
         mua_animal,baseline,'uni',false),mua_all,mua_trial_baseline,'uni',false);
     
     % Set baseline and normalize factor for MUA (from above)
-    mua_use_baseline = mua_trial_baseline;
+    mua_use_baseline = 0;
     % (norm = std)
     mua_norm = mua_day_std; % mua_day_baseline_std
     % (norm = soft baseline mean)
@@ -310,13 +310,10 @@ if exist('mua_all','var')
 %     mua_ctxpred_use_baseline = mua_ctxpred_trial_baseline;
 %     mua_ctxpred_norm = mua_ctxpred_day_baseline_std;
     
-%     % (TESTING: to not normalize MUA at all)
+%     % (TESTING: to not normalize MUA at all - just use 1's)
 %     warning('NOT NORMALIZING MUA');
-%     mua_trial_zeros = cellfun(@(mua_animal) cellfun(@(mua_day) ...
-%         zeros(size(mua_day,1),1,n_depths),mua_animal,'uni',false),mua_all,'uni',false);
 %     mua_day_ones = cellfun(@(mua_animal) cellfun(@(mua_day) ...
 %         ones(1,1,n_depths),mua_animal,'uni',false),mua_all,'uni',false);
-%     mua_use_baseline = mua_trial_zeros;
 %     mua_norm = mua_day_ones;
     
     % (NaN-out days with no spikes)

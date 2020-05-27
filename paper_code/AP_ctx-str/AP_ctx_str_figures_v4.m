@@ -581,7 +581,7 @@ total_depths = 1:max(cellfun(@(x) size(x,3),[ephys_kernel_depth.k_px]));
 k_px_depths = cellfun(@(x) total_depths(end-size(x,3)+1:end),[ephys_kernel_depth.k_px],'uni',false);
 
 % Load the kernel template matches
-n_aligned_depths = 4;
+n_aligned_depths = 3;
 kernel_match_path = 'C:\Users\Andrew\OneDrive for Business\Documents\CarandiniHarrisLab\analysis\wf_ephys_choiceworld\ephys_processing';
 kernel_match_fn = ['ephys_kernel_align_' num2str(n_aligned_depths) '_depths.mat'];
 load([kernel_match_path filesep kernel_match_fn]);

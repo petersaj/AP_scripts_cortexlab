@@ -47,6 +47,10 @@ load([kernel_match_path filesep kernel_match_fn]);
 max_n_kernel_match = max(cell2mat(cellfun(@(x) ...
     cellfun(@length,x),{ephys_kernel_align.kernel_match},'uni',false)));
 
+kernel_match_raw_all = cellfun(@(x) cell2mat(cellfun(@(x) ...
+    padarray(x,max_n_kernel_match-length(x),NaN,'pre'),x,'uni',false)), ...
+    {ephys_kernel_align.kernel_match_raw},'uni',false);
+
 kernel_match_all = cellfun(@(x) cell2mat(cellfun(@(x) ...
     padarray(x,max_n_kernel_match-length(x),NaN,'pre'),x,'uni',false)), ...
     {ephys_kernel_align.kernel_match},'uni',false);
@@ -71,9 +75,10 @@ kernel_match_com = nan(n_aligned_depths,1);
 for curr_depth = 1:n_aligned_depths
     curr_kernel_match = +(kernel_match_cat_use == curr_depth);
     curr_kernel_match(isnan(kernel_match_cat_use)) = NaN;
-        kernel_match_com(curr_depth) = ...
-            nansum(nanmean(curr_kernel_match,2).*(1:sum(use_depths))') ...
-            ./nansum(nanmean(curr_kernel_match,2));
+    %     kernel_match_com(curr_depth) = ...
+    %         nansum(nanmean(curr_kernel_match,2).*(1:sum(use_depths))') ...
+    %         ./nansum(nanmean(curr_kernel_match,2));
+    [~,kernel_match_com(curr_depth)] = max(nansum(curr_kernel_match,2));
 end
 
 % Plot domain locations
@@ -91,6 +96,9 @@ ylabel('Fraction domain match');
 
 % Get relative domain COM along trajectory and plot in CCF
 kernel_match_com_relative = kernel_match_com./sum(use_depths);
+
+
+
 
 % Define the probe vector manually according to the targeted trajectory
 probe_vector_ccf = [520,240,510;520,511,239];
@@ -156,12 +164,6 @@ cameratoolbar(h,'SetMode','orbit');
 scatter3(kernel_depth_ccf(:,1),kernel_depth_ccf(:,2),kernel_depth_ccf(:,3), ...
     100,copper(n_aligned_depths),'filled');
 
-% Plot brain area outlines at slice
-av_slice = permute(av(probe_vector_ccf(1),:,:),[2,3,1]);
-slice_brain_outline = bwboundaries(av_slice > 1,'noholes');
-slice_str_outline = bwboundaries(av_slice == str_id,'noholes');
-fiugre; hold on;
-plot(slice_brain_outline{1}(:,2),slice_brain_outline{1}(:,1),'k','linewidth',2);
 
 
 % Mirror all of the locations across the midline and get projections from
@@ -240,8 +242,23 @@ for curr_depth = 1:n_aligned_depths
 end
 
 
+
+figure; 
+colormap(brewermap([],'*RdBu'));
+for curr_depth = 1:n_aligned_depths
+    subplot(n_aligned_depths,1,curr_depth); hold on; axis image off;
+    set(gca,'YDir','reverse');
     
+    AP_heatscatter(injection_coordinates_bilateral_wf{curr_depth}(:,1), ...
+        injection_coordinates_bilateral_wf{curr_depth}(:,2), ...
+        100);
     
+    AP_reference_outline('ccf_aligned',[0.5,0.5,0.5]);
+end
+
+
+
+
 
 %% Goodness-of-fit
 
