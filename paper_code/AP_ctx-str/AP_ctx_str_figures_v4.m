@@ -509,52 +509,92 @@ line(repmat(min(xlim),2,1),[min(ylim),min(ylim)+y_scale],'linewidth',3,'color','
 
 
 
-%% (TESTING) Fig 2a: Cortex > striatum kernels by depth
+%% Fig 2a: Cortex > striatum kernels by depth
 
-% testing new thing: showing gradient, then moving to domains
+% Load and concatenate kernels and STA
+protocol = 'vanillaChoiceworld';
+
+data_path = 'C:\Users\Andrew\OneDrive for Business\Documents\CarandiniHarrisLab\analysis\wf_ephys_choiceworld\paper\data';
+k_fn = [data_path filesep 'ctx_str_kernels_' protocol ,'_15strdepths'];
+load(k_fn);
+
+ctx_str_kernel_cat = cell2mat(permute(horzcat(ctx_str_kernel{:}),[1,3,4,5,2]));
+ctx_str_sta_cat = cell2mat(permute(horzcat(ctx_str_sta{:}),[1,3,4,2]));
+
+% (use only depths in > x% of recordings)
+frac_depths = nanmean(~squeeze(all(all(isnan(ctx_str_sta_cat),1),2)),2);
+use_depths = frac_depths > 0.5;
+
+ctx_str_kernel_cat_mean = squeeze(nanmean(ctx_str_kernel_cat(:,:,median(1:size(ctx_str_kernel_cat,3)),use_depths,:),5));
+ctx_str_sta_cat_mean = nanmean(ctx_str_sta_cat(:,:,use_depths,:),4);
+
+ctx_str_kernel_cat_mean_norm = ctx_str_kernel_cat_mean./max(max(medfilt3(ctx_str_kernel_cat_mean,[11,11,1]),[],1),[],2);
+ctx_str_sta_cat_mean_norm = ctx_str_sta_cat_mean./max(max(medfilt3(ctx_str_sta_cat_mean,[11,11,1]),[],1),[],2);
+
+figure;imagesc( ...
+    [reshape(ctx_str_sta_cat_mean_norm,size(ctx_str_sta_cat_mean_norm,1),[]); ...
+    reshape(ctx_str_kernel_cat_mean_norm,size(ctx_str_kernel_cat_mean_norm,1),[])]);
+caxis([-1,1]);
+colormap(brewermap([],'*RdBu'));
+axis image off;
+
+% Plot center-of-mass by color
+k_px_com = sum(ctx_str_kernel_cat_mean_norm.* ...
+    permute(1:size(ctx_str_kernel_cat_mean_norm,3),[1,3,2]),3)./ ...
+    sum(ctx_str_kernel_cat_mean_norm,3);
+
+use_colormap = min(jet(255)-0.2,1);
+k_px_com_colored = ...
+        ind2rgb(round(mat2gray(k_px_com,...
+        [1,size(ctx_str_kernel_cat_mean_norm,3)])* ...
+        size(use_colormap,1)),use_colormap);
+
+weight_max = 1;
+ctx_str_kernel_cat_mean_norm_max = max(ctx_str_kernel_cat_mean_norm,[],3);
+figure;
+image(k_px_com_colored,'AlphaData',mat2gray(ctx_str_kernel_cat_mean_norm_max,[0,weight_max]));
+AP_reference_outline('ccf_aligned',[0.5,0.5,0.5]);
+axis image off
+
+
+%% Fig 2??: Kernel clustering 
 
 % Load kernels by depths
 kernel_path = 'C:\Users\Andrew\OneDrive for Business\Documents\CarandiniHarrisLab\analysis\wf_ephys_choiceworld\ephys_processing';
 kernel_fn = ['ephys_kernel_depth'];
 load([kernel_path filesep kernel_fn])
+kernel_px_cat = cell2mat(permute(horzcat(ephys_kernel_depth(:).k_px),[1,3,2]));
+kernel_px_cat_reshape = reshape(kernel_px_cat,[],size(kernel_px_cat,3));
 
-% Concatenate all kernels, do K-means
-k_px_cat = [ephys_kernel_depth(:).k_px];
-k_px_cat = cat(3,k_px_cat{:});
-k_px_cat_reshape = reshape(k_px_cat,[],size(k_px_cat,3));
-use_k_px = find(~any(isnan(k_px_cat_reshape),1));
+% Load the kernel template matches
+n_aligned_depths = 3;
+kernel_match_path = 'C:\Users\Andrew\OneDrive for Business\Documents\CarandiniHarrisLab\analysis\wf_ephys_choiceworld\ephys_processing';
+kernel_match_fn = ['ephys_kernel_align_' num2str(n_aligned_depths) '_depths.mat'];
+load([kernel_match_path filesep kernel_match_fn]);
+kernel_match_cat = cell2mat(horzcat(ephys_kernel_align.kernel_match)');
 
-% Pad from the start for equal depth divisions
-k_px_depthpad = cell2mat(cellfun(@(x) padarray(x,[0,0,16-size(x,3)],nan,'pre'), ...
-    permute([ephys_kernel_depth.k_px],[1,3,4,2]),'uni',false));
+% Dimensionality reduction and plot matches
+use_kernels = ~(all(isnan(kernel_px_cat_reshape),1)' | isnan(kernel_match_cat));
 
-% Only use depths in > 50% of recordings
-recording_depth_frac = nanmean(any(reshape(k_px_depthpad,[], ...
-    size(k_px_depthpad,3),size(k_px_depthpad,4)),1),3);
-recording_depth_frac_cutoff = 0.5;
-plot_depths = recording_depth_frac > recording_depth_frac_cutoff;
+kernel_px_cat_resize_reshape = ...
+    reshape(imresize(kernel_px_cat,1/10,'bilinear'),[],size(kernel_px_cat,3));
+kernel_px_cat_resize_reshape_norm = ...
+    kernel_px_cat_resize_reshape./max(kernel_px_cat_resize_reshape,[],1);
 
-k_px_depthmean = nanmean(k_px_depthpad(:,:,plot_depths,:),4);
-AP_image_scroll(k_px_depthmean)
-caxis([-max(abs(caxis)),max(abs(caxis))]);
-colormap(brewermap([],'*RdBu'));
-AP_reference_outline('ccf_aligned',[0.5,0.5,0.5]);
-axis image off
+[coeff,score] = pca(kernel_px_cat_resize_reshape_norm(:,use_kernels)');
+y = tsne(kernel_px_cat_resize_reshape_norm(:,use_kernels)');
 
-% Plot center-of-mass by color
-k_px_com = sum(k_px_depthmean.*permute(1:size(k_px_depthmean,3),[1,3,2]),3)./sum(k_px_depthmean,3);
-
-use_colormap = min(jet(255)-0.2,1);
-k_px_com_colored = ...
-        ind2rgb(round(mat2gray(k_px_com,...
-        [1,size(k_px_depthmean,3)])*size(use_colormap,1)),use_colormap);
-
-weight_max = 0.0015;
-k_px_depthmean_max = max(k_px_depthmean,[],3);
 figure;
-image(k_px_com_colored,'AlphaData',mat2gray(k_px_depthmean_max,[0,weight_max]));
-AP_reference_outline('ccf_aligned',[0.5,0.5,0.5]);
-axis image off
+subplot(1,2,1);
+scatter(score(:,1),score(:,2),10,kernel_match_cat(use_kernels),'filled');
+xlabel('PC1'); ylabel('PC2');
+colormap(copper);
+axis square;
+subplot(1,2,2);
+scatter(y(:,1),y(:,2),10,kernel_match_cat(use_kernels),'filled');
+xlabel('tSNE1'); ylabel('tSNE2');
+colormap(copper);
+axis square;
 
 
 
@@ -565,20 +605,7 @@ axis image off
 
 
 
-
-%% Fig 2c: Cortex > striatum projections (Allen connectivity database)
-
-% Define the probe vector manually according to the targeted trajectory
-probe_vector_ccf = [520,240,510;520,511,239];
-
-%%% Get the average relative depth of each kernel template
-
-% Load kernels by depths, get depth relative to maximum extent
-kernel_path = 'C:\Users\Andrew\OneDrive for Business\Documents\CarandiniHarrisLab\analysis\wf_ephys_choiceworld\ephys_processing';
-kernel_fn = ['ephys_kernel_depth'];
-load([kernel_path filesep kernel_fn])
-total_depths = 1:max(cellfun(@(x) size(x,3),[ephys_kernel_depth.k_px]));
-k_px_depths = cellfun(@(x) total_depths(end-size(x,3)+1:end),[ephys_kernel_depth.k_px],'uni',false);
+%% Fig 2c: Striatum domain locations and corticostriatal projections
 
 % Load the kernel template matches
 n_aligned_depths = 3;
@@ -586,12 +613,57 @@ kernel_match_path = 'C:\Users\Andrew\OneDrive for Business\Documents\CarandiniHa
 kernel_match_fn = ['ephys_kernel_align_' num2str(n_aligned_depths) '_depths.mat'];
 load([kernel_match_path filesep kernel_match_fn]);
 
-% Concatenate all relative depths and kernel matches
-k_depths = cell2mat(k_px_depths);
-k_matches = cell2mat([ephys_kernel_align.kernel_match]')';
-k_match_depths_relative = grpstats(k_depths,k_matches)./max(total_depths);
+% Pad and concatenate kernel matches
+max_n_kernel_match = max(cell2mat(cellfun(@(x) ...
+    cellfun(@length,x),{ephys_kernel_align.kernel_match},'uni',false)));
 
-%%% Query allen at each point using targeted trajectory
+kernel_match_all = cellfun(@(x) cell2mat(cellfun(@(x) ...
+    padarray(x,max_n_kernel_match-length(x),NaN,'pre'),x,'uni',false)), ...
+    {ephys_kernel_align.kernel_match},'uni',false);
+
+kernel_match_cat = cell2mat(kernel_match_all);
+
+% (use only depths in at least x% of recordings)
+frac_depths = nanmean(~isnan(kernel_match_cat),2);
+use_depths = frac_depths > 0.5;
+kernel_match_cat_use = kernel_match_cat(use_depths,:);
+
+% Get fraction of each domain for each depth
+kernel_match_frac = nan(sum(use_depths),n_aligned_depths);
+for curr_depth = 1:n_aligned_depths
+    curr_kernel_match = +(kernel_match_cat_use == curr_depth);
+    curr_kernel_match(isnan(kernel_match_cat_use)) = NaN;
+    kernel_match_frac(:,curr_depth) = nanmean(curr_kernel_match,2);
+end
+
+% Get center-of-mass for each domain
+kernel_match_com = nan(n_aligned_depths,1);
+for curr_depth = 1:n_aligned_depths
+    curr_kernel_match = +(kernel_match_cat_use == curr_depth);
+    curr_kernel_match(isnan(kernel_match_cat_use)) = NaN;
+        kernel_match_com(curr_depth) = ...
+            nansum(nanmean(curr_kernel_match,2).*(1:sum(use_depths))') ...
+            ./nansum(nanmean(curr_kernel_match,2));
+end
+
+% Plot domain locations
+str_col = copper(n_aligned_depths);
+figure; hold on;
+colormap(str_col);
+area(kernel_match_frac,'FaceColor','flat');
+for curr_depth = 1:n_aligned_depths
+    line(repmat(kernel_match_com(curr_depth),2,1),ylim, ...
+        'color',min(str_col(curr_depth,:)+0.2,1),'linewidth',3);
+end
+axis tight;
+xlabel('Estimated depth');
+ylabel('Fraction domain match');
+
+% Get relative domain COM along trajectory and plot in CCF
+kernel_match_com_relative = kernel_match_com./sum(use_depths);
+
+% Define the probe vector manually according to the targeted trajectory
+probe_vector_ccf = [520,240,510;520,511,239];
 
 % Load in the annotated Allen volume and names
 allen_path = 'C:\Users\Andrew\OneDrive for Business\Documents\Atlases\AllenCCF';
@@ -623,11 +695,7 @@ str_id = find(strcmp(st.safe_name,'Caudoputamen'));
 probe_structures_str = probe_structures == str_id;
 probe_str = [probe_depths(find(probe_structures_str,1,'first'),:); ...
     probe_depths(find(probe_structures_str,1,'last'),:)];
-kernel_depth_ccf = interp1([0,1],probe_str,k_match_depths_relative);
-
-%%%% Just use regular depths?
-regular_centers_borders = linspace(0,1,n_aligned_depths*2+1);
-kernel_depth_ccf = interp1([0,1],probe_str,regular_centers_borders(2:2:end));
+kernel_depth_ccf = interp1([0,1],probe_str,kernel_match_com_relative);
 
 % Plot brain to overlay probes
 % (note the CCF is rotated to allow for dim 1 = x)
@@ -656,6 +724,26 @@ cameratoolbar(h,'SetCoordSys','y');
 cameratoolbar(h,'SetMode','orbit');
 
 scatter3(kernel_depth_ccf(:,1),kernel_depth_ccf(:,2),kernel_depth_ccf(:,3), ...
+    100,copper(n_aligned_depths),'filled');
+
+% Plot brain area outlines at slice
+callosum_id = find(strcmp(st.safe_name,'corpus callosum body'));
+ventricle_id = find(strcmp(st.safe_name,'lateral ventricle'));
+
+av_slice = permute(av(probe_vector_ccf(1),:,:),[2,3,1]);
+slice_brain_outline = bwboundaries(av_slice > 1,'noholes');
+slice_str_outline = bwboundaries(av_slice == str_id,'noholes');
+slice_callosum_outline = bwboundaries(av_slice == callosum_id,'noholes');
+slice_ventricle_outline = bwboundaries(av_slice == ventricle_id,'noholes');
+
+figure; hold on; axis image on; box on; grid on; set(gca,'YDir','reverse');
+plot(slice_brain_outline{1}(:,2),slice_brain_outline{1}(:,1),'k','linewidth',2);
+cellfun(@(x) plot(x(:,2),x(:,1),'b','linewidth',2),slice_str_outline);
+cellfun(@(x) fill(x(:,2),x(:,1),'k','linewidth',2),slice_callosum_outline);
+cellfun(@(x) fill(x(:,2),x(:,1),'k','linewidth',2),slice_ventricle_outline);
+
+line(probe_vector_ccf(:,3),probe_vector_ccf(:,2),'linewidth',2,'color','r');
+scatter(kernel_depth_ccf(:,3),kernel_depth_ccf(:,2), ...
     100,copper(n_aligned_depths),'filled');
 
 % Mirror all of the locations across the midline and get projections from
@@ -715,7 +803,7 @@ projection_strength_bilateral = arrayfun(@(x) ...
     1:n_aligned_depths,'uni',false);
 
 % Load kernel templates for overlay
-n_aligned_depths = 4;
+n_aligned_depths = 3;
 kernel_template_fn = ['C:\Users\Andrew\OneDrive for Business\Documents\CarandiniHarrisLab\analysis\wf_ephys_choiceworld\ephys_processing\kernel_template_' num2str(n_aligned_depths) '_depths.mat'];
 load(kernel_template_fn);
 
@@ -725,9 +813,6 @@ for curr_depth = 1:n_aligned_depths
     subplot(n_aligned_depths,1,curr_depth); hold on; axis image off;
     set(gca,'YDir','reverse');
     
-%     imagesc(kernel_template(:,:,curr_depth));
-%     caxis([-prctile(abs(kernel_template(:)),99),prctile(abs(kernel_template(:)),99)]);
-    
     scatter(injection_coordinates_bilateral_wf{curr_depth}(:,1), ...
         injection_coordinates_bilateral_wf{curr_depth}(:,2), ...
         projection_strength_bilateral{curr_depth}*50 + 10, ...
@@ -736,27 +821,7 @@ for curr_depth = 1:n_aligned_depths
     AP_reference_outline('ccf_aligned',[0.5,0.5,0.5]);
 end
 
-% Color all injection sites and plot overlaid
-jet_basic = jet(255);
-dark_colors = max(jet_basic,[],2) ~= 1;
-jet_alt = max(interp1(1:255,jet_basic,linspace(find(~dark_colors,1,'first'), ...
-    find(~dark_colors,1,'last'),255)) - 0.2,0);
 
-cmap = jet_alt;
-% depth_color_idx = round(conv(linspace(1,size(cmap,1),n_aligned_depths+1),[0.5,0.5],'valid'));
-depth_color_idx = round(linspace(1,size(cmap,1),n_aligned_depths));
-plot_colors = cmap(depth_color_idx,:);
-
-figure;
-hold on; set(gca,'YDir','reverse'); axis image off;
-AP_reference_outline('ccf_aligned','k');
-for curr_depth = 1:n_aligned_depths
-    % (plot points from both hemispheres)
-    scatter(injection_coordinates_bilateral_wf{curr_depth}(:,1), ...
-        injection_coordinates_bilateral_wf{curr_depth}(:,2), ...
-        projection_strength_bilateral{curr_depth}*100 + 10, ...
-        plot_colors(curr_depth,:),'filled');
-end
 
 
 %% Fig 2b,d: Average cortex > striatum domain regression kernels

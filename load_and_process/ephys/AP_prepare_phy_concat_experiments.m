@@ -45,9 +45,9 @@ ap_data_filename = cellfun(@(exp_rec_dir) ...
 %% Clear out local phy folder
 
 if ~staging
-    local_phy_dir = 'C:\data_temp\phy';
+    local_phy_dir = 'G:\data_temp\phy';
 elseif staging
-    local_phy_dir = 'C:\data_temp\phy_staging';
+    local_phy_dir = 'G:\data_temp\phy_staging';
 end
 
 if ~exist(local_phy_dir)
@@ -84,9 +84,9 @@ local_ap_filename = [local_phy_dir filesep header.dat_path(2:end-1)];
 
 % Copy AP data from all experiments to local HDD
 % (set HDD path and clear out)
-hdd_phy_path = 'E:\data_temp\phy';
-rmdir(hdd_phy_path,'s');
-mkdir(hdd_phy_path);
+hdd_phy_path = 'G:\data_temp\phy';
+% rmdir(hdd_phy_path,'s');
+% mkdir(hdd_phy_path);
 
 % Check whether CAR/concatenated data is on HDD
 % (this is part of the pipeline from

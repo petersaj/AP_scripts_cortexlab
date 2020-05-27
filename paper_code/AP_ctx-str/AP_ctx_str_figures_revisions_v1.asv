@@ -37,6 +37,8 @@ split_idx = cell2mat(arrayfun(@(exp,trials) repmat(exp,trials,1), ...
 
 %% CCF domain location / Allen corticostriatal projections
 
+warning('THIS IS NOW SUBBED INTO MAIN FIGURES')
+
 % Load the kernel template matches
 n_aligned_depths = 3;
 kernel_match_path = 'C:\Users\Andrew\OneDrive for Business\Documents\CarandiniHarrisLab\analysis\wf_ephys_choiceworld\ephys_processing';
@@ -46,10 +48,6 @@ load([kernel_match_path filesep kernel_match_fn]);
 % Pad and concatenate kernel matches
 max_n_kernel_match = max(cell2mat(cellfun(@(x) ...
     cellfun(@length,x),{ephys_kernel_align.kernel_match},'uni',false)));
-
-kernel_match_raw_all = cellfun(@(x) cell2mat(cellfun(@(x) ...
-    padarray(x,max_n_kernel_match-length(x),NaN,'pre'),x,'uni',false)), ...
-    {ephys_kernel_align.kernel_match_raw},'uni',false);
 
 kernel_match_all = cellfun(@(x) cell2mat(cellfun(@(x) ...
     padarray(x,max_n_kernel_match-length(x),NaN,'pre'),x,'uni',false)), ...
@@ -75,10 +73,9 @@ kernel_match_com = nan(n_aligned_depths,1);
 for curr_depth = 1:n_aligned_depths
     curr_kernel_match = +(kernel_match_cat_use == curr_depth);
     curr_kernel_match(isnan(kernel_match_cat_use)) = NaN;
-    %     kernel_match_com(curr_depth) = ...
-    %         nansum(nanmean(curr_kernel_match,2).*(1:sum(use_depths))') ...
-    %         ./nansum(nanmean(curr_kernel_match,2));
-    [~,kernel_match_com(curr_depth)] = max(nansum(curr_kernel_match,2));
+        kernel_match_com(curr_depth) = ...
+            nansum(nanmean(curr_kernel_match,2).*(1:sum(use_depths))') ...
+            ./nansum(nanmean(curr_kernel_match,2));
 end
 
 % Plot domain locations
@@ -96,9 +93,6 @@ ylabel('Fraction domain match');
 
 % Get relative domain COM along trajectory and plot in CCF
 kernel_match_com_relative = kernel_match_com./sum(use_depths);
-
-
-
 
 % Define the probe vector manually according to the targeted trajectory
 probe_vector_ccf = [520,240,510;520,511,239];
@@ -164,7 +158,25 @@ cameratoolbar(h,'SetMode','orbit');
 scatter3(kernel_depth_ccf(:,1),kernel_depth_ccf(:,2),kernel_depth_ccf(:,3), ...
     100,copper(n_aligned_depths),'filled');
 
+% Plot brain area outlines at slice
+callosum_id = find(strcmp(st.safe_name,'corpus callosum body'));
+ventricle_id = find(strcmp(st.safe_name,'lateral ventricle'));
 
+av_slice = permute(av(probe_vector_ccf(1),:,:),[2,3,1]);
+slice_brain_outline = bwboundaries(av_slice > 1,'noholes');
+slice_str_outline = bwboundaries(av_slice == str_id,'noholes');
+slice_callosum_outline = bwboundaries(av_slice == callosum_id,'noholes');
+slice_ventricle_outline = bwboundaries(av_slice == ventricle_id,'noholes');
+
+figure; hold on; axis image on; box on; grid on; set(gca,'YDir','reverse');
+plot(slice_brain_outline{1}(:,2),slice_brain_outline{1}(:,1),'k','linewidth',2);
+cellfun(@(x) plot(x(:,2),x(:,1),'b','linewidth',2),slice_str_outline);
+cellfun(@(x) fill(x(:,2),x(:,1),'k','linewidth',2),slice_callosum_outline);
+cellfun(@(x) fill(x(:,2),x(:,1),'k','linewidth',2),slice_ventricle_outline);
+
+line(probe_vector_ccf(:,3),probe_vector_ccf(:,2),'linewidth',2,'color','r');
+scatter(kernel_depth_ccf(:,3),kernel_depth_ccf(:,2), ...
+    100,copper(n_aligned_depths),'filled');
 
 % Mirror all of the locations across the midline and get projections from
 % both (because the cortical injections in the database aren't evenly
@@ -242,25 +254,10 @@ for curr_depth = 1:n_aligned_depths
 end
 
 
-
-figure; 
-colormap(brewermap([],'*RdBu'));
-for curr_depth = 1:n_aligned_depths
-    subplot(n_aligned_depths,1,curr_depth); hold on; axis image off;
-    set(gca,'YDir','reverse');
     
-    AP_heatscatter(injection_coordinates_bilateral_wf{curr_depth}(:,1), ...
-        injection_coordinates_bilateral_wf{curr_depth}(:,2), ...
-        100);
     
-    AP_reference_outline('ccf_aligned',[0.5,0.5,0.5]);
-end
 
-
-
-
-
-%% Goodness-of-fit
+%% Goodness-of-fit (cortex and striatum)
 
 
 % Regress kernel ROI activity to striatum domain activity (per recording)
@@ -721,7 +718,7 @@ xlabel('Striatal domain');
 ylabel('Cortical MUA max corr');
 
 
-%% ^^^ IN PROGRESS: example recording
+%% ^^^ Example recording
 
 % AP060 2019-12-06 looks like the best?
 
@@ -972,28 +969,34 @@ for curr_animalday = 1:length(animal_days)
     
     spike_rate_change = (spike_rate_cond(:,2) - spike_rate_cond(:,1))./(spike_rate_cond(:,1)+spike_rate_cond(:,2));
     
-    subplot(length(animal_days),3,(curr_animalday-1)*3+1,'YDir','reverse'); hold on;
-    plot(spike_rate_cond(:,1),template_depths,'.k','MarkerSize',10);
+    subplot(length(animal_days),2,(curr_animalday-1)*2+1,'YDir','reverse'); hold on;
+    plot(reshape([spike_rate_cond,nan(size(template_depths))]',[],1), ...
+        reshape(repmat(template_depths,1,3)',[],1),'r');
+    p1 = plot(spike_rate_cond(:,1),template_depths,'.k','MarkerSize',10);
+    p2 = plot(spike_rate_cond(:,2),template_depths,'.r','MarkerSize',10);
     xlabel('Spikes/s')
     ylabel('Depth (\mum)');
-    title({animal,day,'Pre-muscimol'});
-    
-    subplot(length(animal_days),3,(curr_animalday-1)*3+2,'YDir','reverse'); hold on;
-    plot(spike_rate_cond(:,2),template_depths,'.k','MarkerSize',10);
-    xlabel('Spikes/s')
-    ylabel('Depth (\mum)');
-    title({animal,day,'Post-muscimol'});
-    
-    subplot(length(animal_days),3,(curr_animalday-1)*3+3); hold on;
-    plot(spike_rate_change,template_depths,'.k','MarkerSize',10);
+    legend([p1,p2],{'Pre-muscimol','Post-muscimol'});
+    axis tight;
+    xlim([-1,prctile(spike_rate_cond(:,1),95)])
+   
+    subplot(length(animal_days),2,(curr_animalday-1)*2+2); hold on;
+    plot(spike_rate_change,template_depths,'.k','MarkerSize',10);   
+    axis tight;
+    xlim([-1.1,1.1]);
     line([0,0],ylim);
-    xlim([-1.1,1.1])
     set(gca,'YDir','reverse');
     xlabel('(Post-pre)/(pre+post)');
     ylabel('Depth (\mum)');
     title({animal,day,'Change'});
     
+    
 end
+
+
+
+
+
 
 %% ^^^ VFS pre/post musicmol
 
@@ -1141,6 +1144,7 @@ title('Muscimol change');
 
 
 %% ^^^ Striatum cortical kernels pre/post muscimol
+error('I don''t think this should be included');
 
 protocols = {'vanillaChoiceworldNoRepeats_pre_muscimol','vanillaChoiceworldNoRepeats_post_muscimol'};
 
@@ -1154,7 +1158,7 @@ for protocol = protocols
     framerate = 35;
     upsample_factor = 1;
     sample_rate = framerate*upsample_factor;
-    kernel_t = [-0.5,0.5];
+    kernel_t = [-0.1,0.1];
     kernel_frames = round(kernel_t(1)*sample_rate):round(kernel_t(2)*sample_rate);
     t = kernel_frames/sample_rate;
     
@@ -1388,14 +1392,14 @@ linkaxes(get(gcf,'Children'))
 % Plot pre/post muscimol and repsonse change for pair of str/ctx
 plot_str = 1;
 
-t_stim = t >= 0 & t <= 0.2;
+t_stim = t >= 0.05 & t <= 0.15;
 mua_avg_premuscimol = permute(nanmean(mua_premuscimol_mean(:,t_stim,:),2),[1,3,2]);
 mua_avg_postmuscimol = permute(nanmean(mua_postmuscimol_mean(:,t_stim,:),2),[1,3,2]);
-mua_avg_postpre_change = (mua_avg_postmuscimol-mua_avg_premuscimol)./(mua_avg_premuscimol+mua_avg_postmuscimol);
+mua_avg_postpre_change = (mua_avg_postmuscimol-mua_avg_premuscimol);%./(mua_avg_premuscimol+mua_avg_postmuscimol);
 
 fluor_avg_premuscimol = permute(nanmean(fluor_kernelroi_premuscimol_mean(:,t_stim,:),2),[1,3,2]);
 fluor_avg_postmuscimol = permute(nanmean(fluor_kernelroi_postmuscimol_mean(:,t_stim,:),2),[1,3,2]);
-fluor_avg_postpre_change = (fluor_avg_postmuscimol-fluor_avg_premuscimol)./(fluor_avg_premuscimol+fluor_avg_postmuscimol);
+fluor_avg_postpre_change = (fluor_avg_postmuscimol-fluor_avg_premuscimol);%./(fluor_avg_premuscimol+fluor_avg_postmuscimol);
 
 figure;
 subplot(1,3,1);hold on;
@@ -1421,12 +1425,12 @@ axis square
 subplot(1,3,3);
 plot(fluor_avg_postpre_change(:,plot_str),mua_avg_postpre_change(:,plot_str),'.k','MarkerSize',20)
 xlabel(['Cortex ROI (post-pre)']);
-ylabel(['Str ' num2str(plot_str) ' (post-pre)']);
+ylabel(['Str ' num2str(plot_str) ' (post-pre)/(pre+post)']);
 line([-1,1],[0,0],'color','k','linestyle','--');
 line([0,0],[-1,1],'color','k','linestyle','--');
 line([-1,1],[-1,1],'color','k');
-xlim([-1,1]);
-ylim([-1,1]);
+% xlim([-1,1]);
+% ylim([-1,1]);
 axis square;
 
 nonan_points = ~isnan(mua_avg_postpre_change(:,plot_str)) & ...
@@ -1434,7 +1438,7 @@ nonan_points = ~isnan(mua_avg_postpre_change(:,plot_str)) & ...
 [r,p] = corrcoef(fluor_avg_postpre_change(nonan_points,plot_str), ...
     mua_avg_postpre_change(nonan_points,plot_str));
 
-error('I think this analysis is fucked and I''ll come back to it later')
+error('Need to fix this metric');
 
 %%%%%%% TESTING
 

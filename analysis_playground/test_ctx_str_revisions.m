@@ -968,96 +968,133 @@ linkaxes([p1,p2]);
 
 %% Cortex > striatum kernels by depth
 
-protocols = {'vanillaChoiceworld'};
 
-for protocol = protocols 
-    protocol = cell2mat(protocol);
-    
-    data_path = 'C:\Users\Andrew\OneDrive for Business\Documents\CarandiniHarrisLab\analysis\wf_ephys_choiceworld\paper\data';
-    k_fn = [data_path filesep 'ctx_str_kernels_' protocol ,'_15strdepths'];
-    load(k_fn);
-    
-    framerate = 35;
-    upsample_factor = 1;
-    sample_rate = framerate*upsample_factor;
-    kernel_t = [-0.1,0.1];
-    kernel_frames = round(kernel_t(1)*sample_rate):round(kernel_t(2)*sample_rate);
-    t = kernel_frames/sample_rate;
-    
-    % Concatenate explained variance
-    expl_var_animal = cell2mat(cellfun(@(x) nanmean(horzcat(x{:}),2),ctx_str_expl_var','uni',false));
-    figure('Name',protocol);
-    errorbar(nanmean(expl_var_animal,2),AP_sem(expl_var_animal,2),'k','linewidth',2);
-    xlabel('Striatal depth');
-    ylabel('Fraction explained variance');
-    
-    % Concatenate and mean
-    % (kernel is -:+ fluorescence lag, flip to be spike-oriented)
-    k_px_timeflipped = cellfun(@(x) cellfun(@(x) x(:,:,end:-1:1,:),x,'uni',false),ctx_str_kernel,'uni',false);
-    k_px_animal = cellfun(@(x) nanmean(cat(5,x{:}),5),k_px_timeflipped,'uni',false);
-    k_px = nanmean(double(cat(5,k_px_animal{:})),5);
-    
-    % Get center-of-mass maps
-    k_px_positive = k_px;
-    k_px_positive(k_px_positive < 0) = 0;
-    k_px_com = sum(k_px_positive.*permute(1:n_aligned_depths,[1,3,4,2]),4)./sum(k_px_positive,4);
-    k_px_com_colored = nan(size(k_px_com,1),size(k_px_com,2),3,size(k_px_com,3));
-    
-    use_colormap = min(jet(255)-0.2,1);
-    for curr_frame = 1:size(k_px_com,3)
-        k_px_com_colored(:,:,:,curr_frame) = ...
-            ind2rgb(round(mat2gray(k_px_com(:,:,curr_frame),...
-            [1,n_aligned_depths])*size(use_colormap,1)),use_colormap);
-    end
-    
-    % Plot center kernel frames independently at t = 0
-    figure('Name',protocol);
-    plot_frame = kernel_frames == 0;
-    for curr_depth = 1:n_aligned_depths
-       subplot(n_aligned_depths,1,curr_depth);
-       imagesc(k_px(:,:,plot_frame,curr_depth));
-       AP_reference_outline('ccf_aligned',[0.5,0.5,0.5]);
-       axis image off;
-       colormap(brewermap([],'*RdBu'));
-       caxis([-0.01,0.01]);
-    end
-    
-    % Plot center-of-mass color at select time points 
-    plot_t = [-0.05:0.025:0.05];
-    
-    k_px_com_colored_t = ...
-        permute(reshape(interp1(t,permute(reshape(k_px_com_colored,[],3,length(t)), ...
-        [3,1,2]),plot_t),length(plot_t),size(k_px_com_colored,1), ...
-        size(k_px_com_colored,2),3),[2,3,4,1]);
-    
-    k_px_max = squeeze(max(k_px,[],4));
-    k_px_max_t = ...
-        permute(reshape(interp1(t,reshape(k_px_max,[],length(t))', ...
-        plot_t),length(plot_t),size(k_px_max,1), ...
-        size(k_px_max,2)),[2,3,1]);
-    
-    weight_max = 0.005;
-    figure('Name',protocol);
-    for t_idx = 1:length(plot_t)
-        subplot(1,length(plot_t),t_idx);
-        p = image(k_px_com_colored_t(:,:,:,t_idx));
-        set(p,'AlphaData', ...
-            mat2gray(k_px_max_t(:,:,t_idx),[0,weight_max]));
-        axis image off;
-        AP_reference_outline('ccf_aligned',[0.5,0.5,0.5]);
-        title([num2str(plot_t(t_idx)),' s']);
-    end    
-        
-    % Plot movie of kernels
-    AP_image_scroll(reshape(permute(k_px,[1,4,2,3]),size(k_px,1)*size(k_px,4),size(k_px,2),length(t)),t);
-    colormap(brewermap([],'*RdBu'));
-    caxis([-max(caxis),max(caxis)]);
-    AP_reference_outline('ccf_aligned',[0.5,0.5,0.5],[],[size(k_px,1),size(k_px,2),size(k_px,4),1]);
-    axis image off
-    
-    drawnow;
-    
+protocol = 'vanillaChoiceworld';
+
+data_path = 'C:\Users\Andrew\OneDrive for Business\Documents\CarandiniHarrisLab\analysis\wf_ephys_choiceworld\paper\data';
+k_fn = [data_path filesep 'ctx_str_kernels_' protocol ,'_15strdepths'];
+load(k_fn);
+
+framerate = 35;
+upsample_factor = 1;
+sample_rate = framerate*upsample_factor;
+kernel_t = [-0.1,0.1];
+kernel_frames = round(kernel_t(1)*sample_rate):round(kernel_t(2)*sample_rate);
+t = kernel_frames/sample_rate;
+
+% Concatenate explained variance
+expl_var_animal = cell2mat(cellfun(@(x) nanmean(horzcat(x{:}),2),ctx_str_expl_var','uni',false));
+figure('Name',protocol);
+errorbar(nanmean(expl_var_animal,2),AP_sem(expl_var_animal,2),'k','linewidth',2);
+xlabel('Striatal depth');
+ylabel('Fraction explained variance');
+
+% Concatenate and mean
+% (kernel is -:+ fluorescence lag, flip to be spike-oriented)
+k_px_timeflipped = cellfun(@(x) cellfun(@(x) x(:,:,end:-1:1,:),x,'uni',false),ctx_str_kernel,'uni',false);
+k_px_animal = cellfun(@(x) nanmean(cat(5,x{:}),5),k_px_timeflipped,'uni',false);
+k_px = nanmean(double(cat(5,k_px_animal{:})),5);
+
+% Get center-of-mass maps
+k_px_positive = k_px;
+k_px_positive(k_px_positive < 0) = 0;
+k_px_com = sum(k_px_positive.*permute(1:n_aligned_depths,[1,3,4,2]),4)./sum(k_px_positive,4);
+k_px_com_colored = nan(size(k_px_com,1),size(k_px_com,2),3,size(k_px_com,3));
+
+use_colormap = min(jet(255)-0.2,1);
+for curr_frame = 1:size(k_px_com,3)
+    k_px_com_colored(:,:,:,curr_frame) = ...
+        ind2rgb(round(mat2gray(k_px_com(:,:,curr_frame),...
+        [1,n_aligned_depths])*size(use_colormap,1)),use_colormap);
 end
+
+% Plot center kernel frames independently at t = 0
+figure('Name',protocol);
+plot_frame = kernel_frames == 0;
+for curr_depth = 1:n_aligned_depths
+    subplot(n_aligned_depths,1,curr_depth);
+    imagesc(k_px(:,:,plot_frame,curr_depth));
+    AP_reference_outline('ccf_aligned',[0.5,0.5,0.5]);
+    axis image off;
+    colormap(brewermap([],'*RdBu'));
+    caxis([-0.01,0.01]);
+end
+
+% Plot center-of-mass color at select time points
+plot_t = [-0.05:0.025:0.05];
+
+k_px_com_colored_t = ...
+    permute(reshape(interp1(t,permute(reshape(k_px_com_colored,[],3,length(t)), ...
+    [3,1,2]),plot_t),length(plot_t),size(k_px_com_colored,1), ...
+    size(k_px_com_colored,2),3),[2,3,4,1]);
+
+k_px_max = squeeze(max(k_px,[],4));
+k_px_max_t = ...
+    permute(reshape(interp1(t,reshape(k_px_max,[],length(t))', ...
+    plot_t),length(plot_t),size(k_px_max,1), ...
+    size(k_px_max,2)),[2,3,1]);
+
+weight_max = 0.005;
+figure('Name',protocol);
+for t_idx = 1:length(plot_t)
+    subplot(1,length(plot_t),t_idx);
+    p = image(k_px_com_colored_t(:,:,:,t_idx));
+    set(p,'AlphaData', ...
+        mat2gray(k_px_max_t(:,:,t_idx),[0,weight_max]));
+    axis image off;
+    AP_reference_outline('ccf_aligned',[0.5,0.5,0.5]);
+    title([num2str(plot_t(t_idx)),' s']);
+end
+
+% Plot movie of kernels
+AP_image_scroll(reshape(permute(k_px,[1,4,2,3]),size(k_px,1)*size(k_px,4),size(k_px,2),length(t)),t);
+colormap(brewermap([],'*RdBu'));
+caxis([-max(caxis),max(caxis)]);
+AP_reference_outline('ccf_aligned',[0.5,0.5,0.5],[],[size(k_px,1),size(k_px,2),size(k_px,4),1]);
+axis image off
+
+
+
+
+% Plot STA for each depth    
+ctx_str_kernel_cat = cell2mat(permute(horzcat(ctx_str_kernel{:}),[1,3,4,5,2]));
+ctx_str_sta_cat = cell2mat(permute(horzcat(ctx_str_sta{:}),[1,3,4,2]));
+
+ctx_str_kernel_cat_mean = squeeze(nanmean(ctx_str_kernel_cat(:,:,median(1:size(ctx_str_kernel_cat,3)),:,:),5));
+ctx_str_sta_cat_mean = nanmean(ctx_str_sta_cat,4);
+
+ctx_str_kernel_cat_mean_norm = ctx_str_kernel_cat_mean./max(max(ctx_str_kernel_cat_mean,[],1),[],2);
+ctx_str_sta_cat_mean_norm = ctx_str_sta_cat_mean./max(max(ctx_str_sta_cat_mean,[],1),[],2);
+
+figure;imagesc( ...
+    [reshape(ctx_str_sta_cat_mean_norm,size(ctx_str_sta_cat_mean_norm,1),[]); ...
+    reshape(ctx_str_kernel_cat_mean_norm,size(ctx_str_kernel_cat_mean_norm,1),[])]);
+caxis([-1,1]);
+colormap(brewermap([],'*RdBu'));
+
+
+% Plot center-of-mass by color
+k_px_com = sum(ctx_str_kernel_cat_mean_norm.* ...
+    permute(1:size(ctx_str_kernel_cat_mean_norm,3),[1,3,2]),3)./ ...
+    sum(ctx_str_kernel_cat_mean_norm,3);
+
+use_colormap = min(jet(255)-0.2,1);
+k_px_com_colored = ...
+        ind2rgb(round(mat2gray(k_px_com,...
+        [1,size(ctx_str_kernel_cat_mean_norm,3)])* ...
+        size(use_colormap,1)),use_colormap);
+
+weight_max = 1;
+ctx_str_kernel_cat_mean_norm_max = max(ctx_str_kernel_cat_mean_norm,[],3);
+figure;
+image(k_px_com_colored,'AlphaData',mat2gray(ctx_str_kernel_cat_mean_norm_max,[0,weight_max]));
+AP_reference_outline('ccf_aligned',[0.5,0.5,0.5]);
+axis image off
+
+
+
+
+
 
 %% Goodness-of-fit retry
 

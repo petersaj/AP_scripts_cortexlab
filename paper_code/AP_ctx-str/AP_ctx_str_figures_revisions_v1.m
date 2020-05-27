@@ -37,6 +37,8 @@ split_idx = cell2mat(arrayfun(@(exp,trials) repmat(exp,trials,1), ...
 
 %% CCF domain location / Allen corticostriatal projections
 
+warning('THIS IS NOW SUBBED INTO MAIN FIGURES')
+
 % Load the kernel template matches
 n_aligned_depths = 3;
 kernel_match_path = 'C:\Users\Andrew\OneDrive for Business\Documents\CarandiniHarrisLab\analysis\wf_ephys_choiceworld\ephys_processing';
@@ -157,12 +159,24 @@ scatter3(kernel_depth_ccf(:,1),kernel_depth_ccf(:,2),kernel_depth_ccf(:,3), ...
     100,copper(n_aligned_depths),'filled');
 
 % Plot brain area outlines at slice
+callosum_id = find(strcmp(st.safe_name,'corpus callosum body'));
+ventricle_id = find(strcmp(st.safe_name,'lateral ventricle'));
+
 av_slice = permute(av(probe_vector_ccf(1),:,:),[2,3,1]);
 slice_brain_outline = bwboundaries(av_slice > 1,'noholes');
 slice_str_outline = bwboundaries(av_slice == str_id,'noholes');
-fiugre; hold on;
-plot(slice_brain_outline{1}(:,2),slice_brain_outline{1}(:,1),'k','linewidth',2);
+slice_callosum_outline = bwboundaries(av_slice == callosum_id,'noholes');
+slice_ventricle_outline = bwboundaries(av_slice == ventricle_id,'noholes');
 
+figure; hold on; axis image on; box on; grid on; set(gca,'YDir','reverse');
+plot(slice_brain_outline{1}(:,2),slice_brain_outline{1}(:,1),'k','linewidth',2);
+cellfun(@(x) plot(x(:,2),x(:,1),'b','linewidth',2),slice_str_outline);
+cellfun(@(x) fill(x(:,2),x(:,1),'k','linewidth',2),slice_callosum_outline);
+cellfun(@(x) fill(x(:,2),x(:,1),'k','linewidth',2),slice_ventricle_outline);
+
+line(probe_vector_ccf(:,3),probe_vector_ccf(:,2),'linewidth',2,'color','r');
+scatter(kernel_depth_ccf(:,3),kernel_depth_ccf(:,2), ...
+    100,copper(n_aligned_depths),'filled');
 
 % Mirror all of the locations across the midline and get projections from
 % both (because the cortical injections in the database aren't evenly
@@ -243,7 +257,7 @@ end
     
     
 
-%% Goodness-of-fit
+%% Goodness-of-fit (cortex and striatum)
 
 
 % Regress kernel ROI activity to striatum domain activity (per recording)
@@ -704,7 +718,7 @@ xlabel('Striatal domain');
 ylabel('Cortical MUA max corr');
 
 
-%% ^^^ IN PROGRESS: example recording
+%% ^^^ Example recording
 
 % AP060 2019-12-06 looks like the best?
 
@@ -955,28 +969,34 @@ for curr_animalday = 1:length(animal_days)
     
     spike_rate_change = (spike_rate_cond(:,2) - spike_rate_cond(:,1))./(spike_rate_cond(:,1)+spike_rate_cond(:,2));
     
-    subplot(length(animal_days),3,(curr_animalday-1)*3+1,'YDir','reverse'); hold on;
-    plot(spike_rate_cond(:,1),template_depths,'.k','MarkerSize',10);
+    subplot(length(animal_days),2,(curr_animalday-1)*2+1,'YDir','reverse'); hold on;
+    plot(reshape([spike_rate_cond,nan(size(template_depths))]',[],1), ...
+        reshape(repmat(template_depths,1,3)',[],1),'r');
+    p1 = plot(spike_rate_cond(:,1),template_depths,'.k','MarkerSize',10);
+    p2 = plot(spike_rate_cond(:,2),template_depths,'.r','MarkerSize',10);
     xlabel('Spikes/s')
     ylabel('Depth (\mum)');
-    title({animal,day,'Pre-muscimol'});
-    
-    subplot(length(animal_days),3,(curr_animalday-1)*3+2,'YDir','reverse'); hold on;
-    plot(spike_rate_cond(:,2),template_depths,'.k','MarkerSize',10);
-    xlabel('Spikes/s')
-    ylabel('Depth (\mum)');
-    title({animal,day,'Post-muscimol'});
-    
-    subplot(length(animal_days),3,(curr_animalday-1)*3+3); hold on;
-    plot(spike_rate_change,template_depths,'.k','MarkerSize',10);
+    legend([p1,p2],{'Pre-muscimol','Post-muscimol'});
+    axis tight;
+    xlim([-1,prctile(spike_rate_cond(:,1),95)])
+   
+    subplot(length(animal_days),2,(curr_animalday-1)*2+2); hold on;
+    plot(spike_rate_change,template_depths,'.k','MarkerSize',10);   
+    axis tight;
+    xlim([-1.1,1.1]);
     line([0,0],ylim);
-    xlim([-1.1,1.1])
     set(gca,'YDir','reverse');
     xlabel('(Post-pre)/(pre+post)');
     ylabel('Depth (\mum)');
     title({animal,day,'Change'});
     
+    
 end
+
+
+
+
+
 
 %% ^^^ VFS pre/post musicmol
 
@@ -1124,6 +1144,7 @@ title('Muscimol change');
 
 
 %% ^^^ Striatum cortical kernels pre/post muscimol
+error('I don''t think this should be included');
 
 protocols = {'vanillaChoiceworldNoRepeats_pre_muscimol','vanillaChoiceworldNoRepeats_post_muscimol'};
 
@@ -1137,7 +1158,7 @@ for protocol = protocols
     framerate = 35;
     upsample_factor = 1;
     sample_rate = framerate*upsample_factor;
-    kernel_t = [-0.5,0.5];
+    kernel_t = [-0.1,0.1];
     kernel_frames = round(kernel_t(1)*sample_rate):round(kernel_t(2)*sample_rate);
     t = kernel_frames/sample_rate;
     
@@ -1369,70 +1390,58 @@ end
 linkaxes(get(gcf,'Children'))
 
 % Plot pre/post muscimol and repsonse change for pair of str/ctx
-plot_str = 1;
-
-t_stim = t >= 0 & t <= 0.2;
-mua_avg_premuscimol = permute(nanmean(mua_premuscimol_mean(:,t_stim,:),2),[1,3,2]);
-mua_avg_postmuscimol = permute(nanmean(mua_postmuscimol_mean(:,t_stim,:),2),[1,3,2]);
-mua_avg_postpre_change = (mua_avg_postmuscimol-mua_avg_premuscimol)./(mua_avg_premuscimol+mua_avg_postmuscimol);
-
-fluor_avg_premuscimol = permute(nanmean(fluor_kernelroi_premuscimol_mean(:,t_stim,:),2),[1,3,2]);
-fluor_avg_postmuscimol = permute(nanmean(fluor_kernelroi_postmuscimol_mean(:,t_stim,:),2),[1,3,2]);
-fluor_avg_postpre_change = (fluor_avg_postmuscimol-fluor_avg_premuscimol)./(fluor_avg_premuscimol+fluor_avg_postmuscimol);
-
 figure;
-subplot(1,3,1);hold on;
-AP_errorfill(t,nanmean(mua_premuscimol_mean(:,:,plot_str),1)', ...
-    AP_sem(mua_premuscimol_mean(:,:,plot_str),1)','k');
-AP_errorfill(t,nanmean(mua_postmuscimol_mean(:,:,plot_str),1)', ...
-    AP_sem(mua_postmuscimol_mean(:,:,plot_str),1)','r');
-xlim([-0.2,1])
-xlabel('Time from stim (s)')
-ylabel(['Str ' num2str(plot_str)]);
-axis square
+for plot_str = 1:n_depths
+    
+    t_stim = t >= 0.05 & t <= 0.15;
+    mua_avg_premuscimol = permute(nanmean(mua_premuscimol_mean(:,t_stim,:),2),[1,3,2]);
+    mua_avg_postmuscimol = permute(nanmean(mua_postmuscimol_mean(:,t_stim,:),2),[1,3,2]);
+    mua_avg_postpre_change = (mua_avg_postmuscimol-mua_avg_premuscimol)./(mua_avg_premuscimol+mua_avg_postmuscimol);
+    
+    fluor_avg_premuscimol = permute(nanmean(fluor_kernelroi_premuscimol_mean(:,t_stim,:),2),[1,3,2]);
+    fluor_avg_postmuscimol = permute(nanmean(fluor_kernelroi_postmuscimol_mean(:,t_stim,:),2),[1,3,2]);
+    fluor_avg_postpre_change = (fluor_avg_postmuscimol-fluor_avg_premuscimol)./(fluor_avg_premuscimol+fluor_avg_postmuscimol);
+    
+    subplot(n_depths,3,(plot_str-1)*n_depths+1);hold on;
+    AP_errorfill(t,nanmean(mua_premuscimol_mean(:,:,plot_str),1)', ...
+        AP_sem(mua_premuscimol_mean(:,:,plot_str),1)','k');
+    AP_errorfill(t,nanmean(mua_postmuscimol_mean(:,:,plot_str),1)', ...
+        AP_sem(mua_postmuscimol_mean(:,:,plot_str),1)','r');
+    xlim([-0.2,1])
+    xlabel('Time from stim (s)')
+    ylabel(['Str ' num2str(plot_str)]);
+    axis square
+    
+    subplot(n_depths,3,(plot_str-1)*n_depths+2);hold on;
+    AP_errorfill(t,nanmean(fluor_kernelroi_premuscimol_mean(:,:,plot_str),1)', ...
+        AP_sem(fluor_kernelroi_premuscimol_mean(:,:,plot_str),1)','k');
+    AP_errorfill(t,nanmean(fluor_kernelroi_postmuscimol_mean(:,:,plot_str),1)', ...
+        AP_sem(fluor_kernelroi_postmuscimol_mean(:,:,plot_str),1)','r');
+    xlim([-0.2,1])
+    xlabel('Time from stim (s)')
+    ylabel('Cortex ROI');
+    axis square
+    
+    subplot(n_depths,3,(plot_str-1)*n_depths+3);
+    plot(fluor_avg_postpre_change(:,plot_str),mua_avg_postpre_change(:,plot_str),'.k','MarkerSize',20)
+    xlabel(['Cortex ROI (post-pre)']);
+    ylabel(['Str ' num2str(plot_str) ' (post-pre)/(pre+post)']);
+    line([-1,1],[0,0],'color','k','linestyle','--');
+    line([0,0],[-1,1],'color','k','linestyle','--');
+    line([-1,1],[-1,1],'color','k');
+    % xlim([-1,1]);
+    % ylim([-1,1]);
+    axis square;
+    
+    nonan_points = ~isnan(mua_avg_postpre_change(:,plot_str)) & ...
+        ~isnan(fluor_avg_postpre_change(:,plot_str));
+    [r,p] = corrcoef(fluor_avg_postpre_change(nonan_points,plot_str), ...
+        mua_avg_postpre_change(nonan_points,plot_str));
+    
+end
 
-subplot(1,3,2);hold on;
-AP_errorfill(t,nanmean(fluor_kernelroi_premuscimol_mean(:,:,plot_str),1)', ...
-    AP_sem(fluor_kernelroi_premuscimol_mean(:,:,plot_str),1)','k');
-AP_errorfill(t,nanmean(fluor_kernelroi_postmuscimol_mean(:,:,plot_str),1)', ...
-    AP_sem(fluor_kernelroi_postmuscimol_mean(:,:,plot_str),1)','r');
-xlim([-0.2,1])
-xlabel('Time from stim (s)')
-ylabel('Cortex ROI');
-axis square
+error('Need to fix this metric - also plot for 2 (and 3?)');
 
-subplot(1,3,3);
-plot(fluor_avg_postpre_change(:,plot_str),mua_avg_postpre_change(:,plot_str),'.k','MarkerSize',20)
-xlabel(['Cortex ROI (post-pre)']);
-ylabel(['Str ' num2str(plot_str) ' (post-pre)']);
-line([-1,1],[0,0],'color','k','linestyle','--');
-line([0,0],[-1,1],'color','k','linestyle','--');
-line([-1,1],[-1,1],'color','k');
-xlim([-1,1]);
-ylim([-1,1]);
-axis square;
-
-nonan_points = ~isnan(mua_avg_postpre_change(:,plot_str)) & ...
-    ~isnan(fluor_avg_postpre_change(:,plot_str));
-[r,p] = corrcoef(fluor_avg_postpre_change(nonan_points,plot_str), ...
-    mua_avg_postpre_change(nonan_points,plot_str));
-
-error('I think this analysis is fucked and I''ll come back to it later')
-
-%%%%%%% TESTING
-
-% fluor_premuscimol_mean = cell2mat(permute(cellfun(@(x) ...
-%     svdFrameReconstruct(U_master(:,:,1:200),permute(x,[3,2,1])), ...
-%     cellfun(@(x,stim) nanmean(x(stim == use_stim,:,:),1), ...
-%     fluor_muscimol{1},stimIDs{1},'uni',false),'uni',false),[2,3,4,1]));
-% 
-% fluor_postmuscimol_mean = cell2mat(permute(cellfun(@(x) ...
-%     svdFrameReconstruct(U_master(:,:,1:200),permute(x,[3,2,1])), ...
-%     cellfun(@(x,stim) nanmean(x(stim == use_stim,:,:),1), ...
-%     fluor_muscimol{2},stimIDs{2},'uni',false),'uni',false),[2,3,4,1]));
-% 
-% fluor_avg_premuscimol = squeeze(nanmean(fluor_premuscimol_mean(:,:,t_stim,:),3));
-% fluor_avg_postmuscimol = squeeze(nanmean(fluor_postmuscimol_mean(:,:,t_stim,:),3));
 
 %% ^^^ Striatal task trial activity pre/post muscimol
 
@@ -1554,12 +1563,12 @@ for curr_data = 1:length(data_fns)
             
             % Plot PSTH (measured, task-predicted, cortex-predicted);
             p(curr_depth,4) = subplot(n_depths,4,4+(curr_depth-1)*4); hold on
-            p1 = AP_errorfill(t,nanmean(curr_mua_exp_mean,1), ...
-                AP_sem(curr_mua_exp_mean,1),'k',0.5);
-            p2 = AP_errorfill(t,nanmean(curr_taskpred_mua_exp_mean,1), ...
-                AP_sem(curr_taskpred_mua_exp_mean,1),[0,0,0.7],0.5);
-            p3 = AP_errorfill(t,nanmean(curr_ctxpred_mua_exp_mean,1), ...
-                AP_sem(curr_ctxpred_mua_exp_mean,1),[0,0.7,0],0.5);
+            p1 = AP_errorfill(t,nanmean(curr_mua_exp_mean,1)', ...
+                AP_sem(curr_mua_exp_mean,1)','k',0.5);
+            p2 = AP_errorfill(t,nanmean(curr_taskpred_mua_exp_mean,1)', ...
+                AP_sem(curr_taskpred_mua_exp_mean,1)',[0,0,0.7],0.5);
+            p3 = AP_errorfill(t,nanmean(curr_ctxpred_mua_exp_mean,1)', ...
+                AP_sem(curr_ctxpred_mua_exp_mean,1)',[0,0.7,0],0.5);
             xlim([-0.2,1])
             line([0,0],ylim,'color','r');
             line(repmat(median(move_t(sorted_plot_trials)),1,2),ylim,'color',[0.8,0,0.8],'linestyle','--');
