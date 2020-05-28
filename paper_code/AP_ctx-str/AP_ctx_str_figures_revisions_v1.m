@@ -1411,17 +1411,17 @@ end
 linkaxes(get(gcf,'Children'))
 
 % Plot pre/post muscimol and repsonse change for pair of str/ctx
+t_stim = t >= 0.05 & t <= 0.15;
+mua_avg_premuscimol = permute(nanmean(mua_premuscimol_mean(:,t_stim,:),2),[1,3,2]);
+mua_avg_postmuscimol = permute(nanmean(mua_postmuscimol_mean(:,t_stim,:),2),[1,3,2]);
+mua_avg_postpre_change = (mua_avg_postmuscimol-mua_avg_premuscimol)./(abs(mua_avg_premuscimol)+abs(mua_avg_postmuscimol));
+
+fluor_avg_premuscimol = permute(nanmean(fluor_kernelroi_premuscimol_mean(:,t_stim,:),2),[1,3,2]);
+fluor_avg_postmuscimol = permute(nanmean(fluor_kernelroi_postmuscimol_mean(:,t_stim,:),2),[1,3,2]);
+fluor_avg_postpre_change = (fluor_avg_postmuscimol-fluor_avg_premuscimol)./(abs(fluor_avg_premuscimol)+abs(fluor_avg_postmuscimol));
+
 figure;
 for plot_str = 1:n_depths
-    
-    t_stim = t >= 0.05 & t <= 0.15;
-    mua_avg_premuscimol = permute(nanmean(mua_premuscimol_mean(:,t_stim,:),2),[1,3,2]);
-    mua_avg_postmuscimol = permute(nanmean(mua_postmuscimol_mean(:,t_stim,:),2),[1,3,2]);
-    mua_avg_postpre_change = (mua_avg_postmuscimol-mua_avg_premuscimol)./(mua_avg_premuscimol+mua_avg_postmuscimol);
-    
-    fluor_avg_premuscimol = permute(nanmean(fluor_kernelroi_premuscimol_mean(:,t_stim,:),2),[1,3,2]);
-    fluor_avg_postmuscimol = permute(nanmean(fluor_kernelroi_postmuscimol_mean(:,t_stim,:),2),[1,3,2]);
-    fluor_avg_postpre_change = (fluor_avg_postmuscimol-fluor_avg_premuscimol)./(fluor_avg_premuscimol+fluor_avg_postmuscimol);
     
     subplot(n_depths,3,(plot_str-1)*n_depths+1);hold on;
     AP_errorfill(t,nanmean(mua_premuscimol_mean(:,:,plot_str),1)', ...
@@ -1446,22 +1446,21 @@ for plot_str = 1:n_depths
     subplot(n_depths,3,(plot_str-1)*n_depths+3);
     plot(fluor_avg_postpre_change(:,plot_str),mua_avg_postpre_change(:,plot_str),'.k','MarkerSize',20)
     xlabel(['Cortex ROI (post-pre)']);
-    ylabel(['Str ' num2str(plot_str) ' (post-pre)/(pre+post)']);
+    ylabel(['Str ' num2str(plot_str) ' (post-pre)/(abs(pre)+abs(post))']);
     line([-1,1],[0,0],'color','k','linestyle','--');
     line([0,0],[-1,1],'color','k','linestyle','--');
     line([-1,1],[-1,1],'color','k');
-    % xlim([-1,1]);
-    % ylim([-1,1]);
+    xlim([-1.1,1.1]);
+    ylim([-1.1,1.1]);
     axis square;
     
     nonan_points = ~isnan(mua_avg_postpre_change(:,plot_str)) & ...
         ~isnan(fluor_avg_postpre_change(:,plot_str));
     [r,p] = corrcoef(fluor_avg_postpre_change(nonan_points,plot_str), ...
         mua_avg_postpre_change(nonan_points,plot_str));
-    
-end
+    title({['r = ' num2str(r(2))],['p = ' num2str(p(2))]})
 
-error('Need to fix this metric - also plot for 2 (and 3?)');
+end
 
 
 %% ^^^ Striatal task trial activity pre/post muscimol
