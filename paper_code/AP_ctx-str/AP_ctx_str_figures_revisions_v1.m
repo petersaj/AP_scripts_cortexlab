@@ -1462,6 +1462,114 @@ for plot_str = 1:n_depths
 
 end
 
+%% ^^^ Task performance pre/post muscimol
+
+data_fns = { ...
+    'trial_activity_vanillaChoiceworldNoRepeats_pre_muscimol', ...
+    'trial_activity_vanillaChoiceworldNoRepeats_post_muscimol'};
+
+frac_orient_right = cell(2,1);
+rxn_time = cell(2,1);
+move_t_hist = cell(2,1);
+for curr_data = 1:length(data_fns)
+    
+    % Load data
+    data_fn = data_fns{curr_data};
+    AP_load_concat_normalize_ctx_str;
+    
+    % Split data by recording
+    trials_allcat = size(wheel_allcat,1);
+    trials_recording = cellfun(@(x) size(x,1),vertcat(wheel_all{:}));
+    use_split = trials_recording;
+    split_idx = cell2mat(arrayfun(@(exp,trials) repmat(exp,trials,1), ...
+        [1:length(use_split)]',reshape(use_split,[],1),'uni',false));
+    
+    % Get psychometric
+    stim_conditions = unique(trial_stim_allcat);
+    [~,stim_idx] = ismember(trial_stim_allcat,stim_conditions,'rows');
+    
+    trial_stim_idx_allcat_exp = mat2cell(stim_idx,use_split,1);
+    trial_choice_allcat_exp = mat2cell(trial_choice_allcat,use_split,1);
+    
+    frac_orient_right{curr_data} = cell2mat(cellfun(@(stim,choice) ...
+        accumarray(stim,choice == -1,[length(stim_conditions),1],@nanmean,NaN), ...
+        trial_stim_idx_allcat_exp,trial_choice_allcat_exp,'uni',false)');
+    
+    % Reaction time by 
+    move_t_exp = mat2cell(move_t,use_split,1);
+    rxn_time{curr_data} = cell2mat(cellfun(@(stim,rxn) ...
+        accumarray(stim,rxn,[length(stim_conditions),1],@nanmedian,NaN), ...
+        trial_stim_idx_allcat_exp,move_t_exp,'uni',false)');
+    
+    % Get histogram of reaction times
+    move_t_bins = -0.2:1/sample_rate:1;
+    move_t_bin_centers = move_t_bins(1:end-1) + diff(move_t_bins)./2;
+    move_t_bin = mat2cell(discretize(move_t,move_t_bins),trials_recording,1);
+    
+    move_t_hist{curr_data} = cell2mat(cellfun(@(move_t_bin) ...
+        accumarray(move_t_bin(~isnan(move_t_bin)), ...
+        1/sum(~isnan(move_t_bin)),[length(move_t_bins)-1,1],@nansum,0), ...
+        move_t_bin','uni',false));
+
+end
+
+figure; 
+
+subplot(3,2,1);
+AP_errorfill(stim_conditions, ...
+    [nanmean(frac_orient_right{1},2),nanmean(frac_orient_right{2},2)], ...
+    [AP_sem(frac_orient_right{1},2),AP_sem(frac_orient_right{2},2)],[0,0,0;1,0,0]);
+line(xlim,[0.5,0.5],'color','k','linestyle','--');
+line([0,0],ylim,'color','k','linestyle','--');
+xlabel('Contrast*Side');
+ylabel('Reaction time');
+
+subplot(3,2,2);
+AP_errorfill(stim_conditions, ...
+    nanmean(frac_orient_right{2}-frac_orient_right{1},2), ...
+    AP_sem(frac_orient_right{2}-frac_orient_right{1},2),[0,0,0;1,0,0]);
+line(xlim,[0,0],'color','k','linestyle','--');
+line([0,0],ylim,'color','k','linestyle','--');
+xlabel('Contrast*Side');
+ylabel('\DeltaReaction time');
+
+subplot(3,2,3);
+AP_errorfill(stim_conditions, ...
+    [nanmean(rxn_time{1},2),nanmean(rxn_time{2},2)], ...
+    [AP_sem(rxn_time{1},2),AP_sem(rxn_time{2},2)],[0,0,0;1,0,0]);
+line(xlim,[0.5,0.5],'color','k','linestyle','--');
+line([0,0],ylim,'color','k','linestyle','--');
+xlabel('Contrast*Side');
+ylabel('Fraction orient right');
+
+subplot(3,2,4);
+AP_errorfill(stim_conditions, ...
+    nanmean(rxn_time{2}-rxn_time{1},2), ...
+    AP_sem(rxn_time{2}-rxn_time{1},2),[0,0,0;1,0,0]);
+line(xlim,[0,0],'color','k','linestyle','--');
+line([0,0],ylim,'color','k','linestyle','--');
+xlabel('Contrast*Side');
+ylabel('\DeltaFraction orient right');
+
+subplot(3,2,5);
+AP_errorfill(move_t_bin_centers, ...
+    [nanmean(move_t_hist{1},2),nanmean(move_t_hist{2},2)], ...
+    [AP_sem(move_t_hist{1},2),AP_sem(move_t_hist{2},2)],[0,0,0;1,0,0]);
+line([0.5,0.5],ylim,'color','k','linestyle','--');
+xlabel('Reaction time');
+ylabel('Fraction');
+
+subplot(3,2,6);
+AP_errorfill(move_t_bin_centers, ...
+    nanmean(move_t_hist{2}-move_t_hist{1},2), ...
+    AP_sem(move_t_hist{2}-move_t_hist{1},2),[0,0,0;1,0,0]);
+line(xlim,[0,0],'color','k','linestyle','--');
+line([0.5,0.5],ylim,'color','k','linestyle','--');
+xlabel('Reaction time');
+ylabel('\DeltaFraction');
+
+
+
 
 %% ^^^ Striatal task trial activity pre/post muscimol
 
