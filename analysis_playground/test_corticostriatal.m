@@ -340,6 +340,19 @@ AP_load_concat_normalize_ctx_str;
 data_fn = 'trial_activity_AP_lcrGratingPassive_corticostriatal';
 AP_load_concat_normalize_ctx_str;
 
+% Passive naive
+data_fn = 'trial_activity_AP_lcrGratingPassive_corticostriatal_naive';
+AP_load_concat_normalize_ctx_str;
+
+
+% Choose split for data
+trials_allcat = size(wheel_allcat,1);
+trials_animal = arrayfun(@(x) size(vertcat(wheel_all{x}{:}),1),1:size(wheel_all));
+trials_recording = cellfun(@(x) size(x,1),vertcat(wheel_all{:}));
+use_split = trials_recording;
+
+split_idx = cell2mat(arrayfun(@(exp,trials) repmat(exp,trials,1), ...
+    [1:length(use_split)]',reshape(use_split,[],1),'uni',false));
 
 
 
@@ -358,6 +371,50 @@ AP_image_scroll(ctx_str_k_mean_px,ctx_str_kernel_t)
 axis image
 caxis([-max(abs(caxis)),max(abs(caxis))]);
 colormap(brewermap([],'*RdBu'));
+
+
+
+% Average fluorescence
+quiescent_trials = ~any(abs(wheel_allcat(:,t >= 0 & t <= 0.5)) > 0.025,2);
+
+unique_stim = unique(trial_stim_allcat);
+stim_px = nan(size(U_master,1),size(U_master,2),length(t),length(unique_stim),length(use_split));
+for curr_exp = 1:length(use_split)
+    for curr_stim = 1:length(unique_stim)
+        curr_v = permute(nanmean(fluor_allcat_deconv(split_idx == curr_exp & ...
+            trial_stim_allcat == unique_stim(curr_stim),:,:),1),[3,2,1]);
+        curr_px = svdFrameReconstruct(U_master(:,:,1:n_vs),curr_v);
+        stim_px(:,:,:,curr_stim,curr_exp) = curr_px;
+    end
+end
+
+trial_stim_allcat_exp = mat2cell(trial_stim_allcat,trials_recording,1);
+fluor_allcat_deconv_exp = mat2cell(fluor_allcat_deconv,use_split,length(t),n_vs);
+quiescent_trials_exp = mat2cell(quiescent_trials,trials_recording,1);
+
+curr_v = cellfun(@(act,stim,quiesc) ...
+    permute(nanmean(act(stim == 1 & quiesc,:,:),1),[3,2,1]), ...
+    fluor_allcat_deconv_exp,trial_stim_allcat_exp,quiescent_trials_exp,'uni',false);
+
+curr_v_mean = nanmean(cat(3,curr_v{:}),3);
+
+curr_px = svdFrameReconstruct(U_master(:,:,1:n_vs),curr_v_mean);
+
+AP_image_scroll(curr_px,t)
+axis image;
+AP_reference_outline('ccf_aligned',[0.5,0.5,0.5]);
+caxis([-max(abs(caxis)),max(abs(caxis))]);
+colormap(brewermap([],'*RdBu'));
+
+
+
+
+
+
+
+
+
+
 
 
 

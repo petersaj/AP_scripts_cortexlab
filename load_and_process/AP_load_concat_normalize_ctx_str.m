@@ -269,7 +269,13 @@ if exist('mua_all','var')
     % Get number of striatum depths
     n_depths = size(mua_all{end}{end},3);
     
-    % Get baseline and std of MUA (to normalize)
+    % Normalize MUA
+    
+    % (day baseline)
+    mua_day_baseline = cellfun(@(mua_animal) cellfun(@(mua_day) ...
+        nanmean(reshape(mua_day(:,t_baseline,:),1,[],size(mua_day,3)),2), ...
+        mua_animal,'uni',false),mua_all,'uni',false);   
+    
     % (baseline of every trial)
     mua_trial_baseline = cellfun(@(mua_animal) cellfun(@(mua_day) ...
         nanmean(mua_day(:,t_baseline,:),2), ...
@@ -285,6 +291,7 @@ if exist('mua_all','var')
         nanstd(reshape(mua_day(:,t_baseline,:) - baseline,[],1,n_depths)), ...
         mua_animal,baseline,'uni',false),mua_all,mua_trial_baseline,'uni',false);
     
+    % (set baseline and norm)
     mua_use_baseline = mua_trial_baseline;
     mua_norm = mua_day_std; % mua_day_baseline_std or mua_day_std
     

@@ -446,7 +446,7 @@ for curr_animal_day = 1:length(animal_days)
     
     % Load and invert master CCF tform
     alignment_path = 'C:\Users\Andrew\OneDrive for Business\Documents\CarandiniHarrisLab\analysis\widefield_alignment';
-    ccf_tform_fn = [alignment_path filese 'ccf_tform.mat'];
+    ccf_tform_fn = [alignment_path filesep 'ccf_tform.mat'];
     load(ccf_tform_fn);
     ccf_tform_inverse = invert(ccf_tform);
     
@@ -720,8 +720,6 @@ ylabel('Cortical MUA max corr');
 
 %% ^^^ Example recording
 
-% AP060 2019-12-06 looks like the best?
-
 animal = 'AP060';
 day = '2019-12-06';
 experiment = 1;
@@ -817,7 +815,7 @@ plot_spikes = spike_times_timeline >= plot_t(1) & ...
     spike_times_timeline <= plot_t(2) & ...
     spike_depths_aligned <= ctx_depth(2);
 plot(spike_times_timeline(plot_spikes),spike_depths(plot_spikes),'.k');
-ylabel('Depth (\mum)');
+ylabel('Cortex depth (\mum)');
 xlabel('Time (s)');
 
 %%% LOAD STRIATUM EPHYS AND GET MUA BY DEPTH
@@ -844,7 +842,7 @@ plot_spikes = spike_times_timeline >= plot_t(1) & ...
     spike_times_timeline <= plot_t(2) & ...
     spike_depths >= str_depth(1) & spike_depths <= str_depth(2);
 plot(spike_times_timeline(plot_spikes),spike_depths(plot_spikes),'.k');
-ylabel('Depth (\mum)');
+ylabel('Striatum depth (\mum)');
 xlabel('Time (s)');
 linkaxes(get(raster_fig,'Children'),'x');
 
@@ -870,8 +868,7 @@ xlim(plot_t);
 
 
 
-
-% %%%%%% TESTING
+% %%%%%% TO PLOT WHEEL/STIM
 % 
 % 
 % % (wheel velocity)

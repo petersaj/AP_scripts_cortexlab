@@ -2072,7 +2072,7 @@ save_path = 'C:\Users\Andrew\OneDrive for Business\Documents\CarandiniHarrisLab\
 save_fn = ['trial_activity_choiceworld_corticostriatal'];
 save([save_path filesep save_fn],'-v7.3');
 
-%% Passive trial activity (striatum depth)
+%% Passive trial activity trained (striatum depth)
 clear all
 
 lambda = 20; % Set lambda - not done empirically yet
@@ -2132,6 +2132,63 @@ save_path = 'C:\Users\Andrew\OneDrive for Business\Documents\CarandiniHarrisLab\
 save_fn = ['trial_activity_AP_lcrGratingPassive_corticostriatal'];
 save([save_path filesep save_fn],'-v7.3');
 
+%% Passive trial activity naive (widefield only)
+clear all
+
+lambda = 20; % (only for wheel - unused)
+
+animals = {'AP063','AP068'};
+
+% Initialize save variable
+trial_data_all = struct;
+
+for curr_animal = 1:length(animals)
+    
+    animal = animals{curr_animal};
+    protocol = 'AP_lcrGratingPassive';
+    experiments = AP_find_experiments(animal,protocol);
+    
+    experiments = experiments([experiments.imaging] & ~[experiments.ephys]);
+    
+    disp(['Loading ' animal]);
+    
+    for curr_day = 1:length(experiments)
+        
+        day = experiments(curr_day).day;
+        experiment = experiments(curr_day).experiment(end);
+        
+        % Load experiment
+        AP_load_experiment;
+        
+        % Pull out trial data
+        AP_ctx_str_grab_trial_data;
+        
+        % Store trial data into master structure
+        trial_data_fieldnames = fieldnames(trial_data);
+        for curr_trial_data_field = trial_data_fieldnames'
+            trial_data_all.(cell2mat(curr_trial_data_field)){curr_animal,1}{curr_day,1} = ...
+                trial_data.(cell2mat(curr_trial_data_field));
+        end
+        
+        % Store general info
+        trial_data_all.animals = animals;
+        trial_data_all.t = t;
+        
+        AP_print_progress_fraction(curr_day,length(experiments));
+        
+        % Clear for next loop
+        clearvars -except animals curr_animal animal protocol experiments curr_day ...
+            trial_data_all lambda
+        
+    end
+end
+
+clearvars -except trial_data_all
+disp('Finished loading all')
+
+save_path = 'C:\Users\Andrew\OneDrive for Business\Documents\CarandiniHarrisLab\analysis\wf_ephys_choiceworld\paper\data';
+save_fn = ['trial_activity_AP_lcrGratingPassive_corticostriatal_naive'];
+save([save_path filesep save_fn],'-v7.3');
 
 
 
