@@ -313,8 +313,8 @@ caxis([0,50]);
 %% Rasters (select cells) 
 
 % Set cells and alignment to plot
-plot_cells = ~stim_cells & celltype_allcat == 3 & domain_aligned_allcat == 1;
-plot_align = 1; % (stim,move,outcome)
+plot_cells = move_cells & ismember(celltype_allcat,[1,2]) & domain_aligned_allcat == 1;
+plot_align = 2; % (stim,move,outcome)
 
 % Get events by experiment
 trial_stim_allcat_exp = mat2cell(trial_stim_allcat,use_split,1);
@@ -612,27 +612,47 @@ avg_act_aligned = AP_deconv_wf( ...
 
 [~,max_aligned_idx] = max(max(avg_act_aligned,[],2),[],3);
 
+% % Pull out cells
+% % (first criteria)
+% use_t = t > 0 & t < 0.5;
+% [~,stim_max_idx] = max(stim_contra_act,[],2);
+% stim_cells = ismember(stim_max_idx,find(use_t)) & ...
+%     (max(stim_contra_act(:,use_t),[],2) > ...
+%     2*max(stim_ipsi_act(:,use_t),[],2)) & max_aligned_idx == 1;
+% 
+% use_t = t > 0 & t < 0.5;
+% [~,move_max_idx] = max(move_early_act,[],2);
+% move_cells = ismember(move_max_idx,find(use_t)) & ...
+%     (max(move_early_act(:,use_t),[],2) > ...
+%     2*max(move_late_act(:,use_t),[],2)) & max_aligned_idx == 2;
+% 
+% use_t = t > 0 & t < 0.5;
+% [~,reward_max_idx] = max(reward_act,[],2);
+% reward_cells = ismember(reward_max_idx,find(use_t)) & ...
+%     (max(reward_act(:,use_t),[],2) > ...
+%     2*max(no_reward_act(:,use_t),[],2)) & max_aligned_idx == 3;
+
 % Pull out cells
 % NOTE: these criteria have changed a lot
 use_t = t > 0 & t < 0.5;
 [~,stim_max_idx] = max(stim_contra_act,[],2);
-stim_cells = ... %ismember(stim_max_idx,find(use_t)) & ...
+stim_cells = ismember(stim_max_idx,find(use_t)) & ...
     (max(stim_contra_act(:,use_t),[],2) > ...
-    1.2*max(stim_ipsi_act(:,use_t),[],2)) & trial_corr_max_align == 1;% & ...
+    max(stim_ipsi_act(:,use_t),[],2)) & trial_corr_max_align == 1;% & ...
 %     taskpred_partial_r2_allcat(:,1) > 0;
 
 use_t = t > 0 & t < 0.5;
 [~,move_max_idx] = max(move_early_act,[],2);
-move_cells = ... %ismember(move_max_idx,find(use_t)) & ...
+move_cells = ismember(move_max_idx,find(use_t)) & ...
     (max(move_early_act(:,use_t),[],2) > ...
-    1.2*max(move_late_act(:,use_t),[],2)) & trial_corr_max_align == 2;% & ...
+    max(move_late_act(:,use_t),[],2)) & trial_corr_max_align == 2;% & ...
 %     taskpred_partial_r2_allcat(:,2) > 0;
 
 use_t = t > 0 & t < 0.5;
 [~,reward_max_idx] = max(reward_act,[],2);
-reward_cells = ... %ismember(reward_max_idx,find(use_t)) & ...
+reward_cells = ismember(reward_max_idx,find(use_t)) & ...
     (max(reward_act(:,use_t),[],2) > ...
-    1.2*max(no_reward_act(:,use_t),[],2)) & trial_corr_max_align == 3;% & ...
+    max(no_reward_act(:,use_t),[],2)) & trial_corr_max_align == 3;% & ...
 %     taskpred_partial_r2_allcat(:,4) > 0;
 
 
@@ -865,19 +885,22 @@ end
 
 %% Plot maps by condition 1/2
 
-curr_domain = 1;
+curr_domain = 2;
+
+% max-normalize maps?
+ctx_str_k_px_norm = ctx_str_k_px./max(max(ctx_str_k_px,[],1),[],2);
 
 figure;
 
 for curr_celltype = 1:n_celltypes
     
-    curr_k_1 = nanmean(ctx_str_k_px(:,:, ...
+    curr_k_1 = nanmean(ctx_str_k_px_norm(:,:, ...
         stim_cells & ...
         domain_aligned_allcat == curr_domain & ...
         celltype_allcat == curr_celltype),3);
     
-     curr_k_2 = nanmean(ctx_str_k_px(:,:, ...
-        ~stim_cells & ...
+     curr_k_2 = nanmean(ctx_str_k_px_norm(:,:, ...
+        move_cells & ...
         domain_aligned_allcat == curr_domain & ...
         celltype_allcat == curr_celltype),3);
     
@@ -885,7 +908,8 @@ for curr_celltype = 1:n_celltypes
     imagesc(curr_k_1);
     axis image
     colormap(brewermap([],'*RdBu'));
-    caxis([-2e-4,2e-4]);
+    caxis([-max(abs(caxis)),max(abs(caxis))]);
+%     caxis([-2e-4,2e-4]);
     AP_reference_outline('ccf_aligned',[0.5,0.5,0.5]);
     axis off
     title(['Cond 1: Str ' num2str(curr_domain) ' ' celltype_labels{curr_celltype}]);
@@ -894,7 +918,8 @@ for curr_celltype = 1:n_celltypes
     imagesc(curr_k_2);
     axis image
     colormap(brewermap([],'*RdBu'));
-    caxis([-2e-4,2e-4]);
+    caxis([-max(abs(caxis)),max(abs(caxis))]);
+%     caxis([-2e-4,2e-4]);
     AP_reference_outline('ccf_aligned',[0.5,0.5,0.5]);
     axis off
     title(['Cond 2: Str ' num2str(curr_domain) ' ' celltype_labels{curr_celltype}]);
@@ -903,7 +928,8 @@ for curr_celltype = 1:n_celltypes
     imagesc(curr_k_1 - curr_k_2);
     axis image
     colormap(brewermap([],'*RdBu'));
-    caxis([-2e-4,2e-4]);
+    caxis([-max(abs(caxis)),max(abs(caxis))]);
+%     caxis([-2e-4,2e-4]);
     AP_reference_outline('ccf_aligned',[0.5,0.5,0.5]);
     axis off
     title(['Diff: Str ' num2str(curr_domain) ' ' celltype_labels{curr_celltype}]);
@@ -923,11 +949,8 @@ kernel_frames = floor(regression_params.kernel_t(1)*sample_rate): ...
     ceil(regression_params.kernel_t(2)*sample_rate);
 
 % Pick time to use for regression
-% use_t = t < 0;
-% use_t = t > 0.05 & t < 0.1;
-% use_t = t > 0.5 & t < 1;
-% use_t = t > 0.5;
-use_t = true(size(t));
+use_t = t < 0;
+% use_t = true(size(t));
 
 % Regress cortex to striatum
 mua_ctxtrialpred_exp = cellfun(@(x) nan(size(x)),mua_allcat_exp,'uni',false);
@@ -978,7 +1001,7 @@ ctx_str_trialk_px = ctx_str_trialk_px./max(max(ctx_str_trialk_px,[],1),[],2);
 
 %% Plot trial-regressed maps by condition 1/2
 
-curr_domain = 1;
+curr_domain = 2;
 
 figure;
 
