@@ -12157,279 +12157,33 @@ errorbar(nanmean(curr_corr,2),AP_sem(curr_corr,2),'k','linewidth',2);
 ylabel('ITI correlation');
 xlabel('Str');
 
+%% Testing: R^2 on average activity
 
+c1_bls = c1 - nanmean(reshape(c1(:,t < 0),[],1));
 
-%% playing with single unit data
+nan_trials = all(isnan(c2),2);
+nan_t = any(isnan(c2(~nan_trials,:)),1);
 
-trial_stim_allcat_exp = mat2cell(trial_stim_allcat,use_split,1);
+c1_bls_nan = c1_bls;
+c2_nan = c2;
 
+c1_bls_nan(:,nan_t) = NaN;
+c2_nan(:,nan_t) = NaN;
 
-% testing tsne
-a = vertcat(mua_all{:});
-b = cellfun(@(act,stim) nanmean(act(stim > 0,:,:),1),a,trial_stim_allcat_exp,'uni',false);
-b = squeeze(cat(3,b{:}))';
+figure; hold on;
+plot(t,nanmean(c1_bls));
+plot(t,nanmean(c2));
+plot(t,nanmean(c1_bls_nan));
+plot(t,nanmean(c2_nan));
 
 
-% sort and plot all
-a = vertcat(mua_all{:});
-b = cellfun(@(act,stim) nanmean(act(stim > 0,:,:),1),a,trial_stim_allcat_exp,'uni',false);
-b = squeeze(cat(3,b{:}))';
+c1_avg = nanmean(c1_bls_nan,1);
+c2_avg = nanmean(c2_nan,1);
 
-c = AP_deconv_wf(b,true);
-[~,max_idx] = max(c,[],2);
-[~,sort_idx] = sort(max_idx);
-figure;imagesc(t,[],zscore(c(sort_idx,:),[],2));
 
 
-% sort half, plot other half
-a = vertcat(mua_all{:});
-
-m = rand(1000,1);
-
-b1 = cell2mat(cellfun(@(act,stim) ...
-    squeeze(nanmean(act(stim > 0 & m(1:size(act,1)) < 0.5,:,:),1)),a,trial_stim_allcat_exp,'uni',false)')';
-
-b2 = cell2mat(cellfun(@(act,stim) ...
-    squeeze(nanmean(act(stim > 0 & m(1:size(act,1)) >= 0.5,:,:),1)),a,trial_stim_allcat_exp,'uni',false)')';
-
-c1 = AP_deconv_wf(b1,true);
-c2 = AP_deconv_wf(b2,true);
-
-[~,max_idx] = max(c1,[],2);
-[~,sort_idx] = sort(max_idx);
-figure;
-subplot(1,2,1);
-imagesc(t,[],zscore(c1(sort_idx,:),[],2));
-caxis([-3,3])
-colormap(brewermap([],'*RdBu'));
-title('Sorted half');
-subplot(1,2,2);
-imagesc(t,[],zscore(c2(sort_idx,:),[],2));
-caxis([-3,3])
-colormap(brewermap([],'*RdBu'));
-title('Unsorted half');
-
-linkaxes(get(gcf,'Children'),'xy');
-
-
-% sort half, plot other half (contra/ipsi stim)
-a = vertcat(mua_all{:});
-
-m = rand(1000,1);
-
-b1 = cell2mat(cellfun(@(act,stim) ...
-    squeeze(nanmean(act(stim > 0 & m(1:size(act,1)) < 0.5,:,:),1)),a,trial_stim_allcat_exp,'uni',false)')';
-
-b2 = cell2mat(cellfun(@(act,stim) ...
-    squeeze(nanmean(act(stim > 0 & m(1:size(act,1)) >= 0.5,:,:),1)),a,trial_stim_allcat_exp,'uni',false)')';
-
-b3 = cell2mat(cellfun(@(act,stim) ...
-    squeeze(nanmean(act(stim < 0 & m(1:size(act,1)) >= 0.5,:,:),1)),a,trial_stim_allcat_exp,'uni',false)')';
-
-c1 = AP_deconv_wf(b1,true);
-c2 = AP_deconv_wf(b2,true);
-c3 = AP_deconv_wf(b3,true);
-
-[~,max_idx] = max(c1,[],2);
-[~,sort_idx] = sort(max_idx);
-
-figure;
-subplot(1,4,1);
-imagesc(t,[],zscore(c1(sort_idx,:),[],2));
-caxis([-3,3])
-colormap(brewermap([],'*RdBu'));
-title('Sorted half');
-subplot(1,4,2);
-imagesc(t,[],zscore(c2(sort_idx,:),[],2));
-caxis([-3,3])
-colormap(brewermap([],'*RdBu'));
-title('Unsorted half (contra stim)');
-subplot(1,4,3);
-imagesc(t,[],zscore(c3(sort_idx,:),[],2));
-caxis([-3,3])
-colormap(brewermap([],'*RdBu'));
-title('Unsorted half (ipsi stim)');
-subplot(1,4,4);
-imagesc(t,[],imgaussfilt(zscore(c2(sort_idx,:),[],2) - zscore(c3(sort_idx,:),[],2),4));
-caxis([-1,1])
-colormap(brewermap([],'*RdBu'));
-title('Unsorted contra-ipsi (smoothed)');
-
-linkaxes(get(gcf,'Children'),'xy');
-
-% move-align, sort and plot
-move_idx_exp = mat2cell(move_idx,use_split,1);
-
-a = vertcat(mua_all{:});
-for curr_exp = 1:length(a)
-   for curr_trial = 1:size(a{curr_exp},1)
-       a{curr_exp}(curr_trial,:) = ...
-           circshift(a{curr_exp}(curr_trial,:), ...
-           -move_idx_exp{curr_exp}(curr_trial)+leeway_samples);
-   end
-end
-
-m = rand(1000,1);
-
-b1 = cell2mat(cellfun(@(act,stim) ...
-    squeeze(nanmean(act(stim > 0 & m(1:size(act,1)) < 0.5,:,:),1)),a,trial_stim_allcat_exp,'uni',false)')';
-
-b2 = cell2mat(cellfun(@(act,stim) ...
-    squeeze(nanmean(act(stim > 0 & m(1:size(act,1)) >= 0.5,:,:),1)),a,trial_stim_allcat_exp,'uni',false)')';
-
-c1 = AP_deconv_wf(b1,true);
-c2 = AP_deconv_wf(b2,true);
-
-[~,max_idx] = max(c1,[],2);
-[~,sort_idx] = sort(max_idx);
-
-figure;
-subplot(1,2,1);
-imagesc(t,[],zscore(c1(sort_idx,:),[],2));
-caxis([-3,3])
-colormap(brewermap([],'*RdBu'));
-title('Sorted half');
-subplot(1,2,2);
-imagesc(t,[],zscore(c2(sort_idx,:),[],2));
-caxis([-3,3])
-colormap(brewermap([],'*RdBu'));
-title('Unsorted half');
-
-linkaxes(get(gcf,'Children'),'xy');
-
-
-% move-align, sort and plot (contra/ipsi move)
-trial_choice_allcat_exp = mat2cell(trial_choice_allcat,use_split,1);
-move_idx_exp = mat2cell(move_idx,use_split,1);
-
-a = vertcat(mua_all{:});
-for curr_exp = 1:length(a)
-   for curr_trial = 1:size(a{curr_exp},1)
-       a{curr_exp}(curr_trial,:) = ...
-           circshift(a{curr_exp}(curr_trial,:), ...
-           -move_idx_exp{curr_exp}(curr_trial)+leeway_samples);
-   end
-end
-
-m = rand(1000,1);
-
-b1 = cell2mat(cellfun(@(act,move) ...
-    squeeze(nanmean(act(move == -1 & m(1:size(act,1)) < 0.5,:,:),1)),a,trial_choice_allcat_exp,'uni',false)')';
-
-b2 = cell2mat(cellfun(@(act,move) ...
-    squeeze(nanmean(act(move == -1 & m(1:size(act,1)) >= 0.5,:,:),1)),a,trial_choice_allcat_exp,'uni',false)')';
-
-b3 = cell2mat(cellfun(@(act,move) ...
-    squeeze(nanmean(act(move == 1 & m(1:size(act,1)) >= 0.5,:,:),1)),a,trial_choice_allcat_exp,'uni',false)')';
-
-c1 = AP_deconv_wf(b1,true);
-c2 = AP_deconv_wf(b2,true);
-c3 = AP_deconv_wf(b3,true);
-
-[~,max_idx] = max(c1,[],2);
-[~,sort_idx] = sort(max_idx);
-
-figure;
-subplot(1,3,1);
-imagesc(t,[],zscore(c1(sort_idx,:),[],2));
-caxis([-3,3])
-colormap(brewermap([],'*RdBu'));
-title('Sorted half');
-subplot(1,3,2);
-imagesc(t,[],zscore(c2(sort_idx,:),[],2));
-caxis([-3,3])
-colormap(brewermap([],'*RdBu'));
-title('Unsorted half (contra move)');
-subplot(1,3,3);
-imagesc(t,[],zscore(c3(sort_idx,:),[],2));
-caxis([-3,3])
-colormap(brewermap([],'*RdBu'));
-title('Unsorted half (ipsi move)');
-
-linkaxes(get(gcf,'Children'),'xy');
-
-
-%% single units: get aligned depth and domain
-
-depth_allcat = cell2mat(cellfun(@(depths) depths(~isnan(depths)), ...
-    vertcat(allDepths{:}),'uni',false));
-
-
-%%%% THIS DIDN'T  WORK MAYBE BECAUSE IT WAS ALREADY DONE
-
-%%% FOR ALIGNING BY END OF STR DEPTH
-
-ephys_align_path = 'C:\Users\Andrew\OneDrive for Business\Documents\CarandiniHarrisLab\analysis\wf_ephys_choiceworld\ephys_processing';
-ephys_align_fn = ['ephys_depth_align.mat'];
-load([ephys_align_path filesep ephys_align_fn]);
-
-% Pull out relative depths for each cell
-depth_aligned = cell(size(mua_all));
-for curr_animal = 1:length(mua_all)
-    curr_animal_idx = strcmp(animals{curr_animal},{ephys_depth_align.animal});
-    for curr_day = 1:length(mua_all{curr_animal_idx})
-        % (relative to end)
-        depth_aligned{curr_animal}{curr_day} = ...
-            allDepths{curr_animal}{curr_day}( - ...
-            ephys_depth_align(curr_animal_idx).str_depth(curr_day,2);
-%         % (relative to start:end)
-%         depth_aligned{curr_animal}{curr_day} = ...
-%             (allDepths{curr_animal}{curr_day} - ...
-%             ephys_depth_align(curr_animal_idx).str_depth(curr_day,1))./ ...
-%             diff(ephys_depth_align(curr_animal_idx).str_depth(curr_day,:));
-    end
-end
-
-depth_aligned_allcat = cell2mat(cellfun(@(x) x(~isnan(x)), ...
-    horzcat(depth_aligned{:})','uni',false));
-
-
-
-
-
-% NOTE: THIS ISN'T USEFUL BECAUSE IT'S BY INDIVIDUAL SPIKE
-% will need to combine to use template depths with this stuff:
-%%%%%%%%%%%%%%%%%%%%%%%
-
-%%%%%%%%%%%%%%%%%%%%%%%
-
-% Load domain alignment
-n_aligned_depths = 3;
-ephys_kernel_align_path = 'C:\Users\Andrew\OneDrive for Business\Documents\CarandiniHarrisLab\analysis\wf_ephys_choiceworld\ephys_processing';
-ephys_kernel_align_fn = ['ephys_kernel_align_' num2str(n_aligned_depths) '_depths.mat'];
-load([ephys_kernel_align_path filesep ephys_kernel_align_fn]);
-
-% Loop through cells, pull out domains
-neuron_domain = cell(size(mua_all));
-for curr_animal = 1:length(mua_all)
-    curr_animal_idx = strcmp(animals{curr_animal},{ephys_kernel_align.animal});
-    for curr_day = 1:length(mua_all{curr_animal_idx})
-        
-        str_depth = ephys_depth_align(curr_animal_idx).str_depth(curr_day,:);
-        kernel_match = ephys_kernel_align(curr_animal_idx).kernel_match{curr_day};
-
-        % Get depth groups
-        n_depths = round(diff(str_depth)/200);
-        depth_group_edges = round(linspace(str_depth(1),str_depth(2),n_depths+1));
-        
-        % Get domain depth boundaries
-        kernel_match_boundary_idx = unique([1;find(diff(kernel_match) ~= 0)+1;n_depths+1]);      
-        kernel_match_depth_edges = depth_group_edges(kernel_match_boundary_idx);
-        kernel_match_idx = kernel_match(kernel_match_boundary_idx(1:end-1));
-        
-        % Categorize template by kernel match
-        aligned_str_depth_group = discretize(spike_depths,kernel_match_depth_edges,kernel_match_idx);
-
-
-        
-        ephys_kernel_align(curr_animal_idx).aligned_str_depth_group{curr_day}( ...
-            allNeurons{curr_animal}{curr_day})
-    end
-end
-
-
-
-
+    taskpred_r2{curr_exp} = (1 - (nansum((curr_data_baselinesub-curr_taskpred_data).^2,1)./ ...
+        nansum((curr_data_baselinesub-nanmean(curr_data_baselinesub,1)).^2,1)))';
 
 
 

@@ -525,6 +525,8 @@ linkaxes(get(gcf,'Children'));
 
 %% Predict striatum with mutiple zeroed-out cortical regions
 
+error('NEED TO FIX THIS: use non-normalized/baselined data like in fig');
+
 % (load in a dataset first)
 
 % Choose depths to run

@@ -146,7 +146,7 @@ if task_dataset
     fluor_taskpred_reduced_allcat = cell2mat(vertcat(fluor_taskpred_reduced_all{:}));
 end
 
-% Deconvolve fluorescence, subtract baseline
+% Deconvolve fluorescence, subtract average baseline
 fluor_allcat_deconv = AP_deconv_wf(fluor_allcat);
 fluor_allcat_deconv_baseline = nanmean(reshape(fluor_allcat_deconv(:,t_baseline,:),[],1,n_vs));
 fluor_allcat_deconv = fluor_allcat_deconv - fluor_allcat_deconv_baseline;
