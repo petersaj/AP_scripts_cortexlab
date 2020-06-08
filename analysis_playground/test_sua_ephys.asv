@@ -1278,67 +1278,81 @@ n_cells_exp = cellfun(@(x) size(x,3),vertcat(mua_all{:}));
 ctx_str_trialk_px_exp = reshape(mat2cell(ctx_str_trialk_px, ...
     size(U_master,1),size(U_master,2),n_cells_exp),[],1);
 
-curr_celltype = 1;
+curr_domain = 1;
+curr_celltype =1 ;
 
-depth_exp = mat2cell(-depth_allcat,n_cells_exp,1); % flip depth for positive correlation going down
+depth_exp = mat2cell(depth_allcat,n_cells_exp,1);
 domain_exp = mat2cell(domain_aligned_allcat,n_cells_exp,1);
 celltype_exp = mat2cell(celltype_allcat,n_cells_exp,1);
 
-figure
-for curr_domain = 1:n_domains
-    
-    % Map/avg map correlation
-    avg_map_corr_exp = cellfun(@(map,domain,celltype) ...
-        1-pdist2( ...
-        reshape(map(:,:,celltype == curr_celltype),size(map,1)*size(map,2),[])', ...
-        nanmean(reshape(map(:,:,domain == curr_domain & celltype == curr_celltype),size(map,1)*size(map,2),[]),2)', ...
-        'correlation'),ctx_str_trialk_px_exp,domain_exp,celltype_exp,'uni',false);
-    
-    % Act/avg act correlation
-    avg_act_corr_exp = cellfun(@(act,stim,rxn,outcome,domain,celltype) ...
-        1-pdist2( ...
-        permute(nanmean(act(stim > 0 & rxn < 0.5 & outcome == 1,:,celltype == curr_celltype),1),[3,2,1]), ...
-        permute(nanmean(nanmean(act(stim > 0 & rxn < 0.5 & outcome == 1,:,domain == curr_domain & celltype == curr_celltype),1),3),[3,2,1]), ...
-        'correlation'),mua_allcat_stimalign_exp, ...
-        trial_stim_allcat_exp,move_t_exp,trial_outcome_allcat_exp, ...
-        domain_exp,celltype_exp,'uni',false);
-    
-    % Correlation between map,act,depth
-    depth_map_corr = cellfun(@(depth,map_corr,celltype) ...
-        corr(depth(celltype == curr_celltype),map_corr,'rows','complete'), ...
-        depth_exp,avg_map_corr_exp,celltype_exp);
-    
-    depth_act_corr = cellfun(@(depth,act_corr,celltype) ...
-        corr(depth(celltype == curr_celltype),act_corr,'rows','complete'), ...
-        depth_exp,avg_act_corr_exp,celltype_exp);
-    
-    map_act_corr = cellfun(@(map_corr,act_corr,celltype) ...
-        corr(map_corr,act_corr,'rows','complete'), ...
-        avg_map_corr_exp,avg_act_corr_exp,celltype_exp);
-    
-    subplot(n_domains,3,(curr_domain-1)*3+1);
-    plot(depth_map_corr,depth_act_corr,'.k','MarkerSize',20)
-    xlabel('Depth-map correlation');
-    ylabel('Depth-activity correlation');
-    line(xlim,xlim);
-    title(['Domain ' num2str(curr_domain)]);
-    
-    subplot(n_domains,3,(curr_domain-1)*3+2);
-    plot(depth_map_corr,map_act_corr,'.k','MarkerSize',20)
-    xlabel('Depth-map correlation');
-    ylabel('Map-activity correlation');
-    line(xlim,xlim);
-    title(['Domain ' num2str(curr_domain)]);
-    
-    subplot(n_domains,3,(curr_domain-1)*3+3);
-    plot(depth_act_corr,map_act_corr,'.k','MarkerSize',20)
-    xlabel('Depth-activity correlation');
-    ylabel('Map-activity correlation');
-    line(xlim,xlim);
-    title(['Domain ' num2str(curr_domain)]);
-    
-end
+% Map/avg map correlation
+avg_map_corr_exp = cellfun(@(map,domain,celltype) ...
+    1-pdist2( ...
+    reshape(map(:,:,celltype == curr_celltype),size(map,1)*size(map,2),[])', ...
+    nanmean(reshape(map(:,:,domain == curr_domain & celltype == curr_celltype),size(map,1)*size(map,2),[]),2)', ...
+    'correlation'),ctx_str_trialk_px_exp,domain_exp,celltype_exp,'uni',false);
 
+avg_act_corr_exp = cellfun(@(act,stim,rxn,outcome,domain,celltype) ...
+    1-pdist2( ...
+    permute(nanmean(act(stim > 0 & rxn < 0.5 & outcome == 1,:,celltype == curr_celltype),1),[3,2,1]), ...
+    permute(nanmean(nanmean(act(stim > 0 & rxn < 0.5 & outcome == 1,:,domain == curr_domain & celltype == curr_celltype),1),3),[3,2,1]), ...
+    'correlation'),mua_allcat_stimalign_exp, ...
+    trial_stim_allcat_exp,move_t_exp,trial_outcome_allcat_exp, ...
+    domain_exp,celltype_exp,'uni',false);
+
+
+
+
+
+% Get average map in each experiment
+avg_map_exp = cellfun(@(map,domain,celltype) ...
+    nanmean(map(:,:,domain == curr_domain & celltype == curr_celltype),3), ...
+    ctx_str_trialk_px_exp,domain_exp,celltype_exp,'uni',false);
+
+
+avg_act = AP_deconv_wf(cell2mat(cellfun(@(act,stim,rxn,outcome) ...
+    squeeze(nanmean(act(stim > 0 & rxn < 0.5 & outcome == 1,:,:),1)),mua_allcat_stimalign_exp, ...
+    trial_stim_allcat_exp,move_t_exp,trial_outcome_allcat_exp,'uni',false)')',true);
+
+curr_celltype = celltype_allcat == 1;
+curr_cells = domain_aligned_allcat == 1 & curr_celltype;
+
+avg_act_domain = nanmean(zscore(avg_act(curr_cells,:),[],2),1);
+avg_map_domain = nanmean(ctx_str_trialk_px(:,:,curr_cells),3);
+
+act_corr = 1-pdist2(avg_act_domain,avg_act,'correlation');
+map_corr = 1-pdist2(avg_map_domain(:)',reshape(ctx_str_trialk_px,[],size(ctx_str_trialk_px,3))','correlation');
+
+figure; 
+subplot(4,3,1);
+plot(t,avg_act_domain,'k','linewidth',2);
+title('Average activity');
+
+subplot(4,3,2);
+imagesc(avg_map_domain);
+axis image off
+caxis([-max(abs(caxis)),max(abs(caxis))]);
+colormap(brewermap([],'*RdBu'));
+AP_reference_outline('ccf_aligned',[0.5,0.5,0.5]);
+title('Average map');
+
+subplot(4,3,[4,7,10]);
+plot(act_corr(curr_celltype),depth_aligned_allcat(curr_celltype),'.k')
+set(gca,'YDir','reverse');
+xlabel('Activity correlation');
+ylabel('Depth');
+
+subplot(4,3,[5,8,11]);
+plot(map_corr(curr_celltype),depth_aligned_allcat(curr_celltype),'.k')
+set(gca,'YDir','reverse');
+xlabel('Map correlation');
+ylabel('Depth');
+
+subplot(4,3,3);
+plot(act_corr(curr_celltype),map_corr(curr_celltype),'.k')
+xlabel('Activity correlation');
+ylabel('Map correlation');
+line([-1,1],[-1,1])
 
 
 
