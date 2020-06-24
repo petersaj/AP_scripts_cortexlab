@@ -479,7 +479,7 @@ end
 
 % Plot aligned_activity
 align_col = [1,0,0;0.8,0,0.8;0,0,0.8];
-align_t = {[-0.05,0.15],[0.15,0.6],[0.6,1]};
+align_t = {[-0.05,0.15],[0.15,0.5],[0.5,1]};
 
 figure; hold on; set(gca,'YDir','reverse');
 
@@ -492,7 +492,7 @@ for curr_align = 1:length(use_align)
     
     curr_act_norm = act_align_avg(:,:,curr_align)./ ...
         max(max(act_align_avg,[],2),[],3);
-    plot_t = curr_t > align_t{curr_align}(1) & curr_t < align_t{curr_align}(2);
+    plot_t = curr_t > align_t{curr_align}(1) & curr_t <= align_t{curr_align}(2);
     
     imagesc(curr_t(plot_t),[],curr_act_norm(use_depths,plot_t));
     line(repmat(curr_t_offset,2,1),[0.5,sum(use_depths)+0.5],'color',align_col(curr_align,:));
