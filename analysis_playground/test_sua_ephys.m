@@ -266,7 +266,8 @@ axis vis3d
 
 %% Plot type/domain counts
 
-domain_type_count= accumarray([domain_aligned_allcat,celltype_allcat],1);
+domain_type_count = accumarray([domain_aligned_allcat(good_units_allcat), ...
+    celltype_allcat(good_units_allcat)],1);
 
 figure;
 bar(domain_type_count,'stacked');
@@ -462,11 +463,87 @@ line(repmat(find(t >= 0,1),2,1)+length(t)*2,ylim,'linestyle','--','color','r');
 colormap(brewermap([],'Greys'));
 caxis([0,50]);
 
+%% Sort and plot by different alignments
+
+% Pick cells to plot
+plot_cells = cellfun(@(good,celltype,domain) good & ismember(celltype,[4]), ...
+    good_units_exp,celltype_exp,domain_exp,'uni',false);
+
+% Split trials in 2 using random vector
+trial_rand = rand(1000,1);
+
+% Get average cell activity across alignments
+curr_str_act_stim_avg = cell2mat(cellfun(@(act,curr_trials,cells) ...
+    permute(nanmean(act(curr_trials & ...
+    trial_rand(1:size(act,1)) >= 0.5,:,cells),1),[3,2,1]), ...
+    mua_allcat_stimalign_exp,plot_trials,plot_cells,'uni',false));
+     
+curr_str_act_move_avg = cell2mat(cellfun(@(act,curr_trials,cells) ...
+    permute(nanmean(act(curr_trials & ...
+    trial_rand(1:size(act,1)) >= 0.5,:,cells),1),[3,2,1]), ...
+    mua_allcat_movealign_exp,plot_trials,plot_cells,'uni',false));
+
+curr_str_act_outcome_avg = cell2mat(cellfun(@(act,curr_trials,cells) ...
+    permute(nanmean(act(curr_trials & ...
+    trial_rand(1:size(act,1)) >= 0.5,:,cells),1),[3,2,1]), ...
+    mua_allcat_outcomealign_exp,plot_trials,plot_cells,'uni',false));
+
+% Get sort index
+% [~,sort_idx] = sort(depth_aligned_allcat(cell2mat(plot_cells)));
+
+align_act = cell2mat(cellfun(@(act,curr_trials,cells) ...
+    permute(nanmean(act(curr_trials & ...
+    trial_rand(1:size(act,1)) < 0.5,:,cells),1),[3,2,1]), ...
+    mua_allcat_stimalign_exp,plot_trials,plot_cells,'uni',false));
+[~,max_idx] = max([curr_str_act_stim_avg],[],2);
+[~,sort_idx] = sort(max_idx);
+
+% Plot
+figure; hold on; set(gca,'YDir','reverse');
+
+align_col = [1,0,0;0.8,0,0.8;0,0,0.8];
+align_t = {[-0.05,0.15],[0.15,0.6],[0.6,1]};
+for curr_align = 1:3
+    
+    switch curr_align
+        case 1
+            curr_act = curr_str_act_stim_avg;
+            curr_shift = zeros(size(trial_stim_allcat));           
+        case 2            
+            curr_act = curr_str_act_move_avg;
+            t_leeway = -t(1);
+            leeway_samples = round(t_leeway*(sample_rate));
+            curr_shift = -move_idx + leeway_samples;
+        case 3            
+            curr_act = curr_str_act_outcome_avg;
+            t_leeway = -t(1);
+            leeway_samples = round(t_leeway*(sample_rate));
+            curr_shift = -outcome_idx + leeway_samples;
+    end
+    
+    curr_t_offset = -nanmean(curr_shift(cell2mat(plot_trials)))/sample_rate;   
+    curr_t = t + curr_t_offset;
+    curr_t_plot = curr_t >= align_t{curr_align}(1) & ...
+        curr_t <= align_t{curr_align}(2);
+    
+    curr_act_norm = curr_act./ ...
+        max([curr_str_act_stim_avg,curr_str_act_move_avg,curr_str_act_outcome_avg],[],2);
+    plot_t = curr_t > align_t{curr_align}(1) & curr_t < align_t{curr_align}(2);
+    
+    imagesc(curr_t(plot_t),[],curr_act_norm(sort_idx,plot_t));
+    line(repmat(curr_t_offset,2,1),[0,length(sort_idx)],'color',align_col(curr_align,:));
+    colormap(gca,brewermap([],'Greys'));
+    
+end
+
+axis tight
+
+
 
 %% Stim/move/reward sort and plot
 
-plot_cells = true(size(celltype_allcat));
-% plot_cells = celltype_allcat == 1;
+% plot_cells = true(size(celltype_allcat));
+plot_cells = good_units_allcat & ismember(celltype_allcat,[2]);
 
 trial_stim_allcat_exp = mat2cell(trial_stim_allcat,use_split,1);
 move_t_exp = mat2cell(move_t,use_split,1);
@@ -512,9 +589,9 @@ sort_act_smooth = AP_deconv_wf(sort_act(plot_cells,:),true);
 [~,max_idx] = max(sort_act_smooth,[],2);
 [~,sort_idx] = sort(max_idx);
 
-figure;imagesc(t,[],zscore(sort_act_smooth(sort_idx,:),[],2));
+figure;imagesc(t,[],sort_act_smooth(sort_idx,:)./max(sort_act_smooth(sort_idx,:),[],2));
 colormap(brewermap([],'*RdBu'));
-caxis([-3,3]);
+caxis([-1,1]);
 ylabel('Cells (sorted)');
 xlabel('Time from stim');
 
@@ -1044,6 +1121,14 @@ trial_corr = cell2mat(cellfun(@(stim_act,move_act,outcome_act,stim,rxn,outcome) 
 %     trial_stim_allcat_exp,move_t_exp,trial_outcome_allcat_exp,'uni',false));
 
 [trial_corr_max,trial_corr_max_align] = max(trial_corr,[],2);
+
+
+% % (testing)
+% plot_cells = cellfun(@(good,celltype,domain) good & ismember(celltype,[3,6]) & domain == 1, ...
+%     good_units_exp,celltype_exp,domain_exp,'uni',false);
+
+
+
 
 
 %% Correlation of cortical + unit activity?
@@ -1980,7 +2065,7 @@ sort_idx = plot_cells_idx(sort_idx_cells);
 % (stim)
 stim_act_cond = cell2mat(cellfun(@(act,stim,rxn,outcome) ...
     [squeeze(nanmean(nanmean(act(stim > 0,t > 0 & t < 0.15,:),2),1)), ...
-    squeeze(nanmean(nanmean(act(stim == 1,t < 0,:),2),1))], ...
+    squeeze(nanmean(nanmean(act(stim > 0,t < 0,:),2),1))], ...
     mua_allcat_stimalign_exp,trial_stim_allcat_exp, ...
     move_t_exp,trial_outcome_allcat_exp,'uni',false));
 vis_act = (stim_act_cond(:,1) - stim_act_cond(:,2))./ ...
@@ -2120,6 +2205,48 @@ colormap(brewermap([],'*RdBu'));
 AP_reference_outline('ccf_aligned',[0.5,0.5,0.5]);
 
 
+%% [compare above] task respones in cortex?
+% (this is garbage)
+
+curr_domain = 1;
+stim_act_cond_ctx = cell2mat(cellfun(@(act,stim,rxn,outcome) ...
+    [squeeze(nanmean(nanmean(act(stim > 0,t > 0 & t < 0.15,curr_domain),2),1)), ...
+    squeeze(nanmean(nanmean(act(stim > 0,t < 0,curr_domain),2),1))], ...
+    fluor_kernelroi_deconv_exp,trial_stim_allcat_exp, ...
+    move_t_exp,trial_outcome_allcat_exp,'uni',false));
+
+vis_act_ctx = stim_act_cond_ctx(:,1)./ctx_act_baseline_std(:,curr_domain);
+
+
+vis_act = stim_act_cond(:,1)./str_act_baseline_std;
+
+
+curr_domain = 2;
+move_act_cond_ctx = cell2mat(cellfun(@(act_move,act_stim,stim,rxn,outcome) ...
+    [squeeze(nanmean(nanmean(act_move(stim <= 0,t > 0 & t < 0.2,curr_domain),2),1)), ...
+    squeeze(nanmean(nanmean(act_stim(stim <= 0,t < 0,curr_domain),2),1))], ...
+    fluor_kernelroi_deconv_movealign_exp,fluor_kernelroi_deconv_exp, ...
+    trial_stim_allcat_exp, ...
+    move_t_exp,trial_outcome_allcat_exp,'uni',false));
+move_act_ctx = move_act_cond_ctx(:,1)./ctx_act_baseline_std(:,curr_domain);
+
+move_act = move_act_cond(:,1)./str_act_baseline_std;
+
+
+figure;
+vis_act_rel = vis_act(good_units_allcat & celltype_allcat == 1 & ...
+    domain_aligned_allcat == 1 & ~isinf(vis_act))./nanmean(vis_act_ctx);
+move_act_rel = move_act(good_units_allcat & celltype_allcat == 1 & ...
+    domain_aligned_allcat == 2 & ~isinf(move_act))./nanmean(move_act_ctx);
+subplot(1,2,1); hold on;
+histogram(vis_act_rel,hist_edges,'normalization','probability');
+histogram(move_act_rel,hist_edges,'normalization','probability');
+
+subplot(1,2,2);hold on;
+plot(sort(vis_act_rel),[1:length(vis_act_rel)]./length(vis_act_rel),'linewidth',2); 
+plot(sort(move_act_rel),[1:length(move_act_rel)]./length(move_act_rel),'linewidth',2); 
+
+
 
 
 
@@ -2188,7 +2315,7 @@ stim_act_cond_ctx = cell2mat(cellfun(@(act,stim,rxn,outcome) ...
     move_t_exp,trial_outcome_allcat_exp,'uni',false));
 
 vis_act_ctx = (stim_act_cond_ctx(:,1) - stim_act_cond_ctx(:,2))./ ...
-    (sum(stim_act_cond_ctx,2));
+    (sum(abs(stim_act_cond_ctx),2));
 
 
 % Plot in domain 1
@@ -2610,7 +2737,8 @@ for curr_regressor = 1:n_regressors
     for curr_domain = 1:n_domains
         for curr_celltype = 1:n_celltypes
             
-            curr_cells = domain_aligned_allcat == curr_domain & ...
+            curr_cells = good_units_allcat  &...
+                domain_aligned_allcat == curr_domain & ...
                 celltype_allcat == curr_celltype;
             
             subplot(n_domains,n_celltypes, ...

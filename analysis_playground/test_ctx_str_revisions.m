@@ -410,10 +410,6 @@ for curr_exp = 1:length(trials_recording)
 end
 
 % Get average cortex->striatum kernel
-ctx_str_k_mean = nanmean(cell2mat(permute(vertcat(ctx_str_k_all{:}),[2,3,4,5,1])),5);
-ctx_str_k_mean_px = cell2mat(arrayfun(@(x) svdFrameReconstruct(U_master(:,:,1:200), ...
-    ctx_str_k_mean(:,:,x)),permute(1:n_depths,[1,3,4,2]),'uni',false));
-
 mua_ctxtrialpred_k_mean = nanmean(mua_ctxtrialpred_k,4);
 mua_ctxtrialpred_k_mean_px = cell2mat(arrayfun(@(x) ...
     svdFrameReconstruct(U_master(:,:,regression_params.use_svs), ...
@@ -1501,425 +1497,210 @@ linkaxes(p(:,2),'xy');
 
 
 
-%% ~~~~~~~~~~ Trial activity tests
+%% Deconv explained variance in cortex ephys
 
-%% CTX EPHYS: passive trial activity WITH NEW MUA FILTER
-clear all
 
-animals = {'AP043','AP060','AP061'};
-protocol = 'AP_lcrGratingPassive';
-recording_site = {'ctxstrephys_str_muafilt','ctxstrephys_ctx_muafilt'};
+error('READ THIS:');
+% the R^2 went through different versions about baseline subtracting
+% better to do on the raw data than any baseline-sub data
 
-% Load ephys alignment
-vis_ctx_ephys_fn = 'C:\Users\Andrew\OneDrive for Business\Documents\CarandiniHarrisLab\analysis\wf_ephys_choiceworld\ephys_processing\vis_ctx_ephys.mat';
-load(vis_ctx_ephys_fn);
+% data_fn = 'trial_activity_AP_lcrGratingPassive_ctxstrephys_ctx';
+data_fn = 'trial_activity_vanillaChoiceworld_ctxstrephys_ctx';
 
-for curr_site = 1:2
-    
-    % Initialize save variable
-    trial_data_all = struct;
-    
-    for curr_animal = 1:length(animals)
-        
-        animal = animals{curr_animal};
-        
-        experiments = AP_find_experiments(animal,protocol);
-        experiments = experiments([experiments.imaging] & [experiments.ephys]);
-        
-        disp(['Loading ' animal]);
-        
-        for curr_day = 1:length(experiments)
-            
-            day = experiments(curr_day).day;
-            experiment = experiments(curr_day).experiment(1);
-            
-            % Load experiment
-            site = curr_site;
-            switch site
-                case 1
-                    % Site 1 = striautm
-                    str_align = 'kernel';
-                case 2
-                    % Site 2 = cortex
-                    str_align = 'none';
-            end
-            AP_load_experiment;
-            
-            % If cortical experiment - depth-align cortical MUA
-            if site == 2
-                % Get depth group boundaries
-                % (these are just manual based on the CSD)
-                n_aligned_depths = 2;
-                ctx_depth_edges = linspace(0,1200,n_aligned_depths+1);
-                
-                % Depth-align templates
-                curr_animal_idx = strcmp(animal,{vis_ctx_ephys.animal});
-                curr_day_idx = strcmp(day,vis_ctx_ephys(curr_animal_idx).day);
-                curr_csd_depth = vis_ctx_ephys(curr_animal_idx).stim_csd_depth{curr_day_idx};
-                curr_csd_depth_aligned = vis_ctx_ephys(curr_animal_idx).stim_csd_depth_aligned{curr_day_idx};
-                
-                template_depths_aligned = interp1(curr_csd_depth,curr_csd_depth_aligned,template_depths);
-                spike_depths_aligned = template_depths_aligned(spike_templates);
-                
-                % Find cortex end by largest gap between templates
-                sorted_template_depths = sort([template_depths_aligned]);
-                [max_gap,max_gap_idx] = max(diff(sorted_template_depths));
-                ctx_end = sorted_template_depths(max_gap_idx)+1;
-                ctx_depth = [sorted_template_depths(1),ctx_end];
-                ctx_units = template_depths_aligned <= ctx_depth(2);
-                
-                % Assign templates to depth groups
-                % (NOTE: variable still called 'str' to make it easier to
-                % fit into other code)
-                ctx_spike_depths = spike_depths_aligned;
-                ctx_spike_depths(spike_depths_aligned < ctx_depth(1) | spike_depths_aligned > ctx_depth(2)) = NaN;
-                aligned_str_depth_group = discretize(ctx_spike_depths,ctx_depth_edges);
-            end
-            
-            % Pull out trial data
-            filter_mua = true; % Filter MUA to match widefield
-            AP_ctx_str_grab_trial_data;
-            
-            % Store trial data into master structure
-            trial_data_fieldnames = fieldnames(trial_data);
-            for curr_trial_data_field = trial_data_fieldnames'
-                trial_data_all.(cell2mat(curr_trial_data_field)){curr_animal,1}{curr_day,1} = ...
-                    trial_data.(cell2mat(curr_trial_data_field));
-            end
-            
-            % Store general info
-            trial_data_all.animals = animals;
-            trial_data_all.t = t;
-            
-            % Clear for next loop
-            clearvars -except ...
-                vis_ctx_ephys ...
-                recording_site curr_site ...
-                animals curr_animal animal protocol experiments curr_day ...
-                trial_data_all
-            
-            AP_print_progress_fraction(curr_day,length(experiments));
-        end
-    end
-    
-    clearvars -except ...
-        vis_ctx_ephys ...
-        recording_site curr_site animals protocol ...
-        trial_data_all
-    
-    disp('Finished loading all')
-    
-    save_path = 'C:\Users\Andrew\OneDrive for Business\Documents\CarandiniHarrisLab\analysis\wf_ephys_choiceworld\paper\data';
-    save_fn = ['trial_activity_' protocol '_' recording_site{curr_site}];
-    save([save_path filesep save_fn],'-v7.3');
-    disp(['Saved ' save_fn]);
+AP_load_concat_normalize_ctx_str;
+
+
+
+
+
+
+mua_exp = vertcat(mua_all{:});
+mua_ctxpred_exp = vertcat(mua_ctxpred_all{:});
+mua_taskpred_exp = vertcat(mua_taskpred_all{:});
+
+% MUA explained variance (widefield + task)
+taskpred_r2 = nan(length(mua_exp),n_depths);
+ctxpred_r2 = nan(length(mua_exp),n_depths);
+ctxroipred_r2 = nan(length(mua_exp),n_depths);
+for curr_exp = 1:length(mua_exp)
+       
+    curr_data = reshape(permute(mua_exp{curr_exp},[2,1,3]),[],n_depths);
+    curr_data_baselinesub = reshape(permute(mua_exp{curr_exp},[2,1,3]),[],n_depths) - ...
+        (nanmean(reshape(mua_exp{curr_exp}(:,t < 0,:),[],size(mua_exp{curr_exp},3)),1));
+    curr_taskpred_data = reshape(permute(mua_taskpred_exp{curr_exp},[2,1,3]),[],n_depths);
+    curr_ctxpred_data = reshape(permute(mua_ctxpred_exp{curr_exp},[2,1,3]),[],n_depths);
+       
+    % Set common NaNs
+    nan_samples = isnan(curr_data) | isnan(curr_data_baselinesub) | ...
+        isnan(curr_taskpred_data) | isnan(curr_ctxpred_data);
+    curr_data(nan_samples) = NaN;
+    curr_data_baselinesub(nan_samples) = NaN;
+    curr_taskpred_data(nan_samples) = NaN;
+    curr_ctxpred_data(nan_samples) = NaN;
+
+    % (task regressed from average baseline-subtracted data)
+    taskpred_r2(curr_exp,:) = 1 - (nansum((curr_data_baselinesub-curr_taskpred_data).^2,1)./ ...
+        nansum((curr_data_baselinesub-nanmean(curr_data_baselinesub,1)).^2,1));
+    % (cortex regressed from raw data)
+    ctxpred_r2(curr_exp,:) = 1 - (nansum((curr_data-curr_ctxpred_data).^2,1)./ ...
+        nansum((curr_data-nanmean(curr_data,1)).^2,1));
     
 end
+figure; hold on;
+errorbar(nanmean(taskpred_r2,1),AP_sem(taskpred_r2,1),'b','linewidth',2,'CapSize',0);
+errorbar(nanmean(ctxpred_r2,1),AP_sem(ctxpred_r2,1),'color',[0,0.6,0],'linewidth',2,'CapSize',0);
+xlabel('Cortex depth');
+ylabel('Task explained variance');
 
 
 
-%% Choiceworld trial activity (striatum domain) - MUA filt + 3 depth
 
-clear all
-disp('Choiceworld trial activity (striatum domain)')
 
-animals = {'AP024','AP025','AP026','AP027','AP028','AP029'};
 
-% Initialize save variable
-trial_data_all = struct;
+mua_exp = vertcat(mua_all{:});
+mua_ctxpred_exp = vertcat(mua_ctxpred_all{:});
 
-for curr_animal = 1:length(animals)
+
+% MUA explained variance (widefield only)
+ctxpred_r2 = nan(length(mua_exp),n_depths);
+for curr_exp = 1:length(mua_exp)
+       
+    curr_data = reshape(permute(mua_exp{curr_exp},[2,1,3]),[],n_depths);
+    curr_data_baselinesub = reshape(permute(mua_exp{curr_exp},[2,1,3]),[],n_depths) - ...
+        (nanmean(reshape(mua_exp{curr_exp}(:,t < 0,:),[],size(mua_exp{curr_exp},3)),1));
+    curr_ctxpred_data = reshape(permute(mua_ctxpred_exp{curr_exp},[2,1,3]),[],n_depths);
     
-    animal = animals{curr_animal};
-    protocol = 'vanillaChoiceworld';
-    experiments = AP_find_experiments(animal,protocol);
+    % Set common NaNs
+    nan_samples = isnan(curr_data) | isnan(curr_data_baselinesub) | ...
+      isnan(curr_ctxpred_data);
+    curr_data(nan_samples) = NaN;
+    curr_data_baselinesub(nan_samples) = NaN;
+    curr_ctxpred_data(nan_samples) = NaN;
+   
+    % (cortex regressed from raw data)
+    ctxpred_r2(curr_exp,:) = 1 - (nansum((curr_data-curr_ctxpred_data).^2,1)./ ...
+        nansum((curr_data-nanmean(curr_data,1)).^2,1));
     
-    experiments = experiments([experiments.imaging] & [experiments.ephys]);
-    
-    disp(['Loading ' animal]);
-    
-    for curr_day = 1:length(experiments)
-        
-        day = experiments(curr_day).day;
-        experiment = experiments(curr_day).experiment;
-        
-        % Load experiment
-        n_aligned_depths = 3;
-        str_align = 'kernel';
-        AP_load_experiment;
-        
-        % Pull out trial data
-        filter_mua = true; % Filter MUA to match widefield
-        AP_ctx_str_grab_trial_data;
-        
-        % Store trial data into master structure
-        trial_data_fieldnames = fieldnames(trial_data);
-        for curr_trial_data_field = trial_data_fieldnames'
-            trial_data_all.(cell2mat(curr_trial_data_field)){curr_animal,1}{curr_day,1} = ...
-                trial_data.(cell2mat(curr_trial_data_field));
-        end
-        
-        % Store general info
-        trial_data_all.animals = animals;
-        trial_data_all.t = t;
-        trial_data_all.task_regressor_labels = task_regressor_labels;
-        trial_data_all.task_regressor_sample_shifts = task_regressor_sample_shifts;
-        
-        AP_print_progress_fraction(curr_day,length(experiments));
-        
-        % Clear for next loop
-        clearvars -except animals curr_animal animal protocol experiments curr_day ...
-            trial_data_all
-        
-    end
 end
-
-clearvars -except trial_data_all
-disp('Finished loading all')
-
-% Save
-save_path = 'C:\Users\Andrew\OneDrive for Business\Documents\CarandiniHarrisLab\analysis\wf_ephys_choiceworld\paper\data';
-save_filename = [save_path filesep 'trial_activity_choiceworld_3depth_muafilt'];
-save(save_filename,'-v7.3');
-disp(['Saved ' save_filename]);
-
-%% Passive trial activity (3 depths + mua filt)
-
-clear all
-
-trained_animals = {'AP024','AP025','AP026','AP027','AP028','AP029'};
-naive_animals = {'AP032','AP033','AP034','AP035','AP036'};
-protocols = {'AP_choiceWorldStimPassive'};
-
-for animal_group = {'trained','naive'}
-    animal_group = cell2mat(animal_group);
-    
-    switch animal_group
-        case 'trained'
-            animals = trained_animals;
-        case 'naive'
-            animals = naive_animals;
-    end
-    
-    for protocol = protocols
-        protocol = cell2mat(protocol);
-        
-        disp(['Passive trial activity: ' animal_group ' ' protocol])
-        
-        % Initialize save variable
-        trial_data_all = struct;
-        
-        for curr_animal = 1:length(animals)
-            
-            animal = animals{curr_animal};
-            
-            if strcmp(animal_group,'trained')
-                % Only use days with choiceworld (sometimes recorded in cortex, no bhv)
-                bhv_protocol = 'vanillaChoiceworld';
-                behavior_experiments = AP_find_experiments(animal,bhv_protocol);
-                passive_experiments = AP_find_experiments(animal,protocol);
-                behavior_day = ismember({passive_experiments.day},{behavior_experiments.day});
-                experiments = passive_experiments([passive_experiments.imaging] & [passive_experiments.ephys] & behavior_day);
-            elseif strcmp(animal_group,'naive')
-                experiments = AP_find_experiments(animal,protocol);
-                experiments = experiments([experiments.imaging] & [experiments.ephys]);
-            end
-            
-            disp(['Loading ' animal]);
-            
-            for curr_day = 1:length(experiments)
-                
-                day = experiments(curr_day).day;
-                experiment = experiments(curr_day).experiment(end);
-                
-                % Load experiment
-                n_aligned_depths = 3;
-                str_align = 'kernel';
-                AP_load_experiment;
-                
-                % Pull out trial data
-                filter_mua = true; % Filter MUA to match widefield
-                AP_ctx_str_grab_trial_data;
-                
-                % Store trial data into master structure
-                trial_data_fieldnames = fieldnames(trial_data);
-                for curr_trial_data_field = trial_data_fieldnames'
-                    trial_data_all.(cell2mat(curr_trial_data_field)){curr_animal,1}{curr_day,1} = ...
-                        trial_data.(cell2mat(curr_trial_data_field));
-                end
-                
-                % Store general info
-                trial_data_all.animals = animals;
-                trial_data_all.t = t;
-                
-                AP_print_progress_fraction(curr_day,length(experiments));
-            end
-            
-            % Clear for next loop
-            clearvars -except ...
-                trained_animals naive_animals protocols ...
-                protocol animal_group animals curr_animal ...
-                animals curr_animal animal protocol experiments curr_day ...
-                trial_data_all
-            
-        end
-        
-        clearvars -except ...
-            trained_animals naive_animals protocols ...
-            protocol animal_group animals...
-            trial_data_all
-        disp('Finished loading all')
-        
-        save_path = 'C:\Users\Andrew\OneDrive for Business\Documents\CarandiniHarrisLab\analysis\wf_ephys_choiceworld\paper\data';
-        save_fn = ['trial_activity_' protocol '_' animal_group '_3depth_muafilt'];
-        save([save_path filesep save_fn],'-v7.3');
-        disp(['Saved ' save_fn]);
-        
-    end
-end
+figure; hold on;
+errorbar(nanmean(ctxpred_r2,1),AP_sem(ctxpred_r2,1),'color',[0,0.6,0],'linewidth',2,'CapSize',0);
+xlabel('Cortex depth');
+ylabel('Explained variance');
 
 
-%% Striatum cortical kernels (3 depth, MUA filt, more SVs, less time)
 
-disp('Cortex -> striatum regression maps across protocols');
+%% Predict striatum from cortex ephys
+% This is garbage and I think explained variance is a garbage measure
 
-n_aligned_depths = 3;
+% Load data
+data_fn = 'trial_activity_vanillaChoiceworld_ctxstrephys_ctx';
+AP_load_concat_normalize_ctx_str;
+ctx_exp = vertcat(mua_all{:});
 
-% Parameters for regression
-regression_params.use_svs = 1:200;
-regression_params.skip_seconds = 30;
-regression_params.upsample_factor = 1;
+data_fn = 'trial_activity_vanillaChoiceworld_ctxstrephys_str';
+AP_load_concat_normalize_ctx_str;
+str_exp = vertcat(mua_all{:});
+
+
+
+
+
+
+% Choose depths to run
+plot_depth = 1:3;
+
+% Regress kernel ROI activity to striatum domain activity (per recording)
 regression_params.kernel_t = [-0.1,0.1];
 regression_params.zs = [false,false];
 regression_params.cvfold = 5;
 regression_params.use_constant = true;
+lambda = 0;
+kernel_frames = floor(regression_params.kernel_t(1)*sample_rate): ...
+    ceil(regression_params.kernel_t(2)*sample_rate);
 
-protocols = {'vanillaChoiceworld'};
+use_t = true(size(t));
 
-for protocol = protocols
-    protocol = cell2mat(protocol);
-    
-    animals = {'AP024','AP025','AP026','AP027','AP028','AP029'};
-    
-    init_array = cellfun(@(x) cell(0,0),animals','uni',false);
-    ctx_str_kernel = init_array;
-    ctx_str_expl_var = init_array;
-    
-    for curr_animal = 1:length(animals)
+mua_ctxtrialpred_exp = cellfun(@(x) nan(size(x)),str_exp,'uni',false);
+mua_ctxtrialpred_k = nan(1,length(kernel_frames),n_depths,length(str_exp));
+
+for curr_exp = 1:length(str_exp)
+    for curr_depth = plot_depth
         
-        animal = animals{curr_animal};
-        disp(['Loading ' animal ' ' protocol]);
+        % (sum all cortical depths)
+        curr_ctx = reshape(permute(sum(ctx_exp{curr_exp}(:,use_t,:),3),[2,1,3]),[],1)';
+        curr_str = reshape(permute(str_exp{curr_exp}(:,use_t,:),[2,1,3]),[],n_depths)';
         
-        % Only use days with choiceworld (sometimes recorded in cortex, no bhv)
-        behavior_protocol = 'vanillaChoiceworld';
-        behavior_experiments = AP_find_experiments(animal,behavior_protocol);
-        
-        curr_experiments = AP_find_experiments(animal,protocol);
-        
-        behavior_day = ismember({curr_experiments.day},{behavior_experiments.day});
-        
-        experiments = curr_experiments([curr_experiments.imaging] & [curr_experiments.ephys] & behavior_day);
-        
-        % Skip if this animal doesn't have this experiment
-        if isempty(experiments)
+        % Skip if no data
+        if any(all(isnan(curr_str),2))
             continue
         end
         
-        disp(animal);
+        % Set discontinuities in trial data
+        trial_discontinuities = false(size(str_exp{curr_exp}(:,use_t,curr_depth)));
+        trial_discontinuities(:,1) = true;
+        trial_discontinuities = reshape(trial_discontinuities',[],1)';
         
-        load_parts.cam = false;
-        load_parts.imaging = true;
-        load_parts.ephys = true;
+        % Regress current domains from other domains
+        [k_mua_alt,curr_mua_muaaltpred,explained_var_trial] = ...
+            AP_regresskernel(curr_ctx, ...
+            curr_str(curr_depth,:),kernel_frames,lambda, ...
+            regression_params.zs,regression_params.cvfold, ...
+            false,regression_params.use_constant,trial_discontinuities);
         
-        for curr_day = 1:length(experiments)
-            
-            day = experiments(curr_day).day;
-            experiment = experiments(curr_day).experiment(end);
-            
-            % Load data and align striatum by depth
-            str_align = 'kernel';
-            AP_load_experiment;
-            
-            %%% Load lambda from previously estimated and saved
-            lambda_fn = 'C:\Users\Andrew\OneDrive for Business\Documents\CarandiniHarrisLab\analysis\wf_ephys_choiceworld\ephys_processing\ctx-str_lambda';
-            load(lambda_fn);
-            curr_animal_idx = strcmp(animal,{ctx_str_lambda.animal});
-            if any(curr_animal_idx)
-                curr_day_idx = strcmp(day,ctx_str_lambda(curr_animal_idx).day);
-                if any(curr_day_idx)
-                    lambda = ctx_str_lambda(curr_animal_idx).best_lambda(curr_day_idx);
-                end
-            end
-            lambda = 20;
-            
-            %%% Prepare data for regression
-            
-            % Get time points to bin
-            sample_rate = framerate*regression_params.upsample_factor;
-            time_bins = frame_t(find(frame_t > ...
-                regression_params.skip_seconds,1)):1/sample_rate: ...
-                frame_t(find(frame_t-frame_t(end) < ...
-                -regression_params.skip_seconds,1,'last'));
-            time_bin_centers = time_bins(1:end-1) + diff(time_bins)/2;
-            
-            % Deconvolve fluorescence
-            fVdf_deconv = AP_deconv_wf(fVdf);
-            fVdf_deconv(isnan(fVdf_deconv)) = 0;
-            fVdf_deconv_resample = interp1(frame_t,fVdf_deconv(regression_params.use_svs,:)',time_bin_centers)';
-            
-            % Get striatum depth group by across-experiment alignment
-            n_depths = n_aligned_depths;
-            depth_group = aligned_str_depth_group;
-            
-            binned_spikes = zeros(n_depths,length(time_bin_centers));
-            for curr_depth = 1:n_depths
-                curr_spike_times = spike_times_timeline(depth_group == curr_depth);
-                binned_spikes(curr_depth,:) = histcounts(curr_spike_times,time_bins);
-            end
-            
-            binned_spikes_filt = AP_deconv_wf(binned_spikes,true);
-            binned_spikes_std = binned_spikes_filt./nanstd(binned_spikes_filt,[],2);
-            
-            %%% Regress MUA from cortex
-            kernel_frames = floor(regression_params.kernel_t(1)*sample_rate): ...
-                ceil(regression_params.kernel_t(2)*sample_rate);
-            
-            [k,ctxpred_spikes_std,explained_var] = ...
-                AP_regresskernel(fVdf_deconv_resample, ...
-                binned_spikes_std,kernel_frames,lambda, ...
-                regression_params.zs,regression_params.cvfold, ...
-                false,regression_params.use_constant);
-            
-            % Reshape kernel and convert to pixel space
-            aUdf = AP_align_widefield(Udf,animal,day);
-            k_px = zeros(size(aUdf,1),size(aUdf,2),size(k,2),size(k,3),'single');
-            for curr_spikes = 1:size(k,3)
-                k_px(:,:,:,curr_spikes) = svdFrameReconstruct(aUdf(:,:,regression_params.use_svs),k(:,:,curr_spikes));
-            end
-            
-            % Store
-            ctx_str_kernel{curr_animal}{curr_day} = k_px;
-            ctx_str_expl_var{curr_animal}{curr_day} = explained_var.total;
-            
-            AP_print_progress_fraction(curr_day,length(experiments));
-            clearvars -except regression_params n_aligned_depths ...
-                animals animal curr_animal protocol ...
-                experiments curr_day animal load_parts ...
-                ctx_str_kernel ctx_str_expl_var
-            
-        end
-        
-        disp(['Finished ' animal]);
-        
+        mua_ctxtrialpred_k(:,:,curr_depth,curr_exp) = k_mua_alt;
+        mua_ctxtrialpred_exp{curr_exp}(:,use_t,curr_depth) = ...
+            reshape(curr_mua_muaaltpred,sum(use_t),[])';
+      
     end
+    AP_print_progress_fraction(curr_exp,length(str_exp));
+end
+
+
+% Get R^2 for task, cortex full, and cortex ROI predictions
+mua_ctxpred_exp = vertcat(mua_ctxpred_all{:});
+
+ctxpred_r2 = nan(length(str_exp),n_depths);
+ctxtrialpred_r2 = nan(length(str_exp),n_depths);
+
+for curr_exp = 1:length(str_exp)
     
-    % Save
-    save_path = ['C:\Users\Andrew\OneDrive for Business\Documents\CarandiniHarrisLab\analysis\wf_ephys_choiceworld\paper\data'];
-    save([save_path filesep 'ctx_str_kernels_' protocol '_TESTING'],'-v7.3');
-    warning('saving -v7.3');
-    disp(['Finished ' protocol]);
+    curr_data = reshape(permute(str_exp{curr_exp},[2,1,3]),[],n_depths);
+    curr_ctxpred_data = reshape(permute(mua_ctxpred_exp{curr_exp},[2,1,3]),[],n_depths);
+    curr_ctxtrialpred_data = reshape(permute(mua_ctxtrialpred_exp{curr_exp},[2,1,3]),[],n_depths);
+    
+    % Set common NaNs
+    nan_samples = isnan(curr_data) | isnan(curr_ctxpred_data) ...
+        | isnan(curr_ctxtrialpred_data);
+    curr_data(nan_samples) = NaN;
+    curr_ctxpred_data(nan_samples) = NaN;
+    curr_ctxtrialpred_data(nan_samples) = NaN;
+    
+    ctxpred_r2(curr_exp,:) = 1 - (nansum((curr_data-curr_ctxpred_data).^2,1)./ ...
+        nansum((curr_data-nanmean(curr_data,1)).^2,1));
+    ctxtrialpred_r2(curr_exp,:) = 1 - (nansum((curr_data-curr_ctxtrialpred_data).^2,1)./ ...
+        nansum((curr_data-nanmean(curr_data,1)).^2,1));
     
 end
+
+figure;
+subplot(1,2,1); hold on
+errorbar(nanmean(ctxpred_r2,1),AP_sem(ctxpred_r2,1),'.-','linewidth',2,'CapSize',0,'MarkerSize',30);
+errorbar(nanmean(ctxtrialpred_r2,1),AP_sem(ctxtrialpred_r2,1),'.-','linewidth',2,'CapSize',0,'MarkerSize',30);
+legend({'Ctx','MUA alt'});
+xlabel('Striatum depth');
+ylabel('Explained variance');
+
+mua_ctxtrialpred_k_mean = nanmean(mua_ctxtrialpred_k,4);
+mua_col = lines(n_depths);
+for curr_depth = 1:n_depths
+    subplot(n_depths,2,curr_depth*2); hold on
+    set(gca,'ColorOrder',mua_col(setdiff(1:n_depths,curr_depth),:));
+    plot(kernel_frames,mua_ctxtrialpred_k_mean(:,:,curr_depth)','linewidth',2);
+    ylabel('Weight');
+    title(['Str ' num2str(curr_depth)]);
+end
+
+
 
 
 

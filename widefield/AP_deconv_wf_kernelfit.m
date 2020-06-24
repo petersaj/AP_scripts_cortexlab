@@ -1,8 +1,8 @@
 %% Create kernel to deconvolve tetO-GCaMP6s to spikes
 %
-% Updated from AP_deconv_wf_kernelfit_old: now new mice doing task, all
-% recordings in AM
-% Note that cortical ROIs and ephys alignment done in AP_ctx_str_trial_preprocessing
+% Updated from AP_deconv_wf_kernelfit_old: 
+% now new mice doing task, all recordings in AM
+% NOTE: cortical ROIs and ephys alignment done in AP_ctx_str_trial_preprocessing
 
 
 

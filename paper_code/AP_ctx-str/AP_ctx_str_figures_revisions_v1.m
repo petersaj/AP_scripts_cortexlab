@@ -257,7 +257,7 @@ end
     
     
 
-%% Goodness-of-fit (cortex and striatum)
+%% Widefield task goodness-of-fit
 % NOTE: striatum moved to new fig S8 in v4, what used to be here was bad
 
 error('CHECK THIS! things went back and forth with baseline subtracting and common nans');

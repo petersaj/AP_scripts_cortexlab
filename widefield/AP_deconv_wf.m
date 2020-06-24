@@ -4,6 +4,8 @@ function convolved_activity = AP_deconv_wf(activity,spikes_flag)
 % Convolved fluorescence from tetO-GC6s widefield to match spikes
 % OR convolve spikes with kernel to match deconvolved widefield signal
 %
+% Kernel created in AP_deconv_wf_kernelfit
+%
 % activity = ND array, time in 2nd dim
 % spikes_flag = 
 % false (default), apply widefield > spikes kernel

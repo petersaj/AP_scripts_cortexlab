@@ -8,9 +8,9 @@
 % Load data
 
 % (task)
-data_fn = 'trial_activity_choiceworld'; % Primary dataset
-% data_fn = 'trial_activity_choiceworld_15strdepth'; % Depth-aligned striatum
-exclude_data = true;
+% data_fn = 'trial_activity_choiceworld'; % Primary dataset
+data_fn = 'trial_activity_choiceworld_15strdepth'; % Depth-aligned striatum
+exclude_data = false;
 
 % (passive)
 % data_fn = 'trial_activity_AP_choiceWorldStimPassive_trained';
@@ -442,6 +442,12 @@ AP_cellraster({stimOn_times(plot_trials), ...
 
 %% Fig 1f: Striatum multiunit end-of-striatum depth aligned
 
+% Depths to plot (in > 50% of recordings)
+frac_depths = nanmean(cell2mat(cellfun(@(x) ...
+    nanmean(~squeeze(all(all(isnan(x),1),2)),2), ...
+    vertcat(mua_all{:})','uni',false)),2);
+use_depths = frac_depths > 0.5;
+
 % Plot average stimulus-aligned activity in striatum
 plot_trials = move_t < 0.5 & trial_stim_allcat > 0 & trial_choice_allcat == -1;
 plot_trials_exp = mat2cell(plot_trials,use_split,1);
@@ -453,60 +459,50 @@ stim_align = zeros(size(trial_stim_allcat));
 move_align = -move_idx + leeway_samples;
 outcome_align = -outcome_idx + leeway_samples;
 
-% Set windows to average activity
+% Get average activity across alignments
 use_align_labels = {'Stim','Move onset','Outcome'};
 use_align = {stim_align,move_align,outcome_align};
+act_align_avg = nan(n_depths,length(t),length(use_align));
 
-line_fig = figure;
-heatmap_fig = figure;
+for curr_align = 1:length(use_align)
+    
+    curr_act_align = cell2mat(arrayfun(@(trial) circshift(mua_allcat(trial,:,:), ...
+        use_align{curr_align}(trial),2),transpose(1:size(mua_allcat,1)),'uni',false));
+    
+    act_align_avg(:,:,curr_align) = ....
+        permute(nanmean(cell2mat(cellfun(@(act,trials) ...
+        nanmean(act(trials,:,:),1), ...
+        mat2cell(curr_act_align,use_split,length(t),n_depths), ...
+        plot_trials_exp,'uni',false)),1),[3,2,1]);
+    
+end
 
+% Plot aligned_activity
 align_col = [1,0,0;0.8,0,0.8;0,0,0.8];
 align_t = {[-0.05,0.15],[0.15,0.6],[0.6,1]};
+
+figure; hold on; set(gca,'YDir','reverse');
+
 for curr_align = 1:length(use_align)
-        
-    % (re-align and split activity)
-    curr_str_act = mat2cell(...
-        cell2mat(arrayfun(@(trial) circshift( ...
-        mua_allcat(trial,:,:), ...
-        use_align{curr_align}(trial),2),transpose(1:size(mua_allcat,1)),'uni',false)), ...
-        use_split,length(t),size(mua_allcat,3));
     
-    curr_str_act_plottrial_expmean = cell2mat(permute( ...
-        cellfun(@(act,trials) permute(nanmean(act(trials,:,:),1),[3,2,1]), ...
-        curr_str_act,plot_trials_exp,'uni',false),[2,3,1]));
-        
-    curr_t_offset = (nanmean(stim_align(cell2mat(plot_trials_exp)) - ...
-        use_align{curr_align}(cell2mat(plot_trials_exp))))/sample_rate;
-    
+    curr_t_offset = -nanmean(use_align{curr_align}(plot_trials))/sample_rate;   
     curr_t = t + curr_t_offset;
     curr_t_plot = curr_t >= align_t{curr_align}(1) & ...
         curr_t <= align_t{curr_align}(2);
     
-    for curr_depth = 1:n_depths
-        figure(line_fig);
-        subplot(n_depths,1,curr_depth); hold on; axis off;       
-        AP_errorfill(curr_t(curr_t_plot),nanmean(curr_str_act_plottrial_expmean(curr_depth,curr_t_plot,:),3)', ...
-            AP_sem(curr_str_act_plottrial_expmean(curr_depth,curr_t_plot,:),3)',align_col(curr_align,:),0.5);
-        line(repmat(curr_t_offset,2,1),ylim,'color',align_col(curr_align,:));
-    end
+    curr_act_norm = act_align_avg(:,:,curr_align)./ ...
+        max(max(act_align_avg,[],2),[],3);
+    plot_t = curr_t > align_t{curr_align}(1) & curr_t < align_t{curr_align}(2);
     
-    curr_str_act_plottrial_mean = nanmean(curr_str_act_plottrial_expmean,3);
-    figure(heatmap_fig)
-    subplot(1,3,curr_align);
-    imagesc(curr_t,[],curr_str_act_plottrial_mean./max(curr_str_act_plottrial_mean,[],2));
-    line(repmat(curr_t_offset,2,1),ylim,'color',align_col(curr_align,:));
-    colormap(gca,brewermap([],'Greys'));
-    xlim(align_t{curr_align});
+    imagesc(curr_t(plot_t),[],curr_act_norm(use_depths,plot_t));
+    line(repmat(curr_t_offset,2,1),[0.5,sum(use_depths)+0.5],'color',align_col(curr_align,:));
+    colormap(gca,brewermap([],'Greys')); 
     
 end
+xlabel('~Time from stim');
+ylabel('Striatum depth');
 
-figure(line_fig);
-linkaxes(get(line_fig,'Children'),'xy');
-y_scale = 1;
-t_scale = 0.2;
-line([min(xlim),min(xlim)+t_scale],repmat(min(ylim),2,1),'linewidth',3,'color','k');
-line(repmat(min(xlim),2,1),[min(ylim),min(ylim)+y_scale],'linewidth',3,'color','k');
-
+axis tight;
 
 
 %% Fig 2a: Cortex > striatum kernels by depth
@@ -521,7 +517,7 @@ load(k_fn);
 ctx_str_kernel_cat = cell2mat(permute(horzcat(ctx_str_kernel{:}),[1,3,4,5,2]));
 ctx_str_sta_cat = cell2mat(permute(horzcat(ctx_str_sta{:}),[1,3,4,2]));
 
-% (use only depths in > x% of recordings)
+% (use only depths in > 50% of recordings)
 frac_depths = nanmean(~squeeze(all(all(isnan(ctx_str_sta_cat),1),2)),2);
 use_depths = frac_depths > 0.5;
 
@@ -2159,6 +2155,7 @@ legend({'Task','Cortex'});
 
 
 %% BAD: USED NOT SAME REGRESSED DATA Fig S8a (addition): comparison of cortex kernel vs ROI
+error('BAD?')
 
 % Load kernel templates
 n_aligned_depths = 3;
