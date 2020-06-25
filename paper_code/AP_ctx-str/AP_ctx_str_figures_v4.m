@@ -8,8 +8,8 @@
 % Load data
 
 % (task)
-% data_fn = 'trial_activity_choiceworld'; % Primary dataset
-data_fn = 'trial_activity_choiceworld_15strdepth'; % Depth-aligned striatum
+data_fn = 'trial_activity_choiceworld'; % Primary dataset
+% data_fn = 'trial_activity_choiceworld_15strdepth'; % Depth-aligned striatum
 exclude_data = false;
 
 % (passive)
@@ -4186,10 +4186,10 @@ for curr_axes = 2:length(timeavg_labels)+2:length(all_axes)
 end
 
 
-%% Striatum 2 stim/move activity interaction
+%% Striatum stim/move activity interaction
 
 % Depth to plot
-plot_depth = 2;
+plot_depth = 1;
 
 % Set number of shuffles for significance testing
 n_shuff = 1000; 
@@ -4197,7 +4197,7 @@ n_shuff = 1000;
 %%% STIM ACTIVITY
 
 % Set time to average activity
-use_stim_t = t > 0 & t < 0.2;
+use_stim_t = t > 0.05 & t < 0.15;
 
 % Get stim bins for each trial
 stims = unique([0.06,0.125,0.25,0.5,1].*[-1;1]);

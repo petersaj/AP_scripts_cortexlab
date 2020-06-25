@@ -1592,17 +1592,23 @@ ylabel('Explained variance');
 %% Predict striatum from cortex ephys
 % This is garbage and I think explained variance is a garbage measure
 
+% % Load data
+% data_fn = 'trial_activity_vanillaChoiceworld_ctxstrephys_ctx';
+% AP_load_concat_normalize_ctx_str;
+% ctx_exp = vertcat(mua_all{:});
+% 
+% data_fn = 'trial_activity_vanillaChoiceworld_ctxstrephys_str';
+% AP_load_concat_normalize_ctx_str;
+% str_exp = vertcat(mua_all{:});
+
 % Load data
-data_fn = 'trial_activity_vanillaChoiceworld_ctxstrephys_ctx';
+data_fn = 'trial_activity_AP_lcrGratingPassive_ctxstrephys_ctx';
 AP_load_concat_normalize_ctx_str;
 ctx_exp = vertcat(mua_all{:});
 
-data_fn = 'trial_activity_vanillaChoiceworld_ctxstrephys_str';
+data_fn = 'trial_activity_AP_lcrGratingPassive_ctxstrephys_str';
 AP_load_concat_normalize_ctx_str;
 str_exp = vertcat(mua_all{:});
-
-
-
 
 
 
