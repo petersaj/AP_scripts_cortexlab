@@ -1397,10 +1397,10 @@ kernel_frames = floor(regression_params.kernel_t(1)*sample_rate): ...
     ceil(regression_params.kernel_t(2)*sample_rate);
 
 % Pick time to use for regression
-% use_t = t < 0;
+use_t = t < 0;
 % use_t = t > 0 & t < 0.5;
 % use_t = t > 1;
-use_t = t < 0 | t > 0.5;
+% use_t = t < 0 | t > 0.5;
 % use_t = true(size(t));
 
 mua_exp = vertcat(mua_all{:});
