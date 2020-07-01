@@ -880,7 +880,6 @@ intact_power_pre = cell(length(muscimol_traces),1);
 muscimol_power_post = cell(length(muscimol_traces),1);
 intact_power_post = cell(length(muscimol_traces),1);
 
-figure; 
 for curr_recording = 1:length(muscimol_traces)
     
     muscimol_trace_pre = muscimol_traces(curr_recording).muscimolhemi_premuscimol;
@@ -902,15 +901,9 @@ for curr_recording = 1:length(muscimol_traces)
     muscimol_power_post{curr_recording} = P_muscimol_post;
     intact_power_post{curr_recording} = P_intact_post;
     
-    subplot(length(muscimol_traces),1,curr_recording); hold on
-    plot_t = (0:length(muscimol_trace_post)-1)/framerate;
-    plot(plot_t,muscimol_trace_post);
-    plot(plot_t,intact_trace_post);
-    xlabel('Time (s)');
-    ylabel('\DeltaF/F');
-    if curr_recording == 1
-       legend({'Muscimol side','Intact side'}); 
-    end
+    figure; hold on
+    plot(muscimol_trace_post);
+    plot(
 
 end
 
