@@ -736,13 +736,13 @@ for curr_example = 1:length(experiment_examples)
     
     % Plot cortex raster
     figure(raster_fig);
-    subplot(4,1,1); hold on;
+    subplot(3,1,1); hold on;
     plot_t_idx = spike_binning_t_centers >= plot_t(1) & ...
         spike_binning_t_centers <= plot_t(2);
     plot(spike_binning_t_centers(plot_t_idx), ...
         fluor_roi_interp(plot_t_idx),'linewidth',2,'color',[0,0.7,0]);
     
-    subplot(4,1,2,'YDir','reverse'); hold on;
+    subplot(3,1,2,'YDir','reverse'); hold on;
     plot_spikes = spike_times_timeline >= plot_t(1) & ...
         spike_times_timeline <= plot_t(2) & ...
         spike_depths_aligned <= ctx_depth(2);
@@ -771,7 +771,7 @@ for curr_example = 1:length(experiment_examples)
     
     % Plot striatum raster
     figure(raster_fig);
-    subplot(4,1,3,'YDir','reverse'); hold on;
+    subplot(3,1,3,'YDir','reverse'); hold on;
     plot_spikes = spike_times_timeline >= plot_t(1) & ...
         spike_times_timeline <= plot_t(2) & ...
         spike_depths >= str_depth(1) & spike_depths <= str_depth(2);
@@ -795,65 +795,56 @@ for curr_example = 1:length(experiment_examples)
     imagesc(spike_binning_t_centers,[],striatum_mua);
     caxis([0,10]);
     title('Striatum MUA');
- 
     
-    %%%%%% PLOT WHEEL/STIM
-    figure(raster_fig);
-    wheel_axes = subplot(4,1,4,'YDir','reverse'); hold on;
-    
-    % (wheel velocity)
-    wheel_axes = subplot(6,1,6);
-    plot_wheel_idx = Timeline.rawDAQTimestamps >= plot_t(1) & ...
-        Timeline.rawDAQTimestamps <= plot_t(2);
-    plot(wheel_axes,Timeline.rawDAQTimestamps(plot_wheel_idx), ...
-        wheel_velocity(plot_wheel_idx),'k','linewidth',2);
-    ylabel('Wheel velocity');
-    axis off
-    
-%     (stimuli)
-    % (task)
-    if contains(expDef,'vanilla')
-        stim_col = colormap_BlueWhiteRed(5);
-        [~,trial_contrast_idx] = ...
-            ismember(trial_conditions(:,1).*trial_conditions(:,2),unique(contrasts'.*sides),'rows');
-    elseif strcmp(expDef,'AP_lcrGratingPassive')
-        % (passive)
-        stim_col = [0,0,1;0.5,0.5,0.5;1,0,0];
-        [~,trial_contrast_idx] = ...
-            ismember(trial_conditions(:,1).*trial_conditions(:,2),[-90;0;90],'rows');
-        stim_lines = arrayfun(@(x) line(wheel_axes,repmat(stimOn_times(x),1,2),ylim(wheel_axes),'color', ...
-            stim_col(trial_contrast_idx(x),:),'linewidth',2), ...
-            find(stimOn_times >= plot_t(1) & stimOn_times <= plot_t(2)));
-    end
-    
-%     % (movement starts)
-%     move_col = [0.6,0,0.6;0,0.6,0];
-%     [~,trial_choice_idx] = ismember(trial_conditions(:,3),[-1;1],'rows');
-%     move_lines = arrayfun(@(x) line(wheel_axes,repmat(wheel_move_time(x),1,2),ylim(wheel_axes),'color', ...
-%         move_col(trial_choice_idx(x),:),'linewidth',2), ...
-%         find(wheel_move_time >= plot_t(1) & wheel_move_time <= plot_t(2)));
-%     
-%     % (go cues)
-%     go_col = [0.8,0.8,0.2];
-%     go_cue_times = signals_events.interactiveOnTimes(1:n_trials);
-%     go_cue_lines = arrayfun(@(x) line(wheel_axes,repmat(go_cue_times(x),1,2),ylim(wheel_axes),'color', ...
-%         go_col,'linewidth',2), ...
-%         find(go_cue_times >= plot_t(1) & go_cue_times <= plot_t(2)));
-%     
-%     % (outcomes)
-%     outcome_col = [0,0,0.8;0.5,0.5,0.5];
-%     reward_lines = arrayfun(@(x) line(wheel_axes,repmat(reward_t_timeline(x),1,2),ylim(wheel_axes),'color', ...
-%         outcome_col(1,:),'linewidth',2), ...
-%         find(reward_t_timeline >= plot_t(1) & reward_t_timeline <= plot_t(2)));
-%     punish_times = signals_events.responseTimes(trial_outcome == -1);
-%     punish_lines = arrayfun(@(x) line(wheel_axes,repmat(punish_times(x),1,2),ylim(wheel_axes),'color', ...
-%         outcome_col(2,:),'linewidth',2), ...
-%         find(punish_times >= plot_t(1) & punish_times <= plot_t(2)));
-
     linkaxes(get(gcf,'Children'),'x');
     
     xlim(plot_t);
     
+    
+    
+    % %%%%%% TO PLOT WHEEL/STIM
+    %
+    %
+    % % (wheel velocity)
+    % wheel_axes = subplot(6,1,6);
+    % plot_wheel_idx = Timeline.rawDAQTimestamps >= plot_t(1) & ...
+    %     Timeline.rawDAQTimestamps <= plot_t(2);
+    % plot(wheel_axes,Timeline.rawDAQTimestamps(plot_wheel_idx), ...
+    %     wheel_velocity(plot_wheel_idx),'k','linewidth',2);
+    % ylabel('Wheel velocity');
+    % axis off
+    %
+    % (stimuli)
+    stim_col = colormap_BlueWhiteRed(5);
+    [~,trial_contrast_idx] = ...
+        ismember(trial_conditions(:,1).*trial_conditions(:,2),unique(contrasts'.*sides),'rows');
+    stim_lines = arrayfun(@(x) line(wheel_axes,repmat(stimOn_times(x),1,2),ylim(wheel_axes),'color', ...
+        stim_col(trial_contrast_idx(x),:),'linewidth',2), ...
+        find(stimOn_times >= plot_t(1) & stimOn_times <= plot_t(2)));
+    %
+    % % (movement starts)
+    % move_col = [0.6,0,0.6;0,0.6,0];
+    % [~,trial_choice_idx] = ismember(trial_conditions(:,3),[-1;1],'rows');
+    % move_lines = arrayfun(@(x) line(wheel_axes,repmat(wheel_move_time(x),1,2),ylim(wheel_axes),'color', ...
+    %     move_col(trial_choice_idx(x),:),'linewidth',2), ...
+    %     find(wheel_move_time >= plot_t(1) & wheel_move_time <= plot_t(2)));
+    %
+    % % (go cues)
+    % go_col = [0.8,0.8,0.2];
+    % go_cue_times = signals_events.interactiveOnTimes(1:n_trials);
+    % go_cue_lines = arrayfun(@(x) line(wheel_axes,repmat(go_cue_times(x),1,2),ylim(wheel_axes),'color', ...
+    %     go_col,'linewidth',2), ...
+    %     find(go_cue_times >= plot_t(1) & go_cue_times <= plot_t(2)));
+    %
+    % % (outcomes)
+    % outcome_col = [0,0,0.8;0.5,0.5,0.5];
+    % reward_lines = arrayfun(@(x) line(wheel_axes,repmat(reward_t_timeline(x),1,2),ylim(wheel_axes),'color', ...
+    %     outcome_col(1,:),'linewidth',2), ...
+    %     find(reward_t_timeline >= plot_t(1) & reward_t_timeline <= plot_t(2)));
+    % punish_times = signals_events.responseTimes(trial_outcome == -1);
+    % punish_lines = arrayfun(@(x) line(wheel_axes,repmat(punish_times(x),1,2),ylim(wheel_axes),'color', ...
+    %     outcome_col(2,:),'linewidth',2), ...
+    %     find(punish_times >= plot_t(1) & punish_times <= plot_t(2)));
 end
 
 

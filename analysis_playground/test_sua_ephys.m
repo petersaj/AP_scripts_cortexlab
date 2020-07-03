@@ -280,9 +280,15 @@ legend(celltype_labels);
 
 %% Average activity of each celltype aligned by depth
 
+mua_allcat_exp = vertcat(mua_all{:});
+
+trial_stim_allcat_exp = mat2cell(trial_stim_allcat,use_split,1);
+move_t_exp = mat2cell(move_t,use_split,1);
+trial_outcome_allcat_exp = mat2cell(trial_outcome_allcat,use_split,1);
+
 act_mean = cell2mat(cellfun(@(act,stim,rxn,outcome) ...
     squeeze(nanmean(act(stim > 0 & rxn < 0.5 & outcome == 1,:,:),1)), ...
-    mua_allcat_stimalign_exp,trial_stim_allcat_exp,move_t_exp, ...
+    mua_allcat_exp,trial_stim_allcat_exp,move_t_exp, ...
     trial_outcome_allcat_exp,'uni',false)')';
 
 figure;
@@ -310,6 +316,43 @@ imagesc(zscore(act_mean(curr_cells_idx(sort_idx),:),[],2));
 caxis([-3,3]);
 colormap(brewermap([],'*RdBu'));
 title('TAN');
+
+
+
+%% (quick test: fraction of response carried by fraction of cells)
+
+curr_cells_idx = find(good_units_allcat & ismember(celltype_allcat,[1]) & domain_aligned_allcat == 1);
+
+act_mean = cell2mat(cellfun(@(act,stim,rxn,outcome) ...
+    squeeze(nanmean(act(stim > 0 & rxn < 0.5 & outcome == 1,:,:),1)), ...
+    mua_allcat_stimalign_exp,trial_stim_allcat_exp,move_t_exp, ...
+    trial_outcome_allcat_exp,'uni',false)')';
+
+use_t = t > 0 & t < 0.15;
+sort_act = nanmean(act_mean(curr_cells_idx,use_t),2);
+[~,sort_idx] = sort(sort_act,'ascend');
+
+baseline_act = nanmean(act_mean(curr_cells_idx,t < 0),2);
+
+a = act_mean(curr_cells_idx(sort_idx),:);
+b = cumsum(a,1);
+
+figure;
+subplot(1,3,1);
+imagesc(b);
+subplot(1,3,2);
+imagesc(b./max(b,[],1));
+subplot(1,3,3); hold on;
+plot((1:length(curr_cells_idx))./length(curr_cells_idx), ...
+    nanmean(b(:,t < 0),2)./max(nanmean(b(:,t < 0),2)));
+plot((1:length(curr_cells_idx))./length(curr_cells_idx), ...
+    nanmean(b(:,use_t),2)./max(nanmean(b(:,use_t),2)));
+line([0,1],[0,1],'color','k','linestyle','--');
+xlabel('Fraction of cells');
+ylabel('Fracion of total spikes');
+legend({'Baseline','Stim'});
+
+
 
 
 
@@ -372,11 +415,11 @@ caxis([0,50]);
 
 % Set cells and alignment to plot
 % plot_cells = celltype_allcat == 1 & domain_aligned_allcat == 1;
-plot_cells = good_units_allcat & ismember(celltype_allcat,[1]) & domain_aligned_allcat == 2;
+plot_cells = good_units_allcat & ismember(celltype_allcat,[1]) & domain_aligned_allcat == 1;
 % plot_cells = (stim_cells) & good_units_allcat & ismember(celltype_allcat,[1]) & domain_aligned_allcat == 1;
 % plot_cells = ~stim_cells & ~move_cells & ~reward_cells & ismember(celltype_allcat,[1]) & domain_aligned_allcat == 1;
 % plot_cells = stim_cells;
-plot_align = 2; % (stim,move,outcome)
+plot_align = 1; % (stim,move,outcome)
 
 % Get events by experiment
 trial_stim_allcat_exp = mat2cell(trial_stim_allcat,use_split,1);
@@ -462,6 +505,7 @@ line(repmat(find(t >= 0,1),2,1)+length(t)*2,ylim,'linestyle','--','color','r');
 
 colormap(brewermap([],'Greys'));
 caxis([0,50]);
+
 
 %% Sort and plot by different alignments
 
