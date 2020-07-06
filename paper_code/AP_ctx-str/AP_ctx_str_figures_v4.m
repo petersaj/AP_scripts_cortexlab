@@ -9,15 +9,15 @@
 
 % (task)
 % data_fn = 'trial_activity_choiceworld'; % Primary dataset
-data_fn = 'trial_activity_choiceworld_15strdepth'; % Depth-aligned striatum
-exclude_data = false;
+% data_fn = 'trial_activity_choiceworld_15strdepth'; % Depth-aligned striatum
+% exclude_data = false;
 
 % (passive)
 % data_fn = 'trial_activity_AP_choiceWorldStimPassive_trained';
-% data_fn = 'trial_activity_AP_choiceWorldStimPassive_naive';
+data_fn = 'trial_activity_AP_choiceWorldStimPassive_naive';
 % data_fn = 'trial_activity_stimKalatsky_naive';
 % data_fn = 'trial_activity_stimKalatsky_trained';
-% exclude_data = false;
+exclude_data = false;
 
 % (unused at the moment)
 % data_fn = 'trial_activity_choiceworld_wfonly'; % Widefield-only days (no craniotomy, so cleaner)
@@ -593,7 +593,16 @@ colormap(copper);
 axis square;
 
 
-
+% Plot templates
+figure; colormap(gray);
+for i = 1:n_aligned_depths
+    subplot(n_aligned_depths,1,i);
+    imagesc(kernel_template(:,:,i));
+    AP_reference_outline('ccf_aligned',[0.5,0.5,0.5]);
+    axis image off;
+    colormap(brewermap([],'*RdBu'));
+    caxis([-max(abs(caxis)),max(abs(caxis))]);
+end
 
 
 
@@ -2008,6 +2017,7 @@ end
 
 
 %% Fig S8: Striatum task v cortex regression
+error('Check this R2 against the next S8 addition: done on non-norm')
 
 % Get task>striatum parameters
 n_regressors = length(task_regressor_labels);

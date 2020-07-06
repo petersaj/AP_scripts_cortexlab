@@ -8,16 +8,16 @@
 % Load data
 
 % (task)
-% data_fn = 'trial_activity_choiceworld'; % Primary dataset
+data_fn = 'trial_activity_choiceworld'; % Primary dataset
 % data_fn = 'trial_activity_choiceworld_4strdepth'; % Depth-aligned striatum
-% exclude_data = true;
+exclude_data = false;
 
 % (passive)
-data_fn = 'trial_activity_AP_choiceWorldStimPassive_trained';
+% data_fn = 'trial_activity_AP_choiceWorldStimPassive_trained';
 % data_fn = 'trial_activity_AP_choiceWorldStimPassive_naive';
 % data_fn = 'trial_activity_stimKalatsky_naive';
 % data_fn = 'trial_activity_stimKalatsky_trained';
-exclude_data = false;
+% exclude_data = false;
 
 % (unused at the moment)
 % data_fn = 'trial_activity_choiceworld_wfonly'; % Widefield-only days (no craniotomy, so cleaner)
@@ -644,8 +644,6 @@ ylabel('Cortical MUA max corr');
 
 animal = 'AP060';
 day = '2019-12-06';
-site = 2; % (cortex)
-str_align = 'none'; % (cortex)
 verbose = true;
 
 experiment_examples = [1,3];
@@ -658,6 +656,7 @@ for curr_example = 1:length(experiment_examples)
     load_parts.ephys = true;
     load_parts.imaging = true;
     site = 2; % (cortex always probe 2)
+    str_align = 'none'; % (cortex)
     AP_load_experiment;
     
     mua_fig = figure;
@@ -821,11 +820,11 @@ for curr_example = 1:length(experiment_examples)
         stim_col = [0,0,1;0.5,0.5,0.5;1,0,0];
         [~,trial_contrast_idx] = ...
             ismember(trial_conditions(:,1).*trial_conditions(:,2),[-90;0;90],'rows');
-        stim_lines = arrayfun(@(x) line(wheel_axes,repmat(stimOn_times(x),1,2),ylim(wheel_axes),'color', ...
+    end
+    stim_lines = arrayfun(@(x) line(wheel_axes,repmat(stimOn_times(x),1,2),ylim(wheel_axes),'color', ...
             stim_col(trial_contrast_idx(x),:),'linewidth',2), ...
             find(stimOn_times >= plot_t(1) & stimOn_times <= plot_t(2)));
-    end
-    
+        
 %     % (movement starts)
 %     move_col = [0.6,0,0.6;0,0.6,0];
 %     [~,trial_choice_idx] = ismember(trial_conditions(:,3),[-1;1],'rows');
