@@ -12159,21 +12159,6 @@ xlabel('Str');
 
 
 
-%%
-
-a = cellfun(@(domain,celltype,stim,move) any(celltype == 1 & domain == 1 & stim) & ...
-    any(celltype == 1 & domain == 1 & move),domain_exp,celltype_exp,stim_cells_exp,move_cells_exp);
-
-
-depth_rel = cellfun(@(x) mat2gray(-x),depth_exp,'uni',false);
-
-figure; hold on
-cellfun(@(depth,domain,celltype,stim) ...
-    plot(depth(domain == 1 & celltype == 1 & stim),'.k'), ...
-    depth_rel,domain_exp,celltype_exp,stim_cells_exp)
-cellfun(@(depth,domain,celltype,move) ...
-    plot(depth(domain == 1 & celltype == 1 & move),'.r'), ...
-    depth_rel,domain_exp,celltype_exp,move_cells_exp)
 
 
 

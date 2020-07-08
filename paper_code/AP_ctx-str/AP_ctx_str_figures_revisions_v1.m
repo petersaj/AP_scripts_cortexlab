@@ -504,8 +504,8 @@ end
 %% ^^^ Correlation between wf/ctx-mua and ctx-mua/str-mua
 
 %%% Load correlation data
-use_protocol = 'vanillaChoiceworld';
-% use_protocol = 'AP_sparseNoise';
+% use_protocol = 'vanillaChoiceworld';
+use_protocol = 'AP_sparseNoise';
 
 data_path = 'C:\Users\Andrew\OneDrive for Business\Documents\CarandiniHarrisLab\analysis\wf_ephys_choiceworld\paper\data';
 data_fn = [data_path filesep 'ctx_fluor_mua_corr_' use_protocol];

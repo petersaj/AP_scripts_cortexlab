@@ -826,10 +826,9 @@ for curr_depth = 1:n_aligned_depths
     AP_reference_outline('ccf_aligned',[0.5,0.5,0.5]);
 end
 
-% Trying heatmap
 
-figure;
-colormap(brewermap([],'Greys'));
+figure; 
+colormap(brewermap([],'*RdBu'));
 for curr_depth = 1:n_aligned_depths
     subplot(n_aligned_depths,1,curr_depth); hold on; axis image off;
     set(gca,'YDir','reverse');
@@ -844,14 +843,15 @@ for curr_depth = 1:n_aligned_depths
     x_bin_centers = x_bins(1:end-1) + diff(x_bins)./2;
     y_bin_centers = y_bins(1:end-1) + diff(x_bins)./2;
     
-    % (tried this - not used)
-%     projection_strength_bin = accumarray( ...
-%         [bin_x,bin_y], ...
-%         projection_strength_bilateral{curr_depth},[length(x_bin_centers), ...
-%         length(y_bin_centers)],[],0);
+    projection_strength_bin = accumarray( ...
+        [bin_x,bin_y], ...
+        projection_strength_bilateral{curr_depth}*100,[length(x_bin_centers), ...
+        length(y_bin_centers)],[],0);    
+ 
+    imagesc(y_bin_centers,x_bin_centers,imgaussfilt(projection_strength_bin',2));
+
+    caxis([-max(abs(caxis)),max(abs(caxis))]);
     
-    imagesc(y_bin_centers,x_bin_centers,imgaussfilt(bin_n',2));
-        
     AP_reference_outline('ccf_aligned',[0.5,0.5,0.5]);
 end
 

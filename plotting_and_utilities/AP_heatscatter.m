@@ -1,19 +1,21 @@
-function AP_heatscatter(x,y,n_bins)
-% AP_heatscatter(x,y,n_bins)
+function AP_heatscatter(x,y,n_bins,point_thresh)
+% AP_heatscatter(x,y,n_bins,point_thresh)
 %
 % Scatter plot turning into heatmap when dense
 % x = x data
 % y = y data
 % n_bins = number of histogram bins for x and y
+% point_thresh = # points threshold for scatter vs heatmap
 
 % Cut out NaNs
 nan_points = isnan(x) | isnan(y);
 x(nan_points) = [];
 y(nan_points) = [];
 
-% Set heat/scatter threshold
-% (don't need to change: number of overlapping dots is constant)
-max_bin_point_plot = 10; % threshold for heatmap vs scatter
+% Set default heat/scatter threshold
+if ~exist('point_thresh','var') || isempty(point_thresh)
+    point_thresh = 10; % threshold for heatmap vs scatter
+end
 
 % Set bins and bin data
 x_bins = linspace(min(x),max(x),n_bins+1);
@@ -27,8 +29,8 @@ bin_n = bin_n'; % histcounts2 returns a transposed x/y?! that's dumb
 bin_idx = sub2ind([size(bin_n,1),size(bin_n,2)],bin_y,bin_x);
 
 % Set heat bins to image and scatter points to plot
-heat_bins = bin_n > max_bin_point_plot;
-scatter_bins = bin_n <= max_bin_point_plot; 
+heat_bins = bin_n > point_thresh;
+scatter_bins = bin_n <= point_thresh; 
 scatter_points = scatter_bins(bin_idx);
 
 % TEMP: sqrt bin_n for skewed data?
