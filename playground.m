@@ -11682,7 +11682,7 @@ act_prctile = [5,95];
 n_act_bins = 5;
 
 % Set areas and conditions
-plot_areas = [1];
+plot_areas = [1:3];
 
 % Loop across area pairs, plot binned predicted v measured activity
 curr_act_allcat = fluor_kernelroi_deconv; % fluor_kernelroi_deconv, mua_ctxpred_allcat, mua_allcat
@@ -11702,10 +11702,10 @@ for curr_area_idx = 1:length(plot_areas)
         for curr_grp = 1:max(grp_idx)
             curr_act_avg(curr_grp,:,curr_exp) = ...
                 nanmean(curr_act_allcat(grp_idx == curr_grp & ...
-                split_idx == curr_exp,:,curr_area),1);
+                split_idx == curr_exp & quiescent_trials,:,curr_area),1);
             curr_act_pred_avg(curr_grp,:,curr_exp) = ...
                 nanmean(curr_act_pred_allcat(grp_idx == curr_grp & ...
-                split_idx == curr_exp,:,curr_area),1);
+                split_idx == curr_exp & quiescent_trials,:,curr_area),1);
         end
     end
 
@@ -12057,7 +12057,6 @@ plot(a_b_bins,bin_centers,'linewidth',2);
 subplot(1,2,2); hold on
 plot(c_d_bins,d_c_bins,'linewidth',2);
 plot(a_b_bins,b_a_bins,'linewidth',2);
-
 
 
 

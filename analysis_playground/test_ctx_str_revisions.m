@@ -774,280 +774,6 @@ axis image off
 
 
 
-
-
-
-%% Pre/post learning passive
-% (currently using copied from muscimol so labelled as that atm)
-
-data_fns = { ...
-    'trial_activity_AP_choiceWorldStimPassive_naive', ...
-    'trial_activity_AP_choiceWorldStimPassive_trained'};
-
-mua_prepost_norm = cell(2,1);
-fluor_kernelroi_prepost_norm = cell(2,1);
-
-stimIDs = cell(2,1);
-mua_muscimol = cell(2,1);
-mua_ctxpred_muscimol = cell(2,1);
-fluor_muscimol = cell(2,1);
-fluor_roi_muscimol = cell(2,1);
-fluor_kernelroi_muscimol = cell(2,1);
-
-for curr_data = 1:length(data_fns)
-    
-    % Load data
-    data_fn = data_fns{curr_data};
-    AP_load_concat_normalize_ctx_str;
-
-    % Split by experiment
-    trials_recording = cellfun(@(x) size(x,1),vertcat(wheel_all{:}));
-    
-    % Get trials with movement during stim to exclude
-    wheel_thresh = 0.025;
-    quiescent_trials = ~any(abs(wheel_allcat(:,t >= -0.5 & t <= 0.5)) > wheel_thresh,2);
-    quiescent_trials_exp = mat2cell(quiescent_trials,trials_recording,1);
-    
-    % Get stim and activity by experiment
-    trial_stim_allcat_exp = mat2cell(trial_stim_allcat,trials_recording,1);  
-    fluor_deconv_exp = mat2cell(fluor_allcat_deconv,trials_recording,length(t),n_vs);
-    fluor_roi_deconv_exp = mat2cell(fluor_roi_deconv,trials_recording,length(t),numel(wf_roi));
-    fluor_kernelroi_deconv_exp = mat2cell(fluor_kernelroi_deconv,trials_recording,length(t),n_depths);
-    mua_allcat_exp = mat2cell(mua_allcat,trials_recording,length(t),n_depths);
-    mua_ctxpred_allcat_exp = mat2cell(mua_ctxpred_allcat,trials_recording,length(t),n_depths);
-            
-    % (RENORMALIZE: MUA = day baseline, fluor = nothing)  
-    mua_prepost_norm{curr_data} = vertcat(mua_norm{:});
-    mua_allcat_exp = cellfun(@(act,curr_norm,use_norm) ...
-        (act.*curr_norm)./use_norm,mua_allcat_exp, ...
-        vertcat(mua_norm{:}),vertcat(mua_day_baseline{:}),'uni',false);
-    mua_ctxpred_allcat_exp = cellfun(@(act,curr_norm,use_norm) ...
-        (act.*curr_norm)./use_norm,mua_ctxpred_allcat_exp, ...
-        vertcat(mua_norm{:}),vertcat(mua_day_baseline{:}),'uni',false);
-    
-    fluor_kernelroi_prepost_norm{curr_data} = fluor_kernelroi_norm;
-    fluor_kernelroi_deconv_exp = cellfun(@(act,curr_norm) ...
-        (act.*curr_norm),fluor_kernelroi_deconv_exp, ...
-        fluor_kernelroi_norm,'uni',false);
-    
-    % Exclude trials with fluorescence spikes
-    % (this is a dirty way to do this but don't have a better alt)
-    fluor_spike_thresh = 100;
-    fluor_spike_trial = cellfun(@(x) any(any(x > fluor_spike_thresh,2),3), ...
-        fluor_kernelroi_deconv_exp,'uni',false);
-    
-    % Grab data
-    stimIDs{curr_data} = cellfun(@(data,quiesc,fluor_spike) data(quiesc & ~fluor_spike,:,:), ...
-        trial_stim_allcat_exp,quiescent_trials_exp,fluor_spike_trial,'uni',false);
-    
-    mua_muscimol{curr_data} = cellfun(@(data,quiesc,fluor_spike) data(quiesc & ~fluor_spike,:,:), ...
-        mua_allcat_exp,quiescent_trials_exp,fluor_spike_trial,'uni',false);
-    
-    mua_ctxpred_muscimol{curr_data} = cellfun(@(data,quiesc,fluor_spike) data(quiesc & ~fluor_spike,:,:), ...
-        mua_ctxpred_allcat_exp,quiescent_trials_exp,fluor_spike_trial,'uni',false);
-    
-    fluor_muscimol{curr_data} = cellfun(@(data,quiesc,fluor_spike) data(quiesc & ~fluor_spike,:,:), ...
-        fluor_deconv_exp,quiescent_trials_exp,fluor_spike_trial,'uni',false);
-    
-    fluor_roi_muscimol{curr_data} = cellfun(@(data,quiesc,fluor_spike) data(quiesc & ~fluor_spike,:,:), ...
-        fluor_roi_deconv_exp,quiescent_trials_exp,fluor_spike_trial,'uni',false);
-    
-    fluor_kernelroi_muscimol{curr_data} = cellfun(@(data,quiesc,fluor_spike) data(quiesc & ~fluor_spike,:,:), ...
-        fluor_kernelroi_deconv_exp,quiescent_trials_exp,fluor_spike_trial,'uni',false);
-    
-end
-
-
-%%%%%%%%%%%%% TESTING
-
-figure; hold on;
-
-bar(reshape([nanmean(a(:,:,1),1);nanmean(b(:,:,1),1)],[],1));
-errorbar(reshape([nanmean(a(:,:,1),1);nanmean(b(:,:,1),1)],[],1), ...
-    reshape([AP_sem(a(:,:,1),1);AP_sem(b(:,:,1),1)],[],1),'.k','linewidth',3);
-set(gca,'XTick',1:4,'XTickLabel',{'Str naive','Str trained','Ctx naive','Ctx trained'});
-
-figure; hold on;
-bar(reshape([nanmean(b(:,:,1),1)./nanmean(a(:,:,1),1)],[],1));
-
-
-%%%%%%%%%%%%%%%%%%% CURRENTLY HERE DO THIS BY EXPT
-
-stim_avg_t = [0,0.2];
-stim_avg_t_idx = t >= stim_avg_t(1) & t <= stim_avg_t(2);
-t_smooth_n = sum(t >= stim_avg_t(1) & t <= stim_avg_t(2));
-t_smooth = ones(t_smooth_n,1)./t_smooth_n;
-
-curr_data = 2;
-stim_1_act = cellfun(@(str_act,ctx_act,stim) ...
-    [nanmean(str_act(stim == 1,stim_avg_t_idx,:),2), ...
-    nanmean(ctx_act(stim == 1,stim_avg_t_idx,:),2)], ...
-    vertcat(mua_muscimol{curr_data}), ...
-    vertcat(fluor_kernelroi_muscimol{curr_data}), ...
-    vertcat(stimIDs{curr_data}),'uni',false);
-stim_2_act = cellfun(@(str_act,ctx_act,stim) ...
-    [nanmean(str_act(stim == -1,stim_avg_t_idx,:),2), ...
-    nanmean(ctx_act(stim == -1,stim_avg_t_idx,:),2)], ...
-    vertcat(mua_muscimol{curr_data}), ...
-    vertcat(fluor_kernelroi_muscimol{curr_data}), ...
-    vertcat(stimIDs{curr_data}),'uni',false);
-
-
-
-mua_bins = linspace(-2,2,100);
-fluor_bins = linspace(-0.1,0.1,100);
-
-act_dist_1 = cellfun(@(x) ...
-    histcounts2(x(:,1,1),x(:,2,1),mua_bins,fluor_bins), ...
-    stim_1_act,'uni',false);
-
-act_dist_2 = cellfun(@(x) ...
-    histcounts2(x(:,1,1),x(:,2,1),mua_bins,fluor_bins), ...
-    stim_2_act,'uni',false);
-
-
-
-a = cat(3,act_dist_1{:});
-b = cat(3,act_dist_2{:});
-
-
-
-
-use_bin_centers = conv(use_bins,[0.5,0.5],'valid');
-act_dist_1 = histcounts2(curr_act_pred_avg_cat(timeavg_trial_conditions{1}(:,1)), ...
-    curr_act_avg_cat(timeavg_trial_conditions{1}(:,1)),use_bins,use_bins);
-act_dist_2 = histcounts2(curr_act_pred_avg_cat(timeavg_trial_conditions{1}(:,2)), ...
-    curr_act_avg_cat(timeavg_trial_conditions{1}(:,2)),use_bins,use_bins);
-act_dist_iti = histcounts2( ...
-    conv(reshape(curr_act_pred_allcat(:,t < 0 | t > 1.5,plot_areas),[],1),t_smooth,'same'), ...
-    conv(reshape(curr_act_allcat(:,t < 0 | t > 1.5,plot_areas),[],1),t_smooth,'same'), ...
-    use_bins,use_bins);
-
-subplot(2,2,2); hold on;
-imagesc(use_bin_centers,use_bin_centers,imgaussfilt(act_dist_1',3)-imgaussfilt(act_dist_2',3));
-line(xlim,xlim)
-caxis([-max(abs(caxis)),max(abs(caxis))]);
-colormap(gca,brewermap([],'*RdBu'));
-title('Stim act distr difference');
-
-subplot(2,2,3); hold on;
-imagesc(use_bin_centers,use_bin_centers,act_dist_1');
-line(xlim,xlim)
-caxis([-max(abs(caxis)),max(abs(caxis))]);
-colormap(gca,brewermap([],'*RdBu'));
-title('Contra distribution');
-
-subplot(2,2,4); hold on;
-imagesc(use_bin_centers,use_bin_centers,act_dist_2');
-line(xlim,xlim)
-caxis([-max(abs(caxis)),max(abs(caxis))]);
-colormap(gca,brewermap([],'*RdBu'));
-title('Ipsi distribution');
-
-
-%%%%%%%%%%%%%%%%%%%%%
-
-
-
-
-
-% Plot average fluorescence
-load('C:\Users\Andrew\OneDrive for Business\Documents\CarandiniHarrisLab\analysis\wf_ephys_choiceworld\wf_processing\wf_alignment\U_master.mat');
-
-use_stim = 1;
-
-fluor_premuscimol_mean = ...
-    svdFrameReconstruct(U_master(:,:,1:200), ...
-    permute(nanmean(cell2mat(cellfun(@(x,stim) ...
-    nanmean(x(stim == use_stim,:,:),1),fluor_muscimol{1},stimIDs{1},'uni',false)),1),[3,2,1]));
-fluor_postmuscimol_mean = ...
-    svdFrameReconstruct(U_master(:,:,1:200), ...
-    permute(nanmean(cell2mat(cellfun(@(x,stim) ...
-    nanmean(x(stim == use_stim,:,:),1),fluor_muscimol{2},stimIDs{2},'uni',false)),1),[3,2,1]));
-
-AP_image_scroll([fluor_premuscimol_mean,fluor_postmuscimol_mean]);
-AP_reference_outline('ccf_aligned',[0.5,0.5,0.5],[],[size(U_master,1),size(U_master,2),1,2]);
-caxis([-max(abs(caxis)),max(abs(caxis))]);
-axis image;
-colormap(brewermap([],'*RdBu'));
-
-
-figure;
-t_stim = t >= 0.05 & t <= 0.15;
-
-subplot(1,2,1)
-imagesc(nanmean(fluor_premuscimol_mean(:,:,t_stim),3));
-AP_reference_outline('ccf_aligned',[0.5,0.5,0.5]);
-caxis([-max(abs(caxis)),max(abs(caxis))]);
-c = caxis;
-axis image off;
-colormap(brewermap([],'*RdBu'));
-title('Pre-muscimol');
-
-subplot(1,2,2)
-imagesc(nanmean(fluor_postmuscimol_mean(:,:,t_stim),3));
-AP_reference_outline('ccf_aligned',[0.5,0.5,0.5]);
-caxis([-max(abs(caxis)),max(abs(caxis))]);
-caxis(c);
-axis image off;
-colormap(brewermap([],'*RdBu'));
-title('Post-muscimol');
-
-% Get pre/post stim response
-use_stim = 1;
-
-mua_premuscimol_mean = ...
-    cell2mat(cellfun(@(x,stim) nanmean(x(stim == use_stim,:,:),1),mua_muscimol{1},stimIDs{1},'uni',false));
-mua_postmuscimol_mean = ...
-    cell2mat(cellfun(@(x,stim) nanmean(x(stim == use_stim,:,:),1),mua_muscimol{2},stimIDs{2},'uni',false));
-
-mua_ctxpred_premuscimol_mean = ...
-    cell2mat(cellfun(@(x,stim) nanmean(x(stim == use_stim,:,:),1),mua_ctxpred_muscimol{1},stimIDs{1},'uni',false));
-mua_ctxpred_postmuscimol_mean = ...
-    cell2mat(cellfun(@(x,stim) nanmean(x(stim == use_stim,:,:),1),mua_ctxpred_muscimol{2},stimIDs{2},'uni',false));
-
-fluor_roi_premuscimol_mean = ...
-    cell2mat(cellfun(@(x,stim) nanmean(x(stim == use_stim,:,:),1),fluor_roi_muscimol{1},stimIDs{1},'uni',false));
-fluor_roi_postmuscimol_mean = ...
-    cell2mat(cellfun(@(x,stim) nanmean(x(stim == use_stim,:,:),1),fluor_roi_muscimol{2},stimIDs{2},'uni',false));
-
-fluor_kernelroi_premuscimol_mean = ...
-    cell2mat(cellfun(@(x,stim) nanmean(x(stim == use_stim,:,:),1),fluor_kernelroi_muscimol{1},stimIDs{1},'uni',false));
-fluor_kernelroi_postmuscimol_mean = ...
-    cell2mat(cellfun(@(x,stim) nanmean(x(stim == use_stim,:,:),1),fluor_kernelroi_muscimol{2},stimIDs{2},'uni',false));
-
-% Plot all cortex + striatum responses
-figure;
-p = gobjects(n_depths,2);
-for curr_str = 1:n_depths
-    
-    p(curr_str,1) = subplot(n_depths,2,curr_str*2-1);
-    AP_errorfill(t,nanmean(fluor_kernelroi_premuscimol_mean(:,:,curr_str),1)', ...
-        AP_sem(fluor_kernelroi_premuscimol_mean(:,:,curr_str),1)','k');
-    AP_errorfill(t,nanmean(fluor_kernelroi_postmuscimol_mean(:,:,curr_str),1)', ...
-        AP_sem(fluor_kernelroi_postmuscimol_mean(:,:,curr_str),1),'r');
-    ylabel('Cortex ROI');
-    
-    p(curr_str,2) = subplot(n_depths,2,curr_str*2);
-    AP_errorfill(t,nanmean(mua_premuscimol_mean(:,:,curr_str),1)', ...
-        AP_sem(mua_premuscimol_mean(:,:,curr_str),1)','k');
-    AP_errorfill(t,nanmean(mua_postmuscimol_mean(:,:,curr_str),1)', ...
-        AP_sem(mua_postmuscimol_mean(:,:,curr_str),1)','r');
-    xlabel('Time from stim (s)');
-    ylabel('Spikes (std)');
-    title(['Str ' num2str(curr_str)]);
-       
-end
-linkaxes(p(:,1),'xy');
-linkaxes(p(:,2),'xy');
-
-
-
-
-
-
-
-
 %% Predict striatum from cortex ephys
 % This is garbage and I think explained variance is a garbage measure
 
@@ -1705,6 +1431,263 @@ for curr_depth = 1:n_depths
     ylabel('Weight');
     title(['Str ' num2str(curr_depth)]);
 end
+
+
+
+%% Pre/post learning passive
+warning on
+warning('Copied from muscimol - relabel vars')
+warning('Add 2D distribution plots');
+
+
+data_fns = { ...
+    'trial_activity_AP_choiceWorldStimPassive_naive', ...
+    'trial_activity_AP_choiceWorldStimPassive_trained'};
+
+mua_prepost_norm = cell(2,1);
+fluor_kernelroi_prepost_norm = cell(2,1);
+
+stimIDs = cell(2,1);
+mua_muscimol = cell(2,1);
+mua_ctxpred_muscimol = cell(2,1);
+fluor_muscimol = cell(2,1);
+fluor_roi_muscimol = cell(2,1);
+fluor_kernelroi_muscimol = cell(2,1);
+
+for curr_data = 1:length(data_fns)
+    
+    % Load data
+    data_fn = data_fns{curr_data};
+    AP_load_concat_normalize_ctx_str;
+
+    % Split by experiment
+    trials_recording = cellfun(@(x) size(x,1),vertcat(wheel_all{:}));
+    
+    % Get trials with movement during stim to exclude
+    wheel_thresh = 0.025;
+    quiescent_trials = ~any(abs(wheel_allcat(:,t >= -0.5 & t <= 0.5)) > wheel_thresh,2);
+    quiescent_trials_exp = mat2cell(quiescent_trials,trials_recording,1);
+    
+    % Get stim and activity by experiment
+    trial_stim_allcat_exp = mat2cell(trial_stim_allcat,trials_recording,1);  
+    fluor_deconv_exp = mat2cell(fluor_allcat_deconv,trials_recording,length(t),n_vs);
+    fluor_roi_deconv_exp = mat2cell(fluor_roi_deconv,trials_recording,length(t),numel(wf_roi));
+    fluor_kernelroi_deconv_exp = mat2cell(fluor_kernelroi_deconv,trials_recording,length(t),n_depths);
+    mua_allcat_exp = mat2cell(mua_allcat,trials_recording,length(t),n_depths);
+    mua_ctxpred_allcat_exp = mat2cell(mua_ctxpred_allcat,trials_recording,length(t),n_depths);
+      
+    warning('Pick normalization')    
+%     % (TO RENORMALIZE: MUA = day baseline, fluor = nothing)  
+%     mua_prepost_norm{curr_data} = vertcat(mua_norm{:});
+%     mua_allcat_exp = cellfun(@(act,curr_norm,use_norm) ...
+%         (act.*curr_norm)./use_norm,mua_allcat_exp, ...
+%         vertcat(mua_norm{:}),vertcat(mua_day_baseline{:}),'uni',false);
+%     mua_ctxpred_allcat_exp = cellfun(@(act,curr_norm,use_norm) ...
+%         (act.*curr_norm)./use_norm,mua_ctxpred_allcat_exp, ...
+%         vertcat(mua_norm{:}),vertcat(mua_day_baseline{:}),'uni',false);
+%     
+%     fluor_kernelroi_prepost_norm{curr_data} = fluor_kernelroi_norm;
+%     fluor_kernelroi_deconv_exp = cellfun(@(act,curr_norm) ...
+%         (act.*curr_norm),fluor_kernelroi_deconv_exp, ...
+%         fluor_kernelroi_norm,'uni',false);
+    
+    % Exclude trials with fluorescence spikes
+    % (this is a dirty way to do this but don't have a better alt)
+    fluor_spike_thresh = 100;
+    fluor_spike_trial = cellfun(@(x) any(any(x > fluor_spike_thresh,2),3), ...
+        fluor_kernelroi_deconv_exp,'uni',false);
+    
+    % Grab data
+    stimIDs{curr_data} = cellfun(@(data,quiesc,fluor_spike) data(quiesc & ~fluor_spike,:,:), ...
+        trial_stim_allcat_exp,quiescent_trials_exp,fluor_spike_trial,'uni',false);
+    
+    mua_muscimol{curr_data} = cellfun(@(data,quiesc,fluor_spike) data(quiesc & ~fluor_spike,:,:), ...
+        mua_allcat_exp,quiescent_trials_exp,fluor_spike_trial,'uni',false);
+    
+    mua_ctxpred_muscimol{curr_data} = cellfun(@(data,quiesc,fluor_spike) data(quiesc & ~fluor_spike,:,:), ...
+        mua_ctxpred_allcat_exp,quiescent_trials_exp,fluor_spike_trial,'uni',false);
+    
+    fluor_muscimol{curr_data} = cellfun(@(data,quiesc,fluor_spike) data(quiesc & ~fluor_spike,:,:), ...
+        fluor_deconv_exp,quiescent_trials_exp,fluor_spike_trial,'uni',false);
+    
+    fluor_roi_muscimol{curr_data} = cellfun(@(data,quiesc,fluor_spike) data(quiesc & ~fluor_spike,:,:), ...
+        fluor_roi_deconv_exp,quiescent_trials_exp,fluor_spike_trial,'uni',false);
+    
+    fluor_kernelroi_muscimol{curr_data} = cellfun(@(data,quiesc,fluor_spike) data(quiesc & ~fluor_spike,:,:), ...
+        fluor_kernelroi_deconv_exp,quiescent_trials_exp,fluor_spike_trial,'uni',false);
+    
+end
+
+
+%%%%%%%%%%%%%%%%%%% CURRENTLY HERE DO THIS BY EXPT
+
+% stim_avg_t = [0,0.2];
+% stim_avg_t_idx = t >= stim_avg_t(1) & t <= stim_avg_t(2);
+% t_smooth_n = sum(t >= stim_avg_t(1) & t <= stim_avg_t(2));
+% t_smooth = ones(t_smooth_n,1)./t_smooth_n;
+% 
+% curr_data = 2;
+% stim_1_act = cellfun(@(str_act,ctx_act,stim) ...
+%     [nanmean(str_act(stim == 1,stim_avg_t_idx,:),2), ...
+%     nanmean(ctx_act(stim == 1,stim_avg_t_idx,:),2)], ...
+%     vertcat(mua_muscimol{curr_data}), ...
+%     vertcat(fluor_kernelroi_muscimol{curr_data}), ...
+%     vertcat(stimIDs{curr_data}),'uni',false);
+% stim_2_act = cellfun(@(str_act,ctx_act,stim) ...
+%     [nanmean(str_act(stim == -1,stim_avg_t_idx,:),2), ...
+%     nanmean(ctx_act(stim == -1,stim_avg_t_idx,:),2)], ...
+%     vertcat(mua_muscimol{curr_data}), ...
+%     vertcat(fluor_kernelroi_muscimol{curr_data}), ...
+%     vertcat(stimIDs{curr_data}),'uni',false);
+% 
+% 
+% 
+% mua_bins = linspace(-2,2,100);
+% fluor_bins = linspace(-0.1,0.1,100);
+% 
+% act_dist_1 = cellfun(@(x) ...
+%     histcounts2(x(:,1,1),x(:,2,1),mua_bins,fluor_bins), ...
+%     stim_1_act,'uni',false);
+% 
+% act_dist_2 = cellfun(@(x) ...
+%     histcounts2(x(:,1,1),x(:,2,1),mua_bins,fluor_bins), ...
+%     stim_2_act,'uni',false);
+% 
+% 
+% 
+% a = cat(3,act_dist_1{:});
+% b = cat(3,act_dist_2{:});
+% 
+% 
+% 
+% 
+% use_bin_centers = conv(use_bins,[0.5,0.5],'valid');
+% act_dist_1 = histcounts2(curr_act_pred_avg_cat(timeavg_trial_conditions{1}(:,1)), ...
+%     curr_act_avg_cat(timeavg_trial_conditions{1}(:,1)),use_bins,use_bins);
+% act_dist_2 = histcounts2(curr_act_pred_avg_cat(timeavg_trial_conditions{1}(:,2)), ...
+%     curr_act_avg_cat(timeavg_trial_conditions{1}(:,2)),use_bins,use_bins);
+% act_dist_iti = histcounts2( ...
+%     conv(reshape(curr_act_pred_allcat(:,t < 0 | t > 1.5,plot_areas),[],1),t_smooth,'same'), ...
+%     conv(reshape(curr_act_allcat(:,t < 0 | t > 1.5,plot_areas),[],1),t_smooth,'same'), ...
+%     use_bins,use_bins);
+% 
+% subplot(2,2,2); hold on;
+% imagesc(use_bin_centers,use_bin_centers,imgaussfilt(act_dist_1',3)-imgaussfilt(act_dist_2',3));
+% line(xlim,xlim)
+% caxis([-max(abs(caxis)),max(abs(caxis))]);
+% colormap(gca,brewermap([],'*RdBu'));
+% title('Stim act distr difference');
+% 
+% subplot(2,2,3); hold on;
+% imagesc(use_bin_centers,use_bin_centers,act_dist_1');
+% line(xlim,xlim)
+% caxis([-max(abs(caxis)),max(abs(caxis))]);
+% colormap(gca,brewermap([],'*RdBu'));
+% title('Contra distribution');
+% 
+% subplot(2,2,4); hold on;
+% imagesc(use_bin_centers,use_bin_centers,act_dist_2');
+% line(xlim,xlim)
+% caxis([-max(abs(caxis)),max(abs(caxis))]);
+% colormap(gca,brewermap([],'*RdBu'));
+% title('Ipsi distribution');
+
+
+%%%%%%%%%%%%%%%%%%%%%
+
+
+
+
+
+% Plot average fluorescence
+load('C:\Users\Andrew\OneDrive for Business\Documents\CarandiniHarrisLab\analysis\wf_ephys_choiceworld\wf_processing\wf_alignment\U_master.mat');
+
+use_stim = 1;
+
+fluor_premuscimol_mean = ...
+    svdFrameReconstruct(U_master(:,:,1:200), ...
+    permute(nanmean(cell2mat(cellfun(@(x,stim) ...
+    nanmean(x(stim == use_stim,:,:),1),fluor_muscimol{1},stimIDs{1},'uni',false)),1),[3,2,1]));
+fluor_postmuscimol_mean = ...
+    svdFrameReconstruct(U_master(:,:,1:200), ...
+    permute(nanmean(cell2mat(cellfun(@(x,stim) ...
+    nanmean(x(stim == use_stim,:,:),1),fluor_muscimol{2},stimIDs{2},'uni',false)),1),[3,2,1]));
+
+AP_image_scroll([fluor_premuscimol_mean,fluor_postmuscimol_mean]);
+AP_reference_outline('ccf_aligned',[0.5,0.5,0.5],[],[size(U_master,1),size(U_master,2),1,2]);
+caxis([-max(abs(caxis)),max(abs(caxis))]);
+axis image;
+colormap(brewermap([],'*RdBu'));
+
+
+figure;
+t_stim = t >= 0.05 & t <= 0.15;
+
+subplot(1,2,1)
+imagesc(nanmean(fluor_premuscimol_mean(:,:,t_stim),3));
+AP_reference_outline('ccf_aligned',[0.5,0.5,0.5]);
+caxis([-max(abs(caxis)),max(abs(caxis))]);
+c = caxis;
+axis image off;
+colormap(brewermap([],'*RdBu'));
+title('Pre-muscimol');
+
+subplot(1,2,2)
+imagesc(nanmean(fluor_postmuscimol_mean(:,:,t_stim),3));
+AP_reference_outline('ccf_aligned',[0.5,0.5,0.5]);
+caxis([-max(abs(caxis)),max(abs(caxis))]);
+caxis(c);
+axis image off;
+colormap(brewermap([],'*RdBu'));
+title('Post-muscimol');
+
+% Get pre/post stim response
+use_stim = 1;
+
+mua_premuscimol_mean = ...
+    cell2mat(cellfun(@(x,stim) nanmean(x(stim == use_stim,:,:),1),mua_muscimol{1},stimIDs{1},'uni',false));
+mua_postmuscimol_mean = ...
+    cell2mat(cellfun(@(x,stim) nanmean(x(stim == use_stim,:,:),1),mua_muscimol{2},stimIDs{2},'uni',false));
+
+mua_ctxpred_premuscimol_mean = ...
+    cell2mat(cellfun(@(x,stim) nanmean(x(stim == use_stim,:,:),1),mua_ctxpred_muscimol{1},stimIDs{1},'uni',false));
+mua_ctxpred_postmuscimol_mean = ...
+    cell2mat(cellfun(@(x,stim) nanmean(x(stim == use_stim,:,:),1),mua_ctxpred_muscimol{2},stimIDs{2},'uni',false));
+
+fluor_roi_premuscimol_mean = ...
+    cell2mat(cellfun(@(x,stim) nanmean(x(stim == use_stim,:,:),1),fluor_roi_muscimol{1},stimIDs{1},'uni',false));
+fluor_roi_postmuscimol_mean = ...
+    cell2mat(cellfun(@(x,stim) nanmean(x(stim == use_stim,:,:),1),fluor_roi_muscimol{2},stimIDs{2},'uni',false));
+
+fluor_kernelroi_premuscimol_mean = ...
+    cell2mat(cellfun(@(x,stim) nanmean(x(stim == use_stim,:,:),1),fluor_kernelroi_muscimol{1},stimIDs{1},'uni',false));
+fluor_kernelroi_postmuscimol_mean = ...
+    cell2mat(cellfun(@(x,stim) nanmean(x(stim == use_stim,:,:),1),fluor_kernelroi_muscimol{2},stimIDs{2},'uni',false));
+
+% Plot all cortex + striatum responses
+figure;
+p = gobjects(n_depths,2);
+for curr_str = 1:n_depths
+    
+    p(curr_str,1) = subplot(n_depths,2,curr_str*2-1);
+    AP_errorfill(t,nanmean(fluor_kernelroi_premuscimol_mean(:,:,curr_str),1)', ...
+        AP_sem(fluor_kernelroi_premuscimol_mean(:,:,curr_str),1)','k');
+    AP_errorfill(t,nanmean(fluor_kernelroi_postmuscimol_mean(:,:,curr_str),1)', ...
+        AP_sem(fluor_kernelroi_postmuscimol_mean(:,:,curr_str),1),'r');
+    ylabel('Cortex ROI');
+    
+    p(curr_str,2) = subplot(n_depths,2,curr_str*2);
+    AP_errorfill(t,nanmean(mua_premuscimol_mean(:,:,curr_str),1)', ...
+        AP_sem(mua_premuscimol_mean(:,:,curr_str),1)','k');
+    AP_errorfill(t,nanmean(mua_postmuscimol_mean(:,:,curr_str),1)', ...
+        AP_sem(mua_postmuscimol_mean(:,:,curr_str),1)','r');
+    xlabel('Time from stim (s)');
+    ylabel('Spikes (std)');
+    title(['Str ' num2str(curr_str)]);
+       
+end
+linkaxes(p(:,1),'xy');
+linkaxes(p(:,2),'xy');
 
 
 
