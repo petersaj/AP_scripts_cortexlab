@@ -913,9 +913,11 @@ for protocol = protocols
         caxis([-max(abs(caxis)),max(abs(caxis))]);       
     end
     
-    % Plot center-of-mass color at select time points
-    k_px_norm = k_px./max(reshape(k_px,[],1,size(k_px,3),size(k_px,4)),[],1);    
-    k_px_com = sum(k_px_norm.*permute(1:n_aligned_depths,[1,3,4,2]),4)./sum(k_px_norm,4);
+    % Plot center-of-mass color at select time points 
+    
+    k_px_positive = k_px;
+    k_px_positive(k_px_positive < 0) = 0;
+    k_px_com = sum(k_px_positive.*permute(1:n_aligned_depths,[1,3,4,2]),4)./sum(k_px_positive,4);
     k_px_com_colored = nan(size(k_px_com,1),size(k_px_com,2),3,size(k_px_com,3));
     
     use_colormap = min(jet(255)-0.2,1);
@@ -925,19 +927,18 @@ for protocol = protocols
             [1,n_aligned_depths])*size(use_colormap,1)),use_colormap);
     end
     
-    plot_t = [-0.05:0.025:0.05];
     k_px_com_colored_t = ...
         permute(reshape(interp1(t,permute(reshape(k_px_com_colored,[],3,length(t)), ...
         [3,1,2]),plot_t),length(plot_t),size(k_px_com_colored,1), ...
         size(k_px_com_colored,2),3),[2,3,4,1]);
     
-    k_px_max = squeeze(max(k_px_norm,[],4));
+    k_px_max = squeeze(max(k_px,[],4));
     k_px_max_t = ...
         permute(reshape(interp1(t,reshape(k_px_max,[],length(t))', ...
         plot_t),length(plot_t),size(k_px_max,1), ...
         size(k_px_max,2)),[2,3,1]);
     
-    weight_max = 1;
+    weight_max = 0.0015;
     figure('Name',protocol);
     for t_idx = 1:length(plot_t)
         subplot(1,length(plot_t),t_idx);
