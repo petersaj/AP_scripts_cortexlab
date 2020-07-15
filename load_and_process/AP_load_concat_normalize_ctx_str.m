@@ -20,6 +20,8 @@ if ischar(data_fn)
 elseif iscell(data_fn)
     % Multiple datasets to merge (this is really dirty)
     
+    preload_vars = who;
+    
     % (load in split)
     clear trial_data_all_split
     for curr_load_data = 1:length(data_fn)
@@ -86,7 +88,7 @@ elseif iscell(data_fn)
     end
     
     % clear temp variables
-    clearvars -except data_fn trial_data_all
+    clearvars('-except',preload_vars{:},'data_fn','trial_data_all')
     
 else
     error('Unrecognized data_fn type')
