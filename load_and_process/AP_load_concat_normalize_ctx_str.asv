@@ -16,10 +16,8 @@ if ischar(data_fn)
     % Single dataset
     disp(['Loading ' data_fn '...']);
     load([trial_data_path filesep data_fn]);
-    
 elseif iscell(data_fn)
-    % Multiple datasets to merge (this is really dirty)
-    
+    % Multiple datasets to merge
     % (load in split)
     clear trial_data_all_split
     for curr_data = 1:length(data_fn)
@@ -27,42 +25,21 @@ elseif iscell(data_fn)
         temp_data = load([trial_data_path filesep data_fn{curr_data}],'trial_data_all');
         trial_data_all_split(curr_data) = temp_data.trial_data_all;
     end
-    
-    % (concatenate each field)
+    % (concatenate each field - dirty)
+    trial_data_all = struct;
     split_fieldnames = fieldnames(trial_data_all_split);
     trial_data_all_split_cell = cellfun(@(x) reshape(x,[],1), ...
         permute(struct2cell(trial_data_all_split),[1,3,2]),'uni',false);
     trial_data_all = cell2struct( ...
         arrayfun(@(x) cat(1,trial_data_all_split_cell{x,:}), ...
         [1:length(split_fieldnames)]','uni',false),split_fieldnames);
-    
     % (make exception for t: unique, not concatenated)
-    if ~all(all(vertcat(trial_data_all_split(:).t) == trial_data_all_split(1).t,1),2)
-        error('Mismatching t across multiple datasets')
-    end
-    trial_data_all.t = vertcat(trial_data_all_split(1).t);  
+    unique(vertcat(trial_data_all_split(:).t)
     
-    % (if mixing protocols: ensure stimIDs convered into contrast*side)
-    for curr_animal = 1:length(trial_data_all.trial_info_all)
-        for curr_day = 1:length(trial_data_all.trial_info_all{curr_animal})
+    for curr_field = 1:length(split_fieldnames)
+        trial_data_all.(split_fieldnames(curr_field)) = ...
             
-            curr_stim = trial_data_all.trial_info_all{curr_animal}{curr_day}.stimulus;
-            if length(unique(curr_stim)) == 3 && all(unique(curr_stim) == [1;2;3])
-                % Stim [1,2,3] are coded stim IDs
-                curr_stim_recode = curr_stim;
-                % For both mpep and signals, ID is 1 = left, 2 = center, 3 = right
-                curr_stim_recode(curr_stim == 1) = -1;
-                curr_stim_recode(curr_stim == 2) = 0;
-                curr_stim_recode(curr_stim == 3) = 1;
-                
-                trial_data_all.trial_info_all{curr_animal}{curr_day}.stimulus = ...
-                    curr_stim_recode;
-            end
-            
-        end
     end
-    
-    
 else
     error('Unrecognized data_fn type')
 end
@@ -173,9 +150,8 @@ if task_dataset
    
 elseif isfield(trial_info_allcat,'stimulus')  
     
-    if length(unique(trial_info_allcat.stimulus)) == 3 && ...
-            all(unique(trial_info_allcat.stimulus) == [1;2;3])
-        % Stim [1,2,3] are coded stim IDs
+    if length(unique(trial_info_allcat.stimulus)) == 3
+        % Use stim IDs
         trial_stim_allcat = trial_info_allcat.stimulus;
         % For both mpep and signals, ID is 1 = left, 2 = center, 3 = right
         trial_stim_allcat(trial_stim_allcat == 1) = -1;

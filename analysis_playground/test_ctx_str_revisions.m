@@ -14,7 +14,7 @@
 % data_fn = 'trial_activity_AP_choiceWorldStimPassive_naive_3depth_muafilt';
 
 % data_fn = 'trial_activity_AP_lcrGratingPassive_ctxstrephys_str';
-data_fn = 'trial_activity_AP_lcrGratingPassive_ctxstrephys_ctx';
+% data_fn = 'trial_activity_AP_lcrGratingPassive_ctxstrephys_ctx';
 
 % data_fn = 'trial_activity_AP_lcrGratingPassive_pre_muscimol';
 
@@ -900,7 +900,7 @@ end
 % (load in a dataset first)
 
 % Choose depths to run
-plot_depth = 1:n_aligned_depths;
+plot_depth = 1:n_depths;
 
 % Regress kernel ROI activity to striatum domain activity (per recording)
 regression_params.use_svs = 1:100;
