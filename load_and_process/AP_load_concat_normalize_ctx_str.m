@@ -22,9 +22,9 @@ elseif iscell(data_fn)
     
     % (load in split)
     clear trial_data_all_split
-    for curr_data = 1:length(data_fn)
-        disp(['Loading ' data_fn{curr_data} '...']);
-        temp_data{curr_data} = load([trial_data_path filesep data_fn{curr_data}],'trial_data_all');
+    for curr_load_data = 1:length(data_fn)
+        disp(['Loading ' data_fn{curr_load_data} '...']);
+        temp_data{curr_load_data} = load([trial_data_path filesep data_fn{curr_load_data}],'trial_data_all');
 %         trial_data_all_split(curr_data) = temp_data.trial_data_all;
     end
     
@@ -50,22 +50,21 @@ elseif iscell(data_fn)
         any(cellfun(@(x) iscell(x),temp_data{1}.trial_data_all.(curr_field))),intersect_fieldnames);
 
     for curr_field = intersect_fieldnames(experiment_fields)'
-       for curr_data = 1:length(data_fn)
+       for curr_load_data = 1:length(data_fn)
           trial_data_all.(curr_field{:}) = ...
               cat(1,trial_data_all.(curr_field{:}), ...
-              reshape(temp_data{curr_data}.trial_data_all.(curr_field{:}),[],1));
+              reshape(temp_data{curr_load_data}.trial_data_all.(curr_field{:}),[],1));
        end
     end    
     
     % (grab non-experiment fields from the first dataset)
     % (NOTE: this assumes they're the same)
-    for curr_field = intersect_fieldnames(~experiment_fields)'
+    for curr_field = intersect_fieldnames(~experiment_fields & ...
+            ~strcmp(intersect_fieldnames,'animals'))'
         trial_data_all.(curr_field{:}) = ...
             temp_data{1}.trial_data_all.(curr_field{:});
     end
-    
-    clear temp_data
-    
+        
     % (if mixing protocols: ensure stimIDs convered into contrast*side)
     for curr_animal = 1:length(trial_data_all.trial_info_all)
         for curr_day = 1:length(trial_data_all.trial_info_all{curr_animal})
@@ -86,6 +85,8 @@ elseif iscell(data_fn)
         end
     end
     
+    % clear temp variables
+    clearvars -except data_fn trial_data_all
     
 else
     error('Unrecognized data_fn type')
