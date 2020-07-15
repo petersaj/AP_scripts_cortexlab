@@ -28,8 +28,7 @@ elseif iscell(data_fn)
 %         trial_data_all_split(curr_data) = temp_data.trial_data_all;
     end
     
-    % (concatenate shared fields - matlab makes this really hard)
-    % (need to iterate intersect if > 2 datasets)
+    % (find shared fields - need to iterate intersect if > 2 datasets)
     split_fieldnames = cellfun(@(x) fieldnames(x.trial_data_all),temp_data,'uni',false);
     intersect_fieldnames = intersect(split_fieldnames{1},split_fieldnames{2});
     if length(data_fn) > 2
@@ -38,22 +37,32 @@ elseif iscell(data_fn)
         end
     end
     
+    % (initialize combined structure)
     trial_data_all = cell2struct(cell(size(intersect_fieldnames)),intersect_fieldnames);
-    for curr_field = 1:length(intersect_fieldnames)
+    
+    % (concatenate experiment fields)
+    experiment_fields = cellfun(@(curr_field) ...
+        length(temp_data{1}.trial_data_all.(curr_field)) == ...
+        length(temp_data{1}.trial_data_all.animals) && ...
+        iscell(temp_data{1}.trial_data_all.(curr_field)) && ...
+        any(cellfun(@(x) iscell(x),temp_data{1}.trial_data_all.(curr_field))),intersect_fieldnames);
+
+    for curr_field = intersect_fieldnames(experiment_fields)'
        for curr_data = 1:length(data_fn)
-          trial_data_all.(intersect_fieldnames{curr_field}) = ...
-              cat(1,trial_data_all.(intersect_fieldnames{curr_field}), ...
-              reshape(temp_data{curr_data}.trial_data_all.(intersect_fieldnames{curr_field}),[],1));
+          trial_data_all.(curr_field{:}) = ...
+              cat(1,trial_data_all.(curr_field{:}), ...
+              reshape(temp_data{curr_data}.trial_data_all.(curr_field{:}),[],1));
        end
     end    
     
-    % (make exception for t: unique, not concatenated)
-    if ~all(all(...
-            cell2mat(arrayfun(@(x) temp_data{x}.trial_data_all.t, ...
-            1:length(data_fn),'uni',false)') == temp_data{1}.trial_data_all.t,1),2)
-        error('Mismatching t across multiple datasets')
+    % (grab non-experiment fields from the first dataset)
+    % (NOTE: this assumes they're the same)
+    for curr_field = intersect_fieldnames(~experiment_fields)'
+        trial_data_all.(curr_field{:}) = ...
+            temp_data{1}.trial_data_all.(curr_field{:});
     end
-    trial_data_all.t = temp_data{1}.trial_data_all.t;
+    
+    clear temp_data
     
     % (if mixing protocols: ensure stimIDs convered into contrast*side)
     for curr_animal = 1:length(trial_data_all.trial_info_all)
