@@ -24,23 +24,36 @@ elseif iscell(data_fn)
     clear trial_data_all_split
     for curr_data = 1:length(data_fn)
         disp(['Loading ' data_fn{curr_data} '...']);
-        temp_data = load([trial_data_path filesep data_fn{curr_data}],'trial_data_all');
-        trial_data_all_split(curr_data) = temp_data.trial_data_all;
+        temp_data{curr_data} = load([trial_data_path filesep data_fn{curr_data}],'trial_data_all');
+%         trial_data_all_split(curr_data) = temp_data.trial_data_all;
     end
     
-    % (concatenate each field)
-    split_fieldnames = fieldnames(trial_data_all_split);
-    trial_data_all_split_cell = cellfun(@(x) reshape(x,[],1), ...
-        permute(struct2cell(trial_data_all_split),[1,3,2]),'uni',false);
-    trial_data_all = cell2struct( ...
-        arrayfun(@(x) cat(1,trial_data_all_split_cell{x,:}), ...
-        [1:length(split_fieldnames)]','uni',false),split_fieldnames);
+    % (concatenate shared fields - matlab makes this really hard)
+    % (need to iterate intersect if > 2 datasets)
+    split_fieldnames = cellfun(@(x) fieldnames(x.trial_data_all),temp_data,'uni',false);
+    intersect_fieldnames = intersect(split_fieldnames{1},split_fieldnames{2});
+    if length(data_fn) > 2
+        for curr_intersect = 3:length(data_fn)
+            intersect_fieldnames = intersect(intersect_fieldnames,split_fieldnames{curr_intersect});
+        end
+    end
+    
+    trial_data_all = cell2struct(cell(size(intersect_fieldnames)),intersect_fieldnames);
+    for curr_field = 1:length(intersect_fieldnames)
+       for curr_data = 1:length(data_fn)
+          trial_data_all.(intersect_fieldnames{curr_field}) = ...
+              cat(1,trial_data_all.(intersect_fieldnames{curr_field}), ...
+              reshape(temp_data{curr_data}.trial_data_all.(intersect_fieldnames{curr_field}),[],1));
+       end
+    end    
     
     % (make exception for t: unique, not concatenated)
-    if ~all(all(vertcat(trial_data_all_split(:).t) == trial_data_all_split(1).t,1),2)
+    if ~all(all(...
+            cell2mat(arrayfun(@(x) temp_data{x}.trial_data_all.t, ...
+            1:length(data_fn),'uni',false)') == temp_data{1}.trial_data_all.t,1),2)
         error('Mismatching t across multiple datasets')
     end
-    trial_data_all.t = vertcat(trial_data_all_split(1).t);  
+    trial_data_all.t = temp_data{1}.trial_data_all.t;
     
     % (if mixing protocols: ensure stimIDs convered into contrast*side)
     for curr_animal = 1:length(trial_data_all.trial_info_all)
