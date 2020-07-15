@@ -39,6 +39,8 @@ elseif iscell(data_fn)
     
     % (initialize combined structure)
     trial_data_all = cell2struct(cell(size(intersect_fieldnames)),intersect_fieldnames);
+    data_animals = arrayfun(@(x) temp_data{x}.trial_data_all.animals,1:length(data_fn),'uni',false);
+    trial_data_all.animals = horzcat(data_animals{:});
     
     % (concatenate experiment fields)
     experiment_fields = cellfun(@(curr_field) ...

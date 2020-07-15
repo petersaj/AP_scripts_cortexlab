@@ -1438,7 +1438,8 @@ end
 
 data_fns = { ...
     'trial_activity_AP_choiceWorldStimPassive_naive', ...
-    'trial_activity_AP_choiceWorldStimPassive_trained'};
+    {'trial_activity_AP_choiceWorldStimPassive_trained', ...
+    'trial_activity_AP_lcrGratingPassive_ctxstrephys_str'}};
 
 mua_prepost_norm = cell(2,1);
 fluor_kernelroi_prepost_norm = cell(2,1);
