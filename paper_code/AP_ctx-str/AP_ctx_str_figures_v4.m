@@ -8,15 +8,15 @@
 % Load data
 
 % (task)
-data_fn = 'trial_activity_choiceworld'; % Primary dataset
+% data_fn = 'trial_activity_choiceworld'; % Primary dataset
 % data_fn = 'trial_activity_choiceworld_15strdepth'; % Depth-aligned striatum
-exclude_data = false;
+% exclude_data = false;
 
 % (combined, non-excluded task)
-% data_fn = { ...
-%     'trial_activity_choiceworld'... 
-%     'trial_activity_vanillaChoiceworld_ctxstrephys_str'...
-%     'trial_activity_vanillaChoiceworldNoRepeats_pre_muscimol'};
+data_fn = { ...
+    'trial_activity_choiceworld'... 
+    'trial_activity_vanillaChoiceworld_ctxstrephys_str'...
+    'trial_activity_vanillaChoiceworldNoRepeats_pre_muscimol'};
 
 % (passive)
 % data_fn = 'trial_activity_AP_choiceWorldStimPassive_trained';
@@ -1021,7 +1021,7 @@ for curr_trial_set = 1:2
         
         % Smooth and plot with stim/move/reward times
         % (as conv(nans-zeroed)./conv(non-nan) to ignore in nans in conv)
-        smooth_filt = [50,1]; % (trials x frames)
+        smooth_filt = [100,1]; % (trials x frames)
         
         curr_plot_smooth = conv2(curr_plot,ones(smooth_filt),'same')./ ...
             conv2(~isnan(curr_plot),ones(smooth_filt),'same');
@@ -1120,7 +1120,7 @@ for curr_trial_set = 1:2
                 nanmean(curr_mua_ctxpred_exp_mean(:,plot_t),1)', ...
                 AP_sem(curr_mua_ctxpred_exp_mean(:,plot_t),1)',[0,0.7,0]);
             
-            line(repmat(curr_t_offset,2,1),[0.5,sum(use_depths)+0.5],'color',align_col(curr_align,:));
+            line(repmat(curr_t_offset,2,1),ylim,'color',align_col(curr_align,:));
         end
         xlabel('~Time from stim');
         ylabel('Striatum depth');
