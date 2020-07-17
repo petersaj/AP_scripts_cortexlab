@@ -505,9 +505,8 @@ end
 align_col = [1,0,0;0.8,0,0.8;0,0,0.8];
 % (split the alignment halfway between median alignment points)
 align_median = cellfun(@(x) -nanmedian(x(plot_trials))/sample_rate,use_align);
-align_t = {[-0.05,diff(align_median(1:2))/2], ...
-    [diff(align_median(1:2))/2,diff(align_median(2:3))/2], ...
-    [diff(align_median(2:3))/2,1]};
+align_break = align_median(1:end-1) + diff(align_median*0.8);
+align_t = {[-0.05,align_break(1)],[align_break(1:2)],[align_break(2),1]};
 
 figure; hold on; set(gca,'YDir','reverse');
 
@@ -1103,9 +1102,8 @@ for curr_trial_set = 1:2
         align_col = [1,0,0;0.8,0,0.8;0,0,0.8];
         % (split the alignment halfway between median alignment points)
         align_median = cellfun(@(x) -nanmedian(x(plot_trials))/sample_rate,use_align);
-        align_t = {[-0.05,diff(align_median(1:2))/2], ...
-            [diff(align_median(1:2))/2,diff(align_median(2:3))/2], ...
-            [diff(align_median(2:3))/2,1]};
+        align_break = align_median(1:end-1) + diff(align_median*0.8);
+        align_t = {[-0.05,align_break(1)],[align_break(1:2)],[align_break(2),1]};
         
         p(curr_depth,4) = subplot(n_depths,4,4+(curr_depth-1)*4); hold on
         for curr_align = 1:length(use_align)

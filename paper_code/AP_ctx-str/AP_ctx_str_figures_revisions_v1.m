@@ -1508,8 +1508,6 @@ xlabel('Reaction time');
 ylabel('\DeltaFraction');
 
 
-
-
 %% ^^^ Striatal task trial activity pre/post muscimol
 
 data_fns = { ...
@@ -1536,18 +1534,18 @@ for curr_data = 1:length(data_fns)
     mua_allcat = cell2mat(cellfun(@(act,curr_norm,use_norm) ...
         (act.*curr_norm)./use_norm, ...
         mat2cell(mua_allcat,trials_recording,length(t),n_depths), ...
-        vertcat(mua_norm{:}),mua_prepost_norm{1},'uni',false));   
+        vertcat(mua_norm{:}),mua_prepost_norm{1},'uni',false));
     mua_ctxpred_allcat = cell2mat(cellfun(@(act,curr_norm,use_norm) ...
         (act.*curr_norm)./use_norm, ...
         mat2cell(mua_ctxpred_allcat,trials_recording,length(t),n_depths), ...
-        vertcat(mua_norm{:}),mua_prepost_norm{1},'uni',false));    
+        vertcat(mua_norm{:}),mua_prepost_norm{1},'uni',false));
     mua_taskpred_allcat = cell2mat(cellfun(@(act,curr_norm,use_norm) ...
         (act.*curr_norm)./use_norm, ...
         mat2cell(mua_taskpred_allcat,trials_recording,length(t),n_depths), ...
         vertcat(mua_norm{:}),mua_prepost_norm{1},'uni',false));
-        
+    
     % Plot stim-aligned/sorted measured and predicted striatum activity
-    % (correct contra trials)      
+    % (correct contra trials)
     switch curr_data
         case 1
             cond_name = 'Pre-muscimol';
@@ -1571,6 +1569,7 @@ for curr_data = 1:length(data_fns)
             
             % Get trials to plot, sort by reaction time
             curr_trials = plot_trials & ~all(isnan(mua_allcat(:,:,curr_depth)),2);
+            curr_trials_exp = mat2cell(curr_trials,use_split,1);
             curr_trials_idx = find(curr_trials);
             [~,rxn_sort_idx] = sort(move_t(curr_trials_idx));
             
@@ -1630,36 +1629,64 @@ for curr_data = 1:length(data_fns)
             ylabel('Trials (rxn sorted)');
             title('Cortex-predicted');
             
-            % Split and average trials by animal
-            curr_trials_exp = mat2cell(curr_trials,use_split,1);
+            % Plot average aligned activity
+            % (set alignment shifts)
+            t_leeway = -t(1);
+            leeway_samples = round(t_leeway*(sample_rate));
+            stim_align = zeros(size(trial_stim_allcat));
+            move_align = -move_idx + leeway_samples;
+            outcome_align = -outcome_idx + leeway_samples;
+            use_align = {stim_align,move_align,outcome_align};
             
-            curr_mua_exp = mat2cell(mua_allcat(:,:,curr_depth),use_split,length(t));
-            curr_mua_exp_mean = cell2mat(cellfun(@(data,trials) nanmean(data(trials,:),1), ...
-                curr_mua_exp,curr_trials_exp,'uni',false));
+            align_col = [1,0,0;0.8,0,0.8;0,0,0.8];
+            % (split the alignment halfway between median alignment points)
+            align_median = cellfun(@(x) -nanmedian(x(plot_trials))/sample_rate,use_align);
+            align_break = align_median(1:end-1) + diff(align_median*0.8);
+            align_t = {[-0.05,align_break(1)],[align_break(1:2)],[align_break(2),1]};
             
-            curr_taskpred_mua_exp = mat2cell(mua_taskpred_allcat(:,:,curr_depth),use_split,length(t));
-            curr_taskpred_mua_exp_mean = cell2mat(cellfun(@(data,trials) nanmean(data(trials,:),1), ...
-                curr_taskpred_mua_exp,curr_trials_exp,'uni',false));
-            
-            curr_ctxpred_mua_exp = mat2cell(mua_ctxpred_allcat(:,:,curr_depth),use_split,length(t));
-            curr_ctxpred_mua_exp_mean = cell2mat(cellfun(@(data,trials) nanmean(data(trials,:),1), ...
-                curr_ctxpred_mua_exp,curr_trials_exp,'uni',false));
-            
-            % Plot PSTH (measured, task-predicted, cortex-predicted);
             p(curr_depth,4) = subplot(n_depths,4,4+(curr_depth-1)*4); hold on
-            p1 = AP_errorfill(t,nanmean(curr_mua_exp_mean,1)', ...
-                AP_sem(curr_mua_exp_mean,1)','k',0.5);
-            p2 = AP_errorfill(t,nanmean(curr_taskpred_mua_exp_mean,1)', ...
-                AP_sem(curr_taskpred_mua_exp_mean,1)',[0,0,0.7],0.5);
-            p3 = AP_errorfill(t,nanmean(curr_ctxpred_mua_exp_mean,1)', ...
-                AP_sem(curr_ctxpred_mua_exp_mean,1)',[0,0.7,0],0.5);
-            xlim([-0.2,1])
-            line([0,0],ylim,'color','r');
-            line(repmat(median(move_t(sorted_plot_trials)),1,2),ylim,'color',[0.8,0,0.8],'linestyle','--');
-            line(repmat(median(outcome_t(sorted_plot_trials)),1,2),ylim,'color','b','linestyle','--');
-            xlabel('Time from stim');
-            ylabel('Spikes (std)');
-            legend([p1,p2,p3],{'Measured','Task-predicted','Cortex-predicted'});
+            for curr_align = 1:length(use_align)
+                curr_mua_align = cell2mat(arrayfun(@(trial) circshift(mua_allcat(trial,:,:), ...
+                    use_align{curr_align}(trial),2),transpose(1:size(mua_allcat,1)),'uni',false));
+                curr_mua_exp = mat2cell(curr_mua_align(:,:,curr_depth),use_split,length(t));
+                curr_mua_exp_mean = cell2mat(cellfun(@(data,trials) nanmean(data(trials,:),1), ...
+                    curr_mua_exp,curr_trials_exp,'uni',false));
+                
+                curr_mua_taskpred_align = cell2mat(arrayfun(@(trial) circshift(mua_taskpred_allcat(trial,:,:), ...
+                    use_align{curr_align}(trial),2),transpose(1:size(mua_taskpred_allcat,1)),'uni',false));
+                curr_mua_taskpred_exp = mat2cell(curr_mua_taskpred_align(:,:,curr_depth),use_split,length(t));
+                curr_mua_taskpred_exp_mean = cell2mat(cellfun(@(data,trials) nanmean(data(trials,:),1), ...
+                    curr_mua_taskpred_exp,curr_trials_exp,'uni',false));
+                
+                curr_mua_ctxpred_align = cell2mat(arrayfun(@(trial) circshift(mua_ctxpred_allcat(trial,:,:), ...
+                    use_align{curr_align}(trial),2),transpose(1:size(mua_ctxpred_allcat,1)),'uni',false));
+                curr_mua_ctxpred_exp = mat2cell(curr_mua_ctxpred_align(:,:,curr_depth),use_split,length(t));
+                curr_mua_ctxpred_exp_mean = cell2mat(cellfun(@(data,trials) nanmean(data(trials,:),1), ...
+                    curr_mua_ctxpred_exp,curr_trials_exp,'uni',false));
+                
+                curr_t_offset = -nanmedian(use_align{curr_align}(plot_trials))/sample_rate;
+                curr_t = t + curr_t_offset;
+                curr_t_plot = curr_t >= align_t{curr_align}(1) & ...
+                    curr_t <= align_t{curr_align}(2);
+                
+                plot_t = curr_t > align_t{curr_align}(1) & curr_t <= align_t{curr_align}(2);
+                
+                AP_errorfill(curr_t(plot_t'), ...
+                    nanmean(curr_mua_exp_mean(:,plot_t),1)', ...
+                    AP_sem(curr_mua_exp_mean(:,plot_t),1)','k');
+                
+                AP_errorfill(curr_t(plot_t'), ...
+                    nanmean(curr_mua_taskpred_exp_mean(:,plot_t),1)', ...
+                    AP_sem(curr_mua_taskpred_exp_mean(:,plot_t),1)','b');
+                
+                AP_errorfill(curr_t(plot_t'), ...
+                    nanmean(curr_mua_ctxpred_exp_mean(:,plot_t),1)', ...
+                    AP_sem(curr_mua_ctxpred_exp_mean(:,plot_t),1)',[0,0.7,0]);
+                
+                line(repmat(curr_t_offset,2,1),ylim,'color',align_col(curr_align,:));
+            end
+            xlabel('~Time from stim');
+            ylabel('Striatum depth');
             
         end
         % Link the x-axes, set the c/y-axes same within a row
