@@ -2214,11 +2214,11 @@ regression_params.use_constant = true;
 load('C:\Users\Andrew\OneDrive for Business\Documents\CarandiniHarrisLab\analysis\wf_ephys_choiceworld\wf_processing\wf_alignment\U_master.mat');
 
 n_cohorts = 3;
-ctx_str = struct('task',cell(n_cohorts,1),'notask',cell(n_cohorts,1));
+str_ctxpred = struct;
 
 for curr_cohort = 1:n_cohorts
     
-    switch cohort
+    switch curr_cohort
         case 1
             animals = {'AP024','AP025','AP026','AP027','AP028','AP029'};
             task_protocol = 'vanillaChoiceworld';
@@ -2235,49 +2235,39 @@ for curr_cohort = 1:n_cohorts
             retinotopy_protocol = 'AP_sparseNoise';
             site = 1;
     end
-    
-    prococols = {task_protocol,retinotopy_protocol};
-    
-    for protocol_idx = 1:length(protocols)
         
-        protocol = prococols{protocol_idx};
+    for curr_animal = 1:length(animals)
         
-        for curr_animal = 1:length(animals)
-            
-            animal = animals{curr_animal};
-            
-            % Only use days with task and no task
-            % (sometimes recorded in cortex, no bhv)
-            behavior_protocol = 'vanillaChoiceworld';
-            flexible_name = true;
-            behavior_experiments = AP_find_experiments(animal,behavior_protocol,flexible_name);
-            
-            curr_experiments = AP_find_experiments(animal,protocol);
-            
-            behavior_day = ismember({curr_experiments.day},{behavior_experiments.day});
-            
-            experiments = curr_experiments([curr_experiments.imaging] & [curr_experiments.ephys] & behavior_day);
-            
-            % Skip if this animal doesn't have this experiment
-            if isempty(experiments)
-                continue
-            end
-            
-            disp(animal);
-            
-            load_parts.cam = false;
-            load_parts.imaging = true;
-            load_parts.ephys = true;
-            
-            for curr_day = 1:length(experiments)
+        animal = animals{curr_animal};
+        disp(animal);
+        
+        % Get days with both task and retinotopy protocol
+        % and that have imaging + ephys
+        task_experiments = AP_find_experiments(animal,task_protocol);
+        task_experiments = task_experiments([task_experiments.imaging] & [task_experiments.ephys]);
+        
+        retinotopy_experiments = AP_find_experiments(animal,retinotopy_protocol);
+        retinotopy_experiments = retinotopy_experiments([retinotopy_experiments.imaging] & [retinotopy_experiments.ephys]);
+        
+        use_days = intersect({task_experiments.day},{retinotopy_experiments.day});
+        % (use the first experiment of each protocol)
+        use_experiments = ...
+            [cellfun(@(x) x(1), {task_experiments(ismember({task_experiments.day},use_days)).experiment}'), ...
+            cellfun(@(x) x(1), {retinotopy_experiments(ismember({retinotopy_experiments.day},use_days)).experiment}')];
+        
+        for curr_day = 1:length(use_days)
+            for curr_exp = 1:size(use_experiments,2)
                 
                 % Set variables to keep
                 preload_vars = who;
                 
                 % Load data and align striatum by depth
-                day = experiments(curr_day).day;
-                experiment = experiments(curr_day).experiment(end);
+                day = use_days{curr_day};
+                experiment = use_experiments(curr_day,curr_exp);
                 str_align = 'kernel';
+                load_parts.cam = false;
+                load_parts.imaging = true;
+                load_parts.ephys = true;
                 AP_load_experiment;
                 
                 % Convert U to master U
@@ -2299,9 +2289,9 @@ for curr_cohort = 1:n_cohorts
                 fVdf_deconv_resample = interp1(frame_t,fVdf_deconv',time_bin_centers)';
                 
                 % Bin spikes to match widefield frames
-                binned_spikes = nan(n_depths,length(time_bin_centers));
-                for curr_depth = 1:n_depths
-                    curr_spike_times = spike_times_timeline(depth_group == curr_depth);
+                binned_spikes = nan(n_aligned_depths,length(time_bin_centers));
+                for curr_depth = 1:n_aligned_depths
+                    curr_spike_times = spike_times_timeline(aligned_str_depth_group == curr_depth);
                     
                     % (skip if no spikes at this depth)
                     if isempty(curr_spike_times)
@@ -2344,27 +2334,28 @@ for curr_cohort = 1:n_cohorts
                     nanstd(binned_spikes,[],2).*squeeze(ctx_str_k{end});
                 
                 % Store
-                ctx_str_kernel{curr_animal}{curr_day} = k_px;
-                ctx_str_expl_var{curr_animal}{curr_day} = explained_var.total;
+                str_ctxpred(curr_cohort).animal{curr_animal} = animal;
+                str_ctxpred(curr_cohort).str{curr_animal}{curr_day,curr_exp} = binned_spikes;
+                str_ctxpred(curr_cohort).str_ctxpred{curr_animal}{curr_day,curr_exp} = ctxpred_spikes;
+                str_ctxpred(curr_cohort).ctx_str_k{curr_animal}{curr_day,curr_exp} = ctx_str_k;
                 
-                AP_print_progress_fraction(curr_day,length(experiments));
+                % Reset for next experiment
                 clearvars('-except',preload_vars{:})
                 
             end
-            
-            disp(['Finished ' animal]);
-            
+            AP_print_progress_fraction(curr_day,length(use_days));
         end
         
-        % Save
+        % Save after each animal
         save_path = ['C:\Users\Andrew\OneDrive for Business\Documents\CarandiniHarrisLab\analysis\wf_ephys_choiceworld\paper\data'];
-        save([save_path filesep 'ctx_str_task_notask'],'-v7.3');
-        warning('saving -v7.3');
+        save_fn = [save_path filesep 'str_ctxpred'];
+        disp(['Saving ' save_fn]);
+        save(save_fn,'str_ctxpred','-v7.3');
+        disp('Saved.');
         
     end
-    
 end
-
+disp('Done.');
 
 
 
