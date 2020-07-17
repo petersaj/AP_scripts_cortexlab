@@ -901,13 +901,14 @@ load('C:\Users\Andrew\OneDrive for Business\Documents\CarandiniHarrisLab\analysi
 load('C:\Users\Andrew\OneDrive for Business\Documents\CarandiniHarrisLab\analysis\wf_ephys_choiceworld\wf_processing\wf_alignment\U_master');
 
 % Concatenate experiments and convert V to pixels
+% (accidentally saved Vs and offset, so keep only first cell)
 ctx_str_k_cat = [str_ctxpred.ctx_str_k]';
-ctx_str_k_cat = vertcat(ctx_str_k_cat{:});
+ctx_str_k_cat = cellfun(@(x) x{1},vertcat(ctx_str_k_cat{:}),'uni',false);
 
 ctx_str_k_task_mean = nanmean(cat(4,ctx_str_k_cat{:,1}),4);
-ctx_str_k_px_task = cell2mat(permute(arrayfun(@(x) ...
+ctx_str_k_px_task = arrayfun(@(x) ...
     svdFrameReconstruct(U_master(:,:,1:100),ctx_str_k_task_mean(:,:,x)), ...
-    1:size(ctx_str_k_task_mean,3),'uni',false),[1,3,4,2]));
+    1:size(ctx_str_k_task_mean,3),'uni',false);
 
 
 % Get average cortex->striatum kernel
@@ -1565,8 +1566,8 @@ fluor_posttrain_mean = ...
     permute(nanmean(cell2mat(cellfun(@(x,stim) ...
     nanmean(x(stim == use_stim,:,:),1),fluor_training{2},stimIDs{2},'uni',false)),1),[3,2,1]));
 
-AP_image_scroll([fluor_pretrain_mean,fluor_posttrain_mean,fluor_posttrain_mean-fluor_pretrain_mean]);
-AP_reference_outline('ccf_aligned',[0.5,0.5,0.5],[],[size(U_master,1),size(U_master,2),1,3]);
+AP_image_scroll([fluor_pretrain_mean,fluor_posttrain_mean]);
+AP_reference_outline('ccf_aligned',[0.5,0.5,0.5],[],[size(U_master,1),size(U_master,2),1,2]);
 caxis([-max(abs(caxis)),max(abs(caxis))]);
 axis image;
 colormap(brewermap([],'*RdBu'));

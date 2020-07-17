@@ -2337,7 +2337,7 @@ for curr_cohort = 1:n_cohorts
                 str_ctxpred(curr_cohort).animal{curr_animal} = animal;
                 str_ctxpred(curr_cohort).str{curr_animal}{curr_day,curr_exp} = binned_spikes;
                 str_ctxpred(curr_cohort).str_ctxpred{curr_animal}{curr_day,curr_exp} = ctxpred_spikes;
-                str_ctxpred(curr_cohort).ctx_str_k{curr_animal}{curr_day,curr_exp} = ctx_str_k;
+                str_ctxpred(curr_cohort).ctx_str_k{curr_animal}{curr_day,curr_exp} = ctx_str_k_recast;
                 
                 % Reset for next experiment
                 clearvars('-except',preload_vars{:})

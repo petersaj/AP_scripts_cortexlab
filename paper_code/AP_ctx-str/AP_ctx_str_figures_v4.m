@@ -12,7 +12,7 @@
 % data_fn = 'trial_activity_choiceworld_15strdepth'; % Depth-aligned striatum
 % exclude_data = false;
 
-% (combined, non-excluded task)
+% (task, combined)
 data_fn = { ...
     'trial_activity_choiceworld'... 
     'trial_activity_vanillaChoiceworld_ctxstrephys_str'...
@@ -24,6 +24,12 @@ data_fn = { ...
 % data_fn = 'trial_activity_stimKalatsky_naive';
 % data_fn = 'trial_activity_stimKalatsky_trained';
 % exclude_data = false;
+
+% % (passive, combined)
+% data_fn = { ...
+%     'trial_activity_AP_choiceWorldStimPassive_trained'... 
+%     'trial_activity_AP_lcrGratingPassive_ctxstrephys_str'...
+%     'trial_activity_AP_lcrGratingPassive_pre_muscimol'};
 
 % (unused at the moment)
 % data_fn = 'trial_activity_choiceworld_wfonly'; % Widefield-only days (no craniotomy, so cleaner)
@@ -497,7 +503,11 @@ end
 
 % Plot aligned_activity
 align_col = [1,0,0;0.8,0,0.8;0,0,0.8];
-align_t = {[-0.05,0.15],[0.15,0.5],[0.5,1]};
+% (split the alignment halfway between median alignment points)
+align_median = cellfun(@(x) -nanmedian(x(plot_trials))/sample_rate,use_align);
+align_t = {[-0.05,diff(align_median(1:2))/2], ...
+    [diff(align_median(1:2))/2,diff(align_median(2:3))/2], ...
+    [diff(align_median(2:3))/2,1]};
 
 figure; hold on; set(gca,'YDir','reverse');
 
@@ -1091,7 +1101,11 @@ for curr_trial_set = 1:2
         use_align = {stim_align,move_align,outcome_align};
         
         align_col = [1,0,0;0.8,0,0.8;0,0,0.8];
-        align_t = {[-0.05,0.15],[0.15,0.5],[0.5,1]};
+        % (split the alignment halfway between median alignment points)
+        align_median = cellfun(@(x) -nanmedian(x(plot_trials))/sample_rate,use_align);
+        align_t = {[-0.05,diff(align_median(1:2))/2], ...
+            [diff(align_median(1:2))/2,diff(align_median(2:3))/2], ...
+            [diff(align_median(2:3))/2,1]};
         
         p(curr_depth,4) = subplot(n_depths,4,4+(curr_depth-1)*4); hold on
         for curr_align = 1:length(use_align)
