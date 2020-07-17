@@ -12062,7 +12062,18 @@ plot(a_b_bins,b_a_bins,'linewidth',2);
 
 
 
+%%
 
+
+% Get average cortex->striatum kernel
+ctx_str_k_mean = nanmean(cell2mat(permute(vertcat(ctx_str_k_all{:}),[2,3,4,5,1])),5);
+ctx_str_k_mean_px = cell2mat(arrayfun(@(x) svdFrameReconstruct(U_master(:,:,1:100), ...
+    ctx_str_k_mean(:,:,x)),permute(1:n_depths,[1,3,4,2]),'uni',false));
+
+ctx_str_kernel_frames_t = [-0.1,0.1];
+ctx_str_kernel_frames = round(ctx_str_kernel_frames_t(1)*sample_rate): ...
+    round(ctx_str_kernel_frames_t(2)*sample_rate);
+ctx_str_kernel_t = ctx_str_kernel_frames./sample_rate;
 
 
 

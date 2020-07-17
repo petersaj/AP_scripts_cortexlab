@@ -43,6 +43,8 @@ split_idx = cell2mat(arrayfun(@(exp,trials) repmat(exp,trials,1), ...
 
 %% Fig 1a, S1: Psychometric and reaction time
 
+figure;
+
 % Plot psychometric
 stim_conditions = unique(trial_stim_allcat);
 [~,stim_idx] = ismember(trial_stim_allcat,stim_conditions,'rows');
@@ -54,13 +56,28 @@ frac_orient_right = cell2mat(cellfun(@(stim,choice) ...
     accumarray(stim,choice == -1,[length(stim_conditions),1],@nanmean,NaN), ...
     trial_stim_idx_allcat_exp,trial_choice_allcat_exp,'uni',false)');
 
-figure; hold on; axis square;
-plot(stim_conditions,frac_orient_right,'color',[0.5,0.5,0.5]);
-plot(stim_conditions,nanmean(frac_orient_right,2),'k','linewidth',3);
+subplot(1,3,1); hold on;
+axis square;
+AP_errorfill(stim_conditions,nanmean(frac_orient_right,2), ...
+    AP_sem(frac_orient_right,2),'k');
 line([0,0],ylim,'color','k','linestyle','--');
 line(xlim,[0.5,0.5],'color','k','linestyle','--');
-xlabel('Stimulus side and contrast');
+xlabel('Stimulus side*contrast');
 ylabel('Fraction orient right');
+
+% Plot reaction times by stim
+subplot(1,3,2); hold on;
+axis square;
+rxn_time_stim = cell2mat(cellfun(@(stim,move_t) ...
+    accumarray(stim,move_t,[length(stim_conditions),1],@nanmedian,NaN), ...
+    trial_stim_idx_allcat_exp,mat2cell(move_t,use_split,1),'uni',false)');
+AP_errorfill(stim_conditions,nanmean(rxn_time_stim,2), ...
+    AP_sem(rxn_time_stim,2),'k');
+ylim([0,0.6])
+line([0,0],ylim,'color','k','linestyle','--');
+line(xlim,[0.5,0.5],'color','k','linestyle','--');
+xlabel('Stimulus side*contrast')
+ylabel('Median reaction time');
 
 % Plot reaction time by trial percentile within session
 n_trial_prctile = 4;
@@ -73,24 +90,19 @@ move_t_bin = mat2cell(discretize(move_t,move_t_bins),trials_recording,1);
 
 move_t_hist = cell2mat(permute(cellfun(@(trial_bin,move_t_bin) ...
     accumarray([trial_bin(~isnan(move_t_bin)),move_t_bin(~isnan(move_t_bin))], ...
-    1/sum(~isnan(move_t_bin)),[n_trial_prctile,length(move_t_bins)-1],@nansum,0), ...
+    1,[n_trial_prctile,length(move_t_bins)-1],@nansum,0), ...
     trial_bin,move_t_bin,'uni',false),[2,3,1]));
 
-figure;
-for curr_trial_prctile = 1:n_trial_prctile
-    subplot(n_trial_prctile,1,curr_trial_prctile); hold on;
-    plot(move_t_bin_centers, ...
-        squeeze(move_t_hist(curr_trial_prctile,:,:)), ...
-        'color',[0.5,0.5,0.5]);
-    plot(move_t_bin_centers, ...
-        nanmean(squeeze(move_t_hist(curr_trial_prctile,:,:)),2), ...
-        'color','k','linewidth',3);
-    xlabel('Time from stim onset');
-    ylabel('Fraction of reaction times');
-    line([0,0],ylim,'color','k');
-    title(['Trial percentile ' num2str(curr_trial_prctile)]);
-end
-linkaxes(get(gcf,'Children'),'xy');
+move_t_frac = move_t_hist./sum(move_t_hist,2);
+
+subplot(1,3,3);
+AP_errorfill(move_t_bin_centers,nanmean(move_t_frac,3)', ...
+    AP_sem(move_t_frac,3)',copper(n_trial_prctile));
+xlabel('Time from stim onset');
+ylabel('Fraction of reaction times');
+line([0,0],ylim,'color','k');
+title('Trial quartiles');
+
 
 
 %% Fig 1b: Example recording
@@ -863,7 +875,7 @@ end
 
 
 
-%% Fig 2b,d: Average cortex > striatum domain regression kernels
+%% Fig 2b,d: Average cortex > striatum domain kernels
 
 protocols = {'vanillaChoiceworld','stimSparseNoiseUncorrAsync'};
 
@@ -1157,6 +1169,13 @@ mua_taskpred_k_allcat_norm = arrayfun(@(regressor) ...
     vertcat(mua_taskpred_k_all{:}),vertcat(mua_norm{:}),'uni',false), ...
     'uni',false),[2,3,4,1])),1:length(task_regressor_labels),'uni',false)';
 
+mua_ctxpred_taskpred_k_allcat_norm = arrayfun(@(regressor) ...
+    cell2mat(permute(cellfun(@(x) x{regressor}, ...
+    cellfun(@(kernel_set,mua_norm) cellfun(@(kernel) ...
+    kernel./(mua_norm/sample_rate),kernel_set,'uni',false), ...
+    vertcat(mua_ctxpred_taskpred_k_all{:}),vertcat(mua_norm{:}),'uni',false), ...
+    'uni',false),[2,3,4,1])),1:length(task_regressor_labels),'uni',false)';
+
 % Plot task>striatum kernels
 stim_col = colormap_BlueWhiteRed(5);
 stim_col(6,:) = [];
@@ -1166,7 +1185,7 @@ outcome_col = [0,0,0.8;0.8,0,0];
 task_regressor_cols = {stim_col,move_col,go_col,outcome_col};
 task_regressor_t_shifts = cellfun(@(x) x/sample_rate,task_regressor_sample_shifts,'uni',false);
 
-figure;
+figure('Name','Task > Striatum');
 p = nan(n_depths,n_regressors);
 for curr_depth = 1:n_depths
     for curr_regressor = 1:n_regressors  
@@ -1175,6 +1194,36 @@ for curr_depth = 1:n_depths
         
         curr_kernels = mua_taskpred_k_allcat_norm{curr_regressor}(:,:,curr_depth,:);
         n_subregressors = size(mua_taskpred_k_allcat_norm{curr_regressor},1);
+        col = task_regressor_cols{curr_regressor};
+        for curr_subregressor = 1:n_subregressors
+            AP_errorfill(task_regressor_t_shifts{curr_regressor}, ...
+                nanmean(curr_kernels(curr_subregressor,:,:,:),4)', ...
+                AP_sem(curr_kernels(curr_subregressor,:,:,:),4)', ...
+                col(curr_subregressor,:),0.5);
+        end
+        
+        xlabel('Time (s)');
+        ylabel('Weight');
+        title(task_regressor_labels{curr_regressor});
+        line([0,0],ylim,'color','k');
+        
+    end
+end
+linkaxes(p);
+y_scale = 1;
+t_scale = 0.5;
+line(min(xlim) + [0,t_scale],repmat(min(ylim),2,1),'color','k','linewidth',3);
+line(repmat(min(xlim),2,1),min(ylim) + [0,y_scale],'color','k','linewidth',3);
+
+figure('Name','Task > Cortex (str)');
+p = nan(n_depths,n_regressors);
+for curr_depth = 1:n_depths
+    for curr_regressor = 1:n_regressors  
+        p(curr_depth,curr_regressor) = ...
+            subplot(n_depths,n_regressors,curr_regressor+(curr_depth-1)*n_regressors);  
+        
+        curr_kernels = mua_ctxpred_taskpred_k_allcat_norm{curr_regressor}(:,:,curr_depth,:);
+        n_subregressors = size(mua_ctxpred_taskpred_k_allcat_norm{curr_regressor},1);
         col = task_regressor_cols{curr_regressor};
         for curr_subregressor = 1:n_subregressors
             AP_errorfill(task_regressor_t_shifts{curr_regressor}, ...
@@ -2094,8 +2143,7 @@ for curr_animal = 1:length(plot_animals)
 end
 
 
-%% Fig S8: Striatum task v cortex regression
-error('Check this R2 against the next S8 addition: done on non-norm')
+%% Fig S8: Task -> striatum/cortex sum and examples
 
 % Get task>striatum parameters
 n_regressors = length(task_regressor_labels);
@@ -2116,10 +2164,10 @@ mua_ctxpred_taskpred_k_allcat_norm = arrayfun(@(regressor) ...
     'uni',false),[2,3,4,1])),1:length(task_regressor_labels),'uni',false)';
 
 % Get sum for each kernel
-mua_taskpred_k_allcat_norm_sum = cellfun(@(x) squeeze(sum(x,2)), ...
+mua_taskpred_k_allcat_norm_sum = cellfun(@(x) squeeze(sum(abs(x),2)), ...
     mua_taskpred_k_allcat_norm,'uni',false);
 
-mua_ctxpred_taskpred_k_allcat_norm_sum = cellfun(@(x) squeeze(sum(x,2)), ...
+mua_ctxpred_taskpred_k_allcat_norm_sum = cellfun(@(x) squeeze(sum(abs(x),2)), ...
     mua_ctxpred_taskpred_k_allcat_norm,'uni',false);
 
 % Plot sum task>striatum and task>ctx-str kernel by condition
@@ -2145,7 +2193,7 @@ for curr_regressor = 1:n_regressors
             'color',[0,0.7,0],'linewidth',2);
         
         title(task_regressor_labels{curr_regressor});
-        ylabel('Sum weight');
+        ylabel('Sum abs(weight)');
         xlabel('Condition');
         
     end
@@ -2158,23 +2206,19 @@ legend(ax_handles(1,1),{'Task>Str','Task>Ctx-Str'});
 
 % Plot task>striatum regression examples
 figure;
-plot_prctiles = linspace(0,100,5);
+plot_prctiles = [10,25,50,75,90];
 for curr_depth = 1:n_depths   
+    
+    % Set trials to use
+    use_trials = move_t < 0.5 & trial_stim_allcat == 1 & trial_choice_allcat == -1;
     
     % Set current data (pad trials with NaNs for spacing)
     n_pad = 10;
-    curr_data = padarray(mua_allcat(:,:,curr_depth),[0,n_pad],NaN,'post');
-    curr_taskpred_data = padarray(mua_taskpred_allcat(:,:,curr_depth),[0,n_pad],NaN,'post');
-    curr_ctxpred_data = padarray(mua_ctxpred_allcat(:,:,curr_depth),[0,n_pad],NaN,'post');
+    curr_data = padarray(mua_allcat(use_trials,:,curr_depth),[0,n_pad],NaN,'post');
+    curr_taskpred_data = padarray(mua_taskpred_allcat(use_trials,:,curr_depth),[0,n_pad],NaN,'post');
+    curr_ctxpred_data = padarray(mua_ctxpred_allcat(use_trials,:,curr_depth),[0,n_pad],NaN,'post');
     nan_samples = isnan(curr_data) | isnan(curr_taskpred_data) | isnan(curr_ctxpred_data);
 
-    % Smooth
-    n_smooth = 3;
-    smooth_filt = ones(1,n_smooth)/n_smooth;
-    curr_data = conv2(curr_data,smooth_filt,'same');
-    curr_taskpred_data = conv2(curr_taskpred_data,smooth_filt,'same');
-    curr_ctxpred_data = conv2(curr_ctxpred_data,smooth_filt,'same');
-    
     % Set common NaNs for R^2    
     curr_data_nonan = curr_data; 
     curr_data_nonan(nan_samples) = NaN;
@@ -2186,7 +2230,7 @@ for curr_depth = 1:n_depths
     curr_ctxpred_data(nan_samples) = NaN; 
     
     % Get squared error for each trial (for task prediction)
-    trial_r2 = 1 - (nansum((curr_data_nonan-curr_taskpred_data_nonan).^2,2)./ ...
+    trial_r2 = 1 - (nansum((curr_data_nonan-curr_ctxpred_data_nonan).^2,2)./ ...
         nansum((curr_data_nonan-nanmean(curr_data_nonan,2)).^2,2));
     
     trial_r2_nonan_idx = find(~isnan(trial_r2));
@@ -2215,215 +2259,7 @@ line([min(xlim),min(xlim)+t_scale],repmat(min(ylim),2,1),'linewidth',3,'color','
 line(repmat(min(xlim),2,1),[min(ylim),min(ylim)+y_scale],'linewidth',3,'color','k');
 
 
-% Get R^2 for task regression 
-taskpred_r2 = nan(max(split_idx),n_depths);
-ctxpred_r2 = nan(max(split_idx),n_depths);
-for curr_exp = 1:max(split_idx)
-    curr_data = reshape(permute(mua_allcat(split_idx == curr_exp,:,:),[2,1,3]),[],n_depths);
-    curr_taskpred_data = reshape(permute(mua_taskpred_allcat(split_idx == curr_exp,:,:),[2,1,3]),[],n_depths);
-    curr_ctxpred_data = reshape(permute(mua_ctxpred_allcat(split_idx == curr_exp,:,:),[2,1,3]),[],n_depths);
-    
-    % Set common NaNs
-    nan_samples = isnan(curr_data) | isnan(curr_taskpred_data) | isnan(curr_ctxpred_data);
-    curr_data(nan_samples) = NaN;
-    curr_taskpred_data(nan_samples) = NaN;
-    curr_ctxpred_data(nan_samples) = NaN;
-
-    taskpred_r2(curr_exp,:) = 1 - (nansum((curr_data-curr_taskpred_data).^2,1)./ ...
-        nansum((curr_data-nanmean(curr_data,1)).^2,1));
-    ctxpred_r2(curr_exp,:) = 1 - (nansum((curr_data-curr_ctxpred_data).^2,1)./ ...
-        nansum((curr_data-nanmean(curr_data,1)).^2,1));
-end
-figure; hold on;
-errorbar(nanmean(taskpred_r2,1),AP_sem(taskpred_r2,1),'b','linewidth',2);
-errorbar(nanmean(ctxpred_r2,1),AP_sem(ctxpred_r2,1),'color',[0,0.7,0],'linewidth',2);
-xlabel('Striatum depth');
-ylabel('Task explained variance');
-legend({'Task','Cortex'});
-
-
-%% BAD: USED NOT SAME REGRESSED DATA Fig S8a (addition): comparison of cortex kernel vs ROI
-error('BAD?')
-
-% Load kernel templates
-n_aligned_depths = 3;
-kernel_template_fn = ['C:\Users\Andrew\OneDrive for Business\Documents\CarandiniHarrisLab\analysis\wf_ephys_choiceworld\ephys_processing\kernel_template_' num2str(n_aligned_depths) '_depths.mat'];
-load(kernel_template_fn);
-
-% Plot the kernels and ROIs
-figure; colormap(gray);
-for i = 1:n_aligned_depths
-    p1 = subplot(n_aligned_depths,2,(i-1)*2+1);
-    imagesc(kernel_template(:,:,i));
-    caxis([-max(abs(caxis)),max(abs(caxis))])
-    colormap(p1,brewermap([],'*RdBu'));
-    AP_reference_outline('ccf_aligned',[0.5,0.5,0.5]);
-    axis image off;
-    
-    p2 = subplot(n_aligned_depths,2,(i-1)*2+2);
-    imagesc(kernel_roi.bw(:,:,i));
-    AP_reference_outline('ccf_aligned',[0.5,0.5,0.5]);
-    colormap(p2,brewermap([],'Greys'));
-    axis image off;
-end
-
-% Get fluorescence within kernel ROIs
-fluor_kernelroi_deconv = permute(reshape( ...
-    AP_svd_roi(U_master(:,:,1:n_vs), ...
-    reshape(permute(fluor_allcat_deconv,[3,2,1]),n_vs,[]),[],[],kernel_roi.bw), ...
-    size(kernel_roi.bw,3),[],size(fluor_allcat_deconv,1)),[3,2,1]);
-
-% Regress kernel ROI activity to striatum domain activity (per recording)
-regression_params.kernel_t = [-0.5,0.5];
-regression_params.zs = [false,false];
-regression_params.cvfold = 5;
-regression_params.use_constant = true;
-lambda = 0;
-kernel_frames = floor(regression_params.kernel_t(1)*sample_rate): ...
-    ceil(regression_params.kernel_t(2)*sample_rate);
-
-fluor_kernelroi_deconv_exp = mat2cell(fluor_kernelroi_deconv,trials_recording,length(t),n_depths);
-mua_allcat_exp = mat2cell(mua_allcat,trials_recording,length(t),n_depths);
-
-mua_ctxroipred_exp = cellfun(@(x) nan(size(x)),mua_allcat_exp,'uni',false);
-for curr_exp = 1:length(trials_recording)
-    for curr_depth = 1:n_depths
-        
-        curr_mua = reshape(mua_allcat_exp{curr_exp}(:,:,curr_depth)',[],1)';
-        curr_fluor_kernelroi = reshape(fluor_kernelroi_deconv_exp{curr_exp}(:,:,curr_depth)',[],1)';
-        
-        % Skip if no data
-        if all(isnan(curr_mua))
-            continue
-        end
-        
-        % Set discontinuities in trial data
-        trial_discontinuities = false(size(mua_allcat_exp{curr_exp}(:,:,curr_depth)));
-        trial_discontinuities(:,1) = true;
-        trial_discontinuities = reshape(trial_discontinuities',[],1)';
-        
-        % Do regression
-        [k,curr_mua_kernelroipred,explained_var] = ...
-            AP_regresskernel(curr_fluor_kernelroi, ...
-            curr_mua,kernel_frames,lambda, ...
-            regression_params.zs,regression_params.cvfold, ...
-            false,regression_params.use_constant,trial_discontinuities);
-              
-        mua_ctxroipred_exp{curr_exp}(:,:,curr_depth) = ...
-            reshape(curr_mua_kernelroipred,length(t),[])';
-
-    end
-    AP_print_progress_fraction(curr_exp,length(trials_recording));
-end
-mua_ctxroipred_allcat = cell2mat(mua_ctxroipred_exp);
-
-% Plot task>striatum regression examples
-figure;
-plot_prctiles = [25,50,75];
-for curr_depth = 1:n_depths   
-    
-    % Set current data (pad trials with NaNs for spacing)
-    n_pad = 10;
-    curr_data = padarray(mua_allcat(:,:,curr_depth),[0,n_pad],NaN,'post');
-    curr_taskpred_data = padarray(mua_taskpred_allcat(:,:,curr_depth),[0,n_pad],NaN,'post');
-    curr_ctxpred_data = padarray(mua_ctxpred_allcat(:,:,curr_depth),[0,n_pad],NaN,'post');
-    curr_ctxroipred_data = padarray(mua_ctxroipred_allcat(:,:,curr_depth),[0,n_pad],NaN,'post');
-    nan_samples = isnan(curr_data) | isnan(curr_taskpred_data) | isnan(curr_ctxpred_data) | isnan(curr_ctxroipred_data);
-
-    % Smooth
-    n_smooth = 3;
-    smooth_filt = ones(1,n_smooth)/n_smooth;
-    curr_data = conv2(curr_data,smooth_filt,'same');
-    curr_taskpred_data = conv2(curr_taskpred_data,smooth_filt,'same');
-    curr_ctxpred_data = conv2(curr_ctxpred_data,smooth_filt,'same');
-    curr_ctxroipred_data = conv2(curr_ctxroipred_data,smooth_filt,'same');
-    
-    % Set common NaNs for R^2    
-    curr_data_nonan = curr_data; 
-    curr_data_nonan(nan_samples) = NaN;
-    
-    curr_taskpred_data_nonan = curr_taskpred_data; 
-    curr_taskpred_data(nan_samples) = NaN; 
-    
-    curr_ctxpred_data_nonan = curr_ctxpred_data; 
-    curr_ctxpred_data(nan_samples) = NaN; 
-    
-    curr_ctxroipred_data_nonan = curr_ctxroipred_data; 
-    curr_ctxroipred_data(nan_samples) = NaN; 
-    
-    % Get squared error for each trial (for task prediction)
-    trial_r2 = 1 - (nansum((curr_data_nonan-curr_taskpred_data_nonan).^2,2)./ ...
-        nansum((curr_data_nonan-nanmean(curr_data_nonan,2)).^2,2));
-    
-    trial_r2_nonan_idx = find(~isnan(trial_r2));
-    [~,trial_r2_rank] = sort(trial_r2(trial_r2_nonan_idx));
-    
-    plot_prctile_trials = round(prctile(1:length(trial_r2_rank),plot_prctiles));
-    plot_trials = trial_r2_nonan_idx(trial_r2_rank(plot_prctile_trials));
-    
-    curr_t = (1:length(reshape(curr_data(plot_trials,:)',[],1)))/sample_rate;
-    
-    subplot(n_depths,1,curr_depth); hold on;
-    plot(curr_t,reshape(curr_data(plot_trials,:)',[],1),'k','linewidth',2);
-    plot(curr_t,reshape(curr_taskpred_data(plot_trials,:)',[],1),'b','linewidth',2);
-    plot(curr_t,reshape(curr_ctxpred_data(plot_trials,:)',[],1),'color',[0,0.7,0],'linewidth',2);
-    plot(curr_t,reshape(curr_ctxroipred_data(plot_trials,:)',[],1),'color',[1,0.5,0],'linewidth',2);
-    
-    xlabel('Time (s)');
-    ylabel('Spikes (std)');
-    title(['R^2 percentiles plotted: ' num2str(plot_prctiles)]);
-    legend({'Measured','Task-predicted','Cortex-predicted (full)','Cortex-predicted (ROI)'});
-
-end
-linkaxes(get(gcf,'Children'),'xy');
-y_scale = 2;
-t_scale = 1;
-line([min(xlim),min(xlim)+t_scale],repmat(min(ylim),2,1),'linewidth',3,'color','k');
-line(repmat(min(xlim),2,1),[min(ylim),min(ylim)+y_scale],'linewidth',3,'color','k');
-
-% Get R^2 for task, cortex full, and cortex ROI predictions
-taskpred_r2 = nan(max(split_idx),n_depths);
-ctxpred_r2 = nan(max(split_idx),n_depths);
-ctxroipred_r2 = nan(max(split_idx),n_depths);
-for curr_exp = 1:max(split_idx)
-       
-    curr_data = reshape(permute(mua_allcat(split_idx == curr_exp,:,:),[2,1,3]),[],n_depths);
-    curr_taskpred_data = reshape(permute(mua_taskpred_allcat(split_idx == curr_exp,:,:),[2,1,3]),[],n_depths);
-    curr_ctxpred_data = reshape(permute(mua_ctxpred_allcat(split_idx == curr_exp,:,:),[2,1,3]),[],n_depths);
-    curr_ctxroipred_data = reshape(permute(mua_ctxroipred_allcat(split_idx == curr_exp,:,:),[2,1,3]),[],n_depths);
-    
-    % Set common NaNs
-    nan_samples = isnan(curr_data) | isnan(curr_taskpred_data) | isnan(curr_ctxpred_data) | isnan(curr_ctxroipred_data);
-    curr_data(nan_samples) = NaN;
-    curr_taskpred_data(nan_samples) = NaN;
-    curr_ctxpred_data(nan_samples) = NaN;
-    curr_ctxroipred_data(nan_samples) = NaN;
-
-    taskpred_r2(curr_exp,:) = 1 - (nansum((curr_data-curr_taskpred_data).^2,1)./ ...
-        nansum((curr_data-nanmean(curr_data,1)).^2,1));
-    ctxpred_r2(curr_exp,:) = 1 - (nansum((curr_data-curr_ctxpred_data).^2,1)./ ...
-        nansum((curr_data-nanmean(curr_data,1)).^2,1));
-    ctxroipred_r2(curr_exp,:) = 1 - (nansum((curr_data-curr_ctxroipred_data).^2,1)./ ...
-        nansum((curr_data-nanmean(curr_data,1)).^2,1));
-end
-figure; hold on;
-errorbar(nanmean(taskpred_r2,1),AP_sem(taskpred_r2,1),'b','linewidth',2,'CapSize',0);
-errorbar(nanmean(ctxpred_r2,1),AP_sem(ctxpred_r2,1),'color',[0,0.6,0],'linewidth',2,'CapSize',0);
-errorbar(nanmean(ctxroipred_r2,1),AP_sem(ctxroipred_r2,1),'color',[1,0.5,0],'linewidth',2,'CapSize',0);
-xlabel('Striatum depth');
-ylabel('Task explained variance');
-legend({'Task','Cortex (Full)','Cortex (ROI)'});
-
-% Get significance between cortex kernel and ROI
-ctx_kernel_roi_p = nan(n_depths,1);
-for curr_depth = 1:n_depths
-   ctx_kernel_roi_p(curr_depth) = signrank(ctxroipred_r2(:,curr_depth), ...
-       ctxpred_r2(:,curr_depth));
-   disp(['Str ' num2str(curr_depth) ' kernel vs ROI: p = ' ...
-       num2str(ctx_kernel_roi_p(curr_depth))]);
-end
-
-%% NEW Fig S8a (addition): comparison of cortex kernel vs ROI
+%% Fig S8a (addition): comparison of cortex kernel vs ROI
 
 % Load kernel templates
 n_aligned_depths = 3;

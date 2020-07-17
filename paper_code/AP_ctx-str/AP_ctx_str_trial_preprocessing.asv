@@ -2199,7 +2199,7 @@ save([save_path filesep save_fn],'-v7.3');
 
 clear all
 
-disp('Cortex/striatum, activity/kernels, task/notask');
+disp('Cortex -> striatum regression maps across protocols');
 
 % Parameters for regression
 regression_params.use_svs = 1:100;
@@ -2213,156 +2213,163 @@ regression_params.use_constant = true;
 % Load Master U
 load('C:\Users\Andrew\OneDrive for Business\Documents\CarandiniHarrisLab\analysis\wf_ephys_choiceworld\wf_processing\wf_alignment\U_master.mat');
 
+
 n_cohorts = 3;
 ctx_str = struct('task',cell(n_cohorts,1),'notask',cell(n_cohorts,1));
 
 for curr_cohort = 1:n_cohorts
+
+switch cohort
+    case 1
+        animals = {'AP024','AP025','AP026','AP027','AP028','AP029'};
+        task_protocol = 'vanillaChoiceworld';
+        retinotopy_protocol = 'stimSparseNoiseUncorrAsync';
+        site = [];
+    case 2
+        animals = {'AP045','AP054','AP055','AP053','AP047','AP048'};
+        task_protocol = 'vanillaChoiceworldNoRepeats';
+        retinotopy_protocol = 'AP_sparseNoise';
+        site = [];
+    case 3
+        animals = {'AP043','AP060','AP061'};
+        task_protocol = 'vanillaChoiceworld';
+        retinotopy_protocol = 'AP_sparseNoise';
+        site = 1;
+end
+
+
+
+
+
+for protocol = protocols
+    protocol = cell2mat(protocol);
     
-    switch cohort
-        case 1
-            animals = {'AP024','AP025','AP026','AP027','AP028','AP029'};
-            task_protocol = 'vanillaChoiceworld';
-            retinotopy_protocol = 'stimSparseNoiseUncorrAsync';
-            site = [];
-        case 2
-            animals = {'AP045','AP054','AP055','AP053','AP047','AP048'};
-            task_protocol = 'vanillaChoiceworldNoRepeats';
-            retinotopy_protocol = 'AP_sparseNoise';
-            site = [];
-        case 3
-            animals = {'AP043','AP060','AP061'};
-            task_protocol = 'vanillaChoiceworld';
-            retinotopy_protocol = 'AP_sparseNoise';
-            site = 1;
-    end
+    init_array = cellfun(@(x) cell(0,0),animals','uni',false);
+    ctx_str_kernel = init_array;
+    ctx_str_expl_var = init_array;
     
-    prococols = {task_protocol,retinotopy_protocol};
-    
-    for protocol_idx = 1:length(protocols)
+    for curr_animal = 1:length(animals)
         
-        protocol = prococols{protocol_idx};
+        animal = animals{curr_animal};
+        disp(['Loading ' animal ' ' protocol]);
         
-        for curr_animal = 1:length(animals)
+        % Only use days with choiceworld (sometimes recorded in cortex, no bhv)
+        behavior_protocol = 'vanillaChoiceworld';
+        flexible_name = true;
+        behavior_experiments = AP_find_experiments(animal,behavior_protocol,flexible_name);
+        
+        curr_experiments = AP_find_experiments(animal,protocol);
+        
+        behavior_day = ismember({curr_experiments.day},{behavior_experiments.day});
+        
+        experiments = curr_experiments([curr_experiments.imaging] & [curr_experiments.ephys] & behavior_day);
+        
+        % Skip if this animal doesn't have this experiment
+        if isempty(experiments)
+            continue
+        end
+        
+        disp(animal);
+        
+        load_parts.cam = false;
+        load_parts.imaging = true;
+        load_parts.ephys = true;
+        
+        for curr_day = 1:length(experiments)
             
-            animal = animals{curr_animal};
+            % Set variables to keep
+            preload_vars = who;
             
-            % Only use days with task and no task
-            % (sometimes recorded in cortex, no bhv)
-            behavior_protocol = 'vanillaChoiceworld';
-            flexible_name = true;
-            behavior_experiments = AP_find_experiments(animal,behavior_protocol,flexible_name);
+            % Load data and align striatum by depth
+            day = experiments(curr_day).day;
+            experiment = experiments(curr_day).experiment(end);
+            str_align = 'kernel';
+            AP_load_experiment;
             
-            curr_experiments = AP_find_experiments(animal,protocol);
+            % Convert U to master U
+            Udf_aligned = AP_align_widefield(Udf,animal,day);
             
-            behavior_day = ismember({curr_experiments.day},{behavior_experiments.day});
+            % Deconvolve fluoresence (for use in regression)
+            fVdf_deconv = AP_deconv_wf(fVdf);
+            fVdf_deconv(isnan(fVdf_deconv)) = 0;
             
-            experiments = curr_experiments([curr_experiments.imaging] & [curr_experiments.ephys] & behavior_day);
+            % Get time points to bin
+            sample_rate = framerate*regression_params.upsample_factor;
+            time_bins = frame_t(find(frame_t > ...
+                regression_params.skip_seconds,1)):1/sample_rate: ...
+                frame_t(find(frame_t-frame_t(end) < ...
+                -regression_params.skip_seconds,1,'last'));
+            time_bin_centers = time_bins(1:end-1) + diff(time_bins)/2;
             
-            % Skip if this animal doesn't have this experiment
-            if isempty(experiments)
-                continue
-            end
+            % Resample deconvolved fluorescence
+            fVdf_deconv_resample = interp1(frame_t,fVdf_deconv',time_bin_centers)';
             
-            disp(animal);
-            
-            load_parts.cam = false;
-            load_parts.imaging = true;
-            load_parts.ephys = true;
-            
-            for curr_day = 1:length(experiments)
+            % Bin spikes to match widefield frames
+            binned_spikes = nan(n_depths,length(time_bin_centers));
+            for curr_depth = 1:n_depths
+                curr_spike_times = spike_times_timeline(depth_group == curr_depth);
                 
-                % Set variables to keep
-                preload_vars = who;
-                
-                % Load data and align striatum by depth
-                day = experiments(curr_day).day;
-                experiment = experiments(curr_day).experiment(end);
-                str_align = 'kernel';
-                AP_load_experiment;
-                
-                % Convert U to master U
-                Udf_aligned = AP_align_widefield(Udf,animal,day);
-                
-                % Deconvolve fluoresence (for use in regression)
-                fVdf_deconv = AP_deconv_wf(fVdf);
-                fVdf_deconv(isnan(fVdf_deconv)) = 0;
-                
-                % Get time points to bin
-                sample_rate = framerate*regression_params.upsample_factor;
-                time_bins = frame_t(find(frame_t > ...
-                    regression_params.skip_seconds,1)):1/sample_rate: ...
-                    frame_t(find(frame_t-frame_t(end) < ...
-                    -regression_params.skip_seconds,1,'last'));
-                time_bin_centers = time_bins(1:end-1) + diff(time_bins)/2;
-                
-                % Resample deconvolved fluorescence
-                fVdf_deconv_resample = interp1(frame_t,fVdf_deconv',time_bin_centers)';
-                
-                % Bin spikes to match widefield frames
-                binned_spikes = nan(n_depths,length(time_bin_centers));
-                for curr_depth = 1:n_depths
-                    curr_spike_times = spike_times_timeline(depth_group == curr_depth);
-                    
-                    % (skip if no spikes at this depth)
-                    if isempty(curr_spike_times)
-                        continue
-                    end
-                    
-                    binned_spikes(curr_depth,:) = histcounts(curr_spike_times,time_bins);
-                end
-                binned_spikes_std = binned_spikes./nanstd(binned_spikes,[],2);
-                
-                % Load lambda from previously estimated and saved
-                lambda_fn = 'C:\Users\Andrew\OneDrive for Business\Documents\CarandiniHarrisLab\analysis\wf_ephys_choiceworld\ephys_processing\ctx-str_lambda';
-                load(lambda_fn);
-                curr_animal_idx = strcmp(animal,{ctx_str_lambda.animal});
-                if any(curr_animal_idx)
-                    curr_day_idx = strcmp(day,ctx_str_lambda(curr_animal_idx).day);
-                    if any(curr_day_idx)
-                        lambda = ctx_str_lambda(curr_animal_idx).best_lambda(curr_day_idx);
-                    end
+                % (skip if no spikes at this depth)
+                if isempty(curr_spike_times)
+                    continue
                 end
                 
-                kernel_frames = round(regression_params.kernel_t(1)*sample_rate): ...
-                    round(regression_params.kernel_t(2)*sample_rate);
-                
-                % Regress cortex to striatum
-                [ctx_str_k,ctxpred_spikes_std,explained_var] = ...
-                    AP_regresskernel(fVdf_deconv_resample(regression_params.use_svs,:), ...
-                    binned_spikes_std,kernel_frames,lambda, ...
-                    regression_params.zs,regression_params.cvfold, ...
-                    true,regression_params.use_constant);
-                
-                % Recast the k's into the master U
-                ctx_str_k_recast = reshape(ChangeU(Udf_aligned(:,:,regression_params.use_svs), ...
-                    reshape(ctx_str_k{1},size(ctx_str_k{1},1),[]),U_master(:,:,regression_params.use_svs)), ...
-                    size(ctx_str_k{1}));
-                
-                % Re-scale the prediction (subtract offset, multiply, add scaled offset)
-                ctxpred_spikes = (ctxpred_spikes_std - squeeze(ctx_str_k{end})).* ...
-                    nanstd(binned_spikes,[],2) + ...
-                    nanstd(binned_spikes,[],2).*squeeze(ctx_str_k{end});
-                
-                % Store
-                ctx_str_kernel{curr_animal}{curr_day} = k_px;
-                ctx_str_expl_var{curr_animal}{curr_day} = explained_var.total;
-                
-                AP_print_progress_fraction(curr_day,length(experiments));
-                clearvars('-except',preload_vars{:})
-                
+                binned_spikes(curr_depth,:) = histcounts(curr_spike_times,time_bins);
+            end
+            binned_spikes_std = binned_spikes./nanstd(binned_spikes,[],2);
+            
+            % Load lambda from previously estimated and saved
+            lambda_fn = 'C:\Users\Andrew\OneDrive for Business\Documents\CarandiniHarrisLab\analysis\wf_ephys_choiceworld\ephys_processing\ctx-str_lambda';
+            load(lambda_fn);
+            curr_animal_idx = strcmp(animal,{ctx_str_lambda.animal});
+            if any(curr_animal_idx)
+                curr_day_idx = strcmp(day,ctx_str_lambda(curr_animal_idx).day);
+                if any(curr_day_idx)
+                    lambda = ctx_str_lambda(curr_animal_idx).best_lambda(curr_day_idx);
+                end
             end
             
-            disp(['Finished ' animal]);
+            kernel_frames = round(regression_params.kernel_t(1)*sample_rate): ...
+                round(regression_params.kernel_t(2)*sample_rate);
+            
+            % Regress cortex to striatum
+            [ctx_str_k,ctxpred_spikes_std,explained_var] = ...
+                AP_regresskernel(fVdf_deconv_resample(regression_params.use_svs,:), ...
+                binned_spikes_std,kernel_frames,lambda, ...
+                regression_params.zs,regression_params.cvfold, ...
+                true,regression_params.use_constant);
+            
+            % Recast the k's into the master U
+            ctx_str_k_recast = reshape(ChangeU(Udf_aligned(:,:,regression_params.use_svs), ...
+                reshape(ctx_str_k{1},size(ctx_str_k{1},1),[]),U_master(:,:,regression_params.use_svs)), ...
+                size(ctx_str_k{1}));
+            
+            % Re-scale the prediction (subtract offset, multiply, add scaled offset)
+            ctxpred_spikes = (ctxpred_spikes_std - squeeze(ctx_str_k{end})).* ...
+                nanstd(binned_spikes,[],2) + ...
+                nanstd(binned_spikes,[],2).*squeeze(ctx_str_k{end});
+            
+            % Store
+            ctx_str_kernel{curr_animal}{curr_day} = k_px;
+            ctx_str_expl_var{curr_animal}{curr_day} = explained_var.total;
+            
+            AP_print_progress_fraction(curr_day,length(experiments));
+            clearvars('-except',preload_vars{:})
             
         end
         
-        % Save
-        save_path = ['C:\Users\Andrew\OneDrive for Business\Documents\CarandiniHarrisLab\analysis\wf_ephys_choiceworld\paper\data'];
-        save([save_path filesep 'ctx_str_task_notask'],'-v7.3');
-        warning('saving -v7.3');
+        disp(['Finished ' animal]);
         
     end
     
+    % Save
+    save_path = ['C:\Users\Andrew\OneDrive for Business\Documents\CarandiniHarrisLab\analysis\wf_ephys_choiceworld\paper\data'];
+    save([save_path filesep 'ctx_str_task_notask'],'-v7.3');
+    warning('saving -v7.3');
+    disp(['Finished ' protocol]);
+    
+end
+
 end
 
 
