@@ -1898,6 +1898,12 @@ end
 
 linkaxes(p,'y');
 
+disp('*********ADD HERE: correlation of kernels, task-ctx within should be more than task/ctx across');
+
+
+
+
+
 
 %% ^^^ Striatal task/cortex explained variance pre/post muscimol
 
@@ -1953,25 +1959,26 @@ end
 
 % Plot explained variance task vs cortex by experiment
 figure; hold on;
+line([0,1],[0,1],'color','k','linestyle','--');
+
 str_col = copper(n_depths);
 for curr_depth = 1:n_depths
     
-    errorbar(squeeze(nanmean(taskpred_r2_condition(:,curr_depth,:),1),nanmean(ctxpred_r2_condition(:,curr_depth,:),1), ...
-        AP_sem(ctxpred_r2_condition(:,curr_depth,:),1),AP_sem(ctxpred_r2_condition(:,curr_depth,:),1), ...
-        AP_sem(taskpred_r2_condition(:,curr_depth,:),1),AP_sem(taskpred_r2_condition(:,curr_depth,:),1), ...
-        'color','k','linewidth',2,'linestyle','none');
+    errorbar(squeeze(nanmean(taskpred_r2_condition(:,curr_depth,:),1)), ...
+        squeeze(nanmean(ctxpred_r2_condition(:,curr_depth,:),1)), ...
+        squeeze(AP_sem(ctxpred_r2_condition(:,curr_depth,:),1)),squeeze(AP_sem(ctxpred_r2_condition(:,curr_depth,:),1)), ...
+        squeeze(AP_sem(taskpred_r2_condition(:,curr_depth,:),1)),squeeze(AP_sem(taskpred_r2_condition(:,curr_depth,:),1)), ...
+        'color',str_col(curr_depth,:),'linewidth',2);
     
    scatter(nanmean(taskpred_r2_condition(:,curr_depth,1),1), ...
        nanmean(ctxpred_r2_condition(:,curr_depth,1),1),100, ...
-       str_col(curr_depth,:),'filled','MarkerEdgeColor','g');
+       str_col(curr_depth,:),'filled','MarkerEdgeColor',[0,0.7,0],'linewidth',2);
    scatter(nanmean(taskpred_r2_condition(:,curr_depth,2),1), ...
        nanmean(ctxpred_r2_condition(:,curr_depth,2),1),100, ...
-       str_col(curr_depth,:),'filled','MarkerEdgeColor','r');
+       str_col(curr_depth,:),'filled','MarkerEdgeColor',[0.7,0,0],'linewidth',2);
 end
-line([0,1],[0,1],'color','k','linestyle','--');
 xlabel('Task R^2');
 ylabel('Cortex R^2');
-legend({'DMS','DCS','DLS'})
 
 % (Cortex vs task R2 statistics)
 disp('Cortex-task R^2 pre/post-muscimol');

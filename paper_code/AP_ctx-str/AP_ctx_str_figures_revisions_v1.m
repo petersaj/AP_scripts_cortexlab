@@ -1898,6 +1898,34 @@ end
 
 linkaxes(p,'y');
 
+disp('*********ADD HERE: correlation of kernels, task-ctx within should be more than task/ctx across');
+
+task_str_kernel
+task_str_ctxpred_kernel
+
+
+a = cellfun(@(x) cellfun(@(x) ...
+    cell2mat(cellfun(@(x) reshape(x,[],size(x,3)),x,'uni',false)), ...
+    x,'uni',false),task_str_kernel,'uni',false);
+
+b = cellfun(@(x) cellfun(@(x) ...
+    cell2mat(cellfun(@(x) reshape(x,[],size(x,3)),x,'uni',false)), ...
+    x,'uni',false),task_str_ctxpred_kernel,'uni',false);
+
+a1 = cellfun(@(x) permute(cat(3,x{:}),[1,3,2]),a,'uni',false);
+b1 = cellfun(@(x) permute(cat(3,x{:}),[1,3,2]),b,'uni',false);
+
+figure; hold on;
+for curr_depth = 1:n_depths
+    test_musc_corr = nanmean(diag(corr(a1{1}(:,:,curr_depth),a1{2}(:,:,curr_depth))));
+    test_ctx_task_pre_corr = nanmean(diag(corr(a1{1}(:,:,curr_depth),b1{1}(:,:,curr_depth))));
+    test_ctx_task_post_corr = nanmean(diag(corr(a1{2}(:,:,curr_depth),b1{2}(:,:,curr_depth))));
+    
+    plot([test_musc_corr,test_ctx_task_pre_corr,test_ctx_task_post_corr]);
+end
+
+
+
 
 %% ^^^ Striatal task/cortex explained variance pre/post muscimol
 
