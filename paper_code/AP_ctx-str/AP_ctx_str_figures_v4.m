@@ -1369,9 +1369,9 @@ mua_ctxpred_taskpred_k_allcat_norm = arrayfun(@(regressor) ...
 % Plot task>striatum kernels
 stim_col = colormap_BlueWhiteRed(5);
 stim_col(6,:) = [];
-move_col = [0.6,0,0.6;0,0.6,0];
+move_col = [0.6,0,0.6;1,0.6,0];
 go_col = [0.8,0.8,0.2;0.5,0.5,0.5];
-outcome_col = [0,0,0.8;0.8,0,0];
+outcome_col = [0,0,0;0.5,0.5,0.5];
 task_regressor_cols = {stim_col,move_col,go_col,outcome_col};
 task_regressor_t_shifts = cellfun(@(x) x/sample_rate,task_regressor_sample_shifts,'uni',false);
 
@@ -2674,13 +2674,20 @@ legend({'Task','Cortex'});
 figure; hold on;
 str_col = copper(n_depths);
 for curr_str = 1:n_depths
-   scatter(taskpred_r2(:,curr_str),ctxpred_r2(:,curr_str),5, ...
-       str_col(curr_str,:),'filled');
-   scatter(nanmean(taskpred_r2(:,curr_str),1), ...
-       nanmean(ctxpred_r2(:,curr_str),1),100, ...
-       str_col(curr_str,:),'filled','MarkerEdgeColor','r');
+    errorbar(squeeze(nanmean(taskpred_r2(:,curr_str),1)), ...
+        squeeze(nanmean(ctxpred_r2(:,curr_str),1)), ...
+        squeeze(AP_sem(ctxpred_r2(:,curr_str),1)),squeeze(AP_sem(ctxpred_r2(:,curr_str),1)), ...
+        squeeze(AP_sem(taskpred_r2(:,curr_str),1)),squeeze(AP_sem(taskpred_r2(:,curr_str),1)), ...
+        'color','k','linewidth',2);
+    
+    scatter(taskpred_r2(:,curr_str),ctxpred_r2(:,curr_str),10, ...
+        str_col(curr_str,:),'filled');
+    scatter(nanmean(taskpred_r2(:,curr_str),1), ...
+        nanmean(ctxpred_r2(:,curr_str),1),150, ...
+        str_col(curr_str,:),'filled');
 end
-line([0,1],[0,1],'color','k','linestyle','--');
+axis tight;
+line(xlim,xlim,'color','k','linestyle','--');
 xlabel('Task R^2');
 ylabel('Cortex R^2');
 legend({'DMS','DCS','DLS'})
