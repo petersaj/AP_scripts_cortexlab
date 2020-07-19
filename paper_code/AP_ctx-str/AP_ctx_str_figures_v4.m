@@ -9,7 +9,7 @@
 
 % (task)
 % data_fn = 'trial_activity_choiceworld'; % Primary dataset
-% data_fn = 'trial_activity_choiceworld_16strdepth'; % Depth-aligned striatum
+% data_fn = 'trial_activity_choiceworld_15strdepth'; % Depth-aligned striatum
 % exclude_data = false;
 
 % (task, combined)
@@ -464,13 +464,11 @@ AP_cellraster({stimOn_times(plot_trials), ...
 % move (depth 3) = 258
 % reward (depth 4) = 79 (alt: 467 late, 109/96 sharp)
 
-%% Fig 1f: Striatum multiunit end-of-striatum depth aligned
+%% Fig 1f: Striatum multiunit by depth
 
-% Depths to plot (in > 50% of recordings)
-frac_depths = nanmean(cell2mat(cellfun(@(x) ...
-    nanmean(~squeeze(all(all(isnan(x),1),2)),2), ...
-    vertcat(mua_all{:})','uni',false)),2);
-use_depths = frac_depths > 0.5;
+% Depths to plot (manual: match number in fig 2)
+use_depths = false(n_depths,1);
+use_depths(end-11:end) = true;
 
 % Plot average stimulus-aligned activity in striatum
 plot_trials = move_t < 0.5 & trial_stim_allcat > 0 & trial_choice_allcat == -1;
@@ -538,7 +536,11 @@ axis tight;
 kernel_path = 'C:\Users\Andrew\OneDrive for Business\Documents\CarandiniHarrisLab\analysis\wf_ephys_choiceworld\ephys_processing';
 kernel_fn = ['ephys_kernel_depth'];
 load([kernel_path filesep kernel_fn])
-k_px_cat = horzcat(ephys_kernel_depth(:).k_px)';
+
+% (use only trained animals)
+naive_animals = {'AP032','AP033','AP034','AP035','AP036'};
+use_animals = ~ismember({ephys_kernel_depth.animal},naive_animals);
+k_px_cat = horzcat(ephys_kernel_depth(use_animals).k_px)';
 
 % Load, concatenate, mean STA
 data_path = 'C:\Users\Andrew\OneDrive for Business\Documents\CarandiniHarrisLab\analysis\wf_ephys_choiceworld\paper\data';
@@ -594,12 +596,13 @@ AP_reference_outline('ccf_aligned',[0.5,0.5,0.5]);
 
 
 %% Fig 2??: Kernel clustering 
+% (run above first)
 
 warning('testing section')
 %%%%%%%%%%%%%%%%%%%%%
 
 n_depths_animal = cellfun(@(x) ...
-    sum(cellfun(@(x) size(x,3),x)),{ephys_kernel_depth.k_px});
+    sum(cellfun(@(x) size(x,3),x)),{ephys_kernel_depth(use_animals).k_px});
 
 a = k_px_cat_pad_mean_norm(:,:,use_depths);
 
@@ -624,11 +627,17 @@ xlabel('Max corr depth');
 %%%%%%%%%%%%%%%%%%%%%
 
 
+% Don't use naive animals for this analysis
+naive_animals = {'AP032','AP033','AP034','AP035','AP036'};
+
+
 % Load kernels by depths
 kernel_path = 'C:\Users\Andrew\OneDrive for Business\Documents\CarandiniHarrisLab\analysis\wf_ephys_choiceworld\ephys_processing';
 kernel_fn = ['ephys_kernel_depth'];
 load([kernel_path filesep kernel_fn])
-kernel_px_cat = cell2mat(permute(horzcat(ephys_kernel_depth(:).k_px),[1,3,2]));
+
+use_animals = ~ismember({ephys_kernel_depth.animal},naive_animals);
+kernel_px_cat = cell2mat(permute(horzcat(ephys_kernel_depth(use_animals).k_px),[1,3,2]));
 kernel_px_cat_reshape = reshape(kernel_px_cat,[],size(kernel_px_cat,3));
 
 % Load the kernel template matches
@@ -636,7 +645,7 @@ n_aligned_depths = 3;
 kernel_match_path = 'C:\Users\Andrew\OneDrive for Business\Documents\CarandiniHarrisLab\analysis\wf_ephys_choiceworld\ephys_processing';
 kernel_match_fn = ['ephys_kernel_align_' num2str(n_aligned_depths) '_depths.mat'];
 load([kernel_match_path filesep kernel_match_fn]);
-kernel_match_cat = cell2mat(horzcat(ephys_kernel_align.kernel_match)');
+kernel_match_cat = cell2mat(horzcat(ephys_kernel_align(use_animals).kernel_match)');
 
 % Dimensionality reduction and plot matches
 use_kernels = ~(all(isnan(kernel_px_cat_reshape),1)' | isnan(kernel_match_cat));
@@ -646,7 +655,7 @@ kernel_px_cat_resize_reshape = ...
 kernel_px_cat_resize_reshape_norm = ...
     kernel_px_cat_resize_reshape./max(kernel_px_cat_resize_reshape,[],1);
 
-[coeff,score] = pca(kernel_px_cat_resize_reshape_norm(:,use_kernels)');
+[coeff,score,latent] = pca(kernel_px_cat_resize_reshape_norm(:,use_kernels)');
 y = tsne(kernel_px_cat_resize_reshape_norm(:,use_kernels)');
 
 figure;
@@ -2441,6 +2450,7 @@ line(repmat(min(xlim),2,1),[min(ylim),min(ylim)+y_scale],'linewidth',3,'color','
 
 
 %% Fig S8a (addition): comparison of cortex kernel vs ROI
+error('REMOVED SOME STUFF: use the one below')
 
 % Load kernel templates
 n_aligned_depths = 3;
@@ -2616,6 +2626,128 @@ line([0,1],[0,1],'color','k','linestyle','--');
 xlabel('Cortex R^2');
 ylabel('Cortex ROI R^2');
 legend({'DMS','DCS','DLS'})
+
+%% Fig S8a (addition): comparison of cortex kernel vs ROI [[NEWER]]
+
+% Use raw data (not normalized or baseline-subtracted) for expl var
+mua_exp = vertcat(mua_all{:});
+mua_taskpred_exp = vertcat(mua_taskpred_all{:});
+mua_ctxpred_exp = vertcat(mua_ctxpred_all{:});
+
+% Get R^2 for task and cortex
+taskpred_r2 = nan(max(split_idx),n_depths);
+ctxpred_r2 = nan(max(split_idx),n_depths);
+for curr_exp = 1:max(split_idx)
+       
+    curr_data = reshape(permute(mua_exp{curr_exp},[2,1,3]),[],n_depths);
+    curr_data_baselinesub = reshape(permute(mua_exp{curr_exp},[2,1,3]),[],n_depths) - ...
+        (nanmean(reshape(mua_exp{curr_exp}(:,t < 0,:),[],size(mua_exp{curr_exp},3)),1));
+    curr_taskpred_data = reshape(permute(mua_taskpred_exp{curr_exp},[2,1,3]),[],n_depths);
+    curr_ctxpred_data = reshape(permute(mua_ctxpred_exp{curr_exp},[2,1,3]),[],n_depths);
+       
+    % Set common NaNs
+    nan_samples = isnan(curr_data) | isnan(curr_data_baselinesub) | ...
+        isnan(curr_taskpred_data) | isnan(curr_ctxpred_data);
+    curr_data(nan_samples) = NaN;
+    curr_data_baselinesub(nan_samples) = NaN;
+    curr_taskpred_data(nan_samples) = NaN;
+    curr_ctxpred_data(nan_samples) = NaN;
+
+    % (task regressed from average baseline-subtracted data)
+    taskpred_r2(curr_exp,:) = 1 - (nansum((curr_data_baselinesub-curr_taskpred_data).^2,1)./ ...
+        nansum((curr_data_baselinesub-nanmean(curr_data_baselinesub,1)).^2,1));
+    % (cortex regressed from raw data)
+    ctxpred_r2(curr_exp,:) = 1 - (nansum((curr_data-curr_ctxpred_data).^2,1)./ ...
+        nansum((curr_data-nanmean(curr_data,1)).^2,1));
+    
+end
+
+figure; hold on;
+errorbar(nanmean(taskpred_r2,1),AP_sem(taskpred_r2,1),'b','linewidth',2,'CapSize',0);
+errorbar(nanmean(ctxpred_r2,1),AP_sem(ctxpred_r2,1),'color',[0,0.6,0],'linewidth',2,'CapSize',0);
+xlabel('Striatum depth');
+ylabel('Task explained variance');
+legend({'Task','Cortex'});
+
+
+% Plot explained variance task vs cortex by experiment
+figure; hold on;
+str_col = copper(n_depths);
+for curr_str = 1:n_depths
+   scatter(taskpred_r2(:,curr_str),ctxpred_r2(:,curr_str),5, ...
+       str_col(curr_str,:),'filled');
+   scatter(nanmean(taskpred_r2(:,curr_str),1), ...
+       nanmean(ctxpred_r2(:,curr_str),1),100, ...
+       str_col(curr_str,:),'filled','MarkerEdgeColor','r');
+end
+line([0,1],[0,1],'color','k','linestyle','--');
+xlabel('Task R^2');
+ylabel('Cortex R^2');
+legend({'DMS','DCS','DLS'})
+
+
+% (Cortex vs task R2 statistics)
+disp('Cortex vs Task R^2');
+for curr_depth = 1:n_depths
+    curr_p = signrank(ctxpred_r2(:,curr_depth), ...
+        taskpred_r2(:,curr_depth));
+    disp(['Str ' num2str(curr_depth) ' p = ' num2str(curr_p)]); 
+end
+
+
+%% Fig S10: Stimulus activity vs choice
+
+% Get stim activity by stim/choice/depth/experiment
+stim_avg_t = [0,0.2];
+stim_avg_t_idx = t >= stim_avg_t(1) & t <= stim_avg_t(2);
+stim_act = permute(nanmean(mua_allcat(:,stim_avg_t_idx,:),2),[1,3,2]);
+stims = unique(trial_stim_allcat);
+
+stim_act_grp = nan(length(stims),2,n_depths,length(use_split));
+for curr_depth = 1:n_depths
+    for curr_exp = 1:length(use_split)
+        for curr_stim = 1:length(stims)
+            
+            stim_act_grp(curr_stim,1,curr_depth,curr_exp) = ...
+                nanmean(stim_act( ...
+                move_t < 0.5 & ...
+                split_idx == curr_exp & ...
+                trial_stim_allcat == stims(curr_stim) & ...
+                trial_choice_allcat == -1,curr_depth));
+            
+            stim_act_grp(curr_stim,2,curr_depth,curr_exp) = ...
+                nanmean(stim_act( ...
+                move_t < 0.5 & ...
+                split_idx == curr_exp & ...
+                trial_stim_allcat == stims(curr_stim) & ...
+                trial_choice_allcat == 1,curr_depth));
+            
+        end
+    end
+end
+
+% Plot stim responses by condition
+move_col = [0.6,0,0.6;1,0.6,0];
+figure;
+for curr_depth = 1:n_depths
+   subplot(n_depths,1,curr_depth); hold on;
+   set(gca,'ColorOrder',move_col);
+    errorbar(repmat(stims,1,2), ...
+        nanmean(stim_act_grp(:,:,curr_depth,:),4), ...
+        AP_sem(stim_act_grp(:,:,curr_depth,:),4),'linewidth',2);
+    xlabel('Contrast*side');
+    ylabel('Activity (std)');
+end
+
+% (stim response by choice statistics)
+disp('Stim v choice 2-way anova:')
+for curr_depth = 1:n_depths
+    [stim_grp,choice_grp,exp_grp] = meshgrid(1:size(stim_act_grp,1), ...
+        1:size(stim_act_grp,2),1:size(stim_act_grp,4));
+    curr_p = anovan(reshape(stim_act_grp(:,:,curr_depth,:),[],1), ...
+        [stim_grp(:),choice_grp(:)],'display','off');
+    disp(['Str ' num2str(curr_depth) ' p = ' num2str(curr_p')]); 
+end
 
 
 %% Movie 1: Average widefield 

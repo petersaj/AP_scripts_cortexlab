@@ -1120,6 +1120,9 @@ end
 
 %% Goodness-of-fit update
 
+error('I THINK ALREADY INTEGRATED INTO FIG S8 ADDITION')
+% also that one is exp-dependent and this one isn't, so that's more
+% updated?
 
 % Regress kernel ROI activity to striatum domain activity (per recording)
 regression_params.kernel_t = [0,0];
@@ -1667,6 +1670,7 @@ for curr_str = 1:n_depths
     
 end
 linkaxes(p(:,1:2),'xy');
+
 
 
 
