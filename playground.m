@@ -12060,6 +12060,32 @@ plot(a_b_bins,b_a_bins,'linewidth',2);
 
 
 
+%% Plot average image across recordings
+
+animals = {'AP045','AP054','AP055','AP053','AP047','AP048'};
+
+avg_im_cat = [];
+for curr_animal = 1:length(animals)
+    
+    animal = animals{curr_animal};
+    
+    protocol = 'AP_sparseNoise';
+    experiments = AP_find_experiments(animal,protocol);
+    experiments(~([experiments.imaging] & [experiments.ephys])) = [];
+    
+    for curr_day = 1:length(experiments)
+        day = experiments(curr_day).day;
+        [img_path,img_exists] = AP_cortexlab_filename(animal,day,[],'imaging');
+        avg_im = readNPY([img_path filesep 'meanImage_blue.npy']);
+        avg_im_cat = cat(3,avg_im_cat,AP_align_widefield(avg_im,animal,day));
+    end
+    
+    AP_print_progress_fraction(curr_animal,length(animals));
+end
+
+AP_image_scroll(avg_im_cat)
+axis image;
+
 
 
 

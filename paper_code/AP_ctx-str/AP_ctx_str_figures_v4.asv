@@ -9,10 +9,10 @@
 
 % (task)
 % data_fn = 'trial_activity_choiceworld'; % Primary dataset
-% data_fn = 'trial_activity_choiceworld_15strdepth'; % Depth-aligned striatum
+% data_fn = 'trial_activity_choiceworld_16strdepth'; % Depth-aligned striatum
 % exclude_data = false;
 
-% (combined, non-excluded task)
+% (task, combined)
 data_fn = { ...
     'trial_activity_choiceworld'... 
     'trial_activity_vanillaChoiceworld_ctxstrephys_str'...
@@ -24,6 +24,12 @@ data_fn = { ...
 % data_fn = 'trial_activity_stimKalatsky_naive';
 % data_fn = 'trial_activity_stimKalatsky_trained';
 % exclude_data = false;
+
+% % (passive, combined)
+% data_fn = { ...
+%     'trial_activity_AP_choiceWorldStimPassive_trained'... 
+%     'trial_activity_AP_lcrGratingPassive_ctxstrephys_str'...
+%     'trial_activity_AP_lcrGratingPassive_pre_muscimol'};
 
 % (unused at the moment)
 % data_fn = 'trial_activity_choiceworld_wfonly'; % Widefield-only days (no craniotomy, so cleaner)
@@ -43,6 +49,8 @@ split_idx = cell2mat(arrayfun(@(exp,trials) repmat(exp,trials,1), ...
 
 %% Fig 1a, S1: Psychometric and reaction time
 
+figure;
+
 % Plot psychometric
 stim_conditions = unique(trial_stim_allcat);
 [~,stim_idx] = ismember(trial_stim_allcat,stim_conditions,'rows');
@@ -54,13 +62,28 @@ frac_orient_right = cell2mat(cellfun(@(stim,choice) ...
     accumarray(stim,choice == -1,[length(stim_conditions),1],@nanmean,NaN), ...
     trial_stim_idx_allcat_exp,trial_choice_allcat_exp,'uni',false)');
 
-figure; hold on; axis square;
+subplot(1,3,1); hold on;
+axis square;
 AP_errorfill(stim_conditions,nanmean(frac_orient_right,2), ...
     AP_sem(frac_orient_right,2),'k');
 line([0,0],ylim,'color','k','linestyle','--');
 line(xlim,[0.5,0.5],'color','k','linestyle','--');
-xlabel('Stimulus side and contrast');
+xlabel('Stimulus side*contrast');
 ylabel('Fraction orient right');
+
+% Plot reaction times by stim
+subplot(1,3,2); hold on;
+axis square;
+rxn_time_stim = cell2mat(cellfun(@(stim,move_t) ...
+    accumarray(stim,move_t,[length(stim_conditions),1],@nanmedian,NaN), ...
+    trial_stim_idx_allcat_exp,mat2cell(move_t,use_split,1),'uni',false)');
+AP_errorfill(stim_conditions,nanmean(rxn_time_stim,2), ...
+    AP_sem(rxn_time_stim,2),'k');
+ylim([0,0.6])
+line([0,0],ylim,'color','k','linestyle','--');
+line(xlim,[0.5,0.5],'color','k','linestyle','--');
+xlabel('Stimulus side*contrast')
+ylabel('Median reaction time');
 
 % Plot reaction time by trial percentile within session
 n_trial_prctile = 4;
@@ -78,7 +101,7 @@ move_t_hist = cell2mat(permute(cellfun(@(trial_bin,move_t_bin) ...
 
 move_t_frac = move_t_hist./sum(move_t_hist,2);
 
-figure;
+subplot(1,3,3);
 AP_errorfill(move_t_bin_centers,nanmean(move_t_frac,3)', ...
     AP_sem(move_t_frac,3)',copper(n_trial_prctile));
 xlabel('Time from stim onset');
@@ -86,12 +109,6 @@ ylabel('Fraction of reaction times');
 line([0,0],ylim,'color','k');
 title('Trial quartiles');
 
-
-    
-move_t_hist = cell2mat(permute(cellfun(@(trial_bin,move_t_bin) ...
-    accumarray([trial_bin(~isnan(move_t_bin)),move_t_bin(~isnan(move_t_bin))], ...
-    1,[n_trial_prctile,length(move_t_bins)-1],@nansum,0), ...
-    trial_bin,move_t_bin,'uni',false),[2,3,1]));
 
 
 %% Fig 1b: Example recording
@@ -486,7 +503,10 @@ end
 
 % Plot aligned_activity
 align_col = [1,0,0;0.8,0,0.8;0,0,0.8];
-align_t = {[-0.05,0.15],[0.15,0.5],[0.5,1]};
+% (split the alignment halfway between median alignment points)
+align_median = cellfun(@(x) -nanmedian(x(plot_trials))/sample_rate,use_align);
+align_break = align_median(1:end-1) + diff(align_median*0.8);
+align_t = {[-0.05,align_break(1)],[align_break(1:2)],[align_break(2),1]};
 
 figure; hold on; set(gca,'YDir','reverse');
 
@@ -514,53 +534,92 @@ axis tight;
 
 %% Fig 2a: Cortex > striatum kernels by depth
 
-% Load and concatenate kernels and STA
-protocol = 'vanillaChoiceworld';
+% Load kernels by depths
+kernel_path = 'C:\Users\Andrew\OneDrive for Business\Documents\CarandiniHarrisLab\analysis\wf_ephys_choiceworld\ephys_processing';
+kernel_fn = ['ephys_kernel_depth'];
+load([kernel_path filesep kernel_fn])
+k_px_cat = horzcat(ephys_kernel_depth(:).k_px)';
 
+% Load, concatenate, mean STA
 data_path = 'C:\Users\Andrew\OneDrive for Business\Documents\CarandiniHarrisLab\analysis\wf_ephys_choiceworld\paper\data';
-k_fn = [data_path filesep 'ctx_str_kernels_' protocol ,'_15strdepths'];
+k_fn = [data_path filesep 'ctx_str_kernels_vanillaChoiceworld_16strdepths'];
 load(k_fn);
+ctx_str_sta_mean = nanmean(cell2mat(permute(horzcat(ctx_str_sta{:}),[1,3,4,2])),4);
+ctx_str_sta_mean_norm = ctx_str_sta_mean./max(max(ctx_str_sta_mean,[],1),[],2);
 
-ctx_str_kernel_cat = cell2mat(permute(horzcat(ctx_str_kernel{:}),[1,3,4,5,2]));
-ctx_str_sta_cat = cell2mat(permute(horzcat(ctx_str_sta{:}),[1,3,4,2]));
+% Pad and concatenate kernels
+max_depths = max(cellfun(@(x) size(x,3),k_px_cat));
+k_px_cat_pad = cell2mat(permute(cellfun(@(x) padarray(x, ...
+    [0,0,max_depths-size(x,3)],NaN,'pre'),k_px_cat,'uni',false),[2,3,4,1]));
+k_px_cat_pad_mean = nanmean(k_px_cat_pad,4);
+k_px_cat_pad_mean_norm = k_px_cat_pad_mean./max(max(k_px_cat_pad_mean,[],1),[],2);
 
-% (use only depths in > 50% of recordings)
-frac_depths = nanmean(~squeeze(all(all(isnan(ctx_str_sta_cat),1),2)),2);
+frac_depths = squeeze(nanmean(all(all(~isnan(k_px_cat_pad),1),2),4));
 use_depths = frac_depths > 0.5;
 
-ctx_str_kernel_cat_mean = squeeze(nanmean(ctx_str_kernel_cat(:,:,median(1:size(ctx_str_kernel_cat,3)),use_depths,:),5));
-ctx_str_sta_cat_mean = nanmean(ctx_str_sta_cat(:,:,use_depths,:),4);
-
-ctx_str_kernel_cat_mean_norm = ctx_str_kernel_cat_mean./max(max(medfilt3(ctx_str_kernel_cat_mean,[11,11,1]),[],1),[],2);
-ctx_str_sta_cat_mean_norm = ctx_str_sta_cat_mean./max(max(medfilt3(ctx_str_sta_cat_mean,[11,11,1]),[],1),[],2);
-
-figure;imagesc( ...
-    [reshape(ctx_str_sta_cat_mean_norm,size(ctx_str_sta_cat_mean_norm,1),[]); ...
-    reshape(ctx_str_kernel_cat_mean_norm,size(ctx_str_kernel_cat_mean_norm,1),[])]);
+% Plot STA and kernels
+if size(k_px_cat_pad_mean_norm,3) ~= size(ctx_str_sta_mean,3)
+    error('Different n depths');
+end
+figure;
+subplot(1,2,1);
+imagesc(reshape(ctx_str_sta_mean_norm(:,:,use_depths),size(ctx_str_sta_mean_norm,1),[]));
+subplot(1,2,2);
+imagesc(reshape(k_px_cat_pad_mean_norm(:,:,use_depths),size(k_px_cat_pad,1),[]));
 caxis([-1,1]);
 colormap(brewermap([],'*RdBu'));
 axis image off;
 
-% Plot center-of-mass by color
-k_px_com = sum(ctx_str_kernel_cat_mean_norm.* ...
-    permute(1:size(ctx_str_kernel_cat_mean_norm,3),[1,3,2]),3)./ ...
-    sum(ctx_str_kernel_cat_mean_norm,3);
+% Plot center-of-mass color
+n_aligned_depths = sum(use_depths);
+k_px_norm = k_px_cat_pad_mean_norm(:,:,use_depths);
+
+k_px_com = sum(k_px_norm.*permute(1:n_aligned_depths,[1,3,2]),3)./sum(k_px_norm,3);
 
 use_colormap = min(jet(255)-0.2,1);
 k_px_com_colored = ...
-        ind2rgb(round(mat2gray(k_px_com,...
-        [1,size(ctx_str_kernel_cat_mean_norm,3)])* ...
-        size(use_colormap,1)),use_colormap);
+    ind2rgb(round(mat2gray(k_px_com,...
+    [1,n_aligned_depths])*size(use_colormap,1)),use_colormap);
 
-weight_max = 1;
-ctx_str_kernel_cat_mean_norm_max = max(ctx_str_kernel_cat_mean_norm,[],3);
 figure;
-image(k_px_com_colored,'AlphaData',mat2gray(ctx_str_kernel_cat_mean_norm_max,[0,weight_max]));
+p = image(k_px_com_colored);
+set(p,'AlphaData',mat2gray(max(k_px_norm,[],3),[0,1]));
+axis image off;
 AP_reference_outline('ccf_aligned',[0.5,0.5,0.5]);
-axis image off
+
+
 
 
 %% Fig 2??: Kernel clustering 
+
+warning('testing section')
+%%%%%%%%%%%%%%%%%%%%%
+
+n_depths_animal = cellfun(@(x) ...
+    sum(cellfun(@(x) size(x,3),x)),{ephys_kernel_depth.k_px});
+
+a = k_px_cat_pad_mean_norm(:,:,use_depths);
+
+b = cell2mat(cellfun(@(x) reshape(x,[],size(x,3)),k_px_cat,'uni',false)');
+
+c = corr(b,reshape(a,[],size(a,3)));
+
+c1 = mat2gray(c,[0,1]);
+c_com = sum(c1.*(1:size(c,2)),2)./sum(c1,2);
+
+c_d = discretize(c_com,1:sum(use_depths));
+
+[~,max_idx] = max(c,[],2);
+figure;plot(accumarray(max_idx,1));
+
+max_idx_animal = mat2cell(max_idx,n_depths_animal);
+m = cell2mat(cellfun(@(x) accumarray(x,1,[sum(use_depths),1],@sum,NaN)./length(x),max_idx_animal,'uni',false)');
+figure;errorbar(nanmean(m,2),AP_sem(m,2))
+ylabel('Fraction of segments');
+xlabel('Max corr depth');
+
+%%%%%%%%%%%%%%%%%%%%%
+
 
 % Load kernels by depths
 kernel_path = 'C:\Users\Andrew\OneDrive for Business\Documents\CarandiniHarrisLab\analysis\wf_ephys_choiceworld\ephys_processing';
@@ -1080,7 +1139,10 @@ for curr_trial_set = 1:2
         use_align = {stim_align,move_align,outcome_align};
         
         align_col = [1,0,0;0.8,0,0.8;0,0,0.8];
-        align_t = {[-0.05,0.15],[0.15,0.5],[0.5,1]};
+        % (split the alignment halfway between median alignment points)
+        align_median = cellfun(@(x) -nanmedian(x(plot_trials))/sample_rate,use_align);
+        align_break = align_median(1:end-1) + diff(align_median*0.8);
+        align_t = {[-0.05,align_break(1)],[align_break(1:2)],[align_break(2),1]};
         
         p(curr_depth,4) = subplot(n_depths,4,4+(curr_depth-1)*4); hold on
         for curr_align = 1:length(use_align)

@@ -9,7 +9,7 @@
 
 % (task)
 % data_fn = 'trial_activity_choiceworld'; % Primary dataset
-% data_fn = 'trial_activity_choiceworld_15strdepth'; % Depth-aligned striatum
+% data_fn = 'trial_activity_choiceworld_16strdepth'; % Depth-aligned striatum
 % exclude_data = false;
 
 % (task, combined)
@@ -534,53 +534,95 @@ axis tight;
 
 %% Fig 2a: Cortex > striatum kernels by depth
 
-% Load and concatenate kernels and STA
-protocol = 'vanillaChoiceworld';
+% Load kernels by depths
+kernel_path = 'C:\Users\Andrew\OneDrive for Business\Documents\CarandiniHarrisLab\analysis\wf_ephys_choiceworld\ephys_processing';
+kernel_fn = ['ephys_kernel_depth'];
+load([kernel_path filesep kernel_fn])
+k_px_cat = horzcat(ephys_kernel_depth(:).k_px)';
 
+% Load, concatenate, mean STA
 data_path = 'C:\Users\Andrew\OneDrive for Business\Documents\CarandiniHarrisLab\analysis\wf_ephys_choiceworld\paper\data';
-k_fn = [data_path filesep 'ctx_str_kernels_' protocol ,'_15strdepths'];
+k_fn = [data_path filesep 'ctx_str_kernels_vanillaChoiceworld_16strdepths'];
 load(k_fn);
+ctx_str_sta_mean = nanmean(cell2mat(permute(horzcat(ctx_str_sta{:}),[1,3,4,2])),4);
+ctx_str_sta_mean_norm = ctx_str_sta_mean./max(max(ctx_str_sta_mean,[],1),[],2);
 
-ctx_str_kernel_cat = cell2mat(permute(horzcat(ctx_str_kernel{:}),[1,3,4,5,2]));
-ctx_str_sta_cat = cell2mat(permute(horzcat(ctx_str_sta{:}),[1,3,4,2]));
+% Pad and concatenate kernels
+max_depths = max(cellfun(@(x) size(x,3),k_px_cat));
+k_px_cat_pad = cell2mat(permute(cellfun(@(x) padarray(x, ...
+    [0,0,max_depths-size(x,3)],NaN,'pre'),k_px_cat,'uni',false),[2,3,4,1]));
+k_px_cat_pad_mean = nanmean(k_px_cat_pad,4);
+k_px_cat_pad_mean_norm = k_px_cat_pad_mean./max(max(k_px_cat_pad_mean,[],1),[],2);
 
-% (use only depths in > 50% of recordings)
-frac_depths = nanmean(~squeeze(all(all(isnan(ctx_str_sta_cat),1),2)),2);
+frac_depths = squeeze(nanmean(all(all(~isnan(k_px_cat_pad),1),2),4));
 use_depths = frac_depths > 0.5;
 
-ctx_str_kernel_cat_mean = squeeze(nanmean(ctx_str_kernel_cat(:,:,median(1:size(ctx_str_kernel_cat,3)),use_depths,:),5));
-ctx_str_sta_cat_mean = nanmean(ctx_str_sta_cat(:,:,use_depths,:),4);
-
-ctx_str_kernel_cat_mean_norm = ctx_str_kernel_cat_mean./max(max(medfilt3(ctx_str_kernel_cat_mean,[11,11,1]),[],1),[],2);
-ctx_str_sta_cat_mean_norm = ctx_str_sta_cat_mean./max(max(medfilt3(ctx_str_sta_cat_mean,[11,11,1]),[],1),[],2);
-
-figure;imagesc( ...
-    [reshape(ctx_str_sta_cat_mean_norm,size(ctx_str_sta_cat_mean_norm,1),[]); ...
-    reshape(ctx_str_kernel_cat_mean_norm,size(ctx_str_kernel_cat_mean_norm,1),[])]);
+% Plot STA and kernels
+if size(k_px_cat_pad_mean_norm,3) ~= size(ctx_str_sta_mean,3)
+    error('Different n depths');
+end
+figure;
+subplot(2,1,1);
+imagesc(reshape(ctx_str_sta_mean_norm(:,:,use_depths),size(ctx_str_sta_mean_norm,1),[]));
+caxis([-1,1]);
+colormap(brewermap([],'*RdBu'));
+axis image off;
+subplot(2,1,2);
+imagesc(reshape(k_px_cat_pad_mean_norm(:,:,use_depths),size(k_px_cat_pad,1),[]));
 caxis([-1,1]);
 colormap(brewermap([],'*RdBu'));
 axis image off;
 
-% Plot center-of-mass by color
-k_px_com = sum(ctx_str_kernel_cat_mean_norm.* ...
-    permute(1:size(ctx_str_kernel_cat_mean_norm,3),[1,3,2]),3)./ ...
-    sum(ctx_str_kernel_cat_mean_norm,3);
+% Plot center-of-mass color
+n_aligned_depths = sum(use_depths);
+k_px_norm = k_px_cat_pad_mean_norm(:,:,use_depths);
+
+k_px_com = sum(k_px_norm.*permute(1:n_aligned_depths,[1,3,2]),3)./sum(k_px_norm,3);
 
 use_colormap = min(jet(255)-0.2,1);
 k_px_com_colored = ...
-        ind2rgb(round(mat2gray(k_px_com,...
-        [1,size(ctx_str_kernel_cat_mean_norm,3)])* ...
-        size(use_colormap,1)),use_colormap);
+    ind2rgb(round(mat2gray(k_px_com,...
+    [1,n_aligned_depths])*size(use_colormap,1)),use_colormap);
 
-weight_max = 1;
-ctx_str_kernel_cat_mean_norm_max = max(ctx_str_kernel_cat_mean_norm,[],3);
 figure;
-image(k_px_com_colored,'AlphaData',mat2gray(ctx_str_kernel_cat_mean_norm_max,[0,weight_max]));
+p = image(k_px_com_colored);
+set(p,'AlphaData',mat2gray(max(k_px_norm,[],3),[0,1]));
+axis image off;
 AP_reference_outline('ccf_aligned',[0.5,0.5,0.5]);
-axis image off
+
+
 
 
 %% Fig 2??: Kernel clustering 
+
+warning('testing section')
+%%%%%%%%%%%%%%%%%%%%%
+
+n_depths_animal = cellfun(@(x) ...
+    sum(cellfun(@(x) size(x,3),x)),{ephys_kernel_depth.k_px});
+
+a = k_px_cat_pad_mean_norm(:,:,use_depths);
+
+b = cell2mat(cellfun(@(x) reshape(x,[],size(x,3)),k_px_cat,'uni',false)');
+
+c = corr(b,reshape(a,[],size(a,3)));
+
+c1 = mat2gray(c,[0,1]);
+c_com = sum(c1.*(1:size(c,2)),2)./sum(c1,2);
+
+c_d = discretize(c_com,1:sum(use_depths));
+
+[~,max_idx] = max(c,[],2);
+figure;plot(accumarray(max_idx,1));
+
+max_idx_animal = mat2cell(max_idx,n_depths_animal);
+m = cell2mat(cellfun(@(x) accumarray(x,1,[sum(use_depths),1],@sum,NaN)./length(x),max_idx_animal,'uni',false)');
+figure;errorbar(nanmean(m,2),AP_sem(m,2))
+ylabel('Fraction of segments');
+xlabel('Max corr depth');
+
+%%%%%%%%%%%%%%%%%%%%%
+
 
 % Load kernels by depths
 kernel_path = 'C:\Users\Andrew\OneDrive for Business\Documents\CarandiniHarrisLab\analysis\wf_ephys_choiceworld\ephys_processing';
@@ -885,6 +927,8 @@ end
 
 
 %% Fig 2b,d: Average cortex > striatum domain kernels
+
+error('This is being replaced');
 
 protocols = {'vanillaChoiceworld','stimSparseNoiseUncorrAsync'};
 

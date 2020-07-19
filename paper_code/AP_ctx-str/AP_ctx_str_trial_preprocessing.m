@@ -91,7 +91,7 @@ clear all
 
 disp('Cortex -> striatum regression maps across protocols');
 
-n_aligned_depths = 15;
+n_aligned_depths = 16;
 
 % Parameters for regression
 regression_params.use_svs = 1:100;
@@ -381,7 +381,7 @@ clear all
 disp('Choiceworld trial activity (striatum depth)')
 
 animals = {'AP024','AP025','AP026','AP027','AP028','AP029'};
-n_aligned_depths = 15;
+n_aligned_depths = 16;
 
 % Initialize save variable
 trial_data_all = struct;
