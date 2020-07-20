@@ -1081,6 +1081,35 @@ xlabel('(post-pre)/(post+pre)');
 ylabel('Striatal depth');
 title('Muscimol change');
 
+%%%%%%%%% ADDING STATS HERE
+
+% (Condition statistics)
+curr_depth = 1;
+signrank
+spike_rate_cond_cat
+
+
+% (Regressor weight sum by condition statistics)
+disp('Regressor v condition 2-way anova (only disp condition effect):')
+for curr_depth = 1:n_depths
+    for curr_regressor = 1:length(task_regressor_labels)
+        
+        curr_prepost = permute(cat(4, ...
+            str_k_sum_premuscimol{curr_regressor}(:,curr_depth,:), ...
+            str_k_sum_postmuscimol{curr_regressor}(:,curr_depth,:)),[1,3,4,2]);
+        
+        [regressor_grp,exp_grp,condition_grp] = meshgrid( ...
+            1:size(curr_prepost,1),1:size(curr_prepost,2),1:size(curr_prepost,3));
+        
+        curr_p = anovan(reshape(curr_prepost,[],1), ...
+            [regressor_grp(:),condition_grp(:)],'display','off');
+        
+        disp(['Str ' num2str(curr_depth) ' ' task_regressor_labels{curr_regressor} ...
+            ' p = ' num2str(curr_p(2)')]);
+        
+    end
+end
+
 
 %% ^^^ Striatum cortical kernels pre/post muscimol
 error('I don''t think this should be included');
