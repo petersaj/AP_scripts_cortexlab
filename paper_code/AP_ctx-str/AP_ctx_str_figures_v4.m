@@ -9,14 +9,14 @@
 
 % (task)
 % data_fn = 'trial_activity_choiceworld'; % Primary dataset
-% data_fn = 'trial_activity_choiceworld_15strdepth'; % Depth-aligned striatum
+% data_fn = 'trial_activity_choiceworld_16strdepth'; % Depth-aligned striatum
 % exclude_data = false;
 
-% % (task, combined)
-% data_fn = { ...
-%     'trial_activity_choiceworld'... 
-%     'trial_activity_vanillaChoiceworld_ctxstrephys_str'...
-%     'trial_activity_vanillaChoiceworldNoRepeats_pre_muscimol'};
+% (task, combined)
+data_fn = { ...
+    'trial_activity_choiceworld'... 
+    'trial_activity_vanillaChoiceworld_ctxstrephys_str'...
+    'trial_activity_vanillaChoiceworldNoRepeats_pre_muscimol'};
 
 % (passive)
 % data_fn = 'trial_activity_AP_choiceWorldStimPassive_trained';
@@ -25,11 +25,11 @@
 % data_fn = 'trial_activity_stimKalatsky_trained';
 % exclude_data = false;
 
-% (passive, combined)
-data_fn = { ...
-    'trial_activity_AP_choiceWorldStimPassive_trained'... 
-    'trial_activity_AP_lcrGratingPassive_ctxstrephys_str'...
-    'trial_activity_AP_lcrGratingPassive_pre_muscimol'};
+% % (passive, combined)
+% data_fn = { ...
+%     'trial_activity_AP_choiceWorldStimPassive_trained'... 
+%     'trial_activity_AP_lcrGratingPassive_ctxstrephys_str'...
+%     'trial_activity_AP_lcrGratingPassive_pre_muscimol'};
 
 % (unused at the moment)
 % data_fn = 'trial_activity_choiceworld_wfonly'; % Widefield-only days (no craniotomy, so cleaner)
@@ -466,9 +466,11 @@ AP_cellraster({stimOn_times(plot_trials), ...
 
 %% Fig 1f: Striatum multiunit by depth
 
-% Depths to plot (manual: match number in fig 2)
-use_depths = false(n_depths,1);
-use_depths(end-11:end) = true;
+% Plot depths present in > 50% of recordings
+frac_depths = nanmean(cell2mat(cellfun(@(x) ...
+    nanmean(~squeeze(all(all(isnan(x),1),2)),2), ...
+    vertcat(mua_all{:})','uni',false)),2);
+use_depths = frac_depths > 0.5;
 
 % Plot average stimulus-aligned activity in striatum
 plot_trials = move_t < 0.5 & trial_stim_allcat > 0 & trial_choice_allcat == -1;
@@ -730,7 +732,7 @@ for curr_depth = 1:n_aligned_depths
 end
 
 % Plot domain locations
-str_col = copper(n_aligned_depths);
+str_col = max(hsv(n_aligned_depths)-0.2,0);
 figure; hold on;
 colormap(str_col);
 area(kernel_match_frac,'FaceColor','flat');
@@ -2592,7 +2594,7 @@ end
 warning('new figure?');
 
 figure; hold on;
-str_col = copper(n_aligned_depths);
+str_col = max(hsv(n_aligned_depths)-0.2,0);
 for curr_str = 1:n_aligned_depths
    scatter(taskpred_r2(:,curr_str),ctxpred_r2(:,curr_str),5, ...
        str_col(curr_str,:),'filled');
@@ -2672,18 +2674,18 @@ legend({'Task','Cortex'});
 
 % Plot explained variance task vs cortex by experiment
 figure; hold on;
-str_col = copper(n_depths);
+str_col = max(hsv(n_depths)-0.2,0);
 for curr_str = 1:n_depths
     errorbar(squeeze(nanmean(taskpred_r2(:,curr_str),1)), ...
         squeeze(nanmean(ctxpred_r2(:,curr_str),1)), ...
         squeeze(AP_sem(ctxpred_r2(:,curr_str),1)),squeeze(AP_sem(ctxpred_r2(:,curr_str),1)), ...
         squeeze(AP_sem(taskpred_r2(:,curr_str),1)),squeeze(AP_sem(taskpred_r2(:,curr_str),1)), ...
-        'color','k','linewidth',2);
+        'color',str_col(curr_str,:),'linewidth',2);
     
     scatter(taskpred_r2(:,curr_str),ctxpred_r2(:,curr_str),10, ...
         str_col(curr_str,:),'filled');
     scatter(nanmean(taskpred_r2(:,curr_str),1), ...
-        nanmean(ctxpred_r2(:,curr_str),1),150, ...
+        nanmean(ctxpred_r2(:,curr_str),1),80, ...
         str_col(curr_str,:),'filled');
 end
 axis tight;

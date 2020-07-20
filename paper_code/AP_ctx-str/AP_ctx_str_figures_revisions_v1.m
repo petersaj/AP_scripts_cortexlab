@@ -1219,23 +1219,24 @@ for curr_data = 1:length(data_fns)
     mua_allcat_exp = mat2cell(mua_allcat,trials_recording,length(t),n_depths);
     mua_ctxpred_allcat_exp = mat2cell(mua_ctxpred_allcat,trials_recording,length(t),n_depths);
             
-    % (use the norm from pre-muscimol)     
-    mua_prepost_norm{curr_data} = vertcat(mua_norm{:});
-    mua_allcat_exp = cellfun(@(act,curr_norm,use_norm) ...
-        (act.*curr_norm)./use_norm,mua_allcat_exp, ...
-        vertcat(mua_norm{:}),mua_prepost_norm{1},'uni',false);
-    mua_ctxpred_allcat_exp = cellfun(@(act,curr_norm,use_norm) ...
-        (act.*curr_norm)./use_norm,mua_ctxpred_allcat_exp, ...
-        vertcat(mua_norm{:}),mua_prepost_norm{1},'uni',false);
-    
-    fluor_kernelroi_prepost_norm{curr_data} = fluor_kernelroi_norm;
-    fluor_kernelroi_deconv_exp = cellfun(@(act,curr_norm,use_norm) ...
-        (act.*curr_norm)./use_norm,fluor_kernelroi_deconv_exp, ...
-        fluor_kernelroi_norm,fluor_kernelroi_prepost_norm{1},'uni',false);
+    warning('TESTING NO NORM DIFFERENCE');
+%     % (use the norm from pre-muscimol)     
+%     mua_prepost_norm{curr_data} = vertcat(mua_norm{:});
+%     mua_allcat_exp = cellfun(@(act,curr_norm,use_norm) ...
+%         (act.*curr_norm)./use_norm,mua_allcat_exp, ...
+%         vertcat(mua_norm{:}),mua_prepost_norm{1},'uni',false);
+%     mua_ctxpred_allcat_exp = cellfun(@(act,curr_norm,use_norm) ...
+%         (act.*curr_norm)./use_norm,mua_ctxpred_allcat_exp, ...
+%         vertcat(mua_norm{:}),mua_prepost_norm{1},'uni',false);
+%     
+%     fluor_kernelroi_prepost_norm{curr_data} = fluor_kernelroi_norm;
+%     fluor_kernelroi_deconv_exp = cellfun(@(act,curr_norm,use_norm) ...
+%         (act.*curr_norm)./use_norm,fluor_kernelroi_deconv_exp, ...
+%         fluor_kernelroi_norm,fluor_kernelroi_prepost_norm{1},'uni',false);
     
     % Exclude trials with fluorescence spikes
     % (this is a dirty way to do this but don't have a better alt)
-    fluor_spike_thresh = 100;
+    fluor_spike_thresh = 0.5; % deconv df/f threshold (eyeballed)
     fluor_spike_trial = cellfun(@(x) any(any(x > fluor_spike_thresh,2),3), ...
         fluor_kernelroi_deconv_exp,'uni',false);
     
@@ -1282,7 +1283,7 @@ colormap(brewermap([],'*RdBu'));
 
 
 figure;
-t_stim = t >= 0.05 & t <= 0.15;
+t_stim = t >= 0 & t <= 0.2;
 
 subplot(1,2,1)
 imagesc(nanmean(fluor_premuscimol_mean(:,:,t_stim),3));
@@ -1325,20 +1326,28 @@ fluor_kernelroi_premuscimol_mean = ...
 fluor_kernelroi_postmuscimol_mean = ...
     cell2mat(cellfun(@(x,stim) nanmean(x(stim == use_stim,:,:),1),fluor_kernelroi_muscimol{2},stimIDs{2},'uni',false));
 
-% Plot pre/post muscimol and repsonse change for pair of str/ctx
-t_stim = t >= 0 & t <= 0.2;
-mua_avg_premuscimol = permute(nanmean(mua_premuscimol_mean(:,t_stim,:),2),[1,3,2]);
-mua_avg_postmuscimol = permute(nanmean(mua_postmuscimol_mean(:,t_stim,:),2),[1,3,2]);
-mua_avg_postpre_change = (mua_avg_postmuscimol-mua_avg_premuscimol);
+% Fit scaling factor (change) pre-post
+n_exps = length(stimIDs{1});
+str_muscimol_change = nan(n_exps,n_depths);
+ctx_muscimol_change = nan(n_exps,n_depths);
+for curr_depth = 1:n_depths
+    for curr_exp = 1:n_exps
+        str_muscimol_change(curr_exp,curr_depth) = ...
+            mua_premuscimol_mean(curr_exp,:,curr_depth)'\ ...
+            mua_postmuscimol_mean(curr_exp,:,curr_depth)';
+        
+        ctx_muscimol_change(curr_exp,curr_depth) = ...
+            fluor_kernelroi_premuscimol_mean(curr_exp,:,curr_depth)'\ ...
+            fluor_kernelroi_postmuscimol_mean(curr_exp,:,curr_depth)';
+    end
+end
 
-fluor_avg_premuscimol = permute(nanmean(fluor_kernelroi_premuscimol_mean(:,t_stim,:),2),[1,3,2]);
-fluor_avg_postmuscimol = permute(nanmean(fluor_kernelroi_postmuscimol_mean(:,t_stim,:),2),[1,3,2]);
-fluor_avg_postpre_change = (fluor_avg_postmuscimol-fluor_avg_premuscimol);
-
+% Plot time courses and change
 figure;
+p = gobjects(n_depths,3);
 for plot_str = 1:n_depths
     
-    subplot(n_depths,3,(plot_str-1)*n_depths+1);hold on;
+    p(plot_str,1) = subplot(n_depths,3,(plot_str-1)*n_depths+1); hold on;
     AP_errorfill(t,nanmean(mua_premuscimol_mean(:,:,plot_str),1)', ...
         AP_sem(mua_premuscimol_mean(:,:,plot_str),1)','k');
     AP_errorfill(t,nanmean(mua_postmuscimol_mean(:,:,plot_str),1)', ...
@@ -1348,7 +1357,7 @@ for plot_str = 1:n_depths
     ylabel(['Str ' num2str(plot_str)]);
     axis square
     
-    subplot(n_depths,3,(plot_str-1)*n_depths+2);hold on;
+    p(plot_str,2) = subplot(n_depths,3,(plot_str-1)*n_depths+2); hold on;
     AP_errorfill(t,nanmean(fluor_kernelroi_premuscimol_mean(:,:,plot_str),1)', ...
         AP_sem(fluor_kernelroi_premuscimol_mean(:,:,plot_str),1)','k');
     AP_errorfill(t,nanmean(fluor_kernelroi_postmuscimol_mean(:,:,plot_str),1)', ...
@@ -1358,25 +1367,24 @@ for plot_str = 1:n_depths
     ylabel('Cortex ROI');
     axis square
     
-    subplot(n_depths,3,(plot_str-1)*n_depths+3);
-    plot(fluor_avg_postpre_change(:,plot_str),mua_avg_postpre_change(:,plot_str),'.k','MarkerSize',20)
+    p(plot_str,3) = subplot(n_depths,3,(plot_str-1)*n_depths+3);
+    plot(ctx_muscimol_change(:,plot_str),str_muscimol_change(:,plot_str),'.k','MarkerSize',20)
     xlabel(['Cortex ROI (post-pre)']);
     ylabel(['Str ' num2str(plot_str) ' (post-pre)']);
-    line([-1,1],[0,0],'color','k','linestyle','--');
-    line([0,0],[-1,1],'color','k','linestyle','--');
-    line([-1,1],[-1,1],'color','k');
-    xlim([-1.1,1.1]);
-    ylim([-1.1,1.1]);
-    axis square;
-    
-    nonan_points = ~isnan(mua_avg_postpre_change(:,plot_str)) & ...
-        ~isnan(fluor_avg_postpre_change(:,plot_str));
-    [r,p] = corrcoef(fluor_avg_postpre_change(nonan_points,plot_str), ...
-        mua_avg_postpre_change(nonan_points,plot_str));
-    title({['r = ' num2str(r(2))],['p = ' num2str(p(2))]})
+    line(xlim,xlim,'color','k','linestyle','--');
 
 end
+linkaxes(p(:,1),'xy');
+linkaxes(p(:,2),'xy');
 
+% (str/ctx muscimol statistics)
+disp('Striatum/cortex muscimol change correlation:')
+for curr_depth = 1:n_depths
+    [r,p] = corr(str_muscimol_change(:,curr_depth), ...
+        ctx_muscimol_change(:,curr_depth), ...
+        'rows','complete','type','spearman');
+    disp(['Str ' num2str(curr_depth) ' p = ' num2str(p) ' r = ' num2str(r)]);
+end
 
 
 %% ^^^ Task performance pre/post muscimol
@@ -2004,7 +2012,7 @@ end
 %% ~~~~~~~~~ NEED FINALIZING:
 
 
-%% Kernel correlation
+%% Task kernel str/ctx correlation
 % (UPDATE THESE VARIABLE NAMES)
 
 % Normalize task > striatum kernels across experiments with mua_norm

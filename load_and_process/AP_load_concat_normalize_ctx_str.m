@@ -282,20 +282,21 @@ fluor_kernelroi_day_std = ...
 
 % Normalize fluor
 
-% % (don't normalize)
-% fluor_roi_norm = 1;
-% fluor_kernelroi_norm = 1;
+% (don't normalize)
+warning('TESTING NO NORM ON FLUOR');
+fluor_roi_norm = 1;
+fluor_kernelroi_norm = 1;
 
 % % % (use day std)
 % fluor_roi_norm = fluor_roi_day_std;
 % fluor_kernelroi_norm = fluor_kernelroi_day_std;
 
-% (use day baseline std)
-fluor_roi_norm = fluor_roi_day_baseline_std;
-fluor_kernelroi_norm = fluor_kernelroi_day_baseline_std;
+% % (use day baseline std)
+% fluor_roi_norm = fluor_roi_day_baseline_std;
+% fluor_kernelroi_norm = fluor_kernelroi_day_baseline_std;
 
-fluor_roi_deconv = (fluor_roi_deconv - cell2mat(fluor_roi_trial_baseline))./cell2mat(fluor_roi_norm);
-fluor_kernelroi_deconv = (fluor_kernelroi_deconv - cell2mat(fluor_kernelroi_trial_baseline))./cell2mat(fluor_kernelroi_norm);
+% fluor_roi_deconv = (fluor_roi_deconv - cell2mat(fluor_roi_trial_baseline))./cell2mat(fluor_roi_norm);
+% fluor_kernelroi_deconv = (fluor_kernelroi_deconv - cell2mat(fluor_kernelroi_trial_baseline))./cell2mat(fluor_kernelroi_norm);
 
 if task_dataset
     % Get task-predicted activity
@@ -374,7 +375,12 @@ if exist('mua_all','var')
     
     % (set baseline and norm)
     mua_use_baseline = mua_trial_baseline;
-    mua_norm = mua_day_baseline_std; % mua_day_baseline_std or mua_day_std
+    mua_norm = mua_day_baseline_std; % mua_day_baseline_std, mua_day_std
+    
+    %%%%%%%% TESTING
+    warning('************MUA NORM: SOFT BASELINE')
+    mua_rate_soften = 10;
+    mua_norm = cellfun(@(x) cellfun(@(x) x+mua_rate_soften,x,'uni',false),mua_day_baseline,'uni',false);
     
     % (NaN-out days with no spikes)
     mua_nan_trials = cell2mat(cellfun(@(x) ...
