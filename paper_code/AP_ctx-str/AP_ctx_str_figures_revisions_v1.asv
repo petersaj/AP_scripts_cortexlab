@@ -1177,7 +1177,7 @@ for protocol = protocols
 end
 
 
-%% ^^^ Cortex/striatum passive gratings pre/post muscimol
+%% ^^^ Cortex/striatum passive stim pre/post muscimol
 
 data_fns = { ...
     'trial_activity_AP_lcrGratingPassive_pre_muscimol', ...
@@ -1321,43 +1321,15 @@ fluor_kernelroi_premuscimol_mean = ...
 fluor_kernelroi_postmuscimol_mean = ...
     cell2mat(cellfun(@(x,stim) nanmean(x(stim == use_stim,:,:),1),fluor_kernelroi_muscimol{2},stimIDs{2},'uni',false));
 
-% Plot all str responses
-figure;
-for curr_str = 1:n_depths
-    subplot(n_depths,1,curr_str);
-    AP_errorfill(t,nanmean(mua_premuscimol_mean(:,:,curr_str),1)', ...
-        AP_sem(mua_premuscimol_mean(:,:,curr_str),1)','k',1,false);
-    AP_errorfill(t,nanmean(mua_postmuscimol_mean(:,:,curr_str),1)', ...
-        AP_sem(mua_postmuscimol_mean(:,:,curr_str),1)','r',1,false);
-    xlabel('Time from stim (s)');
-    ylabel('Spikes (std)');
-    title(['Str ' num2str(curr_str)]);
-end
-linkaxes(get(gcf,'Children'))
-
-% Plot ctx responses
-figure;
-plot_ctx = [1,3,7];
-for curr_ctx_idx = 1:length(plot_ctx)
-    curr_ctx = plot_ctx(curr_ctx_idx);
-    subplot(length(plot_ctx),1,curr_ctx_idx);
-    AP_errorfill(t,nanmean(fluor_roi_premuscimol_mean(:,:,curr_ctx),1)', ...
-        AP_sem(fluor_roi_premuscimol_mean(:,:,curr_ctx),1)','k',1,false);
-    AP_errorfill(t,nanmean(fluor_roi_postmuscimol_mean(:,:,curr_ctx),1)', ...
-        AP_sem(fluor_roi_postmuscimol_mean(:,:,curr_ctx),1),'r',1,false);
-    ylabel(wf_roi(curr_ctx).area);
-end
-linkaxes(get(gcf,'Children'))
-
 % Plot pre/post muscimol and repsonse change for pair of str/ctx
-t_stim = t >= 0.05 & t <= 0.15;
+t_stim = t >= 0 & t <= 0.2;
 mua_avg_premuscimol = permute(nanmean(mua_premuscimol_mean(:,t_stim,:),2),[1,3,2]);
 mua_avg_postmuscimol = permute(nanmean(mua_postmuscimol_mean(:,t_stim,:),2),[1,3,2]);
-mua_avg_postpre_change = (mua_avg_postmuscimol-mua_avg_premuscimol)./(abs(mua_avg_premuscimol)+abs(mua_avg_postmuscimol));
+mua_avg_postpre_change = (mua_avg_postmuscimol-mua_avg_premuscimol);
 
 fluor_avg_premuscimol = permute(nanmean(fluor_kernelroi_premuscimol_mean(:,t_stim,:),2),[1,3,2]);
 fluor_avg_postmuscimol = permute(nanmean(fluor_kernelroi_postmuscimol_mean(:,t_stim,:),2),[1,3,2]);
-fluor_avg_postpre_change = (fluor_avg_postmuscimol-fluor_avg_premuscimol)./(abs(fluor_avg_premuscimol)+abs(fluor_avg_postmuscimol));
+fluor_avg_postpre_change = (fluor_avg_postmuscimol-fluor_avg_premuscimol);
 
 figure;
 for plot_str = 1:n_depths
@@ -1385,7 +1357,7 @@ for plot_str = 1:n_depths
     subplot(n_depths,3,(plot_str-1)*n_depths+3);
     plot(fluor_avg_postpre_change(:,plot_str),mua_avg_postpre_change(:,plot_str),'.k','MarkerSize',20)
     xlabel(['Cortex ROI (post-pre)']);
-    ylabel(['Str ' num2str(plot_str) ' (post-pre)/(abs(pre)+abs(post))']);
+    ylabel(['Str ' num2str(plot_str) ' (post-pre)']);
     line([-1,1],[0,0],'color','k','linestyle','--');
     line([0,0],[-1,1],'color','k','linestyle','--');
     line([-1,1],[-1,1],'color','k');
@@ -1400,6 +1372,48 @@ for plot_str = 1:n_depths
     title({['r = ' num2str(r(2))],['p = ' num2str(p(2))]})
 
 end
+
+
+
+
+mua_premuscimol_mean = ...
+    cell2mat(cellfun(@(x,stim) nanmean(x(stim == use_stim,:,:),1),mua_muscimol{1},stimIDs{1},'uni',false));
+mua_postmuscimol_mean = ...
+    cell2mat(cellfun(@(x,stim) nanmean(x(stim == use_stim,:,:),1),mua_muscimol{2},stimIDs{2},'uni',false));
+
+mua_ctxpred_premuscimol_mean = ...
+    cell2mat(cellfun(@(x,stim) nanmean(x(stim == use_stim,:,:),1),mua_ctxpred_muscimol{1},stimIDs{1},'uni',false));
+mua_ctxpred_postmuscimol_mean = ...
+    cell2mat(cellfun(@(x,stim) nanmean(x(stim == use_stim,:,:),1),mua_ctxpred_muscimol{2},stimIDs{2},'uni',false));
+
+fluor_roi_premuscimol_mean = ...
+    cell2mat(cellfun(@(x,stim) nanmean(x(stim == use_stim,:,:),1),fluor_roi_muscimol{1},stimIDs{1},'uni',false));
+fluor_roi_postmuscimol_mean = ...
+    cell2mat(cellfun(@(x,stim) nanmean(x(stim == use_stim,:,:),1),fluor_roi_muscimol{2},stimIDs{2},'uni',false));
+
+fluor_kernelroi_premuscimol_mean = ...
+    cell2mat(cellfun(@(x,stim) nanmean(x(stim == use_stim,:,:),1),fluor_kernelroi_muscimol{1},stimIDs{1},'uni',false));
+fluor_kernelroi_postmuscimol_mean = ...
+    cell2mat(cellfun(@(x,stim) nanmean(x(stim == use_stim,:,:),1),fluor_kernelroi_muscimol{2},stimIDs{2},'uni',false));
+
+
+
+% (stim response by choice statistics)
+disp('Time v condition 2-way anova:')
+for curr_depth = 1:n_depths
+    curr_mua_prepost = premute(cat(3, ...
+        mua_premuscimol_mean(:,:,curr_depth), ...
+        mua_postmuscimol_mean(:,:,curr_depth)),[2,3,1]);
+    
+    [t_grp,condition_grp,exp_grp] = meshgrid(1:size(curr_mua_prepost,1), ...
+        1:size(curr_mua_prepost,2),1:size(curr_mua_prepost,3));
+    
+    curr_p = anovan(reshape(stim_act_grp(:,:,curr_depth,:),[],1), ...
+        [stim_grp(:),choice_grp(:)],'display','off');
+    disp(['Str ' num2str(curr_depth) ' p = ' num2str(curr_p')]); 
+end
+
+
 
 %% ^^^ Task performance pre/post muscimol
 
@@ -1898,10 +1912,26 @@ end
 
 linkaxes(p,'y');
 
-disp('*********ADD HERE: correlation of kernels, task-ctx within should be more than task/ctx across');
-
-
-
+% (Regressor weight sum by condition statistics)
+disp('Regressor v condition 2-way anova (only disp condition effect):')
+for curr_depth = 1:n_depths
+    for curr_regressor = 1:length(task_regressor_labels)
+        
+        curr_prepost = permute(cat(4, ...
+            str_k_sum_premuscimol{curr_regressor}(:,curr_depth,:), ...
+            str_k_sum_postmuscimol{curr_regressor}(:,curr_depth,:)),[1,3,4,2]);
+        
+        [regressor_grp,exp_grp,condition_grp] = meshgrid( ...
+            1:size(curr_prepost,1),1:size(curr_prepost,2),1:size(curr_prepost,3));
+        
+        curr_p = anovan(reshape(curr_prepost,[],1), ...
+            [regressor_grp(:),condition_grp(:)],'display','off');
+        
+        disp(['Str ' num2str(curr_depth) ' ' task_regressor_labels{curr_regressor} ...
+            ' p = ' num2str(curr_p(2)')]);
+        
+    end
+end
 
 
 
