@@ -1982,102 +1982,78 @@ end
 %% ~~~~~~~~~ NEED FINALIZING:
 
 
-%% Deconv explained variance in cortex ephys
+%% Fluorescence deconvolution
+
+% Load and plot kernel
+% (flip time to be fluor lag:lead spikes);
+kernel_path = fileparts(which('AP_deconv_wf'))
+kernel_fn = [kernel_path filesep 'gcamp6s_kernel.mat'];
+load(kernel_fn);
+
+gcamp6s_kernel_cat = fliplr(vertcat(gcamp6s_kernel.regression{:}));
+gcamp6s_kernel_norm = gcamp6s_kernel_cat./max(abs(gcamp6s_kernel_cat),[],2);
+gcamp6s_kernel_mean = nanmean(gcamp6s_kernel_norm)
+
+figure; hold on;
+plot(gcamp6s_kernel.regression_t,gcamp6s_kernel_norm','color',[0.5,0.5,0.5]);
+plot(gcamp6s_kernel.regression_t,gcamp6s_kernel_mean,'k','linewidth',2);
+line(xlim,[0,0],'color','k','linestyle','--');
+line([0,0],ylim,'color','k','linestyle','--');
 
 
 % Load Fluor+ctx-ephys data
 load('C:\Users\Andrew\OneDrive for Business\Documents\CarandiniHarrisLab\analysis\wf_ephys_choiceworld\paper\data\ctx_deconv_traces');
 
+% Concatenate spikes/deconvolved fluorescence 
+% (full recording)
+ctx_fluor_full_cat = cellfun(@cell2mat,{ctx_deconv_traces.fluor},'uni',false);
+ctx_spikes_full_cat = cellfun(@cell2mat,{ctx_deconv_traces.spikes},'uni',false);
+ctx_fluor_deconv_full_cat = cellfun(@cell2mat,{ctx_deconv_traces.fluor_deconv},'uni',false);
 
-ctx_cat = vertcat(ctx_fluorpred.ctx{:});
-ctx_fluorpred_cat = vertcat(ctx_fluorpred.ctx_fluorpred{:});
+% (task)
+ctx_spikes_task_cat = cellfun(@(x,protocol) ...
+    cell2mat(x(strcmp(protocol,'vanillaChoiceworld'))), ...
+    {ctx_deconv_traces.spikes},{ctx_deconv_traces.protocol},'uni',false);
+ctx_fluor_deconv_task_cat = cellfun(@(x,protocol) ...
+    cell2mat(x(strcmp(protocol,'vanillaChoiceworld'))), ...
+    {ctx_deconv_traces.fluor_deconv},{ctx_deconv_traces.protocol},'uni',false);
 
-ctx_fluorpred_r2 = cellfun(@(ctx,fluorpred) ...
-    nansum((ctx-fluorpred).^2,2)./nansum((ctx-nanmean(ctx,2)).^2,2), ...
-    ctx_cat,ctx_fluorpred_cat,'uni',false);
+% (passive)
+ctx_spikes_notask_cat = cellfun(@(x,protocol) ...
+    cell2mat(x(strcmp(protocol,'AP_sparseNoise'))), ...
+    {ctx_deconv_traces.spikes},{ctx_deconv_traces.protocol},'uni',false);
+ctx_fluor_deconv_notask_cat = cellfun(@(x,protocol) ...
+    cell2mat(x(strcmp(protocol,'AP_sparseNoise'))), ...
+    {ctx_deconv_traces.fluor_deconv},{ctx_deconv_traces.protocol},'uni',false);
 
+% Get explained variance
+ctx_deconv_full_r2 = cellfun(@(spikes,fluor_deconv) ...
+    1-(nansum((spikes-fluor_deconv).^2)./nansum((spikes-nanmean(spikes)).^2)), ...
+    ctx_spikes_full_cat,ctx_fluor_deconv_full_cat);
 
+ctx_deconv_task_r2 = cellfun(@(spikes,fluor_deconv) ...
+    1-(nansum((spikes-fluor_deconv).^2)./nansum((spikes-nanmean(spikes)).^2)), ...
+    ctx_spikes_task_cat,ctx_fluor_deconv_task_cat);
 
-% THIS DIDN'T MAKE SENSE TO DO: the question is R2 of the deconvolution
-% kernel
-
-error('Do this with long traces instead?');
-
-
-data_fn = 'trial_activity_AP_lcrGratingPassive_ctxstrephys_ctx';
-% data_fn = 'trial_activity_vanillaChoiceworld_ctxstrephys_ctx';
-
-AP_load_concat_normalize_ctx_str;
-
-
-if exist('mua_taskpred_all','var') 
-    mua_exp = vertcat(mua_all{:});
-    mua_ctxpred_exp = vertcat(mua_ctxpred_all{:});
-    mua_taskpred_exp = vertcat(mua_taskpred_all{:});
-    
-    % MUA explained variance (widefield + task)
-    taskpred_r2 = nan(length(mua_exp),n_depths);
-    ctxpred_r2 = nan(length(mua_exp),n_depths);
-    ctxroipred_r2 = nan(length(mua_exp),n_depths);
-    for curr_exp = 1:length(mua_exp)
-        
-        curr_data = reshape(permute(mua_exp{curr_exp},[2,1,3]),[],n_depths);
-        curr_data_baselinesub = reshape(permute(mua_exp{curr_exp},[2,1,3]),[],n_depths) - ...
-            (nanmean(reshape(mua_exp{curr_exp}(:,t < 0,:),[],size(mua_exp{curr_exp},3)),1));
-        curr_taskpred_data = reshape(permute(mua_taskpred_exp{curr_exp},[2,1,3]),[],n_depths);
-        curr_ctxpred_data = reshape(permute(mua_ctxpred_exp{curr_exp},[2,1,3]),[],n_depths);
-        
-        % Set common NaNs
-        nan_samples = isnan(curr_data) | isnan(curr_data_baselinesub) | ...
-            isnan(curr_taskpred_data) | isnan(curr_ctxpred_data);
-        curr_data(nan_samples) = NaN;
-        curr_data_baselinesub(nan_samples) = NaN;
-        curr_taskpred_data(nan_samples) = NaN;
-        curr_ctxpred_data(nan_samples) = NaN;
-        
-        % (task regressed from average baseline-subtracted data)
-        taskpred_r2(curr_exp,:) = 1 - (nansum((curr_data_baselinesub-curr_taskpred_data).^2,1)./ ...
-            nansum((curr_data_baselinesub-nanmean(curr_data_baselinesub,1)).^2,1));
-        % (cortex regressed from raw data)
-        ctxpred_r2(curr_exp,:) = 1 - (nansum((curr_data-curr_ctxpred_data).^2,1)./ ...
-            nansum((curr_data-nanmean(curr_data,1)).^2,1));
-        
-    end
-    figure; hold on;
-    errorbar(nanmean(taskpred_r2,1),AP_sem(taskpred_r2,1),'b','linewidth',2,'CapSize',0);
-    errorbar(nanmean(ctxpred_r2,1),AP_sem(ctxpred_r2,1),'color',[0,0.6,0],'linewidth',2,'CapSize',0);
-    xlabel('Cortex depth');
-    ylabel('Task explained variance');  
-end
+ctx_deconv_notask_r2 = cellfun(@(spikes,fluor_deconv) ...
+    1-(nansum((spikes-fluor_deconv).^2)./nansum((spikes-nanmean(spikes)).^2)), ...
+    ctx_spikes_notask_cat,ctx_fluor_deconv_notask_cat);
 
 
+% Plot example
+example_recording = 3;
+
+figure; hold on
+plot(ctx_spikes_task_cat{example_recording})
+plot(ctx_fluor_deconv_task_cat{example_recording})
 
 
-mua_exp = vertcat(mua_all{:});
-mua_ctxpred_exp = vertcat(mua_ctxpred_all{:});
+% Display average and statistics
+disp(['Deconv explained var: ' num2str(nanmean(ctx_deconv_full_r2)) ...
+    ' +/- ' num2str(AP_sem(ctx_deconv_full_r2,2))]);
 
-
-% MUA explained variance (widefield only)
-ctxpred_r2 = nan(length(mua_exp),n_depths);
-for curr_exp = 1:length(mua_exp)
-       
-    curr_data = reshape(permute(mua_exp{curr_exp},[2,1,3]),[],n_depths);
-    curr_ctxpred_data = reshape(permute(mua_ctxpred_exp{curr_exp},[2,1,3]),[],n_depths);
-    
-    % Set common NaNs
-    nan_samples = isnan(curr_data) | isnan(curr_ctxpred_data);
-    curr_data(nan_samples) = NaN;
-    curr_ctxpred_data(nan_samples) = NaN;
-   
-    % (cortex regressed from raw data)
-    ctxpred_r2(curr_exp,:) = 1 - (nansum((curr_data-curr_ctxpred_data).^2,1)./ ...
-        nansum((curr_data-nanmean(curr_data,1)).^2,1));
-    
-end
-figure; hold on;
-errorbar(nanmean(ctxpred_r2,1),AP_sem(ctxpred_r2,1),'color',[0,0.6,0],'linewidth',2,'CapSize',0);
-xlabel('Cortex depth');
-ylabel('Explained variance');
+p = signrank(ctx_deconv_task_r2,ctx_deconv_notask_r2);
+disp(['Task vs no-task explained var: ' num2str(p)]);
 
 
 
