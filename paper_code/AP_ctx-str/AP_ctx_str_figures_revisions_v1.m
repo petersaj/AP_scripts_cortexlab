@@ -1824,20 +1824,13 @@ ctx_deconv_notask_r2 = cellfun(@(spikes,fluor_deconv) ...
     1-(nansum((spikes-fluor_deconv).^2)./nansum((spikes-nanmean(spikes)).^2)), ...
     ctx_spikes_notask_cat,ctx_fluor_deconv_notask_cat);
 
-% (Display average and statistics)
-disp(['Deconv explained var: ' num2str(nanmean(ctx_deconv_full_r2)) ...
-    ' +/- ' num2str(AP_sem(ctx_deconv_full_r2,2))]);
-
-p = signrank(ctx_deconv_task_r2,ctx_deconv_notask_r2);
-disp(['Task vs no-task explained var: ' num2str(p)]);
-
-
 
 %%% Plot example day
+
 animal = 'AP060';
 day = '2019-12-06';
 experiment = 1;
-plot_t = {[100,300]};
+plot_t = [100,300];
 
 figure;
 disp('Loading example data...');
@@ -1849,7 +1842,9 @@ site = 2; % (cortex always probe 2)
 str_align = 'none'; % (cortex)
 AP_load_experiment;
 
-% (COPIED FROM ABOVE: PLOT CORTEX MULTIUNIT AND FLUORESCENCE)
+% Load cortex recording alignment
+vis_ctx_ephys_fn = 'C:\Users\Andrew\OneDrive for Business\Documents\CarandiniHarrisLab\analysis\wf_ephys_choiceworld\ephys_processing\vis_ctx_ephys.mat';
+load(vis_ctx_ephys_fn);
 
 %%% DEPTH-ALIGN TEMPLATES, FIND CORTEX BOUNDARY
 curr_animal_idx = strcmp(animal,{vis_ctx_ephys.animal});
@@ -1914,7 +1909,6 @@ plot_spikes = spike_times_timeline >= plot_t(1) & ...
 plot(spike_times_timeline(plot_spikes),spike_depths(plot_spikes),'.k');
 ylabel('Striatum depth (\mum)');
 xlabel('Time (s)');
-linkaxes(get(raster_fig,'Children'),'x');
 
 %%%%%% PLOT WHEEL/STIM
 
@@ -1978,6 +1972,8 @@ subplot(6,1,5); hold on;
 plot(ctx_deconv_traces(example_recording).t{example_protocol}, ...
     mat2gray(ctx_deconv_traces(example_recording).fluor{example_protocol}), ...
     'color',[0,0.8,0],'linewidth',2);
+ylabel('ROI Fluor(\DeltaF/F)');
+xlabel('Time(s)')
 
 % (cortex MUA and deconvolved fluorescence)
 subplot(6,1,6); hold on;
@@ -1991,8 +1987,20 @@ linkaxes(get(gcf,'Children'),'x');
 ylabel('Cortex spikes (std)');
 xlabel('Time (s)');
 
+
+curr_axes = flipud(get(gcf,'Children'));
 % Link all time axes
-linkaxes(get(gcf,'Children'),'x');
+linkaxes(curr_axes,'x');
+% Link depth axes of raster plots (arbitrary depth, but want same scale)
+linkaxes(curr_axes(2:3),'xy');
+
+% (Display average and statistics)
+disp(['Deconv explained var: ' num2str(nanmean(ctx_deconv_full_r2)) ...
+    ' +/- ' num2str(AP_sem(ctx_deconv_full_r2,2))]);
+
+p = signrank(ctx_deconv_task_r2,ctx_deconv_notask_r2);
+disp(['Task vs no-task explained var: ' num2str(p)]);
+
 
 
 %% Task kernel str/ctx correlation
