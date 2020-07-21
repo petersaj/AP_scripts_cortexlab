@@ -641,26 +641,30 @@ ylabel('Cortical MUA max corr');
 
 
 
-%%%%%%%%%%%% TESTING STATISTICS
+% (Fluor-Ctx MUA vs Str-Ctx MUA correlation by depth statistics)
+use_str = 1;
+use_ctx_str_corr = squeeze(cortex_striatum_corr_cat(:,use_str,:));
+fluor_ctx_str_corr = diag(corr(use_ctx_str_corr,cortex_fluor_corr_cat,'rows','complete'));
 
-a = squeeze(cortex_striatum_corr_cat(:,1,:));
-b = cortex_fluor_corr_cat;
-
-c = diag(corr(a,b,'rows','complete'));
-
-n_shuff = 100;
+n_shuff = 10000;
+fluor_ctx_str_corr_shuff = nan(size(c,1),n_shuff);
 for curr_shuff = 1:n_shuff
-    a_shuff = a;
-    for i = 1:size(a_shuff,2)
-        curr_depth_idx = ~isnan(a_shuff(:,i));
-        a_shuff(curr_depth_idx,i) = circshift(a_shuff(curr_depth_idx,i), ...
-            randi(sum(curr_depth_idx)))
+    use_ctx_str_corr_circshift = use_ctx_str_corr;
+    for i = 1:size(use_ctx_str_corr_circshift,2)
+        curr_depth_idx = ~isnan(use_ctx_str_corr_circshift(:,i));
+        use_ctx_str_corr_circshift(curr_depth_idx,i) = circshift(use_ctx_str_corr_circshift(curr_depth_idx,i), ...
+            randi(sum(curr_depth_idx)));
     end   
-    c_shuff = diag(corr(a,b,'rows','complete'));
-
+    fluor_ctx_str_corr_shuff(:,curr_shuff) = ...
+        diag(corr(use_ctx_str_corr_circshift, ...
+        cortex_fluor_corr_cat,'rows','complete'));
 end
+corr_rank = tiedrank([nanmean(fluor_ctx_str_corr,1),nanmean(fluor_ctx_str_corr_shuff)]);
+corr_p = 1 - (corr_rank(1)/(n_shuff+1));
 
-
+disp('Fluor-ctx depth vs Str-ctx depth correlation (circshift stat):')
+disp(['p = ' num2str(corr_p) ', r = ' num2str(nanmean(fluor_ctx_str_corr)) ...
+    ' +/- SEM ' num2str(AP_sem(fluor_ctx_str_corr,1))])
 
 
 %% ^^^ Example recordings (task, passive)
@@ -2038,6 +2042,25 @@ end
 %% Deconv explained variance in cortex ephys
 
 
+% Load Fluor+ctx-ephys data
+load('C:\Users\Andrew\OneDrive for Business\Documents\CarandiniHarrisLab\analysis\wf_ephys_choiceworld\paper\data\ctx_fluorpred');
+
+
+ctx_cat = vertcat(ctx_fluorpred.ctx{:});
+ctx_fluorpred_cat = vertcat(ctx_fluorpred.ctx_fluorpred{:});
+
+ctx_fluorpred_r2 = cellfun(@(ctx,fluorpred) ...
+    nansum((ctx-fluorpred).^2,2)./nansum((ctx-nanmean(ctx,2)).^2,2), ...
+    ctx_cat,ctx_fluorpred_cat,'uni',false);
+
+
+
+% THIS DIDN'T MAKE SENSE TO DO: the question is R2 of the deconvolution
+% kernel
+
+error('Do this with long traces instead?');
+
+
 data_fn = 'trial_activity_AP_lcrGratingPassive_ctxstrephys_ctx';
 % data_fn = 'trial_activity_vanillaChoiceworld_ctxstrephys_ctx';
 
@@ -2240,9 +2263,11 @@ end
 
 
 
-%% Predict striatum with mutiple zeroed-out cortical regions
-
-% (load in a dataset first)
+%% Predict striatum with zeroed-out cortical regions
+% NOTE: this regression is done on trial data rather than the long time
+% courses which is what the normal analysis uses. For sanity check, the
+% explained using the full data (full) and the trials dataset (trials) are
+% compared here but not meant to be included.
 
 % Choose depths to run
 plot_depth = 1:n_depths;
@@ -2446,6 +2471,7 @@ errorbar(nanmean(ctxtrialpred_r2,1),AP_sem(ctxtrialpred_r2,1),'.-','linewidth',2
 legend({'Ctx full','Ctx trial'});
 xlabel('Striatum depth');
 ylabel('Explained variance');
+
 subplot(2,2,2);
 errorbar(permute(nanmean(ctxtrialpred_regionzero_r2,1),[3,2,1]), ...
     permute(AP_sem(ctxtrialpred_regionzero_r2,1),[3,2,1]),'.-','linewidth',2,'CapSize',0,'MarkerSize',30);
@@ -2459,6 +2485,37 @@ for i = 1:size(ctx_zero,3)
    AP_reference_outline('ccf_aligned',[0.5,0.5,0.5]);
    axis image off;
    colormap(gray);
+end
+
+%%%%% ADDING: STATISTICS
+
+ctxtrialpred_regionzero_r2
+
+for curr_depth = 1:n_depths
+
+    
+end
+
+
+% (Regressor weight sum by condition statistics)
+disp('Regressor v condition 2-way anova (only disp condition effect):')
+for curr_depth = 1:n_depths
+    for curr_regressor = 1:length(task_regressor_labels)
+        
+        curr_prepost = permute(cat(4, ...
+            str_k_sum_premuscimol{curr_regressor}(:,curr_depth,:), ...
+            str_k_sum_postmuscimol{curr_regressor}(:,curr_depth,:)),[1,3,4,2]);
+        
+        [regressor_grp,exp_grp,condition_grp] = meshgrid( ...
+            1:size(curr_prepost,1),1:size(curr_prepost,2),1:size(curr_prepost,3));
+        
+        curr_p = anovan(reshape(curr_prepost,[],1), ...
+            [regressor_grp(:),condition_grp(:)],'display','off');
+        
+        disp(['Str ' num2str(curr_depth) ' ' task_regressor_labels{curr_regressor} ...
+            ' p = ' num2str(curr_p(2)')]);
+        
+    end
 end
 
 

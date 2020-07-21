@@ -327,6 +327,10 @@ if block_exists
                 trial_choice(1:n_trials), trial_timing(1:n_trials)];
             [~,trial_id] = ismember(trial_conditions,conditions,'rows');
             
+        case {'AP_sparseNoise'}
+            % Don't do anything: stim info is pulled out in
+            % lilrig_retinotopy
+            
         case {'AP_visualAuditoryPassive','AP_visualAuditoryPairing','AP_visualAuditoryPairingHalf'}
             % Get stim times (first flip is initializing gray to black)
             stimOn_times = photodiode_flip_times(2:2:end);

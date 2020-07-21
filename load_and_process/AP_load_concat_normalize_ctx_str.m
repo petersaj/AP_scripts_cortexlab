@@ -283,9 +283,8 @@ fluor_kernelroi_day_std = ...
 % Normalize fluor
 
 % (don't normalize)
-warning('TESTING NO NORM ON FLUOR');
-fluor_roi_norm = 1;
-fluor_kernelroi_norm = 1;
+fluor_roi_norm = cellfun(@(x) ones(x,1,n_rois),num2cell(n_trials_day),'uni',false);
+fluor_kernelroi_norm = cellfun(@(x) ones(x,1,n_kernel_rois),num2cell(n_trials_day),'uni',false);
 
 % % % (use day std)
 % fluor_roi_norm = fluor_roi_day_std;
@@ -324,25 +323,27 @@ if task_dataset
         size(kernel_roi.bw,3),[],size(fluor_taskpred_reduced_allcat,1)),[3,2,1]), ...
         1:size(fluor_taskpred_reduced_allcat,4),'uni',false),[1,3,4,2]))./cell2mat(fluor_kernelroi_norm);
     
-    % Make move-aligned fluorescence
-    fluor_allcat_deconv_move = fluor_allcat_deconv;
-    fluor_taskpred_reduced_allcat_move = fluor_taskpred_reduced_allcat;
-    fluor_roi_deconv_move = fluor_roi_deconv;
-    fluor_roi_taskpred_move = fluor_roi_taskpred;
-    fluor_roi_taskpred_reduced_move = fluor_roi_taskpred_reduced;
-    fluor_kernelroi_deconv_move = fluor_kernelroi_deconv;
-    
-    t_leeway = -t(1);
-    leeway_samples = round(t_leeway*(sample_rate));
-    for i = 1:size(fluor_allcat_deconv,1)
-        fluor_allcat_deconv_move(i,:,:,:) = circshift(fluor_allcat_deconv_move(i,:,:,:),-move_idx(i)+leeway_samples,2);
-        fluor_taskpred_reduced_allcat_move(i,:,:,:) = circshift(fluor_taskpred_reduced_allcat_move(i,:,:,:),-move_idx(i)+leeway_samples,2);
-        fluor_roi_deconv_move(i,:,:,:) = circshift(fluor_roi_deconv_move(i,:,:,:),-move_idx(i)+leeway_samples,2);
-        fluor_roi_taskpred_move(i,:,:,:) = circshift(fluor_roi_taskpred_move(i,:,:,:),-move_idx(i)+leeway_samples,2);
-        fluor_roi_taskpred_reduced_move(i,:,:,:) = circshift(fluor_roi_taskpred_reduced_move(i,:,:,:),-move_idx(i)+leeway_samples,2);
-        fluor_kernelroi_deconv_move(i,:,:,:) = circshift(fluor_kernelroi_deconv_move(i,:,:,:),-move_idx(i)+leeway_samples,2);
-    end
+%     % Make move-aligned fluorescence
+%     fluor_allcat_deconv_move = fluor_allcat_deconv;
+%     fluor_taskpred_reduced_allcat_move = fluor_taskpred_reduced_allcat;
+%     fluor_roi_deconv_move = fluor_roi_deconv;
+%     fluor_roi_taskpred_move = fluor_roi_taskpred;
+%     fluor_roi_taskpred_reduced_move = fluor_roi_taskpred_reduced;
+%     fluor_kernelroi_deconv_move = fluor_kernelroi_deconv;
+%     
+%     t_leeway = -t(1);
+%     leeway_samples = round(t_leeway*(sample_rate));
+%     for i = 1:size(fluor_allcat_deconv,1)
+%         fluor_allcat_deconv_move(i,:,:,:) = circshift(fluor_allcat_deconv_move(i,:,:,:),-move_idx(i)+leeway_samples,2);
+%         fluor_taskpred_reduced_allcat_move(i,:,:,:) = circshift(fluor_taskpred_reduced_allcat_move(i,:,:,:),-move_idx(i)+leeway_samples,2);
+%         fluor_roi_deconv_move(i,:,:,:) = circshift(fluor_roi_deconv_move(i,:,:,:),-move_idx(i)+leeway_samples,2);
+%         fluor_roi_taskpred_move(i,:,:,:) = circshift(fluor_roi_taskpred_move(i,:,:,:),-move_idx(i)+leeway_samples,2);
+%         fluor_roi_taskpred_reduced_move(i,:,:,:) = circshift(fluor_roi_taskpred_reduced_move(i,:,:,:),-move_idx(i)+leeway_samples,2);
+%         fluor_kernelroi_deconv_move(i,:,:,:) = circshift(fluor_kernelroi_deconv_move(i,:,:,:),-move_idx(i)+leeway_samples,2);
+%     end
+
 end
+
 
 %% Striatal multiunit
 
@@ -375,12 +376,11 @@ if exist('mua_all','var')
     
     % (set baseline and norm)
     mua_use_baseline = mua_trial_baseline;
-    mua_norm = mua_day_baseline_std; % mua_day_baseline_std, mua_day_std
     
-    %%%%%%%% TESTING
-    warning('************MUA NORM: SOFT BASELINE')
-    mua_rate_soften = 10;
-    mua_norm = cellfun(@(x) cellfun(@(x) x+mua_rate_soften,x,'uni',false),mua_day_baseline,'uni',false);
+    mua_norm_soften = 10;
+    mua_norm = cellfun(@(x) cellfun(@(x) ...
+        x+mua_norm_soften,x,'uni',false),mua_day_baseline,'uni',false); % mua_day_baseline_std, mua_day_std
+    
     
     % (NaN-out days with no spikes)
     mua_nan_trials = cell2mat(cellfun(@(x) ...
@@ -418,24 +418,25 @@ if exist('mua_all','var')
             vertcat(mua_use_baseline{:}),vertcat(mua_norm{:}),'uni',false)) ...
             .*mua_nan_trials;
         
-        % Make move-aligned MUA
-        mua_allcat_move = mua_allcat;
-        mua_ctxpred_allcat_move = mua_ctxpred_allcat;
-        mua_taskpred_allcat_move = mua_taskpred_allcat;
-        mua_taskpred_reduced_allcat_move = mua_taskpred_reduced_allcat;
-        mua_ctxpred_taskpred_allcat_move = mua_taskpred_allcat;
-        mua_ctxpred_taskpred_reduced_allcat_move = mua_taskpred_reduced_allcat;
-        
-        t_leeway = -t(1);
-        leeway_samples = round(t_leeway*(sample_rate));
-        for i = 1:size(mua_allcat,1)
-            mua_allcat_move(i,:,:) = circshift(mua_allcat_move(i,:,:),-move_idx(i)+leeway_samples,2);
-            mua_ctxpred_allcat_move(i,:,:) = circshift(mua_ctxpred_allcat_move(i,:,:),-move_idx(i)+leeway_samples,2);
-            mua_taskpred_allcat_move(i,:,:) = circshift(mua_taskpred_allcat_move(i,:,:),-move_idx(i)+leeway_samples,2);
-            mua_taskpred_reduced_allcat_move(i,:,:,:) = circshift(mua_taskpred_reduced_allcat_move(i,:,:,:),-move_idx(i)+leeway_samples,2);
-            mua_ctxpred_taskpred_allcat_move(i,:,:) = circshift(mua_ctxpred_taskpred_allcat_move(i,:,:),-move_idx(i)+leeway_samples,2);
-            mua_ctxpred_taskpred_reduced_allcat_move(i,:,:,:) = circshift(mua_ctxpred_taskpred_reduced_allcat_move(i,:,:,:),-move_idx(i)+leeway_samples,2);
-        end      
+%         % Make move-aligned MUA
+%         mua_allcat_move = mua_allcat;
+%         mua_ctxpred_allcat_move = mua_ctxpred_allcat;
+%         mua_taskpred_allcat_move = mua_taskpred_allcat;
+%         mua_taskpred_reduced_allcat_move = mua_taskpred_reduced_allcat;
+%         mua_ctxpred_taskpred_allcat_move = mua_taskpred_allcat;
+%         mua_ctxpred_taskpred_reduced_allcat_move = mua_taskpred_reduced_allcat;
+%         
+%         t_leeway = -t(1);
+%         leeway_samples = round(t_leeway*(sample_rate));
+%         for i = 1:size(mua_allcat,1)
+%             mua_allcat_move(i,:,:) = circshift(mua_allcat_move(i,:,:),-move_idx(i)+leeway_samples,2);
+%             mua_ctxpred_allcat_move(i,:,:) = circshift(mua_ctxpred_allcat_move(i,:,:),-move_idx(i)+leeway_samples,2);
+%             mua_taskpred_allcat_move(i,:,:) = circshift(mua_taskpred_allcat_move(i,:,:),-move_idx(i)+leeway_samples,2);
+%             mua_taskpred_reduced_allcat_move(i,:,:,:) = circshift(mua_taskpred_reduced_allcat_move(i,:,:,:),-move_idx(i)+leeway_samples,2);
+%             mua_ctxpred_taskpred_allcat_move(i,:,:) = circshift(mua_ctxpred_taskpred_allcat_move(i,:,:),-move_idx(i)+leeway_samples,2);
+%             mua_ctxpred_taskpred_reduced_allcat_move(i,:,:,:) = circshift(mua_ctxpred_taskpred_reduced_allcat_move(i,:,:,:),-move_idx(i)+leeway_samples,2);
+%         end   
+
     end
     
 end

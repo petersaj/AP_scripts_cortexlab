@@ -1523,18 +1523,20 @@ ylabel('\DeltaFraction');
 
 % (Psychometric stim x condition)
 curr_stat_data = permute(cat(3,frac_orient_right{:}),[1,3,2]);
-[stim_grp,condition_grp,exp_grp] = meshgrid(1:size(curr_stat_data,1), ...
+[stim_grp,condition_grp,exp_grp] = ndgrid(1:size(curr_stat_data,1), ...
     1:size(curr_stat_data,2),1:size(curr_stat_data,3));
 [curr_p,~,~,terms] = anovan(reshape(curr_stat_data,[],1), ...
         [stim_grp(:),condition_grp(:)],'model','interaction','display','off');
+ disp(['Psychomatric condition p = ' num2str(curr_p(2))]);
 disp(['Psychomatric stim x condition p = ' num2str(curr_p(3))]);
 
 % (Reaction time stim x condition)
 curr_stat_data = permute(cat(3,rxn_time{:}),[1,3,2]);
-[stim_grp,condition_grp,exp_grp] = meshgrid(1:size(curr_stat_data,1), ...
+[stim_grp,condition_grp,exp_grp] = ndgrid(1:size(curr_stat_data,1), ...
     1:size(curr_stat_data,2),1:size(curr_stat_data,3));
 [curr_p,~,~,terms] = anovan(reshape(curr_stat_data,[],1), ...
         [stim_grp(:),condition_grp(:)],'model','interaction','display','off');
+disp(['Reaction time condition p = ' num2str(curr_p(2))]);
 disp(['Reaction time stim x condition p = ' num2str(curr_p(3))]);
 
 
@@ -1761,34 +1763,10 @@ for curr_data = 1:length(data_fns)
     data_fn = data_fns{curr_data};
     AP_load_concat_normalize_ctx_str;
     
-    % Get average task > cortex kernels (ROIs)
-    n_regressors = length(task_regressor_labels);
-    regressor_roi = cell(n_regressors,1);
-    for curr_regressor = 1:n_regressors
-        
-        curr_k = cell2mat(cellfun(@(x) x{curr_regressor}, ...
-            permute(vertcat(fluor_taskpred_k_all{:}),[2,3,4,1]),'uni',false));
-        
-        curr_k_roi = nan(size(curr_k,1),size(curr_k,2),n_rois,size(curr_k,4));
-        for curr_subregressor = 1:size(curr_k,1)
-            for curr_exp = 1:size(curr_k,4)
-                curr_k_roi(curr_subregressor,:,:,curr_exp) = ...
-                    permute(AP_svd_roi(U_master(:,:,1:n_vs), ...
-                    permute(curr_k(curr_subregressor,:,:,curr_exp),[3,2,1]), ...
-                    [],[],cat(3,wf_roi.mask)),[3,2,1]);
-            end
-        end
-        
-        regressor_roi{curr_regressor} = curr_k_roi;
-        
-        AP_print_progress_fraction(curr_regressor,n_regressors);
-    end
-    
     % Keep task > str kernels, task > ctx-pred str norm factor
     mua_norm_exp{curr_data} = vertcat(mua_norm{:});
     task_str_kernel{curr_data} = vertcat(mua_taskpred_k_all{:});
     task_str_ctxpred_kernel{curr_data} = vertcat(mua_ctxpred_taskpred_k_all{:});
-    task_ctx_roi_kernel{curr_data} = regressor_roi;
     
 end
 
@@ -1938,7 +1916,7 @@ for curr_depth = 1:n_depths
             str_k_sum_premuscimol{curr_regressor}(:,curr_depth,:), ...
             str_k_sum_postmuscimol{curr_regressor}(:,curr_depth,:)),[1,3,4,2]);
         
-        [regressor_grp,exp_grp,condition_grp] = meshgrid( ...
+        [regressor_grp,exp_grp,condition_grp] = ndgrid( ...
             1:size(curr_prepost,1),1:size(curr_prepost,2),1:size(curr_prepost,3));
         
         curr_p = anovan(reshape(curr_prepost,[],1), ...
@@ -2040,6 +2018,23 @@ end
 
 
 %% Deconv explained variance in cortex ephys
+
+
+% Load Fluor+ctx-ephys data
+load('C:\Users\Andrew\OneDrive for Business\Documents\CarandiniHarrisLab\analysis\wf_ephys_choiceworld\paper\data\ctx_fluorpred');
+
+
+ctx_cat = vertcat(ctx_fluorpred.ctx{:});
+ctx_fluorpred_cat = vertcat(ctx_fluorpred.ctx_fluorpred{:});
+
+ctx_fluorpred_r2 = cellfun(@(ctx,fluorpred) ...
+    nansum((ctx-fluorpred).^2,2)./nansum((ctx-nanmean(ctx,2)).^2,2), ...
+    ctx_cat,ctx_fluorpred_cat,'uni',false);
+
+
+
+% THIS DIDN'T MAKE SENSE TO DO: the question is R2 of the deconvolution
+% kernel
 
 error('Do this with long traces instead?');
 
@@ -2246,9 +2241,11 @@ end
 
 
 
-%% Predict striatum with mutiple zeroed-out cortical regions
-
-% (load in a dataset first)
+%% Predict striatum with zeroed-out cortical regions
+% NOTE: this regression is done on trial data rather than the long time
+% courses which is what the normal analysis uses. For sanity check, the
+% explained using the full data (full) and the trials dataset (trials) are
+% compared here but not meant to be included.
 
 % Choose depths to run
 plot_depth = 1:n_depths;
@@ -2263,10 +2260,8 @@ lambda = 50;
 kernel_frames = floor(regression_params.kernel_t(1)*sample_rate): ...
     ceil(regression_params.kernel_t(2)*sample_rate);
 
-% use_t = t < 0;
-% use_t = t > 0.05 & t < 0.1;
-% use_t = t > 0.5 & t < 1;
-% use_t = t > 0.5;
+% Set time to use
+% (e.g. this type of code can be used to regress only ITI time)
 use_t = true(size(t));
 
 % Set regions to zero
@@ -2446,25 +2441,54 @@ for curr_exp = 1:max(split_idx)
 end
 
 figure;
-subplot(2,2,1); hold on;
+
+% Plot full vs trial (sanity check: they should be ~the same)
+subplot(2,3,1); hold on;
 errorbar(nanmean(ctxpred_r2,1),AP_sem(ctxpred_r2,1),'.-','linewidth',2,'CapSize',0,'MarkerSize',30);
 errorbar(nanmean(ctxtrialpred_r2,1),AP_sem(ctxtrialpred_r2,1),'.-','linewidth',2,'CapSize',0,'MarkerSize',30);
 legend({'Ctx full','Ctx trial'});
 xlabel('Striatum depth');
 ylabel('Explained variance');
-subplot(2,2,2);
+
+% Plot explained variance by subregion
+subplot(2,3,2); hold on;
+str_col = max(hsv(n_depths)-0.2,0);
+set(gca,'ColorOrder',str_col);
 errorbar(permute(nanmean(ctxtrialpred_regionzero_r2,1),[3,2,1]), ...
     permute(AP_sem(ctxtrialpred_regionzero_r2,1),[3,2,1]),'.-','linewidth',2,'CapSize',0,'MarkerSize',30);
-xlabel('Region zeroed');
+xlabel('Cortex subregion');
 ylabel('Explained variance');
-legend({'Str 1','Str 2','Str 3','Str 4'})
-linkaxes(get(gcf,'Children'),'y');
+legend(cellfun(@(x) ['Str ' num2str(x)],num2cell(1:n_depths),'uni',false));
+
+% Plot explained variance of subregion relative to full
+ctxtrialpred_regionzero_r2_relative = ...
+    ctxtrialpred_regionzero_r2 - ctxtrialpred_r2;
+
+subplot(2,3,3); hold on;
+str_col = max(hsv(n_depths)-0.2,0);
+set(gca,'ColorOrder',str_col);
+errorbar(permute(nanmean(ctxtrialpred_regionzero_r2_relative,1),[3,2,1]), ...
+    permute(AP_sem(ctxtrialpred_regionzero_r2_relative,1),[3,2,1]),'linewidth',2,'CapSize',0,'Marker','none');
+xlabel('Cortex subregion');
+ylabel('Explained variance (full-subregion)');
+legend(cellfun(@(x) ['Str ' num2str(x)],num2cell(1:n_depths),'uni',false));
+
+% Plot subregions used
 for i = 1:size(ctx_zero,3)
    subplot(2,size(ctx_zero,3),size(ctx_zero,3)+i);
    imagesc(~ctx_zero(:,:,i));
    AP_reference_outline('ccf_aligned',[0.5,0.5,0.5]);
    axis image off;
    colormap(gray);
+end
+
+% (Prediction with cortex subsets statistics)
+disp('R^2 with cortical subset (1-way anova):');
+for curr_depth = 1:n_depths   
+    curr_r2 = permute(ctxtrialpred_regionzero_r2_relative(:,curr_depth,:),[3,1,2]);
+    [condition_grp,exp_grp] = ndgrid(1:size(curr_r2,1),1:size(curr_r2,2));
+    curr_p = anovan(curr_r2(:),condition_grp(:),'display','off');  
+    disp(['Str ' num2str(curr_depth) ' p = ' num2str(curr_p')]);
 end
 
 

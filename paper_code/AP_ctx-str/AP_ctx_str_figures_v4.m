@@ -2630,11 +2630,12 @@ end
 % (stim response by choice statistics)
 disp('Stim v choice 2-way anova:')
 for curr_depth = 1:n_depths
-    [stim_grp,choice_grp,exp_grp] = meshgrid(1:size(stim_act_grp,1), ...
+    [stim_grp,choice_grp,exp_grp] = ndgrid(1:size(stim_act_grp,1), ...
         1:size(stim_act_grp,2),1:size(stim_act_grp,4));
-    curr_p = anovan(reshape(stim_act_grp(:,:,curr_depth,:),[],1), ...
-        [stim_grp(:),choice_grp(:)],'display','off');
-    disp(['Str ' num2str(curr_depth) ' p = ' num2str(curr_p')]); 
+    [curr_p,~,~,terms] = anovan(reshape(stim_act_grp(:,:,curr_depth,:),[],1), ...
+        [stim_grp(:),choice_grp(:)],'model','interaction','display','off');
+    disp(['Str ' num2str(curr_depth) ' choice: p = ' num2str(curr_p(2)')]);
+    disp(['Str ' num2str(curr_depth) ' stim x choice: p = ' num2str(curr_p(2)')]); 
 end
 
 
