@@ -2004,8 +2004,8 @@ for curr_site = 1:2
 end
 
 
-%% Cortex fluorescence > multiunit kernels 
-% (master U, paired task/retinotopy)
+%% [[unused]] Cortex fluorescence > multiunit kernels 
+% (did this first and then realized the one below makes more sense
 
 clear all
 
@@ -2314,11 +2314,11 @@ for curr_recording = 1:length(recordings)
         binned_spikes_std,kernel_frames,lambda,zs, ...
         cvfold,return_constant,use_constant);
 
-    % Store traces
-    % (split back into protocols)
-    protocol_split_n = cellfun(@length,time_bin_centers_all);
-    
+    % Store traces   
     ctx_deconv_traces(curr_recording).protocol = protocols_all';
+    ctx_deconv_traces(curr_recording).t = time_bin_centers_all';
+    % (split traces back into protocols)
+    protocol_split_n = cellfun(@length,time_bin_centers_all);
     ctx_deconv_traces(curr_recording).fluor = ...
         mat2cell(fluor_trace',protocol_split_n,1);
     ctx_deconv_traces(curr_recording).spikes = ...
