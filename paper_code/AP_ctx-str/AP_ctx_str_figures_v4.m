@@ -274,163 +274,42 @@ for curr_align = 1:length(use_align)
 end
 
 
-%% Fig 1c,d, S2: Task > cortex kernels
+%% Fig ??: Task > cortex kernels
 
 % Get task>cortex parameters
 n_regressors = length(task_regressor_labels);
 task_regressor_t_shifts = cellfun(@(x) x/sample_rate,task_regressor_sample_shifts,'uni',false);
 
-% Get average task > cortex kernels (V's and ROIs)
-regressor_v = cell(n_regressors,1);
-regressor_roi = cell(n_regressors,1);
-for curr_regressor = 1:n_regressors
-    
-    curr_k = cell2mat(cellfun(@(x) x{curr_regressor}, ...
-        permute(vertcat(fluor_taskpred_k_all{:}),[2,3,4,1]),'uni',false));
-    
-    curr_k_roi = nan(size(curr_k,1),size(curr_k,2),n_rois,size(curr_k,4));
-    for curr_subregressor = 1:size(curr_k,1)
-        for curr_exp = 1:size(curr_k,4)
-            curr_k_roi(curr_subregressor,:,:,curr_exp) = ...
-                permute(AP_svd_roi(U_master(:,:,1:n_vs), ...
-                permute(curr_k(curr_subregressor,:,:,curr_exp),[3,2,1]), ...
-                [],[],cat(3,wf_roi.mask)),[3,2,1]);        
-        end
-    end
-    
-    curr_k_v = nanmean(curr_k,4);
-    
-    regressor_v{curr_regressor} = curr_k_v;
-    regressor_roi{curr_regressor} = curr_k_roi;
-    
-    AP_print_progress_fraction(curr_regressor,n_regressors);
-end
+% Concatenate and average task>cortex kernels
+fluor_taskpred_k_cat = arrayfun(@(regressor) ...
+    cell2mat(permute(cellfun(@(k) k{regressor}, ...
+    vertcat(fluor_taskpred_k_all{:}),'uni',false),[2,3,4,1])), ...
+    1:n_regressors,'uni',false);
 
-% Plot example frame for each kernel group
-plot_subregressor = [10,1,1,1];
-plot_t = [0.08,0,0.05,0.08];
+fluor_taskpred_k_avg = cellfun(@(x) nanmean(x,4), fluor_taskpred_k_cat,'uni',false);
+fluor_taskpred_k_avg_px = cellfun(@(x) ...
+    AP_svdFrameReconstruct(U_master(:,:,1:n_vs),permute(x,[3,2,1])), ...
+    fluor_taskpred_k_avg,'uni',false);
+
+% Plot kernel max across time
+max_subregressors = max(cellfun(@(x) size(x,1),fluor_taskpred_k_avg));
 
 figure;
 for curr_regressor = 1:length(task_regressor_labels)
-    subplot(length(task_regressor_labels),1,curr_regressor);
-    
-    curr_k_v_t = interp1(task_regressor_t_shifts{curr_regressor}, ...
-        permute(regressor_v{curr_regressor}(plot_subregressor(curr_regressor),:,:),[2,3,1]), ...
-        plot_t(curr_regressor))';
-    curr_k_px_t = svdFrameReconstruct(U_master(:,:,1:n_vs),curr_k_v_t);
-    
-    imagesc(curr_k_px_t);
-    AP_reference_outline('ccf_aligned',[0.5,0.5,0.5]);
-    axis image off;
-    colormap(brewermap([],'Greys'));
-%     caxis([-0.02,0.02]);
-    caxis([0,max(curr_k_px_t(:))]);
-    title([task_regressor_labels{curr_regressor} ': ' num2str(plot_t(curr_regressor)) ' sec']);
-    
-end
 
-% Get ROI traces for each subregressor
-plot_rois = [1,9,10];
-
-stim_col = colormap_BlueWhiteRed(5);
-stim_col(6,:) = 0.5;
-move_col = [0.6,0,0.6;0.8,0.5,0];
-go_col = [0.5,0.5,0.5;0.8,0.8,0.2];
-outcome_col = [0,0,0.8;0.8,0,0];
-task_regressor_cols = {stim_col,move_col,go_col,outcome_col};
-figure;
-p = nan(length(plot_rois),n_regressors);
-for curr_roi_idx = 1:length(plot_rois)
-    curr_roi = plot_rois(curr_roi_idx);    
-    for curr_regressor = 1:n_regressors
-        p(curr_roi_idx,curr_regressor) = ...
-            subplot(length(plot_rois),n_regressors, ...
-            sub2ind([n_regressors,length(plot_rois)],curr_regressor,curr_roi_idx)); hold on;
-        
-        for curr_subregressor = 1:size(regressor_roi{curr_regressor},1)
-           AP_errorfill(task_regressor_t_shifts{curr_regressor}, ...
-            nanmean(regressor_roi{curr_regressor}(curr_subregressor,:,curr_roi,:),4)', ...
-            AP_sem(regressor_roi{curr_regressor}(curr_subregressor,:,curr_roi,:),4)', ...
-            task_regressor_cols{curr_regressor}(curr_subregressor,:), ...
-            0.5,true);
-        end
-        ylabel([wf_roi(curr_roi).area ' \DeltaF/F_0']);
-        xlabel('Time (s)');
-        line([0,0],ylim,'color','k');
+    c_max = max(fluor_taskpred_k_avg_px{curr_regressor}(:));  
+    for curr_subregressor = 1:size(fluor_taskpred_k_avg_px{curr_regressor},4)
+        subplot(length(task_regressor_labels),max_subregressors, ...
+            (curr_regressor-1)*max_subregressors+curr_subregressor);
+        imagesc(max(fluor_taskpred_k_avg_px{curr_regressor}(:,:,:,curr_subregressor),[],3));
+        AP_reference_outline('ccf_aligned',[0.5,0.5,0.5]);
+        axis image off;
+        colormap(brewermap([],'Greys'));
+        caxis([0,c_max]);
+        title([task_regressor_labels{curr_regressor}]);       
     end
-end
-linkaxes(get(gcf,'Children'),'x')
-
-% Plot ROI average trace and task fit
-plot_rois = [1,9,10];
-plot_trials = move_t < 0.5 & trial_stim_allcat > 0 & trial_choice_allcat == -1;
-
-figure;
-for curr_roi_idx = 1:length(plot_rois)
-    subplot(length(plot_rois),1,curr_roi_idx);
-    
-    curr_roi = plot_rois(curr_roi_idx);
-    
-    AP_errorfill(t,nanmean(fluor_roi_deconv(plot_trials,:,curr_roi),1)', ...
-        AP_sem(fluor_roi_deconv(plot_trials,:,curr_roi),1)','k',0.5,true);
-    AP_errorfill(t,nanmean(fluor_roi_taskpred(plot_trials,:,curr_roi),1)', ...
-        AP_sem(fluor_roi_taskpred(plot_trials,:,curr_roi),1)','b',0.5,true);  
     
 end
-
-% Plot task>cortex ROI regression examples
-plot_rois = [1,9,10];
-plot_prctiles = [25,50,75];
-
-figure;
-for curr_roi_idx = 1:length(plot_rois)
-    
-    curr_roi = plot_rois(curr_roi_idx);
-    
-    % Set current data (pad trials with NaNs for spacing)
-    n_pad = 10;
-    curr_data = padarray(fluor_roi_deconv(:,:,curr_roi),[0,n_pad],NaN,'post');
-    curr_pred_data = padarray(fluor_roi_taskpred(:,:,curr_roi),[0,n_pad],NaN,'post');
-    nan_samples = isnan(curr_data) | isnan(curr_pred_data);
-
-    % Smooth
-    n_smooth = 1;
-    smooth_filt = ones(1,n_smooth)/n_smooth;
-    curr_data = conv2(curr_data,smooth_filt,'same');
-    curr_pred_data = conv2(curr_pred_data,smooth_filt,'same');
-    
-    % Set common NaNs for R^2    
-    curr_data_nonan = curr_data; 
-    curr_data_nonan(nan_samples) = NaN;
-    
-    curr_pred_data_nonan = curr_pred_data; 
-    curr_pred_data(nan_samples) = NaN; 
-    
-    % Get squared error for each trial
-    trial_r2 = 1 - (nansum((curr_data_nonan-curr_pred_data_nonan).^2,2)./ ...
-        nansum((curr_data_nonan-nanmean(curr_data_nonan,2)).^2,2));
-    
-    trial_r2_nonan_idx = find(~isnan(trial_r2));
-    [~,trial_r2_rank] = sort(trial_r2(trial_r2_nonan_idx));
-    
-    plot_prctile_trials = round(prctile(1:length(trial_r2_nonan_idx),plot_prctiles));
-    plot_trials = trial_r2_nonan_idx(trial_r2_rank(plot_prctile_trials));
-    
-    
-    curr_t = (1:length(reshape(curr_data(plot_trials,:)',[],1)))/sample_rate;
-    
-    subplot(length(plot_rois),1,curr_roi_idx); hold on;
-    plot(curr_t,reshape(curr_data(plot_trials,:)',[],1),'color',[0,0.6,0],'linewidth',2);
-    plot(curr_t,reshape(curr_pred_data(plot_trials,:)',[],1),'b','linewidth',2);
-    title([wf_roi(curr_roi,1).area ', Percentiles: ' num2str(plot_prctiles)]);
-    axis off
-    
-end
-linkaxes(get(gcf,'Children'),'xy');
-y_scale = 10e-3;
-t_scale = 0.5;
-line([min(xlim),min(xlim)+t_scale],repmat(min(ylim),2,1),'linewidth',3,'color','k');
-line(repmat(min(xlim),2,1),[min(ylim),min(ylim)+y_scale],'linewidth',3,'color','k');
 
 
 
@@ -1372,8 +1251,8 @@ mua_ctxpred_taskpred_k_allcat_norm = arrayfun(@(regressor) ...
 stim_col = colormap_BlueWhiteRed(5);
 stim_col(6,:) = [];
 move_col = [0.6,0,0.6;1,0.6,0];
-go_col = [0.8,0.8,0.2;0.5,0.5,0.5];
-outcome_col = [0,0,0;0.5,0.5,0.5];
+go_col = [0,0,0;0.5,0.5,0.5];
+outcome_col = [0.2,0.8,1;0,0,0];
 task_regressor_cols = {stim_col,move_col,go_col,outcome_col};
 task_regressor_t_shifts = cellfun(@(x) x/sample_rate,task_regressor_sample_shifts,'uni',false);
 

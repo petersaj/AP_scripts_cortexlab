@@ -2004,6 +2004,183 @@ for curr_site = 1:2
 end
 
 
+%% Striatum cortical kernels (Master U, paired task/retinotopy)
+
+clear all
+
+% Parameters for regression
+regression_params.use_svs = 1:100;
+regression_params.skip_seconds = 20;
+regression_params.upsample_factor = 1;
+regression_params.kernel_t = [-0.1,0.1];
+regression_params.zs = [false,false];
+regression_params.cvfold = 5;
+regression_params.use_constant = true;
+
+% Load Master U
+load('C:\Users\Andrew\OneDrive for Business\Documents\CarandiniHarrisLab\analysis\wf_ephys_choiceworld\wf_processing\wf_alignment\U_master.mat');
+
+% Load ephys alignment
+vis_ctx_ephys_fn = 'C:\Users\Andrew\OneDrive for Business\Documents\CarandiniHarrisLab\analysis\wf_ephys_choiceworld\ephys_processing\vis_ctx_ephys.mat';
+load(vis_ctx_ephys_fn);
+
+animals = {'AP043','AP060','AP061'};
+task_protocol = 'vanillaChoiceworld';
+retinotopy_protocol = 'AP_sparseNoise';
+site = 2;
+
+ctx_fluorpred = struct;
+
+for curr_animal = 1:length(animals)
+    
+    animal = animals{curr_animal};
+    disp(animal);
+    
+    % Get days with both task and retinotopy protocol
+    % and that have imaging + ephys
+    task_experiments = AP_find_experiments(animal,task_protocol);
+    task_experiments = task_experiments([task_experiments.imaging] & [task_experiments.ephys]);
+    
+    retinotopy_experiments = AP_find_experiments(animal,retinotopy_protocol);
+    retinotopy_experiments = retinotopy_experiments([retinotopy_experiments.imaging] & [retinotopy_experiments.ephys]);
+    
+    use_days = intersect({task_experiments.day},{retinotopy_experiments.day});
+    % (use the first experiment of each protocol)
+    use_experiments = ...
+        [cellfun(@(x) x(1), {task_experiments(ismember({task_experiments.day},use_days)).experiment}'), ...
+        cellfun(@(x) x(1), {retinotopy_experiments(ismember({retinotopy_experiments.day},use_days)).experiment}')];
+    
+    for curr_day = 1:length(use_days)
+        for curr_exp = 1:size(use_experiments,2)
+            
+            % Set variables to keep
+            preload_vars = who;
+            
+            % Load data and align striatum by depth
+            day = use_days{curr_day};
+            experiment = use_experiments(curr_day,curr_exp);
+            str_align = 'none'; % (because it's cortex)
+            load_parts.cam = false;
+            load_parts.imaging = true;
+            load_parts.ephys = true;
+            AP_load_experiment;
+            
+            % Convert U to master U
+            Udf_aligned = AP_align_widefield(Udf,animal,day);
+            
+            % Deconvolve fluoresence (for use in regression)
+            fVdf_deconv = AP_deconv_wf(fVdf);
+            fVdf_deconv(isnan(fVdf_deconv)) = 0;
+            
+            % Get time points to bin
+            sample_rate = framerate*regression_params.upsample_factor;
+            time_bins = frame_t(find(frame_t > ...
+                regression_params.skip_seconds,1)):1/sample_rate: ...
+                frame_t(find(frame_t-frame_t(end) < ...
+                -regression_params.skip_seconds,1,'last'));
+            time_bin_centers = time_bins(1:end-1) + diff(time_bins)/2;
+            
+            % Resample deconvolved fluorescence
+            fVdf_deconv_resample = interp1(frame_t,fVdf_deconv',time_bin_centers)';
+                      
+            %%% Align cortical recording 
+            
+            % Get depth group boundaries
+            % (these are just manual based on the CSD)
+            n_aligned_depths = 2;
+            ctx_depth_edges = linspace(0,1200,n_aligned_depths+1);
+            
+            % Depth-align templates
+            curr_animal_idx = strcmp(animal,{vis_ctx_ephys.animal});
+            curr_day_idx = strcmp(day,vis_ctx_ephys(curr_animal_idx).day);
+            curr_csd_depth = vis_ctx_ephys(curr_animal_idx).stim_csd_depth{curr_day_idx};
+            curr_csd_depth_aligned = vis_ctx_ephys(curr_animal_idx).stim_csd_depth_aligned{curr_day_idx};
+            
+            template_depths_aligned = interp1(curr_csd_depth,curr_csd_depth_aligned,template_depths);
+            spike_depths_aligned = template_depths_aligned(spike_templates);
+            
+            % Find cortex end by largest gap between templates
+            sorted_template_depths = sort([template_depths_aligned]);
+            [max_gap,max_gap_idx] = max(diff(sorted_template_depths));
+            ctx_end = sorted_template_depths(max_gap_idx)+1;
+            ctx_depth = [sorted_template_depths(1),ctx_end];
+            ctx_units = template_depths_aligned <= ctx_depth(2);
+            
+            % Assign templates to depth groups
+            ctx_spike_depths = spike_depths_aligned;
+            ctx_spike_depths(spike_depths_aligned < ctx_depth(1) | spike_depths_aligned > ctx_depth(2)) = NaN;
+            aligned_ctx_depth_group = discretize(ctx_spike_depths,ctx_depth_edges);
+                        
+            %%%
+            
+            % Bin spikes to match widefield frames
+            binned_spikes = nan(n_aligned_depths,length(time_bin_centers));
+            for curr_depth = 1:n_aligned_depths
+                curr_spike_times = spike_times_timeline(aligned_ctx_depth_group == curr_depth);
+                
+                % (skip if no spikes at this depth)
+                if isempty(curr_spike_times)
+                    continue
+                end
+                
+                binned_spikes(curr_depth,:) = histcounts(curr_spike_times,time_bins);
+            end
+            binned_spikes_std = binned_spikes./nanstd(binned_spikes,[],2);
+            
+            % Load lambda from previously estimated and saved
+            lambda_fn = 'C:\Users\Andrew\OneDrive for Business\Documents\CarandiniHarrisLab\analysis\wf_ephys_choiceworld\ephys_processing\ctx-str_lambda';
+            load(lambda_fn);
+            curr_animal_idx = strcmp(animal,{ctx_str_lambda.animal});
+            if any(curr_animal_idx)
+                curr_day_idx = strcmp(day,ctx_str_lambda(curr_animal_idx).day);
+                if any(curr_day_idx)
+                    lambda = ctx_str_lambda(curr_animal_idx).best_lambda(curr_day_idx);
+                end
+            end
+            
+            kernel_frames = round(regression_params.kernel_t(1)*sample_rate): ...
+                round(regression_params.kernel_t(2)*sample_rate);
+            
+            % Regress cortex to striatum
+            [ctx_fluor_k,ctxpred_spikes_std,explained_var] = ...
+                AP_regresskernel(fVdf_deconv_resample(regression_params.use_svs,:), ...
+                binned_spikes_std,kernel_frames,lambda, ...
+                regression_params.zs,regression_params.cvfold, ...
+                true,regression_params.use_constant);
+            
+            % Recast the k's into the master U
+            ctx_fluor_k_recast = reshape(ChangeU(Udf_aligned(:,:,regression_params.use_svs), ...
+                reshape(ctx_fluor_k{1},size(ctx_fluor_k{1},1),[]),U_master(:,:,regression_params.use_svs)), ...
+                size(ctx_fluor_k{1}));
+            
+            % Re-scale the prediction (subtract offset, multiply, add scaled offset)
+            ctxpred_spikes = (ctxpred_spikes_std - squeeze(ctx_fluor_k{end})).* ...
+                nanstd(binned_spikes,[],2) + ...
+                nanstd(binned_spikes,[],2).*squeeze(ctx_fluor_k{end});
+            
+            % Store
+            ctx_fluorpred.animal{curr_animal} = animal;
+            ctx_fluorpred.ctx{curr_animal}{curr_day,curr_exp} = binned_spikes;
+            ctx_fluorpred.ctx_fluorpred{curr_animal}{curr_day,curr_exp} = ctxpred_spikes;
+            ctx_fluorpred.ctx_fluor_k{curr_animal}{curr_day,curr_exp} = ctx_fluor_k_recast;
+            
+            % Reset for next experiment
+            clearvars('-except',preload_vars{:})
+            
+        end
+        AP_print_progress_fraction(curr_day,length(use_days));
+    end
+    
+    % Save after each animal
+    save_path = ['C:\Users\Andrew\OneDrive for Business\Documents\CarandiniHarrisLab\analysis\wf_ephys_choiceworld\paper\data'];
+    save_fn = [save_path filesep 'ctx_fluorpred'];
+    disp(['Saving ' save_fn]);
+    save(save_fn,'ctx_fluorpred','-v7.3');
+    disp('Saved.');
+    
+end
+
+disp('Done.');
 
 
 

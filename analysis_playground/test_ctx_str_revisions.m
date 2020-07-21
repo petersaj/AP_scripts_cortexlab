@@ -1125,7 +1125,142 @@ end
 linkaxes(p(:,1:2),'xy');
 
 
+%% Goodness-of-fit update
 
+error('I THINK ALREADY INTEGRATED INTO FIG S8 ADDITION')
+% also that one is exp-dependent and this one isn't, so that's more
+% updated?
+
+% Regress kernel ROI activity to striatum domain activity (per recording)
+regression_params.kernel_t = [0,0];
+regression_params.zs = [false,false];
+regression_params.cvfold = 5;
+regression_params.use_constant = true;
+lambda = 0;
+kernel_frames = floor(regression_params.kernel_t(1)*sample_rate): ...
+    ceil(regression_params.kernel_t(2)*sample_rate);
+
+mua_ctxroi_k = arrayfun(@(x) nan(length(kernel_frames),n_depths),1:length(use_split),'uni',false);
+mua_ctxroipred_allcat = nan(size(mua_allcat));
+for curr_exp = 1:length(trials_recording)
+    for curr_depth = 1:n_depths
+        
+        curr_mua = reshape(mua_allcat(split_idx == curr_exp,:,curr_depth)',[],1)';
+        curr_fluor_kernelroi = reshape(fluor_kernelroi_deconv(split_idx == curr_exp,:,curr_depth)',[],1)';
+        
+        % Skip if no data
+        if all(isnan(curr_mua))
+            continue
+        end
+        
+        % Set discontinuities in trial data
+        trial_discontinuities = false(size(mua_allcat(split_idx == curr_exp,:,curr_depth)));
+        trial_discontinuities(:,1) = true;
+        trial_discontinuities = reshape(trial_discontinuities',[],1)';
+        
+        % Do regression
+        [k,curr_mua_kernelroipred,explained_var] = ...
+            AP_regresskernel(curr_fluor_kernelroi, ...
+            curr_mua,kernel_frames,lambda, ...
+            regression_params.zs,regression_params.cvfold, ...
+            false,regression_params.use_constant,trial_discontinuities);
+              
+        mua_ctxroi_k{curr_exp}(:,curr_depth) = k;
+        mua_ctxroipred_allcat(split_idx == curr_exp,:,curr_depth) = ...
+            reshape(curr_mua_kernelroipred,length(t),[])';
+
+    end
+end
+
+
+
+
+
+
+% Get R^2 for task, cortex full, and cortex ROI predictions
+taskpred_r2 = nan(max(split_idx),n_depths);
+ctxpred_r2 = nan(max(split_idx),n_depths);
+ctxroipred_r2 = nan(max(split_idx),n_depths);
+for curr_exp = 1:max(split_idx)
+       
+    curr_data = reshape(permute(mua_allcat(split_idx == curr_exp,:,:),[2,1,3]),[],n_depths);
+    curr_taskpred_data = reshape(permute(mua_taskpred_allcat(split_idx == curr_exp,:,:),[2,1,3]),[],n_depths);
+    curr_ctxpred_data = reshape(permute(mua_ctxpred_allcat(split_idx == curr_exp,:,:),[2,1,3]),[],n_depths);
+    curr_ctxroipred_data = reshape(permute(mua_ctxroipred_allcat(split_idx == curr_exp,:,:),[2,1,3]),[],n_depths);
+    
+    % Set common NaNs
+    nan_samples = isnan(curr_data) | isnan(curr_taskpred_data) | isnan(curr_ctxpred_data) | isnan(curr_ctxroipred_data);
+    curr_data(nan_samples) = NaN;
+    curr_taskpred_data(nan_samples) = NaN;
+    curr_ctxpred_data(nan_samples) = NaN;
+    curr_ctxroipred_data(nan_samples) = NaN;
+
+    taskpred_r2(curr_exp,:) = 1 - (nansum((curr_data-curr_taskpred_data).^2,1)./ ...
+        nansum((curr_data-nanmean(curr_data,1)).^2,1));
+    ctxpred_r2(curr_exp,:) = 1 - (nansum((curr_data-curr_ctxpred_data).^2,1)./ ...
+        nansum((curr_data-nanmean(curr_data,1)).^2,1));
+    ctxroipred_r2(curr_exp,:) = 1 - (nansum((curr_data-curr_ctxroipred_data).^2,1)./ ...
+        nansum((curr_data-nanmean(curr_data,1)).^2,1));
+end
+figure; hold on;
+errorbar(nanmean(taskpred_r2,1),AP_sem(taskpred_r2,1),'b','linewidth',2,'CapSize',0);
+errorbar(nanmean(ctxpred_r2,1),AP_sem(ctxpred_r2,1),'color',[0,0.6,0],'linewidth',2,'CapSize',0);
+errorbar(nanmean(ctxroipred_r2,1),AP_sem(ctxroipred_r2,1),'color',[1,0.5,0],'linewidth',2,'CapSize',0);
+xlabel('Striatum depth');
+ylabel('Explained variance');
+legend({'Task','Cortex (Full)','Cortex (ROI)'});
+
+% Get significance between cortex kernel and ROI
+ctx_kernel_roi_p = nan(n_depths,1);
+for curr_depth = 1:n_depths
+   ctx_kernel_roi_p(curr_depth) = signrank(ctxroipred_r2(:,curr_depth), ...
+       ctxpred_r2(:,curr_depth));
+   disp(['Str ' num2str(curr_depth) ' kernel vs ROI: p = ' ...
+       num2str(ctx_kernel_roi_p(curr_depth))]);
+end
+
+
+
+% Get R^2 for task in cortex ROI
+taskpred_r2 = nan(max(split_idx),n_depths);
+for curr_exp = 1:max(split_idx)
+       
+    curr_data = reshape(permute(fluor_kernelroi_deconv(split_idx == curr_exp,:,:),[2,1,3]),[],n_depths);
+    curr_taskpred_data = reshape(permute(fluor_kernelroi_taskpred(split_idx == curr_exp,:,:),[2,1,3]),[],n_depths);
+    
+    % Set common NaNs
+    nan_samples = isnan(curr_data) | isnan(curr_taskpred_data);
+    curr_data(nan_samples) = NaN;
+    curr_taskpred_data(nan_samples) = NaN;
+
+    taskpred_r2(curr_exp,:) = 1 - (nansum((curr_data-curr_taskpred_data).^2,1)./ ...
+        nansum((curr_data-nanmean(curr_data,1)).^2,1));
+
+end
+figure; hold on;
+errorbar(nanmean(taskpred_r2,1),AP_sem(taskpred_r2,1),'b','linewidth',2,'CapSize',0);
+xlabel('Cortex ROI');
+ylabel('Task explained variance');
+
+
+% Cortex explained variance
+
+% (spatial explained variance in pixels)
+px_taskpred_r2 = nan(size(U_master,1),size(U_master,2),max(split_idx));
+for curr_exp = 1:max(split_idx)  
+    px_taskpred_r2(:,:,curr_exp) = AP_spatial_explained_var(U_master(:,:,1:n_vs), ...
+        reshape(permute(fluor_allcat_deconv(split_idx == curr_exp,:,:),[2,1,3]),[],n_vs)', ...
+        reshape(permute(fluor_taskpred_allcat(split_idx == curr_exp,:,:),[2,1,3]),[],n_vs)',10);
+    AP_print_progress_fraction(curr_exp,max(split_idx));
+end
+
+figure;imagesc(nanmedian(px_taskpred_r2,3));
+axis image off; 
+colormap(brewermap([],'Reds'));
+caxis([0,1]); 
+c = colorbar;
+ylabel(c,'Task R^2');
+AP_reference_outline('ccf_aligned',[0.5,0.5,0.5]);
 
 
 

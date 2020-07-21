@@ -504,8 +504,8 @@ end
 %% ^^^ Correlation between wf/ctx-mua and ctx-mua/str-mua
 
 %%% Load correlation data
-% use_protocol = 'vanillaChoiceworld';
-use_protocol = 'AP_sparseNoise';
+use_protocol = 'vanillaChoiceworld';
+% use_protocol = 'AP_sparseNoise';
 
 data_path = 'C:\Users\Andrew\OneDrive for Business\Documents\CarandiniHarrisLab\analysis\wf_ephys_choiceworld\paper\data';
 data_fn = [data_path filesep 'ctx_fluor_mua_corr_' use_protocol];
@@ -638,6 +638,33 @@ errorbar(squeeze(nanmean(max(cortex_striatum_corr_cat,[],1),3)), ...
 xlim([0.5,3.5]);
 xlabel('Striatal domain');
 ylabel('Cortical MUA max corr');
+
+
+
+% (Fluor-Ctx MUA vs Str-Ctx MUA correlation by depth statistics)
+use_str = 1;
+use_ctx_str_corr = squeeze(cortex_striatum_corr_cat(:,use_str,:));
+fluor_ctx_str_corr = diag(corr(use_ctx_str_corr,cortex_fluor_corr_cat,'rows','complete'));
+
+n_shuff = 10000;
+fluor_ctx_str_corr_shuff = nan(size(c,1),n_shuff);
+for curr_shuff = 1:n_shuff
+    use_ctx_str_corr_circshift = use_ctx_str_corr;
+    for i = 1:size(use_ctx_str_corr_circshift,2)
+        curr_depth_idx = ~isnan(use_ctx_str_corr_circshift(:,i));
+        use_ctx_str_corr_circshift(curr_depth_idx,i) = circshift(use_ctx_str_corr_circshift(curr_depth_idx,i), ...
+            randi(sum(curr_depth_idx)));
+    end   
+    fluor_ctx_str_corr_shuff(:,curr_shuff) = ...
+        diag(corr(use_ctx_str_corr_circshift, ...
+        cortex_fluor_corr_cat,'rows','complete'));
+end
+corr_rank = tiedrank([nanmean(fluor_ctx_str_corr,1),nanmean(fluor_ctx_str_corr_shuff)]);
+corr_p = 1 - (corr_rank(1)/(n_shuff+1));
+
+disp('Fluor-ctx depth vs Str-ctx depth correlation (circshift stat):')
+disp(['p = ' num2str(corr_p) ', r = ' num2str(nanmean(fluor_ctx_str_corr)) ...
+    ' +/- SEM ' num2str(AP_sem(fluor_ctx_str_corr,1))])
 
 
 %% ^^^ Example recordings (task, passive)
@@ -2012,8 +2039,90 @@ end
 %% ~~~~~~~~~ NEED FINALIZING:
 
 
+%% Deconv explained variance in cortex ephys
+
+error('Do this with long traces instead?');
+
+
+data_fn = 'trial_activity_AP_lcrGratingPassive_ctxstrephys_ctx';
+% data_fn = 'trial_activity_vanillaChoiceworld_ctxstrephys_ctx';
+
+AP_load_concat_normalize_ctx_str;
+
+
+if exist('mua_taskpred_all','var') 
+    mua_exp = vertcat(mua_all{:});
+    mua_ctxpred_exp = vertcat(mua_ctxpred_all{:});
+    mua_taskpred_exp = vertcat(mua_taskpred_all{:});
+    
+    % MUA explained variance (widefield + task)
+    taskpred_r2 = nan(length(mua_exp),n_depths);
+    ctxpred_r2 = nan(length(mua_exp),n_depths);
+    ctxroipred_r2 = nan(length(mua_exp),n_depths);
+    for curr_exp = 1:length(mua_exp)
+        
+        curr_data = reshape(permute(mua_exp{curr_exp},[2,1,3]),[],n_depths);
+        curr_data_baselinesub = reshape(permute(mua_exp{curr_exp},[2,1,3]),[],n_depths) - ...
+            (nanmean(reshape(mua_exp{curr_exp}(:,t < 0,:),[],size(mua_exp{curr_exp},3)),1));
+        curr_taskpred_data = reshape(permute(mua_taskpred_exp{curr_exp},[2,1,3]),[],n_depths);
+        curr_ctxpred_data = reshape(permute(mua_ctxpred_exp{curr_exp},[2,1,3]),[],n_depths);
+        
+        % Set common NaNs
+        nan_samples = isnan(curr_data) | isnan(curr_data_baselinesub) | ...
+            isnan(curr_taskpred_data) | isnan(curr_ctxpred_data);
+        curr_data(nan_samples) = NaN;
+        curr_data_baselinesub(nan_samples) = NaN;
+        curr_taskpred_data(nan_samples) = NaN;
+        curr_ctxpred_data(nan_samples) = NaN;
+        
+        % (task regressed from average baseline-subtracted data)
+        taskpred_r2(curr_exp,:) = 1 - (nansum((curr_data_baselinesub-curr_taskpred_data).^2,1)./ ...
+            nansum((curr_data_baselinesub-nanmean(curr_data_baselinesub,1)).^2,1));
+        % (cortex regressed from raw data)
+        ctxpred_r2(curr_exp,:) = 1 - (nansum((curr_data-curr_ctxpred_data).^2,1)./ ...
+            nansum((curr_data-nanmean(curr_data,1)).^2,1));
+        
+    end
+    figure; hold on;
+    errorbar(nanmean(taskpred_r2,1),AP_sem(taskpred_r2,1),'b','linewidth',2,'CapSize',0);
+    errorbar(nanmean(ctxpred_r2,1),AP_sem(ctxpred_r2,1),'color',[0,0.6,0],'linewidth',2,'CapSize',0);
+    xlabel('Cortex depth');
+    ylabel('Task explained variance');  
+end
+
+
+
+
+mua_exp = vertcat(mua_all{:});
+mua_ctxpred_exp = vertcat(mua_ctxpred_all{:});
+
+
+% MUA explained variance (widefield only)
+ctxpred_r2 = nan(length(mua_exp),n_depths);
+for curr_exp = 1:length(mua_exp)
+       
+    curr_data = reshape(permute(mua_exp{curr_exp},[2,1,3]),[],n_depths);
+    curr_ctxpred_data = reshape(permute(mua_ctxpred_exp{curr_exp},[2,1,3]),[],n_depths);
+    
+    % Set common NaNs
+    nan_samples = isnan(curr_data) | isnan(curr_ctxpred_data);
+    curr_data(nan_samples) = NaN;
+    curr_ctxpred_data(nan_samples) = NaN;
+   
+    % (cortex regressed from raw data)
+    ctxpred_r2(curr_exp,:) = 1 - (nansum((curr_data-curr_ctxpred_data).^2,1)./ ...
+        nansum((curr_data-nanmean(curr_data,1)).^2,1));
+    
+end
+figure; hold on;
+errorbar(nanmean(ctxpred_r2,1),AP_sem(ctxpred_r2,1),'color',[0,0.6,0],'linewidth',2,'CapSize',0);
+xlabel('Cortex depth');
+ylabel('Explained variance');
+
+
+
 %% Task kernel str/ctx correlation
-% (UPDATE THESE VARIABLE NAMES)
+error('update these variable names - reused code');
 
 % Normalize task > striatum kernels across experiments with mua_norm
 mua_taskpred_k_allcat_norm = arrayfun(@(regressor) ...
@@ -2358,222 +2467,6 @@ for i = 1:size(ctx_zero,3)
    colormap(gray);
 end
 
-
-%% Goodness-of-fit update
-
-error('I THINK ALREADY INTEGRATED INTO FIG S8 ADDITION')
-% also that one is exp-dependent and this one isn't, so that's more
-% updated?
-
-% Regress kernel ROI activity to striatum domain activity (per recording)
-regression_params.kernel_t = [0,0];
-regression_params.zs = [false,false];
-regression_params.cvfold = 5;
-regression_params.use_constant = true;
-lambda = 0;
-kernel_frames = floor(regression_params.kernel_t(1)*sample_rate): ...
-    ceil(regression_params.kernel_t(2)*sample_rate);
-
-mua_ctxroi_k = arrayfun(@(x) nan(length(kernel_frames),n_depths),1:length(use_split),'uni',false);
-mua_ctxroipred_allcat = nan(size(mua_allcat));
-for curr_exp = 1:length(trials_recording)
-    for curr_depth = 1:n_depths
-        
-        curr_mua = reshape(mua_allcat(split_idx == curr_exp,:,curr_depth)',[],1)';
-        curr_fluor_kernelroi = reshape(fluor_kernelroi_deconv(split_idx == curr_exp,:,curr_depth)',[],1)';
-        
-        % Skip if no data
-        if all(isnan(curr_mua))
-            continue
-        end
-        
-        % Set discontinuities in trial data
-        trial_discontinuities = false(size(mua_allcat(split_idx == curr_exp,:,curr_depth)));
-        trial_discontinuities(:,1) = true;
-        trial_discontinuities = reshape(trial_discontinuities',[],1)';
-        
-        % Do regression
-        [k,curr_mua_kernelroipred,explained_var] = ...
-            AP_regresskernel(curr_fluor_kernelroi, ...
-            curr_mua,kernel_frames,lambda, ...
-            regression_params.zs,regression_params.cvfold, ...
-            false,regression_params.use_constant,trial_discontinuities);
-              
-        mua_ctxroi_k{curr_exp}(:,curr_depth) = k;
-        mua_ctxroipred_allcat(split_idx == curr_exp,:,curr_depth) = ...
-            reshape(curr_mua_kernelroipred,length(t),[])';
-
-    end
-end
-
-
-
-
-
-
-% Get R^2 for task, cortex full, and cortex ROI predictions
-taskpred_r2 = nan(max(split_idx),n_depths);
-ctxpred_r2 = nan(max(split_idx),n_depths);
-ctxroipred_r2 = nan(max(split_idx),n_depths);
-for curr_exp = 1:max(split_idx)
-       
-    curr_data = reshape(permute(mua_allcat(split_idx == curr_exp,:,:),[2,1,3]),[],n_depths);
-    curr_taskpred_data = reshape(permute(mua_taskpred_allcat(split_idx == curr_exp,:,:),[2,1,3]),[],n_depths);
-    curr_ctxpred_data = reshape(permute(mua_ctxpred_allcat(split_idx == curr_exp,:,:),[2,1,3]),[],n_depths);
-    curr_ctxroipred_data = reshape(permute(mua_ctxroipred_allcat(split_idx == curr_exp,:,:),[2,1,3]),[],n_depths);
-    
-    % Set common NaNs
-    nan_samples = isnan(curr_data) | isnan(curr_taskpred_data) | isnan(curr_ctxpred_data) | isnan(curr_ctxroipred_data);
-    curr_data(nan_samples) = NaN;
-    curr_taskpred_data(nan_samples) = NaN;
-    curr_ctxpred_data(nan_samples) = NaN;
-    curr_ctxroipred_data(nan_samples) = NaN;
-
-    taskpred_r2(curr_exp,:) = 1 - (nansum((curr_data-curr_taskpred_data).^2,1)./ ...
-        nansum((curr_data-nanmean(curr_data,1)).^2,1));
-    ctxpred_r2(curr_exp,:) = 1 - (nansum((curr_data-curr_ctxpred_data).^2,1)./ ...
-        nansum((curr_data-nanmean(curr_data,1)).^2,1));
-    ctxroipred_r2(curr_exp,:) = 1 - (nansum((curr_data-curr_ctxroipred_data).^2,1)./ ...
-        nansum((curr_data-nanmean(curr_data,1)).^2,1));
-end
-figure; hold on;
-errorbar(nanmean(taskpred_r2,1),AP_sem(taskpred_r2,1),'b','linewidth',2,'CapSize',0);
-errorbar(nanmean(ctxpred_r2,1),AP_sem(ctxpred_r2,1),'color',[0,0.6,0],'linewidth',2,'CapSize',0);
-errorbar(nanmean(ctxroipred_r2,1),AP_sem(ctxroipred_r2,1),'color',[1,0.5,0],'linewidth',2,'CapSize',0);
-xlabel('Striatum depth');
-ylabel('Explained variance');
-legend({'Task','Cortex (Full)','Cortex (ROI)'});
-
-% Get significance between cortex kernel and ROI
-ctx_kernel_roi_p = nan(n_depths,1);
-for curr_depth = 1:n_depths
-   ctx_kernel_roi_p(curr_depth) = signrank(ctxroipred_r2(:,curr_depth), ...
-       ctxpred_r2(:,curr_depth));
-   disp(['Str ' num2str(curr_depth) ' kernel vs ROI: p = ' ...
-       num2str(ctx_kernel_roi_p(curr_depth))]);
-end
-
-
-
-% Get R^2 for task in cortex ROI
-taskpred_r2 = nan(max(split_idx),n_depths);
-for curr_exp = 1:max(split_idx)
-       
-    curr_data = reshape(permute(fluor_kernelroi_deconv(split_idx == curr_exp,:,:),[2,1,3]),[],n_depths);
-    curr_taskpred_data = reshape(permute(fluor_kernelroi_taskpred(split_idx == curr_exp,:,:),[2,1,3]),[],n_depths);
-    
-    % Set common NaNs
-    nan_samples = isnan(curr_data) | isnan(curr_taskpred_data);
-    curr_data(nan_samples) = NaN;
-    curr_taskpred_data(nan_samples) = NaN;
-
-    taskpred_r2(curr_exp,:) = 1 - (nansum((curr_data-curr_taskpred_data).^2,1)./ ...
-        nansum((curr_data-nanmean(curr_data,1)).^2,1));
-
-end
-figure; hold on;
-errorbar(nanmean(taskpred_r2,1),AP_sem(taskpred_r2,1),'b','linewidth',2,'CapSize',0);
-xlabel('Cortex ROI');
-ylabel('Task explained variance');
-
-
-% Cortex explained variance
-
-% (spatial explained variance in pixels)
-px_taskpred_r2 = nan(size(U_master,1),size(U_master,2),max(split_idx));
-for curr_exp = 1:max(split_idx)  
-    px_taskpred_r2(:,:,curr_exp) = AP_spatial_explained_var(U_master(:,:,1:n_vs), ...
-        reshape(permute(fluor_allcat_deconv(split_idx == curr_exp,:,:),[2,1,3]),[],n_vs)', ...
-        reshape(permute(fluor_taskpred_allcat(split_idx == curr_exp,:,:),[2,1,3]),[],n_vs)',10);
-    AP_print_progress_fraction(curr_exp,max(split_idx));
-end
-
-figure;imagesc(nanmedian(px_taskpred_r2,3));
-axis image off; 
-colormap(brewermap([],'Reds'));
-caxis([0,1]); 
-c = colorbar;
-ylabel(c,'Task R^2');
-AP_reference_outline('ccf_aligned',[0.5,0.5,0.5]);
-
-
-%% Deconv explained variance in cortex ephys
-
-
-data_fn = 'trial_activity_AP_lcrGratingPassive_ctxstrephys_ctx';
-% data_fn = 'trial_activity_vanillaChoiceworld_ctxstrephys_ctx';
-
-AP_load_concat_normalize_ctx_str;
-
-
-if exist('mua_taskpred_all','var') 
-    mua_exp = vertcat(mua_all{:});
-    mua_ctxpred_exp = vertcat(mua_ctxpred_all{:});
-    mua_taskpred_exp = vertcat(mua_taskpred_all{:});
-    
-    % MUA explained variance (widefield + task)
-    taskpred_r2 = nan(length(mua_exp),n_depths);
-    ctxpred_r2 = nan(length(mua_exp),n_depths);
-    ctxroipred_r2 = nan(length(mua_exp),n_depths);
-    for curr_exp = 1:length(mua_exp)
-        
-        curr_data = reshape(permute(mua_exp{curr_exp},[2,1,3]),[],n_depths);
-        curr_data_baselinesub = reshape(permute(mua_exp{curr_exp},[2,1,3]),[],n_depths) - ...
-            (nanmean(reshape(mua_exp{curr_exp}(:,t < 0,:),[],size(mua_exp{curr_exp},3)),1));
-        curr_taskpred_data = reshape(permute(mua_taskpred_exp{curr_exp},[2,1,3]),[],n_depths);
-        curr_ctxpred_data = reshape(permute(mua_ctxpred_exp{curr_exp},[2,1,3]),[],n_depths);
-        
-        % Set common NaNs
-        nan_samples = isnan(curr_data) | isnan(curr_data_baselinesub) | ...
-            isnan(curr_taskpred_data) | isnan(curr_ctxpred_data);
-        curr_data(nan_samples) = NaN;
-        curr_data_baselinesub(nan_samples) = NaN;
-        curr_taskpred_data(nan_samples) = NaN;
-        curr_ctxpred_data(nan_samples) = NaN;
-        
-        % (task regressed from average baseline-subtracted data)
-        taskpred_r2(curr_exp,:) = 1 - (nansum((curr_data_baselinesub-curr_taskpred_data).^2,1)./ ...
-            nansum((curr_data_baselinesub-nanmean(curr_data_baselinesub,1)).^2,1));
-        % (cortex regressed from raw data)
-        ctxpred_r2(curr_exp,:) = 1 - (nansum((curr_data-curr_ctxpred_data).^2,1)./ ...
-            nansum((curr_data-nanmean(curr_data,1)).^2,1));
-        
-    end
-    figure; hold on;
-    errorbar(nanmean(taskpred_r2,1),AP_sem(taskpred_r2,1),'b','linewidth',2,'CapSize',0);
-    errorbar(nanmean(ctxpred_r2,1),AP_sem(ctxpred_r2,1),'color',[0,0.6,0],'linewidth',2,'CapSize',0);
-    xlabel('Cortex depth');
-    ylabel('Task explained variance');  
-end
-
-
-
-
-mua_exp = vertcat(mua_all{:});
-mua_ctxpred_exp = vertcat(mua_ctxpred_all{:});
-
-
-% MUA explained variance (widefield only)
-ctxpred_r2 = nan(length(mua_exp),n_depths);
-for curr_exp = 1:length(mua_exp)
-       
-    curr_data = reshape(permute(mua_exp{curr_exp},[2,1,3]),[],n_depths);
-    curr_ctxpred_data = reshape(permute(mua_ctxpred_exp{curr_exp},[2,1,3]),[],n_depths);
-    
-    % Set common NaNs
-    nan_samples = isnan(curr_data) | isnan(curr_ctxpred_data);
-    curr_data(nan_samples) = NaN;
-    curr_ctxpred_data(nan_samples) = NaN;
-   
-    % (cortex regressed from raw data)
-    ctxpred_r2(curr_exp,:) = 1 - (nansum((curr_data-curr_ctxpred_data).^2,1)./ ...
-        nansum((curr_data-nanmean(curr_data,1)).^2,1));
-    
-end
-figure; hold on;
-errorbar(nanmean(ctxpred_r2,1),AP_sem(ctxpred_r2,1),'color',[0,0.6,0],'linewidth',2,'CapSize',0);
-xlabel('Cortex depth');
-ylabel('Explained variance');
 
 
 %% Predict striatum from other domains
