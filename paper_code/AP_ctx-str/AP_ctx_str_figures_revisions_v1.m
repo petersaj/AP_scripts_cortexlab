@@ -1766,6 +1766,23 @@ end
 
 %% ~~~~~~~~~ NEED FINALIZING:
 
+%% Plot kernel ROIs
+
+kernel_roi_fn = 'C:\Users\Andrew\OneDrive for Business\Documents\CarandiniHarrisLab\analysis\wf_ephys_choiceworld\wf_processing\wf_rois\kernel_roi';
+load(kernel_roi_fn);
+
+figure; hold on
+n_depths = size(kernel_roi.bw,3);
+str_col = max(hsv(n_depths)-0.2,0);
+set(gca,'YDir','reverse');
+AP_reference_outline('ccf_aligned','k');
+for curr_depths = 1:n_depths
+    curr_roi_boundary = cell2mat(bwboundaries(kernel_roi.bw(:,:,curr_depths)));
+    patch(curr_roi_boundary(:,2),curr_roi_boundary(:,1),str_col(curr_depths,:));
+end
+axis image off;
+
+
 
 %% Fluorescence deconvolution and fluor+ctx+str example
 
@@ -2405,7 +2422,7 @@ for curr_depth = 1:n_depths
 end
 
 % (Prediction with cortex subsets statistics)
-disp('Domain vs. cortex explained variance:');
+disp('Domain vs. cortex explained variance (signrank):');
 for curr_depth = 1:n_depths   
     curr_p = signrank(domaintrialpred_r2_relative(:,curr_depth)); 
     disp(['Str ' num2str(curr_depth) ' p = ' num2str(curr_p')]);
