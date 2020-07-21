@@ -1265,7 +1265,219 @@ AP_reference_outline('ccf_aligned',[0.5,0.5,0.5]);
 
 
 
+%% Example fluor+ctx+str recordings (task, passive)
 
+animal = 'AP060';
+day = '2019-12-06';
+
+experiment_examples = [1,3];
+plot_t_examples = {[100,300],[100,300]};
+
+for curr_example = 1:length(experiment_examples)
+   
+    % Load cortex ephys + imaging
+    experiment = experiment_examples(curr_example);
+    load_parts.ephys = true;
+    load_parts.imaging = true;
+    site = 2; % (cortex always probe 2)
+    str_align = 'none'; % (cortex)
+    AP_load_experiment;
+    
+    mua_fig = figure;
+    raster_fig = figure;
+    plot_t = plot_t_examples{curr_example};
+    
+    % Plot CSD
+    vis_ctx_ephys_fn = 'C:\Users\Andrew\OneDrive for Business\Documents\CarandiniHarrisLab\analysis\wf_ephys_choiceworld\ephys_processing\vis_ctx_ephys.mat';
+    load(vis_ctx_ephys_fn);
+    
+    curr_animal_idx = strcmp(animal,{vis_ctx_ephys.animal});
+    curr_day_idx = strcmp(day,vis_ctx_ephys(curr_animal_idx).day);
+    
+    figure;
+    imagesc(vis_ctx_ephys(curr_animal_idx).stim_lfp_t{curr_day_idx}, ...
+        vis_ctx_ephys(curr_animal_idx).stim_csd_depth{curr_day_idx}, ...
+        vis_ctx_ephys(curr_animal_idx).stim_csd{curr_day_idx});
+    caxis([-max(abs(caxis))/2,max(abs(caxis))/2]);
+    colormap(brewermap([],'*RdBu'));
+    ylabel('Depth (\mum)');
+    xlabel('Time from stim');
+    colorbar;
+    
+    % (COPIED FROM ABOVE: PLOT CORTEX MULTIUNIT AND FLUORESCENCE)
+    
+    %%% DEPTH-ALIGN TEMPLATES, FIND CORTEX BOUNDARY
+    curr_animal_idx = strcmp(animal,{vis_ctx_ephys.animal});
+    curr_day_idx = strcmp(day,vis_ctx_ephys(curr_animal_idx).day);
+    curr_csd_depth = vis_ctx_ephys(curr_animal_idx).stim_csd_depth{curr_day_idx};
+    curr_csd_depth_aligned = vis_ctx_ephys(curr_animal_idx).stim_csd_depth_aligned{curr_day_idx};
+    template_depths_aligned = interp1(curr_csd_depth,curr_csd_depth_aligned,template_depths);
+    spike_depths_aligned = interp1(curr_csd_depth,curr_csd_depth_aligned,spike_depths);
+    
+    % Find cortex end by largest gap between templates
+    sorted_template_depths = sort([template_depths_aligned]);
+    [max_gap,max_gap_idx] = max(diff(sorted_template_depths));
+    ctx_end = sorted_template_depths(max_gap_idx)+1;
+    
+    ctx_depth = [sorted_template_depths(1),ctx_end];
+    ctx_units = template_depths_aligned <= ctx_depth(2);
+    
+    %%% GET FLUORESCENCE AND SPIKES BY DEPTH
+    
+    % Set binning time
+    skip_seconds = 60;
+    spike_binning_t = 1/framerate; % seconds
+    spike_binning_t_edges = frame_t(1)+skip_seconds:spike_binning_t:frame_t(end)-skip_seconds;
+    spike_binning_t_centers = spike_binning_t_edges(1:end-1) + diff(spike_binning_t_edges)/2;
+    
+    % Get fluorescence in pre-drawn ROI
+    curr_ctx_roi = vis_ctx_ephys(curr_animal_idx).ctx_roi{curr_day_idx};
+    
+    fVdf_deconv = AP_deconv_wf(fVdf);
+    fluor_roi = AP_svd_roi(Udf,fVdf_deconv,avg_im,[],curr_ctx_roi);
+    fluor_roi_interp = interp1(frame_t,fluor_roi,spike_binning_t_centers);
+    
+    % Set sliding depth window of MUA
+    depth_corr_range = [-200,1500];
+    depth_corr_window = 200; % MUA window in microns
+    depth_corr_window_spacing = 50; % MUA window spacing in microns
+    
+    depth_corr_bins = [depth_corr_range(1):depth_corr_window_spacing:(depth_corr_range(2)-depth_corr_window); ...
+        (depth_corr_range(1):depth_corr_window_spacing:(depth_corr_range(2)-depth_corr_window))+depth_corr_window];
+    depth_corr_bin_centers = depth_corr_bins(1,:) + diff(depth_corr_bins,[],1)/2;
+    
+    cortex_mua = zeros(size(depth_corr_bins,2),length(spike_binning_t_centers));
+    for curr_depth = 1:size(depth_corr_bins,2)
+        curr_depth_templates_idx = ...
+            find(ctx_units & ...
+            template_depths_aligned >= depth_corr_bins(1,curr_depth) & ...
+            template_depths_aligned < depth_corr_bins(2,curr_depth));
+        
+        cortex_mua(curr_depth,:) = histcounts(spike_times_timeline( ...
+            ismember(spike_templates,curr_depth_templates_idx)),spike_binning_t_edges);
+    end
+    
+    % Plot cortex raster
+    figure(raster_fig);
+    subplot(4,1,1); hold on;
+    plot_t_idx = spike_binning_t_centers >= plot_t(1) & ...
+        spike_binning_t_centers <= plot_t(2);
+    plot(spike_binning_t_centers(plot_t_idx), ...
+        fluor_roi_interp(plot_t_idx),'linewidth',2,'color',[0,0.7,0]);
+    
+    subplot(4,1,2,'YDir','reverse'); hold on;
+    plot_spikes = spike_times_timeline >= plot_t(1) & ...
+        spike_times_timeline <= plot_t(2) & ...
+        spike_depths_aligned <= ctx_depth(2);
+    plot(spike_times_timeline(plot_spikes),spike_depths(plot_spikes),'.k');
+    ylabel('Cortex depth (\mum)');
+    xlabel('Time (s)');
+    
+    %%% LOAD STRIATUM EPHYS AND GET MUA BY DEPTH
+    
+    % Load striatum ephys
+    load_parts.ephys = true;
+    load_parts.imaging = false;
+    site = 1; % (striatum is always on probe 1)
+    str_align = 'kernel';
+    AP_load_experiment;
+    
+    striatum_mua = nan(n_aligned_depths,length(spike_binning_t_centers));
+    for curr_depth = 1:n_aligned_depths
+        curr_spike_times = spike_times_timeline(aligned_str_depth_group == curr_depth);
+        % Skip if no spikes at this depth
+        if isempty(curr_spike_times)
+            continue
+        end
+        striatum_mua(curr_depth,:) = histcounts(curr_spike_times,spike_binning_t_edges);
+    end
+    
+    % Plot striatum raster
+    figure(raster_fig);
+    subplot(4,1,3,'YDir','reverse'); hold on;
+    plot_spikes = spike_times_timeline >= plot_t(1) & ...
+        spike_times_timeline <= plot_t(2) & ...
+        spike_depths >= str_depth(1) & spike_depths <= str_depth(2);
+    plot(spike_times_timeline(plot_spikes),spike_depths(plot_spikes),'.k');
+    ylabel('Striatum depth (\mum)');
+    xlabel('Time (s)');
+    linkaxes(get(raster_fig,'Children'),'x');
+    
+    
+    % Plot multiunit
+    figure(mua_fig);
+    subplot(5,1,1);
+    plot(spike_binning_t_centers,fluor_roi_interp,'linewidth',2,'color',[0,0.7,0]);
+    title('Fluorescence');
+    subplot(5,1,2:4);
+    imagesc(spike_binning_t_centers,[],cortex_mua)
+    caxis([0,10]);
+    colormap(brewermap([],'Greys'));
+    title('Cortex MUA');
+    subplot(5,1,5);
+    imagesc(spike_binning_t_centers,[],striatum_mua);
+    caxis([0,10]);
+    title('Striatum MUA');
+ 
+    
+    %%%%%% PLOT WHEEL/STIM
+    figure(raster_fig);
+    wheel_axes = subplot(4,1,4,'YDir','reverse'); hold on;
+    
+    % (wheel velocity)
+    wheel_axes = subplot(6,1,6);
+    plot_wheel_idx = Timeline.rawDAQTimestamps >= plot_t(1) & ...
+        Timeline.rawDAQTimestamps <= plot_t(2);
+    plot(wheel_axes,Timeline.rawDAQTimestamps(plot_wheel_idx), ...
+        wheel_velocity(plot_wheel_idx),'k','linewidth',2);
+    ylabel('Wheel velocity');
+    axis off
+    
+%     (stimuli)
+    % (task)
+    if contains(expDef,'vanilla')
+        stim_col = colormap_BlueWhiteRed(5);
+        [~,trial_contrast_idx] = ...
+            ismember(trial_conditions(:,1).*trial_conditions(:,2),unique(contrasts'.*sides),'rows');
+    elseif strcmp(expDef,'AP_lcrGratingPassive')
+        % (passive)
+        stim_col = [0,0,1;0.5,0.5,0.5;1,0,0];
+        [~,trial_contrast_idx] = ...
+            ismember(trial_conditions(:,1).*trial_conditions(:,2),[-90;0;90],'rows');
+    end
+    stim_lines = arrayfun(@(x) line(wheel_axes,repmat(stimOn_times(x),1,2),ylim(wheel_axes),'color', ...
+            stim_col(trial_contrast_idx(x),:),'linewidth',2), ...
+            find(stimOn_times >= plot_t(1) & stimOn_times <= plot_t(2)));
+        
+%     % (movement starts)
+%     move_col = [0.6,0,0.6;0,0.6,0];
+%     [~,trial_choice_idx] = ismember(trial_conditions(:,3),[-1;1],'rows');
+%     move_lines = arrayfun(@(x) line(wheel_axes,repmat(wheel_move_time(x),1,2),ylim(wheel_axes),'color', ...
+%         move_col(trial_choice_idx(x),:),'linewidth',2), ...
+%         find(wheel_move_time >= plot_t(1) & wheel_move_time <= plot_t(2)));
+%     
+%     % (go cues)
+%     go_col = [0.8,0.8,0.2];
+%     go_cue_times = signals_events.interactiveOnTimes(1:n_trials);
+%     go_cue_lines = arrayfun(@(x) line(wheel_axes,repmat(go_cue_times(x),1,2),ylim(wheel_axes),'color', ...
+%         go_col,'linewidth',2), ...
+%         find(go_cue_times >= plot_t(1) & go_cue_times <= plot_t(2)));
+%     
+%     % (outcomes)
+%     outcome_col = [0,0,0.8;0.5,0.5,0.5];
+%     reward_lines = arrayfun(@(x) line(wheel_axes,repmat(reward_t_timeline(x),1,2),ylim(wheel_axes),'color', ...
+%         outcome_col(1,:),'linewidth',2), ...
+%         find(reward_t_timeline >= plot_t(1) & reward_t_timeline <= plot_t(2)));
+%     punish_times = signals_events.responseTimes(trial_outcome == -1);
+%     punish_lines = arrayfun(@(x) line(wheel_axes,repmat(punish_times(x),1,2),ylim(wheel_axes),'color', ...
+%         outcome_col(2,:),'linewidth',2), ...
+%         find(punish_times >= plot_t(1) & punish_times <= plot_t(2)));
+
+    linkaxes(get(gcf,'Children'),'x');
+    
+    xlim(plot_t);
+    
+end
 
 
 
