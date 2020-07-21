@@ -1214,9 +1214,6 @@ data_fns = { ...
     'trial_activity_AP_lcrGratingPassive_pre_muscimol', ...
     'trial_activity_AP_lcrGratingPassive_post_muscimol'};
 
-mua_prepost_norm = cell(2,1);
-fluor_kernelroi_prepost_norm = cell(2,1);
-
 stimIDs = cell(2,1);
 mua_muscimol = cell(2,1);
 mua_ctxpred_muscimol = cell(2,1);
@@ -1245,21 +1242,6 @@ for curr_data = 1:length(data_fns)
     fluor_kernelroi_deconv_exp = mat2cell(fluor_kernelroi_deconv,trials_recording,length(t),n_depths);
     mua_allcat_exp = mat2cell(mua_allcat,trials_recording,length(t),n_depths);
     mua_ctxpred_allcat_exp = mat2cell(mua_ctxpred_allcat,trials_recording,length(t),n_depths);
-            
-    warning('TESTING NO NORM DIFFERENCE');
-%     % (use the norm from pre-muscimol)     
-%     mua_prepost_norm{curr_data} = vertcat(mua_norm{:});
-%     mua_allcat_exp = cellfun(@(act,curr_norm,use_norm) ...
-%         (act.*curr_norm)./use_norm,mua_allcat_exp, ...
-%         vertcat(mua_norm{:}),mua_prepost_norm{1},'uni',false);
-%     mua_ctxpred_allcat_exp = cellfun(@(act,curr_norm,use_norm) ...
-%         (act.*curr_norm)./use_norm,mua_ctxpred_allcat_exp, ...
-%         vertcat(mua_norm{:}),mua_prepost_norm{1},'uni',false);
-%     
-%     fluor_kernelroi_prepost_norm{curr_data} = fluor_kernelroi_norm;
-%     fluor_kernelroi_deconv_exp = cellfun(@(act,curr_norm,use_norm) ...
-%         (act.*curr_norm)./use_norm,fluor_kernelroi_deconv_exp, ...
-%         fluor_kernelroi_norm,fluor_kernelroi_prepost_norm{1},'uni',false);
     
     % Exclude trials with fluorescence spikes
     % (this is a dirty way to do this but don't have a better alt)
@@ -1547,8 +1529,6 @@ data_fns = { ...
     'trial_activity_vanillaChoiceworldNoRepeats_pre_muscimol', ...
     'trial_activity_vanillaChoiceworldNoRepeats_post_muscimol'};
 
-mua_prepost_norm = cell(2,1);
-
 for curr_data = 1:length(data_fns)
     
     % Load data
@@ -1561,21 +1541,6 @@ for curr_data = 1:length(data_fns)
     use_split = trials_recording;
     split_idx = cell2mat(arrayfun(@(exp,trials) repmat(exp,trials,1), ...
         [1:length(use_split)]',reshape(use_split,[],1),'uni',false));
-    
-    % (use the norm from pre-muscimol)
-    mua_prepost_norm{curr_data} = vertcat(mua_norm{:});
-    mua_allcat = cell2mat(cellfun(@(act,curr_norm,use_norm) ...
-        (act.*curr_norm)./use_norm, ...
-        mat2cell(mua_allcat,trials_recording,length(t),n_depths), ...
-        vertcat(mua_norm{:}),mua_prepost_norm{1},'uni',false));
-    mua_ctxpred_allcat = cell2mat(cellfun(@(act,curr_norm,use_norm) ...
-        (act.*curr_norm)./use_norm, ...
-        mat2cell(mua_ctxpred_allcat,trials_recording,length(t),n_depths), ...
-        vertcat(mua_norm{:}),mua_prepost_norm{1},'uni',false));
-    mua_taskpred_allcat = cell2mat(cellfun(@(act,curr_norm,use_norm) ...
-        (act.*curr_norm)./use_norm, ...
-        mat2cell(mua_taskpred_allcat,trials_recording,length(t),n_depths), ...
-        vertcat(mua_norm{:}),mua_prepost_norm{1},'uni',false));
     
     % Plot stim-aligned/sorted measured and predicted striatum activity
     % (correct contra trials)
@@ -2021,7 +1986,7 @@ end
 
 
 % Load Fluor+ctx-ephys data
-load('C:\Users\Andrew\OneDrive for Business\Documents\CarandiniHarrisLab\analysis\wf_ephys_choiceworld\paper\data\ctx_fluorpred');
+load('C:\Users\Andrew\OneDrive for Business\Documents\CarandiniHarrisLab\analysis\wf_ephys_choiceworld\paper\data\ctx_deconv_traces');
 
 
 ctx_cat = vertcat(ctx_fluorpred.ctx{:});
@@ -2608,9 +2573,6 @@ data_fns = { ...
     'trial_activity_AP_lcrGratingPassive_ctxstrephys_str', ...
     'trial_activity_AP_lcrGratingPassive_pre_muscimol'}};
 
-mua_prepost_norm = cell(2,1);
-fluor_kernelroi_prepost_norm = cell(2,1);
-
 stimIDs = cell(2,1);
 mua_training = cell(2,1);
 mua_ctxpred_training = cell(2,1);
@@ -2639,20 +2601,6 @@ for curr_data = 1:length(data_fns)
     fluor_kernelroi_deconv_exp = mat2cell(fluor_kernelroi_deconv,trials_recording,length(t),n_depths);
     mua_allcat_exp = mat2cell(mua_allcat,trials_recording,length(t),n_depths);
     mua_ctxpred_allcat_exp = mat2cell(mua_ctxpred_allcat,trials_recording,length(t),n_depths);
-      
-    % (TO RENORMALIZE: MUA = day baseline, fluor = nothing)  
-    mua_prepost_norm{curr_data} = vertcat(mua_norm{:});
-    mua_allcat_exp = cellfun(@(act,curr_norm,use_norm) ...
-        (act.*curr_norm)./use_norm,mua_allcat_exp, ...
-        vertcat(mua_norm{:}),vertcat(mua_day_baseline{:}),'uni',false);
-    mua_ctxpred_allcat_exp = cellfun(@(act,curr_norm,use_norm) ...
-        (act.*curr_norm)./use_norm,mua_ctxpred_allcat_exp, ...
-        vertcat(mua_norm{:}),vertcat(mua_day_baseline{:}),'uni',false);
-    
-    fluor_kernelroi_prepost_norm{curr_data} = fluor_kernelroi_norm;
-    fluor_kernelroi_deconv_exp = cellfun(@(act,curr_norm) ...
-        (act.*curr_norm),fluor_kernelroi_deconv_exp, ...
-        fluor_kernelroi_norm,'uni',false);
     
     % Exclude trials with fluorescence spikes
     % (this is a dirty way to do this but don't have a better alt)
