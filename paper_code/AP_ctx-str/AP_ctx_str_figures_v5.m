@@ -5,7 +5,7 @@
 % revision figures from AP_ctx_str_figure_revisions_v1)
 
 
-%% Load data
+%% Load data for figures below with symbols
 % (symbols on top match dataset with their figure code below
 
 % % ++
@@ -13,19 +13,12 @@
 % data_fn = 'trial_activity_choiceworld'; % Primary dataset
 % data_fn = 'trial_activity_choiceworld_16strdepth'; % Depth-aligned striatum
 
-% **
-% Task, combined
-data_fn = { ...
-    'trial_activity_choiceworld'... 
-    'trial_activity_vanillaChoiceworld_ctxstrephys_str'...
-    'trial_activity_vanillaChoiceworldNoRepeats_pre_muscimol'};
-
-% % @@
-% % Passive gratings, combined
+% % **
+% % Task, combined
 % data_fn = { ...
-%     'trial_activity_AP_choiceWorldStimPassive_trained'... 
-%     'trial_activity_AP_lcrGratingPassive_ctxstrephys_str'...
-%     'trial_activity_AP_lcrGratingPassive_pre_muscimol'};
+%     'trial_activity_choiceworld'... 
+%     'trial_activity_vanillaChoiceworld_ctxstrephys_str'...
+%     'trial_activity_vanillaChoiceworldNoRepeats_pre_muscimol'};
 
 AP_load_concat_normalize_ctx_str;
 
@@ -40,7 +33,7 @@ split_idx = cell2mat(arrayfun(@(exp,trials) repmat(exp,trials,1), ...
 
 
 
-%% ** Fig 1a, Fig S1b,c: Psychometric and reaction time
+%% ** Fig 1a, SFig1b,c: Psychometric and reaction time
 
 figure;
 
@@ -236,7 +229,7 @@ outcome_align = -outcome_idx + leeway_samples;
 % Set windows to average activity
 use_align_labels = {'Stim','Move onset','Outcome'};
 use_align = {stim_align,move_align,outcome_align};
-plot_t = [0.08,0,0.08];
+plot_t = [0.05,0,0.1];
 
 figure;
 for curr_align = 1:length(use_align)
@@ -260,8 +253,8 @@ for curr_align = 1:length(use_align)
     imagesc(curr_ctx_act_mean_t_px);
     AP_reference_outline('ccf_aligned',[0.5,0.5,0.5]);
     axis image off;
-    colormap(brewermap([],'PRGn'));
-    caxis([-0.02,0.02]);
+    colormap(brewermap([],'Greens'));
+%     caxis([-0.02,0.02]);
     title([use_align_labels{curr_align} ': ' num2str(plot_t(curr_align)) ' sec']);
     
 end
@@ -429,7 +422,10 @@ AP_reference_outline('ccf_aligned',[0.5,0.5,0.5]);
 
 
 
-%% Fig 2d,i: Striatum domain locations and corticostriatal projections
+%% Fig 2d,h: Striatum domain locations and corticostriatal projections
+
+% Set striatum domain colors
+str_col = max(hsv(n_aligned_depths)-0.2,0);
 
 % Load the kernel template matches
 n_aligned_depths = 3;
@@ -469,19 +465,6 @@ for curr_depth = 1:n_aligned_depths
             nansum(nanmean(curr_kernel_match,2).*(1:sum(use_depths))') ...
             ./nansum(nanmean(curr_kernel_match,2));
 end
-
-% Plot domain locations
-str_col = max(hsv(n_aligned_depths)-0.2,0);
-figure; hold on;
-colormap(str_col);
-area(kernel_match_frac,'FaceColor','flat');
-for curr_depth = 1:n_aligned_depths
-    line(repmat(kernel_match_com(curr_depth),2,1),ylim, ...
-        'color',min(str_col(curr_depth,:)+0.2,1),'linewidth',3);
-end
-axis tight;
-xlabel('Estimated depth');
-ylabel('Fraction domain match');
 
 % Get relative domain COM along trajectory and plot in CCF
 kernel_match_com_relative = kernel_match_com./sum(use_depths);
@@ -560,7 +543,10 @@ slice_str_outline = bwboundaries(av_slice == str_id,'noholes');
 slice_callosum_outline = bwboundaries(av_slice == callosum_id,'noholes');
 slice_ventricle_outline = bwboundaries(av_slice == ventricle_id,'noholes');
 
-figure; hold on; axis image on; box on; grid on; set(gca,'YDir','reverse');
+% Plot mean domain CCF locations
+figure; 
+subplot(1,2,1);
+hold on; axis image on; box on; grid on; set(gca,'YDir','reverse');
 plot(slice_brain_outline{1}(:,2),slice_brain_outline{1}(:,1),'k','linewidth',2);
 cellfun(@(x) plot(x(:,2),x(:,1),'b','linewidth',2),slice_str_outline);
 cellfun(@(x) fill(x(:,2),x(:,1),'k','linewidth',2),slice_callosum_outline);
@@ -569,6 +555,18 @@ cellfun(@(x) fill(x(:,2),x(:,1),'k','linewidth',2),slice_ventricle_outline);
 line(probe_vector_ccf(:,3),probe_vector_ccf(:,2),'linewidth',2,'color','r');
 scatter(kernel_depth_ccf(:,3),kernel_depth_ccf(:,2), ...
     100,str_col,'filled');
+
+% Plot fraction domains by depth
+subplot(1,2,2); hold on;
+colormap(str_col);
+area(kernel_match_frac,'FaceColor','flat');
+for curr_depth = 1:n_aligned_depths
+    line(repmat(kernel_match_com(curr_depth),2,1),ylim, ...
+        'color',min(str_col(curr_depth,:)+0.2,1),'linewidth',3);
+end
+axis tight;
+xlabel('Estimated depth');
+ylabel('Fraction domain match');
 
 % Mirror all of the locations across the midline and get projections from
 % both (because the cortical injections in the database aren't evenly
@@ -676,7 +674,7 @@ end
 
 
 
-%% Fig 2f,g,h: Average cortex > striatum domain kernels
+%% Fig 2e,f,g: Average cortex > striatum domain kernels
 
 % Load data
 load('C:\Users\Andrew\OneDrive for Business\Documents\CarandiniHarrisLab\analysis\wf_ephys_choiceworld\paper\data\str_ctxpred.mat')
@@ -931,7 +929,7 @@ for t_idx = 1:length(plot_t)
 end
 
 
-%% ** Fig 3a-e, Fig S5,6,7: Striatal domain activity and task regression
+%% ** Fig 3a-e, SFig5,6,7: Striatal domain activity and task regression
 
 % Plot stim-aligned/sorted measured and predicted striatum activity
 % (correct contra trials)
@@ -1344,7 +1342,7 @@ legend({'DMS','DCS','DLS'})
 
 
 % (Cortex vs task R2 statistics)
-disp('Cortex vs Task R^2');
+disp('Cortex vs Task R^2 signrank:');
 for curr_depth = 1:n_depths
     curr_p = signrank(ctxpred_r2(:,curr_depth), ...
         taskpred_r2(:,curr_depth));
@@ -1353,7 +1351,7 @@ end
 
 
 
-%% @@ Fig 5: Untrained/trained passive responses
+%% Fig 5: Untrained/trained passive responses
 
 data_fns = { ...
     'trial_activity_AP_choiceWorldStimPassive_naive', ...
@@ -1521,7 +1519,7 @@ axis image off;
 stim_act_mean = cellfun(@(x) cell2mat(cellfun(@(x) nanmean(x,1), ...
     x,'uni',false)),stim_act,'uni',false);
 
-disp('Untrained/trained:');
+disp('Untrained/trained ranksum:');
 for curr_depth = 1:n_depths
     curr_p = ranksum(stim_act_mean{1}(:,1,curr_depth),stim_act_mean{2}(:,1,curr_depth));
     disp(['Str ' num2str(curr_depth) ' p = ' num2str(curr_p)]); 
@@ -1531,7 +1529,7 @@ for curr_depth = 1:n_depths
 end
 
 
-%% Fig S2a,b,c,d: Widefield alignment
+%% SFig2a,b,c,d: Widefield alignment
 
 % Show average images across days for one animal
 animal = 'AP025';
@@ -1650,7 +1648,7 @@ AP_reference_outline('ccf_aligned',[0.5,0.5,0.5]);
 
 
 
-%% Fig S2e,f: Widefield correlation borders
+%% SFig2e,f: Widefield correlation borders
 
 wf_corr_borders_fn = 'C:\Users\Andrew\OneDrive for Business\Documents\CarandiniHarrisLab\analysis\wf_ephys_choiceworld\wf_processing\wf_borders\wf_corr_borders.mat';
 load(wf_corr_borders_fn);
@@ -1703,7 +1701,7 @@ ccf_outline = AP_reference_outline('ccf_aligned',[1,0,0]);
 cellfun(@(x) set(x,'linewidth',1),vertcat(ccf_outline{:}));
 
 
-%% Fig S3a: Probe trajectories histology vs widefield-estimated
+%% SFig3a: Probe trajectories histology vs widefield-estimated
 
 % Load probe trajectories
 histology_probe_ccf_all_fn = ['C:\Users\Andrew\OneDrive for Business\Documents\CarandiniHarrisLab\analysis\wf_ephys_choiceworld\paper\data\histology_probe_ccf_all'];
@@ -1796,7 +1794,7 @@ for curr_animal = 1:n_animals
 end
 
 
-%% Fig S3b: Probe trajectories estimated from widefield image
+%% SFig3b: Probe trajectories estimated from widefield image
 
 % Load estimated probe trajectories
 probe_ccf_all_fn = ['C:\Users\Andrew\OneDrive for Business\Documents\CarandiniHarrisLab\analysis\wf_ephys_choiceworld\paper\data\probe_ccf_all'];
@@ -1905,7 +1903,7 @@ image(permute(probe_color,[1,3,2]));
 
 
 
-%% Fig S3d,e: Striatum border estimation (histology and electrophysiology)
+%% SFig3d,e: Striatum border estimation (histology and electrophysiology)
 
 animal = 'AP032';
 
@@ -1967,7 +1965,7 @@ end
 set(gcf,'Name',ephys_depth_align(curr_animal).animal);
 
 
-%% Fig S4b,c Fluorescence deconvolution and fluor+ctx+str example
+%% SFig4b,c Fluorescence deconvolution and fluor+ctx+str example
 
 % Load and plot kernel
 % (flip time to be fluor lag:lead spikes);
@@ -2202,7 +2200,7 @@ p = signrank(ctx_deconv_task_r2,ctx_deconv_notask_r2);
 disp(['Task vs no-task explained var: ' num2str(p)]);
 
 
-%% Fig S4d,e,f: Fluorescence/cortex ephys/striatum ephys correlation
+%% SFig4d,e,f: Fluorescence/cortex ephys/striatum ephys correlation
 
 %%% Load correlation data
 use_protocol = 'vanillaChoiceworld';
@@ -2259,19 +2257,19 @@ for curr_animal = 1:length(vis_ctx_ephys)
         subplot(3,n_recordings,curr_recording);
         imagesc(stim_lfp_t,stim_lfp_depth,stim_lfp);
         caxis([-max(abs(caxis))/2,max(abs(caxis))/2]);
-        colormap(brewermap([],'PRGn'));
+        colormap(brewermap([],'*RdBu'));
         title({animal,day,'LFP'});
         
         subplot(3,n_recordings,size(stim_csd_cat,3)+curr_recording);
         imagesc(stim_lfp_t,stim_csd_depth,stim_csd);
         caxis([-max(abs(caxis))/2,max(abs(caxis))/2]);
-        colormap(brewermap([],'PRGn'));
+        colormap(brewermap([],'*RdBu'));
         title('CSD');
         
         subplot(3,n_recordings,size(stim_csd_cat,3)*2+curr_recording);
         imagesc(stim_lfp_t,stim_csd_depth_aligned,stim_csd_aligned);
         caxis([-max(abs(caxis))/2,max(abs(caxis))/2]);
-        colormap(brewermap([],'PRGn'));
+        colormap(brewermap([],'*RdBu'));
         title('Aligned CSD');
                 
         % Keep aligned CSD for averaging
@@ -2297,7 +2295,7 @@ subplot(1,4,1,'YDir','reverse');
 imagesc(stim_lfp_t,depth_align_interp,stim_csd_aligned_mean);
 caxis([-1,1]);
 line([0,0],ylim,'color','k');
-colormap(brewermap([],'PRGn'));
+colormap(brewermap([],'*RdBu'));
 xlabel('Time from stim');
 ylabel('Aligned depth');
 title('Average aligned CSD')
@@ -2347,7 +2345,7 @@ use_ctx_str_corr = squeeze(cortex_striatum_corr_cat(:,use_str,:));
 fluor_ctx_str_corr = diag(corr(use_ctx_str_corr,cortex_fluor_corr_cat,'rows','complete'));
 
 n_shuff = 10000;
-fluor_ctx_str_corr_shuff = nan(size(c,1),n_shuff);
+fluor_ctx_str_corr_shuff = nan(size(fluor_ctx_str_corr,1),n_shuff);
 for curr_shuff = 1:n_shuff
     use_ctx_str_corr_circshift = use_ctx_str_corr;
     for i = 1:size(use_ctx_str_corr_circshift,2)
@@ -2367,7 +2365,7 @@ disp(['p = ' num2str(corr_p) ', r = ' num2str(nanmean(fluor_ctx_str_corr)) ...
     ' +/- SEM ' num2str(AP_sem(fluor_ctx_str_corr,1))])
 
 
-%% ** Fig S7: Task > cortex kernels (go cue)
+%% ** SFig7: Task > cortex kernels (go cue)
 
 % Get task>cortex parameters
 n_regressors = length(task_regressor_labels);
@@ -2405,7 +2403,7 @@ for curr_regressor = 1:length(task_regressor_labels)
 end
 
 
-%% ** Fig S8: Striatum prediction: cortical subregions, striatal domains
+%% ** SFig8: Striatum prediction: cortical subregions, striatal domains
 % NOTE: this regression is done on trial data rather than the long time
 % courses which is what the normal analysis uses. For sanity check, the
 % explained using the full data (full) and the trials dataset (trials) are
@@ -2691,7 +2689,7 @@ end
 
 
 
-%% Fig S9a Cortical spike rate pre/post muscimol
+%% SFig9a Cortical spike rate pre/post muscimol
 % (use spike rate over all experiments pre/post muscimol)
 
 animal_days = { ...
@@ -2700,7 +2698,7 @@ animal_days = { ...
 
 figure;
 
-spike_rate_change_cond = cell(size(animaldays));
+spike_rate_change_cond = cell(size(animal_days));
 for curr_animalday = 1:length(animal_days)
     
     animal = animal_days{curr_animalday,1};
@@ -2767,7 +2765,7 @@ end
 
 
 
-%% Fig S9b VFS pre/post musicmol
+%% SFig9b VFS pre/post musicmol
 
 muscimol_wf_fn = 'C:\Users\Andrew\OneDrive for Business\Documents\CarandiniHarrisLab\analysis\wf_ephys_choiceworld\paper\data\muscimol_wf.mat';
 load(muscimol_wf_fn);
@@ -2804,7 +2802,7 @@ subplot(2,3,3);
 imagesc(nanmean(std_change,3));
 axis image off;
 caxis([-0.5,0.5]);
-colormap(gca,brewermap([],'PRGn'));
+colormap(gca,brewermap([],'*RdBu'));
 AP_reference_outline('ccf_aligned',[0.5,0.5,0.5]);
 title('(post-pre)/(post+pre)');
 colorbar
@@ -2814,7 +2812,7 @@ subplot(2,3,4);
 imagesc(nanmean(cat(3,vfs_cat{:,1}),3));
 axis image off;
 caxis([-1,1]);
-colormap(gca,brewermap([],'PRGn'));
+colormap(gca,brewermap([],'*RdBu'));
 AP_reference_outline('ccf_aligned',[0.5,0.5,0.5]);
 title('VFS pre-muscimol');
 colorbar
@@ -2823,7 +2821,7 @@ subplot(2,3,5);
 imagesc(nanmean(cat(3,vfs_cat{:,2}),3));
 axis image off;
 caxis([-1,1]);
-colormap(gca,brewermap([],'PRGn'));
+colormap(gca,brewermap([],'*RdBu'));
 AP_reference_outline('ccf_aligned',[0.5,0.5,0.5]);
 title('VFS post-muscimol');
 colorbar
@@ -2832,13 +2830,13 @@ subplot(2,3,6);
 imagesc(nanmean(vfs_change,3));
 axis image off;
 caxis([-0.5,0.5]);
-colormap(gca,brewermap([],'PRGn'));
+colormap(gca,brewermap([],'*RdBu'));
 AP_reference_outline('ccf_aligned',[0.5,0.5,0.5]);
 title('(post-pre)/(post+pre)');
 colorbar
 
 
-%% Fig S9c Striatal spike rate pre/post muscimol
+%% SFig9c Striatal spike rate pre/post muscimol
 
 animals = {'AP045','AP054','AP055','AP053','AP047','AP048'};
 
@@ -2918,7 +2916,7 @@ for curr_depth = 1:n_depths
 end
 
 
-%% Fig S9d Cortex/striatum passive stim pre/post muscimol
+%% SFig9d Cortex/striatum passive stim pre/post muscimol
 
 data_fns = { ...
     'trial_activity_AP_lcrGratingPassive_pre_muscimol', ...
@@ -3106,7 +3104,7 @@ for curr_depth = 1:n_depths
 end
 
 
-%% Fig S9e Task performance pre/post muscimol
+%% SFig9e Task performance pre/post muscimol
 
 data_fns = { ...
     'trial_activity_vanillaChoiceworldNoRepeats_pre_muscimol', ...
@@ -3233,7 +3231,7 @@ disp(['Reaction time stim x condition p = ' num2str(curr_p(3))]);
 
 
 
-%% Fig S9f Striatal task trial activity pre/post muscimol
+%% SFig9f Striatal task trial activity pre/post muscimol
 
 data_fns = { ...
     'trial_activity_vanillaChoiceworldNoRepeats_pre_muscimol', ...
@@ -3421,7 +3419,7 @@ for curr_data = 1:length(data_fns)
 end
 
 
-%% Fig S9g Striatal task kernels pre/post muscimol
+%% SFig9g Striatal task kernels pre/post muscimol
 
 data_fns = { ...
     'trial_activity_vanillaChoiceworldNoRepeats_pre_muscimol', ...
@@ -3605,7 +3603,7 @@ end
 
 
 
-%% Fig S9h Striatal task/cortex explained variance pre/post muscimol
+%% SFig9h Striatal task/cortex explained variance pre/post muscimol
 
 data_fns = { ...
     'trial_activity_vanillaChoiceworldNoRepeats_pre_muscimol', ...
@@ -3690,7 +3688,7 @@ for curr_depth = 1:n_depths
 end
 
 
-%% ** Fig S10: Stimulus activity vs choice
+%% ** SFig10: Stimulus activity vs choice
 
 % Get stim activity by stim/choice/depth/experiment
 stim_avg_t = [0,0.2];
@@ -3731,7 +3729,7 @@ for curr_depth = 1:n_depths
         nanmean(stim_act_grp(:,:,curr_depth,:),4), ...
         AP_sem(stim_act_grp(:,:,curr_depth,:),4),'linewidth',2);
     xlabel('Contrast*side');
-    ylabel('Activity (std)');
+    ylabel(['Str ' num2str(curr_depth)']);
 end
 
 % (stim response by choice statistics)
