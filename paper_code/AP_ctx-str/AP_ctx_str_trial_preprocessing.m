@@ -77,7 +77,7 @@ for curr_animal = 1:length(animals)
         corr_edges = nanmean(corr_map_edge,3);
         
         wf_corr_borders(curr_animal).corr_map_downsamp{curr_day} = corr_map_downsamp;
-        wf_corr_borders(curr_animal).corr_edges{curr_day} = corr_edges_aligned;
+        wf_corr_borders(curr_animal).corr_edges{curr_day} = corr_edges;
         
         clearvars -except animals animal curr_animal protocol experiments curr_day animal wf_corr_borders load_parts
         

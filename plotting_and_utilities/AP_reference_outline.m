@@ -115,7 +115,13 @@ switch type
 end
 
 
-% ONLY NEEDED ONCE: create top-down cortical boundaries from CCF
+% % ONLY NEEDED ONCE: create top-down cortical boundaries from CCF
+%
+% Load in the annotated Allen volume and names
+% allen_path = 'C:\Users\Andrew\OneDrive for Business\Documents\Atlases\AllenCCF';
+% av = readNPY([allen_path filesep 'annotation_volume_10um_by_index.npy']);
+% st = loadStructureTree([allen_path filesep 'structure_tree_safe_2017.csv']); % a table of what all the labels mean
+%
 % % Get first brain pixel from top-down, get annotation at that point
 % [~,top_down_depth] = max(av>1, [], 2);
 % top_down_depth = squeeze(top_down_depth);
@@ -142,9 +148,11 @@ end
 % for curr_area_idx = 1:length(plot_areas)
 %     cortical_area_boundaries{curr_area_idx} = bwboundaries(top_down_annotation == plot_areas(curr_area_idx));
 % end
-
-
-
+%
+% % Save borders
+% save_fn = [alignment_path filesep 'cortical_area_boundaries'];
+% save(save_fn,'cortical_area_boundaries');
+% disp(['Saved ' save_fn]);
 
 
 

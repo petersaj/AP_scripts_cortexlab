@@ -314,22 +314,6 @@ ylabel(c,'Task R^2');
 AP_reference_outline('ccf_aligned',[0.5,0.5,0.5]);
 
 
-%% Widefield correlation borders
-
-wf_corr_borders_fn = 'C:\Users\Andrew\OneDrive for Business\Documents\CarandiniHarrisLab\analysis\wf_ephys_choiceworld\wf_processing\wf_borders\wf_corr_borders.mat';
-load(wf_corr_borders_fn);
-
-wf_corr_borders_cat = cell2mat(reshape([wf_corr_borders(:).corr_edges],1,1,[]));
-figure;
-imagesc(nanmean(wf_corr_borders_cat,3));
-axis image off;
-caxis([0,max(caxis)])
-colormap(brewermap([],'Greys'))
-ccf_outline = AP_reference_outline('ccf_aligned',[1,0,0]);
-cellfun(@(x) set(x,'linewidth',1),vertcat(ccf_outline{:}));
-
-
-wf_corr_map_cat = permute([wf_corr_borders(:).corr_map_downsamp],[1,3,2]);
 
 
 
@@ -2025,27 +2009,6 @@ disp(['Task vs no-task explained var: ' num2str(p)]);
 
 
 %% Task kernel str/ctx correlation
-error('update these variable names - reused code');
-
-% Normalize task > striatum kernels across experiments with mua_norm
-mua_taskpred_k_allcat_norm = arrayfun(@(regressor) ...
-    cell2mat(permute(cellfun(@(x) x{regressor}, ...
-    cellfun(@(kernel_set,mua_norm) cellfun(@(kernel) ...
-    kernel./(mua_norm/sample_rate),kernel_set,'uni',false), ...
-    vertcat(mua_taskpred_k_all{:}),vertcat(mua_norm{:}),'uni',false), ...
-    'uni',false),[2,3,4,1])),1:length(task_regressor_labels),'uni',false)';
-
-mua_ctxpred_taskpred_k_allcat_norm = arrayfun(@(regressor) ...
-    cell2mat(permute(cellfun(@(x) x{regressor}, ...
-    cellfun(@(kernel_set,mua_norm) cellfun(@(kernel) ...
-    kernel./(mua_norm/sample_rate),kernel_set,'uni',false), ...
-    vertcat(mua_ctxpred_taskpred_k_all{:}),vertcat(mua_norm{:}),'uni',false), ...
-    'uni',false),[2,3,4,1])),1:length(task_regressor_labels),'uni',false)';
-
-
-
-%%%% TESTING: I think I can use this same code!
-
 
 mua_taskpred_catk = cellfun(@(x) cellfun(@(x) ...
     cell2mat(cellfun(@(x) reshape(x,[],size(x,3)),x,'uni',false)), ...
@@ -2055,96 +2018,95 @@ mua_ctxpred_taskpred_catk = cellfun(@(x) cellfun(@(x) ...
     cell2mat(cellfun(@(x) reshape(x,[],size(x,3)),x,'uni',false)), ...
     x,'uni',false),mua_ctxpred_taskpred_k_all,'uni',false);
 
-
-%(testing)
-ctx_str_k_px_animal = cellfun(@(x,y) [x,y], ...
+ctx_str_taskk_animal = cellfun(@(x,y) [x,y], ...
     mua_taskpred_catk,mua_ctxpred_taskpred_catk,'uni',false);
 
-task_notask_k_corr = nan(4,n_depths,length(ctx_str_k_px_animal));
-for curr_animal = 1:length(ctx_str_k_px_animal)
+ctx_str_taskk_corr = nan(4,n_depths,length(ctx_str_taskk_animal));
+for curr_animal = 1:length(ctx_str_taskk_animal)
     
-    curr_px = cellfun(@(x) reshape(x,[],n_depths), ...
-        ctx_str_k_px_animal{curr_animal},'uni',false);
+    curr_k = cellfun(@(x) reshape(x,[],n_depths), ...
+        ctx_str_taskk_animal{curr_animal},'uni',false);
     
-    curr_px_task = cat(3,curr_px{:,1});
-    curr_px_notask = cat(3,curr_px{:,2});
+    curr_k_str = cat(3,curr_k{:,1});
+    curr_k_ctx = cat(3,curr_k{:,2});
      
-    % Correlate kernel task/notask within domain
-    task_notask_k_corr(1,:,curr_animal) = ...
+    % Correlate str/ctx kernels within domain
+    ctx_str_taskk_corr(1,:,curr_animal) = ...
         nanmean(cell2mat(cellfun(@(x,y) diag(corr(x,y))', ...
-        curr_px(:,1),curr_px(:,2),'uni',false)));
+        curr_k(:,1),curr_k(:,2),'uni',false)));
     
-    % Correlate kernel task across domains
-    task_notask_k_corr(2,:,curr_animal) = ...
+    % Correlate str/ctx kernels across domains
+    ctx_str_taskk_corr(2,:,curr_animal) = ...
         nanmean(cell2mat(cellfun(@(x,y) ...
         nansum(tril(corr(x),-1)+triu(corr(x),1),1)./(n_depths-1)', ...
-        curr_px(:,1),'uni',false)));
+        curr_k(:,1),'uni',false)));
        
     % Correlate kernel within task/notask across days within domain
-    task_notask_k_corr(3,:,curr_animal) = arrayfun(@(depth) ...
-        nanmean(AP_itril(corr(permute(curr_px_task(:,depth,:),[1,3,2])),-1)),1:n_depths);
-    task_notask_k_corr(4,:,curr_animal) = arrayfun(@(depth) ...
-        nanmean(AP_itril(corr(permute(curr_px_notask(:,depth,:),[1,3,2])),-1)),1:n_depths);  
+    ctx_str_taskk_corr(3,:,curr_animal) = arrayfun(@(depth) ...
+        nanmean(AP_itril(corr(permute(curr_k_str(:,depth,:),[1,3,2])),-1)),1:n_depths);
+    ctx_str_taskk_corr(4,:,curr_animal) = arrayfun(@(depth) ...
+        nanmean(AP_itril(corr(permute(curr_k_ctx(:,depth,:),[1,3,2])),-1)),1:n_depths);  
 
 end
 
-
 % Get mean across domains
-task_notask_k_corr_strmean = squeeze(nanmean(task_notask_k_corr,2));
+ctx_str_taskk_corr_strmean = squeeze(nanmean(ctx_str_taskk_corr,2));
 
 % Plot mean and split by domains
 figure; 
 
 subplot(2,1,1);hold on; set(gca,'ColorOrder',copper(n_depths));
-plot(task_notask_k_corr_strmean,'color',[0.5,0.5,0.5]);
-errorbar(nanmean(task_notask_k_corr_strmean,2), ...
-    AP_sem(task_notask_k_corr_strmean,2),'k','linewidth',2);
+plot(ctx_str_taskk_corr_strmean,'color',[0.5,0.5,0.5]);
+errorbar(nanmean(ctx_str_taskk_corr_strmean,2), ...
+    AP_sem(ctx_str_taskk_corr_strmean,2),'k','linewidth',2);
 set(gca,'XTick',1:4,'XTickLabelRotation',20,'XTickLabel', ...
-    {'Task-no task within day','Task within day across domains','Task across days','No task across days'})
-ylabel('Spatiotemporal correlation');
+    {'Str-ctx within day','Str within day across domains','Str across days','Ctx across days'})
+ylabel('Task kernel correlation');
 xlim([0.5,4.5]);
 
 subplot(2,1,2);hold on; set(gca,'ColorOrder',copper(n_depths));
-errorbar(nanmean(task_notask_k_corr,3), ...
-    AP_sem(task_notask_k_corr,3),'linewidth',2)
+errorbar(nanmean(ctx_str_taskk_corr,3), ...
+    AP_sem(ctx_str_taskk_corr,3),'linewidth',2)
 set(gca,'XTick',1:4,'XTickLabelRotation',20,'XTickLabel', ...
-    {'Task-no task within day','Task within day across domains','Task across days','No task across days'})
-ylabel('Spatiotemporal correlation');
+    {'Str-ctx within day','Str within day across domains','Str across days','Ctx across days'})
+ylabel('Task kernel correlation');
 xlim([0.5,4.5]);
 legend(cellfun(@(x) ['Str ' num2str(x)],num2cell(1:n_depths),'uni',false))
 
 % (within task-passive v task-task domains statistics)
-disp('Task/passive vs task/task cross-domain:')
-curr_p = signrank(squeeze(task_notask_k_corr_strmean(1,:)), ...
-    squeeze(task_notask_k_corr_strmean(2,:)));
-disp(['All str ' num2str(curr_depth) ' p = ' num2str(curr_p)]);
+disp('Str/ctx vs str/str cross-domain:')
+curr_p = signrank(squeeze(ctx_str_taskk_corr_strmean(1,:)), ...
+    squeeze(ctx_str_taskk_corr_strmean(2,:)));
+disp(['All str p = ' num2str(curr_p)]);
 for curr_depth = 1:n_depths  
-    curr_p = signrank(squeeze(task_notask_k_corr(1,curr_depth,:)), ...
-        squeeze(task_notask_k_corr(2,curr_depth,:)));
+    curr_p = signrank(squeeze(ctx_str_taskk_corr(1,curr_depth,:)), ...
+        squeeze(ctx_str_taskk_corr(2,curr_depth,:)));
     disp(['Str ' num2str(curr_depth) ' p = ' num2str(curr_p)]); 
 end
 
 % (within vs across statistics)
-disp('Task/passive-within vs task-across:')
-curr_p = signrank(squeeze(task_notask_k_corr_strmean(1,:)), ...
-    squeeze(task_notask_k_corr_strmean(3,:)));
+disp('Str/ctx-within vs str-across:')
+curr_p = signrank(squeeze(ctx_str_taskk_corr_strmean(1,:)), ...
+    squeeze(ctx_str_taskk_corr_strmean(3,:)));
 disp(['All str ' num2str(curr_depth) ' p = ' num2str(curr_p)]);
 for curr_depth = 1:n_depths
-    curr_p = signrank(squeeze(task_notask_k_corr(1,curr_depth,:)), ...
-        squeeze(task_notask_k_corr(3,curr_depth,:)));
+    curr_p = signrank(squeeze(ctx_str_taskk_corr(1,curr_depth,:)), ...
+        squeeze(ctx_str_taskk_corr(3,curr_depth,:)));
     disp(['Str ' num2str(curr_depth) ' p = ' num2str(curr_p)]); 
 end
 
 % (cross task vs no task statistics)
-disp('Task-across vs passive-across');
-curr_p = signrank(squeeze(task_notask_k_corr_strmean(3,:)), ...
-    squeeze(task_notask_k_corr_strmean(4,:)));
+disp('Str-across vs ctx-across');
+curr_p = signrank(squeeze(ctx_str_taskk_corr_strmean(3,:)), ...
+    squeeze(ctx_str_taskk_corr_strmean(4,:)));
 disp(['All str ' num2str(curr_depth) ' p = ' num2str(curr_p)]);
 for curr_depth = 1:n_depths
-    curr_p = signrank(squeeze(task_notask_k_corr(3,curr_depth,:)), ...
-        squeeze(task_notask_k_corr(4,curr_depth,:)));
+    curr_p = signrank(squeeze(ctx_str_taskk_corr(3,curr_depth,:)), ...
+        squeeze(ctx_str_taskk_corr(4,curr_depth,:)));
     disp(['Str ' num2str(curr_depth) ' p = ' num2str(curr_p)]); 
 end
+
+
 
 
 
@@ -2434,6 +2396,18 @@ end
 
 
 
+
+
+
+
+
+
+
+
+
+%% ~~~~~~~~~~~~~~~~~~~~~~~ BELOW: integrated in to AP_ctx_str_figures_v5
+
+
 %% Pre/post learning passive
 
 % data_fns = { ...
@@ -2599,6 +2573,62 @@ for curr_depth = 1:n_depths
     disp(['Ctx ' num2str(curr_depth) ' p = ' num2str(curr_p)]); 
 end
 
+
+
+%% Widefield correlation borders
+
+wf_corr_borders_fn = 'C:\Users\Andrew\OneDrive for Business\Documents\CarandiniHarrisLab\analysis\wf_ephys_choiceworld\wf_processing\wf_borders\wf_corr_borders.mat';
+load(wf_corr_borders_fn);
+
+% Spacing/downsampling (hardcoded - in preprocessing)
+px_spacing = 20;
+downsample_factor = 10;
+
+% Get average correlation maps
+wf_corr_map_recording = [wf_corr_borders(:).corr_map_downsamp];
+wf_corr_map_cat = cat(3,wf_corr_map_recording{:});
+wf_corr_map_mean = cell(size(wf_corr_map_cat,1),size(wf_corr_map_cat,2));
+for curr_y = 1:size(wf_corr_map_cat,1)
+    for curr_x = 1:size(wf_corr_map_cat,2)
+        wf_corr_map_mean{curr_y,curr_x} = ...
+            nanmean(cell2mat(wf_corr_map_cat(curr_y,curr_x,:)),3);
+    end
+end
+
+% Get average borders
+wf_corr_borders_cat = cell2mat(reshape([wf_corr_borders(:).corr_edges],1,1,[]));
+wf_corr_borders_mean = nanmean(wf_corr_borders_cat,3);
+
+figure;
+
+[plot_maps_y,plot_maps_x] = ndgrid(4:5:size(wf_corr_map_mean,1)-4,4:5:size(wf_corr_map_mean,2));
+
+% Plot sample correlation map locations
+subplot(1,3,1,'YDir','reverse');
+AP_reference_outline('ccf_aligned',[0.5,0.5,0.5]);
+plot(plot_maps_y(:)*px_spacing,plot_maps_x(:)*px_spacing,'.r','MarkerSize',30);
+axis image off;
+
+% Plot sample correlation maps concat
+subplot(1,3,2);
+imagesc(cell2mat(wf_corr_map_mean(5:5:end,5:5:end)));
+axis image off;
+caxis([0,1]);
+colormap(brewermap([],'Greys'));
+c = colorbar;
+ylabel(c,'Correlation');
+
+% Plot borders
+subplot(1,3,3);
+imagesc(wf_corr_borders_mean);
+axis image off;
+caxis([0,prctile(wf_corr_borders_mean(:),70)])
+colormap(brewermap([],'Greys'))
+ccf_outline = AP_reference_outline('ccf_aligned',[1,0,0]);
+cellfun(@(x) set(x,'linewidth',1),vertcat(ccf_outline{:}));
+
+
+
 %% Probe trajectories histology vs widefield-estimated
 
 % Load probe trajectories
@@ -2690,8 +2720,6 @@ for curr_animal = 1:n_animals
     drawnow;
     
 end
-
-
 
 
 %% Probe trajectories estimated from widefield image
@@ -2799,6 +2827,10 @@ end
 % Put a colormap on the side
 cmap_ax = axes('Position',[0.95,0.2,0.2,0.6])
 image(permute(probe_color,[1,3,2]));
+
+
+
+
 
 
 
