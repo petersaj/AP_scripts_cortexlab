@@ -34,10 +34,12 @@ for curr_animal = 1:length(animals)
         experiment = experiments(curr_day).experiment;
         
         AP_load_experiment
-        
+        fVdf_deconv = AP_deconv_wf(fVdf);
+        aUdf = AP_align_widefield(Udf,animal,day);
+
         % Get V covariance
-        Ur = reshape(U, size(U,1)*size(U,2),[]); % P x S
-        covV = cov(fV'); % S x S % this is the only one that takes some time really
+        Ur = reshape(aUdf, size(aUdf,1)*size(aUdf,2),[]); % P x S
+        covV = cov(fVdf_deconv'); % S x S % this is the only one that takes some time really
         varP = dot((Ur*covV)', Ur'); % 1 x P
         
         ySize = size(U,1); xSize = size(U,2);
@@ -60,17 +62,21 @@ for curr_animal = 1:length(animals)
                 
                 corr_map{curr_y_idx,curr_x_idx} = corrMat;
             end
-        end
+        end       
         
+        % Get downsampled correlation maps
+        downsample_factor = 10;
+        corr_map_downsamp = cellfun(@(x) ...
+            imresize(x,1/downsample_factor,'bilinear'),corr_map,'uni',false);
+                
         % Correlation map edge detection
         corr_map_cat = cat(3,corr_map{:});
         corr_map_edge = imgaussfilt(corr_map_cat,5)-imgaussfilt(corr_map_cat,20);
         corr_map_edge_norm = reshape(zscore(reshape(corr_map_edge,[], ...
-            size(corr_map_edge,3)),[],1),size(corr_map_edge));
-        
+            size(corr_map_edge,3)),[],1),size(corr_map_edge));      
         corr_edges = nanmean(corr_map_edge,3);
-        corr_edges_aligned = AP_align_widefield(corr_edges,animal,day);
         
+        wf_corr_borders(curr_animal).corr_map_downsamp{curr_day} = corr_map_downsamp;
         wf_corr_borders(curr_animal).corr_edges{curr_day} = corr_edges_aligned;
         
         clearvars -except animals animal curr_animal protocol experiments curr_day animal wf_corr_borders load_parts
@@ -84,6 +90,7 @@ save_path = ['C:\Users\Andrew\OneDrive for Business\Documents\CarandiniHarrisLab
 save_fn = [save_path filesep 'wf_corr_borders'];
 save(save_fn,'wf_corr_borders');
 disp(['Saved ' save_fn]);
+
 
 %% Striatum cortical kernels (depth-aligned)
 
@@ -2004,8 +2011,8 @@ for curr_site = 1:2
 end
 
 
-%% Cortex fluorescence > multiunit kernels 
-% (master U, paired task/retinotopy)
+%% [[unused]] Cortex fluorescence > multiunit kernels 
+% (did this first and then realized the one below makes more sense
 
 clear all
 
@@ -2183,12 +2190,10 @@ end
 
 disp('Done.');
 
-%% TESTING: deconv explained variance
-% (master U, paired task/retinotopy)
-
+%% Multiunit and deconvolved fluorescence traces across protocols
 % Copied from AP_deconv_wf_kernelfit: 
 % that just saves the kernels in the github repo, 
-% this saves the traces in the data folder
+% this saves the traces in the data folder to get explained variance
 
 % Find recordings
 animals = {'AP043','AP060','AP061'};
@@ -2215,7 +2220,7 @@ for curr_animal = 1:length(animals)
 end
 
 % Loop through all recordings
-ctx_deconv = struct;
+ctx_deconv_traces = struct;
 for curr_recording = 1:length(recordings)
        
     % Set varibles to keep
@@ -2310,33 +2315,37 @@ for curr_recording = 1:length(recordings)
     use_constant = true;
     lambda = 0;
 
-    % Regression from widefield to multiunit
+    % Regression from ROI fluorescence to multiunit
     [curr_gcamp_kernel,predicted_spikes,explained_var_spikes] = ...
         AP_regresskernel(fluor_trace, ...
         binned_spikes_std,kernel_frames,lambda,zs, ...
         cvfold,return_constant,use_constant);
 
-    % Regression from multiunit predicted widefield
-    [curr_spikes_kernel,predicted_deconv_fluor,explained_var_fluor] = ...
-        AP_regresskernel(binned_spikes_std, ...
-        predicted_spikes,kernel_frames,lambda,zs, ...
-        cvfold,return_constant,use_constant);
+    % Store traces   
+    ctx_deconv_traces(curr_recording).protocol = protocols_all';
+    ctx_deconv_traces(curr_recording).t = time_bin_centers_all';
+    % (split traces back into protocols)
+    protocol_split_n = cellfun(@length,time_bin_centers_all);
+    ctx_deconv_traces(curr_recording).fluor = ...
+        mat2cell(fluor_trace',protocol_split_n,1);
+    ctx_deconv_traces(curr_recording).spikes = ...
+        mat2cell(binned_spikes_std',protocol_split_n,1);
+    ctx_deconv_traces(curr_recording).fluor_deconv = ...
+        mat2cell(predicted_spikes',protocol_split_n,1);
     
-    % Store traces
-    
-    
-    gcamp_regression_kernel_t = kernel_frames/framerate;
-    gcamp_regression_kernel{curr_recording} = curr_gcamp_kernel{1};
-    
-    spikes_regression_kernel_t = kernel_frames/framerate;
-    spikes_regression_kernel{curr_recording} = curr_spikes_kernel{1};
-   
     AP_print_progress_fraction(curr_recording,length(recordings));
     
     % Reset for next recording
     clearvars('-except',preload_vars{:})
     
 end
+
+% Save
+save_path = ['C:\Users\Andrew\OneDrive for Business\Documents\CarandiniHarrisLab\analysis\wf_ephys_choiceworld\paper\data'];
+save_fn = [save_path filesep 'ctx_deconv_traces'];
+disp(['Saving ' save_fn]);
+save(save_fn,'ctx_deconv_traces','-v7.3');
+disp('Saved.');
 
 
 %% ~~~~~~~~~~~ CORTICOSTRIATAL  ~~~~~~~~~~~~~
@@ -2523,7 +2532,365 @@ save([save_path filesep save_fn],'-v7.3');
 
 
 
-%% ~~~~~~~~~~~ COMBINED  ~~~~~~~~~~~~~
+%% ~~~~~~~~~~~ COMBINED/OTHER  ~~~~~~~~~~~~~
+
+
+%% Histology vs widefield-estimated probe trajectory
+
+%% Compare probe location from average widefield image and histology
+% Copied/modified from AP_ctx2str_probe
+% (this generates figures, but only to check: plotted in fig script)
+
+% Set recordings with histology
+recordings = struct('animal',{},'day',{});
+
+recordings(1).animal = 'AP032';
+recordings(1).day = '2018-10-26';
+
+recordings(2).animal = 'AP033';
+recordings(2).day = '2018-10-26';
+
+recordings(3).animal = 'AP034';
+recordings(3).day = '2018-10-26';
+
+recordings(4).animal = 'AP036';
+recordings(4).day = '2018-11-14';
+
+recordings(5).animal = 'AP043';
+recordings(5).day = '2019-12-09';
+
+recordings(6).animal = 'AP060';
+recordings(6).day = '2019-12-06';
+
+recordings(7).animal = 'AP061';
+recordings(7).day = '2019-12-09';
+
+histology_probe_ccf_all = struct;
+for curr_recording = 1:length(recordings)
+    
+    probe_angle = 45; % from horizontal
+    
+    animal = recordings(curr_recording).animal;
+    day = recordings(curr_recording).day;
+    [img_path,img_exists] = AP_cortexlab_filename(animal,day,[],'imaging');
+    avg_im = readNPY([img_path filesep 'meanImage_blue.npy']);
+    
+    avg_im_aligned = AP_align_widefield(avg_im,animal,day);
+    
+    h = figure('units','normalized','outerposition',[0 0 1 1]);imagesc(avg_im_aligned);
+    axis image off;
+    colormap(gray);caxis([0,prctile(avg_im_aligned(:),95)]);
+    title('Click probe start/end');
+    probe_wf = ginput(2);
+    close(h)
+    
+    % Load and invert master CCF tform
+    ccf_tform_fn = ['C:\Users\Andrew\OneDrive for Business\Documents\Atlases\AllenCCF\ccf_tform'];
+    load(ccf_tform_fn);
+    ccf_tform_inverse = invert(ccf_tform);
+    
+    % Convert aligned widefield probe points to CCF
+    % (master alignment to downsampled CCF, need to upsample)
+    um2pixel = 20.6;
+    probe_ccf_tformed = [probe_wf,[1;1]]*ccf_tform_inverse.T;
+    probe_ccf = round(probe_ccf_tformed(:,1:2)*(um2pixel/10));
+    
+    % Plot probe points on CCF next to average image
+    figure('Name',animal);
+    
+    subplot(1,2,1);
+    imagesc(avg_im_aligned);
+    axis image off;
+    colormap(gray);caxis([0,prctile(avg_im_aligned(:),95)]);
+    AP_reference_outline('ccf_aligned','r');
+    line(probe_wf(:,1),probe_wf(:,2),'color','b','linewidth',1,'linestyle','--');
+    title('Widefield');
+    
+    subplot(1,2,2); hold on; set(gca,'YDir','reverse');axis image;
+    load('C:\Users\Andrew\OneDrive for Business\Documents\Atlases\AllenCCF\cortical_area_boundaries.mat');
+    for curr_area_idx =1:length(cortical_area_boundaries)
+        p = cellfun(@(outline) plot(outline(:,2),outline(:,1),'color','k'), ...
+            cortical_area_boundaries{curr_area_idx},'uni',false);
+    end
+    line(probe_ccf_wf(:,1),probe_ccf_wf(:,2),'color','r','linewidth',2);
+    title('CCF');
+    
+    % Load in the annotated Allen volume and names
+    allen_path = 'C:\Users\Andrew\OneDrive for Business\Documents\Atlases\AllenCCF';
+    av = readNPY([allen_path filesep 'annotation_volume_10um_by_index.npy']);
+    st = loadStructureTree([allen_path filesep 'structure_tree_safe_2017.csv']); % a table of what all the labels mean
+    
+    % Estimate probe entry point by clicked probe start
+    depth_start = find(av(probe_ccf_wf(1,2),:,probe_ccf_wf(1,1)) > 1,1);
+    probe_entry_ccf = [probe_ccf_wf(1,2),depth_start,probe_ccf_wf(1,1)];
+    
+    % Estimate height of clicked point from user-set probe angle
+    probe_sample_length = pdist2(probe_ccf_wf(1,:),probe_ccf_wf(2,:));
+    probe_sample_height = round(probe_sample_length/tand(90-probe_angle));
+    probe_air_ccf = [probe_ccf_wf(2,2),depth_start-probe_sample_height,probe_ccf_wf(2,1)];
+    
+    % Concatenate probe CCF coordinates (in up-down direction);
+    probe_ccf_wf = [probe_air_ccf;probe_entry_ccf];
+    
+    % Get estimated probe vector (widefield)
+    r0 = mean(probe_ccf_wf,1);
+    xyz = bsxfun(@minus,probe_ccf_wf,r0);
+    [~,~,V] = svd(xyz,0);
+    probe_direction = V(:,1);
+    
+    probe_vector_evaluate = [0,sign(probe_direction(2))*1000];
+    probe_vector_ccf = round(bsxfun(@plus,bsxfun(@times,probe_vector_evaluate',probe_direction'),r0));
+    
+    % Get estimated probe vector (histology)
+    [probe_filename,probe_filename_exists] = AP_cortexlab_filename(animal,[],[],'probe_ccf');
+    load(probe_filename);
+    
+    use_probe = 1;
+    histology_points = probe_ccf(1).points;
+    r0 = mean(histology_points,1);
+    xyz = bsxfun(@minus,histology_points,r0);
+    [~,~,V] = svd(xyz,0);
+    histology_probe_direction = V(:,1);
+    
+    probe_vector_evaluate = [-sign(probe_direction(2))*500,sign(probe_direction(2))*500];
+    probe_vector = bsxfun(@plus,bsxfun(@times,probe_vector_evaluate',histology_probe_direction'),r0);
+    probe_vector_ccf_histology = round(probe_vector);
+    
+    % histology done looking A->P so flipped, mirror about bregma
+    bregma = allenCCFbregma;
+    probe_vector_ccf_histology_mirrored = probe_vector_ccf_histology;
+    probe_vector_ccf_histology_mirrored(:,3) = ...
+        bregma(3) - (probe_vector_ccf_histology(:,3) - bregma(3));
+    
+    % Plot estimated probe location on CCF
+    % (note the CCF is rotated to allow for dim 1 = x)
+    h = figure('Name',animal); ccf_axes = axes; hold on
+    slice_spacing = 10;
+    target_volume = permute(av(1:slice_spacing:end,1:slice_spacing:end,1:slice_spacing:end) > 1,[2,1,3]);
+    structure_patch = isosurface(target_volume,0);
+    structure_wire = reducepatch(structure_patch.faces,structure_patch.vertices,0.01);
+    target_structure_color = [0.7,0.7,0.7];
+    brain_outline = patch('Vertices',structure_wire.vertices*slice_spacing, ...
+        'Faces',structure_wire.faces, ...
+        'FaceColor','none','EdgeColor',target_structure_color);
+    
+    str_id = find(strcmp(st.safe_name,'Caudoputamen'));
+    target_volume = permute(av(1:slice_spacing:end,1:slice_spacing:end,1:slice_spacing:end) == str_id,[2,1,3]);
+    structure_patch = isosurface(target_volume,0);
+    structure_wire = reducepatch(structure_patch.faces,structure_patch.vertices,0.01);
+    target_structure_color = [0.7,0,0.7];
+    striatum_outline = patch('Vertices',structure_wire.vertices*slice_spacing, ...
+        'Faces',structure_wire.faces, ...
+        'FaceColor','none','EdgeColor',target_structure_color);
+    
+    axis image vis3d off;
+    view([-30,25]);
+    cameratoolbar(h,'SetCoordSys','y');
+    cameratoolbar(h,'SetMode','orbit');
+    title([animal ' ' day]);
+    
+    % Plot current probe vector
+    probe_wf_line = line(ccf_axes,probe_vector_ccf(:,1),probe_vector_ccf(:,2),probe_vector_ccf(:,3),'color','k','linewidth',3);
+    % (make sure histology probe enters on the left)
+    if  diff(probe_vector_ccf_histology(:,3)) < 0
+        probe_histology_line = line(ccf_axes, ...
+            probe_vector_ccf_histology(:,1), ...
+            probe_vector_ccf_histology(:,2), ...
+            probe_vector_ccf_histology(:,3),'color','r','linewidth',3);
+    else
+        probe_histology_line = line(ccf_axes, ...
+            probe_vector_ccf_histology_mirrored(:,1), ...
+            probe_vector_ccf_histology_mirrored(:,2), ...
+            probe_vector_ccf_histology_mirrored(:,3),'color','r','linewidth',3);
+    end
+    drawnow;   
+    
+    legend([probe_wf_line,probe_histology_line],{'Widefield-estimated','Histology'},'location','nw');
+    
+    % Store 
+    histology_probe_ccf_all(curr_recording).im = avg_im_aligned;
+    histology_probe_ccf_all(curr_recording).probe_wf = probe_wf;
+    histology_probe_ccf_all(curr_recording).probe_ccf_wf = probe_ccf_wf;
+    histology_probe_ccf_all(curr_recording).probe_ccf_histology = probe_ccf_wf;
+    
+    clearvars -except recordings curr_recording histology_probe_ccf_all
+    
+end
+
+% Save
+save_path = ['C:\Users\Andrew\OneDrive for Business\Documents\CarandiniHarrisLab\analysis\wf_ephys_choiceworld\paper\data'];
+save_fn = [save_path filesep 'histology_probe_ccf_all'];
+disp(['Saving ' save_fn]);
+save(save_fn,'histology_probe_ccf_all');
+
+
+
+%% Estimate probe trajectory from widefield image
+% Copied/modified from AP_ctx2str_probe
+% (this generates figures, but only to check: plotted in fig script)
+
+probe_angle = 45; % from horizontal
+
+protocol = 'vanillaChoiceworld';
+flexible_name = true;
+
+animals = {'AP024','AP025','AP026','AP027','AP028','AP029', ... % Original 
+    'AP045','AP054','AP055','AP053','AP047','AP048', ...        % Muscimol
+    'AP043','AP060','AP061'};                                   % Ctx ephys
+
+% Load in the annotated Allen volume and names
+allen_path = 'C:\Users\Andrew\OneDrive for Business\Documents\Atlases\AllenCCF';
+av = readNPY([allen_path filesep 'annotation_volume_10um_by_index.npy']);
+st = loadStructureTree([allen_path filesep 'structure_tree_safe_2017.csv']); % a table of what all the labels mean
+
+% Plot brain to overlay probes
+% (note the CCF is rotated to allow for dim 1 = x)
+h = figure; 
+ccf_axes = subplot(2,2,1); hold on
+sagittal_axes = subplot(2,2,2,'YDir','reverse'); hold on;
+axis image off;
+horizontal_axes = subplot(2,2,3,'YDir','reverse'); hold on;
+axis image off;
+coronal_axes = subplot(2,2,4,'YDir','reverse'); hold on;
+axis image off;
+
+% Plot 1 = 3D
+% (Use wire mesh - can add other structures)
+slice_spacing = 10;
+
+str_id = find(strcmp(st.safe_name,'Caudoputamen'));
+target_volume = permute(av(1:slice_spacing:end,1:slice_spacing:end,1:slice_spacing:end) == str_id,[2,1,3]);
+structure_patch = isosurface(target_volume,0);
+structure_wire = reducepatch(structure_patch.faces,structure_patch.vertices,0.01);
+target_structure_color = [0,0,1];
+striatum_outline = patch(ccf_axes, ...
+    'Vertices',structure_wire.vertices*slice_spacing, ...
+    'Faces',structure_wire.faces, ...
+    'FaceAlpha',0.5,'FaceColor',target_structure_color,'EdgeColor','none');
+
+% (Use Nick's outline, but rotate to make dim 1 = x)
+brainGridData = readNPY([fileparts(which('plotBrainGrid')) filesep 'brainGridData.npy']);
+plotBrainGrid(brainGridData(:,[1,3,2]),ccf_axes);
+
+axes(ccf_axes);
+axis image vis3d off;
+view([-30,25]);
+cameratoolbar(h,'SetCoordSys','y');
+cameratoolbar(h,'SetMode','orbit');
+
+% Plots 2-4 = projections
+coronal_outline = bwboundaries(permute((max(av,[],1)) > 1,[2,3,1]));
+horizontal_outline = bwboundaries(permute((max(av,[],2)) > 1,[3,1,2]));
+sagittal_outline = bwboundaries(permute((max(av,[],3)) > 1,[2,1,3]));
+
+str_id = find(strcmp(st.safe_name,'Caudoputamen'));
+str_coronal_outline = bwboundaries(permute((max(av == str_id,[],1)) > 0,[2,3,1]));
+str_horizontal_outline = bwboundaries(permute((max(av == str_id,[],2)) > 0,[3,1,2]));
+str_sagittal_outline = bwboundaries(permute((max(av == str_id,[],3)) > 0,[2,1,3]));
+
+plot(sagittal_axes,sagittal_outline{1}(:,2),sagittal_outline{1}(:,1),'k','linewidth',2);
+plot(sagittal_axes,str_sagittal_outline{1}(:,2),str_sagittal_outline{1}(:,1),'b','linewidth',2);
+axis image off;
+
+plot(horizontal_axes,horizontal_outline{1}(:,2),horizontal_outline{1}(:,1),'k','linewidth',2);
+plot(horizontal_axes,str_horizontal_outline{1}(:,2),str_horizontal_outline{1}(:,1),'b','linewidth',2);
+plot(horizontal_axes,str_horizontal_outline{2}(:,2),str_horizontal_outline{2}(:,1),'b','linewidth',2);
+axis image off;
+
+plot(coronal_axes,coronal_outline{1}(:,2),coronal_outline{1}(:,1),'k','linewidth',2);
+plot(coronal_axes,str_coronal_outline{1}(:,2),str_coronal_outline{1}(:,1),'b','linewidth',2);
+plot(coronal_axes,str_coronal_outline{2}(:,2),str_coronal_outline{2}(:,1),'b','linewidth',2);
+axis image off;
+
+if length(animals) <= 17
+    probe_color = [brewermap(8,'Set1');brewermap(8,'Set1')];
+else
+    error('More animals than colors: add another set');
+end
+
+probe_ccf_all = cell(length(animals),1);
+
+for curr_animal = 1:length(animals)
+    
+    animal = animals{curr_animal};
+    experiments = AP_find_experiments(animal,protocol,flexible_name);
+    experiments = experiments([experiments.imaging] & [experiments.ephys]);
+    
+    for curr_day = 1:length(experiments)
+        
+        day = experiments(curr_day).day;
+        
+        [img_path,img_exists] = AP_cortexlab_filename(animal,day,[],'imaging');
+        avg_im = readNPY([img_path filesep 'meanImage_blue.npy']);
+        
+        avg_im_aligned = AP_align_widefield(avg_im,animal,day);
+        
+        h = figure('units','normalized','outerposition',[0 0 1 1]);
+        imagesc(avg_im_aligned);
+        axis image off;
+        colormap(gray);caxis([0,prctile(avg_im_aligned(:),95)]);
+        title(['Click probe bottom/top - ' ...
+            num2str(curr_animal) '/' num2str(length(animals)) ': ' ...
+            num2str(curr_day) '/' num2str(length(experiments))]);
+        probe_wf = ginput(2);
+        close(h)
+        
+        % Load and invert master CCF tform
+        ccf_tform_fn = ['C:\Users\Andrew\OneDrive for Business\Documents\Atlases\AllenCCF\ccf_tform'];
+        load(ccf_tform_fn);
+        ccf_tform_inverse = invert(ccf_tform);
+        
+        % Convert aligned widefield probe points to CCF
+        % (master alignment to downsampled CCF, need to upsample)
+        um2pixel = 20.6;
+        probe_ccf_tformed = [probe_wf,[1;1]]*ccf_tform_inverse.T;
+        probe_ccf = round(probe_ccf_tformed(:,1:2)*(um2pixel/10));
+        
+        % Estimate probe entry point by clicked probe start
+        depth_start = find(av(probe_ccf(1,2),:,probe_ccf(1,1)) > 1,1);
+        probe_entry_ccf = [probe_ccf(1,2),depth_start,probe_ccf(1,1)];
+        
+        % Estimate height of clicked point from user-set probe angle
+        probe_sample_length = pdist2(probe_ccf(1,:),probe_ccf(2,:));
+        probe_sample_height = round(probe_sample_length/tand(90-probe_angle));
+        probe_air_ccf = [probe_ccf(2,2),depth_start-probe_sample_height,probe_ccf(2,1)];
+        
+        % Concatenate probe CCF coordinates (in up-down direction);
+        probe_ccf = [probe_air_ccf;probe_entry_ccf];
+        
+        % Get estimated probe vector
+        r0 = mean(probe_ccf,1);
+        xyz = bsxfun(@minus,probe_ccf,r0);
+        [~,~,V] = svd(xyz,0);
+        probe_direction = V(:,1);
+        
+        probe_vector_evaluate = [0,sign(probe_direction(2))*1000];
+        probe_vector_draw = round(bsxfun(@plus,bsxfun(@times,probe_vector_evaluate',probe_direction'),r0));
+        
+        % Plot current probe vector
+        line(ccf_axes,probe_vector_draw(:,1),probe_vector_draw(:,2),probe_vector_draw(:,3), ...
+            'color',probe_color(curr_animal,:),'linewidth',2);
+        line(sagittal_axes,probe_vector_draw(:,1),probe_vector_draw(:,2), ...
+            'color',probe_color(curr_animal,:),'linewidth',2);
+        line(horizontal_axes,probe_vector_draw(:,1),probe_vector_draw(:,3), ...
+            'color',probe_color(curr_animal,:),'linewidth',2);
+        line(coronal_axes,probe_vector_draw(:,3),probe_vector_draw(:,2), ...
+            'color',probe_color(curr_animal,:),'linewidth',2);
+        
+        drawnow;
+        
+        % Store probe vector
+        probe_ccf_all{curr_animal}(:,:,curr_day) = probe_ccf;
+        
+    end
+end
+
+% Save
+save_path = ['C:\Users\Andrew\OneDrive for Business\Documents\CarandiniHarrisLab\analysis\wf_ephys_choiceworld\paper\data'];
+save_fn = [save_path filesep 'probe_ccf_all'];
+disp(['Saving ' save_fn]);
+save(save_fn,'probe_ccf_all');
+
 
 
 %% Striatum cortical kernels (Master U, paired task/retinotopy)

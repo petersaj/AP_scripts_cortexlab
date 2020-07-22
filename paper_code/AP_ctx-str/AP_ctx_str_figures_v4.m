@@ -448,12 +448,12 @@ figure;
 subplot(2,1,1);
 imagesc(reshape(ctx_str_sta_mean_norm(:,:,use_depths),size(ctx_str_sta_mean_norm,1),[]));
 caxis([-1,1]);
-colormap(brewermap([],'*RdBu'));
+colormap(brewermap([],'PRGn'));
 axis image off;
 subplot(2,1,2);
 imagesc(reshape(k_px_cat_pad_mean_norm(:,:,use_depths),size(k_px_cat_pad,1),[]));
 caxis([-1,1]);
-colormap(brewermap([],'*RdBu'));
+colormap(brewermap([],'PRGn'));
 axis image off;
 
 % Plot center-of-mass color
@@ -479,38 +479,8 @@ AP_reference_outline('ccf_aligned',[0.5,0.5,0.5]);
 %% Fig 2??: Kernel clustering 
 % (run above first)
 
-warning('testing section')
-%%%%%%%%%%%%%%%%%%%%%
-
-n_depths_animal = cellfun(@(x) ...
-    sum(cellfun(@(x) size(x,3),x)),{ephys_kernel_depth(use_animals).k_px});
-
-a = k_px_cat_pad_mean_norm(:,:,use_depths);
-
-b = cell2mat(cellfun(@(x) reshape(x,[],size(x,3)),k_px_cat,'uni',false)');
-
-c = corr(b,reshape(a,[],size(a,3)));
-
-c1 = mat2gray(c,[0,1]);
-c_com = sum(c1.*(1:size(c,2)),2)./sum(c1,2);
-
-c_d = discretize(c_com,1:sum(use_depths));
-
-[~,max_idx] = max(c,[],2);
-figure;plot(accumarray(max_idx,1));
-
-max_idx_animal = mat2cell(max_idx,n_depths_animal);
-m = cell2mat(cellfun(@(x) accumarray(x,1,[sum(use_depths),1],@sum,NaN)./length(x),max_idx_animal,'uni',false)');
-figure;errorbar(nanmean(m,2),AP_sem(m,2))
-ylabel('Fraction of segments');
-xlabel('Max corr depth');
-
-%%%%%%%%%%%%%%%%%%%%%
-
-
 % Don't use naive animals for this analysis
 naive_animals = {'AP032','AP033','AP034','AP035','AP036'};
-
 
 % Load kernels by depths
 kernel_path = 'C:\Users\Andrew\OneDrive for Business\Documents\CarandiniHarrisLab\analysis\wf_ephys_choiceworld\ephys_processing';
@@ -528,6 +498,9 @@ kernel_match_fn = ['ephys_kernel_align_' num2str(n_aligned_depths) '_depths.mat'
 load([kernel_match_path filesep kernel_match_fn]);
 kernel_match_cat = cell2mat(horzcat(ephys_kernel_align(use_animals).kernel_match)');
 
+% Set striatum domain colors
+str_col = max(hsv(n_aligned_depths)-0.2,0);
+
 % Dimensionality reduction and plot matches
 use_kernels = ~(all(isnan(kernel_px_cat_reshape),1)' | isnan(kernel_match_cat));
 
@@ -543,12 +516,12 @@ figure;
 subplot(1,2,1);
 scatter(score(:,1),score(:,2),10,kernel_match_cat(use_kernels),'filled');
 xlabel('PC1'); ylabel('PC2');
-colormap(copper);
+colormap(str_col);
 axis square;
 subplot(1,2,2);
 scatter(y(:,1),y(:,2),10,kernel_match_cat(use_kernels),'filled');
 xlabel('tSNE1'); ylabel('tSNE2');
-colormap(copper);
+colormap(str_col);
 axis square;
 
 
@@ -559,7 +532,7 @@ for i = 1:n_aligned_depths
     imagesc(kernel_template(:,:,i));
     AP_reference_outline('ccf_aligned',[0.5,0.5,0.5]);
     axis image off;
-    colormap(brewermap([],'*RdBu'));
+    colormap(brewermap([],'PRGn'));
     caxis([-max(abs(caxis)),max(abs(caxis))]);
 end
 
@@ -688,7 +661,7 @@ cameratoolbar(h,'SetCoordSys','y');
 cameratoolbar(h,'SetMode','orbit');
 
 scatter3(kernel_depth_ccf(:,1),kernel_depth_ccf(:,2),kernel_depth_ccf(:,3), ...
-    100,copper(n_aligned_depths),'filled');
+    100,str_col,'filled');
 
 % Plot brain area outlines at slice
 callosum_id = find(strcmp(st.safe_name,'corpus callosum body'));
@@ -708,7 +681,7 @@ cellfun(@(x) fill(x(:,2),x(:,1),'k','linewidth',2),slice_ventricle_outline);
 
 line(probe_vector_ccf(:,3),probe_vector_ccf(:,2),'linewidth',2,'color','r');
 scatter(kernel_depth_ccf(:,3),kernel_depth_ccf(:,2), ...
-    100,copper(n_aligned_depths),'filled');
+    100,str_col,'filled');
 
 % Mirror all of the locations across the midline and get projections from
 % both (because the cortical injections in the database aren't evenly
@@ -772,7 +745,7 @@ kernel_template_fn = ['C:\Users\Andrew\OneDrive for Business\Documents\Carandini
 load(kernel_template_fn);
 
 figure; 
-colormap(brewermap([],'*RdBu'));
+colormap(brewermap([],'PRGn'));
 for curr_depth = 1:n_aligned_depths
     subplot(n_aligned_depths,1,curr_depth); hold on; axis image off;
     set(gca,'YDir','reverse');
@@ -850,7 +823,7 @@ n_depths = size(ctx_str_k_px_task_mean,4);
 
 AP_image_scroll([ctx_str_k_px_task_mean,ctx_str_k_px_notask_mean]);
 axis image;
-colormap(brewermap([],'*RdBu'));
+colormap(brewermap([],'PRGn'));
 caxis([-max(abs(caxis)),max(abs(caxis))]);
 AP_reference_outline('ccf_aligned',[0.5,0.5,0.5],[],[size(U_master,1),size(U_master,2),1,2]);
 
@@ -859,7 +832,7 @@ for curr_depth = 1:n_depths
     subplot(n_depths,2,(curr_depth-1)*2+1);
     imagesc(ctx_str_k_px_task_mean(:,:,t == 0,curr_depth));
     caxis([-max(abs(caxis)),max(abs(caxis))]);
-    colormap(brewermap([],'*RdBu'));
+    colormap(brewermap([],'PRGn'));
     axis image off;
     AP_reference_outline('ccf_aligned',[0.5,0.5,0.5]);
     title('Task');
@@ -867,7 +840,7 @@ for curr_depth = 1:n_depths
     subplot(n_depths,2,(curr_depth-1)*2+2);
     imagesc(ctx_str_k_px_notask_mean(:,:,t == 0,curr_depth));
     caxis([-max(abs(caxis)),max(abs(caxis))]);
-    colormap(brewermap([],'*RdBu'));
+    colormap(brewermap([],'PRGn'));
     axis image off;
     AP_reference_outline('ccf_aligned',[0.5,0.5,0.5]);
     title('Passive');
@@ -879,7 +852,7 @@ for curr_depth = 1:n_depths
     imagesc(reshape(ctx_str_k_px_task_mean(:,:,:,curr_depth), ...
         size(ctx_str_k_px_task_mean,1),[]));
     caxis([-max(abs(caxis)),max(abs(caxis))]);
-    colormap(brewermap([],'*RdBu'));
+    colormap(brewermap([],'PRGn'));
     axis image off;
     title('Task');
 end
@@ -890,7 +863,7 @@ for curr_depth = 1:n_depths
     imagesc(reshape(ctx_str_k_px_notask_mean(:,:,:,curr_depth), ...
         size(ctx_str_k_px_notask_mean,1),[]));
     caxis([-max(abs(caxis)),max(abs(caxis))]);
-    colormap(brewermap([],'*RdBu'));
+    colormap(brewermap([],'PRGn'));
     axis image off;
     title('Passive');
 end
@@ -930,9 +903,11 @@ end
 task_notask_k_corr_strmean = squeeze(nanmean(task_notask_k_corr,2));
 
 % Plot mean and split by domains
+str_col = max(hsv(n_depths)-0.2,0);
+
 figure; 
 
-subplot(2,1,1);hold on; set(gca,'ColorOrder',copper(n_depths));
+subplot(2,1,1);hold on; set(gca,'ColorOrder',str_col);
 plot(task_notask_k_corr_strmean,'color',[0.5,0.5,0.5]);
 errorbar(nanmean(task_notask_k_corr_strmean,2), ...
     AP_sem(task_notask_k_corr_strmean,2),'k','linewidth',2);
@@ -941,7 +916,7 @@ set(gca,'XTick',1:4,'XTickLabelRotation',20,'XTickLabel', ...
 ylabel('Spatiotemporal correlation');
 xlim([0.5,4.5]);
 
-subplot(2,1,2);hold on; set(gca,'ColorOrder',copper(n_depths));
+subplot(2,1,2);hold on; set(gca,'ColorOrder',str_col);
 errorbar(nanmean(task_notask_k_corr,3), ...
     AP_sem(task_notask_k_corr,3),'linewidth',2)
 set(gca,'XTick',1:4,'XTickLabelRotation',20,'XTickLabel', ...
@@ -2024,7 +1999,7 @@ for curr_animal = 1:6
    subplot(1,6,curr_animal);
    imagesc(retinotopy_unaligned{curr_animal});
    axis image off
-   colormap(brewermap([],'*RdBu'));
+   colormap(brewermap([],'PRGn'));
    caxis([-1,1]);
    title(animals{curr_animal});
 end
@@ -2101,14 +2076,14 @@ imagesc(ccf_vfs);
 cellfun(@(area) plot(area(:,2),area(:,1),'color',[0.5,0.5,0.5]), ...
     vertcat(top_down_cortical_area_boundaries{:}),'uni',false);
 axis image off;
-colormap(brewermap([],'*RdBu'));
+colormap(brewermap([],'PRGn'));
 caxis([-1,1]);    
 title('CCF');
 
 subplot(1,3,2);
 imagesc(imaged_vfs);
 axis image off;
-colormap(brewermap([],'*RdBu'));
+colormap(brewermap([],'PRGn'));
 caxis([-1,1]);
 title('Combined');
 AP_reference_outline('ccf_aligned',[0.5,0.5,0.5]);
@@ -2116,7 +2091,7 @@ AP_reference_outline('ccf_aligned',[0.5,0.5,0.5]);
 subplot(1,3,3);
 imagesc(imaged_corr_borders);
 axis image off;
-colormap(brewermap([],'*RdBu'));
+colormap(brewermap([],'PRGn'));
 caxis([-max(caxis),max(caxis)]);
 title('Correlation borders');
 AP_reference_outline('ccf_aligned',[0.5,0.5,0.5]);
@@ -2208,7 +2183,7 @@ for curr_animal = 1:length(plot_animals)
     imagesc(reshape(permute(curr_k_norm,[1,3,2]),[],size(curr_k,2)));
     axis image off;
     caxis([-5,5]);
-    colormap(brewermap([],'*RdBu'));
+    colormap(brewermap([],'PRGn'));
     title(ephys_kernel_depth(plot_animals(curr_animal)).animal);
     
 end
@@ -2344,7 +2319,7 @@ for i = 1:n_aligned_depths
     p1 = subplot(n_aligned_depths,2,(i-1)*2+1);
     imagesc(kernel_template(:,:,i));
     caxis([-max(abs(caxis)),max(abs(caxis))])
-    colormap(p1,brewermap([],'*RdBu'));
+    colormap(p1,brewermap([],'PRGn'));
     AP_reference_outline('ccf_aligned',[0.5,0.5,0.5]);
     axis image off;
     
@@ -2775,7 +2750,7 @@ for protocol = protocols
     
     % Make movie of ctx-str kernels by depth
     movie_rate = sample_rate/5;
-    color_map = brewermap([],'*RdBu');
+    color_map = brewermap([],'PRGn');
     color_axis = [-1,1];
     figure_position = [24,408,1868,399];
     save_path = 'C:\Users\Andrew\OneDrive for Business\Documents\CarandiniHarrisLab\analysis\wf_ephys_choiceworld\paper\figs\movies';
@@ -2855,7 +2830,7 @@ figure;
 subplot(2,3,1);
 imagesc(ctx_expl_var_correct);
 axis image off; 
-colormap(brewermap([],'*RdBu'))
+colormap(brewermap([],'PRGn'))
 caxis([-1,1]); c = colorbar; ylabel(c,'Variance explained');
 AP_reference_outline('ccf_aligned','k');
 title('Correct trials');
@@ -2863,7 +2838,7 @@ title('Correct trials');
 subplot(2,3,2);
 imagesc(ctx_expl_var_incorrect);
 axis image off; 
-colormap(brewermap([],'*RdBu'))
+colormap(brewermap([],'PRGn'))
 caxis([-1,1]); c = colorbar; ylabel(c,'Variance explained');
 AP_reference_outline('ccf_aligned','k');
 title('Incorrect trials');
@@ -2871,7 +2846,7 @@ title('Incorrect trials');
 subplot(2,3,3);
 imagesc(ctx_expl_var_correct - ctx_expl_var_incorrect);
 axis image off; 
-colormap(brewermap([],'*RdBu'))
+colormap(brewermap([],'PRGn'))
 caxis([-1,1]); c = colorbar; ylabel(c,'Variance explained');
 AP_reference_outline('ccf_aligned','k');
 title('Correct - incorrect');
@@ -2879,7 +2854,7 @@ title('Correct - incorrect');
 subplot(2,3,4);
 imagesc(ctx_expl_var_visual);
 axis image off; 
-colormap(brewermap([],'*RdBu'))
+colormap(brewermap([],'PRGn'))
 caxis([-1,1]); c = colorbar; ylabel(c,'Variance explained');
 AP_reference_outline('ccf_aligned','k');
 title('Visual trials');
@@ -2887,7 +2862,7 @@ title('Visual trials');
 subplot(2,3,5);
 imagesc(ctx_expl_var_zero);
 axis image off; 
-colormap(brewermap([],'*RdBu'))
+colormap(brewermap([],'PRGn'))
 caxis([-1,1]); c = colorbar; ylabel(c,'Variance explained');
 AP_reference_outline('ccf_aligned','k');
 title('Zero trials');
@@ -2895,7 +2870,7 @@ title('Zero trials');
 subplot(2,3,6);
 imagesc(ctx_expl_var_visual - ctx_expl_var_zero);
 axis image off; 
-colormap(brewermap([],'*RdBu'))
+colormap(brewermap([],'PRGn'))
 caxis([-1,1]); c = colorbar; ylabel(c,'Variance explained');
 AP_reference_outline('ccf_aligned','k');
 title('Visual - zero');
@@ -2929,7 +2904,7 @@ for curr_regressor = 1:n_regressors
     AP_image_scroll(curr_k_px,t_shifts{curr_regressor});
     axis image;
     caxis([-max(abs(caxis)),max(abs(caxis))]);
-    colormap(brewermap([],'*RdBu'));
+    colormap(brewermap([],'PRGn'));
     AP_reference_outline('ccf_aligned','k');
     set(gcf,'Name',regressor_labels{curr_regressor});
     
