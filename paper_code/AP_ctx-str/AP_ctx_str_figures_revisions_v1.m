@@ -486,11 +486,881 @@ for curr_animal_day = 1:length(animal_days)
     
 end
 
+%% Striatum cortical kernels pre/post muscimol
+error('I don''t think this should be included');
 
-%% --- Widefield + Striatum + Cortex ephys
+protocols = {'vanillaChoiceworldNoRepeats_pre_muscimol','vanillaChoiceworldNoRepeats_post_muscimol'};
+
+for protocol = protocols 
+    protocol = cell2mat(protocol);
+    
+    data_path = 'C:\Users\Andrew\OneDrive for Business\Documents\CarandiniHarrisLab\analysis\wf_ephys_choiceworld\paper\data';
+    k_fn = [data_path filesep 'ctx_str_kernels_' protocol];
+    load(k_fn);
+    
+    framerate = 35;
+    upsample_factor = 1;
+    sample_rate = framerate*upsample_factor;
+    kernel_t = [-0.1,0.1];
+    kernel_frames = round(kernel_t(1)*sample_rate):round(kernel_t(2)*sample_rate);
+    t = kernel_frames/sample_rate;
+    
+    % Concatenate explained variance
+    expl_var_animal = cell2mat(cellfun(@(x) nanmean(horzcat(x{:}),2),ctx_str_expl_var','uni',false));
+    figure('Name',protocol);
+    errorbar(nanmean(expl_var_animal,2),AP_sem(expl_var_animal,2),'k','linewidth',2);
+    xlabel('Striatal depth');
+    ylabel('Fraction explained variance');
+    
+    % Concatenate and mean
+    % (kernel is -:+ fluorescence lag, flip to be spike-oriented)
+    k_px_timeflipped = cellfun(@(x) cellfun(@(x) x(:,:,end:-1:1,:),x,'uni',false),ctx_str_kernel,'uni',false);
+    k_px_animal = cellfun(@(x) nanmean(cat(5,x{:}),5),k_px_timeflipped,'uni',false);
+    k_px = nanmean(double(cat(5,k_px_animal{:})),5);
+    
+    % Get center-of-mass maps
+    k_px_positive = k_px;
+    k_px_positive(k_px_positive < 0) = 0;
+    k_px_com = sum(k_px_positive.*permute(1:n_aligned_depths,[1,3,4,2]),4)./sum(k_px_positive,4);
+    k_px_com_colored = nan(size(k_px_com,1),size(k_px_com,2),3,size(k_px_com,3));
+    
+    use_colormap = min(jet(255)-0.2,1);
+    for curr_frame = 1:size(k_px_com,3)
+        k_px_com_colored(:,:,:,curr_frame) = ...
+            ind2rgb(round(mat2gray(k_px_com(:,:,curr_frame),...
+            [1,n_aligned_depths])*size(use_colormap,1)),use_colormap);
+    end
+    
+    % Plot center kernel frames independently at t = 0
+    figure('Name',protocol);
+    plot_frame = kernel_frames == 0;
+    for curr_depth = 1:n_aligned_depths
+       subplot(n_aligned_depths,1,curr_depth);
+       imagesc(k_px(:,:,plot_frame,curr_depth));
+       AP_reference_outline('ccf_aligned',[0.5,0.5,0.5]);
+       axis image off;
+       colormap(brewermap([],'PRGn'));
+       caxis([-0.01,0.01]);
+    end
+    
+    % Plot center-of-mass color at select time points 
+    plot_t = [-0.05:0.025:0.05];
+    
+    k_px_com_colored_t = ...
+        permute(reshape(interp1(t,permute(reshape(k_px_com_colored,[],3,length(t)), ...
+        [3,1,2]),plot_t),length(plot_t),size(k_px_com_colored,1), ...
+        size(k_px_com_colored,2),3),[2,3,4,1]);
+    
+    k_px_max = squeeze(max(k_px,[],4));
+    k_px_max_t = ...
+        permute(reshape(interp1(t,reshape(k_px_max,[],length(t))', ...
+        plot_t),length(plot_t),size(k_px_max,1), ...
+        size(k_px_max,2)),[2,3,1]);
+    
+    weight_max = 0.005;
+    figure('Name',protocol);
+    for t_idx = 1:length(plot_t)
+        subplot(1,length(plot_t),t_idx);
+        p = image(k_px_com_colored_t(:,:,:,t_idx));
+        set(p,'AlphaData', ...
+            mat2gray(k_px_max_t(:,:,t_idx),[0,weight_max]));
+        axis image off;
+        AP_reference_outline('ccf_aligned',[0.5,0.5,0.5]);
+        title([num2str(plot_t(t_idx)),' s']);
+    end    
+        
+    % Plot movie of kernels
+    AP_image_scroll(reshape(permute(k_px,[1,4,2,3]),size(k_px,1)*size(k_px,4),size(k_px,2),length(t)),t);
+    colormap(brewermap([],'PRGn'));
+    caxis([-max(caxis),max(caxis)]);
+    AP_reference_outline('ccf_aligned',[0.5,0.5,0.5],[],[size(k_px,1),size(k_px,2),size(k_px,4),1]);
+    axis image off
+    
+    drawnow;
+    
+end
 
 
-%% ^^^ Correlation between wf/ctx-mua and ctx-mua/str-mua
+
+%% ~~~~~~~~ BELOW: integrated in to AP_ctx_str_figures_v5
+
+
+%% Plot kernel ROIs
+
+kernel_roi_fn = 'C:\Users\Andrew\OneDrive for Business\Documents\CarandiniHarrisLab\analysis\wf_ephys_choiceworld\wf_processing\wf_rois\kernel_roi';
+load(kernel_roi_fn);
+
+figure; hold on
+n_depths = size(kernel_roi.bw,3);
+str_col = max(hsv(n_depths)-0.2,0);
+set(gca,'YDir','reverse');
+AP_reference_outline('ccf_aligned','k');
+for curr_depths = 1:n_depths
+    curr_roi_boundary = cell2mat(bwboundaries(kernel_roi.bw(:,:,curr_depths)));
+    patch(curr_roi_boundary(:,2),curr_roi_boundary(:,1),str_col(curr_depths,:));
+end
+axis image off;
+
+
+%% Task kernel str/ctx correlation
+
+mua_taskpred_catk = cellfun(@(x) cellfun(@(x) ...
+    cell2mat(cellfun(@(x) reshape(x,[],size(x,3)),x,'uni',false)), ...
+    x,'uni',false),mua_taskpred_k_all,'uni',false);
+
+mua_ctxpred_taskpred_catk = cellfun(@(x) cellfun(@(x) ...
+    cell2mat(cellfun(@(x) reshape(x,[],size(x,3)),x,'uni',false)), ...
+    x,'uni',false),mua_ctxpred_taskpred_k_all,'uni',false);
+
+ctx_str_taskk_animal = cellfun(@(x,y) [x,y], ...
+    mua_taskpred_catk,mua_ctxpred_taskpred_catk,'uni',false);
+
+ctx_str_taskk_corr = nan(4,n_depths,length(ctx_str_taskk_animal));
+for curr_animal = 1:length(ctx_str_taskk_animal)
+    
+    curr_k = cellfun(@(x) reshape(x,[],n_depths), ...
+        ctx_str_taskk_animal{curr_animal},'uni',false);
+    
+    curr_k_str = cat(3,curr_k{:,1});
+    curr_k_ctx = cat(3,curr_k{:,2});
+     
+    % Correlate str/ctx kernels within domain
+    ctx_str_taskk_corr(1,:,curr_animal) = ...
+        nanmean(cell2mat(cellfun(@(x,y) diag(corr(x,y))', ...
+        curr_k(:,1),curr_k(:,2),'uni',false)));
+    
+    % Correlate str/ctx kernels across domains
+    ctx_str_taskk_corr(2,:,curr_animal) = ...
+        nanmean(cell2mat(cellfun(@(x,y) ...
+        nansum(tril(corr(x),-1)+triu(corr(x),1),1)./(n_depths-1)', ...
+        curr_k(:,1),'uni',false)));
+       
+    % Correlate kernel within task/notask across days within domain
+    ctx_str_taskk_corr(3,:,curr_animal) = arrayfun(@(depth) ...
+        nanmean(AP_itril(corr(permute(curr_k_str(:,depth,:),[1,3,2])),-1)),1:n_depths);
+    ctx_str_taskk_corr(4,:,curr_animal) = arrayfun(@(depth) ...
+        nanmean(AP_itril(corr(permute(curr_k_ctx(:,depth,:),[1,3,2])),-1)),1:n_depths);  
+
+end
+
+% Get mean across domains
+ctx_str_taskk_corr_strmean = squeeze(nanmean(ctx_str_taskk_corr,2));
+
+% Plot mean and split by domains
+figure; 
+
+subplot(2,1,1);hold on; set(gca,'ColorOrder',copper(n_depths));
+plot(ctx_str_taskk_corr_strmean,'color',[0.5,0.5,0.5]);
+errorbar(nanmean(ctx_str_taskk_corr_strmean,2), ...
+    AP_sem(ctx_str_taskk_corr_strmean,2),'k','linewidth',2);
+set(gca,'XTick',1:4,'XTickLabelRotation',20,'XTickLabel', ...
+    {'Str-ctx within day','Str within day across domains','Str across days','Ctx across days'})
+ylabel('Task kernel correlation');
+xlim([0.5,4.5]);
+
+subplot(2,1,2);hold on; set(gca,'ColorOrder',copper(n_depths));
+errorbar(nanmean(ctx_str_taskk_corr,3), ...
+    AP_sem(ctx_str_taskk_corr,3),'linewidth',2)
+set(gca,'XTick',1:4,'XTickLabelRotation',20,'XTickLabel', ...
+    {'Str-ctx within day','Str within day across domains','Str across days','Ctx across days'})
+ylabel('Task kernel correlation');
+xlim([0.5,4.5]);
+legend(cellfun(@(x) ['Str ' num2str(x)],num2cell(1:n_depths),'uni',false))
+
+% (within task-passive v task-task domains statistics)
+disp('Str/ctx vs str/str cross-domain:')
+curr_p = signrank(squeeze(ctx_str_taskk_corr_strmean(1,:)), ...
+    squeeze(ctx_str_taskk_corr_strmean(2,:)));
+disp(['All str p = ' num2str(curr_p)]);
+for curr_depth = 1:n_depths  
+    curr_p = signrank(squeeze(ctx_str_taskk_corr(1,curr_depth,:)), ...
+        squeeze(ctx_str_taskk_corr(2,curr_depth,:)));
+    disp(['Str ' num2str(curr_depth) ' p = ' num2str(curr_p)]); 
+end
+
+% (within vs across statistics)
+disp('Str/ctx-within vs str-across:')
+curr_p = signrank(squeeze(ctx_str_taskk_corr_strmean(1,:)), ...
+    squeeze(ctx_str_taskk_corr_strmean(3,:)));
+disp(['All str ' num2str(curr_depth) ' p = ' num2str(curr_p)]);
+for curr_depth = 1:n_depths
+    curr_p = signrank(squeeze(ctx_str_taskk_corr(1,curr_depth,:)), ...
+        squeeze(ctx_str_taskk_corr(3,curr_depth,:)));
+    disp(['Str ' num2str(curr_depth) ' p = ' num2str(curr_p)]); 
+end
+
+% (cross task vs no task statistics)
+disp('Str-across vs ctx-across');
+curr_p = signrank(squeeze(ctx_str_taskk_corr_strmean(3,:)), ...
+    squeeze(ctx_str_taskk_corr_strmean(4,:)));
+disp(['All str ' num2str(curr_depth) ' p = ' num2str(curr_p)]);
+for curr_depth = 1:n_depths
+    curr_p = signrank(squeeze(ctx_str_taskk_corr(3,curr_depth,:)), ...
+        squeeze(ctx_str_taskk_corr(4,curr_depth,:)));
+    disp(['Str ' num2str(curr_depth) ' p = ' num2str(curr_p)]); 
+end
+
+
+
+
+%% Pre/post learning passive
+
+% data_fns = { ...
+%     'trial_activity_AP_choiceWorldStimPassive_naive', ...
+%     'trial_activity_AP_choiceWorldStimPassive_trained'};
+
+data_fns = { ...
+    'trial_activity_AP_choiceWorldStimPassive_naive', ...
+    {'trial_activity_AP_choiceWorldStimPassive_trained', ...
+    'trial_activity_AP_lcrGratingPassive_ctxstrephys_str', ...
+    'trial_activity_AP_lcrGratingPassive_pre_muscimol'}};
+
+stimIDs = cell(2,1);
+mua_training = cell(2,1);
+mua_ctxpred_training = cell(2,1);
+fluor_training = cell(2,1);
+fluor_roi_training = cell(2,1);
+fluor_kernelroi_training = cell(2,1);
+
+for curr_data = 1:length(data_fns)
+    
+    % Load data
+    data_fn = data_fns{curr_data};
+    AP_load_concat_normalize_ctx_str;
+
+    % Split by experiment
+    trials_recording = cellfun(@(x) size(x,1),vertcat(wheel_all{:}));
+    
+    % Get trials with movement during stim to exclude
+    wheel_thresh = 0.025;
+    quiescent_trials = ~any(abs(wheel_allcat(:,t >= -0.5 & t <= 0.5)) > wheel_thresh,2);
+    quiescent_trials_exp = mat2cell(quiescent_trials,trials_recording,1);
+    
+    % Get stim and activity by experiment
+    trial_stim_allcat_exp = mat2cell(trial_stim_allcat,trials_recording,1);  
+    fluor_deconv_exp = mat2cell(fluor_allcat_deconv,trials_recording,length(t),n_vs);
+    fluor_roi_deconv_exp = mat2cell(fluor_roi_deconv,trials_recording,length(t),numel(wf_roi));
+    fluor_kernelroi_deconv_exp = mat2cell(fluor_kernelroi_deconv,trials_recording,length(t),n_depths);
+    mua_allcat_exp = mat2cell(mua_allcat,trials_recording,length(t),n_depths);
+    mua_ctxpred_allcat_exp = mat2cell(mua_ctxpred_allcat,trials_recording,length(t),n_depths);
+    
+    % Exclude trials with fluorescence spikes
+    % (this is a dirty way to do this but don't have a better alt)
+    fluor_spike_thresh = 100;
+    fluor_spike_trial = cellfun(@(x) any(any(x > fluor_spike_thresh,2),3), ...
+        fluor_kernelroi_deconv_exp,'uni',false);
+    
+    % Grab data
+    stimIDs{curr_data} = cellfun(@(data,quiesc,fluor_spike) data(quiesc & ~fluor_spike,:,:), ...
+        trial_stim_allcat_exp,quiescent_trials_exp,fluor_spike_trial,'uni',false);
+    
+    mua_training{curr_data} = cellfun(@(data,quiesc,fluor_spike) data(quiesc & ~fluor_spike,:,:), ...
+        mua_allcat_exp,quiescent_trials_exp,fluor_spike_trial,'uni',false);
+    
+    mua_ctxpred_training{curr_data} = cellfun(@(data,quiesc,fluor_spike) data(quiesc & ~fluor_spike,:,:), ...
+        mua_ctxpred_allcat_exp,quiescent_trials_exp,fluor_spike_trial,'uni',false);
+    
+    fluor_training{curr_data} = cellfun(@(data,quiesc,fluor_spike) data(quiesc & ~fluor_spike,:,:), ...
+        fluor_deconv_exp,quiescent_trials_exp,fluor_spike_trial,'uni',false);
+    
+    fluor_roi_training{curr_data} = cellfun(@(data,quiesc,fluor_spike) data(quiesc & ~fluor_spike,:,:), ...
+        fluor_roi_deconv_exp,quiescent_trials_exp,fluor_spike_trial,'uni',false);
+    
+    fluor_kernelroi_training{curr_data} = cellfun(@(data,quiesc,fluor_spike) data(quiesc & ~fluor_spike,:,:), ...
+        fluor_kernelroi_deconv_exp,quiescent_trials_exp,fluor_spike_trial,'uni',false);
+    
+end
+
+% Get average stim time course (100%R stim)
+mua_mean = cellfun(@(act,stim) cell2mat(cellfun(@(act,stim) ...
+    nanmean(act(stim == 1,:,:),1),act,stim,'uni',false)), ...
+    mua_training,stimIDs,'uni',false);
+
+fluor_kernelroi_mean = cellfun(@(act,stim) cell2mat(cellfun(@(act,stim) ...
+    nanmean(act(stim == 1,:,:),1),act,stim,'uni',false)), ...
+    fluor_kernelroi_training,stimIDs,'uni',false);
+
+% Get average activity in relevant stim period
+stim_avg_t = [0,0.2];
+stim_avg_t_idx = t >= stim_avg_t(1) & t <= stim_avg_t(2);
+
+% (only for 100%R stim)
+stim_act = cellfun(@(str,ctx,stim) cellfun(@(str,ctx,stim) ...
+    [nanmean(str(stim == 1,stim_avg_t_idx,:),2), ...
+    nanmean(ctx(stim == 1,stim_avg_t_idx,:),2)], ...
+    str,ctx,stim,'uni',false), ...
+    mua_training, fluor_kernelroi_training, stimIDs,'uni',false);
+
+
+% Plot average cortex and striatum stim activity
+figure;
+p = gobjects(n_depths,3);
+for curr_str = 1:n_depths
+    
+    p(curr_str,1) = subplot(n_depths,3,(curr_str-1)*3+1);
+    AP_errorfill(t,nanmean(fluor_kernelroi_mean{1}(:,:,curr_str),1)', ...
+        AP_sem(fluor_kernelroi_mean{1}(:,:,curr_str),1)','k');
+    AP_errorfill(t,nanmean(fluor_kernelroi_mean{2}(:,:,curr_str),1)', ...
+        AP_sem(fluor_kernelroi_mean{2}(:,:,curr_str),1),'r');
+    ylabel('Cortex (\DeltaF/F)');
+    line(repmat(stim_avg_t(1),2,1),ylim);
+    line(repmat(stim_avg_t(2),2,1),ylim);
+    
+    p(curr_str,2) = subplot(n_depths,3,(curr_str-1)*3+2);
+    AP_errorfill(t,nanmean(mua_mean{1}(:,:,curr_str),1)', ...
+        AP_sem(mua_mean{1}(:,:,curr_str),1)','k');
+    AP_errorfill(t,nanmean(mua_mean{2}(:,:,curr_str),1)', ...
+        AP_sem(mua_mean{2}(:,:,curr_str),1)','r');
+    xlabel('Time from stim (s)');
+    ylabel('Striatum (baseline)');
+    title(['Str ' num2str(curr_str)]);
+    line(repmat(stim_avg_t(1),2,1),ylim);
+    line(repmat(stim_avg_t(2),2,1),ylim);
+    
+    
+    p(curr_str,3) = subplot(n_depths,3,(curr_str-1)*3+3);  hold on;
+    
+    curr_stim_act_untrained = cell2mat(cellfun(@(x) nanmean(x(:,:,curr_str,1),1),stim_act{1},'uni',false));
+    curr_stim_act_trained = cell2mat(cellfun(@(x) nanmean(x(:,:,curr_str,1),1),stim_act{2},'uni',false));
+    
+    str_col = copper(n_depths);
+    
+    plot([nanmean(curr_stim_act_untrained(:,2),1),nanmean(curr_stim_act_trained(:,2),1)], ...
+       [nanmean(curr_stim_act_untrained(:,1),1),nanmean(curr_stim_act_trained(:,1),1)], ...
+       'color',str_col(curr_str,:),'linewidth',2);
+    
+    errorbar(nanmean(curr_stim_act_untrained(:,2),1), ...
+        nanmean(curr_stim_act_untrained(:,1),1), ...
+        AP_sem(curr_stim_act_untrained(:,1),1),AP_sem(curr_stim_act_untrained(:,1),1), ...
+        AP_sem(curr_stim_act_untrained(:,2),1),AP_sem(curr_stim_act_untrained(:,2),1), ...
+        'color',str_col(curr_str,:),'linewidth',2);
+    errorbar(nanmean(curr_stim_act_trained(:,2),1), ...
+        nanmean(curr_stim_act_trained(:,1),1), ...
+        AP_sem(curr_stim_act_trained(:,1),1),AP_sem(curr_stim_act_trained(:,1),1), ...
+        AP_sem(curr_stim_act_trained(:,2),1),AP_sem(curr_stim_act_trained(:,2),1), ...
+        'color',str_col(curr_str,:),'linewidth',2);
+
+   scatter(nanmean(curr_stim_act_untrained(:,2),1), ...
+       nanmean(curr_stim_act_untrained(:,1),1),100, ...
+       str_col(curr_str,:),'filled','MarkerEdgeColor',[0,0.7,0],'linewidth',2);
+   scatter(nanmean(curr_stim_act_trained(:,2),1), ...
+       nanmean(curr_stim_act_trained(:,1),1),100, ...
+       str_col(curr_str,:),'filled','MarkerEdgeColor',[0.7,0,0],'linewidth',2);
+   
+   xlabel('Cortical ROI');
+   ylabel('Striatum');
+    
+end
+linkaxes(p(:,1:2),'x');
+linkaxes(p(:,3),'xy');
+
+
+% (Untrained/trained statistics)
+stim_act_mean = cellfun(@(x) cell2mat(cellfun(@(x) nanmean(x,1), ...
+    x,'uni',false)),stim_act,'uni',false);
+
+disp('Untrained/trained:');
+for curr_depth = 1:n_depths
+    curr_p = ranksum(stim_act_mean{1}(:,1,curr_depth),stim_act_mean{2}(:,1,curr_depth));
+    disp(['Str ' num2str(curr_depth) ' p = ' num2str(curr_p)]); 
+    
+    curr_p = ranksum(stim_act_mean{1}(:,2,curr_depth),stim_act_mean{2}(:,2,curr_depth));
+    disp(['Ctx ' num2str(curr_depth) ' p = ' num2str(curr_p)]); 
+end
+
+
+
+%% Widefield correlation borders
+
+wf_corr_borders_fn = 'C:\Users\Andrew\OneDrive for Business\Documents\CarandiniHarrisLab\analysis\wf_ephys_choiceworld\wf_processing\wf_borders\wf_corr_borders.mat';
+load(wf_corr_borders_fn);
+
+% Spacing/downsampling (hardcoded - in preprocessing)
+px_spacing = 20;
+downsample_factor = 10;
+
+% Get average correlation maps
+wf_corr_map_recording = [wf_corr_borders(:).corr_map_downsamp];
+wf_corr_map_cat = cat(3,wf_corr_map_recording{:});
+wf_corr_map_mean = cell(size(wf_corr_map_cat,1),size(wf_corr_map_cat,2));
+for curr_y = 1:size(wf_corr_map_cat,1)
+    for curr_x = 1:size(wf_corr_map_cat,2)
+        wf_corr_map_mean{curr_y,curr_x} = ...
+            nanmean(cell2mat(wf_corr_map_cat(curr_y,curr_x,:)),3);
+    end
+end
+
+% Get average borders
+wf_corr_borders_cat = cell2mat(reshape([wf_corr_borders(:).corr_edges],1,1,[]));
+wf_corr_borders_mean = nanmean(wf_corr_borders_cat,3);
+
+figure;
+
+[plot_maps_y,plot_maps_x] = ndgrid(4:5:size(wf_corr_map_mean,1)-4,4:5:size(wf_corr_map_mean,2));
+
+% Plot sample correlation map locations
+subplot(1,3,1,'YDir','reverse');
+AP_reference_outline('ccf_aligned',[0.5,0.5,0.5]);
+plot(plot_maps_y(:)*px_spacing,plot_maps_x(:)*px_spacing,'.r','MarkerSize',30);
+axis image off;
+
+% Plot sample correlation maps concat
+subplot(1,3,2);
+imagesc(cell2mat(wf_corr_map_mean(5:5:end,5:5:end)));
+axis image off;
+caxis([0,1]);
+colormap(brewermap([],'Greys'));
+c = colorbar;
+ylabel(c,'Correlation');
+
+% Plot borders
+subplot(1,3,3);
+imagesc(wf_corr_borders_mean);
+axis image off;
+caxis([0,prctile(wf_corr_borders_mean(:),70)])
+colormap(brewermap([],'Greys'))
+ccf_outline = AP_reference_outline('ccf_aligned',[1,0,0]);
+cellfun(@(x) set(x,'linewidth',1),vertcat(ccf_outline{:}));
+
+
+
+%% Probe trajectories histology vs widefield-estimated
+
+% Load probe trajectories
+histology_probe_ccf_all_fn = ['C:\Users\Andrew\OneDrive for Business\Documents\CarandiniHarrisLab\analysis\wf_ephys_choiceworld\paper\data\histology_probe_ccf_all'];
+load(histology_probe_ccf_all_fn);
+n_animals = length(histology_probe_ccf_all);
+
+% Load in the annotated Allen volume and names
+allen_path = 'C:\Users\Andrew\OneDrive for Business\Documents\Atlases\AllenCCF';
+av = readNPY([allen_path filesep 'annotation_volume_10um_by_index.npy']);
+st = loadStructureTree([allen_path filesep 'structure_tree_safe_2017.csv']); % a table of what all the labels mean
+
+figure;
+
+for curr_animal = 1:n_animals
+    
+    % Plot average image with drawn probe overlay;
+    subplot(n_animals,3,(curr_animal-1)*3+1);
+    imagesc(histology_probe_ccf_all(curr_animal).im);
+    line(histology_probe_ccf_all(curr_animal).probe_wf(:,1), ...
+        histology_probe_ccf_all(curr_animal).probe_wf(:,2), ...
+        'color','r','linewidth',1);  
+    axis image off;
+    caxis([0,prctile(histology_probe_ccf_all(curr_animal).im(:),95)]);
+    colormap(gca,'gray');
+    
+    % Plot brain to overlay probes
+    horizontal_axes = subplot(n_animals,3,(curr_animal-1)*3+2,'YDir','reverse'); hold on;
+    axis image off;
+    coronal_axes = subplot(n_animals,3,(curr_animal-1)*3+3,'YDir','reverse'); hold on;
+    axis image off;
+    
+    % Plot projections
+    coronal_outline = bwboundaries(permute((max(av,[],1)) > 1,[2,3,1]));
+    horizontal_outline = bwboundaries(permute((max(av,[],2)) > 1,[3,1,2]));
+    
+    str_id = find(strcmp(st.safe_name,'Caudoputamen'));
+    str_coronal_outline = bwboundaries(permute((max(av == str_id,[],1)) > 0,[2,3,1]));
+    str_horizontal_outline = bwboundaries(permute((max(av == str_id,[],2)) > 0,[3,1,2]));
+
+    plot(horizontal_axes,horizontal_outline{1}(:,2),horizontal_outline{1}(:,1),'k','linewidth',2);
+    plot(horizontal_axes,str_horizontal_outline{1}(:,2),str_horizontal_outline{1}(:,1),'b','linewidth',2);
+    plot(horizontal_axes,str_horizontal_outline{2}(:,2),str_horizontal_outline{2}(:,1),'b','linewidth',2);
+    axis image off;
+    
+    plot(coronal_axes,coronal_outline{1}(:,2),coronal_outline{1}(:,1),'k','linewidth',2);
+    plot(coronal_axes,str_coronal_outline{1}(:,2),str_coronal_outline{1}(:,1),'b','linewidth',2);
+    plot(coronal_axes,str_coronal_outline{2}(:,2),str_coronal_outline{2}(:,1),'b','linewidth',2);
+    axis image off;
+    
+    % Get estimated probe vector (widefield)
+    probe_ccf_wf = histology_probe_ccf_all(curr_animal).probe_ccf_wf;
+    r0 = mean(probe_ccf_wf,1);
+    xyz = bsxfun(@minus,probe_ccf_wf,r0);
+    [~,~,V] = svd(xyz,0);
+    probe_direction = V(:,1);
+    
+    probe_vector_evaluate = [0,sign(probe_direction(2))*1000];
+    probe_vector_draw_wf = round(bsxfun(@plus,bsxfun(@times,probe_vector_evaluate',probe_direction'),r0));
+    
+    line(horizontal_axes,probe_vector_draw_wf(:,1),probe_vector_draw_wf(:,3), ...
+        'color','r','linewidth',2);
+    line(coronal_axes,probe_vector_draw_wf(:,3),probe_vector_draw_wf(:,2), ...
+        'color','r','linewidth',2);
+    
+    % Get estimated probe vector (histology)
+    probe_ccf_histology = histology_probe_ccf_all(curr_animal).probe_ccf_histology;
+    % (still working on orienting histology: force left hemisphere)
+    bregma = allenCCFbregma;
+    if sign(probe_ccf_histology(end,3) - probe_ccf_histology(1,3)) == 1
+        probe_ccf_histology(:,3) = ...
+            probe_ccf_histology(:,3) + ...
+            2*(bregma(3) - probe_ccf_histology(:,3));
+    end
+    
+    r0 = mean(probe_ccf_histology,1);
+    xyz = bsxfun(@minus,probe_ccf_histology,r0);
+    [~,~,V] = svd(xyz,0);
+    probe_direction = V(:,1);
+    
+    probe_vector_evaluate = [-sign(probe_direction(2))*500,sign(probe_direction(2))*500];
+    probe_vector_draw_histology = round(bsxfun(@plus,bsxfun(@times,probe_vector_evaluate',probe_direction'),r0));
+
+    line(horizontal_axes,probe_vector_draw_histology(:,1),probe_vector_draw_histology(:,3), ...
+        'color',[0,0.7,0],'linewidth',2);
+    line(coronal_axes,probe_vector_draw_histology(:,3),probe_vector_draw_histology(:,2), ...
+        'color',[0,0.7,0],'linewidth',2);
+    
+    drawnow;
+    
+end
+
+
+%% Probe trajectories estimated from widefield image
+
+% Load estimated probe trajectories
+probe_ccf_all_fn = ['C:\Users\Andrew\OneDrive for Business\Documents\CarandiniHarrisLab\analysis\wf_ephys_choiceworld\paper\data\probe_ccf_all'];
+load(probe_ccf_all_fn);
+
+% Load in the annotated Allen volume and names
+allen_path = 'C:\Users\Andrew\OneDrive for Business\Documents\Atlases\AllenCCF';
+av = readNPY([allen_path filesep 'annotation_volume_10um_by_index.npy']);
+st = loadStructureTree([allen_path filesep 'structure_tree_safe_2017.csv']); % a table of what all the labels mean
+
+% Plot brain to overlay probes
+% (note the CCF is rotated to allow for dim 1 = x)
+h = figure; 
+ccf_axes = subplot(2,2,1); hold on
+sagittal_axes = subplot(2,2,2,'YDir','reverse'); hold on;
+axis image; grid on;
+horizontal_axes = subplot(2,2,3,'YDir','reverse'); hold on;
+axis image; grid on;
+coronal_axes = subplot(2,2,4,'YDir','reverse'); hold on;
+axis image; grid on;
+
+% Plot 1 = 3D
+% (Use wire mesh - can add other structures)
+slice_spacing = 10;
+
+str_id = find(strcmp(st.safe_name,'Caudoputamen'));
+target_volume = permute(av(1:slice_spacing:end,1:slice_spacing:end,1:slice_spacing:end) == str_id,[2,1,3]);
+structure_patch = isosurface(target_volume,0);
+structure_wire = reducepatch(structure_patch.faces,structure_patch.vertices,0.01);
+target_structure_color = [0,0,1];
+striatum_outline = patch(ccf_axes, ...
+    'Vertices',structure_wire.vertices*slice_spacing, ...
+    'Faces',structure_wire.faces, ...
+    'FaceAlpha',0.5,'FaceColor',target_structure_color,'EdgeColor','none');
+
+% (Use Nick's outline, but rotate to make dim 1 = x)
+brainGridData = readNPY([fileparts(which('plotBrainGrid')) filesep 'brainGridData.npy']);
+plotBrainGrid(brainGridData(:,[1,3,2]),ccf_axes);
+
+axes(ccf_axes);
+axis image vis3d off;
+cameratoolbar(h,'SetCoordSys','y');
+cameratoolbar(h,'SetMode','orbit');
+
+% Plots 2-4 = projections
+coronal_outline = bwboundaries(permute((max(av,[],1)) > 1,[2,3,1]));
+horizontal_outline = bwboundaries(permute((max(av,[],2)) > 1,[3,1,2]));
+sagittal_outline = bwboundaries(permute((max(av,[],3)) > 1,[2,1,3]));
+
+str_id = find(strcmp(st.safe_name,'Caudoputamen'));
+str_coronal_outline = bwboundaries(permute((max(av == str_id,[],1)) > 0,[2,3,1]));
+str_horizontal_outline = bwboundaries(permute((max(av == str_id,[],2)) > 0,[3,1,2]));
+str_sagittal_outline = bwboundaries(permute((max(av == str_id,[],3)) > 0,[2,1,3]));
+
+plot(sagittal_axes,sagittal_outline{1}(:,2),sagittal_outline{1}(:,1),'k','linewidth',2);
+plot(sagittal_axes,str_sagittal_outline{1}(:,2),str_sagittal_outline{1}(:,1),'b','linewidth',2);
+
+plot(horizontal_axes,horizontal_outline{1}(:,2),horizontal_outline{1}(:,1),'k','linewidth',2);
+plot(horizontal_axes,str_horizontal_outline{1}(:,2),str_horizontal_outline{1}(:,1),'b','linewidth',2);
+plot(horizontal_axes,str_horizontal_outline{2}(:,2),str_horizontal_outline{2}(:,1),'b','linewidth',2);
+
+plot(coronal_axes,coronal_outline{1}(:,2),coronal_outline{1}(:,1),'k','linewidth',2);
+plot(coronal_axes,str_coronal_outline{1}(:,2),str_coronal_outline{1}(:,1),'b','linewidth',2);
+plot(coronal_axes,str_coronal_outline{2}(:,2),str_coronal_outline{2}(:,1),'b','linewidth',2);
+
+if length(probe_ccf_all) <= 17
+    color_set = [brewermap(8,'Dark2');brewermap(8,'Set2')];
+    probe_color = color_set(1:length(probe_ccf_all),:);
+else
+    error('More animals than colors: add another set');
+end
+
+
+for curr_animal = 1:length(probe_ccf_all)
+    for curr_day = 1:size(probe_ccf_all{curr_animal},3)
+
+        % Get estimated probe vector
+        probe_ccf = probe_ccf_all{curr_animal}(:,:,curr_day);
+        r0 = mean(probe_ccf,1);
+        xyz = bsxfun(@minus,probe_ccf,r0);
+        [~,~,V] = svd(xyz,0);
+        probe_direction = V(:,1);
+                
+        probe_vector_evaluate = [0,sign(probe_direction(2))*1000];
+        probe_vector_draw = round(bsxfun(@plus,bsxfun(@times,probe_vector_evaluate',probe_direction'),r0));
+        
+        % Plot current probe vector
+        line(ccf_axes,probe_vector_draw(:,1),probe_vector_draw(:,2),probe_vector_draw(:,3), ...
+            'color',probe_color(curr_animal,:),'linewidth',1);
+        line(sagittal_axes,probe_vector_draw(:,1),probe_vector_draw(:,2), ...
+            'color',probe_color(curr_animal,:),'linewidth',1);
+        line(horizontal_axes,probe_vector_draw(:,1),probe_vector_draw(:,3), ...
+            'color',probe_color(curr_animal,:),'linewidth',1);
+        line(coronal_axes,probe_vector_draw(:,3),probe_vector_draw(:,2), ...
+            'color',probe_color(curr_animal,:),'linewidth',1);
+        
+        drawnow;
+        
+    end
+end
+
+% Put a colormap on the side
+cmap_ax = axes('Position',[0.95,0.2,0.2,0.6])
+image(permute(probe_color,[1,3,2]));
+
+
+
+%% Fluorescence deconvolution and fluor+ctx+str example
+
+% Load and plot kernel
+% (flip time to be fluor lag:lead spikes);
+kernel_path = fileparts(which('AP_deconv_wf'))
+kernel_fn = [kernel_path filesep 'gcamp6s_kernel.mat'];
+load(kernel_fn);
+
+gcamp6s_kernel_cat = fliplr(vertcat(gcamp6s_kernel.regression{:}));
+gcamp6s_kernel_norm = gcamp6s_kernel_cat./max(abs(gcamp6s_kernel_cat),[],2);
+gcamp6s_kernel_mean = nanmean(gcamp6s_kernel_norm)
+
+figure; hold on;
+plot(gcamp6s_kernel.regression_t,gcamp6s_kernel_norm','color',[0.5,0.5,0.5]);
+plot(gcamp6s_kernel.regression_t,gcamp6s_kernel_mean,'k','linewidth',2);
+line(xlim,[0,0],'color','k','linestyle','--');
+line([0,0],ylim,'color','k','linestyle','--');
+
+
+% Load Fluor+ctx-ephys data
+load('C:\Users\Andrew\OneDrive for Business\Documents\CarandiniHarrisLab\analysis\wf_ephys_choiceworld\paper\data\ctx_deconv_traces');
+
+% Concatenate spikes/deconvolved fluorescence 
+% (full recording)
+ctx_fluor_full_cat = cellfun(@cell2mat,{ctx_deconv_traces.fluor},'uni',false);
+ctx_spikes_full_cat = cellfun(@cell2mat,{ctx_deconv_traces.spikes},'uni',false);
+ctx_fluor_deconv_full_cat = cellfun(@cell2mat,{ctx_deconv_traces.fluor_deconv},'uni',false);
+
+% (task)
+ctx_spikes_task_cat = cellfun(@(x,protocol) ...
+    cell2mat(x(strcmp(protocol,'vanillaChoiceworld'))), ...
+    {ctx_deconv_traces.spikes},{ctx_deconv_traces.protocol},'uni',false);
+ctx_fluor_deconv_task_cat = cellfun(@(x,protocol) ...
+    cell2mat(x(strcmp(protocol,'vanillaChoiceworld'))), ...
+    {ctx_deconv_traces.fluor_deconv},{ctx_deconv_traces.protocol},'uni',false);
+
+% (passive)
+ctx_spikes_notask_cat = cellfun(@(x,protocol) ...
+    cell2mat(x(strcmp(protocol,'AP_sparseNoise'))), ...
+    {ctx_deconv_traces.spikes},{ctx_deconv_traces.protocol},'uni',false);
+ctx_fluor_deconv_notask_cat = cellfun(@(x,protocol) ...
+    cell2mat(x(strcmp(protocol,'AP_sparseNoise'))), ...
+    {ctx_deconv_traces.fluor_deconv},{ctx_deconv_traces.protocol},'uni',false);
+
+% Get explained variance
+ctx_deconv_full_r2 = cellfun(@(spikes,fluor_deconv) ...
+    1-(nansum((spikes-fluor_deconv).^2)./nansum((spikes-nanmean(spikes)).^2)), ...
+    ctx_spikes_full_cat,ctx_fluor_deconv_full_cat);
+
+ctx_deconv_task_r2 = cellfun(@(spikes,fluor_deconv) ...
+    1-(nansum((spikes-fluor_deconv).^2)./nansum((spikes-nanmean(spikes)).^2)), ...
+    ctx_spikes_task_cat,ctx_fluor_deconv_task_cat);
+
+ctx_deconv_notask_r2 = cellfun(@(spikes,fluor_deconv) ...
+    1-(nansum((spikes-fluor_deconv).^2)./nansum((spikes-nanmean(spikes)).^2)), ...
+    ctx_spikes_notask_cat,ctx_fluor_deconv_notask_cat);
+
+
+%%% Plot example day
+
+animal = 'AP060';
+day = '2019-12-06';
+experiment = 1;
+plot_t = [100,300];
+
+figure;
+disp('Loading example data...');
+
+% Load cortex ephys + imaging
+load_parts.ephys = true;
+load_parts.imaging = true;
+site = 2; % (cortex always probe 2)
+str_align = 'none'; % (cortex)
+AP_load_experiment;
+
+% Load cortex recording alignment
+vis_ctx_ephys_fn = 'C:\Users\Andrew\OneDrive for Business\Documents\CarandiniHarrisLab\analysis\wf_ephys_choiceworld\ephys_processing\vis_ctx_ephys.mat';
+load(vis_ctx_ephys_fn);
+
+%%% DEPTH-ALIGN TEMPLATES, FIND CORTEX BOUNDARY
+curr_animal_idx = strcmp(animal,{vis_ctx_ephys.animal});
+curr_day_idx = strcmp(day,vis_ctx_ephys(curr_animal_idx).day);
+curr_csd_depth = vis_ctx_ephys(curr_animal_idx).stim_csd_depth{curr_day_idx};
+curr_csd_depth_aligned = vis_ctx_ephys(curr_animal_idx).stim_csd_depth_aligned{curr_day_idx};
+template_depths_aligned = interp1(curr_csd_depth,curr_csd_depth_aligned,template_depths);
+spike_depths_aligned = interp1(curr_csd_depth,curr_csd_depth_aligned,spike_depths);
+
+% Find cortex end by largest gap between templates
+sorted_template_depths = sort([template_depths_aligned]);
+[max_gap,max_gap_idx] = max(diff(sorted_template_depths));
+ctx_end = sorted_template_depths(max_gap_idx)+1;
+
+ctx_depth = [sorted_template_depths(1),ctx_end];
+ctx_units = template_depths_aligned <= ctx_depth(2);
+
+%%% GET FLUORESCENCE AND SPIKES BY DEPTH
+
+% Set binning time
+skip_seconds = 60;
+spike_binning_t = 1/framerate; % seconds
+spike_binning_t_edges = frame_t(1)+skip_seconds:spike_binning_t:frame_t(end)-skip_seconds;
+spike_binning_t_centers = spike_binning_t_edges(1:end-1) + diff(spike_binning_t_edges)/2;
+
+% Get fluorescence in pre-drawn ROI
+curr_ctx_roi = vis_ctx_ephys(curr_animal_idx).ctx_roi{curr_day_idx};
+
+fVdf_deconv = AP_deconv_wf(fVdf);
+fluor_roi = AP_svd_roi(Udf,fVdf_deconv,avg_im,[],curr_ctx_roi);
+fluor_roi_interp = interp1(frame_t,fluor_roi,spike_binning_t_centers);
+
+% Plot cortex raster
+subplot(6,1,1); hold on;
+plot_t_idx = spike_binning_t_centers >= plot_t(1) & ...
+    spike_binning_t_centers <= plot_t(2);
+plot(spike_binning_t_centers(plot_t_idx), ...
+    fluor_roi_interp(plot_t_idx),'linewidth',2,'color',[0,0.7,0]);
+
+subplot(6,1,2,'YDir','reverse'); hold on;
+plot_spikes = spike_times_timeline >= plot_t(1) & ...
+    spike_times_timeline <= plot_t(2) & ...
+    spike_depths_aligned <= ctx_depth(2);
+plot(spike_times_timeline(plot_spikes),spike_depths(plot_spikes),'.k');
+ylabel('Cortex depth (\mum)');
+xlabel('Time (s)');
+
+%%% LOAD STRIATUM EPHYS AND GET MUA BY DEPTH
+
+% Load striatum ephys
+load_parts.ephys = true;
+load_parts.imaging = false;
+site = 1; % (striatum is always on probe 1)
+str_align = 'kernel';
+AP_load_experiment;
+
+% Plot striatum raster
+subplot(6,1,3,'YDir','reverse'); hold on;
+plot_spikes = spike_times_timeline >= plot_t(1) & ...
+    spike_times_timeline <= plot_t(2) & ...
+    spike_depths >= str_depth(1) & spike_depths <= str_depth(2);
+plot(spike_times_timeline(plot_spikes),spike_depths(plot_spikes),'.k');
+ylabel('Striatum depth (\mum)');
+xlabel('Time (s)');
+
+%%%%%% PLOT WHEEL/STIM
+
+% (wheel velocity)
+wheel_axes = subplot(6,1,4); hold on;
+plot_wheel_idx = Timeline.rawDAQTimestamps >= plot_t(1) & ...
+    Timeline.rawDAQTimestamps <= plot_t(2);
+plot(wheel_axes,Timeline.rawDAQTimestamps(plot_wheel_idx), ...
+    wheel_velocity(plot_wheel_idx),'k','linewidth',2);
+ylabel('Wheel velocity');
+axis off
+
+% %     (stimuli)
+%     % (task)
+%     if contains(expDef,'vanilla')
+%         stim_col = colormap_BlueWhiteRed(5);
+%         [~,trial_contrast_idx] = ...
+%             ismember(trial_conditions(:,1).*trial_conditions(:,2),unique(contrasts'.*sides),'rows');
+%     elseif strcmp(expDef,'AP_lcrGratingPassive')
+%         % (passive)
+%         stim_col = [0,0,1;0.5,0.5,0.5;1,0,0];
+%         [~,trial_contrast_idx] = ...
+%             ismember(trial_conditions(:,1).*trial_conditions(:,2),[-90;0;90],'rows');
+%     end
+%     stim_lines = arrayfun(@(x) line(wheel_axes,repmat(stimOn_times(x),1,2),ylim(wheel_axes),'color', ...
+%             stim_col(trial_contrast_idx(x),:),'linewidth',2), ...
+%             find(stimOn_times >= plot_t(1) & stimOn_times <= plot_t(2)));
+%
+%     % (movement starts)
+%     move_col = [0.6,0,0.6;0,0.6,0];
+%     [~,trial_choice_idx] = ismember(trial_conditions(:,3),[-1;1],'rows');
+%     move_lines = arrayfun(@(x) line(wheel_axes,repmat(wheel_move_time(x),1,2),ylim(wheel_axes),'color', ...
+%         move_col(trial_choice_idx(x),:),'linewidth',2), ...
+%         find(wheel_move_time >= plot_t(1) & wheel_move_time <= plot_t(2)));
+%
+%     % (go cues)
+%     go_col = [0.8,0.8,0.2];
+%     go_cue_times = signals_events.interactiveOnTimes(1:n_trials);
+%     go_cue_lines = arrayfun(@(x) line(wheel_axes,repmat(go_cue_times(x),1,2),ylim(wheel_axes),'color', ...
+%         go_col,'linewidth',2), ...
+%         find(go_cue_times >= plot_t(1) & go_cue_times <= plot_t(2)));
+%
+%     % (outcomes)
+%     outcome_col = [0,0,0.8;0.5,0.5,0.5];
+%     reward_lines = arrayfun(@(x) line(wheel_axes,repmat(reward_t_timeline(x),1,2),ylim(wheel_axes),'color', ...
+%         outcome_col(1,:),'linewidth',2), ...
+%         find(reward_t_timeline >= plot_t(1) & reward_t_timeline <= plot_t(2)));
+%     punish_times = signals_events.responseTimes(trial_outcome == -1);
+%     punish_lines = arrayfun(@(x) line(wheel_axes,repmat(punish_times(x),1,2),ylim(wheel_axes),'color', ...
+%         outcome_col(2,:),'linewidth',2), ...
+%         find(punish_times >= plot_t(1) & punish_times <= plot_t(2)));
+
+
+% Plot the cortex MUA and deconvolved fluorescence match
+% Plot example
+example_recording = 3;
+example_protocol = 1;
+
+% (raw fluorescence)
+subplot(6,1,5); hold on;
+plot(ctx_deconv_traces(example_recording).t{example_protocol}, ...
+    mat2gray(ctx_deconv_traces(example_recording).fluor{example_protocol}), ...
+    'color',[0,0.8,0],'linewidth',2);
+ylabel('ROI Fluor(\DeltaF/F)');
+xlabel('Time(s)')
+
+% (cortex MUA and deconvolved fluorescence)
+subplot(6,1,6); hold on;
+plot(ctx_deconv_traces(example_recording).t{example_protocol}, ...
+    ctx_deconv_traces(example_recording).spikes{example_protocol}, ...
+    'color','k','linewidth',2);
+plot(ctx_deconv_traces(example_recording).t{example_protocol}, ...
+    ctx_deconv_traces(example_recording).fluor_deconv{example_protocol}, ...
+    'color',[0,0.5,0],'linewidth',2);
+linkaxes(get(gcf,'Children'),'x');
+ylabel('Cortex spikes (std)');
+xlabel('Time (s)');
+
+
+curr_axes = flipud(get(gcf,'Children'));
+% Link all time axes
+linkaxes(curr_axes,'x');
+% Link depth axes of raster plots (arbitrary depth, but want same scale)
+linkaxes(curr_axes(2:3),'xy');
+
+% (Display average and statistics)
+disp(['Deconv explained var: ' num2str(nanmean(ctx_deconv_full_r2)) ...
+    ' +/- ' num2str(AP_sem(ctx_deconv_full_r2,2))]);
+
+p = signrank(ctx_deconv_task_r2,ctx_deconv_notask_r2);
+disp(['Task vs no-task explained var: ' num2str(p)]);
+
+
+%% Fluorescence/cortex ephys/striatum ephys correlation
 
 %%% Load correlation data
 use_protocol = 'vanillaChoiceworld';
@@ -629,7 +1499,6 @@ xlabel('Striatal domain');
 ylabel('Cortical MUA max corr');
 
 
-
 % (Fluor-Ctx MUA vs Str-Ctx MUA correlation by depth statistics)
 use_str = 1;
 use_ctx_str_corr = squeeze(cortex_striatum_corr_cat(:,use_str,:));
@@ -654,6 +1523,293 @@ corr_p = 1 - (corr_rank(1)/(n_shuff+1));
 disp('Fluor-ctx depth vs Str-ctx depth correlation (circshift stat):')
 disp(['p = ' num2str(corr_p) ', r = ' num2str(nanmean(fluor_ctx_str_corr)) ...
     ' +/- SEM ' num2str(AP_sem(fluor_ctx_str_corr,1))])
+
+
+
+%% Regress striatum from cortical subregions and striatal domains
+% NOTE: this regression is done on trial data rather than the long time
+% courses which is what the normal analysis uses. For sanity check, the
+% explained using the full data (full) and the trials dataset (trials) are
+% compared here but not meant to be included.
+%
+% Also this takes a long time to run
+
+% Choose depths to run
+plot_depth = 1:n_depths;
+
+% Regress kernel ROI activity to striatum domain activity (per recording)
+regression_params.use_svs = 1:100;
+regression_params.kernel_t = [-0.1,0.1];
+regression_params.zs = [false,false];
+regression_params.cvfold = 2;
+regression_params.use_constant = true;
+lambda = 50; % lambda for fluorescence to striatum
+domain_lambda = 0; % lambda for other domains to striatum
+kernel_frames = floor(regression_params.kernel_t(1)*sample_rate): ...
+    ceil(regression_params.kernel_t(2)*sample_rate);
+
+% Set time to use
+% (e.g. this type of code can be used to regress only ITI time)
+use_t = true(size(t));
+
+% Set regions to zero
+% (zero all EXCEPT quadrants)
+ctx_zero = true(size(U_master,1),size(U_master,2),6);
+ctx_zero(1:260,1:220,1) = false;
+ctx_zero(1:260,220:end,2) = false;
+ctx_zero(260:end,1:220,3) = false;
+ctx_zero(260:end,220:end,4) = false;
+ctx_zero(:,220:end,5) = false;
+ctx_zero(:,1:220,6) = false;
+
+% (use raw data for trial regression)
+mua_exp = vertcat(mua_all{:});
+fluor_exp = vertcat(fluor_all{:});
+fluor_deconv_exp = cellfun(@AP_deconv_wf,fluor_exp,'uni',false);
+
+mua_ctxtrialpred_exp = cellfun(@(x) nan(size(x)),mua_exp,'uni',false);
+mua_ctxtrialpred_k = nan(length(regression_params.use_svs),length(kernel_frames),n_depths,length(use_split));
+mua_ctxtrialpred_regionzero_exp = cellfun(@(x) nan([size(x),size(ctx_zero,3)]),mua_exp,'uni',false);
+mua_ctxtrialpred_regionzero_k = nan(length(regression_params.use_svs),length(kernel_frames),n_depths,length(use_split));
+
+mua_domaintrialpred_exp = cellfun(@(x) nan(size(x)),mua_exp,'uni',false);
+mua_domaintrialpred_k = nan(n_depths-1,length(kernel_frames),n_depths,length(use_split));
+
+for curr_exp = 1:length(trials_recording)
+    for curr_depth = plot_depth
+        
+        curr_mua = reshape(mua_exp{curr_exp}(:,use_t,curr_depth)',1,[]);
+        curr_mua_std = curr_mua./nanstd(curr_mua);
+        
+        curr_fluor = reshape(permute( ...
+            fluor_deconv_exp{curr_exp}(:,use_t,:),[2,1,3]),[],n_vs)';
+        curr_fluor_full = reshape(permute( ...
+            fluor_deconv_exp{curr_exp}(:,:,:),[2,1,3]),[],n_vs)';
+        
+        curr_fluor_regionzero = nan(size(curr_fluor,1),size(curr_fluor,2),size(ctx_zero,3));
+        for curr_zero = 1:size(ctx_zero,3)
+            U_master_regionzero = U_master.*~ctx_zero(:,:,curr_zero);
+            fVdf_regionzero_altU = ChangeU(U_master(:,:,1:n_vs),curr_fluor,U_master_regionzero(:,:,1:n_vs));
+            % (those U's aren't orthonormal, recast back to original Udf_aligned)
+            fVdf_regionzero = ChangeU(U_master_regionzero(:,:,1:n_vs),fVdf_regionzero_altU,U_master(:,:,1:n_vs));
+            curr_fluor_regionzero(:,:,curr_zero) = fVdf_regionzero;
+        end
+        
+        % Skip if no data
+        if all(isnan(curr_mua))
+            continue
+        end
+        
+        % Set discontinuities in trial data
+        trial_discontinuities = false(size(mua_exp{curr_exp}(:,use_t,curr_depth)));
+        trial_discontinuities(:,1) = true;
+        trial_discontinuities = reshape(trial_discontinuities',[],1)';
+        
+        % Full cortex regression
+        [ctx_str_k,curr_mua_fluorpred_std,explained_var_trial] = ...
+            AP_regresskernel(curr_fluor(regression_params.use_svs,:), ...
+            curr_mua_std,kernel_frames,lambda, ...
+            regression_params.zs,regression_params.cvfold, ...
+            true,regression_params.use_constant,trial_discontinuities);
+                
+        % Re-scale the prediction (subtract offset, multiply, add scaled offset)
+        ctxpred_spikes = (curr_mua_fluorpred_std - squeeze(ctx_str_k{end})).* ...
+            nanstd(curr_mua,[],2) + ...
+            nanstd(curr_mua,[],2).*squeeze(ctx_str_k{end});
+        
+        mua_ctxtrialpred_k(:,:,curr_depth,curr_exp) = ctx_str_k{1};
+        mua_ctxtrialpred_exp{curr_exp}(:,use_t,curr_depth) = ...
+            reshape(ctxpred_spikes,sum(use_t),[])';
+        %         % (apply kernel to full time)
+        %         mua_ctxtrialpred_exp{curr_exp}(:,:,curr_depth) = ...
+        %             sum(cell2mat(arrayfun(@(x) ...
+        %             convn(fluor_allcat_deconv_exp{curr_exp}(:,:,regression_params.use_svs(x)), ...
+        %             k_fluor(x,:)','same'),permute(1:length(regression_params.use_svs),[1,3,2]),'uni',false)),3);
+        
+        % Region-zeroed cortex regression
+        for curr_zero = 1:size(ctx_zero,3)
+            [ctx_str_k_regionzero,curr_mua_fluorregionzeropred_std,explained_var_trial_regionzero] = ...
+                AP_regresskernel(curr_fluor_regionzero(regression_params.use_svs,:,curr_zero), ...
+                curr_mua_std,kernel_frames,lambda, ...
+                regression_params.zs,regression_params.cvfold, ...
+                true,regression_params.use_constant,trial_discontinuities);
+            
+            % Re-scale the prediction (subtract offset, multiply, add scaled offset)
+            ctxpred_spikes_regionzero = (curr_mua_fluorregionzeropred_std - squeeze(ctx_str_k_regionzero{end})).* ...
+                nanstd(curr_mua,[],2) + ...
+                nanstd(curr_mua,[],2).*squeeze(ctx_str_k_regionzero{end});
+                        
+            mua_ctxtrialpred_regionzero_k(:,:,curr_depth,curr_exp,curr_zero) = ctx_str_k_regionzero{1};
+            mua_ctxtrialpred_regionzero_exp{curr_exp}(:,use_t,curr_depth,curr_zero) = ...
+                reshape(ctxpred_spikes_regionzero,sum(use_t),[])';
+            %         % (apply kernel to full time)
+            %         mua_ctxtrialpred_regionzero_exp{curr_exp}(:,:,curr_depth) = ...
+            %             sum(cell2mat(arrayfun(@(x) ...
+            %             convn(fluor_allcat_deconv_exp{curr_exp}(:,:,regression_params.use_svs(x)), ...
+            %             k_fluorregionzero(x,:)','same'),permute(1:length(regression_params.use_svs),[1,3,2]),'uni',false)),3);
+        end
+        
+        % Regress current domains from other domains
+        curr_mua_domains = reshape(permute(mua_exp{curr_exp}(:,use_t,:),[2,1,3]),[],n_depths)';
+        curr_mua_domains_std = curr_mua_domains./nanstd(curr_mua_domains,[],2);
+        
+        [domain_str_k,curr_mua_domainpred_std,explained_var_trial] = ...
+            AP_regresskernel(curr_mua_domains_std(setdiff(1:n_depths,curr_depth),:), ...
+            curr_mua_std,kernel_frames,domain_lambda, ...
+            regression_params.zs,regression_params.cvfold, ...
+            true,regression_params.use_constant,trial_discontinuities);
+        
+        % Re-scale the prediction (subtract offset, multiply, add scaled offset)
+        curr_mua_domainpred = (curr_mua_domainpred_std - squeeze(domain_str_k{end})).* ...
+            nanstd(curr_mua,[],2) + ...
+            nanstd(curr_mua,[],2).*squeeze(domain_str_k{end});
+        
+        mua_domaintrialpred_k(:,:,curr_depth,curr_exp) = domain_str_k{1};
+        mua_domaintrialpred_exp{curr_exp}(:,use_t,curr_depth) = ...
+            reshape(curr_mua_domainpred,sum(use_t),[])';
+      
+        
+    end
+    AP_print_progress_fraction(curr_exp,length(trials_recording));
+end
+
+% Plot average cortex->striatum kernel
+ctx_str_k_mean = nanmean(cell2mat(permute(vertcat(ctx_str_k_all{:}),[2,3,4,5,1])),5);
+ctx_str_k_mean_px = cell2mat(arrayfun(@(x) svdFrameReconstruct(U_master(:,:,1:100), ...
+    ctx_str_k_mean(:,:,x)),permute(1:n_depths,[1,3,4,2]),'uni',false));
+
+mua_ctxtrialpred_k_mean = nanmean(mua_ctxtrialpred_k,4);
+mua_ctxtrialpred_k_mean_px = cell2mat(arrayfun(@(x) ...
+    svdFrameReconstruct(U_master(:,:,regression_params.use_svs), ...
+    mua_ctxtrialpred_k_mean(:,:,x)),permute(1:n_depths,[1,3,4,2]),'uni',false));
+
+mua_ctxtrialpred_regionzero_k_mean = nanmean(mua_ctxtrialpred_regionzero_k,4);
+mua_ctxtrialpred_regionzero_k_mean_px = cell2mat(arrayfun(@(x) ...
+    svdFrameReconstruct(U_master(:,:,regression_params.use_svs), ...
+    reshape(mua_ctxtrialpred_regionzero_k_mean(:,:,x,:),length(regression_params.use_svs),[])), ...
+    permute(1:n_depths,[1,3,4,2]),'uni',false));
+
+AP_image_scroll(cat(3,mua_ctxtrialpred_k_mean_px,mua_ctxtrialpred_regionzero_k_mean_px));
+caxis([-max(abs(caxis)),max(abs(caxis))]);
+colormap(gca,brewermap([],'PRGn'));
+axis image;
+
+% Plot average domain->striautm kernel
+figure;
+mua_domaintrialpred_k_mean = nanmean(mua_domaintrialpred_k,4);
+str_col = max(hsv(n_depths)-0.2,0);
+for curr_depth = 1:n_depths
+    subplot(n_depths,1,curr_depth); hold on
+    set(gca,'ColorOrder',str_col(setdiff(1:n_depths,curr_depth),:));
+    plot(kernel_frames,mua_domaintrialpred_k_mean(:,:,curr_depth)','linewidth',2);
+    ylabel('Weight');
+    title(['Str ' num2str(curr_depth)]);
+end
+
+
+% Get R^2 for task, cortex full, and cortex ROI predictions
+mua_ctxpred_exp = vertcat(mua_ctxpred_all{:});
+
+ctxpred_r2 = nan(max(split_idx),n_depths);
+ctxtrialpred_r2 = nan(max(split_idx),n_depths);
+ctxtrialpred_regionzero_r2 = nan(max(split_idx),n_depths,size(ctx_zero,3));
+domaintrialpred_r2 = nan(max(split_idx),n_depths);
+
+for curr_exp = 1:max(split_idx)
+    
+    curr_data = reshape(permute(mua_exp{curr_exp},[2,1,3]),[],n_depths);
+    curr_ctxpred_data = reshape(permute(mua_ctxpred_exp{curr_exp},[2,1,3]),[],n_depths);
+    curr_ctxtrialpred_data = reshape(permute(mua_ctxtrialpred_exp{curr_exp},[2,1,3]),[],n_depths);
+    curr_ctxtrialpred_regionzero_data = ...
+        reshape(permute(mua_ctxtrialpred_regionzero_exp{curr_exp},[2,1,3,4]),[],n_depths,size(ctx_zero,3));
+    curr_domaintrialpred_data = reshape(permute(mua_domaintrialpred_exp{curr_exp},[2,1,3]),[],n_depths);
+    
+    % Set common NaNs
+    nan_samples = isnan(curr_data) | isnan(curr_ctxpred_data) ...
+        | isnan(curr_ctxtrialpred_data) | any(isnan(curr_ctxtrialpred_regionzero_data),3) ...
+        | isnan(curr_domaintrialpred_data);
+    curr_data(nan_samples) = NaN;
+    curr_ctxpred_data(nan_samples) = NaN;
+    curr_ctxtrialpred_data(nan_samples) = NaN;
+    curr_ctxtrialpred_regionzero_data(repmat(nan_samples,1,1,size(ctx_zero,3))) = NaN;
+    curr_domaintrialpred_data(nan_samples) = NaN;
+    
+    ctxpred_r2(curr_exp,:) = 1 - (nansum((curr_data-curr_ctxpred_data).^2,1)./ ...
+        nansum((curr_data-nanmean(curr_data,1)).^2,1));
+    ctxtrialpred_r2(curr_exp,:) = 1 - (nansum((curr_data-curr_ctxtrialpred_data).^2,1)./ ...
+        nansum((curr_data-nanmean(curr_data,1)).^2,1));
+    ctxtrialpred_regionzero_r2(curr_exp,:,:) = 1 - (nansum((curr_data-curr_ctxtrialpred_regionzero_data).^2,1)./ ...
+        nansum((curr_data-nanmean(curr_data,1)).^2,1));
+    domaintrialpred_r2(curr_exp,:) = 1 - (nansum((curr_data-curr_domaintrialpred_data).^2,1)./ ...
+        nansum((curr_data-nanmean(curr_data,1)).^2,1));
+    
+end
+
+%%% Cortex subregions explained variance
+figure;
+
+% Plot full vs trial (sanity check: they should be ~the same)
+subplot(2,3,1); hold on;
+errorbar(nanmean(ctxpred_r2,1),AP_sem(ctxpred_r2,1),'.-','linewidth',2,'CapSize',0,'MarkerSize',30);
+errorbar(nanmean(ctxtrialpred_r2,1),AP_sem(ctxtrialpred_r2,1),'.-','linewidth',2,'CapSize',0,'MarkerSize',30);
+legend({'Ctx full','Ctx trial'});
+xlabel('Striatum depth');
+ylabel('Explained variance');
+
+% Plot explained variance by subregion
+subplot(2,3,2); hold on;
+str_col = max(hsv(n_depths)-0.2,0);
+set(gca,'ColorOrder',str_col);
+errorbar(permute(nanmean(ctxtrialpred_regionzero_r2,1),[3,2,1]), ...
+    permute(AP_sem(ctxtrialpred_regionzero_r2,1),[3,2,1]),'.-','linewidth',2,'CapSize',0,'MarkerSize',30);
+xlabel('Cortex subregion');
+ylabel('Explained variance');
+legend(cellfun(@(x) ['Str ' num2str(x)],num2cell(1:n_depths),'uni',false));
+
+% Plot explained variance of subregion and domain relative to full
+alternate_r2 = cat(3,ctxtrialpred_regionzero_r2,domaintrialpred_r2);
+alternate_r2_relative = ...
+    (alternate_r2 - ctxtrialpred_r2)./ctxtrialpred_r2;
+
+subplot(2,3,3); hold on;
+str_col = max(hsv(n_depths)-0.2,0);
+set(gca,'ColorOrder',str_col);
+errorbar(permute(nanmean(alternate_r2_relative,1),[3,2,1]), ...
+    permute(AP_sem(alternate_r2_relative,1),[3,2,1]),'linewidth',2,'CapSize',0,'Marker','none');
+set(gca,'XTick',1:size(alternate_r2,3),'XTickLabel', ...
+    [cellfun(@(x) ['Ctx ' num2str(x)],num2cell(1:size(ctx_zero,3)),'uni',false), ...
+    'Domains']);
+line(xlim,[0,0],'color','k','linestyle','--');
+xlabel('Alternate regressor');
+ylabel('\DeltaR^2/R^2_{full}')
+legend(cellfun(@(x) ['Str ' num2str(x)],num2cell(1:n_depths),'uni',false));
+
+% Plot subregions used
+for i = 1:size(ctx_zero,3)
+   subplot(2,size(ctx_zero,3),size(ctx_zero,3)+i);
+   imagesc(~ctx_zero(:,:,i));
+   AP_reference_outline('ccf_aligned',[0.5,0.5,0.5]);
+   axis image off;
+   colormap(gray);
+end
+
+
+% (Prediction with cortex subsets statistics)
+disp('R^2 with cortical subset (1-way anova):');
+for curr_depth = 1:n_depths   
+    curr_r2 = permute(ctxtrialpred_regionzero_r2_relative(:,curr_depth,:),[3,1,2]);
+    [condition_grp,exp_grp] = ndgrid(1:size(curr_r2,1),1:size(curr_r2,2));
+    curr_p = anovan(curr_r2(:),condition_grp(:),'display','off');  
+    disp(['Str ' num2str(curr_depth) ' p = ' num2str(curr_p')]);
+end
+
+% (Prediction with domains statistics)
+disp('Domain vs. cortex explained variance (signrank):');
+for curr_depth = 1:n_depths   
+    curr_p = signrank(domaintrialpred_r2_relative(:,curr_depth)); 
+    disp(['Str ' num2str(curr_depth) ' p = ' num2str(curr_p')]);
+end
+
 
 
 
@@ -886,100 +2042,6 @@ for curr_depth = 1:n_depths
     disp(['Str ' num2str(curr_depth) ' p = ' num2str(curr_p)]);
 end
 
-
-%% ^^^ Striatum cortical kernels pre/post muscimol
-error('I don''t think this should be included');
-
-protocols = {'vanillaChoiceworldNoRepeats_pre_muscimol','vanillaChoiceworldNoRepeats_post_muscimol'};
-
-for protocol = protocols 
-    protocol = cell2mat(protocol);
-    
-    data_path = 'C:\Users\Andrew\OneDrive for Business\Documents\CarandiniHarrisLab\analysis\wf_ephys_choiceworld\paper\data';
-    k_fn = [data_path filesep 'ctx_str_kernels_' protocol];
-    load(k_fn);
-    
-    framerate = 35;
-    upsample_factor = 1;
-    sample_rate = framerate*upsample_factor;
-    kernel_t = [-0.1,0.1];
-    kernel_frames = round(kernel_t(1)*sample_rate):round(kernel_t(2)*sample_rate);
-    t = kernel_frames/sample_rate;
-    
-    % Concatenate explained variance
-    expl_var_animal = cell2mat(cellfun(@(x) nanmean(horzcat(x{:}),2),ctx_str_expl_var','uni',false));
-    figure('Name',protocol);
-    errorbar(nanmean(expl_var_animal,2),AP_sem(expl_var_animal,2),'k','linewidth',2);
-    xlabel('Striatal depth');
-    ylabel('Fraction explained variance');
-    
-    % Concatenate and mean
-    % (kernel is -:+ fluorescence lag, flip to be spike-oriented)
-    k_px_timeflipped = cellfun(@(x) cellfun(@(x) x(:,:,end:-1:1,:),x,'uni',false),ctx_str_kernel,'uni',false);
-    k_px_animal = cellfun(@(x) nanmean(cat(5,x{:}),5),k_px_timeflipped,'uni',false);
-    k_px = nanmean(double(cat(5,k_px_animal{:})),5);
-    
-    % Get center-of-mass maps
-    k_px_positive = k_px;
-    k_px_positive(k_px_positive < 0) = 0;
-    k_px_com = sum(k_px_positive.*permute(1:n_aligned_depths,[1,3,4,2]),4)./sum(k_px_positive,4);
-    k_px_com_colored = nan(size(k_px_com,1),size(k_px_com,2),3,size(k_px_com,3));
-    
-    use_colormap = min(jet(255)-0.2,1);
-    for curr_frame = 1:size(k_px_com,3)
-        k_px_com_colored(:,:,:,curr_frame) = ...
-            ind2rgb(round(mat2gray(k_px_com(:,:,curr_frame),...
-            [1,n_aligned_depths])*size(use_colormap,1)),use_colormap);
-    end
-    
-    % Plot center kernel frames independently at t = 0
-    figure('Name',protocol);
-    plot_frame = kernel_frames == 0;
-    for curr_depth = 1:n_aligned_depths
-       subplot(n_aligned_depths,1,curr_depth);
-       imagesc(k_px(:,:,plot_frame,curr_depth));
-       AP_reference_outline('ccf_aligned',[0.5,0.5,0.5]);
-       axis image off;
-       colormap(brewermap([],'PRGn'));
-       caxis([-0.01,0.01]);
-    end
-    
-    % Plot center-of-mass color at select time points 
-    plot_t = [-0.05:0.025:0.05];
-    
-    k_px_com_colored_t = ...
-        permute(reshape(interp1(t,permute(reshape(k_px_com_colored,[],3,length(t)), ...
-        [3,1,2]),plot_t),length(plot_t),size(k_px_com_colored,1), ...
-        size(k_px_com_colored,2),3),[2,3,4,1]);
-    
-    k_px_max = squeeze(max(k_px,[],4));
-    k_px_max_t = ...
-        permute(reshape(interp1(t,reshape(k_px_max,[],length(t))', ...
-        plot_t),length(plot_t),size(k_px_max,1), ...
-        size(k_px_max,2)),[2,3,1]);
-    
-    weight_max = 0.005;
-    figure('Name',protocol);
-    for t_idx = 1:length(plot_t)
-        subplot(1,length(plot_t),t_idx);
-        p = image(k_px_com_colored_t(:,:,:,t_idx));
-        set(p,'AlphaData', ...
-            mat2gray(k_px_max_t(:,:,t_idx),[0,weight_max]));
-        axis image off;
-        AP_reference_outline('ccf_aligned',[0.5,0.5,0.5]);
-        title([num2str(plot_t(t_idx)),' s']);
-    end    
-        
-    % Plot movie of kernels
-    AP_image_scroll(reshape(permute(k_px,[1,4,2,3]),size(k_px,1)*size(k_px,4),size(k_px,2),length(t)),t);
-    colormap(brewermap([],'PRGn'));
-    caxis([-max(caxis),max(caxis)]);
-    AP_reference_outline('ccf_aligned',[0.5,0.5,0.5],[],[size(k_px,1),size(k_px,2),size(k_px,4),1]);
-    axis image off
-    
-    drawnow;
-    
-end
 
 
 %% ^^^ Cortex/striatum passive stim pre/post muscimol
@@ -1752,1085 +2814,6 @@ for curr_depth = 1:n_depths
         ctx_task_r2_diff(:,curr_depth,2));
     disp(['Str ' num2str(curr_depth) ' p = ' num2str(curr_p)]); 
 end
-
-
-%% Plot kernel ROIs
-
-kernel_roi_fn = 'C:\Users\Andrew\OneDrive for Business\Documents\CarandiniHarrisLab\analysis\wf_ephys_choiceworld\wf_processing\wf_rois\kernel_roi';
-load(kernel_roi_fn);
-
-figure; hold on
-n_depths = size(kernel_roi.bw,3);
-str_col = max(hsv(n_depths)-0.2,0);
-set(gca,'YDir','reverse');
-AP_reference_outline('ccf_aligned','k');
-for curr_depths = 1:n_depths
-    curr_roi_boundary = cell2mat(bwboundaries(kernel_roi.bw(:,:,curr_depths)));
-    patch(curr_roi_boundary(:,2),curr_roi_boundary(:,1),str_col(curr_depths,:));
-end
-axis image off;
-
-
-
-%% Fluorescence deconvolution and fluor+ctx+str example
-
-% Load and plot kernel
-% (flip time to be fluor lag:lead spikes);
-kernel_path = fileparts(which('AP_deconv_wf'))
-kernel_fn = [kernel_path filesep 'gcamp6s_kernel.mat'];
-load(kernel_fn);
-
-gcamp6s_kernel_cat = fliplr(vertcat(gcamp6s_kernel.regression{:}));
-gcamp6s_kernel_norm = gcamp6s_kernel_cat./max(abs(gcamp6s_kernel_cat),[],2);
-gcamp6s_kernel_mean = nanmean(gcamp6s_kernel_norm)
-
-figure; hold on;
-plot(gcamp6s_kernel.regression_t,gcamp6s_kernel_norm','color',[0.5,0.5,0.5]);
-plot(gcamp6s_kernel.regression_t,gcamp6s_kernel_mean,'k','linewidth',2);
-line(xlim,[0,0],'color','k','linestyle','--');
-line([0,0],ylim,'color','k','linestyle','--');
-
-
-% Load Fluor+ctx-ephys data
-load('C:\Users\Andrew\OneDrive for Business\Documents\CarandiniHarrisLab\analysis\wf_ephys_choiceworld\paper\data\ctx_deconv_traces');
-
-% Concatenate spikes/deconvolved fluorescence 
-% (full recording)
-ctx_fluor_full_cat = cellfun(@cell2mat,{ctx_deconv_traces.fluor},'uni',false);
-ctx_spikes_full_cat = cellfun(@cell2mat,{ctx_deconv_traces.spikes},'uni',false);
-ctx_fluor_deconv_full_cat = cellfun(@cell2mat,{ctx_deconv_traces.fluor_deconv},'uni',false);
-
-% (task)
-ctx_spikes_task_cat = cellfun(@(x,protocol) ...
-    cell2mat(x(strcmp(protocol,'vanillaChoiceworld'))), ...
-    {ctx_deconv_traces.spikes},{ctx_deconv_traces.protocol},'uni',false);
-ctx_fluor_deconv_task_cat = cellfun(@(x,protocol) ...
-    cell2mat(x(strcmp(protocol,'vanillaChoiceworld'))), ...
-    {ctx_deconv_traces.fluor_deconv},{ctx_deconv_traces.protocol},'uni',false);
-
-% (passive)
-ctx_spikes_notask_cat = cellfun(@(x,protocol) ...
-    cell2mat(x(strcmp(protocol,'AP_sparseNoise'))), ...
-    {ctx_deconv_traces.spikes},{ctx_deconv_traces.protocol},'uni',false);
-ctx_fluor_deconv_notask_cat = cellfun(@(x,protocol) ...
-    cell2mat(x(strcmp(protocol,'AP_sparseNoise'))), ...
-    {ctx_deconv_traces.fluor_deconv},{ctx_deconv_traces.protocol},'uni',false);
-
-% Get explained variance
-ctx_deconv_full_r2 = cellfun(@(spikes,fluor_deconv) ...
-    1-(nansum((spikes-fluor_deconv).^2)./nansum((spikes-nanmean(spikes)).^2)), ...
-    ctx_spikes_full_cat,ctx_fluor_deconv_full_cat);
-
-ctx_deconv_task_r2 = cellfun(@(spikes,fluor_deconv) ...
-    1-(nansum((spikes-fluor_deconv).^2)./nansum((spikes-nanmean(spikes)).^2)), ...
-    ctx_spikes_task_cat,ctx_fluor_deconv_task_cat);
-
-ctx_deconv_notask_r2 = cellfun(@(spikes,fluor_deconv) ...
-    1-(nansum((spikes-fluor_deconv).^2)./nansum((spikes-nanmean(spikes)).^2)), ...
-    ctx_spikes_notask_cat,ctx_fluor_deconv_notask_cat);
-
-
-%%% Plot example day
-
-animal = 'AP060';
-day = '2019-12-06';
-experiment = 1;
-plot_t = [100,300];
-
-figure;
-disp('Loading example data...');
-
-% Load cortex ephys + imaging
-load_parts.ephys = true;
-load_parts.imaging = true;
-site = 2; % (cortex always probe 2)
-str_align = 'none'; % (cortex)
-AP_load_experiment;
-
-% Load cortex recording alignment
-vis_ctx_ephys_fn = 'C:\Users\Andrew\OneDrive for Business\Documents\CarandiniHarrisLab\analysis\wf_ephys_choiceworld\ephys_processing\vis_ctx_ephys.mat';
-load(vis_ctx_ephys_fn);
-
-%%% DEPTH-ALIGN TEMPLATES, FIND CORTEX BOUNDARY
-curr_animal_idx = strcmp(animal,{vis_ctx_ephys.animal});
-curr_day_idx = strcmp(day,vis_ctx_ephys(curr_animal_idx).day);
-curr_csd_depth = vis_ctx_ephys(curr_animal_idx).stim_csd_depth{curr_day_idx};
-curr_csd_depth_aligned = vis_ctx_ephys(curr_animal_idx).stim_csd_depth_aligned{curr_day_idx};
-template_depths_aligned = interp1(curr_csd_depth,curr_csd_depth_aligned,template_depths);
-spike_depths_aligned = interp1(curr_csd_depth,curr_csd_depth_aligned,spike_depths);
-
-% Find cortex end by largest gap between templates
-sorted_template_depths = sort([template_depths_aligned]);
-[max_gap,max_gap_idx] = max(diff(sorted_template_depths));
-ctx_end = sorted_template_depths(max_gap_idx)+1;
-
-ctx_depth = [sorted_template_depths(1),ctx_end];
-ctx_units = template_depths_aligned <= ctx_depth(2);
-
-%%% GET FLUORESCENCE AND SPIKES BY DEPTH
-
-% Set binning time
-skip_seconds = 60;
-spike_binning_t = 1/framerate; % seconds
-spike_binning_t_edges = frame_t(1)+skip_seconds:spike_binning_t:frame_t(end)-skip_seconds;
-spike_binning_t_centers = spike_binning_t_edges(1:end-1) + diff(spike_binning_t_edges)/2;
-
-% Get fluorescence in pre-drawn ROI
-curr_ctx_roi = vis_ctx_ephys(curr_animal_idx).ctx_roi{curr_day_idx};
-
-fVdf_deconv = AP_deconv_wf(fVdf);
-fluor_roi = AP_svd_roi(Udf,fVdf_deconv,avg_im,[],curr_ctx_roi);
-fluor_roi_interp = interp1(frame_t,fluor_roi,spike_binning_t_centers);
-
-% Plot cortex raster
-subplot(6,1,1); hold on;
-plot_t_idx = spike_binning_t_centers >= plot_t(1) & ...
-    spike_binning_t_centers <= plot_t(2);
-plot(spike_binning_t_centers(plot_t_idx), ...
-    fluor_roi_interp(plot_t_idx),'linewidth',2,'color',[0,0.7,0]);
-
-subplot(6,1,2,'YDir','reverse'); hold on;
-plot_spikes = spike_times_timeline >= plot_t(1) & ...
-    spike_times_timeline <= plot_t(2) & ...
-    spike_depths_aligned <= ctx_depth(2);
-plot(spike_times_timeline(plot_spikes),spike_depths(plot_spikes),'.k');
-ylabel('Cortex depth (\mum)');
-xlabel('Time (s)');
-
-%%% LOAD STRIATUM EPHYS AND GET MUA BY DEPTH
-
-% Load striatum ephys
-load_parts.ephys = true;
-load_parts.imaging = false;
-site = 1; % (striatum is always on probe 1)
-str_align = 'kernel';
-AP_load_experiment;
-
-% Plot striatum raster
-subplot(6,1,3,'YDir','reverse'); hold on;
-plot_spikes = spike_times_timeline >= plot_t(1) & ...
-    spike_times_timeline <= plot_t(2) & ...
-    spike_depths >= str_depth(1) & spike_depths <= str_depth(2);
-plot(spike_times_timeline(plot_spikes),spike_depths(plot_spikes),'.k');
-ylabel('Striatum depth (\mum)');
-xlabel('Time (s)');
-
-%%%%%% PLOT WHEEL/STIM
-
-% (wheel velocity)
-wheel_axes = subplot(6,1,4); hold on;
-plot_wheel_idx = Timeline.rawDAQTimestamps >= plot_t(1) & ...
-    Timeline.rawDAQTimestamps <= plot_t(2);
-plot(wheel_axes,Timeline.rawDAQTimestamps(plot_wheel_idx), ...
-    wheel_velocity(plot_wheel_idx),'k','linewidth',2);
-ylabel('Wheel velocity');
-axis off
-
-% %     (stimuli)
-%     % (task)
-%     if contains(expDef,'vanilla')
-%         stim_col = colormap_BlueWhiteRed(5);
-%         [~,trial_contrast_idx] = ...
-%             ismember(trial_conditions(:,1).*trial_conditions(:,2),unique(contrasts'.*sides),'rows');
-%     elseif strcmp(expDef,'AP_lcrGratingPassive')
-%         % (passive)
-%         stim_col = [0,0,1;0.5,0.5,0.5;1,0,0];
-%         [~,trial_contrast_idx] = ...
-%             ismember(trial_conditions(:,1).*trial_conditions(:,2),[-90;0;90],'rows');
-%     end
-%     stim_lines = arrayfun(@(x) line(wheel_axes,repmat(stimOn_times(x),1,2),ylim(wheel_axes),'color', ...
-%             stim_col(trial_contrast_idx(x),:),'linewidth',2), ...
-%             find(stimOn_times >= plot_t(1) & stimOn_times <= plot_t(2)));
-%
-%     % (movement starts)
-%     move_col = [0.6,0,0.6;0,0.6,0];
-%     [~,trial_choice_idx] = ismember(trial_conditions(:,3),[-1;1],'rows');
-%     move_lines = arrayfun(@(x) line(wheel_axes,repmat(wheel_move_time(x),1,2),ylim(wheel_axes),'color', ...
-%         move_col(trial_choice_idx(x),:),'linewidth',2), ...
-%         find(wheel_move_time >= plot_t(1) & wheel_move_time <= plot_t(2)));
-%
-%     % (go cues)
-%     go_col = [0.8,0.8,0.2];
-%     go_cue_times = signals_events.interactiveOnTimes(1:n_trials);
-%     go_cue_lines = arrayfun(@(x) line(wheel_axes,repmat(go_cue_times(x),1,2),ylim(wheel_axes),'color', ...
-%         go_col,'linewidth',2), ...
-%         find(go_cue_times >= plot_t(1) & go_cue_times <= plot_t(2)));
-%
-%     % (outcomes)
-%     outcome_col = [0,0,0.8;0.5,0.5,0.5];
-%     reward_lines = arrayfun(@(x) line(wheel_axes,repmat(reward_t_timeline(x),1,2),ylim(wheel_axes),'color', ...
-%         outcome_col(1,:),'linewidth',2), ...
-%         find(reward_t_timeline >= plot_t(1) & reward_t_timeline <= plot_t(2)));
-%     punish_times = signals_events.responseTimes(trial_outcome == -1);
-%     punish_lines = arrayfun(@(x) line(wheel_axes,repmat(punish_times(x),1,2),ylim(wheel_axes),'color', ...
-%         outcome_col(2,:),'linewidth',2), ...
-%         find(punish_times >= plot_t(1) & punish_times <= plot_t(2)));
-
-
-% Plot the cortex MUA and deconvolved fluorescence match
-% Plot example
-example_recording = 3;
-example_protocol = 1;
-
-% (raw fluorescence)
-subplot(6,1,5); hold on;
-plot(ctx_deconv_traces(example_recording).t{example_protocol}, ...
-    mat2gray(ctx_deconv_traces(example_recording).fluor{example_protocol}), ...
-    'color',[0,0.8,0],'linewidth',2);
-ylabel('ROI Fluor(\DeltaF/F)');
-xlabel('Time(s)')
-
-% (cortex MUA and deconvolved fluorescence)
-subplot(6,1,6); hold on;
-plot(ctx_deconv_traces(example_recording).t{example_protocol}, ...
-    ctx_deconv_traces(example_recording).spikes{example_protocol}, ...
-    'color','k','linewidth',2);
-plot(ctx_deconv_traces(example_recording).t{example_protocol}, ...
-    ctx_deconv_traces(example_recording).fluor_deconv{example_protocol}, ...
-    'color',[0,0.5,0],'linewidth',2);
-linkaxes(get(gcf,'Children'),'x');
-ylabel('Cortex spikes (std)');
-xlabel('Time (s)');
-
-
-curr_axes = flipud(get(gcf,'Children'));
-% Link all time axes
-linkaxes(curr_axes,'x');
-% Link depth axes of raster plots (arbitrary depth, but want same scale)
-linkaxes(curr_axes(2:3),'xy');
-
-% (Display average and statistics)
-disp(['Deconv explained var: ' num2str(nanmean(ctx_deconv_full_r2)) ...
-    ' +/- ' num2str(AP_sem(ctx_deconv_full_r2,2))]);
-
-p = signrank(ctx_deconv_task_r2,ctx_deconv_notask_r2);
-disp(['Task vs no-task explained var: ' num2str(p)]);
-
-
-
-%% Task kernel str/ctx correlation
-
-mua_taskpred_catk = cellfun(@(x) cellfun(@(x) ...
-    cell2mat(cellfun(@(x) reshape(x,[],size(x,3)),x,'uni',false)), ...
-    x,'uni',false),mua_taskpred_k_all,'uni',false);
-
-mua_ctxpred_taskpred_catk = cellfun(@(x) cellfun(@(x) ...
-    cell2mat(cellfun(@(x) reshape(x,[],size(x,3)),x,'uni',false)), ...
-    x,'uni',false),mua_ctxpred_taskpred_k_all,'uni',false);
-
-ctx_str_taskk_animal = cellfun(@(x,y) [x,y], ...
-    mua_taskpred_catk,mua_ctxpred_taskpred_catk,'uni',false);
-
-ctx_str_taskk_corr = nan(4,n_depths,length(ctx_str_taskk_animal));
-for curr_animal = 1:length(ctx_str_taskk_animal)
-    
-    curr_k = cellfun(@(x) reshape(x,[],n_depths), ...
-        ctx_str_taskk_animal{curr_animal},'uni',false);
-    
-    curr_k_str = cat(3,curr_k{:,1});
-    curr_k_ctx = cat(3,curr_k{:,2});
-     
-    % Correlate str/ctx kernels within domain
-    ctx_str_taskk_corr(1,:,curr_animal) = ...
-        nanmean(cell2mat(cellfun(@(x,y) diag(corr(x,y))', ...
-        curr_k(:,1),curr_k(:,2),'uni',false)));
-    
-    % Correlate str/ctx kernels across domains
-    ctx_str_taskk_corr(2,:,curr_animal) = ...
-        nanmean(cell2mat(cellfun(@(x,y) ...
-        nansum(tril(corr(x),-1)+triu(corr(x),1),1)./(n_depths-1)', ...
-        curr_k(:,1),'uni',false)));
-       
-    % Correlate kernel within task/notask across days within domain
-    ctx_str_taskk_corr(3,:,curr_animal) = arrayfun(@(depth) ...
-        nanmean(AP_itril(corr(permute(curr_k_str(:,depth,:),[1,3,2])),-1)),1:n_depths);
-    ctx_str_taskk_corr(4,:,curr_animal) = arrayfun(@(depth) ...
-        nanmean(AP_itril(corr(permute(curr_k_ctx(:,depth,:),[1,3,2])),-1)),1:n_depths);  
-
-end
-
-% Get mean across domains
-ctx_str_taskk_corr_strmean = squeeze(nanmean(ctx_str_taskk_corr,2));
-
-% Plot mean and split by domains
-figure; 
-
-subplot(2,1,1);hold on; set(gca,'ColorOrder',copper(n_depths));
-plot(ctx_str_taskk_corr_strmean,'color',[0.5,0.5,0.5]);
-errorbar(nanmean(ctx_str_taskk_corr_strmean,2), ...
-    AP_sem(ctx_str_taskk_corr_strmean,2),'k','linewidth',2);
-set(gca,'XTick',1:4,'XTickLabelRotation',20,'XTickLabel', ...
-    {'Str-ctx within day','Str within day across domains','Str across days','Ctx across days'})
-ylabel('Task kernel correlation');
-xlim([0.5,4.5]);
-
-subplot(2,1,2);hold on; set(gca,'ColorOrder',copper(n_depths));
-errorbar(nanmean(ctx_str_taskk_corr,3), ...
-    AP_sem(ctx_str_taskk_corr,3),'linewidth',2)
-set(gca,'XTick',1:4,'XTickLabelRotation',20,'XTickLabel', ...
-    {'Str-ctx within day','Str within day across domains','Str across days','Ctx across days'})
-ylabel('Task kernel correlation');
-xlim([0.5,4.5]);
-legend(cellfun(@(x) ['Str ' num2str(x)],num2cell(1:n_depths),'uni',false))
-
-% (within task-passive v task-task domains statistics)
-disp('Str/ctx vs str/str cross-domain:')
-curr_p = signrank(squeeze(ctx_str_taskk_corr_strmean(1,:)), ...
-    squeeze(ctx_str_taskk_corr_strmean(2,:)));
-disp(['All str p = ' num2str(curr_p)]);
-for curr_depth = 1:n_depths  
-    curr_p = signrank(squeeze(ctx_str_taskk_corr(1,curr_depth,:)), ...
-        squeeze(ctx_str_taskk_corr(2,curr_depth,:)));
-    disp(['Str ' num2str(curr_depth) ' p = ' num2str(curr_p)]); 
-end
-
-% (within vs across statistics)
-disp('Str/ctx-within vs str-across:')
-curr_p = signrank(squeeze(ctx_str_taskk_corr_strmean(1,:)), ...
-    squeeze(ctx_str_taskk_corr_strmean(3,:)));
-disp(['All str ' num2str(curr_depth) ' p = ' num2str(curr_p)]);
-for curr_depth = 1:n_depths
-    curr_p = signrank(squeeze(ctx_str_taskk_corr(1,curr_depth,:)), ...
-        squeeze(ctx_str_taskk_corr(3,curr_depth,:)));
-    disp(['Str ' num2str(curr_depth) ' p = ' num2str(curr_p)]); 
-end
-
-% (cross task vs no task statistics)
-disp('Str-across vs ctx-across');
-curr_p = signrank(squeeze(ctx_str_taskk_corr_strmean(3,:)), ...
-    squeeze(ctx_str_taskk_corr_strmean(4,:)));
-disp(['All str ' num2str(curr_depth) ' p = ' num2str(curr_p)]);
-for curr_depth = 1:n_depths
-    curr_p = signrank(squeeze(ctx_str_taskk_corr(3,curr_depth,:)), ...
-        squeeze(ctx_str_taskk_corr(4,curr_depth,:)));
-    disp(['Str ' num2str(curr_depth) ' p = ' num2str(curr_p)]); 
-end
-
-
-
-
-
-%% Regress striatum from cortical subregions and striatal domains
-% NOTE: this regression is done on trial data rather than the long time
-% courses which is what the normal analysis uses. For sanity check, the
-% explained using the full data (full) and the trials dataset (trials) are
-% compared here but not meant to be included.
-%
-% Also this takes a long time to run
-
-% Choose depths to run
-plot_depth = 1:n_depths;
-
-% Regress kernel ROI activity to striatum domain activity (per recording)
-regression_params.use_svs = 1:100;
-regression_params.kernel_t = [-0.1,0.1];
-regression_params.zs = [false,false];
-regression_params.cvfold = 2;
-regression_params.use_constant = true;
-lambda = 50; % lambda for fluorescence to striatum
-domain_lambda = 0; % lambda for other domains to striatum
-kernel_frames = floor(regression_params.kernel_t(1)*sample_rate): ...
-    ceil(regression_params.kernel_t(2)*sample_rate);
-
-% Set time to use
-% (e.g. this type of code can be used to regress only ITI time)
-use_t = true(size(t));
-
-% Set regions to zero
-% (zero all EXCEPT quadrants)
-ctx_zero = true(size(U_master,1),size(U_master,2),6);
-ctx_zero(1:260,1:220,1) = false;
-ctx_zero(1:260,220:end,2) = false;
-ctx_zero(260:end,1:220,3) = false;
-ctx_zero(260:end,220:end,4) = false;
-ctx_zero(:,220:end,5) = false;
-ctx_zero(:,1:220,6) = false;
-
-% (use raw data for trial regression)
-mua_exp = vertcat(mua_all{:});
-fluor_exp = vertcat(fluor_all{:});
-fluor_deconv_exp = cellfun(@AP_deconv_wf,fluor_exp,'uni',false);
-
-mua_ctxtrialpred_exp = cellfun(@(x) nan(size(x)),mua_exp,'uni',false);
-mua_ctxtrialpred_k = nan(length(regression_params.use_svs),length(kernel_frames),n_depths,length(use_split));
-mua_ctxtrialpred_regionzero_exp = cellfun(@(x) nan([size(x),size(ctx_zero,3)]),mua_exp,'uni',false);
-mua_ctxtrialpred_regionzero_k = nan(length(regression_params.use_svs),length(kernel_frames),n_depths,length(use_split));
-
-mua_domaintrialpred_exp = cellfun(@(x) nan(size(x)),mua_exp,'uni',false);
-mua_domaintrialpred_k = nan(n_depths-1,length(kernel_frames),n_depths,length(use_split));
-
-for curr_exp = 1:length(trials_recording)
-    for curr_depth = plot_depth
-        
-        curr_mua = reshape(mua_exp{curr_exp}(:,use_t,curr_depth)',1,[]);
-        curr_mua_std = curr_mua./nanstd(curr_mua);
-        
-        curr_fluor = reshape(permute( ...
-            fluor_deconv_exp{curr_exp}(:,use_t,:),[2,1,3]),[],n_vs)';
-        curr_fluor_full = reshape(permute( ...
-            fluor_deconv_exp{curr_exp}(:,:,:),[2,1,3]),[],n_vs)';
-        
-        curr_fluor_regionzero = nan(size(curr_fluor,1),size(curr_fluor,2),size(ctx_zero,3));
-        for curr_zero = 1:size(ctx_zero,3)
-            U_master_regionzero = U_master.*~ctx_zero(:,:,curr_zero);
-            fVdf_regionzero_altU = ChangeU(U_master(:,:,1:n_vs),curr_fluor,U_master_regionzero(:,:,1:n_vs));
-            % (those U's aren't orthonormal, recast back to original Udf_aligned)
-            fVdf_regionzero = ChangeU(U_master_regionzero(:,:,1:n_vs),fVdf_regionzero_altU,U_master(:,:,1:n_vs));
-            curr_fluor_regionzero(:,:,curr_zero) = fVdf_regionzero;
-        end
-        
-        % Skip if no data
-        if all(isnan(curr_mua))
-            continue
-        end
-        
-        % Set discontinuities in trial data
-        trial_discontinuities = false(size(mua_exp{curr_exp}(:,use_t,curr_depth)));
-        trial_discontinuities(:,1) = true;
-        trial_discontinuities = reshape(trial_discontinuities',[],1)';
-        
-        % Full cortex regression
-        [ctx_str_k,curr_mua_fluorpred_std,explained_var_trial] = ...
-            AP_regresskernel(curr_fluor(regression_params.use_svs,:), ...
-            curr_mua_std,kernel_frames,lambda, ...
-            regression_params.zs,regression_params.cvfold, ...
-            true,regression_params.use_constant,trial_discontinuities);
-                
-        % Re-scale the prediction (subtract offset, multiply, add scaled offset)
-        ctxpred_spikes = (curr_mua_fluorpred_std - squeeze(ctx_str_k{end})).* ...
-            nanstd(curr_mua,[],2) + ...
-            nanstd(curr_mua,[],2).*squeeze(ctx_str_k{end});
-        
-        mua_ctxtrialpred_k(:,:,curr_depth,curr_exp) = ctx_str_k{1};
-        mua_ctxtrialpred_exp{curr_exp}(:,use_t,curr_depth) = ...
-            reshape(ctxpred_spikes,sum(use_t),[])';
-        %         % (apply kernel to full time)
-        %         mua_ctxtrialpred_exp{curr_exp}(:,:,curr_depth) = ...
-        %             sum(cell2mat(arrayfun(@(x) ...
-        %             convn(fluor_allcat_deconv_exp{curr_exp}(:,:,regression_params.use_svs(x)), ...
-        %             k_fluor(x,:)','same'),permute(1:length(regression_params.use_svs),[1,3,2]),'uni',false)),3);
-        
-        % Region-zeroed cortex regression
-        for curr_zero = 1:size(ctx_zero,3)
-            [ctx_str_k_regionzero,curr_mua_fluorregionzeropred_std,explained_var_trial_regionzero] = ...
-                AP_regresskernel(curr_fluor_regionzero(regression_params.use_svs,:,curr_zero), ...
-                curr_mua_std,kernel_frames,lambda, ...
-                regression_params.zs,regression_params.cvfold, ...
-                true,regression_params.use_constant,trial_discontinuities);
-            
-            % Re-scale the prediction (subtract offset, multiply, add scaled offset)
-            ctxpred_spikes_regionzero = (curr_mua_fluorregionzeropred_std - squeeze(ctx_str_k_regionzero{end})).* ...
-                nanstd(curr_mua,[],2) + ...
-                nanstd(curr_mua,[],2).*squeeze(ctx_str_k_regionzero{end});
-                        
-            mua_ctxtrialpred_regionzero_k(:,:,curr_depth,curr_exp,curr_zero) = ctx_str_k_regionzero{1};
-            mua_ctxtrialpred_regionzero_exp{curr_exp}(:,use_t,curr_depth,curr_zero) = ...
-                reshape(ctxpred_spikes_regionzero,sum(use_t),[])';
-            %         % (apply kernel to full time)
-            %         mua_ctxtrialpred_regionzero_exp{curr_exp}(:,:,curr_depth) = ...
-            %             sum(cell2mat(arrayfun(@(x) ...
-            %             convn(fluor_allcat_deconv_exp{curr_exp}(:,:,regression_params.use_svs(x)), ...
-            %             k_fluorregionzero(x,:)','same'),permute(1:length(regression_params.use_svs),[1,3,2]),'uni',false)),3);
-        end
-        
-        % Regress current domains from other domains
-        curr_mua_domains = reshape(permute(mua_exp{curr_exp}(:,use_t,:),[2,1,3]),[],n_depths)';
-        curr_mua_domains_std = curr_mua_domains./nanstd(curr_mua_domains,[],2);
-        
-        [domain_str_k,curr_mua_domainpred_std,explained_var_trial] = ...
-            AP_regresskernel(curr_mua_domains_std(setdiff(1:n_depths,curr_depth),:), ...
-            curr_mua_std,kernel_frames,domain_lambda, ...
-            regression_params.zs,regression_params.cvfold, ...
-            true,regression_params.use_constant,trial_discontinuities);
-        
-        % Re-scale the prediction (subtract offset, multiply, add scaled offset)
-        curr_mua_domainpred = (curr_mua_domainpred_std - squeeze(domain_str_k{end})).* ...
-            nanstd(curr_mua,[],2) + ...
-            nanstd(curr_mua,[],2).*squeeze(domain_str_k{end});
-        
-        mua_domaintrialpred_k(:,:,curr_depth,curr_exp) = domain_str_k{1};
-        mua_domaintrialpred_exp{curr_exp}(:,use_t,curr_depth) = ...
-            reshape(curr_mua_domainpred,sum(use_t),[])';
-      
-        
-    end
-    AP_print_progress_fraction(curr_exp,length(trials_recording));
-end
-
-% Plot average cortex->striatum kernel
-ctx_str_k_mean = nanmean(cell2mat(permute(vertcat(ctx_str_k_all{:}),[2,3,4,5,1])),5);
-ctx_str_k_mean_px = cell2mat(arrayfun(@(x) svdFrameReconstruct(U_master(:,:,1:100), ...
-    ctx_str_k_mean(:,:,x)),permute(1:n_depths,[1,3,4,2]),'uni',false));
-
-mua_ctxtrialpred_k_mean = nanmean(mua_ctxtrialpred_k,4);
-mua_ctxtrialpred_k_mean_px = cell2mat(arrayfun(@(x) ...
-    svdFrameReconstruct(U_master(:,:,regression_params.use_svs), ...
-    mua_ctxtrialpred_k_mean(:,:,x)),permute(1:n_depths,[1,3,4,2]),'uni',false));
-
-mua_ctxtrialpred_regionzero_k_mean = nanmean(mua_ctxtrialpred_regionzero_k,4);
-mua_ctxtrialpred_regionzero_k_mean_px = cell2mat(arrayfun(@(x) ...
-    svdFrameReconstruct(U_master(:,:,regression_params.use_svs), ...
-    reshape(mua_ctxtrialpred_regionzero_k_mean(:,:,x,:),length(regression_params.use_svs),[])), ...
-    permute(1:n_depths,[1,3,4,2]),'uni',false));
-
-AP_image_scroll(cat(3,mua_ctxtrialpred_k_mean_px,mua_ctxtrialpred_regionzero_k_mean_px));
-caxis([-max(abs(caxis)),max(abs(caxis))]);
-colormap(gca,brewermap([],'PRGn'));
-axis image;
-
-% Plot average domain->striautm kernel
-figure;
-mua_domaintrialpred_k_mean = nanmean(mua_domaintrialpred_k,4);
-str_col = max(hsv(n_depths)-0.2,0);
-for curr_depth = 1:n_depths
-    subplot(n_depths,1,curr_depth); hold on
-    set(gca,'ColorOrder',str_col(setdiff(1:n_depths,curr_depth),:));
-    plot(kernel_frames,mua_domaintrialpred_k_mean(:,:,curr_depth)','linewidth',2);
-    ylabel('Weight');
-    title(['Str ' num2str(curr_depth)]);
-end
-
-
-% Get R^2 for task, cortex full, and cortex ROI predictions
-mua_ctxpred_exp = vertcat(mua_ctxpred_all{:});
-
-ctxpred_r2 = nan(max(split_idx),n_depths);
-ctxtrialpred_r2 = nan(max(split_idx),n_depths);
-ctxtrialpred_regionzero_r2 = nan(max(split_idx),n_depths,size(ctx_zero,3));
-domaintrialpred_r2 = nan(max(split_idx),n_depths);
-
-for curr_exp = 1:max(split_idx)
-    
-    curr_data = reshape(permute(mua_exp{curr_exp},[2,1,3]),[],n_depths);
-    curr_ctxpred_data = reshape(permute(mua_ctxpred_exp{curr_exp},[2,1,3]),[],n_depths);
-    curr_ctxtrialpred_data = reshape(permute(mua_ctxtrialpred_exp{curr_exp},[2,1,3]),[],n_depths);
-    curr_ctxtrialpred_regionzero_data = ...
-        reshape(permute(mua_ctxtrialpred_regionzero_exp{curr_exp},[2,1,3,4]),[],n_depths,size(ctx_zero,3));
-    curr_domaintrialpred_data = reshape(permute(mua_domaintrialpred_exp{curr_exp},[2,1,3]),[],n_depths);
-    
-    % Set common NaNs
-    nan_samples = isnan(curr_data) | isnan(curr_ctxpred_data) ...
-        | isnan(curr_ctxtrialpred_data) | any(isnan(curr_ctxtrialpred_regionzero_data),3) ...
-        | isnan(curr_domaintrialpred_data);
-    curr_data(nan_samples) = NaN;
-    curr_ctxpred_data(nan_samples) = NaN;
-    curr_ctxtrialpred_data(nan_samples) = NaN;
-    curr_ctxtrialpred_regionzero_data(repmat(nan_samples,1,1,size(ctx_zero,3))) = NaN;
-    curr_domaintrialpred_data(nan_samples) = NaN;
-    
-    ctxpred_r2(curr_exp,:) = 1 - (nansum((curr_data-curr_ctxpred_data).^2,1)./ ...
-        nansum((curr_data-nanmean(curr_data,1)).^2,1));
-    ctxtrialpred_r2(curr_exp,:) = 1 - (nansum((curr_data-curr_ctxtrialpred_data).^2,1)./ ...
-        nansum((curr_data-nanmean(curr_data,1)).^2,1));
-    ctxtrialpred_regionzero_r2(curr_exp,:,:) = 1 - (nansum((curr_data-curr_ctxtrialpred_regionzero_data).^2,1)./ ...
-        nansum((curr_data-nanmean(curr_data,1)).^2,1));
-    domaintrialpred_r2(curr_exp,:) = 1 - (nansum((curr_data-curr_domaintrialpred_data).^2,1)./ ...
-        nansum((curr_data-nanmean(curr_data,1)).^2,1));
-    
-end
-
-%%% Cortex subregions explained variance
-figure;
-
-% Plot full vs trial (sanity check: they should be ~the same)
-subplot(2,3,1); hold on;
-errorbar(nanmean(ctxpred_r2,1),AP_sem(ctxpred_r2,1),'.-','linewidth',2,'CapSize',0,'MarkerSize',30);
-errorbar(nanmean(ctxtrialpred_r2,1),AP_sem(ctxtrialpred_r2,1),'.-','linewidth',2,'CapSize',0,'MarkerSize',30);
-legend({'Ctx full','Ctx trial'});
-xlabel('Striatum depth');
-ylabel('Explained variance');
-
-% Plot explained variance by subregion
-subplot(2,3,2); hold on;
-str_col = max(hsv(n_depths)-0.2,0);
-set(gca,'ColorOrder',str_col);
-errorbar(permute(nanmean(ctxtrialpred_regionzero_r2,1),[3,2,1]), ...
-    permute(AP_sem(ctxtrialpred_regionzero_r2,1),[3,2,1]),'.-','linewidth',2,'CapSize',0,'MarkerSize',30);
-xlabel('Cortex subregion');
-ylabel('Explained variance');
-legend(cellfun(@(x) ['Str ' num2str(x)],num2cell(1:n_depths),'uni',false));
-
-% Plot explained variance of subregion and domain relative to full
-alternate_r2 = cat(3,ctxtrialpred_regionzero_r2,domaintrialpred_r2);
-alternate_r2_relative = ...
-    (alternate_r2 - ctxtrialpred_r2)./ctxtrialpred_r2;
-
-subplot(2,3,3); hold on;
-str_col = max(hsv(n_depths)-0.2,0);
-set(gca,'ColorOrder',str_col);
-errorbar(permute(nanmean(alternate_r2_relative,1),[3,2,1]), ...
-    permute(AP_sem(alternate_r2_relative,1),[3,2,1]),'linewidth',2,'CapSize',0,'Marker','none');
-set(gca,'XTick',1:size(alternate_r2,3),'XTickLabel', ...
-    [cellfun(@(x) ['Ctx ' num2str(x)],num2cell(1:size(ctx_zero,3)),'uni',false), ...
-    'Domains']);
-line(xlim,[0,0],'color','k','linestyle','--');
-xlabel('Alternate regressor');
-ylabel('\DeltaR^2/R^2_{full}')
-legend(cellfun(@(x) ['Str ' num2str(x)],num2cell(1:n_depths),'uni',false));
-
-% Plot subregions used
-for i = 1:size(ctx_zero,3)
-   subplot(2,size(ctx_zero,3),size(ctx_zero,3)+i);
-   imagesc(~ctx_zero(:,:,i));
-   AP_reference_outline('ccf_aligned',[0.5,0.5,0.5]);
-   axis image off;
-   colormap(gray);
-end
-
-
-% (Prediction with cortex subsets statistics)
-disp('R^2 with cortical subset (1-way anova):');
-for curr_depth = 1:n_depths   
-    curr_r2 = permute(ctxtrialpred_regionzero_r2_relative(:,curr_depth,:),[3,1,2]);
-    [condition_grp,exp_grp] = ndgrid(1:size(curr_r2,1),1:size(curr_r2,2));
-    curr_p = anovan(curr_r2(:),condition_grp(:),'display','off');  
-    disp(['Str ' num2str(curr_depth) ' p = ' num2str(curr_p')]);
-end
-
-% (Prediction with cortex subsets statistics)
-disp('Domain vs. cortex explained variance (signrank):');
-for curr_depth = 1:n_depths   
-    curr_p = signrank(domaintrialpred_r2_relative(:,curr_depth)); 
-    disp(['Str ' num2str(curr_depth) ' p = ' num2str(curr_p')]);
-end
-
-
-
-
-
-
-
-
-
-
-
-
-%% ~~~~~~~~~~~~~~~~~~~~~~~ BELOW: integrated in to AP_ctx_str_figures_v5
-
-
-%% Pre/post learning passive
-
-% data_fns = { ...
-%     'trial_activity_AP_choiceWorldStimPassive_naive', ...
-%     'trial_activity_AP_choiceWorldStimPassive_trained'};
-
-data_fns = { ...
-    'trial_activity_AP_choiceWorldStimPassive_naive', ...
-    {'trial_activity_AP_choiceWorldStimPassive_trained', ...
-    'trial_activity_AP_lcrGratingPassive_ctxstrephys_str', ...
-    'trial_activity_AP_lcrGratingPassive_pre_muscimol'}};
-
-stimIDs = cell(2,1);
-mua_training = cell(2,1);
-mua_ctxpred_training = cell(2,1);
-fluor_training = cell(2,1);
-fluor_roi_training = cell(2,1);
-fluor_kernelroi_training = cell(2,1);
-
-for curr_data = 1:length(data_fns)
-    
-    % Load data
-    data_fn = data_fns{curr_data};
-    AP_load_concat_normalize_ctx_str;
-
-    % Split by experiment
-    trials_recording = cellfun(@(x) size(x,1),vertcat(wheel_all{:}));
-    
-    % Get trials with movement during stim to exclude
-    wheel_thresh = 0.025;
-    quiescent_trials = ~any(abs(wheel_allcat(:,t >= -0.5 & t <= 0.5)) > wheel_thresh,2);
-    quiescent_trials_exp = mat2cell(quiescent_trials,trials_recording,1);
-    
-    % Get stim and activity by experiment
-    trial_stim_allcat_exp = mat2cell(trial_stim_allcat,trials_recording,1);  
-    fluor_deconv_exp = mat2cell(fluor_allcat_deconv,trials_recording,length(t),n_vs);
-    fluor_roi_deconv_exp = mat2cell(fluor_roi_deconv,trials_recording,length(t),numel(wf_roi));
-    fluor_kernelroi_deconv_exp = mat2cell(fluor_kernelroi_deconv,trials_recording,length(t),n_depths);
-    mua_allcat_exp = mat2cell(mua_allcat,trials_recording,length(t),n_depths);
-    mua_ctxpred_allcat_exp = mat2cell(mua_ctxpred_allcat,trials_recording,length(t),n_depths);
-    
-    % Exclude trials with fluorescence spikes
-    % (this is a dirty way to do this but don't have a better alt)
-    fluor_spike_thresh = 100;
-    fluor_spike_trial = cellfun(@(x) any(any(x > fluor_spike_thresh,2),3), ...
-        fluor_kernelroi_deconv_exp,'uni',false);
-    
-    % Grab data
-    stimIDs{curr_data} = cellfun(@(data,quiesc,fluor_spike) data(quiesc & ~fluor_spike,:,:), ...
-        trial_stim_allcat_exp,quiescent_trials_exp,fluor_spike_trial,'uni',false);
-    
-    mua_training{curr_data} = cellfun(@(data,quiesc,fluor_spike) data(quiesc & ~fluor_spike,:,:), ...
-        mua_allcat_exp,quiescent_trials_exp,fluor_spike_trial,'uni',false);
-    
-    mua_ctxpred_training{curr_data} = cellfun(@(data,quiesc,fluor_spike) data(quiesc & ~fluor_spike,:,:), ...
-        mua_ctxpred_allcat_exp,quiescent_trials_exp,fluor_spike_trial,'uni',false);
-    
-    fluor_training{curr_data} = cellfun(@(data,quiesc,fluor_spike) data(quiesc & ~fluor_spike,:,:), ...
-        fluor_deconv_exp,quiescent_trials_exp,fluor_spike_trial,'uni',false);
-    
-    fluor_roi_training{curr_data} = cellfun(@(data,quiesc,fluor_spike) data(quiesc & ~fluor_spike,:,:), ...
-        fluor_roi_deconv_exp,quiescent_trials_exp,fluor_spike_trial,'uni',false);
-    
-    fluor_kernelroi_training{curr_data} = cellfun(@(data,quiesc,fluor_spike) data(quiesc & ~fluor_spike,:,:), ...
-        fluor_kernelroi_deconv_exp,quiescent_trials_exp,fluor_spike_trial,'uni',false);
-    
-end
-
-% Get average stim time course (100%R stim)
-mua_mean = cellfun(@(act,stim) cell2mat(cellfun(@(act,stim) ...
-    nanmean(act(stim == 1,:,:),1),act,stim,'uni',false)), ...
-    mua_training,stimIDs,'uni',false);
-
-fluor_kernelroi_mean = cellfun(@(act,stim) cell2mat(cellfun(@(act,stim) ...
-    nanmean(act(stim == 1,:,:),1),act,stim,'uni',false)), ...
-    fluor_kernelroi_training,stimIDs,'uni',false);
-
-% Get average activity in relevant stim period
-stim_avg_t = [0,0.2];
-stim_avg_t_idx = t >= stim_avg_t(1) & t <= stim_avg_t(2);
-
-% (only for 100%R stim)
-stim_act = cellfun(@(str,ctx,stim) cellfun(@(str,ctx,stim) ...
-    [nanmean(str(stim == 1,stim_avg_t_idx,:),2), ...
-    nanmean(ctx(stim == 1,stim_avg_t_idx,:),2)], ...
-    str,ctx,stim,'uni',false), ...
-    mua_training, fluor_kernelroi_training, stimIDs,'uni',false);
-
-
-% Plot average cortex and striatum stim activity
-figure;
-p = gobjects(n_depths,3);
-for curr_str = 1:n_depths
-    
-    p(curr_str,1) = subplot(n_depths,3,(curr_str-1)*3+1);
-    AP_errorfill(t,nanmean(fluor_kernelroi_mean{1}(:,:,curr_str),1)', ...
-        AP_sem(fluor_kernelroi_mean{1}(:,:,curr_str),1)','k');
-    AP_errorfill(t,nanmean(fluor_kernelroi_mean{2}(:,:,curr_str),1)', ...
-        AP_sem(fluor_kernelroi_mean{2}(:,:,curr_str),1),'r');
-    ylabel('Cortex (\DeltaF/F)');
-    line(repmat(stim_avg_t(1),2,1),ylim);
-    line(repmat(stim_avg_t(2),2,1),ylim);
-    
-    p(curr_str,2) = subplot(n_depths,3,(curr_str-1)*3+2);
-    AP_errorfill(t,nanmean(mua_mean{1}(:,:,curr_str),1)', ...
-        AP_sem(mua_mean{1}(:,:,curr_str),1)','k');
-    AP_errorfill(t,nanmean(mua_mean{2}(:,:,curr_str),1)', ...
-        AP_sem(mua_mean{2}(:,:,curr_str),1)','r');
-    xlabel('Time from stim (s)');
-    ylabel('Striatum (baseline)');
-    title(['Str ' num2str(curr_str)]);
-    line(repmat(stim_avg_t(1),2,1),ylim);
-    line(repmat(stim_avg_t(2),2,1),ylim);
-    
-    
-    p(curr_str,3) = subplot(n_depths,3,(curr_str-1)*3+3);  hold on;
-    
-    curr_stim_act_untrained = cell2mat(cellfun(@(x) nanmean(x(:,:,curr_str,1),1),stim_act{1},'uni',false));
-    curr_stim_act_trained = cell2mat(cellfun(@(x) nanmean(x(:,:,curr_str,1),1),stim_act{2},'uni',false));
-    
-    str_col = copper(n_depths);
-    
-    plot([nanmean(curr_stim_act_untrained(:,2),1),nanmean(curr_stim_act_trained(:,2),1)], ...
-       [nanmean(curr_stim_act_untrained(:,1),1),nanmean(curr_stim_act_trained(:,1),1)], ...
-       'color',str_col(curr_str,:),'linewidth',2);
-    
-    errorbar(nanmean(curr_stim_act_untrained(:,2),1), ...
-        nanmean(curr_stim_act_untrained(:,1),1), ...
-        AP_sem(curr_stim_act_untrained(:,1),1),AP_sem(curr_stim_act_untrained(:,1),1), ...
-        AP_sem(curr_stim_act_untrained(:,2),1),AP_sem(curr_stim_act_untrained(:,2),1), ...
-        'color',str_col(curr_str,:),'linewidth',2);
-    errorbar(nanmean(curr_stim_act_trained(:,2),1), ...
-        nanmean(curr_stim_act_trained(:,1),1), ...
-        AP_sem(curr_stim_act_trained(:,1),1),AP_sem(curr_stim_act_trained(:,1),1), ...
-        AP_sem(curr_stim_act_trained(:,2),1),AP_sem(curr_stim_act_trained(:,2),1), ...
-        'color',str_col(curr_str,:),'linewidth',2);
-
-   scatter(nanmean(curr_stim_act_untrained(:,2),1), ...
-       nanmean(curr_stim_act_untrained(:,1),1),100, ...
-       str_col(curr_str,:),'filled','MarkerEdgeColor',[0,0.7,0],'linewidth',2);
-   scatter(nanmean(curr_stim_act_trained(:,2),1), ...
-       nanmean(curr_stim_act_trained(:,1),1),100, ...
-       str_col(curr_str,:),'filled','MarkerEdgeColor',[0.7,0,0],'linewidth',2);
-   
-   xlabel('Cortical ROI');
-   ylabel('Striatum');
-    
-end
-linkaxes(p(:,1:2),'x');
-linkaxes(p(:,3),'xy');
-
-
-% (Untrained/trained statistics)
-stim_act_mean = cellfun(@(x) cell2mat(cellfun(@(x) nanmean(x,1), ...
-    x,'uni',false)),stim_act,'uni',false);
-
-disp('Untrained/trained:');
-for curr_depth = 1:n_depths
-    curr_p = ranksum(stim_act_mean{1}(:,1,curr_depth),stim_act_mean{2}(:,1,curr_depth));
-    disp(['Str ' num2str(curr_depth) ' p = ' num2str(curr_p)]); 
-    
-    curr_p = ranksum(stim_act_mean{1}(:,2,curr_depth),stim_act_mean{2}(:,2,curr_depth));
-    disp(['Ctx ' num2str(curr_depth) ' p = ' num2str(curr_p)]); 
-end
-
-
-
-%% Widefield correlation borders
-
-wf_corr_borders_fn = 'C:\Users\Andrew\OneDrive for Business\Documents\CarandiniHarrisLab\analysis\wf_ephys_choiceworld\wf_processing\wf_borders\wf_corr_borders.mat';
-load(wf_corr_borders_fn);
-
-% Spacing/downsampling (hardcoded - in preprocessing)
-px_spacing = 20;
-downsample_factor = 10;
-
-% Get average correlation maps
-wf_corr_map_recording = [wf_corr_borders(:).corr_map_downsamp];
-wf_corr_map_cat = cat(3,wf_corr_map_recording{:});
-wf_corr_map_mean = cell(size(wf_corr_map_cat,1),size(wf_corr_map_cat,2));
-for curr_y = 1:size(wf_corr_map_cat,1)
-    for curr_x = 1:size(wf_corr_map_cat,2)
-        wf_corr_map_mean{curr_y,curr_x} = ...
-            nanmean(cell2mat(wf_corr_map_cat(curr_y,curr_x,:)),3);
-    end
-end
-
-% Get average borders
-wf_corr_borders_cat = cell2mat(reshape([wf_corr_borders(:).corr_edges],1,1,[]));
-wf_corr_borders_mean = nanmean(wf_corr_borders_cat,3);
-
-figure;
-
-[plot_maps_y,plot_maps_x] = ndgrid(4:5:size(wf_corr_map_mean,1)-4,4:5:size(wf_corr_map_mean,2));
-
-% Plot sample correlation map locations
-subplot(1,3,1,'YDir','reverse');
-AP_reference_outline('ccf_aligned',[0.5,0.5,0.5]);
-plot(plot_maps_y(:)*px_spacing,plot_maps_x(:)*px_spacing,'.r','MarkerSize',30);
-axis image off;
-
-% Plot sample correlation maps concat
-subplot(1,3,2);
-imagesc(cell2mat(wf_corr_map_mean(5:5:end,5:5:end)));
-axis image off;
-caxis([0,1]);
-colormap(brewermap([],'Greys'));
-c = colorbar;
-ylabel(c,'Correlation');
-
-% Plot borders
-subplot(1,3,3);
-imagesc(wf_corr_borders_mean);
-axis image off;
-caxis([0,prctile(wf_corr_borders_mean(:),70)])
-colormap(brewermap([],'Greys'))
-ccf_outline = AP_reference_outline('ccf_aligned',[1,0,0]);
-cellfun(@(x) set(x,'linewidth',1),vertcat(ccf_outline{:}));
-
-
-
-%% Probe trajectories histology vs widefield-estimated
-
-% Load probe trajectories
-histology_probe_ccf_all_fn = ['C:\Users\Andrew\OneDrive for Business\Documents\CarandiniHarrisLab\analysis\wf_ephys_choiceworld\paper\data\histology_probe_ccf_all'];
-load(histology_probe_ccf_all_fn);
-n_animals = length(histology_probe_ccf_all);
-
-% Load in the annotated Allen volume and names
-allen_path = 'C:\Users\Andrew\OneDrive for Business\Documents\Atlases\AllenCCF';
-av = readNPY([allen_path filesep 'annotation_volume_10um_by_index.npy']);
-st = loadStructureTree([allen_path filesep 'structure_tree_safe_2017.csv']); % a table of what all the labels mean
-
-figure;
-
-for curr_animal = 1:n_animals
-    
-    % Plot average image with drawn probe overlay;
-    subplot(n_animals,3,(curr_animal-1)*3+1);
-    imagesc(histology_probe_ccf_all(curr_animal).im);
-    line(histology_probe_ccf_all(curr_animal).probe_wf(:,1), ...
-        histology_probe_ccf_all(curr_animal).probe_wf(:,2), ...
-        'color','r','linewidth',1);  
-    axis image off;
-    caxis([0,prctile(histology_probe_ccf_all(curr_animal).im(:),95)]);
-    colormap(gca,'gray');
-    
-    % Plot brain to overlay probes
-    horizontal_axes = subplot(n_animals,3,(curr_animal-1)*3+2,'YDir','reverse'); hold on;
-    axis image off;
-    coronal_axes = subplot(n_animals,3,(curr_animal-1)*3+3,'YDir','reverse'); hold on;
-    axis image off;
-    
-    % Plot projections
-    coronal_outline = bwboundaries(permute((max(av,[],1)) > 1,[2,3,1]));
-    horizontal_outline = bwboundaries(permute((max(av,[],2)) > 1,[3,1,2]));
-    
-    str_id = find(strcmp(st.safe_name,'Caudoputamen'));
-    str_coronal_outline = bwboundaries(permute((max(av == str_id,[],1)) > 0,[2,3,1]));
-    str_horizontal_outline = bwboundaries(permute((max(av == str_id,[],2)) > 0,[3,1,2]));
-
-    plot(horizontal_axes,horizontal_outline{1}(:,2),horizontal_outline{1}(:,1),'k','linewidth',2);
-    plot(horizontal_axes,str_horizontal_outline{1}(:,2),str_horizontal_outline{1}(:,1),'b','linewidth',2);
-    plot(horizontal_axes,str_horizontal_outline{2}(:,2),str_horizontal_outline{2}(:,1),'b','linewidth',2);
-    axis image off;
-    
-    plot(coronal_axes,coronal_outline{1}(:,2),coronal_outline{1}(:,1),'k','linewidth',2);
-    plot(coronal_axes,str_coronal_outline{1}(:,2),str_coronal_outline{1}(:,1),'b','linewidth',2);
-    plot(coronal_axes,str_coronal_outline{2}(:,2),str_coronal_outline{2}(:,1),'b','linewidth',2);
-    axis image off;
-    
-    % Get estimated probe vector (widefield)
-    probe_ccf_wf = histology_probe_ccf_all(curr_animal).probe_ccf_wf;
-    r0 = mean(probe_ccf_wf,1);
-    xyz = bsxfun(@minus,probe_ccf_wf,r0);
-    [~,~,V] = svd(xyz,0);
-    probe_direction = V(:,1);
-    
-    probe_vector_evaluate = [0,sign(probe_direction(2))*1000];
-    probe_vector_draw_wf = round(bsxfun(@plus,bsxfun(@times,probe_vector_evaluate',probe_direction'),r0));
-    
-    line(horizontal_axes,probe_vector_draw_wf(:,1),probe_vector_draw_wf(:,3), ...
-        'color','r','linewidth',2);
-    line(coronal_axes,probe_vector_draw_wf(:,3),probe_vector_draw_wf(:,2), ...
-        'color','r','linewidth',2);
-    
-    % Get estimated probe vector (histology)
-    probe_ccf_histology = histology_probe_ccf_all(curr_animal).probe_ccf_histology;
-    % (still working on orienting histology: force left hemisphere)
-    bregma = allenCCFbregma;
-    if sign(probe_ccf_histology(end,3) - probe_ccf_histology(1,3)) == 1
-        probe_ccf_histology(:,3) = ...
-            probe_ccf_histology(:,3) + ...
-            2*(bregma(3) - probe_ccf_histology(:,3));
-    end
-    
-    r0 = mean(probe_ccf_histology,1);
-    xyz = bsxfun(@minus,probe_ccf_histology,r0);
-    [~,~,V] = svd(xyz,0);
-    probe_direction = V(:,1);
-    
-    probe_vector_evaluate = [-sign(probe_direction(2))*500,sign(probe_direction(2))*500];
-    probe_vector_draw_histology = round(bsxfun(@plus,bsxfun(@times,probe_vector_evaluate',probe_direction'),r0));
-
-    line(horizontal_axes,probe_vector_draw_histology(:,1),probe_vector_draw_histology(:,3), ...
-        'color',[0,0.7,0],'linewidth',2);
-    line(coronal_axes,probe_vector_draw_histology(:,3),probe_vector_draw_histology(:,2), ...
-        'color',[0,0.7,0],'linewidth',2);
-    
-    drawnow;
-    
-end
-
-
-%% Probe trajectories estimated from widefield image
-
-% Load estimated probe trajectories
-probe_ccf_all_fn = ['C:\Users\Andrew\OneDrive for Business\Documents\CarandiniHarrisLab\analysis\wf_ephys_choiceworld\paper\data\probe_ccf_all'];
-load(probe_ccf_all_fn);
-
-% Load in the annotated Allen volume and names
-allen_path = 'C:\Users\Andrew\OneDrive for Business\Documents\Atlases\AllenCCF';
-av = readNPY([allen_path filesep 'annotation_volume_10um_by_index.npy']);
-st = loadStructureTree([allen_path filesep 'structure_tree_safe_2017.csv']); % a table of what all the labels mean
-
-% Plot brain to overlay probes
-% (note the CCF is rotated to allow for dim 1 = x)
-h = figure; 
-ccf_axes = subplot(2,2,1); hold on
-sagittal_axes = subplot(2,2,2,'YDir','reverse'); hold on;
-axis image; grid on;
-horizontal_axes = subplot(2,2,3,'YDir','reverse'); hold on;
-axis image; grid on;
-coronal_axes = subplot(2,2,4,'YDir','reverse'); hold on;
-axis image; grid on;
-
-% Plot 1 = 3D
-% (Use wire mesh - can add other structures)
-slice_spacing = 10;
-
-str_id = find(strcmp(st.safe_name,'Caudoputamen'));
-target_volume = permute(av(1:slice_spacing:end,1:slice_spacing:end,1:slice_spacing:end) == str_id,[2,1,3]);
-structure_patch = isosurface(target_volume,0);
-structure_wire = reducepatch(structure_patch.faces,structure_patch.vertices,0.01);
-target_structure_color = [0,0,1];
-striatum_outline = patch(ccf_axes, ...
-    'Vertices',structure_wire.vertices*slice_spacing, ...
-    'Faces',structure_wire.faces, ...
-    'FaceAlpha',0.5,'FaceColor',target_structure_color,'EdgeColor','none');
-
-% (Use Nick's outline, but rotate to make dim 1 = x)
-brainGridData = readNPY([fileparts(which('plotBrainGrid')) filesep 'brainGridData.npy']);
-plotBrainGrid(brainGridData(:,[1,3,2]),ccf_axes);
-
-axes(ccf_axes);
-axis image vis3d off;
-cameratoolbar(h,'SetCoordSys','y');
-cameratoolbar(h,'SetMode','orbit');
-
-% Plots 2-4 = projections
-coronal_outline = bwboundaries(permute((max(av,[],1)) > 1,[2,3,1]));
-horizontal_outline = bwboundaries(permute((max(av,[],2)) > 1,[3,1,2]));
-sagittal_outline = bwboundaries(permute((max(av,[],3)) > 1,[2,1,3]));
-
-str_id = find(strcmp(st.safe_name,'Caudoputamen'));
-str_coronal_outline = bwboundaries(permute((max(av == str_id,[],1)) > 0,[2,3,1]));
-str_horizontal_outline = bwboundaries(permute((max(av == str_id,[],2)) > 0,[3,1,2]));
-str_sagittal_outline = bwboundaries(permute((max(av == str_id,[],3)) > 0,[2,1,3]));
-
-plot(sagittal_axes,sagittal_outline{1}(:,2),sagittal_outline{1}(:,1),'k','linewidth',2);
-plot(sagittal_axes,str_sagittal_outline{1}(:,2),str_sagittal_outline{1}(:,1),'b','linewidth',2);
-
-plot(horizontal_axes,horizontal_outline{1}(:,2),horizontal_outline{1}(:,1),'k','linewidth',2);
-plot(horizontal_axes,str_horizontal_outline{1}(:,2),str_horizontal_outline{1}(:,1),'b','linewidth',2);
-plot(horizontal_axes,str_horizontal_outline{2}(:,2),str_horizontal_outline{2}(:,1),'b','linewidth',2);
-
-plot(coronal_axes,coronal_outline{1}(:,2),coronal_outline{1}(:,1),'k','linewidth',2);
-plot(coronal_axes,str_coronal_outline{1}(:,2),str_coronal_outline{1}(:,1),'b','linewidth',2);
-plot(coronal_axes,str_coronal_outline{2}(:,2),str_coronal_outline{2}(:,1),'b','linewidth',2);
-
-if length(probe_ccf_all) <= 17
-    color_set = [brewermap(8,'Dark2');brewermap(8,'Set2')];
-    probe_color = color_set(1:length(probe_ccf_all),:);
-else
-    error('More animals than colors: add another set');
-end
-
-
-for curr_animal = 1:length(probe_ccf_all)
-    for curr_day = 1:size(probe_ccf_all{curr_animal},3)
-
-        % Get estimated probe vector
-        probe_ccf = probe_ccf_all{curr_animal}(:,:,curr_day);
-        r0 = mean(probe_ccf,1);
-        xyz = bsxfun(@minus,probe_ccf,r0);
-        [~,~,V] = svd(xyz,0);
-        probe_direction = V(:,1);
-                
-        probe_vector_evaluate = [0,sign(probe_direction(2))*1000];
-        probe_vector_draw = round(bsxfun(@plus,bsxfun(@times,probe_vector_evaluate',probe_direction'),r0));
-        
-        % Plot current probe vector
-        line(ccf_axes,probe_vector_draw(:,1),probe_vector_draw(:,2),probe_vector_draw(:,3), ...
-            'color',probe_color(curr_animal,:),'linewidth',1);
-        line(sagittal_axes,probe_vector_draw(:,1),probe_vector_draw(:,2), ...
-            'color',probe_color(curr_animal,:),'linewidth',1);
-        line(horizontal_axes,probe_vector_draw(:,1),probe_vector_draw(:,3), ...
-            'color',probe_color(curr_animal,:),'linewidth',1);
-        line(coronal_axes,probe_vector_draw(:,3),probe_vector_draw(:,2), ...
-            'color',probe_color(curr_animal,:),'linewidth',1);
-        
-        drawnow;
-        
-    end
-end
-
-% Put a colormap on the side
-cmap_ax = axes('Position',[0.95,0.2,0.2,0.6])
-image(permute(probe_color,[1,3,2]));
-
-
-
-
 
 
 
