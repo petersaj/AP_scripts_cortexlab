@@ -2908,7 +2908,7 @@ ylabel('Striatal depth');
 title('Muscimol change');
 
 % (Condition statistics)
-disp('Spike rate pre/post muscimol:')
+disp('Spike rate pre/post muscimol signrank:')
 for curr_depth = 1:n_depths
     curr_p = signrank(squeeze(spike_rate_cond_cat(curr_depth,1,:)), ...
         squeeze(spike_rate_cond_cat(curr_depth,2,:)));
@@ -3210,6 +3210,8 @@ line([0.5,0.5],ylim,'color','k','linestyle','--');
 xlabel('Reaction time');
 ylabel('\DeltaFraction');
 
+
+disp('Stim/condition 2-way anova:');
 
 % (Psychometric stim x condition)
 curr_stat_data = permute(cat(3,frac_orient_right{:}),[1,3,2]);
@@ -3679,7 +3681,7 @@ xlabel('Task R^2');
 ylabel('Cortex R^2');
 
 % (Cortex vs task R2 statistics)
-disp('Cortex-task R^2 pre/post-muscimol');
+disp('Cortex-task R^2 pre/post-muscimol signrank:');
 ctx_task_r2_diff = ctxpred_r2_condition - taskpred_r2_condition;
 for curr_depth = 1:n_depths
     curr_p = signrank(ctx_task_r2_diff(:,curr_depth,1), ...
