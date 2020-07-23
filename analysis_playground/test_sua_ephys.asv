@@ -1388,8 +1388,9 @@ for curr_shuff = 1:n_shuff
         [size(msn_maps,3),size(fsi_maps,3),size(tan_maps,3)], ...
         [size(msn_maps,3),size(fsi_maps,3),size(tan_maps,3)]);
     
-    across_corr_shuff(curr_shuff) = nanmean(curr_map_corr_shuff{1,2}(:));
-    AP_print_progress_fraction(curr_shuff,n_shuff);    
+    across_corr_shuff = nanmean(curr_map_corr_shuff{1,2}(:));
+    AP_print_progress_fraction(curr_shuf
+    
 end
 
 
