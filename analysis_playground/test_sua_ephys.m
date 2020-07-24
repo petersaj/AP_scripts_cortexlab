@@ -4,7 +4,8 @@
 
 disp('Loading SUA data');
 
-data_fn = 'G:\JF_single_cell_data\trial_activity_choiceworld.mat';
+% data_fn = 'G:\JF_single_cell_data\trial_activity_choiceworld.mat';
+data_fn = 'G:\JF_single_cell_data\trial_activity_ctx_task.mat';
 load(data_fn);
 exclude_data = false;
 
@@ -153,11 +154,16 @@ good_units_allcat = cell2mat(vertcat(goodUnits{:})')';
 % (groups are cell type * depth: msn, fsi, tan, th, ??)
 n_domains = 3; % hardcoded: I think not stored
 n_celltypes = max(groups_allcat)./n_domains;
-celltype_allcat = ceil(groups_allcat./n_domains);
-celltype_labels = {'MSN','FSI','TAN old','TH','Other','TAN new'};
-if length(celltype_labels) ~= n_celltypes
-    error('Mismatching number of celltypes and labels')
+if n_celltypes ~= 6
+    error('Incorrect number of celltypes')
 end
+celltype_allcat = ceil(groups_allcat./n_domains);
+% NOTE: Group 3+6 are both TAN (from relaxing metrics)
+% COMBINING THESE MANUALLY
+celltype_labels = {'MSN','FSI','TAN','TH','Other'};
+celltype_allcat(celltype_allcat == 6) = 3;
+n_celltypes = 5;
+
 domain_allcat = mod(groups_allcat,n_domains) + ...
     n_domains*(mod(groups_allcat,n_domains) == 0);
 
@@ -182,7 +188,9 @@ days_allcat = cell2mat(cellfun(@(x) x(~isnan(x)), ...
     vertcat(allDays{:}),'uni',false));
 neurons_allcat = cell2mat(cellfun(@(x) x(~isnan(x))', ...
     vertcat(allNeurons{:}),'uni',false));
-
+recordings_allcat = cell2mat(cellfun(@(x,y) ...
+    x*ones(size(y)),num2cell((1:length(vertcat(allDays{:})))'), ...
+    vertcat(allDays{:}),'uni',false));
 
 
 disp('Finished.')
@@ -199,7 +207,7 @@ load([ephys_align_path filesep ephys_align_fn]);
 depth_aligned = cell(size(mua_all));
 for curr_animal = 1:length(mua_all)
     curr_animal_idx = strcmp(animals{curr_animal},{ephys_depth_align.animal});
-    for curr_day = 1:length(mua_all{curr_animal_idx})
+    for curr_day = 1:length(mua_all{curr_animal})
         % (relative to end)
         depth_aligned{curr_animal}{curr_day} = ...
             allDepths{curr_animal}{curr_day}(~isnan(allDepths{curr_animal}{curr_day})) - ...
@@ -225,11 +233,12 @@ load([ephys_kernel_align_path filesep ephys_kernel_align_fn]);
 % Loop through cells, pull out domains
 domain_aligned = cell(size(mua_all));
 for curr_animal = 1:length(mua_all)
-    curr_animal_idx = strcmp(animals{curr_animal},{ephys_kernel_align.animal});
-    for curr_day = 1:length(mua_all{curr_animal_idx})
+    depth_curr_animal_idx = strcmp(animals{curr_animal},{ephys_depth_align.animal});
+    kernel_curr_animal_idx = strcmp(animals{curr_animal},{ephys_kernel_align.animal});
+    for curr_day = 1:length(mua_all{curr_animal})
         
-        str_depth = ephys_depth_align(curr_animal_idx).str_depth(curr_day,:);
-        kernel_match = ephys_kernel_align(curr_animal_idx).kernel_match{curr_day};
+        str_depth = ephys_depth_align(depth_curr_animal_idx).str_depth(curr_day,:);
+        kernel_match = ephys_kernel_align(kernel_curr_animal_idx).kernel_match{curr_day};
 
         % Get depth groups
         n_depths = round(diff(str_depth)/200);
@@ -1350,7 +1359,14 @@ for curr_depth = 1:n_domains
     end
 end
 
+
+
 %%%% TESTING
+
+
+
+
+
 % Correlate maps
 curr_depth = 1;
 
@@ -1366,12 +1382,12 @@ tan_maps = ctx_str_k_px(:,:, ...
     domain_aligned_allcat(good_units_allcat) == curr_depth & ...
     ismember(celltype_allcat(good_units_allcat),[3,6]));
 
+% (cell-cell map corr?)
 map_corr = mat2cell(corr([reshape(msn_maps,[],size(msn_maps,3)), ...
     reshape(fsi_maps,[],size(fsi_maps,3)), ...
     reshape(tan_maps,[],size(tan_maps,3))]), ...
     [size(msn_maps,3),size(fsi_maps,3),size(tan_maps,3)], ...
     [size(msn_maps,3),size(fsi_maps,3),size(tan_maps,3)]);
-
 
 nanmean(AP_itril(map_corr{1,1},-1))
 
@@ -1392,6 +1408,52 @@ for curr_shuff = 1:n_shuff
     AP_print_progress_fraction(curr_shuff,n_shuff);    
 end
 
+corr_rank = tiedrank([across_corr;across_corr_shuff]);
+corr_p = (corr_rank(1)/(n_shuff+1));
+
+
+
+% (cell-template map corr?)
+
+
+% Load kernel templates
+n_aligned_depths = 3;
+kernel_template_fn = ['C:\Users\Andrew\OneDrive for Business\Documents\CarandiniHarrisLab\analysis\wf_ephys_choiceworld\ephys_processing\kernel_template_' num2str(n_aligned_depths) '_depths.mat'];
+load(kernel_template_fn);
+
+figure; hold on;
+for curr_depth = 1:n_aligned_depths
+    
+    use_cells = good_units_allcat & domain_aligned_allcat == curr_depth & ...
+        ismember(celltype_allcat,[1,2,3]);
+    use_maps = ctx_str_k_px(:,:, ...
+        domain_aligned_allcat(good_units_allcat) == curr_depth & ...
+        ismember(celltype_allcat(good_units_allcat),[1,2,3]));
+    
+    map_corr = corr(reshape(use_maps,[],size(use_maps,3)), ...
+        reshape(kernel_template(:,:,curr_depth),[],1),'type','Spearman');
+    
+    curr_p = anovan(map_corr,[recordings_allcat(use_cells),celltype_allcat(use_cells)],'display','off');
+    disp(curr_p(2))
+    a = accumarray([recordings_allcat(use_cells),celltype_allcat(use_cells)],map_corr,[],@nanmean);
+    
+    errorbar(nanmean(a,1),AP_sem(a,1),'linewidth',2)
+    
+end
+set(gca,'XTick',1:n_aligned_depths,'XTickLabel',{'MSN','FSI','TAN'});
+ylabel('Cell-domain kernel correlation')
+
+% Plot kernel template
+figure
+for curr_depth = 1:n_aligned_depths
+    subplot(n_aligned_depths,1,curr_depth);
+    imagesc(kernel_template(:,:,curr_depth))
+    caxis([-max(abs(caxis)),max(abs(caxis))]);
+    colormap(brewermap([],'*RdBu'));
+    axis image off;
+    AP_reference_outline('ccf_aligned',[0.5,0.5,0.5]);
+    title('Domain kernel')
+end
 
 
 %% Plot maps by condition 1/2
@@ -2928,9 +2990,16 @@ title('Group 2 ctxpred');
 linkaxes(get(gcf,'Children'),'xy');
 
 
+%% ~~~~~~~~~~~~ Paper claims: single units
 
 
+%% MSN/FSIs less correlated in DMS vs DCS/DLS
 
+%% MSN/FSI low correlation due to sparseness
+
+%% TANs are highly correlated
+
+%% Cortical maps equally similar
 
 
 

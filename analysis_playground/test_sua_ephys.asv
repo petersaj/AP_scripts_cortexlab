@@ -5,6 +5,7 @@
 disp('Loading SUA data');
 
 data_fn = 'G:\JF_single_cell_data\trial_activity_choiceworld.mat';
+% data_fn = 'G:\JF_single_cell_data\trial_activity_ctx_task.mat';
 load(data_fn);
 exclude_data = false;
 
@@ -182,7 +183,7 @@ days_allcat = cell2mat(cellfun(@(x) x(~isnan(x)), ...
     vertcat(allDays{:}),'uni',false));
 neurons_allcat = cell2mat(cellfun(@(x) x(~isnan(x))', ...
     vertcat(allNeurons{:}),'uni',false));
-
+recordings_allcat = cell2mat(cellfun(@(x
 
 
 disp('Finished.')
@@ -199,7 +200,7 @@ load([ephys_align_path filesep ephys_align_fn]);
 depth_aligned = cell(size(mua_all));
 for curr_animal = 1:length(mua_all)
     curr_animal_idx = strcmp(animals{curr_animal},{ephys_depth_align.animal});
-    for curr_day = 1:length(mua_all{curr_animal_idx})
+    for curr_day = 1:length(mua_all{curr_animal})
         % (relative to end)
         depth_aligned{curr_animal}{curr_day} = ...
             allDepths{curr_animal}{curr_day}(~isnan(allDepths{curr_animal}{curr_day})) - ...
@@ -225,11 +226,12 @@ load([ephys_kernel_align_path filesep ephys_kernel_align_fn]);
 % Loop through cells, pull out domains
 domain_aligned = cell(size(mua_all));
 for curr_animal = 1:length(mua_all)
-    curr_animal_idx = strcmp(animals{curr_animal},{ephys_kernel_align.animal});
-    for curr_day = 1:length(mua_all{curr_animal_idx})
+    depth_curr_animal_idx = strcmp(animals{curr_animal},{ephys_depth_align.animal});
+    kernel_curr_animal_idx = strcmp(animals{curr_animal},{ephys_kernel_align.animal});
+    for curr_day = 1:length(mua_all{curr_animal})
         
-        str_depth = ephys_depth_align(curr_animal_idx).str_depth(curr_day,:);
-        kernel_match = ephys_kernel_align(curr_animal_idx).kernel_match{curr_day};
+        str_depth = ephys_depth_align(depth_curr_animal_idx).str_depth(curr_day,:);
+        kernel_match = ephys_kernel_align(kernel_curr_animal_idx).kernel_match{curr_day};
 
         % Get depth groups
         n_depths = round(diff(str_depth)/200);
@@ -1350,7 +1352,19 @@ for curr_depth = 1:n_domains
     end
 end
 
+
+
 %%%% TESTING
+
+
+% Load kernel templates
+n_aligned_depths = 3;
+kernel_template_fn = ['C:\Users\Andrew\OneDrive for Business\Documents\CarandiniHarrisLab\analysis\wf_ephys_choiceworld\ephys_processing\kernel_template_' num2str(n_aligned_depths) '_depths.mat'];
+load(kernel_template_fn);
+
+
+
+
 % Correlate maps
 curr_depth = 1;
 
@@ -1366,12 +1380,12 @@ tan_maps = ctx_str_k_px(:,:, ...
     domain_aligned_allcat(good_units_allcat) == curr_depth & ...
     ismember(celltype_allcat(good_units_allcat),[3,6]));
 
+% (cell-cell map corr?)
 map_corr = mat2cell(corr([reshape(msn_maps,[],size(msn_maps,3)), ...
     reshape(fsi_maps,[],size(fsi_maps,3)), ...
     reshape(tan_maps,[],size(tan_maps,3))]), ...
     [size(msn_maps,3),size(fsi_maps,3),size(tan_maps,3)], ...
     [size(msn_maps,3),size(fsi_maps,3),size(tan_maps,3)]);
-
 
 nanmean(AP_itril(map_corr{1,1},-1))
 
@@ -1388,10 +1402,29 @@ for curr_shuff = 1:n_shuff
         [size(msn_maps,3),size(fsi_maps,3),size(tan_maps,3)], ...
         [size(msn_maps,3),size(fsi_maps,3),size(tan_maps,3)]);
     
-    across_corr_shuff = nanmean(curr_map_corr_shuff{1,2}(:));
-    AP_print_progress_fraction(curr_shuf
-    
+    across_corr_shuff(curr_shuff) = nanmean(curr_map_corr_shuff{1,2}(:));
+    AP_print_progress_fraction(curr_shuff,n_shuff);    
 end
+
+corr_rank = tiedrank([across_corr;across_corr_shuff]);
+corr_p = (corr_rank(1)/(n_shuff+1));
+
+
+% (cell-template map corr?)
+curr_depth = 1;
+
+msn_corr = corr(reshape(msn_maps,[],size(msn_maps,3)), ...
+    reshape(kernel_template(:,:,curr_depth),[],1));
+fsi_corr = corr(reshape(fsi_maps,[],size(fsi_maps,3)), ...
+    reshape(kernel_template(:,:,curr_depth),[],1));
+tan_corr = corr(reshape(tan_maps,[],size(tan_maps,3)), ...
+    reshape(kernel_template(:,:,curr_depth),[],1));
+
+celltype_corr_cat = [msn_corr;fsi_corr;tan_corr];
+type_grp = [1*ones(size(msn_corr));2*ones(size(fsi_corr));3*ones(size(tan_corr))];
+recording_grp = 
+
+curr_p = anovan([msn_corr;fsi_corr;tan_corr],type_grp,'display','off');
 
 
 
@@ -2929,9 +2962,16 @@ title('Group 2 ctxpred');
 linkaxes(get(gcf,'Children'),'xy');
 
 
+%% ~~~~~~~~~~~~ Paper claims: single units
 
 
+%% MSN/FSIs less correlated in DMS vs DCS/DLS
 
+%% MSN/FSI low correlation due to sparseness
+
+%% TANs are highly correlated
+
+%% Cortical maps equally similar
 
 
 
