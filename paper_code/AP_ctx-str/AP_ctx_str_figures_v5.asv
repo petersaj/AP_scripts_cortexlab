@@ -755,6 +755,7 @@ end
 
 
 % Get within- across-condition kernel correlation
+corr_type = 'Pearson';
 task_notask_k_corr = nan(4,n_depths,length(ctx_str_k_px_animal));
 for curr_animal = 1:length(ctx_str_k_px_animal)
     
@@ -766,20 +767,20 @@ for curr_animal = 1:length(ctx_str_k_px_animal)
      
     % Correlate kernel task/notask within domain
     task_notask_k_corr(1,:,curr_animal) = ...
-        nanmean(cell2mat(cellfun(@(x,y) diag(corr(x,y))', ...
+        nanmean(cell2mat(cellfun(@(x,y) diag(corr(x,y,'type',corr_type))', ...
         curr_px(:,1),curr_px(:,2),'uni',false)));
     
     % Correlate kernel task across domains
     task_notask_k_corr(2,:,curr_animal) = ...
         nanmean(cell2mat(cellfun(@(x,y) ...
-        nansum(tril(corr(x),-1)+triu(corr(x),1),1)./(n_depths-1)', ...
+        nansum(tril(corr(x,'type',corr_type),-1)+triu(corr(x,'type',corr_type),1),1)./(n_depths-1)', ...
         curr_px(:,1),'uni',false)));
        
     % Correlate kernel within task/notask across days within domain
     task_notask_k_corr(3,:,curr_animal) = arrayfun(@(depth) ...
-        nanmean(AP_itril(corr(permute(curr_px_task(:,depth,:),[1,3,2])),-1)),1:n_depths);
+        nanmean(AP_itril(corr(permute(curr_px_task(:,depth,:),[1,3,2]),'type',corr_type),-1)),1:n_depths);
     task_notask_k_corr(4,:,curr_animal) = arrayfun(@(depth) ...
-        nanmean(AP_itril(corr(permute(curr_px_notask(:,depth,:),[1,3,2])),-1)),1:n_depths);  
+        nanmean(AP_itril(corr(permute(curr_px_notask(:,depth,:),[1,3,2]),'type',corr_type),-1)),1:n_depths);  
 
 end
 
@@ -1740,15 +1741,17 @@ for curr_animal = 1:n_animals
     str_id = find(strcmp(st.safe_name,'Caudoputamen'));
     str_coronal_outline = bwboundaries(permute((max(av == str_id,[],1)) > 0,[2,3,1]));
     str_horizontal_outline = bwboundaries(permute((max(av == str_id,[],2)) > 0,[3,1,2]));
-
-    plot(horizontal_axes,horizontal_outline{1}(:,2),horizontal_outline{1}(:,1),'k','linewidth',2);
-    plot(horizontal_axes,str_horizontal_outline{1}(:,2),str_horizontal_outline{1}(:,1),'b','linewidth',2);
-    plot(horizontal_axes,str_horizontal_outline{2}(:,2),str_horizontal_outline{2}(:,1),'b','linewidth',2);
+    
+    vstr_id = find(strcmp(st.safe_name,'Nucleus accumbens'));
+    vstr_coronal_outline = bwboundaries(permute((max(av == vstr_id,[],1)) > 0,[2,3,1]));
+ 
+    cellfun(@(x) plot(horizontal_axes,x(:,2),x(:,1),'k','linewidth',2),horizontal_outline)
+    cellfun(@(x) plot(horizontal_axes,x(:,2),x(:,1),'b','linewidth',2),str_horizontal_outline)
     axis image off;
     
-    plot(coronal_axes,coronal_outline{1}(:,2),coronal_outline{1}(:,1),'k','linewidth',2);
-    plot(coronal_axes,str_coronal_outline{1}(:,2),str_coronal_outline{1}(:,1),'b','linewidth',2);
-    plot(coronal_axes,str_coronal_outline{2}(:,2),str_coronal_outline{2}(:,1),'b','linewidth',2);
+    cellfun(@(x) plot(coronal_axes,x(:,2),x(:,1),'k','linewidth',2),coronal_outline)
+    cellfun(@(x) plot(coronal_axes,x(:,2),x(:,1),'b','linewidth',2),str_coronal_outline)
+    cellfun(@(x) plot(coronal_axes,x(:,2),x(:,1),'color',[0.8,0,0.8],'linewidth',2),vstr_coronal_outline)
     axis image off;
     
     % Get estimated probe vector (widefield)
@@ -1849,16 +1852,18 @@ str_coronal_outline = bwboundaries(permute((max(av == str_id,[],1)) > 0,[2,3,1])
 str_horizontal_outline = bwboundaries(permute((max(av == str_id,[],2)) > 0,[3,1,2]));
 str_sagittal_outline = bwboundaries(permute((max(av == str_id,[],3)) > 0,[2,1,3]));
 
-plot(sagittal_axes,sagittal_outline{1}(:,2),sagittal_outline{1}(:,1),'k','linewidth',2);
-plot(sagittal_axes,str_sagittal_outline{1}(:,2),str_sagittal_outline{1}(:,1),'b','linewidth',2);
+vstr_id = find(strcmp(st.safe_name,'Nucleus accumbens'));
+vstr_coronal_outline = bwboundaries(permute((max(av == vstr_id,[],1)) > 0,[2,3,1]));
 
-plot(horizontal_axes,horizontal_outline{1}(:,2),horizontal_outline{1}(:,1),'k','linewidth',2);
-plot(horizontal_axes,str_horizontal_outline{1}(:,2),str_horizontal_outline{1}(:,1),'b','linewidth',2);
-plot(horizontal_axes,str_horizontal_outline{2}(:,2),str_horizontal_outline{2}(:,1),'b','linewidth',2);
+cellfun(@(x) plot(sagittal_axes,x(:,2),x(:,1),'k','linewidth',2),sagittal_outline)
+cellfun(@(x) plot(sagittal_axes,x(:,2),x(:,1),'b','linewidth',2),str_sagittal_outline)
 
-plot(coronal_axes,coronal_outline{1}(:,2),coronal_outline{1}(:,1),'k','linewidth',2);
-plot(coronal_axes,str_coronal_outline{1}(:,2),str_coronal_outline{1}(:,1),'b','linewidth',2);
-plot(coronal_axes,str_coronal_outline{2}(:,2),str_coronal_outline{2}(:,1),'b','linewidth',2);
+cellfun(@(x) plot(horizontal_axes,x(:,2),x(:,1),'k','linewidth',2),horizontal_outline)
+cellfun(@(x) plot(horizontal_axes,x(:,2),x(:,1),'b','linewidth',2),str_horizontal_outline)
+
+cellfun(@(x) plot(coronal_axes,x(:,2),x(:,1),'k','linewidth',2),coronal_outline)
+cellfun(@(x) plot(coronal_axes,x(:,2),x(:,1),'b','linewidth',2),str_coronal_outline)
+cellfun(@(x) plot(coronal_axes,x(:,2),x(:,1),'color',[0.8,0,0.8],'linewidth',2),vstr_coronal_outline)
 
 if length(probe_ccf_all) <= 17
     color_set = [brewermap(8,'Dark2');brewermap(8,'Set2')];
@@ -1866,7 +1871,6 @@ if length(probe_ccf_all) <= 17
 else
     error('More animals than colors: add another set');
 end
-
 
 for curr_animal = 1:length(probe_ccf_all)
     for curr_day = 1:size(probe_ccf_all{curr_animal},3)
@@ -1965,7 +1969,7 @@ end
 set(gcf,'Name',ephys_depth_align(curr_animal).animal);
 
 
-%% SFig4b,c Fluorescence deconvolution and fluor+ctx+str example
+%% SFig4c,d Fluorescence deconvolution and fluor+ctx+str example
 
 % Load and plot kernel
 % (flip time to be fluor lag:lead spikes);
@@ -2672,7 +2676,7 @@ end
 
 
 % (Prediction with cortex subsets statistics)
-disp('R^2 with cortical subset (1-way anova):');
+disp('R^2 with cortical subset (2-way anova):');
 for curr_depth = 1:n_depths   
     curr_r2 = permute(ctxtrialpred_regionzero_r2_relative(:,curr_depth,:),[3,1,2]);
     [condition_grp,exp_grp] = ndgrid(1:size(curr_r2,1),1:size(curr_r2,2));
@@ -3043,21 +3047,34 @@ fluor_kernelroi_premuscimol_mean = ...
 fluor_kernelroi_postmuscimol_mean = ...
     cell2mat(cellfun(@(x,stim) nanmean(x(stim == use_stim,:,:),1),fluor_kernelroi_muscimol{2},stimIDs{2},'uni',false));
 
-% Fit scaling factor (change) pre-post
-n_exps = length(stimIDs{1});
-str_muscimol_change = nan(n_exps,n_depths);
-ctx_muscimol_change = nan(n_exps,n_depths);
-for curr_depth = 1:n_depths
-    for curr_exp = 1:n_exps
-        str_muscimol_change(curr_exp,curr_depth) = ...
-            mua_premuscimol_mean(curr_exp,:,curr_depth)'\ ...
-            mua_postmuscimol_mean(curr_exp,:,curr_depth)';
-        
-        ctx_muscimol_change(curr_exp,curr_depth) = ...
-            fluor_kernelroi_premuscimol_mean(curr_exp,:,curr_depth)'\ ...
-            fluor_kernelroi_postmuscimol_mean(curr_exp,:,curr_depth)';
-    end
-end
+% %%% MUSCIMOL CHANGE OPTION 1
+% % Fit scaling factor (change) pre-post
+% n_exps = length(stimIDs{1});
+% str_muscimol_change = nan(n_exps,n_depths);
+% ctx_muscimol_change = nan(n_exps,n_depths);
+% for curr_depth = 1:n_depths
+%     for curr_exp = 1:n_exps
+%         str_muscimol_change(curr_exp,curr_depth) = ...
+%             mua_premuscimol_mean(curr_exp,:,curr_depth)'\ ...
+%             mua_postmuscimol_mean(curr_exp,:,curr_depth)';
+%         
+%         ctx_muscimol_change(curr_exp,curr_depth) = ...
+%             fluor_kernelroi_premuscimol_mean(curr_exp,:,curr_depth)'\ ...
+%             fluor_kernelroi_postmuscimol_mean(curr_exp,:,curr_depth)';
+%     end
+% end
+
+%%% MUSCIMOL CHANGE OPTION 2
+% Get difference in average stimulus response
+t_stim = t >= 0 & t <= 0.2;
+mua_avg_premuscimol = permute(nanmean(mua_premuscimol_mean(:,t_stim,:),2),[1,3,2]);
+mua_avg_postmuscimol = permute(nanmean(mua_postmuscimol_mean(:,t_stim,:),2),[1,3,2]);
+str_muscimol_change = (mua_avg_postmuscimol-mua_avg_premuscimol);%./(mua_avg_premuscimol);
+
+fluor_avg_premuscimol = permute(nanmean(fluor_kernelroi_premuscimol_mean(:,t_stim,:),2),[1,3,2]);
+fluor_avg_postmuscimol = permute(nanmean(fluor_kernelroi_postmuscimol_mean(:,t_stim,:),2),[1,3,2]);
+ctx_muscimol_change = (fluor_avg_postmuscimol-fluor_avg_premuscimol);%./(fluor_avg_premuscimol);
+
 
 % Plot time courses and change
 figure;
@@ -3099,8 +3116,17 @@ disp('Striatum/cortex muscimol change correlation:')
 for curr_depth = 1:n_depths
     [r,p] = corr(str_muscimol_change(:,curr_depth), ...
         ctx_muscimol_change(:,curr_depth), ...
-        'rows','complete','type','spearman');
+        'rows','complete','type','pearson');
     disp(['Str ' num2str(curr_depth) ' p = ' num2str(p) ' r = ' num2str(r)]);
+end
+
+
+disp('Striatum/cortex muscimol signrank:')
+for curr_depth = 1:n_depths
+    p = signrank(mua_avg_premuscimol(:,curr_depth),mua_avg_postmuscimol(:,curr_depth));
+    disp(['Str ' num2str(curr_depth) ' p = ' num2str(p)]);
+    p = signrank(fluor_avg_premuscimol(:,curr_depth),fluor_avg_postmuscimol(:,curr_depth));
+    disp(['Ctx ' num2str(curr_depth) ' p = ' num2str(p) ' r = ' num2str(r)]);
 end
 
 
@@ -3690,7 +3716,7 @@ for curr_depth = 1:n_depths
 end
 
 
-%% ** SFig10: Stimulus activity vs choice
+%% ** SFig11: Stimulus activity vs choice
 
 % Get stim activity by stim/choice/depth/experiment
 stim_avg_t = [0,0.2];

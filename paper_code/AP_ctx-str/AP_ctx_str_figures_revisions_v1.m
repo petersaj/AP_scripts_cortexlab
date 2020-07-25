@@ -2171,6 +2171,7 @@ fluor_kernelroi_premuscimol_mean = ...
 fluor_kernelroi_postmuscimol_mean = ...
     cell2mat(cellfun(@(x,stim) nanmean(x(stim == use_stim,:,:),1),fluor_kernelroi_muscimol{2},stimIDs{2},'uni',false));
 
+%%% CHANGE OPTION 1
 % Fit scaling factor (change) pre-post
 n_exps = length(stimIDs{1});
 str_muscimol_change = nan(n_exps,n_depths);
@@ -2186,6 +2187,18 @@ for curr_depth = 1:n_depths
             fluor_kernelroi_postmuscimol_mean(curr_exp,:,curr_depth)';
     end
 end
+
+
+%%% CHANGE OPTION 2
+t_stim = t >= 0 & t <= 0.2;
+mua_avg_premuscimol = permute(nanmean(mua_premuscimol_mean(:,t_stim,:),2),[1,3,2]);
+mua_avg_postmuscimol = permute(nanmean(mua_postmuscimol_mean(:,t_stim,:),2),[1,3,2]);
+str_muscimol_change = (mua_avg_postmuscimol-mua_avg_premuscimol);%./(mua_avg_premuscimol);
+
+fluor_avg_premuscimol = permute(nanmean(fluor_kernelroi_premuscimol_mean(:,t_stim,:),2),[1,3,2]);
+fluor_avg_postmuscimol = permute(nanmean(fluor_kernelroi_postmuscimol_mean(:,t_stim,:),2),[1,3,2]);
+ctx_muscimol_change = (fluor_avg_postmuscimol-fluor_avg_premuscimol);%./(fluor_avg_premuscimol);
+
 
 % Plot time courses and change
 figure;
@@ -2227,9 +2240,10 @@ disp('Striatum/cortex muscimol change correlation:')
 for curr_depth = 1:n_depths
     [r,p] = corr(str_muscimol_change(:,curr_depth), ...
         ctx_muscimol_change(:,curr_depth), ...
-        'rows','complete','type','spearman');
+        'rows','complete','type','Pearson');
     disp(['Str ' num2str(curr_depth) ' p = ' num2str(p) ' r = ' num2str(r)]);
 end
+
 
 
 %% ^^^ Task performance pre/post muscimol

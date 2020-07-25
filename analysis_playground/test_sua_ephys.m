@@ -1431,7 +1431,7 @@ for curr_depth = 1:n_aligned_depths
         ismember(celltype_allcat(good_units_allcat),[1,2,3]));
     
     map_corr = corr(reshape(use_maps,[],size(use_maps,3)), ...
-        reshape(kernel_template(:,:,curr_depth),[],1),'type','Spearman');
+        reshape(kernel_template(:,:,curr_depth),[],1),'type','Pearson');
     
     curr_p = anovan(map_corr,[recordings_allcat(use_cells),celltype_allcat(use_cells)],'display','off');
     disp(curr_p(2))
