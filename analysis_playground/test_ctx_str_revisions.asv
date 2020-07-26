@@ -1879,8 +1879,8 @@ legend({'DMS','DCS','DLS'})
 
 % Get and plot striatal variance by task vs. passive
 mua_var_exp = cellfun(@(x) var(x,[],2),mua_exp,'uni',false);
-mua_var_task = horzcat(mua_var_exp{:,1});
-mua_var_passive = horzcat(mua_var_exp{:,2});
+mua_var_task = log10(horzcat(mua_var_exp{:,1})');
+mua_var_passive = log10(horzcat(mua_var_exp{:,2})');
 
 subplot(1,2,1); hold on;
 for curr_str = 1:n_depths
@@ -1900,8 +1900,8 @@ for curr_str = 1:n_depths
 end
 axis tight equal
 line(xlim,xlim,'color','k','linestyle','--');
-xlabel('Passive variance');
-ylabel('Cortex R^2');
+xlabel('log(Passive variance)');
+ylabel('log(Task variance)');
 legend({'DMS','DCS','DLS'})
 
 
@@ -1928,6 +1928,217 @@ for curr_depth = 1:n_depths
         ctxpred_r2_passive(:,curr_depth));
     disp(['Str ' num2str(curr_depth) ' p = ' num2str(curr_p)]); 
 end
+
+
+
+%% Passive fluor+ctx+str example
+
+%%% Plot example day
+
+animal = 'AP060';
+day = '2019-12-06';
+experiment = 2;
+plot_t = [100,300];
+
+figure;
+disp('Loading example data...');
+
+% Load cortex ephys + imaging
+load_parts.ephys = true;
+load_parts.imaging = true;
+site = 2; % (cortex always probe 2)
+str_align = 'none'; % (cortex)
+AP_load_experiment;
+
+% Load cortex recording alignment
+vis_ctx_ephys_fn = 'C:\Users\Andrew\OneDrive for Business\Documents\CarandiniHarrisLab\analysis\wf_ephys_choiceworld\ephys_processing\vis_ctx_ephys.mat';
+load(vis_ctx_ephys_fn);
+
+%%% DEPTH-ALIGN TEMPLATES, FIND CORTEX BOUNDARY
+curr_animal_idx = strcmp(animal,{vis_ctx_ephys.animal});
+curr_day_idx = strcmp(day,vis_ctx_ephys(curr_animal_idx).day);
+curr_csd_depth = vis_ctx_ephys(curr_animal_idx).stim_csd_depth{curr_day_idx};
+curr_csd_depth_aligned = vis_ctx_ephys(curr_animal_idx).stim_csd_depth_aligned{curr_day_idx};
+template_depths_aligned = interp1(curr_csd_depth,curr_csd_depth_aligned,template_depths);
+spike_depths_aligned = interp1(curr_csd_depth,curr_csd_depth_aligned,spike_depths);
+
+% Find cortex end by largest gap between templates
+sorted_template_depths = sort([template_depths_aligned]);
+[max_gap,max_gap_idx] = max(diff(sorted_template_depths));
+ctx_end = sorted_template_depths(max_gap_idx)+1;
+
+ctx_depth = [sorted_template_depths(1),ctx_end];
+ctx_units = template_depths_aligned <= ctx_depth(2);
+
+%%% GET FLUORESCENCE AND SPIKES BY DEPTH
+
+% Set binning time
+skip_seconds = 60;
+spike_binning_t = 1/framerate; % seconds
+spike_binning_t_edges = frame_t(1)+skip_seconds:spike_binning_t:frame_t(end)-skip_seconds;
+spike_binning_t_centers = spike_binning_t_edges(1:end-1) + diff(spike_binning_t_edges)/2;
+
+% Get fluorescence in pre-drawn ROI
+curr_ctx_roi = vis_ctx_ephys(curr_animal_idx).ctx_roi{curr_day_idx};
+
+fVdf_deconv = AP_deconv_wf(fVdf);
+fluor_roi = AP_svd_roi(Udf,fVdf_deconv,avg_im,[],curr_ctx_roi);
+fluor_roi_interp = interp1(frame_t,fluor_roi,spike_binning_t_centers);
+
+% Plot cortex raster
+subplot(4,1,1); hold on;
+plot_t_idx = spike_binning_t_centers >= plot_t(1) & ...
+    spike_binning_t_centers <= plot_t(2);
+plot(spike_binning_t_centers(plot_t_idx), ...
+    fluor_roi_interp(plot_t_idx),'linewidth',2,'color',[0,0.7,0]);
+
+subplot(4,1,2,'YDir','reverse'); hold on;
+plot_spikes = spike_times_timeline >= plot_t(1) & ...
+    spike_times_timeline <= plot_t(2) & ...
+    spike_depths_aligned <= ctx_depth(2);
+plot(spike_times_timeline(plot_spikes),spike_depths(plot_spikes),'.k');
+ylabel('Cortex depth (\mum)');
+xlabel('Time (s)');
+
+%%% LOAD STRIATUM EPHYS AND GET MUA BY DEPTH
+
+% Load striatum ephys
+load_parts.ephys = true;
+load_parts.imaging = false;
+site = 1; % (striatum is always on probe 1)
+str_align = 'kernel';
+AP_load_experiment;
+
+% Plot striatum raster
+subplot(4,1,3,'YDir','reverse'); hold on;
+plot_spikes = spike_times_timeline >= plot_t(1) & ...
+    spike_times_timeline <= plot_t(2) & ...
+    spike_depths >= str_depth(1) & spike_depths <= str_depth(2);
+plot(spike_times_timeline(plot_spikes),spike_depths(plot_spikes),'.k');
+ylabel('Striatum depth (\mum)');
+xlabel('Time (s)');
+
+%%%%%% PLOT WHEEL/STIM
+
+% (wheel velocity)
+wheel_axes = subplot(4,1,4); hold on;
+plot_wheel_idx = Timeline.rawDAQTimestamps >= plot_t(1) & ...
+    Timeline.rawDAQTimestamps <= plot_t(2);
+plot(wheel_axes,Timeline.rawDAQTimestamps(plot_wheel_idx), ...
+    wheel_velocity(plot_wheel_idx),'k','linewidth',2);
+ylabel('Wheel velocity');
+axis off
+
+curr_axes = flipud(get(gcf,'Children'));
+% Link all time axes
+linkaxes(curr_axes,'x');
+% Link depth axes of raster plots (arbitrary depth, but want same scale)
+linkaxes(curr_axes(2:3),'xy');
+
+
+
+%% ** Task explained variance cortex vs striatum
+
+% Use raw data (not normalized or baseline-subtracted) for expl var
+mua_exp = vertcat(mua_all{:});
+mua_taskpred_exp = vertcat(mua_taskpred_all{:});
+mua_ctxpred_exp = vertcat(mua_ctxpred_all{:});
+mua_ctxpred_taskpred_exp = vertcat(mua_taskpred_all{:});
+
+% Get R^2 for task and cortex
+task_str_r2 = nan(max(split_idx),n_depths);
+task_ctx_r2 = nan(max(split_idx),n_depths);
+for curr_exp = 1:max(split_idx)
+       
+    curr_str_data = reshape(permute(mua_exp{curr_exp},[2,1,3]),[],n_depths);
+    curr_str_data_baselinesub = reshape(permute(mua_exp{curr_exp},[2,1,3]),[],n_depths) - ...
+        (nanmean(reshape(mua_exp{curr_exp}(:,t < 0,:),[],size(mua_exp{curr_exp},3)),1));
+    curr_str_taskpred_data = reshape(permute(mua_taskpred_exp{curr_exp},[2,1,3]),[],n_depths);
+    
+    curr_ctx_data = reshape(permute(mua_ctxpred_exp{curr_exp},[2,1,3]),[],n_depths);
+    curr_ctx_data_baselinesub = reshape(permute(mua_ctxpred_exp{curr_exp},[2,1,3]),[],n_depths) - ...
+        (nanmean(reshape(mua_ctxpred_exp{curr_exp}(:,t < 0,:),[],size(mua_ctxpred_exp{curr_exp},3)),1));
+    curr_ctx_taskpred_data = reshape(permute(mua_ctxpred_taskpred_exp{curr_exp},[2,1,3]),[],n_depths);
+    
+    curr_data = reshape(permute(mua_exp{curr_exp},[2,1,3]),[],n_depths);
+    curr_data_baselinesub = reshape(permute(mua_exp{curr_exp},[2,1,3]),[],n_depths) - ...
+        (nanmean(reshape(mua_exp{curr_exp}(:,t < 0,:),[],size(mua_exp{curr_exp},3)),1));
+    
+    curr_taskpred_data = reshape(permute(mua_taskpred_exp{curr_exp},[2,1,3]),[],n_depths);
+    curr_ctxpred_data = reshape(permute(mua_ctxpred_exp{curr_exp},[2,1,3]),[],n_depths);
+       
+    % Set common NaNs
+    nan_samples = isnan(curr_data) | isnan(curr_data_baselinesub) | ...
+        isnan(curr_taskpred_data) | isnan(curr_ctxpred_data);
+    curr_data(nan_samples) = NaN;
+    curr_data_baselinesub(nan_samples) = NaN;
+    curr_taskpred_data(nan_samples) = NaN;
+    curr_ctxpred_data(nan_samples) = NaN;
+
+    % (task regressed from average baseline-subtracted data)
+    task_str_r2(curr_exp,:) = 1 - (nansum((curr_data_baselinesub-curr_taskpred_data).^2,1)./ ...
+        nansum((curr_data_baselinesub-nanmean(curr_data_baselinesub,1)).^2,1));
+    % (cortex regressed from raw data)
+    task_ctx_r2(curr_exp,:) = 1 - (nansum((curr_data-curr_ctxpred_data).^2,1)./ ...
+        nansum((curr_data-nanmean(curr_data,1)).^2,1));
+    
+end
+
+figure; hold on;
+errorbar(nanmean(task_str_r2,1),AP_sem(task_str_r2,1),'b','linewidth',2,'CapSize',0);
+errorbar(nanmean(task_ctx_r2,1),AP_sem(task_ctx_r2,1),'color',[0,0.6,0],'linewidth',2,'CapSize',0);
+xlabel('Striatum depth');
+ylabel('Task explained variance');
+legend({'Task','Cortex'});
+
+
+% Plot explained variance task vs cortex by experiment
+figure; hold on;
+str_col = max(hsv(n_depths)-0.2,0);
+for curr_str = 1:n_depths
+    errorbar(squeeze(nanmean(task_str_r2(:,curr_str),1)), ...
+        squeeze(nanmean(task_ctx_r2(:,curr_str),1)), ...
+        squeeze(AP_sem(task_ctx_r2(:,curr_str),1)),squeeze(AP_sem(task_ctx_r2(:,curr_str),1)), ...
+        squeeze(AP_sem(task_str_r2(:,curr_str),1)),squeeze(AP_sem(task_str_r2(:,curr_str),1)), ...
+        'color','k','linewidth',2);
+    
+    scatter(task_str_r2(:,curr_str),task_ctx_r2(:,curr_str),10, ...
+        str_col(curr_str,:),'filled');
+    scatter(nanmean(task_str_r2(:,curr_str),1), ...
+        nanmean(task_ctx_r2(:,curr_str),1),80, ...
+        str_col(curr_str,:),'filled','MarkerEdgeColor','k','linewidth',2);
+end
+axis tight equal;
+line(xlim,xlim,'color','k','linestyle','--');
+xlabel('Task R^2');
+ylabel('Cortex R^2');
+legend({'DMS','DCS','DLS'})
+
+% (Task R2 statistics)
+disp('Task R^2 values:');
+for curr_depth = 1:n_depths
+    disp(['Str ' num2str(curr_depth) ...
+        ' R2 = ' num2str(nanmean(task_str_r2(:,curr_depth))) '+/- ' ...
+        num2str(AP_sem(task_str_r2(:,curr_depth),1))]); 
+end
+
+% (Cortex R2 statistics)
+disp('Cortex R^2 values:');
+for curr_depth = 1:n_depths
+    disp(['Str ' num2str(curr_depth) ...
+        ' R2 = ' num2str(nanmean(task_ctx_r2(:,curr_depth))) '+/- ' ...
+        num2str(AP_sem(task_ctx_r2(:,curr_depth),1))]); 
+end
+
+% (Cortex vs task R2 statistics)
+disp('Cortex vs Task R^2 signrank:');
+for curr_depth = 1:n_depths
+    curr_p = signrank(task_ctx_r2(:,curr_depth), ...
+        task_str_r2(:,curr_depth));
+    disp(['Str ' num2str(curr_depth) ' p = ' num2str(curr_p)]); 
+end
+
+
 
 
 
