@@ -294,8 +294,8 @@ fluor_kernelroi_norm = cellfun(@(x) ones(x,1,n_kernel_rois),num2cell(n_trials_da
 % fluor_roi_norm = fluor_roi_day_baseline_std;
 % fluor_kernelroi_norm = fluor_kernelroi_day_baseline_std;
 
-% fluor_roi_deconv = (fluor_roi_deconv - cell2mat(fluor_roi_trial_baseline))./cell2mat(fluor_roi_norm);
-% fluor_kernelroi_deconv = (fluor_kernelroi_deconv - cell2mat(fluor_kernelroi_trial_baseline))./cell2mat(fluor_kernelroi_norm);
+fluor_roi_deconv = (fluor_roi_deconv - cell2mat(fluor_roi_trial_baseline))./cell2mat(fluor_roi_norm);
+fluor_kernelroi_deconv = (fluor_kernelroi_deconv - cell2mat(fluor_kernelroi_trial_baseline))./cell2mat(fluor_kernelroi_norm);
 
 if task_dataset
     % Get task-predicted activity

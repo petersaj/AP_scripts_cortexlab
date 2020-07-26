@@ -1983,7 +1983,7 @@ end
 set(gcf,'Name',ephys_depth_align(curr_animal).animal);
 
 
-%% SFig4c,d Fluorescence deconvolution and fluor+ctx+str example
+%% SFig4b,c,d Fluorescence deconvolution and fluor+ctx+str example
 
 % Load and plot kernel
 % (flip time to be fluor lag:lead spikes);
@@ -2218,7 +2218,7 @@ p = signrank(ctx_deconv_task_r2,ctx_deconv_notask_r2);
 disp(['Task vs no-task explained var: ' num2str(p)]);
 
 
-%% SFig4d,e,f: Fluorescence/cortex ephys/striatum ephys correlation
+%% SFig4e,f,g: Fluorescence/cortex ephys/striatum ephys correlation
 
 %%% Load correlation data
 use_protocol = 'vanillaChoiceworld';
@@ -3183,7 +3183,7 @@ for curr_data = 1:length(data_fns)
     
     % Exclude trials with fluorescence spikes
     % (this is a dirty way to do this but don't have a better alt)
-    fluor_spike_thresh = 0.5; % deconv df/f threshold (eyeballed)
+    fluor_spike_thresh = 0.015; % deconv df/f threshold (eyeballed)
     fluor_spike_trial = cellfun(@(x) any(any(x > fluor_spike_thresh,2),3), ...
         fluor_kernelroi_deconv_exp,'uni',false);
     
@@ -3273,34 +3273,33 @@ fluor_kernelroi_premuscimol_mean = ...
 fluor_kernelroi_postmuscimol_mean = ...
     cell2mat(cellfun(@(x,stim) nanmean(x(stim == use_stim,:,:),1),fluor_kernelroi_muscimol{2},stimIDs{2},'uni',false));
 
-% %%% MUSCIMOL CHANGE OPTION 1
-% % Fit scaling factor (change) pre-post
-% n_exps = length(stimIDs{1});
-% str_muscimol_change = nan(n_exps,n_depths);
-% ctx_muscimol_change = nan(n_exps,n_depths);
-% for curr_depth = 1:n_depths
-%     for curr_exp = 1:n_exps
-%         str_muscimol_change(curr_exp,curr_depth) = ...
-%             mua_premuscimol_mean(curr_exp,:,curr_depth)'\ ...
-%             mua_postmuscimol_mean(curr_exp,:,curr_depth)';
-%         
-%         ctx_muscimol_change(curr_exp,curr_depth) = ...
-%             fluor_kernelroi_premuscimol_mean(curr_exp,:,curr_depth)'\ ...
-%             fluor_kernelroi_postmuscimol_mean(curr_exp,:,curr_depth)';
-%     end
-% end
+%%% MUSCIMOL CHANGE OPTION 1
+% Fit scaling factor (change) pre-post
+n_exps = length(stimIDs{1});
+str_muscimol_change = nan(n_exps,n_depths);
+ctx_muscimol_change = nan(n_exps,n_depths);
+for curr_depth = 1:n_depths
+    for curr_exp = 1:n_exps
+        str_muscimol_change(curr_exp,curr_depth) = ...
+            mua_premuscimol_mean(curr_exp,:,curr_depth)'\ ...
+            mua_postmuscimol_mean(curr_exp,:,curr_depth)';
+        
+        ctx_muscimol_change(curr_exp,curr_depth) = ...
+            fluor_kernelroi_premuscimol_mean(curr_exp,:,curr_depth)'\ ...
+            fluor_kernelroi_postmuscimol_mean(curr_exp,:,curr_depth)';
+    end
+end
 
-%%% MUSCIMOL CHANGE OPTION 2
-% Get difference in average stimulus response
-t_stim = t >= 0 & t <= 0.2;
-mua_avg_premuscimol = permute(nanmean(mua_premuscimol_mean(:,t_stim,:),2),[1,3,2]);
-mua_avg_postmuscimol = permute(nanmean(mua_postmuscimol_mean(:,t_stim,:),2),[1,3,2]);
-str_muscimol_change = (mua_avg_postmuscimol-mua_avg_premuscimol);%./(mua_avg_premuscimol);
-
-fluor_avg_premuscimol = permute(nanmean(fluor_kernelroi_premuscimol_mean(:,t_stim,:),2),[1,3,2]);
-fluor_avg_postmuscimol = permute(nanmean(fluor_kernelroi_postmuscimol_mean(:,t_stim,:),2),[1,3,2]);
-ctx_muscimol_change = (fluor_avg_postmuscimol-fluor_avg_premuscimol);%./(fluor_avg_premuscimol);
-
+% %%% MUSCIMOL CHANGE OPTION 2
+% % Get difference in average stimulus response
+% t_stim = t >= 0 & t <= 0.2;
+% mua_avg_premuscimol = permute(nanmean(mua_premuscimol_mean(:,t_stim,:),2),[1,3,2]);
+% mua_avg_postmuscimol = permute(nanmean(mua_postmuscimol_mean(:,t_stim,:),2),[1,3,2]);
+% str_muscimol_change = (mua_avg_postmuscimol-mua_avg_premuscimol);%./(mua_avg_premuscimol);
+% 
+% fluor_avg_premuscimol = permute(nanmean(fluor_kernelroi_premuscimol_mean(:,t_stim,:),2),[1,3,2]);
+% fluor_avg_postmuscimol = permute(nanmean(fluor_kernelroi_postmuscimol_mean(:,t_stim,:),2),[1,3,2]);
+% ctx_muscimol_change = (fluor_avg_postmuscimol-fluor_avg_premuscimol);%./(fluor_avg_premuscimol);
 
 % Plot time courses and change
 figure;

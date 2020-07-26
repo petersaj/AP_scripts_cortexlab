@@ -30,11 +30,13 @@ load(kernel_fn);
 if ~spikes_flag
     kernel_cat = vertcat(gcamp6s_kernel.regression{:});
     kernel_mean = nanmean(kernel_cat./max(abs(kernel_cat),[],2),1);
-    kernel = kernel_mean./sum(kernel_mean);
+    kernel = kernel_mean./sum(kernel_mean.^2);
+%     kernel = kernel_mean./sum(kernel_mean);
 elseif spikes_flag
     kernel_cat = vertcat(gcamp6s_kernel.spikes_regression{:});
     kernel_mean = nanmean(kernel_cat./max(abs(kernel_cat),[],2),1);
-    kernel = kernel_mean./sum(kernel_mean);
+    kernel = kernel_mean./sum(kernel_mean.^2);
+%     kernel = kernel_mean./sum(kernel_mean);
 end
 
 
