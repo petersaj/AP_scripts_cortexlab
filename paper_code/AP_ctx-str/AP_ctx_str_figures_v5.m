@@ -97,7 +97,7 @@ title('Trial quartiles');
 
 
 
-%% ** Fig 1b: Example recording
+%% Fig 1b: Example recording
 
 animal = 'AP025'; 
 day = '2017-10-01'; 
@@ -112,9 +112,10 @@ AP_load_experiment;
 use_components = 1:200;
 aUdf = AP_align_widefield(Udf,animal,day);
 fVdf_deconv = AP_deconv_wf(fVdf);
-
+%%
 % Set time to plot
-plot_t = [134,152];
+% plot_t = [134,152];
+plot_t = [15,45];
 
 raster_fig = figure;
 
@@ -177,13 +178,13 @@ load(wf_roi_fn);
 roi_trace = AP_svd_roi(aUdf(:,:,use_components),fVdf_deconv(use_components,:),[],[],cat(3,wf_roi.mask));
 
 plot_rois = [1,9,10];
-fluor_spacing = 0.2;
+fluor_spacing = []; % (use default)
 fluor_axes = subplot(6,1,1:2); hold on;
 plot_fluor_idx = frame_t >= plot_t(1) & frame_t <= plot_t(2);
 AP_stackplot(roi_trace(plot_rois,plot_fluor_idx)', ...
     frame_t(plot_fluor_idx),fluor_spacing,[],[0,0.7,0],{wf_roi(plot_rois).area});
 
-y_scale = 0.2;
+y_scale = 0.02;
 t_scale = 2;
 line([min(xlim),min(xlim) + t_scale],repmat(min(ylim),2,1),'color','k','linewidth',3);
 line(repmat(min(xlim),2,1),[min(ylim),min(ylim) + y_scale],'color','k','linewidth',3);

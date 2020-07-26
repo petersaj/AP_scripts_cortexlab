@@ -22,8 +22,8 @@ elseif iscell(data_fn)
     
     preload_vars = who;
     
-    % (load in split)
-    clear trial_data_all_split
+    % (load in all datasets)
+    clear temp_data
     for curr_load_data = 1:length(data_fn)
         disp(['Loading ' data_fn{curr_load_data} '...']);
         temp_data{curr_load_data} = load([trial_data_path filesep data_fn{curr_load_data}],'trial_data_all');
