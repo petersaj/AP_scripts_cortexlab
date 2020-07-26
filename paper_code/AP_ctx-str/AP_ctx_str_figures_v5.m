@@ -20,6 +20,10 @@ data_fn = { ...
     'trial_activity_vanillaChoiceworld_ctxstrephys_str'...
     'trial_activity_vanillaChoiceworldNoRepeats_pre_muscimol'};
 
+% @@
+% Task, single units, combined
+% (in other script)
+
 AP_load_concat_normalize_ctx_str;
 
 % Choose split for data
@@ -1365,6 +1369,170 @@ for curr_depth = 1:n_depths
     disp(['Str ' num2str(curr_depth) ' p = ' num2str(curr_p)]); 
 end
 
+
+%% @@ Fig 4c: Average activity within and across cells by domain/celltype
+
+mua_exp = vertcat(mua_all{:});
+
+% Set alignment shifts
+t_leeway = -t(1);
+leeway_samples = round(t_leeway*(sample_rate));
+
+% Align activity by move/outcome (natively stim-aligned)
+
+% (get indicies for alignments - used later)
+stim_align = zeros(size(trial_stim_allcat));
+move_align = -move_idx + leeway_samples;
+outcome_align = -outcome_idx + leeway_samples;
+use_align = {stim_align,move_align,outcome_align};
+
+% (move aligned)
+move_idx_exp = mat2cell(move_idx,use_split,1);
+mua_allcat_movealign_exp = vertcat(mua_all{:});
+for curr_exp = 1:length(mua_allcat_movealign_exp)
+   for curr_trial = 1:size(mua_allcat_movealign_exp{curr_exp},1)
+       mua_allcat_movealign_exp{curr_exp}(curr_trial,:,:) = ...
+           circshift(mua_allcat_movealign_exp{curr_exp}(curr_trial,:,:), ...
+           -move_idx_exp{curr_exp}(curr_trial)+leeway_samples,2);
+   end
+end
+
+% (outcome aligned)
+outcome_idx_exp = mat2cell(outcome_idx,use_split,1);
+mua_allcat_outcomealign_exp = vertcat(mua_all{:});
+for curr_exp = 1:length(mua_allcat_outcomealign_exp)
+    for curr_trial = 1:size(mua_allcat_outcomealign_exp{curr_exp},1)
+        mua_allcat_outcomealign_exp{curr_exp}(curr_trial,:,:) = ...
+            circshift(mua_allcat_outcomealign_exp{curr_exp}(curr_trial,:,:), ...
+            -outcome_idx_exp{curr_exp}(curr_trial)+leeway_samples,2);
+    end
+end
+
+% Get average activity across alignments
+use_align_labels = {'Stim','Move onset','Outcome'};
+
+% (split trials for sort/plot)
+trial_rand = rand(max(cellfun(@(x) size(x,1),mua_exp)),1);
+
+act_mean_sort = nan(length(good_units_allcat),length(t),length(use_align_labels));
+act_mean_plot = nan(length(good_units_allcat),length(t),length(use_align_labels));
+for curr_align = 1:length(use_align_labels)
+    
+    switch curr_align
+        case 1
+            curr_mua = mua_exp;
+        case 2
+            curr_mua = mua_allcat_movealign_exp;
+        case 3
+            curr_mua = mua_allcat_outcomealign_exp;
+    end
+    
+    act_mean_sort(:,:,curr_align) = cell2mat(cellfun(@(act,stim,rxn,outcome) ...
+        squeeze(nanmean(act(stim > 0 & rxn < 0.5 & outcome == 1 & ...
+        trial_rand(1:size(act,1)) < 0.5,:,:),1)), ...
+        curr_mua,trial_stim_allcat_exp,move_t_exp, ...
+        trial_outcome_allcat_exp,'uni',false)')';
+    
+    act_mean_plot(:,:,curr_align) = cell2mat(cellfun(@(act,stim,rxn,outcome) ...
+        squeeze(nanmean(act(stim > 0 & rxn < 0.5 & outcome == 1 & ...
+        trial_rand(1:size(act,1)) >= 0.5,:,:),1)), ...
+        curr_mua,trial_stim_allcat_exp,move_t_exp, ...
+        trial_outcome_allcat_exp,'uni',false)')';  
+    
+end
+
+
+% Set align breakpoints
+align_col = [1,0,0;0.8,0,0.8;0,0,0.8];
+% (split the alignment halfway between median alignment points)
+align_median = cellfun(@(x) -nanmedian(x)/sample_rate,use_align);
+align_break = align_median(1:end-1) + diff(align_median*0.8);
+align_t = {[-0.05,align_break(1)],[align_break(1:2)],[align_break(2),1]};
+
+% Plot aligned_activity (all cells)
+figure;
+for curr_depth = 1:n_domains
+    for curr_celltype = 1:n_celltypes
+        
+        curr_cells = domain_aligned_allcat == curr_depth & ...
+            celltype_allcat == curr_celltype & good_units_allcat & ...
+            any(any(act_mean_plot,3),2);
+        curr_cells_idx = find(curr_cells);
+        [~,max_idx] = max(act_mean_sort(curr_cells,:,1),[],2);
+        [~,sort_idx] = sort(max_idx,'descend');
+   
+        for curr_align = 1:length(use_align)
+            
+            subplot(n_domains,n_celltypes, ...
+            (curr_depth-1)*n_celltypes+curr_celltype); hold on;
+            
+            curr_t_offset = -nanmedian(use_align{curr_align})/sample_rate;
+            curr_t = t + curr_t_offset;
+            curr_t_plot = curr_t >= align_t{curr_align}(1) & ...
+                curr_t <= align_t{curr_align}(2);
+            
+            curr_act_sorted = act_mean_plot(curr_cells_idx(sort_idx),:,curr_align);
+            curr_act_sorted_norm = curr_act_sorted./max(curr_act_sorted,[],2);
+        
+            % smooth if too many cells to plot accurately
+            if sum(curr_cells) > 500
+                n_smooth = 5;
+                curr_act_sorted_norm = convn(curr_act_sorted_norm, ...
+                    ones(n_smooth,1)./n_smooth,'same');
+            end
+
+            plot_t = curr_t > align_t{curr_align}(1) & curr_t <= align_t{curr_align}(2);
+            
+            imagesc(curr_t(plot_t),[],curr_act_sorted_norm(:,plot_t));
+            caxis([0,1]);
+            axis tight;
+            line(repmat(curr_t_offset,2,1),ylim,'color',align_col(curr_align,:));
+            colormap(gca,brewermap([],'Greys'));
+            ylabel('Neuron (sorted)');
+            xlabel('~Time from stim');
+            title(['Str ' num2str(curr_depth) ' ' celltype_labels{curr_celltype}]);
+            
+        end       
+    end
+end
+
+% Plot aligned_activity (average across cells)
+figure;
+for curr_depth = 1:n_domains
+    for curr_celltype = 1:n_celltypes
+        
+        curr_cells = domain_aligned_allcat == curr_depth & ...
+            celltype_allcat == curr_celltype & good_units_allcat & ...
+            any(any(act_mean_plot,3),2);   
+   
+        for curr_align = 1:length(use_align)
+            
+            subplot(n_domains,n_celltypes, ...
+            (curr_depth-1)*n_celltypes+curr_celltype); hold on;
+            
+            curr_t_offset = -nanmedian(use_align{curr_align})/sample_rate;
+            curr_t = t + curr_t_offset;
+            curr_t_plot = curr_t >= align_t{curr_align}(1) & ...
+                curr_t <= align_t{curr_align}(2);
+            
+            curr_act = act_mean_plot(curr_cells,:,curr_align);
+            
+            plot_t = curr_t > align_t{curr_align}(1) & curr_t <= align_t{curr_align}(2);
+            
+            AP_errorfill(curr_t(plot_t)', ...
+                nanmean(curr_act(:,plot_t),1)', ...
+                AP_sem(curr_act(:,plot_t),1)','k');
+            
+            axis tight;
+            line(repmat(curr_t_offset,2,1),ylim,'color',align_col(curr_align,:));
+            colormap(gca,brewermap([],'Greys'));
+            ylabel('Spikes/s');
+            xlabel('~Time from stim');
+            title(['Str ' num2str(curr_depth) ' ' celltype_labels{curr_celltype}]);
+            
+        end       
+    end
+end
 
 
 %% Fig 5: Untrained/trained passive responses
