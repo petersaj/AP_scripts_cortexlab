@@ -643,8 +643,7 @@ for curr_depth = 1:n_aligned_depths
     AP_reference_outline('ccf_aligned',[0.5,0.5,0.5]);
 end
 
-% Trying heatmap
-
+% Plot heatmap of injection sites
 figure;
 colormap(brewermap([],'Greys'));
 for curr_depth = 1:n_aligned_depths
@@ -814,7 +813,7 @@ legend(cellfun(@(x) ['Str ' num2str(x)],num2cell(1:n_depths),'uni',false))
 disp('Task/passive vs task/task cross-domain:')
 curr_p = signrank(squeeze(task_notask_k_corr_strmean(1,:)), ...
     squeeze(task_notask_k_corr_strmean(2,:)));
-disp(['All str ' num2str(curr_depth) ' p = ' num2str(curr_p)]);
+disp(['All str p = ' num2str(curr_p)]);
 for curr_depth = 1:n_depths  
     curr_p = signrank(squeeze(task_notask_k_corr(1,curr_depth,:)), ...
         squeeze(task_notask_k_corr(2,curr_depth,:)));
@@ -825,7 +824,7 @@ end
 disp('Task/passive-within vs task-across:')
 curr_p = signrank(squeeze(task_notask_k_corr_strmean(1,:)), ...
     squeeze(task_notask_k_corr_strmean(3,:)));
-disp(['All str ' num2str(curr_depth) ' p = ' num2str(curr_p)]);
+disp(['All str p = ' num2str(curr_p)]);
 for curr_depth = 1:n_depths
     curr_p = signrank(squeeze(task_notask_k_corr(1,curr_depth,:)), ...
         squeeze(task_notask_k_corr(3,curr_depth,:)));
@@ -836,7 +835,7 @@ end
 disp('Task-across vs passive-across');
 curr_p = signrank(squeeze(task_notask_k_corr_strmean(3,:)), ...
     squeeze(task_notask_k_corr_strmean(4,:)));
-disp(['All str ' num2str(curr_depth) ' p = ' num2str(curr_p)]);
+disp(['All str p = ' num2str(curr_p)]);
 for curr_depth = 1:n_depths
     curr_p = signrank(squeeze(task_notask_k_corr(3,curr_depth,:)), ...
         squeeze(task_notask_k_corr(4,curr_depth,:)));
@@ -1333,7 +1332,7 @@ for curr_str = 1:n_depths
         str_col(curr_str,:),'filled');
     scatter(nanmean(taskpred_r2(:,curr_str),1), ...
         nanmean(ctxpred_r2(:,curr_str),1),80, ...
-        str_col(curr_str,:),'filled');
+        str_col(curr_str,:),'filled','MarkerEdgeColor','k','linewidth',2);
 end
 axis tight;
 line(xlim,xlim,'color','k','linestyle','--');
@@ -1341,6 +1340,21 @@ xlabel('Task R^2');
 ylabel('Cortex R^2');
 legend({'DMS','DCS','DLS'})
 
+% (Task R2 statistics)
+disp('Task R^2 values:');
+for curr_depth = 1:n_depths
+    disp(['Str ' num2str(curr_depth) ...
+        ' R2 = ' num2str(nanmean(taskpred_r2(:,curr_depth))) '+/- ' ...
+        num2str(AP_sem(taskpred_r2(:,curr_depth),1))]); 
+end
+
+% (Cortex R2 statistics)
+disp('Cortex R^2 values:');
+for curr_depth = 1:n_depths
+    disp(['Str ' num2str(curr_depth) ...
+        ' R2 = ' num2str(nanmean(ctxpred_r2(:,curr_depth))) '+/- ' ...
+        num2str(AP_sem(ctxpred_r2(:,curr_depth),1))]); 
+end
 
 % (Cortex vs task R2 statistics)
 disp('Cortex vs Task R^2 signrank:');
@@ -3126,7 +3140,7 @@ for curr_depth = 1:n_depths
     p = signrank(mua_avg_premuscimol(:,curr_depth),mua_avg_postmuscimol(:,curr_depth));
     disp(['Str ' num2str(curr_depth) ' p = ' num2str(p)]);
     p = signrank(fluor_avg_premuscimol(:,curr_depth),fluor_avg_postmuscimol(:,curr_depth));
-    disp(['Ctx ' num2str(curr_depth) ' p = ' num2str(p) ' r = ' num2str(r)]);
+    disp(['Ctx ' num2str(curr_depth) ' p = ' num2str(p)]);
 end
 
 
@@ -3190,7 +3204,7 @@ AP_errorfill(stim_conditions, ...
 line(xlim,[0.5,0.5],'color','k','linestyle','--');
 line([0,0],ylim,'color','k','linestyle','--');
 xlabel('Contrast*Side');
-ylabel('Reaction time');
+ylabel('Fraction orient right');
 
 subplot(3,2,2);
 AP_errorfill(stim_conditions, ...
@@ -3199,7 +3213,7 @@ AP_errorfill(stim_conditions, ...
 line(xlim,[0,0],'color','k','linestyle','--');
 line([0,0],ylim,'color','k','linestyle','--');
 xlabel('Contrast*Side');
-ylabel('\DeltaReaction time');
+ylabel('\DeltaFraction orient right');
 
 subplot(3,2,3);
 AP_errorfill(stim_conditions, ...
@@ -3208,7 +3222,7 @@ AP_errorfill(stim_conditions, ...
 line(xlim,[0.5,0.5],'color','k','linestyle','--');
 line([0,0],ylim,'color','k','linestyle','--');
 xlabel('Contrast*Side');
-ylabel('Fraction orient right');
+ylabel('Reaction time');
 
 subplot(3,2,4);
 AP_errorfill(stim_conditions, ...
@@ -3217,7 +3231,7 @@ AP_errorfill(stim_conditions, ...
 line(xlim,[0,0],'color','k','linestyle','--');
 line([0,0],ylim,'color','k','linestyle','--');
 xlabel('Contrast*Side');
-ylabel('\DeltaFraction orient right');
+ylabel('\DeltaReaction time');
 
 subplot(3,2,5);
 AP_errorfill(move_t_bin_centers, ...

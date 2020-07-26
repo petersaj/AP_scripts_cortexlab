@@ -5,7 +5,9 @@
 disp('Loading SUA data');
 
 % data_fn = 'G:\JF_single_cell_data\trial_activity_choiceworld.mat';
-data_fn = 'G:\JF_single_cell_data\trial_activity_ctx_task.mat';
+% data_fn = 'G:\JF_single_cell_data\trial_activity_ctx_task.mat';
+data_fn = 'G:\JF_single_cell_data\trial_activity_muscimol_task.mat';
+
 load(data_fn);
 exclude_data = false;
 
@@ -2898,7 +2900,7 @@ task_regressor_t_shifts = cellfun(@(x) x/sample_rate,task_regressor_sample_shift
 t_baseline = t < 0.5;
 mua_baseline = ...
     cell2mat(cellfun(@(x) nanmean(reshape(x(:,t_baseline,:),[],size(x,3)),1)', ...
-    mua_allcat_stimalign_exp,'uni',false));
+    mua_allcat_exp,'uni',false));
 
 % Plot each regressor by domain/celltype
 for curr_regressor = 1:n_regressors

@@ -1326,15 +1326,15 @@ for curr_str = 1:n_depths
         squeeze(nanmean(ctxpred_r2(:,curr_str),1)), ...
         squeeze(AP_sem(ctxpred_r2(:,curr_str),1)),squeeze(AP_sem(ctxpred_r2(:,curr_str),1)), ...
         squeeze(AP_sem(taskpred_r2(:,curr_str),1)),squeeze(AP_sem(taskpred_r2(:,curr_str),1)), ...
-        'color',str_col(curr_str,:),'linewidth',2);
+        'color','k','linewidth',2);
     
     scatter(taskpred_r2(:,curr_str),ctxpred_r2(:,curr_str),10, ...
         str_col(curr_str,:),'filled');
     scatter(nanmean(taskpred_r2(:,curr_str),1), ...
         nanmean(ctxpred_r2(:,curr_str),1),80, ...
-        str_col(curr_str,:),'filled');
+        str_col(curr_str,:),'filled','MarkerEdgeColor','k','linewidth',2);
 end
-axis tight;
+axis tight equal;
 line(xlim,xlim,'color','k','linestyle','--');
 xlabel('Task R^2');
 ylabel('Cortex R^2');
@@ -2706,8 +2706,220 @@ for curr_depth = 1:n_depths
 end
 
 
+%% SFig9a,b: Cortex-explained variance task vs. passive
 
-%% SFig9a Cortical spike rate pre/post muscimol
+% Load data
+load('C:\Users\Andrew\OneDrive for Business\Documents\CarandiniHarrisLab\analysis\wf_ephys_choiceworld\paper\data\str_ctxpred.mat')
+
+% Concatenate data across cohorts and animals
+mua_animal = [str_ctxpred.str]';
+mua_exp = vertcat(mua_animal{:});
+
+mua_ctxpred_animal = [str_ctxpred.str_ctxpred]';
+mua_ctxpred_exp = vertcat(mua_ctxpred_animal{:});
+
+ctxpred_r2 = cellfun(@(mua,mua_ctxpred) ...
+    1 - (nansum((mua-mua_ctxpred).^2,2)./(nansum((mua-nanmean(mua,2)).^2,2))), ...
+    mua_exp,mua_ctxpred_exp,'uni',false);
+
+ctxpred_r2_task = horzcat(ctxpred_r2{:,1})';
+ctxpred_r2_passive = horzcat(ctxpred_r2{:,2})';
+
+figure;
+n_depths = size(ctxpred_r2_task,2);
+str_col = max(hsv(n_depths)-0.2,0);
+
+% Plot cortex-explained variance task vs. passive by experiment
+subplot(1,2,1); hold on;
+for curr_str = 1:n_depths
+    errorbar(squeeze(nanmean(ctxpred_r2_passive(:,curr_str),1)), ...
+        squeeze(nanmean(ctxpred_r2_task(:,curr_str),1)), ...
+        squeeze(AP_sem(ctxpred_r2_task(:,curr_str),1)), ...
+        squeeze(AP_sem(ctxpred_r2_task(:,curr_str),1)), ...
+        squeeze(AP_sem(ctxpred_r2_passive(:,curr_str),1)), ...
+        squeeze(AP_sem(ctxpred_r2_passive(:,curr_str),1)), ...
+        'color','k','linewidth',2);
+    
+    scatter(ctxpred_r2_passive(:,curr_str),ctxpred_r2_task(:,curr_str),10, ...
+        str_col(curr_str,:),'filled');
+    scatter(nanmean(ctxpred_r2_passive(:,curr_str),1), ...
+        nanmean(ctxpred_r2_task(:,curr_str),1),80, ...
+        str_col(curr_str,:),'filled','MarkerEdgeColor','k','linewidth',2);
+end
+axis tight equal
+line(xlim,xlim,'color','k','linestyle','--');
+xlabel('Task R^2');
+ylabel('Cortex R^2');
+legend({'DMS','DCS','DLS'})
+
+% Get and plot striatal variance by task vs. passive
+mua_var_exp = cellfun(@(x) var(x,[],2),mua_exp,'uni',false);
+mua_var_task = log10(horzcat(mua_var_exp{:,1})');
+mua_var_passive = log10(horzcat(mua_var_exp{:,2})');
+
+subplot(1,2,2); hold on;
+for curr_str = 1:n_depths
+    errorbar(squeeze(nanmean(mua_var_passive(:,curr_str),1)), ...
+        squeeze(nanmean(mua_var_task(:,curr_str),1)), ...
+        squeeze(AP_sem(mua_var_task(:,curr_str),1)), ...
+        squeeze(AP_sem(mua_var_task(:,curr_str),1)), ...
+        squeeze(AP_sem(mua_var_passive(:,curr_str),1)), ...
+        squeeze(AP_sem(mua_var_passive(:,curr_str),1)), ...
+        'color','k','linewidth',2);
+    
+    scatter(mua_var_passive(:,curr_str),mua_var_task(:,curr_str),10, ...
+        str_col(curr_str,:),'filled');
+    scatter(nanmean(mua_var_passive(:,curr_str),1), ...
+        nanmean(mua_var_task(:,curr_str),1),80, ...
+        str_col(curr_str,:),'filled','MarkerEdgeColor','k','linewidth',2);
+end
+axis tight equal
+line(xlim,xlim,'color','k','linestyle','--');
+xlabel('log(Passive variance)');
+ylabel('log(Task variance)');
+legend({'DMS','DCS','DLS'})
+
+
+% (Cortex-passive R2 statistics)
+disp('Cortex (passive) R^2 values:');
+for curr_depth = 1:n_depths
+    disp(['Str ' num2str(curr_depth) ...
+        ' R2 = ' num2str(nanmean(ctxpred_r2_passive(:,curr_depth))) '+/- ' ...
+        num2str(AP_sem(ctxpred_r2_passive(:,curr_depth),1))]); 
+end
+
+% (Cortex-task R2 statistics)
+disp('Cortex (task) R^2 values:');
+for curr_depth = 1:n_depths
+    disp(['Str ' num2str(curr_depth) ...
+        ' R2 = ' num2str(nanmean(ctxpred_r2_task(:,curr_depth))) '+/- ' ...
+        num2str(AP_sem(ctxpred_r2_task(:,curr_depth),1))]); 
+end
+
+% (Cortex vs task R2 statistics)
+disp('Cortex task vs passive R^2 signrank:');
+for curr_depth = 1:n_depths
+    curr_p = signrank(ctxpred_r2_task(:,curr_depth), ...
+        ctxpred_r2_passive(:,curr_depth));
+    disp(['Str ' num2str(curr_depth) ' p = ' num2str(curr_p)]); 
+end
+
+% (Cortex vs task R2 statistics)
+disp('Cortex task vs variance R^2 signrank:');
+for curr_depth = 1:n_depths
+    curr_p = signrank(mua_var_task(:,curr_depth), ...
+        mua_var_passive(:,curr_depth));
+    disp(['Str ' num2str(curr_depth) ' p = ' num2str(curr_p)]); 
+end
+
+
+%% SFig9c: Passive fluor+ctx+str example
+
+%%% Plot example day
+
+animal = 'AP060';
+day = '2019-12-06';
+experiment = 2;
+plot_t = [100,300];
+
+figure;
+disp('Loading example data...');
+
+% Load cortex ephys + imaging
+load_parts.ephys = true;
+load_parts.imaging = true;
+site = 2; % (cortex always probe 2)
+str_align = 'none'; % (cortex)
+AP_load_experiment;
+
+% Load cortex recording alignment
+vis_ctx_ephys_fn = 'C:\Users\Andrew\OneDrive for Business\Documents\CarandiniHarrisLab\analysis\wf_ephys_choiceworld\ephys_processing\vis_ctx_ephys.mat';
+load(vis_ctx_ephys_fn);
+
+%%% DEPTH-ALIGN TEMPLATES, FIND CORTEX BOUNDARY
+curr_animal_idx = strcmp(animal,{vis_ctx_ephys.animal});
+curr_day_idx = strcmp(day,vis_ctx_ephys(curr_animal_idx).day);
+curr_csd_depth = vis_ctx_ephys(curr_animal_idx).stim_csd_depth{curr_day_idx};
+curr_csd_depth_aligned = vis_ctx_ephys(curr_animal_idx).stim_csd_depth_aligned{curr_day_idx};
+template_depths_aligned = interp1(curr_csd_depth,curr_csd_depth_aligned,template_depths);
+spike_depths_aligned = interp1(curr_csd_depth,curr_csd_depth_aligned,spike_depths);
+
+% Find cortex end by largest gap between templates
+sorted_template_depths = sort([template_depths_aligned]);
+[max_gap,max_gap_idx] = max(diff(sorted_template_depths));
+ctx_end = sorted_template_depths(max_gap_idx)+1;
+
+ctx_depth = [sorted_template_depths(1),ctx_end];
+ctx_units = template_depths_aligned <= ctx_depth(2);
+
+%%% GET FLUORESCENCE AND SPIKES BY DEPTH
+
+% Set binning time
+skip_seconds = 60;
+spike_binning_t = 1/framerate; % seconds
+spike_binning_t_edges = frame_t(1)+skip_seconds:spike_binning_t:frame_t(end)-skip_seconds;
+spike_binning_t_centers = spike_binning_t_edges(1:end-1) + diff(spike_binning_t_edges)/2;
+
+% Get fluorescence in pre-drawn ROI
+curr_ctx_roi = vis_ctx_ephys(curr_animal_idx).ctx_roi{curr_day_idx};
+
+fVdf_deconv = AP_deconv_wf(fVdf);
+fluor_roi = AP_svd_roi(Udf,fVdf_deconv,avg_im,[],curr_ctx_roi);
+fluor_roi_interp = interp1(frame_t,fluor_roi,spike_binning_t_centers);
+
+% Plot cortex raster
+subplot(4,1,1); hold on;
+plot_t_idx = spike_binning_t_centers >= plot_t(1) & ...
+    spike_binning_t_centers <= plot_t(2);
+plot(spike_binning_t_centers(plot_t_idx), ...
+    fluor_roi_interp(plot_t_idx),'linewidth',2,'color',[0,0.7,0]);
+
+subplot(4,1,2,'YDir','reverse'); hold on;
+plot_spikes = spike_times_timeline >= plot_t(1) & ...
+    spike_times_timeline <= plot_t(2) & ...
+    spike_depths_aligned <= ctx_depth(2);
+plot(spike_times_timeline(plot_spikes),spike_depths(plot_spikes),'.k');
+ylabel('Cortex depth (\mum)');
+xlabel('Time (s)');
+
+%%% LOAD STRIATUM EPHYS AND GET MUA BY DEPTH
+
+% Load striatum ephys
+load_parts.ephys = true;
+load_parts.imaging = false;
+site = 1; % (striatum is always on probe 1)
+str_align = 'kernel';
+AP_load_experiment;
+
+% Plot striatum raster
+subplot(4,1,3,'YDir','reverse'); hold on;
+plot_spikes = spike_times_timeline >= plot_t(1) & ...
+    spike_times_timeline <= plot_t(2) & ...
+    spike_depths >= str_depth(1) & spike_depths <= str_depth(2);
+plot(spike_times_timeline(plot_spikes),spike_depths(plot_spikes),'.k');
+ylabel('Striatum depth (\mum)');
+xlabel('Time (s)');
+
+%%%%%% PLOT WHEEL/STIM
+
+% (wheel velocity)
+wheel_axes = subplot(4,1,4); hold on;
+plot_wheel_idx = Timeline.rawDAQTimestamps >= plot_t(1) & ...
+    Timeline.rawDAQTimestamps <= plot_t(2);
+plot(wheel_axes,Timeline.rawDAQTimestamps(plot_wheel_idx), ...
+    wheel_velocity(plot_wheel_idx),'k','linewidth',2);
+ylabel('Wheel velocity');
+axis off
+
+curr_axes = flipud(get(gcf,'Children'));
+% Link all time axes
+linkaxes(curr_axes,'x');
+% Link depth axes of raster plots (arbitrary depth, but want same scale)
+linkaxes(curr_axes(2:3),'xy');
+
+
+
+%% SFig10a Cortical spike rate pre/post muscimol
 % (use spike rate over all experiments pre/post muscimol)
 
 animal_days = { ...
@@ -2783,7 +2995,7 @@ end
 
 
 
-%% SFig9b VFS pre/post musicmol
+%% SFig10b VFS pre/post musicmol
 
 muscimol_wf_fn = 'C:\Users\Andrew\OneDrive for Business\Documents\CarandiniHarrisLab\analysis\wf_ephys_choiceworld\paper\data\muscimol_wf.mat';
 load(muscimol_wf_fn);
@@ -2854,7 +3066,7 @@ title('(post-pre)/(post+pre)');
 colorbar
 
 
-%% SFig9c Striatal spike rate pre/post muscimol
+%% SFig10c Striatal spike rate pre/post muscimol
 
 animals = {'AP045','AP054','AP055','AP053','AP047','AP048'};
 
@@ -2934,7 +3146,7 @@ for curr_depth = 1:n_depths
 end
 
 
-%% SFig9d Cortex/striatum passive stim pre/post muscimol
+%% SFig10d Cortex/striatum passive stim pre/post muscimol
 
 data_fns = { ...
     'trial_activity_AP_lcrGratingPassive_pre_muscimol', ...
@@ -3144,7 +3356,7 @@ for curr_depth = 1:n_depths
 end
 
 
-%% SFig9e Task performance pre/post muscimol
+%% SFig10e Task performance pre/post muscimol
 
 data_fns = { ...
     'trial_activity_vanillaChoiceworldNoRepeats_pre_muscimol', ...
@@ -3273,7 +3485,7 @@ disp(['Reaction time stim x condition p = ' num2str(curr_p(3))]);
 
 
 
-%% SFig9f Striatal task trial activity pre/post muscimol
+%% SFig10f Striatal task trial activity pre/post muscimol
 
 data_fns = { ...
     'trial_activity_vanillaChoiceworldNoRepeats_pre_muscimol', ...
@@ -3461,7 +3673,7 @@ for curr_data = 1:length(data_fns)
 end
 
 
-%% SFig9g Striatal task kernels pre/post muscimol
+%% SFig10g Striatal task kernels pre/post muscimol
 
 data_fns = { ...
     'trial_activity_vanillaChoiceworldNoRepeats_pre_muscimol', ...
@@ -3645,7 +3857,7 @@ end
 
 
 
-%% SFig9h Striatal task/cortex explained variance pre/post muscimol
+%% SFig10h Striatal task/cortex explained variance pre/post muscimol
 
 data_fns = { ...
     'trial_activity_vanillaChoiceworldNoRepeats_pre_muscimol', ...
@@ -3730,7 +3942,7 @@ for curr_depth = 1:n_depths
 end
 
 
-%% ** SFig11: Stimulus activity vs choice
+%% ** SFig12: Stimulus activity vs choice
 
 % Get stim activity by stim/choice/depth/experiment
 stim_avg_t = [0,0.2];
