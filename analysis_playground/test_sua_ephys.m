@@ -673,7 +673,7 @@ for curr_depth = 1:n_domains
     end
 end
 
-%% Concatenate trial-average and multi-align activity
+%% Concatenate trial-average and multi-aligned activity
 
 mua_exp = vertcat(mua_all{:});
 
@@ -691,22 +691,22 @@ use_align = {stim_align,move_align,outcome_align};
 
 % (move aligned)
 move_idx_exp = mat2cell(move_idx,use_split,1);
-mua_allcat_movealign_exp = vertcat(mua_all{:});
-for curr_exp = 1:length(mua_allcat_movealign_exp)
-   for curr_trial = 1:size(mua_allcat_movealign_exp{curr_exp},1)
-       mua_allcat_movealign_exp{curr_exp}(curr_trial,:,:) = ...
-           circshift(mua_allcat_movealign_exp{curr_exp}(curr_trial,:,:), ...
+mua_exp_movealign = vertcat(mua_all{:});
+for curr_exp = 1:length(mua_exp_movealign)
+   for curr_trial = 1:size(mua_exp_movealign{curr_exp},1)
+       mua_exp_movealign{curr_exp}(curr_trial,:,:) = ...
+           circshift(mua_exp_movealign{curr_exp}(curr_trial,:,:), ...
            -move_idx_exp{curr_exp}(curr_trial)+leeway_samples,2);
    end
 end
 
 % (outcome aligned)
 outcome_idx_exp = mat2cell(outcome_idx,use_split,1);
-mua_allcat_outcomealign_exp = vertcat(mua_all{:});
-for curr_exp = 1:length(mua_allcat_outcomealign_exp)
-    for curr_trial = 1:size(mua_allcat_outcomealign_exp{curr_exp},1)
-        mua_allcat_outcomealign_exp{curr_exp}(curr_trial,:,:) = ...
-            circshift(mua_allcat_outcomealign_exp{curr_exp}(curr_trial,:,:), ...
+mua_exp_outcomealign = vertcat(mua_all{:});
+for curr_exp = 1:length(mua_exp_outcomealign)
+    for curr_trial = 1:size(mua_exp_outcomealign{curr_exp},1)
+        mua_exp_outcomealign{curr_exp}(curr_trial,:,:) = ...
+            circshift(mua_exp_outcomealign{curr_exp}(curr_trial,:,:), ...
             -outcome_idx_exp{curr_exp}(curr_trial)+leeway_samples,2);
     end
 end
@@ -721,9 +721,9 @@ for curr_align = 1:length(use_align_labels)
         case 1
             curr_mua = mua_exp;
         case 2
-            curr_mua = mua_allcat_movealign_exp;
+            curr_mua = mua_exp_movealign;
         case 3
-            curr_mua = mua_allcat_outcomealign_exp;
+            curr_mua = mua_exp_outcomealign;
     end
     
     act_mean(:,:,curr_align) = cell2mat(cellfun(@(act,stim,rxn,outcome) ...
@@ -752,7 +752,60 @@ act_mean_multialign = cell2mat(arrayfun(@(x) ...
     act_mean(:,align_samples{x},x),1:size(act_mean,3),'uni',false));
 
 
+%%%%%%%%%%%%%%%%%%% CURRENTLY HERE
 
+
+% Get cell-cell correlations in average activity
+curr_depth = 1;
+curr_celltype = 2;
+
+curr_cells = domain_aligned_allcat == curr_depth & ...
+    celltype_allcat == curr_celltype & good_units_allcat & ...
+    any(act_mean_multialign,2);
+
+% figure;
+% imagesc(zscore(act_mean_multialign(curr_cells,:),[],2));
+% colormap('gray');
+
+curr_corr = corrcoef(act_mean_multialign(curr_cells,:)');
+nanmedian(AP_itril(curr_corr,-1))
+
+
+act_mean_multialign_corr = corrcoef(act_mean_multialign');
+act_mean_multialign_corr(logical(eye(length(act_mean_multialign_corr)))) = NaN;
+
+act_mean_corr = nan(3,3);
+for curr_domain = 1:3
+    for curr_celltype = 1:3
+        curr_cells_1 = domain_aligned_allcat == curr_domain & ...
+            celltype_allcat == curr_celltype & good_units_allcat & ...
+            any(act_mean_multialign,2);
+        curr_cells_2 = domain_aligned_allcat == curr_domain & ...
+            celltype_allcat == curr_celltype & good_units_allcat & ...
+            any(act_mean_multialign,2);
+        act_mean_corr(curr_domain,curr_celltype) = ...
+            nanmedian(reshape( ...
+            act_mean_multialign_corr(curr_cells_1,curr_cells_2),[],1));
+    end
+end
+
+
+act_mean_corr_crosstype = nan(3,3,3);
+for curr_celltype_1 = 1:3
+    for curr_celltype_2 = 1:3       
+        for curr_domain = 1:3
+            curr_cells_1 = domain_aligned_allcat == curr_domain & ...
+                celltype_allcat == curr_celltype_1 & good_units_allcat & ...
+                any(act_mean_multialign,2);
+            curr_cells_2 = domain_aligned_allcat == curr_domain & ...
+                celltype_allcat == curr_celltype_2 & good_units_allcat & ...
+                any(act_mean_multialign,2);
+            act_mean_corr_crosstype(curr_celltype_1,curr_celltype_2,curr_domain) = ...
+                nanmedian(reshape( ...
+                act_mean_multialign_corr(curr_cells_1,curr_cells_2),[],1));
+        end
+    end
+end
 
 
 
@@ -1851,6 +1904,8 @@ kernel_template_fn = ['C:\Users\Andrew\OneDrive for Business\Documents\Carandini
 load(kernel_template_fn);
 
 figure; hold on;
+str_col = max(hsv(n_aligned_depths)-0.2,0);
+set(gca,'ColorOrder',str_col);
 for curr_depth = 1:n_aligned_depths
     
     use_cells = good_units_allcat & domain_aligned_allcat == curr_depth & ...
@@ -1883,6 +1938,98 @@ for curr_depth = 1:n_aligned_depths
     AP_reference_outline('ccf_aligned',[0.5,0.5,0.5]);
     title('Domain kernel')
 end
+
+
+
+
+% Plot average within each celltype/domain
+figure;
+for curr_depth = 1:n_domains
+    for curr_celltype = 1:n_celltypes
+        subplot(n_domains,n_celltypes, ...
+            (curr_depth-1)*n_celltypes+curr_celltype)
+        imagesc(nanmean(ctx_str_k_px(:,:, ...
+            domain_aligned_allcat(good_units_allcat) == curr_depth & ...
+            celltype_allcat(good_units_allcat) == curr_celltype),3));
+        axis image
+        colormap(brewermap([],'*RdBu'));
+        caxis([-max(abs(caxis)),max(abs(caxis))]);
+        AP_reference_outline('ccf_aligned',[0.5,0.5,0.5]);
+        axis off
+        title(['Str ' num2str(curr_depth) ' ' celltype_labels{curr_celltype}]);
+    end
+end
+
+% Correlate maps for each celltype within and across domains
+
+% Load kernel templates
+n_aligned_depths = 3;
+kernel_template_fn = ['C:\Users\Andrew\OneDrive for Business\Documents\CarandiniHarrisLab\analysis\wf_ephys_choiceworld\ephys_processing\kernel_template_' num2str(n_aligned_depths) '_depths.mat'];
+load(kernel_template_fn);
+
+for curr_depth = 1:n_aligned_depths
+    for curr_celltype = 1:3
+        
+        use_cells = good_units_allcat & domain_aligned_allcat == curr_depth & ...
+            ismember(celltype_allcat,[1,2,3]);
+        use_maps = ctx_str_k_px(:,:, ...
+            domain_aligned_allcat(good_units_allcat) == curr_depth & ...
+            ismember(celltype_allcat(good_units_allcat),[1,2,3]));
+        
+    end
+end
+
+% Get map correlations for each celltype within/across domain
+% (this is a super dirty way to do it but I'm in a hurry)
+n_recordings = max(recordings_allcat);
+celltype_map_corr = cell(3,2,n_recordings);
+for curr_depth = 1:n_aligned_depths
+    for curr_celltype = 1:3
+        for curr_recording = 1:n_recordings
+            
+            use_maps = ctx_str_k_px(:,:, ...
+                domain_aligned_allcat(good_units_allcat) == curr_depth & ...
+                celltype_allcat(good_units_allcat) == curr_celltype & ...
+                recordings_allcat(good_units_allcat) == curr_recording);
+            
+            if ~isempty(use_maps)
+                map_corr = corr(reshape(use_maps,[],size(use_maps,3)), ...
+                reshape(kernel_template,[],n_aligned_depths),'type','Pearson');
+            else 
+               map_corr = nan('single');
+            end
+    
+            [cell_id,depth_group_id] = ndgrid(1:size(map_corr,1),1:size(map_corr,2));
+            depth_group = (depth_group_id ~= curr_depth)+1;
+            
+            for curr_depth_compare = 1:2
+                celltype_map_corr{curr_celltype,curr_depth_compare,curr_recording} = ...
+                   cat(1,celltype_map_corr{curr_celltype,curr_depth_compare,curr_recording}, ...
+                   reshape(map_corr(depth_group == curr_depth_compare),[],1));       
+            end
+        end
+    end
+end
+
+celltype_map_corr_mean = cellfun(@nanmean,celltype_map_corr);
+
+figure; hold on;
+errorbar(nanmean(celltype_map_corr_mean,3)', ...
+    AP_sem(celltype_map_corr_mean,3)','linewidth',2);
+xlim([0.5,2.5]);
+set(gca,'XTick',1:2,'XTickLabel',{'Within domain','Across domain'});
+ylabel('Cell-domain kernel correlation')
+legend({'MSN','FSI','TAN'});
+
+% (Map correlation vs. celltype statistics)
+disp('Cell-domain map correlation by celltype (2-way anova):');
+[celltype_grp,domain_grp,exp_grp] = ndgrid(1:size(celltype_map_corr_mean,1), ...
+    1:size(celltype_map_corr_mean,2),1:size(celltype_map_corr_mean,3));
+p = anovan(celltype_map_corr_mean(:),...
+    [celltype_grp(:),domain_grp(:)],'model','interaction','display','off');
+disp(['p(cell type) = ' num2str(p(1))]);
+disp(['p(cell type) = ' num2str(p(2))]);
+disp(['p(cell type) = ' num2str(p(3))]);
 
 
 %% Plot maps by condition 1/2
@@ -3439,22 +3586,22 @@ use_align = {stim_align,move_align,outcome_align};
 
 % (move aligned)
 move_idx_exp = mat2cell(move_idx,use_split,1);
-mua_allcat_movealign_exp = vertcat(mua_all{:});
-for curr_exp = 1:length(mua_allcat_movealign_exp)
-   for curr_trial = 1:size(mua_allcat_movealign_exp{curr_exp},1)
-       mua_allcat_movealign_exp{curr_exp}(curr_trial,:,:) = ...
-           circshift(mua_allcat_movealign_exp{curr_exp}(curr_trial,:,:), ...
+mua_exp_movealign = vertcat(mua_all{:});
+for curr_exp = 1:length(mua_exp_movealign)
+   for curr_trial = 1:size(mua_exp_movealign{curr_exp},1)
+       mua_exp_movealign{curr_exp}(curr_trial,:,:) = ...
+           circshift(mua_exp_movealign{curr_exp}(curr_trial,:,:), ...
            -move_idx_exp{curr_exp}(curr_trial)+leeway_samples,2);
    end
 end
 
 % (outcome aligned)
 outcome_idx_exp = mat2cell(outcome_idx,use_split,1);
-mua_allcat_outcomealign_exp = vertcat(mua_all{:});
-for curr_exp = 1:length(mua_allcat_outcomealign_exp)
-    for curr_trial = 1:size(mua_allcat_outcomealign_exp{curr_exp},1)
-        mua_allcat_outcomealign_exp{curr_exp}(curr_trial,:,:) = ...
-            circshift(mua_allcat_outcomealign_exp{curr_exp}(curr_trial,:,:), ...
+mua_exp_outcomealign = vertcat(mua_all{:});
+for curr_exp = 1:length(mua_exp_outcomealign)
+    for curr_trial = 1:size(mua_exp_outcomealign{curr_exp},1)
+        mua_exp_outcomealign{curr_exp}(curr_trial,:,:) = ...
+            circshift(mua_exp_outcomealign{curr_exp}(curr_trial,:,:), ...
             -outcome_idx_exp{curr_exp}(curr_trial)+leeway_samples,2);
     end
 end
@@ -3473,9 +3620,9 @@ for curr_align = 1:length(use_align_labels)
         case 1
             curr_mua = mua_exp;
         case 2
-            curr_mua = mua_allcat_movealign_exp;
+            curr_mua = mua_exp_movealign;
         case 3
-            curr_mua = mua_allcat_outcomealign_exp;
+            curr_mua = mua_exp_outcomealign;
     end
     
     act_mean_sort(:,:,curr_align) = cell2mat(cellfun(@(act,stim,rxn,outcome) ...
@@ -3593,9 +3740,96 @@ end
 
 %% TANs are highly correlated
 
-%% Cortical maps equally similar
+%% Fig 4e: Cortical maps are similar within domain across celltypes
 
+% Plot average within each celltype/domain
+figure;
+for curr_depth = 1:n_domains
+    for curr_celltype = 1:n_celltypes
+        subplot(n_domains,n_celltypes, ...
+            (curr_depth-1)*n_celltypes+curr_celltype)
+        imagesc(nanmean(ctx_str_k_px(:,:, ...
+            domain_aligned_allcat(good_units_allcat) == curr_depth & ...
+            celltype_allcat(good_units_allcat) == curr_celltype),3));
+        axis image
+        colormap(brewermap([],'*RdBu'));
+        caxis([-max(abs(caxis)),max(abs(caxis))]);
+        AP_reference_outline('ccf_aligned',[0.5,0.5,0.5]);
+        axis off
+        title(['Str ' num2str(curr_depth) ' ' celltype_labels{curr_celltype}]);
+    end
+end
 
+% Correlate maps for each celltype within and across domains
+
+% Load kernel templates
+n_aligned_depths = 3;
+kernel_template_fn = ['C:\Users\Andrew\OneDrive for Business\Documents\CarandiniHarrisLab\analysis\wf_ephys_choiceworld\ephys_processing\kernel_template_' num2str(n_aligned_depths) '_depths.mat'];
+load(kernel_template_fn);
+
+for curr_depth = 1:n_aligned_depths
+    for curr_celltype = 1:3
+        
+        use_cells = good_units_allcat & domain_aligned_allcat == curr_depth & ...
+            ismember(celltype_allcat,[1,2,3]);
+        use_maps = ctx_str_k_px(:,:, ...
+            domain_aligned_allcat(good_units_allcat) == curr_depth & ...
+            ismember(celltype_allcat(good_units_allcat),[1,2,3]));
+        
+    end
+end
+
+% Get map correlations for each celltype within/across domain
+% (this is a super dirty way to do it but I'm in a hurry)
+n_recordings = max(recordings_allcat);
+celltype_map_corr = cell(3,2,n_recordings);
+for curr_depth = 1:n_aligned_depths
+    for curr_celltype = 1:3
+        for curr_recording = 1:n_recordings
+            
+            use_maps = ctx_str_k_px(:,:, ...
+                domain_aligned_allcat(good_units_allcat) == curr_depth & ...
+                celltype_allcat(good_units_allcat) == curr_celltype & ...
+                recordings_allcat(good_units_allcat) == curr_recording);
+            
+            if ~isempty(use_maps)
+                map_corr = corr(reshape(use_maps,[],size(use_maps,3)), ...
+                reshape(kernel_template,[],n_aligned_depths),'type','Pearson');
+            else 
+               map_corr = nan('single');
+            end
+    
+            [cell_id,depth_group_id] = ndgrid(1:size(map_corr,1),1:size(map_corr,2));
+            depth_group = (depth_group_id ~= curr_depth)+1;
+            
+            for curr_depth_compare = 1:2
+                celltype_map_corr{curr_celltype,curr_depth_compare,curr_recording} = ...
+                   cat(1,celltype_map_corr{curr_celltype,curr_depth_compare,curr_recording}, ...
+                   reshape(map_corr(depth_group == curr_depth_compare),[],1));       
+            end
+        end
+    end
+end
+
+celltype_map_corr_mean = cellfun(@nanmean,celltype_map_corr);
+
+figure; hold on;
+errorbar(nanmean(celltype_map_corr_mean,3)', ...
+    AP_sem(celltype_map_corr_mean,3)','linewidth',2);
+xlim([0.5,2.5]);
+set(gca,'XTick',1:2,'XTickLabel',{'Within domain','Across domain'});
+ylabel('Cell-domain kernel correlation')
+legend({'MSN','FSI','TAN'});
+
+% (Map correlation vs. celltype statistics)
+disp('Cell-domain map correlation by celltype (2-way anova):');
+[celltype_grp,domain_grp,exp_grp] = ndgrid(1:size(celltype_map_corr_mean,1), ...
+    1:size(celltype_map_corr_mean,2),1:size(celltype_map_corr_mean,3));
+p = anovan(celltype_map_corr_mean(:),...
+    [celltype_grp(:),domain_grp(:)],'model','interaction','display','off');
+disp(['p(cell type) = ' num2str(p(1))]);
+disp(['p(cell type) = ' num2str(p(2))]);
+disp(['p(cell type) = ' num2str(p(3))]);
 
 
 
