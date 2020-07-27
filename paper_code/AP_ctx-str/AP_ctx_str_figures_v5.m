@@ -938,7 +938,7 @@ for t_idx = 1:length(plot_t)
 end
 
 
-%% ** Fig 3a-e, SFig5,6,7: Striatal domain activity and task regression
+%% ** Fig 3a-e, SFig5,6,7ab: Striatal domain activity and task regression
 
 % Plot stim-aligned/sorted measured and predicted striatum activity
 % (correct contra trials)
@@ -2814,7 +2814,7 @@ disp(['p = ' num2str(corr_p) ', r = ' num2str(nanmean(fluor_ctx_str_corr)) ...
     ' +/- SEM ' num2str(AP_sem(fluor_ctx_str_corr,1))])
 
 
-%% ** SFig7: Task > cortex kernels (go cue)
+%% ** SFig6: Task > cortex kernels (go cue)
 
 % Get task>cortex parameters
 n_regressors = length(task_regressor_labels);
@@ -2850,6 +2850,96 @@ for curr_regressor = 1:length(task_regressor_labels)
     end
     
 end
+
+%% ** SFig7c: Task explained variance cortex vs striatum
+
+% Use raw data (not normalized or baseline-subtracted) for expl var
+mua_exp = vertcat(mua_all{:});
+mua_taskpred_exp = vertcat(mua_taskpred_all{:});
+mua_ctxpred_exp = vertcat(mua_ctxpred_all{:});
+mua_ctxpred_taskpred_exp = vertcat(mua_taskpred_all{:});
+
+% Get R^2 for task and cortex
+task_str_r2 = nan(max(split_idx),n_depths);
+task_ctx_r2 = nan(max(split_idx),n_depths);
+for curr_exp = 1:max(split_idx)
+       
+    curr_str_data_baselinesub = reshape(permute(mua_exp{curr_exp},[2,1,3]),[],n_depths) - ...
+        (nanmean(reshape(mua_exp{curr_exp}(:,t < 0,:),[],size(mua_exp{curr_exp},3)),1));
+    curr_str_taskpred_data = reshape(permute(mua_taskpred_exp{curr_exp},[2,1,3]),[],n_depths);
+    
+    curr_ctx_data_baselinesub = reshape(permute(mua_ctxpred_exp{curr_exp},[2,1,3]),[],n_depths) - ...
+        (nanmean(reshape(mua_ctxpred_exp{curr_exp}(:,t < 0,:),[],size(mua_ctxpred_exp{curr_exp},3)),1));
+    curr_ctx_taskpred_data = reshape(permute(mua_ctxpred_taskpred_exp{curr_exp},[2,1,3]),[],n_depths);
+       
+    % Set common NaNs
+    nan_samples = isnan(curr_str_data_baselinesub) | isnan(curr_str_taskpred_data) | ...
+        isnan(curr_ctx_data_baselinesub) | isnan(curr_ctx_taskpred_data);
+    curr_str_data_baselinesub(nan_samples) = NaN;
+    curr_str_taskpred_data(nan_samples) = NaN;
+    curr_ctx_data_baselinesub(nan_samples) = NaN;
+    curr_ctx_taskpred_data(nan_samples) = NaN;
+
+    task_str_r2(curr_exp,:) = 1 - (nansum((curr_str_data_baselinesub-curr_str_taskpred_data).^2,1)./ ...
+        nansum((curr_str_data_baselinesub-nanmean(curr_str_data_baselinesub,1)).^2,1));
+    task_ctx_r2(curr_exp,:) = 1 - (nansum((curr_ctx_data_baselinesub-curr_ctx_taskpred_data).^2,1)./ ...
+        nansum((curr_ctx_data_baselinesub-nanmean(curr_ctx_data_baselinesub,1)).^2,1));
+    
+end
+
+figure; hold on;
+errorbar(nanmean(task_str_r2,1),AP_sem(task_str_r2,1),'b','linewidth',2,'CapSize',0);
+errorbar(nanmean(task_ctx_r2,1),AP_sem(task_ctx_r2,1),'color',[0,0.6,0],'linewidth',2,'CapSize',0);
+xlabel('Striatum depth');
+ylabel('Task explained variance');
+legend({'Task','Cortex'});
+
+% Plot explained variance task vs cortex by experiment
+figure; hold on;
+str_col = max(hsv(n_depths)-0.2,0);
+for curr_str = 1:n_depths
+    errorbar(squeeze(nanmean(task_str_r2(:,curr_str),1)), ...
+        squeeze(nanmean(task_ctx_r2(:,curr_str),1)), ...
+        squeeze(AP_sem(task_ctx_r2(:,curr_str),1)),squeeze(AP_sem(task_ctx_r2(:,curr_str),1)), ...
+        squeeze(AP_sem(task_str_r2(:,curr_str),1)),squeeze(AP_sem(task_str_r2(:,curr_str),1)), ...
+        'color','k','linewidth',2);
+    
+    scatter(task_str_r2(:,curr_str),task_ctx_r2(:,curr_str),10, ...
+        str_col(curr_str,:),'filled');
+    scatter(nanmean(task_str_r2(:,curr_str),1), ...
+        nanmean(task_ctx_r2(:,curr_str),1),80, ...
+        str_col(curr_str,:),'filled','MarkerEdgeColor','k','linewidth',2);
+end
+axis tight equal;
+line(xlim,xlim,'color','k','linestyle','--');
+xlabel('Task striatum R^2');
+ylabel('Task cortex R^2');
+legend({'DMS','DCS','DLS'})
+
+% (Task-striatum R2 statistics)
+disp('Task R^2 values:');
+for curr_depth = 1:n_depths
+    disp(['Str ' num2str(curr_depth) ...
+        ' R2 = ' num2str(nanmean(task_str_r2(:,curr_depth))) '+/- ' ...
+        num2str(AP_sem(task_str_r2(:,curr_depth),1))]); 
+end
+
+% (Task-cortex R2 statistics)
+disp('Cortex R^2 values:');
+for curr_depth = 1:n_depths
+    disp(['Str ' num2str(curr_depth) ...
+        ' R2 = ' num2str(nanmean(task_ctx_r2(:,curr_depth))) '+/- ' ...
+        num2str(AP_sem(task_ctx_r2(:,curr_depth),1))]); 
+end
+
+% (Cortex vs striatum task R2 statistics)
+disp('Cortex vs Task R^2 signrank:');
+for curr_depth = 1:n_depths
+    curr_p = signrank(task_ctx_r2(:,curr_depth), ...
+        task_str_r2(:,curr_depth));
+    disp(['Str ' num2str(curr_depth) ' p = ' num2str(curr_p)]); 
+end
+
 
 
 %% ** SFig8: Striatum prediction: cortical subregions, striatal domains
@@ -3179,8 +3269,8 @@ for curr_str = 1:n_depths
 end
 axis tight equal
 line(xlim,xlim,'color','k','linestyle','--');
-xlabel('Task R^2');
-ylabel('Cortex R^2');
+xlabel('Cortex passive R^2');
+ylabel('Cortex task R^2');
 legend({'DMS','DCS','DLS'})
 
 % Get and plot striatal variance by task vs. passive
