@@ -90,15 +90,11 @@ move_t_hist = cell2mat(permute(cellfun(@(trial_bin,move_t_bin) ...
     trial_bin,move_t_bin,'uni',false),[2,3,1]));
 
 move_t_frac = move_t_hist./sum(move_t_hist,2);
-
-n_recording_animal = cellfun(@length,wheel_all);
-move_t_frac_animals = mat2cell(move_t_frac,n_trial_prctile,length(move_t_bin_centers),n_recording_animal);
-move_t_frac_animalmean = cell2mat(cellfun(@(x) nanmean(x,3), ...
-    move_t_frac_animals,'uni',false));
+move_t_frac_animals = mat2cell(
 
 subplot(1,3,3);
-AP_errorfill(move_t_bin_centers,nanmean(move_t_frac_animalmean,3)', ...
-    AP_sem(move_t_frac_animalmean,3)',copper(n_trial_prctile));
+AP_errorfill(move_t_bin_centers,nanmean(move_t_frac,3)', ...
+    AP_sem(move_t_frac,3)',copper(n_trial_prctile));
 xlabel('Time from stim onset');
 ylabel('Fraction of reaction times');
 line([0,0],ylim,'color','k');
