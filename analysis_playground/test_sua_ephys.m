@@ -162,7 +162,7 @@ end
 celltype_allcat = ceil(groups_allcat./n_domains);
 % NOTE: Group 3+6 are both TAN (from relaxing metrics)
 % COMBINING THESE MANUALLY
-celltype_labels = {'MSN','FSI','TAN','TH','Other'};
+celltype_labels = {'MSN','FSI','TAN','UIN','Other'};
 celltype_allcat(celltype_allcat == 6) = 3;
 n_celltypes = 5;
 
@@ -448,7 +448,7 @@ end
 celltype_allcat = ceil(groups_allcat./n_domains);
 % NOTE: Group 3+6 are both TAN (from relaxing metrics)
 % COMBINING THESE MANUALLY
-celltype_labels = {'MSN','FSI','TAN','TH','Other'};
+celltype_labels = {'MSN','FSI','TAN','UIN','Other'};
 celltype_allcat(celltype_allcat == 6) = 3;
 n_celltypes = 5;
 
@@ -564,10 +564,22 @@ axis vis3d
 
 %% Plot type/domain counts
 
-domain_type_count = accumarray([domain_aligned_allcat(good_units_allcat), ...
-    celltype_allcat(good_units_allcat)],1);
+include_celltypes = [1:4]; % 5 is probably incorrectly split units
+include_units = good_units_allcat & ...
+    ismember(celltype_allcat,include_celltypes);
 
-figure;
+domain_type_count = accumarray([ ...
+    domain_aligned_allcat(include_units), ...
+    celltype_allcat(include_units)],1);
+
+celltype_col = ...
+    [0.9,0.4,0.6; ...
+    0.4,0.5,0.6; ...
+    0.5,0.3,0.1; ...
+    1,0.5,0];
+
+figure; hold on;
+set(gca,'ColorOrder',celltype_col);
 bar(domain_type_count,'stacked');
 xlabel('Domain');
 ylabel('Count');

@@ -4,13 +4,22 @@ function AP_heatscatter(x,y,n_bins,point_thresh)
 % Scatter plot turning into heatmap when dense
 % x = x data
 % y = y data
-% n_bins = number of histogram bins for x and y
+% n_bins = number of histogram bins for x and y (1 or 2 elements)
 % point_thresh = # points threshold for scatter vs heatmap
+
+% Force column orientation
+x = reshape(x,[],1);
+y = reshape(y,[],1);
 
 % Cut out NaNs
 nan_points = isnan(x) | isnan(y);
 x(nan_points) = [];
 y(nan_points) = [];
+
+% If one n_bins provided, double
+if length(n_bins) == 1
+    n_bins = repmat(n_bins,1,2);
+end
 
 % Set default heat/scatter threshold
 if ~exist('point_thresh','var') || isempty(point_thresh)
@@ -18,8 +27,8 @@ if ~exist('point_thresh','var') || isempty(point_thresh)
 end
 
 % Set bins and bin data
-x_bins = linspace(min(x),max(x),n_bins+1);
-y_bins = linspace(min(y),max(y),n_bins+1);
+x_bins = linspace(min(x),max(x),n_bins(1)+1);
+y_bins = linspace(min(y),max(y),n_bins(2)+1);
 
 x_bin_centers = x_bins(1:end-1) + diff(x_bins)./2;
 y_bin_centers = y_bins(1:end-1) + diff(y_bins)./2;

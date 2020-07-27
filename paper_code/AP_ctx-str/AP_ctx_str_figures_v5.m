@@ -121,9 +121,7 @@ AP_load_experiment;
 use_components = 1:200;
 aUdf = AP_align_widefield(Udf,animal,day);
 fVdf_deconv = AP_deconv_wf(fVdf);
-%%
 % Set time to plot
-% plot_t = [134,152];
 plot_t = [15,45];
 
 raster_fig = figure;
@@ -1778,7 +1776,14 @@ end
 
 celltype_map_corr_mean = cellfun(@nanmean,celltype_map_corr);
 
+celltype_col = ...
+    [0.9,0.4,0.6; ...
+    0.4,0.5,0.6; ...
+    0.5,0.3,0.1; ...
+    1,0.5,0];
+
 figure; hold on;
+set(gca,'ColorOrder',celltype_col);
 errorbar(nanmean(celltype_map_corr_mean,3)', ...
     AP_sem(celltype_map_corr_mean,3)','linewidth',2);
 xlim([0.5,2.5]);
@@ -4460,6 +4465,30 @@ for curr_depth = 1:n_depths
         ctx_task_r2_diff(:,curr_depth,2));
     disp(['Str ' num2str(curr_depth) ' p = ' num2str(curr_p)]); 
 end
+
+%% @@ SFig11c: Counts of cells by type and domain
+
+include_celltypes = [1:4]; % 5 is probably incorrectly split units
+include_units = good_units_allcat & ...
+    ismember(celltype_allcat,include_celltypes);
+
+domain_type_count = accumarray([ ...
+    domain_aligned_allcat(include_units), ...
+    celltype_allcat(include_units)],1);
+
+celltype_col = ...
+    [0.9,0.4,0.6; ...
+    0.4,0.5,0.6; ...
+    0.5,0.3,0.1; ...
+    1,0.5,0];
+
+figure; hold on;
+set(gca,'ColorOrder',celltype_col);
+bar(domain_type_count,'stacked');
+xlabel('Domain');
+ylabel('Count');
+legend(celltype_labels);
+
 
 
 %% ** SFig12: Stimulus activity vs choice
