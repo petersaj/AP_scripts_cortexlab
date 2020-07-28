@@ -2191,40 +2191,47 @@ figure;
 
 [plot_maps_y,plot_maps_x] = ndgrid(4:5:size(wf_corr_map_mean,1)-4,4:5:size(wf_corr_map_mean,2));
 
+%%%%%%%%%%%%%%%%%%%% This is unused: k-means of correlated pixels
+% (CCF lines lie at reflection points and correlated points are tangent to
+% that, that's probably too confusing for anyone not used to this and I
+% don't know how to pull out reflection points, so leaving out)
 
-%%%%%%%%%%%%%%%%%%%% TESTING
-% (was trying getting borders from average maps - there's definitely a
-% nicer way to show this even with correlated regions rather than borders
-% but on hold since it's low priority)
+% (get widefield inside brain)
+h = figure('visible','off');
+brain_outlines = AP_reference_outline('ccf_aligned');
+brain_outlines = vertcat(brain_outlines{:});
 
-% % Get borders of mean correlation maps
-% corr_map_cat = cat(3,wf_corr_map_mean{:});
-% corr_map_cat(isnan(corr_map_cat)) = 0;
-% lowpass_filt = fspecial('gaussian',5);
-% corr_map_edge = corr_map_cat - convn(corr_map_cat,lowpass_filt,'same');
-% corr_map_edge = corr_map_cat - imgaussfilt(corr_map_cat,3,'FilterDomain','spatial');
-% 
-% % (set borders to zero)
-% corr_edges = nanmean(corr_map_edge,3);
-% 
-% corr_edges_upsample = imresize(corr_edges,downsample_factor,'bilinear');
+% (get brain pixels in widefield using aligned CCF borders)
+[m,n] = size(wf_corr_borders_mean);
+brain_pixels = false(m,n);
+for curr_region = 1:length(brain_outlines)
+    curr_bw = poly2mask(brain_outlines{curr_region}.XData, ...
+        brain_outlines{curr_region}.YData,m,n);
+    brain_pixels(curr_bw) = true;
+end
+brain_pixels = imclose(brain_pixels,strel('disk',5'));
+close(h);
 
+corr_map_cat = cat(3,wf_corr_map_mean{:});
+corr_map_cat_flat = reshape(corr_map_cat,[],size(corr_map_cat,3));
+corr_map_cat_flat(isnan(corr_map_cat_flat)) = 0;
 
-a = reshape(corr_map_cat,[],size(corr_map_cat,3));
-a(isnan(a)) = 0;
-n_grps = 10;
-kidx = reshape(kmeans(a,n_grps),size(corr_map_cat,1),size(corr_map_cat,2));
-kidx_upsample = imresize(kidx,downsample_factor,'nearest');
+n_grps = 6;
+brain_pixels_downsamp = imresize(brain_pixels,1/downsample_factor,'nearest');
+kidx = kmeans(corr_map_cat_flat(brain_pixels_downsamp(:),:),n_grps);
 
-figure;imagesc(kidx_upsample);
-axis image
+kidx_brain = nan(size(brain_pixels_downsamp));
+kidx_brain(brain_pixels_downsamp(:)) = kidx;
+
+kidx_upsample = imresize(kidx_brain,downsample_factor,'nearest');
+
+figure;imagesc(kidx_upsample)
 AP_reference_outline('ccf_aligned','k');
-colormap(brewermap([],'Set3'));
-title('K-means? exclude outside-brain if doing this?')
-
-%%%%%%%%%%%%%%%%%%%% TESTING
-
-
+axis image off;
+colormap([1,1,1;brewermap([],'Set3')]);
+caxis([0,n_grps]);
+title('Pixel correlation k-means');
+%%%%%%%%%%%%%%%%%%%% 
 
 % Plot sample correlation map locations
 subplot(1,3,1,'YDir','reverse');
