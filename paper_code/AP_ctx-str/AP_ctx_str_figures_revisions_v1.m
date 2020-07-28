@@ -585,230 +585,6 @@ end
 
 
 
-%% Latency between VisAM and DMS spikes
-
-animals = {'AP043','AP060','AP061'};
-
-% Load ephys alignment
-vis_ctx_ephys_fn = 'C:\Users\Andrew\OneDrive for Business\Documents\CarandiniHarrisLab\analysis\wf_ephys_choiceworld\ephys_processing\vis_ctx_ephys.mat';
-load(vis_ctx_ephys_fn);
-
-lag_t = 1000; % ms
-ctx_str_xcorr = struct;
-for curr_animal = 1:length(animals)
-    
-    animal = animals{curr_animal};
-    
-    protocol = 'vanillaChoiceworld';
-    flexible_name = true;
-    experiments = AP_find_experiments(animal,protocol);
-    experiments = experiments([experiments.imaging] & [experiments.ephys]);
-    
-    for curr_day = 1:length(experiments)
-        
-        preload_vars = who;
-        
-        % Load experiment
-        day = experiments(curr_day).day;
-        experiment = experiments(curr_day).experiment(1); % (only one doubled experiment, and the second one was worse)
-        site = 2; % cortex probe is always site 2
-        str_align = 'none'; % (because this is on cortex)
-        load_parts.ephys = true;
-        AP_load_experiment
-        
-        %%%%% CORTEX
-        
-        % Get depth group boundaries
-        % (these are just manual based on the CSD)
-        n_aligned_depths = 2;
-        ctx_depth_edges = linspace(0,1200,n_aligned_depths+1);
-        
-        % Depth-align templates
-        curr_animal_idx = strcmp(animal,{vis_ctx_ephys.animal});
-        curr_day_idx = strcmp(day,vis_ctx_ephys(curr_animal_idx).day);
-        curr_csd_depth = vis_ctx_ephys(curr_animal_idx).stim_csd_depth{curr_day_idx};
-        curr_csd_depth_aligned = vis_ctx_ephys(curr_animal_idx).stim_csd_depth_aligned{curr_day_idx};
-        
-        template_depths_aligned = interp1(curr_csd_depth,curr_csd_depth_aligned,template_depths);
-        spike_depths_aligned = template_depths_aligned(spike_templates);
-        
-        % Find cortex end by largest gap between templates
-        sorted_template_depths = sort([template_depths_aligned]);
-        [max_gap,max_gap_idx] = max(diff(sorted_template_depths));
-        ctx_end = sorted_template_depths(max_gap_idx)+1;
-        ctx_depth = [sorted_template_depths(1),ctx_end];
-        ctx_units = template_depths_aligned <= ctx_depth(2);
-        
-        % Assign templates to depth groups
-        ctx_spike_depths = spike_depths_aligned;
-        ctx_spike_depths(spike_depths_aligned < ctx_depth(1) | spike_depths_aligned > ctx_depth(2)) = NaN;
-        ctx_depth_group = discretize(ctx_spike_depths,ctx_depth_edges);
-        
-        % Set binning time
-        skip_seconds = 60;
-        spike_binning_t = 0.001; % seconds
-        spike_binning_t_edges = spike_times_timeline(1)+skip_seconds: ...
-            spike_binning_t:spike_times_timeline(end)-skip_seconds;
-        spike_binning_t_centers = spike_binning_t_edges(1:end-1) + diff(spike_binning_t_edges)/2;
-            
-        cortex_mua = nan(size(ctx_depth_group,2),length(spike_binning_t_centers));
-        for curr_depth = 1:n_aligned_depths
-            curr_spike_times = spike_times_timeline(ctx_depth_group == curr_depth);
-            % (skip if no spikes at this depth)
-            if isempty(curr_spike_times)
-                continue
-            end
-            cortex_mua(curr_depth,:) = histcounts(curr_spike_times,spike_binning_t_edges);
-        end               
-        
-        
-        %%%%% STRIATUM
-       
-        site = 1; % (striatum is always on probe 1)
-        n_aligned_depths = 3;
-        str_align = 'kernel';
-        AP_load_experiment;
-        
-        striatum_mua = nan(n_aligned_depths,length(spike_binning_t_centers));
-        for curr_depth = 1:n_aligned_depths
-            curr_spike_times = spike_times_timeline(aligned_str_depth_group == curr_depth);
-            % Skip if no spikes at this depth
-            if isempty(curr_spike_times)
-                continue
-            end
-            striatum_mua(curr_depth,:) = histcounts(curr_spike_times,spike_binning_t_edges);
-        end
-        
-        %%% Cortex-striatum correlation
-              
-        % Get cross-correlations
-        curr_ctx_str_xcorr = nan(size(cortex_mua,1),lag_t*2+1);
-        for curr_ctx = 1:size(cortex_mua,1)
-            curr_ctx_str_xcorr(curr_ctx,:) = ...
-                xcorr(striatum_mua(1,:),cortex_mua(curr_ctx,:),lag_t,'coeff');
-        end       
-        ctx_str_xcorr(curr_animal).ctx_str{curr_day} = curr_ctx_str_xcorr;
-        ctx_str_xcorr(curr_animal).ctx_layer{curr_day} = ...
-            xcorr(cortex_mua(1,:),cortex_mua(2,:),lag_t,'coeff');
-        
-        % Get autocorrelation-normalized impulse response (Nauhaus 2012)         
-        curr_ctx_str_xcorr_autonorm = nan(size(cortex_mua,1),lag_t*2+1);
-        for curr_ctx = 1:size(cortex_mua,1)
-            soft_reg_factor = 1e4;
-            curr_autonorm = ifft((fft(striatum_mua(1,:)).* ...
-                conj(fft(cortex_mua(curr_ctx,:))))./ ...
-                (soft_reg_factor+fft(cortex_mua(curr_ctx,:)).* ...
-                conj(fft(cortex_mua(curr_ctx,:)))));
-            curr_ctx_str_xcorr_autonorm(curr_ctx,:) = ...
-                [curr_autonorm(end-lag_t:end),curr_autonorm(1:lag_t)];
-        end
-        ctx_str_xcorr(curr_animal).ctx_str_autonorm{curr_day} = curr_ctx_str_xcorr_autonorm;
-        
-        curr_autonorm = ifft((fft(cortex_mua(1,:)).* ...
-            conj(fft(cortex_mua(2,:))))./ ...
-            (soft_reg_factor+fft(cortex_mua(2,:)).* ...
-            conj(fft(cortex_mua(2,:)))));
-        ctx_str_xcorr(curr_animal).ctx_layer_autonorm{curr_day} = ...
-                [curr_autonorm(end-lag_t:end),curr_autonorm(1:lag_t)];  
-        
-        % Clear variables for next experiment
-        clearvars('-except',preload_vars{:});
-        
-        AP_print_progress_fraction(curr_day,length(experiments));
-        
-    end
-    
-end
-
-% Concatenate (no normalizing?)
-ctx_str_cat = cell2mat(permute([ctx_str_xcorr(:).ctx_str],[1,3,2]));
-ctx_str_autonorm_cat = cell2mat(permute([ctx_str_xcorr(:).ctx_str_autonorm],[1,3,2]));
-
-ctx_layer_cat = cell2mat([ctx_str_xcorr(:).ctx_layer]');
-ctx_layer_autonorm_cat = cell2mat([ctx_str_xcorr(:).ctx_layer_autonorm]');
-
-% Plot
-lags = -lag_t:lag_t;
-
-figure;
-subplot(2,2,1);
-AP_errorfill(lags,nanmean(ctx_str_cat,3)',AP_sem(ctx_str_cat,3)');
-line([0,0],ylim,'color','k');
-xlabel('Lag (ms)')
-ylabel('Correlation (norm)')
-title('Deep cortex-DMS xcorr (autocorr norm)');
-subplot(2,2,2);
-AP_errorfill(lags,nanmean(ctx_str_autonorm_cat,3)',AP_sem(ctx_str_autonorm_cat,3)');
-line([0,0],ylim,'color','k');
-xlabel('Lag (ms)')
-ylabel('Impulse response')
-title('Deep cortex-DMS SC''/CC''');
-subplot(2,2,3);
-AP_errorfill(lags,nanmean(ctx_layer_cat,1)',AP_sem(ctx_layer_cat,1)','k');
-line([0,0],ylim,'color','k');
-xlabel('Lag (ms)')
-ylabel('Correlation (norm)')
-title('Cortex deep-superficial xcorr (autocorr norm)');
-subplot(2,2,4);
-AP_errorfill(lags,nanmean(ctx_layer_autonorm_cat,1)',AP_sem(ctx_layer_autonorm_cat,1)','k');
-line([0,0],ylim,'color','k');
-xlabel('Lag (ms)')
-ylabel('Impulse response')
-title('Cortex deep-superficial SC''/CC''');
-
-linkaxes(get(gcf,'Children'),'x');
-
-
-
-%% Ternary plot for map-template correlations
-
-% Load kernel templates for overlay
-n_aligned_depths = 3;
-kernel_template_fn = ['C:\Users\Andrew\OneDrive for Business\Documents\CarandiniHarrisLab\analysis\wf_ephys_choiceworld\ephys_processing\kernel_template_' num2str(n_aligned_depths) '_depths.mat'];
-load(kernel_template_fn);
-
-% Load the kernel template matches
-n_aligned_depths = 3;
-kernel_match_path = 'C:\Users\Andrew\OneDrive for Business\Documents\CarandiniHarrisLab\analysis\wf_ephys_choiceworld\ephys_processing';
-kernel_match_fn = ['ephys_kernel_align_' num2str(n_aligned_depths) '_depths.mat'];
-load([kernel_match_path filesep kernel_match_fn]);
-
-% (naive animals not included in this plot)
-naive_animals = {'AP032','AP033','AP034','AP035','AP036'};
-use_animals = ~ismember({ephys_kernel_align.animal},naive_animals);
-kernel_match_cat = cell2mat(horzcat(ephys_kernel_align(use_animals).kernel_match)');
-
-% Get ternary coordinates of map correlations
-kernel_corr_cat_offset = kernel_corr_cat+1;
-kernel_corr_cat_norm = kernel_corr_cat_offset./sum(kernel_corr_cat_offset,2) - ...
-    (kernel_corr_cat_offset./sum(kernel_corr_cat_offset,2))./3;
-
-ternary_tform = [0,1;sqrt(3/4),-0.5;-sqrt(3/4),-0.5];
-ternary_limits = (ternary_tform\(eye(3)*max(max(kernel_corr_cat_norm,[],1))))';
-
-kernel_corr_ternary = (ternary_tform\kernel_corr_cat_norm')';
-
-% Plot ternary correlation coorinates and templates
-figure;
-
-subplot(1,4,1); hold on;
-use_depths = ~isnan(kernel_match_cat);
-str_col = max(hsv(n_aligned_depths)-0.2,0);
-patch(ternary_limits(:,1),ternary_limits(:,2),'w','linewidth',1);
-scatter(kernel_corr_ternary(use_depths,1), ...
-    kernel_corr_ternary(use_depths,2), ...
-    5,str_col(kernel_match_cat(use_depths),:),'filled');
-axis image off;
-
-for curr_template = 1:n_aligned_depths
-    subplot(n_aligned_depths,1,curr_template);
-    imagesc(kernel_template(:,:,curr_template));
-    AP_reference_outline('ccf_aligned',[0.5,0.5,0.5]);
-    axis image off;
-    colormap(brewermap([],'PRGn'));
-    caxis([-max(abs(caxis)),max(abs(caxis))]);
-end
-
 
 
 
@@ -3148,8 +2924,229 @@ for curr_depth = 1:n_depths
     disp(['Str ' num2str(curr_depth) ' p = ' num2str(curr_p)]); 
 end
 
+%% Ternary plot for map-template correlations
+
+% Load kernel templates for overlay
+n_aligned_depths = 3;
+kernel_template_fn = ['C:\Users\Andrew\OneDrive for Business\Documents\CarandiniHarrisLab\analysis\wf_ephys_choiceworld\ephys_processing\kernel_template_' num2str(n_aligned_depths) '_depths.mat'];
+load(kernel_template_fn);
+
+% Load the kernel template matches
+n_aligned_depths = 3;
+kernel_match_path = 'C:\Users\Andrew\OneDrive for Business\Documents\CarandiniHarrisLab\analysis\wf_ephys_choiceworld\ephys_processing';
+kernel_match_fn = ['ephys_kernel_align_' num2str(n_aligned_depths) '_depths.mat'];
+load([kernel_match_path filesep kernel_match_fn]);
+
+% (naive animals not included in this plot)
+naive_animals = {'AP032','AP033','AP034','AP035','AP036'};
+use_animals = ~ismember({ephys_kernel_align.animal},naive_animals);
+kernel_corr_cat = cell2mat([ephys_kernel_align(use_animals).kernel_corr]');
+kernel_match_cat = cell2mat(horzcat(ephys_kernel_align(use_animals).kernel_match)');
+
+% Get ternary coordinates of map correlations
+kernel_corr_cat_offset = kernel_corr_cat+1;
+kernel_corr_cat_norm = kernel_corr_cat_offset./sum(kernel_corr_cat_offset,2) - ...
+    (kernel_corr_cat_offset./sum(kernel_corr_cat_offset,2))./3;
+
+ternary_tform = [0,1;sqrt(3/4),-0.5;-sqrt(3/4),-0.5];
+ternary_limits = (ternary_tform\(eye(3)*max(max(kernel_corr_cat_norm,[],1))))';
+
+kernel_corr_ternary = (ternary_tform\kernel_corr_cat_norm')';
+
+% Plot ternary correlation coorinates and templates
+figure;
+
+subplot(n_aligned_depths+1,1,1); hold on;
+use_depths = ~isnan(kernel_match_cat);
+str_col = max(hsv(n_aligned_depths)-0.2,0);
+patch(ternary_limits(:,1),ternary_limits(:,2),'w','linewidth',1);
+scatter(kernel_corr_ternary(use_depths,1), ...
+    kernel_corr_ternary(use_depths,2), ...
+    5,str_col(kernel_match_cat(use_depths),:),'filled');
+axis image off;
+
+for curr_template = 1:n_aligned_depths
+    subplot(n_aligned_depths+1,1,curr_template+1);
+    imagesc(kernel_template(:,:,curr_template));
+    AP_reference_outline('ccf_aligned',[0.5,0.5,0.5]);
+    axis image off;
+    colormap(brewermap([],'PRGn'));
+    caxis([-max(abs(caxis)),max(abs(caxis))]);
+end
 
 
+%% Latency between VisAM and DMS spikes
+
+animals = {'AP043','AP060','AP061'};
+
+% Load ephys alignment
+vis_ctx_ephys_fn = 'C:\Users\Andrew\OneDrive for Business\Documents\CarandiniHarrisLab\analysis\wf_ephys_choiceworld\ephys_processing\vis_ctx_ephys.mat';
+load(vis_ctx_ephys_fn);
+
+lag_t = 1000; % ms
+ctx_str_xcorr = struct;
+for curr_animal = 1:length(animals)
+    
+    animal = animals{curr_animal};
+    
+    protocol = 'vanillaChoiceworld';
+    flexible_name = true;
+    experiments = AP_find_experiments(animal,protocol);
+    experiments = experiments([experiments.imaging] & [experiments.ephys]);
+    
+    for curr_day = 1:length(experiments)
+        
+        preload_vars = who;
+        
+        % Load experiment
+        day = experiments(curr_day).day;
+        experiment = experiments(curr_day).experiment(1); % (only one doubled experiment, and the second one was worse)
+        site = 2; % cortex probe is always site 2
+        str_align = 'none'; % (because this is on cortex)
+        load_parts.ephys = true;
+        AP_load_experiment
+        
+        %%%%% CORTEX
+        
+        % Get depth group boundaries
+        % (these are just manual based on the CSD)
+        n_aligned_depths = 2;
+        ctx_depth_edges = linspace(0,1200,n_aligned_depths+1);
+        
+        % Depth-align templates
+        curr_animal_idx = strcmp(animal,{vis_ctx_ephys.animal});
+        curr_day_idx = strcmp(day,vis_ctx_ephys(curr_animal_idx).day);
+        curr_csd_depth = vis_ctx_ephys(curr_animal_idx).stim_csd_depth{curr_day_idx};
+        curr_csd_depth_aligned = vis_ctx_ephys(curr_animal_idx).stim_csd_depth_aligned{curr_day_idx};
+        
+        template_depths_aligned = interp1(curr_csd_depth,curr_csd_depth_aligned,template_depths);
+        spike_depths_aligned = template_depths_aligned(spike_templates);
+        
+        % Find cortex end by largest gap between templates
+        sorted_template_depths = sort([template_depths_aligned]);
+        [max_gap,max_gap_idx] = max(diff(sorted_template_depths));
+        ctx_end = sorted_template_depths(max_gap_idx)+1;
+        ctx_depth = [sorted_template_depths(1),ctx_end];
+        ctx_units = template_depths_aligned <= ctx_depth(2);
+        
+        % Assign templates to depth groups
+        ctx_spike_depths = spike_depths_aligned;
+        ctx_spike_depths(spike_depths_aligned < ctx_depth(1) | spike_depths_aligned > ctx_depth(2)) = NaN;
+        ctx_depth_group = discretize(ctx_spike_depths,ctx_depth_edges);
+        
+        % Set binning time
+        skip_seconds = 60;
+        spike_binning_t = 0.001; % seconds
+        spike_binning_t_edges = spike_times_timeline(1)+skip_seconds: ...
+            spike_binning_t:spike_times_timeline(end)-skip_seconds;
+        spike_binning_t_centers = spike_binning_t_edges(1:end-1) + diff(spike_binning_t_edges)/2;
+            
+        cortex_mua = nan(size(ctx_depth_group,2),length(spike_binning_t_centers));
+        for curr_depth = 1:n_aligned_depths
+            curr_spike_times = spike_times_timeline(ctx_depth_group == curr_depth);
+            % (skip if no spikes at this depth)
+            if isempty(curr_spike_times)
+                continue
+            end
+            cortex_mua(curr_depth,:) = histcounts(curr_spike_times,spike_binning_t_edges);
+        end               
+        
+        
+        %%%%% STRIATUM
+       
+        site = 1; % (striatum is always on probe 1)
+        n_aligned_depths = 3;
+        str_align = 'kernel';
+        AP_load_experiment;
+        
+        striatum_mua = nan(n_aligned_depths,length(spike_binning_t_centers));
+        for curr_depth = 1:n_aligned_depths
+            curr_spike_times = spike_times_timeline(aligned_str_depth_group == curr_depth);
+            % Skip if no spikes at this depth
+            if isempty(curr_spike_times)
+                continue
+            end
+            striatum_mua(curr_depth,:) = histcounts(curr_spike_times,spike_binning_t_edges);
+        end
+        
+        %%% Cortex-striatum correlation
+              
+        % Get cross-correlations
+        curr_ctx_str_xcorr = nan(size(cortex_mua,1),lag_t*2+1);
+        for curr_ctx = 1:size(cortex_mua,1)
+            curr_ctx_str_xcorr(curr_ctx,:) = ...
+                xcorr(striatum_mua(1,:),cortex_mua(curr_ctx,:),lag_t,'coeff');
+        end       
+        ctx_str_xcorr(curr_animal).ctx_str{curr_day} = curr_ctx_str_xcorr;
+        ctx_str_xcorr(curr_animal).ctx_layer{curr_day} = ...
+            xcorr(cortex_mua(1,:),cortex_mua(2,:),lag_t,'coeff');
+        
+        % Get autocorrelation-normalized impulse response (Nauhaus 2012)         
+        curr_ctx_str_xcorr_autonorm = nan(size(cortex_mua,1),lag_t*2+1);
+        for curr_ctx = 1:size(cortex_mua,1)
+            soft_reg_factor = 1e4;
+            curr_autonorm = ifft((fft(striatum_mua(1,:)).* ...
+                conj(fft(cortex_mua(curr_ctx,:))))./ ...
+                (soft_reg_factor+fft(cortex_mua(curr_ctx,:)).* ...
+                conj(fft(cortex_mua(curr_ctx,:)))));
+            curr_ctx_str_xcorr_autonorm(curr_ctx,:) = ...
+                [curr_autonorm(end-lag_t:end),curr_autonorm(1:lag_t)];
+        end
+        ctx_str_xcorr(curr_animal).ctx_str_autonorm{curr_day} = curr_ctx_str_xcorr_autonorm;
+        
+        curr_autonorm = ifft((fft(cortex_mua(1,:)).* ...
+            conj(fft(cortex_mua(2,:))))./ ...
+            (soft_reg_factor+fft(cortex_mua(2,:)).* ...
+            conj(fft(cortex_mua(2,:)))));
+        ctx_str_xcorr(curr_animal).ctx_layer_autonorm{curr_day} = ...
+                [curr_autonorm(end-lag_t:end),curr_autonorm(1:lag_t)];  
+        
+        % Clear variables for next experiment
+        clearvars('-except',preload_vars{:});
+        
+        AP_print_progress_fraction(curr_day,length(experiments));
+        
+    end
+    
+end
+
+% Concatenate (no normalizing?)
+ctx_str_cat = cell2mat(permute([ctx_str_xcorr(:).ctx_str],[1,3,2]));
+ctx_str_autonorm_cat = cell2mat(permute([ctx_str_xcorr(:).ctx_str_autonorm],[1,3,2]));
+
+ctx_layer_cat = cell2mat([ctx_str_xcorr(:).ctx_layer]');
+ctx_layer_autonorm_cat = cell2mat([ctx_str_xcorr(:).ctx_layer_autonorm]');
+
+% Plot
+lags = -lag_t:lag_t;
+
+figure;
+subplot(2,2,1);
+AP_errorfill(lags,nanmean(ctx_str_cat,3)',AP_sem(ctx_str_cat,3)');
+line([0,0],ylim,'color','k');
+xlabel('Lag (ms)')
+ylabel('Correlation (norm)')
+title('Deep cortex-DMS xcorr (autocorr norm)');
+subplot(2,2,2);
+AP_errorfill(lags,nanmean(ctx_str_autonorm_cat,3)',AP_sem(ctx_str_autonorm_cat,3)');
+line([0,0],ylim,'color','k');
+xlabel('Lag (ms)')
+ylabel('Impulse response')
+title('Deep cortex-DMS SC''/CC''');
+subplot(2,2,3);
+AP_errorfill(lags,nanmean(ctx_layer_cat,1)',AP_sem(ctx_layer_cat,1)','k');
+line([0,0],ylim,'color','k');
+xlabel('Lag (ms)')
+ylabel('Correlation (norm)')
+title('Cortex deep-superficial xcorr (autocorr norm)');
+subplot(2,2,4);
+AP_errorfill(lags,nanmean(ctx_layer_autonorm_cat,1)',AP_sem(ctx_layer_autonorm_cat,1)','k');
+line([0,0],ylim,'color','k');
+xlabel('Lag (ms)')
+ylabel('Impulse response')
+title('Cortex deep-superficial SC''/CC''');
+
+linkaxes(get(gcf,'Children'),'x');
 
 
 
