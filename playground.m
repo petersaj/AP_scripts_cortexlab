@@ -12128,6 +12128,7 @@ figure; hold on;
 plot(spikewidth(tan),pss(tan),'.');
 plot(spikewidth(fsi),pss(fsi),'.');
 plot(spikewidth(msn),pss(msn),'.');
+plot(spikewidth(uin),pss(uin),'.');
 
 figure; hold on;
 AP_heatscatter(spikewidth(msn),pss(msn),[10,30],2)

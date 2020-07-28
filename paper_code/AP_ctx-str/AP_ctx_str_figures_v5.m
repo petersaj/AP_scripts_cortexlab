@@ -1989,6 +1989,11 @@ protocol = 'vanillaChoiceworld';
 experiments = AP_find_experiments(animal,protocol);
 experiments = experiments([experiments.imaging] & [experiments.ephys]);
 
+% (load retinotopy for that animal)
+retinotopy_path = 'C:\Users\Andrew\OneDrive for Business\Documents\CarandiniHarrisLab\analysis\widefield_alignment\retinotopy';
+retinotopy_fn = [retinotopy_path filesep animal '_retinotopy'];
+load(retinotopy_fn);
+
 figure;
 for curr_day = 1:length(experiments)
     
@@ -1997,12 +2002,19 @@ for curr_day = 1:length(experiments)
     [img_path,img_exists] = AP_cortexlab_filename(animal,day,[],'imaging');
     avg_im = readNPY([img_path filesep 'meanImage_purple.npy']);
         
-    subplot(1,length(experiments),curr_day);
+    subplot(2,length(experiments),curr_day);
     imagesc(avg_im);
     axis image off;
-    colormap(gray);
+    colormap(gca,gray);
     caxis([0,40000]);
     title([animal ' Day ' num2str(curr_day)]);
+    
+    curr_day_idx = strcmp(day,{retinotopy.day});
+    subplot(2,length(experiments),length(experiments)+curr_day);
+    imagesc(retinotopy(curr_day_idx).vfs);
+    axis image off;
+    colormap(gca,brewermap([],'*RdBu'));
+    caxis([-1,1]);
     
 end
 

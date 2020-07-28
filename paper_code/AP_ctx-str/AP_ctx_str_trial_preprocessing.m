@@ -35,7 +35,7 @@ for curr_animal = 1:length(animals)
         
         AP_load_experiment
         fVdf_deconv = AP_deconv_wf(fVdf);
-        aUdf = AP_align_widefield(Udf,animal,day);
+        aUdf = AP_align_widefield(Udf,animal,day);       
 
         % Get V covariance
         Ur = reshape(aUdf, size(aUdf,1)*size(aUdf,2),[]); % P x S
@@ -69,15 +69,25 @@ for curr_animal = 1:length(animals)
         corr_map_downsamp = cellfun(@(x) ...
             imresize(x,1/downsample_factor,'bilinear'),corr_map,'uni',false);
                 
-        % Correlation map edge detection
+%         % OLD: Correlation map edge detection
+%         corr_map_cat = cat(3,corr_map{:});
+%         corr_map_edge = corr_map_cat-imgaussfilt(corr_map_cat,20);
+%         corr_map_edge_norm = reshape(zscore(reshape(corr_map_edge,[], ...
+%             size(corr_map_edge,3)),[],1),size(corr_map_edge));      
+%         corr_edges = nanmean(corr_map_edge,3);
+        
+        % NEW: Correlation map edge detection
         corr_map_cat = cat(3,corr_map{:});
-        corr_map_edge = imgaussfilt(corr_map_cat,5)-imgaussfilt(corr_map_cat,20);
+        corr_map_edge = corr_map_cat-imfilter(corr_map_cat,fspecial('disk',20));
         corr_map_edge_norm = reshape(zscore(reshape(corr_map_edge,[], ...
             size(corr_map_edge,3)),[],1),size(corr_map_edge));      
         corr_edges = nanmean(corr_map_edge,3);
+        % (get rid of high frequency of edges - vasculature/bone)
+        corr_edges_highpass = corr_edges - imfilter(corr_edges,fspecial('disk',10));
+        corr_edges_lowpass = corr_edges - corr_edges_highpass;
         
         wf_corr_borders(curr_animal).corr_map_downsamp{curr_day} = corr_map_downsamp;
-        wf_corr_borders(curr_animal).corr_edges{curr_day} = corr_edges;
+        wf_corr_borders(curr_animal).corr_edges{curr_day} = corr_edges_lowpass;
         
         clearvars -except animals animal curr_animal protocol experiments curr_day animal wf_corr_borders load_parts
         
