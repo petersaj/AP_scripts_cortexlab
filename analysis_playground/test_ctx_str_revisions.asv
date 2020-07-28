@@ -2247,17 +2247,17 @@ for curr_animal = 1:length(animals)
         end
         ctx_str_xcorr(curr_animal).ctx_str_autonorm{curr_day} = curr_ctx_str_xcorr_autonorm;
         
+        soft_reg_factor = 1e4;
         curr_autonorm = ifft((fft(cortex_mua(1,:)).* ...
             conj(fft(cortex_mua(2,:))))./ ...
             (soft_reg_factor+fft(cortex_mua(2,:)).* ...
             conj(fft(cortex_mua(2,:)))));
-        ctx_str_xcorr(curr_animal).ctx_layer_autonorm{curr_day} = ...
-                [curr_autonorm(end-lag_t:end),curr_autonorm(1:lag_t)];  
+        ctx_str_xcorr(curr_animal).ctx_layer_autonorm{curr_day} = curr_ctx_str_xcorr_autonorm;          
         
         % Clear variables for next experiment
         clearvars('-except',preload_vars{:});
         
-        AP_print_progress_fraction(curr_day,length(experiments));
+        AP_print_progress_fraction(curr_day, length(experiments));
         
     end
     
@@ -2275,23 +2275,21 @@ lags = -lag_t:lag_t;
 
 figure;
 subplot(2,2,1);
-AP_errorfill(lags,nanmean(ctx_str_cat,3)',AP_sem(ctx_str_cat,3)');
-line([0,0],ylim,'color','k')
+plot(lags,nanmean(ctx_str_cat,3)');
 title('Deep cortex-DMS xcorr (autocorr norm)');
 subplot(2,2,2);
-AP_errorfill(lags,nanmean(ctx_str_autonorm_cat,3)',AP_sem(ctx_str_autonorm_cat,3)');
-line([0,0],ylim,'color','k')
+plot(lags,nanmean(ctx_str_autonorm_cat,3)');
 title('Deep cortex-DMS SC''/CC''');
 subplot(2,2,3);
-AP_errorfill(lags,nanmean(ctx_layer_cat,1)',AP_sem(ctx_layer_cat,1)');
+plot(lags,nanmean(ctx_layer_cat,1));
 line([0,0],ylim,'color','k')
-title('Cortex deep-superficial xcorr (autocorr norm)');
+title('Cortex layers xcorr (autocorr norm)');
 subplot(2,2,4);
-AP_errorfill(lags,nanmean(ctx_layer_autonorm_cat,1)',AP_sem(ctx_layer_autonorm_cat,1)');
+plot(lags,nanmean(ctx_layer_autonorm_cat,1));
 line([0,0],ylim,'color','k')
-title('Cortex deep-superficial SC''/CC''');
+title('Cortex layers SC''/CC''');
 
-linkaxes(get(gcf,'Children'),'x');
+
 
 
 %% Ternary plot for map-template correlations?

@@ -2141,34 +2141,17 @@ figure;
 
 
 %%%%%%%%%%%%%%%%%%%% TESTING
-% (was trying getting borders from average maps - there's definitely a
-% nicer way to show this even with correlated regions rather than borders
-% but on hold since it's low priority)
-
-% % Get borders of mean correlation maps
-% corr_map_cat = cat(3,wf_corr_map_mean{:});
-% corr_map_cat(isnan(corr_map_cat)) = 0;
-% lowpass_filt = fspecial('gaussian',5);
-% corr_map_edge = corr_map_cat - convn(corr_map_cat,lowpass_filt,'same');
-% corr_map_edge = corr_map_cat - imgaussfilt(corr_map_cat,3,'FilterDomain','spatial');
-% 
-% % (set borders to zero)
-% corr_edges = nanmean(corr_map_edge,3);
-% 
-% corr_edges_upsample = imresize(corr_edges,downsample_factor,'bilinear');
+% Get borders of mean correlation maps
 
 
-a = reshape(corr_map_cat,[],size(corr_map_cat,3));
-a(isnan(a)) = 0;
-n_grps = 10;
-kidx = reshape(kmeans(a,n_grps),size(corr_map_cat,1),size(corr_map_cat,2));
-kidx_upsample = imresize(kidx,downsample_factor,'nearest');
+corr_map_cat = cat(3,wf_corr_map_mean{:});
+lowpass_filt = fspecial('gaussian',5);
+corr_map_edge = corr_map_cat - convn(corr_map_cat,lowpass_filt,'same');
+% (set borders to zero)
+corr_edges = nanmean(corr_map_edge,3);
 
-figure;imagesc(kidx_upsample);
-axis image
-AP_reference_outline('ccf_aligned','k');
-colormap(brewermap([],'Set3'));
-title('K-means? exclude outside-brain if doing this?')
+corr_edges_upsample = imresize(corr_edges,downsample_factor,'bilinear');
+
 
 %%%%%%%%%%%%%%%%%%%% TESTING
 
