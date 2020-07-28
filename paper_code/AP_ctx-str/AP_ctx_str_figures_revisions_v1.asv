@@ -760,54 +760,79 @@ linkaxes(get(gcf,'Children'),'x');
 
 
 
-%% Ternary plot for map-template correlations
+%% Ternary plot for map-template correlations?
 
-% Load kernel templates for overlay
-n_aligned_depths = 3;
-kernel_template_fn = ['C:\Users\Andrew\OneDrive for Business\Documents\CarandiniHarrisLab\analysis\wf_ephys_choiceworld\ephys_processing\kernel_template_' num2str(n_aligned_depths) '_depths.mat'];
-load(kernel_template_fn);
+% Don't use naive animals for this analysis
+naive_animals = {'AP032','AP033','AP034','AP035','AP036'};
+
+% Load kernels by depths
+kernel_path = 'C:\Users\Andrew\OneDrive for Business\Documents\CarandiniHarrisLab\analysis\wf_ephys_choiceworld\ephys_processing';
+kernel_fn = ['ephys_kernel_depth'];
+load([kernel_path filesep kernel_fn])
+
+use_animals = ~ismember({ephys_kernel_depth.animal},naive_animals);
+kernel_px_cat = cell2mat(permute(horzcat(ephys_kernel_depth(use_animals).k_px),[1,3,2]));
+kernel_px_cat_reshape = reshape(kernel_px_cat,[],size(kernel_px_cat,3));
 
 % Load the kernel template matches
 n_aligned_depths = 3;
 kernel_match_path = 'C:\Users\Andrew\OneDrive for Business\Documents\CarandiniHarrisLab\analysis\wf_ephys_choiceworld\ephys_processing';
 kernel_match_fn = ['ephys_kernel_align_' num2str(n_aligned_depths) '_depths.mat'];
 load([kernel_match_path filesep kernel_match_fn]);
-
-% (naive animals not included in this plot)
-naive_animals = {'AP032','AP033','AP034','AP035','AP036'};
-use_animals = ~ismember({ephys_kernel_align.animal},naive_animals);
 kernel_match_cat = cell2mat(horzcat(ephys_kernel_align(use_animals).kernel_match)');
 
-% Get ternary coordinates of map correlations
-kernel_corr_cat_offset = kernel_corr_cat+1;
-kernel_corr_cat_norm = kernel_corr_cat_offset./sum(kernel_corr_cat_offset,2) - ...
-    (kernel_corr_cat_offset./sum(kernel_corr_cat_offset,2))./3;
 
-ternary_tform = [0,1;sqrt(3/4),-0.5;-sqrt(3/4),-0.5];
-ternary_limits = (ternary_tform\(eye(3)*max(max(kernel_corr_cat_norm,[],1))))';
+%%%% IN PROGRESS HERE: TERNARY PLOT OF TEMPLATE CORREALTION
+kernel_corr_cat = cell2mat([ephys_kernel_align(use_animals).kernel_corr]');
 
-kernel_corr_ternary = (ternary_tform\kernel_corr_cat_norm')';
+kernel_corr_cent = kernel_corr_cat*100;
+kernel_corr_ternary_coord = ...
+    [0.5*((2*kernel_corr_cent(:,2)+kernel_corr_cat(:,3))./sum(kernel_corr_cat,3)), ...
+    (sqrt(3)/2)*(kernel_corr_cent(:,3)./sum(kernel_corr_cat,3))];
+figure;plot(kernel_corr_ternary_coord(:,1),kernel_corr_ternary_coord(:,2),'.k')
 
-% Plot ternary correlation coorinates and templates
-figure;
 
-subplot(1,4,1); hold on;
-use_depths = ~isnan(kernel_match_cat);
+
+% Set striatum domain colors
 str_col = max(hsv(n_aligned_depths)-0.2,0);
-patch(ternary_limits(:,1),ternary_limits(:,2),'w','linewidth',1);
-scatter(kernel_corr_ternary(use_depths,1), ...
-    kernel_corr_ternary(use_depths,2), ...
-    5,str_col(kernel_match_cat(use_depths),:),'filled');
-axis image off;
 
-for curr_template = 1:n_aligned_depths
-    subplot(n_aligned_depths,1,curr_template);
-    imagesc(kernel_template(:,:,curr_template));
+% Dimensionality reduction and plot matches
+use_kernels = ~(all(isnan(kernel_px_cat_reshape),1)' | isnan(kernel_match_cat));
+
+kernel_px_cat_resize_reshape = ...
+    reshape(imresize(kernel_px_cat,1/10,'bilinear'),[],size(kernel_px_cat,3));
+kernel_px_cat_resize_reshape_norm = ...
+    kernel_px_cat_resize_reshape./max(kernel_px_cat_resize_reshape,[],1);
+
+[coeff,score,latent] = pca(kernel_px_cat_resize_reshape_norm(:,use_kernels)');
+y = tsne(kernel_px_cat_resize_reshape_norm(:,use_kernels)');
+
+figure;
+subplot(1,2,1);
+scatter(score(:,1),score(:,2),10,kernel_match_cat(use_kernels),'filled');
+xlabel('PC1'); ylabel('PC2');
+colormap(str_col);
+axis square;
+subplot(1,2,2);
+scatter(y(:,1),y(:,2),10,kernel_match_cat(use_kernels),'filled');
+xlabel('tSNE1'); ylabel('tSNE2');
+colormap(str_col);
+axis square;
+
+
+% Plot templates
+figure; colormap(gray);
+for i = 1:n_aligned_depths
+    subplot(n_aligned_depths,1,i);
+    imagesc(kernel_template(:,:,i));
     AP_reference_outline('ccf_aligned',[0.5,0.5,0.5]);
     axis image off;
     colormap(brewermap([],'PRGn'));
     caxis([-max(abs(caxis)),max(abs(caxis))]);
 end
+
+
+
 
 
 
