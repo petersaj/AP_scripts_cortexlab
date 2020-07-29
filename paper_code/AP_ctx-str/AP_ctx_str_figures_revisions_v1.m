@@ -971,7 +971,7 @@ xlabel('Firing rate (binned by percentile)');
 ylabel('Cell-average act corr');
 
 
-%% FROM ABOVE: correlation across cell types
+%% BEST SO FAR!! correlation across cell types
 
 % Get pairwise across-recording activity correlations by celltype in domain
 n_recordings = max(recordings_allcat);
@@ -1029,7 +1029,7 @@ grp_matrix = [celltype_allcat(use_units), ...
     recordings_allcat(use_units)];
 grp_matrix_repmat = reshape(permute(repmat(grp_matrix,1,1,3),[1,3,2]),[],3);
 
-[~,celltype_compare_repmat] = ndgrid(1:size(celltype_act_corr,1),1:size(celltype_act_corr,2))
+[~,celltype_compare_repmat] = ndgrid(1:size(celltype_act_corr,1),1:size(celltype_act_corr,2));
 celltype_compare_grp = reshape(celltype_compare_repmat(use_units,:),[],1);
 
 celltype_actcorr_frbins = accumarray( ...

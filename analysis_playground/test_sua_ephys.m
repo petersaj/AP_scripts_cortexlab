@@ -49,15 +49,17 @@ for iAnimal = 1:size(trial_data_all.goodUnits, 1)
         msn = trial_data_all.templateDuration{iAnimal}{iRecording} > 400 & pss_allcat2 < 40;
         shortDurLongPss = trial_data_all.templateDuration{iAnimal}{iRecording} < 400 & pss_allcat2 >= 40;
         
-        trial_data_all.allGroups{iAnimal}{iRecording}(fsi) = allDepths + 3;
-        trial_data_all.allGroups{iAnimal}{iRecording}(tan) = allDepths + 6;
-        trial_data_all.allGroups{iAnimal}{iRecording}(uin) = allDepths + 9;
-        trial_data_all.allGroups{iAnimal}{iRecording}(shortDurLongPss) = allDepths + 12;
+        trial_data_all.allGroups{iAnimal}{iRecording}(msn) = allDepths(msn) + 3;
+        trial_data_all.allGroups{iAnimal}{iRecording}(fsi) = allDepths(fsi) + 3;
+        trial_data_all.allGroups{iAnimal}{iRecording}(tan) = allDepths(tan) + 6;
+        trial_data_all.allGroups{iAnimal}{iRecording}(uin) = allDepths(uin) + 9;
+        trial_data_all.allGroups{iAnimal}{iRecording}(shortDurLongPss) = allDepths(shortDurLongPss) + 12;
         
         clearvars pss_allcat2
         end
     end
 end
+
 
 
 
