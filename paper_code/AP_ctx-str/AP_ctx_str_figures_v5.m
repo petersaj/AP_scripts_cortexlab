@@ -1591,6 +1591,7 @@ end
 
 
 %% @@ Fig 4d: MSNs < FSIs < TANs activity correlation due to sparseness
+error('This is being modified in AP_ctx_Str_figures_revisions_v1')
 
 % Concatenate multi-aligned trial-averaged activity
 mua_exp = vertcat(mua_all{:});

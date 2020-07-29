@@ -191,8 +191,11 @@ days_allcat = cell2mat(cellfun(@(x,grp) x(~isnan(grp)), ...
     vertcat(allDays{:}),vertcat(allGroups{:}),'uni',false));
 neurons_allcat = cell2mat(cellfun(@(x,grp) x(~isnan(grp))', ...
     vertcat(allNeurons{:}),vertcat(allGroups{:}),'uni',false));
-recordings_allcat = cell2mat(cellfun(@(x,grp) x*ones(sum(~isnan(grp)),1), ...    
-    num2cell((1:length(vertcat(allDays{:})))'),vertcat(allGroups{:}),'uni',false));
+
+
+recordings_allcat = cell2mat(cellfun(@(x,grp) x(~isnan(grp))', ...
+    x*ones(size(y)),, ...
+    vertcat(allGroups{:}),num2cell((1:length(vertcat(allDays{:})))'),'uni',false));
 
 
 disp('Finished.')
@@ -469,130 +472,18 @@ fluor_deconv_allcat_exp = cellfun(@(x) AP_deconv_wf(x),vertcat(fluor_all{:}),'un
 
 
 % Get animals/days/cell number
-% (note this includes cortical cells, which are NaNs in allGroups)
-animals_allcat = cell2mat(cellfun(@(x,grp) x(~isnan(grp)), ...
-    vertcat(allAnimals{:}),vertcat(allGroups{:}),'uni',false));
-days_allcat = cell2mat(cellfun(@(x,grp) x(~isnan(grp)), ...
-    vertcat(allDays{:}),vertcat(allGroups{:}),'uni',false));
-neurons_allcat = cell2mat(cellfun(@(x,grp) x(~isnan(grp))', ...
-    vertcat(allNeurons{:}),vertcat(allGroups{:}),'uni',false));
-recordings_allcat = cell2mat(cellfun(@(x,grp) x*ones(sum(~isnan(grp)),1), ...    
-    num2cell((1:length(vertcat(allDays{:})))'),vertcat(allGroups{:}),'uni',false));
+animals_allcat = cell2mat(cellfun(@(x) x(~isnan(x)), ...
+    vertcat(allAnimals{:}),'uni',false));
+days_allcat = cell2mat(cellfun(@(x) x(~isnan(x)), ...
+    vertcat(allDays{:}),'uni',false));
+neurons_allcat = cell2mat(cellfun(@(x) x(~isnan(x))', ...
+    vertcat(allNeurons{:}),'uni',false));
+recordings_allcat = cell2mat(cellfun(@(x,y) ...
+    x*ones(size(y)),num2cell((1:length(vertcat(allDays{:})))'), ...
+    vertcat(allDays{:}),'uni',false));
 
 
 disp('Finished.')
-
-
-%% ~~~~~~~~~~~~ TESTING: Get fluorescnece kernelROI 
-
-% Get number of widefield components 
-n_vs = size(fluor_all{end}{end},3);
-
-% Load kernel ROIs
-kernel_roi_fn = 'C:\Users\Andrew\OneDrive for Business\Documents\CarandiniHarrisLab\analysis\wf_ephys_choiceworld\wf_processing\wf_rois\kernel_roi';
-load(kernel_roi_fn);
-n_kernel_rois = size(kernel_roi.bw,3);
-
-% Get deconvolved/baseline-subtracted kernel ROI fluorescence
-fluor_kernelroi_deconv = cellfun(@(x) ...
-    AP_deconv_wf(AP_svd_roi(U_master(:,:,1:n_vs), ...
-    permute(x-nanmean(x(:,t < 0,:),2),[3,2,1]),[],[],kernel_roi.bw)), ...
-    vertcat(fluor_all{:}),'uni',false);
-
-
-
-
-
-fluor_kernelroi_deconv = permute(reshape( ...
-    AP_svd_roi(U_master(:,:,1:n_vs), ...
-    reshape(permute(fluor_allcat_deconv,[3,2,1]),n_vs,[]),[],[],kernel_roi.bw), ...
-    size(kernel_roi.bw,3),[],size(fluor_allcat_deconv,1)),[3,2,1]);
-
-
-
-
-
-
-% Get number of widefield ROIs 
-n_vs = size(fluor_all{end}{end},3);
-
-% Concatenate cortex data
-fluor_allcat = cell2mat(vertcat(fluor_all{:}));
-if task_dataset
-    fluor_taskpred_allcat = cell2mat(vertcat(fluor_taskpred_all{:}));
-    fluor_taskpred_reduced_allcat = cell2mat(vertcat(fluor_taskpred_reduced_all{:}));
-end
-
-% Deconvolve fluorescence, subtract average baseline
-fluor_allcat_deconv = AP_deconv_wf(fluor_allcat);
-fluor_allcat_deconv_baseline = nanmean(reshape(fluor_allcat_deconv(:,t_baseline,:),[],1,n_vs));
-fluor_allcat_deconv = fluor_allcat_deconv - fluor_allcat_deconv_baseline;
-
-% Get fluorescence ROIs
-% (by cortical area)
-load('C:\Users\Andrew\OneDrive for Business\Documents\CarandiniHarrisLab\analysis\wf_ephys_choiceworld\wf_processing\wf_alignment\U_master');
-wf_roi_fn = 'C:\Users\Andrew\OneDrive for Business\Documents\CarandiniHarrisLab\analysis\wf_ephys_choiceworld\wf_processing\wf_rois\wf_roi';
-load(wf_roi_fn);
-n_rois = numel(wf_roi);
-fluor_roi_deconv = permute(reshape( ...
-    AP_svd_roi(U_master(:,:,1:n_vs), ...
-    reshape(permute(fluor_allcat_deconv,[3,2,1]),n_vs,[]),[],[],cat(3,wf_roi.mask)), ...
-    n_rois,[],size(fluor_allcat_deconv,1)),[3,2,1]);
-
-% (from striatum kernels)
-kernel_roi_fn = 'C:\Users\Andrew\OneDrive for Business\Documents\CarandiniHarrisLab\analysis\wf_ephys_choiceworld\wf_processing\wf_rois\kernel_roi';
-load(kernel_roi_fn);
-n_kernel_rois = size(kernel_roi.bw,3);
-fluor_kernelroi_deconv = permute(reshape( ...
-    AP_svd_roi(U_master(:,:,1:n_vs), ...
-    reshape(permute(fluor_allcat_deconv,[3,2,1]),n_vs,[]),[],[],kernel_roi.bw), ...
-    size(kernel_roi.bw,3),[],size(fluor_allcat_deconv,1)),[3,2,1]);
-
-% Normalize ROI fluorescence by baseline and std
-t_baseline = t < 0;
-n_trials_day = cellfun(@(x) size(x,1),vertcat(fluor_all{:}));
-
-% (baseline of every trial)
-fluor_roi_trial_baseline = cellfun(@(fluor) ...
-    nanmean(fluor(:,t_baseline,:),2), ...
-    mat2cell(fluor_roi_deconv,n_trials_day,length(t),n_rois),'uni',false);
-fluor_kernelroi_trial_baseline = cellfun(@(fluor) ...
-    nanmean(fluor(:,t_baseline,:),2), ...
-    mat2cell(fluor_kernelroi_deconv,n_trials_day,length(t),n_kernel_rois),'uni',false);
-
-% (std of mean-subtracted baseline)
-fluor_roi_day_baseline_std = ...
-    cellfun(@(x,baseline) repmat(nanstd(reshape(x(:,t_baseline,:) - baseline,[],1,n_rois),[],1),size(x,1),1), ...
-    mat2cell(fluor_roi_deconv,n_trials_day,length(t),n_rois),fluor_roi_trial_baseline,'uni',false);
-fluor_kernelroi_day_baseline_std = ...
-    cellfun(@(x,baseline) repmat(nanstd(reshape(x(:,t_baseline,:) - baseline,[],1,n_kernel_rois),[],1),size(x,1),1), ...
-    mat2cell(fluor_kernelroi_deconv,n_trials_day,length(t),n_kernel_rois),fluor_kernelroi_trial_baseline,'uni',false);
-
-% (std of whole day)
-fluor_roi_day_std = ...
-    cellfun(@(x,baseline) repmat(nanstd(reshape(x(:,:,:) - baseline,[],1,n_rois),[],1),size(x,1),1), ...
-    mat2cell(fluor_roi_deconv,n_trials_day,length(t),n_rois),fluor_roi_trial_baseline,'uni',false);
-fluor_kernelroi_day_std = ...
-    cellfun(@(x,baseline) repmat(nanstd(reshape(x(:,:,:) - baseline,[],1,n_kernel_rois),[],1),size(x,1),1), ...
-    mat2cell(fluor_kernelroi_deconv,n_trials_day,length(t),n_kernel_rois),fluor_kernelroi_trial_baseline,'uni',false);
-
-% Normalize fluor
-
-% (don't normalize)
-fluor_roi_norm = cellfun(@(x) ones(x,1,n_rois),num2cell(n_trials_day),'uni',false);
-fluor_kernelroi_norm = cellfun(@(x) ones(x,1,n_kernel_rois),num2cell(n_trials_day),'uni',false);
-
-% % % (use day std)
-% fluor_roi_norm = fluor_roi_day_std;
-% fluor_kernelroi_norm = fluor_kernelroi_day_std;
-
-% % (use day baseline std)
-% fluor_roi_norm = fluor_roi_day_baseline_std;
-% fluor_kernelroi_norm = fluor_kernelroi_day_baseline_std;
-
-fluor_roi_deconv = (fluor_roi_deconv - cell2mat(fluor_roi_trial_baseline))./cell2mat(fluor_roi_norm);
-fluor_kernelroi_deconv = (fluor_kernelroi_deconv - cell2mat(fluor_kernelroi_trial_baseline))./cell2mat(fluor_kernelroi_norm);
-
 
 
 
