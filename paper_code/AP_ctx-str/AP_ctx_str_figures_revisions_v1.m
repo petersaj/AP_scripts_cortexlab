@@ -838,7 +838,8 @@ celltype_corr_avg = accumarray( ...
     celltype_act_corr(use_units), ...
     [3,max(recordings_allcat)],@nanmean,NaN);
 
-figure; hold on;
+figure; 
+subplot(1,2,1);hold on;
 set(gca,'ColorOrder',cool(length(fr_bin_centers)));
 plot_order = [2,1,3]; % (plot as FSI>MSN>TAN)
 errorbar(squeeze(nanmean(celltype_corr_avg_fr_bins(plot_order,:,:),3)), ...
@@ -894,7 +895,230 @@ legend(celltype_labels(1:3));
 xlabel('Firing rate');
 ylabel('Fraction');
 
+%% FROM ABOVE: trying firing rates on x-axis and percentiles of cells
 
+figure;
+
+% Get correlation mean and in FR bins
+fr_bin_edges = linspace(0,10,6);%logspace(-2,1,10);
+fr_bin_centers = fr_bin_edges(1:end-1)+diff(fr_bin_edges)./2;
+fr_bins = discretize(nanmean(act_mean_multialign,2),fr_bin_edges);
+
+use_units = ~isnan(celltype_act_corr) & ~isnan(fr_bins);
+celltype_corr_avg_fr_bins = accumarray( ...
+    [celltype_allcat(use_units), ...
+    fr_bins(use_units), ...
+    recordings_allcat(use_units)], ...
+    celltype_act_corr(use_units), ...
+    [3,length(fr_bin_centers),max(recordings_allcat)],@nanmean,NaN);
+celltype_corr_avg = accumarray( ...
+    [celltype_allcat(use_units), ...
+    recordings_allcat(use_units)], ...
+    celltype_act_corr(use_units), ...
+    [3,max(recordings_allcat)],@nanmean,NaN);
+
+subplot(1,2,1);hold on;
+celltype_col = ...
+    [0.9,0.4,0.6; ...
+    0.4,0.5,0.6; ...
+    0.5,0.3,0.1; ...
+    1,0.5,0];
+set(gca,'ColorOrder',celltype_col);
+errorbar(squeeze(nanmean(celltype_corr_avg_fr_bins,3))', ...
+    squeeze(AP_sem(celltype_corr_avg_fr_bins,3))','linewidth',2);
+xlabel('Firing rate');
+ylabel('Cell-average act corr');
+
+
+% Get correlation mean and in FR percentile bins
+fr = nanmean(act_mean_multialign,2);
+fr_prctilebin_edges = linspace(0,100,7);
+fr_prctilebin_centers = fr_prctilebin_edges(1:end-1)+diff(fr_prctilebin_edges)./2;
+
+fr_prctilebins = nan(size(celltype_act_corr));
+for curr_celltype = 1:3
+    curr_units = good_units_allcat & celltype_allcat == curr_celltype;
+    curr_fr = fr(curr_units);
+    curr_fr_prctilebin_edges = prctile(curr_fr,fr_prctilebin_edges);
+    fr_prctilebins(curr_units) = discretize(curr_fr,curr_fr_prctilebin_edges);
+end
+
+use_units = ~isnan(celltype_act_corr) & ~isnan(fr_prctilebins);
+celltype_fr_frbins = accumarray( ...
+    [celltype_allcat(use_units), ...
+    fr_prctilebins(use_units), ...
+    recordings_allcat(use_units)], ...
+    fr(use_units), ...
+    [3,length(fr_prctilebin_centers),max(recordings_allcat)],@nanmean,NaN);
+celltype_actcorr_frbins = accumarray( ...
+    [celltype_allcat(use_units), ...
+    fr_prctilebins(use_units), ...
+    recordings_allcat(use_units)], ...
+    celltype_act_corr(use_units), ...
+    [3,length(fr_prctilebin_centers),max(recordings_allcat)],@nanmean,NaN);
+
+subplot(1,2,2);hold on;
+celltype_col = ...
+    [0.9,0.4,0.6; ...
+    0.4,0.5,0.6; ...
+    0.5,0.3,0.1; ...
+    1,0.5,0];
+set(gca,'ColorOrder',celltype_col,'XScale','log');
+errorbar(squeeze(nanmean(celltype_fr_frbins,3))', ...
+    squeeze(nanmean(celltype_actcorr_frbins,3))', ...
+    squeeze(AP_sem(celltype_actcorr_frbins,3))','linewidth',2);
+xlabel('Firing rate (binned by percentile)');
+ylabel('Cell-average act corr');
+
+
+%% FROM ABOVE: correlation across cell types
+
+% Get pairwise across-recording activity correlations by celltype in domain
+n_recordings = max(recordings_allcat);
+celltype_act_corr = nan(size(act_mean_multialign,1),3);
+for curr_depth = 1:n_aligned_depths
+    for curr_celltype = 1:3
+        for curr_celltype_compare = 1:3
+            for curr_recording = 1:n_recordings
+                
+                % Get cells in domain in/out of recording
+                curr_cells_currday = ...
+                    good_units_allcat & ...
+                    domain_aligned_allcat == curr_depth & ...
+                    celltype_allcat == curr_celltype & ...
+                    recordings_allcat == curr_recording;
+                
+                curr_cells_otherday = ...
+                    good_units_allcat & ...
+                    domain_aligned_allcat == curr_depth & ...
+                    celltype_allcat == curr_celltype_compare & ...
+                    recordings_allcat ~= curr_recording;
+                act_mean_multialign_otherday_avg = ...
+                    nanmean(act_mean_multialign(curr_cells_otherday,:),1);
+                
+                if any(curr_cells_currday)
+                    % Correlate day's cells with other-day average
+                    celltype_act_corr(curr_cells_currday,curr_celltype_compare) = ...
+                        corr(act_mean_multialign(curr_cells_currday,:)', ...
+                        act_mean_multialign_otherday_avg');
+                end
+            end
+        end
+    end
+end
+
+
+% Get correlation mean and in FR percentile bins
+fr = nanmean(act_mean_multialign,2);
+fr_prctilebin_edges = linspace(0,100,7);
+fr_prctilebin_centers = fr_prctilebin_edges(1:end-1)+diff(fr_prctilebin_edges)./2;
+
+fr_prctilebins = nan(size(celltype_act_corr));
+for curr_celltype = 1:3
+    curr_units = good_units_allcat & celltype_allcat == curr_celltype;
+    curr_fr = fr(curr_units);
+    curr_fr_prctilebin_edges = prctile(curr_fr,fr_prctilebin_edges);
+    fr_prctilebins(curr_units) = discretize(curr_fr,curr_fr_prctilebin_edges);
+end
+
+use_units = any(~isnan(celltype_act_corr) | ~isnan(fr_prctilebins),2);
+
+% this is ridiculous but I'm in a hurry
+grp_matrix = [celltype_allcat(use_units), ...
+    fr_prctilebins(use_units), ...
+    recordings_allcat(use_units)];
+grp_matrix_repmat = reshape(permute(repmat(grp_matrix,1,1,3),[1,3,2]),[],3);
+
+[~,celltype_compare_repmat] = ndgrid(1:size(celltype_act_corr,1),1:size(celltype_act_corr,2))
+celltype_compare_grp = reshape(celltype_compare_repmat(use_units,:),[],1);
+
+celltype_actcorr_frbins = accumarray( ...
+    [grp_matrix_repmat,celltype_compare_grp], ...
+    reshape(celltype_act_corr(use_units,:),[],1), ...
+    [3,length(fr_prctilebin_centers),max(recordings_allcat),3],@nanmean,NaN);
+celltype_fr_frbins = accumarray(grp_matrix,fr(use_units), ...
+    [3,length(fr_prctilebin_centers),max(recordings_allcat)],@nanmean,NaN);
+
+
+figure;
+celltype_col = ...
+    [0.9,0.4,0.6; ...
+    0.4,0.5,0.6; ...
+    0.5,0.3,0.1; ...
+    1,0.5,0];
+for curr_celltype = 1:3
+    
+    curr_fr = permute(squeeze(celltype_fr_frbins(curr_celltype,:,:,:)),[1,3,2]);
+    curr_actcorr = permute(squeeze(celltype_actcorr_frbins(curr_celltype,:,:,:)),[1,3,2]);
+    
+    subplot(3,1,curr_celltype); hold on;
+    set(gca,'ColorOrder',celltype_col,'XScale','log');
+    
+    errorbar(repmat(nanmean(curr_fr,3),1,3), ...
+        nanmean(curr_actcorr,3), ...
+        AP_sem(curr_actcorr,3),'linewidth',2);
+    title(celltype_labels{curr_celltype})
+    legend(celltype_labels(1:3));
+    xlabel('Firing rate');
+    ylabel('Avg act corr');
+    
+end
+
+
+
+%% Get spike-triggered averages between celltype-domain and fluor-domain
+
+% Regress cortex to striatum
+t_shift = [-1,1]; % seconds
+
+framerate = 35;
+frame_shift = round(t_shift(1)*framerate):round(t_shift(2)*framerate);
+frame_shift_t = frame_shift./framerate;
+
+use_t = t > 0 & t < 0.5;
+
+cell_ctx_sta = cell(size(mua_exp));
+for curr_exp = 1:length(mua_exp)
+    
+    n_cells = size(mua_exp{curr_exp},3);
+    curr_spikes = reshape(permute(mua_exp{curr_exp}(:,use_t,:), ...
+        [2,1,3]),[],n_cells)';
+    curr_fluor = reshape(permute(fluor_kernelroi_deconv_exp{curr_exp}(:,use_t,:), ...
+        [2,1,3]),[],n_aligned_depths)';
+    
+    curr_sta = nan(n_aligned_depths,n_cells,length(frame_shift));
+    for curr_t_shift = 1:length(frame_shift)
+        curr_sta(:,:,curr_t_shift) = ...
+            (circshift(curr_fluor,[0,-frame_shift(curr_t_shift)])*curr_spikes')./sum(curr_spikes',1);
+    end
+    
+    cell_ctx_sta{curr_exp} = permute(curr_sta,[2,3,1]);
+    AP_print_progress_fraction(curr_exp,length(mua_exp));
+end
+
+cell_ctx_sta_cat = vertcat(cell_ctx_sta{:});
+
+figure;
+celltype_col = ...
+    [0.9,0.4,0.6; ...
+    0.4,0.5,0.6; ...
+    0.5,0.3,0.1; ...
+    1,0.5,0];
+for curr_domain = 1:n_aligned_depths
+    subplot(n_aligned_depths,1,curr_domain); hold on;
+    set(gca,'ColorOrder',celltype_col);
+    for curr_celltype = 1:3
+        curr_sta = squeeze( ...
+            cell_ctx_sta_cat(good_units_allcat & ...
+            domain_aligned_allcat == curr_domain & ...
+            celltype_allcat == curr_celltype,:,curr_domain));
+        AP_errorfill(frame_shift_t,nanmean(curr_sta)', ...
+            AP_sem(curr_sta,1)',celltype_col(curr_celltype,:));
+    end
+    xlabel('Fluorescence lag');
+    ylabel('STA Fluorescence');
+end
+legend(celltype_labels(1:3));
 
 
 
