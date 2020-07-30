@@ -1,18 +1,10 @@
 %% ~~~~~~~~~~~~ Load
 
-% ------> INTEGRATE THIS: BUGFIX FROM JULIE <-------
-?
-% % NOTES FOR INTEGRATING
-% so if you run this script after loading the trial_data, and before anything else, everything should be fine.
-% there's two changes:
-% 
-% 10:03
-% TANs are no longer in two different groups, that was annoying as heck. They are the 7,8,9 allGroups guys. (liek before, the TAN2 group doesn't exist anymore)
-% (edited)
-% New
-% 10:04
-% 2. the 13,14,15 guys (previously the high prop ISI UINs) are now the short waveform long prop isi cells that behave like TANs but have FSI/UIN waveforms.
-
+%% --> INTEGRATE THIS: bugfixes from Julie
+% TANS now just in one group
+% High prop ISI UINs now not included (as others) and are instead short
+% waveform long prop isi cells that behave like TANs but with short
+% waveforms
 
 % SUAbugsBgone
 % with some good old for loops
@@ -21,16 +13,16 @@
 if ~exist('removeMissingSpikesUnits', 'var')
     removeMissingSpikesUnits = 0;
 end
-?
+
 for iAnimal = 1:size(trial_data_all.goodUnits, 1)
     for iRecording = 1:size(trial_data_all.goodUnits{iAnimal}, 1)
-?
+
         % 1. if flag remove spikes missing, add these to the goodUnits
         if removeMissingSpikesUnits
             trial_data_all.goodUnits{iAnimal}{iRecording} = trial_data_all.goodUnits{iAnimal}{iRecording} ...
                 & nanmin(trial_data_all.percent_missing_ndtr{iAnimal}{iRecording}(2:end, :)) < 50;
         end
-?
+
         % 2. re-classify to: add noise guys to uins, remove large post spike suppression FSI and UINs, and short waveform guys from TANs. 
         if ~isempty(trial_data_all.acg{iAnimal}{iRecording})
          for iCell = 1:size(trial_data_all.acg{iAnimal}{iRecording}, 1)
@@ -47,7 +39,7 @@ for iAnimal = 1:size(trial_data_all.goodUnits, 1)
         uin = trial_data_all.templateDuration{iAnimal}{iRecording} <= 400 & pss_allcat2 < 40 & trial_data_all.prop_long_isi{iAnimal}{iRecording} > 0.1;
         tan = trial_data_all.templateDuration{iAnimal}{iRecording} > 400 & pss_allcat2 >= 40;
         msn = trial_data_all.templateDuration{iAnimal}{iRecording} > 400 & pss_allcat2 < 40;
-        shortDurLongPss = trial_data_all.templateDuration{iAnimal}{iRecording} < 400 & pss_allcat2 >= 40;
+        shortDurLongPss = trial_data_all.templateDuration{iAnimal}{iRecording} <= 400 & pss_allcat2 >= 40;
         
         trial_data_all.allGroups{iAnimal}{iRecording}(msn) = allDepths(msn);
         trial_data_all.allGroups{iAnimal}{iRecording}(fsi) = allDepths(fsi) + 3;
@@ -69,9 +61,9 @@ end
 
 disp('Loading SUA data');
 
-% data_fn = 'G:\JF_single_cell_data\trial_activity_choiceworld.mat';
+data_fn = 'G:\JF_single_cell_data\trial_activity_choiceworld.mat';
 % data_fn = 'G:\JF_single_cell_data\trial_activity_ctx_task.mat';
-data_fn = 'G:\JF_single_cell_data\trial_activity_muscimol_task.mat';
+% data_fn = 'G:\JF_single_cell_data\trial_activity_muscimol_task.mat';
 
 load(data_fn);
 exclude_data = false;
@@ -551,7 +543,6 @@ disp('Finished.')
 
 %% Load SUA data (combine datasets, w/ classification bugfix)
 
-
 data_fn = { ...
     'trial_activity_choiceworld.mat', ... % original 
     'trial_activity_ctx_task.mat', ...    % + cortex ephys
@@ -645,6 +636,50 @@ else
     error('Unrecognized data_fn type')
 end
 
+
+% Julie's bugfixes
+% (combines 2 TAN categories, integrates old 'other' with UINs, puts short
+% waveforms that look like TANs into new 'other')
+if ~exist('removeMissingSpikesUnits', 'var')
+    removeMissingSpikesUnits = 0;
+end
+for iAnimal = 1:size(trial_data_all.goodUnits, 1)
+    for iRecording = 1:size(trial_data_all.goodUnits{iAnimal}, 1)
+
+        % 1. if flag remove spikes missing, add these to the goodUnits
+        if removeMissingSpikesUnits
+            trial_data_all.goodUnits{iAnimal}{iRecording} = trial_data_all.goodUnits{iAnimal}{iRecording} ...
+                & nanmin(trial_data_all.percent_missing_ndtr{iAnimal}{iRecording}(2:end, :)) < 50;
+        end
+
+        % 2. re-classify to: add noise guys to uins, remove large post spike suppression FSI and UINs, and short waveform guys from TANs. 
+        if ~isempty(trial_data_all.acg{iAnimal}{iRecording})
+         for iCell = 1:size(trial_data_all.acg{iAnimal}{iRecording}, 1)
+            pss_allcat2temp = find(trial_data_all.acg{iAnimal}{iRecording}(iCell, 500:1000) >= nanmean(trial_data_all.acg{iAnimal}{iRecording}(iCell, 600:900)));
+            pss_allcat2(iCell) = pss_allcat2temp(1);
+         end
+        allDepths = zeros(size(trial_data_all.allGroups{iAnimal}{iRecording},2),1);
+        allDepths(ismember(trial_data_all.allGroups{iAnimal}{iRecording}, [1,4,7,10,13,16]))=1; 
+        allDepths(ismember(trial_data_all.allGroups{iAnimal}{iRecording}, [2,5,8,11,14,17]))=2;
+        allDepths(ismember(trial_data_all.allGroups{iAnimal}{iRecording}, [3,6,9,12,15,18]))=3;
+        largePssShorties = find(trial_data_all.templateDuration{iAnimal}{iRecording} < 400 & pss_allcat2' > 40); 
+        
+        fsi = trial_data_all.templateDuration{iAnimal}{iRecording} <= 400 & pss_allcat2 < 40 & trial_data_all.prop_long_isi{iAnimal}{iRecording} <= 0.1;
+        uin = trial_data_all.templateDuration{iAnimal}{iRecording} <= 400 & pss_allcat2 < 40 & trial_data_all.prop_long_isi{iAnimal}{iRecording} > 0.1;
+        tan = trial_data_all.templateDuration{iAnimal}{iRecording} > 400 & pss_allcat2 >= 40;
+        msn = trial_data_all.templateDuration{iAnimal}{iRecording} > 400 & pss_allcat2 < 40;
+        shortDurLongPss = trial_data_all.templateDuration{iAnimal}{iRecording} <= 400 & pss_allcat2 >= 40;
+        
+        trial_data_all.allGroups{iAnimal}{iRecording}(msn) = allDepths(msn);
+        trial_data_all.allGroups{iAnimal}{iRecording}(fsi) = allDepths(fsi) + 3;
+        trial_data_all.allGroups{iAnimal}{iRecording}(tan) = allDepths(tan) + 6;
+        trial_data_all.allGroups{iAnimal}{iRecording}(uin) = allDepths(uin) + 9;
+        trial_data_all.allGroups{iAnimal}{iRecording}(shortDurLongPss) = allDepths(shortDurLongPss) + 12;
+        
+        clearvars pss_allcat2
+        end
+    end
+end
 
 
 % Find fields with experiment data (cell arrays with length animals)
@@ -792,15 +827,11 @@ good_units_allcat = cell2mat(vertcat(goodUnits{:})')';
 % (groups are cell type * depth: msn, fsi, tan, th, ??)
 n_aligned_depths = 3; % hardcoded: I think not stored
 n_celltypes = max(groups_allcat)./n_aligned_depths;
-if n_celltypes ~= 6
+if n_celltypes ~= 5
     error('Incorrect number of celltypes')
 end
 celltype_allcat = ceil(groups_allcat./n_aligned_depths);
-% NOTE: Group 3+6 are both TAN (from relaxing metrics)
-% COMBINING THESE MANUALLY
-celltype_labels = {'MSN','FSI','TAN','UIN','Other'};
-celltype_allcat(celltype_allcat == 6) = 3;
-n_celltypes = 5;
+celltype_labels = {'MSN','FSI','TAN','UIN','Short bursty TAN-like'};
 
 domain_allcat = mod(groups_allcat,n_aligned_depths) + ...
     n_aligned_depths*(mod(groups_allcat,n_aligned_depths) == 0);
@@ -815,8 +846,16 @@ ctx_str_k_frame = cell2mat(cellfun(@(x) reshape(x(:,use_k_frame,:),100,[]), ...
 ctx_str_k_px = svdFrameReconstruct(U_master(:,:,1:100),ctx_str_k_frame(:,good_units_allcat));
 
 
-% Deconvolve fluorescence
+% Deconvolve fluorescence and get kernel ROIs
 fluor_deconv_allcat_exp = cellfun(@(x) AP_deconv_wf(x),vertcat(fluor_all{:}),'uni',false);
+
+n_vs = size(fluor_all{end}{end},3);
+kernel_roi_fn = 'C:\Users\Andrew\OneDrive for Business\Documents\CarandiniHarrisLab\analysis\wf_ephys_choiceworld\wf_processing\wf_rois\kernel_roi';
+load(kernel_roi_fn);
+fluor_kernelroi_deconv_exp = cellfun(@(x) ...
+    permute(AP_deconv_wf(AP_svd_roi(U_master(:,:,1:n_vs), ...
+    permute(x-nanmean(x(:,t < 0,:),2),[3,2,1]),[],[],kernel_roi.bw)),[3,2,1]), ...
+    vertcat(fluor_all{:}),'uni',false);
 
 
 % Get animals/days/cell number
@@ -834,7 +873,7 @@ recordings_allcat = cell2mat(cellfun(@(x,grp) x*ones(sum(~isnan(grp)),1), ...
 disp('Finished.')
 
 
-%% Get fluorescence in kernel ROIs
+%% Get fluorescence in kernel ROIs (put in above)
 
 % Get number of widefield components 
 n_vs = size(fluor_all{end}{end},3);

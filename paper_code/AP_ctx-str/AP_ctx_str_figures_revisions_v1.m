@@ -1067,7 +1067,6 @@ end
 
 %% *****NEW FIG 4d
 
-
 % Get trial params by experiment
 trial_stim_allcat_exp = mat2cell(trial_stim_allcat,use_split,1);
 move_t_exp = mat2cell(move_t,use_split,1);
@@ -1085,7 +1084,20 @@ move_align = -move_idx + leeway_samples;
 outcome_align = -outcome_idx + leeway_samples;
 use_align = {stim_align,move_align,outcome_align};
 
+% (stim aligned)
+mua_exp = vertcat(mua_all{:});
+
 % (move aligned)
+move_idx_exp = mat2cell(move_idx,use_split,1);
+mua_exp_movealign = vertcat(mua_all{:});
+for curr_exp = 1:length(mua_exp_movealign)
+   for curr_trial = 1:size(mua_exp_movealign{curr_exp},1)
+       mua_exp_movealign{curr_exp}(curr_trial,:,:) = ...
+           circshift(mua_exp_movealign{curr_exp}(curr_trial,:,:), ...
+           -move_idx_exp{curr_exp}(curr_trial)+leeway_samples,2);
+   end
+end
+
 move_idx_exp = mat2cell(move_idx,use_split,1);
 fluor_kernelroi_deconv_exp_movealign = fluor_kernelroi_deconv_exp;
 for curr_exp = 1:length(fluor_kernelroi_deconv_exp_movealign)
@@ -1097,6 +1109,16 @@ for curr_exp = 1:length(fluor_kernelroi_deconv_exp_movealign)
 end
 
 % (outcome aligned)
+outcome_idx_exp = mat2cell(outcome_idx,use_split,1);
+mua_exp_outcomealign = vertcat(mua_all{:});
+for curr_exp = 1:length(mua_exp_outcomealign)
+    for curr_trial = 1:size(mua_exp_outcomealign{curr_exp},1)
+        mua_exp_outcomealign{curr_exp}(curr_trial,:,:) = ...
+            circshift(mua_exp_outcomealign{curr_exp}(curr_trial,:,:), ...
+            -outcome_idx_exp{curr_exp}(curr_trial)+leeway_samples,2);
+    end
+end
+
 outcome_idx_exp = mat2cell(outcome_idx,use_split,1);
 fluor_kernelroi_deconv_exp_outcomealign = fluor_kernelroi_deconv_exp;
 for curr_exp = 1:length(fluor_kernelroi_deconv_exp_outcomealign)
@@ -1219,7 +1241,7 @@ for curr_depth = 1:n_aligned_depths
                 celltype_allcat == curr_celltype & ...
                 recordings_allcat == curr_recording;
             
-            ctx_act_currday = ...
+            ctx_act_otherday = ...
                 nanmean(ctx_kernelroi_actmean_multialign(curr_depth,:, ...
                 setdiff(1:n_recordings,curr_recording)),3);
             
@@ -1227,7 +1249,7 @@ for curr_depth = 1:n_aligned_depths
                 % Correlate day's cells with other-day average
                 celltype_ctxact_corr(curr_cells_currday) = ...
                     corr(str_unit_actmean_multialign(curr_cells_currday,:)', ...
-                    ctx_act_currday');
+                    ctx_act_otherday');
             end
         end
     end
@@ -1240,7 +1262,8 @@ celltype_allcorr = [celltype_act_corr,celltype_ctxact_corr];
 
 % Get correlation mean and in FR percentile bins
 fr = nanmean(str_unit_actmean_multialign,2);
-fr_prctilebin_edges = linspace(0,100,5);
+n_prctiles = 4;
+fr_prctilebin_edges = linspace(0,100,n_prctiles+1);
 fr_prctilebin_centers = fr_prctilebin_edges(1:end-1)+diff(fr_prctilebin_edges)./2;
 
 fr_prctilebins = nan(size(fr));
@@ -1251,7 +1274,7 @@ for curr_celltype = 1:3
     fr_prctilebins(curr_units) = discretize(curr_fr,curr_fr_prctilebin_edges);
 end
 
-use_units = any(~isnan(celltype_allcorr) | ~isnan(fr_prctilebins),2);
+use_units = ~any(isnan(celltype_allcorr),2) & ~isnan(fr_prctilebins);
 
 % Make grouping variables and average by group
 grp_matrix = [celltype_allcat(use_units), ...
@@ -1310,6 +1333,7 @@ end
 linkaxes(p(1,:),'xy');
 linkaxes(p(2,:),'y');
 
+
 % Plot histogram of firing rates
 fr = nanmean(str_unit_actmean_multialign,2);
 fr_bin_edges = [logspace(0,2,50),Inf];
@@ -1330,9 +1354,39 @@ ylabel('Fraction');
 
 
 
+% (statistics comparing celltypes/cortex)
 
+disp('MSN/FSI/CTX ANOVA:')
+for curr_celltype = 1:3   
+    curr_actcorr = permute(celltype_actcorr_frbins(curr_celltype,:,:,:),[2,4,3,1]);
+    [fr_grp,compare_grp,recording_grp] = ndgrid( ...
+        1:size(curr_actcorr,1), ...
+        1:size(curr_actcorr,2), ...
+        1:size(curr_actcorr,3));
+    use_comparison = [1,2,4]; % (msn v fsi v cortex)
+    p = anovan(reshape(curr_actcorr(:,use_comparison,:),[],1), ...
+        [reshape(fr_grp(:,use_comparison,:),[],1), ...
+        reshape(compare_grp(:,use_comparison,:),[],1)], ...
+        'model','interaction','display','off');
+    disp([celltype_labels{curr_celltype} ' v (msn/fsi/ctx): p(fr,type,interaction) = ' num2str(p')])    
+end
 
+disp('TAN ANOVA:')
+for curr_celltype = 1:2
+    curr_actcorr = permute(celltype_actcorr_frbins(curr_celltype,:,:,:),[2,4,3,1]);
+    [fr_grp,compare_grp,recording_grp] = ndgrid( ...
+        1:size(curr_actcorr,1), ...
+        1:size(curr_actcorr,2), ...
+        1:size(curr_actcorr,3));
+    use_comparison = [curr_celltype,3]; % (msn v fsi v cortex)
+    p = anovan(reshape(curr_actcorr(:,use_comparison,:),[],1), ...
+        [reshape(fr_grp(:,use_comparison,:),[],1), ...
+        reshape(compare_grp(:,use_comparison,:),[],1)], ...
+        'model','interaction','display','off');
+    disp([celltype_labels{curr_celltype} ' v (tan): p(fr,type,interaction) = ' num2str(p')])
+end
 
+    
 
 
 %% (testing from above: single bin)
