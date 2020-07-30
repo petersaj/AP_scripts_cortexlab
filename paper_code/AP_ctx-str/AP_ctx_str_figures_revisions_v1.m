@@ -633,7 +633,7 @@ end
 % Get average activity across alignments
 use_align_labels = {'Stim','Move onset','Outcome'};
 
-act_mean = nan(length(good_units_allcat),length(t),length(use_align_labels));
+str_unit_act_mean = nan(length(good_units_allcat),length(t),length(use_align_labels));
 for curr_align = 1:length(use_align_labels)
     
     switch curr_align
@@ -645,7 +645,7 @@ for curr_align = 1:length(use_align_labels)
             curr_mua = mua_exp_outcomealign;
     end
     
-    act_mean(:,:,curr_align) = cell2mat(cellfun(@(act,stim,rxn,outcome) ...
+    str_unit_act_mean(:,:,curr_align) = cell2mat(cellfun(@(act,stim,rxn,outcome) ...
         squeeze(nanmean(act(stim > 0 & rxn < 0.5 & outcome == 1,:,:),1)), ...
         curr_mua,trial_stim_allcat_exp,move_t_exp, ...
         trial_outcome_allcat_exp,'uni',false)')';
@@ -667,8 +667,8 @@ for curr_align = 1:length(align_samples)
     align_samples{curr_align} = curr_t_use;
 end
 
-act_mean_multialign = cell2mat(arrayfun(@(x) ...
-    act_mean(:,align_samples{x},x),1:size(act_mean,3),'uni',false));
+str_unit_actmean_multialign = cell2mat(arrayfun(@(x) ...
+    str_unit_act_mean(:,align_samples{x},x),1:size(str_unit_act_mean,3),'uni',false));
 
 
 % Get pairwise across-recording activity correlations by celltype
@@ -683,9 +683,9 @@ for curr_depth = 1:n_aligned_depths
             good_units_allcat & ...
             domain_aligned_allcat == curr_depth & ...
             celltype_allcat == curr_celltype;        
-        curr_act_corr = corr(act_mean_multialign(curr_cells,:)');
+        curr_act_corr = corr(str_unit_actmean_multialign(curr_cells,:)');
         
-        curr_rate = nanmean(act_mean_multialign(curr_cells,:),2);
+        curr_rate = nanmean(str_unit_actmean_multialign(curr_cells,:),2);
         curr_act_rate = sqrt(curr_rate.*curr_rate'); % geometric mean
 %         curr_act_rate = min(curr_rate,curr_rate'); % pairwise min
         
@@ -790,7 +790,7 @@ end
 
 % Get pairwise across-recording activity correlations by celltype in domain
 n_recordings = max(recordings_allcat);
-celltype_act_corr = nan(size(act_mean_multialign,1),1);
+celltype_act_corr = nan(size(str_unit_actmean_multialign,1),1);
 for curr_depth = 1:n_aligned_depths
     for curr_celltype = 1:3
         for curr_recording = 1:n_recordings
@@ -808,12 +808,12 @@ for curr_depth = 1:n_aligned_depths
                 celltype_allcat == curr_celltype & ...
                 recordings_allcat ~= curr_recording;
             act_mean_multialign_otherday_avg = ...
-                nanmean(act_mean_multialign(curr_cells_otherday,:),1);
+                nanmean(str_unit_actmean_multialign(curr_cells_otherday,:),1);
             
             if any(curr_cells_currday)  
             % Correlate day's cells with other-day average
             celltype_act_corr(curr_cells_currday) = ...
-                corr(act_mean_multialign(curr_cells_currday,:)', ...
+                corr(str_unit_actmean_multialign(curr_cells_currday,:)', ...
                 act_mean_multialign_otherday_avg');
             end          
         end
@@ -823,7 +823,7 @@ end
 % Get correlation mean and in FR bins
 fr_bin_edges = linspace(0,10,6);%logspace(-2,1,10);
 fr_bin_centers = fr_bin_edges(1:end-1)+diff(fr_bin_edges)./2;
-fr_bins = discretize(nanmean(act_mean_multialign,2),fr_bin_edges);
+fr_bins = discretize(nanmean(str_unit_actmean_multialign,2),fr_bin_edges);
 
 use_units = ~isnan(celltype_act_corr) & ~isnan(fr_bins);
 celltype_corr_avg_fr_bins = accumarray( ...
@@ -878,7 +878,7 @@ disp(['interaction p = ' num2str(p(3))]);
 
 
 %%%%%%% KENNETH SUGGESTION histogram of firing rates
-fr = nanmean(act_mean_multialign,2);
+fr = nanmean(str_unit_actmean_multialign,2);
 fr_bin_edges = [linspace(0,20,50),Inf];
 
 figure; hold on
@@ -902,7 +902,7 @@ figure;
 % Get correlation mean and in FR bins
 fr_bin_edges = linspace(0,10,6);%logspace(-2,1,10);
 fr_bin_centers = fr_bin_edges(1:end-1)+diff(fr_bin_edges)./2;
-fr_bins = discretize(nanmean(act_mean_multialign,2),fr_bin_edges);
+fr_bins = discretize(nanmean(str_unit_actmean_multialign,2),fr_bin_edges);
 
 use_units = ~isnan(celltype_act_corr) & ~isnan(fr_bins);
 celltype_corr_avg_fr_bins = accumarray( ...
@@ -931,7 +931,7 @@ ylabel('Cell-average act corr');
 
 
 % Get correlation mean and in FR percentile bins
-fr = nanmean(act_mean_multialign,2);
+fr = nanmean(str_unit_actmean_multialign,2);
 fr_prctilebin_edges = linspace(0,100,7);
 fr_prctilebin_centers = fr_prctilebin_edges(1:end-1)+diff(fr_prctilebin_edges)./2;
 
@@ -975,7 +975,7 @@ ylabel('Cell-average act corr');
 
 % Get pairwise across-recording activity correlations by celltype in domain
 n_recordings = max(recordings_allcat);
-celltype_act_corr = nan(size(act_mean_multialign,1),3);
+celltype_act_corr = nan(size(str_unit_actmean_multialign,1),3);
 for curr_depth = 1:n_aligned_depths
     for curr_celltype = 1:3
         for curr_celltype_compare = 1:3
@@ -994,12 +994,12 @@ for curr_depth = 1:n_aligned_depths
                     celltype_allcat == curr_celltype_compare & ...
                     recordings_allcat ~= curr_recording;
                 act_mean_multialign_otherday_avg = ...
-                    nanmean(act_mean_multialign(curr_cells_otherday,:),1);
+                    nanmean(str_unit_actmean_multialign(curr_cells_otherday,:),1);
                 
                 if any(curr_cells_currday)
                     % Correlate day's cells with other-day average
                     celltype_act_corr(curr_cells_currday,curr_celltype_compare) = ...
-                        corr(act_mean_multialign(curr_cells_currday,:)', ...
+                        corr(str_unit_actmean_multialign(curr_cells_currday,:)', ...
                         act_mean_multialign_otherday_avg');
                 end
             end
@@ -1009,7 +1009,7 @@ end
 
 
 % Get correlation mean and in FR percentile bins
-fr = nanmean(act_mean_multialign,2);
+fr = nanmean(str_unit_actmean_multialign,2);
 fr_prctilebin_edges = linspace(0,100,7);
 fr_prctilebin_centers = fr_prctilebin_edges(1:end-1)+diff(fr_prctilebin_edges)./2;
 
@@ -1065,7 +1065,7 @@ for curr_celltype = 1:3
 end
 
 
-%% ==== UPDATE TO ABOVE: ADDING CORTEX
+%% *****NEW FIG 4d
 
 
 % Get trial params by experiment
@@ -1110,8 +1110,27 @@ end
 % Get average activity across alignments
 use_align_labels = {'Stim','Move onset','Outcome'};
 
+str_unit_act_mean = nan(length(good_units_allcat),length(t),length(use_align_labels));
+for curr_align = 1:length(use_align_labels)
+    
+    switch curr_align
+        case 1
+            curr_mua = mua_exp;
+        case 2
+            curr_mua = mua_exp_movealign;
+        case 3
+            curr_mua = mua_exp_outcomealign;
+    end
+    
+    str_unit_act_mean(:,:,curr_align) = cell2mat(cellfun(@(act,stim,rxn,outcome) ...
+        squeeze(nanmean(act(stim > 0 & rxn < 0.5 & outcome == 1,:,:),1)), ...
+        curr_mua,trial_stim_allcat_exp,move_t_exp, ...
+        trial_outcome_allcat_exp,'uni',false)')';
+    
+end
+
 n_recordings = length(fluor_kernelroi_deconv_exp);
-ctx_act_mean = nan(n_aligned_depths,length(t),n_recordings,length(use_align_labels));
+ctx_kernelroi_act_mean = nan(n_aligned_depths,length(t),n_recordings,length(use_align_labels));
 for curr_align = 1:length(use_align_labels)
     
     switch curr_align
@@ -1123,7 +1142,7 @@ for curr_align = 1:length(use_align_labels)
             curr_act = fluor_kernelroi_deconv_exp_outcomealign;
     end
     
-    ctx_act_mean(:,:,:,curr_align) = cell2mat(permute(cellfun(@(act,stim,rxn,outcome) ...
+    ctx_kernelroi_act_mean(:,:,:,curr_align) = cell2mat(permute(cellfun(@(act,stim,rxn,outcome) ...
         squeeze(nanmean(act(stim > 0 & rxn < 0.5 & outcome == 1,:,:),1))', ...
         curr_act,trial_stim_allcat_exp,move_t_exp, ...
         trial_outcome_allcat_exp,'uni',false),[2,3,1]));
@@ -1145,17 +1164,55 @@ for curr_align = 1:length(align_samples)
     align_samples{curr_align} = curr_t_use;
 end
 
-ctx_act_mean_multialign = cell2mat(arrayfun(@(x) ...
-    ctx_act_mean(:,align_samples{x},:,x),1:size(ctx_act_mean,4),'uni',false));
+str_unit_actmean_multialign = cell2mat(arrayfun(@(x) ...
+    str_unit_act_mean(:,align_samples{x},x),1:size(str_unit_act_mean,3),'uni',false));
 
-% Get cell-cortex correlation
+ctx_kernelroi_actmean_multialign = cell2mat(arrayfun(@(x) ...
+    ctx_kernelroi_act_mean(:,align_samples{x},:,x),1:size(ctx_kernelroi_act_mean,4),'uni',false));
+
+
+% Get cell-average correlations (across recording)
 n_recordings = max(recordings_allcat);
-celltype_ctxact_corr = nan(size(act_mean_multialign,1),1);
+celltype_act_corr = nan(size(str_unit_actmean_multialign,1),3);
+for curr_depth = 1:n_aligned_depths
+    for curr_celltype = 1:3
+        for curr_celltype_compare = 1:3
+            for curr_recording = 1:n_recordings
+                
+                % Get cells in domain in/out of recording
+                curr_cells_currday = ...
+                    good_units_allcat & ...
+                    domain_aligned_allcat == curr_depth & ...
+                    celltype_allcat == curr_celltype & ...
+                    recordings_allcat == curr_recording;
+                
+                curr_cells_otherday = ...
+                    good_units_allcat & ...
+                    domain_aligned_allcat == curr_depth & ...
+                    celltype_allcat == curr_celltype_compare & ...
+                    recordings_allcat ~= curr_recording;
+                act_mean_multialign_otherday_avg = ...
+                    nanmean(str_unit_actmean_multialign(curr_cells_otherday,:),1);
+                
+                if any(curr_cells_currday)
+                    % Correlate day's cells with other-day average
+                    celltype_act_corr(curr_cells_currday,curr_celltype_compare) = ...
+                        corr(str_unit_actmean_multialign(curr_cells_currday,:)', ...
+                        act_mean_multialign_otherday_avg');
+                end
+            end
+        end
+    end
+end
+
+% Get cell-cortex ROI correlation (across recording)
+n_recordings = max(recordings_allcat);
+celltype_ctxact_corr = nan(size(str_unit_actmean_multialign,1),1);
 for curr_depth = 1:n_aligned_depths
     for curr_celltype = 1:3
         for curr_recording = 1:n_recordings
             
-            % Get cells in domain in/out of recording
+            % Get cells in domain and cortex out of recording
             curr_cells_currday = ...
                 good_units_allcat & ...
                 domain_aligned_allcat == curr_depth & ...
@@ -1163,24 +1220,27 @@ for curr_depth = 1:n_aligned_depths
                 recordings_allcat == curr_recording;
             
             ctx_act_currday = ...
-                nanmean(ctx_act_mean_multialign(curr_depth,:,curr_recording),3);
+                nanmean(ctx_kernelroi_actmean_multialign(curr_depth,:, ...
+                setdiff(1:n_recordings,curr_recording)),3);
             
             if any(curr_cells_currday)
                 % Correlate day's cells with other-day average
                 celltype_ctxact_corr(curr_cells_currday) = ...
-                    corr(act_mean_multialign(curr_cells_currday,:)', ...
+                    corr(str_unit_actmean_multialign(curr_cells_currday,:)', ...
                     ctx_act_currday');
             end
         end
     end
 end
 
+
+
 % Concatenate celltype and fluorescence correlation
 celltype_allcorr = [celltype_act_corr,celltype_ctxact_corr];
 
 % Get correlation mean and in FR percentile bins
-fr = nanmean(act_mean_multialign,2);
-fr_prctilebin_edges = linspace(0,100,7);
+fr = nanmean(str_unit_actmean_multialign,2);
+fr_prctilebin_edges = linspace(0,100,5);
 fr_prctilebin_centers = fr_prctilebin_edges(1:end-1)+diff(fr_prctilebin_edges)./2;
 
 fr_prctilebins = nan(size(fr));
@@ -1193,7 +1253,7 @@ end
 
 use_units = any(~isnan(celltype_allcorr) | ~isnan(fr_prctilebins),2);
 
-% this is ridiculous but I'm in a hurry
+% Make grouping variables and average by group
 grp_matrix = [celltype_allcat(use_units), ...
     fr_prctilebins(use_units), ...
     recordings_allcat(use_units)];
@@ -1218,23 +1278,153 @@ celltype_col = ...
     0.5,0.3,0.1; ...
     1,0.5,0];
 ctx_col = [0,0.7,0];
+p = gobjects(2,3);
 for curr_celltype = 1:3
     
     curr_fr = permute(squeeze(celltype_fr_frbins(curr_celltype,:,:,:)),[1,3,2]);
     curr_actcorr = permute(squeeze(celltype_actcorr_frbins(curr_celltype,:,:,:)),[1,3,2]);
     
-    subplot(3,1,curr_celltype); hold on;
+    p(1,curr_celltype) = subplot(2,3,curr_celltype); hold on;
+    set(gca,'ColorOrder',[celltype_col(1:3,:);ctx_col],'YScale','log');
+    errorbar(nanmean(curr_actcorr,3), ...
+        repmat(nanmean(curr_fr,3),1,size(celltype_allcorr,2)), ...
+        AP_sem(curr_actcorr,3),'horizontal','linewidth',2);
+    title(celltype_labels{curr_celltype})
+    legend([celltype_labels(1:3),'Cortex ROI']);
+    xlabel('Avg act corr');
+    ylabel('Firing rate');
+
+    p(2,curr_celltype) = subplot(2,3,3+curr_celltype); hold on;
     set(gca,'ColorOrder',[celltype_col(1:3,:);ctx_col],'XScale','log');
-    
     errorbar(repmat(nanmean(curr_fr,3),1,size(celltype_allcorr,2)), ...
-        nanmean(curr_actcorr,3), ...
-        AP_sem(curr_actcorr,3),'linewidth',2);
+        nanmean(curr_actcorr,3),AP_sem(curr_actcorr,3),'linewidth',2);
     title(celltype_labels{curr_celltype})
     legend([celltype_labels(1:3),'Cortex ROI']);
     xlabel('Firing rate');
     ylabel('Avg act corr');
+    axis tight
+    curr_xlim = xlim;
+    xlim([curr_xlim(1)*0.7,curr_xlim(2)*1.3]);
     
 end
+linkaxes(p(1,:),'xy');
+linkaxes(p(2,:),'y');
+
+% Plot histogram of firing rates
+fr = nanmean(str_unit_actmean_multialign,2);
+fr_bin_edges = [logspace(0,2,50),Inf];
+
+figure; hold on
+celltype_col = ...
+    [0.9,0.4,0.6; ...
+    0.4,0.5,0.6; ...
+    0.5,0.3,0.1; ...
+    1,0.5,0];
+set(gca,'ColorOrder',celltype_col,'XScale','log');
+histogram(fr(good_units_allcat & celltype_allcat == 1),fr_bin_edges,'Normalization','probability');
+histogram(fr(good_units_allcat & celltype_allcat == 2),fr_bin_edges,'Normalization','probability');
+histogram(fr(good_units_allcat & celltype_allcat == 3),fr_bin_edges,'Normalization','probability');
+legend(celltype_labels(1:3));
+xlabel('Firing rate');
+ylabel('Fraction');
+
+
+
+
+
+
+
+
+%% (testing from above: single bin)
+
+
+
+% Get correlation mean and in FR percentile bins
+fr = nanmean(str_unit_actmean_multialign,2);
+fr_prctilebin_edges = linspace(0,100,2);
+fr_prctilebin_centers = fr_prctilebin_edges(1:end-1)+diff(fr_prctilebin_edges)./2;
+
+fr_prctilebins = nan(size(fr));
+for curr_celltype = 1:3
+    curr_units = good_units_allcat & celltype_allcat == curr_celltype;
+    curr_fr = fr(curr_units);
+    curr_fr_prctilebin_edges = prctile(curr_fr,fr_prctilebin_edges);
+    fr_prctilebins(curr_units) = discretize(curr_fr,curr_fr_prctilebin_edges);
+end
+
+use_units = any(~isnan(celltype_act_corr) | ~isnan(fr_prctilebins),2);
+
+% this is ridiculous but I'm in a hurry
+grp_matrix = [celltype_allcat(use_units), ...
+    fr_prctilebins(use_units), ...
+    recordings_allcat(use_units)];
+grp_matrix_repmat = reshape(permute(repmat(grp_matrix,1,1,3),[1,3,2]),[],3);
+
+[~,celltype_compare_repmat] = ndgrid(1:size(celltype_act_corr,1),1:size(celltype_act_corr,2));
+celltype_compare_grp = reshape(celltype_compare_repmat(use_units,:),[],1);
+
+celltype_actcorr_frbins = accumarray( ...
+    [grp_matrix_repmat,celltype_compare_grp], ...
+    reshape(celltype_act_corr(use_units,:),[],1), ...
+    [3,length(fr_prctilebin_centers),max(recordings_allcat),3],@nanmean,NaN);
+celltype_fr_frbins = accumarray(grp_matrix,fr(use_units), ...
+    [3,length(fr_prctilebin_centers),max(recordings_allcat)],@nanmean,NaN);
+
+
+% figure;
+% celltype_col = ...
+%     [0.9,0.4,0.6; ...
+%     0.4,0.5,0.6; ...
+%     0.5,0.3,0.1; ...
+%     1,0.5,0];
+% for curr_celltype = 1:3
+%     
+%     curr_fr = permute(celltype_fr_frbins(curr_celltype,:,:,:),[2,1,3]);
+%     curr_actcorr = permute(celltype_actcorr_frbins(curr_celltype,:,:,:),[2,4,3,1]);   
+%     
+%     subplot(3,1,curr_celltype); hold on;
+%     set(gca,'ColorOrder',celltype_col,'XScale','log');
+%     
+%     errorbar(repmat(nanmean(curr_fr,3),1,3), ...
+%         nanmean(curr_actcorr,3), ...
+%         AP_sem(curr_actcorr,3),'linewidth',2);
+%     title(celltype_labels{curr_celltype});
+%     legend(celltype_labels(1:3));
+%     xlabel('Firing rate');
+%     ylabel('Avg act corr');
+%     
+% end
+
+
+
+figure;
+celltype_col = ...
+    [0.9,0.4,0.6; ...
+    0.4,0.5,0.6; ...
+    0.5,0.3,0.1; ...
+    1,0.5,0];
+for curr_celltype = 1:3
+    
+    curr_fr = permute(celltype_fr_frbins(curr_celltype,:,:,:),[2,1,3]);
+    curr_actcorr = permute(celltype_actcorr_frbins(curr_celltype,:,:,:),[2,4,3,1]);   
+    
+    subplot(3,1,curr_celltype); hold on;
+    set(gca,'XScale','log');
+    
+    errorbar(repmat(nanmean(curr_fr,3),1,3), ...
+        nanmean(curr_actcorr,3), ...
+        AP_sem(curr_actcorr,3),'.k','linewidth',2);
+    scatter(repmat(nanmean(curr_fr,3),1,3), ...
+        nanmean(curr_actcorr,3),80,celltype_col(1:3,:),'filled');
+    
+    title(celltype_labels{curr_celltype});
+    legend(celltype_labels(1:3));
+    xlabel('Firing rate');
+    ylabel('Avg act corr');
+    
+end
+
+linkaxes(get(gcf,'Children'),'xy')
 
 
 

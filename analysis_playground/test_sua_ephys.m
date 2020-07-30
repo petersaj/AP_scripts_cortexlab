@@ -1,6 +1,6 @@
 %% ~~~~~~~~~~~~ Load
 
-%% ------> INTEGRATE THIS: BUGFIX FROM JULIE <-------
+% ------> INTEGRATE THIS: BUGFIX FROM JULIE <-------
 ?
 % % NOTES FOR INTEGRATING
 % so if you run this script after loading the trial_data, and before anything else, everything should be fine.
@@ -13,8 +13,8 @@
 % 10:04
 % 2. the 13,14,15 guys (previously the high prop ISI UINs) are now the short waveform long prop isi cells that behave like TANs but have FSI/UIN waveforms.
 
-?
-%% SUAbugsBgone
+
+% SUAbugsBgone
 % with some good old for loops
 %clear all;
 %load('E:\analysis\wf_ephys_choiceworld\paper\data\trial_activity_naive.mat')
@@ -25,13 +25,13 @@ end
 for iAnimal = 1:size(trial_data_all.goodUnits, 1)
     for iRecording = 1:size(trial_data_all.goodUnits{iAnimal}, 1)
 ?
-        %% 1. if flag remove spikes missing, add these to the goodUnits
+        % 1. if flag remove spikes missing, add these to the goodUnits
         if removeMissingSpikesUnits
             trial_data_all.goodUnits{iAnimal}{iRecording} = trial_data_all.goodUnits{iAnimal}{iRecording} ...
                 & nanmin(trial_data_all.percent_missing_ndtr{iAnimal}{iRecording}(2:end, :)) < 50;
         end
 ?
-        %% 2. re-classify to: add noise guys to uins, remove large post spike suppression FSI and UINs, and short waveform guys from TANs. 
+        % 2. re-classify to: add noise guys to uins, remove large post spike suppression FSI and UINs, and short waveform guys from TANs. 
         if ~isempty(trial_data_all.acg{iAnimal}{iRecording})
          for iCell = 1:size(trial_data_all.acg{iAnimal}{iRecording}, 1)
             pss_allcat2temp = find(trial_data_all.acg{iAnimal}{iRecording}(iCell, 500:1000) >= nanmean(trial_data_all.acg{iAnimal}{iRecording}(iCell, 600:900)));
@@ -49,7 +49,7 @@ for iAnimal = 1:size(trial_data_all.goodUnits, 1)
         msn = trial_data_all.templateDuration{iAnimal}{iRecording} > 400 & pss_allcat2 < 40;
         shortDurLongPss = trial_data_all.templateDuration{iAnimal}{iRecording} < 400 & pss_allcat2 >= 40;
         
-        trial_data_all.allGroups{iAnimal}{iRecording}(msn) = allDepths(msn) + 3;
+        trial_data_all.allGroups{iAnimal}{iRecording}(msn) = allDepths(msn);
         trial_data_all.allGroups{iAnimal}{iRecording}(fsi) = allDepths(fsi) + 3;
         trial_data_all.allGroups{iAnimal}{iRecording}(tan) = allDepths(tan) + 6;
         trial_data_all.allGroups{iAnimal}{iRecording}(uin) = allDepths(uin) + 9;
@@ -59,6 +59,7 @@ for iAnimal = 1:size(trial_data_all.goodUnits, 1)
         end
     end
 end
+
 
 
 
@@ -263,6 +264,292 @@ disp('Finished.')
 
 
 %% Load SUA data (combine datasets)
+
+
+data_fn = { ...
+    'trial_activity_choiceworld.mat', ... % original 
+    'trial_activity_ctx_task.mat', ...    % + cortex ephys
+    'trial_activity_muscimol_task.mat'};  % muscimol group
+
+% (turn on warnings)
+warning on;
+
+% Load data (saved as structure trial_data_all)
+trial_data_path = 'G:\JF_single_cell_data\';
+
+if ischar(data_fn)
+    % Single dataset
+    disp(['Loading ' data_fn '...']);
+    load([trial_data_path filesep data_fn]);
+    
+elseif iscell(data_fn)
+    % Multiple datasets to merge (this is really dirty)
+    
+    preload_vars = who;
+    
+    % (load in all datasets)
+    clear temp_data
+    for curr_load_data = 1:length(data_fn)
+        disp(['Loading ' data_fn{curr_load_data} '...']);
+        temp_data{curr_load_data} = load([trial_data_path filesep data_fn{curr_load_data}],'trial_data_all');
+%         trial_data_all_split(curr_data) = temp_data.trial_data_all;
+    end
+    
+    % (find shared fields - need to iterate intersect if > 2 datasets)
+    split_fieldnames = cellfun(@(x) fieldnames(x.trial_data_all),temp_data,'uni',false);
+    intersect_fieldnames = intersect(split_fieldnames{1},split_fieldnames{2});
+    if length(data_fn) > 2
+        for curr_intersect = 3:length(data_fn)
+            intersect_fieldnames = intersect(intersect_fieldnames,split_fieldnames{curr_intersect});
+        end
+    end
+    
+    % (initialize combined structure)
+    trial_data_all = cell2struct(cell(size(intersect_fieldnames)),intersect_fieldnames);
+    data_animals = arrayfun(@(x) temp_data{x}.trial_data_all.animals,1:length(data_fn),'uni',false);
+    trial_data_all.animals = horzcat(data_animals{:});
+    
+    % (concatenate experiment fields)
+    experiment_fields = cellfun(@(curr_field) ...
+        length(temp_data{1}.trial_data_all.(curr_field)) == ...
+        length(temp_data{1}.trial_data_all.animals) && ...
+        iscell(temp_data{1}.trial_data_all.(curr_field)) && ...
+        any(cellfun(@(x) iscell(x),temp_data{1}.trial_data_all.(curr_field))),intersect_fieldnames);
+
+    for curr_field = intersect_fieldnames(experiment_fields)'
+       for curr_load_data = 1:length(data_fn)
+          trial_data_all.(curr_field{:}) = ...
+              cat(1,trial_data_all.(curr_field{:}), ...
+              reshape(temp_data{curr_load_data}.trial_data_all.(curr_field{:}),[],1));
+       end
+    end    
+    
+    % (grab non-experiment fields from the first dataset)
+    % (NOTE: this assumes they're the same)
+    for curr_field = intersect_fieldnames(~experiment_fields & ...
+            ~strcmp(intersect_fieldnames,'animals'))'
+        trial_data_all.(curr_field{:}) = ...
+            temp_data{1}.trial_data_all.(curr_field{:});
+    end
+        
+    % (if mixing protocols: ensure stimIDs convered into contrast*side)
+    for curr_animal = 1:length(trial_data_all.trial_info_all)
+        for curr_day = 1:length(trial_data_all.trial_info_all{curr_animal})
+            
+            curr_stim = trial_data_all.trial_info_all{curr_animal}{curr_day}.stimulus;
+            if length(unique(curr_stim)) == 3 && all(unique(curr_stim) == [1;2;3])
+                % Stim [1,2,3] are coded stim IDs
+                curr_stim_recode = curr_stim;
+                % For both mpep and signals, ID is 1 = left, 2 = center, 3 = right
+                curr_stim_recode(curr_stim == 1) = -1;
+                curr_stim_recode(curr_stim == 2) = 0;
+                curr_stim_recode(curr_stim == 3) = 1;
+                
+                trial_data_all.trial_info_all{curr_animal}{curr_day}.stimulus = ...
+                    curr_stim_recode;
+            end
+            
+        end
+    end
+    
+    % clear temp variables
+    clearvars('-except',preload_vars{:},'data_fn','trial_data_all')
+    
+else
+    error('Unrecognized data_fn type')
+end
+
+
+
+% Find fields with experiment data (cell arrays with length animals)
+data_struct_fieldnames = fieldnames(trial_data_all);
+experiment_fields = cellfun(@(curr_field) ...
+    length(trial_data_all.(curr_field)) == length(trial_data_all.animals) && ...
+    iscell(trial_data_all.(curr_field)) && ...
+    any(cellfun(@(x) iscell(x),trial_data_all.(curr_field))),data_struct_fieldnames);
+
+% Load pre-marked experiments to exclude and cut out bad ones
+if exist('exclude_data','var') && exclude_data
+    exclude_path = 'C:\Users\Andrew\OneDrive for Business\Documents\CarandiniHarrisLab\analysis\wf_ephys_choiceworld\experiment_exclusion';
+    exclude_fn = 'bhv_use_experiments';
+    load([exclude_path filesep exclude_fn]);
+    
+    % Pull out used experiments for the animals loaded
+    use_experiments_animals = ismember(trial_data_all.animals,{bhv_use_experiments.animals});
+    use_experiments = {bhv_use_experiments(use_experiments_animals).use_experiments}';
+    
+    % (old, when multiple kinds of exclusions
+%     exclude_fn{1} = 'bhv_use_experiments';
+%     % exclude_fn{2} = 'expl_var_use_experiments';
+%     use_experiments_all = {};
+%     for curr_exclude = 1:length(exclude_fn)
+%         curr_use_experiments = load([exclude_path filesep exclude_fn{curr_exclude}]);
+%         use_experiments_all = [use_experiments_all;curr_use_experiments.use_experiments];
+%     end
+%     use_experiments = arrayfun(@(x) all(vertcat(use_experiments_all{:,x}),1), ...
+%         1:size(use_experiments_all,2),'uni',false)';
+    
+    % Cut out bad experiments for any experiment data fields
+    if ~isempty(use_experiments)
+        for curr_field = data_struct_fieldnames(experiment_fields)'
+            trial_data_all.(cell2mat(curr_field)) = cellfun(@(x,expts) ...
+                x(expts),trial_data_all.(cell2mat(curr_field)), ...
+                use_experiments,'uni',false);
+        end
+    end
+end
+
+% If any animals don't have any data - throw away
+nodata_animals = cellfun(@(x) isempty(x),trial_data_all.trial_info_all);
+trial_data_all.animals(nodata_animals) = [];
+for curr_field = data_struct_fieldnames(experiment_fields)'
+            trial_data_all.(cell2mat(curr_field))(nodata_animals) = [];
+end
+
+% Unpack data structure into workspace then throw away
+arrayfun(@(x) assignin('base',cell2mat(x),trial_data_all.(cell2mat(x))),data_struct_fieldnames);
+clear trial_data_all
+
+% Get sample rate and set "baseline" time
+sample_rate = 1/mean(diff(t));
+t_baseline = t < 0;
+
+% Get if this is a task dataset
+task_dataset = exist('outcome_all','var');
+
+% Concatenate trial info data
+trial_info_fields = fieldnames(trial_info_all{end}{end});
+trial_info_allcat = cell2struct(arrayfun(@(curr_field) ...
+    cell2mat(cellfun(@(x) x(curr_field), ...
+    cellfun(@struct2cell,vertcat(trial_info_all{:}),'uni',false))), ...
+    1:length(trial_info_fields),'uni',false),trial_info_fields,2);
+
+% Concatenate wheel
+wheel_allcat = cell2mat(vertcat(wheel_all{:}));
+
+% % (movement from mousecam if exists: normalize and concatenate)
+% if exist('movement_all','var')
+%     movement_all_norm = cellfun(@(x) cellfun(@(x) x./nanstd(x(:)), ...
+%         x,'uni',false),movement_all,'uni',false);
+%     movement_allcat = cell2mat(vertcat(movement_all_norm{:}));
+% end
+
+%%% Get task/stim-relevant
+
+if task_dataset
+    
+    % Get trial information
+    trial_stim_allcat = trial_info_allcat.stimulus; % old: diff(trial_info_allcat.stimulus,[],2);
+    trial_choice_allcat = -(trial_info_allcat.response-1.5)*2;    
+    trial_outcome_allcat = trial_info_allcat.outcome;
+    
+    % Get reaction time and t index for movement onset
+    move_t = trial_info_allcat.stim_to_move;
+    [~,move_idx] = min(abs(move_t - t),[],2);
+    
+    % Get outcome time
+    outcome_allcat = cell2mat(vertcat(outcome_all{:}));
+    [~,outcome_idx] = max(any(outcome_allcat,3),[],2);
+    outcome_t = t(outcome_idx)';
+    
+    % Get wheel velocity
+    wheel_velocity_allcat = wheel_allcat;
+    [max_speed,max_vel_idx] = max(abs(wheel_velocity_allcat(:,:,1).* ...
+        (bsxfun(@times,wheel_velocity_allcat,trial_choice_allcat) > 0)),[],2);
+    max_vel = max_speed.*trial_choice_allcat;
+    wheel_velocity_allcat_move = wheel_velocity_allcat;
+    
+    t_leeway = -t(1);
+    leeway_samples = round(t_leeway*(sample_rate));
+    for i = 1:size(wheel_velocity_allcat,1)
+        wheel_velocity_allcat_move(i,:,:) = circshift(wheel_velocity_allcat_move(i,:,:),-move_idx(i)+leeway_samples,2);
+    end 
+   
+elseif isfield(trial_info_allcat,'stimulus')  
+    
+    if length(unique(trial_info_allcat.stimulus)) == 3
+        % Use stim IDs
+        trial_stim_allcat = trial_info_allcat.stimulus;
+        % For both mpep and signals, ID is 1 = left, 2 = center, 3 = right
+        trial_stim_allcat(trial_stim_allcat == 1) = -1;
+        trial_stim_allcat(trial_stim_allcat == 2) = 0;
+        trial_stim_allcat(trial_stim_allcat == 3) = 1;
+    else
+        % Passive choiceworld uses stimID = side*contrast
+        trial_stim_allcat = trial_info_allcat.stimulus;
+    end
+
+end
+
+
+% Choose split for data
+trials_allcat = size(wheel_allcat,1);
+trials_animal = arrayfun(@(x) size(vertcat(wheel_all{x}{:}),1),1:size(wheel_all));
+trials_recording = cellfun(@(x) size(x,1),vertcat(wheel_all{:}));
+use_split = trials_recording;
+
+split_idx = cell2mat(arrayfun(@(exp,trials) repmat(exp,trials,1), ...
+    [1:length(use_split)]',reshape(use_split,[],1),'uni',false));
+
+% Concatenate depths
+depth_allcat = cell2mat(cellfun(@(x) x(~isnan(x)), ...
+    vertcat(allDepths{:}),'uni',false));
+
+% Concatenate groups and make logical vectors
+groups_allcat = cell2mat(cellfun(@(x) x(~isnan(x)), ...
+    vertcat(allGroups{:}),'uni',false));
+
+% Concatenate good units
+good_units_exp = cellfun(@transpose,vertcat(goodUnits{:}),'uni',false);
+good_units_allcat = cell2mat(vertcat(goodUnits{:})')';
+
+% (groups are cell type * depth: msn, fsi, tan, th, ??)
+n_aligned_depths = 3; % hardcoded: I think not stored
+n_celltypes = max(groups_allcat)./n_aligned_depths;
+if n_celltypes ~= 6
+    error('Incorrect number of celltypes')
+end
+celltype_allcat = ceil(groups_allcat./n_aligned_depths);
+% NOTE: Group 3+6 are both TAN (from relaxing metrics)
+% COMBINING THESE MANUALLY
+celltype_labels = {'MSN','FSI','TAN','UIN','Other'};
+celltype_allcat(celltype_allcat == 6) = 3;
+n_celltypes = 5;
+
+domain_allcat = mod(groups_allcat,n_aligned_depths) + ...
+    n_aligned_depths*(mod(groups_allcat,n_aligned_depths) == 0);
+
+% Get maps for all cells
+% (load master U)
+load('C:\Users\Andrew\OneDrive for Business\Documents\CarandiniHarrisLab\analysis\wf_ephys_choiceworld\wf_processing\wf_alignment\U_master');
+% (use t = 0 kernels for all cells, hardcoded at the moment)
+use_k_frame = 5;
+ctx_str_k_frame = cell2mat(cellfun(@(x) reshape(x(:,use_k_frame,:),100,[]), ...
+    vertcat(ctx_str_k_all{:})','uni',false));
+ctx_str_k_px = svdFrameReconstruct(U_master(:,:,1:100),ctx_str_k_frame(:,good_units_allcat));
+
+
+% Deconvolve fluorescence
+fluor_deconv_allcat_exp = cellfun(@(x) AP_deconv_wf(x),vertcat(fluor_all{:}),'uni',false);
+
+
+% Get animals/days/cell number
+% (note this includes cortical cells, which are NaNs in allGroups)
+animals_allcat = cell2mat(cellfun(@(x,grp) x(~isnan(grp)), ...
+    vertcat(allAnimals{:}),vertcat(allGroups{:}),'uni',false));
+days_allcat = cell2mat(cellfun(@(x,grp) x(~isnan(grp)), ...
+    vertcat(allDays{:}),vertcat(allGroups{:}),'uni',false));
+neurons_allcat = cell2mat(cellfun(@(x,grp) x(~isnan(grp))', ...
+    vertcat(allNeurons{:}),vertcat(allGroups{:}),'uni',false));
+recordings_allcat = cell2mat(cellfun(@(x,grp) x*ones(sum(~isnan(grp)),1), ...    
+    num2cell((1:length(vertcat(allDays{:})))'),vertcat(allGroups{:}),'uni',false));
+
+
+disp('Finished.')
+
+
+
+%% Load SUA data (combine datasets, w/ classification bugfix)
 
 
 data_fn = { ...
