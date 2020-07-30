@@ -971,7 +971,7 @@ xlabel('Firing rate (binned by percentile)');
 ylabel('Cell-average act corr');
 
 
-%% BEST SO FAR!! correlation across cell types
+%% === BEST SO FAR!! correlation across cell types
 
 % Get pairwise across-recording activity correlations by celltype in domain
 n_recordings = max(recordings_allcat);
@@ -1065,7 +1065,7 @@ for curr_celltype = 1:3
 end
 
 
-%% TRYING ABOVE and also cortex correlation
+%% ==== UPDATE TO ABOVE: ADDING CORTEX
 
 
 % Get trial params by experiment
@@ -1224,13 +1224,13 @@ for curr_celltype = 1:3
     curr_actcorr = permute(squeeze(celltype_actcorr_frbins(curr_celltype,:,:,:)),[1,3,2]);
     
     subplot(3,1,curr_celltype); hold on;
-    set(gca,'ColorOrder',[celltype_col;ctx_col],'XScale','log');
+    set(gca,'ColorOrder',[celltype_col(1:3,:);ctx_col],'XScale','log');
     
-    errorbar(repmat(nanmean(curr_fr,3),1,3), ...
+    errorbar(repmat(nanmean(curr_fr,3),1,size(celltype_allcorr,2)), ...
         nanmean(curr_actcorr,3), ...
         AP_sem(curr_actcorr,3),'linewidth',2);
     title(celltype_labels{curr_celltype})
-    legend(celltype_labels(1:3));
+    legend([celltype_labels(1:3),'Cortex ROI']);
     xlabel('Firing rate');
     ylabel('Avg act corr');
     
