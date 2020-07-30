@@ -1,4 +1,4 @@
-%% ~~~~~~~~~~~~ Load
+%% ~~~~~~~~~~~~ Load development
 
 %% --> INTEGRATE THIS: bugfixes from Julie
 % TANS now just in one group
@@ -10,17 +10,14 @@
 % with some good old for loops
 %clear all;
 %load('E:\analysis\wf_ephys_choiceworld\paper\data\trial_activity_naive.mat')
-if ~exist('removeMissingSpikesUnits', 'var')
-    removeMissingSpikesUnits = 0;
-end
-
+removeMissingSpikesUnits = true;
 for iAnimal = 1:size(trial_data_all.goodUnits, 1)
     for iRecording = 1:size(trial_data_all.goodUnits{iAnimal}, 1)
 
         % 1. if flag remove spikes missing, add these to the goodUnits
         if removeMissingSpikesUnits
             trial_data_all.goodUnits{iAnimal}{iRecording} = trial_data_all.goodUnits{iAnimal}{iRecording} ...
-                & nanmin(trial_data_all.percent_missing_ndtr{iAnimal}{iRecording}(2:end, :)) < 50;
+                & nanmin(trial_data_all.percent_missing_ndtr{iAnimal}{iRecording}(2:end, :)) < 30;
         end
 
         % 2. re-classify to: add noise guys to uins, remove large post spike suppression FSI and UINs, and short waveform guys from TANs. 
@@ -640,16 +637,14 @@ end
 % Julie's bugfixes
 % (combines 2 TAN categories, integrates old 'other' with UINs, puts short
 % waveforms that look like TANs into new 'other')
-if ~exist('removeMissingSpikesUnits', 'var')
-    removeMissingSpikesUnits = 0;
-end
+removeMissingSpikesUnits = true;
 for iAnimal = 1:size(trial_data_all.goodUnits, 1)
     for iRecording = 1:size(trial_data_all.goodUnits{iAnimal}, 1)
 
         % 1. if flag remove spikes missing, add these to the goodUnits
         if removeMissingSpikesUnits
             trial_data_all.goodUnits{iAnimal}{iRecording} = trial_data_all.goodUnits{iAnimal}{iRecording} ...
-                & nanmin(trial_data_all.percent_missing_ndtr{iAnimal}{iRecording}(2:end, :)) < 50;
+                & nanmin(trial_data_all.percent_missing_ndtr{iAnimal}{iRecording}(2:end, :)) < 30;
         end
 
         % 2. re-classify to: add noise guys to uins, remove large post spike suppression FSI and UINs, and short waveform guys from TANs. 
@@ -990,6 +985,408 @@ bar(domain_type_count,'stacked');
 xlabel('Domain');
 ylabel('Count');
 legend(celltype_labels);
+
+%% >>>>>>> Load: final
+
+
+data_fn = { ...
+    'trial_activity_choiceworld.mat', ... % original 
+    'trial_activity_ctx_task.mat', ...    % + cortex ephys
+    'trial_activity_muscimol_task.mat'};  % muscimol group
+
+% (turn on warnings)
+warning on;
+
+% Load data (saved as structure trial_data_all)
+trial_data_path = 'G:\JF_single_cell_data\';
+
+if ischar(data_fn)
+    % Single dataset
+    disp(['Loading ' data_fn '...']);
+    load([trial_data_path filesep data_fn]);
+    
+elseif iscell(data_fn)
+    % Multiple datasets to merge (this is really dirty)
+    
+    preload_vars = who;
+    
+    % (load in all datasets)
+    clear temp_data
+    for curr_load_data = 1:length(data_fn)
+        disp(['Loading ' data_fn{curr_load_data} '...']);
+        temp_data{curr_load_data} = load([trial_data_path filesep data_fn{curr_load_data}],'trial_data_all');
+%         trial_data_all_split(curr_data) = temp_data.trial_data_all;
+    end
+    
+    % (find shared fields - need to iterate intersect if > 2 datasets)
+    split_fieldnames = cellfun(@(x) fieldnames(x.trial_data_all),temp_data,'uni',false);
+    intersect_fieldnames = intersect(split_fieldnames{1},split_fieldnames{2});
+    if length(data_fn) > 2
+        for curr_intersect = 3:length(data_fn)
+            intersect_fieldnames = intersect(intersect_fieldnames,split_fieldnames{curr_intersect});
+        end
+    end
+    
+    % (initialize combined structure)
+    trial_data_all = cell2struct(cell(size(intersect_fieldnames)),intersect_fieldnames);
+    data_animals = arrayfun(@(x) temp_data{x}.trial_data_all.animals,1:length(data_fn),'uni',false);
+    trial_data_all.animals = horzcat(data_animals{:});
+    
+    % (concatenate experiment fields)
+    experiment_fields = cellfun(@(curr_field) ...
+        length(temp_data{1}.trial_data_all.(curr_field)) == ...
+        length(temp_data{1}.trial_data_all.animals) && ...
+        iscell(temp_data{1}.trial_data_all.(curr_field)) && ...
+        any(cellfun(@(x) iscell(x),temp_data{1}.trial_data_all.(curr_field))),intersect_fieldnames);
+
+    for curr_field = intersect_fieldnames(experiment_fields)'
+       for curr_load_data = 1:length(data_fn)
+          trial_data_all.(curr_field{:}) = ...
+              cat(1,trial_data_all.(curr_field{:}), ...
+              reshape(temp_data{curr_load_data}.trial_data_all.(curr_field{:}),[],1));
+       end
+    end    
+    
+    % (grab non-experiment fields from the first dataset)
+    % (NOTE: this assumes they're the same)
+    for curr_field = intersect_fieldnames(~experiment_fields & ...
+            ~strcmp(intersect_fieldnames,'animals'))'
+        trial_data_all.(curr_field{:}) = ...
+            temp_data{1}.trial_data_all.(curr_field{:});
+    end
+        
+    % (if mixing protocols: ensure stimIDs convered into contrast*side)
+    for curr_animal = 1:length(trial_data_all.trial_info_all)
+        for curr_day = 1:length(trial_data_all.trial_info_all{curr_animal})
+            
+            curr_stim = trial_data_all.trial_info_all{curr_animal}{curr_day}.stimulus;
+            if length(unique(curr_stim)) == 3 && all(unique(curr_stim) == [1;2;3])
+                % Stim [1,2,3] are coded stim IDs
+                curr_stim_recode = curr_stim;
+                % For both mpep and signals, ID is 1 = left, 2 = center, 3 = right
+                curr_stim_recode(curr_stim == 1) = -1;
+                curr_stim_recode(curr_stim == 2) = 0;
+                curr_stim_recode(curr_stim == 3) = 1;
+                
+                trial_data_all.trial_info_all{curr_animal}{curr_day}.stimulus = ...
+                    curr_stim_recode;
+            end
+            
+        end
+    end
+    
+    % clear temp variables
+    clearvars('-except',preload_vars{:},'data_fn','trial_data_all')
+    
+else
+    error('Unrecognized data_fn type')
+end
+
+
+% Julie's bugfixes
+% (combines 2 TAN categories, integrates old 'other' with UINs, puts short
+% waveforms that look like TANs into new 'other')
+removeMissingSpikesUnits = true;
+for iAnimal = 1:size(trial_data_all.goodUnits, 1)
+    for iRecording = 1:size(trial_data_all.goodUnits{iAnimal}, 1)
+
+        % 1. if flag remove spikes missing, add these to the goodUnits
+        if removeMissingSpikesUnits
+            trial_data_all.goodUnits{iAnimal}{iRecording} = trial_data_all.goodUnits{iAnimal}{iRecording} ...
+                & nanmin(trial_data_all.percent_missing_ndtr{iAnimal}{iRecording}(2:end, :)) < 30;
+        end
+
+        % 2. re-classify to: add noise guys to uins, remove large post spike suppression FSI and UINs, and short waveform guys from TANs. 
+        if ~isempty(trial_data_all.acg{iAnimal}{iRecording})
+         for iCell = 1:size(trial_data_all.acg{iAnimal}{iRecording}, 1)
+            pss_allcat2temp = find(trial_data_all.acg{iAnimal}{iRecording}(iCell, 500:1000) >= nanmean(trial_data_all.acg{iAnimal}{iRecording}(iCell, 600:900)));
+            pss_allcat2(iCell) = pss_allcat2temp(1);
+         end
+        allDepths = zeros(size(trial_data_all.allGroups{iAnimal}{iRecording},2),1);
+        allDepths(ismember(trial_data_all.allGroups{iAnimal}{iRecording}, [1,4,7,10,13,16]))=1; 
+        allDepths(ismember(trial_data_all.allGroups{iAnimal}{iRecording}, [2,5,8,11,14,17]))=2;
+        allDepths(ismember(trial_data_all.allGroups{iAnimal}{iRecording}, [3,6,9,12,15,18]))=3;
+        largePssShorties = find(trial_data_all.templateDuration{iAnimal}{iRecording} < 400 & pss_allcat2' > 40); 
+        
+        fsi = trial_data_all.templateDuration{iAnimal}{iRecording} <= 400 & pss_allcat2 < 40 & trial_data_all.prop_long_isi{iAnimal}{iRecording} <= 0.1;
+        uin = trial_data_all.templateDuration{iAnimal}{iRecording} <= 400 & pss_allcat2 < 40 & trial_data_all.prop_long_isi{iAnimal}{iRecording} > 0.1;
+        tan = trial_data_all.templateDuration{iAnimal}{iRecording} > 400 & pss_allcat2 >= 40;
+        msn = trial_data_all.templateDuration{iAnimal}{iRecording} > 400 & pss_allcat2 < 40;
+        shortDurLongPss = trial_data_all.templateDuration{iAnimal}{iRecording} <= 400 & pss_allcat2 >= 40;
+        
+        trial_data_all.allGroups{iAnimal}{iRecording}(msn) = allDepths(msn);
+        trial_data_all.allGroups{iAnimal}{iRecording}(fsi) = allDepths(fsi) + 3;
+        trial_data_all.allGroups{iAnimal}{iRecording}(tan) = allDepths(tan) + 6;
+        trial_data_all.allGroups{iAnimal}{iRecording}(uin) = allDepths(uin) + 9;
+        trial_data_all.allGroups{iAnimal}{iRecording}(shortDurLongPss) = allDepths(shortDurLongPss) + 12;
+        
+        clearvars pss_allcat2
+        end
+    end
+end
+
+
+% Find fields with experiment data (cell arrays with length animals)
+data_struct_fieldnames = fieldnames(trial_data_all);
+experiment_fields = cellfun(@(curr_field) ...
+    length(trial_data_all.(curr_field)) == length(trial_data_all.animals) && ...
+    iscell(trial_data_all.(curr_field)) && ...
+    any(cellfun(@(x) iscell(x),trial_data_all.(curr_field))),data_struct_fieldnames);
+
+% Load pre-marked experiments to exclude and cut out bad ones
+if exist('exclude_data','var') && exclude_data
+    exclude_path = 'C:\Users\Andrew\OneDrive for Business\Documents\CarandiniHarrisLab\analysis\wf_ephys_choiceworld\experiment_exclusion';
+    exclude_fn = 'bhv_use_experiments';
+    load([exclude_path filesep exclude_fn]);
+    
+    % Pull out used experiments for the animals loaded
+    use_experiments_animals = ismember(trial_data_all.animals,{bhv_use_experiments.animals});
+    use_experiments = {bhv_use_experiments(use_experiments_animals).use_experiments}';
+    
+    % (old, when multiple kinds of exclusions
+%     exclude_fn{1} = 'bhv_use_experiments';
+%     % exclude_fn{2} = 'expl_var_use_experiments';
+%     use_experiments_all = {};
+%     for curr_exclude = 1:length(exclude_fn)
+%         curr_use_experiments = load([exclude_path filesep exclude_fn{curr_exclude}]);
+%         use_experiments_all = [use_experiments_all;curr_use_experiments.use_experiments];
+%     end
+%     use_experiments = arrayfun(@(x) all(vertcat(use_experiments_all{:,x}),1), ...
+%         1:size(use_experiments_all,2),'uni',false)';
+    
+    % Cut out bad experiments for any experiment data fields
+    if ~isempty(use_experiments)
+        for curr_field = data_struct_fieldnames(experiment_fields)'
+            trial_data_all.(cell2mat(curr_field)) = cellfun(@(x,expts) ...
+                x(expts),trial_data_all.(cell2mat(curr_field)), ...
+                use_experiments,'uni',false);
+        end
+    end
+end
+
+% If any animals don't have any data - throw away
+nodata_animals = cellfun(@(x) isempty(x),trial_data_all.trial_info_all);
+trial_data_all.animals(nodata_animals) = [];
+for curr_field = data_struct_fieldnames(experiment_fields)'
+            trial_data_all.(cell2mat(curr_field))(nodata_animals) = [];
+end
+
+% Unpack data structure into workspace then throw away
+arrayfun(@(x) assignin('base',cell2mat(x),trial_data_all.(cell2mat(x))),data_struct_fieldnames);
+clear trial_data_all
+
+% Get sample rate and set "baseline" time
+sample_rate = 1/mean(diff(t));
+t_baseline = t < 0;
+
+% Get if this is a task dataset
+task_dataset = exist('outcome_all','var');
+
+% Concatenate trial info data
+trial_info_fields = fieldnames(trial_info_all{end}{end});
+trial_info_allcat = cell2struct(arrayfun(@(curr_field) ...
+    cell2mat(cellfun(@(x) x(curr_field), ...
+    cellfun(@struct2cell,vertcat(trial_info_all{:}),'uni',false))), ...
+    1:length(trial_info_fields),'uni',false),trial_info_fields,2);
+
+% Concatenate wheel
+wheel_allcat = cell2mat(vertcat(wheel_all{:}));
+
+% % (movement from mousecam if exists: normalize and concatenate)
+% if exist('movement_all','var')
+%     movement_all_norm = cellfun(@(x) cellfun(@(x) x./nanstd(x(:)), ...
+%         x,'uni',false),movement_all,'uni',false);
+%     movement_allcat = cell2mat(vertcat(movement_all_norm{:}));
+% end
+
+%%% Get task/stim-relevant
+
+if task_dataset
+    
+    % Get trial information
+    trial_stim_allcat = trial_info_allcat.stimulus; % old: diff(trial_info_allcat.stimulus,[],2);
+    trial_choice_allcat = -(trial_info_allcat.response-1.5)*2;    
+    trial_outcome_allcat = trial_info_allcat.outcome;
+    
+    % Get reaction time and t index for movement onset
+    move_t = trial_info_allcat.stim_to_move;
+    [~,move_idx] = min(abs(move_t - t),[],2);
+    
+    % Get outcome time
+    outcome_allcat = cell2mat(vertcat(outcome_all{:}));
+    [~,outcome_idx] = max(any(outcome_allcat,3),[],2);
+    outcome_t = t(outcome_idx)';
+    
+    % Get wheel velocity
+    wheel_velocity_allcat = wheel_allcat;
+    [max_speed,max_vel_idx] = max(abs(wheel_velocity_allcat(:,:,1).* ...
+        (bsxfun(@times,wheel_velocity_allcat,trial_choice_allcat) > 0)),[],2);
+    max_vel = max_speed.*trial_choice_allcat;
+    wheel_velocity_allcat_move = wheel_velocity_allcat;
+    
+    t_leeway = -t(1);
+    leeway_samples = round(t_leeway*(sample_rate));
+    for i = 1:size(wheel_velocity_allcat,1)
+        wheel_velocity_allcat_move(i,:,:) = circshift(wheel_velocity_allcat_move(i,:,:),-move_idx(i)+leeway_samples,2);
+    end 
+   
+elseif isfield(trial_info_allcat,'stimulus')  
+    
+    if length(unique(trial_info_allcat.stimulus)) == 3
+        % Use stim IDs
+        trial_stim_allcat = trial_info_allcat.stimulus;
+        % For both mpep and signals, ID is 1 = left, 2 = center, 3 = right
+        trial_stim_allcat(trial_stim_allcat == 1) = -1;
+        trial_stim_allcat(trial_stim_allcat == 2) = 0;
+        trial_stim_allcat(trial_stim_allcat == 3) = 1;
+    else
+        % Passive choiceworld uses stimID = side*contrast
+        trial_stim_allcat = trial_info_allcat.stimulus;
+    end
+
+end
+
+
+% Choose split for data
+trials_allcat = size(wheel_allcat,1);
+trials_animal = arrayfun(@(x) size(vertcat(wheel_all{x}{:}),1),1:size(wheel_all));
+trials_recording = cellfun(@(x) size(x,1),vertcat(wheel_all{:}));
+use_split = trials_recording;
+
+split_idx = cell2mat(arrayfun(@(exp,trials) repmat(exp,trials,1), ...
+    [1:length(use_split)]',reshape(use_split,[],1),'uni',false));
+
+% Concatenate depths
+depth_allcat = cell2mat(cellfun(@(x) x(~isnan(x)), ...
+    vertcat(allDepths{:}),'uni',false));
+
+% Concatenate groups and make logical vectors
+groups_allcat = cell2mat(cellfun(@(x) x(~isnan(x)), ...
+    vertcat(allGroups{:}),'uni',false));
+
+% Concatenate good units
+good_units_exp = cellfun(@transpose,vertcat(goodUnits{:}),'uni',false);
+good_units_allcat = cell2mat(vertcat(goodUnits{:})')';
+
+% (groups are cell type * depth: msn, fsi, tan, th, ??)
+n_aligned_depths = 3; % hardcoded: I think not stored
+n_celltypes = max(groups_allcat)./n_aligned_depths;
+if n_celltypes ~= 5
+    error('Incorrect number of celltypes')
+end
+celltype_allcat = ceil(groups_allcat./n_aligned_depths);
+celltype_labels = {'MSN','FSI','TAN','UIN','Short bursty TAN-like'};
+
+domain_allcat = mod(groups_allcat,n_aligned_depths) + ...
+    n_aligned_depths*(mod(groups_allcat,n_aligned_depths) == 0);
+
+% Get maps for all cells
+% (load master U)
+load('C:\Users\Andrew\OneDrive for Business\Documents\CarandiniHarrisLab\analysis\wf_ephys_choiceworld\wf_processing\wf_alignment\U_master');
+% (use t = 0 kernels for all cells, hardcoded at the moment)
+use_k_frame = 5;
+ctx_str_k_frame = cell2mat(cellfun(@(x) reshape(x(:,use_k_frame,:),100,[]), ...
+    vertcat(ctx_str_k_all{:})','uni',false));
+ctx_str_k_px = svdFrameReconstruct(U_master(:,:,1:100),ctx_str_k_frame(:,good_units_allcat));
+
+
+% Deconvolve fluorescence and get kernel ROIs
+fluor_deconv_allcat_exp = cellfun(@(x) AP_deconv_wf(x),vertcat(fluor_all{:}),'uni',false);
+
+n_vs = size(fluor_all{end}{end},3);
+kernel_roi_fn = 'C:\Users\Andrew\OneDrive for Business\Documents\CarandiniHarrisLab\analysis\wf_ephys_choiceworld\wf_processing\wf_rois\kernel_roi';
+load(kernel_roi_fn);
+fluor_kernelroi_deconv_exp = cellfun(@(x) ...
+    permute(AP_deconv_wf(AP_svd_roi(U_master(:,:,1:n_vs), ...
+    permute(x-nanmean(x(:,t < 0,:),2),[3,2,1]),[],[],kernel_roi.bw)),[3,2,1]), ...
+    vertcat(fluor_all{:}),'uni',false);
+
+
+% Get animals/days/cell number
+% (note this includes cortical cells, which are NaNs in allGroups)
+animals_allcat = cell2mat(cellfun(@(x,grp) x(~isnan(grp)), ...
+    vertcat(allAnimals{:}),vertcat(allGroups{:}),'uni',false));
+days_allcat = cell2mat(cellfun(@(x,grp) x(~isnan(grp)), ...
+    vertcat(allDays{:}),vertcat(allGroups{:}),'uni',false));
+neurons_allcat = cell2mat(cellfun(@(x,grp) x(~isnan(grp))', ...
+    vertcat(allNeurons{:}),vertcat(allGroups{:}),'uni',false));
+recordings_allcat = cell2mat(cellfun(@(x,grp) x*ones(sum(~isnan(grp)),1), ...    
+    num2cell((1:length(vertcat(allDays{:})))'),vertcat(allGroups{:}),'uni',false));
+
+
+%%% Align by relative depth 
+ephys_align_path = 'C:\Users\Andrew\OneDrive for Business\Documents\CarandiniHarrisLab\analysis\wf_ephys_choiceworld\ephys_processing';
+ephys_align_fn = ['ephys_depth_align.mat'];
+load([ephys_align_path filesep ephys_align_fn]);
+
+% Pull out relative depths for each cell
+depth_aligned = cell(size(mua_all));
+for curr_animal = 1:length(mua_all)
+    curr_animal_idx = strcmp(animals{curr_animal},{ephys_depth_align.animal});
+    for curr_day = 1:length(mua_all{curr_animal})
+        % (relative to end)
+        depth_aligned{curr_animal}{curr_day} = ...
+            allDepths{curr_animal}{curr_day}(~isnan(allDepths{curr_animal}{curr_day})) - ...
+            ephys_depth_align(curr_animal_idx).str_depth(curr_day,2);
+%         % (relative to start:end)
+%         depth_aligned{curr_animal}{curr_day} = ...
+%             (allDepths{curr_animal}{curr_day}(~isnan(allDepths{curr_animal}{curr_day})) - ...
+%             ephys_depth_align(curr_animal_idx).str_depth(curr_day,1))./ ...
+%             diff(ephys_depth_align(curr_animal_idx).str_depth(curr_day,:));
+    end
+end
+
+depth_aligned_allcat = cell2mat(horzcat(depth_aligned{:})');
+
+%%% Align by domain
+
+% Load domain alignment
+n_aligned_depths = 3;
+ephys_kernel_align_path = 'C:\Users\Andrew\OneDrive for Business\Documents\CarandiniHarrisLab\analysis\wf_ephys_choiceworld\ephys_processing';
+ephys_kernel_align_fn = ['ephys_kernel_align_' num2str(n_aligned_depths) '_depths.mat'];
+load([ephys_kernel_align_path filesep ephys_kernel_align_fn]);
+
+% Loop through cells, pull out domains
+domain_aligned = cell(size(mua_all));
+for curr_animal = 1:length(mua_all)
+    depth_curr_animal_idx = strcmp(animals{curr_animal},{ephys_depth_align.animal});
+    kernel_curr_animal_idx = strcmp(animals{curr_animal},{ephys_kernel_align.animal});
+    for curr_day = 1:length(mua_all{curr_animal})
+        
+        str_depth = ephys_depth_align(depth_curr_animal_idx).str_depth(curr_day,:);
+        kernel_match = ephys_kernel_align(kernel_curr_animal_idx).kernel_match{curr_day};
+
+        % Get depth groups
+        n_depths = round(diff(str_depth)/200);
+        depth_group_edges = round(linspace(str_depth(1),str_depth(2),n_depths+1));
+        
+        % Get domain depth boundaries
+        kernel_match_boundary_idx = unique([1;find(diff(kernel_match) ~= 0)+1;n_depths+1]);      
+        kernel_match_depth_edges = depth_group_edges(kernel_match_boundary_idx);
+        % (extend first and last forever - sometimes cells a little past
+        % the border but classified as str probably because changed border
+        % calculation slightly)
+        kernel_match_depth_edges(1) = -Inf;
+        kernel_match_depth_edges(end) = Inf;
+        
+        kernel_match_idx = kernel_match(kernel_match_boundary_idx(1:end-1));
+        
+        % Assign neurons to domains
+        domain_aligned{curr_animal}{curr_day} = ...
+            discretize(allDepths{curr_animal}{curr_day}(~isnan(allDepths{curr_animal}{curr_day})), ...
+            kernel_match_depth_edges,kernel_match_idx);
+ 
+    end
+end
+
+domain_aligned_allcat = cell2mat(horzcat(domain_aligned{:})');
+
+
+
+disp('Finished.')
+
+
+
 
 
 %% ~~~~~~~~~~~~ Activity
@@ -3997,7 +4394,7 @@ title('Group 2 ctxpred');
 linkaxes(get(gcf,'Children'),'xy');
 
 
-%% ~~~~~~~~~~~~ Paper figures/claims: single units
+%% ~~~~~~ Paper figures/claims: single units
 
 %% Fig 4c: Average activity within and across cells by domain/celltype
 
@@ -4164,8 +4561,329 @@ for curr_depth = 1:n_aligned_depths
 end
 
 
+%% Fig 4d: SUA-celltype/cortex activity correlation
 
-%% Fig 4d: MSNs < FSIs < TANs activity correlation due to sparseness
+% Get trial params by experiment
+trial_stim_allcat_exp = mat2cell(trial_stim_allcat,use_split,1);
+move_t_exp = mat2cell(move_t,use_split,1);
+trial_outcome_allcat_exp = mat2cell(trial_outcome_allcat,use_split,1);
+
+% Set alignment shifts
+t_leeway = -t(1);
+leeway_samples = round(t_leeway*(sample_rate));
+
+% Align activity by move/outcome (natively stim-aligned)
+
+% (get indicies for alignments - used later)
+stim_align = zeros(size(trial_stim_allcat));
+move_align = -move_idx + leeway_samples;
+outcome_align = -outcome_idx + leeway_samples;
+use_align = {stim_align,move_align,outcome_align};
+
+% (stim aligned)
+mua_exp = vertcat(mua_all{:});
+
+% (move aligned)
+move_idx_exp = mat2cell(move_idx,use_split,1);
+mua_exp_movealign = vertcat(mua_all{:});
+for curr_exp = 1:length(mua_exp_movealign)
+   for curr_trial = 1:size(mua_exp_movealign{curr_exp},1)
+       mua_exp_movealign{curr_exp}(curr_trial,:,:) = ...
+           circshift(mua_exp_movealign{curr_exp}(curr_trial,:,:), ...
+           -move_idx_exp{curr_exp}(curr_trial)+leeway_samples,2);
+   end
+end
+
+move_idx_exp = mat2cell(move_idx,use_split,1);
+fluor_kernelroi_deconv_exp_movealign = fluor_kernelroi_deconv_exp;
+for curr_exp = 1:length(fluor_kernelroi_deconv_exp_movealign)
+   for curr_trial = 1:size(fluor_kernelroi_deconv_exp_movealign{curr_exp},1)
+       fluor_kernelroi_deconv_exp_movealign{curr_exp}(curr_trial,:,:) = ...
+           circshift(fluor_kernelroi_deconv_exp_movealign{curr_exp}(curr_trial,:,:), ...
+           -move_idx_exp{curr_exp}(curr_trial)+leeway_samples,2);
+   end
+end
+
+% (outcome aligned)
+outcome_idx_exp = mat2cell(outcome_idx,use_split,1);
+mua_exp_outcomealign = vertcat(mua_all{:});
+for curr_exp = 1:length(mua_exp_outcomealign)
+    for curr_trial = 1:size(mua_exp_outcomealign{curr_exp},1)
+        mua_exp_outcomealign{curr_exp}(curr_trial,:,:) = ...
+            circshift(mua_exp_outcomealign{curr_exp}(curr_trial,:,:), ...
+            -outcome_idx_exp{curr_exp}(curr_trial)+leeway_samples,2);
+    end
+end
+
+outcome_idx_exp = mat2cell(outcome_idx,use_split,1);
+fluor_kernelroi_deconv_exp_outcomealign = fluor_kernelroi_deconv_exp;
+for curr_exp = 1:length(fluor_kernelroi_deconv_exp_outcomealign)
+    for curr_trial = 1:size(fluor_kernelroi_deconv_exp_outcomealign{curr_exp},1)
+        fluor_kernelroi_deconv_exp_outcomealign{curr_exp}(curr_trial,:,:) = ...
+            circshift(fluor_kernelroi_deconv_exp_outcomealign{curr_exp}(curr_trial,:,:), ...
+            -outcome_idx_exp{curr_exp}(curr_trial)+leeway_samples,2);
+    end
+end
+
+% Get average activity across alignments
+use_align_labels = {'Stim','Move onset','Outcome'};
+
+str_unit_act_mean = nan(length(good_units_allcat),length(t),length(use_align_labels));
+for curr_align = 1:length(use_align_labels)
+    
+    switch curr_align
+        case 1
+            curr_mua = mua_exp;
+        case 2
+            curr_mua = mua_exp_movealign;
+        case 3
+            curr_mua = mua_exp_outcomealign;
+    end
+    
+    str_unit_act_mean(:,:,curr_align) = cell2mat(cellfun(@(act,stim,rxn,outcome) ...
+        squeeze(nanmean(act(stim > 0 & rxn < 0.5 & outcome == 1,:,:),1)), ...
+        curr_mua,trial_stim_allcat_exp,move_t_exp, ...
+        trial_outcome_allcat_exp,'uni',false)')';
+    
+end
+
+n_recordings = length(fluor_kernelroi_deconv_exp);
+ctx_kernelroi_act_mean = nan(n_aligned_depths,length(t),n_recordings,length(use_align_labels));
+for curr_align = 1:length(use_align_labels)
+    
+    switch curr_align
+        case 1
+            curr_act = fluor_kernelroi_deconv_exp;
+        case 2
+            curr_act = fluor_kernelroi_deconv_exp_movealign;
+        case 3
+            curr_act = fluor_kernelroi_deconv_exp_outcomealign;
+    end
+    
+    ctx_kernelroi_act_mean(:,:,:,curr_align) = cell2mat(permute(cellfun(@(act,stim,rxn,outcome) ...
+        squeeze(nanmean(act(stim > 0 & rxn < 0.5 & outcome == 1,:,:),1))', ...
+        curr_act,trial_stim_allcat_exp,move_t_exp, ...
+        trial_outcome_allcat_exp,'uni',false),[2,3,1]));
+    
+end
+
+% Concatenate multi-aligned averages
+% (split the alignment halfway between median alignment points)
+align_median = cellfun(@(x) -nanmedian(x)/sample_rate,use_align);
+align_break = align_median(1:end-1) + diff(align_median*0.8);
+align_t = {[-0.05,align_break(1)],[align_break(1:2)],[align_break(2),1]};
+
+align_samples = cell(size(align_t));
+for curr_align = 1:length(align_samples)    
+    curr_t_offset = -nanmedian(use_align{curr_align})/sample_rate;
+    curr_t = t + curr_t_offset;
+    curr_t_use = curr_t >= align_t{curr_align}(1) & ...
+        curr_t <= align_t{curr_align}(2);
+    align_samples{curr_align} = curr_t_use;
+end
+
+str_unit_actmean_multialign = cell2mat(arrayfun(@(x) ...
+    str_unit_act_mean(:,align_samples{x},x),1:size(str_unit_act_mean,3),'uni',false));
+
+ctx_kernelroi_actmean_multialign = cell2mat(arrayfun(@(x) ...
+    ctx_kernelroi_act_mean(:,align_samples{x},:,x),1:size(ctx_kernelroi_act_mean,4),'uni',false));
+
+
+% Get cell-average correlations (across recording)
+n_recordings = max(recordings_allcat);
+celltype_act_corr = nan(size(str_unit_actmean_multialign,1),3);
+for curr_depth = 1:n_aligned_depths
+    for curr_celltype = 1:3
+        for curr_celltype_compare = 1:3
+            for curr_recording = 1:n_recordings
+                
+                % Get cells in domain in/out of recording
+                curr_cells_currday = ...
+                    good_units_allcat & ...
+                    domain_aligned_allcat == curr_depth & ...
+                    celltype_allcat == curr_celltype & ...
+                    recordings_allcat == curr_recording;
+                
+                curr_cells_otherday = ...
+                    good_units_allcat & ...
+                    domain_aligned_allcat == curr_depth & ...
+                    celltype_allcat == curr_celltype_compare & ...
+                    recordings_allcat ~= curr_recording;
+                act_mean_multialign_otherday_avg = ...
+                    nanmean(str_unit_actmean_multialign(curr_cells_otherday,:),1);
+                
+                if any(curr_cells_currday)
+                    % Correlate day's cells with other-day average
+                    celltype_act_corr(curr_cells_currday,curr_celltype_compare) = ...
+                        corr(str_unit_actmean_multialign(curr_cells_currday,:)', ...
+                        act_mean_multialign_otherday_avg');
+                end
+            end
+        end
+    end
+end
+
+% Get cell-cortex ROI correlation (across recording)
+n_recordings = max(recordings_allcat);
+celltype_ctxact_corr = nan(size(str_unit_actmean_multialign,1),1);
+for curr_depth = 1:n_aligned_depths
+    for curr_celltype = 1:3
+        for curr_recording = 1:n_recordings
+            
+            % Get cells in domain and cortex out of recording
+            curr_cells_currday = ...
+                good_units_allcat & ...
+                domain_aligned_allcat == curr_depth & ...
+                celltype_allcat == curr_celltype & ...
+                recordings_allcat == curr_recording;
+            
+            ctx_act_otherday = ...
+                nanmean(ctx_kernelroi_actmean_multialign(curr_depth,:, ...
+                setdiff(1:n_recordings,curr_recording)),3);
+            
+            if any(curr_cells_currday)
+                % Correlate day's cells with other-day average
+                celltype_ctxact_corr(curr_cells_currday) = ...
+                    corr(str_unit_actmean_multialign(curr_cells_currday,:)', ...
+                    ctx_act_otherday');
+            end
+        end
+    end
+end
+
+
+
+% Concatenate celltype and fluorescence correlation
+celltype_allcorr = [celltype_act_corr,celltype_ctxact_corr];
+
+% Get correlation mean and in FR percentile bins
+fr = nanmean(str_unit_actmean_multialign,2);
+n_prctiles = 4;
+fr_prctilebin_edges = linspace(0,100,n_prctiles+1);
+fr_prctilebin_centers = fr_prctilebin_edges(1:end-1)+diff(fr_prctilebin_edges)./2;
+
+fr_prctilebins = nan(size(fr));
+for curr_celltype = 1:3
+    curr_units = good_units_allcat & celltype_allcat == curr_celltype;
+    curr_fr = fr(curr_units);
+    curr_fr_prctilebin_edges = prctile(curr_fr,fr_prctilebin_edges);
+    fr_prctilebins(curr_units) = discretize(curr_fr,curr_fr_prctilebin_edges);
+end
+
+use_units = ~any(isnan(celltype_allcorr),2) & ~isnan(fr_prctilebins);
+
+% Make grouping variables and average by group
+grp_matrix = [celltype_allcat(use_units), ...
+    fr_prctilebins(use_units), ...
+    recordings_allcat(use_units)];
+grp_matrix_repmat = reshape(permute(repmat( ...
+    grp_matrix,1,1,size(celltype_allcorr,2)),[1,3,2]),[],size(grp_matrix,2));
+
+[~,celltype_compare_repmat] = ndgrid(1:size(celltype_allcorr,1),1:size(celltype_allcorr,2));
+celltype_compare_grp = reshape(celltype_compare_repmat(use_units,:),[],1);
+
+celltype_actcorr_frbins = accumarray( ...
+    [grp_matrix_repmat,celltype_compare_grp], ...
+    reshape(celltype_allcorr(use_units,:),[],1), ...
+    [3,length(fr_prctilebin_centers),max(recordings_allcat),size(celltype_allcorr,2)],@nanmean,NaN);
+celltype_fr_frbins = accumarray(grp_matrix,fr(use_units), ...
+    [3,length(fr_prctilebin_centers),max(recordings_allcat)],@nanmean,NaN);
+
+
+figure;
+celltype_col = ...
+    [0.9,0.4,0.6; ...
+    0.4,0.5,0.6; ...
+    0.5,0.3,0.1; ...
+    1,0.5,0];
+ctx_col = [0,0.7,0];
+p = gobjects(2,3);
+for curr_celltype = 1:3
+    
+    curr_fr = permute(squeeze(celltype_fr_frbins(curr_celltype,:,:,:)),[1,3,2]);
+    curr_actcorr = permute(squeeze(celltype_actcorr_frbins(curr_celltype,:,:,:)),[1,3,2]);
+    
+    p(1,curr_celltype) = subplot(2,3,curr_celltype); hold on;
+    set(gca,'ColorOrder',[celltype_col(1:3,:);ctx_col],'YScale','log');
+    errorbar(nanmean(curr_actcorr,3), ...
+        repmat(nanmean(curr_fr,3),1,size(celltype_allcorr,2)), ...
+        AP_sem(curr_actcorr,3),'horizontal','linewidth',2);
+    title(celltype_labels{curr_celltype})
+    legend([celltype_labels(1:3),'Cortex ROI']);
+    xlabel('Avg act corr');
+    ylabel('Firing rate');
+
+    p(2,curr_celltype) = subplot(2,3,3+curr_celltype); hold on;
+    set(gca,'ColorOrder',[celltype_col(1:3,:);ctx_col],'XScale','log');
+    errorbar(repmat(nanmean(curr_fr,3),1,size(celltype_allcorr,2)), ...
+        nanmean(curr_actcorr,3),AP_sem(curr_actcorr,3),'linewidth',2);
+    title(celltype_labels{curr_celltype})
+    legend([celltype_labels(1:3),'Cortex ROI']);
+    xlabel('Firing rate');
+    ylabel('Avg act corr');
+    axis tight
+    curr_xlim = xlim;
+    xlim([curr_xlim(1)*0.7,curr_xlim(2)*1.3]);
+    
+end
+linkaxes(p(1,:),'xy');
+linkaxes(p(2,:),'y');
+
+
+% Plot histogram of firing rates
+fr = nanmean(str_unit_actmean_multialign,2);
+fr_bin_edges = [logspace(0,2,50),Inf];
+
+figure; hold on
+celltype_col = ...
+    [0.9,0.4,0.6; ...
+    0.4,0.5,0.6; ...
+    0.5,0.3,0.1; ...
+    1,0.5,0];
+set(gca,'ColorOrder',celltype_col,'XScale','log');
+histogram(fr(good_units_allcat & celltype_allcat == 1),fr_bin_edges,'Normalization','probability');
+histogram(fr(good_units_allcat & celltype_allcat == 2),fr_bin_edges,'Normalization','probability');
+histogram(fr(good_units_allcat & celltype_allcat == 3),fr_bin_edges,'Normalization','probability');
+legend(celltype_labels(1:3));
+xlabel('Firing rate');
+ylabel('Fraction');
+
+
+
+% (statistics comparing celltypes/cortex)
+
+disp('MSN/FSI/CTX ANOVA:')
+for curr_celltype = 1:3   
+    curr_actcorr = permute(celltype_actcorr_frbins(curr_celltype,:,:,:),[2,4,3,1]);
+    [fr_grp,compare_grp,recording_grp] = ndgrid( ...
+        1:size(curr_actcorr,1), ...
+        1:size(curr_actcorr,2), ...
+        1:size(curr_actcorr,3));
+    use_comparison = [1,2,4]; % (msn v fsi v cortex)
+    p = anovan(reshape(curr_actcorr(:,use_comparison,:),[],1), ...
+        [reshape(fr_grp(:,use_comparison,:),[],1), ...
+        reshape(compare_grp(:,use_comparison,:),[],1)], ...
+        'model','interaction','display','off');
+    disp([celltype_labels{curr_celltype} ' v (msn/fsi/ctx): p(fr,type,interaction) = ' num2str(p')])    
+end
+
+disp('TAN ANOVA:')
+for curr_celltype = 1:2
+    curr_actcorr = permute(celltype_actcorr_frbins(curr_celltype,:,:,:),[2,4,3,1]);
+    [fr_grp,compare_grp,recording_grp] = ndgrid( ...
+        1:size(curr_actcorr,1), ...
+        1:size(curr_actcorr,2), ...
+        1:size(curr_actcorr,3));
+    use_comparison = [curr_celltype,3]; % (msn v fsi v cortex)
+    p = anovan(reshape(curr_actcorr(:,use_comparison,:),[],1), ...
+        [reshape(fr_grp(:,use_comparison,:),[],1), ...
+        reshape(compare_grp(:,use_comparison,:),[],1)], ...
+        'model','interaction','display','off');
+    disp([celltype_labels{curr_celltype} ' v (tan): p(fr,type,interaction) = ' num2str(p')])
+end
+
+
+%% UNUSED Fig 4x: MSNs < FSIs < TANs activity correlation due to sparseness
 
 % Concatenate multi-aligned trial-averaged activity
 mua_exp = vertcat(mua_all{:});

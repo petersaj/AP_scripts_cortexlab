@@ -10,10 +10,7 @@
 % with some good old for loops
 %clear all;
 %load('E:\analysis\wf_ephys_choiceworld\paper\data\trial_activity_naive.mat')
-if ~exist('removeMissingSpikesUnits', 'var')
-    removeMissingSpikesUnits = 0;
-end
-
+removeMissingSpikesUnits = true;
 for iAnimal = 1:size(trial_data_all.goodUnits, 1)
     for iRecording = 1:size(trial_data_all.goodUnits{iAnimal}, 1)
 
@@ -61,8 +58,8 @@ end
 
 disp('Loading SUA data');
 
-% data_fn = 'G:\JF_single_cell_data\trial_activity_choiceworld.mat';
-data_fn = 'G:\JF_single_cell_data\trial_activity_ctx_task.mat';
+data_fn = 'G:\JF_single_cell_data\trial_activity_choiceworld.mat';
+% data_fn = 'G:\JF_single_cell_data\trial_activity_ctx_task.mat';
 % data_fn = 'G:\JF_single_cell_data\trial_activity_muscimol_task.mat';
 
 load(data_fn);
@@ -640,16 +637,14 @@ end
 % Julie's bugfixes
 % (combines 2 TAN categories, integrates old 'other' with UINs, puts short
 % waveforms that look like TANs into new 'other')
-if ~exist('removeMissingSpikesUnits', 'var')
-    removeMissingSpikesUnits = 0;
-end
+removeMissingSpikesUnits = true;
 for iAnimal = 1:size(trial_data_all.goodUnits, 1)
     for iRecording = 1:size(trial_data_all.goodUnits{iAnimal}, 1)
 
         % 1. if flag remove spikes missing, add these to the goodUnits
         if removeMissingSpikesUnits
             trial_data_all.goodUnits{iAnimal}{iRecording} = trial_data_all.goodUnits{iAnimal}{iRecording} ...
-                & nanmin(trial_data_all.percent_missing_ndtr{iAnimal}{iRecording}(2:end, :)) < 50;
+                & nanmin(trial_data_all.percent_missing_ndtr{iAnimal}{iRecording}(2:end, :)) < 30;
         end
 
         % 2. re-classify to: add noise guys to uins, remove large post spike suppression FSI and UINs, and short waveform guys from TANs. 
@@ -852,7 +847,6 @@ fluor_deconv_allcat_exp = cellfun(@(x) AP_deconv_wf(x),vertcat(fluor_all{:}),'un
 n_vs = size(fluor_all{end}{end},3);
 kernel_roi_fn = 'C:\Users\Andrew\OneDrive for Business\Documents\CarandiniHarrisLab\analysis\wf_ephys_choiceworld\wf_processing\wf_rois\kernel_roi';
 load(kernel_roi_fn);
-n_kernel_rois = size(kernel_roi.bw,3);
 fluor_kernelroi_deconv_exp = cellfun(@(x) ...
     permute(AP_deconv_wf(AP_svd_roi(U_master(:,:,1:n_vs), ...
     permute(x-nanmean(x(:,t < 0,:),2),[3,2,1]),[],[],kernel_roi.bw)),[3,2,1]), ...
@@ -874,7 +868,7 @@ recordings_allcat = cell2mat(cellfun(@(x,grp) x*ones(sum(~isnan(grp)),1), ...
 disp('Finished.')
 
 
-%% Get fluorescence in kernel ROIs
+%% Get fluorescence in kernel ROIs (put in above)
 
 % Get number of widefield components 
 n_vs = size(fluor_all{end}{end},3);
