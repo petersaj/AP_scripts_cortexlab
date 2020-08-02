@@ -59,8 +59,10 @@ end
 disp('Loading SUA data');
 
 % data_fn = 'G:\JF_single_cell_data\trial_activity_choiceworld.mat';
-data_fn = 'G:\JF_single_cell_data\trial_activity_ctx_task.mat';
+% data_fn = 'G:\JF_single_cell_data\trial_activity_ctx_task.mat';
 % data_fn = 'G:\JF_single_cell_data\trial_activity_muscimol_task.mat';
+
+data_fn = 'G:\JF_single_cell_data\trial_activity_naive';
 
 load(data_fn);
 exclude_data = false;
@@ -108,6 +110,17 @@ nodata_animals = cellfun(@(x) isempty(x),trial_data_all.trial_info_all);
 trial_data_all.animals(nodata_animals) = [];
 for curr_field = data_struct_fieldnames(experiment_fields)'
             trial_data_all.(cell2mat(curr_field))(nodata_animals) = [];
+end
+
+% BUGFIX? If any days don't have data - throw away
+% (this isn't present in MUA dataset, don't know where this is from)
+for curr_animal = 1:length(trial_data_all.animals)
+    nodata_days = cellfun(@(x) isempty(x),trial_data_all.trial_info_all{curr_animal});
+    if any(nodata_days)
+        for curr_field = data_struct_fieldnames(experiment_fields)'
+            trial_data_all.(cell2mat(curr_field)){curr_animal}(nodata_days) = [];
+        end
+    end
 end
 
 % Unpack data structure into workspace then throw away
@@ -1568,6 +1581,17 @@ for curr_field = data_struct_fieldnames(experiment_fields)'
             trial_data_all.(cell2mat(curr_field))(nodata_animals) = [];
 end
 
+% BUGFIX? If any days don't have data - throw away
+% (this isn't present in MUA dataset, don't know where this is from)
+for curr_animal = 1:length(trial_data_all.animals)
+    nodata_days = cellfun(@(x) isempty(x),trial_data_all.trial_info_all{curr_animal});
+    if any(nodata_days)
+        for curr_field = data_struct_fieldnames(experiment_fields)'
+            trial_data_all.(cell2mat(curr_field)){curr_animal}(nodata_days) = [];
+        end
+    end
+end
+
 % Unpack data structure into workspace then throw away
 arrayfun(@(x) assignin('base',cell2mat(x),trial_data_all.(cell2mat(x))),data_struct_fieldnames);
 clear trial_data_all
@@ -1788,7 +1812,7 @@ disp('Finished.')
 
 
 data_fn = { ...
-    'trial_activity_naive.mat', ... % original 
+    'trial_activity_trainedPassive.mat', ... % original 
     'trial_activity_ctx_passive.mat', ...    % + cortex ephys
     'trial_activity_muscimol_passive.mat'};  % muscimol group
 
@@ -1967,6 +1991,17 @@ nodata_animals = cellfun(@(x) isempty(x),trial_data_all.trial_info_all);
 trial_data_all.animals(nodata_animals) = [];
 for curr_field = data_struct_fieldnames(experiment_fields)'
             trial_data_all.(cell2mat(curr_field))(nodata_animals) = [];
+end
+
+% BUGFIX? If any days don't have data - throw away
+% (this isn't present in MUA dataset, don't know where this is from)
+for curr_animal = 1:length(trial_data_all.animals)
+    nodata_days = cellfun(@(x) isempty(x),trial_data_all.trial_info_all{curr_animal});
+    if any(nodata_days)
+        for curr_field = data_struct_fieldnames(experiment_fields)'
+            trial_data_all.(cell2mat(curr_field)){curr_animal}(nodata_days) = [];
+        end
+    end
 end
 
 % Unpack data structure into workspace then throw away
@@ -5921,7 +5956,69 @@ disp(['p(cell type) = ' num2str(p(2))]);
 disp(['p(cell type) = ' num2str(p(3))]);
 
 
+%% Cell type changes with training
 
+mua_exp = vertcat(mua_all{:});
+wheel_exp = vertcat(wheel_all{:});
+stim_exp = mat2cell(trial_stim_allcat,use_split,1);
+
+% Get average activity with no wheel movement and 100%R stim
+wheel_thresh = 0.025;
+stim_act = cellfun(@(stim,wheel,act) ...
+    permute(nanmean(act(stim == 1 & ...
+    ~any(abs(wheel(:,t >= -0.5 & t <= 0.5)) > wheel_thresh,2),:,:),1), ...
+    [3,2,1]),stim_exp,wheel_exp,mua_exp,'uni',false);
+
+%%%%%%%%%%%% CURRENTLY HERE
+celltype_exp = mat2cell(celltype_allcat,cellfun(@(x) size(x,3),mua_exp),1);
+stim_act_celltype = cellfun(@(act,celltype) ...
+    nanmean(act(celltype == curr_celltype,:),1), ...
+    stim_act,celltype_exp,'uni',false);
+
+
+
+
+
+% Split by experiment
+trials_recording = cellfun(@(x) size(x,1),vertcat(wheel_all{:}));
+
+% Get trials with movement during stim to exclude
+wheel_thresh = 0.025;
+quiescent_trials = ~any(abs(wheel_allcat(:,t >= -0.5 & t <= 0.5)) > wheel_thresh,2);
+quiescent_trials_exp = mat2cell(quiescent_trials,trials_recording,1);
+
+% Get stim and activity by experiment
+trial_stim_allcat_exp = mat2cell(trial_stim_allcat,trials_recording,1);
+fluor_deconv_exp = mat2cell(fluor_allcat_deconv,trials_recording,length(t),n_vs);
+fluor_roi_deconv_exp = mat2cell(fluor_roi_deconv,trials_recording,length(t),numel(wf_roi));
+fluor_kernelroi_deconv_exp = mat2cell(fluor_kernelroi_deconv,trials_recording,length(t),n_depths);
+mua_allcat_exp = mat2cell(mua_allcat,trials_recording,length(t),n_depths);
+mua_ctxpred_allcat_exp = mat2cell(mua_ctxpred_allcat,trials_recording,length(t),n_depths);
+
+% Exclude trials with fluorescence spikes
+% (this is a dirty way to do this but don't have a better alt)
+fluor_spike_thresh = 100;
+fluor_spike_trial = cellfun(@(x) any(any(x > fluor_spike_thresh,2),3), ...
+    fluor_kernelroi_deconv_exp,'uni',false);
+
+% Grab data
+stimIDs{curr_data} = cellfun(@(data,quiesc,fluor_spike) data(quiesc & ~fluor_spike,:,:), ...
+    trial_stim_allcat_exp,quiescent_trials_exp,fluor_spike_trial,'uni',false);
+
+mua_training{curr_data} = cellfun(@(data,quiesc,fluor_spike) data(quiesc & ~fluor_spike,:,:), ...
+    mua_allcat_exp,quiescent_trials_exp,fluor_spike_trial,'uni',false);
+
+mua_ctxpred_training{curr_data} = cellfun(@(data,quiesc,fluor_spike) data(quiesc & ~fluor_spike,:,:), ...
+    mua_ctxpred_allcat_exp,quiescent_trials_exp,fluor_spike_trial,'uni',false);
+
+fluor_training{curr_data} = cellfun(@(data,quiesc,fluor_spike) data(quiesc & ~fluor_spike,:,:), ...
+    fluor_deconv_exp,quiescent_trials_exp,fluor_spike_trial,'uni',false);
+
+fluor_roi_training{curr_data} = cellfun(@(data,quiesc,fluor_spike) data(quiesc & ~fluor_spike,:,:), ...
+    fluor_roi_deconv_exp,quiescent_trials_exp,fluor_spike_trial,'uni',false);
+
+fluor_kernelroi_training{curr_data} = cellfun(@(data,quiesc,fluor_spike) data(quiesc & ~fluor_spike,:,:), ...
+    fluor_kernelroi_deconv_exp,quiescent_trials_exp,fluor_spike_trial,'uni',false);
 
 
 
