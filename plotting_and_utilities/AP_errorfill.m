@@ -1,5 +1,5 @@
-function h = AP_errorfill(x,y,ye,color,alpha,plot_mean)
-% AP_errorfill(x,y,ye,color,alpha,plot_mean);
+function h = AP_errorfill(x,y,ye,color,alpha,plot_mean,linewidth)
+% AP_errorfill(x,y,ye,color,alpha,plot_mean,linewidth);
 %
 % Draw filled polygon as errorbars
 %
@@ -27,6 +27,10 @@ if ~exist('plot_mean','var') || isempty(plot_mean)
     plot_mean = true;
 end
 
+if ~exist('linewidth','var') || isempty(linewidth)
+    linewidth = 2;
+end
+
 % Set error values
 if size(ye,3) == 1
     ye_pos = y + ye;
@@ -47,7 +51,7 @@ for curr_line = 1:size(y,2)
     
     % Plot central line
     if plot_mean
-        h = plot(x,y(:,curr_line),'color',color(curr_line,:),'linewidth',2);
+        h = plot(x,y(:,curr_line),'color',color(curr_line,:),'linewidth',linewidth);
     end
 end
 

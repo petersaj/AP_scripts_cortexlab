@@ -1397,6 +1397,11 @@ end
 
 %% @@ Fig 4b: Average activity within and across cells by domain/celltype
 
+% Get trial params and data by experiment
+trial_stim_allcat_exp = mat2cell(trial_stim_allcat,use_split,1);
+move_t_exp = mat2cell(move_t,use_split,1);
+trial_outcome_allcat_exp = mat2cell(trial_outcome_allcat,use_split,1);
+
 mua_exp = vertcat(mua_all{:});
 
 % Set alignment shifts
@@ -1475,9 +1480,11 @@ align_break = align_median(1:end-1) + diff(align_median*0.8);
 align_t = {[-0.05,align_break(1)],[align_break(1:2)],[align_break(2),1]};
 
 % Plot aligned_activity (all cells)
+plot_celltypes = 1:4;
+
 figure;
 for curr_depth = 1:n_aligned_depths
-    for curr_celltype = 1:n_celltypes
+    for curr_celltype = plot_celltypes
         
         curr_cells = domain_aligned_allcat == curr_depth & ...
             celltype_allcat == curr_celltype & good_units_allcat & ...
@@ -1488,8 +1495,8 @@ for curr_depth = 1:n_aligned_depths
    
         for curr_align = 1:length(use_align)
             
-            subplot(n_aligned_depths,n_celltypes, ...
-            (curr_depth-1)*n_celltypes+curr_celltype); hold on;
+            subplot(n_aligned_depths,length(plot_celltypes), ...
+                (curr_depth-1)*length(plot_celltypes)+curr_celltype); hold on;
             
             curr_t_offset = -nanmedian(use_align{curr_align})/sample_rate;
             curr_t = t + curr_t_offset;
@@ -1500,22 +1507,30 @@ for curr_depth = 1:n_aligned_depths
             curr_act_sorted_norm = curr_act_sorted./max(curr_act_sorted,[],2);
         
             % smooth if too many cells to plot accurately
-            if sum(curr_cells) > 500
-                n_smooth = 5;
-                curr_act_sorted_norm = convn(curr_act_sorted_norm, ...
-                    ones(n_smooth,1)./n_smooth,'same');
-            end
+            % (taken out: safer bet to rasterize in illustrator)
+%             if sum(curr_cells) > 500
+%                 n_smooth = 5;
+%                 curr_act_sorted_norm = convn(curr_act_sorted_norm, ...
+%                     ones(n_smooth,1)./n_smooth,'same');
+%             end
 
             plot_t = curr_t > align_t{curr_align}(1) & curr_t <= align_t{curr_align}(2);
             
+            % (scalebar)
+            if sum(curr_cells) > 500
+                line([0,0],[0,200],'color','g','linewidth',2);
+            else
+                line([0,0],[0,20],'color','g','linewidth',2);
+            end
+            
             imagesc(curr_t(plot_t),[],curr_act_sorted_norm(:,plot_t));
             caxis([0,1]);
-            axis tight;
+            axis tight off;
             line(repmat(curr_t_offset,2,1),ylim,'color',align_col(curr_align,:));
             colormap(gca,brewermap([],'Greys'));
             ylabel('Neuron (sorted)');
             xlabel('~Time from stim');
-            title(['Str ' num2str(curr_depth) ' ' celltype_labels{curr_celltype}]);
+%             title(['Str ' num2str(curr_depth) ' ' celltype_labels{curr_celltype}]);
             
         end       
     end
@@ -1524,7 +1539,7 @@ end
 % Plot aligned_activity (average across cells)
 figure;
 for curr_depth = 1:n_aligned_depths
-    for curr_celltype = 1:n_celltypes
+    for curr_celltype = plot_celltypes
         
         curr_cells = domain_aligned_allcat == curr_depth & ...
             celltype_allcat == curr_celltype & good_units_allcat & ...
@@ -1532,8 +1547,8 @@ for curr_depth = 1:n_aligned_depths
    
         for curr_align = 1:length(use_align)
             
-            subplot(n_aligned_depths,n_celltypes, ...
-            (curr_depth-1)*n_celltypes+curr_celltype); hold on;
+            subplot(n_aligned_depths,length(plot_celltypes), ...
+                (curr_depth-1)*length(plot_celltypes)+curr_celltype); hold on;
             
             curr_t_offset = -nanmedian(use_align{curr_align})/sample_rate;
             curr_t = t + curr_t_offset;
@@ -1546,14 +1561,24 @@ for curr_depth = 1:n_aligned_depths
             
             AP_errorfill(curr_t(plot_t)', ...
                 nanmean(curr_act(:,plot_t),1)', ...
-                AP_sem(curr_act(:,plot_t),1)','k');
+                AP_sem(curr_act(:,plot_t),1)','k',[],[],1);
+            % (Matteo's suggestion plot decile: looks crazy)
+%             plot(curr_t(plot_t),prctile(curr_act(:,plot_t),linspace(10,100,90),1)','color',[0.5,0.5,0.5]);
+%             plot(curr_t(plot_t),nanmean(curr_act(:,plot_t),1),'color','k');
+            
+            % (scalebar on first plot)
+            if curr_depth == 1 && curr_celltype == 1 && curr_align == 1
+               line([0,0.5],repmat(min(ylim),2,1),'color','g','linewidth',2); 
+            end
             
             axis tight;
             line(repmat(curr_t_offset,2,1),ylim,'color',align_col(curr_align,:));
             colormap(gca,brewermap([],'Greys'));
             ylabel('Spikes/s');
-            xlabel('~Time from stim');
-            title(['Str ' num2str(curr_depth) ' ' celltype_labels{curr_celltype}]);
+%             xlabel('~Time from stim');
+%             title(['Str ' num2str(curr_depth) ' ' celltype_labels{curr_celltype}]);
+            set(gca,'FontSize',9,'FontName','Myriad Pro');
+            set(gca,'XTick',[]);
             
         end       
     end
@@ -4795,7 +4820,7 @@ for curr_depth = 1:n_depths
     disp(['Str ' num2str(curr_depth) ' p = ' num2str(curr_p)]); 
 end
 
-%% @@ SFig11c: Counts of cells by type and domain
+%% @@ SFig11b: Counts of cells by type and domain
 
 include_celltypes = [1:4]; % 5 is the narrow tan-like cells
 include_units = good_units_allcat & ...
@@ -4812,7 +4837,7 @@ celltype_col = ...
     1,0.5,0];
 
 figure; hold on;
-set(gca,'ColorOrder',celltype_col);
+set(gca,'ColorOrder',celltype_col,'XTick',[]);
 bar(domain_type_count,'stacked');
 xlabel('Domain');
 ylabel('Count');

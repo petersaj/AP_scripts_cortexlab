@@ -586,18 +586,36 @@ end
 
 %% Example rasters
 
+% % Julie suggested
+% example_msns = ...
+%     [187,1,8;
+%     91,1,2;
+%     142,1,1];
+% example_fsis = ...
+%     [412,6,1;
+%     107,1,2;
+%     128,1,3];
+% example_tans = ...
+%     [364,5,1; ...
+%     310,2,2; ...
+%     290,2,1];
+% example_uins = ...
+%     [325,4,5;
+%     482,3,2;
+%     44,1,2];
+
 example_msns = ...
     [187,1,8;
-    91,1,2;
-    142,1,1];
+    525,2,4;
+    132,1,1];
 example_fsis = ...
     [412,6,1;
-    107,1,2;
-    128,1,3];
+    256,2,3;
+    264,4,2];
 example_tans = ...
-    [497,5,1; ...
-    463,2,2; ...
-    297,2,1];
+    [364,5,1; ...
+    290,5,1; ...
+    167,4,4];
 example_uins = ...
     [325,4,5;
     482,3,2;
@@ -616,6 +634,12 @@ n_depths = size(example_units,1);
 n_celltypes = size(example_units,3);
 p = reshape(tight_subplot(n_depths*2,n_celltypes),[n_celltypes,n_depths*2])';
 drawnow;
+
+% Set raster time bins
+raster_window = [-0.5,1];
+psth_bin_size = 0.001;
+raster_t_bins = raster_window(1):psth_bin_size:raster_window(2);
+raster_t = raster_t_bins(1:end-1) + diff(raster_t_bins)./2;
 
 for curr_depth = 1:n_depths
     for curr_celltype = 1:n_celltypes
@@ -642,16 +666,18 @@ for curr_depth = 1:n_depths
             case 1
                 use_align = stimOn_times(plot_trials);
             case 2
-                use_align = wheel_move_time(plot_trials);
+                if curr_celltype ~= 3
+                    use_align = wheel_move_time(plot_trials);
+                else
+                    % (if TAN in str2, stim-align)
+                    use_align = stimOn_times(plot_trials);
+                    
+                end
             case 3
                 use_align = outcome_time(plot_trials);
-        end
+        end        
         
-        raster_window = [-0.5,1];
-        psth_bin_size = 0.001;
-        t_bins = raster_window(1):psth_bin_size:raster_window(2);
-        t = t_bins(1:end-1) + diff(t_bins)./2;
-        t_peri_event = use_align + t_bins;
+        t_peri_event = use_align + raster_t_bins;
         % (handle NaNs by setting rows with NaN times to 0)
         t_peri_event(any(isnan(t_peri_event),2),:) = 0;
         
@@ -677,7 +703,7 @@ for curr_depth = 1:n_depths
         smooth_size = 51;
         gw = gausswin(smooth_size,3)';
         smWin = gw./sum(gw);
-        bin_t = mean(diff(t));
+        bin_t = mean(diff(raster_t));
         
         curr_psth = nanmean(curr_raster,1);
         curr_smoothed_psth = conv2(padarray(curr_psth, ...
@@ -686,14 +712,14 @@ for curr_depth = 1:n_depths
                
         % Plot PSTH and raster
         axes(p(curr_depth*2-1,curr_celltype));
-        plot(t,curr_smoothed_psth,'k','linewidth',2);
-        axis tight off  
+        plot(raster_t,curr_smoothed_psth,'k','linewidth',1);
+        axis tight off
         line([0,0],ylim);
         
         axes(p(curr_depth*2,curr_celltype));
         [raster_y,raster_x] = find(curr_raster);
-        plot(t(raster_x),raster_y,'.k');
-        axis tight off
+        plot(raster_t(raster_x),raster_y,'.k');
+        axis tight off       
         
         drawnow;
 
@@ -702,9 +728,8 @@ for curr_depth = 1:n_depths
     end
 end
 
-
-
-
+linkaxes(p(:),'x')
+set(p,'XLim',raster_window);
 
 
 
