@@ -1394,36 +1394,6 @@ for curr_depth = 1:n_depths
     disp(['Str ' num2str(curr_depth) ' p = ' num2str(curr_p)]); 
 end
 
-%% Fig 4b: Striatal unit PSTH/raster examples
-
-animal = 'AP025'; 
-day = '2017-10-01'; 
-experiment = 1; 
-str_align = 'kernel'; 
-load_parts.ephys = true;
-verbose = true; 
-AP_load_experiment;
-
-outcome_time = signals_events.responseTimes';
-
-% AP_cellraster({stimOn_times,wheel_move_time,outcome_time}, ...
-%     {trial_conditions(1:n_trials,1).*trial_conditions(1:n_trials,2), ...
-%     trial_choice(1:n_trials),trial_outcome(1:n_trials)});
-
-plot_trials = ...
-    (trial_conditions(1:n_trials,1).*trial_conditions(1:n_trials,2)) > 0 & ...
-    trial_choice(1:n_trials) == -1 & ...
-    trial_outcome(1:n_trials == 1);
-
-AP_cellraster({stimOn_times(plot_trials), ...
-    wheel_move_time(plot_trials),outcome_time(plot_trials)});
-
-% Examples used: 
-% stim (depth 1) = 545
-% move (depth 2) = 328
-% move (depth 3) = 258
-% reward (depth 4) = 79 (alt: 467 late, 109/96 sharp)
-
 
 %% @@ Fig 4b: Average activity within and across cells by domain/celltype
 
