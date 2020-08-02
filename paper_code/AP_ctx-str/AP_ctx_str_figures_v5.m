@@ -4228,9 +4228,14 @@ data_fns = { ...
     'trial_activity_vanillaChoiceworldNoRepeats_pre_muscimol', ...
     'trial_activity_vanillaChoiceworldNoRepeats_post_muscimol'};
 
+
+performance_mean = cell(2,1);
+rxn_time_median = cell(2,1);
+
 frac_orient_right = cell(2,1);
 rxn_time = cell(2,1);
 move_t_hist = cell(2,1);
+
 for curr_data = 1:length(data_fns)
     
     % Load data
@@ -4244,6 +4249,10 @@ for curr_data = 1:length(data_fns)
     split_idx = cell2mat(arrayfun(@(exp,trials) repmat(exp,trials,1), ...
         [1:length(use_split)]',reshape(use_split,[],1),'uni',false));
     
+    % Get all fraction correct and reaction times
+    performance_mean{curr_data} = cellfun(@(x) nansum(x==1)./nansum(x~=0),mat2cell(trial_outcome_allcat,use_split,1));
+    rxn_time_median{curr_data} = cellfun(@nanmedian,mat2cell(move_t,use_split,1));
+    
     % Get psychometric
     stim_conditions = unique(trial_stim_allcat);
     [~,stim_idx] = ismember(trial_stim_allcat,stim_conditions,'rows');
@@ -4255,7 +4264,7 @@ for curr_data = 1:length(data_fns)
         accumarray(stim,choice == -1,[length(stim_conditions),1],@nanmean,NaN), ...
         trial_stim_idx_allcat_exp,trial_choice_allcat_exp,'uni',false)');
     
-    % Reaction time by 
+    % Reaction time by stim
     move_t_exp = mat2cell(move_t,use_split,1);
     rxn_time{curr_data} = cell2mat(cellfun(@(stim,rxn) ...
         accumarray(stim,rxn,[length(stim_conditions),1],@nanmedian,NaN), ...
@@ -4328,6 +4337,15 @@ line([0.5,0.5],ylim,'color','k','linestyle','--');
 xlabel('Reaction time');
 ylabel('\DeltaFraction');
 
+% Values and statistics
+disp('Performance mean:')
+disp(num2str(cellfun(@nanmean,performance_mean)'));
+disp('Performance sem:')
+disp(num2str(cellfun(@(x) AP_sem(x,1),performance_mean)'));
+disp('Reaction time mean:')
+disp(num2str(cellfun(@nanmean,rxn_time_median)'));
+disp('Reaction time sem:')
+disp(num2str(cellfun(@(x) AP_sem(x,1),rxn_time_median)'));
 
 disp('Stim/condition 2-way anova:');
 
