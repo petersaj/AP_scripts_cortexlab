@@ -1480,9 +1480,11 @@ align_break = align_median(1:end-1) + diff(align_median*0.8);
 align_t = {[-0.05,align_break(1)],[align_break(1:2)],[align_break(2),1]};
 
 % Plot aligned_activity (all cells)
+plot_celltypes = 1:4;
+
 figure;
 for curr_depth = 1:n_aligned_depths
-    for curr_celltype = 1:n_celltypes
+    for curr_celltype = plot_celltypes
         
         curr_cells = domain_aligned_allcat == curr_depth & ...
             celltype_allcat == curr_celltype & good_units_allcat & ...
@@ -1493,8 +1495,8 @@ for curr_depth = 1:n_aligned_depths
    
         for curr_align = 1:length(use_align)
             
-            subplot(n_aligned_depths,n_celltypes, ...
-            (curr_depth-1)*n_celltypes+curr_celltype); hold on;
+            subplot(n_aligned_depths,length(plot_celltypes), ...
+                (curr_depth-1)*length(plot_celltypes)+curr_celltype); hold on;
             
             curr_t_offset = -nanmedian(use_align{curr_align})/sample_rate;
             curr_t = t + curr_t_offset;
@@ -1514,14 +1516,21 @@ for curr_depth = 1:n_aligned_depths
 
             plot_t = curr_t > align_t{curr_align}(1) & curr_t <= align_t{curr_align}(2);
             
+            % (scalebar)
+            if sum(curr_cells) > 500
+                line([0,0],[0,200],'color','g','linewidth',2);
+            else
+                line([0,0],[0,20],'color','g','linewidth',2);
+            end
+            
             imagesc(curr_t(plot_t),[],curr_act_sorted_norm(:,plot_t));
             caxis([0,1]);
-            axis tight;
+            axis tight off;
             line(repmat(curr_t_offset,2,1),ylim,'color',align_col(curr_align,:));
             colormap(gca,brewermap([],'Greys'));
             ylabel('Neuron (sorted)');
             xlabel('~Time from stim');
-            title(['Str ' num2str(curr_depth) ' ' celltype_labels{curr_celltype}]);
+%             title(['Str ' num2str(curr_depth) ' ' celltype_labels{curr_celltype}]);
             
         end       
     end
@@ -1530,7 +1539,7 @@ end
 % Plot aligned_activity (average across cells)
 figure;
 for curr_depth = 1:n_aligned_depths
-    for curr_celltype = 1:n_celltypes
+    for curr_celltype = plot_celltypes
         
         curr_cells = domain_aligned_allcat == curr_depth & ...
             celltype_allcat == curr_celltype & good_units_allcat & ...
@@ -1538,8 +1547,8 @@ for curr_depth = 1:n_aligned_depths
    
         for curr_align = 1:length(use_align)
             
-            subplot(n_aligned_depths,n_celltypes, ...
-            (curr_depth-1)*n_celltypes+curr_celltype); hold on;
+            subplot(n_aligned_depths,length(plot_celltypes), ...
+                (curr_depth-1)*length(plot_celltypes)+curr_celltype); hold on;
             
             curr_t_offset = -nanmedian(use_align{curr_align})/sample_rate;
             curr_t = t + curr_t_offset;
@@ -1558,16 +1567,18 @@ for curr_depth = 1:n_aligned_depths
 %             plot(curr_t(plot_t),nanmean(curr_act(:,plot_t),1),'color','k');
             
             % (scalebar on first plot)
-            if curr_depth == 1 & curr_celltype == 1
-               line([0,0.5],repmat(min(ylim) 
+            if curr_depth == 1 && curr_celltype == 1 && curr_align == 1
+               line([0,0.5],repmat(min(ylim),2,1),'color','g','linewidth',2); 
             end
             
             axis tight;
             line(repmat(curr_t_offset,2,1),ylim,'color',align_col(curr_align,:));
             colormap(gca,brewermap([],'Greys'));
             ylabel('Spikes/s');
-            xlabel('~Time from stim');
-            title(['Str ' num2str(curr_depth) ' ' celltype_labels{curr_celltype}]);
+%             xlabel('~Time from stim');
+%             title(['Str ' num2str(curr_depth) ' ' celltype_labels{curr_celltype}]);
+            set(gca,'FontSize',9,'FontName','Myriad Pro');
+            set(gca,'XTick',[]);
             
         end       
     end
@@ -1899,6 +1910,12 @@ end
 
 
 %% Fig 5: Untrained/trained passive responses
+
+% data_fns = { ...
+%     'trial_activity_AP_choiceWorldStimPassive_naive', ...
+%     {'trial_activity_AP_choiceWorldStimPassive_trained', ...
+%     'trial_activity_AP_lcrGratingPassive_ctxstrephys_str', ...
+%     'trial_activity_AP_lcrGratingPassive_pre_muscimol'}};
 
 data_fns = { ...
     'trial_activity_AP_choiceWorldStimPassive_naive', ...
