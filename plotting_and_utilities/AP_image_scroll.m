@@ -30,7 +30,7 @@ elseif ~iscell(t) && ~colored
     if length(t) ~= size(images,3)
         error('t not same size as image dim 3')
     end
-elseif ~iscell(t) && colored
+elseif colored && ~isempty(t) && ~iscell(t)
     t = cellfun(@num2str,num2cell(t),'uni',false);
     if length(t) ~= size(images,4)
         error('t not same size as image dim 4 (colored)')

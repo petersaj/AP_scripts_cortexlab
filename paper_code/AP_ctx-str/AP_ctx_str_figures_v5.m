@@ -184,7 +184,7 @@ wf_roi_fn = 'C:\Users\Andrew\OneDrive for Business\Documents\CarandiniHarrisLab\
 load(wf_roi_fn);
 roi_trace = AP_svd_roi(aUdf(:,:,use_components),fVdf_deconv(use_components,:),[],[],cat(3,wf_roi.mask));
 
-plot_rois = [1,9,10];
+plot_rois = [1,11,7,17,9,19,10,20];
 fluor_spacing = []; % (use default)
 fluor_axes = subplot(6,1,1:2); hold on;
 plot_fluor_idx = frame_t >= plot_t(1) & frame_t <= plot_t(2);
@@ -219,7 +219,7 @@ for curr_roi = plot_rois
 end
 axis image off;
 
-%% ** Fig 1c: Average stim-aligned cortex
+%% ** Fig 1d: Average cortical fluorescence during trial
 
 % Get average stim-aligned fluorescence 
 plot_trials = move_t < 0.5 & trial_stim_allcat == 1 & trial_choice_allcat == -1;
@@ -237,11 +237,13 @@ outcome_align = -outcome_idx + leeway_samples;
 % Set windows to average activity
 use_align_labels = {'Stim','Move onset','Outcome'};
 use_align = {stim_align,move_align,outcome_align};
-plot_t = [0.05,0,0.1];
+plot_t = {[0,0.1],[0,0.1],[0,0.1]};
 
 figure;
+p = tight_subplot(1,length(cell2mat(plot_t)));
+curr_plot_idx = 0;
 for curr_align = 1:length(use_align)
-    
+        
     % (re-align activity)
     curr_ctx_act = cellfun(@(act,trials,shift) cell2mat(arrayfun(@(trial) ...
         circshift(act(trial,:,:),shift(trial),2), ...
@@ -253,22 +255,27 @@ for curr_align = 1:length(use_align)
         permute(nanmean(cell2mat(cellfun(@(x) nanmean(x,1), ...
         curr_ctx_act,'uni',false)),1),[3,2,1]);
     
-    curr_ctx_act_mean_t = interp1(t,curr_ctx_act_mean',plot_t(curr_align))';
+    curr_ctx_act_mean_t = interp1(t,curr_ctx_act_mean',plot_t{curr_align})';
     curr_ctx_act_mean_t_px = svdFrameReconstruct(U_master(:,:,1:n_vs), ...
         curr_ctx_act_mean_t);
     
-    subplot(length(use_align),1,curr_align);
-    imagesc(curr_ctx_act_mean_t_px);
-    AP_reference_outline('ccf_aligned',[0.5,0.5,0.5]);
-    axis image off;
-    colormap(brewermap([],'Greens'));
-%     caxis([-0.02,0.02]);
-    title([use_align_labels{curr_align} ': ' num2str(plot_t(curr_align)) ' sec']);
+    for curr_plot_t = 1:length(plot_t{curr_align})
+        curr_plot_idx = curr_plot_idx+1;
+        axes(p(curr_plot_idx));
+        imagesc(curr_ctx_act_mean_t_px(:,:,curr_plot_t));
+        AP_reference_outline('ccf_aligned',[0.5,0.5,0.5]);
+        axis image off;
+        colormap(brewermap([],'Greens'));
+        caxis([0,0.01]);
+        title([use_align_labels{curr_align} ': ' num2str(plot_t{curr_align}(curr_plot_t)) ' sec']);
+    end
     
 end
 
 
-%% ++ Fig 1d: Striatum multiunit by depth
+
+
+%% ++ Fig 1e: Striatum multiunit by depth
 
 % Plot depths present in > 50% of recordings
 frac_depths = nanmean(cell2mat(cellfun(@(x) ...
@@ -381,13 +388,38 @@ caxis([-1,1]);
 colormap(brewermap([],'PRGn'));
 axis image off;
 
+% Plot STA and kernels (rainbow colormap)
+if size(k_px_cat_pad_mean_norm,3) ~= size(ctx_str_sta_mean,3)
+    error('Different n depths');
+end
+
+use_colormap = flipud(min(jet(sum(use_depths))-0.2,1));
+
+sta_colored = 1-reshape(repmat(ctx_str_sta_mean_norm(:,:,use_depths),1,1,1,3).* ...
+    (1-permute(use_colormap,[3,4,1,2])),size(ctx_str_sta_mean_norm,1),[],3);
+k_px_colored = 1-reshape(repmat(k_px_cat_pad_mean_norm(:,:,use_depths),1,1,1,3).* ...
+    (1-permute(use_colormap,[3,4,1,2])),size(k_px_cat_pad_mean_norm,1),[],3);
+
+figure;
+subplot(2,1,1);
+image(sta_colored);
+caxis([-1,1]);
+colormap(brewermap([],'PRGn'));
+axis image off;
+subplot(2,1,2);
+imagesc(k_px_colored);
+caxis([-1,1]);
+colormap(brewermap([],'PRGn'));
+axis image off;
+
+
 % Plot center-of-mass color
 n_aligned_depths = sum(use_depths);
 k_px_norm = k_px_cat_pad_mean_norm(:,:,use_depths);
 
 k_px_com = sum(k_px_norm.*permute(1:n_aligned_depths,[1,3,2]),3)./sum(k_px_norm,3);
 
-use_colormap = min(jet(255)-0.2,1);
+use_colormap = flipud(min(jet(255)-0.2,1));
 k_px_com_colored = ...
     ind2rgb(round(mat2gray(k_px_com,...
     [1,n_aligned_depths])*size(use_colormap,1)),use_colormap);
@@ -703,7 +735,7 @@ end
 
 
 
-%% Fig 2e,f,g: Average cortex > striatum domain kernels
+%% Fig 2f,g,h,i,j: Average cortex > striatum domain kernels
 
 % Load data
 load('C:\Users\Andrew\OneDrive for Business\Documents\CarandiniHarrisLab\analysis\wf_ephys_choiceworld\paper\data\str_ctxpred.mat')
@@ -877,20 +909,34 @@ end
 ctx_str_k_px_sum = cellfun(@(x) ...
     permute(sum(abs(reshape(x,[],size(x,3),size(x,4))),1),[2,3,1]), ...
     ctx_str_k_px_cat,'uni',false);
+% (min-max norm)
+ctx_str_k_px_sum_norm = cellfun(@(x) ...
+    (x-min(x,[],1))./max(x-min(x,[],1)), ...
+    ctx_str_k_px_sum,'uni',false);
 
+% (average across domain)
+ctx_str_k_px_sum_norm_mean = permute(cell2mat(permute(cellfun(@(x) ...
+    nanmean(x,2),ctx_str_k_px_sum_norm,'uni',false),[3,1,2])),[1,3,2]);
 figure;
+AP_errorfill(t,nanmean(ctx_str_k_px_sum_norm_mean,3), ...
+    AP_sem(ctx_str_k_px_sum_norm_mean,3),[0,0,0;1,0,0]);
+xlabel('Ctx lead:lag str (s)');
+ylabel('Sum(abs(W))');
+line([0,0],ylim,'color','k');
 
+% (for each domain)
+figure;
 task_sum_norm_tdiff = nan(n_depths,size(ctx_str_k_px_sum,1));
 for curr_depth = 1:n_depths
     subplot(n_depths,1,curr_depth); hold on;
     
     % Min/max-normalized sum of weights    
     curr_task_sum_norm = cell2mat(cellfun(@(x) ...
-        mat2gray(x(:,curr_depth)), ...
-        ctx_str_k_px_sum(:,1)','uni',false));
+        x(:,curr_depth), ...
+        ctx_str_k_px_sum_norm(:,1)','uni',false));
     curr_notask_sum_norm = cell2mat(cellfun(@(x) ...
-        mat2gray(x(:,curr_depth)), ...
-        ctx_str_k_px_sum(:,2)','uni',false));
+        x(:,curr_depth), ...
+        ctx_str_k_px_sum_norm(:,2)','uni',false));
     
     % Get weight difference t < 0 and t > 0
     task_sum_norm_tdiff(curr_depth,:) = ...
@@ -908,7 +954,7 @@ end
 % (cross task vs no task statistics)
 disp('Weight t<0 vs t>0:')
 curr_p = signrank(nanmean(task_sum_norm_tdiff,1));
-disp(['All str ' num2str(curr_depth) ' p = ' num2str(curr_p)]);
+disp(['All str  p = ' num2str(curr_p)]);
 
 for curr_depth = 1:n_depths
     curr_p = signrank(task_sum_norm_tdiff(curr_depth,:));
@@ -1587,6 +1633,8 @@ end
 
 %% @@ Fig 4c: SUA-celltype/cortex activity correlation
 
+include_celltypes = 1:4;
+
 % Get trial params by experiment
 trial_stim_allcat_exp = mat2cell(trial_stim_allcat,use_split,1);
 move_t_exp = mat2cell(move_t,use_split,1);
@@ -1717,8 +1765,8 @@ ctx_kernelroi_actmean_multialign = cell2mat(arrayfun(@(x) ...
 n_recordings = max(recordings_allcat);
 celltype_act_corr = nan(size(str_unit_actmean_multialign,1),3);
 for curr_depth = 1:n_aligned_depths
-    for curr_celltype = 1:3
-        for curr_celltype_compare = 1:3
+    for curr_celltype = include_celltypes
+        for curr_celltype_compare = include_celltypes
             for curr_recording = 1:n_recordings
                 
                 % Get cells in domain in/out of recording
@@ -1751,7 +1799,7 @@ end
 n_recordings = max(recordings_allcat);
 celltype_ctxact_corr = nan(size(str_unit_actmean_multialign,1),1);
 for curr_depth = 1:n_aligned_depths
-    for curr_celltype = 1:3
+    for curr_celltype = include_celltypes
         for curr_recording = 1:n_recordings
             
             % Get cells in domain and cortex out of recording
@@ -1787,7 +1835,7 @@ fr_prctilebin_edges = linspace(0,100,n_prctiles+1);
 fr_prctilebin_centers = fr_prctilebin_edges(1:end-1)+diff(fr_prctilebin_edges)./2;
 
 fr_prctilebins = nan(size(fr));
-for curr_celltype = 1:3
+for curr_celltype = include_celltypes
     curr_units = good_units_allcat & celltype_allcat == curr_celltype;
     curr_fr = fr(curr_units);
     curr_fr_prctilebin_edges = prctile(curr_fr,fr_prctilebin_edges);
@@ -1809,9 +1857,9 @@ celltype_compare_grp = reshape(celltype_compare_repmat(use_units,:),[],1);
 celltype_actcorr_frbins = accumarray( ...
     [grp_matrix_repmat,celltype_compare_grp], ...
     reshape(celltype_allcorr(use_units,:),[],1), ...
-    [3,length(fr_prctilebin_centers),max(recordings_allcat),size(celltype_allcorr,2)],@nanmean,NaN);
+    [length(include_celltypes),length(fr_prctilebin_centers),max(recordings_allcat),size(celltype_allcorr,2)],@nanmean,NaN);
 celltype_fr_frbins = accumarray(grp_matrix,fr(use_units), ...
-    [3,length(fr_prctilebin_centers),max(recordings_allcat)],@nanmean,NaN);
+    [length(include_celltypes),length(fr_prctilebin_centers),max(recordings_allcat)],@nanmean,NaN);
 
 
 figure;
@@ -1822,27 +1870,27 @@ celltype_col = ...
     1,0.5,0];
 ctx_col = [0,0.7,0];
 p = gobjects(2,3);
-for curr_celltype = 1:3
+for curr_celltype = include_celltypes
     
     curr_fr = permute(squeeze(celltype_fr_frbins(curr_celltype,:,:,:)),[1,3,2]);
     curr_actcorr = permute(squeeze(celltype_actcorr_frbins(curr_celltype,:,:,:)),[1,3,2]);
     
-    p(1,curr_celltype) = subplot(2,3,curr_celltype); hold on;
-    set(gca,'ColorOrder',[celltype_col(1:3,:);ctx_col],'YScale','log');
+    p(1,curr_celltype) = subplot(2,length(include_celltypes),curr_celltype); hold on;
+    set(gca,'ColorOrder',[celltype_col(include_celltypes,:);ctx_col],'YScale','log');
     errorbar(nanmean(curr_actcorr,3), ...
         repmat(nanmean(curr_fr,3),1,size(celltype_allcorr,2)), ...
         AP_sem(curr_actcorr,3),'horizontal','linewidth',2);
     title(celltype_labels{curr_celltype})
-    legend([celltype_labels(1:3),'Cortex ROI']);
+    legend([celltype_labels(include_celltypes),'Cortex ROI']);
     xlabel('Avg act corr');
     ylabel('Firing rate');
 
-    p(2,curr_celltype) = subplot(2,3,3+curr_celltype); hold on;
-    set(gca,'ColorOrder',[celltype_col(1:3,:);ctx_col],'XScale','log');
+    p(2,curr_celltype) = subplot(2,length(include_celltypes),length(include_celltypes)+curr_celltype); hold on;
+    set(gca,'ColorOrder',[celltype_col(include_celltypes,:);ctx_col],'XScale','log');
     errorbar(repmat(nanmean(curr_fr,3),1,size(celltype_allcorr,2)), ...
         nanmean(curr_actcorr,3),AP_sem(curr_actcorr,3),'linewidth',2);
     title(celltype_labels{curr_celltype})
-    legend([celltype_labels(1:3),'Cortex ROI']);
+    legend([celltype_labels(include_celltypes),'Cortex ROI']);
     xlabel('Firing rate');
     ylabel('Avg act corr');
     axis tight
