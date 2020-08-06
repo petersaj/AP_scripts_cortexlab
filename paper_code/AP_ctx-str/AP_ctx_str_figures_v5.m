@@ -44,15 +44,15 @@ split_idx = cell2mat(arrayfun(@(exp,trials) repmat(exp,trials,1), ...
 %% @@ Task single unit/celltypes (combined: original,ctxephys,pre-muscimol)
 
 data_fn = { ...
-    'trial_activity_choiceworld.mat', ... % original 
-    'trial_activity_ctx_task.mat', ...    % + cortex ephys
-    'trial_activity_muscimol_task.mat'};  % muscimol group
+    'trial_activity_choiceworld_sua.mat', ... % original 
+    'trial_activity_ctx_task_sua.mat', ...    % + cortex ephys
+    'trial_activity_muscimol_task_sua.mat'};  % muscimol group
 
 % (turn on warnings)
 warning on;
 
 % Load data (saved as structure trial_data_all)
-trial_data_path = 'G:\JF_single_cell_data\';
+trial_data_path = 'C:\Users\Andrew\OneDrive for Business\Documents\CarandiniHarrisLab\analysis\wf_ephys_choiceworld\paper\data';
 
 if ischar(data_fn)
     % Single dataset
@@ -2645,16 +2645,10 @@ end
 %% Fig 5c: Untrained/trained passive striatum cell types
 
 data_fns = { ...
-    'trial_activity_naive', ...
-    {'trial_activity_trainedPassive.mat', ... % original
-    'trial_activity_ctx_passive.mat', ...     % + cortex ephys
-    'trial_activity_muscimol_passive.mat'}};  % muscimol group
-
-% % (leave out original group - 1s instead of 0.5s)
-% data_fns = { ...
-%     'trial_activity_naive', ...
-%     {'trial_activity_ctx_passive.mat', ...     % + cortex ephys
-%     'trial_activity_muscimol_passive.mat'}};  % muscimol group
+    'trial_activity_naive_sua', ...
+    {'trial_activity_trainedPassive_sua.mat', ... % original
+    'trial_activity_ctx_passive_sua.mat', ...     % + cortex ephys
+    'trial_activity_muscimol_passive_sua.mat'}};  % muscimol group
 
 stim_act_celltype_training = cell(size(data_fns));
 stim_act_celltype_group = cell(size(data_fns));
@@ -2669,7 +2663,7 @@ for curr_data = 1:length(data_fns)
     warning on;
     
     % Load data (saved as structure trial_data_all)
-    trial_data_path = 'G:\JF_single_cell_data\';
+    trial_data_path = 'C:\Users\Andrew\OneDrive for Business\Documents\CarandiniHarrisLab\analysis\wf_ephys_choiceworld\paper\data';
     
     if ischar(data_fn)
         % Single dataset
