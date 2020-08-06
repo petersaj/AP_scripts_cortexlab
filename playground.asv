@@ -12113,6 +12113,123 @@ cellfun(@(x) plot(x(:,2),x(:,1),'k','linewidth',2),brain_outline);
 axis tight image off
 
 
+%% Testing Fig4d stats
+
+% Stats for difference in activity correlatoin between cell types
+% (compared to shuffling 2 cell type labels within day)
+
+shuffle_celltypes = [1,2];
+
+n_shuff = 100;
+shuffle_diff = nan(3,4,n_shuff);
+for curr_shuff = 1:n_shuff
+    
+    if curr_shuff == 1
+        % Get the real value on the first shuffle
+        celltype_allcat_shuff = celltype_allcat;
+    else
+        % Shuffle labels across chosen pair within day
+        celltype_exp = mat2cell(celltype_allcat,cellfun(@(x) size(x,3),mua_exp),1);
+        celltype_exp_shuff = celltype_exp;
+        for curr_exp = 1:length(celltype_exp_shuff)
+            curr_shuff_idx = ismember(celltype_exp_shuff{curr_exp},shuffle_celltypes);
+            if sum(curr_shuff_idx) > 1
+                celltype_exp_shuff{curr_exp}(curr_shuff_idx) = ...
+                    AP_shake(celltype_exp_shuff{curr_exp}(curr_shuff_idx));
+            end
+        end
+        celltype_allcat_shuff = cell2mat(celltype_exp_shuff);
+    end
+    
+    % Get cell-average correlations (across recording)
+    n_recordings = max(recordings_allcat);
+    celltype_act_corr = nan(size(str_unit_actmean_multialign,1),3);
+    for curr_depth = 1:n_aligned_depths
+        for curr_celltype = include_celltypes
+            for curr_celltype_compare = include_celltypes
+                for curr_recording = 1:n_recordings
+                    
+                    % Get cells in domain in/out of recording
+                    curr_cells_currday = ...
+                        good_units_allcat & ...
+                        domain_aligned_allcat == curr_depth & ...
+                        celltype_allcat == curr_celltype & ...
+                        recordings_allcat == curr_recording;
+                    
+                    curr_cells_otherday = ...
+                        good_units_allcat & ...
+                        domain_aligned_allcat == curr_depth & ...
+                        celltype_allcat_shuff == curr_celltype_compare & ...
+                        recordings_allcat ~= curr_recording;
+                    act_mean_multialign_otherday_avg = ...
+                        nanmean(str_unit_actmean_multialign(curr_cells_otherday,:),1);
+                    
+                    if any(curr_cells_currday)
+                        % Correlate day's cells with other-day average
+                        celltype_act_corr(curr_cells_currday,curr_celltype_compare) = ...
+                            corr(str_unit_actmean_multialign(curr_cells_currday,:)', ...
+                            act_mean_multialign_otherday_avg');
+                    end
+                end
+            end
+        end
+    end
+    
+    % Concatenate celltype and fluorescence correlation
+    celltype_allcorr = [celltype_act_corr];
+    
+    % Get correlation mean and in FR percentile bins
+    fr = nanmean(str_unit_actmean_multialign,2);
+    n_prctiles = 4;
+    fr_prctilebin_edges = linspace(0,100,n_prctiles+1);
+    fr_prctilebin_centers = fr_prctilebin_edges(1:end-1)+diff(fr_prctilebin_edges)./2;
+    
+    fr_prctilebins = nan(size(fr));
+    for curr_celltype = include_celltypes
+        curr_units = good_units_allcat & celltype_allcat == curr_celltype;
+        curr_fr = fr(curr_units);
+        curr_fr_prctilebin_edges = prctile(curr_fr,fr_prctilebin_edges);
+        fr_prctilebins(curr_units) = discretize(curr_fr,curr_fr_prctilebin_edges);
+    end
+    
+    use_units = ~any(isnan(celltype_allcorr),2) & ~isnan(fr_prctilebins);
+    
+    % Make grouping variables and average by group
+    grp_matrix = [celltype_allcat(use_units), ...
+        fr_prctilebins(use_units), ...
+        recordings_allcat(use_units)];
+    grp_matrix_repmat = reshape(permute(repmat( ...
+        grp_matrix,1,1,size(celltype_allcorr,2)),[1,3,2]),[],size(grp_matrix,2));
+    
+    [~,celltype_compare_repmat] = ndgrid(1:size(celltype_allcorr,1),1:size(celltype_allcorr,2));
+    celltype_compare_grp = reshape(celltype_compare_repmat(use_units,:),[],1);
+    
+    celltype_actcorr_frbins = accumarray( ...
+        [grp_matrix_repmat,celltype_compare_grp], ...
+        reshape(celltype_allcorr(use_units,:),[],1), ...
+        [length(include_celltypes),length(fr_prctilebin_centers),max(recordings_allcat),size(celltype_allcorr,2)],@nanmean,NaN);
+    celltype_fr_frbins = accumarray(grp_matrix,fr(use_units), ...
+        [length(include_celltypes),length(fr_prctilebin_centers),max(recordings_allcat)],@nanmean,NaN);
+
+    curr_shuffle_diff = ...
+        nanmean(celltype_actcorr_frbins(:,:,:,shuffle_celltypes(1)) - ...
+        celltype_actcorr_frbins(:,:,:,shuffle_celltypes(2)),3);    
+    shuffle_diff(:,:,curr_shuff) = curr_shuffle_diff;
+    
+    AP_print_progress_fraction(curr_shuff,n_shuff);
+    
+end
+
+% Get pvalue (first value is the real difference, others are shuffled)
+corr_rank = tiedrank(permute(nanmean(shuffle_diff,2),[3,1,2]));
+corr_p = 1 - (corr_rank(1,:)/(n_shuff+1));
+
+disp(['Shuffle: ' (celltype_labels{shuffle_celltypes})]);
+for curr_celltype = 1:3
+    disp([celltype_labels{curr_celltype} ' , p = ' num2str(corr_p(curr_celltype))]);
+end
+
+
 
 
 

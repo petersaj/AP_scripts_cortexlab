@@ -2664,8 +2664,6 @@ for curr_data = 1:length(data_fns)
     mua_exp_baselinesub = cellfun(@(act,quiescent) act - ...
         nanmean(reshape(act(quiescent,t < 0,:),[],1,size(act,3)),1), ...
         mua_exp,quiescent_trials,'uni',false);   
-    %%%%%%%%%%%% TESTING;
-    mua_exp_baselinesub = mua_exp; warning('TESTING no baselinesub');
     
     % Get average activity with no wheel movement and 100%R stim
     stim_act = cellfun(@(stim,quiescent,act) ...
@@ -2722,6 +2720,17 @@ stim_act_avg_grp = cellfun(@(grp,act) ...
     accumarray(grp,act,max(grp,[],1),@nanmean,NaN), ...
     stim_act_celltype_group,stim_act_celltype_training_avg,'uni',false);
 
+% (thought about doing scatter plot or something but not done yet)
+% figure; hold on
+% celltype_col = ...
+%     [0.9,0.4,0.6; ...
+%     0.4,0.5,0.6; ...
+%     0.5,0.3,0.1; ...
+%     1,0.5,0];
+% for curr_celltype = 1:3  
+% 
+% end
+
 
 % (statistics)
 disp('Pre/post ranksum (MSN,FSI,TAN,UIN):');
@@ -2736,52 +2745,52 @@ for curr_depth = 1:3
 end
 
 
-% Plot change by celltype
+% % (was trying anova)
+% a1 = squeeze(stim_act_avg_grp{1}(1:3,1,:));
+% a2 = squeeze(stim_act_avg_grp{2}(1:3,1,:));
+% 
+% [celltype_grp1,exp_grp1] = ndgrid(1:size(a1,1),1:size(a1,2));
+% [celltype_grp2,exp_grp2] = ndgrid(1:size(a2,1),1:size(a2,2));
+% 
+% p = anovan([a1(:);a2(:)], ...
+%     [[celltype_grp1(:);celltype_grp2(:)], ...
+%     [ones(size(a1(:)));2*ones(size(a2(:)))]],'model','interaction','display','off');
+   
+
+% trying barplot?
+figure;
+for curr_depth = 1:n_aligned_depths
+    subplot(n_aligned_depths,1,curr_depth);
+    bar(cell2mat(cellfun(@(x) nanmean(x(:,curr_depth,:),3),stim_act_avg_grp,'uni',false)));
+end
+
+
+
+figure;
+p = reshape(tight_subplot(n_aligned_depths,n_celltypes),[n_celltypes,n_aligned_depths])';
+for curr_depth = 1:n_aligned_depths
+    for curr_celltype = 1:n_celltypes
+        curr_untrained = squeeze(stim_act_avg_grp{1}(curr_celltype,curr_depth,:));
+        curr_trained = squeeze(stim_act_avg_grp{2}(curr_celltype,curr_depth,:));
+        
+        curr_data = cellfun(@(x) squeeze(x(curr_celltype,curr_depth,:)), ...
+            stim_act_avg_grp,'uni',false);
+        
+        subplot(n_aligned_depths,n_celltypes,
+        axes(p(curr_depth,curr_celltype));
+        plotSpread(curr_data,'distributionColors',[0.5,0.5,0.5])
+        errorbar(cellfun(@nanmean,curr_data),cellfun(@AP_sem,curr_data),'k','linewidth',2);
+    end
+end
+
+
+figure;
 celltype_col = ...
     [0.9,0.4,0.6; ...
     0.4,0.5,0.6; ...
     0.5,0.3,0.1; ...
     1,0.5,0];
 
-figure;
-for curr_depth = 1:n_aligned_depths
-    for curr_celltype = 1:4
-        curr_untrained = squeeze(stim_act_avg_grp{1}(curr_celltype,curr_depth,:));
-        curr_trained = squeeze(stim_act_avg_grp{2}(curr_celltype,curr_depth,:));
-        
-        curr_data = cellfun(@(x) squeeze(x(curr_celltype,curr_depth,:)), ...
-            stim_act_avg_grp,'uni',false);
-        
-        subplot(n_aligned_depths,4,(curr_depth-1)*4+curr_celltype);
-        plotSpread(curr_data,'distributionColors',min(celltype_col(curr_celltype,:)+0.2,1))
-        errorbar(cellfun(@nanmean,curr_data),cellfun(@AP_sem,curr_data), ...
-            'color',celltype_col(curr_celltype,:),'linewidth',2);
-        set(gca,'XTickLabel',{'Untrained','Trained'}, ...
-            'XTickLabelRotation',45)
-        ylabel('Spikes/s');
-    end
-end
-
-
-
-figure;
-for curr_depth = 1:n_aligned_depths
-    subplot(n_aligned_depths,1,curr_depth); hold on;
-    
-    for curr_celltype = 1:4
-        curr_untrained = squeeze(stim_act_avg_grp{1}(curr_celltype,curr_depth,:));
-        curr_trained = squeeze(stim_act_avg_grp{2}(curr_celltype,curr_depth,:));
-        
-        curr_data = cellfun(@(x) squeeze(x(curr_celltype,curr_depth,:)), ...
-            stim_act_avg_grp,'uni',false);
-                
-        errorbar(cellfun(@nanmean,curr_data),cellfun(@AP_sem,curr_data), ...
-            'color',celltype_col(curr_celltype,:),'linewidth',2);
-    end
-end
-
-
-figure;
 for curr_depth = 1:n_aligned_depths
     subplot(n_aligned_depths,1,curr_depth); hold on;
     

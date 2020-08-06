@@ -584,166 +584,6 @@ end
 %% ~~~~~~~~ BELOW: to finalize for AP_ctx_str_figures_v5
 
 
-%% Example rasters
-
-% % Julie suggested
-% example_msns = ...
-%     [187,1,8;
-%     91,1,2;
-%     142,1,1];
-% example_fsis = ...
-%     [412,6,1;
-%     107,1,2;
-%     128,1,3];
-% example_tans = ...
-%     [364,5,1; ...
-%     310,2,2; ...
-%     290,2,1];
-% example_uins = ...
-%     [325,4,5;
-%     482,3,2;
-%     44,1,2];
-
-example_msns = ...
-    [187,1,8;
-    525,2,4;
-    132,1,1];
-example_fsis = ...
-    [412,6,1;
-    256,2,3;
-    264,4,2];
-example_tans = ...
-    [364,5,1; ...
-    290,5,1; ...
-    167,4,4];
-example_uins = ...
-    [325,4,5;
-    482,3,2;
-    44,1,2];
-
-example_units = cat(3,example_msns,example_fsis,example_tans,example_uins);
-
-% Get animals/days using the depth alignment file
-alignment_path = 'C:\Users\Andrew\OneDrive for Business\Documents\CarandiniHarrisLab\analysis\wf_ephys_choiceworld\ephys_processing';
-ephys_depth_align_fn = [alignment_path filesep 'ephys_depth_align'];
-load(ephys_depth_align_fn);
-
-% Set up subplots
-figure;
-n_depths = size(example_units,1);
-n_celltypes = size(example_units,3);
-p = reshape(tight_subplot(n_depths*2,n_celltypes),[n_celltypes,n_depths*2])';
-drawnow;
-
-% Set raster time bins
-raster_window = [-0.2,0.9];
-psth_bin_size = 0.001;
-raster_t_bins = raster_window(1):psth_bin_size:raster_window(2);
-raster_t = raster_t_bins(1:end-1) + diff(raster_t_bins)./2;
-
-for curr_depth = 1:n_depths
-    for curr_celltype = 1:n_celltypes
-        
-        preload_vars = who;
-        
-        curr_animal = example_units(curr_depth,2,curr_celltype);
-        curr_day = example_units(curr_depth,3,curr_celltype);
-        curr_unit = example_units(curr_depth,1,curr_celltype);
-        
-        animal = ephys_depth_align(curr_animal).animal;
-        day = ephys_depth_align(curr_animal).day{curr_day};
-        experiment = 1;
-        load_parts.ephys = true;
-        AP_load_experiment
-        
-        % Get alignment times to use
-        outcome_time = signals_events.responseTimes';
-        plot_trials = ...
-            (trial_conditions(1:n_trials,1).*trial_conditions(1:n_trials,2)) > 0 & ...
-            trial_choice(1:n_trials) == -1 & ...
-            trial_outcome(1:n_trials) == 1;
-        switch curr_depth
-            case 1
-                use_align = stimOn_times(plot_trials);
-            case 2
-                if curr_celltype ~= 3
-                    use_align = wheel_move_time(plot_trials);
-                else
-                    % (if TAN in str2, stim-align)
-                    use_align = stimOn_times(plot_trials);
-                    
-                end
-            case 3
-                use_align = outcome_time(plot_trials);
-        end        
-        
-        t_peri_event = use_align + raster_t_bins;
-        % (handle NaNs by setting rows with NaN times to 0)
-        t_peri_event(any(isnan(t_peri_event),2),:) = 0;
-        
-        % Bin spikes (use only spikes within time range, big speed-up)
-        curr_spikes_idx = ismember(spike_templates,curr_unit);
-        curr_raster_spike_times = spike_times_timeline(curr_spikes_idx);
-        curr_raster_spike_times(curr_raster_spike_times < min(t_peri_event(:)) | ...
-            curr_raster_spike_times > max(t_peri_event(:))) = [];
-        
-        if ~any(diff(reshape(t_peri_event',[],1)) < 0)
-            % (if no backward time jumps, can do long bin and cut out in-between, faster)
-            curr_raster_continuous = reshape([histcounts(curr_raster_spike_times, ...
-                reshape(t_peri_event',[],1)),NaN],size(t_peri_event'))';
-            curr_raster = curr_raster_continuous(:,1:end-1);
-        else
-            % (otherwise, bin trial-by-trial)
-            curr_raster = cell2mat(arrayfun(@(x) ...
-                histcounts(curr_raster_spike_times,t_peri_event(x,:)), ...
-                [1:size(t_peri_event,1)]','uni',false));
-        end
-        
-        % Get smoothed PSTH
-        smooth_size = 51;
-        gw = gausswin(smooth_size,3)';
-        smWin = gw./sum(gw);
-        bin_t = mean(diff(raster_t));
-        
-        curr_psth = nanmean(curr_raster,1);
-        curr_smoothed_psth = conv2(padarray(curr_psth, ...
-            [0,floor(length(smWin)/2)],'replicate','both'), ...
-            smWin,'valid')./bin_t;       
-               
-        % Plot PSTH and raster
-        axes(p(curr_depth*2-1,curr_celltype));
-        plot(raster_t,curr_smoothed_psth,'k','linewidth',1);
-        axis tight off
-        line([0,0],ylim);
-        % (scalebar on first plot)
-        if curr_depth == 1 & curr_celltype == 1
-            line([-0.1,-0.1],[10,20],'color','r','linewidth',1);
-            line([-0.1,0.1],[10,10],'color','r','linewidth',1);
-        end
-        
-        axes(p(curr_depth*2,curr_celltype));
-        [raster_y,raster_x] = find(curr_raster);
-        plot(raster_t(raster_x),raster_y,'.k');
-        axis tight off    
-        % (scalebar on first plot)
-        if curr_depth == 1 & curr_celltype == 1
-            line([-0.1,-0.1],[10,30],'color','r','linewidth',1);
-        end
-        
-        drawnow;
-
-        clearvars('-except',preload_vars{:})
-        
-    end
-end
-
-linkaxes(p(:),'xy')
-set(p,'XLim',raster_window);
-
-
-
-
-
 %% ~~~~~~~~ BELOW: integrated in to AP_ctx_str_figures_v5
 
 
@@ -3398,3 +3238,166 @@ for curr_celltype = 1:3
     ylabel('Avg act corr');
     
 end
+
+
+
+%% Example rasters
+
+% % Julie suggested
+% example_msns = ...
+%     [187,1,8;
+%     91,1,2;
+%     142,1,1];
+% example_fsis = ...
+%     [412,6,1;
+%     107,1,2;
+%     128,1,3];
+% example_tans = ...
+%     [364,5,1; ...
+%     310,2,2; ...
+%     290,2,1];
+% example_uins = ...
+%     [325,4,5;
+%     482,3,2;
+%     44,1,2];
+
+example_msns = ...
+    [187,1,8;
+    525,2,4;
+    132,1,1];
+example_fsis = ...
+    [412,6,1;
+    256,2,3;
+    264,4,2];
+example_tans = ...
+    [364,5,1; ...
+    290,5,1; ...
+    167,4,4];
+example_uins = ...
+    [325,4,5;
+    482,3,2;
+    44,1,2];
+
+example_units = cat(3,example_msns,example_fsis,example_tans,example_uins);
+
+% Get animals/days using the depth alignment file
+alignment_path = 'C:\Users\Andrew\OneDrive for Business\Documents\CarandiniHarrisLab\analysis\wf_ephys_choiceworld\ephys_processing';
+ephys_depth_align_fn = [alignment_path filesep 'ephys_depth_align'];
+load(ephys_depth_align_fn);
+
+% Set up subplots
+figure;
+n_depths = size(example_units,1);
+n_celltypes = size(example_units,3);
+p = reshape(tight_subplot(n_depths*2,n_celltypes),[n_celltypes,n_depths*2])';
+drawnow;
+
+% Set raster time bins
+raster_window = [-0.2,0.9];
+psth_bin_size = 0.001;
+raster_t_bins = raster_window(1):psth_bin_size:raster_window(2);
+raster_t = raster_t_bins(1:end-1) + diff(raster_t_bins)./2;
+
+for curr_depth = 1:n_depths
+    for curr_celltype = 1:n_celltypes
+        
+        preload_vars = who;
+        
+        curr_animal = example_units(curr_depth,2,curr_celltype);
+        curr_day = example_units(curr_depth,3,curr_celltype);
+        curr_unit = example_units(curr_depth,1,curr_celltype);
+        
+        animal = ephys_depth_align(curr_animal).animal;
+        day = ephys_depth_align(curr_animal).day{curr_day};
+        experiment = 1;
+        load_parts.ephys = true;
+        AP_load_experiment
+        
+        % Get alignment times to use
+        outcome_time = signals_events.responseTimes';
+        plot_trials = ...
+            (trial_conditions(1:n_trials,1).*trial_conditions(1:n_trials,2)) > 0 & ...
+            trial_choice(1:n_trials) == -1 & ...
+            trial_outcome(1:n_trials) == 1;
+        switch curr_depth
+            case 1
+                use_align = stimOn_times(plot_trials);
+            case 2
+                if curr_celltype ~= 3
+                    use_align = wheel_move_time(plot_trials);
+                else
+                    % (if TAN in str2, stim-align)
+                    use_align = stimOn_times(plot_trials);
+                    
+                end
+            case 3
+                use_align = outcome_time(plot_trials);
+        end        
+        
+        t_peri_event = use_align + raster_t_bins;
+        % (handle NaNs by setting rows with NaN times to 0)
+        t_peri_event(any(isnan(t_peri_event),2),:) = 0;
+        
+        % Bin spikes (use only spikes within time range, big speed-up)
+        curr_spikes_idx = ismember(spike_templates,curr_unit);
+        curr_raster_spike_times = spike_times_timeline(curr_spikes_idx);
+        curr_raster_spike_times(curr_raster_spike_times < min(t_peri_event(:)) | ...
+            curr_raster_spike_times > max(t_peri_event(:))) = [];
+        
+        if ~any(diff(reshape(t_peri_event',[],1)) < 0)
+            % (if no backward time jumps, can do long bin and cut out in-between, faster)
+            curr_raster_continuous = reshape([histcounts(curr_raster_spike_times, ...
+                reshape(t_peri_event',[],1)),NaN],size(t_peri_event'))';
+            curr_raster = curr_raster_continuous(:,1:end-1);
+        else
+            % (otherwise, bin trial-by-trial)
+            curr_raster = cell2mat(arrayfun(@(x) ...
+                histcounts(curr_raster_spike_times,t_peri_event(x,:)), ...
+                [1:size(t_peri_event,1)]','uni',false));
+        end
+        
+        % Get smoothed PSTH
+        smooth_size = 51;
+        gw = gausswin(smooth_size,3)';
+        smWin = gw./sum(gw);
+        bin_t = mean(diff(raster_t));
+        
+        curr_psth = nanmean(curr_raster,1);
+        curr_smoothed_psth = conv2(padarray(curr_psth, ...
+            [0,floor(length(smWin)/2)],'replicate','both'), ...
+            smWin,'valid')./bin_t;       
+               
+        % Plot PSTH and raster
+        axes(p(curr_depth*2-1,curr_celltype));
+        plot(raster_t,curr_smoothed_psth,'k','linewidth',1);
+        axis tight off
+        line([0,0],ylim);
+        % (scalebar on first plot)
+        if curr_depth == 1 & curr_celltype == 1
+            line([-0.1,-0.1],[10,20],'color','r','linewidth',1);
+            line([-0.1,0.1],[10,10],'color','r','linewidth',1);
+        end
+        
+        axes(p(curr_depth*2,curr_celltype));
+        [raster_y,raster_x] = find(curr_raster);
+        plot(raster_t(raster_x),raster_y,'.k');
+        axis tight off    
+        % (scalebar on first plot)
+        if curr_depth == 1 & curr_celltype == 1
+            line([-0.1,-0.1],[10,30],'color','r','linewidth',1);
+        end
+        
+        drawnow;
+
+        clearvars('-except',preload_vars{:})
+        
+    end
+end
+
+linkaxes(p(:),'xy')
+set(p,'XLim',raster_window);
+
+
+
+
+
