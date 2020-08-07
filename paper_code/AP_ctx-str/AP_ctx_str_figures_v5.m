@@ -604,10 +604,13 @@ for curr_align = 1:length(use_align)
         colormap(brewermap([],'Greens'));
         caxis([0,0.01]);
         title([use_align_labels{curr_align} ': ' num2str(plot_t{curr_align}(curr_plot_t)) ' sec']);
+        colorbar
     end
     
 end
 
+% Matteo-requested: darken colormap to see visual activity better
+brighten(-0.75);
 
 
 
@@ -1809,6 +1812,17 @@ for curr_exp = 1:length(mua_exp_movealign)
    end
 end
 
+
+move_idx_exp = mat2cell(move_idx,use_split,1);
+fluor_kernelroi_deconv_exp_movealign = fluor_kernelroi_deconv_exp;
+for curr_exp = 1:length(fluor_kernelroi_deconv_exp_movealign)
+   for curr_trial = 1:size(fluor_kernelroi_deconv_exp_movealign{curr_exp},1)
+       fluor_kernelroi_deconv_exp_movealign{curr_exp}(curr_trial,:,:) = ...
+           circshift(fluor_kernelroi_deconv_exp_movealign{curr_exp}(curr_trial,:,:), ...
+           -move_idx_exp{curr_exp}(curr_trial)+leeway_samples,2);
+   end
+end
+
 % (outcome aligned)
 outcome_idx_exp = mat2cell(outcome_idx,use_split,1);
 mua_exp_outcomealign = vertcat(mua_all{:});
@@ -1816,6 +1830,16 @@ for curr_exp = 1:length(mua_exp_outcomealign)
     for curr_trial = 1:size(mua_exp_outcomealign{curr_exp},1)
         mua_exp_outcomealign{curr_exp}(curr_trial,:,:) = ...
             circshift(mua_exp_outcomealign{curr_exp}(curr_trial,:,:), ...
+            -outcome_idx_exp{curr_exp}(curr_trial)+leeway_samples,2);
+    end
+end
+
+outcome_idx_exp = mat2cell(outcome_idx,use_split,1);
+fluor_kernelroi_deconv_exp_outcomealign = fluor_kernelroi_deconv_exp;
+for curr_exp = 1:length(fluor_kernelroi_deconv_exp_outcomealign)
+    for curr_trial = 1:size(fluor_kernelroi_deconv_exp_outcomealign{curr_exp},1)
+        fluor_kernelroi_deconv_exp_outcomealign{curr_exp}(curr_trial,:,:) = ...
+            circshift(fluor_kernelroi_deconv_exp_outcomealign{curr_exp}(curr_trial,:,:), ...
             -outcome_idx_exp{curr_exp}(curr_trial)+leeway_samples,2);
     end
 end
@@ -2307,15 +2331,14 @@ ylabel('Fraction');
 
 
 % (statistics comparing celltypes/cortex)
-
-disp('MSN/FSI/CTX ANOVA:')
+disp('MSN/FSI - FSI/MSN v CTX ANOVA:')
 for curr_celltype = 1:3   
     curr_actcorr = permute(celltype_actcorr_frbins(curr_celltype,:,:,:),[2,4,3,1]);
     [fr_grp,compare_grp,recording_grp] = ndgrid( ...
         1:size(curr_actcorr,1), ...
         1:size(curr_actcorr,2), ...
         1:size(curr_actcorr,3));
-    use_comparison = [1,2,4]; % (msn v fsi v cortex)
+    use_comparison = setdiff([1,2,4],curr_celltype); % (msn v fsi v cortex)
     p = anovan(reshape(curr_actcorr(:,use_comparison,:),[],1), ...
         [reshape(fr_grp(:,use_comparison,:),[],1), ...
         reshape(compare_grp(:,use_comparison,:),[],1)], ...
@@ -2338,6 +2361,37 @@ for curr_celltype = 1:2
     disp([celltype_labels{curr_celltype} ' v (tan): p(fr,type,interaction) = ' num2str(p')])
 end
 
+
+% (if UINs included:)
+disp('MSN/FSI - FSI/MSN v CTX ANOVA:')
+for curr_celltype = 4   
+    curr_actcorr = permute(celltype_actcorr_frbins(curr_celltype,:,:,:),[2,4,3,1]);
+    [fr_grp,compare_grp,recording_grp] = ndgrid( ...
+        1:size(curr_actcorr,1), ...
+        1:size(curr_actcorr,2), ...
+        1:size(curr_actcorr,3));
+    use_comparison = setdiff([1,2,4],curr_celltype); % (msn v fsi v cortex)
+    p = anovan(reshape(curr_actcorr(:,use_comparison,:),[],1), ...
+        [reshape(fr_grp(:,use_comparison,:),[],1), ...
+        reshape(compare_grp(:,use_comparison,:),[],1)], ...
+        'model','interaction','display','off');
+    disp([celltype_labels{curr_celltype} ' v (msn/fsi/ctx): p(fr,type,interaction) = ' num2str(p')])    
+end
+
+disp('TAN ANOVA:')
+for curr_celltype = 4
+    curr_actcorr = permute(celltype_actcorr_frbins(curr_celltype,:,:,:),[2,4,3,1]);
+    [fr_grp,compare_grp,recording_grp] = ndgrid( ...
+        1:size(curr_actcorr,1), ...
+        1:size(curr_actcorr,2), ...
+        1:size(curr_actcorr,3));
+    use_comparison = [curr_celltype,3]; % (msn v fsi v cortex)
+    p = anovan(reshape(curr_actcorr(:,use_comparison,:),[],1), ...
+        [reshape(fr_grp(:,use_comparison,:),[],1), ...
+        reshape(compare_grp(:,use_comparison,:),[],1)], ...
+        'model','interaction','display','off');
+    disp([celltype_labels{curr_celltype} ' v (tan): p(fr,type,interaction) = ' num2str(p')])
+end
 
 
 %% @@ ^^ Fig 4d shuffle statistics
@@ -3076,8 +3130,8 @@ for curr_data = 1:length(data_fns)
     mua_exp_baselinesub = cellfun(@(act,quiescent) act - ...
         nanmean(reshape(act(quiescent,t < 0,:),[],1,size(act,3)),1), ...
         mua_exp,quiescent_trials,'uni',false);   
-    %%%%%%%%%%%% TESTING;
-    mua_exp_baselinesub = mua_exp; warning('TESTING no baselinesub');
+%     %%%%%%%%%%%% TO NOT BASELINE-SUBTRACT
+%     mua_exp_baselinesub = mua_exp; warning('TESTING no baselinesub');
     
     % Get average activity with no wheel movement and 100%R stim
     stim_act = cellfun(@(stim,quiescent,act) ...
