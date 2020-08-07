@@ -2039,9 +2039,9 @@ linkaxes(get(gcf,'Children'),'xy');
 
 
 
-%% @@ Fig 4d: SUA-celltype/cortex activity correlation
+%% @@ Fig 4d, SFig11b: SUA-celltype/cortex activity correlation
 
-include_celltypes = 1:3;
+include_celltypes = 1:4;
 
 % Get trial params by experiment
 trial_stim_allcat_exp = mat2cell(trial_stim_allcat,use_split,1);
@@ -2321,10 +2321,11 @@ celltype_col = ...
     0.5,0.3,0.1; ...
     1,0.5,0];
 set(gca,'ColorOrder',celltype_col,'XScale','log');
-histogram(fr(good_units_allcat & celltype_allcat == 1),fr_bin_edges,'Normalization','probability');
-histogram(fr(good_units_allcat & celltype_allcat == 2),fr_bin_edges,'Normalization','probability');
-histogram(fr(good_units_allcat & celltype_allcat == 3),fr_bin_edges,'Normalization','probability');
-legend(celltype_labels(1:3));
+for curr_celltype = include_celltypes
+    histogram(fr(good_units_allcat & celltype_allcat == ...
+        curr_celltype),fr_bin_edges,'Normalization','probability');
+end
+legend(celltype_labels(1:4));
 xlabel('Firing rate');
 ylabel('Fraction');
 
