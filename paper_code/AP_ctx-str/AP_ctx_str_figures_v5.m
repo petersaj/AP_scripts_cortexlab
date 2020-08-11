@@ -1365,8 +1365,10 @@ for curr_trial_set = 1:2
         curr_trials = plot_trials & ~all(isnan(mua_allcat(:,:,curr_depth)),2);
         curr_trials_exp = mat2cell(curr_trials,use_split,1);
         curr_trials_idx = find(curr_trials);
-%         [~,rxn_sort_idx] = sort(move_t(curr_trials_idx));
-        [~,rxn_sort_idx] = sortrows([trial_stim_allcat(curr_trials),move_t(curr_trials)]);
+        % (sort by reaction time)
+        [~,rxn_sort_idx] = sort(move_t(curr_trials_idx));
+        % (sort by reaction time and contrast)
+%         [~,rxn_sort_idx] = sortrows([trial_stim_allcat(curr_trials),move_t(curr_trials)]);
         
         sorted_plot_trials = curr_trials_idx(rxn_sort_idx);
         
@@ -2039,7 +2041,7 @@ linkaxes(get(gcf,'Children'),'xy');
 
 
 
-%% @@ Fig 4d, SFig11b: SUA-celltype/cortex activity correlation
+%% @@ Fig 4d: SUA-celltype/cortex activity correlation
 
 include_celltypes = 1:4;
 
@@ -2308,28 +2310,6 @@ for curr_celltype = include_celltypes
 end
 linkaxes(p(1,:),'xy');
 linkaxes(p(2,:),'y');
-
-
-% Plot histogram of firing rates
-fr = nanmean(str_unit_actmean_multialign,2);
-fr_bin_edges = [logspace(0,2,50),Inf];
-
-figure; hold on
-celltype_col = ...
-    [0.9,0.4,0.6; ...
-    0.4,0.5,0.6; ...
-    0.5,0.3,0.1; ...
-    1,0.5,0];
-set(gca,'ColorOrder',celltype_col,'XScale','log');
-for curr_celltype = include_celltypes
-    histogram(fr(good_units_allcat & celltype_allcat == ...
-        curr_celltype),fr_bin_edges,'Normalization','probability');
-end
-legend(celltype_labels(1:4));
-xlabel('Firing rate');
-ylabel('Fraction');
-
-
 
 % (statistics comparing celltypes/cortex)
 disp('MSN/FSI - FSI/MSN v CTX ANOVA:')
@@ -6070,6 +6050,37 @@ for curr_depth = 1:n_depths
         ctx_task_r2_diff(:,curr_depth,2));
     disp(['Str ' num2str(curr_depth) ' p = ' num2str(curr_p)]); 
 end
+
+%% @@ SFig11b: Firing rate histogram by cell type
+
+%% Firing rate histogram
+
+include_celltypes = 1:4;
+
+% Get average firing rates of all cells
+unit_fr = cell2mat(cellfun(@(x) ...
+    nanmean(reshape(x,[],size(x,3)),1)', ...
+    vertcat(mua_all{:}),'uni',false));
+
+% Plot histogram of firing rates
+fr_bin_edges = [logspace(-2,2,30)];
+
+figure; hold on
+celltype_col = ...
+    [0.9,0.4,0.6; ...
+    0.4,0.5,0.6; ...
+    0.5,0.3,0.1; ...
+    1,0.5,0];
+set(gca,'ColorOrder',celltype_col,'XScale','log');
+for curr_celltype = include_celltypes
+    histogram(unit_fr(good_units_allcat & celltype_allcat == ...
+        curr_celltype),fr_bin_edges, ...
+        'Normalization','probability','EdgeColor','none');
+end
+legend(celltype_labels(1:4));
+xlabel('Firing rate');
+ylabel('Fraction');
+
 
 %% @@ SFig11c: Counts of cells by type and domain
 

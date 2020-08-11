@@ -3399,14 +3399,13 @@ set(p,'XLim',raster_window);
 
 %% Firing rate histogram
 
-include_celltypes = 1:4;
-
 % Get average firing rates of all cells
 unit_fr = cell2mat(cellfun(@(x) ...
-    nanmean(reshape(x,[],size(x,3)),1)', ...
+    squeeze(nanmean(reshape(x,[],size(x,3)),1)), ...
     vertcat(mua_all{:}),'uni',false));
 
 % Plot histogram of firing rates
+fr = nanmean(str_unit_actmean_multialign,2);
 fr_bin_edges = [logspace(0,2,50),Inf];
 
 figure; hold on
@@ -3417,16 +3416,10 @@ celltype_col = ...
     1,0.5,0];
 set(gca,'ColorOrder',celltype_col,'XScale','log');
 for curr_celltype = include_celltypes
-    histogram(unit_fr(good_units_allcat & celltype_allcat == ...
+    histogram(fr(good_units_allcat & celltype_allcat == ...
         curr_celltype),fr_bin_edges,'Normalization','probability');
 end
 legend(celltype_labels(1:4));
 xlabel('Firing rate');
 ylabel('Fraction');
-
-
-
-
-
-
 
