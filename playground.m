@@ -12113,6 +12113,68 @@ cellfun(@(x) plot(x(:,2),x(:,1),'k','linewidth',2),brain_outline);
 axis tight image off
 
 
+%% Trying "VFS" of pixel correlation
+
+wf_corr_borders_fn = 'C:\Users\Andrew\OneDrive for Business\Documents\CarandiniHarrisLab\analysis\wf_ephys_choiceworld\wf_processing\wf_borders\wf_corr_borders.mat';
+load(wf_corr_borders_fn);
+
+% Spacing/downsampling (hardcoded - in preprocessing)
+px_spacing = 20;
+downsample_factor = 10;
+
+% Get average correlation maps
+wf_corr_map_recording = [wf_corr_borders(:).corr_map_downsamp];
+wf_corr_map_cat = cat(3,wf_corr_map_recording{:});
+wf_corr_map_mean = cell(size(wf_corr_map_cat,1),size(wf_corr_map_cat,2));
+for curr_y = 1:size(wf_corr_map_cat,1)
+    for curr_x = 1:size(wf_corr_map_cat,2)
+        wf_corr_map_mean{curr_y,curr_x} = ...
+            nanmean(cell2mat(wf_corr_map_cat(curr_y,curr_x,:)),3);
+    end
+end
+
+[a,b] = cellfun(@imgradient,wf_corr_map_mean,'uni',false);
+a_upsample = imresize(nanmean(cat(3,a{:}),3),downsample_factor,'bilinear');
+
+
+[a,b] = cellfun(@imgradientxy,wf_corr_map_mean,'uni',false);
+
+
+
+[Uy,Ux] = size(wf_corr_map_mean{1});
+
+[ny,nx] = size(wf_corr_map_mean);
+
+use_method = 'com'; % max or com
+
+stim_im_smoothed = reshape(permute(cat(3,wf_corr_map_mean{:}),[3,1,2]),ny,nx,[]);
+stim_im_smoothed(isnan(stim_im_smoothed)) = 0;
+
+% Conversely, do COM on original^2
+[xx,yy] = meshgrid(1:size(stim_im_smoothed,2),1:size(stim_im_smoothed,1));
+m_xr = reshape(sum(sum(bsxfun(@times,stim_im_smoothed.^2,xx),1),2)./sum(sum(stim_im_smoothed.^2,1),2),Uy,Ux);
+m_yr = reshape(sum(sum(bsxfun(@times,stim_im_smoothed.^2,yy),1),2)./sum(sum(stim_im_smoothed.^2,1),2),Uy,Ux);
+
+% Calculate and plot sign map (dot product between horz & vert gradient)
+
+% 1) get gradient direction
+[~,Vdir] = imgradient(m_yr);
+[~,Hdir] = imgradient(m_xr);
+
+% 3) get sin(difference in direction) if retinotopic, H/V should be
+% orthogonal, so the closer the orthogonal the better (and get sign)
+angle_diff = sind(Vdir-Hdir);
+angle_diff(isnan(angle_diff)) = 0;
+
+vfs = angle_diff;
+
+vfs_upsample = imresize(vfs,downsample_factor,'nearest');
+figure;imagesc(vfs_upsample);
+colormap(brewermap([],'*RdBu'));
+caxis([-1,1]);
+axis image off
+AP_reference_outline('ccf_aligned',[0.5,0.5,0.5]);
+
 
 
 
