@@ -531,7 +531,7 @@ if ~exist('fVdf_deconv','var')
 end
 
 %%%%%%%%%%% TESTING
-% fVdf_deconv = fVdf;
+fVdf_deconv = fVdf;
 %%%%%%%%%%%
 
 % Average (time course) responses
