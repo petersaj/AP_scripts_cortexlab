@@ -12237,15 +12237,6 @@ axis image
 caxis([0,1]);
 AP_reference_outline('ccf_aligned','k');
 
-figure;
-imagesc(contra_corr_inpaint);
-axis image off;
-AP_reference_outline('ccf_aligned','k');
-c = colorbar('FontSize',12);
-ylabel(c,'Correlation with contra','FontSize',12);
-colormap(brewermap([],'Greys'));
-caxis([0.5,1]);
-
 
 
 %% Move-align activity
