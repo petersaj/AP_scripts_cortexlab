@@ -12,11 +12,11 @@
 % data_fn = 'trial_activity_choiceworld_16strdepth'; % Depth-aligned striatum
 % exclude_data = false;
 
-% (task, combined)
-data_fn = { ...
-    'trial_activity_choiceworld'... 
-    'trial_activity_vanillaChoiceworld_ctxstrephys_str'...
-    'trial_activity_vanillaChoiceworldNoRepeats_pre_muscimol'};
+% % (task, combined)
+% data_fn = { ...
+%     'trial_activity_choiceworld'... 
+%     'trial_activity_vanillaChoiceworld_ctxstrephys_str'...
+%     'trial_activity_vanillaChoiceworldNoRepeats_pre_muscimol'};
 
 % (passive)
 % data_fn = 'trial_activity_AP_choiceWorldStimPassive_trained';
@@ -32,8 +32,8 @@ data_fn = { ...
 %     'trial_activity_AP_lcrGratingPassive_pre_muscimol'};
 
 % (unused at the moment)
-% data_fn = 'trial_activity_choiceworld_wfonly'; % Widefield-only days (no craniotomy, so cleaner)
-% exclude_data = true;
+data_fn = 'trial_activity_choiceworld_wfonly'; % Widefield-only days (no craniotomy, so cleaner)
+exclude_data = true;
 
 AP_load_concat_normalize_ctx_str;
 

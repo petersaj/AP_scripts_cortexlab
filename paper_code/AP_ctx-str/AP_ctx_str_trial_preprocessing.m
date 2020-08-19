@@ -392,6 +392,69 @@ for protocol = protocols
 end
 
 
+%% Choiceworld trial activity (widefield-only days)
+
+clear all
+disp('Choiceworld trial activity (widefield-only days)')
+
+animals = {'AP024','AP025','AP026','AP027','AP028','AP029'};
+
+% Initialize save variable
+trial_data_all = struct;
+
+for curr_animal = 1:length(animals)
+    
+    animal = animals{curr_animal};
+    protocol = 'vanillaChoiceworld';
+    experiments = AP_find_experiments(animal,protocol);
+    
+    experiments = experiments([experiments.imaging] & ~[experiments.ephys]);
+    
+    disp(['Loading ' animal]);
+    
+    for curr_day = 1:length(experiments)
+        
+        day = experiments(curr_day).day;
+        experiment = experiments(curr_day).experiment;
+        
+        % Load experiment
+        AP_load_experiment;
+        
+        % Pull out trial data
+        AP_ctx_str_grab_trial_data;
+        
+        % Store trial data into master structure
+        trial_data_fieldnames = fieldnames(trial_data);
+        for curr_trial_data_field = trial_data_fieldnames'
+            trial_data_all.(cell2mat(curr_trial_data_field)){curr_animal,1}{curr_day,1} = ...
+                trial_data.(cell2mat(curr_trial_data_field));
+        end
+        
+        % Store general info
+        trial_data_all.animals = animals;
+        trial_data_all.t = t;
+        trial_data_all.task_regressor_labels = task_regressor_labels;
+        trial_data_all.task_regressor_sample_shifts = task_regressor_sample_shifts;
+        
+        AP_print_progress_fraction(curr_day,length(experiments));
+        
+        % Clear for next loop
+        clearvars -except animals curr_animal animal protocol experiments curr_day ...
+            trial_data_all
+        
+    end
+end
+
+clearvars -except trial_data_all
+disp('Finished loading all')
+
+% Save
+save_path = 'C:\Users\Andrew\OneDrive for Business\Documents\CarandiniHarrisLab\analysis\wf_ephys_choiceworld\paper\data';
+save_filename = [save_path filesep 'trial_activity_choiceworld_wfonly'];
+save(save_filename,'-v7.3');
+disp(['Saved ' save_filename]);
+
+
 %% Choiceworld trial activity (striatum depth)
 
 clear all

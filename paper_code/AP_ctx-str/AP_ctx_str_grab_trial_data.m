@@ -240,25 +240,17 @@ wheel_velocity_resample = interp1(Timeline.rawDAQTimestamps,wheel_velocity,time_
 wheel_velspeed_resample = [wheel_velocity_resample;abs(wheel_velocity_resample)];
 wheel_velspeed_resample_std = wheel_velspeed_resample./std(wheel_velocity_resample);
 
-% Load lambda from previously estimated and saved
-% (but this is a totally different modality, so arbitrary?)
-lambda_fn = 'C:\Users\Andrew\OneDrive for Business\Documents\CarandiniHarrisLab\analysis\wf_ephys_choiceworld\ephys_processing\ctx-str_lambda';
-load(lambda_fn);
-curr_animal_idx = strcmp(animal,{ctx_str_lambda.animal});
-if any(curr_animal_idx)
-    curr_day_idx = strcmp(day,ctx_str_lambda(curr_animal_idx).day);
-    if any(curr_day_idx)
-        lambda = ctx_str_lambda(curr_animal_idx).best_lambda(curr_day_idx);
-    end
-end
+% Set wheel regression paramters
+wheel_lambda = 10;
 
-kernel_frames = round(regression_params.kernel_t(1)*sample_rate): ...
-    round(regression_params.kernel_t(2)*sample_rate);
+wheel_kernel_t = [-0.1,0.1];
+wheel_kernel_frames = round(wheel_kernel_t(1)*sample_rate): ...
+    round(wheel_kernel_t(2)*sample_rate);
 
 [ctx_wheel_k,predicted_wheel_velspeed_std,explained_var] = ...
     AP_regresskernel(fVdf_deconv_resample(regression_params.use_svs,:), ...
-    wheel_velspeed_resample_std,kernel_frames,lambda, ...
-    regression_params.zs,regression_params.cvfold, ...
+    wheel_velspeed_resample_std,wheel_kernel_frames,wheel_lambda, ...
+    [],regression_params.cvfold, ...
     false,false);
 
 predicted_wheel_velspeed = predicted_wheel_velspeed_std.* ...
