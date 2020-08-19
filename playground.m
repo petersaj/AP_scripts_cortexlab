@@ -389,7 +389,7 @@ plot_rxn_time = [0,0.5];
 
 plot_trials = ...
     trial_stim_allcat > 0 & ...
-    trial_choice_allcat == -1 & ...
+    trial_choice_allcat == 1 & ...
     move_t >= plot_rxn_time(1) & ...
     move_t <= plot_rxn_time(2);
 
@@ -411,11 +411,11 @@ plot_trials = ...
 %     fluor_allcat_deconv_move(plot_trials,:,:) - ...
 %     fluor_taskpred_reduced_allcat_move(plot_trials,:,:,2),1))');
 
-plot_px = svdFrameReconstruct(U_master(:,:,1:n_vs), ...
-    squeeze(nanmean(fluor_allcat_deconv(plot_trials,:,:)))');
-
 % plot_px = svdFrameReconstruct(U_master(:,:,1:n_vs), ...
-%     squeeze(nanmean(fluor_allcat_deconv_move(plot_trials,:,:)))');
+%     squeeze(nanmean(fluor_allcat_deconv(plot_trials,:,:)))');
+
+plot_px = svdFrameReconstruct(U_master(:,:,1:n_vs), ...
+    squeeze(nanmean(fluor_allcat_deconv_move(plot_trials,:,:)))');
 
 AP_image_scroll(plot_px,t);
 axis image;
@@ -12279,6 +12279,8 @@ leeway_samples = round(t_leeway*(sample_rate));
 for i = 1:size(fluor_allcat_deconv,1)
     fluor_allcat_deconv_move(i,:,:,:) = circshift(fluor_allcat_deconv_move(i,:,:,:),-move_idx(i)+leeway_samples,2);
 end
+
+
 
 
 

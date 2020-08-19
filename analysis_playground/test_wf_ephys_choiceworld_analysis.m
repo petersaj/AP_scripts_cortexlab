@@ -1853,7 +1853,7 @@ roi_col = [autumn(size(wf_roi,1));winter(size(wf_roi,1))];
 
 figure; hold on
 set(gca,'YDir','reverse');
-AP_reference_outline('ccf_aligned','k');AP_reference_outline('retinotopy','m');
+AP_reference_outline('ccf_aligned','k');%AP_reference_outline('retinotopy','m');
 for curr_roi = 1:n_rois
     curr_roi_boundary = cell2mat(bwboundaries(roi_cat(:,:,curr_roi)));
     patch(curr_roi_boundary(:,2),curr_roi_boundary(:,1),roi_col(curr_roi,:));

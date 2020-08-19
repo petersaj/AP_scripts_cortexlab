@@ -33,7 +33,7 @@
 
 % (unused at the moment)
 data_fn = 'trial_activity_choiceworld_wfonly'; % Widefield-only days (no craniotomy, so cleaner)
-exclude_data = true;
+exclude_data = false;
 
 AP_load_concat_normalize_ctx_str;
 
