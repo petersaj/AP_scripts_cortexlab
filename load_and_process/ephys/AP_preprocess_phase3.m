@@ -162,7 +162,7 @@ for curr_site = 1:length(data_paths)
             messages_text = textscan(messages_id,'%*s %d@%dHz','delimiter',{'time: '});
             fclose(messages_id);
             
-            start_time_sec = messages_text{1}(2)/messages_text{2}(2);
+            start_time_sec = double(messages_text{1}(2)/messages_text{2}(2));
             
             % Get/save digital input event times,
             sync_data = readNPY(sync_filename);
