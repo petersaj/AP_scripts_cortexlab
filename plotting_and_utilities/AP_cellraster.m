@@ -259,9 +259,9 @@ if length(unique(curr_group)) == 1
     % Black if one group
     group_colors = [0,0,0];
 elseif length(unique(sign(curr_group(curr_group ~= 0)))) == 1
-    % Black-to-red single-signed groups
+    % 'Lines' colors if all groups positive
     n_groups = length(unique(curr_group));
-    group_colors = [linspace(0,0.8,n_groups)',zeros(n_groups,1),zeros(n_groups,1)];
+    group_colors = lines(n_groups);
 elseif length(unique(sign(curr_group(curr_group ~= 0)))) == 2
     % Symmetrical blue-black-red if negative and positive groups
     n_groups_pos = length(unique(curr_group(curr_group > 0)));

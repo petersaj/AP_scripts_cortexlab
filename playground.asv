@@ -12261,22 +12261,18 @@ load(wf_roi_fn);
 n_rois = numel(wf_roi);
 fluor_roi_deconv = AP_svd_roi(aUdf,fVdf_deconv,[],[],cat(3,wf_roi.mask));
 
-% Get movement onsets (0 velocity q time, > thresh for 80% of m time)
+% Get movement onsets
+
 thresh_displacement = 0.025;
 wheel_quiescence = 0.5; % quiescent for this long
 wheel_move = 0.2; % moving for this long
 
 sample_rate = Timeline.hw.daqSampleRate;
 wheel_quiescence_samples = round(wheel_quiescence*sample_rate);
-wheel_move_samples = round(wheel_move*sample_rate);
 
 wheel_quiescent_thresh_full = conv(wheel_velocity == 0, ...
-    ones(1,wheel_quiescence_samples)) == wheel_quiescence_samples;
-wheel_quiescent_thresh = wheel_quiescent_thresh_full(1:size(wheel_velocity));
+    ones(1,wheel_quiescence_samples)) == wheel_quiescence_samples
 
-wheel_move_thresh_full = conv(abs(wheel_velocity) > thresh_displacement, ...
-    ones(1,wheel_move_samples)) > wheel_move_samples*0.8;
-wheel_move_thresh = wheel_move_thresh_full(end-size(wheel_velocity)+1:end);
 
 
 % Make move-aligned MUA

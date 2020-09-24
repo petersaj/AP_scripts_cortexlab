@@ -124,7 +124,7 @@ ylabel('Stim contrast*side');
 
 %% Passive stim (pixels)
 
-animal = 'AP040';
+animal = 'AP077';
 
 protocol = 'AP_lcrGratingPassive';
 experiments = AP_find_experiments(animal,protocol);
@@ -141,7 +141,10 @@ for curr_day = 1:length(experiments)
     load_parts.imaging = true;
     AP_load_experiment;
     
-    fVdf_deconv = AP_deconv_wf(fVdf);
+%     fVdf_deconv = AP_deconv_wf(fVdf);
+    %%%% TEMP
+    fVdf_deconv = fVdf;
+    %%%%
     
     % Get wheel movements during stim
     wheel_window = [0,0.5];
@@ -199,7 +202,8 @@ axis image;
 caxis([-max(abs(caxis)),max(abs(caxis))]);
 colormap(brewermap([],'*RdBu'));
 
-t_stim = 21:23;
+% t_stim = 21:23;
+t_stim = 26:29;
 im_stim_avg = squeeze(max(im_stim_cat(:,:,t_stim,:),[],3));
 AP_image_scroll(im_stim_avg);
 axis image;
@@ -209,7 +213,7 @@ colormap(brewermap([],'*RdBu'));
 
 %% Passive stim (U master)
 
-animal = 'AP045';
+animal = 'AP077';
 
 protocol = 'AP_lcrGratingPassive';
 experiments = AP_find_experiments(animal,protocol);

@@ -2767,9 +2767,9 @@ for curr_depth = 1:length(depth_group_edges_use)-1
 end
 
 use_svs = 1:50;
-kernel_frames = -17:17;
+kernel_frames = -35:17;
 downsample_factor = 1;
-lambda = 20;
+lambda = 1e5;
 zs = [false,true];
 cvfold = 5;
 
@@ -2780,12 +2780,8 @@ use_frames_idx = find(use_frames);
 %     AP_regresskernel(fVdf(use_svs,use_frames), ...
 %     frame_spikes(:,use_frames),kernel_frames,lambda,zs,cvfold);
 % TO USE dfV
-% [k,predicted_spikes,explained_var] = ...
-%     AP_regresskernel(diff(fVdf(use_svs,use_frames_idx),[],2), ...
-%    frame_spikes(:,use_frames_idx(2:end)),kernel_frames,lambda,zs,cvfold);
-% TO USE deconv
 [k,predicted_spikes,explained_var] = ...
-    AP_regresskernel(diff(fVdf_deconv(use_svs,use_frames_idx),[],2), ...
+    AP_regresskernel(diff(fVdf(use_svs,use_frames_idx),[],2), ...
    frame_spikes(:,use_frames_idx(2:end)),kernel_frames,lambda,zs,cvfold);
 
 % Reshape kernel and convert to pixel space

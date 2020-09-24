@@ -173,8 +173,12 @@ for curr_site = 1:length(data_paths)
             sync = struct('timestamps',cell(size(sync_channels)),'values',cell(size(sync_channels)));
             for curr_sync = 1:length(sync_channels)
                 sync_events = abs(sync_data) == (sync_channels(curr_sync));
-                sync(curr_sync).timestamps = sync_timestamps(sync_events);
-                sync(curr_sync).values = sign(sync_data(sync_events)) == 1;
+                
+                % Subtract system start time from sync
+                % (Kilosort starts spikes at 0, open ephys sometimes doesn't
+                % start sync time at 0 if record direct from preview)
+                sync(curr_sync).timestamps = sync_timestamps(sync_events) - start_time_sec;
+                sync(curr_sync).values = sign(sync_data(sync_events)) == 1;               
             end
             
             sync_save_filename = [curr_save_path filesep 'sync.mat'];

@@ -342,6 +342,11 @@ if block_exists
                 vis_contrast = ones(size(vis_azimuth));
             end
             
+            % (temporary - set stim IDs)
+            trial_conditions = [vis_azimuth;aud_freq;vis_contrast];
+            conds = unique(trial_conditions','rows');
+            [~,stimIDs] = ismember(trial_conditions',conds,'rows');
+            
         case 'AP_choiceWorldStimPassive'
             % This is kind of a dumb hack to get the stimOn times, maybe not
             % permanent unless it works fine: get stim times by checking for
@@ -902,7 +907,7 @@ if ephys_exists && load_parts.ephys
             % If different number of flips in ephys/timeline, best
             % contiguous set via xcorr of diff
             warning([animal ' ' day ':Flipper flip times different in timeline/ephys'])
-            warning(['The fix for this is probably no robust: always check'])
+            warning(['The fix for this is probably not robust: always check'])
             [flipper_xcorr,flipper_lags] = ...
                 xcorr(diff(flipper_flip_times_timeline),diff(flipper_flip_times_ephys));
             [~,flipper_lag_idx] = max(flipper_xcorr);
