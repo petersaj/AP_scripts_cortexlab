@@ -530,9 +530,9 @@ if ~exist('fVdf_deconv','var')
     fVdf_deconv = AP_deconv_wf(fVdf);
 end
 
-%%%%%%%%%%% TESTING
-fVdf_deconv = fVdf;
-%%%%%%%%%%%
+% %%%%%%%%%%% TESTING
+% fVdf_deconv = fVdf;
+% %%%%%%%%%%%
 
 % Average (time course) responses
 use_vs = 1:size(U,3);
@@ -2025,9 +2025,9 @@ ylabel(c,'Explained variance')
 
 %% Align vasculature for animal
 
-animal = 'AP080';
+animal = 'AP079';
 
-protocol = 'AP_sparseNoise';
+protocol = 'AP_lcrGratingPassive';
 experiments = AP_find_experiments(animal,protocol);
 experiments(~([experiments.imaging])) = [];
 
@@ -2039,10 +2039,10 @@ for curr_day = 1:length(experiments)
     avg_im_blue = readNPY([img_path filesep 'meanImage_blue.npy']);
     avg_im_purple = readNPY([img_path filesep 'meanImage_purple.npy']);
     avg_im_days_blue{curr_day} = avg_im_blue;
-    avg_im_days_blue{curr_day} = avg_im_purple;
+    avg_im_days_purple{curr_day} = avg_im_purple;
 end
 
-AP_align_widefield(avg_im_days_blue,animal,{experiments.day},'new_days');
+AP_align_widefield(avg_im_days_purple,animal,{experiments.day},'new_days');
 
 %% View aligned vasculature (to check that it's been done correctly)
 

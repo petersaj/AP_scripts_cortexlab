@@ -12088,29 +12088,6 @@ axis image;
 
 
 
-%% Outline of VisAM in CCF
-
-% grab slice from gui into curr_ccf_slice
-curr_ccf_slice = get(gco,'CData');
-
-
-am_id = find(contains(st.safe_name,'Anteromedial visual area'));
-whitematter_id = find(contains(st.safe_name,{'callosum','commissure', ...
-    'radiation','capsule','bundle','ventricle'}));
-
-figure; hold on;
-set(gca,'YDir','reverse');
-imagesc(curr_ccf_slice);
-
-am_outline = bwboundaries(ismember(curr_ccf_slice,am_id));
-whitematter = bwboundaries(ismember(curr_ccf_slice,whitematter_id));
-brain_outline = bwboundaries(curr_ccf_slice > 0);
-
-cellfun(@(x) plot(x(:,2),x(:,1),'k','linewidth',2),am_outline);
-cellfun(@(x) plot(x(:,2),x(:,1),'k','linewidth',2),whitematter);
-cellfun(@(x) plot(x(:,2),x(:,1),'k','linewidth',2),brain_outline);
-
-axis tight image off
 
 
 %% Trying "VFS" of pixel correlation
@@ -12309,7 +12286,15 @@ for i = 1:size(fluor_allcat_deconv,1)
 end
 
 
-
+%% Load natural images
+im_dir = '\\zserver.cortexlab.net\Data\pregenerated_textures\JulieF\shapesAndNatImages';
+n_im = 50;
+nat_im = nan(375,500,n_im);
+for curr_im_idx = 1:n_im
+   curr_im = load([im_dir filesep 'img' num2str(curr_im_idx) '.mat']);
+   nat_im(:,:,curr_im_idx) = curr_im.img;
+   AP_print_progress_fraction(curr_im_idx,n_im);
+end
 
 
 

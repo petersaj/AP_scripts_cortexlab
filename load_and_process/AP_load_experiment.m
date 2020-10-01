@@ -343,7 +343,9 @@ if block_exists
             end
             
             % (temporary - set stim IDs)
-            trial_conditions = [vis_azimuth;aud_freq;vis_contrast];
+            aud_freq_nonan = aud_freq;
+            aud_freq_nonan(isnan(aud_freq)) = -1;
+            trial_conditions = [vis_azimuth;aud_freq_nonan;vis_contrast];
             conds = unique(trial_conditions','rows');
             [~,stimIDs] = ismember(trial_conditions',conds,'rows');
             

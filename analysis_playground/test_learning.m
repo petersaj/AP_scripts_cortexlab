@@ -124,7 +124,7 @@ ylabel('Stim contrast*side');
 
 %% Passive stim (pixels)
 
-animal = 'AP077';
+animal = 'AP079';
 
 protocol = 'AP_lcrGratingPassive';
 experiments = AP_find_experiments(animal,protocol);
@@ -203,7 +203,7 @@ caxis([-max(abs(caxis)),max(abs(caxis))]);
 colormap(brewermap([],'*RdBu'));
 
 % t_stim = 21:23;
-t_stim = 26:29;
+t_stim = 29:32;
 im_stim_avg = squeeze(max(im_stim_cat(:,:,t_stim,:),[],3));
 AP_image_scroll(im_stim_avg);
 axis image;

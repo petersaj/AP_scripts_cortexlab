@@ -157,7 +157,6 @@ for curr_site = 1:length(data_paths)
             
             % This way of getting start times is garbage too, assume AP
             % band is listed third (1 = software, 2 = AP, 3 = LFP)
-            % (unused at the moment - I guess that assumes start time = 0)
             messages_id = fopen(messages_filename);
             messages_text = textscan(messages_id,'%*s %d@%dHz','delimiter',{'time: '});
             fclose(messages_id);

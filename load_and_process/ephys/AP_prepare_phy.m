@@ -33,7 +33,7 @@ end
 %% Clear out local phy folder
 
 if ~staging
-    local_phy_dir = 'G\data_temp\phy';
+    local_phy_dir = 'G:\data_temp\phy';
 elseif staging
     local_phy_dir = 'G:\data_temp\phy_staging';
 end

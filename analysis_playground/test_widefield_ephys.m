@@ -2786,7 +2786,7 @@ use_frames_idx = find(use_frames);
 % TO USE deconv
 [k,predicted_spikes,explained_var] = ...
     AP_regresskernel(diff(fVdf_deconv(use_svs,use_frames_idx),[],2), ...
-   frame_spikes(:,use_frames_idx(2:end)),kernel_frames,lambda,zs,cvfold);
+   frame_spikes(:,use_frames_idx(2:end)),kernel_frames,lambda,zs,cvfold,false,true);
 
 % Reshape kernel and convert to pixel space
 r = reshape(k,length(use_svs),length(kernel_frames),size(frame_spikes,1));
