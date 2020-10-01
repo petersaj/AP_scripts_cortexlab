@@ -1,6 +1,6 @@
 % Loads data from experiments
 %
-% Settings: 
+% Settings:
 % (what to load)
 % load_parts.(cam/imaging/ephys)
 %
@@ -58,7 +58,7 @@ if timeline_exists
     if verbose; disp('Loading timeline...'); end
     
     load(timeline_filename);
-       
+    
     % Get camera times
     cam_name = 'pcoExposure';
     timeline_cam_idx = strcmp({Timeline.hw.inputs.name}, cam_name);
@@ -93,7 +93,7 @@ if timeline_exists
     wheel_smooth_samples = wheel_smooth_t/Timeline.hw.samplingInterval;
     wheel_velocity = interp1(conv(Timeline.rawDAQTimestamps,[1,1]/2,'valid'), ...
         diff(smooth(wheel_position,wheel_smooth_samples)),Timeline.rawDAQTimestamps)';
-       
+    
     % Get whether stim was flickering
     stimScreen_idx = strcmp({Timeline.hw.inputs.name}, 'stimScreen');
     if any(stimScreen_idx)
@@ -141,7 +141,7 @@ if protocol_exists
     % Load in hardware info
     hwinfo_filename = AP_cortexlab_filename(animal,day,experiment,'hardware');
     load(hwinfo_filename);
-        
+    
     % Stim times should just be odd (on) and even (off)
     if mod(length(photodiode_flip_times),2) == 0
         photodiode_onsets = photodiode_flip_times(1:2:end);
@@ -156,7 +156,7 @@ if protocol_exists
     % Get stim on times
     if strcmp(Protocol.xfile,'stimSparseNoiseUncorrAsync.x')
         % Sparse noise
-        % (at the moment this is in a sparse noise-specific script)       
+        % (at the moment this is in a sparse noise-specific script)
     else
         % Anything else
         if length(photodiode_onsets) == numel(Protocol.seqnums)
@@ -239,12 +239,12 @@ if block_exists
             signals_events.(block_fieldnames{curr_times}) = ...
                 interp1(reward_t_block,reward_t_timeline,block.events.(block_fieldnames{curr_times}),'linear','extrap');
         end
-    end   
+    end
     
     % SPECIFIC TO PROTOCOL
     [~,expDef] = fileparts(block.expDef);
     switch expDef
-        case {'vanillaChoiceworld','vanillaChoiceworldBias','vanillaChoiceworldNoRepeats'}       
+        case {'vanillaChoiceworld','vanillaChoiceworldBias','vanillaChoiceworldNoRepeats'}
             % Hit/miss recorded for last trial, circshift to align
             signals_events.hitValues = circshift(signals_events.hitValues,[0,-1]);
             signals_events.missValues = circshift(signals_events.missValues,[0,-1]);
@@ -276,7 +276,7 @@ if block_exists
             
             % Get first movement time after stim onset
             surround_time = [-0.5,2];
-            surround_sample_rate = 1/Timeline.hw.samplingInterval; % (match this to framerate)       
+            surround_sample_rate = 1/Timeline.hw.samplingInterval; % (match this to framerate)
             surround_time_points = surround_time(1):1/surround_sample_rate:surround_time(2);
             pull_times = bsxfun(@plus,stimOn_times,surround_time_points);
             
@@ -532,7 +532,7 @@ if exist('Timeline','var') && load_parts.cam
                 [~,eyecam_strobe_sync_end] = min(abs(camSync_flip(3) - eyeCamStrobe_up));
                 n_eyecam_frames_syncd_timeline = eyecam_strobe_sync_end - eyecam_strobe_sync;
                 if abs(n_eyecam_frames_syncd_movie - n_eyecam_frames_syncd_timeline) > 2
-                   warning('Eyecam: different n frames video vs timeline'); 
+                    warning('Eyecam: different n frames video vs timeline');
                 end
                 
                 % Get times of cam frames in timeline
@@ -581,7 +581,7 @@ if exist('Timeline','var') && load_parts.cam
                 [~,facecam_strobe_sync_end] = min(abs(camSync_flip(3) - faceCamStrobe_up));
                 n_facecam_frames_syncd_timeline = facecam_strobe_sync_end - facecam_strobe_sync;
                 if abs(n_facecam_frames_syncd_movie - n_facecam_frames_syncd_timeline) > 2
-                   warning('Facecam: different n frames video vs timeline'); 
+                    warning('Facecam: different n frames video vs timeline');
                 end
                 
                 % Get times of cam frames in timeline
@@ -623,7 +623,7 @@ if imaging_exists && load_parts.imaging
     if verbose; disp('Loading imaging data...'); end
     
     % Get the imaging file locations
-    spatialComponents_dir = dir([data_path filesep 'svdSpatialComponents*']);   
+    spatialComponents_dir = dir([data_path filesep 'svdSpatialComponents*']);
     meanImage_dir = dir([data_path filesep 'meanImage*']);
     
     cam_color_n = length(spatialComponents_dir);
@@ -649,7 +649,7 @@ if imaging_exists && load_parts.imaging
         
     elseif cam_color_n == 2
         
-        % Load in all things as neural (n) or hemodynamic (h)        
+        % Load in all things as neural (n) or hemodynamic (h)
         Un = readUfromNPY([data_path filesep 'svdSpatialComponents_' cam_color_signal '.npy']);
         Vn = readVfromNPY([experiment_path filesep 'svdTemporalComponents_' cam_color_signal '.npy']);
         dataSummary_n = load([data_path filesep 'dataSummary_' cam_color_signal '.mat']);
@@ -687,21 +687,21 @@ if imaging_exists && load_parts.imaging
         
         Vh = Vh(:,1:min_frames);
         th = th(1:min_frames);
-   
+        
         % This was to get rid of bad exposures: not sure I want this though
-%         cam_expose_time_reshape = ...
-%             reshape(cam_expose_times(1:end-mod(length(cam_expose_times),2)),2,[]);
-%         bad_cam_expose = any(cam_expose_time_reshape > ...
-%             median(cam_expose_time_reshape(:))*2,1);
-%         
-%         if any(bad_cam_expose)
-%             warning(['Bad cam expose time: ' num2str(find(bad_cam_expose)) '/' num2str(min_frames)]);
-%             Vn = Vn(:,~bad_cam_expose);
-%             tn = tn(~bad_cam_expose);
-%             
-%             Vh = Vh(:,~bad_cam_expose);
-%             th = th(~bad_cam_expose);
-%         end
+        %         cam_expose_time_reshape = ...
+        %             reshape(cam_expose_times(1:end-mod(length(cam_expose_times),2)),2,[]);
+        %         bad_cam_expose = any(cam_expose_time_reshape > ...
+        %             median(cam_expose_time_reshape(:))*2,1);
+        %
+        %         if any(bad_cam_expose)
+        %             warning(['Bad cam expose time: ' num2str(find(bad_cam_expose)) '/' num2str(min_frames)]);
+        %             Vn = Vn(:,~bad_cam_expose);
+        %             tn = tn(~bad_cam_expose);
+        %
+        %             Vh = Vh(:,~bad_cam_expose);
+        %             th = th(~bad_cam_expose);
+        %         end
         
         Vn_th = SubSampleShift(Vn,1,2);
         
@@ -727,7 +727,7 @@ if imaging_exists && load_parts.imaging
                 framerate,hemo_freq,3);
             
             zVh_Un = bsxfun(@minus, Vh_Un, nanmean(Vh_Un,2));
-            Vn_hemo = transpose(Vn_th' - zVh_Un'*hemo_tform'); 
+            Vn_hemo = transpose(Vn_th' - zVh_Un'*hemo_tform');
             
             save(hemo_tform_fn,'hemo_tform');
             % Close the figures (hacky - but function isn't mine)
@@ -744,7 +744,7 @@ if imaging_exists && load_parts.imaging
         dVn_hemo = detrend(Vn_hemo', 'linear')';
         
         % non-zero-lag filter, but causal (only moves forwards in time)
-        fVn_hemo = filter(b100s,a100s,dVn_hemo,[],2);        
+        fVn_hemo = filter(b100s,a100s,dVn_hemo,[],2);
         % non-causal but zero-lag filter: changed because can introduce
         % artifacts with single wonky points, also big changes propogate
         % backwards in time which potentially gives bad causality
@@ -791,7 +791,7 @@ if ephys_exists && load_parts.ephys
     led_sync_idx = 3;
     flipper_sync_idx = 4;
     
-    % Load phy sorting if it exists 
+    % Load phy sorting if it exists
     % (old = cluster_groups.csv, new = cluster_group.tsv because fuck me)
     cluster_filepattern = [ephys_path filesep 'cluster_group*'];
     cluster_filedir = dir(cluster_filepattern);
@@ -829,7 +829,7 @@ if ephys_exists && load_parts.ephys
     channel_map = readNPY([ephys_path filesep 'channel_map.npy']);
     winv = readNPY([ephys_path filesep 'whitening_mat_inv.npy']);
     template_amplitudes = readNPY([ephys_path filesep 'amplitudes.npy']);
-
+    
     % Default channel map/positions are from end: make from surface
     % (hardcode this: kilosort2 drops channels)
     max_depth = 3840;
@@ -861,7 +861,7 @@ if ephys_exists && load_parts.ephys
     
     % Get the depth of each spike (templates are zero-indexed)
     spike_depths = template_depths(spike_templates_0idx+1);
-            
+    
     % Get trough-to-peak time for each template
     templates_max_signfix = bsxfun(@times,templates_max, ...
         sign(abs(min(templates_max,[],2)) - abs(max(templates_max,[],2))));
@@ -876,17 +876,17 @@ if ephys_exists && load_parts.ephys
     templateDuration_us = (templateDuration/ephys_sample_rate)*1e6;
     
     % Get sync points for alignment
- 
+    
     % Get experiment index by finding numbered folders
     protocols_list = AP_list_experiments(animal,day);
     experiment_idx = experiment == [protocols_list.experiment];
- 
+    
     if exist('flipper_flip_times_timeline','var') && length(sync) >= flipper_sync_idx
         % (if flipper, use that)
         % (at least one experiment the acqLive connection to ephys was bad
         % so it was delayed - ideally check consistency since it's
         % redundant)
-        bad_flipper = false; 
+        bad_flipper = false;
         
         % Get flipper experiment differences by long delays
         % (note: this is absolute difference, if recording stopped and
@@ -919,7 +919,7 @@ if ephys_exists && load_parts.ephys
             sync_timeline = flipper_flip_times_timeline(flipper_lag+1: ...
                 flipper_lag+1:flipper_lag+length(flipper_flip_times_ephys));
         end
-
+        
     else
         bad_flipper = true;
     end
@@ -940,7 +940,7 @@ if ephys_exists && load_parts.ephys
         % (it should be almost exactly the same)
         if abs(diff(acqLive_timeline) - diff(acqlive_ephys_currexpt)) > 1
             error([animal ' ' day ': acqLive duration different in timeline and ephys']);
-        end                     
+        end
     end
     
     % Get spike times in timeline time
@@ -966,23 +966,23 @@ if ephys_exists && load_parts.ephys
     elseif exist([ephys_path filesep 'cluster_AP_triage.tsv'],'file')
         % If no manual but AP_triage clusters are available
         if verbose; disp('Keeping AP_triage good units...'); end
-
+        
         % Load triage labels
-        triage_label_filename = [ephys_path filesep 'cluster_AP_triage.tsv'];        
+        triage_label_filename = [ephys_path filesep 'cluster_AP_triage.tsv'];
         
         fid = fopen(triage_label_filename);
         triage_labels = textscan(fid,'%d%s','HeaderLines',1);
         fclose(fid);
         
-        triage_good_templates = strcmp(triage_labels{2},'good');      
-      
+        triage_good_templates = strcmp(triage_labels{2},'good');
+        
         good_templates = ...
             triage_good_templates;
         good_templates_idx = find(good_templates)-1;
         
     else
         % If no cluster groups at all, keep all
-        warning([animal ' ' day ' - no cluster groups']);      
+        warning([animal ' ' day ' - no cluster groups']);
         if verbose; disp('No manual labeling, keeping all and re-indexing'); end
         good_templates_idx = unique(spike_templates_0idx);
         good_templates = ismember(0:size(templates,1)-1,good_templates_idx);
@@ -1007,14 +1007,14 @@ if ephys_exists && load_parts.ephys
     % (and make 1-indexed from 0-indexed)
     new_spike_idx = nan(max(spike_templates_0idx)+1,1);
     new_spike_idx(good_templates_idx+1) = 1:length(good_templates_idx);
-    spike_templates = new_spike_idx(spike_templates_0idx+1);   
+    spike_templates = new_spike_idx(spike_templates_0idx+1);
     
 end
 
 %% Load LFP
 % (either single channel full or all channel snippet)
 
-if ephys_exists && load_parts.ephys && exist('lfp_channel','var') && strcmp(lfp_channel,'all');
+if ephys_exists && load_parts.ephys && exist('lfp_channel','var')
     
     % Get LFP file info
     n_channels = str2num(header.n_channels);
@@ -1047,159 +1047,157 @@ if ephys_exists && load_parts.ephys && exist('lfp_channel','var') && strcmp(lfp_
             memmapfile(lfp_filenames{curr_lfp_filename}, ...
             'Format',{'int16',[n_channels n_lfp_samples(curr_lfp_filename)],'lfp'});
     end
-      
-end
-
-if ephys_exists && load_parts.ephys && exist('lfp_channel','var') && isnumeric(lfp_channel)
-    
-    % Load LFP of whole current experiment from one channel
-    if verbose; disp(['Loading LFP (channel ' num2str(lfp_channel) ')...']); end;   
-  
-    % Load single LFP channel within experiment bounds 
-    % (treat as concatenated if multiple files)
-    lfp_load_start = round((lfp_sample_rate*sync_ephys(1)));
-    lfp_load_stop = round((lfp_sample_rate*sync_ephys(end)));
-    
-    lfp_concat_length = [0,cumsum(n_lfp_samples)];
-    lfp_load_file = find(lfp_load_start < lfp_concat_length,1)-1;
-    lfp_load_start_rel = lfp_load_start - lfp_concat_length(lfp_load_file);
-    lfp_load_stop_rel = lfp_load_stop - lfp_concat_length(lfp_load_file);
-    
-    lfp = double(lfp_memmap{lfp_load_file}.Data.lfp(lfp_channel,lfp_load_start_rel:lfp_load_stop_rel));
-    
-    % Get LFP times and convert to timeline time
-    lfp_load_start_t = lfp_load_start/lfp_sample_rate;
-    lfp_t = [0:size(lfp,2)-1]/lfp_sample_rate + lfp_load_start_t;
-    lfp_t_timeline = interp1(sync_ephys,sync_timeline,lfp_t,'linear','extrap');
-    
-    %%% Remove light artifact
-    if verbose; disp('Cleaning LFP...'); end;
-    
-    % Get light times (assume blue/violet alternate)
-    light_t_timeline = interp1(sync_ephys,sync_timeline,sync(led_sync_idx).timestamps,'linear','extrap');
-    use_light_times = light_t_timeline >= lfp_t_timeline(1) & light_t_timeline <= lfp_t_timeline(end);
-    light_on = light_t_timeline(sync(led_sync_idx).values == 1 & use_light_times);
-    light_off = light_t_timeline(sync(led_sync_idx).values == 0 & use_light_times);
-    
-    % (cut uncoupled off/on from start/end)
-    if light_off(1) < light_on(1)
-        light_off(1) = [];
-    end
-    if light_on(end) > light_off(end)
-        light_on(end) = [];
-    end
-    
-    blue_on = light_on(1:2:end);
-    blue_off = light_off(1:2:end);
-    violet_on = light_on(2:2:end);
-    violet_off = light_off(2:2:end);
-    
-    light_on_mean = mean(light_off - light_on);
-    light_off_mean = mean(light_on(2:end) - light_off(1:end-1));
-    light_surround_t = [-(light_off_mean/2):1/lfp_sample_rate:(light_on_mean+(light_off_mean/2))];
+            
+    if isnumeric(lfp_channel)
         
-    % Pull out LFP around light on
-    use_blue_on = blue_on >= lfp_t_timeline(1) & blue_on <= lfp_t_timeline(end);
-    blue_on_pull_t = blue_on(use_blue_on) + light_surround_t;
-    blue_on_lfp = interp1(lfp_t_timeline,lfp',blue_on_pull_t);
-    
-    use_violet_on = violet_on >= lfp_t_timeline(1) & violet_on <= lfp_t_timeline(end);
-    violet_on_pull_t = violet_on(use_violet_on) + light_surround_t;
-    violet_on_lfp = interp1(lfp_t_timeline,lfp',violet_on_pull_t);
-    
-    % Subtract baseline
-    baseline_t = find(light_surround_t < 0,1,'last');
-    blue_on_lfp_baselinesub = blue_on_lfp - blue_on_lfp(:,baseline_t,:);
-    violet_on_lfp_baselinesub = violet_on_lfp - violet_on_lfp(:,baseline_t,:);
-    
-    % Get rolling median (allow light artifact to change slightly)
-    n_light = 500;
-    blue_on_lfp_baselinesub_med = movmedian(blue_on_lfp_baselinesub,n_light,1);
-    violet_on_lfp_baselinesub_med = movmedian(violet_on_lfp_baselinesub,n_light,1);
-    
-    % Interpolate out the artifact to remove
-    n_lfp_channels = size(lfp,1);
-    blue_light_remove = interp1( ...
-        reshape(permute(blue_on_pull_t,[2,1]),[],1), ...
-        reshape(permute(blue_on_lfp_baselinesub_med,[2,1,3]),[],n_lfp_channels), ...
-        reshape(lfp_t_timeline,[],1))';
-    violet_light_remove = interp1( ...
-        reshape(permute(violet_on_pull_t,[2,1]),[],1), ...
-        reshape(permute(violet_on_lfp_baselinesub_med,[2,1,3]),[],n_lfp_channels), ...
-        reshape(lfp_t_timeline,[],1))';
-    
-    % Zero-out any NaNs (e.g. remove nothing)
-    blue_light_remove(isnan(blue_light_remove)) = 0;
-    violet_light_remove(isnan(violet_light_remove)) = 0;
-    
-    % Remove the artifact
-    lfp_lightfix = lfp - (blue_light_remove + violet_light_remove);
-    
-    % NOT DOING THIS: IS THIS NECESSARY? TOO MUCH MEMORY
-%     % (low-pass filter: sometimes bunch of junk at high freq?)
-%     freqCutoff = 300; % Hz
-%     [b100s, a100s] = butter(2,freqCutoff/(lfp_sample_rate/2),'low');
-%     lfp_lightfix = single(filtfilt(b100s,a100s,double(lfp_lightfix)')');
- 
-elseif ephys_exists && load_parts.ephys && exist('lfp_channel','var') && strcmp(lfp_channel,'all')
-    
-    % Load short LFP segment (from start = no light) from all channels
-    if verbose; disp('Loading LFP (all channels snippet)...'); end;
-
-    % Choose snippet of recording time before first experiment (no light)
-    t_load = 10; % time to load (in seconds)
-    t_load_pre_exp = 1; % time before first experiment to load up to
-    experiment_ephys_starts = sync(acqLive_sync_idx).timestamps(sync(acqLive_sync_idx).values == 1);
-    lfp_load_start = round((lfp_sample_rate*(experiment_ephys_starts(1)-t_load_pre_exp-t_load)));
-    lfp_load_stop = round((lfp_sample_rate*(experiment_ephys_starts(1)-t_load_pre_exp)));      
-    
-    % Load all LFP channels in snippet (before recording = first file)
-    lfp = lfp_memmap{1}.Data.lfp(:,lfp_load_start:lfp_load_stop);
-    
-    % Sort LFP so it goes from surface to depth
-    [~,lfp_sort_idx] = sort(lfp_channel_positions);
-    lfp_channel_positions = lfp_channel_positions(lfp_sort_idx);
-    lfp = lfp(lfp_sort_idx,:);
-    
-    % Get LFP times and convert to timeline time
-    lfp_load_start_t = lfp_load_start/lfp_sample_rate;
-    lfp_t = [0:size(lfp,2)-1]/lfp_sample_rate + lfp_load_start_t;
-    
-    % Get power spectrum of LFP
-    window_length = 2; % in seconds
-    window_overlap = 1; % in seconds
-    window_length_samples = round(window_length/(1/lfp_sample_rate));
-    window_overlap_samples = round(window_overlap/(1/lfp_sample_rate));
-    [lfp_power,lfp_power_freq] = pwelch(zscore(double(lfp),[],2)', ...
-        window_length_samples,window_overlap_samples,[],lfp_sample_rate);
-    
-    if verbose
-        figure;
+        % Load LFP of whole current experiment from one channel
+        if verbose; disp(['Loading LFP (channel ' num2str(lfp_channel) ')...']); end;
         
-        p1 = subplot(1,2,1);
-        imagesc(lfp_power_freq,lfp_channel_positions,log10(lfp_power'));
-        xlabel('Frequency');
-        ylabel('Depth (\mum)');
-        c = colorbar;
-        ylabel(c,'Log_{10} power');
-        xlim([0,100]);
-        colormap(p1,hot);
-        title('LFP power');
+        % Load single LFP channel within experiment bounds
+        % (treat as concatenated if multiple files)
+        lfp_load_start = round((lfp_sample_rate*sync_ephys(1)));
+        lfp_load_stop = round((lfp_sample_rate*sync_ephys(end)));
         
-        p2 = subplot(1,2,2);
-        imagesc(lfp_channel_positions,lfp_channel_positions, ...
-            corrcoef((movmedian(zscore(double(lfp),[],2),10,1) - ...
-            nanmedian(zscore(double(lfp),[],2),1))'));
-        axis image
-        colormap(p2,brewermap([],'*RdBu'));
-        caxis([-1,1])
-        xlabel('Depth (\mum)');
-        ylabel('Depth (\mum)');
-        c = colorbar;
-        ylabel(c,'Med. sub. correlation');
+        lfp_concat_length = [0,cumsum(n_lfp_samples)];
+        lfp_load_file = find(lfp_load_start < lfp_concat_length,1)-1;
+        lfp_load_start_rel = lfp_load_start - lfp_concat_length(lfp_load_file);
+        lfp_load_stop_rel = lfp_load_stop - lfp_concat_length(lfp_load_file);
         
-    end
-
+        lfp = double(lfp_memmap{lfp_load_file}.Data.lfp(lfp_channel,lfp_load_start_rel:lfp_load_stop_rel));
+        
+        % Get LFP times and convert to timeline time
+        lfp_load_start_t = lfp_load_start/lfp_sample_rate;
+        lfp_t = [0:size(lfp,2)-1]/lfp_sample_rate + lfp_load_start_t;
+        lfp_t_timeline = interp1(sync_ephys,sync_timeline,lfp_t,'linear','extrap');
+        
+        %%% Remove light artifact
+        if verbose; disp('Cleaning LFP...'); end;
+        
+        % Get light times (assume blue/violet alternate)
+        light_t_timeline = interp1(sync_ephys,sync_timeline,sync(led_sync_idx).timestamps,'linear','extrap');
+        use_light_times = light_t_timeline >= lfp_t_timeline(1) & light_t_timeline <= lfp_t_timeline(end);
+        light_on = light_t_timeline(sync(led_sync_idx).values == 1 & use_light_times);
+        light_off = light_t_timeline(sync(led_sync_idx).values == 0 & use_light_times);
+        
+        % (cut uncoupled off/on from start/end)
+        if light_off(1) < light_on(1)
+            light_off(1) = [];
+        end
+        if light_on(end) > light_off(end)
+            light_on(end) = [];
+        end
+        
+        blue_on = light_on(1:2:end);
+        blue_off = light_off(1:2:end);
+        violet_on = light_on(2:2:end);
+        violet_off = light_off(2:2:end);
+        
+        light_on_mean = mean(light_off - light_on);
+        light_off_mean = mean(light_on(2:end) - light_off(1:end-1));
+        light_surround_t = [-(light_off_mean/2):1/lfp_sample_rate:(light_on_mean+(light_off_mean/2))];
+        
+        % Pull out LFP around light on
+        use_blue_on = blue_on >= lfp_t_timeline(1) & blue_on <= lfp_t_timeline(end);
+        blue_on_pull_t = blue_on(use_blue_on) + light_surround_t;
+        blue_on_lfp = interp1(lfp_t_timeline,lfp',blue_on_pull_t);
+        
+        use_violet_on = violet_on >= lfp_t_timeline(1) & violet_on <= lfp_t_timeline(end);
+        violet_on_pull_t = violet_on(use_violet_on) + light_surround_t;
+        violet_on_lfp = interp1(lfp_t_timeline,lfp',violet_on_pull_t);
+        
+        % Subtract baseline
+        baseline_t = find(light_surround_t < 0,1,'last');
+        blue_on_lfp_baselinesub = blue_on_lfp - blue_on_lfp(:,baseline_t,:);
+        violet_on_lfp_baselinesub = violet_on_lfp - violet_on_lfp(:,baseline_t,:);
+        
+        % Get rolling median (allow light artifact to change slightly)
+        n_light = 500;
+        blue_on_lfp_baselinesub_med = movmedian(blue_on_lfp_baselinesub,n_light,1);
+        violet_on_lfp_baselinesub_med = movmedian(violet_on_lfp_baselinesub,n_light,1);
+        
+        % Interpolate out the artifact to remove
+        n_lfp_channels = size(lfp,1);
+        blue_light_remove = interp1( ...
+            reshape(permute(blue_on_pull_t,[2,1]),[],1), ...
+            reshape(permute(blue_on_lfp_baselinesub_med,[2,1,3]),[],n_lfp_channels), ...
+            reshape(lfp_t_timeline,[],1))';
+        violet_light_remove = interp1( ...
+            reshape(permute(violet_on_pull_t,[2,1]),[],1), ...
+            reshape(permute(violet_on_lfp_baselinesub_med,[2,1,3]),[],n_lfp_channels), ...
+            reshape(lfp_t_timeline,[],1))';
+        
+        % Zero-out any NaNs (e.g. remove nothing)
+        blue_light_remove(isnan(blue_light_remove)) = 0;
+        violet_light_remove(isnan(violet_light_remove)) = 0;
+        
+        % Remove the artifact
+        lfp_lightfix = lfp - (blue_light_remove + violet_light_remove);
+        
+        % NOT DOING THIS: IS THIS NECESSARY? TOO MUCH MEMORY
+        %     % (low-pass filter: sometimes bunch of junk at high freq?)
+        %     freqCutoff = 300; % Hz
+        %     [b100s, a100s] = butter(2,freqCutoff/(lfp_sample_rate/2),'low');
+        %     lfp_lightfix = single(filtfilt(b100s,a100s,double(lfp_lightfix)')');
+        
+    elseif strcmp(lfp_channel,'all')
+        
+        % Load short LFP segment (from start = no light) from all channels
+        if verbose; disp('Loading LFP (all channels snippet)...'); end;
+        
+        % Choose snippet of recording time before first experiment (no light)
+        t_load = 10; % time to load (in seconds)
+        t_load_pre_exp = 1; % time before first experiment to load up to
+        experiment_ephys_starts = sync(acqLive_sync_idx).timestamps(sync(acqLive_sync_idx).values == 1);
+        lfp_load_start = round((lfp_sample_rate*(experiment_ephys_starts(1)-t_load_pre_exp-t_load)));
+        lfp_load_stop = round((lfp_sample_rate*(experiment_ephys_starts(1)-t_load_pre_exp)));
+        
+        % Load all LFP channels in snippet (before recording = first file)
+        lfp = lfp_memmap{1}.Data.lfp(:,lfp_load_start:lfp_load_stop);
+        
+        % Sort LFP so it goes from surface to depth
+        [~,lfp_sort_idx] = sort(lfp_channel_positions);
+        lfp_channel_positions = lfp_channel_positions(lfp_sort_idx);
+        lfp = lfp(lfp_sort_idx,:);
+        
+        % Get LFP times and convert to timeline time
+        lfp_load_start_t = lfp_load_start/lfp_sample_rate;
+        lfp_t = [0:size(lfp,2)-1]/lfp_sample_rate + lfp_load_start_t;
+        
+        % Get power spectrum of LFP
+        window_length = 2; % in seconds
+        window_overlap = 1; % in seconds
+        window_length_samples = round(window_length/(1/lfp_sample_rate));
+        window_overlap_samples = round(window_overlap/(1/lfp_sample_rate));
+        [lfp_power,lfp_power_freq] = pwelch(zscore(double(lfp),[],2)', ...
+            window_length_samples,window_overlap_samples,[],lfp_sample_rate);
+        
+        if verbose
+            figure;
+            
+            p1 = subplot(1,2,1);
+            imagesc(lfp_power_freq,lfp_channel_positions,log10(lfp_power'));
+            xlabel('Frequency');
+            ylabel('Depth (\mum)');
+            c = colorbar;
+            ylabel(c,'Log_{10} power');
+            xlim([0,100]);
+            colormap(p1,hot);
+            title('LFP power');
+            
+            p2 = subplot(1,2,2);
+            imagesc(lfp_channel_positions,lfp_channel_positions, ...
+                corrcoef((movmedian(zscore(double(lfp),[],2),10,1) - ...
+                nanmedian(zscore(double(lfp),[],2),1))'));
+            axis image
+            colormap(p2,brewermap([],'*RdBu'));
+            caxis([-1,1])
+            xlabel('Depth (\mum)');
+            ylabel('Depth (\mum)');
+            c = colorbar;
+            ylabel(c,'Med. sub. correlation');
+            
+        end        
+    end    
 end
 
 
@@ -1221,7 +1219,7 @@ if ephys_exists && load_parts.ephys
     end
     
     [str_depth,aligned_str_depth_group] = AP_align_striatum_ephys;
-
+    
 end
 
 %% Classify spikes
