@@ -1,3 +1,6 @@
+* 2020-02-10: switched from applyCARtoDat to AP_clean_dat
+
+
 1. AP_preprocess_phase3 (get/save settings, do CAR, run kilosort)
 
 ALT (new OE only, and when multiple on/off recordings): 

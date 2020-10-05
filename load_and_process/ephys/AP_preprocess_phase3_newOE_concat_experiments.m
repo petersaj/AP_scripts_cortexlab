@@ -1,4 +1,5 @@
 function AP_preprocess_phase3_newOE_concat_experiments(animal,day,t_range)
+error('Need to update with new clean dat (use from other file)')
 % AP_preprocess_phase3_newOE_concat_experiments(animal,day,t_range)
 %
 % Preprocess action potential data
