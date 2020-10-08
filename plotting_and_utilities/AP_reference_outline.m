@@ -53,11 +53,11 @@ switch type
         h = struct;
         
         for curr_xline = 1:length(xlines_pos)
-            h.xlines(curr_xline) = line(xlim,repmat(xlines_pos(curr_xline),1,2),'color',color,'linestyle','--');
+            h.xlines(curr_xline) = line(xlim,repmat(xlines_pos(curr_xline),1,2),'color',color,'linestyle','-');
         end
         
         for curr_yline = 1:length(ylines_pos)
-            h.ylines(curr_yline) = line(repmat(ylines_pos(curr_yline),1,2),ylim,'color',color,'linestyle','--');
+            h.ylines(curr_yline) = line(repmat(ylines_pos(curr_yline),1,2),ylim,'color',color,'linestyle','-');
         end
         
         h.bregma = plot(bregma_offset_x,bregma_offset_y,'.r','MarkerSize',30);
