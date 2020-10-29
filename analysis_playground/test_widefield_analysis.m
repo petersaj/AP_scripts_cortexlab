@@ -2025,7 +2025,7 @@ ylabel(c,'Explained variance')
 
 %% Align vasculature for animal
 
-animal = 'AP079';
+animal = 'AP072';
 
 protocol = 'AP_lcrGratingPassive';
 experiments = AP_find_experiments(animal,protocol);
@@ -2046,7 +2046,7 @@ AP_align_widefield(avg_im_days_purple,animal,{experiments.day},'new_days');
 
 %% View aligned vasculature (to check that it's been done correctly)
 
-animal = 'AP063';
+animal = 'AP079';
 
 protocol = 'AP_lcrGratingPassive';
 experiments = AP_find_experiments(animal,protocol);
@@ -2062,7 +2062,7 @@ for curr_day = 1:length(experiments)
         AP_align_widefield(avg_im_h,animal,day)];
 end
 
-AP_image_scroll(cat(3,avg_im_aligned{:}));
+AP_image_scroll(cat(3,avg_im_aligned{:}),{experiments.day});
 axis image;
 set(gcf,'Name',animal);
 

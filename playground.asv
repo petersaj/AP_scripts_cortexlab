@@ -10789,8 +10789,8 @@ psth_measured = nanmean(psth_measured_stim - psth_measured_baseline,3);
 psth_predicted = nanmean(psth_predicted_stim - psth_predicted_baseline,3);
 
 figure; hold on;
-AP_stackplot(psth_measured',surround_time,3,false,'k');
-AP_stackplot(psth_predicted',surround_time,3,false,'r');
+AP_stackplot(psth_measured',surround_time,2,[],'k');
+AP_stackplot(psth_predicted',surround_time,2,[],'r');
 % plot(surround_time,psth_measured,'k','linewidth',2);
 % plot(surround_time,psth_predicted,'r','linewidth',2);
 
@@ -12297,59 +12297,49 @@ for curr_im_idx = 1:n_im
 end
 
 
-%% Standalone retinotopy-CCF alignment
+%% Testing activity by choice
 
-% Set path with saved alignments
-alignment_path = 'C:\Users\Andrew\OneDrive for Business\Documents\CarandiniHarrisLab\analysis\widefield_alignment';
 
-% Load master VFS
-master_vfs_fn = [alignment_path filesep 'master_vfs.mat'];
-load(master_vfs_fn);
-master_align = master_vfs;
+% Get stim activity by stim/choice/depth/experiment
+stim_avg_t = [0,0.2];
+stim_avg_t_idx = t >= stim_avg_t(1) & t <= stim_avg_t(2);
+stim_act = permute(nanmean(mua_allcat(:,stim_avg_t_idx,:),2),[1,3,2]);
+stims = unique(trial_stim_allcat);
 
-% Align animal image to master image
-ref_size = size(master_align);
+stim_act_grp = nan(length(stims),2,n_depths,length(use_split));
+for curr_depth = 1:n_depths
+    for curr_exp = 1:length(use_split)
+        for curr_stim = 1:length(stims)
+            
+            stim_act_grp(curr_stim,1,curr_depth,curr_exp) = ...
+                nanmean(stim_act( ...
+                move_t < 0.5 & ...
+                split_idx == curr_exp & ...
+                trial_stim_allcat == stims(curr_stim) & ...
+                trial_choice_allcat == -1,curr_depth));
+            
+            stim_act_grp(curr_stim,2,curr_depth,curr_exp) = ...
+                nanmean(stim_act( ...
+                move_t < 0.5 & ...
+                split_idx == curr_exp & ...
+                trial_stim_allcat == stims(curr_stim) & ...
+                trial_choice_allcat == 1,curr_depth));
+            
+        end
+    end
+end
 
-[optimizer, metric] = imregconfig('monomodal');
-optimizer = registration.optimizer.OnePlusOneEvolutionary();
-optimizer.MaximumIterations = 200;
-optimizer.GrowthFactor = 1+1e-6;
-optimizer.InitialRadius = 1e-4;
-
-tformEstimate_affine = imregtform(vfs_median,master_align,'affine',optimizer,metric);
-vfs_aligned = imwarp(vfs_median,tformEstimate_affine,'Outputview',imref2d(ref_size));
-avg_im_aligned = imwarp(avg_im,tformEstimate_affine,'Outputview',imref2d(ref_size));
-
+% Plot stim responses by condition
+move_col = [0.6,0,0.6;1,0.6,0];
 figure;
-subplot(2,2,1);
-imshowpair(master_align,vfs_median);
-title('Unaligned VFS');
-subplot(2,2,2);
-imshowpair(master_align,vfs_aligned);
-title('Aligned');
-
-figure;
-ax1 = axes;
-ax2 = axes;
-subplot(1,2,2,ax1);
-subplot(1,2,2,ax2);
-h1 = imagesc(ax1,avg_im_aligned);
-colormap(ax1,gray);
-caxis(ax1,[0 prctile(avg_im(:),95)]);
-h2 = imagesc(ax2,vfs_aligned);
-colormap(ax2,colormap_BlueWhiteRed);
-caxis([-1,1]);
-set(ax1,'Visible','off');
-axes(ax1); axis image off;
-set(ax2,'Visible','off');
-axes(ax2); axis image off;
-set(h2,'AlphaData',mat2gray(abs(vfs_aligned))*0.4);
-colormap(ax1,gray);
-
-
-
-
-
-
+for curr_depth = 1:n_depths
+   subplot(n_depths,1,curr_depth); hold on;
+   set(gca,'ColorOrder',move_col);
+    errorbar(repmat(stims,1,2), ...
+        nanmean(stim_act_grp(:,:,curr_depth,:),4), ...
+        AP_sem(stim_act_grp(:,:,curr_depth,:),4),'linewidth',2);
+    xlabel('Contrast*side');
+    ylabel(['Str ' num2str(curr_depth)']);
+end
 
 

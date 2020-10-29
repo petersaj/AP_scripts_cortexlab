@@ -1,6 +1,6 @@
-%% Get and plot single mouse behavior (vanillaChoiceworld)
-% animals = {'AP063','AP068','AP071'};
-animals = {'AP064','AP066'};
+%% Get and plot behavior within mice (vanillaChoiceworld)
+animals = {'AP063','AP064','AP066','AP068','AP071', ...
+    'AP072','AP074','AP075','AP076','AP077','AP079'};
 protocol = 'vanillaChoiceworld';
 flexible_name = true;
 
@@ -9,6 +9,11 @@ for curr_animal = 1:length(animals)
     animal = animals{curr_animal};
     experiments = AP_find_experiments(animal,protocol,flexible_name);
     bhv = struct;
+            
+    if isempty(experiments)
+        disp(['No behavior data: ' animal]);
+        continue
+    end
     
     for curr_day = 1:length(experiments)
         
@@ -614,7 +619,7 @@ yyaxis left; hold on
 choiceworld_days = day_num(strcmp({experiments.protocol},'ChoiceWorld'));
 scatter(choiceworld_days,repmat(0,1,length(choiceworld_days)),20,'r','filled');
 
-%% Get and plot multiple animals
+%% Get and plot behavior across mice
 
 % % To use historical data on saved list
 % load('training_list.mat');
@@ -626,7 +631,7 @@ scatter(choiceworld_days,repmat(0,1,length(choiceworld_days)),20,'r','filled');
 % animals = training_list(use_task_mice,1);
 
 % To enter animals manually
-animals = {'AP045','AP047','AP048'};
+animals = {'AP064','AP064','AP066','AP068','AP071','AP072'};
 
 bhv = struct;
 

@@ -2854,8 +2854,8 @@ time_bin_centers = time_bins(1:end-1) + diff(time_bins)/2;
 % depth_group_centers = depth_group_edges(1:end-1)+(diff(depth_group_edges)/2);
 
 % (to group multiunit by depth within striatum)
-n_depths = round(diff(str_depth)/200);
-% n_depths = 4;
+% n_depths = round(diff(str_depth)/200);
+n_depths = 4;
 depth_group_edges = round(linspace(str_depth(1),str_depth(2),n_depths+1));
 [depth_group_n,depth_group] = histc(spike_depths,depth_group_edges);
 depth_groups_used = unique(depth_group);
@@ -2915,10 +2915,7 @@ fVdf_deconv_resample = interp1(frame_t,fVdf_deconv(use_svs,:)',time_bin_centers)
     binned_spikes_std,kernel_frames,lambda,zs,cvfold,return_constant,use_constant);
 
 % Convert kernel to pixel space
-r_px = zeros(size(Udf,1),size(Udf,2),size(k,2),size(k,3),'single');
-for curr_spikes = 1:size(k,3)
-    r_px(:,:,:,curr_spikes) = svdFrameReconstruct(Udf(:,:,use_svs),k(:,:,curr_spikes));
-end
+r_px = AP_svdFrameReconstruct(Udf(:,:,use_svs),k);
 
 AP_image_scroll(r_px,kernel_frames/framerate);
 caxis([-prctile(r_px(:),99.9),prctile(r_px(:),99.9)])

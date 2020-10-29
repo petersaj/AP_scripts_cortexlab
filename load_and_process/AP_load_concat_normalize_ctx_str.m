@@ -10,7 +10,10 @@
 warning on;
 
 % Load data (saved as structure trial_data_all)
-trial_data_path = 'C:\Users\Andrew\OneDrive for Business\Documents\CarandiniHarrisLab\analysis\wf_ephys_choiceworld\paper\data';
+if ~exist('trial_data_path','var')
+    % If no path specified, assume paper data
+    trial_data_path = 'C:\Users\Andrew\OneDrive for Business\Documents\CarandiniHarrisLab\analysis\wf_ephys_choiceworld\paper\data';
+end
 
 if ischar(data_fn)
     % Single dataset

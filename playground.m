@@ -10789,8 +10789,8 @@ psth_measured = nanmean(psth_measured_stim - psth_measured_baseline,3);
 psth_predicted = nanmean(psth_predicted_stim - psth_predicted_baseline,3);
 
 figure; hold on;
-AP_stackplot(psth_measured',surround_time,3,false,'k');
-AP_stackplot(psth_predicted',surround_time,3,false,'r');
+AP_stackplot(psth_measured',surround_time,2,[],'k');
+AP_stackplot(psth_predicted',surround_time,2,[],'r');
 % plot(surround_time,psth_measured,'k','linewidth',2);
 % plot(surround_time,psth_predicted,'r','linewidth',2);
 
@@ -12298,5 +12298,49 @@ end
 
 
 
+%% Average stim-aligned cortex
+
+% Get average stim-aligned fluorescence 
+plot_trials = move_t > 0.6;
+plot_trials_exp = mat2cell(plot_trials,use_split,1);
+
+fluor_allcat_deconv_exp = mat2cell(fluor_allcat_deconv,use_split,length(t),n_vs);
+
+% Set alignment shifts
+t_leeway = -t(1);
+leeway_samples = round(t_leeway*(sample_rate));
+stim_align = zeros(size(trial_stim_allcat));
+move_align = -move_idx + leeway_samples;
+outcome_align = -outcome_idx + leeway_samples;
+
+% Set windows to average activity
+use_align_labels = {'Stim','Move onset','Outcome'};
+use_align = {stim_align};
+plot_t = [0.08,0,0.08];
+
+for curr_align = 1:length(use_align)
+    
+    % (re-align activity)
+    curr_ctx_act = cellfun(@(act,trials,shift) cell2mat(arrayfun(@(trial) ...
+        circshift(act(trial,:,:),shift(trial),2), ...
+        find(trials),'uni',false)), ...
+        fluor_allcat_deconv_exp,plot_trials_exp, ...
+        mat2cell(use_align{curr_align},use_split,1),'uni',false);
+    
+    curr_ctx_act_mean = ...
+        permute(nanmean(cell2mat(cellfun(@(x) nanmean(x,1), ...
+        curr_ctx_act,'uni',false)),1),[3,2,1]);
+    
+    curr_ctx_act_mean_px = svdFrameReconstruct(U_master(:,:,1:n_vs), ...
+        curr_ctx_act_mean);
+    
+    AP_image_scroll(curr_ctx_act_mean_px);
+    AP_reference_outline('ccf_aligned',[0.5,0.5,0.5]);
+    axis image off;
+    colormap(brewermap([],'PRGn'));
+    caxis([-0.02,0.02]);
+    title([use_align_labels{curr_align} ': ' num2str(plot_t(curr_align)) ' sec']);
+    
+end
 
 

@@ -1,5 +1,5 @@
 function im_aligned = AP_align_widefield(im_unaligned,animal,day,align_type,master_align)
-% im_aligned = AP_align_widefield(im_unaligned,animal,day,align_type)
+% im_aligned = AP_align_widefield(im_unaligned,animal,day,align_type,master_align)
 %
 % Align widefield images across days and animals
 %
@@ -7,6 +7,7 @@ function im_aligned = AP_align_widefield(im_unaligned,animal,day,align_type,mast
 % animal - animal corresponding to im_unaligned, e.g. 'XX001'
 % day - 'yyyy-mm-dd' corresponding to im_unaligned (cell array if multiple)
 % align_type - type of alignment:
+% master_align - used with 'new_animal': master template for alignment
 % > default (otherwise/empty) - apply saved day/animal transform to image(s)
 % > 'day_only' - apply saved day (only) transform to image(s)
 % > 'new_days' - make new alignment within animal across days
@@ -318,12 +319,13 @@ switch align_type
         
         % Find animal and day index within wf_tform structure
         curr_animal_idx = strcmp(animal,{wf_tform.animal});
-        curr_day_idx = strcmp(day,wf_tform(curr_animal_idx).day);
-        
         if ~any(curr_animal_idx)
-            disp(['No alignments found for ' animal]);
-        elseif ~any(curr_day_idx)
-            error(['No ' animal ' alignment found for ' day]);
+           error(['No alignments found for ' animal]);
+        end
+        
+        curr_day_idx = strcmp(day,wf_tform(curr_animal_idx).day);
+        if ~any(curr_day_idx)
+           error(['No ' animal ' alignment found for ' day]);
         end
         
         % Get transform for day
