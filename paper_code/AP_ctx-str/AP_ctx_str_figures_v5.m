@@ -1,7 +1,7 @@
 % Generate figures for ctx-str paper 
 % (data is prepared in AP_ctx_str_trial_preprocessing)
 %
-% Submission 2 (integreates updated figures from AP_ctx_str_figures_v4 and
+% Submission 2 (integrates updated figures from AP_ctx_str_figures_v4 and
 % revision figures from AP_ctx_str_figure_revisions_v1)
 
 %% ~~~~~~~~~~~~~ Load data associated with each symbol
@@ -323,7 +323,7 @@ groups_allcat = cell2mat(cellfun(@(x) x(~isnan(x)), ...
 good_units_exp = cellfun(@transpose,vertcat(goodUnits{:}),'uni',false);
 good_units_allcat = cell2mat(vertcat(goodUnits{:})')';
 
-% (groups are cell type * depth: msn, fsi, tan, th, ??)
+% (groups are cell type * depth: msn, fsi, tan, uin, narrow tan-like)
 n_aligned_depths = 3; % hardcoded: I think not stored
 n_celltypes = max(groups_allcat)./n_aligned_depths;
 if n_celltypes ~= 5

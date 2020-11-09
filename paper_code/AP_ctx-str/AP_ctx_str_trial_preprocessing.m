@@ -1854,6 +1854,171 @@ data_path = 'C:\Users\Andrew\OneDrive for Business\Documents\CarandiniHarrisLab\
 data_fn = [data_path filesep 'ctx_fluor_mua_corr_' protocol];
 save(data_fn,'data');
 
+%% Get activity correlation cortex wf/mua and ctx ephys/str mua (task depth deconv)
+
+animals = {'AP043','AP060','AP061'};
+
+% Load ephys alignment
+vis_ctx_ephys_fn = 'C:\Users\Andrew\OneDrive for Business\Documents\CarandiniHarrisLab\analysis\wf_ephys_choiceworld\ephys_processing\vis_ctx_ephys.mat';
+load(vis_ctx_ephys_fn);
+
+data = struct;
+for curr_animal = 1:length(animals)
+    
+    animal = animals{curr_animal};
+    
+    protocol = 'vanillaChoiceworld';
+    flexible_name = true;
+    experiments = AP_find_experiments(animal,protocol);
+    experiments = experiments([experiments.imaging] & [experiments.ephys]);
+    
+    for curr_day = 1:length(experiments)
+        
+        % Set variables to keep
+        preload_vars = who;
+        
+        % Load experiment
+        day = experiments(curr_day).day;
+        experiment = experiments(curr_day).experiment(1); % (only one doubled experiment, and the second one was worse)
+        site = 2; % cortex probe is always site 2
+        lfp_channel = 'all';
+        str_align = 'none'; % (because this is on cortex)
+        verbose = false;
+        AP_load_experiment
+        
+        %%% DEPTH-ALIGN TEMPLATES, FIND CORTEX BOUNDARY
+        curr_animal_idx = strcmp(animal,{vis_ctx_ephys.animal});
+        curr_day_idx = strcmp(day,vis_ctx_ephys(curr_animal_idx).day);
+        curr_csd_depth = vis_ctx_ephys(curr_animal_idx).stim_csd_depth{curr_day_idx};
+        curr_csd_depth_aligned = vis_ctx_ephys(curr_animal_idx).stim_csd_depth_aligned{curr_day_idx};
+        template_depths_aligned = interp1(curr_csd_depth,curr_csd_depth_aligned,template_depths);
+        
+        % Find cortex end by largest gap between templates
+        sorted_template_depths = sort([template_depths_aligned]);
+        [max_gap,max_gap_idx] = max(diff(sorted_template_depths));
+        ctx_end = sorted_template_depths(max_gap_idx)+1;
+        
+        ctx_depth = [sorted_template_depths(1),ctx_end];
+        ctx_units = template_depths_aligned <= ctx_depth(2);
+        
+        %%% GET FLUORESCENCE AND SPIKES BY DEPTH
+        
+        % Set binning time
+        skip_seconds = 60;
+        spike_binning_t = 1/framerate; % seconds
+        spike_binning_t_edges = frame_t(1)+skip_seconds:spike_binning_t:frame_t(end)-skip_seconds;
+        spike_binning_t_centers = spike_binning_t_edges(1:end-1) + diff(spike_binning_t_edges)/2;
+        
+        % Get fluorescence in pre-drawn ROI
+        curr_ctx_roi = vis_ctx_ephys(curr_animal_idx).ctx_roi{curr_day_idx};
+        
+        % Deconvolve fluorescence with cortex kernels by depth
+        % (copied from AP_deconv_wf but manually using other kernel)
+        
+        % (load depth-specific deconv kernel, average)
+        deconv_k_depth_fn = 'C:\Users\Andrew\OneDrive for Business\Documents\CarandiniHarrisLab\analysis\wf_ephys_choiceworld\paper\data\gcamp6s_kernel_ctxdepth.mat';
+        load(deconv_k_depth_fn)
+        kernel_cat = cat(3,gcamp6s_kernel_ctxdepth.regression{:});
+        kernel_mean = nanmean(kernel_cat./max(abs(kernel_cat),[],2),3);
+        kernel = kernel_mean./sum(kernel_mean.^2,2);              
+        
+        % (loop through depth kernels and convolve)
+        fluor_roi_interp = nan(size(kernel,1),length(spike_binning_t_centers));
+        for curr_kernel_depth = 1:size(kernel,1)
+            
+            % Remove NaNs for convolution (put them back after)
+            activity = fVdf;
+            activity_nonan = activity;
+            activity_nonan(isnan(activity_nonan)) = 0;           
+            
+            % Deconvolve to same size with replication padding
+            convolved_activity = convn(padarray(activity_nonan, ...
+                [0,floor(length(kernel(curr_kernel_depth,:))/2)],'replicate','both'), ...
+                kernel(curr_kernel_depth,:),'valid');
+            
+            % Put original NaNs back in
+            convolved_activity(isnan(activity)) = NaN;
+            
+            % Get ROI fluorescence and interpolate time
+            fluor_roi = AP_svd_roi(Udf,convolved_activity,avg_im,[],curr_ctx_roi);
+            fluor_roi_interp(curr_kernel_depth,:) = ...
+                interp1(frame_t,fluor_roi,spike_binning_t_centers);
+                    
+        end             
+        
+        % Set sliding depth window of MUA
+        depth_corr_range = [-200,1500];
+        depth_corr_window = 200; % MUA window in microns
+        depth_corr_window_spacing = 50; % MUA window spacing in microns
+        
+        depth_corr_bins = [depth_corr_range(1):depth_corr_window_spacing:(depth_corr_range(2)-depth_corr_window); ...
+            (depth_corr_range(1):depth_corr_window_spacing:(depth_corr_range(2)-depth_corr_window))+depth_corr_window];
+        depth_corr_bin_centers = depth_corr_bins(1,:) + diff(depth_corr_bins,[],1)/2;
+        
+        cortex_mua = zeros(size(depth_corr_bins,2),length(spike_binning_t_centers));
+        for curr_depth = 1:size(depth_corr_bins,2)
+            curr_depth_templates_idx = ...
+                find(ctx_units & ...
+                template_depths_aligned >= depth_corr_bins(1,curr_depth) & ...
+                template_depths_aligned < depth_corr_bins(2,curr_depth));
+            
+            cortex_mua(curr_depth,:) = histcounts(spike_times_timeline( ...
+                ismember(spike_templates,curr_depth_templates_idx)),spike_binning_t_edges);
+        end
+        
+        % Plot cortex units and depth bins
+        norm_spike_n = mat2gray(log10(accumarray(spike_templates,1)+1));
+        figure; set(gca,'YDir','reverse'); hold on;
+        plot(norm_spike_n(ctx_units),template_depths_aligned(ctx_units),'.b','MarkerSize',20);
+        plot(norm_spike_n(~ctx_units),template_depths_aligned(~ctx_units),'.k','MarkerSize',20);
+        line(xlim,repmat(depth_corr_range(1),2,1),'color','r','linewidth',2);
+        line(xlim,repmat(depth_corr_range(2),2,1),'color','r','linewidth',2);
+        for i = 1:length(depth_corr_bin_centers)
+            line(xlim,repmat(depth_corr_bin_centers(i),2,1),'color','r');
+        end
+        xlabel('Norm firing rate');
+        ylabel('Aligned depth');
+        title([animal ' ' day]);
+        drawnow;
+        
+        %%% LOAD STRIATUM EPHYS AND GET MUA BY DEPTH
+        clear load_parts
+        load_parts.ephys = true;
+        site = 1; % (striatum is always on probe 1)
+        str_align = 'kernel';
+        AP_load_experiment;
+        
+        striatum_mua = nan(n_aligned_depths,length(spike_binning_t_centers));
+        for curr_depth = 1:n_aligned_depths
+            curr_spike_times = spike_times_timeline(aligned_str_depth_group == curr_depth);
+            % Skip if no spikes at this depth
+            if isempty(curr_spike_times)
+                continue
+            end
+            striatum_mua(curr_depth,:) = histcounts(curr_spike_times,spike_binning_t_edges);
+        end
+        
+        %%% REGULAR CORRELATION
+        cortex_fluor_corr = 1-pdist2(cortex_mua,fluor_roi_interp,'correlation');
+        cortex_striatum_corr = 1-pdist2(cortex_mua,striatum_mua,'correlation');
+        
+        %%% PACKAGE AND SAVE
+        data(curr_animal).cortex_mua_depth{curr_day} = depth_corr_bin_centers;
+        data(curr_animal).cortex_fluor_corr{curr_day} = cortex_fluor_corr;
+        data(curr_animal).cortex_striatum_corr{curr_day} = cortex_striatum_corr;
+        
+        % Clear variables for next experiment
+        clearvars('-except',preload_vars{:})
+        
+    end
+    
+end
+
+data_path = 'C:\Users\Andrew\OneDrive for Business\Documents\CarandiniHarrisLab\analysis\wf_ephys_choiceworld\paper\data';
+data_fn = [data_path filesep 'ctx_fluor_mua_corr_' protocol '_ctxdepthkernel'];
+save(data_fn,'data');
+disp(['Saved ' data_fn]);
+
 
 %% Task trial activity (ctx/str MUA separately)
 clear all
