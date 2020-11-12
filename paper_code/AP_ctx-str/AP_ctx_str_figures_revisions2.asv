@@ -499,96 +499,41 @@ for curr_exp = 1:max(split_idx)
     
 end
 
+figure; hold on;
+errorbar(nanmean(taskpred_r2,1),AP_sem(taskpred_r2,1),'b','linewidth',2,'CapSize',0);
+errorbar(nanmean(ctxpred_r2,1),AP_sem(ctxpred_r2,1),'color',[0,0.6,0],'linewidth',2,'CapSize',0);
+xlabel('Striatum depth');
+ylabel('Task explained variance');
+legend({'Task','Cortex'});
+
+
 % Plot explained variance task vs cortex R2 by experiment
-mua_var_exp_log = log10(cell2mat(cellfun(@(x) var(reshape(x,[],n_depths)),mua_exp,'uni',false)));
+mua_var_exp = log10(cell2mat(cellfun(@(x) var(reshape(x,[],n_depths)),mua_exp,'uni',false)));
 
 figure; hold on;
 str_col = max(hsv(n_depths)-0.2,0);
 for curr_str = 1:n_depths
-    errorbar(squeeze(nanmean(mua_var_exp_log(:,curr_str),1)), ...
+    errorbar(squeeze(nanmean(mua_var_exp(:,curr_str),1)), ...
         squeeze(nanmean(ctxpred_r2(:,curr_str),1)), ...
         squeeze(AP_sem(ctxpred_r2(:,curr_str),1)),squeeze(AP_sem(ctxpred_r2(:,curr_str),1)), ...
-        squeeze(AP_sem(mua_var_exp_log(:,curr_str),1)),squeeze(AP_sem(mua_var_exp_log(:,curr_str),1)), ...
+        squeeze(AP_sem(mua_var_exp(:,curr_str),1)),squeeze(AP_sem(mua_var_exp(:,curr_str),1)), ...
         'color','k','linewidth',2);
-       
-    scatter(nanmean(mua_var_exp_log(:,curr_str),1), ...
+    
+    scatter(mua_var_exp(:,curr_str),ctxpred_r2(:,curr_str),10, ...
+        str_col(curr_str,:),'filled');
+    scatter(nanmean(mua_var_exp(:,curr_str),1), ...
         nanmean(ctxpred_r2(:,curr_str),1),80, ...
         str_col(curr_str,:),'filled','MarkerEdgeColor','k','linewidth',2);
-    scatter(mua_var_exp_log(:,curr_str),ctxpred_r2(:,curr_str),10, ...
-        str_col(curr_str,:),'filled');
 end
 xlabel('log_{10}(striatum variance)');
 ylabel('Cortex R^2');
 legend({'DMS','DCS','DLS'})
 
-% (variance vs. explained variance stats)
-[exp_grp,domain_grp] = ndgrid(1:size(mua_var_exp_log,1),1:size(mua_var_exp_log,2));
-use_points = ~isnan(mua_var_exp_log);
-[h,atab,ctab,stats] = aoctool(mua_var_exp_log(use_points), ...
-    ctxpred_r2(use_points),domain_grp(use_points));
 
+var_bin_edges = linspace(min(log10(mua_var_exp(:))), ...
+    max(log10(mua_var_exp(:))),7);
 
-
-%% ~~~~~~~~ BELOW: integrated in to AP_ctx_str_figures_v6
- 
-%% Plot Cortex R2 vs variance (low DMS expl var is due to low var)
-
-% Load data
-load('C:\Users\Andrew\OneDrive for Business\Documents\CarandiniHarrisLab\analysis\wf_ephys_choiceworld\paper\data\str_ctxpred.mat')
-
-% Concatenate data across cohorts and animals
-mua_animal = [str_ctxpred.str]';
-mua_exp = vertcat(mua_animal{:});
-
-mua_ctxpred_animal = [str_ctxpred.str_ctxpred]';
-mua_ctxpred_exp = vertcat(mua_ctxpred_animal{:});
-
-ctxpred_r2 = cellfun(@(mua,mua_ctxpred) ...
-    1 - (nansum((mua-mua_ctxpred).^2,2)./(nansum((mua-nanmean(mua,2)).^2,2))), ...
-    mua_exp,mua_ctxpred_exp,'uni',false);
-
-ctxpred_r2_task = horzcat(ctxpred_r2{:,1})';
-ctxpred_r2_passive = horzcat(ctxpred_r2{:,2})';
-
-figure;
-n_depths = size(ctxpred_r2_task,2);
-str_col = max(hsv(n_depths)-0.2,0);
-
-
-% Get and plot striatal variance by task vs. passive
-mua_var_exp = cellfun(@(x) var(x,[],2),mua_exp,'uni',false);
-mua_var_task = log10(horzcat(mua_var_exp{:,1})');
-mua_var_passive = log10(horzcat(mua_var_exp{:,2})');
-
-
-% Plot cortex R2 vs striatal variance
-figure; hold on
-for curr_str = 1:n_depths
-    errorbar(squeeze(nanmean(mua_var_task(:,curr_str),1)), ...
-        squeeze(nanmean(ctxpred_r2_task(:,curr_str),1)), ...
-        squeeze(AP_sem(ctxpred_r2_task(:,curr_str),1)), ...
-        squeeze(AP_sem(ctxpred_r2_task(:,curr_str),1)), ...
-        squeeze(AP_sem(mua_var_task(:,curr_str),1)), ...
-        squeeze(AP_sem(mua_var_task(:,curr_str),1)), ...
-        'color','k','linewidth',2);
-    
-    scatter(mua_var_task(:,curr_str),ctxpred_r2_task(:,curr_str),10, ...
-        str_col(curr_str,:),'filled');
-    scatter(nanmean(mua_var_task(:,curr_str),1), ...
-        nanmean(ctxpred_r2_task(:,curr_str),1),80, ...
-        str_col(curr_str,:),'filled','MarkerEdgeColor','k','linewidth',2);
-end
-xlabel('log(Task variance)');
-ylabel('Cortex task R^2');
-legend({'DMS','DCS','DLS'})
-
-% (variance vs. explained variance stats)
-[exp_grp,domain_grp] = ndgrid(1:size(mua_var_task,1),1:size(mua_var_task,2));
-use_points = ~isnan(mua_var_task);
-[h,atab,ctab,stats] = aoctool(mua_var_task(use_points), ...
-    ctxpred_r2_task(use_points),domain_grp(use_points));
-
-
+mua_var_bins = discretize(logmua_var_exp,var_bin_edges);
 
 
 
