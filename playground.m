@@ -12345,6 +12345,257 @@ end
 
 
 
+%% Testing as a check: how well does V1 activity predict AM activity?
+
+% Regress kernel ROI activity to striatum domain activity (per recording)
+regression_params.kernel_t = [-0.1,0.1];
+regression_params.zs = [false,false];
+regression_params.cvfold = 5;
+regression_params.use_constant = true;
+lambda = 0;
+kernel_frames = floor(regression_params.kernel_t(1)*sample_rate): ...
+    ceil(regression_params.kernel_t(2)*sample_rate);
+
+% Set time to use
+% (e.g. this type of code can be used to regress only ITI time)
+use_t = true(size(t));
+
+fluor_roi_deconv_exp = mat2cell(fluor_roi_deconv,trials_recording,length(t),numel(wf_roi));
+
+fluorpred_k = nan(length(use_split),length(kernel_frames));
+fluorpred_exp = cellfun(@(x) nan(size(x(:,:,1))),fluor_roi_deconv_exp,'uni',false);
+for curr_exp = 1:length(trials_recording)
+
+    regressor_roi = 1;
+    predict_roi = 3;
+    
+    curr_mua = reshape(fluor_roi_deconv_exp{curr_exp}(:,use_t,predict_roi)',1,[]);
+    curr_mua_std = curr_mua./nanstd(curr_mua);
+    
+    curr_fluor = reshape(permute( ...
+        fluor_roi_deconv_exp{curr_exp}(:,use_t,regressor_roi),[2,1,3]),[],1)';
+    curr_fluor_std = curr_fluor./nanstd(curr_fluor);
+
+    % Set discontinuities in trial data
+    trial_discontinuities = false(size(fluor_roi_deconv_exp{curr_exp}(:,use_t,1)));
+    trial_discontinuities(:,1) = true;
+    trial_discontinuities = reshape(trial_discontinuities',[],1)';
+    
+    % Full cortex regression
+    [ctx_str_k,curr_mua_fluorpred_std,explained_var_trial] = ...
+        AP_regresskernel(curr_fluor_std, ...
+        curr_mua_std,kernel_frames,lambda, ...
+        regression_params.zs,regression_params.cvfold, ...
+        true,regression_params.use_constant,trial_discontinuities);
+    
+    % Re-scale the prediction (subtract offset, multiply, add scaled offset)
+    ctxpred_spikes = (curr_mua_fluorpred_std - squeeze(ctx_str_k{end})).* ...
+        nanstd(curr_mua,[],2) + ...
+        nanstd(curr_mua,[],2).*squeeze(ctx_str_k{end});
+        
+    fluorpred_k(curr_exp,:) = ctx_str_k{1};
+    fluorpred_exp{curr_exp}(:,use_t) = ...
+        reshape(ctxpred_spikes,sum(use_t),[])';
+    
+    AP_print_progress_fraction(curr_exp,length(trials_recording));
+      
+end
+
+
+% Get R^2 for task, cortex full, and cortex ROI predictions
+fluor_roi_taskpred_exp = mat2cell(fluor_roi_taskpred,trials_recording,length(t),numel(wf_roi));
+
+ctxpred_r2 = nan(max(split_idx),1);
+ctxtaskpred_r2 = nan(max(split_idx),1);
+
+for curr_exp = 1:max(split_idx)
+    
+    curr_data = reshape(permute(fluor_roi_deconv_exp{curr_exp}(:,:,predict_roi),[2,1,3]),[],1);
+    curr_ctxpred_data = reshape(permute(fluorpred_exp{curr_exp},[2,1,3]),[],1);
+    curr_ctxtaskpred_data = reshape(permute(fluor_roi_taskpred_exp{curr_exp}(:,:,predict_roi),[2,1,3]),[],1);
+
+    % Set common NaNs
+    nan_samples = isnan(curr_data) | isnan(curr_ctxpred_data) ...
+        | isnan(curr_ctxtaskpred_data);
+    curr_data(nan_samples) = NaN;
+    curr_ctxpred_data(nan_samples) = NaN;
+    curr_ctxtaskpred_data(nan_samples) = NaN;
+    
+    ctxpred_r2(curr_exp,:) = 1 - (nansum((curr_data-curr_ctxpred_data).^2,1)./ ...
+        nansum((curr_data-nanmean(curr_data,1)).^2,1));
+    ctxtaskpred_r2(curr_exp,:) = 1 - (nansum((curr_data-curr_ctxtaskpred_data).^2,1)./ ...
+        nansum((curr_data-nanmean(curr_data,1)).^2,1));
+    
+end
+
+figure; plot(ctxpred_r2,ctxtaskpred_r2,'.k')
+line([0,1],[0,1])
+xlabel('Task-predicted')
+ylabel(['Cortex-predicted (' wf_roi(regressor_roi).area ')'])
+title(wf_roi(predict_roi).area)
+
+%% (from above: BUT PREDICT MUA FROM FLUOR ROI)
+
+% Regress kernel ROI activity to striatum domain activity (per recording)
+regression_params.kernel_t = [-0.1,0.1];
+regression_params.zs = [false,false];
+regression_params.cvfold = 5;
+regression_params.use_constant = true;
+lambda = 0;
+kernel_frames = floor(regression_params.kernel_t(1)*sample_rate): ...
+    ceil(regression_params.kernel_t(2)*sample_rate);
+
+% Set time to use
+% (e.g. this type of code can be used to regress only ITI time)
+use_t = true(size(t));
+
+mua_exp = vertcat(mua_all{:});
+
+fluorpred_k = nan(length(use_split),length(kernel_frames));
+fluorpred_exp = cellfun(@(x) nan(size(x(:,:,1))),fluor_roi_deconv_exp,'uni',false);
+for curr_exp = 1:length(trials_recording)
+
+    regressor_roi = 3;
+    predict_roi = 1;
+    
+    curr_mua = reshape(mua_exp{curr_exp}(:,use_t,predict_roi)',1,[]);
+    curr_mua_std = curr_mua./nanstd(curr_mua);
+    
+    curr_fluor = reshape(permute( ...
+        fluor_roi_deconv_exp{curr_exp}(:,use_t,regressor_roi),[2,1,3]),[],1)';
+    curr_fluor_std = curr_fluor./nanstd(curr_fluor);
+
+    % Set discontinuities in trial data
+    trial_discontinuities = false(size(fluor_roi_deconv_exp{curr_exp}(:,use_t,1)));
+    trial_discontinuities(:,1) = true;
+    trial_discontinuities = reshape(trial_discontinuities',[],1)';
+    
+    % Full cortex regression
+    [ctx_str_k,curr_mua_fluorpred_std,explained_var_trial] = ...
+        AP_regresskernel(curr_fluor_std, ...
+        curr_mua_std,kernel_frames,lambda, ...
+        regression_params.zs,regression_params.cvfold, ...
+        true,regression_params.use_constant,trial_discontinuities);
+    
+    % Re-scale the prediction (subtract offset, multiply, add scaled offset)
+    ctxpred_spikes = (curr_mua_fluorpred_std - squeeze(ctx_str_k{end})).* ...
+        nanstd(curr_mua,[],2) + ...
+        nanstd(curr_mua,[],2).*squeeze(ctx_str_k{end});
+        
+    fluorpred_k(curr_exp,:) = ctx_str_k{1};
+    fluorpred_exp{curr_exp}(:,use_t) = ...
+        reshape(ctxpred_spikes,sum(use_t),[])';
+    
+    AP_print_progress_fraction(curr_exp,length(trials_recording));
+      
+end
+
+% Get R^2 for task and cortex
+mua_taskpred_exp = vertcat(mua_taskpred_all{:});
+
+taskpred_r2 = nan(length(mua_exp),1);
+ctxpred_r2 = nan(length(mua_exp),1);
+for curr_exp = 1:length(mua_exp)
+    
+    curr_str = reshape(permute(mua_exp{curr_exp}(:,:,predict_roi),[2,1,3]),[],1);
+    curr_str_baselinesub = reshape(permute(mua_exp{curr_exp}(:,:,predict_roi),[2,1,3]),[],1) - ...
+        (nanmean(reshape(mua_exp{curr_exp}(:,t < 0,predict_roi),[],1)));
+    curr_taskpred = reshape(permute(mua_taskpred_exp{curr_exp}(:,:,predict_roi),[2,1,3]),[],1);
+    curr_ctxpred = reshape(permute(fluorpred_exp{curr_exp},[2,1,3]),[],1);
+    
+    % Set common NaNs
+    nan_samples = isnan(curr_str) | isnan(curr_str_baselinesub) | ...
+        isnan(curr_taskpred) | isnan(curr_ctxpred);
+    curr_str(nan_samples) = NaN;
+    curr_str_baselinesub(nan_samples) = NaN;
+    curr_taskpred(nan_samples) = NaN;
+    curr_ctxpred(nan_samples) = NaN;
+    
+    % (task regressed from average baseline-subtracted data)
+    taskpred_r2(curr_exp,:) = 1 - (nansum((curr_str_baselinesub-curr_taskpred).^2,1)./ ...
+        nansum((curr_str_baselinesub-nanmean(curr_str_baselinesub,1)).^2,1));
+    % (cortex regressed from raw data)
+    ctxpred_r2(curr_exp,:) = 1 - (nansum((curr_str-curr_ctxpred).^2,1)./ ...
+        nansum((curr_str-nanmean(curr_str,1)).^2,1));
+    
+end
+
+figure; plot(taskpred_r2,ctxpred_r2,'.k')
+line([0,1],[0,1])
+xlabel('Task-predicted')
+ylabel('Cortex-predicted')
+
+%% BACK TO PAPER: PLOT VAR VS EXPLAINED VARIANCE FOR CTX AND STR
+
+% Use raw data (not normalized or baseline-subtracted) for expl var
+mua_exp = vertcat(mua_all{:});
+mua_taskpred_exp = vertcat(mua_taskpred_all{:});
+mua_ctxpred_exp = vertcat(mua_ctxpred_all{:});
+mua_ctxpred_taskpred_exp = vertcat(mua_ctxpred_taskpred_all{:});
+
+% Get R^2 for task and cortex
+task_str_r2 = nan(max(split_idx),n_depths);
+task_ctx_r2 = nan(max(split_idx),n_depths);
+for curr_exp = 1:max(split_idx)
+       
+    curr_str_data_baselinesub = reshape(permute(mua_exp{curr_exp},[2,1,3]),[],n_depths) - ...
+        (nanmean(reshape(mua_exp{curr_exp}(:,t < 0,:),[],size(mua_exp{curr_exp},3)),1));
+    curr_str_taskpred_data = reshape(permute(mua_taskpred_exp{curr_exp},[2,1,3]),[],n_depths);
+    
+    curr_ctx_data_baselinesub = reshape(permute(mua_ctxpred_exp{curr_exp},[2,1,3]),[],n_depths) - ...
+        (nanmean(reshape(mua_ctxpred_exp{curr_exp}(:,t < 0,:),[],size(mua_ctxpred_exp{curr_exp},3)),1));
+    curr_ctx_taskpred_data = reshape(permute(mua_ctxpred_taskpred_exp{curr_exp},[2,1,3]),[],n_depths);
+       
+    % Set common NaNs
+    nan_samples = isnan(curr_str_data_baselinesub) | isnan(curr_str_taskpred_data) | ...
+        isnan(curr_ctx_data_baselinesub) | isnan(curr_ctx_taskpred_data);
+    curr_str_data_baselinesub(nan_samples) = NaN;
+    curr_str_taskpred_data(nan_samples) = NaN;
+    curr_ctx_data_baselinesub(nan_samples) = NaN;
+    curr_ctx_taskpred_data(nan_samples) = NaN;
+
+    task_str_r2(curr_exp,:) = nanvar(curr_str_data_baselinesub,[],1);
+    task_ctx_r2(curr_exp,:) = nanvar(curr_ctx_data_baselinesub,[],1);
+end
+
+figure; hold on;
+errorbar(nanmean(task_str_r2,1),AP_sem(task_str_r2,1),'b','linewidth',2,'CapSize',0);
+errorbar(nanmean(task_ctx_r2,1),AP_sem(task_ctx_r2,1),'color',[0,0.6,0],'linewidth',2,'CapSize',0);
+xlabel('Striatum depth');
+ylabel('Task explained variance');
+legend({'Task','Cortex'});
+
+% Plot explained variance task vs cortex by experiment
+figure; hold on;
+str_col = max(hsv(n_depths)-0.2,0);
+for curr_str = 1:n_depths
+    errorbar(squeeze(nanmean(task_str_r2(:,curr_str),1)), ...
+        squeeze(nanmean(task_ctx_r2(:,curr_str),1)), ...
+        squeeze(AP_sem(task_ctx_r2(:,curr_str),1)),squeeze(AP_sem(task_ctx_r2(:,curr_str),1)), ...
+        squeeze(AP_sem(task_str_r2(:,curr_str),1)),squeeze(AP_sem(task_str_r2(:,curr_str),1)), ...
+        'color','k','linewidth',2);
+    
+    scatter(task_str_r2(:,curr_str),task_ctx_r2(:,curr_str),10, ...
+        str_col(curr_str,:),'filled');
+    scatter(nanmean(task_str_r2(:,curr_str),1), ...
+        nanmean(task_ctx_r2(:,curr_str),1),80, ...
+        str_col(curr_str,:),'filled','MarkerEdgeColor','k','linewidth',2);
+end
+axis tight equal;
+line(xlim,xlim,'color','k','linestyle','--');
+xlabel('Task striatum R^2');
+ylabel('Task cortex R^2');
+legend({'DMS','DCS','DLS'})
+
+
+
+
+
+
+
+
+
+
 
 
 

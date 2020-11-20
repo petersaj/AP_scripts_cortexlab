@@ -154,7 +154,7 @@ line([0,0],ylim,'color','k','linestyle','--');
 
 %% Get and save average response to right grating (for animal alignment)
 
-animals = {'AP077','AP079'};
+animals = {'AP085','AP086','AP087'};
 
 for curr_animal = 1:length(animals)
     
@@ -262,7 +262,7 @@ right_grating_master_fn = [right_grating_path filesep 'right_grating_master.mat'
 load(right_grating_master_fn);
 
 % Align animal to master
-animal = 'AP079';
+animal = 'AP087';
 
 right_grating_path = 'C:\Users\Andrew\OneDrive for Business\Documents\CarandiniHarrisLab\analysis\widefield_alignment\right_grating';
 right_grating_fn = [right_grating_path filesep animal '_right_grating.mat'];
@@ -491,7 +491,7 @@ save([save_path filesep save_fn],'-v7.3');
 clear all
 disp('Choiceworld trial activity (widefield-only days)')
 
-animals = {'AP077','AP079'};
+animals = {'AP077','AP079','AP085','AP086','AP087'};
 
 % Initialize save variable
 trial_data_all = struct;

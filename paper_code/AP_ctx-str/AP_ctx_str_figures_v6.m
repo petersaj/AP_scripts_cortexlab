@@ -4406,7 +4406,7 @@ end
 mua_exp = vertcat(mua_all{:});
 mua_taskpred_exp = vertcat(mua_taskpred_all{:});
 mua_ctxpred_exp = vertcat(mua_ctxpred_all{:});
-mua_ctxpred_taskpred_exp = vertcat(mua_taskpred_all{:});
+mua_ctxpred_taskpred_exp = vertcat(mua_ctxpred_taskpred_all{:});
 
 % Get R^2 for task and cortex
 task_str_r2 = nan(max(split_idx),n_depths);
@@ -4488,6 +4488,12 @@ for curr_depth = 1:n_depths
         task_str_r2(:,curr_depth));
     disp(['Str ' num2str(curr_depth) ' p = ' num2str(curr_p)]); 
 end
+
+disp('Cortex vs Task R^2 correlation:');
+[r,p] = corr(task_str_r2(:,curr_depth), ...
+    task_ctx_r2(:,curr_depth), ...
+    'rows','complete','type','pearson');
+disp(['r = ' num2str(r) ' p = ' num2str(p)]);
 
 
 
