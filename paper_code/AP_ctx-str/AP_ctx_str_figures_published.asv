@@ -1,8 +1,11 @@
 % Generate figures for ctx-str paper 
 % (data is prepared in AP_ctx_str_trial_preprocessing)
 %
-% Submission 3 (integrates updated figures from
-% AP_ctx_str_figure_revisions2)
+% Code blocks with preceeding symbols: run code block at top with
+% corresponding symbol to load data
+%
+% If no symbol: code is loaded within code block
+
 
 %% ~~~~~~~~~~~~~ Load data associated with each symbol
 
@@ -442,7 +445,7 @@ disp('Finished.')
 %% ~~~~~~~~~~~~~ Main figures (some supplemental)
 
 
-%% Fig 1a,b,c: Example recording
+%% Fig 1a-d: Example recording
 
 animal = 'AP025'; 
 day = '2017-10-01'; 
@@ -555,7 +558,7 @@ for curr_roi = plot_rois
 end
 axis image off;
 
-%% ** Fig 1d: Average cortical fluorescence during trial
+%% ** Fig 1e: Average cortical fluorescence during trial
 
 % Get average stim-aligned fluorescence 
 plot_trials = move_t < 0.5 & trial_stim_allcat > 0 & trial_choice_allcat == -1;
@@ -614,7 +617,7 @@ brighten(-0.75);
 
 
 
-%% ++ Fig 1e: Striatum multiunit by depth
+%% ++ Fig 1f: Striatum multiunit by depth
 
 % Plot depths present in > 50% of recordings
 frac_depths = nanmean(cell2mat(cellfun(@(x) ...
@@ -1343,7 +1346,7 @@ for t_idx = 1:length(plot_t)
 end
 
 
-%% ** Fig 3a-e, SFig5,6b,7ab: Striatal domain activity and task regression
+%% ** Fig 3a-e, SFig5,7a-c: Striatal domain activity and task regression
 
 % Plot stim-aligned/sorted measured and predicted striatum activity
 % (correct contra trials)
@@ -3248,7 +3251,6 @@ end
 
 %% Fig 5d: Naive cortical kernels: compare to trained
 
-
 % Load Master U
 load('C:\Users\Andrew\OneDrive for Business\Documents\CarandiniHarrisLab\analysis\wf_ephys_choiceworld\wf_processing\wf_alignment\U_master');
 
@@ -4406,7 +4408,7 @@ disp(['kernel p = ' num2str(curr_p(2))]);
 
 
 
-%% SFig4e: Latency between VisAM and DMS spikes
+%% SFig4f: Latency between VisAM and DMS spikes
 % (takes a while to run - not really worth preprocessing/saving though)
 
 animals = {'AP043','AP060','AP061'};
@@ -4580,6 +4582,61 @@ title('Cortex deep-superficial SC''/CC''');
 
 linkaxes(get(gcf,'Children'),'x');
 
+
+%% ** SFig6a: Stimulus activity vs choice
+
+% Get stim activity by stim/choice/depth/experiment
+stim_avg_t = [0,0.2];
+stim_avg_t_idx = t >= stim_avg_t(1) & t <= stim_avg_t(2);
+stim_act = permute(nanmean(mua_allcat(:,stim_avg_t_idx,:),2),[1,3,2]);
+stims = unique(trial_stim_allcat);
+
+stim_act_grp = nan(length(stims),2,n_depths,length(use_split));
+for curr_depth = 1:n_depths
+    for curr_exp = 1:length(use_split)
+        for curr_stim = 1:length(stims)
+            
+            stim_act_grp(curr_stim,1,curr_depth,curr_exp) = ...
+                nanmean(stim_act( ...
+                move_t < 0.5 & ...
+                split_idx == curr_exp & ...
+                trial_stim_allcat == stims(curr_stim) & ...
+                trial_choice_allcat == -1,curr_depth));
+            
+            stim_act_grp(curr_stim,2,curr_depth,curr_exp) = ...
+                nanmean(stim_act( ...
+                move_t < 0.5 & ...
+                split_idx == curr_exp & ...
+                trial_stim_allcat == stims(curr_stim) & ...
+                trial_choice_allcat == 1,curr_depth));
+            
+        end
+    end
+end
+
+% Plot stim responses by condition
+move_col = [0.6,0,0.6;1,0.6,0];
+figure;
+for curr_depth = 1:n_depths
+   subplot(n_depths,1,curr_depth); hold on;
+   set(gca,'ColorOrder',move_col);
+    errorbar(repmat(stims,1,2), ...
+        nanmean(stim_act_grp(:,:,curr_depth,:),4), ...
+        AP_sem(stim_act_grp(:,:,curr_depth,:),4),'linewidth',2);
+    xlabel('Contrast*side');
+    ylabel(['Str ' num2str(curr_depth)']);
+end
+
+% (stim response by choice statistics)
+disp('Stim v choice 2-way anova:')
+for curr_depth = 1:n_depths
+    [stim_grp,choice_grp,exp_grp] = ndgrid(1:size(stim_act_grp,1), ...
+        1:size(stim_act_grp,2),1:size(stim_act_grp,4));
+    [curr_p,~,~,terms] = anovan(reshape(stim_act_grp(:,:,curr_depth,:),[],1), ...
+        [stim_grp(:),choice_grp(:)],'model','interaction','display','off');
+    disp(['Str ' num2str(curr_depth) ' choice: p = ' num2str(curr_p(2)')]);
+    disp(['Str ' num2str(curr_depth) ' stim x choice: p = ' num2str(curr_p(2)')]); 
+end
 
 
 %% ** SFig6a: Task > cortex kernels (go cue)
@@ -6477,60 +6534,7 @@ set(p,'XLim',raster_window);
 
 
 
-%% ** SFig12: Stimulus activity vs choice
 
-% Get stim activity by stim/choice/depth/experiment
-stim_avg_t = [0,0.2];
-stim_avg_t_idx = t >= stim_avg_t(1) & t <= stim_avg_t(2);
-stim_act = permute(nanmean(mua_allcat(:,stim_avg_t_idx,:),2),[1,3,2]);
-stims = unique(trial_stim_allcat);
-
-stim_act_grp = nan(length(stims),2,n_depths,length(use_split));
-for curr_depth = 1:n_depths
-    for curr_exp = 1:length(use_split)
-        for curr_stim = 1:length(stims)
-            
-            stim_act_grp(curr_stim,1,curr_depth,curr_exp) = ...
-                nanmean(stim_act( ...
-                move_t < 0.5 & ...
-                split_idx == curr_exp & ...
-                trial_stim_allcat == stims(curr_stim) & ...
-                trial_choice_allcat == -1,curr_depth));
-            
-            stim_act_grp(curr_stim,2,curr_depth,curr_exp) = ...
-                nanmean(stim_act( ...
-                move_t < 0.5 & ...
-                split_idx == curr_exp & ...
-                trial_stim_allcat == stims(curr_stim) & ...
-                trial_choice_allcat == 1,curr_depth));
-            
-        end
-    end
-end
-
-% Plot stim responses by condition
-move_col = [0.6,0,0.6;1,0.6,0];
-figure;
-for curr_depth = 1:n_depths
-   subplot(n_depths,1,curr_depth); hold on;
-   set(gca,'ColorOrder',move_col);
-    errorbar(repmat(stims,1,2), ...
-        nanmean(stim_act_grp(:,:,curr_depth,:),4), ...
-        AP_sem(stim_act_grp(:,:,curr_depth,:),4),'linewidth',2);
-    xlabel('Contrast*side');
-    ylabel(['Str ' num2str(curr_depth)']);
-end
-
-% (stim response by choice statistics)
-disp('Stim v choice 2-way anova:')
-for curr_depth = 1:n_depths
-    [stim_grp,choice_grp,exp_grp] = ndgrid(1:size(stim_act_grp,1), ...
-        1:size(stim_act_grp,2),1:size(stim_act_grp,4));
-    [curr_p,~,~,terms] = anovan(reshape(stim_act_grp(:,:,curr_depth,:),[],1), ...
-        [stim_grp(:),choice_grp(:)],'model','interaction','display','off');
-    disp(['Str ' num2str(curr_depth) ' choice: p = ' num2str(curr_p(2)')]);
-    disp(['Str ' num2str(curr_depth) ' stim x choice: p = ' num2str(curr_p(2)')]); 
-end
 
 
 

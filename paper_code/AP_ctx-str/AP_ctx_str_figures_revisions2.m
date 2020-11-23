@@ -2,7 +2,7 @@
 
 
 
-%% Celltype stim response (TANS are stim, not move)
+%% Celltype stim response (TANS are stim, not move) [UNUSED]
 
 mua_exp = vertcat(mua_all{:});
 
@@ -90,6 +90,285 @@ for curr_depth = 1:n_aligned_depths
     end
 end
 
+
+
+%% Cortex/task explained striatal variance - spike thinned [UNUSED]
+% DOESN'T SEEM LIKE THIS WORKS YET, ALSO RECTIFYING MEANS THE RATE ISN'T
+% EXACTLY THE SAME
+
+% Use raw data (not normalized or baseline-subtracted) for expl var
+mua_exp = vertcat(mua_all{:});
+mua_taskpred_exp = vertcat(mua_taskpred_all{:});
+mua_ctxpred_exp = vertcat(mua_ctxpred_all{:});
+
+% Thin spikes to equalize rate across domains
+mua_exp_thinned = cellfun(@(x) nan(size(x)),mua_exp,'uni',false);
+mua_taskpred_exp_thinned = cellfun(@(x) nan(size(x)),mua_taskpred_exp,'uni',false);
+mua_ctxpred_exp_thinned = cellfun(@(x) nan(size(x)),mua_ctxpred_exp,'uni',false);
+for curr_exp = 1:max(split_idx)
+    str_rates = nanmean(reshape(mua_exp{curr_exp},[],n_depths));
+    str_var = var(reshape(mua_exp{curr_exp},[],n_depths));
+    if isnan(str_rates(1))
+        continue
+    end
+    
+    for curr_depth = 1:n_depths
+        if all(isnan(reshape(mua_exp{curr_exp}(:,:,curr_depth),[],1)))
+            continue
+        end
+        
+        % Pull off spikes until the variance is equal
+        curr_mua_thinned = mua_exp{curr_exp}(:,:,curr_depth);
+        curr_thin = zeros(size(curr_mua_thinned));
+        while var(curr_mua_thinned(:)) >= min(str_var)
+            curr_thin = curr_thin + poissrnd(100, ...
+                size(mua_exp{curr_exp}(:,:,curr_depth)));
+            curr_mua_thinned = max(0,mua_exp{curr_exp}(:,:,curr_depth)-curr_thin);            
+        end
+        
+        mua_exp_thinned{curr_exp}(:,:,curr_depth) = ...
+            max(0,mua_exp{curr_exp}(:,:,curr_depth) - curr_thin);
+        mua_taskpred_exp_thinned{curr_exp}(:,:,curr_depth) = ...
+            max(0,mua_taskpred_exp{curr_exp}(:,:,curr_depth) - curr_thin);
+        mua_ctxpred_exp_thinned{curr_exp}(:,:,curr_depth) = ...
+            max(0,mua_ctxpred_exp{curr_exp}(:,:,curr_depth) - curr_thin);       
+    end    
+end
+
+
+% Get R^2 for task and cortex
+taskpred_r2 = nan(max(split_idx),n_depths);
+ctxpred_r2 = nan(max(split_idx),n_depths);
+for curr_exp = 1:max(split_idx)
+       
+    curr_data = reshape(permute(mua_exp_thinned{curr_exp},[2,1,3]),[],n_depths);
+    curr_data_baselinesub = reshape(permute(mua_exp_thinned{curr_exp},[2,1,3]),[],n_depths) - ...
+        (nanmean(reshape(mua_exp_thinned{curr_exp}(:,t < 0,:),[],size(mua_exp_thinned{curr_exp},3)),1));
+    curr_taskpred_data = reshape(permute(mua_taskpred_exp_thinned{curr_exp},[2,1,3]),[],n_depths);
+    curr_ctxpred_data = reshape(permute(mua_ctxpred_exp_thinned{curr_exp},[2,1,3]),[],n_depths);
+       
+    % Set common NaNs
+    nan_samples = isnan(curr_data) | isnan(curr_data_baselinesub) | ...
+        isnan(curr_taskpred_data) | isnan(curr_ctxpred_data);
+    curr_data(nan_samples) = NaN;
+    curr_data_baselinesub(nan_samples) = NaN;
+    curr_taskpred_data(nan_samples) = NaN;
+    curr_ctxpred_data(nan_samples) = NaN;
+
+    % (task regressed from average baseline-subtracted data)
+    taskpred_r2(curr_exp,:) = 1 - (nansum((curr_data_baselinesub-curr_taskpred_data).^2,1)./ ...
+        nansum((curr_data_baselinesub-nanmean(curr_data_baselinesub,1)).^2,1));
+    % (cortex regressed from raw data)
+    ctxpred_r2(curr_exp,:) = 1 - (nansum((curr_data-curr_ctxpred_data).^2,1)./ ...
+        nansum((curr_data-nanmean(curr_data,1)).^2,1));
+    
+end
+
+figure; hold on;
+errorbar(nanmean(taskpred_r2,1),AP_sem(taskpred_r2,1),'b','linewidth',2,'CapSize',0);
+errorbar(nanmean(ctxpred_r2,1),AP_sem(ctxpred_r2,1),'color',[0,0.6,0],'linewidth',2,'CapSize',0);
+xlabel('Striatum depth');
+ylabel('Explained variance');
+legend({'Task','Cortex'});
+
+
+% Plot explained variance task vs cortex by experiment
+figure; hold on;
+str_col = max(hsv(n_depths)-0.2,0);
+for curr_str = 1:n_depths
+    errorbar(squeeze(nanmean(taskpred_r2(:,curr_str),1)), ...
+        squeeze(nanmean(ctxpred_r2(:,curr_str),1)), ...
+        squeeze(AP_sem(ctxpred_r2(:,curr_str),1)),squeeze(AP_sem(ctxpred_r2(:,curr_str),1)), ...
+        squeeze(AP_sem(taskpred_r2(:,curr_str),1)),squeeze(AP_sem(taskpred_r2(:,curr_str),1)), ...
+        'color','k','linewidth',2);
+    
+    scatter(taskpred_r2(:,curr_str),ctxpred_r2(:,curr_str),10, ...
+        str_col(curr_str,:),'filled');
+    scatter(nanmean(taskpred_r2(:,curr_str),1), ...
+        nanmean(ctxpred_r2(:,curr_str),1),80, ...
+        str_col(curr_str,:),'filled','MarkerEdgeColor','k','linewidth',2);
+end
+axis tight equal;
+line(xlim,xlim,'color','k','linestyle','--');
+xlabel('Task R^2');
+ylabel('Cortex R^2');
+legend({'DMS','DCS','DLS'})
+
+% (Task R2 statistics)
+disp('Task R^2 values:');
+for curr_depth = 1:n_depths
+    disp(['Str ' num2str(curr_depth) ...
+        ' R2 = ' num2str(nanmean(taskpred_r2(:,curr_depth))) '+/- ' ...
+        num2str(AP_sem(taskpred_r2(:,curr_depth),1))]); 
+end
+
+% (Cortex R2 statistics)
+disp('Cortex R^2 values:');
+for curr_depth = 1:n_depths
+    disp(['Str ' num2str(curr_depth) ...
+        ' R2 = ' num2str(nanmean(ctxpred_r2(:,curr_depth))) '+/- ' ...
+        num2str(AP_sem(ctxpred_r2(:,curr_depth),1))]); 
+end
+
+% (Cortex vs task R2 statistics)
+disp('Cortex vs Task R^2 signrank:');
+for curr_depth = 1:n_depths
+    curr_p = signrank(ctxpred_r2(:,curr_depth), ...
+        taskpred_r2(:,curr_depth));
+    disp(['Str ' num2str(curr_depth) ' p = ' num2str(curr_p)]); 
+end
+
+
+
+
+
+% Plot explained variance task vs cortex R2 by experiment
+mua_var_exp = log10(cell2mat(cellfun(@(x) var(reshape(x,[],n_depths)),mua_exp_thinned,'uni',false)));
+
+figure; hold on;
+str_col = max(hsv(n_depths)-0.2,0);
+for curr_str = 1:n_depths
+    errorbar(squeeze(nanmean(mua_var_exp(:,curr_str),1)), ...
+        squeeze(nanmean(ctxpred_r2(:,curr_str),1)), ...
+        squeeze(AP_sem(ctxpred_r2(:,curr_str),1)),squeeze(AP_sem(ctxpred_r2(:,curr_str),1)), ...
+        squeeze(AP_sem(mua_var_exp(:,curr_str),1)),squeeze(AP_sem(mua_var_exp(:,curr_str),1)), ...
+        'color','k','linewidth',2);
+    
+    scatter(mua_var_exp(:,curr_str),ctxpred_r2(:,curr_str),10, ...
+        str_col(curr_str,:),'filled');
+    scatter(nanmean(mua_var_exp(:,curr_str),1), ...
+        nanmean(ctxpred_r2(:,curr_str),1),80, ...
+        str_col(curr_str,:),'filled','MarkerEdgeColor','k','linewidth',2);
+end
+xlabel('log_{10}(striatum variance)');
+ylabel('Cortex R^2');
+legend({'DMS','DCS','DLS'})
+
+
+
+%% TRYING AGAIN: just plot variance by explained variance? (fixed below)
+
+% Use raw data (not normalized or baseline-subtracted) for expl var
+mua_exp = vertcat(mua_all{:});
+mua_taskpred_exp = vertcat(mua_taskpred_all{:});
+mua_ctxpred_exp = vertcat(mua_ctxpred_all{:});
+
+% Get R^2 for task and cortex
+taskpred_r2 = nan(max(split_idx),n_depths);
+ctxpred_r2 = nan(max(split_idx),n_depths);
+for curr_exp = 1:max(split_idx)
+       
+    curr_data = reshape(permute(mua_exp{curr_exp},[2,1,3]),[],n_depths);
+    curr_data_baselinesub = reshape(permute(mua_exp{curr_exp},[2,1,3]),[],n_depths) - ...
+        (nanmean(reshape(mua_exp{curr_exp}(:,t < 0,:),[],size(mua_exp{curr_exp},3)),1));
+    curr_taskpred_data = reshape(permute(mua_taskpred_exp{curr_exp},[2,1,3]),[],n_depths);
+    curr_ctxpred_data = reshape(permute(mua_ctxpred_exp{curr_exp},[2,1,3]),[],n_depths);
+       
+    % Set common NaNs
+    nan_samples = isnan(curr_data) | isnan(curr_data_baselinesub) | ...
+        isnan(curr_taskpred_data) | isnan(curr_ctxpred_data);
+    curr_data(nan_samples) = NaN;
+    curr_data_baselinesub(nan_samples) = NaN;
+    curr_taskpred_data(nan_samples) = NaN;
+    curr_ctxpred_data(nan_samples) = NaN;
+
+    % (task regressed from average baseline-subtracted data)
+    taskpred_r2(curr_exp,:) = 1 - (nansum((curr_data_baselinesub-curr_taskpred_data).^2,1)./ ...
+        nansum((curr_data_baselinesub-nanmean(curr_data_baselinesub,1)).^2,1));
+    % (cortex regressed from raw data)
+    ctxpred_r2(curr_exp,:) = 1 - (nansum((curr_data-curr_ctxpred_data).^2,1)./ ...
+        nansum((curr_data-nanmean(curr_data,1)).^2,1));
+    
+end
+
+% Plot explained variance task vs cortex R2 by experiment
+mua_var_exp_log = log10(cell2mat(cellfun(@(x) var(reshape(x,[],n_depths)),mua_exp,'uni',false)));
+
+figure; hold on;
+str_col = max(hsv(n_depths)-0.2,0);
+for curr_str = 1:n_depths
+    errorbar(squeeze(nanmean(mua_var_exp_log(:,curr_str),1)), ...
+        squeeze(nanmean(ctxpred_r2(:,curr_str),1)), ...
+        squeeze(AP_sem(ctxpred_r2(:,curr_str),1)),squeeze(AP_sem(ctxpred_r2(:,curr_str),1)), ...
+        squeeze(AP_sem(mua_var_exp_log(:,curr_str),1)),squeeze(AP_sem(mua_var_exp_log(:,curr_str),1)), ...
+        'color','k','linewidth',2);
+       
+    scatter(nanmean(mua_var_exp_log(:,curr_str),1), ...
+        nanmean(ctxpred_r2(:,curr_str),1),80, ...
+        str_col(curr_str,:),'filled','MarkerEdgeColor','k','linewidth',2);
+    scatter(mua_var_exp_log(:,curr_str),ctxpred_r2(:,curr_str),10, ...
+        str_col(curr_str,:),'filled');
+end
+xlabel('log_{10}(striatum variance)');
+ylabel('Cortex R^2');
+legend({'DMS','DCS','DLS'})
+
+% (variance vs. explained variance stats)
+[exp_grp,domain_grp] = ndgrid(1:size(mua_var_exp_log,1),1:size(mua_var_exp_log,2));
+use_points = ~isnan(mua_var_exp_log);
+[h,atab,ctab,stats] = aoctool(mua_var_exp_log(use_points), ...
+    ctxpred_r2(use_points),domain_grp(use_points));
+
+
+
+%% ~~~~~~~~ BELOW: integrated in to AP_ctx_str_figures_v6
+ 
+%% Plot Cortex R2 vs variance (low DMS expl var is due to low var)
+
+% Load data
+load('C:\Users\Andrew\OneDrive for Business\Documents\CarandiniHarrisLab\analysis\wf_ephys_choiceworld\paper\data\str_ctxpred.mat')
+
+% Concatenate data across cohorts and animals
+mua_animal = [str_ctxpred.str]';
+mua_exp = vertcat(mua_animal{:});
+
+mua_ctxpred_animal = [str_ctxpred.str_ctxpred]';
+mua_ctxpred_exp = vertcat(mua_ctxpred_animal{:});
+
+ctxpred_r2 = cellfun(@(mua,mua_ctxpred) ...
+    1 - (nansum((mua-mua_ctxpred).^2,2)./(nansum((mua-nanmean(mua,2)).^2,2))), ...
+    mua_exp,mua_ctxpred_exp,'uni',false);
+
+ctxpred_r2_task = horzcat(ctxpred_r2{:,1})';
+ctxpred_r2_passive = horzcat(ctxpred_r2{:,2})';
+
+figure;
+n_depths = size(ctxpred_r2_task,2);
+str_col = max(hsv(n_depths)-0.2,0);
+
+
+% Get and plot striatal variance by task vs. passive
+mua_var_exp = cellfun(@(x) var(x,[],2),mua_exp,'uni',false);
+mua_var_task = log10(horzcat(mua_var_exp{:,1})');
+mua_var_passive = log10(horzcat(mua_var_exp{:,2})');
+
+
+% Plot cortex R2 vs striatal variance
+figure; hold on
+for curr_str = 1:n_depths
+    errorbar(squeeze(nanmean(mua_var_task(:,curr_str),1)), ...
+        squeeze(nanmean(ctxpred_r2_task(:,curr_str),1)), ...
+        squeeze(AP_sem(ctxpred_r2_task(:,curr_str),1)), ...
+        squeeze(AP_sem(ctxpred_r2_task(:,curr_str),1)), ...
+        squeeze(AP_sem(mua_var_task(:,curr_str),1)), ...
+        squeeze(AP_sem(mua_var_task(:,curr_str),1)), ...
+        'color','k','linewidth',2);
+    
+    scatter(mua_var_task(:,curr_str),ctxpred_r2_task(:,curr_str),10, ...
+        str_col(curr_str,:),'filled');
+    scatter(nanmean(mua_var_task(:,curr_str),1), ...
+        nanmean(ctxpred_r2_task(:,curr_str),1),80, ...
+        str_col(curr_str,:),'filled','MarkerEdgeColor','k','linewidth',2);
+end
+xlabel('log(Task variance)');
+ylabel('Cortex task R^2');
+legend({'DMS','DCS','DLS'})
+
+% (variance vs. explained variance stats)
+[exp_grp,domain_grp] = ndgrid(1:size(mua_var_task,1),1:size(mua_var_task,2));
+use_points = ~isnan(mua_var_task);
+[h,atab,ctab,stats] = aoctool(mua_var_task(use_points), ...
+    ctxpred_r2_task(use_points),domain_grp(use_points));
 
 
 %% Naive cortical kernels: compare to trained
@@ -308,291 +587,6 @@ disp('Depth correlation 2-way ANOVA:')
 curr_p = anovan(cortex_fluor_corr_cat(:),[depth_grp(:),kernel_grp(:)],'display','off');
 disp(['depth p = ' num2str(curr_p(1))]);
 disp(['kernel p = ' num2str(curr_p(2))]);
-
-
-%% Cortex/task explained striatal variance - spike thinned
-% DOESN'T SEEM LIKE THIS WORKS YET, ALSO RECTIFYING MEANS THE RATE ISN'T
-% EXACTLY THE SAME
-
-% Use raw data (not normalized or baseline-subtracted) for expl var
-mua_exp = vertcat(mua_all{:});
-mua_taskpred_exp = vertcat(mua_taskpred_all{:});
-mua_ctxpred_exp = vertcat(mua_ctxpred_all{:});
-
-% Thin spikes to equalize rate across domains
-mua_exp_thinned = cellfun(@(x) nan(size(x)),mua_exp,'uni',false);
-mua_taskpred_exp_thinned = cellfun(@(x) nan(size(x)),mua_taskpred_exp,'uni',false);
-mua_ctxpred_exp_thinned = cellfun(@(x) nan(size(x)),mua_ctxpred_exp,'uni',false);
-for curr_exp = 1:max(split_idx)
-    str_rates = nanmean(reshape(mua_exp{curr_exp},[],n_depths));
-    str_var = var(reshape(mua_exp{curr_exp},[],n_depths));
-    if isnan(str_rates(1))
-        continue
-    end
-    
-    for curr_depth = 1:n_depths
-        if all(isnan(reshape(mua_exp{curr_exp}(:,:,curr_depth),[],1)))
-            continue
-        end
-        
-        % Pull off spikes until the variance is equal
-        curr_mua_thinned = mua_exp{curr_exp}(:,:,curr_depth);
-        curr_thin = zeros(size(curr_mua_thinned));
-        while var(curr_mua_thinned(:)) >= min(str_var)
-            curr_thin = curr_thin + poissrnd(100, ...
-                size(mua_exp{curr_exp}(:,:,curr_depth)));
-            curr_mua_thinned = max(0,mua_exp{curr_exp}(:,:,curr_depth)-curr_thin);            
-        end
-        
-        mua_exp_thinned{curr_exp}(:,:,curr_depth) = ...
-            max(0,mua_exp{curr_exp}(:,:,curr_depth) - curr_thin);
-        mua_taskpred_exp_thinned{curr_exp}(:,:,curr_depth) = ...
-            max(0,mua_taskpred_exp{curr_exp}(:,:,curr_depth) - curr_thin);
-        mua_ctxpred_exp_thinned{curr_exp}(:,:,curr_depth) = ...
-            max(0,mua_ctxpred_exp{curr_exp}(:,:,curr_depth) - curr_thin);       
-    end    
-end
-
-
-% Get R^2 for task and cortex
-taskpred_r2 = nan(max(split_idx),n_depths);
-ctxpred_r2 = nan(max(split_idx),n_depths);
-for curr_exp = 1:max(split_idx)
-       
-    curr_data = reshape(permute(mua_exp_thinned{curr_exp},[2,1,3]),[],n_depths);
-    curr_data_baselinesub = reshape(permute(mua_exp_thinned{curr_exp},[2,1,3]),[],n_depths) - ...
-        (nanmean(reshape(mua_exp_thinned{curr_exp}(:,t < 0,:),[],size(mua_exp_thinned{curr_exp},3)),1));
-    curr_taskpred_data = reshape(permute(mua_taskpred_exp_thinned{curr_exp},[2,1,3]),[],n_depths);
-    curr_ctxpred_data = reshape(permute(mua_ctxpred_exp_thinned{curr_exp},[2,1,3]),[],n_depths);
-       
-    % Set common NaNs
-    nan_samples = isnan(curr_data) | isnan(curr_data_baselinesub) | ...
-        isnan(curr_taskpred_data) | isnan(curr_ctxpred_data);
-    curr_data(nan_samples) = NaN;
-    curr_data_baselinesub(nan_samples) = NaN;
-    curr_taskpred_data(nan_samples) = NaN;
-    curr_ctxpred_data(nan_samples) = NaN;
-
-    % (task regressed from average baseline-subtracted data)
-    taskpred_r2(curr_exp,:) = 1 - (nansum((curr_data_baselinesub-curr_taskpred_data).^2,1)./ ...
-        nansum((curr_data_baselinesub-nanmean(curr_data_baselinesub,1)).^2,1));
-    % (cortex regressed from raw data)
-    ctxpred_r2(curr_exp,:) = 1 - (nansum((curr_data-curr_ctxpred_data).^2,1)./ ...
-        nansum((curr_data-nanmean(curr_data,1)).^2,1));
-    
-end
-
-figure; hold on;
-errorbar(nanmean(taskpred_r2,1),AP_sem(taskpred_r2,1),'b','linewidth',2,'CapSize',0);
-errorbar(nanmean(ctxpred_r2,1),AP_sem(ctxpred_r2,1),'color',[0,0.6,0],'linewidth',2,'CapSize',0);
-xlabel('Striatum depth');
-ylabel('Explained variance');
-legend({'Task','Cortex'});
-
-
-% Plot explained variance task vs cortex by experiment
-figure; hold on;
-str_col = max(hsv(n_depths)-0.2,0);
-for curr_str = 1:n_depths
-    errorbar(squeeze(nanmean(taskpred_r2(:,curr_str),1)), ...
-        squeeze(nanmean(ctxpred_r2(:,curr_str),1)), ...
-        squeeze(AP_sem(ctxpred_r2(:,curr_str),1)),squeeze(AP_sem(ctxpred_r2(:,curr_str),1)), ...
-        squeeze(AP_sem(taskpred_r2(:,curr_str),1)),squeeze(AP_sem(taskpred_r2(:,curr_str),1)), ...
-        'color','k','linewidth',2);
-    
-    scatter(taskpred_r2(:,curr_str),ctxpred_r2(:,curr_str),10, ...
-        str_col(curr_str,:),'filled');
-    scatter(nanmean(taskpred_r2(:,curr_str),1), ...
-        nanmean(ctxpred_r2(:,curr_str),1),80, ...
-        str_col(curr_str,:),'filled','MarkerEdgeColor','k','linewidth',2);
-end
-axis tight equal;
-line(xlim,xlim,'color','k','linestyle','--');
-xlabel('Task R^2');
-ylabel('Cortex R^2');
-legend({'DMS','DCS','DLS'})
-
-% (Task R2 statistics)
-disp('Task R^2 values:');
-for curr_depth = 1:n_depths
-    disp(['Str ' num2str(curr_depth) ...
-        ' R2 = ' num2str(nanmean(taskpred_r2(:,curr_depth))) '+/- ' ...
-        num2str(AP_sem(taskpred_r2(:,curr_depth),1))]); 
-end
-
-% (Cortex R2 statistics)
-disp('Cortex R^2 values:');
-for curr_depth = 1:n_depths
-    disp(['Str ' num2str(curr_depth) ...
-        ' R2 = ' num2str(nanmean(ctxpred_r2(:,curr_depth))) '+/- ' ...
-        num2str(AP_sem(ctxpred_r2(:,curr_depth),1))]); 
-end
-
-% (Cortex vs task R2 statistics)
-disp('Cortex vs Task R^2 signrank:');
-for curr_depth = 1:n_depths
-    curr_p = signrank(ctxpred_r2(:,curr_depth), ...
-        taskpred_r2(:,curr_depth));
-    disp(['Str ' num2str(curr_depth) ' p = ' num2str(curr_p)]); 
-end
-
-
-
-
-
-% Plot explained variance task vs cortex R2 by experiment
-mua_var_exp = log10(cell2mat(cellfun(@(x) var(reshape(x,[],n_depths)),mua_exp_thinned,'uni',false)));
-
-figure; hold on;
-str_col = max(hsv(n_depths)-0.2,0);
-for curr_str = 1:n_depths
-    errorbar(squeeze(nanmean(mua_var_exp(:,curr_str),1)), ...
-        squeeze(nanmean(ctxpred_r2(:,curr_str),1)), ...
-        squeeze(AP_sem(ctxpred_r2(:,curr_str),1)),squeeze(AP_sem(ctxpred_r2(:,curr_str),1)), ...
-        squeeze(AP_sem(mua_var_exp(:,curr_str),1)),squeeze(AP_sem(mua_var_exp(:,curr_str),1)), ...
-        'color','k','linewidth',2);
-    
-    scatter(mua_var_exp(:,curr_str),ctxpred_r2(:,curr_str),10, ...
-        str_col(curr_str,:),'filled');
-    scatter(nanmean(mua_var_exp(:,curr_str),1), ...
-        nanmean(ctxpred_r2(:,curr_str),1),80, ...
-        str_col(curr_str,:),'filled','MarkerEdgeColor','k','linewidth',2);
-end
-xlabel('log_{10}(striatum variance)');
-ylabel('Cortex R^2');
-legend({'DMS','DCS','DLS'})
-
-
-
-%% TRYING AGAIN: just plot variance by explained variance?
-
-% Use raw data (not normalized or baseline-subtracted) for expl var
-mua_exp = vertcat(mua_all{:});
-mua_taskpred_exp = vertcat(mua_taskpred_all{:});
-mua_ctxpred_exp = vertcat(mua_ctxpred_all{:});
-
-% Get R^2 for task and cortex
-taskpred_r2 = nan(max(split_idx),n_depths);
-ctxpred_r2 = nan(max(split_idx),n_depths);
-for curr_exp = 1:max(split_idx)
-       
-    curr_data = reshape(permute(mua_exp{curr_exp},[2,1,3]),[],n_depths);
-    curr_data_baselinesub = reshape(permute(mua_exp{curr_exp},[2,1,3]),[],n_depths) - ...
-        (nanmean(reshape(mua_exp{curr_exp}(:,t < 0,:),[],size(mua_exp{curr_exp},3)),1));
-    curr_taskpred_data = reshape(permute(mua_taskpred_exp{curr_exp},[2,1,3]),[],n_depths);
-    curr_ctxpred_data = reshape(permute(mua_ctxpred_exp{curr_exp},[2,1,3]),[],n_depths);
-       
-    % Set common NaNs
-    nan_samples = isnan(curr_data) | isnan(curr_data_baselinesub) | ...
-        isnan(curr_taskpred_data) | isnan(curr_ctxpred_data);
-    curr_data(nan_samples) = NaN;
-    curr_data_baselinesub(nan_samples) = NaN;
-    curr_taskpred_data(nan_samples) = NaN;
-    curr_ctxpred_data(nan_samples) = NaN;
-
-    % (task regressed from average baseline-subtracted data)
-    taskpred_r2(curr_exp,:) = 1 - (nansum((curr_data_baselinesub-curr_taskpred_data).^2,1)./ ...
-        nansum((curr_data_baselinesub-nanmean(curr_data_baselinesub,1)).^2,1));
-    % (cortex regressed from raw data)
-    ctxpred_r2(curr_exp,:) = 1 - (nansum((curr_data-curr_ctxpred_data).^2,1)./ ...
-        nansum((curr_data-nanmean(curr_data,1)).^2,1));
-    
-end
-
-% Plot explained variance task vs cortex R2 by experiment
-mua_var_exp_log = log10(cell2mat(cellfun(@(x) var(reshape(x,[],n_depths)),mua_exp,'uni',false)));
-
-figure; hold on;
-str_col = max(hsv(n_depths)-0.2,0);
-for curr_str = 1:n_depths
-    errorbar(squeeze(nanmean(mua_var_exp_log(:,curr_str),1)), ...
-        squeeze(nanmean(ctxpred_r2(:,curr_str),1)), ...
-        squeeze(AP_sem(ctxpred_r2(:,curr_str),1)),squeeze(AP_sem(ctxpred_r2(:,curr_str),1)), ...
-        squeeze(AP_sem(mua_var_exp_log(:,curr_str),1)),squeeze(AP_sem(mua_var_exp_log(:,curr_str),1)), ...
-        'color','k','linewidth',2);
-       
-    scatter(nanmean(mua_var_exp_log(:,curr_str),1), ...
-        nanmean(ctxpred_r2(:,curr_str),1),80, ...
-        str_col(curr_str,:),'filled','MarkerEdgeColor','k','linewidth',2);
-    scatter(mua_var_exp_log(:,curr_str),ctxpred_r2(:,curr_str),10, ...
-        str_col(curr_str,:),'filled');
-end
-xlabel('log_{10}(striatum variance)');
-ylabel('Cortex R^2');
-legend({'DMS','DCS','DLS'})
-
-% (variance vs. explained variance stats)
-[exp_grp,domain_grp] = ndgrid(1:size(mua_var_exp_log,1),1:size(mua_var_exp_log,2));
-use_points = ~isnan(mua_var_exp_log);
-[h,atab,ctab,stats] = aoctool(mua_var_exp_log(use_points), ...
-    ctxpred_r2(use_points),domain_grp(use_points));
-
-
-
-%% ~~~~~~~~ BELOW: integrated in to AP_ctx_str_figures_v6
- 
-%% Plot Cortex R2 vs variance (low DMS expl var is due to low var)
-
-% Load data
-load('C:\Users\Andrew\OneDrive for Business\Documents\CarandiniHarrisLab\analysis\wf_ephys_choiceworld\paper\data\str_ctxpred.mat')
-
-% Concatenate data across cohorts and animals
-mua_animal = [str_ctxpred.str]';
-mua_exp = vertcat(mua_animal{:});
-
-mua_ctxpred_animal = [str_ctxpred.str_ctxpred]';
-mua_ctxpred_exp = vertcat(mua_ctxpred_animal{:});
-
-ctxpred_r2 = cellfun(@(mua,mua_ctxpred) ...
-    1 - (nansum((mua-mua_ctxpred).^2,2)./(nansum((mua-nanmean(mua,2)).^2,2))), ...
-    mua_exp,mua_ctxpred_exp,'uni',false);
-
-ctxpred_r2_task = horzcat(ctxpred_r2{:,1})';
-ctxpred_r2_passive = horzcat(ctxpred_r2{:,2})';
-
-figure;
-n_depths = size(ctxpred_r2_task,2);
-str_col = max(hsv(n_depths)-0.2,0);
-
-
-% Get and plot striatal variance by task vs. passive
-mua_var_exp = cellfun(@(x) var(x,[],2),mua_exp,'uni',false);
-mua_var_task = log10(horzcat(mua_var_exp{:,1})');
-mua_var_passive = log10(horzcat(mua_var_exp{:,2})');
-
-
-% Plot cortex R2 vs striatal variance
-figure; hold on
-for curr_str = 1:n_depths
-    errorbar(squeeze(nanmean(mua_var_task(:,curr_str),1)), ...
-        squeeze(nanmean(ctxpred_r2_task(:,curr_str),1)), ...
-        squeeze(AP_sem(ctxpred_r2_task(:,curr_str),1)), ...
-        squeeze(AP_sem(ctxpred_r2_task(:,curr_str),1)), ...
-        squeeze(AP_sem(mua_var_task(:,curr_str),1)), ...
-        squeeze(AP_sem(mua_var_task(:,curr_str),1)), ...
-        'color','k','linewidth',2);
-    
-    scatter(mua_var_task(:,curr_str),ctxpred_r2_task(:,curr_str),10, ...
-        str_col(curr_str,:),'filled');
-    scatter(nanmean(mua_var_task(:,curr_str),1), ...
-        nanmean(ctxpred_r2_task(:,curr_str),1),80, ...
-        str_col(curr_str,:),'filled','MarkerEdgeColor','k','linewidth',2);
-end
-xlabel('log(Task variance)');
-ylabel('Cortex task R^2');
-legend({'DMS','DCS','DLS'})
-
-% (variance vs. explained variance stats)
-[exp_grp,domain_grp] = ndgrid(1:size(mua_var_task,1),1:size(mua_var_task,2));
-use_points = ~isnan(mua_var_task);
-[h,atab,ctab,stats] = aoctool(mua_var_task(use_points), ...
-    ctxpred_r2_task(use_points),domain_grp(use_points));
-
-
-
-
-
-
 
 
 

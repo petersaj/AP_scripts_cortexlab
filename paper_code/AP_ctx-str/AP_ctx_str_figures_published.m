@@ -1,8 +1,11 @@
 % Generate figures for ctx-str paper 
 % (data is prepared in AP_ctx_str_trial_preprocessing)
 %
-% Submission 3 (integrates updated figures from
-% AP_ctx_str_figure_revisions2)
+% Code blocks with preceeding symbols: run code block at top with
+% corresponding symbol to load data
+%
+% If no symbol: code is loaded within code block
+
 
 %% ~~~~~~~~~~~~~ Load data associated with each symbol
 
@@ -439,10 +442,10 @@ domain_aligned_allcat = cell2mat(horzcat(domain_aligned{:})');
 disp('Finished.')
 
 
-%% ~~~~~~~~~~~~~ Main figures (some supplemental)
+%% ~~~~~~~~~~~~~ Main figures (some EDF included)
 
 
-%% Fig 1a,b,c: Example recording
+%% Fig 1a-d: Example recording
 
 animal = 'AP025'; 
 day = '2017-10-01'; 
@@ -555,7 +558,7 @@ for curr_roi = plot_rois
 end
 axis image off;
 
-%% ** Fig 1d: Average cortical fluorescence during trial
+%% ** Fig 1e: Average cortical fluorescence during trial
 
 % Get average stim-aligned fluorescence 
 plot_trials = move_t < 0.5 & trial_stim_allcat > 0 & trial_choice_allcat == -1;
@@ -614,7 +617,7 @@ brighten(-0.75);
 
 
 
-%% ++ Fig 1e: Striatum multiunit by depth
+%% ++ Fig 1f: Striatum multiunit by depth
 
 % Plot depths present in > 50% of recordings
 frac_depths = nanmean(cell2mat(cellfun(@(x) ...
@@ -1343,7 +1346,7 @@ for t_idx = 1:length(plot_t)
 end
 
 
-%% ** Fig 3a-e, SFig5,6b,7ab: Striatal domain activity and task regression
+%% ** Fig 3a-e, EDFig5,7a-c: Striatal domain activity and task regression
 
 % Plot stim-aligned/sorted measured and predicted striatum activity
 % (correct contra trials)
@@ -3248,7 +3251,6 @@ end
 
 %% Fig 5d: Naive cortical kernels: compare to trained
 
-
 % Load Master U
 load('C:\Users\Andrew\OneDrive for Business\Documents\CarandiniHarrisLab\analysis\wf_ephys_choiceworld\wf_processing\wf_alignment\U_master');
 
@@ -3403,10 +3405,10 @@ disp(['Trained within domain vs. trained-naive across domain p = ' ...
     num2str(curr_p)])
 
 
-%% ~~~~~~~~~~~~~ Supplemental figures
+%% ~~~~~~~~~~~~~ Extended data figures
 
 
-%% ** SFig1b,c,d: Psychometric and reaction time
+%% ** EDFig1b,c,d: Psychometric and reaction time
 
 figure;
 
@@ -3474,7 +3476,7 @@ line([0,0],ylim,'color','k');
 title('Trial quartiles');
 
 
-%% SFig2a,b,c,d: Widefield alignment
+%% EDFig2a,b,c,d: Widefield alignment
 
 % Show average images across days for one animal
 animal = 'AP025';
@@ -3605,7 +3607,7 @@ AP_reference_outline('ccf_aligned',[0.5,0.5,0.5]);
 
 
 
-%% SFig2e,f: Widefield correlation borders
+%% EDFig2e,f: Widefield correlation borders
 
 wf_corr_borders_fn = 'C:\Users\Andrew\OneDrive for Business\Documents\CarandiniHarrisLab\analysis\wf_ephys_choiceworld\wf_processing\wf_borders\wf_corr_borders.mat';
 load(wf_corr_borders_fn);
@@ -3700,7 +3702,7 @@ ccf_outline = AP_reference_outline('ccf_aligned',[1,0,0]);
 cellfun(@(x) set(x,'linewidth',1),vertcat(ccf_outline{:}));
 
 
-%% SFig3a: Probe trajectories histology vs widefield-estimated
+%% EDFig3a: Probe trajectories histology vs widefield-estimated
 
 % Load probe trajectories
 histology_probe_ccf_all_fn = ['C:\Users\Andrew\OneDrive for Business\Documents\CarandiniHarrisLab\analysis\wf_ephys_choiceworld\paper\data\histology_probe_ccf_all'];
@@ -3795,7 +3797,7 @@ for curr_animal = 1:n_animals
 end
 
 
-%% SFig3b: Probe trajectories estimated from widefield image
+%% EDFig3b: Probe trajectories estimated from widefield image
 
 % Load estimated probe trajectories
 probe_ccf_all_fn = ['C:\Users\Andrew\OneDrive for Business\Documents\CarandiniHarrisLab\analysis\wf_ephys_choiceworld\paper\data\probe_ccf_all'];
@@ -3905,7 +3907,7 @@ image(permute(probe_color,[1,3,2]));
 
 
 
-%% SFig3d: Striatum border estimation (histology and electrophysiology)
+%% EDFig3d: Striatum border estimation (histology and electrophysiology)
 
 animal = 'AP032';
 
@@ -3967,7 +3969,7 @@ end
 set(gcf,'Name',ephys_depth_align(curr_animal).animal);
 
 
-%% SFig4a,b: Fluorescence deconvolution and fluor+ctx+str example
+%% EDFig4a,b: Fluorescence deconvolution and fluor+ctx+str example
 
 % Load and plot kernel
 % (flip time to be fluor lag:lead spikes);
@@ -4202,7 +4204,7 @@ p = signrank(ctx_deconv_task_r2,ctx_deconv_notask_r2);
 disp(['Task vs no-task explained var: ' num2str(p)]);
 
 
-%% SFig4c,d: Fluorescence/cortex ephys/striatum ephys correlation
+%% EDFig4c,d: Fluorescence/cortex ephys/striatum ephys correlation
 
 %%% Load correlation data
 use_protocol = 'vanillaChoiceworld';
@@ -4343,7 +4345,7 @@ disp('Fluor-ctx depth vs Str-ctx depth correlation (circshift stat):')
 disp(['p = ' num2str(corr_p) ', r = ' num2str(nanmean(fluor_ctx_str_corr)) ...
     ' +/- SEM ' num2str(AP_sem(fluor_ctx_str_corr,1))])
 
-%% SFig 4e:  Depth fluor/MUA correlation using depth-specific deconv kernel
+%% EDFig 4e:  Depth fluor/MUA correlation using depth-specific deconv kernel
 
 %%% Load and plot depth-specific deconv kernel
 deconv_k_depth_fn = 'C:\Users\Andrew\OneDrive for Business\Documents\CarandiniHarrisLab\analysis\wf_ephys_choiceworld\paper\data\gcamp6s_kernel_ctxdepth.mat';
@@ -4406,7 +4408,7 @@ disp(['kernel p = ' num2str(curr_p(2))]);
 
 
 
-%% SFig4e: Latency between VisAM and DMS spikes
+%% EDFig4f: Latency between VisAM and DMS spikes
 % (takes a while to run - not really worth preprocessing/saving though)
 
 animals = {'AP043','AP060','AP061'};
@@ -4581,8 +4583,63 @@ title('Cortex deep-superficial SC''/CC''');
 linkaxes(get(gcf,'Children'),'x');
 
 
+%% ** EDFig6a: Stimulus activity vs choice
 
-%% ** SFig6a: Task > cortex kernels (go cue)
+% Get stim activity by stim/choice/depth/experiment
+stim_avg_t = [0,0.2];
+stim_avg_t_idx = t >= stim_avg_t(1) & t <= stim_avg_t(2);
+stim_act = permute(nanmean(mua_allcat(:,stim_avg_t_idx,:),2),[1,3,2]);
+stims = unique(trial_stim_allcat);
+
+stim_act_grp = nan(length(stims),2,n_depths,length(use_split));
+for curr_depth = 1:n_depths
+    for curr_exp = 1:length(use_split)
+        for curr_stim = 1:length(stims)
+            
+            stim_act_grp(curr_stim,1,curr_depth,curr_exp) = ...
+                nanmean(stim_act( ...
+                move_t < 0.5 & ...
+                split_idx == curr_exp & ...
+                trial_stim_allcat == stims(curr_stim) & ...
+                trial_choice_allcat == -1,curr_depth));
+            
+            stim_act_grp(curr_stim,2,curr_depth,curr_exp) = ...
+                nanmean(stim_act( ...
+                move_t < 0.5 & ...
+                split_idx == curr_exp & ...
+                trial_stim_allcat == stims(curr_stim) & ...
+                trial_choice_allcat == 1,curr_depth));
+            
+        end
+    end
+end
+
+% Plot stim responses by condition
+move_col = [0.6,0,0.6;1,0.6,0];
+figure;
+for curr_depth = 1:n_depths
+   subplot(n_depths,1,curr_depth); hold on;
+   set(gca,'ColorOrder',move_col);
+    errorbar(repmat(stims,1,2), ...
+        nanmean(stim_act_grp(:,:,curr_depth,:),4), ...
+        AP_sem(stim_act_grp(:,:,curr_depth,:),4),'linewidth',2);
+    xlabel('Contrast*side');
+    ylabel(['Str ' num2str(curr_depth)']);
+end
+
+% (stim response by choice statistics)
+disp('Stim v choice 2-way anova:')
+for curr_depth = 1:n_depths
+    [stim_grp,choice_grp,exp_grp] = ndgrid(1:size(stim_act_grp,1), ...
+        1:size(stim_act_grp,2),1:size(stim_act_grp,4));
+    [curr_p,~,~,terms] = anovan(reshape(stim_act_grp(:,:,curr_depth,:),[],1), ...
+        [stim_grp(:),choice_grp(:)],'model','interaction','display','off');
+    disp(['Str ' num2str(curr_depth) ' choice: p = ' num2str(curr_p(2)')]);
+    disp(['Str ' num2str(curr_depth) ' stim x choice: p = ' num2str(curr_p(2)')]); 
+end
+
+
+%% ** EDFig6b,c: Task > cortex kernels (go cue)
 
 % Get task>cortex parameters
 n_regressors = length(task_regressor_labels);
@@ -4619,7 +4676,7 @@ for curr_regressor = 1:length(task_regressor_labels)
     
 end
 
-%% ** SFig7c: Task explained variance cortex vs striatum
+%% ** EDFig7d: Task explained variance cortex vs striatum
 
 % Use raw data (not normalized or baseline-subtracted) for expl var
 mua_exp = vertcat(mua_all{:});
@@ -4716,7 +4773,7 @@ disp(['r = ' num2str(r) ' p = ' num2str(p)]);
 
 
 
-%% ** SFig8: Striatum prediction: cortical subregions, striatal domains
+%% ** EDFig8a: Striatum prediction: cortical subregions, striatal domains
 % NOTE: this regression is done on trial data rather than the long time
 % courses which is what the normal analysis uses. For sanity check, the
 % explained using the full data (full) and the trials dataset (trials) are
@@ -5000,8 +5057,112 @@ for curr_depth = 1:n_depths
     disp(['Str ' num2str(curr_depth) ' p = ' num2str(curr_p')]);
 end
 
+%% EDFig8b: Passive fluor+ctx+str example
 
-%% SFig8c-e: Cortex-explained variance task vs. passive
+%%% Plot example day
+
+animal = 'AP060';
+day = '2019-12-06';
+experiment = 2;
+plot_t = [100,300];
+
+figure;
+disp('Loading example data...');
+
+% Load cortex ephys + imaging
+load_parts.ephys = true;
+load_parts.imaging = true;
+site = 2; % (cortex always probe 2)
+str_align = 'none'; % (cortex)
+AP_load_experiment;
+
+% Load cortex recording alignment
+vis_ctx_ephys_fn = 'C:\Users\Andrew\OneDrive for Business\Documents\CarandiniHarrisLab\analysis\wf_ephys_choiceworld\ephys_processing\vis_ctx_ephys.mat';
+load(vis_ctx_ephys_fn);
+
+%%% DEPTH-ALIGN TEMPLATES, FIND CORTEX BOUNDARY
+curr_animal_idx = strcmp(animal,{vis_ctx_ephys.animal});
+curr_day_idx = strcmp(day,vis_ctx_ephys(curr_animal_idx).day);
+curr_csd_depth = vis_ctx_ephys(curr_animal_idx).stim_csd_depth{curr_day_idx};
+curr_csd_depth_aligned = vis_ctx_ephys(curr_animal_idx).stim_csd_depth_aligned{curr_day_idx};
+template_depths_aligned = interp1(curr_csd_depth,curr_csd_depth_aligned,template_depths);
+spike_depths_aligned = interp1(curr_csd_depth,curr_csd_depth_aligned,spike_depths);
+
+% Find cortex end by largest gap between templates
+sorted_template_depths = sort([template_depths_aligned]);
+[max_gap,max_gap_idx] = max(diff(sorted_template_depths));
+ctx_end = sorted_template_depths(max_gap_idx)+1;
+
+ctx_depth = [sorted_template_depths(1),ctx_end];
+ctx_units = template_depths_aligned <= ctx_depth(2);
+
+%%% GET FLUORESCENCE AND SPIKES BY DEPTH
+
+% Set binning time
+skip_seconds = 60;
+spike_binning_t = 1/framerate; % seconds
+spike_binning_t_edges = frame_t(1)+skip_seconds:spike_binning_t:frame_t(end)-skip_seconds;
+spike_binning_t_centers = spike_binning_t_edges(1:end-1) + diff(spike_binning_t_edges)/2;
+
+% Get fluorescence in pre-drawn ROI
+curr_ctx_roi = vis_ctx_ephys(curr_animal_idx).ctx_roi{curr_day_idx};
+
+fVdf_deconv = AP_deconv_wf(fVdf);
+fluor_roi = AP_svd_roi(Udf,fVdf_deconv,avg_im,[],curr_ctx_roi);
+fluor_roi_interp = interp1(frame_t,fluor_roi,spike_binning_t_centers);
+
+% Plot cortex raster
+subplot(4,1,1); hold on;
+plot_t_idx = spike_binning_t_centers >= plot_t(1) & ...
+    spike_binning_t_centers <= plot_t(2);
+plot(spike_binning_t_centers(plot_t_idx), ...
+    fluor_roi_interp(plot_t_idx),'linewidth',2,'color',[0,0.7,0]);
+
+subplot(4,1,2,'YDir','reverse'); hold on;
+plot_spikes = spike_times_timeline >= plot_t(1) & ...
+    spike_times_timeline <= plot_t(2) & ...
+    spike_depths_aligned <= ctx_depth(2);
+plot(spike_times_timeline(plot_spikes),spike_depths(plot_spikes),'.k');
+ylabel('Cortex depth (\mum)');
+xlabel('Time (s)');
+
+%%% LOAD STRIATUM EPHYS AND GET MUA BY DEPTH
+
+% Load striatum ephys
+load_parts.ephys = true;
+load_parts.imaging = false;
+site = 1; % (striatum is always on probe 1)
+str_align = 'kernel';
+AP_load_experiment;
+
+% Plot striatum raster
+subplot(4,1,3,'YDir','reverse'); hold on;
+plot_spikes = spike_times_timeline >= plot_t(1) & ...
+    spike_times_timeline <= plot_t(2) & ...
+    spike_depths >= str_depth(1) & spike_depths <= str_depth(2);
+plot(spike_times_timeline(plot_spikes),spike_depths(plot_spikes),'.k');
+ylabel('Striatum depth (\mum)');
+xlabel('Time (s)');
+
+%%%%%% PLOT WHEEL/STIM
+
+% (wheel velocity)
+wheel_axes = subplot(4,1,4); hold on;
+plot_wheel_idx = Timeline.rawDAQTimestamps >= plot_t(1) & ...
+    Timeline.rawDAQTimestamps <= plot_t(2);
+plot(wheel_axes,Timeline.rawDAQTimestamps(plot_wheel_idx), ...
+    wheel_velocity(plot_wheel_idx),'k','linewidth',2);
+ylabel('Wheel velocity');
+axis off
+
+curr_axes = flipud(get(gcf,'Children'));
+% Link all time axes
+linkaxes(curr_axes,'x');
+% Link depth axes of raster plots (arbitrary depth, but want same scale)
+linkaxes(curr_axes(2:3),'xy');
+
+
+%% EDFig8c-e: Cortex-explained variance task vs. passive
 
 % Load data
 load('C:\Users\Andrew\OneDrive for Business\Documents\CarandiniHarrisLab\analysis\wf_ephys_choiceworld\paper\data\str_ctxpred.mat')
@@ -5136,113 +5297,8 @@ use_points = ~isnan(mua_var_task);
     ctxpred_r2_task(use_points),domain_grp(use_points));
 
 
-%% SFig9c: Passive fluor+ctx+str example
 
-%%% Plot example day
-
-animal = 'AP060';
-day = '2019-12-06';
-experiment = 2;
-plot_t = [100,300];
-
-figure;
-disp('Loading example data...');
-
-% Load cortex ephys + imaging
-load_parts.ephys = true;
-load_parts.imaging = true;
-site = 2; % (cortex always probe 2)
-str_align = 'none'; % (cortex)
-AP_load_experiment;
-
-% Load cortex recording alignment
-vis_ctx_ephys_fn = 'C:\Users\Andrew\OneDrive for Business\Documents\CarandiniHarrisLab\analysis\wf_ephys_choiceworld\ephys_processing\vis_ctx_ephys.mat';
-load(vis_ctx_ephys_fn);
-
-%%% DEPTH-ALIGN TEMPLATES, FIND CORTEX BOUNDARY
-curr_animal_idx = strcmp(animal,{vis_ctx_ephys.animal});
-curr_day_idx = strcmp(day,vis_ctx_ephys(curr_animal_idx).day);
-curr_csd_depth = vis_ctx_ephys(curr_animal_idx).stim_csd_depth{curr_day_idx};
-curr_csd_depth_aligned = vis_ctx_ephys(curr_animal_idx).stim_csd_depth_aligned{curr_day_idx};
-template_depths_aligned = interp1(curr_csd_depth,curr_csd_depth_aligned,template_depths);
-spike_depths_aligned = interp1(curr_csd_depth,curr_csd_depth_aligned,spike_depths);
-
-% Find cortex end by largest gap between templates
-sorted_template_depths = sort([template_depths_aligned]);
-[max_gap,max_gap_idx] = max(diff(sorted_template_depths));
-ctx_end = sorted_template_depths(max_gap_idx)+1;
-
-ctx_depth = [sorted_template_depths(1),ctx_end];
-ctx_units = template_depths_aligned <= ctx_depth(2);
-
-%%% GET FLUORESCENCE AND SPIKES BY DEPTH
-
-% Set binning time
-skip_seconds = 60;
-spike_binning_t = 1/framerate; % seconds
-spike_binning_t_edges = frame_t(1)+skip_seconds:spike_binning_t:frame_t(end)-skip_seconds;
-spike_binning_t_centers = spike_binning_t_edges(1:end-1) + diff(spike_binning_t_edges)/2;
-
-% Get fluorescence in pre-drawn ROI
-curr_ctx_roi = vis_ctx_ephys(curr_animal_idx).ctx_roi{curr_day_idx};
-
-fVdf_deconv = AP_deconv_wf(fVdf);
-fluor_roi = AP_svd_roi(Udf,fVdf_deconv,avg_im,[],curr_ctx_roi);
-fluor_roi_interp = interp1(frame_t,fluor_roi,spike_binning_t_centers);
-
-% Plot cortex raster
-subplot(4,1,1); hold on;
-plot_t_idx = spike_binning_t_centers >= plot_t(1) & ...
-    spike_binning_t_centers <= plot_t(2);
-plot(spike_binning_t_centers(plot_t_idx), ...
-    fluor_roi_interp(plot_t_idx),'linewidth',2,'color',[0,0.7,0]);
-
-subplot(4,1,2,'YDir','reverse'); hold on;
-plot_spikes = spike_times_timeline >= plot_t(1) & ...
-    spike_times_timeline <= plot_t(2) & ...
-    spike_depths_aligned <= ctx_depth(2);
-plot(spike_times_timeline(plot_spikes),spike_depths(plot_spikes),'.k');
-ylabel('Cortex depth (\mum)');
-xlabel('Time (s)');
-
-%%% LOAD STRIATUM EPHYS AND GET MUA BY DEPTH
-
-% Load striatum ephys
-load_parts.ephys = true;
-load_parts.imaging = false;
-site = 1; % (striatum is always on probe 1)
-str_align = 'kernel';
-AP_load_experiment;
-
-% Plot striatum raster
-subplot(4,1,3,'YDir','reverse'); hold on;
-plot_spikes = spike_times_timeline >= plot_t(1) & ...
-    spike_times_timeline <= plot_t(2) & ...
-    spike_depths >= str_depth(1) & spike_depths <= str_depth(2);
-plot(spike_times_timeline(plot_spikes),spike_depths(plot_spikes),'.k');
-ylabel('Striatum depth (\mum)');
-xlabel('Time (s)');
-
-%%%%%% PLOT WHEEL/STIM
-
-% (wheel velocity)
-wheel_axes = subplot(4,1,4); hold on;
-plot_wheel_idx = Timeline.rawDAQTimestamps >= plot_t(1) & ...
-    Timeline.rawDAQTimestamps <= plot_t(2);
-plot(wheel_axes,Timeline.rawDAQTimestamps(plot_wheel_idx), ...
-    wheel_velocity(plot_wheel_idx),'k','linewidth',2);
-ylabel('Wheel velocity');
-axis off
-
-curr_axes = flipud(get(gcf,'Children'));
-% Link all time axes
-linkaxes(curr_axes,'x');
-% Link depth axes of raster plots (arbitrary depth, but want same scale)
-linkaxes(curr_axes(2:3),'xy');
-
-
-
-%% SFig10a Cortical spike rate pre/post muscimol
+%% EDFig9a Cortical spike rate pre/post muscimol
 % (use spike rate over all experiments pre/post muscimol)
 
 animal_days = { ...
@@ -5318,7 +5374,7 @@ end
 
 
 
-%% SFig10b VFS pre/post musicmol
+%% EDFig9b VFS pre/post musicmol
 
 muscimol_wf_fn = 'C:\Users\Andrew\OneDrive for Business\Documents\CarandiniHarrisLab\analysis\wf_ephys_choiceworld\paper\data\muscimol_wf.mat';
 load(muscimol_wf_fn);
@@ -5389,7 +5445,7 @@ title('(post-pre)/(post+pre)');
 colorbar
 
 
-%% SFig10c Striatal spike rate pre/post muscimol
+%% EDFig9c Striatal spike rate pre/post muscimol
 
 animals = {'AP045','AP054','AP055','AP053','AP047','AP048'};
 
@@ -5469,7 +5525,7 @@ for curr_depth = 1:n_depths
 end
 
 
-%% SFig10d Cortex/striatum passive stim pre/post muscimol
+%% EDFig9d Cortex/striatum passive stim pre/post muscimol
 
 data_fns = { ...
     'trial_activity_AP_lcrGratingPassive_pre_muscimol', ...
@@ -5678,7 +5734,7 @@ for curr_depth = 1:n_depths
 end
 
 
-%% SFig10e Task performance pre/post muscimol
+%% EDFig9e Task performance pre/post muscimol
 
 data_fns = { ...
     'trial_activity_vanillaChoiceworldNoRepeats_pre_muscimol', ...
@@ -5824,196 +5880,7 @@ disp(['Reaction time condition p = ' num2str(curr_p(2))]);
 disp(['Reaction time stim x condition p = ' num2str(curr_p(3))]);
 
 
-
-%% SFig10 (unused) Striatal task trial activity pre/post muscimol
-
-data_fns = { ...
-    'trial_activity_vanillaChoiceworldNoRepeats_pre_muscimol', ...
-    'trial_activity_vanillaChoiceworldNoRepeats_post_muscimol'};
-
-for curr_data = 1:length(data_fns)
-    
-    % Load data
-    data_fn = data_fns{curr_data};
-    AP_load_concat_normalize_ctx_str;
-    
-    % Split data by recording
-    trials_allcat = size(wheel_allcat,1);
-    trials_recording = cellfun(@(x) size(x,1),vertcat(wheel_all{:}));
-    use_split = trials_recording;
-    split_idx = cell2mat(arrayfun(@(exp,trials) repmat(exp,trials,1), ...
-        [1:length(use_split)]',reshape(use_split,[],1),'uni',false));
-    
-    % Plot stim-aligned/sorted measured and predicted striatum activity
-    % (correct contra trials)
-    switch curr_data
-        case 1
-            cond_name = 'Pre-muscimol';
-        case 2
-            cond_name = 'Post-muscimol';
-    end
-    
-    for curr_trial_set = 1:2
-        switch curr_trial_set
-            case 1
-                plot_trials = move_t < Inf & trial_stim_allcat > 0 & trial_choice_allcat == -1;
-                figure('Name',[cond_name ': Correct contra trials']);
-            case 2
-                plot_trials = move_t < Inf & trial_stim_allcat < 0 & trial_choice_allcat == 1;
-                figure('Name',[cond_name ': Correct ipsi trials']);
-        end
-        
-        p = gobjects(n_depths,4);
-        colormap(brewermap([],'Greys'));
-        for curr_depth = 1:n_depths
-            
-            % Get trials to plot, sort by reaction time
-            curr_trials = plot_trials & ~all(isnan(mua_allcat(:,:,curr_depth)),2);
-            curr_trials_exp = mat2cell(curr_trials,use_split,1);
-            curr_trials_idx = find(curr_trials);
-            [~,rxn_sort_idx] = sort(move_t(curr_trials_idx));
-            
-            sorted_plot_trials = curr_trials_idx(rxn_sort_idx);
-            
-            curr_plot = mua_allcat(sorted_plot_trials,:,curr_depth);
-            curr_taskpred_plot = mua_taskpred_allcat(sorted_plot_trials,:,curr_depth);
-            curr_ctxpred_plot = mua_ctxpred_allcat(sorted_plot_trials,:,curr_depth);
-            
-            % Smooth and plot with stim/move/reward times
-            % (as conv(nans-zeroed)./conv(non-nan) to ignore in nans in conv)
-            smooth_filt = [50,1]; % (trials x frames)
-            
-            curr_plot_smooth = conv2(curr_plot,ones(smooth_filt),'same')./ ...
-                conv2(~isnan(curr_plot),ones(smooth_filt),'same');
-            
-            curr_taskpred_plot_smooth = curr_taskpred_plot;
-            curr_taskpred_plot_smooth(isnan(curr_taskpred_plot_smooth)) = 0;
-            curr_taskpred_plot_smooth = conv2(curr_taskpred_plot_smooth,ones(smooth_filt),'same')./ ...
-                conv2(~isnan(curr_taskpred_plot),ones(smooth_filt),'same');
-            
-            curr_ctxpred_plot_smooth = curr_ctxpred_plot;
-            curr_ctxpred_plot_smooth(isnan(curr_ctxpred_plot_smooth)) = 0;
-            curr_ctxpred_plot_smooth = conv2(curr_ctxpred_plot_smooth,ones(smooth_filt),'same')./ ...
-                conv2(~isnan(curr_ctxpred_plot),ones(smooth_filt),'same');
-            
-            p(curr_depth,1) = subplot(n_depths,4,1+(curr_depth-1)*4,'YDir','reverse'); hold on
-            imagesc(t,[],curr_plot_smooth);
-            plot(zeros(size(curr_trials_idx)),1:length(curr_trials_idx),'MarkerSize',1,'color','r');
-            plot(move_t(sorted_plot_trials),1:length(curr_trials_idx),'MarkerSize',1,'color',[0.8,0,0.8]);
-            %         plot(outcome_t(sorted_plot_trials),1:length(curr_trials_idx),'.','MarkerSize',1,'color','b');
-            axis tight;
-            xlim([-0.2,1]);
-            xlabel('Time from stim');
-            ylabel('Trials (rxn sorted)');
-            title('Measured');
-            
-            p(curr_depth,2) = subplot(n_depths,4,2+(curr_depth-1)*4,'YDir','reverse'); hold on
-            imagesc(t,[],curr_taskpred_plot_smooth);
-            plot(zeros(size(curr_trials_idx)),1:length(curr_trials_idx),'MarkerSize',1,'color','r');
-            plot(move_t(sorted_plot_trials),1:length(curr_trials_idx),'MarkerSize',1,'color',[0.8,0,0.8]);
-            %         plot(outcome_t(sorted_plot_trials),1:length(curr_trials_idx),'.','MarkerSize',1,'color','b');
-            axis tight;
-            xlim([-0.2,1]);
-            xlabel('Time from stim');
-            ylabel('Trials (rxn sorted)');
-            title('Task-predicted');
-            
-            p(curr_depth,3) = subplot(n_depths,4,3+(curr_depth-1)*4,'YDir','reverse'); hold on
-            imagesc(t,[],curr_ctxpred_plot_smooth);
-            plot(zeros(size(curr_trials_idx)),1:length(curr_trials_idx),'MarkerSize',1,'color','r');
-            plot(move_t(sorted_plot_trials),1:length(curr_trials_idx),'MarkerSize',1,'color',[0.8,0,0.8]);
-            %         plot(outcome_t(sorted_plot_trials),1:length(curr_trials_idx),'.','MarkerSize',1,'color','b');
-            axis tight;
-            xlim([-0.2,1]);
-            xlabel('Time from stim');
-            ylabel('Trials (rxn sorted)');
-            title('Cortex-predicted');
-            
-            % Plot average aligned activity
-            % (set alignment shifts)
-            t_leeway = -t(1);
-            leeway_samples = round(t_leeway*(sample_rate));
-            stim_align = zeros(size(trial_stim_allcat));
-            move_align = -move_idx + leeway_samples;
-            outcome_align = -outcome_idx + leeway_samples;
-            use_align = {stim_align,move_align,outcome_align};
-            
-            align_col = [1,0,0;0.8,0,0.8;0,0,0.8];
-            % (split the alignment halfway between median alignment points)
-            align_median = cellfun(@(x) -nanmedian(x(plot_trials))/sample_rate,use_align);
-            align_break = align_median(1:end-1) + diff(align_median*0.8);
-            align_t = {[-0.05,align_break(1)],[align_break(1:2)],[align_break(2),1]};
-            
-            p(curr_depth,4) = subplot(n_depths,4,4+(curr_depth-1)*4); hold on
-            for curr_align = 1:length(use_align)
-                curr_mua_align = cell2mat(arrayfun(@(trial) circshift(mua_allcat(trial,:,:), ...
-                    use_align{curr_align}(trial),2),transpose(1:size(mua_allcat,1)),'uni',false));
-                curr_mua_exp = mat2cell(curr_mua_align(:,:,curr_depth),use_split,length(t));
-                curr_mua_exp_mean = cell2mat(cellfun(@(data,trials) nanmean(data(trials,:),1), ...
-                    curr_mua_exp,curr_trials_exp,'uni',false));
-                
-                curr_mua_taskpred_align = cell2mat(arrayfun(@(trial) circshift(mua_taskpred_allcat(trial,:,:), ...
-                    use_align{curr_align}(trial),2),transpose(1:size(mua_taskpred_allcat,1)),'uni',false));
-                curr_mua_taskpred_exp = mat2cell(curr_mua_taskpred_align(:,:,curr_depth),use_split,length(t));
-                curr_mua_taskpred_exp_mean = cell2mat(cellfun(@(data,trials) nanmean(data(trials,:),1), ...
-                    curr_mua_taskpred_exp,curr_trials_exp,'uni',false));
-                
-                curr_mua_ctxpred_align = cell2mat(arrayfun(@(trial) circshift(mua_ctxpred_allcat(trial,:,:), ...
-                    use_align{curr_align}(trial),2),transpose(1:size(mua_ctxpred_allcat,1)),'uni',false));
-                curr_mua_ctxpred_exp = mat2cell(curr_mua_ctxpred_align(:,:,curr_depth),use_split,length(t));
-                curr_mua_ctxpred_exp_mean = cell2mat(cellfun(@(data,trials) nanmean(data(trials,:),1), ...
-                    curr_mua_ctxpred_exp,curr_trials_exp,'uni',false));
-                
-                curr_t_offset = -nanmedian(use_align{curr_align}(plot_trials))/sample_rate;
-                curr_t = t + curr_t_offset;
-                curr_t_plot = curr_t >= align_t{curr_align}(1) & ...
-                    curr_t <= align_t{curr_align}(2);
-                
-                plot_t = curr_t > align_t{curr_align}(1) & curr_t <= align_t{curr_align}(2);
-                
-                AP_errorfill(curr_t(plot_t'), ...
-                    nanmean(curr_mua_exp_mean(:,plot_t),1)', ...
-                    AP_sem(curr_mua_exp_mean(:,plot_t),1)','k');
-                
-                AP_errorfill(curr_t(plot_t'), ...
-                    nanmean(curr_mua_taskpred_exp_mean(:,plot_t),1)', ...
-                    AP_sem(curr_mua_taskpred_exp_mean(:,plot_t),1)','b');
-                
-                AP_errorfill(curr_t(plot_t'), ...
-                    nanmean(curr_mua_ctxpred_exp_mean(:,plot_t),1)', ...
-                    AP_sem(curr_mua_ctxpred_exp_mean(:,plot_t),1)',[0,0.7,0]);
-                
-                line(repmat(curr_t_offset,2,1),ylim,'color',align_col(curr_align,:));
-            end
-            xlabel('~Time from stim');
-            ylabel('Striatum depth');
-            
-        end
-        % Link the x-axes, set the c/y-axes same within a row
-        linkaxes(p(:),'x');
-        
-        for curr_row = 1:size(p,1)
-            curr_ylim = ylim(p(curr_row,4));
-            caxis(p(curr_row,1),[0,curr_ylim(2)]);
-            caxis(p(curr_row,2),[0,curr_ylim(2)]);
-            caxis(p(curr_row,3),[0,curr_ylim(2)]);
-        end
-        
-        trial_scale = 500;
-        t_scale = 0.5;
-        y_scale = 1;
-        line(p(1,1),min(xlim(p(1,1))) + [0,t_scale],repmat(min(ylim(p(1,1))),2,1),'color','k','linewidth',3);
-        line(p(1,4),min(xlim(p(1,4))) + [0,t_scale],repmat(min(ylim(p(1,4))),2,1),'color','k','linewidth',3);
-        line(p(1,1),repmat(min(xlim(p(1,1))),2,1),min(ylim(p(1,1))) + [0,trial_scale],'color','k','linewidth',3);
-        line(p(1,4),repmat(min(xlim(p(1,4))),2,1),min(ylim(p(1,4))) + [0,y_scale],'color','k','linewidth',3);
-        drawnow;
-        
-    end
-    
-end
-
-
-%% SFig10g Striatal task kernels pre/post muscimol
+%% EDFig9f Striatal task kernels pre/post muscimol
 
 data_fns = { ...
     'trial_activity_vanillaChoiceworldNoRepeats_pre_muscimol', ...
@@ -6196,94 +6063,7 @@ for curr_depth = 1:n_depths
 end
 
 
-
-%% SFig10 (unused) Striatal task/cortex explained variance pre/post muscimol
-
-data_fns = { ...
-    'trial_activity_vanillaChoiceworldNoRepeats_pre_muscimol', ...
-    'trial_activity_vanillaChoiceworldNoRepeats_post_muscimol'};
-
-taskpred_r2_condition = [];
-ctxpred_r2_condition = [];
-for curr_data = 1:length(data_fns)
-    
-    % Load data
-    data_fn = data_fns{curr_data};
-    AP_load_concat_normalize_ctx_str;
-      
-    % Use raw data (not normalized or baseline-subtracted) for expl var
-    mua_exp = vertcat(mua_all{:});
-    mua_taskpred_exp = vertcat(mua_taskpred_all{:});
-    mua_ctxpred_exp = vertcat(mua_ctxpred_all{:});
-    
-    % Get R^2 for task and cortex
-    taskpred_r2 = nan(length(mua_exp),n_depths);
-    ctxpred_r2 = nan(length(mua_exp),n_depths);
-    for curr_exp = 1:length(mua_exp)
-        
-        curr_str = reshape(permute(mua_exp{curr_exp},[2,1,3]),[],n_depths);
-        curr_str_baselinesub = reshape(permute(mua_exp{curr_exp},[2,1,3]),[],n_depths) - ...
-            (nanmean(reshape(mua_exp{curr_exp}(:,t < 0,:),[],size(mua_exp{curr_exp},3)),1));
-        curr_taskpred = reshape(permute(mua_taskpred_exp{curr_exp},[2,1,3]),[],n_depths);
-        curr_ctxpred = reshape(permute(mua_ctxpred_exp{curr_exp},[2,1,3]),[],n_depths);
-        
-        % Set common NaNs
-        nan_samples = isnan(curr_str) | isnan(curr_str_baselinesub) | ...
-            isnan(curr_taskpred) | isnan(curr_ctxpred);
-        curr_str(nan_samples) = NaN;
-        curr_str_baselinesub(nan_samples) = NaN;
-        curr_taskpred(nan_samples) = NaN;
-        curr_ctxpred(nan_samples) = NaN;
-        
-        % (task regressed from average baseline-subtracted data)
-        taskpred_r2(curr_exp,:) = 1 - (nansum((curr_str_baselinesub-curr_taskpred).^2,1)./ ...
-            nansum((curr_str_baselinesub-nanmean(curr_str_baselinesub,1)).^2,1));
-        % (cortex regressed from raw data)
-        ctxpred_r2(curr_exp,:) = 1 - (nansum((curr_str-curr_ctxpred).^2,1)./ ...
-            nansum((curr_str-nanmean(curr_str,1)).^2,1));
-        
-    end
-    
-    taskpred_r2_condition(:,:,curr_data) = taskpred_r2;
-    ctxpred_r2_condition(:,:,curr_data) = ctxpred_r2;
-    
-end
-
-% Plot explained variance task vs cortex by experiment
-figure; hold on;
-line([0,1],[0,1],'color','k','linestyle','--');
-
-str_col = copper(n_depths);
-for curr_depth = 1:n_depths
-    
-    errorbar(squeeze(nanmean(taskpred_r2_condition(:,curr_depth,:),1)), ...
-        squeeze(nanmean(ctxpred_r2_condition(:,curr_depth,:),1)), ...
-        squeeze(AP_sem(ctxpred_r2_condition(:,curr_depth,:),1)),squeeze(AP_sem(ctxpred_r2_condition(:,curr_depth,:),1)), ...
-        squeeze(AP_sem(taskpred_r2_condition(:,curr_depth,:),1)),squeeze(AP_sem(taskpred_r2_condition(:,curr_depth,:),1)), ...
-        'color',str_col(curr_depth,:),'linewidth',2);
-    
-   scatter(nanmean(taskpred_r2_condition(:,curr_depth,1),1), ...
-       nanmean(ctxpred_r2_condition(:,curr_depth,1),1),100, ...
-       str_col(curr_depth,:),'filled','MarkerEdgeColor',[0,0.7,0],'linewidth',2);
-   scatter(nanmean(taskpred_r2_condition(:,curr_depth,2),1), ...
-       nanmean(ctxpred_r2_condition(:,curr_depth,2),1),100, ...
-       str_col(curr_depth,:),'filled','MarkerEdgeColor',[0.7,0,0],'linewidth',2);
-end
-xlabel('Task R^2');
-ylabel('Cortex R^2');
-
-% (Cortex vs task R2 statistics)
-disp('Cortex-task R^2 pre/post-muscimol signrank:');
-ctx_task_r2_diff = ctxpred_r2_condition - taskpred_r2_condition;
-for curr_depth = 1:n_depths
-    curr_p = signrank(ctx_task_r2_diff(:,curr_depth,1), ...
-        ctx_task_r2_diff(:,curr_depth,2));
-    disp(['Str ' num2str(curr_depth) ' p = ' num2str(curr_p)]); 
-end
-
-%% @@ SFig11b: Firing rate histogram by cell type
-
-%% Firing rate histogram
+%% @@ EDFig10b: Firing rate histogram by cell type
 
 include_celltypes = 1:4;
 
@@ -6312,7 +6092,7 @@ xlabel('Firing rate');
 ylabel('Fraction');
 
 
-%% @@ SFig11c: Counts of cells by type and domain
+%% @@ EDFig10c: Counts of cells by type and domain
 
 include_celltypes = [1:4]; % 5 is the narrow tan-like cells
 include_units = good_units_allcat & ...
@@ -6336,7 +6116,7 @@ ylabel('Count');
 legend(celltype_labels);
 
 
-%% SFig 11d: Example rasters
+%% EDFig 10d: Example rasters
 
 example_msns = ...
     [187,1,8;
@@ -6477,60 +6257,7 @@ set(p,'XLim',raster_window);
 
 
 
-%% ** SFig12: Stimulus activity vs choice
 
-% Get stim activity by stim/choice/depth/experiment
-stim_avg_t = [0,0.2];
-stim_avg_t_idx = t >= stim_avg_t(1) & t <= stim_avg_t(2);
-stim_act = permute(nanmean(mua_allcat(:,stim_avg_t_idx,:),2),[1,3,2]);
-stims = unique(trial_stim_allcat);
-
-stim_act_grp = nan(length(stims),2,n_depths,length(use_split));
-for curr_depth = 1:n_depths
-    for curr_exp = 1:length(use_split)
-        for curr_stim = 1:length(stims)
-            
-            stim_act_grp(curr_stim,1,curr_depth,curr_exp) = ...
-                nanmean(stim_act( ...
-                move_t < 0.5 & ...
-                split_idx == curr_exp & ...
-                trial_stim_allcat == stims(curr_stim) & ...
-                trial_choice_allcat == -1,curr_depth));
-            
-            stim_act_grp(curr_stim,2,curr_depth,curr_exp) = ...
-                nanmean(stim_act( ...
-                move_t < 0.5 & ...
-                split_idx == curr_exp & ...
-                trial_stim_allcat == stims(curr_stim) & ...
-                trial_choice_allcat == 1,curr_depth));
-            
-        end
-    end
-end
-
-% Plot stim responses by condition
-move_col = [0.6,0,0.6;1,0.6,0];
-figure;
-for curr_depth = 1:n_depths
-   subplot(n_depths,1,curr_depth); hold on;
-   set(gca,'ColorOrder',move_col);
-    errorbar(repmat(stims,1,2), ...
-        nanmean(stim_act_grp(:,:,curr_depth,:),4), ...
-        AP_sem(stim_act_grp(:,:,curr_depth,:),4),'linewidth',2);
-    xlabel('Contrast*side');
-    ylabel(['Str ' num2str(curr_depth)']);
-end
-
-% (stim response by choice statistics)
-disp('Stim v choice 2-way anova:')
-for curr_depth = 1:n_depths
-    [stim_grp,choice_grp,exp_grp] = ndgrid(1:size(stim_act_grp,1), ...
-        1:size(stim_act_grp,2),1:size(stim_act_grp,4));
-    [curr_p,~,~,terms] = anovan(reshape(stim_act_grp(:,:,curr_depth,:),[],1), ...
-        [stim_grp(:),choice_grp(:)],'model','interaction','display','off');
-    disp(['Str ' num2str(curr_depth) ' choice: p = ' num2str(curr_p(2)')]);
-    disp(['Str ' num2str(curr_depth) ' stim x choice: p = ' num2str(curr_p(2)')]); 
-end
 
 
 
