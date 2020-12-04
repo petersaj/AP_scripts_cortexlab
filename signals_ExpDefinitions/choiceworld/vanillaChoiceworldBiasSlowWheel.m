@@ -1,4 +1,4 @@
-function vanillaChoiceworldBias(t, events, parameters, visStim, inputs, outputs, audio)
+function vanillaChoiceworldBiasSlowWheel(t, events, parameters, visStim, inputs, outputs, audio)
 % vanillaChoiceworldBias(t, events, parameters, visStim, inputs, outputs, audio)
 %
 % Choice world that only uses 2 contrasts and tries to balance bias
