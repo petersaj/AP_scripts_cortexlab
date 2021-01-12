@@ -99,12 +99,16 @@ for curr_animal = 1:length(animals)
     
     % Plot summary
     day_num = cellfun(@(x) datenum(x),{experiments.day});
-    day_labels = cellfun(@(day,protocol) [protocol(19:end) ' ' day(6:end)], ...
+    day_labels = cellfun(@(day,protocol) [day(6:end)], ...
         {experiments.day},bhv.protocol,'uni',false);
+    
+    [unique_protocols,~,protocol_idx] = unique(bhv.protocol);
+    protocol_col = hsv(length(unique_protocols));
+    
     figure('Name',animal)
     
     % Trials and water
-    subplot(3,2,1);
+    subplot(3,2,1); hold on;
     yyaxis left
     % plot(day_num,bhv.n_trials./bhv.session_duration,'linewidth',2);
     % ylabel('Trials/min');
@@ -118,6 +122,8 @@ for curr_animal = 1:length(animals)
     set(gca,'XTickLabel',day_labels);
     set(gca,'XTickLabelRotation',90);
     
+    protocol_plot = gscatter(day_num,zeros(size(day_num)),[bhv.protocol]');
+    
     imaging_days = day_num([experiments.imaging]);
     for i = 1:length(imaging_days)
         line(repmat(imaging_days(i),1,2),ylim,'color','k');
@@ -127,7 +133,7 @@ for curr_animal = 1:length(animals)
     for i = 1:length(ephys_days)
         line(repmat(ephys_days(i),1,2),ylim,'color','r','linestyle','--');
     end
-    
+      
     % Wheel movement and bias
     subplot(3,2,2);
     yyaxis left
@@ -486,17 +492,22 @@ end
 
 %% Get and plot single mouse behavior (ChoiceWorld (old) + vanillaChoiceWorld)
 clear all;
-animal = 'AP026';
+animal = 'AP085';
 
 protocol = 'ChoiceWorld';
 choiceworld_experiments = AP_find_experiments(animal,protocol);
 [choiceworld_experiments.protocol] = deal('ChoiceWorld');
 
 protocol = 'vanillaChoiceworld';
-vanillachoiceworld_experiments = AP_find_experiments(animal,protocol);
+flexible_name = true;
+vanillachoiceworld_experiments = AP_find_experiments(animal,protocol,flexible_name);
 [vanillachoiceworld_experiments.protocol] = deal('vanillaChoiceworld');
 
 experiments = [choiceworld_experiments;vanillachoiceworld_experiments];
+
+% Sort days (can be out of order if search across servers)
+[~,sort_idx] = sort({experiments.day});
+experiments = experiments(sort_idx);
 
 bhv = struct;
 
@@ -506,7 +517,7 @@ for curr_day = 1:length(experiments)
     experiment_num = experiments(curr_day).experiment;
     
     if length(experiment_num) > 1
-        warning('NOT USING ALL EXPERIMENTS AT THE MOMENT')
+        warning('(excluding > 1 exp/day)');disp(newline);
     end
     
     for curr_experiment = length(experiment_num)
@@ -524,8 +535,12 @@ for curr_day = 1:length(experiments)
         switch experiments(curr_day).protocol       
             case 'ChoiceWorld'
                 % Trial counts
-                n_trials = length(block.trial);
-                n_rewards = length(block.rewardDeliveredSizes);
+                n_trials = length([block.trial.responseMadeTime]);
+                n_rewards = sum([block.trial.feedbackType] == 1);
+                
+                % Time to response
+                response_times = [block.trial(1:n_trials).responseMadeTime] - ...
+                    [block.trial(1:n_trials).stimulusCueStartedTime];
                 
                 % Resample velocity over even/standard time intervals
                 wheel_resample_rate = 1000;
@@ -534,8 +549,12 @@ for curr_day = 1:length(experiments)
                 
             case 'vanillaChoiceworld'
                 % Trial counts
-                n_trials = length(block.paramsValues);
-                n_rewards = length(block.outputs.rewardValues);
+                n_trials = length([block.events.responseTimes]);
+                n_rewards = sum(block.events.hitValues);
+                
+                % Time to response
+                response_times = [block.events.responseTimes(1:n_trials)] - ...
+                    [block.events.stimOnTimes(1:n_trials)];
                 
                 % Resample velocity over even/standard time intervals
                 wheel_resample_rate = 1000;
@@ -560,9 +579,11 @@ for curr_day = 1:length(experiments)
             (nansum(right_wheel_velocity)+nansum(left_wheel_velocity));
                 
         % Store in behavior structure
+        bhv.rigname{curr_day} = block.rigName;
         bhv.session_duration(curr_day) = session_duration;
         bhv.n_trials(curr_day) = n_trials;
         bhv.n_rewards(curr_day) = n_rewards;
+        bhv.response_time_med(curr_day) = median(response_times);
         bhv.wheel_velocity(curr_day) = nansum(abs(wheel_velocity));
         bhv.wheel_bias(curr_day) = wheel_bias;
      
@@ -574,49 +595,47 @@ end
 % Plot summary
 % (to have spaces on days without training)
 day_num = cellfun(@(x) datenum(x),{experiments.day});
-day_labels = cellfun(@(x) x(6:end),{experiments.day},'uni',false);
+day_labels = cellfun(@(curr_day,curr_rig) [num2str(curr_day) ' ' curr_rig], ...
+    num2cell(1:length(experiments)),bhv.rigname,'uni',false);
 
-% (to only plot days with training)
-day_num = 1:length(experiments);
-day_labels = 1:length(experiments);
-
+% % (to only plot days with training)
+% day_num = 1:length(experiments);
+% day_labels = 1:length(experiments);
 
 figure('Name',animal)
 
 % Trials and water
 subplot(1,2,1);
 yyaxis left
-plot(day_num,bhv.n_trials./bhv.session_duration,'linewidth',2);
-ylabel('Trials/min');
+plot(day_num,bhv.n_trials,'linewidth',2);
+ylabel('Trials');
 yyaxis right
-plot(day_num,bhv.n_rewards,'linewidth',2);
-ylabel('Number of rewards');
+plot(day_num,bhv.n_rewards./bhv.n_trials,'linewidth',2);
+line(xlim,[0.5,0.5])
+ylim([0,1]);
+ylabel('Frac correct');
 xlabel('Session');
 set(gca,'XTick',day_num);
 set(gca,'XTickLabel',day_labels);
-set(gca,'XTickLabelRotation',0);
+set(gca,'XTickLabelRotation',90);
 
 yyaxis left; hold on
 choiceworld_days = day_num(strcmp({experiments.protocol},'ChoiceWorld'));
 scatter(choiceworld_days,repmat(0,1,length(choiceworld_days)),20,'r','filled');
 
 % Wheel movement and bias
-subplot(1,2,2);
-yyaxis left
-plot(day_num,bhv.wheel_velocity./bhv.session_duration,'linewidth',2);
-ylabel('Wheel movement / min');
-yyaxis right
-plot(day_num,bhv.wheel_bias,'linewidth',2);
-ylim([-1,1]);
-ylabel('Wheel bias');
+subplot(1,2,2,'YScale','log'); hold on
+plot(day_num,bhv.response_time_med,'linewidth',2);
+line(xlim,[0.5,0.5])
+line(xlim,[1,1])
+ylabel('Median response time');
 xlabel('Session');
 set(gca,'XTick',day_num);
 set(gca,'XTickLabel',day_labels);
-set(gca,'XTickLabelRotation',0);
-
-yyaxis left; hold on
+set(gca,'XTickLabelRotation',90);
 choiceworld_days = day_num(strcmp({experiments.protocol},'ChoiceWorld'));
-scatter(choiceworld_days,repmat(0,1,length(choiceworld_days)),20,'r','filled');
+scatter(choiceworld_days,repmat(0.5,1,length(choiceworld_days)),20,'r','filled');
+
 
 %% Get and plot behavior across mice
 

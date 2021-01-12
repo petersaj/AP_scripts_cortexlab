@@ -276,7 +276,7 @@ AP_align_widefield(right_grating,animal,[],'new_animal',right_grating_master);
 %% Get passive responses before/after training
 
 % animals = {'AP063','AP064','AP066','AP068','AP071'};
-animals = {'AP085','AP086','AP087'};
+animals = {'AP85','AP086',''};
 
 im_stim_all = cell(length(animals),2);
 
