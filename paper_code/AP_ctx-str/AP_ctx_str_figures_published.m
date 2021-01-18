@@ -829,10 +829,10 @@ end
 %% Fig 2e,h: Striatum domain locations and corticostriatal projections
 
 % Set striatum domain colors
+n_aligned_depths = 3;
 str_col = max(hsv(n_aligned_depths)-0.2,0);
 
 % Load the kernel template matches
-n_aligned_depths = 3;
 kernel_match_path = 'C:\Users\Andrew\OneDrive for Business\Documents\CarandiniHarrisLab\analysis\wf_ephys_choiceworld\ephys_processing';
 kernel_match_fn = ['ephys_kernel_align_' num2str(n_aligned_depths) '_depths.mat'];
 load([kernel_match_path filesep kernel_match_fn]);
