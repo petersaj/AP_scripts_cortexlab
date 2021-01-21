@@ -2060,7 +2060,7 @@ ylabel(c,'Explained variance')
 
 %% Align vasculature for animal
 
-animal = 'AP087';
+animal = 'AP085';
 
 protocol = 'AP_lcrGratingPassive';
 experiments = AP_find_experiments(animal,protocol);
@@ -2077,14 +2077,7 @@ for curr_day = 1:length(experiments)
     avg_im_days_purple{curr_day} = avg_im_purple;
 end
 
-% % Align with normalized averages        
-% im_norm = cellfun(@(x) x./mad(x(:),true),avg_im_days_blue,'uni',false);        
-% AP_align_widefield(im_norm,animal,{experiments.day},'new_days');
-
-% Align with edges
-im_edge = cellfun(@(x) x-imgaussfilt(x,10),avg_im_days_purple,'uni',false);
-AP_align_widefield(im_edge,animal,{experiments.day},'new_days');
-
+AP_align_widefield(avg_im_days_blue,animal,{experiments.day},'new_days');
 
 
 

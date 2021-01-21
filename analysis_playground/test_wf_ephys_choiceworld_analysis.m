@@ -1056,8 +1056,9 @@ legend({'Real','Predicted'});
 %% PSTH viewer
 
 % Spikes in striatum
+use_spikes_idx = true(size(spike_depths));
 % use_spikes_idx = spike_depths > 2000 & spike_depths < 3000;
-use_spikes_idx = spike_depths >= str_depth(1) & spike_depths <= str_depth(2);
+% use_spikes_idx = spike_depths >= str_depth(1) & spike_depths <= str_depth(2);
 % use_spikes_idx = aligned_str_depth_group == 1;
 % use_spikes_idx = spike_templates == 30;
 

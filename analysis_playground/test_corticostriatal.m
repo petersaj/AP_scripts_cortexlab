@@ -166,14 +166,12 @@ for curr_animal = 1:length(animals)
     experiments = AP_find_experiments(animal,protocol,flexible_name);
     experiments = experiments([experiments.imaging]);
     
-%     % (get all imaging days with behavior)
-%     bhv_protocol = 'choiceworld';
-%     bhv_experiments = AP_find_experiments(animal,bhv_protocol,true);
-%     bhv_experiments = bhv_experiments([bhv_experiments.imaging]);
-%     
-%     % Use only post-trained (larger response, match to trained passive)
-%     trained_experiments = ismember({experiments.day},{bhv_experiments.day});
-%     experiments = experiments(trained_experiments);
+    % Use only post-trained (larger response, match to trained passive)
+    bhv_protocol = 'choiceworld';
+    bhv_experiments = AP_find_experiments(animal,bhv_protocol,true);
+    bhv_experiments = bhv_experiments([bhv_experiments.imaging]);
+    trained_experiments = ismember({experiments.day},{bhv_experiments.day});
+    experiments = experiments(trained_experiments);
     
     im_stim_all = cell(length(experiments),1);
     
@@ -269,6 +267,40 @@ right_grating_fn = [right_grating_path filesep animal '_right_grating.mat'];
 load(right_grating_fn);
 
 AP_align_widefield(right_grating,animal,[],'new_animal',right_grating_master);
+
+
+%% Load and align grating responses (to check)
+
+% animals = {'AP063','AP064','AP066','AP068','AP071'};
+animals = {'AP085','AP086','AP087'};
+
+% Load right grating master
+right_grating_path = 'C:\Users\Andrew\OneDrive for Business\Documents\CarandiniHarrisLab\analysis\widefield_alignment\right_grating';
+right_grating_master_fn = [right_grating_path filesep 'right_grating_master.mat'];
+load(right_grating_master_fn);
+
+% Load and align right gratings
+right_grating_path = 'C:\Users\Andrew\OneDrive for Business\Documents\CarandiniHarrisLab\analysis\widefield_alignment\right_grating';
+right_gratings_aligned = nan(size(right_grating_master));
+for curr_animal = 1:length(animals)
+    animal = animals{curr_animal};
+    right_grating_fn = [right_grating_path filesep animal '_right_grating.mat'];
+    load(right_grating_fn);
+    right_grating_aligned(:,:,curr_animal) = ...
+        AP_align_widefield(right_grating,animal,[],'animal_only');
+end
+
+AP_image_scroll(cat(3,right_grating_master,right_grating_aligned));
+axis image;
+colormap(brewermap([],'PRGn'));
+caxis([-max(abs(caxis)),max(abs(caxis))]);
+AP_reference_outline('ccf_aligned',[0.5,0.5,0.5]);
+
+
+
+
+%% ~~~~~~~~~ SINGLE-RECORDING ANALYSIS ~~~~~~~~~
+
 
 
 %% ~~~~~~~~~ BATCH ANALYSIS ~~~~~~~~~
@@ -370,7 +402,7 @@ end
 % Get average pre/post for each animal
 im_stim_avg = cellfun(@(x) nanmean(cat(5,x{:}),5),im_stim_all,'uni',false);
 
-AP_image_scroll(im_stim_avg{1,2});
+AP_image_scroll([im_stim_avg{3,1},im_stim_avg{3,2}]);
 axis image;
 caxis([-max(abs(caxis)),max(abs(caxis))]);
 colormap(brewermap([],'*RdBu'));
@@ -553,8 +585,8 @@ save([save_path filesep save_fn],'-v7.3');
 % Task
 trial_data_path = 'C:\Users\Andrew\OneDrive for Business\Documents\CarandiniHarrisLab\analysis\corticostriatal\data';
 
-% data_fn = 'trial_activity_choiceworld_corticostriatal_wfonly';
-data_fn = 'trial_activity_AP_lcrGratingPassive_corticostriatal_wfonly';
+data_fn = 'trial_activity_choiceworld_corticostriatal_wfonly';
+% data_fn = 'trial_activity_AP_lcrGratingPassive_corticostriatal_wfonly';
 
 AP_load_concat_normalize_ctx_str;
 
