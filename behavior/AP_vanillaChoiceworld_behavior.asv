@@ -914,8 +914,7 @@ ylabel(['Velocity/min days ' num2str(avg_days)])
 
 %% Batch load behavior
 
-% animals = {'AP024','AP025','AP026','AP027','AP028','AP029'};
-animals = {'AP063','AP064','AP066','AP068','AP071','AP085','AP086','AP087'};
+animals = {'AP024','AP025','AP026','AP027','AP028','AP029'};
 
 bhv = struct;
 
@@ -933,7 +932,7 @@ for curr_animal = 1:length(animals)
     for curr_day = 1:length(experiments)
         
         day = experiments(curr_day).day;
-        experiment = experiments(curr_day).experiment(end);
+        experiment = experiments(curr_day).experiment;
         
         AP_load_experiment              
         
@@ -972,6 +971,21 @@ for curr_animal = 1:length(animals)
             error('Non-valid choice')
         end
                
+        % Max wheel speed around choice
+        % CHANGE THIS: make it be stim -> feedback for each trial
+        use_move_times = reshape(wheel_move_time(use_trials),[],1);       
+        interval_surround = [0,0.6];
+        sample_t = 0.01;
+        t_surround = interval_surround(1):sample_t:interval_surround(2);
+        t_peri_move = bsxfun(@plus,use_move_times,t_surround);       
+        move_aligned_wheel = interp1(conv2(Timeline.rawDAQTimestamps,[0.5,0.5],'valid'), ...
+            wheel_velocity,t_peri_move);
+        min_wheel_velocity = min(move_aligned_wheel,[],2);
+        max_wheel_velocity = max(move_aligned_wheel,[],2);
+        trial_wheel_velocity = nan(sum(use_trials),1);
+        trial_wheel_velocity(trial_choice(use_trials) == -1) = min_wheel_velocity(trial_choice(use_trials) == -1);
+        trial_wheel_velocity(trial_choice(use_trials) == 1) = max_wheel_velocity(trial_choice(use_trials) == 1);
+        
         % Store in behavior structure
         bhv(curr_animal).animal = animal;
         bhv(curr_animal).days{curr_day} = day;
@@ -987,6 +1001,7 @@ for curr_animal = 1:length(animals)
         bhv(curr_animal).trial_outcome{curr_day} = trial_outcome(use_trials);
         bhv(curr_animal).stim_to_move{curr_day} = stim_to_move(use_trials);
         bhv(curr_animal).stim_to_feedback{curr_day} = stim_to_feedback(use_trials);
+        bhv(curr_animal).trial_wheel_velocity{curr_day} = trial_wheel_velocity;
         
         clearvars -except animals protocol experiments load_parts curr_animal curr_day animal bhv 
     end
@@ -994,10 +1009,6 @@ for curr_animal = 1:length(animals)
     AP_print_progress_fraction(curr_animal,length(animals));
     
 end
-
-% clearvars -except bhv
-
-%% Plot behavior (from above)
 
 animals = {bhv.animal};
 

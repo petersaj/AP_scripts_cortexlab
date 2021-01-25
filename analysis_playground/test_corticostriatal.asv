@@ -459,32 +459,12 @@ title('Difference');
 
 
 
-% Deconvolve average stim response and plot time-average
+% Deconvolve average
 im_stim_avg_deconv = cellfun(@(x) ...
     reshape(AP_deconv_wf(reshape(x,size(x,1)*size(x,2),[])),size(x)), ...
     im_stim_avg,'uni',false);
 
-use_stim = 3;
-use_t = [0.07,0.12];
-use_frames = surround_time >= use_t(1) & surround_time <= use_t(2);
-im_stim_avg_deconv_t = cellfun(@(x) nanmean(x(:,:,use_frames,use_stim),3),im_stim_avg_deconv,'uni',false);
-figure;
-for curr_animal = 1:size(im_stim_avg_deconv_t,1)
-    for curr_training = 1:2
-        subplot(3,length(animals),length(animals)*(curr_training-1)+curr_animal);
-        imagesc(im_stim_avg_deconv_t{curr_animal,curr_training});
-        axis image off;
-        caxis([-max(abs(caxis)),max(abs(caxis))]);
-        colormap(brewermap([],'*RdBu'));
-    end
-    subplot(3,length(animals),length(animals)*2+curr_animal);
-    imagesc(im_stim_avg_deconv_t{curr_animal,2} - ...
-        im_stim_avg_deconv_t{curr_animal,1});
-    axis image off;
-    caxis([-max(abs(caxis)),max(abs(caxis))]);
-    colormap(brewermap([],'*RdBu'));
-    title(animals{curr_animal});
-end
+
 
 
 
