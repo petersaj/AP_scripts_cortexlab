@@ -75,7 +75,7 @@ switch align_type
         [optimizer, metric] = imregconfig('monomodal');
         optimizer.GradientMagnitudeTolerance = 1e-4;
         optimizer.MaximumIterations = 300;
-        optimizer.MaximumStepLength = 5e-2;
+        optimizer.MaximumStepLength = 5e-4;
         optimizer.MinimumStepLength = 1e-6;
         optimizer.RelaxationFactor = 0.5;
         

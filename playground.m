@@ -11976,7 +11976,7 @@ end
 %% Average stim-aligned cortex
 
 % Get average stim-aligned fluorescence 
-plot_trials = trial_stim_allcat == -0.125 & trial_choice_allcat == -1;
+plot_trials = trial_stim_allcat > 0 & trial_choice_allcat == 1;
 plot_trials_exp = mat2cell(plot_trials,use_split,1);
 
 fluor_allcat_deconv_exp = mat2cell(fluor_allcat_deconv,use_split,length(t),n_vs);

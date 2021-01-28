@@ -565,7 +565,7 @@ colormap(brewermap([],'*RdBu'));
 set(gcf,'Name',animal);
 
 % Gui for plotting responses
-pixelTuningCurveViewerSVD(Udf,fVdf_deconv,frame_t,stimOn_times,stimIDs,surround_window);
+pixelTuningCurveViewerSVD(Uh,fVh,frame_t,stimOn_times,stimIDs,surround_window);
 
 % Get average responses
 avg_window = [0.05,0.2];
@@ -2060,7 +2060,7 @@ ylabel(c,'Explained variance')
 
 %% Align vasculature for animal
 
-animal = 'AP087';
+animal = 'AP077';
 
 protocol = 'AP_lcrGratingPassive';
 experiments = AP_find_experiments(animal,protocol);
@@ -2077,20 +2077,20 @@ for curr_day = 1:length(experiments)
     avg_im_days_purple{curr_day} = avg_im_purple;
 end
 
-% % Align with normalized averages        
-% im_norm = cellfun(@(x) x./mad(x(:),true),avg_im_days_blue,'uni',false);        
-% AP_align_widefield(im_norm,animal,{experiments.day},'new_days');
+% Align with normalized averages        
+im_norm = cellfun(@(x) x./mad(x(:),true),avg_im_days_blue,'uni',false);        
+AP_align_widefield(im_norm,animal,{experiments.day},'new_days');
 
-% Align with edges
-im_edge = cellfun(@(x) x-imgaussfilt(x,10),avg_im_days_purple,'uni',false);
-AP_align_widefield(im_edge,animal,{experiments.day},'new_days');
+% % Align with edges
+% im_edge = cellfun(@(x) x-imgaussfilt(x,10),avg_im_days_purple,'uni',false);
+% AP_align_widefield(im_edge,animal,{experiments.day},'new_days');
 
 
 
 
 %% View aligned vasculature (to check that it's been done correctly)
 
-animal = 'AP079';
+animal = 'AP075';
 
 protocol = 'AP_lcrGratingPassive';
 experiments = AP_find_experiments(animal,protocol);

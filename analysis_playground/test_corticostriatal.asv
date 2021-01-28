@@ -150,11 +150,108 @@ AP_stackplot(psth_measured',surround_time,2,false,'k',mua_bin_centers);
 AP_stackplot(psth_predicted',surround_time,2,false,[0,0.7,0]);
 line([0,0],ylim,'color','k','linestyle','--');
 
+
+%% Get widefield correlation boundaries
+% (doesn't work - not enough fluorescence to have strong boundaries)
+
+clear all
+animals = {'AP063','AP064','AP066','AP068','AP071','AP085','AP086','AP087'};
+protocol = 'vanillaChoiceworld';
+
+wf_corr_borders = struct;
+
+for curr_animal = 1:length(animals)
+    
+    animal = animals{curr_animal};
+    disp(animal);
+    
+    experiments = AP_find_experiments(animal,protocol);
+    % (wf-only days: no craniotomy)
+    experiments = experiments([experiments.imaging] & ~[experiments.ephys]);
+    
+    load_parts.cam = false;
+    load_parts.imaging = true;
+    load_parts.ephys = false;
+    
+    for curr_day = 1:length(experiments)
+        
+        day = experiments(curr_day).day;
+        experiment = experiments(curr_day).experiment;
+        
+        AP_load_experiment
+
+        % Get V covariance
+        Ur = reshape(Udf, size(Udf,1)*size(Udf,2),[]); % P x S
+        covV = cov(fVdf'); % S x S % this is the only one that takes some time really
+        varP = dot((Ur*covV)', Ur'); % 1 x P
+        
+        ySize = size(Udf,1); xSize = size(Udf,2);
+
+        px_spacing = 20;
+        use_y = 1:px_spacing:size(Udf,1);
+        use_x = 1:px_spacing:size(Udf,2);
+        corr_map = cell(length(use_y),length(use_x));
+        for curr_x_idx = 1:length(use_x)
+            curr_x = use_x(curr_x_idx);
+            for curr_y_idx = 1:length(use_y)
+                curr_y = use_y(curr_y_idx);
+                
+                pixel = [curr_y,curr_x];
+                pixelInd = sub2ind([ySize, xSize], pixel(1), pixel(2));
+                
+                covP = Ur(pixelInd,:)*covV*Ur'; % 1 x P
+                stdPxPy = varP(pixelInd).^0.5 * varP.^0.5; % 1 x P
+                corrMat = reshape(covP./stdPxPy,ySize,xSize); % 1 x P
+                
+                corr_map{curr_y_idx,curr_x_idx} = corrMat;
+            end
+        end       
+        
+        % Get downsampled correlation maps
+        downsample_factor = 10;
+        corr_map_downsamp = cellfun(@(x) ...
+            imresize(x,1/downsample_factor,'bilinear'),corr_map,'uni',false);
+                
+%         % OLD: Correlation map edge detection
+%         corr_map_cat = cat(3,corr_map{:});
+%         corr_map_edge = corr_map_cat-imgaussfilt(corr_map_cat,20);
+%         corr_map_edge_norm = reshape(zscore(reshape(corr_map_edge,[], ...
+%             size(corr_map_edge,3)),[],1),size(corr_map_edge));      
+%         corr_edges = nanmean(corr_map_edge,3);
+        
+        % NEW: Correlation map edge detection
+        corr_map_cat = cat(3,corr_map{:});
+        corr_map_edge = corr_map_cat-imfilter(corr_map_cat,fspecial('disk',20));
+        corr_map_edge_norm = reshape(zscore(reshape(corr_map_edge,[], ...
+            size(corr_map_edge,3)),[],1),size(corr_map_edge));      
+        corr_edges = nanmean(corr_map_edge,3);
+        % (get rid of high frequency of edges - vasculature/bone)
+        corr_edges_highpass = corr_edges - imfilter(corr_edges,fspecial('disk',10));
+        corr_edges_lowpass = corr_edges - corr_edges_highpass;
+        
+        wf_corr_borders(curr_animal).corr_map_downsamp{curr_day} = corr_map_downsamp;
+        wf_corr_borders(curr_animal).corr_edges{curr_day} = corr_edges_lowpass;
+        
+        clearvars -except animals animal curr_animal protocol experiments curr_day animal wf_corr_borders load_parts
+        
+        AP_print_progress_fraction(curr_day,length(experiments));
+    end
+end
+
+% (OLD - DON'T OVERWRITE, CHOOSE NEW PLACE?)
+% % Save widefield correlation borders
+% save_path = ['C:\Users\Andrew\OneDrive for Business\Documents\CarandiniHarrisLab\analysis\wf_ephys_choiceworld\wf_processing\wf_borders'];
+% save_fn = [save_path filesep 'wf_corr_borders'];
+% save(save_fn,'wf_corr_borders');
+% disp(['Saved ' save_fn]);
+
+
+
 %% ~~~~~~~~~ ALIGNMENT ~~~~~~~~~
 
 %% Get and save average response to right grating (for animal alignment)
 
-animals = {'AP085','AP086','AP087'};
+animals = {'AP075'};
 
 for curr_animal = 1:length(animals)
     
@@ -260,7 +357,7 @@ right_grating_master_fn = [right_grating_path filesep 'right_grating_master.mat'
 load(right_grating_master_fn);
 
 % Align animal to master
-animal = 'AP087';
+animal = 'AP075';
 
 right_grating_path = 'C:\Users\Andrew\OneDrive for Business\Documents\CarandiniHarrisLab\analysis\widefield_alignment\right_grating';
 right_grating_fn = [right_grating_path filesep animal '_right_grating.mat'];
@@ -272,7 +369,9 @@ AP_align_widefield(right_grating,animal,[],'new_animal',right_grating_master);
 %% Load and align grating responses (to check)
 
 % animals = {'AP063','AP064','AP066','AP068','AP071'};
-animals = {'AP085','AP086','AP087'};
+% animals = {'AP085','AP086','AP087'};
+
+animals = {'AP063','AP064','AP066','AP068','AP071','AP075','AP077','AP079','AP085','AP086','AP087'};
 
 % Load right grating master
 right_grating_path = 'C:\Users\Andrew\OneDrive for Business\Documents\CarandiniHarrisLab\analysis\widefield_alignment\right_grating';
@@ -459,12 +558,32 @@ title('Difference');
 
 
 
-% Deconvolve average
+% Deconvolve average stim response and plot time-average
 im_stim_avg_deconv = cellfun(@(x) ...
     reshape(AP_deconv_wf(reshape(x,size(x,1)*size(x,2),[])),size(x)), ...
     im_stim_avg,'uni',false);
 
-
+use_stim = 3;
+use_t = [0.07,0.12];
+use_frames = surround_time >= use_t(1) & surround_time <= use_t(2);
+im_stim_avg_deconv_t = cellfun(@(x) nanmean(x(:,:,use_frames,use_stim),3),im_stim_avg_deconv,'uni',false);
+figure;
+for curr_animal = 1:size(im_stim_avg_deconv_t,1)
+    for curr_training = 1:2
+        subplot(3,length(animals),length(animals)*(curr_training-1)+curr_animal);
+        imagesc(im_stim_avg_deconv_t{curr_animal,curr_training});
+        axis image off;
+        caxis([-max(abs(caxis)),max(abs(caxis))]);
+        colormap(brewermap([],'*RdBu'));
+    end
+    subplot(3,length(animals),length(animals)*2+curr_animal);
+    imagesc(im_stim_avg_deconv_t{curr_animal,2} - ...
+        im_stim_avg_deconv_t{curr_animal,1});
+    axis image off;
+    caxis([-max(abs(caxis)),max(abs(caxis))]);
+    colormap(brewermap([],'*RdBu'));
+    title(animals{curr_animal});
+end
 
 
 
@@ -613,7 +732,24 @@ split_idx = cell2mat(arrayfun(@(exp,trials) repmat(exp,trials,1), ...
 
 
 
+%% -- Task > cortex kernels
 
+% Get task>cortex parameters
+n_regressors = length(task_regressor_labels);
+task_regressor_t_shifts = cellfun(@(x) x/sample_rate,task_regressor_sample_shifts,'uni',false);
+
+% Get average task > cortex kernels (V's and ROIs)
+regressor_v = cell(n_regressors,1);
+for curr_regressor = 1:n_regressors
+    regressor_v{curr_regressor} = nanmean(cell2mat(cellfun(@(x) x{curr_regressor}, ...
+        permute(vertcat(fluor_taskpred_k_all{:}),[2,3,4,1]),'uni',false)),4);   
+    AP_print_progress_fraction(curr_regressor,n_regressors);
+end
+
+% Get regressor pixels
+regressor_px = cellfun(@(v) cell2mat(arrayfun(@(subregressor) ...
+    svdFrameReconstruct(U_master(:,:,1:n_vs),permute(v(subregressor,:,:),[3,2,1])), ...
+    permute(1:size(v,1),[1,3,4,2]),'uni',false)),regressor_v,'uni',false);
 
 
 
