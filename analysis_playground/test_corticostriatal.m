@@ -403,12 +403,14 @@ AP_reference_outline('ccf_aligned',[0.5,0.5,0.5]);
 
 
 
-%% ~~~~~~~~~ BATCH ANALYSIS ~~~~~~~~~
+%% ~~~~~~~~~ GRAB & SAVE BATCH  ~~~~~~~~~
 
 %% Get passive responses before/after training
 
-animals = {'AP063','AP064','AP066','AP068','AP071','AP085','AP086','AP087'};
-% animals = {'AP085','AP086','AP087'};
+clear all
+disp('Getting pre/post training passive stim')
+
+animals = {'AP063','AP064','AP066','AP071','AP068','AP085','AP086','AP087'};
 
 im_stim_all = cell(length(animals),2);
 
@@ -495,8 +497,8 @@ for curr_animal = 1:length(animals)
             
             im_stim_all{curr_animal,curr_training}{curr_day} = im_stim;
             AP_print_progress_fraction(curr_day,length(curr_experiments));
-        end       
-    end        
+        end
+    end
 end
 
 % Get average pre/post for each animal
@@ -589,12 +591,12 @@ end
 
 
 
-%% Grab and save corticostriatal choiceworld trial data (widefield-only days)
+%% Choiceworld trial data (DCS)
 
 clear all
-disp('Choiceworld trial activity (widefield-only days)')
+disp('Choiceworld trial activity (DCS)')
 
-animals = {'AP063','AP064','AP066','AP068','AP071'};
+animals = {'AP063','AP064','AP066','AP071'};
 
 % Initialize save variable
 trial_data_all = struct;
@@ -648,15 +650,15 @@ disp('Finished loading all')
 
 % Save
 save_path = 'C:\Users\Andrew\OneDrive for Business\Documents\CarandiniHarrisLab\analysis\corticostriatal\data';
-save_fn = ['trial_activity_choiceworld_corticostriatal_wfonly'];
+save_fn = ['trial_activity_choiceworld_cstr_dcs'];
 save([save_path filesep save_fn],'-v7.3');
 
-%% Grab and save corticostriatal passive trial data (new mice, widefield-only days)
+%% Choiceworld trial data (DMS)
 
 clear all
-disp('Choiceworld trial activity (widefield-only days)')
+disp('Choiceworld trial activity (DMS)')
 
-animals = {'AP077','AP079','AP085','AP086','AP087'};
+animals = {'AP068','AP085','AP086','AP087'};
 
 % Initialize save variable
 trial_data_all = struct;
@@ -664,7 +666,7 @@ trial_data_all = struct;
 for curr_animal = 1:length(animals)
     
     animal = animals{curr_animal};
-    protocol = 'AP_lcrGratingPassive';
+    protocol = 'vanillaChoiceworld';
     experiments = AP_find_experiments(animal,protocol);
     
     experiments = experiments([experiments.imaging] & ~[experiments.ephys]);
@@ -694,6 +696,8 @@ for curr_animal = 1:length(animals)
         % Store general info
         trial_data_all.animals = animals;
         trial_data_all.t = t;
+        trial_data_all.task_regressor_labels = task_regressor_labels;
+        trial_data_all.task_regressor_sample_shifts = task_regressor_sample_shifts;
         
         AP_print_progress_fraction(curr_day,length(experiments));
         
@@ -708,17 +712,21 @@ disp('Finished loading all')
 
 % Save
 save_path = 'C:\Users\Andrew\OneDrive for Business\Documents\CarandiniHarrisLab\analysis\corticostriatal\data';
-save_fn = ['trial_activity_AP_lcrGratingPassive_corticostriatal_wfonly'];
+save_fn = ['trial_activity_choiceworld_cstr_dms'];
 save([save_path filesep save_fn],'-v7.3');
 
 
-%% Load corticostriatal trial data
+
+%% ~~~~~~~~~ BATCH ANALYSIS ~~~~~~~~~
+
+
+%% [[Load corticostriatal trial data]]
 
 % Task
 trial_data_path = 'C:\Users\Andrew\OneDrive for Business\Documents\CarandiniHarrisLab\analysis\corticostriatal\data';
 
-data_fn = 'trial_activity_choiceworld_corticostriatal_wfonly';
-% data_fn = 'trial_activity_AP_lcrGratingPassive_corticostriatal_wfonly';
+% data_fn = 'trial_activity_choiceworld_cstr_dcs';
+data_fn = 'trial_activity_choiceworld_cstr_dms';
 
 AP_load_concat_normalize_ctx_str;
 
@@ -733,7 +741,7 @@ split_idx = cell2mat(arrayfun(@(exp,trials) repmat(exp,trials,1), ...
 
 
 
-%% -- Task > cortex kernels
+%% Task > cortex kernels
 
 % Get task>cortex parameters
 n_regressors = length(task_regressor_labels);
@@ -751,6 +759,197 @@ end
 regressor_px = cellfun(@(v) cell2mat(arrayfun(@(subregressor) ...
     svdFrameReconstruct(U_master(:,:,1:n_vs),permute(v(subregressor,:,:),[3,2,1])), ...
     permute(1:size(v,1),[1,3,4,2]),'uni',false)),regressor_v,'uni',false);
+
+plot_regressor = 1;
+AP_image_scroll(regressor_px{plot_regressor})
+caxis([-max(abs(caxis)),max(abs(caxis))]);
+colormap(brewermap([],'*RdBu'));
+axis image;
+
+
+%% Choice regression (multiple timepoints)
+
+use_svs = 1:100;
+lambda = 2;
+zs = [false,false];
+cvfold = 5;
+
+use_trials = trial_stim_allcat == 0;
+use_t = t < 0.5;
+
+predict_choice = trial_choice_allcat(use_trials)';
+
+[k,predicted_choice] = ...
+    AP_regresskernel( ...
+    reshape(permute(fluor_allcat_deconv(use_trials,use_t,use_svs),[2,3,1]),[],sum(use_trials)), ...
+    predict_choice,0,lambda,zs,cvfold);
+
+k_px = svdFrameReconstruct(U_master(:,:,use_svs), ...
+    reshape(k,sum(use_t),length(use_svs))');
+
+AP_image_scroll(k_px,t(use_t));
+axis image;
+colormap(brewermap([],'PrGn'));
+caxis([-max(abs(caxis)),max(abs(caxis))]);
+AP_reference_outline('ccf_aligned','k');
+
+sign_accuracy = nanmean(sign(predicted_choice) == sign(predict_choice));
+disp(['Sign accuracy: ' num2str(sign_accuracy)]);
+
+
+%% Choice regression (all single timepoints)
+
+% % Make move-aligned fluorescence
+% fluor_allcat_deconv_move = fluor_allcat_deconv;
+% t_leeway = -t(1);
+% leeway_samples = round(t_leeway*(sample_rate));
+% for i = 1:size(fluor_allcat_deconv,1)
+%     fluor_allcat_deconv_move(i,:,:,:) = circshift(fluor_allcat_deconv_move(i,:,:,:),-move_idx(i)+leeway_samples,2);
+% end
+
+use_svs = 1:100;
+lambda = 2;
+zs = [false,false];
+cvfold = 5;
+
+use_trials = trial_stim_allcat == 0 & move_t > 0.5;
+predict_choice = AP_shake(trial_choice_allcat(use_trials)');
+    
+k_choice = nan(length(use_svs),length(t));
+sign_accuracy = nan(size(t));
+for curr_t = 1:length(t)
+      
+    [k_choice(:,curr_t),predicted_choice] = ...
+        AP_regresskernel( ...
+        reshape(permute(fluor_allcat_deconv(use_trials,curr_t,use_svs),[2,3,1]),[],sum(use_trials)), ...
+        predict_choice,0,lambda,zs,cvfold);
+    
+    sign_accuracy(curr_t) = nanmean(sign(predicted_choice) == sign(predict_choice));
+    AP_print_progress_fraction(curr_t,length(t));
+    
+end
+
+k_px = svdFrameReconstruct(U_master(:,:,use_svs),k_choice);
+AP_image_scroll(k_px,t);
+axis image;
+colormap(brewermap([],'PrGn'));
+caxis([-max(abs(caxis)),max(abs(caxis))]);
+AP_reference_outline('ccf_aligned','k');
+
+figure;
+plot(t,sign_accuracy,'k');
+xlabel('Time');
+ylabel('Sign accuracy');
+
+
+%% Choice regression (ROI: all single timepoints)
+
+guide_im = svdFrameReconstruct(U_master(:,:,1:n_vs), ...
+    squeeze(nanmean(nanmean(fluor_allcat_deconv(trial_stim_allcat == 1,21:23,:),1),2)));
+[roi_trace_long,roi_mask] = AP_svd_roi(U_master(:,:,1:n_vs), ...
+    reshape(permute(fluor_allcat_deconv,[3,2,1]),n_vs,[]),guide_im);
+
+roi_trace = reshape(roi_trace_long,length(t),[])';
+
+lambda = 0;
+zs = [false,false];
+cvfold = 5;
+
+use_trials = trial_stim_allcat == 0 & move_t > 0.5;
+predict_choice = trial_choice_allcat(use_trials)';
+    
+k_choice = nan(size(t));
+sign_accuracy = nan(size(t));
+for curr_t = 1:length(t)
+      
+    [k_choice(:,curr_t),predicted_choice] = ...
+        AP_regresskernel( ...
+        roi_trace(use_trials,curr_t)', ...
+        predict_choice,0,lambda,zs,cvfold);
+    
+    sign_accuracy(curr_t) = nanmean(sign(predicted_choice) == sign(predict_choice));
+    AP_print_progress_fraction(curr_t,length(t));
+    
+end
+
+figure;
+plot(t,sign_accuracy,'k');
+xlabel('Time');
+ylabel('Sign accuracy');
+
+%% ROI stim activity by choice
+
+guide_im = svdFrameReconstruct(U_master(:,:,1:n_vs), ...
+    squeeze(nanmean(nanmean(fluor_allcat_deconv(trial_stim_allcat == 1,21:23,:),1),2)));
+[roi_trace_long,roi_mask] = AP_svd_roi(U_master(:,:,1:n_vs), ...
+    reshape(permute(fluor_allcat_deconv,[3,2,1]),n_vs,[]),guide_im);
+roi_trace = reshape(roi_trace_long,length(t),[])';
+
+[roi_trace_grp,grp_name] = grpstats(roi_trace, ...
+    [trial_stim_allcat,trial_choice_allcat],{'mean','gname'});
+
+grp = cellfun(@str2num,grp_name);
+
+figure;
+stim_col = colormap_BlueWhiteRed(5);
+stim_col(6,:) = 0;
+subplot(1,2,1); hold on;
+set(gca,'ColorOrder',stim_col);
+plot(t,roi_trace_grp(grp(:,2) == 1,:)');
+title('Orient left');
+subplot(1,2,2); hold on;
+set(gca,'ColorOrder',stim_col);
+plot(t,roi_trace_grp(grp(:,2) == -1,:)');
+title('Orient right');
+linkaxes(get(gcf,'Children'),'xy')
+
+
+
+
+
+move_col = [0.6,0,0.6;1,0.6,0];
+
+
+
+%% (testing Peter model)
+
+
+use_trials = true(size(trial_stim_allcat));
+
+% Get behavioural data
+D = struct;
+D.stimulus = zeros(sum(use_trials),2);
+
+L_trials = trial_choice_allcat == -1;
+R_trials = trial_choice_allcat == 1;
+
+D.stimulus(L_trials(use_trials),1) = trial_stim_allcat(L_trials & use_trials);
+D.stimulus(R_trials(use_trials),2) = trial_stim_allcat(R_trials & use_trials);
+
+D.response = ((trial_choice_allcat(use_trials)+1)/2)+1;
+D.repeatNum = ones(sum(use_trials),1);
+
+% Fit fluor model (across all timepoints)
+cvfold = 5;
+use_Vs = 1:100;
+
+pV = nan(size(U_master,1),size(U_master,2),length(t),2);
+for curr_t = 1:length(t)
+    
+    %                 D.offset_ZL = g.ZL(behavParameterFit, g.Zinput(g.data));
+    D.neur = double(squeeze(fluor_allcat_deconv(use_trials,curr_t,use_Vs)));
+    g_neur = GLM(D).setModel('AP_test_V').fitCV(cvfold);
+    %                 pL = g_neur.p_hat(:,1);
+    %                 pR = g_neur.p_hat(:,2);
+    %                 likelihood = pL.*(g_neur.data.response==1) + pR.*(g_neur.data.response==2);
+    %                 loglik_bpt_fluor = mean(log2(likelihood));
+    
+    pV_mean_cv = nanmean(g_neur.parameterFits(:,2:end),1);
+    pV(:,:,curr_t) = svdFrameReconstruct(U_master(:,:,use_Vs),pV_mean_cv');
+    AP_print_progress_fraction(curr_t,length(t));
+end
+
+
 
 
 

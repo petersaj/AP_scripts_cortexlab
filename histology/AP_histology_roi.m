@@ -1,24 +1,27 @@
 %% Get fluorescence in ROI
 
-% Set path with mouse
-im_path = '\\znas.cortexlab.net\Subjects\AP077\histology';
-slice_path = [im_path filesep 'slices'];
+%% Set user options
 
-% Load CCF atlas structure tree
+% Path for images
+slice_path = '\\znas.cortexlab.net\Subjects\AP077\histology\slices';
 allen_atlas_path = 'C:\Users\Andrew\OneDrive for Business\Documents\Atlases\AllenCCF';
-st = loadStructureTree([allen_atlas_path filesep 'structure_tree_safe_2017.csv']);
-
-% Load CCF slices
 ccf_slice_fn = [slice_path filesep 'histology_ccf.mat'];
-load(ccf_slice_fn);
-
-% Load histology/CCF alignment
 ccf_alignment_fn = [slice_path filesep 'atlas2histology_tform.mat'];
+
+% ROI area name (all under hierarchy will be included)
+roi_area = 'Dentate gyrus';
+
+% Channel to use
+use_channel = 2;
+
+%% Get summed fluorescence in ROI and channel
+
+% Load CCF and alignment
+st = loadStructureTree([allen_atlas_path filesep 'structure_tree_safe_2017.csv']);
+load(ccf_slice_fn);
 load(ccf_alignment_fn);
 
-% Set ROI, get areas within that area hierarchy
-roi_area = 'Anterior cingulate area';
-
+% Get ROI within area hierarchy
 roi_id_path = st.structure_id_path(find(strcmp(st.safe_name,roi_area)));
 roi_idx = find(contains(st.structure_id_path,roi_id_path));
 
@@ -46,7 +49,6 @@ for curr_slice = 1:length(slice_im_fn)
     % Get summed fluorescence of channel within ROI
     curr_slice_av_roimask = ismember(curr_slice_av,roi_idx);
     
-    use_channel = 2;
     slice_fluor(curr_slice) = ...
         reshape(double(curr_slice_im(:,:,use_channel)),1,[])* ...
         reshape(curr_slice_av_roimask,[],1);

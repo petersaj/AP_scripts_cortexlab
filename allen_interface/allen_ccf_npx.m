@@ -19,7 +19,7 @@ bregma = [540,0,570];
 
 % If not already loaded in, load in atlas
 if nargin < 3
-    allen_atlas_path = 'C:\Users\Andy\Documents\AllenCCF';
+    allen_atlas_path = 'C:\Users\Andrew\OneDrive for Business\Documents\Atlases\AllenCCF';
     if isempty(allen_atlas_path)
         error('Enter path where Allen CCF is stored at Line 23');
     end

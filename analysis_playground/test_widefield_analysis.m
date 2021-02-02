@@ -531,7 +531,7 @@ if ~exist('fVdf_deconv','var')
 end
 
 % %%%%%%%%%%% TESTING
-% fVdf_deconv = fVdf;
+fVdf_deconv = fVdf;
 % %%%%%%%%%%%
 
 % Average (time course) responses
@@ -2090,7 +2090,7 @@ AP_align_widefield(im_norm,animal,{experiments.day},'new_days');
 
 %% View aligned vasculature (to check that it's been done correctly)
 
-animal = 'AP075';
+animal = 'AP041';
 
 protocol = 'AP_lcrGratingPassive';
 experiments = AP_find_experiments(animal,protocol);

@@ -312,15 +312,11 @@ colormap(brewermap([],'*RdBu'));
 caxis([-max(abs(caxis)),max(abs(caxis))]);
 
 
-%%% (testing autoregression)
-stim_frames = histcounts(stimOn_times,frame_t);
+%%% (testing makeseparable)
+a = AP_svdFrameReconstruct(U_master,stim_v_all{end,1});
 
-[k,pred,explained_var] = ...
-    AP_regresskernel( ...
-    {fVdf_deconv,stim_frames}, ...
-    fVdf_deconv, {[-5:-1],[0:20]}, ...
-    [5,0],[0,0],5,false,true);
-
+MatrixIn = permute(a(320,361,:,:));
+[Col,Row,Scalar,Model,Residual,SingValues,Constant] = MakeSeparable(MatrixIn,ShowGraphics,GuessSign)
 
 
 

@@ -12049,8 +12049,8 @@ fluorpred_k = nan(length(use_split),length(kernel_frames));
 fluorpred_exp = cellfun(@(x) nan(size(x(:,:,1))),fluor_roi_deconv_exp,'uni',false);
 for curr_exp = 1:length(trials_recording)
 
-    regressor_roi = 1;
-    predict_roi = 3;
+    regressor_roi = 9; % 1 = V1
+    predict_roi = 19; % 3 = AM
     
     curr_mua = reshape(fluor_roi_deconv_exp{curr_exp}(:,use_t,predict_roi)',1,[]);
     curr_mua_std = curr_mua./nanstd(curr_mua);
@@ -12112,13 +12112,12 @@ for curr_exp = 1:max(split_idx)
 end
 
 figure; plot(ctxtaskpred_r2,ctxpred_r2,'.k')
+line([0,1],[0,1])
 xlabel('Task-predicted')
 ylabel(['Cortex-predicted (from ' wf_roi(regressor_roi).area ')'])
 title(wf_roi(predict_roi).area)
 axis square
-xlim([min([xlim,ylim]),max([xlim,ylim])]);
-ylim(xlim);
-line(xlim,xlim);
+xlim([min([xlim,ylim]),min([xlim,ylim])])
 
 %% (from above: BUT PREDICT MUA FROM FLUOR ROI)
 

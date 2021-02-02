@@ -87,11 +87,11 @@ if ~exist('discontinuities','var') || isempty(discontinuities)
    discontinuities = zeros(1,size(signals,2)); 
 elseif length(discontinuities) ~= size(signals,2)
     error('Discontinuities vector doesn''t match signals length')        
-else % standardize dimesion
-    discontinuities = discontinuities(:);
 end
 % (the binning and end are always discontinuities)
 discontinuities([1,end]) = 1;
+% (force discontinuities to be a column matrix)
+discontinuities = reshape(discontinuities,[],1);
 
 % Create design matrix of all time-shifted regressors
 regressor_design = cellfun(@(regressors,t_shifts) repmat(regressors', ...
@@ -189,7 +189,7 @@ cv_partition = nan(size(regressor_design,1),1);
 cv_partition(predictable_samples) = min(floor(linspace(1,cvfold+1,sum(predictable_samples))),cvfold)';
 
 % (to shuffle CV points instead of using consecutive chunks)
-% (NOT VALID FOR TIME SERIES - but necessary if input is ordered)
+% (NOT VALID FOR TIME SERIES - but necessary if not)
 % cv_partition(predictable_samples) = AP_shake(round(linspace(1,cvfold,sum(predictable_samples)))');
 
 k_cv = nan(size(regressors_gpu,2),size(signals,1),cvfold,'single');

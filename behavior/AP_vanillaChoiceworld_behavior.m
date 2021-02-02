@@ -1,6 +1,6 @@
 %% Get and plot behavior within mice (vanillaChoiceworld)
 % animals = {'AP063','AP064','AP066','AP068','AP071','AP085','AP086','AP087'};
-animals = {'AP079'};
+animals = {'AP040','AP041'};
 protocol = 'vanillaChoiceworld';
 flexible_name = true;
 
