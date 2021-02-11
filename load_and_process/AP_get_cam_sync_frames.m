@@ -9,6 +9,10 @@ function [cam_sync_frames,n_frames] = AP_get_cam_sync_frames(fn,draw_roi)
 % cam_sync_frames - video frames at strobe points
 % n_frames - number of total frames in the video
 
+% Known issue: disable erroneous matlab warning
+warning off MATLAB:subscripting:noSubscriptsSpecified
+
+
 if ~exist('draw_roi','var') || isempty(draw_roi)
     draw_roi = false;
 end
@@ -113,5 +117,6 @@ title('Sync frame (end)');
 
 drawnow;
 
-
+% Re-enable matlab warning
+warning on MATLAB:subscripting:noSubscriptsSpecified
 

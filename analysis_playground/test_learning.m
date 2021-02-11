@@ -211,9 +211,9 @@ caxis([-max(abs(caxis)),max(abs(caxis))]);
 colormap(brewermap([],'*RdBu'));
 
 
-%% Passive stim (U master)
+%% TESTING: Passive stim (U master)
 
-animal = 'AP040';
+animal = 'AP048';
 
 protocol = 'AP_lcrGratingPassive';
 experiments = AP_find_experiments(animal,protocol);
@@ -312,15 +312,500 @@ colormap(brewermap([],'*RdBu'));
 caxis([-max(abs(caxis)),max(abs(caxis))]);
 
 
-%%% (testing autoregression)
-stim_frames = histcounts(stimOn_times,frame_t);
+% %%% (testing autoregression, whole day)
+% use_vs = 1:200;
+% 
+% stim_frames = single(histcounts(stimOn_times(stimIDs == 1), ...
+%     [frame_t,frame_t(end)+mean(diff(frame_t))]));
+% 
+% [k,pred,explained_var] = ...
+%     AP_regresskernel( ...
+%     {fVdf_deconv(use_vs,:),stim_frames}, ...
+%     fVdf_deconv(use_vs,:), {[-5:-1],[0:35]}, ...
+%     [2,0],[0,0],5,false,true);
+% 
+% AP_image_scroll(svdFrameReconstruct(Udf(:,:,use_vs),permute(k{2},[3,2,1])));
+% axis image
+% caxis([-max(abs(caxis)),max(abs(caxis))]);
+% colormap(brewermap([],'*RdBu'));
 
-[k,pred,explained_var] = ...
+% %%% (testing autoregression, trials)
+% a = stim_v_all{end,1};
+% ar = reshape(a(use_vs,:),length(use_vs),[]);
+% 
+% stim_frames = zeros(size(a,3),size(a,2),'single');
+% stim_frames(:,find(surround_time >= 0,1)) = 1;
+% 
+% discontinuities = zeros(size(stim_frames),'single');
+% discontinuities(:,1) = 1;
+% 
+% [k,pred,explained_var] = ...
+%     AP_regresskernel( ...
+%     {ar,reshape(stim_frames',1,[])}, ...
+%     ar, {[-5:-1],[0:35]}, ...
+%     [2,0],[0,0],5,false,true,reshape(discontinuities',1,[]));
+% 
+% AP_image_scroll(svdFrameReconstruct(U_master(:,:,use_vs),permute(k{2},[3,2,1])));
+% axis image
+% caxis([-max(abs(caxis)),max(abs(caxis))]);
+% colormap(brewermap([],'*RdBu'));
+
+
+% autoregression for all days on given stim
+use_stim = 1;
+use_vs = 1:100;
+stim_k = nan(length(use_vs),36,size(stim_v_all,1));
+for curr_day = 1:size(stim_v_all,1)
+    
+    a = stim_v_all{curr_day,use_stim};
+    ar = reshape(a(use_vs,:),length(use_vs),[]);
+    
+    stim_frames = zeros(size(a,3),size(a,2),'single');
+    stim_frames(:,find(surround_time >= 0,1)) = 1;
+    
+    discontinuities = zeros(size(stim_frames),'single');
+    discontinuities(:,1) = 1;
+    
+    [k,pred,explained_var] = ...
+        AP_regresskernel( ...
+        {ar,reshape(stim_frames',1,[])}, ...
+        ar, {[-5:-1],[0:35]}, ...
+        [2,0],[0,0],5,false,true,reshape(discontinuities',1,[]));
+
+    stim_k(:,:,curr_day) = permute(k{2},[3,2,1]);
+    AP_print_progress_fraction(curr_day,size(stim_v_all,1));
+    
+end
+stim_k_px = AP_svdFrameReconstruct(U_master(:,:,use_vs),stim_k);
+AP_image_scroll(stim_k_px);
+axis image
+caxis([-max(abs(caxis)),max(abs(caxis))]);
+colormap(brewermap([],'*RdBu'));
+
+% (test get correlation with dprime);
+a = squeeze(sum(stim_k_px(:,:,1:10,:),3));
+[r,p] = corr(reshape(a,[],size(a,3))',dprime');
+r = reshape(r,size(a(:,:,1)));
+p = reshape(p,size(a(:,:,1)));
+figure;
+imagesc(r,'AlphaData',1-p);
+axis image off
+caxis([-max(abs(caxis)),max(abs(caxis))]);
+colormap(brewermap([],'*RdBu'));
+title('Kernel:Dprime corr')
+AP_reference_outline('ccf_aligned','k');
+
+
+%% Grab and save passive trial data
+
+clear all
+disp('Passive trial activity (learning)')
+
+animals = {'AP040','AP041','AP045','AP047','AP048'};
+
+% Initialize save variable
+trial_data_all = struct;
+
+for curr_animal = 1:length(animals)
+    
+    animal = animals{curr_animal};
+    protocol = 'AP_lcrGratingPassive';
+    experiments = AP_find_experiments(animal,protocol);
+    
+    experiments = experiments([experiments.imaging] & ~[experiments.ephys]);
+    
+    disp(['Loading ' animal]);
+    
+    for curr_day = 1:length(experiments)
+        
+        preload_vars = who;
+        
+        day = experiments(curr_day).day;
+        experiment = experiments(curr_day).experiment(end);
+        
+        % Load experiment
+        AP_load_experiment;
+        
+        % Pull out trial data
+        AP_ctx_str_grab_trial_data;
+        
+        % Store trial data into master structure
+        trial_data_fieldnames = fieldnames(trial_data);
+        for curr_trial_data_field = trial_data_fieldnames'
+            trial_data_all.(cell2mat(curr_trial_data_field)){curr_animal,1}{curr_day,1} = ...
+                trial_data.(cell2mat(curr_trial_data_field));
+        end
+        
+        % Store general info
+        trial_data_all.animals = animals;
+        trial_data_all.t = t;
+        
+        AP_print_progress_fraction(curr_day,length(experiments));
+        
+        % Clear for next loop
+        clearvars('-except',preload_vars{:});
+        
+    end
+    
+end
+
+clearvars -except trial_data_all
+disp('Finished loading all')
+
+% Save
+save_path = 'C:\Users\Andrew\OneDrive for Business\Documents\CarandiniHarrisLab\analysis\learning\data';
+save_fn = ['trial_activity_passive_learning'];
+save([save_path filesep save_fn],'-v7.3');
+
+
+
+
+
+%% Analyze passive trial data
+
+% Load data
+data_path = 'C:\Users\Andrew\OneDrive for Business\Documents\CarandiniHarrisLab\analysis\learning\data';
+data_fn = 'trial_activity_passive_learning';
+AP_load_concat_normalize_ctx_str;
+
+% Get animal and day index for each trial
+trial_animal = cell2mat(arrayfun(@(x) ...
+    x*ones(size(vertcat(wheel_all{x}{:}),1),1), ...
+    [1:length(wheel_all)]','uni',false));
+trial_day = cell2mat(cellfun(@(x) cell2mat(cellfun(@(curr_day,x) ...
+    curr_day*ones(size(x,1),1),num2cell(1:length(x))',x,'uni',false)), ...
+    wheel_all,'uni',false));
+
+% Get trials with movement during stim to exclude
+wheel_thresh = 0.025;
+quiescent_trials = ~any(abs(wheel_allcat(:,t >= -0.5 & t <= 0.5)) > wheel_thresh,2);
+
+% Get average fluorescence by animal, day, stim
+stim_unique = unique(trial_stim_allcat);
+stim_v_avg = cell(size(animals));
+for curr_animal = 1:length(animals)        
+    for curr_day = 1:max(trial_day(trial_animal == curr_animal))
+        for curr_stim_idx = 1:length(stim_unique)
+            use_trials = quiescent_trials & ...
+                trial_animal == curr_animal & ...
+                trial_day == curr_day & ...
+                trial_stim_allcat == stim_unique(curr_stim_idx);
+            stim_v_avg{curr_animal}(:,:,curr_day,curr_stim_idx) = ...
+                permute(nanmean(fluor_allcat(use_trials,:,:),1),[3,2,1]);
+        end       
+    end
+end
+
+% Autoregressive model to get clean stim response
+stim_k = cell(size(animals));
+for curr_animal = 1:length(animals)        
+    for curr_day = 1:max(trial_day(trial_animal == curr_animal))
+        for curr_stim_idx = 1:length(stim_unique)
+            
+            use_trials = quiescent_trials & ...
+                trial_animal == curr_animal & ...
+                trial_day == curr_day & ...
+                trial_stim_allcat == stim_unique(curr_stim_idx);            
+            
+            curr_fluor = fluor_allcat_deconv(use_trials,:,:);
+            curr_fluor_long = reshape(permute(curr_fluor,[2,1,3]),[],size(curr_fluor,3))';
+            
+            stim_frames = zeros(size(curr_fluor,1),size(curr_fluor,2),'single');
+            stim_frames(:,find(t >= 0,1)) = 1;
+            
+            discontinuities = zeros(size(stim_frames),'single');
+            discontinuities(:,1) = 1;
+            
+            [k,pred,explained_var] = ...
+                AP_regresskernel( ...
+                {curr_fluor_long,reshape(stim_frames',1,[])}, ...
+                curr_fluor_long, {[-5:-1],[0:35]}, ...
+                [2,0],[0,0],5,false,true,reshape(discontinuities',1,[]));
+            
+            stim_k{curr_animal}(:,:,curr_day,curr_stim_idx) = ...
+                permute(k{2},[3,2,1]);
+            
+        end       
+    end
+    
+    AP_print_progress_fraction(curr_animal,length(animals));
+    
+end
+
+% Compare with dprime
+% (at the moment, dprime is loaded in with behavior script)
+% (pad dprime with starting zeros: before behavior)
+
+dprime_pad = cellfun(@(x,max_days) padarray(x,[0,max_days-length(x)],0,'pre'), ...
+    dprime',num2cell(accumarray(trial_animal,trial_day,[],@max)),'uni',false);
+
+% Correlate dprime with stim average
+
+stim_t = t > 0.2 & t < 0.3;
+stim_v_avg_t = cellfun(@(x) squeeze(nanmean(x(:,stim_t,:,:),2)),stim_v_avg,'uni',false);
+
+use_stim = 1;
+stim_px_avg_t = cellfun(@(x) ...
+    svdFrameReconstruct(U_master(:,:,1:n_vs),x(:,:,use_stim)),stim_v_avg_t,'uni',false);
+
+
+[r,p] = cellfun(@(px,dprime) corr(reshape(px,[],size(px,3))', ...
+    dprime'),stim_px_avg_t,dprime_pad','uni',false);
+
+r_mean = reshape(nanmean(cell2mat(r),2),size(U_master(:,:,1)));
+p_mean = reshape(nanmean(cell2mat(p),2),size(U_master(:,:,1)));
+
+figure;
+imagesc(r_mean,'AlphaData',1-p_mean);
+axis image off
+caxis([-max(abs(caxis)),max(abs(caxis))]);
+colormap(brewermap([],'*RdBu'));
+title('Kernel:Dprime corr')
+AP_reference_outline('ccf_aligned','k');
+
+% Correlate dprime with stim avg each frame
+use_stim = 3;
+stim_px_avg = cellfun(@(x) ...
+    AP_svdFrameReconstruct(U_master(:,:,1:n_vs), ...
+    squeeze(x(:,:,:,use_stim))),stim_v_avg,'uni',false);
+
+[r,p] = arrayfun(@(curr_frame) ...
+    cellfun(@(px,dprime) corr(reshape(px(:,:,curr_frame,:),[],size(px,4))', ...
+    dprime'),stim_px_avg,dprime_pad','uni',false),1:length(t),'uni',false);
+
+r_avg = reshape(cell2mat(cellfun(@(x) nanmean(horzcat(x{:}),2),r,'uni',false)), ...
+    size(U_master,1),size(U_master,2),[]);
+AP_image_scroll(r_avg)
+axis image off
+caxis([-max(abs(caxis)),max(abs(caxis))]);
+colormap(brewermap([],'*RdBu'));
+AP_reference_outline('ccf_aligned','k');
+
+% Correlate dprime with stim kernel
+use_t = 1:10;
+stim_k_px_t = cellfun(@(x) AP_svdFrameReconstruct(U_master(:,:,1:n_vs), ...
+    squeeze(nanmean(x(:,use_t,:,:),2))),stim_k,'uni',false);
+
+use_stim = 3;
+[r,p] = cellfun(@(px,dprime) corr(reshape(px(:,:,:,use_stim),[],size(px,3))', ...
+    dprime'),stim_k_px_t,dprime_pad','uni',false);
+
+r_mean = reshape(nanmean(cell2mat(r),2),size(U_master(:,:,1)));
+p_mean = reshape(nanmean(cell2mat(p),2),size(U_master(:,:,1)));
+
+figure;
+imagesc(r_mean,'AlphaData',1-p_mean);
+axis image off
+caxis([-max(abs(caxis)),max(abs(caxis))]);
+colormap(brewermap([],'*RdBu'));
+title('Kernel:Dprime corr')
+AP_reference_outline('ccf_aligned','k');
+
+% Correlate dprime with stim kernel each frame
+stim_k_px_avg = cellfun(@(x) ...
+    AP_svdFrameReconstruct(U_master(:,:,1:n_vs),x), ...
+    stim_k,'uni',false);
+
+[r,p] = arrayfun(@(curr_frame) ...
+    cellfun(@(px,dprime) corr(reshape(px(:,:,curr_frame,:),[],size(px,4))', ...
+    dprime'),stim_k_px_avg,dprime_pad','uni',false),1:35,'uni',false);
+
+r_avg = reshape(cell2mat(cellfun(@(x) nanmean(horzcat(x{:}),2),r,'uni',false)), ...
+    size(U_master,1),size(U_master,2),[]);
+AP_image_scroll(r_avg)
+axis image off
+caxis([-max(abs(caxis)),max(abs(caxis))]);
+colormap(brewermap([],'*RdBu'));
+AP_reference_outline('ccf_aligned','k');
+
+% Regress dprime from stim kernels
+[dprime_k_long,dprime_pred,explained_var] = ...
+    cellfun(@(stim_k,dprime) ...
     AP_regresskernel( ...
-    {fVdf_deconv,stim_frames}, ...
-    fVdf_deconv, {[-5:-1],[0:20]}, ...
-    [5,0],[0,0],5,false,true);
+    reshape(stim_k,[],size(stim_k,3)), ...
+    dprime,0, ...
+    100,[false,true],1), ...
+    stim_k,dprime_pad','uni',false);
 
+dprime_k = cellfun(@(x) reshape(x,n_vs,[]),dprime_k_long,'uni',false);
+dprime_k_px_avg = svdFrameReconstruct(U_master(:,:,1:n_vs), ...
+    nanmean(cat(3,dprime_k{:}),3));
+
+AP_image_scroll(dprime_k_px_avg)
+axis image off
+caxis([-max(abs(caxis)),max(abs(caxis))]);
+colormap(brewermap([],'*RdBu'));
+AP_reference_outline('ccf_aligned','k');
+
+% Regress dprime from average
+use_stim = 3;
+[dprime_k_long,dprime_pred,explained_var] = ...
+    cellfun(@(stim_k,dprime) ...
+    AP_regresskernel( ...
+    reshape(stim_k,[],size(stim_k,3)), ...
+    dprime,0, ...
+    100,[false,true],1), ...
+    cellfun(@(x) x(:,:,:,use_stim),stim_v_avg,'uni',false), ...
+    dprime_pad','uni',false);
+
+dprime_k = cellfun(@(x) reshape(x,n_vs,[]),dprime_k_long,'uni',false);
+dprime_k_px_avg = svdFrameReconstruct(U_master(:,:,1:n_vs), ...
+    nanmean(cat(3,dprime_k{:}),3));
+
+AP_image_scroll(dprime_k_px_avg,t)
+axis image off
+caxis([-max(abs(caxis)),max(abs(caxis))]);
+colormap(brewermap([],'*RdBu'));
+AP_reference_outline('ccf_aligned','k');
+
+
+
+
+% Stim average grouped by dprime
+dprime_pad_cat = horzcat(dprime_pad{:});
+
+n_dprime_bins = 7;
+dprime_bin_edges = linspace(min(dprime_pad_cat),max(dprime_pad_cat),n_dprime_bins+1);
+dprime_bins = discretize(dprime_pad_cat,dprime_bin_edges);
+
+use_stim = 1;
+stim_v_avg_cat = cell2mat(permute(cellfun(@(x) x(:,:,:,use_stim), ...
+    stim_v_avg,'uni',false),[1,3,2]));
+
+stim_px_avg_dprime = AP_svdFrameReconstruct(U_master(:,:,1:n_vs), ...
+    permute(reshape(grpstats(reshape(stim_v_avg_cat,[],length(dprime_bins))', ...
+    dprime_bins),n_dprime_bins,n_vs,length(t)),[2,3,1]));
+AP_image_scroll(stim_px_avg_dprime,t)
+axis image
+caxis([-max(abs(caxis)),max(abs(caxis))]);
+colormap(brewermap([],'*RdBu'));
+AP_reference_outline('ccf_aligned','k');
+
+use_t = t > 0.2 & t < 0.3;
+stim_px_avg_dprime_t = squeeze(nanmean(stim_px_avg_dprime(:,:,use_t,:),3));
+
+figure;
+imagesc(reshape(stim_px_avg_dprime_t,size(U_master,1),[]));
+axis image off
+caxis([-max(abs(caxis)),max(abs(caxis))]);
+colormap(brewermap([],'*RdBu'));
+
+% (draw ROI)
+AP_image_scroll(stim_px_avg_dprime_t)
+axis image
+caxis([-max(abs(caxis)),max(abs(caxis))]);
+colormap(brewermap([],'*RdBu'));
+
+figure;hold on;
+
+plot(grpstats(dprime_pad_cat,dprime_bins),zscore(roi.trace));
+xlabel('Dprime')
+ylabel('ROI fluor (zscore)');
+
+
+% Stim kernel grouped by dprime
+dprime_pad_cat = horzcat(dprime_pad{:});
+
+n_dprime_bins = 7;
+dprime_bin_edges = linspace(min(dprime_pad_cat),max(dprime_pad_cat),n_dprime_bins+1);
+dprime_bins = discretize(dprime_pad_cat,dprime_bin_edges);
+
+stim_k_cat = cell2mat(permute(stim_k,[1,3,2]));
+
+stim_px_k_dprime = AP_svdFrameReconstruct(U_master(:,:,1:n_vs), ...
+    permute(reshape(grpstats(reshape(stim_k_cat,[],length(dprime_bins))', ...
+    dprime_bins),n_dprime_bins,n_vs,size(stim_k_cat,2)),[2,3,1]));
+AP_image_scroll(stim_px_k_dprime)
+axis image
+caxis([-max(abs(caxis)),max(abs(caxis))]);
+colormap(brewermap([],'*RdBu'));
+AP_reference_outline('ccf_aligned','k');
+
+use_t = 2:6;
+stim_px_k_dprime_t = squeeze(nanmean(stim_px_k_dprime(:,:,use_t,:),3));
+
+figure;
+imagesc(reshape(stim_px_k_dprime_t,size(U_master,1),[]));
+axis image off
+caxis([-max(abs(caxis)),max(abs(caxis))]);
+colormap(brewermap([],'*RdBu'));
+
+% ROIs of average stim response
+dprime_trial = cell2mat(cellfun(@(dprime,x) cell2mat(cellfun(@(dprime,x) ...
+    dprime*ones(size(x,1),1),num2cell(dprime)',x,'uni',false)), ...
+    dprime_pad,wheel_all,'uni',false));
+dprime_trial_bins = discretize(dprime_trial,dprime_bin_edges);
+
+use_trials = quiescent_trials & trial_stim_allcat == -1;
+
+use_roi = 17;
+a = grpstats(fluor_roi_deconv(use_trials,:,use_roi), ...
+    dprime_trial_bins(use_trials));
+use_t = t > 0 & t < 0.2;
+b = nanmean(fluor_roi_deconv(:,use_t,use_roi),2);
+
+figure; 
+subplot(1,2,1); hold on;
+set(gca,'ColorOrder',copper(n_dprime_bins));
+plot(t,a');
+subplot(1,2,2); 
+plot(grpstats(dprime_trial(use_trials),dprime_trial_bins(use_trials)), ...
+    grpstats(b(use_trials),dprime_trial_bins(use_trials),'mean'),'k','linewidth',2);
+xlabel('Dprime');
+ylabel('Fluor');
+
+plot_prctile = linspace(10,90,6);
+b_prctile = nan(length(plot_prctile),n_dprime_bins);
+for i = 1:n_dprime_bins
+   b_prctile(:,i) = prctile(b(use_trials & dprime_trial_bins == i),plot_prctile);
+end
+hold on; set(gca,'ColorOrder',parula(length(plot_prctile)));
+plot(grpstats(dprime_trial(use_trials),dprime_trial_bins(use_trials)),b_prctile')
+
+
+% trying difference in LR for each stim vs side-ignoring
+
+use_t = 1:10;
+stim_k_px_t = cellfun(@(x) AP_svdFrameReconstruct(U_master(:,:,1:n_vs), ...
+    squeeze(nanmean(x(:,use_t,:,:),2))),stim_k,'uni',false);
+
+stim_k_px_t_hemidiff = cellfun(@(x) x - ...
+    AP_reflect_widefield(x),stim_k_px_t,'uni',false);
+
+use_roi = 17;
+use_mask = wf_roi(use_roi).mask;
+
+a = cellfun(@(x) reshape((reshape(x,numel(U_master(:,:,1)),[])'*use_mask(:))./ ...
+    sum(use_mask(:)),size(x,3),size(x,4)),stim_k_px_t_hemidiff,'uni',false);
+
+b = cellfun(@(x) nanmean(x(:,1)-x(:,3)),a);
+
+% (get average stim response for all days with all contrasts)
+
+fullset_days = [10,13,13,16,15];
+
+lr_diff_v = nan(n_vs,length(t),length(animals));
+for curr_animal = 1:length(animals)
+    
+    L_trials = quiescent_trials & ...
+        trial_animal == curr_animal & ...
+        trial_day >= fullset_days(curr_animal) & ...
+        trial_stim_allcat == -1;
+    R_trials = quiescent_trials & ...
+        trial_animal == curr_animal & ...
+        trial_day >= fullset_days(curr_animal) & ...
+        trial_stim_allcat == 1;
+    
+    lr_diff_v(:,:,curr_animal) = ...
+        permute(nanmean(fluor_allcat_deconv(L_trials,:,:),1) - ...
+        nanmean(fluor_allcat_deconv(R_trials,:,:),1),[3,2,1]);
+    
+end
+
+lr_diff_px = AP_svdFrameReconstruct(U_master(:,:,1:n_vs),lr_diff_v);
+axis image
+caxis([-max(abs(caxis)),max(abs(caxis))]);
+colormap(brewermap([],'*RdBu'));
 
 
 

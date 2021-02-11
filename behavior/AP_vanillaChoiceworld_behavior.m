@@ -1,6 +1,6 @@
 %% Get and plot behavior within mice (vanillaChoiceworld)
 % animals = {'AP063','AP064','AP066','AP068','AP071','AP085','AP086','AP087'};
-animals = {'AP040','AP041'};
+animals = {'AP047','AP048','AP077','AP079'};
 protocol = 'vanillaChoiceworld';
 flexible_name = true;
 
@@ -77,6 +77,18 @@ for curr_animal = 1:length(animals)
             % Performance (note that this excludes repeat on incorrect trials)
             performance = block.events.sessionPerformanceValues(:,end-10:end);
             
+            % Hit/miss recorded for last trial, circshift to align
+            hitValues = circshift(block.events.hitValues,[0,-1]);
+            missValues = circshift(block.events.missValues,[0,-1]);
+            frac_correct = nanmean(hitValues(trial_stim ~= 0));   
+            
+            % Dprime (loglinear approach to normalizing)
+%             dprime = norminv(nanmean(hitValues(trial_stim > 0))) - ...
+%                 norminv(nanmean(missValues(trial_stim < 0)));
+            dprime = ...
+                norminv((sum(hitValues(trial_stim > 0))+0.5)./(sum(trial_stim > 0) + 1)) - ...
+                norminv((sum(missValues(trial_stim < 0))+0.5)./(sum(trial_stim < 0) + 1));
+
             % Get whether all contrasts were used
             use_all_contrasts = all(block.events.useContrastsValues(end-10:end));
             
@@ -92,6 +104,9 @@ for curr_animal = 1:length(animals)
             bhv.go_left_trials(curr_day,:) = performance(end,:);
             bhv.use_all_contrasts(curr_day) = use_all_contrasts;
             bhv.stim_rxn_time(curr_day,:) = stim_rxn_time;
+            
+            bhv.frac_correct(curr_day) = frac_correct;
+            bhv.dprime(curr_day) = dprime;           
             
             AP_print_progress_fraction(curr_day,length(experiments));
         end
@@ -109,7 +124,7 @@ for curr_animal = 1:length(animals)
     figure('Name',animal)
     
     % Trials and water
-    subplot(3,2,1); hold on;
+    subplot(3,3,1); hold on;
     yyaxis left
     % plot(day_num,bhv.n_trials./bhv.session_duration,'linewidth',2);
     % ylabel('Trials/min');
@@ -134,9 +149,34 @@ for curr_animal = 1:length(animals)
     for i = 1:length(ephys_days)
         line(repmat(ephys_days(i),1,2),ylim,'color','r','linestyle','--');
     end
+    
+    % Frac correct and d'
+    subplot(3,3,2); hold on;
+    yyaxis left
+    % plot(day_num,bhv.n_trials./bhv.session_duration,'linewidth',2);
+    % ylabel('Trials/min');
+    plot(day_num,bhv.frac_correct,'linewidth',2);
+    ylabel('Frac correct');
+    yyaxis right
+    plot(day_num,bhv.dprime,'linewidth',2);
+    ylabel('d''');
+    xlabel('Session');
+    set(gca,'XTick',day_num);
+    set(gca,'XTickLabel',day_labels);
+    set(gca,'XTickLabelRotation',90);
+        
+    imaging_days = day_num([experiments.imaging]);
+    for i = 1:length(imaging_days)
+        line(repmat(imaging_days(i),1,2),ylim,'color','k');
+    end
+    
+    ephys_days = day_num([experiments.ephys]);
+    for i = 1:length(ephys_days)
+        line(repmat(ephys_days(i),1,2),ylim,'color','r','linestyle','--');
+    end
       
     % Wheel movement and bias
-    subplot(3,2,2);
+    subplot(3,3,3);
     yyaxis left
     % plot(day_num,bhv.wheel_velocity./bhv.session_duration,'linewidth',2);
     % ylabel('Wheel movement / min');
@@ -916,22 +956,33 @@ ylabel(['Velocity/min days ' num2str(avg_days)])
 %% Batch load behavior
 
 % animals = {'AP024','AP025','AP026','AP027','AP028','AP029'};
-animals = {'AP063','AP064','AP066','AP068','AP071','AP085','AP086','AP087'};
+% animals = {'AP063','AP064','AP066','AP068','AP071','AP085','AP086','AP087'};
+animals = {'AP040','AP041','AP045','AP047','AP048'};
 
 bhv = struct;
 
 for curr_animal = 1:length(animals)
-    
+     
     animal = animals{curr_animal};
     protocol = 'vanillaChoiceworld';
-    experiments = AP_find_experiments(animal,protocol);
-    experiments = experiments([experiments.imaging] & [experiments.ephys]);
+    flexible_name = true;
+    experiments = AP_find_experiments(animal,protocol,flexible_name);
+    experiments = experiments([experiments.imaging] & ~[experiments.ephys]);
+    
+    % Restrict to experiments also with passive data
+    passive_protocol = 'AP_lcrGratingPassive';
+    passive_experiments = AP_find_experiments(animal,passive_protocol,true);
+    passive_experiments = passive_experiments([passive_experiments.imaging]);
+    use_experiments = ismember({experiments.day},{passive_experiments.day});
+    experiments = experiments(use_experiments);
     
     load_parts.cam = false;
     load_parts.imaging = false;
     load_parts.ephys = false;   
     
     for curr_day = 1:length(experiments)
+        
+        preload_vars = who;
         
         day = experiments(curr_day).day;
         experiment = experiments(curr_day).experiment(end);
@@ -958,8 +1009,7 @@ for curr_animal = 1:length(animals)
         % Define trials to use 
         use_trials = ...
             trial_outcome ~= 0 & ...
-            ~signals_events.repeatTrialValues(1:n_trials) & ...
-            stim_to_feedback < 1.5;
+            ~signals_events.repeatTrialValues(1:n_trials);
         
         % L/R choice
         go_right = (signals_events.trialSideValues(1:n_trials) == 1 & trial_outcome(1:n_trials) == -1) | ...
@@ -989,14 +1039,83 @@ for curr_animal = 1:length(animals)
         bhv(curr_animal).stim_to_move{curr_day} = stim_to_move(use_trials);
         bhv(curr_animal).stim_to_feedback{curr_day} = stim_to_feedback(use_trials);
         
-        clearvars -except animals protocol experiments load_parts curr_animal curr_day animal bhv 
+        clearvars('-except',preload_vars{:});
     end
     
     AP_print_progress_fraction(curr_animal,length(animals));
     
 end
 
-% clearvars -except bhv
+%% Get Dprime at >= 50% contrast (from above)
+
+hit_rate_right_norm = cellfun(@(contrast,side,outcome) cellfun(@(contrast,side,outcome) ...
+    (sum(outcome(contrast >= 0.5 & side == 1) == 1)+0.5)/ ...
+    (sum(contrast > 0 & side == 1)+1),contrast,side,outcome), ...
+    {bhv.trial_contrast},{bhv.trial_side},{bhv.trial_outcome},'uni',false);
+miss_rate_left_norm = cellfun(@(contrast,side,outcome) cellfun(@(contrast,side,outcome) ...
+    (sum(outcome(contrast >= 0.5 & side == -1) == -1)+0.5)/ ...
+    (sum(contrast > 0 & side == -1)+1),contrast,side,outcome), ...
+    {bhv.trial_contrast},{bhv.trial_side},{bhv.trial_outcome},'uni',false);
+
+dprime = cellfun(@(hit,miss) norminv(hit)-norminv(miss), ...
+    hit_rate_right_norm,miss_rate_left_norm,'uni',false);
+
+
+%% Get side-slope (for ignoring side)
+% (I don't think this worked - log(prob/1-prob) doesn't make straight line)
+figure; hold on
+
+stims_all = unique([-1,1]'*[0,6,25,12.5,25,50,100]/100)';
+trials_n_all = cell(length(bhv),1);
+go_left_n_all = cell(length(bhv),1);
+zero_left_frac = nan(length(bhv),1);
+stim_side_slopediff = nan(length(bhv),1);
+for curr_animal = 1:length(bhv)
+    for curr_day = 1:length(bhv(curr_animal).days)
+    
+    trial_side = bhv(curr_animal).trial_side{curr_day};
+    trial_contrast = bhv(curr_animal).trial_contrast{curr_day};
+    trial_choice = bhv(curr_animal).trial_choice{curr_day};
+    
+    [stims,stims_n,go_left_n] = ...
+        grpstats(trial_choice == -1,trial_side.*trial_contrast, ...
+        {'gname','numel','sum'});
+    stims = cellfun(@str2num,stims);
+    
+    trials_n_all{curr_animal}(curr_day,ismember(stims_all,stims)) = stims_n;
+    go_left_n_all{curr_animal}(curr_day,ismember(stims_all,stims)) = go_left_n;
+    
+    end
+        
+    % Fit lines to left/right side
+    % (combine all days with all stim)
+    use_days = all(trials_n_all{curr_animal},2);
+    trials_n_usedays = sum(trials_n_all{curr_animal}(use_days,:),1);
+    go_left_n_usedays = sum(go_left_n_all{curr_animal}(use_days,:),1);
+    zero_left_frac(curr_animal) = ...
+        sum(go_left_n_all{curr_animal}(use_days,stims_all == 0),1)./ ...
+        sum(trials_n_all{curr_animal}(use_days,stims_all == 0),1);
+    
+    % (loglinear-normalize)
+    soft_left_hitrate = (go_left_n_usedays+0.5)./(trials_n_usedays+1);
+    log_frac_norm = log(soft_left_hitrate./(1-soft_left_hitrate));
+    
+    right_stim_fit = polyfit(stims_all(stims_all >= 0), ...
+        log_frac_norm(stims_all >= 0),1);
+    left_stim_fit = polyfit(stims_all(stims_all <= 0), ...
+        log_frac_norm(stims_all <= 0),1);
+    stim_side_slopediff(curr_animal) = ...
+        right_stim_fit(1)-left_stim_fit(1);
+    
+    plot(stims_all,go_left_n_usedays./trials_n_usedays,'linewidth',2);
+    
+    AP_print_progress_fraction(curr_animal,length(bhv));
+end
+
+legend(num2str(stim_side_slopediff))
+
+
+
 
 %% Plot behavior (from above)
 

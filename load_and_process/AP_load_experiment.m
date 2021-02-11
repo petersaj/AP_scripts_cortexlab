@@ -244,7 +244,8 @@ if block_exists
     % SPECIFIC TO PROTOCOL
     [~,expDef] = fileparts(block.expDef);
     switch expDef
-        case {'vanillaChoiceworld','vanillaChoiceworldBias','vanillaChoiceworldNoRepeats'}
+        case {'vanillaChoiceworld','vanillaChoiceworldBias', ...
+                'vanillaChoiceworldNoRepeats','vanillaChoiceworldFastwheel'}
             % Hit/miss recorded for last trial, circshift to align
             signals_events.hitValues = circshift(signals_events.hitValues,[0,-1]);
             signals_events.missValues = circshift(signals_events.missValues,[0,-1]);
@@ -375,8 +376,11 @@ if block_exists
             stimOn_times = photodiode_flip_times(2:2:end);
             
             % Check number of stim matches photodiode
+            % (once I saw some weird extra flip at the end of an
+            % experiment? so added case to only use first n flips)
             if length(signals_events.stimAzimuthValues) ~= length(stimOn_times)
-                error('Different stim number signals and photodiode')
+                warning([animal ' ' day ': different stim number signals and photodiode']);
+                stimOn_times = stimOn_times(1:length(signals_events.stimAzimuthValues));
             end
             
             % Get stim ID and conditions
