@@ -10,15 +10,15 @@
 warning on;
 
 % Load data (saved as structure trial_data_all)
-if ~exist('data_path','var')
+if ~exist('trial_data_path','var')
     % If no path specified, assume paper data
-    data_path = 'C:\Users\Andrew\OneDrive for Business\Documents\CarandiniHarrisLab\analysis\wf_ephys_choiceworld\paper\data';
+    trial_data_path = 'C:\Users\Andrew\OneDrive for Business\Documents\CarandiniHarrisLab\analysis\wf_ephys_choiceworld\paper\data';
 end
 
 if ischar(data_fn)
     % Single dataset
     disp(['Loading ' data_fn '...']);
-    load([data_path filesep data_fn]);
+    load([trial_data_path filesep data_fn]);
     
 elseif iscell(data_fn)
     % Multiple datasets to merge (this is really dirty)
@@ -29,7 +29,7 @@ elseif iscell(data_fn)
     clear temp_data
     for curr_load_data = 1:length(data_fn)
         disp(['Loading ' data_fn{curr_load_data} '...']);
-        temp_data{curr_load_data} = load([data_path filesep data_fn{curr_load_data}],'trial_data_all');
+        temp_data{curr_load_data} = load([trial_data_path filesep data_fn{curr_load_data}],'trial_data_all');
 %         trial_data_all_split(curr_data) = temp_data.trial_data_all;
     end
     

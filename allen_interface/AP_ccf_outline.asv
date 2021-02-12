@@ -44,8 +44,7 @@ axis image off;
 %% Outline of VisAM in CCF
 
 % TO USE THIS: open allen_ccf_npx (might also work on allenAtlasBrowser,
-% but that seems broken at the moment?), move to desired annotated slice,
-% click once, then the code below will pull that slice and draw outlines
+% but that seems broken at the moment?), move to desired annotated slice, 
 
 % grab slice from gui into curr_ccf_slice
 curr_ccf_slice = get(gco,'CData');

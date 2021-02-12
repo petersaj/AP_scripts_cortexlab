@@ -725,8 +725,8 @@ save([save_path filesep save_fn],'-v7.3');
 % Task
 trial_data_path = 'C:\Users\Andrew\OneDrive for Business\Documents\CarandiniHarrisLab\analysis\corticostriatal\data';
 
-% data_fn = 'trial_activity_choiceworld_cstr_dcs';
-data_fn = 'trial_activity_choiceworld_cstr_dms';
+data_fn = 'trial_activity_choiceworld_cstr_dcs';
+% data_fn = 'trial_activity_choiceworld_cstr_dms';
 
 AP_load_concat_normalize_ctx_str;
 

@@ -464,8 +464,8 @@ save([save_path filesep save_fn],'-v7.3');
 %% Analyze passive trial data
 
 % Load data
-data_path = 'C:\Users\Andrew\OneDrive for Business\Documents\CarandiniHarrisLab\analysis\learning\data';
-data_fn = 'trial_activity_passive_learning';
+trial_data_path = 'C:\Users\Andrew\OneDrive for Business\Documents\CarandiniHarrisLab\analysis\learning\data';
+trial_data_fn = 'trial_activity_passive_learning';
 AP_load_concat_normalize_ctx_str;
 
 % Get animal and day index for each trial
@@ -491,10 +491,22 @@ for curr_animal = 1:length(animals)
                 trial_day == curr_day & ...
                 trial_stim_allcat == stim_unique(curr_stim_idx);
             stim_v_avg{curr_animal}(:,:,curr_day,curr_stim_idx) = ...
-                permute(nanmean(fluor_allcat(use_trials,:,:),1),[3,2,1]);
+                permute(nanmean(fluor_allcat_deconv(use_trials,:,:),1),[3,2,1]);
         end       
     end
 end
+
+
+
+% (TESTING: get stim v hemidiff)
+U_r = reshape(U_master(:,:,1:n_vs),[],n_vs);
+U_mirror_r = reshape(AP_reflect_widefield(U_master(:,:,1:n_vs)),[],n_vs);
+mirror_matrix = U_r'*U_mirror_r;
+
+stim_v_avg_hemidiff = cellfun(@(x) ...
+    x-reshape(mirror_matrix*reshape(x,n_vs,[]),size(x)), ...
+    stim_v_avg,'uni',false);
+
 
 % Autoregressive model to get clean stim response
 stim_k = cell(size(animals));
@@ -532,6 +544,7 @@ for curr_animal = 1:length(animals)
     
 end
 
+
 % Compare with dprime
 % (at the moment, dprime is loaded in with behavior script)
 % (pad dprime with starting zeros: before behavior)
@@ -541,7 +554,7 @@ dprime_pad = cellfun(@(x,max_days) padarray(x,[0,max_days-length(x)],0,'pre'), .
 
 % Correlate dprime with stim average
 
-stim_t = t > 0.2 & t < 0.3;
+stim_t = t > 0 & t < 0.2;
 stim_v_avg_t = cellfun(@(x) squeeze(nanmean(x(:,stim_t,:,:),2)),stim_v_avg,'uni',false);
 
 use_stim = 1;
@@ -564,7 +577,7 @@ title('Kernel:Dprime corr')
 AP_reference_outline('ccf_aligned','k');
 
 % Correlate dprime with stim avg each frame
-use_stim = 3;
+use_stim = 1;
 stim_px_avg = cellfun(@(x) ...
     AP_svdFrameReconstruct(U_master(:,:,1:n_vs), ...
     squeeze(x(:,:,:,use_stim))),stim_v_avg,'uni',false);
@@ -638,7 +651,7 @@ colormap(brewermap([],'*RdBu'));
 AP_reference_outline('ccf_aligned','k');
 
 % Regress dprime from average
-use_stim = 3;
+use_stim = 1;
 [dprime_k_long,dprime_pred,explained_var] = ...
     cellfun(@(stim_k,dprime) ...
     AP_regresskernel( ...
@@ -664,7 +677,7 @@ AP_reference_outline('ccf_aligned','k');
 % Stim average grouped by dprime
 dprime_pad_cat = horzcat(dprime_pad{:});
 
-n_dprime_bins = 7;
+n_dprime_bins = 6;
 dprime_bin_edges = linspace(min(dprime_pad_cat),max(dprime_pad_cat),n_dprime_bins+1);
 dprime_bins = discretize(dprime_pad_cat,dprime_bin_edges);
 
@@ -681,7 +694,7 @@ caxis([-max(abs(caxis)),max(abs(caxis))]);
 colormap(brewermap([],'*RdBu'));
 AP_reference_outline('ccf_aligned','k');
 
-use_t = t > 0.2 & t < 0.3;
+use_t = t > 0 & t < 0.2;
 stim_px_avg_dprime_t = squeeze(nanmean(stim_px_avg_dprime(:,:,use_t,:),3));
 
 figure;
@@ -762,6 +775,13 @@ end
 hold on; set(gca,'ColorOrder',parula(length(plot_prctile)));
 plot(grpstats(dprime_trial(use_trials),dprime_trial_bins(use_trials)),b_prctile')
 
+% ROI in average responses per animal
+use_roi = 17;
+use_stim = 1;
+stim_v_avg_roi = ...
+    cellfun(@(x) permute(AP_svd_roi(U_master(:,:,1:n_vs),x(:,:,:,use_stim),[],[], ...
+    wf_roi(use_roi).mask),[3,2,1]),stim_v_avg,'uni',false);
+
 
 % trying difference in LR for each stim vs side-ignoring
 
@@ -806,6 +826,21 @@ lr_diff_px = AP_svdFrameReconstruct(U_master(:,:,1:n_vs),lr_diff_v);
 axis image
 caxis([-max(abs(caxis)),max(abs(caxis))]);
 colormap(brewermap([],'*RdBu'));
+
+
+% (average stim response "pre/post learning")
+notlearned_days = 1:4;
+fullset_days = [10,13,13,16,15];
+
+stim_avg_notlearned = AP_svdFrameReconstruct(U_master(:,:,1:n_vs), ...
+    nanmean(cell2mat(permute(cellfun(@(x,y) ...
+    squeeze(nanmean(x(:,:,1:notlearned_days,:),3)), ...
+    stim_v_avg,num2cell(fullset_days),'uni',false),[1,3,4,2])),4));
+stim_avg_learned = AP_svdFrameReconstruct(U_master(:,:,1:n_vs), ...
+    nanmean(cell2mat(permute(cellfun(@(x,y) ...
+    squeeze(nanmean(x(:,:,fullset_days:end,:),3)), ...
+    stim_v_avg,num2cell(fullset_days),'uni',false),[1,3,4,2])),4));
+
 
 
 
