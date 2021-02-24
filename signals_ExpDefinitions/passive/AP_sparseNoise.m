@@ -28,7 +28,7 @@ stimuliOn = merge( ...
     skipRepeats((stimuliTracker>0)*2-1));
 
 %% Generate stimuli
-myNoise = vis.checker6(t);
+myNoise = vis.checker(t); % old before Miles consolidated: vis.checker6(t);
 myNoise.pattern = stimuliOn;
 
 visStim.myNoise = myNoise;

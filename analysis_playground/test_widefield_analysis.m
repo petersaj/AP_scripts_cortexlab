@@ -748,12 +748,15 @@ figure;plot(frame_t,roi_trace,'k');
 %% Correlate fluorescence with trace
 
 % Set the trace to use
-pupil_area = medfilt1(eyecam.proc.data.pupil.area,10);
-use_trace = interp1(eyecam_t(~isnan(eyecam_t)),pupil_area(~isnan(eyecam_t)),frame_t);
+% pupil_area = medfilt1(eyecam.proc.data.pupil.area,10);
+% use_trace = interp1(eyecam_t(~isnan(eyecam_t)),pupil_area(~isnan(eyecam_t)),frame_t);
 %use_trace = frame_spikes_conv;
 %use_trace = wheel_speed;
 %use_trace = roi_trace;
 %use_trace = interp1(t,beta_power,frame_t);
+
+wheel_velocity_resample = interp1(Timeline.rawDAQTimestamps,wheel_velocity,frame_t);
+use_trace = abs(wheel_velocity_resample);
 
 use_trace_meansub = use_trace - mean(use_trace);
 

@@ -1,27 +1,28 @@
 function AP_visualAuditoryPassive(t, events, parameters, visStim, inputs, outputs, audio)
 
-% Present visual and auditory stimuli separately and randomly within trial
+% Present visual and auditory stimuli separately and randomly within trial%
+% Match vanillaChoiceworld parameters (+2 other tones)
 
 %% Set up stimuli
 
 % Duration and ITI
 vis_stim_time = 0.5;
-aud_stim_time = 0.5;
-min_iti = 2;
-max_iti = 3;
+aud_stim_time = 0.1;
+min_iti = 1;
+max_iti = 2;
 step_iti = 0.1;
 
 % Visual stim
-sigma = [9,9];
+sigma = [20,20];
 azimuths = [-90,0,90];
 contrast = 1;
 spatialFreq = 1/15;
 
 % Auditory stim
-audio_freqs = [8000,14000,20000];
+audio_freqs = [8000,12000,20000];
 audioRampDuration = 0.01;
-tone_volume = 0.05;
-noise_volume = 0.05;
+tone_volume = 0.3;
+noise_volume = 0.03;
 
 audDev = audio.Devices('Strix');
 audioSampleRate = audDev.DefaultSampleRate;
@@ -38,7 +39,7 @@ audio_labels = [audio_freqs,0];
 % Concatenate conditions
 n_conditions = length(azimuths) + length(audio_samples);
 condition_vis_azimuth = [azimuths,zeros(1,length(audio_samples))];
-condition_vis_contrast = [ones(1,length(azimuths)),zeros(1,length(audio_samples))];
+condition_vis_contrast = [contrast*ones(1,length(azimuths)),zeros(1,length(audio_samples))];
 condition_auditory_samples = [cell(1,length(azimuths)),audio_samples];
 condition_auditory_labels = [NaN(1,length(azimuths)),audio_labels];
 
@@ -72,6 +73,7 @@ vis_stim = vis.grating(t, 'square', 'gaussian');
 vis_stim.azimuth = vis_azimuth;
 vis_stim.contrast = vis_contrast;
 vis_stim.sigma = sigma;
+vis_stim.spatialFreq = spatialFreq;
 vis_stimOn = condition_id.to(condition_id.delay(vis_stim_time));
 vis_stim.show = vis_stimOn;
 visStim.stim = vis_stim;
