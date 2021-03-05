@@ -525,13 +525,22 @@ surround_samplerate = 1/(framerate*1);
 surround_time = surround_window(1):surround_samplerate:surround_window(2);
 baseline_surround_time = baseline_window(1):surround_samplerate:baseline_window(2);
 
+% Get wheel movements during stim, only use quiescent trials
+wheel_window = [0,0.5];
+wheel_window_t = wheel_window(1):1/framerate:wheel_window(2);
+wheel_window_t_peri_event = bsxfun(@plus,stimOn_times,wheel_window_t);
+event_aligned_wheel = interp1(Timeline.rawDAQTimestamps, ...
+    wheel_velocity,wheel_window_t_peri_event);
+wheel_thresh = 0.025;
+quiescent_trials = ~any(abs(event_aligned_wheel) > wheel_thresh,2);
+
 % Deconv widefield if it's not already
 if ~exist('fVdf_deconv','var')
     fVdf_deconv = AP_deconv_wf(fVdf);
 end
 
 % %%%%%%%%%%% TESTING
-fVdf_deconv = fVdf;
+% fVdf_deconv = fVdf;
 % %%%%%%%%%%%
 
 % Average (time course) responses
@@ -542,8 +551,8 @@ im_stim = nan(size(U,1),size(U,2),length(surround_time),length(conditions));
 for curr_condition_idx = 1:length(conditions)
     curr_condition = conditions(curr_condition_idx);
     
-    use_stims = find(stimIDs == curr_condition);
-    use_stimOn_times = stimOn_times(use_stims(2:end));
+    use_stims = stimIDs == curr_condition;
+    use_stimOn_times = stimOn_times(use_stims & quiescent_trials);
     use_stimOn_times([1,end]) = [];
     
     stim_surround_times = bsxfun(@plus, use_stimOn_times(:), surround_time);
@@ -2063,7 +2072,7 @@ ylabel(c,'Explained variance')
 
 %% Align vasculature for animal
 
-animal = 'AP077';
+animal = 'AP091';
 
 protocol = 'AP_lcrGratingPassive';
 experiments = AP_find_experiments(animal,protocol);

@@ -2197,9 +2197,8 @@ for curr_animal = 1:length(animals)
                 double(abs(wheel_velocity) > wheel_thresh), ...
                 stim_surround_times,'nearest');
 
-            % (testing/todo: find  movement breaks during the iti and see
-            % what time to restart movement normally is?
-            
+            % (testing/todo: find  movement breaks at other times in ITI, see
+            % what proability of movement after is?)
 
 
 

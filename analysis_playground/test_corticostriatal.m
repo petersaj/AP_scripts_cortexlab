@@ -251,7 +251,7 @@ end
 
 %% Get and save average response to right grating (for animal alignment)
 
-animals = {'AP075'};
+animals = {'AP089','AP090','AP091'};
 
 for curr_animal = 1:length(animals)
     
@@ -358,7 +358,7 @@ right_grating_master_fn = [right_grating_path filesep 'right_grating_master.mat'
 load(right_grating_master_fn);
 
 % Align animal to master
-animal = 'AP075';
+animal = 'AP091';
 
 right_grating_path = 'C:\Users\Andrew\OneDrive for Business\Documents\CarandiniHarrisLab\analysis\widefield_alignment\right_grating';
 right_grating_fn = [right_grating_path filesep animal '_right_grating.mat'];
@@ -410,7 +410,8 @@ AP_reference_outline('ccf_aligned',[0.5,0.5,0.5]);
 clear all
 disp('Getting pre/post training passive stim')
 
-animals = {'AP063','AP064','AP066','AP071','AP068','AP085','AP086','AP087'};
+% animals = {'AP063','AP064','AP066','AP071','AP068','AP085','AP086','AP087'};
+animals = {'AP089','AP090','AP091'};
 
 im_stim_all = cell(length(animals),2);
 
