@@ -124,7 +124,7 @@ ylabel('Stim contrast*side');
 
 %% Passive stim (pixels)
 
-animal = 'AP079';
+animal = 'AP089';
 
 protocol = 'AP_lcrGratingPassive';
 experiments = AP_find_experiments(animal,protocol);
@@ -213,7 +213,7 @@ colormap(brewermap([],'*RdBu'));
 
 %% TESTING: Passive stim (U master)
 
-animal = 'AP048';
+animal = 'AP089';
 
 protocol = 'AP_lcrGratingPassive';
 experiments = AP_find_experiments(animal,protocol);
@@ -282,14 +282,14 @@ for curr_day = 1:length(experiments)
 end
 
 % Plot average from one stim
-curr_px = svdFrameReconstruct(U_master,nanmean(cat(3,stim_v_all{:,1}),3));
+curr_px = svdFrameReconstruct(U_master,nanmean(cat(3,stim_v_all{:,3}),3));
 AP_image_scroll(curr_px);
 axis image off;
 colormap(brewermap([],'*RdBu'));
 caxis([-max(abs(caxis)),max(abs(caxis))]);
 
 % Plot mean or median within each day
-a = cell2mat(permute(cellfun(@(x) svdFrameReconstruct(U_master,nanmean(x,3)),stim_v_all(:,1),'uni',false),[2,3,4,1]));
+a = cell2mat(permute(cellfun(@(x) svdFrameReconstruct(U_master,nanmean(x,3)),stim_v_all(:,3),'uni',false),[2,3,4,1]));
 AP_image_scroll(a);
 axis image off;
 colormap(brewermap([],'*RdBu'));
@@ -302,7 +302,7 @@ colormap(brewermap([],'*RdBu'));
 caxis([-max(abs(caxis)),max(abs(caxis))]);
 
 % Plot smoothed average
-a = cat(3,stim_v_all{:,1});
+a = cat(3,stim_v_all{:,3});
 b = squeeze(nanmean(a(:,20:23,:),2));
 c = convn(b,ones(1,150)./150,'same');
 curr_px = svdFrameReconstruct(U_master,c);

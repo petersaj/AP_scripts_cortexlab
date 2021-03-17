@@ -540,7 +540,7 @@ if ~exist('fVdf_deconv','var')
 end
 
 % %%%%%%%%%%% TESTING
-% fVdf_deconv = fVdf;
+fVdf_deconv = fVdf;
 % %%%%%%%%%%%
 
 % Average (time course) responses
@@ -552,7 +552,8 @@ for curr_condition_idx = 1:length(conditions)
     curr_condition = conditions(curr_condition_idx);
     
     use_stims = stimIDs == curr_condition;
-    use_stimOn_times = stimOn_times(use_stims & quiescent_trials);
+    use_stimOn_times = stimOn_times(use_stims);
+%     use_stimOn_times = stimOn_times(use_stims & quiescent_trials);
     use_stimOn_times([1,end]) = [];
     
     stim_surround_times = bsxfun(@plus, use_stimOn_times(:), surround_time);
@@ -2072,7 +2073,7 @@ ylabel(c,'Explained variance')
 
 %% Align vasculature for animal
 
-animal = 'AP091';
+animal = 'AP089';
 
 protocol = 'AP_lcrGratingPassive';
 experiments = AP_find_experiments(animal,protocol);

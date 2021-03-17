@@ -1,8 +1,9 @@
 %% Get and plot behavior within mice (vanillaChoiceworld)
 % animals = {'AP063','AP064','AP066','AP068','AP071','AP085','AP086','AP087'};
-animals = {'AP047','AP048','AP077','AP079'};
-protocol = 'vanillaChoiceworld';
-flexible_name = true;
+% animals = {'AP047','AP048','AP077','AP079'};
+animals = {'AP089','AP090','AP091'};
+protocol = 'vanillaChoiceworldBiasNoCue';
+flexible_name = false;
 
 for curr_animal = 1:length(animals)
     
@@ -2112,7 +2113,7 @@ end
 
 %% Get and plot mice behavior
 
-animals = {'AP090'};
+animals = {'AP089','AP090','AP091'};
 protocol = 'AP_stimWheelRight';
 flexible_name = false;
 
@@ -2199,7 +2200,28 @@ for curr_animal = 1:length(animals)
 
             % (testing/todo: find  movement breaks during the iti and see
             % what time to restart movement normally is?
+            % (from stimOff to stimOn)?
+            %             block.events.stimOnTimes(2:end)
+            wheel_stops = wheel_t_resample(abs(wheel_velocity(1:end-1)) > wheel_thresh & ...
+                abs(wheel_velocity(2:end)) < wheel_thresh);
+
+            wheel_move = abs(wheel_velocity) > wheel_thresh;
             
+            poststim_move_t = arrayfun(@(x) wheel_t_resample(find(wheel_move & ...
+                wheel_t_resample' > block.events.stimOnTimes(x),1,'first')), ...
+                find(response_trials)) - block.events.stimOnTimes(response_trials);
+            
+            prestim_move_t = arrayfun(@(x) wheel_t_resample(find(wheel_move & ...
+                wheel_t_resample' < block.events.stimOnTimes(x),1,'last')), ...
+                find(response_trials)) - block.events.stimOnTimes(response_trials);
+
+            % (or another way: align by breaks within ITI, eg if mouse took
+            % a break from seconds 5-7, what's the profile of moving again?
+            % it's probably shallow, while the stim-related one is strong)
+            test_bin = [5,7];
+            trial_iti_time = wheel_t_resample - ...
+                interp1(block.events.stimOnTimes,block.events.stimOnTimes, ...
+                wheel_t_resample,'previous');
 
 
 
