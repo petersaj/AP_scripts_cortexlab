@@ -197,6 +197,9 @@ im_stim_cat = cell2mat(permute(cellfun(@(im) ...
     reshape(permute(im,[1,2,4,3]),size(im,1),[],size(im,3)), ...
     im_stim_all,'uni',false),[2,3,4,1]));
 
+im_stim_cat_deconv = permute(AP_deconv_wf(permute( ...
+    im_stim_cat,[1,3,2,4])),[1,3,2,4]);
+
 AP_image_scroll(im_stim_cat);
 axis image;
 caxis([-max(abs(caxis)),max(abs(caxis))]);

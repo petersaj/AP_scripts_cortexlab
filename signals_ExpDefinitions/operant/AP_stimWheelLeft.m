@@ -1,4 +1,4 @@
-function AP_stimWheelRight(t, events, parameters, visStim, inputs, outputs, audio)
+function AP_stimWheelLeft(t, events, parameters, visStim, inputs, outputs, audio)
 % 2021-03-09 - AP
 %
 % Modified from vanillaChoiceworld:
@@ -243,8 +243,8 @@ trialDataInit.contrasts = contrasts;
 trialDataInit.repeatOnMiss = repeatOnMiss;
 % Set the first contrast to 1
 trialDataInit.trialContrast = 1;
-% Set the first trial side (always right)
-trialDataInit.trialSide = 1;
+% Set the first trial side (always left)
+trialDataInit.trialSide = -1;
 % Set up the flag for repeating incorrect
 trialDataInit.repeatTrial = false;
 % Initialize hit/miss
@@ -479,8 +479,8 @@ elseif staircaseTrial
     trialData.trialContrast = trialData.staircase(1);    
 end
 
-%%%% Pick next side (always right side)
-trialData.trialSide = 1;
+%%%% Pick next side (always left side)
+trialData.trialSide = -1;
 
 end
 

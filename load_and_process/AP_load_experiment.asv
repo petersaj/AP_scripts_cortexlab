@@ -117,8 +117,19 @@ if timeline_exists
 %     photodiode_flip = find((~photodiode_trace_medfilt(1:end-1) & photodiode_trace_medfilt(2:end)) | ...
 %         (photodiode_trace_medfilt(1:end-1) & ~photodiode_trace_medfilt(2:end)))+1;
 %     photodiode_flip_times = stimScreen_on_t(photodiode_flip)';
-    % (NEW: 
-    
+    % (NEW: accomodating photodiode bug flipping sometimes to gray)
+    photodiode_trace_medfilt = medfilt1(Timeline.rawDAQData(stimScreen_on, ...
+        photodiode_idx),3);
+    photodiode_diff_thresh = range(Timeline.rawDAQData(:,photodiode_idx))*0.2;
+    photodiode_diff_t = 50; % time (in ms) to get delayed differential
+    photodiode_diff_samples = round(Timeline.hw.daqSampleRate/1000*photodiode_diff_t);
+    photodiode_diff_filt = [1,zeros(1,photodiode_diff_samples),-1];
+    photodiode_trace_diff = abs(conv(photodiode_trace_medfilt,photodiode_diff_filt,'valid')) > ...
+        photodiode_diff_thresh;
+    photodiode_flip = find(~photodiode_trace_diff(1:end-1) & ...
+        photodiode_trace_diff(2:end))+ photodiode_diff_samples + 1;
+    photodiode_flip_times = stimScreen_on_t(photodiode_flip)';
+
     % Get flipper signal (this was added late, might not be present)
     flipper_name = 'flipper';
     flipper_idx = strcmp({Timeline.hw.inputs.name}, flipper_name);
@@ -633,7 +644,11 @@ if imaging_exists && load_parts.imaging
     spatialComponents_dir = dir([data_path filesep 'svdSpatialComponents*']);
     meanImage_dir = dir([data_path filesep 'meanImage*']);
     
+    % Get colors
     cam_color_n = length(spatialComponents_dir);
+    
+    cam_color_tokens = regexp({spatialComponents_dir.name},'svdSpatialComponents_(\w*).npy','tokens');
+    
     cam_color_signal = 'blue';
     cam_color_hemo = 'purple';
     

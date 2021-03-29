@@ -264,10 +264,17 @@ for curr_animal = 1:length(animals)
     experiments = experiments([experiments.imaging]);
     
     % Use only pre-trained
-    bhv_protocol = 'choiceworld';
-    bhv_experiments = AP_find_experiments(animal,bhv_protocol,true);
-    bhv_experiments = bhv_experiments([bhv_experiments.imaging]);
-    trained_experiments = ismember({experiments.day},{bhv_experiments.day});
+    %(no choiceworld)
+    choiceworld_protocol = 'choiceworld';
+    choiceworld_experiments = AP_find_experiments(animal,choiceworld_protocol,true);
+    choiceworld_experiments = choiceworld_experiments([choiceworld_experiments.imaging]);
+    % (no operant)
+    operant_protocol = 'AP_stimWheel';
+    operant_experiments = AP_find_experiments(animal,operant_protocol,true);
+    operant_experiments = operant_experiments([operant_experiments.imaging]);
+    
+    trained_experiments = ismember({experiments.day}, ...
+        [{choiceworld_experiments.day},{operant_experiments.day}]);
     
     experiments = experiments(~trained_experiments);
     

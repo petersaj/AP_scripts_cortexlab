@@ -644,9 +644,13 @@ if imaging_exists && load_parts.imaging
     spatialComponents_dir = dir([data_path filesep 'svdSpatialComponents*']);
     meanImage_dir = dir([data_path filesep 'meanImage*']);
     
+    % Get colors
     cam_color_n = length(spatialComponents_dir);
-    cam_color_signal = 'blue';
-    cam_color_hemo = 'purple';
+    
+    cam_color_names = regexp([spatialComponents_dir.name],'svdSpatialComponents_(\w*).npy','tokens');
+    
+    cam_color_signal = 'green'; 
+    cam_color_hemo = 'red';
     
     if cam_color_n == 1
         

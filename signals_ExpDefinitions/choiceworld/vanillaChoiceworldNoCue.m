@@ -1,29 +1,17 @@
-function AP_stimWheelRight(t, events, parameters, visStim, inputs, outputs, audio)
+function vanillaChoiceworldNoCue(t, events, parameters, visStim, inputs, outputs, audio)
+% vanillaChoiceworldNoCue(t, events, parameters, visStim, inputs, outputs, audio)
 % 2021-03-09 - AP
 %
-% Modified from vanillaChoiceworld:
-% - stim only on one side
-% - 100% contrast only
+% Changes from vanilla
 % - no interactive delay
-% - no audio cue
-% - longer ITIs
-% - variable quiescence period
-
-%% User parameters
-
-% Reward
-rewardSize = parameters.rewardSize.at(events.expStart);
-
-% ITI
-itiMin = parameters.itiMin;
-itiMax = parameters.itiMax;
-
-% Quiescence
-quiescenceMin = parameters.quiescenceMin;
-quiescenceMax = parameters.quiescenceMax;
+% - no cue
+% - larger reward
 
 
 %% Fixed parameters
+
+% Reward
+rewardSize = 6;
 
 % Trial choice parameters
 % Staircase trial choice
@@ -36,11 +24,11 @@ staircaseMiss = 1;
 
 % Stimulus/target
 % (which contrasts to use)
-contrasts = [1];
+contrasts = [1,0.5,0.25,0.125,0.06,0];
 % (which conrasts to use at the beginning of training)
-startingContrasts = [true];
+startingContrasts = [true,true,false,false,false,false];
 % (which contrasts to repeat on miss)
-repeatOnMiss = [false];
+repeatOnMiss = [true,true,false,false,false,false];
 % (number of trials to judge rolling performance)
 trialsToBuffer = 50;
 % (number of trials after introducing 12.5% contrast to introduce 0%)
@@ -52,8 +40,10 @@ startingAzimuth = 90;
 responseDisplacement = 90;
 
 % Timing
+prestimQuiescentTime = 0.5;
 cueInteractiveDelay = 0;
-stimOffDelay = 1; % (time stim on screen after response)
+itiHit = 1;
+itiMiss = 2;
 
 % Sounds
 % audioSampleRate = 192e3; % (Not used after new audio system 20181107)
@@ -81,17 +71,6 @@ wheelGain = 8; % deg/mm
 % Key press for manual reward
 rewardKeyPressed = inputs.keyboard.strcmp('w');
 
-%% Default parameters
-
-try
-    parameters.rewardSize = 2;
-    parameters.itiMin = 1;
-    parameters.itiMax = 3;
-    parameters.quiescenceMin = 0.5;
-    parameters.quiescenceMax = 1;
-catch
-end
-
 %% Initialize trial data
 
 trialDataInit = events.expStart.mapn( ...
@@ -108,8 +87,8 @@ wheel = inputs.wheelMM.skipRepeats();
 % condition can be chosen in a performance-dependent manner)
 
 % Resetting pre-stim quiescent period
-trialQuiescence = events.newTrial.mapn(quiescenceMin,quiescenceMax,@chooseQuiescence);
-preStimQuiescence = sig.quiescenceWatch(trialQuiescence,t,wheel,quiescThreshold); 
+prestimQuiescentPeriod = at(prestimQuiescentTime,events.newTrial.delay(0)); 
+preStimQuiescence = sig.quiescenceWatch(prestimQuiescentPeriod, t, wheel, quiescThreshold); 
 
 % Stimulus onset
 stimOn = at(true,preStimQuiescence); 
@@ -152,11 +131,10 @@ audio.Strix = missNoiseSamples.at(trialData.miss.delay(0.01));
 % (20180711 changed from audio.missNoise for new audio handling)
 
 % ITI defined by outcome
-trialITI = events.newTrial.mapn(itiMin,itiMax,@chooseITI);
-iti = response.delay(trialITI);
+iti = response.delay(trialData.hit.at(response)*itiHit + trialData.miss.at(response)*itiMiss);
 
-% Stim stays on for delay period
-stimOff = response.delay(stimOffDelay);
+% Stim stays on until the end of the ITI
+stimOff = iti;
 
 % End trial at the end of the ITI
 endTrial = iti;
@@ -192,11 +170,7 @@ visStim.stim = stim;
 % Wheel and stim
 events.stimAzimuth = stimAzimuth;
 
-% Trial times (set by trial)
-events.trialQuiescence = trialQuiescence;
-events.trialITI = trialITI;
-
-% Trial times (fixed)
+% Trial times
 events.stimOn = stimOn;
 events.stimOff = stimOff;
 events.interactiveOn = interactiveOn;
@@ -243,8 +217,8 @@ trialDataInit.contrasts = contrasts;
 trialDataInit.repeatOnMiss = repeatOnMiss;
 % Set the first contrast to 1
 trialDataInit.trialContrast = 1;
-% Set the first trial side (always right)
-trialDataInit.trialSide = 1;
+% Set the first trial side randomly
+trialDataInit.trialSide = randsample([-1,1],1);
 % Set up the flag for repeating incorrect
 trialDataInit.repeatTrial = false;
 % Initialize hit/miss
@@ -276,33 +250,22 @@ trialDataInit.sessionPerformance = ...
 expRef = dat.listExps(subject);
 useOldParams = false;
 if length(expRef) > 1
-    % Get name of current expDef
-    [~,curr_expDef,~] = fileparts(mfilename);
-
     % Loop through blocks from latest to oldest, if any have the relevant
     % parameters then carry them over
     for check_expt = length(expRef)-1:-1:1
         previousBlockFilename = dat.expFilePath(expRef{check_expt}, 'block', 'master');
         if exist(previousBlockFilename,'file')
             previousBlock = load(previousBlockFilename);
-        else
-            continue
         end
-        % Check if it was the same expDef and fields are populated
-        if isfield(previousBlock.block,'expDef')
-            [~,old_expDef,~] = fileparts(previousBlock.block.expDef);
-        else 
-            continue
-        end
-        if strcmp(curr_expDef,old_expDef) && ~( ...
-                isempty(previousBlock.block.events.useContrastsValues) || ...
-                isempty(previousBlock.block.events.hitBufferValues) || ...
-                isempty(previousBlock.block.events.trialsToZeroContrastValues))
+        % Check if the relevant fields exist
+        if exist('previousBlock','var') && isfield(previousBlock.block,'events') && ...
+                all(isfield(previousBlock.block.events, ...
+                {'useContrastsValues','hitBufferValues','trialsToZeroContrastValues'}))
             % Break the loop and use these parameters
             useOldParams = true;
             break
-        end
-    end
+        end       
+    end        
 end
 
 if useOldParams
@@ -479,20 +442,9 @@ elseif staircaseTrial
     trialData.trialContrast = trialData.staircase(1);    
 end
 
-%%%% Pick next side (always right side)
-trialData.trialSide = 1;
+%%%% Pick next side (this is done at random)
+trialData.trialSide = randsample([-1,1],1);
 
 end
-
-function trialQuiescence = chooseQuiescence(~,quiescenceMin,quiescenceMax)
-quiescence_interval = 0.1;
-trialQuiescence = randsample(quiescenceMin:quiescence_interval:quiescenceMax,1);
-end
-
-function trialITI = chooseITI(~,itiMin,itiMax)
-iti_interval = 0.1;
-trialITI = randsample(itiMin:iti_interval:itiMax,1);
-end
-
 
 

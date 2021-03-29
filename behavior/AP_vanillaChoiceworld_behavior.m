@@ -2222,6 +2222,9 @@ for curr_animal = 1:length(animals)
             trial_iti_time = wheel_t_resample - ...
                 interp1(block.events.stimOnTimes,block.events.stimOnTimes, ...
                 wheel_t_resample,'previous');
+            trial_iti_time_use = trial_iti_time >= test_bin(1) & ...
+                trial_iti_time < test_bin(2);
+            %(not done - I don't think necessary)
 
 
 

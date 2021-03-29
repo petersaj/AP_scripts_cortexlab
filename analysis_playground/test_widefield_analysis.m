@@ -544,16 +544,16 @@ fVdf_deconv = fVdf;
 % %%%%%%%%%%%
 
 % Average (time course) responses
-use_vs = 1:size(U,3);
+use_vs = 1:size(Udf,3);
 
 conditions = unique(stimIDs);
-im_stim = nan(size(U,1),size(U,2),length(surround_time),length(conditions));
+im_stim = nan(size(Udf,1),size(Udf,2),length(surround_time),length(conditions));
 for curr_condition_idx = 1:length(conditions)
     curr_condition = conditions(curr_condition_idx);
     
     use_stims = stimIDs == curr_condition;
-    use_stimOn_times = stimOn_times(use_stims);
-%     use_stimOn_times = stimOn_times(use_stims & quiescent_trials);
+%     use_stimOn_times = stimOn_times(use_stims);
+    use_stimOn_times = stimOn_times(use_stims & quiescent_trials);
     use_stimOn_times([1,end]) = [];
     
     stim_surround_times = bsxfun(@plus, use_stimOn_times(:), surround_time);
@@ -2103,7 +2103,7 @@ AP_align_widefield(im_norm,animal,{experiments.day},'new_days');
 
 %% View aligned vasculature (to check that it's been done correctly)
 
-animal = 'AP041';
+animal = 'AP089';
 
 protocol = 'AP_lcrGratingPassive';
 experiments = AP_find_experiments(animal,protocol);

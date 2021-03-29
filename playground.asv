@@ -12239,13 +12239,10 @@ photodiode_flip = find((~photodiode_trace_medfilt(1:end-1) & photodiode_trace_me
 photodiode_flip_times = stimScreen_on_t(photodiode_flip)';
 stimOn_times_all = [photodiode_flip_times(find(diff(photodiode_flip_times) > 1)+1)];
 
-use_v = fVn;
+use_v = detrend(Vn','linear')';
 use_u = Un;
 
-stimOn_times = stimOn_times_all(1:4:end);
-stimOn_times = stimOn_times + [0:10:100];
-stimOn_times = sort(stimOn_times(:));
-stimIDs = ones(size(stimOn_times));
+stimOn_times = stimOn_times_all(1:2:end)
 
 % Set options
 surround_window = [0,10];

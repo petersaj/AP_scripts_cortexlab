@@ -130,33 +130,29 @@ axes(ax3); axis image off;
 set(h2,'AlphaData',mat2gray(abs(vfs))*0.5);
 colormap(colormap_BlueWhiteRed)
 
-%% Retinotopy via sweep fourier (TESTING: signals version)
-
-use_v = dVn;
-
+%% Retinotopy via sweep fourier (TESTING: signals version
 % Downsample U
 U_downsample_factor = 4; %2 if max method
-Ud = imresize(Un,1/U_downsample_factor,'bilinear');
+Ud = imresize(Uh,1/U_downsample_factor,'bilinear');
 
 framerate = 1./nanmedian(diff(frame_t));
 
 % Get average response to stim
 
 % Get parameters of stim
-% (hard code this stuff for test)
-
-stim_duration = 10;
-n_reps = 5;
-
-stim_freq = 0.1;
-stim_direction = [1,1,-1,-1];
-stim_orientation = [1,2,1,2];
+stim_duration = unique(Protocol.pars(strcmp('dur',Protocol.parnames),:)/10);
+if length(stim_duration) > 1
+    error('Different stim durations')
+end
+stim_freq = Protocol.pars(strcmp('tf',Protocol.parnames),:)/100;
+stim_direction = Protocol.pars(strcmp('dir',Protocol.parnames),:);
+stim_orientation = Protocol.pars(strcmp('ori',Protocol.parnames),:);
+stim_range = [Protocol.pars(strcmp('start',Protocol.parnames),:); ...
+    Protocol.pars(strcmp('end',Protocol.parnames),:)];
 
 surround_window = [0,stim_duration];
 surround_samplerate = 1/(framerate*1);
 surround_time = surround_window(1):surround_samplerate:surround_window(2);
-
-stimIDs = repmat([1:4]',n_reps,1);
 
 % Loop through conditions, get average response
 im_stim = nan(size(Ud,1),size(Ud,2),length(surround_time),max(unique(stimIDs)));
@@ -166,7 +162,7 @@ for curr_condition = unique(stimIDs)'
     use_stim_onsets = stimOn_times(use_stims);
     
     stim_surround_times = bsxfun(@plus, use_stim_onsets(:), surround_time);
-    peri_stim_v = permute(nanmean(interp1(frame_t,use_v',stim_surround_times),1),[3,2,1]);
+    peri_stim_v = permute(nanmean(interp1(frame_t,fVh',stim_surround_times),1),[3,2,1]);
     
     im_stim(:,:,:,curr_condition) = svdFrameReconstruct(Ud,peri_stim_v);
 end
@@ -188,7 +184,7 @@ angle_maps = nan(size(im_stim,1),size(im_stim,2),2);
 retinotopy_maps = nan(size(im_stim,1),size(im_stim,2),2);
 for curr_orientation = 1:2
     
-    curr_stims = find(stim_orientation == curr_orientation);
+    curr_stims = find(stim_orientation == curr_orientation');
     
     AbsolutePhaseS = sum(bsxfun(@times,AngleMaps(:,:,curr_stims),permute(stim_direction(curr_stims),[1,3,2])),3);
     DoubleDelayMap = sum(AngleMaps(:,:,curr_stims),3);
