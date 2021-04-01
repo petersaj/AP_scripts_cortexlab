@@ -132,11 +132,12 @@ colormap(colormap_BlueWhiteRed)
 
 %% Retinotopy via sweep fourier (TESTING: signals version)
 
-use_v = dVn;
+use_v = fVhdf;
+use_u = Uhdf;
 
 % Downsample U
-U_downsample_factor = 4; %2 if max method
-Ud = imresize(Un,1/U_downsample_factor,'bilinear');
+U_downsample_factor = 10; %2 if max method
+Ud = imresize(use_u,1/U_downsample_factor,'bilinear');
 
 framerate = 1./nanmedian(diff(frame_t));
 
@@ -145,7 +146,7 @@ framerate = 1./nanmedian(diff(frame_t));
 % Get parameters of stim
 % (hard code this stuff for test)
 
-stim_duration = 10;
+stim_duration = 100;
 n_reps = 5;
 
 stim_freq = 0.1;
@@ -173,7 +174,7 @@ end
 
 % Get fourier component at stimulus frequency
 ComplexMaps = zeros(size(im_stim,1),size(im_stim,2),size(im_stim,4));
-yy = permute(2*exp(-surround_time*2*pi*1i*stim_freq(1)),[1,3,2]);
+yy = permute(2*exp(-surround_time*2*pi*1i*stim_freq),[1,3,2]);
 aaa = repmat(yy,[size(im_stim,1),size(im_stim,2)]);
 
 for curr_condition = unique(stimIDs)'
@@ -243,7 +244,8 @@ vfs = sind(Vdir-Hdir);
 figure('Name',animal);
 ax1 = axes;
 subplot(1,2,1,ax1);
-imagesc(vfs);
+h1 = imagesc(vfs);
+set(h1,'AlphaData',mat2gray(meanAmpMaps));
 caxis([-1,1]);
 axes(ax1); axis image off;
 colormap(colormap_BlueWhiteRed)

@@ -12231,18 +12231,18 @@ split_idx = cell2mat(arrayfun(@(exp,trials) repmat(exp,trials,1), ...
 
 %% TEMP FOR KALATSKY
 
+use_v = fVh;
+use_u = Uh;
+
 % (get stim on times)
 photodiode_trace_medfilt = medfilt1(Timeline.rawDAQData(stimScreen_on, ...
     photodiode_idx),3) > photodiode_thresh;
 photodiode_flip = find((~photodiode_trace_medfilt(1:end-1) & photodiode_trace_medfilt(2:end)) | ...
     (photodiode_trace_medfilt(1:end-1) & ~photodiode_trace_medfilt(2:end)))+1;
 photodiode_flip_times = stimScreen_on_t(photodiode_flip)';
-stimOn_times_all = [photodiode_flip_times(find(diff(photodiode_flip_times) > 1)+1)];
+stimOn_times = [photodiode_flip_times(find(diff(photodiode_flip_times) > 1)+1)];
 
-use_v = fVn;
-use_u = Un;
-
-stimOn_times = stimOn_times_all(1:4:end);
+stimOn_times = stimOn_times(1:2:end);
 stimOn_times = stimOn_times + [0:10:100];
 stimOn_times = sort(stimOn_times(:));
 stimIDs = ones(size(stimOn_times));

@@ -531,7 +531,16 @@ max_ref_length = sqrt(sum(([ap_max,dv_max,ml_max].^2)));
 
 [x,y,z] = sph2cart(pi-probe_angle_rad(1),probe_angle_rad(2),max_ref_length);
 
-probe_ref_top = [probe_ccf_coordinates(1),probe_ccf_coordinates(2),0];
+% Get top of probe reference with user brain intersection point
+% (get DV location of brain surface at point)
+probe_brain_dv = find(gui_data.av(probe_ccf_coordinates(1),:, ...
+    probe_ccf_coordinates(2)) > 1,1);
+% (back up to 0 DV in CCF space)
+probe_ref_top_ap = interp1(probe_brain_dv+[0,z],probe_ccf_coordinates(1)+[0,x],0,'linear','extrap');
+probe_ref_top_ml = interp1(probe_brain_dv+[0,z],probe_ccf_coordinates(2)+[0,y],0,'linear','extrap');
+
+% Set new probe position
+probe_ref_top = [probe_ref_top_ap,probe_ref_top_ml,0];
 probe_ref_bottom = probe_ref_top + [x,y,z];
 probe_ref_vector = [probe_ref_top;probe_ref_bottom]';
 

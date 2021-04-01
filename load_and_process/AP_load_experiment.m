@@ -649,8 +649,8 @@ if imaging_exists && load_parts.imaging
     
     cam_color_names = regexp([spatialComponents_dir.name],'svdSpatialComponents_(\w*).npy','tokens');
     
-    cam_color_signal = 'green'; 
-    cam_color_hemo = 'red';
+    cam_color_signal = 'blue'; 
+    cam_color_hemo = 'purple';
     
     if cam_color_n == 1
         
