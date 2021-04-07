@@ -1,0 +1,53 @@
+function AP_parse_wheel(wheel_position,sample_rate)
+% Parse wheel position signal
+%
+% Inputs: 
+% wheel_position: assumes rotary encoder +/- 1 steps, evenly sampled
+% sample_rate: sample rate for wheel position
+
+% Ensure wheel_position is column vector
+wheel_position = wheel_position(:);
+
+% Get wheel velocity
+% (pick smoothing timing)
+wheel_smooth_t = 0.05; % seconds
+wheel_smooth_samples = wheel_smooth_t*sample_rate;
+
+% (get rid of single wheel clicks within smoothing limit)
+wheel_clicks = diff(wheel_position); % rotary encoder clicks
+wheel_click_remove = conv(abs(wheel_clicks),ones(1,wheel_smooth_samples),'same') == 1;
+wheel_clicks(wheel_click_remove) = 0;
+
+% (get velocity by smoothing and median filtering cleaned trace)
+wheel_velocity = interp1(conv(1:length(wheel_position),[1,1]/2,'valid'), ...
+    medfilt1(smooth(wheel_clicks,wheel_smooth_samples),wheel_smooth_samples), ...
+    1:length(wheel_position),'linear','extrap')';
+
+% Threshold wheel for movement, get start/stops
+wheel_velocity_thresh = abs(wheel_velocity) > 0;
+wheel_starts_all = wheel_t_resample(diff([false;wheel_velocity_thresh]) == 1);
+wheel_stops_all = wheel_t_resample(diff([false;wheel_velocity_thresh]) == -1);
+
+% Any starts within set time of a stop - combine
+combine_move_t = 0; % in s, empirical/arbitrary
+combine_move = find((wheel_starts_all(2:end) - wheel_stops_all(1:end-1)) > combine_move_t);
+wheel_starts_trim = wheel_starts_all([1;combine_move+1]);
+wheel_stops_trim = wheel_stops_all([combine_move;end]);
+
+% Make vector of movement/quiescence
+wheel_move = interp1([wheel_starts_trim;wheel_stops_trim;min(wheel_t_resample)], ...
+    [ones(size(wheel_starts_trim));zeros(size(wheel_stops_trim));0], ...
+    wheel_t_resample,'previous','extrap');
+
+
+
+
+
+
+
+
+
+
+
+
+

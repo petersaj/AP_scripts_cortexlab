@@ -517,6 +517,7 @@ end
 
 %% Align widefield to stim
 
+
 % Set options
 surround_window = [-0.5,3];
 baseline_window = [-0.1,0];
@@ -526,7 +527,7 @@ surround_time = surround_window(1):surround_samplerate:surround_window(2);
 baseline_surround_time = baseline_window(1):surround_samplerate:baseline_window(2);
 
 % Get wheel movements during stim, only use quiescent trials
-wheel_window = [0,0.5];
+wheel_window = [0,1];
 wheel_window_t = wheel_window(1):1/framerate:wheel_window(2);
 wheel_window_t_peri_event = bsxfun(@plus,stimOn_times,wheel_window_t);
 event_aligned_wheel = interp1(Timeline.rawDAQTimestamps, ...
@@ -540,7 +541,7 @@ if ~exist('fVdf_deconv','var')
 end
 
 % %%%%%%%%%%% TESTING
-fVdf_deconv = fVdf;
+% fVdf_deconv = fVdf;
 % %%%%%%%%%%%
 
 % Average (time course) responses
@@ -554,7 +555,6 @@ for curr_condition_idx = 1:length(conditions)
     use_stims = stimIDs == curr_condition;
 %     use_stimOn_times = stimOn_times(use_stims);
     use_stimOn_times = stimOn_times(use_stims & quiescent_trials);
-    use_stimOn_times([1,end]) = [];
     
     stim_surround_times = bsxfun(@plus, use_stimOn_times(:), surround_time);
     stim_baseline_surround_times = bsxfun(@plus, use_stimOn_times(:), baseline_surround_time);
@@ -2073,7 +2073,7 @@ ylabel(c,'Explained variance')
 
 %% Align vasculature for animal
 
-animal = 'AP089';
+animal = 'AP093';
 
 protocol = 'AP_lcrGratingPassive';
 experiments = AP_find_experiments(animal,protocol);
@@ -2090,13 +2090,13 @@ for curr_day = 1:length(experiments)
     avg_im_days_purple{curr_day} = avg_im_purple;
 end
 
-% Align with normalized averages        
-im_norm = cellfun(@(x) x./mad(x(:),true),avg_im_days_blue,'uni',false);        
-AP_align_widefield(im_norm,animal,{experiments.day},'new_days');
+% % Align with normalized averages        
+% im_norm = cellfun(@(x) x./mad(x(:),true),avg_im_days_blue,'uni',false);        
+% AP_align_widefield(im_norm,animal,{experiments.day},'new_days');
 
-% % Align with edges
-% im_edge = cellfun(@(x) x-imgaussfilt(x,10),avg_im_days_purple,'uni',false);
-% AP_align_widefield(im_edge,animal,{experiments.day},'new_days');
+% Align with edges
+im_edge = cellfun(@(x) x-imgaussfilt(x,10),avg_im_days_purple,'uni',false);
+AP_align_widefield(im_edge,animal,{experiments.day},'new_days');
 
 
 

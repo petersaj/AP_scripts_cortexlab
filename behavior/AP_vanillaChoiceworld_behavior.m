@@ -2113,7 +2113,7 @@ end
 
 %% Get and plot mice behavior
 
-animals = {'AP089','AP090','AP091'};
+animals = {'AP092','AP093','AP094'};
 protocol = 'AP_stimWheelRight';
 flexible_name = false;
 
@@ -2167,11 +2167,14 @@ for curr_animal = 1:length(animals)
             wheel_smooth_t = 0.05; % seconds
             wheel_smooth_samples = round(wheel_smooth_t*wheel_resample_rate);
             wheel_velocity = interp1(conv(wheel_t_resample,[1,1]/2,'valid'), ...
-                diff(smooth(wheel_values_resample,wheel_smooth_samples)),wheel_t_resample)';
+                diff(smooth(wheel_values_resample,wheel_smooth_samples)),wheel_t_resample, ...
+                'nearest','extrap')';
             
             wheel_thresh = 0.025;
             wheel_starts = wheel_t_resample(abs(wheel_velocity(1:end-1)) < wheel_thresh & ...
                 abs(wheel_velocity(2:end)) > wheel_thresh);
+            wheel_stops = wheel_t_resample(abs(wheel_velocity(1:end-1)) > wheel_thresh & ...
+                abs(wheel_velocity(2:end)) < wheel_thresh);
             
             response_trials = 1:length(block.events.responseValues);
             trial_wheel_starts = arrayfun(@(x) ...
@@ -2202,18 +2205,18 @@ for curr_animal = 1:length(animals)
             % what time to restart movement normally is?
             % (from stimOff to stimOn)?
             %             block.events.stimOnTimes(2:end)
-            wheel_stops = wheel_t_resample(abs(wheel_velocity(1:end-1)) > wheel_thresh & ...
-                abs(wheel_velocity(2:end)) < wheel_thresh);
-
-            wheel_move = abs(wheel_velocity) > wheel_thresh;
-            
-            poststim_move_t = arrayfun(@(x) wheel_t_resample(find(wheel_move & ...
-                wheel_t_resample' > block.events.stimOnTimes(x),1,'first')), ...
-                find(response_trials)) - block.events.stimOnTimes(response_trials);
-            
-            prestim_move_t = arrayfun(@(x) wheel_t_resample(find(wheel_move & ...
-                wheel_t_resample' < block.events.stimOnTimes(x),1,'last')), ...
-                find(response_trials)) - block.events.stimOnTimes(response_trials);
+%             wheel_stops = wheel_t_resample(abs(wheel_velocity(1:end-1)) > wheel_thresh & ...
+%                 abs(wheel_velocity(2:end)) < wheel_thresh);
+% 
+%             wheel_move = abs(wheel_velocity) > wheel_thresh;
+%             
+%             poststim_move_t = arrayfun(@(x) wheel_t_resample(find(wheel_move & ...
+%                 wheel_t_resample' > block.events.stimOnTimes(x),1,'first')), ...
+%                 find(response_trials)) - block.events.stimOnTimes(response_trials);
+%             
+%             prestim_move_t = arrayfun(@(x) wheel_t_resample(find(wheel_move & ...
+%                 wheel_t_resample' < block.events.stimOnTimes(x),1,'last')), ...
+%                 find(response_trials)) - block.events.stimOnTimes(response_trials);
 
             % (or another way: align by breaks within ITI, eg if mouse took
             % a break from seconds 5-7, what's the profile of moving again?
@@ -2231,6 +2234,13 @@ for curr_animal = 1:length(animals)
             % Time to reward
             stim_reward_t = reward_times - ...
                 block.events.stimOnTimes(rewarded_trials);
+
+            % Resetting quiescence period for each trial
+            quiescence_t = block.events.trialQuiescenceValues(response_trials);
+            
+            % ITI time (including quiescence resets)
+            iti_t = block.events.stimOnTimes(response_trials(2:end)) - ...
+                block.events.stimOffTimes(response_trials(1:end-1));
             
             % Wheel movements/biases
             left_wheel_velocity = abs(wheel_velocity.*(wheel_velocity < 0));
@@ -2246,6 +2256,8 @@ for curr_animal = 1:length(animals)
             bhv.wheel_velocity(curr_day) = nansum(abs(wheel_velocity));
             bhv.stim_move_t{curr_day} = stim_move_t;
             bhv.stim_reward_t{curr_day} = stim_reward_t;
+            bhv.quiescence_t{curr_day} = quiescence_t;
+            bhv.iti_t{curr_day} = iti_t;
             bhv.wheel_bias(curr_day) = wheel_bias;
 
             bhv.stim_surround_t = stim_surround_t_centers;

@@ -88,11 +88,13 @@ if timeline_exists
     wheel_position = Timeline.rawDAQData(:,rotaryEncoder_idx);
     wheel_position(wheel_position > 2^31) = wheel_position(wheel_position > 2^31) - 2^32;
     
-    % Get wheel velocity by smoothing the wheel trace and taking deriv
+    % Get wheel velocity by smoothing wheel, getting derivative, median
+    % filtering, interpolating back to original time
     wheel_smooth_t = 0.05; % seconds
     wheel_smooth_samples = wheel_smooth_t/Timeline.hw.samplingInterval;
     wheel_velocity = interp1(conv(Timeline.rawDAQTimestamps,[1,1]/2,'valid'), ...
-        diff(smooth(wheel_position,wheel_smooth_samples)),Timeline.rawDAQTimestamps)';
+        medfilt1(diff(smooth(wheel_position,wheel_smooth_samples)),wheel_smooth_samples), ...
+        Timeline.rawDAQTimestamps)';
     
     % Get whether stim was flickering
     stimScreen_idx = strcmp({Timeline.hw.inputs.name}, 'stimScreen');
