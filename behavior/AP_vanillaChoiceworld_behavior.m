@@ -2164,18 +2164,11 @@ for curr_animal = 1:length(animals)
             wheel_t_resample = block.inputs.wheelTimes(1):1/wheel_resample_rate:block.inputs.wheelTimes(end);
             wheel_values_resample = interp1(block.inputs.wheelTimes,block.inputs.wheelValues,wheel_t_resample);
             
-            wheel_smooth_t = 0.05; % seconds
-            wheel_smooth_samples = round(wheel_smooth_t*wheel_resample_rate);
-            wheel_velocity = interp1(conv(wheel_t_resample,[1,1]/2,'valid'), ...
-                diff(smooth(wheel_values_resample,wheel_smooth_samples)),wheel_t_resample, ...
-                'nearest','extrap')';
+            [wheel_velocity,wheel_move] = AP_parse_wheel(wheel_values_resample,wheel_resample_rate);
             
-            wheel_thresh = 0.025;
-            wheel_starts = wheel_t_resample(abs(wheel_velocity(1:end-1)) < wheel_thresh & ...
-                abs(wheel_velocity(2:end)) > wheel_thresh);
-            wheel_stops = wheel_t_resample(abs(wheel_velocity(1:end-1)) > wheel_thresh & ...
-                abs(wheel_velocity(2:end)) < wheel_thresh);
-            
+            wheel_starts = wheel_t_resample(diff(wheel_move) == 1);
+            wheel_stops = wheel_t_resample(diff(wheel_move) == -1);
+                 
             response_trials = 1:length(block.events.responseValues);
             trial_wheel_starts = arrayfun(@(x) ...
                 wheel_starts(find(wheel_starts > block.events.stimOnTimes(x),1)), ...
@@ -2197,9 +2190,8 @@ for curr_animal = 1:length(animals)
             % (temp: any movement, not just starts)
             stim_surround_t_centers = -10:0.1:10;
             stim_surround_times = block.events.stimOnTimes' + stim_surround_t_centers;
-            stim_surround_move = interp1(wheel_t_resample, ...
-                double(abs(wheel_velocity) > wheel_thresh), ...
-                stim_surround_times,'nearest');
+            stim_surround_move = interp1(wheel_t_resample,wheel_move, ...
+                stim_surround_times,'previous');
 
             % (testing/todo: find  movement breaks during the iti and see
             % what time to restart movement normally is?
