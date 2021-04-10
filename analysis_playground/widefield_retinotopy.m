@@ -135,13 +135,18 @@ colormap(colormap_BlueWhiteRed)
 use_v = fVh;
 use_u = Uh;
 
-% Downsample U
-U_downsample_factor = 5; %2 if max method
-Ud = imresize(use_u,1/U_downsample_factor,'bilinear');
+% Downsample U (or gaussian filter - similar and no time difference)
+U_downsample_factor = 5;
+% Ud = imresize(use_u,1/U_downsample_factor,'bilinear');
+Ud = imgaussfilt(use_u,U_downsample_factor);
 
-framerate = 1./nanmedian(diff(frame_t));
-
-% Get average response to stim
+% Get stim times from photodiode
+photodiode_trace_medfilt = medfilt1(Timeline.rawDAQData(stimScreen_on, ...
+    photodiode_idx),3) > photodiode_thresh;
+photodiode_flip = find((~photodiode_trace_medfilt(1:end-1) & photodiode_trace_medfilt(2:end)) | ...
+    (photodiode_trace_medfilt(1:end-1) & ~photodiode_trace_medfilt(2:end)))+1;
+photodiode_flip_times = stimScreen_on_t(photodiode_flip)';
+stimOn_times = [photodiode_flip_times(find(diff(photodiode_flip_times) > 1)+1)];
 
 % Get parameters of stim (with signals protocol AP_kalatsky)
 % (just hardcoding this - parameters are in script)
@@ -153,12 +158,13 @@ stim_orientation = [1,2,1,2];
 stimIDs =  mod(0:(n_trials-1),4)'+1; %  % (cycle of 4 trial types for direction/orientation)
 
 % Get time window for stim
+framerate = 1./nanmedian(diff(frame_t));
 surround_window = [0,stim_duration];
 surround_samplerate = 1/(framerate*1);
 surround_time = surround_window(1):surround_samplerate:surround_window(2);
 
 % Loop through conditions, get power at stim frequency(bootstrapped)
-n_boot = 20;
+n_boot = 20; % (empirical: 5 is bit too little, 50 no difference)
 peri_stim_v_fourier = nan(size(use_u,3),n_boot,length(unique(stimIDs)));
 for curr_condition = unique(stimIDs)'
     
@@ -168,8 +174,10 @@ for curr_condition = unique(stimIDs)'
     n_reps = length(use_stim_onsets);
     
     stim_surround_times = bsxfun(@plus, use_stim_onsets(:), surround_time);
+    % (baseline time is just first frame of each stim)
+    baseline_times = stim_surround_times(:,1);
     
-    % Get power at stim frequency
+    % Get power at stim frequency 
     peri_stim_v = permute(interp1(frame_t,use_v',stim_surround_times) - ...
         permute(interp1(frame_t,use_v',baseline_times),[1,3,2]),[3,2,1]);
     
@@ -280,7 +288,7 @@ subplot(1,2,2,ax2);
 subplot(1,2,2,ax3);
 h1 = imagesc(ax2,avg_im);
 colormap(ax2,gray);
-caxis(ax2,[0 prctile(avg_im(:),99.9)]);
+caxis(ax2,[0 prctile(avg_im(:),95)]);
 h2 = imagesc(ax3,vfs);
 colormap(ax3,colormap_BlueWhiteRed);
 caxis([-1,1]);
