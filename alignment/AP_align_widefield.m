@@ -73,9 +73,9 @@ switch align_type
         
         % (for RegularStepGradientDescent)
         [optimizer, metric] = imregconfig('monomodal');
-        optimizer.GradientMagnitudeTolerance = 1e-4;
+        optimizer.GradientMagnitudeTolerance = 1e-6;
         optimizer.MaximumIterations = 300;
-        optimizer.MaximumStepLength = 5e-4;
+        optimizer.MaximumStepLength = 1e-3;
         optimizer.MinimumStepLength = 1e-6;
         optimizer.RelaxationFactor = 0.5;
         
@@ -86,8 +86,10 @@ switch align_type
         im_rigid_aligned = nan(ref_size(1),ref_size(2),length(im_unaligned));       
         rigid_tform = cell(size(im_unaligned));        
         for curr_im = 1:length(im_unaligned)
-            tformEstimate_affine = imregtform(im_unaligned{curr_im},im_ref,'rigid',optimizer,metric,'PyramidLevels',4);
-            curr_im_reg = imwarp(im_unaligned{curr_im},tformEstimate_affine,'Outputview',imref2d(ref_size));
+            tformEstimate_affine = imregtform(im_unaligned{curr_im}, ...
+                im_ref,'rigid',optimizer,metric,'PyramidLevels',5);
+            curr_im_reg = imwarp(im_unaligned{curr_im}, ...
+                tformEstimate_affine,'Outputview',imref2d(ref_size));
             rigid_tform{curr_im} = tformEstimate_affine.T;
             im_rigid_aligned(:,:,curr_im) = curr_im_reg;
         end
@@ -123,14 +125,17 @@ switch align_type
             im_aligned = nan(ref_size(1),ref_size(2),length(im_unaligned));
             tform_matrix = cell(length(im_unaligned),1);
             for curr_im = 1:length(im_unaligned)
-                tformEstimate_affine = imregtform(im_rigid_aligned_roi(:,:,curr_im),im_ref,'rigid',optimizer,metric);
+                tformEstimate_affine = imregtform( ...
+                    im_rigid_aligned_roi(:,:,curr_im), ...
+                    im_ref,'rigid',optimizer,metric,'PyramidLevels',4);
                 
                 tform_combine = rigid_tform{curr_im}*tformEstimate_affine.T;
                 tform_matrix{curr_im} = tform_combine;
                 
                 curr_tform = affine2d;
                 curr_tform.T = tform_combine;
-                curr_im_reg = imwarp(im_unaligned{curr_im},curr_tform,'Outputview',imref2d(ref_size));
+                curr_im_reg = imwarp(im_unaligned{curr_im},curr_tform, ...
+                    'Outputview',imref2d(ref_size));
                 
                 tform_matrix{curr_im} = tform_combine;
                 im_aligned(:,:,curr_im) = curr_im_reg;

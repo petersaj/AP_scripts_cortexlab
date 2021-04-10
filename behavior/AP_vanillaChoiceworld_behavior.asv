@@ -2113,8 +2113,7 @@ end
 
 %% Get and plot mice behavior
 
-animals = {'AP089','AP090','AP091'};
-% animals = {'AP092','AP093','AP094'};
+animals = {'AP092','AP093','AP094'};
 protocol = 'AP_stimWheelRight';
 flexible_name = false;
 
@@ -2229,11 +2228,7 @@ for curr_animal = 1:length(animals)
                 block.events.stimOnTimes(rewarded_trials);
 
             % Resetting quiescence period for each trial
-            if isfield('trialQuiescencevalues',block.events)
-                quiescence_t = block.events.trialQuiescenceValues(response_trials);
-            else
-                quiescence_t = 0.5*ones(size(block.events.stimOnTimes));
-            end
+            quiescence_t = block.events.trialQuiescenceValues(response_trials);
             
             % ITI time (including quiescence resets)
             iti_t = block.events.stimOnTimes(response_trials(2:end)) - ...
@@ -2329,7 +2324,7 @@ for curr_animal = 1:length(animals)
         line(repmat(ephys_days(i),1,2),ylim,'color','r','linestyle','--');
     end
 
-    % Stim-to-reward time
+    % Stim-to-rewme
     subplot(2,3,3);
     plot(day_num,cellfun(@nanmedian,bhv.stim_reward_t),'k','linewidth',2);
     ylabel('Stim to reward time (s)');
@@ -2347,6 +2342,8 @@ for curr_animal = 1:length(animals)
     xlabel('Time from stim (s)');
     set(gca,'YTick',day_num);
     set(gca,'YTickLabel',day_labels);
+
+    % Reaction time 
     
     % (get difference of rate: hazard rate-ish?)
     hazard_rate = diff(convn(stim_surround_wheel_cat,ones(1,10)/10,'valid'),[],2);

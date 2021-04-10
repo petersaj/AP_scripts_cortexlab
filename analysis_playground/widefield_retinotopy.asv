@@ -144,29 +144,35 @@ framerate = 1./nanmedian(diff(frame_t));
 % Get average response to stim
 
 % Get parameters of stim (with signals protocol AP_kalatsky)
-% (just hardcoding this - parameters are in script)
+% (hard code this stuff for test)
+
 n_trials = length(block.paramsValues);
+n_reps = n_trials/4; % (cycle of 4 trial types for direction/orientation)
+if mod(n_trials,1) ~= 0
+    error('Unmatched trial tp number of trials')
+end
+
 stim_duration = 100;
+n_reps = 5;
+
 stim_freq = 0.1;
 stim_direction = [1,1,-1,-1];
 stim_orientation = [1,2,1,2];
-stimIDs =  mod(0:(n_trials-1),4)'+1; %  % (cycle of 4 trial types for direction/orientation)
 
-% Get time window for stim
 surround_window = [0,stim_duration];
 surround_samplerate = 1/(framerate*1);
 surround_time = surround_window(1):surround_samplerate:surround_window(2);
+
+stimIDs = repmat([1:4]',n_reps,1);
 
 % Loop through conditions, get power at stim frequency(bootstrapped)
 n_boot = 20;
 peri_stim_v_fourier = nan(size(use_u,3),n_boot,length(unique(stimIDs)));
 for curr_condition = unique(stimIDs)'
     
-    % Pick stims and get times
+    % Pick stims
     use_stims = find(stimIDs == curr_condition);
-    use_stim_onsets = stimOn_times(use_stims);
-    n_reps = length(use_stim_onsets);
-    
+    use_stim_onsets = stimOn_times(use_stims);   
     stim_surround_times = bsxfun(@plus, use_stim_onsets(:), surround_time);
     
     % Get power at stim frequency

@@ -124,7 +124,7 @@ ylabel('Stim contrast*side');
 
 %% Passive stim (pixels)
 
-animal = 'AP093';
+animal = 'AP089';
 
 protocol = 'AP_lcrGratingPassive';
 experiments = AP_find_experiments(animal,protocol);

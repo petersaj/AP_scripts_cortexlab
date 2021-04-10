@@ -527,7 +527,7 @@ surround_time = surround_window(1):surround_samplerate:surround_window(2);
 baseline_surround_time = baseline_window(1):surround_samplerate:baseline_window(2);
 
 % Get wheel movements during stim, only use quiescent trials
-wheel_window = [0,1];
+wheel_window = [0,0.5];
 wheel_window_t = wheel_window(1):1/framerate:wheel_window(2);
 wheel_window_t_peri_event = bsxfun(@plus,stimOn_times,wheel_window_t);
 event_aligned_wheel = interp1(Timeline.rawDAQTimestamps, ...
@@ -541,7 +541,7 @@ if ~exist('fVdf_deconv','var')
 end
 
 % %%%%%%%%%%% TESTING
-% fVdf_deconv = fVdf;
+fVdf_deconv = fVdf;
 % %%%%%%%%%%%
 
 % Average (time course) responses
@@ -2073,7 +2073,7 @@ ylabel(c,'Explained variance')
 
 %% Align vasculature for animal
 
-animal = 'AP093';
+animal = 'AP094';
 
 protocol = 'AP_lcrGratingPassive';
 experiments = AP_find_experiments(animal,protocol);
