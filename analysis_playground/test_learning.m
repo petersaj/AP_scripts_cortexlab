@@ -124,7 +124,7 @@ ylabel('Stim contrast*side');
 
 %% Passive stim (pixels)
 
-animal = 'AP089';
+animal = 'AP094';
 
 protocol = 'AP_lcrGratingPassive';
 experiments = AP_find_experiments(animal,protocol);
@@ -399,7 +399,7 @@ title('Kernel:Dprime corr')
 AP_reference_outline('ccf_aligned','k');
 
 
-%% Grab and save passive trial data
+%% Grab and save passive trial data (2AFC)
 
 clear all
 disp('Passive trial activity (learning)')
@@ -461,6 +461,73 @@ save_fn = ['trial_activity_passive_learning'];
 save([save_path filesep save_fn],'-v7.3');
 
 
+%% Grab and save passive trial data (operant, corticostriatal)
+
+clear all
+disp('Passive trial activity (operant, corticostriatal)')
+
+animals = {'AP089','AP090','AP091','AP092','AP093','AP094'};
+
+% Initialize save variable
+trial_data_all = struct;
+
+for curr_animal = 1:length(animals)
+    
+    animal = animals{curr_animal};
+    protocol = 'AP_lcrGratingPassive';
+    experiments = AP_find_experiments(animal,protocol);
+    imaged_experiments = [experiments.imaging];
+
+    % Use only days with operant training
+    operant_protocol = 'AP_stimWheelRight';
+    operant_experiments = AP_find_experiments(animal,operant_protocol,false);
+    operant_experiments = operant_experiments([operant_experiments.imaging]);    
+    trained_experiments = ismember({experiments.day},{operant_experiments.day});
+    
+    experiments = experiments([imaged_experiments & trained_experiments]);
+    
+    disp(['Loading ' animal]);
+    
+    for curr_day = 1:length(experiments)
+        
+        preload_vars = who;
+        
+        day = experiments(curr_day).day;
+        experiment = experiments(curr_day).experiment(end);
+        
+        % Load experiment
+        AP_load_experiment;
+        
+        % Pull out trial data
+        AP_ctx_str_grab_trial_data;
+        
+        % Store trial data into master structure
+        trial_data_fieldnames = fieldnames(trial_data);
+        for curr_trial_data_field = trial_data_fieldnames'
+            trial_data_all.(cell2mat(curr_trial_data_field)){curr_animal,1}{curr_day,1} = ...
+                trial_data.(cell2mat(curr_trial_data_field));
+        end
+        
+        % Store general info
+        trial_data_all.animals = animals;
+        trial_data_all.t = t;
+        
+        AP_print_progress_fraction(curr_day,length(experiments));
+        
+        % Clear for next loop
+        clearvars('-except',preload_vars{:});
+        
+    end
+    
+end
+
+clearvars -except trial_data_all
+disp('Finished loading all')
+
+% Save
+save_path = 'C:\Users\Andrew\OneDrive for Business\Documents\CarandiniHarrisLab\analysis\learning\data';
+save_fn = ['trial_activity_passive_learning_operant'];
+save([save_path filesep save_fn],'-v7.3');
 
 
 
@@ -468,7 +535,8 @@ save([save_path filesep save_fn],'-v7.3');
 
 % Load data
 trial_data_path = 'C:\Users\Andrew\OneDrive for Business\Documents\CarandiniHarrisLab\analysis\learning\data';
-trial_data_fn = 'trial_activity_passive_learning';
+% data_fn = 'trial_activity_passive_learning';
+data_fn = 'trial_activity_passive_learning_operant';
 AP_load_concat_normalize_ctx_str;
 
 % Get animal and day index for each trial

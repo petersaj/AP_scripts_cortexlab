@@ -130,9 +130,17 @@ axes(ax3); axis image off;
 set(h2,'AlphaData',mat2gray(abs(vfs))*0.5);
 colormap(colormap_BlueWhiteRed)
 
-%% Retinotopy via sweep fourier
+%% Retinotopy via sweep fourier (NEW - SIGNALS KALATSKY)
 
-use_v = fVh;
+% [b100s,a100s] = butter(2,[0.1,0.1]/(framerate/2));
+% use_v = single(filter(b100s,a100s,double(dVh)')');
+
+% Temporally downsample V's
+new_fs = 10;
+[fVh_downsamp,frame_t] = resample(double(fVh)',th,new_fs);
+fVh_downsamp = single(fVh_downsamp');
+use_v = fVh_downsamp;
+
 use_u = Uh;
 
 % Downsample U (or gaussian filter - similar and no time difference)
@@ -158,10 +166,10 @@ stim_orientation = [1,2,1,2];
 stimIDs =  mod(0:(n_trials-1),4)'+1; %  % (cycle of 4 trial types for direction/orientation)
 
 % Get time window for stim
-framerate = 1./nanmedian(diff(frame_t));
+framerate = 1./mean(diff(frame_t));
 surround_window = [0,stim_duration];
-surround_samplerate = 1/(framerate*1);
-surround_time = surround_window(1):surround_samplerate:surround_window(2);
+surround_sampletime = 1/(framerate*1); % slight downsample for even numbers
+surround_time = surround_window(1):surround_sampletime:surround_window(2);
 
 % Loop through conditions, get power at stim frequency(bootstrapped)
 n_boot = 20; % (empirical: 5 is bit too little, 50 no difference)
@@ -171,48 +179,48 @@ for curr_condition = unique(stimIDs)'
     % Pick stims and get times
     use_stims = find(stimIDs == curr_condition);
     use_stim_onsets = stimOn_times(use_stims);
-    n_reps = length(use_stim_onsets);
     
     stim_surround_times = bsxfun(@plus, use_stim_onsets(:), surround_time);
     % (baseline time is just first frame of each stim)
     baseline_times = stim_surround_times(:,1);
     
-    % Get power at stim frequency 
+    % Get activity for stim, baseline subtract
     peri_stim_v = permute(interp1(frame_t,use_v',stim_surround_times) - ...
         permute(interp1(frame_t,use_v',baseline_times),[1,3,2]),[3,2,1]);
     
+    % Get power at stim frequency    
     fourier_phase = 2*exp(-surround_time*2*pi*1i*stim_freq);
     
     % Options for bootstrapping:
     % (picked one empirically)
     
-    % (if no bootstrap: get power within each rep)
+    %     % (if no bootstrap: get power within each rep)
+    %         peri_stim_v_fourier(:,:,curr_condition) = ...
+    %             permute(nanmean(peri_stim_v.*fourier_phase,2),[1,3,2]);
+    
+    %     % (one shake within time across reps)
     %     peri_stim_v_fourier(:,:,curr_condition) = ...
-    %         permute(nanmean(peri_stim_v.*fourier_phase,2),[1,3,2]);
+    %             permute(nanmean(AP_shake(peri_stim_v,3).*fourier_phase,2),[1,3,2]);
     
-    % (one shake within time across reps)
-    % peri_stim_v_fourier(:,:,curr_condition) = ...
-    %         permute(nanmean(AP_shake(peri_stim_v,3).*fourier_phase,2),[1,3,2]);
+%     % (bootstrapped mean in time across reps)
+%     peri_stim_v_bootmean =  permute(reshape(bootstrp(n_boot,@mean, ...
+%         permute(peri_stim_v,[3,1,2])),n_boot, ...
+%         size(peri_stim_v,1),size(peri_stim_v,2)),[2,3,1]);
+%     peri_stim_v_fourier(:,:,curr_condition) = ...
+%         permute(nanmean(peri_stim_v_bootmean.*fourier_phase,2),[1,3,2]);
     
-    % (bootstrapped mean in time across reps)
-    %    peri_stim_v_bootmean =  permute(reshape(bootstrp(n_boot,@mean, ...
-    %        permute(peri_stim_v,[3,1,2])),n_boot, ...
-    %        size(peri_stim_v,1),size(peri_stim_v,2)),[2,3,1]);
-    %    peri_stim_v_fourier(:,:,curr_condition) = ...
-    %         permute(nanmean(peri_stim_v_bootmean.*fourier_phase,2),[1,3,2]);
+        % (simulating reps by shuffling across reps in time)
+        [x,y] = ndgrid(1:size(peri_stim_v),1:size(peri_stim_v,2));
+        for curr_boot = 1:n_boot
+            curr_boot_sub = randi(size(peri_stim_v,3),size(peri_stim_v,1),size(peri_stim_v,2));
+            curr_boot_ind = sub2ind(size(peri_stim_v),x(:),y(:),curr_boot_sub(:));
+            peri_stim_v_currshake = reshape( ...
+                peri_stim_v(curr_boot_ind), ...
+                size(peri_stim_v(:,:,1)));
     
-    % (simulating reps by shuffling across reps in time)
-    [x,y] = ndgrid(1:size(peri_stim_v),1:size(peri_stim_v,2));
-    for curr_boot = 1:n_boot        
-        curr_boot_sub = randi(n_reps,size(peri_stim_v,1),size(peri_stim_v,2));      
-        curr_boot_ind = sub2ind(size(peri_stim_v),x(:),y(:),curr_boot_sub(:));       
-        peri_stim_v_currshake = reshape( ...
-            peri_stim_v(curr_boot_ind), ...
-            size(peri_stim_v(:,:,1)));
-        
-        peri_stim_v_fourier(:,curr_boot,curr_condition) = ...
-            nanmean(peri_stim_v_currshake.*fourier_phase,2);
-    end
+            peri_stim_v_fourier(:,curr_boot,curr_condition) = ...
+                nanmean(peri_stim_v_currshake.*fourier_phase,2);
+        end
     
 end
 
@@ -288,7 +296,7 @@ subplot(1,2,2,ax2);
 subplot(1,2,2,ax3);
 h1 = imagesc(ax2,avg_im);
 colormap(ax2,gray);
-caxis(ax2,[0 prctile(avg_im(:),95)]);
+caxis(ax2,prctile(avg_im(:),[20,80]));
 h2 = imagesc(ax3,vfs);
 colormap(ax3,colormap_BlueWhiteRed);
 caxis([-1,1]);
