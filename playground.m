@@ -12234,18 +12234,6 @@ split_idx = cell2mat(arrayfun(@(exp,trials) repmat(exp,trials,1), ...
 use_v = fVh;
 use_u = Uh;
 
-% (get stim on times)
-photodiode_trace_medfilt = medfilt1(Timeline.rawDAQData(stimScreen_on, ...
-    photodiode_idx),3) > photodiode_thresh;
-photodiode_flip = find((~photodiode_trace_medfilt(1:end-1) & photodiode_trace_medfilt(2:end)) | ...
-    (photodiode_trace_medfilt(1:end-1) & ~photodiode_trace_medfilt(2:end)))+1;
-photodiode_flip_times = stimScreen_on_t(photodiode_flip)';
-stimOn_times = [photodiode_flip_times(find(diff(photodiode_flip_times) > 1)+1)];
-
-stimOn_times = stimOn_times(1:2:end);
-stimOn_times = stimOn_times + [0:10:100];
-stimOn_times = sort(stimOn_times(:));
-stimIDs = ones(size(stimOn_times));
 
 % Set options
 surround_window = [0,10];
@@ -12254,15 +12242,6 @@ baseline_window = [0,0];
 surround_samplerate = 1/(framerate*1);
 surround_time = surround_window(1):surround_samplerate:surround_window(2);
 baseline_surround_time = baseline_window(1):surround_samplerate:baseline_window(2);
-
-% Get wheel movements during stim, only use quiescent trials
-wheel_window = [0,0.5];
-wheel_window_t = wheel_window(1):1/framerate:wheel_window(2);
-wheel_window_t_peri_event = bsxfun(@plus,stimOn_times,wheel_window_t);
-event_aligned_wheel = interp1(Timeline.rawDAQTimestamps, ...
-    wheel_velocity,wheel_window_t_peri_event);
-wheel_thresh = 0.025;
-quiescent_trials = ~any(abs(event_aligned_wheel) > wheel_thresh,2);
 
 % Average (time course) responses
 use_vs = 1:size(use_u,3);
@@ -12274,9 +12253,7 @@ for curr_condition_idx = 1:length(conditions)
     
     use_stims = stimIDs == curr_condition;
     use_stimOn_times = stimOn_times(use_stims);
-%     use_stimOn_times = stimOn_times(use_stims & quiescent_trials);
-    use_stimOn_times([1,end]) = [];
-    
+
     stim_surround_times = bsxfun(@plus, use_stimOn_times(:), surround_time);
     stim_baseline_surround_times = bsxfun(@plus, use_stimOn_times(:), baseline_surround_time);
     
@@ -12295,8 +12272,20 @@ caxis([-max(abs(caxis)),max(abs(caxis))]);
 colormap(brewermap([],'*RdBu'));
 set(gcf,'Name',animal);
 
+%% Temp retinotopy
 
+animals = {'AP089','AP090','AP091','AP092','AP093','AP094'};
+alignment_path = 'C:\Users\Andrew\OneDrive for Business\Documents\CarandiniHarrisLab\analysis\widefield_alignment';
+retinotopy_path = [alignment_path filesep 'retinotopy'];
 
+use_retinotopy = cell(size(animals));
+for curr_animal = 1:length(animals)
+    animal = animals{curr_animal};
+    retinotopy_fn = [retinotopy_path filesep animal '_retinotopy.mat'];
+    load(retinotopy_fn)
+    
+    use_retinotopy{curr_animal} = retinotopy(1).vfs;
+end
 
 
 

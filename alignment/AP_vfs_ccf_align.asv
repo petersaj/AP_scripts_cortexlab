@@ -62,7 +62,7 @@ ccf_vfs(ismember(top_down_annotation,used_areas([v1_idx,am_idx,al_idx,li_idx])))
 ccf_vfs(ismember(top_down_annotation,used_areas([a_idx,p_idx,pm_idx,rl_idx,lm_idx]))) = -1;
 
 % (If opposite hemisphere VFS, flip right hemisphere values)
-ccf_vfs(:,1:bregma(3)) = ccf_vfs(:,1:bregma(3))*side_sign;
+ccf_vfs(:,bregma(3);end)
 
 
 %% Define um per pixel (hard coded)
@@ -84,7 +84,7 @@ optimizer.MaximumIterations = 200;
 optimizer.GrowthFactor = 1+1e-6;
 optimizer.InitialRadius = 1e-4;
 
-ccf_tform = imregtform(ccf_vfs_d,master_vfs_scaled,'affine',optimizer,metric,'PyramidLevels',5);
+ccf_tform = imregtform(ccf_vfs_d,master_vfs_scaled,'affine',optimizer,metric);
 tform_matrix = ccf_tform.T;
 
 boundaries_tform_long = cellfun(@(areas) cellfun(@(coords) ...

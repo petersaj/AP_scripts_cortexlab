@@ -517,7 +517,6 @@ end
 
 %% Align widefield to stim
 
-
 % Set options
 surround_window = [-0.5,3];
 baseline_window = [-0.1,0];
@@ -574,56 +573,6 @@ caxis([-max(abs(caxis)),max(abs(caxis))]);
 colormap(brewermap([],'*RdBu'));
 set(gcf,'Name',animal);
 
-% Gui for plotting responses
-pixelTuningCurveViewerSVD(Uh,fVh,frame_t,stimOn_times,stimIDs,surround_window);
-
-% Get average responses
-avg_window = [0.05,0.2];
-avg_t = surround_time >= avg_window(1) & surround_time <= avg_window(2);
-im_stim_avg = squeeze(max(diff(im_stim(:,:,avg_t,:),[],3),[],3));
-
-AP_image_scroll(im_stim_avg,unique(stimIDs));
-axis image;
-
-% Average (single frame) responses to stimuli
-surround_window = [0.05,0.15];
-framerate = 1./mean(diff(frame_t));
-surround_samplerate = 1/(framerate*1);
-surround_time = surround_window(1):surround_samplerate:surround_window(2);
-
-peri_stim_df = nan(size(U,1),size(U,2),length(conditions));
-for curr_condition_idx = 1:length(conditions)
-    curr_condition = conditions(curr_condition_idx);
-    
-    align_times = stimOn_times(stimIDs == curr_condition);
-    align_times(align_times + surround_time(1) < frame_t(2) | ...
-        align_times + surround_time(2) > frame_t(end)) = [];
-    
-    align_surround_times = bsxfun(@plus, align_times, surround_time);
-    peri_stim_v = permute(nanmean(interp1(frame_t,fVdf',align_surround_times),1),[3,2,1]);
-    peri_stim_df(:,:,curr_condition_idx) = ...
-        nanmean(imgaussfilt(diff(svdFrameReconstruct(Udf,peri_stim_v),[],3),1),3);
-end
-
-AP_image_scroll(peri_stim_df,unique(stimIDs));
-axis image;
-
-% Average responses to stimuli (deconv)
-unique_stim = unique(stimIDs);
-
-surround_window = [0,0.1];
-surround_times = surround_window(1):1/framerate:surround_window(2);
-grab_times = stimOn_times + surround_times;
-
-event_fVdf_deconv = permute(interp1(frame_t,fVdf_deconv',grab_times),[3,2,1]);
-event_px = nan(size(Udf,1),size(Udf,2),length(unique_stim));
-for curr_stim_idx = 1:length(unique_stim)
-   curr_v = nanmean(event_fVdf_deconv(:,:,stimIDs == unique_stim(curr_stim_idx)),3); 
-   curr_px = nanmean(svdFrameReconstruct(Udf,curr_v),3);
-   event_px(:,:,curr_stim_idx) = curr_px;
-end
-AP_image_scroll(event_px);
-axis image;
 
 
 %% Align widefield to event
@@ -2073,7 +2022,7 @@ ylabel(c,'Explained variance')
 
 %% Align vasculature for animal
 
-animal = 'AP094';
+animal = 'AP093';
 
 protocol = 'AP_lcrGratingPassive';
 experiments = AP_find_experiments(animal,protocol);

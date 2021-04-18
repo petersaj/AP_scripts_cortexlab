@@ -2113,8 +2113,9 @@ end
 
 %% Get and plot mice behavior
 
-animals = {'AP089','AP090','AP091'};
+% animals = {'AP089','AP090','AP091'};
 % animals = {'AP092','AP093','AP094'};
+animals = {'AP095','AP096','AP097'};
 protocol = 'AP_stimWheelRight';
 flexible_name = false;
 

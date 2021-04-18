@@ -84,7 +84,7 @@ rewardKeyPressed = inputs.keyboard.strcmp('w');
 %% Default parameters
 
 try
-    parameters.rewardSize = 2;
+    parameters.rewardSize = 6;
     parameters.itiMin = 1;
     parameters.itiMax = 3;
     parameters.quiescenceMin = 0.5;

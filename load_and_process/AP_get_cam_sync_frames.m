@@ -21,21 +21,19 @@ end
 vr = VideoReader(fn);
 
 % Get first frame, draw ROI for strobe detection
+ frame1 = readFrame(vr);
 if draw_roi
-    frame1 = readFrame(vr);
     f = figure;
     imagesc(frame1);colormap(gray);
     axis off
     title('Draw ROI to find cam sync');
-    roiMask = roipoly;
+    roi_mask = roipoly;
     close(f);
     drawnow;
 else
-    % If no ROI is specified, use the lower half of the image (less likely
-    % to have the scope illumination included)
-    frame1 = readFrame(vr);
-    roiMask = false(size(frame1));
-    roiMask(round(size(roiMask,1)/2):end,:) = true;
+    % If no ROI is specified, use a mask of the brightest pixels
+    roi_mask_thresh = prctile(frame1(:),80);
+    roi_mask = frame1 >= roi_mask_thresh;
 end
 
 % Assume that the strobe happens within first and last 1000 frames
@@ -52,9 +50,9 @@ strobe_roi_start = zeros(length(read_frames_start),1);
 for curr_frame_idx = 1:length(read_frames_start)
     curr_frame = read_frames_start(curr_frame_idx);
     curr_im = read(vr,curr_frame);
-    strobe_roi_start(curr_frame_idx) = nanmean(curr_im(roiMask));
+    strobe_roi_start(curr_frame_idx) = nanmean(curr_im(roi_mask));
 end
-strobe_roi_thresh = prctile(strobe_roi_start,50)/1.2;
+strobe_roi_thresh = prctile(strobe_roi_start,50)*0.85;
 strobe_start_frame_idx = find(strobe_roi_start < strobe_roi_thresh,1);
 strobe_start_frame = read_frames_start(strobe_start_frame_idx);
 
@@ -64,9 +62,9 @@ strobe_roi_end = zeros(length(read_frames_end),1);
 for curr_frame_idx = 1:length(read_frames_end)
     curr_frame = read_frames_end(curr_frame_idx);
     curr_im = read(vr,curr_frame);
-    strobe_roi_end(curr_frame_idx) = nanmean(curr_im(roiMask));
+    strobe_roi_end(curr_frame_idx) = nanmean(curr_im(roi_mask));
 end
-strobe_roi_thresh = prctile(strobe_roi_end,50)/1.2;
+strobe_roi_thresh = prctile(strobe_roi_end,50)*0.85;
 strobe_end_frame_idx = find(strobe_roi_end < strobe_roi_thresh,1);
 strobe_end_frame = read_frames_end(strobe_end_frame_idx);
 
