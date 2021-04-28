@@ -10,7 +10,7 @@ end
 %% Get if task if passive dataset
 
 % Task dataset if signals (expDef) and includes task expDef
-task_dataset = exist('expDef','var') && contains(expDef,'vanillaChoiceworld');
+task_dataset = exist('expDef','var') && contains(expDef,'stimWheel');
 
 
 %% Set parameters for cortical fluoresence
@@ -308,28 +308,6 @@ if task_dataset
             curr_stim_move_times_signals(x),1)),1:length(curr_stim_move_times_signals));
         
         stim_move_regressors(curr_stim,:) = histcounts(curr_stim_move_times_photodiode,time_bins);
-        
-    end
-    
-    % Stim center regressors (one for each stim when it's stopped during reward)
-    unique_contrasts = unique(contrasts(contrasts > 0));
-    
-    stim_center_regressors = zeros(length(unique_contrasts),length(time_bin_centers));
-    for curr_contrast = 1:length(unique_contrasts)
-        
-        % (find the last photodiode flip before the reward)
-        curr_stimOn_times = stimOn_times(trial_outcome(1:length(stimOn_times)) == 1 & ...
-            abs(stim_contrastsides) == unique_contrasts(curr_contrast));
-        
-        curr_reward_times = arrayfun(@(x) ...
-            reward_t_timeline(find(reward_t_timeline > ...
-            curr_stimOn_times(x),1)),1:length(curr_stimOn_times));
-        
-        curr_prereward_photodiode_times = arrayfun(@(x) ...
-            photodiode_flip_times(find(photodiode_flip_times < ...
-            curr_reward_times(x),1,'last')),1:length(curr_reward_times));
-        
-        stim_center_regressors(curr_contrast,:) = histcounts(curr_prereward_photodiode_times,time_bins);
         
     end
     

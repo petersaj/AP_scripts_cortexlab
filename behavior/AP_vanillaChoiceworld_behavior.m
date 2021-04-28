@@ -2113,23 +2113,27 @@ end
 
 %% Get and plot mice behavior
 
-% animals = {'AP089','AP090','AP091'};
+% animals = {'AP089','AP090','AP091','AP092','AP093','AP094'};
 % animals = {'AP092','AP093','AP094'};
-animals = {'AP095','AP096','AP097'};
+% animals = {'AP095','AP096','AP097'};
+animals = {'AP096'};
 protocol = 'AP_stimWheelRight';
 flexible_name = false;
+bhv = struct;
 
 for curr_animal = 1:length(animals)
     
+    preload_vars = who;
+    
     animal = animals{curr_animal};
     experiments = AP_find_experiments(animal,protocol,flexible_name);
-    bhv = struct;
             
     if isempty(experiments)
         disp(['No behavior data: ' animal]);
         continue
     end
     
+    disp([animal ', day:'])
     for curr_day = 1:length(experiments)
         
         day = experiments(curr_day).day;
@@ -2247,19 +2251,21 @@ for curr_animal = 1:length(animals)
                 (nansum(right_wheel_velocity)+nansum(left_wheel_velocity));
 
             % Store in behavior structure
-            bhv.protocol{curr_day} = curr_protocol;
-            bhv.session_duration(curr_day) = session_duration;
-            bhv.n_trials(curr_day) = n_trials;
-            bhv.total_water(curr_day) = total_water;
-            bhv.wheel_velocity(curr_day) = nansum(abs(wheel_velocity));
-            bhv.stim_move_t{curr_day} = stim_move_t;
-            bhv.stim_reward_t{curr_day} = stim_reward_t;
-            bhv.quiescence_t{curr_day} = quiescence_t;
-            bhv.iti_t{curr_day} = iti_t;
-            bhv.wheel_bias(curr_day) = wheel_bias;
+            bhv(curr_animal).animal = animal;
+            bhv(curr_animal).day{curr_day} = day;
+            bhv(curr_animal).protocol{curr_day} = curr_protocol;
+            bhv(curr_animal).session_duration(curr_day) = session_duration;
+            bhv(curr_animal).n_trials(curr_day) = n_trials;
+            bhv(curr_animal).total_water(curr_day) = total_water;
+            bhv(curr_animal).wheel_velocity(curr_day) = nansum(abs(wheel_velocity));
+            bhv(curr_animal).stim_move_t{curr_day} = stim_move_t;
+            bhv(curr_animal).stim_reward_t{curr_day} = stim_reward_t;
+            bhv(curr_animal).quiescence_t{curr_day} = quiescence_t;
+            bhv(curr_animal).iti_t{curr_day} = iti_t;
+            bhv(curr_animal).wheel_bias(curr_day) = wheel_bias;
 
-            bhv.stim_surround_t = stim_surround_t_centers;
-            bhv.stim_surround_wheel{curr_day} = stim_surround_move;
+            bhv(curr_animal).stim_surround_t = stim_surround_t_centers;
+            bhv(curr_animal).stim_surround_wheel{curr_day} = stim_surround_move;
             
             AP_print_progress_fraction(curr_day,length(experiments));
         end
@@ -2269,9 +2275,9 @@ for curr_animal = 1:length(animals)
     % Plot summary
     day_num = cellfun(@(x) datenum(x),{experiments.day});
     day_labels = cellfun(@(day,protocol) [day(6:end)], ...
-        {experiments.day},bhv.protocol,'uni',false);
+        {experiments.day},bhv(curr_animal).protocol,'uni',false);
     
-    [unique_protocols,~,protocol_idx] = unique(bhv.protocol);
+    [unique_protocols,~,protocol_idx] = unique(bhv(curr_animal).protocol);
     protocol_col = hsv(length(unique_protocols));
     
     figure('Name',animal)
@@ -2279,19 +2285,20 @@ for curr_animal = 1:length(animals)
     % Trials and water
     subplot(2,3,1); hold on;
     yyaxis left
-    % plot(day_num,bhv.n_trials./bhv.session_duration,'linewidth',2);
+    % plot(day_num,bhv(curr_animal).n_trials./bhv(curr_animal).session_duration,'linewidth',2);
     % ylabel('Trials/min');
-    plot(day_num,bhv.n_trials,'linewidth',2);
+    plot(day_num,bhv(curr_animal).n_trials,'linewidth',2);
     ylabel('Trials');
     yyaxis right
-    plot(day_num,bhv.total_water,'linewidth',2);
+    plot(day_num,bhv(curr_animal).total_water,'linewidth',2);
     ylabel('Total water');
     xlabel('Session');
     set(gca,'XTick',day_num);
     set(gca,'XTickLabel',day_labels);
     set(gca,'XTickLabelRotation',90);
     
-    protocol_plot = gscatter(day_num,zeros(size(day_num)),[bhv.protocol]');
+    protocol_plot = gscatter(day_num,zeros(size(day_num)),[bhv(curr_animal).protocol]');
+    legend off;
     
     imaging_days = day_num([experiments.imaging]);
     for i = 1:length(imaging_days)
@@ -2306,12 +2313,12 @@ for curr_animal = 1:length(animals)
     % Wheel movement and bias
     subplot(2,3,2);
     yyaxis left
-    % plot(day_num,bhv.wheel_velocity./bhv.session_duration,'linewidth',2);
+    % plot(day_num,bhv(curr_animal).wheel_velocity./bhv(curr_animal).session_duration,'linewidth',2);
     % ylabel('Wheel movement / min');
-    plot(day_num,bhv.wheel_velocity,'linewidth',2);
+    plot(day_num,bhv(curr_animal).wheel_velocity,'linewidth',2);
     ylabel('Wheel movement');
     yyaxis right
-    plot(day_num,bhv.wheel_bias,'linewidth',2);
+    plot(day_num,bhv(curr_animal).wheel_bias,'linewidth',2);
     ylim([-1,1]);
     line(xlim,[0,0]);
     ylabel('Wheel bias');
@@ -2332,38 +2339,77 @@ for curr_animal = 1:length(animals)
 
     % Stim-to-reward time
     subplot(2,3,3);
-    plot(day_num,cellfun(@nanmedian,bhv.stim_reward_t),'k','linewidth',2);
+    plot(day_num,cellfun(@nanmedian,bhv(curr_animal).stim_reward_t),'k','linewidth',2);
     ylabel('Stim to reward time (s)');
     xlabel('Session')
     set(gca,'XTick',day_num);
     set(gca,'XTickLabel',day_labels);
     set(gca,'XTickLabelRotation',90);
 
-    % Move stats
+    % Move fraction heatmap
     stim_surround_wheel_cat = ...
-        cell2mat(cellfun(@(x) nanmean(x,1),bhv.stim_surround_wheel,'uni',false)');
+        cell2mat(cellfun(@(x) nanmean(x,1),bhv(curr_animal).stim_surround_wheel,'uni',false)');
     subplot(2,3,4);
-    imagesc(bhv.stim_surround_t,day_num,stim_surround_wheel_cat);
+    imagesc(bhv(curr_animal).stim_surround_t,day_num,stim_surround_wheel_cat);
     colormap(gca,brewermap([],'Greys'));
+    caxis([0,1]);
     xlabel('Time from stim (s)');
     set(gca,'YTick',day_num);
     set(gca,'YTickLabel',day_labels);
     
-    % (get difference of rate: hazard rate-ish?)
-    hazard_rate = diff(convn(stim_surround_wheel_cat,ones(1,10)/10,'valid'),[],2);
-    subplot(2,3,5);
-    imagesc(hazard_rate);
-    colormap(gca,brewermap([],'*RdBu'));
-    caxis([-max(abs(caxis)),max(abs(caxis))]);
-
-
+    % Move fraction lineplot
+    subplot(2,3,5); hold on;
+    set(gca,'ColorOrder',copper(size(stim_surround_wheel_cat,1)));
+    plot(bhv(curr_animal).stim_surround_t,stim_surround_wheel_cat');
+    ylabel([0,1]);
+    ylabel('Fraction move');
+    xlabel('Time from stim (s)');
+    
+    % Move fraction pre/post stim
+    t_pre = bhv(curr_animal).stim_surround_t > -4 & bhv(curr_animal).stim_surround_t < -2;
+    t_post = bhv(curr_animal).stim_surround_t > 0 & bhv(curr_animal).stim_surround_t < 2;
+    move_pre_stim = ...
+        cell2mat(cellfun(@(x) nanmean(reshape(x(:,t_pre),[],1)), ...
+        bhv(curr_animal).stim_surround_wheel,'uni',false)');
+    move_post_stim = ...
+        cell2mat(cellfun(@(x) nanmean(reshape(x(:,t_post),[],1)), ...
+        bhv(curr_animal).stim_surround_wheel,'uni',false)');
+    
+    subplot(2,3,6); hold on;
+    plot(day_num,move_pre_stim,'-k','linewidth',2);
+    plot(day_num,move_post_stim,'-r','linewidth',2);
+    ylabel({'Fraction moving','(2s pre,post)'})
+    ylim([0,1]);
+    set(gca,'XTick',day_num);
+    set(gca,'XTickLabel',day_labels);
+    set(gca,'XTickLabelRotation',90);
+    
     drawnow;
+    clearvars('-except',preload_vars{:});
     
 end
 
+% End if only one mouse
+if length(animals) == 1
+    return
+end
 
+% If more than one mouse, plot group
+% (only for min days across mice)
+min_days = min(cellfun(@length,{bhv.n_trials}));
 
-    
+% Movement around stim
+stim_surround_wheel_avg = ...
+    cell2mat(permute(cellfun(@(x) cell2mat(cellfun(@(x) ...
+    nanmean(x,1),x(1:min_days),'uni',false)'), ...
+    {bhv.stim_surround_wheel},'uni',false),[1,3,2]));
+
+stim_surround_t = bhv(1).stim_surround_t;
+figure; hold on
+set(gca,'ColorOrder',copper(min_days));
+plot(stim_surround_t,nanmean(stim_surround_wheel_avg,3)','linewidth',2);
+xlabel('Time from stim (s)');
+ylabel('Fraction moving');
 
 
     

@@ -124,14 +124,13 @@ ylabel('Stim contrast*side');
 
 %% Passive stim (pixels)
 
-animal = 'AP093';
+animal = 'AP097';
 
 protocol = 'AP_lcrGratingPassive';
 experiments = AP_find_experiments(animal,protocol);
 
 % Use only days with imaging
 experiments = experiments([experiments.imaging]);
-
 im_stim_all = cell(size(experiments));
 for curr_day = 1:length(experiments)
     
@@ -466,7 +465,7 @@ save([save_path filesep save_fn],'-v7.3');
 clear all
 disp('Passive trial activity (operant, corticostriatal)')
 
-animals = {'AP089','AP090','AP091','AP092','AP093','AP094'};
+animals = {'AP089','AP090','AP091','AP092','AP093','AP094','AP095','AP096','AP097'};
 
 % Initialize save variable
 trial_data_all = struct;
@@ -475,16 +474,22 @@ for curr_animal = 1:length(animals)
     
     animal = animals{curr_animal};
     protocol = 'AP_lcrGratingPassive';
-    experiments = AP_find_experiments(animal,protocol);
-    imaged_experiments = [experiments.imaging];
+    experiments_full = AP_find_experiments(animal,protocol);
+    imaged_experiments = [experiments_full.imaging];
 
     % Use only days with operant training
     operant_protocol = 'AP_stimWheelRight';
     operant_experiments = AP_find_experiments(animal,operant_protocol,false);
-    operant_experiments = operant_experiments([operant_experiments.imaging]);    
-    trained_experiments = ismember({experiments.day},{operant_experiments.day});
+    experiment_operant = ismember({experiments_full.day},{operant_experiments.day});
     
-    experiments = experiments([imaged_experiments & trained_experiments]);
+    % Don't use days with retinotopy (those were often muscimol days)
+    retinotopy_protocol = 'AP_kalatsky';
+    retinotopy_experiments = AP_find_experiments(animal,retinotopy_protocol,false);
+    experiment_retintopy = ismember({experiments_full.day},{retinotopy_experiments.day});
+    
+    use_experiments = [experiments_full.imaging] & experiment_operant & ...
+        ~experiment_retintopy;
+    experiments = experiments_full(use_experiments);
     
     disp(['Loading ' animal]);
     
@@ -528,6 +533,7 @@ disp('Finished loading all')
 save_path = 'C:\Users\Andrew\OneDrive for Business\Documents\CarandiniHarrisLab\analysis\learning\data';
 save_fn = ['trial_activity_passive_learning_operant'];
 save([save_path filesep save_fn],'-v7.3');
+disp(['Saved: ' save_path filesep save_fn])
 
 
 
@@ -898,6 +904,19 @@ axis image
 caxis([-max(abs(caxis)),max(abs(caxis))]);
 colormap(brewermap([],'*RdBu'));
 
+
+% (average stim response for each day)
+use_stim = 3;
+min_days = cellfun(@(x) size(x,3),stim_v_avg);
+stim_v_avg_dayavg = nanmean(cell2mat(permute(cellfun(@(x) x(:,:,1:min_days,use_stim), ...
+    stim_v_avg,'uni',false),[1,3,4,2])),4);
+stim_px_avg_dayavg = AP_svdFrameReconstruct(U_master(:,:,1:n_vs), ...
+    stim_v_avg_dayavg);
+AP_image_scroll(stim_px_avg_dayavg,t);
+caxis([-max(abs(caxis)),max(abs(caxis))]);
+colormap(brewermap([],'PrGn'));
+axis image;
+AP_reference_outline('ccf_aligned',[0.5,0.5,0.5]);
 
 % (average stim response "pre/post learning")
 notlearned_days = 1:4;

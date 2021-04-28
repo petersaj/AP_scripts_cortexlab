@@ -519,9 +519,9 @@ end
 
 % Set options
 surround_window = [-0.5,3];
-baseline_window = [-0.1,0];
+baseline_window = [0,0];
 
-surround_samplerate = 1/(framerate*1);
+surround_samplerate = 0.05;%1/(framerate*1);
 surround_time = surround_window(1):surround_samplerate:surround_window(2);
 baseline_surround_time = baseline_window(1):surround_samplerate:baseline_window(2);
 
@@ -569,7 +569,8 @@ end
 
 AP_image_scroll(im_stim,surround_time);
 axis image;
-caxis([-max(abs(caxis)),max(abs(caxis))]);
+c = prctile(im_stim(:),[1,99]);
+caxis([-max(abs(c)),max(abs(c))]);
 colormap(brewermap([],'*RdBu'));
 set(gcf,'Name',animal);
 
@@ -1980,10 +1981,10 @@ caxis([-c,c])
 %     stim_to_feedback < 1.5 & ...
 %     stim_to_move < 0.5;
 
-use_trials = true(n_trials,1);
+use_trials = stimIDs == 3;
 
-% align_times = stimOn_times(use_trials);
-align_times = wheel_move_time(use_trials);
+align_times = stimOn_times(use_trials);
+% align_times = wheel_move_time(use_trials);
 
 surround_time = [-0.5,1];
 
@@ -2021,10 +2022,10 @@ ylabel(c,'Explained variance')
 % put this somewhere better?
 
 %% Align vasculature for animal
+clear all;
+animal = 'AP094';
 
-animal = 'AP093';
-
-protocol = 'AP_lcrGratingPassive';
+protocol = [];
 experiments = AP_find_experiments(animal,protocol);
 experiments(~([experiments.imaging])) = [];
 
@@ -2033,19 +2034,28 @@ avg_im_days_purple = cell(size(experiments));
 for curr_day = 1:length(experiments)
     day = experiments(curr_day).day;
     [img_path,img_exists] = AP_cortexlab_filename(animal,day,[],'imaging');
-    avg_im_blue = readNPY([img_path filesep 'meanImage_blue.npy']);
-    avg_im_purple = readNPY([img_path filesep 'meanImage_purple.npy']);
+    % (check for blue and purple images, skip if not present)
+    avg_im_blue_fn = [img_path filesep 'meanImage_blue.npy'];
+    avg_im_purple_fn = [img_path filesep 'meanImage_purple.npy'];
+    if ~exist(avg_im_blue_fn,'file') || ~exist(avg_im_purple_fn,'file')
+        continue
+    end
+    avg_im_blue = readNPY(avg_im_blue_fn);
+    avg_im_purple = readNPY(avg_im_purple_fn);
     avg_im_days_blue{curr_day} = avg_im_blue;
     avg_im_days_purple{curr_day} = avg_im_purple;
 end
 
+use_days = cellfun(@(x,y) ~isempty(x) & ~isempty(y), ...
+    avg_im_days_blue,avg_im_days_purple);
+
 % % Align with normalized averages        
-% im_norm = cellfun(@(x) x./mad(x(:),true),avg_im_days_blue,'uni',false);        
-% AP_align_widefield(im_norm,animal,{experiments.day},'new_days');
+% im_norm = cellfun(@(x) x./mad(x(:),true),avg_im_days_blue(use_days),'uni',false);        
+% AP_align_widefield(im_norm,animal,{experiments(use_days).day},'new_days');
 
 % Align with edges
-im_edge = cellfun(@(x) x-imgaussfilt(x,10),avg_im_days_purple,'uni',false);
-AP_align_widefield(im_edge,animal,{experiments.day},'new_days');
+im_edge = cellfun(@(x) x-imgaussfilt(x,10),avg_im_days_purple(use_days),'uni',false);
+AP_align_widefield(im_edge,animal,{experiments(use_days).day},'new_days');
 
 
 
@@ -2067,10 +2077,12 @@ for curr_day = 1:length(experiments)
     avg_im_aligned{curr_day} = [AP_align_widefield(avg_im_n,animal,day), ...
         AP_align_widefield(avg_im_h,animal,day)];
 end
-
+c = prctile(reshape([avg_im_aligned{:}],[],1),[5,95]);
 AP_image_scroll(cat(3,avg_im_aligned{:}),{experiments.day});
+caxis(c);
 axis image;
 set(gcf,'Name',animal);
+
 
 %% Average retinotopy, align to master
 

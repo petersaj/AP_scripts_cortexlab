@@ -248,6 +248,7 @@ end
 
 
 %% ~~~~~~~~~ ALIGNMENT ~~~~~~~~~
+%% (--> this is old: I do it by intrinsic retinotopy now)
 
 %% Get and save average response to right grating (for animal alignment)
 
@@ -727,6 +728,68 @@ save_path = 'C:\Users\Andrew\OneDrive for Business\Documents\CarandiniHarrisLab\
 save_fn = ['trial_activity_choiceworld_cstr_dms'];
 save([save_path filesep save_fn],'-v7.3');
 
+
+%% Operant trial data
+
+clear all
+disp('Operant trial activity')
+
+animals = {'AP089','AP090','AP091','AP092','AP093','AP094','AP095','AP096','AP097'};
+
+% Initialize save variable
+trial_data_all = struct;
+
+for curr_animal = 1:length(animals)
+    
+    animal = animals{curr_animal};
+    protocol = 'AP_stimWheelRight';
+    experiments = AP_find_experiments(animal,protocol);
+    
+    experiments = experiments([experiments.imaging] & ~[experiments.ephys]);
+    
+    disp(['Loading ' animal]);
+    
+    for curr_day = 1:length(experiments)
+        
+        preload_vars = who;
+        
+        day = experiments(curr_day).day;
+        experiment = experiments(curr_day).experiment(end);
+        
+        % Load experiment
+        AP_load_experiment;
+        
+        % Pull out trial data
+        test_cstr_grab_trial_data;
+        
+        % Store trial data into master structure
+        trial_data_fieldnames = fieldnames(trial_data);
+        for curr_trial_data_field = trial_data_fieldnames'
+            trial_data_all.(cell2mat(curr_trial_data_field)){curr_animal,1}{curr_day,1} = ...
+                trial_data.(cell2mat(curr_trial_data_field));
+        end
+        
+        % Store general info
+        trial_data_all.animals = animals;
+        trial_data_all.t = t;
+        trial_data_all.task_regressor_labels = task_regressor_labels;
+        trial_data_all.task_regressor_sample_shifts = task_regressor_sample_shifts;
+        
+        AP_print_progress_fraction(curr_day,length(experiments));
+        
+        % Clear for next loop
+        clearvars('-except',preload_vars{:});
+        
+    end
+end
+
+clearvars -except trial_data_all
+disp('Finished loading all')
+
+% Save
+save_path = 'C:\Users\Andrew\OneDrive for Business\Documents\CarandiniHarrisLab\analysis\corticostriatal\data';
+save_fn = ['trial_activity_operant_cstr'];
+save([save_path filesep save_fn],'-v7.3');
 
 
 %% ~~~~~~~~~ BATCH ANALYSIS ~~~~~~~~~

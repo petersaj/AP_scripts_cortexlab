@@ -1,6 +1,6 @@
 % Align CCF and Master VFS
 
-error('MAKE THIS NOT OVERRIDE STUFF')
+error('Really override master CCF alignment? Manually override');
 
 %% Load master VFS
 alignment_path = 'C:\Users\Andrew\OneDrive for Business\Documents\CarandiniHarrisLab\analysis\widefield_alignment';
@@ -84,7 +84,7 @@ optimizer.MaximumIterations = 200;
 optimizer.GrowthFactor = 1+1e-6;
 optimizer.InitialRadius = 1e-4;
 
-ccf_tform = imregtform(ccf_vfs_d,master_vfs_scaled,'affine',optimizer,metric,'PyramidLevels',5);
+ccf_tform = imregtform(ccf_vfs_d,master_vfs_scaled,'affine',optimizer,metric);
 tform_matrix = ccf_tform.T;
 
 boundaries_tform_long = cellfun(@(areas) cellfun(@(coords) ...

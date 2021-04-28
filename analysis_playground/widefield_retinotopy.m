@@ -133,8 +133,8 @@ colormap(colormap_BlueWhiteRed)
 %% Retinotopy via sweep fourier (NEW - SIGNALS KALATSKY)
 % (this includes a lot of tweaks that empirically gave better results)
 
-use_u = Uh;
-use_v = fVh;
+use_u = Un;
+use_v = fVn;
 
 % Temporally downsample V's (allows integer frames in cycle)
 new_fs = 10;
@@ -2196,7 +2196,7 @@ axis image off
 
 %% ~~~~~~~~~~~ Retinotopy lilrig in batch 
 
-animals = {'AP089','AP090','AP091','AP092','AP093','AP094'};
+animals = {'AP095','AP096','AP097'};
 
 for curr_animal = 1:length(animals)
     

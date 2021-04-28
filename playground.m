@@ -12229,52 +12229,11 @@ use_split = trials_recording;
 split_idx = cell2mat(arrayfun(@(exp,trials) repmat(exp,trials,1), ...
     [1:length(use_split)]',reshape(use_split,[],1),'uni',false));
 
-%% TEMP FOR KALATSKY
-
-use_v = fVh;
-use_u = Uh;
 
 
-% Set options
-surround_window = [0,10];
-baseline_window = [0,0];
+%% hemo retinotopy: make submaster
 
-surround_samplerate = 1/(framerate*1);
-surround_time = surround_window(1):surround_samplerate:surround_window(2);
-baseline_surround_time = baseline_window(1):surround_samplerate:baseline_window(2);
-
-% Average (time course) responses
-use_vs = 1:size(use_u,3);
-
-conditions = unique(stimIDs);
-im_stim = nan(size(use_u,1),size(use_u,2),length(surround_time),length(conditions));
-for curr_condition_idx = 1:length(conditions)
-    curr_condition = conditions(curr_condition_idx);
-    
-    use_stims = stimIDs == curr_condition;
-    use_stimOn_times = stimOn_times(use_stims);
-
-    stim_surround_times = bsxfun(@plus, use_stimOn_times(:), surround_time);
-    stim_baseline_surround_times = bsxfun(@plus, use_stimOn_times(:), baseline_surround_time);
-    
-    peri_stim_v = permute(interp1(frame_t,use_v',stim_surround_times),[3,2,1]);
-    baseline_v = permute(nanmean(interp1(frame_t,use_v',stim_baseline_surround_times),2),[3,2,1]);
-
-    stim_v_mean = nanmean(peri_stim_v - baseline_v,3);
-    
-    im_stim(:,:,:,curr_condition_idx) = svdFrameReconstruct(use_u(:,:,use_vs), ...
-        stim_v_mean(use_vs,:));   
-end
-
-AP_image_scroll(im_stim,surround_time);
-axis image;
-caxis([-max(abs(caxis)),max(abs(caxis))]);
-colormap(brewermap([],'*RdBu'));
-set(gcf,'Name',animal);
-
-%% Temp retinotopy
-
-animals = {'AP089','AP090','AP091','AP092','AP093','AP094'};
+animals = {'AP089','AP090','AP091','AP092','AP093','AP094','AP095','AP096','AP097'};
 alignment_path = 'C:\Users\Andrew\OneDrive for Business\Documents\CarandiniHarrisLab\analysis\widefield_alignment';
 retinotopy_path = [alignment_path filesep 'retinotopy'];
 
@@ -12287,10 +12246,29 @@ for curr_animal = 1:length(animals)
     use_retinotopy{curr_animal} = retinotopy(1).vfs;
 end
 
+AP_align_widefield(use_retinotopy,[],[],'create_submaster')
 
+%% hemo retinotopy: align animals to master
 
+alignment_path = 'C:\Users\Andrew\OneDrive for Business\Documents\CarandiniHarrisLab\analysis\widefield_alignment';
+hemo_master_fn = [alignment_path filesep 'hemo_master_vfs'];
+load(hemo_master_fn);
 
-
+% Align animal to master
+animals = {'AP089','AP090','AP091','AP092','AP093','AP094','AP095','AP096','AP097'};
+for curr_animal = 1:length(animals)
+    animal = animals{curr_animal};
+    
+    retinotopy_path = 'C:\Users\Andrew\OneDrive for Business\Documents\CarandiniHarrisLab\analysis\widefield_alignment\retinotopy';
+    retinotopy_fn = [retinotopy_path filesep animal '_retinotopy.mat'];
+    load(retinotopy_fn)    
+    
+    use_retinotopy_day = 1;
+    vfs_aligned = AP_align_widefield(retinotopy(use_retinotopy_day).vfs, ...
+        animal,retinotopy(use_retinotopy_day).day);
+    
+    AP_align_widefield(vfs_aligned,animal,[],'new_animal',submaster_vfs);       
+end
 
 
 

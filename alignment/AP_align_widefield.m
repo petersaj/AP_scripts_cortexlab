@@ -13,7 +13,8 @@ function im_aligned = AP_align_widefield(im_unaligned,animal,day,align_type,mast
 % > 'animal_only' - apply only animal transform (e.g. already day-aligned)
 % > 'new_days' - make new alignment within animal across days
 % > 'new_animal' - make new alignment from animal to master 
-% > 'create_master' - create new master alignment reference
+% > 'create_master' - create new master alignment reference (ONCE!!)
+% > 'create_submaster' - create sub-master (align to master)
 % master_align - if 'new_animal', use this instead of master_vfs
 %
 % USAGE: 
@@ -175,9 +176,8 @@ switch align_type
         
     case 'create_master'
         %% Create master VFS
-        % NOTE: changing this requires re-aligning animals, ideally only done once
-        
-        error('FAILSAFE: Really create new master? Comment out this line');
+        % Whenever this is run, any dependent analysis must be re-run
+        error('Really create new master? Manually override');
         
         disp('Creating new master VFS...')
         
@@ -187,7 +187,7 @@ switch align_type
         end
         
         % Check with user: are L and R hemi same or opposite chirality?
-        LR_symmetry = questdlg('Are left/right hemisphere colors same or opposite?','Choose VFS type','symmetric','opposite','symmetric')
+        LR_symmetry = questdlg('Are left/right hemisphere colors same or opposite?','Choose VFS type','symmetric','opposite','symmetric');
         switch LR_symmetry
             case 'symmetric'
                 side_sign = 1;
@@ -205,17 +205,18 @@ switch align_type
             [vfs_y_max - size(vfs,1),vfs_x_max - size(vfs,2)],0,'post'), ...
             im_unaligned,'uni',false),1,1,[]));
         
-        % Iterate averaging the VFS and the aligning
-        disp('Iterating aligning average VFS...')
-        
-        vfs_ref = nanmean(vfs_unaligned_pad,3);
-        ref_size = size(vfs_ref);
-        
+        % Set alignment parameters     
         [optimizer, metric] = imregconfig('monomodal');
         optimizer = registration.optimizer.OnePlusOneEvolutionary();
         optimizer.MaximumIterations = 200;
         optimizer.GrowthFactor = 1+1e-6;
         optimizer.InitialRadius = 1e-4;
+        
+        % Iterate averaging the VFS and the aligning
+        disp('Iterating aligning average VFS...')
+        
+        vfs_ref = nanmean(vfs_unaligned_pad,3);
+        ref_size = size(vfs_ref);       
         
         n_loops = 5;
         for curr_loop = 1:n_loops
@@ -243,13 +244,7 @@ switch align_type
         ref_reg = nan(size(vfs_ref,1),size(vfs_ref,2),n_loops);
         for curr_loop = 1:n_loops
             
-            ref_im_symm = (vfs_ref + side_sign*fliplr(vfs_ref))./2;
-            
-            [optimizer, metric] = imregconfig('monomodal');
-            optimizer = registration.optimizer.OnePlusOneEvolutionary();
-            optimizer.MaximumIterations = 200;
-            optimizer.GrowthFactor = 1+1e-6;
-            optimizer.InitialRadius = 1e-4;
+            ref_im_symm = (vfs_ref + side_sign*fliplr(vfs_ref))./2;            
             
             tformEstimate_affine = imregtform(vfs_ref,ref_im_symm,'rigid', ...
                 optimizer,metric,'PyramidLevels',5);
@@ -290,6 +285,136 @@ switch align_type
             disp('Not saved.')
         end
         
+    case 'create_submaster'
+        %% Make submaster for new type, aligned to master
+        
+        disp('Creating new submaster VFS...')
+        
+        % Check inputs
+        if ~iscell(im_unaligned)
+            error('Expected cell array of unaligned VFS''s');
+        end
+        
+        % Check with user: are L and R hemi same or opposite chirality?
+        LR_symmetry = questdlg('Are left/right hemisphere colors same or opposite?','Choose VFS type','symmetric','opposite','symmetric');
+        switch LR_symmetry
+            case 'symmetric'
+                side_sign = 1;
+            case 'opposite'
+                side_sign = -1;
+        end
+        
+        % Pad and concatenate unaligned VFS's
+        [vfs_y,vfs_x] = cellfun(@size,im_unaligned);
+        
+        vfs_y_max = max(vfs_y);
+        vfs_x_max = max(vfs_x);
+        
+        vfs_unaligned_pad = ...
+            cell2mat(reshape(cellfun(@(vfs) padarray(vfs, ...
+            [vfs_y_max - size(vfs,1),vfs_x_max - size(vfs,2)],0,'post'), ...
+            im_unaligned,'uni',false),1,1,[]));
+        
+        % Set alignment parameters     
+        [optimizer, metric] = imregconfig('monomodal');
+        optimizer = registration.optimizer.OnePlusOneEvolutionary();
+        optimizer.MaximumIterations = 200;
+        optimizer.GrowthFactor = 1+1e-6;
+        optimizer.InitialRadius = 1e-4;
+        
+        % Iterate averaging the VFS and the aligning
+        disp('Iterating aligning average VFS...')
+        
+        vfs_ref = nanmean(vfs_unaligned_pad,3);
+        ref_size = size(vfs_ref);
+        
+        n_loops = 5;
+        for curr_loop = 1:n_loops
+            
+            vfs_aligned = nan(ref_size(1),ref_size(2),length(im_unaligned));
+            for curr_animal = 1:length(im_unaligned)
+                tformEstimate_affine = imregtform(im_unaligned{curr_animal}, ...
+                    vfs_ref,'affine',optimizer,metric,'PyramidLevels',5);
+                curr_im_reg = imwarp(im_unaligned{curr_animal}, ...
+                    tformEstimate_affine,'Outputview',imref2d(ref_size));
+                tform_matrix{curr_animal} = tformEstimate_affine.T;
+                vfs_aligned(:,:,curr_animal) = curr_im_reg;
+            end
+            
+            vfs_ref = nanmean(vfs_aligned,3);
+            AP_print_progress_fraction(curr_loop,n_loops);
+        end
+        
+        % Symmetrize the average aligned VFS
+        disp('Symmetrizing aligned average VFS...')
+        
+        n_loops = 15;
+        ref_size = size(vfs_ref);
+        
+        ref_reg = nan(size(vfs_ref,1),size(vfs_ref,2),n_loops);
+        for curr_loop = 1:n_loops
+            
+            ref_im_symm = (vfs_ref + side_sign*fliplr(vfs_ref))./2;
+   
+            tformEstimate_affine = imregtform(vfs_ref,ref_im_symm,'rigid', ...
+                optimizer,metric,'PyramidLevels',5);
+            curr_im_reg = imwarp(vfs_ref,tformEstimate_affine,'Outputview',imref2d(ref_size));
+            tform_matrix = tformEstimate_affine.T;
+            vfs_ref = curr_im_reg;
+            
+            ref_reg(:,:,curr_loop) = vfs_ref;
+            AP_print_progress_fraction(curr_loop,n_loops);
+        end
+        
+        % Set make symmetric-average map the master
+        symm_vfs = ref_reg(:,:,end);
+        symm_vfs_mirror_avg = (symm_vfs + side_sign*fliplr(symm_vfs))./2;
+                
+        % Load the master, align the submaster
+        alignment_path = 'C:\Users\Andrew\OneDrive for Business\Documents\CarandiniHarrisLab\analysis\widefield_alignment';
+        master_vfs_fn = [alignment_path filesep 'master_vfs.mat'];
+        load(master_vfs_fn);
+        % (if hemispheres opposite, flip left side)
+        if strcmp(LR_symmetry,'opposite')
+           master_vfs(:,1:round(size(master_vfs,2)/2)) = ...
+               master_vfs(:,1:round(size(master_vfs,2)/2))*-1;
+        end
+                
+        tformEstimate_affine = imregtform(symm_vfs_mirror_avg, ...
+            master_vfs,'affine',optimizer,metric,'PyramidLevels',5);
+        submaster_vfs = imwarp(symm_vfs_mirror_avg, ...
+            tformEstimate_affine,'Outputview',imref2d(size(master_vfs)));
+        
+        % Plot submaster and alignment
+        figure; 
+        subplot(1,3,1);
+        imagesc(master_vfs);
+        axis image off
+        colormap(brewermap([],'*RdBu'));
+        AP_reference_outline('ccf_aligned',[0.5,0.5,0.5]);
+        title('Master');
+        subplot(1,3,2);
+        imagesc(submaster_vfs);
+        axis image off
+        colormap(brewermap([],'*RdBu'));
+        AP_reference_outline('ccf_aligned',[0.5,0.5,0.5]);
+        title('New aligned submaster');
+        subplot(1,3,3);
+        imshowpair(abs(master_vfs),abs(submaster_vfs)); 
+        title('Master/submaster alignment');
+        
+        % Save the submaster
+        confirm_save = input(['Save new submaster VFS? (y/n): '],'s');
+        if strcmp(confirm_save,'y')
+            [master_vfs_filename,master_vfs_path] = ...
+                uiputfile([alignment_path filesep '*.mat'],'Save submaster VFS');
+            master_vfs_fn = [master_vfs_path master_vfs_filename];
+            save(master_vfs_fn,'submaster_vfs');
+            disp(['Saved new submaster VFS: ' master_vfs_fn]);
+        else
+            disp('Not saved.')
+        end
+        
 
     case 'new_animal'
         %% Align animal to master VFS
@@ -319,12 +444,26 @@ switch align_type
         tform_matrix = tformEstimate_affine.T;
         
         figure;
-        subplot(1,2,1);
+        subplot(2,2,1);
         imshowpair(master_align,im_unaligned);
         title('Unaligned');
-        subplot(1,2,2);
+        subplot(2,2,2);
         imshowpair(master_align,im_aligned);
         title('Aligned');
+        subplot(2,2,3);
+        imagesc(master_align);
+        axis image off
+        caxis([-1,1]);
+        colormap(brewermap([],'*RdBu'));
+        AP_reference_outline('ccf_aligned',[0.5,0.5,0.5]);
+        title('Master')
+        subplot(2,2,4);
+        imagesc(im_aligned);
+        axis image off
+        caxis([-1,1]);
+        colormap(brewermap([],'*RdBu'));
+        AP_reference_outline('ccf_aligned',[0.5,0.5,0.5]);
+        title('Aligned')
         
         % Save transform matrix into structure
         curr_animal_idx = strcmp(animal,{wf_tform.animal});
