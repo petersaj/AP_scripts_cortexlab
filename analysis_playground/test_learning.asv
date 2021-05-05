@@ -631,10 +631,10 @@ dprime_pad = cellfun(@(x,max_days) padarray(x,[0,max_days-length(x)],0,'pre'), .
 
 % Correlate dprime with stim average
 
-stim_t = t > 0 & t < 0.1;
+stim_t = t > 0 & t < 0.2;
 stim_v_avg_t = cellfun(@(x) squeeze(nanmean(x(:,stim_t,:,:),2)),stim_v_avg,'uni',false);
 
-use_stim = 3;
+use_stim = 1;
 stim_px_avg_t = cellfun(@(x) ...
     svdFrameReconstruct(U_master(:,:,1:n_vs),x(:,:,use_stim)),stim_v_avg_t,'uni',false);
 
@@ -771,18 +771,14 @@ caxis([-max(abs(caxis)),max(abs(caxis))]);
 colormap(brewermap([],'*RdBu'));
 AP_reference_outline('ccf_aligned','k');
 
-use_t = t > 0 & t < 0.1;
+use_t = t > 0 & t < 0.2;
 stim_px_avg_dprime_t = squeeze(nanmean(stim_px_avg_dprime(:,:,use_t,:),3));
 
 figure;
-for curr_plot = 1:n_dprime_bins
-    subplot(1,n_dprime_bins,curr_plot);
-    imagesc(stim_px_avg_dprime_t(:,:,curr_plot));
-    axis image off
-    colormap(brewermap([],'*RdBu'));
-    caxis([-0.002,0.002]);
-    AP_reference_outline('ccf_aligned',[0.5,0.5,0.5]);
-end
+imagesc(reshape(stim_px_avg_dprime_t,size(U_master,1),[]));
+axis image off
+caxis([-max(abs(caxis)),max(abs(caxis))]);
+colormap(brewermap([],'*RdBu'));
 
 % (draw ROI)
 AP_image_scroll(stim_px_avg_dprime_t)
@@ -923,15 +919,9 @@ axis image;
 AP_reference_outline('ccf_aligned',[0.5,0.5,0.5]);
 % (as above but within each mouse)
 use_t = t > 0 & t < 0.15;
-stim_px_avg_day = AP_svdFrameReconstruct( ...
-    U_master(:,:,1:n_vs),cell2mat(permute(cellfun(@(x) ...
+stim_px_avg_day = cell2mat(permute(cellfun(@(x) ...
     squeeze(nanmean(x(:,use_t,1:min_days,use_stim),2)), ...
-    stim_v_avg,'uni',false),[1,3,2])));
-AP_image_scroll(stim_px_avg_day);
-caxis([-max(abs(caxis)),max(abs(caxis))]);
-colormap(brewermap([],'PrGn'));
-axis image;
-AP_reference_outline('ccf_aligned',[0.5,0.5,0.5]);
+    stim_v_avg,'uni',false),[1,3,4,2]));
 
 % (average stim response "pre/post learning")
 notlearned_days = 1:4;

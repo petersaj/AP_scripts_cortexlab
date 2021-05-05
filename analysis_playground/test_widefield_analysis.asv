@@ -518,10 +518,10 @@ end
 %% Align widefield to stim
 
 % Set options
-surround_window = [-0.5,3];
+surround_window = [-0.5,1];
 baseline_window = [0,0];
 
-surround_samplerate = 0.05;%1/(framerate*1);
+surround_samplerate = 0.001;%1/(framerate*1);
 surround_time = surround_window(1):surround_samplerate:surround_window(2);
 baseline_surround_time = baseline_window(1):surround_samplerate:baseline_window(2);
 
@@ -539,9 +539,9 @@ if ~exist('fVdf_deconv','var')
     fVdf_deconv = AP_deconv_wf(fVdf);
 end
 
-%%%%%%%%%%% TESTING
-fVdf_deconv = fVdf;
-%%%%%%%%%%%
+% %%%%%%%%%%% TESTING
+% fVdf_deconv = fVdf;
+% %%%%%%%%%%%
 
 % Average (time course) responses
 use_vs = 1:size(Udf,3);
@@ -574,7 +574,7 @@ end
 
 AP_image_scroll(im_stim,surround_time);
 axis image;
-c = prctile(im_stim(:),[0.1,99.9]);
+c = prctile(im_stim(:),[0.5,99.5]);
 caxis([-max(abs(c)),max(abs(c))]);
 colormap(brewermap([],'*RdBu'));
 set(gcf,'Name',animal);
@@ -2067,7 +2067,7 @@ AP_align_widefield(im_edge,animal,{experiments(use_days).day},'new_days');
 
 %% View aligned vasculature (to check that it's been done correctly)
 
-animal = 'AP089';
+animal = 'AP094';
 
 protocol = 'AP_lcrGratingPassive';
 experiments = AP_find_experiments(animal,protocol);

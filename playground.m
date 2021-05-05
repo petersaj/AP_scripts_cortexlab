@@ -12271,6 +12271,23 @@ for curr_animal = 1:length(animals)
 end
 
 
+%% TEMP: downsample U's
+% (can this help fix cstr imaging?)
+
+U_downsample_factor = 10;
+h = fspecial('disk',U_downsample_factor);
+
+Und = convn(Un,h,'same');
+Uhd = convn(Uh,h,'same');
+
+Vnd = ChangeU(Un,Vn,Und);
+Vhd = ChangeU(Uh,Vh,Uhd);
+
+
+Un = Und;
+Uh = Uhd;
+Vn = Vnd;
+Vh = Vhd;
 
 
 

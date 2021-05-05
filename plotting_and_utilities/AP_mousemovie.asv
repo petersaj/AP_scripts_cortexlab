@@ -4,8 +4,8 @@ function AP_mousemovie(movie_fn)
 % Scroll through a recorded movie of the mouse (face/eye)
 % movie_fn = filename of movie
 
-if ~exist(movie_fn,'file')
-   error(['No file: ' movie_fn]); 
+if ~exist(movie_fn,'file');
+   disp(['No file: ' movie_fn]); 
 end
 
 disp('Press s to save section of movies');

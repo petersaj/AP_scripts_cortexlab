@@ -432,19 +432,31 @@ for curr_animal = 1:length(animals)
     animal = animals{curr_animal};
     
     % (get all passive gratings)
-    protocol = 'AP_lcrGratingPassive';
+    passive_protocol = 'AP_lcrGratingPassive';
     flexible_name = true;
-    experiments = AP_find_experiments(animal,protocol,flexible_name);
-    experiments = experiments([experiments.imaging]);
+    passive_experiments = AP_find_experiments(animal,passive_protocol,flexible_name);
+    passive_experiments = passive_experiments([passive_experiments.imaging]);
     
-    % (get all imaging days with behavior)
-    bhv_protocol = 'choiceworld';
-    bhv_experiments = AP_find_experiments(animal,bhv_protocol,true);
-    bhv_experiments = bhv_experiments([bhv_experiments.imaging]);
+    % (get all imaging days with operant)
+    operant_protocol = 'AP_stimWheel';
+    operant_experiments = AP_find_experiments(animal,operant_protocol,true);
+    operant_experiments = operant_experiments([operant_experiments.imaging]);
+    
+    % (get all imaging days with 2afc)
+    choiceworld_protocol = 'choiceworld';
+    choiceworld_experiments = AP_find_experiments(animal,choiceworld_protocol,true);
+    choiceworld_experiments = choiceworld_experiments([choiceworld_experiments.imaging]);
     
     % Split days by naive/trained
-    naive_experiments = ~ismember({experiments.day},{bhv_experiments.day});
-    trained_experiments = ismember({experiments.day},{bhv_experiments.day});
+%     naive_experiments = ~ismember({passive_experiments.day}, ...
+%         [{operant_experiments.day},{choiceworld_experiments.day}]);
+%     trained_experiments = ismember({passive_experiments.day}, ...
+%         {operant_experiments.day});
+
+naive_experiments = ~ismember({passive_experiments(1).day}, ...
+        [{operant_experiments.day},{choiceworld_experiments.day}]);
+trained_experiments = ismember({passive_experiments.day}, ...
+        {operant_experiments(end-3:end).day});
     
     disp(animal);
     for curr_training = 1:2
@@ -452,10 +464,10 @@ for curr_animal = 1:length(animals)
         switch curr_training
             case 1
                 % Naive
-                curr_experiments = experiments(naive_experiments);
+                curr_experiments = passive_experiments(naive_experiments);
             case 2
                 % Trained
-                curr_experiments = experiments(trained_experiments);
+                curr_experiments = passive_experiments(trained_experiments);
         end
         
         for curr_day = 1:length(curr_experiments)
@@ -517,7 +529,11 @@ end
 % Get average pre/post for each animal
 im_stim_avg = cellfun(@(x) nanmean(cat(5,x{:}),5),im_stim_all,'uni',false);
 
-AP_image_scroll([im_stim_avg{3,1},im_stim_avg{3,2}]);
+im_stim_avg_deconv = cellfun(@(x) ...
+    reshape(AP_deconv_wf(reshape(x,size(x,1)*size(x,2),[])),size(x)), ...
+    im_stim_avg,'uni',false);
+
+AP_image_scroll([im_stim_avg{3,1},im_stim_avg{3,2}],surround_time);
 axis image;
 caxis([-max(abs(caxis)),max(abs(caxis))]);
 colormap(brewermap([],'*RdBu'));
@@ -580,7 +596,7 @@ im_stim_avg_deconv = cellfun(@(x) ...
     im_stim_avg,'uni',false);
 
 use_stim = 3;
-use_t = [0.07,0.12];
+use_t = [0.05,0.2];
 use_frames = surround_time >= use_t(1) & surround_time <= use_t(2);
 im_stim_avg_deconv_t = cellfun(@(x) nanmean(x(:,:,use_frames,use_stim),3),im_stim_avg_deconv,'uni',false);
 figure;

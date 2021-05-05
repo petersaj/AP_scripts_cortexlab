@@ -2402,21 +2402,17 @@ min_days = min(cellfun(@length,{bhv.n_trials}));
 max_days = max(cellfun(@length,{bhv.n_trials}));
 
 % Time to movement
-stim_move_t_allpad = cell2mat(cellfun(@(x) padarray(cellfun(@nanmedian,x), ...
-    [0,max_days-length(x)],NaN,'post'),{bhv.stim_move_t}','uni',false));
-
-stim_move_t_std_allpad = cell2mat(cellfun(@(x) padarray(cellfun(@nanstd,x), ...
+stim_move_t_allpad = cell2mat(cellfun(@(x) padarray(cellfun(@nanmean,x), ...
     [0,max_days-length(x)],NaN,'post'),{bhv.stim_move_t}','uni',false));
 
 % Movement around stim
 stim_surround_wheel_avg = cell2mat(cellfun(@(x) ...
     padarray(cell2mat(cellfun(@(x) nanmean(x,1),x,'uni',false)'), ...
-    [max_days-length(x),0],NaN,'post'), ...
-    permute({bhv.stim_surround_wheel},[1,3,2]),'uni',false));
+    [max_days-length(x),0],NaN,'post'),{bhv.stim_surround_wheel},'uni',false));
 
 stim_surround_t = bhv(1).stim_surround_t;
 figure; hold on
-set(gca,'ColorOrder',copper(size(stim_surround_wheel_avg,1)));
+set(gca,'ColorOrder',copper(min_days));
 plot(stim_surround_t,nanmean(stim_surround_wheel_avg,3)','linewidth',2);
 xlabel('Time from stim (s)');
 ylabel('Fraction moving');
