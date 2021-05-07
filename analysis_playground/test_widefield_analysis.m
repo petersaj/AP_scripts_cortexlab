@@ -540,7 +540,7 @@ if ~exist('fVdf_deconv','var')
 end
 
 %%%%%%%%%%% TESTING
-fVdf_deconv = fVdf;
+% fVdf_deconv = fVdf;
 %%%%%%%%%%%
 
 % Average (time course) responses
@@ -2067,7 +2067,7 @@ AP_align_widefield(im_edge,animal,{experiments(use_days).day},'new_days');
 
 %% View aligned vasculature (to check that it's been done correctly)
 
-animal = 'AP089';
+animal = 'AP096';
 
 protocol = 'AP_lcrGratingPassive';
 experiments = AP_find_experiments(animal,protocol);
@@ -2089,12 +2089,12 @@ axis image;
 set(gcf,'Name',animal);
 
 
-%% Average retinotopy, align to master
+%% GCaMP: Average retinotopy, align to master
 
 retinotopy_path = 'C:\Users\Andrew\OneDrive for Business\Documents\CarandiniHarrisLab\analysis\widefield_alignment\retinotopy';
 retinotopy_dir = dir(retinotopy_path);
 
-animal = 'AP080';
+animal = 'AP089';
 load([retinotopy_path filesep animal '_retinotopy'])
 
 aligned_vfs = cell(length(retinotopy),1);
@@ -2132,14 +2132,69 @@ AP_reference_outline('ccf_aligned',[0.5,0.5,0.5]);
 title('Master-aligned average VFS');
 
 
+%% HEMO: make master retinotopy
+
+error('ONLY DONE ONCE');
+animals = {'AP089','AP090','AP091','AP092','AP093','AP094','AP095','AP096','AP097'};
+alignment_path = 'C:\Users\Andrew\OneDrive for Business\Documents\CarandiniHarrisLab\analysis\widefield_alignment';
+retinotopy_path = [alignment_path filesep 'retinotopy'];
+
+use_retinotopy = cell(size(animals));
+for curr_animal = 1:length(animals)
+    animal = animals{curr_animal};
+    retinotopy_fn = [retinotopy_path filesep animal '_retinotopy.mat'];
+    load(retinotopy_fn)
+    
+    use_retinotopy{curr_animal} = retinotopy(1).vfs;
+end
+
+AP_align_widefield(use_retinotopy,[],[],'create_submaster')
 
 
+%% HEMO: align animals to master
+
+alignment_path = 'C:\Users\Andrew\OneDrive for Business\Documents\CarandiniHarrisLab\analysis\widefield_alignment';
+hemo_master_fn = [alignment_path filesep 'hemo_master_vfs'];
+load(hemo_master_fn);
+
+% Align animal to master
+animals = {'AP089','AP090','AP091','AP092','AP093','AP094','AP095','AP096','AP097'};
+for curr_animal = 1:length(animals)
+    animal = animals{curr_animal};
+    
+    retinotopy_path = 'C:\Users\Andrew\OneDrive for Business\Documents\CarandiniHarrisLab\analysis\widefield_alignment\retinotopy';
+    retinotopy_fn = [retinotopy_path filesep animal '_retinotopy.mat'];
+    load(retinotopy_fn)    
+    
+    use_retinotopy_day = 1;
+    vfs_aligned = AP_align_widefield(retinotopy(use_retinotopy_day).vfs, ...
+        animal,retinotopy(use_retinotopy_day).day,'day_only');
+    
+    AP_align_widefield(vfs_aligned,animal,[],'new_animal',submaster_vfs);       
+end
 
 
+%% View aligned retinotopy
 
+retinotopy_path = 'C:\Users\Andrew\OneDrive for Business\Documents\CarandiniHarrisLab\analysis\widefield_alignment\retinotopy';
+retinotopy_dir = dir(retinotopy_path);
 
+animal = 'AP097';
+load([retinotopy_path filesep animal '_retinotopy'])
 
+vfs_aligned = cell(length(retinotopy));
+for curr_day = 1:length(retinotopy)
+   vfs_aligned{curr_day} = ...
+       AP_align_widefield(retinotopy(curr_day).vfs,animal,retinotopy(1).day);
+end
+vfs_aligned = cat(3,vfs_aligned{:});
 
+AP_image_scroll(vfs_aligned);
+set(gcf,'Name',animal);
+caxis([-1,1]);
+colormap(brewermap([],'*RdBu'));
+axis image off;
+AP_reference_outline('ccf_aligned',[0.5,0.5,0.5]);
 
 
 

@@ -190,14 +190,96 @@ AP_reference_outline('ccf_aligned',[0.5,0.5,0.5]);
 
 colormap(brewermap([],'PrGn'));
 
+%% Corticostriatal: across training
+
+% Load data
+trial_data_path = 'C:\Users\Andrew\OneDrive for Business\Documents\CarandiniHarrisLab\analysis\learning\data';
+% data_fn = 'trial_activity_passive_learning';
+data_fn = 'trial_activity_passive_learning_operant';
+AP_load_concat_normalize_ctx_str;
+
+% Get animal and day index for each trial
+trial_animal = cell2mat(arrayfun(@(x) ...
+    x*ones(size(vertcat(wheel_all{x}{:}),1),1), ...
+    [1:length(wheel_all)]','uni',false));
+trial_day = cell2mat(cellfun(@(x) cell2mat(cellfun(@(curr_day,x) ...
+    curr_day*ones(size(x,1),1),num2cell(1:length(x))',x,'uni',false)), ...
+    wheel_all,'uni',false));
+
+% Get trials with movement during stim to exclude
+wheel_thresh = 0.025;
+quiescent_trials = ~any(abs(wheel_allcat(:,t >= -0.5 & t <= 0.5)) > wheel_thresh,2);
+
+% Get average fluorescence by animal, day, stim
+stim_unique = unique(trial_stim_allcat);
+stim_v_avg = cell(size(animals));
+for curr_animal = 1:length(animals)        
+    for curr_day = 1:max(trial_day(trial_animal == curr_animal))
+        for curr_stim_idx = 1:length(stim_unique)
+            use_trials = quiescent_trials & ...
+                trial_animal == curr_animal & ...
+                trial_day == curr_day & ...
+                trial_stim_allcat == stim_unique(curr_stim_idx);
+            stim_v_avg{curr_animal}(:,:,curr_day,curr_stim_idx) = ...
+                permute(nanmean(fluor_allcat_deconv(use_trials,:,:),1),[3,2,1]);
+        end       
+    end
+end
 
 
+% (average stim response for each day)
+use_stim = 3;
+min_days = min(cellfun(@(x) size(x,3),stim_v_avg));
+stim_v_avg_dayavg = nanmean(cell2mat(permute(cellfun(@(x) x(:,:,1:min_days,use_stim), ...
+    stim_v_avg,'uni',false),[1,3,4,2])),4);
+stim_px_avg_dayavg = AP_svdFrameReconstruct(U_master(:,:,1:n_vs), ...
+    stim_v_avg_dayavg);
+AP_image_scroll(stim_px_avg_dayavg,t);
+caxis([-max(abs(caxis)),max(abs(caxis))]);
+colormap(brewermap([],'PrGn'));
+axis image;
+AP_reference_outline('ccf_aligned',[0.5,0.5,0.5]);
+% (as above but within each mouse)
+use_t = t > 0.1 & t < 0.2;
+stim_px_avg_day_t = AP_svdFrameReconstruct( ...
+    U_master(:,:,1:n_vs),cell2mat(permute(cellfun(@(x) ...
+    squeeze(nanmean(x(:,use_t,1:min_days,use_stim),2)), ...
+    stim_v_avg,'uni',false),[1,3,2])));
+AP_image_scroll(stim_px_avg_day_t);
+caxis([-max(abs(caxis)),max(abs(caxis))]);
+colormap(brewermap([],'PrGn'));
+axis image;
+AP_reference_outline('ccf_aligned',[0.5,0.5,0.5]);
 
+figure;
+c = prctile(stim_px_avg_day_t(:),98);
+for i = 1:min_days
+    subplot(1,min_days,i);
+    imagesc(nanmean(stim_px_avg_day_t(:,:,i,:),4));
+    caxis([-c,c]);
+    colormap(brewermap([],'PrGn'));
+    axis image off
+    AP_reference_outline('ccf_aligned',[0.5,0.5,0.5]);
+end
 
+% ROI in average responses per animal
+use_roi = 7;
+use_stim = 3;
+stim_v_avg_roi = ...
+    cellfun(@(x) permute(AP_svd_roi(U_master(:,:,1:n_vs),x(:,:,:,use_stim),[],[], ...
+    wf_roi(use_roi).mask),[3,2,1]),stim_v_avg,'uni',false);
 
+min_days = min(cellfun(@(x) size(x,3),stim_v_avg));
+stim_v_avg_roi_cut = cell2mat(permute(cellfun(@(x) ...
+    x(1:min_days,:),stim_v_avg_roi,'uni',false),[1,3,2]));
 
+figure; hold on;
+set(gca,'ColorOrder',copper(min_days));
+plot(t,nanmean(stim_v_avg_roi_cut,3)');
 
-
+a = squeeze(nanmean(stim_v_avg_roi_cut,1));
+a2 = a-nanmean(a(t < 0,:),1);
+a3 = a2./max(a2(t > 0 & t < 0.5,:),[],1);
 
 
 

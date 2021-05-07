@@ -12231,44 +12231,8 @@ split_idx = cell2mat(arrayfun(@(exp,trials) repmat(exp,trials,1), ...
 
 
 
-%% hemo retinotopy: make submaster
 
-animals = {'AP089','AP090','AP091','AP092','AP093','AP094','AP095','AP096','AP097'};
-alignment_path = 'C:\Users\Andrew\OneDrive for Business\Documents\CarandiniHarrisLab\analysis\widefield_alignment';
-retinotopy_path = [alignment_path filesep 'retinotopy'];
 
-use_retinotopy = cell(size(animals));
-for curr_animal = 1:length(animals)
-    animal = animals{curr_animal};
-    retinotopy_fn = [retinotopy_path filesep animal '_retinotopy.mat'];
-    load(retinotopy_fn)
-    
-    use_retinotopy{curr_animal} = retinotopy(1).vfs;
-end
-
-AP_align_widefield(use_retinotopy,[],[],'create_submaster')
-
-%% hemo retinotopy: align animals to master
-
-alignment_path = 'C:\Users\Andrew\OneDrive for Business\Documents\CarandiniHarrisLab\analysis\widefield_alignment';
-hemo_master_fn = [alignment_path filesep 'hemo_master_vfs'];
-load(hemo_master_fn);
-
-% Align animal to master
-animals = {'AP089','AP090','AP091','AP092','AP093','AP094','AP095','AP096','AP097'};
-for curr_animal = 1:length(animals)
-    animal = animals{curr_animal};
-    
-    retinotopy_path = 'C:\Users\Andrew\OneDrive for Business\Documents\CarandiniHarrisLab\analysis\widefield_alignment\retinotopy';
-    retinotopy_fn = [retinotopy_path filesep animal '_retinotopy.mat'];
-    load(retinotopy_fn)    
-    
-    use_retinotopy_day = 1;
-    vfs_aligned = AP_align_widefield(retinotopy(use_retinotopy_day).vfs, ...
-        animal,retinotopy(use_retinotopy_day).day);
-    
-    AP_align_widefield(vfs_aligned,animal,[],'new_animal',submaster_vfs);       
-end
 
 
 %% TEMP: downsample U's

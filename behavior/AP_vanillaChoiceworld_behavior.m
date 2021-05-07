@@ -1,6 +1,7 @@
 %% Get and plot behavior within mice (vanillaChoiceworld)
 % animals = {'AP063','AP064','AP066','AP068','AP071','AP085','AP086','AP087'};
 animals = {'AP040','AP041','AP045','AP047','AP048','AP077','AP079'};
+% animals = {'AP089','AP090','AP091'};
 protocol = 'vanillaChoiceworld';
 flexible_name = true;
 
@@ -2115,10 +2116,10 @@ end
 %% Get and plot mice behavior
 
 % animals = {'AP089','AP090','AP091','AP092','AP093','AP094'};
-animals = {'AP089','AP090','AP091','AP092','AP093','AP094','AP095','AP096','AP097','AP098','AP099','AP100'};
+% animals = {'AP089','AP090','AP091','AP092','AP093','AP094','AP095','AP096','AP097','AP098','AP099','AP100'};
 % animals = {'AP092','AP093','AP094'};
 % animals = {'AP095','AP096','AP097'};
-% animals = {'AP089'};
+animals = {'AP099'};
 protocol = 'AP_stimWheelRight';
 flexible_name = false;
 bhv = struct;

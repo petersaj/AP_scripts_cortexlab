@@ -541,8 +541,8 @@ disp(['Saved: ' save_path filesep save_fn])
 
 % Load data
 trial_data_path = 'C:\Users\Andrew\OneDrive for Business\Documents\CarandiniHarrisLab\analysis\learning\data';
-data_fn = 'trial_activity_passive_learning';
-% data_fn = 'trial_activity_passive_learning_operant';
+% data_fn = 'trial_activity_passive_learning';
+data_fn = 'trial_activity_passive_learning_operant';
 AP_load_concat_normalize_ctx_str;
 
 % Get animal and day index for each trial
@@ -857,8 +857,8 @@ hold on; set(gca,'ColorOrder',parula(length(plot_prctile)));
 plot(grpstats(dprime_trial(use_trials),dprime_trial_bins(use_trials)),b_prctile')
 
 % ROI in average responses per animal
-use_roi = 17;
-use_stim = 1;
+use_roi = 7;
+use_stim = 3;
 stim_v_avg_roi = ...
     cellfun(@(x) permute(AP_svd_roi(U_master(:,:,1:n_vs),x(:,:,:,use_stim),[],[], ...
     wf_roi(use_roi).mask),[3,2,1]),stim_v_avg,'uni',false);
@@ -910,7 +910,7 @@ colormap(brewermap([],'*RdBu'));
 
 
 % (average stim response for each day)
-use_stim = 1;
+use_stim = 3;
 min_days = cellfun(@(x) size(x,3),stim_v_avg);
 stim_v_avg_dayavg = nanmean(cell2mat(permute(cellfun(@(x) x(:,:,1:min_days,use_stim), ...
     stim_v_avg,'uni',false),[1,3,4,2])),4);

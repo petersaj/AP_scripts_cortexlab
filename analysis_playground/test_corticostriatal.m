@@ -448,15 +448,10 @@ for curr_animal = 1:length(animals)
     choiceworld_experiments = choiceworld_experiments([choiceworld_experiments.imaging]);
     
     % Split days by naive/trained
-%     naive_experiments = ~ismember({passive_experiments.day}, ...
-%         [{operant_experiments.day},{choiceworld_experiments.day}]);
-%     trained_experiments = ismember({passive_experiments.day}, ...
-%         {operant_experiments.day});
-
-naive_experiments = ~ismember({passive_experiments(1).day}, ...
+    naive_experiments = ~ismember({passive_experiments.day}, ...
         [{operant_experiments.day},{choiceworld_experiments.day}]);
-trained_experiments = ismember({passive_experiments.day}, ...
-        {operant_experiments(end-3:end).day});
+    trained_experiments = ismember({passive_experiments.day}, ...
+        {operant_experiments.day});
     
     disp(animal);
     for curr_training = 1:2
@@ -807,6 +802,70 @@ save_path = 'C:\Users\Andrew\OneDrive for Business\Documents\CarandiniHarrisLab\
 save_fn = ['trial_activity_operant_cstr'];
 save([save_path filesep save_fn],'-v7.3');
 
+%% Passive muscimol
+
+clear all
+disp('Corticostriatal passive muscimol')
+
+animals = {'AP092','AP093','AP094','AP095','AP096','AP097'};
+
+% Initialize save variable
+trial_data_all = struct;
+
+for curr_animal = 1:length(animals)
+    
+    animal = animals{curr_animal};
+    protocol = 'AP_lcrGratingPassive';
+    experiments_full = AP_find_experiments(animal,protocol);
+    
+    % (just hard-coded now: last 4 recordings are V1/washout/FrM/washout
+    experiments = experiments_full(end-3:end);
+    
+    disp(['Loading ' animal]);
+    
+    for curr_day = 1:length(experiments)
+        
+        preload_vars = who;
+        
+        day = experiments(curr_day).day;
+        experiment = experiments(curr_day).experiment(end);
+        
+        % Load experiment
+        AP_load_experiment;
+        
+        % Pull out trial data
+        AP_ctx_str_grab_trial_data;
+        
+        % Store trial data into master structure
+        trial_data_fieldnames = fieldnames(trial_data);
+        for curr_trial_data_field = trial_data_fieldnames'
+            trial_data_all.(cell2mat(curr_trial_data_field)){curr_animal,1}{curr_day,1} = ...
+                trial_data.(cell2mat(curr_trial_data_field));
+        end
+        
+        % Store general info
+        trial_data_all.animals = animals;
+        trial_data_all.t = t;
+        
+        AP_print_progress_fraction(curr_day,length(experiments));
+        
+        % Clear for next loop
+        clearvars('-except',preload_vars{:});
+        
+    end
+    
+end
+
+clearvars -except trial_data_all
+disp('Finished loading all')
+
+% Save
+save_path = 'C:\Users\Andrew\OneDrive for Business\Documents\CarandiniHarrisLab\analysis\corticostriatal\data';
+save_fn = ['trial_activity_passive_muscimol'];
+save([save_path filesep save_fn],'-v7.3');
+disp(['Saved: ' save_path filesep save_fn])
+
+
 
 %% ~~~~~~~~~ BATCH ANALYSIS ~~~~~~~~~
 
@@ -816,8 +875,8 @@ save([save_path filesep save_fn],'-v7.3');
 % Task
 trial_data_path = 'C:\Users\Andrew\OneDrive for Business\Documents\CarandiniHarrisLab\analysis\corticostriatal\data';
 
-data_fn = 'trial_activity_choiceworld_cstr_dcs';
-% data_fn = 'trial_activity_choiceworld_cstr_dms';
+% data_fn = 'trial_activity_choiceworld_cstr_dcs';
+data_fn = 'trial_activity_choiceworld_cstr_dms';
 
 AP_load_concat_normalize_ctx_str;
 
@@ -1039,6 +1098,88 @@ for curr_t = 1:length(t)
     pV(:,:,curr_t) = svdFrameReconstruct(U_master(:,:,use_Vs),pV_mean_cv');
     AP_print_progress_fraction(curr_t,length(t));
 end
+
+%% Load and plot muscimol
+
+% Task
+trial_data_path = 'C:\Users\Andrew\OneDrive for Business\Documents\CarandiniHarrisLab\analysis\corticostriatal\data';
+data_fn = 'trial_activity_passive_muscimol';
+AP_load_concat_normalize_ctx_str;
+
+% Get animal and day index for each trial
+trial_animal = cell2mat(arrayfun(@(x) ...
+    x*ones(size(vertcat(wheel_all{x}{:}),1),1), ...
+    [1:length(wheel_all)]','uni',false));
+trial_day = cell2mat(cellfun(@(x) cell2mat(cellfun(@(curr_day,x) ...
+    curr_day*ones(size(x,1),1),num2cell(1:length(x))',x,'uni',false)), ...
+    wheel_all,'uni',false));
+
+% Get trials with movement during stim to exclude
+wheel_thresh = 0.025;
+quiescent_trials = ~any(abs(wheel_allcat(:,t >= -0.5 & t <= 0.5)) > wheel_thresh,2);
+
+% Get average fluorescence by animal, day, stim
+stim_unique = unique(trial_stim_allcat);
+stim_v_avg = cell(size(animals));
+for curr_animal = 1:length(animals)        
+    for curr_day = 1:max(trial_day(trial_animal == curr_animal))
+        for curr_stim_idx = 1:length(stim_unique)
+            use_trials = quiescent_trials & ...
+                trial_animal == curr_animal & ...
+                trial_day == curr_day & ...
+                trial_stim_allcat == stim_unique(curr_stim_idx);
+            stim_v_avg{curr_animal}(:,:,curr_day,curr_stim_idx) = ...
+                permute(nanmean(fluor_allcat_deconv(use_trials,:,:),1),[3,2,1]);
+        end       
+    end
+end
+
+
+% (average stim response for each day)
+use_stim = 3;
+min_days = min(cellfun(@(x) size(x,3),stim_v_avg));
+stim_v_avg_dayavg = nanmean(cell2mat(permute(cellfun(@(x) x(:,:,1:min_days,use_stim), ...
+    stim_v_avg,'uni',false),[1,3,4,2])),4);
+stim_px_avg_dayavg = AP_svdFrameReconstruct(U_master(:,:,1:n_vs), ...
+    stim_v_avg_dayavg);
+AP_image_scroll(stim_px_avg_dayavg,t);
+caxis([-max(abs(caxis)),max(abs(caxis))]);
+colormap(brewermap([],'PrGn'));
+axis image;
+AP_reference_outline('ccf_aligned',[0.5,0.5,0.5]);
+
+% (as above but within each mouse)
+use_t = t > 0.1 & t < 0.2;
+stim_px_avg_day_t = AP_svdFrameReconstruct( ...
+    U_master(:,:,1:n_vs),cell2mat(permute(cellfun(@(x) ...
+    squeeze(nanmean(x(:,use_t,1:min_days,use_stim),2)), ...
+    stim_v_avg,'uni',false),[1,3,2])));
+AP_image_scroll(stim_px_avg_day_t);
+caxis([-max(abs(caxis)),max(abs(caxis))]);
+colormap(brewermap([],'PrGn'));
+axis image;
+AP_reference_outline('ccf_aligned',[0.5,0.5,0.5]);
+
+figure;
+c = prctile(stim_px_avg_day_t(:),98);
+for i = 1:min_days
+    subplot(1,min_days,i);
+    imagesc(nanmean(stim_px_avg_day_t(:,:,i,:),4));
+    caxis([-c,c]);
+    colormap(brewermap([],'PrGn'));
+    axis image off
+    AP_reference_outline('ccf_aligned',[0.5,0.5,0.5]);
+end
+
+
+
+
+
+
+
+
+
+
 
 
 

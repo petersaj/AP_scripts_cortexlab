@@ -1703,6 +1703,10 @@ xlabel('Time from stim onset')
 ylabel('Population spikes (by stim)');
 line([0,0],ylim,'linestyle','--','color','k');
 
+%% PSTH viewer (mine)
+
+AP_cellraster(stimOn_times,stimIDs);
+
 
 %% Sparse noise receptive fields
 
