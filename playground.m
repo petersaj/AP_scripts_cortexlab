@@ -12253,6 +12253,62 @@ Uh = Uhd;
 Vn = Vnd;
 Vh = Vhd;
 
+%% Test: pixel prominences
+
+animals = {'AP098','AP099','AP100'};
+prominence_maps = cell(size(animals));
+
+for curr_animal = 1:length(animals)
+    
+    animal = animals{curr_animal};
+    protocol = 'AP_lcrGratingPassive';
+    experiments = AP_find_experiments(animal,protocol);
+    disp(animal);
+    
+    for curr_experiment = 1:length(experiments)
+        
+        preload_vars = who;
+        
+        % Load data
+        day = experiments(curr_experiment).day;
+        experiment = experiments(curr_experiment).experiment(end);
+        load_parts.imaging = true;
+        AP_load_experiment;
+        
+        U_downsample_factor = 10;
+        Ud = imresize(Udf,1/U_downsample_factor,'bilinear');
+        
+        pxd = reshape(svdFrameReconstruct(Ud,fVdf),[],size(fVdf,2));
+        
+        skip_frames = framerate*1;
+        peak_thresh = nanstd(reshape(pxd(:,skip_frames:end-skip_frames),[],1));
+        
+        curr_promimence_map = nan(size(Ud,1),size(Ud,2));
+        for curr_px = 1:size(pxd,1)
+            [~,~,widths,prominences] = findpeaks( ...
+                pxd(curr_px,skip_frames:end-skip_frames), ...
+                framerate,'MinPeakProminence',peak_thresh);
+            curr_promimence_map(curr_px) = nanstd(prominences./widths);
+        end
+        
+        figure;imagesc(curr_promimence_map);axis image off;
+        colormap(hot);
+        title([animal ' ' day]);
+        drawnow
+        
+        prominence_maps{curr_animal}{curr_experiment} = curr_promimence_map;
+        
+        clearvars('-except',preload_vars{:});
+        AP_print_progress_fraction(curr_experiment,length(experiments));
+        
+    end
+end
+
+
+
+
+
+
 
 
 

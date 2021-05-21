@@ -2196,7 +2196,7 @@ axis image off
 
 %% ~~~~~~~~~~~ Retinotopy lilrig in batch 
 
-animals = {'AP095','AP096','AP097'};
+animals = {'AP098','AP099'};
 
 for curr_animal = 1:length(animals)
     
@@ -2204,8 +2204,8 @@ for curr_animal = 1:length(animals)
     disp(animal);
     
 %     protocol = 'stimSparseNoiseUncorrAsync';
-%     protocol = 'AP_sparseNoise';
-    protocol = 'AP_kalatsky';
+    protocol = 'AP_sparseNoise';
+%     protocol = 'AP_kalatsky';
     experiments = AP_find_experiments(animal,protocol);
 %     experiments = experiments([experiments.imaging]); % for all imaging
     experiments = experiments([experiments.imaging] & ~[experiments.ephys]); % when no ephys

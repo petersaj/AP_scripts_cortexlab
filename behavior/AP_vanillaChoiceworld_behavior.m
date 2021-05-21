@@ -2119,7 +2119,8 @@ end
 % animals = {'AP089','AP090','AP091','AP092','AP093','AP094','AP095','AP096','AP097','AP098','AP099','AP100'};
 % animals = {'AP092','AP093','AP094'};
 % animals = {'AP095','AP096','AP097'};
-animals = {'AP099'};
+% animals = {'AP098','AP099','AP100'};
+animals = {'AP100'};
 protocol = 'AP_stimWheelRight';
 flexible_name = false;
 bhv = struct;
@@ -2290,8 +2291,8 @@ for curr_animal = 1:length(animals)
     yyaxis left
     % plot(day_num,bhv(curr_animal).n_trials./bhv(curr_animal).session_duration,'linewidth',2);
     % ylabel('Trials/min');
-    plot(day_num,bhv(curr_animal).n_trials,'linewidth',2);
-    ylabel('Trials');
+    plot(day_num,bhv(curr_animal).n_trials./bhv(curr_animal).session_duration,'linewidth',2);
+    ylabel('Trials/min');
     yyaxis right
     plot(day_num,bhv(curr_animal).total_water,'linewidth',2);
     ylabel('Total water');
@@ -2353,36 +2354,37 @@ for curr_animal = 1:length(animals)
     stim_surround_wheel_cat = ...
         cell2mat(cellfun(@(x) nanmean(x,1),bhv(curr_animal).stim_surround_wheel,'uni',false)');
     subplot(2,3,4);
-    imagesc(bhv(curr_animal).stim_surround_t,day_num,stim_surround_wheel_cat);
+    imagesc(bhv(curr_animal).stim_surround_t,[],stim_surround_wheel_cat);
     colormap(gca,brewermap([],'Greys'));
     caxis([0,1]);
     xlabel('Time from stim (s)');
-    set(gca,'YTick',day_num);
+    set(gca,'YTick',1:length(day_num));
     set(gca,'YTickLabel',day_labels);
     
     % Move fraction lineplot
     subplot(2,3,5); hold on;
     set(gca,'ColorOrder',copper(size(stim_surround_wheel_cat,1)));
     plot(bhv(curr_animal).stim_surround_t,stim_surround_wheel_cat');
-    ylabel([0,1]);
+    ylim([0,1]);
     ylabel('Fraction move');
     xlabel('Time from stim (s)');
     
-    % Move fraction pre/post stim
-    t_pre = bhv(curr_animal).stim_surround_t > -4 & bhv(curr_animal).stim_surround_t < -2;
-    t_post = bhv(curr_animal).stim_surround_t > 0 & bhv(curr_animal).stim_surround_t < 2;
-    move_pre_stim = ...
-        cell2mat(cellfun(@(x) nanmean(reshape(x(:,t_pre),[],1)), ...
+    % Move fraction pre/post stim   
+    t = bhv(curr_animal).stim_surround_t;
+    move_prestim_max = ...
+        cell2mat(cellfun(@(x) max(nanmean(x(:,t < 0),1)), ...
         bhv(curr_animal).stim_surround_wheel,'uni',false)');
-    move_post_stim = ...
-        cell2mat(cellfun(@(x) nanmean(reshape(x(:,t_post),[],1)), ...
+    move_poststim_max = ...
+        cell2mat(cellfun(@(x) max(nanmean(x(:,t > 0),1)), ...
         bhv(curr_animal).stim_surround_wheel,'uni',false)');
+    move_prepost_max_ratio = ...
+        (move_poststim_max-move_prestim_max)./(move_poststim_max+move_prestim_max);
     
     subplot(2,3,6); hold on;
-    plot(day_num,move_pre_stim,'-k','linewidth',2);
-    plot(day_num,move_post_stim,'-r','linewidth',2);
-    ylabel({'Fraction moving','(2s pre,post)'})
-    ylim([0,1]);
+    plot(day_num,move_prepost_max_ratio,'k','linewidth',2);
+    ylabel({'Post:pre max move ratio'});
+    ylim([-1,1]);
+    line(xlim,[0,0],'color','k','linestyle','--');
     set(gca,'XTick',day_num);
     set(gca,'XTickLabel',day_labels);
     set(gca,'XTickLabelRotation',90);

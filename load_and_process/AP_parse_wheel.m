@@ -1,11 +1,17 @@
-function [wheel_velocity,wheel_move] = AP_parse_wheel(wheel_position,sample_rate)
-% [wheel_velocity,wheel_move] = AP_parse_wheel(wheel_position,sample_rate)
+function [wheel_velocity,wheel_move,wheel_velocity_split] = ...
+    AP_parse_wheel(wheel_position,sample_rate)
+% [wheel_velocity,wheel_move,wheel_velocity_split] = AP_parse_wheel(wheel_position,sample_rate)
 % 
 % Get velocity and parse movements from wheel position trace 
 %
 % Inputs: 
 % wheel_position: assumes rotary encoder +/- 1 steps, evenly sampled
 % sample_rate: sample rate for wheel position
+%
+% Outputs: 
+% wheel_velocity: velocity of the wheel
+% wheel_move: binary vector of times with movement or quiescence
+% wheel_velocity_split: velocity of the wheel split into move/quies blocks
 
 % Ensure wheel_position is column vector
 wheel_position = wheel_position(:);
@@ -40,7 +46,12 @@ wheel_stops_trim = wheel_stops_all([combine_move;end]);
 % Make vector of movement/quiescence
 wheel_move = interp1([wheel_starts_trim;wheel_stops_trim;0], ...
     [ones(size(wheel_starts_trim));zeros(size(wheel_stops_trim));0], ...
-    1:length(wheel_position),'previous','extrap');
+    transpose(1:length(wheel_position)),'previous','extrap');
+
+% Split wheel velocity into quiescence/move segments
+move_quiescence_blocks = ...
+    diff(unique([0;find(diff(wheel_move) ~= 0);length(wheel_move)]));
+wheel_velocity_split = mat2cell(wheel_velocity,move_quiescence_blocks);
 
 
 

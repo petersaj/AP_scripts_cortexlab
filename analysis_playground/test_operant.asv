@@ -1,0 +1,22 @@
+%% Get average rewarded and other movements
+
+[wheel_vel,wheel_move,wheel_vel_split] = AP_parse_wheel(wheel_position,Timeline.hw.daqSampleRate);
+
+wheel_split_n = cellfun(@length,wheel_vel_split)';
+split_move = cellfun(@(x) x(1),mat2cell(wheel_move,wheel_split_n));
+
+max_move = max(wheel_split_n(split_move == 1));
+move_pad = cell2mat(cellfun(@(x) padarray(x,max_move-length(x),NaN,'post'), ...
+    wheel_vel_split(split_move == 1),'uni',false)');
+
+rewarded_epochs = cellfun(@(t) any(ismember(t,reward_t_timeline)), ...
+    mat2cell(Timeline.rawDAQTimestamps',wheel_split_n));
+
+rewarded_movements = rewarded_epochs(split_move == 1);
+
+figure; hold on
+plot(nanmean(move_pad(:,~rewarded_movements),2)
+
+
+
+

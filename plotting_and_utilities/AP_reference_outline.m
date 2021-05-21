@@ -2,7 +2,7 @@ function h = AP_reference_outline(type,color,reference_im,repeats)
 % h = AP_reference_outline(type,color,reference_im,repeats)
 %
 % If a reference image is provided, bregma is defined there
-% type - grid, ccf, ccf_wf, ccf_aligned, retinotopy (master only at the moment)
+% type - grid_aligned, ccf, ccf_wf, ccf_aligned, retinotopy (master only at the moment)
 %
 % repeats - [pixels_y,pixels_x,repeats_y,repeats_x] (only for ccf_aligned)
 
@@ -31,7 +31,7 @@ alignment_path = 'C:\Users\Andrew\OneDrive for Business\Documents\CarandiniHarri
 
 switch type   
     
-    case 'grid'
+    case 'grid_aligned'
         % Plot mm grid for widefield
         
         % Get bregma from aligned (assume aligned atm)

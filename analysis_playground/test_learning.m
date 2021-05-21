@@ -124,7 +124,7 @@ ylabel('Stim contrast*side');
 
 %% Passive stim (pixels)
 
-animal = 'AP097';
+animal = 'AP099';
 
 protocol = 'AP_lcrGratingPassive';
 experiments = AP_find_experiments(animal,protocol);
@@ -199,14 +199,14 @@ im_stim_cat = cell2mat(permute(cellfun(@(im) ...
 im_stim_cat_deconv = permute(AP_deconv_wf(permute( ...
     im_stim_cat,[1,3,2,4])),[1,3,2,4]);
 
-AP_image_scroll(im_stim_cat);
+AP_image_scroll(im_stim_cat_deconv);
 axis image;
 caxis([-max(abs(caxis)),max(abs(caxis))]);
 colormap(brewermap([],'*RdBu'));
 
-% t_stim = 21:23;
-t_stim = 29:32;
-im_stim_avg = squeeze(max(im_stim_cat(:,:,t_stim,:),[],3));
+t_stim = 21:23;
+% t_stim = 29:32;
+im_stim_avg = squeeze(max(im_stim_cat_deconv(:,:,t_stim,:),[],3));
 AP_image_scroll(im_stim_avg);
 axis image;
 caxis([-max(abs(caxis)),max(abs(caxis))]);

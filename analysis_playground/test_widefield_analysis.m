@@ -519,9 +519,9 @@ end
 
 % Set options
 surround_window = [-0.5,3];
-baseline_window = [0,0];
+baseline_window = [-0.2,-0.1];
 
-surround_samplerate = 0.05;%1/(framerate*1);
+surround_samplerate = 0.01;%1/(framerate*1);
 surround_time = surround_window(1):surround_samplerate:surround_window(2);
 baseline_surround_time = baseline_window(1):surround_samplerate:baseline_window(2);
 
@@ -576,34 +576,48 @@ AP_image_scroll(im_stim,surround_time);
 axis image;
 c = prctile(im_stim(:),[0.1,99.9]);
 caxis([-max(abs(c)),max(abs(c))]);
-colormap(brewermap([],'*RdBu'));
+colormap(brewermap([],'PrGn'));
 set(gcf,'Name',animal);
 
 
 
 %% Align widefield to event
 
-use_trials = ...
-    trial_conditions(:,1) == 0.125 & ...
-    trial_conditions(:,2) == -1 & ...
-    trial_conditions(:,3) == -1;
+% use_trials = ...
+%     trial_conditions(:,1) == 0.125 & ...
+%     trial_conditions(:,2) == -1 & ...
+%     trial_conditions(:,3) == -1;
 
-align_times = stimOn_times(use_trials);
+% align_times = stimOn_times(use_trials);
 % align_times = wheel_move_time(use_trials);
+% align_times = stimOn_times;
+align_times = wheel_move_time;
+% align_times = move_times;
 
-surround_window = [-0.1,1];
+surround_window = [-0.3,1];
+baseline_window = [-0.5,-0.2];
 
-t = surround_window(1):1/framerate:surround_window(2);
-peri_event_t = align_times + t;
-event_aligned_fluor = permute(interp1(frame_t,fVdf_deconv',peri_event_t),[3,2,1]);
+surround_samplerate = 1/0.01;
+t = surround_window(1):1/surround_samplerate:surround_window(2);
+t_baseline = baseline_window(1):1/surround_samplerate:baseline_window(2);
 
-% (to baseline subtract)
-event_aligned_fluor = event_aligned_fluor - ...
-    nanmean(event_aligned_fluor(:,t < 0,:),2);
+peri_event_t = reshape(align_times,[],1) + reshape(t,1,[]);
+peri_event_t_baseline = reshape(align_times,[],1) + reshape(t_baseline,1,[]);
 
-AP_image_scroll(svdFrameReconstruct(Udf, ...
-    nanmean(event_aligned_fluor,3)),t);
-colormap(brewermap([],'PRGn'));
+% Deconv widefield if it's not already
+if ~exist('fVdf_deconv','var')
+    fVdf_deconv = AP_deconv_wf(fVdf);
+end
+
+peri_event_v = permute(reshape(interp1(frame_t,fVdf_deconv',peri_event_t), ...
+    length(align_times),length(t),[]),[3,2,1]);
+baseline_v = permute(nanmean(reshape(interp1(frame_t,fVdf_deconv',peri_event_t_baseline), ...
+    length(align_times),length(t_baseline),[]),2),[3,2,1]);
+
+event_v_mean = nanmean(peri_event_v - baseline_v,3);
+
+AP_image_scroll(svdFrameReconstruct(Udf,event_v_mean),t);
+colormap(brewermap([],'PrGn'));
 caxis([-max(abs(caxis)),max(abs(caxis))]);
 axis image;
 
@@ -2028,7 +2042,7 @@ ylabel(c,'Explained variance')
 
 %% Align vasculature for animal
 clear all;
-animal = 'AP097';
+animal = 'AP100';
 
 protocol = [];
 experiments = AP_find_experiments(animal,protocol);
@@ -2067,9 +2081,9 @@ AP_align_widefield(im_edge,animal,{experiments(use_days).day},'new_days');
 
 %% View aligned vasculature (to check that it's been done correctly)
 
-animal = 'AP096';
+animal = 'AP099';
 
-protocol = 'AP_lcrGratingPassive';
+protocol = [];
 experiments = AP_find_experiments(animal,protocol);
 experiments(~([experiments.imaging])) = [];
 
@@ -2094,7 +2108,7 @@ set(gcf,'Name',animal);
 retinotopy_path = 'C:\Users\Andrew\OneDrive for Business\Documents\CarandiniHarrisLab\analysis\widefield_alignment\retinotopy';
 retinotopy_dir = dir(retinotopy_path);
 
-animal = 'AP089';
+animal = 'AP099';
 load([retinotopy_path filesep animal '_retinotopy'])
 
 aligned_vfs = cell(length(retinotopy),1);
