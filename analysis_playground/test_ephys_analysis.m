@@ -1104,9 +1104,9 @@ vis_modulation = (vis_rate-baseline_rate)./(vis_rate+baseline_rate);
 %% PSTH plot by depth (all stim IDs)
 
 % Group by depth
-n_depth_groups = 4;
-% depth_group_edges = linspace(0,max(channel_positions(:,2)),n_depth_groups+1);
-depth_group_edges = round(linspace(str_depth(1),str_depth(2),n_depth_groups+1));
+n_depth_groups = 10;
+depth_group_edges = linspace(0,max(channel_positions(:,2)),n_depth_groups+1);
+% depth_group_edges = round(linspace(str_depth(1),str_depth(2),n_depth_groups+1));
 depth_group_centers = round(depth_group_edges(1:end-1)+diff(depth_group_edges)/2);
 depth_group = discretize(spike_depths,depth_group_edges);
 
@@ -2321,7 +2321,7 @@ end
 
 %% Spectral analysis
 % Power spectrum
-use_trace = a;
+use_trace = b;
 
 Fs = 35;
 L = length(use_trace);

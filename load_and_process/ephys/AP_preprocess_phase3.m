@@ -188,8 +188,8 @@ for curr_site = 1:length(data_paths)
     %% Run kilosort
     
     % Set up local directory and clear out
-    ssd_kilosort_path = 'C:\data_temp\kilosort';
-    hdd_kilosort_path = 'E:\data_temp\kilosort';
+    ssd_kilosort_path = 'G:\data_temp\kilosort';
+    hdd_kilosort_path = 'G:\data_temp\kilosort';
     
     % Clear out local kilosort directories
     rmdir(ssd_kilosort_path,'s');
@@ -239,7 +239,7 @@ for curr_site = 1:length(data_paths)
     %% Copy kilosort results and raw data to phy folder for clustering
     % (only if clustering immediately afterwards)
     
-    local_phy_path = 'C:\data_temp\phy';
+    local_phy_path = 'G:\data_temp\phy';
     
     % Clear out whatever's currently in phy
     rmdir(local_phy_path,'s');
@@ -251,6 +251,10 @@ for curr_site = 1:length(data_paths)
     
     % Copy the results
     movefile([ks_results_path filesep '*'],local_phy_path)
+    
+    % Copy the dat_params file (on server)
+    local_param_filename = [local_phy_path filesep 'dat_params.txt'];
+    copyfile(param_filename,local_param_filename);
     
     %% Delete all temporarly local data
     rmdir(ssd_kilosort_path,'s');

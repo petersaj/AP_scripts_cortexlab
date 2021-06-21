@@ -2186,17 +2186,17 @@ for curr_animal = 1:length(animals)
             trial_move_t = trial_wheel_starts - block.events.stimOnTimes(response_trials);
             stim_move_t = trial_move_t(rewarded_trials);
 
-%             % (to get probability of move starts around stim)
-%             stim_surround_t_edges = -5:0.1:5;
-%             stim_surround_t_centers = stim_surround_t_edges(1:end-1) + diff(stim_surround_t_edges)/2;
-%             stim_surround_times = block.events.stimOnTimes' + stim_surround_t_edges;
-%             stim_surround_move = cell2mat(arrayfun(@(x) ...
-%                 histcounts(wheel_starts,stim_surround_times(x,:)), ...
-%                 1:size(stim_surround_times,1),'uni',false)');
-%             % (need to do some kind of hazard rate here, maybe like what
-%             % Ruediger did, I think there was another one like this too)
+            % (to get probability of move starts around stim)
+            stim_surround_t_edges = -5:0.1:5;
+            stim_surround_t_centers = stim_surround_t_edges(1:end-1) + diff(stim_surround_t_edges)/2;
+            stim_surround_times = block.events.stimOnTimes' + stim_surround_t_edges;
+            stim_surround_move = cell2mat(arrayfun(@(x) ...
+                histcounts(wheel_starts,stim_surround_times(x,:)), ...
+                1:size(stim_surround_times,1),'uni',false)');
+            % (need to do some kind of hazard rate here, maybe like what
+            % Ruediger did, I think there was another one like this too)
             
-            % (probability of any movement around stim)
+            % (temp: any movement, not just starts)
             stim_surround_t_centers = -10:0.1:10;
             stim_surround_times = block.events.stimOnTimes' + stim_surround_t_centers;
             stim_surround_move = interp1(wheel_t_resample,wheel_move, ...
@@ -2219,15 +2219,15 @@ for curr_animal = 1:length(animals)
 %                 wheel_t_resample' < block.events.stimOnTimes(x),1,'last')), ...
 %                 find(response_trials)) - block.events.stimOnTimes(response_trials);
 
-%             % (or another way: align by breaks within ITI, eg if mouse took
-%             % a break from seconds 5-7, what's the profile of moving again?
-%             % it's probably shallow, while the stim-related one is strong)
-%             test_bin = [5,7];
-%             trial_iti_time = wheel_t_resample - ...
-%                 interp1(block.events.stimOnTimes,block.events.stimOnTimes, ...
-%                 wheel_t_resample,'previous');
-%             trial_iti_time_use = trial_iti_time >= test_bin(1) & ...
-%                 trial_iti_time < test_bin(2);
+            % (or another way: align by breaks within ITI, eg if mouse took
+            % a break from seconds 5-7, what's the profile of moving again?
+            % it's probably shallow, while the stim-related one is strong)
+            test_bin = [5,7];
+            trial_iti_time = wheel_t_resample - ...
+                interp1(block.events.stimOnTimes,block.events.stimOnTimes, ...
+                wheel_t_resample,'previous');
+            trial_iti_time_use = trial_iti_time >= test_bin(1) & ...
+                trial_iti_time < test_bin(2);
             %(not done - I don't think necessary)
 
 
@@ -2237,7 +2237,7 @@ for curr_animal = 1:length(animals)
                 block.events.stimOnTimes(rewarded_trials);
 
             % Resetting quiescence period for each trial
-            if isfield(block.events,'trialQuiescenceValues')
+            if isfield('trialQuiescencevalues',block.events)
                 quiescence_t = block.events.trialQuiescenceValues(response_trials);
             else
                 quiescence_t = 0.5*ones(size(block.events.stimOnTimes));

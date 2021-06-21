@@ -11906,6 +11906,135 @@ ylabel(c,'Correlation with contra','FontSize',12);
 colormap(brewermap([],'Greys'));
 caxis([0.5,1]);
 
+%% Bilateral correlation (like above but within experiment)
+
+fVdf_deconv = AP_deconv_wf(fVdf);
+aUdf = AP_align_widefield(Udf,animal,day);
+
+% Get V covariance
+Ur = reshape(aUdf, size(aUdf,1)*size(aUdf,2),[]); % P x S
+covV = cov(fVdf_deconv'); % S x S % this is the only one that takes some time really
+varP = dot((Ur*covV)', Ur'); % 1 x P
+
+% Loop through pixels, correlate with mirror pixel
+px_mirror_idx = round(AP_reflect_widefield(reshape(1:size(Ur,1), ...
+    size(aUdf,1),size(aUdf,2))));
+%%
+px_corr = NaN(size(aUdf,1),size(aUdf,2));
+
+figure;
+c = imagesc(px_corr);
+colormap(brewermap([],'*RdBu'));
+caxis([-1,1]);
+for curr_px = 1:100:size(Ur,1)
+    % Get mirror pixel (doesn't work just using mirrored indicies? why??)
+    curr_px_mirror = px_mirror_idx(curr_px);
+    
+%     curr_mask = false(size(aUdf,1),size(aUdf,2));
+%     curr_mask(curr_px) = true;
+%     curr_px_mirror = find(AP_reflect_widefield(+curr_mask),1);
+    
+    % If mirrored pixel not imaged, skip
+    if isempty(curr_px_mirror) || curr_px_mirror == 0
+        continue
+    end
+    
+    covP = Ur(curr_px,:)*covV*Ur(curr_px_mirror,:)';
+    stdPxPy = varP(curr_px).^0.5 * varP(curr_px_mirror).^0.5;
+    px_corr(curr_px) = covP./stdPxPy;
+    
+    set(c,'CData',px_corr);
+    drawnow;
+    
+    AP_print_progress_fraction(curr_px,size(Ur,1))
+end
+
+
+% (old: gets full pixel correlation map, not just bilateral)
+
+ySize = size(aUdf,1); xSize = size(aUdf,2);
+
+px_spacing = 20;
+use_y = 1:px_spacing:size(aUdf,1);
+use_x = 1:px_spacing:size(aUdf,2);
+corr_map = cell(length(use_y),length(use_x));
+for curr_x_idx = 1:length(use_x)
+    curr_x = use_x(curr_x_idx);
+    for curr_y_idx = 1:length(use_y)
+        curr_y = use_y(curr_y_idx);
+        
+        pixel = [curr_y,curr_x];
+        pixelInd = sub2ind([ySize, xSize], pixel(1), pixel(2));
+        
+        covP = Ur(pixelInd,:)*covV*Ur'; % 1 x P
+        stdPxPy = varP(pixelInd).^0.5 * varP.^0.5; % 1 x P
+        corrMat = reshape(covP./stdPxPy,ySize,xSize); % 1 x P
+        
+        corr_map{curr_y_idx,curr_x_idx} = corrMat;
+    end
+    AP_print_progress_fraction(curr_x_idx,length(use_x))
+end
+
+% Get downsampled correlation maps
+downsample_factor = px_spacing;
+corr_map_downsamp = cellfun(@(x) ...
+    imresize(x,1/downsample_factor,'bilinear'),corr_map,'uni',false);
+
+wf_corr_map_mean = corr_map_downsamp;
+
+%%% (FROM ABOVE CELL)
+px_y = (0:size(wf_corr_map_mean,1)-1)*px_spacing+1;
+px_x = (0:size(wf_corr_map_mean,2)-1)*px_spacing+1;
+ipsi_corr = nan(461,440);
+contra_corr = nan(461,440);
+
+for curr_y_idx = 1:length(px_y)
+    for curr_x_idx = 1:length(px_x)
+        curr_corr_upsample = ...
+            imresize(wf_corr_map_mean{curr_y_idx,curr_x_idx}, ...
+            downsample_factor,'nearest');
+        curr_corr_upsample(isnan(curr_corr_upsample)) = 0;
+        
+        curr_mask = false(size(curr_corr_upsample));
+        curr_mask(px_y(curr_y_idx),px_x(curr_x_idx)) = true;
+        curr_mask_reflect = AP_reflect_widefield(+curr_mask) > 0;
+        
+        if ~any(curr_mask_reflect(:))
+            continue
+        end
+        
+        ipsi_corr(px_y(curr_y_idx),px_x(curr_x_idx)) = curr_corr_upsample(curr_mask);
+        contra_corr(px_y(curr_y_idx),px_x(curr_x_idx)) = ...
+            (curr_mask_reflect(:)'*curr_corr_upsample(:))./sum(curr_mask_reflect(:));
+    end
+end
+
+ipsi_corr_inpaint = inpaint_nans(ipsi_corr);
+contra_corr_inpaint = inpaint_nans(contra_corr);
+
+figure
+subplot(1,2,1);
+imagesc(ipsi_corr_inpaint);
+axis image;
+caxis([0,1]);
+AP_reference_outline('ccf_aligned','k');
+subplot(1,2,2);
+imagesc(contra_corr_inpaint);
+axis image
+caxis([0,1]);
+AP_reference_outline('ccf_aligned','k');
+
+figure;
+imagesc(contra_corr_inpaint);
+axis image off;
+AP_reference_outline('ccf_aligned','k');
+c = colorbar('FontSize',12);
+ylabel(c,'Correlation with contra','FontSize',12);
+colormap(brewermap([],'Greys'));
+caxis([0.5,1]);
+
+
+
 
 
 %% Wheel move (any) aligned activity

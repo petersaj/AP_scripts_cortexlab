@@ -590,8 +590,8 @@ set(gcf,'Name',animal);
 
 % align_times = stimOn_times(use_trials);
 % align_times = wheel_move_time(use_trials);
-% align_times = stimOn_times;
-align_times = wheel_move_time;
+align_times = stimOn_times;
+% align_times = wheel_move_time;
 % align_times = move_times;
 
 surround_window = [-0.3,1];
@@ -2042,7 +2042,7 @@ ylabel(c,'Explained variance')
 
 %% Align vasculature for animal
 clear all;
-animal = 'AP100';
+animal = 'AP103';
 
 protocol = [];
 experiments = AP_find_experiments(animal,protocol);
@@ -2081,7 +2081,7 @@ AP_align_widefield(im_edge,animal,{experiments(use_days).day},'new_days');
 
 %% View aligned vasculature (to check that it's been done correctly)
 
-animal = 'AP099';
+animal = 'AP100';
 
 protocol = [];
 experiments = AP_find_experiments(animal,protocol);
@@ -2108,7 +2108,7 @@ set(gcf,'Name',animal);
 retinotopy_path = 'C:\Users\Andrew\OneDrive for Business\Documents\CarandiniHarrisLab\analysis\widefield_alignment\retinotopy';
 retinotopy_dir = dir(retinotopy_path);
 
-animal = 'AP099';
+animal = 'AP100';
 load([retinotopy_path filesep animal '_retinotopy'])
 
 aligned_vfs = cell(length(retinotopy),1);
@@ -2141,6 +2141,7 @@ for curr_day = 1:length(retinotopy)
 end
 figure;imagesc(nanmean(cat(3,master_aligned_vfs{:}),3));
 colormap(brewermap([],'*RdBu'));
+caxis([-1,1])
 axis image off;
 AP_reference_outline('ccf_aligned',[0.5,0.5,0.5]);
 title('Master-aligned average VFS');
@@ -2193,7 +2194,7 @@ end
 retinotopy_path = 'C:\Users\Andrew\OneDrive for Business\Documents\CarandiniHarrisLab\analysis\widefield_alignment\retinotopy';
 retinotopy_dir = dir(retinotopy_path);
 
-animal = 'AP097';
+animal = 'AP100';
 load([retinotopy_path filesep animal '_retinotopy'])
 
 vfs_aligned = cell(length(retinotopy));

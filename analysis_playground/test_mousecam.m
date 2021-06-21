@@ -19,8 +19,8 @@ AP_mouse_movie_movement(animal,day,experiments);
 % verbose = true;
 % AP_load_experiment
 
-use_cam = eyecam_fn; % facecam_fn, eyecam_fn
-use_t = eyecam_t; % facecam_t, eyecam_t
+use_cam = facecam_fn; % facecam_fn, eyecam_fn
+use_t = facecam_t; % facecam_t, eyecam_t
 
 % Get wheel movements during stim, only use quiescent trials
 framerate = 30;

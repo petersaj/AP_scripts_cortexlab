@@ -535,14 +535,89 @@ save_fn = ['trial_activity_passive_learning_operant'];
 save([save_path filesep save_fn],'-v7.3');
 disp(['Saved: ' save_path filesep save_fn])
 
+%% Grab and save passive trial data (operant, tetO-GC6s)
+
+clear all
+disp('Passive trial activity (operant, tetO-GC6s)')
+
+animals = {'AP100'};
+
+% Initialize save variable
+trial_data_all = struct;
+
+for curr_animal = 1:length(animals)
+    
+    animal = animals{curr_animal};
+    protocol = 'AP_lcrGratingPassive';
+    experiments_full = AP_find_experiments(animal,protocol);
+    imaged_experiments = [experiments_full.imaging];
+
+    % Use only days with operant training
+    operant_protocol = 'AP_stimWheelRight';
+    operant_experiments = AP_find_experiments(animal,operant_protocol,false);
+    experiment_operant = ismember({experiments_full.day},{operant_experiments.day});
+    
+    % Don't use days with retinotopy (those were often muscimol days)
+    retinotopy_protocol = 'AP_kalatsky';
+    retinotopy_experiments = AP_find_experiments(animal,retinotopy_protocol,false);
+    experiment_retintopy = ismember({experiments_full.day},{retinotopy_experiments.day});
+    
+    use_experiments = [experiments_full.imaging] & experiment_operant & ...
+        ~experiment_retintopy;
+    experiments = experiments_full(use_experiments);
+    
+    disp(['Loading ' animal]);
+    
+    for curr_day = 1:length(experiments)
+        
+        preload_vars = who;
+        
+        day = experiments(curr_day).day;
+        experiment = experiments(curr_day).experiment(end);
+        
+        % Load experiment
+        AP_load_experiment;
+        
+        % Pull out trial data
+        AP_ctx_str_grab_trial_data;
+        
+        % Store trial data into master structure
+        trial_data_fieldnames = fieldnames(trial_data);
+        for curr_trial_data_field = trial_data_fieldnames'
+            trial_data_all.(cell2mat(curr_trial_data_field)){curr_animal,1}{curr_day,1} = ...
+                trial_data.(cell2mat(curr_trial_data_field));
+        end
+        
+        % Store general info
+        trial_data_all.animals = animals;
+        trial_data_all.t = t;
+        
+        AP_print_progress_fraction(curr_day,length(experiments));
+        
+        % Clear for next loop
+        clearvars('-except',preload_vars{:});
+        
+    end
+    
+end
+
+clearvars -except trial_data_all
+disp('Finished loading all')
+
+% Save
+save_path = 'C:\Users\Andrew\OneDrive for Business\Documents\CarandiniHarrisLab\analysis\learning\data';
+save_fn = ['trial_activity_passive_learning_operant_teto'];
+save([save_path filesep save_fn],'-v7.3');
+disp(['Saved: ' save_path filesep save_fn])
 
 
 %% Analyze passive trial data
 
 % Load data
 trial_data_path = 'C:\Users\Andrew\OneDrive for Business\Documents\CarandiniHarrisLab\analysis\learning\data';
-% data_fn = 'trial_activity_passive_learning';
-data_fn = 'trial_activity_passive_learning_operant';
+data_fn = 'trial_activity_passive_learning';
+% data_fn = 'trial_activity_passive_learning_operant';
+% data_fn = 'trial_activity_passive_learning_operant_teto';
 AP_load_concat_normalize_ctx_str;
 
 % Get animal and day index for each trial
@@ -934,20 +1009,48 @@ axis image;
 AP_reference_outline('ccf_aligned',[0.5,0.5,0.5]);
 
 % (average stim response "pre/post learning")
-notlearned_days = 1:4;
-fullset_days = [10,13,13,16,15];
+naive_days = 1:3;
+expert_days = 15:17;
+% expert_days = 6:8;
 
-stim_avg_notlearned = AP_svdFrameReconstruct(U_master(:,:,1:n_vs), ...
-    nanmean(cell2mat(permute(cellfun(@(x,y) ...
-    squeeze(nanmean(x(:,:,1:notlearned_days,:),3)), ...
-    stim_v_avg,num2cell(fullset_days),'uni',false),[1,3,4,2])),4));
-stim_avg_learned = AP_svdFrameReconstruct(U_master(:,:,1:n_vs), ...
-    nanmean(cell2mat(permute(cellfun(@(x,y) ...
-    squeeze(nanmean(x(:,:,fullset_days:end,:),3)), ...
-    stim_v_avg,num2cell(fullset_days),'uni',false),[1,3,4,2])),4));
+stim_avg_naive = AP_svdFrameReconstruct(U_master(:,:,1:n_vs), ...
+    nanmean(cell2mat(permute(cellfun(@(x) ...
+    squeeze(nanmean(x(:,:,naive_days,:),3)), ...
+    stim_v_avg,'uni',false),[1,3,4,2])),4));
+stim_avg_expert = AP_svdFrameReconstruct(U_master(:,:,1:n_vs), ...
+    nanmean(cell2mat(permute(cellfun(@(x) ...
+    squeeze(nanmean(x(:,:,expert_days,:),3)), ...
+    stim_v_avg,'uni',false),[1,3,4,2])),4));
 
+use_t = t > 0.05 & t < 0.15;
+use_stim = 1;
+stim_avg_learning = cat(3,nanmean(stim_avg_naive(:,:,use_t,use_stim),3), ...
+    nanmean(stim_avg_expert(:,:,use_t,use_stim),3));
 
+figure;
+subplot(1,3,1);
+imagesc(stim_avg_learning(:,:,1));
+axis image off;
+AP_reference_outline('ccf_aligned','k');
+caxis([-max(abs(caxis)),max(abs(caxis))]);
+colormap(brewermap([],'PrGn'));
+title('Naive');
 
+subplot(1,3,2);
+imagesc(stim_avg_learning(:,:,2));
+axis image off;
+AP_reference_outline('ccf_aligned','k');
+caxis([-max(abs(caxis)),max(abs(caxis))]);
+colormap(brewermap([],'PrGn'));
+title('Expert');
+
+subplot(1,3,3);
+imagesc(diff(stim_avg_learning,[],3));
+axis image off;
+AP_reference_outline('ccf_aligned','k');
+caxis([-max(abs(caxis)),max(abs(caxis))]);
+colormap(brewermap([],'PrGn'));
+title('Difference');
 
 
 %% Get task -> widefield kernel
