@@ -2042,7 +2042,7 @@ ylabel(c,'Explained variance')
 
 %% Align vasculature for animal
 clear all;
-animal = 'AP103';
+animal = 'AP101';
 
 protocol = [];
 experiments = AP_find_experiments(animal,protocol);
@@ -2068,12 +2068,12 @@ end
 use_days = cellfun(@(x,y) ~isempty(x) & ~isempty(y), ...
     avg_im_days_blue,avg_im_days_purple);
 
-% % Align with normalized averages        
-% im_norm = cellfun(@(x) x./mad(x(:),true),avg_im_days_blue(use_days),'uni',false);        
+% % % Align with normalized averages        
+% im_norm = cellfun(@(x) x./mad(x(:),true),avg_im_days_purple(use_days),'uni',false);        
 % AP_align_widefield(im_norm,animal,{experiments(use_days).day},'new_days');
 
 % Align with edges
-im_edge = cellfun(@(x) x-imgaussfilt(x,10),avg_im_days_purple(use_days),'uni',false);
+im_edge = cellfun(@(x) x-imgaussfilt(x,10),avg_im_days_blue(use_days),'uni',false);
 AP_align_widefield(im_edge,animal,{experiments(use_days).day},'new_days');
 
 
@@ -2081,7 +2081,7 @@ AP_align_widefield(im_edge,animal,{experiments(use_days).day},'new_days');
 
 %% View aligned vasculature (to check that it's been done correctly)
 
-animal = 'AP100';
+animal = 'AP104';
 
 protocol = [];
 experiments = AP_find_experiments(animal,protocol);
@@ -2108,7 +2108,7 @@ set(gcf,'Name',animal);
 retinotopy_path = 'C:\Users\Andrew\OneDrive for Business\Documents\CarandiniHarrisLab\analysis\widefield_alignment\retinotopy';
 retinotopy_dir = dir(retinotopy_path);
 
-animal = 'AP100';
+animal = 'AP104';
 load([retinotopy_path filesep animal '_retinotopy'])
 
 aligned_vfs = cell(length(retinotopy),1);

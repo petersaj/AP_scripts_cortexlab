@@ -12384,7 +12384,7 @@ Vh = Vhd;
 
 %% Test: pixel prominences
 
-animals = {'AP098','AP099','AP100'};
+animals = {'AP103'};
 prominence_maps = cell(size(animals));
 
 for curr_animal = 1:length(animals)

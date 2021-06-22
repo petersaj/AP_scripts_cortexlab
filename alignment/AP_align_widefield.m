@@ -74,11 +74,11 @@ switch align_type
         
         % (for RegularStepGradientDescent)
         [optimizer, metric] = imregconfig('monomodal');
-        optimizer.GradientMagnitudeTolerance = 1e-6;
+        optimizer.GradientMagnitudeTolerance = 1e-7;
         optimizer.MaximumIterations = 300;
         optimizer.MaximumStepLength = 1e-3;
-        optimizer.MinimumStepLength = 1e-6;
-        optimizer.RelaxationFactor = 0.5;
+        optimizer.MinimumStepLength = 1e-7;
+        optimizer.RelaxationFactor = 0.6;
         
         % (first pass: rigid transform to day 1)  
         % (increasing the PyramidLevels made the biggest improvement)
@@ -97,8 +97,6 @@ switch align_type
         
         % (user draw ROI around most stable area for alignment reference)
         % (and lower the search radius)
-%         optimizer.GrowthFactor = 1+1e-6;
-%         optimizer.InitialRadius = 1e-5;
         draw_roi = true;
         while draw_roi
             f = AP_image_scroll(im_rigid_aligned, ...
