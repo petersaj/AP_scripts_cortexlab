@@ -1,0 +1,43 @@
+% Days and locations of muscimol injections/washouts
+%
+% (these are all hard-coded for each mouse here, there's no current way to
+% associate something like this with a day's experiments)
+
+init_cell = cell(0);
+injections = struct('animal',init_cell,'muscimol');
+
+% MICE TO ADD:
+% (cstr) AP092,93,94,95,96,97
+% (tetO) AP100,101,103, 104
+
+
+curr_animal_idx = length(injections)+1;
+injections(curr_animal_idx).animal = 'AP100';
+injections(curr_animal_idx).muscimol =  {...
+    '2021-05-17','V1'; ...
+    '2021-05-18','washout'; ...
+    '2021-05-19','FRm'; ...
+    '2021-05-20','washout'; ...
+    '2021-05-21','DCS'; ...
+    '2021-05-24','washout'};
+
+
+
+
+injections(curr_animal_idx).muscimol(end+1).day = '2021-05-17';
+injections(curr_animal_idx).muscimol(end).area = 'V1';
+
+injections(curr_animal_idx).muscimol(end+1).day = '2021-05-17';
+injections(curr_animal_idx).muscimol(end).area = 'V1';
+
+
+
+
+
+
+
+
+
+
+
+

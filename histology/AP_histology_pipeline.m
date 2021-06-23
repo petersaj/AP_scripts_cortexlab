@@ -7,8 +7,7 @@ av = readNPY([allen_atlas_path filesep 'annotation_volume_10um_by_index.npy']);
 st = loadStructureTree([allen_atlas_path filesep 'structure_tree_safe_2017.csv']);
 
 % Set paths for histology images and directory to save slice/alignment
-% im_path = '\\znas.cortexlab.net\Subjects\AP085\histology\channelconcat_images';
-im_path = '\\znas.cortexlab.net\Subjects\AP077\histology';
+im_path = '\\znas.cortexlab.net\Subjects\AP100\histology\all_images';
 slice_path = [im_path filesep 'slices'];
 
 %% 2) Preprocess slide images to produce slice images
@@ -24,8 +23,8 @@ slice_path = [im_path filesep 'slices'];
 resize_factor = 1; % (slides tiff: resize factor)
 
 % Set slide or slice images
-% slice_images = false; % (images are slides - extract individual slices)
-slice_images = true; % (images are already individual slices)
+slice_images = false; % (images are slides - extract individual slices)
+% slice_images = true; % (images are already individual slices)
 
 % Preprocess images
 AP_process_histology(im_path,resize_factor,slice_images);

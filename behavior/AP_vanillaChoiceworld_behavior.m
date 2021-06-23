@@ -2120,7 +2120,7 @@ end
 % animals = {'AP092','AP093','AP094'};
 % animals = {'AP095','AP096','AP097'};
 % animals = {'AP098','AP099','AP100'};
-animals = {'AP106'};
+animals = {'AP105','AP106'};
 protocol = 'AP_stimWheelRight';
 flexible_name = false;
 bhv = struct;
