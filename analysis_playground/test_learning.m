@@ -540,7 +540,7 @@ disp(['Saved: ' save_path filesep save_fn])
 clear all
 disp('Passive trial activity (operant, tetO-GC6s)')
 
-animals = {'AP100'};
+animals = {'AP100','AP101','AP103','AP104'};
 
 % Initialize save variable
 trial_data_all = struct;
@@ -558,7 +558,7 @@ for curr_animal = 1:length(animals)
     experiment_operant = ismember({experiments_full.day},{operant_experiments.day});
     
     % Don't use days with retinotopy (those were often muscimol days)
-    retinotopy_protocol = 'AP_kalatsky';
+    retinotopy_protocol = 'AP_sparseNoise';
     retinotopy_experiments = AP_find_experiments(animal,retinotopy_protocol,false);
     experiment_retintopy = ismember({experiments_full.day},{retinotopy_experiments.day});
     
@@ -615,9 +615,9 @@ disp(['Saved: ' save_path filesep save_fn])
 
 % Load data
 trial_data_path = 'C:\Users\Andrew\OneDrive for Business\Documents\CarandiniHarrisLab\analysis\learning\data';
-data_fn = 'trial_activity_passive_learning';
+% data_fn = 'trial_activity_passive_learning';
 % data_fn = 'trial_activity_passive_learning_operant';
-% data_fn = 'trial_activity_passive_learning_operant_teto';
+data_fn = 'trial_activity_passive_learning_operant_teto';
 AP_load_concat_normalize_ctx_str;
 
 % Get animal and day index for each trial
@@ -986,7 +986,7 @@ colormap(brewermap([],'*RdBu'));
 
 % (average stim response for each day)
 use_stim = 3;
-min_days = cellfun(@(x) size(x,3),stim_v_avg);
+min_days = min(cellfun(@(x) size(x,3),stim_v_avg));
 stim_v_avg_dayavg = nanmean(cell2mat(permute(cellfun(@(x) x(:,:,1:min_days,use_stim), ...
     stim_v_avg,'uni',false),[1,3,4,2])),4);
 stim_px_avg_dayavg = AP_svdFrameReconstruct(U_master(:,:,1:n_vs), ...
@@ -1010,8 +1010,8 @@ AP_reference_outline('ccf_aligned',[0.5,0.5,0.5]);
 
 % (average stim response "pre/post learning")
 naive_days = 1:3;
-expert_days = 15:17;
-% expert_days = 6:8;
+% expert_days = 15:17;
+expert_days = 6:7;
 
 stim_avg_naive = AP_svdFrameReconstruct(U_master(:,:,1:n_vs), ...
     nanmean(cell2mat(permute(cellfun(@(x) ...
@@ -1023,7 +1023,7 @@ stim_avg_expert = AP_svdFrameReconstruct(U_master(:,:,1:n_vs), ...
     stim_v_avg,'uni',false),[1,3,4,2])),4));
 
 use_t = t > 0.05 & t < 0.15;
-use_stim = 1;
+use_stim = 3;
 stim_avg_learning = cat(3,nanmean(stim_avg_naive(:,:,use_t,use_stim),3), ...
     nanmean(stim_avg_expert(:,:,use_t,use_stim),3));
 

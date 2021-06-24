@@ -324,11 +324,7 @@ if length(gui_data.curr_unit) == 1
     end
     curr_raster_sorted = curr_raster(trial_sort,:);
     
-    if all(trial_sort == [1:length(trial_sort)]')
-        ylabel(gui_data.raster_axes,'Trial')
-    else
-        ylabel(gui_data.raster_axes,'Sorted trial')
-    end
+    if ~all(
     
     % (plot raster matrix as x,y)
     [raster_y,raster_x] = find(curr_raster_sorted);
