@@ -132,7 +132,7 @@ ylabel('Template amplitude');
 axis tight
 
 % Set default raster times
-raster_window = [-0.5,0.5];
+raster_window = [-0.5,2];
 psth_bin_size = 0.001;
 t_bins = raster_window(1):psth_bin_size:raster_window(2);
 t = t_bins(1:end-1) + diff(t_bins)./2;
