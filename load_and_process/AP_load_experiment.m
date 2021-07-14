@@ -317,7 +317,11 @@ if exist('Timeline','var') && load_parts.cam
                 eyecam_t = nan(n_eyecam_frames,1);
                 eyecam_t(eyecam_frame_idx(eyecam_frame_idx > 0)) = eyeCamStrobe_up_t(eyecam_frame_idx > 0);
                 
-                save(eyecam_t_savefile,'eyecam_t');
+                try
+                    save(eyecam_t_savefile,'eyecam_t');
+                catch me
+                    warning (['Can''t save: ' eyecam_t_savefile])
+                end
             end
         elseif exist(eyecam_fn,'file') && exist(eyecam_t_savefile,'file')
             load(eyecam_t_savefile);
@@ -366,7 +370,11 @@ if exist('Timeline','var') && load_parts.cam
                 facecam_t = nan(n_facecam_frames,1);
                 facecam_t(facecam_frame_idx(facecam_frame_idx > 0)) = faceCamStrobe_up_t(facecam_frame_idx > 0);
                 
-                save(facecam_t_savefile,'facecam_t');
+                try
+                    save(facecam_t_savefile,'facecam_t');
+                catch me
+                    warning (['Can''t save: ' facecam_t_savefile])
+                end
             end
         elseif exist(facecam_fn,'file') && exist(facecam_t_savefile,'file')
             load(facecam_t_savefile);
@@ -511,7 +519,11 @@ if imaging_exists && load_parts.imaging
             zVh_Un = bsxfun(@minus, Vh_Un, nanmean(Vh_Un,2));
             Vn_hemo = transpose(Vn_th' - zVh_Un'*hemo_tform');
             
-            save(hemo_tform_fn,'hemo_tform');
+            try
+                save(hemo_tform_fn,'hemo_tform');
+            catch me
+                warning(['Can''t save ' hemo_tform_fn]);
+            end
             % Close the figures (hacky - but function isn't mine)
             close(gcf)
             close(gcf)

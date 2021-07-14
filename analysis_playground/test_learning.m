@@ -1,4 +1,5 @@
 %% Test analysis for recording across learning
+% (note: folded into test_operant)
 
 %% Plot psychometrics and reaction times
 
@@ -540,7 +541,7 @@ disp(['Saved: ' save_path filesep save_fn])
 clear all
 disp('Passive trial activity (operant, tetO-GC6s)')
 
-animals = {'AP100','AP101','AP103','AP104'};
+animals = {'AP100','AP101','AP103','AP104','AP105','AP106'};
 
 % Initialize save variable
 trial_data_all = struct;
@@ -557,13 +558,17 @@ for curr_animal = 1:length(animals)
     operant_experiments = AP_find_experiments(animal,operant_protocol,false);
     experiment_operant = ismember({experiments_full.day},{operant_experiments.day});
     
-    % Don't use days with retinotopy (those were often muscimol days)
-    retinotopy_protocol = 'AP_sparseNoise';
-    retinotopy_experiments = AP_find_experiments(animal,retinotopy_protocol,false);
-    experiment_retintopy = ismember({experiments_full.day},{retinotopy_experiments.day});
+    % Use days before muscimol experiment starts
+    data_path = 'C:\Users\Andrew\OneDrive for Business\Documents\CarandiniHarrisLab\analysis\operant_learning\data';
+    muscimol_fn = [data_path filesep 'muscimol.mat'];
+    load(muscimol_fn);
+    muscimol_animal_idx = ismember({muscimol.animal},animal);
+    muscimol_start_day = muscimol(muscimol_animal_idx).day{1};
+    muscimol_experiments = datenum({experiments_full.day})' >= datenum(muscimol_start_day);
     
+    % (set experiments to use)
     use_experiments = [experiments_full.imaging] & experiment_operant & ...
-        ~experiment_retintopy;
+        ~muscimol_experiments;
     experiments = experiments_full(use_experiments);
     
     disp(['Loading ' animal]);
@@ -997,7 +1002,7 @@ colormap(brewermap([],'PrGn'));
 axis image;
 AP_reference_outline('ccf_aligned',[0.5,0.5,0.5]);
 % (as above but within each mouse)
-use_t = t > 0 & t < 0.15;
+use_t = t > 0.05 & t < 0.2;
 stim_px_avg_day = AP_svdFrameReconstruct( ...
     U_master(:,:,1:n_vs),cell2mat(permute(cellfun(@(x) ...
     squeeze(nanmean(x(:,use_t,1:min_days,use_stim),2)), ...

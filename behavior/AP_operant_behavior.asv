@@ -1,5 +1,10 @@
 %% --------- AP_stimWheelRight (aka one-sided choiceworld)
 
+
+%%%%% CHANGE HOW THIS IS DONE: LOAD MUSCIMOL INFO DIRECTLY INTO GRAB?
+
+%% ~~~~~~~ Grab behavior
+
 %% Get and plot mice behavior
 
 % early corticostriatal mice
@@ -9,10 +14,10 @@
 % animals = {'AP092','AP093','AP094','AP095','AP096','AP097'};
 
 % tetO mice
-animals = {'AP100','AP101','AP103','AP104'};
+animals = {'AP100','AP101','AP103','AP104','AP105','AP106'};
 
 % (current mice)
-% animals = {'AP105','AP106'};
+% animals = {'AP106'};
 
 protocol = 'AP_stimWheelRight';
 flexible_name = false;
@@ -61,6 +66,8 @@ for curr_animal = 1:length(animals)
             rewarded_trials = block.events.hitValues(2:end) == 1;
             reward_times = block.events.hitTimes(find(rewarded_trials)+1);
             
+            frac_hit = nanmean(rewarded_trials);
+            
             % Estimate reaction time
             % (evenly resample velocity - not even natively);
             wheel_resample_rate = 1000;
@@ -79,51 +86,11 @@ for curr_animal = 1:length(animals)
             trial_move_t = trial_wheel_starts - block.events.stimOnTimes(response_trials);
             stim_move_t = trial_move_t(rewarded_trials);
 
-%             % (to get probability of move starts around stim)
-%             stim_surround_t_edges = -5:0.1:5;
-%             stim_surround_t_centers = stim_surround_t_edges(1:end-1) + diff(stim_surround_t_edges)/2;
-%             stim_surround_times = block.events.stimOnTimes' + stim_surround_t_edges;
-%             stim_surround_move = cell2mat(arrayfun(@(x) ...
-%                 histcounts(wheel_starts,stim_surround_times(x,:)), ...
-%                 1:size(stim_surround_times,1),'uni',false)');
-%             % (need to do some kind of hazard rate here, maybe like what
-%             % Ruediger did, I think there was another one like this too)
-            
             % (probability of any movement around stim)
             stim_surround_t_centers = -10:0.1:10;
             stim_surround_times = block.events.stimOnTimes' + stim_surround_t_centers;
             stim_surround_move = interp1(wheel_t_resample,wheel_move, ...
                 stim_surround_times,'previous');
-
-            % (testing/todo: find  movement breaks during the iti and see
-            % what time to restart movement normally is?
-            % (from stimOff to stimOn)?
-            %             block.events.stimOnTimes(2:end)
-%             wheel_stops = wheel_t_resample(abs(wheel_velocity(1:end-1)) > wheel_thresh & ...
-%                 abs(wheel_velocity(2:end)) < wheel_thresh);
-% 
-%             wheel_move = abs(wheel_velocity) > wheel_thresh;
-%             
-%             poststim_move_t = arrayfun(@(x) wheel_t_resample(find(wheel_move & ...
-%                 wheel_t_resample' > block.events.stimOnTimes(x),1,'first')), ...
-%                 find(response_trials)) - block.events.stimOnTimes(response_trials);
-%             
-%             prestim_move_t = arrayfun(@(x) wheel_t_resample(find(wheel_move & ...
-%                 wheel_t_resample' < block.events.stimOnTimes(x),1,'last')), ...
-%                 find(response_trials)) - block.events.stimOnTimes(response_trials);
-
-%             % (or another way: align by breaks within ITI, eg if mouse took
-%             % a break from seconds 5-7, what's the profile of moving again?
-%             % it's probably shallow, while the stim-related one is strong)
-%             test_bin = [5,7];
-%             trial_iti_time = wheel_t_resample - ...
-%                 interp1(block.events.stimOnTimes,block.events.stimOnTimes, ...
-%                 wheel_t_resample,'previous');
-%             trial_iti_time_use = trial_iti_time >= test_bin(1) & ...
-%                 trial_iti_time < test_bin(2);
-            %(not done - I don't think necessary)
-
-
 
             % Time to reward
             stim_reward_t = reward_times - ...
@@ -152,6 +119,7 @@ for curr_animal = 1:length(animals)
             bhv(curr_animal).protocol{curr_day} = curr_protocol;
             bhv(curr_animal).session_duration(curr_day) = session_duration;
             bhv(curr_animal).n_trials(curr_day) = n_trials;
+            bhv(curr_animal).frac_hit(curr_day) = frac_hit;
             bhv(curr_animal).total_water(curr_day) = total_water;
             bhv(curr_animal).wheel_velocity(curr_day) = nansum(abs(wheel_velocity));
             bhv(curr_animal).stim_move_t{curr_day} = stim_move_t;
@@ -286,43 +254,82 @@ for curr_animal = 1:length(animals)
     
 end
 
-% End if only one mouse
-if length(animals) == 1
-    return
+%% ~~~~~~~ Plot behavior
+
+%% Non-muscimol behavior 
+
+% Load muscimol injection info
+data_path = 'C:\Users\Andrew\OneDrive for Business\Documents\CarandiniHarrisLab\analysis\operant_learning\data';
+muscimol_fn = [data_path filesep 'muscimol.mat'];
+load(muscimol_fn);
+
+% Use days before muscimol
+use_days = cell(size(bhv));
+for curr_animal = 1:length(bhv)
+    muscimol_animal_idx = ismember({muscimol.animal},bhv(curr_animal).animal);
+    if isempty(muscimol_animal_idx)
+        continue
+    end
+    muscimol_day_idx = datenum(bhv(curr_animal).day) >= ...
+        datenum(muscimol(muscimol_animal_idx).day(1));
+    use_days{curr_animal} = ~muscimol_day_idx;    
 end
 
-% If more than one mouse, plot group
-% (only for min days across mice)
-min_days = min(cellfun(@length,{bhv.n_trials}));
-max_days = max(cellfun(@length,{bhv.n_trials}));
+% (get max days for padding)
+max_days = max(cellfun(@sum,use_days));
 
 % Time to movement
 stim_move_t_allpad = cell2mat(cellfun(@(x) padarray(cellfun(@nanmedian,x), ...
-    [0,max_days-length(x)],NaN,'post'),{bhv.stim_move_t}','uni',false));
+    [0,max_days-length(x)],NaN,'post'), ...
+    cellfun(@(x,use_days) x(use_days),{bhv.stim_move_t},use_days,'uni',false)','uni',false));
 stim_move_t_std_allpad = cell2mat(cellfun(@(x) padarray(cellfun(@nanstd,x), ...
-    [0,max_days-length(x)],NaN,'post'),{bhv.stim_move_t}','uni',false));
+    [0,max_days-length(x)],NaN,'post'), ...
+    cellfun(@(x,use_days) x(use_days),{bhv.stim_move_t},use_days,'uni',false)','uni',false));
 
 % Time to reward
 stim_reward_t_allpad = cell2mat(cellfun(@(x) padarray(cellfun(@nanmedian,x), ...
-    [0,max_days-length(x)],NaN,'post'),{bhv.stim_reward_t}','uni',false));
+    [0,max_days-length(x)],NaN,'post'), ...
+    cellfun(@(x,use_days) x(use_days),{bhv.stim_reward_t},use_days,'uni',false)','uni',false));
 stim_reward_t_std_allpad = cell2mat(cellfun(@(x) padarray(cellfun(@nanstd,x), ...
-    [0,max_days-length(x)],NaN,'post'),{bhv.stim_reward_t}','uni',false));
+    [0,max_days-length(x)],NaN,'post'), ...
+    cellfun(@(x,use_days) x(use_days),{bhv.stim_reward_t},use_days,'uni',false)','uni',false));
 
 % Movement around stim
 stim_surround_wheel_avg = cell2mat(cellfun(@(x) ...
     padarray(cell2mat(cellfun(@(x) nanmean(x,1),x,'uni',false)'), ...
     [max_days-length(x),0],NaN,'post'), ...
-    permute({bhv.stim_surround_wheel},[1,3,2]),'uni',false));
+    permute( ...
+    cellfun(@(x,use_days) x(use_days),{bhv.stim_surround_wheel},use_days,'uni',false), ...
+    [1,3,2]),'uni',false));
 
+% Movement probability pre/post stim
+t = bhv(curr_animal).stim_surround_t;
+move_prestim_max = permute(max(stim_surround_wheel_avg(:,t<0,:),[],2),[3,2,2]);
+move_poststim_max = permute(max(stim_surround_wheel_avg(:,t>=0,:),[],2),[1,3,2]);
+move_prepost_max_ratio = ...
+    (move_poststim_max-move_prestim_max)./(move_poststim_max+move_prestim_max);
+
+% Plot 
+figure;
+
+subplot(1,3,1);
+hold on;
+errorbar(nanmean(stim_move_t_allpad,1),AP_sem(stim_move_t_allpad,1),'k','linewidth',2)
+errorbar(nanmean(stim_reward_t_allpad,1),AP_sem(stim_reward_t_allpad,1),'b','linewidth',2)
+
+subplot(1,3,3);
+hold on;
 stim_surround_t = bhv(1).stim_surround_t;
-figure; hold on
 set(gca,'ColorOrder',copper(size(stim_surround_wheel_avg,1)));
 plot(stim_surround_t,nanmean(stim_surround_wheel_avg,3)','linewidth',2);
 xlabel('Time from stim (s)');
 ylabel('Fraction moving');
 
 
-%% Muscimol behavior (after loading above)
+
+
+%% Muscimol behavior
+% (grouped by injection location)
 
 % Load muscimol injection info
 data_path = 'C:\Users\Andrew\OneDrive for Business\Documents\CarandiniHarrisLab\analysis\operant_learning\data';
@@ -332,23 +339,48 @@ load(muscimol_fn);
 muscimol_animals = find(ismember({muscimol.animal},animals));
 muscimol_areas = unique(vertcat(muscimol(muscimol_animals).area));
 
-muscimol_stim_surround_wheel = cell(length(muscimol_areas));
+stim_surround_t = bhv(1).stim_surround_t;
+muscimol_stim_surround_wheel = repmat( ...
+    {nan(length(muscimol_animals),length(stim_surround_t))}, ...
+    length(muscimol_areas),1);
+
+figure;
 for curr_area_idx = 1:length(muscimol_areas)
     curr_area = muscimol_areas{curr_area_idx};
     for curr_animal_idx = 1:length(muscimol_animals)
         muscimol_day_idx = find(strcmp(curr_area, ...
             muscimol(muscimol_animals(curr_animal_idx)).area));
+        
+        % (if this mouse didn't have this experiment)
+        if isempty(muscimol_day_idx)
+            continue
+        end
+        
         % Use last available day (doubled once when didn't work)
         use_day = muscimol(muscimol_animals(curr_animal_idx)).day{muscimol_day_idx(end)};
         bhv_day_idx = ismember(bhv(curr_animal_idx).day,use_day);
         
         curr_stim_surround_wheel = nanmean( ...
             bhv(curr_animal_idx).stim_surround_wheel{bhv_day_idx},1);
+        
+        muscimol_stim_surround_wheel{curr_area_idx}(curr_animal_idx,:) = ...
+            curr_stim_surround_wheel;
     end   
+    
+    % Plot each animal and each condition
+    subplot(length(muscimol_areas)+1,1,curr_area_idx); hold on;
+    plot(stim_surround_t,muscimol_stim_surround_wheel{curr_area_idx}');
+    plot(stim_surround_t,nanmean(muscimol_stim_surround_wheel{curr_area_idx},1),'k','linewidth',2);
+    ylim([0,1]);
+    title(curr_area);
 end
 
-figure; hold on
-
+% Plot means overlaid
+subplot(length(muscimol_areas)+1,1,length(muscimol_areas)+1); hold on;
+plot(stim_surround_t, ...
+    cell2mat(cellfun(@(x) nanmean(x,1),muscimol_stim_surround_wheel,'uni',false))', ...
+    'linewidth',2);
+legend(muscimol_areas);
 
 
 

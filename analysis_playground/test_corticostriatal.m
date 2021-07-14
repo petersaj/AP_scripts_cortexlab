@@ -1,4 +1,5 @@
-%% Testing for corticostriatal-specific imaging
+%% Testing for imaging across learning
+% (note: folded into test_operant)
 
 %% ~~~~~~~~~ TESTS ~~~~~~~~~
 

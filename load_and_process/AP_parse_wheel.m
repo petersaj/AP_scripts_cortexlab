@@ -33,6 +33,12 @@ wheel_velocity = interp1(conv(1:length(wheel_position),[1,1]/2,'valid'), ...
 
 % Threshold wheel for movement, get start/stops
 wheel_velocity_thresh = abs(wheel_velocity) > 0;
+% (if constantly moving or not moving: set constant and return)
+if length(unique(wheel_velocity_thresh)) ~= 2
+    wheel_move = wheel_velocity_thresh;
+    return
+end
+
 wheel_starts_all = find(diff([false;wheel_velocity_thresh;false]) == 1);
 wheel_stops_all = find(diff([false;wheel_velocity_thresh;false]) == -1);
 
