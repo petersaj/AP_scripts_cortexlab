@@ -1021,7 +1021,13 @@ end
 if ephys_exists && load_parts.ephys
     if verbose; disp('Classifying spikes...'); end
     
-    str_templates = template_depths >= str_depth(1) & template_depths <= str_depth(2);
+    if exist('str_depth','var') && ~isempty(str_depth)
+        % If striatum depths defined - split striatal/nonstriatal cells
+        str_templates = template_depths >= str_depth(1) & template_depths <= str_depth(2);
+    else
+        % If not - just assume everything cortical
+        str_templates = false(size(template_depths));
+    end
     non_str_templates = ~str_templates;
     
     % Define the window to look for spiking statistics in (spikes go in and
@@ -1114,69 +1120,71 @@ if ephys_exists && load_parts.ephys
             legend([p(find(wide(non_str_templates),1)),p(find(narrow(non_str_templates),1))],{'Wide','Narrow'})
         end
         
-        subplot(2,2,2); hold on;
-        p = plot(waveform_t,waveforms(str_templates,:)');
-        set(p(msn(str_templates)),'color','m')
-        set(p(fsi(str_templates)),'color','b')
-        set(p(tan(str_templates)),'color','g')
-        set(p(uin(str_templates)),'color','c')
-        xlabel('Time (ms)')
-        title('Striatum');
-        legend([p(find(msn(str_templates),1)),p(find(fsi(str_templates),1)), ...
-            p(find(tan(str_templates),1)),p(find(uin(str_templates),1))],{'MSN','FSI','TAN','UIN'});
-        
-        subplot(2,2,3); hold on;
-        
-        stem3( ...
-            templateDuration_us(wide)/1000, ...
-            prop_long_isi(wide), ...
-            spike_rate(wide),'k');
-        
-        stem3( ...
-            templateDuration_us(narrow)/1000, ...
-            prop_long_isi(narrow), ...
-            spike_rate(narrow),'r');
-        
-        xlabel('waveform duration (ms)')
-        ylabel('frac long ISI')
-        zlabel('spike rate')
-        
-        set(gca,'YDir','reverse')
-        set(gca,'XDir','reverse')
-        view(3);
-        grid on;
-        axis vis3d;
-        
-        subplot(2,2,4); hold on;
-        stem3( ...
-            templateDuration_us(msn)/1000, ...
-            prop_long_isi(msn), ...
-            spike_rate(msn),'m');
-        
-        stem3( ...
-            templateDuration_us(fsi)/1000, ...
-            prop_long_isi(fsi), ...
-            spike_rate(fsi),'b');
-        
-        stem3( ...
-            templateDuration_us(tan)/1000, ...
-            prop_long_isi(tan), ...
-            spike_rate(tan),'g');
-        
-        stem3( ...
-            templateDuration_us(uin)/1000, ...
-            prop_long_isi(uin), ...
-            spike_rate(uin),'c');
-        
-        xlabel('waveform duration (ms)')
-        ylabel('frac long ISI')
-        zlabel('spike rate')
-        
-        set(gca,'YDir','reverse')
-        set(gca,'XDir','reverse')
-        view(3);
-        grid on;
-        axis vis3d;
+        if any(str_templates)
+            subplot(2,2,2); hold on;
+            p = plot(waveform_t,waveforms(str_templates,:)');
+            set(p(msn(str_templates)),'color','m')
+            set(p(fsi(str_templates)),'color','b')
+            set(p(tan(str_templates)),'color','g')
+            set(p(uin(str_templates)),'color','c')
+            xlabel('Time (ms)')
+            title('Striatum');
+            legend([p(find(msn(str_templates),1)),p(find(fsi(str_templates),1)), ...
+                p(find(tan(str_templates),1)),p(find(uin(str_templates),1))],{'MSN','FSI','TAN','UIN'});
+            
+            subplot(2,2,3); hold on;
+            
+            stem3( ...
+                templateDuration_us(wide)/1000, ...
+                prop_long_isi(wide), ...
+                spike_rate(wide),'k');
+            
+            stem3( ...
+                templateDuration_us(narrow)/1000, ...
+                prop_long_isi(narrow), ...
+                spike_rate(narrow),'r');
+            
+            xlabel('waveform duration (ms)')
+            ylabel('frac long ISI')
+            zlabel('spike rate')
+            
+            set(gca,'YDir','reverse')
+            set(gca,'XDir','reverse')
+            view(3);
+            grid on;
+            axis vis3d;
+            
+            subplot(2,2,4); hold on;
+            stem3( ...
+                templateDuration_us(msn)/1000, ...
+                prop_long_isi(msn), ...
+                spike_rate(msn),'m');
+            
+            stem3( ...
+                templateDuration_us(fsi)/1000, ...
+                prop_long_isi(fsi), ...
+                spike_rate(fsi),'b');
+            
+            stem3( ...
+                templateDuration_us(tan)/1000, ...
+                prop_long_isi(tan), ...
+                spike_rate(tan),'g');
+            
+            stem3( ...
+                templateDuration_us(uin)/1000, ...
+                prop_long_isi(uin), ...
+                spike_rate(uin),'c');
+            
+            xlabel('waveform duration (ms)')
+            ylabel('frac long ISI')
+            zlabel('spike rate')
+            
+            set(gca,'YDir','reverse')
+            set(gca,'XDir','reverse')
+            view(3);
+            grid on;
+            axis vis3d;
+        end
         
         % Plot depth vs. firing rate colored by cell type
         celltype_labels = {'Wide','Narrow','MSN','FSI','TAN','UIN'};

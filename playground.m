@@ -11919,7 +11919,7 @@ varP = dot((Ur*covV)', Ur'); % 1 x P
 % Loop through pixels, correlate with mirror pixel
 px_mirror_idx = round(AP_reflect_widefield(reshape(1:size(Ur,1), ...
     size(aUdf,1),size(aUdf,2))));
-%%
+
 px_corr = NaN(size(aUdf,1),size(aUdf,2));
 
 figure;
@@ -12433,7 +12433,86 @@ for curr_animal = 1:length(animals)
     end
 end
 
+%% Test: stim position regression
 
+a = interp1(stimOn_times, ...
+    wheel_position(ismember(Timeline.rawDAQTimestamps,stimOn_times)), ...
+    Timeline.rawDAQTimestamps,'previous')';
+wheel_deg = (wheel_position-a)*8+90;
+
+figure; hold on;
+plot(Timeline.rawDAQTimestamps,wheel_deg);
+plot(signals_events.stimAzimuthTimes,signals_events.stimAzimuthValues);
+
+stim_position_resample = interp1(signals_events.stimAzimuthTimes, ...
+    signals_events.stimAzimuthValues,time_bin_centers);
+
+
+% Set wheel regression paramters
+wheel_lambda = 20;
+
+wheel_kernel_t = [-0.5,0.5];
+wheel_kernel_frames = round(wheel_kernel_t(1)*sample_rate): ...
+    round(wheel_kernel_t(2)*sample_rate);
+
+[ctx_wheel_k,predicted_wheel_velspeed_std,explained_var] = ...
+    AP_regresskernel(fVdf_deconv_resample(regression_params.use_svs,:), ...
+    stim_position_resample,wheel_kernel_frames,wheel_lambda, ...
+    [],regression_params.cvfold, ...
+    false,false);
+
+
+% Try regressing from stim position?
+% (didn't really work)
+stim_bins = -90:30:90;
+stim_pos_discretize = discretize(stim_position_resample,stim_bins);
+stim_pos_split = zeros(length(stim_bins),length(stim_position_resample));
+for i = 1:length(stim_bins)
+    stim_pos_split(i,stim_pos_discretize == i) = 1;
+end
+
+[wheel_pos_k,predicted_wheel_velspeed_std,explained_var] = ...
+    AP_regresskernel(stim_pos_split, ...
+    fVdf_deconv_resample(regression_params.use_svs,:), ...
+    wheel_kernel_frames,wheel_lambda, ...
+    [],regression_params.cvfold, ...
+    false,false);
+
+a = AP_svdFrameReconstruct(Udf(:,:,1:size(ctx_wheel_k,1)),permute(wheel_pos_k,[3,1,2]));
+AP_image_scroll(a)
+
+
+% task regressors: stim onset and wheel position?
+activity = fVdf_deconv_resample_recast(use_components,:);
+
+task_regressors = {stim_regressors;wheel_velspeed_resample_std};
+
+task_t_shifts = { ...
+    [-0.2,0.5]; ...
+    [-0.5,0.5]};
+task_regressor_sample_shifts = cellfun(@(x) round(x(1)*(sample_rate)): ...
+    round(x(2)*(sample_rate)),task_t_shifts,'uni',false);
+    
+[fluor_taskpred_k,fluor_taskpred_long,fluor_taskpred_expl_var,fluor_taskpred_reduced_long] = ...
+    AP_regresskernel(task_regressors,activity,task_regressor_sample_shifts, ...
+    lambda,zs,cvfold,return_constant,use_constant);
+
+
+
+a = cellfun(@(x) cellfun(@(x) x{3},x,'uni',false),stim_roi,'uni',false);
+b = cell(length(animals),max_days);
+for i = 1:length(animals)
+    b(i,1:n_days(i)) = a{i};
+end
+use_cells = cellfun(@(x) ~isempty(x),b);
+
+c = cell(size(b));
+c(use_cells) = cellfun(@(x) corr(x(:,:,1),x(:,:,7)),b(use_cells),'uni',false);
+
+d = nan(length(t),length(t),max_days);
+for i = 1:max_days
+    d(:,:,i) = nanmean(cat(3,c{:,i}),3);
+end
 
 
 

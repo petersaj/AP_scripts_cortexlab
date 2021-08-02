@@ -2196,7 +2196,7 @@ axis image off
 
 %% ~~~~~~~~~~~ Retinotopy lilrig in batch 
 
-animals = {'AP105','AP106'};
+animals = {'AP106'};
 
 for curr_animal = 1:length(animals)
     

@@ -14,10 +14,7 @@
 % animals = {'AP092','AP093','AP094','AP095','AP096','AP097'};
 
 % tetO mice
-% animals = {'AP100','AP101','AP103','AP104','AP105','AP106'};
-
-% (current mice)
-animals = {'AP105'};
+animals = {'AP100','AP101','AP103','AP104','AP105','AP106'};
 
 protocol = 'AP_stimWheelRight';
 flexible_name = false;
@@ -230,12 +227,12 @@ for curr_animal = 1:length(animals)
     xlabel('Time from stim (s)');
     
     % Move fraction pre/post stim   
-    t = bhv(curr_animal).stim_surround_t;
+    stim_surround_t = bhv(curr_animal).stim_surround_t;
     move_prestim_max = ...
-        cell2mat(cellfun(@(x) max(nanmean(x(:,t < 0),1)), ...
+        cell2mat(cellfun(@(x) max(nanmean(x(:,stim_surround_t < 0),1)), ...
         bhv(curr_animal).stim_surround_wheel,'uni',false)');
     move_poststim_max = ...
-        cell2mat(cellfun(@(x) max(nanmean(x(:,t > 0),1)), ...
+        cell2mat(cellfun(@(x) max(nanmean(x(:,stim_surround_t > 0),1)), ...
         bhv(curr_animal).stim_surround_wheel,'uni',false)');
     move_prepost_max_ratio = ...
         (move_poststim_max-move_prestim_max)./(move_poststim_max+move_prestim_max);
@@ -254,7 +251,38 @@ for curr_animal = 1:length(animals)
     
 end
 
+%% (load data saved after above)
+
+data_path = 'C:\Users\Andrew\OneDrive for Business\Documents\CarandiniHarrisLab\analysis\operant_learning\data';
+bhv_fn = [data_path filesep 'bhv_teto'];
+load(bhv_fn);
+
+
 %% ~~~~~~~ Plot behavior
+
+%% Individual mice behavior
+
+stim_move_t_cat = cellfun(@cell2mat,{bhv(:).stim_move_t},'uni',false);
+stim_reward_t_cat = cellfun(@cell2mat,{bhv(:).stim_reward_t},'uni',false);
+move_reward_t_cat = cellfun(@(x,y) y-x,stim_move_t_cat,stim_reward_t_cat,'uni',false);
+
+trials_cumsum = cellfun(@(x) cumsum(cellfun(@length,x)),{bhv(:).stim_move_t},'uni',false);
+
+plot_bhv = stim_reward_t_cat;
+
+figure;
+for curr_animal = 1:length(animals)
+    subplot(length(animals),1,curr_animal);
+    plot(plot_bhv{curr_animal},'.k');
+    set(gca,'YScale','log')
+    ylim([0.05,10])
+    for i = 1:length(trials_cumsum{curr_animal})
+        line(repmat(trials_cumsum{curr_animal}(i),2,1), ...
+            ylim,'color','r','linewidth',2)
+    end
+    ylabel(animals{curr_animal});
+end
+
 
 %% Non-muscimol behavior 
 
@@ -303,9 +331,9 @@ stim_surround_wheel_avg = cell2mat(cellfun(@(x) ...
     [1,3,2]),'uni',false));
 
 % Movement probability pre/post stim
-t = bhv(curr_animal).stim_surround_t;
-move_prestim_max = permute(max(stim_surround_wheel_avg(:,t<0,:),[],2),[3,1,2]);
-move_poststim_max = permute(max(stim_surround_wheel_avg(:,t>=0,:),[],2),[3,1,2]);
+stim_surround_t = bhv(curr_animal).stim_surround_t;
+move_prestim_max = permute(max(stim_surround_wheel_avg(:,stim_surround_t<0,:),[],2),[3,1,2]);
+move_poststim_max = permute(max(stim_surround_wheel_avg(:,stim_surround_t>=0,:),[],2),[3,1,2]);
 move_prepost_max_ratio = ...
     (move_poststim_max-move_prestim_max)./(move_poststim_max+move_prestim_max);
 
@@ -367,15 +395,20 @@ for curr_area_idx = 1:length(muscimol_areas)
             continue
         end
         
-        % Use last available day (doubled once when didn't work)
-        use_day = muscimol(muscimol_animals(curr_animal_idx)).day{muscimol_day_idx(end)};
+        % If muscimol, use last available day (doubled once when didn't work)
+        if ~strcmp(curr_area,'washout')
+            use_day = muscimol(muscimol_animals(curr_animal_idx)).day{muscimol_day_idx(end)};
+        else
+            use_day = muscimol(muscimol_animals(curr_animal_idx)).day(muscimol_day_idx);           
+        end
         bhv_day_idx = ismember(bhv(curr_animal_idx).day,use_day);
         
-        curr_stim_surround_wheel = nanmean( ...
-            bhv(curr_animal_idx).stim_surround_wheel{bhv_day_idx},1);
+        curr_stim_surround_wheel = nanmean(cell2mat(cellfun(@(x) nanmean(x,1), ...
+            bhv(curr_animal_idx).stim_surround_wheel(bhv_day_idx),'uni',false)'),1);
         
         muscimol_stim_surround_wheel{curr_area_idx}(curr_animal_idx,:) = ...
             curr_stim_surround_wheel;
+        
     end   
     
     % Plot each animal and each condition

@@ -315,21 +315,20 @@ title(get(gui_data.psth_lines(1),'Parent'), ...
 end
 
 % Plot raster
+% (sort raster by group)
+if ~exist('trial_sort','var')
+    [~,trial_sort] = sort(curr_group);
+end
+curr_raster_sorted = curr_raster(trial_sort,:);
+
+if all(trial_sort == [1:length(trial_sort)]')
+    ylabel(gui_data.raster_axes,'Trial')
+else
+    ylabel(gui_data.raster_axes,'Sorted trial')
+end
 if length(gui_data.curr_unit) == 1
     % (single unit mode)
-    
-    % (sort raster by group)
-    if ~exist('trial_sort','var')
-        [~,trial_sort] = sort(curr_group);
-    end
-    curr_raster_sorted = curr_raster(trial_sort,:);
-    
-    if all(trial_sort == [1:length(trial_sort)]')
-        ylabel(gui_data.raster_axes,'Trial')
-    else
-        ylabel(gui_data.raster_axes,'Sorted trial')
-    end
-    
+
     % (plot raster matrix as x,y)
     [raster_y,raster_x] = find(curr_raster_sorted);
     set(gui_data.raster_dots,'XData',gui_data.t(raster_x),'YData',raster_y);
@@ -347,11 +346,7 @@ if length(gui_data.curr_unit) == 1
     
 elseif length(gui_data.curr_unit) > 1
     % (multiunit mode)
-    
-     % (sort raster by group)
-    [~,trial_sort] = sort(curr_group);
-    curr_raster_sorted = curr_raster(trial_sort,:);
-    
+     
     % (plot raster matrix as smoothed heatmap)
     raster_heatmap = imgaussfilt(curr_raster_sorted,[5,10]);
     set(gui_data.raster_image,'XData',gui_data.t,'YData', ...

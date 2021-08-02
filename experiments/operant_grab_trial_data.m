@@ -240,10 +240,15 @@ wheel_velocity_resample = interp1(Timeline.rawDAQTimestamps,wheel_velocity,time_
 wheel_velspeed_resample = [wheel_velocity_resample;abs(wheel_velocity_resample)];
 wheel_velspeed_resample_std = wheel_velspeed_resample./std(wheel_velocity_resample);
 
-% Set wheel regression paramters
-wheel_lambda = 10;
+% (TESTING: split left/right)
+wheel_velspeed_resample_std = [wheel_velocity_resample.*(wheel_velocity_resample>0); ...
+    wheel_velocity_resample.*(wheel_velocity_resample<0)];
+wheel_velspeed_resample_std = wheel_velspeed_resample_std./std(wheel_velocity_resample);
 
-wheel_kernel_t = [-0.1,0.1];
+% Set wheel regression paramters
+wheel_lambda = 20;
+
+wheel_kernel_t = [-0.5,0.5];
 wheel_kernel_frames = round(wheel_kernel_t(1)*sample_rate): ...
     round(wheel_kernel_t(2)*sample_rate);
 
@@ -312,21 +317,27 @@ if task_dataset
     end
     
     % Move onset regressors (L/R)
-    move_onset_regressors = zeros(2,length(time_bin_centers));
-    move_onset_regressors(1,:) = histcounts(wheel_move_time(trial_choice == -1),time_bins);
-    move_onset_regressors(2,:) = histcounts(wheel_move_time(trial_choice == 1),time_bins);
+%     move_onset_regressors = zeros(2,length(time_bin_centers));
+%     move_onset_regressors(1,:) = histcounts(wheel_move_time(trial_choice == -1),time_bins);
+%     move_onset_regressors(2,:) = histcounts(wheel_move_time(trial_choice == 1),time_bins);    
     
-    % Go cue regressors - separate for early/late move
-    % (using signals timing - not precise but looks good)
-    % (for go cue only on late move trials)
-    %         go_cue_regressors = histcounts( ...
-    %             signals_events.interactiveOnTimes(move_t > 0.5),time_bins);
-    % (for go cue with early/late move trials)
-    go_cue_regressors = zeros(1,length(time_bin_centers));
-    go_cue_regressors(1,:) = histcounts( ...
-        signals_events.interactiveOnTimes(stim_to_move <= 0.5),time_bins);
-    go_cue_regressors(2,:) = histcounts( ...
-        signals_events.interactiveOnTimes(stim_to_move > 0.5),time_bins);
+    % (trying new thing: all rewarded/unrewarded move onsets)
+    wheel_move_resample = interp1(Timeline.rawDAQTimestamps,wheel_move,time_bin_centers,'previous');
+    
+    move_onset_resample_t = time_bin_centers([false,diff(wheel_move_resample) == 1]);
+    move_offset_resample_t = time_bin_centers([false,diff(wheel_move_resample) == -1]);   
+    
+    % (rewarded movements: which comes first, a reward or move offset)
+    use_move_offsets = ~ismember(move_offset_resample_t,reward_t_timeline) & ...
+        ~ismember(move_offset_resample_t,time_bin_centers(end));
+    rewarded_movements = logical(interp1( ...
+        [reward_t_timeline,move_offset_resample_t(use_move_offsets),time_bin_centers(end)], ...
+        [ones(size(reward_t_timeline)),zeros(1,sum(use_move_offsets)),0], ...
+        move_onset_resample_t,'next','extrap'));
+    
+    move_onset_regressors = +[... 
+        ismember(time_bin_centers,move_onset_resample_t(rewarded_movements)); ...
+        ismember(time_bin_centers,move_onset_resample_t(~rewarded_movements))];   
     
     % Outcome regressors
     % (using signals timing - not precise but looks good)
@@ -340,13 +351,12 @@ if task_dataset
         signals_events.responseTimes(trial_outcome == -1),time_bins);
     
     % Concatenate selected regressors, set parameters
-    task_regressors = {stim_regressors;move_onset_regressors;go_cue_regressors;outcome_regressors};
-    task_regressor_labels = {'Stim','Move onset','Go cue','Outcome'};
+    task_regressors = {stim_regressors;move_onset_regressors;outcome_regressors};
+    task_regressor_labels = {'Stim','Move onset','Outcome'};
     
     task_t_shifts = { ...
-        [0,0.5]; ... % stim
+        [-0.2,0.5]; ... % stim
         [-0.5,1]; ... % move
-        [0,0.5]; ... % go cue
         [0,0.5]}; % outcome
     
     task_regressor_sample_shifts = cellfun(@(x) round(x(1)*(sample_rate)): ...
@@ -354,7 +364,7 @@ if task_dataset
     lambda = 0;
     zs = [false,false];
     cvfold = 5;
-    use_constant = false;
+    use_constant = true;
     return_constant = false;
     
     % Regression task -> MUA
@@ -394,11 +404,8 @@ if task_dataset
     end
     
     % Regression task -> (master U, deconvolved) fluor
-    event_aligned_V_deconv = AP_deconv_wf(event_aligned_V);
     fVdf_deconv_resample_recast = ChangeU(Udf_aligned,fVdf_deconv_resample,U_master);
-    
-    baseline = nanmean(reshape(event_aligned_V_deconv(:,t < 0,:),[],size(event_aligned_V_deconv,3)))';
-    activity = single(fVdf_deconv_resample_recast(use_components,:))-baseline;
+    activity = single(fVdf_deconv_resample_recast(use_components,:));
     
     [fluor_taskpred_k,fluor_taskpred_long,fluor_taskpred_expl_var,fluor_taskpred_reduced_long] = ...
         AP_regresskernel(task_regressors,activity,task_regressor_sample_shifts, ...

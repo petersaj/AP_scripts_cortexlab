@@ -61,12 +61,8 @@ server_location{end+1} = '\\zserver.cortexlab.net\Data\trodes';
 server_location{end+1} = '\\zserver.cortexlab.net\Data\EyeCamera';
 % (zubjects: after zserver full)
 server_location{end+1} = '\\zubjects.cortexlab.net\Subjects';
-% % (znas: after zubjects full) TEMP ZNAS BROKEN
-% server_location{end+1} = '\\znas.cortexlab.net\Subjects';
-
-%%% (TEMPORARY ZNAS DOWN: znasclone write-only and DRI read server)
-server_location{end+1} = '\\znasclone.cortexlab.net\Subjects';
-server_location{end+1} = '\\128.40.224.65\Subjects';
+% (znas: after zubjects full)
+server_location{end+1} = '\\znas.cortexlab.net\Subjects';
 
 % Check that servers are accessible (login needed on restart)
 warning on
