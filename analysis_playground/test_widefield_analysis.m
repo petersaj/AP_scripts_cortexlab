@@ -2081,7 +2081,7 @@ AP_align_widefield(im_edge,animal,{experiments(use_days).day},'new_days');
 
 %% View aligned vasculature (to check that it's been done correctly)
 
-animal = 'AP106';
+animal = 'AP096';
 
 protocol = [];
 experiments = AP_find_experiments(animal,protocol);
@@ -2194,7 +2194,7 @@ end
 retinotopy_path = 'C:\Users\Andrew\OneDrive for Business\Documents\CarandiniHarrisLab\analysis\widefield_alignment\retinotopy';
 retinotopy_dir = dir(retinotopy_path);
 
-animal = 'AP106';
+animal = 'AP096';
 load([retinotopy_path filesep animal '_retinotopy'])
 
 vfs_aligned = cell(length(retinotopy));
@@ -2204,7 +2204,7 @@ for curr_day = 1:length(retinotopy)
 end
 vfs_aligned = cat(3,vfs_aligned{:});
 
-AP_image_scroll(vfs_aligned);
+AP_image_scroll(vfs_aligned,{retinotopy.day});
 set(gcf,'Name',animal);
 caxis([-1,1]);
 colormap(brewermap([],'*RdBu'));

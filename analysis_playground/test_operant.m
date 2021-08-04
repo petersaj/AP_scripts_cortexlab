@@ -224,7 +224,7 @@ save_fn = ['trial_activity_task_corticostriatal'];
 save([save_path filesep save_fn],'-v7.3');
 
 
-%% Passive - tetO-GC6s
+%% Passive - tetO
 
 clear all
 disp('Passive trial activity (tetO)')
@@ -296,7 +296,7 @@ save([save_path filesep save_fn],'-v7.3');
 disp(['Saved: ' save_path filesep save_fn])
 
 
-%% Task - tetO-GC6s
+%% Task - tetO
 
 clear all
 disp('Task trial activity (tetO)')
@@ -367,10 +367,10 @@ save_path = 'C:\Users\Andrew\OneDrive for Business\Documents\CarandiniHarrisLab\
 save_fn = ['trial_activity_task_teto'];
 save([save_path filesep save_fn],'-v7.3');
 
-%% Muscimol: Passive - tetO-GC6s
+%% Muscimol: Passive - tetO
 
 clear all
-disp('Passive trial activity (tetO)')
+disp('Muscimol: Passive trial activity (tetO)')
 
 animals = {'AP100','AP101','AP103','AP104','AP105','AP106'};
 
@@ -441,6 +441,77 @@ save_path = 'C:\Users\Andrew\OneDrive for Business\Documents\CarandiniHarrisLab\
 save_fn = ['trial_activity_passive_teto_muscimol'];
 save([save_path filesep save_fn],'-v7.3');
 disp(['Saved: ' save_path filesep save_fn])
+
+%% Muscimol: Task - tetO
+
+clear all
+disp('Muscimol: Task trial activity (tetO)')
+
+animals = {'AP100','AP101','AP103','AP104','AP105','AP106'};
+
+% Initialize save variable
+trial_data_all = struct;
+
+for curr_animal = 1:length(animals)
+    
+    animal = animals{curr_animal};
+    protocol = 'AP_stimWheelRight';
+    experiments = AP_find_experiments(animal,protocol);
+       
+    % Get days with muscimol
+    data_path = 'C:\Users\Andrew\OneDrive for Business\Documents\CarandiniHarrisLab\analysis\operant_learning\data';
+    muscimol_fn = [data_path filesep 'muscimol.mat'];
+    load(muscimol_fn);
+    muscimol_animal_idx = ismember({muscimol.animal},animal);
+    muscimol_start_day = muscimol(muscimol_animal_idx).day{1};   
+    muscimol_experiments = ismember({experiments.day},muscimol(muscimol_animal_idx).day);
+    
+    % Set experiments to use (imaging, not muscimol)
+    experiments = experiments([experiments.imaging] & muscimol_experiments);
+    
+    disp(['Loading ' animal]);
+    
+    for curr_day = 1:length(experiments)
+        
+        preload_vars = who;
+        
+        day = experiments(curr_day).day;
+        experiment = experiments(curr_day).experiment(end);
+        
+        % Load experiment
+        AP_load_experiment;
+        
+        % Pull out trial data
+        operant_grab_trial_data;
+        
+        % Store trial data into master structure
+        trial_data_fieldnames = fieldnames(trial_data);
+        for curr_trial_data_field = trial_data_fieldnames'
+            trial_data_all.(cell2mat(curr_trial_data_field)){curr_animal,1}{curr_day,1} = ...
+                trial_data.(cell2mat(curr_trial_data_field));
+        end
+        
+        % Store general info
+        trial_data_all.animals = animals;
+        trial_data_all.t = t;
+        trial_data_all.task_regressor_labels = task_regressor_labels;
+        trial_data_all.task_regressor_sample_shifts = task_regressor_sample_shifts;
+        
+        AP_print_progress_fraction(curr_day,length(experiments));
+        
+        % Clear for next loop
+        clearvars('-except',preload_vars{:});
+        
+    end
+end
+
+clearvars -except trial_data_all
+disp('Finished loading all')
+
+% Save
+save_path = 'C:\Users\Andrew\OneDrive for Business\Documents\CarandiniHarrisLab\analysis\operant_learning\data';
+save_fn = ['trial_activity_task_teto_muscimol'];
+save([save_path filesep save_fn],'-v7.3');
 
 
 %% ~~~~~~~~~ BATCH ANALYSIS ~~~~~~~~~
@@ -580,7 +651,7 @@ stim_roi_avg_t = cellfun(@(x) cellfun(@(x) ...
     squeeze(nanmean(x{use_stim}(:,use_t,:),2)),x,'uni',false),stim_roi,'uni',false);
 
 stim_roi_avg_t_corr = cellfun(@(x) cellfun(@corrcoef,x,'uni',false),stim_roi_avg_t,'uni',false);
-v1_avg_corr = cellfun(@(x) cell2mat(cellfun(@(x) x(1,:),x,'uni',false)'),stim_roi_avg_t_corr,'uni',false);
+v1_avg_corr = cellfun(@(x) cell2mat(cellfun(@(x) x(4,:),x,'uni',false)'),stim_roi_avg_t_corr,'uni',false);
 
 figure; 
 
@@ -629,13 +700,12 @@ stim_reward_t_median = cellfun(@(x) cellfun(@nanmedian,x),{bhv.stim_reward_t},'u
 stim_move_reward_t_median = cellfun(@(x,y) cellfun(@(x,y) nanmedian(y-x),x,y),{bhv.stim_move_t},{bhv.stim_reward_t},'uni',false);
 
 
-
 stim_surround_t = bhv(curr_animal).stim_surround_t;
 poststim_move_frac_max = cellfun(@(x) cellfun(@(x) ...
     max(nanmean(x(:,stim_surround_t > 0),1)),x), ...
     {bhv.stim_surround_wheel},'uni',false);
 
-use_bhv = poststim_move_frac_max;
+use_bhv = stim_move_t_median;
 
 [r_long,p_long] = cellfun(@(px,bhv) corr(reshape(px,[],size(px,3))', ...
     bhv(1:size(px,3))'),stim_px,use_bhv,'uni',false);
@@ -718,18 +788,28 @@ split_idx = cell2mat(arrayfun(@(exp,trials) repmat(exp,trials,1), ...
 
 %% Average trial activity
 
+% % (move-align fluor?)
+% fluor_allcat_deconv_move = fluor_allcat_deconv;
+% t_leeway = -t(1);
+% leeway_samples = round(t_leeway*(sample_rate));
+% for i = 1:size(fluor_allcat_deconv,1)
+%     fluor_allcat_deconv_move(i,:,:,:) = circshift(fluor_allcat_deconv_move(i,:,:,:),-move_idx(i)+leeway_samples,2);
+% end
+
 % (package back into animal/day)
 n_days = cellfun(@length,wheel_all);
-fluor_deconv_animal = mat2cell(mat2cell(fluor_allcat_deconv,trials_recording,length(t),n_vs),n_days);
+fluor_deconv_animal = mat2cell(mat2cell(fluor_allcat_deconv_move,trials_recording,length(t),n_vs),n_days);
 move_t_animal = mat2cell(mat2cell(move_t,trials_recording),n_days);
 
 % Average activity within animal/day
 max_days = max(n_days);
 fluor_deconv_cat = nan(n_vs,length(t),max_days,length(animals));
 for curr_animal = 1:length(animals)
+    use_trials = cellfun(@(x) x < 0.1,move_t_animal{curr_animal},'uni',false);
+    
     fluor_deconv_cat(:,:,1:n_days(curr_animal),curr_animal) = ...
-        permute(cell2mat(cellfun(@(x) nanmean(x,1), ...
-        fluor_deconv_animal{curr_animal},'uni',false)),[3,2,1]);
+        permute(cell2mat(cellfun(@(x,trials) nanmean(x(trials,:,:),1), ...
+        fluor_deconv_animal{curr_animal},use_trials,'uni',false)),[3,2,1]);
 end
 
 % Plot average for each day
@@ -738,14 +818,15 @@ AP_image_scroll(curr_px,t);
 axis image;
 caxis([-max(abs(caxis)),max(abs(caxis))]);
 colormap(brewermap([],'PrGn'))
+AP_reference_outline('ccf_aligned',[0.5,0.5,0.5]);
 
-% Plot animal across days
-use_animal = 6;
-curr_px = AP_svdFrameReconstruct(U_master(:,:,1:n_vs),fluor_deconv_cat(:,:,:,use_animal));
-AP_image_scroll(curr_px,t);
-axis image;
-caxis([-max(abs(caxis)),max(abs(caxis))]);
-colormap(brewermap([],'PrGn'))
+% % Plot animal across days
+% use_animal = 6;
+% curr_px = AP_svdFrameReconstruct(U_master(:,:,1:n_vs),fluor_deconv_cat(:,:,:,use_animal));
+% AP_image_scroll(curr_px,t);
+% axis image;
+% caxis([-max(abs(caxis)),max(abs(caxis))]);
+% colormap(brewermap([],'PrGn'))
 
 
 
@@ -798,7 +879,7 @@ ctx_wheel_k_day_mean_px = cellfun(@(x) AP_svdFrameReconstruct(U_master(:,:,1:siz
 
 % Plot average kernels
 % (by day)
-curr_regressor = 2;
+curr_regressor = 1;
 curr_subregressor = 1;
 curr_regressor_plot = cell2mat(permute(cellfun(@(x) x(:,:,:,curr_subregressor), ...
     k_day_mean_px(curr_regressor,:),'uni',false),[1,3,4,2]));
@@ -869,6 +950,8 @@ data_fn = 'trial_activity_passive_teto_muscimol';
 AP_load_concat_normalize_ctx_str;
 
 % (package deconv back into animal/day)
+trials_recording = cellfun(@(x) size(x,1),vertcat(wheel_all{:}));
+
 fluor_deconv_exp = mat2cell(fluor_allcat_deconv,trials_recording,length(t),n_vs);
 fluor_roi_exp = mat2cell(fluor_roi_deconv,trials_recording,length(t),n_rois);
 muscimol_area_cat = horzcat(muscimol_area{:})';

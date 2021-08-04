@@ -239,16 +239,13 @@ if block_exists
         else
             % If no rewards: probably much less robust, but use stim on
             % times and photodiode flips
-            warning('No rewards, aligning block with estimated stimOn times');
             stim_t_offset = block.events.stimOnTimes' - photodiode_flip_times';
             blunt_stim_offset = mode(round(stim_t_offset(:)*10))/10;
             stim_t_offset_shift = stim_t_offset - blunt_stim_offset;
             t_offset_tolerance = 0.05;
             stim_t_offset_binary = abs(stim_t_offset_shift) < t_offset_tolerance;
             if all(sum(stim_t_offset_binary,2) == 1)
-                [~,estimated_stimOn_idx] = max(stim_t_offset_binary,[],2);
-                timeline2block = photodiode_flip_times(estimated_stimOn_idx);
-                block2timeline = block.events.stimOnTimes;
+                
             else
                 error('Attempted stim on alignment - bad match');
             end
@@ -265,7 +262,7 @@ if block_exists
                 continue
             end
             signals_events.(block_fieldnames{curr_times}) = ...
-                interp1(block2timeline,timeline2block,block.events.(block_fieldnames{curr_times}),'linear','extrap');
+                interp1(reward_t_block,reward_t_timeline,block.events.(block_fieldnames{curr_times}),'linear','extrap');
         end
     end
     

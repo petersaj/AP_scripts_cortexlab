@@ -12518,8 +12518,7 @@ end
 
 block.stimWindowUpdateTimes
 
-t = block.experimentInitTime:0.001:block.experimentEndedTime;
-m = histcounts(block.stimWindowUpdateTimes,t);
+t = block.experimentInitTime
 
 
 

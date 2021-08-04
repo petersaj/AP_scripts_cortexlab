@@ -254,33 +254,79 @@ end
 %% (load data saved after above)
 
 data_path = 'C:\Users\Andrew\OneDrive for Business\Documents\CarandiniHarrisLab\analysis\operant_learning\data';
-bhv_fn = [data_path filesep '
+bhv_fn = [data_path filesep 'bhv_teto'];
+% bhv_fn = [data_path filesep 'bhv_corticostriatal'];
+load(bhv_fn);
 
 
 %% ~~~~~~~ Plot behavior
 
-%% Individual mice behavior
+%% Individual mice behavior (pre-muscimol/muscimol)
 
-stim_move_t_cat = cellfun(@cell2mat,{bhv(:).stim_move_t},'uni',false);
-stim_reward_t_cat = cellfun(@cell2mat,{bhv(:).stim_reward_t},'uni',false);
+% Load muscimol injection info
+data_path = 'C:\Users\Andrew\OneDrive for Business\Documents\CarandiniHarrisLab\analysis\operant_learning\data';
+muscimol_fn = [data_path filesep 'muscimol.mat'];
+load(muscimol_fn);
+
+% Use days before muscimol
+use_days = cell(size(bhv));
+for curr_animal = 1:length(bhv)
+    muscimol_animal_idx = ismember({muscimol.animal},bhv(curr_animal).animal);
+    if isempty(muscimol_animal_idx)
+        continue
+    end
+    muscimol_day_idx = ismember(datenum(bhv(curr_animal).day), ...
+        datenum(muscimol(muscimol_animal_idx).day));
+    pre_muscimol_day_idx = datenum(bhv(curr_animal).day) < ...
+        datenum(muscimol(muscimol_animal_idx).day(1));
+    
+    use_days{curr_animal} = muscimol_day_idx;    
+end
+
+animals = {bhv.animal};
+
+stim_move_t_cat = cellfun(@(x,y) cell2mat(x(y)),{bhv(:).stim_move_t},use_days,'uni',false);
+stim_reward_t_cat = cellfun(@(x,y) cell2mat(x(y)),{bhv(:).stim_reward_t},use_days,'uni',false);
 move_reward_t_cat = cellfun(@(x,y) y-x,stim_move_t_cat,stim_reward_t_cat,'uni',false);
 
-trials_cumsum = cellfun(@(x) cumsum(cellfun(@length,x)),{bhv(:).stim_move_t},'uni',false);
-
-plot_bhv = stim_reward_t_cat;
+trials_cumsum = cellfun(@(x,y) cumsum(cellfun(@length,x(y))),{bhv(:).stim_move_t},use_days,'uni',false);
 
 figure;
 for curr_animal = 1:length(animals)
-    subplot(length(animals),1,curr_animal);
-    plot(plot_bhv{curr_animal},'.k');
+    subplot(length(animals),1,curr_animal); hold on;
+    plot(stim_move_t_cat{curr_animal},'.k');
+    plot(stim_reward_t_cat{curr_animal},'.b');
+    plot(move_reward_t_cat{curr_animal},'.m');
     set(gca,'YScale','log')
     ylim([0.05,10])
+    xlim([0,trials_cumsum{curr_animal}(end)]);
     for i = 1:length(trials_cumsum{curr_animal})
         line(repmat(trials_cumsum{curr_animal}(i),2,1), ...
             ylim,'color','r','linewidth',2)
     end
     ylabel(animals{curr_animal});
+    
+    muscimol_animal_idx = ismember({muscimol.animal},bhv(curr_animal).animal);
+    muscimol_day_idx = ismember(datenum(bhv(curr_animal).day(use_days{curr_animal})), ...
+        datenum(muscimol(muscimol_animal_idx).day));
+    bhv_muscimol_day_idx = ismember(datenum(muscimol(muscimol_animal_idx).day), ...
+        datenum(bhv(curr_animal).day(use_days{curr_animal})));
+    if any(muscimol_day_idx)
+        trial_n_center = diff([0,trials_cumsum{curr_animal}])./2 + ...
+            [0,trials_cumsum{curr_animal}(1:end-1)];
+        text(trial_n_center(muscimol_day_idx),repmat(12,1,sum(muscimol_day_idx)), ...
+            muscimol(muscimol_animal_idx).area(bhv_muscimol_day_idx), ...
+            'color','r','HorizontalAlign','center');
+    end
+    
 end
+
+% TESTING: fit slope each day
+p = cellfun(@(x,y) cellfun(@(x,y) polyfit(1:length(x),log10(x),1),x(y),'uni',false), ...
+    {bhv(:).stim_move_t},use_days,'uni',false);
+p_offset = cellfun(@(x) cellfun(@(x) x(2),x),p,'uni',false);
+p_slope = cellfun(@(x) cellfun(@(x) x(1),x),p,'uni',false);
+
 
 
 %% Non-muscimol behavior 
@@ -382,6 +428,13 @@ muscimol_stim_surround_wheel = repmat( ...
     {nan(length(muscimol_animals),length(stim_surround_t))}, ...
     length(muscimol_areas),1);
 
+stim_move_t_muscimol = nan(length(muscimol_areas),length(animals));
+stim_reward_t_muscimol = nan(length(muscimol_areas),length(animals));
+move_reward_t_muscimol = nan(length(muscimol_areas),length(animals));
+
+wheel_velocity_muscimol = nan(length(muscimol_areas),length(animals));
+wheel_bias_muscimol = nan(length(muscimol_areas),length(animals));
+
 figure;
 for curr_area_idx = 1:length(muscimol_areas)
     curr_area = muscimol_areas{curr_area_idx};
@@ -408,6 +461,21 @@ for curr_area_idx = 1:length(muscimol_areas)
         muscimol_stim_surround_wheel{curr_area_idx}(curr_animal_idx,:) = ...
             curr_stim_surround_wheel;
         
+        stim_move_t_muscimol(curr_area_idx,curr_animal_idx) = ...
+            nanmedian([bhv(curr_animal_idx).stim_move_t{bhv_day_idx}]);
+        stim_reward_t_muscimol(curr_area_idx,curr_animal_idx) = ...
+            nanmedian([bhv(curr_animal_idx).stim_reward_t{bhv_day_idx}]);
+        move_reward_t_muscimol(curr_area_idx,curr_animal_idx) = ...
+            nanmedian([bhv(curr_animal_idx).stim_reward_t{bhv_day_idx}] - ...
+            [bhv(curr_animal_idx).stim_move_t{bhv_day_idx}]);
+        
+        
+        wheel_velocity_muscimol(curr_area_idx,curr_animal_idx) = ...
+            nanmean(bhv(curr_animal_idx).wheel_velocity(bhv_day_idx)./ ...
+            bhv(curr_animal_idx).session_duration(bhv_day_idx));
+        wheel_bias_muscimol(curr_area_idx,curr_animal_idx) = ...
+            nanmean(bhv(curr_animal_idx).wheel_bias(bhv_day_idx));
+        
     end   
     
     % Plot each animal and each condition
@@ -425,18 +493,43 @@ plot(stim_surround_t, ...
     'linewidth',2);
 legend(muscimol_areas);
 
+% Movement probability pre/post stim
+stim_surround_t = bhv(curr_animal).stim_surround_t;
+move_prestim_max = cellfun(@(x) max(x(:,stim_surround_t<0,:),[],2),muscimol_stim_surround_wheel,'uni',false);
+move_poststim_max = cellfun(@(x) max(x(:,stim_surround_t>0,:),[],2),muscimol_stim_surround_wheel,'uni',false);
+move_prepost_max_ratio = cell2mat(cellfun(@(x,y) (y-x)./(x+y),move_prestim_max,move_poststim_max,'uni',false)')';
 
+figure; 
+subplot(1,5,1); hold on;
+plot(stim_move_t_muscimol,'linewidth',2)
+set(gca,'YScale','log')
+set(gca,'XTick',1:length(muscimol_areas),'XTickLabel',muscimol_areas);
+ylabel('Stim move t');
 
-
-
-
-
+subplot(1,5,2); hold on;
+plot(stim_reward_t_muscimol,'linewidth',2)
+set(gca,'YScale','log')
+set(gca,'XTick',1:length(muscimol_areas),'XTickLabel',muscimol_areas);
+ylabel('Stim reward t');
     
+subplot(1,5,3); hold on;
+plot(move_reward_t_muscimol,'linewidth',2)
+set(gca,'YScale','log')
+set(gca,'XTick',1:length(muscimol_areas),'XTickLabel',muscimol_areas);
+ylabel('Move reward t');
 
+subplot(1,5,4); hold on;
+plot(wheel_velocity_muscimol,'linewidth',2)
+set(gca,'YScale','log')
+set(gca,'XTick',1:length(muscimol_areas),'XTickLabel',muscimol_areas);
+ylabel('Wheel velocity/s');
 
-
-
-    
+subplot(1,5,5); hold on;
+plot(move_prepost_max_ratio,'linewidth',2)
+set(gca,'YScale','log')
+set(gca,'XTick',1:length(muscimol_areas),'XTickLabel',muscimol_areas);
+ylabel('Post/post ratio');
+ 
 
 
 
