@@ -55,11 +55,13 @@ t_peri_event = bsxfun(@plus,use_align,t);
 t_peri_event_bins = [t_peri_event-raster_sample_rate/2,t_peri_event(:,end)+raster_sample_rate/2];
 
 % Pick trials to keep
+% (use all of them at the moment)
 if task_dataset
-    use_trials = ...
-        trial_outcome ~= 0 & ...
-        ~signals_events.repeatTrialValues(1:n_trials)' & ...
-        stim_to_feedback < 1.5;    
+%     use_trials = ...
+%         trial_outcome ~= 0 & ...
+%         ~signals_events.repeatTrialValues(1:n_trials)' & ...
+%         stim_to_feedback < 1.5;
+    use_trials = true(n_trials,1);
 else
     use_trials = true(size(stimIDs));
 end
@@ -350,14 +352,24 @@ if task_dataset
     outcome_regressors(2,:) = histcounts( ...
         signals_events.responseTimes(trial_outcome == -1),time_bins);
     
+    % Trial offset regressors
+    % (separate constant offset "baseline" regressor for each trial)
+    % (starts 0.5s before stim which is min quiescence time)
+    % (--> didn't use this, made no obvious difference)
+    trial_prestim_time = -0.5;
+    trial_regressor_start = (time_bin_centers - stimOn_times) >= trial_prestim_time;
+    trial_regressor_end = padarray(time_bin_centers - stimOn_times(2:end) < ...
+        trial_prestim_time,[1,0],true,'post');    
+    trial_offset_regressors = +(trial_regressor_start & trial_regressor_end);
+    
     % Concatenate selected regressors, set parameters
     task_regressors = {stim_regressors;move_onset_regressors;outcome_regressors};
     task_regressor_labels = {'Stim','Move onset','Outcome'};
     
     task_t_shifts = { ...
-        [-0.2,0.5]; ... % stim
+        [-0.5,0.5]; ... % stim
         [-0.5,1]; ... % move
-        [0,0.5]}; % outcome
+        [-0.5,0.5]}; % outcome
     
     task_regressor_sample_shifts = cellfun(@(x) round(x(1)*(sample_rate)): ...
         round(x(2)*(sample_rate)),task_t_shifts,'uni',false);

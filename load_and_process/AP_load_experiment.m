@@ -211,11 +211,17 @@ if block_exists
         reward_thresh = max(Timeline.rawDAQData(:,timeline_reward_idx))/2;
         reward_trace = Timeline.rawDAQData(:,timeline_reward_idx) > reward_thresh;
         reward_t_timeline = Timeline.rawDAQTimestamps(find(reward_trace(2:end) & ~reward_trace(1:end-1))+1);
-        
-        % If there's a different number of block and timeline rewards (aka
-        % manual rewards were given), try to fix this
-        if length(reward_t_block) ~= length(reward_t_timeline) && ...
+                  
+        if length(reward_t_block) == length(reward_t_timeline) && ...
                 ~isempty(reward_t_block)
+            % If same number of timeline/block rewards, use those for sync
+            timeline2block = reward_t_timeline;
+            block2timeline = reward_t_block;
+            
+        elseif length(reward_t_block) ~= length(reward_t_timeline) && ...
+                ~isempty(reward_t_block)
+            % If there's a different number of block and timeline rewards (aka
+            % manual rewards were given), try to fix this            
             % (this is really inelegant but I think works - find the most
             % common offset between block/timeline rewards)
             reward_t_offset = bsxfun(@minus,reward_t_block',reward_t_timeline);
@@ -236,7 +242,8 @@ if block_exists
                 % otherwise, you're in trouble
                 error('Manual rewards included - couldn''t match to block');
             end
-        else
+            
+        elseif isempty(reward_t_block)
             % If no rewards: probably much less robust, but use stim on
             % times and photodiode flips
             warning('No rewards, aligning block with estimated stimOn times');
@@ -245,13 +252,18 @@ if block_exists
             stim_t_offset_shift = stim_t_offset - blunt_stim_offset;
             t_offset_tolerance = 0.05;
             stim_t_offset_binary = abs(stim_t_offset_shift) < t_offset_tolerance;
-            if all(sum(stim_t_offset_binary,2) == 1)
+            stim_tl_block_matched = sum(stim_t_offset_binary,2) == 1;           
+            if nanmean(stim_tl_block_matched) > 0.9
+                % (if 90% stim matched, use this)
                 [~,estimated_stimOn_idx] = max(stim_t_offset_binary,[],2);
-                timeline2block = photodiode_flip_times(estimated_stimOn_idx);
-                block2timeline = block.events.stimOnTimes;
+                
+                timeline2block = photodiode_flip_times(estimated_stimOn_idx(stim_tl_block_matched));
+                block2timeline = block.events.stimOnTimes(stim_tl_block_matched);
             else
+                % (if >10% unmatched, don't use)
                 error('Attempted stim on alignment - bad match');
             end
+            
         end
         
         % Go through all block events and convert to timeline time

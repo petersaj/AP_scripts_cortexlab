@@ -258,10 +258,11 @@ bhv_fn = [data_path filesep 'bhv_teto'];
 % bhv_fn = [data_path filesep 'bhv_corticostriatal'];
 load(bhv_fn);
 
+animals = {bhv.animal};
 
 %% ~~~~~~~ Plot behavior
 
-%% Individual mice behavior (pre-muscimol/muscimol)
+%% Trial behavior (pre-muscimol or muscimol)
 
 % Load muscimol injection info
 data_path = 'C:\Users\Andrew\OneDrive for Business\Documents\CarandiniHarrisLab\analysis\operant_learning\data';
@@ -275,15 +276,14 @@ for curr_animal = 1:length(bhv)
     if isempty(muscimol_animal_idx)
         continue
     end
-    muscimol_day_idx = ismember(datenum(bhv(curr_animal).day), ...
-        datenum(muscimol(muscimol_animal_idx).day));
+    
     pre_muscimol_day_idx = datenum(bhv(curr_animal).day) < ...
         datenum(muscimol(muscimol_animal_idx).day(1));
+    muscimol_day_idx = ismember(datenum(bhv(curr_animal).day), ...
+        datenum(muscimol(muscimol_animal_idx).day));
     
-    use_days{curr_animal} = muscimol_day_idx;    
+    use_days{curr_animal} = pre_muscimol_day_idx;    
 end
-
-animals = {bhv.animal};
 
 stim_move_t_cat = cellfun(@(x,y) cell2mat(x(y)),{bhv(:).stim_move_t},use_days,'uni',false);
 stim_reward_t_cat = cellfun(@(x,y) cell2mat(x(y)),{bhv(:).stim_reward_t},use_days,'uni',false);
@@ -494,7 +494,7 @@ plot(stim_surround_t, ...
 legend(muscimol_areas);
 
 % Movement probability pre/post stim
-stim_surround_t = bhv(curr_animal).stim_surround_t;
+stim_surround_t = bhv(1).stim_surround_t;
 move_prestim_max = cellfun(@(x) max(x(:,stim_surround_t<0,:),[],2),muscimol_stim_surround_wheel,'uni',false);
 move_poststim_max = cellfun(@(x) max(x(:,stim_surround_t>0,:),[],2),muscimol_stim_surround_wheel,'uni',false);
 move_prepost_max_ratio = cell2mat(cellfun(@(x,y) (y-x)./(x+y),move_prestim_max,move_poststim_max,'uni',false)')';
@@ -526,21 +526,37 @@ ylabel('Wheel velocity/s');
 
 subplot(1,5,5); hold on;
 plot(move_prepost_max_ratio,'linewidth',2)
-set(gca,'YScale','log')
 set(gca,'XTick',1:length(muscimol_areas),'XTickLabel',muscimol_areas);
 ylabel('Post/post ratio');
  
 
 
+figure;
+subplot(1,2,1); hold on;
+gscatter(move_prepost_max_ratio(:),wheel_velocity_muscimol(:), ...
+    reshape(repmat(muscimol_areas,1,length(animals)),[],1),lines(4),[],15);
+xlabel('Pre/post move');
+ylabel('Velocity/s');
+axis square;
+
+subplot(1,2,2); hold on;
+wheel_velocity_muscimol_norm = ...
+    (wheel_velocity_muscimol-wheel_velocity_muscimol(4,:))./ ...
+    (wheel_velocity_muscimol+wheel_velocity_muscimol(4,:));
+move_prepost_max_ratio_diff = move_prepost_max_ratio - move_prepost_max_ratio(4,:);
+gscatter(move_prepost_max_ratio_diff(:),wheel_velocity_muscimol_norm(:), ...
+    reshape(repmat(muscimol_areas,1,length(animals)),[],1),lines(4),[],15);
+xlabel('Diff. Pre/post move');
+ylabel('Norm. Velocity/s');
+axis square;
 
 
 
     
-
-
-
-    
-
+% Time to movement
+stim_move_t_allpad = cell2mat(cellfun(@(x) padarray(cellfun(@nanmedian,x), ...
+    [0,max_days-length(x)],NaN,'post'), ...
+    cellfun(@(x,use_days) x(use_days),{bhv.stim_move_t},use_days,'uni',false)','uni',false));
 
 
     

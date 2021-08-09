@@ -276,12 +276,13 @@ for curr_animal = 1:length(bhv)
     if isempty(muscimol_animal_idx)
         continue
     end
-    muscimol_day_idx = ismember(datenum(bhv(curr_animal).day), ...
-        datenum(muscimol(muscimol_animal_idx).day));
+    
     pre_muscimol_day_idx = datenum(bhv(curr_animal).day) < ...
         datenum(muscimol(muscimol_animal_idx).day(1));
+    muscimol_day_idx = ismember(datenum(bhv(curr_animal).day), ...
+        datenum(muscimol(muscimol_animal_idx).day));
     
-    use_days{curr_animal} = muscimol_day_idx;    
+    use_days{curr_animal} = pre_muscimol_day_idx;    
 end
 
 stim_move_t_cat = cellfun(@(x,y) cell2mat(x(y)),{bhv(:).stim_move_t},use_days,'uni',false);
@@ -552,9 +553,14 @@ axis square;
 
 
     
+% Time to movement
+a = cell2mat(cellfun(@(x) padarray(cellfun(@(x) nanmedian(x(1:20)),x), ...
+    [0,max_days-length(x)],NaN,'post'), ...
+    cellfun(@(x,use_days) x(use_days),{bhv.stim_move_t},use_days,'uni',false)','uni',false));
 
-
-
+b = cell2mat(cellfun(@(x) padarray(cellfun(@(x) nanmedian(x(end-19:end)),x), ...
+    [0,max_days-length(x)],NaN,'post'), ...
+    cellfun(@(x,use_days) x(use_days),{bhv.stim_move_t},use_days,'uni',false)','uni',false));
     
 
 

@@ -9,7 +9,7 @@ switch expDef
     case {'vanillaChoiceworld','vanillaChoiceworldBias', ...
             'vanillaChoiceworldNoRepeats','vanillaChoiceworldFastwheel', ...
             'vanillaChoiceworldNoCue','vanillaChoiceworldBiasNoCue'}
-        % Hit/miss recorded for last trial, circshift to align
+        % Hit/miss recorded for previous trial, circshift to align
         signals_events.hitValues = circshift(signals_events.hitValues,[0,-1]);
         signals_events.missValues = circshift(signals_events.missValues,[0,-1]);
         
@@ -92,6 +92,9 @@ switch expDef
         [~,trial_id] = ismember(trial_conditions,conditions,'rows');
         
     case {'AP_stimWheelRight','AP_stimWheelLeft'}
+        % Hit/miss recorded for previous trial, circshift to align
+        signals_events.hitValues = circshift(signals_events.hitValues,[0,-1]);
+        signals_events.missValues = circshift(signals_events.missValues,[0,-1]);
         
         % Get number of completed trials (if uncompleted last trial)
         n_trials = length(signals_events.endTrialTimes);

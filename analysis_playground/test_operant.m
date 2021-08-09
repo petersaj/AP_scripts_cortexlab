@@ -497,6 +497,11 @@ for curr_animal = 1:length(animals)
         trial_data_all.task_regressor_labels = task_regressor_labels;
         trial_data_all.task_regressor_sample_shifts = task_regressor_sample_shifts;
         
+        % Store muscimol info
+        muscimol_day_idx = ismember(muscimol(muscimol_animal_idx).day,day);
+        trial_data_all.muscimol_area{curr_animal}{curr_day} = ...
+            muscimol(muscimol_animal_idx).area{muscimol_day_idx};
+        
         AP_print_progress_fraction(curr_day,length(experiments));
         
         % Clear for next loop
@@ -643,6 +648,9 @@ AP_image_scroll(curr_px,t);
 caxis([-max(abs(caxis)),max(abs(caxis))]);
 colormap(brewermap([],'PrGn'));
 axis image;
+set(gcf,'name',animals{use_animal});
+
+
 
 %% ROI-ROI correlation
 
@@ -798,14 +806,19 @@ split_idx = cell2mat(arrayfun(@(exp,trials) repmat(exp,trials,1), ...
 
 % (package back into animal/day)
 n_days = cellfun(@length,wheel_all);
-fluor_deconv_animal = mat2cell(mat2cell(fluor_allcat_deconv_move,trials_recording,length(t),n_vs),n_days);
+fluor_deconv_animal = mat2cell(mat2cell(fluor_allcat_deconv,trials_recording,length(t),n_vs),n_days);
 move_t_animal = mat2cell(mat2cell(move_t,trials_recording),n_days);
 
 % Average activity within animal/day
 max_days = max(n_days);
 fluor_deconv_cat = nan(n_vs,length(t),max_days,length(animals));
 for curr_animal = 1:length(animals)
-    use_trials = cellfun(@(x) x < 0.1,move_t_animal{curr_animal},'uni',false);
+    % (all trials)
+%     use_trials = cellfun(@(x) true(size(x)),move_t_animal{curr_animal},'uni',false);
+    % (reaction-time limited)
+%     use_trials = cellfun(@(x) x < 0.1,move_t_animal{curr_animal},'uni',false);
+    % (trial subset from start or end)
+    use_trials = cellfun(@(x) find(x > 0.05,10,'last'),move_t_animal{curr_animal},'uni',false);
     
     fluor_deconv_cat(:,:,1:n_days(curr_animal),curr_animal) = ...
         permute(cell2mat(cellfun(@(x,trials) nanmean(x(trials,:,:),1), ...
@@ -820,13 +833,13 @@ caxis([-max(abs(caxis)),max(abs(caxis))]);
 colormap(brewermap([],'PrGn'))
 AP_reference_outline('ccf_aligned',[0.5,0.5,0.5]);
 
-% % Plot animal across days
-% use_animal = 6;
-% curr_px = AP_svdFrameReconstruct(U_master(:,:,1:n_vs),fluor_deconv_cat(:,:,:,use_animal));
-% AP_image_scroll(curr_px,t);
-% axis image;
-% caxis([-max(abs(caxis)),max(abs(caxis))]);
-% colormap(brewermap([],'PrGn'))
+% Plot animal across days
+use_animal = 3;
+curr_px = AP_svdFrameReconstruct(U_master(:,:,1:n_vs),fluor_deconv_cat(:,:,:,use_animal));
+AP_image_scroll(curr_px,t);
+axis image;
+caxis([-max(abs(caxis)),max(abs(caxis))]);
+colormap(brewermap([],'PrGn'))
 
 
 
@@ -854,6 +867,11 @@ for curr_animal = 1:length(animals)
         horzcat(ctx_wheel_k_all{curr_animal});
 end
 
+% Get kernel weights in ROIs
+fluor_taskpred_k_cat_roi = cellfun(@(x) ...
+    AP_svd_roi(U_master(:,:,1:n_vs),permute(x,[3,2,1]),[],[],cat(3,wf_roi.mask)), ...
+    fluor_taskpred_k_cat,'uni',false);
+
 % Average regressors by day
 k_day_mean = cell(n_regressors,max_days);
 for curr_regressor = 1:n_regressors
@@ -879,8 +897,8 @@ ctx_wheel_k_day_mean_px = cellfun(@(x) AP_svdFrameReconstruct(U_master(:,:,1:siz
 
 % Plot average kernels
 % (by day)
-curr_regressor = 1;
-curr_subregressor = 1;
+curr_regressor = 2;
+curr_subregressor = 2;
 curr_regressor_plot = cell2mat(permute(cellfun(@(x) x(:,:,:,curr_subregressor), ...
     k_day_mean_px(curr_regressor,:),'uni',false),[1,3,4,2]));
 
@@ -908,14 +926,14 @@ axis image;
 
 
 % Plot kernel over days in single animal
-use_animal = 4;
+use_animal = 2;
 curr_k = cell2mat(cellfun(@(x) x{1},fluor_taskpred_k_all{use_animal},'uni',false));
 curr_k_px = AP_svdFrameReconstruct(U_master(:,:,1:n_vs),permute(curr_k,[3,2,1]));
 AP_image_scroll(curr_k_px);
 caxis([-max(abs(caxis)),max(abs(caxis))]);
 colormap(brewermap([],'PrGn'));
 axis image;
-
+set(gcf,'name',animals{use_animal})
 
 
 %% Within-animal: correlate reaction time to trial activity?
@@ -939,6 +957,66 @@ for curr_animal = 1:length(animals)
     ylabel(animals(curr_animal));
     set(gca,'XTick',[]);
 end
+
+%% >> Muscimol: task
+
+trial_data_path = 'C:\Users\Andrew\OneDrive for Business\Documents\CarandiniHarrisLab\analysis\operant_learning\data';
+data_fn = 'trial_activity_task_teto_muscimol';
+
+AP_load_concat_normalize_ctx_str;
+
+% Choose split for data
+trials_allcat = size(wheel_allcat,1);
+trials_animal = arrayfun(@(x) size(vertcat(wheel_all{x}{:}),1),1:size(wheel_all));
+trials_recording = cellfun(@(x) size(x,1),vertcat(wheel_all{:}));
+use_split = trials_animal;
+
+split_idx = cell2mat(arrayfun(@(exp,trials) repmat(exp,trials,1), ...
+    [1:length(use_split)]',reshape(use_split,[],1),'uni',false));
+
+% Get task>cortex parameters
+n_regressors = length(task_regressor_labels);
+task_regressor_t_shifts = cellfun(@(x) x/sample_rate,task_regressor_sample_shifts,'uni',false);
+
+% Average kernels by muscimol area
+muscimol_area_cat = horzcat(muscimol_area{:})';
+unique_muscimol_area = unique(muscimol_area_cat);
+
+muscimol_k = cell(n_regressors,1);
+for curr_area = 1:length(unique_muscimol_area)
+    curr_exps = cellfun(@(x) strcmp(x,unique_muscimol_area{curr_area}), ...
+        muscimol_area,'uni',false)';
+    curr_k = cellfun(@(x,y) x(y),fluor_taskpred_k_all,curr_exps,'uni',false);
+    curr_k_cat = vertcat(curr_k{:});
+    for curr_regressor = 1:n_regressors
+        muscimol_k{curr_regressor}(:,:,:,curr_area) = ...
+            nanmean(cell2mat(permute(cellfun(@(x) x{curr_regressor}, ...
+            curr_k_cat,'uni',false),[2,3,4,1])),4);
+    end
+end
+
+curr_regressor = 2;
+curr_subregressor = 1;
+curr_k_px = AP_svdFrameReconstruct(U_master(:,:,1:n_vs), ... 
+    permute(muscimol_k{curr_regressor}(curr_subregressor,:,:,:),[3,2,4,1]));
+AP_image_scroll(curr_k_px);
+caxis([-max(abs(caxis)),max(abs(caxis))]);
+colormap(brewermap([],'PrGn'));
+axis image;
+AP_reference_outline('ccf_aligned',[0.5,0.5,0.5]);
+
+% Plot kernel over days in single animal
+use_animal = 3;
+curr_regressor = 1;
+curr_subregressor = 1;
+
+curr_k = cell2mat(cellfun(@(x) x{curr_regressor}(curr_subregressor,:,:), ...
+    fluor_taskpred_k_all{use_animal},'uni',false));
+curr_k_px = AP_svdFrameReconstruct(U_master(:,:,1:n_vs),permute(curr_k,[3,2,1]));
+AP_image_scroll(curr_k_px);
+caxis([-max(abs(caxis)),max(abs(caxis))]);
+colormap(brewermap([],'PrGn'));
+axis image;
 
 
 %% >> Muscimol: passive
