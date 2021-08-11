@@ -112,6 +112,9 @@ set(handles.imgSlider,'Max',n_frames);
 set(handles.imgSlider,'Value',1);
 set(handles.imgSlider,'SliderStep',[10/n_frames, 100/n_frames]);
 
+% Set up autoplay
+handles.autoplay = false;
+
 % Set up time title
 handles.time_text = uicontrol('Style','text','String', ...
     ['Time: ' num2str(handles.t) ,'s'],'FontSize',14,'Units', ...
@@ -181,6 +184,28 @@ function im_keypress(currentObject, eventdata, gui_fig)
 handles = guidata(gui_fig);
 
 switch eventdata.Key
+    
+    % Auto-play
+    case 'p'
+        
+        handles.autoplay = ~handles.autoplay;
+        guidata(gui_fig, handles);
+
+        while handles.autoplay
+            % Get current frame
+            handles = guidata(gui_fig);
+            new_wf_frame = handles.wf_frame + 1;
+     
+            % Set the slider
+            set(handles.imgSlider,'Value',new_wf_frame);
+            
+            % Update the images
+            update_im(handles,gui_fig,new_wf_frame);
+            
+            % Wait length of 1 frame
+            % (nevermind: too slow, just go as fast as possible)
+%             pause(nanmean(diff(handles.frame_t))/2);
+        end
     
     % Save section of images as movie
     case 's'

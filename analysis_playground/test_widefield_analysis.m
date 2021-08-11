@@ -518,7 +518,7 @@ end
 %% Align widefield to stim
 
 % Set options
-surround_window = [-0.5,3];
+surround_window = [-0.2,1];
 baseline_window = [-0.2,-0.1];
 
 surround_samplerate = 0.01;%1/(framerate*1);
@@ -552,8 +552,8 @@ for curr_condition_idx = 1:length(conditions)
     curr_condition = conditions(curr_condition_idx);
     
     use_stims = stimIDs == curr_condition;
-%     use_stimOn_times = stimOn_times(use_stims);
-    use_stimOn_times = stimOn_times(use_stims & quiescent_trials);
+    use_stimOn_times = stimOn_times(use_stims);
+%     use_stimOn_times = stimOn_times(use_stims & quiescent_trials);
     
     stim_surround_times = bsxfun(@plus, use_stimOn_times(:), surround_time);
     stim_baseline_surround_times = bsxfun(@plus, use_stimOn_times(:), baseline_surround_time);

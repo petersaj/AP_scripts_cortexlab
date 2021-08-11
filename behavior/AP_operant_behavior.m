@@ -260,6 +260,48 @@ load(bhv_fn);
 
 animals = {bhv.animal};
 
+%% (prep bhv data for use with task trials)
+% (run after loading task data)
+% (replicate day's stats for all trials)
+
+% Load muscimol injection info
+data_path = 'C:\Users\Andrew\OneDrive for Business\Documents\CarandiniHarrisLab\analysis\operant_learning\data';
+muscimol_fn = [data_path filesep 'muscimol.mat'];
+load(muscimol_fn);
+
+% Use days before muscimol
+use_days = cell(size(bhv));
+for curr_animal = 1:length(bhv)
+    muscimol_animal_idx = ismember({muscimol.animal},bhv(curr_animal).animal);
+    if isempty(muscimol_animal_idx)
+        continue
+    end
+    
+    pre_muscimol_day_idx = datenum(bhv(curr_animal).day) < ...
+        datenum(muscimol(muscimol_animal_idx).day(1));
+    muscimol_day_idx = ismember(datenum(bhv(curr_animal).day), ...
+        datenum(muscimol(muscimol_animal_idx).day));
+    
+    use_days{curr_animal} = pre_muscimol_day_idx;    
+end
+
+% Pre/post move probability
+stim_surround_wheel_avg = cell2mat(cellfun(@(x,y) ...
+    cell2mat(cellfun(@(x) nanmean(x,1),x(y)','uni',false)), ...
+    {bhv.stim_surround_wheel},use_days,'uni',false)');
+
+stim_surround_t = bhv(1).stim_surround_t;
+move_prestim_max = max(stim_surround_wheel_avg(:,stim_surround_t<0,:),[],2);
+move_poststim_max = max(stim_surround_wheel_avg(:,stim_surround_t>=0,:),[],2);
+move_prepost_max_ratio = ...
+    (move_poststim_max-move_prestim_max)./(move_poststim_max+move_prestim_max);
+
+move_prepost_max_ratio_allcat = cell2mat(cellfun(@(x,y) repmat(x,y,1), ...
+    num2cell(move_prepost_max_ratio),num2cell(trials_recording),'uni',false));
+
+
+
+
 %% ~~~~~~~ Plot behavior
 
 %% Trial behavior (pre-muscimol or muscimol)
@@ -550,20 +592,4 @@ xlabel('Diff. Pre/post move');
 ylabel('Norm. Velocity/s');
 axis square;
 
-
-
-    
-% Time to movement
-a = cell2mat(cellfun(@(x) padarray(cellfun(@(x) nanmedian(x(1:20)),x), ...
-    [0,max_days-length(x)],NaN,'post'), ...
-    cellfun(@(x,use_days) x(use_days),{bhv.stim_move_t},use_days,'uni',false)','uni',false));
-
-b = cell2mat(cellfun(@(x) padarray(cellfun(@(x) nanmedian(x(end-19:end)),x), ...
-    [0,max_days-length(x)],NaN,'post'), ...
-    cellfun(@(x,use_days) x(use_days),{bhv.stim_move_t},use_days,'uni',false)','uni',false));
-    
-
-
-
-    
 

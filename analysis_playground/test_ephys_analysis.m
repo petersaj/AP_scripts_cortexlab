@@ -2353,7 +2353,7 @@ colormap(hot)
 
 % Band power over time
 spect_overlap = 80;
-window_length = 3; % in seconds
+window_length = 0.6; % in seconds
 window_length_samples = window_length/(1/Fs);
 
 [s,f,t] = spectrogram(use_trace,window_length_samples, ...

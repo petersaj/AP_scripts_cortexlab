@@ -12514,12 +12514,24 @@ for i = 1:max_days
     d(:,:,i) = nanmean(cat(3,c{:,i}),3);
 end
 
-%% stimwindowupdate
+%%
 
-block.stimWindowUpdateTimes
+c2 = c1;
+[~,min_idx] = max(c2(:,t < 0.05),[],2);
+for i = 1:size(c2,1)
+   c2(i,:) = circshift(c2(i,:),-min_idx(i)+10);
+end
 
-t = block.experimentInitTime:0.001:block.experimentEndedTime;
-m = histcounts(block.stimWindowUpdateTimes,t);
+figure;imagesc(c2);
+
+
+
+
+
+
+
+
+
 
 
 

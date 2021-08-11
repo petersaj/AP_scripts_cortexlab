@@ -794,7 +794,7 @@ split_idx = cell2mat(arrayfun(@(exp,trials) repmat(exp,trials,1), ...
     [1:length(use_split)]',reshape(use_split,[],1),'uni',false));
 
 
-%% Average trial activity
+%% Average trial activity by day
 
 % % (move-align fluor?)
 % fluor_allcat_deconv_move = fluor_allcat_deconv;
@@ -816,9 +816,9 @@ for curr_animal = 1:length(animals)
     % (all trials)
 %     use_trials = cellfun(@(x) true(size(x)),move_t_animal{curr_animal},'uni',false);
     % (reaction-time limited)
-%     use_trials = cellfun(@(x) x < 0.1,move_t_animal{curr_animal},'uni',false);
+    use_trials = cellfun(@(x) x > -0.5 & x < 0.1,move_t_animal{curr_animal},'uni',false);
     % (trial subset from start or end)
-    use_trials = cellfun(@(x) find(x > 0.05,10,'last'),move_t_animal{curr_animal},'uni',false);
+%     use_trials = cellfun(@(x) find(x > 0.05,10,'last'),move_t_animal{curr_animal},'uni',false);
     
     fluor_deconv_cat(:,:,1:n_days(curr_animal),curr_animal) = ...
         permute(cell2mat(cellfun(@(x,trials) nanmean(x(trials,:,:),1), ...
@@ -841,6 +841,26 @@ axis image;
 caxis([-max(abs(caxis)),max(abs(caxis))]);
 colormap(brewermap([],'PrGn'))
 
+%% Average trial activity by rxn/bhv
+
+% Average all activity by reaction time depending on learned
+rxn_bins = [-0.05:0.1:0.65];
+rxn_bin_centers = rxn_bins(1:end-1) + diff(rxn_bins)./2;
+move_t_discretize = discretize(move_t,rxn_bins);
+fluor_rxn = nan(n_vs,length(t),length(rxn_bins)-1);
+for curr_rxn = 1:length(rxn_bins)-1
+   use_trials = move_t_discretize == curr_rxn & ... 
+       move_prepost_max_ratio_allcat < 0;
+   fluor_rxn(:,:,curr_rxn) = ...
+       permute(nanmean(fluor_allcat_deconv_move(use_trials,:,:),1),[3,2,1]);
+end
+
+curr_px = AP_svdFrameReconstruct(U_master(:,:,1:n_vs),fluor_rxn);
+AP_image_scroll(curr_px,t);
+axis image;
+caxis([-max(abs(caxis)),max(abs(caxis))]);
+colormap(brewermap([],'PrGn'))
+AP_reference_outline('ccf_aligned',[0.5,0.5,0.5]);
 
 
 
