@@ -43,7 +43,7 @@ wheel_starts_all = find(diff([false;wheel_velocity_thresh;false]) == 1);
 wheel_stops_all = find(diff([false;wheel_velocity_thresh;false]) == -1);
 
 % Any starts within set time of a stop - combine
-combine_move_t = 0.1; % in s (empirical/arbitrary)
+combine_move_t = 0.3; % in s (empirical/arbitrary)
 combine_move_samples = round(combine_move_t*sample_rate);
 combine_move = find((wheel_starts_all(2:end) - wheel_stops_all(1:end-1)) > combine_move_samples);
 wheel_starts_trim = wheel_starts_all([1;combine_move+1]);

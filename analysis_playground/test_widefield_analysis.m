@@ -588,14 +588,13 @@ set(gcf,'Name',animal);
 %     trial_conditions(:,2) == -1 & ...
 %     trial_conditions(:,3) == -1;
 
-% align_times = stimOn_times(use_trials);
-% align_times = wheel_move_time(use_trials);
-align_times = stimOn_times;
-% align_times = wheel_move_time;
-% align_times = move_times;
+% align_times = stimOn_times;
+% align_times = stimOn_times(stim_to_move >= 0.1);
+% align_times = iti_move_starts;
+align_times = wheel_move_time;
 
 surround_window = [-0.3,1];
-baseline_window = [-0.5,-0.2];
+baseline_window = [-0.3,-0.2];
 
 surround_samplerate = 1/0.01;
 t = surround_window(1):1/surround_samplerate:surround_window(2);

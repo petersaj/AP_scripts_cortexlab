@@ -39,10 +39,8 @@ iti_move_starts = cellfun(@(x) x(1), t_movesplit(iti_move_epochs));
     
 % PSTH with rewarded & ITI move starts
 [~,rxn_sort_idx] = sort(stim_to_move);
-[~,iti_move_sort_idx] = sort(cellfun(@(x) sum(abs(x)),t_movesplit(iti_move_epochs)));
-
 AP_cellraster({stimOn_times,wheel_move_time,iti_move_starts,reward_t_timeline}, ...
-    {sort_idx,sort_idx,iti_move_duration_sort_idx,sort_idx})
+    {sort_idx,sort_idx,1:length(iti_move_starts),sort_idx})
 
 
 
