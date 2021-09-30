@@ -18,11 +18,14 @@ if ~exist('flexible_name','var') || isempty(flexible_name)
     flexible_name = false;
 end
 
+
+%% Server locations
+
 % Initialize pathname, add to it with each server location
 days_combined = {};
 days_pathnames_combined = {};
 
-% (look in server 1 expInfo - old)
+% (server 1 expInfo - old)
 expInfo_path = ['\\zserver.cortexlab.net\Data\expInfo\' animal];
 expInfo_dir = dir(expInfo_path);
 day_paths = cellfun(@(x) ~isempty(regexp(x,'\d\d\d\d-\d\d-\d\d')),{expInfo_dir.name}) &...
@@ -33,7 +36,7 @@ curr_days_pathname = cellfun(@(x) [expInfo_path filesep x],curr_days,'uni',false
 days_combined = [days_combined,curr_days];
 days_pathnames_combined = [days_pathnames_combined,curr_days_pathname];
 
-% (look in server 1 subjects - new)
+% (server 1 subjects - new)
 expInfo_path = ['\\zserver.cortexlab.net\Data\Subjects\' animal];
 expInfo_dir = dir(expInfo_path);
 day_paths = cellfun(@(x) ~isempty(regexp(x,'\d\d\d\d-\d\d-\d\d')),{expInfo_dir.name}) &...
@@ -44,7 +47,7 @@ curr_days_pathname = cellfun(@(x) [expInfo_path filesep x],curr_days,'uni',false
 days_combined = [days_combined,curr_days];
 days_pathnames_combined = [days_pathnames_combined,curr_days_pathname];
 
-% (look in server 2)
+% (server 2)
 expInfo_path = ['\\zubjects.cortexlab.net\Subjects\' animal];
 expInfo_dir = dir(expInfo_path);
 day_paths = cellfun(@(x) ~isempty(regexp(x,'\d\d\d\d-\d\d-\d\d')),{expInfo_dir.name}) &...
@@ -55,7 +58,7 @@ curr_days_pathname = cellfun(@(x) [expInfo_path filesep x],curr_days,'uni',false
 days_combined = [days_combined,curr_days];
 days_pathnames_combined = [days_pathnames_combined,curr_days_pathname];
 
-% (look in server 3) 
+% (server 3) 
 expInfo_path = ['\\znas.cortexlab.net\Subjects\' animal];
 expInfo_dir = dir(expInfo_path);
 day_paths = cellfun(@(x) ~isempty(regexp(x,'\d\d\d\d-\d\d-\d\d')),{expInfo_dir.name}) &...
@@ -66,13 +69,26 @@ curr_days_pathname = cellfun(@(x) [expInfo_path filesep x],curr_days,'uni',false
 days_combined = [days_combined,curr_days];
 days_pathnames_combined = [days_pathnames_combined,curr_days_pathname];
 
+% (server 4: DRI, temporary)
+expInfo_path = ['\\128.40.224.65\Subjects\' animal];
+expInfo_dir = dir(expInfo_path);
+day_paths = cellfun(@(x) ~isempty(regexp(x,'\d\d\d\d-\d\d-\d\d')),{expInfo_dir.name}) &...
+    [expInfo_dir.isdir];
+curr_days = {expInfo_dir(day_paths).name};
+curr_days_pathname = cellfun(@(x) [expInfo_path filesep x],curr_days,'uni',false);
+
+days_combined = [days_combined,curr_days];
+days_pathnames_combined = [days_pathnames_combined,curr_days_pathname];
 
 % If multiple days: experiment number folders should be preserved across
 % all folders so just pick one
 [days,unique_day_idx] = unique(days_combined);
 days_pathnames = days_pathnames_combined(unique_day_idx);
 
+
+%% Find experiments
 % Find experiments with chosen protocol and which modalities were recorded
+
 protocol_expts = cell(size(days));
 imaging_expts = cell(size(days));
 ephys_expts = cell(size(days));
@@ -139,7 +155,7 @@ for curr_day = 1:length(days)
     
 end
 
-% Package experiment info
+%% Package experiment info
 use_days = ~cellfun(@isempty,protocol_expts);
 experiments = struct('day',cell(sum(use_days),1),'experiment',cell(sum(use_days),1),...
     'imaging',cell(sum(use_days),1),'ephys',cell(sum(use_days),1));

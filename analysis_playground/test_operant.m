@@ -90,6 +90,26 @@ xlabel('Time from movement onset');
 ylabel('Wheel velocity');
 xlim([0,1000]);
 
+%% ~~~~~~~~~ PIP'S NAIVE EXPERIMENTS  ~~~~~~~~~
+
+% PC052/3/4/5
+
+% ephys path is something different
+ephys_path = '\\128.40.224.65\Subjects\PC052\2021-09-13\ephys\kilosort\imec0';
+
+% params has different name
+header_path = [ephys_path filesep 'params.py'];
+
+% sync file is a little different
+sync_long = load('\\128.40.224.65\Subjects\PC052\2021-09-13\ephys\kilosort\imec0\sync.mat');
+sync(4).timestamps = (find(diff(sync_long.sync) ~= 0)+1)'./ephys_sample_rate;
+
+% (also looks like good/bad sort not done yet)
+
+animal = 'PC052';day = '2021-09-13';experiment = 4;verbose = true;AP_load_experiment;
+
+
+
 
 %% ~~~~~~~~~ GRAB & SAVE BATCH  ~~~~~~~~~
 

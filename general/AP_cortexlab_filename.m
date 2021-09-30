@@ -63,6 +63,9 @@ server_location{end+1} = '\\zserver.cortexlab.net\Data\EyeCamera';
 server_location{end+1} = '\\zubjects.cortexlab.net\Subjects';
 % (znas: after zubjects full)
 server_location{end+1} = '\\znas.cortexlab.net\Subjects';
+% (DRI server - temporary?)
+server_location{end+1} = '\\128.40.224.65\Subjects';
+
 
 % Check that servers are accessible (login needed on restart)
 warning on
