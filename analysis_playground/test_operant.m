@@ -559,8 +559,8 @@ save([save_path filesep save_fn],'-v7.3');
 
 % Load data
 trial_data_path = 'C:\Users\Andrew\OneDrive for Business\Documents\CarandiniHarrisLab\analysis\operant_learning\data';
-data_fn = 'trial_activity_passive_tetO';
-% data_fn = 'trial_activity_passive_corticostriatal';
+% data_fn = 'trial_activity_passive_tetO';
+data_fn = 'trial_activity_passive_corticostriatal';
 
 AP_load_concat_normalize_ctx_str;
 
@@ -676,7 +676,7 @@ end
 
 % Plot stim response in single animal over days
 % (exclude days 1-3: pre-behavior);
-use_animal = 3;
+use_animal = 1;
 curr_px = AP_svdFrameReconstruct(U_master(:,:,1:n_vs),stim_v_avg{use_animal}(:,:,4:end,3));
 AP_image_scroll(curr_px,t);
 caxis([-max(abs(caxis)),max(abs(caxis))]);
@@ -844,8 +844,8 @@ AP_load_concat_normalize_ctx_str;
 
 % Task
 trial_data_path = 'C:\Users\Andrew\OneDrive for Business\Documents\CarandiniHarrisLab\analysis\operant_learning\data';
-data_fn = 'trial_activity_task_teto';
-% data_fn = 'trial_activity_task_corticostriatal';
+% data_fn = 'trial_activity_task_teto';
+data_fn = 'trial_activity_task_corticostriatal';
 
 AP_load_concat_normalize_ctx_str;
 
@@ -922,6 +922,9 @@ move_prepost_max_ratio_allcat = cell2mat(cellfun(@(x,y) repmat(x,y,1), ...
 % (package back into animal/day)
 n_days = cellfun(@length,wheel_all);
 fluor_deconv_animal = mat2cell(mat2cell(fluor_allcat_deconv,trials_recording,length(t),n_vs),n_days);
+fluor_taskpred_reduced_animal = mat2cell(mat2cell(fluor_taskpred_reduced_allcat, ...
+    trials_recording,length(t),n_vs,length(task_regressor_labels)),n_days);
+
 move_t_animal = mat2cell(mat2cell(move_t,trials_recording),n_days);
 
 % Average activity within animal/day
@@ -929,15 +932,22 @@ max_days = max(n_days);
 fluor_deconv_cat = nan(n_vs,length(t),max_days,length(animals));
 for curr_animal = 1:length(animals)
     % (all trials)
-    use_trials = cellfun(@(x) true(size(x)),move_t_animal{curr_animal},'uni',false);
+%     use_trials = cellfun(@(x) true(size(x)),move_t_animal{curr_animal},'uni',false);
     % (reaction-time limited)
-%     use_trials = cellfun(@(x) x > 0.1 & x < Inf,move_t_animal{curr_animal},'uni',false);
+        use_trials = cellfun(@(x) x > 0.1 & x < Inf,move_t_animal{curr_animal},'uni',false);
     % (trial subset from start or end)
-%     use_trials = cellfun(@(x) find(x > 0.05,10,'first'),move_t_animal{curr_animal},'uni',false);
+    %     use_trials = cellfun(@(x) find(x > 0.05,10,'first'),move_t_animal{curr_animal},'uni',false);
     
     fluor_deconv_cat(:,:,1:n_days(curr_animal),curr_animal) = ...
         permute(cell2mat(cellfun(@(x,trials) nanmean(x(trials,:,:),1), ...
         fluor_deconv_animal{curr_animal},use_trials,'uni',false)),[3,2,1]);
+    
+%     fluor_deconv_cat(:,:,1:n_days(curr_animal),curr_animal) = ...
+%         permute(cell2mat(cellfun(@(act,act_reduced,trials) ...
+%         nanmean(act(trials,:,:) - act_reduced(trials,:,:,1),1), ...
+%         fluor_deconv_animal{curr_animal},fluor_taskpred_reduced_animal{curr_animal}, ...
+%         use_trials,'uni',false)),[3,2,1]);
+        
 end
 
 % Plot average for each day
@@ -949,19 +959,24 @@ colormap(brewermap([],'PrGn'))
 AP_reference_outline('ccf_aligned',[0.5,0.5,0.5]);
 
 % Plot animal across days
-use_animal = 1;
+use_animal = 5;
 curr_px = AP_svdFrameReconstruct(U_master(:,:,1:n_vs),fluor_deconv_cat(:,:,:,use_animal));
 AP_image_scroll(curr_px,t);
 axis image;
 caxis([-max(abs(caxis)),max(abs(caxis))]);
 colormap(brewermap([],'PrGn'))
 
+
+
+
+
 %% Average trial activity by rxn/bhv
 
 % Average all activity by reaction time depending on learned
 % rxn_bins = [-0.05:0.02:1]';
 % rxn_bins = [-Inf,Inf];
-rxn_bins = [0:0.1:0.7];
+% rxn_bins = [0.1,0.5];
+rxn_bins = [0.1:0.1:0.5];
 rxn_bin_centers = rxn_bins(1:end-1) + diff(rxn_bins)./2;
 move_t_discretize = discretize(move_t,rxn_bins);
 fluor_rxn = nan(n_vs,length(t),length(rxn_bins)-1);
@@ -1108,7 +1123,7 @@ end
 move_prepost_max_ratio_padcat = ...
     cell2mat(cellfun(@(x) padarray(x,max_days-length(x),nan,'post'), ...
     move_prepost_max_ratio_animal,'uni',false)');
-use_prepost_ratio = move_prepost_max_ratio_padcat <= 0;
+use_prepost_ratio = move_prepost_max_ratio_padcat >= 0.2;
 % use_prepost_ratio = move_prepost_max_ratio_padcat < 0.2 & circshift(move_prepost_max_ratio_padcat,[-1,0]) > 0.2;
 % use_prepost_ratio = move_prepost_max_ratio_padcat > 0.2 & circshift(move_prepost_max_ratio_padcat,[1,0]) < 0.2;
 curr_k = squeeze(fluor_taskpred_k_cat(1,:,:));
@@ -1150,7 +1165,7 @@ ctx_wheel_k_day_mean_px = cellfun(@(x) AP_svdFrameReconstruct(U_master(:,:,1:siz
 
 % Plot average kernels
 % (by day)
-curr_regressor = 2;
+curr_regressor = 1;
 curr_subregressor = 1;
 curr_regressor_plot = cell2mat(permute(cellfun(@(x) x(:,:,:,curr_subregressor), ...
     k_day_mean_px(curr_regressor,:),'uni',false),[1,3,4,2]));

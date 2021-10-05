@@ -347,7 +347,7 @@ for curr_animal = 1:length(bhv)
     end
     muscimol_day_idx = datenum(bhv(curr_animal).day) >= ...
         datenum(muscimol(muscimol_animal_idx).day(1));
-    use_days{curr_animal} = ~muscimol_day_idx;    
+    use_days{curr_animal} = ~muscimol_day_idx;
 end
 
 % (get max days for padding)
@@ -378,11 +378,22 @@ stim_surround_wheel_avg = cell2mat(cellfun(@(x) ...
     [1,3,2]),'uni',false));
 
 % Movement probability pre/post stim
-stim_surround_t = bhv(curr_animal).stim_surround_t;
+stim_surround_t = bhv(1).stim_surround_t;
 move_prestim_max = permute(max(stim_surround_wheel_avg(:,stim_surround_t<0,:),[],2),[3,1,2]);
 move_poststim_max = permute(max(stim_surround_wheel_avg(:,stim_surround_t>=0,:),[],2),[3,1,2]);
 move_prepost_max_ratio = ...
     (move_poststim_max-move_prestim_max)./(move_poststim_max+move_prestim_max);
+
+%%% (unused)
+% Trials per minute
+trials_per_min = cell2mat(cellfun(@(x) padarray(x,[0,max_days-length(x)],NaN,'post'), ...
+    cellfun(@(x,y,use_days) x(use_days)./y(use_days), ....
+    {bhv.n_trials},{bhv.session_duration},use_days,'uni',false),'uni',false)');
+
+% Total ITI (initial + resets)
+iti_allpad = cell2mat(cellfun(@(x) padarray(cellfun(@nanmedian,x), ...
+    [0,max_days-length(x)],NaN,'post'), ...
+    cellfun(@(x,use_days) x(use_days),{bhv.iti_t},use_days,'uni',false)','uni',false));
 
 % Plot 
 figure;
@@ -551,5 +562,96 @@ gscatter(move_prepost_max_ratio_diff(:),wheel_velocity_muscimol_norm(:), ...
 xlabel('Diff. Pre/post move');
 ylabel('Norm. Velocity/s');
 axis square;
+
+
+%% ~~~~~~~ Testing 
+
+%% Learning within- or across-day: trials by chunk?
+
+n_daysplit = 4;
+
+% Load muscimol injection info
+data_path = 'C:\Users\Andrew\OneDrive for Business\Documents\CarandiniHarrisLab\analysis\operant_learning\data';
+muscimol_fn = [data_path filesep 'muscimol.mat'];
+load(muscimol_fn);
+
+% Use days before muscimol
+use_days = cell(size(bhv));
+for curr_animal = 1:length(bhv)
+    muscimol_animal_idx = ismember({muscimol.animal},bhv(curr_animal).animal);
+    if isempty(muscimol_animal_idx)
+        continue
+    end
+    muscimol_day_idx = datenum(bhv(curr_animal).day) >= ...
+        datenum(muscimol(muscimol_animal_idx).day(1));
+    use_days{curr_animal} = ~muscimol_day_idx;    
+end
+
+% (get max days for padding)
+max_days = max(cellfun(@sum,use_days));
+
+% Time to movement
+stim_move_t_daysplit = cell2mat(permute(cellfun(@(x,use_days) padarray( ....
+    cell2mat(cellfun(@(x) accumarray( ...
+    min(floor(linspace(1,n_daysplit+1,length(x))),n_daysplit)',x', ...
+    [n_daysplit,1],@nanmedian),x(use_days),'uni',false)),[0,max_days-sum(use_days)],NaN,'post'), ...
+    {bhv.stim_move_t},use_days,'uni',false),[1,3,2]));
+
+figure;
+stim_move_t_daysplit_long = reshape(padarray(stim_move_t_daysplit,[1,0,0],NaN,'post'),[],length(animals));
+subplot(2,1,1);
+plot([1:size(stim_move_t_daysplit_long,1)]/(n_daysplit+1),stim_move_t_daysplit_long);
+set(gca,'YScale','log')
+subplot(2,1,2);
+errorbar([1:size(stim_move_t_daysplit_long,1)]/(n_daysplit+1), ...
+    nanmean(stim_move_t_daysplit_long,2),AP_sem(stim_move_t_daysplit_long,2),'k','linewidth',2);
+set(gca,'YScale','log')
+linkaxes(get(gcf,'Children'),'xy')
+xlabel('Day');
+ylabel('Stim to move (s)');
+
+% Time to movement: bin and concat
+stim_move_t_cat = cellfun(@(x,use_days) cell2mat(x(use_days)), ...
+    {bhv.stim_move_t},use_days,'uni',false);
+
+stim_move_t_split_idx = cellfun(@(x,use_days) ... 
+    cellfun(@(x,day) ...
+    [repmat(day,1,length(x)); ...
+    min(floor(linspace(1,n_daysplit+1,length(x))),n_daysplit)], ...
+    x(use_days),num2cell(1:sum(use_days)),'uni',false), ...
+    {bhv.stim_move_t},use_days,'uni',false);
+
+%%%% WAS HERE: going to shuffle test within/across day differences
+% get difference within/across day
+curr_animal = 1;
+a = accumarray(cell2mat(stim_move_t_split_idx{curr_animal})',stim_move_t_cat{curr_animal},[],@nanmedian);
+b = reshape(a(:,[1,end])',[],1);
+b_diff = diff(b);
+% shuffle, get diff (this is only for within-day)
+n_shuff = 100;
+b_diff_shuff = nan(length(b_diff),n_shuff);
+for curr_shuff = 1:n_shuff
+    curr_shuff_idx = cellfun(@(x) AP_shake(x,2),stim_move_t_split_idx{curr_animal},'uni',false);
+    a = accumarray(cell2mat(curr_shuff_idx)',stim_move_t_cat{curr_animal},[],@nanmedian);
+    b = reshape(a(:,[1,end])',[],1);
+    b_diff_shuff(:,curr_shuff) = diff(b);
+end
+b_shuff_prctile = prctile(b_shuff,[2.5,97.5],2);
+
+figure;hold on; 
+plot(b_diff);
+plot(b_shuff_prctile);
+
+
+
+
+
+
+
+
+
+
+
+
 
 
