@@ -572,8 +572,6 @@ trial_day = cell2mat(cellfun(@(x) cell2mat(cellfun(@(curr_day,x) ...
     curr_day*ones(size(x,1),1),num2cell(1:length(x))',x,'uni',false)), ...
     wheel_all,'uni',false));
 
-trials_recording = cellfun(@(x) size(x,1),vertcat(wheel_all{:}));
-
 % Get trials with movement during stim to exclude
 quiescent_trials = ~any(abs(wheel_allcat(:,t >= 0 & t <= 0.5)) > 0,2);
 
@@ -617,7 +615,7 @@ axis image;
 AP_reference_outline('ccf_aligned',[0.5,0.5,0.5]);
 
 % (plot time average by day)
-use_t = t >= 0.05 & t <= 0.1;
+use_t = t > 0.05 & t < 0.1;
 stim_px_avg_dayavg_tavg = squeeze(nanmean(stim_px_avg_dayavg(:,:,use_t,:),3));
 
 min_days = min(n_days);
@@ -640,8 +638,8 @@ end
 
 % (average stim response "pre/post learning")
 naive_days = 1:3;
-unlearned_days = 4:6;
-expert_days = 6:10;
+unlearned_days = 4:8;
+expert_days = 9:13;
 
 stim_avg_naive = nanmean(stim_px_avg_dayavg(:,:,:,naive_days),4);
 stim_avg_unlearned = nanmean(stim_px_avg_dayavg(:,:,:,unlearned_days),4);
@@ -652,7 +650,7 @@ caxis([-max(abs(caxis)),max(abs(caxis))]);
 colormap(brewermap([],'PrGn'));
 axis image;
 
-use_t = t >= 0.05 & t <= 0.2;
+use_t = t > 0.05 & t < 0.2;
 stim_learning_tavg = cat(3,nanmean(stim_avg_naive(:,:,use_t),3), ...
     nanmean(stim_avg_unlearned(:,:,use_t),3),nanmean(stim_avg_learned(:,:,use_t),3));
 c = repmat(prctile(stim_learning_tavg(:),95),1,2).*[-1,1];
@@ -689,8 +687,8 @@ set(gcf,'name',animals{use_animal});
 
 %% Time-average ROI activity by day
 
-curr_act = fluor_roi_deconv(:,:,7);
-% curr_act = fluor_roi_deconv(:,:,7) - fluor_roi_deconv(:,:,17);
+% curr_act = fluor_roi_deconv(:,:,7);
+curr_act = fluor_roi_deconv(:,:,7) - fluor_roi_deconv(:,:,17);
 
 use_trials = trial_stim_allcat == 1 & quiescent_trials;
 
@@ -703,23 +701,6 @@ roi_animal_day_avg = accumarray([trial_animal(use_trials),trial_day(use_trials)]
 figure; hold on;
 plot([1:max(trial_day)]-3,roi_animal_day_avg');
 plot([1:max(trial_day)]-3,nanmean(roi_animal_day_avg,1),'k','linewidth',2);
-
-%%%% split days
-n_daysplit = 4;
-day_split_idx = cell2mat(arrayfun(@(x) ...
-    min(floor(linspace(1,n_daysplit+1,x)),n_daysplit)', ...
-    trials_recording,'uni',false));
-roi_animal_day_avg = accumarray( ...
-    [trial_animal(use_trials),trial_day(use_trials),day_split_idx(use_trials)], ...
-    curr_act_timeavg(use_trials),[max(trial_animal),max(trial_day),n_daysplit], ...
-    @nanmean,NaN);
-figure; hold on;
-roi_animal_day_avg_long = reshape(permute( ...
-    padarray(roi_animal_day_avg,[0,0,1],NaN,'post'),[3,2,1]),[],length(animals));
-% plot([1:size(roi_animal_day_avg_long,1)]/(n_daysplit+1),roi_animal_day_avg_long);
-errorbar([1:size(roi_animal_day_avg_long,1)]/(n_daysplit+1) - 3, ...
-    nanmean(roi_animal_day_avg_long,2),AP_sem(roi_animal_day_avg_long,2),'k','linewidth',2);
-
 
 
 %% ROI-ROI correlation
@@ -1118,7 +1099,6 @@ use_t = t >= 0.05 & t <= 0.1;
 curr_act_timeavg = nanmean(double(curr_act(:,use_t)),2);
 
 use_trials = move_t > 0.1;
-
 roi_animal_day_avg = accumarray([trial_animal(use_trials),trial_day(use_trials)], ...
     curr_act_timeavg(use_trials),[max(trial_animal),max(trial_day)], ...
     @nanmean,NaN);
@@ -1131,6 +1111,7 @@ n_daysplit = 4;
 day_split_idx = cell2mat(arrayfun(@(x) ...
     min(floor(linspace(1,n_daysplit+1,x)),n_daysplit)', ...
     trials_recording,'uni',false));
+
 roi_animal_day_avg = accumarray( ...
     [trial_animal(use_trials),trial_day(use_trials),day_split_idx(use_trials)], ...
     curr_act_timeavg(use_trials),[max(trial_animal),max(trial_day),n_daysplit], ...
@@ -1138,7 +1119,7 @@ roi_animal_day_avg = accumarray( ...
 figure; hold on;
 roi_animal_day_avg_long = reshape(permute( ...
     padarray(roi_animal_day_avg,[0,0,1],NaN,'post'),[3,2,1]),[],length(animals));
-% plot([1:size(roi_animal_day_avg_long,1)]/(n_daysplit+1),roi_animal_day_avg_long);
+plot([1:size(roi_animal_day_avg_long,1)]/(n_daysplit+1),roi_animal_day_avg_long);
 errorbar([1:size(roi_animal_day_avg_long,1)]/(n_daysplit+1), ...
     nanmean(roi_animal_day_avg_long,2),AP_sem(roi_animal_day_avg_long,2),'k','linewidth',2);
 

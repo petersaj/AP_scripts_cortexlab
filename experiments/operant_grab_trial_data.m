@@ -1,4 +1,5 @@
-%% ~~~ AP_ctx_str_grab_trial_data: pull out data organized by trials ~~~
+% operant_grab_trial_data
+% pull out data organized by trials
 
 %% Set flags
 

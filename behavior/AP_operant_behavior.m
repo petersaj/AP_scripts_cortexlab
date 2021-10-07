@@ -254,8 +254,8 @@ end
 %% (load data saved after above)
 
 data_path = 'C:\Users\Andrew\OneDrive for Business\Documents\CarandiniHarrisLab\analysis\operant_learning\data';
-% bhv_fn = [data_path filesep 'bhv_teto'];
-bhv_fn = [data_path filesep 'bhv_corticostriatal'];
+bhv_fn = [data_path filesep 'bhv_teto'];
+% bhv_fn = [data_path filesep 'bhv_corticostriatal'];
 load(bhv_fn);
 
 animals = {bhv.animal};
