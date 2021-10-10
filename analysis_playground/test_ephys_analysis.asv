@@ -1048,7 +1048,7 @@ figure;plotWaveform(-(squeeze(templates(plot_template,:,:))*winv)', ...
 
 %% PSTH plot by depth (single stim ID)
 
-align_times = stimOn_times(ismember(stimIDs,[3]));
+align_times = stimOn_times(ismember(stimIDs,[1]));
 %align_times = stimOnTimes(azimuths == 90 & stim_hit);
 
 % Group by depth

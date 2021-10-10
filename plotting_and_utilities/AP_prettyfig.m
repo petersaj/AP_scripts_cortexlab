@@ -6,6 +6,7 @@ fig_ax = get(gcf,'Children');
 
 % Loop through axes
 for curr_ax = 1:length(fig_ax)
+    try
     % Set larger tick length
     set(fig_ax(curr_ax),'TickLength',[0.03,0.03])
     
@@ -14,7 +15,9 @@ for curr_ax = 1:length(fig_ax)
     
     % Set font and font size
     set(fig_ax(curr_ax),'FontSize',11);
-        
+    catch me
+        continue
+    end        
 end
 
 % Keeping this here for now? if alpha < 1 then matlab can't handle, so make

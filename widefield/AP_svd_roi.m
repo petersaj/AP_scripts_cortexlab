@@ -4,7 +4,7 @@ function [roi_trace,roi_mask] = AP_svd_roi(U,V,guide_im,overlay,roi_mask)
 % Draw roi on average SVD'd image, return reconstructed trace in time
 %
 % U - SVD U (Y x X x components)
-% V - SVD V (components x T x conditions)
+% V - SVD V (components x T x ...[conditions])
 % guide_im - can be an image or 'master' if master-aligned CCF/retinotopy
 % overlay - optional, if drawing ROI mask, overlays this image
 % roi_mask - optional, used if provided and prompted to draw otherwise (can
@@ -58,8 +58,10 @@ if exist('V','var') && ~isempty(V)
     %     end
     
     % NEW: should be valid to weight U_roi first (faster, less memory)
+    V_size = size(V);
+    
     U_roi = transpose(reshape(U,[],size(U,3))'*reshape(roi_mask,[],size(roi_mask,3)));            
-    roi_trace = reshape(U_roi*reshape(V,size(V,1),[]),size(U_roi,1),size(V,2),size(V,3));
+    roi_trace = reshape(U_roi*reshape(V,size(V,1),[]),[size(U_roi,1),V_size(2:end)]);
     
     % If mask was binary, divide by n pixels to make trace ROI average
     % (if mask was weighted, then shouldn't divide)

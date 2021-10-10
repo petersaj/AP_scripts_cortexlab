@@ -42,7 +42,7 @@ iti_move_starts = cellfun(@(x) x(1), t_movesplit(iti_move_epochs));
 [~,iti_move_sort_idx] = sort(cellfun(@(x) sum(abs(x)),t_movesplit(iti_move_epochs)));
 
 AP_cellraster({stimOn_times,wheel_move_time,iti_move_starts,reward_t_timeline}, ...
-    {sort_idx,sort_idx,iti_move_duration_sort_idx,sort_idx})
+    {rxn_sort_idx,rxn_sort_idx,iti_move_sort_idx,1:length(reward_t_timeline)})
 
 
 
@@ -552,6 +552,81 @@ save_path = 'C:\Users\Andrew\OneDrive for Business\Documents\CarandiniHarrisLab\
 save_fn = ['trial_activity_task_teto_muscimol'];
 save([save_path filesep save_fn],'-v7.3');
 
+%% Muscimol: Passive - corticostriatal
+
+clear all
+disp('Muscimol: Passive trial activity (cstr)')
+
+animals = {'AP092','AP093','AP094','AP095','AP096','AP097'};
+
+% Initialize save variable
+trial_data_all = struct;
+
+for curr_animal = 1:length(animals)
+    
+    animal = animals{curr_animal};
+    protocol = 'AP_lcrGratingPassive';
+    experiments = AP_find_experiments(animal,protocol);
+    
+    % Get days with muscimol
+    data_path = 'C:\Users\Andrew\OneDrive for Business\Documents\CarandiniHarrisLab\analysis\operant_learning\data';
+    muscimol_fn = [data_path filesep 'muscimol.mat'];
+    load(muscimol_fn);
+    muscimol_animal_idx = ismember({muscimol.animal},animal);
+    muscimol_experiments = ismember({experiments.day},muscimol(muscimol_animal_idx).day);
+    
+    % Set experiments to use (imaging, not muscimol)
+    experiments = experiments([experiments.imaging] & muscimol_experiments);
+    
+    disp(['Loading ' animal]);
+    
+    for curr_day = 1:length(experiments)
+        
+        preload_vars = who;
+        
+        day = experiments(curr_day).day;
+        experiment = experiments(curr_day).experiment(end);
+        
+        % Load experiment
+        AP_load_experiment;
+        
+        % Pull out trial data
+        AP_ctx_str_grab_trial_data;
+        
+        % Store trial data into master structure
+        trial_data_fieldnames = fieldnames(trial_data);
+        for curr_trial_data_field = trial_data_fieldnames'
+            trial_data_all.(cell2mat(curr_trial_data_field)){curr_animal,1}{curr_day,1} = ...
+                trial_data.(cell2mat(curr_trial_data_field));
+        end
+        
+        % Store general info
+        trial_data_all.animals = animals;
+        trial_data_all.t = t;
+        
+        % Store muscimol info
+        muscimol_day_idx = ismember(muscimol(muscimol_animal_idx).day,day);
+        trial_data_all.muscimol_area{curr_animal}{curr_day} = ...
+            muscimol(muscimol_animal_idx).area{muscimol_day_idx};
+        
+        AP_print_progress_fraction(curr_day,length(experiments));
+        
+        % Clear for next loop
+        clearvars('-except',preload_vars{:});
+        
+    end
+    
+end
+
+clearvars -except trial_data_all
+disp('Finished loading all')
+
+% Save
+save_path = 'C:\Users\Andrew\OneDrive for Business\Documents\CarandiniHarrisLab\analysis\operant_learning\data';
+save_fn = ['trial_activity_passive_cstr_muscimol'];
+save([save_path filesep save_fn],'-v7.3');
+disp(['Saved: ' save_path filesep save_fn])
+
 
 %% ~~~~~~~~~ BATCH ANALYSIS ~~~~~~~~~
 
@@ -559,8 +634,8 @@ save([save_path filesep save_fn],'-v7.3');
 
 % Load data
 trial_data_path = 'C:\Users\Andrew\OneDrive for Business\Documents\CarandiniHarrisLab\analysis\operant_learning\data';
-data_fn = 'trial_activity_passive_tetO';
-% data_fn = 'trial_activity_passive_corticostriatal';
+% data_fn = 'trial_activity_passive_tetO';
+data_fn = 'trial_activity_passive_corticostriatal';
 
 AP_load_trials_wf;
 
@@ -678,7 +753,7 @@ end
 
 % Plot stim response in single animal over days
 % (exclude days 1-3: pre-behavior);
-use_animal = 1;
+use_animal = 5;
 curr_px = AP_svdFrameReconstruct(U_master(:,:,1:n_vs),stim_v_avg{use_animal}(:,:,4:end,3));
 AP_image_scroll(curr_px,t);
 caxis([-max(abs(caxis)),max(abs(caxis))]);
@@ -694,7 +769,7 @@ curr_act = fluor_roi_deconv(:,:,7);
 
 use_trials = trial_stim_allcat == 1 & quiescent_trials;
 
-use_t = t >= 0.05 & t <= 0.1;
+use_t = t >= 0.07 & t <= 0.17;
 curr_act_timeavg = nanmean(double(curr_act(:,use_t)),2);
 
 roi_animal_day_avg = accumarray([trial_animal(use_trials),trial_day(use_trials)], ...
@@ -709,13 +784,13 @@ n_daysplit = 4;
 day_split_idx = cell2mat(arrayfun(@(x) ...
     min(floor(linspace(1,n_daysplit+1,x)),n_daysplit)', ...
     trials_recording,'uni',false));
-roi_animal_day_avg = accumarray( ...
+roi_animal_daysplit_avg = accumarray( ...
     [trial_animal(use_trials),trial_day(use_trials),day_split_idx(use_trials)], ...
     curr_act_timeavg(use_trials),[max(trial_animal),max(trial_day),n_daysplit], ...
     @nanmean,NaN);
 figure; hold on;
 roi_animal_day_avg_long = reshape(permute( ...
-    padarray(roi_animal_day_avg,[0,0,1],NaN,'post'),[3,2,1]),[],length(animals));
+    padarray(roi_animal_daysplit_avg,[0,0,1],NaN,'post'),[3,2,1]),[],length(animals));
 % plot([1:size(roi_animal_day_avg_long,1)]/(n_daysplit+1),roi_animal_day_avg_long);
 errorbar([1:size(roi_animal_day_avg_long,1)]/(n_daysplit+1) - 3, ...
     nanmean(roi_animal_day_avg_long,2),AP_sem(roi_animal_day_avg_long,2),'k','linewidth',2);
@@ -867,6 +942,98 @@ plot(nanmean(a,2),'k','linewidth',2);
 xlabel('Lag (move_t relative to roi activity)');
 ylabel('xcorr');
 
+%% Average passive by behavior
+
+% Load and prep behavior
+data_fn_parse = regexp(data_fn,'_','split');
+bhv_fn = [trial_data_path filesep 'bhv_' data_fn_parse{end}];
+load(bhv_fn);
+
+% Load muscimol injection info
+data_path = 'C:\Users\Andrew\OneDrive for Business\Documents\CarandiniHarrisLab\analysis\operant_learning\data';
+muscimol_fn = [data_path filesep 'muscimol.mat'];
+load(muscimol_fn);
+
+% Use days before muscimol
+use_days = cell(size(bhv));
+for curr_animal = 1:length(bhv)
+    muscimol_animal_idx = ismember({muscimol.animal},bhv(curr_animal).animal);
+    if isempty(muscimol_animal_idx)
+        continue
+    end
+    
+    pre_muscimol_day_idx = datenum(bhv(curr_animal).day) < ...
+        datenum(muscimol(muscimol_animal_idx).day(1));
+    muscimol_day_idx = ismember(datenum(bhv(curr_animal).day), ...
+        datenum(muscimol(muscimol_animal_idx).day));
+    
+    use_days{curr_animal} = pre_muscimol_day_idx;    
+end
+
+% Stim to move time (NOT SAME NUM TRIALS - REWARDED ONLY)
+stim_move_t = cell2mat(cellfun(@(x,y) cell2mat(x(y)), ...
+    {bhv.stim_move_t},use_days,'uni',false))';
+
+% Pre/post move probability
+stim_surround_wheel_avg = cell2mat(cellfun(@(x,y) ...
+    cell2mat(cellfun(@(x) nanmean(x,1),x(y)','uni',false)), ...
+    {bhv.stim_surround_wheel},use_days,'uni',false)');
+
+stim_surround_t = bhv(1).stim_surround_t;
+move_prestim_max = max(stim_surround_wheel_avg(:,stim_surround_t<0,:),[],2);
+move_poststim_max = max(stim_surround_wheel_avg(:,stim_surround_t>=0,:),[],2);
+move_prepost_max_ratio = ...
+    (move_poststim_max-move_prestim_max)./(move_poststim_max+move_prestim_max);
+
+move_prepost_max_ratio_padcat = ...
+    cell2mat(cellfun(@(x) padarray(x,[3,0],NaN,'pre'), ...
+    mat2cell(move_prepost_max_ratio,cellfun(@sum,use_days)),'uni',false));
+
+% Group stim responses by behavioral performance
+stim_v_avg_cat = cell2mat(permute(stim_v_avg,[1,3,2,4])); 
+
+move_prepost_max_ratio_padcat_grp = ...
+    discretize(move_prepost_max_ratio_padcat,[-Inf,0.2,Inf]);
+move_prepost_max_ratio_padcat_grp(isnan(move_prepost_max_ratio_padcat_grp)) = 0;
+stim_v_avg_cat_grp = reshape(grpstats( ...
+    reshape(permute(stim_v_avg_cat,[1,2,4,3]),[],size(stim_v_avg_cat,3))', ...
+    move_prepost_max_ratio_padcat_grp)',n_vs,length(t),length(stim_unique),[]);
+
+curr_px = AP_svdFrameReconstruct(U_master(:,:,1:n_vs),stim_v_avg_cat_grp);
+AP_image_scroll(reshape(permute(curr_px,[1,2,4,3,5]), ...
+    size(curr_px,1),[],size(curr_px,3),size(curr_px,5)),t);
+caxis([-max(abs(caxis)),max(abs(caxis))]);
+colormap(brewermap([],'PrGn'));
+axis image;
+AP_reference_outline('ccf_aligned',[0.5,0.5,0.5],[], ...
+    [size(U_master,1),size(U_master,2),1,size(curr_px,5)]);
+
+% Plot time-average
+use_t = t >= 0.07 & t <= 0.17;
+curr_px_avg = squeeze(nanmean(curr_px(:,:,use_t,:,:),3));
+c = prctile(curr_px_avg(:),99.5).*[-1,1];
+figure;
+for curr_stim = 1:length(stim_unique)
+    for curr_learn = 1:size(curr_px_avg,3)
+        subplot(length(stim_unique),size(curr_px_avg,3), ...
+            size(curr_px_avg,3)*(curr_stim-1) + curr_learn);
+        imagesc(curr_px_avg(:,:,curr_stim,curr_learn));
+        caxis(c);
+        colormap(brewermap([],'PrGn'));
+        axis image off
+        AP_reference_outline('ccf_aligned',[0.5,0.5,0.5]);
+    end
+end
+
+% Get fluorescence in ROIs
+stim_v_avg_cat_grp_roi = ...
+    AP_svd_roi(U_master(:,:,1:n_vs),stim_v_avg_cat_grp,[],[], ...
+    cat(3,wf_roi.mask));
+    
+
+
+
+
 
 %% >> (Choiceworld task: post-learn only)
 
@@ -880,8 +1047,8 @@ AP_load_trials_wf;
 
 % Task
 trial_data_path = 'C:\Users\Andrew\OneDrive for Business\Documents\CarandiniHarrisLab\analysis\operant_learning\data';
-data_fn = 'trial_activity_task_teto';
-% data_fn = 'trial_activity_task_corticostriatal';
+% data_fn = 'trial_activity_task_teto';
+data_fn = 'trial_activity_task_corticostriatal';
 
 AP_load_trials_wf;
 
@@ -976,16 +1143,18 @@ max_days = max(n_days);
 fluor_deconv_cat = nan(n_vs,length(t),max_days,length(animals));
 for curr_animal = 1:length(animals)
     % (all trials)
-%     use_trials = cellfun(@(x) true(size(x)),move_t_animal{curr_animal},'uni',false);
+    use_trials = cellfun(@(x) true(size(x)),move_t_animal{curr_animal},'uni',false);
     % (reaction-time limited)
-        use_trials = cellfun(@(x) x > 0.1 & x < Inf,move_t_animal{curr_animal},'uni',false);
+%         use_trials = cellfun(@(x) x > 0.1 & x < 0.5,move_t_animal{curr_animal},'uni',false);
     % (trial subset from start or end)
     %     use_trials = cellfun(@(x) find(x > 0.05,10,'first'),move_t_animal{curr_animal},'uni',false);
     
+    % (full activity)
 %     fluor_deconv_cat(:,:,1:n_days(curr_animal),curr_animal) = ...
 %         permute(cell2mat(cellfun(@(x,trials) nanmean(x(trials,:,:),1), ...
 %         fluor_deconv_animal{curr_animal},use_trials,'uni',false)),[3,2,1]);
     
+    % (reduced activity)
     fluor_deconv_cat(:,:,1:n_days(curr_animal),curr_animal) = ...
         permute(cell2mat(cellfun(@(act,act_reduced,trials) ...
         nanmean(act(trials,:,:) - act_reduced(trials,:,:,1),1), ...
@@ -1003,7 +1172,7 @@ colormap(brewermap([],'PrGn'))
 AP_reference_outline('ccf_aligned',[0.5,0.5,0.5]);
 
 % Plot animal across days
-use_animal = 1;
+use_animal = 5;
 curr_px = AP_svdFrameReconstruct(U_master(:,:,1:n_vs),fluor_deconv_cat(:,:,:,use_animal));
 AP_image_scroll(curr_px,t);
 axis image;
@@ -1027,20 +1196,21 @@ fluor_rxn = nan(n_vs,length(t),length(rxn_bins)-1);
 for curr_rxn = 1:length(rxn_bins)-1
         use_trials = move_t_discretize == curr_rxn & ...
             trial_outcome_allcat == 1 & ...
-            move_prepost_max_ratio_allcat > 0.2;
+            move_prepost_max_ratio_allcat < 0.2;
         
 %     use_trials = move_t_discretize == curr_rxn & ...
 %         trial_outcome_allcat == 1 & ...
 %         trial_stim_allcat == 1;
+     
+%     % (raw activity)
+%     fluor_rxn(:,:,curr_rxn) = ...
+%         permute(nanmean(fluor_allcat_deconv(use_trials,:,:),1),[3,2,1]);
     
-    % (raw activity)
-    fluor_rxn(:,:,curr_rxn) = ...
-        permute(nanmean(fluor_allcat_deconv(use_trials,:,:),1),[3,2,1]);
-    
-%     % (activity - taskpred_reduced)
-%         fluor_rxn(:,:,curr_rxn) = ...
-%             permute(nanmean(fluor_allcat_deconv(use_trials,:,:) - ...
-%             fluor_taskpred_reduced_allcat(use_trials,:,:,1),1),[3,2,1]);
+    % (activity - taskpred_reduced)
+        fluor_rxn(:,:,curr_rxn) = ...
+            permute(nanmean(fluor_allcat_deconv(use_trials,:,:) - ...
+            fluor_taskpred_reduced_allcat(use_trials,:,:,1),1),[3,2,1]);
+        
 end
 
 curr_px = AP_svdFrameReconstruct(U_master(:,:,1:n_vs),fluor_rxn);
@@ -1049,6 +1219,61 @@ axis image;
 caxis([-max(abs(caxis)),max(abs(caxis))]);
 colormap(brewermap([],'PrGn'))
 AP_reference_outline('ccf_aligned',[0.5,0.5,0.5]);
+
+
+%% Reduced activity by behavior (animal day average)
+
+% Get average fluorescence by animal, day, stim
+stim_unique = unique(trial_stim_allcat);
+stim_v_avg = cell(size(animals));
+for curr_animal = 1:length(animals)        
+    for curr_day = 1:max(trial_day(trial_animal == curr_animal))
+        for curr_stim_idx = 1:length(stim_unique)
+            use_trials = ...
+                move_t >= 0.1 & ...
+                trial_animal == curr_animal & ...
+                trial_day == curr_day & ...
+                trial_stim_allcat == stim_unique(curr_stim_idx);
+            stim_v_avg{curr_animal}(:,:,curr_day,curr_stim_idx) = ...
+                permute(nanmean( ...
+                fluor_allcat_deconv(use_trials,:,:) - ...
+                fluor_taskpred_reduced_allcat(use_trials,:,:,1),1),[3,2,1]);
+        end       
+    end
+end
+
+% Group stim responses by behavioral performance
+stim_v_avg_cat = cell2mat(permute(stim_v_avg,[1,3,2,4])); 
+
+move_prepost_max_ratio_grp = ...
+    discretize(move_prepost_max_ratio,[-Inf,0.2,Inf]);
+move_prepost_max_ratio_grp(isnan(move_prepost_max_ratio)) = 0;
+stim_v_avg_cat_grp = reshape(grpstats( ...
+    reshape(stim_v_avg_cat,[],size(stim_v_avg_cat,3))', ...
+    move_prepost_max_ratio_grp)',n_vs,length(t),[]);
+
+curr_px = AP_svdFrameReconstruct(U_master(:,:,1:n_vs),stim_v_avg_cat_grp);
+AP_image_scroll(curr_px,t);
+caxis([-max(abs(caxis)),max(abs(caxis))]);
+colormap(brewermap([],'PrGn'));
+axis image;
+AP_reference_outline('ccf_aligned',[0.5,0.5,0.5]);
+
+% Plot time-average
+use_t = t >= 0.07 & t <= 0.17;
+curr_px_avg = squeeze(nanmean(curr_px(:,:,use_t,:,:),3));
+c = prctile(curr_px_avg(:),99.5).*[-1,1];
+figure;
+for curr_learn = 1:size(curr_px_avg,3)
+    subplot(1,size(curr_px_avg,3),curr_learn);
+    imagesc(curr_px_avg(:,:,curr_learn));
+    caxis(c);
+    colormap(brewermap([],'PrGn'));
+    axis image off
+    AP_reference_outline('ccf_aligned',[0.5,0.5,0.5]);
+end
+
+
 
 
 %% Average trial activity by wheel velocity
@@ -1114,10 +1339,10 @@ ylabel('Reaction time');
 % curr_act = fluor_roi_deconv(:,:,7) - fluor_roi_deconv(:,:,17);
 curr_act = fluor_roi_deconv(:,:,7) - fluor_roi_taskpred_reduced(:,:,7,1);
 
-use_t = t >= 0.05 & t <= 0.1;
+use_t = t >= 0.07 & t <= 0.17;
 curr_act_timeavg = nanmean(double(curr_act(:,use_t)),2);
 
-use_trials = move_t > 0.1;
+use_trials = move_t >= 0.1;
 
 roi_animal_day_avg = accumarray([trial_animal(use_trials),trial_day(use_trials)], ...
     curr_act_timeavg(use_trials),[max(trial_animal),max(trial_day)], ...
@@ -1131,16 +1356,16 @@ n_daysplit = 4;
 day_split_idx = cell2mat(arrayfun(@(x) ...
     min(floor(linspace(1,n_daysplit+1,x)),n_daysplit)', ...
     trials_recording,'uni',false));
-roi_animal_day_avg = accumarray( ...
+roi_animal_daysplit_avg = accumarray( ...
     [trial_animal(use_trials),trial_day(use_trials),day_split_idx(use_trials)], ...
     curr_act_timeavg(use_trials),[max(trial_animal),max(trial_day),n_daysplit], ...
     @nanmean,NaN);
 figure; hold on;
-roi_animal_day_avg_long = reshape(permute( ...
-    padarray(roi_animal_day_avg,[0,0,1],NaN,'post'),[3,2,1]),[],length(animals));
+roi_animal_daysplit_avg_long = reshape(permute( ...
+    padarray(roi_animal_daysplit_avg,[0,0,1],NaN,'post'),[3,2,1]),[],length(animals));
 % plot([1:size(roi_animal_day_avg_long,1)]/(n_daysplit+1),roi_animal_day_avg_long);
-errorbar([1:size(roi_animal_day_avg_long,1)]/(n_daysplit+1), ...
-    nanmean(roi_animal_day_avg_long,2),AP_sem(roi_animal_day_avg_long,2),'k','linewidth',2);
+errorbar([1:size(roi_animal_daysplit_avg_long,1)]/(n_daysplit+1), ...
+    nanmean(roi_animal_daysplit_avg_long,2),AP_sem(roi_animal_daysplit_avg_long,2),'k','linewidth',2);
 
 % Split by pre/post move ratio
 moveratio_bins = [-1:0.1:1];
@@ -1361,7 +1586,8 @@ axis image;
 
 % Load data
 trial_data_path = 'C:\Users\Andrew\OneDrive for Business\Documents\CarandiniHarrisLab\analysis\operant_learning\data';
-data_fn = 'trial_activity_passive_teto_muscimol';
+% data_fn = 'trial_activity_passive_teto_muscimol';
+data_fn = 'trial_activity_passive_cstr_muscimol';
 
 AP_load_trials_wf;
 
@@ -1383,7 +1609,7 @@ fluor_roi_exp_stimavg = cell2mat(cellfun(@(act,quiescent,stim) ...
     nanmean(act(quiescent & stim == 1,:,:),1), ...
     fluor_roi_exp,quiescent_trials_exp,trial_stim_exp,'uni',false));
 
-unique_muscimol_area = unique(muscimol_area_cat);
+unique_muscimol_area = flipud(unique(muscimol_area_cat));
 fluor_muscimol_avg = nan(n_vs,length(t),length(unique_muscimol_area));
 for curr_area = 1:length(unique_muscimol_area)
     curr_exps = strcmp(muscimol_area_cat,unique_muscimol_area{curr_area});
@@ -1401,15 +1627,16 @@ axis image;
 AP_reference_outline('ccf_aligned',[0.5,0.5,0.5]);
 
 % Plot time averages and ROIs
-use_t = t > 0.05 & t < 0.2;
+use_t = t >= 0.07 & t <= 0.17;
 fluor_roi_stimavg = squeeze(nanmean(fluor_roi_exp_stimavg(:,use_t,:),2));
 fluor_muscimol_px_stimavg = squeeze(nanmean(fluor_muscimol_avg_px(:,:,use_t,:),3));
 
 figure;
+c = prctile(fluor_muscimol_px_stimavg(:),100).*[-1,1];
 for curr_area = 1:length(unique_muscimol_area)
     subplot(1,length(unique_muscimol_area)+1,curr_area);
     imagesc(fluor_muscimol_px_stimavg(:,:,curr_area));
-    caxis([-max(abs(caxis)),max(abs(caxis))]);
+    caxis(c);
     colormap(brewermap([],'PrGn'));
     axis image off;
     AP_reference_outline('ccf_aligned','k');
@@ -1420,7 +1647,7 @@ subplot(1,length(unique_muscimol_area)+1,length(unique_muscimol_area)+1);
 plot_rois = [1,7];
 area_col = lines(length(unique_muscimol_area));
 gscatter(fluor_roi_stimavg(:,plot_rois(1)),fluor_roi_stimavg(:,plot_rois(2)), ...
-    muscimol_area_cat);
+    muscimol_area_cat,area_col);
 axis square;
 xlabel(wf_roi(plot_rois(1)).area);
 ylabel(wf_roi(plot_rois(2)).area);

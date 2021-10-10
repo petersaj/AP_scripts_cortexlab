@@ -255,18 +255,18 @@ end
 
 data_path = 'C:\Users\Andrew\OneDrive for Business\Documents\CarandiniHarrisLab\analysis\operant_learning\data';
 
-% (load separate)
+% % (load separate)
 % bhv_fn = [data_path filesep 'bhv_teto'];
-bhv_fn = [data_path filesep 'bhv_corticostriatal'];
-load(bhv_fn);
+% % bhv_fn = [data_path filesep 'bhv_corticostriatal'];
+% load(bhv_fn);
 
-% % (load and combine)
-% bhv_fn1 = [data_path filesep 'bhv_teto'];
-% bhv1 = load(bhv_fn1);
-% bhv_fn2 = [data_path filesep 'bhv_corticostriatal'];
-% bhv2 = load(bhv_fn2);
-% bhv = [bhv1.bhv,bhv2.bhv];
-% clearvars bhv1 bhv2
+% (load and combine)
+bhv_fn1 = [data_path filesep 'bhv_teto'];
+bhv1 = load(bhv_fn1);
+bhv_fn2 = [data_path filesep 'bhv_corticostriatal'];
+bhv2 = load(bhv_fn2);
+bhv = [bhv1.bhv,bhv2.bhv];
+clearvars bhv1 bhv2
 
 animals = {bhv.animal};
 
@@ -444,7 +444,7 @@ muscimol_fn = [data_path filesep 'muscimol.mat'];
 load(muscimol_fn);
 
 muscimol_animals = find(ismember({muscimol.animal},animals));
-muscimol_areas = flipud(unique(vertcat(muscimol(muscimol_animals).area)));
+muscimol_areas = unique(vertcat(muscimol(muscimol_animals).area));
 
 stim_surround_t = bhv(1).stim_surround_t;
 muscimol_stim_surround_wheel = repmat( ...
@@ -496,15 +496,15 @@ for curr_area_idx = 1:length(muscimol_areas)
         stim_reward_t_muscimol(curr_area_idx,curr_muscimol_animal_idx) = ...
             nanmedian([bhv(curr_bhv_animal_idx).stim_reward_t{bhv_day_idx}]);
         move_reward_t_muscimol(curr_area_idx,curr_muscimol_animal_idx) = ...
-            nanmedian([bhv(curr_bhv_animal_idx).stim_reward_t{bhv_day_idx}] - ...
-            [bhv(curr_bhv_animal_idx).stim_move_t{bhv_day_idx}]);
+            nanmedian([bhv(curr_muscimol_animal_idx).stim_reward_t{bhv_day_idx}] - ...
+            [bhv(curr_muscimol_animal_idx).stim_move_t{bhv_day_idx}]);
         
         
         wheel_velocity_muscimol(curr_area_idx,curr_muscimol_animal_idx) = ...
-            nanmean(bhv(curr_bhv_animal_idx).wheel_velocity(bhv_day_idx)./ ...
-            bhv(curr_bhv_animal_idx).session_duration(bhv_day_idx));
+            nanmean(bhv(curr_muscimol_animal_idx).wheel_velocity(bhv_day_idx)./ ...
+            bhv(curr_muscimol_animal_idx).session_duration(bhv_day_idx));
         wheel_bias_muscimol(curr_area_idx,curr_muscimol_animal_idx) = ...
-            nanmean(bhv(curr_bhv_animal_idx).wheel_bias(bhv_day_idx));
+            nanmean(bhv(curr_muscimol_animal_idx).wheel_bias(bhv_day_idx));
         
     end   
     
@@ -564,23 +564,21 @@ ylabel('Post/post ratio');
 figure;
 subplot(1,2,1); hold on;
 gscatter(move_prepost_max_ratio(:),wheel_velocity_muscimol(:), ...
-    reshape(repmat(muscimol_areas,1,length(animals)),[],1),lines(length(muscimol_areas)),[],20);
+    reshape(repmat(muscimol_areas,1,length(animals)),[],1),lines(4),[],15);
 xlabel('Pre/post move');
 ylabel('Velocity/s');
 axis square;
 
 subplot(1,2,2); hold on;
-washout_idx = strcmp('washout',muscimol_areas);
 wheel_velocity_muscimol_norm = ...
-    (wheel_velocity_muscimol-wheel_velocity_muscimol(washout_idx,:))./ ...
-    (wheel_velocity_muscimol+wheel_velocity_muscimol(washout_idx,:));
-move_prepost_max_ratio_diff = move_prepost_max_ratio - move_prepost_max_ratio(washout_idx,:);
+    (wheel_velocity_muscimol-wheel_velocity_muscimol(4,:))./ ...
+    (wheel_velocity_muscimol+wheel_velocity_muscimol(4,:));
+move_prepost_max_ratio_diff = move_prepost_max_ratio - move_prepost_max_ratio(4,:);
 gscatter(move_prepost_max_ratio_diff(:),wheel_velocity_muscimol_norm(:), ...
-    reshape(repmat(muscimol_areas,1,length(animals)),[],1),lines(length(muscimol_areas)),[],20);
+    reshape(repmat(muscimol_areas,1,length(animals)),[],1),lines(4),[],15);
 xlabel('Diff. Pre/post move');
 ylabel('Norm. Velocity/s');
 axis square;
-
 
 
 %% ~~~~~~~ Testing 

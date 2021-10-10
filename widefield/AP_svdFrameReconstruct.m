@@ -1,10 +1,11 @@
-function frameRecon = AP_svdFrameReconstruct(U,V)
+function px = AP_svdFrameReconstruct(U,V)
 % frameRecon = AP_svdFrameReconstruct(U,V)
 %
 % U is Y x X x nSVD
-% V is nSVD x nFrames x nConditions
-% 
-% Copied from NS svdFrameReconstruct: added 3rd V dimension
+% V is nSVD x nFrames x ...[nConditions]
 
-frameRecon = reshape(reshape(U,[],size(U,3))* ...
-    reshape(V,size(V,1),[]),size(U,1),size(U,2),size(V,2),size(V,3));
+U_size = size(U);
+V_size = size(V);
+
+px = reshape(reshape(U,[],size(U,3))* ...
+    reshape(V,size(V,1),[]),[U_size(1:2),V_size(2:end)]);
