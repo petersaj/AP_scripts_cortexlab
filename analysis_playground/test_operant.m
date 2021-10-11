@@ -1047,8 +1047,8 @@ AP_load_trials_wf;
 
 % Task
 trial_data_path = 'C:\Users\Andrew\OneDrive for Business\Documents\CarandiniHarrisLab\analysis\operant_learning\data';
-% data_fn = 'trial_activity_task_teto';
-data_fn = 'trial_activity_task_corticostriatal';
+data_fn = 'trial_activity_task_teto';
+% data_fn = 'trial_activity_task_corticostriatal';
 
 AP_load_trials_wf;
 
@@ -1188,15 +1188,15 @@ colormap(brewermap([],'PrGn'))
 % Average all activity by reaction time depending on learned
 % rxn_bins = [-0.05:0.02:1]';
 % rxn_bins = [-Inf,Inf];
-rxn_bins = [0.1,0.5];
-% rxn_bins = [0.1:0.1:0.5];
+% rxn_bins = [0.1,0.5];
+rxn_bins = [0.1:0.1:0.5];
 rxn_bin_centers = rxn_bins(1:end-1) + diff(rxn_bins)./2;
 move_t_discretize = discretize(move_t,rxn_bins);
 fluor_rxn = nan(n_vs,length(t),length(rxn_bins)-1);
 for curr_rxn = 1:length(rxn_bins)-1
         use_trials = move_t_discretize == curr_rxn & ...
             trial_outcome_allcat == 1 & ...
-            move_prepost_max_ratio_allcat < 0.2;
+            move_prepost_max_ratio_allcat >= 0.2;
         
 %     use_trials = move_t_discretize == curr_rxn & ...
 %         trial_outcome_allcat == 1 & ...

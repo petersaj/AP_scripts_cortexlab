@@ -37,17 +37,18 @@ end
 
 % use_movie_t = t > -0.2 & t <= 0.1;
 % use_movie_t = t >= 0.1 & t <= 0.3;
-use_movie_t = t >= 0.3 & t <= 0.7;
-% use_movie_t = t > -0.2 & t <= 0.7;
+% use_movie_t = t >= 0.3 & t <= 0.7;
+use_movie_t = t > -0.2 & t <= 0.7;
 
 movie_rate = sample_rate/5;
 color_map = brewermap([],'PrGn');
 % color_axis = [-0.008,0.008];
-color_axis = [-0.002,0.002];
-figure_position = [105 497 500 483];
-% figure_position = [25 600 1400 420];
+% color_axis = [-0.002,0.002];
+color_axis = [-0.005,0.005];
+% figure_position = [105 497 500 483];
+figure_position = [25 600 1300 300];
 save_path = 'C:\Users\Andrew\OneDrive for Business\Documents\CarandiniHarrisLab\presentations\211011_data_club';
-savefile = [save_path filesep 'avg_fluor_cstr_3'];
+savefile = [save_path filesep 'avg_fluor_teto_rxn_reduced'];
 t_annotation = cellfun(@(x) sprintf('Time from stimulus: %0.2f sec',x),num2cell(t),'uni',false);
 AP_movie2avi(curr_px(:,:,use_movie_t,:), ...
     movie_rate,color_map,color_axis,figure_position,savefile,t_annotation(use_movie_t));
