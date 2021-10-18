@@ -59,13 +59,16 @@ st = loadStructureTree([allen_ccf_path filesep 'structure_tree_safe_2017.csv']);
 % Load the colormap (included in standalone)
 load('allen_ccf_colormap_2017.mat');
 
+% Load brain grid (included in standalone)
+brainGridData = readNPY('brainGridData.npy');
+
 % Set up the gui
 probe_atlas_gui = figure('Toolbar','none','Menubar','none','color','w', ...
     'Name','Neuropixels Trajectory Explorer','Units','normalized','Position',[0.21,0.2,0.7,0.7]);
 
 % Set up the atlas axes
 axes_atlas = subplot(1,2,1);
-[~, brain_outline] = plotBrainGrid([],axes_atlas);
+[~, brain_outline] = plotBrainGrid(brainGridData,axes_atlas);
 hold(axes_atlas,'on');
 axis vis3d equal off manual
 view([-30,25]);

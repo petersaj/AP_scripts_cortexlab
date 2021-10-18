@@ -1,5 +1,5 @@
 <deployment-project plugin="plugin.ezdeploy" plugin-version="1.0">
-  <configuration file="C:\Github\AP_scripts_cortexlab\allen_interface\standalone\allen_ccf_npx.prj" location="C:\Github\AP_scripts_cortexlab\allen_interface\standalone" name="allen_ccf_npx" target="target.ezdeploy.standalone" target-name="Application Compiler">
+  <configuration build-checksum="1405920140" file="C:\Github\AP_scripts_cortexlab\allen_interface\standalone\allen_ccf_npx.prj" location="C:\Github\AP_scripts_cortexlab\allen_interface\standalone" name="allen_ccf_npx" preferred-package-location="C:\Github\AP_scripts_cortexlab\allen_interface\standalone\allen_ccf_npx\for_redistribution" preferred-package-type="package.type.exe" target="target.ezdeploy.standalone" target-name="Application Compiler">
     <param.appname>allen_ccf_npx</param.appname>
     <param.icon>${PROJECT_ROOT}\allen_ccf_npx_resources\icon.ico</param.icon>
     <param.icons>
