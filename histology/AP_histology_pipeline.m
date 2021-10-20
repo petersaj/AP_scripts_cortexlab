@@ -7,7 +7,7 @@ av = readNPY([allen_atlas_path filesep 'annotation_volume_10um_by_index.npy']);
 st = loadStructureTree([allen_atlas_path filesep 'structure_tree_safe_2017.csv']);
 
 % Set paths for histology images and directory to save slice/alignment
-im_path = 'C:\Users\Andrew\Desktop\npx_course_histology';
+im_path = 'C:\Users\Andrew\Desktop\npx_2dhist_demo_2';
 slice_path = [im_path filesep 'slices'];
 
 %% 2) Preprocess slide images to produce slice images
@@ -56,7 +56,7 @@ AP_view_aligned_histology_volume(tv,av,st,slice_path,1);
 AP_get_probe_histology(tv,av,st,slice_path);
 
 % Align histology to electrophysiology
-use_probe = 1;
+use_probe = 2;
 AP_align_probe_histology(st,slice_path, ...
     spike_times,spike_templates,template_depths, ...
     lfp,channel_positions(:,2), ...

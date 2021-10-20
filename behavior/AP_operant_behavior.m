@@ -591,12 +591,9 @@ ylabel('Norm. Velocity/s');
 axis square;
 
 
+%% Learning within- or across-day: split trials within day
 
-%% ~~~~~~~ Testing 
-
-%% Learning within- or across-day: trials by chunk?
-
-n_daysplit = 4;
+n_daysplit = 6;
 
 % Load muscimol injection info
 data_path = 'C:\Users\Andrew\OneDrive for Business\Documents\CarandiniHarrisLab\analysis\operant_learning\data';
@@ -631,22 +628,16 @@ stim_move_t_cat = cell2mat(cellfun(@(x,use_days) cell2mat(x(use_days)), ...
 stim_move_t_daysplit = accumarray(cell2mat([trial_split_idx{:}])', ...
     stim_move_t_cat',[n_daysplit,max_days,length(bhv)],@nanmedian,NaN);
 
-figure;
+figure; hold on;
 stim_move_t_daysplit_long = reshape(padarray(stim_move_t_daysplit,[1,0,0],NaN,'post'),[],length(animals));
-subplot(2,1,1);
 plot([1:size(stim_move_t_daysplit_long,1)]/(n_daysplit+1),stim_move_t_daysplit_long);
 set(gca,'YScale','log')
-subplot(2,1,2);
 errorbar([1:size(stim_move_t_daysplit_long,1)]/(n_daysplit+1), ...
     nanmean(stim_move_t_daysplit_long,2),AP_sem(stim_move_t_daysplit_long,2),'k','linewidth',2);
 set(gca,'YScale','log')
 linkaxes(get(gcf,'Children'),'xy')
 xlabel('Day');
 ylabel('Stim to move (s)');
-
-
-
-
 
 % Movement around stim
 stim_surround_wheel_avg = cell2mat(cellfun(@(x) ...
@@ -656,15 +647,6 @@ stim_surround_wheel_avg = cell2mat(cellfun(@(x) ...
     cellfun(@(x,use_days) x(use_days),{bhv.stim_surround_wheel},use_days,'uni',false), ...
     [1,3,2]),'uni',false));
 
-% Movement probability pre/post stim
-stim_surround_t = bhv(1).stim_surround_t;
-move_prestim_max = permute(max(stim_surround_wheel_avg(:,stim_surround_t<0,:),[],2),[3,1,2]);
-move_poststim_max = permute(max(stim_surround_wheel_avg(:,stim_surround_t>=0,:),[],2),[3,1,2]);
-move_prepost_max_ratio = ...
-    (move_poststim_max-move_prestim_max)./(move_poststim_max+move_prestim_max);
-
-
-
 stim_surround_wheel_cat = cell2mat(cellfun(@(x,use_days) cell2mat(x(use_days)'), ...
     {bhv.stim_surround_wheel},use_days,'uni',false)');
 
@@ -673,11 +655,21 @@ stim_surround_wheel_grp = accumarray(reshape(cat(3, ...
     repmat(permute(cell2mat([trial_split_idx{:}])',[1,3,2]),1,size(stim_surround_wheel_cat,2))),[],4), ...
     stim_surround_wheel_cat(:),[],@nanmean,NaN);
 
-stim_move_prestim = squeeze(max(stim_surround_wheel_grp(stim_surround_t < 0,:,:,:),[],1));
-stim_move_poststim = squeeze(max(stim_surround_wheel_grp(stim_surround_t >= 0,:,:,:),[],1));
-%%% WAS HERE: GET PRE/POST RATIO, THEN CHECK WHETHER THIS MEASURE IMPROVES
-%%% WITHIN OR ACROSS DAYS
+stim_surround_t = bhv(1).stim_surround_t;
+stim_move_prestim_daysplit = squeeze(max(stim_surround_wheel_grp(stim_surround_t < 0,:,:,:),[],1));
+stim_move_poststim_daysplit = squeeze(max(stim_surround_wheel_grp(stim_surround_t >= 0,:,:,:),[],1));
+stim_move_ratio_daysplit = (stim_move_poststim_daysplit - stim_move_prestim_daysplit)./ ...
+    (stim_move_poststim_daysplit + stim_move_prestim_daysplit);
 
+figure; hold on
+stim_move_ratio_daysplit_long = ...
+    reshape(padarray(stim_move_ratio_daysplit,[1,0,0],NaN,'post'),[],length(animals));
+plot([1:size(stim_move_ratio_daysplit_long,1)]/(n_daysplit+1),stim_move_ratio_daysplit_long);
+errorbar([1:size(stim_move_ratio_daysplit_long,1)]/(n_daysplit+1), ...
+    nanmean(stim_move_ratio_daysplit_long,2),AP_sem(stim_move_ratio_daysplit_long,2),'k','linewidth',2);
+linkaxes(get(gcf,'Children'),'xy')
+xlabel('Day');
+ylabel('Stim response ratio');
 
 
 

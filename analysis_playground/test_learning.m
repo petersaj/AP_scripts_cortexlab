@@ -620,10 +620,12 @@ disp(['Saved: ' save_path filesep save_fn])
 
 % Load data
 trial_data_path = 'C:\Users\Andrew\OneDrive for Business\Documents\CarandiniHarrisLab\analysis\learning\data';
-% data_fn = 'trial_activity_passive_learning';
+data_fn = 'trial_activity_passive_learning';
 % data_fn = 'trial_activity_passive_learning_operant';
-data_fn = 'trial_activity_passive_learning_operant_teto';
-AP_load_concat_normalize_ctx_str;
+% data_fn = 'trial_activity_passive_learning_operant_teto';
+
+% AP_load_concat_normalize_ctx_str;
+AP_load_trials_wf;
 
 % Get animal and day index for each trial
 trial_animal = cell2mat(arrayfun(@(x) ...
@@ -1001,6 +1003,7 @@ caxis([-max(abs(caxis)),max(abs(caxis))]);
 colormap(brewermap([],'PrGn'));
 axis image;
 AP_reference_outline('ccf_aligned',[0.5,0.5,0.5]);
+
 % (as above but within each mouse)
 use_t = t > 0.05 & t < 0.2;
 stim_px_avg_day = AP_svdFrameReconstruct( ...

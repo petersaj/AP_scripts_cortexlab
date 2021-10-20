@@ -1336,13 +1336,14 @@ ylabel('Reaction time');
 %% Time-average ROI activity by day/behavior
 
 % curr_act = fluor_roi_deconv(:,:,7);
-% curr_act = fluor_roi_deconv(:,:,7) - fluor_roi_deconv(:,:,17);
-curr_act = fluor_roi_deconv(:,:,7) - fluor_roi_taskpred_reduced(:,:,7,1);
+curr_act = fluor_roi_deconv(:,:,7) - fluor_roi_deconv(:,:,17);
+% curr_act = fluor_roi_deconv(:,:,7) - fluor_roi_taskpred_reduced(:,:,7,1);
 
 use_t = t >= 0.07 & t <= 0.17;
 curr_act_timeavg = nanmean(double(curr_act(:,use_t)),2);
 
-use_trials = move_t >= 0.1;
+use_trials = true(size(move_t));
+% use_trials = move_t >= 0.1;
 
 roi_animal_day_avg = accumarray([trial_animal(use_trials),trial_day(use_trials)], ...
     curr_act_timeavg(use_trials),[max(trial_animal),max(trial_day)], ...
@@ -1352,7 +1353,7 @@ plot(roi_animal_day_avg');
 plot(nanmean(roi_animal_day_avg,1),'k','linewidth',2);
 
 %%%% split days
-n_daysplit = 4;
+n_daysplit = 6;
 day_split_idx = cell2mat(arrayfun(@(x) ...
     min(floor(linspace(1,n_daysplit+1,x)),n_daysplit)', ...
     trials_recording,'uni',false));

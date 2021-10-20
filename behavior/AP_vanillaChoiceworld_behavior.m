@@ -1,7 +1,11 @@
 %% Get and plot behavior within mice (vanillaChoiceworld)
+
+% % (longitudinal 2afc teto)
+animals = {'AP040','AP041','AP045'}; % training rig - 'AP047','AP048'
+
+% (2afc cstr)
 % animals = {'AP063','AP064','AP066','AP068','AP071','AP085','AP086','AP087'};
-animals = {'AP040','AP041','AP045','AP047','AP048','AP077','AP079'};
-% animals = {'AP089','AP090','AP091'};
+
 protocol = 'vanillaChoiceworld';
 flexible_name = true;
 
