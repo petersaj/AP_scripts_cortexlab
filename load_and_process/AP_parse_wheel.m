@@ -21,9 +21,11 @@ wheel_position = wheel_position(:);
 wheel_smooth_t = 0.05; % seconds
 wheel_smooth_samples = round(wheel_smooth_t*sample_rate);
 
-% (get rid of single wheel clicks within smoothing limit)
+% (get rid of single wheel clicks or balancing clicks within the window)
 wheel_clicks = diff(wheel_position); % rotary encoder clicks
-wheel_click_remove = conv(abs(wheel_clicks),ones(1,wheel_smooth_samples),'same') == 1;
+wheel_click_remove = ...
+    conv(abs(wheel_clicks),ones(1,wheel_smooth_samples),'same') < 2  | ...
+    abs(conv(wheel_clicks,ones(1,wheel_smooth_samples),'same')) < 1;
 wheel_clicks(wheel_click_remove) = 0;
 
 % (get velocity by smoothing and median filtering cleaned trace)
@@ -42,7 +44,7 @@ end
 wheel_starts_all = find(diff([false;wheel_velocity_thresh;false]) == 1);
 wheel_stops_all = find(diff([false;wheel_velocity_thresh;false]) == -1);
 
-% Any starts within set time of a stop - combine
+% Combine movements with small gaps between
 combine_move_t = 0.3; % in s (empirical/arbitrary)
 combine_move_samples = round(combine_move_t*sample_rate);
 combine_move = find((wheel_starts_all(2:end) - wheel_stops_all(1:end-1)) > combine_move_samples);

@@ -137,6 +137,8 @@ for curr_site = 1:length(data_paths)
         disp('Done');
         
         % Clean AP data of artifacts
+        % (I don't remember doing this - other ones use AP_applyCarToDat,
+        % use that instead?)
         disp('Cleaning AP data...')
         ap_clean_filename = [ssd_kilosort_path filesep animal '_' day '_' 'ephys_apband_clean.dat'];
         ttl_path = fileparts(sync_filename);

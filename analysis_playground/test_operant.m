@@ -4,6 +4,90 @@
 
 %% ~~~~~~~~~ SINGLE-SESSION ~~~~~~~~~
 
+%% Load example session
+
+% animal = 'AP100';
+% day = '2021-05-03';
+% day = '2021-05-07';
+
+animal = 'AP104';
+day = '2021-06-06';
+% day = '2021-06-08';
+% day = '2021-06-11';
+% day = '2021-06-13';
+
+experiment = 1;
+verbose = true;
+load_parts.imaging = false;
+AP_load_experiment;
+
+t = Timeline.rawDAQTimestamps;
+
+%% Get rewarded/unrewarded movement times/epochs
+
+% Plot velocity/reward/stim
+wheel_velocity_move = wheel_velocity;
+wheel_velocity_move(~wheel_move) = NaN;
+
+figure; hold on;
+plot(t,wheel_velocity,'k');
+plot(t,wheel_velocity_move,'r');
+plot(reward_t_timeline,0,'.b','MarkerSize',10);
+plot(t,stimOn_epochs*0.1,'g');
+
+% Get real and null distribution of stim-to-move times
+% (get gaps between iti movements and prior movements)
+use_wheel_move_iti = wheel_move_iti_idx(wheel_move_iti_idx > 1); % no gap for first movement
+iti_move_gaps = wheel_starts(use_wheel_move_iti) - wheel_stops(use_wheel_move_iti - 1);
+% (get gaps between stim movements and prior movements)
+use_wheel_move_stim = wheel_move_stim_idx(wheel_move_stim_idx > 1); % no gap for first movement
+wheel_move_preresponse_stop = wheel_stops(use_wheel_move_stim-1);
+% (make null distribution: positive prior movement + gap relative to stim)
+% (from 2nd stim, in case no move before first)
+n_shuff = 10000;
+stim_to_move_shuff = ...
+    stimOn_times(end-length(use_wheel_move_stim)+1:end) ...
+    - (wheel_move_preresponse_stop + ...
+    reshape(randsample(iti_move_gaps,length(wheel_move_preresponse_stop)*n_shuff,true),[],n_shuff));
+stim_to_move_shuff(stim_to_move_shuff < 0) = NaN; % positives only, negatives would've been resets
+
+% (TESTING: get move start time after and end time before reward)
+iti_move_gaps = wheel_starts(wheel_move_iti_idx(2:length(wheel_move_iti_idx))) - ...
+    wheel_starts(wheel_move_iti_idx(2:length(wheel_move_iti_idx))-1);
+
+wheel_move_preresponse_stop = wheel_stops(wheel_move_stim_idx(2:length(wheel_move_stim_idx))-1);
+
+r = wheel_starts(wheel_move_stim_idx(2:end)) - wheel_move_preresponse_stop;
+
+
+a = wheel_starts(wheel_move_stim_idx(2:length(wheel_move_stim_idx))-1);
+b = wheel_stops(wheel_move_stim_idx(2:length(wheel_move_stim_idx))-2);
+c = a - b;
+figure; hold on;
+histogram(stim_to_move_shuff(:),0:0.02:1,'EdgeColor','none','normalization','probability')
+histogram(stim_to_move,0:0.02:1,'EdgeColor','none','normalization','probability')
+
+
+% (align movement to prestim wheel stop)
+figure;subplot(1,2,1);
+% use_align = wheel_move_preresponse_stop;
+use_align = wheel_stops(wheel_move_stim_idx-2);
+surround_t_centers = -10:0.1:10;
+surround_times = use_align + surround_t_centers;
+surround_move = interp1(t,wheel_move,surround_times,'previous');
+imagesc(surround_move);
+colormap(brewermap([],'Greys'));
+
+% (align movement to second-last stop vs stim)
+subplot(1,2,2);
+use_align = stimOn_times;
+surround_t_centers = -10:0.1:10;
+surround_times = use_align + surround_t_centers;
+surround_move = interp1(t,wheel_move,surround_times,'previous');
+imagesc(surround_move);
+colormap(brewermap([],'Greys'));
+
+
 %% Passive PSTH
 
 % Get quiescent trials
@@ -45,23 +129,19 @@ AP_cellraster({stimOn_times,wheel_move_time,iti_move_starts,reward_t_timeline}, 
     {rxn_sort_idx,rxn_sort_idx,iti_move_sort_idx,1:length(reward_t_timeline)})
 
 
-
-
 %% Get average rewarded and other movements
 
-[wheel_vel,wheel_move,wheel_vel_split] = AP_parse_wheel(wheel_position,Timeline.hw.daqSampleRate);
-
-wheel_split_n = cellfun(@length,wheel_vel_split);
+wheel_split_n = cellfun(@length,wheel_velocity_split);
 wheel_pos_split = mat2cell(wheel_position,wheel_split_n);
 
-wheel_split_n = cellfun(@length,wheel_vel_split)';
+wheel_split_n = cellfun(@length,wheel_velocity_split)';
 split_move = cellfun(@(x) x(1),mat2cell(wheel_move,wheel_split_n));
 
 wheel_gain = 8; % (deg/mm - in signals protocol)
 
 max_move = max(wheel_split_n(split_move == 1));
 vel_pad = cell2mat(cellfun(@(x) padarray(x,max_move-length(x),NaN,'post'), ...
-    wheel_vel_split(split_move == 1),'uni',false)');
+    wheel_velocity_split(split_move == 1),'uni',false)');
 pos_pad_raw = cell2mat(cellfun(@(x) padarray(x,max_move-length(x),NaN,'post'), ...
     wheel_pos_split(split_move == 1),'uni',false)'); 
 pos_pad = (pos_pad_raw - pos_pad_raw(1,:))*wheel_gain;
@@ -89,6 +169,266 @@ legend({'Unrewarded','Rewarded'});
 xlabel('Time from movement onset');
 ylabel('Wheel velocity');
 xlim([0,1000]);
+
+%% Stim-surround movement
+
+t = Timeline.rawDAQTimestamps;
+
+% (probability of any movement around stim)
+stim_surround_t_centers = -10:0.1:10;
+stim_surround_times = stimOn_times + stim_surround_t_centers;
+stim_surround_move = interp1(t,wheel_move,stim_surround_times,'previous');
+
+figure;
+subplot(1,3,1);
+imagesc(stim_surround_t_centers,[],stim_surround_move);
+ylabel('Trial order');
+
+subplot(1,3,2);
+trial_quiescence = signals_events.trialQuiescenceValues(1:n_trials);
+[~,sort_idx] = sort(trial_quiescence);
+imagesc(stim_surround_t_centers,[],stim_surround_move(sort_idx,:));
+hold on;
+plot(-trial_quiescence(sort_idx),1:length(sort_idx),'.r')
+plot(stim_to_feedback(sort_idx),1:length(sort_idx),'.c')
+ylabel('Sorted by quiescence')
+
+subplot(1,3,3);
+[~,sort_idx] = sort(stim_to_move);
+imagesc(stim_surround_t_centers,[],stim_surround_move(sort_idx,:));
+hold on;
+plot(-trial_quiescence(sort_idx),1:length(sort_idx),'.r')
+plot(stim_to_feedback(sort_idx),1:length(sort_idx),'.c')
+ylabel('Sorted by rxn')
+
+colormap(brewermap([],'Greys'));
+
+%% Move-surround movement (and stim)
+
+t = Timeline.rawDAQTimestamps;
+
+% wheel start surround
+surround_t_centers = -10:0.1:10;
+surround_times = wheel_starts + surround_t_centers;
+surround_move = interp1(t,wheel_move,surround_times,'previous');
+
+figure;
+subplot(1,2,1);
+imagesc(surround_t_centers,[],surround_move(wheel_move_iti_idx,:));
+title('ITI movements')
+
+subplot(1,2,2);
+imagesc(surround_t_centers,[],surround_move(wheel_move_stim_idx,:));
+hold on;
+plot(-stim_to_move,1:length(stim_to_move),'.r');
+title('Stim movements')
+
+colormap(brewermap([],'Greys'));
+
+% wheel stop surround
+surround_t_centers = 0:0.1:5;
+surround_times = wheel_stops + surround_t_centers;
+surround_move = interp1(t,wheel_move,surround_times,'previous');
+
+figure;
+subplot(1,2,1);
+imagesc(surround_t_centers,[],surround_move(wheel_move_iti_idx(2:end)-1,:));
+title('ITI movements')
+
+subplot(1,2,2);
+imagesc(surround_t_centers,[],surround_move(wheel_move_stim_idx-1,:));
+hold on;
+title('Stim movements')
+
+colormap(brewermap([],'Greys'));
+
+
+
+%% Move time regression (Cox proportional hazards)
+
+t = Timeline.rawDAQTimestamps;
+
+% Plot velocity/reward/stim
+wheel_velocity_move = wheel_velocity;
+wheel_velocity_move(~wheel_move) = NaN;
+
+figure; hold on;
+plot(t,wheel_velocity,'k');
+plot(t,wheel_velocity_move,'r');
+plot(reward_t_timeline,0,'.b','MarkerSize',10);
+plot(t,stimOn_epochs*0.1,'--g');
+
+
+% (carried over from AP_operant_behavior)
+t_since_reward = t - ...
+    interp1(reward_t_timeline,reward_t_timeline,t,'previous','extrap');
+
+t_since_move = t - ...
+    interp1(wheel_stops,wheel_stops,t,'previous','extrap');
+
+t_since_stim = t - ...
+    interp1(stimOn_times,stimOn_times,t,'previous','extrap');
+
+% r = [t_since_reward;t_since_move;t_since_stim];
+% s = diff([0;wheel_move(1:1000:end)]');s = s == 1;
+% t_lags = [-500:500];
+% [k,ps,ev] = AP_regresskernel(r(:,1:1000:end),s,t_lags,0);
+% figure;plot(t_lags,k');
+
+a = wheel_starts(2:end)-wheel_stops(1:end-1);
+b = a(wheel_move_stim_idx-1);
+
+r_idx = (wheel_move_stim_idx-1)+[-10:-1];
+use_r = all(r_idx>0,2);
+
+% [k,ps,ev] = AP_regresskernel(a(r_idx(use_r,:)),b(use_r),0,0,[],5,0,1);
+
+x = [a(r_idx(use_r,:)),stim_to_move(use_r),ones(sum(use_r),1)]\b(use_r);
+
+
+a = diff([0;wheel_move]) == 1;
+ar = t_since_reward(a);
+am = t_since_move(a);
+as = t_since_stim(a);
+figure; hold on;
+plot3(ar,am,as,'.k')
+plot3(ar(wheel_move_stim_idx),am(wheel_move_stim_idx),as(wheel_move_stim_idx),'or')
+
+% Regress time from stim to move relative to previous gaps
+use_last_gaps = 5;
+wheel_gaps = wheel_starts(2:end)-wheel_stops(1:end-1);
+wheel_gaps_regressor_idx = (wheel_move_stim_idx-1)+[-use_last_gaps:-1];
+use_move_regressors = all(wheel_gaps_regressor_idx>0,2);
+wheel_gaps_regressors = wheel_gaps(wheel_gaps_regressor_idx(use_move_regressors,:));
+
+[b,logl,H,stats] = coxphfit(wheel_gaps_regressors,stim_to_move(use_move_regressors));
+figure;errorbar(stats.beta,stats.se);
+xlabel('Previous move gap');
+ylabel('Cox \beta');
+
+
+% Regress time from move to post-stim move relative to pre-stim gap/stim
+use_last_gaps = 5;
+wheel_gaps = wheel_starts(2:end)-wheel_stops(1:end-1);
+wheel_gaps_regressor_idx = (wheel_move_stim_idx-1)+[-use_last_gaps:0];
+use_move_regressors = all(wheel_gaps_regressor_idx>0,2);
+
+wheel_gap_predict = wheel_gaps(wheel_gaps_regressor_idx(use_move_regressors,end));
+wheel_gaps_regressors = wheel_gaps(wheel_gaps_regressor_idx(use_move_regressors,1:end-1));
+wheel_stim_regressor = stimOn_times(use_move_regressors) - wheel_stops(wheel_move_stim_idx(use_move_regressors)-1);
+
+[b,logl_stim,H,stats] = coxphfit([wheel_gaps_regressors,wheel_stim_regressor],wheel_gap_predict);
+figure;errorbar(stats.beta,stats.se);
+xlabel('Previous move gap');
+ylabel('Cox \beta');
+
+[b_nostim,logl_nostim,H_nostim,stats_nostim] = coxphfit([wheel_gaps_regressors],wheel_gap_predict);
+
+disp(logl_stim-logl_nostim);
+
+
+% Regress time from move to ANY move (with/without stim info)
+use_last_gaps = 5;
+wheel_gaps = wheel_starts(2:end)-wheel_stops(1:end-1);
+wheel_gaps_regressor_idx = (1:length(wheel_gaps))'+[-use_last_gaps:0];
+use_move_regressors = all(wheel_gaps_regressor_idx>0,2);
+
+wheel_gap_predict = wheel_gaps(wheel_gaps_regressor_idx(use_move_regressors,end));
+wheel_gaps_regressors = wheel_gaps(wheel_gaps_regressor_idx(use_move_regressors,1:end-1));
+
+[b,logl,H,stats] = coxphfit([wheel_gaps_regressors],wheel_gap_predict);
+figure;errorbar(stats.beta,stats.se);
+xlabel('Previous move gap');
+ylabel('Cox \beta');
+
+a = stimOn_times - wheel_stops(wheel_move_stim_idx-1);
+idx = ismember(2:length(wheel_starts),wheel_move_stim_idx)';
+m = zeros(size(idx));
+m(idx) = a;
+
+[b_stim,logl_stim,H,stats_stim] = coxphfit([wheel_gaps_regressors,m(use_move_regressors)],wheel_gap_predict);
+figure;errorbar(stats_stim.beta,stats_stim.se);
+xlabel('Previous move gap');
+ylabel('Cox \beta');
+
+disp(logl_stim-logl);
+
+
+% Regress ITI gap time move only (sanity check?)
+use_last_gaps = 5;
+wheel_gaps = wheel_starts(2:end)-wheel_stops(1:end-1);
+wheel_gaps_regressor_idx = (1:length(wheel_gaps))'+[-use_last_gaps:0];
+use_move_regressors = all(wheel_gaps_regressor_idx>0,2);
+
+iti_idx = ismember(2:length(wheel_starts),wheel_move_iti_idx)';
+stim_idx = ismember(2:length(wheel_starts),wheel_move_stim_idx)';
+
+wheel_gap_predict = wheel_gaps(wheel_gaps_regressor_idx(use_move_regressors & iti_idx,end));
+wheel_gaps_regressors = wheel_gaps(wheel_gaps_regressor_idx(use_move_regressors & iti_idx,1:end-1));
+
+[b,logl,H,stats] = coxphfit([wheel_gaps_regressors],wheel_gap_predict);
+figure;errorbar(stats.beta,stats.se);
+xlabel('Previous move gap');
+ylabel('Cox \beta');
+
+
+
+
+% (predict ITI movements, test on stim movements)
+use_last_gaps = 5;
+wheel_gaps = wheel_starts(2:end)-wheel_stops(1:end-1);
+wheel_gaps_regressor_idx = (1:length(wheel_gaps))'+[-use_last_gaps:0];
+use_move_regressors = all(wheel_gaps_regressor_idx>0,2);
+
+iti_idx = ismember(2:length(wheel_starts),wheel_move_iti_idx)';
+stim_idx = ismember(2:length(wheel_starts),wheel_move_stim_idx)';
+
+% -> fit on ITI
+r = wheel_gaps(wheel_gaps_regressor_idx(use_move_regressors & iti_idx,1:end-1));
+s = wheel_gaps(wheel_gaps_regressor_idx(use_move_regressors & iti_idx,end));
+[k,ps,ev] = AP_regresskernel(r',s',0,0,[],1,1,1);
+disp(ev)
+
+% -> test on stim
+r_test = wheel_gaps(wheel_gaps_regressor_idx(use_move_regressors & stim_idx,1:end-1));
+s_test = wheel_gaps(wheel_gaps_regressor_idx(use_move_regressors & stim_idx,end));
+
+s_test_pred = [r_test,ones(size(r_test,1),1)]*cell2mat(k);
+r2 = 1 - (nansum((s_test-s_test_pred).^2,1)./ ...
+        nansum((s_test-nanmean(s_test,1)).^2,1));
+disp(r2)
+
+
+
+
+% (predict ITI movements, test on stim movements)
+use_last_gaps = 1;
+wheel_gaps = wheel_starts(2:end)-wheel_stops(1:end-1);
+wheel_gaps_regressor_idx = (1:length(wheel_gaps))'+[-use_last_gaps:0];
+use_move_regressors = all(wheel_gaps_regressor_idx>0,2);
+
+iti_idx = ismember(2:length(wheel_starts),wheel_move_iti_idx)';
+stim_idx = ismember(2:length(wheel_starts),wheel_move_stim_idx)';
+
+% -> fit on ITI
+r = wheel_gaps(wheel_gaps_regressor_idx(use_move_regressors & stim_idx,1:end-1));
+s = wheel_gaps(wheel_gaps_regressor_idx(use_move_regressors & stim_idx,end));
+[k,ps,ev] = AP_regresskernel(r',s',0,0,[]);
+disp(ev)
+
+% -> test on stim
+r_test = wheel_gaps(wheel_gaps_regressor_idx(use_move_regressors & stim_idx,1:end-1));
+s_test = wheel_gaps(wheel_gaps_regressor_idx(use_move_regressors & stim_idx,end));
+
+s_test_pred = [r_test,ones(size(r_test,1),1)]*cell2mat(k);
+r2 = 1 - (nansum((s_test-s_test_pred).^2,1)./ ...
+        nansum((s_test-nanmean(s_test,1)).^2,1));
+disp(r2)
+
+
+
+
+
 
 %% ~~~~~~~~~ PIP'S NAIVE EXPERIMENTS  ~~~~~~~~~
 
@@ -634,8 +974,8 @@ disp(['Saved: ' save_path filesep save_fn])
 
 % Load data
 trial_data_path = 'C:\Users\Andrew\OneDrive for Business\Documents\CarandiniHarrisLab\analysis\operant_learning\data';
-% data_fn = 'trial_activity_passive_tetO';
-data_fn = 'trial_activity_passive_corticostriatal';
+data_fn = 'trial_activity_passive_tetO';
+% data_fn = 'trial_activity_passive_corticostriatal';
 
 AP_load_trials_wf;
 
@@ -753,11 +1093,12 @@ end
 
 % Plot stim response in single animal over days
 % (exclude days 1-3: pre-behavior);
-use_animal = 5;
+use_animal = 2;
 curr_px = AP_svdFrameReconstruct(U_master(:,:,1:n_vs),stim_v_avg{use_animal}(:,:,4:end,3));
 AP_image_scroll(curr_px,t);
 caxis([-max(abs(caxis)),max(abs(caxis))]);
 colormap(brewermap([],'PrGn'));
+AP_reference_outline('ccf_aligned',[0.5,0.5,0.5]);
 axis image;
 set(gcf,'name',animals{use_animal});
 
@@ -1336,8 +1677,8 @@ ylabel('Reaction time');
 %% Time-average ROI activity by day/behavior
 
 % curr_act = fluor_roi_deconv(:,:,7);
-curr_act = fluor_roi_deconv(:,:,7) - fluor_roi_deconv(:,:,17);
-% curr_act = fluor_roi_deconv(:,:,7) - fluor_roi_taskpred_reduced(:,:,7,1);
+% curr_act = fluor_roi_deconv(:,:,7) - fluor_roi_deconv(:,:,17);
+curr_act = fluor_roi_deconv(:,:,7) - fluor_roi_taskpred_reduced(:,:,7,1);
 
 use_t = t >= 0.07 & t <= 0.17;
 curr_act_timeavg = nanmean(double(curr_act(:,use_t)),2);

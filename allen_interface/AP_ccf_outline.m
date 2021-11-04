@@ -16,18 +16,22 @@ st = loadStructureTree([allen_atlas_path filesep 'structure_tree_safe_2017.csv']
 figure;
 
 % Plot brain to overlay probes
-horizontal_axes = subplot(1,2,1,'YDir','reverse'); hold on;
+horizontal_axes = subplot(1,3,1,'YDir','reverse'); hold on;
 axis image off;
-coronal_axes = subplot(1,2,2,'YDir','reverse'); hold on;
+coronal_axes = subplot(1,3,2,'YDir','reverse'); hold on;
+axis image off;
+sagittal_axes = subplot(1,3,3,'YDir','reverse'); hold on;
 axis image off;
 
 % Plot projections
 coronal_outline = bwboundaries(permute((max(av,[],1)) > 1,[2,3,1]));
 horizontal_outline = bwboundaries(permute((max(av,[],2)) > 1,[3,1,2]));
+sagittal_outline = bwboundaries(permute((max(av,[],3)) > 1,[2,1,3]));
 
 str_id = find(strcmp(st.safe_name,'Caudoputamen'));
 str_coronal_outline = bwboundaries(permute((max(av == str_id,[],1)) > 0,[2,3,1]));
 str_horizontal_outline = bwboundaries(permute((max(av == str_id,[],2)) > 0,[3,1,2]));
+str_sagittal_outline = bwboundaries(permute((max(av == str_id,[],3)) > 0,[2,1,3]));
 
 vstr_id = find(strcmp(st.safe_name,'Nucleus accumbens'));
 vstr_coronal_outline = bwboundaries(permute((max(av == vstr_id,[],1)) > 0,[2,3,1]));
@@ -40,6 +44,16 @@ cellfun(@(x) plot(coronal_axes,x(:,2),x(:,1),'k','linewidth',2),coronal_outline)
 cellfun(@(x) plot(coronal_axes,x(:,2),x(:,1),'b','linewidth',2),str_coronal_outline)
 cellfun(@(x) plot(coronal_axes,x(:,2),x(:,1),'color',[0.8,0,0.8],'linewidth',2),vstr_coronal_outline)
 axis image off;
+
+cellfun(@(x) plot(sagittal_axes,x(:,2),x(:,1),'k','linewidth',2),sagittal_outline)
+cellfun(@(x) plot(sagittal_axes,x(:,2),x(:,1),'b','linewidth',2),str_sagittal_outline)
+axis image off;
+
+%% Get area in hierarchy, draw
+
+% Bring up hierarchical selector
+plot_structure = hierarchicalSelect(st);
+
 
 %% Outline of VisAM in CCF
 

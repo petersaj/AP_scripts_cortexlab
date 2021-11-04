@@ -695,8 +695,12 @@ scatter(choiceworld_days,repmat(0.5,1,length(choiceworld_days)),20,'r','filled')
 % animals = training_list(use_task_mice,1);
 
 % To enter animals manually
-animals = {'AP063','AP064','AP066','AP068','AP071','AP085','AP086','AP087'};
+% animals = {'AP063','AP064','AP066','AP068','AP071','AP085','AP086','AP087'};
 
+animals = {'AP024','AP025','AP026','AP027','AP028','AP029', ...
+    'AP043','AP060','AP061', ...
+    'AP045','AP054','AP055','AP053','AP047','AP048'};
+    
 bhv = struct;
 
 for curr_animal = 1:length(animals)
@@ -705,6 +709,9 @@ for curr_animal = 1:length(animals)
     
     protocol = 'choiceworld';
     experiments = AP_find_experiments(animal,protocol,true);
+    
+    % (training only: without ephys)
+    experiments = experiments(~[experiments.ephys]);
     
 %     % If there's more than 20 days, just load the first 20
 %     if length(experiments) > 20
@@ -784,7 +791,7 @@ for curr_animal = 1:length(animals)
         wheel_bias = (nansum(right_wheel_velocity)-nansum(left_wheel_velocity))/ ...
             (nansum(right_wheel_velocity)+nansum(left_wheel_velocity));
         
-%          % > Trial contrasts (one contrast per side)
+%          % Trial contrasts (one contrast per side)
 %         trial_contrasts = cell2mat(arrayfun(@(x) ...
 %             block.trial(x).condition.visCueContrast,1:length(block.trial),'uni',false));
 %         trial_outcome = [block.trial(:).feedbackType];
@@ -959,10 +966,11 @@ ylabel(['Velocity/min days ' num2str(avg_days)])
 
 
 %% Batch load behavior
+% (requires timeline)
 
-% animals = {'AP024','AP025','AP026','AP027','AP028','AP029'};
+animals = {'AP024','AP025','AP026','AP027','AP028','AP029'};
 % animals = {'AP063','AP064','AP066','AP068','AP071','AP085','AP086','AP087'};
-animals = {'AP040','AP041','AP045','AP047','AP048','AP077','AP079'};
+% animals = {'AP040','AP041','AP045'}; % didn't learn: 'AP047','AP048','AP077','AP079'
 
 bhv = struct;
 
@@ -1004,13 +1012,12 @@ for curr_animal = 1:length(animals)
         performance = block.events.sessionPerformanceValues(:,end-10:end);
         
         % Trial conditions and behavior times (pad to the same number)
-        n_trials = length(block.paramsValues);
+        n_trials = length(signals_events.endTrialTimes);
         trial_outcome = signals_events.hitValues(1:n_trials)-signals_events.missValues(1:n_trials);
-        stim_to_move = wheel_move_time - stimOn_times';
-        stim_to_feedback = padarray(signals_events.responseTimes, ...
-            [0,n_trials-length(signals_events.responseTimes)],NaN,'post') - ...
-            padarray(stimOn_times',[0,n_trials-length(stimOn_times)],NaN,'post');    
-        
+        stim_to_move = wheel_move_time - stimOn_times;
+        stim_to_feedback = signals_events.responseTimes(1:n_trials)' - ...
+            stimOn_times(1:n_trials);
+               
         % Define trials to use 
         use_trials = ...
             trial_outcome ~= 0 & ...

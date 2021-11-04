@@ -2,7 +2,8 @@
 
 animal = 'AP100';
 % day = '2021-05-02';
-day = '2021-05-06';
+day = '2021-05-07';
+
 experiment = 1;
 verbose = true;
 load_parts.imaging = false;

@@ -404,7 +404,7 @@ AP_reference_outline('ccf_aligned','k');
 clear all
 disp('Passive trial activity (learning)')
 
-animals = {'AP040','AP041','AP045','AP047','AP048'};
+animals = {'AP040','AP041','AP045'}; % didn't learn under scope: 'AP047','AP048'
 
 % Initialize save variable
 trial_data_all = struct;

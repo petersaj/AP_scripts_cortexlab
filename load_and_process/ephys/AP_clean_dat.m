@@ -8,7 +8,9 @@ function AP_clean_dat(ap_filename,n_channels,ttl_path,output_filename)
 %
 % Remove artifacts from raw ephys AP band DAT file and save new file
 % 
-% NOT USE YET - BUT REPLACE OLD ONE WITH THIS?
+% NOT USED YET - BUT REPLACE OLD ONE WITH THIS?
+
+error('Is this in use yet? not sure');
 
 % Memory map AP data
 n_bytes = 2; % default is int16 = 2 bytes
