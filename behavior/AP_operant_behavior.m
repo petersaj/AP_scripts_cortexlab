@@ -1,4 +1,4 @@
-%% --------- AP_stimWheelRight (aka one-sided choiceworld)
+%% AP_stimWheelRight (aka one-sided choiceworld)
 
 %%%%% CHANGE HOW THIS IS DONE: LOAD MUSCIMOL INFO DIRECTLY INTO GRAB?
 
@@ -522,7 +522,7 @@ for curr_area_idx = 1:length(muscimol_areas)
         
         % Get index in bhv to match animal in muscimol
         curr_bhv_animal_idx = find(strcmp( ...
-            muscimol(curr_muscimol_animal_idx).animal, ...
+            muscimol(muscimol_animals(curr_muscimol_animal_idx)).animal, ...
             {bhv.animal}));
         
         % Get days of current animal with muscimol in current area

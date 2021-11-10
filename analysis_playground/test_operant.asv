@@ -369,8 +369,8 @@ figure;errorbar(stats.beta,stats.se);
 xlabel('Previous move gap');
 ylabel('Cox \beta');
 % (does this measure make sense?)
-logl_increase_frac = (nanmedian(logl_stim_shuff)-logl_stim)/logl_stim;
-disp(logl_increase_frac);
+logl_increase_frac = -(logl_stim-nanmedian(logl_stim_shuff))/nanmedian(logl_stim_shuff);
+disp(logl_stim-nanmedian(logl_stim_shuff));
 
 % Regress time from move to ANY move (with/without stim info)
 use_last_gaps = 10;
