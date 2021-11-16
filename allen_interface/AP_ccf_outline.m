@@ -52,7 +52,6 @@ for curr_view = 1:3
 end
 
 
-
 %% Get area in search, draw
 
 slice_spacing = 5;

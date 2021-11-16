@@ -20,6 +20,7 @@ function [filename,file_exists] = AP_cortexlab_filename(animal,day,experiment,fi
 % ephys_ks1
 % ephys_dir
 % ephys_ap
+% probe_ccf
 
 % Make inputs strings if they're numbers
 if isnumeric(experiment)

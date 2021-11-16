@@ -272,35 +272,12 @@ switch expDef
         stimIDs = stimIDs(2:end);
         
     case 'AP_auditoryStim'
-        % Auditory stim only, use audioOut to get times
-        speaker_idx = strcmp({Timeline.hw.inputs.name}, 'audioOut');
-        speaker_threshold = 0.04; % eyeballed this
-        speaker_flip_times = ...
-            Timeline.rawDAQTimestamps( ...
-            find(abs(Timeline.rawDAQData(1:end-1,speaker_idx)) < speaker_threshold & ...
-            abs(Timeline.rawDAQData(2:end,speaker_idx)) > speaker_threshold)+1);
+        % Auditory stim only, but auditory stim are paired with invisible
+        % visual stim to flip the photodiode
         
-        iti_min = 1.9;
-        stimOn_times = speaker_flip_times([1,find(diff(speaker_flip_times) > iti_min)+1]);
-        
-        % TEMPORARY: use first and last to interpolate Signals
-        first_last_stim_tl = stimOn_times([1,end]);
-        first_last_stim_block = block.events.stimOnTimes([1,end]);
-        
-        block_fieldnames = fieldnames(block.events);
-        block_values_idx = cellfun(@(x) ~isempty(x),strfind(block_fieldnames,'Values'));
-        block_times_idx = cellfun(@(x) ~isempty(x),strfind(block_fieldnames,'Times'));
-        for curr_times = find(block_times_idx)'
-            if isempty(signals_events.(block_fieldnames{curr_times}))
-                % skip if empty
-                continue
-            end
-            signals_events.(block_fieldnames{curr_times}) = ...
-                interp1(first_last_stim_block,first_last_stim_tl, ...
-                block.events.(block_fieldnames{curr_times}),'linear','extrap');
-        end
-        stimOn_times = signals_events.stimOnTimes;
-        stimIDs = signals_events.stimFrequencyValues;
+        % Get stim times (first flip is initializing gray to black)
+        stimOn_times = photodiode_flip_times(2:2:end);
+        stimIDs = signals_events.stimFrequencyValues';
         
     otherwise
         warning(['Signals protocol with no analysis script:' expDef]);

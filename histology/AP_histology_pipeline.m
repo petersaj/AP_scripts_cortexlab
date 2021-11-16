@@ -7,8 +7,9 @@ av = readNPY([allen_atlas_path filesep 'annotation_volume_10um_by_index.npy']);
 st = loadStructureTree([allen_atlas_path filesep 'structure_tree_safe_2017.csv']);
 
 % Set paths for histology images and directory to save slice/alignment
-im_path = 'C:\Users\Andrew\Desktop\npx_2dhist_demo_2';
+im_path = '\\znas.cortexlab.net\Subjects\AP101\histology\all_images';
 slice_path = [im_path filesep 'slices'];
+
 
 %% 2) Preprocess slide images to produce slice images
 
@@ -56,10 +57,10 @@ AP_view_aligned_histology_volume(tv,av,st,slice_path,1);
 AP_get_probe_histology(tv,av,st,slice_path);
 
 % Align histology to electrophysiology
-use_probe = 2;
+use_probe = 1;
 AP_align_probe_histology(st,slice_path, ...
     spike_times,spike_templates,template_depths, ...
-    lfp,channel_positions(:,2), ...
+    lfp,lfp_channel_positions, ...
     use_probe);
 
 % Extract slices from full-resolution images

@@ -479,7 +479,7 @@ for curr_recording = 1:n_recordings
     
     % Concatenate traces from experiments
     time_bin_centers = horzcat(ctx_wf_traces(curr_recording).time_bin_centers{:});
-    fluor_trace = horzcat(ctx_wf_traces(curr_recording).fluor_trace_all{:});
+    fluor_trace = AP_deconv_wf(horzcat(ctx_wf_traces(curr_recording).fluor_trace_all{:}));
     binned_spikes = horzcat(ctx_wf_traces(curr_recording).binned_spikes_all{:});
     lfp = horzcat(ctx_wf_traces(curr_recording).lfp_all{:});
     lfp_200Hz = horzcat(ctx_wf_traces(curr_recording).lfp_200Hz_all{:});

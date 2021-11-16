@@ -348,10 +348,10 @@ elseif length(gui_data.curr_unit) > 1
     % (multiunit mode)
      
     % (plot raster matrix as smoothed heatmap)
-    raster_heatmap = imgaussfilt(curr_raster_sorted,[5,10]);
+    raster_heatmap = imgaussfilt(curr_raster_sorted,[3,5]);
     set(gui_data.raster_image,'XData',gui_data.t,'YData', ...
         1:size(gui_data.t_peri_event,1),'CData',raster_heatmap);
-    caxis(get(gui_data.raster_image,'Parent'),prctile(raster_heatmap(:),[0.05,99.5]));
+    caxis(get(gui_data.raster_image,'Parent'),prctile(raster_heatmap(:),[0,100]));
     
 end
 

@@ -1,3 +1,5 @@
+%% Histology processing helpers
+
 %% Concatenate split channel images into single files
 % (images were saved in folders as separate files for each channel, combine
 % into one file per image)
@@ -45,6 +47,45 @@ for curr_im_idx = 1:length(im_folders)
     
 end
 disp('Done.');
+
+%% Flip hemispheres in aligned histology
+% for when I did it the wrong way
+
+% Set location
+im_path = '\\znas.cortexlab.net\Subjects\AP101\histology\all_images';
+slice_path = [im_path filesep 'slices'];
+
+
+mirror_matrix = eye(3).*[-1;1;1];
+
+
+% Load in slice images
+gui_data.slice_im_path = slice_path;
+slice_im_dir = dir([slice_path filesep '*.tif']);
+slice_im_fn = natsortfiles(cellfun(@(path,fn) [path filesep fn], ...
+    {slice_im_dir.folder},{slice_im_dir.name},'uni',false));
+gui_data.slice_im = cell(length(slice_im_fn),1);
+for curr_slice = 1:length(slice_im_fn)
+    gui_data.slice_im{curr_slice} = imread(slice_im_fn{curr_slice});
+end
+
+curr_slice = 10;
+curr_slice_im = gui_data.slice_im{curr_slice};
+
+curr_av_slice = histology_ccf(curr_slice).av_slices;
+curr_av_slice(isnan(curr_av_slice)) = 1;
+
+tform = affine2d;
+tform.T = atlas2histology_tform{curr_slice}*mirror_matrix;
+tform_size = imref2d([size(curr_slice_im,1),size(curr_slice_im,2)]);
+curr_av_slice_warp = imwarp(curr_av_slice,tform,'nearest','OutputView',tform_size);
+
+figure;imagesc(curr_av_slice_warp)
+figure;imagesc(curr_slice_im)
+
+
+
+
 
 
 

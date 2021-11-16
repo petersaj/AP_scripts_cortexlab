@@ -96,7 +96,7 @@ wheel_window = [0,0.5];
 wheel_window_t = wheel_window(1):1/Timeline.hw.daqSampleRate:wheel_window(2);
 wheel_window_t_peri_event = bsxfun(@plus,stimOn_times,wheel_window_t);
 event_aligned_wheel = interp1(Timeline.rawDAQTimestamps, ...
-    wheel_velocity,wheel_window_t_peri_event);
+    +wheel_move,wheel_window_t_peri_event,'previous');
 quiescent_trials = ~any(abs(event_aligned_wheel) > 0,2);
 
 % PSTH viewer
@@ -106,27 +106,15 @@ AP_cellraster(stimOn_times(quiescent_trials),stimIDs(quiescent_trials))
 %% Operant PSTH
 
 % Standard events
-AP_cellraster({stimOn_times,wheel_move_time,reward_t_timeline})
+[~,rxn_sort_idx] = sort(stim_to_move);
+AP_cellraster({stimOn_times,wheel_starts(wheel_move_response_idx),reward_t_timeline},rxn_sort_idx)
 
-% Get ITI movements (when stim is off)
-[wheel_velocity,wheel_move,wheel_velocity_split] = AP_parse_wheel(wheel_position,Timeline.hw.daqSampleRate);
-t_movesplit = mat2cell(Timeline.rawDAQTimestamps',cellfun(@length,wheel_velocity_split));
-
-stimOff_times = signals_events.stimOffTimes';
-stim_on_epochs = interp1([stimOn_times;stimOff_times], ...
-    [ones(size(stimOn_times));zeros(size(stimOff_times))], ...
-    Timeline.rawDAQTimestamps','previous','extrap');
-
-iti_move_epochs = cellfun(@(move,stim) all(move) & ~any(stim), ...
-    mat2cell(wheel_move,cellfun(@length,wheel_velocity_split)), ...
-    mat2cell(stim_on_epochs,cellfun(@length,wheel_velocity_split)));
-iti_move_starts = cellfun(@(x) x(1), t_movesplit(iti_move_epochs));
-    
 % PSTH with rewarded & ITI move starts
 [~,rxn_sort_idx] = sort(stim_to_move);
 [~,iti_move_sort_idx] = sort(cellfun(@(x) sum(abs(x)),t_movesplit(iti_move_epochs)));
 
-AP_cellraster({stimOn_times,wheel_move_time,iti_move_starts,reward_t_timeline}, ...
+AP_cellraster( ...
+    {stimOn_times,wheel_starts(wheel_move_response_idx),wheel_starts(wheel_move_iti_idx),reward_t_timeline}, ...
     {rxn_sort_idx,rxn_sort_idx,iti_move_sort_idx,1:length(reward_t_timeline)})
 
 
