@@ -44,10 +44,9 @@
 % flipped. Here's an example recording and retinotopic map:
 
 % Load in a sparse noise experiment
-animal = 'AP025';
-day = '2017-09-29';
-experiment = 2;
-load_parts.imaging = true;
+animal = 'AP048';
+day = '2019-09-30';
+experiment = 1;
 verbose = true;
 AP_load_experiment;
 

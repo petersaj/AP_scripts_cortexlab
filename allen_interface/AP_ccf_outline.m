@@ -1,5 +1,7 @@
 %% Draw CCF structures
 % Draw 3-view outline of the brain and selected structures
+%
+% TO DO: CCF DV axis is scaled??? correct for that
 
 %% Load atlas
 
