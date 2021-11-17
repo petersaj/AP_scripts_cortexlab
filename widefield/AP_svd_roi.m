@@ -19,7 +19,7 @@ if ~exist('roi_mask','var') || isempty(roi_mask)
         imagesc(ax_guide_im,guide_im);
         axis image off;
         colormap(ax_guide_im, gray);
-        caxis(ax_guide_im, [prctile(guide_im(:),5) prctile(guide_im(:),90)]);
+        caxis(ax_guide_im, [prctile(guide_im(:),0.5) prctile(guide_im(:),99.5)]);
     elseif ischar(guide_im) && strcmp(guide_im,'master')        
         imagesc(ax_guide_im,ones(size(U(:,:,1))));
         colormap(gray);
