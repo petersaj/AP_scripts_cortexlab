@@ -3,17 +3,14 @@
 % Andy Peters (peters.andrew.j@gmail.com)
 %
 % GUI for planning Neuropixels trajectories with the Allen CCF atlas
+% MATLAB-independent
 %
 % Instructions for use: 
 % https://github.com/petersaj/neuropixels_trajectory_explorer
-%
-% Inputs (optional): 
-% tv, av, st = CCF template volume, annotated volume, structure tree
-% (if not entered, CCF folder must be in matlab path to find)
 
 
 %% GUI setup
-function neuropixels_trajectory_explorer(tv,av,st)
+function neuropixels_trajectory_explorer_standalone(tv,av,st)
 
 % Check MATLAB version
 matlab_version = version('-date');
@@ -24,27 +21,56 @@ end
 % Initialize gui_data structure
 gui_data = struct;
 
-% If not already loaded in, load in atlas
-% (directory with CCF must be in matlab path to find it)
-if nargin < 3
-    % Find path with CCF
-    allen_atlas_path = fileparts(which('template_volume_10um.npy'));
-    if isempty(allen_atlas_path)
-        error('CCF atlas not in MATLAB path (click ''Set path'', add folder with CCF)');
+% Load atlas
+% (use previous user-supplied path, or query if files not available)
+load allen_ccf_path.mat
+tv_fn = [allen_ccf_path filesep 'template_volume_10um.npy'];
+av_fn = [allen_ccf_path filesep 'annotation_volume_10um_by_index.npy'];
+st_fn = [allen_ccf_path filesep 'structure_tree_safe_2017.csv'];
+
+% (check if the CCF files exist)
+tv_exist = exist(tv_fn,'file');
+av_exist = exist(av_fn,'file');
+st_exist = exist(st_fn,'file');
+
+if isempty(allen_ccf_path) || any(~[tv_exist,av_exist,st_exist])
+    % (use uigetdir_workaround: matlab-issued workaround for R2018a bug)
+    allen_ccf_path = uigetdir_workaround([],'Select folder with Allen CCF');
+    tv_fn = [allen_ccf_path filesep 'template_volume_10um.npy'];
+    av_fn = [allen_ccf_path filesep 'annotation_volume_10um_by_index.npy'];
+    st_fn = [allen_ccf_path filesep 'structure_tree_safe_2017.csv'];
+    
+    tv_exist = exist(tv_fn,'file');
+    av_exist = exist(av_fn,'file');
+    st_exist = exist(st_fn,'file');
+    
+    ccf_files = {tv_fn,av_fn,st_fn};
+    ccf_exist = [tv_exist,av_exist,st_exist];
+    if any(~ccf_exist)
+        % If CCF not present in specified directory, error out
+        errordlg([{'Allen CCF files not found: '}, ...
+            ccf_files(~ccf_exist)],'Allen CCF not found');
+        return
+    else
+        % If all CCF files present, save path for future
+        allen_ccf_path_fn = which('allen_ccf_path.mat');
+        save(allen_ccf_path_fn,'allen_ccf_path');
     end
-    % Load CCF components
-    tv = readNPY([allen_atlas_path filesep 'template_volume_10um.npy']); % grey-scale "background signal intensity"
-    av = readNPY([allen_atlas_path filesep 'annotation_volume_10um_by_index.npy']); % the number at each pixel labels the area, see note below
-    st = load_structure_tree([allen_atlas_path filesep 'structure_tree_safe_2017.csv']); % a table of what all the labels mean    
 end
+
+% (load atlas)
+tv = readNPY([allen_ccf_path filesep 'template_volume_10um.npy']); % grey-scale "background signal intensity"
+av = readNPY([allen_ccf_path filesep 'annotation_volume_10um_by_index.npy']); % the number at each pixel labels the area, see note below
+st = load_structure_tree([allen_ccf_path filesep 'structure_tree_safe_2017.csv']); % a table of what all the labels mean
 
 % Coordinates in millimeters relative to bregma
 % (bregma is estimated from comparing the Paxinos atlas to the CCF atlas)
 % [AP,DV,ML]
 bregma_ccf = [540,0,570];
-% (NOTE: native CCF DV coordinates are scaled by 15%)
+% (NOTE: non-uniform scaling, DV in CCF is stretched. The DV scaling factor
+% has been approximated by comparisons to in vivo MRI images)
 ap_coords = -((1:size(av,1))-bregma_ccf(1))/100;
-dv_coords = (((1:size(av,2))-bregma_ccf(2))/100)*0.85;
+dv_coords = (((1:size(av,2))-bregma_ccf(2))/100)*0.88;
 ml_coords = -((1:size(av,3))-bregma_ccf(3))/100;
 
 % Create CCF colormap
@@ -66,9 +92,13 @@ axis(axes_atlas,'vis3d','equal','off','manual'); hold(axes_atlas,'on');
 
 % Draw brain outline
 slice_spacing = 10;
+% brain_volume = ...
+%     bwmorph3(bwmorph3(av(1:slice_spacing:end, ...
+%     1:slice_spacing:end,1:slice_spacing:end)>1,'majority'),'majority');
+% (STANDALONE VERSION: can't use bwmorph)
 brain_volume = ...
-    bwmorph3(bwmorph3(av(1:slice_spacing:end, ...
-    1:slice_spacing:end,1:slice_spacing:end)>1,'majority'),'majority');
+    av(1:slice_spacing:end, ...
+    1:slice_spacing:end,1:slice_spacing:end)>1;
 
 [curr_ml_grid,curr_ap_grid,curr_dv_grid] = ...
     ndgrid(ml_coords(1:slice_spacing:end), ...
@@ -291,20 +321,24 @@ switch eventdata.Key
 end
 
 % Draw updated probe
-% (AP/ML)
-set(gui_data.handles.probe_ref_line,'XData',get(gui_data.handles.probe_ref_line,'XData') + ml_offset);
-set(gui_data.handles.probe_line,'XData',get(gui_data.handles.probe_line,'XData') + ml_offset);
-set(gui_data.handles.probe_ref_line,'YData',get(gui_data.handles.probe_ref_line,'YData') + ap_offset);
-set(gui_data.handles.probe_line,'YData',get(gui_data.handles.probe_line,'YData') + ap_offset);
-% (probe axis)
-old_probe_vector = cell2mat(get(gui_data.handles.probe_line,{'XData','YData','ZData'})');
-move_probe_vector = diff(old_probe_vector,[],2)./ ...
-    norm(diff(old_probe_vector,[],2))*probe_offset;
-new_probe_vector = bsxfun(@plus,old_probe_vector,move_probe_vector);
-set(gui_data.handles.probe_line,'XData',new_probe_vector(1,:), ...
-    'YData',new_probe_vector(2,:),'ZData',new_probe_vector(3,:));
+if any([ap_offset,ml_offset,probe_offset])
+    % (AP/ML)
+    set(gui_data.handles.probe_ref_line,'XData',get(gui_data.handles.probe_ref_line,'XData') + ml_offset);
+    set(gui_data.handles.probe_line,'XData',get(gui_data.handles.probe_line,'XData') + ml_offset);
+    set(gui_data.handles.probe_ref_line,'YData',get(gui_data.handles.probe_ref_line,'YData') + ap_offset);
+    set(gui_data.handles.probe_line,'YData',get(gui_data.handles.probe_line,'YData') + ap_offset);
+    % (probe axis)
+    old_probe_vector = cell2mat(get(gui_data.handles.probe_line,{'XData','YData','ZData'})');
+    move_probe_vector = diff(old_probe_vector,[],2)./ ...
+        norm(diff(old_probe_vector,[],2))*probe_offset;
+    new_probe_vector = bsxfun(@plus,old_probe_vector,move_probe_vector);
+    set(gui_data.handles.probe_line,'XData',new_probe_vector(1,:), ...
+        'YData',new_probe_vector(2,:),'ZData',new_probe_vector(3,:));
+end
 % (angle)
-gui_data = update_probe_angle(probe_atlas_gui,angle_change);
+if any(angle_change)
+    gui_data = update_probe_angle(probe_atlas_gui,angle_change);
+end
 
 % Upload gui_data
 guidata(probe_atlas_gui, gui_data);
@@ -448,7 +482,7 @@ new_probe_position = cellfun(@str2num,inputdlg(prompt_text,'Set probe position',
 % Convert probe position: mm->CCF and degrees->radians
 [~,probe_ap_ccf] = min(abs(gui_data.ap_coords - new_probe_position(1)));
 [~,probe_ml_ccf] = min(abs(gui_data.ml_coords - new_probe_position(2)));
-probe_ccf_coordinates = [probe_ap_ccf,probe_ml_ccf];
+probe_ccf_coordinates = [probe_ml_ccf,probe_ap_ccf];
 
 probe_angle_rad = (new_probe_position(3:4)/360)*2*pi;
 
@@ -458,14 +492,14 @@ max_ref_length = norm([max(gui_data.ap_coords);max(gui_data.dv_coords);max(gui_d
 
 % Get top of probe reference with user brain intersection point
 % (get DV location of brain surface at point)
-probe_brain_dv = gui_data.dv_coords(find(gui_data.av(probe_ccf_coordinates(1),:, ...
-    probe_ccf_coordinates(2)) > 1,1));
+probe_brain_dv = gui_data.dv_coords(find(gui_data.av(probe_ccf_coordinates(2),:, ...
+    probe_ccf_coordinates(1)) > 1,1));
 % (back up to 0 DV in CCF space)
-probe_ref_top_ap = interp1(probe_brain_dv+[0,z],new_probe_position(1)+[0,x],0,'linear','extrap');
-probe_ref_top_ml = interp1(probe_brain_dv+[0,z],new_probe_position(2)+[0,y],0,'linear','extrap');
+probe_ref_top_ap = interp1(probe_brain_dv+[0,z],new_probe_position(1)+[0,y],0,'linear','extrap');
+probe_ref_top_ml = interp1(probe_brain_dv+[0,z],new_probe_position(2)+[0,x],0,'linear','extrap');
 
 % Set new probe position
-probe_ref_top = [probe_ref_top_ap,probe_ref_top_ml,0];
+probe_ref_top = [probe_ref_top_ml,probe_ref_top_ap,0];
 probe_ref_bottom = probe_ref_top + [x,y,z];
 probe_ref_vector = [probe_ref_top;probe_ref_bottom]';
 
@@ -487,6 +521,7 @@ update_slice(probe_atlas_gui);
 update_probe_coordinates(probe_atlas_gui);
 
 end
+
 
 
 function gui_data = update_probe_angle(probe_atlas_gui,angle_change)
@@ -520,10 +555,11 @@ probe_vector = cell2mat(get(gui_data.handles.probe_line,{'XData','YData','ZData'
 new_probe_ref_vector = [probe_ref_vector(:,1), ...
     probe_ref_vector(:,2) + [angle_change;0]];
 
+% (calculate angle with flipped x/y and -y to make zero be forward midline)
 [probe_azimuth,probe_elevation] = cart2sph( ...
+    diff(fliplr(-new_probe_ref_vector(2,:))), ...
     diff(fliplr(new_probe_ref_vector(1,:))), ...
-    diff(fliplr(new_probe_ref_vector(2,:))), ...
-    diff(fliplr(new_probe_ref_vector(3,:))));
+    diff(fliplr(-new_probe_ref_vector(3,:))));
 gui_data.probe_angle = [probe_azimuth,probe_elevation]*(360/(2*pi));
 
 set(gui_data.handles.probe_ref_line,'XData',new_probe_ref_vector(1,:), ...
@@ -608,11 +644,11 @@ probe_depth = round(norm(trajectory_brain_intersect - probe_vector(:,2))*100)/10
 
 % Update the text
 probe_text = ['Probe insertion: ' ....
-    num2str(probe_bregma_coordinate(1)) ' AP, ', ...
-    num2str(-probe_bregma_coordinate(2)) ' ML, ', ...
+    num2str(probe_bregma_coordinate(2)) ' AP, ', ...
+    num2str(probe_bregma_coordinate(1)) ' ML, ', ...
     num2str(probe_depth) ' Probe-axis, ' ...
-    num2str(round(gui_data.probe_angle(1))) char(176) ' from midline, ' ...
-    num2str(round(gui_data.probe_angle(2))) char(176) ' from horizontal'];
+    num2str(round(gui_data.probe_angle(1))) char(176) ' azimuth, ' ...
+    num2str(round(gui_data.probe_angle(2))) char(176) ' elevation'];
 set(gui_data.probe_coordinates_text,'String',probe_text);
 
 % Update the probe areas

@@ -1,7 +1,9 @@
 %% GUI setup
-warning('Neuropixels trajectory explorer: version unsupported updated version at: https://github.com/petersaj/neuropixels_trajectory_explorer');
 
 function allen_ccf_npx(tv,av,st)
+
+warning('Neuropixels trajectory explorer - this version unsupported, updated version at: https://github.com/petersaj/neuropixels_trajectory_explorer');
+
 % allen_ccf_npx(tv,av,st)
 % Andy Peters (peters.andrew.j@gmail.com)
 %

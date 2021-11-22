@@ -236,22 +236,18 @@ title('Stim movements')
 colormap(brewermap([],'Greys'));
 
 % Outcome surround
-surround_t_centers = -2:0.1:60;
+surround_t_centers = -1:0.1:30;
 surround_times = signals_events.responseTimes' + surround_t_centers;
-surround_move = interp1(t,+wheel_move,surround_times,'previous');
+surround_move = interp1(t,+stimOn_epochs,surround_times,'previous');
 
-response_to_stim = stimOn_times(2:n_trials)-response_times(1:n_trials-1);
-[~,sort_idx] = sort(response_to_stim);
+[~,sort_idx] = sort(stimOn_times(2:n_trials)-response_times(1:n_trials
+plot(stim_to_feedback(sort_idx),1:length(sort_idx),'.c')
+
 
 figure;
-imagesc(surround_t_centers,[],surround_move(sort_idx,:)); hold on;
-plot(response_to_stim(sort_idx)+surround_t_centers(1),1:length(sort_idx),'r','linewidth',2)
-line([0,0],ylim,'color','blue','linewidth',2)
+imagesc(surround_t_centers,[],surround_move);
 xlabel('Time from outcome')
-ylabel('Trial (sorted by stim time')
 colormap(brewermap([],'Greys'));
-
-
 
 
 

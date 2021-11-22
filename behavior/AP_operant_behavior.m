@@ -116,24 +116,24 @@ for curr_animal = 1:length(animals)
             %                 (stim_to_move_med + stim_to_move_shuff_med_total);
             
             
-            % Cox proportional regression
-            % Regress time from move to post-stim move relative to pre-stim gap/stim
-            use_last_gaps = 5;
-            wheel_gaps = wheel_starts(2:end)-wheel_stops(1:end-1);
-            wheel_gaps_regressor_idx = (wheel_move_stim_idx-1)+[-use_last_gaps:0];
-            use_move_regressors = all(wheel_gaps_regressor_idx>0,2);
-            
-            wheel_gap_predict = wheel_gaps(wheel_gaps_regressor_idx(use_move_regressors,end));
-            wheel_gaps_regressors = wheel_gaps(wheel_gaps_regressor_idx(use_move_regressors,1:end-1));
-            wheel_stim_regressor = stimOn_times(use_move_regressors) - wheel_stops(wheel_move_stim_idx(use_move_regressors)-1);
-            
-            [b,logl_stim,H,stats] = coxphfit([wheel_gaps_regressors,wheel_stim_regressor],wheel_gap_predict);
-            [b_nostim,logl_nostim,H_nostim,stats_nostim] = coxphfit([wheel_gaps_regressors],wheel_gap_predict);
-            
-            logdiff = logl_stim-logl_nostim;           
-                        
-            bhv(curr_animal).b{curr_day} = b;
-            bhv(curr_animal).logdiff(curr_day) = logdiff;
+%             % Cox proportional regression
+%             % Regress time from move to post-stim move relative to pre-stim gap/stim
+%             use_last_gaps = 5;
+%             wheel_gaps = wheel_starts(2:end)-wheel_stops(1:end-1);
+%             wheel_gaps_regressor_idx = (wheel_move_stim_idx-1)+[-use_last_gaps:0];
+%             use_move_regressors = all(wheel_gaps_regressor_idx>0,2);
+%             
+%             wheel_gap_predict = wheel_gaps(wheel_gaps_regressor_idx(use_move_regressors,end));
+%             wheel_gaps_regressors = wheel_gaps(wheel_gaps_regressor_idx(use_move_regressors,1:end-1));
+%             wheel_stim_regressor = stimOn_times(use_move_regressors) - wheel_stops(wheel_move_stim_idx(use_move_regressors)-1);
+%             
+%             [b,logl_stim,H,stats] = coxphfit([wheel_gaps_regressors,wheel_stim_regressor],wheel_gap_predict);
+%             [b_nostim,logl_nostim,H_nostim,stats_nostim] = coxphfit([wheel_gaps_regressors],wheel_gap_predict);
+%             
+%             logdiff = logl_stim-logl_nostim;           
+%                         
+%             bhv(curr_animal).b{curr_day} = b;
+%             bhv(curr_animal).logdiff(curr_day) = logdiff;
             
             
             % Store in behavior structure
@@ -641,7 +641,7 @@ axis square;
 
 %% Learning within- or across-day: split trials within day
 
-n_daysplit = 6;
+n_daysplit = 4;
 
 % Load muscimol injection info
 data_path = 'C:\Users\Andrew\OneDrive for Business\Documents\CarandiniHarrisLab\analysis\operant_learning\data';
