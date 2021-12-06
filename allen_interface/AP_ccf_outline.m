@@ -27,7 +27,7 @@ for curr_view = 1:3
     curr_outline = bwboundaries(squeeze((max(av,[],curr_view)) > 1));
     cellfun(@(x) plot(ccf_axes(curr_view),x(:,2),x(:,1),'k','linewidth',2),curr_outline)
     % (draw 1mm scalebar)
-    line(ccf_axes(curr_view),[0,0],[0,100],'color','k','linewidth',2);
+%     line(ccf_axes(curr_view),[0,0],[0,100],'color','k','linewidth',2);
 end
 linkaxes(ccf_axes);
 
