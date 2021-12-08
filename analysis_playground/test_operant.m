@@ -240,6 +240,7 @@ surround_t_centers = -2:0.1:60;
 surround_times = signals_events.responseTimes' + surround_t_centers;
 surround_move = interp1(t,+wheel_move,surround_times,'previous');
 
+response_times = signals_events.responseTimes';
 response_to_stim = stimOn_times(2:n_trials)-response_times(1:n_trials-1);
 [~,sort_idx] = sort(response_to_stim);
 
@@ -877,6 +878,8 @@ for curr_animal = 1:length(animals)
             bhv(curr_animal).animal = animal;
             bhv(curr_animal).day{curr_day} = day;
             
+            bhv(curr_animal).stim_surround_move_max{curr_day} = stim_surround_move_max;
+            bhv(curr_animal).surround_move_max{curr_day} = nanmedian(surround_move_max,1);
             bhv(curr_animal).quiescence_stim_move_ratio{curr_day} = nanmedian(quiescence_stim_move_ratio,1);
             
             AP_print_progress_fraction(curr_day,length(experiments));
@@ -906,7 +909,29 @@ end
 % (get max days for padding)
 max_days = max(cellfun(@sum,use_days));
 
-% Pad move from quiescence
+% Pad values
+stim_surround_move_max_cat = cell2mat(permute(cellfun(@(x,use_days) ...
+    padarray(vertcat(x{use_days}),[max_days-sum(use_days),0],NaN,'post'), ...
+    {bhv.stim_surround_move_max},use_days,'uni',false),[1,3,2]));
+surround_move_max_cat = cell2mat(permute(cellfun(@(x,use_days) ...
+    padarray(vertcat(x{use_days}),[max_days-sum(use_days),0],NaN,'post'), ...
+    {bhv.surround_move_max},use_days,'uni',false),[1,3,2]));
+
+stim_surround_move_max_mean = nanmean(stim_surround_move_max_cat,3);
+stim_surround_move_max_sem = AP_sem(stim_surround_move_max_cat,3);
+surround_move_max_mean = nanmean(surround_move_max_cat,3);
+surround_move_max_sem = AP_sem(surround_move_max_cat,3);
+figure; hold on;
+errorbar( ...
+    reshape(padarray(stim_surround_move_max_mean,[0,1],NaN,'post')',[],1), ...
+    reshape(padarray(stim_surround_move_max_sem,[0,1],NaN,'post')',[],1),'k','linewidth',2);
+errorbar( ...
+    reshape(padarray(surround_move_max_mean,[0,1],NaN,'post')',[],1), ...
+    reshape(padarray(surround_move_max_sem,[0,1],NaN,'post')',[],1),'b','linewidth',2);
+ylabel(' probability');
+xlabel('Day');
+legend({'Stim move','Shuffle move'});
+
 move_ratio_cat = cell2mat(permute(cellfun(@(x,use_days) ...
     padarray(vertcat(x{use_days}),[max_days-sum(use_days),0],NaN,'post'), ...
     {bhv.quiescence_stim_move_ratio},use_days,'uni',false),[1,3,2]));

@@ -374,14 +374,35 @@ p_slope = cellfun(@(x) cellfun(@(x) x(1),x),p,'uni',false);
 
 %% TESTING: histograms of reaction times
 
+% Load muscimol injection info
+data_path = 'C:\Users\Andrew\OneDrive for Business\Documents\CarandiniHarrisLab\analysis\operant_learning\data';
+muscimol_fn = [data_path filesep 'muscimol.mat'];
+load(muscimol_fn);
+
+% Use days before muscimol
+use_days = cell(size(bhv));
+for curr_animal = 1:length(bhv)
+    muscimol_animal_idx = ismember({muscimol.animal},bhv(curr_animal).animal);
+    if isempty(muscimol_animal_idx)
+        continue
+    end
+    muscimol_day_idx = datenum(bhv(curr_animal).day) >= ...
+        datenum(muscimol(muscimol_animal_idx).day(1));
+    use_days{curr_animal} = ~muscimol_day_idx;
+end
+
+max_days = max(cellfun(@sum,use_days));
+
+% Animal/day
 figure;
 for curr_animal = 1:length(bhv)
-    for curr_day = 1:10
-        subplot(10,length(bhv),(curr_day-1)*length(bhv)+curr_animal); hold on;
+    for curr_day = find(use_days{curr_animal})'
+        subplot(max_days,length(bhv),(curr_day-1)*length(bhv)+curr_animal); hold on;
         histogram(bhv(curr_animal).stim_move_t{curr_day},0:0.02:1,'EdgeColor','none','normalization','probability')
     end
 end
 
+% Day (animals overlaid)
 figure;
 for curr_animal = 1:length(bhv)
     for curr_day = 1:10
@@ -390,12 +411,51 @@ for curr_animal = 1:length(bhv)
     end
 end
 
+% Animals (days combined)
+figure; hold on;
 
+cellfun(@(x) histogram(cell2mat(x),0:0.005:1,'EdgeColor','none', ...
+    'normalization','probability'),{bhv.stim_move_t},'uni',false);
+cellfun(@(x) line(repmat(mode(round(cell2mat(x)*100)/100),2,1),ylim,'linewidth',2),{bhv.stim_move_t});
 
-% b = cellfun(@(x) cellfun(@(x) nanmean(x > 0.1 & x < 0.25),x),{bhv.stim_move_t},'uni',false)
-b = cellfun(@(x) cellfun(@(x) nansum(x > 0.1 & x < 0.25)./nansum(x > 0.1),x),{bhv.stim_move_t},'uni',false);
+% Total
+figure;
+histogram(cell2mat([bhv.stim_move_t]),0:0.005:1,'EdgeColor','none','normalization','probability');
+
+% Fraction rxn within boundary
+b = cellfun(@(x) cellfun(@(x) nanmean(x > 0.1 & x < 0.25),x),{bhv.stim_move_t},'uni',false);
 figure; hold on;
 cellfun(@plot,b);
+
+
+
+% Day-split reaction time fraction
+
+n_daysplit = 4;
+
+% Index: within-day split, day, animal
+trial_split_idx = cellfun(@(x,use_days,animal_num) ...
+    cellfun(@(x,day) ...
+    [min(floor(linspace(1,n_daysplit+1,length(x))),n_daysplit); ...
+    repmat(day,1,length(x));repmat(animal_num,1,length(x))], ...
+    x(use_days),num2cell(1:sum(use_days)),'uni',false), ...
+    {bhv.stim_move_t},use_days,num2cell(1:length(bhv)),'uni',false);
+
+stim_move_t_cat = cell2mat(cellfun(@(x,use_days) cell2mat(x(use_days)), ...
+    {bhv.stim_move_t},use_days,'uni',false));
+
+stim_move_t_stimtime = accumarray(cell2mat([trial_split_idx{:}])', ...
+    stim_move_t_cat > 0.1 & stim_move_t_cat < 0.25',[n_daysplit,max_days,length(bhv)],@nanmean,NaN);
+
+figure; hold on;
+stim_move_t_stimtime_long = reshape(padarray(stim_move_t_stimtime,[1,0,0],NaN,'post'),[],length(animals));
+plot([1:size(stim_move_t_stimtime_long,1)]/(n_daysplit+1),stim_move_t_stimtime_long);
+errorbar([1:size(stim_move_t_stimtime_long,1)]/(n_daysplit+1), ...
+    nanmean(stim_move_t_stimtime_long,2),AP_sem(stim_move_t_stimtime_long,2),'k','linewidth',2);
+xlabel('Day');
+ylabel('Rxn in stim window');
+
+
 
 
 %% Non-muscimol behavior

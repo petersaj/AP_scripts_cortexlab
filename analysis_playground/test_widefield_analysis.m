@@ -534,10 +534,10 @@ event_aligned_wheel = interp1(Timeline.rawDAQTimestamps, ...
 wheel_thresh = 0.025;
 quiescent_trials = ~any(abs(event_aligned_wheel) > wheel_thresh,2);
 
-% % Deconv widefield if it's not already
-% if ~exist('fVdf_deconv','var')
-%     fVdf_deconv = AP_deconv_wf(fVdf);
-% end
+% Deconv widefield if it's not already
+if ~exist('fVdf_deconv','var')
+    fVdf_deconv = AP_deconv_wf(fVdf);
+end
 
 % %%%%%%%%%%% TESTING
 % fVdf_deconv = fVdf;
