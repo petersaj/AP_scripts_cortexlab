@@ -14,8 +14,8 @@ animal = 'AP104';
 % day = '2021-06-06';
 % day = '2021-06-08';
 % day = '2021-06-09';
-% day = '2021-06-11';
-day = '2021-06-13';
+day = '2021-06-11';
+% day = '2021-06-13';
 
 experiment = 1;
 verbose = true;
@@ -1145,7 +1145,6 @@ xlabel('Day');
 %% Stim response vs alternate timing stim onset
 % (Kenneth suggested this: like the quiescence-shortening, but using times
 % from other trials and both ITI and quiescence)
-% (LOOKS OK?)
 %
 % For each trial: 
 % - find another trial params where stim would've appeared earlier
@@ -1184,7 +1183,6 @@ t_from_move_trace = ...
 %     interp1(quiescence_reset_t,quiescence_reset_t,t,'previous','extrap');
 
 alt_stimOn_times = cell(n_trials,1);
-real_stimOn_times = cell(n_trials,1);
 for curr_trial = 2:n_trials
     
     curr_trial_t_idx = t >= signals_events.responseTimes(curr_trial-1) & ...
@@ -1236,20 +1234,16 @@ for curr_trial = 2:n_trials
     % Store possible stim on times (where timings were hit, and not within
     % an analysis window around the real stim on time)
     leeway_window = 0.5; % seconds from real stim onset to exclude
-    leeway_idx = find(curr_trial_t-curr_trial_t(end) < -leeway_window,1,'last');
+    leeway_idx = find(curr_trial_t-curr_trial_t(end) < leeway_window,1,'last');
     alt_stimOn_times{curr_trial} = curr_trial_t( ...
-        alt_stim_idx(alt_stim_value & alt_stim_idx <= leeway_idx));
-    
-    % (sanity check: store real stim on times for each alt)
-    real_stimOn_times{curr_trial} = repmat(stimOn_times(curr_trial), ...
-        length(alt_stimOn_times{curr_trial}),1);
+        alt_stim_idx(alt_stim_value & alt_stim_idx <));
     
     AP_print_progress_fraction(curr_trial,n_trials)
     
 end
 
 % Align activity to stim onset
-surround_t_centers = -10:0.01:10;
+surround_t_centers = -10:0.001:10;
 
 stim_surround_times = stimOn_times + surround_t_centers;
 stim_surround_move = interp1(t,+wheel_move,stim_surround_times,'previous');
@@ -1275,12 +1269,9 @@ legend({'Null','Measured'});
 % Plot stim-aligned move
 figure;
 subplot(1,3,1);
-imagesc(surround_t_centers,[],stim_surround_move);
+imagesc(stim_surround_move);
 subplot(1,3,2);
-imagesc(surround_t_centers,[],alt_stim_surround_move);
-% (plot real stim on times for each alternate)
-hold on
-plot(cell2mat(real_stimOn_times)-cell2mat(alt_stimOn_times),1:length(cell2mat(real_stimOn_times)),'.r');
+imagesc(alt_stim_surround_move);
 subplot(1,3,3); hold on;
 plot(surround_t_centers,nanmean(stim_surround_move,1),'linewidth',2);
 plot(surround_t_centers,nanmean(alt_stim_surround_move,1),'linewidth',2);

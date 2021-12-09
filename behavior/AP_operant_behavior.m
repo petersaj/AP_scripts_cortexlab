@@ -15,13 +15,20 @@
 % animal_group = 'cstr';
 % animals = {'AP092','AP093','AP094','AP095','AP096','AP097'};
 
-% tetO mice
-animal_group = 'teto';
-animals = {'AP100','AP101','AP103','AP104','AP105','AP106'};
+% % tetO mice
+% animal_group = 'teto';
+% animals = {'AP100','AP101','AP103','AP104','AP105','AP106'};
+
+% Andrada's tetO mice
+animal_group = 'teto_AM';
+animals = {'AP107','AP108','AP109'};
 
 protocol = 'AP_stimWheelRight';
 flexible_name = false;
 bhv = struct;
+
+% Save flag
+save_bhv = false;
 
 for curr_animal = 1:length(animals)
     
@@ -68,7 +75,7 @@ for curr_animal = 1:length(animals)
             stim_surround_t_centers = -10:0.1:10;
             stim_surround_times = stimOn_times + stim_surround_t_centers;
             stim_surround_move = interp1(Timeline.rawDAQTimestamps, ...
-                wheel_move,stim_surround_times,'previous');
+                +wheel_move,stim_surround_times,'previous');
             
             % Resetting quiescence period for each trial
             if isfield(block.events,'trialQuiescenceValues')
@@ -277,10 +284,12 @@ for curr_animal = 1:length(animals)
     
 end
 
-data_path = 'C:\Users\Andrew\OneDrive for Business\Documents\CarandiniHarrisLab\analysis\operant_learning\data';
-save_fn = [data_path filesep 'bhv_' animal_group];
-save(save_fn,'bhv');
-disp(['Saved ' save_fn]);
+if save_bhv
+    data_path = 'C:\Users\Andrew\OneDrive for Business\Documents\CarandiniHarrisLab\analysis\operant_learning\data';
+    save_fn = [data_path filesep 'bhv_' animal_group];
+    save(save_fn,'bhv');
+    disp(['Saved ' save_fn]);
+end
 
 
 %% (load data saved after above)
