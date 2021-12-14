@@ -1284,6 +1284,7 @@ plot(cell2mat(real_stimOn_times)-cell2mat(alt_stimOn_times),1:length(cell2mat(re
 subplot(1,3,3); hold on;
 plot(surround_t_centers,nanmean(stim_surround_move,1),'linewidth',2);
 plot(surround_t_centers,nanmean(alt_stim_surround_move,1),'linewidth',2);
+colormap(brewermap([],'Greys'));
 
 
 
