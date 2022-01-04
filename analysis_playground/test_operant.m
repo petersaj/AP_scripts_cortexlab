@@ -728,7 +728,8 @@ load(muscimol_fn);
 use_days = cell(size(bhv));
 for curr_animal = 1:length(bhv)
     muscimol_animal_idx = ismember({muscimol.animal},bhv(curr_animal).animal);
-    if isempty(muscimol_animal_idx)
+    if ~any(muscimol_animal_idx)
+        use_days{curr_animal} = true(length(bhv(curr_animal).day),1);
         continue
     end
     muscimol_day_idx = datenum(bhv(curr_animal).day) >= ...
@@ -899,7 +900,8 @@ load(muscimol_fn);
 use_days = cell(size(bhv));
 for curr_animal = 1:length(bhv)
     muscimol_animal_idx = ismember({muscimol.animal},bhv(curr_animal).animal);
-    if isempty(muscimol_animal_idx)
+    if ~any(muscimol_animal_idx)
+        use_days{curr_animal} = true(length(bhv(curr_animal).day),1);
         continue
     end
     muscimol_day_idx = datenum(bhv(curr_animal).day) >= ...
@@ -1117,7 +1119,8 @@ load(muscimol_fn);
 use_days = cell(size(bhv));
 for curr_animal = 1:length(bhv)
     muscimol_animal_idx = ismember({muscimol.animal},bhv(curr_animal).animal);
-    if isempty(muscimol_animal_idx)
+    if ~any(muscimol_animal_idx)
+        use_days{curr_animal} = true(length(bhv(curr_animal).day),1);
         continue
     end
     muscimol_day_idx = datenum(bhv(curr_animal).day) >= ...
@@ -1185,6 +1188,7 @@ t_from_move_trace = ...
 
 alt_stimOn_times = cell(n_trials,1);
 real_stimOn_times = cell(n_trials,1);
+% (skip first since no ITI)
 for curr_trial = 2:n_trials
     
     curr_trial_t_idx = t >= signals_events.responseTimes(curr_trial-1) & ...
@@ -1196,7 +1200,7 @@ for curr_trial = 2:n_trials
     % (this basically works, but not 100%: sometimes I see two clicks that
     % should've reset it but it doesn't catch it, maybe because of exact
     % processing times in block or something)
-    t_wheel_block = interp1(block2timeline,timeline2block,block.inputs.wheelMMTimes);
+    t_wheel_block = interp1(block2timeline,timeline2block,block.inputs.wheelMMTimes,'linear','extrap');
     % (quiescence watch starts on new trial)
     curr_trial_t_block_idx = t_wheel_block >= signals_events.responseTimes(curr_trial-1) & ...
         t_wheel_block <= stimOn_times(curr_trial);
@@ -1240,15 +1244,15 @@ for curr_trial = 2:n_trials
     alt_stimOn_times{curr_trial} = curr_trial_t( ...
         alt_stim_idx(alt_stim_value & alt_stim_idx <= leeway_idx));
     
-    % (sanity check: store real stim on times for each alt)
+    % (sanity check: store real stim on times for each trial)
     real_stimOn_times{curr_trial} = repmat(stimOn_times(curr_trial), ...
         length(alt_stimOn_times{curr_trial}),1);
     
-    AP_print_progress_fraction(curr_trial,n_trials)
+%     AP_print_progress_fraction(curr_trial,n_trials)
     
 end
 
-% Align activity to stim onset
+% Align activity to stim/all alt-stim onsets
 surround_t_centers = -10:0.01:10;
 
 stim_surround_times = stimOn_times + surround_t_centers;
@@ -1264,10 +1268,10 @@ stim_rxn = surround_t_centers(find(surround_t_centers > 0,1) + stim_surround_mov
 [~,alt_stim_surround_move_idx] = max(alt_stim_surround_move(:,surround_t_centers > 0),[],2);
 alt_stim_rxn = surround_t_centers(find(surround_t_centers > 0,1) + alt_stim_surround_move_idx);
 
-rxn_bins = 0:0.01:1;
+rxn_bins = [-Inf,0:0.01:1,Inf];
 figure; hold on;
-histogram(alt_stim_rxn,rxn_bins,'EdgeColor','none','normalization','probability');
-histogram(stim_rxn,rxn_bins,'EdgeColor','none','normalization','probability');
+histogram(alt_stim_rxn,rxn_bins,'EdgeColor','none','normalization','pdf');
+histogram(stim_rxn,rxn_bins,'EdgeColor','none','normalization','pdf');
 xlabel('Reaction time');
 ylabel('Prob');
 legend({'Null','Measured'});
@@ -1285,6 +1289,286 @@ subplot(1,3,3); hold on;
 plot(surround_t_centers,nanmean(stim_surround_move,1),'linewidth',2);
 plot(surround_t_centers,nanmean(alt_stim_surround_move,1),'linewidth',2);
 colormap(brewermap([],'Greys'));
+
+
+% Compare same stim/alt-stim trials (sub-sample alt-stim)
+n_daysplit = 4;
+day_split_idx = min(floor(linspace(1,n_daysplit+1,n_trials)),n_daysplit)';
+
+use_alt_trials = cellfun(@(x) ~isempty(x),alt_stimOn_times);
+
+stim_move_max = nan(n_daysplit,1);
+alt_stim_move_max = nan(n_daysplit,1);
+for curr_daysplit = 1:n_daysplit   
+    
+    curr_trials = day_split_idx == curr_daysplit & use_alt_trials;
+    
+    surround_t_centers = 0:0.01:2;
+    curr_stim_surround_times = stimOn_times(curr_trials) + surround_t_centers;
+    curr_stim_surround_move = interp1(t,+wheel_move,curr_stim_surround_times,'previous');
+    
+    % Get random subset alt trials to match 1:1 to real trials
+    n_alt = 1000;
+    curr_alt_subset = cell2mat(cellfun(@(x) randsample(x,n_alt,true)', ...
+        alt_stimOn_times(curr_trials),'uni',false));    
+      
+    curr_alt_stim_surround_times = permute(curr_alt_subset,[1,3,2]) + surround_t_centers;
+    curr_alt_stim_surround_move = interp1(t,+wheel_move,curr_alt_stim_surround_times,'previous');    
+    
+    stim_move_max(curr_daysplit) = max(nanmean(curr_stim_surround_move,1));
+    alt_stim_move_max(curr_daysplit) = nanmean(max(nanmean(curr_alt_stim_surround_move,1),[],2));
+    
+end
+stim_move_response_idx = (stim_move_max-alt_stim_move_max)./(stim_move_max+alt_stim_move_max);
+
+
+
+%% (above in batch)
+%
+% For each trial: 
+% - find another trial params where stim would've appeared earlier
+% - align movement to the "alternate stim on"
+% - don't use if no alternate earlier trials or not outside analysis window
+% 
+% compare: reaction time histogram (shouldn't have peak but should have
+% same pedestal), triggered-average wheel speed/binary
+
+
+% tetO mice
+animal_group = 'teto';
+% animals = {'AP100','AP101','AP103','AP104','AP105','AP106'};
+animals = {'AP107','AP108','AP109'};
+
+% % corticostriatal mice
+% animal_group = 'cstr';
+% animals = {'AP092','AP093','AP094','AP095','AP096','AP097'};
+
+protocol = 'AP_stimWheelRight';
+flexible_name = false;
+bhv = struct;
+
+for curr_animal = 1:length(animals)
+    
+    preload_vars = who;
+    
+    animal = animals{curr_animal};
+    experiments = AP_find_experiments(animal,protocol,flexible_name);
+    
+    if isempty(experiments)
+        disp(['No behavior data: ' animal]);
+        continue
+    end
+    
+    disp([animal ', day:'])
+    for curr_day = 1:length(experiments)
+        
+        day = experiments(curr_day).day;
+        experiment_num = experiments(curr_day).experiment;
+        
+        % If multiple experiments, only use the last one
+        % (usually multiple happens if mess ups and final one is good)
+        for curr_experiment = length(experiment_num)
+            
+            experiment = experiment_num(curr_experiment);
+            
+            % Load (behavior/timeline only)
+            load_parts.imaging = false;
+            AP_load_experiment;
+            
+            
+            t = Timeline.rawDAQTimestamps';
+            
+            % Get trace giving time from last movement
+            % (processed wheel movement)
+            t_from_move_trace = ...
+                t - interp1(t(wheel_move),t(wheel_move),t,'previous','extrap');
+            
+            alt_stimOn_times = cell(n_trials,1);
+            % (skip first since no ITI)
+            for curr_trial = 2:n_trials
+                
+                curr_trial_t_idx = t >= signals_events.responseTimes(curr_trial-1) & ...
+                    t <= stimOn_times(curr_trial);
+                
+                curr_trial_t = t(curr_trial_t_idx);
+                
+                % Re-create quiescence watch: resets at >1mm cumulative
+                % (this basically works, but not 100%: sometimes I see two clicks that
+                % should've reset it but it doesn't catch it, maybe because of exact
+                % processing times in block or something)
+                t_wheel_block = interp1(block2timeline,timeline2block,block.inputs.wheelMMTimes,'linear','extrap');
+                % (quiescence watch starts on new trial)
+                curr_trial_t_block_idx = t_wheel_block >= signals_events.responseTimes(curr_trial-1) & ...
+                    t_wheel_block <= stimOn_times(curr_trial);
+                % (use wheelMM in block, loop through to estimate resets)
+                curr_wheel_mm_t = t_wheel_block(curr_trial_t_block_idx);
+                curr_wheel_mm = block.inputs.wheelMMValues(curr_trial_t_block_idx);
+                curr_quiescence_reset = false(size(curr_wheel_mm));
+                i = 1;
+                while i < length(curr_wheel_mm)
+                    curr_diff = abs(curr_wheel_mm - curr_wheel_mm(i));
+                    thresh = 0.95; % (it's really 1, but sometimes finnicky?)
+                    i = find(curr_diff(i:end) > thresh,1,'first') + (i-1);
+                    curr_quiescence_reset(i) = true;
+                end
+                % (skip trial if < 2 quiescence resets - can't interpolate)
+                if sum(curr_quiescence_reset) < 2
+                    continue
+                end
+                quiescence_reset_t = curr_wheel_mm_t(curr_quiescence_reset)';
+                t_from_quiescence_reset_full = t - ...
+                    interp1(quiescence_reset_t,quiescence_reset_t,t,'previous','extrap');
+                t_from_quiescence_reset_trial = t_from_quiescence_reset_full(curr_trial_t_idx);
+                
+                % Find alternate stim times from all other trial timings
+                other_trial_idx = setdiff(1:n_trials,curr_trial);
+                alt_stim_timing_grid = ...
+                    ((t(curr_trial_t_idx) - curr_trial_t(1)) > signals_events.trialITIValues(other_trial_idx)) & ...
+                    (t_from_quiescence_reset_trial > signals_events.trialQuiescenceValues(other_trial_idx));
+                [alt_stim_value,alt_stim_idx] = max(alt_stim_timing_grid,[],1);
+                
+                % Store possible stim on times (where timings were hit, and not within
+                % an analysis window around the real stim on time)
+                leeway_window = 0.5; % seconds from real stim onset to exclude
+                leeway_idx = find(curr_trial_t-curr_trial_t(end) < -leeway_window,1,'last');
+                alt_stimOn_times{curr_trial} = curr_trial_t( ...
+                    alt_stim_idx(alt_stim_value & alt_stim_idx <= leeway_idx));
+                
+            end
+            
+            % Get would-be reaction time after alt stim times
+            stim_leeway = 0.1;
+            wheel_move_alt_stim_idx = ...
+                arrayfun(@(stim) find(wheel_starts > stim-stim_leeway,1,'first'), ...
+                cell2mat(alt_stimOn_times));
+
+            alt_stim_to_move = ...
+                mat2cell(wheel_starts(wheel_move_alt_stim_idx) - cell2mat(alt_stimOn_times), ...
+                cellfun(@length,alt_stimOn_times));
+            
+            % Compare same stim/alt-stim trials (sub-sample alt-stim)
+            n_daysplit = 4;
+            day_split_idx = min(floor(linspace(1,n_daysplit+1,n_trials)),n_daysplit)';
+            
+            use_alt_trials = cellfun(@(x) ~isempty(x),alt_stimOn_times);
+            
+            stim_move_max = nan(1,n_daysplit);
+            alt_stim_move_max = nan(1,n_daysplit);
+            for curr_daysplit = 1:n_daysplit
+                
+                curr_trials = day_split_idx == curr_daysplit & use_alt_trials;
+                
+                surround_t_centers = 0:0.01:2;
+                curr_stim_surround_times = stimOn_times(curr_trials) + surround_t_centers;
+                curr_stim_surround_move = interp1(t,+wheel_move,curr_stim_surround_times,'previous');
+                
+                % Get random subset alt trials to match 1:1 to real trials
+                n_alt = 1000;
+                curr_alt_subset = cell2mat(cellfun(@(x) randsample(x,n_alt,true)', ...
+                    alt_stimOn_times(curr_trials),'uni',false));
+                
+                curr_alt_stim_surround_times = permute(curr_alt_subset,[1,3,2]) + surround_t_centers;
+                curr_alt_stim_surround_move = interp1(t,+wheel_move,curr_alt_stim_surround_times,'previous');
+                
+                stim_move_max(curr_daysplit) = max(nanmean(curr_stim_surround_move,1));
+                alt_stim_move_max(curr_daysplit) = nanmean(max(nanmean(curr_alt_stim_surround_move,1),[],2));
+                
+            end
+            
+            % Get "stim response index" (change to move after stim vs null)
+            stim_response_idx = (stim_move_max-alt_stim_move_max)./(stim_move_max+alt_stim_move_max);
+            
+            
+            % Store in behavior structure
+            bhv(curr_animal).animal = animal;
+            bhv(curr_animal).day{curr_day} = day;
+            % (reaction times)
+            bhv(curr_animal).stim_move_t{curr_day} = stim_to_move;
+            bhv(curr_animal).alt_stim_move_t{curr_day} = alt_stim_to_move;
+            % (stim response index)
+            bhv(curr_animal).stim_move_max{curr_day,1} = stim_move_max;
+            bhv(curr_animal).alt_stim_move_max{curr_day,1} = alt_stim_move_max;
+            bhv(curr_animal).stim_response_idx{curr_day,1} = stim_response_idx;
+            
+            AP_print_progress_fraction(curr_day,length(experiments));
+            
+        end
+    end
+end
+
+
+% Load muscimol injection info
+data_path = 'C:\Users\Andrew\OneDrive for Business\Documents\CarandiniHarrisLab\analysis\operant_learning\data';
+muscimol_fn = [data_path filesep 'muscimol.mat'];
+load(muscimol_fn);
+
+% Use days before muscimol
+use_days = cell(size(bhv));
+for curr_animal = 1:length(bhv)
+    muscimol_animal_idx = ismember({muscimol.animal},bhv(curr_animal).animal);
+    if ~any(muscimol_animal_idx)
+        use_days{curr_animal} = true(length(bhv(curr_animal).day),1);
+        continue
+    end
+    muscimol_day_idx = datenum(bhv(curr_animal).day) >= ...
+        datenum(muscimol(muscimol_animal_idx).day(1));
+    use_days{curr_animal} = ~muscimol_day_idx;
+end
+
+% (get max days for padding)
+max_days = max(cellfun(@sum,use_days));
+
+% Pad stim response
+stim_move_max_plotcat = reshape(permute(padarray(cell2mat(permute(cellfun(@(x,use_days) ...
+    padarray(vertcat(x{use_days}),[max_days-sum(use_days),0],NaN,'post'), ...
+    {bhv.stim_move_max},use_days,'uni',false),[1,3,2])),[0,1],NaN,'post'),[2,1,3]),[],length(bhv));
+
+alt_stim_move_max_plotcat = reshape(permute(padarray(cell2mat(permute(cellfun(@(x,use_days) ...
+    padarray(vertcat(x{use_days}),[max_days-sum(use_days),0],NaN,'post'), ...
+    {bhv.alt_stim_move_max},use_days,'uni',false),[1,3,2])),[0,1],NaN,'post'),[2,1,3]),[],length(bhv));
+
+stim_response_idx_plotcat = reshape(permute(padarray(cell2mat(permute(cellfun(@(x,use_days) ...
+    padarray(vertcat(x{use_days}),[max_days-sum(use_days),0],NaN,'post'), ...
+    {bhv.stim_response_idx},use_days,'uni',false),[1,3,2])),[0,1],NaN,'post'),[2,1,3]),[],length(bhv));
+
+figure; hold on;
+errorbar(nanmean(stim_move_max_plotcat,2), ...
+    AP_sem(stim_move_max_plotcat,2),'r','linewidth',2);
+errorbar(nanmean(alt_stim_move_max_plotcat,2), ...
+    AP_sem(alt_stim_move_max_plotcat,2),'b','linewidth',2);
+errorbar(nanmean(stim_response_idx_plotcat,2), ...
+    AP_sem(stim_response_idx_plotcat,2),'k','linewidth',2);
+ylabel('Stim response index');
+xlabel('Day');
+legend({'Stim move max','Null move max','Stim response idx'});
+
+
+%%% Reaction time distribution
+% (already in other script, but could do something here with null distr)
+
+curr_animal = 1;
+curr_day = 8;
+
+rxn_bins = 0:0.01:1;
+
+curr_rxn = bhv(curr_animal).stim_move_t{curr_day};
+curr_alt_rxn = bhv(curr_animal).alt_stim_move_t{curr_day};
+
+use_alt_trials = cellfun(@(x) ~isempty(x),curr_alt_rxn);
+
+n_alt = 1000;
+curr_alt_rxn_subset = cell2mat(cellfun(@(x) randsample(x,n_alt,true)', ...
+    curr_alt_rxn(use_alt_trials),'uni',false));
+
+figure; hold on
+histogram(curr_rxn,rxn_bins,'EdgeColor','none','normalization','pdf');
+histogram(curr_alt_rxn_subset,rxn_bins,'EdgeColor','none','normalization','pdf');
+
+% (not using atm)
+rxn_window = [0.1,0.25];
+a = mean(curr_rxn >= rxn_window(1) & curr_rxn <= rxn_window(2));
+b = mean(curr_alt_rxn_subset >= rxn_window(1) & curr_alt_rxn_subset <= rxn_window(2),1);
+
 
 
 
@@ -1461,7 +1745,7 @@ save([save_path filesep save_fn],'-v7.3');
 clear all
 disp('Passive trial activity (tetO)')
 
-animals = {'AP100','AP101','AP103','AP104','AP105','AP106'};
+animals = {'AP100','AP101','AP103','AP104','AP105','AP106','AP107','AP108','AP109'};
 
 % Initialize save variable
 trial_data_all = struct;
@@ -1477,8 +1761,12 @@ for curr_animal = 1:length(animals)
     muscimol_fn = [data_path filesep 'muscimol.mat'];
     load(muscimol_fn);
     muscimol_animal_idx = ismember({muscimol.animal},animal);
-    muscimol_start_day = muscimol(muscimol_animal_idx).day{1};
-    muscimol_experiments = datenum({experiments.day})' >= datenum(muscimol_start_day);
+    if any(muscimol_animal_idx)
+        muscimol_start_day = muscimol(muscimol_animal_idx).day{1};
+        muscimol_experiments = datenum({experiments.day})' >= datenum(muscimol_start_day);
+    else
+        muscimol_experiments = false(size({experiments.day}));
+    end
     
     % Set experiments to use (imaging, not muscimol)
     experiments = experiments([experiments.imaging] & ~muscimol_experiments);
@@ -1533,7 +1821,7 @@ disp(['Saved: ' save_path filesep save_fn])
 clear all
 disp('Task trial activity (tetO)')
 
-animals = {'AP100','AP101','AP103','AP104','AP105','AP106'};
+animals = {'AP100','AP101','AP103','AP104','AP105','AP106','AP107','AP108','AP109'};
 
 % Initialize save variable
 trial_data_all = struct;
@@ -1549,8 +1837,12 @@ for curr_animal = 1:length(animals)
     muscimol_fn = [data_path filesep 'muscimol.mat'];
     load(muscimol_fn);
     muscimol_animal_idx = ismember({muscimol.animal},animal);
-    muscimol_start_day = muscimol(muscimol_animal_idx).day{1};
-    muscimol_experiments = datenum({experiments.day})' >= datenum(muscimol_start_day);
+    if any(muscimol_animal_idx)
+        muscimol_start_day = muscimol(muscimol_animal_idx).day{1};
+        muscimol_experiments = datenum({experiments.day})' >= datenum(muscimol_start_day);
+    else
+        muscimol_experiments = false(size({experiments.day}));
+    end
     
     % Set experiments to use (imaging, not muscimol)
     experiments = experiments([experiments.imaging] & ~muscimol_experiments);
@@ -1978,6 +2270,25 @@ figure; hold on;
 plot([1:max(trial_day)]-3,roi_animal_day_avg');
 plot([1:max(trial_day)]-3,nanmean(roi_animal_day_avg,1),'k','linewidth',2);
 
+% Violin plot
+p1 = distributionPlot( ...
+    max(str_ctx_baseline_corr(good_units_allcat & celltype_allcat == 1,:),[],2), ...
+    'groups',domain_aligned_allcat(good_units_allcat & celltype_allcat == 1), ...
+    'histOri','left','xValues',[1:3]-0.25,'distWidth',0.5,'color','k');
+
+
+figure; 
+distributionPlot(curr_act_timeavg(trial_animal == 1),'groups',trial_day(trial_animal == 1),'showMM',0);
+
+figure;
+plotSpread(curr_act_timeavg,'categoryIdx',trial_animal,'distributionIdx',trial_day);
+
+figure;
+curr_animal = 1;
+curr_act_idx = trial_animal == curr_animal;
+plotSpread(curr_act_timeavg(curr_act_idx),'distributionIdx',trial_day(curr_act_idx));
+
+
 %%%% split days
 n_daysplit = 4;
 day_split_idx = cell2mat(arrayfun(@(x) ...
@@ -2157,7 +2468,8 @@ load(muscimol_fn);
 use_days = cell(size(bhv));
 for curr_animal = 1:length(bhv)
     muscimol_animal_idx = ismember({muscimol.animal},bhv(curr_animal).animal);
-    if isempty(muscimol_animal_idx)
+    if ~any(muscimol_animal_idx)
+        use_days{curr_animal} = true(length(bhv(curr_animal).day),1);
         continue
     end
     
@@ -2283,7 +2595,8 @@ load(muscimol_fn);
 use_days = cell(size(bhv));
 for curr_animal = 1:length(bhv)
     muscimol_animal_idx = ismember({muscimol.animal},bhv(curr_animal).animal);
-    if isempty(muscimol_animal_idx)
+    if ~any(muscimol_animal_idx)
+        use_days{curr_animal} = true(length(bhv(curr_animal).day),1);
         continue
     end
     

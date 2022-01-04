@@ -282,10 +282,11 @@ if task_dataset
     % Build regressors (only a subset of these are used)
     
     % Stim regressors
-    unique_stim = unique(contrasts(contrasts > 0).*sides');
     stim_contrastsides = ...
         signals_events.trialSideValues(1:length(stimOn_times))'.* ...
         signals_events.trialContrastValues(1:length(stimOn_times))';
+    % (only 1 stim in AP_stimWheelRight/Left)
+    unique_stim = unique(stim_contrastsides);
     
     stim_regressors = zeros(length(unique_stim),length(time_bin_centers));
     for curr_stim = 1:length(unique_stim)
@@ -325,7 +326,7 @@ if task_dataset
 %     move_onset_regressors(2,:) = histcounts(wheel_move_time(trial_choice == 1),time_bins);    
     
     % (trying new thing: all rewarded/unrewarded move onsets)
-    wheel_move_resample = interp1(Timeline.rawDAQTimestamps,wheel_move,time_bin_centers,'previous');
+    wheel_move_resample = interp1(Timeline.rawDAQTimestamps,+wheel_move,time_bin_centers,'previous');
     
     move_onset_resample_t = time_bin_centers([false,diff(wheel_move_resample) == 1]);
     move_offset_resample_t = time_bin_centers([false,diff(wheel_move_resample) == -1]);   

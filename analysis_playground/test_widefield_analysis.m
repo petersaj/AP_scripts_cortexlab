@@ -2000,7 +2000,7 @@ caxis([-c,c])
 %     stim_to_feedback < 1.5 & ...
 %     stim_to_move < 0.5;
 
-use_trials = stimIDs == 3;
+use_trials = stimIDs == 1;
 
 align_times = stimOn_times(use_trials);
 % align_times = wheel_move_time(use_trials);
@@ -2042,7 +2042,7 @@ ylabel(c,'Explained variance')
 
 %% Align vasculature for animal
 clear all;
-animal = 'AP107';
+animal = 'AP098';
 
 protocol = [];
 experiments = AP_find_experiments(animal,protocol);
@@ -2081,7 +2081,7 @@ AP_align_widefield(im_edge,animal,{experiments(use_days).day},'new_days');
 
 %% View aligned vasculature (to check that it's been done correctly)
 
-animal = 'AP107';
+animal = 'AP099';
 
 protocol = [];
 experiments = AP_find_experiments(animal,protocol);
@@ -2108,7 +2108,7 @@ set(gcf,'Name',animal);
 retinotopy_path = 'C:\Users\Andrew\OneDrive for Business\Documents\CarandiniHarrisLab\analysis\widefield_alignment\retinotopy';
 retinotopy_dir = dir(retinotopy_path);
 
-animal = 'AP107';
+animal = 'AP109';
 load([retinotopy_path filesep animal '_retinotopy'])
 
 aligned_vfs = cell(length(retinotopy),1);
@@ -2194,7 +2194,7 @@ end
 retinotopy_path = 'C:\Users\Andrew\OneDrive for Business\Documents\CarandiniHarrisLab\analysis\widefield_alignment\retinotopy';
 retinotopy_dir = dir(retinotopy_path);
 
-animal = 'AP107';
+animal = 'AP109';
 load([retinotopy_path filesep animal '_retinotopy'])
 
 vfs_aligned = cell(length(retinotopy));
@@ -2213,5 +2213,57 @@ AP_reference_outline('ccf_aligned',[0.5,0.5,0.5]);
 
 
 
+%% ~~~~~~~~~~~~~~~~ TROUBLESHOOTING ~~~~~~~~~~~~~~~~
 
+
+%% Pixel prominence (look for peaky activity)
+
+animals = {'AP103'};
+prominence_maps = cell(size(animals));
+
+for curr_animal = 1:length(animals)
+    
+    animal = animals{curr_animal};
+    protocol = 'AP_lcrGratingPassive';
+    experiments = AP_find_experiments(animal,protocol);
+    disp(animal);
+    
+    for curr_experiment = 1:length(experiments)
+        
+        preload_vars = who;
+        
+        % Load data
+        day = experiments(curr_experiment).day;
+        experiment = experiments(curr_experiment).experiment(end);
+        load_parts.imaging = true;
+        AP_load_experiment;
+        
+        U_downsample_factor = 10;
+        Ud = imresize(Udf,1/U_downsample_factor,'bilinear');
+        
+        pxd = reshape(svdFrameReconstruct(Ud,fVdf),[],size(fVdf,2));
+        
+        skip_frames = framerate*1;
+        peak_thresh = nanstd(reshape(pxd(:,skip_frames:end-skip_frames),[],1));
+        
+        curr_promimence_map = nan(size(Ud,1),size(Ud,2));
+        for curr_px = 1:size(pxd,1)
+            [~,~,widths,prominences] = findpeaks( ...
+                pxd(curr_px,skip_frames:end-skip_frames), ...
+                framerate,'MinPeakProminence',peak_thresh);
+            curr_promimence_map(curr_px) = nanstd(prominences./widths);
+        end
+        
+        figure;imagesc(curr_promimence_map);axis image off;
+        colormap(hot);
+        title([animal ' ' day]);
+        drawnow
+        
+        prominence_maps{curr_animal}{curr_experiment} = curr_promimence_map;
+        
+        clearvars('-except',preload_vars{:});
+        AP_print_progress_fraction(curr_experiment,length(experiments));
+        
+    end
+end
 
