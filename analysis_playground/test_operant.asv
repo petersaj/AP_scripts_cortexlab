@@ -2396,13 +2396,8 @@ end
 %% Pixel-behavior correlation 
 
 % Get average stim (skip first 3 days: no behavior)
+stim_t = [0.05,0.2];
 stim_px = cellfun(@(x) ...
-    squeeze(AP_svdFrameReconstruct(U_master(:,:,1:n_vs), ...
-    x(:,t >= 0 & t <= 1,4:end,3))), ...
-    stim_v_avg,'uni',false);
-
-stim_t = [0.1,0.2];
-stim_px_tavg = cellfun(@(x) ...
     squeeze(AP_svdFrameReconstruct(U_master(:,:,1:n_vs), ...
     nanmean(x(:,t >= stim_t(1) & t <= stim_t(2),4:end,3),2))), ...
     stim_v_avg,'uni',false);
@@ -2439,16 +2434,16 @@ poststim_move_frac_max = cellfun(@(x) cellfun(@(x) ...
     max(nanmean(x(:,stim_surround_t > 0),1)),x), ...
     {bhv.stim_surround_wheel},'uni',false);
 
-use_bhv = rxn_frac;
+use_bhv = stim_response_idx;
 
-[r_long,p_long] = cellfun(@(px,bhv) corr(reshape(px,[],size(px,4))', ...
-    bhv(1:size(px,4))),stim_px,use_bhv,'uni',false);
+[r_long,p_long] = cellfun(@(px,bhv) corr(reshape(px,[],size(px,3))', ...
+    bhv(1:size(px,3))),stim_px,use_bhv,'uni',false);
 
-r = cell2mat(permute(cellfun(@(x) reshape(x,size(stim_px{1},1),size(stim_px{1},2),size(stim_px{1},3)),r_long,'uni',false),[1,3,4,2]));
-r = cell2mat(permute(cellfun(@(x) reshape(x,size(stim_px{1},1),size(stim_px{1},2),size(stim_px{1},3)),p_long,'uni',false),[1,3,4,2]));
+r = cell2mat(permute(cellfun(@(x) reshape(x,size(U_master(:,:,1))),r_long,'uni',false),[1,3,2]));
+p = cell2mat(permute(cellfun(@(x) reshape(x,size(U_master(:,:,1))),p_long,'uni',false),[1,3,2]));
 
-r_mean = nanmean(r,4);
-p_mean = nanmean(p,4);
+r_mean = nanmean(r,3);
+p_mean = nanmean(p,3);
 
 figure;
 imagesc(r_mean,'AlphaData',1-p_mean);

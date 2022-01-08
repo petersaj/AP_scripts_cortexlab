@@ -44,24 +44,19 @@ end
 
 % Get event-aligned activity
 raster_window = [-0.5,2];
-upsample_factor = 1;
-raster_sample_rate = 1/(framerate*upsample_factor);
-t = raster_window(1):raster_sample_rate:raster_window(2);
+raster_sample_time = 0.01;
+t = raster_window(1):raster_sample_time:raster_window(2);
 
 % Get align times
 use_align = stimOn_times;
 use_align(isnan(use_align)) = 0;
 
 t_peri_event = bsxfun(@plus,use_align,t);
-t_peri_event_bins = [t_peri_event-raster_sample_rate/2,t_peri_event(:,end)+raster_sample_rate/2];
+t_peri_event_bins = [t_peri_event-raster_sample_time/2,t_peri_event(:,end)+raster_sample_time/2];
 
 % Pick trials to keep
 % (use all of them at the moment)
 if task_dataset
-%     use_trials = ...
-%         trial_outcome ~= 0 & ...
-%         ~signals_events.repeatTrialValues(1:n_trials)' & ...
-%         stim_to_feedback < 1.5;
     use_trials = true(n_trials,1);
 else
     use_trials = true(size(stimIDs));
@@ -112,7 +107,7 @@ if ephys_exists
         
         event_aligned_mua(:,:,curr_depth) = cell2mat(arrayfun(@(x) ...
             histcounts(curr_spikes,t_peri_event_bins(x,:)), ...
-            [1:size(t_peri_event,1)]','uni',false))./raster_sample_rate;
+            [1:size(t_peri_event,1)]','uni',false))./raster_sample_time;
     end
     
     % (filter MUA if selected)
@@ -155,16 +150,15 @@ end
 % Parameters for regression
 regression_params.use_svs = 1:100;
 regression_params.skip_seconds = 20;
-regression_params.upsample_factor = 1;
+regression_params.sample_rate = 100;
 regression_params.kernel_t = [-0.1,0.1];
 regression_params.zs = [false,false];
 regression_params.cvfold = 5;
 regression_params.use_constant = true;
 
 % Get time points to bin
-sample_rate = framerate*regression_params.upsample_factor;
 time_bins = frame_t(find(frame_t > ...
-    regression_params.skip_seconds,1)):1/sample_rate: ...
+    regression_params.skip_seconds,1)):1/regression_params.sample_rate: ...
     frame_t(find(frame_t-frame_t(end) < ...
     -regression_params.skip_seconds,1,'last'));
 time_bin_centers = time_bins(1:end-1) + diff(time_bins)/2;
@@ -210,8 +204,8 @@ if ephys_exists
         end
     end
     
-    kernel_frames = round(regression_params.kernel_t(1)*sample_rate): ...
-        round(regression_params.kernel_t(2)*sample_rate);
+    kernel_frames = round(regression_params.kernel_t(1)*regression_params.sample_rate): ...
+        round(regression_params.kernel_t(2)*regression_params.sample_rate);
     
     % Regress cortex to striatum
     [ctx_str_k,ctxpred_spikes_std,explained_var] = ...
@@ -231,46 +225,46 @@ if ephys_exists
         nanstd(binned_spikes,[],2).*squeeze(ctx_str_k{end});
     
     event_aligned_mua_ctxpred = ...
-        interp1(time_bin_centers,ctxpred_spikes',t_peri_event)./raster_sample_rate;
+        interp1(time_bin_centers,ctxpred_spikes',t_peri_event)./raster_sample_time;
     
 end
 
 %% Regress cortex to wheel velocity and speed and trial-align
 
-if verbose; disp('Regressing cortex to wheel...'); end;
-
-wheel_velocity_resample = interp1(Timeline.rawDAQTimestamps,wheel_velocity,time_bin_centers);
-wheel_velspeed_resample = [wheel_velocity_resample;abs(wheel_velocity_resample)];
-wheel_velspeed_resample_std = wheel_velspeed_resample./std(wheel_velocity_resample);
-
-% (TESTING: split left/right)
-wheel_velspeed_resample_std = [wheel_velocity_resample.*(wheel_velocity_resample>0); ...
-    wheel_velocity_resample.*(wheel_velocity_resample<0)];
-wheel_velspeed_resample_std = wheel_velspeed_resample_std./std(wheel_velocity_resample);
-
-% Set wheel regression paramters
-wheel_lambda = 20;
-
-wheel_kernel_t = [-0.5,0.5];
-wheel_kernel_frames = round(wheel_kernel_t(1)*sample_rate): ...
-    round(wheel_kernel_t(2)*sample_rate);
-
-[ctx_wheel_k,predicted_wheel_velspeed_std,explained_var] = ...
-    AP_regresskernel(fVdf_deconv_resample(regression_params.use_svs,:), ...
-    wheel_velspeed_resample_std,wheel_kernel_frames,wheel_lambda, ...
-    [],regression_params.cvfold, ...
-    false,false);
-
-predicted_wheel_velspeed = predicted_wheel_velspeed_std.* ...
-    std(wheel_velocity_resample);
-
-% Recast the k's into the master U
-ctx_wheel_k_recast = reshape(ChangeU(Udf_aligned(:,:,regression_params.use_svs), ...
-    reshape(ctx_wheel_k,size(ctx_wheel_k,1),[]),U_master(:,:,regression_params.use_svs)), ...
-    size(ctx_wheel_k));
-
-event_aligned_wheel_ctxpred = ...
-    interp1(time_bin_centers,predicted_wheel_velspeed(1,:)',t_peri_event);
+% if verbose; disp('Regressing cortex to wheel...'); end;
+% 
+% wheel_velocity_resample = interp1(Timeline.rawDAQTimestamps,wheel_velocity,time_bin_centers);
+% wheel_velspeed_resample = [wheel_velocity_resample;abs(wheel_velocity_resample)];
+% wheel_velspeed_resample_std = wheel_velspeed_resample./std(wheel_velocity_resample);
+% 
+% % (TESTING: split left/right)
+% wheel_velspeed_resample_std = [wheel_velocity_resample.*(wheel_velocity_resample>0); ...
+%     wheel_velocity_resample.*(wheel_velocity_resample<0)];
+% wheel_velspeed_resample_std = wheel_velspeed_resample_std./std(wheel_velocity_resample);
+% 
+% % Set wheel regression paramters
+% wheel_lambda = 20;
+% 
+% wheel_kernel_t = [-0.5,0.5];
+% wheel_kernel_frames = round(wheel_kernel_t(1)*regression_params.sample_rate): ...
+%     round(wheel_kernel_t(2)*regression_params.sample_rate);
+% 
+% [ctx_wheel_k,predicted_wheel_velspeed_std,explained_var] = ...
+%     AP_regresskernel(fVdf_deconv_resample(regression_params.use_svs,:), ...
+%     wheel_velspeed_resample_std,wheel_kernel_frames,wheel_lambda, ...
+%     [],regression_params.cvfold, ...
+%     false,false);
+% 
+% predicted_wheel_velspeed = predicted_wheel_velspeed_std.* ...
+%     std(wheel_velocity_resample);
+% 
+% % Recast the k's into the master U
+% ctx_wheel_k_recast = reshape(ChangeU(Udf_aligned(:,:,regression_params.use_svs), ...
+%     reshape(ctx_wheel_k,size(ctx_wheel_k,1),[]),U_master(:,:,regression_params.use_svs)), ...
+%     size(ctx_wheel_k));
+% 
+% event_aligned_wheel_ctxpred = ...
+%     interp1(time_bin_centers,predicted_wheel_velspeed(1,:)',t_peri_event);
 
 
 %% Regress task to cortex/striatum/cortex-predicted striatum
@@ -369,23 +363,23 @@ if task_dataset
     task_regressor_labels = {'Stim','Move onset','Outcome'};
     
     task_t_shifts = { ...
-        [-0.5,0.5]; ... % stim
-        [-0.5,1]; ... % move
-        [-0.5,0.5]}; % outcome
+        [0,0.5]; ... % stim
+        [-0.5,0.5]; ... % move
+        [0,0.5]}; % outcome
     
-    task_regressor_sample_shifts = cellfun(@(x) round(x(1)*(sample_rate)): ...
-        round(x(2)*(sample_rate)),task_t_shifts,'uni',false);
+    task_regressor_sample_shifts = cellfun(@(x) round(x(1)*(regression_params.sample_rate)): ...
+        round(x(2)*(regression_params.sample_rate)),task_t_shifts,'uni',false);
     lambda = 0;
     zs = [false,false];
     cvfold = 5;
-    use_constant = true;
+    use_constant = false;
     return_constant = false;
     
     % Regression task -> MUA
     if ephys_exists
         
         baseline = nanmean(reshape(event_aligned_mua(:,t < 0,:),[], ...
-            size(event_aligned_mua,3))*raster_sample_rate,1)';
+            size(event_aligned_mua,3))*raster_sample_time,1)';
         activity = single(binned_spikes) - baseline;
         
         [mua_taskpred_k,mua_taskpred_long,mua_taskpred_expl_var,mua_taskpred_reduced_long] = ...
@@ -393,15 +387,15 @@ if task_dataset
             lambda,zs,cvfold,return_constant,use_constant);
         
         mua_taskpred = ...
-            interp1(time_bin_centers,mua_taskpred_long',t_peri_event)./raster_sample_rate;
+            interp1(time_bin_centers,mua_taskpred_long',t_peri_event)./raster_sample_time;
         
         mua_taskpred_reduced = cell2mat(arrayfun(@(x) ...
             interp1(time_bin_centers,mua_taskpred_reduced_long(:,:,x)', ...
-            t_peri_event)./raster_sample_rate,permute(1:length(task_regressors),[1,3,4,2]),'uni',false));
+            t_peri_event)./raster_sample_time,permute(1:length(task_regressors),[1,3,4,2]),'uni',false));
         
         % Regression task -> MUA-ctxpred
         baseline = nanmean(reshape(event_aligned_mua_ctxpred(:,t < 0,:),[], ...
-            size(event_aligned_mua_ctxpred,3))*raster_sample_rate,1)';
+            size(event_aligned_mua_ctxpred,3))*raster_sample_time,1)';
         activity = single(ctxpred_spikes) - baseline;
         
         [mua_ctxpred_taskpred_k,mua_ctxpred_taskpred_long,mua_ctxpred_taskpred_expl_var,mua_ctxpred_taskpred_reduced_long] = ...
@@ -409,17 +403,20 @@ if task_dataset
             lambda,zs,cvfold,return_constant,use_constant);
         
         mua_ctxpred_taskpred = ...
-            interp1(time_bin_centers,mua_ctxpred_taskpred_long',t_peri_event)./raster_sample_rate;
+            interp1(time_bin_centers,mua_ctxpred_taskpred_long',t_peri_event)./raster_sample_time;
         
         mua_ctxpred_taskpred_reduced = cell2mat(arrayfun(@(x) ...
             interp1(time_bin_centers,mua_ctxpred_taskpred_reduced_long(:,:,x)', ...
-            t_peri_event)./raster_sample_rate,permute(1:length(task_regressors),[1,3,4,2]),'uni',false));
+            t_peri_event)./raster_sample_time,permute(1:length(task_regressors),[1,3,4,2]),'uni',false));
         
     end
     
     % Regression task -> (master U, deconvolved) fluor
     fVdf_deconv_resample_recast = ChangeU(Udf_aligned,fVdf_deconv_resample,U_master);
-    activity = single(fVdf_deconv_resample_recast(use_components,:));
+    
+    event_aligned_V_deconv = AP_deconv_wf(event_aligned_V);
+    baseline = nanmean(reshape(event_aligned_V_deconv(:,t < 0,:),[],size(event_aligned_V_deconv,3)))';
+    activity = single(fVdf_deconv_resample_recast(use_components,:))-baseline;
     
     [fluor_taskpred_k,fluor_taskpred_long,fluor_taskpred_expl_var,fluor_taskpred_reduced_long] = ...
         AP_regresskernel(task_regressors,activity,task_regressor_sample_shifts, ...
@@ -446,8 +443,9 @@ if exist('event_aligned_movement','var')
 end
 
 trial_data.fluor_all = event_aligned_V(use_trials,:,:,:);
-trial_data.ctx_wheel_k_all = ctx_wheel_k_recast;
-trial_data.wheel_ctxpred_all = event_aligned_wheel_ctxpred(use_trials,:,:);
+
+% trial_data.ctx_wheel_k_all = ctx_wheel_k_recast;
+% trial_data.wheel_ctxpred_all = event_aligned_wheel_ctxpred(use_trials,:,:);
 
 if task_dataset
     

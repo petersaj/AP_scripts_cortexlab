@@ -23,7 +23,8 @@ protocol = 'AP_stimWheelRight';
 flexible_name = false;
 bhv = struct;
 
-% Save flag
+% Flags
+plot_flag = false;
 save_bhv = true;
 
 for curr_animal = 1:length(animals)
@@ -61,7 +62,6 @@ for curr_animal = 1:length(animals)
             session_duration = block.duration/60;
             
             % Trial counts (use only full trials with a response)
-            n_trials = length(block.events.responseValues);
             total_water = sum(block.outputs.rewardValues);
             
             % Hit fraction
@@ -88,14 +88,136 @@ for curr_animal = 1:length(animals)
             left_wheel_velocity = abs(wheel_velocity.*(wheel_velocity < 0));
             right_wheel_velocity = abs(wheel_velocity.*(wheel_velocity > 0));
             wheel_bias = (nansum(right_wheel_velocity)-nansum(left_wheel_velocity))/ ...
-                (nansum(right_wheel_velocity)+nansum(left_wheel_velocity));
+                (nansum(right_wheel_velocity)+nansum(left_wheel_velocity));           
             
+            %%%%%%%%% STIM RESPONSE VS. NULL
             
-            % TO DO HERE: stim response vs null
+            t = Timeline.rawDAQTimestamps';
+            
+            % Get trace giving time from last movement
+            % (processed wheel movement)
+            t_from_move_trace = ...
+                t - interp1(t(wheel_move),t(wheel_move),t,'previous','extrap');
+            
+            alt_stimOn_times = cell(n_trials,1);
+            % (skip first since no ITI)
+            for curr_trial = 2:n_trials
+                
+                curr_trial_t_idx = t >= signals_events.responseTimes(curr_trial-1) & ...
+                    t <= stimOn_times(curr_trial);
+                
+                curr_trial_t = t(curr_trial_t_idx);
+                
+                % Re-create quiescence watch: resets at >1mm cumulative
+                % (this basically works, but not 100%: sometimes I see two clicks that
+                % should've reset it but it doesn't catch it, maybe because of exact
+                % processing times in block or something)
+                t_wheel_block = interp1(block2timeline,timeline2block,block.inputs.wheelMMTimes,'linear','extrap');
+                % (quiescence watch starts on new trial)
+                curr_trial_t_block_idx = t_wheel_block >= signals_events.responseTimes(curr_trial-1) & ...
+                    t_wheel_block <= stimOn_times(curr_trial);
+                % (use wheelMM in block, loop through to estimate resets)
+                curr_wheel_mm_t = t_wheel_block(curr_trial_t_block_idx);
+                curr_wheel_mm = block.inputs.wheelMMValues(curr_trial_t_block_idx);
+                curr_quiescence_reset = false(size(curr_wheel_mm));
+                i = 1;
+                while i < length(curr_wheel_mm)
+                    curr_diff = abs(curr_wheel_mm - curr_wheel_mm(i));
+                    thresh = 0.95; % (it's really 1, but sometimes finnicky?)
+                    i = find(curr_diff(i:end) > thresh,1,'first') + (i-1);
+                    curr_quiescence_reset(i) = true;
+                end
+                % (skip trial if < 2 quiescence resets - can't interpolate)
+                if sum(curr_quiescence_reset) < 2
+                    continue
+                end
+                quiescence_reset_t = curr_wheel_mm_t(curr_quiescence_reset)';
+                t_from_quiescence_reset_full = t - ...
+                    interp1(quiescence_reset_t,quiescence_reset_t,t,'previous','extrap');
+                t_from_quiescence_reset_trial = t_from_quiescence_reset_full(curr_trial_t_idx);
+                
+                % Find alternate stim times from all other trial timings
+                other_trial_idx = setdiff(1:n_trials,curr_trial);
+                alt_stim_timing_grid = ...
+                    ((t(curr_trial_t_idx) - curr_trial_t(1)) > signals_events.trialITIValues(other_trial_idx)) & ...
+                    (t_from_quiescence_reset_trial > signals_events.trialQuiescenceValues(other_trial_idx));
+                [alt_stim_value,alt_stim_idx] = max(alt_stim_timing_grid,[],1);
+                
+                % Store possible stim on times (where timings were hit, and not within
+                % an analysis window around the real stim on time)
+                leeway_window = 0.5; % seconds from real stim onset to exclude
+                leeway_idx = find(curr_trial_t-curr_trial_t(end) < -leeway_window,1,'last');
+                alt_stimOn_times{curr_trial} = curr_trial_t( ...
+                    alt_stim_idx(alt_stim_value & alt_stim_idx <= leeway_idx));
+                
+            end
+            
+            % Get would-be reaction time after alt stim times
+            stim_leeway = 0.1;
+            wheel_move_alt_stim_idx = ...
+                arrayfun(@(stim) find(wheel_starts > stim-stim_leeway,1,'first'), ...
+                cell2mat(alt_stimOn_times));
+
+            alt_stim_to_move = ...
+                mat2cell(wheel_starts(wheel_move_alt_stim_idx) - cell2mat(alt_stimOn_times), ...
+                cellfun(@length,alt_stimOn_times));
+            
+            % Compare same stim/alt-stim trials (sub-sample alt-stim)
+            use_alt_trials = cellfun(@(x) ~isempty(x),alt_stimOn_times);
+            surround_t_centers = 0:0.01:2;
+            
+            % (day total)
+            curr_trials = use_alt_trials;
+            curr_stim_surround_times = stimOn_times(curr_trials) + surround_t_centers;
+            curr_stim_surround_move = interp1(t,+wheel_move,curr_stim_surround_times,'previous');
+            
+            n_alt = 1000; % random subset alt trials for same n
+            curr_alt_subset = cell2mat(cellfun(@(x) randsample(x,n_alt,true)', ...
+                alt_stimOn_times(curr_trials),'uni',false));
+            
+            curr_alt_stim_surround_times = permute(curr_alt_subset,[1,3,2]) + surround_t_centers;
+            curr_alt_stim_surround_move = interp1(t,+wheel_move,curr_alt_stim_surround_times,'previous');
+            
+            stim_move_max = max(nanmean(curr_stim_surround_move,1));
+            alt_stim_move_max = nanmean(max(nanmean(curr_alt_stim_surround_move,1),[],2));
+            
+            stim_response_idx = (stim_move_max-alt_stim_move_max)./ ...
+                (stim_move_max+alt_stim_move_max);
+            
+            % (daysplit)
+            n_daysplit = 4;
+            day_split_idx = min(floor(linspace(1,n_daysplit+1,n_trials)),n_daysplit)';
+                       
+            stim_move_max_daysplit = nan(1,n_daysplit);
+            alt_stim_move_max_daysplit = nan(1,n_daysplit);
+            for curr_daysplit = 1:n_daysplit
+                
+                curr_trials = day_split_idx == curr_daysplit & use_alt_trials;              
+                
+                curr_stim_surround_times = stimOn_times(curr_trials) + surround_t_centers;
+                curr_stim_surround_move = interp1(t,+wheel_move,curr_stim_surround_times,'previous');
+                
+                n_alt = 1000; % random subset alt trials for same n
+                curr_alt_subset = cell2mat(cellfun(@(x) randsample(x,n_alt,true)', ...
+                    alt_stimOn_times(curr_trials),'uni',false));
+                
+                curr_alt_stim_surround_times = permute(curr_alt_subset,[1,3,2]) + surround_t_centers;
+                curr_alt_stim_surround_move = interp1(t,+wheel_move,curr_alt_stim_surround_times,'previous');
+                
+                stim_move_max_daysplit(curr_daysplit) = max(nanmean(curr_stim_surround_move,1));
+                alt_stim_move_max_daysplit(curr_daysplit) = nanmean(max(nanmean(curr_alt_stim_surround_move,1),[],2));
+                
+            end
+            
+            stim_response_idx_daysplit = (stim_move_max_daysplit-alt_stim_move_max_daysplit)./ ...
+                (stim_move_max_daysplit+alt_stim_move_max_daysplit);
+            
+            %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
             
          
 
             % Store in behavior structure
+            % (general timings)
             bhv(curr_animal).animal = animal;
             bhv(curr_animal).day{curr_day,1} = day;
             bhv(curr_animal).protocol{curr_day,1} = curr_protocol;
@@ -110,128 +232,143 @@ for curr_animal = 1:length(animals)
             bhv(curr_animal).iti_t{curr_day,1} = iti_t';
             bhv(curr_animal).wheel_bias(curr_day,1) = wheel_bias;            
             
+            % (stim-aligned movement)
             bhv(curr_animal).stim_surround_t = stim_surround_t_centers;
             bhv(curr_animal).stim_surround_wheel{curr_day,1} = stim_surround_move;
+            
+            % (stim vs null response)
+            bhv(curr_animal).alt_stim_move_t{curr_day,1} = alt_stim_to_move;
+            bhv(curr_animal).stim_move_max{curr_day,1} = stim_move_max;
+            bhv(curr_animal).alt_stim_move_max{curr_day,1} = alt_stim_move_max;
+            bhv(curr_animal).stim_response_idx(curr_day,1) = stim_response_idx;
+            
+            bhv(curr_animal).stim_move_max_daysplit{curr_day,1} = stim_move_max_daysplit;
+            bhv(curr_animal).alt_stim_move_max_daysplit{curr_day,1} = alt_stim_move_max_daysplit;
+            bhv(curr_animal).stim_response_idx_daysplit{curr_day,1} = stim_response_idx_daysplit;
             
             AP_print_progress_fraction(curr_day,length(experiments));
         end
         
     end
     
-    % Plot summary
-    day_num = cellfun(@(x) datenum(x),{experiments.day}');
-    day_labels = cellfun(@(day,protocol) [day(6:end)], ...
-        {experiments.day}',bhv(curr_animal).protocol,'uni',false);
-    
-    [unique_protocols,~,protocol_idx] = unique(bhv(curr_animal).protocol);
-    protocol_col = hsv(length(unique_protocols));
-    
-    figure('Name',animal)
-    
-    % Trials and water
-    subplot(2,3,1); hold on;
-    yyaxis left
-    % plot(day_num,bhv(curr_animal).n_trials./bhv(curr_animal).session_duration,'linewidth',2);
-    % ylabel('Trials/min');
-    plot(day_num,bhv(curr_animal).n_trials./bhv(curr_animal).session_duration,'linewidth',2);
-    ylabel('Trials/min');
-    yyaxis right
-    plot(day_num,bhv(curr_animal).total_water,'linewidth',2);
-    ylabel('Total water');
-    xlabel('Session');
-    set(gca,'XTick',day_num);
-    set(gca,'XTickLabel',day_labels);
-    set(gca,'XTickLabelRotation',90);
-    
-    protocol_plot = gscatter(day_num,zeros(size(day_num)),[bhv(curr_animal).protocol]);
-    legend off;
-    
-    imaging_days = day_num([experiments.imaging]);
-    for i = 1:length(imaging_days)
-        line(repmat(imaging_days(i),1,2),ylim,'color','k');
+    if plot_flag
+        
+        % Plot summary
+        day_num = cellfun(@(x) datenum(x),{experiments.day}');
+        day_labels = cellfun(@(day,protocol) [day(6:end)], ...
+            {experiments.day}',bhv(curr_animal).protocol,'uni',false);
+        
+        [unique_protocols,~,protocol_idx] = unique(bhv(curr_animal).protocol);
+        protocol_col = hsv(length(unique_protocols));
+        
+        figure('Name',animal)
+        
+        % Trials and water
+        subplot(2,3,1); hold on;
+        yyaxis left
+        % plot(day_num,bhv(curr_animal).n_trials./bhv(curr_animal).session_duration,'linewidth',2);
+        % ylabel('Trials/min');
+        plot(day_num,bhv(curr_animal).n_trials./bhv(curr_animal).session_duration,'linewidth',2);
+        ylabel('Trials/min');
+        yyaxis right
+        plot(day_num,bhv(curr_animal).total_water,'linewidth',2);
+        ylabel('Total water');
+        xlabel('Session');
+        set(gca,'XTick',day_num);
+        set(gca,'XTickLabel',day_labels);
+        set(gca,'XTickLabelRotation',90);
+        
+        protocol_plot = gscatter(day_num,zeros(size(day_num)),[bhv(curr_animal).protocol]);
+        legend off;
+        
+        imaging_days = day_num([experiments.imaging]);
+        for i = 1:length(imaging_days)
+            line(repmat(imaging_days(i),1,2),ylim,'color','k');
+        end
+        
+        ephys_days = day_num([experiments.ephys]);
+        for i = 1:length(ephys_days)
+            line(repmat(ephys_days(i),1,2),ylim,'color','r','linestyle','--');
+        end
+        
+        % Wheel movement and bias
+        subplot(2,3,2);
+        yyaxis left
+        % plot(day_num,bhv(curr_animal).wheel_velocity./bhv(curr_animal).session_duration,'linewidth',2);
+        % ylabel('Wheel movement / min');
+        plot(day_num,bhv(curr_animal).wheel_velocity,'linewidth',2);
+        ylabel('Wheel movement');
+        yyaxis right
+        plot(day_num,bhv(curr_animal).wheel_bias,'linewidth',2);
+        ylim([-1,1]);
+        line(xlim,[0,0]);
+        ylabel('Wheel bias');
+        xlabel('Session');
+        set(gca,'XTick',day_num);
+        set(gca,'XTickLabel',day_labels);
+        set(gca,'XTickLabelRotation',90);
+        
+        imaging_days = day_num([experiments.imaging]);
+        for i = 1:length(imaging_days)
+            line(repmat(imaging_days(i),1,2),ylim,'color','k');
+        end
+        
+        ephys_days = day_num([experiments.ephys]);
+        for i = 1:length(ephys_days)
+            line(repmat(ephys_days(i),1,2),ylim,'color','r','linestyle','--');
+        end
+        
+        % Stim-to-reward time
+        subplot(2,3,3);
+        plot(day_num,cellfun(@nanmedian,bhv(curr_animal).stim_feedback_t),'k','linewidth',2);
+        ylabel('Stim to reward time (s)');
+        xlabel('Session')
+        set(gca,'XTick',day_num);
+        set(gca,'XTickLabel',day_labels);
+        set(gca,'XTickLabelRotation',90);
+        
+        % Move fraction heatmap
+        stim_surround_wheel_cat = ...
+            cell2mat(cellfun(@(x) nanmean(x,1),bhv(curr_animal).stim_surround_wheel,'uni',false));
+        subplot(2,3,4);
+        imagesc(bhv(curr_animal).stim_surround_t,[],stim_surround_wheel_cat);
+        colormap(gca,brewermap([],'Greys'));
+        caxis([0,1]);
+        xlabel('Time from stim (s)');
+        set(gca,'YTick',1:length(day_num));
+        set(gca,'YTickLabel',day_labels);
+        
+        % Move fraction lineplot
+        subplot(2,3,5); hold on;
+        set(gca,'ColorOrder',copper(size(stim_surround_wheel_cat,1)));
+        plot(bhv(curr_animal).stim_surround_t,stim_surround_wheel_cat');
+        ylim([0,1]);
+        ylabel('Fraction move');
+        xlabel('Time from stim (s)');
+        
+        % Move fraction pre/post stim
+        stim_surround_t = bhv(curr_animal).stim_surround_t;
+        move_prestim_max = ...
+            cell2mat(cellfun(@(x) max(nanmean(x(:,stim_surround_t < 0),1)), ...
+            bhv(curr_animal).stim_surround_wheel,'uni',false));
+        move_poststim_max = ...
+            cell2mat(cellfun(@(x) max(nanmean(x(:,stim_surround_t > 0),1)), ...
+            bhv(curr_animal).stim_surround_wheel,'uni',false));
+        move_prepost_max_ratio = ...
+            (move_poststim_max-move_prestim_max)./(move_poststim_max+move_prestim_max);
+        
+        subplot(2,3,6); hold on;
+        plot(day_num,move_prepost_max_ratio,'k','linewidth',2);
+        ylabel({'Post:pre max move ratio'});
+        ylim([-1,1]);
+        line(xlim,[0,0],'color','k','linestyle','--');
+        set(gca,'XTick',day_num);
+        set(gca,'XTickLabel',day_labels);
+        set(gca,'XTickLabelRotation',90);
+        
+        drawnow;
     end
     
-    ephys_days = day_num([experiments.ephys]);
-    for i = 1:length(ephys_days)
-        line(repmat(ephys_days(i),1,2),ylim,'color','r','linestyle','--');
-    end
-    
-    % Wheel movement and bias
-    subplot(2,3,2);
-    yyaxis left
-    % plot(day_num,bhv(curr_animal).wheel_velocity./bhv(curr_animal).session_duration,'linewidth',2);
-    % ylabel('Wheel movement / min');
-    plot(day_num,bhv(curr_animal).wheel_velocity,'linewidth',2);
-    ylabel('Wheel movement');
-    yyaxis right
-    plot(day_num,bhv(curr_animal).wheel_bias,'linewidth',2);
-    ylim([-1,1]);
-    line(xlim,[0,0]);
-    ylabel('Wheel bias');
-    xlabel('Session');
-    set(gca,'XTick',day_num);
-    set(gca,'XTickLabel',day_labels);
-    set(gca,'XTickLabelRotation',90);
-    
-    imaging_days = day_num([experiments.imaging]);
-    for i = 1:length(imaging_days)
-        line(repmat(imaging_days(i),1,2),ylim,'color','k');
-    end
-    
-    ephys_days = day_num([experiments.ephys]);
-    for i = 1:length(ephys_days)
-        line(repmat(ephys_days(i),1,2),ylim,'color','r','linestyle','--');
-    end
-    
-    % Stim-to-reward time
-    subplot(2,3,3);
-    plot(day_num,cellfun(@nanmedian,bhv(curr_animal).stim_feedback_t),'k','linewidth',2);
-    ylabel('Stim to reward time (s)');
-    xlabel('Session')
-    set(gca,'XTick',day_num);
-    set(gca,'XTickLabel',day_labels);
-    set(gca,'XTickLabelRotation',90);
-    
-    % Move fraction heatmap
-    stim_surround_wheel_cat = ...
-        cell2mat(cellfun(@(x) nanmean(x,1),bhv(curr_animal).stim_surround_wheel,'uni',false));
-    subplot(2,3,4);
-    imagesc(bhv(curr_animal).stim_surround_t,[],stim_surround_wheel_cat);
-    colormap(gca,brewermap([],'Greys'));
-    caxis([0,1]);
-    xlabel('Time from stim (s)');
-    set(gca,'YTick',1:length(day_num));
-    set(gca,'YTickLabel',day_labels);
-    
-    % Move fraction lineplot
-    subplot(2,3,5); hold on;
-    set(gca,'ColorOrder',copper(size(stim_surround_wheel_cat,1)));
-    plot(bhv(curr_animal).stim_surround_t,stim_surround_wheel_cat');
-    ylim([0,1]);
-    ylabel('Fraction move');
-    xlabel('Time from stim (s)');
-    
-    % Move fraction pre/post stim
-    stim_surround_t = bhv(curr_animal).stim_surround_t;
-    move_prestim_max = ...
-        cell2mat(cellfun(@(x) max(nanmean(x(:,stim_surround_t < 0),1)), ...
-        bhv(curr_animal).stim_surround_wheel,'uni',false));
-    move_poststim_max = ...
-        cell2mat(cellfun(@(x) max(nanmean(x(:,stim_surround_t > 0),1)), ...
-        bhv(curr_animal).stim_surround_wheel,'uni',false));
-    move_prepost_max_ratio = ...
-        (move_poststim_max-move_prestim_max)./(move_poststim_max+move_prestim_max);
-    
-    subplot(2,3,6); hold on;
-    plot(day_num,move_prepost_max_ratio,'k','linewidth',2);
-    ylabel({'Post:pre max move ratio'});
-    ylim([-1,1]);
-    line(xlim,[0,0],'color','k','linestyle','--');
-    set(gca,'XTick',day_num);
-    set(gca,'XTickLabel',day_labels);
-    set(gca,'XTickLabelRotation',90);
-    
-    drawnow;
     clearvars('-except',preload_vars{:});
     
 end
@@ -250,13 +387,13 @@ data_path = 'C:\Users\Andrew\OneDrive for Business\Documents\CarandiniHarrisLab\
 
 % (load separate)
 bhv_fn = [data_path filesep 'bhv_teto'];
-% bhv_fn = [data_path filesep 'bhv_corticostriatal'];
+% bhv_fn = [data_path filesep 'bhv_cstr'];
 load(bhv_fn);
 
 % % (load and combine)
 % bhv_fn1 = [data_path filesep 'bhv_teto'];
 % bhv1 = load(bhv_fn1);
-% bhv_fn2 = [data_path filesep 'bhv_corticostriatal'];
+% bhv_fn2 = [data_path filesep 'bhv_cstr'];
 % bhv2 = load(bhv_fn2);
 % bhv = [bhv1.bhv,bhv2.bhv];
 % clearvars bhv1 bhv2
@@ -328,7 +465,7 @@ for curr_animal = 1:length(animals)
 end
 
 
-%% TESTING: histograms of reaction times
+%% Histograms of reaction times (TESTING)
 
 rxn_bins = [-Inf,0:0.01:1,Inf];
 
@@ -382,11 +519,20 @@ figure;
 histogram(cell2mat(cat(1,bhv.stim_move_t)),rxn_bins,'EdgeColor','none','normalization','pdf');
 
 % Fraction rxn within boundary
-b = cellfun(@(x) cellfun(@(x) nanmean(x > 0.1 & x < 0.25),x),{bhv.stim_move_t},'uni',false);
+max_days = max(cellfun(@sum,use_days));
+rxn_frac_pad = cell2mat(cellfun(@(x) padarray(cellfun(@(x) nanmean(x > 0.1 & x < 0.25),x), ...
+    [max_days-length(x),0],NaN,'post'), ...
+    cellfun(@(x,use_days) x(use_days),{bhv.stim_move_t},use_days,'uni',false),'uni',false));
+
+alt_rxn_frac_pad = cell2mat(cellfun(@(x) padarray(cellfun(@(x) ...
+    nanmean(cell2mat(x) > 0.1 & cell2mat(x) < 0.25),x), ...
+    [max_days-length(x),0],NaN,'post'), ...
+    cellfun(@(x,use_days) x(use_days),{bhv.alt_stim_move_t},use_days,'uni',false),'uni',false));
+
 figure; hold on;
-cellfun(@plot,b);
-
-
+plot(rxn_frac_pad);
+errorbar(nanmean(rxn_frac_pad,2),AP_sem(rxn_frac_pad,2),'k','linewidth',2);
+errorbar(nanmean(alt_rxn_frac_pad,2),AP_sem(alt_rxn_frac_pad,2),'r','linewidth',2);
 
 % Day-split reaction time fraction
 
@@ -402,6 +548,11 @@ trial_split_idx = cellfun(@(x,use_days,animal_num) ...
 
 stim_move_t_cat = cell2mat(cellfun(@(x,use_days) cell2mat(x(use_days)), ...
     {bhv.stim_move_t},use_days,'uni',false)');
+
+% % (testing: alternate rxn - median within trial at the moment)
+% stim_move_t_cat = cell2mat(cellfun(@(x,use_days) ...
+%     cell2mat(cellfun(@(x) cellfun(@nanmedian,x),x(use_days),'uni',false)), ...
+%     {bhv.alt_stim_move_t},use_days,'uni',false)');
 
 stim_move_t_stimtime = accumarray(cell2mat(cat(1,trial_split_idx{:})), ...
     stim_move_t_cat > 0.1 & stim_move_t_cat < 0.25',[n_daysplit,max_days,length(bhv)],@nanmean,NaN);
@@ -456,6 +607,11 @@ stim_feedback_t_std_allpad = cell2mat(cellfun(@(x) padarray(cellfun(@nanstd,x), 
     [max_days-length(x),0],NaN,'post'), ...
     cellfun(@(x,use_days) x(use_days),{bhv.stim_feedback_t},use_days,'uni',false),'uni',false));
 
+% Stim vs null response index
+stim_response_idx_allpad = cell2mat(cellfun(@(x) padarray(x, ...
+    [max_days-length(x),0],NaN,'post'), ...
+    cellfun(@(x,use_days) x(use_days),{bhv.stim_response_idx},use_days,'uni',false),'uni',false));
+
 % Movement around stim
 stim_surround_wheel_avg = cell2mat(cellfun(@(x) ...
     padarray(cell2mat(cellfun(@(x) nanmean(x,1),x,'uni',false)), ...
@@ -485,7 +641,7 @@ iti_allpad = cell2mat(cellfun(@(x) padarray(cellfun(@nanmedian,x), ...
 % Plot
 figure;
 
-subplot(1,3,1);
+subplot(2,2,1);
 hold on;
 errorbar(nanmean(stim_move_t_allpad,2),AP_sem(stim_move_t_allpad,2),'k','linewidth',2);
 errorbar(nanmean(stim_feedback_t_allpad,2),AP_sem(stim_feedback_t_allpad,2),'b','linewidth',2);
@@ -495,7 +651,7 @@ legend({'Stim to move','Stim to reward'});
 set(gca,'YScale','log');
 set(gca,'YTick',[0.25,0.5,1,2,4]);
 
-subplot(1,3,2);
+subplot(2,2,2);
 hold on;
 stim_surround_t = bhv(1).stim_surround_t;
 set(gca,'ColorOrder',copper(size(stim_surround_wheel_avg,1)));
@@ -503,13 +659,48 @@ plot(stim_surround_t,nanmean(stim_surround_wheel_avg,3)','linewidth',2);
 xlabel('Time from stim (s)');
 ylabel('Fraction moving');
 
-subplot(1,3,3);
+subplot(2,2,3);
 hold on;
 plot(move_prepost_max_ratio');
 errorbar(nanmean(move_prepost_max_ratio,1),AP_sem(move_prepost_max_ratio,1),'k','linewidth',2);
 line(xlim,[0,0],'linestyle','--','color','k');
 ylabel('Pre/post stim move ratio');
 xlabel('Session');
+
+subplot(2,2,4);
+hold on;
+plot(stim_response_idx_allpad);
+errorbar(nanmean(stim_response_idx_allpad,2),AP_sem(stim_response_idx_allpad,2),'k','linewidth',2);
+line(xlim,[0,0],'linestyle','--','color','k');
+ylabel('Stim response index');
+xlabel('Session');
+
+
+% Stim response index daysplit
+stim_move_max_plotcat = reshape(permute(padarray(cell2mat(permute(cellfun(@(x,use_days) ...
+    padarray(vertcat(x{use_days}),[max_days-sum(use_days),0],NaN,'post'), ...
+    {bhv.stim_move_max_daysplit},use_days,'uni',false),[1,3,2])),[0,1],NaN,'post'),[2,1,3]),[],length(bhv));
+
+alt_stim_move_max_plotcat = reshape(permute(padarray(cell2mat(permute(cellfun(@(x,use_days) ...
+    padarray(vertcat(x{use_days}),[max_days-sum(use_days),0],NaN,'post'), ...
+    {bhv.alt_stim_move_max_daysplit},use_days,'uni',false),[1,3,2])),[0,1],NaN,'post'),[2,1,3]),[],length(bhv));
+
+stim_response_idx_plotcat = reshape(permute(padarray(cell2mat(permute(cellfun(@(x,use_days) ...
+    padarray(vertcat(x{use_days}),[max_days-sum(use_days),0],NaN,'post'), ...
+    {bhv.stim_response_idx_daysplit},use_days,'uni',false),[1,3,2])),[0,1],NaN,'post'),[2,1,3]),[],length(bhv));
+
+figure; hold on;
+n_daysplit = length(bhv(1).stim_response_idx_daysplit{1});
+daysplit_x = (1:(n_daysplit+1)*max_days)/(n_daysplit+1);
+errorbar(daysplit_x,nanmean(stim_move_max_plotcat,2), ...
+    AP_sem(stim_move_max_plotcat,2),'r','linewidth',2);
+errorbar(daysplit_x,nanmean(alt_stim_move_max_plotcat,2), ...
+    AP_sem(alt_stim_move_max_plotcat,2),'b','linewidth',2);
+errorbar(daysplit_x,nanmean(stim_response_idx_plotcat,2), ...
+    AP_sem(stim_response_idx_plotcat,2),'k','linewidth',2);
+ylabel('Stim response index');
+xlabel('Day');
+legend({'Stim move max','Null move max','Stim response idx'},'location','se');
 
 
 %% Muscimol behavior
@@ -525,13 +716,14 @@ muscimol_areas = flipud(unique(vertcat(muscimol(muscimol_animals).area)));
 
 stim_surround_t = bhv(1).stim_surround_t;
 muscimol_stim_surround_wheel = repmat( ...
-    {nan(length(muscimol_animals),length(stim_surround_t))}, ...
+    {nan(length(animals),length(stim_surround_t))}, ...
     length(muscimol_areas),1);
 
 stim_move_t_muscimol_all = cell(length(muscimol_areas),length(animals));
 stim_move_t_muscimol = nan(length(muscimol_areas),length(animals));
 stim_feedback_t_muscimol = nan(length(muscimol_areas),length(animals));
 move_feedback_t_muscimol = nan(length(muscimol_areas),length(animals));
+stim_response_idx_muscimol = nan(length(muscimol_areas),length(animals));
 
 wheel_velocity_muscimol = nan(length(muscimol_areas),length(animals));
 wheel_bias_muscimol = nan(length(muscimol_areas),length(animals));
@@ -578,6 +770,9 @@ for curr_area_idx = 1:length(muscimol_areas)
         move_feedback_t_muscimol(curr_area_idx,curr_muscimol_animal_idx) = ...
             nanmedian(cat(1,bhv(curr_bhv_animal_idx).stim_feedback_t{bhv_day_idx}) - ...
             cat(1,bhv(curr_bhv_animal_idx).stim_move_t{bhv_day_idx}));
+        
+        stim_response_idx_muscimol(curr_area_idx,curr_muscimol_animal_idx) = ...
+            nanmedian(cat(1,bhv(curr_bhv_animal_idx).stim_response_idx(bhv_day_idx)));
                
         wheel_velocity_muscimol(curr_area_idx,curr_muscimol_animal_idx) = ...
             nanmean(bhv(curr_bhv_animal_idx).wheel_velocity(bhv_day_idx)./ ...
@@ -626,45 +821,51 @@ move_prepost_max_ratio = cell2mat(cellfun(@(x,y) (y-x)./(x+y),move_prestim_max,m
 
 % Plot average timings
 figure;
-subplot(1,5,1); hold on;
+subplot(1,6,1); hold on;
 plot(stim_move_t_muscimol,'linewidth',2)
 set(gca,'YScale','log')
 set(gca,'XTick',1:length(muscimol_areas),'XTickLabel',muscimol_areas);
 ylabel('Stim move t');
 
-subplot(1,5,2); hold on;
+subplot(1,6,2); hold on;
 plot(stim_feedback_t_muscimol,'linewidth',2)
 set(gca,'YScale','log')
 set(gca,'XTick',1:length(muscimol_areas),'XTickLabel',muscimol_areas);
 ylabel('Stim reward t');
 
-subplot(1,5,3); hold on;
+subplot(1,6,3); hold on;
 plot(move_feedback_t_muscimol,'linewidth',2)
 set(gca,'YScale','log')
 set(gca,'XTick',1:length(muscimol_areas),'XTickLabel',muscimol_areas);
 ylabel('Move feedback t');
 
-subplot(1,5,4); hold on;
+subplot(1,6,4); hold on;
 plot(wheel_velocity_muscimol,'linewidth',2)
 set(gca,'YScale','log')
 set(gca,'XTick',1:length(muscimol_areas),'XTickLabel',muscimol_areas);
 ylabel('Wheel velocity/s');
 
-subplot(1,5,5); hold on;
+subplot(1,6,5); hold on;
 plot(move_prepost_max_ratio,'linewidth',2)
 set(gca,'XTick',1:length(muscimol_areas),'XTickLabel',muscimol_areas);
 ylabel('Post/post ratio');
 
+subplot(1,6,6); hold on;
+plot(stim_response_idx_muscimol,'linewidth',2)
+set(gca,'XTick',1:length(muscimol_areas),'XTickLabel',muscimol_areas);
+ylabel('Stim response idx');
+
+
 % Plot pre/post changes
 figure;
-subplot(1,2,1); hold on;
+subplot(1,3,1); hold on;
 gscatter(move_prepost_max_ratio(:),wheel_velocity_muscimol(:), ...
     reshape(repmat(muscimol_areas,1,length(animals)),[],1),lines(length(muscimol_areas)),[],20);
 xlabel('Pre/post move');
 ylabel('Velocity/s');
 axis square;
 
-subplot(1,2,2); hold on;
+subplot(1,3,2); hold on;
 washout_idx = strcmp('washout',muscimol_areas);
 wheel_velocity_muscimol_norm = ...
     (wheel_velocity_muscimol-wheel_velocity_muscimol(washout_idx,:))./ ...
@@ -676,6 +877,18 @@ xlabel('Diff. Pre/post move');
 ylabel('Norm. Velocity/s');
 axis square;
 
+subplot(1,3,3); hold on;
+hold on;
+washout_idx = strcmp('washout',muscimol_areas);
+wheel_velocity_muscimol_norm = ...
+    (wheel_velocity_muscimol-wheel_velocity_muscimol(washout_idx,:))./ ...
+    (wheel_velocity_muscimol+wheel_velocity_muscimol(washout_idx,:));
+stim_response_idx_muscimol_diff = stim_response_idx_muscimol - stim_response_idx_muscimol(washout_idx,:);
+gscatter(stim_response_idx_muscimol_diff(:),wheel_velocity_muscimol_norm(:), ...
+    reshape(repmat(muscimol_areas,1,length(animals)),[],1),lines(length(muscimol_areas)),[],20);
+xlabel('Diff. stim response idx');
+ylabel('Norm. Velocity/s');
+axis square;
 
 %% Learning within- or across-day: split trials within day
 
