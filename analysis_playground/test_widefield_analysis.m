@@ -521,9 +521,9 @@ end
 surround_window = [-0.2,1];
 baseline_window = [-0.2,-0.1];
 
-surround_samplerate = 0.01;%1/(framerate*1);
-surround_time = surround_window(1):surround_samplerate:surround_window(2);
-baseline_surround_time = baseline_window(1):surround_samplerate:baseline_window(2);
+surround_samplerate = 50;
+surround_time = surround_window(1):1/surround_samplerate:surround_window(2);
+baseline_surround_time = baseline_window(1):1/surround_samplerate:baseline_window(2);
 
 % Get wheel movements during stim, only use quiescent trials
 wheel_window = [0,0.5];
@@ -561,9 +561,9 @@ for curr_condition_idx = 1:length(conditions)
 %     peri_stim_v = permute(interp1(frame_t,fVdf_deconv',stim_surround_times),[3,2,1]);
 %     baseline_v = permute(nanmean(interp1(frame_t,fVdf_deconv',stim_baseline_surround_times),2),[3,2,1]);
 
-    peri_stim_v = permute(reshape(interp1(frame_t,fVdf_deconv',stim_surround_times), ...
+    peri_stim_v = permute(reshape(interp1(frame_t,fVdf_deconv',stim_surround_times,'previous'), ...
         length(use_stimOn_times),length(surround_time),[]),[3,2,1]);
-    baseline_v = permute(nanmean(reshape(interp1(frame_t,fVdf_deconv',stim_baseline_surround_times), ...
+    baseline_v = permute(nanmean(reshape(interp1(frame_t,fVdf_deconv',stim_baseline_surround_times,'previous'), ...
         length(use_stimOn_times),length(baseline_surround_time),[]),2),[3,2,1]);    
     
     stim_v_mean = nanmean(peri_stim_v - baseline_v,3);
@@ -588,8 +588,8 @@ set(gcf,'Name',animal);
 %     trial_conditions(:,2) == -1 & ...
 %     trial_conditions(:,3) == -1;
 
-align_times = stimOn_times;
-% align_times = stimOn_times(stimIDs == 1);
+% align_times = stimOn_times;
+align_times = stimOn_times(stimIDs == 1);
 % align_times = stimOn_times(stim_to_move >= 0.1);
 % align_times = iti_move_starts;
 % align_times = wheel_move_time;
@@ -597,7 +597,7 @@ align_times = stimOn_times;
 surround_window = [-0.3,1];
 baseline_window = [-0.3,-0.2];
 
-surround_samplerate = 100;
+surround_samplerate = 50;
 t = surround_window(1):1/surround_samplerate:surround_window(2);
 t_baseline = baseline_window(1):1/surround_samplerate:baseline_window(2);
 
@@ -609,9 +609,9 @@ if ~exist('fVdf_deconv','var')
     fVdf_deconv = AP_deconv_wf(fVdf);
 end
 
-peri_event_v = permute(reshape(interp1(frame_t,fVdf_deconv',peri_event_t), ...
+peri_event_v = permute(reshape(interp1(frame_t,fVdf_deconv',peri_event_t,'previous'), ...
     length(align_times),length(t),[]),[3,2,1]);
-baseline_v = permute(nanmean(reshape(interp1(frame_t,fVdf_deconv',peri_event_t_baseline), ...
+baseline_v = permute(nanmean(reshape(interp1(frame_t,fVdf_deconv',peri_event_t_baseline,'previous'), ...
     length(align_times),length(t_baseline),[]),2),[3,2,1]);
 
 event_v_mean = nanmean(peri_event_v - baseline_v,3);

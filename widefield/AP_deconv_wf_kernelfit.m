@@ -4,6 +4,11 @@
 % now new mice doing task, all recordings in AM
 % NOTE: cortical ROIs and ephys alignment done in AP_ctx_str_trial_preprocessing
 
+%% Set sample rate to create kernel
+% Rate to resample fluorescence data
+% (native is 35 Hz)
+
+sample_rate = 100;
 
 
 %% Find recordings
@@ -40,6 +45,9 @@ gcamp_regression_kernel = cell(size(recordings));
 % Spikes kernel (to go from spikes to deconvolved widefield fluorescence)
 spikes_regression_kernel = cell(size(recordings));
 
+% Timepoints for regression kernels
+gcamp_regression_kernel_t = [];
+spikes_regression_kernel_t = [];
 
 %% Loop through all recordings
 disp('Loading and getting kernels:')
@@ -47,8 +55,7 @@ disp('Loading and getting kernels:')
 for curr_recording = 1:length(recordings)
        
     %% Clear workspace, set current recording
-    clearvars -except curr_recording recordings ...
-        gcamp_regression_kernel spikes_regression_kernel
+    preload_vars = who;
     
     animal = recordings(curr_recording).animal;
     day = recordings(curr_recording).day;
@@ -87,7 +94,6 @@ for curr_recording = 1:length(recordings)
         
         %% Resample and concatenate data
         % Get time points to query
-        sample_rate = framerate;
         time_bins = frame_t(find(frame_t >= ...
             skip_seconds,1)):1/sample_rate: ...
             frame_t(find(frame_t-frame_t(end) <= ...
@@ -149,13 +155,16 @@ for curr_recording = 1:length(recordings)
         cvfold,return_constant,use_constant);
     
     % Get and store kernel in ROI
-    gcamp_regression_kernel_t = kernel_frames/framerate;
+    gcamp_regression_kernel_t = kernel_frames/sample_rate;
     gcamp_regression_kernel{curr_recording} = curr_gcamp_kernel{1};
     
-    spikes_regression_kernel_t = kernel_frames/framerate;
+    spikes_regression_kernel_t = kernel_frames/sample_rate;
     spikes_regression_kernel{curr_recording} = curr_spikes_kernel{1};
    
     AP_print_progress_fraction(curr_recording,length(recordings));
+    
+    % Clear variables for next loop
+    clearvars('-except',preload_vars{:});
     
 end
 
@@ -179,7 +188,7 @@ gcamp6s_kernel.spikes_regression_t = spikes_regression_kernel_t;
 gcamp6s_kernel.spikes_regression = spikes_regression_kernel;
 
 save_dir = 'C:\Github\AP_scripts_cortexlab\widefield';
-save_fn = [save_dir filesep 'gcamp6s_kernel.mat'];
+save_fn = [save_dir filesep 'gcamp6s_kernel_' num2str(sample_rate) 'Hz.mat'];
 save(save_fn,'gcamp6s_kernel');
 disp(['Saved GCaMP6s deconvolution kernel: ' save_fn]);
 

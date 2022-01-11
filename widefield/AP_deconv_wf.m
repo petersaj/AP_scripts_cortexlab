@@ -1,4 +1,4 @@
-function convolved_activity = AP_deconv_wf(activity,spikes_flag)
+function convolved_activity = AP_deconv_wf(activity,spikes_flag,sample_rate)
 % filtered_activity = AP_deconv_wf(activity,spikes_flag)
 %
 % Convolved fluorescence from tetO-GC6s widefield to match spikes
@@ -19,22 +19,34 @@ elseif ~islogical(spikes_flag)
     error('spikes_flag isn''t a logical');
 end
 
+if ~exist('sample_rate','var')
+    sample_rate = []; 
+end
 
 %% Load GCaMP6s widefield kernel
 
 % Use the kernel within the directory with the function
+% (tried regression from supersample - didn't change shape)
 kernel_path = fileparts(mfilename('fullpath'));
-kernel_fn = [kernel_path filesep 'gcamp6s_kernel.mat'];
+if isempty(sample_rate)
+    kernel_fn = [kernel_path filesep 'gcamp6s_kernel.mat'];
+else
+    kernel_fn = [kernel_path filesep 'gcamp6s_kernel_' num2str(sample_rate) 'Hz.mat'];
+end
 load(kernel_fn);
 
-% Max-normalize, average, and squared-sum normalize (arbitrary)
+kernel_sample_rate = 1/mean(diff(gcamp6s_kernel.regression_t));
+
+% Max-normalize, filter at nyquist, average, and squared-sum normalize (arbitrary)
 if ~spikes_flag
     kernel_cat = vertcat(gcamp6s_kernel.regression{:});
-    kernel_mean = nanmean(kernel_cat./max(abs(kernel_cat),[],2),1);
+    kernel_cat_filt = lowpass(kernel_cat',kernel_sample_rate/2-1,kernel_sample_rate)';
+    kernel_mean = nanmean(kernel_cat_filt./max(abs(kernel_cat_filt),[],2),1);
     kernel = kernel_mean./norm(kernel_mean);
 elseif spikes_flag
     kernel_cat = vertcat(gcamp6s_kernel.spikes_regression{:});
-    kernel_mean = nanmean(kernel_cat./max(abs(kernel_cat),[],2),1);
+    kernel_cat_filt = lowpass(kernel_cat',kernel_sample_rate/2-1,kernel_sample_rate)';
+    kernel_mean = nanmean(kernel_cat_filt./max(abs(kernel_cat_filt),[],2),1);
     kernel = kernel_mean./norm(kernel_mean);
 end
 

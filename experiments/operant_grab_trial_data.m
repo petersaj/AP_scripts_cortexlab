@@ -35,7 +35,9 @@ use_components = 1:200;
 
 % Get event-aligned activity
 raster_window = [-0.5,2];
-raster_sample_time = 0.01;
+raster_sample_rate = 50;
+
+raster_sample_time = 1/raster_sample_rate;
 t = raster_window(1):raster_sample_time:raster_window(2);
 
 % Get align times
@@ -82,16 +84,16 @@ if verbose; disp('Trial-aligning data...'); end;
 
 % Cortical fluorescence
 event_aligned_V_deconv = ...
-    interp1(frame_t,fVdf_deconv_recast(use_components,:)',t_peri_event);
+    interp1(frame_t,fVdf_deconv_recast(use_components,:)',t_peri_event,'previous');
 
 % Wheel velocity
 event_aligned_wheel = interp1(Timeline.rawDAQTimestamps, ...
-    wheel_velocity,t_peri_event);
+    wheel_velocity,t_peri_event,'previous');
 
 % Facecam movement
 if exist('frame_movement','var')
     event_aligned_movement = interp1(facecam_t(~isnan(facecam_t)), ...
-        frame_movement(~isnan(facecam_t)),t_peri_event);
+        frame_movement(~isnan(facecam_t)),t_peri_event,'previous');
 end
 
 if task_dataset
@@ -117,7 +119,7 @@ end
 % Parameters for regression
 regression_params.use_svs = 1:100;
 regression_params.skip_seconds = 20;
-regression_params.sample_rate = 1/raster_sample_time;
+regression_params.sample_rate = raster_sample_rate;
 regression_params.kernel_t = [-0.1,0.1];
 regression_params.zs = [false,false];
 regression_params.cvfold = 5;
@@ -131,7 +133,7 @@ time_bins = frame_t(find(frame_t > ...
 time_bin_centers = time_bins(1:end-1) + diff(time_bins)/2;
 
 % Resample deconvolved fluorescence
-fVdf_deconv_recast_resample = interp1(frame_t,fVdf_deconv_recast',time_bin_centers)';
+fVdf_deconv_recast_resample = interp1(frame_t,fVdf_deconv_recast',time_bin_centers,'previous')';
     
 
 %% Regress task to cortex
@@ -230,9 +232,9 @@ if task_dataset
     task_regressor_labels = {'Stim','Move onset','Outcome'};
     
     task_t_shifts = { ...
-        [0,0.5]; ... % stim
+        [0,1]; ... % stim
         [-0.5,0.5]; ... % move
-        [0,0.5]}; % outcome
+        [0,1]}; % outcome
     
     task_regressor_sample_shifts = cellfun(@(x) round(x(1)*(regression_params.sample_rate)): ...
         round(x(2)*(regression_params.sample_rate)),task_t_shifts,'uni',false);
@@ -252,11 +254,11 @@ if task_dataset
         lambda,zs,cvfold,return_constant,use_constant);
     
     fluor_taskpred = ...
-        interp1(time_bin_centers,fluor_taskpred_long',t_peri_event);
+        interp1(time_bin_centers,fluor_taskpred_long',t_peri_event,'previous');
     
     fluor_taskpred_reduced = cell2mat(arrayfun(@(x) ...
         interp1(time_bin_centers,fluor_taskpred_reduced_long(:,:,x)', ...
-        t_peri_event),permute(1:length(task_regressors),[1,3,4,2]),'uni',false));   
+        t_peri_event,'previous'),permute(1:length(task_regressors),[1,3,4,2]),'uni',false));   
     
 end
 
