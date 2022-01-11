@@ -588,8 +588,8 @@ set(gcf,'Name',animal);
 %     trial_conditions(:,2) == -1 & ...
 %     trial_conditions(:,3) == -1;
 
-% align_times = stimOn_times;
-align_times = stimOn_times(stimIDs == 1);
+align_times = stimOn_times;
+% align_times = stimOn_times(stimIDs == 1);
 % align_times = stimOn_times(stim_to_move >= 0.1);
 % align_times = iti_move_starts;
 % align_times = wheel_move_time;
@@ -597,7 +597,7 @@ align_times = stimOn_times(stimIDs == 1);
 surround_window = [-0.3,1];
 baseline_window = [-0.3,-0.2];
 
-surround_samplerate = 1/0.01;
+surround_samplerate = 100;
 t = surround_window(1):1/surround_samplerate:surround_window(2);
 t_baseline = baseline_window(1):1/surround_samplerate:baseline_window(2);
 
@@ -1166,8 +1166,24 @@ figure;imagesc(px_std)
 axis image;
 colormap(gray);
 
+%% STD & MAD across pixels (downsampled)
 
+aUdf = AP_align_widefield(Udf,animal,day);
 
+U_downsample_factor = 10;
+aUd = imresize(aUdf,1/U_downsample_factor,'bilinear');
+
+px_d = AP_svdFrameReconstruct(aUd,fVdf);
+
+figure;
+subplot(1,2,1);
+imagesc(std(px_d,[],3));
+axis image off
+title('STD');
+subplot(1,2,2);
+imagesc(mad(px_d,[],3));
+axis image off
+title('MAD');
 
 %% Get average fluorescence to Signals event
 
@@ -2194,7 +2210,7 @@ end
 retinotopy_path = 'C:\Users\Andrew\OneDrive for Business\Documents\CarandiniHarrisLab\analysis\widefield_alignment\retinotopy';
 retinotopy_dir = dir(retinotopy_path);
 
-animal = 'AP109';
+animal = 'AP097';
 load([retinotopy_path filesep animal '_retinotopy'])
 
 vfs_aligned = cell(length(retinotopy));

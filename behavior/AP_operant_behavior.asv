@@ -720,8 +720,6 @@ muscimol_stim_surround_wheel = repmat( ...
     length(muscimol_areas),1);
 
 stim_move_t_muscimol_all = cell(length(muscimol_areas),length(animals));
-alt_stim_move_t_muscimol_all = cell(length(muscimol_areas),length(animals));
-
 stim_move_t_muscimol = nan(length(muscimol_areas),length(animals));
 stim_feedback_t_muscimol = nan(length(muscimol_areas),length(animals));
 move_feedback_t_muscimol = nan(length(muscimol_areas),length(animals));
@@ -767,9 +765,6 @@ for curr_area_idx = 1:length(muscimol_areas)
         
         stim_move_t_muscimol_all{curr_area_idx,curr_muscimol_animal_idx} = ...
             cat(1,bhv(curr_bhv_animal_idx).stim_move_t{bhv_day_idx});
-        alt_stim_move_t_muscimol_all{curr_area_idx,curr_muscimol_animal_idx} = ...
-            cell2mat(cat(1,bhv(curr_bhv_animal_idx).alt_stim_move_t{bhv_day_idx}));
-        
         stim_move_t_muscimol(curr_area_idx,curr_muscimol_animal_idx) = ...
             nanmedian(cat(1,bhv(curr_bhv_animal_idx).stim_move_t{bhv_day_idx}));
         stim_feedback_t_muscimol(curr_area_idx,curr_muscimol_animal_idx) = ...
@@ -778,9 +773,12 @@ for curr_area_idx = 1:length(muscimol_areas)
             nanmedian(cat(1,bhv(curr_bhv_animal_idx).stim_feedback_t{bhv_day_idx}) - ...
             cat(1,bhv(curr_bhv_animal_idx).stim_move_t{bhv_day_idx}));
         
-        rxn_frac_muscimol(curr_area_idx,curr_muscimol_animal_idx) = ...        
-            nanmedian(cellfun(@(x) nanmean(x > 0.1 & x < 0.25), ...
-             bhv(curr_bhv_animal_idx).stim_move_t(bhv_day_idx)));
+        rxn_frac = cellfun(@(x) cellfun(@(x) nanmean(x > 0.1 & x < 0.25),x), ...
+    {bhv.stim_move_t},'uni',false);
+
+        rxn_frac_muscimol(curr_area_idx,curr_muscimol_animal_idx) = ...
+            
+        bhv(curr_bhv_animal_idx).stim_move_t(bhv_day_idx}
         
         stim_response_idx_muscimol(curr_area_idx,curr_muscimol_animal_idx) = ...
             nanmedian(cat(1,bhv(curr_bhv_animal_idx).stim_response_idx(bhv_day_idx)));
@@ -824,27 +822,6 @@ plot(rxn_bin_centers, ...
     stim_move_t_muscimol_all,'uni',false),[1,3,2])),3)','linewidth',2);
 legend(muscimol_areas);
 
-figure;
-rxn_bins = [0:0.02:1];
-rxn_bin_centers = rxn_bins(1:end-1)+(diff(rxn_bins)/2);
-stim_move_t_muscimol_hist = ...
-    nanmedian(cell2mat(permute(cellfun(@(x) histcounts(x,rxn_bins,'normalization','probability'), ...
-    stim_move_t_muscimol_all,'uni',false),[1,3,2])),3)';
-alt_stim_move_t_muscimol_hist = ...
-    nanmedian(cell2mat(permute(cellfun(@(x) histcounts(x,rxn_bins,'normalization','probability'), ...
-    alt_stim_move_t_muscimol_all,'uni',false),[1,3,2])),3)';
-
-subplot(1,3,1);
-plot(rxn_bin_centers,stim_move_t_muscimol_hist,'linewidth',2);
-legend(muscimol_areas);
-subplot(1,3,2);
-plot(rxn_bin_centers,alt_stim_move_t_muscimol_hist,'linewidth',2);
-legend(muscimol_areas);
-subplot(1,3,3);
-plot(rxn_bin_centers,stim_move_t_muscimol_hist-alt_stim_move_t_muscimol_hist,'linewidth',2);
-legend(muscimol_areas);
-linkaxes(get(gcf,'Children'),'xy');
-
 % Movement probability pre/post stim
 stim_surround_t = bhv(1).stim_surround_t;
 move_prestim_max = cellfun(@(x) max(x(:,stim_surround_t<0,:),[],2),muscimol_stim_surround_wheel,'uni',false);
@@ -853,41 +830,36 @@ move_prepost_max_ratio = cell2mat(cellfun(@(x,y) (y-x)./(x+y),move_prestim_max,m
 
 % Plot average timings
 figure;
-subplot(1,7,1); hold on;
+subplot(1,6,1); hold on;
 plot(stim_move_t_muscimol,'linewidth',2)
 set(gca,'YScale','log')
 set(gca,'XTick',1:length(muscimol_areas),'XTickLabel',muscimol_areas);
 ylabel('Stim move t');
 
-subplot(1,7,2); hold on;
+subplot(1,6,2); hold on;
 plot(stim_feedback_t_muscimol,'linewidth',2)
 set(gca,'YScale','log')
 set(gca,'XTick',1:length(muscimol_areas),'XTickLabel',muscimol_areas);
 ylabel('Stim reward t');
 
-subplot(1,7,3); hold on;
+subplot(1,6,3); hold on;
 plot(move_feedback_t_muscimol,'linewidth',2)
 set(gca,'YScale','log')
 set(gca,'XTick',1:length(muscimol_areas),'XTickLabel',muscimol_areas);
 ylabel('Move feedback t');
 
-subplot(1,7,4); hold on;
+subplot(1,6,4); hold on;
 plot(wheel_velocity_muscimol,'linewidth',2)
 set(gca,'YScale','log')
 set(gca,'XTick',1:length(muscimol_areas),'XTickLabel',muscimol_areas);
 ylabel('Wheel velocity/s');
 
-subplot(1,7,5); hold on;
+subplot(1,6,5); hold on;
 plot(move_prepost_max_ratio,'linewidth',2)
 set(gca,'XTick',1:length(muscimol_areas),'XTickLabel',muscimol_areas);
 ylabel('Post/post ratio');
 
-subplot(1,7,6); hold on;
-plot(rxn_frac_muscimol,'linewidth',2)
-set(gca,'XTick',1:length(muscimol_areas),'XTickLabel',muscimol_areas);
-ylabel('Rxn stim frac');
-
-subplot(1,7,7); hold on;
+subplot(1,6,6); hold on;
 plot(stim_response_idx_muscimol,'linewidth',2)
 set(gca,'XTick',1:length(muscimol_areas),'XTickLabel',muscimol_areas);
 ylabel('Stim response idx');
@@ -895,14 +867,14 @@ ylabel('Stim response idx');
 
 % Plot pre/post changes
 figure;
-subplot(1,4,1); hold on;
+subplot(1,3,1); hold on;
 gscatter(move_prepost_max_ratio(:),wheel_velocity_muscimol(:), ...
     reshape(repmat(muscimol_areas,1,length(animals)),[],1),lines(length(muscimol_areas)),[],20);
 xlabel('Pre/post move');
 ylabel('Velocity/s');
 axis square;
 
-subplot(1,4,2); hold on;
+subplot(1,3,2); hold on;
 washout_idx = strcmp('washout',muscimol_areas);
 wheel_velocity_muscimol_norm = ...
     (wheel_velocity_muscimol-wheel_velocity_muscimol(washout_idx,:))./ ...
@@ -914,7 +886,7 @@ xlabel('Diff. Pre/post move');
 ylabel('Norm. Velocity/s');
 axis square;
 
-subplot(1,4,3); hold on;
+subplot(1,3,3); hold on;
 hold on;
 washout_idx = strcmp('washout',muscimol_areas);
 wheel_velocity_muscimol_norm = ...
@@ -926,18 +898,6 @@ gscatter(stim_response_idx_muscimol_diff(:),wheel_velocity_muscimol_norm(:), ...
 xlabel('Diff. stim response idx');
 ylabel('Norm. Velocity/s');
 axis square;
-
-subplot(1,4,4); hold on;
-hold on;
-washout_idx = strcmp('washout',muscimol_areas);
-rxn_frac_diff = rxn_frac_muscimol - rxn_frac_muscimol(washout_idx,:);
-stim_response_idx_muscimol_diff = stim_response_idx_muscimol - stim_response_idx_muscimol(washout_idx,:);
-gscatter(stim_response_idx_muscimol_diff(:),rxn_frac_diff(:), ...
-    reshape(repmat(muscimol_areas,1,length(animals)),[],1),lines(length(muscimol_areas)),[],20);
-xlabel('Diff. stim response idx');
-ylabel('Diff. rxn frac');
-axis square;
-
 
 %% Learning within- or across-day: split trials within day
 

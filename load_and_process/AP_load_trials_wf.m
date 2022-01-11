@@ -1,7 +1,8 @@
 % AP_load_trials_wf(data_fn,exclude_data)
 %
 % Loads widefield trial data
-% from 'operant_grab_trial_data' or 'AP_ctx_str_grab_trial_data'
+% from 'operant_grab_trial_data'
+% ASSUMES DECONVOLUTION ALREADY DONE
 % data_fn - base filename(s) (cell array if > 1, will concatenate data)
 % exclude_data - true/false at the moment (for bad behavior days)
 
@@ -238,14 +239,16 @@ if task_dataset
         nanmean(fluor_taskpred_reduced_allcat(:,t_baseline,:,:),2);
 end
 
-% Deconvolve fluorescence, subtract baseline for each trial
-fluor_allcat_deconv = AP_deconv_wf(fluor_allcat) - ...
-    nanmean(AP_deconv_wf(fluor_allcat(:,t_baseline,:)),2);
+% % Deconvolve fluorescence, subtract baseline for each trial
+%%%% CHANGED: DECONV DONE IN LOADING SCRIPT (to allow resampling)
+% fluor_allcat_deconv = AP_deconv_wf(fluor_allcat) - ...
+%     nanmean(AP_deconv_wf(fluor_allcat(:,t_baseline,:)),2);
+fluor_allcat_deconv = fluor_allcat;
+clear fluor_allcat;
 
 % Get fluorescence ROIs
 % (by cortical area)
 load('C:\Users\Andrew\OneDrive for Business\Documents\CarandiniHarrisLab\analysis\wf_ephys_choiceworld\wf_processing\wf_alignment\U_master');
-% wf_roi_fn = 'C:\Users\Andrew\OneDrive for Business\Documents\CarandiniHarrisLab\analysis\wf_ephys_choiceworld\wf_processing\wf_rois\wf_roi';
 wf_roi_fn = 'C:\Users\Andrew\OneDrive for Business\Documents\CarandiniHarrisLab\analysis\operant_learning\wf_processing\wf_rois\wf_roi';
 load(wf_roi_fn);
 n_rois = numel(wf_roi);

@@ -18,27 +18,18 @@ task_dataset = exist('expDef','var') && contains(expDef,'stimWheel');
 
 if verbose; disp('Re-casting and deconvolving fluorescence...'); end;
 
-% Convert U to master U
-load('C:\Users\Andrew\OneDrive for Business\Documents\CarandiniHarrisLab\analysis\wf_ephys_choiceworld\wf_processing\wf_alignment\U_master.mat');
-Udf_aligned = AP_align_widefield(Udf,animal,day);
-fVdf_recast = ChangeU(Udf_aligned,fVdf,U_master);
-
-% Set components to keep
-use_components = 1:200;
-
 % Deconvolve fluoresence (for use in regression)
 fVdf_deconv = AP_deconv_wf(fVdf);
 fVdf_deconv(isnan(fVdf_deconv)) = 0;
 
+% Convert U to master U
+load('C:\Users\Andrew\OneDrive for Business\Documents\CarandiniHarrisLab\analysis\wf_ephys_choiceworld\wf_processing\wf_alignment\U_master.mat');
+Udf_aligned = AP_align_widefield(Udf,animal,day);
+fVdf_deconv_recast = ChangeU(Udf_aligned,fVdf_deconv,U_master);
 
-%% Set parameters for striatal multiunit
+% Set components to keep
+use_components = 1:200;
 
-if ephys_exists
-    
-    n_depths = n_aligned_depths;
-    depth_group = aligned_str_depth_group;
-    
-end
 
 %% Set parameters for trials
 
@@ -90,32 +81,8 @@ end
 if verbose; disp('Trial-aligning data...'); end;
 
 % Cortical fluorescence
-event_aligned_V = ...
-    interp1(frame_t,fVdf_recast(use_components,:)',t_peri_event);
-
-% Striatal multiunit
-if ephys_exists
-    
-    event_aligned_mua = nan(length(stimOn_times),length(t),n_depths);
-    for curr_depth = 1:n_depths
-        curr_spikes = spike_times_timeline(depth_group == curr_depth);
-        
-        % (skip if no spikes at this depth)
-        if isempty(curr_spikes)
-            continue
-        end
-        
-        event_aligned_mua(:,:,curr_depth) = cell2mat(arrayfun(@(x) ...
-            histcounts(curr_spikes,t_peri_event_bins(x,:)), ...
-            [1:size(t_peri_event,1)]','uni',false))./raster_sample_time;
-    end
-    
-    % (filter MUA if selected)
-    if filter_mua
-        event_aligned_mua = AP_deconv_wf(event_aligned_mua,true);
-    end
-    
-end
+event_aligned_V_deconv = ...
+    interp1(frame_t,fVdf_deconv_recast(use_components,:)',t_peri_event);
 
 % Wheel velocity
 event_aligned_wheel = interp1(Timeline.rawDAQTimestamps, ...
@@ -150,7 +117,7 @@ end
 % Parameters for regression
 regression_params.use_svs = 1:100;
 regression_params.skip_seconds = 20;
-regression_params.sample_rate = 100;
+regression_params.sample_rate = 1/raster_sample_time;
 regression_params.kernel_t = [-0.1,0.1];
 regression_params.zs = [false,false];
 regression_params.cvfold = 5;
@@ -164,110 +131,10 @@ time_bins = frame_t(find(frame_t > ...
 time_bin_centers = time_bins(1:end-1) + diff(time_bins)/2;
 
 % Resample deconvolved fluorescence
-fVdf_deconv_resample = interp1(frame_t,fVdf_deconv',time_bin_centers)';
+fVdf_deconv_recast_resample = interp1(frame_t,fVdf_deconv_recast',time_bin_centers)';
     
 
-%% Regress cortex to striatum and trial-align
-
-if verbose; disp('Regressing cortex to striatum...'); end;
-
-if ephys_exists    
-    
-    % Bin spikes to match widefield frames
-    binned_spikes = nan(n_depths,length(time_bin_centers));
-    for curr_depth = 1:n_depths
-        curr_spike_times = spike_times_timeline(depth_group == curr_depth);
-        
-        % (skip if no spikes at this depth)
-        if isempty(curr_spike_times)
-            continue
-        end
-        
-        binned_spikes(curr_depth,:) = histcounts(curr_spike_times,time_bins);
-    end
-    binned_spikes_std = binned_spikes./nanstd(binned_spikes,[],2);
-    
-    % (filter MUA if selected)
-    if filter_mua
-        binned_spikes = AP_deconv_wf(binned_spikes,true);
-        binned_spikes_std = binned_spikes./nanstd(binned_spikes,[],2);
-    end
-    
-    % Load lambda from previously estimated and saved
-    lambda_fn = 'C:\Users\Andrew\OneDrive for Business\Documents\CarandiniHarrisLab\analysis\wf_ephys_choiceworld\ephys_processing\ctx-str_lambda';
-    load(lambda_fn);
-    curr_animal_idx = strcmp(animal,{ctx_str_lambda.animal});
-    if any(curr_animal_idx)
-        curr_day_idx = strcmp(day,ctx_str_lambda(curr_animal_idx).day);
-        if any(curr_day_idx)
-            lambda = ctx_str_lambda(curr_animal_idx).best_lambda(curr_day_idx);
-        end
-    end
-    
-    kernel_frames = round(regression_params.kernel_t(1)*regression_params.sample_rate): ...
-        round(regression_params.kernel_t(2)*regression_params.sample_rate);
-    
-    % Regress cortex to striatum
-    [ctx_str_k,ctxpred_spikes_std,explained_var] = ...
-        AP_regresskernel(fVdf_deconv_resample(regression_params.use_svs,:), ...
-        binned_spikes_std,kernel_frames,lambda, ...
-        regression_params.zs,regression_params.cvfold, ...
-        true,regression_params.use_constant);
-    
-    % Recast the k's into the master U
-    ctx_str_k_recast = reshape(ChangeU(Udf_aligned(:,:,regression_params.use_svs), ...
-        reshape(ctx_str_k{1},size(ctx_str_k{1},1),[]),U_master(:,:,regression_params.use_svs)), ...
-        size(ctx_str_k{1}));
-    
-    % Re-scale the prediction (subtract offset, multiply, add scaled offset)
-    ctxpred_spikes = (ctxpred_spikes_std - squeeze(ctx_str_k{end})).* ...
-        nanstd(binned_spikes,[],2) + ...
-        nanstd(binned_spikes,[],2).*squeeze(ctx_str_k{end});
-    
-    event_aligned_mua_ctxpred = ...
-        interp1(time_bin_centers,ctxpred_spikes',t_peri_event)./raster_sample_time;
-    
-end
-
-%% Regress cortex to wheel velocity and speed and trial-align
-
-% if verbose; disp('Regressing cortex to wheel...'); end;
-% 
-% wheel_velocity_resample = interp1(Timeline.rawDAQTimestamps,wheel_velocity,time_bin_centers);
-% wheel_velspeed_resample = [wheel_velocity_resample;abs(wheel_velocity_resample)];
-% wheel_velspeed_resample_std = wheel_velspeed_resample./std(wheel_velocity_resample);
-% 
-% % (TESTING: split left/right)
-% wheel_velspeed_resample_std = [wheel_velocity_resample.*(wheel_velocity_resample>0); ...
-%     wheel_velocity_resample.*(wheel_velocity_resample<0)];
-% wheel_velspeed_resample_std = wheel_velspeed_resample_std./std(wheel_velocity_resample);
-% 
-% % Set wheel regression paramters
-% wheel_lambda = 20;
-% 
-% wheel_kernel_t = [-0.5,0.5];
-% wheel_kernel_frames = round(wheel_kernel_t(1)*regression_params.sample_rate): ...
-%     round(wheel_kernel_t(2)*regression_params.sample_rate);
-% 
-% [ctx_wheel_k,predicted_wheel_velspeed_std,explained_var] = ...
-%     AP_regresskernel(fVdf_deconv_resample(regression_params.use_svs,:), ...
-%     wheel_velspeed_resample_std,wheel_kernel_frames,wheel_lambda, ...
-%     [],regression_params.cvfold, ...
-%     false,false);
-% 
-% predicted_wheel_velspeed = predicted_wheel_velspeed_std.* ...
-%     std(wheel_velocity_resample);
-% 
-% % Recast the k's into the master U
-% ctx_wheel_k_recast = reshape(ChangeU(Udf_aligned(:,:,regression_params.use_svs), ...
-%     reshape(ctx_wheel_k,size(ctx_wheel_k,1),[]),U_master(:,:,regression_params.use_svs)), ...
-%     size(ctx_wheel_k));
-% 
-% event_aligned_wheel_ctxpred = ...
-%     interp1(time_bin_centers,predicted_wheel_velspeed(1,:)',t_peri_event);
-
-
-%% Regress task to cortex/striatum/cortex-predicted striatum
+%% Regress task to cortex
 
 if task_dataset
     
@@ -374,49 +241,11 @@ if task_dataset
     cvfold = 5;
     use_constant = false;
     return_constant = false;
-    
-    % Regression task -> MUA
-    if ephys_exists
-        
-        baseline = nanmean(reshape(event_aligned_mua(:,t < 0,:),[], ...
-            size(event_aligned_mua,3))*raster_sample_time,1)';
-        activity = single(binned_spikes) - baseline;
-        
-        [mua_taskpred_k,mua_taskpred_long,mua_taskpred_expl_var,mua_taskpred_reduced_long] = ...
-            AP_regresskernel(task_regressors,activity,task_regressor_sample_shifts, ...
-            lambda,zs,cvfold,return_constant,use_constant);
-        
-        mua_taskpred = ...
-            interp1(time_bin_centers,mua_taskpred_long',t_peri_event)./raster_sample_time;
-        
-        mua_taskpred_reduced = cell2mat(arrayfun(@(x) ...
-            interp1(time_bin_centers,mua_taskpred_reduced_long(:,:,x)', ...
-            t_peri_event)./raster_sample_time,permute(1:length(task_regressors),[1,3,4,2]),'uni',false));
-        
-        % Regression task -> MUA-ctxpred
-        baseline = nanmean(reshape(event_aligned_mua_ctxpred(:,t < 0,:),[], ...
-            size(event_aligned_mua_ctxpred,3))*raster_sample_time,1)';
-        activity = single(ctxpred_spikes) - baseline;
-        
-        [mua_ctxpred_taskpred_k,mua_ctxpred_taskpred_long,mua_ctxpred_taskpred_expl_var,mua_ctxpred_taskpred_reduced_long] = ...
-            AP_regresskernel(task_regressors,activity,task_regressor_sample_shifts, ...
-            lambda,zs,cvfold,return_constant,use_constant);
-        
-        mua_ctxpred_taskpred = ...
-            interp1(time_bin_centers,mua_ctxpred_taskpred_long',t_peri_event)./raster_sample_time;
-        
-        mua_ctxpred_taskpred_reduced = cell2mat(arrayfun(@(x) ...
-            interp1(time_bin_centers,mua_ctxpred_taskpred_reduced_long(:,:,x)', ...
-            t_peri_event)./raster_sample_time,permute(1:length(task_regressors),[1,3,4,2]),'uni',false));
-        
-    end
-    
+   
     % Regression task -> (master U, deconvolved) fluor
-    fVdf_deconv_resample_recast = ChangeU(Udf_aligned,fVdf_deconv_resample,U_master);
-    
-    event_aligned_V_deconv = AP_deconv_wf(event_aligned_V);
-    baseline = nanmean(reshape(event_aligned_V_deconv(:,t < 0,:),[],size(event_aligned_V_deconv,3)))';
-    activity = single(fVdf_deconv_resample_recast(use_components,:))-baseline;
+%     baseline = nanmean(reshape(event_aligned_V_deconv(:,t < 0,:),[],size(event_aligned_V_deconv,3)))';
+%     activity = single(fVdf_deconv_recast_resample(use_components,:))-baseline;
+    activity = single(fVdf_deconv_recast_resample(use_components,:));
     
     [fluor_taskpred_k,fluor_taskpred_long,fluor_taskpred_expl_var,fluor_taskpred_reduced_long] = ...
         AP_regresskernel(task_regressors,activity,task_regressor_sample_shifts, ...
@@ -427,7 +256,7 @@ if task_dataset
     
     fluor_taskpred_reduced = cell2mat(arrayfun(@(x) ...
         interp1(time_bin_centers,fluor_taskpred_reduced_long(:,:,x)', ...
-        t_peri_event),permute(1:length(task_regressors),[1,3,4,2]),'uni',false));
+        t_peri_event),permute(1:length(task_regressors),[1,3,4,2]),'uni',false));   
     
 end
 
@@ -442,7 +271,7 @@ if exist('event_aligned_movement','var')
     trial_data.movement_all = event_aligned_movement(use_trials,:,:);
 end
 
-trial_data.fluor_all = event_aligned_V(use_trials,:,:,:);
+trial_data.fluor_all = event_aligned_V_deconv(use_trials,:,:,:);
 
 % trial_data.ctx_wheel_k_all = ctx_wheel_k_recast;
 % trial_data.wheel_ctxpred_all = event_aligned_wheel_ctxpred(use_trials,:,:);
@@ -456,28 +285,6 @@ if task_dataset
     trial_data.fluor_taskpred_reduced_all = fluor_taskpred_reduced(use_trials,:,:,:);
     trial_data.fluor_taskpred_expl_var_total_all = fluor_taskpred_expl_var.total;
     trial_data.fluor_taskpred_expl_var_partial_all = fluor_taskpred_expl_var.partial;
-    
-end
-
-if ephys_exists
-    
-    trial_data.mua_all = event_aligned_mua(use_trials,:,:,:);
-    trial_data.ctx_str_k_all = ctx_str_k_recast;
-    trial_data.mua_ctxpred_all = event_aligned_mua_ctxpred(use_trials,:,:,:);
-    
-    if task_dataset
-        trial_data.mua_taskpred_k_all = mua_taskpred_k;
-        trial_data.mua_taskpred_all = mua_taskpred(use_trials,:,:,:);
-        trial_data.mua_taskpred_reduced_all = mua_taskpred_reduced(use_trials,:,:,:);
-        trial_data.mua_taskpred_expl_var_total_all = mua_taskpred_expl_var.total;
-        trial_data.mua_taskpred_expl_var_partial_all = mua_taskpred_expl_var.partial;
-        
-        trial_data.mua_ctxpred_taskpred_k_all = mua_ctxpred_taskpred_k;
-        trial_data.mua_ctxpred_taskpred_all = mua_ctxpred_taskpred(use_trials,:,:,:);
-        trial_data.mua_ctxpred_taskpred_reduced_all = mua_ctxpred_taskpred_reduced(use_trials,:,:,:);
-        trial_data.mua_ctxpred_taskpred_expl_var_total_all = mua_ctxpred_taskpred_expl_var.total;
-        trial_data.mua_ctxpred_taskpred_expl_var_partial_all = mua_ctxpred_taskpred_expl_var.partial;
-    end
     
 end
 

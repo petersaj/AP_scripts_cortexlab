@@ -1694,7 +1694,7 @@ for curr_animal = 1:length(animals)
         AP_load_experiment;
         
         % Pull out trial data
-        AP_ctx_str_grab_trial_data;
+        operant_grab_trial_data;
         
         % Store trial data into master structure
         trial_data_fieldnames = fieldnames(trial_data);
@@ -1721,7 +1721,7 @@ disp('Finished loading all')
 
 % Save
 save_path = 'C:\Users\Andrew\OneDrive for Business\Documents\CarandiniHarrisLab\analysis\operant_learning\data';
-save_fn = ['trial_activity_passive_corticostriatal'];
+save_fn = ['trial_activity_passive_cstr'];
 save([save_path filesep save_fn],'-v7.3');
 disp(['Saved: ' save_path filesep save_fn])
 
@@ -2139,7 +2139,7 @@ for curr_animal = 1:length(animals)
         AP_load_experiment;
         
         % Pull out trial data
-        AP_ctx_str_grab_trial_data;
+        operant_grab_trial_data;
         
         % Store trial data into master structure
         trial_data_fieldnames = fieldnames(trial_data);
@@ -2183,7 +2183,7 @@ disp(['Saved: ' save_path filesep save_fn])
 % Load data
 trial_data_path = 'C:\Users\Andrew\OneDrive for Business\Documents\CarandiniHarrisLab\analysis\operant_learning\data';
 data_fn = 'trial_activity_passive_tetO';
-% data_fn = 'trial_activity_passive_corticostriatal';
+% data_fn = 'trial_activity_passive_cstr';
 
 AP_load_trials_wf;
 
@@ -2775,37 +2775,28 @@ stim_response_idx_allcat = cell2mat(cellfun(@(x,y) repmat(x,y,1), ...
 %     fluor_roi_deconv_move(i,:,:,:) = circshift(fluor_roi_deconv_move(i,:,:,:),-move_idx(i)+leeway_samples,2);
 % end
 
-% (package back into animal/day)
-n_days = cellfun(@length,wheel_all);
-fluor_deconv_animal = mat2cell(mat2cell(fluor_allcat_deconv,trials_recording,length(t),n_vs),n_days);
-fluor_taskpred_reduced_animal = mat2cell(mat2cell(fluor_taskpred_reduced_allcat, ...
-    trials_recording,length(t),n_vs,length(task_regressor_labels)),n_days);
-
-move_t_animal = mat2cell(mat2cell(move_t,trials_recording),n_days);
-
 % Average activity within animal/day
-max_days = max(n_days);
+max_days = max(trial_day);
 fluor_deconv_cat = nan(n_vs,length(t),max_days,length(animals));
 for curr_animal = 1:length(animals)
-    % (all trials)
-    use_trials = cellfun(@(x) true(size(x)),move_t_animal{curr_animal},'uni',false);
-    % (reaction-time limited)
-%         use_trials = cellfun(@(x) x > 0.1 & x < 0.5,move_t_animal{curr_animal},'uni',false);
-    % (trial subset from start or end)
-    %     use_trials = cellfun(@(x) find(x > 0.05,10,'first'),move_t_animal{curr_animal},'uni',false);
-    
-    % (full activity)
-%     fluor_deconv_cat(:,:,1:n_days(curr_animal),curr_animal) = ...
-%         permute(cell2mat(cellfun(@(x,trials) nanmean(x(trials,:,:),1), ...
-%         fluor_deconv_animal{curr_animal},use_trials,'uni',false)),[3,2,1]);
-    
-    % (reduced activity)
-    fluor_deconv_cat(:,:,1:n_days(curr_animal),curr_animal) = ...
-        permute(cell2mat(cellfun(@(act,act_reduced,trials) ...
-        nanmean(act(trials,:,:) - act_reduced(trials,:,:,1),1), ...
-        fluor_deconv_animal{curr_animal},fluor_taskpred_reduced_animal{curr_animal}, ...
-        use_trials,'uni',false)),[3,2,1]);
+    for curr_day = 1:n_days(curr_animal)
+        % (all trials)
+        curr_trials = trial_animal == curr_animal & trial_day == curr_day;
         
+        % (full activity)
+        fluor_deconv_cat(:,:,curr_day,curr_animal) = ...
+            permute(nanmean(fluor_allcat_deconv(curr_trials,:,:),1),[3,2,1]);
+        
+%         % (task-predicted activity)
+%         fluor_deconv_cat(:,:,curr_day,curr_animal) = ...
+%             permute(nanmean(fluor_taskpred_allcat(curr_trials,:,:),1),[3,2,1]);
+        
+%         % (reduced activity)
+%         fluor_deconv_cat(:,:,curr_day,curr_animal) = ...
+%             permute(nanmean(fluor_allcat_deconv(curr_trials,:,:) - ...
+%             fluor_taskpred_reduced_allcat(curr_trials,:,:,1),1),[3,2,1]);
+        
+    end
 end
 
 % Plot average for each day
@@ -2815,14 +2806,6 @@ axis image;
 caxis([-max(abs(caxis)),max(abs(caxis))]);
 colormap(brewermap([],'PrGn'))
 AP_reference_outline('ccf_aligned',[0.5,0.5,0.5]);
-
-% Plot animal across days
-use_animal = 5;
-curr_px = AP_svdFrameReconstruct(U_master(:,:,1:n_vs),fluor_deconv_cat(:,:,:,use_animal));
-AP_image_scroll(curr_px,t);
-axis image;
-caxis([-max(abs(caxis)),max(abs(caxis))]);
-colormap(brewermap([],'PrGn'))
 
 
 
@@ -2957,11 +2940,11 @@ AP_reference_outline('ccf_aligned',[0.5,0.5,0.5]);
 
 use_trials = trial_outcome_allcat == 1 & stim_response_idx_allcat > 0.2;
 
-curr_act = fluor_roi_deconv(use_trials,:,4);
+% curr_act = fluor_roi_deconv(use_trials,:,7);
 % curr_act = fluor_roi_taskpred(use_trials,:,1);
 % curr_act = fluor_roi_deconv(use_trials,:,7) - fluor_roi_deconv(use_trials,:,17);
 % curr_act = fluor_roi_taskpred(use_trials,:,4) - fluor_roi_taskpred(use_trials,:,14);
-% curr_act = fluor_roi_deconv(use_trials,:,7) - fluor_roi_taskpred_reduced(use_trials,:,7,1);
+curr_act = fluor_roi_deconv(use_trials,:,7) - fluor_roi_taskpred_reduced(use_trials,:,7,1);
 
 rxn_bins = [0:0.01:0.5]';
 rxn_bin_centers = rxn_bins(1:end-1) + diff(rxn_bins)./2;
@@ -3057,12 +3040,6 @@ for curr_animal = 1:length(animals)
         horzcat(fluor_taskpred_k_all{curr_animal}{:});
 end
 
-ctx_wheel_k_cat = cell(max_days,length(animals));
-for curr_animal = 1:length(animals)
-    ctx_wheel_k_cat(1:n_days(curr_animal),curr_animal) = ...
-        horzcat(ctx_wheel_k_all{curr_animal});
-end
-
 % Get average kernel given behavior
 rxn_frac_pad = cell2mat(cellfun(@(x) padarray(cellfun(@(x) nanmean(x > 0.1 & x < 0.25),x), ...
     [max_days-length(x),0],NaN,'post'), ...
@@ -3092,19 +3069,9 @@ for curr_regressor = 1:n_regressors
     end
 end
 
-ctx_wheel_k_day_mean = cell(1,max_days);
-for curr_day = 1:max_days
-    ctx_wheel_k_day_mean{curr_day} = nanmean(cat(4, ...
-        ctx_wheel_k_cat{curr_day,:}),4);
-end
-
-
 % Get regressor pixels
 k_day_mean_px = cellfun(@(x) AP_svdFrameReconstruct(U_master(:,:,1:n_vs),x), ...
     k_day_mean,'uni',false);
-
-ctx_wheel_k_day_mean_px = cellfun(@(x) AP_svdFrameReconstruct(U_master(:,:,1:size(x,1)),x), ...
-    ctx_wheel_k_day_mean,'uni',false);
 
 % Plot average kernels
 % (by day)
@@ -3170,12 +3137,12 @@ for curr_animal = 1:length(animals)
 end
 
 %% ROI activity aligned by "learned day"
-
 % ROI fluorescence by behavior for each animal
 
 curr_roi = 7;
 
 curr_act = fluor_roi_deconv(:,:,curr_roi);
+% curr_act = fluor_roi_deconv(:,:,curr_roi) - fluor_roi_taskpred_reduced(:,:,curr_roi,1);
 
 use_t = t >= 0.1 & t <= 0.2;
 curr_act_timeavg = nanmean(double(curr_act(:,use_t)),2);
@@ -3187,10 +3154,12 @@ curr_act_timeavg_pad = accumarray([trial_day(use_trials),trial_animal(use_trials
     curr_act_timeavg(use_trials),[max(trial_day),max(trial_animal)], ...
     @nanmean,NaN);
 figure; hold on;
-plot(roi_animal_day_avg);
-plot(nanmean(roi_animal_day_avg,2),'k','linewidth',2);
+plot(curr_act_timeavg_pad);
+plot(nanmean(curr_act_timeavg_pad,2),'k','linewidth',2);
 
 % Align days across animals by "learned day"
+max_days = max(trial_day);
+
 stim_response_idx_pad = cell2mat(cellfun(@(x) padarray(x, ...
     [max_days-length(x),0],NaN,'post'), ...
     cellfun(@(x,use_days) x(use_days),{bhv.stim_response_idx},use_days,'uni',false),'uni',false));
@@ -3206,7 +3175,7 @@ alt_rxn_frac_pad = cell2mat(cellfun(@(x) padarray(cellfun(@(x) ...
 
 rxn_frac_pad_diff = rxn_frac_pad - alt_rxn_frac_pad;
 
-[~,learned_day] = max(rxn_frac_pad>0.4,[],1);
+[~,learned_day] = max(rxn_frac_pad>0.3,[],1);
 % [~,learned_day] = max(rxn_frac_pad_diff>0.3,[],1);
 % [~,learned_day] = max(stim_response_idx_pad>0.2,[],1);
 learned_day_x = [1:max_days]'-learned_day;
@@ -3252,25 +3221,35 @@ line([0,0],ylim,'color','k','linestyle','--');
 linkaxes(get(gcf,'Children'),'x')
 
 
-% (average stim response relative to "learned day")
-use_stim = 3;
+% Plot learning-aligned daysplit
+n_daysplit = 4;
+day_split_idx = cell2mat(arrayfun(@(x) ...
+    min(floor(linspace(1,n_daysplit+1,x)),n_daysplit)', ...
+    trials_recording,'uni',false));
+roi_animal_daysplit_avg = accumarray( ...
+    [trial_animal(use_trials),trial_day(use_trials),day_split_idx(use_trials)], ...
+    curr_act_timeavg(use_trials),[max(trial_animal),max(trial_day),n_daysplit], ...
+    @nanmean,NaN);
 
-learned_days_animal = cellfun(@(x,y) (1:size(x,3))-y, ...
-    stim_v_avg,num2cell(learned_day),'uni',false);
+roi_animal_daysplit_avg_long = reshape(permute( ...
+    padarray(roi_animal_daysplit_avg,[0,0,1],NaN,'post'),[3,2,1]),[],length(animals));
 
-stim_v_avg_learnedday = reshape(grpstats( ...
-    reshape(cell2mat(permute(cellfun(@(x) x(:,:,:,use_stim), ...
-    stim_v_avg,'uni',false),[1,3,2])),n_vs*length(t),[])', ...
-    cell2mat(learned_days_animal)')',n_vs,length(t),[]);
+learned_day_x_daysplit = cell2mat(cellfun(@(x) x+(0:n_daysplit)'/(n_daysplit+1), ...
+    num2cell(learned_day_x),'uni',false));
 
-stim_px_avg_learnedday = AP_svdFrameReconstruct(U_master(:,:,1:n_vs), ...
-    stim_v_avg_learnedday);
+[roi_daysplit,roi_daysplit_grp] = ...
+    grpstats(roi_animal_daysplit_avg_long(:), ...
+    learned_day_x_daysplit(:),{'nanmean','gname'});
+roi_daysplit_grp = cellfun(@str2num,roi_daysplit_grp);
 
-AP_image_scroll(stim_px_avg_learnedday,t);
-caxis([-max(abs(caxis)),max(abs(caxis))]);
-colormap(brewermap([],'PrGn'));
-axis image;
-AP_reference_outline('ccf_aligned',[0.5,0.5,0.5]);
+figure; hold on;
+plot(learned_day_x_daysplit,roi_animal_daysplit_avg_long);
+plot(roi_daysplit_grp,roi_daysplit,'k','linewidth',2);
+line([0,0],ylim,'color','k','linestyle','--');
+xlabel('Learned day');
+ylabel(sprintf('%s fluorescence',wf_roi(curr_roi).area))
+
+
 
 
 %% >> Muscimol: task
@@ -3406,13 +3385,32 @@ ylabel(wf_roi(plot_rois(2)).area);
 
 
 
-% (testing: by trial)
-trial_muscimol = cellfun(@(x,y) repmat({x},y,1),muscimol_area_cat, ...
-    num2cell(trials_recording),'uni',false);
-trial_muscimol = vertcat(trial_muscimol{:});
+% Plot ROI pre/post inactivation
+n_days = cellfun(@length,trial_info_all);
 
-a = squeeze(nanmean(fluor_roi_deconv(:,use_t,:),2));
-figure;gscatter(a(:,1),a(:,7),trial_muscimol)
+fluor_roi_stimavg_animal = reshape(mat2cell(permute(fluor_roi_exp_stimavg,[3,2,1]), ...
+    n_rois,length(t),n_days),[],1);
+
+use_t = t >= 0.1 & t <= 0.2;
+plot_roi = 7;
+
+fluor_roi_stimavg_animal_tavg = cellfun(@(x) squeeze(nanmean(x(plot_roi,use_t,:),2)), ...
+    fluor_roi_stimavg_animal,'uni',false);
+
+figure; hold on;
+for curr_animal = 1:length(animals)
+    curr_muscimol = find(strcmp(lower(muscimol_area{curr_animal}),'v1'),1,'last');
+    % (get first washout after muscimol)
+    curr_washout = curr_muscimol + ...
+        find(strcmp(lower(muscimol_area{curr_animal}(curr_muscimol+1:end)),'washout'),1,'first');
+    
+    plot(fluor_roi_stimavg_animal_tavg{curr_animal}(curr_muscimol), ...
+        fluor_roi_stimavg_animal_tavg{curr_animal}(curr_washout),'.','MarkerSize',20);
+end
+xlabel('Muscimol');
+ylabel('Washout');
+axis square;
+line(ylim,ylim,'color','k');
 
 
 

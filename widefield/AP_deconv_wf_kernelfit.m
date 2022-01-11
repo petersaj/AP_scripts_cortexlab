@@ -63,7 +63,6 @@ for curr_recording = 1:length(recordings)
     experiments = cellfun(@str2num,{experiments_dir(experiments_num_idx).name});
     
     % Loop through experiments, collate data
-    upsample_factor = 1;
     skip_seconds = 60;
     
     time_bin_centers_all = cell(size(experiments));
@@ -88,7 +87,7 @@ for curr_recording = 1:length(recordings)
         
         %% Resample and concatenate data
         % Get time points to query
-        sample_rate = framerate*upsample_factor;
+        sample_rate = framerate;
         time_bins = frame_t(find(frame_t >= ...
             skip_seconds,1)):1/sample_rate: ...
             frame_t(find(frame_t-frame_t(end) <= ...
