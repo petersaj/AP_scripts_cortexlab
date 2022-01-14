@@ -5,10 +5,9 @@
 % NOTE: cortical ROIs and ephys alignment done in AP_ctx_str_trial_preprocessing
 
 %% Set sample rate to create kernel
-% Rate to resample fluorescence data
 % (native is 35 Hz)
 
-sample_rate = 100;
+sample_rate = 35;
 
 
 %% Find recordings
@@ -188,7 +187,7 @@ gcamp6s_kernel.spikes_regression_t = spikes_regression_kernel_t;
 gcamp6s_kernel.spikes_regression = spikes_regression_kernel;
 
 save_dir = 'C:\Github\AP_scripts_cortexlab\widefield';
-save_fn = [save_dir filesep 'gcamp6s_kernel_' num2str(sample_rate) 'Hz.mat'];
+save_fn = [save_dir filesep 'gcamp6s_kernel.mat'];
 save(save_fn,'gcamp6s_kernel');
 disp(['Saved GCaMP6s deconvolution kernel: ' save_fn]);
 

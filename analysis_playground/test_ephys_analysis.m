@@ -2325,7 +2325,7 @@ end
 
 %% Spectral analysis
 % Power spectrum
-use_trace = b;
+use_trace = a;
 
 Fs = 35;
 L = length(use_trace);

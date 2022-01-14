@@ -10,17 +10,18 @@ function convolved_activity = AP_deconv_wf(activity,spikes_flag,sample_rate)
 % spikes_flag = 
 % false (default), apply widefield > spikes kernel
 % true, apply spike > deconved-widefield kernel
+% sample_rate = sample rate of signal to deconvolve (default = 35Hz)
 
 %% Set defaults
 
-if ~exist('spikes_flag','var')
+if ~exist('spikes_flag','var') || isempty(spikes_flag)
     spikes_flag = false;
 elseif ~islogical(spikes_flag)
     error('spikes_flag isn''t a logical');
 end
 
 if ~exist('sample_rate','var')
-    sample_rate = []; 
+    sample_rate = 35;
 end
 
 %% Load GCaMP6s widefield kernel
@@ -28,27 +29,30 @@ end
 % Use the kernel within the directory with the function
 % (tried regression from supersample - didn't change shape)
 kernel_path = fileparts(mfilename('fullpath'));
-if isempty(sample_rate)
-    kernel_fn = [kernel_path filesep 'gcamp6s_kernel.mat'];
-else
-    kernel_fn = [kernel_path filesep 'gcamp6s_kernel_' num2str(sample_rate) 'Hz.mat'];
-end
+kernel_fn = [kernel_path filesep 'gcamp6s_kernel.mat'];
 load(kernel_fn);
 
 kernel_sample_rate = 1/mean(diff(gcamp6s_kernel.regression_t));
 
-% Max-normalize, filter at nyquist, average, and squared-sum normalize (arbitrary)
+% Choose kernel (fluor->spikes or spikes->fluor)
 if ~spikes_flag
     kernel_cat = vertcat(gcamp6s_kernel.regression{:});
-    kernel_cat_filt = lowpass(kernel_cat',kernel_sample_rate/2-1,kernel_sample_rate)';
-    kernel_mean = nanmean(kernel_cat_filt./max(abs(kernel_cat_filt),[],2),1);
-    kernel = kernel_mean./norm(kernel_mean);
 elseif spikes_flag
     kernel_cat = vertcat(gcamp6s_kernel.spikes_regression{:});
-    kernel_cat_filt = lowpass(kernel_cat',kernel_sample_rate/2-1,kernel_sample_rate)';
-    kernel_mean = nanmean(kernel_cat_filt./max(abs(kernel_cat_filt),[],2),1);
-    kernel = kernel_mean./norm(kernel_mean);
 end
+
+% Max-normalize, filter at nyquist, average, and squared-sum normalize (arbitrary)
+kernel_cat_filt = lowpass(kernel_cat',kernel_sample_rate/2-1,kernel_sample_rate)';
+kernel_mean = nanmean(kernel_cat_filt./vecnorm(kernel_cat_filt,2,2),1);
+
+% Resample kernel to given sampling rate
+% (native/default sampling rate = 35Hz)
+% (get range as nearest integer sample)
+kernel_resample_t_range = ...
+    floor(sample_rate*max(abs(gcamp6s_kernel.regression_t)))/sample_rate;
+kernel_resample_t = -kernel_resample_t_range:1/sample_rate:kernel_resample_t_range;
+kernel_resample = interp1(gcamp6s_kernel.regression_t,kernel_mean,kernel_resample_t);
+kernel = kernel_resample./norm(kernel_resample);
 
 
 %% Not fancy way: 

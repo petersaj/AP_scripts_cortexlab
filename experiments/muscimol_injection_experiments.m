@@ -180,6 +180,83 @@ save(save_fn,'muscimol');
 disp(['Saved ' save_fn]);
 
 
+%% Load muscimol experiments and get fluorescence stats
+
+% Load muscimol injection info
+data_path = 'C:\Users\Andrew\OneDrive for Business\Documents\CarandiniHarrisLab\analysis\operant_learning\data';
+muscimol_fn = [data_path filesep 'muscimol.mat'];
+load(muscimol_fn);
+
+for curr_animal = 1:length(muscimol)
+    
+    animal = muscimol(curr_animal).animal;
+    disp(['Loading ' animal]);
+    
+    for curr_day = 1:length(muscimol(curr_animal).day)
+        
+        % Load muscimol imaging
+        preload_vars = who;
+
+        day = muscimol(curr_animal).day{curr_day};
+        curr_experiments = AP_list_experiments(animal,day);
+        
+        use_protocol = 'AP_stimWheelRight'; 
+        experiment = curr_experiments(find( ...
+            strcmp({curr_experiments.protocol},use_protocol),1,'last')).experiment;
+
+        % Load experiment
+        AP_load_experiment;
+        
+        % Get downsampled pixel stats
+        aUdf = AP_align_widefield(Udf,animal,day);
+        
+        U_downsample_factor = 5;
+        aUd = imresize(aUdf,1/U_downsample_factor,'bilinear');
+        
+        px_d = AP_svdFrameReconstruct(aUd,fVdf);
+        
+        px_d_std = std(px_d,[],3);
+        px_d_mad = mad(px_d,[],3);
+        px_d_skew = skewness(px_d,[],3);
+        
+        % Upsample to regular resolution
+        px_std = imresize(px_d_std,U_downsample_factor,'nearest');
+        px_mad = imresize(px_d_mad,U_downsample_factor,'nearest');
+        px_skew = imresize(px_d_skew,U_downsample_factor,'nearest');
+        
+        % Store in muscimol structure
+        muscimol(curr_animal).px_avg{curr_day} = avg_im;
+        muscimol(curr_animal).px_std{curr_day} = px_std;
+        muscimol(curr_animal).px_mad{curr_day} = px_mad;
+        muscimol(curr_animal).px_skew{curr_day} = px_skew;        
+        
+        % Prep next loop
+        AP_print_progress_fraction(curr_day,length(muscimol(curr_animal).day));
+        clearvars('-except',preload_vars{:});
+        
+    end
+end
+
+% Save the muscimol structure with pixel data
+save(muscimol_fn,'muscimol');
+disp(['Saved ' muscimol_fn]);
+
+
+%% Plot pixel stats
+
+for curr_animal = 7:length(muscimol)
+    a = cat(3,muscimol(curr_animal).px_mad{:}); 
+    b = muscimol(curr_animal).area;
+    AP_image_scroll(a,b);axis image
+    set(gcf,'name',muscimol(curr_animal).animal);
+end
+
+
+
+
+
+
+
 
 
 

@@ -1,4 +1,4 @@
-function [V_corrected, T] = AP_hemo_correct(U, V, Vaux, framerate, pixSpace)
+function [V_corrected] = AP_hemo_correct(U, V, Vaux, framerate, pixSpace)
 
 % Subtract out means
 zV = bsxfun(@minus,V,mean(V,2));

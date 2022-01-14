@@ -510,10 +510,9 @@ if imaging_exists && load_parts.imaging
         Vh = Vh(:,1:min_frames);
         th = th(1:min_frames);
         
-        % Shift neural frames to hemo timestamps
+        % Match neural frames t
         Vn_th = SubSampleShift(Vn,1,2);
         
-        % Re-cast hemo V's into neural U's
         Vh_Un = ChangeU(Uh,Vh,Un);
         
         % Make/load hemo tform
