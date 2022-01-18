@@ -69,8 +69,8 @@ curr_days_pathname = cellfun(@(x) [expInfo_path filesep x],curr_days,'uni',false
 days_combined = [days_combined,curr_days];
 days_pathnames_combined = [days_pathnames_combined,curr_days_pathname];
 
-% (server 4: DRI, temporary)
-expInfo_path = ['\\128.40.224.65\Subjects\' animal];
+% (server 4)
+expInfo_path = ['\\zinu.cortexlab.net\Subjects\' animal];
 expInfo_dir = dir(expInfo_path);
 day_paths = cellfun(@(x) ~isempty(regexp(x,'\d\d\d\d-\d\d-\d\d')),{expInfo_dir.name}) &...
     [expInfo_dir.isdir];

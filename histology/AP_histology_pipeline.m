@@ -1,18 +1,29 @@
-%% 1) Load CCF and set paths for slide and slice images
+%% Load CCF and set paths for slide and slice images
 
 % Load CCF atlas
-allen_atlas_path = 'C:\Users\Andrew\OneDrive for Business\Documents\Atlases\AllenCCF';
+allen_atlas_path = fileparts(which('template_volume_10um.npy'));
 tv = readNPY([allen_atlas_path filesep 'template_volume_10um.npy']);
 av = readNPY([allen_atlas_path filesep 'annotation_volume_10um_by_index.npy']);
 st = loadStructureTree([allen_atlas_path filesep 'structure_tree_safe_2017.csv']);
 
+%% Get animal slice path
+
 % Set paths for histology images and directory to save slice/alignment
 % im_path = '\\znas.cortexlab.net\Subjects\AP105\histology\all_images';
-im_path = 'C:\Users\Andrew\Desktop\temp_histology\AP079';
-slice_path = [im_path filesep 'slices'];
+% im_path = 'C:\Users\Andrew\Desktop\temp_histology\AP079';
+% slice_path = [im_path filesep 'slices'];
+
+animal = 'AP106';
+[probe_ccf_fn,probe_ccf_fn_exists] = AP_cortexlab_filename(animal,[],[],'probe_ccf');
+if probe_ccf_fn_exists
+    load(probe_ccf_fn);
+else
+    error('No probe ccf');
+end
+slice_path = fileparts(probe_ccf_fn);
 
 
-%% 2) Preprocess slide images to produce slice images
+%% Preprocess slide images to produce slice images
 
 % Set white balance and resize slide images, extract slice images
 % (Note: this resizes the images purely for file size reasons - the CCF can
@@ -34,7 +45,7 @@ AP_process_histology(im_path,resize_factor,slice_images);
 % (optional) Rotate, center, pad, flip slice images
 AP_rotate_histology(slice_path);
 
-%% 3) Align CCF to slices
+%% Align CCF to slices
 
 % Find CCF slices corresponding to each histology slice
 AP_grab_histology_ccf(tv,av,st,slice_path);
@@ -46,7 +57,7 @@ AP_auto_align_histology_ccf(slice_path);
 AP_manual_align_histology_ccf(tv,av,st,slice_path);
 
 
-%% 4) Utilize aligned CCF
+%% Utilize aligned CCF
 
 % Display aligned CCF over histology slices
 AP_view_aligned_histology(st,slice_path);
@@ -78,6 +89,66 @@ ccf_points_idx = sub2ind(size(av),ccf_points_cat(:,1),ccf_points_cat(:,2),ccf_po
 ccf_points_av = av(ccf_points_idx);
 % Get areas from the structure tree (ST) at given AV values
 ccf_points_areas = st(ccf_points_areas,:).safe_name;
+
+
+%% Plot probe
+
+figure; 
+
+% Set up 3D axes
+ccf_3d_axes = subplot(1,4,1);
+[~, brain_outline] = plotBrainGrid([],ccf_3d_axes);
+set(ccf_3d_axes,'ZDir','reverse');
+hold(ccf_3d_axes,'on');
+axis vis3d equal off manual
+view([-30,25]);
+caxis([0 300]);
+[ap_max,dv_max,ml_max] = size(tv);
+xlim([-10,ap_max+10])
+ylim([-10,ml_max+10])
+zlim([-10,dv_max+10])
+h = rotate3d(ccf_3d_axes);
+h.Enable = 'on';
+
+% Set up 2D axes
+ccf_axes = gobjects(3,1);
+ccf_axes(1) = subplot(1,4,2,'YDir','reverse');
+hold on; axis image off;
+ccf_axes(2) = subplot(1,4,3,'YDir','reverse');
+hold on; axis image off;
+ccf_axes(3) = subplot(1,4,4,'YDir','reverse');
+hold on; axis image off;
+for curr_view = 1:3
+    curr_outline = bwboundaries(squeeze((max(av,[],curr_view)) > 1));
+    cellfun(@(x) plot(ccf_axes(curr_view),x(:,2),x(:,1),'k','linewidth',2),curr_outline)
+end
+linkaxes(ccf_axes);
+
+% Draw probes on all axes
+for curr_probe = 1:length(probe_ccf)
+    % Plot points and line of best fit
+    r0 = mean(probe_ccf(curr_probe).points,1);
+    xyz = bsxfun(@minus,probe_ccf(curr_probe).points,r0);
+    [~,~,V] = svd(xyz,0);
+    histology_probe_direction = V(:,1);
+    % (make sure the direction goes down in DV - flip if it's going up)
+    if histology_probe_direction(2) < 0
+        histology_probe_direction = -histology_probe_direction;
+    end
+    
+    line_eval = [-500,500];
+    probe_fit_line = bsxfun(@plus,bsxfun(@times,line_eval',histology_probe_direction'),r0);
+    plot3(ccf_3d_axes,probe_ccf(curr_probe).points(:,1), ...
+        probe_ccf(curr_probe).points(:,3), ...
+        probe_ccf(curr_probe).points(:,2), ...
+        '.','MarkerSize',20);
+    line(ccf_3d_axes,probe_fit_line(:,1),probe_fit_line(:,3),probe_fit_line(:,2), ...
+        'linewidth',2)
+end
+
+line(ccf_axes(1),probe_fit_line(:,3),probe_fit_line(:,2),'linewidth',2);
+line(ccf_axes(2),probe_fit_line(:,1),probe_fit_line(:,3),'linewidth',2);
+line(ccf_axes(3),probe_fit_line(:,2),probe_fit_line(:,1),'linewidth',2);
 
 
 

@@ -2179,6 +2179,7 @@ disp(['Saved: ' save_path filesep save_fn])
 
 
 %% Passive: ephys
+% (change this - align ephys and mua by area)
 
 animals = {'AP100','AP101','AP104','AP105','AP106'};
 
@@ -2187,8 +2188,8 @@ stim_mua = cell(length(animals),1);
 for curr_animal = 1:length(animals)
     
     animal = animals{curr_animal};
-%     protocol = 'AP_lcrGratingPassive';
-    protocol = 'AP_stimWheelRight';
+    protocol = 'AP_lcrGratingPassive';
+%     protocol = 'AP_stimWheelRight';
     experiments = AP_find_experiments(animal,protocol);
     
     % Set experiments to use (ephys)
@@ -2277,7 +2278,7 @@ a = cell2mat(stim_mua);
 a_baseline = nanmean(a(:,t<0,:),2);
 a2 = permute(nanmean((a - a_baseline)./a_baseline,1),[3,2,1]);
 
-figure;plot(t,a2')
+figure;plot(t,a2','linewidth',2)
 
 
 

@@ -60,12 +60,10 @@ server_location{end+1} = '\\zserver.cortexlab.net\Data\Subjects';
 server_location{end+1} = '\\zserver.cortexlab.net\Data\expInfo';
 server_location{end+1} = '\\zserver.cortexlab.net\Data\trodes';
 server_location{end+1} = '\\zserver.cortexlab.net\Data\EyeCamera';
-% (zubjects: after zserver full)
+% (servers after zserver filled)
 server_location{end+1} = '\\zubjects.cortexlab.net\Subjects';
-% (znas: after zubjects full)
 server_location{end+1} = '\\znas.cortexlab.net\Subjects';
-% (DRI server - temporary?)
-server_location{end+1} = '\\128.40.224.65\Subjects';
+server_location{end+1} = '\\zinu.cortexlab.net\Subjects';
 
 
 % Check that servers are accessible (login needed on restart)
