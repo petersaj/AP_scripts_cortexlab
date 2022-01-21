@@ -10,7 +10,7 @@ end
 
 disp('Press s to save section of movies');
 
-% Set up subplots (4: widefield, two behavior cams, one for traces)
+% Set up figure
 gui_fig = figure; colormap(gray)
 set(gui_fig,'WindowScrollWheelFcn',{@imgSlider_MouseWheel, gui_fig});
 set(gui_fig, 'KeyPressFcn', {@im_keypress, gui_fig});

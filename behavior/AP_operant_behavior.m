@@ -465,9 +465,10 @@ for curr_animal = 1:length(animals)
 end
 
 
-%% Histograms of reaction times (TESTING)
+%% Histograms of reaction times
 
 rxn_bins = [-Inf,0:0.01:1,Inf];
+rxn_bin_centers = rxn_bins(1:end-1) + diff(rxn_bins)./2;
 
 % Load muscimol injection info
 data_path = 'C:\Users\Andrew\OneDrive for Business\Documents\CarandiniHarrisLab\analysis\operant_learning\data';
@@ -508,11 +509,21 @@ for curr_animal = 1:length(bhv)
 end
 
 % Animals (days combined)
-figure; hold on;
+animal_rxn = cell2mat(cellfun(@(use,x) ...
+    histcounts(vertcat(x{use}),rxn_bins,'normalization','pdf'), ...
+    use_days,{bhv.stim_move_t},'uni',false)');
 
-cellfun(@(x) histogram(cell2mat(x),rxn_bins,'EdgeColor','none', ...
-    'normalization','pdf'),{bhv.stim_move_t},'uni',false);
-cellfun(@(x) line(repmat(mode(round(cell2mat(x)*100)/100),2,1),ylim,'linewidth',2),{bhv.stim_move_t});
+animal_alt_rxn = cell2mat(cellfun(@(use,x) ...
+    histcounts(cell2mat(vertcat(x{use})),rxn_bins,'normalization','pdf'), ...
+    use_days,{bhv.alt_stim_move_t},'uni',false)');
+
+figure; hold on;
+histogram('BinEdges',rxn_bins,'BinCounts',nanmean(animal_rxn,1),'EdgeColor','none')
+histogram('BinEdges',rxn_bins,'BinCounts',nanmean(animal_alt_rxn,1),'EdgeColor','none')
+xlabel('Reaction time');
+ylabel('PDF');
+legend({'Measured','Null'});
+
 
 % Total
 figure;
@@ -548,23 +559,30 @@ trial_split_idx = cellfun(@(x,use_days,animal_num) ...
 
 stim_move_t_cat = cell2mat(cellfun(@(x,use_days) cell2mat(x(use_days)), ...
     {bhv.stim_move_t},use_days,'uni',false)');
-
-% % (testing: alternate rxn - median within trial at the moment)
-% stim_move_t_cat = cell2mat(cellfun(@(x,use_days) ...
-%     cell2mat(cellfun(@(x) cellfun(@nanmedian,x),x(use_days),'uni',false)), ...
-%     {bhv.alt_stim_move_t},use_days,'uni',false)');
+alt_stim_move_t_cat = cell2mat(cellfun(@(x,use_days) ...
+    cell2mat(cellfun(@(x) cellfun(@nanmedian,x),x(use_days),'uni',false)), ...
+    {bhv.alt_stim_move_t},use_days,'uni',false)');
 
 stim_move_t_stimtime = accumarray(cell2mat(cat(1,trial_split_idx{:})), ...
     stim_move_t_cat > 0.1 & stim_move_t_cat < 0.25',[n_daysplit,max_days,length(bhv)],@nanmean,NaN);
+alt_stim_move_t_stimtime = accumarray(cell2mat(cat(1,trial_split_idx{:})), ...
+    alt_stim_move_t_cat > 0.1 & alt_stim_move_t_cat < 0.25',[n_daysplit,max_days,length(bhv)],@nanmean,NaN);
 
 figure; hold on;
 stim_move_t_stimtime_long = reshape(padarray(stim_move_t_stimtime,[1,0,0],NaN,'post'),[],length(animals));
-plot([1:size(stim_move_t_stimtime_long,1)]/(n_daysplit+1),stim_move_t_stimtime_long);
-errorbar([1:size(stim_move_t_stimtime_long,1)]/(n_daysplit+1), ...
-    nanmean(stim_move_t_stimtime_long,2),AP_sem(stim_move_t_stimtime_long,2),'k','linewidth',2);
-xlabel('Day');
-ylabel('Rxn in stim window');
+alt_stim_move_t_stimtime_long = reshape(padarray(alt_stim_move_t_stimtime,[1,0,0],NaN,'post'),[],length(animals));
 
+plot([1:size(alt_stim_move_t_stimtime_long,1)]/(n_daysplit+1),alt_stim_move_t_stimtime_long,'color',[1,0.5,0.5]);
+p1 = errorbar([1:size(alt_stim_move_t_stimtime_long,1)]/(n_daysplit+1), ...
+    nanmean(alt_stim_move_t_stimtime_long,2),AP_sem(alt_stim_move_t_stimtime_long,2),'r','linewidth',2);
+
+plot([1:size(stim_move_t_stimtime_long,1)]/(n_daysplit+1),stim_move_t_stimtime_long,'color',[0.5,0.5,0.5]);
+p2 = errorbar([1:size(stim_move_t_stimtime_long,1)]/(n_daysplit+1), ...
+    nanmean(stim_move_t_stimtime_long,2),AP_sem(stim_move_t_stimtime_long,2),'k','linewidth',2);
+
+xlabel('Day');
+ylabel('Frac rxn 100-250 ms');
+legend([p1,p2],{'Measured','Null'});
 
 
 
@@ -824,26 +842,26 @@ plot(rxn_bin_centers, ...
     stim_move_t_muscimol_all,'uni',false),[1,3,2])),3)','linewidth',2);
 legend(muscimol_areas);
 
-figure;
-rxn_bins = [0:0.02:1];
+% Plot histograms for stim/null
+rxn_bins = [0:0.01:1];
 rxn_bin_centers = rxn_bins(1:end-1)+(diff(rxn_bins)/2);
 stim_move_t_muscimol_hist = ...
-    nanmedian(cell2mat(permute(cellfun(@(x) histcounts(x,rxn_bins,'normalization','probability'), ...
-    stim_move_t_muscimol_all,'uni',false),[1,3,2])),3)';
+    cell2mat(permute(cellfun(@(x) histcounts(x,rxn_bins,'normalization','probability'), ...
+    stim_move_t_muscimol_all,'uni',false),[1,3,2]));
 alt_stim_move_t_muscimol_hist = ...
-    nanmedian(cell2mat(permute(cellfun(@(x) histcounts(x,rxn_bins,'normalization','probability'), ...
-    alt_stim_move_t_muscimol_all,'uni',false),[1,3,2])),3)';
+    cell2mat(permute(cellfun(@(x) histcounts(x,rxn_bins,'normalization','probability'), ...
+    alt_stim_move_t_muscimol_all,'uni',false),[1,3,2]));
 
-subplot(1,3,1);
-plot(rxn_bin_centers,stim_move_t_muscimol_hist,'linewidth',2);
-legend(muscimol_areas);
-subplot(1,3,2);
-plot(rxn_bin_centers,alt_stim_move_t_muscimol_hist,'linewidth',2);
-legend(muscimol_areas);
-subplot(1,3,3);
-plot(rxn_bin_centers,stim_move_t_muscimol_hist-alt_stim_move_t_muscimol_hist,'linewidth',2);
-legend(muscimol_areas);
-linkaxes(get(gcf,'Children'),'xy');
+figure;
+for curr_area = 1:length(muscimol_areas)
+    subplot(length(muscimol_areas),1,curr_area); hold on;
+    histogram('BinEdges',rxn_bins,'BinCounts', ...
+        squeeze(nanmean(stim_move_t_muscimol_hist(curr_area,:,:),3)),'EdgeColor','none')
+    histogram('BinEdges',rxn_bins,'BinCounts', ...
+        squeeze(nanmean(alt_stim_move_t_muscimol_hist(curr_area,:,:),3)),'EdgeColor','none')
+    title(muscimol_areas{curr_area});
+end
+linkaxes(get(gcf,'Children'),'xy')
 
 % Movement probability pre/post stim
 stim_surround_t = bhv(1).stim_surround_t;

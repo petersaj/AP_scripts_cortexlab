@@ -8,12 +8,12 @@ function AP_movie2avi(im,framerate,color_map,color_axis,figure_position,savefile
 
 % Prepare annotation text
 if exist('t_annotation','var') && ~isempty(t_annotation)
-   if ~iscell(t_annotation)
-       t_annotation = repmat({t_annotation},size(im,3));
-   end
-   if length(t_annotation) ~= size(im,3)
-       error('Annotation text different size than frame numbers')
-   end
+    if length(t_annotation) ~= size(im,3)
+        error('Annotation text different size than frame numbers')
+    end
+    if ~iscell(t_annotation)
+        t_annotation = num2cell(t_annotation);
+    end
 end
 
 % Create figure

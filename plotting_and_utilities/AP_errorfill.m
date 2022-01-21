@@ -15,6 +15,14 @@ if isempty(x)
 end
 x = reshape(x,[],1);
 
+% (allow single dimension y's in any orientation)
+if sum(size(y) > 1) == 1
+    y = reshape(y,[],1);
+    if size(ye,2) == length(y)
+        ye = ye';
+    end
+end
+
 if ~exist('color','var') || isempty(color)
     color = lines(size(y,2));
 end
