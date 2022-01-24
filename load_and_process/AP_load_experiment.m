@@ -308,11 +308,17 @@ if exist('Timeline','var') && load_parts.cam
         if verbose; disp('Loading eyecam...'); end
         
         % Load camera processed data
+        % (from facemap)
         [eyecam_processed_filename,eyecam_processed_exists] = AP_cortexlab_filename(animal,day,experiment,'eyecam_processed');
         if eyecam_processed_exists
             eyecam = load(eyecam_processed_filename);
         end
-        
+        % (from deeplabcut)
+        [eyecam_dlc_filename,eyecam_dlc_exists] = AP_cortexlab_filename(animal,day,experiment,'eyecam_dlc');
+        if eyecam_dlc_exists
+            eyecam_dlc = AP_load_dlc(eyecam_dlc_filename);
+        end
+
         % Get camera times
         eyecam_fn = AP_cortexlab_filename(animal,day,experiment,'eyecam');
         eyecam_dir = fileparts(eyecam_fn);

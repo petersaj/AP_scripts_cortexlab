@@ -1653,18 +1653,10 @@ for curr_trial = 2:n_trials
     possible_iti = max([block.paramsValues.itiMin]):param_timestep:max([block.paramsValues.itiMax]);
     possible_quiescence = max([block.paramsValues.quiescenceMin]):param_timestep:max([block.paramsValues.quiescenceMax]);
 
-    % (getting possible iti+quiescence = same first movement)
-    % (iti time hit)
-    a = ((t(curr_trial_t_idx) - curr_trial_t(1)) > possible_iti);
-    % (quiescence time hit)
-    b = (t_from_quiescence_reset_trial > possible_quiescence);
-    % (within time from last movement)
-    t_prestim_move = curr_trial_t(find(wheel_move(curr_trial_t_idx),1,'last'));
-    c = t(curr_trial_t_idx) > t_prestim_move;
+    alt_stim_timing_grid = ...
+        ((t(curr_trial_t_idx) - curr_trial_t(1)) > possible_iti) & ...
+        (t_from_quiescence_reset_trial > possible_quiescence);
 
-
-
-    % ~~~~~~~~~~~~ CURRENTLY HERE!
 
     other_trial_idx = setdiff(1:n_trials,curr_trial);
     alt_stim_timing_grid = ...

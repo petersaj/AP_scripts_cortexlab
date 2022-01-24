@@ -1,8 +1,9 @@
-function AP_mousemovie(movie_fn)
-% AP_mousemovie(movie_fn)
+function AP_mousemovie(movie_fn,dlc)
+% AP_mousemovie(movie_fn,dlc)
 %
 % Scroll through a recorded movie of the mouse (face/eye)
 % movie_fn = filename of movie
+% dlc = DeepLabCut outputs (optional)
 
 if ~exist(movie_fn,'file')
    error(['No file: ' movie_fn]); 
@@ -25,6 +26,28 @@ movie_im = read(handles.movie_vr,movie_frame);
 handles.movie_im = imagesc(handles.cam_axis,movie_im);
 handles.n_frames = handles.movie_vr.NumberOfFrames;
 handles.framerate = handles.movie_vr.FrameRate;
+
+% Check DLC size if loaded
+if exist('dlc','var')
+    % Get marker names and x/y points in grid
+    dlc_markers = fieldnames(dlc);
+    dlc_points_x = cell2mat(struct2cell(structfun(@(s) s.x,dlc,'UniformOutput',false))');
+    dlc_points_y = cell2mat(struct2cell(structfun(@(s) s.y,dlc,'UniformOutput',false))');
+
+    if size(dlc_points_x,1) ~= handles.n_frames
+        error('Different number frames and DLC points')
+    end
+
+    % Draw/store in handles
+    handles.dlc.markers = dlc_markers;
+    handles.dlc.x = dlc_points_x;
+    handles.dlc.y = dlc_points_y;
+
+    handles.dlc.dots = ...
+        scatter(handles.dlc.x(movie_frame,:),handles.dlc.y(movie_frame,:), ...
+        50,jet(length(dlc_markers)),'filled');
+end
+
 
 % Set up scrollbar (use timer function to prevent lag)
 ypos = [0 0 1 0.05];
@@ -158,10 +181,17 @@ set(handles.movie_im,'Cdata',movie_im);
 % Update the frame text
 set(handles.frame_text,'String',sprintf('Time: %0.2f s',movie_frame/handles.framerate));
 
+% Update DLC (if loaded)
+if isfield(handles,'dlc')
+    set(handles.dlc.dots,'XData',handles.dlc.x(movie_frame,:), ...
+        'YData',handles.dlc.y(movie_frame,:));
+end
+
 % Update guidata
 handles.movie_frame = movie_frame;
 guidata(gui_fig, handles);
 
 drawnow;
+
 
 

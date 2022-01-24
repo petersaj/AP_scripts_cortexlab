@@ -11,6 +11,7 @@ function [filename,file_exists] = AP_cortexlab_filename(animal,day,experiment,fi
 % protocol
 % eyecam
 % eyecam_processed
+% eyecam_dlc
 % facecam
 % facecam_processed
 % facecam_movement
@@ -105,15 +106,19 @@ switch file
     case 'eyecam'
         filepattern = [animal filesep day filesep experiment filesep 'eye.mj2'];
         [filename,file_exists] = check_locations(filepattern,server_location);
-        
-    case 'facecam'
-        filepattern = [animal filesep day filesep experiment filesep 'face.mj2'];
-        [filename,file_exists] = check_locations(filepattern,server_location);
-        
+
     case 'eyecam_processed'
         filepattern = [animal filesep day filesep experiment filesep 'eye_proc.mat'];
         [filename,file_exists] = check_locations(filepattern,server_location);
-        
+
+    case 'eyecam_dlc'
+        filepattern = [animal filesep day filesep experiment filesep 'eyeDLC*.csv'];
+        [filename,file_exists] = check_locations(filepattern,server_location);
+
+    case 'facecam'
+        filepattern = [animal filesep day filesep experiment filesep 'face.mj2'];
+        [filename,file_exists] = check_locations(filepattern,server_location);
+
     case 'facecam_processed'
         filepattern = [animal filesep day filesep experiment filesep 'face_proc.mat'];
         [filename,file_exists] = check_locations(filepattern,server_location);

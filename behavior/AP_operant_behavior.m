@@ -15,17 +15,20 @@
 % animal_group = 'cstr';
 % animals = {'AP092','AP093','AP094','AP095','AP096','AP097'};
 
-% tetO mice
-animal_group = 'teto';
-animals = {'AP100','AP101','AP103','AP104','AP105','AP106','AP107','AP108','AP109'};
+% % tetO mice
+% animal_group = 'teto';
+% animals = {'AP100','AP101','AP103','AP104','AP105','AP106','AP107','AP108','AP109'};
+
+% Andrada new mice
+animals = {'AP110','AP111','AP112'};
 
 protocol = 'AP_stimWheelRight';
 flexible_name = false;
 bhv = struct;
 
 % Flags
-plot_flag = false;
-save_bhv = true;
+plot_flag = true;
+save_bhv = false;
 
 for curr_animal = 1:length(animals)
     
