@@ -1653,10 +1653,21 @@ for curr_trial = 2:n_trials
     possible_iti = max([block.paramsValues.itiMin]):param_timestep:max([block.paramsValues.itiMax]);
     possible_quiescence = max([block.paramsValues.quiescenceMin]):param_timestep:max([block.paramsValues.quiescenceMax]);
 
-    alt_stim_timing_grid = ...
-        ((t(curr_trial_t_idx) - curr_trial_t(1)) > possible_iti) & ...
-        (t_from_quiescence_reset_trial > possible_quiescence);
+    % (getting possible iti+quiescence = same first movement)
+    % (iti time hit)
+    alt_iti_reached = ((t(curr_trial_t_idx) - curr_trial_t(1)) > possible_iti);
+    % (quiescence time hit)
+    alt_quiescence_reached = (t_from_quiescence_reset_trial > possible_quiescence);
 
+    alt_stimOn = reshape(alt_iti_reached & permute(alt_quiescence_reached,[1,3,2]),size(curr_trial_t,)
+
+    % (within time from last movement)
+    t_prestim_move = curr_trial_t(find(wheel_move(curr_trial_t_idx),1,'last'));
+    c = t(curr_trial_t_idx) > t_prestim_move;
+
+
+
+    % ~~~~~~~~~~~~ CURRENTLY HERE!
 
     other_trial_idx = setdiff(1:n_trials,curr_trial);
     alt_stim_timing_grid = ...

@@ -140,41 +140,46 @@ for curr_animal = 1:length(animals)
                     interp1(quiescence_reset_t,quiescence_reset_t,t,'previous','extrap');
                 t_from_quiescence_reset_trial = t_from_quiescence_reset_full(curr_trial_t_idx);
 
-%                 % (sanity plot)                
-%                 figure; hold on;
-%                 t_plot_scale = 0.1;
-%                 plot(t(curr_trial_t_idx),wheel_velocity(curr_trial_t_idx),'k')
-%                 plot(t(curr_trial_t_idx),t_from_move_trace(curr_trial_t_idx)*t_plot_scale,'r');
-%                 plot(t(curr_trial_t_idx),t_from_quiescence_reset_trial*t_plot_scale,'b');
-%                 plot(t(curr_trial_t_idx),[0;diff(wheel_position(curr_trial_t_idx))]*0.1,'g')
-%                 line(repmat(curr_trial_t(1)+signals_events.trialITIValues(curr_trial-1),2,1),ylim);
-%                 line(xlim,repmat(signals_events.trialQuiescenceValues(curr_trial),2,1)*t_plot_scale,'color','m');
-%                 line(repmat(stimOn_times(curr_trial),1,2),ylim,'color','k','linestyle','--');
-%                 legend({'Wheel velocity','t from move', ...
-%                     't from quiescence reset','wheel click','trial iti', ...
-%                     'trial quiescence','stim on'});
-%                 drawnow;
+                % (sanity plot)                
+                figure; hold on;
+                t_plot_scale = 0.1;
+                plot(t(curr_trial_t_idx),wheel_velocity(curr_trial_t_idx),'k')
+                plot(t(curr_trial_t_idx),t_from_move_trace(curr_trial_t_idx)*t_plot_scale,'r');
+                plot(t(curr_trial_t_idx),t_from_quiescence_reset_trial*t_plot_scale,'b');
+                plot(t(curr_trial_t_idx),[0;diff(wheel_position(curr_trial_t_idx))]*0.1,'g')
+                line(repmat(curr_trial_t(1)+signals_events.trialITIValues(curr_trial-1),2,1),ylim);
+                line(xlim,repmat(signals_events.trialQuiescenceValues(curr_trial),2,1)*t_plot_scale,'color','m');
+                line(repmat(stimOn_times(curr_trial),1,2),ylim,'color','k','linestyle','--');
+                legend({'Wheel velocity','t from move', ...
+                    't from quiescence reset','wheel click','trial iti', ...
+                    'trial quiescence','stim on'});
 
 
                 %%% OPTION 1: IF STIM CAME ON EARLIER
                 % Find alternate stim times from all other trial timings
 
                 % Find params from other trials which would have made stim
-                alt_trialparam = setdiff(1:n_trials,curr_trial);
+                other_trial_idx = setdiff(1:n_trials,curr_trial);
                 alt_stim_timing_grid = ...
-                    ((t(curr_trial_t_idx) - curr_trial_t(1)) > signals_events.trialITIValues(alt_trialparam)) & ...
-                    (t_from_quiescence_reset_trial > signals_events.trialQuiescenceValues(alt_trialparam));
+                    ((t(curr_trial_t_idx) - curr_trial_t(1)) > signals_events.trialITIValues(other_trial_idx)) & ...
+                    (t_from_quiescence_reset_trial > signals_events.trialQuiescenceValues(other_trial_idx));
                 [alt_stim_value,alt_stim_idx] = max(alt_stim_timing_grid,[],1);
-                curr_alt_stim_times = curr_trial_t(alt_stim_idx);
+
+                % Keep the "alternate" stim times and associated trial num
+                curr_alt_stim_times = curr_trial_t(alt_stim_idx(alt_stim_value));
+                curr_alt_stim_trialparams = other_trial_idx(alt_stim_value);
                 
                 % Store alt stim times excluding window around real hit
                 leeway_window = 0.5; % seconds from real stim onset to exclude
                 curr_leeway_time = stimOn_times(curr_trial) - leeway_window;
-                use_curr_alt_stim_times = alt_stim_value' & ...
-                    curr_alt_stim_times < curr_leeway_time;
+                use_curr_alt_stim_times = alt_stim_value & ...
+                    curr_alt_stim_times
 
-                alt_stimOn_times{curr_trial} = curr_alt_stim_times(use_curr_alt_stim_times);
-                alt_stimOn_trialparams{curr_trial} = alt_trialparam(use_curr_alt_stim_times)';
+                leeway_idx = find(curr_trial_t-curr_trial_t(end) < -leeway_window,1,'last');
+                alt_stimOn_times{curr_trial} = curr_trial_t( ...
+                    alt_stim_idx(alt_stim_value & alt_stim_idx <= leeway_idx));
+
+                alt_stimOn_trialparams{curr_trial} = 
 
 %                 %%% OPTION 2:  IF STIM CAME ON WITHIN SAME QUIESCENCE
 %                 % (I think this doesn't work by definition)
@@ -263,6 +268,8 @@ for curr_animal = 1:length(animals)
             
             %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
             
+         
+
             % Store in behavior structure
             % (general timings)
             bhv(curr_animal).animal = animal;
@@ -285,8 +292,6 @@ for curr_animal = 1:length(animals)
             
             % (stim vs null response)
             bhv(curr_animal).alt_stim_move_t{curr_day,1} = alt_stim_to_move;
-            bhv(curr_animal).alt_stim_trialparams{curr_day,1} = alt_stimOn_trialparams;
-            
             bhv(curr_animal).stim_move_max{curr_day,1} = stim_move_max;
             bhv(curr_animal).alt_stim_move_max{curr_day,1} = alt_stim_move_max;
             bhv(curr_animal).stim_response_idx(curr_day,1) = stim_response_idx;
@@ -435,8 +440,8 @@ end
 data_path = 'C:\Users\Andrew\OneDrive for Business\Documents\CarandiniHarrisLab\analysis\operant_learning\data';
 
 % (load separate)
-bhv_fn = [data_path filesep 'bhv_teto'];
-% bhv_fn = [data_path filesep 'bhv_tetoAltBhv'];
+% bhv_fn = [data_path filesep 'bhv_teto'];
+bhv_fn = [data_path filesep 'bhv_tetoAltBhv'];
 
 % bhv_fn = [data_path filesep 'bhv_cstr'];
 load(bhv_fn);
@@ -559,7 +564,7 @@ for curr_animal = 1:length(bhv)
     end
 end
 
-% Total
+% Animals (days combined)
 animal_rxn = cell2mat(cellfun(@(use,x) ...
     histcounts(vertcat(x{use}),rxn_bins,'normalization','pdf'), ...
     use_days,{bhv.stim_move_t},'uni',false)');
@@ -574,6 +579,11 @@ histogram('BinEdges',rxn_bins,'BinCounts',nanmean(animal_alt_rxn,1),'EdgeColor',
 xlabel('Reaction time');
 ylabel('PDF');
 legend({'Measured','Null'});
+
+
+% Total
+figure;
+histogram(cell2mat(cat(1,bhv.stim_move_t)),rxn_bins,'EdgeColor','none','normalization','pdf');
 
 % Fraction rxn within boundary
 max_days = max(cellfun(@sum,use_days));

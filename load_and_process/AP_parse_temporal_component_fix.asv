@@ -169,7 +169,7 @@ for curr_exp_idx = 1:length(experiments)
     frame_times_fn = 'svdTemporalComponents_purple.timestamps.npy';
     writeNPY(cam_times_purple{curr_exp_idx},[curr_exp_dir filesep frame_times_fn]);
     
-    disp(['Experiment ' num2str(experiments(curr_exp_idx)) ': saved manually parsed V''s and timestamps']);
+    disp(['Experiment ' num2str(cur'Saved manually parsed V''s and timestamps');
 
 end
 

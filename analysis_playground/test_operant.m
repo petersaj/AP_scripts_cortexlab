@@ -1647,37 +1647,24 @@ for curr_trial = 2:n_trials
     plot(t(curr_trial_t_idx),[0;diff(wheel_position(curr_trial_t_idx))]*0.1,'g')    
     line(repmat(curr_trial_t(1)+signals_events.trialITIValues(curr_trial-1),2,1),ylim);
     line(xlim,repmat(signals_events.trialQuiescenceValues(curr_trial),2,1)*t_plot_scale,'color','m');
+    legend({'Wheel velocity','t from move','t from quiescence reset','wheel click','trial iti','trial quiescence'});
     
     % Find alternate stim times which would have given same first move
     param_timestep = 0.1; % (hardcoded in expDef)
     possible_iti = max([block.paramsValues.itiMin]):param_timestep:max([block.paramsValues.itiMax]);
     possible_quiescence = max([block.paramsValues.quiescenceMin]):param_timestep:max([block.paramsValues.quiescenceMax]);
 
-    % (getting possible iti+quiescence = same first movement)
-    % (iti time hit)
-    a = ((t(curr_trial_t_idx) - curr_trial_t(1)) > possible_iti);
-    % (quiescence time hit)
-    b = (t_from_quiescence_reset_trial > possible_quiescence);
-    % (within time from last movement)
-    t_prestim_move = curr_trial_t(find(wheel_move(curr_trial_t_idx),1,'last'));
-    c = t(curr_trial_t_idx) > t_prestim_move;
+    % (getting possible iti + quiescence = alternate stim times)
+    alt_iti_reached = ((t(curr_trial_t_idx) - curr_trial_t(1)) > possible_iti);
+    alt_quiescence_reached = (t_from_quiescence_reset_trial > possible_quiescence);
+    [alt_stim_value,alt_stim_idx] = max(reshape(alt_iti_reached & ...
+        permute(alt_quiescence_reached,[1,3,2]),length(curr_trial_t),[]),[],1);
+    alt_stimOn_times_all = curr_trial_t(alt_stim_idx(alt_stim_value & alt_stim_idx));
 
-
-
-    % ~~~~~~~~~~~~ CURRENTLY HERE!
-
-    other_trial_idx = setdiff(1:n_trials,curr_trial);
-    alt_stim_timing_grid = ...
-        ((t(curr_trial_t_idx) - curr_trial_t(1)) > signals_events.trialITIValues(other_trial_idx)) & ...
-        (t_from_quiescence_reset_trial > signals_events.trialQuiescenceValues(other_trial_idx));
-    [alt_stim_value,alt_stim_idx] = max(alt_stim_timing_grid,[],1);
-        
-    % Store possible stim on times (where timings were hit, and not within
-    % an analysis window around the real stim on time)
-    leeway_window = 0.5; % seconds from real stim onset to exclude
-    leeway_idx = find(curr_trial_t-curr_trial_t(end) < -leeway_window,1,'last');
-    alt_stimOn_times{curr_trial} = curr_trial_t( ...
-        alt_stim_idx(alt_stim_value & alt_stim_idx <= leeway_idx));
+    % (get alt stim times that would have happened within same quiescence)
+    t_prestim_move = curr_trial_t(find(wheel_move(curr_trial_t_idx),1,'last')); 
+    alt_stimOn_times{curr_trial} = ...
+        unique(alt_stimOn_times_all(alt_stimOn_times_all > t_prestim_move));
     
     % (sanity check: store real stim on times for each trial)
     real_stimOn_times{curr_trial} = repmat(stimOn_times(curr_trial), ...
