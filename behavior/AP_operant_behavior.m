@@ -160,21 +160,23 @@ for curr_animal = 1:length(animals)
                 % Find alternate stim times from all other trial timings
 
                 % Find params from other trials which would have made stim
-                alt_trialparam = setdiff(1:n_trials,curr_trial);
-                alt_stim_timing_grid = ...
-                    ((t(curr_trial_t_idx) - curr_trial_t(1)) > signals_events.trialITIValues(alt_trialparam)) & ...
-                    (t_from_quiescence_reset_trial > signals_events.trialQuiescenceValues(alt_trialparam));
-                [alt_stim_value,alt_stim_idx] = max(alt_stim_timing_grid,[],1);
-                curr_alt_stim_times = curr_trial_t(alt_stim_idx);
+                % (ignore first trial: no ITI)
+                % (reminder: each trial selects quiescence for the
+                % beginning, then ITI for the end, so the stim is defined
+                % by the current trial quiescence and previous trial ITI)
+                % (also don't use any stim on times after real first move)
                 
-                % Store alt stim times excluding window around real hit
-                leeway_window = 0.5; % seconds from real stim onset to exclude
-                curr_leeway_time = stimOn_times(curr_trial) - leeway_window;
-                use_curr_alt_stim_times = alt_stim_value' & ...
-                    curr_alt_stim_times < curr_leeway_time;
-
-                alt_stimOn_times{curr_trial} = curr_alt_stim_times(use_curr_alt_stim_times);
-                alt_stimOn_trialparams{curr_trial} = alt_trialparam(use_curr_alt_stim_times)';
+                t_prestim_move = curr_trial_t(find(~wheel_move(curr_trial_t_idx),1,'last'));
+                
+                alt_trialparam = setdiff(2:n_trials,curr_trial);
+                alt_stim_timing_grid = ...
+                    ((t(curr_trial_t_idx) - curr_trial_t(1)) > signals_events.trialITIValues(alt_trialparam-1)) & ...
+                    (t_from_quiescence_reset_trial > signals_events.trialQuiescenceValues(alt_trialparam)) & ...
+                    (t(curr_trial_t_idx) < t_prestim_move);
+                [alt_stim_value,alt_stim_idx] = max(alt_stim_timing_grid,[],1);
+                
+                alt_stimOn_times{curr_trial} = curr_trial_t(alt_stim_idx(alt_stim_value));
+                alt_stimOn_trialparams{curr_trial} = alt_trialparam(alt_stim_value)';
 
 %                 %%% OPTION 2:  IF STIM CAME ON WITHIN SAME QUIESCENCE
 %                 % (I think this doesn't work by definition)
@@ -573,16 +575,83 @@ histogram('BinEdges',rxn_bins,'BinCounts',nanmean(animal_rxn,1),'EdgeColor','non
 histogram('BinEdges',rxn_bins,'BinCounts',nanmean(animal_alt_rxn,1),'EdgeColor','none')
 xlabel('Reaction time');
 ylabel('PDF');
-legend({'Measured','Null'});
+legend({'Measured','Null (all)'});
+
+% Total (trial/alt matched)
+
+% % (to use median null reaction time for each trial)
+% alt_rxn_matched = ...
+%     cellfun(@(alt_trial_animal,alt_rxn_animal,n_trials_animal) ...
+%     cellfun(@(alt_trial_day,alt_rxn_day,n_trials_day) ...
+%     accumarray(cell2mat(alt_trial_day),cell2mat(alt_rxn_day), ...
+%     [n_trials_day,1],@nanmedian,NaN), ...
+%     alt_trial_animal,alt_rxn_animal,num2cell(n_trials_animal),'uni',false), ...
+%     {bhv.alt_stim_trialparams},{bhv.alt_stim_move_t},{bhv.n_trials},'uni',false);
+
+% (to use 1 randomly selected null reaction time for each trial)
+alt_rxn_matched = ...
+    cellfun(@(alt_trial_animal,alt_rxn_animal,n_trials_animal) ...
+    cellfun(@(alt_trial_day,alt_rxn_day,n_trials_day) ...
+    accumarray(cell2mat(alt_trial_day),cell2mat(alt_rxn_day), ...
+    [n_trials_day,1],@(x) datasample(x,min(length(x),1)),NaN), ...
+    alt_trial_animal,alt_rxn_animal,num2cell(n_trials_animal),'uni',false), ...
+    {bhv.alt_stim_trialparams},{bhv.alt_stim_move_t},{bhv.n_trials},'uni',false);
+
+animal_rxn = cell2mat(cellfun(@(use,x) ...
+    histcounts(vertcat(x{use}),rxn_bins,'normalization','pdf'), ...
+    use_days,{bhv.stim_move_t},'uni',false)');
+
+animal_alt_rxn = cell2mat(cellfun(@(use,x) ...
+    histcounts(vertcat(x{use}),rxn_bins,'normalization','pdf'), ...
+    use_days,alt_rxn_matched,'uni',false)');
+
+figure; hold on;
+histogram('BinEdges',rxn_bins,'BinCounts',nanmean(animal_rxn,1),'EdgeColor','none')
+histogram('BinEdges',rxn_bins,'BinCounts',nanmean(animal_alt_rxn,1),'EdgeColor','none')
+xlabel('Reaction time');
+ylabel('PDF');
+legend({'Measured','Null (# matched)'});
+
+% %%%%% TESTING STATS (looks ok - maybe too sensitive though? compare
+% % against learned day being >40% of trials or whatever it was)
+% max_days = max(cellfun(@sum,use_days));
+% r_frac_p_cat = nan(length(animals),max_days);
+% for curr_animal = 1:length(animals)
+%     for curr_day = find(use_days{curr_animal})'
+%         
+%         n_sample = 10000;
+%         use_trials = ~cellfun(@isempty,bhv(curr_animal).alt_stim_move_t{curr_day});
+%         r = bhv(curr_animal).stim_move_t{curr_day}(use_trials);
+%         ar = cell2mat(cellfun(@(x) datasample(x,~isempty(x)*n_sample)', ...
+%             bhv(curr_animal).alt_stim_move_t{curr_day}(use_trials),'uni',false));
+%         
+%         rxn_window = [0.1,0.25];
+%         
+%         r_frac = nanmean(r >= rxn_window(1) & r <= rxn_window(2));
+%         ar_frac = nanmean(ar >= rxn_window(1) & ar <= rxn_window(2),1);
+%         
+%         r_frac_rank = tiedrank([r_frac,ar_frac]);
+%         r_frac_p = r_frac_rank(1)./(n_sample+1);
+%         
+%         r_frac_p_cat(curr_animal,curr_day) = r_frac_p;
+%         
+%     end
+% end
+% % (only robust if real is max rather than 95%ile)
+% [~,learned_day] = max(r_frac_p_cat == 1,[],2);
+
 
 % Fraction rxn within boundary
 max_days = max(cellfun(@sum,use_days));
-rxn_frac_pad = cell2mat(cellfun(@(x) padarray(cellfun(@(x) nanmean(x > 0.1 & x < 0.25),x), ...
+
+rxn_frac_window = [0.1,0.26];
+rxn_frac_pad = cell2mat(cellfun(@(x) padarray(cellfun(@(x) ...
+    nanmean(x > rxn_frac_window(1) & x < rxn_frac_window(2)),x), ...
     [max_days-length(x),0],NaN,'post'), ...
     cellfun(@(x,use_days) x(use_days),{bhv.stim_move_t},use_days,'uni',false),'uni',false));
 
 alt_rxn_frac_pad = cell2mat(cellfun(@(x) padarray(cellfun(@(x) ...
-    nanmean(cell2mat(x) > 0.1 & cell2mat(x) < 0.25),x), ...
+    nanmean(cell2mat(x) > rxn_frac_window(1) & cell2mat(x) < rxn_frac_window(2)),x), ...
     [max_days-length(x),0],NaN,'post'), ...
     cellfun(@(x,use_days) x(use_days),{bhv.alt_stim_move_t},use_days,'uni',false),'uni',false));
 
@@ -605,30 +674,36 @@ trial_split_idx = cellfun(@(x,use_days,animal_num) ...
 
 stim_move_t_cat = cell2mat(cellfun(@(x,use_days) cell2mat(x(use_days)), ...
     {bhv.stim_move_t},use_days,'uni',false)');
-alt_stim_move_t_cat = cell2mat(cellfun(@(x,use_days) ...
-    cell2mat(cellfun(@(x) cellfun(@nanmedian,x),x(use_days),'uni',false)), ...
-    {bhv.alt_stim_move_t},use_days,'uni',false)');
+alt_stim_move_t_cat = cell2mat(cellfun(@(x,use_days) cell2mat(x(use_days)), ...
+    alt_rxn_matched,use_days,'uni',false)');
+% alt_stim_move_t_cat = cell2mat(cellfun(@(x,use_days) ...
+%     cell2mat(cellfun(@(x) cellfun(@nanmedian,x),x(use_days),'uni',false)), ...
+%     {bhv.alt_stim_move_t},use_days,'uni',false)');
 
 stim_move_t_stimtime = accumarray(cell2mat(cat(1,trial_split_idx{:})), ...
-    stim_move_t_cat > 0.1 & stim_move_t_cat < 0.25',[n_daysplit,max_days,length(bhv)],@nanmean,NaN);
+    stim_move_t_cat > rxn_frac_window(1) & ...
+    stim_move_t_cat < rxn_frac_window(2)', ...
+    [n_daysplit,max_days,length(bhv)],@nanmean,NaN);
 alt_stim_move_t_stimtime = accumarray(cell2mat(cat(1,trial_split_idx{:})), ...
-    alt_stim_move_t_cat > 0.1 & alt_stim_move_t_cat < 0.25',[n_daysplit,max_days,length(bhv)],@nanmean,NaN);
+    alt_stim_move_t_cat > rxn_frac_window(1) & ...
+    alt_stim_move_t_cat < rxn_frac_window(2)', ...
+    [n_daysplit,max_days,length(bhv)],@nanmean,NaN);
 
 figure; hold on;
 stim_move_t_stimtime_long = reshape(padarray(stim_move_t_stimtime,[1,0,0],NaN,'post'),[],length(animals));
 alt_stim_move_t_stimtime_long = reshape(padarray(alt_stim_move_t_stimtime,[1,0,0],NaN,'post'),[],length(animals));
 
-plot([1:size(alt_stim_move_t_stimtime_long,1)]/(n_daysplit+1),alt_stim_move_t_stimtime_long,'color',[1,0.5,0.5]);
-p1 = errorbar([1:size(alt_stim_move_t_stimtime_long,1)]/(n_daysplit+1), ...
-    nanmean(alt_stim_move_t_stimtime_long,2),AP_sem(alt_stim_move_t_stimtime_long,2),'r','linewidth',2);
-
 plot([1:size(stim_move_t_stimtime_long,1)]/(n_daysplit+1),stim_move_t_stimtime_long,'color',[0.5,0.5,0.5]);
-p2 = errorbar([1:size(stim_move_t_stimtime_long,1)]/(n_daysplit+1), ...
+p1 = errorbar([1:size(stim_move_t_stimtime_long,1)]/(n_daysplit+1), ...
     nanmean(stim_move_t_stimtime_long,2),AP_sem(stim_move_t_stimtime_long,2),'k','linewidth',2);
+
+plot([1:size(alt_stim_move_t_stimtime_long,1)]/(n_daysplit+1),alt_stim_move_t_stimtime_long,'color',[1,0.5,0.5]);
+p2 = errorbar([1:size(alt_stim_move_t_stimtime_long,1)]/(n_daysplit+1), ...
+    nanmean(alt_stim_move_t_stimtime_long,2),AP_sem(alt_stim_move_t_stimtime_long,2),'r','linewidth',2);
 
 xlabel('Day');
 ylabel('Frac rxn 100-250 ms');
-legend([p1,p2],{'Measured','Null'});
+legend([p1,p2],{'Measured','Null'},'location','nw');
 
 
 
