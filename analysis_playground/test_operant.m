@@ -1610,7 +1610,7 @@ real_stimOn_times = cell(n_trials,1);
 for curr_trial = 2:n_trials
     
     curr_trial_t_idx = t >= signals_events.responseTimes(curr_trial-1) & ...
-        t <= stimOn_times(curr_trial);
+        t <= signals_events.responseTimes(curr_trial);
     
     curr_trial_t = t(curr_trial_t_idx);
     

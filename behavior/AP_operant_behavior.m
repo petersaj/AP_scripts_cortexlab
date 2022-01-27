@@ -16,7 +16,7 @@
 % animals = {'AP092','AP093','AP094','AP095','AP096','AP097'};
 
 % tetO mice
-animal_group = 'teto';
+animal_group = 'tetoAltBhvBadcheck';
 animals = {'AP100','AP101','AP103','AP104','AP105','AP106','AP107','AP108','AP109'};
 
 % % Andrada new mice
@@ -107,9 +107,9 @@ for curr_animal = 1:length(animals)
             % (skip first since no ITI)
             for curr_trial = 2:n_trials
 
-                % Pull out current trial times (to response)
+                % Pull out current trial times (to response)                           
                 curr_trial_t_idx = t >= signals_events.responseTimes(curr_trial-1) & ...
-                    t <= signals_events.responseTimes(curr_trial);
+                    t <= wheel_starts(wheel_move_stim_idx(curr_trial));
                 curr_trial_t = t(curr_trial_t_idx);
                 
                 % Re-create quiescence watch: resets at >1mm cumulative
@@ -139,7 +139,7 @@ for curr_animal = 1:length(animals)
                 t_from_quiescence_reset_full = t - ...
                     interp1(quiescence_reset_t,quiescence_reset_t,t,'previous','extrap');
                 t_from_quiescence_reset_trial = t_from_quiescence_reset_full(curr_trial_t_idx);
-
+% 
 %                 % (sanity plot)                
 %                 figure; hold on;
 %                 t_plot_scale = 0.1;
@@ -156,50 +156,50 @@ for curr_animal = 1:length(animals)
 %                 drawnow;
 
 
-                %%% OPTION 1: IF STIM CAME ON EARLIER
-                % Find alternate stim times from all other trial timings
+%                 %%% OPTION 1: IF STIM CAME ON EARLIER
+%                 % Find alternate stim times from all other trial timings
+% 
+%                 % Find params from other trials which would have made stim
+%                 % (ignore first trial: no ITI)
+%                 % (reminder: each trial selects quiescence for the
+%                 % beginning, then ITI for the end, so the stim is defined
+%                 % by the current trial quiescence and previous trial ITI)
+%                 % (also don't use any stim on times after real first move)
+%                 
+%                 t_prestim_move = curr_trial_t(find(~wheel_move(curr_trial_t_idx),1,'last'));
+%                 
+%                 alt_trialparam = setdiff(2:n_trials,curr_trial);
+%                 alt_stim_timing_grid = ...
+%                     ((t(curr_trial_t_idx) - curr_trial_t(1)) > signals_events.trialITIValues(alt_trialparam-1)) & ...
+%                     (t_from_quiescence_reset_trial > signals_events.trialQuiescenceValues(alt_trialparam)) & ...
+%                     (t(curr_trial_t_idx) < t_prestim_move);
+%                 [alt_stim_value,alt_stim_idx] = max(alt_stim_timing_grid,[],1);
+%                 
+%                 alt_stimOn_times{curr_trial} = curr_trial_t(alt_stim_idx(alt_stim_value));
+%                 alt_stimOn_trialparams{curr_trial} = alt_trialparam(alt_stim_value)';
 
-                % Find params from other trials which would have made stim
-                % (ignore first trial: no ITI)
-                % (reminder: each trial selects quiescence for the
-                % beginning, then ITI for the end, so the stim is defined
-                % by the current trial quiescence and previous trial ITI)
-                % (also don't use any stim on times after real first move)
-                
-                t_prestim_move = curr_trial_t(find(~wheel_move(curr_trial_t_idx),1,'last'));
-                
-                alt_trialparam = setdiff(2:n_trials,curr_trial);
-                alt_stim_timing_grid = ...
-                    ((t(curr_trial_t_idx) - curr_trial_t(1)) > signals_events.trialITIValues(alt_trialparam-1)) & ...
-                    (t_from_quiescence_reset_trial > signals_events.trialQuiescenceValues(alt_trialparam)) & ...
-                    (t(curr_trial_t_idx) < t_prestim_move);
-                [alt_stim_value,alt_stim_idx] = max(alt_stim_timing_grid,[],1);
-                
-                alt_stimOn_times{curr_trial} = curr_trial_t(alt_stim_idx(alt_stim_value));
-                alt_stimOn_trialparams{curr_trial} = alt_trialparam(alt_stim_value)';
+                %%% OPTION 2:  IF STIM CAME ON WITHIN SAME QUIESCENCE
+               
+                % Find alternate stim times which would have given same first move
+                param_timestep = 0.1; % (hardcoded in expDef)
+                possible_iti = max([block.paramsValues.itiMin]):param_timestep:max([block.paramsValues.itiMax]);
+                possible_quiescence = max([block.paramsValues.quiescenceMin]):param_timestep:max([block.paramsValues.quiescenceMax]);
 
-%                 %%% OPTION 2:  IF STIM CAME ON WITHIN SAME QUIESCENCE
-%                 % (I think this doesn't work by definition)
-% 
-%                 % Find alternate stim times which would have given same first move
-%                 param_timestep = 0.1; % (hardcoded in expDef)
-%                 possible_iti = max([block.paramsValues.itiMin]):param_timestep:max([block.paramsValues.itiMax]);
-%                 possible_quiescence = max([block.paramsValues.quiescenceMin]):param_timestep:max([block.paramsValues.quiescenceMax]);
-% 
-%                 % (getting possible iti + quiescence = alternate stim times)
-%                 alt_iti_reached = ((t(curr_trial_t_idx) - curr_trial_t(1)) > possible_iti);
-%                 alt_quiescence_reached = (t_from_quiescence_reset_trial > possible_quiescence);
-%                 [alt_stim_value,alt_stim_idx] = max(reshape(alt_iti_reached & ...
-%                     permute(alt_quiescence_reached,[1,3,2]),length(curr_trial_t),[]),[],1);
-%                 alt_stimOn_times_all = curr_trial_t(alt_stim_idx(alt_stim_value & alt_stim_idx));
-% 
-%                 % (get alt stim times that would have happened within same quiescence)
-%                 t_prestim_move = curr_trial_t(find(wheel_move(curr_trial_t_idx),1,'last'));
-%                 if isempty(t_prestim_move) % (if no movement, use all times)
-%                     t_prestim_move = -Inf;
-%                 end
-%                 alt_stimOn_times{curr_trial} = ...
-%                     unique(alt_stimOn_times_all(alt_stimOn_times_all > t_prestim_move));
+                % (getting possible iti + quiescence = alternate stim times)
+                alt_iti_reached = ((t(curr_trial_t_idx) - curr_trial_t(1)) > possible_iti);
+                alt_quiescence_reached = (t_from_quiescence_reset_trial > possible_quiescence);
+                [alt_stim_value,alt_stim_idx] = max(reshape(alt_iti_reached & ...
+                    permute(alt_quiescence_reached,[1,3,2]),length(curr_trial_t),[]),[],1);
+                alt_stimOn_times_all = curr_trial_t(alt_stim_idx(alt_stim_value & alt_stim_idx));
+
+                % (get alt stim times that would have happened within same quiescence)
+                last_quiescence_reset = ...
+                    curr_trial_t(find(diff(t_from_quiescence_reset_trial) < 0,1,'last'));         
+                if isempty(last_quiescence_reset) % (if no movement, use all times)
+                    last_quiescence_reset = -Inf;
+                end
+                alt_stimOn_times{curr_trial} = ...
+                    alt_stimOn_times_all(alt_stimOn_times_all > last_quiescence_reset);
                 
             end
             
@@ -437,8 +437,8 @@ end
 data_path = 'C:\Users\Andrew\OneDrive for Business\Documents\CarandiniHarrisLab\analysis\operant_learning\data';
 
 % (load separate)
-bhv_fn = [data_path filesep 'bhv_teto'];
-% bhv_fn = [data_path filesep 'bhv_tetoAltBhv'];
+% bhv_fn = [data_path filesep 'bhv_teto'];
+bhv_fn = [data_path filesep 'bhv_tetoAltBhv'];
 
 % bhv_fn = [data_path filesep 'bhv_cstr'];
 load(bhv_fn);
@@ -560,6 +560,27 @@ for curr_animal = 1:length(bhv)
         histogram(bhv(curr_animal).stim_move_t{curr_day},rxn_bins,'EdgeColor','none','normalization','pdf')
     end
 end
+
+% %%%% TESTING FOR KENNETH
+% 
+% animal_rxn = cell2mat(cellfun(@(use,x) ...
+%     histcounts(vertcat(x{find(use,1,'first')}),rxn_bins,'normalization','pdf'), ...
+%     use_days,{bhv.stim_move_t},'uni',false)');
+% 
+% animal_alt_rxn = cell2mat(cellfun(@(use,x) ...
+%     histcounts(cell2mat(vertcat(x{find(use,1,'first')})),rxn_bins,'normalization','pdf'), ...
+%     use_days,{bhv.alt_stim_move_t},'uni',false)');
+% 
+% figure; hold on;
+% histogram('BinEdges',rxn_bins,'BinCounts',nanmean(animal_rxn,1),'EdgeColor','none')
+% histogram('BinEdges',rxn_bins,'BinCounts',nanmean(animal_alt_rxn,1),'EdgeColor','none')
+% xlabel('Reaction time');
+% ylabel('PDF');
+% legend({'Measured','Null'});
+% title('Kenneth test');
+% 
+% %%%%%%%%%%%%%%%%%%%%
+
 
 % Total
 animal_rxn = cell2mat(cellfun(@(use,x) ...

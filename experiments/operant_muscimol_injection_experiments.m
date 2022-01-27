@@ -77,6 +77,23 @@ curr_recordings = {...
 muscimol(curr_animal_idx).day =  curr_recordings(:,1);
 muscimol(curr_animal_idx).area =  curr_recordings(:,2);
 
+curr_animal_idx = length(muscimol)+1;
+muscimol(curr_animal_idx).animal = 'AP107';
+curr_recordings = {...
+    '2022-01-26','washout'; ...
+    };
+muscimol(curr_animal_idx).day =  curr_recordings(:,1);
+muscimol(curr_animal_idx).area =  curr_recordings(:,2);
+
+curr_animal_idx = length(muscimol)+1;
+muscimol(curr_animal_idx).animal = 'AP108';
+curr_recordings = {...
+    '2022-01-26','washout'; ...
+    };
+muscimol(curr_animal_idx).day =  curr_recordings(:,1);
+muscimol(curr_animal_idx).area =  curr_recordings(:,2);
+
+
 %% tetO mice
 
 curr_animal_idx = length(muscimol)+1;
