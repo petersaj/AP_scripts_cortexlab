@@ -16,7 +16,7 @@
 % animals = {'AP092','AP093','AP094','AP095','AP096','AP097'};
 
 % tetO mice
-animal_group = 'tetoAltBhvBadcheck';
+animal_group = 'teto';
 animals = {'AP100','AP101','AP103','AP104','AP105','AP106','AP107','AP108','AP109'};
 
 % % Andrada new mice
@@ -133,13 +133,14 @@ for curr_animal = 1:length(animals)
                 end
                 % (skip trial if < 2 quiescence resets - can't interpolate)
                 if sum(curr_quiescence_reset) < 2
+                    keyboard
                     continue
                 end
                 quiescence_reset_t = curr_wheel_mm_t(curr_quiescence_reset)';
                 t_from_quiescence_reset_full = t - ...
                     interp1(quiescence_reset_t,quiescence_reset_t,t,'previous','extrap');
                 t_from_quiescence_reset_trial = t_from_quiescence_reset_full(curr_trial_t_idx);
-% 
+
 %                 % (sanity plot)                
 %                 figure; hold on;
 %                 t_plot_scale = 0.1;
@@ -156,7 +157,7 @@ for curr_animal = 1:length(animals)
 %                 drawnow;
 
 
-%                 %%% OPTION 1: IF STIM CAME ON EARLIER
+%                 %%% OPTION 1: IF STIM CAME ON AT EARLIER QUIESCENCE
 %                 % Find alternate stim times from all other trial timings
 % 
 %                 % Find params from other trials which would have made stim
@@ -178,8 +179,7 @@ for curr_animal = 1:length(animals)
 %                 alt_stimOn_times{curr_trial} = curr_trial_t(alt_stim_idx(alt_stim_value));
 %                 alt_stimOn_trialparams{curr_trial} = alt_trialparam(alt_stim_value)';
 
-                %%% OPTION 2:  IF STIM CAME ON WITHIN SAME QUIESCENCE
-               
+                %%% OPTION 2:  IF STIM CAME ON WITHIN SAME QUIESCENCE            
                 % Find alternate stim times which would have given same first move
                 param_timestep = 0.1; % (hardcoded in expDef)
                 possible_iti = max([block.paramsValues.itiMin]):param_timestep:max([block.paramsValues.itiMax]);
@@ -193,11 +193,9 @@ for curr_animal = 1:length(animals)
                 alt_stimOn_times_all = curr_trial_t(alt_stim_idx(alt_stim_value & alt_stim_idx));
 
                 % (get alt stim times that would have happened within same quiescence)
-                last_quiescence_reset = ...
-                    curr_trial_t(find(diff(t_from_quiescence_reset_trial) < 0,1,'last'));         
-                if isempty(last_quiescence_reset) % (if no movement, use all times)
-                    last_quiescence_reset = -Inf;
-                end
+                % (if no reset, set at trial start)
+                last_quiescence_reset = max([curr_trial_t(1),...
+                    curr_trial_t(find(diff(t_from_quiescence_reset_trial) < 0,1,'last'))]);       
                 alt_stimOn_times{curr_trial} = ...
                     alt_stimOn_times_all(alt_stimOn_times_all > last_quiescence_reset);
                 
@@ -437,9 +435,7 @@ end
 data_path = 'C:\Users\Andrew\OneDrive for Business\Documents\CarandiniHarrisLab\analysis\operant_learning\data';
 
 % (load separate)
-% bhv_fn = [data_path filesep 'bhv_teto'];
-bhv_fn = [data_path filesep 'bhv_tetoAltBhv'];
-
+bhv_fn = [data_path filesep 'bhv_teto'];
 % bhv_fn = [data_path filesep 'bhv_cstr'];
 load(bhv_fn);
 
@@ -577,7 +573,7 @@ end
 % xlabel('Reaction time');
 % ylabel('PDF');
 % legend({'Measured','Null'});
-% title('Kenneth test');
+% title('Day 1');
 % 
 % %%%%%%%%%%%%%%%%%%%%
 
@@ -598,40 +594,43 @@ xlabel('Reaction time');
 ylabel('PDF');
 legend({'Measured','Null (all)'});
 
-% Total (trial/alt matched)
-
-% % (to use median null reaction time for each trial)
+% % Total (trial/alt matched, only OPTION 1 null)
+% 
+% % % (to use median null reaction time for each trial)
+% % alt_rxn_matched = ...
+% %     cellfun(@(alt_trial_animal,alt_rxn_animal,n_trials_animal) ...
+% %     cellfun(@(alt_trial_day,alt_rxn_day,n_trials_day) ...
+% %     accumarray(cell2mat(alt_trial_day),cell2mat(alt_rxn_day), ...
+% %     [n_trials_day,1],@nanmedian,NaN), ...
+% %     alt_trial_animal,alt_rxn_animal,num2cell(n_trials_animal),'uni',false), ...
+% %     {bhv.alt_stim_trialparams},{bhv.alt_stim_move_t},{bhv.n_trials},'uni',false);
+% 
+% % (to use 1 randomly selected null reaction time for each trial)
 % alt_rxn_matched = ...
 %     cellfun(@(alt_trial_animal,alt_rxn_animal,n_trials_animal) ...
 %     cellfun(@(alt_trial_day,alt_rxn_day,n_trials_day) ...
 %     accumarray(cell2mat(alt_trial_day),cell2mat(alt_rxn_day), ...
-%     [n_trials_day,1],@nanmedian,NaN), ...
+%     [n_trials_day,1],@(x) datasample(x,min(length(x),1)),NaN), ...
 %     alt_trial_animal,alt_rxn_animal,num2cell(n_trials_animal),'uni',false), ...
 %     {bhv.alt_stim_trialparams},{bhv.alt_stim_move_t},{bhv.n_trials},'uni',false);
+% 
+% animal_rxn = cell2mat(cellfun(@(use,x) ...
+%     histcounts(vertcat(x{use}),rxn_bins,'normalization','pdf'), ...
+%     use_days,{bhv.stim_move_t},'uni',false)');
+% 
+% animal_alt_rxn = cell2mat(cellfun(@(use,x) ...
+%     histcounts(vertcat(x{use}),rxn_bins,'normalization','pdf'), ...
+%     use_days,alt_rxn_matched,'uni',false)');
+% 
+% figure; hold on;
+% histogram('BinEdges',rxn_bins,'BinCounts',nanmean(animal_rxn,1),'EdgeColor','none')
+% histogram('BinEdges',rxn_bins,'BinCounts',nanmean(animal_alt_rxn,1),'EdgeColor','none')
+% xlabel('Reaction time');
+% ylabel('PDF');
+% legend({'Measured','Null (# matched)'});
 
-% (to use 1 randomly selected null reaction time for each trial)
-alt_rxn_matched = ...
-    cellfun(@(alt_trial_animal,alt_rxn_animal,n_trials_animal) ...
-    cellfun(@(alt_trial_day,alt_rxn_day,n_trials_day) ...
-    accumarray(cell2mat(alt_trial_day),cell2mat(alt_rxn_day), ...
-    [n_trials_day,1],@(x) datasample(x,min(length(x),1)),NaN), ...
-    alt_trial_animal,alt_rxn_animal,num2cell(n_trials_animal),'uni',false), ...
-    {bhv.alt_stim_trialparams},{bhv.alt_stim_move_t},{bhv.n_trials},'uni',false);
+% % Total (1:1 sampled - only OPTION 2 null)
 
-animal_rxn = cell2mat(cellfun(@(use,x) ...
-    histcounts(vertcat(x{use}),rxn_bins,'normalization','pdf'), ...
-    use_days,{bhv.stim_move_t},'uni',false)');
-
-animal_alt_rxn = cell2mat(cellfun(@(use,x) ...
-    histcounts(vertcat(x{use}),rxn_bins,'normalization','pdf'), ...
-    use_days,alt_rxn_matched,'uni',false)');
-
-figure; hold on;
-histogram('BinEdges',rxn_bins,'BinCounts',nanmean(animal_rxn,1),'EdgeColor','none')
-histogram('BinEdges',rxn_bins,'BinCounts',nanmean(animal_alt_rxn,1),'EdgeColor','none')
-xlabel('Reaction time');
-ylabel('PDF');
-legend({'Measured','Null (# matched)'});
 
 % %%%%% TESTING STATS (looks ok - maybe too sensitive though? compare
 % % against learned day being >40% of trials or whatever it was)
@@ -660,6 +659,13 @@ legend({'Measured','Null (# matched)'});
 % end
 % % (only robust if real is max rather than 95%ile)
 % [~,learned_day] = max(r_frac_p_cat == 1,[],2);
+
+% %%% TESTING KS STATS
+p = nan(size(animals));
+for i = 1:length(animals)
+    [h,p(i)] = kstest2(bhv(i).stim_move_t{1},cell2mat(bhv(i).alt_stim_move_t{1}));
+end
+
 
 
 % Fraction rxn within boundary
@@ -695,11 +701,11 @@ trial_split_idx = cellfun(@(x,use_days,animal_num) ...
 
 stim_move_t_cat = cell2mat(cellfun(@(x,use_days) cell2mat(x(use_days)), ...
     {bhv.stim_move_t},use_days,'uni',false)');
-alt_stim_move_t_cat = cell2mat(cellfun(@(x,use_days) cell2mat(x(use_days)), ...
-    alt_rxn_matched,use_days,'uni',false)');
-% alt_stim_move_t_cat = cell2mat(cellfun(@(x,use_days) ...
-%     cell2mat(cellfun(@(x) cellfun(@nanmedian,x),x(use_days),'uni',false)), ...
-%     {bhv.alt_stim_move_t},use_days,'uni',false)');
+% alt_stim_move_t_cat = cell2mat(cellfun(@(x,use_days) cell2mat(x(use_days)), ...
+%     alt_rxn_matched,use_days,'uni',false)');
+alt_stim_move_t_cat = cell2mat(cellfun(@(x,use_days) ...
+    cell2mat(cellfun(@(x) cellfun(@nanmedian,x),x(use_days),'uni',false)), ...
+    {bhv.alt_stim_move_t},use_days,'uni',false)');
 
 stim_move_t_stimtime = accumarray(cell2mat(cat(1,trial_split_idx{:})), ...
     stim_move_t_cat > rxn_frac_window(1) & ...

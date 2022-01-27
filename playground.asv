@@ -12366,7 +12366,7 @@ split_idx = cell2mat(arrayfun(@(exp,trials) repmat(exp,trials,1), ...
 
 curr_trial = 78;
 
-plot_trial = false;
+plot_trial = true;
 if plot_trial
    plot_trial_fig = figure; 
 end
@@ -12436,22 +12436,20 @@ t_from_quiescence_reset_full_timeline = t - ...
 t_from_quiescence_reset_trial_timeline = t_from_quiescence_reset_full_timeline(curr_trial_t_idx);
 
 
-if plot_trial
-    figure(plot_trial_fig);
-    clf;hold on;
-    t_plot_scale = 0.1;
-    plot(curr_trial_t,wheel_velocity(curr_trial_t_idx),'k')
-    plot(curr_trial_t,[0;diff(wheel_position(curr_trial_t_idx))]*0.1,'r')
-    plot(curr_wheel_mm_t,0,'.b');
-    line(repmat(curr_trial_t(1)+curr_iti,2,1),ylim);
-    line(xlim,repmat(curr_quiescence,2,1)*t_plot_scale,'color','m');
-    line(repmat(stimOn_times(curr_trial),1,2),ylim,'color','k','linestyle','--');
-    
-    plot(curr_trial_t,t_from_quiescence_reset_trial_block*t_plot_scale,'b');
-    plot(curr_trial_t,t_from_quiescence_reset_trial_timeline*t_plot_scale,'r');
-    title(sprintf('Trial %d',curr_trial));
-    drawnow;
-end
+if plot_
+figure; hold on;
+t_plot_scale = 0.1;
+plot(curr_trial_t,wheel_velocity(curr_trial_t_idx),'k')
+plot(curr_trial_t,[0;diff(wheel_position(curr_trial_t_idx))]*0.1,'r')
+plot(curr_wheel_mm_t,0,'.b');
+line(repmat(curr_trial_t(1)+curr_iti,2,1),ylim);
+line(xlim,repmat(curr_quiescence,2,1)*t_plot_scale,'color','m');
+line(repmat(stimOn_times(curr_trial),1,2),ylim,'color','k','linestyle','--');
+
+plot(curr_trial_t,t_from_quiescence_reset_trial_block*t_plot_scale,'b');
+plot(curr_trial_t,t_from_quiescence_reset_trial_timeline*t_plot_scale,'r');
+
+drawnow;
 
 % sanity check: signals stimOn should match reconstructed timings
 reconstructed_stimOn_leeway = 0.01;
