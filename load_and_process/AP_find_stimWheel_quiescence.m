@@ -26,20 +26,20 @@ if plot_trial
     plot_trial_fig = figure;
 end
 
-% (skip first trial: no ITI, also quiescenceWatch doesn't seem to be active?)
+% Loop through trials, get quiescence resets
+% (skip first trial: quiescence watch doesn't work?)
 quiescence_reset_t_split = cell(n_trials,1);
-for curr_trial = 2:n_trials    
+stimOn_estimation_error = nan(n_trials,1);
+for curr_trial = 2:n_trials
     
-    % Pull out current trial times (last response to first post-stim move)
-    curr_trialpull_start = signals_events.responseTimes(curr_trial-1);
-    curr_trialpull_end = signals_events.responseTimes(curr_trial);
+    % Pull out time quiescence watch time (new trial to stim)
+    curr_qwatch_start = signals_events.newTrialTimes(curr_trial);
+    curr_qwatch_end = signals_events.stimOnTimes(curr_trial) + 0.2; %(leeway)
     
-    curr_trial_t_idx = t >= curr_trialpull_start & t <= curr_trialpull_end;
+    curr_trial_t_idx = t >= curr_qwatch_start & t <= curr_qwatch_end;
     curr_trial_t = t(curr_trial_t_idx);
     
     % Get trial params
-    % (iti is defined in last trial)
-    curr_iti = signals_events.trialITIValues(curr_trial-1);
     curr_trialstart = signals_events.newTrialTimes(curr_trial);
     curr_quiescence = signals_events.trialQuiescenceValues(curr_trial);
     
@@ -49,55 +49,109 @@ for curr_trial = 2:n_trials
     
     %%% Quiescence watch in block (what signals really uses)
     t_wheel_block = interp1(block2timeline,timeline2block,block.inputs.wheelMMTimes,'linear','extrap');
-    curr_trial_t_block_idx = t_wheel_block >= curr_trialpull_start & t_wheel_block <= curr_trialpull_end;
+    curr_trial_t_block_idx = t_wheel_block >= curr_qwatch_start & t_wheel_block <= curr_qwatch_end;
     curr_wheel_mm_t = t_wheel_block(curr_trial_t_block_idx);
     curr_wheel_mm = block.inputs.wheelMMValues(curr_trial_t_block_idx);
-    curr_quiescence_reset_block = false(size(curr_wheel_mm));
+    
     % (quiescence watch starts on new trial)
-    i = find(curr_wheel_mm_t >= curr_trialstart,1);
-    while i < length(curr_wheel_mm)
-        next_thresh_cross = min([length(curr_wheel_mm),(i-1) + ...
-            find(cumsum(abs(diff(curr_wheel_mm(i:end)))) > thresh_mm,1,'first')]);
-       
+    q_start_idx = find(curr_wheel_mm_t >= curr_trialstart,1);
+    
+    curr_quiescence_reset_block = false(size(curr_wheel_mm));
+    while q_start_idx < length(curr_wheel_mm)
+        next_thresh_cross = (q_start_idx-1) + ...
+            find(cumsum(abs(diff(curr_wheel_mm(q_start_idx:end)))) > ...
+            thresh_mm,1,'first');
+        
         curr_quiescence_reset_block(next_thresh_cross) = true;
         
-        i = next_thresh_cross + 1;
+        q_start_idx = next_thresh_cross + 1;
     end
     quiescence_reset_t_block = [curr_trialstart;curr_wheel_mm_t(curr_quiescence_reset_block)'];
     
     t_from_quiescence_reset_full_block = t - ...
-        interp1(quiescence_reset_t_block,quiescence_reset_t_block,t,'previous','extrap');
+        interp1([quiescence_reset_t_block;curr_qwatch_end],...
+        [quiescence_reset_t_block;curr_qwatch_end],t,'previous','extrap');
     t_from_quiescence_reset_trial_block = t_from_quiescence_reset_full_block(curr_trial_t_idx);
+    
     curr_reconstructed_stimOn_block = ...
         curr_trial_t(find(t_from_quiescence_reset_trial_block > curr_quiescence,1));
+    curr_reconstructed_stimOn_error = ...
+        min([Inf,abs(curr_reconstructed_stimOn_block - signals_events.stimOnTimes(curr_trial))]);
     
+    % NOTE: it looks like sometimes there was some quiescence watch
+    % weirdness if a wheel click happened too close to the trial time.
+    % So - if doing it the "right" way by going forward doesn't work,
+    % attempt to reconstruct by going backwards.
+    
+    % Sanity check: signals stimOn should match reconstructed timings
+    % (extremely closely - within 5ms)    
+    reconstructed_stimOn_max_error = 0.005;
+    
+    if curr_reconstructed_stimOn_error > reconstructed_stimOn_max_error        
+        % Estimate quiescence watch backwards from stim
+        last_quiescence_reset = signals_events.stimOnTimes(curr_trial) - curr_quiescence;
+        % (get closest wheel click to last quiescence reset)
+        [~,last_quiescence_reset_wheel_idx] = min(abs(curr_wheel_mm_t - last_quiescence_reset));
+        
+        q_end_idx = last_quiescence_reset_wheel_idx;
+        
+        curr_quiescence_reset_block = false(size(curr_wheel_mm));
+        while q_end_idx > find(curr_wheel_mm_t >= curr_trialstart,1)
+            curr_quiescence_reset_block(q_end_idx) = true;
+            
+            prior_thresh_cross = max([1,(1+q_end_idx) - ...
+                find(cumsum(fliplr(abs(diff(curr_wheel_mm(1:q_end_idx))))) > thresh_mm,1,'first')]);
+            
+            q_end_idx = prior_thresh_cross;
+        end
+        quiescence_reset_t_block = [curr_trialstart;curr_wheel_mm_t(curr_quiescence_reset_block)'];
+        
+        t_from_quiescence_reset_full_block = t - ...
+            interp1(quiescence_reset_t_block,quiescence_reset_t_block,t,'previous','extrap');
+        t_from_quiescence_reset_trial_block = t_from_quiescence_reset_full_block(curr_trial_t_idx);
+        
+        curr_reconstructed_stimOn_block = ...
+            curr_trial_t(find(t_from_quiescence_reset_trial_block > curr_quiescence,1));
+        curr_reconstructed_stimOn_error = ...
+            min([Inf,abs(curr_reconstructed_stimOn_block - signals_events.stimOnTimes(curr_trial))]);
+    end
+    
+    % If the estimated stim time still is over the error thresh, debug
+    if curr_reconstructed_stimOn_error > reconstructed_stimOn_max_error
+        warning('Quiescence watch estimation wrong, debugging')
+        plot_trial = true;
+    end
+
     %%% Quiescence watch in timeline (should closely match block)
+    % (isn't actually used, but I did this for comparison)
     mm_per_wheelclick = min(abs(diff(block.inputs.wheelMMValues)));
     thresh_wheelclick = thresh_mm/mm_per_wheelclick;
     curr_wheel_timeline = wheel_position(curr_trial_t_idx);
     curr_wheel_timeline_diff = abs([0;diff(curr_wheel_timeline)]);
     curr_quiescence_reset_timeline = false(size(curr_wheel_timeline));
     % (quiescence watch starts on new trial)
-    i = find(curr_trial_t >= curr_trialstart,1);
-    while i < length(curr_wheel_timeline)       
-        next_thresh_cross = min([length(curr_wheel_timeline),(i-1) + ...
-            find(cumsum(abs(diff(curr_wheel_timeline(i:end)))) > thresh_wheelclick,1,'first')]);       
-      
-        curr_quiescence_reset_timeline(next_thresh_cross) = true;      
-       
-        i = next_thresh_cross;        
+    q_start_idx = find(curr_trial_t >= curr_trialstart,1);
+    while q_start_idx < length(curr_wheel_timeline)   
+        next_thresh_cross = (q_start_idx-1) + ...
+            find(cumsum(abs(diff(curr_wheel_timeline(q_start_idx:end)))) > thresh_wheelclick,1,'first');
+        
+        curr_quiescence_reset_timeline(next_thresh_cross) = true;
+        
+        q_start_idx = next_thresh_cross;
     end
     quiescence_reset_t_timeline = ...
-        [curr_trialstart,curr_trial_t(curr_quiescence_reset_timeline)'];
+        [curr_trialstart;curr_trial_t(curr_quiescence_reset_timeline)];
     
     t_from_quiescence_reset_full_timeline = t - ...
-        interp1(quiescence_reset_t_timeline,quiescence_reset_t_timeline,t,'previous','extrap');
+        interp1([quiescence_reset_t_timeline;curr_qwatch_end],...
+        [quiescence_reset_t_timeline;curr_qwatch_end],t,'previous','extrap');
     t_from_quiescence_reset_trial_timeline = t_from_quiescence_reset_full_timeline(curr_trial_t_idx);
     curr_reconstructed_stimOn_timeline = ...
         curr_trial_t(find(t_from_quiescence_reset_trial_timeline > curr_quiescence,1));
-    
+
+    % Plot trial (and debug)
     if plot_trial
-        if ~exist('plot_trial_fig','var') || ~ishandle(plot_trial_fig) 
+        if ~exist('plot_trial_fig','var') || ~ishandle(plot_trial_fig)
             plot_trial_fig = figure;
         end
         figure(plot_trial_fig);
@@ -106,7 +160,7 @@ for curr_trial = 2:n_trials
         plot(curr_trial_t,wheel_velocity(curr_trial_t_idx),'k')
         plot(curr_trial_t,[0;diff(wheel_position(curr_trial_t_idx))]*0.1,'r')
         plot(curr_wheel_mm_t,0,'.b');
-        line(repmat(curr_trial_t(1)+curr_iti,2,1),ylim);
+        line(repmat(curr_trialstart,2,1),ylim,'color','b');
         line(xlim,repmat(curr_quiescence,2,1)*t_plot_scale,'color','m');
         plot(curr_trial_t,t_from_quiescence_reset_trial_block*t_plot_scale,'b');
         plot(curr_trial_t,t_from_quiescence_reset_trial_timeline*t_plot_scale,'r');
@@ -120,23 +174,17 @@ for curr_trial = 2:n_trials
         title(sprintf('Trial %d/%d',curr_trial,n_trials));
         
         drawnow;
-    end
-    
-    % Sanity check: signals stimOn should match reconstructed timings
-    % (extremely closely - within 5ms)
-    reconstructed_stimOn_leeway = 0.005;   
-    curr_reconstructed_stimOn_error = ...
-        abs(curr_reconstructed_stimOn_block - signals_events.stimOnTimes(curr_trial));
-    if curr_reconstructed_stimOn_error > reconstructed_stimOn_leeway
-        warning('Timing-reconstructed stimOn time incorrect: debugging');
-        keyboard
+        keyboard % (only plot on debug at the moment)
     end
     
     % Store quiescence reset times
     quiescence_reset_t_split{curr_trial} = quiescence_reset_t_block;
-        
+    stimOn_estimation_error(curr_trial) = curr_reconstructed_stimOn_error;
+    
+    AP_print_progress_fraction(curr_trial,n_trials);
+    
 end
-
+keyboard
 % Concatenate all reset times
 quiescence_reset_t = cell2mat(quiescence_reset_t_split);
 
