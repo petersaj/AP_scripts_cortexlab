@@ -97,6 +97,18 @@ for curr_animal = 1:length(animals)
             
             t = Timeline.rawDAQTimestamps';
             
+            % Get quiescence reset threshold
+            % (only stored in script! whoops, this was dumb)
+            expDef_fn = [fileparts(block_filename) filesep day '_' ...
+                num2str(experiment) '_' animal '_expDef.m'];
+            if ~exist(expDef_fn,'file')
+                error('%s %s: no expDef.m',animal,day)
+            end
+            expDef_text = fileread(expDef_fn);
+            [~,quiescThreshold_txt] = regexp(expDef_text, ...
+                'quiescThreshold = (\d*)','match','tokens');
+            quiescThreshold = str2num(quiescThreshold_txt{1}{1});                      
+            
             % Get quiescence reset times
             quiescence_reset_t = AP_find_stimWheel_quiescence;
             t_from_quiescence_reset = ...
@@ -104,7 +116,7 @@ for curr_animal = 1:length(animals)
                      
             alt_stimOn_times = cell(n_trials,1);
             alt_stimOn_trialparams = cell(n_trials,1);
-            % (skip first since no ITI)
+            % (skip trial 1: no ITI and bad quiescence watch)
             for curr_trial = 2:n_trials
 
                 % Pull out current trial times (last to next response)                           
