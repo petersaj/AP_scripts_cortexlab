@@ -107,12 +107,32 @@ for curr_animal = 1:length(animals)
             expDef_text = fileread(expDef_fn);
             [~,quiescThreshold_txt] = regexp(expDef_text, ...
                 'quiescThreshold = (\d*)','match','tokens');
-            quiescThreshold = str2num(quiescThreshold_txt{1}{1});                      
+            quiescThreshold = str2num(quiescThreshold_txt{1}{1});  
             
-            % Get quiescence reset times
-            quiescence_reset_t = AP_find_stimWheel_quiescence;
+            % Create long quiescence watch trace
+            % (note: this isn't equivalent to the real one, since the real
+            % one only starts on ITI end and has some idiosyncracies)      
+            t_wheel_block = interp1(block2timeline,timeline2block,block.inputs.wheelMMTimes,'linear','extrap');
+            wheel_mm_block = block.inputs.wheelMMValues;
+            long_quiescence_reset = false(size(wheel_mm_block));
+            
+            q_start_idx = 1;
+            while q_start_idx < length(wheel_mm_block)
+                next_thresh_cross = (q_start_idx-1) + ...
+                    find(cumsum(abs(diff(wheel_mm_block(q_start_idx:end)))) > ...
+                    quiescThreshold,1,'first');             
+                long_quiescence_reset(next_thresh_cross) = true;             
+                q_start_idx = next_thresh_cross + 1;
+            end         
+            long_quiescence_reset_t = t_wheel_block(long_quiescence_reset)';  
             t_from_quiescence_reset = ...
-                t - interp1(quiescence_reset_t,quiescence_reset_t,t,'previous','extrap');
+                t - interp1(long_quiescence_reset_t,long_quiescence_reset_t,t,'previous','extrap');
+            
+%             % Get quiescence reset times
+%             % (argh not actually needed)
+%             quiescence_reset_t = AP_find_stimWheel_quiescence;
+%             t_from_quiescence_reset = ...
+%                 t - interp1(quiescence_reset_t,quiescence_reset_t,t,'previous','extrap');
                      
             alt_stimOn_times = cell(n_trials,1);
             alt_stimOn_trialparams = cell(n_trials,1);
@@ -124,34 +144,20 @@ for curr_animal = 1:length(animals)
                     t <= signals_events.responseTimes(curr_trial);
                 curr_trial_t = t(curr_trial_t_idx);
                 t_from_quiescence_reset_trial = t_from_quiescence_reset(curr_trial_t_idx);
-                
-                % (sanity double-check: block stim on matches quiescence
-                curr_trial_quiescence_estimated_stimOn_error = ...
-                    abs(signals_events.stimOnTimes(curr_trial) - ...
-                    (curr_trial_t(find(t_from_quiescence_reset_trial > ...
-                    quiescence_t(curr_trial),1))));
-                quiescence_estimated_stimOn_error_leeway = 0.005;
-                if curr_trial_quiescence_estimated_stimOn_error > ...
-                        quiescence_estimated_stimOn_error_leeway
-                    error('%s %s trial %d: incorrect estimated stimOn time', ...
-                        animal,day,curr_trial);
-                end
-                
-%                 % (sanity plot)                
+
+%                 % (trial plot)                
 %                 figure; hold on;
 %                 t_plot_scale = 0.1;
 %                 plot(t(curr_trial_t_idx),wheel_velocity(curr_trial_t_idx),'k')
-%                 plot(t(curr_trial_t_idx),t_from_move_trace(curr_trial_t_idx)*t_plot_scale,'r');
 %                 plot(t(curr_trial_t_idx),t_from_quiescence_reset_trial*t_plot_scale,'b');
 %                 plot(t(curr_trial_t_idx),[0;diff(wheel_position(curr_trial_t_idx))]*0.1,'g')
 %                 line(repmat(curr_trial_t(1)+signals_events.trialITIValues(curr_trial-1),2,1),ylim);
 %                 line(xlim,repmat(signals_events.trialQuiescenceValues(curr_trial),2,1)*t_plot_scale,'color','m');
 %                 line(repmat(stimOn_times(curr_trial),1,2),ylim,'color','k','linestyle','--');
-%                 legend({'Wheel velocity','t from move', ...
+%                 legend({'Wheel velocity', ...
 %                     't from quiescence reset','wheel click','trial iti', ...
 %                     'trial quiescence','stim on'});
 %                 drawnow;
-
 
 %                 %%% OPTION 1: IF STIM CAME ON AT EARLIER QUIESCENCE
 %                 % Find alternate stim times from all other trial timings

@@ -38,7 +38,7 @@ backwards_quiescence_estimation = false(n_trials,1);
 for curr_trial = 2:n_trials
     
     % Pull out time quiescence watch time (new trial to stim)
-    curr_qwatch_start = signals_events.newTrialTimes(curr_trial);
+    curr_qwatch_start = signals_events.responseTimes(curr_trial-1);
     curr_qwatch_end = signals_events.stimOnTimes(curr_trial) + 0.2; %(leeway)
     
     curr_trial_t_idx = t >= curr_qwatch_start & t <= curr_qwatch_end;
