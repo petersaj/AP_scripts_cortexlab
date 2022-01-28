@@ -75,7 +75,7 @@ missNoiseSamples = missNoiseAmplitude*events.expStart.map(@(x) ...
     randn(audioChannels,audioSampleRate*missNoiseDuration));
 
 % Wheel parameters
-quiescThreshold = 1;
+quiescThreshold = 3;
 wheelGain = 8; % deg/mm
 
 % Key press for manual reward

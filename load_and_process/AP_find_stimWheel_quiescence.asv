@@ -105,7 +105,7 @@ for curr_trial = 2:n_trials
         t_plot_scale = 0.1;
         plot(curr_trial_t,wheel_velocity(curr_trial_t_idx),'k')
         plot(curr_trial_t,[0;diff(wheel_position(curr_trial_t_idx))]*0.1,'r')
-        plot(curr_wheel_mm_t,0,'.b');
+        plot(curr_wheel_mm_t(curr_wheel_mm_t >= curr_trialstart),0,'.b');
         line(repmat(curr_trial_t(1)+curr_iti,2,1),ylim);
         line(xlim,repmat(curr_quiescence,2,1)*t_plot_scale,'color','m');
         plot(curr_trial_t,t_from_quiescence_reset_trial_block*t_plot_scale,'b');
@@ -129,6 +129,7 @@ for curr_trial = 2:n_trials
         abs(curr_reconstructed_stimOn_block - signals_events.stimOnTimes(curr_trial));
     if curr_reconstructed_stimOn_error > reconstructed_stimOn_leeway
         warning('Timing-reconstructed stimOn time incorrect: debugging');
+        plot_trial = true;
         keyboard
     end
     

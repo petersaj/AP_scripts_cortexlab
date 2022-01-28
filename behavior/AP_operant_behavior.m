@@ -114,11 +114,17 @@ for curr_animal = 1:length(animals)
                 t_from_quiescence_reset_trial = t_from_quiescence_reset(curr_trial_t_idx);
                 
                 % (sanity double-check: block stim on matches quiescence
-                curr_trial_quiescence_estimated_stimOn = ...
-                    curr_trial_t(find(t_from_quiescence_reset_trial > quiescence_t(curr_trial),1));
                 curr_trial_quiescence_estimated_stimOn_error = ...
-                    curr_trial_quiescence_estimated_stimOn
-
+                    abs(signals_events.stimOnTimes(curr_trial) - ...
+                    (curr_trial_t(find(t_from_quiescence_reset_trial > ...
+                    quiescence_t(curr_trial),1))));
+                quiescence_estimated_stimOn_error_leeway = 0.005;
+                if curr_trial_quiescence_estimated_stimOn_error > ...
+                        quiescence_estimated_stimOn_error_leeway
+                    error('%s %s trial %d: incorrect estimated stimOn time', ...
+                        animal,day,curr_trial);
+                end
+                
 %                 % (sanity plot)                
 %                 figure; hold on;
 %                 t_plot_scale = 0.1;

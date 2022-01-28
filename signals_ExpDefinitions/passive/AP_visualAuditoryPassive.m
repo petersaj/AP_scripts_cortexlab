@@ -7,7 +7,7 @@ function AP_visualAuditoryPassive(t, events, parameters, visStim, inputs, output
 
 % Duration and ITI
 vis_stim_time = 0.5;
-aud_stim_time = 0.1;
+aud_stim_time = 0.5;
 min_iti = 1;
 max_iti = 2;
 step_iti = 0.1;
@@ -19,7 +19,7 @@ contrast = 1;
 spatialFreq = 1/15;
 
 % Auditory stim
-audio_freqs = [8000,12000,20000];
+audio_freqs = [];%[8000,12000];
 audioRampDuration = 0.01;
 tone_volume = 0.3;
 noise_volume = 0.03;

@@ -16,10 +16,10 @@ max_iti = 3;
 step_iti = 0.1;
 
 % Sounds
-audio_freqs = [8000,14000,20000];
+audio_freqs = [8000,12000,16000];
 audioRampDuration = 0.01;
-tone_volume = 0.05;
-noise_volume = 0.05;
+tone_volume = 0.01;
+noise_volume = 0.01;
 
 audDev = audio.Devices('Strix');
 audioSampleRate = audDev.DefaultSampleRate;
