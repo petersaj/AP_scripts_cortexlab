@@ -1,4 +1,4 @@
-function AP_mousemovie(movie_fn,dlc)
+function AP_mousemovie(movie_fn,movie_t,dlc)
 % AP_mousemovie(movie_fn,dlc)
 %
 % Scroll through a recorded movie of the mouse (face/eye)
@@ -26,6 +26,14 @@ movie_im = read(handles.movie_vr,movie_frame);
 handles.movie_im = imagesc(handles.cam_axis,movie_im);
 handles.n_frames = handles.movie_vr.NumberOfFrames;
 handles.framerate = handles.movie_vr.FrameRate;
+
+if ~exist('movie_t') || isempty(movie_t)
+    handles.movie_t = (1:handles.n_frames)/handles.framerate;
+elseif length(movie_t) ~= handles.n_frames
+    error('Different number timestamps and frames');
+else
+    handles.movie_t = movie_t;
+end
 
 % Check DLC size if loaded
 if exist('dlc','var')
@@ -58,7 +66,7 @@ handles.scroll_timer = timer('ExecutionMode','singleShot','TimerFcn',{@imgSlider
 set(handles.imgSlider,'Min',1);
 set(handles.imgSlider,'Max',handles.n_frames);
 set(handles.imgSlider,'Value',1);
-set(handles.imgSlider,'SliderStep',[10/handles.n_frames, 100/handles.n_frames]);
+set(handles.imgSlider,'SliderStep',[1/handles.n_frames, 100/handles.n_frames]);
 
 % Set up frame title
 handles.frame_text = uicontrol('Style','text','String', ...
@@ -179,7 +187,7 @@ movie_im = read(handles.movie_vr,movie_frame);
 set(handles.movie_im,'Cdata',movie_im);
 
 % Update the frame text
-set(handles.frame_text,'String',sprintf('Time: %0.2f s',movie_frame/handles.framerate));
+set(handles.frame_text,'String',sprintf('Time: %0.2f s',handles.movie_t(movie_frame)));
 
 % Update DLC (if loaded)
 if isfield(handles,'dlc')

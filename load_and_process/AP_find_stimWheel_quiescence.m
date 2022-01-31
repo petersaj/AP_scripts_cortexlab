@@ -48,7 +48,7 @@ for curr_trial = 2:n_trials
     curr_trialstart = signals_events.newTrialTimes(curr_trial);
     curr_quiescence = signals_events.trialQuiescenceValues(curr_trial);
     
-    % Re-create quiescence watch: resets at cumulative abs < 1mm
+    % Re-create quiescence watch: resets at cumulative abs < quiescThreshold mm
         
     %%% Quiescence watch in block (what signals really uses)
     t_wheel_block = interp1(block2timeline,timeline2block,block.inputs.wheelMMTimes,'linear','extrap');
@@ -89,8 +89,8 @@ for curr_trial = 2:n_trials
     % else (like the quiescence threshold) is wrong.
     
     % Sanity check: signals stimOn should match reconstructed timings
-    % (extremely closely - within 5ms)
-    reconstructed_stimOn_max_error = 0.005;
+    % (extremely closely)
+    reconstructed_stimOn_max_error = 0.01;
     
     if curr_reconstructed_stimOn_error > reconstructed_stimOn_max_error
         % Estimate quiescence watch backwards from stim
@@ -172,7 +172,7 @@ for curr_trial = 2:n_trials
         line(xlim,repmat(curr_quiescence,2,1)*t_plot_scale,'color','m');
         plot(curr_trial_t,t_from_quiescence_reset_trial_block*t_plot_scale,'b');
         
-        line(repmat(stimOn_times(curr_trial),1,2),ylim,'color','k','linestyle','--');
+        line(repmat(signals_events.stimOnTimes(curr_trial),1,2),ylim,'color','k','linestyle','--');
         line(repmat(curr_reconstructed_stimOn_block,1,2),ylim,'color','b','linestyle','--');
         
         title(sprintf('Trial %d/%d',curr_trial,n_trials));

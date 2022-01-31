@@ -109,30 +109,11 @@ for curr_animal = 1:length(animals)
                 'quiescThreshold = (\d*)','match','tokens');
             quiescThreshold = str2num(quiescThreshold_txt{1}{1});  
             
-            % Create long quiescence watch trace
-            % (note: this isn't equivalent to the real one, since the real
-            % one only starts on ITI end and has some idiosyncracies)      
-            t_wheel_block = interp1(block2timeline,timeline2block,block.inputs.wheelMMTimes,'linear','extrap');
-            wheel_mm_block = block.inputs.wheelMMValues;
-            long_quiescence_reset = false(size(wheel_mm_block));
-            
-            q_start_idx = 1;
-            while q_start_idx < length(wheel_mm_block)
-                next_thresh_cross = (q_start_idx-1) + ...
-                    find(cumsum(abs(diff(wheel_mm_block(q_start_idx:end)))) > ...
-                    quiescThreshold,1,'first');             
-                long_quiescence_reset(next_thresh_cross) = true;             
-                q_start_idx = next_thresh_cross + 1;
-            end         
-            long_quiescence_reset_t = t_wheel_block(long_quiescence_reset)';  
-            t_from_quiescence_reset = ...
-                t - interp1(long_quiescence_reset_t,long_quiescence_reset_t,t,'previous','extrap');
-            
-%             % Get quiescence reset times
-%             % (argh not actually needed)
+            % Get quiescence reset times
+%             % (real: from new trial onset)
 %             quiescence_reset_t = AP_find_stimWheel_quiescence;
-%             t_from_quiescence_reset = ...
-%                 t - interp1(quiescence_reset_t,quiescence_reset_t,t,'previous','extrap');
+            % (extrapolated: from response to response)
+            quiescence_reset_t_extrap = AP_extrap_stimWheel_quiescence;
                      
             alt_stimOn_times = cell(n_trials,1);
             alt_stimOn_trialparams = cell(n_trials,1);
@@ -143,7 +124,22 @@ for curr_animal = 1:length(animals)
                 curr_trial_t_idx = t >= signals_events.responseTimes(curr_trial-1) & ...
                     t <= signals_events.responseTimes(curr_trial);
                 curr_trial_t = t(curr_trial_t_idx);
-                t_from_quiescence_reset_trial = t_from_quiescence_reset(curr_trial_t_idx);
+                
+                % Get quiescence reset times for different ITIs
+                param_timestep = 0.1; % (hardcoded in expDef)
+                possible_iti = max([block.paramsValues.itiMin]):param_timestep:max([block.paramsValues.itiMax]);
+                possible_quiescence = max([block.paramsValues.quiescenceMin]):param_timestep:max([block.paramsValues.quiescenceMax]);
+                
+                t_from_quiescence_reset_trialitis = nan(length(curr_trial_t),length(possible_iti));
+                for curr_possible_iti = 1:length(possible_iti)
+                    curr_possible_itiend = signals_events.responseTimes(curr_trial-1) + ...
+                        possible_iti(curr_possible_iti);
+                    curr_quiescence_resets = sort([quiescence_reset_t_extrap;curr_possible_itiend]);
+                    
+                    t_from_quiescence_reset_trialitis(:,curr_possible_iti) = ...
+                        curr_trial_t - interp1(curr_quiescence_resets, ...
+                        curr_quiescence_resets,curr_trial_t,'previous','extrap');
+                end                                        
 
 %                 % (trial plot)                
 %                 figure; hold on;
@@ -183,23 +179,27 @@ for curr_animal = 1:length(animals)
 
                 %%% OPTION 2:  IF STIM CAME ON WITHIN SAME QUIESCENCE            
                 % Find alternate stim times which would have given same first move
-                param_timestep = 0.1; % (hardcoded in expDef)
-                possible_iti = max([block.paramsValues.itiMin]):param_timestep:max([block.paramsValues.itiMax]);
-                possible_quiescence = max([block.paramsValues.quiescenceMin]):param_timestep:max([block.paramsValues.quiescenceMax]);
-
-                % (getting possible iti + quiescence = alternate stim times)
+                                  
+                % (getting possible iti + quiescence crosses)
                 alt_iti_reached = ((t(curr_trial_t_idx) - curr_trial_t(1)) > possible_iti);
-                alt_quiescence_reached = (t_from_quiescence_reset_trial > possible_quiescence);
-                [alt_stim_value,alt_stim_idx] = max(reshape(alt_iti_reached & ...
-                    permute(alt_quiescence_reached,[1,3,2]),length(curr_trial_t),[]),[],1);
-                alt_stimOn_times_all = curr_trial_t(alt_stim_idx(alt_stim_value & alt_stim_idx));
-
-                % (get alt stim times that would have happened within same quiescence)
-                % (if no reset, set at trial start)
-                last_quiescence_reset = max([curr_trial_t(1),...
-                    curr_trial_t(find(diff(t_from_quiescence_reset_trial) < 0,1,'last'))]);       
-                alt_stimOn_times{curr_trial} = ...
-                    alt_stimOn_times_all(alt_stimOn_times_all > last_quiescence_reset);
+                alt_quiescence_reached = ...
+                    t_from_quiescence_reset_trialitis > permute(possible_quiescence,[1,3,2]);   
+                
+                % (get possible stim times as iti x quiescence grid)
+                [alt_stim_value,alt_stim_idx] = max( ...
+                    permute(alt_iti_reached & alt_quiescence_reached,[2,3,1]),[],3);
+                alt_stimOn_times_all = curr_trial_t(alt_stim_idx(alt_stim_value));
+                
+                % (get alt stim times that would have resulted in the same
+                % first movement since that's the measured value)
+                stim_leeway = 0.1;
+                curr_wheel_move_alt_stim_idx = ...
+                    arrayfun(@(stim) find(wheel_starts > stim-stim_leeway,1,'first'), ...
+                    alt_stimOn_times_all);
+                use_alt_stimOn_times = ...
+                    curr_wheel_move_alt_stim_idx == wheel_move_stim_idx(curr_trial);
+    
+                alt_stimOn_times{curr_trial} = alt_stimOn_times_all(use_alt_stimOn_times);
                 
             end
             
@@ -547,6 +547,8 @@ for curr_animal = 1:length(bhv)
     for curr_day = find(use_days{curr_animal})'
         subplot(max_days,length(bhv),(curr_day-1)*length(bhv)+curr_animal); hold on;
         histogram(bhv(curr_animal).stim_move_t{curr_day},rxn_bins,'EdgeColor','none','normalization','pdf')
+        histogram(cell2mat(bhv(curr_animal).alt_stim_move_t{curr_day}), ...
+            rxn_bins,'EdgeColor','none','normalization','pdf')
     end
 end
 
@@ -559,25 +561,62 @@ for curr_animal = 1:length(bhv)
     end
 end
 
-% %%%% TESTING FOR KENNETH
-% 
-% animal_rxn = cell2mat(cellfun(@(use,x) ...
-%     histcounts(vertcat(x{find(use,1,'first')}),rxn_bins,'normalization','pdf'), ...
-%     use_days,{bhv.stim_move_t},'uni',false)');
-% 
-% animal_alt_rxn = cell2mat(cellfun(@(use,x) ...
-%     histcounts(cell2mat(vertcat(x{find(use,1,'first')})),rxn_bins,'normalization','pdf'), ...
-%     use_days,{bhv.alt_stim_move_t},'uni',false)');
-% 
-% figure; hold on;
-% histogram('BinEdges',rxn_bins,'BinCounts',nanmean(animal_rxn,1),'EdgeColor','none')
-% histogram('BinEdges',rxn_bins,'BinCounts',nanmean(animal_alt_rxn,1),'EdgeColor','none')
-% xlabel('Reaction time');
-% ylabel('PDF');
-% legend({'Measured','Null'});
-% title('Day 1');
-% 
-% %%%%%%%%%%%%%%%%%%%%
+% Total (single day)
+plot_day = 6;
+
+animal_rxn = cell2mat(cellfun(@(use,x) ...
+    histcounts(vertcat(x{plot_day}),rxn_bins,'normalization','pdf'), ...
+    use_days,{bhv.stim_move_t},'uni',false)');
+
+animal_alt_rxn = cell2mat(cellfun(@(use,x) ...
+    histcounts(cell2mat(vertcat(x{plot_day})),rxn_bins,'normalization','pdf'), ...
+    use_days,{bhv.alt_stim_move_t},'uni',false)');
+
+figure; hold on;
+histogram('BinEdges',rxn_bins,'BinCounts',nanmean(animal_rxn,1),'EdgeColor','none')
+histogram('BinEdges',rxn_bins,'BinCounts',nanmean(animal_alt_rxn,1),'EdgeColor','none')
+xlabel('Reaction time');
+ylabel('PDF');
+legend({'Measured','Null'});
+title(sprintf('Day %d',plot_day));
+
+% Total (single day - 1:1 rxn)
+plot_day = 6;
+
+animal_rxn = cell2mat(cellfun(@(use,x) ...
+    histcounts(vertcat(x{plot_day}),rxn_bins,'normalization','pdf'), ...
+    use_days,{bhv.stim_move_t},'uni',false)');
+
+animal_alt_rxn = cell2mat(cellfun(@(use,x) ...
+    histcounts(cell2mat(vertcat(x{plot_day})),rxn_bins,'normalization','pdf'), ...
+    use_days,{bhv.alt_stim_move_t},'uni',false)');
+
+figure; hold on;
+histogram('BinEdges',rxn_bins,'BinCounts',nanmean(animal_rxn,1),'EdgeColor','none')
+histogram('BinEdges',rxn_bins,'BinCounts',nanmean(animal_alt_rxn,1),'EdgeColor','none')
+xlabel('Reaction time');
+ylabel('PDF');
+legend({'Measured','Null'});
+title(sprintf('Day %d',plot_day));
+
+% Total (single animal)
+plot_animal = 6;
+
+animal_rxn = cell2mat(cellfun(@(use,x) ...
+    histcounts(vertcat(x{:}),rxn_bins,'normalization','pdf'), ...
+    use_days(plot_animal),{bhv(plot_animal).stim_move_t},'uni',false)');
+
+animal_alt_rxn = cell2mat(cellfun(@(use,x) ...
+    histcounts(cell2mat(vertcat(x{:})),rxn_bins,'normalization','pdf'), ...
+    use_days(plot_animal),{bhv(plot_animal).alt_stim_move_t},'uni',false)');
+
+figure; hold on;
+histogram('BinEdges',rxn_bins,'BinCounts',nanmean(animal_rxn,1),'EdgeColor','none')
+histogram('BinEdges',rxn_bins,'BinCounts',nanmean(animal_alt_rxn,1),'EdgeColor','none')
+xlabel('Reaction time');
+ylabel('PDF');
+legend({'Measured','Null'});
+title(sprintf('Animal %s',animals{plot_animal}));
 
 
 % Total
@@ -659,13 +698,41 @@ legend({'Measured','Null (all)'});
 %         
 %     end
 % end
-% % (only robust if real is max rather than 95%ile)
+% % (only robust if real is 100%ile rather than 95%ile)
 % [~,learned_day] = max(r_frac_p_cat == 1,[],2);
 
+% % against average reaction time
+% max_days = max(cellfun(@sum,use_days));
+% r_frac_p_cat = nan(length(animals),max_days);
+% for curr_animal = 1:length(animals)
+%     for curr_day = find(use_days{curr_animal})'
+%         
+%         n_sample = 10000;
+%         use_trials = ~cellfun(@isempty,bhv(curr_animal).alt_stim_move_t{curr_day});
+%         r = bhv(curr_animal).stim_move_t{curr_day}(use_trials);
+%         ar = cell2mat(cellfun(@(x) datasample(x,~isempty(x)*n_sample)', ...
+%             bhv(curr_animal).alt_stim_move_t{curr_day}(use_trials),'uni',false));
+%         
+%         r_frac_rank = tiedrank([nanmean(r),nanmean(ar,1)]);
+%         r_frac_p = r_frac_rank(1)./(n_sample+1);
+%         
+%         r_frac_p_cat(curr_animal,curr_day) = r_frac_p;
+%         
+%     end
+% end
+% % (only robust if real is 100%ile rather than 95%ile)
+% [~,learned_day] = max(r_frac_p_cat <0.025,[],2);
+
+
 % %%% TESTING KS STATS
-p = nan(size(animals));
-for i = 1:length(animals)
-    [h,p(i)] = kstest2(bhv(i).stim_move_t{1},cell2mat(bhv(i).alt_stim_move_t{1}));
+max_days = max(cellfun(@sum,use_days));
+p = nan(max_days,length(animals));
+for curr_animal = 1:length(animals)
+    for curr_day = 1:length(bhv(curr_animal).stim_move_t)
+        [h,p(curr_day,curr_animal)] = ...
+            kstest2(bhv(curr_animal).stim_move_t{curr_day}, ...
+            cell2mat(bhv(curr_animal).alt_stim_move_t{curr_day}));
+    end
 end
 
 

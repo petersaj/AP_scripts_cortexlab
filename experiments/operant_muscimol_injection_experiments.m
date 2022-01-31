@@ -77,22 +77,6 @@ curr_recordings = {...
 muscimol(curr_animal_idx).day =  curr_recordings(:,1);
 muscimol(curr_animal_idx).area =  curr_recordings(:,2);
 
-curr_animal_idx = length(muscimol)+1;
-muscimol(curr_animal_idx).animal = 'AP107';
-curr_recordings = {...
-    '2022-01-26','washout'; ...
-    };
-muscimol(curr_animal_idx).day =  curr_recordings(:,1);
-muscimol(curr_animal_idx).area =  curr_recordings(:,2);
-
-curr_animal_idx = length(muscimol)+1;
-muscimol(curr_animal_idx).animal = 'AP108';
-curr_recordings = {...
-    '2022-01-26','washout'; ...
-    };
-muscimol(curr_animal_idx).day =  curr_recordings(:,1);
-muscimol(curr_animal_idx).area =  curr_recordings(:,2);
-
 
 %% tetO mice
 
@@ -165,6 +149,28 @@ curr_recordings = {...
     '2021-07-09','DCS'; ...
     '2021-07-12','washout'; ...
     '2021-07-13','FRm'}; % really bad prep - unusable
+muscimol(curr_animal_idx).day =  curr_recordings(:,1);
+muscimol(curr_animal_idx).area =  curr_recordings(:,2);
+
+
+%%%%%%%%% IN PROGRESS
+
+
+curr_animal_idx = length(muscimol)+1;
+muscimol(curr_animal_idx).animal = 'AP107';
+curr_recordings = {...
+    '2022-01-26','washout'; ...
+    '2022-01-27','washout'; ...
+    };
+muscimol(curr_animal_idx).day =  curr_recordings(:,1);
+muscimol(curr_animal_idx).area =  curr_recordings(:,2);
+
+curr_animal_idx = length(muscimol)+1;
+muscimol(curr_animal_idx).animal = 'AP108';
+curr_recordings = {...
+    '2022-01-26','washout'; ...
+    '2022-01-27','washout'; ...
+    };
 muscimol(curr_animal_idx).day =  curr_recordings(:,1);
 muscimol(curr_animal_idx).area =  curr_recordings(:,2);
 
@@ -268,6 +274,26 @@ for curr_animal = 7:length(muscimol)
     set(gcf,'name',muscimol(curr_animal).animal);
 end
 
+% fuck this
+for curr_animal = 7:length(muscimol)
+    a = cat(3,muscimol(curr_animal).px_mad{:});
+    b = muscimol(curr_animal).area;
+    curr_washout = find(strcmp(b,'washout'));
+    curr_muscimol = find(~strcmp(b,'washout'));
+    a2 = nan(size(a,1),size(a,2),length(curr_muscimol));
+    for curr_muscimol_idx = 1:length(curr_muscimol)
+        curr_use_washout = curr_washout(find(curr_washout > ...
+            curr_muscimol(curr_muscimol_idx),1));
+        curr_muscimol_px = a(:,:,curr_muscimol(curr_muscimol_idx));
+        curr_washout_px = a(:,:,curr_use_washout);
+        px_idx = (curr_muscimol_px-curr_washout_px)./(curr_muscimol_px+curr_washout_px);
+        a2(:,:,curr_muscimol_idx) = px_idx;
+    end
+
+
+    AP_image_scroll(a,b);axis image
+    set(gcf,'name',muscimol(curr_animal).animal);
+end
 
 
 
