@@ -2369,12 +2369,14 @@ disp(['Saved: ' save_path filesep save_fn])
 
 
 %% Passive: ephys
-% (change this - align ephys and mua by area)
 
 animals = {'AP100','AP101','AP104','AP105','AP106'};
 
-stim_mua = cell(length(animals),1);
+% (load the CCF structure tree)
+allen_atlas_path = fileparts(which('template_volume_10um.npy'));
+st = loadStructureTree([allen_atlas_path filesep 'structure_tree_safe_2017.csv']);
 
+stim_mua = struct('depth',cell(size(animals)));
 for curr_animal = 1:length(animals)
     
     animal = animals{curr_animal};
@@ -2408,20 +2410,15 @@ for curr_animal = 1:length(animals)
             error('No probe ccf');
         end
         
-        %%%%%%%%%% IN PROGRESS (needs correct DV scaling??)
-        [~,dv_sort_idx] = sort(probe_ccf.trajectory_coords(:,2));
-        
+        % Get area names and borders across probe
+        % (one back in hierarchy to ignore layers)
+        [~,dv_sort_idx] = sort(probe_ccf.trajectory_coords(:,2));       
+        dv_voxel2um = 10; % not correct scaling - CCF default
         probe_trajectory_depths = ...
             pdist2(probe_ccf.trajectory_coords, ...
-            probe_ccf.trajectory_coords((dv_sort_idx == 1),:))*10;
+            probe_ccf.trajectory_coords((dv_sort_idx == 1),:))*dv_voxel2um;
         
         probe_depths = probe_trajectory_depths + ctx_start;
-        
-        % TO DO: back up in hierarchy to whatever's above layers, pool
-        % spikes within area, store separately for each area
-        
-        % (looks like there's no hierarchical level consistency, just need
-        % to back up one)
         
         recorded_areas = unique(probe_ccf.trajectory_areas(probe_depths > 0 & ...
             probe_depths < max(channel_positions(:,2))));
@@ -2430,23 +2427,17 @@ for curr_animal = 1:length(animals)
         recorded_area_id = unique(cellfun(@(area,slash) ...
             area(1:slash(end-1)),recorded_area_id_bottomhierarchy, ...
             cellfun(@(x) strfind(x,'/'), ...
-            recorded_area_id_bottomhierarchy,'uni',false),'uni',false));
+            recorded_area_id_bottomhierarchy,'uni',false),'uni',false));      
+        
         recorded_area_name = cellfun(@(area) st(...
             strcmp(area,st.structure_id_path),:).safe_name, ...
             recorded_area_id);
-        
-        % DOING HERE: get start/end boundaries of each area
-        % (then for each boundary, get multiunit)
-%         recorded_area_boundaries = cellfun(@(area) ...
-%             contains(st(recorded_areas,:).structure_id_path,area), ...
-%             recorded_area_id,'uni',false);
-        
-        
-        
-        %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-        
-        % QUICK ANALYSIS        
-        
+
+        recorded_area_boundaries = cellfun(@(area) ...
+            minmax(probe_depths(contains( ...
+            st(probe_ccf.trajectory_areas,:).structure_id_path,area))), ...
+            recorded_area_id,'uni',false);
+                    
         % Get event-aligned activity
         raster_window = [-0.5,2];
         raster_sample_rate = 50;
@@ -2465,13 +2456,13 @@ for curr_animal = 1:length(animals)
         event_aligned_wheelmove = interp1(Timeline.rawDAQTimestamps, ...
             +wheel_move,t_peri_event,'previous');
         
-        % Align multiunit by depth       
-        n_depths = 4;
-        depth_group_edges = linspace(1000,max(channel_positions(:,2)),n_depths+1);
+        % Get multiunit by depth       
+        n_depths = 8;
+        depth_group_edges = linspace(0,4000,n_depths+1);
         depth_group_centers = round(depth_group_edges(1:end-1)+diff(depth_group_edges)/2);
         depth_group = discretize(spike_depths,depth_group_edges);
                
-        event_aligned_mua = nan(length(stimOn_times),length(t),n_depths);
+        curr_stim_mua_depth = nan(length(stimOn_times),length(t),n_depths);
         for curr_depth = 1:n_depths
             curr_spikes = spike_times_timeline(depth_group == curr_depth);
             
@@ -2480,21 +2471,41 @@ for curr_animal = 1:length(animals)
                 continue
             end
             
-            event_aligned_mua(:,:,curr_depth) = cell2mat(arrayfun(@(x) ...
+            curr_stim_mua_depth(:,:,curr_depth) = cell2mat(arrayfun(@(x) ...
                 histcounts(curr_spikes,t_peri_event_bins(x,:)), ...
                 [1:size(t_peri_event,1)]','uni',false))*raster_sample_rate;
         end
         
-        % Store average across trials
+        % Get multiunit by area
+        curr_stim_mua_area = nan(length(stimOn_times),length(t),length(recorded_area_name));
+        for curr_area = 1:length(recorded_area_name)
+            curr_spikes = spike_times_timeline(...
+                spike_depths >= recorded_area_boundaries{curr_area}(1) & ...
+                spike_depths <= recorded_area_boundaries{curr_area}(2));
+            
+            % (skip if no spikes in this area)
+            if isempty(curr_spikes)
+                continue
+            end
+            
+            curr_stim_mua_area(:,:,curr_area) = cell2mat(arrayfun(@(x) ...
+                histcounts(curr_spikes,t_peri_event_bins(x,:)), ...
+                [1:size(t_peri_event,1)]','uni',false))*raster_sample_rate;         
+        end
+        
+        % Store average across relevant trials
         quiescent_trials = ~any(event_aligned_wheelmove(:,t > 0 & t < 0.5),2);
         use_trials = quiescent_trials & stimIDs == 3;
         
-        curr_mua = nanmean(event_aligned_mua(use_trials,:,:),1);
-
-        stim_mua{curr_animal}(curr_day,:,:) = curr_mua;
-              
-        figure;plot(t,squeeze(curr_mua));
-        drawnow;
+        curr_stim_mua_depth_mean = permute(nanmean(curr_stim_mua_depth(use_trials,:,:),1),[3,2,1]);
+        curr_stim_mua_area_mean = permute(nanmean(curr_stim_mua_area(use_trials,:,:),1),[3,2,1]);  
+        
+        stim_mua(curr_animal).depth{curr_day} = curr_stim_mua_depth_mean;
+        for curr_area = 1:length(recorded_area_name)
+            stim_mua(curr_animal). ...
+                (regexprep(recorded_area_name{curr_area},' ','_')){curr_day} = ...
+                curr_stim_mua_area_mean;
+        end
         
         % Prep next loop
         AP_print_progress_fraction(curr_day,length(experiments));     
