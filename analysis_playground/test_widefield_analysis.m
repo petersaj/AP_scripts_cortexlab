@@ -2060,7 +2060,7 @@ ylabel(c,'Explained variance')
 
 %% Align vasculature for animal
 clear all;
-animal = 'AP098';
+animal = 'AP108';
 
 protocol = [];
 experiments = AP_find_experiments(animal,protocol);
@@ -2099,7 +2099,7 @@ AP_align_widefield(im_edge,animal,{experiments(use_days).day},'new_days');
 
 %% View aligned vasculature (to check that it's been done correctly)
 
-animal = 'AP099';
+animal = 'AP107';
 
 protocol = [];
 experiments = AP_find_experiments(animal,protocol);
@@ -2126,7 +2126,7 @@ set(gcf,'Name',animal);
 retinotopy_path = 'C:\Users\Andrew\OneDrive for Business\Documents\CarandiniHarrisLab\analysis\widefield_alignment\retinotopy';
 retinotopy_dir = dir(retinotopy_path);
 
-animal = 'AP109';
+animal = 'AP108';
 load([retinotopy_path filesep animal '_retinotopy'])
 
 aligned_vfs = cell(length(retinotopy),1);
@@ -2212,13 +2212,13 @@ end
 retinotopy_path = 'C:\Users\Andrew\OneDrive for Business\Documents\CarandiniHarrisLab\analysis\widefield_alignment\retinotopy';
 retinotopy_dir = dir(retinotopy_path);
 
-animal = 'AP097';
+animal = 'AP108';
 load([retinotopy_path filesep animal '_retinotopy'])
 
 vfs_aligned = cell(length(retinotopy));
 for curr_day = 1:length(retinotopy)
    vfs_aligned{curr_day} = ...
-       AP_align_widefield(retinotopy(curr_day).vfs,animal,retinotopy(1).day);
+       AP_align_widefield(retinotopy(curr_day).vfs,animal,retinotopy(curr_day).day);
 end
 vfs_aligned = cat(3,vfs_aligned{:});
 

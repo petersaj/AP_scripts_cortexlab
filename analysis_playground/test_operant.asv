@@ -2408,42 +2408,15 @@ for curr_animal = 1:length(animals)
             error('No probe ccf');
         end
         
-        %%%%%%%%%% IN PROGRESS (needs correct DV scaling??)
+        %%%%%%%%%% IN PROGRESS
         [~,dv_sort_idx] = sort(probe_ccf.trajectory_coords(:,2));
         
         probe_trajectory_depths = ...
-            pdist2(probe_ccf.trajectory_coords, ...
-            probe_ccf.trajectory_coords((dv_sort_idx == 1),:))*10;
+            pdist2(probe_ccf(use_probe).trajectory_coords, ...
+            probe_ccf(use_probe).trajectory_coords((dv_sort_idx == 1),:))*10;
         
-        probe_depths = probe_trajectory_depths + ctx_start;
-        
-        % TO DO: back up in hierarchy to whatever's above layers, pool
-        % spikes within area, store separately for each area
-        
-        % (looks like there's no hierarchical level consistency, just need
-        % to back up one)
-        
-        recorded_areas = unique(probe_ccf.trajectory_areas(probe_depths > 0 & ...
-            probe_depths < max(channel_positions(:,2))));
-        
-        recorded_area_id_bottomhierarchy = st(recorded_areas,:).structure_id_path;
-        recorded_area_id = unique(cellfun(@(area,slash) ...
-            area(1:slash(end-1)),recorded_area_id_bottomhierarchy, ...
-            cellfun(@(x) strfind(x,'/'), ...
-            recorded_area_id_bottomhierarchy,'uni',false),'uni',false));
-        recorded_area_name = cellfun(@(area) st(...
-            strcmp(area,st.structure_id_path),:).safe_name, ...
-            recorded_area_id);
-        
-        % DOING HERE: get start/end boundaries of each area
-        % (then for each boundary, get multiunit)
-%         recorded_area_boundaries = cellfun(@(area) ...
-%             contains(st(recorded_areas,:).structure_id_path,area), ...
-%             recorded_area_id,'uni',false);
-        
-        
-        
-        %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+        probe_depths = gui_data.probe_trajectory_depths - ...
+            gui_data.probe_areas_ax_ylim(1);
         
         % QUICK ANALYSIS        
         

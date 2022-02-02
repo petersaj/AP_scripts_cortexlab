@@ -991,15 +991,28 @@ if ephys_exists && load_parts.ephys && exist('lfp_channel','var')
             window_length_samples,window_overlap_samples,[],lfp_sample_rate);
         
         if verbose
-            figure;        
+            figure;
+            
+            p1 = subplot(1,2,1);
             imagesc(lfp_power_freq,lfp_channel_positions,log10(lfp_power'));
             xlabel('Frequency');
             ylabel('Depth (\mum)');
             c = colorbar;
             ylabel(c,'Log_{10} power');
             xlim([0,100]);
-            colormap(hot);
-            title('LFP power');            
+            colormap(p1,hot);
+            title('LFP power');
+            
+            p2 = subplot(1,2,2);
+            imagesc(lfp_channel_positions,lfp_channel_positions,lfp_corr);
+            axis image
+            colormap(p2,brewermap([],'*RdBu'));
+            caxis([-1,1])
+            xlabel('Depth (\mum)');
+            ylabel('Depth (\mum)');
+            c = colorbar;
+            ylabel(c,'Med. sub. correlation');
+            
         end        
     end    
 end
@@ -1039,19 +1052,17 @@ elseif ephys_exists && load_parts.ephys && exist('ephys_align','var') && ...
     [~,lfp_corr_drop] = min(diff(lfp_corr_from_top));
     ctx_start = lfp_channel_positions(lfp_corr_drop);
     
-    if verbose
-        imagesc(lfp_channel_positions,lfp_channel_positions,lfp_corr);
-        axis image
-        colormap(brewermap([],'*RdBu'));
-        caxis([-1,1])
-        xlabel('Depth (\mum)');
-        ylabel('Depth (\mum)');
-        c = colorbar;
-        ylabel(c,'Med. sub. correlation');
-        line(xlim,[ctx_start,ctx_start],'color','k','linewidth',2);
-        line([ctx_start,ctx_start],ylim,'color','k','linewidth',2);
-        title('LFP correlation and cortex start');
-    end
+    
+    imagesc(lfp_channel_positions,lfp_channel_positions,lfp_corr);
+    axis image
+    colormap(p2,brewermap([],'*RdBu'));
+    caxis([-1,1])
+    xlabel('Depth (\mum)');
+    ylabel('Depth (\mum)');
+    c = colorbar;
+    ylabel(c,'Med. sub. correlation');
+    line(xlim,[ctx_start,ctx_start],'color','k','linewidth',2);
+    line([ctx_start,ctx_start],ylim,'color','k','linewidth',2);
     
 end
 
