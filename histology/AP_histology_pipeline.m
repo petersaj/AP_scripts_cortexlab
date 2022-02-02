@@ -13,7 +13,7 @@ st = loadStructureTree([allen_atlas_path filesep 'structure_tree_safe_2017.csv']
 % im_path = 'C:\Users\Andrew\Desktop\temp_histology\AP079';
 % slice_path = [im_path filesep 'slices'];
 
-animal = 'AP106';
+animal = 'AP100';
 [probe_ccf_fn,probe_ccf_fn_exists] = AP_cortexlab_filename(animal,[],[],'probe_ccf');
 if probe_ccf_fn_exists
     load(probe_ccf_fn);

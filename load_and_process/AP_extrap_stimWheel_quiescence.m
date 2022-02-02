@@ -134,7 +134,7 @@ for curr_trial = 2:n_trials
         line(repmat(curr_trialstart,2,1),ylim,'color','b');
         line(xlim,repmat(curr_quiescence,2,1)*t_plot_scale,'color','m');
         plot(curr_trial_t,t_from_quiescence_reset_trial_block*t_plot_scale,'b');
-        plot(curr_trial_t,t_from_quiescence_reset_trial_block_curriti*t_plot_scale,'r');
+        plot(curr_trial_t,t_from_quiescence_reset_trial_block_curriti*t_plot_scale,'m');
         plot(quiescence_reset_t_block,0,'og');
         
         line(repmat(signals_events.stimOnTimes(curr_trial),1,2),ylim,'color','k','linestyle','--');

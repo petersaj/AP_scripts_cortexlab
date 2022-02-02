@@ -152,16 +152,13 @@ curr_recordings = {...
 muscimol(curr_animal_idx).day =  curr_recordings(:,1);
 muscimol(curr_animal_idx).area =  curr_recordings(:,2);
 
-
-%%%%%%%%% IN PROGRESS
-
-
 curr_animal_idx = length(muscimol)+1;
 muscimol(curr_animal_idx).animal = 'AP107';
 curr_recordings = {...
     '2022-01-26','washout'; ...
-    '2022-01-27','washout'; ...
-    };
+    '2022-01-31','washout'; ...
+    '2022-02-01','V1'; ...
+    '2022-02-02','washout'};
 muscimol(curr_animal_idx).day =  curr_recordings(:,1);
 muscimol(curr_animal_idx).area =  curr_recordings(:,2);
 
@@ -169,8 +166,9 @@ curr_animal_idx = length(muscimol)+1;
 muscimol(curr_animal_idx).animal = 'AP108';
 curr_recordings = {...
     '2022-01-26','washout'; ...
-    '2022-01-27','washout'; ...
-    };
+    '2022-01-31','washout'; ...
+    '2022-02-01','V1'; ...
+    '2022-02-02','washout'};
 muscimol(curr_animal_idx).day =  curr_recordings(:,1);
 muscimol(curr_animal_idx).area =  curr_recordings(:,2);
 
@@ -187,9 +185,9 @@ for curr_animal = 1:length(muscimol)
     imaging_experiments = [experiments.imaging];
     
     % Make sure all the injection days exist
-    check_days = all(ismember(muscimol(curr_animal).day,{experiments(imaging_experiments).day}));
-    if ~check_days
-       error([animal ': non-existent recording day'])
+    check_days = ismember(muscimol(curr_animal).day,{experiments(imaging_experiments).day});
+    if any(~check_days)
+       error('%s %s: non-existent recording day',animal,muscimol(curr_animal).day{~check_days});
     end   
     AP_print_progress_fraction(curr_animal,length(muscimol));
 end
