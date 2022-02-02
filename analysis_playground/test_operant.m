@@ -2457,10 +2457,9 @@ for curr_animal = 1:length(animals)
             +wheel_move,t_peri_event,'previous');
         
         % Get multiunit by depth       
-        n_depths = 8;
-        depth_group_edges = linspace(0,4000,n_depths+1);
-        depth_group_centers = round(depth_group_edges(1:end-1)+diff(depth_group_edges)/2);
-        depth_group = discretize(spike_depths,depth_group_edges);
+        depth_group_edges = 0:500:4000;
+        n_depths = length(depth_group_edges)-1;
+        depth_group = discretize(spike_depths-ctx_start,depth_group_edges);
                
         curr_stim_mua_depth = nan(length(stimOn_times),length(t),n_depths);
         for curr_depth = 1:n_depths
@@ -2504,7 +2503,7 @@ for curr_animal = 1:length(animals)
         for curr_area = 1:length(recorded_area_name)
             stim_mua(curr_animal). ...
                 (regexprep(recorded_area_name{curr_area},' ','_')){curr_day} = ...
-                curr_stim_mua_area_mean;
+                curr_stim_mua_area_mean(curr_area,:);
         end
         
         % Prep next loop
@@ -2523,12 +2522,17 @@ raster_sample_rate = 50;
 raster_sample_time = 1/raster_sample_rate;
 t = raster_window(1):raster_sample_time:raster_window(2);
 
-a = cell2mat(stim_mua);
-a_baseline = nanmean(a(:,t<0,:),2);
-a2 = permute(nanmean((a - a_baseline)./a_baseline,1),[3,2,1]);
+depth_cat = cell2mat(permute([stim_mua.depth],[1,3,2]));
+depth_norm_mean = nanmean((depth_cat-nanmean(depth_cat(:,t<0,:),2))./ ...
+    nanmean(depth_cat(:,t<0,:),2),3);
+figure;plot(t,depth_norm_mean)
+title('Depth mean');
 
-figure;plot(t,a2','linewidth',2)
-
+mos_cat = cell2mat(permute([stim_mua.Secondary_motor_area],[1,3,2]));
+mos_norm_mean = nanmean((mos_cat-nanmean(mos_cat(:,t<0,:),2))./ ...
+    nanmean(mos_cat(:,t<0,:),2),3);
+figure;plot(t,mos_cat)
+title('MOs mean');
 
 
 %% ~~~~~~~~~ BATCH ANALYSIS ~~~~~~~~~
