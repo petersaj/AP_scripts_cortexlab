@@ -56,27 +56,33 @@ end
 
 %% Get area in search, draw
 
-slice_spacing = 5;
-parsed_structures = unique(reshape(av(1:slice_spacing:end, ...
-    1:slice_spacing:end,1:slice_spacing:end),[],1));
-
+% Prompt for which structures to show (only structures which are
+% labelled in the slice-spacing downsampled annotated volume)
 structure_search = lower(inputdlg('Search structures'));
 structure_match = find(contains(lower(st.safe_name),structure_search));
-list_structures = intersect(parsed_structures,structure_match);
 
-plot_structure_parsed = listdlg('PromptString','Select a structure to plot:', ...
-    'ListString',st.safe_name(list_structures),'ListSize',[520,500]);
-plot_structure = list_structures(plot_structure_parsed);
+selected_structure = listdlg('PromptString','Select a structure to plot:', ...
+    'ListString',st.safe_name(structure_match),'ListSize',[520,500], ...
+    'SelectionMode','single');
 
-% Get structure CCF color
-plot_structure_color = hex2dec(reshape(st.color_hex_triplet{plot_structure(1)},2,[])')./255;
+plot_structure = structure_match(selected_structure);
+
+% Get all areas within and below the selected hierarchy level
+plot_structure_id = st.structure_id_path{plot_structure};
+plot_ccf_idx = find(cellfun(@(x) contains(x,plot_structure_id), ...
+    st.structure_id_path));
+
+% plot the structure
+slice_spacing = 5;
+plot_structure_color = hex2dec(reshape(st.color_hex_triplet{plot_structure},2,[])')./255;
 
 % Get structure volume
-plot_ccf_volume = ismember(av,plot_structure);
+plot_ccf_volume = ismember(av(1:slice_spacing:end,1:slice_spacing:end,1:slice_spacing:end),plot_ccf_idx);
 
 for curr_view = 1:3
     curr_outline = bwboundaries(squeeze((max(plot_ccf_volume,[],curr_view))));
-    cellfun(@(x) plot(ccf_axes(curr_view),x(:,2),x(:,1),'color',plot_structure_color,'linewidth',2),curr_outline)
+    cellfun(@(x) plot(ccf_axes(curr_view),x(:,2)*slice_spacing, ...
+        x(:,1)*slice_spacing,'color',plot_structure_color,'linewidth',2),curr_outline)
 end
 
 

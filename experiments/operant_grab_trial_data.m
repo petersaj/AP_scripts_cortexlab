@@ -3,19 +3,18 @@
 
 %% Set flags
 
-% filter_mua: convolve MUA with filter to match widefield fluorescence
-if ~exist('filter_mua','var')
-    filter_mua = false;
-end
-
-%% Get if task if passive dataset
-
 % Task dataset if signals (expDef) and includes task expDef
 task_dataset = exist('expDef','var') && contains(expDef,'stimWheel');
+
+% Data modalities
+imaging_exists = experiments(curr_day).imaging;
+ephys_exists = experiments(curr_day).ephys;
 
 
 %% Set parameters for cortical fluoresence
 
+if imaging_exists
+    
 if verbose; disp('Re-casting and deconvolving fluorescence...'); end;
 
 % Deconvolve fluoresence (for use in regression)
@@ -30,6 +29,7 @@ fVdf_deconv_recast = ChangeU(Udf_aligned,fVdf_deconv,U_master);
 % Set components to keep
 use_components = 1:200;
 
+end
 
 %% Set parameters for trials
 
@@ -83,16 +83,58 @@ end
 if verbose; disp('Trial-aligning data...'); end;
 
 % Cortical fluorescence
-event_aligned_V_deconv = ...
-    interp1(frame_t,fVdf_deconv_recast(use_components,:)',t_peri_event,'previous');
+if imaging_exists
+    % Cortical fluorescence
+    stim_aligned_V_deconv = ...
+        interp1(frame_t,fVdf_deconv_recast(use_components,:)',t_peri_event,'previous');
+end
+
+% Cortical electrophysiology
+if ephys_exists
+    
+    % (multiunit by depth)
+    depth_group_edges = 0:500:4000;
+    n_depths = length(depth_group_edges)-1;
+    depth_group = discretize(spike_depths-ctx_start,depth_group_edges);
+    
+    stim_aligned_mua_depth = nan(length(stimOn_times),length(t),n_depths);
+    for curr_depth = 1:n_depths
+        curr_spikes = spike_times_timeline(depth_group == curr_depth);
+        
+        if isempty(curr_spikes)
+            continue
+        end
+        
+        stim_aligned_mua_depth(:,:,curr_depth) = cell2mat(arrayfun(@(x) ...
+            histcounts(curr_spikes,t_peri_event_bins(x,:)), ...
+            [1:size(t_peri_event,1)]','uni',false))*raster_sample_rate;
+    end
+    
+    % (multiunit by area)
+    stim_aligned_mua_area = nan(length(stimOn_times),length(t),length(probe_areas));
+    for curr_area = 1:length(probe_areas)
+        curr_spikes = spike_times_timeline(...
+            spike_depths >= probe_area_boundaries{curr_area}(1) & ...
+            spike_depths <= probe_area_boundaries{curr_area}(2));
+        
+        if isempty(curr_spikes)
+            continue
+        end
+        
+        stim_aligned_mua_area(:,:,curr_area) = cell2mat(arrayfun(@(x) ...
+            histcounts(curr_spikes,t_peri_event_bins(x,:)), ...
+            [1:size(t_peri_event,1)]','uni',false))*raster_sample_rate;
+    end
+        
+end
 
 % Wheel velocity
-event_aligned_wheel = interp1(Timeline.rawDAQTimestamps, ...
+stim_aligned_wheel = interp1(Timeline.rawDAQTimestamps, ...
     wheel_velocity,t_peri_event,'previous');
 
 % Facecam movement
 if exist('frame_movement','var')
-    event_aligned_movement = interp1(facecam_t(~isnan(facecam_t)), ...
+    stim_aligned_movement = interp1(facecam_t(~isnan(facecam_t)), ...
         frame_movement(~isnan(facecam_t)),t_peri_event,'previous');
 end
 
@@ -100,43 +142,73 @@ if task_dataset
     
 % Outcome (reward page 1, punish page 2)
 % (note incorrect outcome imprecise from signals, but looks good)
-event_aligned_outcome = zeros(size(t_peri_event,1),size(t_peri_event,2),2);
+stim_aligned_outcome = zeros(size(t_peri_event,1),size(t_peri_event,2),2);
 
-event_aligned_outcome(trial_outcome == 1,:,1) = ...
+stim_aligned_outcome(trial_outcome == 1,:,1) = ...
     (cell2mat(arrayfun(@(x) ...
     histcounts(reward_t_timeline,t_peri_event_bins(x,:)), ...
     find(trial_outcome == 1),'uni',false))) > 0;
 
-event_aligned_outcome(trial_outcome == -1,:,2) = ...
+stim_aligned_outcome(trial_outcome == -1,:,2) = ...
     (cell2mat(arrayfun(@(x) ...
     histcounts(signals_events.responseTimes,t_peri_event_bins(x,:)), ...
     find(trial_outcome == -1),'uni',false))) > 0;
 
 end
 
-%% Set common time bins for continuous data and interpolate
+%% Task regression: set time points and grab continuous data
 
-% Parameters for regression
-regression_params.use_svs = 1:100;
-regression_params.skip_seconds = 20;
-regression_params.sample_rate = raster_sample_rate;
-regression_params.kernel_t = [-0.1,0.1];
-regression_params.zs = [false,false];
-regression_params.cvfold = 5;
-regression_params.use_constant = true;
-
-% Get time points to bin
-time_bins = frame_t(find(frame_t > ...
-    regression_params.skip_seconds,1)):1/regression_params.sample_rate: ...
-    frame_t(find(frame_t-frame_t(end) < ...
-    -regression_params.skip_seconds,1,'last'));
-time_bin_centers = time_bins(1:end-1) + diff(time_bins)/2;
-
-% Resample deconvolved fluorescence
-fVdf_deconv_recast_resample = interp1(frame_t,fVdf_deconv_recast',time_bin_centers,'previous')';
+if task_dataset
     
+    % Parameters for regression
+    regression_params.use_svs = 1:100;
+    regression_params.skip_seconds = 20;
+    regression_params.sample_rate = raster_sample_rate;
+    regression_params.kernel_t = [-0.1,0.1];
+    regression_params.zs = [false,false];
+    regression_params.cvfold = 5;
+    regression_params.use_constant = true;
+    
+    if imaging_exists
+        
+        % Continuous time bins based on frame start/end
+        time_bins = frame_t(find(frame_t > ...
+            regression_params.skip_seconds,1)):1/regression_params.sample_rate: ...
+            frame_t(find(frame_t-frame_t(end) < ...
+            -regression_params.skip_seconds,1,'last'));
+        time_bin_centers = time_bins(1:end-1) + diff(time_bins)/2;
+        
+        % Resample deconvolved fluorescence
+        fVdf_deconv_recast_resample = interp1(frame_t,fVdf_deconv_recast',time_bin_centers,'previous')';
+        
+    elseif ~imaging_exists && ephys_exists
+        
+        % Continuous time bins based on experiment start/end
+        time_bins = (acqLive_timeline(1) + regression_params.skip_seconds): ...
+            1/regression_params.sample_rate: ...
+            (acqLive_timeline(end) - regression_params.skip_seconds);
+        time_bin_centers = time_bins(1:end-1) + diff(time_bins)/2;
+        
+        % Bin continuous muliunit by area
+        binned_spikes = nan(length(probe_areas),length(time_bin_centers));
+        for curr_area = 1:length(probe_areas)
+            curr_spikes = spike_times_timeline(...
+                spike_depths >= probe_area_boundaries{curr_area}(1) & ...
+                spike_depths <= probe_area_boundaries{curr_area}(2));
+            
+            if isempty(curr_spike_times)
+                continue
+            end
+            
+            binned_spikes(curr_area,:) = ...
+                histcounts(curr_spikes,time_bins)*raster_sample_rate;
+        end
+                
+    end
+    
+end
 
-%% Regress task to cortex
+%% Task regression: execute
 
 if task_dataset
     
@@ -244,21 +316,42 @@ if task_dataset
     use_constant = false;
     return_constant = false;
    
-    % Regression task -> (master U, deconvolved) fluor
-%     baseline = nanmean(reshape(event_aligned_V_deconv(:,t < 0,:),[],size(event_aligned_V_deconv,3)))';
-%     activity = single(fVdf_deconv_recast_resample(use_components,:))-baseline;
-    activity = single(fVdf_deconv_recast_resample(use_components,:));
+    % Regress task to fluor (master U, deconvolved)
+    if imaging_exists
+        baseline = nanmean(reshape(stim_aligned_V_deconv(:,t < 0,:),[],size(stim_aligned_V_deconv,3)))';
+        activity = single(fVdf_deconv_recast_resample(use_components,:))-baseline;
+        
+        [fluor_taskpred_k,fluor_taskpred_long,fluor_taskpred_expl_var,fluor_taskpred_reduced_long] = ...
+            AP_regresskernel(task_regressors,activity,task_regressor_sample_shifts, ...
+            lambda,zs,cvfold,return_constant,use_constant);
+        
+        fluor_taskpred = ...
+            interp1(time_bin_centers,fluor_taskpred_long',t_peri_event,'previous');
+        
+        fluor_taskpred_reduced = cell2mat(arrayfun(@(x) ...
+            interp1(time_bin_centers,fluor_taskpred_reduced_long(:,:,x)', ...
+            t_peri_event,'previous'),permute(1:length(task_regressors),[1,3,4,2]),'uni',false));
+    end
     
-    [fluor_taskpred_k,fluor_taskpred_long,fluor_taskpred_expl_var,fluor_taskpred_reduced_long] = ...
-        AP_regresskernel(task_regressors,activity,task_regressor_sample_shifts, ...
-        lambda,zs,cvfold,return_constant,use_constant);
-    
-    fluor_taskpred = ...
-        interp1(time_bin_centers,fluor_taskpred_long',t_peri_event,'previous');
-    
-    fluor_taskpred_reduced = cell2mat(arrayfun(@(x) ...
-        interp1(time_bin_centers,fluor_taskpred_reduced_long(:,:,x)', ...
-        t_peri_event,'previous'),permute(1:length(task_regressors),[1,3,4,2]),'uni',false));   
+    % Regress task to multiunit
+    if ephys_exists
+        
+        baseline = nanmean(reshape(stim_aligned_mua_area(:,t < 0,:),[], ...
+            size(stim_aligned_mua_area,3)),1)';
+        activity = single(binned_spikes) - baseline;
+        
+        [mua_taskpred_k,mua_taskpred_long,mua_taskpred_expl_var,mua_taskpred_reduced_long] = ...
+            AP_regresskernel(task_regressors,activity,task_regressor_sample_shifts, ...
+            lambda,zs,cvfold,return_constant,use_constant);
+        
+        mua_taskpred = ...
+            interp1(time_bin_centers,mua_taskpred_long',t_peri_event);
+        
+        mua_taskpred_reduced = cell2mat(arrayfun(@(x) ...
+            interp1(time_bin_centers,mua_taskpred_reduced_long(:,:,x)', ...
+            t_peri_event),permute(1:length(task_regressors),[1,3,4,2]),'uni',false));
+        
+    end
     
 end
 
@@ -266,27 +359,42 @@ end
 
 trial_data = struct;
 
+% Task/behavioral data
 trial_data.trial_info_all = trial_info;
-
-trial_data.wheel_all = event_aligned_wheel(use_trials,:,:);
-if exist('event_aligned_movement','var')
-    trial_data.movement_all = event_aligned_movement(use_trials,:,:);
+trial_data.wheel_all = stim_aligned_wheel(use_trials,:,:);
+if exist('stim_aligned_movement','var')
+    trial_data.movement_all = stim_aligned_movement(use_trials,:,:);
 end
 
-trial_data.fluor_all = event_aligned_V_deconv(use_trials,:,:,:);
+% Aligned neural data
+if imaging_exists
+    trial_data.fluor_all = stim_aligned_V_deconv(use_trials,:,:,:);
+end
+if ephys_exists
+    trial_data.mua_depth = stim_aligned_mua_depth(use_trials,:,:,:);
+    trial_data.mua_area = stim_aligned_mua_area(use_trials,:,:,:);
+end
 
-% trial_data.ctx_wheel_k_all = ctx_wheel_k_recast;
-% trial_data.wheel_ctxpred_all = event_aligned_wheel_ctxpred(use_trials,:,:);
-
+% Task neural data
 if task_dataset
     
-    trial_data.outcome_all = event_aligned_outcome(use_trials,:,:);
+    trial_data.outcome_all = stim_aligned_outcome(use_trials,:,:);
     
-    trial_data.fluor_taskpred_k_all = fluor_taskpred_k;
-    trial_data.fluor_taskpred_all = fluor_taskpred(use_trials,:,:,:);
-    trial_data.fluor_taskpred_reduced_all = fluor_taskpred_reduced(use_trials,:,:,:);
-    trial_data.fluor_taskpred_expl_var_total_all = fluor_taskpred_expl_var.total;
-    trial_data.fluor_taskpred_expl_var_partial_all = fluor_taskpred_expl_var.partial;
+    if imaging_exists
+        trial_data.fluor_taskpred_k_all = fluor_taskpred_k;
+        trial_data.fluor_taskpred_all = fluor_taskpred(use_trials,:,:,:);
+        trial_data.fluor_taskpred_reduced_all = fluor_taskpred_reduced(use_trials,:,:,:);
+        trial_data.fluor_taskpred_expl_var_total_all = fluor_taskpred_expl_var.total;
+        trial_data.fluor_taskpred_expl_var_partial_all = fluor_taskpred_expl_var.partial;
+    end
+    
+    if ephys_exists
+        trial_data.mua_taskpred_k_all = mua_taskpred_k;
+        trial_data.mua_taskpred_all = mua_taskpred(use_trials,:,:,:);
+        trial_data.mua_taskpred_reduced_all = mua_taskpred_reduced(use_trials,:,:,:);
+        trial_data.mua_taskpred_expl_var_total_all = mua_taskpred_expl_var.total;
+        trial_data.mua_taskpred_expl_var_partial_all = mua_taskpred_expl_var.partial;
+    end
     
 end
 

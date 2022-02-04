@@ -2144,7 +2144,7 @@ save([save_path filesep save_fn],'-v7.3');
 clear all
 disp('Muscimol: Passive trial activity (tetO)')
 
-animals = {'AP100','AP101','AP103','AP104','AP105','AP106'};
+animals = {'AP100','AP105','AP106','AP107','AP108'};
 
 % Initialize save variable
 trial_data_all = struct;
@@ -2155,15 +2155,20 @@ for curr_animal = 1:length(animals)
     protocol = 'AP_lcrGratingPassive';
     experiments = AP_find_experiments(animal,protocol);
     
-    % Get days with muscimol
+    % Get days with V1 muscimol and washout
     data_path = 'C:\Users\Andrew\OneDrive for Business\Documents\CarandiniHarrisLab\analysis\operant_learning\data';
     muscimol_fn = [data_path filesep 'muscimol.mat'];
     load(muscimol_fn);
     muscimol_animal_idx = ismember({muscimol.animal},animal);
-    muscimol_experiments = ismember({experiments.day},muscimol(muscimol_animal_idx).day);
     
-    % Set experiments to use (imaging, not muscimol)
-    experiments = experiments([experiments.imaging] & muscimol_experiments);
+    v1_muscimol_idx = find(strcmpi(muscimol(muscimol_animal_idx).area,'v1'));
+    washout_idx = find(strcmpi(muscimol(muscimol_animal_idx).area,'washout'));
+    v1_washout_idx = washout_idx(find(washout_idx > v1_muscimol_idx,1,'first'));
+    
+    % Set experiments to use (V1 muscimol and subsequent washout)
+    use_muscimol_experiments = ismember({experiments.day}, ...
+        muscimol(muscimol_animal_idx).day([v1_muscimol_idx,v1_washout_idx]));
+    experiments = experiments(use_muscimol_experiments);
     
     disp(['Loading ' animal]);
     
@@ -2220,7 +2225,7 @@ disp(['Saved: ' save_path filesep save_fn])
 clear all
 disp('Muscimol: Task trial activity (tetO)')
 
-animals = {'AP100','AP101','AP103','AP104','AP105','AP106'};
+animals = {'AP100','AP105','AP106','AP107','AP108'};
 
 % Initialize save variable
 trial_data_all = struct;
@@ -2231,16 +2236,20 @@ for curr_animal = 1:length(animals)
     protocol = 'AP_stimWheelRight';
     experiments = AP_find_experiments(animal,protocol);
        
-    % Get days with muscimol
+    % Get days with V1 muscimol and washout
     data_path = 'C:\Users\Andrew\OneDrive for Business\Documents\CarandiniHarrisLab\analysis\operant_learning\data';
     muscimol_fn = [data_path filesep 'muscimol.mat'];
     load(muscimol_fn);
     muscimol_animal_idx = ismember({muscimol.animal},animal);
-    muscimol_start_day = muscimol(muscimol_animal_idx).day{1};   
-    muscimol_experiments = ismember({experiments.day},muscimol(muscimol_animal_idx).day);
     
-    % Set experiments to use (imaging, not muscimol)
-    experiments = experiments([experiments.imaging] & muscimol_experiments);
+    v1_muscimol_idx = find(strcmpi(muscimol(muscimol_animal_idx).area,'v1'));
+    washout_idx = find(strcmpi(muscimol(muscimol_animal_idx).area,'washout'));
+    v1_washout_idx = washout_idx(find(washout_idx > v1_muscimol_idx,1,'first'));
+    
+    % Set experiments to use (V1 muscimol and subsequent washout)
+    use_muscimol_experiments = ismember({experiments.day}, ...
+        muscimol(muscimol_animal_idx).day([v1_muscimol_idx,v1_washout_idx]));
+    experiments = experiments(use_muscimol_experiments);
     
     disp(['Loading ' animal]);
     
@@ -2368,20 +2377,20 @@ disp(['Saved: ' save_path filesep save_fn])
 
 
 
-%% Passive: ephys
+%% Passive - ephys
+
+clear all
+disp('Passive trial activity (ephys)')
 
 animals = {'AP100','AP101','AP104','AP105','AP106'};
 
-% (load the CCF structure tree)
-allen_atlas_path = fileparts(which('template_volume_10um.npy'));
-st = loadStructureTree([allen_atlas_path filesep 'structure_tree_safe_2017.csv']);
+% Initialize save variable
+trial_data_all = struct;
 
-stim_mua = struct('depth',cell(size(animals)));
 for curr_animal = 1:length(animals)
     
     animal = animals{curr_animal};
     protocol = 'AP_lcrGratingPassive';
-%     protocol = 'AP_stimWheelRight';
     experiments = AP_find_experiments(animal,protocol);
     
     % Set experiments to use (ephys)
@@ -2402,137 +2411,157 @@ for curr_animal = 1:length(animals)
         ephys_align = 'cortex';
         AP_load_experiment;
         
-        % Load probe ccf alignment for animal
-        [probe_ccf_fn,probe_ccf_fn_exists] = AP_cortexlab_filename(animal,[],[],'probe_ccf');
-        if probe_ccf_fn_exists
-            load(probe_ccf_fn);
-        else
-            error('No probe ccf');
+        % Pull out trial data
+        operant_grab_trial_data;
+   
+        % Store trial data into master structure
+        trial_data_fieldnames = fieldnames(trial_data);
+        for curr_trial_data_field = trial_data_fieldnames'
+            trial_data_all.(cell2mat(curr_trial_data_field)){curr_animal,1}{curr_day,1} = ...
+                trial_data.(cell2mat(curr_trial_data_field));
         end
         
-        % Get area names and borders across probe
-        % (one back in hierarchy to ignore layers)
-        [~,dv_sort_idx] = sort(probe_ccf.trajectory_coords(:,2));       
-        dv_voxel2um = 10; % not correct scaling - CCF default
-        probe_trajectory_depths = ...
-            pdist2(probe_ccf.trajectory_coords, ...
-            probe_ccf.trajectory_coords((dv_sort_idx == 1),:))*dv_voxel2um;
+        % Store MUA info
+        trial_data_all.mua_depth_edges = depth_group_edges;
+        trial_data_all.probe_areas{curr_day,1} = probe_areas;
         
-        probe_depths = probe_trajectory_depths + ctx_start;
+        % Store general info
+        trial_data_all.animals = animals;
+        trial_data_all.t = t;
+    
+        AP_print_progress_fraction(curr_day,length(experiments));
         
-        recorded_areas = unique(probe_ccf.trajectory_areas(probe_depths > 0 & ...
-            probe_depths < max(channel_positions(:,2))));
+        % Clear for next loop
+        clearvars('-except',preload_vars{:});
         
-        recorded_area_id_bottomhierarchy = st(recorded_areas,:).structure_id_path;
-        recorded_area_id = unique(cellfun(@(area,slash) ...
-            area(1:slash(end-1)),recorded_area_id_bottomhierarchy, ...
-            cellfun(@(x) strfind(x,'/'), ...
-            recorded_area_id_bottomhierarchy,'uni',false),'uni',false));      
-        
-        recorded_area_name = cellfun(@(area) st(...
-            strcmp(area,st.structure_id_path),:).safe_name, ...
-            recorded_area_id);
+    end
+    
+end
 
-        recorded_area_boundaries = cellfun(@(area) ...
-            minmax(probe_depths(contains( ...
-            st(probe_ccf.trajectory_areas,:).structure_id_path,area))), ...
-            recorded_area_id,'uni',false);
-                    
-        % Get event-aligned activity
-        raster_window = [-0.5,2];
-        raster_sample_rate = 50;
-        
-        raster_sample_time = 1/raster_sample_rate;
-        t = raster_window(1):raster_sample_time:raster_window(2);
-        
-        % Get align times
-        use_align = stimOn_times;
-        use_align(isnan(use_align)) = 0;
-        
-        t_peri_event = use_align + t;
-        t_peri_event_bins = [t_peri_event-raster_sample_time/2,t_peri_event(:,end)+raster_sample_time/2];
+clearvars -except trial_data_all
+disp('Finished loading all')
 
-        % Align wheel move
-        event_aligned_wheelmove = interp1(Timeline.rawDAQTimestamps, ...
-            +wheel_move,t_peri_event,'previous');
+% Save
+save_path = 'C:\Users\Andrew\OneDrive for Business\Documents\CarandiniHarrisLab\analysis\operant_learning\data';
+save_fn = ['trial_activity_passive_ephys'];
+save([save_path filesep save_fn],'-v7.3');
+disp(['Saved: ' save_path filesep save_fn])
         
-        % Get multiunit by depth       
-        depth_group_edges = 0:500:4000;
-        n_depths = length(depth_group_edges)-1;
-        depth_group = discretize(spike_depths-ctx_start,depth_group_edges);
+        
+
+% (Processing: can use below later)
+% 
+% 
+% 
+% raster_window = [-0.5,2];
+% raster_sample_rate = 50;
+% raster_sample_time = 1/raster_sample_rate;
+% t = raster_window(1):raster_sample_time:raster_window(2);
+% 
+% depth_group_edges = 0:500:4000;
+% depth_group_centers = depth_group_edges(1:end-1) + diff(depth_group_edges)/2;
+% 
+% depth_cat = cell2mat(permute([stim_mua.depth],[1,3,2]));
+% depth_norm_mean = nanmean((depth_cat-nanmean(depth_cat(:,t<0,:),2))./ ...
+%     nanmean(depth_cat(:,t<0,:),2),3);
+% figure;
+% AP_stackplot(depth_norm_mean',t,3*nanstd(depth_norm_mean(:)),[],'k',depth_group_centers)
+% line([0,0],ylim,'color','r');
+% line([0.5,0.5],ylim,'color','r');
+% title('Depth mean');
+% 
+% probe_areas_all = setdiff(fieldnames(stim_mua),'depth');
+% recorded_area_norm_mean = nan(length(probe_areas_all),length(t));
+% recorded_area_n = nan(length(probe_areas_all),1);
+% for curr_area = 1:length(probe_areas_all)
+%     area_cat = cell2mat([stim_mua.(probe_areas_all{curr_area})]');    
+%     recorded_area_n(curr_area) = size(area_cat,1);
+% 
+%     area_baseline = nanmean(area_cat(:,t<0),2);
+%     area_norm_mean = nanmean((area_cat - area_baseline)./area_baseline,1);
+%     recorded_area_norm_mean(curr_area,:) = area_norm_mean;
+% end
+% 
+% figure;
+% plot_areas = recorded_area_n > 3;
+% AP_stackplot(recorded_area_norm_mean(plot_areas,:)',t, ...
+%     4*nanstd(reshape(recorded_area_norm_mean(plot_areas,:),[],1)),[],'k',...
+%     regexprep(probe_areas_all(plot_areas),'_',' '));
+% line([0,0],ylim,'color','r');
+% line([0.5,0.5],ylim,'color','r');
+% title('Area mean');
+
+
+%% Task - ephys
+
+clear all
+disp('Task trial activity (ephys)')
+
+animals = {'AP100','AP101','AP104','AP105','AP106'};
+
+% Initialize save variable
+trial_data_all = struct;
+
+for curr_animal = 1:length(animals)
+    
+    animal = animals{curr_animal};
+    protocol = 'AP_stimWheelRight';
+    experiments = AP_find_experiments(animal,protocol);
+       
+    % Set experiments to use (ephys)
+    experiments = experiments([experiments.ephys]);
+    
+    disp(['Loading ' animal]);
+    
+    for curr_day = 1:length(experiments)
+        
+        preload_vars = who;
+        
+        day = experiments(curr_day).day;
+        experiment = experiments(curr_day).experiment(end);
+        
+        % Load experiment
+        % (load LFP to find cortex start)
+        lfp_channel = 'all';
+        ephys_align = 'cortex';
+        AP_load_experiment;
+        
+        % Pull out trial data
+        operant_grab_trial_data;
+        
+        % Store trial data into master structure
+        trial_data_fieldnames = fieldnames(trial_data);
+        for curr_trial_data_field = trial_data_fieldnames'
+            trial_data_all.(cell2mat(curr_trial_data_field)){curr_animal,1}{curr_day,1} = ...
+                trial_data.(cell2mat(curr_trial_data_field));
+        end
                
-        curr_stim_mua_depth = nan(length(stimOn_times),length(t),n_depths);
-        for curr_depth = 1:n_depths
-            curr_spikes = spike_times_timeline(depth_group == curr_depth);
-            
-            % (skip if no spikes at this depth)
-            if isempty(curr_spikes)
-                continue
-            end
-            
-            curr_stim_mua_depth(:,:,curr_depth) = cell2mat(arrayfun(@(x) ...
-                histcounts(curr_spikes,t_peri_event_bins(x,:)), ...
-                [1:size(t_peri_event,1)]','uni',false))*raster_sample_rate;
-        end
+        % Store MUA info
+        trial_data_all.mua_depth_edges = depth_group_edges;
+        trial_data_all.probe_areas{curr_day,1} = probe_areas;
         
-        % Get multiunit by area
-        curr_stim_mua_area = nan(length(stimOn_times),length(t),length(recorded_area_name));
-        for curr_area = 1:length(recorded_area_name)
-            curr_spikes = spike_times_timeline(...
-                spike_depths >= recorded_area_boundaries{curr_area}(1) & ...
-                spike_depths <= recorded_area_boundaries{curr_area}(2));
-            
-            % (skip if no spikes in this area)
-            if isempty(curr_spikes)
-                continue
-            end
-            
-            curr_stim_mua_area(:,:,curr_area) = cell2mat(arrayfun(@(x) ...
-                histcounts(curr_spikes,t_peri_event_bins(x,:)), ...
-                [1:size(t_peri_event,1)]','uni',false))*raster_sample_rate;         
-        end
+        % Store general info
+        trial_data_all.animals = animals;
+        trial_data_all.t = t;
+        trial_data_all.task_regressor_labels = task_regressor_labels;
+        trial_data_all.task_regressor_sample_shifts = task_regressor_sample_shifts;
+        trial_data_all.mua_depth_edges = depth_group_edges;
         
-        % Store average across relevant trials
-        quiescent_trials = ~any(event_aligned_wheelmove(:,t > 0 & t < 0.5),2);
-        use_trials = quiescent_trials & stimIDs == 3;
+        AP_print_progress_fraction(curr_day,length(experiments));
         
-        curr_stim_mua_depth_mean = permute(nanmean(curr_stim_mua_depth(use_trials,:,:),1),[3,2,1]);
-        curr_stim_mua_area_mean = permute(nanmean(curr_stim_mua_area(use_trials,:,:),1),[3,2,1]);  
-        
-        stim_mua(curr_animal).depth{curr_day} = curr_stim_mua_depth_mean;
-        for curr_area = 1:length(recorded_area_name)
-            stim_mua(curr_animal). ...
-                (regexprep(recorded_area_name{curr_area},' ','_')){curr_day} = ...
-                curr_stim_mua_area_mean(curr_area,:);
-        end
-        
-        % Prep next loop
-        AP_print_progress_fraction(curr_day,length(experiments));     
+        % Clear for next loop
         clearvars('-except',preload_vars{:});
         
     end
 end
 
+clearvars -except trial_data_all
 disp('Finished loading all')
 
-
-raster_window = [-0.5,2];
-raster_sample_rate = 50;
-
-raster_sample_time = 1/raster_sample_rate;
-t = raster_window(1):raster_sample_time:raster_window(2);
-
-depth_cat = cell2mat(permute([stim_mua.depth],[1,3,2]));
-depth_norm_mean = nanmean((depth_cat-nanmean(depth_cat(:,t<0,:),2))./ ...
-    nanmean(depth_cat(:,t<0,:),2),3);
-figure;plot(t,depth_norm_mean)
-title('Depth mean');
-
-mos_cat = cell2mat(permute([stim_mua.Secondary_motor_area],[1,3,2]));
-mos_norm_mean = nanmean((mos_cat-nanmean(mos_cat(:,t<0,:),2))./ ...
-    nanmean(mos_cat(:,t<0,:),2),3);
-figure;plot(t,mos_cat)
-title('MOs mean');
+% Save
+save_path = 'C:\Users\Andrew\OneDrive for Business\Documents\CarandiniHarrisLab\analysis\operant_learning\data';
+save_fn = ['trial_activity_task_ephys'];
+save([save_path filesep save_fn],'-v7.3');
 
 
 %% ~~~~~~~~~ BATCH ANALYSIS ~~~~~~~~~
@@ -3868,7 +3897,7 @@ end
 fluor_muscimol_avg_px = AP_svdFrameReconstruct(U_master(:,:,1:n_vs), ...
     fluor_muscimol_avg);
 
-AP_image_scroll(fluor_muscimol_avg_px)
+AP_image_scroll(fluor_muscimol_avg_px,t)
 caxis([-max(abs(caxis)),max(abs(caxis))]);
 colormap(brewermap([],'PrGn'));
 axis image;

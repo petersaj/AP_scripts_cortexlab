@@ -1005,7 +1005,7 @@ if ephys_exists && load_parts.ephys && exist('lfp_channel','var')
 end
 
 
-%% Estimate boundaries on probe
+%% Estimate area boundaries on probe
 % (from old experiments, expects striatum alignment by default unless an
 % 'ephys_align' variable is set)
 
@@ -1027,20 +1027,24 @@ if ephys_exists && load_parts.ephys && ~exist('ephys_align','var')
     [str_depth,aligned_str_depth_group] = AP_align_striatum_ephys;
     
 elseif ephys_exists && load_parts.ephys && exist('ephys_align','var') && ...
-        strcmp(ephys_align,'cortex')
+        strcmp(ephys_align,'cortex')    
+    if verbose; disp('Estimating cortex boundaries on probe...'); end
     
     % Cortex alignment: assume top of probe out of brain and very
-    % correlated, look for largest drop in smoothed correlation average
-    % from the top down (requires lfp 'all' channel load)
+    % correlated, look for big drop in correlation from top-down
     lfp_corr = corrcoef(double(transpose(lfp-nanmedian(lfp,1))));
     lfp_corr_diag = lfp_corr;
     lfp_corr_diag(triu(true(size(lfp_corr)),1)) = NaN;
-    lfp_corr_from_top = smooth(medfilt1(nanmean(lfp_corr_diag,2),10),5);
-    [~,lfp_corr_drop] = min(diff(lfp_corr_from_top));
-    ctx_start = lfp_channel_positions(lfp_corr_drop);
+    lfp_corr_from_top = nanmean(lfp_corr_diag,2)';
     
+    n_lfp_medfilt = 5;
+    ctx_start = lfp_channel_positions( ...
+        find(medfilt1(lfp_corr_from_top,n_lfp_medfilt) > ...
+        sum(minmax(medfilt1(lfp_corr_from_top,n_lfp_medfilt)))*0.9,1,'last'));
+
     if verbose
-        imagesc(lfp_channel_positions,lfp_channel_positions,lfp_corr);
+        figure;
+        imagesc(lfp_channel_positions,lfp_channel_positions,lfp_corr_diag);
         axis image
         colormap(brewermap([],'*RdBu'));
         caxis([-1,1])
@@ -1050,7 +1054,50 @@ elseif ephys_exists && load_parts.ephys && exist('ephys_align','var') && ...
         ylabel(c,'Med. sub. correlation');
         line(xlim,[ctx_start,ctx_start],'color','k','linewidth',2);
         line([ctx_start,ctx_start],ylim,'color','k','linewidth',2);
-        title('LFP correlation and cortex start');
+        title(sprintf('%s %s: LFP correlation and cortex start',animal,day));
+    end
+            
+    % (if the detected cortex start is after the first unit, debug)
+    ctx_lfp_spike_diff = ctx_start-min(template_depths);
+    if ctx_lfp_spike_diff > 100 % 100um leeway
+        error('%s %s: LFP-estimated cortex start is after first unit %.0f um', ...
+            animal,day,ctx_lfp_spike_diff);
+    end
+    
+    
+    %%% If histology is aligned, get areas by depth
+    [probe_ccf_fn,probe_ccf_fn_exists] = AP_cortexlab_filename(animal,[],[],'probe_ccf');
+    if ~probe_ccf_fn_exists
+        if verbose; disp('No histology alignment for probe...'); end
+    elseif probe_ccf_fn_exists
+        if verbose; disp('Estimating histology-aligned cortical areas on probe...'); end
+        
+        % (load the CCF structure tree)
+        allen_atlas_path = fileparts(which('template_volume_10um.npy'));
+        st = loadStructureTree([allen_atlas_path filesep 'structure_tree_safe_2017.csv']);
+        
+        % Load probe CCF alignment
+        load(probe_ccf_fn);
+        
+        % Get area names and borders across probe
+        [~,dv_sort_idx] = sort(probe_ccf.trajectory_coords(:,2));
+        dv_voxel2um = 10*0.945; % CCF DV estimated scaling
+        probe_trajectory_depths = ...
+            pdist2(probe_ccf.trajectory_coords, ...
+            probe_ccf.trajectory_coords((dv_sort_idx == 1),:))*dv_voxel2um;
+        
+        probe_depths = probe_trajectory_depths + ctx_start;
+        
+        % Get recorded areas and boundaries (ignore layer distinctions)
+        probe_areas = unique(regexprep( ...
+            st(probe_ccf.trajectory_areas(probe_depths > 0 & ...
+            probe_depths < max(channel_positions(:,2))),:).safe_name, ...
+            ' layer .*',''));
+        
+        probe_area_boundaries = cellfun(@(area) ...
+            minmax(probe_depths(contains( ...
+            st(probe_ccf.trajectory_areas,:).safe_name,area))), ...
+            probe_areas,'uni',false);
     end
     
 end

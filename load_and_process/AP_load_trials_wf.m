@@ -232,11 +232,11 @@ if task_dataset
     fluor_taskpred_allcat = cell2mat(vertcat(fluor_taskpred_all{:}));
     fluor_taskpred_reduced_allcat = cell2mat(vertcat(fluor_taskpred_reduced_all{:}));
     
-    % (subtract baseline on each trial)
-    fluor_taskpred_allcat = fluor_taskpred_allcat - ...
-        nanmean(fluor_taskpred_allcat(:,t_baseline,:),2);
-    fluor_taskpred_reduced_allcat = fluor_taskpred_reduced_allcat - ...
-        nanmean(fluor_taskpred_reduced_allcat(:,t_baseline,:,:),2);
+%     % (subtract baseline on each trial)
+%     fluor_taskpred_allcat = fluor_taskpred_allcat - ...
+%         nanmean(fluor_taskpred_allcat(:,t_baseline,:),2);
+%     fluor_taskpred_reduced_allcat = fluor_taskpred_reduced_allcat - ...
+%         nanmean(fluor_taskpred_reduced_allcat(:,t_baseline,:,:),2);
 end
 
 % % Deconvolve fluorescence, subtract baseline for each trial

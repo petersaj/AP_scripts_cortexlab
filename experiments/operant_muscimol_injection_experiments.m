@@ -265,39 +265,58 @@ disp(['Saved ' muscimol_fn]);
 
 %% Plot pixel stats
 
+% Load muscimol injection info
+data_path = 'C:\Users\Andrew\OneDrive for Business\Documents\CarandiniHarrisLab\analysis\operant_learning\data';
+muscimol_fn = [data_path filesep 'muscimol.mat'];
+load(muscimol_fn);
+
+% Plot all pixel stats
 for curr_animal = 7:length(muscimol)
-    a = cat(3,muscimol(curr_animal).px_mad{:}); 
-    b = muscimol(curr_animal).area;
-    AP_image_scroll(a,b);axis image
+    curr_px = cat(3,muscimol(curr_animal).px_mad{:}); 
+    curr_areas = muscimol(curr_animal).area;
+    AP_image_scroll(curr_px,curr_area);axis image
     set(gcf,'name',muscimol(curr_animal).animal);
 end
 
-% fuck this
-for curr_animal = 7:length(muscimol)
-    a = cat(3,muscimol(curr_animal).px_mad{:});
-    b = muscimol(curr_animal).area;
-    curr_washout = find(strcmp(b,'washout'));
-    curr_muscimol = find(~strcmp(b,'washout'));
-    a2 = nan(size(a,1),size(a,2),length(curr_muscimol));
-    for curr_muscimol_idx = 1:length(curr_muscimol)
-        curr_use_washout = curr_washout(find(curr_washout > ...
-            curr_muscimol(curr_muscimol_idx),1));
-        curr_muscimol_px = a(:,:,curr_muscimol(curr_muscimol_idx));
-        curr_washout_px = a(:,:,curr_use_washout);
-        px_idx = (curr_muscimol_px-curr_washout_px)./(curr_muscimol_px+curr_washout_px);
-        a2(:,:,curr_muscimol_idx) = px_idx;
-    end
+% Plot V1 muscimol change index
+use_v1_muscimol = {'AP100','AP105','AP106','AP107','AP108'};
+use_v1_muscimol_idx = find(contains({muscimol.animal},use_v1_muscimol));
 
-
-    AP_image_scroll(a,b);axis image
-    set(gcf,'name',muscimol(curr_animal).animal);
+v1_muscimol_change = cell(length(use_v1_muscimol_idx),1);
+for curr_animal_idx = 1:length(use_v1_muscimol_idx)
+    curr_animal = use_v1_muscimol_idx(curr_animal_idx);
+    
+    curr_areas = muscimol(curr_animal).area;
+    
+    curr_v1_muscimol_idx = find(strcmp(curr_areas,'V1'));
+    curr_washout_idx = find(strcmp(curr_areas,'washout'));
+    curr_v1_washout_idx = curr_washout_idx(find(curr_washout_idx > ...
+        curr_v1_muscimol_idx,1));
+    
+    curr_v1_muscimol_px = muscimol(curr_animal).px_mad{curr_v1_muscimol_idx};
+    curr_v1_washout_px = muscimol(curr_animal).px_mad{curr_v1_washout_idx};
+    
+    curr_v1_change = (curr_v1_muscimol_px - curr_v1_washout_px)./ ...
+        (curr_v1_muscimol_px + curr_v1_washout_px);
+    
+    v1_muscimol_change{curr_animal_idx} = curr_v1_change; 
 end
 
+v1_muscimol_change_cat = cat(3,v1_muscimol_change{:});
+AP_image_scroll(v1_muscimol_change_cat,{muscimol(use_v1_muscimol_idx).animal});
+caxis([-1,1]);
+colormap(brewermap([],'*RdBu'));
+axis image;
 
-
-
-
-
+figure;
+v1_muscimol_change_avg = nanmean(v1_muscimol_change_cat,3);
+h = imagesc(nanmean(v1_muscimol_change_avg,3));
+set(h,'AlphaData',sum(isnan(v1_muscimol_change_cat),3) < 1);
+caxis([-1,1]);
+colormap(brewermap([],'*RdBu'));
+axis image off
+AP_reference_outline('ccf_aligned',[0.5,0.5,0.5]);
+title('Average V1 muscimol change index');
 
 
 

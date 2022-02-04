@@ -2144,7 +2144,7 @@ save([save_path filesep save_fn],'-v7.3');
 clear all
 disp('Muscimol: Passive trial activity (tetO)')
 
-animals = {'AP100','AP101','AP103','AP104','AP105','AP106'};
+animals = {'AP100','AP105','AP106','AP107','AP108'};
 
 % Initialize save variable
 trial_data_all = struct;
@@ -2155,12 +2155,21 @@ for curr_animal = 1:length(animals)
     protocol = 'AP_lcrGratingPassive';
     experiments = AP_find_experiments(animal,protocol);
     
-    % Get days with muscimol
+    % Get days with 
     data_path = 'C:\Users\Andrew\OneDrive for Business\Documents\CarandiniHarrisLab\analysis\operant_learning\data';
     muscimol_fn = [data_path filesep 'muscimol.mat'];
     load(muscimol_fn);
     muscimol_animal_idx = ismember({muscimol.animal},animal);
+    
+    v1_muscimol_idx = find(strcmp(lower(muscimol(muscimol_animal_idx).area),'v1'));
+    washout_idx = find(strcmp(lower(muscimol(muscimol_animal_idx).area),'washout'));
+    v1_washout_idx = [washout_idx(find(washout_idx < v1_muscimol_idx,1,'first')), ...
+        washout_idx(find(washout_idx > v1_muscimol_idx,1,'first')), ...
+    
     muscimol_experiments = ismember({experiments.day},muscimol(muscimol_animal_idx).day);
+    
+    % Only use days with V1 muscimol and subsequent washout
+    
     
     % Set experiments to use (imaging, not muscimol)
     experiments = experiments([experiments.imaging] & muscimol_experiments);
@@ -2411,33 +2420,25 @@ for curr_animal = 1:length(animals)
         end
         
         % Get area names and borders across probe
-        % (one back in hierarchy to ignore layers)
         [~,dv_sort_idx] = sort(probe_ccf.trajectory_coords(:,2));       
-        dv_voxel2um = 10; % not correct scaling - CCF default
+        dv_voxel2um = 10*0.945; % CCF DV estimated scaling
         probe_trajectory_depths = ...
             pdist2(probe_ccf.trajectory_coords, ...
             probe_ccf.trajectory_coords((dv_sort_idx == 1),:))*dv_voxel2um;
         
         probe_depths = probe_trajectory_depths + ctx_start;
         
-        recorded_areas = unique(probe_ccf.trajectory_areas(probe_depths > 0 & ...
-            probe_depths < max(channel_positions(:,2))));
-        
-        recorded_area_id_bottomhierarchy = st(recorded_areas,:).structure_id_path;
-        recorded_area_id = unique(cellfun(@(area,slash) ...
-            area(1:slash(end-1)),recorded_area_id_bottomhierarchy, ...
-            cellfun(@(x) strfind(x,'/'), ...
-            recorded_area_id_bottomhierarchy,'uni',false),'uni',false));      
-        
-        recorded_area_name = cellfun(@(area) st(...
-            strcmp(area,st.structure_id_path),:).safe_name, ...
-            recorded_area_id);
+        % Get recorded areas and boundaries (ignore layer-specifics)
+        recorded_areas = unique(regexprep( ...
+            st(probe_ccf.trajectory_areas(probe_depths > 0 & ...
+            probe_depths < max(channel_positions(:,2))),:).safe_name, ...
+            ' layer .*',''));
 
         recorded_area_boundaries = cellfun(@(area) ...
             minmax(probe_depths(contains( ...
-            st(probe_ccf.trajectory_areas,:).structure_id_path,area))), ...
-            recorded_area_id,'uni',false);
-                    
+            st(probe_ccf.trajectory_areas,:).safe_name,area))), ...
+            recorded_areas,'uni',false);
+                            
         % Get event-aligned activity
         raster_window = [-0.5,2];
         raster_sample_rate = 50;
@@ -2457,10 +2458,9 @@ for curr_animal = 1:length(animals)
             +wheel_move,t_peri_event,'previous');
         
         % Get multiunit by depth       
-        n_depths = 8;
-        depth_group_edges = linspace(0,4000,n_depths+1);
-        depth_group_centers = round(depth_group_edges(1:end-1)+diff(depth_group_edges)/2);
-        depth_group = discretize(spike_depths,depth_group_edges);
+        depth_group_edges = 0:500:4000;
+        n_depths = length(depth_group_edges)-1;
+        depth_group = discretize(spike_depths-ctx_start,depth_group_edges);
                
         curr_stim_mua_depth = nan(length(stimOn_times),length(t),n_depths);
         for curr_depth = 1:n_depths
@@ -2477,8 +2477,8 @@ for curr_animal = 1:length(animals)
         end
         
         % Get multiunit by area
-        curr_stim_mua_area = nan(length(stimOn_times),length(t),length(recorded_area_name));
-        for curr_area = 1:length(recorded_area_name)
+        curr_stim_mua_area = nan(length(stimOn_times),length(t),length(recorded_areas));
+        for curr_area = 1:length(recorded_areas)
             curr_spikes = spike_times_timeline(...
                 spike_depths >= recorded_area_boundaries{curr_area}(1) & ...
                 spike_depths <= recorded_area_boundaries{curr_area}(2));
@@ -2501,10 +2501,10 @@ for curr_animal = 1:length(animals)
         curr_stim_mua_area_mean = permute(nanmean(curr_stim_mua_area(use_trials,:,:),1),[3,2,1]);  
         
         stim_mua(curr_animal).depth{curr_day} = curr_stim_mua_depth_mean;
-        for curr_area = 1:length(recorded_area_name)
+        for curr_area = 1:length(recorded_areas)
             stim_mua(curr_animal). ...
-                (regexprep(recorded_area_name{curr_area},' ','_')){curr_day} = ...
-                curr_stim_mua_area_mean;
+                (regexprep(recorded_areas{curr_area},'[^a-zA-Z0-9]',{'_'})){curr_day} = ...
+                curr_stim_mua_area_mean(curr_area,:);
         end
         
         % Prep next loop
@@ -2519,18 +2519,41 @@ disp('Finished loading all')
 
 raster_window = [-0.5,2];
 raster_sample_rate = 50;
-
 raster_sample_time = 1/raster_sample_rate;
 t = raster_window(1):raster_sample_time:raster_window(2);
 
+depth_group_edges = 0:500:4000;
+depth_group_centers = depth_group_edges(1:end-1) + diff(depth_group_edges)/2;
+
 depth_cat = cell2mat(permute([stim_mua.depth],[1,3,2]));
-depth_norm_mea
+depth_norm_mean = nanmean((depth_cat-nanmean(depth_cat(:,t<0,:),2))./ ...
+    nanmean(depth_cat(:,t<0,:),2),3);
+figure;
+AP_stackplot(depth_norm_mean',t,3*nanstd(depth_norm_mean(:)),[],'k',depth_group_centers)
+line([0,0],ylim,'color','r');
+line([0.5,0.5],ylim,'color','r');
+title('Depth mean');
 
-a = cell2mat(stim_mua);
-a_baseline = nanmean(a(:,t<0,:),2);
-a2 = permute(nanmean((a - a_baseline)./a_baseline,1),[3,2,1]);
+recorded_areas_all = setdiff(fieldnames(stim_mua),'depth');
+recorded_area_norm_mean = nan(length(recorded_areas_all),length(t));
+recorded_area_n = nan(length(recorded_areas_all),1);
+for curr_area = 1:length(recorded_areas_all)
+    area_cat = cell2mat([stim_mua.(recorded_areas_all{curr_area})]');    
+    recorded_area_n(curr_area) = size(area_cat,1);
 
-figure;plot(t,a2','linewidth',2)
+    area_baseline = nanmean(area_cat(:,t<0),2);
+    area_norm_mean = nanmean((area_cat - area_baseline)./area_baseline,1);
+    recorded_area_norm_mean(curr_area,:) = area_norm_mean;
+end
+
+figure;
+plot_areas = recorded_area_n > 3;
+AP_stackplot(recorded_area_norm_mean(plot_areas,:)',t, ...
+    4*nanstd(reshape(recorded_area_norm_mean(plot_areas,:),[],1)),[],'k',...
+    regexprep(recorded_areas_all(plot_areas),'_',' '));
+line([0,0],ylim,'color','r');
+line([0.5,0.5],ylim,'color','r');
+title('Area mean');
 
 
 

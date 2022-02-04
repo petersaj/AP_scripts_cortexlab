@@ -8,6 +8,7 @@
 %% Plot behavior (for checking ongoing)
 
 % animals = {'AP110','AP111','AP112'};
+animals = {'AP110'};
 
 protocol = 'AP_stimWheelRight';
 flexible_name = false;
@@ -1126,6 +1127,11 @@ stim_feedback_t_allpad = cell2mat(cellfun(@(x) padarray(cellfun(@nanmedian,x), .
 stim_feedback_t_std_allpad = cell2mat(cellfun(@(x) padarray(cellfun(@nanstd,x), ...
     [max_days-length(x),0],NaN,'post'), ...
     cellfun(@(x,use_days) x(use_days),{bhv.stim_feedback_t},use_days,'uni',false),'uni',false));
+
+% Fraction hits
+frac_hit_allpad = cell2mat(cellfun(@(x) padarray(x, ...
+    [max_days-length(x),0],NaN,'post'), ...
+    cellfun(@(x,use_days) x(use_days),{bhv.frac_hit},use_days,'uni',false),'uni',false));
 
 % Stim vs null response index
 stim_response_idx_allpad = cell2mat(cellfun(@(x) padarray(x, ...
