@@ -277,9 +277,33 @@ end
 
 %% Cortical electrophysiology
 
-if exist('mua_area','var')
+if exist('mua_area_all','var')
     
-    probe_areas
+    
+    % Normalize (dR/R0 within day) and concatenate
+    % (depth)
+    mua_depth_day_baseline = cellfun(@(mua_animal) cellfun(@(mua_day) ...
+        nanmean(reshape(mua_day(:,t_baseline,:),1,[],size(mua_day,3)),2), ...
+        mua_animal,'uni',false),mua_depth_all,'uni',false);   
+    
+    mua_depth_allcat = cell2mat(cellfun(@(mua,mua_baseline) ...
+        (mua-mua_baseline)./mua_baseline, ...
+        vertcat(mua_depth_all{:}), ...
+        vertcat(mua_depth_day_baseline{:}),'uni',false));
+    
+    % (area)
+    probe_areas_cat = vertcat(probe_areas_all{:});
+    probe_areas_unique = unique(vertcat(probe_areas_cat{:}))'
+    
+    probe_areas_unique
+    
+    
+    
+    
+    probe_areas_all
+    
+    
+    
     
     % Concatenate cortex data, subtract baseline
     fluor_allcat = cell2mat(vertcat(fluor_all{:}));

@@ -3928,7 +3928,30 @@ trials_recording = cellfun(@(x) size(x,1),vertcat(wheel_all{:}));
 % Get trials with movement during stim to exclude
 quiescent_trials = ~any(abs(wheel_allcat(:,t >= 0 & t <= 0.5)) > 0,2);
 
+% Plot total average stim response
+use_trials = quiescent_trials & trial_stim_allcat == 1;
+spacing = 0.5;
 
+figure;
+subplot(1,2,1);
+mua_depth_centers = mua_depth_edges(1:end-1)+diff(mua_depth_edges)./2;
+AP_stackplot(squeeze(nanmean(mua_depth_allcat(use_trials,:,:),1)), ...
+    t,spacing,[],'k',mua_depth_centers);
+line([0,0],ylim,'color','r');
+line([0.5,0.5],ylim,'color','r');
+xlabel('Time from stim');
+ylabel('Cortical depth');
+
+subplot(1,2,2);
+[~,area_idx] = cellfun(@(x) ismember(x,mua_areas),mua_areas_cat,'uni',false);
+area_recording_n = accumarray(cell2mat(area_idx),1);
+plot_areas = area_recording_n == length(trials_recording);
+AP_stackplot(squeeze(nanmean(mua_area_allcat(use_trials,:,plot_areas),1)), ...
+    t,spacing,[],'k',mua_areas(plot_areas));
+line([0,0],ylim,'color','r');
+line([0.5,0.5],ylim,'color','r');
+xlabel('Time from stim');
+ylabel('Area');
 
 % (Processing: can use below later)
 % 

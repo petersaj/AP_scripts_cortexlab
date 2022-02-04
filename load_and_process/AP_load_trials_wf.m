@@ -279,41 +279,41 @@ end
 
 if exist('mua_area_all','var')
     
-    probe_areas
     
-    % Concatenate cortex data, subtract baseline
-    fluor_allcat = cell2mat(vertcat(fluor_all{:}));
-    if task_dataset
-        % (concatenate)
-        fluor_taskpred_allcat = cell2mat(vertcat(fluor_taskpred_all{:}));
-        fluor_taskpred_reduced_allcat = cell2mat(vertcat(fluor_taskpred_reduced_all{:}));
+    % Normalize (dR/R0 within day) and concatenate
+    % (depth)
+    mua_depth_day_baseline = cellfun(@(mua_animal) cellfun(@(mua_day) ...
+        nanmean(reshape(mua_day(:,t_baseline,:),1,[],size(mua_day,3)),2), ...
+        mua_animal,'uni',false),mua_depth_all,'uni',false);   
+    
+    mua_depth_allcat = cell2mat(cellfun(@(mua,mua_baseline) ...
+        (mua-mua_baseline)./mua_baseline, ...
+        vertcat(mua_depth_all{:}), ...
+        vertcat(mua_depth_day_baseline{:}),'uni',false));
+    
+    % (area)
+    mua_areas_cat = vertcat(probe_areas_all{:});
+    mua_areas = unique(vertcat(mua_areas_cat{:}));
+    
+    mua_area_day_baseline = cellfun(@(mua_animal) cellfun(@(mua_day) ...
+        nanmean(reshape(mua_day(:,t_baseline,:),1,[],size(mua_day,3)),2), ...
+        mua_animal,'uni',false),mua_area_all,'uni',false);   
+    
+    mua_area_norm = cellfun(@(mua,mua_baseline) ...
+        (mua-mua_baseline)./mua_baseline, ...
+        vertcat(mua_area_all{:}), ...
+        vertcat(mua_area_day_baseline{:}),'uni',false);
+    
+    mua_area_norm_reorder = cellfun(@(x) ...
+        nan(size(x,1),size(x,2),length(mua_areas)), ...
+        mua_area_norm,'uni',false);
+    for curr_recording = 1:length(mua_area_norm)
+        [~,curr_area_idx] = ismember(mua_areas_cat{curr_recording},mua_areas);
+        mua_area_norm_reorder{curr_recording}(:,:,curr_area_idx) = ...
+            mua_area_norm{curr_recording};  
     end
     
-    
-    
-    probe_areas_all = setdiff(fieldnames(stim_mua),'depth');
-    recorded_area_norm_mean = nan(length(probe_areas_all),length(t));
-    recorded_area_n = nan(length(probe_areas_all),1);
-    for curr_area = 1:length(probe_areas_all)
-        area_cat = cell2mat([stim_mua.(probe_areas_all{curr_area})]');
-        recorded_area_n(curr_area) = size(area_cat,1);
-        
-        area_baseline = nanmean(area_cat(:,t<0),2);
-        area_norm_mean = nanmean((area_cat - area_baseline)./area_baseline,1);
-        recorded_area_norm_mean(curr_area,:) = area_norm_mean;
-    end
-    
-    figure;
-    plot_areas = recorded_area_n > 3;
-    AP_stackplot(recorded_area_norm_mean(plot_areas,:)',t, ...
-        4*nanstd(reshape(recorded_area_norm_mean(plot_areas,:),[],1)),[],'k',...
-        regexprep(probe_areas_all(plot_areas),'_',' '));
-    line([0,0],ylim,'color','r');
-    line([0.5,0.5],ylim,'color','r');
-    title('Area mean');
-
-    
-    
+    mua_area_allcat = cell2mat(mua_area_norm_reorder);   
     
 end
 

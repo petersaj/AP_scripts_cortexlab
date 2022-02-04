@@ -971,6 +971,28 @@ end
 [~,learned_day] = max(r_frac_p_cat > 0.95,[],2);
 
 
+%%% TESTING STATS: interquartile range
+max_days = max(cellfun(@sum,use_days));
+r_frac_p_cat = nan(length(animals),max_days);
+for curr_animal = 1:length(animals)
+    for curr_day = find(use_days{curr_animal})'
+        
+        n_sample = 10000;
+        use_trials = ~cellfun(@isempty,bhv(curr_animal).alt_stim_move_t{curr_day});
+        r = bhv(curr_animal).stim_move_t{curr_day}(use_trials);
+        ar = cell2mat(cellfun(@(x) datasample(x,~isempty(x)*n_sample)', ...
+            bhv(curr_animal).alt_stim_move_t{curr_day}(use_trials),'uni',false));
+        
+        r_frac_rank = tiedrank([iqr(r),iqr(ar,1)]);
+        r_frac_p = r_frac_rank(1)./(n_sample+1);
+        
+        r_frac_p_cat(curr_animal,curr_day) = r_frac_p;
+        
+    end
+end
+
+
+
 %%% TESTING KS STATS (single-sample example)
 max_days = max(cellfun(@sum,use_days));
 p = nan(length(animals),max_days);
