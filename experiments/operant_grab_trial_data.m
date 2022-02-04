@@ -371,8 +371,9 @@ if imaging_exists
     trial_data.fluor_all = stim_aligned_V_deconv(use_trials,:,:,:);
 end
 if ephys_exists
-    trial_data.mua_depth = stim_aligned_mua_depth(use_trials,:,:,:);
-    trial_data.mua_area = stim_aligned_mua_area(use_trials,:,:,:);
+    trial_data.mua_depth_all = stim_aligned_mua_depth(use_trials,:,:,:);
+    trial_data.mua_area_all = stim_aligned_mua_area(use_trials,:,:,:);
+    trial_data.probe_areas_all = probe_areas; 
 end
 
 % Task neural data

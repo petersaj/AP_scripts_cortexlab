@@ -2421,13 +2421,10 @@ for curr_animal = 1:length(animals)
                 trial_data.(cell2mat(curr_trial_data_field));
         end
         
-        % Store MUA info
-        trial_data_all.mua_depth_edges = depth_group_edges;
-        trial_data_all.probe_areas{curr_day,1} = probe_areas;
-        
         % Store general info
         trial_data_all.animals = animals;
         trial_data_all.t = t;
+        trial_data_all.mua_depth_edges = depth_group_edges;
     
         AP_print_progress_fraction(curr_day,length(experiments));
         
@@ -2446,50 +2443,6 @@ save_path = 'C:\Users\Andrew\OneDrive for Business\Documents\CarandiniHarrisLab\
 save_fn = ['trial_activity_passive_ephys'];
 save([save_path filesep save_fn],'-v7.3');
 disp(['Saved: ' save_path filesep save_fn])
-        
-        
-
-% (Processing: can use below later)
-% 
-% 
-% 
-% raster_window = [-0.5,2];
-% raster_sample_rate = 50;
-% raster_sample_time = 1/raster_sample_rate;
-% t = raster_window(1):raster_sample_time:raster_window(2);
-% 
-% depth_group_edges = 0:500:4000;
-% depth_group_centers = depth_group_edges(1:end-1) + diff(depth_group_edges)/2;
-% 
-% depth_cat = cell2mat(permute([stim_mua.depth],[1,3,2]));
-% depth_norm_mean = nanmean((depth_cat-nanmean(depth_cat(:,t<0,:),2))./ ...
-%     nanmean(depth_cat(:,t<0,:),2),3);
-% figure;
-% AP_stackplot(depth_norm_mean',t,3*nanstd(depth_norm_mean(:)),[],'k',depth_group_centers)
-% line([0,0],ylim,'color','r');
-% line([0.5,0.5],ylim,'color','r');
-% title('Depth mean');
-% 
-% probe_areas_all = setdiff(fieldnames(stim_mua),'depth');
-% recorded_area_norm_mean = nan(length(probe_areas_all),length(t));
-% recorded_area_n = nan(length(probe_areas_all),1);
-% for curr_area = 1:length(probe_areas_all)
-%     area_cat = cell2mat([stim_mua.(probe_areas_all{curr_area})]');    
-%     recorded_area_n(curr_area) = size(area_cat,1);
-% 
-%     area_baseline = nanmean(area_cat(:,t<0),2);
-%     area_norm_mean = nanmean((area_cat - area_baseline)./area_baseline,1);
-%     recorded_area_norm_mean(curr_area,:) = area_norm_mean;
-% end
-% 
-% figure;
-% plot_areas = recorded_area_n > 3;
-% AP_stackplot(recorded_area_norm_mean(plot_areas,:)',t, ...
-%     4*nanstd(reshape(recorded_area_norm_mean(plot_areas,:),[],1)),[],'k',...
-%     regexprep(probe_areas_all(plot_areas),'_',' '));
-% line([0,0],ylim,'color','r');
-% line([0.5,0.5],ylim,'color','r');
-% title('Area mean');
 
 
 %% Task - ephys
@@ -2534,11 +2487,7 @@ for curr_animal = 1:length(animals)
         for curr_trial_data_field = trial_data_fieldnames'
             trial_data_all.(cell2mat(curr_trial_data_field)){curr_animal,1}{curr_day,1} = ...
                 trial_data.(cell2mat(curr_trial_data_field));
-        end
-               
-        % Store MUA info
-        trial_data_all.mua_depth_edges = depth_group_edges;
-        trial_data_all.probe_areas{curr_day,1} = probe_areas;
+        end 
         
         % Store general info
         trial_data_all.animals = animals;
@@ -3783,7 +3732,7 @@ for curr_area = 1:length(unique_muscimol_area)
     end
 end
 
-curr_regressor = 2;
+curr_regressor = 1;
 curr_subregressor = 1;
 curr_k_px = AP_svdFrameReconstruct(U_master(:,:,1:n_vs), ... 
     permute(muscimol_k{curr_regressor}(curr_subregressor,:,:,:),[3,2,4,1]));
@@ -3958,9 +3907,70 @@ ylabel('Washout');
 axis square;
 line(ylim,ylim,'color','k');
 
+%% >> Ephys passive
+
+% Load data
+trial_data_path = 'C:\Users\Andrew\OneDrive for Business\Documents\CarandiniHarrisLab\analysis\operant_learning\data';
+data_fn = 'trial_activity_passive_ephys';
+
+AP_load_trials_wf;
+
+% Get animal and day index for each trial
+trial_animal = cell2mat(arrayfun(@(x) ...
+    x*ones(size(vertcat(wheel_all{x}{:}),1),1), ...
+    [1:length(wheel_all)]','uni',false));
+trial_day = cell2mat(cellfun(@(x) cell2mat(cellfun(@(curr_day,x) ...
+    curr_day*ones(size(x,1),1),num2cell(1:length(x))',x,'uni',false)), ...
+    wheel_all,'uni',false));
+
+trials_recording = cellfun(@(x) size(x,1),vertcat(wheel_all{:}));
+
+% Get trials with movement during stim to exclude
+quiescent_trials = ~any(abs(wheel_allcat(:,t >= 0 & t <= 0.5)) > 0,2);
 
 
 
+% (Processing: can use below later)
+% 
+% 
+% 
+% raster_window = [-0.5,2];
+% raster_sample_rate = 50;
+% raster_sample_time = 1/raster_sample_rate;
+% t = raster_window(1):raster_sample_time:raster_window(2);
+% 
+% depth_group_edges = 0:500:4000;
+% depth_group_centers = depth_group_edges(1:end-1) + diff(depth_group_edges)/2;
+% 
+% depth_cat = cell2mat(permute([stim_mua.depth],[1,3,2]));
+% depth_norm_mean = nanmean((depth_cat-nanmean(depth_cat(:,t<0,:),2))./ ...
+%     nanmean(depth_cat(:,t<0,:),2),3);
+% figure;
+% AP_stackplot(depth_norm_mean',t,3*nanstd(depth_norm_mean(:)),[],'k',depth_group_centers)
+% line([0,0],ylim,'color','r');
+% line([0.5,0.5],ylim,'color','r');
+% title('Depth mean');
+% 
+% probe_areas_all = setdiff(fieldnames(stim_mua),'depth');
+% recorded_area_norm_mean = nan(length(probe_areas_all),length(t));
+% recorded_area_n = nan(length(probe_areas_all),1);
+% for curr_area = 1:length(probe_areas_all)
+%     area_cat = cell2mat([stim_mua.(probe_areas_all{curr_area})]');    
+%     recorded_area_n(curr_area) = size(area_cat,1);
+% 
+%     area_baseline = nanmean(area_cat(:,t<0),2);
+%     area_norm_mean = nanmean((area_cat - area_baseline)./area_baseline,1);
+%     recorded_area_norm_mean(curr_area,:) = area_norm_mean;
+% end
+% 
+% figure;
+% plot_areas = recorded_area_n > 3;
+% AP_stackplot(recorded_area_norm_mean(plot_areas,:)',t, ...
+%     4*nanstd(reshape(recorded_area_norm_mean(plot_areas,:),[],1)),[],'k',...
+%     regexprep(probe_areas_all(plot_areas),'_',' '));
+% line([0,0],ylim,'color','r');
+% line([0.5,0.5],ylim,'color','r');
+% title('Area mean');
 
 
 

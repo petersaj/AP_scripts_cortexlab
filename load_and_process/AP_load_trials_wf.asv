@@ -277,7 +277,7 @@ end
 
 %% Cortical electrophysiology
 
-if exist('mua_area_all','var')
+if exist('mua_area','var')
     
     probe_areas
     
