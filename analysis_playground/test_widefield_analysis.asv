@@ -2060,7 +2060,7 @@ ylabel(c,'Explained variance')
 
 %% Align vasculature for animal
 clear all;
-animal = 'AP040';
+animal = 'AP112';
 
 protocol = [];
 experiments = AP_find_experiments(animal,protocol);
@@ -2097,9 +2097,9 @@ AP_align_widefield(im_edge,animal,{experiments(use_days).day},'new_days');
 
 
 
-%% View aligned vasculature
+%% View aligned vasculature (to check that it's been done correctly)
 
-animal = 'AP048';
+animal = 'AP107';
 
 protocol = [];
 experiments = AP_find_experiments(animal,protocol);
@@ -2114,8 +2114,6 @@ for curr_day = 1:length(experiments)
     avg_im_aligned{curr_day} = [AP_align_widefield(avg_im_n,animal,day), ...
         AP_align_widefield(avg_im_h,animal,day)];
 end
-
-% Plot average
 c = prctile(reshape([avg_im_aligned{:}],[],1),[0,99.9]);
 AP_image_scroll(cat(3,avg_im_aligned{:}),{experiments.day});
 caxis(c);
@@ -2136,14 +2134,9 @@ wf_roi_fn = 'C:\Users\Andrew\OneDrive for Business\Documents\CarandiniHarrisLab\
 load(wf_roi_fn);
 use_roi = 9;
 use_mask = wf_roi(use_roi).mask;
-avg_im_roi = cell2mat(cellfun(@(x) ...
-    (reshape(x,[],2)'*use_mask(:))/sum(use_mask(:)),avg_im_aligned,'uni',false)');
-figure; hold on
-plot(avg_im_roi(1,:),'color',[0,0,0.8],'linewidth',2);
-plot(avg_im_roi(2,:),'color',[0.7,0,0.7],'linewidth',2);
-ylabel('Fluorescence value');
-xlabel('Day');
-title(animal);
+avg_im_roi = cellfun(@(x) reshape(x,[],2)'  avg_im_aligned
+
+
 
 
 

@@ -12365,13 +12365,10 @@ U_downsample_factor = 10;
 U_master_d = imresize(U_master(:,:,1:n_vs),1/U_downsample_factor,'bilinear');
 framerate = 1/mean(diff(t));
 
-prominence_map_all = cell(size(animals));
 for curr_animal = 1:length(animals)
-    
     disp(sprintf('Prominence: %s',animals{curr_animal}));
     curr_animal_n_days = max(trial_day(trial_animal == curr_animal));
     prominence_map = nan(size(U_master_d,1),size(U_master_d,2),curr_animal_n_days);
-    
     for curr_day = 1:curr_animal_n_days
         
         use_trials = trial_animal == curr_animal & trial_day == curr_day;
@@ -12393,23 +12390,11 @@ for curr_animal = 1:length(animals)
         prominence_map(:,:,curr_day) = curr_prominence_map;
         AP_print_progress_fraction(curr_day,curr_animal_n_days);
     end
-    
-    prominence_map_all{curr_animal} = prominence_map;
-    
 end
 
-figure;
-c = [0,prctile(reshape(cat(3,prominence_map_all{:}),[],1),[100])*0.5];
-h = tight_subplot(length(animals),1);
-for curr_animal = 1:length(animals)   
-    subplot(h(curr_animal));
-    imagesc(reshape(prominence_map_all{curr_animal}, ...
-        size(prominence_map_all{curr_animal},1),[]));
-    axis image off;
-    colormap(hot);  
-    caxis(c);
-    title(animals{curr_animal});
-end
+AP_image_scroll(prominence_map);
+axis image off; colormap(hot)
+set(gcf,'Name',animals{curr_animal});
 
 
 

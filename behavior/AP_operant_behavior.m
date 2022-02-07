@@ -8,7 +8,7 @@
 %% Plot behavior (for checking ongoing)
 
 % animals = {'AP110','AP111','AP112'};
-animals = {'AP112'};
+animals = {'AP108'};
 
 protocol = 'AP_stimWheelRight';
 flexible_name = false;
