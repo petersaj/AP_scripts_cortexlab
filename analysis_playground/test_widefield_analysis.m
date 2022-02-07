@@ -2060,7 +2060,7 @@ ylabel(c,'Explained variance')
 
 %% Align vasculature for animal
 clear all;
-animal = 'AP108';
+animal = 'AP112';
 
 protocol = [];
 experiments = AP_find_experiments(animal,protocol);
@@ -2126,7 +2126,7 @@ set(gcf,'Name',animal);
 retinotopy_path = 'C:\Users\Andrew\OneDrive for Business\Documents\CarandiniHarrisLab\analysis\widefield_alignment\retinotopy';
 retinotopy_dir = dir(retinotopy_path);
 
-animal = 'AP108';
+animal = 'AP112';
 load([retinotopy_path filesep animal '_retinotopy'])
 
 aligned_vfs = cell(length(retinotopy),1);
@@ -2212,7 +2212,7 @@ end
 retinotopy_path = 'C:\Users\Andrew\OneDrive for Business\Documents\CarandiniHarrisLab\analysis\widefield_alignment\retinotopy';
 retinotopy_dir = dir(retinotopy_path);
 
-animal = 'AP108';
+animal = 'AP112';
 load([retinotopy_path filesep animal '_retinotopy'])
 
 vfs_aligned = cell(length(retinotopy));

@@ -1993,7 +1993,7 @@ save([save_path filesep save_fn],'-v7.3');
 clear all
 disp('Passive trial activity (tetO)')
 
-animals = {'AP100','AP101','AP103','AP104','AP105','AP106','AP107','AP108','AP109'};
+animals = {'AP100','AP101','AP103','AP104','AP105','AP106','AP107','AP108','AP109','AP111','AP112'};
 
 % Initialize save variable
 trial_data_all = struct;
@@ -2069,7 +2069,7 @@ disp(['Saved: ' save_path filesep save_fn])
 clear all
 disp('Task trial activity (tetO)')
 
-animals = {'AP100','AP101','AP103','AP104','AP105','AP106','AP107','AP108','AP109'};
+animals = {'AP100','AP101','AP103','AP104','AP105','AP106','AP107','AP108','AP109','AP111','AP112'};
 
 % Initialize save variable
 trial_data_all = struct;
@@ -2637,7 +2637,7 @@ end
 
 
 % Plot stim response in single animal over days
-use_animal = 8;
+use_animal = 11;
 curr_px = AP_svdFrameReconstruct(U_master(:,:,1:n_vs),stim_v_avg{use_animal}(:,:,:,3));
 AP_image_scroll(curr_px,t);
 caxis([-max(abs(caxis)),max(abs(caxis))]);
@@ -3953,47 +3953,117 @@ line([0.5,0.5],ylim,'color','r');
 xlabel('Time from stim');
 ylabel('Area');
 
-% (Processing: can use below later)
-% 
-% 
-% 
-% raster_window = [-0.5,2];
-% raster_sample_rate = 50;
-% raster_sample_time = 1/raster_sample_rate;
-% t = raster_window(1):raster_sample_time:raster_window(2);
-% 
-% depth_group_edges = 0:500:4000;
-% depth_group_centers = depth_group_edges(1:end-1) + diff(depth_group_edges)/2;
-% 
-% depth_cat = cell2mat(permute([stim_mua.depth],[1,3,2]));
-% depth_norm_mean = nanmean((depth_cat-nanmean(depth_cat(:,t<0,:),2))./ ...
-%     nanmean(depth_cat(:,t<0,:),2),3);
-% figure;
-% AP_stackplot(depth_norm_mean',t,3*nanstd(depth_norm_mean(:)),[],'k',depth_group_centers)
-% line([0,0],ylim,'color','r');
-% line([0.5,0.5],ylim,'color','r');
-% title('Depth mean');
-% 
-% probe_areas_all = setdiff(fieldnames(stim_mua),'depth');
-% recorded_area_norm_mean = nan(length(probe_areas_all),length(t));
-% recorded_area_n = nan(length(probe_areas_all),1);
-% for curr_area = 1:length(probe_areas_all)
-%     area_cat = cell2mat([stim_mua.(probe_areas_all{curr_area})]');    
-%     recorded_area_n(curr_area) = size(area_cat,1);
-% 
-%     area_baseline = nanmean(area_cat(:,t<0),2);
-%     area_norm_mean = nanmean((area_cat - area_baseline)./area_baseline,1);
-%     recorded_area_norm_mean(curr_area,:) = area_norm_mean;
-% end
-% 
-% figure;
-% plot_areas = recorded_area_n > 3;
-% AP_stackplot(recorded_area_norm_mean(plot_areas,:)',t, ...
-%     4*nanstd(reshape(recorded_area_norm_mean(plot_areas,:),[],1)),[],'k',...
-%     regexprep(probe_areas_all(plot_areas),'_',' '));
-% line([0,0],ylim,'color','r');
-% line([0.5,0.5],ylim,'color','r');
-% title('Area mean');
+%% >> Ephys task
+
+% Load data
+trial_data_path = 'C:\Users\Andrew\OneDrive for Business\Documents\CarandiniHarrisLab\analysis\operant_learning\data';
+data_fn = 'trial_activity_task_ephys';
+
+AP_load_trials_wf;
+
+% Get animal and day index for each trial
+trial_animal = cell2mat(arrayfun(@(x) ...
+    x*ones(size(vertcat(wheel_all{x}{:}),1),1), ...
+    [1:length(wheel_all)]','uni',false));
+trial_day = cell2mat(cellfun(@(x) cell2mat(cellfun(@(curr_day,x) ...
+    curr_day*ones(size(x,1),1),num2cell(1:length(x))',x,'uni',false)), ...
+    wheel_all,'uni',false));
+
+trials_recording = cellfun(@(x) size(x,1),vertcat(wheel_all{:}));
+
+% Plot total average stim response
+use_trials = true(size(trial_stim_allcat));
+spacing = 0.5;
+
+figure;
+subplot(1,2,1);
+mua_depth_centers = mua_depth_edges(1:end-1)+diff(mua_depth_edges)./2;
+AP_stackplot(squeeze(nanmean(mua_depth_allcat(use_trials,:,:),1)), ...
+    t,spacing,[],'k',mua_depth_centers);
+line([0,0],ylim,'color','r');
+line([0.5,0.5],ylim,'color','r');
+xlabel('Time from stim');
+ylabel('Cortical depth');
+
+subplot(1,2,2);
+[~,area_idx] = cellfun(@(x) ismember(x,mua_areas),mua_areas_cat,'uni',false);
+area_recording_n = accumarray(cell2mat(area_idx),1);
+plot_areas = area_recording_n == length(trials_recording);
+AP_stackplot(squeeze(nanmean(mua_area_allcat(use_trials,:,plot_areas),1)), ...
+    t,spacing,[],'k',mua_areas(plot_areas));
+line([0,0],ylim,'color','r');
+line([0.5,0.5],ylim,'color','r');
+xlabel('Time from stim');
+ylabel('Area');
+
+
+
+
+
+% Get task>striatum parameters
+n_regressors = length(task_regressor_labels);
+
+% Normalize task > striatum kernels across experiments with mua_norm
+mua_taskpred_k_allcat_norm = arrayfun(@(regressor) ...
+    cell2mat(permute(cellfun(@(x) x{regressor}, ...
+    cellfun(@(kernel_set,mua_norm) cellfun(@(kernel) ...
+    kernel./(mua_norm/sample_rate),kernel_set,'uni',false), ...
+    vertcat(mua_taskpred_k_all{:}),vertcat(mua_norm{:}),'uni',false), ...
+    'uni',false),[2,3,4,1])),1:length(task_regressor_labels),'uni',false)';
+
+mua_ctxpred_taskpred_k_allcat_norm = arrayfun(@(regressor) ...
+    cell2mat(permute(cellfun(@(x) x{regressor}, ...
+    cellfun(@(kernel_set,mua_norm) cellfun(@(kernel) ...
+    kernel./(mua_norm/sample_rate),kernel_set,'uni',false), ...
+    vertcat(mua_ctxpred_taskpred_k_all{:}),vertcat(mua_norm{:}),'uni',false), ...
+    'uni',false),[2,3,4,1])),1:length(task_regressor_labels),'uni',false)';
+
+% Plot task>striatum kernels
+stim_col = colormap_BlueWhiteRed(5);
+stim_col(6,:) = [];
+move_col = [0.6,0,0.6;1,0.6,0];
+go_col = [0,0,0;0.5,0.5,0.5];
+outcome_col = [0.2,0.8,1;0,0,0];
+task_regressor_cols = {stim_col,move_col,go_col,outcome_col};
+task_regressor_t_shifts = cellfun(@(x) x/sample_rate,task_regressor_sample_shifts,'uni',false);
+
+figure('Name','Task > Striatum');
+p = nan(n_depths,n_regressors);
+for curr_depth = 1:n_depths
+    for curr_regressor = 1:n_regressors  
+        p(curr_depth,curr_regressor) = ...
+            subplot(n_depths,n_regressors,curr_regressor+(curr_depth-1)*n_regressors);  
+        
+        curr_kernels = mua_taskpred_k_allcat_norm{curr_regressor}(:,:,curr_depth,:);
+        n_subregressors = size(mua_taskpred_k_allcat_norm{curr_regressor},1);
+        col = task_regressor_cols{curr_regressor};
+        for curr_subregressor = 1:n_subregressors
+            AP_errorfill(task_regressor_t_shifts{curr_regressor}, ...
+                nanmean(curr_kernels(curr_subregressor,:,:,:),4)', ...
+                AP_sem(curr_kernels(curr_subregressor,:,:,:),4)', ...
+                col(curr_subregressor,:),0.5);
+        end
+        
+        xlabel('Time (s)');
+        ylabel('Weight');
+        title(task_regressor_labels{curr_regressor});
+        line([0,0],ylim,'color','k');
+        
+    end
+end
+linkaxes(p);
+y_scale = 1;
+t_scale = 0.5;
+line(min(xlim) + [0,t_scale],repmat(min(ylim),2,1),'color','k','linewidth',3);
+line(repmat(min(xlim),2,1),min(ylim) + [0,y_scale],'color','k','linewidth',3);
+
+
+
+
+
+
+
+
 
 
 

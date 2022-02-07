@@ -8,7 +8,7 @@
 %% Plot behavior (for checking ongoing)
 
 % animals = {'AP110','AP111','AP112'};
-animals = {'AP110'};
+animals = {'AP112'};
 
 protocol = 'AP_stimWheelRight';
 flexible_name = false;
@@ -240,10 +240,7 @@ end
 
 % tetO mice
 animal_group = 'teto';
-animals = {'AP100','AP101','AP103','AP104','AP105','AP106','AP107','AP108','AP109'};
-
-% % Andrada new mice
-% animals = {'AP110','AP111','AP112'};
+animals = {'AP100','AP101','AP103','AP104','AP105','AP106','AP107','AP108','AP109','AP111','AP112'};
 
 protocol = 'AP_stimWheelRight';
 flexible_name = false;
@@ -933,7 +930,7 @@ for curr_animal = 1:length(animals)
         ar = cell2mat(cellfun(@(x) datasample(x,n_sample)', ...
             bhv(curr_animal).alt_stim_move_t{curr_day}(use_trials),'uni',false));
         
-        rxn_window = [0.05,0.2];
+        rxn_window = [0.1,0.2];
         
         r_frac = nanmean(r >= rxn_window(1) & r <= rxn_window(2));
         ar_frac = nanmean(ar >= rxn_window(1) & ar <= rxn_window(2),1);
@@ -1024,7 +1021,8 @@ for curr_animal = 1:length(animals)
         
     end
 end
-[~,learned_day] = max(p > 0.95,[],2);
+
+
 
 % Fraction rxn within boundary
 max_days = max(cellfun(@sum,use_days));
