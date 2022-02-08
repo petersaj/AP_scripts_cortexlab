@@ -313,7 +313,7 @@ for curr_animal = 1:length(animals)
                 (nansum(right_wheel_velocity)+nansum(left_wheel_velocity));           
             
             %%%%%%%%% STIM RESPONSE VS. NULL
-            
+          
             t = Timeline.rawDAQTimestamps';
             
             % Get quiescence reset threshold
@@ -360,29 +360,6 @@ for curr_animal = 1:length(animals)
                         curr_quiescence_resets,curr_trial_t,'previous','extrap');
                 end                                        
 
-%                 %%% OPTION 1: IF STIM CAME ON AT EARLIER QUIESCENCE
-%                 % Find alternate stim times from all other trial timings
-% 
-%                 % Find params from other trials which would have made stim
-%                 % (ignore first trial: no ITI)
-%                 % (reminder: each trial selects quiescence for the
-%                 % beginning, then ITI for the end, so the stim is defined
-%                 % by the current trial quiescence and previous trial ITI)
-%                 % (also don't use any stim on times after real first move)
-%                 
-%                 t_prestim_move = curr_trial_t(find(~wheel_move(curr_trial_t_idx),1,'last'));
-%                 
-%                 alt_trialparam = setdiff(2:n_trials,curr_trial);
-%                 alt_stim_timing_grid = ...
-%                     ((t(curr_trial_t_idx) - curr_trial_t(1)) > signals_events.trialITIValues(alt_trialparam-1)) & ...
-%                     (t_from_quiescence_reset_trial > signals_events.trialQuiescenceValues(alt_trialparam)) & ...
-%                     (t(curr_trial_t_idx) < t_prestim_move);
-%                 [alt_stim_value,alt_stim_idx] = max(alt_stim_timing_grid,[],1);
-%                 
-%                 alt_stimOn_times{curr_trial} = curr_trial_t(alt_stim_idx(alt_stim_value));
-%                 alt_stimOn_trialparams{curr_trial} = alt_trialparam(alt_stim_value)';
-
-                %%% OPTION 2:  IF STIM CAME ON WITHIN SAME QUIESCENCE            
                 % Find alternate stim times which would have given same first move
                                   
                 % (getting possible iti + quiescence crosses)
@@ -405,22 +382,18 @@ for curr_animal = 1:length(animals)
                 use_alt_stimOn_times = ...
                     curr_wheel_move_alt_stim_idx == wheel_move_stim_idx(curr_trial);
                 
-                %%%%%%%%%% (TESTING)
-                % (make sure that real parameters = real stim time)
+                % (make sure that real parameters = real stim time: missed
+                % wheel clicks sometimes give non-reproducible traces, in
+                % which case the trial shouldn't be used for stats)
                 curr_quiescence_idx = find(possible_quiescence == quiescence_t(curr_trial));
-                curr_iti_idx = find(possible_iti == iti_t(curr_trial-1));
-                
+                curr_iti_idx = find(possible_iti == iti_t(curr_trial-1));             
                 curr_alt_stim_offset = signals_events.stimOnTimes(curr_trial) - ...
-                    alt_stim_t(curr_iti_idx,curr_quiescence_idx);
-                
+                    alt_stim_t(curr_iti_idx,curr_quiescence_idx);               
                 if curr_alt_stim_offset > 0.01
-                    disp('DEBUGGING PREDICTED STIM ON');
-                    keyboard
+                    continue
                 end
-                
-                %%%%%%%%%%%%%%%%%%%%%%
-                
     
+                % (store alternate stim times)
                 alt_stimOn_times{curr_trial} = alt_stimOn_times_all(use_alt_stimOn_times);
                               
 %                 % (trial plot)                

@@ -123,12 +123,15 @@ for curr_trial = 2:n_trials
     curr_reconstructed_stimOn_error = ...
         min([Inf,abs(curr_reconstructed_stimOn_block - signals_events.stimOnTimes(curr_trial))]);
     
-    % If the estimated and matched stim times don't match, error out
-    reconstructed_stimOn_max_error = 0.05;
-    if curr_reconstructed_stimOn_error > reconstructed_stimOn_max_error
-        warning('Quiescence watch estimation wrong, debugging')
-        plot_trial = true;
-    end
+    % Don't check for stimOn time error at the moment - return a valid set
+    % of quiescence resets, but sometimes a skipped wheel click means it
+    % can't replicate the real stimOn time
+%     % If the estimated and matched stim times don't match, error out
+%     reconstructed_stimOn_max_error = 0.05;
+%     if curr_reconstructed_stimOn_error > reconstructed_stimOn_max_error
+%         warning('Quiescence watch estimation wrong, debugging')
+%         plot_trial = true;
+%     end
     
     % Plot trial (and debug)
     if plot_trial
