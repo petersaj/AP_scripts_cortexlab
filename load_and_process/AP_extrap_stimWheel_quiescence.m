@@ -91,7 +91,7 @@ for curr_trial = 2:n_trials
     end
 
     %%% Extrapolate forwards from last quiecence reset    
-    q_start_idx = find(curr_quiescence_reset_block,1,'last')+1;
+    q_start_idx = max([1,find(curr_quiescence_reset_block,1,'last')+1]);
     while q_start_idx < length(curr_wheel_mm)
         next_thresh_cross = (q_start_idx-1) + ...
             find(cumsum(abs(diff(curr_wheel_mm(q_start_idx:end)))) > ...
