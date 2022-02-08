@@ -2060,7 +2060,7 @@ ylabel(c,'Explained variance')
 
 %% Align vasculature for animal
 clear all;
-animal = 'AP040';
+animal = 'AP110';
 
 protocol = [];
 experiments = AP_find_experiments(animal,protocol);
@@ -2099,7 +2099,7 @@ AP_align_widefield(im_edge,animal,{experiments(use_days).day},'new_days');
 
 %% View aligned vasculature
 
-animal = 'AP048';
+animal = 'AP110';
 
 protocol = [];
 experiments = AP_find_experiments(animal,protocol);
@@ -2263,7 +2263,7 @@ AP_reference_outline('ccf_aligned',[0.5,0.5,0.5]);
 
 %% Pixel prominence (look for peaky activity)
 
-animals = {'AP108'};
+animals = {'AP110'};
 prominence_maps = cell(size(animals));
 
 for curr_animal = 1:length(animals)
@@ -2310,7 +2310,7 @@ for curr_animal = 1:length(animals)
 
     figure('Name',animal);
     c = [0,prctile(cell2mat(cellfun(@(x) x(:), ...
-        prominence_maps{curr_animal}','uni',false)),99.5)];
+        prominence_maps{curr_animal}','uni',false)),100)*0.8];
     h = tight_subplot(1,length(prominence_maps{curr_animal}));
     for curr_day = 1:length(prominence_maps{curr_animal})
        subplot(h(curr_day));

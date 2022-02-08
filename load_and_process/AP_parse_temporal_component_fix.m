@@ -79,8 +79,8 @@ end
 %% If the V's were not parsed into experiments
 
 animal = 'AP110'; % animal name
-day = '2022-01-24'; % yyyy-mm-dd
-experiments = [1:4]; % all experiments run that day (e.g. [1,2,3,4])
+day = '2022-01-27'; % yyyy-mm-dd
+experiments = [1:3]; % all experiments run that day (e.g. [1,2,3,4])
 
 [data_path,file_exists] = AP_cortexlab_filename(animal,day,[],'imaging');
 

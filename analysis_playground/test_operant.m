@@ -2637,7 +2637,7 @@ end
 
 
 % Plot stim response in single animal over days
-use_animal = 10;
+use_animal = 1;
 curr_px = AP_svdFrameReconstruct(U_master(:,:,1:n_vs),stim_v_avg{use_animal}(:,:,:,3));
 AP_image_scroll(curr_px,t);
 caxis([-max(abs(caxis)),max(abs(caxis))]);

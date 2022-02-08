@@ -147,8 +147,8 @@ for curr_trial = 2:n_trials
         plot(curr_trial_t,t_from_quiescence_reset_trial_block_curriti*t_plot_scale,'m');
         plot(quiescence_reset_t_block,0,'og');
         
-        line(repmat(signals_events.stimOnTimes(curr_trial),1,2),ylim,'color','k');
-        line(repmat(curr_reconstructed_stimOn_block,1,2),ylim,'color','b','linestyle','--');
+        line(repmat(signals_events.stimOnTimes(curr_trial),1,2),ylim,'color','k','linestyle','--');
+%         line(repmat(curr_reconstructed_stimOn_block,1,2),ylim,'color','b','linestyle','--');
         
         title(sprintf('Trial %d/%d',curr_trial,n_trials));
         

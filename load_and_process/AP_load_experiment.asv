@@ -317,21 +317,20 @@ if exist('Timeline','var') && load_parts.cam
         [eyecam_dlc_filename,eyecam_dlc_exists] = AP_cortexlab_filename(animal,day,experiment,'eyecam_dlc');
         if eyecam_dlc_exists
             eyecam_dlc = AP_load_dlc(eyecam_dlc_filename);
-            % (pupil position = average half-way between L/R and T/B)
+            % (pupil diameter and position)
             pupil_position = ...
-                ([eyecam_dlc.pupil_right.x + eyecam_dlc.pupil_left.x, ...
-                eyecam_dlc.pupil_right.y + eyecam_dlc.pupil_left.y]./2 + ...
-                [eyecam_dlc.pupil_top.x + eyecam_dlc.pupil_bot.x, ...
-                eyecam_dlc.pupil_top.y + eyecam_dlc.pupil_bot.y]./2)./2;
+                [eyecam_dlc.pupil_right.x + eyecam_dlc.pupil_left.x, ...
+                eyecam_dlc.pupil_right.y  eyecam_dlc.pupil_left.y]
             
-            % (pupil diameter = average distance between L/R and T/B)
+            
+            
             pupil_diameter = ...
                 (vecnorm([eyecam_dlc.pupil_right.x - eyecam_dlc.pupil_left.x, ...
                 eyecam_dlc.pupil_right.y - eyecam_dlc.pupil_left.y]') + ...
                 vecnorm([eyecam_dlc.pupil_top.x - eyecam_dlc.pupil_bot.x, ...
                 eyecam_dlc.pupil_top.y - eyecam_dlc.pupil_bot.y]'))/2;
             
-            % (blinks = uncertain pupil points)
+            % (pupil diameter/position and blinks)
             eyecam_dlc_params.surroundingBlinks = 5;
             eyecam_dlc_params.thresLikelihood = 0.8;
             pupil_likelihood = [ ...
@@ -343,9 +342,7 @@ if exist('Timeline','var') && load_parts.cam
                 eyecam_dlc_params.thresLikelihood, 2) <= 2, ...
                 ones(2*eyecam_dlc_params.surroundingBlinks+1,1), 'same') > 0;
             
-            % (NaN-out blinks)
-            pupil_position(uncertain_pupil_points,:) = NaN;
-            pupil_diameter(uncertain_pupil_points) = NaN;
+            pupil_diameter(uncertain_pupil_points) = NaN;              
         end
 
         % Get camera times
