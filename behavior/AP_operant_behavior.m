@@ -363,26 +363,33 @@ for curr_animal = 1:length(animals)
                 % which case the trial shouldn't be used for stats)
                 curr_quiescence_idx = find(possible_quiescence == quiescence_t(curr_trial));
                 curr_iti_idx = find(possible_iti == iti_t(curr_trial-1));
-                curr_alt_stim_offset = signals_events.stimOnTimes(curr_trial) - ...
+                curr_block_stimOn = signals_events.stimOnTimes(curr_trial);
+                curr_alt_stim_offset = curr_block_stimOn - ...
                     alt_stim_t(curr_iti_idx,curr_quiescence_idx);
                 if curr_alt_stim_offset > 0.01
                     continue
                 end
                 
-                % (store alternate stim times)
-                alt_stimOn_times{curr_trial} = alt_stimOn_times_all(use_alt_stimOn_times);
+                % (apply the block vs actual stim on time delay to all
+                % times - note this is regularly backwards in time??)
+                curr_stim_pd_offset = stimOn_times(curr_trial) - curr_block_stimOn;
+                alt_stimOn_times_all_pd = alt_stimOn_times_all + curr_stim_pd_offset;
                 
-                %                 % (trial plot)
-                %                 figure; hold on;
-                %                 t_plot_scale = 0.1;
-                %                 plot(t(curr_trial_t_idx),wheel_velocity(curr_trial_t_idx),'k')
-                %                 plot(t(curr_trial_t_idx),[0;diff(wheel_position(curr_trial_t_idx))]*0.1,'g')
-                %                 plot(alt_stimOn_times_all,0,'ob');
-                %                 plot(alt_stimOn_times{curr_trial},0,'.r');
-                %                 line(repmat(curr_trial_t(1)+signals_events.trialITIValues(curr_trial-1),2,1),ylim);
-                %                 line(xlim,repmat(signals_events.trialQuiescenceValues(curr_trial),2,1)*t_plot_scale,'color','m');
-                %                 line(repmat(stimOn_times(curr_trial),1,2),ylim,'color','k','linestyle','--');
-                %                 drawnow;
+                % (store alternate stim times)
+                alt_stimOn_times{curr_trial} = alt_stimOn_times_all_pd(use_alt_stimOn_times);
+                
+%                 % (trial plot)
+%                 figure; hold on;
+%                 t_plot_scale = 0.1;
+%                 plot(t(curr_trial_t_idx),wheel_velocity(curr_trial_t_idx),'k')
+%                 plot(t(curr_trial_t_idx),[0;diff(wheel_position(curr_trial_t_idx))]*0.1,'g')
+%                 plot(alt_stimOn_times_all,0,'ob');
+%                 plot(alt_stimOn_times{curr_trial},0,'.r');
+%                 line(repmat(curr_trial_t(1)+signals_events.trialITIValues(curr_trial-1),2,1),ylim);
+%                 line(xlim,repmat(signals_events.trialQuiescenceValues(curr_trial),2,1)*t_plot_scale,'color','m');
+%                 line(repmat(curr_block_stimOn,1,2),ylim,'color','r','linestyle','--');
+%                 line(repmat(stimOn_times(curr_trial),1,2),ylim,'color','k','linestyle','--');
+%                 drawnow;
                 
             end
             
@@ -738,6 +745,12 @@ for curr_animal = 1:length(bhv)
         histogram(bhv(curr_animal).stim_move_t{curr_day},rxn_bins,'EdgeColor','none','normalization','pdf')
         histogram(alt_rxn_matched{curr_animal}{curr_day}, ...
             rxn_bins,'EdgeColor','none','normalization','pdf')
+        if curr_day == 1
+           ylabel(bhv(curr_animal).animal); 
+        end
+        if curr_animal == 1
+           title(sprintf('Day %d',curr_day)); 
+        end
     end
 end
 
@@ -977,9 +990,19 @@ for curr_animal = 1:length(animals)
         
         n_sample = 10000;
         use_trials = ~cellfun(@isempty,bhv(curr_animal).alt_stim_move_t{curr_day});
+        
         r = bhv(curr_animal).stim_move_t{curr_day}(use_trials);
         ar = cell2mat(cellfun(@(x) datasample(x,n_sample)', ...
             bhv(curr_animal).alt_stim_move_t{curr_day}(use_trials),'uni',false));
+        
+%         figure;
+%         subplot(1,2,1);hold on;
+%         plot(r,'.k');plot(ar(:,1),'.r');
+%         subplot(1,2,2);hold on;        
+%         plot(sort(ar(:,1:100:end)),linspace(0,1,length(r)),'r');
+%         plot(sort(r),linspace(0,1,length(r)),'k','linewidth',2);
+%         line(xlim,[0.25,0.25]);
+%         line(xlim,[0.75,0.75]);
         
         r_frac_rank = tiedrank([iqr(r),iqr(ar,1)]);
         
