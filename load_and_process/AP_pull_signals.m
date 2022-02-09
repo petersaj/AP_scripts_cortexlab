@@ -3,6 +3,8 @@
 % Pull out the relevant signals for specific expDef
 % (not function - to be used in context of variables from
 % AP_load_experiment)
+%
+% Every protocol has to be specified so there's no funny business
 
 [~,expDef] = fileparts(block.expDef);
 switch expDef
@@ -91,7 +93,7 @@ switch expDef
             trial_choice(1:n_trials), trial_timing(1:n_trials)];
         [~,trial_id] = ismember(trial_conditions,conditions,'rows');
         
-    case {'AP_stimWheelRight','AP_stimWheelLeft'}
+    case {'AP_stimWheelRight','AP_stimWheelLeft','AP_stimWheelLeftReverse'}
         % Hit/miss recorded for previous trial, circshift to align
         signals_events.hitValues = circshift(signals_events.hitValues,[0,-1]);
         signals_events.missValues = circshift(signals_events.missValues,[0,-1]);

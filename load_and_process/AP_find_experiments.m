@@ -1,7 +1,7 @@
 function experiments = AP_find_experiments(animal,protocol,flexible_name)
 % experiments = AP_find_experiments(animal,protocol,flexible_name)
 %
-% flexible_name - if true, uses strfind(lower)
+% flexible_name - looks for any protocols containing that string
 %
 % Find all experiments from an animal with a given protocol name
 % 
