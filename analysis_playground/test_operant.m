@@ -3234,15 +3234,15 @@ colormap(brewermap([],'PrGn'));
 axis image;
 AP_reference_outline('ccf_aligned',[0.5,0.5,0.5]);
 
-% (make movie)
-movie_px = act_avg_px;
-movie_fn = 'C:\Users\Andrew\OneDrive for Business\Documents\CarandiniHarrisLab\analysis\operant_learning\task_reduced_wf.avi';
-movie_framerate = 1/mean(diff(t));
-movie_cmap = colormap(brewermap([],'PrGn'));
-movie_caxis = prctile(movie_px(:),99.9).*[-1,1];
-movie_position = [48,500,520,270];
-movie_annotation = {'Pre-learned','Post-learned'};
-AP_movie2avi(movie_px,movie_framerate,movie_cmap,movie_caxis,movie_position,movie_fn,t,movie_annotation);
+% % (make movie)
+% movie_px = act_avg_px;
+% movie_fn = 'C:\Users\Andrew\OneDrive for Business\Documents\CarandiniHarrisLab\analysis\operant_learning\task_reduced_wf.avi';
+% movie_framerate = 1/mean(diff(t));
+% movie_cmap = colormap(brewermap([],'PrGn'));
+% movie_caxis = prctile(movie_px(:),99.9).*[-1,1];
+% movie_position = [48,500,520,270];
+% movie_annotation = {'Pre-learned','Post-learned'};
+% AP_movie2avi(movie_px,movie_framerate,movie_cmap,movie_caxis,movie_position,movie_fn,t,movie_annotation);
 
 
 
@@ -3654,6 +3654,14 @@ line([0,0],ylim,'color','k','linestyle','--');
 
 linkaxes(get(gcf,'Children'),'x')
 
+figure; hold on;
+animal_colors = max(brewermap(length(animals),'Set3')-0.2,0);
+set(gca,'ColorOrder',animal_colors);
+plot(rxn_frac_pad,curr_act_timeavg_pad,'MarkerSize',15);
+plot(rxn_frac_pad,curr_act_timeavg_pad,'.','MarkerSize',15);
+legend(animals,'location','nw')
+xlabel('Rxn frac');
+ylabel('FRm fluor');
 
 % Plot learning-aligned daysplit
 n_daysplit = 4;
