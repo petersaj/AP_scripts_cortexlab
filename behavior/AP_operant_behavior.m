@@ -783,7 +783,7 @@ legend({'Measured','Null'});
 title(sprintf('Day %d',plot_day));
 
 % Total (single day - 1:1 rxn)
-plot_day = 6;
+plot_day = 1;
 
 animal_rxn = cell2mat(cellfun(@(use,x) ...
     histcounts(vertcat(x{plot_day}),rxn_bins,'normalization','pdf'), ...
@@ -802,7 +802,7 @@ legend({'Measured','Null'});
 title(sprintf('Day %d',plot_day));
 
 % Total (single animal)
-plot_animal = 6;
+plot_animal = 10;
 
 animal_rxn = cell2mat(cellfun(@(use,x) ...
     histcounts(vertcat(x{:}),rxn_bins,'normalization','pdf'), ...
@@ -845,11 +845,11 @@ alt_rxn_matched = ...
 
 animal_rxn = cell2mat(cellfun(@(use,x) ...
     histcounts(vertcat(x{use}),rxn_bins,'normalization','pdf'), ...
-    use_days,{bhv.stim_move_t},'uni',false)');
+    cellfun(@(x) x&([1:length(x)]' > 6),use_days,'uni',false),{bhv.stim_move_t},'uni',false)');
 
 animal_alt_rxn = cell2mat(cellfun(@(use,x) ...
     histcounts(vertcat(x{use}),rxn_bins,'normalization','pdf'), ...
-    use_days,alt_rxn_matched,'uni',false)');
+    cellfun(@(x) x&([1:length(x)]' > 6),use_days,'uni',false),alt_rxn_matched,'uni',false)');
 
 figure;
 subplot(2,1,1); hold on;
@@ -857,59 +857,28 @@ histogram('BinEdges',rxn_bins,'BinCounts',nanmean(animal_rxn,1),'EdgeColor','non
 histogram('BinEdges',rxn_bins,'BinCounts',nanmean(animal_alt_rxn,1),'EdgeColor','none')
 xlabel('Reaction time');
 ylabel('PDF');
-legend({'Measured','Null (all - trial matched)'});
+legend({'Measured','Null (n trial matched)'});
 subplot(2,1,2);
 plot(rxn_bin_centers,nanmean(animal_rxn - animal_alt_rxn,1));
 line(xlim,[0,0],'color','r');
 ylabel('Distribution difference');
-
-% % Total (trial/alt matched, only OPTION 1 null)
-%
-% % % (to use median null reaction time for each trial)
-% % alt_rxn_matched = ...
-% %     cellfun(@(alt_trial_animal,alt_rxn_animal,n_trials_animal) ...
-% %     cellfun(@(alt_trial_day,alt_rxn_day,n_trials_day) ...
-% %     accumarray(cell2mat(alt_trial_day),cell2mat(alt_rxn_day), ...
-% %     [n_trials_day,1],@nanmedian,NaN), ...
-% %     alt_trial_animal,alt_rxn_animal,num2cell(n_trials_animal),'uni',false), ...
-% %     {bhv.alt_stim_trialparams},{bhv.alt_stim_move_t},{bhv.n_trials},'uni',false);
-%
-% % (to use 1 randomly selected null reaction time for each trial)
-% alt_rxn_matched = ...
-%     cellfun(@(alt_trial_animal,alt_rxn_animal,n_trials_animal) ...
-%     cellfun(@(alt_trial_day,alt_rxn_day,n_trials_day) ...
-%     accumarray(cell2mat(alt_trial_day),cell2mat(alt_rxn_day), ...
-%     [n_trials_day,1],@(x) datasample(x,min(length(x),1)),NaN), ...
-%     alt_trial_animal,alt_rxn_animal,num2cell(n_trials_animal),'uni',false), ...
-%     {bhv.alt_stim_trialparams},{bhv.alt_stim_move_t},{bhv.n_trials},'uni',false);
-%
-% animal_rxn = cell2mat(cellfun(@(use,x) ...
-%     histcounts(vertcat(x{use}),rxn_bins,'normalization','pdf'), ...
-%     use_days,{bhv.stim_move_t},'uni',false)');
-%
-% animal_alt_rxn = cell2mat(cellfun(@(use,x) ...
-%     histcounts(vertcat(x{use}),rxn_bins,'normalization','pdf'), ...
-%     use_days,alt_rxn_matched,'uni',false)');
-%
-% figure; hold on;
-% histogram('BinEdges',rxn_bins,'BinCounts',nanmean(animal_rxn,1),'EdgeColor','none')
-% histogram('BinEdges',rxn_bins,'BinCounts',nanmean(animal_alt_rxn,1),'EdgeColor','none')
-% xlabel('Reaction time');
-% ylabel('PDF');
-% legend({'Measured','Null (# matched)'});
-
-% % Total (1:1 sampled - only OPTION 2 null)
+linkaxes(get(gcf,'children'),'xy');
 
 
-% %%%%% TESTING STATS (looks ok - maybe too sensitive though? compare
-% against learned day being >40% of trials or whatever it was)
+% %%%%% TESTING STATS rxn within window
+% THIS IS GOOD, USE THIS
 max_days = max(cellfun(@sum,use_days));
-r_frac_p_cat = nan(length(animals),max_days);
+r_frac_p_cat = nan(max_days,length(animals));
 for curr_animal = 1:length(animals)
     for curr_day = find(use_days{curr_animal})'
         
         n_sample = 10000;
         use_trials = ~cellfun(@isempty,bhv(curr_animal).alt_stim_move_t{curr_day});
+%         use_trials = ~cellfun(@isempty,bhv(curr_animal).alt_stim_move_t{curr_day}) & ...
+%             linspace(0,1,length(bhv(curr_animal).stim_move_t{curr_day}))' < 0.9;
+%           use_trials = ~cellfun(@isempty,bhv(curr_animal).alt_stim_move_t{curr_day}) & ...
+%             (length(bhv(curr_animal).stim_move_t{curr_day}):-1:1)' > 10;
+        
         r = bhv(curr_animal).stim_move_t{curr_day}(use_trials);
         ar = cell2mat(cellfun(@(x) datasample(x,n_sample)', ...
             bhv(curr_animal).alt_stim_move_t{curr_day}(use_trials),'uni',false));
@@ -922,74 +891,31 @@ for curr_animal = 1:length(animals)
         r_frac_rank = tiedrank([r_frac,ar_frac]);
         r_frac_p = r_frac_rank(1)./(n_sample+1);
         
-        r_frac_p_cat(curr_animal,curr_day) = r_frac_p;
+        r_frac_p_cat(curr_day,curr_animal) = r_frac_p;
         
     end
 end
-figure;imagesc(r_frac_p_cat > 0.95);
+figure; 
+imagesc(r_frac_p_cat > 0.99,'AlphaData',~isnan(r_frac_p_cat));
+set(gca,'Color',[0.5,0.5,0.5])
 title('rxn window')
-
-
-
-% against average reaction time
-max_days = max(cellfun(@sum,use_days));
-r_frac_p_cat = nan(length(animals),max_days);
-for curr_animal = 1:length(animals)
-    for curr_day = find(use_days{curr_animal})'
-        
-        n_sample = 10000;
-        use_trials = ~cellfun(@isempty,bhv(curr_animal).alt_stim_move_t{curr_day});
-        r = bhv(curr_animal).stim_move_t{curr_day}(use_trials);
-        ar = cell2mat(cellfun(@(x) datasample(x,~isempty(x)*n_sample)', ...
-            bhv(curr_animal).alt_stim_move_t{curr_day}(use_trials),'uni',false));
-        
-        r_frac_rank = tiedrank([nanmean(r),nanmean(ar,1)]);
-        r_frac_p = r_frac_rank(1)./(n_sample+1);
-        
-        r_frac_p_cat(curr_animal,curr_day) = r_frac_p;
-        
-    end
-end
-figure;imagesc(r_frac_p_cat < 0.05);
-title('average reaction time')
-
-% % area under cdf?
-% max_days = max(cellfun(@sum,use_days));
-% r_frac_p_cat = nan(length(animals),max_days);
-% for curr_animal = 1:length(animals)
-%     for curr_day = find(use_days{curr_animal})'
-%
-%         n_sample = 10000;
-%         use_trials = ~cellfun(@isempty,bhv(curr_animal).alt_stim_move_t{curr_day});
-%         r = bhv(curr_animal).stim_move_t{curr_day}(use_trials);
-%         ar = cell2mat(cellfun(@(x) datasample(x,~isempty(x)*n_sample)', ...
-%             bhv(curr_animal).alt_stim_move_t{curr_day}(use_trials),'uni',false));
-%
-% %         [f,x] = ecdf(r);
-%         rxn_bins = [-Inf,0:0.01:1,Inf];
-%         [f,x] = ecdf(r);
-%         [n,c] = ecdfhist(f,0:0.05:2);
-%
-%         r_frac_rank = tiedrank([mad(r),mad(ar,1)]);
-%         r_frac_p = r_frac_rank(1)./(n_sample+1);
-%
-%         r_frac_p_cat(curr_animal,curr_day) = r_frac_p;
-%
-%     end
-% end
-% figure;imagesc(r_frac_p_cat < 0.05);
-% title('average reaction time')
+xlabel('Animal');
+ylabel('Day');
+[~,learned_day] = max(r_frac_p_cat,[],1);
 
 
 %%% TESTING STATS: interquartile range
 max_days = max(cellfun(@sum,use_days));
 p = nan(length(animals),max_days);
-iqr_bhv = nan(length(animals),max_days);
 for curr_animal = 1:length(animals)
     for curr_day = find(use_days{curr_animal})'
         
         n_sample = 10000;
         use_trials = ~cellfun(@isempty,bhv(curr_animal).alt_stim_move_t{curr_day});
+        use_trials = ~cellfun(@isempty,bhv(curr_animal).alt_stim_move_t{curr_day}) & ...
+            linspace(0,1,length(bhv(curr_animal).stim_move_t{curr_day}))' < 0.9;
+%         use_trials = ~cellfun(@isempty,bhv(curr_animal).alt_stim_move_t{curr_day}) & ...
+%             (length(bhv(curr_animal).stim_move_t{curr_day}):-1:1)' > 10;
         
         r = bhv(curr_animal).stim_move_t{curr_day}(use_trials);
         ar = cell2mat(cellfun(@(x) datasample(x,n_sample)', ...
@@ -998,22 +924,23 @@ for curr_animal = 1:length(animals)
 %         figure;
 %         subplot(1,2,1);hold on;
 %         plot(r,'.k');plot(ar(:,1),'.r');
-%         subplot(1,2,2);hold on;        
+%         subplot(1,2,2);hold on;
 %         plot(sort(ar(:,1:100:end)),linspace(0,1,length(r)),'r');
 %         plot(sort(r),linspace(0,1,length(r)),'k','linewidth',2);
 %         line(xlim,[0.25,0.25]);
 %         line(xlim,[0.75,0.75]);
         
-        r_frac_rank = tiedrank([iqr(r),iqr(ar,1)]);
+        r_frac_rank = tiedrank(iqr([r,ar],1));
+%         r_frac_rank = tiedrank([diff(prctile([r,ar],[20,80]))]);
+%         r_frac_rank = tiedrank([nanmean(diff(prctile([r,ar],[25,50,75])))]);
         
         r_frac_p = r_frac_rank(1)./(n_sample+1);
-        
-        p(curr_animal,curr_day) = r_frac_p;
-        iqr_bhv(curr_animal,curr_day) = iqr(r);
+
+        p(curr_day,curr_animal) = r_frac_p;
         
     end
 end
-figure;imagesc(p < 0.05);
+figure;imagesc(p < 0.01);
 title('iqr');
 
 
@@ -1053,6 +980,11 @@ end
 figure;imagesc(p > 0.95);
 title('ks stat')
 
+% Median reaction time (padded)
+rxn_median_pad = cell2mat(cellfun(@(x) padarray(cellfun(@(x) ...
+    nanmedian(x),x), ...
+    [max_days-length(x),0],NaN,'post'), ...
+    cellfun(@(x,use_days) x(use_days),{bhv.stim_move_t},use_days,'uni',false),'uni',false));
 
 % Fraction rxn within boundary
 max_days = max(cellfun(@sum,use_days));

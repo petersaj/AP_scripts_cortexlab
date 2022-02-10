@@ -2938,12 +2938,7 @@ curr_act_timeavg_pad = cell2mat(cellfun(@(x) ...
     padarray(x,[max_days-length(x),0],NaN,'post'), ...
     curr_act_timeavg,'uni',false)');
 
-
-stim_response_idx_pad = cell2mat(cellfun(@(x) padarray(cat(1,nan(3,1),x), ...
-    [max_days-length(x)-3,0],NaN,'post'), ...
-    cellfun(@(x,use_days) x(use_days),{bhv.stim_response_idx},use_days,'uni',false),'uni',false));
-
-rxn_frac_pad = cell2mat(cellfun(@(x) padarray(cat(1,nan(3,1),cellfun(@(x) nanmean(x > 0.1 & x < 0.25),x)), ...
+rxn_frac_pad = cell2mat(cellfun(@(x) padarray(cat(1,nan(3,1),cellfun(@(x) nanmean(x > 0.1 & x < 0.2),x)), ...
     [max_days-length(x)-3,0],NaN,'post'), ...
     cellfun(@(x,use_days) x(use_days),{bhv.stim_move_t},use_days,'uni',false),'uni',false));
 
@@ -2954,10 +2949,8 @@ alt_rxn_frac_pad = cell2mat(cellfun(@(x) padarray(cat(1,nan(3,1),cellfun(@(x) ..
 
 rxn_frac_pad_diff = rxn_frac_pad - alt_rxn_frac_pad;
 
-[~,learned_day] = max(rxn_frac_pad>0.4,[],1);
-% [~,learned_day] = max(rxn_frac_pad_diff>0.3,[],1);
-% [~,learned_day] = max(stim_response_idx_pad>0.2,[],1);
-learned_day_x = [1:max_days]'-learned_day;
+% (grab learned day from behavior script)
+learned_day_x = [1:max_days]'-[learned_day+3];
 
 [rxn_grp_mean,learned_day_grp] = ...
     grpstats(rxn_frac_pad(:),learned_day_x(:),{'nanmean','gname'});
@@ -2971,28 +2964,21 @@ learned_day_grp = cellfun(@str2num,learned_day_grp);
 plot_days = act_grp_n > 4;
 
 figure;
-subplot(1,4,1); hold on;
+subplot(1,3,1); hold on;
 plot(learned_day_x,rxn_frac_pad);
 plot(learned_day_grp(plot_days),rxn_grp_mean(plot_days),'k','linewidth',2);
 xlabel('Learned day');
 ylabel('Rxn frac');
 line([0,0],ylim,'color','k','linestyle','--');
 
-subplot(1,4,2); hold on;
+subplot(1,3,2); hold on;
 plot(learned_day_x,rxn_frac_pad_diff);
 plot(learned_day_grp(plot_days),rxndiff_grp_mean(plot_days),'k','linewidth',2);
 xlabel('Learned day');
 ylabel('Rxn frac diff');
 line([0,0],ylim,'color','k','linestyle','--');
 
-subplot(1,4,3); hold on;
-plot(learned_day_x,stim_response_idx_pad);
-plot(learned_day_grp(plot_days),stimresponse_grp_mean(plot_days),'k','linewidth',2);
-xlabel('Learned day');
-ylabel('Stim response idx');
-line([0,0],ylim,'color','k','linestyle','--');
-
-subplot(1,4,4); hold on;
+subplot(1,3,3); hold on;
 plot(learned_day_x,curr_act_timeavg_pad);
 errorbar(learned_day_grp(plot_days),act_grp_mean(plot_days),act_grp_sem(plot_days),'k','linewidth',2);
 xlabel('Learned day');
@@ -3592,10 +3578,6 @@ plot(nanmean(curr_act_timeavg_pad,2),'k','linewidth',2);
 % Align days across animals by "learned day"
 max_days = max(trial_day);
 
-stim_response_idx_pad = cell2mat(cellfun(@(x) padarray(x, ...
-    [max_days-length(x),0],NaN,'post'), ...
-    cellfun(@(x,use_days) x(use_days),{bhv.stim_response_idx},use_days,'uni',false),'uni',false));
-
 rxn_frac_pad = cell2mat(cellfun(@(x) padarray(cellfun(@(x) nanmean(x > 0.1 & x < 0.25),x), ...
     [max_days-length(x),0],NaN,'post'), ...
     cellfun(@(x,use_days) x(use_days),{bhv.stim_move_t},use_days,'uni',false),'uni',false));
@@ -3607,45 +3589,34 @@ alt_rxn_frac_pad = cell2mat(cellfun(@(x) padarray(cellfun(@(x) ...
 
 rxn_frac_pad_diff = rxn_frac_pad - alt_rxn_frac_pad;
 
-[~,learned_day] = max(rxn_frac_pad>0.4,[],1);
-% [~,learned_day] = max(rxn_frac_pad_diff>0.3,[],1);
-% [~,learned_day] = max(stim_response_idx_pad>0.2,[],1);
+% (grab learned day from behavior script)
 learned_day_x = [1:max_days]'-learned_day;
 
 [rxn_grp_mean,learned_day_grp] = ...
     grpstats(rxn_frac_pad(:),learned_day_x(:),{'nanmean','gname'});
 rxndiff_grp_mean = ...
     grpstats(rxn_frac_pad_diff(:),learned_day_x(:),{'nanmean'});
-stimresponse_grp_mean = ...
-    grpstats(stim_response_idx_pad(:),learned_day_x(:),{'nanmean'});
 [act_grp_mean,act_grp_sem,act_grp_n] = grpstats(curr_act_timeavg_pad(:),learned_day_x(:),{'nanmean','sem','numel'});
 learned_day_grp = cellfun(@str2num,learned_day_grp);
 
 plot_days = act_grp_n > 4;
 
 figure;
-subplot(1,4,1); hold on;
+subplot(1,3,1); hold on;
 plot(learned_day_x,rxn_frac_pad);
 plot(learned_day_grp(plot_days),rxn_grp_mean(plot_days),'k','linewidth',2);
 xlabel('Learned day');
 ylabel('Rxn frac');
 line([0,0],ylim,'color','k','linestyle','--');
 
-subplot(1,4,2); hold on;
+subplot(1,3,2); hold on;
 plot(learned_day_x,rxn_frac_pad_diff);
 plot(learned_day_grp(plot_days),rxndiff_grp_mean(plot_days),'k','linewidth',2);
 xlabel('Learned day');
 ylabel('Rxn frac diff');
 line([0,0],ylim,'color','k','linestyle','--');
 
-subplot(1,4,3); hold on;
-plot(learned_day_x,stim_response_idx_pad);
-plot(learned_day_grp(plot_days),stimresponse_grp_mean(plot_days),'k','linewidth',2);
-xlabel('Learned day');
-ylabel('Stim response idx');
-line([0,0],ylim,'color','k','linestyle','--');
-
-subplot(1,4,4); hold on;
+subplot(1,3,3); hold on;
 plot(learned_day_x,curr_act_timeavg_pad);
 errorbar(learned_day_grp(plot_days),act_grp_mean(plot_days),act_grp_sem(plot_days),'k','linewidth',2);
 xlabel('Learned day');
