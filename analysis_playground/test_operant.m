@@ -2513,6 +2513,92 @@ save_fn = ['trial_activity_task_ephys'];
 save([save_path filesep save_fn],'-v7.3');
 
 
+%% Facecam troubleshooting
+
+animals = {'AP100','AP101','AP103','AP104','AP105','AP106','AP107','AP108','AP109','AP111','AP112'};
+
+for curr_animal = 1:length(animals)
+    
+    animal = animals{curr_animal};
+    protocol = 'AP_lcrGratingPassive';
+    experiments = AP_find_experiments(animal,protocol);
+    
+    % Get days with muscimol
+    data_path = 'C:\Users\Andrew\OneDrive for Business\Documents\CarandiniHarrisLab\analysis\operant_learning\data';
+    muscimol_fn = [data_path filesep 'muscimol.mat'];
+    load(muscimol_fn);
+    muscimol_animal_idx = ismember({muscimol.animal},animal);
+    if any(muscimol_animal_idx)
+        muscimol_start_day = muscimol(muscimol_animal_idx).day{1};
+        muscimol_experiments = datenum({experiments.day})' >= datenum(muscimol_start_day);
+    else
+        muscimol_experiments = false(size({experiments.day}));
+    end
+    
+    % Set experiments to use (imaging, not muscimol)
+    experiments = experiments([experiments.imaging] & ~muscimol_experiments);
+    
+    disp(['Loading ' animal]);
+    
+    for curr_day = 1:length(experiments)
+                
+        day = experiments(curr_day).day;
+        experiment = experiments(curr_day).experiment(end);
+        
+        % Load experiment
+        load_parts.cam = true;
+        AP_load_experiment;
+        
+        
+        %%%% Redo facecam strobes
+        
+        % FACECAM
+        [facecam_dir,facecam_exists] = AP_cortexlab_filename(animal,day,experiment,'facecam');       
+     
+        % Get camera times
+        facecam_fn = AP_cortexlab_filename(animal,day,experiment,'facecam');
+        facecam_dir = fileparts(facecam_fn);
+        facecam_t_savefile = [facecam_dir filesep 'facecam_t.mat'];
+        
+        % Get facecam strobes
+        faceCamStrobe_idx = strcmp({Timeline.hw.inputs.name}, 'faceCamStrobe');
+        faceCamStrobe_thresh = max(Timeline.rawDAQData(:,faceCamStrobe_idx))/5;
+        faceCamStrobe = Timeline.rawDAQData(:,faceCamStrobe_idx) > faceCamStrobe_thresh;
+        faceCamStrobe_up = find((~faceCamStrobe(1:end-1) & faceCamStrobe(2:end)))+1;
+        faceCamStrobe_up_t = Timeline.rawDAQTimestamps(faceCamStrobe_up);
+        
+        % Get sync times for cameras (or load if already done)
+        [facecam_sync_frames,n_facecam_frames] = AP_get_cam_sync_frames(facecam_fn);
+        
+        if ~isempty(facecam_sync_frames)
+            % Get the closest cam strobe to sync start, find offset and frame idx
+            [~,facecam_strobe_sync] = min(abs(camSync_flip(1) - faceCamStrobe_up));
+            facecam_frame_offset = facecam_sync_frames(1) - facecam_strobe_sync;
+            facecam_frame_idx = [1:length(faceCamStrobe_up)] + facecam_frame_offset;
+            
+            % Check that the number of frames between syncs matches
+            % video and timeline
+            n_facecam_frames_syncd_movie = diff(facecam_sync_frames) + 1;
+            [~,facecam_strobe_sync_end] = min(abs(camSync_flip(3) - faceCamStrobe_up));
+            n_facecam_frames_syncd_timeline = facecam_strobe_sync_end - facecam_strobe_sync;
+            if abs(n_facecam_frames_syncd_movie - n_facecam_frames_syncd_timeline) > 2
+                warning('[%s %s %d] Facecam: different n frames video vs timeline',animal,day,experiment);
+            end
+            
+            % Get times of cam frames in timeline
+            facecam_t = nan(n_facecam_frames,1);
+            facecam_t(facecam_frame_idx(facecam_frame_idx > 0)) = faceCamStrobe_up_t(facecam_frame_idx > 0);
+            
+            try
+                save(facecam_t_savefile,'facecam_t');
+            catch me
+                warning (['Can''t save: ' facecam_t_savefile])
+            end
+        end
+    end       
+end
+
+
 %% ~~~~~~~~~ BATCH ANALYSIS ~~~~~~~~~
 
 %% >> Passive 

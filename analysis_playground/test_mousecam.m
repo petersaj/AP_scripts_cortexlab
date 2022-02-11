@@ -29,10 +29,10 @@ wheel_window_t = wheel_window(1):1/framerate:wheel_window(2);
 wheel_window_t_peri_event = bsxfun(@plus,stimOn_times,wheel_window_t);
 event_aligned_wheel = interp1(Timeline.rawDAQTimestamps, ...
     wheel_velocity,wheel_window_t_peri_event);
-wheel_thresh = 0.025;
+wheel_thresh = 0;
 quiescent_trials = ~any(abs(event_aligned_wheel) > 0,2);
 
-use_align = stimOn_times(stimIDs == 3 & quiescent_trials);
+use_align = stimOn_times(stimIDs == 1 & quiescent_trials);
 surround_frames = 30;
 
 % Initialize video reader and average
@@ -61,6 +61,12 @@ AP_image_scroll(cam_align_avg,surround_t)
 axis image;
 
 
+% Plot difference within window
+use_t = [0,0.2];
+use_t_idx = surround_t >= use_t(1) & surround_t <= use_t(2);
+figure;
+imagesc(sum(abs(diff(cam_align_avg(:,:,use_t_idx),[],3)),3));
+axis image off;
 
 
 

@@ -8,6 +8,9 @@ function [cam_sync_frames,n_frames] = AP_get_cam_sync_frames(fn,draw_roi)
 % Output: 
 % cam_sync_frames - video frames at strobe points
 % n_frames - number of total frames in the video
+%
+% This assumes the minimum point = the strobe signal
+% The sync is set as the first/last time the signal dips to 50% minimum
 
 % Known issue: disable erroneous matlab warning
 warning off MATLAB:subscripting:noSubscriptsSpecified
@@ -36,42 +39,44 @@ else
     roi_mask = frame1 >= roi_mask_thresh;
 end
 
-% Assume that the strobe happens within first and last 1000 frames
+% Assume that the strobe happens within first and last n frames
+n_frames_check = 1000;
+
 clear vr
 vr = VideoReader(fn);
 
 disp('Getting sync frames...')
 
-% Find the start strobe (within first n frames);
+% Find the start strobe
 n_frames = vr.NumberOfFrames;
 
-read_frames_start = 1:min(6000,n_frames);
+read_frames_start = 1:min(n_frames_check,n_frames);
 strobe_roi_start = zeros(length(read_frames_start),1);
 for curr_frame_idx = 1:length(read_frames_start)
     curr_frame = read_frames_start(curr_frame_idx);
     curr_im = read(vr,curr_frame);
     strobe_roi_start(curr_frame_idx) = nanmean(curr_im(roi_mask));
 end
-strobe_roi_thresh = prctile(strobe_roi_start,50)*0.85;
-strobe_start_frame_idx = find(strobe_roi_start < strobe_roi_thresh,1);
+strobe_roi_thresh = min(strobe_roi_start)+range(strobe_roi_start)*0.5;
+strobe_start_frame_idx = find(diff(strobe_roi_start < strobe_roi_thresh) == 1,1,'first')+1;
 strobe_start_frame = read_frames_start(strobe_start_frame_idx);
 
-% Find the end strobe (longer, within n frames?)
-read_frames_end = max(1,(n_frames-10000)):n_frames;
+% Find the end strobe
+read_frames_end = max(1,(n_frames-n_frames_check)):n_frames;
 strobe_roi_end = zeros(length(read_frames_end),1);
 for curr_frame_idx = 1:length(read_frames_end)
     curr_frame = read_frames_end(curr_frame_idx);
     curr_im = read(vr,curr_frame);
     strobe_roi_end(curr_frame_idx) = nanmean(curr_im(roi_mask));
 end
-strobe_roi_thresh = prctile(strobe_roi_end,50)*0.85;
-strobe_end_frame_idx = find(strobe_roi_end < strobe_roi_thresh,1);
+strobe_roi_thresh = min(strobe_roi_end)+range(strobe_roi_end)*0.5;
+strobe_end_frame_idx = find(diff(strobe_roi_end < strobe_roi_thresh) == 1,1,'last')+1;
 strobe_end_frame = read_frames_end(strobe_end_frame_idx);
 
 cam_sync_frames = [strobe_start_frame,strobe_end_frame];
 
 if length(cam_sync_frames) ~= 2
-    display('Cam sync not detected')
+    disp('Cam sync not detected')
     cam_sync_frames = [];
     return
 end
@@ -80,8 +85,8 @@ end
 figure;
 subplot(2,2,1);
 plot(strobe_roi_start,'k');
-line(repmat(strobe_start_frame,1,2),ylim,'color','r','linewidth',2);
-line(xlim,repmat(strobe_roi_start(strobe_start_frame_idx),2,1),'color','r','linewidth',2);
+line(repmat(strobe_start_frame,1,2),ylim,'color','r','linestyle','--');
+line(xlim,repmat(strobe_roi_start(strobe_start_frame_idx),2,1),'color','r','linestyle','--');
 xlabel('Frame');
 ylabel('Intensity');
 title({'Recording start',fn},'interpreter','none')
@@ -97,8 +102,8 @@ title('Sync frame (start)');
 
 subplot(2,2,2);
 plot(strobe_roi_end,'k');
-line(repmat(find(read_frames_end == strobe_end_frame),1,2),ylim,'color','r','linewidth',2);
-line(xlim,repmat(strobe_roi_end(strobe_end_frame_idx),2,1),'color','r','linewidth',2);
+line(repmat(find(read_frames_end == strobe_end_frame),1,2),ylim,'color','r','linestyle','--');
+line(xlim,repmat(strobe_roi_end(strobe_end_frame_idx),2,1),'color','r','linestyle','--');
 xlabel('Frame');
 ylabel('Intensity');
 title({'Recording stop',fn},'interpreter','none')
