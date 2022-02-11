@@ -10,7 +10,8 @@ function [cam_sync_frames,n_frames] = AP_get_cam_sync_frames(fn,draw_roi)
 % n_frames - number of total frames in the video
 %
 % This assumes the minimum point = the strobe signal
-% The sync is set as the first/last time the signal dips to 50% minimum
+% The sync is set as the first/last time the signal dips past thresh
+
 
 % Known issue: disable erroneous matlab warning
 warning off MATLAB:subscripting:noSubscriptsSpecified
@@ -57,7 +58,8 @@ for curr_frame_idx = 1:length(read_frames_start)
     curr_im = read(vr,curr_frame);
     strobe_roi_start(curr_frame_idx) = nanmean(curr_im(roi_mask));
 end
-strobe_roi_thresh = min(strobe_roi_start)+range(strobe_roi_start)*0.5;
+strobe_roi_thresh = min(strobe_roi_start) + ...
+    (median(strobe_roi_start(n_frames_check/2:end)) - min(strobe_roi_start))*0.5;
 strobe_start_frame_idx = find(diff(strobe_roi_start < strobe_roi_thresh) == 1,1,'first')+1;
 strobe_start_frame = read_frames_start(strobe_start_frame_idx);
 
@@ -69,7 +71,8 @@ for curr_frame_idx = 1:length(read_frames_end)
     curr_im = read(vr,curr_frame);
     strobe_roi_end(curr_frame_idx) = nanmean(curr_im(roi_mask));
 end
-strobe_roi_thresh = min(strobe_roi_end)+range(strobe_roi_end)*0.5;
+strobe_roi_thresh = min(strobe_roi_end) + ...
+    (median(strobe_roi_end(1:n_frames_check/2)) - min(strobe_roi_end))*0.5;
 strobe_end_frame_idx = find(diff(strobe_roi_end < strobe_roi_thresh) == 1,1,'last')+1;
 strobe_end_frame = read_frames_end(strobe_end_frame_idx);
 
