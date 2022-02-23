@@ -49,7 +49,6 @@ vr = VideoReader(fn);
 disp('Getting sync frames...')
 
 % Find the start strobe
-% (happens after imaging starts)
 n_frames = vr.NumberOfFrames;
 
 read_frames_start = 1:min(n_frames_check,n_frames);
@@ -65,7 +64,12 @@ strobe_start_frame_idx = find(diff(strobe_roi_start < strobe_roi_thresh) == 1,1,
 strobe_start_frame = read_frames_start(strobe_start_frame_idx);
 
 % Find the end strobe
-% (happens after imaging starts)
+% (refine ROI based on first strobe to ignore imaging lights)
+strobe_start_framediff = read(vr,strobe_start_frame-1) - ...
+    read(vr,strobe_start_frame);
+roi_mask_thresh = prctile(strobe_start_framediff(:),80);
+roi_mask = strobe_start_framediff >= roi_mask_thresh;
+
 read_frames_end = max(1,(n_frames-n_frames_check)):n_frames;
 strobe_roi_end = zeros(length(read_frames_end),1);
 for curr_frame_idx = 1:length(read_frames_end)

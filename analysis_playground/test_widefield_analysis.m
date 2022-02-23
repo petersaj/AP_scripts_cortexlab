@@ -588,8 +588,8 @@ set(gcf,'Name',animal);
 %     trial_conditions(:,2) == -1 & ...
 %     trial_conditions(:,3) == -1;
 
-% align_times = stimOn_times;
-align_times = stimOn_times(stimIDs == 1);
+align_times = stimOn_times;
+% align_times = stimOn_times(stimIDs == 1);
 % align_times = stimOn_times(stim_to_move >= 0.1);
 % align_times = iti_move_starts;
 % align_times = wheel_move_time;
@@ -2060,7 +2060,7 @@ ylabel(c,'Explained variance')
 
 %% Align vasculature for animal
 clear all;
-animal = 'AP110';
+animal = 'AP108';
 
 protocol = [];
 experiments = AP_find_experiments(animal,protocol);
@@ -2099,7 +2099,7 @@ AP_align_widefield(im_edge,animal,{experiments(use_days).day},'new_days');
 
 %% View aligned vasculature
 
-animal = 'AP099';
+animal = 'AP108';
 
 protocol = [];
 experiments = AP_find_experiments(animal,protocol);

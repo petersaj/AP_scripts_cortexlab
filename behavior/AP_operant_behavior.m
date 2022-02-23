@@ -1,7 +1,5 @@
 %% AP_stimWheelRight (aka one-sided choiceworld)
 
-%%%%% CHANGE HOW THIS IS DONE: LOAD MUSCIMOL INFO DIRECTLY INTO GRAB?
-
 
 %% ~~~~~~~ Grab behavior
 
@@ -9,7 +7,7 @@
 
 % animals = {'AP110','AP111','AP112'};
 % animals = {'AP098','AP099','AP112'};
-animals = {'AP107','AP108'};
+animals = {'AP107'};
 
 protocol = 'AP_stimWheel';
 flexible_name = true;

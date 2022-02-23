@@ -377,7 +377,8 @@ if exist('Timeline','var') && load_parts.cam
                 [~,eyecam_strobe_sync_end] = min(abs(camSync_flip(3) - eyeCamStrobe_up));
                 n_eyecam_frames_syncd_timeline = eyecam_strobe_sync_end - eyecam_strobe_sync;
                 if abs(n_eyecam_frames_syncd_movie - n_eyecam_frames_syncd_timeline) > 2
-                    warning('[%s %s %d] Eyecam: different n frames video vs timeline',animal,day,experiment);
+                    warning('[%s %s %d] Eyecam: %d frames video vs timeline', ...
+                        animal,day,experiment,n_eyecam_frames_syncd_movie - n_eyecam_frames_syncd_timeline);
                 end
                 
                 % Get times of cam frames in timeline
@@ -430,7 +431,8 @@ if exist('Timeline','var') && load_parts.cam
                 [~,facecam_strobe_sync_end] = min(abs(camSync_flip(3) - faceCamStrobe_up));
                 n_facecam_frames_syncd_timeline = facecam_strobe_sync_end - facecam_strobe_sync;
                 if abs(n_facecam_frames_syncd_movie - n_facecam_frames_syncd_timeline) > 2
-                    warning('[%s %s %d] Facecam: different n frames video vs timeline',animal,day,experiment);
+                    warning('[%s %s %d] Facecam: %d frames video vs timeline', ...
+                        animal,day,experiment,n_facecam_frames_syncd_movie - n_facecam_frames_syncd_timeline);
                 end
                 
                 % Get times of cam frames in timeline

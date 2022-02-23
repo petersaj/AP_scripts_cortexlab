@@ -2512,6 +2512,81 @@ save_path = 'C:\Users\Andrew\OneDrive for Business\Documents\CarandiniHarrisLab\
 save_fn = ['trial_activity_task_ephys'];
 save([save_path filesep save_fn],'-v7.3');
 
+%% Passive reversal (tetO)
+
+clear all
+disp('Passive trial activity reversal (tetO)')
+
+animals = {'AP107'};
+
+% Initialize save variable
+trial_data_all = struct;
+
+for curr_animal = 1:length(animals)
+    
+    animal = animals{curr_animal};
+    protocol = 'AP_lcrGratingPassive';
+    experiments = AP_find_experiments(animal,protocol);
+    
+    % Get days with muscimol
+    data_path = 'C:\Users\Andrew\OneDrive for Business\Documents\CarandiniHarrisLab\analysis\operant_learning\data';
+    muscimol_fn = [data_path filesep 'muscimol.mat'];
+    load(muscimol_fn);
+    muscimol_animal_idx = ismember({muscimol.animal},animal);
+    if any(muscimol_animal_idx)
+        muscimol_experiments = ismember({experiments.day}, ...
+            [muscimol(muscimol_animal_idx).day]);
+    else
+        muscimol_experiments = false(size({experiments.day}));
+    end
+    
+    % Set experiments to use (imaging, not muscimol)
+    experiments = experiments([experiments.imaging] & ~muscimol_experiments);
+    
+    disp(['Loading ' animal]);
+    
+    for curr_day = 1:length(experiments)
+        
+        preload_vars = who;
+        
+        day = experiments(curr_day).day;
+        experiment = experiments(curr_day).experiment(end);
+        
+        % Load experiment
+        AP_load_experiment;
+        
+        % Pull out trial data
+        operant_grab_trial_data;
+        
+        % Store trial data into master structure
+        trial_data_fieldnames = fieldnames(trial_data);
+        for curr_trial_data_field = trial_data_fieldnames'
+            trial_data_all.(cell2mat(curr_trial_data_field)){curr_animal,1}{curr_day,1} = ...
+                trial_data.(cell2mat(curr_trial_data_field));
+        end
+        
+        % Store general info
+        trial_data_all.animals = animals;
+        trial_data_all.t = t;
+        
+        AP_print_progress_fraction(curr_day,length(experiments));
+        
+        % Clear for next loop
+        clearvars('-except',preload_vars{:});
+        
+    end
+    
+end
+
+clearvars -except trial_data_all
+disp('Finished loading all')
+
+% Save
+save_path = 'C:\Users\Andrew\OneDrive for Business\Documents\CarandiniHarrisLab\analysis\operant_learning\data';
+save_fn = ['trial_activity_passive_teto_reversal'];
+save([save_path filesep save_fn],'-v7.3');
+disp(['Saved: ' save_path filesep save_fn])
+
 
 %% Facecam troubleshooting
 
@@ -2520,8 +2595,8 @@ animals = {'AP100','AP101','AP103','AP104','AP105','AP106','AP107','AP108','AP10
 for curr_animal = 1:length(animals)
     
     animal = animals{curr_animal};
-    protocol = 'AP_lcrGratingPassive';
-%     protocol = 'AP_stimWheel';
+%     protocol = 'AP_lcrGratingPassive';
+    protocol = 'AP_stimWheel';
     flexible_name = true;
     experiments = AP_find_experiments(animal,protocol,flexible_name);
     
@@ -2596,7 +2671,8 @@ end
 
 % Load data
 trial_data_path = 'C:\Users\Andrew\OneDrive for Business\Documents\CarandiniHarrisLab\analysis\operant_learning\data';
-data_fn = 'trial_activity_passive_tetO';
+% data_fn = 'trial_activity_passive_tetO';
+data_fn = 'trial_activity_passive_tetO_reversal';
 % data_fn = 'trial_activity_passive_cstr';
 
 AP_load_trials_wf;
@@ -2715,7 +2791,9 @@ end
 
 % Plot stim response in single animal over days
 use_animal = 1;
-curr_px = AP_svdFrameReconstruct(U_master(:,:,1:n_vs),stim_v_avg{use_animal}(:,:,:,3));
+plot_stim = 1;
+curr_px = AP_svdFrameReconstruct(U_master(:,:,1:n_vs), ...
+    stim_v_avg{use_animal}(:,:,:,plot_stim));
 AP_image_scroll(curr_px,t);
 caxis([-max(abs(caxis)),max(abs(caxis))]);
 colormap(brewermap([],'PrGn'));
