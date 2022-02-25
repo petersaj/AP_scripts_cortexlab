@@ -227,8 +227,8 @@ AP_errorfill(t,stim_grp_mean',stim_group_sem')
 xline(0);
 
 
-%% ~~~~~~~~~~~~~ TESTING BATCH
-% (moved to AP_operant_learning_preprocessing and developing from there)
+%% ~~~~~~~~~~~~~ BATCH
+
 
 %% Collect sample facecam frame from all experiments
 
@@ -293,6 +293,13 @@ for curr_animal = 1:length(animals)
 end
 disp('Done loading all');
 
+% Save
+save_path = 'C:\Users\Andrew\OneDrive for Business\Documents\CarandiniHarrisLab\analysis\operant_learning\facecam_processing';
+save_fn = ['facecam_sampleframe_all'];
+save([save_path filesep save_fn],'facecam_sampleframe_all','-v7.3');
+disp(['Saved: ' save_path filesep save_fn])
+
+
 %% Facecam align
 % Align facecam across mice/days
 
@@ -339,8 +346,7 @@ for curr_im = 1:length(im_unaligned)
     AP_print_progress_fraction(curr_im,length(im_unaligned));
 end
 
-
-%% Draw facecam ROI and align to each recording
+%% Draw fac
 
 
 

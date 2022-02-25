@@ -2595,8 +2595,8 @@ animals = {'AP100','AP101','AP103','AP104','AP105','AP106','AP107','AP108','AP10
 for curr_animal = 1:length(animals)
     
     animal = animals{curr_animal};
-%     protocol = 'AP_lcrGratingPassive';
-    protocol = 'AP_stimWheel';
+    protocol = 'AP_lcrGratingPassive';
+%     protocol = 'AP_stimWheel';
     flexible_name = true;
     experiments = AP_find_experiments(animal,protocol,flexible_name);
     
