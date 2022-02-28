@@ -2671,8 +2671,8 @@ end
 
 % Load data
 trial_data_path = 'C:\Users\Andrew\OneDrive for Business\Documents\CarandiniHarrisLab\analysis\operant_learning\data';
-% data_fn = 'trial_activity_passive_tetO';
-data_fn = 'trial_activity_passive_tetO_reversal';
+data_fn = 'trial_activity_passive_tetO';
+% data_fn = 'trial_activity_passive_tetO_reversal';
 % data_fn = 'trial_activity_passive_cstr';
 
 AP_load_trials_wf;

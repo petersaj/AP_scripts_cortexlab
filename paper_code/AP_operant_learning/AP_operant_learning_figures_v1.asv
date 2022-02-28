@@ -25,10 +25,7 @@ for curr_animal = 1:length(bhv)
     use_days{curr_animal} = ~muscimol_day_idx;
 end
 
-% Set max days (for padding) and plot days (minimum n)
 max_days = max(cellfun(@sum,use_days));
-min_n = 4;
-plot_days = find(accumarray(cell2mat(cellfun(@find,use_days,'uni',false)'),1) >= min_n);
 
 % Set bins for reaction time histograms
 rxn_bins = [0:0.02:0.5];
@@ -43,6 +40,7 @@ for curr_animal = 1:length(bhv)
             rxn_bins,'normalization','probability');
     end
 end
+plot_days = 1:7;
 figure;
 plot_col = copper(length(plot_days));
 h = AP_errorfill(rxn_bin_centers,nanmean(animal_rxn(plot_days,:,:),3)', ...
@@ -131,28 +129,11 @@ alt_rxn_frac_pad = cell2mat(cellfun(@(x) padarray(cellfun(@(x) ...
     [max_days-length(x),0],NaN,'post'), ...
     cellfun(@(x,use_days) x(use_days),{bhv.alt_stim_move_t},use_days,'uni',false),'uni',false));
 
-% (plot relative to training day and learned day)
-figure; 
-
-subplot(1,2,1);hold on;
+plot_days = find(accumarray(cell2mat(cellfun(@find,use_days,'uni',false)'),1) >= 8);
+figure; hold on;
 plot(rxn_frac_pad(plot_days,:),'color',[0.5,0.5,0.5]);
-errorbar(nanmean(rxn_frac_pad(plot_days,:),2), ...
-    AP_sem(rxn_frac_pad(plot_days,:),2),'k','linewidth',2,'CapSize',0);
-errorbar(nanmean(alt_rxn_frac_pad(plot_days,:),2), ...
-AP_sem(alt_rxn_frac_pad(plot_days,:),2),'r','linewidth',2','CapSize',0);
-
-learned_day_x = [1:max_days]'-learned_day;
-[rxn_grp_mean,learned_day_grp,learned_day_n] = ...
-    grpstats(rxn_frac_pad(:),learned_day_x(:),{'nanmean','gname','numel'});
-learned_day_grp = cellfun(@str2num,learned_day_grp);
-
-subplot(1,2,2); hold on;
-plot(learned_day_x,rxn_frac_pad,'color',[0.5,0.5,0.5]);
-plot(learned_day_grp,rxn_grp_mean,'k','linewidth',2);
-xlabel('Learned day');
-ylabel('Rxn frac');
-line([0,0],ylim,'color','k','linestyle','--');
-
+errorbar(nanmean(rxn_frac_pad,2),AP_sem(rxn_frac_pad(plot_days,:),2),'k','linewidth',2);
+errorbar(nanmean(alt_rxn_frac_pad,2),AP_sem(alt_rxn_frac_pad(plot_days,:),2),'r','linewidth',2);
 
 % Day-split reaction time fraction
 n_daysplit = 4;
@@ -182,95 +163,21 @@ alt_stim_move_t_stimtime = accumarray(cell2mat(cat(1,trial_split_idx{:})), ...
     alt_stim_move_t_cat < rxn_frac_window(2)', ...
     [n_daysplit,max_days,length(bhv)],@nanmean,NaN);
 
-% (plot relative to training day and learned day)
-figure; 
-
-subplot(1,2,1);hold on;
+figure; hold on;
 stim_move_t_stimtime_long = reshape(padarray(stim_move_t_stimtime,[1,0,0],NaN,'post'),[],length(animals));
 alt_stim_move_t_stimtime_long = reshape(padarray(alt_stim_move_t_stimtime,[1,0,0],NaN,'post'),[],length(animals));
 
+plot([1:size(stim_move_t_stimtime_long,1)]/(n_daysplit+1),stim_move_t_stimtime_long,'color',[0.5,0.5,0.5]);
 p1 = errorbar([1:size(stim_move_t_stimtime_long,1)]/(n_daysplit+1), ...
-    nanmean(stim_move_t_stimtime_long,2),AP_sem(stim_move_t_stimtime_long,2),'k','linewidth',2,'CapSize',0);
+    nanmean(stim_move_t_stimtime_long,2),AP_sem(stim_move_t_stimtime_long,2),'k','linewidth',2);
+
+plot([1:size(alt_stim_move_t_stimtime_long,1)]/(n_daysplit+1),alt_stim_move_t_stimtime_long,'color',[1,0.5,0.5]);
 p2 = errorbar([1:size(alt_stim_move_t_stimtime_long,1)]/(n_daysplit+1), ...
-    nanmean(alt_stim_move_t_stimtime_long,2),AP_sem(alt_stim_move_t_stimtime_long,2),'r','linewidth',2,'CapSize',0);
+    nanmean(alt_stim_move_t_stimtime_long,2),AP_sem(alt_stim_move_t_stimtime_long,2),'r','linewidth',2);
 
 xlabel('Day');
 ylabel('Frac rxn 100-200 ms');
 legend([p1,p2],{'Measured','Null'},'location','nw');
-
-% (relative to learned day)
-learned_day_x_daysplit = cell2mat(cellfun(@(x) x+(0:n_daysplit)'/(n_daysplit+1), ...
-    num2cell(learned_day_x),'uni',false));
-
-[rxn_grp_mean_daysplit,rxn_grp_sem_daysplit,learned_day_grp_daysplit,learned_day_n_daysplit] = ...
-    grpstats(stim_move_t_stimtime_long(:),learned_day_x_daysplit(:), ...
-    {'nanmean','sem','gname','numel'});
-learned_day_grp_daysplit = cellfun(@str2num,learned_day_grp_daysplit);
-
-subplot(1,2,2); hold on;
-errorbar(learned_day_grp_daysplit,rxn_grp_mean_daysplit, ...
-    rxn_grp_sem_daysplit,'k','linewidth',2,'CapSize',0);
-line([0,0],ylim,'color','k','linestyle','--');
-xlabel('Learned day');
-
-%% ~~~~~ Load passive
-
-% Load data
-trial_data_path = 'C:\Users\Andrew\OneDrive for Business\Documents\CarandiniHarrisLab\analysis\operant_learning\data';
-data_fn = 'trial_activity_passive_tetO';
-AP_load_trials_wf;
-
-% Get animal and day index for each trial
-trial_animal = cell2mat(arrayfun(@(x) ...
-    x*ones(size(vertcat(wheel_all{x}{:}),1),1), ...
-    [1:length(wheel_all)]','uni',false));
-trial_day = cell2mat(cellfun(@(x) cell2mat(cellfun(@(curr_day,x) ...
-    curr_day*ones(size(x,1),1),num2cell(1:length(x))',x,'uni',false)), ...
-    wheel_all,'uni',false));
-
-trials_recording = cellfun(@(x) size(x,1),vertcat(wheel_all{:}));
-
-% Get trials with movement during stim to exclude
-quiescent_trials = ~any(abs(wheel_allcat(:,t >= 0 & t <= 0.5)) > 0,2);
-
-% Get average fluorescence by animal, day, stim
-stim_unique = unique(trial_stim_allcat);
-stim_v_avg = cell(size(animals));
-stim_roi_avg = cell(size(animals));
-stim_roi = cell(size(animals));
-for curr_animal = 1:length(animals)
-    for curr_day = 1:max(trial_day(trial_animal == curr_animal))
-        for curr_stim_idx = 1:length(stim_unique)
-            use_trials = quiescent_trials & ...
-                trial_animal == curr_animal & ...
-                trial_day == curr_day & ...
-                trial_stim_allcat == stim_unique(curr_stim_idx);
-            stim_v_avg{curr_animal}(:,:,curr_day,curr_stim_idx) = ...
-                permute(nanmean(fluor_allcat_deconv(use_trials,:,:),1),[3,2,1]);
-            stim_roi_avg{curr_animal}(:,:,curr_day,curr_stim_idx) = ...
-                permute(nanmean(fluor_roi_deconv(use_trials,:,:),1),[3,2,1]);
-            
-            stim_roi{curr_animal}{curr_day}{curr_stim_idx} = ...
-                fluor_roi_deconv(use_trials,:,:);
-        end
-    end
-end
-
-n_naive = 3; % Number of days naive only (no behavior)
-passive_learned_day_grp = cellfun(@(v,learned_day) ...
-    discretize(1:size(v,3),[0,n_naive+1,learned_day,size(v,3)+1],'IncludedEdge','left'), ...
-    stim_v_avg,num2cell(learned_day + n_naive),'uni',false);
-
-% (TO DO HERE: AVERAGE V'S BY NAIVE/PRELEARN/POSTLEARN ABOVE)
-stim_v_avg_prepostlearn
-stim_v_avg
-
-
-
-
-
-
-
 
 
 
