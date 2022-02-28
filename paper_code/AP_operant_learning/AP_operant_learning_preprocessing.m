@@ -105,18 +105,18 @@ axis image;
 
 % (for RegularStepGradientDescent)
 [optimizer, metric] = imregconfig('monomodal');
-optimizer.GradientMagnitudeTolerance = 1e-5;
-optimizer.MaximumIterations = 200;
-optimizer.MaximumStepLength = 1e-3;
-optimizer.MinimumStepLength = 1e-5;
+optimizer.GradientMagnitudeTolerance = 1e-6;
+optimizer.MaximumIterations = 100;
+optimizer.MaximumStepLength = 1e-4;
+optimizer.MinimumStepLength = 1e-6;
 optimizer.RelaxationFactor = 0.6;
 
-im_unaligned = cellfun(@(x) x-imgaussfilt(x,10),im_unaligned,'uni',false);
+im_unaligned_edge = cellfun(@(x) x-imgaussfilt(x,10),im_unaligned,'uni',false);
 
 % (rigid align to first image)
 disp('Rigid aligning images...')
 % (use only top half of image - excludes hands which are random)
-im_ref = im_unaligned{1};
+im_ref = im_unaligned_edge{1}(1:round(size(im_unaligned{1},1)/2),:);
 
 im_rigid_aligned = nan(ref_size(1),ref_size(2),length(im_unaligned));
 rigid_tform = cell(size(im_unaligned));
@@ -125,7 +125,7 @@ for curr_im = 1:length(im_unaligned)
         continue
     end
     
-    im_source = im_unaligned{curr_im};
+    im_source = im_unaligned_edge{curr_im}(1:round(size(im_unaligned{curr_im},1)/2),:);
 
     tformEstimate_affine = imregtform(im_source, ...
         im_ref,'rigid',optimizer,metric,'PyramidLevels',4);
