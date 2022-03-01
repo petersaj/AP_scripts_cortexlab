@@ -7,17 +7,11 @@
 
 %% ~~~~~~~~~~~~~~ Behavior
 
-% early corticostriatal mice (fixed task timings)
-% animal_group = 'cstr_fixtime';
-% animals =  {'AP089','AP090','AP091'};
+%% Grab and save behavior
 
-% % corticostriatal mice
-% animal_group = 'cstr';
-% animals = {'AP092','AP093','AP094','AP095','AP096','AP097'};
-
-% tetO mice
 animal_group = 'teto';
-animals = {'AP100','AP101','AP103','AP104','AP105','AP106','AP107','AP108','AP109','AP111','AP112'};
+animals = {'AP100','AP101','AP103','AP104','AP105', ...
+    'AP106','AP107','AP108','AP109','AP111'};
 
 protocol = 'AP_stimWheelRight';
 flexible_name = false;
@@ -422,11 +416,124 @@ if save_bhv
     disp(['Saved ' save_fn]);
 end
 
+%% Find "learned" days
+% Days when response to stimulus was significantly different from null
+
+% Load behavior from above
+data_path = 'C:\Users\Andrew\OneDrive for Business\Documents\CarandiniHarrisLab\analysis\operant_learning\data';
+bhv_fn = [data_path filesep 'bhv_teto'];
+load(bhv_fn);
+
+% Define "learned" days by fraction of reaction times within window
+rxn_window = [0.1,0.2];
+n_sample = 10000;
+learned_days = cell(size(bhv));
+for curr_animal = 1:length(bhv)
+
+    curr_n_days = length(bhv(curr_animal).stim_move_t);
+    learned_days{curr_animal} = nan(curr_n_days,1);
+
+    for curr_day = 1:curr_n_days
+
+        % (use trials only with alt - no alt if couldn't recapture stim
+        % time with params, happens with some skipped wheel clicks)
+        use_trials = ~cellfun(@isempty,bhv(curr_animal).alt_stim_move_t{curr_day});
+        
+        curr_rxn = bhv(curr_animal).stim_move_t{curr_day}(use_trials);
+        curr_alt_rxn = cell2mat(cellfun(@(x) datasample(x,n_sample)', ...
+            bhv(curr_animal).alt_stim_move_t{curr_day}(use_trials),'uni',false));     
+        
+        rxn_window_frac = nanmean(curr_rxn >= rxn_window(1) & curr_rxn <= rxn_window(2));
+        alt_rxn_window_frac = nanmean(curr_alt_rxn >= rxn_window(1) & curr_alt_rxn <= rxn_window(2),1);
+        
+        rxn_window_frac_rank = tiedrank([rxn_window_frac,alt_rxn_window_frac]);
+        rxn_window_frac_p = rxn_window_frac_rank(1)./(n_sample+1);
+        
+        % (null rejected at 1%)
+        rxn_window_frac_h = rxn_window_frac_p > 0.99;
+
+        learned_days{curr_animal}(curr_day) = rxn_window_frac_h;
+    end
+end
+
+% Plot to check
+learned_days_padcat = AP_padcatcell(learned_days);
+
+figure; 
+imagesc(learned_days_padcat,'AlphaData',~isnan(learned_days_padcat));
+set(gca,'Color','r')
+title(sprintf('Frac reaction times %.2f-%.2f',rxn_window(1),rxn_window(2)));
+xlabel('Animal');
+ylabel('Day');
+
+% Put learned days into behavior structure and save
+[bhv.learned_days] = learned_days{:};
+save(bhv_fn,'bhv');
+disp(['Saved learned days ' bhv_fn]);
 
 
+%% ~~~~~~~~~~~~~~ Widefield ROIs
 
+%% Draw ROIs
 
+% Set ROIs to draw
+roi_areas = {'V1','V1binoc','AM','RSP','M2post','mPFC','SM'};
 
+% Load reference image
+% (this was manually made: RGB image of right stim pre/post and central)
+wf_roi_path = 'C:\Users\Andrew\OneDrive for Business\Documents\CarandiniHarrisLab\analysis\operant_learning\wf_processing\wf_rois';
+wf_ref_fn = 'wf_roi_ref.fig';
+openfig([wf_roi_path filesep wf_ref_fn]);
+
+wf_roi = struct('area',cell(length(roi_areas),2),'mask',cell(length(roi_areas),2));
+for curr_area = 1:length(roi_areas)
+    
+    % Get ROI from left hemisphere
+    title(['Draw ' roi_areas{curr_area} '_L']);
+    curr_mask_L = roipoly;
+    wf_roi(curr_area,1).area = [roi_areas{curr_area} '_L'];
+    wf_roi(curr_area,1).mask = curr_mask_L;
+    
+    % Reflect ROI to right hemisphere
+    curr_mask_R = AP_reflect_widefield(curr_mask_L) > 0;
+    wf_roi(curr_area,2).area = [roi_areas{curr_area} '_R'];
+    wf_roi(curr_area,2).mask = curr_mask_R;
+    
+    % Draw ROIs
+    curr_roi_L = cell2mat(bwboundaries(curr_mask_L));
+    curr_roi_R = cell2mat(bwboundaries(curr_mask_R));
+    plot(curr_roi_L(:,2),curr_roi_L(:,1),'m','linewidth',2);
+    plot(curr_roi_R(:,2),curr_roi_R(:,1),'m','linewidth',2);
+    drawnow;
+    
+end
+
+close(gcf);
+% Save (commented so don't accidentally re-write)
+% wf_roi_fn = [wf_roi_path filesep 'wf_roi'];
+% save(wf_roi_fn,'wf_roi');
+% disp('Saved new widefield ROIs');
+
+%% Plot widefield ROIs
+
+wf_roi_fn = 'C:\Users\Andrew\OneDrive for Business\Documents\CarandiniHarrisLab\analysis\operant_learning\wf_processing\wf_rois\wf_roi';
+load(wf_roi_fn);
+n_rois = numel(wf_roi);
+
+roi_cat = cat(3,wf_roi.mask);
+roi_col = [autumn(size(wf_roi,1));winter(size(wf_roi,1))];
+
+figure; hold on
+set(gca,'YDir','reverse');
+AP_reference_outline('ccf_aligned','k');%AP_reference_outline('retinotopy','m');
+for curr_roi = 1:n_rois
+    curr_roi_boundary = cell2mat(bwboundaries(roi_cat(:,:,curr_roi)));
+    patch(curr_roi_boundary(:,2),curr_roi_boundary(:,1),roi_col(curr_roi,:));
+    
+    text(nanmean(curr_roi_boundary(:,2)),nanmean(curr_roi_boundary(:,1)), ...
+        wf_roi(curr_roi).area,'FontSize',12,'HorizontalAlignment','center')
+end
+axis image off;
 
 
 

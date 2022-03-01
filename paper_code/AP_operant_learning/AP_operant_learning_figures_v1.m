@@ -1,7 +1,10 @@
-%% Behavior
-% Adapted from AP_operant_behavior
+%% Figures for longitudinal widefield during operant/sensorimotor learning
+% Preprocessing done in AP_operant_learning_preprocessing
 
-% (load data saved in AP_operant_behavior)
+%% Behavior
+% (adapted from AP_operant_behavior)
+
+% Load behavior
 data_path = 'C:\Users\Andrew\OneDrive for Business\Documents\CarandiniHarrisLab\analysis\operant_learning\data';
 bhv_fn = [data_path filesep 'bhv_teto'];
 load(bhv_fn);
@@ -79,46 +82,6 @@ line(xlim,[0,0],'color','r');
 ylabel('Distribution difference');
 linkaxes(get(gcf,'children'),'xy');
 
-
-% %%%%% TESTING STATS rxn within window
-% THIS IS GOOD, USE THIS
-max_days = max(cellfun(@sum,use_days));
-r_frac_p_cat = nan(max_days,length(animals));
-for curr_animal = 1:length(animals)
-    for curr_day = find(use_days{curr_animal})'
-        
-        n_sample = 10000;
-        use_trials = ~cellfun(@isempty,bhv(curr_animal).alt_stim_move_t{curr_day});
-%         use_trials = ~cellfun(@isempty,bhv(curr_animal).alt_stim_move_t{curr_day}) & ...
-%             linspace(0,1,length(bhv(curr_animal).stim_move_t{curr_day}))' < 0.9;
-%           use_trials = ~cellfun(@isempty,bhv(curr_animal).alt_stim_move_t{curr_day}) & ...
-%             (length(bhv(curr_animal).stim_move_t{curr_day}):-1:1)' > 10;
-        
-        r = bhv(curr_animal).stim_move_t{curr_day}(use_trials);
-        ar = cell2mat(cellfun(@(x) datasample(x,n_sample)', ...
-            bhv(curr_animal).alt_stim_move_t{curr_day}(use_trials),'uni',false));
-        
-        rxn_window = [0.1,0.2];
-        
-        r_frac = nanmean(r >= rxn_window(1) & r <= rxn_window(2));
-        ar_frac = nanmean(ar >= rxn_window(1) & ar <= rxn_window(2),1);
-        
-        r_frac_rank = tiedrank([r_frac,ar_frac]);
-        r_frac_p = r_frac_rank(1)./(n_sample+1);
-        
-        r_frac_p_cat(curr_day,curr_animal) = r_frac_p;
-        
-    end
-end
-figure; 
-imagesc(r_frac_p_cat > 0.99,'AlphaData',~isnan(r_frac_p_cat));
-set(gca,'Color',[0.5,0.5,0.5])
-title('rxn window')
-xlabel('Animal');
-ylabel('Day');
-[~,learned_day] = max(r_frac_p_cat,[],1);
-
-
 % Fraction rxn within boundary
 rxn_frac_window = [0.1,0.2];
 rxn_frac_pad = cell2mat(cellfun(@(x) padarray(cellfun(@(x) ...
@@ -132,6 +95,8 @@ alt_rxn_frac_pad = cell2mat(cellfun(@(x) padarray(cellfun(@(x) ...
     cellfun(@(x,use_days) x(use_days),{bhv.alt_stim_move_t},use_days,'uni',false),'uni',false));
 
 % (plot relative to training day and learned day)
+learned_day = cellfun(@(x) find(x,1),{bhv.learned_days});
+
 figure; 
 
 subplot(1,2,1);hold on;
@@ -167,11 +132,11 @@ trial_split_idx = cellfun(@(x,use_days,animal_num) ...
 
 stim_move_t_cat = cell2mat(cellfun(@(x,use_days) cell2mat(x(use_days)), ...
     {bhv.stim_move_t},use_days,'uni',false)');
-% alt_stim_move_t_cat = cell2mat(cellfun(@(x,use_days) cell2mat(x(use_days)), ...
-%     alt_rxn_matched,use_days,'uni',false)');
-alt_stim_move_t_cat = cell2mat(cellfun(@(x,use_days) ...
-    cell2mat(cellfun(@(x) cellfun(@nanmedian,x),x(use_days),'uni',false)), ...
-    {bhv.alt_stim_move_t},use_days,'uni',false)');
+alt_stim_move_t_cat = cell2mat(cellfun(@(x,use_days) cell2mat(x(use_days)), ...
+    alt_rxn_matched,use_days,'uni',false)');
+% alt_stim_move_t_cat = cell2mat(cellfun(@(x,use_days) ...
+%     cell2mat(cellfun(@(x) cellfun(@nanmedian,x),x(use_days),'uni',false)), ...
+%     {bhv.alt_stim_move_t},use_days,'uni',false)');
 
 stim_move_t_stimtime = accumarray(cell2mat(cat(1,trial_split_idx{:})), ...
     stim_move_t_cat > rxn_frac_window(1) & ...
@@ -205,13 +170,39 @@ learned_day_x_daysplit = cell2mat(cellfun(@(x) x+(0:n_daysplit)'/(n_daysplit+1),
 [rxn_grp_mean_daysplit,rxn_grp_sem_daysplit,learned_day_grp_daysplit,learned_day_n_daysplit] = ...
     grpstats(stim_move_t_stimtime_long(:),learned_day_x_daysplit(:), ...
     {'nanmean','sem','gname','numel'});
+[alt_rxn_grp_mean_daysplit,alt_rxn_grp_sem_daysplit] = ...
+    grpstats(alt_stim_move_t_stimtime_long(:),learned_day_x_daysplit(:), ...
+    {'nanmean','sem'});
+
 learned_day_grp_daysplit = cellfun(@str2num,learned_day_grp_daysplit);
 
+plot_daysplit = learned_day_n_daysplit >= min_n | isnan(rxn_grp_mean_daysplit);
+
 subplot(1,2,2); hold on;
-errorbar(learned_day_grp_daysplit,rxn_grp_mean_daysplit, ...
-    rxn_grp_sem_daysplit,'k','linewidth',2,'CapSize',0);
+errorbar(learned_day_grp_daysplit(plot_daysplit),rxn_grp_mean_daysplit(plot_daysplit), ...
+    rxn_grp_sem_daysplit(plot_daysplit),'k','linewidth',2,'CapSize',0);
+errorbar(learned_day_grp_daysplit(plot_daysplit),alt_rxn_grp_mean_daysplit(plot_daysplit), ...
+    alt_rxn_grp_sem_daysplit(plot_daysplit),'r','linewidth',2,'CapSize',0);
 line([0,0],ylim,'color','k','linestyle','--');
 xlabel('Learned day');
+
+%%%%% TESTING (get many-sampled alt rxn and comparable rxn)
+
+% (exclude trials without alts: rare, from wheel click issues)
+use_rxn = cellfun(@(x) cellfun(@(x) cellfun(@(x) ...
+    ~isempty(x),x),x,'uni',false),{bhv.alt_stim_move_t},'uni',false);
+
+rxn_measured = cellfun(@(rxn,use_days,use_trials) ...
+    cellfun(@(rxn,use_trials) rxn(use_trials),rxn(use_days),use_trials(use_days),'uni',false), ...
+    {bhv.stim_move_t},use_days,use_rxn,'uni',false)';
+
+n_resample = 10;
+rxn_alt = cellfun(@(rxn,use_days,use_trials) ...
+    cellfun(@(rxn,use_trials) ...
+    cell2mat(cellfun(@(x) datasample(x,n_resample)',rxn(use_trials),'uni',false)), ...
+    rxn(use_days),use_trials(use_days),'uni',false), ...
+    {bhv.alt_stim_move_t},use_days,use_rxn,'uni',false)';
+
 
 %% ~~~~~ Load passive
 
@@ -219,6 +210,13 @@ xlabel('Learned day');
 trial_data_path = 'C:\Users\Andrew\OneDrive for Business\Documents\CarandiniHarrisLab\analysis\operant_learning\data';
 data_fn = 'trial_activity_passive_tetO';
 AP_load_trials_wf;
+n_naive = 3; % (number of naive passive-only days)
+
+% Load behavior and get learned day
+data_path = 'C:\Users\Andrew\OneDrive for Business\Documents\CarandiniHarrisLab\analysis\operant_learning\data';
+bhv_fn = [data_path filesep 'bhv_teto'];
+load(bhv_fn);
+learned_day = cellfun(@(x) find(x,1),{bhv.learned_days});
 
 % Get animal and day index for each trial
 trial_animal = cell2mat(arrayfun(@(x) ...
@@ -256,14 +254,93 @@ for curr_animal = 1:length(animals)
     end
 end
 
-n_naive = 3; % Number of days naive only (no behavior)
-passive_learned_day_grp = cellfun(@(v,learned_day) ...
-    discretize(1:size(v,3),[0,n_naive+1,learned_day,size(v,3)+1],'IncludedEdge','left'), ...
-    stim_v_avg,num2cell(learned_day + n_naive),'uni',false);
+% Average V's by naive/prelearn/postlearn
+stim_v_avg_stage = cell2mat(permute(cellfun(@(x,ld) ...
+    cat(3,nanmean(x(:,:,1:n_naive,:),3), ...
+    nanmean(x(:,:,n_naive+1:ld-1,:),3), ...
+    nanmean(x(:,:,ld:end,:),3)),stim_v_avg,num2cell(learned_day), ...
+    'uni',false),[1,3,4,5,2]));
 
-% (TO DO HERE: AVERAGE V'S BY NAIVE/PRELEARN/POSTLEARN ABOVE)
-stim_v_avg_prepostlearn
-stim_v_avg
+stim_px_avg_stage_movie = AP_svdFrameReconstruct(U_master(:,:,1:n_vs),squeeze(nanmean(stim_v_avg_stage(:,:,:,3,:),5)));
+AP_image_scroll(reshape(permute(stim_px_avg_stage_movie,[1,2,4,3]),size(U_master,1),[],length(t)),t);
+axis image off;
+colormap(brewermap([],'PrGn'));
+caxis([-max(abs(caxis)),max(abs(caxis))]);
+
+use_t = t >= 0.05 & t <= 0.2;
+stim_px_avg_stage_tavg = AP_svdFrameReconstruct(U_master(:,:,1:n_vs), ...
+    squeeze(nanmean(nanmean(stim_v_avg_stage(:,use_t,:,:,:),2),5)));
+
+figure;
+tiledlayout(3,3,'TileSpacing','tight','padding','tight');
+c = (max(stim_px_avg_stage_tavg(:)).*[-1,1])*0.5;
+for curr_stage = 1:3
+    for curr_stim = 1:3
+        nexttile;
+        imagesc(stim_px_avg_stage_tavg(:,:,curr_stage,curr_stim));
+        axis image off;
+        AP_reference_outline('ccf_aligned',[0.5,0.5,0.5]);
+        colormap(brewermap([],'PrGn'));
+        caxis(c);
+        title(sprintf('Stage %d, stim %d',curr_stage,curr_stim));
+    end
+end
+
+% Average ROIs by naive/prelearn/postlearn
+stim_roi_avg_stage = cell2mat(permute(cellfun(@(x,ld) ...
+    cat(3,nanmean(x(:,:,1:n_naive,:),3), ...
+    nanmean(x(:,:,n_naive+1:ld-1,:),3), ...
+    nanmean(x(:,:,ld:end,:),3)),stim_roi_avg,num2cell(learned_day), ...
+    'uni',false),[1,3,4,5,2]));
+
+figure;
+plot_rois = [1,5,6];
+stage_col = [0,0,0;0.7,0,0;0,0.7,0];
+tiledlayout(length(plot_rois),2,'TileSpacing','tight','padding','tight');
+for curr_roi_idx = 1:length(plot_rois)
+    curr_l_roi = plot_rois(curr_roi_idx);
+    curr_r_roi = curr_l_roi + size(wf_roi,1);
+
+    % (plot left ROI w/ right stim)
+    hl = nexttile;
+    AP_errorfill(t, ...
+        squeeze(nanmean(stim_roi_avg_stage(curr_l_roi,:,:,stim_unique == 1,:),5)), ...
+        squeeze(AP_sem(stim_roi_avg_stage(curr_l_roi,:,:,stim_unique == 1,:),5)),stage_col);
+    title(wf_roi(curr_l_roi).area);
+    xline([0,0.5],'linestyle','--');
+
+    % (plot right ROI with left stim)
+    hr =nexttile;
+    AP_errorfill(t, ...
+        squeeze(nanmean(stim_roi_avg_stage(curr_r_roi,:,:,stim_unique == -1,:),5)), ...
+        squeeze(AP_sem(stim_roi_avg_stage(curr_r_roi,:,:,stim_unique == -1,:),5)),stage_col);
+    title(wf_roi(curr_r_roi).area);
+    xline([0,0.5],'linestyle','--');
+
+    % (link axes with same ROI)
+    linkaxes([hl,hr],'xy');
+end
+
+
+
+% TODO: get time window activity aligned to learning
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 

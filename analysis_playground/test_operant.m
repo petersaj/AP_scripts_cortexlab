@@ -1793,9 +1793,9 @@ for curr_area = 1:length(roi_areas)
     
 end
 
-wf_roi_fn = [wf_roi_path filesep 'wf_roi'];
-save(wf_roi_fn,'wf_roi');
-disp('Saved new widefield ROIs');
+% wf_roi_fn = [wf_roi_path filesep 'wf_roi'];
+% save(wf_roi_fn,'wf_roi');
+% disp('Saved new widefield ROIs');
 
 %% Plot widefield ROIs
 
@@ -3111,8 +3111,6 @@ learned_day_x = [1:max_days]'-[learned_day+3];
     grpstats(rxn_frac_pad(:),learned_day_x(:),{'nanmean','gname'});
 rxndiff_grp_mean = ...
     grpstats(rxn_frac_pad_diff(:),learned_day_x(:),{'nanmean'});
-stimresponse_grp_mean = ...
-    grpstats(stim_response_idx_pad(:),learned_day_x(:),{'nanmean'});
 [act_grp_mean,act_grp_sem,act_grp_n] = grpstats(curr_act_timeavg_pad(:),learned_day_x(:),{'nanmean','sem','numel'});
 learned_day_grp = cellfun(@str2num,learned_day_grp);
 
