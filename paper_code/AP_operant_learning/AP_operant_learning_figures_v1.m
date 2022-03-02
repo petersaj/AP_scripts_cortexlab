@@ -103,14 +103,14 @@ figure; hold on
 
 animal_rxn_alt_cathist_ci = ...
     squeeze(prctile(nanmean(animal_rxn_alt_cathist,2),[5,95],3));
-p1 = AP_errorfill(rxn_bin_centers,nanmean(nanmean(animal_rxn_alt_cathist,2),3), ...
+AP_errorfill(rxn_bin_centers,nanmean(nanmean(animal_rxn_alt_cathist,2),3), ...
     animal_rxn_alt_cathist_ci,'r',[],false);
 
-p2 = AP_errorfill(rxn_bin_centers,nanmean(animal_rxn_measured_cathist,2), ...
+AP_errorfill(rxn_bin_centers,nanmean(animal_rxn_measured_cathist,2), ...
     AP_sem(animal_rxn_measured_cathist,2),'k');
 xlabel('Reaction time');
 ylabel('Probability');
-legend([p1,p2],'Null','Measured');
+legend({'Null','Measured'});
 
 % Get fraction of reaction times within window
 rxn_frac_window = [0.1,0.2];
