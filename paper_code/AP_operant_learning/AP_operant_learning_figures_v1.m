@@ -50,7 +50,7 @@ figure;
 imagesc(rxn_bin_centers,[],nanmean(animal_rxn(plot_days,:,:),3));
 colormap(brewermap([],'Greys'));
 h = colorbar;ylabel(h,'Probability');
-xlabel('Time from stim');
+xlabel('Reaction time');
 ylabel('Day');
 
 % Get reaction/resampled alt reaction times for all regular days
@@ -495,11 +495,28 @@ for curr_roi_idx = 1:length(plot_rois)
 
 end
 
-% TODO: overlay ROIs and normalize by pre-learn
+% Plot ROIs overlaid, normalized by pre-learn average
+norm_days = learned_day_x < 0;
+stim_roi_act_tmax_daysplit_normval = ...
+    nanmean(nanmean(stim_roi_act_tmax_daysplit(norm_days,:,:,:),2),1);
+stim_roi_act_tmax_daysplit_norm = ...
+    (stim_roi_act_tmax_daysplit-stim_roi_act_tmax_daysplit_normval)./ ...
+    stim_roi_act_tmax_daysplit_normval;
 
-
-
-
+figure;
+plot_rois = [1,6];
+errorbar( ...
+    repmat(reshape(learned_daysplit_x(plot_learned_day,:)',[],1),1,length(plot_rois)), ...
+    reshape(permute(padarray(nanmean( ...
+    stim_roi_act_tmax_daysplit_norm(plot_learned_day,:,plot_rois,:),4), ...
+    [0,1],NaN,'post'),[2,1,3]),[],length(plot_rois)), ...
+    reshape(permute(padarray(AP_sem( ...
+    stim_roi_act_tmax_daysplit_norm(plot_learned_day,:,plot_rois,:),4), ...
+    [0,1],NaN,'post'),[2,1,3]),[],length(plot_rois)),'linewidth',2,'CapSize',0);
+xlabel('Learned day');
+ylabel('Fluorescence (normalized to pre-learn)');
+xline(0,'linestyle','--');
+legend({wf_roi(plot_rois).area},'location','nw')
 
 
 

@@ -459,9 +459,9 @@ stim_roi_act_learn_avg = accumarray( ...
     @nanmean,NaN('single'));
 
 % (tmax activity: learned day x daysplit x roi x animal)
-use_t = t >= 0.1 & t <= 0.2;
+use_t = t >= 0 & t <= 0.5;
 stim_roi_act_tmax_daysplit = ...
-    squeeze(nanmean(stim_roi_act_learn_avg(:,:,use_t,:,:),[],3));
+    squeeze(max(stim_roi_act_learn_avg(:,:,use_t,:,:),[],3));
 
 % Plot time-max by learned day
 learned_day_x_range = minmax(learned_day_idx);
@@ -477,7 +477,7 @@ for curr_roi_idx = 1:length(plot_rois)
     curr_l_roi = plot_rois(curr_roi_idx);
 
     nexttile;
-    
+   
     errorbar(reshape(learned_daysplit_x(plot_learned_day,:)',[],1), ...
         reshape(padarray(nanmean( ...
         stim_roi_act_tmax_daysplit(plot_learned_day,:,curr_l_roi,:),4), ...
@@ -495,7 +495,10 @@ for curr_roi_idx = 1:length(plot_rois)
 
 end
 
-
+% TODO: overlay ROIs and normalize by pre-learn
+% Normalize data to re-learn average
+prelearn_x = 
+stim_roi_act_tmax_daysplit_norm = 
 
 
 
