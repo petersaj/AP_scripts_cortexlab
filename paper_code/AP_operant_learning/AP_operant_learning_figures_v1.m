@@ -180,7 +180,7 @@ line([0,0],ylim,'color','k','linestyle','--');
 
 
 
-%% ~~~~~ Load passive
+%% Passive
 
 % Load data
 trial_data_path = 'C:\Users\Andrew\OneDrive for Business\Documents\CarandiniHarrisLab\analysis\operant_learning\data';
@@ -324,33 +324,33 @@ training_data = trained_day_idx > n_naive; % (exclude naive passive-only)
 learned_day_minidx = learned_day_idx-min(learned_day_idx(:))+1;
 
 % (get mean/sem by index during naive)
-stim_roi_tavg_naive_mean = ...
+stim_roi_tmax_naive_mean = ...
     accumarray([roi_idx(~training_data),trained_day_idx(~training_data),stim_idx(~training_data)], ...
     stim_roi_tmax_daycat(~training_data), ...
     [n_rois,max(trained_day_idx(:)),length(stim_unique)],@nanmean,NaN('single'));
-stim_roi_tavg_naive_sem = ...
+stim_roi_tmax_naive_sem = ...
     accumarray([roi_idx(~training_data),trained_day_idx(~training_data),stim_idx(~training_data)], ...
     stim_roi_tmax_daycat(~training_data), ...
     [n_rois,max(trained_day_idx(:)),length(stim_unique)],@AP_sem,NaN('single'));
 
 % (get mean/sem by index during training)
-stim_roi_tavg_learn_mean = ...
+stim_roi_tmax_learn_mean = ...
     accumarray([roi_idx(training_data),learned_day_minidx(training_data),stim_idx(training_data)], ...
     stim_roi_tmax_daycat(training_data), ...
     [n_rois,max(learned_day_minidx(:)),length(stim_unique)],@nanmean,NaN('single'));
-stim_roi_tavg_learn_sem = ...
+stim_roi_tmax_learn_sem = ...
     accumarray([roi_idx(training_data),learned_day_minidx(training_data),stim_idx(training_data)], ...
     stim_roi_tmax_daycat(training_data), ...
     [n_rois,max(learned_day_minidx(:)),length(stim_unique)],@AP_sem,NaN('single'));
 % (get number of elements)
-stim_roi_tavg_learn_numel = ...
+stim_roi_tmax_learn_numel = ...
     accumarray([roi_idx(training_data),learned_day_minidx(training_data),stim_idx(training_data)], ...
     stim_roi_tmax_daycat(training_data), ...
     [n_rois,max(learned_day_minidx(:)),length(stim_unique)],@numel,NaN);
 % (get corresponding learned day x values and days to plot)
 learned_day_x_range = minmax(learned_day_idx);
 learned_day_x = learned_day_x_range(1):learned_day_x_range(2);
-plot_learned_day = squeeze(stim_roi_tavg_learn_numel(1,:,1)) > min_n;
+plot_learned_day = squeeze(stim_roi_tmax_learn_numel(1,:,1)) > min_n;
 
 figure;
 plot_rois = [1,5,6];
@@ -365,12 +365,12 @@ for curr_roi_idx = 1:length(plot_rois)
     hl = nexttile; hold on;
     % (naive)
     AP_errorfill(min(learned_day_x(plot_learned_day))+[-n_naive:-1], ...
-        squeeze(stim_roi_tavg_naive_mean(curr_l_roi,1:n_naive,:)), ...
-        squeeze(stim_roi_tavg_naive_sem(curr_l_roi,1:n_naive,:)),stim_col);
+        squeeze(stim_roi_tmax_naive_mean(curr_l_roi,1:n_naive,:)), ...
+        squeeze(stim_roi_tmax_naive_sem(curr_l_roi,1:n_naive,:)),stim_col);
     % (training)
     AP_errorfill(learned_day_x(plot_learned_day), ...
-        squeeze(stim_roi_tavg_learn_mean(curr_l_roi,plot_learned_day,:)), ...
-        squeeze(stim_roi_tavg_learn_sem(curr_l_roi,plot_learned_day,:)),stim_col);
+        squeeze(stim_roi_tmax_learn_mean(curr_l_roi,plot_learned_day,:)), ...
+        squeeze(stim_roi_tmax_learn_sem(curr_l_roi,plot_learned_day,:)),stim_col);
 
     title(wf_roi(curr_l_roi).area);
     xlabel('Learned day');
@@ -383,12 +383,12 @@ for curr_roi_idx = 1:length(plot_rois)
     hr = nexttile;
     % (naive)
     AP_errorfill(min(learned_day_x(plot_learned_day))+[-n_naive:-1], ...
-        squeeze(stim_roi_tavg_naive_mean(curr_r_roi,1:n_naive,:)), ...
-        squeeze(stim_roi_tavg_naive_sem(curr_r_roi,1:n_naive,:)),stim_col);
+        squeeze(stim_roi_tmax_naive_mean(curr_r_roi,1:n_naive,:)), ...
+        squeeze(stim_roi_tmax_naive_sem(curr_r_roi,1:n_naive,:)),stim_col);
     % (training)
     AP_errorfill(learned_day_x(plot_learned_day), ...
-        squeeze(stim_roi_tavg_learn_mean(curr_r_roi,plot_learned_day,:)), ...
-        squeeze(stim_roi_tavg_learn_sem(curr_r_roi,plot_learned_day,:)),stim_col);
+        squeeze(stim_roi_tmax_learn_mean(curr_r_roi,plot_learned_day,:)), ...
+        squeeze(stim_roi_tmax_learn_sem(curr_r_roi,plot_learned_day,:)),stim_col);
 
     title(wf_roi(curr_r_roi).area);
     xlabel('Learned day');
@@ -403,17 +403,99 @@ for curr_roi_idx = 1:length(plot_rois)
 end
 
 
+%% Task
 
+% Load data
+trial_data_path = 'C:\Users\Andrew\OneDrive for Business\Documents\CarandiniHarrisLab\analysis\operant_learning\data';
+data_fn = 'trial_activity_task_teto';
+AP_load_trials_wf;
+min_n = 4; % (minimum n to plot data)
 
+% Load behavior and get learned day
+data_path = 'C:\Users\Andrew\OneDrive for Business\Documents\CarandiniHarrisLab\analysis\operant_learning\data';
+bhv_fn = [data_path filesep 'bhv_teto'];
+load(bhv_fn);
+learned_day = cellfun(@(x) find(x,1),{bhv.learned_days})';
 
+% Get animal and day index for each trial
+trial_animal = cell2mat(arrayfun(@(x) ...
+    x*ones(size(vertcat(wheel_all{x}{:}),1),1), ...
+    [1:length(wheel_all)]','uni',false));
+trial_day = cell2mat(cellfun(@(x) cell2mat(cellfun(@(curr_day,x) ...
+    curr_day*ones(size(x,1),1),num2cell(1:length(x))',x,'uni',false)), ...
+    wheel_all,'uni',false));
 
+trial_learned_day = trial_day - learned_day(trial_animal);
 
+% Get number of trials by animal/recording
+trials_allcat = size(wheel_allcat,1);
+trials_animal = arrayfun(@(x) size(vertcat(wheel_all{x}{:}),1),1:size(wheel_all));
+trials_recording = cellfun(@(x) size(x,1),vertcat(wheel_all{:}));
 
+% Get ROI average/time-max stim reduced activity by learned day (daysplit)
+stim_regressor = strcmp(task_regressor_labels,'Stim');
+stim_roi_act = fluor_roi_deconv - fluor_roi_taskpred_reduced(:,:,:,stim_regressor);
 
+n_daysplit = 4;
+trial_daysplit_idx = cell2mat(arrayfun(@(x) ...
+    min(floor(linspace(1,n_daysplit+1,x)),n_daysplit)', ...
+    trials_recording,'uni',false));
 
+[learned_day_idx,t_idx,roi_idx] = ...
+    ndgrid(trial_learned_day,1:length(t),1:n_rois);
+learned_day_minidx = learned_day_idx-min(learned_day_idx(:))+1;
 
+[daysplit_idx,~,~] = ...
+    ndgrid(trial_daysplit_idx,1:length(t),1:n_rois);
 
+[animal_idx,~,~] = ...
+    ndgrid(trial_animal,1:length(t),1:n_rois);
 
+% (roi activity: learned day x daysplit x t x roi x animal)
+stim_roi_act_learn_avg = accumarray( ...
+    [learned_day_minidx(:),daysplit_idx(:),t_idx(:),roi_idx(:),animal_idx(:)], ...
+    stim_roi_act(:), ...
+    [max(learned_day_minidx(:)),n_daysplit,length(t),n_rois,length(animals)], ...
+    @nanmean,NaN('single'));
+
+% (tmax activity: learned day x daysplit x roi x animal)
+use_t = t >= 0 & t <= 0.5;
+stim_roi_act_tmax_daysplit = ...
+    squeeze(max(stim_roi_act_learn_avg(:,:,use_t,:,:),[],3));
+
+% Plot time-max by learned day
+learned_day_x_range = minmax(learned_day_idx);
+learned_day_x = [learned_day_x_range(1):learned_day_x_range(2)]';
+learned_daysplit_x = learned_day_x + linspace(0,1,n_daysplit+1);
+
+plot_learned_day = sum(~isnan(stim_roi_act_tmax_daysplit(:,1,1,:)),4) > min_n;
+
+figure;
+plot_rois = [1,5,6];
+tiledlayout(length(plot_rois),1,'TileSpacing','tight','padding','compact');
+for curr_roi_idx = 1:length(plot_rois)
+    curr_l_roi = plot_rois(curr_roi_idx);
+
+    nexttile;
+   
+    errorbar(reshape(learned_daysplit_x(plot_learned_day,:)',[],1), ...
+        reshape(padarray(nanmean( ...
+        stim_roi_act_tmax_daysplit(plot_learned_day,:,curr_l_roi,:),4), ...
+        [0,1],NaN,'post')',[],1), ...
+        reshape(padarray(AP_sem( ...
+        stim_roi_act_tmax_daysplit(plot_learned_day,:,curr_l_roi,:),4), ...
+        [0,1],NaN,'post')',[],1),'k','linewidth',2,'CapSize',0);
+
+    title(wf_roi(curr_l_roi).area);
+    xlabel('Learned day');
+    ylabel('\DeltaF/F_0');
+    xline(0,'linestyle','--');
+    axis tight;
+    xlim(xlim+[-0.5,0.5]);
+
+end
+
+% TODO: overlay ROIs and normalize by pre-learn
 
 
 
