@@ -174,8 +174,7 @@ muscimol(curr_animal_idx).area =  curr_recordings(:,2);
 
 
 %% Sanity check
-% (check something: all days exist? days account for all experiments before
-% ephys and after retinotopy?)
+% (check that listed days have imaging data)
 
 disp('Checking that days + imaging exist for each mouse...')
 for curr_animal = 1:length(muscimol)
@@ -201,7 +200,7 @@ save(save_fn,'muscimol');
 disp(['Saved ' save_fn]);
 
 
-%% Load muscimol experiments and get fluorescence stats
+%% Load and store muscimol experiment fluorescence stats
 
 % Load muscimol injection info
 data_path = 'C:\Users\Andrew\OneDrive for Business\Documents\CarandiniHarrisLab\analysis\operant_learning\data';
@@ -260,7 +259,45 @@ end
 
 % Save the muscimol structure with pixel data
 save(muscimol_fn,'muscimol');
-disp(['Saved ' muscimol_fn]);
+disp(['Saved muscimol fluor stats: ' muscimol_fn]);
+
+
+%% Load and store muscimol experiment retinotopy
+ 
+% Load muscimol injection info
+data_path = 'C:\Users\Andrew\OneDrive for Business\Documents\CarandiniHarrisLab\analysis\operant_learning\data';
+muscimol_fn = [data_path filesep 'muscimol.mat'];
+load(muscimol_fn);
+
+for curr_animal = 1:length(muscimol)
+
+    animal = muscimol(curr_animal).animal;
+
+    % Load retinotopy for animal
+    retinotopy_path = 'C:\Users\Andrew\OneDrive for Business\Documents\CarandiniHarrisLab\analysis\widefield_alignment\retinotopy';
+    retinotopy_fn = [retinotopy_path filesep animal '_retinotopy'];
+    load(retinotopy_fn);
+
+    for curr_day = 1:length(muscimol(curr_animal).day)
+        day = muscimol(curr_animal).day(curr_day);
+
+        curr_vfs_idx = strcmp(day,{retinotopy.day});
+        % (skip if no retinotopy)
+        if ~any(curr_vfs_idx)
+            continue
+        end
+        curr_vfs = retinotopy(curr_vfs_idx).vfs;
+        curr_vfs_aligned = AP_align_widefield(curr_vfs,animal,day);
+
+        % Store in muscimol structure
+        muscimol(curr_animal).vfs{curr_day} = curr_vfs_aligned;
+
+    end
+end
+
+% Save the muscimol structure with retinotopy
+save(muscimol_fn,'muscimol');
+disp(['Saved muscimol retinotopy: ' muscimol_fn]);
 
 
 %% Plot pixel stats
@@ -274,7 +311,7 @@ load(muscimol_fn);
 for curr_animal = 7:length(muscimol)
     curr_px = cat(3,muscimol(curr_animal).px_mad{:}); 
     curr_areas = muscimol(curr_animal).area;
-    AP_image_scroll(curr_px,curr_area);axis image
+    AP_image_scroll(curr_px,curr_areas);axis image
     set(gcf,'name',muscimol(curr_animal).animal);
 end
 

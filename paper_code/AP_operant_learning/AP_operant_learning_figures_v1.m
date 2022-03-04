@@ -177,6 +177,140 @@ xlabel('Learned day');
 ylim([0,1]);
 line([0,0],ylim,'color','k','linestyle','--');
 
+%% Behavior: muscimol
+
+% Set animal to use
+% (only use tetO mice with successful injections evidenced by retinotopic
+% map loss - manually set)
+muscimol_v1_animals = {'AP100','AP105','AP106','AP107','AP108'};
+
+% Load behavior
+data_path = 'C:\Users\Andrew\OneDrive for Business\Documents\CarandiniHarrisLab\analysis\operant_learning\data';
+bhv_fn = [data_path filesep 'bhv_teto'];
+bhv_all = load(bhv_fn);
+animals_all = {bhv_all.bhv.animal};
+use_animals = ismember(animals_all,muscimol_v1_animals);
+bhv = bhv_all.bhv(use_animals);
+
+% Load muscimol injection info
+data_path = 'C:\Users\Andrew\OneDrive for Business\Documents\CarandiniHarrisLab\analysis\operant_learning\data';
+muscimol_fn = [data_path filesep 'muscimol.mat'];
+load(muscimol_fn);
+
+% Grab day index of [V1 muscimol, washout] and retinotopy
+muscimol_v1_days = nan(length(bhv),2);
+muscimol_v1_retinotopy = cell(size(muscimol_v1_days));
+for curr_animal = 1:length(bhv)
+
+    muscimol_animal_idx = ismember({muscimol.animal},bhv(curr_animal).animal);
+    if ~any(muscimol_animal_idx)
+        continue
+    end
+    % (find last V1 muscimol day)
+    curr_v1_muscimol = find(strcmp(lower( ...
+        muscimol(muscimol_animal_idx).area),'v1'),1,'last');
+
+    % (find first washout after V1 muscimol)
+     curr_v1_washout = curr_v1_muscimol + ...
+        find(strcmp(lower( ...
+        muscimol(muscimol_animal_idx).area(curr_v1_muscimol+1:end)), ...
+        'washout'),1,'first');
+
+    curr_v1_muscimol_dayidx = find(strcmp(bhv(curr_animal).day, ...
+        muscimol(muscimol_animal_idx).day(curr_v1_muscimol)));
+
+    curr_v1_washout_dayidx = find(strcmp(bhv(curr_animal).day, ...
+        muscimol(muscimol_animal_idx).day(curr_v1_washout)));
+
+    % Store days
+     muscimol_v1_days(curr_animal,:) = ...
+             [curr_v1_muscimol_dayidx,curr_v1_washout_dayidx];
+
+     % Store retinotopy
+    muscimol_v1_retinotopy(curr_animal,:) = ...
+        muscimol(muscimol_animal_idx).vfs([curr_v1_muscimol,curr_v1_washout]);
+
+end
+
+% Plot retinotopy difference
+figure;
+for curr_cond = 1:2
+    subplot(1,2,curr_cond);
+    imagesc(nanmean(cat(3,muscimol_v1_retinotopy{:,curr_cond}),3));
+    axis image off;
+    caxis([-1,1]);
+    AP_reference_outline('ccf_aligned',[0.5,0.5,0.5]);
+    switch curr_cond
+        case 1
+            title('V1 muscimol');
+        case 2
+            title('Washout');
+    end
+end
+colormap(brewermap([],'*RdBu'));
+
+
+% (set use_days to copy code from above)
+use_days = mat2cell(muscimol_v1_days,ones(length(muscimol_v1_animals),1),2)';
+
+% Get reaction/resampled alt reaction times for all regular days
+% (exclude trials without alts: rare, from wheel click issues)
+use_rxn = cellfun(@(x) cellfun(@(x) cellfun(@(x) ...
+    ~isempty(x),x),x,'uni',false),{bhv.alt_stim_move_t},'uni',false);
+
+rxn_measured = cellfun(@(rxn,use_days,use_trials) ...
+    cellfun(@(rxn,use_trials) rxn(use_trials),rxn(use_days),use_trials(use_days),'uni',false), ...
+    {bhv.stim_move_t},use_days,use_rxn,'uni',false)';
+
+n_rxn_altsample = 1000;
+rxn_alt = cellfun(@(rxn,use_days,use_trials) ...
+    cellfun(@(rxn,use_trials) ...
+    cell2mat(cellfun(@(x) datasample(x,n_rxn_altsample)',rxn(use_trials),'uni',false)), ...
+    rxn(use_days),use_trials(use_days),'uni',false), ...
+    {bhv.alt_stim_move_t},use_days,use_rxn,'uni',false)';
+
+% Concat muscimol/washout
+rxn_measured_cat = cat(2,rxn_measured{:});
+rxn_alt_cat = cat(2,rxn_alt{:});
+
+% Set bins for reaction time histograms
+rxn_bins = [0:0.02:0.5];
+rxn_bin_centers = rxn_bins(1:end-1) + diff(rxn_bins)./2;
+
+% Plot reaction time histogram for pre/post muscimol
+rxn_measured_hist = cellfun(@(x) ...
+    histcounts(x,rxn_bins,'normalization','probability'), ...
+    rxn_measured_cat,'uni',false);
+
+rxn_alt_hist = cellfun(@(x) cell2mat(arrayfun(@(rep)...
+    histcounts(x(:,rep),rxn_bins,'normalization','probability'), ...
+    1:n_rxn_altsample,'uni',false)'),rxn_alt_cat,'uni',false);
+
+rxn_alt_hist_ci = ...
+    arrayfun(@(cond) prctile(nanmean(cat(3,rxn_alt_hist{cond,:}),3), ...
+    [5,95],1),1:2,'uni',false);
+
+figure;
+for curr_cond = 1:2
+    subplot(1,2,curr_cond); hold on
+    AP_errorfill(rxn_bin_centers,nanmean(nanmean(cat(3,rxn_alt_hist{1,:}),3),1), ...
+        rxn_alt_hist_ci{curr_cond}','r',[],false);
+
+    AP_errorfill(rxn_bin_centers, ...
+        nanmean(cat(1,rxn_measured_hist{curr_cond,:}),1)', ...
+        AP_sem(cat(1,rxn_measured_hist{curr_cond,:}),1)','k');
+
+    legend({'Null','Measured'});
+    xlabel('Reaction time');
+    ylabel('Probability')
+    switch curr_cond
+        case 1
+            title('V1 muscimol');
+        case 2
+            title('Washout');
+    end
+end
+linkaxes(get(gcf,'children'),'xy');
 
 
 

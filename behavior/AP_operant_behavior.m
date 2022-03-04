@@ -5,9 +5,8 @@
 
 %% Plot behavior (for checking ongoing)
 
-% animals = {'AP110','AP111','AP112'};
-% animals = {'AP098','AP099','AP112'};
-animals = {'AP113','AP114','AP115'};
+animals = {'AP089','AP090','AP091'};
+% animals = {'AP113','AP114','AP115'};
 
 protocol = 'AP_stimWheel';
 flexible_name = true;
