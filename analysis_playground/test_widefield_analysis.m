@@ -2253,7 +2253,7 @@ AP_reference_outline('ccf_aligned',[0.5,0.5,0.5]);
 
 %% Pixel prominence (look for peaky activity)
 
-animals = {'AP114'};
+animals = {'AP113','AP114','AP115'};
 prominence_maps = cell(size(animals));
 
 for curr_animal = 1:length(animals)

@@ -20,8 +20,11 @@ AP_mouse_movie_movement(animal,day,experiments);
 % verbose = true;
 % AP_load_experiment
 
-use_cam = facecam_fn; % facecam_fn, eyecam_fn
-use_t = facecam_t; % facecam_t, eyecam_t
+% use_cam = facecam_fn;
+% use_t = facecam_t;
+
+use_cam = eyecam_fn;
+use_t = eyecam_t;
 
 % Get wheel movements during stim, only use quiescent trials
 framerate = 30;
@@ -234,9 +237,7 @@ xline(0);
 
 animals = {'AP100','AP101','AP103','AP104','AP105','AP106','AP107','AP108','AP109','AP111','AP112'};
 
-% Initialize save variable
-facecam_sampleframe_all = struct;
-
+facecam_align = struct;
 for curr_animal = 1:length(animals)
     
     animal = animals{curr_animal};
@@ -294,130 +295,162 @@ disp('Done loading all');
 
 % % Save
 % save_path = 'C:\Users\Andrew\OneDrive for Business\Documents\CarandiniHarrisLab\analysis\operant_learning\facecam_processing';
-% save_fn = ['facecam_sampleframe_all'];
-% save([save_path filesep save_fn],'facecam_sampleframe_all','-v7.3');
+% save_fn = ['facecam_align'];
+% save([save_path filesep save_fn],'facecam_align','-v7.3');
 % disp(['Saved: ' save_path filesep save_fn])
 
-%% Align facecam frames (auto)
-% Align facecam sample frames across mice/days
-% (copied from AP_align_widefield)
+
+%% Align facecam frames (nose/eye control point)
 
 % Load facecam sample frames
 facecam_processing_path = 'C:\Users\Andrew\OneDrive for Business\Documents\CarandiniHarrisLab\analysis\operant_learning\facecam_processing';
-facecam_sampleframe_all_fn = fullfile(facecam_processing_path,'facecam_sampleframe_all.mat');
-load(facecam_sampleframe_all_fn);
-
-im_unaligned = cellfun(@double,[facecam_sampleframe_all.im],'uni',false);
-
-% Pad the images for checking
-% (set output size as the largest image)
-[im_y,im_x] = cellfun(@size,im_unaligned);
-
-im_y_max = max(im_y);
-im_x_max = max(im_x);
-ref_size = [im_y_max,im_x_max];
-
-im_unaligned_pad = ...
-    cell2mat(reshape(cellfun(@(im) padarray(im, ...
-    [im_y_max - size(im,1),im_x_max - size(im,2)],0,'post'), ...
-    im_unaligned,'uni',false),1,1,[]));
-
-AP_image_scroll(im_unaligned_pad);
-axis image;
-
-% (for RegularStepGradientDescent)
-[optimizer, metric] = imregconfig('monomodal');
-optimizer.GradientMagnitudeTolerance = 1e-6;
-optimizer.MaximumIterations = 100;
-optimizer.MaximumStepLength = 1e-4;
-optimizer.MinimumStepLength = 1e-6;
-optimizer.RelaxationFactor = 0.6;
-
-im_unaligned_edge = cellfun(@(x) x-imgaussfilt(x,10),im_unaligned,'uni',false);
-
-% (rigid align to first image)
-disp('Rigid aligning images...')
-% (use only top half of image - excludes hands which are random)
-im_ref = im_unaligned_edge{1}(1:round(size(im_unaligned{1},1)/2),:);
-
-im_rigid_aligned = nan(ref_size(1),ref_size(2),length(im_unaligned));
-rigid_tform = cell(size(im_unaligned));
-for curr_im = 1:length(im_unaligned)
-    if isempty(im_unaligned{curr_im})
-        continue
-    end
-    
-    im_source = im_unaligned_edge{curr_im}(1:round(size(im_unaligned{curr_im},1)/2),:);
-
-    tformEstimate_affine = imregtform(im_source, ...
-        im_ref,'rigid',optimizer,metric,'PyramidLevels',4);
-    curr_im_reg = imwarp(im_unaligned{curr_im}, ...
-        tformEstimate_affine,'Outputview',imref2d(ref_size));
-    rigid_tform{curr_im} = tformEstimate_affine.T;
-    im_rigid_aligned(:,:,curr_im) = curr_im_reg;
-    
-    if exist('h','var');delete(h);end
-    h = figure;
-    imshowpair(im_ref,im_rigid_aligned(:,:,curr_im));
-    drawnow
-
-    AP_print_progress_fraction(curr_im,length(im_unaligned));
-end
-
-AP_image_scroll(im_rigid_aligned)
-axis image;
-
-% Save
-facecam_align_refsize = ref_size;
-facecam_align_tform = rigid_tform;
-
-save_path = 'C:\Users\Andrew\OneDrive for Business\Documents\CarandiniHarrisLab\analysis\operant_learning\facecam_processing';
-save_fn = ['facecam_align_tform'];
-save([save_path filesep save_fn],'facecam_align_refsize','facecam_align_tform','-v7.3');
-disp(['Saved: ' save_path filesep save_fn])
-
-%% Align facecam frames (control point)
-
-% Load facecam sample frames
-facecam_processing_path = 'C:\Users\Andrew\OneDrive for Business\Documents\CarandiniHarrisLab\analysis\operant_learning\facecam_processing';
-facecam_sampleframe_all_fn = fullfile(facecam_processing_path,'facecam_sampleframe_all.mat');
-load(facecam_sampleframe_all_fn);
+facecam_align_fn = fullfile(facecam_processing_path,'facecam_align.mat');
+load(facecam_align_fn);
 
 % Plot images and select control points
-im_unaligned = cellfun(@double,[facecam_sampleframe_all.im],'uni',false);
+im_unaligned = cellfun(@double,[facecam_align.im],'uni',false);
 
 target_im = im_unaligned{1};
-source_im = im_unaligned{20};
+target_size = size(target_im);
 
 figure;
 target_ax = subplot(1,2,1);
 imagesc(target_im);
 axis image off; hold on;
 source_ax = subplot(1,2,2);
-imagesc(source_im);
+source_h = imagesc([]);
 axis image off; hold on;
 
-target_ctrl_points = ginput;
+title(target_ax,'Click: nose eye');
+target_ctrl_points = ginput(2);
 plot(target_ax,target_ctrl_points(:,1),target_ctrl_points(:,2),'.r','MarkerSize',20);
+title(target_ax,'');
 
-source_ctrl_points = ginput;
-plot(source_ax,source_ctrl_points(:,1),source_ctrl_points(:,2),'.b','MarkerSize',20);
+im_aligned = nan(target_size(1),target_size(2),length(im_unaligned));
+source_ctrl_points = cell(length(im_unaligned),1);
+cam_tform = cell(length(im_unaligned),1);
+for curr_im = 1:length(im_unaligned)
+    source_im = im_unaligned{curr_im};
+    if isempty(source_im)
+        continue
+    end
 
-% Align images
-tform = fitgeotrans(source_ctrl_points,target_ctrl_points,'nonreflectivesimilarity');
-tform_size = imref2d(size(target_im));
-source_im_aligned = imwarp(source_im,tform,'OutputView',tform_size);
+    % Click control points
+    title(source_ax,{['Click: nose eye'], ...
+        [sprintf('%d/%d',curr_im,length(im_unaligned))]});
+    set(source_h,'CData',source_im);
+    source_ctrl_points{curr_im} = ginput(2);
 
-target_im_edge = target_im - imgaussfilt(target_im,10);
+    % Store tform
+    cam_tform{curr_im} = fitgeotrans(source_ctrl_points{curr_im}, ...
+        target_ctrl_points,'nonreflectivesimilarity');
+    tform_size = imref2d(target_size);
+    im_aligned(:,:,curr_im) = ...
+        imwarp(source_im,cam_tform{curr_im},'OutputView',tform_size);
+
+end
+
+% Plot aligned
+AP_image_scroll(im_aligned); axis image
+
+% % Save transform (into original struct)
+% % (package back into animals)
+% n_days_animal = cellfun(@length,{facecam_align.day});
+% cam_tform_animal = mat2cell(cam_tform,n_days_animal);
+% [facecam_align.tform] = cam_tform_animal{:};
+% 
+% save(facecam_align_fn,'facecam_align');
+% disp(['Saved: ' facecam_align_fn]);
 
 
+%% Load and align (sanity check)
 
-%% Draw facecam ROI and align to each recording
+% Load facecam align
+facecam_processing_path = 'C:\Users\Andrew\OneDrive for Business\Documents\CarandiniHarrisLab\analysis\operant_learning\facecam_processing';
+facecam_align_fn = fullfile(facecam_processing_path,'facecam_align.mat');
+load(facecam_align_fn);
 
-% (TO DO)
+% Align facecams
+im_unaligned_cat = cellfun(@double,[facecam_align.im],'uni',false);
+im_tform_cat = cat(1,facecam_align.tform);
+im_ref = im_unaligned_cat{1};
 
+im_aligned = nan(size(im_ref,1),size(im_ref,2),length(im_unaligned_cat));
+for curr_im =1:length(im_unaligned_cat)
+    if isempty(im_unaligned_cat{curr_im})
+        continue
+    end
+    tform_size = imref2d(size(im_ref));
+    im_aligned(:,:,curr_im) = ...
+        imwarp(im_unaligned_cat{curr_im},im_tform_cat{curr_im}, ...
+        'OutputView',tform_size);
+end
 
+AP_image_scroll(im_aligned); axis image;
 
+%% Draw facecam whisker ROI and align to each recording
+
+% Load facecam align
+facecam_processing_path = 'C:\Users\Andrew\OneDrive for Business\Documents\CarandiniHarrisLab\analysis\operant_learning\facecam_processing';
+facecam_align_fn = fullfile(facecam_processing_path,'facecam_align.mat');
+load(facecam_align_fn);
+
+% Align facecams
+im_unaligned_cat = cellfun(@double,[facecam_align.im],'uni',false);
+im_tform_cat = cat(1,facecam_align.tform);
+im_ref = im_unaligned_cat{1};
+
+im_aligned = nan(size(im_ref,1),size(im_ref,2),length(im_unaligned_cat));
+for curr_im =1:length(im_unaligned_cat)
+    if isempty(im_unaligned_cat{curr_im})
+        continue
+    end
+    tform_size = imref2d(size(im_ref));
+    im_aligned(:,:,curr_im) = ...
+        imwarp(im_unaligned_cat{curr_im},im_tform_cat{curr_im}, ...
+        'OutputView',tform_size);
+end
+
+% Plot average image, draw whisker ROI
+figure;imagesc(nanmean(im_aligned,3));axis image off;
+title('Draw whisker line ROI');
+whisker_line = drawline;
+master_whisker_mask = createMask(whisker_line);
+close(gcf);
+
+figure;
+image(imoverlay(mat2gray(nanmean(im_aligned,3)),master_whisker_mask,'r'));
+axis image off
+title('Master whisker mask');
+
+% Align whisker mask to individual day
+whisker_mask = cell(size(im_unaligned_cat));
+figure; h = image(im_unaligned_cat{1}); axis image off;
+for curr_im =1:length(im_unaligned_cat)
+    if isempty(im_unaligned_cat{curr_im})
+        continue
+    end
+
+    tform_size = imref2d(size(im_unaligned_cat{curr_im}));
+    whisker_mask{curr_im} = ...
+        imwarp(master_whisker_mask,invert(im_tform_cat{curr_im}), ...
+        'OutputView',tform_size);
+
+    set(h,'CData', ...
+        imoverlay(mat2gray(im_unaligned_cat{curr_im}), ...
+        whisker_mask{curr_im},'r'));
+    pause(0.1);
+
+end
+
+% % Save transform (into original struct)
+% % (package back into animals)
+% n_days_animal = cellfun(@length,{facecam_align.day});
+% whisker_mask_animal = mat2cell(whisker_mask,1,n_days_animal);
+% [facecam_align.whisker_mask] = whisker_mask_animal{:};
+% 
+% save(facecam_align_fn,'facecam_align');
+% disp(['Saved: ' facecam_align_fn]);
 
 
 

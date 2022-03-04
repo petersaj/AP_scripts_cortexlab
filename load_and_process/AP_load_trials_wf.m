@@ -1,7 +1,6 @@
 % AP_load_trials_wf(data_fn,exclude_data)
 %
-% Loads widefield trial data
-% from 'operant_grab_trial_data'
+% Loads trial data created with 'operant_grab_trial_data'
 % ASSUMES DECONVOLUTION ALREADY DONE
 % data_fn - base filename(s) (cell array if > 1, will concatenate data)
 % exclude_data - true/false at the moment (for bad behavior days)
