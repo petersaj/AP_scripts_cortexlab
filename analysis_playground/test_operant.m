@@ -2675,7 +2675,7 @@ data_fn = 'trial_activity_passive_tetO';
 % data_fn = 'trial_activity_passive_tetO_reversal';
 % data_fn = 'trial_activity_passive_cstr';
 
-AP_load_trials_wf;
+AP_load_trials_operant;
 
 % Get animal and day index for each trial
 trial_animal = cell2mat(arrayfun(@(x) ...
@@ -3212,7 +3212,7 @@ legend([h1,h2],{'Pre-learned','Learned'});
 trial_data_path = 'C:\Users\Andrew\OneDrive for Business\Documents\CarandiniHarrisLab\analysis\wf_ephys_choiceworld\paper\data\paper_unused';
 data_fn = 'trial_activity_choiceworld_wfonly';
 
-AP_load_trials_wf;
+AP_load_trials_operant;
 
 
 %% >> Task
@@ -3222,7 +3222,7 @@ trial_data_path = 'C:\Users\Andrew\OneDrive for Business\Documents\CarandiniHarr
 data_fn = 'trial_activity_task_teto';
 % data_fn = 'trial_activity_task_corticostriatal';
 
-AP_load_trials_wf;
+AP_load_trials_operant;
 
 % Get animal and day index for each trial
 trial_animal = cell2mat(arrayfun(@(x) ...
@@ -3827,7 +3827,7 @@ ylabel(sprintf('%s fluorescence',wf_roi(curr_roi).area))
 trial_data_path = 'C:\Users\Andrew\OneDrive for Business\Documents\CarandiniHarrisLab\analysis\operant_learning\data';
 data_fn = 'trial_activity_task_teto_muscimol';
 
-AP_load_trials_wf;
+AP_load_trials_operant;
 
 % Get animal and day index for each trial
 trial_animal = cell2mat(arrayfun(@(x) ...
@@ -3947,7 +3947,7 @@ trial_data_path = 'C:\Users\Andrew\OneDrive for Business\Documents\CarandiniHarr
 data_fn = 'trial_activity_passive_teto_muscimol';
 % data_fn = 'trial_activity_passive_cstr_muscimol';
 
-AP_load_trials_wf;
+AP_load_trials_operant;
 
 % (package deconv back into animal/day)
 trials_recording = cellfun(@(x) size(x,1),vertcat(wheel_all{:}));
@@ -4045,7 +4045,7 @@ line(ylim,ylim,'color','k');
 trial_data_path = 'C:\Users\Andrew\OneDrive for Business\Documents\CarandiniHarrisLab\analysis\operant_learning\data';
 data_fn = 'trial_activity_passive_ephys';
 
-AP_load_trials_wf;
+AP_load_trials_operant;
 
 % Get animal and day index for each trial
 trial_animal = cell2mat(arrayfun(@(x) ...
@@ -4101,7 +4101,7 @@ end
 trial_data_path = 'C:\Users\Andrew\OneDrive for Business\Documents\CarandiniHarrisLab\analysis\operant_learning\data';
 data_fn = 'trial_activity_task_ephys';
 
-AP_load_trials_wf;
+AP_load_trials_operant;
 
 % Get animal and day index for each trial
 trial_animal = cell2mat(arrayfun(@(x) ...

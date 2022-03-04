@@ -1,4 +1,4 @@
-% AP_load_trials_wf(data_fn,exclude_data)
+% AP_load_trials_operant(data_fn,exclude_data)
 %
 % Loads trial data created with 'operant_grab_trial_data'
 % ASSUMES DECONVOLUTION ALREADY DONE

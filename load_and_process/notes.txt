@@ -1,2 +1,2 @@
 AP_load_concate_normalize_ctx_str - used for Nature 2021
-AP_load_trials_wf - operant task
+AP_load_trials_operant - operant task

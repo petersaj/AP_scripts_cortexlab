@@ -185,7 +185,7 @@ line([0,0],ylim,'color','k','linestyle','--');
 % Load data
 trial_data_path = 'C:\Users\Andrew\OneDrive for Business\Documents\CarandiniHarrisLab\analysis\operant_learning\data';
 data_fn = 'trial_activity_passive_tetO';
-AP_load_trials_wf;
+AP_load_trials_operant;
 n_naive = 3; % (number of naive passive-only days)
 min_n = 4; % (minimum n to plot data)
 
@@ -408,7 +408,7 @@ end
 % Load data
 trial_data_path = 'C:\Users\Andrew\OneDrive for Business\Documents\CarandiniHarrisLab\analysis\operant_learning\data';
 data_fn = 'trial_activity_task_teto';
-AP_load_trials_wf;
+AP_load_trials_operant;
 min_n = 4; % (minimum n to plot data)
 
 % Load behavior and get learned day

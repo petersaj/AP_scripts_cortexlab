@@ -625,7 +625,7 @@ data_fn = 'trial_activity_passive_learning';
 % data_fn = 'trial_activity_passive_learning_operant_teto';
 
 % AP_load_concat_normalize_ctx_str;
-AP_load_trials_wf;
+AP_load_trials_operant;
 
 % Get animal and day index for each trial
 trial_animal = cell2mat(arrayfun(@(x) ...
