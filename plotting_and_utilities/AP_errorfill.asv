@@ -54,6 +54,10 @@ elseif size(ye,3) > 2
     error('Y error dim 3 needs to be 1 (symm) or 2 (upper/lower)')
 end
 
+% NaN values in error values: set to mean to draw no errorbars there
+ye_pos(isnan(ye_pos)) = y(isnan(ye_pos));
+ye_neg(isnan(ye_neg)) = y(isnan(ye_neg));
+
 % Check no mismatching NaNs in error values
 if any(any(isnan(ye_pos) ~= isnan(ye_neg)))
     error('Mismatching NaNs in +/- error values')
@@ -63,14 +67,21 @@ end
 hold on;
 h = gobjects(size(y,2),1);
 for curr_line = 1:size(y,2)
-    % Error polygon (separate shapes if NaN breaks)
+    % Error polygon (only on non-nan values - mean skips there)
+    y_nan = isnan(y(:,curr_line));
+    fill([x(~y_nan);flipud(x(~y_nan))], ...
+        [ye_pos((~y_nan),curr_line);flipud(ye_neg((~y_nan),curr_line))], ...
+        color(curr_line,:),'FaceAlpha',alpha,'EdgeColor','none')
+
+    %%%% WRITING HERE
+    % (if NaNs in errorbars: draw separate polygons)
     if ~any(isnan(ye_pos(:,curr_line)))
         fill([x;flipud(x)], ...
             [ye_pos(:,curr_line);flipud(ye_neg(:,curr_line))], ...
             color(curr_line,:),'FaceAlpha',alpha,'EdgeColor','none')
     else
-        fill_starts = [1,find(diff(isnan(ye_pos(:,curr_line))) == -1)+1];
-        fill_stops = [find(diff(isnan(ye_pos(:,curr_line))) == 1),size(ye_pos,1)];
+        fill_starts = [1,find(diff(isnan(ye_pos(:,curr_line))) == -1)];
+        fill_stops = [find(diff(isnan(ye_pos(:,curr_line))) == 1)+1,size(ye_pos,1)];
         for curr_fill = 1:length(fill_starts)
             curr_idx = fill_starts(curr_fill):fill_stops(curr_fill);
             fill([x(curr_idx);flipud(x(curr_idx))], ...
@@ -78,6 +89,8 @@ for curr_line = 1:size(y,2)
                 color(curr_line,:),'FaceAlpha',alpha,'EdgeColor','none')
         end
     end
+
+
 
     % Plot central line
     if plot_mean

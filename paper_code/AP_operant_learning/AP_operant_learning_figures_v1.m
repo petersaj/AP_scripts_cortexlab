@@ -197,9 +197,11 @@ data_path = 'C:\Users\Andrew\OneDrive for Business\Documents\CarandiniHarrisLab\
 muscimol_fn = [data_path filesep 'muscimol.mat'];
 load(muscimol_fn);
 
-% Grab day index of [V1 muscimol, washout] and retinotopy
+% Grab day index of [V1 muscimol, washout] and data to plot
 muscimol_v1_days = nan(length(bhv),2);
 muscimol_v1_retinotopy = cell(size(muscimol_v1_days));
+muscimol_v1_stim_surround_wheel = cell(size(muscimol_v1_days));
+muscimol_v1_wheel_mm = nan(size(muscimol_v1_days));
 for curr_animal = 1:length(bhv)
 
     muscimol_animal_idx = ismember({muscimol.animal},bhv(curr_animal).animal);
@@ -222,13 +224,35 @@ for curr_animal = 1:length(bhv)
     curr_v1_washout_dayidx = find(strcmp(bhv(curr_animal).day, ...
         muscimol(muscimol_animal_idx).day(curr_v1_washout)));
 
-    % Store days
+    % Grab days
      muscimol_v1_days(curr_animal,:) = ...
              [curr_v1_muscimol_dayidx,curr_v1_washout_dayidx];
 
-     % Store retinotopy
+     % Grab retinotopy
     muscimol_v1_retinotopy(curr_animal,:) = ...
         muscimol(muscimol_animal_idx).vfs([curr_v1_muscimol,curr_v1_washout]);
+
+    % Grab stim-aligned movement
+    % (NaN-out times during quiescence)
+    stim_surround_t = bhv(1).stim_surround_t;
+    curr_stim_surround_wheel = ...
+        bhv(curr_animal).stim_surround_wheel([curr_v1_muscimol_dayidx,curr_v1_washout_dayidx]);
+    curr_quiescence_t = ...
+        bhv(curr_animal).quiescence_t([curr_v1_muscimol_dayidx,curr_v1_washout_dayidx]);
+    for curr_cond = 1:2
+        for curr_trial = 1:size(curr_stim_surround_wheel{curr_cond},1)
+            q_time = stim_surround_t >= -curr_quiescence_t{curr_cond}(curr_trial) & ...
+                stim_surround_t <= 0;
+            curr_stim_surround_wheel{curr_cond}(curr_trial,q_time) = NaN;
+        end
+    end
+
+    muscimol_v1_stim_surround_wheel(curr_animal,:) = curr_stim_surround_wheel;
+
+    % Grab velocity/time
+    muscimol_v1_wheel_mm(curr_animal,:) = ...
+        bhv(curr_animal).wheel_velocity([curr_v1_muscimol_dayidx,curr_v1_washout_dayidx])./ ...
+        bhv(curr_animal).session_duration([curr_v1_muscimol_dayidx,curr_v1_washout_dayidx]);
 
 end
 
@@ -249,8 +273,7 @@ for curr_cond = 1:2
 end
 colormap(brewermap([],'*RdBu'));
 
-
-% (set use_days to copy code from above)
+% (set 'use_days' to copy code from above)
 use_days = mat2cell(muscimol_v1_days,ones(length(muscimol_v1_animals),1),2)';
 
 % Get reaction/resampled alt reaction times for all regular days
@@ -291,8 +314,9 @@ rxn_alt_hist_ci = ...
     [5,95],1),1:2,'uni',false);
 
 figure;
+h = tiledlayout(2,2,'TileSpacing','tight','padding','compact');
 for curr_cond = 1:2
-    subplot(1,2,curr_cond); hold on
+    nexttile; hold on
     AP_errorfill(rxn_bin_centers,nanmean(nanmean(cat(3,rxn_alt_hist{1,:}),3),1), ...
         rxn_alt_hist_ci{curr_cond}','r',[],false);
 
@@ -309,10 +333,33 @@ for curr_cond = 1:2
         case 2
             title('Washout');
     end
+    
 end
-linkaxes(get(gcf,'children'),'xy');
+linkaxes(allchild(h),'xy');
 
+% Plot stim-aligned wheel movement
+muscimol_stim_wheel_avg = ...
+    arrayfun(@(cond) cell2mat(cellfun(@(x) ...
+    nanmean(x,1),muscimol_v1_stim_surround_wheel(:,cond),'uni',false)), ...
+    1:2,'uni',false);
+nexttile;
+AP_errorfill(bhv(1).stim_surround_t', ...
+    cell2mat(cellfun(@(x) nanmean(x,1)',muscimol_stim_wheel_avg,'uni',false)), ...
+    cell2mat(cellfun(@(x) AP_sem(x,1)',muscimol_stim_wheel_avg,'uni',false)), ...
+    [0,0,0;1,0,0]);
+xline(0,'linestyle','--');
+xlabel('Time from stim (s)');
+ylabel('Probability of movement');
 
+% Plot total velocity
+nexttile;
+errorbar(nanmean(muscimol_v1_wheel_mm,1), ...
+    AP_sem(muscimol_v1_wheel_mm,1),'k','linewidth',2);
+xlim(xlim+[-0.5,0.5]);
+ylim([0,max(ylim)])
+set(gca,'XTick',1:2,'XTickLabel',{'V1 muscimol','Washout'});
+ylabel('Velocity/s - FIX THIS');
+warning('TODO: swap velocity with mm');
 
 %% Passive
 

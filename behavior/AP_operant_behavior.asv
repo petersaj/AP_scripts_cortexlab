@@ -213,8 +213,7 @@ end
 
 % tetO mice
 animal_group = 'teto';
-animals = {'AP100','AP101','AP103','AP104','AP105', ...
-    'AP106','AP107','AP108','AP109','AP111','AP112'};
+animals = {'AP100','AP101','AP103','AP104','AP105','AP106','AP107','AP108','AP109','AP111','AP112'};
 
 protocol = 'AP_stimWheelRight';
 flexible_name = false;
@@ -281,9 +280,9 @@ for curr_animal = 1:length(animals)
             iti_t = block.events.trialITIValues;
             
             % Wheel movements/biases
-            % mm in clicks from +hw.DaqRotaryEncoder, lilrig encoder = 100
-            wheel_click2mm = 0.4869;
-            wheel_mm = sum(abs(diff(wheel_position)))*wheel_click2mm;
+            % (mm in clicks from +hw.DaqRotaryEncoder, lilrig encoder = 100
+            wheel_click2mm = 
+            wheel_mm = 
 
             left_wheel_velocity = abs(wheel_velocity.*(wheel_velocity < 0));
             right_wheel_velocity = abs(wheel_velocity.*(wheel_velocity > 0));
@@ -466,7 +465,7 @@ for curr_animal = 1:length(animals)
             bhv(curr_animal).n_trials(curr_day,1) = n_trials;
             bhv(curr_animal).frac_hit(curr_day,1) = frac_hit;
             bhv(curr_animal).total_water(curr_day,1) = total_water;
-            bhv(curr_animal).wheel_mm(curr_day,1) = wheel_mm;
+            bhv(curr_animal).wheel_clicks(curr_day,1) = sum(abs(diff(wheel_position)));
             bhv(curr_animal).wheel_velocity(curr_day,1) = nansum(abs(wheel_velocity));
             bhv(curr_animal).stim_move_t{curr_day,1} = stim_to_move;
             bhv(curr_animal).stim_feedback_t{curr_day,1} = stim_to_feedback;
