@@ -14,7 +14,7 @@ for curr_ax = 1:length(fig_ax)
     set(fig_ax(curr_ax),'box','off')
     
     % Set font and font size
-    set(fig_ax(curr_ax),'FontSize',11);
+    set(fig_ax(curr_ax),'FontSize',14,'FontName','Calibri');
     catch me
         continue
     end        

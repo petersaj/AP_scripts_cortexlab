@@ -133,8 +133,7 @@ stim_aligned_whisker = interp1(whisker_move_t(~isnan(whisker_move_t)), ...
     stim_aligned_whisker(quiescent_trials,:), ...
     stimIDs(quiescent_trials),{'nanmean','sem'});
 figure; hold on
-stim_col = [0,0,1;0,0,0;1,0,0];
-AP_errorfill(t,stim_grp_mean',stim_group_sem',stim_col)
+AP_errorfill(t,stim_grp_mean',stim_group_sem')
 xline(0);
 xlabel('Time from stim (s)');
 ylabel('Whisker movement');

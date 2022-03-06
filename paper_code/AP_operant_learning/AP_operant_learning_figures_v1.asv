@@ -146,7 +146,7 @@ errorbar(daysplit_x,nanmean(rxn_measured_frac_long,2), ...
 xlabel('Training day');
 ylabel(sprintf('Frac reaction times %.2f-%.2f',rxn_frac_window(1),rxn_frac_window(2)));
 axis tight;
-xlim(xlim + [-0.5,0.5]);
+xlim(xlim+[-0.5,0.5])
 ylim([0,1]);
 
 % Plot relative to learned day
@@ -176,11 +176,8 @@ AP_errorfill(learned_day_grp(plot_learned), ...
 errorbar(learned_day_grp(plot_learned),rxn_learn_mean(plot_learned), ...
     rxn_learn_sem(plot_learned),'k','linewidth',2,'CapSize',0);
 xlabel('Learned day');
-axis tight;
-xlim(xlim + [-0.5,0.5]);
 ylim([0,1]);
 line([0,0],ylim,'color','k','linestyle','--');
-
 
 %% Behavior: muscimol
 

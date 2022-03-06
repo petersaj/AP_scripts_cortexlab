@@ -67,6 +67,7 @@ for curr_t = 1:size(im,3)
                 'FitBoxToText','on','String',t_annotation{curr_t},'Color','w','BackgroundColor','k','FontSize',16)
         end
     end
+    drawnow;
     frames(curr_t) = getframe(f);
 end
 

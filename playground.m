@@ -12412,9 +12412,17 @@ for curr_animal = 1:length(animals)
 end
 
 
+%% Save movie for presentation
 
+movie_px = AP_svdFrameReconstruct(U_master(:,:,1:n_vs), ...
+    permute(nanmean(fluor_allcat_deconv(trial_stim_allcat == 1,:,:),1),[3,2,1]));
 
-
+movie_fn = 'C:\Users\Andrew\OneDrive for Business\Documents\CarandiniHarrisLab\presentations\220307_data_club\passive_avg.avi';
+movie_framerate = 1/mean(diff(t)) * 0.5;
+movie_cmap = colormap(brewermap([],'PrGn'));
+movie_caxis = prctile(movie_px(:),99.9).*[-1,1];
+movie_position = [43,350,415,415];
+AP_movie2avi(movie_px,movie_framerate,movie_cmap,movie_caxis,movie_position,movie_fn,t);
 
 
 

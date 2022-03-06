@@ -4138,16 +4138,14 @@ line([0.5,0.5],ylim,'color','r');
 xlabel('Time from stim');
 ylabel('Area');
 
-%%% DOING HERE: NORMALIZING KERNELS
-
+% Get normalized task kernels
 mua_taskpred_k_allcat_norm = arrayfun(@(regressor) ...
     squeeze(permute(cellfun(@(x) x{regressor}, ...
     cellfun(@(kernel_set,mua_norm) cellfun(@(kernel) ...
     kernel./(mua_norm/sample_rate),kernel_set,'uni',false), ...
     vertcat(mua_taskpred_k_all{:}),vertcat(mua_area_day_baseline{:}),'uni',false), ...
     'uni',false),[2,3,4,1])),1:length(task_regressor_labels),'uni',false);
-%%
-tic
+
 mua_area_taskpred_k = cellfun(@(x) cellfun(@(x) ...
     nan(size(x,1),size(x,2),length(mua_areas)),x,'uni',false), ...
     mua_taskpred_k_allcat_norm,'uni',false);
@@ -4158,8 +4156,21 @@ for curr_recording = 1:length(mua_area_norm)
             mua_taskpred_k_allcat_norm{curr_k}{curr_recording};
     end
 end
-toc
-%%
+
+mua_area_taskpred_k_avg = cellfun(@(x) nanmean(cat(4,x{:}),4), ...
+    mua_area_taskpred_k,'uni',false);
+
+% Plot kernels
+plot_areas = area_recording_n == length(trials_recording);
+tiledlayout('flow');
+figure;
+for curr_regressor = 1:length(mua_area_taskpred_k_avg)
+    for curr_subregressor = 1:size(mua_area_taskpred_k_avg{curr_regressor},1)
+nexttile;
+plot(squeeze(mua_area_taskpred_k_avg
+    end
+end
+
 
 
 

@@ -4138,8 +4138,7 @@ line([0.5,0.5],ylim,'color','r');
 xlabel('Time from stim');
 ylabel('Area');
 
-%%% DOING HERE: NORMALIZING KERNELS
-
+% Get normalized task kernels
 mua_taskpred_k_allcat_norm = arrayfun(@(regressor) ...
     squeeze(permute(cellfun(@(x) x{regressor}, ...
     cellfun(@(kernel_set,mua_norm) cellfun(@(kernel) ...
@@ -4161,76 +4160,19 @@ end
 mua_area_taskpred_k_avg = cellfun(@(x) nanmean(cat(4,x{:}),4), ...
     mua_area_taskpred_k,'uni',false);
 
-
-mua_taskpred_k_allcat_norm = arrayfun(@(regressor) ...
-    cell2mat(permute(cellfun(@(x) x{regressor}, ...
-    cellfun(@(kernel_set,mua_norm) cellfun(@(kernel) ...
-    kernel./(mua_norm/sample_rate),kernel_set,'uni',false), ...
-    vertcat(mua_taskpred_k_all{:}),vertcat(mua_area_day_baseline{:}),'uni',false), ...
-    'uni',false),[2,3,4,1])),1:length(task_regressor_labels),'uni',false)';
-
-
-
-
-% Get task>striatum parameters
-n_regressors = length(task_regressor_labels);
-
-% Normalize task > striatum kernels across experiments with mua_norm
-mua_taskpred_k_allcat_norm = arrayfun(@(regressor) ...
-    cell2mat(permute(cellfun(@(x) x{regressor}, ...
-    cellfun(@(kernel_set,mua_norm) cellfun(@(kernel) ...
-    kernel./(mua_norm/sample_rate),kernel_set,'uni',false), ...
-    vertcat(mua_taskpred_k_all{:}),vertcat(mua_norm{:}),'uni',false), ...
-    'uni',false),[2,3,4,1])),1:length(task_regressor_labels),'uni',false)';
-
-mua_ctxpred_taskpred_k_allcat_norm = arrayfun(@(regressor) ...
-    cell2mat(permute(cellfun(@(x) x{regressor}, ...
-    cellfun(@(kernel_set,mua_norm) cellfun(@(kernel) ...
-    kernel./(mua_norm/sample_rate),kernel_set,'uni',false), ...
-    vertcat(mua_ctxpred_taskpred_k_all{:}),vertcat(mua_norm{:}),'uni',false), ...
-    'uni',false),[2,3,4,1])),1:length(task_regressor_labels),'uni',false)';
-
-% Plot task>striatum kernels
-stim_col = colormap_BlueWhiteRed(5);
-stim_col(6,:) = [];
-move_col = [0.6,0,0.6;1,0.6,0];
-go_col = [0,0,0;0.5,0.5,0.5];
-outcome_col = [0.2,0.8,1;0,0,0];
-task_regressor_cols = {stim_col,move_col,go_col,outcome_col};
-task_regressor_t_shifts = cellfun(@(x) x/sample_rate,task_regressor_sample_shifts,'uni',false);
-
-figure('Name','Task > Striatum');
-p = nan(n_depths,n_regressors);
-for curr_depth = 1:n_depths
-    for curr_regressor = 1:n_regressors
-        p(curr_depth,curr_regressor) = ...
-            subplot(n_depths,n_regressors,curr_regressor+(curr_depth-1)*n_regressors);
-        
-        curr_kernels = mua_taskpred_k_allcat_norm{curr_regressor}(:,:,curr_depth,:);
-        n_subregressors = size(mua_taskpred_k_allcat_norm{curr_regressor},1);
-        col = task_regressor_cols{curr_regressor};
-        for curr_subregressor = 1:n_subregressors
-            AP_errorfill(task_regressor_t_shifts{curr_regressor}, ...
-                nanmean(curr_kernels(curr_subregressor,:,:,:),4)', ...
-                AP_sem(curr_kernels(curr_subregressor,:,:,:),4)', ...
-                col(curr_subregressor,:),0.5);
-        end
-        
-        xlabel('Time (s)');
-        ylabel('Weight');
-        title(task_regressor_labels{curr_regressor});
-        line([0,0],ylim,'color','k');
-        
+% Plot kernels
+plot_areas = area_recording_n == length(trials_recording);
+tiledlayout('flow');
+figure;
+for curr_regressor = 1:length(mua_area_taskpred_k_avg)
+    for curr_subregressor = 1:size(mua_area_taskpred_k_avg{curr_regressor},1)
+        nexttile;
+        plot(task_regressor_sample_shifts{curr_regressor}/sample_rate, ...
+            squeeze(mua_area_taskpred_k_avg{curr_regressor}(curr_subregressor,:,plot_areas)));
+        title(sprintf('Regressor %d, sub %d',curr_regressor,curr_subregressor));
+        xline(0,'color','k','linestyle','--');
     end
 end
-linkaxes(p);
-y_scale = 1;
-t_scale = 0.5;
-line(min(xlim) + [0,t_scale],repmat(min(ylim),2,1),'color','k','linewidth',3);
-line(repmat(min(xlim),2,1),min(ylim) + [0,y_scale],'color','k','linewidth',3);
-
-
-
 
 
 
