@@ -249,9 +249,9 @@ for curr_animal = 1:length(bhv)
 
     muscimol_v1_stim_surround_wheel(curr_animal,:) = curr_stim_surround_wheel;
 
-    % Grab velocity/time
+    % Grab wheel travel/time
     muscimol_v1_wheel_mm(curr_animal,:) = ...
-        bhv(curr_animal).wheel_velocity([curr_v1_muscimol_dayidx,curr_v1_washout_dayidx])./ ...
+        bhv(curr_animal).wheel_mm([curr_v1_muscimol_dayidx,curr_v1_washout_dayidx])./ ...
         bhv(curr_animal).session_duration([curr_v1_muscimol_dayidx,curr_v1_washout_dayidx]);
 
 end
@@ -358,8 +358,7 @@ errorbar(nanmean(muscimol_v1_wheel_mm,1), ...
 xlim(xlim+[-0.5,0.5]);
 ylim([0,max(ylim)])
 set(gca,'XTick',1:2,'XTickLabel',{'V1 muscimol','Washout'});
-ylabel('Velocity/s - FIX THIS');
-warning('TODO: swap velocity with mm');
+ylabel('Wheel mm/min');
 
 %% Passive
 
@@ -430,7 +429,7 @@ stim_px_avg_stage_tavg = AP_svdFrameReconstruct(U_master(:,:,1:n_vs), ...
     squeeze(nanmean(nanmean(stim_v_avg_stage(:,use_t,:,:,:),2),5)));
 
 figure;
-tiledlayout(3,3,'TileSpacing','tight','padding','tight');
+tiledlayout(3,3,'TileSpacing','tight','padding','compact');
 c = (max(stim_px_avg_stage_tavg(:)).*[-1,1])*0.5;
 for curr_stage = 1:3
     for curr_stim = 1:3
@@ -698,6 +697,203 @@ xlabel('Learned day');
 ylabel('Fluorescence (normalized to pre-learn)');
 xline(0,'linestyle','--');
 legend({wf_roi(plot_rois).area},'location','nw')
+
+%% Passive - electrophysiology
+
+% Load data
+trial_data_path = 'C:\Users\Andrew\OneDrive for Business\Documents\CarandiniHarrisLab\analysis\operant_learning\data';
+data_fn = 'trial_activity_passive_ephys';
+
+AP_load_trials_operant;
+
+% Get animal and day index for each trial
+trial_animal = cell2mat(arrayfun(@(x) ...
+    x*ones(size(vertcat(wheel_all{x}{:}),1),1), ...
+    [1:length(wheel_all)]','uni',false));
+trial_day = cell2mat(cellfun(@(x) cell2mat(cellfun(@(curr_day,x) ...
+    curr_day*ones(size(x,1),1),num2cell(1:length(x))',x,'uni',false)), ...
+    wheel_all,'uni',false));
+
+trials_recording = cellfun(@(x) size(x,1),vertcat(wheel_all{:}));
+
+% Get trials with movement during stim to exclude
+quiescent_trials = ~any(abs(wheel_allcat(:,t >= 0 & t <= 0.5)) > 0,2);
+
+% Plot total average stim response
+stim_col = ['b','k','r'];
+unique_stim = unique(trial_stim_allcat);
+
+figure;
+spacing = 0.8;
+for curr_stim_idx = 1:length(unique_stim)
+    use_trials = quiescent_trials &  ...
+        trial_stim_allcat == unique_stim(curr_stim_idx);
+    
+    subplot(1,2,1); hold on;
+    mua_depth_centers = mua_depth_edges(1:end-1)+diff(mua_depth_edges)./2;
+    AP_stackplot(squeeze(nanmean(mua_depth_allcat(use_trials,:,:),1)), ...
+        t,spacing,[],stim_col(curr_stim_idx),mua_depth_centers);
+    line([0,0],ylim,'color',[0.5,0.5,0.5]);
+    line([0.5,0.5],ylim,'color',[0.5,0.5,0.5]);
+    xlabel('Time from stim');
+    ylabel('Cortical depth');
+    
+    subplot(1,2,2); hold on;
+    [~,area_idx] = cellfun(@(x) ismember(x,mua_areas),mua_areas_cat,'uni',false);
+    area_recording_n = accumarray(cell2mat(area_idx),1);
+    plot_areas = area_recording_n == length(trials_recording);
+    AP_stackplot(squeeze(nanmean(mua_area_allcat(use_trials,:,plot_areas),1)), ...
+        t,spacing,[],stim_col(curr_stim_idx),mua_areas(plot_areas));
+    line([0,0],ylim,'color',[0.5,0.5,0.5]);
+    line([0.5,0.5],ylim,'color',[0.5,0.5,0.5]);
+    xlabel('Time from stim');
+    ylabel('Area');
+    
+    % Scalebar
+    line([-0.5,-0.5],[1,1.5],'color','m','linewidth',2);
+
+end
+
+% Plot overlaid animal mean with errorbars
+use_trials = quiescent_trials & trial_stim_allcat == 3; 
+[animal_idx,t_idx,area_idx] = ...
+    ndgrid(trial_animal(use_trials),1:length(t),1:length(mua_areas));
+mua_animal_avg = accumarray([animal_idx(:),t_idx(:),area_idx(:)], ...
+    reshape(mua_area_allcat(use_trials,:,:),[],1), ...
+    [length(animals),length(t),length(mua_areas)], ...
+    @nanmean,NaN);
+
+plot_areas = area_recording_n == length(trials_recording);
+h = AP_errorfill(t',squeeze(nanmean(m(:,:,plot_areas),1)), ...
+    squeeze(AP_sem(m(:,:,plot_areas),1)));
+xline([0,0.5],'color','k');
+xlabel('Time from stim (s)');
+ylabel('\DeltaR/R_0');
+legend(h,mua_areas(plot_areas));
+
+
+%% Passive - V1 muscimol
+
+% Load data
+trial_data_path = 'C:\Users\Andrew\OneDrive for Business\Documents\CarandiniHarrisLab\analysis\operant_learning\data';
+data_fn = 'trial_activity_passive_teto_muscimol';
+
+AP_load_trials_operant;
+
+% Get animal and day index for each trial
+trial_animal = cell2mat(arrayfun(@(x) ...
+    x*ones(size(vertcat(wheel_all{x}{:}),1),1), ...
+    [1:length(wheel_all)]','uni',false));
+trial_day = cell2mat(cellfun(@(x) cell2mat(cellfun(@(curr_day,x) ...
+    curr_day*ones(size(x,1),1),num2cell(1:length(x))',x,'uni',false)), ...
+    wheel_all,'uni',false));
+
+trials_recording = cellfun(@(x) size(x,1),vertcat(wheel_all{:}));
+
+% Get trials with movement during stim to exclude
+quiescent_trials = ~any(abs(wheel_allcat(:,t >= 0 & t <= 0.5)) > 0,2);
+
+% Get average fluorescence by animal, day, stim
+stim_unique = unique(trial_stim_allcat);
+stim_v_avg = cell(length(animals),1);
+stim_roi_avg = cell(length(animals),1);
+stim_roi = cell(length(animals),1);
+for curr_animal = 1:length(animals)
+    for curr_day = 1:max(trial_day(trial_animal == curr_animal))
+        for curr_stim_idx = 1:length(stim_unique)
+            use_trials = quiescent_trials & ...
+                trial_animal == curr_animal & ...
+                trial_day == curr_day & ...
+                trial_stim_allcat == stim_unique(curr_stim_idx);
+            stim_v_avg{curr_animal}(:,:,curr_day,curr_stim_idx) = ...
+                permute(nanmean(fluor_allcat_deconv(use_trials,:,:),1),[3,2,1]);
+            stim_roi_avg{curr_animal}(:,:,curr_day,curr_stim_idx) = ...
+                permute(nanmean(fluor_roi_deconv(use_trials,:,:),1),[3,2,1]);
+            
+            stim_roi{curr_animal}{curr_day}{curr_stim_idx} = ...
+                fluor_roi_deconv(use_trials,:,:);
+        end
+    end
+end
+
+% Plot average pixels
+stim_v_avg_stage = cat(5,stim_v_avg{:});
+
+stim_px_avg_stage_movie = AP_svdFrameReconstruct(U_master(:,:,1:n_vs),squeeze(nanmean(stim_v_avg_stage(:,:,:,3,:),5)));
+AP_image_scroll(reshape(permute(stim_px_avg_stage_movie,[1,2,4,3]),size(U_master,1),[],length(t)),t);
+axis image off;
+colormap(brewermap([],'PrGn'));
+caxis([-max(abs(caxis)),max(abs(caxis))]);
+
+use_t = t >= 0.05 & t <= 0.2;
+stim_px_avg_stage_tavg = AP_svdFrameReconstruct(U_master(:,:,1:n_vs), ...
+    squeeze(nanmean(nanmean(stim_v_avg_stage(:,use_t,:,:,:),2),5)));
+
+figure;
+tiledlayout(2,3,'TileSpacing','tight','padding','compact');
+c = (max(stim_px_avg_stage_tavg(:)).*[-1,1])*0.5;
+for curr_stage = 1:2
+    for curr_stim = 1:3
+        nexttile;
+        imagesc(stim_px_avg_stage_tavg(:,:,curr_stage,curr_stim));
+        axis image off;
+        AP_reference_outline('ccf_aligned',[0.5,0.5,0.5]);
+        colormap(brewermap([],'PrGn'));
+        caxis(c);
+        title(sprintf('Stage %d, stim %d',curr_stage,curr_stim));
+    end
+end
+
+% Plot average ROIs
+stim_roi_avg_stage = cat(5,stim_roi_avg{:});
+
+figure;
+plot_rois = [1,6];
+stage_col = [0,0,0;1,0,0];
+tiledlayout(length(plot_rois),2,'TileSpacing','tight','padding','compact');
+for curr_roi_idx = 1:length(plot_rois)
+    curr_l_roi = plot_rois(curr_roi_idx);
+    curr_r_roi = curr_l_roi + size(wf_roi,1);
+
+    % (plot left ROI w/ right stim)
+    hl = nexttile;
+    AP_errorfill(t, ...
+        squeeze(nanmean(stim_roi_avg_stage(curr_l_roi,:,:,stim_unique == 1,:),5)), ...
+        squeeze(AP_sem(stim_roi_avg_stage(curr_l_roi,:,:,stim_unique == 1,:),5)),stage_col);
+    xlabel('Time from stim (s)');
+    ylabel('\DeltaF/F_0');
+    title(wf_roi(curr_l_roi).area);
+    xline([0,0.5],'linestyle','--');
+
+    % (plot right ROI with left stim)
+    hr =nexttile;
+    AP_errorfill(t, ...
+        squeeze(nanmean(stim_roi_avg_stage(curr_r_roi,:,:,stim_unique == -1,:),5)), ...
+        squeeze(AP_sem(stim_roi_avg_stage(curr_r_roi,:,:,stim_unique == -1,:),5)),stage_col);
+    xlabel('Time from stim (s)');
+    ylabel('\DeltaF/F_0');
+    title(wf_roi(curr_r_roi).area);
+    xline([0,0.5],'linestyle','--');
+
+    % (link axes with same ROI)
+    linkaxes([hl,hr],'xy');
+end
+
+% Plot ROI time-max pre/post muscimol
+use_t = t >= 0 & t <= 0.2;
+stim_roi_avg_stage_tmax = squeeze(max(stim_roi_avg_stage(:,use_t,:,:,:),[],2));
+
+plot_rois = [1,6];
+plot_stim = 3;
+figure; hold on
+curr_data = squeeze(stim_roi_avg_stage_tmax(plot_rois,:,plot_stim,:));
+plot(squeeze(curr_data(1,2,:)),squeeze(curr_data(2,2,:)),'.k','MarkerSize',20);
+plot(squeeze(curr_data(1,1,:)),squeeze(curr_data(2,1,:)),'.r','MarkerSize',20);
+xlabel(wf_roi(plot_rois(1)).area);
+ylabel(wf_roi(plot_rois(2)).area);
+legend({'Washout','V1 Muscimol'},'location','nw');
+
+
 
 
 

@@ -69,8 +69,9 @@ for curr_line = 1:size(y,2)
             [ye_pos(:,curr_line);flipud(ye_neg(:,curr_line))], ...
             color(curr_line,:),'FaceAlpha',alpha,'EdgeColor','none')
     else
-        fill_starts = [1,find(diff(isnan(ye_pos(:,curr_line))) == -1)+1];
-        fill_stops = [find(diff(isnan(ye_pos(:,curr_line))) == 1),size(ye_pos,1)];
+        fill_starts = [find(diff([true;isnan(ye_pos(:,curr_line))]) == -1)];
+        fill_stops = [find(diff(isnan(ye_pos(:,curr_line))) == 1); ...
+            find(~isnan(ye_pos(:,curr_line)),1,'last')];
         for curr_fill = 1:length(fill_starts)
             curr_idx = fill_starts(curr_fill):fill_stops(curr_fill);
             fill([x(curr_idx);flipud(x(curr_idx))], ...
