@@ -619,7 +619,7 @@ trials_recording = cellfun(@(x) size(x,1),vertcat(wheel_all{:}));
 
 % Plot average reduced stimulus pixel activity pre/post learning
 stim_regressor = strcmp(task_regressor_labels,'Stim');
-stim_v_act = fluor_allcat_deconv - fluor_taskpred_reduced_allcat(:,:,:,stim_regressor);
+stim_v_act = fluor_allcat_deconv - fluor_taskpred_allcat(:,:,:,stim_regressor);
 
 [learned_idx,t_idx,v_idx] = ...
     ndgrid((trial_learned_day >= 0)+1,1:length(t),1:n_vs);
@@ -636,19 +636,15 @@ stim_v_act_learn_avg = permute(accumarray( ...
 stim_px_act_learn_avg = AP_svdFrameReconstruct(U_master(:,:,1:n_vs), ...
     squeeze(nanmean(stim_v_act_learn_avg,4)));
 
-figure;
 use_t = t >= 0.05 & t <= 0.2;
-tiledlayout(1,n_stages,'TileSpacing','tight','padding','compact');
-c = (max(stim_px_act_learn_avg(:)).*[-1,1])*0.5;
-for curr_stage = 1:n_stages
-    nexttile;
-    imagesc(nanmean(stim_px_act_learn_avg(:,:,use_t,curr_stage),3));
-    caxis(c);
-    axis image off;
-    AP_reference_outline('ccf_aligned',[0.5,0.5,0.5]);
-    colormap(brewermap([],'PrGn'));
-    title(sprintf('Learned stage %d',curr_stage));
+tiledlayout(1,2,'TileSpacing','tight','padding','compact');
+c = (max(stim_px_avg_stage_tavg(:)).*[-1,1])*0.5;
+for curr_learn = 1:size(stim_px_act_learn_avg,4)
+    
+
 end
+
+
 
 % Get ROI average/time-max stim reduced activity by learned day (daysplit)
 stim_regressor = strcmp(task_regressor_labels,'Stim');
