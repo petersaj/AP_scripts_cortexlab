@@ -4,6 +4,8 @@ function AP_prettyfig
 % Get all axes in figure
 fig_ax = get(gcf,'Children');
 
+% TO DO: check for tiled layout and grab axes with allchild
+
 % Loop through axes
 for curr_ax = 1:length(fig_ax)
     try

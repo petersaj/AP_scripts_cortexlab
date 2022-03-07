@@ -85,13 +85,14 @@ wheelGain = 8; % deg/mm
 rewardKeyPressed = inputs.keyboard.strcmp('w');
 
 %% Default parameters
+% (higher parameters at start: mice have already learned regular task)
 
 try
     parameters.rewardSize = 6;
-    parameters.itiMin = 1;
-    parameters.itiMax = 3;
+    parameters.itiMin = 4;
+    parameters.itiMax = 7;
     parameters.quiescenceMin = 0.5;
-    parameters.quiescenceMax = 1;
+    parameters.quiescenceMax = 2;
 catch
 end
 
