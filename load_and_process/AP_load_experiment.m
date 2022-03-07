@@ -459,7 +459,7 @@ if exist('Timeline','var') && load_parts.cam
         [facecam_movement_filename,facecam_movement_exists] = AP_cortexlab_filename(animal,day,experiment,'facecam_movement');
         if facecam_movement_exists
             load(facecam_movement_filename);
-        end
+        end        
         
     end
     

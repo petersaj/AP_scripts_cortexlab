@@ -426,7 +426,6 @@ title('Master whisker mask');
 
 % Align whisker mask to individual day
 whisker_mask = cell(size(im_unaligned_cat));
-figure; h = image(im_unaligned_cat{1}); axis image off;
 for curr_im =1:length(im_unaligned_cat)
     if isempty(im_unaligned_cat{curr_im})
         continue
@@ -435,21 +434,28 @@ for curr_im =1:length(im_unaligned_cat)
     tform_size = imref2d(size(im_unaligned_cat{curr_im}));
     whisker_mask{curr_im} = ...
         imwarp(master_whisker_mask,invert(im_tform_cat{curr_im}), ...
-        'OutputView',tform_size);
-
-    set(h,'CData', ...
-        imoverlay(mat2gray(im_unaligned_cat{curr_im}), ...
-        whisker_mask{curr_im},'r'));
-    pause(0.1);
-
+        'OutputView',tform_size); 
 end
 
-% % Save transform (into original struct)
-% % (package back into animals)
-% n_days_animal = cellfun(@length,{facecam_align.day});
-% whisker_mask_animal = mat2cell(whisker_mask,1,n_days_animal);
-% [facecam_align.whisker_mask] = whisker_mask_animal{:};
-% 
+% Package into original structure
+n_days_animal = cellfun(@length,{facecam_align.day});
+whisker_mask_animal = mat2cell(whisker_mask,1,n_days_animal);
+[facecam_align.whisker_mask] = whisker_mask_animal{:};
+
+% Plot through all days to check the aligned whisker ROIs
+whisker_mask_cat = [facecam_align.whisker_mask];
+figure; h = image(im_unaligned_cat{1}); axis image off;
+for curr_im =1:length(im_unaligned_cat)
+    if isempty(im_unaligned_cat{curr_im})
+        continue
+    end
+    set(h,'CData', ...
+        imoverlay(mat2gray(im_unaligned_cat{curr_im}), ...
+        whisker_mask_cat{curr_im},'r'));
+    pause(0.1);
+end
+
+% % Save whisker mask (into original struct)
 % save(facecam_align_fn,'facecam_align');
 % disp(['Saved: ' facecam_align_fn]);
 

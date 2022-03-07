@@ -78,6 +78,35 @@ else % If passive dataset
     
 end
 
+%% Get whisker movement
+% (not general enough to go in AP_load_experiment)
+
+% Get aligned whisker mask for animal/day
+facecam_processing_path = 'C:\Users\Andrew\OneDrive for Business\Documents\CarandiniHarrisLab\analysis\operant_learning\facecam_processing';
+facecam_align_fn = fullfile(facecam_processing_path,'facecam_align.mat');
+load(facecam_align_fn);
+
+facecam_align_animalidx = find(strcmp(animal,{facecam_align.animal}));
+facecam_align_dayidx = find(strcmp(day,[facecam_align(facecam_align_animalidx).day]));
+
+try
+    whisker_mask = facecam_align(facecam_align_animalidx).whisker_mask{facecam_align_dayidx};
+
+    % Get whisker movement
+    if ~isempty(whisker_mask)
+        vr = VideoReader(facecam_fn);
+        n_frames = vr.NumFrames;
+
+        whisker_px = nan(n_frames,sum(whisker_mask(:)));
+        for curr_frame = 1:n_frames
+            curr_im = read(vr,curr_frame);
+            whisker_px(curr_frame,:) = curr_im(whisker_mask);
+        end
+
+        whisker_move = [NaN;sum(abs(diff(whisker_px,[],1)),2)];
+    end
+end
+
 %% Trial-align data
 
 if verbose; disp('Trial-aligning data...'); end;
@@ -132,10 +161,10 @@ end
 stim_aligned_wheel = interp1(Timeline.rawDAQTimestamps, ...
     wheel_velocity,t_peri_event,'previous');
 
-% Facecam movement
-if exist('frame_movement','var')
-    stim_aligned_movement = interp1(facecam_t(~isnan(facecam_t)), ...
-        frame_movement(~isnan(facecam_t)),t_peri_event,'previous');
+% Whisker movement
+if exist('whisker_move','var')
+    stim_aligned_whisker = interp1(facecam_t(~isnan(facecam_t)), ...
+        whisker_move(~isnan(facecam_t)),t_peri_event,'previous');
 end
 
 if task_dataset
@@ -362,8 +391,8 @@ trial_data = struct;
 % Task/behavioral data
 trial_data.trial_info_all = trial_info;
 trial_data.wheel_all = stim_aligned_wheel(use_trials,:,:);
-if exist('stim_aligned_movement','var')
-    trial_data.movement_all = stim_aligned_movement(use_trials,:,:);
+if exist('stim_aligned_whisker','var')
+    trial_data.whisker_move_all = stim_aligned_whisker(use_trials,:,:);
 end
 
 % Aligned neural data

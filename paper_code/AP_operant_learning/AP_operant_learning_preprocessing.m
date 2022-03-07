@@ -541,8 +541,353 @@ for curr_roi = 1:n_rois
 end
 axis image off;
 
+%% ~~~~~~~~~~~~~~ Facecam ROIs
+
+%% Collect sample facecam frame from all experiments
+
+% Overwrite, or add to existing data
+overwrite_flag = false;
+
+animals = {'AP100','AP101','AP103','AP104', ...
+    'AP105','AP106','AP107','AP108','AP109','AP111','AP112', ...
+    'AP113','AP114','AP115'};
+
+% Init structur to overwrite, or load 
+if overwrite_flag
+    facecam_align = struct;
+else
+    facecam_processing_path = 'C:\Users\Andrew\OneDrive for Business\Documents\CarandiniHarrisLab\analysis\operant_learning\facecam_processing';
+    facecam_align_fn = fullfile(facecam_processing_path,'facecam_align.mat');
+    load(facecam_align_fn);
+end
+
+for curr_animal = 1:length(animals)
+    
+    animal = animals{curr_animal};
+    protocol = 'AP_lcrGratingPassive';
+    experiments = AP_find_experiments(animal,protocol);
+    
+    % Get days with muscimol
+    data_path = 'C:\Users\Andrew\OneDrive for Business\Documents\CarandiniHarrisLab\analysis\operant_learning\data';
+    muscimol_fn = [data_path filesep 'muscimol.mat'];
+    load(muscimol_fn);
+    muscimol_animal_idx = ismember({muscimol.animal},animal);
+    if any(muscimol_animal_idx)
+        muscimol_start_day = muscimol(muscimol_animal_idx).day{1};
+        muscimol_experiments = datenum({experiments.day})' >= datenum(muscimol_start_day);
+    else
+        muscimol_experiments = false(size({experiments.day}));
+    end
+    
+    % Set experiments to use (imaging, not muscimol)
+    experiments = experiments([experiments.imaging] & ~muscimol_experiments);
+
+    % If adding rather than overwriting, get days without data
+    if ~overwrite_flag
+        load_days = find(~ismember({experiments.day}, ...
+            [facecam_align(curr_animal).day(cellfun(@ischar,[facecam_align(curr_animal).day]))]));
+        if ~any(load_days)
+            continue
+        end
+    else
+        load_days = find(true(1,length(experiments)));
+    end
+    
+    disp(['Loading ' animal]);
+    
+    for curr_day = load_days
+        
+        preload_vars = who;
+        
+        day = experiments(curr_day).day;
+        experiment = experiments(curr_day).experiment(end);
+        
+        % Load experiment (only cam)
+        load_parts.cam = true;
+        AP_load_experiment       
+
+        if ~facecam_exists
+            continue
+        end
+
+        % Grab sample frame (last frame)
+        vr = VideoReader(facecam_fn);
+        grab_frame = vr.NumFrames;
+        facecam_sample_frame = read(vr,grab_frame);
+        
+        facecam_sampleframe_all(curr_animal).animal = animal;
+        facecam_sampleframe_all(curr_animal).day{curr_day} = day;
+        facecam_sampleframe_all(curr_animal).im{curr_day} = facecam_sample_frame;
+
+        % Prep for next loop
+        AP_print_progress_fraction(curr_day,length(experiments));
+        clearvars('-except',preload_vars{:});
+
+    end
+end
+disp('Done loading all');
+
+% % Save
+% save_path = 'C:\Users\Andrew\OneDrive for Business\Documents\CarandiniHarrisLab\analysis\operant_learning\facecam_processing';
+% save_fn = ['facecam_align'];
+% save([save_path filesep save_fn],'facecam_align','-v7.3');
+% disp(['Saved: ' save_path filesep save_fn])
 
 
+%% Align facecam frames (nose/eye control point)
+
+% Overwrite, or add to existing data
+overwrite_flag = false;
+
+% Load facecam sample frames
+facecam_processing_path = 'C:\Users\Andrew\OneDrive for Business\Documents\CarandiniHarrisLab\analysis\operant_learning\facecam_processing';
+facecam_align_fn = fullfile(facecam_processing_path,'facecam_align.mat');
+load(facecam_align_fn);
+
+% Get days without tform to align (or all if overwriting)
+if ~overwrite_flag
+    im_cat = {facecam_align.im};
+    tform_cat = {facecam_align.tform};
+    tform_cat_pad = cellfun(@(im,tform) ...
+        [tform;cell(length(im)-length(tform),1)],im_cat,tform_cat,'uni',false);
+    align_days = find(cellfun(@(im,tform) ~isempty(im) & isempty(tform), ...
+        horzcat(im_cat{:}),vertcat(tform_cat_pad{:})'));
+else
+    align_days = 1:length(length([facecam_align.im]));
+end
+
+% Plot images and select control points
+im_unaligned = cellfun(@double,[facecam_align.im],'uni',false);
+
+target_im = im_unaligned{1};
+target_size = size(target_im);
+
+figure;
+target_ax = subplot(1,2,1);
+imagesc(target_im);
+axis image off; hold on;
+source_ax = subplot(1,2,2);
+source_h = imagesc([]);
+axis image off; hold on;
+
+title(target_ax,'Click: nose end, eye center');
+target_ctrl_points = ginput(2);
+plot(target_ax,target_ctrl_points(:,1),target_ctrl_points(:,2),'.r','MarkerSize',20);
+title(target_ax,'');
+
+im_aligned = nan(target_size(1),target_size(2),length(im_unaligned));
+source_ctrl_points = cell(length(im_unaligned),1);
+if overwrite_flag
+    cam_tform = cell(length(im_unaligned),1);
+else
+    cam_tform = vertcat(tform_cat_pad{:});
+end
+for curr_im = align_days
+    source_im = im_unaligned{curr_im};
+    if isempty(source_im)
+        continue
+    end
+
+    % Click control points
+    title(source_ax,{['Click: nose eye'], ...
+        [sprintf('%d/%d',curr_im,length(im_unaligned))]});
+    set(source_h,'CData',source_im);
+    source_ctrl_points{curr_im} = ginput(2);
+
+    % Store tform
+    cam_tform{curr_im} = fitgeotrans(source_ctrl_points{curr_im}, ...
+        target_ctrl_points,'nonreflectivesimilarity');
+    tform_size = imref2d(target_size);
+    im_aligned(:,:,curr_im) = ...
+        imwarp(source_im,cam_tform{curr_im},'OutputView',tform_size);
+
+end
+
+% Plot aligned
+AP_image_scroll(im_aligned); axis image
+
+% Save transform (into original struct)
+% (package back into animals)
+n_days_animal = cellfun(@length,{facecam_align.day});
+cam_tform_animal = mat2cell(cam_tform,n_days_animal);
+[facecam_align.tform] = cam_tform_animal{:};
+
+save(facecam_align_fn,'facecam_align');
+disp(['Saved: ' facecam_align_fn]);
+
+
+%% Load and align (sanity check)
+
+% Load facecam align
+facecam_processing_path = 'C:\Users\Andrew\OneDrive for Business\Documents\CarandiniHarrisLab\analysis\operant_learning\facecam_processing';
+facecam_align_fn = fullfile(facecam_processing_path,'facecam_align.mat');
+load(facecam_align_fn);
+
+% Align facecams
+im_unaligned_cat = cellfun(@double,[facecam_align.im],'uni',false);
+im_tform_cat = cat(1,facecam_align.tform);
+im_ref = im_unaligned_cat{1};
+
+im_aligned = nan(size(im_ref,1),size(im_ref,2),length(im_unaligned_cat));
+for curr_im =1:length(im_unaligned_cat)
+    if isempty(im_unaligned_cat{curr_im})
+        continue
+    end
+    tform_size = imref2d(size(im_ref));
+    im_aligned(:,:,curr_im) = ...
+        imwarp(im_unaligned_cat{curr_im},im_tform_cat{curr_im}, ...
+        'OutputView',tform_size);
+end
+
+AP_image_scroll(im_aligned); axis image;
+
+%% Draw facecam whisker ROI and align to each recording
+
+% Load facecam align
+facecam_processing_path = 'C:\Users\Andrew\OneDrive for Business\Documents\CarandiniHarrisLab\analysis\operant_learning\facecam_processing';
+facecam_align_fn = fullfile(facecam_processing_path,'facecam_align.mat');
+load(facecam_align_fn);
+
+% Align facecams
+im_unaligned_cat = cellfun(@double,[facecam_align.im],'uni',false);
+im_tform_cat = cat(1,facecam_align.tform);
+im_ref = im_unaligned_cat{1};
+
+im_aligned = nan(size(im_ref,1),size(im_ref,2),length(im_unaligned_cat));
+for curr_im =1:length(im_unaligned_cat)
+    if isempty(im_unaligned_cat{curr_im})
+        continue
+    end
+    tform_size = imref2d(size(im_ref));
+    im_aligned(:,:,curr_im) = ...
+        imwarp(im_unaligned_cat{curr_im},im_tform_cat{curr_im}, ...
+        'OutputView',tform_size);
+end
+
+% Plot average image, draw whisker ROI
+figure;imagesc(nanmean(im_aligned,3));axis image off;
+title('Draw whisker line ROI');
+whisker_line = drawline;
+master_whisker_mask = createMask(whisker_line);
+close(gcf);
+
+figure;
+image(imoverlay(mat2gray(nanmean(im_aligned,3)),master_whisker_mask,'r'));
+axis image off
+title('Master whisker mask');
+
+% Align whisker mask to individual day
+whisker_mask = cell(size(im_unaligned_cat));
+for curr_im =1:length(im_unaligned_cat)
+    if isempty(im_unaligned_cat{curr_im})
+        continue
+    end
+
+    tform_size = imref2d(size(im_unaligned_cat{curr_im}));
+    whisker_mask{curr_im} = ...
+        imwarp(master_whisker_mask,invert(im_tform_cat{curr_im}), ...
+        'OutputView',tform_size); 
+end
+
+% Package into original structure
+n_days_animal = cellfun(@length,{facecam_align.day});
+whisker_mask_animal = mat2cell(whisker_mask,1,n_days_animal);
+[facecam_align.whisker_mask] = whisker_mask_animal{:};
+
+% Plot through all days to check the aligned whisker ROIs
+whisker_mask_cat = [facecam_align.whisker_mask];
+figure; h = image(im_unaligned_cat{1}); axis image off;
+for curr_im =1:length(im_unaligned_cat)
+    if isempty(im_unaligned_cat{curr_im})
+        continue
+    end
+    set(h,'CData', ...
+        imoverlay(mat2gray(im_unaligned_cat{curr_im}), ...
+        whisker_mask_cat{curr_im},'r'));
+    pause(0.1);
+end
+
+% % Save whisker mask (into original struct)
+% save(facecam_align_fn,'facecam_align');
+% disp(['Saved: ' facecam_align_fn]);
+
+%% ~~~~~~~~~~~~~~ Widefield data
+
+%% Passive
+
+clear all
+disp('Passive trial activity')
+
+animals = {'AP100','AP101','AP103','AP104','AP105','AP106', ...
+    'AP107','AP108','AP109','AP111','AP112'};
+
+% Initialize save variable
+trial_data_all = struct;
+
+for curr_animal = 1:length(animals)
+    
+    animal = animals{curr_animal};
+    protocol = 'AP_lcrGratingPassive';
+    experiments = AP_find_experiments(animal,protocol);
+    
+    % Get days with muscimol
+    data_path = 'C:\Users\Andrew\OneDrive for Business\Documents\CarandiniHarrisLab\analysis\operant_learning\data';
+    muscimol_fn = [data_path filesep 'muscimol.mat'];
+    load(muscimol_fn);
+    muscimol_animal_idx = ismember({muscimol.animal},animal);
+    if any(muscimol_animal_idx)
+        muscimol_start_day = muscimol(muscimol_animal_idx).day{1};
+        muscimol_experiments = datenum({experiments.day})' >= datenum(muscimol_start_day);
+    else
+        muscimol_experiments = false(size({experiments.day}));
+    end
+    
+    % Set experiments to use (imaging, not muscimol)
+    experiments = experiments([experiments.imaging] & ~muscimol_experiments);
+    
+    disp(['Loading ' animal]);
+    
+    for curr_day = 1:length(experiments)
+        
+        preload_vars = who;
+        
+        day = experiments(curr_day).day;
+        experiment = experiments(curr_day).experiment(end);
+        
+        % Load experiment
+        AP_load_experiment;
+        
+        % Pull out trial data
+        operant_grab_trial_data;
+        
+        % Store trial data into master structure
+        trial_data_fieldnames = fieldnames(trial_data);
+        for curr_trial_data_field = trial_data_fieldnames'
+            trial_data_all.(cell2mat(curr_trial_data_field)){curr_animal,1}{curr_day,1} = ...
+                trial_data.(cell2mat(curr_trial_data_field));
+        end
+        
+        % Store general info
+        trial_data_all.animals = animals;
+        trial_data_all.t = t;
+        
+        AP_print_progress_fraction(curr_day,length(experiments));
+        
+        % Clear for next loop
+        clearvars('-except',preload_vars{:});
+        
+    end
+    
+end
+
+clearvars -except trial_data_all
+disp('Finished loading all')
+
+% Save
+save_path = 'C:\Users\Andrew\OneDrive for Business\Documents\CarandiniHarrisLab\analysis\operant_learning\data';
+save_fn = ['trial_activity_passive_teto'];
+save([save_path filesep save_fn],'-v7.3');
+disp(['Saved: ' save_path filesep save_fn])
 
 
 
