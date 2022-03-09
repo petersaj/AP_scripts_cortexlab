@@ -161,15 +161,45 @@ trial_info_allcat = cell2struct(arrayfun(@(curr_field) ...
     cellfun(@struct2cell,vertcat(trial_info_all{:}),'uni',false))), ...
     1:length(trial_info_fields),'uni',false),trial_info_fields,2);
 
-% Concatenate wheel
+%% Movement measures (wheel + camera)
+
+% Wheel 
 wheel_allcat = cell2mat(vertcat(wheel_all{:}));
 
-% % (movement from mousecam if exists: normalize and concatenate)
-% if exist('movement_all','var')
-%     movement_all_norm = cellfun(@(x) cellfun(@(x) x./nanstd(x(:)), ...
-%         x,'uni',false),movement_all,'uni',false);
-%     movement_allcat = cell2mat(vertcat(movement_all_norm{:}));
-% end
+% Cameras
+% (sometimes missing if not turned on - pad missing data)
+
+% Whisker movement (normalized to baseline)
+if exist('whisker_move_all','var')
+    whisker_move_all_pad = cellfun(@(x,y) [x;cell(length(y)-length(x),1)], ...
+        [whisker_move_all;cell(length(wheel_all)-length(whisker_move_all),1)], ...
+        wheel_all,'uni',false);
+    for curr_animal = 1:length(wheel_all)
+        curr_empty = cellfun(@isempty,whisker_move_all_pad{curr_animal});
+        whisker_move_all_pad{curr_animal}(curr_empty) = ...
+            cellfun(@(x) nan(size(x)),wheel_all{curr_animal}(curr_empty),'uni',false);
+    end
+    whisker_allcat_raw = cell2mat(vertcat(whisker_move_all_pad{:}));
+    whisker_allcat = (whisker_allcat_raw - nanmean(whisker_allcat_raw(:,t < 0),2))./ ...
+        nanmean(whisker_allcat_raw(:,t < 0),2);
+end
+
+% Pupil diameter (and difference from stim onset)
+if exist('pupil_diameter_all','var')
+    pupil_diameter_all_pad = cellfun(@(x,y) [x;cell(length(y)-length(x),1)], ...
+        [pupil_diameter_all;cell(length(wheel_all)-length(pupil_diameter_all),1)], ...
+        wheel_all,'uni',false);
+    for curr_animal = 1:length(wheel_all)
+        curr_empty = cellfun(@isempty,pupil_diameter_all_pad{curr_animal});
+        pupil_diameter_all_pad{curr_animal}(curr_empty) = ...
+            cellfun(@(x) nan(size(x)),wheel_all{curr_animal}(curr_empty),'uni',false);
+    end
+    pupil_diameter_allcat = cell2mat(vertcat(pupil_diameter_all_pad{:}));
+    pupil_smooth = 3;
+    pupil_diameter_allcat_diff = padarray( ...
+        convn(diff(pupil_diameter_allcat,[],2), ...
+        ones(1,pupil_smooth)./pupil_smooth,'same'),[0,1],NaN,'pre');
+end
 
 %% Get task/stim-relevant
 
@@ -188,19 +218,6 @@ if task_dataset
     outcome_allcat = cell2mat(vertcat(outcome_all{:}));
     [~,outcome_idx] = max(any(outcome_allcat,3),[],2);
     outcome_t = t(outcome_idx)';
-    
-    % Get wheel velocity
-    wheel_velocity_allcat = wheel_allcat;
-    [max_speed,max_vel_idx] = max(abs(wheel_velocity_allcat(:,:,1).* ...
-        (bsxfun(@times,wheel_velocity_allcat,trial_choice_allcat) > 0)),[],2);
-    max_vel = max_speed.*trial_choice_allcat;
-    wheel_velocity_allcat_move = wheel_velocity_allcat;
-    
-    t_leeway = -t(1);
-    leeway_samples = round(t_leeway*(sample_rate));
-    for i = 1:size(wheel_velocity_allcat,1)
-        wheel_velocity_allcat_move(i,:,:) = circshift(wheel_velocity_allcat_move(i,:,:),-move_idx(i)+leeway_samples,2);
-    end 
    
 elseif isfield(trial_info_allcat,'stimulus')  
     

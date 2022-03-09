@@ -365,7 +365,55 @@ ylim([0,max(ylim)])
 set(gca,'XTick',1:2,'XTickLabel',{'V1 muscimol','Washout'});
 ylabel('Wheel mm/min');
 
-%% Passive
+%% Whisker movement (passive)
+
+% Load facecam align
+facecam_processing_path = 'C:\Users\Andrew\OneDrive for Business\Documents\CarandiniHarrisLab\analysis\operant_learning\facecam_processing';
+facecam_align_fn = fullfile(facecam_processing_path,'facecam_align.mat');
+load(facecam_align_fn);
+
+% Align facecams
+% (reference is first image)
+im_unaligned_cat = cellfun(@double,[facecam_align.im],'uni',false);
+im_tform_cat = cat(1,facecam_align.tform);
+im_ref = im_unaligned_cat{1};
+
+im_aligned = nan(size(im_ref,1),size(im_ref,2),length(im_unaligned_cat));
+for curr_im =1:length(im_unaligned_cat)
+    if isempty(im_unaligned_cat{curr_im})
+        continue
+    end
+    tform_size = imref2d(size(im_ref));
+    im_aligned(:,:,curr_im) = ...
+        imwarp(im_unaligned_cat{curr_im},im_tform_cat{curr_im}, ...
+        'OutputView',tform_size);
+end
+
+% Concat whisker masks (pad whisker masks to same size as im)
+whisker_mask_pad = cellfun(@(x,y) [x,cell(1,length(y)-length(x))], ...
+    {facecam_align.whisker_mask},{facecam_align.im},'uni',false);
+whisker_mask_cat = horzcat(whisker_mask_pad{:});
+
+% Plot sample frame/mask, average frame/mask
+use_days = cellfun(@(x,y) ~isempty(x) & ~isempty(y), ...
+    im_unaligned_cat,whisker_mask_cat);
+
+figure;
+subplot(1,2,1);
+ref_plot = imoverlay(mat2gray(im_ref),whisker_mask_cat{1},'r');
+imagesc(ref_plot);
+axis image off;
+title('Sample image and whisker ROI');
+subplot(1,2,2)
+avg_plot = imoverlay(mat2gray(nanmean(im_aligned(:,:,use_days),3)), ...
+    whisker_mask_cat{1},'r');
+imagesc(avg_plot);
+axis image off;
+title('Average image and whisker ROI')
+
+
+
+%% Passive - widefield
 
 % Load data
 trial_data_path = 'C:\Users\Andrew\OneDrive for Business\Documents\CarandiniHarrisLab\analysis\operant_learning\data';
@@ -387,6 +435,10 @@ trial_animal = cell2mat(arrayfun(@(x) ...
 trial_day = cell2mat(cellfun(@(x) cell2mat(cellfun(@(curr_day,x) ...
     curr_day*ones(size(x,1),1),num2cell(1:length(x))',x,'uni',false)), ...
     wheel_all,'uni',false));
+
+trial_learned_day = cell2mat(cellfun(@(x,ld) cell2mat(cellfun(@(curr_day,x) ...
+    curr_day*ones(size(x,1),1),num2cell([1:length(x)]-ld)',x,'uni',false)), ...
+    wheel_all,num2cell(learned_day + n_naive),'uni',false));
 
 trials_recording = cellfun(@(x) size(x,1),vertcat(wheel_all{:}));
 
@@ -587,8 +639,72 @@ for curr_roi_idx = 1:length(plot_rois)
 
 end
 
+% Get average pupil diameter and whisker movement to stimuli
+[~,trial_stim_allcat_id] = ismember(trial_stim_allcat,stim_unique);
 
-%% Task
+learned_day_unique = unique(trial_learned_day)';
+[~,trial_learned_day_id] = ismember(trial_learned_day,learned_day_unique);
+
+[stim_idx,t_idx] = ndgrid(trial_stim_allcat_id,1:length(t));
+[animal_idx,~] = ndgrid(trial_animal,1:length(t));
+[learned_day_id_idx,~] = ndgrid(trial_learned_day_id,1:length(t));
+
+bhv_accum_idx = cat(3,stim_idx(quiescent_trials,:), ...
+    t_idx(quiescent_trials,:), ...
+    learned_day_id_idx(quiescent_trials,:), ... 
+    animal_idx(quiescent_trials,:));
+
+pupil_diff_stim_avg = accumarray(reshape(bhv_accum_idx,[],size(bhv_accum_idx,3)), ...
+    reshape(pupil_diameter_allcat_diff(quiescent_trials,:),[],1),[length(stim_unique),length(t), ...
+    max(trial_learned_day_id),length(animals)],@nanmean,NaN);
+
+whisker_stim_avg = accumarray(reshape(bhv_accum_idx,[],size(bhv_accum_idx,3)), ...
+    reshape(whisker_allcat(quiescent_trials,:),[],1),[length(stim_unique),length(t), ...
+    max(trial_learned_day_id),length(animals)],@nanmean,NaN);
+
+bhv_stim_avg = cat(5,pupil_diff_stim_avg,whisker_stim_avg);
+bhv_label = {'Pupil diff','Whisker'};
+
+% [~,~,learning_stage] = unique(learned_day_unique >= 0);
+learning_stage = discretize(learned_day_unique,[-Inf,-1,0,1,2,Inf]);
+
+figure;
+h = tiledlayout(size(bhv_stim_avg,5),max(learning_stage), ...
+    'TileSpacing','tight','padding','compact');
+stim_col = [0,0,1;0,0,0;1,0,0];
+for curr_bhv = 1:size(bhv_stim_avg,5)
+    for curr_stage = 1:max(learning_stage)
+        nexttile;
+        curr_mean = nanmean(nanmean(bhv_stim_avg(:,:, ...
+            learning_stage == curr_stage,:,curr_bhv),3),4)';
+        curr_sem = AP_sem(nanmean(bhv_stim_avg(:,:, ...
+            learning_stage == curr_stage,:,curr_bhv),3),4)';
+        AP_errorfill(t,curr_mean,curr_sem,stim_col);
+        xlabel('Time from stim (s)');
+        ylabel(bhv_label{curr_bhv});
+        title(sprintf('Stage %d',curr_stage));
+        axis tight;
+        xlim(xlim+[-0.1,0.1]);
+        xline([0,0.5],'color','k','linestyle','--');
+    end
+    curr_axes = allchild(h);
+    linkaxes(curr_axes(1:max(learning_stage)),'xy');
+end
+
+% Plot whisker movement over time
+use_t = t > 0 & t < 0.2;
+whisker_stim_tmax = squeeze(max(whisker_stim_avg(:,use_t,:,:),[],2));
+plot_days = min(sum(~isnan(whisker_stim_tmax),3)) > min_n;
+figure; hold on
+AP_errorfill(learned_day_unique(plot_days), ...
+    nanmean(whisker_stim_tmax(:,plot_days,:),3)', ...
+    AP_sem(whisker_stim_tmax(:,plot_days,:),3)',stim_col);
+xline(0,'color','k','linestyle','--');
+xlabel('Learned day');
+ylabel('Whisker movement')
+
+
+%% Task - widefield
 
 % Load data
 trial_data_path = 'C:\Users\Andrew\OneDrive for Business\Documents\CarandiniHarrisLab\analysis\operant_learning\data';

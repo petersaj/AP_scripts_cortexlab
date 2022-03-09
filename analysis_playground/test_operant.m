@@ -3819,6 +3819,41 @@ line([0,0],ylim,'color','k','linestyle','--');
 xlabel('Learned day');
 ylabel(sprintf('%s fluorescence',wf_roi(curr_roi).area))
 
+%% Movement activity (vs learning, vs stim/non-stim)
+
+% Plot average reduced stimulus pixel activity pre/post learning
+stim_regressor = strcmp(task_regressor_labels,'Stim');
+stim_v_act = fluor_allcat_deconv - fluor_taskpred_reduced_allcat(:,:,:,stim_regressor);
+
+[learned_idx,t_idx,v_idx] = ...
+    ndgrid((trial_learned_day >= 0)+1,1:length(t),1:n_vs);
+[animal_idx,~,~] = ...
+    ndgrid(trial_animal,1:length(t),1:n_vs);
+
+n_stages = max(learned_idx(:));
+stim_v_act_learn_avg = permute(accumarray( ...
+    [learned_idx(:),t_idx(:),v_idx(:),animal_idx(:)], ...
+    stim_v_act(:), ...
+    [n_stages,length(t),n_vs,length(animals)], ...
+    @nanmean,NaN('single')),[3,2,1,4]);
+
+stim_px_act_learn_avg = AP_svdFrameReconstruct(U_master(:,:,1:n_vs), ...
+    squeeze(nanmean(stim_v_act_learn_avg,4)));
+
+figure;
+use_t = t >= 0.05 & t <= 0.2;
+tiledlayout(1,n_stages,'TileSpacing','tight','padding','compact');
+c = (max(stim_px_act_learn_avg(:)).*[-1,1])*0.5;
+for curr_stage = 1:n_stages
+    nexttile;
+    imagesc(nanmean(stim_px_act_learn_avg(:,:,use_t,curr_stage),3));
+    caxis(c);
+    axis image off;
+    AP_reference_outline('ccf_aligned',[0.5,0.5,0.5]);
+    colormap(brewermap([],'PrGn'));
+    title(sprintf('Learned stage %d',curr_stage));
+end
+
 
 
 

@@ -10,7 +10,8 @@
 %% Grab and save behavior
 
 animal_group = 'teto';
-animals = {'AP100','AP101','AP103','AP104','AP105', ...
+animals = { ...
+    'AP100','AP101','AP103','AP104','AP105', ...
     'AP106','AP107','AP108','AP109','AP111', ...
     'AP113','AP114','AP115'};
 
@@ -548,8 +549,9 @@ axis image off;
 % Overwrite, or add to existing data
 overwrite_flag = false;
 
-animals = {'AP100','AP101','AP103','AP104', ...
-    'AP105','AP106','AP107','AP108','AP109','AP111','AP112', ...
+animals = { ...
+    'AP100','AP101','AP103','AP104','AP105', ...
+    'AP106','AP107','AP108','AP109','AP111', ...
     'AP113','AP114','AP115'};
 
 % Init structur to overwrite, or load 
@@ -583,7 +585,7 @@ for curr_animal = 1:length(animals)
     experiments = experiments([experiments.imaging] & ~muscimol_experiments);
 
     % If adding rather than overwriting, get days without data
-    if ~overwrite_flag
+    if ~overwrite_flag && length(facecam_align) >= curr_animal
         load_days = find(~ismember({experiments.day}, ...
             [facecam_align(curr_animal).day(cellfun(@ischar,[facecam_align(curr_animal).day]))]));
         if ~any(load_days)
@@ -615,9 +617,9 @@ for curr_animal = 1:length(animals)
         grab_frame = vr.NumFrames;
         facecam_sample_frame = read(vr,grab_frame);
         
-        facecam_sampleframe_all(curr_animal).animal = animal;
-        facecam_sampleframe_all(curr_animal).day{curr_day} = day;
-        facecam_sampleframe_all(curr_animal).im{curr_day} = facecam_sample_frame;
+        facecam_align(curr_animal).animal = animal;
+        facecam_align(curr_animal).day{curr_day} = day;
+        facecam_align(curr_animal).im{curr_day} = facecam_sample_frame;
 
         % Prep for next loop
         AP_print_progress_fraction(curr_day,length(experiments));
@@ -627,11 +629,11 @@ for curr_animal = 1:length(animals)
 end
 disp('Done loading all');
 
-% % Save
-% save_path = 'C:\Users\Andrew\OneDrive for Business\Documents\CarandiniHarrisLab\analysis\operant_learning\facecam_processing';
-% save_fn = ['facecam_align'];
-% save([save_path filesep save_fn],'facecam_align','-v7.3');
-% disp(['Saved: ' save_path filesep save_fn])
+% Save
+save_path = 'C:\Users\Andrew\OneDrive for Business\Documents\CarandiniHarrisLab\analysis\operant_learning\facecam_processing';
+save_fn = ['facecam_align'];
+save([save_path filesep save_fn],'facecam_align','-v7.3');
+disp(['Saved: ' save_path filesep save_fn])
 
 
 %% Align facecam frames (nose/eye control point)
@@ -702,6 +704,7 @@ for curr_im = align_days
         imwarp(source_im,cam_tform{curr_im},'OutputView',tform_size);
 
 end
+close(gcf);
 
 % Plot aligned
 AP_image_scroll(im_aligned); axis image
@@ -807,9 +810,11 @@ for curr_im =1:length(im_unaligned_cat)
     pause(0.1);
 end
 
+warning('Saftey: saving turned off');
 % % Save whisker mask (into original struct)
 % save(facecam_align_fn,'facecam_align');
 % disp(['Saved: ' facecam_align_fn]);
+
 
 %% ~~~~~~~~~~~~~~ Widefield data
 
@@ -818,8 +823,9 @@ end
 clear all
 disp('Passive trial activity')
 
-animals = {'AP100','AP101','AP103','AP104','AP105','AP106', ...
-    'AP107','AP108','AP109','AP111','AP112'};
+animals = { ...
+    'AP100','AP101','AP103','AP104','AP105', ...
+    'AP106','AP107','AP108','AP109','AP111'};
 
 % Initialize save variable
 trial_data_all = struct;
@@ -889,7 +895,7 @@ save_fn = ['trial_activity_passive_teto'];
 save([save_path filesep save_fn],'-v7.3');
 disp(['Saved: ' save_path filesep save_fn])
 
-
+ 
 
 
 

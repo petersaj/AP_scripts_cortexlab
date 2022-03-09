@@ -2050,7 +2050,7 @@ ylabel(c,'Explained variance')
 
 %% Align vasculature for animal
 clear all;
-animal = 'AP114';
+animal = 'AP115';
 
 protocol = [];
 experiments = AP_find_experiments(animal,protocol);
@@ -2138,12 +2138,12 @@ title(animal);
 
 
 
-%% GCaMP: Average retinotopy, align to master
+%% GCaMP: Align animal retinotopy to master
 
 retinotopy_path = 'C:\Users\Andrew\OneDrive for Business\Documents\CarandiniHarrisLab\analysis\widefield_alignment\retinotopy';
 retinotopy_dir = dir(retinotopy_path);
 
-animal = 'AP112';
+animal = 'AP115';
 load([retinotopy_path filesep animal '_retinotopy'])
 
 aligned_vfs = cell(length(retinotopy),1);

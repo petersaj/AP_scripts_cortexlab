@@ -161,6 +161,12 @@ end
 stim_aligned_wheel = interp1(Timeline.rawDAQTimestamps, ...
     wheel_velocity,t_peri_event,'previous');
 
+% Pupil diameter
+if exist('pupil_diameter','var')
+    stim_aligned_pupil= interp1(eyecam_t(~isnan(eyecam_t)), ...
+        pupil_diameter(~isnan(eyecam_t)),t_peri_event,'previous');
+end
+
 % Whisker movement
 if exist('whisker_move','var')
     stim_aligned_whisker = interp1(facecam_t(~isnan(facecam_t)), ...
@@ -390,9 +396,12 @@ trial_data = struct;
 
 % Task/behavioral data
 trial_data.trial_info_all = trial_info;
-trial_data.wheel_all = stim_aligned_wheel(use_trials,:,:);
+trial_data.wheel_all = stim_aligned_wheel(use_trials,:);
 if exist('stim_aligned_whisker','var')
-    trial_data.whisker_move_all = stim_aligned_whisker(use_trials,:,:);
+    trial_data.whisker_move_all = stim_aligned_whisker(use_trials,:);
+end
+if exist('stim_aligned_pupil','var')
+    trial_data.pupil_diameter_all = stim_aligned_pupil(use_trials,:);
 end
 
 % Aligned neural data
