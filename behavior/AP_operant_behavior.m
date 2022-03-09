@@ -5,7 +5,7 @@
 
 %% Plot behavior (for checking ongoing)
 
-animals = {'AP089','AP090','AP091'};
+animals = {'AP108'};
 % animals = {'AP113','AP114','AP115'};
 
 protocol = 'AP_stimWheel';

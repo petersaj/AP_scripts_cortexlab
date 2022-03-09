@@ -3834,9 +3834,6 @@ end
 
 %% Move-align activity (and reduce)
 
-% (minimum number n to plot)
-min_n = 4;
-
 % Reduce activity to movement
 move_regressor = strcmp(task_regressor_labels,'Move onset');
 move_v_act = fluor_allcat_deconv - fluor_taskpred_reduced_allcat(:,:,:,move_regressor);
@@ -3905,15 +3902,15 @@ move_roi_act_learn_avg = accumarray( ...
 
 % (tmax activity: learned day x daysplit x roi x animal)
 use_t = t >= 0 & t <= 0.5;
-move_roi_act_tmax_daysplit = ...
-    squeeze(max(move_roi_act_learn_avg(:,:,use_t,:,:),[],3));
+tim_roi_act_tmax_daysplit = ...
+    squeeze(max(stim_roi_act_learn_avg(:,:,use_t,:,:),[],3));
 
 % Plot time-max by learned day
 learned_day_x_range = minmax(learned_day_idx);
 learned_day_x = [learned_day_x_range(1):learned_day_x_range(2)]';
 learned_daysplit_x = learned_day_x + linspace(0,1,n_daysplit+1);
 
-plot_learned_day = sum(~isnan(move_roi_act_tmax_daysplit(:,1,1,:)),4) > min_n;
+plot_learned_day = sum(~isnan(stim_roi_act_tmax_daysplit(:,1,1,:)),4) > min_n;
 
 figure;
 plot_rois = [1:6];
@@ -3925,10 +3922,10 @@ for curr_roi_idx = 1:length(plot_rois)
    
     errorbar(reshape(learned_daysplit_x(plot_learned_day,:)',[],1), ...
         reshape(padarray(nanmean( ...
-        move_roi_act_tmax_daysplit(plot_learned_day,:,curr_l_roi,:),4), ...
+        stim_roi_act_tmax_daysplit(plot_learned_day,:,curr_l_roi,:),4), ...
         [0,1],NaN,'post')',[],1), ...
         reshape(padarray(AP_sem( ...
-        move_roi_act_tmax_daysplit(plot_learned_day,:,curr_l_roi,:),4), ...
+        stim_roi_act_tmax_daysplit(plot_learned_day,:,curr_l_roi,:),4), ...
         [0,1],NaN,'post')',[],1),'k','linewidth',2,'CapSize',0);
 
     title(wf_roi(curr_l_roi).area);
@@ -3939,29 +3936,6 @@ for curr_roi_idx = 1:length(plot_rois)
     xlim(xlim+[-0.5,0.5]);
 
 end
-
-% Plot ROIs overlaid, normalized by pre-learn average
-norm_days = learned_day_x < 0;
-move_roi_act_tmax_daysplit_normval = ...
-    nanmean(nanmean(move_roi_act_tmax_daysplit(norm_days,:,:,:),2),1);
-move_roi_act_tmax_daysplit_norm = ...
-    (move_roi_act_tmax_daysplit-move_roi_act_tmax_daysplit_normval)./ ...
-    move_roi_act_tmax_daysplit_normval;
-
-figure;
-plot_rois = [1,6];
-errorbar( ...
-    repmat(reshape(learned_daysplit_x(plot_learned_day,:)',[],1),1,length(plot_rois)), ...
-    reshape(permute(padarray(nanmean( ...
-    move_roi_act_tmax_daysplit_norm(plot_learned_day,:,plot_rois,:),4), ...
-    [0,1],NaN,'post'),[2,1,3]),[],length(plot_rois)), ...
-    reshape(permute(padarray(AP_sem( ...
-    move_roi_act_tmax_daysplit_norm(plot_learned_day,:,plot_rois,:),4), ...
-    [0,1],NaN,'post'),[2,1,3]),[],length(plot_rois)),'linewidth',2,'CapSize',0);
-xlabel('Learned day');
-ylabel('Fluorescence (normalized to pre-learn)');
-xline(0,'linestyle','--');
-legend({wf_roi(plot_rois).area},'location','nw')
 
 
 

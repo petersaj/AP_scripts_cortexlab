@@ -482,7 +482,7 @@ colormap(brewermap([],'PrGn'));
 caxis([-max(abs(caxis)),max(abs(caxis))]);
 
 use_t = t >= 0 & t <= 0.2;
-stim_px_avg_stage_tavg = AP_svdFrameReconstruct(U_master(:,:,1:n_vs), ...
+stim_px_avg_stage_tmax = AP_svdFrameReconstruct(U_master(:,:,1:n_vs), ...
     squeeze(nanmean(nanmean(stim_v_avg_stage(:,use_t,:,:,:),2),5)));
 
 figure;
