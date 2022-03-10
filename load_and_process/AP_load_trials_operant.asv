@@ -321,51 +321,20 @@ if exist('mua_area_all','var')
         vertcat(mua_area_all{:}), ...
         vertcat(mua_area_day_baseline{:}),'uni',false);
     
-    % (area: task-predicted, already baseline-subtracted)
-    mua_taskpred_norm = cellfun(@(mua,mua_baseline) ...
-        (mua)./mua_baseline, ...
-        vertcat(mua_taskpred_all{:}), ...
-        vertcat(mua_area_day_baseline{:}),'uni',false);
+    % 
+    vertcat(mua_taskpred_all{:})
     
-    mua_taskpred_reduced_norm = cellfun(@(mua,mua_baseline) ...
-        (mua)./mua_baseline, ...
-        vertcat(mua_taskpred_reduced_all{:}), ...
-        vertcat(mua_area_day_baseline{:}),'uni',false);
     
-    % (standardize area order across recordings)
     mua_area_norm_reorder = cellfun(@(x) ...
         nan(size(x,1),size(x,2),length(mua_areas)), ...
         mua_area_norm,'uni',false);
-    
-    if task_dataset
-        mua_taskpred_norm_reorder = cellfun(@(x) ...
-            nan(size(x,1),size(x,2),length(mua_areas)), ...
-            mua_taskpred_norm,'uni',false);
-        
-        mua_taskpred_reduced_norm_reorder = cellfun(@(x) ...
-            nan(size(x,1),size(x,2),length(mua_areas),length(task_regressor_labels)), ...
-            mua_taskpred_reduced_norm,'uni',false);
-    end
-    
     for curr_recording = 1:length(mua_area_norm)
         [~,curr_area_idx] = ismember(mua_areas_cat{curr_recording},mua_areas);
         mua_area_norm_reorder{curr_recording}(:,:,curr_area_idx) = ...
-            mua_area_norm{curr_recording};
-        
-        if task_dataset
-            mua_taskpred_norm_reorder{curr_recording}(:,:,curr_area_idx) = ...
-                mua_taskpred_norm{curr_recording};
-            
-            mua_taskpred_reduced_norm_reorder{curr_recording}(:,:,curr_area_idx,:) = ...
-                mua_taskpred_reduced_norm{curr_recording};
-        end
+            mua_area_norm{curr_recording};  
     end
     
-    mua_area_allcat = cell2mat(mua_area_norm_reorder);
-    if task_dataset
-        mua_taskpred_allcat = cell2mat(mua_taskpred_norm_reorder);
-        mua_taskpred_reduced_allcat = cell2mat(mua_taskpred_reduced_norm_reorder);
-    end
+    mua_area_allcat = cell2mat(mua_area_norm_reorder);   
     
 end
 
