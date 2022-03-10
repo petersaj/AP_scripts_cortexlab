@@ -453,7 +453,6 @@ quiescent_trials = ~any(abs(wheel_allcat(:,t >= 0 & t <= 0.5)) > 0,2);
 stim_unique = unique(trial_stim_allcat);
 stim_v_avg = cell(length(animals),1);
 stim_roi_avg = cell(length(animals),1);
-stim_roi = cell(length(animals),1);
 for curr_animal = 1:length(animals)
     for curr_day = 1:max(trial_day(trial_animal == curr_animal))
         for curr_stim_idx = 1:length(stim_unique)
@@ -465,9 +464,6 @@ for curr_animal = 1:length(animals)
                 permute(nanmean(fluor_allcat_deconv(use_trials,:,:),1),[3,2,1]);
             stim_roi_avg{curr_animal}(:,:,curr_day,curr_stim_idx) = ...
                 permute(nanmean(fluor_roi_deconv(use_trials,:,:),1),[3,2,1]);
-            
-            stim_roi{curr_animal}{curr_day}{curr_stim_idx} = ...
-                fluor_roi_deconv(use_trials,:,:);
         end
     end
 end
@@ -543,6 +539,33 @@ for curr_roi_idx = 1:length(plot_rois)
 
     % (link axes with same ROI)
     linkaxes([hl,hr],'xy');
+end
+
+% Plot all trials (by stage)
+plot_rois = [1,6];
+trial_learned_stage = discretize(trial_learned_day,[-Inf,0,Inf]);
+n_trial_smooth = 20;
+
+figure;
+tiledlayout(2,length(plot_rois),'TileSpacing','compact','padding','compact');
+for curr_roi = plot_rois
+    for curr_stage = 1:max(trial_learned_stage)
+        use_trials = trial_stim_allcat == 1 & ...
+            trial_learned_stage == curr_stage & quiescent_trials;
+        
+        curr_data = fluor_roi_deconv(use_trials,:,curr_roi);
+        curr_data_smooth = convn(curr_data, ...
+            ones(n_trial_smooth,1)./n_trial_smooth,'same');
+        
+        nexttile;
+        imagesc(t,[],curr_data_smooth);hold on;
+        colormap(brewermap([],'PrGn'));
+        caxis(max(caxis)*[-1,1])
+        xline(0,'color','r');
+        xlabel('Time from stim (s)');
+        ylabel('Trial');
+        title(sprintf('%s, stage %d',wf_roi(curr_roi).area,curr_stage));
+    end
 end
 
 % Plot time-max within ROIs across days
@@ -1049,7 +1072,7 @@ for curr_roi_idx = 1:length(plot_rois)
 end
 title(h,'Reduced stim activity');
 
-% Plot all trials (by stage, sorted by reaction time)
+% Plot all trials (raw: by stage, sorted by reaction time)
 plot_rois = [1,6];
 trial_learned_stage = discretize(trial_learned_day,[-Inf,0,Inf]);
 n_trial_smooth = 20;
@@ -1057,7 +1080,7 @@ n_trial_smooth = 20;
 figure;
 tiledlayout(2,length(plot_rois),'TileSpacing','compact','padding','compact');
 for curr_roi = plot_rois
-    for curr_stage = 1:max(learned_stage)
+    for curr_stage = 1:max(trial_learned_stage)
         use_trials = find(trial_learned_stage == curr_stage);
         [~,sort_idx] = sort(move_t(use_trials));
         curr_data_sort = fluor_roi_deconv(use_trials(sort_idx),:,curr_roi);
@@ -1076,6 +1099,40 @@ for curr_roi = plot_rois
     end
 end
 
+% Plot all trials (reduced stim: by stage, sorted by reaction time)
+plot_rois = [1,6];
+trial_learned_stage = discretize(trial_learned_day,[-Inf,0,Inf]);
+n_trial_smooth = 20;
+
+figure;
+tiledlayout(2,length(plot_rois),'TileSpacing','compact','padding','compact');
+for curr_roi = plot_rois
+    for curr_stage = 1:max(trial_learned_stage)
+        use_trials = find(trial_learned_stage == curr_stage);
+        [~,sort_idx] = sort(move_t(use_trials));
+        
+        stim_regressor = strcmp(task_regressor_labels,'Stim');
+        curr_data_sort = fluor_roi_deconv(use_trials(sort_idx),:,curr_roi) - ...
+            fluor_roi_taskpred_reduced(use_trials(sort_idx),:,curr_roi,stim_regressor);
+        curr_data_sort_smooth = convn(curr_data_sort, ...
+            ones(n_trial_smooth,1)./n_trial_smooth,'same');
+        
+        curr_data_sort_smooth = nanconv(curr_data_sort, ...
+            ones(n_trial_smooth,1)./n_trial_smooth);
+        
+        nexttile;
+        imagesc(t,[],curr_data_sort_smooth);hold on;
+        colormap(brewermap([],'PrGn'));
+        caxis(max(caxis)*[-1,1])
+        xline(0,'color','r');
+        plot(move_t(use_trials(sort_idx)),1:length(use_trials),'color',[0.6,0,0.6]);
+        xlabel('Time from stim (s)');
+        ylabel('Trial (rxn-time sorted)');
+        title(sprintf('%s, stage %d',wf_roi(curr_roi).area,curr_stage));
+    end
+end
+
+
 
 % (tmax activity: learned day x daysplit x roi x animal)
 use_t = t >= 0 & t <= 0.5;
@@ -1083,7 +1140,7 @@ stim_roi_act_tmax_daysplit = ...
     squeeze(max(stim_roi_act_learn_avg_daysplit(:,:,use_t,:,:),[],3));
 
 % Plot time-max by learned day
-learned_day_x_range = minmax(learned_day_idx);
+learned_day_x_range = minmax(learned_day_unique);
 learned_day_x = [learned_day_x_range(1):learned_day_x_range(2)]';
 learned_daysplit_x = learned_day_x + linspace(0,1,n_daysplit+1);
 
@@ -1136,6 +1193,7 @@ xlabel('Learned day');
 ylabel('Fluorescence (normalized to pre-learn)');
 xline(0,'linestyle','--');
 legend({wf_roi(plot_rois).area},'location','nw')
+
 
 %% Task - electrophysiology
 

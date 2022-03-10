@@ -545,6 +545,33 @@ for curr_roi_idx = 1:length(plot_rois)
     linkaxes([hl,hr],'xy');
 end
 
+% Plot all trials (by stage, sorted by reaction time)
+plot_rois = [1,6];
+trial_learned_stage = discretize(trial_learned_day,[-Inf,0,Inf]);
+n_trial_smooth = 50;
+
+figure;
+tiledlayout(2,length(plot_rois),'TileSpacing','compact','padding','compact');
+for curr_roi = plot_rois
+    for curr_stage = 1:max(trial_learned_stage)
+        use_trials = trial_trial_learned_stage == curr_stage & quiescent_trials;
+        
+        curr_data = fluor_roi_deconv(use_trials,:,curr_roi);
+        curr_data_smooth = convn(curr_data, ...
+            ones(n_trial_smooth,1)./n_trial_smooth,'same');
+        
+        nexttile;
+        imagesc(t,[],curr_data_smooth);hold on;
+        colormap(brewermap([],'PrGn'));
+        caxis(max(caxis)*[-1,1])
+        xline(0,'color','r');
+        xlabel('Time from stim (s)');
+        ylabel('Trial (rxn-time sorted)');
+        title(sprintf('%s, stage %d',wf_roi(curr_roi).area,curr_stage));
+    end
+end
+
+
 % Plot time-max within ROIs across days
 use_t = t >= 0 & t <= 0.5;
 stim_roi_tmax = cellfun(@(x) ...
@@ -669,8 +696,7 @@ whisker_stim_avg = accumarray(reshape(bhv_accum_idx,[],size(bhv_accum_idx,3)), .
 bhv_stim_avg = cat(5,pupil_diff_stim_avg,whisker_stim_avg);
 bhv_label = {'Pupil diff','Whisker'};
 
-% [~,~,learning_stage] = unique(learned_day_unique >= 0);
-learning_stage = discretize(learned_day_unique,[-Inf,-1,0,1,2,Inf]);
+[~,~,learning_stage] = unique(learned_day_unique >= 0);
 
 figure;
 h = tiledlayout(size(bhv_stim_avg,5),max(learning_stage), ...
@@ -711,6 +737,8 @@ ylabel('Whisker movement')
 plot_rois = [1,6];
 min_trials = 10; % (minimum trials to use within recording)
 
+trial_learned_stage = discretize(trial_learned_day,[-Inf,0,Inf]);
+
 % (discretize whisker movement within recording - use R stim trials)
 use_t = t > 0 & t < 0.2;
 whisker_allcat_tavg = nanmean(whisker_allcat(:,use_t),2);
@@ -741,6 +769,7 @@ accum_whisker_idx = cat(4,whisker_grp_idx,t_idx,learned_stage_idx,roi_idx,animal
 % (plot grouped whisker movements and ROI fluorescence)
 line_fig = figure;
 stim_col = [0,0,1;0,0,0;1,0,0];
+whisker_grp_col = copper(n_whisker_grps);
 ax = gobjects((length(plot_rois)+1)*max(trial_learned_stage),length(stim_unique));
 for curr_stim_idx = 1:length(stim_unique)
     
@@ -756,14 +785,15 @@ for curr_stim_idx = 1:length(stim_unique)
         reshape(accum_whisker_idx(use_trials,:,:,:),[],size(accum_whisker_idx,4)), ...
         reshape(fluor_roi_deconv(use_trials,:,:),[],1),[],@nanmean,NaN('single'));
     
-    f(curr_stim_idx) = figure;
+    figure;
     h = tiledlayout(max(trial_learned_stage),length(plot_rois)+1, ...
         'TileSpacing','compact','padding','compact');
     for curr_stage = 1:max(trial_learned_stage)
         nexttile;
         AP_errorfill(t, ...
             nanmean(whisker_whiskergrp_avg(:,:,curr_stage,:),4)', ...
-            AP_sem(whisker_whiskergrp_avg(:,:,curr_stage,:),4)');
+            AP_sem(whisker_whiskergrp_avg(:,:,curr_stage,:),4)', ...
+            whisker_grp_col);
         title(sprintf('Whiskers, stage %d',curr_stage));
         axis tight;
         xlim(xlim+[-0.1,0.1]);
@@ -775,7 +805,8 @@ for curr_stim_idx = 1:length(stim_unique)
             nexttile;
             AP_errorfill(t, ...
                 squeeze(nanmean(fluor_roi_whiskergrp_avg(:,:,curr_stage,curr_roi,:),5))', ...
-                squeeze(AP_sem(fluor_roi_whiskergrp_avg(:,:,curr_stage,curr_roi,:),5))');
+                squeeze(AP_sem(fluor_roi_whiskergrp_avg(:,:,curr_stage,curr_roi,:),5))', ...
+                whisker_grp_col);
             title(sprintf('%s, stage %d',wf_roi(curr_roi).area,curr_stage));
             axis tight;
             xlim(xlim+[-0.1,0.1]);
@@ -790,32 +821,44 @@ for curr_stim_idx = 1:length(stim_unique)
     
     % Plot line plot of fluorescence vs whisker
     stage_linestyle = {'--','-'};
-    plot_stage = 2;
-    for curr_roi_idx = 1:length(plot_rois)
-        curr_roi = plot_rois(curr_roi_idx);
-        subplot(1,length(plot_rois),curr_roi_idx,'Parent',line_fig); hold on;
-        curr_whisker_whiskergrp_tavg = squeeze(nanmean(whisker_whiskergrp_avg(:,use_t,plot_stage,:),2));
-        curr_fluor_roi_whiskergrp_tavg = squeeze(nanmean(fluor_roi_whiskergrp_avg(:,use_t,plot_stage,curr_roi,:),2));
-        
-        x = nanmean(curr_whisker_whiskergrp_tavg,2);
-        x_err = AP_sem(curr_whisker_whiskergrp_tavg,2);
-        y = nanmean(curr_fluor_roi_whiskergrp_tavg,2);
-        y_err = AP_sem(curr_fluor_roi_whiskergrp_tavg,2);       
-        errorbar(x,y,-y_err,y_err,-x_err,x_err,'linewidth',2,'color',stim_col(curr_stim_idx,:));
- 
-        xlabel('Whisker movement');
-        ylabel('\DeltaF/F_0');
-        title(wf_roi(curr_roi).area);
+    for curr_stage = 1:max(trial_learned_stage)
+        for curr_roi_idx = 1:length(plot_rois)
+            curr_roi = plot_rois(curr_roi_idx);
+            curr_ax = subplot(1,length(plot_rois),curr_roi_idx,'Parent',line_fig);
+            hold(curr_ax,'on');
+            curr_whisker_whiskergrp_tavg = ...
+                squeeze(nanmean(whisker_whiskergrp_avg(:,use_t,curr_stage,:),2));
+            curr_fluor_roi_whiskergrp_tavg = ...
+                squeeze(nanmean(fluor_roi_whiskergrp_avg(:,use_t,curr_stage,curr_roi,:),2));
+            
+            x = nanmean(curr_whisker_whiskergrp_tavg,2);
+            x_err = AP_sem(curr_whisker_whiskergrp_tavg,2);
+            y = nanmean(curr_fluor_roi_whiskergrp_tavg,2);
+            y_err = AP_sem(curr_fluor_roi_whiskergrp_tavg,2);
+            errorbar(curr_ax,x,y,-y_err,y_err,-x_err,x_err, ...
+                'linewidth',2,'color',stim_col(curr_stim_idx,:), ...
+                'linestyle',stage_linestyle{curr_stage});
+            
+            xlabel(curr_ax,'Whisker movement');
+            ylabel(curr_ax,'\DeltaF/F_0');
+            title(curr_ax,wf_roi(curr_roi).area);
+        end
     end
-    
 end
 % (link modality axes across figures)
 for i = 1:length(plot_rois)+1
     linkaxes(ax(i:length(plot_rois)+1:end,:),'xy');
 end
-
-
-
+% (legend for line plots - yes, ridiculous code)
+line_fig_ax = get(line_fig,'Children');
+line_fig_ax_lines = get(line_fig_ax(1),'Children');
+legend(line_fig_ax_lines, ...
+    fliplr(flipud(cellfun(@(x,y) [x ', ' y], ...
+    repmat(arrayfun(@(x) sprintf('Stage %d',x), ...
+    1:max(trial_learned_stage),'uni',false),length(stim_unique),1), ...
+    repmat(arrayfun(@(x) sprintf('Stim %d',x), ...
+    stim_unique,'uni',false),1,max(trial_learned_stage)),'uni',false)')), ...
+    'location','nw');
 
 
 %% Task - widefield
