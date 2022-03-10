@@ -216,8 +216,9 @@ if task_dataset
     
     % Get outcome time
     outcome_allcat = cell2mat(vertcat(outcome_all{:}));
-    [~,outcome_idx] = max(any(outcome_allcat,3),[],2);
-    outcome_t = t(outcome_idx)';
+    [outcome_max,outcome_idx] = max(any(outcome_allcat,3),[],2);
+    outcome_t = nan(size(outcome_idx));
+    outcome_t(outcome_max) = t(outcome_idx(outcome_max));
    
 elseif isfield(trial_info_allcat,'stimulus')  
     
