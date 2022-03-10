@@ -716,7 +716,7 @@ min_trials = 10; % (minimum trials to use within recording)
 use_trials = trial_stim_allcat == 1 & quiescent_trials & ...
     ~all(isnan(whisker_allcat),2);
 
-use_t = t > 0 & t < 0.5;
+use_t = t > 0 & t < 0.2;
 whisker_allcat_tavg = nanmean(whisker_allcat(:,use_t),2);
 
 whisker_recording = mat2cell(whisker_allcat_tavg,trials_recording);
