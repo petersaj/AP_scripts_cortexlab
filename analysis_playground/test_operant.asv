@@ -3841,31 +3841,36 @@ min_n = 4;
 t_leeway = -t(1);
 leeway_samples = round(t_leeway*(sample_rate));
 
-fluor_roi_deconv_move = nan(size(fluor_roi_deconv),'single');
-move_v_act = nan(size(fluor_allcat_deconv),'single');
-move_roi_act = nan(size(fluor_roi_deconv),'single');
+fluor_roi_deconv_move = nan(size(fluor_roi_deconv));
+move_v_act = nan(size(fluor_allcat_deconv));
+move_roi_act = nan(size(fluor_roi_deconv));
 
 for curr_trial = find(~isnan(move_idx))'
-    curr_shift_frames = (move_idx(curr_trial)-leeway_samples) + [0:length(t)-1];
-    curr_shift_frames_use = curr_shift_frames > 0 & curr_shift_frames < length(t);
+    curr_shift_frames = (move_idx(curr_trial)-leeway_samples):length(t);
+    curr_shift_frames+[0:length(t)-1]
     
-    curr_grab_frames = curr_shift_frames(curr_shift_frames_use);
-    curr_fill_frames = find(curr_shift_frames_use,length(t));
+    curr_grab_frames = curr_shift_frames > 0 & curr_shift_frames < length(t);
+    
+    
+    curr_aligned_frames = (move_idx(curr_trial)-leeway_samples):length(t);
+    curr_grab_frames = curr_aligned_frames(curr_aligned_frames > 0);
+    curr_fill_frames = find(curr_aligned_frames(1: ...
+        max(length(curr_aligned_frames),length(t))) > 0);
    
-    % (raw activity)
+   
    fluor_roi_deconv_move(curr_trial,curr_fill_frames,:) = ...
        fluor_roi_deconv(curr_trial,curr_grab_frames,:);
    
-   % (reduced movement activity)
-   move_regressor = strcmp(task_regressor_labels,'Move onset');
-   
-   move_v_act(i,curr_fill_frames,:) = ...
-       fluor_allcat_deconv(i,curr_grab_frames,:) - ...
-       fluor_taskpred_reduced_allcat(i,curr_grab_frames,:,move_regressor);
-   
-   move_roi_act(i,curr_fill_frames,:) = ...
-       fluor_roi_deconv(i,curr_grab_frames,:) - ...
-       fluor_roi_taskpred_reduced(i,curr_grab_frames,:,move_regressor);
+%    % Reduce movement activity
+%    move_regressor = strcmp(task_regressor_labels,'Move onset');
+%    
+%    move_v_act(i,curr_fill_frames,:) = ...
+%        fluor_allcat_deconv(i,curr_aligned_frames(curr_fill_frames),:) - ...
+%        fluor_taskpred_reduced_allcat(i,curr_aligned_frames(curr_fill_frames),:,move_regressor);
+%    
+%    move_roi_act(i,curr_fill_frames,:) = ...
+%        fluor_roi_deconv(i,curr_aligned_frames(curr_fill_frames),:) - ...
+%        fluor_roi_taskpred_reduced(i,curr_aligned_frames(curr_fill_frames),:,move_regressor);
 end
 
 % Plot average pixel movement activity by learning

@@ -958,8 +958,8 @@ trial_daysplit_idx = cell2mat(arrayfun(@(x) ...
 [learned_day_idx,t_idx,roi_idx] = ...
     ndgrid(trial_learned_day_id,1:length(t),1:n_rois);
 
-[learned_stage_idx,~] = ndgrid(discretize(trial_learned_day,[-Inf,0,Inf]), ...
-    1:length(t),1:n_rois);
+trial_learned_stage = discretize(trial_learned_day,[-Inf,-2,-1,0,1,2,Inf]);
+[learned_stage_idx,~] = ndgrid(trial_learned_stage,1:length(t),1:n_rois);
 
 [daysplit_idx,~,~] = ...
     ndgrid(trial_daysplit_idx,1:length(t),1:n_rois);
@@ -998,7 +998,7 @@ stim_roi_act_learn_avg_daysplit = accumarray( ...
     @nanmean,NaN('single'));
 
 % Plot wheel by stage
-stage_col = [0.7,0,0;0,0.7,0];
+stage_col = copper(max(trial_learned_stage));
 figure;
 AP_errorfill(t, ...
     permute(nanmean(wheel_learn_avg,3),[2,1,3]), ...
@@ -1141,7 +1141,7 @@ stim_roi_act_tmax_daysplit = ...
     squeeze(max(stim_roi_act_learn_avg_daysplit(:,:,use_t,:,:),[],3));
 
 % Plot time-max by learned day
-learned_day_x_range = minmax(learned_day_unique);
+learned_day_x_range = [min(learned_day_unique),max(learned_day_unique)];
 learned_day_x = [learned_day_x_range(1):learned_day_x_range(2)]';
 learned_daysplit_x = learned_day_x + linspace(0,1,n_daysplit+1);
 

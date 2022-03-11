@@ -210,9 +210,11 @@ if task_dataset
     trial_choice_allcat = -(trial_info_allcat.response-1.5)*2;    
     trial_outcome_allcat = trial_info_allcat.outcome;
     
-    % Get reaction time and t index for movement onset
+    % Get reaction time and t index for movement onset (if within time)
     move_t = trial_info_allcat.stim_to_move;
-    [~,move_idx] = min(abs(move_t - t),[],2);
+    move_idx = nan(size(move_t));
+    [~,move_idx(move_t <= max(t))] = ...
+        min(abs(move_t(move_t <= max(t)) - t),[],2);
     
     % Get outcome time
     outcome_allcat = cell2mat(vertcat(outcome_all{:}));
