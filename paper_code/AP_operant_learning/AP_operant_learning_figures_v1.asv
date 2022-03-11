@@ -1598,7 +1598,7 @@ colormap(brewermap([],'PrGn'));
 AP_reference_outline('ccf_aligned',[0.5,0.5,0.5]);
 AP_reference_outline('grid_aligned',[0.8,0.8,0.8]);
 
-scatter(probe_coords_mean_wf(:,1),probe_coords_mean_wf(:,2),40,animal_col,'filled');
+scatter(probe_coords_mean_wf(:,1),probe_coords_mean_wf(:,2),0,animal_col,'filled');
 
 
 

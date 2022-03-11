@@ -10,19 +10,19 @@ st = loadStructureTree([allen_atlas_path filesep 'structure_tree_safe_2017.csv']
 
 % Set paths for histology images and directory to save slice/alignment
 
-% (for writing/debugging)
-% im_path = '\\znas.cortexlab.net\Subjects\AP105\histology\all_images';
-im_path = 'C:\Users\Andrew\Desktop\temp_histology\AP079';
-slice_path = [im_path filesep 'slices'];
+% % (for writing/debugging)
+% % im_path = '\\znas.cortexlab.net\Subjects\AP105\histology\all_images';
+% im_path = 'C:\Users\Andrew\Desktop\temp_histology\AP079';
+% slice_path = [im_path filesep 'slices'];
 
-% animal = 'AP100';
-% [probe_ccf_fn,probe_ccf_fn_exists] = AP_cortexlab_filename(animal,[],[],'probe_ccf');
-% if probe_ccf_fn_exists
-%     load(probe_ccf_fn);
-% else
-%     error('No probe ccf');
-% end
-% slice_path = fileparts(probe_ccf_fn);
+animal = 'AP100';
+[probe_ccf_fn,probe_ccf_fn_exists] = AP_cortexlab_filename(animal,[],[],'probe_ccf');
+if probe_ccf_fn_exists
+    load(probe_ccf_fn);
+else
+    error('No probe ccf');
+end
+slice_path = fileparts(probe_ccf_fn);
 
 
 %% Preprocess slide images to produce slice images
@@ -105,7 +105,7 @@ hold(ccf_3d_axes,'on');
 axis vis3d equal off manual
 view([-30,25]);
 caxis([0 300]);
-[ap_max,dv_max,ml_max] = size(tv);
+[ap_max,dv_max,ml_max] = size(av);
 xlim([-10,ap_max+10])
 ylim([-10,ml_max+10])
 zlim([-10,dv_max+10])
@@ -136,21 +136,30 @@ for curr_probe = 1:length(probe_ccf)
     % (make sure the direction goes down in DV - flip if it's going up)
     if histology_probe_direction(2) < 0
         histology_probe_direction = -histology_probe_direction;
-    end
+    end   
     
-    line_eval = [-500,500];
-    probe_fit_line = bsxfun(@plus,bsxfun(@times,line_eval',histology_probe_direction'),r0);
+     % Evaluate line of best fit (length of probe to deepest point)
+    [~,deepest_probe_idx] = max(probe_ccf.points(:,2));
+    probe_deepest_point = probe_ccf.points(deepest_probe_idx,:);
+    probe_deepest_point_com_dist = pdist2(r0,probe_deepest_point);
+    probe_length_ccf = 3840/10; % mm / ccf voxel size
+    
+    probe_line_eval = probe_deepest_point_com_dist - [probe_length_ccf,0];
+    probe_line = (probe_line_eval'.*histology_probe_direction') + r0;
+    
+    % Draw probe in 3D view
+    line(ccf_3d_axes,probe_line(:,1),probe_line(:,3),probe_line(:,2), ...
+        'linewidth',2,'color',animal_col(curr_animal,:))
     plot3(ccf_3d_axes,probe_ccf(curr_probe).points(:,1), ...
         probe_ccf(curr_probe).points(:,3), ...
         probe_ccf(curr_probe).points(:,2), ...
         '.','MarkerSize',20);
-    line(ccf_3d_axes,probe_fit_line(:,1),probe_fit_line(:,3),probe_fit_line(:,2), ...
-        'linewidth',2)
+
 end
 
-line(ccf_axes(1),probe_fit_line(:,3),probe_fit_line(:,2),'linewidth',2);
-line(ccf_axes(2),probe_fit_line(:,1),probe_fit_line(:,3),'linewidth',2);
-line(ccf_axes(3),probe_fit_line(:,2),probe_fit_line(:,1),'linewidth',2);
+line(ccf_axes(1),probe_line(:,3),probe_line(:,2),'linewidth',2);
+line(ccf_axes(2),probe_line(:,3),probe_line(:,1),'linewidth',2);
+line(ccf_axes(3),probe_line(:,2),probe_line(:,1),'linewidth',2);
 
 
 

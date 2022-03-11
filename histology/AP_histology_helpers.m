@@ -50,6 +50,7 @@ disp('Done.');
 
 %% Flip hemispheres in aligned histology
 % for when I did it the wrong way
+% I THINK THIS DOESN'T WORK - WAS IN PROGRESS
 
 % Set location
 im_path = '\\znas.cortexlab.net\Subjects\AP101\histology\all_images';

@@ -818,7 +818,7 @@ warning('Saftey: saving turned off');
 
 %% ~~~~~~~~~~~~~~ Widefield data
 
-%% Passive
+%% Passive widefield
 
 clear all
 disp('Passive trial activity')
@@ -895,10 +895,382 @@ save_fn = ['trial_activity_passive_teto'];
 save([save_path filesep save_fn],'-v7.3');
 disp(['Saved: ' save_path filesep save_fn])
 
- 
+%% Task widefield
+
+clear all
+disp('Task trial activity')
+
+animals = {'AP100','AP101','AP103','AP104','AP105', ...
+    'AP106','AP107','AP108','AP109','AP111','AP112'};
+
+% Initialize save variable
+trial_data_all = struct;
+
+for curr_animal = 1:length(animals)
+    
+    animal = animals{curr_animal};
+    protocol = 'AP_stimWheelRight';
+    experiments = AP_find_experiments(animal,protocol);
+    
+    % Get days with muscimol
+    data_path = 'C:\Users\Andrew\OneDrive for Business\Documents\CarandiniHarrisLab\analysis\operant_learning\data';
+    muscimol_fn = [data_path filesep 'muscimol.mat'];
+    load(muscimol_fn);
+    muscimol_animal_idx = ismember({muscimol.animal},animal);
+    if any(muscimol_animal_idx)
+        muscimol_start_day = muscimol(muscimol_animal_idx).day{1};
+        muscimol_experiments = datenum({experiments.day})' >= datenum(muscimol_start_day);
+    else
+        muscimol_experiments = false(size({experiments.day}));
+    end
+    
+    % Set experiments to use (imaging, not muscimol)
+    experiments = experiments([experiments.imaging] & ~muscimol_experiments);
+    
+    disp(['Loading ' animal]);
+    
+    for curr_day = 1:length(experiments)
+        
+        preload_vars = who;
+        
+        day = experiments(curr_day).day;
+        experiment = experiments(curr_day).experiment(end);
+        
+        % Load experiment
+        AP_load_experiment;
+        
+        % Pull out trial data
+        operant_grab_trial_data;
+        
+        % Store trial data into master structure
+        trial_data_fieldnames = fieldnames(trial_data);
+        for curr_trial_data_field = trial_data_fieldnames'
+            trial_data_all.(cell2mat(curr_trial_data_field)){curr_animal,1}{curr_day,1} = ...
+                trial_data.(cell2mat(curr_trial_data_field));
+        end
+        
+        % Store general info
+        trial_data_all.animals = animals;
+        trial_data_all.t = t;
+        trial_data_all.task_regressor_labels = task_regressor_labels;
+        trial_data_all.task_regressor_sample_shifts = task_regressor_sample_shifts;
+        
+        AP_print_progress_fraction(curr_day,length(experiments));
+        
+        % Clear for next loop
+        clearvars('-except',preload_vars{:});
+        
+    end
+end
+
+clearvars -except trial_data_all
+disp('Finished loading all')
+
+% Save
+save_path = 'C:\Users\Andrew\OneDrive for Business\Documents\CarandiniHarrisLab\analysis\operant_learning\data';
+save_fn = ['trial_activity_task_teto'];
+save([save_path filesep save_fn],'-v7.3');
+
+%% ~~~~~~~~~~~~~~ Muscimol + widefield data
+
+%% Muscimol - passive
+
+clear all
+disp('Muscimol: Passive trial activity (tetO)')
+
+animals = {'AP100','AP105','AP106','AP107','AP108'};
+
+% Initialize save variable
+trial_data_all = struct;
+
+for curr_animal = 1:length(animals)
+    
+    animal = animals{curr_animal};
+    protocol = 'AP_lcrGratingPassive';
+    experiments = AP_find_experiments(animal,protocol);
+    
+    % Get days with V1 muscimol and washout
+    data_path = 'C:\Users\Andrew\OneDrive for Business\Documents\CarandiniHarrisLab\analysis\operant_learning\data';
+    muscimol_fn = [data_path filesep 'muscimol.mat'];
+    load(muscimol_fn);
+    muscimol_animal_idx = ismember({muscimol.animal},animal);
+    
+    v1_muscimol_idx = find(strcmpi(muscimol(muscimol_animal_idx).area,'v1'));
+    washout_idx = find(strcmpi(muscimol(muscimol_animal_idx).area,'washout'));
+    v1_washout_idx = washout_idx(find(washout_idx > v1_muscimol_idx,1,'first'));
+    
+    % Set experiments to use (V1 muscimol and subsequent washout)
+    use_muscimol_experiments = ismember({experiments.day}, ...
+        muscimol(muscimol_animal_idx).day([v1_muscimol_idx,v1_washout_idx]));
+    experiments = experiments(use_muscimol_experiments);
+    
+    disp(['Loading ' animal]);
+    
+    for curr_day = 1:length(experiments)
+        
+        preload_vars = who;
+        
+        day = experiments(curr_day).day;
+        experiment = experiments(curr_day).experiment(end);
+        
+        % Load experiment
+        AP_load_experiment;
+        
+        % Pull out trial data
+        operant_grab_trial_data;
+        
+        % Store trial data into master structure
+        trial_data_fieldnames = fieldnames(trial_data);
+        for curr_trial_data_field = trial_data_fieldnames'
+            trial_data_all.(cell2mat(curr_trial_data_field)){curr_animal,1}{curr_day,1} = ...
+                trial_data.(cell2mat(curr_trial_data_field));
+        end
+        
+        % Store general info
+        trial_data_all.animals = animals;
+        trial_data_all.t = t;
+        
+        % Store muscimol info
+        muscimol_day_idx = ismember(muscimol(muscimol_animal_idx).day,day);
+        trial_data_all.muscimol_area{curr_animal}{curr_day} = ...
+            muscimol(muscimol_animal_idx).area{muscimol_day_idx};
+        
+        AP_print_progress_fraction(curr_day,length(experiments));
+        
+        % Clear for next loop
+        clearvars('-except',preload_vars{:});
+        
+    end
+    
+end
+
+clearvars -except trial_data_all
+disp('Finished loading all')
+
+% Save
+save_path = 'C:\Users\Andrew\OneDrive for Business\Documents\CarandiniHarrisLab\analysis\operant_learning\data';
+save_fn = ['trial_activity_passive_teto_muscimol'];
+save([save_path filesep save_fn],'-v7.3');
+disp(['Saved: ' save_path filesep save_fn])
 
 
+%% Muscimol - task
 
+clear all
+disp('Muscimol: Task trial activity (tetO)')
+
+animals = {'AP100','AP105','AP106','AP107','AP108'};
+
+% Initialize save variable
+trial_data_all = struct;
+
+for curr_animal = 1:length(animals)
+    
+    animal = animals{curr_animal};
+    protocol = 'AP_stimWheelRight';
+    experiments = AP_find_experiments(animal,protocol);
+    
+    % Get days with V1 muscimol and washout
+    data_path = 'C:\Users\Andrew\OneDrive for Business\Documents\CarandiniHarrisLab\analysis\operant_learning\data';
+    muscimol_fn = [data_path filesep 'muscimol.mat'];
+    load(muscimol_fn);
+    muscimol_animal_idx = ismember({muscimol.animal},animal);
+    
+    v1_muscimol_idx = find(strcmpi(muscimol(muscimol_animal_idx).area,'v1'));
+    washout_idx = find(strcmpi(muscimol(muscimol_animal_idx).area,'washout'));
+    v1_washout_idx = washout_idx(find(washout_idx > v1_muscimol_idx,1,'first'));
+    
+    % Set experiments to use (V1 muscimol and subsequent washout)
+    use_muscimol_experiments = ismember({experiments.day}, ...
+        muscimol(muscimol_animal_idx).day([v1_muscimol_idx,v1_washout_idx]));
+    experiments = experiments(use_muscimol_experiments);
+    
+    disp(['Loading ' animal]);
+    
+    for curr_day = 1:length(experiments)
+        
+        preload_vars = who;
+        
+        day = experiments(curr_day).day;
+        experiment = experiments(curr_day).experiment(end);
+        
+        % Load experiment
+        AP_load_experiment;
+        
+        % Pull out trial data
+        operant_grab_trial_data;
+        
+        % Store trial data into master structure
+        trial_data_fieldnames = fieldnames(trial_data);
+        for curr_trial_data_field = trial_data_fieldnames'
+            trial_data_all.(cell2mat(curr_trial_data_field)){curr_animal,1}{curr_day,1} = ...
+                trial_data.(cell2mat(curr_trial_data_field));
+        end
+        
+        % Store general info
+        trial_data_all.animals = animals;
+        trial_data_all.t = t;
+        trial_data_all.task_regressor_labels = task_regressor_labels;
+        trial_data_all.task_regressor_sample_shifts = task_regressor_sample_shifts;
+        
+        % Store muscimol info
+        muscimol_day_idx = ismember(muscimol(muscimol_animal_idx).day,day);
+        trial_data_all.muscimol_area{curr_animal}{curr_day} = ...
+            muscimol(muscimol_animal_idx).area{muscimol_day_idx};
+        
+        AP_print_progress_fraction(curr_day,length(experiments));
+        
+        % Clear for next loop
+        clearvars('-except',preload_vars{:});
+        
+    end
+end
+
+clearvars -except trial_data_all
+disp('Finished loading all')
+
+% Save
+save_path = 'C:\Users\Andrew\OneDrive for Business\Documents\CarandiniHarrisLab\analysis\operant_learning\data';
+save_fn = ['trial_activity_task_teto_muscimol'];
+save([save_path filesep save_fn],'-v7.3');
+
+
+%% ~~~~~~~~~~~~~~ Electrophysiology data
+
+%% Passive ephys
+
+clear all
+disp('Passive trial activity (ephys)')
+
+animals = {'AP100','AP101','AP104','AP105','AP106'};
+
+% Initialize save variable
+trial_data_all = struct;
+
+for curr_animal = 1:length(animals)
+    
+    animal = animals{curr_animal};
+    protocol = 'AP_lcrGratingPassive';
+    experiments = AP_find_experiments(animal,protocol);
+    
+    % Set experiments to use (ephys)
+    experiments = experiments([experiments.ephys]);
+    
+    disp(['Loading ' animal]);
+    
+    for curr_day = 1:length(experiments)
+        
+        preload_vars = who;
+        
+        day = experiments(curr_day).day;
+        experiment = experiments(curr_day).experiment(end);
+        
+        % Load experiment
+        % (load LFP to find cortex start)
+        lfp_channel = 'all';
+        ephys_align = 'cortex';
+        AP_load_experiment;
+        
+        % Pull out trial data
+        operant_grab_trial_data;
+        
+        % Store trial data into master structure
+        trial_data_fieldnames = fieldnames(trial_data);
+        for curr_trial_data_field = trial_data_fieldnames'
+            trial_data_all.(cell2mat(curr_trial_data_field)){curr_animal,1}{curr_day,1} = ...
+                trial_data.(cell2mat(curr_trial_data_field));
+        end
+        
+        % Store general info
+        trial_data_all.animals = animals;
+        trial_data_all.t = t;
+        trial_data_all.mua_depth_edges = depth_group_edges;
+        
+        AP_print_progress_fraction(curr_day,length(experiments));
+        
+        % Clear for next loop
+        clearvars('-except',preload_vars{:});
+        
+    end
+    
+end
+
+clearvars -except trial_data_all
+disp('Finished loading all')
+
+% Save
+save_path = 'C:\Users\Andrew\OneDrive for Business\Documents\CarandiniHarrisLab\analysis\operant_learning\data';
+save_fn = ['trial_activity_passive_ephys'];
+save([save_path filesep save_fn],'-v7.3');
+disp(['Saved: ' save_path filesep save_fn])
+
+
+%% Task ephys
+
+clear all
+disp('Task trial activity (ephys)')
+
+animals = {'AP100','AP101','AP104','AP105','AP106'};
+
+% Initialize save variable
+trial_data_all = struct;
+
+for curr_animal = 1:length(animals)
+    
+    animal = animals{curr_animal};
+    protocol = 'AP_stimWheelRight';
+    experiments = AP_find_experiments(animal,protocol);
+    
+    % Set experiments to use (ephys)
+    experiments = experiments([experiments.ephys]);
+    
+    disp(['Loading ' animal]);
+    
+    for curr_day = 1:length(experiments)
+        
+        preload_vars = who;
+        
+        day = experiments(curr_day).day;
+        experiment = experiments(curr_day).experiment(end);
+        
+        % Load experiment
+        % (load LFP to find cortex start)
+        lfp_channel = 'all';
+        ephys_align = 'cortex';
+        AP_load_experiment;
+        
+        % Pull out trial data
+        operant_grab_trial_data;
+        
+        % Store trial data into master structure
+        trial_data_fieldnames = fieldnames(trial_data);
+        for curr_trial_data_field = trial_data_fieldnames'
+            trial_data_all.(cell2mat(curr_trial_data_field)){curr_animal,1}{curr_day,1} = ...
+                trial_data.(cell2mat(curr_trial_data_field));
+        end
+        
+        % Store general info
+        trial_data_all.animals = animals;
+        trial_data_all.t = t;
+        trial_data_all.task_regressor_labels = task_regressor_labels;
+        trial_data_all.task_regressor_sample_shifts = task_regressor_sample_shifts;
+        trial_data_all.mua_depth_edges = depth_group_edges;
+        
+        AP_print_progress_fraction(curr_day,length(experiments));
+        
+        % Clear for next loop
+        clearvars('-except',preload_vars{:});
+        
+    end
+end
+
+clearvars -except trial_data_all
+disp('Finished loading all')
+
+% Save
+save_path = 'C:\Users\Andrew\OneDrive for Business\Documents\CarandiniHarrisLab\analysis\operant_learning\data';
+save_fn = ['trial_activity_task_ephys'];
+save([save_path filesep save_fn],'-v7.3');
 
 
 
