@@ -1079,14 +1079,14 @@ end
 title(h,'Reduced stim activity');
 
 % Plot all trials (raw and reduced stim: by stage, sorted by reaction time)
-plot_rois = [1,6];
+plot_rois = [1,6,7];
 trial_learned_stage = discretize(trial_learned_day,[-Inf,0,Inf]);
 n_trial_smooth = 20;
 
 figure;
 h = tiledlayout(2,length(plot_rois),'TileSpacing','compact','padding','compact');
-for curr_roi = plot_rois
-    for curr_stage = 1:max(trial_learned_stage)
+for curr_stage = 1:max(trial_learned_stage)
+    for curr_roi = plot_rois
         use_trials = find(trial_learned_stage == curr_stage);
         [~,sort_idx] = sort(move_t(use_trials));
         curr_data_sort = fluor_roi_deconv(use_trials(sort_idx),:,curr_roi);
@@ -1108,14 +1108,14 @@ title(h,'Raw activity');
 
 figure;
 h = tiledlayout(2,length(plot_rois),'TileSpacing','compact','padding','compact');
-for curr_roi = plot_rois
-    for curr_stage = 1:max(trial_learned_stage)
+for curr_stage = 1:max(trial_learned_stage)
+    for curr_roi = plot_rois
         use_trials = find(trial_learned_stage == curr_stage);
         [~,sort_idx] = sort(move_t(use_trials));
         
         stim_regressor = strcmp(task_regressor_labels,'Stim');
         curr_data_sort = fluor_roi_deconv(use_trials(sort_idx),:,curr_roi) - ...
-            fluor_roi_taskpred_reduced(use_trials(sort_idx),:,curr_roi,stim_regressor);        
+            fluor_roi_taskpred_reduced(use_trials(sort_idx),:,curr_roi,stim_regressor);
         % (nanconv, and zero out NaNs for plotting)
         curr_data_sort_smooth = nanconv(curr_data_sort, ...
             ones(n_trial_smooth,1)./n_trial_smooth);

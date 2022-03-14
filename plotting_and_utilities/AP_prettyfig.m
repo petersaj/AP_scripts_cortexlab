@@ -21,14 +21,12 @@ fig_ax = [fig_child(fig_child_ax_idx); ...
 % Loop through axes
 for curr_ax = 1:length(fig_ax)
     try
-    % Set larger tick length
-    set(fig_ax(curr_ax),'TickLength',[0.03,0.03])
-    
-    % Turn off bounding box
-    set(fig_ax(curr_ax),'box','off')
-    
-    % Set font and font size
-    set(fig_ax(curr_ax),'FontSize',14,'FontName','Calibri');
+    % Set axis properties
+    set(fig_ax(curr_ax), ...
+        'TickLength',[0.015,0.015], ... % larger ticks
+        'TickDir','out', ... % ticks outside plot
+        'box','off', ... % no bounding box
+        'FontSize',14,'FontName','Calibri'); % larger/presentation font
     catch me
         continue
     end

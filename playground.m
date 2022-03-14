@@ -5,8 +5,8 @@
 U_r = reshape(U_master(:,:,1:n_vs),[],n_vs);
 U_mirror_r = reshape(AP_reflect_widefield(U_master(:,:,1:n_vs)),[],n_vs);
 mirror_matrix = U_r'*U_mirror_r;
-fluor_allcat_mirror = reshape(transpose( ...
-    mirror_matrix*reshape(fluor_allcat,[],n_vs)'),size(fluor_allcat));
+fluor_allcat_deconv_mirror = reshape(transpose( ...
+    mirror_matrix*reshape(fluor_allcat_deconv,[],n_vs)'),size(fluor_allcat_deconv));
 
 % sanity check: plot regular and mirrored
 use_trials = trial_contrast_allcat > 0 & trial_side_allcat == 1 & ...

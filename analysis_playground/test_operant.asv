@@ -3841,36 +3841,31 @@ min_n = 4;
 t_leeway = -t(1);
 leeway_samples = round(t_leeway*(sample_rate));
 
-fluor_roi_deconv_move = nan(size(fluor_roi_deconv));
-move_v_act = nan(size(fluor_allcat_deconv));
-move_roi_act = nan(size(fluor_roi_deconv));
+fluor_roi_deconv_move = nan(size(fluor_roi_deconv),'single');
+move_v_act = nan(size(fluor_allcat_deconv),'single');
+move_roi_act = nan(size(fluor_roi_deconv),'single');
 
 for curr_trial = find(~isnan(move_idx))'
-    curr_shift_frames = (move_idx(curr_trial)-leeway_samples):length(t);
-    curr_shift_frames+[0:length(t)-1]
+    curr_shift_frames = (move_idx(curr_trial)-leeway_samples) + [0:length(t)-1];
+    curr_shift_frames_use = curr_shift_frames > 0 & curr_shift_frames < length(t);
     
-    curr_grab_frames = curr_shift_frames > 0 & curr_shift_frames < length(t);
-    
-    
-    curr_aligned_frames = (move_idx(curr_trial)-leeway_samples):length(t);
-    curr_grab_frames = curr_aligned_frames(curr_aligned_frames > 0);
-    curr_fill_frames = find(curr_aligned_frames(1: ...
-        max(length(curr_aligned_frames),length(t))) > 0);
+    curr_grab_frames = curr_shift_frames(curr_shift_frames_use);
+    curr_fill_frames = find(curr_shift_frames_use,length(t));
    
-   
+    % (raw activity)
    fluor_roi_deconv_move(curr_trial,curr_fill_frames,:) = ...
        fluor_roi_deconv(curr_trial,curr_grab_frames,:);
    
-%    % Reduce movement activity
-%    move_regressor = strcmp(task_regressor_labels,'Move onset');
-%    
-%    move_v_act(i,curr_fill_frames,:) = ...
-%        fluor_allcat_deconv(i,curr_aligned_frames(curr_fill_frames),:) - ...
-%        fluor_taskpred_reduced_allcat(i,curr_aligned_frames(curr_fill_frames),:,move_regressor);
-%    
-%    move_roi_act(i,curr_fill_frames,:) = ...
-%        fluor_roi_deconv(i,curr_aligned_frames(curr_fill_frames),:) - ...
-%        fluor_roi_taskpred_reduced(i,curr_aligned_frames(curr_fill_frames),:,move_regressor);
+   % (reduced movement activity)
+   move_regressor = strcmp(task_regressor_labels,'Move onset');
+   
+   move_v_act(i,curr_fill_frames,:) = ...
+       fluor_allcat_deconv(i,curr_grab_frames,:) - ...
+       fluor_taskpred_reduced_allcat(i,curr_grab_frames,:,move_regressor);
+   
+   move_roi_act(i,curr_fill_frames,:) = ...
+       fluor_roi_deconv(i,curr_grab_frames,:) - ...
+       fluor_roi_taskpred_reduced(i,curr_grab_frames,:,move_regressor);
 end
 
 % Plot average pixel movement activity by learning
@@ -4141,6 +4136,86 @@ ylabel('V1 frac expl var')
 legend({'mPFC','Mot','mPFC+Mot'});
 
 
+%% Trial data
+
+% Plot all trials (raw and reduced stim: by stage, sorted by reaction time)
+plot_rois = [1,6,7];
+trial_learned_stage = discretize(trial_learned_day,[-Inf,0,Inf]);
+n_trial_smooth = 20;
+
+figure;
+h = tiledlayout(2,length(plot_rois),'TileSpacing','compact','padding','compact');
+for curr_stage = 1:max(trial_learned_stage)
+    for curr_roi = plot_rois
+        curr_contra_roi = curr_roi + size(wf_roi,1);
+        
+        use_trials = find(trial_learned_stage == curr_stage);
+        [~,sort_idx] = sort(move_t(use_trials));
+        
+        % (just ROI)
+        curr_data_sort = fluor_roi_deconv_move(use_trials(sort_idx),:,curr_roi);
+        
+%         % (subtract R from L)
+%         curr_data_sort = (fluor_roi_deconv(use_trials(sort_idx),:,curr_roi) - ...
+%             fluor_roi_deconv(use_trials(sort_idx),:,curr_contra_roi));
+
+        curr_data_sort_smooth = convn(curr_data_sort, ...
+            ones(n_trial_smooth,1)./n_trial_smooth,'same');
+        
+        nexttile;
+        imagesc(t,[],curr_data_sort_smooth);hold on;
+        colormap(brewermap([],'PrGn'));
+        caxis(max(caxis)*[-1,1])
+        xline(0,'color','r');
+        plot(move_t(use_trials(sort_idx)),1:length(use_trials),'color',[0.6,0,0.6]);
+        xlabel('Time from stim (s)');
+        ylabel('Trial (rxn-time sorted)');
+        title(sprintf('%s, stage %d',wf_roi(curr_roi).area,curr_stage));
+    end
+end
+title(h,'Raw activity');
+
+
+
+%%%%% DOING HERE: 
+% Get one number (by experiment?) to go from mPFC/V1 to SM
+% Subtract "motor" from those, look at "visual" pre/post
+
+
+
+
+
+curr_stage = 2;
+use_trials = find(trial_learned_stage == curr_stage);
+
+v1_sm_scale = max(fluor_roi_deconv(use_trials,:,7),[],2)\ ...
+    max(fluor_roi_deconv(use_trials,:,1),[],2);
+
+mpfc_sm_scale = max(fluor_roi_deconv(use_trials,:,7),[],2)\ ...
+    max(fluor_roi_deconv(use_trials,:,6),[],2);
+
+[~,sort_idx] = sort(move_t(use_trials));
+
+figure; hold on
+subplot(1,2,1);
+curr_data_sort_smooth = ...
+    convn(fluor_roi_deconv(use_trials(sort_idx),:,1) - ...
+    fluor_roi_deconv(use_trials(sort_idx),:,7)*v1_sm_scale, ...
+    ones(n_trial_smooth,1)./n_trial_smooth,'same');
+imagesc(curr_data_sort_smooth);
+colormap(brewermap([],'*RdBu'));
+        caxis(max(caxis)*[-1,1])
+
+subplot(1,2,2);
+curr_data_sort_smooth = ...
+    convn(fluor_roi_deconv(use_trials(sort_idx),:,6) - ...
+    fluor_roi_deconv(use_trials(sort_idx),:,7)*mpfc_sm_scale, ...
+    ones(n_trial_smooth,1)./n_trial_smooth,'same');
+imagesc(curr_data_sort_smooth);
+colormap(brewermap([],'*RdBu'));
+        caxis(max(caxis)*[-1,1])
+        
+        
 %% >> Muscimol: task
 
 trial_data_path = 'C:\Users\Andrew\OneDrive for Business\Documents\CarandiniHarrisLab\analysis\operant_learning\data';
