@@ -4165,7 +4165,8 @@ for curr_stage = 1:max(trial_learned_stage)
         nexttile;
         imagesc(t,[],curr_data_sort_smooth);hold on;
         colormap(brewermap([],'PrGn'));
-        caxis(max(caxis)*[-1,1])
+        c = prctile(reshape(fluor_roi_deconv(:,:,curr_roi),[],1),90).*[-1,1];
+        caxis(c);
         xline(0,'color','r');
         plot(move_t(use_trials(sort_idx)),1:length(use_trials),'color',[0.6,0,0.6]);
         xlabel('Time from stim (s)');
@@ -4173,17 +4174,34 @@ for curr_stage = 1:max(trial_learned_stage)
         title(sprintf('%s, stage %d',wf_roi(curr_roi).area,curr_stage));
     end
 end
-title(h,'Raw activity');
+title(h,'Contra-subtracted activity');
 
 
 % Scale somatomotor activity to ROI, subtract and plot
 
-% Get scaling factor from max SM to V1/mPFC
+% Get scaling factor from somatomotor to other ROIs (trial max)
 roi_idx_sm = find(strcmpi({wf_roi.area},'sm_l'));
+% sm_roi_scale = squeeze(max(fluor_roi_deconv,[],2)./ ...
+%     max(fluor_roi_deconv(:,:,roi_idx_sm),[],2));
+     
+% sm_roi_scale = squeeze(sqrt(sum(fluor_roi_deconv.^2,2))./ ...
+%     sqrt(sum(fluor_roi_deconv(:,:,roi_idx_sm).^2,2)));
 
-sm_roi_scale = cell2mat(cellfun(@(x) ...
-    repmat(max(x(:,:,roi_idx_sm),[],2)\squeeze(max(x,[],2)),length(x),1),...
-    mat2cell(fluor_roi_deconv,trials_recording,length(t),n_rois),'uni',false));
+% sm_roi_scale = squeeze(std(fluor_roi_deconv,[],2)./ ...
+%     std(fluor_roi_deconv(:,:,roi_idx_sm),[],2));
+
+% (trial-by-trial scaling: must be efficient way to do this...)
+sm_roi_scale = nan(size(fluor_roi_deconv,1),1,n_rois);
+for curr_roi = 1:n_rois
+   for curr_trial = 1:size(fluor_roi_deconv)
+      sm_roi_scale(curr_trial,curr_roi) =  ...
+          fluor_roi_deconv(curr_trial,:,roi_idx_sm)'\ ...
+          fluor_roi_deconv(curr_trial,:,curr_roi)';
+   end
+end
+
+fluor_roi_deconv_smsub = fluor_roi_deconv - ...
+    fluor_roi_deconv(:,:,roi_idx_sm).*sm_roi_scale;
 
 figure;
 h = tiledlayout(2,length(plot_rois),'TileSpacing','compact','padding','compact');
@@ -4194,10 +4212,7 @@ for curr_stage = 1:max(trial_learned_stage)
         [~,sort_idx] = sort(move_t(use_trials));
 
         % (scale SM ROI and subtract)
-        curr_data_sort = fluor_roi_deconv(use_trials(sort_idx),:,curr_roi) - ...
-            (fluor_roi_deconv(use_trials(sort_idx),:,roi_idx_sm).* ...
-            sm_roi_scale(use_trials(sort_idx),curr_roi));
-
+        curr_data_sort = fluor_roi_deconv_smsub(use_trials(sort_idx),:,curr_roi);
         curr_data_sort_smooth = convn(curr_data_sort, ...
             ones(n_trial_smooth,1)./n_trial_smooth,'same');
         
@@ -4205,7 +4220,7 @@ for curr_stage = 1:max(trial_learned_stage)
         imagesc(t,[],curr_data_sort_smooth);hold on;
         colormap(brewermap([],'*RdGy'));
         
-        c = prctile(reshape(fluor_roi_deconv(:,:,curr_roi),[],1),95).*[-1,1];
+        c = prctile(reshape(fluor_roi_deconv(:,:,curr_roi),[],1),90).*[-1,1];
         caxis(c);
         xline(0,'color','r');
         plot(move_t(use_trials(sort_idx)),1:length(use_trials),'color',[0.6,0,0.6]);
@@ -4217,48 +4232,6 @@ end
 title(h,'Activity - scaled SM');
 
 
-
-%%%%% DOING HERE: 
-% Get one number (by experiment?) to go from mPFC/V1 to SM
-% Subtract "motor" from those, look at "visual" pre/post
-
-% Get scaling factor from max SM to V1/mPFC
-roi_idx_v1 = find(strcmpi({wf_roi.area},'v1_l'));
-roi_idx_mpfc = find(strcmpi({wf_roi.area},'mpfc_l'));
-roi_idx_sm = find(strcmpi({wf_roi.area},'sm_l'));
-
-
-sm_v1_scale = cell2mat(cellfun(@(x) ...
-    repmat(max(x(:,:,roi_idx_sm),[],2)\max(x(:,:,roi_idx_v1),[],2),length(x),1),...
-    mat2cell(fluor_roi_deconv,trials_recording,length(t),n_rois),'uni',false));
-sm_mpfc_scale = cell2mat(cellfun(@(x) ...
-    repmat(max(x(:,:,roi_idx_sm),[],2)\max(x(:,:,roi_idx_mpfc),[],2),length(x),1),...
-    mat2cell(fluor_roi_deconv,trials_recording,length(t),n_rois),'uni',false));
-
-curr_stage = 2;
-use_trials = find(trial_learned_stage == curr_stage);
-
-[~,sort_idx] = sort(move_t(use_trials));
-
-figure; hold on
-subplot(1,2,1);
-curr_data_sort_smooth = ...
-    convn(fluor_roi_deconv(use_trials(sort_idx),:,1) - ...
-    fluor_roi_deconv(use_trials(sort_idx),:,7).*sm_v1_scale(use_trials(sort_idx)), ...
-    ones(n_trial_smooth,1)./n_trial_smooth,'same');
-imagesc(curr_data_sort_smooth);
-colormap(brewermap([],'*RdGy'));
-        caxis(max(caxis)*[-1,1])
-
-subplot(1,2,2);
-curr_data_sort_smooth = ...
-    convn(fluor_roi_deconv(use_trials(sort_idx),:,6) - ...
-    fluor_roi_deconv(use_trials(sort_idx),:,7).*sm_mpfc_scale(use_trials(sort_idx)), ...
-    ones(n_trial_smooth,1)./n_trial_smooth,'same');
-imagesc(curr_data_sort_smooth);
-colormap(brewermap([],'*RdGy'));
-        caxis(max(caxis)*[-1,1])
-        
         
         
         

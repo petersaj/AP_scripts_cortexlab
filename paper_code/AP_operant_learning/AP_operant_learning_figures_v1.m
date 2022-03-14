@@ -1078,7 +1078,7 @@ for curr_roi_idx = 1:length(plot_rois)
 end
 title(h,'Reduced stim activity');
 
-% Plot all trials (raw and reduced stim: by stage, sorted by reaction time)
+% Plot all trials (raw and somatomotor-subtracted)
 plot_rois = [1,6,7];
 trial_learned_stage = discretize(trial_learned_day,[-Inf,0,Inf]);
 n_trial_smooth = 20;
@@ -1096,7 +1096,8 @@ for curr_stage = 1:max(trial_learned_stage)
         nexttile;
         imagesc(t,[],curr_data_sort_smooth);hold on;
         colormap(brewermap([],'PrGn'));
-        caxis(max(caxis)*[-1,1])
+        c = prctile(reshape(fluor_roi_deconv(:,:,curr_roi),[],1),90).*[-1,1];
+        caxis(c);
         xline(0,'color','r');
         plot(move_t(use_trials(sort_idx)),1:length(use_trials),'color',[0.6,0,0.6]);
         xlabel('Time from stim (s)');
@@ -1106,25 +1107,33 @@ for curr_stage = 1:max(trial_learned_stage)
 end
 title(h,'Raw activity');
 
+% (get trial max scaling factor from somatomotor to other ROIs)
+roi_idx_sm = find(strcmpi({wf_roi.area},'sm_l'));
+sm_roi_scale = squeeze(max(fluor_roi_deconv,[],2)./ ...
+    max(fluor_roi_deconv(:,:,roi_idx_sm),[],2));
+    
 figure;
 h = tiledlayout(2,length(plot_rois),'TileSpacing','compact','padding','compact');
 for curr_stage = 1:max(trial_learned_stage)
     for curr_roi = plot_rois
+        
         use_trials = find(trial_learned_stage == curr_stage);
         [~,sort_idx] = sort(move_t(use_trials));
-        
-        stim_regressor = strcmp(task_regressor_labels,'Stim');
+
+        % (scale SM ROI and subtract)
         curr_data_sort = fluor_roi_deconv(use_trials(sort_idx),:,curr_roi) - ...
-            fluor_roi_taskpred_reduced(use_trials(sort_idx),:,curr_roi,stim_regressor);
-        % (nanconv, and zero out NaNs for plotting)
-        curr_data_sort_smooth = nanconv(curr_data_sort, ...
-            ones(n_trial_smooth,1)./n_trial_smooth);
-        curr_data_sort_smooth(isnan(curr_data_sort_smooth)) = 0;
+            (fluor_roi_deconv(use_trials(sort_idx),:,roi_idx_sm).* ...
+            sm_roi_scale(use_trials(sort_idx),curr_roi));
+
+        curr_data_sort_smooth = convn(curr_data_sort, ...
+            ones(n_trial_smooth,1)./n_trial_smooth,'same');
         
         nexttile;
         imagesc(t,[],curr_data_sort_smooth);hold on;
-        colormap(brewermap([],'PrGn'));
-        caxis(max(caxis)*[-1,1])
+        colormap(brewermap([],'*RdGy'));
+        
+        c = prctile(reshape(fluor_roi_deconv(:,:,curr_roi),[],1),90).*[-1,1];
+        caxis(c);
         xline(0,'color','r');
         plot(move_t(use_trials(sort_idx)),1:length(use_trials),'color',[0.6,0,0.6]);
         xlabel('Time from stim (s)');
@@ -1132,7 +1141,7 @@ for curr_stage = 1:max(trial_learned_stage)
         title(sprintf('%s, stage %d',wf_roi(curr_roi).area,curr_stage));
     end
 end
-title(h,'Reduced stim activity');
+title(h,'Activity - scaled somatomotor');
 
 
 % (tmax activity: learned day x daysplit x roi x animal)
