@@ -3646,8 +3646,8 @@ for curr_reg = 1:n_regressors
     for curr_subreg = 1:n_subreg
         for curr_stage = 1:n_learn_stages
             nexttile;
-            imagesc(max(fluor_taskpred_px_stage_avg{curr_reg} ...
-                (:,:,:,curr_subreg,curr_stage),[],3));
+            imagesc(nanmean(fluor_taskpred_px_stage_avg{curr_reg} ...
+                (:,:,:,curr_subreg,curr_stage),3));
             title(sprintf('K %d, Stage %d',curr_subreg,curr_stage));
             axis image off;
             caxis(c);
@@ -3847,7 +3847,7 @@ move_roi_act = nan(size(fluor_roi_deconv),'single');
 
 for curr_trial = find(~isnan(move_idx))'
     curr_shift_frames = (move_idx(curr_trial)-leeway_samples) + [0:length(t)-1];
-    curr_shift_frames_use = curr_shift_frames > 0 & curr_shift_frames < length(t);
+    curr_shift_frames_use = curr_shift_frames > 0 & curr_shift_frames <= length(t);
     
     curr_grab_frames = curr_shift_frames(curr_shift_frames_use);
     curr_fill_frames = find(curr_shift_frames_use,length(t));

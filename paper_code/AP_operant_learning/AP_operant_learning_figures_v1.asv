@@ -870,15 +870,6 @@ data_fn = 'trial_activity_task_teto';
 AP_load_trials_operant;
 min_n = 4; % (minimum n to plot data)
 
-% Load behavior and get learned day
-data_path = 'C:\Users\Andrew\OneDrive for Business\Documents\CarandiniHarrisLab\analysis\operant_learning\data';
-bhv_fn = [data_path filesep 'bhv_teto'];
-load(bhv_fn);
-learned_day = cellfun(@(x) find(x,1),{bhv.learned_days})';
-learned_day_animal = cellfun(@(ld,n) [1:n]'-(ld), ...
-    num2cell(learned_day),num2cell(cellfun(@length,trial_info_all)), ...
-    'uni',false);
-
 % Get animal and day index for each trial
 trial_animal = cell2mat(arrayfun(@(x) ...
     x*ones(size(vertcat(wheel_all{x}{:}),1),1), ...
@@ -896,6 +887,8 @@ learned_day_unique = unique(trial_learned_day)';
 trials_allcat = size(wheel_allcat,1);
 trials_animal = arrayfun(@(x) size(vertcat(wheel_all{x}{:}),1),1:size(wheel_all));
 trials_recording = cellfun(@(x) size(x,1),vertcat(wheel_all{:}));
+
+
 
 
 %% ^^ Task - event-aligned snapshots
@@ -973,12 +966,16 @@ end
 
 %% ^^ Task - stim kernels
 
+n_days_animal = accumarray(trial_animal,trial_day,[],@max);
+learned_day_animal_x = cellfun(@(ld,n) [1:n]'-(ld), ...
+    num2cell(learned_day),num2cell(n_days_animal),'uni',false);
+
 % Get task>cortex parameters
 n_regressors = length(task_regressor_labels);
 task_regressor_t_shifts = cellfun(@(x) x/sample_rate,task_regressor_sample_shifts,'uni',false);
 
 % Average kernels by learning stage
-learn_stages = cellfun(@(x) discretize(x,[-Inf,0,Inf]),learned_day_animal,'uni',false);
+learn_stages = cellfun(@(x) discretize(x,[-Inf,0,Inf]),learned_day_animal_x,'uni',false);
  
 n_learn_stages = max(cell2mat(learn_stages));
 fluor_taskpred_k_stage_animals = cell(n_regressors,n_learn_stages,length(animals));

@@ -529,16 +529,18 @@ n_rois = numel(wf_roi);
 
 roi_cat = cat(3,wf_roi.mask);
 roi_col = [autumn(size(wf_roi,1));winter(size(wf_roi,1))];
+% roi_col = repmat([0.5,0.7,0.5],n_rois,1);
 
 figure; hold on
 set(gca,'YDir','reverse');
-AP_reference_outline('ccf_aligned','k');%AP_reference_outline('retinotopy','m');
+AP_reference_outline('ccf_aligned',[0.7,0.7,0.7]);
 for curr_roi = 1:n_rois
     curr_roi_boundary = cell2mat(bwboundaries(roi_cat(:,:,curr_roi)));
-    patch(curr_roi_boundary(:,2),curr_roi_boundary(:,1),roi_col(curr_roi,:));
-    
-    text(nanmean(curr_roi_boundary(:,2)),nanmean(curr_roi_boundary(:,1)), ...
-        wf_roi(curr_roi).area,'FontSize',12,'HorizontalAlignment','center')
+    patch(curr_roi_boundary(:,2),curr_roi_boundary(:,1),roi_col(curr_roi,:), ...
+        'EdgeColor','none');
+%     
+%     text(nanmean(curr_roi_boundary(:,2)),nanmean(curr_roi_boundary(:,1)), ...
+%         wf_roi(curr_roi).area,'FontSize',9,'HorizontalAlignment','center')
 end
 axis image off;
 

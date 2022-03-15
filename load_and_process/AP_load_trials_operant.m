@@ -216,11 +216,12 @@ if task_dataset
     [~,move_idx(move_t <= max(t))] = ...
         min(abs(move_t(move_t <= max(t)) - t),[],2);
     
-    % Get outcome time
+    % Get outcome timeand t index for movement onset (if within time)
     outcome_allcat = cell2mat(vertcat(outcome_all{:}));
     [outcome_max,outcome_idx] = max(any(outcome_allcat,3),[],2);
     outcome_t = nan(size(outcome_idx));
     outcome_t(outcome_max) = t(outcome_idx(outcome_max));
+    outcome_idx(~outcome_max) = NaN;
    
 elseif isfield(trial_info_allcat,'stimulus')  
     
