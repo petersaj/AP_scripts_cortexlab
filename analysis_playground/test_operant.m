@@ -3834,6 +3834,34 @@ end
 
 %% Move-align activity (and reduce)
 
+%%% NEW WAY
+
+% Set alignment shifts
+t_leeway = -t(1);
+leeway_samples = round(t_leeway*(sample_rate));
+stim_align = ones(size(trial_stim_allcat));
+move_align = move_idx - leeway_samples;
+outcome_align = outcome_idx - leeway_samples;
+    
+use_align = move_align;
+fluor_roi_deconv_move = nan(size(fluor_roi_deconv),'single');
+
+for curr_trial = find(~isnan(use_align))'
+    curr_shift_frames = ...
+        use_align(curr_trial) + [0:length(t)-1];
+    curr_shift_frames_use = curr_shift_frames > 0 & curr_shift_frames <= length(t);
+    
+    curr_grab_frames = curr_shift_frames(curr_shift_frames_use);
+    curr_fill_frames = find(curr_shift_frames_use,length(t));
+    
+    fluor_roi_deconv_move(curr_trial,curr_fill_frames,:) = ...
+        fluor_roi_deconv(curr_trial,curr_grab_frames,:);
+end
+    
+
+
+%%% (OLD TESTING WAY)
+
 % (minimum number n to plot)
 min_n = 4;
 

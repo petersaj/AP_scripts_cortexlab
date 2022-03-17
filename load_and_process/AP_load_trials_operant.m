@@ -31,7 +31,7 @@ elseif iscell(data_fn)
     for curr_load_data = 1:length(data_fn)
         disp(['Loading ' data_fn{curr_load_data} '...']);
         temp_data{curr_load_data} = load([trial_data_path filesep data_fn{curr_load_data}],'trial_data_all');
-%         trial_data_all_split(curr_data) = temp_data.trial_data_all;
+        %         trial_data_all_split(curr_data) = temp_data.trial_data_all;
     end
     
     % (find shared fields - need to iterate intersect if > 2 datasets)
@@ -54,14 +54,14 @@ elseif iscell(data_fn)
         length(temp_data{1}.trial_data_all.animals) && ...
         iscell(temp_data{1}.trial_data_all.(curr_field)) && ...
         any(cellfun(@(x) iscell(x),temp_data{1}.trial_data_all.(curr_field))),intersect_fieldnames);
-
+    
     for curr_field = intersect_fieldnames(experiment_fields)'
-       for curr_load_data = 1:length(data_fn)
-          trial_data_all.(curr_field{:}) = ...
-              cat(1,trial_data_all.(curr_field{:}), ...
-              reshape(temp_data{curr_load_data}.trial_data_all.(curr_field{:}),[],1));
-       end
-    end    
+        for curr_load_data = 1:length(data_fn)
+            trial_data_all.(curr_field{:}) = ...
+                cat(1,trial_data_all.(curr_field{:}), ...
+                reshape(temp_data{curr_load_data}.trial_data_all.(curr_field{:}),[],1));
+        end
+    end
     
     % (grab non-experiment fields from the first dataset)
     % (NOTE: this assumes they're the same)
@@ -70,7 +70,7 @@ elseif iscell(data_fn)
         trial_data_all.(curr_field{:}) = ...
             temp_data{1}.trial_data_all.(curr_field{:});
     end
-        
+    
     % (if mixing protocols: ensure stimIDs convered into contrast*side)
     for curr_animal = 1:length(trial_data_all.trial_info_all)
         for curr_day = 1:length(trial_data_all.trial_info_all{curr_animal})
@@ -116,15 +116,15 @@ if exist('exclude_data','var') && exclude_data
     use_experiments = {bhv_use_experiments(use_experiments_animals).use_experiments}';
     
     % (old, when multiple kinds of exclusions
-%     exclude_fn{1} = 'bhv_use_experiments';
-%     % exclude_fn{2} = 'expl_var_use_experiments';
-%     use_experiments_all = {};
-%     for curr_exclude = 1:length(exclude_fn)
-%         curr_use_experiments = load([exclude_path filesep exclude_fn{curr_exclude}]);
-%         use_experiments_all = [use_experiments_all;curr_use_experiments.use_experiments];
-%     end
-%     use_experiments = arrayfun(@(x) all(vertcat(use_experiments_all{:,x}),1), ...
-%         1:size(use_experiments_all,2),'uni',false)';
+    %     exclude_fn{1} = 'bhv_use_experiments';
+    %     % exclude_fn{2} = 'expl_var_use_experiments';
+    %     use_experiments_all = {};
+    %     for curr_exclude = 1:length(exclude_fn)
+    %         curr_use_experiments = load([exclude_path filesep exclude_fn{curr_exclude}]);
+    %         use_experiments_all = [use_experiments_all;curr_use_experiments.use_experiments];
+    %     end
+    %     use_experiments = arrayfun(@(x) all(vertcat(use_experiments_all{:,x}),1), ...
+    %         1:size(use_experiments_all,2),'uni',false)';
     
     % Cut out bad experiments for any experiment data fields
     if ~isempty(use_experiments)
@@ -140,7 +140,7 @@ end
 nodata_animals = cellfun(@(x) isempty(x),trial_data_all.trial_info_all);
 trial_data_all.animals(nodata_animals) = [];
 for curr_field = data_struct_fieldnames(experiment_fields)'
-            trial_data_all.(cell2mat(curr_field))(nodata_animals) = [];
+    trial_data_all.(cell2mat(curr_field))(nodata_animals) = [];
 end
 
 % Unpack data structure into workspace then throw away
@@ -163,7 +163,7 @@ trial_info_allcat = cell2struct(arrayfun(@(curr_field) ...
 
 %% Movement measures (wheel + camera)
 
-% Wheel 
+% Wheel
 wheel_allcat = cell2mat(vertcat(wheel_all{:}));
 
 % Cameras
@@ -207,7 +207,7 @@ if task_dataset
     
     % Get trial information
     trial_stim_allcat = trial_info_allcat.stimulus; % old: diff(trial_info_allcat.stimulus,[],2);
-    trial_choice_allcat = -(trial_info_allcat.response-1.5)*2;    
+    trial_choice_allcat = -(trial_info_allcat.response-1.5)*2;
     trial_outcome_allcat = trial_info_allcat.outcome;
     
     % Get reaction time and t index for movement onset (if within time)
@@ -222,8 +222,8 @@ if task_dataset
     outcome_t = nan(size(outcome_idx));
     outcome_t(outcome_max) = t(outcome_idx(outcome_max));
     outcome_idx(~outcome_max) = NaN;
-   
-elseif isfield(trial_info_allcat,'stimulus')  
+    
+elseif isfield(trial_info_allcat,'stimulus')
     
     if length(unique(trial_info_allcat.stimulus)) == 3 && ...
             all(unique(trial_info_allcat.stimulus) == [1;2;3])
@@ -237,62 +237,62 @@ elseif isfield(trial_info_allcat,'stimulus')
         % Passive choiceworld uses stimID = side*contrast
         trial_stim_allcat = trial_info_allcat.stimulus;
     end
-
+    
 end
 
 %% Cortical fluorescence
 
 if exist('fluor_all','var')
-
-% Get number of widefield ROIs 
-n_vs = size(fluor_all{end}{end},3);
-
-% Concatenate cortex data, subtract baseline
-fluor_allcat = cell2mat(vertcat(fluor_all{:}));
-if task_dataset
-    % (concatenate)
-    fluor_taskpred_allcat = cell2mat(vertcat(fluor_taskpred_all{:}));
-    fluor_taskpred_reduced_allcat = cell2mat(vertcat(fluor_taskpred_reduced_all{:}));
-end
-
-% Deconvolve fluorescence, subtract baseline for each trial
-% (deconv now done in grab script to allow resampling)
-fluor_allcat_deconv = fluor_allcat;
-clear fluor_allcat;
-
-% Get fluorescence ROIs
-% (by cortical area)
-load('C:\Users\Andrew\OneDrive for Business\Documents\CarandiniHarrisLab\analysis\wf_ephys_choiceworld\wf_processing\wf_alignment\U_master');
-wf_roi_fn = 'C:\Users\Andrew\OneDrive for Business\Documents\CarandiniHarrisLab\analysis\operant_learning\wf_processing\wf_rois\wf_roi';
-load(wf_roi_fn);
-n_rois = numel(wf_roi);
-fluor_roi_deconv = permute(reshape( ...
-    AP_svd_roi(U_master(:,:,1:n_vs), ...
-    reshape(permute(fluor_allcat_deconv,[3,2,1]),n_vs,[]),[],[],cat(3,wf_roi.mask)), ...
-    n_rois,[],size(fluor_allcat_deconv,1)),[3,2,1]);
-
-if task_dataset
     
-    % Get task-predicted activity
-    fluor_roi_taskpred = permute(reshape( ...
-        AP_svd_roi(U_master(:,:,1:n_vs), ...
-        reshape(permute(fluor_taskpred_allcat,[3,2,1]),n_vs,[]),[],[],cat(3,wf_roi.mask)), ...
-        n_rois,[],size(fluor_taskpred_allcat,1)),[3,2,1]);
-    fluor_roi_taskpred_reduced = cell2mat(permute(arrayfun(@(x) ...
-        permute(reshape( ...
-        AP_svd_roi(U_master(:,:,1:n_vs), ...
-        reshape(permute(fluor_taskpred_reduced_allcat(:,:,:,x),[3,2,1]), ...
-        n_vs,[]),[],[],cat(3,wf_roi.mask)), ...
-        n_rois,[],size(fluor_taskpred_reduced_allcat,1)),[3,2,1]), ...
-        1:size(fluor_taskpred_reduced_allcat,4),'uni',false),[1,3,4,2]));
+    % Get number of widefield ROIs
+    n_vs = size(fluor_all{end}{end},3);
     
-end
-
-% Baseline-subtract all trials (task baseline-subtracted in grab)
-baseline_t = t < 0;
-fluor_allcat_deconv = fluor_allcat_deconv - nanmean(fluor_allcat_deconv(:,baseline_t,:),2);
-fluor_roi_deconv = fluor_roi_deconv - nanmean(fluor_roi_deconv(:,baseline_t,:),2);
-
+    % Concatenate cortex data, subtract baseline
+    fluor_allcat = cell2mat(vertcat(fluor_all{:}));
+    if task_dataset
+        % (concatenate)
+        fluor_taskpred_allcat = cell2mat(vertcat(fluor_taskpred_all{:}));
+        fluor_taskpred_reduced_allcat = cell2mat(vertcat(fluor_taskpred_reduced_all{:}));
+    end
+    
+    % Deconvolve fluorescence, subtract baseline for each trial
+    % (deconv now done in grab script to allow resampling)
+    fluor_allcat_deconv = fluor_allcat;
+    clear fluor_allcat;
+    
+    % Get fluorescence ROIs
+    % (by cortical area)
+    load('C:\Users\Andrew\OneDrive for Business\Documents\CarandiniHarrisLab\analysis\wf_ephys_choiceworld\wf_processing\wf_alignment\U_master');
+    wf_roi_fn = 'C:\Users\Andrew\OneDrive for Business\Documents\CarandiniHarrisLab\analysis\operant_learning\wf_processing\wf_rois\wf_roi';
+    load(wf_roi_fn);
+    n_rois = numel(wf_roi);
+    fluor_roi_deconv = permute(reshape( ...
+        AP_svd_roi(U_master(:,:,1:n_vs), ...
+        reshape(permute(fluor_allcat_deconv,[3,2,1]),n_vs,[]),[],[],cat(3,wf_roi.mask)), ...
+        n_rois,[],size(fluor_allcat_deconv,1)),[3,2,1]);
+    
+    if task_dataset
+        
+        % Get task-predicted activity
+        fluor_roi_taskpred = permute(reshape( ...
+            AP_svd_roi(U_master(:,:,1:n_vs), ...
+            reshape(permute(fluor_taskpred_allcat,[3,2,1]),n_vs,[]),[],[],cat(3,wf_roi.mask)), ...
+            n_rois,[],size(fluor_taskpred_allcat,1)),[3,2,1]);
+        fluor_roi_taskpred_reduced = cell2mat(permute(arrayfun(@(x) ...
+            permute(reshape( ...
+            AP_svd_roi(U_master(:,:,1:n_vs), ...
+            reshape(permute(fluor_taskpred_reduced_allcat(:,:,:,x),[3,2,1]), ...
+            n_vs,[]),[],[],cat(3,wf_roi.mask)), ...
+            n_rois,[],size(fluor_taskpred_reduced_allcat,1)),[3,2,1]), ...
+            1:size(fluor_taskpred_reduced_allcat,4),'uni',false),[1,3,4,2]));
+        
+    end
+    
+    % Baseline-subtract all trials (task baseline-subtracted in grab)
+    baseline_t = t < 0;
+    fluor_allcat_deconv = fluor_allcat_deconv - nanmean(fluor_allcat_deconv(:,baseline_t,:),2);
+    fluor_roi_deconv = fluor_roi_deconv - nanmean(fluor_roi_deconv(:,baseline_t,:),2);
+    
 end
 
 %% Cortical electrophysiology
@@ -304,7 +304,7 @@ if exist('mua_area_all','var')
     % (depth)
     mua_depth_day_baseline = cellfun(@(mua_animal) cellfun(@(mua_day) ...
         nanmean(reshape(mua_day(:,t_baseline,:),1,[],size(mua_day,3)),2), ...
-        mua_animal,'uni',false),mua_depth_all,'uni',false);   
+        mua_animal,'uni',false),mua_depth_all,'uni',false);
     
     mua_depth_allcat = cell2mat(cellfun(@(mua,mua_baseline) ...
         (mua-mua_baseline)./mua_baseline, ...
@@ -317,22 +317,11 @@ if exist('mua_area_all','var')
     
     mua_area_day_baseline = cellfun(@(mua_animal) cellfun(@(mua_day) ...
         nanmean(reshape(mua_day(:,t_baseline,:),1,[],size(mua_day,3)),2), ...
-        mua_animal,'uni',false),mua_area_all,'uni',false);   
+        mua_animal,'uni',false),mua_area_all,'uni',false);
     
     mua_area_norm = cellfun(@(mua,mua_baseline) ...
         (mua-mua_baseline)./mua_baseline, ...
         vertcat(mua_area_all{:}), ...
-        vertcat(mua_area_day_baseline{:}),'uni',false);
-    
-    % (area: task-predicted, already baseline-subtracted)
-    mua_taskpred_norm = cellfun(@(mua,mua_baseline) ...
-        (mua)./mua_baseline, ...
-        vertcat(mua_taskpred_all{:}), ...
-        vertcat(mua_area_day_baseline{:}),'uni',false);
-    
-    mua_taskpred_reduced_norm = cellfun(@(mua,mua_baseline) ...
-        (mua)./mua_baseline, ...
-        vertcat(mua_taskpred_reduced_all{:}), ...
         vertcat(mua_area_day_baseline{:}),'uni',false);
     
     % (standardize area order across recordings)
@@ -341,6 +330,17 @@ if exist('mua_area_all','var')
         mua_area_norm,'uni',false);
     
     if task_dataset
+        % (area: task-predicted, already baseline-subtracted)
+        mua_taskpred_norm = cellfun(@(mua,mua_baseline) ...
+            (mua)./mua_baseline, ...
+            vertcat(mua_taskpred_all{:}), ...
+            vertcat(mua_area_day_baseline{:}),'uni',false);
+        
+        mua_taskpred_reduced_norm = cellfun(@(mua,mua_baseline) ...
+            (mua)./mua_baseline, ...
+            vertcat(mua_taskpred_reduced_all{:}), ...
+            vertcat(mua_area_day_baseline{:}),'uni',false);
+        
         mua_taskpred_norm_reorder = cellfun(@(x) ...
             nan(size(x,1),size(x,2),length(mua_areas)), ...
             mua_taskpred_norm,'uni',false);

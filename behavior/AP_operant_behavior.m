@@ -5,10 +5,11 @@
 
 %% Plot behavior (for checking ongoing)
 
-animals = {'AP107'};
-% animals = {'AP113','AP114','AP115'};
+% animals = {'AP107'};
+animals = {'AP113','AP114','AP115'};
 
-protocol = 'AP_stimWheel';
+% protocol = 'AP_stimWheel';
+protocol = 'AP_stimWheelLeftReverse';
 flexible_name = true;
 bhv = struct;
 

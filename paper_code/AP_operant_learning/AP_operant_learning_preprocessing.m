@@ -475,6 +475,7 @@ ylabel('Day');
 
 % Put learned days into behavior structure and save
 [bhv.learned_days] = learned_days{:};
+[bhv.learned_days_rxn_window] = deal(rxn_window);
 save(bhv_fn,'bhv');
 disp(['Saved learned days ' bhv_fn]);
 

@@ -35,7 +35,13 @@ end
 
 % Get event-aligned activity
 raster_window = [-0.5,2];
-raster_sample_rate = 50;
+
+% (either imaging or ephys, set separate sample rates)
+if imaging_exists
+    raster_sample_rate = 50;
+elseif ephy_exists
+    raster_sample_rate = 500;
+end
 
 raster_sample_time = 1/raster_sample_rate;
 t = raster_window(1):raster_sample_time:raster_window(2);
