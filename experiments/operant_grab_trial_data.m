@@ -39,7 +39,7 @@ raster_window = [-0.5,2];
 % (either imaging or ephys, set separate sample rates)
 if imaging_exists
     raster_sample_rate = 50;
-elseif ephy_exists
+elseif ephys_exists
     raster_sample_rate = 500;
 end
 

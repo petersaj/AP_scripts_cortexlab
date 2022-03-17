@@ -1065,13 +1065,17 @@ elseif ephys_exists && load_parts.ephys && exist('ephys_align','var') && ...
     % correlated, look for big drop in correlation from top-down
     lfp_corr = corrcoef(double(transpose(lfp-nanmedian(lfp,1))));
     lfp_corr_diag = lfp_corr;
-    lfp_corr_diag(triu(true(size(lfp_corr)),1)) = NaN;
+    lfp_corr_diag(triu(true(size(lfp_corr)),0)) = NaN;
     lfp_corr_from_top = nanmean(lfp_corr_diag,2)';
     
-    n_lfp_medfilt = 5;
+    n_lfp_medfilt = 10;
+    lfp_corr_from_top_medfilt = medfilt1(lfp_corr_from_top,n_lfp_medfilt);
+    lfp_corr_from_top_medfilt_thresh = ...
+        (max(lfp_corr_from_top_medfilt) - ...
+        range(lfp_corr_from_top_medfilt)*0.2);
     ctx_start = lfp_channel_positions( ...
-        find(medfilt1(lfp_corr_from_top,n_lfp_medfilt) > ...
-        sum(minmax(medfilt1(lfp_corr_from_top,n_lfp_medfilt)))*0.9,1,'last'));
+        find(lfp_corr_from_top_medfilt > lfp_corr_from_top_medfilt_thresh,...
+        1,'last'));
 
     if verbose
         figure;
@@ -1088,13 +1092,16 @@ elseif ephys_exists && load_parts.ephys && exist('ephys_align','var') && ...
         title(sprintf('%s %s: LFP correlation and cortex start',animal,day));
     end
             
-    % (if the detected cortex start is after the first unit, debug)
+    % (give leeway for cortex to start relative to first unit - if within
+    % this leeway then back up cortex start, if outside then debug)
+    ctx_lfp_spike_leeway = 100; % um leeway for lfp/unit match
     ctx_lfp_spike_diff = ctx_start-min(template_depths);
-    if ctx_lfp_spike_diff > 100 % 100um leeway
+    if ctx_lfp_spike_diff > ctx_lfp_spike_leeway
         error('%s %s: LFP-estimated cortex start is after first unit %.0f um', ...
             animal,day,ctx_lfp_spike_diff);
-    end
-    
+    elseif ctx_lfp_spike_diff > 0 && ctx_lfp_spike_diff < ctx_lfp_spike_leeway
+        ctx_start = min(template_depths)-1; % (back up to 1um before first unit)
+    end  
     
     %%% If histology is aligned, get areas by depth
     [probe_ccf_fn,probe_ccf_fn_exists] = AP_cortexlab_filename(animal,[],[],'probe_ccf');
@@ -1126,8 +1133,8 @@ elseif ephys_exists && load_parts.ephys && exist('ephys_align','var') && ...
             ' layer .*',''));
         
         probe_area_boundaries = cellfun(@(area) ...
-            minmax(probe_depths(contains( ...
-            st(probe_ccf.trajectory_areas,:).safe_name,area))), ...
+            prctile(probe_depths(contains( ...
+            st(probe_ccf.trajectory_areas,:).safe_name,area)),[0,100]), ...
             probe_areas,'uni',false);
     end
     
