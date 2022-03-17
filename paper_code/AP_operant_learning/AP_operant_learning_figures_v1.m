@@ -1,6 +1,65 @@
 %% Figures for longitudinal widefield during operant/sensorimotor learning
 % Preprocessing done in AP_operant_learning_preprocessing
 
+%% Plot example performance
+
+animal = 'AP106';
+% protocol = 'AP_stimWheelRight';
+% experiments = AP_find_experiments(animal,protocol);
+% plot_days = [1,3,7];
+
+% (TEMPORARY: while zubjects is super slow)
+days = {'2021-06-17','2021-06-21','2021-06-25'};
+plot_days = 1:3;
+%%%%%%%%%%%
+
+h = tiledlayout(1,length(plot_days),'TileSpacing','compact','padding','compact');
+for curr_day = plot_days
+ 
+%     day = experiments(curr_day).day;
+%     experiment = experiments(curr_day).experiment;
+
+%%%%% (temporary)
+day = days{curr_day};
+experiment = 1;
+%%%%%%%%%%
+    
+    experiment = 1;
+    load_parts.imaging = false;
+    AP_load_experiment;
+    
+    t = Timeline.rawDAQTimestamps;
+    
+    % (minimum ITI: new trial + trial quiescence)
+    min_iti_t = signals_events.newTrialTimes + ...
+        signals_events.trialQuiescenceValues;
+    
+    plot_t = [0,100];
+    plot_t_idx = t > plot_t(1) & t < plot_t(2);
+    plot_stim_idx = find(stimOn_times > plot_t(1) & stimOn_times < plot_t(2))';
+    plot_min_iti_t_idx = find(min_iti_t > plot_t(1) & min_iti_t < plot_t(2));
+    plot_reward_idx = find(reward_t_timeline > plot_t(1) & reward_t_timeline < plot_t(2));
+    
+    nexttile; hold on;
+    line_height = 0.1;
+    line_start = 0.2;
+    plot(t(plot_t_idx),wheel_velocity(plot_t_idx),'k');
+    for i = plot_stim_idx
+        line(repmat(stimOn_times(i),2,1), ...
+            line_start+line_height*1+[0,line_height],'color','r','linewidth',2);
+    end
+    for i = plot_reward_idx'
+        line(repmat(reward_t_timeline(i),2,1), ...
+            line_start+line_height*0+[0,line_height],'color','b','linewidth',2);
+    end
+    
+    title(sprintf('Day %d',curr_day));
+    
+end
+
+linkaxes(allchild(h),'y');
+
+
 %% Behavior
 % (adapted from AP_operant_behavior)
 
@@ -116,39 +175,39 @@ legend({'Null','Measured'});
 % Get fraction of reaction times within window
 rxn_window = bhv(1).learned_days_rxn_window;
 
-rxn_measured_frac = accumarray(trial_split_idx_cat, ...
+rxn_measured_prct = accumarray(trial_split_idx_cat, ...
     rxn_measured_cat > rxn_window(1) & ...
-    rxn_measured_cat < rxn_window(2)', ...
-    [n_daysplit,max_days,length(bhv)],@nanmean,NaN);
-rxn_alt_frac = cell2mat(permute(arrayfun(@(x) ...
+    rxn_measured_cat < rxn_window(2), ...
+    [n_daysplit,max_days,length(bhv)],@(x) nanmean(x)*100,NaN);
+rxn_alt_prct = cell2mat(permute(arrayfun(@(x) ...
     accumarray(trial_split_idx_cat, ...
     rxn_alt_cat(:,x) > rxn_window(1) & ...
-    rxn_alt_cat(:,x) < rxn_window(2)', ...
-    [n_daysplit,max_days,length(bhv)],@nanmean,NaN), ...
+    rxn_alt_cat(:,x) < rxn_window(2), ...
+    [n_daysplit,max_days,length(bhv)],@(x) nanmean(x)*100,NaN), ...
     1:n_rxn_altsample,'uni',false),[1,3,4,2]));
 
 % Put NaNs between days to plot with gaps
-rxn_measured_frac_long = reshape(padarray(rxn_measured_frac,[1,0,0],NaN,'post'),[],length(animals));
-rxn_alt_frac_long = reshape(padarray(rxn_alt_frac,[1,0,0],NaN,'post'),[],length(animals),n_rxn_altsample);
+rxn_measured_prct_long = reshape(padarray(rxn_measured_prct,[1,0,0],NaN,'post'),[],length(animals));
+rxn_alt_prct_long = reshape(padarray(rxn_alt_prct,[1,0,0],NaN,'post'),[],length(animals),n_rxn_altsample);
 
 % Plot relative to training day
 figure; 
-daysplit_x = [1:size(rxn_measured_frac_long,1)]/(n_daysplit+1);
+daysplit_x = [1:size(rxn_measured_prct_long,1)]/(n_daysplit+1);
 subplot(1,2,1);hold on;
 
-rxn_alt_frac_long_ci = ...
-    permute(prctile(nanmean(rxn_alt_frac_long,2),[5,95],3),[1,3,2]);
-AP_errorfill(daysplit_x,nanmean(nanmean(rxn_alt_frac_long,2),3), ...
-    rxn_alt_frac_long_ci,'r',[],false);
+rxn_alt_prct_long_ci = ...
+    permute(prctile(nanmean(rxn_alt_prct_long,2),[5,95],3),[1,3,2]);
+AP_errorfill(daysplit_x,nanmean(nanmean(rxn_alt_prct_long,2),3), ...
+    rxn_alt_prct_long_ci,'r',[],false);
 
-errorbar(daysplit_x,nanmean(rxn_measured_frac_long,2), ...
-    AP_sem(rxn_measured_frac_long,2),'k','linewidth',2,'CapSize',0);
+errorbar(daysplit_x,nanmean(rxn_measured_prct_long,2), ...
+    AP_sem(rxn_measured_prct_long,2),'k','linewidth',2,'CapSize',0);
 
 xlabel('Training day');
-ylabel(sprintf('Frac reaction times %.g-%.g',rxn_window(1),rxn_window(2)));
+ylabel(sprintf('Reaction times %.g-%.g (%%)',rxn_window(1),rxn_window(2)));
 axis tight;
 xlim(xlim + [-0.5,0.5]);
-ylim([0,1]);
+ylim([0,100]);
 
 % Plot relative to learned day
 learned_day = cellfun(@(x) find(x,1),{bhv.learned_days});
@@ -158,10 +217,10 @@ learned_daysplit_x = cell2mat(cellfun(@(x) x+(0:n_daysplit)'/(n_daysplit+1), ...
     num2cell(learned_day_x),'uni',false));
 
 [rxn_learn_mean,rxn_learn_sem,learned_day_grp,learned_day_n] = ...
-    grpstats(rxn_measured_frac_long(:),learned_daysplit_x(:), ...
+    grpstats(rxn_measured_prct_long(:),learned_daysplit_x(:), ...
     {'nanmean','sem','gname','numel'});
 rxn_alt_learn_mean = ...
-    grpstats(reshape(rxn_alt_frac_long,[],n_rxn_altsample),learned_daysplit_x(:), ...
+    grpstats(reshape(rxn_alt_prct_long,[],n_rxn_altsample),learned_daysplit_x(:), ...
     {'nanmean'});
 
 learned_day_grp = cellfun(@str2num,learned_day_grp);
@@ -176,11 +235,11 @@ AP_errorfill(learned_day_grp(plot_learned), ...
 
 errorbar(learned_day_grp(plot_learned),rxn_learn_mean(plot_learned), ...
     rxn_learn_sem(plot_learned),'k','linewidth',2,'CapSize',0);
-ylabel(sprintf('Frac reaction times %.g-%.g',rxn_window(1),rxn_window(2)));
+ylabel(sprintf('Reaction times %.g-%.g (%%)',rxn_window(1),rxn_window(2)));
 xlabel('Learned day');
 axis tight;
 xlim(xlim + [-0.5,0.5]);
-ylim([0,1]);
+ylim([0,100]);
 line([0,0],ylim,'color','k','linestyle','--');
 
 
@@ -204,48 +263,67 @@ data_path = 'C:\Users\Andrew\OneDrive for Business\Documents\CarandiniHarrisLab\
 muscimol_fn = [data_path filesep 'muscimol.mat'];
 load(muscimol_fn);
 
-% Grab day index of [V1 muscimol, washout] and data to plot
-muscimol_v1_days = nan(length(bhv),2);
+% Grab day index of [last pre-muscimol, V1 muscimol, washout] and data to plot
+n_conditions = 3;
+condition_labels = {'Pre-muscimol','V1 muscimol','Washout'};
+
+muscimol_v1_days = nan(length(bhv),n_conditions);
 muscimol_v1_retinotopy = cell(size(muscimol_v1_days));
 muscimol_v1_stim_surround_wheel = cell(size(muscimol_v1_days));
 muscimol_v1_wheel_mm = nan(size(muscimol_v1_days));
 for curr_animal = 1:length(bhv)
-
+    
     muscimol_animal_idx = ismember({muscimol.animal},bhv(curr_animal).animal);
     if ~any(muscimol_animal_idx)
         continue
     end
+    
+    % (find last day before muscimol)
+    curr_premuscimol_dayidx = find(datenum(bhv(curr_animal).day) < ...
+        datenum(muscimol(muscimol_animal_idx).day{1}),1,'last');
+    
     % (find last V1 muscimol day)
     curr_v1_muscimol = find(strcmp(lower( ...
         muscimol(muscimol_animal_idx).area),'v1'),1,'last');
-
+    curr_v1_muscimol_dayidx = find(strcmp(bhv(curr_animal).day, ...
+        muscimol(muscimol_animal_idx).day(curr_v1_muscimol)));
+    
     % (find first washout after V1 muscimol)
-     curr_v1_washout = curr_v1_muscimol + ...
+    curr_v1_washout = curr_v1_muscimol + ...
         find(strcmp(lower( ...
         muscimol(muscimol_animal_idx).area(curr_v1_muscimol+1:end)), ...
         'washout'),1,'first');
-
-    curr_v1_muscimol_dayidx = find(strcmp(bhv(curr_animal).day, ...
-        muscimol(muscimol_animal_idx).day(curr_v1_muscimol)));
-
     curr_v1_washout_dayidx = find(strcmp(bhv(curr_animal).day, ...
         muscimol(muscimol_animal_idx).day(curr_v1_washout)));
-
+    
+    % (combine conditions)
+    condition_dayidx = [curr_premuscimol_dayidx,curr_v1_muscimol_dayidx,curr_v1_washout_dayidx];
+    
     % Grab days
-     muscimol_v1_days(curr_animal,:) = ...
-             [curr_v1_muscimol_dayidx,curr_v1_washout_dayidx];
-
-     % Grab retinotopy
+    muscimol_v1_days(curr_animal,:) = condition_dayidx;
+    
+    % Grab retinotopy
+    % (pre-muscimol)
+    animal = muscimol(muscimol_animal_idx).animal;
+    retinotopy_path = 'C:\Users\Andrew\OneDrive for Business\Documents\CarandiniHarrisLab\analysis\widefield_alignment\retinotopy';
+    load([retinotopy_path filesep animal '_retinotopy'])
+    curr_premuscimol_vfs_dayidx = find(datenum({retinotopy.day}) < ...
+        datenum(muscimol(muscimol_animal_idx).day{1}),1,'last');
+    curr_premuscimol_vfs = AP_align_widefield( ...
+        retinotopy(curr_premuscimol_vfs_dayidx).vfs,animal, ...
+        retinotopy(curr_premuscimol_vfs_dayidx).day);
+    % (add post-muscimol)
     muscimol_v1_retinotopy(curr_animal,:) = ...
-        muscimol(muscimol_animal_idx).vfs([curr_v1_muscimol,curr_v1_washout]);
-
+        [{curr_premuscimol_vfs} , ...
+        muscimol(muscimol_animal_idx).vfs([curr_v1_muscimol,curr_v1_washout])];
+    
     % Grab stim-aligned movement
     % (NaN-out times during quiescence)
     stim_surround_t = bhv(1).stim_surround_t;
     curr_stim_surround_wheel = ...
-        bhv(curr_animal).stim_surround_wheel([curr_v1_muscimol_dayidx,curr_v1_washout_dayidx]);
+        bhv(curr_animal).stim_surround_wheel(condition_dayidx);
     curr_quiescence_t = ...
-        bhv(curr_animal).quiescence_t([curr_v1_muscimol_dayidx,curr_v1_washout_dayidx]);
+        bhv(curr_animal).quiescence_t(condition_dayidx);
     for curr_cond = 1:2
         for curr_trial = 1:size(curr_stim_surround_wheel{curr_cond},1)
             q_time = stim_surround_t >= -curr_quiescence_t{curr_cond}(curr_trial) & ...
@@ -253,35 +331,31 @@ for curr_animal = 1:length(bhv)
             curr_stim_surround_wheel{curr_cond}(curr_trial,q_time) = NaN;
         end
     end
-
+    
     muscimol_v1_stim_surround_wheel(curr_animal,:) = curr_stim_surround_wheel;
-
+    
     % Grab wheel travel/time
     muscimol_v1_wheel_mm(curr_animal,:) = ...
-        bhv(curr_animal).wheel_mm([curr_v1_muscimol_dayidx,curr_v1_washout_dayidx])./ ...
-        bhv(curr_animal).session_duration([curr_v1_muscimol_dayidx,curr_v1_washout_dayidx]);
-
+        bhv(curr_animal).wheel_mm(condition_dayidx)./ ...
+        bhv(curr_animal).session_duration(condition_dayidx);
+    
 end
 
 % Plot retinotopy difference
 figure;
-for curr_cond = 1:2
-    subplot(1,2,curr_cond);
+h = tiledlayout(1,n_conditions,'TileSpacing','compact','padding','compact');
+for curr_cond = 1:n_conditions
+    nexttile;
     imagesc(nanmean(cat(3,muscimol_v1_retinotopy{:,curr_cond}),3));
     axis image off;
     caxis([-1,1]);
     AP_reference_outline('ccf_aligned',[0.5,0.5,0.5]);
-    switch curr_cond
-        case 1
-            title('V1 muscimol');
-        case 2
-            title('Washout');
-    end
+    title(condition_labels{curr_cond})
 end
 colormap(brewermap([],'*RdBu'));
 
 % (set 'use_days' to copy code from above)
-use_days = mat2cell(muscimol_v1_days,ones(length(muscimol_v1_animals),1),2)';
+use_days = mat2cell(muscimol_v1_days,ones(length(muscimol_v1_animals),1),n_conditions)';
 
 % Get reaction/resampled alt reaction times for all regular days
 % (exclude trials without alts: rare, from wheel click issues)
@@ -318,11 +392,11 @@ rxn_alt_hist = cellfun(@(x) cell2mat(arrayfun(@(rep)...
 
 rxn_alt_hist_ci = ...
     arrayfun(@(cond) prctile(nanmean(cat(3,rxn_alt_hist{cond,:}),3), ...
-    [5,95],1),1:2,'uni',false);
+    [5,95],1),1:n_conditions,'uni',false);
 
 figure;
-h = tiledlayout(2,2,'TileSpacing','compact','padding','compact');
-for curr_cond = 1:2
+h = tiledlayout(2,n_conditions,'TileSpacing','compact','padding','compact');
+for curr_cond = 1:n_conditions
     nexttile; hold on
     AP_errorfill(rxn_bin_centers,nanmean(nanmean(cat(3,rxn_alt_hist{1,:}),3),1), ...
         rxn_alt_hist_ci{curr_cond}','r',[],false);
@@ -334,13 +408,7 @@ for curr_cond = 1:2
     legend({'Null','Measured'});
     xlabel('Reaction time');
     ylabel('Probability')
-    switch curr_cond
-        case 1
-            title('V1 muscimol');
-        case 2
-            title('Washout');
-    end
-    
+    title(condition_labels{curr_cond});
 end
 linkaxes(allchild(h),'xy');
 
@@ -348,12 +416,11 @@ linkaxes(allchild(h),'xy');
 muscimol_stim_wheel_avg = ...
     arrayfun(@(cond) cell2mat(cellfun(@(x) ...
     nanmean(x,1),muscimol_v1_stim_surround_wheel(:,cond),'uni',false)), ...
-    1:2,'uni',false);
+    1:n_conditions,'uni',false);
 nexttile;
 AP_errorfill(bhv(1).stim_surround_t', ...
     cell2mat(cellfun(@(x) nanmean(x,1)',muscimol_stim_wheel_avg,'uni',false)), ...
-    cell2mat(cellfun(@(x) AP_sem(x,1)',muscimol_stim_wheel_avg,'uni',false)), ...
-    [0,0,0;1,0,0]);
+    cell2mat(cellfun(@(x) AP_sem(x,1)',muscimol_stim_wheel_avg,'uni',false)));
 xline(0,'linestyle','--');
 xlabel('Time from stim (s)');
 ylabel('Probability of movement');
@@ -364,8 +431,28 @@ errorbar(nanmean(muscimol_v1_wheel_mm,1), ...
     AP_sem(muscimol_v1_wheel_mm,1),'k','linewidth',2);
 xlim(xlim+[-0.5,0.5]);
 ylim([0,max(ylim)])
-set(gca,'XTick',1:2,'XTickLabel',{'V1 muscimol','Washout'});
+set(gca,'XTick',1:n_conditions,'XTickLabel',condition_labels);
 ylabel('Wheel mm/min');
+
+% Plot fraction of reaction times within window
+rxn_window = bhv(1).learned_days_rxn_window;
+
+rxn_measured_prct = cellfun(@(x) ...
+    100*nanmean(x > rxn_window(1) & x < rxn_window(2)), ...
+    rxn_measured_cat);
+rxn_alt_prct = cellfun(@(x) ...
+    100*nanmean(x > rxn_window(1) & x < rxn_window(2),1), ...
+    rxn_alt_cat,'uni',false);
+
+figure; hold on
+rxn_alt_frac_ci = prctile(nanmean(cell2mat(permute(rxn_alt_prct,[1,3,2])),3),[5,95],2);
+AP_errorfill([],nanmean(rxn_alt_frac_ci,2),rxn_alt_frac_ci,'r',[],false);
+errorbar(mean(rxn_measured_prct,2),AP_sem(rxn_measured_prct,2),'k','linewidth',2)
+xlim([0,n_conditions] + 0.5);
+ylim([0,100]);
+set(gca,'XTick',1:n_conditions,'XTickLabel',condition_labels);
+ylabel('Fast reaction times (%)')
+
 
 %% Whisker movement (passive)
 
@@ -1491,7 +1578,7 @@ ylabel('Area');
 mua_taskpred_k_allcat_norm = arrayfun(@(regressor) ...
     squeeze(permute(cellfun(@(x) x{regressor}, ...
     cellfun(@(kernel_set,mua_norm) cellfun(@(kernel) ...
-    kernel./(mua_norm/sample_rate),kernel_set,'uni',false), ...
+    kernel./(mua_norm),kernel_set,'uni',false), ...
     vertcat(mua_taskpred_k_all{:}),vertcat(mua_area_day_baseline{:}),'uni',false), ...
     'uni',false),[2,3,4,1])),1:length(task_regressor_labels),'uni',false);
 
@@ -1520,8 +1607,11 @@ for curr_regressor = 1:length(mua_area_taskpred_k_avg)
             squeeze(mua_area_taskpred_k_avg{curr_regressor}(curr_subregressor,:,plot_areas)));
         title(sprintf('%s (%d)',task_regressor_labels{curr_regressor},curr_subregressor));
         xline(0,'color','k','linestyle','--');
+        xlabel('Time from event');
+        ylabel('\DeltaR/R_0');
     end
 end
+legend(mua_areas(plot_areas));
 linkaxes(allchild(h),'y');
 
 

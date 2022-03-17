@@ -297,8 +297,7 @@ end
 
 %% Cortical electrophysiology
 
-if exist('mua_area_all','var')
-    
+if exist('mua_area_all','var')    
     
     % Normalize (dR/R0 within day) and concatenate
     % (depth)

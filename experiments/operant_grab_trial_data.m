@@ -40,7 +40,7 @@ raster_window = [-0.5,2];
 if imaging_exists
     raster_sample_rate = 50;
 elseif ephys_exists
-    raster_sample_rate = 500;
+    raster_sample_rate = 200;
 end
 
 raster_sample_time = 1/raster_sample_rate;
