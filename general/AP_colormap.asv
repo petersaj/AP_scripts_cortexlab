@@ -26,18 +26,14 @@ col.G = [0,0.5,0]; % green
 col.P = [0.5,0,0.5]; % purple
 
 %%%%% WORKING HERE: GET ISOLUMINANT BASE COLORS?
-% (colors, equal luminance, defined as angle in L*a*b* space)
-% (olors picked from: https://rufflewind.com/_urandom/colorpicker/#00464b)
-lum = 40;
-col.R = lab2rgb([lum,58,27]);
-col.G = lab2rgb([lum,-41,35]);
-col.P = lab2rgb([lum,51,-40]);
-col.B = lab2rgb([lum,0,30 ]);
-
-% Check colors are valid RGB values
-if(any(cell2mat(struct2cell(col)) < 0))
-    error('Not all colors in RGB gamut')
-end
+% % (colors, equal luminance, defined as angle in L*a*b* space)
+% Colors picked from: https://rufflewind.com/_urandom/colorpicker/#00464b
+% color_luminance = 40;
+% color_saturation = 80;
+% r = [58,27];
+% g = [-41,35];
+% p = [51,-40];
+% b = [26,58];
 
 % % (to view the colors)
 % figure;

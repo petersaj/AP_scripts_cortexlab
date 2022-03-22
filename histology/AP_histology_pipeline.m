@@ -10,19 +10,19 @@ st = loadStructureTree([allen_atlas_path filesep 'structure_tree_safe_2017.csv']
 
 % Set paths for histology images and directory to save slice/alignment
 
-% % (for writing/debugging)
-% % im_path = '\\znas.cortexlab.net\Subjects\AP105\histology\all_images';
-% im_path = 'C:\Users\Andrew\Desktop\temp_histology\AP079';
-% slice_path = [im_path filesep 'slices'];
+% (for writing/debugging)
+% im_path = '\\znas.cortexlab.net\Subjects\AP105\histology\all_images';
+im_path = 'C:\Users\Andrew\Desktop\temp_histology\AP079';
+slice_path = [im_path filesep 'slices'];
 
-animal = 'AP100';
-[probe_ccf_fn,probe_ccf_fn_exists] = AP_cortexlab_filename(animal,[],[],'probe_ccf');
-if probe_ccf_fn_exists
-    load(probe_ccf_fn);
-else
-    error('No probe ccf');
-end
-slice_path = fileparts(probe_ccf_fn);
+% animal = 'AP100';
+% [probe_ccf_fn,probe_ccf_fn_exists] = AP_cortexlab_filename(animal,[],[],'probe_ccf');
+% if probe_ccf_fn_exists
+%     load(probe_ccf_fn);
+% else
+%     error('No probe ccf');
+% end
+% slice_path = fileparts(probe_ccf_fn);
 
 
 %% Preprocess slide images to produce slice images

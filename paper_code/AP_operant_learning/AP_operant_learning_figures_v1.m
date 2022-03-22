@@ -217,9 +217,8 @@ rxn_measured_prct_long = reshape(padarray(rxn_measured_prct_daysplit,[1,0,0],NaN
 rxn_alt_prct_long = reshape(padarray(rxn_alt_prct_daysplit,[1,0,0],NaN,'post'),[],length(animals),n_rxn_altsample);
 
 % Plot relative to training day
-figure; 
+figure; hold on;
 daysplit_x = [1:size(rxn_measured_prct_long,1)]/(n_daysplit+1);
-subplot(1,2,1);hold on;
 
 rxn_alt_prct_long_ci = ...
     permute(prctile(nanmean(rxn_alt_prct_long,2),[5,95],3),[1,3,2]);
@@ -252,14 +251,14 @@ rxn_alt_learn_mean = ...
 learned_day_grp = cellfun(@str2num,learned_day_grp);
 plot_learned = learned_day_n >= min_n | isnan(rxn_learn_mean);
 
-subplot(1,2,2); hold on;
+figure; hold on;
 
 rxn_alt_learn_ci = prctile(rxn_alt_learn_mean,[5,95],2);
-AP_errorfill(learned_day_grp(plot_learned), ...
+p1 = AP_errorfill(learned_day_grp(plot_learned), ...
     nanmean(rxn_alt_learn_mean(plot_learned,:),2), ...
     rxn_alt_learn_ci(plot_learned,:),'r',[],false);
 
-errorbar(learned_day_grp(plot_learned),rxn_learn_mean(plot_learned), ...
+p2 = errorbar(learned_day_grp(plot_learned),rxn_learn_mean(plot_learned), ...
     rxn_learn_sem(plot_learned),'k','linewidth',2,'CapSize',0);
 ylabel(sprintf('Reaction times %.g-%.g (%%)',rxn_window(1),rxn_window(2)));
 xlabel('Learned day');
@@ -267,7 +266,7 @@ axis tight;
 xlim(xlim + [-0.5,0.5]);
 ylim([0,100]);
 line([0,0],ylim,'color','k','linestyle','--');
-
+legend([p1(1),p2(1)],{'Null','Measured'});
 
 %% Behavior: muscimol
 
@@ -740,7 +739,7 @@ end
 %% ^^ Passive - ROIs across days
 
 % Plot time-max within ROIs across days
-use_t = t >= 0 & t <= 0.15;
+use_t = t >= 0 & t <= 0.2;
 stim_roi_tmax = cellfun(@(x) ...
     permute(max(x(:,use_t,:,:),[],2),[1,3,4,2]), ...
     stim_roi_avg,'uni',false);
@@ -788,48 +787,49 @@ stim_roi_tmax_learn_numel = ...
 plot_learned_day = squeeze(stim_roi_tmax_learn_numel(1,:,1)) > min_n;
 
 figure;
-plot_rois = [1,6];
-tiledlayout(length(plot_rois),1,'TileSpacing','compact','padding','compact');
-for curr_roi = plot_rois
-    stim_col = [0,0,1;0.5,0.5,0.5;1,0,0];
-    
-    nexttile; hold on;
-%     % (naive)
-%     AP_errorfill(min(learned_day_unique(plot_learned_day))+[-n_naive:-1], ...
-%         squeeze(stim_roi_tmax_naive_mean(curr_roi,1:n_naive,:)), ...
-%         squeeze(stim_roi_tmax_naive_sem(curr_roi,1:n_naive,:)),stim_col);
-%     % (training)
-%     AP_errorfill(learned_day_unique(plot_learned_day), ...
-%         squeeze(stim_roi_tmax_learn_mean(curr_roi,plot_learned_day,:)), ...
-%         squeeze(stim_roi_tmax_learn_sem(curr_roi,plot_learned_day,:)),stim_col);
+plot_rois = [1,6]; % left, right ROIs will also be plotted
+stim_col = [0,0,1;0.5,0.5,0.5;1,0,0];
+h = tiledlayout(length(plot_rois),2, ...
+    'TileSpacing','compact','padding','compact','TileIndexing','columnmajor');
+for curr_hemi = 1:2
+    for curr_roi = plot_rois
+        
+        curr_roi = curr_roi + (curr_hemi-1)*size(wf_roi,1);
+        nexttile; hold on;
 
-    % (naive)
-    set(gca,'ColorOrder',stim_col);
-    errorbar( ...
-        repmat((min(learned_day_unique(plot_learned_day))+[-n_naive:-1])',1,length(stim_unique)), ...
-        squeeze(stim_roi_tmax_naive_mean(curr_roi,1:n_naive,:)), ...
-        squeeze(stim_roi_tmax_naive_sem(curr_roi,1:n_naive,:)), ...
-        '.','MarkerSize',20','linewidth',2,'capsize',0);
-    % (training)
-    errorbar( ...
-        repmat((learned_day_unique(plot_learned_day))',1,length(stim_unique)), ...
-        squeeze(stim_roi_tmax_learn_mean(curr_roi,plot_learned_day,:)), ...
-        squeeze(stim_roi_tmax_learn_sem(curr_roi,plot_learned_day,:)), ...
-        '.','MarkerSize',20','linewidth',2,'capsize',0);
+        % (naive)
+        set(gca,'ColorOrder',stim_col);
+        errorbar( ...
+            repmat((min(learned_day_unique(plot_learned_day))+[-n_naive:-1])',1,length(stim_unique)), ...
+            squeeze(stim_roi_tmax_naive_mean(curr_roi,1:n_naive,:)), ...
+            squeeze(stim_roi_tmax_naive_sem(curr_roi,1:n_naive,:)), ...
+            '.-','MarkerSize',20','linewidth',2,'capsize',0);
+        % (training)
+        errorbar( ...
+            repmat((learned_day_unique(plot_learned_day))',1,length(stim_unique)), ...
+            squeeze(stim_roi_tmax_learn_mean(curr_roi,plot_learned_day,:)), ...
+            squeeze(stim_roi_tmax_learn_sem(curr_roi,plot_learned_day,:)), ...
+            '.-','MarkerSize',20','linewidth',2,'capsize',0);
 
-    title(wf_roi(curr_roi).area);
-    xlabel('Learned day');
-    ylabel('\DeltaF/F_0');
-    xline(0,'linestyle','--');
-    axis tight;
-    xlim(xlim+[-0.5,0.5]);
-
+        title(wf_roi(curr_roi).area);
+        xlabel('Learned day');
+        ylabel('\DeltaF/F_0');
+        xline(0,'linestyle','--');
+        axis tight;
+        xlim(xlim+[-0.5,0.5]);
+    end
 end
+% (link ROI axes across hemispheres)
+ax = reshape(allchild(h),length(plot_rois),2);
+for curr_roi = 1:length(plot_rois)
+   linkaxes(ax(curr_roi,:),'xy'); 
+end
+
 
 %% ^^ Passive - ROI activity vs behavior
 
 % Get time-max within ROIs across days
-use_t = t >= 0 & t <= 0.15;
+use_t = t >= 0 & t <= 0.2;
 stim_roi_tmax = cellfun(@(x) ...
     permute(max(x(:,use_t,:,:),[],2),[1,3,4,2]), ...
     stim_roi_avg,'uni',false);
@@ -847,17 +847,16 @@ rxn_measured_prct_animal = cellfun(@(rxn,act) ...
 plot_rois = [1,6,7];
 animal_colors = max(brewermap(length(animals),'Set3')-0.2,0);
 figure;
-h = tiledlayout(1,length(plot_rois),'TileSpacing','compact','padding','compact');
+h = tiledlayout(length(plot_rois),1,'TileSpacing','compact','padding','compact');
 for curr_roi = plot_rois
     nexttile; hold on;
     
     set(gca,'ColorOrder',animal_colors);
     % (plot all data as lines)
     p1 = cellfun(@(bhv,act) ...
-        plot(bhv,act(curr_roi,:,stim_unique == 1),'.','MarkerSize',10), ...
+        plot(bhv,act(curr_roi,:,stim_unique == 1),'.','MarkerSize',20), ...
         rxn_measured_prct_animal,stim_roi_tmax);
-    legend([p1(1)],{'Animal'},'location','nw')
-
+    
     % (plot average binned by reaction window percent)
     rxn_prct_cat = cell2mat(rxn_measured_prct_animal);
     act_cat = cell2mat(cellfun(@(x) x(curr_roi,:,stim_unique == 1)', ...
@@ -875,15 +874,7 @@ for curr_roi = plot_rois
 
     p2 = errorbar(rxn_rxnbin_mean,act_rxnbin_mean,act_rxnbin_sem,'k','linewidth',2);
 
-
-%     % (plot day before learning and learned day)
-%     p2 = cellfun(@(bhv,act,ld) ...
-%         plot(bhv(ld-1),act(curr_roi,ld-1,stim_unique == 1),'o','MarkerSize',10), ...
-%         rxn_measured_prct_animal,stim_roi_tmax,num2cell(learned_day+n_naive));
-%     p3 = cellfun(@(bhv,act,ld) ...
-%         plot(bhv(ld),act(curr_roi,ld,stim_unique == 1),'.','MarkerSize',30), ...
-%         rxn_measured_prct_animal,stim_roi_tmax,num2cell(learned_day+n_naive));
-%     legend([p1(1),p2(1),p3(1)],{'Animal','Pre-learn','Learn'},'location','nw')
+    legend([p1(1),p2],{'Animal','Average'},'location','nw')
     xlabel(sprintf('Reaction times %.g-%.g (%%)',rxn_window(1),rxn_window(2)));
     ylabel(sprintf('%s \\DeltaF/F_0',wf_roi(curr_roi).area))
 end
@@ -948,12 +939,15 @@ use_t = t > 0 & t < 0.2;
 whisker_stim_tmax = squeeze(max(whisker_stim_avg(:,use_t,:,:),[],2));
 plot_days = min(sum(~isnan(whisker_stim_tmax),3)) > min_n;
 figure; hold on
-AP_errorfill(learned_day_unique(plot_days), ...
+set(gca,'ColorOrder',stim_col);
+errorbar(repmat(learned_day_unique(plot_days)',1,length(stim_unique)), ...
     nanmean(whisker_stim_tmax(:,plot_days,:),3)', ...
-    AP_sem(whisker_stim_tmax(:,plot_days,:),3)',stim_col);
+    AP_sem(whisker_stim_tmax(:,plot_days,:),3)','linewidth',2,'CapSize',0);
+axis tight;
+xlim(xlim+[-0.5,0.5]);
 xline(0,'color','k','linestyle','--');
 xlabel('Learned day');
-ylabel('Whisker movement')
+ylabel('Whisker movement');
 
 % Plot fluorescence/whisker by discretized whisker movement
 plot_rois = [1,6];
@@ -1191,7 +1185,7 @@ for curr_align = 1:length(use_align)
     end
 end
 
-%% ^^ Task - stim kernels
+%% ^^ Task - event kernels
 
 % Get task>cortex parameters
 n_regressors = length(task_regressor_labels);
@@ -1245,7 +1239,7 @@ for curr_stage = 1:n_learn_stages
     title(sprintf('Stage %d',curr_stage));
     axis image off;
     caxis(c);
-    colormap(brewermap([],'PrGn'));
+    colormap(AP_colormap('PWG'));
     AP_reference_outline('ccf_aligned',[0.5,0.5,0.5]);
     title(h,sprintf('%s kernel, max(%g - %gs)', ...
         task_regressor_labels{stim_regressor},use_t(1),use_t(2)));
@@ -1276,7 +1270,7 @@ roi_act_learn_avg = accumarray( ...
 
 % Plot trial activity
 figure;
-h = tiledlayout(max(trial_learned_stage)+1,length(plot_rois), ...
+h = tiledlayout(2*max(trial_learned_stage)+1,length(plot_rois), ...
     'TileSpacing','compact','padding','compact');
 for curr_stage = 1:max(trial_learned_stage)
     for curr_roi = plot_rois
@@ -1286,9 +1280,9 @@ for curr_stage = 1:max(trial_learned_stage)
         curr_data_sort_smooth = convn(curr_data_sort, ...
             ones(n_trial_smooth,1)./n_trial_smooth,'same');
         
-        nexttile;
+        nexttile([2,1]);
         imagesc(t,[],curr_data_sort_smooth);hold on;
-        colormap(brewermap([],'PrGn'));
+        AP_colormap('KWG');
         c = prctile(reshape(fluor_roi_deconv(:,:,curr_roi),[],1),99).*[-1,1];
         caxis(c);
         xline(0,'color','r');
@@ -1300,7 +1294,7 @@ for curr_stage = 1:max(trial_learned_stage)
 end
 
 % Plot average activity
-stage_col = [0,0,0;1,0,0];
+stage_col = [0.5,0.5,0.5;0,0,0];
 for curr_roi = plot_rois
     hl = nexttile;
     AP_errorfill(t, ...
@@ -1370,27 +1364,28 @@ roi_move_learn_avg = accumarray( ...
     [max(learned_stage_idx(:)),length(t),n_rois,length(animals)], ...
     @nanmean,NaN('single'));
 
-% Plot trial activity and average
+% Plot reduced activity
 for curr_roi = plot_rois
     figure;
-    h = tiledlayout(max(trial_learned_stage)+1,2, ...
+    h = tiledlayout(2*max(trial_learned_stage)+1,2, ...
         'TileSpacing','compact','padding','compact','TileIndexing','columnmajor');
     for curr_event = 1:2
         switch curr_event
             case 1
                 curr_trial_data = fluor_roi_deconv_stim;
                 curr_avg_data = roi_stim_learn_avg;
-                curr_event = 'Stim';
+                curr_event_label = 'Stim';
                 curr_align = zeros(size(fluor_roi_deconv,1),1);
                 curr_cmap = AP_colormap('KWR');
             case 2
                 curr_trial_data = fluor_roi_deconv_move;
                 curr_avg_data = roi_move_learn_avg;
-                curr_event = 'Move';
+                curr_event_label = 'Move';
                 curr_align = move_t;
                 curr_cmap = AP_colormap('KWP');
         end
         
+        % Plot trial activity
         for curr_stage = 1:max(trial_learned_stage)
             use_trials = find(trial_learned_stage == curr_stage);
             [~,sort_idx] = sort(move_t(use_trials));
@@ -1398,7 +1393,7 @@ for curr_roi = plot_rois
             curr_data_sort_smooth = nanconv(curr_data_sort, ...
                 ones(n_trial_smooth,1)./n_trial_smooth);
             
-            nexttile;
+            nexttile([2,1]);
             imagesc(t,[],curr_data_sort_smooth);hold on;
             colormap(gca,curr_cmap);
             c = prctile(reshape(curr_trial_data(:,:,curr_roi),[],1),99).*[-1,1];
@@ -1407,24 +1402,23 @@ for curr_roi = plot_rois
                 1:length(use_trials),'color','r');
             plot(move_t(use_trials(sort_idx)) - curr_align(use_trials(sort_idx)), ...
                 1:length(use_trials),'color',[0.6,0,0.6]);
-            xlabel(sprintf('Time from %s (s)',curr_event));
+            xlabel(sprintf('Time from %s (s)',curr_event_label));
             ylabel('Trial (rxn-time sorted)');
-            title(sprintf('%s, stage %d',curr_event,curr_stage));
+            title(sprintf('%s, stage %d',curr_event_label,curr_stage));
         end
-        
-        stage_col = [0,0,0;curr_cmap(end,:)];
-        for curr_roi = plot_rois
-            hl = nexttile;
-            AP_errorfill(t, ...
-                permute(nanmean(curr_avg_data(:,:,curr_roi,:),4),[2,1,3]), ...
-                permute(AP_sem(curr_avg_data(:,:,curr_roi,:),4),[2,1,3]), ...
-                stage_col);
-            axis tight; xlim(xlim+[-0.1,0.1]);
-            xlabel(sprintf('Time from %s (s)',curr_event));
-            ylabel('\DeltaF/F_0');
-            title(curr_event);
-            xline(0,'linestyle','--');
-        end
+
+        % Plot average
+        stage_col = [min([0.5,0.5,0.5]+curr_cmap(end,:),1);curr_cmap(end,:)];
+        nexttile;
+        AP_errorfill(t, ...
+            permute(nanmean(curr_avg_data(:,:,curr_roi,:),4),[2,1,3]), ...
+            permute(AP_sem(curr_avg_data(:,:,curr_roi,:),4),[2,1,3]), ...
+            stage_col);
+        axis tight; xlim(xlim+[-0.1,0.1]);
+        xlabel(sprintf('Time from %s (s)',curr_event_label));
+        ylabel('\DeltaF/F_0');
+        title(curr_event_label);
+        xline(0,'linestyle','--');
         
         title(h,wf_roi(curr_roi).area);
     end
@@ -1557,18 +1551,25 @@ xt = get(gco,'XData');yt = get(gco,'YData');et = get(gco,'UData');
 % (click passive)
 xp = get(gco,'XData');yp = get(gco,'YData');ep = get(gco,'UData');
 
+% Z-score y/e values
+ytz = yt;(yt - nanmean(yt))./nanstd(yt);
+etz = et;(et)./nanstd(yt);
+
+ypz = yp;(yp - nanmean(yp))./nanstd(yp);
+epz = ep;(ep)./nanstd(yp);
+
 % Get task daysplit
 n_daysplit = mode(diff(find(isnan(yt)))) - 1;
 tp_daysplit_offset = linspace(0,1,n_daysplit+2);
 
 % Re-distribute points: insert passive after active, draw separate line
 xtr = xt(1:n_daysplit+1:end) + tp_daysplit_offset';
-ytr = padarray(reshape(yt,n_daysplit+1,[]),[1,0],NaN,'post');
-etr = padarray(reshape(et,n_daysplit+1,[]),[1,0],NaN,'post');
+ytr = padarray(reshape(ytz,n_daysplit+1,[]),[1,0],NaN,'post');
+etr = padarray(reshape(etz,n_daysplit+1,[]),[1,0],NaN,'post');
 
 xtp = xtr(end-2:end,:);
-ytp = padarray(cat(1,ytr(n_daysplit,:),yp),[1,0],NaN,'post');
-etp = padarray(cat(1,etr(n_daysplit,:),ep),[1,0],NaN,'post');
+ytp = padarray(cat(1,ytr(n_daysplit,:),ypz),[1,0],NaN,'post');
+etp = padarray(cat(1,etr(n_daysplit,:),epz),[1,0],NaN,'post');
 
 figure; hold on;
 % (plot task redistributed with an extra space)
@@ -1577,9 +1578,13 @@ ht = errorbar(xtr(:),ytr(:),etr(:),'k','linewidth',2,'CapSize',0);
 plot(xtp(:),ytp(:),'r','linewidth',2);
 % (plot passive)
 hp = errorbar(xtp(2,:),ytp(2,:),etp(2,:),'r','linestyle','none','linewidth',2,'CapSize',0);
+
+axis tight;
+xlim(xlim + [-0.5,0.5]);
 xline(0,'linestyle','--');
 xlabel('Learned day');
-ylabel('\DeltaF/F_0');
+ylabel('z-scored \DeltaF/F_0');
+
 
 legend([ht,hp],{'Task','Passive'});
 

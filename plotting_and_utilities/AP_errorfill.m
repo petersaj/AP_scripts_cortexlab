@@ -65,18 +65,18 @@ h = gobjects(size(y,2),1);
 for curr_line = 1:size(y,2)
     % Error polygon (separate shapes if NaN breaks)
     if ~any(isnan(ye_pos(:,curr_line)))
-        fill([x;flipud(x)], ...
+        h_fill = fill([x;flipud(x)], ...
             [ye_pos(:,curr_line);flipud(ye_neg(:,curr_line))], ...
-            color(curr_line,:),'FaceAlpha',alpha,'EdgeColor','none')
+            color(curr_line,:),'FaceAlpha',alpha,'EdgeColor','none');
     else
         fill_starts = [find(diff([true;isnan(ye_pos(:,curr_line))]) == -1)];
         fill_stops = [find(diff(isnan(ye_pos(:,curr_line))) == 1); ...
             find(~isnan(ye_pos(:,curr_line)),1,'last')];
         for curr_fill = 1:length(fill_starts)
             curr_idx = fill_starts(curr_fill):fill_stops(curr_fill);
-            fill([x(curr_idx);flipud(x(curr_idx))], ...
+            h_fill = fill([x(curr_idx);flipud(x(curr_idx))], ...
                 [ye_pos(curr_idx,curr_line);flipud(ye_neg(curr_idx,curr_line))], ...
-                color(curr_line,:),'FaceAlpha',alpha,'EdgeColor','none')
+                color(curr_line,:),'FaceAlpha',alpha,'EdgeColor','none');
         end
     end
 
@@ -84,6 +84,9 @@ for curr_line = 1:size(y,2)
     if plot_mean
         h(curr_line) = plot(x,y(:,curr_line), ...
             'color',color(curr_line,:),'linewidth',linewidth);
+    else
+        % (if no central line, set the fill as the handle)
+        h(curr_line) = h_fill(1);
     end
 end
 

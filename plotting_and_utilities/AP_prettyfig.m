@@ -50,11 +50,6 @@ for curr_ax = 1:length(fig_ax)
         fig_ax(curr_ax).YAxis.Exponent = 0;      
     catch me
     end
-    
-    % Turn off legend boxes
-    if strcmp(get(fig_ax(curr_ax),'type'),'legend')
-        set(fig_ax(curr_ax),'box','off');
-    end
 
     % Powerpoint: transparency doesn't copy, so keep color and make opaque
     if strcmp(format_type,'ppt')
@@ -63,7 +58,7 @@ for curr_ax = 1:length(fig_ax)
             try
                 old_transparency = get(ax_objs(curr_obj),'FaceAlpha');
                 old_color = get(ax_objs(curr_obj),'FaceColor');
-                new_color = old_color+((1-old_color)*old_transparency);
+                new_color = old_color+((1-old_color)*(1-old_transparency));
                 set(ax_objs(curr_obj),'FaceColor',new_color);
                 set(ax_objs(curr_obj),'FaceAlpha',1);
             catch me
@@ -72,5 +67,10 @@ for curr_ax = 1:length(fig_ax)
     end
 end
 
+% Turn off legend boxes
+fig_child_legend_idx = strcmp(fig_child_type,'legend');
+for curr_legend = find(fig_child_legend_idx)
+    set(fig_child(curr_legend),'box','off');
+end
 
 
