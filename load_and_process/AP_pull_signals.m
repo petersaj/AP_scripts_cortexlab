@@ -219,6 +219,7 @@ switch expDef
         contrasts = unique(signals_events.stimContrastValues);
         azimuths = unique(signals_events.stimAzimuthValues);
         
+        clear conditions
         [conditions(:,:,1),conditions(:,:,2)] = ndgrid(contrasts,azimuths);
         conditions = reshape(conditions,[],2);
         n_conditions = size(conditions,1);
