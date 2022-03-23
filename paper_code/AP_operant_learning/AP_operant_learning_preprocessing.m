@@ -470,6 +470,7 @@ figure;
 imagesc(learned_days_padcat,'AlphaData',~isnan(learned_days_padcat));
 set(gca,'Color','r')
 title(sprintf('Frac reaction times %.2f-%.2f',rxn_window(1),rxn_window(2)));
+set(gca,'XTick',1:length({bhv.animal}),'XTickLabel',{bhv.animal})
 xlabel('Animal');
 ylabel('Day');
 

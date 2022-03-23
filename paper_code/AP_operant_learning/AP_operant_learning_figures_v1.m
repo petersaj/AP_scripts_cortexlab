@@ -409,7 +409,7 @@ rxn_alt_hist_ci = ...
     [5,95],1),1:n_conditions,'uni',false);
 
 figure;
-h = tiledlayout(2,n_conditions,'TileSpacing','compact','padding','compact');
+h = tiledlayout(1,n_conditions,'TileSpacing','compact','padding','compact');
 for curr_cond = 1:n_conditions
     nexttile; hold on
     AP_errorfill(rxn_bin_centers,nanmean(nanmean(cat(3,rxn_alt_hist{1,:}),3),1), ...
@@ -426,20 +426,10 @@ for curr_cond = 1:n_conditions
 end
 linkaxes(allchild(h),'xy');
 
-% Plot stim-aligned wheel movement
-muscimol_stim_wheel_avg = ...
-    arrayfun(@(cond) cell2mat(cellfun(@(x) ...
-    nanmean(x,1),muscimol_v1_stim_surround_wheel(:,cond),'uni',false)), ...
-    1:n_conditions,'uni',false);
-nexttile;
-AP_errorfill(bhv(1).stim_surround_t', ...
-    cell2mat(cellfun(@(x) nanmean(x,1)',muscimol_stim_wheel_avg,'uni',false)), ...
-    cell2mat(cellfun(@(x) AP_sem(x,1)',muscimol_stim_wheel_avg,'uni',false)));
-xline(0,'linestyle','--');
-xlabel('Time from stim (s)');
-ylabel('Probability of movement');
+% Plot stim-aligned wheel movement and total velocity
+figure;
+h = tiledlayout(1,2);
 
-% Plot total velocity
 nexttile;
 errorbar(nanmean(muscimol_v1_wheel_mm,1), ...
     AP_sem(muscimol_v1_wheel_mm,1),'k','linewidth',2);
@@ -447,6 +437,19 @@ xlim(xlim+[-0.5,0.5]);
 ylim([0,max(ylim)])
 set(gca,'XTick',1:n_conditions,'XTickLabel',condition_labels);
 ylabel('Wheel mm/min');
+
+muscimol_stim_wheel_avg = ...
+    arrayfun(@(cond) cell2mat(cellfun(@(x) ...
+    nanmean(x,1),muscimol_v1_stim_surround_wheel(:,cond),'uni',false)), ...
+    1:n_conditions,'uni',false);
+nexttile;
+p = AP_errorfill(bhv(1).stim_surround_t', ...
+    cell2mat(cellfun(@(x) nanmean(x,1)',muscimol_stim_wheel_avg,'uni',false)), ...
+    cell2mat(cellfun(@(x) AP_sem(x,1)',muscimol_stim_wheel_avg,'uni',false)));
+xline(0,'linestyle','--');
+xlabel('Time from stim (s)');
+ylabel('Probability of movement');
+legend(p,condition_labels);
 
 % Plot fraction of reaction times within window
 rxn_window = bhv(1).learned_days_rxn_window;
@@ -466,6 +469,19 @@ xlim([0,n_conditions] + 0.5);
 ylim([0,100]);
 set(gca,'XTick',1:n_conditions,'XTickLabel',condition_labels);
 ylabel('Fast reaction times (%)')
+
+
+% Get fraction of muscimol days with significant fast reaction times
+muscimol_learned_days = ...
+    cell2mat(cellfun(@(ld,use_days) ld(use_days), ...
+    {bhv.learned_days},use_days,'uni',false))';
+figure;
+imagesc(muscimol_learned_days);
+colormap(gray);
+set(gca,'XTick',1:n_conditions,'XTickLabel',condition_labels, ...
+    'YTick',1:length({bhv.animal}),'YTickLabel',{bhv.animal});
+title('% Reaction times sig.');
+
 
 
 %% Whisker movement (passive)
@@ -1087,7 +1103,7 @@ outcome_align = outcome_idx - leeway_samples;
 % Set windows to average activity
 use_align_labels = {'Stim','Move','Outcome'};
 use_align = {stim_align,move_align,outcome_align};
-plot_t = {[0,0.05,0.1],[0,0.05,0.1],[0,0.1]};
+plot_t = [0,0.05,0.1];
 
 % Get averaging indicies
 [learned_idx,t_idx,v_idx] = ...
@@ -1097,7 +1113,7 @@ plot_t = {[0,0.05,0.1],[0,0.05,0.1],[0,0.1]};
 
 % Loop through alignments and get pixels
 align_px = cellfun(@(x) nan(size(U_master,1),size(U_master,2),length(x)), ...
-    plot_t,'uni',false);
+    use_align,'uni',false);
 for curr_align = 1:length(use_align)
     
     % (re-align activity)
@@ -1123,7 +1139,7 @@ for curr_align = 1:length(use_align)
     % (animal average the last training stage defined above)
     curr_v_align_avg_t = ...
         interp1(t,nanmean(curr_v_align_avg(:,:,end,:),4)', ...
-        plot_t{curr_align},'previous')';
+        plot_t,'previous')';
       
     curr_px_align_avg_t = svdFrameReconstruct(U_master(:,:,1:n_vs), ...
         curr_v_align_avg_t);
@@ -1135,16 +1151,16 @@ end
 % Plot pixels
 c = prctile(reshape(cat(3,align_px{:}),[],1),99)*[-1,1];
 figure;
-p = tiledlayout(1,length(cell2mat(plot_t)),'TileSpacing','compact','padding','compact');
+p = tiledlayout(1,length(cell2mat(use_align)),'TileSpacing','compact','padding','compact');
 for curr_align = 1:length(use_align)   
-    for curr_plot_t = 1:length(plot_t{curr_align})
+    for curr_plot_t = 1:length(plot_t)
         nexttile
         imagesc(align_px{curr_align}(:,:,curr_plot_t));
         AP_reference_outline('ccf_aligned',[0.5,0.5,0.5]);
         axis image off;
         colormap(AP_colormap('KWG'));
         caxis(c);
-        title([use_align_labels{curr_align} ': ' num2str(plot_t{curr_align}(curr_plot_t)) ' sec']);
+        title([use_align_labels{curr_align} ': ' num2str(plot_t(curr_plot_t)) ' sec']);
     end
 end
 

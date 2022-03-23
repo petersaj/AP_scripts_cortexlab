@@ -409,7 +409,7 @@ rxn_alt_hist_ci = ...
     [5,95],1),1:n_conditions,'uni',false);
 
 figure;
-h = tiledlayout(2,n_conditions,'TileSpacing','compact','padding','compact');
+h = tiledlayout(1,n_conditions,'TileSpacing','compact','padding','compact');
 for curr_cond = 1:n_conditions
     nexttile; hold on
     AP_errorfill(rxn_bin_centers,nanmean(nanmean(cat(3,rxn_alt_hist{1,:}),3),1), ...
@@ -426,20 +426,10 @@ for curr_cond = 1:n_conditions
 end
 linkaxes(allchild(h),'xy');
 
-% Plot stim-aligned wheel movement
-muscimol_stim_wheel_avg = ...
-    arrayfun(@(cond) cell2mat(cellfun(@(x) ...
-    nanmean(x,1),muscimol_v1_stim_surround_wheel(:,cond),'uni',false)), ...
-    1:n_conditions,'uni',false);
-nexttile;
-AP_errorfill(bhv(1).stim_surround_t', ...
-    cell2mat(cellfun(@(x) nanmean(x,1)',muscimol_stim_wheel_avg,'uni',false)), ...
-    cell2mat(cellfun(@(x) AP_sem(x,1)',muscimol_stim_wheel_avg,'uni',false)));
-xline(0,'linestyle','--');
-xlabel('Time from stim (s)');
-ylabel('Probability of movement');
+% Plot stim-aligned wheel movement and total velocity
+figure;
+h = tiledlayout(1,2);
 
-% Plot total velocity
 nexttile;
 errorbar(nanmean(muscimol_v1_wheel_mm,1), ...
     AP_sem(muscimol_v1_wheel_mm,1),'k','linewidth',2);
@@ -447,6 +437,19 @@ xlim(xlim+[-0.5,0.5]);
 ylim([0,max(ylim)])
 set(gca,'XTick',1:n_conditions,'XTickLabel',condition_labels);
 ylabel('Wheel mm/min');
+
+muscimol_stim_wheel_avg = ...
+    arrayfun(@(cond) cell2mat(cellfun(@(x) ...
+    nanmean(x,1),muscimol_v1_stim_surround_wheel(:,cond),'uni',false)), ...
+    1:n_conditions,'uni',false);
+nexttile;
+p = AP_errorfill(bhv(1).stim_surround_t', ...
+    cell2mat(cellfun(@(x) nanmean(x,1)',muscimol_stim_wheel_avg,'uni',false)), ...
+    cell2mat(cellfun(@(x) AP_sem(x,1)',muscimol_stim_wheel_avg,'uni',false)));
+xline(0,'linestyle','--');
+xlabel('Time from stim (s)');
+ylabel('Probability of movement');
+legend(p,condition_labels);
 
 % Plot fraction of reaction times within window
 rxn_window = bhv(1).learned_days_rxn_window;
@@ -466,6 +469,9 @@ xlim([0,n_conditions] + 0.5);
 ylim([0,100]);
 set(gca,'XTick',1:n_conditions,'XTickLabel',condition_labels);
 ylabel('Fast reaction times (%)')
+
+
+% Get fraction of days
 
 
 %% Whisker movement (passive)
@@ -593,7 +599,7 @@ stim_px_avg_stage = AP_svdFrameReconstruct(U_master(:,:,1:n_vs),nanmean(stim_v_a
 AP_image_scroll(reshape(permute(stim_px_avg_stage, ...
     [1,4,2,5,3]),size(U_master,1)*3,size(U_master,2)*3,length(t)),t);
 axis image off;
-colormap(brewermap([],'PrGn'));
+colormap(AP_colormap('KWG'));
 caxis([-max(abs(caxis)),max(abs(caxis))]);
 
 use_t = t >= 0 & t <= 0.2;
@@ -609,7 +615,7 @@ for curr_stage = 1:3
         imagesc(stim_px_avg_stage_tmax(:,:,curr_stage,curr_stim));
         axis image off;
         AP_reference_outline('ccf_aligned',[0.5,0.5,0.5]);
-        colormap(brewermap([],'PrGn'));
+        colormap(AP_colormap('KWG'));
         caxis(c);
         title(sprintf('Stage %d, stim %d',curr_stage,curr_stim));
     end
@@ -625,7 +631,7 @@ for curr_stage = 1:3
         imagesc(stim_px_avg_stage_tmax(:,:,curr_stage,curr_stim));
         axis image off;
         AP_reference_outline('ccf_aligned',[0.5,0.5,0.5]);
-        colormap(brewermap([],'Greens'));
+        colormap(AP_colormap('WG'));
         set(gca,'colorscale','log');
         caxis(c)
         title(sprintf('Stage %d, stim %d',curr_stage,curr_stim));
@@ -1142,7 +1148,7 @@ for curr_align = 1:length(use_align)
         imagesc(align_px{curr_align}(:,:,curr_plot_t));
         AP_reference_outline('ccf_aligned',[0.5,0.5,0.5]);
         axis image off;
-        colormap(brewermap([],'PrGn'));
+        colormap(AP_colormap('KWG'));
         caxis(c);
         title([use_align_labels{curr_align} ': ' num2str(plot_t{curr_align}(curr_plot_t)) ' sec']);
     end
@@ -1202,7 +1208,7 @@ for curr_stage = 1:n_learn_stages
     title(sprintf('Stage %d',curr_stage));
     axis image off;
     caxis(c);
-    colormap(brewermap([],'PrGn'));
+    colormap(AP_colormap('KWG'));
     AP_reference_outline('ccf_aligned',[0.5,0.5,0.5]);
     title(h,sprintf('%s kernel, max(%g - %gs)', ...
         task_regressor_labels{stim_regressor},use_t(1),use_t(2)));
@@ -1246,7 +1252,7 @@ for curr_stage = 1:max(trial_learned_stage)
         
         nexttile([2,1]);
         imagesc(t,[],curr_data_sort_smooth);hold on;
-        colormap(brewermap([],'PrGn'));
+        colormap(AP_colormap('KWG'));
         c = prctile(reshape(fluor_roi_deconv(:,:,curr_roi),[],1),99).*[-1,1];
         caxis(c);
         xline(0,'color','r');
@@ -1372,7 +1378,7 @@ for curr_roi = plot_rois
         end
 
         % Plot average
-        stage_col = [min([0.5,0.5,0.5]+curr_cmap(end,:),1);curr_cmap(end,:)];
+        stage_col = curr_cmap(end-round(prctile(1:((size(curr_cmap,1)-1)/2),[75,25])),:);
         nexttile;
         AP_errorfill(t, ...
             permute(nanmean(curr_avg_data(:,:,curr_roi,:),4),[2,1,3]), ...
@@ -1433,7 +1439,7 @@ stim_roi_act = stim_roi_act(use_trials,:,:);
 % a = AP_svdFrameReconstruct(U_master(:,:,1:n_vs),permute(curr_v,[3,2,1]));
 % AP_image_scroll(a,t); axis image;
 % caxis(max(abs(caxis))*[-1,1]);
-% colormap(brewermap([],'PrGn'));
+% colormap(AP_colormap('KWG'));
 % AP_reference_outline('ccf_aligned',[0.5,0.5,0.5]);
 
 %%%%%%%%%%%%%%%%%
@@ -1762,7 +1768,7 @@ stim_v_avg_stage = cat(5,stim_v_avg{:});
 stim_px_avg_stage = AP_svdFrameReconstruct(U_master(:,:,1:n_vs),squeeze(nanmean(stim_v_avg_stage(:,:,:,3,:),5)));
 AP_image_scroll(reshape(permute(stim_px_avg_stage,[1,2,4,3]),size(U_master,1),[],length(t)),t);
 axis image off;
-colormap(brewermap([],'PrGn'));
+colormap(AP_colormap('KWG'));
 caxis([-max(abs(caxis)),max(abs(caxis))]);
 
 use_t = t >= 0.05 & t <= 0.2;
@@ -1778,7 +1784,7 @@ for curr_stage = 1:2
         imagesc(stim_px_avg_stage_tmax(:,:,curr_stage,curr_stim));
         axis image off;
         AP_reference_outline('ccf_aligned',[0.5,0.5,0.5]);
-        colormap(brewermap([],'PrGn'));
+        colormap(AP_colormap('KWG'));
         caxis(c);
         title(sprintf('Stage %d, stim %d',curr_stage,curr_stim));
     end
@@ -1955,8 +1961,7 @@ figure;
 imagesc(stim_px);
 axis image off
 caxis(max(caxis)*0.5*[-1,1])
-colormap(brewermap([],'Greens'));
-colormap(AP_colormap('
+colormap(AP_colormap('WG'));
 set(gca,'ColorScale','log');
 AP_reference_outline('ccf_aligned',[0.5,0.5,0.5]);
 AP_reference_outline('grid_aligned',[0.8,0.8,0.8]);
