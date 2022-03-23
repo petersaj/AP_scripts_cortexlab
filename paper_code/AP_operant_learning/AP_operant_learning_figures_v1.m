@@ -4,27 +4,16 @@
 %% Plot example performance
 
 animal = 'AP106';
-% protocol = 'AP_stimWheelRight';
-% experiments = AP_find_experiments(animal,protocol);
-% plot_days = [1,3,7];
+protocol = 'AP_stimWheelRight';
+experiments = AP_find_experiments(animal,protocol);
+plot_days = [1,3,7];
 
-% (TEMPORARY: while zubjects is super slow)
-days = {'2021-06-17','2021-06-21','2021-06-25'};
-plot_days = 1:3;
-%%%%%%%%%%%
-
-h = tiledlayout(1,length(plot_days),'TileSpacing','compact','padding','compact');
+h = tiledlayout(length(plot_days),1,'TileSpacing','compact','padding','compact');
 for curr_day = plot_days
  
-%     day = experiments(curr_day).day;
-%     experiment = experiments(curr_day).experiment;
+    day = experiments(curr_day).day;
+    experiment = experiments(curr_day).experiment;
 
-%%%%% (temporary)
-day = days{curr_day};
-experiment = 1;
-%%%%%%%%%%
-    
-    experiment = 1;
     load_parts.imaging = false;
     AP_load_experiment;
     
@@ -571,7 +560,6 @@ stim_unique = unique(trial_stim_allcat);
 learned_day_unique = unique(trial_learned_day)';
 [~,trial_learned_day_id] = ismember(trial_learned_day,learned_day_unique);
 
-
 % Get average fluorescence by animal/day/stim
 stim_v_avg = cell(length(animals),1);
 stim_roi_avg = cell(length(animals),1);
@@ -603,12 +591,12 @@ stim_v_avg_stage = cell2mat(permute(cellfun(@(x,ld) ...
 
 stim_px_avg_stage = AP_svdFrameReconstruct(U_master(:,:,1:n_vs),nanmean(stim_v_avg_stage,5));
 AP_image_scroll(reshape(permute(stim_px_avg_stage, ...
-    [1,4,2,5,3]),size(U_master,1)*3,size(U_master,2)*3,length(t)));
+    [1,4,2,5,3]),size(U_master,1)*3,size(U_master,2)*3,length(t)),t);
 axis image off;
-colormap(brewermap([],'PrGn'));
+colormap(AP_colormap('KWG'));
 caxis([-max(abs(caxis)),max(abs(caxis))]);
 
-use_t = t >= 0 & t <= 0.5;
+use_t = t >= 0 & t <= 0.2;
 stim_px_avg_stage_tmax = ...
     squeeze(max(stim_px_avg_stage(:,:,use_t,:,:),[],3));
 
@@ -621,7 +609,7 @@ for curr_stage = 1:3
         imagesc(stim_px_avg_stage_tmax(:,:,curr_stage,curr_stim));
         axis image off;
         AP_reference_outline('ccf_aligned',[0.5,0.5,0.5]);
-        colormap(brewermap([],'PrGn'));
+        colormap(AP_colormap('KWG'));
         caxis(c);
         title(sprintf('Stage %d, stim %d',curr_stage,curr_stim));
     end
@@ -637,7 +625,7 @@ for curr_stage = 1:3
         imagesc(stim_px_avg_stage_tmax(:,:,curr_stage,curr_stim));
         axis image off;
         AP_reference_outline('ccf_aligned',[0.5,0.5,0.5]);
-        colormap(brewermap([],'Greens'));
+        colormap(AP_colormap('WG'));
         set(gca,'colorscale','log');
         caxis(c)
         title(sprintf('Stage %d, stim %d',curr_stage,curr_stim));
@@ -660,7 +648,8 @@ stim_roi_avg_stage = cell2mat(permute(cellfun(@(x,ld) ...
 
 figure;
 plot_rois = [1,6];
-stage_col = [0,0,0;1,0,0;0,0.7,0];
+plot_stages = 2:3;
+stage_col = [0.5,0.5,0.8;0.5,0.5,0.5;0,0,0];
 h = tiledlayout(length(plot_rois),3,'TileSpacing','compact','padding','compact');
 for curr_l_roi = plot_rois
     curr_r_roi = curr_l_roi + size(wf_roi,1);
@@ -673,8 +662,8 @@ for curr_l_roi = plot_rois
     % (plot left ROI w/ right stim)
     nexttile;
     AP_errorfill(t, ...
-        squeeze(nanmean(stim_roi_avg_stage(curr_l_roi,:,:,stim_unique == 1,:),5)), ...
-        squeeze(AP_sem(stim_roi_avg_stage(curr_l_roi,:,:,stim_unique == 1,:),5)),stage_col);
+        squeeze(nanmean(stim_roi_avg_stage(curr_l_roi,:,plot_stages,stim_unique == 1,:),5)), ...
+        squeeze(AP_sem(stim_roi_avg_stage(curr_l_roi,:,plot_stages,stim_unique == 1,:),5)),stage_col(plot_stages,:));
     xlabel('Time from stim (s)');
     ylabel('\DeltaF/F_0');
     title(wf_roi(curr_l_roi).area);
@@ -684,8 +673,8 @@ for curr_l_roi = plot_rois
     % (plot left/center ROI w/ center stim)
     nexttile;
     AP_errorfill(t, ...
-        squeeze(nanmean(stim_roi_avg_stage(curr_c_roi,:,:,stim_unique == 0,:),5)), ...
-        squeeze(AP_sem(stim_roi_avg_stage(curr_c_roi,:,:,stim_unique == 0,:),5)),stage_col);
+        squeeze(nanmean(stim_roi_avg_stage(curr_c_roi,:,plot_stages,stim_unique == 0,:),5)), ...
+        squeeze(AP_sem(stim_roi_avg_stage(curr_c_roi,:,plot_stages,stim_unique == 0,:),5)),stage_col(plot_stages,:));
     xlabel('Time from stim (s)');
     ylabel('\DeltaF/F_0');
     title(wf_roi(curr_c_roi).area);
@@ -695,8 +684,8 @@ for curr_l_roi = plot_rois
     % (plot right ROI with left stim)
     nexttile;
     AP_errorfill(t, ...
-        squeeze(nanmean(stim_roi_avg_stage(curr_r_roi,:,:,stim_unique == -1,:),5)), ...
-        squeeze(AP_sem(stim_roi_avg_stage(curr_r_roi,:,:,stim_unique == -1,:),5)),stage_col);
+        squeeze(nanmean(stim_roi_avg_stage(curr_r_roi,:,plot_stages,stim_unique == -1,:),5)), ...
+        squeeze(AP_sem(stim_roi_avg_stage(curr_r_roi,:,plot_stages,stim_unique == -1,:),5)),stage_col(plot_stages,:));
     xlabel('Time from stim (s)');
     ylabel('\DeltaF/F_0');
     title(wf_roi(curr_r_roi).area);
@@ -709,32 +698,6 @@ for curr_roi = 1:length(plot_rois)
    linkaxes(ax(:,curr_roi),'xy'); 
 end
 
-% Plot all trials (by stage)
-plot_rois = [1,6];
-trial_learned_stage = discretize(trial_learned_day,[-Inf,0,Inf]);
-n_trial_smooth = 20;
-
-figure;
-tiledlayout(2,length(plot_rois),'TileSpacing','compact','padding','compact');
-for curr_roi = plot_rois
-    for curr_stage = 1:max(trial_learned_stage)
-        use_trials = trial_stim_allcat == 1 & ...
-            trial_learned_stage == curr_stage & quiescent_trials;
-        
-        curr_data = fluor_roi_deconv(use_trials,:,curr_roi);
-        curr_data_smooth = convn(curr_data, ...
-            ones(n_trial_smooth,1)./n_trial_smooth,'same');
-        
-        nexttile;
-        imagesc(t,[],curr_data_smooth);hold on;
-        colormap(brewermap([],'PrGn'));
-        caxis(max(caxis)*[-1,1])
-        xline(0,'color','r');
-        xlabel('Time from stim (s)');
-        ylabel('Trial');
-        title(sprintf('%s, stage %d',wf_roi(curr_roi).area,curr_stage));
-    end
-end
 
 %% ^^ Passive - ROIs across days
 
@@ -1179,7 +1142,7 @@ for curr_align = 1:length(use_align)
         imagesc(align_px{curr_align}(:,:,curr_plot_t));
         AP_reference_outline('ccf_aligned',[0.5,0.5,0.5]);
         axis image off;
-        colormap(brewermap([],'PrGn'));
+        colormap(AP_colormap('KWG'));
         caxis(c);
         title([use_align_labels{curr_align} ': ' num2str(plot_t{curr_align}(curr_plot_t)) ' sec']);
     end
@@ -1221,7 +1184,7 @@ fluor_taskpred_px_stage_avg = cellfun(@(x) ...
     fluor_taskpred_k_stage_avg,'uni',false);
 
 % Plot stim kernel pre/post learning (within time)
-use_t = [0,0.15];
+use_t = [0,0.2];
 
 stim_regressor = strcmp(task_regressor_labels,'Stim');
 use_t_idx = task_regressor_t_shifts{stim_regressor} >= use_t(1) & ...
@@ -1239,11 +1202,12 @@ for curr_stage = 1:n_learn_stages
     title(sprintf('Stage %d',curr_stage));
     axis image off;
     caxis(c);
-    colormap(AP_colormap('PWG'));
+    colormap(AP_colormap('KWG'));
     AP_reference_outline('ccf_aligned',[0.5,0.5,0.5]);
     title(h,sprintf('%s kernel, max(%g - %gs)', ...
         task_regressor_labels{stim_regressor},use_t(1),use_t(2)));
 end
+
 
 %% ^^ Task - trial and average activity
 
@@ -1282,7 +1246,7 @@ for curr_stage = 1:max(trial_learned_stage)
         
         nexttile([2,1]);
         imagesc(t,[],curr_data_sort_smooth);hold on;
-        AP_colormap('KWG');
+        colormap(AP_colormap('KWG'));
         c = prctile(reshape(fluor_roi_deconv(:,:,curr_roi),[],1),99).*[-1,1];
         caxis(c);
         xline(0,'color','r');
@@ -1408,7 +1372,7 @@ for curr_roi = plot_rois
         end
 
         % Plot average
-        stage_col = [min([0.5,0.5,0.5]+curr_cmap(end,:),1);curr_cmap(end,:)];
+        stage_col = curr_cmap(end-round(prctile(1:((size(curr_cmap,1)-1)/2),[75,25])),:);
         nexttile;
         AP_errorfill(t, ...
             permute(nanmean(curr_avg_data(:,:,curr_roi,:),4),[2,1,3]), ...
@@ -1469,7 +1433,7 @@ stim_roi_act = stim_roi_act(use_trials,:,:);
 % a = AP_svdFrameReconstruct(U_master(:,:,1:n_vs),permute(curr_v,[3,2,1]));
 % AP_image_scroll(a,t); axis image;
 % caxis(max(abs(caxis))*[-1,1]);
-% colormap(brewermap([],'PrGn'));
+% colormap(AP_colormap('KWG'));
 % AP_reference_outline('ccf_aligned',[0.5,0.5,0.5]);
 
 %%%%%%%%%%%%%%%%%
@@ -1798,7 +1762,7 @@ stim_v_avg_stage = cat(5,stim_v_avg{:});
 stim_px_avg_stage = AP_svdFrameReconstruct(U_master(:,:,1:n_vs),squeeze(nanmean(stim_v_avg_stage(:,:,:,3,:),5)));
 AP_image_scroll(reshape(permute(stim_px_avg_stage,[1,2,4,3]),size(U_master,1),[],length(t)),t);
 axis image off;
-colormap(brewermap([],'PrGn'));
+colormap(AP_colormap('KWG'));
 caxis([-max(abs(caxis)),max(abs(caxis))]);
 
 use_t = t >= 0.05 & t <= 0.2;
@@ -1814,7 +1778,7 @@ for curr_stage = 1:2
         imagesc(stim_px_avg_stage_tmax(:,:,curr_stage,curr_stim));
         axis image off;
         AP_reference_outline('ccf_aligned',[0.5,0.5,0.5]);
-        colormap(brewermap([],'PrGn'));
+        colormap(AP_colormap('KWG'));
         caxis(c);
         title(sprintf('Stage %d, stim %d',curr_stage,curr_stim));
     end
@@ -1991,7 +1955,8 @@ figure;
 imagesc(stim_px);
 axis image off
 caxis(max(caxis)*0.5*[-1,1])
-colormap(brewermap([],'PrGn'));
+colormap(AP_colormap('WG'));
+set(gca,'ColorScale','log');
 AP_reference_outline('ccf_aligned',[0.5,0.5,0.5]);
 AP_reference_outline('grid_aligned',[0.8,0.8,0.8]);
 

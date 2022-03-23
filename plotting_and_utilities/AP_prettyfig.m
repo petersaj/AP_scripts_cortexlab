@@ -19,11 +19,24 @@ curr_fig.Color = 'w';
 fig_child = allchild(curr_fig);
 fig_child_type = get(fig_child,'type');
 
-fig_child_ax_idx = strcmp(fig_child_type,'axes');
 fig_child_tiledlayout_idx = strcmp(fig_child_type,'tiledlayout');
+if any(fig_child_tiledlayout_idx)
+    % If tiledlayout
+    fig_tiledlayout_child = allchild(fig_child(fig_child_tiledlayout_idx));
+    fig_tiledlayout_child_type = get(fig_tiledlayout_child,'type');
+    fig_child_ax_idx = strcmp(fig_tiledlayout_child_type,'axes');
+    fig_ax = fig_tiledlayout_child(fig_child_ax_idx);
 
-fig_ax = [fig_child(fig_child_ax_idx); ...
-    allchild(fig_child(fig_child_tiledlayout_idx))];
+    fig_child_legend_idx = strcmp(fig_tiledlayout_child_type,'legend');
+    fig_legend = fig_tiledlayout_child(fig_child_legend_idx);
+else
+    % If regular axes / subplots
+    fig_child_ax_idx = strcmp(fig_child_type,'axes');
+    fig_ax = fig_child(fig_child_ax_idx);
+
+    fig_child_legend_idx = strcmp(fig_child_type,'legend');
+    fig_legend = fig_child(fig_child_legend_idx);
+end
 
 % Loop through axes
 for curr_ax = 1:length(fig_ax)
@@ -68,9 +81,8 @@ for curr_ax = 1:length(fig_ax)
 end
 
 % Turn off legend boxes
-fig_child_legend_idx = strcmp(fig_child_type,'legend');
-for curr_legend = find(fig_child_legend_idx)
-    set(fig_child(curr_legend),'box','off');
+for curr_legend = 1:length(fig_legend)
+    set(fig_legend(curr_legend),'box','off');
 end
 
 
