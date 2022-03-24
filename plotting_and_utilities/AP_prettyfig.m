@@ -51,7 +51,7 @@ for curr_ax = 1:length(fig_ax)
         
         tick_fontsize = 10; % axis tick font size
         fig_ax(curr_ax).XAxis.FontSize = tick_fontsize;
-        fig_ax(curr_ax).YAxis.FontSize = tick_fontsize;
+        [fig_ax(curr_ax).YAxis.FontSize] = deal(tick_fontsize);
         
         axis_fontsize = 14; % axis label font size
         fig_ax(curr_ax).FontSize = axis_fontsize;
@@ -59,9 +59,10 @@ for curr_ax = 1:length(fig_ax)
         fig_ax(curr_ax).YLabel.FontSize = axis_fontsize;
         
         % remove axis exponent labels
-        fig_ax(curr_ax).XAxis.Exponent = 0; 
-        fig_ax(curr_ax).YAxis.Exponent = 0;      
+        fig_ax(curr_ax).XAxis.Exponent = 0;
+        [fig_ax(curr_ax).YAxis.Exponent] = deal(0);
     catch me
+        warning(me.message)
     end
 
     % Powerpoint: transparency doesn't copy, so keep color and make opaque

@@ -161,9 +161,10 @@ xlabel('Reaction time');
 ylabel('Probability');
 legend({'Null','Measured'});
 
-% Plot fraction of reaction times within window: whole day
+% Set window for "fast" reaction times
 rxn_window = bhv(1).learned_days_rxn_window;
 
+% Plot fraction of reaction times within window: whole day
 rxn_measured_prct = accumarray(trial_split_idx_cat(:,2:end), ...
     rxn_measured_cat >= rxn_window(1) & ...
     rxn_measured_cat <= rxn_window(2), ...
@@ -188,8 +189,6 @@ xlim(xlim + [-0.5,0.5]);
 ylim([0,100]);
 
 % Plot fraction of reaction times within window: daysplit
-rxn_window = bhv(1).learned_days_rxn_window;
-
 rxn_measured_prct_daysplit = accumarray(trial_split_idx_cat, ...
     rxn_measured_cat >= rxn_window(1) & ...
     rxn_measured_cat <= rxn_window(2), ...
@@ -857,6 +856,57 @@ for curr_roi = plot_rois
     xlabel(sprintf('Reaction times %.g-%.g (%%)',rxn_window(1),rxn_window(2)));
     ylabel(sprintf('%s \\DeltaF/F_0',wf_roi(curr_roi).area))
 end
+
+%% ^^ Passive - ROI activity on day X vs. X+1
+
+% Get time-max within ROIs across days
+use_t = t >= 0 & t <= 0.2;
+stim_roi_tmax = cellfun(@(x) ...
+    permute(max(x(:,use_t,:,:),[],2),[1,3,4,2]), ...
+    stim_roi_avg,'uni',false);
+
+% % (to z-score?)
+% stim_roi_tmax = cellfun(@(x) (x-nanmean(x,2))./nanstd(x,[],2),stim_roi_tmax,'uni',false);
+
+
+
+plot_roi = 6;
+
+figure; hold on;
+animal_col = max(0,jet(length(animals))-0.2);
+set(gca,'ColorOrder',animal_col);
+% (plot all days X,X+1)
+p1 = cellfun(@(x) plot(x(plot_roi,1:end-1,3),x(plot_roi,2:end,3),'.','MarkerSize',15),stim_roi_tmax);
+% (plot learned days as circles)
+p2 = cellfun(@(x,ld) plot(x(plot_roi,ld-1,3),x(plot_roi,ld,3),'o','MarkerSize',10), ...
+    stim_roi_tmax,num2cell(learned_day+n_naive));
+line(xlim,xlim,'color','k');
+xlabel('\DeltaF/F_0 day X');
+ylabel('\DeltaF/F_0 day X+1');
+axis tight;
+axis equal;
+legend([p1(1),p2(1)],{'All days','Learned day'},'location','nw');
+
+figure; hold on;
+animal_col = max(0,jet(length(animals))-0.2);
+set(gca,'ColorOrder',animal_col);
+% (plot only up to learned day)
+p1 = cellfun(@(x,ld) plot(x(plot_roi,1:ld-1,3),x(plot_roi,2:ld,3),'.','MarkerSize',15), ...
+    stim_roi_tmax,num2cell(learned_day+n_naive));
+p2 = cellfun(@(x,ld) plot(x(plot_roi,ld-1,3),x(plot_roi,ld,3),'o','MarkerSize',10), ...
+    stim_roi_tmax,num2cell(learned_day+n_naive));
+line(xlim,xlim,'color','k');
+xlabel('\DeltaF/F_0 day X');
+ylabel('\DeltaF/F_0 day X+1');
+axis tight;
+axis equal;
+legend([p1(1),p2(1)],{'All days','Learned day'},'location','nw');
+
+
+
+figure; hold on;
+set(gca,'ColorOrder',animal_col);
+cellfun(@(x) plot(x(plot_roi,:,3),'MarkerSize',15),stim_roi_tmax);
 
 
 
@@ -1531,42 +1581,41 @@ xt = get(gco,'XData');yt = get(gco,'YData');et = get(gco,'UData');
 % (click passive)
 xp = get(gco,'XData');yp = get(gco,'YData');ep = get(gco,'UData');
 
-% Z-score y/e values
-ytz = yt;(yt - nanmean(yt))./nanstd(yt);
-etz = et;(et)./nanstd(yt);
-
-ypz = yp;(yp - nanmean(yp))./nanstd(yp);
-epz = ep;(ep)./nanstd(yp);
-
 % Get task daysplit
 n_daysplit = mode(diff(find(isnan(yt)))) - 1;
 tp_daysplit_offset = linspace(0,1,n_daysplit+2);
 
-% Re-distribute points: insert passive after active, draw separate line
+% Re-distribute x-values to make room for passive
 xtr = xt(1:n_daysplit+1:end) + tp_daysplit_offset';
-ytr = padarray(reshape(ytz,n_daysplit+1,[]),[1,0],NaN,'post');
-etr = padarray(reshape(etz,n_daysplit+1,[]),[1,0],NaN,'post');
+ytr = padarray(reshape(yt,n_daysplit+1,[]),[1,0],NaN,'post');
+etr = padarray(reshape(et,n_daysplit+1,[]),[1,0],NaN,'post');
 
 xtp = xtr(end-2:end,:);
-ytp = padarray(cat(1,ytr(n_daysplit,:),ypz),[1,0],NaN,'post');
-etp = padarray(cat(1,etr(n_daysplit,:),epz),[1,0],NaN,'post');
 
 figure; hold on;
+fluor_col = [0,0.6,0];
+
 % (plot task redistributed with an extra space)
-ht = errorbar(xtr(:),ytr(:),etr(:),'k','linewidth',2,'CapSize',0);
-% (plot line from last task daysplit to passive)
-plot(xtp(:),ytp(:),'r','linewidth',2);
+yyaxis left
+ht = errorbar(xtr(:),ytr(:),etr(:),'color',fluor_col,'linewidth',2,'CapSize',0);
+axis tight;
+ylabel('\DeltaF/F_0 (task)');
+set(gca,'YColor','k')
+
 % (plot passive)
-hp = errorbar(xtp(2,:),ytp(2,:),etp(2,:),'r','linestyle','none','linewidth',2,'CapSize',0);
+yyaxis right
+hp = errorbar(xtp(2,:),yp,ep,'o','color',fluor_col,'linestyle','none','linewidth',2,'CapSize',0);
+axis tight;
+ylabel('\DeltaF/F_0 (passive)');
+set(gca,'YColor','k')
 
 axis tight;
 xlim(xlim + [-0.5,0.5]);
 xline(0,'linestyle','--');
 xlabel('Learned day');
-ylabel('z-scored \DeltaF/F_0');
 
+legend([ht,hp],{'Task','Passive'},'location','nw');
 
-legend([ht,hp],{'Task','Passive'});
 
 %% Task - ephys
 

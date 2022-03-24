@@ -468,7 +468,7 @@ learned_days_padcat = AP_padcatcell(learned_days);
 
 figure; 
 imagesc(learned_days_padcat,'AlphaData',~isnan(learned_days_padcat));
-set(gca,'Color','r')
+set(gca,'Color',[0.5,0.5,0.5])
 title(sprintf('Frac reaction times %.2f-%.2f',rxn_window(1),rxn_window(2)));
 set(gca,'XTick',1:length({bhv.animal}),'XTickLabel',{bhv.animal})
 xlabel('Animal');
@@ -814,7 +814,8 @@ disp('Passive trial activity')
 
 animals = { ...
     'AP100','AP101','AP103','AP104','AP105', ...
-    'AP106','AP107','AP108','AP109','AP111'};
+    'AP106','AP107','AP108','AP109','AP111', ...
+    'AP113','AP114','AP115'};
 
 % Initialize save variable
 trial_data_all = struct;
