@@ -824,22 +824,29 @@ for curr_animal = 1:length(animals)
     
     animal = animals{curr_animal};
     protocol = 'AP_lcrGratingPassive';
-    experiments = AP_find_experiments(animal,protocol);
+    passive_experiments = AP_find_experiments(animal,protocol);
     
-    % Get days with muscimol
+    % Get days after muscimol starts (to exclude)
     data_path = 'C:\Users\Andrew\OneDrive for Business\Documents\CarandiniHarrisLab\analysis\operant_learning\data';
     muscimol_fn = [data_path filesep 'muscimol.mat'];
     load(muscimol_fn);
     muscimol_animal_idx = ismember({muscimol.animal},animal);
     if any(muscimol_animal_idx)
         muscimol_start_day = muscimol(muscimol_animal_idx).day{1};
-        muscimol_experiments = datenum({experiments.day})' >= datenum(muscimol_start_day);
+        muscimol_experiments = datenum({passive_experiments.day})' >= datenum(muscimol_start_day);
     else
-        muscimol_experiments = false(size({experiments.day}));
+        muscimol_experiments = false(size({passive_experiments.day}));
     end
+
+    % Get days with standard task (to exclude other tasks)
+    task_protocol = 'AP_stimWheelRight';
+    task_experiments = AP_find_experiments(animal,task_protocol);
+    standard_task_experiments =  datenum({passive_experiments.day})' <= ...
+        datenum(task_experiments(end).day);
     
-    % Set experiments to use (imaging, not muscimol)
-    experiments = experiments([experiments.imaging] & ~muscimol_experiments);
+    % Set experiments to use (imaging, not muscimol, standard task)
+    experiments = passive_experiments([passive_experiments.imaging] & ...
+        ~muscimol_experiments & standard_task_experiments);
     
     disp(['Loading ' animal]);
     
@@ -881,7 +888,7 @@ disp('Finished loading all')
 
 % Save
 save_path = 'C:\Users\Andrew\OneDrive for Business\Documents\CarandiniHarrisLab\analysis\operant_learning\data';
-save_fn = ['trial_activity_passive_teto'];
+save_fn = 'trial_activity_passive_teto';
 save([save_path filesep save_fn],'-v7.3');
 disp(['Saved: ' save_path filesep save_fn])
 

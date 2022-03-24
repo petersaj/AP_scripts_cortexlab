@@ -12425,9 +12425,39 @@ movie_position = [43,350,415,415];
 AP_movie2avi(movie_px,movie_framerate,movie_cmap,movie_caxis,movie_position,movie_fn,t);
 
 
+%% (trying to clean up passive, didn't really help...)
+
+quiescent_trials = ~any(abs(wheel_allcat(:,t >= 0 & t <= 0.3)) > 0,2);
+
+curr_animal = 5;
+curr_day = 10;
+curr_stim_idx = 3;
+
+use_trials = quiescent_trials & ...
+    trial_animal == curr_animal & ...
+    trial_day == curr_day & ...
+    trial_stim_allcat == stim_unique(curr_stim_idx);
+
+a = AP_svdFrameReconstruct(U_master(:,:,1:n_vs), ...
+    permute(nanmean(fluor_allcat_deconv(use_trials,:,:),1),[3,2,1]));
+
+AP_image_scroll(a,t);
+caxis([-max(abs(caxis)),max(abs(caxis))]);
+colormap(brewermap([],'PrGn'));
+AP_reference_outline('ccf_aligned',[0.5,0.5,0.5]);
+axis image;
+set(gcf,'name',animals{curr_animal});
 
 
 
+a = AP_svdFrameReconstruct(U_master(:,:,1:n_vs), ...
+    permute(fluor_allcat_deconv(use_trials,:,:),[3,2,1]));
+AP_image_scroll(nanmedian(a,4),t);
+caxis([-max(abs(caxis)),max(abs(caxis))]);
+colormap(brewermap([],'PrGn'));
+AP_reference_outline('ccf_aligned',[0.5,0.5,0.5]);
+axis image;
+set(gcf,'name',animals{curr_animal});
 
 
 
