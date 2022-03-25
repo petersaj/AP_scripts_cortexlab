@@ -2050,7 +2050,7 @@ ylabel(c,'Explained variance')
 
 %% Align vasculature for animal
 clear all;
-animal = 'AP114';
+animal = 'AP115';
 
 protocol = [];
 experiments = AP_find_experiments(animal,protocol);
