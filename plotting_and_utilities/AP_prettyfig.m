@@ -58,9 +58,10 @@ for curr_ax = 1:length(fig_ax)
         fig_ax(curr_ax).XLabel.FontSize = axis_fontsize;
         fig_ax(curr_ax).YLabel.FontSize = axis_fontsize;
         
-        % remove axis exponent labels
-        fig_ax(curr_ax).XAxis.Exponent = 0;
-        [fig_ax(curr_ax).YAxis.Exponent] = deal(0);
+%         % remove axis exponent labels
+%         fig_ax(curr_ax).XAxis.Exponent = 0;
+%         [fig_ax(curr_ax).YAxis.Exponent] = deal(0);
+
     catch me
         warning(me.message)
     end

@@ -179,9 +179,9 @@ end
 % Loads in frame information to figure out what went wrong
 % (no automatic fix)
 
-animal = 'AP047'; % animal name
-day = '2019-10-11'; % yyyy-mm-dd
-experiments = [2:4]; % all experiments run that day (e.g. [1,2,3,4])
+animal = 'AP114'; % animal name
+day = '2022-03-16'; % yyyy-mm-dd
+experiments = [1:3]; % all experiments run that day (e.g. [1,2,3,4])
 
 [data_path,file_exists] = AP_cortexlab_filename(animal,day,[],'imaging');
 
