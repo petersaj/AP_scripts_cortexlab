@@ -1,4 +1,5 @@
 function cmap = AP_colormap(cmap_type,n_colors,cmap_gamma)
+%
 % cmap = AP_colormap(cmap_type,n_colors,cmap_gamma)
 %
 % cmap_type: gradient/diverging between black/white and color
@@ -41,12 +42,8 @@ elseif    cmap_gamma ~= 1
     n_colors_generate = n_colors*100 + (length(cmap_type) == 3);
 end
 
-% Set luminance/chroma limits for colors
-min_lum = 20;
-max_lum = 50;
-
-min_chroma = 10;
-max_chroma = 40;
+% Set maximum color chroma
+max_chroma = 80;
 
 % Set black/white luminance
 K_lum = 1;
@@ -54,12 +51,12 @@ W_lum = 99;
 
 % Set colors in CIELAB space (angle, min chroma, max chroma)
 col = struct;
-col.W = [0,0,0];
-col.K = [0,0,0];
-col.G = [139,min_chroma,max_chroma];
-col.P = [315,min_chroma,max_chroma];
-col.B = [250,min_chroma,max_chroma];
-col.R = [30,min_chroma,max_chroma];
+col.W = 0;
+col.K = 0;
+col.G = 139;
+col.P = 315;
+col.B = 250;
+col.R = 30;
 
 % (to plot colors while writing/troubleshooting)
 plot_col = false;
@@ -73,89 +70,61 @@ if plot_col
 end
 
 % Check base color is black or white (others not supported now)
-if ~ismember(cmap_type(ceil(length(cmap_type)/2)),{'W','K'})
+cmap_type_iswk = ismember(cmap_type',{'W','K'})';
+if ~cmap_type_iswk(ceil(length(cmap_type)/2))
     error('Base color must be white or black')
 end
 
 % Set luminance/chroma interpolation direction from base color
+lum_leeway = 20; % keep extremes of colormap away from the max
 switch cmap_type(ceil(length(cmap_type)/2))
     case 'W'
-        lum_interp = [W_lum,max_lum,min_lum];
-        chroma_interp = [3,2];
+        lum_interp = [W_lum,K_lum+lum_leeway];
     case 'K'
-        lum_interp = [K_lum,min_lum,max_lum];
-        chroma_interp = [2,3];
+        lum_interp = [K_lum,W_lum-lum_leeway];
 end
+
+% Get colormap X values to interpolate across (X^gamma)
+cmap_x_defined = [0,1];
+cmap_x_interp = linspace(cmap_x_defined(1),cmap_x_defined(end), ...
+    ceil(n_colors_generate/(length(cmap_type)-1))).^cmap_gamma;
 
 % Define gradients by interpolating in CIELAB space and converting to RGB
 if length(cmap_type) == 2
     % 2 colors = gradient
 
-    cmap_full = lab2rgb(interp1(lum_interp, ...
+    cmap = lab2rgb(interp1(cmap_x_defined, ...
         [lum_interp(1),0,0;
         lum_interp(2), ...
-        col.(cmap_type(2))(chroma_interp(1))*cosd(col.(cmap_type(2))(1)), ...
-        col.(cmap_type(2))(chroma_interp(1))*sind(col.(cmap_type(2))(1)); ...
-        lum_interp(3), ...
-        col.(cmap_type(2))(chroma_interp(2))*cosd(col.(cmap_type(2))(1)), ...
-        col.(cmap_type(2))(chroma_interp(2))*sind(col.(cmap_type(2))(1))], ...
-        linspace(lum_interp(1),lum_interp(end),ceil(n_colors_generate/2)),'spline'));
+        ~cmap_type_iswk(2)*max_chroma*cosd(col.(cmap_type(2))(1)), ...
+        ~cmap_type_iswk(2)*max_chroma*sind(col.(cmap_type(2))(1))], ...
+        cmap_x_interp,'spline'));
 
 elseif length(cmap_type) == 3
     % 3 colors = diverging 
 
-    cmap_bot = lab2rgb(interp1(lum_interp, ...
+    cmap_bot = lab2rgb(interp1(cmap_x_defined, ...
         [lum_interp(1),0,0;
         lum_interp(2), ...
-        col.(cmap_type(1))(chroma_interp(1))*cosd(col.(cmap_type(1))(1)), ...
-        col.(cmap_type(1))(chroma_interp(1))*sind(col.(cmap_type(1))(1)); ...
-        lum_interp(3), ...
-        col.(cmap_type(1))(chroma_interp(2))*cosd(col.(cmap_type(1))(1)), ...
-        col.(cmap_type(1))(chroma_interp(2))*sind(col.(cmap_type(1))(1))], ...
-        linspace(lum_interp(1),lum_interp(end),ceil(n_colors_generate/2)),'spline'));
+        ~cmap_type_iswk(1)*max_chroma*cosd(col.(cmap_type(1))(1)), ...
+        ~cmap_type_iswk(1)*max_chroma*sind(col.(cmap_type(1))(1))], ...
+        cmap_x_interp,'spline'));
 
-    cmap_top = lab2rgb(interp1(lum_interp, ...
+    cmap_top = lab2rgb(interp1(cmap_x_defined, ...
         [lum_interp(1),0,0;
         lum_interp(2), ...
-        col.(cmap_type(3))(chroma_interp(1))*cosd(col.(cmap_type(3))(1)), ...
-        col.(cmap_type(3))(chroma_interp(1))*sind(col.(cmap_type(3))(1)); ...
-        lum_interp(3), ...
-        col.(cmap_type(3))(chroma_interp(2))*cosd(col.(cmap_type(3))(1)), ...
-        col.(cmap_type(3))(chroma_interp(2))*sind(col.(cmap_type(3))(1))], ...
-        linspace(lum_interp(1),lum_interp(end),ceil(n_colors_generate/2)),'spline'));
+        ~cmap_type_iswk(3)*max_chroma*cosd(col.(cmap_type(3))(1)), ...
+        ~cmap_type_iswk(3)*max_chroma*sind(col.(cmap_type(3))(1))], ...
+        cmap_x_interp,'spline'));
     
     % Combine bottom/top (center color is replicated - remove one)
-    cmap_full = vertcat(flipud(cmap_bot),cmap_top(2:end,:));
+    cmap = vertcat(flipud(cmap_bot),cmap_top(2:end,:));
 
 end
 
 % Force colormap into RGB gamut (probably not valid...)
-cmap_full(cmap_full > 1) = 1;
-cmap_full(cmap_full < 0) = 0;
-
-% If gamma, resample colormap (created as linear x, sampled at x^gamma)
-if cmap_gamma == 1
-    cmap = cmap_full;
-elseif    cmap_gamma ~= 1
-    if length(cmap_type) == 2
-        cmap_x = linspace(0,1,n_colors);
-        cmap_x_gamma = sign(cmap_x).*abs(cmap_x).^cmap_gamma;
-        cmap_gamma_idx = 1+floor((n_colors_generate-1)* ...
-            (cmap_x_gamma-min(cmap_x_gamma))./range(cmap_x_gamma));
-        cmap = cmap_full(cmap_gamma_idx,:);
-    elseif length(cmap_type) == 3
-        cmap_x = linspace(-1,1,n_colors);
-        cmap_x_gamma = sign(cmap_x).*abs(cmap_x).^cmap_gamma;
-        cmap_gamma_idx = 1+floor((n_colors_generate-1)* ...
-            (cmap_x_gamma-min(cmap_x_gamma))./range(cmap_x_gamma));
-        cmap = cmap_full(cmap_gamma_idx,:);
-    end
-end
-
-
-
-
-
+cmap(cmap > 1) = 1;
+cmap(cmap < 0) = 0;
 
 
 
