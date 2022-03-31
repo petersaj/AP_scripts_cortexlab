@@ -193,7 +193,7 @@ AP_errorfill([],nanmean(rxn_alt_frac_ci(plot_days,:),2), ...
     rxn_alt_frac_ci(plot_days,:),[0.5,0.5,0.5],[],false);
 % plot(rxn_measured_prct(plot_days,:),'color',[0.5,0.5,0.5])
 errorbar(nanmean(rxn_measured_prct(plot_days,:),2), ...
-    AP_sem(rxn_measured_prct(plot_days,:),2),'k','linewidth',2)
+    AP_sem(rxn_measured_prct(plot_days,:),2),'k','CapSize',0,'linewidth',2)
 % plot(nanmean(rxn_measured_prct(plot_days,:),2),'k','linewidth',2)
 xlabel('Training day');
 ylabel(sprintf('Fast reaction times: %d-%dms (%%)',1000*rxn_window(1),1000*rxn_window(2)));
@@ -244,15 +244,20 @@ for curr_learned_day = learned_day_grp'
         prctile(nanmean(curr_alt_prct_altdiff,1),[5,95]);
 end
 
+% (stair plot: extend last step by 1/2 day to draw errorbar there)
 figure; hold on
 xline(0,'linestyle','--');
 AP_errorfill(learned_day_grp(plot_learned),nanmean(rxn_alt_prct_altdiff_ci(plot_learned,:),2), ...
     rxn_alt_prct_altdiff_ci(plot_learned,:),[0.5,0.5,0.5],[],false);
-stairs(learned_day_grp(plot_learned),rxn_altdiff_learn_mean(plot_learned),'k','linewidth',3);
-% (NaN-out day without minimum n)
-plot_rxn_stairs = rxn_measured_prct_altdiff;
-plot_rxn_stairs(~ismember(learned_day_x,learned_day_grp(plot_learned))) = NaN;
-stairs(learned_day_x,plot_rxn_stairs,'color','k');
+stairs([learned_day_grp(plot_learned);learned_day_grp(find(plot_learned,1,'last'))+0.5], ...
+    [rxn_altdiff_learn_mean(plot_learned),;rxn_altdiff_learn_mean(find(plot_learned,1,'last'))], ...
+    'k','linewidth',2);
+errorbar(learned_day_grp(plot_learned)+0.5,rxn_altdiff_learn_mean(plot_learned), ...
+    rxn_altdiff_learn_sem(plot_learned),'k','linewidth',2,'linestyle','none','CapSize',0);
+% % (plot all mice: NaN-out day without minimum n)
+% plot_rxn_stairs = rxn_measured_prct_altdiff;
+% plot_rxn_stairs(~ismember(learned_day_x,learned_day_grp(plot_learned))) = NaN;
+% stairs(learned_day_x,plot_rxn_stairs,'color','k');
 xlabel('Learned day');
 ylabel('Fast reaction times (% meas-null)')
 axis tight;
@@ -797,26 +802,10 @@ use_t = t >= 0 & t <= 0.2;
 stim_px_avg_stage_tmax = ...
     squeeze(max(stim_px_avg_stage(:,:,use_t,:,:),[],3));
 
-% Plot pixel timeavg
-figure;
-tiledlayout(3,3,'TileSpacing','compact','padding','compact');
-c = (max(stim_px_avg_stage_tmax(:)).*[-1,1])*0.5;
-for curr_stage = 1:3
-    for curr_stim = 1:3
-        nexttile;
-        imagesc(stim_px_avg_stage_tmax(:,:,curr_stage,curr_stim));
-        axis image off;
-        AP_reference_outline('ccf_aligned',[0.5,0.5,0.5]);
-        colormap(AP_colormap('KWG'));
-        caxis(c);
-        title(sprintf('Stage %d, stim %d',curr_stage,curr_stim));
-    end
-end
-
-% Plot pixel hemidiff timeavg
+% Plot pixel timeavg (full + hemidiff)
 figure;
 h = tiledlayout(3,6,'TileSpacing','compact','padding','compact');
-c = (max(stim_px_avg_stage_tmax(:)).*[-1,1])*0.5;
+c = (max(stim_px_avg_stage_tmax(:)).*[-1,1])*0.3;
 for curr_stage = 1:3
     for curr_stim = 1:3
 
@@ -828,14 +817,14 @@ for curr_stage = 1:3
         imagesc(curr_px);
         axis image off;
         AP_reference_outline('ccf_aligned',[0.5,0.5,0.5]);
-        colormap(gca,AP_colormap('KWG'));
+        colormap(gca,AP_colormap('KWG',[],1.5));
         caxis(c)
         
         nexttile;
         imagesc(curr_hemidiff(:,1:x_midpoint));
         axis image off;
         AP_reference_outline('ccf_aligned_lefthemi',[0.5,0.5,0.5]);
-        colormap(gca,AP_colormap('KWR'));
+        colormap(gca,AP_colormap('BWR',[],1.5));
         caxis(c)
     end
 end
@@ -857,7 +846,7 @@ stim_roi_avg_stage = cell2mat(permute(cellfun(@(x,ld) ...
 
 figure;
 plot_rois = [6,6+size(wf_roi,1)];
-plot_stages = 1:3;
+plot_stages = 2:3;
 stage_col = [0.5,0.5,0.8;0.5,0.5,0.5;0,0,0];
 h = tiledlayout(length(plot_rois),3,'TileSpacing','compact','padding','compact');
 for curr_roi = plot_rois
@@ -870,11 +859,15 @@ for curr_roi = plot_rois
     xlabel('Time from stim (s)');
     ylabel(sprintf('%s \\DeltaF/F_0',wf_roi(curr_roi).area));
     axis tight;xlim(xlim+[-0.1,0.1])
-    xline(0,'linestyle','--');xline(0.5,'linestyle','--');  
   end
 end
 % Link all axes
 linkaxes(allchild(h),'xy');
+% (shade stim area and put in back)
+arrayfun(@(x) patch(x,[0,0.5,0.5,0], ...
+    reshape(repmat(ylim(x),2,1),[],1),[1,1,0.8], ...
+    'linestyle','none'),allchild(h));
+arrayfun(@(x) set(x,'children',circshift(get(x,'children'),-1)),allchild(h));
 
 
 % Average hemidiff ROIs by naive/prelearn/postlearn
@@ -915,11 +908,11 @@ ax = reshape(allchild(h),length(stim_unique),length(plot_rois))';
 for curr_roi = 1:length(plot_rois)
    linkaxes(ax(curr_roi,:),'xy'); 
 end
-% (shade stim area and flip children)
+% (shade stim area and put in back)
 arrayfun(@(x) patch(x,[0,0.5,0.5,0], ...
     reshape(repmat(ylim(x),2,1),[],1),[1,1,0.8], ...
     'linestyle','none'),ax);
-arrayfun(@(x) set(x,'children',flipud(get(x,'children'))),ax);
+arrayfun(@(x) set(x,'children',circshift(get(x,'children'),-1)),allchild(h));
 
 
 
@@ -1491,7 +1484,7 @@ for curr_align = 1:length(use_align)
 end
 
 % Plot pixels
-c = prctile(reshape(cat(3,align_px{:}),[],1),99)*[-1,1];
+c = prctile(reshape(cat(3,align_px{:}),[],1),98)*[-1,1];
 figure;
 h = tiledlayout(1,2*length(cell2mat(plot_t)), ...
     'TileSpacing','compact','padding','compact');
@@ -1502,7 +1495,7 @@ for curr_align = 1:length(use_align)
         imagesc(align_px{curr_align}(:,:,curr_plot_t));
         AP_reference_outline('ccf_aligned',[0.5,0.5,0.5]);
         axis image off;
-        colormap(gca,AP_colormap('KWG'));
+        colormap(gca,AP_colormap('KWG',[],1.5));
         caxis(c);
         title([use_align_labels{curr_align} ': ' num2str(plot_t{curr_align}(curr_plot_t)) ' sec']);
 
@@ -1514,7 +1507,7 @@ for curr_align = 1:length(use_align)
         imagesc(curr_align_px_hemidiff(:,1:x_midpoint));
         AP_reference_outline('ccf_aligned_lefthemi',[0.5,0.5,0.5]);
         axis image off;
-        colormap(gca,AP_colormap('KWR'));
+        colormap(gca,AP_colormap('BWR',[],1.5));
         caxis(c);
     end
 end
@@ -1720,7 +1713,7 @@ title('HSV')
 
 
 
-%% ^^ Task - ~~~> trial (stim-align) and average (stim/move-align) activity (hemidiff)
+%% ^^ Task - USE ~~~> trial (stim-align) and average (stim/move-align) activity (hemidiff)
 
 plot_rois = [1,7,6];
 trial_learned_stage = discretize(trial_learned_day,[-Inf,0,Inf]);
@@ -1755,8 +1748,8 @@ for curr_stage = 1:max(trial_learned_stage)
         
         nexttile([2,1]);
         imagesc(t,[],curr_data_sort_smooth);hold on;
-        colormap(AP_colormap('KWR'));
-        c = prctile(reshape(curr_act(:,:,curr_roi),[],1),99).*[-1,1];
+        colormap(AP_colormap('BWR',[],1.5));
+        c = prctile(reshape(curr_act(:,:,curr_roi),[],1),95).*[-1,1];
         caxis(c);
         xline(0,'color','r');
         plot(move_t(use_trials(sort_idx)),1:length(use_trials),'color',[0.6,0,0.6]);
@@ -1819,6 +1812,11 @@ for curr_roi = plot_rois
     ylabel('\DeltaF/F_0');
     title(wf_roi(curr_roi).area);
     xline(0,'linestyle','--');
+end
+% (link y-axes with same ROI)
+ax = reshape(flipud(allchild(h)),length(plot_rois),[])';
+for curr_roi = 1:length(plot_rois)
+   linkaxes(ax(3:4,curr_roi),'y'); 
 end
 
 %%%%%%%%%% TO DO HERE: split and concat stim/move align
@@ -2152,7 +2150,7 @@ for curr_roi = plot_rois
                 curr_avg_data = roi_stim_learn_avg;
                 curr_event_label = 'Stim';
                 curr_align = zeros(size(fluor_roi_deconv,1),1);
-                curr_cmap = AP_colormap('KWR');
+                curr_cmap = AP_colormap('BWR');
             case 2
                 curr_trial_data = fluor_roi_deconv_move;
                 curr_avg_data = roi_move_learn_avg;
@@ -2526,6 +2524,23 @@ xlabel('Time from stim (s)');
 ylabel('\DeltaR/R_0');
 legend(h,mua_areas(plot_areas));
 
+% Plot animal mean with errorbars on stacked subplots
+figure;
+h = tiledlayout(sum(plot_areas),1,'TileSpacing','compact','padding','compact');
+for curr_area = find(plot_areas)'
+    nexttile;
+    AP_errorfill(t', ...
+        squeeze(nanmean(mua_animal_avg(:,:,curr_area),1)), ...
+        squeeze(AP_sem(mua_animal_avg(:,:,curr_area),1)),'k');
+    ylabel(mua_areas(curr_area));
+end
+linkaxes(allchild(h),'xy');
+% (shade stim area and put in back)
+arrayfun(@(x) patch(x,[0,0.5,0.5,0], ...
+    reshape(repmat(ylim(x),2,1),[],1),[1,1,0.8], ...
+    'linestyle','none'),allchild(h));
+arrayfun(@(x) set(x,'children',circshift(get(x,'children'),-1)),allchild(h));
+
 
 %% Passive - V1 muscimol
 
@@ -2658,7 +2673,7 @@ allen_atlas_path = fileparts(which('template_volume_10um.npy'));
 av = readNPY([allen_atlas_path filesep 'annotation_volume_10um_by_index.npy']);
 
 figure;
-animal_col = lines(length(animals));
+animal_col = AP_colormap('KR',5);
 
 % Set up 3D axes
 ccf_3d_axes = subplot(1,4,1);
@@ -2770,12 +2785,11 @@ figure;
 imagesc(stim_px);
 axis image off
 caxis(max(caxis)*0.5*[-1,1])
-colormap(AP_colormap('WG'));
-set(gca,'ColorScale','log');
+colormap(AP_colormap('KWG',[],1.5));
 AP_reference_outline('ccf_aligned',[0.5,0.5,0.5]);
 AP_reference_outline('grid_aligned',[0.8,0.8,0.8]);
 
-scatter(probe_coords_mean_wf(:,1),probe_coords_mean_wf(:,2),40,animal_col,'filled');
+scatter(probe_coords_mean_wf(:,1),probe_coords_mean_wf(:,2),100,animal_col,'filled');
 
 
 %% Plot widefield ROIs (hemisphere)

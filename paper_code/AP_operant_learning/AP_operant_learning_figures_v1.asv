@@ -797,26 +797,10 @@ use_t = t >= 0 & t <= 0.2;
 stim_px_avg_stage_tmax = ...
     squeeze(max(stim_px_avg_stage(:,:,use_t,:,:),[],3));
 
-% Plot pixel timeavg
-figure;
-tiledlayout(3,3,'TileSpacing','compact','padding','compact');
-c = (max(stim_px_avg_stage_tmax(:)).*[-1,1])*0.5;
-for curr_stage = 1:3
-    for curr_stim = 1:3
-        nexttile;
-        imagesc(stim_px_avg_stage_tmax(:,:,curr_stage,curr_stim));
-        axis image off;
-        AP_reference_outline('ccf_aligned',[0.5,0.5,0.5]);
-        colormap(AP_colormap('KWG'));
-        caxis(c);
-        title(sprintf('Stage %d, stim %d',curr_stage,curr_stim));
-    end
-end
-
-% Plot pixel hemidiff timeavg
+% Plot pixel timeavg (full + hemidiff)
 figure;
 h = tiledlayout(3,6,'TileSpacing','compact','padding','compact');
-c = (max(stim_px_avg_stage_tmax(:)).*[-1,1])*0.5;
+c = (max(stim_px_avg_stage_tmax(:)).*[-1,1])*0.3;
 for curr_stage = 1:3
     for curr_stim = 1:3
 
@@ -828,14 +812,14 @@ for curr_stage = 1:3
         imagesc(curr_px);
         axis image off;
         AP_reference_outline('ccf_aligned',[0.5,0.5,0.5]);
-        colormap(gca,AP_colormap('KWG'));
+        colormap(gca,AP_colormap('KWG',[],1.5));
         caxis(c)
         
         nexttile;
         imagesc(curr_hemidiff(:,1:x_midpoint));
         axis image off;
         AP_reference_outline('ccf_aligned_lefthemi',[0.5,0.5,0.5]);
-        colormap(gca,AP_colormap('KWR'));
+        colormap(gca,AP_colormap('BWR',[],1.5));
         caxis(c)
     end
 end
@@ -870,11 +854,15 @@ for curr_roi = plot_rois
     xlabel('Time from stim (s)');
     ylabel(sprintf('%s \\DeltaF/F_0',wf_roi(curr_roi).area));
     axis tight;xlim(xlim+[-0.1,0.1])
-    xline(0,'linestyle','--');xline(0.5,'linestyle','--');  
   end
 end
 % Link all axes
 linkaxes(allchild(h),'xy');
+% (shade stim area and put in back)
+arrayfun(@(x) patch(x,[0,0.5,0.5,0], ...
+    reshape(repmat(ylim(x),2,1),[],1),[1,1,0.8], ...
+    'linestyle','none'),allchild(h));
+arrayfun(@(x) set(x,'children',circshift(get(x,'children'),-1)),allchild(h));
 
 
 % Average hemidiff ROIs by naive/prelearn/postlearn
@@ -906,6 +894,7 @@ for curr_roi = plot_rois
             wf_roi(curr_roi).area, ...
             wf_roi(roi_hemiflip(curr_roi)).area(end)))
         axis tight;xlim(xlim+[-0.1,0.1])
+        ylim(max(abs(ylim))*[-1,1]);
         yline(0)
     end
 end
@@ -914,11 +903,11 @@ ax = reshape(allchild(h),length(stim_unique),length(plot_rois))';
 for curr_roi = 1:length(plot_rois)
    linkaxes(ax(curr_roi,:),'xy'); 
 end
-% (shade stim area and flip children)
-arrayfun(@(x) area(x,[0,0.5], ...
-    repmat((ylim(x)),2,1),min(ylim(x)),'linestyle','none', ...
-    'FaceColor',[1,1,0.8]),ax);
-arrayfun(@(x) set(x,'children',flipud(get(x,'children'))),ax);
+% (shade stim area and put in back)
+arrayfun(@(x) patch(x,[0,0.5,0.5,0], ...
+    reshape(repmat(ylim(x),2,1),[],1),[1,1,0.8], ...
+    'linestyle','none'),ax);
+arrayfun(@(x) set(x,'children',circshift(get(x,'children'),-1)),allchild(h));
 
 
 
@@ -1433,7 +1422,7 @@ linkaxes(get(gcf,'children'),'xy');
 %% ^^ Task - event-aligned pixels
 
 % Set trials to use
-use_trials = move_t > 0 & trial_learned_day >= 0 & trial_outcome_allcat == 1;
+use_trials = trial_learned_day >= 0 & trial_outcome_allcat == 1;
 
 % Set alignment shifts
 t_leeway = -t(1);
@@ -1490,10 +1479,10 @@ for curr_align = 1:length(use_align)
 end
 
 % Plot pixels
-c = prctile(reshape(cat(3,align_px{:}),[],1),99)*[-1,1];
+c = prctile(reshape(cat(3,align_px{:}),[],1),98)*[-1,1];
 figure;
-h = tiledlayout(2,length(cell2mat(plot_t)), ...
-    'TileSpacing','compact','padding','compact','TileIndexing','columnmajor');
+h = tiledlayout(1,2*length(cell2mat(plot_t)), ...
+    'TileSpacing','compact','padding','compact');
 for curr_align = 1:length(use_align)   
     for curr_plot_t = 1:length(plot_t{curr_align})
         % (full brain)
@@ -1501,7 +1490,7 @@ for curr_align = 1:length(use_align)
         imagesc(align_px{curr_align}(:,:,curr_plot_t));
         AP_reference_outline('ccf_aligned',[0.5,0.5,0.5]);
         axis image off;
-        colormap(gca,AP_colormap('KWG'));
+        colormap(gca,AP_colormap('KWG',[],1.5));
         caxis(c);
         title([use_align_labels{curr_align} ': ' num2str(plot_t{curr_align}(curr_plot_t)) ' sec']);
 
@@ -1513,7 +1502,7 @@ for curr_align = 1:length(use_align)
         imagesc(curr_align_px_hemidiff(:,1:x_midpoint));
         AP_reference_outline('ccf_aligned_lefthemi',[0.5,0.5,0.5]);
         axis image off;
-        colormap(gca,AP_colormap('KWR'));
+        colormap(gca,AP_colormap('BWR',[],1.5));
         caxis(c);
     end
 end
@@ -1719,7 +1708,7 @@ title('HSV')
 
 
 
-%% ^^ Task - ~~~> trial (stim-align) and average (stim/move-align) activity (hemidiff)
+%% ^^ Task - USE ~~~> trial (stim-align) and average (stim/move-align) activity (hemidiff)
 
 plot_rois = [1,7,6];
 trial_learned_stage = discretize(trial_learned_day,[-Inf,0,Inf]);
@@ -1754,8 +1743,8 @@ for curr_stage = 1:max(trial_learned_stage)
         
         nexttile([2,1]);
         imagesc(t,[],curr_data_sort_smooth);hold on;
-        colormap(AP_colormap('KWR'));
-        c = prctile(reshape(curr_act(:,:,curr_roi),[],1),99).*[-1,1];
+        colormap(AP_colormap('BWR',[],1.5));
+        c = prctile(reshape(curr_act(:,:,curr_roi),[],1),95).*[-1,1];
         caxis(c);
         xline(0,'color','r');
         plot(move_t(use_trials(sort_idx)),1:length(use_trials),'color',[0.6,0,0.6]);
@@ -1818,6 +1807,11 @@ for curr_roi = plot_rois
     ylabel('\DeltaF/F_0');
     title(wf_roi(curr_roi).area);
     xline(0,'linestyle','--');
+end
+% (link y-axes with same ROI)
+ax = reshape(flipud(allchild(h)),length(plot_rois),[])';
+for curr_roi = 1:length(plot_rois)
+   linkaxes(ax(3:4,curr_roi),'y'); 
 end
 
 %%%%%%%%%% TO DO HERE: split and concat stim/move align
@@ -2151,7 +2145,7 @@ for curr_roi = plot_rois
                 curr_avg_data = roi_stim_learn_avg;
                 curr_event_label = 'Stim';
                 curr_align = zeros(size(fluor_roi_deconv,1),1);
-                curr_cmap = AP_colormap('KWR');
+                curr_cmap = AP_colormap('BWR');
             case 2
                 curr_trial_data = fluor_roi_deconv_move;
                 curr_avg_data = roi_move_learn_avg;
@@ -2786,6 +2780,7 @@ n_rois = numel(wf_roi);
 plot_rois = [1,6,7];
 
 roi_col = repmat([0.5,0.7,0.5],n_rois,1);
+roi_cat = cat(3,wf_roi.mask);
 
 figure; hold on
 set(gca,'YDir','reverse');
