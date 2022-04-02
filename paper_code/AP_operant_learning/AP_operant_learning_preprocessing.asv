@@ -539,10 +539,10 @@ for curr_animal = 1:length(bhv)
         rxn_window_frac = nanmean(curr_rxn >= rxn_window(1) & curr_rxn <= rxn_window(2));
         alt_rxn_window_frac = nanmean(curr_alt_rxn >= rxn_window(1) & curr_alt_rxn <= rxn_window(2),1);
 
-        %%%% TESTING: use MAD instead of fraction within window
-        rxn_window_frac = -mad(curr_rxn,1);
-        alt_rxn_window_frac = -mad(curr_alt_rxn,1);
-        %%%%%%%%%%
+%         %%%% TESTING
+%         rxn_window_frac = -mad(curr_rxn,1);
+%         alt_rxn_window_frac = -mad(curr_alt_rxn,1);
+%         %%%%%%%%%%
         
         rxn_window_frac_rank = tiedrank([rxn_window_frac,alt_rxn_window_frac]);
         rxn_window_frac_p = rxn_window_frac_rank(1)./(n_sample+1);

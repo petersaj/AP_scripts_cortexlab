@@ -61,6 +61,9 @@ animals = {bhv.animal};
 % Grab learned day
 learned_day = cellfun(@(x) find(x,1),{bhv.learned_days});
 
+% Grab window for fast/learned reaction times
+rxn_window = bhv(1).learned_days_rxn_window;
+
 % Load muscimol injection info
 data_path = 'C:\Users\Andrew\OneDrive for Business\Documents\CarandiniHarrisLab\analysis\operant_learning\data';
 muscimol_fn = [data_path filesep 'muscimol.mat'];
@@ -86,6 +89,8 @@ plot_days = find(accumarray(cell2mat(cellfun(@find,use_days,'uni',false)'),1) >=
 
 % Set bins for reaction time histograms
 rxn_bins = [0:0.02:0.5];
+warning('TEMP: logspace rxn bins')
+rxn_bins = logspace(log10(0.05),log10(20),20);
 rxn_bin_centers = rxn_bins(1:end-1) + diff(rxn_bins)./2;
 
 % Get reaction time histograms by day
@@ -145,6 +150,95 @@ animal_rxn_alt_cathist = cell2mat(permute( ...
     rxn_bins,'normalization','probability')',1:length(bhv),'uni',false)), ...
     1:n_rxn_altsample,'uni',false),[1,3,2]));
 
+
+%%%%%%%%%%%%% TESTING: plot a few days, not just pre/post
+% Get histogram of reaction times in day groups (across animals)
+
+% animal_idx = cell2mat(cellfun(@(x,animal) repmat(animal,length(cell2mat(x)),1), ...
+%     rxn_measured,num2cell(1:length(bhv))','uni',false));
+% day_idx = cell2mat(cellfun(@(x) cell2mat(cellfun(@(x,day) ...
+%     repmat(day,length(x),1),x,num2cell(1:length(x))','uni',false)), ...
+%     rxn_measured,'uni',false));
+% 
+% day_grps = [0,2,4,6,Inf];
+% day_grp = discretize(day_idx,day_grps);
+% 
+% figure;
+% h = tiledlayout(length(day_grps)-1,2,'TileIndexing','columnmajor');
+% 
+% for curr_day_grp = 1:length(day_grps)-1
+% 
+%     animal_rxn_measured_cathist = cell2mat(arrayfun(@(x) ...
+%         histcounts(rxn_measured_cat( ...
+%         animal_idx == x & ...
+%         day_grp == curr_day_grp), ...
+%         rxn_bins,'normalization','probability')',1:length(bhv),'uni',false));
+% 
+%     animal_rxn_alt_cathist = cell2mat(permute( ...
+%         arrayfun(@(rep) cell2mat(arrayfun(@(x) ...
+%         histcounts(rxn_alt_cat( ...
+%         animal_idx == x & ...
+%         day_grp == curr_day_grp,rep), ...
+%         rxn_bins,'normalization','probability')',1:length(bhv),'uni',false)), ...
+%         1:n_rxn_altsample,'uni',false),[1,3,2]));
+% 
+%     nexttile; hold on;set(gca,'XScale','log');
+%     xlabel('Reaction time');
+%     ylabel('Frequency');
+%     title(sprintf('Day %d-%d',day_grps(curr_day_grp),day_grps(curr_day_grp+1)));
+% 
+% %     AP_errorfill(rxn_bin_centers,nanmean(animal_rxn_measured_cathist,2), ...
+% %         AP_sem(animal_rxn_measured_cathist,2),'k');
+% plot(rxn_bin_centers,nanmean(animal_rxn_measured_cathist,2),'k','linewidth',2);
+% 
+%     animal_rxn_alt_cathist_ci = ...
+%         squeeze(prctile(nanmean(animal_rxn_alt_cathist,2),[5,95],3));
+%     AP_errorfill(rxn_bin_centers,nanmean(nanmean(animal_rxn_alt_cathist,2),3), ...
+%         animal_rxn_alt_cathist_ci,[0.5,0.5,0.5],[],false);
+% 
+% end
+% 
+% for curr_day_grp = 1:length(day_grps)-1
+% 
+%     animal_rxn_measured_cathist = cell2mat(arrayfun(@(x) ...
+%         histcounts(rxn_measured_cat( ...
+%         animal_idx == x & ...
+%         day_grp == curr_day_grp), ...
+%         rxn_bins,'normalization','probability')',1:length(bhv),'uni',false));
+% 
+%     animal_rxn_alt_cathist = cell2mat(permute( ...
+%         arrayfun(@(rep) cell2mat(arrayfun(@(x) ...
+%         histcounts(rxn_alt_cat( ...
+%         animal_idx == x & ...
+%         day_grp == curr_day_grp,rep), ...
+%         rxn_bins,'normalization','probability')',1:length(bhv),'uni',false)), ...
+%         1:n_rxn_altsample,'uni',false),[1,3,2]));
+% 
+%     animal_rxn_measured_cathist = animal_rxn_measured_cathist - ...
+%         nanmean(animal_rxn_alt_cathist,3);
+%     animal_rxn_alt_cathist = animal_rxn_alt_cathist - ...
+%         nanmean(animal_rxn_alt_cathist,3);
+% 
+%     nexttile; hold on;set(gca,'XScale','log');
+%     xlabel('Reaction time');
+%     ylabel('Frequency-null');
+%     title(sprintf('Day %d-%d',day_grps(curr_day_grp),day_grps(curr_day_grp+1)));
+% 
+% %     AP_errorfill(rxn_bin_centers,nanmean(animal_rxn_measured_cathist,2), ...
+% %         AP_sem(animal_rxn_measured_cathist,2),'k');
+% plot(rxn_bin_centers,nanmean(animal_rxn_measured_cathist,2),'k','linewidth',2);
+% 
+% 
+%     animal_rxn_alt_cathist_ci = ...
+%         squeeze(prctile(nanmean(animal_rxn_alt_cathist,2),[5,95],3));
+%     AP_errorfill(rxn_bin_centers,nanmean(nanmean(animal_rxn_alt_cathist,2),3), ...
+%         animal_rxn_alt_cathist_ci,[0.5,0.5,0.5],[],false);
+% 
+% end
+
+%%%%%%%%%%%%%%%%%%%%%%
+
+
 % Plot histogram by day and average post-learning histogram
 figure;
 h = tiledlayout(1,3,'TileSpacing','compact','padding','compact');
@@ -164,16 +258,13 @@ AP_errorfill(rxn_bin_centers,nanmean(animal_rxn_measured_cathist,2), ...
     AP_sem(animal_rxn_measured_cathist,2),'k');
 AP_errorfill(rxn_bin_centers,nanmean(nanmean(animal_rxn_alt_cathist,2),3), ...
     animal_rxn_alt_cathist_ci,[0.5,0.5,0.5],[],false);
-area([0.1,0.2],repmat(max(ylim),2,1),'linestyle','none', ...
+area(rxn_window,repmat(max(ylim),2,1),'linestyle','none', ...
     'FaceColor',[0.8,0.9,0.8]);
-set(gca,'children',flipud(get(gca,'children')),'view',[90,-90],'XTick','');
+set(gca,'children',circshift(get(gca,'children'),-1),'view',[90,-90],'XTick','');
 ylabel(sprintf('Probability (day %d+)',postlearning_day));
 legend({'Fast reaction','Null','Measured'},'location','ne');
 
 linkaxes([p1,p2],'x');
-
-% Set window for "fast" reaction times
-rxn_window = bhv(1).learned_days_rxn_window;
 
 % Plot fraction of reaction times within window: whole day
 rxn_measured_prct = accumarray(trial_split_idx_cat(:,2:end), ...
@@ -193,7 +284,7 @@ AP_errorfill([],nanmean(rxn_alt_frac_ci(plot_days,:),2), ...
     rxn_alt_frac_ci(plot_days,:),[0.5,0.5,0.5],[],false);
 % plot(rxn_measured_prct(plot_days,:),'color',[0.5,0.5,0.5])
 errorbar(nanmean(rxn_measured_prct(plot_days,:),2), ...
-    AP_sem(rxn_measured_prct(plot_days,:),2),'k','linewidth',2)
+    AP_sem(rxn_measured_prct(plot_days,:),2),'k','CapSize',0,'linewidth',2)
 % plot(nanmean(rxn_measured_prct(plot_days,:),2),'k','linewidth',2)
 xlabel('Training day');
 ylabel(sprintf('Fast reaction times: %d-%dms (%%)',1000*rxn_window(1),1000*rxn_window(2)));
@@ -202,7 +293,7 @@ xlim(xlim + [-0.5,0.5]);
 ylim([0,100]);
 
 % Plot all animals separately
-figure;
+figure('Name',sprintf('rxn: %.2g-%.2gms (%%)',rxn_window(1),rxn_window(2)))
 h = tiledlayout('flow','TileSpacing','compact','padding','compact');
 for curr_animal = 1:length(animals)    
     curr_rxn = rxn_measured_prct(:,curr_animal) - ...
@@ -214,7 +305,10 @@ for curr_animal = 1:length(animals)
     curr_ci = permute(prctile(curr_alt_rxn,[5,95],3),[1,3,2]);
 
     nexttile; hold on;
-    xline(learned_day(curr_animal),'color','r','linewidth',2);
+    
+    hx = xline(learned_day(curr_animal),'color','r','linewidth',2);
+    warning off;shx = struct(hx);shx.Edge.Layer = 'back';warning on;
+
     AP_errorfill([],nanmean(curr_ci,2),curr_ci,[0.5,0.5,0.5],[],false);
     stairs(curr_rxn,'k','linewidth',2);
     xlabel('Training day');
@@ -241,18 +335,23 @@ for curr_learned_day = learned_day_grp'
         curr_learned_day,1,1,n_rxn_altsample)),[],n_rxn_altsample);
     curr_alt_prct_altdiff = curr_alt_prct-nanmean(curr_alt_prct,2);
     rxn_alt_prct_altdiff_ci(learned_day_grp==curr_learned_day,:) = ...
-        prctile(nanmean(curr_alt_prct_altdiff,1),[5,95]);
+        prctile(nanmean(curr_alt_prct_altdiff,1),[1,99]);
 end
 
+% (stair plot: extend last step by 1/2 day to draw errorbar there)
 figure; hold on
 xline(0,'linestyle','--');
 AP_errorfill(learned_day_grp(plot_learned),nanmean(rxn_alt_prct_altdiff_ci(plot_learned,:),2), ...
     rxn_alt_prct_altdiff_ci(plot_learned,:),[0.5,0.5,0.5],[],false);
-stairs(learned_day_grp(plot_learned),rxn_altdiff_learn_mean(plot_learned),'k','linewidth',3);
-% (NaN-out day without minimum n)
-plot_rxn_stairs = rxn_measured_prct_altdiff;
-plot_rxn_stairs(~ismember(learned_day_x,learned_day_grp(plot_learned))) = NaN;
-stairs(learned_day_x,plot_rxn_stairs,'color','k');
+stairs([learned_day_grp(plot_learned);learned_day_grp(find(plot_learned,1,'last'))+0.5], ...
+    [rxn_altdiff_learn_mean(plot_learned);rxn_altdiff_learn_mean(find(plot_learned,1,'last'))], ...
+    'k','linewidth',2);
+errorbar(learned_day_grp(plot_learned)+0.5,rxn_altdiff_learn_mean(plot_learned), ...
+    rxn_altdiff_learn_sem(plot_learned),'k','linewidth',2,'linestyle','none','CapSize',0);
+% % (plot all mice: NaN-out day without minimum n)
+% plot_rxn_stairs = rxn_measured_prct_altdiff;
+% plot_rxn_stairs(~ismember(learned_day_x,learned_day_grp(plot_learned))) = NaN;
+% stairs(learned_day_x,plot_rxn_stairs,'color','k');
 xlabel('Learned day');
 ylabel('Fast reaction times (% meas-null)')
 axis tight;
@@ -326,7 +425,7 @@ learned_daysplit_x = cell2mat(cellfun(@(x) x+(0:n_daysplit)'/(n_daysplit+1), ...
 [rxn_learn_mean_daysplit,rxn_learn_sem_daysplit,learned_day_grp_daysplit,learned_day_n_daysplit] = ...
     grpstats(rxn_measured_prct_long(:),learned_daysplit_x(:), ...
     {'nanmean','sem','gname','numel'});
-rxn_alt_learn_mean = ...
+rxn_alt_learn_mean_daysplit = ...
     grpstats(reshape(rxn_alt_prct_long,[],n_rxn_altsample),learned_daysplit_x(:), ...
     {'nanmean'});
 
@@ -335,9 +434,9 @@ plot_learned = learned_day_n_daysplit >= min_n | isnan(rxn_learn_mean_daysplit);
 
 figure; hold on;
 
-rxn_alt_learn_ci = prctile(rxn_alt_learn_mean,[5,95],2);
+rxn_alt_learn_ci = prctile(rxn_alt_learn_mean_daysplit,[5,95],2);
 p1 = AP_errorfill(learned_day_grp_daysplit(plot_learned), ...
-    nanmean(rxn_alt_learn_mean(plot_learned,:),2), ...
+    nanmean(rxn_alt_learn_mean_daysplit(plot_learned,:),2), ...
     rxn_alt_learn_ci(plot_learned,:),[0.5,0.5,0.5],[],false);
 
 % plot(learned_daysplit_x,rxn_measured_prct_long,'color',[0.5,0.5,0.5])
@@ -351,70 +450,146 @@ ylim([0,100]);
 line([0,0],ylim,'color','k','linestyle','--');
 legend([p1(1),p2(1)],{'Null','Measured'});
 
-%%%%%% TRY HERE? Subtract null then can plot overlapping rxn windows?
 
-rxn_window_try = 0.2:0.1:1;
-rxn_col = copper(length(rxn_window_try));
+% Plot relative to learned day (null difference: daysplit)
+rxn_altdiff_learn_mean_daysplit = rxn_learn_mean_daysplit - ...
+    nanmean(rxn_alt_learn_mean_daysplit,2);
+rxn_alt_altdiff_learn_ci = prctile( ...
+    rxn_alt_learn_mean_daysplit-nanmean(rxn_alt_learn_mean_daysplit,2), ...
+    [5,95],2);
 
 figure; hold on;
-set(gca,'ColorOrder',rxn_col);
 
-for curr_rxn_try = rxn_window_try
-    rxn_window = [0.1,curr_rxn_try];
+p1 = AP_errorfill(learned_day_grp_daysplit(plot_learned), ...
+    nanmean(rxn_alt_learn_mean_daysplit(plot_learned,:),2), ...
+    rxn_alt_altdiff_learn_ci(plot_learned,:),[0.5,0.5,0.5],[],false);
 
-    % Plot fraction of reaction times within window: daysplit
-    rxn_measured_prct_daysplit = accumarray(trial_split_idx_cat, ...
-        rxn_measured_cat >= rxn_window(1) & ...
-        rxn_measured_cat <= rxn_window(2), ...
-        [n_daysplit,max_days,length(bhv)],@(x) nanmean(x)*100,NaN);
-    rxn_alt_prct_daysplit = cell2mat(permute(arrayfun(@(x) ...
-        accumarray(trial_split_idx_cat, ...
-        rxn_alt_cat(:,x) >= rxn_window(1) & ...
-        rxn_alt_cat(:,x) <= rxn_window(2), ...
-        [n_daysplit,max_days,length(bhv)],@(x) nanmean(x)*100,NaN), ...
-        1:n_rxn_altsample,'uni',false),[1,3,4,2]));
+p2 = errorbar(learned_day_grp_daysplit(plot_learned), ...
+    rxn_altdiff_learn_mean_daysplit(plot_learned), ...
+    rxn_learn_sem_daysplit(plot_learned),'k','linewidth',2,'CapSize',0);
+ylabel(sprintf('Reaction times %.g-%.g (meas-null%%)',rxn_window(1),rxn_window(2)));
+xlabel('Learned day');
+axis tight;
+xlim(xlim + [-0.5,0.5]);
+xline(0,'--');
+legend([p1(1),p2(1)],{'Null','Measured'});
 
-    % Put NaNs between days to plot with gaps
-    rxn_measured_prct_long = reshape(padarray(rxn_measured_prct_daysplit,[1,0,0],NaN,'post'),[],length(animals));
-    rxn_alt_prct_long = reshape(padarray(rxn_alt_prct_daysplit,[1,0,0],NaN,'post'),[],length(animals),n_rxn_altsample);
 
-    rxn_measured_prct_long = rxn_measured_prct_long - nanmean(rxn_alt_prct_long,3);
-    rxn_alt_prct_long = rxn_alt_prct_long - nanmean(rxn_alt_prct_long,3);
+%%%%%% TRY HERE? PDF/CDF for all mice with null by day
 
-    % Plot relative to learned day (daysplit)
-    learned_daysplit_x = cell2mat(cellfun(@(x) x+(0:n_daysplit)'/(n_daysplit+1), ...
-        num2cell(learned_day_x),'uni',false));
+% rxn_bins = [0:0.02:0.5];
+% rxn_bin_centers = rxn_bins(1:end-1) + diff(rxn_bins)./2;
+% 
+% % Get reaction time histograms by day
+% animal_rxn = nan(max_days,length(rxn_bin_centers),length(animals));
+% for curr_animal = 1:length(bhv)
+%     for curr_day = find(use_days{curr_animal})'
+%         animal_rxn(curr_day,:,curr_animal,:) = ...
+%             histcounts(bhv(curr_animal).stim_move_t{curr_day}, ...
+%             rxn_bins,'normalization','probability');
+%     end
+% end
+% 
+% learned_day_unique = unique(learned_day_x)';
+% [~,learned_day_id] = ismember(learned_day_x,learned_day_unique);
+% 
+% learned_day_idx = repmat(permute(learned_day_id,[1,3,2]),[1,length(rxn_bin_centers)]);
+% [~,bin_idx,animal_idx] = ndgrid(1:size(animal_rxn,1),1:size(animal_rxn,2),1:size(animal_rxn,3));
+% 
+% rxn_hist_learned_day = accumarray([bin_idx(:),learned_day_idx(:)],animal_rxn(:),[],@nanmean,NaN);
+% 
+% figure; hold on;
+% plot(rxn_bin_centers,rxn_hist_learned_day);
+% plot(rxn_bin_centers,rxn_hist_learned_day(:,learned_day_unique == -2),'g','linewidth',2);
+% plot(rxn_bin_centers,rxn_hist_learned_day(:,learned_day_unique == -1),'k','linewidth',2);
+% plot(rxn_bin_centers,rxn_hist_learned_day(:,learned_day_unique == 0),'b','linewidth',2);
+% plot(rxn_bin_centers,rxn_hist_learned_day(:,learned_day_unique == 1),'r','linewidth',2);
 
-    [rxn_learn_mean_daysplit,rxn_learn_sem_daysplit,learned_day_grp_daysplit,learned_day_n_daysplit] = ...
-        grpstats(rxn_measured_prct_long(:),learned_daysplit_x(:), ...
-        {'nanmean','sem','gname','numel'});
-    rxn_alt_learn_mean = ...
-        grpstats(reshape(rxn_alt_prct_long,[],n_rxn_altsample),learned_daysplit_x(:), ...
-        {'nanmean'});
 
-    learned_day_grp_daysplit = cellfun(@str2num,learned_day_grp_daysplit);
-    plot_learned = learned_day_n_daysplit >= min_n | isnan(rxn_learn_mean_daysplit);
 
-    rxn_alt_learn_ci = prctile(rxn_alt_learn_mean,[5,95],2);
-%     p1 = AP_errorfill(learned_day_grp_daysplit(plot_learned), ...
-%         nanmean(rxn_alt_learn_mean(plot_learned,:),2), ...
-%         rxn_alt_learn_ci(plot_learned,:),[0.5,0.5,0.5],[],false);
+% rxn_measured
+% rxn_alt
+% 
+% learned_day
+% 
+% 
+% rxn_bins = [0:0.02:0.5];
+% rxn_bin_centers = rxn_bins(1:end-1) + diff(rxn_bins)./2;
+% 
+% animal_rxn_measured_cathist = cell2mat(arrayfun(@(x) ...
+%     histcounts(rxn_measured_cat( ...
+%     trial_split_idx_cat(:,3) == x & ...
+%     trial_split_idx_cat(:,2) >= postlearning_day), ...
+%     rxn_bins,'normalization','probability')',1:length(bhv),'uni',false));
+% 
+% figure; hold on;
+% AP_errorfill(rxn_bin_centers,nanmean(animal_rxn_measured_cathist,2), ...
+%     AP_sem(animal_rxn_measured_cathist,2),'k');
 
-    % plot(learned_daysplit_x,rxn_measured_prct_long,'color',[0.5,0.5,0.5])
-    p2 = errorbar(learned_day_grp_daysplit(plot_learned),rxn_learn_mean_daysplit(plot_learned), ...
-        rxn_learn_sem_daysplit(plot_learned),'linewidth',2,'CapSize',0);
-    ylabel(sprintf('Reaction times %.g-%.g (%%)',rxn_window(1),rxn_window(2)));
-    xlabel('Learned day');
-    axis tight;
-    xlim(xlim + [-0.5,0.5]);
-    %     legend([p1(1),p2(1)],{'Null','Measured'});
 
-    drawnow;
+%%%%%%%%%%%%%%%%%%%%%%%%%
 
+
+
+
+
+%%%%%%%%%%%%% TESTING: KS stat instead of defining window
+
+x = cell(size(bhv));
+xa = cell(size(bhv));
+
+for curr_animal = 1:length(bhv)
+    for curr_day = 1:length(rxn_measured{curr_animal})
+        [~,~,x{curr_animal}(curr_day,1)] = ...
+            kstest2(rxn_measured{curr_animal}{curr_day}, ...
+            rxn_alt{curr_animal}{curr_day}(:,1));
+        [~,~,xa{curr_animal}(curr_day,1)] = ...
+            kstest2(rxn_alt{curr_animal}{curr_day}(:,1), ...
+            rxn_alt{curr_animal}{curr_day}(:,2));
+    end
 end
-legend(cellfun(@num2str,num2cell(rxn_window_try),'uni',false));
+figure;hold on;cellfun(@plot,x);cellfun(@plot,xa);
 
-%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+x2 = AP_padcatcell(x);
+xa2 = AP_padcatcell(xa);
+
+[r,ld] = grpstats(x2(:),learned_day_x(:),{@nanmean,'gname'});
+[ra,ld] = grpstats(xa2(:),learned_day_x(:),{@nanmean,'gname'});
+ld = cellfun(@str2num,ld);
+figure; hold on
+stairs(ld,r);
+stairs(ld,ra);
+xline(0,'--');
+
+
+% (in quartiles)
+x = cell(size(bhv));
+xa = cell(size(bhv));
+
+for curr_animal = 1:length(bhv)
+    for curr_day = 1:length(rxn_measured{curr_animal})
+        for curr_quartile = 1:4
+
+            curr_n_trials = length(rxn_measured{curr_animal}{curr_day});
+            curr_trials = ceil((1:curr_n_trials)/(curr_n_trials/4)) == curr_quartile;
+
+            [~,~,x{curr_animal}(curr_day,curr_quartile)] = ...
+                kstest2(rxn_measured{curr_animal}{curr_day}(curr_trials), ...
+                rxn_alt{curr_animal}{curr_day}(curr_trials,1));
+        end
+    end
+end
+
+x2 = reshape(permute(padarray(AP_padcatcell(x),[0,1],nan,'post'),[2,1,3]),[],length(bhv));
+m = grpstats(x2(:),learned_daysplit_x(:));
+figure;plot(learned_day_grp_daysplit,m)
+xlabel('Learned day');
+ylabel('KS stat');
+
+
+%%%%%%%%%
+
+
 
 
 
@@ -755,7 +930,6 @@ learned_day_unique = unique(trial_learned_day)';
 % Get average fluorescence by animal/day/stim
 stim_v_avg = cell(length(animals),1);
 stim_roi_avg = cell(length(animals),1);
-stim_roi_hemidiff_avg = cell(length(animals),1);
 for curr_animal = 1:length(animals)
     for curr_day = 1:max(trial_day(trial_animal == curr_animal))
         for curr_stim_idx = 1:length(stim_unique)
@@ -915,12 +1089,17 @@ arrayfun(@(x) set(x,'children',circshift(get(x,'children'),-1)),allchild(h));
 
 % Plot time-max within ROIs across days
 use_t = t > 0 & t <= 0.2;
+
 stim_roi_tmax = cellfun(@(x) ...
     permute(max(x(:,use_t,:,:),[],2),[1,3,4,2]), ...
     stim_roi_avg,'uni',false);
+
+% roi_hemiflip = circshift(1:n_rois,n_rois/2);
+% stim_roi_hemidiff_avg = cellfun(@(x) x-x(roi_hemiflip,:,:,:),stim_roi_avg,'uni',false);
 % stim_roi_tmax = cellfun(@(x) ...
 %     permute(max(x(:,use_t,:,:),[],2),[1,3,4,2]), ...
 %     stim_roi_hemidiff_avg,'uni',false);
+
 stim_roi_tmax_daycat = cat(2,stim_roi_tmax{:});
 
 n_days_animal = accumarray(trial_animal,trial_day,[],@max);
@@ -2314,6 +2493,7 @@ ylabel('Fluorescence (normalized to pre-learn)');
 xline(0,'linestyle','--');
 legend({wf_roi(plot_rois).area},'location','nw')
 
+
 %% ^^ Task & Passive - combine daysplit [requires above plots made first]
 
 % First make plots for passive and task daysplit mPFC activity
@@ -2519,6 +2699,23 @@ xlabel('Time from stim (s)');
 ylabel('\DeltaR/R_0');
 legend(h,mua_areas(plot_areas));
 
+% Plot animal mean with errorbars on stacked subplots
+figure;
+h = tiledlayout(sum(plot_areas),1,'TileSpacing','compact','padding','compact');
+for curr_area = find(plot_areas)'
+    nexttile;
+    AP_errorfill(t', ...
+        squeeze(nanmean(mua_animal_avg(:,:,curr_area),1)), ...
+        squeeze(AP_sem(mua_animal_avg(:,:,curr_area),1)),'k');
+    ylabel(mua_areas(curr_area));
+end
+linkaxes(allchild(h),'xy');
+% (shade stim area and put in back)
+arrayfun(@(x) patch(x,[0,0.5,0.5,0], ...
+    reshape(repmat(ylim(x),2,1),[],1),[1,1,0.8], ...
+    'linestyle','none'),allchild(h));
+arrayfun(@(x) set(x,'children',circshift(get(x,'children'),-1)),allchild(h));
+
 
 %% Passive - V1 muscimol
 
@@ -2651,7 +2848,7 @@ allen_atlas_path = fileparts(which('template_volume_10um.npy'));
 av = readNPY([allen_atlas_path filesep 'annotation_volume_10um_by_index.npy']);
 
 figure;
-animal_col = lines(length(animals));
+animal_col = AP_colormap('KR',5);
 
 % Set up 3D axes
 ccf_3d_axes = subplot(1,4,1);
@@ -2763,12 +2960,11 @@ figure;
 imagesc(stim_px);
 axis image off
 caxis(max(caxis)*0.5*[-1,1])
-colormap(AP_colormap('WG'));
-set(gca,'ColorScale','log');
+colormap(AP_colormap('KWG',[],1.5));
 AP_reference_outline('ccf_aligned',[0.5,0.5,0.5]);
 AP_reference_outline('grid_aligned',[0.8,0.8,0.8]);
 
-scatter(probe_coords_mean_wf(:,1),probe_coords_mean_wf(:,2),40,animal_col,'filled');
+scatter(probe_coords_mean_wf(:,1),probe_coords_mean_wf(:,2),100,animal_col,'filled');
 
 
 %% Plot widefield ROIs (hemisphere)
