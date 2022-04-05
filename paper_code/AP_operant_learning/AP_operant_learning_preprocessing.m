@@ -539,10 +539,10 @@ for curr_animal = 1:length(bhv)
         rxn_window_frac = nanmean(curr_rxn >= rxn_window(1) & curr_rxn <= rxn_window(2));
         alt_rxn_window_frac = nanmean(curr_alt_rxn >= rxn_window(1) & curr_alt_rxn <= rxn_window(2),1);
 
-        %%%% TESTING: use MAD instead of fraction within window
-        rxn_window_frac = -mad(curr_rxn,1);
-        alt_rxn_window_frac = -mad(curr_alt_rxn,1);
-        %%%%%%%%%%
+%         %%%% TESTING: use MAD instead of fraction within window
+%         rxn_window_frac = -mad(curr_rxn,1);
+%         alt_rxn_window_frac = -mad(curr_alt_rxn,1);
+%         %%%%%%%%%%
         
         rxn_window_frac_rank = tiedrank([rxn_window_frac,alt_rxn_window_frac]);
         rxn_window_frac_p = rxn_window_frac_rank(1)./(n_sample+1);
@@ -822,7 +822,25 @@ for curr_im =1:length(im_unaligned_cat)
         'OutputView',tform_size);
 end
 
-AP_image_scroll(im_aligned); axis image;
+day_label_split = cellfun(@(animal,day) cellfun(@(day) ...
+    sprintf('%s %s',animal,day),day,'uni',false), ...
+    {facecam_align.animal},{facecam_align.day},'uni',false);
+day_label = horzcat(day_label_split{:});
+
+im_unaligned_padcat = AP_padcatcell(im_unaligned_cat);
+AP_image_scroll([ ...
+    im_unaligned_padcat(1:size(im_aligned,1),1:size(im_aligned,2),:), ...
+    im_aligned],day_label); axis image;
+
+% Plot single day all mice to check identity
+figure;
+h = tiledlayout('flow');
+for x = 1:length(facecam_align)
+    nexttile
+    imagesc(facecam_align(x).im{2}); axis image off;
+    title(sprintf('Animal %d: %s',x,facecam_align(x).animal));
+end
+
 
 %% Draw facecam whisker ROI and align to each recording
 
@@ -979,9 +997,10 @@ disp('Finished loading all')
 
 % Save
 save_path = 'C:\Users\Andrew\OneDrive for Business\Documents\CarandiniHarrisLab\analysis\operant_learning\data';
-save_fn = 'trial_activity_passive_teto';
-save([save_path filesep save_fn],'-v7.3');
-disp(['Saved: ' save_path filesep save_fn])
+save_fn = fullfile(save_path,'trial_activity_passive_teto');
+save(save_fn,'-v7.3');
+disp(['Saved: ' save_fn])
+
 
 %% Task widefield
 
@@ -1058,8 +1077,10 @@ disp('Finished loading all')
 
 % Save
 save_path = 'C:\Users\Andrew\OneDrive for Business\Documents\CarandiniHarrisLab\analysis\operant_learning\data';
-save_fn = ['trial_activity_task_teto'];
-save([save_path filesep save_fn],'-v7.3');
+save_fn = fullfile(save_path,'trial_activity_task_teto');
+save(save_fn,'-v7.3');
+disp(['Saved ' save_fn]);
+
 
 %% ~~~~~~~~~~~~~~ Muscimol + widefield data
 
