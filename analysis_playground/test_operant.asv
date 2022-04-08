@@ -2723,7 +2723,7 @@ stim_v_avg_dayavg = nanmean(cell2mat(permute(cellfun(@(x) ...
     stim_v_avg,'uni',false),[1,3,4,5,2])),5);
 stim_px_avg_dayavg = AP_svdFrameReconstruct(U_master(:,:,1:n_vs), ...
     stim_v_avg_dayavg(:,:,:,use_stim));
-AP_image_scroll(stim_px_avg_dayavg,t);
+AP_imscroll(stim_px_avg_dayavg,t);
 caxis([-max(abs(caxis)),max(abs(caxis))]);
 colormap(brewermap([],'PrGn'));
 axis image;
@@ -2760,7 +2760,7 @@ stim_avg_naive = nanmean(stim_px_avg_dayavg(:,:,:,naive_days),4);
 stim_avg_unlearned = nanmean(stim_px_avg_dayavg(:,:,:,unlearned_days),4);
 stim_avg_learned = nanmean(stim_px_avg_dayavg(:,:,:,expert_days),4);
 
-AP_image_scroll([stim_avg_naive,stim_avg_unlearned,stim_avg_learned]);
+AP_imscroll([stim_avg_naive,stim_avg_unlearned,stim_avg_learned]);
 caxis([-max(abs(caxis)),max(abs(caxis))]);
 colormap(brewermap([],'PrGn'));
 axis image;
@@ -2794,7 +2794,7 @@ use_animal = 5;
 plot_stim = 3;
 curr_px = AP_svdFrameReconstruct(U_master(:,:,1:n_vs), ...
     stim_v_avg{use_animal}(:,:,:,plot_stim));
-AP_image_scroll(curr_px,t);
+AP_imscroll(curr_px,t);
 caxis([-max(abs(caxis)),max(abs(caxis))]);
 colormap(brewermap([],'PrGn'));
 AP_reference_outline('ccf_aligned',[0.5,0.5,0.5]);
@@ -2962,7 +2962,7 @@ for curr_t = 1:length(t)
         trial_bhv_allcat(use_trials),'rows','complete');
     corr_px(:,:,curr_t) = reshape(r,size(Ud,1),size(Ud,2));
 end
-AP_image_scroll(corr_px,t);
+AP_imscroll(corr_px,t);
 caxis([-max(abs(caxis)),max(abs(caxis))]);
 colormap(brewermap([],'*RdBu'));
 axis image;
@@ -3019,7 +3019,7 @@ stim_v_avg_cat_grp = reshape(grpstats( ...
     bhv_padcat_grp)',n_vs,length(t),length(stim_unique),[]);
 
 curr_px = AP_svdFrameReconstruct(U_master(:,:,1:n_vs),stim_v_avg_cat_grp);
-AP_image_scroll(reshape(permute(curr_px,[1,2,4,3,5]), ...
+AP_imscroll(reshape(permute(curr_px,[1,2,4,3,5]), ...
     size(curr_px,1),[],size(curr_px,3),size(curr_px,5)),t);
 caxis([-max(abs(caxis)),max(abs(caxis))]);
 colormap(brewermap([],'PrGn'));
@@ -3155,7 +3155,7 @@ stim_v_avg_learnedday = reshape(grpstats( ...
 stim_px_avg_learnedday = AP_svdFrameReconstruct(U_master(:,:,1:n_vs), ...
     stim_v_avg_learnedday);
 
-AP_image_scroll(stim_px_avg_learnedday,t);
+AP_imscroll(stim_px_avg_learnedday,t);
 caxis([-max(abs(caxis)),max(abs(caxis))]);
 colormap(brewermap([],'PrGn'));
 axis image;
@@ -3327,7 +3327,7 @@ end
 
 % Plot average for each day
 curr_px = AP_svdFrameReconstruct(U_master(:,:,1:n_vs),nanmean(fluor_deconv_cat,4));
-AP_image_scroll(curr_px,t);
+AP_imscroll(curr_px,t);
 axis image;
 caxis([-max(abs(caxis)),max(abs(caxis))]);
 colormap(brewermap([],'PrGn'))
@@ -3367,7 +3367,7 @@ end
 
 act_avg_px = AP_svdFrameReconstruct(U_master(:,:,1:n_vs),nanmean(act_avg_animal_v,4));
 
-AP_image_scroll(act_avg_px,t);
+AP_imscroll(act_avg_px,t);
 caxis([-max(abs(caxis)),max(abs(caxis))]);
 colormap(brewermap([],'PrGn'));
 axis image;
@@ -3418,7 +3418,7 @@ stim_v_avg_cat_grp = reshape(grpstats( ...
     move_prepost_max_ratio_grp)',n_vs,length(t),[]);
 
 curr_px = AP_svdFrameReconstruct(U_master(:,:,1:n_vs),stim_v_avg_cat_grp);
-AP_image_scroll(curr_px,t);
+AP_imscroll(curr_px,t);
 caxis([-max(abs(caxis)),max(abs(caxis))]);
 colormap(brewermap([],'PrGn'));
 axis image;
@@ -3463,7 +3463,7 @@ for curr_bin = 1:length(wheel_vel_bins)-1
 end
 
 curr_px = AP_svdFrameReconstruct(U_master(:,:,1:n_vs),fluor_binned);
-AP_image_scroll(curr_px,t);
+AP_imscroll(curr_px,t);
 axis image;
 caxis([-max(abs(caxis)),max(abs(caxis))]);
 colormap(brewermap([],'PrGn'))
@@ -3632,17 +3632,16 @@ use_t = t >= 0 & t <= 0.2;
 act_hemidiff_learnday_prelearnsub_tmax = ...
     squeeze(nanmean(max(act_hemidiff_learnday_rxnbin_avg_prelearnsub(:,use_t,:,:,:),[],2),3));
 
-
 act_hemidiff_learnday_tmax = ...
     squeeze(nanmean(max(act_hemidiff_learnday_rxnbin_avg(:,use_t,:,:,:),[],2),3));
 act_hemidiff_learnday_tmax_prelearnsub = ...
-    act_hemidiff_learnday_tmax-nanmean(act_hemidiff_learnday_tmax(
+    act_hemidiff_learnday_tmax - ...
+    nanmean(act_hemidiff_learnday_tmax(learned_day_unique < 0,:,:),1);
 
 figure; hold on
 errorbar(learned_day_unique, ...
     nanmean(act_hemidiff_learnday_prelearnsub_tmax(:,plot_roi,:),3), ...
     AP_sem(act_hemidiff_learnday_prelearnsub_tmax(:,plot_roi,:),3),'linewidth',2);
-
 
 
 
@@ -4592,10 +4591,69 @@ end
 title(h,'Activity - scaled SM');
 
 
-        
-        
-        
-        
+%% Removing movement response by subtracting ratio of opposite hemisphere
+
+% Temp/quick: get ratio of L/R by pixel using ITI move kernel
+
+% Get kernel for movements during ITI
+move_iti_k = cellfun(@(x) cellfun(@(x) permute(x{2}(2,:,:),[3,2,1]), ...
+    x,'uni',false),fluor_taskpred_k_all,'uni',false);
+
+move_iti_k_avg = cellfun(@(x) nanmean(cat(3,x{:}),3),move_iti_k,'uni',false);
+
+move_iti_px_grandavg = AP_svdFrameReconstruct(U_master(:,:,1:n_vs), ...
+    nanmean(cat(3,move_iti_k_avg{:}),3));
+
+AP_imscroll(move_iti_px_grandavg);
+colormap(AP_colormap('KWG',[],1.5));
+caxis(max(abs(caxis))*[-1,1]);
+axis image off;
+
+% Get move iti kernels in ROIs
+move_iti_k_roi = cellfun(@(x) cellfun(@(x) ...
+    AP_svd_roi(U_master(:,:,1:n_vs),x,[],[],...
+    cat(3,wf_roi.mask)),x,'uni',false),move_iti_k,'uni',false);
+
+% Get ratio of L/R hemisphere
+move_iti_k_roi_hemiratio_timecourse = cellfun(@(x) cellfun(@(x) ...
+    x(1:size(wf_roi,1),:)./(x(size(wf_roi,1)+1:end,:)),x,'uni',false), ...
+    move_iti_k_roi,'uni',false);
+
+% (plot global median to ballpark the figure)
+a = cat(1,move_iti_k_roi_hemiratio_timecourse{:});
+b = cat(3,a{:});
+c = squeeze(b(6,:,:));
+figure; hold on;
+plot(c);
+plot(nanmedian(c,2),'k','linewidth',2);
+
+
+use_k_t = find(task_regressor_t_shifts{2} == 0);
+
+move_iti_k_roi_hemiratio = cellfun(@(x) cell2mat(cellfun(@(x) nanmedian(x,2), ...
+    x,'uni',false)'),move_iti_k_roi_hemiratio_timecourse,'uni',false);
+
+
+%%% just to see: do it pixel-by-pixel only at t = 0
+
+px = cellfun(@(x) AP_svdFrameReconstruct(U_master(:,:,1:n_vs), ...
+    cell2mat(cellfun(@(x) x(:,use_k_t),x,'uni',false)')),move_iti_k,'uni',false);
+
+px_ratio = cell2mat(permute(cellfun(@(x) ...
+    nanmean(x./(AP_reflect_widefield(x)),3),px,'uni',false),[2,3,1]));
+figure;
+imagesc(nanmean(px_ratio(:,1:round(size(Udf,2)/2,3))
+caxis([0,2]);
+colormap(AP_colormap('BWR',[],1));
+colorbar;
+AP_reference_outline('ccf_aligned_lefthemi',[0.5,0.5,0.5]);
+
+
+
+
+
+
+
 %% >> Muscimol: task
 
 trial_data_path = 'C:\Users\Andrew\OneDrive for Business\Documents\CarandiniHarrisLab\analysis\operant_learning\data';
@@ -4642,7 +4700,7 @@ curr_regressor = 1;
 curr_subregressor = 1;
 curr_k_px = AP_svdFrameReconstruct(U_master(:,:,1:n_vs), ...
     permute(muscimol_k{curr_regressor}(curr_subregressor,:,:,:),[3,2,4,1]));
-AP_image_scroll(curr_k_px);
+AP_imscroll(curr_k_px);
 caxis([-max(abs(caxis)),max(abs(caxis))]);
 colormap(brewermap([],'PrGn'));
 axis image;
@@ -4656,7 +4714,7 @@ curr_subregressor = 1;
 curr_k = cell2mat(cellfun(@(x) x{curr_regressor}(curr_subregressor,:,:), ...
     fluor_taskpred_k_all{use_animal},'uni',false));
 curr_k_px = AP_svdFrameReconstruct(U_master(:,:,1:n_vs),permute(curr_k,[3,2,1]));
-AP_image_scroll(curr_k_px);
+AP_imscroll(curr_k_px);
 caxis([-max(abs(caxis)),max(abs(caxis))]);
 colormap(brewermap([],'PrGn'));
 axis image;
@@ -4696,7 +4754,7 @@ end
 
 act_avg_px = AP_svdFrameReconstruct(U_master(:,:,1:n_vs),nanmean(act_avg_animal_v,4));
 
-AP_image_scroll(act_avg_px,t);
+AP_imscroll(act_avg_px,t);
 caxis([-max(abs(caxis)),max(abs(caxis))]);
 colormap(brewermap([],'PrGn'));
 axis image;
@@ -4752,7 +4810,7 @@ end
 fluor_muscimol_avg_px = AP_svdFrameReconstruct(U_master(:,:,1:n_vs), ...
     fluor_muscimol_avg);
 
-AP_image_scroll(fluor_muscimol_avg_px,t)
+AP_imscroll(fluor_muscimol_avg_px,t)
 caxis([-max(abs(caxis)),max(abs(caxis))]);
 colormap(brewermap([],'PrGn'));
 axis image;
