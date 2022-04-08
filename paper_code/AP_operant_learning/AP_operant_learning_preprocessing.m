@@ -918,16 +918,16 @@ warning('Saftey: saving turned off');
 
 %% Passive widefield
 
-clear all
 disp('Passive trial activity')
+
+% Initialize
+clear all
+trial_data_all = struct;
 
 animals = { ...
     'AP100','AP101','AP103','AP104','AP105', ...
     'AP106','AP107','AP108','AP109','AP111', ...
     'AP113','AP114','AP115'};
-
-% Initialize save variable
-trial_data_all = struct;
 
 for curr_animal = 1:length(animals)
     
@@ -1004,16 +1004,16 @@ disp(['Saved: ' save_fn])
 
 %% Task widefield
 
-clear all
 disp('Task trial activity')
+
+% Initialize
+clear all
+trial_data_all = struct;
 
 animals = { ...
     'AP100','AP101','AP103','AP104','AP105', ...
     'AP106','AP107','AP108','AP109','AP111', ...
     'AP113','AP114','AP115'};
-
-% Initialize save variable
-trial_data_all = struct;
 
 for curr_animal = 1:length(animals)
     

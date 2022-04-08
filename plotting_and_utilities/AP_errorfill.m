@@ -27,8 +27,19 @@ if sum(size(y) > 1) == 1
     end
 end
 
+% If no color set, continue through axis color order
+% (after max number of any object type already on plot)
 if ~exist('color','var') || isempty(color)
-    color = lines(size(y,2));
+    ax_color_order = get(gca,'ColorOrder');
+    ax_children = get(gca,'Children');
+    if ~isempty(ax_children)
+        ax_child_type = get(ax_children,'type');
+        child_type_max_n = max(accumarray(findgroups(ax_child_type),1));
+    else
+        child_type_max_n = 0;
+    end
+    color_idx = mod(child_type_max_n+[1:size(y,2)]-1,size(ax_color_order,1))+1;
+    color = ax_color_order(color_idx,:);
 end
 
 if ~exist('alpha','var') || isempty(alpha)

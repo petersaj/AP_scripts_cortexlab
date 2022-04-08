@@ -3632,16 +3632,17 @@ use_t = t >= 0 & t <= 0.2;
 act_hemidiff_learnday_prelearnsub_tmax = ...
     squeeze(nanmean(max(act_hemidiff_learnday_rxnbin_avg_prelearnsub(:,use_t,:,:,:),[],2),3));
 
+
 act_hemidiff_learnday_tmax = ...
     squeeze(nanmean(max(act_hemidiff_learnday_rxnbin_avg(:,use_t,:,:,:),[],2),3));
 act_hemidiff_learnday_tmax_prelearnsub = ...
-    act_hemidiff_learnday_tmax - ...
-    nanmean(act_hemidiff_learnday_tmax(learned_day_unique < 0,:,:),1);
+    act_hemidiff_learnday_tmax-nanmean(act_hemidiff_learnday_tmax(
 
 figure; hold on
 errorbar(learned_day_unique, ...
     nanmean(act_hemidiff_learnday_prelearnsub_tmax(:,plot_roi,:),3), ...
     AP_sem(act_hemidiff_learnday_prelearnsub_tmax(:,plot_roi,:),3),'linewidth',2);
+
 
 
 
