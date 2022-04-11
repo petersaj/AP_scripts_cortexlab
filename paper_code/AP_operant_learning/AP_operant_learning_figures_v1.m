@@ -1,5 +1,6 @@
-%% Figures for longitudinal widefield during operant/sensorimotor learning
+%% Operant learning widefield paper figures
 % Preprocessing done in AP_operant_learning_preprocessing
+
 
 %% Plot example performance
 
@@ -1492,6 +1493,58 @@ for curr_roi = plot_rois
 
     legend([p1(1),p2],{'Animal, Day','Average'},'location','nw')
     xlabel(sprintf('Reaction time m.a.d. (s)',rxn_window(1),rxn_window(2)));
+    ylabel(sprintf('%s \\DeltaF/F_0',wf_roi(curr_roi).area))
+end
+
+
+%% ^^ Passive - ROI activity vs rxn median [requires behavior load]
+
+% Get time-max within ROIs across days
+use_t = t >= 0 & t <= 0.2;
+stim_roi_tmax = cellfun(@(x) ...
+    permute(max(x(:,use_t,:,:),[],2),[1,3,4,2]), ...
+    stim_roi_avg,'uni',false);
+
+% Get reaction time mad minus null (load behavior above)
+rxn_med_altdiff = cellfun(@(meas,null) cellfun(@(meas,null)...
+    nanmedian(meas.*AP_nanout(meas < 0.1)) - ...
+    nanmean(nanmedian(null.*AP_nanout(null < 0.1),1),2), ...
+    meas,null),rxn_measured,rxn_alt,'uni',false);
+
+% Plot activity vs behavior for each animal (exclude naive activity)
+plot_rois = [1,7,6];
+animal_colors = max(brewermap(length(animals),'Set3')-0.2,0);
+figure;
+h = tiledlayout(length(plot_rois),1,'TileSpacing','compact','padding','compact');
+for curr_roi = plot_rois
+    nexttile; hold on;
+    
+    set(gca,'ColorOrder',animal_colors);
+    % (plot all data as dots)
+    p1 = cellfun(@(bhv,act) ...
+        plot(bhv,act(curr_roi,n_naive+1:end,stim_unique == 1),'.','MarkerSize',20), ...
+        rxn_med_altdiff,stim_roi_tmax);
+    
+    % (plot average binned by reaction window percent)
+    rxn_mad_altdiff_cat = cell2mat(rxn_med_altdiff);
+    act_cat = cell2mat(cellfun(@(x) ...
+        x(curr_roi,n_naive+1:end,stim_unique == 1)', ...
+        stim_roi_tmax,'uni',false));
+
+    bhv_bin_edges = linspace(prctile(rxn_mad_altdiff_cat,10),prctile(rxn_mad_altdiff_cat,90),5);
+    bhv_bins = discretize(rxn_mad_altdiff_cat,bhv_bin_edges);
+
+    bhv_bhvbin_mean = accumarray(bhv_bins(~isnan(bhv_bins)), ...
+        rxn_mad_altdiff_cat(~isnan(bhv_bins)),[],@nanmean);
+    act_bhvbin_mean = accumarray(bhv_bins(~isnan(bhv_bins)), ...
+        act_cat(~isnan(bhv_bins)),[],@nanmean);
+    act_bhvbin_sem = accumarray(bhv_bins(~isnan(bhv_bins)), ...
+        act_cat(~isnan(bhv_bins)),[],@AP_sem);
+
+    p2 = errorbar(bhv_bhvbin_mean,act_bhvbin_mean,act_bhvbin_sem,'k','linewidth',2);
+
+    legend([p1(1),p2],{'Animal, Day','Average'},'location','nw')
+    xlabel(sprintf('Reaction time median (s)',rxn_window(1),rxn_window(2)));
     ylabel(sprintf('%s \\DeltaF/F_0',wf_roi(curr_roi).area))
 end
 

@@ -473,7 +473,7 @@ learned_days_padcat = AP_padcatcell(learned_days);
 figure; 
 imagesc(learned_days_padcat,'AlphaData',~isnan(learned_days_padcat));
 set(gca,'Color',[0.5,0.5,0.5])
-title(sprintf('Frac reaction times %.2f-%.2f',rxn_window(1),rxn_window(2)));
+title('Sig. reaction time stat days');
 set(gca,'XTick',1:length({bhv.animal}),'XTickLabel',{bhv.animal})
 xlabel('Animal');
 ylabel('Day');

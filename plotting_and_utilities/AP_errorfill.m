@@ -9,6 +9,11 @@ function h = AP_errorfill(x,y,ye,color,alpha,plot_mean,linewidth)
 % alpha - alpha of error fill
 % plot_mean = plot the mean as a line
 
+% If no y (just plotting error bars), default to NaNs size ye
+if isempty(y)
+    y = nan(size(ye,1),1);
+end
+
 % Define defaults, reshape to column vectors
 if isempty(x)
     x = 1:length(y);
