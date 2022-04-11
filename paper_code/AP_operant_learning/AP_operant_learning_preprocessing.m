@@ -423,91 +423,6 @@ if save_bhv
     disp(['Saved ' save_fn]);
 end
 
-%% [DIDN'T WORK] Define reaction time window to find "learned" days 
-% 
-% % Load behavior from above
-% data_path = 'C:\Users\Andrew\OneDrive for Business\Documents\CarandiniHarrisLab\analysis\operant_learning\data';
-% bhv_fn = [data_path filesep 'bhv_teto'];
-% load(bhv_fn);
-% 
-% % Load muscimol injection info
-% data_path = 'C:\Users\Andrew\OneDrive for Business\Documents\CarandiniHarrisLab\analysis\operant_learning\data';
-% muscimol_fn = [data_path filesep 'muscimol.mat'];
-% load(muscimol_fn);
-% 
-% % Use days before muscimol
-% use_days = cell(size(bhv));
-% for curr_animal = 1:length(bhv)
-%     muscimol_animal_idx = ismember({muscimol.animal},bhv(curr_animal).animal);
-%     if ~any(muscimol_animal_idx)
-%         use_days{curr_animal} = true(length(bhv(curr_animal).day),1);
-%         continue
-%     end
-%     muscimol_day_idx = datenum(bhv(curr_animal).day) >= ...
-%         datenum(muscimol(muscimol_animal_idx).day(1));
-%     use_days{curr_animal} = ~muscimol_day_idx;
-% end
-% 
-% % Get "learned days" across a range of reaction time windows
-% rxn_window_start = 0.1;
-% rxn_window_ends = rxn_window_start:0.1:4;
-% 
-% n_sample = 10000;
-% learned_days = cell(size(bhv));
-% for curr_animal = 1:length(bhv)
-% 
-%     curr_n_days = sum(use_days{curr_animal});
-%     learned_days{curr_animal} = nan(curr_n_days,length(rxn_window_ends));
-% 
-%     for curr_day = find(use_days{curr_animal})'
-% 
-%         % (use trials only with alt - no alt if couldn't recapture stim
-%         % time with params, happens with some skipped wheel clicks)
-%         use_trials = ~cellfun(@isempty,bhv(curr_animal).alt_stim_move_t{curr_day});
-% 
-%         curr_rxn = bhv(curr_animal).stim_move_t{curr_day}(use_trials);
-%         curr_alt_rxn = cell2mat(cellfun(@(x) datasample(x,n_sample)', ...
-%             bhv(curr_animal).alt_stim_move_t{curr_day}(use_trials),'uni',false));
-% 
-%         for curr_rxn_window_end_idx = 1:length(rxn_window_ends)
-%             curr_rxn_window = [rxn_window_start, ...
-%                 rxn_window_ends(curr_rxn_window_end_idx)];
-% 
-%             rxn_window_frac = nanmean(curr_rxn >= curr_rxn_window(1) & ...
-%                 curr_rxn <= curr_rxn_window(2));
-%             alt_rxn_window_frac = nanmean(curr_alt_rxn >= curr_rxn_window(1) & ...
-%                 curr_alt_rxn <= curr_rxn_window(2),1);
-% 
-%             rxn_window_frac_rank = tiedrank([rxn_window_frac,alt_rxn_window_frac]);
-%             rxn_window_frac_p = rxn_window_frac_rank(1)./(n_sample+1);
-% 
-%             % (null rejected at 1%)
-%             rxn_window_frac_h = rxn_window_frac_p > 0.99;
-% 
-%             learned_days{curr_animal}(curr_day,curr_rxn_window_end_idx) = rxn_window_frac_h;
-%         end
-%     end
-%     AP_print_progress_fraction(curr_animal,length(bhv));
-% end
-% 
-% % Get number of learned days for reaction time windows
-% learned_days_n = cell2mat(cellfun(@(x) sum(x,1),learned_days,'uni',false)');
-% 
-% figure; hold on;
-% AP_errorfill(rxn_window_ends,nanmean(learned_days_n,1), ...
-%     AP_sem(learned_days_n,1),'k');
-% xlabel('Reaction time window end (s)')
-% ylabel('# days with sig. diff.')
-% 
-% [~,best_rxn_window_end_idx] = max(nanmean(learned_days_n,1));
-% best_rxn_window_end = rxn_window_ends(best_rxn_window_end_idx);
-% xline(best_rxn_window_end,'-',best_rxn_window_end, ...
-%     'LabelVerticalAlignment','bottom','color','r','linewidth',2);
-% 
-% 
-% %%% THIS ISN'T GOOD: it gives a slightly lower number than it should be
-% %%% because of a weird transient early sig day
-
 
 %% Find "learned" days
 % Days when response to stimulus was significantly different from null
@@ -517,7 +432,9 @@ data_path = 'C:\Users\Andrew\OneDrive for Business\Documents\CarandiniHarrisLab\
 bhv_fn = [data_path filesep 'bhv_teto'];
 load(bhv_fn);
 
-% Define "learned" days by fraction of reaction times within window
+% Define "learned" days by median reaction time
+% (exclude rxn < 0.1: too fast for stim, doesn't change with learning)
+% (keeping window defined, but not used for stats)
 rxn_window = [0.1,0.2];
 n_sample = 10000;
 learned_days = cell(size(bhv));
@@ -536,19 +453,15 @@ for curr_animal = 1:length(bhv)
         curr_alt_rxn = cell2mat(cellfun(@(x) datasample(x,n_sample)', ...
             bhv(curr_animal).alt_stim_move_t{curr_day}(use_trials),'uni',false));     
         
-        rxn_window_frac = nanmean(curr_rxn >= rxn_window(1) & curr_rxn <= rxn_window(2));
-        alt_rxn_window_frac = nanmean(curr_alt_rxn >= rxn_window(1) & curr_alt_rxn <= rxn_window(2),1);
-
-%         %%%% TESTING: use MAD instead of fraction within window
-%         rxn_window_frac = -mad(curr_rxn,1);
-%         alt_rxn_window_frac = -mad(curr_alt_rxn,1);
-%         %%%%%%%%%%
+        % Get measured and null medians (exclude rxn < 0.1)
+        rxn_stat = nanmedian(curr_rxn.*AP_nanout(curr_rxn < 0.1),1);
+        alt_rxn_stat = nanmedian(curr_alt_rxn.*AP_nanout(curr_alt_rxn < 0.1),1);
         
-        rxn_window_frac_rank = tiedrank([rxn_window_frac,alt_rxn_window_frac]);
-        rxn_window_frac_p = rxn_window_frac_rank(1)./(n_sample+1);
+        rxn_stat_rank = tiedrank([rxn_stat,alt_rxn_stat]);
+        rxn_stat_p = rxn_stat_rank(1)./(n_sample+1);
         
-        % (null rejected at 1%)
-        rxn_window_frac_h = rxn_window_frac_p > 0.99;
+        % (null rejected at 5%)
+        rxn_window_frac_h = rxn_stat_p < 0.05;
 
         learned_days{curr_animal}(curr_day) = rxn_window_frac_h;
     end

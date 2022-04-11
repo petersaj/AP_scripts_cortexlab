@@ -195,42 +195,83 @@ h = colorbar;ylabel(h,'Probability');
 xlabel('Day');
 ylabel('Reaction time');
 
+% UNUSED: MAD
 % Get reaction times MAD: whole day
-rxn_measured_mad = accumarray(trial_split_idx_cat(:,2:end), ...
-    rxn_measured_cat, ...
-    [max_days,length(bhv)],@(x) mad(x),NaN);
-rxn_alt_mad = cell2mat(permute(arrayfun(@(x) ...
+% (exclude jumping-the-gun < 0.1s)
+% rxn_measured_mad = accumarray(trial_split_idx_cat(:,2:end), ...
+%     rxn_measured_cat.*AP_nanout(rxn_measured_cat < 0.1), ...
+%     [max_days,length(bhv)],@(x) mad(x,1),NaN);
+% rxn_alt_mad = cell2mat(permute(arrayfun(@(x) ...
+%     accumarray(trial_split_idx_cat(:,2:end), ...
+%     rxn_alt_cat(:,x).*AP_nanout(rxn_measured_cat < 0.1), ...
+%     [max_days,length(bhv)],@(x) mad(x,1),NaN), ...
+%     1:n_rxn_altsample,'uni',false),[1,3,2]));
+% 
+% figure; 
+% 
+% subplot(1,2,1);hold on
+% rxn_alt_mad_ci = squeeze(prctile(nanmedian(rxn_alt_mad,2),[5,95],3));
+% AP_errorfill([],nanmedian(rxn_alt_mad_ci(plot_days,:),2), ...
+%     rxn_alt_mad_ci(plot_days,:),[0.5,0.5,0.5],[],false);
+% errorbar(nanmedian(rxn_measured_mad(plot_days,:),2), ...
+%     mad(rxn_measured_mad(plot_days,:),1,2),'k','CapSize',0,'linewidth',2)
+% xlabel('Training day');
+% ylabel('Reaction time MAD (s)');
+% axis tight;
+% xlim(xlim + [-0.5,0.5]);
+% 
+% subplot(1,2,2);hold on
+% rxn_measured_mad_altdiff = rxn_measured_mad - nanmean(rxn_alt_mad,3);
+% rxn_alt_mad_altdiff = rxn_alt_mad - nanmean(rxn_alt_mad,3);
+% 
+% rxn_alt_mad_altdiff_ci = squeeze(prctile(nanmedian(rxn_alt_mad_altdiff,2),[5,95],3));
+% AP_errorfill([],nanmedian(rxn_alt_mad_altdiff_ci(plot_days,:),2), ...
+%     rxn_alt_mad_altdiff_ci(plot_days,:),[0.5,0.5,0.5],[],false);
+% errorbar(nanmedian(rxn_measured_mad_altdiff(plot_days,:),2), ...
+%     mad(rxn_measured_mad_altdiff(plot_days,:),1,2),'k','CapSize',0,'linewidth',2)
+% xlabel('Training day');
+% ylabel('Reaction time MAD-null (s)');
+% axis tight;
+% xlim(xlim + [-0.5,0.5]);
+
+% Reaction time median: whole day
+% (exclude too-fast rxn < 0.1)
+rxn_measured_med = accumarray(trial_split_idx_cat(:,2:end), ...
+    rxn_measured_cat.*AP_nanout(rxn_measured_cat < 0.1), ...
+    [max_days,length(bhv)],@(x) nanmedian(x),NaN);
+rxn_alt_med = cell2mat(permute(arrayfun(@(x) ...
     accumarray(trial_split_idx_cat(:,2:end), ...
-    rxn_alt_cat(:,x), ...
-    [max_days,length(bhv)],@(x) mad(x),NaN), ...
+    rxn_alt_cat(:,x).*AP_nanout(rxn_alt_cat(:,x) < 0.1), ...
+    [max_days,length(bhv)],@(x) nanmedian(x),NaN), ...
     1:n_rxn_altsample,'uni',false),[1,3,2]));
 
 figure; 
 
-subplot(1,2,1);hold on
-rxn_alt_mad_ci = squeeze(prctile(nanmean(rxn_alt_mad,2),[5,95],3));
+subplot(1,2,1,'YScale','log');hold on
+rxn_alt_mad_ci = squeeze(prctile(nanmean(rxn_alt_med,2),[5,95],3));
 AP_errorfill([],nanmean(rxn_alt_mad_ci(plot_days,:),2), ...
     rxn_alt_mad_ci(plot_days,:),[0.5,0.5,0.5],[],false);
-errorbar(nanmean(rxn_measured_mad(plot_days,:),2), ...
-    AP_sem(rxn_measured_mad(plot_days,:),2),'k','CapSize',0,'linewidth',2)
+errorbar(nanmean(rxn_measured_med(plot_days,:),2), ...
+    AP_sem(rxn_measured_med(plot_days,:),2),'k','CapSize',0,'linewidth',2)
 xlabel('Training day');
-ylabel('Reaction time MAD (s)');
+ylabel('Median reaction time (s)');
 axis tight;
 xlim(xlim + [-0.5,0.5]);
 
 subplot(1,2,2);hold on
-rxn_measured_mad_altdiff = rxn_measured_mad - nanmean(rxn_alt_mad,3);
-rxn_alt_mad_altdiff = rxn_alt_mad - nanmean(rxn_alt_mad,3);
+rxn_measured_med_altdiff = rxn_measured_med - nanmean(rxn_alt_med,3);
+rxn_alt_med_altdiff = rxn_alt_med - nanmean(rxn_alt_med,3);
 
-rxn_alt_mad_altdiff_ci = squeeze(prctile(nanmean(rxn_alt_mad_altdiff,2),[5,95],3));
-AP_errorfill([],nanmean(rxn_alt_mad_altdiff_ci(plot_days,:),2), ...
-    rxn_alt_mad_altdiff_ci(plot_days,:),[0.5,0.5,0.5],[],false);
-errorbar(nanmean(rxn_measured_mad_altdiff(plot_days,:),2), ...
-    AP_sem(rxn_measured_mad_altdiff(plot_days,:),2),'k','CapSize',0,'linewidth',2)
+rxn_alt_med_altdiff_ci = squeeze(prctile(nanmean(rxn_alt_med_altdiff,2),[5,95],3));
+AP_errorfill([],nanmean(rxn_alt_med_altdiff_ci(plot_days,:),2), ...
+    rxn_alt_med_altdiff_ci(plot_days,:),[0.5,0.5,0.5],[],false);
+errorbar(nanmedian(rxn_measured_med_altdiff(plot_days,:),2), ...
+    AP_sem(rxn_measured_med_altdiff(plot_days,:),2),'k','CapSize',0,'linewidth',2)
 xlabel('Training day');
-ylabel('Reaction time MAD-null (s)');
+ylabel('Median reaction time (meas-null) (s)');
 axis tight;
 xlim(xlim + [-0.5,0.5]);
+
 
 % Plot fraction of reaction times within window: whole day
 rxn_measured_prct = accumarray(trial_split_idx_cat(:,2:end), ...
@@ -413,6 +454,78 @@ xlabel('Learned day');
 axis tight;
 xlim(xlim + [-0.5,0.5]);
 ylim([0,100]);
+line([0,0],ylim,'color','k','linestyle','--');
+legend([p1(1),p2(1)],{'Null','Measured'});
+
+
+% Plot relative to learned day (null difference: daysplit)
+rxn_altdiff_learn_mean_daysplit = rxn_learn_mean_daysplit - ...
+    nanmean(rxn_alt_learn_mean_daysplit,2);
+rxn_alt_altdiff_learn_ci = prctile( ...
+    rxn_alt_learn_mean_daysplit-nanmean(rxn_alt_learn_mean_daysplit,2), ...
+    [5,95],2);
+
+figure; hold on;
+
+p1 = AP_errorfill(learned_day_grp_daysplit(plot_learned), ...
+    nanmean(rxn_alt_learn_mean_daysplit(plot_learned,:),2), ...
+    rxn_alt_altdiff_learn_ci(plot_learned,:),[0.5,0.5,0.5],[],false);
+
+p2 = errorbar(learned_day_grp_daysplit(plot_learned), ...
+    rxn_altdiff_learn_mean_daysplit(plot_learned), ...
+    rxn_learn_sem_daysplit(plot_learned),'k','linewidth',2,'CapSize',0);
+ylabel(sprintf('Reaction times %.g-%.g (meas-null%%)',rxn_window(1),rxn_window(2)));
+xlabel('Learned day');
+axis tight;
+xlim(xlim + [-0.5,0.5]);
+xline(0,'--');
+legend([p1(1),p2(1)],{'Null','Measured'});
+
+
+% Median, daysplit
+
+rxn_measured_med_daysplit = accumarray(trial_split_idx_cat, ...
+    rxn_measured_cat.*AP_nanout(rxn_measured_cat < 0.1), ...
+    [n_daysplit,max_days,length(bhv)],@(x) nanmedian(x),NaN);
+
+rxn_alt_med_daysplit = cell2mat(permute(arrayfun(@(x) ...
+    accumarray(trial_split_idx_cat, ...
+    rxn_alt_cat(:,x).*AP_nanout(rxn_alt_cat(:,x) < 0.1), ...
+    [n_daysplit,max_days,length(bhv)],@(x) nanmedian(x),NaN), ...
+    1:n_rxn_altsample,'uni',false),[1,3,4,2]));
+
+
+% Put NaNs between days to plot with gaps
+rxn_measured_med_long = reshape(padarray(rxn_measured_med_daysplit,[1,0,0],NaN,'post'),[],length(animals));
+rxn_alt_med_long = reshape(padarray(rxn_alt_med_daysplit,[1,0,0],NaN,'post'),[],length(animals),n_rxn_altsample);
+
+% Plot relative to learned day (daysplit)
+learned_daysplit_x = cell2mat(cellfun(@(x) x+(0:n_daysplit)'/(n_daysplit+1), ...
+    num2cell(learned_day_x),'uni',false));
+
+[rxn_learn_mean_daysplit,rxn_learn_sem_daysplit,learned_day_grp_daysplit,learned_day_n_daysplit] = ...
+    grpstats(rxn_measured_med_long(:),learned_daysplit_x(:), ...
+    {'nanmean','sem','gname','numel'});
+rxn_alt_learn_mean_daysplit = ...
+    grpstats(reshape(rxn_alt_med_long,[],n_rxn_altsample),learned_daysplit_x(:), ...
+    {'nanmean'});
+
+learned_day_grp_daysplit = cellfun(@str2num,learned_day_grp_daysplit);
+plot_learned = learned_day_n_daysplit >= min_n | isnan(rxn_learn_mean_daysplit);
+
+figure; hold on;
+
+rxn_alt_learn_ci = prctile(rxn_alt_learn_mean_daysplit,[5,95],2);
+p1 = AP_errorfill(learned_day_grp_daysplit(plot_learned), ...
+    nanmean(rxn_alt_learn_mean_daysplit(plot_learned,:),2), ...
+    rxn_alt_learn_ci(plot_learned,:),[0.5,0.5,0.5],[],false);
+
+p2 = errorbar(learned_day_grp_daysplit(plot_learned),rxn_learn_mean_daysplit(plot_learned), ...
+    rxn_learn_sem_daysplit(plot_learned),'k','linewidth',2,'CapSize',0);
+ylabel(sprintf('Reaction times %.g-%.g (%%)',rxn_window(1),rxn_window(2)));
+xlabel('Learned day');
+axis tight;
+xlim(xlim + [-0.5,0.5]);
 line([0,0],ylim,'color','k','linestyle','--');
 legend([p1(1),p2(1)],{'Null','Measured'});
 
@@ -671,20 +784,47 @@ ylim([-10,100]);
 set(gca,'XTick',1:n_conditions,'XTickLabel',condition_labels);
 ylabel(sprintf('Fast reaction times: %d-%dms (%%meas-null)',1000*rxn_window(1),1000*rxn_window(2)));
 
-% Get reaction times MAD
-rxn_measured_mad = cellfun(@(x) mad(x),rxn_measured_cat);
-rxn_alt_mad = cellfun(@(x) mad(x),rxn_alt_cat,'uni',false);
+% UNUSED: MAD
+% % Get reaction times MAD
+% rxn_measured_mad = cellfun(@(x) mad(x.*AP_nanout(x<0.1),1,1),rxn_measured_cat);
+% rxn_alt_mad = cellfun(@(x) mad(x.*AP_nanout(x<0.1),1,1),rxn_alt_cat,'uni',false);
+% 
+% rxn_measured_mad_altdiff = rxn_measured_mad - cellfun(@nanmean,rxn_alt_mad);
+% rxn_alt_mad_altdiff = cell2mat(cellfun(@(x) reshape(x-nanmean(x),1,1,[]),rxn_alt_mad,'uni',false));
+% 
+% figure; hold on
+% rxn_alt_mad_altdiff_ci = permute(prctile(nanmean(rxn_alt_mad_altdiff,2),[5,95],3),[1,3,2]);
+% AP_errorfill([],nanmean(rxn_alt_mad_altdiff_ci,2),rxn_alt_mad_altdiff_ci,[0.5,0.5,0.5],[],false);
+% plot(rxn_measured_mad_altdiff,'k');
+% xlim([0,n_conditions] + 0.5);
+% set(gca,'XTick',1:n_conditions,'XTickLabel',condition_labels);
+% ylabel('Reaction time MAD (s)');
 
-rxn_measured_mad_altdiff = rxn_measured_mad - cellfun(@nanmean,rxn_alt_mad);
-rxn_alt_mad_altdiff = cell2mat(cellfun(@(x) reshape(x-nanmean(x),1,1,[]),rxn_alt_mad,'uni',false));
+% Get reaction times median (exclude too-fast <0.1)
+rxn_measured_med = cellfun(@(x) nanmedian(x.*AP_nanout(x<0.1),1),rxn_measured_cat);
+rxn_alt_med = cell2mat(cellfun(@(x) ...
+    reshape(nanmedian(x.*AP_nanout(x<0.1),1),1,1,[]),rxn_alt_cat,'uni',false));
 
-figure; hold on
-rxn_alt_mad_altdiff_ci = permute(prctile(nanmean(rxn_alt_mad_altdiff,2),[5,95],3),[1,3,2]);
-AP_errorfill([],nanmean(rxn_alt_mad_altdiff_ci,2),rxn_alt_mad_altdiff_ci,[0.5,0.5,0.5],[],false);
-errorbar(nanmean(rxn_measured_mad_altdiff,2),AP_sem(rxn_measured_mad_altdiff,2),'k','linewidth',2);
+rxn_measured_med_altdiff = rxn_measured_med - nanmean(rxn_alt_med,3);
+rxn_alt_med_altdiff = rxn_alt_med - nanmean(rxn_alt_med,3);
+
+figure; 
+
+subplot(1,2,1,'YScale','log'); hold on;
+rxn_alt_med_ci = permute(prctile(nanmean(rxn_alt_med,2),[5,95],3),[1,3,2]);
+AP_errorfill([],nanmean(rxn_alt_med_ci,2),rxn_alt_med_ci,[0.5,0.5,0.5],[],false);
+errorbar(nanmean(rxn_measured_med,2),AP_sem(rxn_measured_med,2),'k','linewidth',2);
 xlim([0,n_conditions] + 0.5);
 set(gca,'XTick',1:n_conditions,'XTickLabel',condition_labels);
-ylabel('Reaction time MAD (s)');
+ylabel('Median reaction time (s)');
+
+subplot(1,2,2); hold on
+rxn_alt_med_altdiff_ci = permute(prctile(nanmean(rxn_alt_med_altdiff,2),[5,95],3),[1,3,2]);
+AP_errorfill([],nanmean(rxn_alt_med_altdiff_ci,2),rxn_alt_med_altdiff_ci,[0.5,0.5,0.5],[],false);
+errorbar(nanmean(rxn_measured_med_altdiff,2),AP_sem(rxn_measured_med_altdiff,2),'k','linewidth',2);
+xlim([0,n_conditions] + 0.5);
+set(gca,'XTick',1:n_conditions,'XTickLabel',condition_labels);
+ylabel('Median reaction time (meas-null,s)');
 
 % Get fraction of muscimol days with significant fast reaction times
 muscimol_learned_days = ...
@@ -813,32 +953,6 @@ for curr_animal = 1:length(animals)
         end
     end
 end
-
-
-
-
-%%%% LEARNING DAY with accumarray?
-
-% Get indicies for averaging 
-[learned_day_idx,t_idx,roi_idx] = ...
-    ndgrid(trial_learned_day_id,1:length(t),1:n_rois);
-[animal_idx,~,~] = ...
-    ndgrid(trial_animal,1:length(t),1:n_rois);
-[stim_idx,~,~] = ...
-    ndgrid(trial_stim_allcat,1:length(t),1:n_rois);
-
-accum_learnedday_idx = cat(4,learned_day_idx,t_idx,roi_idx,stim_idx,animal_idx);
-
-use_trials = quiescent_trials;
-
-stim_roi_learnday_avg = accumarray( ...
-    reshape(accum_learnedday_daysplit_idx(use_trials,:,:,:),[],size(accum_learnedday_daysplit_idx,4)), ...
-    reshape(fluor_roi_deconv(use_trials,:),[],1), ...
-    [max(learned_day_idx(:)),length(t),n_rois,length(animals)], ...
-    @nanmean,NaN('single'));
-
-
-
 
 
 
@@ -1044,10 +1158,56 @@ figure;imagesc([],learned_day_unique,x);
 xlabel('Animal');
 ylabel('Learned day');
 
+%% ^^ Passive - ROI timecourse by learned day
+
+% Get indicies for averaging 
+[learned_day_idx,t_idx,roi_idx] = ...
+    ndgrid(trial_learned_day_id,1:length(t),1:n_rois);
+[animal_idx,~,~] = ...
+    ndgrid(trial_animal,1:length(t),1:n_rois);
+[stim_idx,~,~] = ...
+    ndgrid(trial_stim_id,1:length(t),1:n_rois);
+
+accum_learnedday_idx = cat(4,learned_day_idx,t_idx,roi_idx,stim_idx,animal_idx);
+
+use_trials = quiescent_trials;
+
+roi_learnday_avg = accumarray( ...
+    reshape(accum_learnedday_idx(use_trials,:,:,:),[],size(accum_learnedday_idx,4)), ...
+    reshape(fluor_roi_deconv(use_trials,:,:),[],1), ...
+    [max(learned_day_idx(:)),length(t),n_rois,length(stim_unique),length(animals)], ...
+    @nanmean,NaN('single'));
+
+use_t = t > 0 & t <= 0.2;
+stim_roi_learnday_avg_tmax = squeeze(max(roi_learnday_avg(:,use_t,:,:,:),[],2));
+
+
+plot_roi = 6;
+plot_stim = 1;
+curr_tcourse = nanmean(squeeze(roi_learnday_avg(:,:,plot_roi,stim_unique == plot_stim,:)),3);
+curr_tmax = squeeze(stim_roi_learnday_avg_tmax(:,plot_roi,stim_unique == plot_stim,:));
+
+figure; 
+subplot(1,2,1);
+imagesc(t,learned_day_unique,curr_tcourse);
+caxis(max(abs(caxis))*[-1,1]);
+colormap(AP_colormap('KWG',[],1.5));
+yline(-0.5);
+
+subplot(1,2,2);
+errorbar(learned_day_unique,nanmean(curr_tmax,2),AP_sem(curr_tmax,2),'k','linewidth',2);
+xline(0);
 
 
 
-%% ^^ Passive - ROIs tmax by learned day
+
+
+
+
+
+
+
+%% ^^ Passive - ROIs tmax by learned day (maybe retire for above)
 
 % Plot time-max within ROIs across days
 use_t = t > 0 & t <= 0.2;
@@ -2937,6 +3097,51 @@ xlim(x_limit - x_limit(1));
 ylabel('Wheel velocity');
 
 
+%% ^^ Task - ROI timecourse by learned day
+
+roi_hemiflip = circshift(1:n_rois,n_rois/2);
+curr_act = fluor_roi_deconv - ...
+    trial_move_hemiratio.*fluor_roi_deconv(:,:,roi_hemiflip);
+
+% Get indicies for averaging 
+[learned_day_idx,t_idx,roi_idx] = ...
+    ndgrid(trial_learned_day_id,1:length(t),1:n_rois);
+[animal_idx,~,~] = ...
+    ndgrid(trial_animal,1:length(t),1:n_rois);
+
+accum_learnedday_idx = cat(4,learned_day_idx,t_idx,roi_idx,animal_idx);
+
+use_trials = true(size(move_t));
+
+roi_learnday_avg = accumarray( ...
+    reshape(accum_learnedday_idx(use_trials,:,:,:),[],size(accum_learnedday_idx,4)), ...
+    reshape(curr_act(use_trials,:,:),[],1), ...
+    [max(learned_day_idx(:)),length(t),n_rois,length(animals)], ...
+    @nanmean,NaN('single'));
+
+use_t = t > 0 & t <= 0.2;
+stim_roi_learnday_avg_tmax = squeeze(max(roi_learnday_avg(:,use_t,:,:,:),[],2));
+
+
+plot_roi = 6;
+curr_tcourse = nanmean(squeeze(roi_learnday_avg(:,:,plot_roi,:)),3);
+curr_tmax = squeeze(stim_roi_learnday_avg_tmax(:,plot_roi,:));
+
+figure; 
+subplot(1,2,1);
+imagesc(t,learned_day_unique,curr_tcourse);
+caxis(max(abs(caxis))*[-1,1]);
+colormap(AP_colormap('BWR',[],1.5));
+yline(-0.5);
+
+subplot(1,2,2);
+errorbar(learned_day_unique,nanmean(curr_tmax,2),AP_sem(curr_tmax,2),'k','linewidth',2);
+xline(0);
+
+
+
+
+
 %% ^^ Task - daysplit ROI fluorescence
 
 % Activity to average 
@@ -3619,7 +3824,6 @@ xp = get(gco,'XData');ypr = get(gco,'YData');epr = get(gco,'UData');
 xpn = get(gco,'XData');ypln = get(gco,'YData');epln = get(gco,'UData');
 % (click passive R hemi L stim - naive)
 xpn = get(gco,'XData');yprn = get(gco,'YData');eprn = get(gco,'UData');
-
 
 
 % Get task daysplit

@@ -720,7 +720,7 @@ end
 
 %% Histograms of reaction times
 
-rxn_bins = [-Inf,0:0.01:1,Inf];
+rxn_bins = [-Inf,0:0.02:0.5,Inf];
 rxn_bin_centers = rxn_bins(1:end-1) + diff(rxn_bins)./2;
 
 % Load muscimol injection info
