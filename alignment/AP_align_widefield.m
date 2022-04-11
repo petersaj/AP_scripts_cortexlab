@@ -99,7 +99,7 @@ switch align_type
         % (and lower the search radius)
         draw_roi = true;
         while draw_roi
-            f = AP_image_scroll(im_rigid_aligned, ...
+            f = AP_imscroll(im_rigid_aligned, ...
                 repmat({'Draw ROI or double-click to accept'},length(im_unaligned),1));
             caxis([prctile(im_unaligned_pad(:),1),prctile(im_unaligned_pad(:),99)]);
             axis image;
@@ -140,7 +140,7 @@ switch align_type
                 im_aligned(:,:,curr_im) = curr_im_reg;
             end
             
-            f = AP_image_scroll(im_aligned, ...
+            f = AP_imscroll(im_aligned, ...
                 cellfun(@(x) ['Final alignment: ' animal ' ' x],day,'uni',false));
             caxis([prctile(im_aligned(:),1),prctile(im_aligned(:),99)]);
             axis image;

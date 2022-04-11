@@ -821,7 +821,7 @@ ctx_str_k_px_notask_mean = nanmean(cat(5,ctx_str_k_px_cat{:,2}),5);
 
 n_depths = size(ctx_str_k_px_task_mean,4);
 
-AP_image_scroll([ctx_str_k_px_task_mean,ctx_str_k_px_notask_mean]);
+AP_imscroll([ctx_str_k_px_task_mean,ctx_str_k_px_notask_mean]);
 axis image;
 colormap(brewermap([],'PRGn'));
 caxis([-max(abs(caxis)),max(abs(caxis))]);
@@ -2901,7 +2901,7 @@ for curr_regressor = 1:n_regressors
         nanmean(cat(3,curr_k_cell{:,x}),3),1:n_vs,'uni',false),[1,3,2])),[3,2,1]);
     curr_k_px = cell2mat(permute(arrayfun(@(x) svdFrameReconstruct(U_master(:,:,1:size(curr_k,1)), ...
         curr_k(:,:,x)),1:size(curr_k,3),'uni',false),[1,3,4,2]));
-    AP_image_scroll(curr_k_px,t_shifts{curr_regressor});
+    AP_imscroll(curr_k_px,t_shifts{curr_regressor});
     axis image;
     caxis([-max(abs(caxis)),max(abs(caxis))]);
     colormap(brewermap([],'PRGn'));

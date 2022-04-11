@@ -260,7 +260,7 @@ mean_aligned_V = nanmean(aligned_V,3);
 % Get and plot the average fluorescence around event
 mean_aligned_px = svdFrameReconstruct(U,mean_aligned_V);
 
-AP_image_scroll(mean_aligned_px,surround_time);
+AP_imscroll(mean_aligned_px,surround_time);
 warning off; truesize; warning on;
 
 %% Regress stuff to fluorescence
@@ -327,7 +327,7 @@ for curr_event = 1:size(k_r,3);
     r_px(:,:,:,curr_event) = svdFrameReconstruct(U(:,:,use_svs),k_r(:,:,curr_event));
 end
 
-AP_image_scroll(r_px,kernel_frames/framerate);
+AP_imscroll(r_px,kernel_frames/framerate);
 caxis([prctile(r_px(:),[1,99])]*4);
 truesize
 
@@ -391,7 +391,7 @@ for curr_spikes = 1:size(r,3);
     r_px(:,:,:,curr_spikes) = svdFrameReconstruct(U(:,:,use_svs),r(:,:,curr_spikes));
 end
 
-AP_image_scroll(r_px,(kernel_frames)/framerate);
+AP_imscroll(r_px,(kernel_frames)/framerate);
 caxis([prctile(r_px(:),[1,99])]*4);
 truesize
 
@@ -429,7 +429,7 @@ for curr_spikes = 1:size(r,3);
     r_px(:,:,:,curr_spikes) = svdFrameReconstruct(U(:,:,use_svs),r(:,:,curr_spikes));
 end
 
-AP_image_scroll(r_px,(kernel_frames)/framerate);
+AP_imscroll(r_px,(kernel_frames)/framerate);
 caxis([prctile(r_px(:),[1,99])]*4);
 truesize
 

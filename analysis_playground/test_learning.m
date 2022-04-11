@@ -200,7 +200,7 @@ im_stim_cat = cell2mat(permute(cellfun(@(im) ...
 im_stim_cat_deconv = permute(AP_deconv_wf(permute( ...
     im_stim_cat,[1,3,2,4])),[1,3,2,4]);
 
-AP_image_scroll(im_stim_cat_deconv);
+AP_imscroll(im_stim_cat_deconv);
 axis image;
 caxis([-max(abs(caxis)),max(abs(caxis))]);
 colormap(brewermap([],'*RdBu'));
@@ -208,7 +208,7 @@ colormap(brewermap([],'*RdBu'));
 t_stim = 21:23;
 % t_stim = 29:32;
 im_stim_avg = squeeze(max(im_stim_cat_deconv(:,:,t_stim,:),[],3));
-AP_image_scroll(im_stim_avg);
+AP_imscroll(im_stim_avg);
 axis image;
 caxis([-max(abs(caxis)),max(abs(caxis))]);
 colormap(brewermap([],'*RdBu'));
@@ -286,20 +286,20 @@ end
 
 % Plot average from one stim
 curr_px = svdFrameReconstruct(U_master,nanmean(cat(3,stim_v_all{:,3}),3));
-AP_image_scroll(curr_px);
+AP_imscroll(curr_px);
 axis image off;
 colormap(brewermap([],'*RdBu'));
 caxis([-max(abs(caxis)),max(abs(caxis))]);
 
 % Plot mean or median within each day
 a = cell2mat(permute(cellfun(@(x) svdFrameReconstruct(U_master,nanmean(x,3)),stim_v_all(:,3),'uni',false),[2,3,4,1]));
-AP_image_scroll(a);
+AP_imscroll(a);
 axis image off;
 colormap(brewermap([],'*RdBu'));
 caxis([-max(abs(caxis)),max(abs(caxis))]);
 
 b = squeeze(mean(a(:,:,20:23,:),3));
-AP_image_scroll(b);
+AP_imscroll(b);
 axis image off;
 colormap(brewermap([],'*RdBu'));
 caxis([-max(abs(caxis)),max(abs(caxis))]);
@@ -309,7 +309,7 @@ a = cat(3,stim_v_all{:,3});
 b = squeeze(nanmean(a(:,20:23,:),2));
 c = convn(b,ones(1,150)./150,'same');
 curr_px = svdFrameReconstruct(U_master,c);
-AP_image_scroll(curr_px);
+AP_imscroll(curr_px);
 axis image off;
 colormap(brewermap([],'*RdBu'));
 caxis([-max(abs(caxis)),max(abs(caxis))]);
@@ -327,7 +327,7 @@ caxis([-max(abs(caxis)),max(abs(caxis))]);
 %     fVdf_deconv(use_vs,:), {[-5:-1],[0:35]}, ...
 %     [2,0],[0,0],5,false,true);
 % 
-% AP_image_scroll(svdFrameReconstruct(Udf(:,:,use_vs),permute(k{2},[3,2,1])));
+% AP_imscroll(svdFrameReconstruct(Udf(:,:,use_vs),permute(k{2},[3,2,1])));
 % axis image
 % caxis([-max(abs(caxis)),max(abs(caxis))]);
 % colormap(brewermap([],'*RdBu'));
@@ -348,7 +348,7 @@ caxis([-max(abs(caxis)),max(abs(caxis))]);
 %     ar, {[-5:-1],[0:35]}, ...
 %     [2,0],[0,0],5,false,true,reshape(discontinuities',1,[]));
 % 
-% AP_image_scroll(svdFrameReconstruct(U_master(:,:,use_vs),permute(k{2},[3,2,1])));
+% AP_imscroll(svdFrameReconstruct(U_master(:,:,use_vs),permute(k{2},[3,2,1])));
 % axis image
 % caxis([-max(abs(caxis)),max(abs(caxis))]);
 % colormap(brewermap([],'*RdBu'));
@@ -380,7 +380,7 @@ for curr_day = 1:size(stim_v_all,1)
     
 end
 stim_k_px = AP_svdFrameReconstruct(U_master(:,:,use_vs),stim_k);
-AP_image_scroll(stim_k_px);
+AP_imscroll(stim_k_px);
 axis image
 caxis([-max(abs(caxis)),max(abs(caxis))]);
 colormap(brewermap([],'*RdBu'));
@@ -747,7 +747,7 @@ stim_px_avg = cellfun(@(x) ...
 
 r_avg = reshape(cell2mat(cellfun(@(x) nanmean(horzcat(x{:}),2),r,'uni',false)), ...
     size(U_master,1),size(U_master,2),[]);
-AP_image_scroll(r_avg)
+AP_imscroll(r_avg)
 axis image off
 caxis([-max(abs(caxis)),max(abs(caxis))]);
 colormap(brewermap([],'*RdBu'));
@@ -784,7 +784,7 @@ stim_k_px_avg = cellfun(@(x) ...
 
 r_avg = reshape(cell2mat(cellfun(@(x) nanmean(horzcat(x{:}),2),r,'uni',false)), ...
     size(U_master,1),size(U_master,2),[]);
-AP_image_scroll(r_avg)
+AP_imscroll(r_avg)
 axis image off
 caxis([-max(abs(caxis)),max(abs(caxis))]);
 colormap(brewermap([],'*RdBu'));
@@ -803,7 +803,7 @@ dprime_k = cellfun(@(x) reshape(x,n_vs,[]),dprime_k_long,'uni',false);
 dprime_k_px_avg = svdFrameReconstruct(U_master(:,:,1:n_vs), ...
     nanmean(cat(3,dprime_k{:}),3));
 
-AP_image_scroll(dprime_k_px_avg)
+AP_imscroll(dprime_k_px_avg)
 axis image off
 caxis([-max(abs(caxis)),max(abs(caxis))]);
 colormap(brewermap([],'*RdBu'));
@@ -824,7 +824,7 @@ dprime_k = cellfun(@(x) reshape(x,n_vs,[]),dprime_k_long,'uni',false);
 dprime_k_px_avg = svdFrameReconstruct(U_master(:,:,1:n_vs), ...
     nanmean(cat(3,dprime_k{:}),3));
 
-AP_image_scroll(dprime_k_px_avg,t)
+AP_imscroll(dprime_k_px_avg,t)
 axis image off
 caxis([-max(abs(caxis)),max(abs(caxis))]);
 colormap(brewermap([],'*RdBu'));
@@ -847,7 +847,7 @@ stim_v_avg_cat = cell2mat(permute(cellfun(@(x) x(:,:,:,use_stim), ...
 stim_px_avg_dprime = AP_svdFrameReconstruct(U_master(:,:,1:n_vs), ...
     permute(reshape(grpstats(reshape(stim_v_avg_cat,[],length(dprime_bins))', ...
     dprime_bins),n_dprime_bins,n_vs,length(t)),[2,3,1]));
-AP_image_scroll(stim_px_avg_dprime,t)
+AP_imscroll(stim_px_avg_dprime,t)
 axis image
 caxis([-max(abs(caxis)),max(abs(caxis))]);
 colormap(brewermap([],'*RdBu'));
@@ -867,7 +867,7 @@ for curr_plot = 1:n_dprime_bins
 end
 
 % (draw ROI)
-AP_image_scroll(stim_px_avg_dprime_t)
+AP_imscroll(stim_px_avg_dprime_t)
 axis image
 caxis([-max(abs(caxis)),max(abs(caxis))]);
 colormap(brewermap([],'*RdBu'));
@@ -891,7 +891,7 @@ stim_k_cat = cell2mat(permute(stim_k,[1,3,2]));
 stim_px_k_dprime = AP_svdFrameReconstruct(U_master(:,:,1:n_vs), ...
     permute(reshape(grpstats(reshape(stim_k_cat,[],length(dprime_bins))', ...
     dprime_bins),n_dprime_bins,n_vs,size(stim_k_cat,2)),[2,3,1]));
-AP_image_scroll(stim_px_k_dprime)
+AP_imscroll(stim_px_k_dprime)
 axis image
 caxis([-max(abs(caxis)),max(abs(caxis))]);
 colormap(brewermap([],'*RdBu'));
@@ -998,7 +998,7 @@ stim_v_avg_dayavg = nanmean(cell2mat(permute(cellfun(@(x) x(:,:,1:min_days,use_s
     stim_v_avg,'uni',false),[1,3,4,2])),4);
 stim_px_avg_dayavg = AP_svdFrameReconstruct(U_master(:,:,1:n_vs), ...
     stim_v_avg_dayavg);
-AP_image_scroll(stim_px_avg_dayavg,t);
+AP_imscroll(stim_px_avg_dayavg,t);
 caxis([-max(abs(caxis)),max(abs(caxis))]);
 colormap(brewermap([],'PrGn'));
 axis image;
@@ -1010,7 +1010,7 @@ stim_px_avg_day = AP_svdFrameReconstruct( ...
     U_master(:,:,1:n_vs),cell2mat(permute(cellfun(@(x) ...
     squeeze(nanmean(x(:,use_t,1:min_days,use_stim),2)), ...
     stim_v_avg,'uni',false),[1,3,2])));
-AP_image_scroll(stim_px_avg_day);
+AP_imscroll(stim_px_avg_day);
 caxis([-max(abs(caxis)),max(abs(caxis))]);
 colormap(brewermap([],'PrGn'));
 axis image;
@@ -1300,7 +1300,7 @@ regressor_px = cellfun(@(v) cell2mat(arrayfun(@(subregressor) ...
     permute(1:size(v,1),[1,3,4,2]),'uni',false)),fluor_taskpred_k,'uni',false);
 
 
-AP_image_scroll(regressor_px{4});
+AP_imscroll(regressor_px{4});
 axis image;
 caxis([-max(abs(caxis)),max(abs(caxis))]);
 colormap(brewermap([],'*RdBu'));
@@ -1355,7 +1355,7 @@ end
 
 fluor_stim_day = cat(4,fluor_stim_day{:});
 
-AP_image_scroll(fluor_stim_day,t);
+AP_imscroll(fluor_stim_day,t);
 axis image;
 caxis([-max(abs(caxis)),max(abs(caxis))]);
 colormap(brewermap([],'*RdBu'));

@@ -162,7 +162,7 @@ if new_alignment
     end
     
     % Show aligned images
-    AP_image_scroll(im_aligned,days);
+    AP_imscroll(im_aligned,days);
     axis image off;
     colormap(gray);
     caxis([0,prctile(im_aligned(:),95)]);
@@ -224,7 +224,7 @@ if false
         AP_print_progress_fraction(curr_animal,length(animals));
     end
     
-    AP_image_scroll(im_aligned,animals);axis image
+    AP_imscroll(im_aligned,animals);axis image
     
     h = figure;imagesc(nanmean(im_aligned,3));
     axis image off;
@@ -361,7 +361,7 @@ if false
         AP_print_progress_fraction(curr_loop,n_loops);
     end
     
-    AP_image_scroll(cat(3,ref_retinotopy,ref_reg));
+    AP_imscroll(cat(3,ref_retinotopy,ref_reg));
     axis image;
     colormap(brewermap([],'*RdBu'));
     caxis([-1,1]);

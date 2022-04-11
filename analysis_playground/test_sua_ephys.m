@@ -3708,7 +3708,7 @@ cell_string = arrayfun(@(x) ...
     ', Neuron: ' num2str(neurons_allcat(sort_idx(x)))]}, ...
     1:length(sort_idx),'uni',false);
 
-AP_image_scroll(mua_allcat_exp_pad(:,:,sort_idx),cell_string);
+AP_imscroll(mua_allcat_exp_pad(:,:,sort_idx),cell_string);
 line(repmat(find(t >= 0,1),2,1),ylim,'linestyle','--','color','r');
 colormap(brewermap([],'Greys'));
 caxis([0,50]);
@@ -3802,7 +3802,7 @@ cell_string = arrayfun(@(x) ...
     ', Day: ' num2str(days_allcat(plot_cells_idx(x))) ...
     ', Neuron: ' num2str(neurons_allcat(plot_cells_idx(x)))]}, ...
     1:length(plot_cells_idx),'uni',false);
-AP_image_scroll(act_exp_pad(:,:,plot_cells),cell_string);
+AP_imscroll(act_exp_pad(:,:,plot_cells),cell_string);
 line(repmat(find(t >= 0,1),2,1),ylim,'linestyle','--','color','r');
 line(repmat(find(t >= 0,1),2,1)+length(t),ylim,'linestyle','--','color','r');
 line(repmat(find(t >= 0,1),2,1)+length(t)*2,ylim,'linestyle','--','color','r');
@@ -4619,7 +4619,7 @@ figure;gscatter(y(:,1),y(:,2));
 
 ctx_str_k_px_maxnorm = ctx_str_k_px./nanmax(nanmax(ctx_str_k_px,[],1),[],2);
 
-AP_image_scroll(ctx_str_k_px_maxnorm);
+AP_imscroll(ctx_str_k_px_maxnorm);
 axis image;
 caxis([-1,1])
 colormap(brewermap([],'*RdBu'));
@@ -4627,7 +4627,7 @@ AP_reference_outline('ccf_aligned',[0.5,0.5,0.5]);
 
 % (get ROI and sort)
 [~,sort_idx] = sort(roi.trace,'descend');
-AP_image_scroll(ctx_str_k_px_maxnorm(:,:,sort_idx));
+AP_imscroll(ctx_str_k_px_maxnorm(:,:,sort_idx));
 axis image;
 caxis([-1,1])
 colormap(brewermap([],'*RdBu'));
@@ -4935,7 +4935,7 @@ mua_ctx_sta_px = svdFrameReconstruct(U_master(:,:,1:n_vs),mua_ctx_sta_cat(:,good
 % Plot STA top, kernel bottom
 norm_sta_kernel = [(mua_ctx_sta_px./max(max(mua_ctx_sta_px,[],1),[],2)); ...
     (ctx_str_k_px./max(max(ctx_str_k_px,[],1),[],2))];
-AP_image_scroll(norm_sta_kernel);
+AP_imscroll(norm_sta_kernel);
 axis image off
 colormap(brewermap([],'*RdBu'));
 caxis([-1,1])
@@ -5170,7 +5170,7 @@ plot_cells = domain_aligned_allcat == 1 & celltype_allcat == 1;
 plot_cells_idx = find(plot_cells);
 
 [~,sort_idx] = sort(map_corr(plot_cells));
-AP_image_scroll(ctx_str_k_px(:,:,plot_cells_idx(sort_idx)));
+AP_imscroll(ctx_str_k_px(:,:,plot_cells_idx(sort_idx)));
 axis image off
 caxis([-max(abs(caxis)),max(abs(caxis))]);
 colormap(brewermap([],'*RdBu'));
@@ -5757,7 +5757,7 @@ end
 
 
 
-AP_image_scroll(ctx_str_k_px_maxnorm(:,:,plot_cells(good_units_allcat)));
+AP_imscroll(ctx_str_k_px_maxnorm(:,:,plot_cells(good_units_allcat)));
 axis image;
 caxis([-1,1])
 colormap(brewermap([],'*RdBu'));
@@ -5934,27 +5934,27 @@ cell_string = arrayfun(@(x) ...
     ', Neuron: ' num2str(neurons_allcat(sort_idx(x)))]}, ...
     1:length(sort_idx),'uni',false);
 
-AP_image_scroll(mua_allcat_stimalign_exp_pad(:,:,sort_idx),cell_string);
+AP_imscroll(mua_allcat_stimalign_exp_pad(:,:,sort_idx),cell_string);
 line(repmat(find(t >= 0,1),2,1),ylim,'linestyle','--','color','r');
 colormap(brewermap([],'Greys'));
 caxis([0,50]);
 
 
-AP_image_scroll(ctx_str_k_px_maxnorm(:,:,sort_idx));
+AP_imscroll(ctx_str_k_px_maxnorm(:,:,sort_idx));
 axis image;
 caxis([-1,1])
 colormap(brewermap([],'*RdBu'));
 AP_reference_outline('ccf_aligned',[0.5,0.5,0.5]);
 
 
-AP_image_scroll(mua_ctx_sta_px_maxnorm(:,:,sort_idx));
+AP_imscroll(mua_ctx_sta_px_maxnorm(:,:,sort_idx));
 axis image;
 caxis([-1,1])
 colormap(brewermap([],'*RdBu'));
 AP_reference_outline('ccf_aligned',[0.5,0.5,0.5]);
 
 
-AP_image_scroll(ctx_str_trialk_px(:,:,sort_idx));
+AP_imscroll(ctx_str_trialk_px(:,:,sort_idx));
 axis image;
 caxis([-1,1])
 colormap(brewermap([],'*RdBu'));

@@ -764,7 +764,7 @@ for protocol = protocols
     end    
         
     % Plot movie of kernels
-    AP_image_scroll(reshape(permute(k_px,[1,4,2,3]),size(k_px,1)*size(k_px,4),size(k_px,2),length(t)),t);
+    AP_imscroll(reshape(permute(k_px,[1,4,2,3]),size(k_px,1)*size(k_px,4),size(k_px,2),length(t)),t);
     colormap(brewermap([],'*RdBu'));
     caxis([-max(caxis),max(caxis)]);
     AP_reference_outline('ccf_aligned',[0.5,0.5,0.5],[],[size(k_px,1),size(k_px,2),size(k_px,4),1]);
@@ -871,7 +871,7 @@ fluor_postmuscimol_mean = ...
     permute(nanmean(cell2mat(cellfun(@(x,stim) ...
     nanmean(x(stim == use_stim,:,:),1),fluor_muscimol{2},stimIDs{2},'uni',false)),1),[3,2,1]));
 
-AP_image_scroll([fluor_premuscimol_mean,fluor_postmuscimol_mean]);
+AP_imscroll([fluor_premuscimol_mean,fluor_postmuscimol_mean]);
 AP_reference_outline('ccf_aligned',[0.5,0.5,0.5],[],[size(U_master,1),size(U_master,2),1,2]);
 caxis([-max(abs(caxis)),max(abs(caxis))]);
 axis image;

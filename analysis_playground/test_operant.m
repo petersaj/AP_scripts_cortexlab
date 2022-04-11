@@ -4591,7 +4591,7 @@ end
 title(h,'Activity - scaled SM');
 
 
-%% Removing movement response by subtracting ratio of opposite hemisphere
+%% Get movement hemiratio (L/R during ITI movements)
 
 % Temp/quick: get ratio of L/R by pixel using ITI move kernel
 
@@ -4615,34 +4615,22 @@ move_iti_k_roi = cellfun(@(x) cellfun(@(x) ...
     cat(3,wf_roi.mask)),x,'uni',false),move_iti_k,'uni',false);
 
 % Get ratio of L/R hemisphere
-move_iti_k_roi_hemiratio_timecourse = cellfun(@(x) cellfun(@(x) ...
-    x(1:size(wf_roi,1),:)./(x(size(wf_roi,1)+1:end,:)),x,'uni',false), ...
+roi_hemiflip = circshift(1:n_rois,n_rois/2);
+move_iti_k_roi_hemiratio = cellfun(@(x) cell2mat(cellfun(@(x) ...
+    arrayfun(@(roi) x(roi_hemiflip(roi),:)'\x(roi,:)',1:n_rois),x,'uni',false)), ...
     move_iti_k_roi,'uni',false);
-
-% (plot global median to ballpark the figure)
-a = cat(1,move_iti_k_roi_hemiratio_timecourse{:});
-b = cat(3,a{:});
-c = squeeze(b(6,:,:));
-figure; hold on;
-plot(c);
-plot(nanmedian(c,2),'k','linewidth',2);
-
-
-% Get median L/R ratio across time
-move_iti_k_roi_hemiratio = cellfun(@(x) cell2mat(cellfun(@(x) nanmedian(x,2), ...
-    x,'uni',false)'),move_iti_k_roi_hemiratio_timecourse,'uni',false);
 
 % Replicate movement hemiratio for all trials
 trial_move_hemiratio = ...
-    cell2mat(cellfun(@(ratio,trials) permute(repmat(ratio',trials,1),[1,3,2]), ...
-    mat2cell(cat(2,move_iti_k_roi_hemiratio{:}),size(wf_roi,1),ones(length(trials_recording),1))', ...
+    cell2mat(cellfun(@(ratio,trials) permute(repmat(ratio,trials,1),[1,3,2]), ...
+    mat2cell(cat(1,move_iti_k_roi_hemiratio{:}),ones(length(trials_recording),1),n_rois), ...
     num2cell(trials_recording),'uni',false));
 
 
-
 %%% just to see: do it pixel-by-pixel only at t = 0
+%%%% (CHANGE THIS LIKE ABOVE: do \ instead of timepoint)
 
-use_k_t = find(task_regressor_t_shifts{2} == 0);
+use_k_t = find(task_regressor_sample_shifts{2} == 0);
 
 px = cellfun(@(x) AP_svdFrameReconstruct(U_master(:,:,1:n_vs), ...
     cell2mat(cellfun(@(x) x(:,use_k_t),x,'uni',false)')),move_iti_k,'uni',false);

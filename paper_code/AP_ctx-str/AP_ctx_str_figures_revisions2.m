@@ -412,7 +412,7 @@ t = kernel_frames/sample_rate;
 % Get mean kernels and plot
 n_depths = size(ctx_str_k_px_notask_trained_mean,4);
 
-AP_image_scroll([ctx_str_k_px_notask_trained_mean,ctx_str_k_px_notask_naive_mean]);
+AP_imscroll([ctx_str_k_px_notask_trained_mean,ctx_str_k_px_notask_naive_mean]);
 axis image;
 colormap(brewermap([],'PRGn'));
 caxis([-max(abs(caxis)),max(abs(caxis))]);

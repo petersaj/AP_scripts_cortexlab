@@ -1014,7 +1014,7 @@ for curr_regressor = 1:n_regressors
     curr_k = nanmean(cat(4,curr_k_cell{:}),4); 
     curr_k_px = cell2mat(arrayfun(@(x) svdFrameReconstruct(U_master(:,:,1:n_vs), ...
         permute(curr_k(x,:,:),[3,2,1])),permute(1:size(curr_k,1),[1,3,4,2]),'uni',false));   
-    AP_image_scroll(curr_k_px,task_regressor_t_shifts{curr_regressor});
+    AP_imscroll(curr_k_px,task_regressor_t_shifts{curr_regressor});
     axis image;
     caxis([-max(abs(caxis)),max(abs(caxis))]);
     colormap(brewermap([],'*RdBu'));

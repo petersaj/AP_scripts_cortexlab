@@ -311,7 +311,7 @@ load(muscimol_fn);
 for curr_animal = 7:length(muscimol)
     curr_px = cat(3,muscimol(curr_animal).px_mad{:}); 
     curr_areas = muscimol(curr_animal).area;
-    AP_image_scroll(curr_px,curr_areas);axis image
+    AP_imscroll(curr_px,curr_areas);axis image
     set(gcf,'name',muscimol(curr_animal).animal);
 end
 
@@ -340,7 +340,7 @@ for curr_animal_idx = 1:length(use_v1_muscimol_idx)
 end
 
 v1_muscimol_change_cat = cat(3,v1_muscimol_change{:});
-AP_image_scroll(v1_muscimol_change_cat,{muscimol(use_v1_muscimol_idx).animal});
+AP_imscroll(v1_muscimol_change_cat,{muscimol(use_v1_muscimol_idx).animal});
 caxis([-1,1]);
 colormap(brewermap([],'*RdBu'));
 axis image;

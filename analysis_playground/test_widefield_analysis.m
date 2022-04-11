@@ -174,7 +174,7 @@ title(Exps.animal);colormap(gray);
 set(gca,'YDir','normal');
 axis off;
 
-AP_image_scroll(dff,t_cat);
+AP_imscroll(dff,t_cat);
 set(gca,'YDir','normal');
 
 %% Get average movie around stimulus of all selected trials
@@ -569,7 +569,7 @@ for curr_condition_idx = 1:length(conditions)
         stim_v_mean(use_vs,:));   
 end
 
-AP_image_scroll(im_stim,surround_time);
+AP_imscroll(im_stim,surround_time);
 axis image;
 c = prctile(im_stim(:),[0.1,99.9]);
 caxis([-max(abs(c)),max(abs(c))]);
@@ -608,7 +608,7 @@ peri_event_v = permute(reshape(interp1(frame_t,fVdf_deconv',peri_event_t,'previo
 event_px_mean = AP_svdFrameReconstruct(Udf, ...
     nanmean(peri_event_v - nanmean(peri_event_v(:,t < 0,:),2),3));
 
-AP_image_scroll(event_px_mean);
+AP_imscroll(event_px_mean);
 colormap(brewermap([],'PrGn'));
 caxis([-max(abs(caxis)),max(abs(caxis))]);
 axis image;
@@ -653,7 +653,7 @@ avg_window = [0.03,0.08];
 avg_t = surround_time >= avg_window(1) & surround_time <= avg_window(2);
 im_stim_avg = squeeze(nanmean(diff(im_stim(:,:,avg_t,:),[],3),3));
 
-AP_image_scroll(im_stim_avg);
+AP_imscroll(im_stim_avg);
 axis image;
 
 % Get localized spot by center - 4 surrounds ./ 4
@@ -743,7 +743,7 @@ lags_t = (-corr_lags:corr_lags)/framerate;
 svd_xcorr = svdFrameReconstruct(Udf,v_xcorr);
 
 % Draw the movie
-AP_image_scroll(svd_xcorr,lags_t);
+AP_imscroll(svd_xcorr,lags_t);
 
 
 % % Correlation in pixel space
@@ -1213,7 +1213,7 @@ peri_stim_v_baselinesub = bsxfun(@minus, ...
 % Put into pixel space
 mean_aligned_px = svdFrameReconstruct(Udf,peri_stim_v_baselinesub);
 
-AP_image_scroll(mean_aligned_px,t_surround);
+AP_imscroll(mean_aligned_px,t_surround);
 axis image;
 
 
@@ -1279,7 +1279,7 @@ for curr_spikes = 1:size(r,3);
     r_px(:,:,:,curr_spikes) = svdFrameReconstruct(U(:,:,use_svs),r(:,:,curr_spikes));
 end
 
-AP_image_scroll(r_px,(kernel_frames_downsample*downsample_factor)/framerate);
+AP_imscroll(r_px,(kernel_frames_downsample*downsample_factor)/framerate);
 caxis([prctile(r_px(:),[1,99])]*4);
 truesize
 
@@ -1329,7 +1329,7 @@ for curr_spikes = 1:size(r,3);
     r_px(:,:,:,curr_spikes) = svdFrameReconstruct(U(:,:,use_svs),r(:,:,curr_spikes));
 end
 
-AP_image_scroll(r_px,(kernel_frames_downsample*downsample_factor)/framerate);
+AP_imscroll(r_px,(kernel_frames_downsample*downsample_factor)/framerate);
 caxis([prctile(r_px(:),[1,99])]*4);
 truesize
 
@@ -1384,7 +1384,7 @@ for curr_spikes = 1:size(r,3);
     r_px(:,:,:,curr_spikes) = svdFrameReconstruct(U(:,:,use_svs),r(:,:,curr_spikes));
 end
 
-AP_image_scroll(r_px,(kernel_frames_downsample*downsample_factor)/framerate);
+AP_imscroll(r_px,(kernel_frames_downsample*downsample_factor)/framerate);
 caxis([prctile(r_px(:),[1,99])]*4);
 truesize
 
@@ -1431,7 +1431,7 @@ for curr_spikes = 1:size(r,3);
     r_px(:,:,:,curr_spikes) = svdFrameReconstruct(U(:,:,use_svs),r(:,:,curr_spikes));
 end
 
-AP_image_scroll(r_px,(kernel_frames_downsample*downsample_factor)/framerate);
+AP_imscroll(r_px,(kernel_frames_downsample*downsample_factor)/framerate);
 caxis([prctile(r_px(:),[1,99])]*4);
 truesize
 
@@ -1511,7 +1511,7 @@ for curr_event = 1:size(k_r,3);
     r_px(:,:,:,curr_event) = svdFrameReconstruct(U(:,:,use_svs),k_r(:,:,curr_event));
 end
 
-AP_image_scroll(r_px,kernel_frames/framerate);
+AP_imscroll(r_px,kernel_frames/framerate);
 caxis([prctile(r_px(:),[1,99])]*4);
 truesize
 
@@ -1556,7 +1556,7 @@ for curr_event = 1:size(k_r,3);
     r_px(:,:,:,curr_event) = svdFrameReconstruct(U(:,:,use_svs),k_r(:,:,curr_event));
 end
 
-AP_image_scroll(r_px,kernel_frames/framerate);
+AP_imscroll(r_px,kernel_frames/framerate);
 caxis([prctile(r_px(:),[1,99])]*4);
 truesize
 
@@ -1602,7 +1602,7 @@ for curr_event = 1:size(k_r,3);
     r_px(:,:,:,curr_event) = svdFrameReconstruct(U(:,:,use_svs),k_r(:,:,curr_event));
 end
 
-AP_image_scroll(r_px,kernel_frames/framerate);
+AP_imscroll(r_px,kernel_frames/framerate);
 caxis([prctile(r_px(:),[1,99])]*4);
 truesize
 
@@ -1626,7 +1626,7 @@ truesize
 % days = sort(unique([choiceworld_days,sparsenoise_days]));
 % 
 % im_aligned = AP_align_widefield(animal,days,'new');
-% AP_image_scroll(im_aligned); 
+% AP_imscroll(im_aligned); 
 % axis image off;
 
 %% Show aligned mean images within one animal and across animals
@@ -1647,7 +1647,7 @@ for curr_day = 1:length(days)
 end
 
 im_aligned = AP_align_widefield(animal,days,avg_im_blue);
-AP_image_scroll(im_aligned); 
+AP_imscroll(im_aligned); 
 axis image off;
 
 % Load across-animal alignments (wf and retinotopy)
@@ -1671,7 +1671,7 @@ load(retinotopy_fn);
 
 retinotopy_aligned = AP_align_widefield(animals,[],retinotopy(:,2));
 im_aligned = AP_align_widefield(animals,[],avg_im_blue);
-AP_image_scroll([mat2gray(retinotopy_aligned,[-0.5,0.5]),mat2gray(im_aligned,[0,30000])]);
+AP_imscroll([mat2gray(retinotopy_aligned,[-0.5,0.5]),mat2gray(im_aligned,[0,30000])]);
 axis image off;
 
 %% Orientation decoding (with varying time windows)
@@ -1990,13 +1990,13 @@ ylabel('Predicted value');
 title('Move right trials')
 
 % Plot the left - right kernels
-% AP_image_scroll(k_px_diff,surround_time);
+% AP_imscroll(k_px_diff,surround_time);
 % c = max(abs(prctile(k_px_diff(:),[1,99])));
 % caxis([-c,c]);
 % colormap(colormap_blueblackred);
 
 % Plot left and right kernels
-AP_image_scroll([k_px_l_norm,k_px_r_norm],surround_time);
+AP_imscroll([k_px_l_norm,k_px_r_norm],surround_time);
 c = max(abs(prctile([k_px_l_norm(:);k_px_r_norm(:)],[1,99])));
 caxis([-c,c])
 
@@ -2107,7 +2107,7 @@ end
 
 % Plot average
 c = prctile(reshape([avg_im_aligned{:}],[],1),[0,99.9]);
-AP_image_scroll(cat(3,avg_im_aligned{:}),{experiments.day});
+AP_imscroll(cat(3,avg_im_aligned{:}),{experiments.day});
 caxis(c);
 axis image;
 set(gcf,'Name',animal);
@@ -2116,7 +2116,7 @@ set(gcf,'Name',animal);
 im_edge = cellfun(@(x) x-imgaussfilt(x,10),avg_im_aligned,'uni',false);
 c = prctile(cell2mat(cellfun(@(x) x(:), ...
     im_edge,'uni',false)),[1,99]);
-AP_image_scroll(cat(3,im_edge{:}),{experiments.day});
+AP_imscroll(cat(3,im_edge{:}),{experiments.day});
 axis image;
 caxis(c);
 set(gcf,'Name',animal);
@@ -2156,7 +2156,7 @@ for curr_day = 1:length(retinotopy)
 end
 
 % Plot day-aligned VFS
-AP_image_scroll(cat(3,aligned_vfs{:}));
+AP_imscroll(cat(3,aligned_vfs{:}));
 colormap(brewermap([],'*RdBu'));
 axis image off;
 title('Day-aligned VFS')
@@ -2239,7 +2239,7 @@ for curr_day = 1:length(retinotopy)
 end
 vfs_aligned = cat(3,vfs_aligned{:});
 
-AP_image_scroll(vfs_aligned,{retinotopy.day});
+AP_imscroll(vfs_aligned,{retinotopy.day});
 set(gcf,'Name',animal);
 caxis([-1,1]);
 colormap(brewermap([],'*RdBu'));
@@ -2313,7 +2313,7 @@ for curr_animal = 1:length(animals)
        title(sprintf('Day %d',curr_day_rel));
     end
     
-    AP_image_scroll(cat(3,prominence_maps{curr_animal}{:}),{experiments.day});
+    AP_imscroll(cat(3,prominence_maps{curr_animal}{:}),{experiments.day});
     axis image off
     colormap(hot);
     set(gcf,'Name',animal);

@@ -18,14 +18,14 @@ V_mirror_mean = squeeze(nanmean(fluor_allcat_mirror(use_trials,:,:),1))';
 px_mean = svdFrameReconstruct(U_master(:,:,1:n_vs),V_mean);
 px_mirror_mean = svdFrameReconstruct(U_master(:,:,1:n_vs),V_mirror_mean);
 
-AP_image_scroll([px_mean,px_mirror_mean],t);
+AP_imscroll([px_mean,px_mirror_mean],t);
 caxis([-prctile(abs(px_mean(:)),99),prctile(abs(px_mean(:)),99)]);
 colormap(brewermap([],'*RdBu'));
 axis image;
 
 V_hemidiff = V_mean - V_mirror_mean;
 px_hemidiff = svdFrameReconstruct(U_master(:,:,1:n_vs),V_hemidiff);
-AP_image_scroll(px_hemidiff,t);
+AP_imscroll(px_hemidiff,t);
 caxis([-prctile(abs(px_hemidiff(:)),99),prctile(abs(px_hemidiff(:)),99)]);
 colormap(brewermap([],'*RdBu'));
 axis image;
@@ -37,7 +37,7 @@ use_trials = trial_contrast_allcat > 0 & trial_side_allcat == 1 & ...
 V_check = squeeze(nanmean(fluor_allcat_downsamp_filt(use_trials,:,:),1))';
 px_check = svdFrameReconstruct(U_master(:,:,1:n_vs),V_check);
 
-AP_image_scroll(px_check,t);
+AP_imscroll(px_check,t);
 caxis([-prctile(abs(px_check(:)),100),prctile(abs(px_check(:)),100)]);
 colormap(brewermap([],'*RdBu'));
 axis image;
@@ -425,7 +425,7 @@ plot_px = svdFrameReconstruct(U_master(:,:,1:n_vs), ...
 % plot_px = svdFrameReconstruct(U_master(:,:,1:n_vs), ...
 %     squeeze(nanmean(fluor_allcat_deconv_move(plot_trials,:,:)))');
 
-AP_image_scroll(plot_px,t);
+AP_imscroll(plot_px,t);
 axis image;
 caxis([-max(abs(caxis)),max(abs(caxis))]);
 colormap(brewermap([],'PrGn'));
@@ -475,7 +475,7 @@ curr_px = svdFrameReconstruct(U_master(:,:,1:n_vs),squeeze(nanmean( ...
 %     [fluor_allcat_deconv_move(curr_trials_standard,:,:)-fluor_taskpred_reduced_allcat_move(curr_trials_standard,:,:,2); ...
 %     fluor_allcat_deconv_move_mirror(curr_trials_mirror,:,:)],1))');
 
-AP_image_scroll(curr_px,t);
+AP_imscroll(curr_px,t);
 axis image;
 caxis([-max(abs(caxis)),max(abs(caxis))]);
 colormap(brewermap([],'*RdBu'));
@@ -499,7 +499,7 @@ end
 fluor_stim_px = cell2mat(permute(arrayfun(@(x) svdFrameReconstruct(U_master(:,:,1:n_vs), ...
     squeeze(fluor_stim(x,:,:))'),1:length(unique(D_allcat.stimulus)),'uni',false),[1,3,4,2]));
 
-AP_image_scroll(fluor_stim_px,t);
+AP_imscroll(fluor_stim_px,t);
 axis image;
 caxis([-max(abs(caxis)),max(abs(caxis))]);
 colormap(brewermap([],'*RdBu'));
@@ -513,7 +513,7 @@ plot_trials = quiescent_trials & trial_contrastside_allcat == 1;
 plot_px = svdFrameReconstruct(U_master(:,:,1:n_vs), ...
     squeeze(nanmean(fluor_allcat_deconv(plot_trials,:,:)))');
 
-AP_image_scroll(plot_px,t);
+AP_imscroll(plot_px,t);
 axis image;
 caxis([-max(abs(caxis)),max(abs(caxis))]);
 colormap(brewermap([],'*RdBu'));
@@ -10271,7 +10271,7 @@ for curr_stim = 1:3
    stim_px(:,:,:,curr_stim) = curr_px;
 end
 
-AP_image_scroll(stim_px,t);
+AP_imscroll(stim_px,t);
 axis image;
 AP_reference_outline('ccf_aligned','k');
 caxis([-max(abs(caxis)),max(abs(caxis))]);
@@ -10324,7 +10324,7 @@ fluor_allcat_deconv_exp_norm = cellfun(@(fluor,norm) fluor./reshape(norm,1,1,[])
 % 
 % curr_px = svdFrameReconstruct(U_master(:,:,1:n_vs),curr_v_mean);
 % 
-% AP_image_scroll(curr_px,t)
+% AP_imscroll(curr_px,t)
 % axis image;
 % AP_reference_outline('ccf_aligned',[0.5,0.5,0.5]);
 % caxis([-max(abs(caxis)),max(abs(caxis))]);
@@ -10347,7 +10347,7 @@ for curr_stim = 1:length(unique_stim)
    stim_px(:,:,:,curr_stim) = curr_px;
 end
 
-AP_image_scroll(stim_px,t);
+AP_imscroll(stim_px,t);
 axis image;
 AP_reference_outline('ccf_aligned',[0.5,0.5,0.5]);
 caxis([-max(abs(caxis)),max(abs(caxis))]);
@@ -11766,7 +11766,7 @@ for curr_animal = 1:length(animals)
     AP_print_progress_fraction(curr_animal,length(animals));
 end
 
-AP_image_scroll(avg_im_cat)
+AP_imscroll(avg_im_cat)
 axis image;
 
 
@@ -12146,7 +12146,7 @@ for curr_align = 1:length(use_align)
     curr_ctx_act_mean_px = svdFrameReconstruct(U_master(:,:,1:n_vs), ...
         curr_ctx_act_mean);
     
-    AP_image_scroll(curr_ctx_act_mean_px,t);
+    AP_imscroll(curr_ctx_act_mean_px,t);
     AP_reference_outline('ccf_aligned',[0.5,0.5,0.5]);
     axis image off;
     colormap(brewermap([],'PRGn'));

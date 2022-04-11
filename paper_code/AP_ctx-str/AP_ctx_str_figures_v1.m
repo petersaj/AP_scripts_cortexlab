@@ -178,7 +178,7 @@ vis_correct_L_trials = ...
 vis_correct_L_px = svdFrameReconstruct(U_master(:,:,1:n_vs), ...
     squeeze(nanmean(fluor_allcat_deconv(vis_correct_L_trials,:,:),1))');
 
-AP_image_scroll(vis_correct_L_px,t);
+AP_imscroll(vis_correct_L_px,t);
 axis image;
 caxis([0,max(abs(caxis))])
 colormap(brewermap([],'BuGn'));
@@ -673,14 +673,14 @@ k_px_naive_cat = cellfun(@(x) x(:,:,end:-1:1,:),[batch_vars(7:11).k_px],'uni',fa
 k_px_trained = nanmean(double(cat(5,k_px_trained_cat{:})),5);
 k_px_naive = nanmean(double(cat(5,k_px_naive_cat{:})),5);
 
-AP_image_scroll(k_px_trained,t);
+AP_imscroll(k_px_trained,t);
 caxis([-max(abs(caxis)),max(abs(caxis))]);
 axis image;
 colormap(brewermap([],'*RdBu'))
 AP_reference_outline('ccf_aligned','k');
 set(gcf,'Name','Trained');
 
-AP_image_scroll(k_px_naive,t);
+AP_imscroll(k_px_naive,t);
 caxis([-max(abs(caxis)),max(abs(caxis))]);
 axis image;
 colormap(brewermap([],'*RdBu'))
@@ -740,12 +740,12 @@ k_px_naive_com_colored_weighted = k_px_naive_com_colored + ...
     prctile(abs(k_px_naive_positive(:)),100),[1,2,4,3]))) .* ...
     (ones(1,1,3,length(t)) - k_px_naive_com_colored));
 
-AP_image_scroll(k_px_trained_com_colored_weighted,t,true);
+AP_imscroll(k_px_trained_com_colored_weighted,t,true);
 axis image;
 AP_reference_outline('ccf_aligned','k');
 set(gcf,'Name','Trained');
 
-AP_image_scroll(k_px_naive_com_colored_weighted,t,true);
+AP_imscroll(k_px_naive_com_colored_weighted,t,true);
 axis image;
 AP_reference_outline('ccf_aligned','k');
 set(gcf,'Name','Naive');

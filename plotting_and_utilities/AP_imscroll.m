@@ -1,7 +1,7 @@
 function gui_fig = AP_imscroll(images,t,colored)
 % gui_fig = AP_imscroll(images,t,colored)
 %
-% **** Same AP_image_scroll, just made name shorter
+% **** Same AP_imscroll, just made name shorter
 %
 % Make scrollable window from set of images
 % images:

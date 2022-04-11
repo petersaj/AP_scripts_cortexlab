@@ -217,7 +217,7 @@ sta_im = svdFrameReconstruct(U,sta_v);
 sta_im_norm = bsxfun(@rdivide,bsxfun(@minus,sta_im,mean(sta_im,3)),std(sta_im,[],3));
 
 % Draw the movie
-AP_image_scroll(sta_im_norm,sta_t);
+AP_imscroll(sta_im_norm,sta_t);
 caxis([-std(sta_im_norm(:))*3,std(sta_im_norm(:))*3])
 set(gcf,'Name',num2str(curr_template))
 
@@ -278,7 +278,7 @@ sta_v_pca = reshape(score,size(sta_v_all,1),size(sta_v_all,2),size(sta_v_all,3))
 % sta_im_norm = bsxfun(@rdivide,bsxfun(@minus,sta_im,mean(sta_im,3)),std(sta_im,[],3));
 % 
 % % Draw the movie
-% AP_image_scroll(sta_im_norm,sta_t);
+% AP_imscroll(sta_im_norm,sta_t);
 % caxis([-std(sta_im_norm(:))*3,std(sta_im_norm(:))*3])
 % set(gcf,'Name',num2str(curr_template));
 
@@ -318,7 +318,7 @@ sta_im = svdFrameReconstruct(U,sta_v);
 %sta_im_norm = bsxfun(@rdivide,bsxfun(@minus,sta_im,px_mean),px_std);
 
 % Draw the movie
-AP_image_scroll(sta_im,sta_t);
+AP_imscroll(sta_im,sta_t);
 axis image;
 
 %% STA for multiunit by depth
@@ -384,7 +384,7 @@ end
 %sta_im_norm = bsxfun(@rdivide,bsxfun(@minus,sta_im,px_mean),px_std);
 
 % Draw the movie
-AP_image_scroll(sta_im,sta_t);
+AP_imscroll(sta_im,sta_t);
 
 % Plot map of cortical pixel by preferred depth of probe
 r_px_max = squeeze(max(sta_im,[],3));
@@ -451,7 +451,7 @@ end
 template_sta = template_sta(:,:,sort_idx);
 
 % Plot
-AP_image_scroll(template_sta,good_templates_idx(sort_idx));
+AP_imscroll(template_sta,good_templates_idx(sort_idx));
 
 
 %% STA for templates by clustered area
@@ -500,7 +500,7 @@ end
 template_sta = template_sta(:,:,sort_idx);
 
 % Plot
-AP_image_scroll(template_sta,use_templates(sort_idx));
+AP_imscroll(template_sta,use_templates(sort_idx));
 
 % PCA results
 cluster_sta_nonan = cluster_sta;
@@ -591,7 +591,7 @@ template_corr = template_corr(:,:,sort_idx);
 
 % Plot correlation by area
 template_corr(isnan(template_corr)) = 0;
-AP_image_scroll(template_corr,use_templates(sort_idx));
+AP_imscroll(template_corr,use_templates(sort_idx));
 caxis([-0.2 0.2]);
 colormap(redblue)
 
@@ -686,7 +686,7 @@ end
 sta_im_norm = bsxfun(@rdivide,bsxfun(@minus,sta_im,px_mean),px_std);
 
 % Draw the movie
-AP_image_scroll(sta_im,sta_t);
+AP_imscroll(sta_im,sta_t);
 
 % Plot ROI traces across depth (after drawing an ROI)
 trace_norm = bsxfun(@minus,roi.trace,min(roi.trace,[],2));
@@ -742,7 +742,7 @@ end
 sta_im_norm = zscore(sta_im,[],3);
 
 % Draw the movie
-AP_image_scroll(sta_im_norm,sta_t);
+AP_imscroll(sta_im_norm,sta_t);
 caxis([-std(sta_im_norm(:))*3,std(sta_im_norm(:))*3])
 
 % Plot ROI traces across depth (after drawing an ROI)
@@ -1083,7 +1083,7 @@ svd_xcorr_norm = bsxfun(@rdivide,bsxfun(@minus,svd_xcorr,mean(svd_xcorr,3)),std(
     prctile(reshape(std(svd_xcorr,[],3),[],1),50));
 
 % Draw the movie
-AP_image_scroll(svd_xcorr,lags_t);
+AP_imscroll(svd_xcorr,lags_t);
 
 % Plot ROI traces across depth (after drawing an ROI)
 trace_spacing = fliplr(5*(1:size(roi.trace,1)));
@@ -1126,7 +1126,7 @@ sta_im_norm = bsxfun(@rdivide,bsxfun(@minus,sta_im,mean(sta_im,3)),std(sta_im,[]
     prctile(reshape(std(sta_im,[],3),[],1),50));
 
 % Draw the movie
-AP_image_scroll(sta_im_norm,sta_t);
+AP_imscroll(sta_im_norm,sta_t);
 caxis([-std(sta_im_norm(:))*3,std(sta_im_norm(:))*3])
 
 %%%%%%%%%%%%% average image triggered on all
@@ -1310,7 +1310,7 @@ v_autonorm_shift = [v_autonorm(:,end-plot_frames+1:end),v_autonorm(:,1:plot_fram
 tfun = svdFrameReconstruct(U,v_autonorm_shift);
 % tfun_norm = bsxfun(@rdivide,bsxfun(@minus,tfun,px_mean),px_std);
 
-AP_image_scroll(tfun);
+AP_imscroll(tfun);
 
 
 
@@ -1385,7 +1385,7 @@ svd_xcorr_norm = bsxfun(@rdivide,svd_xcorr,px_std*std(frame_spikes(skip_frames:e
 svd_xcorr_norm(isnan(svd_xcorr_norm)) = 0;
 
 % Draw the movie
-AP_image_scroll(svd_xcorr_norm,lags_t);
+AP_imscroll(svd_xcorr_norm,lags_t);
 
 
 %% Get one-shift-lag correlation in SVD space
@@ -1460,7 +1460,7 @@ end
 % Set NaNs to zeros for better visualization
 svd_corr(isnan(svd_corr)) = 0;
 
-AP_image_scroll(svd_corr);
+AP_imscroll(svd_corr);
 
 
 %% For last cell: make baseline std based shifted times
@@ -1575,7 +1575,7 @@ svd_xcorr_norm_2 = bsxfun(@rdivide,bsxfun(@minus,svd_xcorr_2,mean(svd_xcorr_2,3)
     prctile(reshape(std(svd_xcorr_2,[],3),[],1),50));
 
 % Draw the movie
-AP_image_scroll([svd_xcorr_norm_1,svd_xcorr_norm_2],lags_t);
+AP_imscroll([svd_xcorr_norm_1,svd_xcorr_norm_2],lags_t);
 
 
 % Get correlations and PCA by different spike bin widths
@@ -1740,7 +1740,7 @@ lags_t = (-corr_lags:corr_lags)/framerate;
 svd_xcorr = svdFrameReconstruct(U,v_xcorr);
 
 % Draw the movie
-AP_image_scroll(svd_xcorr,lags_t);
+AP_imscroll(svd_xcorr,lags_t);
 
 % Just correlation with V, and correlation in pixel space
 v_corr = nan(size(fV,1),1);
@@ -1866,7 +1866,7 @@ lambda = 1e-1;%mean(1./dataSummary_n.dataSummary.Sv(use_svs))/2;
 % S is already in fV so should probably take out first for this to work
 k = use_spikes_shift*fV(use_svs,:)'*(diag(lambda+1./dataSummary_n.dataSummary.Sv(use_svs)))*Ud_flat(:,use_svs)';
 k2 = reshape(k',size(Ud,1),size(Ud,2),surround_frames*2+1);
-AP_image_scroll(k2,surround_t);
+AP_imscroll(k2,surround_t);
 
 
 %% Spatiotemporal correlation-fixed spatial kernel for spikes (templates)
@@ -1918,7 +1918,7 @@ end
 [~,sort_idx] = sort(template_depths(good_templates));
 k2_all = k2_all(:,:,sort_idx);
 
-AP_image_scroll(k2_all);
+AP_imscroll(k2_all);
 
 
 %% Reduced rank regression (Kenneth) by depth
@@ -1958,7 +1958,7 @@ for i = 1:n_depths;
 end
 
 canonU_blur = imgaussfilt(canonU,3);
-AP_image_scroll(canonU_blur);colormap(colormap_blueblackred);
+AP_imscroll(canonU_blur);colormap(colormap_blueblackred);
 
 
 %% Get spikes to widefield transformation and/or deconvolve V
@@ -2074,7 +2074,7 @@ v_autonorm_shift = [v_autonorm(:,end-plot_frames+1:end),v_autonorm(:,1:plot_fram
 tfun = svdFrameReconstruct(U,v_autonorm_shift);
 %tfun_norm = bsxfun(@rdivide,bsxfun(@minus,tfun,px_mean),px_std);
 
-AP_image_scroll(tfun);
+AP_imscroll(tfun);
 
 
 
@@ -2374,7 +2374,7 @@ for curr_spikes = 1:size(r,3);
     r_px(:,:,:,curr_spikes) = svdFrameReconstruct(U(:,:,use_svs),r(:,:,curr_spikes));
 end
 
-AP_image_scroll(r_px,kernel_frames/framerate);
+AP_imscroll(r_px,kernel_frames/framerate);
 
 clear fluor_design
 
@@ -2423,7 +2423,7 @@ for curr_spikes = 1:size(r,3);
     r_px(:,:,:,curr_spikes) = svdFrameReconstruct(Udf(:,:,use_svs),r(:,:,curr_spikes));
 end
 
-AP_image_scroll(r_px,(kernel_frames_downsample*downsample_factor)/framerate);
+AP_imscroll(r_px,(kernel_frames_downsample*downsample_factor)/framerate);
 caxis([prctile(r_px(:),[1,99])]*4);
 truesize
 
@@ -2470,7 +2470,7 @@ for curr_spikes = 1:size(r,3);
     r_px(:,:,:,curr_spikes) = svdFrameReconstruct(Udf(:,:,use_svs),r(:,:,curr_spikes));
 end
 
-AP_image_scroll(r_px,kernel_frames/framerate);
+AP_imscroll(r_px,kernel_frames/framerate);
 caxis([prctile(r_px(:),[1,99])]*4);
 truesize
 
@@ -2796,7 +2796,7 @@ for curr_spikes = 1:size(r,3);
     r_px(:,:,:,curr_spikes) = svdFrameReconstruct(Udf(:,:,use_svs),r(:,:,curr_spikes));
 end
 
-AP_image_scroll(r_px,kernel_frames*downsample_factor/framerate);
+AP_imscroll(r_px,kernel_frames*downsample_factor/framerate);
 caxis([-prctile(r_px(:),99.9),prctile(r_px(:),99.9)])
 colormap(colormap_BlueWhiteRed);
 axis image;
@@ -2917,7 +2917,7 @@ fVdf_deconv_resample = interp1(frame_t,fVdf_deconv(use_svs,:)',time_bin_centers)
 % Convert kernel to pixel space
 r_px = AP_svdFrameReconstruct(Udf(:,:,use_svs),k);
 
-AP_image_scroll(r_px,kernel_frames/framerate);
+AP_imscroll(r_px,kernel_frames/framerate);
 caxis([-prctile(r_px(:),99.9),prctile(r_px(:),99.9)])
 colormap(colormap_BlueWhiteRed);
 axis image;
@@ -3027,7 +3027,7 @@ for curr_spikes = 1:size(r,3);
     r_px(:,:,:,curr_spikes) = svdFrameReconstruct(Udf(:,:,use_svs),r(:,:,curr_spikes));
 end
 
-AP_image_scroll(r_px,kernel_frames/framerate);
+AP_imscroll(r_px,kernel_frames/framerate);
 caxis([-prctile(r_px(:),99.9),prctile(r_px(:),99.9)])
 colormap(colormap_BlueWhiteRed);
 axis image;
@@ -3218,7 +3218,7 @@ k = reshape(k,size(px,1),length(kernel_frames));
 r = zeros(size(Ud,1),size(Ud,2),length(kernel_frames));
 r(repmat(roiMaskd,1,1,length(kernel_frames))) = k;
 
-AP_image_scroll(r,kernel_frames/framerate);
+AP_imscroll(r,kernel_frames/framerate);
 
 
 %% Hemo corr check: spike-fluorescence coherence/kernel
@@ -3342,7 +3342,7 @@ px_coherence_sum = reshape(sum(px_coherence,1),size(Ud,1),size(Ud,2));
 figure;imagesc(px_coherence_sum);colormap(gray);caxis([0,max(caxis)]);axis off;
 
 px_coherence_allf = reshape(permute(px_coherence,[2,3,1]),size(Ud,1),size(Ud,2),[]);
-AP_image_scroll(px_coherence_allf,f);
+AP_imscroll(px_coherence_allf,f);
 
 
 %% Fluor-spike regression (add spike history)
@@ -3376,7 +3376,7 @@ for curr_spikes = 1:size(r,3);
     r_px(:,:,:,curr_spikes) = svdFrameReconstruct(U(:,:,use_svs),r(:,:,curr_spikes));
 end
 
-AP_image_scroll(r_px,kernel_frames/framerate);
+AP_imscroll(r_px,kernel_frames/framerate);
 caxis([prctile(r_px(:),[1,99])]*2)
 
 figure;plot(spike_kernel_frames/framerate,k(spike_regressors_idx),'k')
@@ -3437,7 +3437,7 @@ for curr_spikes = 1:size(r,3);
     r_px(:,:,:,curr_spikes) = svdFrameReconstruct(U(:,:,use_svs),r(:,:,curr_spikes));
 end
 
-AP_image_scroll(r_px,fluor_kernel_frames/framerate);
+AP_imscroll(r_px,fluor_kernel_frames/framerate);
 caxis([prctile(r_px(:),[1,99.5])]*2)
 
 figure;plot(spike_kernel_frames/framerate,k(spike_regressors_idx),'k','linewidth',2)
@@ -3446,7 +3446,7 @@ xlabel('Spike history (s)');
 title('Spike regressors');
 
 stim_r = reshape(k(stim_regressors_idx),ny,nx,length(stim_kernel_frames));
-AP_image_scroll(stim_r,stim_kernel_frames/framerate);
+AP_imscroll(stim_r,stim_kernel_frames/framerate);
 
 %% Fluor/stim (sparse noise abs and signed) -> spike regression (templates)
 
@@ -3514,14 +3514,14 @@ for curr_spikes = 1:size(r,3);
     r_px(:,:,:,curr_spikes) = svdFrameReconstruct(U(:,:,use_svs),r(:,:,curr_spikes));
 end
 
-AP_image_scroll(r_px,fluor_kernel_frames/framerate);
+AP_imscroll(r_px,fluor_kernel_frames/framerate);
 caxis([prctile(r_px(:),[1,99.5])]*2)
 
 stim_r = reshape(k(stim_regressors_idx,:),ny,nx,length(stim_kernel_frames),size(frame_spikes,1));
-AP_image_scroll(stim_r,stim_kernel_frames/framerate);
+AP_imscroll(stim_r,stim_kernel_frames/framerate);
 
 abs_stim_r = reshape(k(abs_stim_regressors_idx,:),ny,nx,length(stim_kernel_frames),size(frame_spikes,1));
-AP_image_scroll(abs_stim_r,stim_kernel_frames/framerate);
+AP_imscroll(abs_stim_r,stim_kernel_frames/framerate);
 
 %% Fluor/stim (stimID) -> spike regression (MUA by depth)
 
@@ -3578,11 +3578,11 @@ for curr_spikes = 1:size(r,3);
     r_px(:,:,:,curr_spikes) = svdFrameReconstruct(U(:,:,use_svs),r(:,:,curr_spikes));
 end
 
-AP_image_scroll(r_px,fluor_kernel_frames/framerate);
+AP_imscroll(r_px,fluor_kernel_frames/framerate);
 caxis([prctile(r_px(:),[1,99.5])]*2)
 
 stim_r = reshape(k(stim_regressors_idx,:),size(stim_regressors,1),length(stim_kernel_frames),size(frame_spikes,1));
-AP_image_scroll(stim_r);
+AP_imscroll(stim_r);
 xlabel('Time from spike');
 ylabel('Weight');
 title('Stimuli');
@@ -3633,7 +3633,7 @@ for curr_spikes = 1:size(r,3);
     r_px(:,:,:,curr_spikes) = svdFrameReconstruct(U(:,:,use_svs),r(:,:,curr_spikes));
 end
 
-AP_image_scroll(r_px,fluor_kernel_frames/framerate);
+AP_imscroll(r_px,fluor_kernel_frames/framerate);
 caxis([prctile(r_px(:),[1,99.5])]*2)
 
 stim_r = reshape(k(stim_regressors_idx),size(stim_regressors,1),length(stim_kernel_frames));
@@ -3700,11 +3700,11 @@ for curr_spikes = 1:size(r,3);
     r_px(:,:,:,curr_spikes) = svdFrameReconstruct(U(:,:,use_svs),r(:,:,curr_spikes));
 end
 
-AP_image_scroll(r_px,fluor_kernel_frames/framerate);
+AP_imscroll(r_px,fluor_kernel_frames/framerate);
 caxis([prctile(r_px(:),[1,99])]*2)
 
 stim_r = reshape(k(stim_regressors_idx),ny,nx,length(stim_kernel_frames),size(frame_spikes,1));
-AP_image_scroll(stim_r,stim_kernel_frames);
+AP_imscroll(stim_r,stim_kernel_frames);
 
 
 %% Fluor/stim (stimID) -> spike regression (templates separately)
@@ -3757,11 +3757,11 @@ for curr_spikes = 1:size(r,3);
     r_px(:,:,:,curr_spikes) = svdFrameReconstruct(U(:,:,use_svs),r(:,:,curr_spikes));
 end
 
-AP_image_scroll(r_px,fluor_kernel_frames/framerate);
+AP_imscroll(r_px,fluor_kernel_frames/framerate);
 caxis([prctile(r_px(:),[1,99])]*2);
 
 stim_r = reshape(k(stim_regressors_idx,:),size(stim_regressors,1),length(stim_kernel_frames),size(frame_spikes,1));
-AP_image_scroll(stim_r);
+AP_imscroll(stim_r);
 axis on
 ylabel('Stim');
 xlabel('Frame');
@@ -3799,7 +3799,7 @@ kernel_frames_downsample = round(downsample(kernel_frames,downsample_factor)/dow
 figure;plot(kernel_frames_downsample*downsample_factor/framerate,k)
 
 fluor_kernel = svdFrameReconstruct(U(:,:,use_svs),k');
-AP_image_scroll(fluor_kernel,kernel_frames_downsample*downsample_factor/framerate);
+AP_imscroll(fluor_kernel,kernel_frames_downsample*downsample_factor/framerate);
 truesize;
 
 % Get map of explained variance
@@ -3862,7 +3862,7 @@ kernel_frames_downsample = round(downsample(kernel_frames,downsample_factor)/dow
 k = permute(reshape(k,size(frame_spikes,1),length(kernel_frames_downsample),[]),[3,2,1]);
 
 fluor_kernel = arrayfun(@(x) svdFrameReconstruct(Udf(:,:,use_svs),k(:,:,x)),1:size(k,3),'uni',false);
-AP_image_scroll(cat(4,fluor_kernel{:}),kernel_frames_downsample*downsample_factor/framerate);
+AP_imscroll(cat(4,fluor_kernel{:}),kernel_frames_downsample*downsample_factor/framerate);
 truesize;
 
 % Get map of explained variance
@@ -3990,7 +3990,7 @@ k = reshape(k,length(use_face_svs),length(kernel_frames_downsample),size(frame_s
 face_k = reshape(reshape(facecam.proc.data.face.motionMask(:,:,use_face_svs),[],length(use_face_svs))*k, ...
     facecam.proc.data.face.nY,facecam.proc.data.face.nX,[]);
 
-AP_image_scroll(face_k,kernel_frames_downsample*downsample_factor/framerate)
+AP_imscroll(face_k,kernel_frames_downsample*downsample_factor/framerate)
 
 
 %% TEST: face to spikes (MUA by depth) 
@@ -4051,7 +4051,7 @@ face_k = arrayfun(@(x) reshape(reshape(facecam.proc.data.face.motionMask(:,:,use
 
 face_k = cat(4,face_k{:});
 
-AP_image_scroll(face_k,kernel_frames_downsample*downsample_factor/framerate)
+AP_imscroll(face_k,kernel_frames_downsample*downsample_factor/framerate)
 
 
 %% Regression stim ID to spikes, then fluor to residual spikes
@@ -4113,7 +4113,7 @@ for curr_spikes = 1:size(r,3);
     r_px(:,:,:,curr_spikes) = svdFrameReconstruct(U(:,:,use_svs),r(:,:,curr_spikes));
 end
 
-AP_image_scroll(r_px,fluor_kernel_frames/framerate);
+AP_imscroll(r_px,fluor_kernel_frames/framerate);
 caxis([prctile(r_px(:),[1,99.5])]*2)
 
 
@@ -4339,7 +4339,7 @@ if ~exist('aUdf','var')
 end
 
 curr_kernel_px = svdFrameReconstruct(aUdf(:,:,use_svs),curr_kernel_reshape);
-AP_image_scroll(curr_kernel_px,kernel_samples/sample_rate);
+AP_imscroll(curr_kernel_px,kernel_samples/sample_rate);
 axis image
 caxis([-prctile(abs(curr_kernel_px(:)),99),prctile(abs(curr_kernel_px(:)),99)]);
 colormap(colormap_BlueWhiteRed);

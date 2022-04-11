@@ -236,7 +236,7 @@ for curr_recording = 1:length(recordings)
         kernel_px(:,:,:,curr_spikes) = svdFrameReconstruct(Udf(:,:,use_svs),curr_gcamp_kernel{1}(:,:,curr_spikes));
     end
     
-    % AP_image_scroll(r_px,kernel_frames*downsample_factor/framerate);
+    % AP_imscroll(r_px,kernel_frames*downsample_factor/framerate);
     % caxis([-prctile(r_px(:),99.9),prctile(r_px(:),99.9)])
     % colormap(colormap_BlueWhiteRed);
     % axis image;

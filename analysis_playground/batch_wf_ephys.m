@@ -200,7 +200,7 @@ for curr_animal = 1:length(animals)
     %     % Plot
     %     surround_window = [-0.5,5];
     %     t_surround = linspace(surround_window(1),surround_window(2),size(im_aligned_average,3));
-    %     AP_image_scroll(im_aligned_average,t_surround);
+    %     AP_imscroll(im_aligned_average,t_surround);
     %     colormap(gray); axis image off;
     %     title([animal ': passive stimuli']);
     
@@ -2259,7 +2259,7 @@ load(wf_roi_fn);
 
 % Plot weights over time (only use ipsi ROIs)
 t = linspace(-0.3,0.3,size(r_px_mean,3));
-AP_image_scroll(r_px_mean,t)  
+AP_imscroll(r_px_mean,t)  
 axis image;
 caxis([-1,1]);
 colormap(colormap_BlueWhiteRed);
@@ -2279,7 +2279,7 @@ kernel_template_fn = ['C:\Users\Andrew\OneDrive for Business\Documents\Carandini
 save(kernel_template_fn,'kernel_template');
 disp('Saved kernel template');
 
-AP_image_scroll(r_px_max_norm)  
+AP_imscroll(r_px_max_norm)  
 axis image;
 
 

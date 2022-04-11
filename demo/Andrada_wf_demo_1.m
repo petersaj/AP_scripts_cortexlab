@@ -134,7 +134,7 @@ example_frames = 500:600;
 example_fluorescence = AP_svdFrameReconstruct(Udf,fVdf(:,example_frames));
 % and then we can view that with a function I have for scrolling through 3D
 % matricies: 
-AP_image_scroll(example_fluorescence);
+AP_imscroll(example_fluorescence);
 axis image;
 
 % The other nice thing about working with SVD data is that any linear

@@ -101,7 +101,7 @@ AP_load_experiment;
 % data comes in U's (spatial components) and V's (spatial components), so
 % all you have to do is align the U's once (feed them into
 % AP_align_widefield) to get aligned U's and then do your analysis on that
-% data. View those movies with AP_image_scroll, and overlay the CCF areas
+% data. View those movies with AP_imscroll, and overlay the CCF areas
 % with AP_reference_outline. 
 
 %% Regions of interest (ROIs)
@@ -110,7 +110,7 @@ AP_load_experiment;
 % draw a region of interest (ROI), average all the pixels in the ROI, and
 % plot the ROI fluorescence across time. 
 
-% One way to do that is with the AP_image_scroll GUI: if you hit 'r', you
+% One way to do that is with the AP_imscroll GUI: if you hit 'r', you
 % can draw an ROI, then double click when you're done and it'll average
 % pixels inside the ROI and save as the structure 'roi'. One field of 'roi'
 % is 'roi.trace': that's N conditions x N timepoints.

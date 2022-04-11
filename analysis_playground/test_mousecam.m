@@ -68,11 +68,11 @@ for curr_align = 1:length(use_align)
 end
 
 surround_t = [-surround_frames:surround_frames]./vr.FrameRate;
-AP_image_scroll(cam_align_avg,surround_t)
+AP_imscroll(cam_align_avg,surround_t)
 axis image;
 
 surround_t = [-surround_frames:surround_frames]./vr.FrameRate;
-AP_image_scroll(cam_align_diff_avg,surround_t(2:end))
+AP_imscroll(cam_align_diff_avg,surround_t(2:end))
 axis image;
 
 % Plot difference within window
@@ -352,7 +352,7 @@ for curr_im = 1:length(im_unaligned)
 end
 
 % Plot aligned
-AP_image_scroll(im_aligned); axis image
+AP_imscroll(im_aligned); axis image
 
 % % Save transform (into original struct)
 % % (package back into animals)
@@ -387,7 +387,7 @@ for curr_im =1:length(im_unaligned_cat)
         'OutputView',tform_size);
 end
 
-AP_image_scroll(im_aligned); axis image;
+AP_imscroll(im_aligned); axis image;
 
 %% Draw facecam whisker ROI and align to each recording
 

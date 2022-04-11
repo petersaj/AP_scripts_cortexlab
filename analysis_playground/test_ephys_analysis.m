@@ -1858,7 +1858,7 @@ for x = 1:nX
     end
 end
 stim_aligned_avg_cat = cell2mat(cellfun(@(x) permute(x,[1,3,2]),stim_aligned_avg,'uni',false));
-AP_image_scroll(stim_aligned_avg_cat,bins);
+AP_imscroll(stim_aligned_avg_cat,bins);
 axis image;
 
 

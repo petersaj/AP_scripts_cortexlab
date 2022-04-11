@@ -1106,7 +1106,7 @@ ctx_str_k_px_notask_mean = nanmean(cat(5,ctx_str_k_px_cat{:,2}),5);
 
 n_depths = size(ctx_str_k_px_task_mean,4);
 
-AP_image_scroll([ctx_str_k_px_task_mean,ctx_str_k_px_notask_mean]);
+AP_imscroll([ctx_str_k_px_task_mean,ctx_str_k_px_notask_mean]);
 axis image;
 colormap(brewermap([],'PRGn'));
 caxis([-max(abs(caxis)),max(abs(caxis))]);
@@ -3288,7 +3288,7 @@ t = kernel_frames/sample_rate;
 % Get mean kernels and plot
 n_depths = size(ctx_str_k_px_notask_trained_mean,4);
 
-AP_image_scroll([ctx_str_k_px_notask_trained_mean,ctx_str_k_px_notask_naive_mean]);
+AP_imscroll([ctx_str_k_px_notask_trained_mean,ctx_str_k_px_notask_naive_mean]);
 axis image;
 colormap(brewermap([],'PRGn'));
 caxis([-max(abs(caxis)),max(abs(caxis))]);
@@ -4879,7 +4879,7 @@ mua_ctxtrialpred_regionzero_k_mean_px = cell2mat(arrayfun(@(x) ...
     reshape(mua_ctxtrialpred_regionzero_k_mean(:,:,x,:),length(regression_params.use_svs),[])), ...
     permute(1:n_depths,[1,3,4,2]),'uni',false));
 
-AP_image_scroll(cat(3,mua_ctxtrialpred_k_mean_px,mua_ctxtrialpred_regionzero_k_mean_px));
+AP_imscroll(cat(3,mua_ctxtrialpred_k_mean_px,mua_ctxtrialpred_regionzero_k_mean_px));
 caxis([-max(abs(caxis)),max(abs(caxis))]);
 colormap(gca,brewermap([],'PRGn'));
 axis image;
@@ -5545,7 +5545,7 @@ fluor_postmuscimol_mean = ...
     permute(nanmean(cell2mat(cellfun(@(x,stim) ...
     nanmean(x(stim == use_stim,:,:),1),fluor_muscimol{2},stimIDs{2},'uni',false)),1),[3,2,1]));
 
-AP_image_scroll([fluor_premuscimol_mean,fluor_postmuscimol_mean]);
+AP_imscroll([fluor_premuscimol_mean,fluor_postmuscimol_mean]);
 AP_reference_outline('ccf_aligned',[0.5,0.5,0.5],[],[size(U_master,1),size(U_master,2),1,2]);
 caxis([-max(abs(caxis)),max(abs(caxis))]);
 axis image;

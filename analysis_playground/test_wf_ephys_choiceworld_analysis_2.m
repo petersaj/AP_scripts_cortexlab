@@ -929,7 +929,7 @@ ylabel('Measured-predicted');
 %     reshape(ctx_str_k_avg,size(ctx_str_k_avg,1),[])), ...
 %     size(U_master,1),size(U_master,2),[],size(ctx_str_k_avg,3));
 %
-% AP_image_scroll(ctx_str_k_px_avg,kernel_t);
+% AP_imscroll(ctx_str_k_px_avg,kernel_t);
 % axis image; caxis([-max(abs(caxis)),max(abs(caxis))]);
 % colormap(brewermap([],'*RdBu'));
 % AP_reference_outline('ccf_aligned','k');
@@ -2048,7 +2048,7 @@ ctx_str_k_px_avg = reshape(svdFrameReconstruct( ...
     reshape(ctx_str_k_avg,size(ctx_str_k_avg,1),[])), ...
     size(U_master,1),size(U_master,2),[],size(ctx_str_k_avg,3));
 
-AP_image_scroll(ctx_str_k_px_avg,kernel_t);
+AP_imscroll(ctx_str_k_px_avg,kernel_t);
 axis image; caxis([-max(abs(caxis)),max(abs(caxis))]);
 colormap(brewermap([],'*RdBu'));
 AP_reference_outline('ccf_aligned','k');
@@ -2061,13 +2061,13 @@ ctx_wheel_k_px_avg = reshape(svdFrameReconstruct( ...
     reshape(ctx_wheel_k_avg,size(ctx_wheel_k_avg,1),[])), ...
     size(U_master,1),size(U_master,2),[],size(ctx_wheel_k_avg,3));
 
-AP_image_scroll(ctx_wheel_k_px_avg,kernel_t);
+AP_imscroll(ctx_wheel_k_px_avg,kernel_t);
 axis image; caxis([-max(abs(caxis)),max(abs(caxis))]);
 colormap(brewermap([],'*RdBu'));
 AP_reference_outline('ccf_aligned','k');
 set(gcf,'Name','Ctx->Wheel');
 
-AP_image_scroll(ctx_wheel_k_px_avg-AP_reflect_widefield(ctx_wheel_k_px_avg),kernel_t);
+AP_imscroll(ctx_wheel_k_px_avg-AP_reflect_widefield(ctx_wheel_k_px_avg),kernel_t);
 axis image; caxis([-max(abs(caxis)),max(abs(caxis))]);
 colormap(brewermap([],'*RdBu'));
 AP_reference_outline('ccf_aligned','k');
@@ -2103,7 +2103,7 @@ for curr_regressor = 1:n_regressors
         nanmean(cat(3,curr_k_cell{:,x}),3),1:n_vs,'uni',false),[1,3,2])),[3,2,1]);
     curr_k_px = cell2mat(permute(arrayfun(@(x) svdFrameReconstruct(U_master(:,:,1:size(curr_k,1)), ...
         curr_k(:,:,x)),1:size(curr_k,3),'uni',false),[1,3,4,2]));
-    AP_image_scroll(curr_k_px,t_shifts{curr_regressor});
+    AP_imscroll(curr_k_px,t_shifts{curr_regressor});
     axis image;
     caxis([-max(abs(caxis)),max(abs(caxis))]);
     colormap(brewermap([],'*RdBu'));
@@ -2144,7 +2144,7 @@ ctx_str_k_px_avg = reshape(svdFrameReconstruct( ...
     reshape(ctx_str_k_avg,size(ctx_str_k_avg,1),[])), ...
     size(U_master,1),size(U_master,2),[],size(ctx_str_k_avg,3));
 
-AP_image_scroll(ctx_str_k_px_avg,kernel_t);
+AP_imscroll(ctx_str_k_px_avg,kernel_t);
 axis image; caxis([-max(abs(caxis)),max(abs(caxis))]);
 colormap(brewermap([],'*RdBu'));
 AP_reference_outline('ccf_aligned','k');
@@ -2156,12 +2156,12 @@ ctx_wheel_k_px_avg = reshape(svdFrameReconstruct( ...
     reshape(ctx_wheel_k_avg,size(ctx_wheel_k_avg,1),[])), ...
     size(U_master,1),size(U_master,2),[],size(ctx_wheel_k_avg,3));
 
-AP_image_scroll(ctx_wheel_k_px_avg,kernel_t);
+AP_imscroll(ctx_wheel_k_px_avg,kernel_t);
 axis image; caxis([-max(abs(caxis)),max(abs(caxis))]);
 colormap(brewermap([],'*RdBu'));
 AP_reference_outline('ccf_aligned','k');
 
-AP_image_scroll(ctx_wheel_k_px_avg-AP_reflect_widefield(ctx_wheel_k_px_avg),kernel_t);
+AP_imscroll(ctx_wheel_k_px_avg-AP_reflect_widefield(ctx_wheel_k_px_avg),kernel_t);
 axis image; caxis([-max(abs(caxis)),max(abs(caxis))]);
 colormap(brewermap([],'*RdBu'));
 AP_reference_outline('ccf_aligned','k');
@@ -2591,7 +2591,7 @@ muafluor_corr_px_mean = nanmean(muafluor_corr_px,4);
 mua2fluor_corr_px_mean = nanmean(mua2fluor_corr_px,4);
 fluor2mua_corr_px_mean = nanmean(fluor2mua_corr_px,4);
 
-AP_image_scroll([muafluor_corr_px_mean,fluor2mua_corr_px_mean,mua2fluor_corr_px_mean],t(use_t));
+AP_imscroll([muafluor_corr_px_mean,fluor2mua_corr_px_mean,mua2fluor_corr_px_mean],t(use_t));
 axis image
 caxis([-max(abs(caxis)),max(abs(caxis))]);
 colormap(brewermap([],'*RdBu'));
@@ -3021,7 +3021,7 @@ muafluor_corr_px_mean = nanmean(muafluor_corr_px,4);
 mua2fluor_corr_px_mean = nanmean(mua2fluor_corr_px,4);
 fluor2mua_corr_px_mean = nanmean(fluor2mua_corr_px,4);
 
-AP_image_scroll([muafluor_corr_px_mean,fluor2mua_corr_px_mean,mua2fluor_corr_px_mean],t(use_t));
+AP_imscroll([muafluor_corr_px_mean,fluor2mua_corr_px_mean,mua2fluor_corr_px_mean],t(use_t));
 axis image
 caxis([-max(abs(caxis)),max(abs(caxis))]);
 colormap(brewermap([],'*RdBu'));
@@ -4194,7 +4194,7 @@ k_px_t01 = squeeze(nanmean(k_px(:,:,ismember(kernel_frames,[0,1]),:),3));
 ctx_str_unit_map = nan(size(Udf,1),size(Udf,2),size(templates,3));
 ctx_str_unit_map(:,:,use_templates) = k_px_t01;
 
-AP_image_scroll(ctx_str_unit_map)
+AP_imscroll(ctx_str_unit_map)
 axis image;
 caxis([-0.005,0.005])
 colormap(brewermap([],'*RdBu'));
@@ -6787,13 +6787,13 @@ for curr_t = 1:length(t)
 end
 
 % Plot kernels
-AP_image_scroll(k,{'Concat time'})
+AP_imscroll(k,{'Concat time'})
 caxis([-max(caxis),max(caxis)]);
 colormap(brewermap([],'*RdBu'));
 axis image
 AP_reference_outline('ccf_aligned',[0.5,0.5,0.5]);
 
-AP_image_scroll(k_t{1},t)
+AP_imscroll(k_t{1},t)
 caxis([-max(caxis),max(caxis)]);
 colormap(brewermap([],'*RdBu'));
 axis image
@@ -6908,13 +6908,13 @@ for curr_t = 1:length(t)
 end
 
 % Plot kernels
-AP_image_scroll(k,{'Concat time'})
+AP_imscroll(k,{'Concat time'})
 caxis([-max(caxis),max(caxis)]);
 colormap(brewermap([],'*RdBu'));
 axis image
 AP_reference_outline('ccf_aligned',[0.5,0.5,0.5]);
 
-AP_image_scroll(k_t{1},t)
+AP_imscroll(k_t{1},t)
 caxis([-max(caxis),max(caxis)]);
 colormap(brewermap([],'*RdBu'));
 axis image
@@ -7106,7 +7106,7 @@ for curr_t = 1:length(t)
 end
 
 figure; 
-AP_image_scroll(svdFrameReconstruct(U_master(:,:,use_vs),k));
+AP_imscroll(svdFrameReconstruct(U_master(:,:,use_vs),k));
 caxis([-max(caxis),max(caxis)]);
 colormap(brewermap([],'*RdBu'));
 AP_reference_outline('ccf_aligned',[0.5,0.5,0.5]);

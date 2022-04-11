@@ -443,7 +443,7 @@ mean_aligned_px = svdFrameReconstruct(Udf,mean_aligned_V);
 
 a = diff(imgaussfilt(mean_aligned_px,2),[],3);
 a(a < 0) = 0;
-AP_image_scroll(a,t_surround);
+AP_imscroll(a,t_surround);
 axis image;
 
 %% Align fluorescence and MUA to task event across trials
@@ -1242,7 +1242,7 @@ smooth_size = 50;
 gw = gausswin(smooth_size,3)';
 smWin = gw./sum(gw);
 template_psth_smooth = convn(template_psth,smWin,'same');
-AP_image_scroll(template_psth_smooth)
+AP_imscroll(template_psth_smooth)
 line(repmat(find(t_bins > 0,1),2,1),ylim,'color','r');
 
 % Choice difference psth
@@ -1255,7 +1255,7 @@ move_diff = permute(nanmean(template_psth_smooth(right_early,:,:,:),1) - ...
 
 [~,sort_idx] = sort(template_depths(use_templates_unique));
 
-AP_image_scroll(move_diff(sort_idx,:,:))
+AP_imscroll(move_diff(sort_idx,:,:))
 caxis([-abs(max(move_diff(:))),abs(max(move_diff(:)))]);
 colormap(colormap_BlueWhiteRed);
 line(repmat(find(t_bins > 0,1),2,1),ylim,'color','k');
@@ -1377,7 +1377,7 @@ smooth_size = 100;
 gw = gausswin(smooth_size,3)';
 smWin = gw./sum(gw);
 depth_psth_smooth = convn(depth_psth,smWin,'same');
-AP_image_scroll(depth_psth_smooth)
+AP_imscroll(depth_psth_smooth)
 line(repmat(find(t_bins > 0,1),2,1),ylim,'color','r');
 
 % Choice psth
@@ -1484,7 +1484,7 @@ for curr_align = 1:2
     end
 end
 
-AP_image_scroll(roi_psth,{wf_roi.area})
+AP_imscroll(roi_psth,{wf_roi.area})
 line(repmat(find(t > 0,1),2,1),ylim,'color','r');
 colormap(colormap_BlueWhiteRed);
 caxis([-max(abs(caxis)),max(abs(caxis))]);
@@ -1497,7 +1497,7 @@ right_early = ismember(conditions(:,3:4),[1,1],'rows');
 move_diff = permute(squeeze(nanmean(roi_psth(right_early,:,:,:),1) - ...
     nanmean(roi_psth(left_early,:,:,:),1)),[2,1,3]);
 
-AP_image_scroll(move_diff,{'Stim-aligned','Move-aligned'})
+AP_imscroll(move_diff,{'Stim-aligned','Move-aligned'})
 line(repmat(find(t > 0,1),2,1),ylim,'color','r');
 axis on;
 colormap(colormap_BlueWhiteRed);
@@ -1792,7 +1792,7 @@ end
 im = nanmean(cat(5,im{:}),5);
 ddf_im = nanmean(cat(5,ddf_im{:}),5);
 
-AP_image_scroll(im);
+AP_imscroll(im);
 axis image off;
 
 % (used for df/ddf comparison for data club)
@@ -1891,7 +1891,7 @@ load(wf_fn);
 ddf = diff(im_aligned_avg_combined,[],3);
 ddf(ddf < 0) = 0;
 
-AP_image_scroll(ddf,t_df);
+AP_imscroll(ddf,t_df);
 axis image;
 AP_reference_outline('ccf_aligned','r');AP_reference_outline('retinotopy','b');
 
@@ -1940,7 +1940,7 @@ end
 % % Reflect widefield, get L-R 
 % ddf(isnan(ddf)) = 0;
 % ddf_diff = ddf - AP_reflect_widefield(ddf);
-% AP_image_scroll(ddf_diff,t_df)
+% AP_imscroll(ddf_diff,t_df)
 % AP_reference_outline('ccf_aligned','k');AP_reference_outline('retinotopy','m');
 % axis image;
 % colormap(colormap_BlueWhiteRed);
@@ -1997,13 +1997,13 @@ n_rois = numel(wf_roi);
 roi_psth = cellfun(@(x) squeeze(x(:,:,:,:,use_fluor,:)),{batch_vars.roi_psth},'uni',false);
 roi_psth_mean = nanmean(cell2mat(permute(cellfun(@(x) nanmean(x,5),roi_psth,'uni',false),[1,3,4,5,2])),5);
 
-AP_image_scroll(roi_psth_mean,{wf_roi.area})
+AP_imscroll(roi_psth_mean,{wf_roi.area})
 line(repmat(find(t > 0,1),2,1),ylim,'color','r');
 
 % (make L-R from here on)
 roi_psth_mean(:,:,size(wf_roi,1)+1:end,:) = roi_psth_mean(:,:,1:size(wf_roi,1),:) - ...
     roi_psth_mean(:,:,size(wf_roi,1)+1:end,:);
-AP_image_scroll(roi_psth_mean(:,:,size(wf_roi,1)+1:end,:),cellfun(@(x) ['\Delta' x],{wf_roi.area},'uni',false));
+AP_imscroll(roi_psth_mean(:,:,size(wf_roi,1)+1:end,:),cellfun(@(x) ['\Delta' x],{wf_roi.area},'uni',false));
 line(repmat(find(t > 0,1),2,1),ylim,'color','k');
 colormap(colormap_BlueWhiteRed)
 caxis([-max(abs(caxis)),max(abs(caxis))]);
@@ -2828,7 +2828,7 @@ depth_psth_smoothed = cellfun(@(x) convn(x,smWin,'same'),depth_psth_norm,'uni',f
 depth_psth_mean = nanmean(cell2mat(permute(cellfun(@(x) ...
     nanmean(x,5),depth_psth_smoothed,'uni',false),[1,3,4,5,2])),5);
 
-AP_image_scroll(depth_psth_mean, ...
+AP_imscroll(depth_psth_mean, ...
     cellfun(@(x) ['Str ' num2str(x)],num2cell(1:n_depths),'uni',false));
 line(repmat(find(t > 0,1),2,1),ylim,'color','r');
 
@@ -3559,7 +3559,7 @@ end
 
 % Plot weights over time (only use ipsi ROIs)
 t = linspace(-0.3,0.3,size(r_px_mean,3));
-AP_image_scroll(r_px_mean,t)  
+AP_imscroll(r_px_mean,t)  
 axis image;
 caxis([-1,1]);
 colormap(brewermap([],'*RdBu'));
@@ -6597,7 +6597,7 @@ end
 
 pV = nanmean(cat(5,batch_vars.pV),5);
 
-AP_image_scroll(pV,t);
+AP_imscroll(pV,t);
 axis image;
 caxis([-5e-11,5e-11]);
 colormap(colormap_BlueWhiteRed);
@@ -8318,7 +8318,7 @@ area_labels_grid_used = area_labels_grid(~cellfun(@isempty,corr_grid));
 
 corr_grid_cat = cat(3,corr_grid{:});
 
-AP_image_scroll(corr_grid_cat,area_labels_grid_used);
+AP_imscroll(corr_grid_cat,area_labels_grid_used);
 axis image;
 colormap(brewermap([],'*RdBu'));
 caxis([-0.5,0.5])
@@ -8532,7 +8532,7 @@ legend({'Ctx-Ctx','Ctx-Str','Str-Str'})
 % 
 % a = cat(3,act_corr{:});
 % 
-% AP_image_scroll(a,area_labels_grid_used);
+% AP_imscroll(a,area_labels_grid_used);
 % axis image;
 % colormap(brewermap([],'*RdBu'));
 % caxis([-0.5,0.5])
@@ -8786,7 +8786,7 @@ if normalize_px
 end
 
 % Plot all concatenated
-AP_image_scroll([reshape(permute(px_combined,[1,4,2,3]), ...
+AP_imscroll([reshape(permute(px_combined,[1,4,2,3]), ...
     [],size(px_combined,2),size(px_combined,3)), ...
     reshape(permute(px_combined_hemidiff,[1,4,2,3]), ...
     [],size(px_combined_hemidiff,2),size(px_combined_hemidiff,3))],t_diff);
@@ -9008,7 +9008,7 @@ plot_stim = unique(D_cat.stimulus);
 % plot_stim = [2,5,8,10];
 
 % Plot all together
-AP_image_scroll(reshape(permute(px_stim(:,:,:,plot_stim),[1,2,4,3]), ...
+AP_imscroll(reshape(permute(px_stim(:,:,:,plot_stim),[1,2,4,3]), ...
     size(px_stim,1),[],size(px_stim,3)),t_diff);
 axis image; caxis([-1.5e-3,1.5e-3]); 
 colormap(brewermap([],'*RdBu'))
@@ -9369,7 +9369,7 @@ end
 
 % Plot
 plot_rxn = 1;
-AP_image_scroll(cat(4,px_combined(:,:,:,:,plot_rxn),px_combined_hemidiff(:,:,:,:,plot_rxn)),t_diff);
+AP_imscroll(cat(4,px_combined(:,:,:,:,plot_rxn),px_combined_hemidiff(:,:,:,:,plot_rxn)),t_diff);
 axis image; caxis([-1,1]); 
 % colormap(colormap_BlueWhiteRed);
 colormap(brewermap([],'*RdBu'))
@@ -9377,7 +9377,7 @@ AP_reference_outline('ccf_aligned','k');
 
 % Plot all concatenated
 px_dims = size(px_combined);
-AP_image_scroll([reshape(permute(px_combined,[1,4,2,5,3]), ...
+AP_imscroll([reshape(permute(px_combined,[1,4,2,5,3]), ...
     [],size(px_combined,2)*size(px_combined,5),size(px_combined,3)), ...
     reshape(permute(px_combined_hemidiff,[1,4,2,5,3]), ...
     [],size(px_combined_hemidiff,2)*size(px_combined_hemidiff,5), ...
@@ -9579,7 +9579,7 @@ for curr_plot_condition = 1:size(plot_conditions,1)
     AP_print_progress_fraction(curr_plot_condition,size(plot_conditions,1));
 end
 
-AP_image_scroll(px_trial_types,t_diff);
+AP_imscroll(px_trial_types,t_diff);
 axis image; caxis([-max(abs(caxis)),max(abs(caxis))]);
 colormap(brewermap([],'*RdBu'))
 AP_reference_outline('ccf_aligned','k');
@@ -12301,7 +12301,7 @@ legend(cellfun(@(x) ['Str ' num2str(x)],num2cell(1:size(str_wheel_kernel,1)),'un
 xlabel('Time lag (s)');
 ylabel('Weight');
 
-AP_image_scroll(ctx_wheel_kernel,kernel_t)
+AP_imscroll(ctx_wheel_kernel,kernel_t)
 axis image; colormap(colormap_BlueWhiteRed);
 caxis([-prctile(abs(ctx_wheel_kernel(:)),99.9),prctile(abs(ctx_wheel_kernel(:)),99.9)]);
 AP_reference_outline('ccf_aligned','k');
@@ -12359,14 +12359,14 @@ kernel_t = kernel_samples/sample_rate;
 ctx_wheel_kernel = nanmean(cell2mat(permute(cellfun(@(x) ...
     nanmean(cat(4,x{:}),4),{batch_vars(:).ctx_wheel_kernel},'uni',false),[1,3,4,2])),4);
 
-AP_image_scroll(ctx_wheel_kernel,kernel_t)
+AP_imscroll(ctx_wheel_kernel,kernel_t)
 axis image; colormap(colormap_BlueWhiteRed);
 caxis([-prctile(abs(ctx_wheel_kernel(:)),99.9),prctile(abs(ctx_wheel_kernel(:)),99.9)]);
 AP_reference_outline('ccf_aligned','k');
 AP_reference_outline('grid',[0.5,0.5,0.5]);
 
 % Kernel reflected and subtract (different - left) and add (same - right)
-AP_image_scroll([ctx_wheel_kernel - AP_reflect_widefield(ctx_wheel_kernel), ...
+AP_imscroll([ctx_wheel_kernel - AP_reflect_widefield(ctx_wheel_kernel), ...
      ctx_wheel_kernel + AP_reflect_widefield(ctx_wheel_kernel)],...
      kernel_t);
 axis image; colormap(colormap_BlueWhiteRed);
@@ -13804,7 +13804,7 @@ for curr_regressor = 1:length(regressors)
     curr_k_v = permute(cell2mat(permute(fluor_kernel(curr_regressor,1:use_svs),[1,3,2])),[3,2,1]);
     curr_k_px = reshape(svdFrameReconstruct(U_master(:,:,1:use_svs), ...
         reshape(curr_k_v,use_svs,[])),size(U_master,1),size(U_master,2),[],size(curr_k_v,3));
-    AP_image_scroll(curr_k_px,sample_shifts{curr_regressor}/(sample_rate/downsample_factor));
+    AP_imscroll(curr_k_px,sample_shifts{curr_regressor}/(sample_rate/downsample_factor));
     axis image
     caxis([-prctile(abs(curr_k_px(:)),100),prctile(abs(curr_k_px(:)),100)]);
     colormap(brewermap([],'*RdBu'))
@@ -13917,7 +13917,7 @@ end
 
 % Plot
 plot_rxn = 1;
-AP_image_scroll(cat(4,px_combined(:,:,:,:,plot_rxn),px_combined_hemidiff(:,:,:,:,plot_rxn)),t_downsample_diff);
+AP_imscroll(cat(4,px_combined(:,:,:,:,plot_rxn),px_combined_hemidiff(:,:,:,:,plot_rxn)),t_downsample_diff);
 axis image; caxis([-1,1]); 
 % colormap(colormap_BlueWhiteRed);
 colormap(brewermap([],'*RdBu'))
@@ -13925,7 +13925,7 @@ AP_reference_outline('ccf_aligned','k');
 
 % Plot all concatenated
 px_dims = size(px_combined);
-AP_image_scroll([reshape(permute(px_combined,[1,4,2,5,3]), ...
+AP_imscroll([reshape(permute(px_combined,[1,4,2,5,3]), ...
     [],size(px_combined,2)*size(px_combined,5),size(px_combined,3)), ...
     reshape(permute(px_combined_hemidiff,[1,4,2,5,3]), ...
     [],size(px_combined_hemidiff,2)*size(px_combined_hemidiff,5), ...
@@ -14083,7 +14083,7 @@ for curr_regressor = 1:length(regressors)
     curr_k_v = permute(cell2mat(permute(fluor_kernel(curr_regressor,1:use_svs),[1,3,2])),[3,2,1]);
     curr_k_px = reshape(svdFrameReconstruct(U_master(:,:,1:use_svs), ...
         reshape(curr_k_v,use_svs,[])),size(U_master,1),size(U_master,2),[],size(curr_k_v,3));
-    AP_image_scroll(curr_k_px,sample_shifts{curr_regressor}/(sample_rate/downsample_factor));
+    AP_imscroll(curr_k_px,sample_shifts{curr_regressor}/(sample_rate/downsample_factor));
     axis image
     caxis([-prctile(abs(curr_k_px(:)),100),prctile(abs(curr_k_px(:)),100)]);
     colormap(brewermap([],'*RdBu'))
@@ -14307,8 +14307,8 @@ ylabel('Explained variance');
 
 % Plot all trials measured and predicted
 [~,sort_idx] = sort(move_idx);
-AP_image_scroll([fluor_downsamp_roi(sort_idx,:,:),fluor_predicted_roi(sort_idx,:,:),fluor_residual_roi(sort_idx,:,:)],{wf_roi.area})
-AP_image_scroll([mua_allcat_downsamp(sort_idx,:,:),mua_allcat_predicted(sort_idx,:,:),mua_allcat_residual(sort_idx,:,:)])
+AP_imscroll([fluor_downsamp_roi(sort_idx,:,:),fluor_predicted_roi(sort_idx,:,:),fluor_residual_roi(sort_idx,:,:)],{wf_roi.area})
+AP_imscroll([mua_allcat_downsamp(sort_idx,:,:),mua_allcat_predicted(sort_idx,:,:),mua_allcat_residual(sort_idx,:,:)])
 
 % Get conditions for each trial, plot selected
 contrasts = [0,0.06,0.125,0.25,0.5,1];
@@ -14566,7 +14566,7 @@ end
 % Plot all concatenated
 px_residual = px_combined - px_predicted_combined;
 px_dims = size(px_combined);
-AP_image_scroll([reshape(permute(px_combined,[1,4,2,5,3]), ...
+AP_imscroll([reshape(permute(px_combined,[1,4,2,5,3]), ...
     [],size(px_combined,2)*size(px_combined,5),size(px_combined,3)), ...
     reshape(permute(px_predicted_combined,[1,4,2,5,3]), ...
     [],size(px_predicted_combined,2)*size(px_predicted_combined,5),size(px_predicted_combined,3)), ...
@@ -14691,7 +14691,7 @@ area_labels_grid_used = area_labels_grid(~cellfun(@isempty,corr_grid));
 
 corr_grid_cat = cat(3,corr_grid{:});
 
-AP_image_scroll(corr_grid_cat,area_labels_grid_used);
+AP_imscroll(corr_grid_cat,area_labels_grid_used);
 axis image;
 colormap(brewermap([],'*RdBu'));
 caxis([-0.5,0.5])
@@ -16046,7 +16046,7 @@ end
 fluor_k_px = reshape(svdFrameReconstruct(U_master(:,:,1:200),reshape(fluor_k_reshape,200,[])), ...
     size(U_master,1),size(U_master,2),length(kernel_frames),[]);
 
-AP_image_scroll(fluor_k_px);
+AP_imscroll(fluor_k_px);
 caxis([-prctile(abs(fluor_k_px(:)),100),prctile(abs(fluor_k_px(:)),100)]);
 colormap(brewermap([],'*RdBu'));
 axis image;

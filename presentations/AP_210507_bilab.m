@@ -234,7 +234,7 @@ stim_v_avg_dayavg = nanmean(cell2mat(permute(cellfun(@(x) x(:,:,1:min_days,use_s
     stim_v_avg,'uni',false),[1,3,4,2])),4);
 stim_px_avg_dayavg = AP_svdFrameReconstruct(U_master(:,:,1:n_vs), ...
     stim_v_avg_dayavg);
-AP_image_scroll(stim_px_avg_dayavg,t);
+AP_imscroll(stim_px_avg_dayavg,t);
 caxis([-max(abs(caxis)),max(abs(caxis))]);
 colormap(brewermap([],'PrGn'));
 axis image;
@@ -245,7 +245,7 @@ stim_px_avg_day_t = AP_svdFrameReconstruct( ...
     U_master(:,:,1:n_vs),cell2mat(permute(cellfun(@(x) ...
     squeeze(nanmean(x(:,use_t,1:min_days,use_stim),2)), ...
     stim_v_avg,'uni',false),[1,3,2])));
-AP_image_scroll(stim_px_avg_day_t);
+AP_imscroll(stim_px_avg_day_t);
 caxis([-max(abs(caxis)),max(abs(caxis))]);
 colormap(brewermap([],'PrGn'));
 axis image;

@@ -244,7 +244,7 @@ mua_ctxtrialpred_regionzero_k_mean = nanmean(mua_ctxtrialpred_regionzero_k,4);
 mua_ctxtrialpred_regionzero_k_mean_px = cell2mat(arrayfun(@(x) svdFrameReconstruct(U_master(:,:,1:100), ...
     mua_ctxtrialpred_regionzero_k_mean(:,:,x)),permute(1:n_depths,[1,3,4,2]),'uni',false));
 
-AP_image_scroll([ctx_str_k_mean_px,mua_ctxtrialpred_k_mean_px,mua_ctxtrialpred_regionzero_k_mean_px]);
+AP_imscroll([ctx_str_k_mean_px,mua_ctxtrialpred_k_mean_px,mua_ctxtrialpred_regionzero_k_mean_px]);
 caxis([-max(abs(caxis)),max(abs(caxis))]);
 colormap(gca,brewermap([],'*RdBu'));
 axis image;
@@ -422,8 +422,8 @@ mua_ctxtrialpred_regionzero_k_mean_px = cell2mat(arrayfun(@(x) ...
     svdFrameReconstruct(U_master(:,:,regression_params.use_svs), ...
     mua_ctxtrialpred_regionzero_k_mean(:,:,x)),permute(1:n_depths,[1,3,4,2]),'uni',false));
 
-% AP_image_scroll([ctx_str_k_mean_px,mua_ctxtrialpred_k_mean_px,mua_ctxtrialpred_regionzero_k_mean_px]);
-AP_image_scroll([mua_ctxtrialpred_k_mean_px,mua_ctxtrialpred_regionzero_k_mean_px]);
+% AP_imscroll([ctx_str_k_mean_px,mua_ctxtrialpred_k_mean_px,mua_ctxtrialpred_regionzero_k_mean_px]);
+AP_imscroll([mua_ctxtrialpred_k_mean_px,mua_ctxtrialpred_regionzero_k_mean_px]);
 caxis([-max(abs(caxis)),max(abs(caxis))]);
 colormap(gca,brewermap([],'*RdBu'));
 axis image;
@@ -605,7 +605,7 @@ mua_ctxtrialpred_k_mean = nanmean(mua_ctxtrialpred_k,5);
 mua_ctxtrialpred_k_mean_px = cell2mat(arrayfun(@(x) svdFrameReconstruct(U_master(:,:,1:100), ...
     reshape(mua_ctxtrialpred_k_mean(:,:,x,:),100,[])),permute(1:n_depths,[1,3,4,2]),'uni',false));
 
-AP_image_scroll(mua_ctxtrialpred_k_mean_px);
+AP_imscroll(mua_ctxtrialpred_k_mean_px);
 caxis([-max(abs(caxis)),max(abs(caxis))]);
 colormap(gca,brewermap([],'*RdBu'));
 axis image;
@@ -728,7 +728,7 @@ for t_idx = 1:length(plot_t)
 end
 
 % Plot movie of kernels
-AP_image_scroll(reshape(permute(k_px,[1,4,2,3]),size(k_px,1)*size(k_px,4),size(k_px,2),length(t)),t);
+AP_imscroll(reshape(permute(k_px,[1,4,2,3]),size(k_px,1)*size(k_px,4),size(k_px,2),length(t)),t);
 colormap(brewermap([],'*RdBu'));
 caxis([-max(caxis),max(caxis)]);
 AP_reference_outline('ccf_aligned',[0.5,0.5,0.5],[],[size(k_px,1),size(k_px,2),size(k_px,4),1]);
@@ -993,7 +993,7 @@ fluor_posttrain_mean = ...
     permute(nanmean(cell2mat(cellfun(@(x,stim) ...
     nanmean(x(stim == use_stim,:,:),1),fluor_training{2},stimIDs{2},'uni',false)),1),[3,2,1]));
 
-AP_image_scroll([fluor_pretrain_mean,fluor_posttrain_mean,fluor_posttrain_mean-fluor_pretrain_mean]);
+AP_imscroll([fluor_pretrain_mean,fluor_posttrain_mean,fluor_posttrain_mean-fluor_pretrain_mean]);
 AP_reference_outline('ccf_aligned',[0.5,0.5,0.5],[],[size(U_master,1),size(U_master,2),1,3]);
 caxis([-max(abs(caxis)),max(abs(caxis))]);
 axis image;
@@ -1619,7 +1619,7 @@ mua_ctxtrialpred_regionzero_k_mean_px = cell2mat(arrayfun(@(x) ...
     reshape(mua_ctxtrialpred_regionzero_k_mean(:,:,x,:),length(regression_params.use_svs),[])), ...
     permute(1:n_depths,[1,3,4,2]),'uni',false));
 
-AP_image_scroll(cat(3,mua_ctxtrialpred_k_mean_px,mua_ctxtrialpred_regionzero_k_mean_px));
+AP_imscroll(cat(3,mua_ctxtrialpred_k_mean_px,mua_ctxtrialpred_regionzero_k_mean_px));
 caxis([-max(abs(caxis)),max(abs(caxis))]);
 colormap(gca,brewermap([],'*RdBu'));
 axis image;

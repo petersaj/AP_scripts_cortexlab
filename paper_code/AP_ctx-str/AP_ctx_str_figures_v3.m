@@ -895,7 +895,7 @@ for protocol = protocols
     end    
         
     % Plot movie of kernels
-    AP_image_scroll(reshape(permute(k_px,[1,4,2,3]),size(k_px,1)*size(k_px,4),size(k_px,2),length(t)),t);
+    AP_imscroll(reshape(permute(k_px,[1,4,2,3]),size(k_px,1)*size(k_px,4),size(k_px,2),length(t)),t);
     colormap(brewermap([],'*RdBu'));
     caxis([-max(caxis),max(caxis)]);
     AP_reference_outline('ccf_aligned',[0.5,0.5,0.5],[],[size(k_px,1),size(k_px,2),size(k_px,4),1]);
@@ -2600,7 +2600,7 @@ for curr_regressor = 1:n_regressors
         nanmean(cat(3,curr_k_cell{:,x}),3),1:n_vs,'uni',false),[1,3,2])),[3,2,1]);
     curr_k_px = cell2mat(permute(arrayfun(@(x) svdFrameReconstruct(U_master(:,:,1:size(curr_k,1)), ...
         curr_k(:,:,x)),1:size(curr_k,3),'uni',false),[1,3,4,2]));
-    AP_image_scroll(curr_k_px,t_shifts{curr_regressor});
+    AP_imscroll(curr_k_px,t_shifts{curr_regressor});
     axis image;
     caxis([-max(abs(caxis)),max(abs(caxis))]);
     colormap(brewermap([],'*RdBu'));
