@@ -185,8 +185,24 @@ rxn_alt_med = cell2mat(permute(arrayfun(@(x) ...
     [max_days,length(bhv)],@(x) nanmedian(x),NaN), ...
     1:n_rxn_altsample,'uni',false),[1,3,2]));
 
-figure; 
+% (plot mice separately)
+[~,learn_sort_idx] = sort(learned_day,'ascend');
+figure;AP_stackplot(log10(rxn_measured_med(:,learn_sort_idx)),[],7e-1,[],'k',animals(learn_sort_idx),true);
 
+figure; h = tiledlayout('flow');
+for curr_animal = 1:length(animals)
+    nexttile; hold on; set(gca,'YScale','log');
+    plot(rxn_measured_med(:,curr_animal),'k','linewidth',2);
+    AP_errorfill([],[],prctile(rxn_alt_med(:,curr_animal,:),[5,95],3),[0.5,0.5,0.5]);
+    xline(learned_day(curr_animal),'color','r');
+    set(gca,'children',circshift(get(gca,'children'),-1))
+    title(animals{curr_animal});
+    ylabel('Reaction time');
+    xlabel('Training day');
+end
+
+% (plot average)
+figure; 
 subplot(1,2,1,'YScale','log');hold on
 rxn_alt_med_ci = squeeze(prctile(nanmedian(rxn_alt_med,2),[5,95],3));
 AP_errorfill([],[],rxn_alt_med_ci(plot_days,:),[0.5,0.5,0.5],[],false);
@@ -1019,50 +1035,82 @@ arrayfun(@(x) patch(x,[0,0.5,0.5,0], ...
 arrayfun(@(x) set(x,'children',circshift(get(x,'children'),-1)),allchild(h));
 
 
-%% ^^ Passive - ROI timecourse by learned day
+%% ^^ Passive - ROI timecourse/tmax by learned day
+
+% Set values for plotting
+plot_rois = reshape([1,6]+[0,size(wf_roi,1)]',1,[]);
+use_t = t > 0 & t <= 0.2;
 
 % Get indicies for averaging 
-[learned_day_idx,t_idx,roi_idx] = ...
+[trained_day_idx,t_idx,roi_idx] = ...
+    ndgrid(trial_day,1:length(t),1:n_rois);
+
+[learned_day_idx,~,~] = ...
     ndgrid(trial_learned_day_id,1:length(t),1:n_rois);
 [animal_idx,~,~] = ...
     ndgrid(trial_animal,1:length(t),1:n_rois);
 [stim_idx,~,~] = ...
     ndgrid(trial_stim_id,1:length(t),1:n_rois);
 
-accum_learnedday_idx = cat(4,learned_day_idx,t_idx,roi_idx,stim_idx,animal_idx);
+accum_idx = cat(4,trained_day_idx,learned_day_idx,t_idx,roi_idx,stim_idx,animal_idx);
 
-use_trials = quiescent_trials;
+use_trials_naive = quiescent_trials & trial_day <= n_naive;
+use_trials_training = quiescent_trials & trial_day > n_naive;
+
+roi_naive_avg = accumarray( ...
+    reshape(accum_idx(use_trials_naive,:,:,[1,3,4,5,6]),[],5), ...
+    reshape(fluor_roi_deconv(use_trials_naive,:,:),[],1), ...
+    [n_naive,length(t),n_rois,length(stim_unique),length(animals)], ...
+    @nanmean,NaN('single'));
 
 roi_learnday_avg = accumarray( ...
-    reshape(accum_learnedday_idx(use_trials,:,:,:),[],size(accum_learnedday_idx,4)), ...
-    reshape(fluor_roi_deconv(use_trials,:,:),[],1), ...
+    reshape(accum_idx(use_trials_training,:,:,[2,3,4,5,6]),[],5), ...
+    reshape(fluor_roi_deconv(use_trials_training,:,:),[],1), ...
     [max(learned_day_idx(:)),length(t),n_rois,length(stim_unique),length(animals)], ...
     @nanmean,NaN('single'));
 
-use_t = t > 0 & t <= 0.2;
+stim_roi_naive_avg_tmax = squeeze(max(roi_naive_avg(:,use_t,:,:,:),[],2));
 stim_roi_learnday_avg_tmax = squeeze(max(roi_learnday_avg(:,use_t,:,:,:),[],2));
 
+figure;
+stim_color = [0,0,0.8;0.5,0.5,0.5;0.8,0,0];
+h = tiledlayout(length(plot_rois),6);
+for curr_roi = plot_rois   
 
-plot_roi = 6;
-plot_stim = 1;
-curr_tcourse = nanmean(squeeze(roi_learnday_avg(:,:,plot_roi,stim_unique == plot_stim,:)),3);
-curr_tmax = squeeze(stim_roi_learnday_avg_tmax(:,plot_roi,stim_unique == plot_stim,:));
+    c = prctile(nanmean(roi_learnday_avg(:,:,curr_roi,:,:),5),100,'all').*[-1,1];
+    for curr_stim = 1:length(stim_unique)
+        nexttile;
+        imagesc(t,learned_day_unique, ...
+            nanmean(roi_learnday_avg(:,:,curr_roi,curr_stim,:),5));
+        colormap(gca,AP_colormap('KWG',[],1.5));
+        caxis(c)
+        xline(0); yline(-0.5);
+        title(sprintf('Stim %d',stim_unique(curr_stim)));
+    end
 
-figure; 
-subplot(1,2,1);
-imagesc(t,learned_day_unique,curr_tcourse);
-caxis(max(abs(caxis))*[-1,1]);
-colormap(AP_colormap('KWG',[],1.5));
-xline(0);
-yline(-0.5);
-xlabel('Time from stim (s)');
-ylabel('Learned day');
+    nexttile([1,3]); hold on;
+    % (naive and training as split lines)
+    curr_x = [learned_day_unique(1:3),NaN,learned_day_unique]';
+    curr_data = squeeze([...
+        padarray(stim_roi_naive_avg_tmax(:,curr_roi,:,:),1,NaN,'post'); ...
+        stim_roi_learnday_avg_tmax(:,curr_roi,:,:)]);
 
-subplot(1,2,2);
-errorbar(learned_day_unique,nanmean(curr_tmax,2),AP_sem(curr_tmax,2),'k','linewidth',2);
-xline(0);
-xlabel('Time from stim (s)');
-ylabel(wf_roi(plot_roi).area);
+    set(gca,'ColorOrder',stim_color);
+    p = errorbar(repmat(curr_x,1,length(stim_unique)), ...
+        nanmean(curr_data,3),AP_sem(curr_data,3),'linewidth',2,'capsize',0);
+    xline(0);set(gca,'children',circshift(get(gca,'children'),-1))
+    xlabel('Time from stim (s)');
+    ylabel(wf_roi(curr_roi).area);
+    legend(p,num2str(stim_unique));
+    axis tight; xlim(xlim + [-0.5,0.5]);
+
+end
+
+
+
+
+
+
 
 
 
@@ -1260,6 +1308,19 @@ legend(line_fig_ax_lines, ...
     repmat(arrayfun(@(x) sprintf('Stim %d',x), ...
     stim_unique,'uni',false),1,max(trial_learned_stage)),'uni',false)')), ...
     'location','nw');
+
+%% Get example pupil video 
+
+animal = 'AP106';
+day = '2021-06-25';
+experiment = 2;
+
+load_parts.cam = true;
+verbose = true;
+AP_load_experiment;
+
+AP_mousemovie(eyecam_fn,eyecam_t,eyecam_dlc);
+
 
 %% Passive - V1 muscimol
 

@@ -1,8 +1,9 @@
 function AP_mousemovie(movie_fn,movie_t,dlc)
-% AP_mousemovie(movie_fn,dlc)
+% AP_mousemovie(movie_fn,movie_t,dlc)
 %
 % Scroll through a recorded movie of the mouse (face/eye)
 % movie_fn = filename of movie
+% movie_t = timestamps of movie (optional)
 % dlc = DeepLabCut outputs (optional)
 
 if ~exist(movie_fn,'file')
