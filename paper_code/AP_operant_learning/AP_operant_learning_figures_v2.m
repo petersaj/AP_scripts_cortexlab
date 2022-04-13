@@ -1011,7 +1011,7 @@ save(stim_px_fn,'stim_px');
 
 % Plot ROIs by stage
 figure;
-plot_rois = [6] + [0,size(wf_roi,1)];
+plot_rois = reshape([1,6] + [0,size(wf_roi,1)]',1,[]);
 stage_col = repmat(linspace(0.3,0,n_stages)',[1,3]);
 h = tiledlayout(length(plot_rois),3,'TileSpacing','compact','padding','compact');
 for curr_roi = plot_rois
@@ -1512,68 +1512,61 @@ trials_recording = cellfun(@(x) size(x,1),vertcat(wheel_all{:}));
 % Get trials with movement during stim to exclude
 quiescent_trials = ~any(abs(wheel_allcat(:,t >= 0 & t <= 0.5)) > 0,2);
 
-% Plot total average stim response
-stim_col = ['b','k','r'];
-unique_stim = unique(trial_stim_allcat);
+% Get average response timecourses
+stim_unique = unique(trial_stim_allcat);
+[~,trial_stim_id] = ismember(trial_stim_allcat,stim_unique);
 
-figure;
-spacing = 0.8;
-for curr_stim_idx = 1:length(unique_stim)
-    use_trials = quiescent_trials &  ...
-        trial_stim_allcat == unique_stim(curr_stim_idx);
-    
-    subplot(1,2,1); hold on;
-    mua_depth_centers = mua_depth_edges(1:end-1)+diff(mua_depth_edges)./2;
-    AP_stackplot(squeeze(nanmean(mua_depth_allcat(use_trials,:,:),1)), ...
-        t,spacing,[],stim_col(curr_stim_idx),mua_depth_centers);
-    line([0,0],ylim,'color',[0.5,0.5,0.5]);
-    line([0.5,0.5],ylim,'color',[0.5,0.5,0.5]);
-    xlabel('Time from stim');
-    ylabel('Cortical depth');
-    
-    subplot(1,2,2); hold on;
-    [~,area_idx] = cellfun(@(x) ismember(x,mua_areas),mua_areas_cat,'uni',false);
-    area_recording_n = accumarray(cell2mat(area_idx),1);
-    plot_areas = area_recording_n == length(trials_recording);
-    AP_stackplot(squeeze(nanmean(mua_area_allcat(use_trials,:,plot_areas),1)), ...
-        t,spacing,[],stim_col(curr_stim_idx),mua_areas(plot_areas));
-    line([0,0],ylim,'color',[0.5,0.5,0.5]);
-    line([0.5,0.5],ylim,'color',[0.5,0.5,0.5]);
-    xlabel('Time from stim');
-    ylabel('Area');
-    
-    % Scalebar
-    line([-0.5,-0.5],[1,1.5],'color','m','linewidth',2);
+use_trials = quiescent_trials;
 
-end
-
-% Plot overlaid animal mean with errorbars
-use_trials = quiescent_trials & trial_stim_allcat == 1; 
 [animal_idx,t_idx,area_idx] = ...
     ndgrid(trial_animal(use_trials),1:length(t),1:length(mua_areas));
-mua_animal_avg = accumarray([animal_idx(:),t_idx(:),area_idx(:)], ...
+[stim_idx,~,~,] = ...
+    ndgrid(trial_stim_id(use_trials),1:length(t),1:length(mua_areas));
+
+mua_animal_avg = accumarray([animal_idx(:),t_idx(:),stim_idx(:),area_idx(:)], ...
     reshape(mua_area_allcat(use_trials,:,:),[],1), ...
-    [length(animals),length(t),length(mua_areas)], ...
+    [length(animals),length(t),length(stim_unique),length(mua_areas)], ...
     @nanmean,NaN);
 
-figure;
-plot_areas = area_recording_n == length(trials_recording);
-h = AP_errorfill(t', ...
-    squeeze(nanmean(mua_animal_avg(:,:,plot_areas),1)), ...
-    squeeze(AP_sem(mua_animal_avg(:,:,plot_areas),1)));
-xline(0,'color','k');xline(0.5,'color','k');
-xlabel('Time from stim (s)');
-ylabel('\DeltaR/R_0');
-legend(h,mua_areas(plot_areas));
+% Get DV position of each area for sorting
+% (overkill: do it by loading in atlas and getting the volume)
+allen_atlas_path = fileparts(which('template_volume_10um.npy'));
+av = readNPY([allen_atlas_path filesep 'annotation_volume_10um_by_index.npy']);
+st = loadStructureTree([allen_atlas_path filesep 'structure_tree_safe_2017.csv']);
 
-% Plot animal mean with errorbars on stacked subplots
+mua_areas_dvmin = nan(size(mua_areas));
+for curr_area = mua_areas'
+    curr_structure_idx = find(strcmp(st.safe_name,curr_area));
+    curr_structure_id = st.structure_id_path{curr_structure_idx};
+    curr_ccf_idx = find(cellfun(@(x) contains(x,curr_structure_id), ...
+        st.structure_id_path));
+
+    slice_spacing = 5;
+    curr_ccf_volume = ...
+        ismember(av(1:slice_spacing:end, ...
+        1:slice_spacing:end,1:slice_spacing:end),curr_ccf_idx);
+
+    curr_ccf_coronal_max = permute(max(curr_ccf_volume,[],1),[2,3,1]);
+    curr_min_dv = find(any(curr_ccf_coronal_max,2),1);
+
+    mua_areas_dvmin(strcmp(curr_area,mua_areas)) = curr_min_dv;
+end
+
+% Plot timecourses overlaid
+% (get areas to plot: anything present in all recordings)
+[~,area_idx] = cellfun(@(x) ismember(x,mua_areas),mua_areas_cat,'uni',false);
+area_recording_n = accumarray(cell2mat(area_idx),1);
+plot_areas = find(area_recording_n == length(trials_recording));
+[~,plot_area_sort_idx] = sort(mua_areas_dvmin(plot_areas));
+
 figure;
-h = tiledlayout(sum(plot_areas),1,'TileSpacing','compact','padding','compact');
-for curr_area = find(plot_areas)'
+stim_color = [0,0,0.8;0.5,0.5,0.5;0.8,0,0];
+h = tiledlayout(length(plot_areas),1);
+for curr_area = plot_areas(plot_area_sort_idx)'
     nexttile;
     AP_errorfill(t', ...
-        squeeze(nanmean(mua_animal_avg(:,:,curr_area),1)), ...
-        squeeze(AP_sem(mua_animal_avg(:,:,curr_area),1)),'k');
+        squeeze(nanmean(mua_animal_avg(:,:,:,curr_area),1)), ...
+        squeeze(AP_sem(mua_animal_avg(:,:,:,curr_area),1)),stim_color);
     ylabel(mua_areas(curr_area));
 end
 linkaxes(allchild(h),'xy');
@@ -1586,6 +1579,8 @@ arrayfun(@(x) set(x,'children',circshift(get(x,'children'),-1)),allchild(h));
 
 
 
+
+
 %% Ephys - plot probe position
 
 animals = {'AP100','AP101','AP104','AP105','AP106'};
@@ -1593,9 +1588,10 @@ animals = {'AP100','AP101','AP104','AP105','AP106'};
 % Load CCF annotated volume
 allen_atlas_path = fileparts(which('template_volume_10um.npy'));
 av = readNPY([allen_atlas_path filesep 'annotation_volume_10um_by_index.npy']);
+st = loadStructureTree([allen_atlas_path filesep 'structure_tree_safe_2017.csv']);
 
 figure;
-animal_col = AP_colormap('KR',5);
+animal_col = repmat([0,0,0],length(animals),1);
 
 % Set up 3D axes
 ccf_3d_axes = subplot(1,4,1);
@@ -1632,6 +1628,35 @@ for curr_view = 1:3
 end
 linkaxes(ccf_axes);
 
+% Plot specific areas
+plot_structure_names = {'Secondary motor area', ...
+    'Anterior cingulate area','Prelimbic area','Infralimbic area'};
+plot_structure_colors = lines(length(plot_structure_names));
+
+for plot_structure_name = plot_structure_names
+    plot_structure = find(strcmp(st.safe_name,plot_structure_name));
+
+    % Get all areas within and below the selected hierarchy level
+    plot_structure_id = st.structure_id_path{plot_structure};
+    plot_ccf_idx = find(cellfun(@(x) contains(x,plot_structure_id), ...
+        st.structure_id_path));
+
+    % plot the structure
+    slice_spacing = 5;
+    plot_structure_color = plot_structure_colors( ...
+        strcmp(plot_structure_name,plot_structure_names),:);
+
+    % Get structure volume
+    plot_ccf_volume = ismember(av(1:slice_spacing:end,1:slice_spacing:end,1:slice_spacing:end),plot_ccf_idx);
+
+    for curr_view = 1:3
+        curr_outline = bwboundaries(squeeze((max(plot_ccf_volume,[],curr_view))));
+        cellfun(@(x) plot(ccf_axes(curr_view),x(:,2)*slice_spacing, ...
+            x(:,1)*slice_spacing,'color',plot_structure_color,'linewidth',2),curr_outline)
+    end
+end
+
+% Plot probe locations
 probe_coords_mean_all = nan(length(animals),3);
 for curr_animal = 1:length(animals)
     
