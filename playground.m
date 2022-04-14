@@ -12425,51 +12425,25 @@ movie_position = [43,350,415,415];
 AP_movie2avi(movie_px,movie_framerate,movie_cmap,movie_caxis,movie_position,movie_fn,t);
 
 
-%% trying multiple rxn windows
-
-rxn_window = [0.1,0.2];
-% rxn_window = [0.2,0.4];
-
-% Plot fraction of reaction times within window: whole day
-rxn_measured_prct = accumarray(trial_split_idx_cat(:,2:end), ...
-    rxn_measured_cat >= rxn_window(1) & ...
-    rxn_measured_cat <= rxn_window(2), ...
-    [max_days,length(bhv)],@(x) nanmean(x)*100,NaN);
-rxn_alt_prct = cell2mat(permute(arrayfun(@(x) ...
-    accumarray(trial_split_idx_cat(:,2:end), ...
-    rxn_alt_cat(:,x) >= rxn_window(1) & ...
-    rxn_alt_cat(:,x) <= rxn_window(2), ...
-    [max_days,length(bhv)],@(x) nanmean(x)*100,NaN), ...
-    1:n_rxn_altsample,'uni',false),[1,3,2]));
+%% testing non-stim movement stuff
 
 
-% Plot all animals separately
-% a = [];
-figure('Name',sprintf('rxn: %.2g-%.2gms (%%)',rxn_window(1),rxn_window(2)))
-h = tiledlayout('flow','TileSpacing','compact','padding','compact');
-for curr_animal = 1:length(animals)
-    %     curr_rxn = rxn_measured_prct(:,curr_animal) - ...
-    %         nanmean(rxn_alt_prct(:,curr_animal,:),3);
-    %     curr_alt_rxn = rxn_alt_prct(:,curr_animal,:) - ...
-    %         nanmean(rxn_alt_prct(:,curr_animal,:),3);
 
-    curr_rxn = rxn_measured_prct(:,curr_animal);
-    curr_alt_rxn = rxn_alt_prct(:,curr_animal,:);
-    curr_ci = permute(prctile(curr_alt_rxn,[5,95],3),[1,3,2]);
 
-%         a(curr_animal) = nexttile; hold on;
-    axes(a(curr_animal));
 
-    hx = xline(learned_day(curr_animal),'color','r','linewidth',2);
-    warning off;shx = struct(hx);shx.Edge.Layer = 'back';warning on;
+% (response move: last move start before response signal)
+wheel_move_response_idx = ...
+    arrayfun(@(response) find(wheel_starts <= response,1,'last'), ...
+    signals_events.responseTimes(1:n_trials)');
 
-    AP_errorfill([],nanmean(curr_ci,2),curr_ci,[0.5,0.5,0.5],[],false);
-    stairs(curr_rxn,'k','linewidth',2);
-    xlabel('Training day');
-    ylabel('Rxn-null (%)');
-    title(animals{curr_animal});
-end
-linkaxes(allchild(h),'x');
+% (iti move: move start with no stim on screen)
+stimOff_times = signals_events.stimOffTimes';
+stimOn_epochs = logical(interp1([0;stimOn_times;stimOff_times], ...
+    [0;ones(size(stimOn_times));zeros(size(stimOff_times))], ...
+    Timeline.rawDAQTimestamps','previous','extrap'));
+wheel_move_iti_idx = find(ismember(wheel_starts, ...
+    Timeline.rawDAQTimestamps(~stimOn_epochs)));
+
 
 
 

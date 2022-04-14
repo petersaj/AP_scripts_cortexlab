@@ -140,14 +140,23 @@ switch expDef
             arrayfun(@(response) find(wheel_starts <= response,1,'last'), ...
             signals_events.responseTimes(1:n_trials)');
         
-        % (iti move: move start with no stim on screen)
+        % (no-stim move: movements without stim on screen)
         stimOff_times = signals_events.stimOffTimes';
         stimOn_epochs = logical(interp1([0;stimOn_times;stimOff_times], ...
             [0;ones(size(stimOn_times));zeros(size(stimOff_times))], ...
             Timeline.rawDAQTimestamps','previous','extrap'));
-        wheel_move_iti_idx = find(ismember(wheel_starts, ...
-            Timeline.rawDAQTimestamps(~stimOn_epochs)));
-        
+        wheel_move_nostim_idx = find(arrayfun(@(x) ...
+            ~any(stimOn_epochs( ...
+            Timeline.rawDAQTimestamps >= wheel_starts(x) & ...
+            Timeline.rawDAQTimestamps <= wheel_stops(x))), ...
+            1:length(wheel_starts)));
+
+        % Convert wheel into mm and degrees
+        wheel_click2mm = 0.4869; % lilrig's encoder
+        wheel_mm2deg = 8;  % gain in this expDef
+        wheel_position_mm = wheel_position*wheel_click2mm;
+        wheel_position_deg = wheel_position_mm*wheel_mm2deg;
+
         % Get time from stim to rewarded movement onset and feedback
         stim_to_move = wheel_starts(wheel_move_stim_idx) - stimOn_times(1:n_trials);
         stim_to_feedback = signals_events.responseTimes(1:n_trials)' - stimOn_times(1:n_trials);

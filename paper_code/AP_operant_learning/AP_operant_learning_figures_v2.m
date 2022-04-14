@@ -449,7 +449,7 @@ linkaxes(allchild(h),'xy');
 % Plot total velocity
 figure; hold on;
 errorbar(nanmean(muscimol_v1_wheel_mm,1), ...
-    AP_sem(muscimol_v1_wheel_mm,1),'k','linewidth',2);
+    AP_sem(muscimol_v1_wheel_mm,1),'k','linewidth',2,'capsize',0);
 xlim(xlim+[-0.5,0.5]);
 ylim([0,max(ylim)])
 set(gca,'XTick',1:n_conditions,'XTickLabel',condition_labels);
@@ -468,7 +468,7 @@ figure;
 subplot(1,2,1,'YScale','log'); hold on;
 rxn_alt_med_ci = permute(prctile(nanmean(rxn_alt_med,2),[5,95],3),[1,3,2]);
 AP_errorfill([],nanmean(rxn_alt_med_ci,2),rxn_alt_med_ci,[0.5,0.5,0.5],[],false);
-errorbar(nanmean(rxn_measured_med,2),AP_sem(rxn_measured_med,2),'k','linewidth',2);
+errorbar(nanmean(rxn_measured_med,2),AP_sem(rxn_measured_med,2),'k','linewidth',2,'capsize',0);
 xlim([0,n_conditions] + 0.5);
 set(gca,'XTick',1:n_conditions,'XTickLabel',condition_labels);
 ylabel('Median reaction time (s)');
@@ -476,7 +476,7 @@ ylabel('Median reaction time (s)');
 subplot(1,2,2); hold on
 rxn_alt_med_altdiff_ci = permute(prctile(nanmean(rxn_alt_med_altdiff,2),[5,95],3),[1,3,2]);
 AP_errorfill([],nanmean(rxn_alt_med_altdiff_ci,2),rxn_alt_med_altdiff_ci,[0.5,0.5,0.5],[],false);
-errorbar(nanmean(rxn_measured_med_altdiff,2),AP_sem(rxn_measured_med_altdiff,2),'k','linewidth',2);
+errorbar(nanmean(rxn_measured_med_altdiff,2),AP_sem(rxn_measured_med_altdiff,2),'k','linewidth',2,'capsize',0);
 xlim([0,n_conditions] + 0.5);
 set(gca,'XTick',1:n_conditions,'XTickLabel',condition_labels);
 ylabel('Median reaction time (meas-null,s)');
@@ -1510,7 +1510,7 @@ ylabel('\DeltaF/F_0');
 legend([ht,hpl,hpr],{'Task','Passive (R stim)','Passive (L stim)'},'location','nw');
 
 
-%% Passive - ephys
+%% Ephys - Passive
 
 % Load data
 trial_data_path = 'C:\Users\Andrew\OneDrive for Business\Documents\CarandiniHarrisLab\analysis\operant_learning\data';
@@ -1594,10 +1594,6 @@ arrayfun(@(x) patch(x,[0,0.5,0.5,0], ...
     reshape(repmat(ylim(x),2,1),[],1),[1,1,0.8], ...
     'linestyle','none'),allchild(h));
 arrayfun(@(x) set(x,'children',circshift(get(x,'children'),-1)),allchild(h));
-
-
-
-
 
 
 %% Ephys - plot probe position

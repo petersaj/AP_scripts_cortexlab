@@ -3,6 +3,8 @@
 
 %% Set flags
 
+do_regression = false; % manually set
+
 % Task dataset if signals (expDef) and includes task expDef
 task_dataset = exist('expDef','var') && contains(expDef,'stimWheel');
 
@@ -31,40 +33,16 @@ use_components = 1:200;
 
 end
 
-%% Set parameters for trials
+%% Get trial info
 
-% Get event-aligned activity
-raster_window = [-0.5,2];
-
-% (either imaging or ephys, set separate sample rates)
-if imaging_exists
-    raster_sample_rate = 50;
-elseif ephys_exists
-    raster_sample_rate = 200;
-end
-
-raster_sample_time = 1/raster_sample_rate;
-t = raster_window(1):raster_sample_time:raster_window(2);
-
-% Get align times
-use_align = stimOn_times;
-use_align(isnan(use_align)) = 0;
-
-t_peri_event = bsxfun(@plus,use_align,t);
-t_peri_event_bins = [t_peri_event-raster_sample_time/2,t_peri_event(:,end)+raster_sample_time/2];
-
-% Pick trials to keep
-% (use all of them at the moment)
+% Pick trials to keep (currently: all of them)
 if task_dataset
     use_trials = true(n_trials,1);
 else
     use_trials = true(size(stimIDs));
 end
 
-%% Get trial info
-
 trial_info = struct;
-
 if task_dataset
     
     stim_contrastside = signals_events.trialSideValues(1:n_trials)'.* ...
@@ -86,6 +64,8 @@ end
 
 %% Get whisker movement
 % (not general enough to go in AP_load_experiment)
+
+if verbose; disp('Getting whisker movements...'); end;
 
 % Get aligned whisker mask for animal/day
 facecam_processing_path = 'C:\Users\Andrew\OneDrive for Business\Documents\CarandiniHarrisLab\analysis\operant_learning\facecam_processing';
@@ -113,40 +93,80 @@ try
     end
 end
 
-%% Trial-align data
+%% Set parameters for trials
+
+% Get event-aligned activity
+raster_window = [-0.5,1];
+
+% (either imaging or ephys, set separate sample rates)
+if imaging_exists
+    raster_sample_rate = 50;
+elseif ephys_exists
+    raster_sample_rate = 200;
+end
+
+raster_sample_time = 1/raster_sample_rate;
+t = raster_window(1):raster_sample_time:raster_window(2);
+
+
+%% Set align times (stimulus)
+
+stim_align = stimOn_times;
+stim_align(isnan(stim_align)) = 0;
+
+t_peri_stim = bsxfun(@plus,stim_align,t);
+t_peri_stim_bins = [t_peri_stim-raster_sample_time/2,t_peri_stim(:,end)+raster_sample_time/2];
+
+
+%% Set align times (delay-period movement)
+% (movements without stim on screen that hit reward threshold)
+
+if verbose; disp('Getting rewardable movements without stimuli...'); end;
+
+deg_reward = -90;
+deg_punish = 90;
+
+% Grab all movements separately (in degrees from move start)
+wheel_moves_deg = arrayfun(@(x) wheel_position_deg( ...
+    Timeline.rawDAQTimestamps >= wheel_starts(x) & ...
+    Timeline.rawDAQTimestamps <= wheel_stops(x)) - ...
+    wheel_position_deg(find(Timeline.rawDAQTimestamps >= wheel_starts(x),1)), ...
+    1:length(wheel_starts),'uni',false);
+
+% Find movements that hit reward limit (and don't hit punish limit)
+wheel_moves_deg_rewardlimit = find(cellfun(@(x) ...
+    any(x <= deg_reward) && ...
+    ~any(x >= deg_punish),wheel_moves_deg));
+
+wheel_move_nostim_rewardlimit_idx = ...
+    intersect(wheel_move_nostim_idx,wheel_moves_deg_rewardlimit);
+
+% Get move no-stim align times
+move_align = wheel_starts(wheel_move_nostim_rewardlimit_idx);
+t_peri_move_nostim = bsxfun(@plus,move_align,t);
+t_peri_move_nostim_bins = [t_peri_move_nostim-raster_sample_time/2,t_peri_move_nostim(:,end)+raster_sample_time/2];
+
+
+
+%% Align data to stim onset
 
 if verbose; disp('Trial-aligning data...'); end;
 
 % Cortical fluorescence
 if imaging_exists
-    % Cortical fluorescence
     stim_aligned_V_deconv = ...
-        interp1(frame_t,fVdf_deconv_recast(use_components,:)',t_peri_event,'previous');
+        interp1(frame_t,fVdf_deconv_recast(use_components,:)',t_peri_stim,'previous');
+
+    move_nostim_aligned_V_deconv = ...
+        interp1(frame_t,fVdf_deconv_recast(use_components,:)',t_peri_move_nostim,'previous');
 end
 
-% Cortical electrophysiology
+% Cortical electrophysiology (multiunit by area)
 if ephys_exists
     
-    % (multiunit by depth)
-    depth_group_edges = 0:500:4000;
-    n_depths = length(depth_group_edges)-1;
-    depth_group = discretize(spike_depths-ctx_start,depth_group_edges);
-    
-    stim_aligned_mua_depth = nan(length(stimOn_times),length(t),n_depths);
-    for curr_depth = 1:n_depths
-        curr_spikes = spike_times_timeline(depth_group == curr_depth);
-        
-        if isempty(curr_spikes)
-            continue
-        end
-        
-        stim_aligned_mua_depth(:,:,curr_depth) = cell2mat(arrayfun(@(x) ...
-            histcounts(curr_spikes,t_peri_event_bins(x,:)), ...
-            [1:size(t_peri_event,1)]','uni',false))*raster_sample_rate;
-    end
-    
-    % (multiunit by area)
-    stim_aligned_mua_area = nan(length(stimOn_times),length(t),length(probe_areas));
+    stim_aligned_mua_area = nan(size(t_peri_stim_bins,1),length(t),length(probe_areas));
+    move_aligned_mua_area = nan(size(t_peri_move_nostim_bins,1),length(t),length(probe_areas));
+
     for curr_area = 1:length(probe_areas)
         curr_spikes = spike_times_timeline(...
             spike_depths >= probe_area_boundaries{curr_area}(1) & ...
@@ -157,49 +177,54 @@ if ephys_exists
         end
         
         stim_aligned_mua_area(:,:,curr_area) = cell2mat(arrayfun(@(x) ...
-            histcounts(curr_spikes,t_peri_event_bins(x,:)), ...
-            [1:size(t_peri_event,1)]','uni',false))*raster_sample_rate;
+            histcounts(curr_spikes,t_peri_stim_bins(x,:)), ...
+            [1:size(t_peri_stim_bins,1)]','uni',false))*raster_sample_rate;
+
+        move_aligned_mua_area(:,:,curr_area) = cell2mat(arrayfun(@(x) ...
+            histcounts(curr_spikes,t_peri_move_nostim_bins(x,:)), ...
+            [1:size(t_peri_move_nostim_bins,1)]','uni',false))*raster_sample_rate;
     end
         
 end
 
 % Wheel velocity
 stim_aligned_wheel = interp1(Timeline.rawDAQTimestamps, ...
-    wheel_velocity,t_peri_event,'previous');
+    wheel_velocity,t_peri_stim,'previous');
 
 % Pupil diameter
 if exist('pupil_diameter','var')
     stim_aligned_pupil= interp1(eyecam_t(~isnan(eyecam_t)), ...
-        pupil_diameter(~isnan(eyecam_t)),t_peri_event,'previous');
+        pupil_diameter(~isnan(eyecam_t)),t_peri_stim,'previous');
 end
 
 % Whisker movement
 if exist('whisker_move','var')
     stim_aligned_whisker = interp1(facecam_t(~isnan(facecam_t)), ...
-        whisker_move(~isnan(facecam_t)),t_peri_event,'previous');
+        whisker_move(~isnan(facecam_t)),t_peri_stim,'previous');
 end
 
 if task_dataset
     
 % Outcome (reward page 1, punish page 2)
 % (note incorrect outcome imprecise from signals, but looks good)
-stim_aligned_outcome = zeros(size(t_peri_event,1),size(t_peri_event,2),2);
+stim_aligned_outcome = zeros(size(t_peri_stim,1),size(t_peri_stim,2),2);
 
 stim_aligned_outcome(trial_outcome == 1,:,1) = ...
     (cell2mat(arrayfun(@(x) ...
-    histcounts(reward_t_timeline,t_peri_event_bins(x,:)), ...
+    histcounts(reward_t_timeline,t_peri_stim_bins(x,:)), ...
     find(trial_outcome == 1),'uni',false))) > 0;
 
 stim_aligned_outcome(trial_outcome == -1,:,2) = ...
     (cell2mat(arrayfun(@(x) ...
-    histcounts(signals_events.responseTimes,t_peri_event_bins(x,:)), ...
+    histcounts(signals_events.responseTimes,t_peri_stim_bins(x,:)), ...
     find(trial_outcome == -1),'uni',false))) > 0;
 
 end
 
+
 %% Task regression: set time points and grab continuous data
 
-if task_dataset
+if task_dataset && do_regression
     
     % Parameters for regression
     regression_params.use_svs = 1:100;
@@ -251,7 +276,7 @@ end
 
 %% Task regression: execute
 
-if task_dataset
+if task_dataset && do_regression
     
     if verbose; disp('Regressing task to neural data...'); end;
     
@@ -367,11 +392,11 @@ if task_dataset
             lambda,zs,cvfold,return_constant,use_constant);
         
         fluor_taskpred = ...
-            interp1(time_bin_centers,fluor_taskpred_long',t_peri_event,'previous');
+            interp1(time_bin_centers,fluor_taskpred_long',t_peri_stim,'previous');
         
         fluor_taskpred_reduced = cell2mat(arrayfun(@(x) ...
             interp1(time_bin_centers,fluor_taskpred_reduced_long(:,:,x)', ...
-            t_peri_event,'previous'),permute(1:length(task_regressors),[1,3,4,2]),'uni',false));
+            t_peri_stim,'previous'),permute(1:length(task_regressors),[1,3,4,2]),'uni',false));
     end
     
     % Regress task to multiunit
@@ -386,11 +411,11 @@ if task_dataset
             lambda,zs,cvfold,return_constant,use_constant);
         
         mua_taskpred = ...
-            interp1(time_bin_centers,mua_taskpred_long',t_peri_event);
+            interp1(time_bin_centers,mua_taskpred_long',t_peri_stim);
         
         mua_taskpred_reduced = cell2mat(arrayfun(@(x) ...
             interp1(time_bin_centers,mua_taskpred_reduced_long(:,:,x)', ...
-            t_peri_event),permute(1:length(task_regressors),[1,3,4,2]),'uni',false));
+            t_peri_stim),permute(1:length(task_regressors),[1,3,4,2]),'uni',false));
         
     end
     
@@ -413,18 +438,26 @@ end
 % Aligned neural data
 if imaging_exists
     trial_data.fluor_all = stim_aligned_V_deconv(use_trials,:,:,:);
+    if task_dataset
+        % (move no-stim: just average)
+        trial_data.fluor_move_nostim_all = nanmean(move_nostim_aligned_V_deconv,1);
+    end
 end
 if ephys_exists
-    trial_data.mua_depth_all = stim_aligned_mua_depth(use_trials,:,:,:);
-    trial_data.mua_area_all = stim_aligned_mua_area(use_trials,:,:,:);
     trial_data.probe_areas_all = probe_areas; 
+    trial_data.mua_area_all = stim_aligned_mua_area(use_trials,:,:,:);
+    if task_dataset
+        trial_data.mua_area_move_all = move_aligned_mua_area(use_trials,:,:,:);
+    end
 end
 
-% Task neural data
+% Task information
 if task_dataset
-    
     trial_data.outcome_all = stim_aligned_outcome(use_trials,:,:);
-    
+end
+
+% Task regression
+if task_dataset && do_regression
     if imaging_exists
         trial_data.fluor_taskpred_k_all = fluor_taskpred_k;
         trial_data.fluor_taskpred_all = fluor_taskpred(use_trials,:,:,:);
@@ -432,7 +465,7 @@ if task_dataset
         trial_data.fluor_taskpred_expl_var_total_all = fluor_taskpred_expl_var.total;
         trial_data.fluor_taskpred_expl_var_partial_all = fluor_taskpred_expl_var.partial;
     end
-    
+
     if ephys_exists
         trial_data.mua_taskpred_k_all = mua_taskpred_k;
         trial_data.mua_taskpred_all = mua_taskpred(use_trials,:,:,:);
@@ -440,8 +473,8 @@ if task_dataset
         trial_data.mua_taskpred_expl_var_total_all = mua_taskpred_expl_var.total;
         trial_data.mua_taskpred_expl_var_partial_all = mua_taskpred_expl_var.partial;
     end
-    
 end
+    
 
 if verbose; disp('Done getting trial data.'); end;
 
