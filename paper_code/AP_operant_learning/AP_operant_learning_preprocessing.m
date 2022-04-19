@@ -985,16 +985,17 @@ for curr_animal = 1:length(animals)
         clearvars('-except',preload_vars{:});
         
     end
+
+    % Save (after each animal: matlab often crashes during this)
+    save_path = 'C:\Users\Andrew\OneDrive for Business\Documents\CarandiniHarrisLab\analysis\operant_learning\data';
+    save_fn = fullfile(save_path,'trial_activity_task_teto');
+    save(save_fn,'trial_data_all','-v7.3');
+    disp(['Saved ' save_fn]);
+
 end
 
-clearvars -except trial_data_all
 disp('Finished loading all')
 
-% Save
-save_path = 'C:\Users\Andrew\OneDrive for Business\Documents\CarandiniHarrisLab\analysis\operant_learning\data';
-save_fn = fullfile(save_path,'trial_activity_task_teto');
-save(save_fn,'-v7.3');
-disp(['Saved ' save_fn]);
 
 
 %% ~~~~~~~~~~~~~~ Muscimol + widefield data

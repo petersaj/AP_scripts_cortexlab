@@ -249,7 +249,7 @@ if exist('fluor_all','var')
     
     % Concatenate cortex data, subtract baseline
     fluor_allcat = cell2mat(vertcat(fluor_all{:}));
-    if task_dataset
+    if task_dataset && exist('fluor_taskpred_all','var')
         % (concatenate)
         fluor_taskpred_allcat = cell2mat(vertcat(fluor_taskpred_all{:}));
         fluor_taskpred_reduced_allcat = cell2mat(vertcat(fluor_taskpred_reduced_all{:}));
@@ -271,7 +271,7 @@ if exist('fluor_all','var')
         reshape(permute(fluor_allcat_deconv,[3,2,1]),n_vs,[]),[],[],cat(3,wf_roi.mask)), ...
         n_rois,[],size(fluor_allcat_deconv,1)),[3,2,1]);
     
-    if task_dataset
+    if task_dataset && exist('fluor_taskpred_all','var')
         
         % Get task-predicted activity
         fluor_roi_taskpred = permute(reshape( ...
@@ -328,7 +328,7 @@ if exist('mua_area_all','var')
         nan(size(x,1),size(x,2),length(mua_areas)), ...
         mua_area_norm,'uni',false);
     
-    if task_dataset
+    if task_dataset && exist('mua_taskpred_all','var')
         % (area: task-predicted, already baseline-subtracted)
         mua_taskpred_norm = cellfun(@(mua,mua_baseline) ...
             (mua)./mua_baseline, ...

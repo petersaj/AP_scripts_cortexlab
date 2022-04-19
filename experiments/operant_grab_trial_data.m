@@ -123,9 +123,6 @@ t_peri_stim_bins = [t_peri_stim-raster_sample_time/2,t_peri_stim(:,end)+raster_s
 
 if verbose; disp('Getting rewardable movements without stimuli...'); end;
 
-deg_reward = -90;
-deg_punish = 90;
-
 % Grab all movements separately (in degrees from move start)
 wheel_moves_deg = arrayfun(@(x) wheel_position_deg( ...
     Timeline.rawDAQTimestamps >= wheel_starts(x) & ...
@@ -134,21 +131,32 @@ wheel_moves_deg = arrayfun(@(x) wheel_position_deg( ...
     1:length(wheel_starts),'uni',false);
 
 % Find movements that hit reward limit (and don't hit punish limit)
+deg_reward = -90;
+deg_punish = 90;
+
 wheel_moves_deg_rewardlimit = find(cellfun(@(x) ...
     any(x <= deg_reward) && ...
     ~any(x >= deg_punish),wheel_moves_deg));
 
-wheel_move_nostim_rewardlimit_idx = ...
+wheel_move_nostim_rewardable_idx = ...
     intersect(wheel_move_nostim_idx,wheel_moves_deg_rewardlimit);
 
+% Less strict: find movements that are just net leftwards
+wheel_move_leftward_idx = find(cellfun(@sum,wheel_moves_deg) < 0);
+wheel_move_nostim_leftward_idx = ...
+    intersect(wheel_move_nostim_idx,wheel_move_leftward_idx);
+
 % Get move no-stim align times
-move_align = wheel_starts(wheel_move_nostim_rewardlimit_idx);
-t_peri_move_nostim = bsxfun(@plus,move_align,t);
-t_peri_move_nostim_bins = [t_peri_move_nostim-raster_sample_time/2,t_peri_move_nostim(:,end)+raster_sample_time/2];
+move_nostim_rewardable_align = wheel_starts(wheel_move_nostim_rewardable_idx);
+t_peri_move_nostim_rewardable = bsxfun(@plus,move_nostim_rewardable_align,t);
+t_peri_move_nostim_rewardable_bins = [t_peri_move_nostim_rewardable-raster_sample_time/2,t_peri_move_nostim_rewardable(:,end)+raster_sample_time/2];
+
+move_nostim_leftward_align = wheel_starts(wheel_move_nostim_leftward_idx);
+t_peri_move_nostim_leftward = bsxfun(@plus,move_nostim_leftward_align,t);
+t_peri_move_nostim_leftward_bins = [t_peri_move_nostim_leftward-raster_sample_time/2,t_peri_move_nostim_leftward(:,end)+raster_sample_time/2];
 
 
-
-%% Align data to stim onset
+%% Grab aligned data
 
 if verbose; disp('Trial-aligning data...'); end;
 
@@ -157,15 +165,18 @@ if imaging_exists
     stim_aligned_V_deconv = ...
         interp1(frame_t,fVdf_deconv_recast(use_components,:)',t_peri_stim,'previous');
 
-    move_nostim_aligned_V_deconv = ...
-        interp1(frame_t,fVdf_deconv_recast(use_components,:)',t_peri_move_nostim,'previous');
+    move_nostim_rewardable_aligned_V_deconv = ...
+        interp1(frame_t,fVdf_deconv_recast(use_components,:)',t_peri_move_nostim_rewardable,'previous');
+
+    move_nostim_leftward_aligned_V_deconv = ...
+        interp1(frame_t,fVdf_deconv_recast(use_components,:)',t_peri_move_nostim_leftward,'previous');
 end
 
 % Cortical electrophysiology (multiunit by area)
 if ephys_exists
     
     stim_aligned_mua_area = nan(size(t_peri_stim_bins,1),length(t),length(probe_areas));
-    move_aligned_mua_area = nan(size(t_peri_move_nostim_bins,1),length(t),length(probe_areas));
+    move_aligned_mua_area = nan(size(t_peri_move_nostim_rewardable_bins,1),length(t),length(probe_areas));
 
     for curr_area = 1:length(probe_areas)
         curr_spikes = spike_times_timeline(...
@@ -181,8 +192,8 @@ if ephys_exists
             [1:size(t_peri_stim_bins,1)]','uni',false))*raster_sample_rate;
 
         move_aligned_mua_area(:,:,curr_area) = cell2mat(arrayfun(@(x) ...
-            histcounts(curr_spikes,t_peri_move_nostim_bins(x,:)), ...
-            [1:size(t_peri_move_nostim_bins,1)]','uni',false))*raster_sample_rate;
+            histcounts(curr_spikes,t_peri_move_nostim_rewardable_bins(x,:)), ...
+            [1:size(t_peri_move_nostim_rewardable_bins,1)]','uni',false))*raster_sample_rate;
     end
         
 end
@@ -440,7 +451,8 @@ if imaging_exists
     trial_data.fluor_all = stim_aligned_V_deconv(use_trials,:,:,:);
     if task_dataset
         % (move no-stim: just average)
-        trial_data.fluor_move_nostim_all = nanmean(move_nostim_aligned_V_deconv,1);
+        trial_data.fluor_move_nostim_rewardable_all = nanmean(move_nostim_rewardable_aligned_V_deconv,1);
+        trial_data.fluor_move_nostim_leftward_all = nanmean(move_nostim_leftward_aligned_V_deconv,1);
     end
 end
 if ephys_exists
