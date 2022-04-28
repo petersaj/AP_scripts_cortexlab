@@ -1806,7 +1806,7 @@ stim_move_frac = get(gco,'xdata');
 % click move frac
 move_frac = get(gco,'xdata');
 
-event_frac = [stim_frac;move_frac;stim_move_frac];
+event_frac = [stim_frac;stim_move_frac;move_frac];
 event_frac(4,:) = 1-sum(event_frac,1);
 
 figure;
@@ -1815,10 +1815,8 @@ for curr_area = 1:4
     nexttile;
     pie(event_frac(:,curr_area));
 end
-event_col = [0.8,0,0;0.7,0,0.7;0.8,0.5,0.5;0,0,0];
+event_col = [0.8,0,0;0.,0.5,0.5;0.7,0,0.7;0,0,0];
 colormap(event_col);
-set(findobj('type','text'),'FontSize',14);
-
 
 
 %% Plot widefield ROIs (hemisphere)
