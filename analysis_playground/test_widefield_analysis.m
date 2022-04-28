@@ -2089,7 +2089,7 @@ AP_align_widefield(im_edge,animal,{experiments(use_days).day},'new_days');
 
 %% View aligned vasculature
 
-animal = 'AP112';
+animal = 'AP115';
 
 protocol = [];
 experiments = AP_find_experiments(animal,protocol);

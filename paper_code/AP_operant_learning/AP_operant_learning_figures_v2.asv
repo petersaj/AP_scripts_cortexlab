@@ -541,32 +541,35 @@ trials_recording = cellfun(@(x) size(x,1),vertcat(wheel_all{:}));
 %     mat2cell(cat(1,move_iti_k_roi_hemiratio{:}),ones(length(trials_recording),1),n_rois), ...
 %     num2cell(trials_recording),'uni',false));
 
+warning('Move hemi-ratio not finalized yet')
+
 % Get movement hemisphere ratio (from average no-stim movement activity)
-% (get ROI activity for movement)
-% (use either: fluor_move_nostim_rewardable/leftward_all)
-fluor_move_nostim_roi = cellfun(@(x) cellfun(@(x) ...
-    AP_svd_roi(U_master(:,:,1:n_vs), ...
-    permute(x,[3,2,1]),[],[],cat(3,wf_roi.mask)), ...
-    x,'uni',false),fluor_move_nostim_rewardable_all,'uni',false);
 
-roi_hemiflip = circshift(1:n_rois,n_rois/2);
-fluor_move_nostim_roi_hemiratio = cellfun(@(x) cellfun(@(x) ...
-    arrayfun(@(roi) ...
-    x(roi_hemiflip(roi),:)'\x(roi,:)',1:n_rois), ...
-    x,'uni',false),fluor_move_nostim_roi,'uni',false);
+% (RATIO FROM AVERAGE RATIO)
+% % (get ROI activity for movement)
+% % (use either: fluor_move_nostim_rewardable/leftward_all)
+% fluor_move_nostim_roi = cellfun(@(x) cellfun(@(x) ...
+%     AP_svd_roi(U_master(:,:,1:n_vs), ...
+%     permute(x,[3,2,1]),[],[],cat(3,wf_roi.mask)), ...
+%     x,'uni',false),fluor_move_nostim_rewardable_all,'uni',false);
+% 
+% roi_hemiflip = circshift(1:n_rois,n_rois/2);
+% fluor_move_nostim_roi_hemiratio = cellfun(@(x) cellfun(@(x) ...
+%     arrayfun(@(roi) ...
+%     x(roi_hemiflip(roi),:)'\x(roi,:)',1:n_rois), ...
+%     x,'uni',false),fluor_move_nostim_roi,'uni',false);
+% 
+% % Replicate movement hemisphere ratio for each trial
+% % (day-specific)
+% trial_move_hemiratio = cell2mat(cellfun(@(x,tr) repmat(permute(x,[1,3,2]), ...
+%     tr,1,1),vertcat(fluor_move_nostim_roi_hemiratio{:}),num2cell(trials_recording), ...
+%     'uni',false));
+% % % (animal median)
+% % trial_move_hemiratio = cell2mat(cellfun(@(x,tr) ...
+% %     permute(repmat(nanmedian(cell2mat(x),1),tr,1),[1,3,2]), ...
+% %     fluor_move_nostim_roi_hemiratio,num2cell(trials_animal)','uni',false));
 
-% Replicate movement hemisphere ratio for each trial
-% (day-specific)
-trial_move_hemiratio = cell2mat(cellfun(@(x,tr) repmat(permute(x,[1,3,2]), ...
-    tr,1,1),vertcat(fluor_move_nostim_roi_hemiratio{:}),num2cell(trials_recording), ...
-    'uni',false));
-% (animal median)
-trial_move_hemiratio = cell2mat(cellfun(@(x,tr) ...
-    permute(repmat(nanmedian(cell2mat(x),1),tr,1),[1,3,2]), ...
-    fluor_move_nostim_roi_hemiratio,num2cell(trials_animal)','uni',false));
-
-
-%%%% (alternate? average no-stim rewardable within animal across days)
+% (RATIO FROM AVERAGE ACTIVITY)
 fluor_move_nostim_roi = cellfun(@(x) ...
     AP_svd_roi(U_master(:,:,1:n_vs), ...
     permute(nanmean(cell2mat(x),1),[3,2,1]),[],[],cat(3,wf_roi.mask)), ...
@@ -582,10 +585,63 @@ trial_move_hemiratio = cell2mat(cellfun(@(x,tr) ...
     permute(repmat(x,tr,1),[1,3,2]), ...
     fluor_move_nostim_roi_hemiratio,num2cell(trials_animal)','uni',false));
 
+% (RATIO BY PIXEL)
+%  Cov(v1, v2)/var(v2)
+fluor_move_nostim_rewardable_animalavg_px = ...
+    cellfun(@(x) AP_svdFrameReconstruct(U_master(:,:,1:n_vs), ...
+    permute(nanmean(cell2mat(x),1),[3,2,1])), ...
+    fluor_move_nostim_rewardable_all,'uni',false);
+
+% scaling as cov(v1,v2)/var(v2)
+fluor_move_nostim_rewardable_animalavg_px_hemiratio = ...
+    cellfun(@(x,x_flip) ...
+    reshape(sum(reshape(x-nanmean(x,3),[],size(x,3)).* ...
+    reshape(x_flip-nanmean(x_flip,3),[],size(x,3)),2) ./ ...
+    sum(reshape(x_flip-nanmean(x_flip,3),[],size(x,3)).* ...
+    reshape(x_flip-nanmean(x_flip,3),[],size(x,3)),2), ...
+    size(x,1),size(x,2)), ...
+    fluor_move_nostim_rewardable_animalavg_px, ...
+    cellfun(@AP_reflect_widefield,fluor_move_nostim_rewardable_animalavg_px,'uni',false), ...
+    'uni',false);
 
 
+%% ^^ Task - stim-aligned movie by pre/post learning (raw and hemidiff)
 
-%% ^^ Task - event-aligned pixels by pre/post learning
+fluor_learning_animal = nan(n_vs,length(t),n_learn_grps, ...
+    length(animals),class(fluor_allcat_deconv));
+for curr_animal = 1:length(animals)
+    for curr_learned_grp = 1:n_learn_grps
+        curr_trials = trial_animal == curr_animal & ...
+            trial_learned_day_grp == curr_learned_grp & ...
+            trial_outcome_allcat == 1;
+        fluor_learning_animal(:,:,curr_learned_grp,curr_animal) = ...
+            permute(nanmean(fluor_allcat_deconv(curr_trials,:,:),1),[3,2,1]);
+    end
+end
+
+fluor_learning_animal_px = AP_svdFrameReconstruct(U_master(:,:,1:n_vs),fluor_learning_animal);
+
+fluor_learning_animal_px_avg = nanmean(fluor_learning_animal_px,5);
+fluor_learning_animal_px_hemidiff_avg = nanmean(fluor_learning_animal_px - ...
+    cat(5,fluor_move_nostim_rewardable_animalavg_px_hemiratio{:}).* ...
+    AP_reflect_widefield(fluor_learning_animal_px),5);
+% (white-out non-imaged pixels)
+fluor_learning_animal_px_hemidiff_avg(isnan(fluor_learning_animal_px_hemidiff_avg)) = 0;
+
+AP_imscroll(fluor_learning_animal_px_avg,t)
+caxis(max(abs(caxis))*[-1,1]);
+colormap(AP_colormap('KWG',[],1.5));
+axis image off;
+AP_reference_outline('ccf_aligned',[0.5,0.5,0.5]);
+
+AP_imscroll(fluor_learning_animal_px_hemidiff_avg(:,1:size(U_master,2)/2,:,:),t)
+caxis(max(abs(caxis))*[-1,1]);
+colormap(AP_colormap('BWR',[],1.5));
+axis image off;
+AP_reference_outline('ccf_aligned_lefthemi',[0.5,0.5,0.5]);
+
+
+%% ^^ Task - event-aligned pixels by pre/post learning (raw and hemidiff)
 
 % Set trials to use
 learned_day_grp_edges = [-Inf,0,Inf];
@@ -605,8 +661,7 @@ use_align = {stim_align,move_align,outcome_align};
 plot_t = {0.1,0,0.1};
 
 % Loop through alignments and get pixels
-align_px = cellfun(@(x) nan(size(U_master,1),size(U_master,2),length(cell2mat(plot_t))), ...
-    use_align,'uni',false);
+align_v = cell(length(use_align),1);
 for curr_align = 1:length(use_align)
     
     % (re-align activity if not all aligned to first frame)
@@ -616,7 +671,7 @@ for curr_align = 1:length(use_align)
         curr_v_align = nan(size(fluor_allcat_deconv),'single');
         for curr_trial = find(~isnan(use_align{curr_align}))'
             curr_shift_frames = ...
-                use_align{curr_align}(curr_trial) + [0:length(t)-1];
+                use_align{curr_align}(curr_trial) + (0:length(t)-1);
             curr_shift_frames_use = curr_shift_frames > 0 & curr_shift_frames <= length(t);
 
             curr_grab_frames = curr_shift_frames(curr_shift_frames_use);
@@ -639,20 +694,27 @@ for curr_align = 1:length(use_align)
         end
     end
 
-    % (animal average the last training stage defined above)
-    curr_v_align_avg_t = ...
-        permute(interp1(t,permute(nanmean(curr_v_align_avg,4),[2,1,3]), ...
-        plot_t{curr_align},'previous'),[2,1,3]);
-      
-    curr_px_align_avg_t = AP_svdFrameReconstruct(U_master(:,:,1:n_vs), ...
-        curr_v_align_avg_t);
-    
-    align_px{curr_align} = curr_px_align_avg_t;
+    % (get time point and store)
+    curr_v_align_t = permute( ...
+        interp1(t,permute(curr_v_align_avg,[2,1,3,4]),plot_t{curr_align}), ...
+        [2,1,3,4]);
+    align_v{curr_align} = curr_v_align_t;
 
 end
 
-% Plot pixels
-c = prctile(reshape(cat(3,align_px{:}),[],1),100)*[-1,1]*0.8;
+% Get average pixels (raw and hemidiff)
+align_px_avg = cellfun(@(x) ...
+    nanmean(AP_svdFrameReconstruct(U_master(:,:,1:n_vs),x),5), ...
+    align_v,'uni',false);
+
+align_px_hemidiff_avg = cellfun(@(x) ...
+    nanmean(AP_svdFrameReconstruct(U_master(:,:,1:n_vs),x) - ...
+    cat(5,fluor_move_nostim_rewardable_animalavg_px_hemiratio{:}).* ...
+    AP_reflect_widefield(AP_svdFrameReconstruct(U_master(:,:,1:n_vs),x)),5), ...
+    align_v,'uni',false);
+
+% Plot pixels raw
+c = prctile(reshape(cat(3,align_px_avg{:}),[],1),100)*[-1,1]*0.8;
 figure;
 h = tiledlayout(n_learn_grps,length(cell2mat(plot_t)), ...
     'TileSpacing','compact','padding','compact');
@@ -660,7 +722,7 @@ for curr_learn_grp = 1:n_learn_grps
     for curr_align = 1:length(use_align)
         for curr_plot_t = 1:length(plot_t{curr_align})
             
-            curr_px = align_px{curr_align}(:,:,curr_plot_t,curr_learn_grp);
+            curr_px = align_px_avg{curr_align}(:,:,curr_plot_t,curr_learn_grp);
 
             nexttile
             imagesc(curr_px);
@@ -674,6 +736,66 @@ for curr_learn_grp = 1:n_learn_grps
     end
 end
 linkaxes(allchild(h),'xy');
+
+% Plot pixels hemidiff
+c_hemidiff = c*0.5;
+figure;
+h = tiledlayout(n_learn_grps,length(cell2mat(plot_t)), ...
+    'TileSpacing','compact','padding','compact');
+for curr_learn_grp = 1:n_learn_grps
+    for curr_align = 1:length(use_align)
+        for curr_plot_t = 1:length(plot_t{curr_align})
+            
+            curr_px = align_px_hemidiff_avg{curr_align}(:,1:size(U_master,2)/2,curr_plot_t,curr_learn_grp);
+            curr_px(isnan(curr_px)) = 0; % make non-imaged pixels white
+
+            nexttile
+            imagesc(curr_px);
+            AP_reference_outline('ccf_aligned_lefthemi',[0.5,0.5,0.5]);
+            axis image off;
+            colormap(gca,AP_colormap('BWR',[],1.5));
+            caxis(c_hemidiff);
+            title([use_align_labels{curr_align} ': ' num2str(plot_t{curr_align}(curr_plot_t)) ' sec']);
+
+        end
+    end
+end
+linkaxes(allchild(h),'xy');
+
+
+%% ^^ Task - trial activity
+
+plot_rois = [1,7,6];
+trial_learned_stage = discretize(trial_learned_day,[-Inf,0,Inf]);
+n_trial_smooth = 200;
+
+% Set activity
+roi_hemiflip = circshift(1:n_rois,n_rois/2);
+curr_act = fluor_roi_deconv;
+
+% Plot trial activity
+figure;
+h = tiledlayout(length(plot_rois),2,'TileIndexing','ColumnMajor');
+for curr_stage = 1:max(trial_learned_stage)
+    for curr_roi = plot_rois
+        use_trials = find(trial_learned_stage == curr_stage);
+        [~,sort_idx] = sort(move_t(use_trials));
+        curr_data_sort = curr_act(use_trials(sort_idx),:,curr_roi);
+        curr_data_sort_smooth = convn(curr_data_sort, ...
+            ones(n_trial_smooth,1)./n_trial_smooth,'same');
+        
+        nexttile;
+        imagesc(t,[],curr_data_sort_smooth);hold on;
+        colormap(AP_colormap('KWG',[],1.5));
+        c = prctile(reshape(curr_act(:,:,curr_roi),[],1),95).*[-1,1];
+        caxis(c);
+        xline(0,'color','k');
+        plot(move_t(use_trials(sort_idx)),1:length(use_trials),'color',[0.6,0,0.6]);
+        xlabel('Time from stim (s)');
+        ylabel('Trial (rxn-time sorted)');
+        title(sprintf('%s, stage %d',wf_roi(curr_roi).area,curr_stage));
+    end    
+end
 
 
 %% ^^ Task - trial activity (hemidiff)
@@ -711,7 +833,172 @@ for curr_stage = 1:max(trial_learned_stage)
     end    
 end
 
-%% ^^ Task - average activity (hemidiff stim/move align pre/post learn)
+%% ^^ Task - average activity (stim/move align pre/post learn)
+
+plot_rois = [1,7,6];
+trial_learned_stage = discretize(trial_learned_day,[-Inf,0,Inf]);
+
+% Set activity
+roi_hemiflip = circshift(1:n_rois,n_rois/2);
+curr_act = fluor_roi_deconv;
+
+% Move-align activity
+curr_act_move = nan(size(curr_act),class(curr_act));
+
+move_align = move_idx - sum(t<0);
+for curr_trial = find(~isnan(move_align))'
+    curr_shift_frames = ...
+        move_align(curr_trial) + (0:length(t)-1);
+    curr_shift_frames_use = curr_shift_frames > 0 & curr_shift_frames <= length(t);
+    
+    curr_grab_frames = curr_shift_frames(curr_shift_frames_use);
+    curr_fill_frames = find(curr_shift_frames_use,length(t));
+    
+    curr_act_move(curr_trial,curr_fill_frames,:) = ...
+        curr_act(curr_trial,curr_grab_frames,:);
+end
+
+% Get indicies for averaging (learned stage x t x roi x animal)
+[learned_day_idx,t_idx,roi_idx] = ...
+    ndgrid(trial_learned_day_id,1:length(t),1:n_rois);
+[learned_stage_idx,~] = ndgrid(trial_learned_stage,1:length(t),1:n_rois);
+
+[animal_idx,~,~] = ...
+    ndgrid(trial_animal,1:length(t),1:n_rois);
+
+accum_stage_idx = cat(4,learned_stage_idx,t_idx,roi_idx,animal_idx);
+
+% (roi activity avg: learned stage x t x roi x animal) 
+roi_stim_learn_avg = accumarray( ...
+    reshape(accum_stage_idx,[],size(accum_stage_idx,4)), ...
+    curr_act(:), ...
+    [max(trial_learned_stage),length(t),n_rois,length(animals)], ...
+    @nanmean,NaN('single'));
+
+roi_move_learn_avg = accumarray( ...
+    reshape(accum_stage_idx,[],size(accum_stage_idx,4)), ...
+    curr_act_move(:), ...
+    [max(trial_learned_stage),length(t),n_rois,length(animals)], ...
+    @nanmean,NaN('single'));
+
+% Plot L-R stim/move, learning overlaid
+median_move_t = median(move_t(trial_learned_day>0));
+x_limit = [-0.1,median_move_t];
+
+figure;
+h = tiledlayout(1,length(plot_rois)*2);
+stage_col = [0.5,0.7,0.5;0,0.7,0];
+for curr_roi = plot_rois
+
+    curr_data_stim = permute(roi_stim_learn_avg(:,:,curr_roi,:),[2,1,4,3]);
+    curr_data_move = permute(roi_move_learn_avg(:,:,curr_roi,:),[2,1,4,3]);
+
+    nexttile; hold on;
+    AP_errorfill(t,nanmean(curr_data_stim,3),AP_sem(curr_data_stim,3),stage_col);
+    xlabel('Stim');
+    ylabel(wf_roi(curr_roi).area(1:end-2));
+    xline(0);set(gca,'children',circshift(get(gca,'children'),-1))
+    xlim(x_limit);
+
+    nexttile; hold on;
+    AP_errorfill(t,nanmean(curr_data_move,3),AP_sem(curr_data_move,3),stage_col);
+    xlabel('Move');
+    ylabel(wf_roi(curr_roi).area(1:end-2));
+    xline(0);set(gca,'children',circshift(get(gca,'children'),-1))
+    xlim(x_limit - x_limit(1));
+
+end
+% (link ROI y-axes)
+ax = reshape(allchild(h),2,length(plot_rois));
+for curr_roi = 1:length(plot_rois)
+   linkaxes(ax(:,curr_roi),'y'); 
+end
+
+%% ^^ Task - average activity (stim/move align pre/post learn) (overlay L/R)
+
+plot_rois = [1,7,6];
+trial_learned_stage = discretize(trial_learned_day,[-Inf,0,Inf]);
+
+% Set activity
+roi_hemiflip = circshift(1:n_rois,n_rois/2);
+curr_act = fluor_roi_deconv;
+
+% Move-align activity
+curr_act_move = nan(size(curr_act),class(curr_act));
+
+move_align = move_idx - sum(t<0);
+for curr_trial = find(~isnan(move_align))'
+    curr_shift_frames = ...
+        move_align(curr_trial) + (0:length(t)-1);
+    curr_shift_frames_use = curr_shift_frames > 0 & curr_shift_frames <= length(t);
+    
+    curr_grab_frames = curr_shift_frames(curr_shift_frames_use);
+    curr_fill_frames = find(curr_shift_frames_use,length(t));
+    
+    curr_act_move(curr_trial,curr_fill_frames,:) = ...
+        curr_act(curr_trial,curr_grab_frames,:);
+end
+
+% Get indicies for averaging (learned stage x t x roi x animal)
+[learned_day_idx,t_idx,roi_idx] = ...
+    ndgrid(trial_learned_day_id,1:length(t),1:n_rois);
+[learned_stage_idx,~] = ndgrid(trial_learned_stage,1:length(t),1:n_rois);
+
+[animal_idx,~,~] = ...
+    ndgrid(trial_animal,1:length(t),1:n_rois);
+
+accum_stage_idx = cat(4,learned_stage_idx,t_idx,roi_idx,animal_idx);
+
+% (roi activity avg: learned stage x t x roi x animal) 
+roi_stim_learn_avg = accumarray( ...
+    reshape(accum_stage_idx,[],size(accum_stage_idx,4)), ...
+    curr_act(:), ...
+    [max(trial_learned_stage),length(t),n_rois,length(animals)], ...
+    @nanmean,NaN('single'));
+
+roi_move_learn_avg = accumarray( ...
+    reshape(accum_stage_idx,[],size(accum_stage_idx,4)), ...
+    curr_act_move(:), ...
+    [max(trial_learned_stage),length(t),n_rois,length(animals)], ...
+    @nanmean,NaN('single'));
+
+% Plot L-R stim/move, learning overlaid
+median_move_t = median(move_t(trial_learned_day>0));
+x_limit = [-0.1,median_move_t];
+
+figure;
+h = tiledlayout(2,length(plot_rois)*2);
+stage_col = [0.5,0.7,0.5;0,0.7,0];
+for curr_roi = plot_rois
+
+    contra_roi = curr_roi + size(wf_roi,1);
+    curr_rois = [curr_r
+
+    curr_data_stim = permute(roi_stim_learn_avg(:,:,curr_roi,:),[2,1,4,3]);
+    curr_data_move = permute(roi_move_learn_avg(:,:,curr_roi,:),[2,1,4,3]);
+
+    nexttile; hold on;
+    AP_errorfill(t,nanmean(curr_data_stim,3),AP_sem(curr_data_stim,3),stage_col);
+    xlabel('Stim');
+    ylabel(wf_roi(curr_roi).area(1:end-2));
+    xline(0);set(gca,'children',circshift(get(gca,'children'),-1))
+    xlim(x_limit);
+
+    nexttile; hold on;
+    AP_errorfill(t,nanmean(curr_data_move,3),AP_sem(curr_data_move,3),stage_col);
+    xlabel('Move');
+    ylabel(wf_roi(curr_roi).area(1:end-2));
+    xline(0);set(gca,'children',circshift(get(gca,'children'),-1))
+    xlim(x_limit - x_limit(1));
+
+end
+% (link ROI y-axes)
+ax = reshape(allchild(h),2,length(plot_rois));
+for curr_roi = 1:length(plot_rois)
+   linkaxes(ax(:,curr_roi),'y'); 
+end
+
+%% ^^ Task - average activity (stim/move align pre/post learn) (HEMIDIFF)
 
 plot_rois = [1,7,6];
 trial_learned_stage = discretize(trial_learned_day,[-Inf,0,Inf]);
@@ -727,7 +1014,7 @@ curr_act_move = nan(size(curr_act),class(curr_act));
 move_align = move_idx - sum(t<0);
 for curr_trial = find(~isnan(move_align))'
     curr_shift_frames = ...
-        move_align(curr_trial) + [0:length(t)-1];
+        move_align(curr_trial) + (0:length(t)-1);
     curr_shift_frames_use = curr_shift_frames > 0 & curr_shift_frames <= length(t);
     
     curr_grab_frames = curr_shift_frames(curr_shift_frames_use);
@@ -769,23 +1056,18 @@ h = tiledlayout(1,length(plot_rois)*2);
 stage_col = [1,0.5,0.5;0.5,0,0];
 for curr_roi = plot_rois
 
-    curr_l_data_stim = permute(roi_stim_learn_avg(:,:,curr_roi,:),[2,1,4,3]);
-    curr_r_data_stim = permute(roi_stim_learn_avg(:,:,curr_roi+size(wf_roi,1),:),[2,1,4,3]);
-    curr_diff_data_stim = curr_l_data_stim - curr_r_data_stim;
-
-    curr_l_data_move = permute(roi_move_learn_avg(:,:,curr_roi,:),[2,1,4,3]);
-    curr_r_data_move = permute(roi_move_learn_avg(:,:,curr_roi+size(wf_roi,1),:),[2,1,4,3]);
-    curr_diff_data_move = curr_l_data_move - curr_r_data_move;
+    curr_data_stim = permute(roi_stim_learn_avg(:,:,curr_roi,:),[2,1,4,3]);
+    curr_data_move = permute(roi_move_learn_avg(:,:,curr_roi,:),[2,1,4,3]);
 
     nexttile; hold on;
-    AP_errorfill(t,nanmean(curr_diff_data_stim,3),AP_sem(curr_diff_data_stim,3),stage_col);
+    AP_errorfill(t,nanmean(curr_data_stim,3),AP_sem(curr_data_stim,3),stage_col);
     xlabel('Stim');
     ylabel(wf_roi(curr_roi).area(1:end-2));
     xline(0);set(gca,'children',circshift(get(gca,'children'),-1))
     xlim(x_limit);
 
     nexttile; hold on;
-    AP_errorfill(t,nanmean(curr_diff_data_move,3),AP_sem(curr_diff_data_move,3),stage_col);
+    AP_errorfill(t,nanmean(curr_data_move,3),AP_sem(curr_data_move,3),stage_col);
     xlabel('Move');
     ylabel(wf_roi(curr_roi).area(1:end-2));
     xline(0);set(gca,'children',circshift(get(gca,'children'),-1))
@@ -1057,7 +1339,7 @@ save(stim_px_fn,'stim_px');
 
 % Plot ROIs by stage
 figure;
-plot_rois = reshape([1,6] + [0,size(wf_roi,1)]',1,[]);
+plot_rois = reshape([6] + [0,size(wf_roi,1)]',1,[]);
 stage_col = repmat(linspace(0.3,0,n_stages)',[1,3]);
 h = tiledlayout(length(plot_rois),3,'TileSpacing','compact','padding','compact');
 for curr_roi = plot_rois
@@ -1750,10 +2032,13 @@ for curr_animal = 1:length(animals)
     line(ccf_3d_axes,probe_line(:,1),probe_line(:,3),probe_line(:,2), ...
         'linewidth',2,'color',animal_col(curr_animal,:))
     
-    % Draw probes on 2D views
+    % Draw probes on coronal + saggital
     line(ccf_axes(1),probe_line(:,3),probe_line(:,2),'linewidth',2,'color',animal_col(curr_animal,:));
-    line(ccf_axes(2),probe_line(:,3),probe_line(:,1),'linewidth',2,'color',animal_col(curr_animal,:));
     line(ccf_axes(3),probe_line(:,2),probe_line(:,1),'linewidth',2,'color',animal_col(curr_animal,:));
+
+    % Draw probe mean on horizontal
+    plot(ccf_axes(2), probe_coords_mean(:,3),probe_coords_mean(:,1), ...
+        '.','MarkerSize',10,'color',animal_col(curr_animal,:));
     
     drawnow
 end
@@ -1798,7 +2083,7 @@ scatter(probe_coords_mean_wf(:,1),probe_coords_mean_wf(:,2),20,'k');
 
 %% Ephys - Single cell
 
-% Open Julie's fraction plot
+% Open Julie's fraction plot (AP_fractionCellsStimMove_mod)
 % click stim fraction
 stim_frac = get(gco,'xdata');
 % click stim+move frac
@@ -1806,7 +2091,7 @@ stim_move_frac = get(gco,'xdata');
 % click move frac
 move_frac = get(gco,'xdata');
 
-event_frac = [stim_frac;stim_move_frac;move_frac];
+event_frac = [stim_frac;move_frac;stim_move_frac];
 event_frac(4,:) = 1-sum(event_frac,1);
 
 figure;
@@ -1815,8 +2100,10 @@ for curr_area = 1:4
     nexttile;
     pie(event_frac(:,curr_area));
 end
-event_col = [0.8,0,0;0.,0.5,0.5;0.7,0,0.7;0,0,0];
+event_col = [0.8,0,0;0.7,0,0.7;0.8,0.5,0.5;0,0,0];
 colormap(event_col);
+set(findobj('type','text'),'FontSize',14);
+
 
 
 %% Plot widefield ROIs (hemisphere)
