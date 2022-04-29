@@ -1983,53 +1983,27 @@ trial_day = cell2mat(cellfun(@(x) cell2mat(cellfun(@(curr_day,x) ...
     curr_day*ones(size(x,1),1),num2cell(1:length(x))',x,'uni',false)), ...
     wheel_all,'uni',false));
 
+trial_recording = cell2mat(cellfun(@(tr,day) ...
+    day*ones(size(tr,1),1), ...
+    cat(1,wheel_all{:}),num2cell(1:length(cat(1,wheel_all{:})))', ...
+    'uni',false));
+
 trials_recording = cellfun(@(x) size(x,1),vertcat(wheel_all{:}));
 
-%%%% TO DO HERE: 
 % Plot average activity aligned to stim and move
-% (looks mega heterogeneous though...)
-
-
-
-%% Ephys - Passive
-
-% Load data
-trial_data_path = 'C:\Users\Andrew\OneDrive for Business\Documents\CarandiniHarrisLab\analysis\operant_learning\data';
-data_fn = 'trial_activity_passive_ephys';
-
-AP_load_trials_operant;
-
-% Get animal and day index for each trial
-trial_animal = cell2mat(arrayfun(@(x) ...
-    x*ones(size(vertcat(wheel_all{x}{:}),1),1), ...
-    [1:length(wheel_all)]','uni',false));
-trial_day = cell2mat(cellfun(@(x) cell2mat(cellfun(@(curr_day,x) ...
-    curr_day*ones(size(x,1),1),num2cell(1:length(x))',x,'uni',false)), ...
-    wheel_all,'uni',false));
-
-trials_recording = cellfun(@(x) size(x,1),vertcat(wheel_all{:}));
-
-% Get trials with movement during stim to exclude
-quiescent_trials = ~any(abs(wheel_allcat(:,t >= 0 & t <= 0.5)) > 0,2);
 
 % Get average response timecourses
-stim_unique = unique(trial_stim_allcat);
-[~,trial_stim_id] = ismember(trial_stim_allcat,stim_unique);
+[recording_idx,t_idx,area_idx] = ...
+    ndgrid(trial_recording,1:length(t),1:length(mua_areas));
 
-use_trials = quiescent_trials;
-
-[animal_idx,t_idx,area_idx] = ...
-    ndgrid(trial_animal(use_trials),1:length(t),1:length(mua_areas));
-[stim_idx,~,~,] = ...
-    ndgrid(trial_stim_id(use_trials),1:length(t),1:length(mua_areas));
-
-mua_animal_avg = accumarray([animal_idx(:),t_idx(:),stim_idx(:),area_idx(:)], ...
-    reshape(mua_area_allcat(use_trials,:,:),[],1), ...
-    [length(animals),length(t),length(stim_unique),length(mua_areas)], ...
+mua_recording_avg = accumarray([recording_idx(:),t_idx(:),area_idx(:)], ...
+    reshape(mua_area_allcat,[],1), ...
+    [length(trials_recording),length(t),length(mua_areas)], ...
     @nanmean,NaN);
 
-% Get DV position of each area for sorting
-% (overkill: do it by loading in atlas and getting the volume)
+mua_move_nostim_recording_avg = mua_area_move_nostim_rewardable_allcat;
+
+% Get DV position of each area in CCF for sorting
 allen_atlas_path = fileparts(which('template_volume_10um.npy'));
 av = readNPY([allen_atlas_path filesep 'annotation_volume_10um_by_index.npy']);
 st = loadStructureTree([allen_atlas_path filesep 'structure_tree_safe_2017.csv']);
@@ -2059,14 +2033,113 @@ area_recording_n = accumarray(cell2mat(area_idx),1);
 plot_areas = find(area_recording_n == length(trials_recording));
 [~,plot_area_sort_idx] = sort(mua_areas_dvmin(plot_areas));
 
+% Plot stim-aligned
+figure;
+h = tiledlayout(length(plot_areas),1);
+for curr_area = plot_areas(plot_area_sort_idx)'
+    nexttile;
+    AP_errorfill(t', ...
+        squeeze(nanmean(mua_recording_avg(:,:,curr_area),1)), ...
+        squeeze(AP_sem(mua_recording_avg(:,:,curr_area),1)),'k');
+    ylabel(mua_areas(curr_area));
+    xlabel('Stim');
+end
+linkaxes(allchild(h),'xy');
+
+% Plot move no-stim aligned
+figure;
+h = tiledlayout(length(plot_areas),1);
+for curr_area = plot_areas(plot_area_sort_idx)'
+    nexttile;
+    AP_errorfill(t', ...
+        squeeze(nanmean(mua_move_nostim_recording_avg(:,:,curr_area),1)), ...
+        squeeze(AP_sem(mua_move_nostim_recording_avg(:,:,curr_area),1)),'k');
+    xlabel('ITI move');
+end
+linkaxes(allchild(h),'xy');
+
+
+
+%% Ephys - Passive
+
+% Load data
+trial_data_path = 'C:\Users\Andrew\OneDrive for Business\Documents\CarandiniHarrisLab\analysis\operant_learning\data';
+data_fn = 'trial_activity_passive_ephys';
+
+AP_load_trials_operant;
+
+% Get animal and day index for each trial
+trial_animal = cell2mat(arrayfun(@(x) ...
+    x*ones(size(vertcat(wheel_all{x}{:}),1),1), ...
+    [1:length(wheel_all)]','uni',false));
+trial_day = cell2mat(cellfun(@(x) cell2mat(cellfun(@(curr_day,x) ...
+    curr_day*ones(size(x,1),1),num2cell(1:length(x))',x,'uni',false)), ...
+    wheel_all,'uni',false));
+
+trial_recording = cell2mat(cellfun(@(tr,day) ...
+    day*ones(size(tr,1),1), ...
+    cat(1,wheel_all{:}),num2cell(1:length(cat(1,wheel_all{:})))', ...
+    'uni',false));
+
+trials_recording = cellfun(@(x) size(x,1),vertcat(wheel_all{:}));
+
+% Get trials with movement during stim to exclude
+quiescent_trials = ~any(abs(wheel_allcat(:,t >= 0 & t <= 0.5)) > 0,2);
+
+% Get average response timecourses
+stim_unique = unique(trial_stim_allcat);
+[~,trial_stim_id] = ismember(trial_stim_allcat,stim_unique);
+
+use_trials = quiescent_trials;
+
+[recording_idx,t_idx,area_idx] = ...
+    ndgrid(trial_recording(use_trials),1:length(t),1:length(mua_areas));
+[stim_idx,~,~,] = ...
+    ndgrid(trial_stim_id(use_trials),1:length(t),1:length(mua_areas));
+
+mua_recording_avg = accumarray([recording_idx(:),t_idx(:),stim_idx(:),area_idx(:)], ...
+    reshape(mua_area_allcat(use_trials,:,:),[],1), ...
+    [length(trials_recording),length(t),length(stim_unique),length(mua_areas)], ...
+    @nanmean,NaN);
+
+% Get DV position of each area in CCF for sorting
+allen_atlas_path = fileparts(which('template_volume_10um.npy'));
+av = readNPY([allen_atlas_path filesep 'annotation_volume_10um_by_index.npy']);
+st = loadStructureTree([allen_atlas_path filesep 'structure_tree_safe_2017.csv']);
+
+mua_areas_dvmin = nan(size(mua_areas));
+for curr_area = mua_areas'
+    curr_structure_idx = find(strcmp(st.safe_name,curr_area));
+    curr_structure_id = st.structure_id_path{curr_structure_idx};
+    curr_ccf_idx = find(cellfun(@(x) contains(x,curr_structure_id), ...
+        st.structure_id_path));
+
+    slice_spacing = 5;
+    curr_ccf_volume = ...
+        ismember(av(1:slice_spacing:end, ...
+        1:slice_spacing:end,1:slice_spacing:end),curr_ccf_idx);
+
+    curr_ccf_coronal_max = permute(max(curr_ccf_volume,[],1),[2,3,1]);
+    curr_min_dv = find(any(curr_ccf_coronal_max,2),1);
+
+    mua_areas_dvmin(strcmp(curr_area,mua_areas)) = curr_min_dv;
+end
+
+% (get areas to plot: anything present in all recordings)
+[~,area_idx] = cellfun(@(x) ismember(x,mua_areas),mua_areas_cat,'uni',false);
+area_recording_n = accumarray(cell2mat(area_idx),1);
+plot_areas = find(area_recording_n == length(trials_recording));
+[~,plot_area_sort_idx] = sort(mua_areas_dvmin(plot_areas));
+
+% Plot stim overlaid
 figure;
 stim_color = [0,0,0.8;0.5,0.5,0.5;0.8,0,0];
 h = tiledlayout(length(plot_areas),1);
 for curr_area = plot_areas(plot_area_sort_idx)'
     nexttile;
     AP_errorfill(t', ...
-        squeeze(nanmean(mua_animal_avg(:,:,:,curr_area),1)), ...
-        squeeze(AP_sem(mua_animal_avg(:,:,:,curr_area),1)),stim_color);
+        squeeze(nanmean(mua_recording_avg(:,:,:,curr_area),1)), ...
+        squeeze(AP_sem(mua_recording_avg(:,:,:,curr_area),1)),stim_color);
     ylabel(mua_areas(curr_area));
 end
 linkaxes(allchild(h),'xy');
@@ -2075,6 +2148,24 @@ arrayfun(@(x) patch(x,[0,0.5,0.5,0], ...
     reshape(repmat(ylim(x),2,1),[],1),[1,1,0.8], ...
     'linestyle','none'),allchild(h));
 arrayfun(@(x) set(x,'children',circshift(get(x,'children'),-1)),allchild(h));
+
+% Plot right-hand stim
+figure;
+h = tiledlayout(length(plot_areas),1);
+for curr_area = plot_areas(plot_area_sort_idx)'
+    nexttile;
+    AP_errorfill(t', ...
+        squeeze(nanmean(mua_recording_avg(:,:,stim_unique == 1,curr_area),1)), ...
+        squeeze(AP_sem(mua_recording_avg(:,:,stim_unique == 1,curr_area),1)),'k');
+    ylabel(mua_areas(curr_area));
+end
+linkaxes(allchild(h),'xy');
+% (shade stim area and put in back)
+arrayfun(@(x) patch(x,[0,0.5,0.5,0], ...
+    reshape(repmat(ylim(x),2,1),[],1),[1,1,0.8], ...
+    'linestyle','none'),allchild(h));
+arrayfun(@(x) set(x,'children',circshift(get(x,'children'),-1)),allchild(h));
+
 
 
 %% Ephys - plot probe position
