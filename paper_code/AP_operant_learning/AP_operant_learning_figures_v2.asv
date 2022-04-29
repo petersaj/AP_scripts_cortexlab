@@ -1171,16 +1171,21 @@ AP_stackplot(flipud(curr_tcourse)',t,1.5*std(curr_tcourse(:)),[],line_col,fliplr
 
 
 
-
 figure;
 curr_roi = 6;
-use_learned_days = ismember(learned_day_unique,[-3:2]);
-AP_errorfill(t, ...
+line_days = -3:2;
+use_learned_days = ismember(learned_day_unique,line_days);
+col = AP_colormap('KWP',1+sum(use_learned_days));
+col(median(1:size(col,1)),:) = [];
+p = AP_errorfill(t, ...
     squeeze(nanmean(roi_learnday_avg(use_learned_days,:,curr_roi,:),4))', ...
     squeeze(AP_sem(roi_learnday_avg(use_learned_days,:,curr_roi,:),4))', ...
-    AP_colormap('KP',sum(use_learned_days)));
+    col);
 xline(0);
 xlim([-0.05,0.4]);
+legend(p,cellfun(@(x) sprintf('LDday %d',x),num2cell(line_days),'uni',false));
+ylabel(wf_roi(curr_roi).area);
+xlabel('Time from stim (s)');
 
 
 
@@ -1408,6 +1413,41 @@ arrayfun(@(x) patch(x,[0,0.5,0.5,0], ...
 arrayfun(@(x) set(x,'children',circshift(get(x,'children'),-1)),allchild(h));
 
 
+% Plot ROIs by stage (L/R overlay)
+figure;
+plot_rois = 6;
+
+hemi_stage_col = [0.7,0,0;0,0,0.7];
+
+stage_col = min(1,[0.4,0,0.4] + [0.5;0]);
+
+
+stage_col = repmat(linspace(0.3,0,n_stages)',[1,3]);
+
+
+h = tiledlayout(length(plot_rois),3,'TileSpacing','compact','padding','compact');
+for curr_roi = plot_rois
+  for curr_stim = stim_unique'
+    nexttile;
+    AP_errorfill(t, ...
+        squeeze(nanmean(stim_roi_avg_stage(curr_roi,:,:,stim_unique == curr_stim,:),5)), ...
+        squeeze(AP_sem(stim_roi_avg_stage(curr_roi,:,:,stim_unique == curr_stim,:),5)), ...
+        stage_col(:,:));
+    xlabel('Time from stim (s)');
+    ylabel(sprintf('%s \\DeltaF/F_0',wf_roi(curr_roi).area));
+    axis tight;xlim(xlim+[-0.1,0.1])
+  end
+end
+% Link all axes
+linkaxes(allchild(h),'xy');
+% (shade stim area and put in back)
+arrayfun(@(x) patch(x,[0,0.5,0.5,0], ...
+    reshape(repmat(ylim(x),2,1),[],1),[1,1,0.8], ...
+    'linestyle','none'),allchild(h));
+arrayfun(@(x) set(x,'children',circshift(get(x,'children'),-1)),allchild(h));
+
+
+
 %% ^^ Passive - ROI timecourse/tmax by learned day
 
 % Set values for plotting
@@ -1504,14 +1544,17 @@ figure;
 curr_roi = 6;
 line_days = -3:2;
 use_learned_days = ismember(learned_day_unique,line_days);
+col = AP_colormap('KWR',1+sum(use_learned_days));
+col(median(1:size(col,1)),:) = [];
 p = AP_errorfill(t, ...
-    squeeze(nanmean(roi_learnday_avg(use_learned_days,:,curr_roi,3,:),5))', ...
-    squeeze(AP_sem(roi_learnday_avg(use_learned_days,:,curr_roi,3,:),5))', ...
-    AP_colormap('KG',sum(use_learned_days)));
+    squeeze(nanmean(roi_learnday_avg(use_learned_days,:,curr_roi,stim_unique == 1,:),5))', ...
+    squeeze(AP_sem(roi_learnday_avg(use_learned_days,:,curr_roi,stim_unique == 1,:),5))', ...
+    col);
 xline(0);
 xlim([-0.05,0.4]);
-legend(p,cellfun(@(x) 'Learned day: ' num2str(xline_days);
-
+legend(p,cellfun(@(x) sprintf('LDday %d',x),num2cell(line_days),'uni',false));
+ylabel(wf_roi(curr_roi).area);
+xlabel('Time from stim (s)');
 
 
 %% ^^ Passive - whisker/pupil

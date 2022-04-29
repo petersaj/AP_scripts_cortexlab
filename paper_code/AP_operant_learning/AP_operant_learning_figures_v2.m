@@ -1413,6 +1413,39 @@ arrayfun(@(x) patch(x,[0,0.5,0.5,0], ...
 arrayfun(@(x) set(x,'children',circshift(get(x,'children'),-1)),allchild(h));
 
 
+% Plot ROIs by stage (L/R overlay)
+figure;
+plot_rois = 6;
+
+hemi_stage_col = min(1,reshape([0.7,0,0;0,0,0.7]' + cat(3,0.5,0),3,[]))';
+
+h = tiledlayout(length(plot_rois),3,'TileSpacing','compact','padding','compact');
+for curr_roi = plot_rois
+    for curr_stim = stim_unique'
+
+        curr_rois = curr_roi + [0,size(wf_roi,1)];
+
+        nexttile;
+        AP_errorfill(t, ...
+            reshape(permute(nanmean(stim_roi_avg_stage(curr_rois,:,:,stim_unique == curr_stim,:),5),[2,1,3]),length(t),[]), ...
+            reshape(permute(AP_sem(stim_roi_avg_stage(curr_rois,:,:,stim_unique == curr_stim,:),5),[2,1,3]),length(t),[]), ...
+            hemi_stage_col(:,:));
+        xlabel('Time from stim (s)');
+        ylabel(sprintf('%s \\DeltaF/F_0',wf_roi(curr_roi).area));
+        axis tight;xlim([-0.2,1])
+
+    end
+end
+% Link all axes
+linkaxes(allchild(h),'xy');
+% (shade stim area and put in back)
+arrayfun(@(x) patch(x,[0,0.5,0.5,0], ...
+    reshape(repmat(ylim(x),2,1),[],1),[1,1,0.8], ...
+    'linestyle','none'),allchild(h));
+arrayfun(@(x) set(x,'children',circshift(get(x,'children'),-1)),allchild(h));
+
+
+
 %% ^^ Passive - ROI timecourse/tmax by learned day
 
 % Set values for plotting
