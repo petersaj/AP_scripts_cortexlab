@@ -605,7 +605,13 @@ fluor_move_nostim_rewardable_animalavg_px_hemiratio = ...
     'uni',false);
 
 
-%% ^^ Task - stim-aligned movie by pre/post learning (raw and hemidiff)
+%% ^^ Task - stim-aligned movie/tmax by pre/post learning (raw and hemidiff)
+
+% Set trials to use
+learned_day_grp_edges = [-Inf,0,Inf];
+trial_learned_day_grp = discretize(trial_learned_day,learned_day_grp_edges);
+n_learn_grps = length(learned_day_grp_edges)-1;
+
 
 fluor_learning_animal = nan(n_vs,length(t),n_learn_grps, ...
     length(animals),class(fluor_allcat_deconv));
@@ -639,6 +645,28 @@ caxis(max(abs(caxis))*[-1,1]);
 colormap(AP_colormap('BWR',[],1.5));
 axis image off;
 AP_reference_outline('ccf_aligned_lefthemi',[0.5,0.5,0.5]);
+
+% Get time window fluorescence
+use_t = t >= 0 & t <= 0.2;
+figure; tiledlayout(2,2);
+c = max(fluor_learning_animal_px_avg(:)).*[-1,1];
+c_hemi = max(fluor_learning_animal_px_hemidiff_avg(:)).*[-1,1];
+for curr_learn = 1:n_learn_grps
+
+    nexttile;
+    imagesc(max(fluor_learning_animal_px_avg(:,:,use_t,curr_learn),[],3));
+    colormap(gca,AP_colormap('KWG',[],1.5)); caxis(c);
+    axis image off;
+    AP_reference_outline('ccf_aligned',[0.5,0.5,0.5]);
+
+    nexttile;
+    imagesc(max(fluor_learning_animal_px_hemidiff_avg(:,1:size(U_master,2)/2,use_t,curr_learn),[],3));
+    colormap(gca,AP_colormap('KWP',[],1.5)); caxis(c_hemi);
+    axis image off;
+    AP_reference_outline('ccf_aligned_lefthemi',[0.5,0.5,0.5]);
+
+end
+
 
 
 %% ^^ Task - event-aligned pixels by pre/post learning (raw and hemidiff)
@@ -839,7 +867,6 @@ plot_rois = [1,7,6];
 trial_learned_stage = discretize(trial_learned_day,[-Inf,0,Inf]);
 
 % Set activity
-roi_hemiflip = circshift(1:n_rois,n_rois/2);
 curr_act = fluor_roi_deconv;
 
 % Move-align activity
@@ -920,7 +947,6 @@ plot_rois = [1,7,6];
 trial_learned_stage = discretize(trial_learned_day,[-Inf,0,Inf]);
 
 % Set activity
-roi_hemiflip = circshift(1:n_rois,n_rois/2);
 curr_act = fluor_roi_deconv;
 
 % Move-align activity
@@ -968,35 +994,35 @@ x_limit = [-0.1,median_move_t];
 
 figure;
 h = tiledlayout(2,length(plot_rois)*2);
-stage_col = [0.5,0.7,0.5;0,0.7,0];
-for curr_roi = plot_rois
+hemi_col = [0.7,0,0;0,0,0.7];
+for curr_stage = unique(trial_learned_stage)'
+    for curr_roi = plot_rois
 
-    contra_roi = curr_roi + size(wf_roi,1);
-    curr_rois = [curr_r
+        curr_rois = curr_roi + [0,size(wf_roi,1)];
 
-    curr_data_stim = permute(roi_stim_learn_avg(:,:,curr_roi,:),[2,1,4,3]);
-    curr_data_move = permute(roi_move_learn_avg(:,:,curr_roi,:),[2,1,4,3]);
+        curr_data_stim = permute(roi_stim_learn_avg(curr_stage,:,curr_rois,:),[2,3,4,1]);
+        curr_data_move = permute(roi_move_learn_avg(curr_stage,:,curr_rois,:),[2,3,4,1]);
 
-    nexttile; hold on;
-    AP_errorfill(t,nanmean(curr_data_stim,3),AP_sem(curr_data_stim,3),stage_col);
-    xlabel('Stim');
-    ylabel(wf_roi(curr_roi).area(1:end-2));
-    xline(0);set(gca,'children',circshift(get(gca,'children'),-1))
-    xlim(x_limit);
+        nexttile; hold on;
+        AP_errorfill(t,nanmean(curr_data_stim,3),AP_sem(curr_data_stim,3),hemi_col);
+        xlabel('Stim');
+        ylabel(wf_roi(curr_roi).area(1:end-2));
+        xline(0);set(gca,'children',circshift(get(gca,'children'),-1))
+        xlim(x_limit);
 
-    nexttile; hold on;
-    AP_errorfill(t,nanmean(curr_data_move,3),AP_sem(curr_data_move,3),stage_col);
-    xlabel('Move');
-    ylabel(wf_roi(curr_roi).area(1:end-2));
-    xline(0);set(gca,'children',circshift(get(gca,'children'),-1))
-    xlim(x_limit - x_limit(1));
+        nexttile; hold on;
+        AP_errorfill(t,nanmean(curr_data_move,3),AP_sem(curr_data_move,3),hemi_col);
+        xlabel('Move');
+        ylabel(wf_roi(curr_roi).area(1:end-2));
+        xline(0);set(gca,'children',circshift(get(gca,'children'),-1))
+        xlim(x_limit - x_limit(1));
 
+    end
 end
-% (link ROI y-axes)
-ax = reshape(allchild(h),2,length(plot_rois));
-for curr_roi = 1:length(plot_rois)
-   linkaxes(ax(:,curr_roi),'y'); 
-end
+
+% (link all y-axes);
+linkaxes(allchild(h),'y');
+
 
 %% ^^ Task - average activity (stim/move align pre/post learn) (HEMIDIFF)
 
@@ -1053,7 +1079,7 @@ x_limit = [-0.1,median_move_t];
 
 figure;
 h = tiledlayout(1,length(plot_rois)*2);
-stage_col = [1,0.5,0.5;0.5,0,0];
+stage_col = min(1,[0.4,0,0.4] + [0.5;0]);
 for curr_roi = plot_rois
 
     curr_data_stim = permute(roi_stim_learn_avg(:,:,curr_roi,:),[2,1,4,3]);
@@ -1134,8 +1160,27 @@ ylabel(wf_roi(plot_roi).area);
 
 
 figure; 
-AP_stackplot(curr_tcourse',t,3*std(curr_tcourse(:)),[],'k',learned_day_unique(plot_learned_days));
+line_col = [0.4,0,0.4];
+AP_stackplot(curr_tcourse',t,1.5*std(curr_tcourse(:)),[],line_col,learned_day_unique(plot_learned_days));
 
+
+
+figure; 
+line_col = [0.4,0,0.4];
+AP_stackplot(flipud(curr_tcourse)',t,1.5*std(curr_tcourse(:)),[],line_col,fliplr(learned_day_unique(plot_learned_days)),true);
+
+
+
+
+figure;
+curr_roi = 6;
+use_learned_days = ismember(learned_day_unique,[-3:2]);
+AP_errorfill(t, ...
+    squeeze(nanmean(roi_learnday_avg(use_learned_days,:,curr_roi,:),4))', ...
+    squeeze(AP_sem(roi_learnday_avg(use_learned_days,:,curr_roi,:),4))', ...
+    AP_colormap('KP',sum(use_learned_days)));
+xline(0);
+xlim([-0.05,0.4]);
 
 
 
@@ -1454,6 +1499,18 @@ curr_roi = 6;
 curr_data = nanmean(roi_learnday_avg(plot_learned_days,:,curr_roi,stim_unique == 1,:),5);
 AP_stackplot(curr_data',t,3*std(curr_data(:)),[],'k',learned_day_unique(plot_learned_days));
 
+
+figure;
+curr_roi = 6;
+line_days = -3:2;
+use_learned_days = ismember(learned_day_unique,line_days);
+p = AP_errorfill(t, ...
+    squeeze(nanmean(roi_learnday_avg(use_learned_days,:,curr_roi,3,:),5))', ...
+    squeeze(AP_sem(roi_learnday_avg(use_learned_days,:,curr_roi,3,:),5))', ...
+    AP_colormap('KG',sum(use_learned_days)));
+xline(0);
+xlim([-0.05,0.4]);
+legend(p,cellfun(@(x) 'Learned day: ' num2str(xline_days);
 
 
 

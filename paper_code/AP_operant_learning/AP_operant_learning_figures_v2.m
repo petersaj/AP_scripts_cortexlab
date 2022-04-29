@@ -605,7 +605,13 @@ fluor_move_nostim_rewardable_animalavg_px_hemiratio = ...
     'uni',false);
 
 
-%% ^^ Task - stim-aligned movie by pre/post learning (raw and hemidiff)
+%% ^^ Task - stim-aligned movie/tmax by pre/post learning (raw and hemidiff)
+
+% Set trials to use
+learned_day_grp_edges = [-Inf,0,Inf];
+trial_learned_day_grp = discretize(trial_learned_day,learned_day_grp_edges);
+n_learn_grps = length(learned_day_grp_edges)-1;
+
 
 fluor_learning_animal = nan(n_vs,length(t),n_learn_grps, ...
     length(animals),class(fluor_allcat_deconv));
@@ -639,6 +645,28 @@ caxis(max(abs(caxis))*[-1,1]);
 colormap(AP_colormap('BWR',[],1.5));
 axis image off;
 AP_reference_outline('ccf_aligned_lefthemi',[0.5,0.5,0.5]);
+
+% Get time window fluorescence
+use_t = t >= 0 & t <= 0.2;
+figure; tiledlayout(2,2);
+c = max(fluor_learning_animal_px_avg(:)).*[-1,1];
+c_hemi = max(fluor_learning_animal_px_hemidiff_avg(:)).*[-1,1];
+for curr_learn = 1:n_learn_grps
+
+    nexttile;
+    imagesc(max(fluor_learning_animal_px_avg(:,:,use_t,curr_learn),[],3));
+    colormap(gca,AP_colormap('KWG',[],1.5)); caxis(c);
+    axis image off;
+    AP_reference_outline('ccf_aligned',[0.5,0.5,0.5]);
+
+    nexttile;
+    imagesc(max(fluor_learning_animal_px_hemidiff_avg(:,1:size(U_master,2)/2,use_t,curr_learn),[],3));
+    colormap(gca,AP_colormap('KWP',[],1.5)); caxis(c_hemi);
+    axis image off;
+    AP_reference_outline('ccf_aligned_lefthemi',[0.5,0.5,0.5]);
+
+end
+
 
 
 %% ^^ Task - event-aligned pixels by pre/post learning (raw and hemidiff)
@@ -1051,7 +1079,7 @@ x_limit = [-0.1,median_move_t];
 
 figure;
 h = tiledlayout(1,length(plot_rois)*2);
-stage_col = [1,0.5,0.5;0.5,0,0];
+stage_col = min(1,[0.4,0,0.4] + [0.5;0]);
 for curr_roi = plot_rois
 
     curr_data_stim = permute(roi_stim_learn_avg(:,:,curr_roi,:),[2,1,4,3]);
@@ -1132,8 +1160,32 @@ ylabel(wf_roi(plot_roi).area);
 
 
 figure; 
-AP_stackplot(curr_tcourse',t,3*std(curr_tcourse(:)),[],'k',learned_day_unique(plot_learned_days));
+line_col = [0.4,0,0.4];
+AP_stackplot(curr_tcourse',t,1.5*std(curr_tcourse(:)),[],line_col,learned_day_unique(plot_learned_days));
 
+
+
+figure; 
+line_col = [0.4,0,0.4];
+AP_stackplot(flipud(curr_tcourse)',t,1.5*std(curr_tcourse(:)),[],line_col,fliplr(learned_day_unique(plot_learned_days)),true);
+
+
+
+figure;
+curr_roi = 6;
+line_days = -3:2;
+use_learned_days = ismember(learned_day_unique,line_days);
+col = AP_colormap('KWP',1+sum(use_learned_days));
+col(median(1:size(col,1)),:) = [];
+p = AP_errorfill(t, ...
+    squeeze(nanmean(roi_learnday_avg(use_learned_days,:,curr_roi,:),4))', ...
+    squeeze(AP_sem(roi_learnday_avg(use_learned_days,:,curr_roi,:),4))', ...
+    col);
+xline(0);
+xlim([-0.05,0.4]);
+legend(p,cellfun(@(x) sprintf('LDday %d',x),num2cell(line_days),'uni',false));
+ylabel(wf_roi(curr_roi).area);
+xlabel('Time from stim (s)');
 
 
 
@@ -1453,6 +1505,21 @@ curr_data = nanmean(roi_learnday_avg(plot_learned_days,:,curr_roi,stim_unique ==
 AP_stackplot(curr_data',t,3*std(curr_data(:)),[],'k',learned_day_unique(plot_learned_days));
 
 
+figure;
+curr_roi = 6;
+line_days = -3:2;
+use_learned_days = ismember(learned_day_unique,line_days);
+col = AP_colormap('KWR',1+sum(use_learned_days));
+col(median(1:size(col,1)),:) = [];
+p = AP_errorfill(t, ...
+    squeeze(nanmean(roi_learnday_avg(use_learned_days,:,curr_roi,stim_unique == 1,:),5))', ...
+    squeeze(AP_sem(roi_learnday_avg(use_learned_days,:,curr_roi,stim_unique == 1,:),5))', ...
+    col);
+xline(0);
+xlim([-0.05,0.4]);
+legend(p,cellfun(@(x) sprintf('LDday %d',x),num2cell(line_days),'uni',false));
+ylabel(wf_roi(curr_roi).area);
+xlabel('Time from stim (s)');
 
 
 %% ^^ Passive - whisker/pupil
