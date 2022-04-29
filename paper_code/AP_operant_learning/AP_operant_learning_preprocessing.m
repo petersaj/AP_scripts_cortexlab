@@ -1279,9 +1279,13 @@ for curr_animal = 1:length(animals)
         % Store general info
         trial_data_all.animals = animals;
         trial_data_all.t = t;
-        trial_data_all.task_regressor_labels = task_regressor_labels;
-        trial_data_all.task_regressor_sample_shifts = task_regressor_sample_shifts;
-        trial_data_all.mua_depth_edges = depth_group_edges;
+
+        % (not saving by depth anymore)
+%         trial_data_all.mua_depth_edges = depth_group_edges;
+
+        % (turned regression off)
+%         trial_data_all.task_regressor_labels = task_regressor_labels;
+%         trial_data_all.task_regressor_sample_shifts = task_regressor_sample_shifts;
         
         AP_print_progress_fraction(curr_day,length(experiments));
         

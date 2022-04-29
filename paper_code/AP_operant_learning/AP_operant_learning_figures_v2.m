@@ -1188,6 +1188,22 @@ ylabel(wf_roi(curr_roi).area);
 xlabel('Time from stim (s)');
 
 
+curr_roi = 6;
+lineplot_learned_days = -3:2;
+figure;
+h = tiledlayout(1,length(lineplot_learned_days));
+for curr_ld = lineplot_learned_days
+    curr_data = squeeze(roi_learnday_avg(learned_day_unique == curr_ld,:,curr_roi,:));
+    
+    nexttile; hold on;
+    AP_errorfill(t,nanmean(curr_data,2),AP_sem(curr_data,2),[0.4,0,0.4]);
+    xline(0);
+    title(sprintf('LD %d',curr_ld));
+end
+linkaxes(allchild(h),'xy');
+axis tight; xlim([-0.2,0.4]);
+
+
 
 
 %% ^^ Task - daysplit ROI fluorescence (minus move hemiratio)
@@ -1553,6 +1569,24 @@ xlim([-0.05,0.4]);
 legend(p,cellfun(@(x) sprintf('LDday %d',x),num2cell(line_days),'uni',false));
 ylabel(wf_roi(curr_roi).area);
 xlabel('Time from stim (s)');
+
+
+curr_roi = 6;
+lineplot_learned_days = -3:2;
+figure;
+h = tiledlayout(1,length(lineplot_learned_days));
+for curr_ld = lineplot_learned_days
+    curr_data = squeeze(roi_learnday_avg(learned_day_unique == curr_ld,:, ...
+        curr_roi,stim_unique == 1,:));
+    
+    nexttile; hold on;
+    AP_errorfill(t,nanmean(curr_data,2),AP_sem(curr_data,2),[0.7,0,0]);
+    xline(0);
+    title(sprintf('LD %d',curr_ld));
+end
+linkaxes(allchild(h),'xy');
+axis tight; xlim([-0.2,0.4]);
+
 
 
 %% ^^ Passive - whisker/pupil
@@ -1931,6 +1965,30 @@ xlabel('Learned day');
 ylabel('\DeltaF/F_0');
 
 legend([ht,hpl,hpr],{'Task','Passive (R stim)','Passive (L stim)'},'location','nw');
+
+
+%% Ephys - Task
+
+% Load data
+trial_data_path = 'C:\Users\Andrew\OneDrive for Business\Documents\CarandiniHarrisLab\analysis\operant_learning\data';
+data_fn = 'trial_activity_task_ephys';
+
+AP_load_trials_operant;
+
+% Get animal and day index for each trial
+trial_animal = cell2mat(arrayfun(@(x) ...
+    x*ones(size(vertcat(wheel_all{x}{:}),1),1), ...
+    [1:length(wheel_all)]','uni',false));
+trial_day = cell2mat(cellfun(@(x) cell2mat(cellfun(@(curr_day,x) ...
+    curr_day*ones(size(x,1),1),num2cell(1:length(x))',x,'uni',false)), ...
+    wheel_all,'uni',false));
+
+trials_recording = cellfun(@(x) size(x,1),vertcat(wheel_all{:}));
+
+%%%% TO DO HERE: 
+% Plot average activity aligned to stim and move
+% (looks mega heterogeneous though...)
+
 
 
 %% Ephys - Passive

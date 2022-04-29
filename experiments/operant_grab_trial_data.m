@@ -112,49 +112,57 @@ t = raster_window(1):raster_sample_time:raster_window(2);
 %% Set align times (stimulus)
 
 stim_align = stimOn_times;
-stim_align(isnan(stim_align)) = 0;
-
 t_peri_stim = bsxfun(@plus,stim_align,t);
 t_peri_stim_bins = [t_peri_stim-raster_sample_time/2,t_peri_stim(:,end)+raster_sample_time/2];
 
+%% Set align times (movement - first post-stim)
+
+if task_dataset
+    move_align = wheel_starts(wheel_move_stim_idx);
+    t_peri_move = bsxfun(@plus,move_align,t);
+    t_peri_move_bins = [t_peri_move-raster_sample_time/2,t_peri_move(:,end)+raster_sample_time/2];
+end
 
 %% Set align times (delay-period movement)
 % (movements without stim on screen that hit reward threshold)
 
-if verbose; disp('Getting rewardable movements without stimuli...'); end;
+if task_dataset
 
-% Grab all movements separately (in degrees from move start)
-wheel_moves_deg = arrayfun(@(x) wheel_position_deg( ...
-    Timeline.rawDAQTimestamps >= wheel_starts(x) & ...
-    Timeline.rawDAQTimestamps <= wheel_stops(x)) - ...
-    wheel_position_deg(find(Timeline.rawDAQTimestamps >= wheel_starts(x),1)), ...
-    1:length(wheel_starts),'uni',false);
+    if verbose; disp('Getting rewardable movements without stimuli...'); end;
 
-% Find movements that hit reward limit (and don't hit punish limit)
-deg_reward = -90;
-deg_punish = 90;
+    % Grab all movements separately (in degrees from move start)
+    wheel_moves_deg = arrayfun(@(x) wheel_position_deg( ...
+        Timeline.rawDAQTimestamps >= wheel_starts(x) & ...
+        Timeline.rawDAQTimestamps <= wheel_stops(x)) - ...
+        wheel_position_deg(find(Timeline.rawDAQTimestamps >= wheel_starts(x),1)), ...
+        1:length(wheel_starts),'uni',false);
 
-wheel_moves_deg_rewardlimit = find(cellfun(@(x) ...
-    any(x <= deg_reward) && ...
-    ~any(x >= deg_punish),wheel_moves_deg));
+    % Find movements that hit reward limit (and don't hit punish limit)
+    deg_reward = -90;
+    deg_punish = 90;
 
-wheel_move_nostim_rewardable_idx = ...
-    intersect(wheel_move_nostim_idx,wheel_moves_deg_rewardlimit);
+    wheel_moves_deg_rewardlimit = find(cellfun(@(x) ...
+        any(x <= deg_reward) && ...
+        ~any(x >= deg_punish),wheel_moves_deg));
 
-% Less strict: find movements that are just net leftwards
-wheel_move_leftward_idx = find(cellfun(@sum,wheel_moves_deg) < 0);
-wheel_move_nostim_leftward_idx = ...
-    intersect(wheel_move_nostim_idx,wheel_move_leftward_idx);
+    wheel_move_nostim_rewardable_idx = ...
+        intersect(wheel_move_nostim_idx,wheel_moves_deg_rewardlimit);
 
-% Get move no-stim align times
-move_nostim_rewardable_align = wheel_starts(wheel_move_nostim_rewardable_idx);
-t_peri_move_nostim_rewardable = bsxfun(@plus,move_nostim_rewardable_align,t);
-t_peri_move_nostim_rewardable_bins = [t_peri_move_nostim_rewardable-raster_sample_time/2,t_peri_move_nostim_rewardable(:,end)+raster_sample_time/2];
+    % Less strict: find movements that are just net leftwards
+    wheel_move_leftward_idx = find(cellfun(@sum,wheel_moves_deg) < 0);
+    wheel_move_nostim_leftward_idx = ...
+        intersect(wheel_move_nostim_idx,wheel_move_leftward_idx);
 
-move_nostim_leftward_align = wheel_starts(wheel_move_nostim_leftward_idx);
-t_peri_move_nostim_leftward = bsxfun(@plus,move_nostim_leftward_align,t);
-t_peri_move_nostim_leftward_bins = [t_peri_move_nostim_leftward-raster_sample_time/2,t_peri_move_nostim_leftward(:,end)+raster_sample_time/2];
+    % Get move no-stim align times
+    move_nostim_rewardable_align = wheel_starts(wheel_move_nostim_rewardable_idx);
+    t_peri_move_nostim_rewardable = bsxfun(@plus,move_nostim_rewardable_align,t);
+    t_peri_move_nostim_rewardable_bins = [t_peri_move_nostim_rewardable-raster_sample_time/2,t_peri_move_nostim_rewardable(:,end)+raster_sample_time/2];
 
+    move_nostim_leftward_align = wheel_starts(wheel_move_nostim_leftward_idx);
+    t_peri_move_nostim_leftward = bsxfun(@plus,move_nostim_leftward_align,t);
+    t_peri_move_nostim_leftward_bins = [t_peri_move_nostim_leftward-raster_sample_time/2,t_peri_move_nostim_leftward(:,end)+raster_sample_time/2];
+
+end
 
 %% Grab aligned data
 
@@ -165,18 +173,23 @@ if imaging_exists
     stim_aligned_V_deconv = ...
         interp1(frame_t,fVdf_deconv_recast(use_components,:)',t_peri_stim,'previous');
 
-    move_nostim_rewardable_aligned_V_deconv = ...
-        interp1(frame_t,fVdf_deconv_recast(use_components,:)',t_peri_move_nostim_rewardable,'previous');
+    if task_dataset
+        move_aligned_V_deconv = ...
+            interp1(frame_t,fVdf_deconv_recast(use_components,:)',t_peri_move,'previous');
 
-    move_nostim_leftward_aligned_V_deconv = ...
-        interp1(frame_t,fVdf_deconv_recast(use_components,:)',t_peri_move_nostim_leftward,'previous');
+        move_nostim_rewardable_aligned_V_deconv = ...
+            interp1(frame_t,fVdf_deconv_recast(use_components,:)',t_peri_move_nostim_rewardable,'previous');
+
+        move_nostim_leftward_aligned_V_deconv = ...
+            interp1(frame_t,fVdf_deconv_recast(use_components,:)',t_peri_move_nostim_leftward,'previous');
+    end
 end
 
 % Cortical electrophysiology (multiunit by area)
 if ephys_exists
     
     stim_aligned_mua_area = nan(size(t_peri_stim_bins,1),length(t),length(probe_areas));
-    move_aligned_mua_area = nan(size(t_peri_move_nostim_rewardable_bins,1),length(t),length(probe_areas));
+    move_nostim_rewardable_aligned_mua_area = nan(size(t_peri_move_nostim_rewardable_bins,1),length(t),length(probe_areas));
 
     for curr_area = 1:length(probe_areas)
         curr_spikes = spike_times_timeline(...
@@ -191,9 +204,11 @@ if ephys_exists
             histcounts(curr_spikes,t_peri_stim_bins(x,:)), ...
             [1:size(t_peri_stim_bins,1)]','uni',false))*raster_sample_rate;
 
-        move_aligned_mua_area(:,:,curr_area) = cell2mat(arrayfun(@(x) ...
-            histcounts(curr_spikes,t_peri_move_nostim_rewardable_bins(x,:)), ...
-            [1:size(t_peri_move_nostim_rewardable_bins,1)]','uni',false))*raster_sample_rate;
+        if task_dataset
+            move_nostim_rewardable_aligned_mua_area(:,:,curr_area) = cell2mat(arrayfun(@(x) ...
+                histcounts(curr_spikes,t_peri_move_nostim_rewardable_bins(x,:)), ...
+                [1:size(t_peri_move_nostim_rewardable_bins,1)]','uni',false))*raster_sample_rate;
+        end
     end
         
 end
@@ -215,20 +230,20 @@ if exist('whisker_move','var')
 end
 
 if task_dataset
-    
-% Outcome (reward page 1, punish page 2)
-% (note incorrect outcome imprecise from signals, but looks good)
-stim_aligned_outcome = zeros(size(t_peri_stim,1),size(t_peri_stim,2),2);
 
-stim_aligned_outcome(trial_outcome == 1,:,1) = ...
-    (cell2mat(arrayfun(@(x) ...
-    histcounts(reward_t_timeline,t_peri_stim_bins(x,:)), ...
-    find(trial_outcome == 1),'uni',false))) > 0;
+    % Outcome (reward page 1, punish page 2)
+    % (note incorrect outcome imprecise from signals, but looks good)
+    stim_aligned_outcome = zeros(size(t_peri_stim,1),size(t_peri_stim,2),2);
 
-stim_aligned_outcome(trial_outcome == -1,:,2) = ...
-    (cell2mat(arrayfun(@(x) ...
-    histcounts(signals_events.responseTimes,t_peri_stim_bins(x,:)), ...
-    find(trial_outcome == -1),'uni',false))) > 0;
+    stim_aligned_outcome(trial_outcome == 1,:,1) = ...
+        (cell2mat(arrayfun(@(x) ...
+        histcounts(reward_t_timeline,t_peri_stim_bins(x,:)), ...
+        find(trial_outcome == 1),'uni',false))) > 0;
+
+    stim_aligned_outcome(trial_outcome == -1,:,2) = ...
+        (cell2mat(arrayfun(@(x) ...
+        histcounts(signals_events.responseTimes,t_peri_stim_bins(x,:)), ...
+        find(trial_outcome == -1),'uni',false))) > 0;
 
 end
 
@@ -450,6 +465,8 @@ end
 if imaging_exists
     trial_data.fluor_all = stim_aligned_V_deconv(use_trials,:,:,:);
     if task_dataset
+        trial_data.fluor_move_all = move_aligned_V_deconv(use_trials,:,:,:);
+
         % (move no-stim: just average)
         trial_data.fluor_move_nostim_rewardable_all = nanmean(move_nostim_rewardable_aligned_V_deconv,1);
         trial_data.fluor_move_nostim_leftward_all = nanmean(move_nostim_leftward_aligned_V_deconv,1);
@@ -459,7 +476,7 @@ if ephys_exists
     trial_data.probe_areas_all = probe_areas; 
     trial_data.mua_area_all = stim_aligned_mua_area(use_trials,:,:,:);
     if task_dataset
-        trial_data.mua_area_move_all = move_aligned_mua_area(use_trials,:,:,:);
+        trial_data.mua_area_move_nostim_rewardable_all = nanmean(move_nostim_rewardable_aligned_mua_area,1);
     end
 end
 

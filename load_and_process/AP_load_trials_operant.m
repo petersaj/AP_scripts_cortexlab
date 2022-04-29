@@ -300,15 +300,15 @@ end
 if exist('mua_area_all','var')    
     
     % Normalize (dR/R0 within day) and concatenate
-    % (depth)
-    mua_depth_day_baseline = cellfun(@(mua_animal) cellfun(@(mua_day) ...
-        nanmean(reshape(mua_day(:,t_baseline,:),1,[],size(mua_day,3)),2), ...
-        mua_animal,'uni',false),mua_depth_all,'uni',false);
-    
-    mua_depth_allcat = cell2mat(cellfun(@(mua,mua_baseline) ...
-        (mua-mua_baseline)./mua_baseline, ...
-        vertcat(mua_depth_all{:}), ...
-        vertcat(mua_depth_day_baseline{:}),'uni',false));
+%     % (depth - not used anymore)
+%     mua_depth_day_baseline = cellfun(@(mua_animal) cellfun(@(mua_day) ...
+%         nanmean(reshape(mua_day(:,t_baseline,:),1,[],size(mua_day,3)),2), ...
+%         mua_animal,'uni',false),mua_depth_all,'uni',false);
+%     
+%     mua_depth_allcat = cell2mat(cellfun(@(mua,mua_baseline) ...
+%         (mua-mua_baseline)./mua_baseline, ...
+%         vertcat(mua_depth_all{:}), ...
+%         vertcat(mua_depth_day_baseline{:}),'uni',false));
     
     % (area)
     mua_areas_cat = vertcat(probe_areas_all{:});
@@ -322,12 +322,24 @@ if exist('mua_area_all','var')
         (mua-mua_baseline)./mua_baseline, ...
         vertcat(mua_area_all{:}), ...
         vertcat(mua_area_day_baseline{:}),'uni',false);
+
+    if task_dataset
+        mua_area_move_nostim_rewardable_norm = cellfun(@(mua,mua_baseline) ...
+            (mua-mua_baseline)./mua_baseline, ...
+            vertcat(mua_area_move_nostim_rewardable_all{:}), ...
+            vertcat(mua_area_day_baseline{:}),'uni',false);
+    end
     
     % (standardize area order across recordings)
     mua_area_norm_reorder = cellfun(@(x) ...
         nan(size(x,1),size(x,2),length(mua_areas)), ...
         mua_area_norm,'uni',false);
-    
+    if task_dataset
+        mua_area_move_nostim_rewardable_norm_reorder = cellfun(@(x) ...
+            nan(size(x,1),size(x,2),length(mua_areas)), ...
+            mua_area_move_nostim_rewardable_norm,'uni',false);
+    end
+
     if task_dataset && exist('mua_taskpred_all','var')
         % (area: task-predicted, already baseline-subtracted)
         mua_taskpred_norm = cellfun(@(mua,mua_baseline) ...
@@ -353,20 +365,26 @@ if exist('mua_area_all','var')
         [~,curr_area_idx] = ismember(mua_areas_cat{curr_recording},mua_areas);
         mua_area_norm_reorder{curr_recording}(:,:,curr_area_idx) = ...
             mua_area_norm{curr_recording};
-        
+
         if task_dataset
-            mua_taskpred_norm_reorder{curr_recording}(:,:,curr_area_idx) = ...
-                mua_taskpred_norm{curr_recording};
-            
-            mua_taskpred_reduced_norm_reorder{curr_recording}(:,:,curr_area_idx,:) = ...
-                mua_taskpred_reduced_norm{curr_recording};
+            mua_area_move_nostim_rewardable_norm_reorder{curr_recording}(:,:,curr_area_idx) = ...
+            mua_area_move_nostim_rewardable_norm{curr_recording};
+
+            % (regression turned off)
+%             mua_taskpred_norm_reorder{curr_recording}(:,:,curr_area_idx) = ...
+%                 mua_taskpred_norm{curr_recording};
+%             mua_taskpred_reduced_norm_reorder{curr_recording}(:,:,curr_area_idx,:) = ...
+%                 mua_taskpred_reduced_norm{curr_recording};
         end
     end
-    
+
     mua_area_allcat = cell2mat(mua_area_norm_reorder);
     if task_dataset
-        mua_taskpred_allcat = cell2mat(mua_taskpred_norm_reorder);
-        mua_taskpred_reduced_allcat = cell2mat(mua_taskpred_reduced_norm_reorder);
+        mua_area_move_nostim_rewardable_allcat = cell2mat(mua_area_move_nostim_rewardable_norm_reorder);
+
+          % (regression turned off)
+%         mua_taskpred_allcat = cell2mat(mua_taskpred_norm_reorder);
+%         mua_taskpred_reduced_allcat = cell2mat(mua_taskpred_reduced_norm_reorder);
     end
     
 end
