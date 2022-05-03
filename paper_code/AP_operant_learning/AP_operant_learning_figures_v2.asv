@@ -2308,8 +2308,8 @@ stim_response = cellfun(@(x) ...
     (nanmean(x(:,stim_response_t),2)+nanmean(x(:,stim_baseline_t),2)), ...
     locPSTHstim,'uni',false);
 
-move_baseline_t = t_move >= -0.7 & t_move <= -0.2;
-move_response_t = t_move >= -0.2 & t_move <= 0.3;
+move_baseline_t = t >= -0.7 & t <= -0.2;
+move_response_t = t >= -0.2 & t <= 0.3;
 move_response = cellfun(@(x) ...
     (nanmean(x(:,move_response_t),2)-nanmean(x(:,move_baseline_t),2))./ ...
     (nanmean(x(:,move_response_t),2)+nanmean(x(:,move_baseline_t),2)), ...
@@ -2327,20 +2327,12 @@ class_col = [0.8,0,0;0.8,0.5,0.5;0.7,0,0.7;0.5,0.5,0.5];
 % Sanity check: plot average stim/move classified response and windows
 figure;tiledlayout(1,2);
 nexttile; 
-plot(t,cell2mat(cellfun(@(x,y) ...
-    nanmean(zscore(x(y,:),[],2),1),locPSTHstim,stim_cells,'uni',false))');
-yyaxis right; hold on;
-plot(t,stim_baseline_t,'-k','linewidth',2);
-plot(t,stim_response_t,'-r','linewidth',2);
-title('Stim window and response');
-
+plot(t_move,cell2mat(cellfun(@(x,y) ...
+    nanmean(zscore(x(y,:),[],2),1),locPSTHstim,stim_cells,'uni',false)));
+xline(stim_baseline_t,stim_baseline_t)
 nexttile; 
 plot(t_move,cell2mat(cellfun(@(x,y) ...
-    nanmean(zscore(x(y,:),[],2),1),locPSTHmove,move_cells,'uni',false))');
-yyaxis right; hold on;
-plot(t_move,move_baseline_t,'-k','linewidth',2);
-plot(t_move,move_response_t,'-r','linewidth',2);
-title('Move window and response');
+    nanmean(zscore(x(y,:),[],2),1),locPSTHmove,move_cells,'uni',false)));
 
  % Plot response scatter and fraction classified
 figure;
@@ -2366,15 +2358,18 @@ scatterhist(cell2mat(stim_response),cell2mat(move_response), ...
 figure;
 h = scatterhist(cell2mat(stim_response),cell2mat(move_response), ...
     'Group',cell2mat(stim_cells),'Color',{'k','r'}, ...
-    'marker','.','MarkerSize',10,'Direction','out','location','northeast');
+    'kernel','on','marker','.','Direction','out','location','northeast');
 xlabel('Stimulus response');
 ylabel('Movement response');
-xline(0,'--'); yline(0,'--');
+xline(0,'--'); yline(0,'--')
 legend({'Not stimulus-responsive','Stimulus-responsive'})
-axis equal;
 
 
 
+figure; hold on; 
+scatterhist(cell2mat(stim_response),cell2mat(move_response), ...
+    'Group',cell2mat(move_cells),'Color',{'k','r'}, ...
+    'kernel','on','marker','.');
 
 
 

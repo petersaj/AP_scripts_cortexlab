@@ -249,16 +249,24 @@ if exist('fluor_all','var')
     
     % Concatenate cortex data, subtract baseline
     fluor_allcat = cell2mat(vertcat(fluor_all{:}));
-    if task_dataset && exist('fluor_taskpred_all','var')
-        % (concatenate)
-        fluor_taskpred_allcat = cell2mat(vertcat(fluor_taskpred_all{:}));
-        fluor_taskpred_reduced_allcat = cell2mat(vertcat(fluor_taskpred_reduced_all{:}));
+    if task_dataset
+
+        fluor_move_allcat = cell2mat(vertcat(fluor_move_all{:}));
+
+        if exist('fluor_taskpred_all','var')
+            % (concatenate)
+            fluor_taskpred_allcat = cell2mat(vertcat(fluor_taskpred_all{:}));
+            fluor_taskpred_reduced_allcat = cell2mat(vertcat(fluor_taskpred_reduced_all{:}));
+        end
     end
     
     % Deconvolve fluorescence, subtract baseline for each trial
     % (deconv now done in grab script to allow resampling)
     fluor_allcat_deconv = fluor_allcat;
-    clear fluor_allcat;
+    if task_dataset
+        fluor_move_allcat_deconv = fluor_move_allcat;
+    end
+    clear fluor_allcat fluor_move_allcat;
     
     % Get fluorescence ROIs
     % (by cortical area)
@@ -271,27 +279,37 @@ if exist('fluor_all','var')
         reshape(permute(fluor_allcat_deconv,[3,2,1]),n_vs,[]),[],[],cat(3,wf_roi.mask)), ...
         n_rois,[],size(fluor_allcat_deconv,1)),[3,2,1]);
     
-    if task_dataset && exist('fluor_taskpred_all','var')
-        
-        % Get task-predicted activity
-        fluor_roi_taskpred = permute(reshape( ...
+    if task_dataset
+
+        fluor_move_roi_deconv = permute(reshape( ...
             AP_svd_roi(U_master(:,:,1:n_vs), ...
-            reshape(permute(fluor_taskpred_allcat,[3,2,1]),n_vs,[]),[],[],cat(3,wf_roi.mask)), ...
-            n_rois,[],size(fluor_taskpred_allcat,1)),[3,2,1]);
-        fluor_roi_taskpred_reduced = cell2mat(permute(arrayfun(@(x) ...
-            permute(reshape( ...
-            AP_svd_roi(U_master(:,:,1:n_vs), ...
-            reshape(permute(fluor_taskpred_reduced_allcat(:,:,:,x),[3,2,1]), ...
-            n_vs,[]),[],[],cat(3,wf_roi.mask)), ...
-            n_rois,[],size(fluor_taskpred_reduced_allcat,1)),[3,2,1]), ...
-            1:size(fluor_taskpred_reduced_allcat,4),'uni',false),[1,3,4,2]));
-        
+            reshape(permute(fluor_move_allcat_deconv,[3,2,1]),n_vs,[]),[],[],cat(3,wf_roi.mask)), ...
+            n_rois,[],size(fluor_move_allcat_deconv,1)),[3,2,1]);
+
+        if exist('fluor_taskpred_all','var')
+            % Get task-predicted activity
+            fluor_roi_taskpred = permute(reshape( ...
+                AP_svd_roi(U_master(:,:,1:n_vs), ...
+                reshape(permute(fluor_taskpred_allcat,[3,2,1]),n_vs,[]),[],[],cat(3,wf_roi.mask)), ...
+                n_rois,[],size(fluor_taskpred_allcat,1)),[3,2,1]);
+            fluor_roi_taskpred_reduced = cell2mat(permute(arrayfun(@(x) ...
+                permute(reshape( ...
+                AP_svd_roi(U_master(:,:,1:n_vs), ...
+                reshape(permute(fluor_taskpred_reduced_allcat(:,:,:,x),[3,2,1]), ...
+                n_vs,[]),[],[],cat(3,wf_roi.mask)), ...
+                n_rois,[],size(fluor_taskpred_reduced_allcat,1)),[3,2,1]), ...
+                1:size(fluor_taskpred_reduced_allcat,4),'uni',false),[1,3,4,2]));
+        end
     end
     
     % Baseline-subtract all trials (task baseline-subtracted in grab)
     baseline_t = t < 0;
     fluor_allcat_deconv = fluor_allcat_deconv - nanmean(fluor_allcat_deconv(:,baseline_t,:),2);
     fluor_roi_deconv = fluor_roi_deconv - nanmean(fluor_roi_deconv(:,baseline_t,:),2);
+    if task_dataset
+        fluor_move_allcat_deconv = fluor_move_allcat_deconv - nanmean(fluor_allcat_deconv(:,baseline_t,:),2);
+        fluor_move_roi_deconv = fluor_move_roi_deconv - nanmean(fluor_roi_deconv(:,baseline_t,:),2);
+    end
     
 end
 
