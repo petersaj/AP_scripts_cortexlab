@@ -2357,12 +2357,16 @@ end
 colormap(class_col);
 set(findobj('type','text'),'FontSize',14);
 
-
+% Plot stim v movement response by cell classification
 figure; hold on; 
 scatterhist(cell2mat(stim_response),cell2mat(move_response), ...
     'Group',cell2mat(class_cell),'Color',class_col, ...
-    'kernel','on','marker','.')
+    'kernel','on','marker','.','Direction','out');
+legend({'Stim','Both','Move','Neither'});
+xlabel('Stim response');
+ylabel('Move response');
 
+% Plot stim v movement response for stim/all cells
 figure;
 h = scatterhist(cell2mat(stim_response),cell2mat(move_response), ...
     'Group',cell2mat(stim_cells),'Color',{'k','r'}, ...
@@ -2373,8 +2377,23 @@ xline(0,'--'); yline(0,'--');
 legend({'Not stimulus-responsive','Stimulus-responsive'})
 axis equal;
 
+% Plot stim and movement response for stim cells
+softnorm = 1;
+a = cell2mat(locPSTHstim);
+a = (a-nanmean(a(:,stim_baseline_t),2))./(softnorm+nanmean(a(:,stim_baseline_t),2));
+b = cell2mat(locPSTHmove);
+b = (b-nanmean(b(:,move_baseline_t),2))./(softnorm+nanmean(b(:,move_baseline_t),2));
 
+figure; tiledlayout(1,2);
+nexttile; hold on;
+plot(t,nanmean(a(cell2mat(stim_cells),:),1));
+plot(t,nanmean(a(cell2mat(move_cells),:),1));
+plot(t,nanmean(a(~cell2mat(stim_cells),:),1));
 
+nexttile; hold on;
+plot(t_move,nanmean(b(cell2mat(stim_cells),:),1));
+plot(t_move,nanmean(b(cell2mat(move_cells),:),1));
+plot(t_move,nanmean(b(~cell2mat(stim_cells),:),1));
 
 
 
