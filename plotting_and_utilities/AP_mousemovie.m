@@ -17,7 +17,7 @@ gui_fig = figure; colormap(gray)
 set(gui_fig,'WindowScrollWheelFcn',{@imgSlider_MouseWheel, gui_fig});
 set(gui_fig, 'KeyPressFcn', {@im_keypress, gui_fig});
 
-handles.cam_axis = axes('Ydir','reverse'); hold on;
+handles.cam_axis = axes('Ydir','reverse'); hold on; caxis([0,255]);
 axis(handles.cam_axis,'image','off');
 
 % Set up videoreader
