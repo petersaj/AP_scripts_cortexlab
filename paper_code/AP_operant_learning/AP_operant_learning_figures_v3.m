@@ -151,14 +151,15 @@ end
 
 %% ------- GENERATE FIGS -----------------------
 
-%% [FIG 1A]: example performance
+%% [FIG 1B]: example performance
 
 animal = 'AP106';
 protocol = 'AP_stimWheelRight';
 experiments = AP_find_experiments(animal,protocol);
 plot_days = [1,3,7];
 
-h = tiledlayout(length(plot_days),1,'TileSpacing','compact','padding','compact');
+figure;
+h = tiledlayout(length(plot_days),1);
 for curr_day = plot_days
  
     day = experiments(curr_day).day;
@@ -169,6 +170,11 @@ for curr_day = plot_days
     
     t = Timeline.rawDAQTimestamps;
     
+    % Convert wheel velocity from clicks/s to mm/s
+    % (mm in clicks from +hw.DaqRotaryEncoder, Lilrig encoder = 100)
+    wheel_click2mm = 0.4869;
+    wheel_velocity_mm = wheel_velocity*wheel_click2mm;
+
     % (minimum ITI: new trial + trial quiescence)
     min_iti_t = signals_events.newTrialTimes + ...
         signals_events.trialQuiescenceValues;
@@ -180,23 +186,37 @@ for curr_day = plot_days
     plot_reward_idx = find(reward_t_timeline > plot_t(1) & reward_t_timeline < plot_t(2));
     
     nexttile; hold on;
-    line_height = 0.1;
-    line_start = 0.2;
-    plot(t(plot_t_idx),wheel_velocity(plot_t_idx),'k');
+    
+    % Plot stim and rewards
+    yyaxis left; hold on; 
+    ylim([-6,2]);
     for i = plot_stim_idx
         line(repmat(stimOn_times(i),2,1), ...
-            line_start+line_height*1+[0,line_height],'color','r','linewidth',2);
+            [1,2],'color','r','linewidth',2);
     end
-    for i = plot_reward_idx'
+    for i = plot_reward_idx
         line(repmat(reward_t_timeline(i),2,1), ...
-            line_start+line_height*0+[0,line_height],'color','b','linewidth',2);
+            [0,1],'color','b','linewidth',2);
     end
+
+    % Plot wheel velocity
+    yyaxis right;
+    plot(t(plot_t_idx),wheel_velocity_mm(plot_t_idx),'k');
     
+    axis off;
     title(sprintf('Day %d',curr_day));
     
 end
 
-linkaxes(allchild(h),'y');
+h_ax = flipud(allchild(h));
+linkaxes(h_ax,'y');
+
+% Scalebars
+t_scale = 5;
+vel_scale = 0.005;
+line(h_ax(1),min(xlim(h_ax(1))) + [0,5],repmat(min(ylim(h_ax(1))),2,1),'color','m','linewidth',2)
+line(h_ax(1),repmat(min(xlim(h_ax(1))),2,1),min(ylim(h_ax(1))) + [0,vel_scale],'color','m','linewidth',2)
+
 
 
 %% [FIG 1C-F, FIG 4B, FIG S1]: behavior
@@ -1103,7 +1123,7 @@ for curr_animal = 1:length(animals)
 end
 
 % Plot scalebar
-scalebar_length = 1000/10; % mm*voxel size
+scalebar_length = 1000/10; % um/voxel size
 line(ccf_axes(3),[0,0],[0,scalebar_length],'color','m','linewidth',3);
 
 

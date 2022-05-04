@@ -1,4 +1,4 @@
-function [wheel_velocity,wheel_move,wheel_velocity_split] = ...
+function [wheel_velocity,wheel_move] = ...
     AP_parse_wheel(wheel_position,sample_rate)
 % [wheel_velocity,wheel_move,wheel_velocity_split] = AP_parse_wheel(wheel_position,sample_rate)
 % 
@@ -9,29 +9,28 @@ function [wheel_velocity,wheel_move,wheel_velocity_split] = ...
 % sample_rate: sample rate for wheel position
 %
 % Outputs: 
-% wheel_velocity: velocity of the wheel
+% wheel_velocity: velocity of the wheel (as clicks/s)
 % wheel_move: binary vector of times with movement or quiescence
-% wheel_velocity_split: velocity of the wheel split into move/quies blocks
+
+% Set timing for smoothing wheel velocity
+wheel_smooth_t = 0.05; % seconds
+wheel_smooth_samples = round(wheel_smooth_t*sample_rate);
 
 % Ensure wheel_position is column vector
 wheel_position = wheel_position(:);
 
-% Get wheel velocity
-% (pick smoothing timing)
-wheel_smooth_t = 0.05; % seconds
-wheel_smooth_samples = round(wheel_smooth_t*sample_rate);
+% Turn position into single clicks (position diff with leading 0)
+wheel_clicks = [0;diff(wheel_position)]; % rotary encoder clicks
 
-% (get rid of single wheel clicks or balancing clicks within the window)
-wheel_clicks = diff(wheel_position); % rotary encoder clicks
-wheel_click_remove = ...
-    conv(abs(wheel_clicks),ones(1,wheel_smooth_samples),'same') < 2  | ...
-    abs(conv(wheel_clicks,ones(1,wheel_smooth_samples),'same')) < 1;
-wheel_clicks(wheel_click_remove) = 0;
+% Get rid of single wheel clicks within smoothing window
+% (otherwise it's below meaninful velocity detection threshold)
+wheel_clicks_use = movsum(abs(wheel_clicks),wheel_smooth_samples) > 1;
+wheel_clicks_clean = wheel_clicks.*wheel_clicks_use;
 
-% (get velocity by smoothing and median filtering cleaned trace)
-wheel_velocity = interp1(conv(1:length(wheel_position),[1,1]/2,'valid'), ...
-    medfilt1(smooth(wheel_clicks,wheel_smooth_samples),wheel_smooth_samples), ...
-    1:length(wheel_position),'linear','extrap')';
+% Get velocity: sum in window, median filter, convert to clicks/s
+wheel_velocity = ...
+    medfilt1(movsum(wheel_clicks_clean,wheel_smooth_samples), ...
+    wheel_smooth_samples)/wheel_smooth_t;
 
 % Threshold wheel for movement, get start/stops
 wheel_velocity_thresh = abs(wheel_velocity) > 0;
@@ -55,11 +54,6 @@ wheel_stops_trim = wheel_stops_all([combine_move;end]);
 wheel_move = logical(interp1([wheel_starts_trim;wheel_stops_trim;0], ...
     [ones(size(wheel_starts_trim));zeros(size(wheel_stops_trim));0], ...
     transpose(1:length(wheel_position)),'previous','extrap'));
-
-% Split wheel velocity into quiescence/move segments
-move_quiescence_blocks = ...
-    diff(unique([0;find(diff(wheel_move) ~= 0);length(wheel_move)]));
-wheel_velocity_split = mat2cell(wheel_velocity,move_quiescence_blocks);
 
 
 
