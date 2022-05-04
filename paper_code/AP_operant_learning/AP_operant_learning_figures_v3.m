@@ -1684,7 +1684,7 @@ stim_color = [0,0,0.8;0.5,0.5,0.5;0.8,0,0];
 yyaxis right;
 for curr_stim = plot_stim
     hpl(curr_stim) = ...
-        errorbar(xp{curr_stim}+xp_offset,ypl{curr_stim},epl{curr_stim},'.','MarkerSize',20, ...
+        errorbar(xp{curr_stim}+xp_offset,ypl{curr_stim},epl{curr_stim},'.','MarkerSize',15, ...
         'color',stim_color(curr_stim,:),'linestyle','none','linewidth',2,'CapSize',0);
 end
 axis tight;
@@ -1743,7 +1743,7 @@ stim_roi_avg_stage = cat(5,stim_roi_avg{:});
 
 figure;
 plot_rois = [1,6];
-stage_col = [0,0,0;1,0,0];
+stage_col = [0.5,0.7,0.7;0,0,0];
 h = tiledlayout(length(plot_rois),2);
 for curr_roi_idx = 1:length(plot_rois)
     curr_l_roi = plot_rois(curr_roi_idx);
@@ -1757,7 +1757,7 @@ for curr_roi_idx = 1:length(plot_rois)
     xlabel('Time from stim (s)');
     ylabel('\DeltaF/F_0');
     title(wf_roi(curr_l_roi).area);
-    xline([0,0.5],'linestyle','--');
+    xline([0,0.5]);
 
     % (plot right ROI with left stim)
     hr =nexttile;
@@ -1767,7 +1767,7 @@ for curr_roi_idx = 1:length(plot_rois)
     xlabel('Time from stim (s)');
     ylabel('\DeltaF/F_0');
     title(wf_roi(curr_r_roi).area);
-    xline([0,0.5],'linestyle','--');
+    xline([0,0.5]);
 
     % (link axes with same ROI)
     linkaxes([hl,hr],'xy');
@@ -1778,6 +1778,11 @@ for curr_roi = 1:length(plot_rois)
    linkaxes(ax(:,curr_roi),'y'); 
 end
 linkaxes(ax,'x');
+xlim([-0.2,0.7]);
+% (draw scalebars)
+x_scale = 0.2;
+y_scale = 3e-3;
+AP_scalebar(x_scale,y_scale);
 
 % Plot ROI time-max pre/post muscimol
 use_t = t >= 0 & t <= 0.2;
@@ -1788,12 +1793,16 @@ plot_stim = 3;
 figure; hold on
 curr_data = squeeze(stim_roi_avg_stage_tmax(plot_rois,:,plot_stim,:));
 plot(squeeze(curr_data(1,:,:)),squeeze(curr_data(2,:,:)),'k');
-p1 = plot(squeeze(curr_data(1,2,:)),squeeze(curr_data(2,2,:)),'.k','MarkerSize',20);
-p2 = plot(squeeze(curr_data(1,1,:)),squeeze(curr_data(2,1,:)),'.r','MarkerSize',20);
+p1 = plot(squeeze(curr_data(1,2,:)),squeeze(curr_data(2,2,:)),'.','MarkerSize',30,'color',stage_col(2,:));
+p2 = plot(squeeze(curr_data(1,1,:)),squeeze(curr_data(2,1,:)),'.','MarkerSize',30,'color',stage_col(1,:));
 xlabel(wf_roi(plot_rois(1)).area);
 ylabel(wf_roi(plot_rois(2)).area);
 legend([p1,p2],{'Washout','V1 Muscimol'},'location','nw');
+axis square;
 
+ax = gca;
+ax.XAxis.Exponent = 0;
+ax.YAxis.Exponent = 0;
 
 %% [FIG S3A]: example pupil and facecam frame
 
@@ -1874,12 +1883,13 @@ for curr_bhv = 1:size(bhv_stim_avg,5)
         ylabel(bhv_label{curr_bhv});
         title(sprintf('Stage %d',curr_stage));
         axis tight;
-        xlim(xlim+[-0.1,0.1]);
-        xline(0,'linestyle','--');xline(0.5,'linestyle','--');
+        xlim([-0.2,0.7]);
+        xline(0);xline(0.5);
     end
     curr_axes = allchild(h);
     linkaxes(curr_axes(1:max(learning_stage)),'xy');
 end
+
 
 % Plot whisker movement over time
 use_t = t > 0 & t <= 0.2;
@@ -1959,8 +1969,8 @@ for curr_stim_idx = 1:length(stim_unique)
             whisker_grp_col);
         title(sprintf('Whiskers, stage %d',curr_stage));
         axis tight;
-        xlim(xlim+[-0.1,0.1]);
-        xline(0,'--k');
+        xlim([-0.2,0.7]);
+        xline(0);
         xlabel('Time from stim (s)');
         ylabel('Pixel intensity change');
         
@@ -1972,8 +1982,8 @@ for curr_stim_idx = 1:length(stim_unique)
                 whisker_grp_col);
             title(sprintf('%s, stage %d',wf_roi(curr_roi).area,curr_stage));
             axis tight;
-            xlim(xlim+[-0.1,0.1]);
-            xline(0,'--k');
+            xlim([-0.2,0.7]);
+            xline(0);
             xlabel('Time from stim (s)');
             ylabel('\DeltaF/F0');
         end
