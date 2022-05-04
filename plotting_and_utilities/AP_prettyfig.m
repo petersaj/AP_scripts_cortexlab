@@ -11,6 +11,11 @@ end
 % Grab current figure
 curr_fig = gcf;
 
+% Set renderer as painters for EPS
+if strcmp(format_type,'eps')
+    set(gcf,'Renderer','painters');
+end
+
 % Set figure background white
 curr_fig.Color = 'w';
 
@@ -46,7 +51,7 @@ for curr_ax = 1:length(fig_ax)
         fig_ax(curr_ax).TickLength = [0.015,0.015]; % larger ticks
         fig_ax(curr_ax).TickDir = 'out'; % ticks outside plot
         fig_ax(curr_ax).Box = 'off'; % no bounding box
-        fig_ax(curr_ax).FontName = 'MyriadPro'; % font
+        fig_ax(curr_ax).FontName = 'Arial'; % font
         fig_ax(curr_ax).TitleFontSizeMultiplier = 1; % relative title size
         
         tick_fontsize = 10; % axis tick font size
