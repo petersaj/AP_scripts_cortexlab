@@ -423,91 +423,6 @@ if save_bhv
     disp(['Saved ' save_fn]);
 end
 
-%% [DIDN'T WORK] Define reaction time window to find "learned" days 
-% 
-% % Load behavior from above
-% data_path = 'C:\Users\Andrew\OneDrive for Business\Documents\CarandiniHarrisLab\analysis\operant_learning\data';
-% bhv_fn = [data_path filesep 'bhv_teto'];
-% load(bhv_fn);
-% 
-% % Load muscimol injection info
-% data_path = 'C:\Users\Andrew\OneDrive for Business\Documents\CarandiniHarrisLab\analysis\operant_learning\data';
-% muscimol_fn = [data_path filesep 'muscimol.mat'];
-% load(muscimol_fn);
-% 
-% % Use days before muscimol
-% use_days = cell(size(bhv));
-% for curr_animal = 1:length(bhv)
-%     muscimol_animal_idx = ismember({muscimol.animal},bhv(curr_animal).animal);
-%     if ~any(muscimol_animal_idx)
-%         use_days{curr_animal} = true(length(bhv(curr_animal).day),1);
-%         continue
-%     end
-%     muscimol_day_idx = datenum(bhv(curr_animal).day) >= ...
-%         datenum(muscimol(muscimol_animal_idx).day(1));
-%     use_days{curr_animal} = ~muscimol_day_idx;
-% end
-% 
-% % Get "learned days" across a range of reaction time windows
-% rxn_window_start = 0.1;
-% rxn_window_ends = rxn_window_start:0.1:4;
-% 
-% n_sample = 10000;
-% learned_days = cell(size(bhv));
-% for curr_animal = 1:length(bhv)
-% 
-%     curr_n_days = sum(use_days{curr_animal});
-%     learned_days{curr_animal} = nan(curr_n_days,length(rxn_window_ends));
-% 
-%     for curr_day = find(use_days{curr_animal})'
-% 
-%         % (use trials only with alt - no alt if couldn't recapture stim
-%         % time with params, happens with some skipped wheel clicks)
-%         use_trials = ~cellfun(@isempty,bhv(curr_animal).alt_stim_move_t{curr_day});
-% 
-%         curr_rxn = bhv(curr_animal).stim_move_t{curr_day}(use_trials);
-%         curr_alt_rxn = cell2mat(cellfun(@(x) datasample(x,n_sample)', ...
-%             bhv(curr_animal).alt_stim_move_t{curr_day}(use_trials),'uni',false));
-% 
-%         for curr_rxn_window_end_idx = 1:length(rxn_window_ends)
-%             curr_rxn_window = [rxn_window_start, ...
-%                 rxn_window_ends(curr_rxn_window_end_idx)];
-% 
-%             rxn_window_frac = nanmean(curr_rxn >= curr_rxn_window(1) & ...
-%                 curr_rxn <= curr_rxn_window(2));
-%             alt_rxn_window_frac = nanmean(curr_alt_rxn >= curr_rxn_window(1) & ...
-%                 curr_alt_rxn <= curr_rxn_window(2),1);
-% 
-%             rxn_window_frac_rank = tiedrank([rxn_window_frac,alt_rxn_window_frac]);
-%             rxn_window_frac_p = rxn_window_frac_rank(1)./(n_sample+1);
-% 
-%             % (null rejected at 1%)
-%             rxn_window_frac_h = rxn_window_frac_p > 0.99;
-% 
-%             learned_days{curr_animal}(curr_day,curr_rxn_window_end_idx) = rxn_window_frac_h;
-%         end
-%     end
-%     AP_print_progress_fraction(curr_animal,length(bhv));
-% end
-% 
-% % Get number of learned days for reaction time windows
-% learned_days_n = cell2mat(cellfun(@(x) sum(x,1),learned_days,'uni',false)');
-% 
-% figure; hold on;
-% AP_errorfill(rxn_window_ends,nanmean(learned_days_n,1), ...
-%     AP_sem(learned_days_n,1),'k');
-% xlabel('Reaction time window end (s)')
-% ylabel('# days with sig. diff.')
-% 
-% [~,best_rxn_window_end_idx] = max(nanmean(learned_days_n,1));
-% best_rxn_window_end = rxn_window_ends(best_rxn_window_end_idx);
-% xline(best_rxn_window_end,'-',best_rxn_window_end, ...
-%     'LabelVerticalAlignment','bottom','color','r','linewidth',2);
-% 
-% 
-% %%% THIS ISN'T GOOD: it gives a slightly lower number than it should be
-% %%% because of a weird transient early sig day
-
 
 %% Find "learned" days
 % Days when response to stimulus was significantly different from null
@@ -517,7 +432,9 @@ data_path = 'C:\Users\Andrew\OneDrive for Business\Documents\CarandiniHarrisLab\
 bhv_fn = [data_path filesep 'bhv_teto'];
 load(bhv_fn);
 
-% Define "learned" days by fraction of reaction times within window
+% Define "learned" days by median reaction time
+% (exclude rxn < 0.1: too fast for stim, doesn't change with learning)
+% (keeping window defined, but not used for stats)
 rxn_window = [0.1,0.2];
 n_sample = 10000;
 learned_days = cell(size(bhv));
@@ -536,19 +453,15 @@ for curr_animal = 1:length(bhv)
         curr_alt_rxn = cell2mat(cellfun(@(x) datasample(x,n_sample)', ...
             bhv(curr_animal).alt_stim_move_t{curr_day}(use_trials),'uni',false));     
         
-        rxn_window_frac = nanmean(curr_rxn >= rxn_window(1) & curr_rxn <= rxn_window(2));
-        alt_rxn_window_frac = nanmean(curr_alt_rxn >= rxn_window(1) & curr_alt_rxn <= rxn_window(2),1);
-
-%         %%%% TESTING: use MAD instead of fraction within window
-%         rxn_window_frac = -mad(curr_rxn,1);
-%         alt_rxn_window_frac = -mad(curr_alt_rxn,1);
-%         %%%%%%%%%%
+        % Get measured and null medians (exclude rxn < 0.1)
+        rxn_stat = nanmedian(curr_rxn.*AP_nanout(curr_rxn < 0.1),1);
+        alt_rxn_stat = nanmedian(curr_alt_rxn.*AP_nanout(curr_alt_rxn < 0.1),1);
         
-        rxn_window_frac_rank = tiedrank([rxn_window_frac,alt_rxn_window_frac]);
-        rxn_window_frac_p = rxn_window_frac_rank(1)./(n_sample+1);
+        rxn_stat_rank = tiedrank([rxn_stat,alt_rxn_stat]);
+        rxn_stat_p = rxn_stat_rank(1)./(n_sample+1);
         
-        % (null rejected at 1%)
-        rxn_window_frac_h = rxn_window_frac_p > 0.99;
+        % (null rejected at 5%)
+        rxn_window_frac_h = rxn_stat_p < 0.05;
 
         learned_days{curr_animal}(curr_day) = rxn_window_frac_h;
     end
@@ -560,7 +473,7 @@ learned_days_padcat = AP_padcatcell(learned_days);
 figure; 
 imagesc(learned_days_padcat,'AlphaData',~isnan(learned_days_padcat));
 set(gca,'Color',[0.5,0.5,0.5])
-title(sprintf('Frac reaction times %.2f-%.2f',rxn_window(1),rxn_window(2)));
+title('Sig. reaction time stat days');
 set(gca,'XTick',1:length({bhv.animal}),'XTickLabel',{bhv.animal})
 xlabel('Animal');
 ylabel('Day');
@@ -1061,8 +974,10 @@ for curr_animal = 1:length(animals)
         % Store general info
         trial_data_all.animals = animals;
         trial_data_all.t = t;
-        trial_data_all.task_regressor_labels = task_regressor_labels;
-        trial_data_all.task_regressor_sample_shifts = task_regressor_sample_shifts;
+
+        % (turned regression off)
+%         trial_data_all.task_regressor_labels = task_regressor_labels;
+%         trial_data_all.task_regressor_sample_shifts = task_regressor_sample_shifts;
         
         AP_print_progress_fraction(curr_day,length(experiments));
         
@@ -1070,16 +985,17 @@ for curr_animal = 1:length(animals)
         clearvars('-except',preload_vars{:});
         
     end
+
+    % Save (after each animal: matlab often crashes during this)
+    save_path = 'C:\Users\Andrew\OneDrive for Business\Documents\CarandiniHarrisLab\analysis\operant_learning\data';
+    save_fn = fullfile(save_path,'trial_activity_task_teto');
+    save(save_fn,'trial_data_all','-v7.3');
+    disp(['Saved ' save_fn]);
+
 end
 
-clearvars -except trial_data_all
 disp('Finished loading all')
 
-% Save
-save_path = 'C:\Users\Andrew\OneDrive for Business\Documents\CarandiniHarrisLab\analysis\operant_learning\data';
-save_fn = fullfile(save_path,'trial_activity_task_teto');
-save(save_fn,'-v7.3');
-disp(['Saved ' save_fn]);
 
 
 %% ~~~~~~~~~~~~~~ Muscimol + widefield data
@@ -1363,9 +1279,13 @@ for curr_animal = 1:length(animals)
         % Store general info
         trial_data_all.animals = animals;
         trial_data_all.t = t;
-        trial_data_all.task_regressor_labels = task_regressor_labels;
-        trial_data_all.task_regressor_sample_shifts = task_regressor_sample_shifts;
-        trial_data_all.mua_depth_edges = depth_group_edges;
+
+        % (not saving by depth anymore)
+%         trial_data_all.mua_depth_edges = depth_group_edges;
+
+        % (turned regression off)
+%         trial_data_all.task_regressor_labels = task_regressor_labels;
+%         trial_data_all.task_regressor_sample_shifts = task_regressor_sample_shifts;
         
         AP_print_progress_fraction(curr_day,length(experiments));
         
@@ -1382,6 +1302,94 @@ disp('Finished loading all')
 save_path = 'C:\Users\Andrew\OneDrive for Business\Documents\CarandiniHarrisLab\analysis\operant_learning\data';
 save_fn = ['trial_activity_task_ephys'];
 save([save_path filesep save_fn],'-v7.3');
+
+
+
+%% ~~>>>>>>> [DEVELOPING]: SINGLE-UNIT
+
+
+% Load all data without manual sorting
+ephys_quality_control = false;
+AP_load_experiment;
+
+% JF code for loading good single units from bombcell
+% unitType: 0 = noise, 1 = good, 2 = multiunit
+ephysDirPath = AP_cortexlab_filename(animal, day, experiment, 'ephys_dir');
+qMetric_fn = fullfile(ephysDirPath, 'qMetrics');
+load(fullfile(qMetric_fn, 'qMetric.mat'))
+load(fullfile(qMetric_fn, 'param.mat'))
+clearvars unitType;
+
+if param.computeDistanceMetrics && ~isnan(param.isoDmin)
+    unitType = nan(length(qMetric.percSpikesMissing), 1);
+    unitType(qMetric.nPeaks > param.maxNPeaks | qMetric.nTroughs > param.maxNTroughs | qMetric.somatic ~= param.somatic ...
+        | qMetric.spatialDecaySlope <=  param.minSpatialDecaySlope | qMetric.waveformDuration < param.minWvDuration |...
+        qMetric.waveformDuration > param.maxWvDuration | qMetric.waveformBaseline >= param.maxWvBaselineFraction) = 0; % NOISE or NON-SOMATIC
+    unitType(any(qMetric.percSpikesMissing <= param.maxPercSpikesMissing, 2)' & qMetric.nSpikes > param.minNumSpikes & ...
+        any(qMetric.Fp <= param.maxRPVviolations, 2)' & ...
+        qMetric.rawAmplitude > param.minAmplitude & qMetric.isoDmin >= param.isoDmin & isnan(unitType)) = 1; % SINGLE SEXY UNIT
+    unitType(isnan(unitType)) = 2; % MULTI UNIT
+
+else
+    unitType = nan(length(qMetric.percSpikesMissing), 1);
+    unitType(qMetric.nPeaks > param.maxNPeaks | qMetric.nTroughs > param.maxNTroughs | qMetric.somatic ~= param.somatic ...
+        | qMetric.spatialDecaySlope <=  param.minSpatialDecaySlope | qMetric.waveformDuration < param.minWvDuration |...
+        qMetric.waveformDuration > param.maxWvDuration  | qMetric.waveformBaseline >= param.maxWvBaselineFraction) = 0; % NOISE or NON-SOMATIC
+    unitType(any(qMetric.percSpikesMissing <= param.maxPercSpikesMissing, 2)' & qMetric.nSpikes > param.minNumSpikes & ...
+        any(qMetric.Fp <= param.maxRPVviolations, 2)' & ...
+        qMetric.rawAmplitude > param.minAmplitude & isnan(unitType)') = 1; % SINGLE SEXY UNIT
+    unitType(isnan(unitType)') = 2; % MULTI UNIT
+
+end
+
+% Templates already 1/re-indexed, grab good ones
+good_templates = unitType == 1;
+good_templates_idx = find(good_templates);
+
+% Throw out all non-good template data
+templates = templates(good_templates,:,:);
+template_depths = template_depths(good_templates);
+waveforms = waveforms(good_templates,:);
+templateDuration = templateDuration(good_templates);
+templateDuration_us = templateDuration_us(good_templates);
+
+% Throw out all non-good spike data
+good_spike_idx = ismember(spike_templates,good_templates_idx);
+spike_times = spike_times(good_spike_idx);
+template_amplitudes = template_amplitudes(good_spike_idx);
+spike_depths = spike_depths(good_spike_idx);
+spike_times_timeline = spike_times_timeline(good_spike_idx);
+
+% Rename the spike templates according to the remaining templates
+% (and make 1-indexed from 0-indexed)
+new_spike_idx = nan(max(spike_templates_0idx)+1,1);
+new_spike_idx(good_templates_idx+1) = 1:length(good_templates_idx);
+spike_templates = new_spike_idx(spike_templates_0idx+1);
+
+
+
+% 
+% % NOTE: I'm going to have to re-load ephys or have a flag, unitType is the
+% % same size as unique(spike_templates_0idx) (meaning it's less than the
+% % total number of templates)
+% 
+% 
+% % Get quiescent trials
+% wheel_window = [0,0.5];
+% wheel_window_t = wheel_window(1):1/Timeline.hw.daqSampleRate:wheel_window(2);
+% wheel_window_t_peri_event = bsxfun(@plus,stimOn_times,wheel_window_t);
+% event_aligned_wheel = interp1(Timeline.rawDAQTimestamps, ...
+%     +wheel_move,wheel_window_t_peri_event,'previous');
+% quiescent_trials = ~any(abs(event_aligned_wheel) > 0,2);
+% 
+% % PSTH viewer
+% AP_cellraster(stimOn_times(quiescent_trials),stimIDs(quiescent_trials))
+% 
+
+
+
+
+
 
 
 

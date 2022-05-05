@@ -803,7 +803,7 @@ curr_act = fluor_roi_deconv;
 
 % Plot trial activity
 figure;
-h = tiledlayout(length(plot_rois),2,'TileIndexing','ColumnMajor');
+h = tiledlayout(2,length(plot_rois));
 for curr_stage = 1:max(trial_learned_stage)
     for curr_roi = plot_rois
         use_trials = find(trial_learned_stage == curr_stage);
@@ -811,20 +811,25 @@ for curr_stage = 1:max(trial_learned_stage)
         curr_data_sort = curr_act(use_trials(sort_idx),:,curr_roi);
         curr_data_sort_smooth = convn(curr_data_sort, ...
             ones(n_trial_smooth,1)./n_trial_smooth,'same');
-        
+
         nexttile;
         imagesc(t,[],curr_data_sort_smooth);hold on;
         colormap(AP_colormap('KWG',[],1.5));
         c = prctile(reshape(curr_act(:,:,curr_roi),[],1),95).*[-1,1];
         caxis(c);
-        xline(0,'color','k');
-        plot(move_t(use_trials(sort_idx)),1:length(use_trials),'color',[0.6,0,0.6]);
+        xline(0,'color',[0.8,0,0],'linewidth',2);
+        plot(move_t(use_trials(sort_idx)),1:length(use_trials),'color','k','linewidth',2);
         xlabel('Time from stim (s)');
         ylabel('Trial (rxn-time sorted)');
         title(sprintf('%s, stage %d',wf_roi(curr_roi).area,curr_stage));
-    end    
+    end
+    x_scale = 0.2;
+    y_scale = 2000;
+    AP_scalebar(x_scale,y_scale);
 end
 
+linkaxes(allchild(h),'x');
+xlim([-0.2,1]);
 
 %% ^^ Task - trial activity (hemidiff)
 

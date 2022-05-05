@@ -1305,6 +1305,114 @@ save([save_path filesep save_fn],'-v7.3');
 
 
 
+%% ~~>>>>>>> [DEVELOPING]: SINGLE-UNIT
+
+
+animal = 'AP100';
+day = '2021-05-25';
+experiment = 1;
+
+% Load all data without manual sorting
+% (load LFP to find cortex start)
+lfp_channel = 'all';
+ephys_align = 'cortex';
+ephys_quality_control = false;
+AP_load_experiment;
+
+% JF code for loading good single units from bombcell
+% unitType: 0 = noise, 1 = good, 2 = multiunit
+ephysDirPath = AP_cortexlab_filename(animal, day, experiment, 'ephys_dir');
+qMetric_fn = fullfile(ephysDirPath, 'qMetrics');
+load(fullfile(qMetric_fn, 'qMetric.mat'))
+load(fullfile(qMetric_fn, 'param.mat'))
+clearvars unitType;
+
+if param.computeDistanceMetrics && ~isnan(param.isoDmin)
+    unitType = nan(length(qMetric.percSpikesMissing), 1);
+    unitType(qMetric.nPeaks > param.maxNPeaks | qMetric.nTroughs > param.maxNTroughs | qMetric.somatic ~= param.somatic ...
+        | qMetric.spatialDecaySlope <=  param.minSpatialDecaySlope | qMetric.waveformDuration < param.minWvDuration |...
+        qMetric.waveformDuration > param.maxWvDuration | qMetric.waveformBaseline >= param.maxWvBaselineFraction) = 0;
+    unitType(any(qMetric.percSpikesMissing <= param.maxPercSpikesMissing, 2)' & qMetric.nSpikes > param.minNumSpikes & ...
+        any(qMetric.Fp <= param.maxRPVviolations, 2)' & ...
+        qMetric.rawAmplitude > param.minAmplitude & qMetric.isoDmin >= param.isoDmin & isnan(unitType)) = 1;
+    unitType(isnan(unitType)) = 2;
+
+else
+    unitType = nan(length(qMetric.percSpikesMissing), 1);
+    unitType(qMetric.nPeaks > param.maxNPeaks | qMetric.nTroughs > param.maxNTroughs | qMetric.somatic ~= param.somatic ...
+        | qMetric.spatialDecaySlope <=  param.minSpatialDecaySlope | qMetric.waveformDuration < param.minWvDuration |...
+        qMetric.waveformDuration > param.maxWvDuration  | qMetric.waveformBaseline >= param.maxWvBaselineFraction) = 0;
+    unitType(any(qMetric.percSpikesMissing <= param.maxPercSpikesMissing, 2)' & qMetric.nSpikes > param.minNumSpikes & ...
+        any(qMetric.Fp <= param.maxRPVviolations, 2)' & ...
+        qMetric.rawAmplitude > param.minAmplitude & isnan(unitType)') = 1;
+    unitType(isnan(unitType)') = 2;
+
+end
+
+% Templates already 1/re-indexed, grab good ones
+good_templates = unitType == 1;
+good_templates_idx = find(good_templates);
+
+% Throw out all non-good template data
+templates = templates(good_templates,:,:);
+template_depths = template_depths(good_templates);
+waveforms = waveforms(good_templates,:);
+templateDuration = templateDuration(good_templates);
+templateDuration_us = templateDuration_us(good_templates);
+
+% Throw out all non-good spike data
+good_spike_idx = ismember(spike_templates,good_templates_idx);
+spike_times = spike_times(good_spike_idx);
+spike_templates_0idx = spike_templates_0idx(good_spike_idx);
+template_amplitudes = template_amplitudes(good_spike_idx);
+spike_depths = spike_depths(good_spike_idx);
+spike_times_timeline = spike_times_timeline(good_spike_idx);
+
+% Rename the spike templates according to the remaining templates
+% (and make 1-indexed from 0-indexed)
+new_spike_idx = nan(max(spike_templates_0idx)+1,1);
+new_spike_idx(unique(spike_templates_0idx)+1) = 1:length(unique(spike_templates_0idx));
+spike_templates = new_spike_idx(spike_templates_0idx+1);
+
+
+% Get spikes within window
+stim_baseline_window = [-0.2,0];
+stim_response_window = [0,0.2];
+
+move_baseline_window = [-0.5,-0.3];
+move_response_window = [-0.1,0.1];
+
+
+
+
+
+
+% Set params and times to align rasters
+raster_window = [-0.5,0.5];
+raster_sample_rate = 200;
+
+raster_sample_time = 1/raster_sample_rate;
+t = raster_window(1):raster_sample_time:raster_window(2);
+
+stim_align = stimOn_times;
+t_peri_stim = bsxfun(@plus,stim_align,t);
+t_peri_stim_bins = [t_peri_stim-raster_sample_time/2,t_peri_stim(:,end)+raster_sample_time/2];
+
+move_nostim_rewardable_align = wheel_starts(wheel_move_nostim_rewardable_idx);
+t_peri_move_nostim_rewardable = bsxfun(@plus,move_nostim_rewardable_align,t);
+t_peri_move_nostim_rewardable_bins = [t_peri_move_nostim_rewardable-raster_sample_time/2,t_peri_move_nostim_rewardable(:,end)+raster_sample_time/2];
+
+% Get event-aligned rasters
+stim_raster = nan(size(t_peri_stim_bins,1),length(t),size(templates,1));
+for curr_unit = 1:size(templates,1)
+    curr_spikes = spike_times_timeline(spike_templates == curr_unit);
+
+    stim_raster(:,:,curr_unit) = cell2mat(arrayfun(@(x) ...
+        histcounts(curr_spikes,t_peri_stim_bins(x,:)), ...
+        [1:size(t_peri_stim_bins,1)]','uni',false))*raster_sample_rate;
+
+end
+
 
 
 

@@ -104,17 +104,37 @@ AP_cellraster(stimOn_times(quiescent_trials),stimIDs(quiescent_trials))
 
 
 %% Operant PSTH
+% (stim, response movements, all no-stim moves, rewardable no-stim movements, reward)
 
-% Standard events
+% Grab all movements separately (in degrees from move start)
+wheel_moves_deg = arrayfun(@(x) wheel_position_deg( ...
+    Timeline.rawDAQTimestamps >= wheel_starts(x) & ...
+    Timeline.rawDAQTimestamps <= wheel_stops(x)) - ...
+    wheel_position_deg(find(Timeline.rawDAQTimestamps >= wheel_starts(x),1)), ...
+    1:length(wheel_starts),'uni',false);
+
+% Find movements that hit reward limit (and don't hit punish limit)
+deg_reward = -90;
+deg_punish = 90;
+
+wheel_moves_deg_rewardlimit = find(cellfun(@(x) ...
+    any(x <= deg_reward) && ...
+    ~any(x >= deg_punish),wheel_moves_deg));
+
+wheel_move_nostim_rewardable_idx = ...
+    intersect(wheel_move_nostim_idx,wheel_moves_deg_rewardlimit);
+
+% Get move no-stim align times
+move_nostim_rewardable_align = wheel_starts(wheel_move_nostim_rewardable_idx);
+
+% Raster viewer
 [~,rxn_sort_idx] = sort(stim_to_move);
-AP_cellraster({stimOn_times,wheel_starts(wheel_move_response_idx),signals_events.responseTimes(1:n_trials)},rxn_sort_idx)
-
-% PSTH with rewarded & ITI move starts
-[~,rxn_sort_idx] = sort(stim_to_move);
-
 AP_cellraster( ...
-    {stimOn_times,wheel_starts(wheel_move_response_idx),wheel_starts(wheel_move_iti_idx),reward_t_timeline}, ...
-    {rxn_sort_idx,rxn_sort_idx,1:length(wheel_move_iti_idx),1:length(reward_t_timeline)})
+    {stimOn_times,wheel_starts(wheel_move_response_idx), ...
+    wheel_starts(wheel_move_nostim_idx),wheel_starts(wheel_move_nostim_rewardable_idx),reward_t_timeline}, ...
+    {rxn_sort_idx,rxn_sort_idx,1:length(wheel_move_nostim_idx), ...
+    1:length(wheel_move_nostim_rewardable_idx),1:length(reward_t_timeline)})
+
 
 
 %% Get average rewarded and other movements
