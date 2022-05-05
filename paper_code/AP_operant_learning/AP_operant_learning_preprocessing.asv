@@ -1314,194 +1314,255 @@ save([save_path filesep save_fn],'-v7.3');
 animals = {'AP100','AP101','AP104','AP105','AP106'};
 
 % Initialize save variable
-trial_data_all = struct;
+single_unit_data_all = struct;
 
 for curr_animal = 1:length(animals)
 
     animal = animals{curr_animal};
-    protocol = 'AP_lcrGratingPassive';
-    experiments = AP_find_experiments(animal,protocol);
 
-    % Set experiments to use (ephys)
-    experiments = experiments([experiments.ephys]);
+    % Get passive ephys experiments
+    passive_protocol = 'AP_lcrGratingPassive';
+    passive_experiments = AP_find_experiments(animal,passive_protocol);
+    passive_experiments = passive_experiments([passive_experiments.ephys]);
 
-    animal = animals{curr_animal};
-    protocol = 'AP_stimWheelRight';
-    experiments = AP_find_experiments(animal,protocol);
+    % Get task ephys experiments
+    task_protocol = 'AP_stimWheelRight';
+    task_experiments = AP_find_experiments(animal,task_protocol);
+    task_experiments = task_experiments([task_experiments.ephys]);
+
+    % (make sure they're the same length and days)
+    if length(passive_experiments) ~= length(task_experiments) || ...
+            ~all([passive_experiments.day] == [task_experiments.day])
+        error('Mismatched passive/task experiments')
+    end
+
+    for curr_day = 1:length(task_experiments)
+        day = task_experiments(curr_day).day;
+        for curr_exptype_cell = {'task','passive'}
+            curr_exptype = cell2mat(curr_exptype_cell);
+
+            switch curr_exptype
+                case 'task'
+                    experiment = task_experiments(curr_day).experiment(end);
+                case 'passive'
+                    experiment = passive_experiments(curr_day).experiment(end);
+            end
+
+            %%%% LOAD DATA, APPLY JF GOOD SINGLE UNITS
+
+            % (load LFP to find cortex start)
+            preload_vars = who;
+            lfp_channel = 'all';
+            ephys_align = 'cortex';
+            ephys_quality_control = false;
+            AP_load_experiment;
+
+            % JF code for loading good single units from bombcell
+            % unitType: 0 = noise, 1 = good, 2 = multiunit
+            ephysDirPath = AP_cortexlab_filename(animal, day, experiment, 'ephys_dir');
+            qMetric_fn = fullfile(ephysDirPath, 'qMetrics');
+            load(fullfile(qMetric_fn, 'qMetric.mat'))
+            load(fullfile(qMetric_fn, 'param.mat'))
+            clearvars unitType;
+
+            if param.computeDistanceMetrics && ~isnan(param.isoDmin)
+                unitType = nan(length(qMetric.percSpikesMissing), 1);
+                unitType(qMetric.nPeaks > param.maxNPeaks | qMetric.nTroughs > param.maxNTroughs | qMetric.somatic ~= param.somatic ...
+                    | qMetric.spatialDecaySlope <=  param.minSpatialDecaySlope | qMetric.waveformDuration < param.minWvDuration |...
+                    qMetric.waveformDuration > param.maxWvDuration | qMetric.waveformBaseline >= param.maxWvBaselineFraction) = 0;
+                unitType(any(qMetric.percSpikesMissing <= param.maxPercSpikesMissing, 2)' & qMetric.nSpikes > param.minNumSpikes & ...
+                    any(qMetric.Fp <= param.maxRPVviolations, 2)' & ...
+                    qMetric.rawAmplitude > param.minAmplitude & qMetric.isoDmin >= param.isoDmin & isnan(unitType)) = 1;
+                unitType(isnan(unitType)) = 2;
+
+            else
+                unitType = nan(length(qMetric.percSpikesMissing), 1);
+                unitType(qMetric.nPeaks > param.maxNPeaks | qMetric.nTroughs > param.maxNTroughs | qMetric.somatic ~= param.somatic ...
+                    | qMetric.spatialDecaySlope <=  param.minSpatialDecaySlope | qMetric.waveformDuration < param.minWvDuration |...
+                    qMetric.waveformDuration > param.maxWvDuration  | qMetric.waveformBaseline >= param.maxWvBaselineFraction) = 0;
+                unitType(any(qMetric.percSpikesMissing <= param.maxPercSpikesMissing, 2)' & qMetric.nSpikes > param.minNumSpikes & ...
+                    any(qMetric.Fp <= param.maxRPVviolations, 2)' & ...
+                    qMetric.rawAmplitude > param.minAmplitude & isnan(unitType)') = 1;
+                unitType(isnan(unitType)') = 2;
+
+            end
+
+            % Templates already 1/re-indexed, grab good ones
+            good_templates = unitType == 1;
+            good_templates_idx = find(good_templates);
+
+            % Throw out all non-good template data
+            templates = templates(good_templates,:,:);
+            template_depths = template_depths(good_templates);
+            waveforms = waveforms(good_templates,:);
+            templateDuration = templateDuration(good_templates);
+            templateDuration_us = templateDuration_us(good_templates);
+
+            % Throw out all non-good spike data
+            good_spike_idx = ismember(spike_templates,good_templates_idx);
+            spike_times = spike_times(good_spike_idx);
+            spike_templates_0idx = spike_templates_0idx(good_spike_idx);
+            template_amplitudes = template_amplitudes(good_spike_idx);
+            spike_depths = spike_depths(good_spike_idx);
+            spike_times_timeline = spike_times_timeline(good_spike_idx);
+
+            % Rename the spike templates according to the remaining templates
+            % (and make 1-indexed from 0-indexed)
+            new_spike_idx = nan(max(spike_templates_0idx)+1,1);
+            new_spike_idx(unique(spike_templates_0idx)+1) = 1:length(unique(spike_templates_0idx));
+            spike_templates = new_spike_idx(spike_templates_0idx+1);
+
+            %%%% GET RESPONSES ALIGNED TO EVENT
+            switch curr_exptype
+                case 'task'
+                    % Task: delay-period movement onsets
+                    use_align = wheel_starts(wheel_move_nostim_idx);
+                case 'passive'
+                    % Passive: stim onsets (right-side & quiescent)
+                    wheel_window = [0,0.5];
+                    wheel_window_t = wheel_window(1):1/Timeline.hw.daqSampleRate:wheel_window(2);
+                    wheel_window_t_peri_event = bsxfun(@plus,stimOn_times,wheel_window_t);
+                    event_aligned_wheel = interp1(Timeline.rawDAQTimestamps, ...
+                        +wheel_move,wheel_window_t_peri_event,'previous');
+                    quiescent_trials = ~any(abs(event_aligned_wheel) > 0,2);
+
+                    use_align = stimOn_times(quiescent_trials & stimIDs == 3);
+            end
+
+            % Get spike rate within baseline/response window
+            baseline_window = [-0.5,-0.3];
+            response_window = [0,0.2];
+
+            event_fr = nan(length(use_align),size(templates,1),2);
+            for curr_event = 1:length(use_align)
+
+                curr_use_spikes_baseline = ~isnan(discretize(spike_times_timeline, ...
+                    use_align(curr_event) + baseline_window));
+                curr_use_spikes_response = ~isnan(discretize(spike_times_timeline, ...
+                    use_align(curr_event) + response_window));
+
+                curr_baseline_fr = accumarray(spike_templates(curr_use_spikes_baseline),1, ...
+                    [size(templates,1),1],@sum)./diff(baseline_window);
+                curr_response_fr = accumarray(spike_templates(curr_use_spikes_response),1, ...
+                    [size(templates,1),1],@sum)./diff(response_window);
+
+                event_fr(curr_event,:,1) = curr_baseline_fr;
+                event_fr(curr_event,:,2) = curr_response_fr;
+
+            end
+
+            % Store rate and event index info
+            switch curr_exptype
+                case 'task'
+                    % (task: get index of rewardable movements)
+                    % (copied from operant_grab_trial_data.m)
+                    wheel_moves_deg = arrayfun(@(x) wheel_position_deg( ...
+                        Timeline.rawDAQTimestamps >= wheel_starts(x) & ...
+                        Timeline.rawDAQTimestamps <= wheel_stops(x)) - ...
+                        wheel_position_deg(find(Timeline.rawDAQTimestamps >= wheel_starts(x),1)), ...
+                        1:length(wheel_starts),'uni',false);
+
+                    deg_reward = -90;
+                    deg_punish = 90;
+
+                    wheel_moves_deg_rewardlimit = find(cellfun(@(x) ...
+                        any(x <= deg_reward) && ...
+                        ~any(x >= deg_punish),wheel_moves_deg));
+
+                    move_rewardable = ...
+                        ismember(wheel_move_nostim_idx',wheel_moves_deg_rewardlimit);
+
+                    single_unit_data_all(curr_animal).task_move_fr{curr_day} = ...
+                        event_fr;
+                    single_unit_data_all(curr_animal).task_move_rewardable{curr_day} = ...
+                        move_rewardable;
+
+                case 'passive'
+                    single_unit_data_all(curr_animal).passive_stim_fr{curr_day} = ...
+                        event_fr;
+            end
+
+            % Get and store area of each unit
+            probe_area_boundary_starts = [0;cellfun(@(x) x(1),probe_area_boundaries(2:end))];
+            [~,area_sort] = sort(probe_area_boundary_starts);
+
+            unit_area = probe_areas(area_sort(discretize(template_depths, ...
+                [probe_area_boundary_starts(area_sort);Inf])));
+
+            single_unit_data_all(curr_animal).unit_area{curr_day} = unit_area;
+
+
+            % Prep next loop
+            clearvars('-except',preload_vars{:});
+            AP_print_progress_fraction(curr_day,length(task_experiments));
+
+        end
+    end
 end
 
+disp('Finished loading all')
 
-%%%%%%%%%%%%%%%%%%%%
-
-
-animal = 'AP100';
-day = '2021-05-25';
-experiment = 1;
-
-% Load all data without manual sorting
-% (load LFP to find cortex start)
-lfp_channel = 'all';
-ephys_align = 'cortex';
-ephys_quality_control = false;
-AP_load_experiment;
-
-% JF code for loading good single units from bombcell
-% unitType: 0 = noise, 1 = good, 2 = multiunit
-ephysDirPath = AP_cortexlab_filename(animal, day, experiment, 'ephys_dir');
-qMetric_fn = fullfile(ephysDirPath, 'qMetrics');
-load(fullfile(qMetric_fn, 'qMetric.mat'))
-load(fullfile(qMetric_fn, 'param.mat'))
-clearvars unitType;
-
-if param.computeDistanceMetrics && ~isnan(param.isoDmin)
-    unitType = nan(length(qMetric.percSpikesMissing), 1);
-    unitType(qMetric.nPeaks > param.maxNPeaks | qMetric.nTroughs > param.maxNTroughs | qMetric.somatic ~= param.somatic ...
-        | qMetric.spatialDecaySlope <=  param.minSpatialDecaySlope | qMetric.waveformDuration < param.minWvDuration |...
-        qMetric.waveformDuration > param.maxWvDuration | qMetric.waveformBaseline >= param.maxWvBaselineFraction) = 0;
-    unitType(any(qMetric.percSpikesMissing <= param.maxPercSpikesMissing, 2)' & qMetric.nSpikes > param.minNumSpikes & ...
-        any(qMetric.Fp <= param.maxRPVviolations, 2)' & ...
-        qMetric.rawAmplitude > param.minAmplitude & qMetric.isoDmin >= param.isoDmin & isnan(unitType)) = 1;
-    unitType(isnan(unitType)) = 2;
-
-else
-    unitType = nan(length(qMetric.percSpikesMissing), 1);
-    unitType(qMetric.nPeaks > param.maxNPeaks | qMetric.nTroughs > param.maxNTroughs | qMetric.somatic ~= param.somatic ...
-        | qMetric.spatialDecaySlope <=  param.minSpatialDecaySlope | qMetric.waveformDuration < param.minWvDuration |...
-        qMetric.waveformDuration > param.maxWvDuration  | qMetric.waveformBaseline >= param.maxWvBaselineFraction) = 0;
-    unitType(any(qMetric.percSpikesMissing <= param.maxPercSpikesMissing, 2)' & qMetric.nSpikes > param.minNumSpikes & ...
-        any(qMetric.Fp <= param.maxRPVviolations, 2)' & ...
-        qMetric.rawAmplitude > param.minAmplitude & isnan(unitType)') = 1;
-    unitType(isnan(unitType)') = 2;
-
-end
-
-% Templates already 1/re-indexed, grab good ones
-good_templates = unitType == 1;
-good_templates_idx = find(good_templates);
-
-% Throw out all non-good template data
-templates = templates(good_templates,:,:);
-template_depths = template_depths(good_templates);
-waveforms = waveforms(good_templates,:);
-templateDuration = templateDuration(good_templates);
-templateDuration_us = templateDuration_us(good_templates);
-
-% Throw out all non-good spike data
-good_spike_idx = ismember(spike_templates,good_templates_idx);
-spike_times = spike_times(good_spike_idx);
-spike_templates_0idx = spike_templates_0idx(good_spike_idx);
-template_amplitudes = template_amplitudes(good_spike_idx);
-spike_depths = spike_depths(good_spike_idx);
-spike_times_timeline = spike_times_timeline(good_spike_idx);
-
-% Rename the spike templates according to the remaining templates
-% (and make 1-indexed from 0-indexed)
-new_spike_idx = nan(max(spike_templates_0idx)+1,1);
-new_spike_idx(unique(spike_templates_0idx)+1) = 1:length(unique(spike_templates_0idx));
-spike_templates = new_spike_idx(spike_templates_0idx+1);
-
-
-% Get delay-period rewardable movement times
-% (split all movements, find movements that hit only reward limit)
-wheel_moves_deg = arrayfun(@(x) wheel_position_deg( ...
-    Timeline.rawDAQTimestamps >= wheel_starts(x) & ...
-    Timeline.rawDAQTimestamps <= wheel_stops(x)) - ...
-    wheel_position_deg(find(Timeline.rawDAQTimestamps >= wheel_starts(x),1)), ...
-    1:length(wheel_starts),'uni',false);
-
-deg_reward = -90;
-deg_punish = 90;
-
-wheel_moves_deg_rewardlimit = find(cellfun(@(x) ...
-    any(x <= deg_reward) && ...
-    ~any(x >= deg_punish),wheel_moves_deg));
-
-wheel_move_nostim_rewardable_idx = ...
-    intersect(wheel_move_nostim_idx,wheel_moves_deg_rewardlimit);
-
-ismember(wheel_move_nostim_idx,wheel_move_nostim_rewardable_idx)
-
-% Set event to get response around
-use_align = wheel_starts(wheel_move_nostim_idx);
-
-% Get spikes within window
-baseline_window = [-0.5,-0.3];
-response_window = [0,0.2];
-
-event_fr = nan(length(use_align),size(templates,1),2);
-for curr_event = 1:length(use_align)
-
-    curr_use_spikes_baseline = ~isnan(discretize(spike_times_timeline, ...
-        use_align(curr_event) + baseline_window));
-    curr_use_spikes_response = ~isnan(discretize(spike_times_timeline, ...
-        use_align(curr_event) + response_window));
-
-    curr_baseline_fr = accumarray(spike_templates(curr_use_spikes_baseline),1, ...
-        [size(templates,1),1],@sum)./diff(baseline_window);
-    curr_response_fr = accumarray(spike_templates(curr_use_spikes_response),1, ...
-        [size(templates,1),1],@sum)./diff(response_window);
-
-    event_fr(curr_event,:,1) = curr_baseline_fr;
-    event_fr(curr_event,:,2) = curr_response_fr;
-
-end
-
-event_fr_diff = nanmean(diff(event_fr,[],3),1);
-
-% Get response-baseline difference in shuffle
-n_shuff = 1000;
-event_fr_diff_shuff = nan(n_shuff,size(templates,1));
-for curr_shuff = 1:n_shuff
-    event_fr_diff_shuff(curr_shuff,:) = ...
-        nanmean(diff(AP_shake(event_fr,3),[],3),1);
-end
-
-% Get p-value and significance of absolute difference
-event_fr_diff_rank = cell2mat(arrayfun(@(x) ...
-    tiedrank(abs([event_fr_diff(x);event_fr_diff_shuff(:,x)])), ...
-    1:size(templates,1),'uni',false));
-event_fr_diff_p = 1 - event_fr_diff_rank(1,:)./(n_shuff+1);
-event_fr_diff_sig = event_fr_diff_p < 0.01;
-
-% (for debugging/sanity check: get raster)
-raster_window = [-0.5,0.5];
-raster_sample_rate = 50;
-
-raster_sample_time = 1/raster_sample_rate;
-t = raster_window(1):raster_sample_time:raster_window(2);
-
-t_peri_event = bsxfun(@plus,use_align,t);
-t_peri_event_bins = [t_peri_event-raster_sample_time/2,t_peri_event(:,end)+raster_sample_time/2];
-
-event_raster = nan(size(t_peri_event_bins,1),length(t),size(templates,1));
-for curr_unit = 1:size(templates,1)
-    curr_spikes = spike_times_timeline(spike_templates == curr_unit);
-    event_raster(:,:,curr_unit) = cell2mat(arrayfun(@(x) ...
-        histcounts(curr_spikes,t_peri_event_bins(x,:)), ...
-        [1:size(t_peri_event_bins,1)]','uni',false))*raster_sample_rate;
-end
-AP_imscroll(event_raster(:,:,event_fr_diff_sig));
-AP_imscroll(event_raster(:,:,~event_fr_diff_sig));
-
-[~,sig_sort] = sort(event_fr_diff(event_fr_diff_sig),'descend');
-[~,nonsig_sort] = sort(event_fr_diff(~event_fr_diff_sig),'descend');
-
-event_raster_avg_sig = permute(nanmean(event_raster(:,:,event_fr_diff_sig),1),[3,2,1]);
-event_raster_avg_nonsig = permute(nanmean(event_raster(:,:,~event_fr_diff_sig),1),[3,2,1]);
-
-figure;
-imagesc(t,[],[event_raster_avg_sig(sig_sort,:);event_raster_avg_nonsig(nonsig_sort,:)]);
-yline(length(sig_sort),'linewidth',3);
-xline(0);
-colormap(AP_colormap('BWR'))
-caxis(max(abs(caxis))*[-1,1]);
-xlabel('Time from event');
-ylabel('Unit');
+% Save
+save_path = 'C:\Users\Andrew\OneDrive for Business\Documents\CarandiniHarrisLab\analysis\operant_learning\data';
+save_fn = ['single_unit_data_all'];
+save([save_path filesep save_fn],'single_unit_data_all','-v7.3');
+disp(['Saved: ' save_path filesep save_fn])
 
 
 
+% (JUST STORING FOR NOW)
+% (get p-value: do later in figure)
+% event_fr_diff = nanmean(diff(event_fr,[],3),1);
+% 
+% % Get response-baseline difference in shuffle
+% n_shuff = 1000;
+% event_fr_diff_shuff = nan(n_shuff,size(templates,1));
+% for curr_shuff = 1:n_shuff
+%     event_fr_diff_shuff(curr_shuff,:) = ...
+%         nanmean(diff(AP_shake(event_fr,3),[],3),1);
+% end
+% 
+% % Get p-value and significance of absolute difference
+% event_fr_diff_rank = cell2mat(arrayfun(@(x) ...
+%     tiedrank(abs([event_fr_diff(x);event_fr_diff_shuff(:,x)])), ...
+%     1:size(templates,1),'uni',false));
+% event_fr_diff_p = 1 - event_fr_diff_rank(1,:)./(n_shuff+1);
+% event_fr_diff_sig = event_fr_diff_p < 0.01;
 
-
+% % (for debugging/sanity check: get raster)
+% raster_window = [-0.5,0.5];
+% raster_sample_rate = 50;
+% 
+% raster_sample_time = 1/raster_sample_rate;
+% t = raster_window(1):raster_sample_time:raster_window(2);
+% 
+% t_peri_event = bsxfun(@plus,use_align,t);
+% t_peri_event_bins = [t_peri_event-raster_sample_time/2,t_peri_event(:,end)+raster_sample_time/2];
+% 
+% event_raster = nan(size(t_peri_event_bins,1),length(t),size(templates,1));
+% for curr_unit = 1:size(templates,1)
+%     curr_spikes = spike_times_timeline(spike_templates == curr_unit);
+%     event_raster(:,:,curr_unit) = cell2mat(arrayfun(@(x) ...
+%         histcounts(curr_spikes,t_peri_event_bins(x,:)), ...
+%         [1:size(t_peri_event_bins,1)]','uni',false))*raster_sample_rate;
+% end
+% AP_imscroll(event_raster(:,:,event_fr_diff_sig));
+% AP_imscroll(event_raster(:,:,~event_fr_diff_sig));
+% 
+% [~,sig_sort] = sort(event_fr_diff(event_fr_diff_sig),'descend');
+% [~,nonsig_sort] = sort(event_fr_diff(~event_fr_diff_sig),'descend');
+% 
+% event_raster_avg_sig = permute(nanmean(event_raster(:,:,event_fr_diff_sig),1),[3,2,1]);
+% event_raster_avg_nonsig = permute(nanmean(event_raster(:,:,~event_fr_diff_sig),1),[3,2,1]);
+% 
+% figure;
+% imagesc(t,[],[event_raster_avg_sig(sig_sort,:);event_raster_avg_nonsig(nonsig_sort,:)]);
+% yline(length(sig_sort),'linewidth',3);
+% xline(0);
+% colormap(AP_colormap('BWR'))
+% caxis(max(abs(caxis))*[-1,1]);
+% xlabel('Time from event');
+% ylabel('Unit');
 
 
 

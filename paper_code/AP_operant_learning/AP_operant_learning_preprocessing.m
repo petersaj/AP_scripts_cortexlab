@@ -1487,7 +1487,7 @@ for curr_animal = 1:length(animals)
             [~,area_sort] = sort(probe_area_boundary_starts);
 
             unit_area = probe_areas(area_sort(discretize(template_depths, ...
-                [probe_area_boundary_starts(area_sort);Inf])));
+                [-Inf;probe_area_boundary_starts(area_sort(2:end));Inf])));
 
             single_unit_data_all(curr_animal).unit_area{curr_day} = unit_area;
 
