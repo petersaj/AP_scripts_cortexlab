@@ -23,9 +23,13 @@ if exist('grp_idx','var') && ~isempty(grp_idx)
     if length(grp_idx) ~= size(x,dim)
         error('Grouping variable size doesn''t match shaken elements')
     end
+
+    % Ensure group index is numerical
+    [~,~,grp_idx_num] = unique(grp_idx);
+
 else
     % If no group index, put everything in one group
-    grp_idx = ones(prod(size(x,dim)),1);
+    grp_idx_num = ones(prod(size(x,dim)),1);
 end
 
 x_size = size(x);
@@ -38,9 +42,9 @@ x_shaken = permute(x,dim_reorder);
 x_shaken = reshape(x_shaken,prod(x_size(dim)),[]);
 
 % Shake within each group separately
-for curr_grp = reshape(unique(grp_idx),1,[])
+for curr_grp = reshape(unique(grp_idx_num),1,[])
 
-    curr_grp_idx = find(grp_idx == curr_grp);
+    curr_grp_idx = find(grp_idx_num == curr_grp);
     
     % Run through each column and shake the data
     [~,shaken_column_idx] = sort(rand(size(x_shaken(curr_grp_idx,:))),1);

@@ -1803,8 +1803,8 @@ for curr_exp = 1:length(unit_area_cat)
     move_fr_diff_sig = move_fr_diff_p(1,:) <= sig_thresh;
 
     % Store 
-    stim_sig{curr_exp} = stim_fr_diff_sig;
-    move_sig{curr_exp} = move_fr_diff_sig;
+    stim_sig{curr_exp} = stim_fr_diff_sig';
+    move_sig{curr_exp} = move_fr_diff_sig';
 
 end
 
@@ -1860,8 +1860,8 @@ move_fr_change = cellfun(@(x) ...
 stim_fr_change_allcat = horzcat(stim_fr_change{:})';
 move_fr_change_allcat = horzcat(move_fr_change{:})';
 unit_area_idx_allcat = cell2mat(unit_area_idx);
-stim_sig_allcat = horzcat(stim_sig{:})';
-move_sig_allcat = horzcat(move_sig{:})';
+stim_sig_allcat = vertcat(stim_sig{:});
+move_sig_allcat = vertcat(move_sig{:});
 
 figure;
 curr_use_units = ismember(unit_area_idx_allcat,[1,2]);
@@ -1877,25 +1877,60 @@ xline(0,'--'); yline(0,'--');
 legend({'Not stimulus-responsive','Stimulus-responsive'})
 axis equal;
 
-
-% Check chance of having stim & move cells (by area)
-stimmove_frac
+% Get chance of stim & move cells (combined areas of interest)
+stimmove_frac_total = cellfun(@(area,stim,move) ...
+    mean(stim(area~=0) & move(area~=0)),unit_area_idx,stim_sig,move_sig);
 
 n_shuff = 1000;
+stimmove_frac_total_shuff = nan(length(unit_area_cat),n_shuff);
 for curr_shuff = 1:n_shuff
 
-    curr_move_sig_shuff = move_sig;
-    for curr_area = 1:length(plot_areas)
+    % (shuffle movement significance by area)
+    curr_move_sig_shuff = cellfun(@(sig,area) ...
+        AP_shake(sig,1,area),move_sig,unit_area_cat,'uni',false);
 
-    end
+    % (get fraction of sitim & move in shuffle)
+    stimmove_frac_total_shuff(:,curr_shuff) = ...
+        cellfun(@(area,stim,move) ...
+        mean(stim(area~=0) & move(area~=0)), ...
+        unit_area_idx,stim_sig,curr_move_sig_shuff);
 
-    stimmove_frac_shuff = cell2mat(cellfun(@(area,stim_sig,move_sig) ...
+end
+
+figure;
+histogram(nanmean(stimmove_frac_total_shuff,1),'FaceColor','k')
+xline(nanmean(stimmove_frac_total,1),'linewidth',2,'color','r')
+xlabel('Fraction of stim & move cells')
+ylabel('Frequency');
+
+% Get chance of having stim & move cells
+n_shuff = 1000;
+stimmove_frac_shuff = nan(length(plot_areas),length(unit_area_cat),n_shuff);
+for curr_shuff = 1:n_shuff
+
+    % (shuffle movement significance by area)
+    curr_move_sig_shuff = cellfun(@(sig,area) ...
+        AP_shake(sig,1,area),move_sig,unit_area_cat,'uni',false);
+
+    % (get fraction of sitim & move in shuffle)
+    stimmove_frac_shuff(:,:,curr_shuff) = ...
+        cell2mat(cellfun(@(area,stim_sig,move_sig) ...
         accumarray(area(area ~= 0), ...
         stim_sig(area ~= 0) & move_sig(area ~= 0), ...
         [length(plot_areas),1],@mean), ...
-        unit_area_idx,stim_sig,move_sig,'uni',false)');
+        unit_area_idx,stim_sig,curr_move_sig_shuff,'uni',false)');
 
 end
+
+figure;h = tiledlayout(length(plot_areas),1);
+for curr_area = 1:length(plot_areas)
+    nexttile;
+    histogram(permute(nanmean(stimmove_frac_shuff(curr_area,:,:),2),[1,3,2]));
+    xline(nanmean(stimmove_frac(curr_area,:),2));
+    title(plot_areas{curr_area});
+end
+xlabel('Fraction of stim & move cells')
+ylabel('Frequency');
 
 
 
