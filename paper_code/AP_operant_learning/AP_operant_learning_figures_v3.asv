@@ -1878,24 +1878,7 @@ legend({'Not stimulus-responsive','Stimulus-responsive'})
 axis equal;
 
 
-% Check chance of having stim & move cells (by area)
-stimmove_frac
-
-n_shuff = 1000;
-for curr_shuff = 1:n_shuff
-
-    curr_move_sig_shuff = move_sig;
-    for curr_area = 1:length(plot_areas)
-
-    end
-
-    stimmove_frac_shuff = cell2mat(cellfun(@(area,stim_sig,move_sig) ...
-        accumarray(area(area ~= 0), ...
-        stim_sig(area ~= 0) & move_sig(area ~= 0), ...
-        [length(plot_areas),1],@mean), ...
-        unit_area_idx,stim_sig,move_sig,'uni',false)');
-
-end
+% Check chance of having stim
 
 
 

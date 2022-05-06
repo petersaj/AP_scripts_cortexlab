@@ -1305,11 +1305,8 @@ save([save_path filesep save_fn],'-v7.3');
 
 
 
-%% ~~>>>>>>> [DEVELOPING]: SINGLE-UNIT
-
-
-%%%%%%%%%%%%%% Get passive and bhv together
-
+%% Single-unit (task + passive)
+% (save baseline + response for move (task) and stim (passive))
 
 animals = {'AP100','AP101','AP104','AP105','AP106'};
 
@@ -1365,27 +1362,27 @@ for curr_animal = 1:length(animals)
             load(fullfile(qMetric_fn, 'param.mat'))
             clearvars unitType;
 
-            if param.computeDistanceMetrics && ~isnan(param.isoDmin)
-                unitType = nan(length(qMetric.percSpikesMissing), 1);
-                unitType(qMetric.nPeaks > param.maxNPeaks | qMetric.nTroughs > param.maxNTroughs | qMetric.somatic ~= param.somatic ...
-                    | qMetric.spatialDecaySlope <=  param.minSpatialDecaySlope | qMetric.waveformDuration < param.minWvDuration |...
-                    qMetric.waveformDuration > param.maxWvDuration | qMetric.waveformBaseline >= param.maxWvBaselineFraction) = 0;
-                unitType(any(qMetric.percSpikesMissing <= param.maxPercSpikesMissing, 2)' & qMetric.nSpikes > param.minNumSpikes & ...
-                    any(qMetric.Fp <= param.maxRPVviolations, 2)' & ...
-                    qMetric.rawAmplitude > param.minAmplitude & qMetric.isoDmin >= param.isoDmin & isnan(unitType)) = 1;
-                unitType(isnan(unitType)) = 2;
+            % DEFAULT CHANGE: eliminate amplitude cutoff
+            % (for one recording it got rid of almost all cells, and
+            % cells under amplitude cutoff still look good)
+            param.minAmplitude = 0;
 
-            else
-                unitType = nan(length(qMetric.percSpikesMissing), 1);
-                unitType(qMetric.nPeaks > param.maxNPeaks | qMetric.nTroughs > param.maxNTroughs | qMetric.somatic ~= param.somatic ...
-                    | qMetric.spatialDecaySlope <=  param.minSpatialDecaySlope | qMetric.waveformDuration < param.minWvDuration |...
-                    qMetric.waveformDuration > param.maxWvDuration  | qMetric.waveformBaseline >= param.maxWvBaselineFraction) = 0;
-                unitType(any(qMetric.percSpikesMissing <= param.maxPercSpikesMissing, 2)' & qMetric.nSpikes > param.minNumSpikes & ...
-                    any(qMetric.Fp <= param.maxRPVviolations, 2)' & ...
-                    qMetric.rawAmplitude > param.minAmplitude & isnan(unitType)') = 1;
-                unitType(isnan(unitType)') = 2;
-
-            end
+            % (classify good cells)
+            unitType = nan(length(qMetric.percSpikesMissing), 1);
+            unitType( ...
+                qMetric.nPeaks > param.maxNPeaks | ...
+                qMetric.nTroughs > param.maxNTroughs | ...
+                qMetric.somatic ~= param.somatic | ...
+                qMetric.spatialDecaySlope <=  param.minSpatialDecaySlope | ...
+                qMetric.waveformDuration < param.minWvDuration |...
+                qMetric.waveformDuration > param.maxWvDuration  | ...
+                qMetric.waveformBaseline >= param.maxWvBaselineFraction) = 0;
+            unitType( ...
+                any(qMetric.percSpikesMissing <= param.maxPercSpikesMissing, 2)' & ...
+                qMetric.nSpikes > param.minNumSpikes & ...
+                any(qMetric.Fp <= param.maxRPVviolations, 2)' & ...
+                qMetric.rawAmplitude > param.minAmplitude & isnan(unitType)') = 1;
+            unitType(isnan(unitType)') = 2;
 
             % Templates already 1/re-indexed, grab good ones
             good_templates = unitType == 1;
@@ -1494,9 +1491,10 @@ for curr_animal = 1:length(animals)
 
             % Prep next loop
             clearvars('-except',preload_vars{:});
-            AP_print_progress_fraction(curr_day,length(task_experiments));
-
         end
+
+         AP_print_progress_fraction(curr_day,length(task_experiments));
+
     end
 end
 
@@ -1504,32 +1502,12 @@ disp('Finished loading all')
 
 % Save
 save_path = 'C:\Users\Andrew\OneDrive for Business\Documents\CarandiniHarrisLab\analysis\operant_learning\data';
-save_fn = ['single_unit_data_all'];
+save_fn = 'single_unit_data_all';
 save([save_path filesep save_fn],'single_unit_data_all','-v7.3');
 disp(['Saved: ' save_path filesep save_fn])
 
 
-
-% (JUST STORING FOR NOW)
-% (get p-value: do later in figure)
-% event_fr_diff = nanmean(diff(event_fr,[],3),1);
-% 
-% % Get response-baseline difference in shuffle
-% n_shuff = 1000;
-% event_fr_diff_shuff = nan(n_shuff,size(templates,1));
-% for curr_shuff = 1:n_shuff
-%     event_fr_diff_shuff(curr_shuff,:) = ...
-%         nanmean(diff(AP_shake(event_fr,3),[],3),1);
-% end
-% 
-% % Get p-value and significance of absolute difference
-% event_fr_diff_rank = cell2mat(arrayfun(@(x) ...
-%     tiedrank(abs([event_fr_diff(x);event_fr_diff_shuff(:,x)])), ...
-%     1:size(templates,1),'uni',false));
-% event_fr_diff_p = 1 - event_fr_diff_rank(1,:)./(n_shuff+1);
-% event_fr_diff_sig = event_fr_diff_p < 0.01;
-
-% % (for debugging/sanity check: get raster)
+% (JUST STORING HERE - raster-making for debugging/sanity-check)
 % raster_window = [-0.5,0.5];
 % raster_sample_rate = 50;
 % 
