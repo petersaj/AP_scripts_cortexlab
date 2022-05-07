@@ -228,9 +228,6 @@ animals = {bhv.animal};
 % Grab learned day
 learned_day = cellfun(@(x) find(x,1),{bhv.learned_days})';
 
-% Grab window for fast/learned reaction times
-rxn_window = bhv(1).learned_days_rxn_window;
-
 % Load muscimol injection info
 data_path = 'C:\Users\Andrew\OneDrive for Business\Documents\CarandiniHarrisLab\analysis\operant_learning\data';
 muscimol_fn = [data_path filesep 'muscimol.mat'];
@@ -893,22 +890,26 @@ for curr_stage = 1:max(trial_learned_stage)
 
         nexttile;
         imagesc(t,[],curr_data_sort_smooth);hold on;
-        colormap(AP_colormap('KWG',[],1.5));
-        c = prctile(reshape(curr_act(:,:,curr_roi),[],1),95).*[-1,1];
-        caxis(c);
+        caxis(0.007.*[-1,1])
+        colormap(AP_colormap('KWG',[],1));
         xline(0,'color',[0.8,0,0],'linewidth',2);
         plot(move_t(use_trials(sort_idx)),1:length(use_trials),'color','k','linewidth',2);
         xlabel('Time from stim (s)');
         ylabel('Trial (rxn-time sorted)');
         title(sprintf('%s, stage %d',wf_roi(curr_roi).area,curr_stage));
     end
-    x_scale = 0.2;
-    y_scale = 2000;
-    AP_scalebar(x_scale,y_scale);
+
 end
 
 linkaxes(allchild(h),'x');
 xlim([-0.2,1]);
+
+ax = reshape(flipud(allchild(h)),[],2)';
+x_scale = 0.2;
+y_scale = 2000;
+axes(ax(1,end)); AP_scalebar(x_scale,y_scale);
+axes(ax(2,end)); AP_scalebar(x_scale,y_scale);
+colorbar;
 
 %% >> [FIG 2D]: task average hemidiff ROI timecourse (stim/move align, novice/learned)
 
@@ -1034,7 +1035,7 @@ colorbar;
 
 % Plot ROIs by stage (L/R overlay)
 figure;
-plot_rois = 6;
+plot_rois = [1,6];
 
 hemi_stage_col = min(1,reshape([0.7,0,0;0,0,0.7]' + cat(3,0.5,0),3,[]))';
 
@@ -1055,18 +1056,24 @@ for curr_roi = plot_rois
 
     end
 end
-% Link all axes
-linkaxes(allchild(h),'xy');
+% Link ROI axes
+ax = reshape(flipud(allchild(h)),[],length(plot_rois))';
+for curr_roi = 1:length(plot_rois)
+    linkaxes(ax(curr_roi,:),'xy');
+
+    % Draw scalebars
+    axes(ax(curr_roi,end));
+    x_scale = 0.2;
+    y_scale = 4e-4;
+    AP_scalebar(x_scale,y_scale);
+end
 % (shade stim area and put in back)
 arrayfun(@(x) patch(x,[0,0.5,0.5,0], ...
     reshape(repmat(ylim(x),2,1),[],1),[1,1,0.8], ...
     'linestyle','none'),allchild(h));
 arrayfun(@(x) set(x,'children',circshift(get(x,'children'),-1)),allchild(h));
 
-% Draw scalebars
-x_scale = 0.2;
-y_scale = 4e-4;
-AP_scalebar(x_scale,y_scale);
+
 
 %% >> [FIG 3A1] task hemidiff ROI timecourse by learned day
 
@@ -1343,8 +1350,7 @@ yyaxis left;
 task_col = AP_colormap('WP',1);
 errorbar(xtr(:),ytr(:),etr(:),'color',task_col,'linewidth',2,'CapSize',0);
 
-axis tight;
-xlim(xlim + [-0.5,0.5]);
+ylim([0,max(ytr(:))*1.3])
 ylabel('\DeltaF/F_0');
 ax = gca; ax.YColor = task_col;
 
@@ -1353,17 +1359,17 @@ yyaxis right;
 % (plot passive left-hand stim)
 curr_stim = 1;
 errorbar(xp{curr_stim}+xp_offset,ypl{curr_stim},epl{curr_stim},'.','MarkerSize',15, ...
-    'color',[0.5,0.5,0.5],'linestyle','-','linewidth',2,'CapSize',0);
+    'color','b','linestyle','none','linewidth',2,'CapSize',0);
 % (plot passive right-hand stim)
 curr_stim = 3;
 passive_col = AP_colormap('WG',3);
 passive_col = passive_col(2,:);
 errorbar(xp{curr_stim}+xp_offset,ypl{curr_stim},epl{curr_stim},'.','MarkerSize',15, ...
-    'color',passive_col,'linestyle','none','linewidth',2,'CapSize',0);
+    'color','r','linestyle','none','linewidth',2,'CapSize',0);
+xlim(prctile(horzcat(xp{:}),[0,100]) + [-0.5,1.5]);
+ylim([0,max(horzcat(ypl{:}))*1.3])
 
-axis tight;
-xlim(xlim + [-0.5,0.5]);
-xline(0,'linestyle','--');
+xline(0);
 xlabel('Learned day');
 ylabel('\DeltaF/F_0');
 ax = gca; ax.YColor = passive_col;
@@ -1496,6 +1502,197 @@ scalebar_length = 1000/10; % um/voxel size
 line(ccf_axes(3),[0,0],[0,scalebar_length],'color','m','linewidth',3);
 
 
+%% [FIG 4B]: Example single unit rasters
+
+animal = 'AP100';
+day = '2021-05-25';
+plot_units = [292,252,260];
+
+% stim: 282 290 292
+% stim+move: 270 252 286 233
+% move: 260 301 393
+
+% Set up subplots
+figure;
+h = tiledlayout(length(plot_units)*2,2,'tileindexing','columnmajor');
+
+% Set raster time bins
+raster_window = [-0.2,0.7];
+psth_bin_size = 0.001;
+raster_t_bins = raster_window(1):psth_bin_size:raster_window(2);
+raster_t = raster_t_bins(1:end-1) + diff(raster_t_bins)./2;
+
+for experiment = 1:2
+
+    % (load LFP to find cortex start)
+    preload_vars = who;
+    lfp_channel = 'all';
+    ephys_align = 'cortex';
+    ephys_quality_control = false;
+    AP_load_experiment;
+
+    %%% JF code for loading good single units from bombcell
+    % unitType: 0 = noise, 1 = good, 2 = multiunit
+    ephysDirPath = AP_cortexlab_filename(animal, day, experiment, 'ephys_dir');
+    qMetric_fn = fullfile(ephysDirPath, 'qMetrics');
+    load(fullfile(qMetric_fn, 'qMetric.mat'))
+    load(fullfile(qMetric_fn, 'param.mat'))
+    clearvars unitType;
+
+    % DEFAULT CHANGE: eliminate amplitude cutoff
+    % (for one recording it got rid of almost all cells, and
+    % cells under amplitude cutoff still look good)
+    param.minAmplitude = 0;
+
+    % (classify good cells)
+    unitType = nan(length(qMetric.percSpikesMissing), 1);
+    unitType( ...
+        qMetric.nPeaks > param.maxNPeaks | ...
+        qMetric.nTroughs > param.maxNTroughs | ...
+        qMetric.somatic ~= param.somatic | ...
+        qMetric.spatialDecaySlope <=  param.minSpatialDecaySlope | ...
+        qMetric.waveformDuration < param.minWvDuration |...
+        qMetric.waveformDuration > param.maxWvDuration  | ...
+        qMetric.waveformBaseline >= param.maxWvBaselineFraction) = 0;
+    unitType( ...
+        any(qMetric.percSpikesMissing <= param.maxPercSpikesMissing, 2)' & ...
+        qMetric.nSpikes > param.minNumSpikes & ...
+        any(qMetric.Fp <= param.maxRPVviolations, 2)' & ...
+        qMetric.rawAmplitude > param.minAmplitude & isnan(unitType)') = 1;
+    unitType(isnan(unitType)') = 2;
+
+    % Templates already 1/re-indexed, grab good ones
+    good_templates = unitType == 1;
+    good_templates_idx = find(good_templates);
+
+    % Throw out all non-good template data
+    templates = templates(good_templates,:,:);
+    template_depths = template_depths(good_templates);
+    waveforms = waveforms(good_templates,:);
+    templateDuration = templateDuration(good_templates);
+    templateDuration_us = templateDuration_us(good_templates);
+
+    % Throw out all non-good spike data
+    good_spike_idx = ismember(spike_templates,good_templates_idx);
+    spike_times = spike_times(good_spike_idx);
+    spike_templates_0idx = spike_templates_0idx(good_spike_idx);
+    template_amplitudes = template_amplitudes(good_spike_idx);
+    spike_depths = spike_depths(good_spike_idx);
+    spike_times_timeline = spike_times_timeline(good_spike_idx);
+
+    % Rename the spike templates according to the remaining templates
+    % (and make 1-indexed from 0-indexed)
+    new_spike_idx = nan(max(spike_templates_0idx)+1,1);
+    new_spike_idx(unique(spike_templates_0idx)+1) = 1:length(unique(spike_templates_0idx));
+    spike_templates = new_spike_idx(spike_templates_0idx+1);
+
+    % Get area of each unit
+    probe_area_boundary_starts = cellfun(@(x) x(1),probe_area_boundaries);
+    [~,area_sort] = sort(probe_area_boundary_starts);
+
+    unit_area = probe_areas(area_sort(discretize(template_depths, ...
+        [-Inf;probe_area_boundary_starts(area_sort(2:end));Inf])));
+
+    % Get raster alignment times
+    if contains(expDef,'stimWheel')
+        % If task, get rewardable movements and raster all events
+        wheel_moves_deg = arrayfun(@(x) wheel_position_deg( ...
+            Timeline.rawDAQTimestamps >= wheel_starts(x) & ...
+            Timeline.rawDAQTimestamps <= wheel_stops(x)) - ...
+            wheel_position_deg(find(Timeline.rawDAQTimestamps >= wheel_starts(x),1)), ...
+            1:length(wheel_starts),'uni',false);
+
+        deg_reward = -90;
+        deg_punish = 90;
+
+        wheel_moves_deg_rewardlimit = find(cellfun(@(x) ...
+            any(x <= deg_reward) && ...
+            ~any(x >= deg_punish),wheel_moves_deg));
+
+        wheel_move_nostim_rewardable_idx = ...
+            intersect(wheel_move_nostim_idx, wheel_moves_deg_rewardlimit);
+
+        % Raster events: rewardable delay movements
+        use_align = wheel_starts(wheel_move_nostim_rewardable_idx);
+
+    elseif contains(expDef,'Passive')
+        % If passive, get quiescent movement and raster right-hand stim trials
+        wheel_window = [0,0.5];
+        wheel_window_t = wheel_window(1):1/Timeline.hw.daqSampleRate:wheel_window(2);
+        wheel_window_t_peri_event = bsxfun(@plus,stimOn_times,wheel_window_t);
+        event_aligned_wheel = interp1(Timeline.rawDAQTimestamps, ...
+            +wheel_move,wheel_window_t_peri_event,'previous');
+        quiescent_trials = ~any(abs(event_aligned_wheel) > 0,2);
+
+        % Raster event: quiescent right-hand stim onset
+        plot_trials = quiescent_trials & stimIDs == 3;
+        use_align = stimOn_times(plot_trials);
+
+    end
+
+    t_peri_event = use_align + raster_t_bins;
+
+    for curr_unit = plot_units
+
+        % Bin spikes (use only spikes within time range, big speed-up)
+        curr_spikes_idx = ismember(spike_templates,curr_unit);
+        curr_raster_spike_times = spike_times_timeline(curr_spikes_idx);
+        curr_raster_spike_times(curr_raster_spike_times < min(t_peri_event(:)) | ...
+            curr_raster_spike_times > max(t_peri_event(:))) = [];
+
+        curr_raster = cell2mat(arrayfun(@(x) ...
+            histcounts(curr_raster_spike_times,t_peri_event(x,:)), ...
+            [1:size(t_peri_event,1)]','uni',false));
+
+        % Get smoothed PSTH
+        smooth_size = 51;
+        gw = gausswin(smooth_size,3)';
+        smWin = gw./sum(gw);
+        bin_t = mean(diff(raster_t));
+
+        curr_psth = nanmean(curr_raster,1);
+        curr_smoothed_psth = conv2(padarray(curr_psth, ...
+            [0,floor(length(smWin)/2)],'replicate','both'), ...
+            smWin,'valid')./bin_t;
+
+        % Plot PSTH and raster
+        nexttile;
+        plot(raster_t,curr_smoothed_psth,'k','linewidth',1);
+        axis tight off
+        xline(0);
+        title(sprintf('%s %s %s',animal,day,expDef), ...
+            sprintf('unit %d %s',curr_unit,unit_area{curr_unit}));
+
+        nexttile;
+        [raster_y,raster_x] = find(curr_raster);
+        plot(raster_t(raster_x),raster_y,'.k');
+        axis tight off
+        set(gca,'ydir','reverse');
+
+        drawnow;
+    end
+
+    clearvars('-except',preload_vars{:})
+
+end
+
+ax = reshape(flipud(allchild(h)),2,[]);
+% Link all psth/raster y-axes
+linkaxes(ax(1,:),'y')
+linkaxes(ax(2,:),'y')
+
+% Link all x-axes
+linkaxes(ax,'x')
+
+% Scalebars
+t_scale = 0.2;
+rate_scale = 20;
+
+axes(ax(end-1));
+AP_scalebar(t_scale,rate_scale)
+
+
+
 %% [FIG 4C]: ephys - passive stim response
 
 % Load data
@@ -1576,6 +1773,7 @@ for curr_area = plot_areas(plot_area_sort_idx)'
     AP_errorfill(t', ...
         squeeze(nanmean(mua_recording_avg(:,:,:,curr_area),1)), ...
         squeeze(AP_sem(mua_recording_avg(:,:,:,curr_area),1)),stim_color);
+    yline(0);
     ylabel(mua_areas(curr_area));
 end
 linkaxes(allchild(h),'xy');
@@ -1584,7 +1782,11 @@ arrayfun(@(x) patch(x,[0,0.5,0.5,0], ...
     reshape(repmat(ylim(x),2,1),[],1),[1,1,0.8], ...
     'linestyle','none'),allchild(h));
 arrayfun(@(x) set(x,'children',circshift(get(x,'children'),-1)),allchild(h));
+xlim([-0.2,0.7]);
 
+x_scale = 0.2;
+y_scale = 0.5;
+AP_scalebar(x_scale,y_scale);
 
 %% [FIG 4D] ephys - move (no stim) response
 
@@ -1661,94 +1863,18 @@ for curr_area = plot_areas(plot_area_sort_idx)'
         squeeze(nanmean(mua_move_nostim_recording_avg(:,:,curr_area),1)), ...
         squeeze(AP_sem(mua_move_nostim_recording_avg(:,:,curr_area),1)),'k');
     xlabel('Move');
+    xline(0);yline(0);
+    ylabel(mua_areas(curr_area));
 end
 linkaxes(allchild(h),'xy');
+xlim([-0.2,0.7]);
+
+x_scale = 0.2;
+y_scale = 0.5;
+AP_scalebar(x_scale,y_scale);
 
 
 %% [FIG 4E-F] ephys single cell classification and stim/move response
-
-% (temporary organization?)
-% (p vals: stim = -0.2:0 v 0.05:0.2, move = -0.7:-0.2 v -0.2:0.3)
-% (p val 3rd column is sign-rank)
-% (move_rewarded = rewardable movements during delay periods)
-jf_data_path = 'C:\Users\Andrew\OneDrive for Business\Documents\CarandiniHarrisLab\analysis\operant_learning\data\JF_data';
-load(fullfile(jf_data_path,'t'));
-load(fullfile(jf_data_path,'t_move'));
-load(fullfile(jf_data_path,'PValstim'));
-load(fullfile(jf_data_path,'PValmove_rewarded'));
-load(fullfile(jf_data_path,'locPSTHstim'));
-load(fullfile(jf_data_path,'locPSTHmove_rewarded'));
-
-% Get responses
-stim_baseline_t = t >= -0.2 & t <= 0;
-stim_response_t = t >= 0.05 & t <= 0.2;
-stim_response = cellfun(@(x) ...
-    (nanmean(x(:,stim_response_t),2)-nanmean(x(:,stim_baseline_t),2))./ ...
-    (nanmean(x(:,stim_response_t),2)+nanmean(x(:,stim_baseline_t),2)), ...
-    locPSTHstim,'uni',false);
-
-move_baseline_t = t_move >= -0.7 & t_move <= -0.2;
-move_response_t = t_move >= -0.2 & t_move <= 0.3;
-move_response = cellfun(@(x) ...
-    (nanmean(x(:,move_response_t),2)-nanmean(x(:,move_baseline_t),2))./ ...
-    (nanmean(x(:,move_response_t),2)+nanmean(x(:,move_baseline_t),2)), ...
-    locPSTHmove,'uni',false);
-
-% Get and categorize classification
-stim_cells = cellfun(@(x) x(:,3) < 0.01,Pvalstim,'uni',false);
-move_cells = cellfun(@(x) x(:,3) < 0.01,Pvalmove,'uni',false);
-
-class_cell = cellfun(@(stim,move) ...
-    sum([stim & ~move, stim & move, ~stim & move, ~stim & ~move].*(1:4),2), ...
-    stim_cells,move_cells,'uni',false);
-class_col = [0.8,0,0;0.8,0.5,0.5;0.7,0,0.7;0.5,0.5,0.5];
-
-% Sanity check: plot average stim/move classified response and windows
-figure;tiledlayout(1,2);
-nexttile; 
-plot(t,cell2mat(cellfun(@(x,y) ...
-    nanmean(zscore(x(y,:),[],2),1),locPSTHstim,stim_cells,'uni',false))');
-yyaxis right; hold on;
-plot(t,stim_baseline_t,'-k','linewidth',2);
-plot(t,stim_response_t,'-r','linewidth',2);
-title('Stim window and response');
-
-nexttile; 
-plot(t_move,cell2mat(cellfun(@(x,y) ...
-    nanmean(zscore(x(y,:),[],2),1),locPSTHmove,move_cells,'uni',false))');
-yyaxis right; hold on;
-plot(t_move,move_baseline_t,'-k','linewidth',2);
-plot(t_move,move_response_t,'-r','linewidth',2);
-title('Move window and response');
-
- % Plot response scatter and fraction classified
-figure;
-h = tiledlayout(4,2);
-for curr_area = 1:4
-    nexttile; 
-    scatter(stim_response{curr_area},move_response{curr_area},10,class_cell{curr_area},'filled')
-    xlabel('Stim');
-    ylabel('Move');
-
-    nexttile;
-    pie(accumarray(class_cell{curr_area},1));
-end
-colormap(class_col);
-set(findobj('type','text'),'FontSize',14);
-
-% Plot stim v movement response for stim/all cells
-figure;
-h = scatterhist(cell2mat(stim_response),cell2mat(move_response), ...
-    'Group',cell2mat(stim_cells),'Color',{'k','r'}, ...
-    'kernel','on','Direction','out','location','northeast', ...
-    'marker','.','MarkerSize',10);
-xlabel('Stimulus response');
-ylabel('Movement response');
-xline(0,'--'); yline(0,'--');
-legend({'Not stimulus-responsive','Stimulus-responsive'})
-axis equal;
-
-%% ~~~~~~~~~> SINGLE UNIT (my code)
 
 data_path = 'C:\Users\Andrew\OneDrive for Business\Documents\CarandiniHarrisLab\analysis\operant_learning\data';
 data_fn = 'single_unit_data_all';
@@ -1837,7 +1963,7 @@ stimmove_frac = cell2mat(cellfun(@(area,stim_sig,move_sig) ...
     unit_area_idx,stim_sig,move_sig,'uni',false)');
 
 class_frac = [nanmean(stim_frac,2),nanmean(stimmove_frac,2),nanmean(move_frac,2)];
-class_col = [0.8,0,0;0.8,0.5,0.5;0.7,0,0.7;0.5,0.5,0.5];
+class_col = [0.8,0,0;0.8,0.5,0.5;0.7,0,0.7;1,1,1];
 
 figure; h = tiledlayout(length(plot_areas),1);
 for curr_area = 1:length(plot_areas)
@@ -1876,6 +2002,18 @@ ylabel('Movement response');
 xline(0,'--'); yline(0,'--');
 legend({'Not stimulus-responsive','Stimulus-responsive'})
 axis equal;
+
+% Print mean and sem of stim and move cells in MOs and ACA
+stim_frac_dmpfc = cellfun(@(area,sig) ...
+    nanmean(sig(ismember(area,[1,2]))), ... 
+    unit_area_idx,stim_sig);
+
+move_frac_dmpfc = cellfun(@(area,sig) ...
+    nanmean(sig(ismember(area,[1,2]))), ... 
+    unit_area_idx,move_sig);
+
+fprintf('Stim dmPFC: %0.2f +- %0.2f\n',nanmean(stim_frac_dmpfc),std(stim_frac_dmpfc));
+fprintf('Move dmPFC: %0.2f +- %0.2f\n',nanmean(move_frac_dmpfc),std(move_frac_dmpfc));
 
 % Get chance of stim & move cells (combined areas of interest)
 stimmove_frac_total = cellfun(@(area,stim,move) ...

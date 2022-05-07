@@ -102,7 +102,7 @@ raster_window = [-0.5,1];
 if imaging_exists
     raster_sample_rate = 50;
 elseif ephys_exists
-    raster_sample_rate = 200;
+    raster_sample_rate = 50;
 end
 
 raster_sample_time = 1/raster_sample_rate;
@@ -189,7 +189,10 @@ end
 if ephys_exists
     
     stim_aligned_mua_area = nan(size(t_peri_stim_bins,1),length(t),length(probe_areas));
-    move_nostim_rewardable_aligned_mua_area = nan(size(t_peri_move_nostim_rewardable_bins,1),length(t),length(probe_areas));
+
+    if task_dataset
+        move_nostim_rewardable_aligned_mua_area = nan(size(t_peri_move_nostim_rewardable_bins,1),length(t),length(probe_areas));
+    end
 
     for curr_area = 1:length(probe_areas)
         curr_spikes = spike_times_timeline(...

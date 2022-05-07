@@ -2292,18 +2292,17 @@ scatter(probe_coords_mean_wf(:,1),probe_coords_mean_wf(:,2),20,'k');
 
 %% Ephys - single cell
 
-% (temporary)
+% (temporary organization?)
 % (p vals: stim = -0.2:0 v 0.05:0.2, move = -0.7:-0.2 v -0.2:0.3)
 % (p val 3rd column is sign-rank)
-
+% (move_rewarded = rewardable movements during delay periods)
 jf_data_path = 'C:\Users\Andrew\OneDrive for Business\Documents\CarandiniHarrisLab\analysis\operant_learning\data\JF_data';
 load(fullfile(jf_data_path,'t'));
 load(fullfile(jf_data_path,'t_move'));
 load(fullfile(jf_data_path,'PValstim'));
-load(fullfile(jf_data_path,'PValmove'));
+load(fullfile(jf_data_path,'PValmove_rewarded'));
 load(fullfile(jf_data_path,'locPSTHstim'));
-load(fullfile(jf_data_path,'locPSTHmove'));
-
+load(fullfile(jf_data_path,'locPSTHmove_rewarded'));
 
 % Get responses
 stim_baseline_t = t >= -0.2 & t <= 0;
@@ -2362,44 +2361,17 @@ end
 colormap(class_col);
 set(findobj('type','text'),'FontSize',14);
 
-% Plot stim v movement response by cell classification
-figure; hold on; 
-scatterhist(cell2mat(stim_response),cell2mat(move_response), ...
-    'Group',cell2mat(class_cell),'Color',class_col, ...
-    'kernel','on','marker','.','Direction','out');
-legend({'Stim','Both','Move','Neither'});
-xlabel('Stim response');
-ylabel('Move response');
-
 % Plot stim v movement response for stim/all cells
 figure;
 h = scatterhist(cell2mat(stim_response),cell2mat(move_response), ...
     'Group',cell2mat(stim_cells),'Color',{'k','r'}, ...
-    'marker','.','MarkerSize',10,'Direction','out','location','northeast');
+    'kernel','on','Direction','out','location','northeast', ...
+    'marker','.','MarkerSize',10);
 xlabel('Stimulus response');
 ylabel('Movement response');
 xline(0,'--'); yline(0,'--');
 legend({'Not stimulus-responsive','Stimulus-responsive'})
 axis equal;
-
-% Plot stim and movement response for stim cells
-softnorm = 1;
-a = cell2mat(locPSTHstim);
-a = (a-nanmean(a(:,stim_baseline_t),2))./(softnorm+nanmean(a(:,stim_baseline_t),2));
-b = cell2mat(locPSTHmove);
-b = (b-nanmean(b(:,move_baseline_t),2))./(softnorm+nanmean(b(:,move_baseline_t),2));
-
-figure; tiledlayout(1,2);
-nexttile; hold on;
-plot(t,nanmean(a(cell2mat(stim_cells),:),1));
-plot(t,nanmean(a(cell2mat(move_cells),:),1));
-plot(t,nanmean(a(~cell2mat(stim_cells),:),1));
-
-nexttile; hold on;
-plot(t_move,nanmean(b(cell2mat(stim_cells),:),1));
-plot(t_move,nanmean(b(cell2mat(move_cells),:),1));
-plot(t_move,nanmean(b(~cell2mat(stim_cells),:),1));
-
 
 
 

@@ -484,8 +484,7 @@ ylabel('Day');
 save(bhv_fn,'bhv');
 disp(['Saved learned days ' bhv_fn]);
 
-%% Find weekend/other gaps in training days
-% (not used for anything - just to check)
+%% Get absolute training days (check for breaks between days)
 
 % Load behavior
 data_path = 'C:\Users\Andrew\OneDrive for Business\Documents\CarandiniHarrisLab\analysis\operant_learning\data';
@@ -511,10 +510,9 @@ for curr_animal = 1:length(bhv)
     use_days{curr_animal} = ~muscimol_day_idx;
 end
 
-% Get number of days from start
-training_day_absolute = ...
-    cellfun(@(day,use) datenum(day(use)) - datenum(day(1)), ...
-    {bhv.day},use_days,'uni',false);
+% Get day 
+training_days = cellfun(@(day,use) day(use),{bhv.day},use_days,'uni',false);
+
 
 
 %% ~~~~~~~~~~~~~~ Widefield ROIs

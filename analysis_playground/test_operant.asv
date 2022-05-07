@@ -5024,7 +5024,7 @@ for curr_regressor = 1:length(mua_area_taskpred_k_avg)
     end
 end
 
-%% >> ephys - find good single unit examples
+%% >> ephys - finsingle unit example rasters
 
 animal = 'AP100';
 day = '2021-05-25';
