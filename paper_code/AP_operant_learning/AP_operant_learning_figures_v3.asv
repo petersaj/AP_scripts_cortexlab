@@ -627,6 +627,9 @@ ylim([0,max(ylim)])
 set(gca,'XTick',1:n_conditions,'XTickLabel',condition_labels);
 ylabel('Wheel mm/min');
 
+p = anova1(muscimol_v1_wheel_mm,[],'off');
+fprintf('Muscimol wheel travel, 1-way anova = %.2d\n',p);
+
 % Get reaction times median (exclude too-fast <0.1)
 rxn_measured_med = cellfun(@(x) nanmedian(x.*AP_nanout(x < 0.1),1),rxn_measured_cat);
 rxn_alt_med = cell2mat(cellfun(@(x) ...
@@ -648,6 +651,9 @@ set(gca,'YTick',[0,0.25,0.5,1,2]);
 xlim(xlim + [-0.5,0.5]);
 ylim([0,3]);
 ytickformat('%.2f')
+
+p = anova1(rxn_measured_med',[],'off');
+fprintf('Muscimol reaction time, 1-way anova = %.2d\n',p);
 
 subplot(1,2,2); hold on
 rxn_alt_med_altdiff_ci = permute(prctile(nanmean(rxn_alt_med_altdiff,2),[5,95],3),[1,3,2]);
@@ -965,6 +971,10 @@ for curr_roi = plot_rois
     xline(0);yline(0);set(gca,'children',circshift(get(gca,'children'),-2))
     xlim(x_limit);
 
+    p_t = t >= 0 & t <= 0.2;
+    p = anova1(permute(max(curr_data_stim(p_t,:,:),[],1),[3,2,1]));    
+    fprintf('Stim-aligned hemidiff t-max %s, 1-way anova p = %.2g\n',wf_roi(curr_roi).area(1:end-2),p);
+
     % Draw scalebars
     x_scale = 0.1;
     y_scale = 2e-4;
@@ -1041,9 +1051,10 @@ hemi_stage_col = min(1,reshape([0.7,0,0;0,0,0.7]' + cat(3,0.5,0),3,[]))';
 
 h = tiledlayout(length(plot_rois),3,'TileSpacing','compact','padding','compact');
 for curr_roi = plot_rois
-    for curr_stim = stim_unique'
 
-        curr_rois = curr_roi + [0,size(wf_roi,1)];
+    curr_rois = curr_roi + [0,size(wf_roi,1)];
+
+    for curr_stim = stim_unique'
 
         nexttile;
         AP_errorfill(t, ...
@@ -1053,8 +1064,16 @@ for curr_roi = plot_rois
         xlabel('Time from stim (s)');
         ylabel(sprintf('%s \\DeltaF/F_0',wf_roi(curr_roi).area));
         axis tight;xlim([-0.2,1])
-
     end
+
+    [t_idx,stage_idx,stim_idx,animal_idx] = ndgrid(1:length(t),1:2,1:length(stim_unique),1:length(animals));
+    [p_l,~,stats] = anovan(reshape(stim_roi_avg_stage(curr_rois(1),:,:,:,:),[],1), ...
+        [t_idx(:),stage_idx(:),stim_idx(:)],'continuous',1,'model','interaction','display','on');
+    [p_r,~,stats] = anovan(reshape(stim_roi_avg_stage(curr_rois(2),:,:,:,:),[],1), ...
+        [t_idx(:),stage_idx(:),stim_idx(:)],'continuous',1,'model','interaction','display','off');
+    fprintf('%s t/stage/stim 3-way anova p(stage) = %.2g\n',wf_roi(curr_rois(1)).area,p_l(2));
+    fprintf('%s t/stage/stim 3-way anova p(stage) = %.2g\n',wf_roi(curr_rois(2)).area,p_r(2));
+
 end
 % Link ROI axes
 ax = reshape(flipud(allchild(h)),[],length(plot_rois))';
@@ -1074,7 +1093,6 @@ arrayfun(@(x) patch(x,[0,0.5,0.5,0], ...
 arrayfun(@(x) set(x,'children',circshift(get(x,'children'),-1)),allchild(h));
 
 
-
 %% >> [FIG 3A1] task hemidiff ROI timecourse by learned day
 
 roi_hemiflip = circshift(1:n_rois,n_rois/2);
@@ -1086,10 +1104,19 @@ curr_act = fluor_roi_deconv - ...
     ndgrid(trial_learned_day_id,1:length(t),1:n_rois);
 [animal_idx,~,~] = ...
     ndgrid(trial_animal,1:length(t),1:n_rois);
+[trained_day_idx,~,~] = ...
+    ndgrid(trial_day,1:length(t),1:n_rois);
 
 accum_learnedday_idx = cat(4,learned_day_idx,t_idx,roi_idx,animal_idx);
+accum_trainedday_idx = cat(4,trained_day_idx,t_idx,roi_idx,animal_idx);
 
 use_trials = true(size(move_t));
+
+roi_trainday_avg = accumarray( ...
+    reshape(accum_trainedday_idx(use_trials,:,:,:),[],size(accum_trainedday_idx,4)), ...
+    reshape(curr_act(use_trials,:,:),[],1), ...
+    [max(learned_day_idx(:)),length(t),n_rois,length(animals)], ...
+    @nanmean,NaN('single'));
 
 roi_learnday_avg = accumarray( ...
     reshape(accum_learnedday_idx(use_trials,:,:,:),[],size(accum_learnedday_idx,4)), ...
@@ -1100,14 +1127,26 @@ roi_learnday_avg = accumarray( ...
 use_t = t > 0 & t <= 0.2;
 stim_roi_learnday_avg_tmax = squeeze(max(roi_learnday_avg(:,use_t,:,:,:),[],2));
 
-% Plot ROI timecourse by learned day
+% Plot ROI timecourse first trained day / peri-learned days
 plot_rois = [6];
+plot_trained_days = 1;
 plot_learned_days = -2:1;
 
 figure;
 plot_col = AP_colormap('WP',1);
-h = tiledlayout(length(plot_rois),length(plot_learned_days));
+h = tiledlayout(length(plot_rois), ...
+    length(plot_trained_days) + length(plot_learned_days));
+
 for curr_roi = plot_rois
+
+    for curr_td = plot_trained_days
+        curr_data = squeeze(roi_trainday_avg(curr_td,:,curr_roi,:));
+        nexttile; hold on;
+        AP_errorfill(t,nanmean(curr_data,2),AP_sem(curr_data,2),plot_col);
+        xline(0); yline(0);
+        title(sprintf('Trained day %d',curr_td));
+    end   
+
     for curr_ld = plot_learned_days
         curr_data = squeeze(roi_learnday_avg(learned_day_unique == curr_ld,:,curr_roi,:));
 
@@ -1117,14 +1156,33 @@ for curr_roi = plot_rois
         title(sprintf('Learned day %d',curr_ld));
     end   
     ylabel(wf_roi(curr_roi).area);
+
+    % Stats: difference between training day 1 vs learned day -1/0
+    p_t = t >= 0 & t <= 0.2;
+    p_prelearn = anova2(reshape(permute(cat(1, ...
+        roi_trainday_avg(1,p_t,curr_roi,:), ...
+        roi_learnday_avg(learned_day_unique == -1,p_t,curr_roi,:)), ...
+        [4,2,1,3]),[],2),length(animals),'off');
+    p_postlearn = anova2(reshape(permute(cat(1, ...
+        roi_trainday_avg(1,p_t,curr_roi,:), ...
+        roi_learnday_avg(learned_day_unique == 0,p_t,curr_roi,:)), ...
+        [4,2,1,3]),[],2),length(animals),'off');
+    fprintf('%s 2-way anova (day effect): p(td1 v ld-1) = %.2g, p(td1 v ld0) = %.2g\n', ...
+        wf_roi(curr_roi).area,p_prelearn(2),p_postlearn(2));
+
+    a = squeeze(max(roi_trainday_avg(1,p_t,curr_roi,:),[],2));
+    b = squeeze(max(roi_learnday_avg(learned_day_unique == -2,p_t,curr_roi,:),[],2));
+    c = squeeze(max(roi_learnday_avg(learned_day_unique == -1,p_t,curr_roi,:),[],2));
+    d = squeeze(max(roi_learnday_avg(learned_day_unique == 0,p_t,curr_roi,:),[],2));
+
 end
-    
+
 % (link ROI y-axes)
 ax = reshape(flipud(allchild(h)),[],length(plot_rois))';
-for curr_roi = 1:length(plot_rois)
-   linkaxes(ax(curr_roi,:),'xy'); 
+for curr_roi_idx = 1:length(plot_rois)
+   linkaxes(ax(curr_roi_idx,:),'xy'); 
    xlim([-0.1,0.3]);
-   ylim(prctile(reshape(cell2mat(ylim(ax(curr_roi,:))),[],1),[0,100]));
+   ylim(prctile(reshape(cell2mat(ylim(ax(curr_roi_idx,:))),[],1),[0,100]));
 end
 
 % Draw scalebars
@@ -1233,6 +1291,12 @@ roi_naive_avg = accumarray( ...
     [n_naive,length(t),n_rois,length(stim_unique),length(animals)], ...
     @nanmean,NaN('single'));
 
+roi_trainday_avg = accumarray( ...
+    reshape(accum_idx(use_trials_training,:,:,[1,3,4,5,6]),[],5), ...
+    reshape(fluor_roi_deconv(use_trials_training,:,:),[],1), ...
+    [max(trial_day),length(t),n_rois,length(stim_unique),length(animals)], ...
+    @nanmean,NaN('single'));
+
 roi_learnday_avg = accumarray( ...
     reshape(accum_idx(use_trials_training,:,:,[2,3,4,5,6]),[],5), ...
     reshape(fluor_roi_deconv(use_trials_training,:,:),[],1), ...
@@ -1240,12 +1304,23 @@ roi_learnday_avg = accumarray( ...
     @nanmean,NaN('single'));
 
 % Plot ROI timecourse by learned day
+plot_trained_days = 1;
 plot_learned_days = -2:1;
 
 figure;
 plot_col = AP_colormap('WG',1);
-h = tiledlayout(length(plot_rois),length(plot_learned_days));
+h = tiledlayout(length(plot_rois),length(plot_trained_days) + length(plot_learned_days));
 for curr_roi = plot_rois
+    for curr_td = plot_trained_days
+        curr_td_postnaive = curr_td + n_naive;
+        curr_data = squeeze(roi_trainday_avg(curr_td_postnaive,:, ...
+            curr_roi,stim_unique == 1,:));
+
+        nexttile; hold on;
+        AP_errorfill(t,nanmean(curr_data,2),AP_sem(curr_data,2),plot_col);
+        xline(0); yline(0);
+        title(sprintf('Trained day %d',curr_td));
+    end
     for curr_ld = plot_learned_days
         curr_data = squeeze(roi_learnday_avg(learned_day_unique == curr_ld,:, ...
         curr_roi,stim_unique == 1,:));
@@ -1256,14 +1331,33 @@ for curr_roi = plot_rois
         title(sprintf('Learned day %d',curr_ld));
     end   
     ylabel(wf_roi(curr_roi).area);
+
+    % Stats: difference between training day 1 vs learned day -1/0
+    p_t = t >= 0 & t <= 0.2;
+    p_prelearn = anova2(reshape(permute(cat(1, ...
+        roi_trainday_avg(n_naive + 1,p_t,curr_roi,stim_unique == 1,:), ...
+        roi_learnday_avg(learned_day_unique == -1,p_t,curr_roi,stim_unique == 1,:)), ...
+        [5,2,1,3,4]),[],2),length(animals),'off');
+    [p_postlearn,~,stats] = anova2(reshape(permute(cat(1, ...
+        roi_trainday_avg(n_naive + 1,p_t,curr_roi,stim_unique == 1,:), ...
+        roi_learnday_avg(learned_day_unique == 0,p_t,curr_roi,stim_unique == 1,:)), ...
+        [5,2,1,3,4]),[],2),length(animals),'off');
+    fprintf('%s 2-way anova (day effect): p(td1 v ld-1) = %.2g, p(td1 v ld0) = %.2g\n', ...
+        wf_roi(curr_roi).area,p_prelearn(2),p_postlearn(2));
+
+    a = squeeze(max(roi_trainday_avg(n_naive + 1,p_t,curr_roi,:),[],2));
+    b = squeeze(max(roi_learnday_avg(learned_day_unique == -2,p_t,curr_roi,stim_unique == 1,:),[],2));
+    c = squeeze(max(roi_learnday_avg(learned_day_unique == -1,p_t,curr_roi,stim_unique == 1,:),[],2));
+    d = squeeze(max(roi_learnday_avg(learned_day_unique == 0,p_t,curr_roi,stim_unique == 1,:),[],2));
+
 end
 
 % (link ROI y-axes)
 ax = reshape(flipud(allchild(h)),[],length(plot_rois))';
-for curr_roi = 1:length(plot_rois)   
-       linkaxes(ax(curr_roi,:),'xy'); 
+for curr_roi_idx = 1:length(plot_rois)   
+       linkaxes(ax(curr_roi_idx,:),'xy'); 
    xlim([-0.1,0.3]);
-   ylim(prctile(reshape(cell2mat(ylim(ax(curr_roi,:))),[],1),[0,100]));
+   ylim(prctile(reshape(cell2mat(ylim(ax(curr_roi_idx,:))),[],1),[0,100]));
 end
 
 % Draw scalebars
@@ -1302,8 +1396,28 @@ for curr_roi = plot_rois
     ylabel(wf_roi(curr_roi).area);
     legend(p,num2str(stim_unique));
     axis tight; xlim(xlim + [-0.5,0.5]);
+
 end
 
+% STATS - DONT KNOW WHAT TO DO HERE YET
+%
+%     %%%%% MAYBE JUST DO A SHUFFLE TEST?
+%     [ld_idx,stim_idx,~] = ndgrid(1:size(curr_data,1),1:length(stim_unique),1:length(animals));
+%     [p,~,stats] = anovan(curr_data(~isnan(curr_data)),[ld_idx(~isnan(curr_data)),stim_idx(~isnan(curr_data))],'model','interaction','display','on');
+%     c = multcompare(stats,'Dimension',[1,2]);
+%     fprintf('%s t-max, 2-way anova p(stim) = %.2g,p(stage) = %.2g\n',wf_roi(curr_rois(1)).area,p_l(1),p_l(2));
+%
+%     curr_lrstim_diff = nanmean(abs(diff(curr_data(:,ismember(stim_unique,[-1,1]),:),[],2)),3);
+%     n_shuff = 1000;
+%     curr_lrstim_diff_shuff = nan(length(curr_x),n_shuff);
+%     for curr_shuff = 1:n_shuff
+%         curr_lrstim_diff_shuff(:,curr_shuff) = ...
+%             nanmean(abs(diff(AP_shake(curr_data(:,ismember(stim_unique,[-1,1]),:),2),[],2)),3);
+%     end
+%     curr_lrstim_diff_rank = cell2mat(arrayfun(@(x) ...
+%         tiedrank([curr_lrstim_diff(x),curr_lrstim_diff_shuff(x,:)]), ...
+%         (1:length(curr_x))','uni',false));
+%     curr_lrstim_diff_p = curr_lrstim_diff_rank(:,1)./(n_shuff+1);
 
 
 %% ((run FIG 3C1-2)) [FIG 3C combined]: task & passive daysplit
@@ -2012,9 +2126,8 @@ move_frac_dmpfc = cellfun(@(area,sig) ...
     nanmean(sig(ismember(area,[1,2]))), ... 
     unit_area_idx,move_sig);
 
-fprintf('Stim dmPFC: %0.2f +- %0.2f',nanmean(stim_frac_dmpfc),std(stim_frac_dmpfc)
-disp(sprintf('Move dmPFC: %0.2f +- %0.2f',nanmean(move_frac_dmpfc),std(move_frac_dmpfc)));
-
+fprintf('Stim dmPFC: %0.2f +- %0.2f\n',nanmean(stim_frac_dmpfc),std(stim_frac_dmpfc));
+fprintf('Move dmPFC: %0.2f +- %0.2f\n',nanmean(move_frac_dmpfc),std(move_frac_dmpfc));
 
 % Get chance of stim & move cells (combined areas of interest)
 stimmove_frac_total = cellfun(@(area,stim,move) ...
