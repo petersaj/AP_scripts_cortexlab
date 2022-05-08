@@ -1157,23 +1157,16 @@ for curr_roi = plot_rois
     end   
     ylabel(wf_roi(curr_roi).area);
 
-    % Stats: difference between training day 1 vs learned day -1/0
+     % Stats: difference between ld -2/-1 vs -1/0
     p_t = t >= 0 & t <= 0.2;
-    p_prelearn = anova2(reshape(permute(cat(1, ...
-        roi_trainday_avg(1,p_t,curr_roi,:), ...
-        roi_learnday_avg(learned_day_unique == -1,p_t,curr_roi,:)), ...
-        [4,2,1,3]),[],2),length(animals),'off');
-    p_postlearn = anova2(reshape(permute(cat(1, ...
-        roi_trainday_avg(1,p_t,curr_roi,:), ...
-        roi_learnday_avg(learned_day_unique == 0,p_t,curr_roi,:)), ...
-        [4,2,1,3]),[],2),length(animals),'off');
-    fprintf('%s 2-way anova (day effect): p(td1 v ld-1) = %.2g, p(td1 v ld0) = %.2g\n', ...
-        wf_roi(curr_roi).area,p_prelearn(2),p_postlearn(2));
-
-    a = squeeze(max(roi_trainday_avg(1,p_t,curr_roi,:),[],2));
-    b = squeeze(max(roi_learnday_avg(learned_day_unique == -2,p_t,curr_roi,:),[],2));
-    c = squeeze(max(roi_learnday_avg(learned_day_unique == -1,p_t,curr_roi,:),[],2));
-    d = squeeze(max(roi_learnday_avg(learned_day_unique == 0,p_t,curr_roi,:),[],2));
+    p_prelearn = signrank( ...
+        squeeze(max(roi_learnday_avg(learned_day_unique == -2,p_t,curr_roi,:),[],2)), ...
+        squeeze(max(roi_learnday_avg(learned_day_unique == -1,p_t,curr_roi,:),[],2)));
+    p_postlearn = signrank( ...
+        squeeze(max(roi_learnday_avg(learned_day_unique == -1,p_t,curr_roi,:),[],2)), ...
+        squeeze(max(roi_learnday_avg(learned_day_unique == -0,p_t,curr_roi,:),[],2)));
+    fprintf('%s t-max signrank: p(-2 v -1) = %.2g, p(-1 v 0) = %.2g\n', ...
+        wf_roi(curr_roi).area,p_prelearn,p_postlearn);
 
 end
 
@@ -1264,7 +1257,7 @@ end
 
 
 
-%% ++ [FIG 3A2,C2] passive - ROI timecourse/stim window by learned day
+%% ++ [FIG 3A2,C2, FIG S3] passive - ROI timecourse/stim window by learned day
 
 % Set ROIs to plot
 plot_rois = [6];
@@ -1332,23 +1325,16 @@ for curr_roi = plot_rois
     end   
     ylabel(wf_roi(curr_roi).area);
 
-    % Stats: difference between training day 1 vs learned day -1/0
+    % Stats: difference between ld -2/-1 vs -1/0
     p_t = t >= 0 & t <= 0.2;
-    p_prelearn = anova2(reshape(permute(cat(1, ...
-        roi_trainday_avg(n_naive + 1,p_t,curr_roi,stim_unique == 1,:), ...
-        roi_learnday_avg(learned_day_unique == -1,p_t,curr_roi,stim_unique == 1,:)), ...
-        [5,2,1,3,4]),[],2),length(animals),'off');
-    [p_postlearn,~,stats] = anova2(reshape(permute(cat(1, ...
-        roi_trainday_avg(n_naive + 1,p_t,curr_roi,stim_unique == 1,:), ...
-        roi_learnday_avg(learned_day_unique == 0,p_t,curr_roi,stim_unique == 1,:)), ...
-        [5,2,1,3,4]),[],2),length(animals),'off');
-    fprintf('%s 2-way anova (day effect): p(td1 v ld-1) = %.2g, p(td1 v ld0) = %.2g\n', ...
-        wf_roi(curr_roi).area,p_prelearn(2),p_postlearn(2));
-
-    a = squeeze(max(roi_trainday_avg(n_naive + 1,p_t,curr_roi,:),[],2));
-    b = squeeze(max(roi_learnday_avg(learned_day_unique == -2,p_t,curr_roi,stim_unique == 1,:),[],2));
-    c = squeeze(max(roi_learnday_avg(learned_day_unique == -1,p_t,curr_roi,stim_unique == 1,:),[],2));
-    d = squeeze(max(roi_learnday_avg(learned_day_unique == 0,p_t,curr_roi,stim_unique == 1,:),[],2));
+    p_prelearn = signrank( ...
+        squeeze(max(roi_learnday_avg(learned_day_unique == -2,p_t,curr_roi,stim_unique == 1,:),[],2)), ...
+        squeeze(max(roi_learnday_avg(learned_day_unique == -1,p_t,curr_roi,stim_unique == 1,:),[],2)));
+    p_postlearn = signrank( ...
+        squeeze(max(roi_learnday_avg(learned_day_unique == -1,p_t,curr_roi,stim_unique == 1,:),[],2)), ...
+        squeeze(max(roi_learnday_avg(learned_day_unique == 0,p_t,curr_roi,stim_unique == 1,:),[],2)));
+    fprintf('%s t-max signrank: p(-2 v -1) = %.2g, p(-1 v 0) = %.2g\n', ...
+        wf_roi(curr_roi).area,p_prelearn,p_postlearn);
 
 end
 
@@ -2149,40 +2135,12 @@ for curr_shuff = 1:n_shuff
 
 end
 
-figure;
-histogram(nanmean(stimmove_frac_total_shuff,1),'FaceColor','k')
-xline(nanmean(stimmove_frac_total,1),'linewidth',2,'color','r')
-xlabel('Fraction of stim & move cells')
-ylabel('Frequency');
+stimmove_frac_rank = tiedrank([nanmean(stimmove_frac_total,1), ...
+    nanmean(stimmove_frac_total_shuff,1)]);
+stimmove_frac_p = 1 - stimmove_frac_rank(1)./(n_shuff+1);
+fprintf('Stim & move shuffle p = %.2f\n',stimmove_frac_p);
 
-% Get chance of having stim & move cells
-n_shuff = 1000;
-stimmove_frac_shuff = nan(length(plot_areas),length(unit_area_cat),n_shuff);
-for curr_shuff = 1:n_shuff
 
-    % (shuffle movement significance by area)
-    curr_move_sig_shuff = cellfun(@(sig,area) ...
-        AP_shake(sig,1,area),move_sig,unit_area_cat,'uni',false);
-
-    % (get fraction of sitim & move in shuffle)
-    stimmove_frac_shuff(:,:,curr_shuff) = ...
-        cell2mat(cellfun(@(area,stim_sig,move_sig) ...
-        accumarray(area(area ~= 0), ...
-        stim_sig(area ~= 0) & move_sig(area ~= 0), ...
-        [length(plot_areas),1],@mean), ...
-        unit_area_idx,stim_sig,curr_move_sig_shuff,'uni',false)');
-
-end
-
-figure;h = tiledlayout(length(plot_areas),1);
-for curr_area = 1:length(plot_areas)
-    nexttile;
-    histogram(permute(nanmean(stimmove_frac_shuff(curr_area,:,:),2),[1,3,2]));
-    xline(nanmean(stimmove_frac(curr_area,:),2));
-    title(plot_areas{curr_area});
-end
-xlabel('Fraction of stim & move cells')
-ylabel('Frequency');
 
 
 
@@ -2297,7 +2255,12 @@ ax = gca;
 ax.XAxis.Exponent = 0;
 ax.YAxis.Exponent = 0;
 
-%% [FIG S3A]: example pupil and facecam frame
+% Stats (few values - do left-sided test)
+p = signrank(squeeze(curr_data(2,1,:)),squeeze(curr_data(2,2,:)),'tail','left');
+fprintf('%s muscimol left-sided signed-rank: p = %.2g\n',wf_roi(plot_rois(2)).area,p);
+
+
+%% [FIG S4A]: example pupil and facecam frame
 
 animal = 'AP106';
 day = '2021-06-25';
@@ -2333,7 +2296,7 @@ axis image off
 
 
 
-%% ++ [FIG S3 C-G]: passive whisker/pupil and ROI activity
+%% ++ [FIG S4 C-G]: passive whisker/pupil and ROI activity
 
 % Get average pupil diameter and whisker movement to stimuli
 [~,trial_stim_allcat_id] = ismember(trial_stim_allcat,stim_unique);
@@ -2361,8 +2324,7 @@ bhv_label = {'Pupil diff','Whisker'};
 [~,~,learning_stage] = unique(learned_day_unique >= 0);
 
 figure;
-h = tiledlayout(size(bhv_stim_avg,5),max(learning_stage), ...
-    'tileindexing','columnmajor');
+h = tiledlayout(size(bhv_stim_avg,5),max(learning_stage));
 stim_col = [0,0,1;0,0,0;1,0,0];
 for curr_bhv = 1:size(bhv_stim_avg,5)
     for curr_stage = 1:max(learning_stage)
@@ -2382,7 +2344,11 @@ for curr_bhv = 1:size(bhv_stim_avg,5)
     curr_axes = allchild(h);
     linkaxes(curr_axes(1:max(learning_stage)),'xy');
 end
-
+% Link bhv y-axes
+ax = reshape(flipud(allchild(h)),2,2)';
+for curr_bhv = 1:2
+    linkaxes(ax(curr_bhv,:),'y');
+end
 
 % Plot whisker movement over time
 use_t = t > 0 & t <= 0.2;
@@ -2525,6 +2491,12 @@ legend(line_fig_ax_lines, ...
     repmat(arrayfun(@(x) sprintf('Stim %d',x), ...
     stim_unique,'uni',false),1,max(trial_learned_stage)),'uni',false)')), ...
     'location','nw');
+
+
+a = squeeze(nanmean(fluor_roi_whiskergrp_avg(:,use_t,:,curr_roi,:),2));
+p = anova2(length(animals));
+
+
 
 %% (diagram: plot widefield ROIs)
 
