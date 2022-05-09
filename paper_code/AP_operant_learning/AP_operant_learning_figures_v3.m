@@ -2503,10 +2503,11 @@ for curr_stim = stim_unique'
         reshape(fluor_roi_deconv(use_trials,:,:),[],1),[],@nanmean,NaN('single'));
 
     curr_data = squeeze(nanmean(fluor_roi_whiskergrp_avg(:,use_t,:,curr_roi,:),2));
-    p = anova2(reshape(permute(a,[3,1,2]),[],2),length(animals),'off');
+    p = anova2(reshape(permute(curr_data,[3,1,2]),[],2),length(animals),'off');
 
     fprintf('%s stim %d 2-way anova: p(stage) = %.2g\n',wf_roi(curr_roi).area,curr_stim,p(1));
 end
+
 
 
 %% (diagram: plot widefield ROIs)
