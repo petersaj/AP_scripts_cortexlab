@@ -449,6 +449,12 @@ xlim(xlim + [-0.5,0.5]);
 ylim([0,5]);
 ytickformat('%.2f')
 
+% Plot histogram of learned days
+figure;histogram(learned_day,[1;plot_days]-0.5,'EdgeColor','none','FaceColor','k')
+xlabel('Learned day');
+ylabel('Number of mice');
+xlim([0.5,max(plot_days)+0.5]);
+
 
 %% [FIG 1F-G, FIG S2A-B]: muscimol behavior and retinotopy
 
@@ -907,7 +913,7 @@ for curr_stage = 1:max(trial_learned_stage)
 
 end
 
-linkaxes(allchild(h),'x');
+linkaxes(allchild(h),'xy');
 xlim([-0.2,1]);
 
 ax = reshape(flipud(allchild(h)),[],2)';
@@ -916,6 +922,7 @@ y_scale = 2000;
 axes(ax(1,end)); AP_scalebar(x_scale,y_scale);
 axes(ax(2,end)); AP_scalebar(x_scale,y_scale);
 colorbar;
+
 
 %% >> [FIG 2D]: task average hemidiff ROI timecourse (stim/move align, novice/learned)
 
@@ -1183,6 +1190,7 @@ x_scale = 0.2;
 y_scale = 2e-4;
 AP_scalebar(x_scale,y_scale);
 
+
 %% >> [FIG 3C1] task hemidiff ROI stim window daysplit by learned day
 
 % Activity to average 
@@ -1257,7 +1265,7 @@ end
 
 
 
-%% ++ [FIG 3A2,C2, FIG S3] passive - ROI timecourse/stim window by learned day
+%% ++ [FIG 3A2,C2, FIG S3] passive - L/R ROI timecourse/stim window by learned day
 
 % Set ROIs to plot
 plot_rois = [6];
@@ -1296,34 +1304,38 @@ roi_learnday_avg = accumarray( ...
     [length(learned_day_unique),length(t),n_rois,length(stim_unique),length(animals)], ...
     @nanmean,NaN('single'));
 
-% Plot ROI timecourse by learned day
+% Plot ROI timecourse by learned day (L/R)
 plot_trained_days = 1;
 plot_learned_days = -2:1;
 
 figure;
-plot_col = AP_colormap('WG',1);
+hemi_col = [0.7,0,0;0,0,0.7];
 h = tiledlayout(length(plot_rois),length(plot_trained_days) + length(plot_learned_days));
 for curr_roi = plot_rois
+
+    curr_lr_roi = curr_roi + [0,size(wf_roi,1)];
+
     for curr_td = plot_trained_days
+
         curr_td_postnaive = curr_td + n_naive;
         curr_data = squeeze(roi_trainday_avg(curr_td_postnaive,:, ...
-            curr_roi,stim_unique == 1,:));
+            curr_lr_roi,stim_unique == 1,:));
 
         nexttile; hold on;
-        AP_errorfill(t,nanmean(curr_data,2),AP_sem(curr_data,2),plot_col);
+        AP_errorfill(t,nanmean(curr_data,3),AP_sem(curr_data,3),hemi_col);
         xline(0); yline(0);
         title(sprintf('Trained day %d',curr_td));
     end
     for curr_ld = plot_learned_days
         curr_data = squeeze(roi_learnday_avg(learned_day_unique == curr_ld,:, ...
-        curr_roi,stim_unique == 1,:));
+        curr_lr_roi,stim_unique == 1,:));
 
         nexttile; hold on;
-        AP_errorfill(t,nanmean(curr_data,2),AP_sem(curr_data,2),plot_col);
+        AP_errorfill(t,nanmean(curr_data,3),AP_sem(curr_data,3),hemi_col);
         xline(0); yline(0);
         title(sprintf('Learned day %d',curr_ld));
     end   
-    ylabel(wf_roi(curr_roi).area);
+    ylabel(wf_roi(curr_roi).area(1:end-2));
 
     % Stats: difference between ld -2/-1 vs -1/0
     p_t = t >= 0 & t <= 0.2;
@@ -1340,17 +1352,17 @@ end
 
 % (link ROI y-axes)
 ax = reshape(flipud(allchild(h)),[],length(plot_rois))';
-for curr_roi_idx = 1:length(plot_rois)   
-       linkaxes(ax(curr_roi_idx,:),'xy'); 
-   xlim([-0.1,0.3]);
-   ylim(prctile(reshape(cell2mat(ylim(ax(curr_roi_idx,:))),[],1),[0,100]));
+for curr_roi_idx = 1:length(plot_rois)
+    linkaxes(ax(curr_roi_idx,:),'xy');
+    xlim(ax(curr_roi_idx,:),[-0.1,0.3]);
+    ylim(ax(curr_roi_idx,:), ...
+        prctile(reshape(cell2mat(ylim(ax(curr_roi_idx,:))),[],1),[0,100]));
 end
 
 % Draw scalebars
 x_scale = 0.2;
 y_scale = 4e-4;
 AP_scalebar(x_scale,y_scale);
-
 
 % Get ROI activity within stim window
 use_t = t > 0 & t <= 0.2;
@@ -1364,24 +1376,33 @@ plot_learned_day_idx = learned_days_n >= min_n;
 
 % Plot ROI stim window activity by learned day
 figure('Name','mPFC passive learned day');
-stim_color = [0,0,0.8;0.5,0.5,0.5;0.8,0,0];
+plot_stim = [1,-1];
+plot_stim_linestyle = {'-',':'};
 h = tiledlayout(length(plot_rois),1);
-for curr_roi = plot_rois   
-    nexttile; hold on;
-    % (naive and training as split lines)
-    curr_x = [learned_day_unique(1:3);NaN;learned_day_unique(plot_learned_day_idx)];
-    curr_data = squeeze([...
-        padarray(stim_roi_naive_avg_tmax(:,curr_roi,:,:),1,NaN,'post'); ...
-        stim_roi_learnday_avg_tmax(plot_learned_day_idx,curr_roi,:,:)]);
+for curr_roi = plot_rois
 
-    set(gca,'ColorOrder',stim_color);
-    p = errorbar(repmat(curr_x,1,length(stim_unique)), ...
-        nanmean(curr_data,3),AP_sem(curr_data,3),'linewidth',2,'capsize',0);
-    xline(0);set(gca,'children',circshift(get(gca,'children'),-1))
+    curr_lr_roi = curr_roi + [0,size(wf_roi,1)];
+
+    nexttile; hold on;
+    set(gca,'ColorOrder',hemi_col);
+    for curr_stim = plot_stim
+        curr_stim_idx = ismember(stim_unique,curr_stim);
+        % (naive and training as split lines)
+        curr_x = [learned_day_unique(1:3);NaN;learned_day_unique(plot_learned_day_idx)];
+        curr_data = squeeze([...
+            padarray(stim_roi_naive_avg_tmax(:,curr_lr_roi,curr_stim_idx,:),1,NaN,'post'); ...
+            stim_roi_learnday_avg_tmax(plot_learned_day_idx,curr_lr_roi,curr_stim_idx,:)]);
+        
+        p = errorbar(repmat(curr_x,1,length(plot_stim)), ...
+            nanmean(curr_data,3),AP_sem(curr_data,3),'linewidth',2,'capsize',0, ...
+            'linestyle',plot_stim_linestyle{ismember(plot_stim,curr_stim)});
+  
+    end
     xlabel('Time from stim (s)');
-    ylabel(wf_roi(curr_roi).area);
-    legend(p,num2str(stim_unique));
+    ylabel(wf_roi(curr_roi).area(1:end-2));
     axis tight; xlim(xlim + [-0.5,0.5]);
+    xline(0);
+    legend({wf_roi(curr_lr_roi).area})
 
 end
 
@@ -1428,6 +1449,7 @@ yt = get(task_errorbar,'YData');
 et = get(task_errorbar,'UData');
 
 % Pull data from passive errorbar
+% (plot order: stim-L hemi-L/R, stim-R hemi L/R)
 xp = get(passive_errorbar,'XData');
 ypl = get(passive_errorbar,'YData');
 epl = get(passive_errorbar,'UData');
@@ -1456,23 +1478,55 @@ ax = gca; ax.YColor = task_col;
 
 % Plot passive
 yyaxis right;
-% (plot passive left-hand stim)
-curr_stim = 1;
-errorbar(xp{curr_stim}+xp_offset,ypl{curr_stim},epl{curr_stim},'.','MarkerSize',15, ...
-    'color','b','linestyle','none','linewidth',2,'CapSize',0);
-% (plot passive right-hand stim)
-curr_stim = 3;
-passive_col = AP_colormap('WG',3);
-passive_col = passive_col(2,:);
-errorbar(xp{curr_stim}+xp_offset,ypl{curr_stim},epl{curr_stim},'.','MarkerSize',15, ...
-    'color','r','linestyle','none','linewidth',2,'CapSize',0);
+hemi_col = [0.7,0,0;0,0,0.7];
+% (plot L-hemi R-stim)
+curr_passive_plot = 1;
+errorbar(xp{curr_passive_plot}+xp_offset,ypl{curr_passive_plot},epl{curr_passive_plot},'.','MarkerSize',15, ...
+    'color',hemi_col(1,:),'linestyle','none','linewidth',2,'CapSize',0);
+% (plot R-hemi R-stim)
+curr_passive_plot = 2;
+errorbar(xp{curr_passive_plot}+xp_offset,ypl{curr_passive_plot},epl{curr_passive_plot},'.','MarkerSize',15, ...
+    'color',hemi_col(2,:),'linestyle','none','linewidth',2,'CapSize',0);
+
+% (TESTING DIFFERENT KINDS OF PLOTS)
+% % (plot L-hemi L-stim)
+% curr_passive_plot = 3;
+% errorbar(xp{curr_passive_plot}+xp_offset,ypl{curr_passive_plot},epl{curr_passive_plot},'o','MarkerSize',5, ...
+%     'color',hemi_col(1,:),'linestyle','none','linewidth',2,'CapSize',0);
+% % (plot R-hemi L-stim)
+% curr_passive_plot = 4;
+% errorbar(xp{curr_passive_plot}+xp_offset,ypl{curr_passive_plot},epl{curr_passive_plot},'o','MarkerSize',5, ...
+%     'color',hemi_col(2,:),'linestyle','none','linewidth',2,'CapSize',0);
+
+% % (plot L-hemi L-stim)
+% curr_passive_plot = 3;
+% AP_errorfill(xp{curr_passive_plot}+xp_offset,ypl{curr_passive_plot},epl{curr_passive_plot}, ...
+%     hemi_col(1,:),0.2,false);
+% % (plot R-hemi L-stim)
+% curr_passive_plot = 4;
+% AP_errorfill(xp{curr_passive_plot}+xp_offset,ypl{curr_passive_plot},epl{curr_passive_plot}, ...
+%     hemi_col(2,:),0.2,false);
+
+
+% % (plot L-hemi L-stim)
+% curr_passive_plot = 3;
+% errorbar(xp{curr_passive_plot}+xp_offset,ypl{curr_passive_plot},epl{curr_passive_plot},'MarkerSize',5, ...
+%     'color',hemi_col(1,:),'linestyle','-','linewidth',2,'CapSize',0);
+% % (plot R-hemi L-stim)
+% curr_passive_plot = 4;
+% errorbar(xp{curr_passive_plot}+xp_offset,ypl{curr_passive_plot},epl{curr_passive_plot},'MarkerSize',5, ...
+%     'color',hemi_col(2,:),'linestyle','-','linewidth',2,'CapSize',0);
+
+% curr_passive_plot = 3;
+% errorbar(xp{curr_passive_plot}+xp_offset,ypl{curr_passive_plot},epl{curr_passive_plot},'*','MarkerSize',8, ...
+%     'color',hemi_col(1,:),'linestyle','none','linewidth',2,'CapSize',0);
+
 xlim(prctile(horzcat(xp{:}),[0,100]) + [-0.5,1.5]);
 ylim([0,max(horzcat(ypl{:}))*1.3])
-
 xline(0);
 xlabel('Learned day');
 ylabel('\DeltaF/F_0');
-ax = gca; ax.YColor = passive_col;
+ax = gca; ax.YColor = 'k';
 
 
 %% [FIG 4A]: ephys - plot probe position
@@ -2063,7 +2117,7 @@ stimmove_frac = cell2mat(cellfun(@(area,stim_sig,move_sig) ...
     unit_area_idx,stim_sig,move_sig,'uni',false)');
 
 class_frac = [nanmean(stim_frac,2),nanmean(stimmove_frac,2),nanmean(move_frac,2)];
-class_col = [0.8,0,0;0.8,0.5,0.5;0.7,0,0.7;1,1,1];
+class_col = [0.8,0,0;0.8,0.5,0.5;0.5,0.5,0.5;1,1,1];
 
 figure; h = tiledlayout(length(plot_areas),1);
 for curr_area = 1:length(plot_areas)
@@ -2340,14 +2394,22 @@ for curr_bhv = 1:size(bhv_stim_avg,5)
         axis tight;
         xlim([-0.2,0.7]);
         xline(0);xline(0.5);
+        yline(0);
     end
-    curr_axes = allchild(h);
-    linkaxes(curr_axes(1:max(learning_stage)),'xy');
 end
 % Link bhv y-axes
 ax = reshape(flipud(allchild(h)),2,2)';
 for curr_bhv = 1:2
     linkaxes(ax(curr_bhv,:),'y');
+    switch curr_bhv
+        case 1
+            y_scale = 0.04;
+        case 2
+            y_scale = 0.1;
+    end
+    axes(ax(curr_bhv,2));
+    x_scale = 0.2;
+    AP_scalebar(x_scale,y_scale);
 end
 
 % Plot whisker movement over time
@@ -2447,12 +2509,11 @@ for curr_stim_idx = 1:length(stim_unique)
             ylabel('\DeltaF/F0');
         end
     end
-    ax(:,curr_stim_idx) = allchild(h);
+    ax(:,curr_stim_idx) = flipud(allchild(h));
     title(h,sprintf('Whisker move groups (stim %d)',curr_stim));
-    drawnow;
-    
+
     % Plot line plot of fluorescence vs whisker
-    stage_linestyle = {'--','-'};
+    stage_col = [0.5,0.5,0.5;0,0,0];
     for curr_stage = 1:max(trial_learned_stage)
         for curr_roi_idx = 1:length(plot_rois)
             curr_roi = plot_rois(curr_roi_idx);
@@ -2468,8 +2529,8 @@ for curr_stim_idx = 1:length(stim_unique)
             y = nanmean(curr_fluor_roi_whiskergrp_tavg,2);
             y_err = AP_sem(curr_fluor_roi_whiskergrp_tavg,2);
             errorbar(curr_ax,x,y,-y_err,y_err,-x_err,x_err, ...
-                'linewidth',2,'color',stim_col(curr_stim_idx,:), ...
-                'linestyle',stage_linestyle{curr_stage});
+                'linewidth',2,'capsize',0,'color', ...
+                min(1,stim_col(curr_stim_idx,:) + stage_col(curr_stage,:)));
             
             xlabel(curr_ax,'Whisker movement');
             ylabel(curr_ax,'\DeltaF/F_0');
@@ -2480,6 +2541,15 @@ end
 % (link modality axes across figures)
 for i = 1:length(plot_rois)+1
     linkaxes(ax(i:length(plot_rois)+1:end,:),'xy');
+    axes(ax(i,end));
+    if i == 1
+        y_scale = 0.2;
+    else
+        y_scale = 4e-4;
+    end
+    x_scale = 0.2;
+    AP_scalebar(x_scale,y_scale);
+    drawnow;
 end
 % (legend for line plots - yes, ridiculous code)
 line_fig_ax = get(line_fig,'Children');
@@ -2516,12 +2586,14 @@ wf_roi_fn = 'C:\Users\Andrew\OneDrive for Business\Documents\CarandiniHarrisLab\
 load(wf_roi_fn);
 n_rois = numel(wf_roi);
 
-plot_rois = [1,6,7];
+plot_rois = reshape([1,6,7]' + [0,size(wf_roi,1)],[],1)';
 
 roi_col = copper(n_rois);
 roi_cat = cat(3,wf_roi.mask);
 
-figure; hold on
+figure; 
+
+subplot(1,2,1); hold on
 set(gca,'YDir','reverse');
 AP_reference_outline('ccf_aligned_lefthemi',[0.7,0.7,0.7]);
 for curr_roi = plot_rois
@@ -2531,6 +2603,15 @@ for curr_roi = plot_rois
 end
 axis image off;
 
+subplot(1,2,2); hold on;
+set(gca,'YDir','reverse');
+AP_reference_outline('ccf_aligned',[0.7,0.7,0.7]);
+for curr_roi = plot_rois
+    curr_roi_boundary = cell2mat(bwboundaries(roi_cat(:,:,curr_roi)));
+    patch(curr_roi_boundary(:,2),curr_roi_boundary(:,1),roi_col(curr_roi,:), ...
+        'EdgeColor','none');
+end
+axis image off;
 
 
 
