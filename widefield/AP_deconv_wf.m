@@ -1,7 +1,7 @@
-function convolved_activity = AP_deconv_wf(activity,spikes_flag,sample_rate)
-% filtered_activity = AP_deconv_wf(activity,spikes_flag)
+function deconvolved_activity = AP_deconv_wf(activity,spikes_flag,sample_rate)
+% deconvolved_activity = AP_deconv_wf(activity,spikes_flag)
 %
-% Convolved fluorescence from tetO-GC6s widefield to match spikes
+% Deconvolve fluorescence from tetO-GC6s widefield to match spikes
 % OR convolve spikes with kernel to match deconvolved widefield signal
 %
 % Kernel created in AP_deconv_wf_kernelfit
@@ -62,12 +62,12 @@ activity_nonan = activity;
 activity_nonan(isnan(activity_nonan)) = 0;
 
 % Deconvolve to same size with replication padding
-convolved_activity = convn(padarray(activity_nonan, ...
+deconvolved_activity = convn(padarray(activity_nonan, ...
     [0,floor(length(kernel)/2)],'replicate','both'), ...
     kernel,'valid');
 
 % Put original NaNs back in
-convolved_activity(isnan(activity)) = NaN;
+deconvolved_activity(isnan(activity)) = NaN;
 
 
 
