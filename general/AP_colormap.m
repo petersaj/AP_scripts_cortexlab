@@ -3,7 +3,7 @@ function cmap = AP_colormap(cmap_type,n_colors,cmap_gamma)
 % cmap = AP_colormap(cmap_type,n_colors,cmap_gamma)
 %
 % cmap_type: gradient/diverging between black/white and color
-% (currently defined: W,K,G,B,P,R - base must be white/black)%
+% (currently defined: W,K,G,B,P,R - base must be white/black)
 % e.g. 'WR' = white-to-red, = 'BKR' blue-black-red
 %
 % n_colors: number of colors along the map (default = 2^8 = 256)
@@ -61,10 +61,10 @@ col.R = 30;
 % (to plot colors while writing/troubleshooting)
 plot_col = false;
 if plot_col
-    all_col = cell2mat(cellfun(@(x) permute(lab2rgb(interp1([min_lum,max_lum], ...
-        [min_lum,x(2)*cosd(x(1)),x(2)*sind(x(1)); ...
-        max_lum,x(3)*cosd(x(1)),x(3)*sind(x(1))], ...
-        linspace(min_lum,max_lum,256))),[1,3,2]),struct2cell(col),'uni',false)');
+    all_col = cell2mat(cellfun(@(x) permute(lab2rgb(interp1([K_lum,W_lum], ...
+        [W_lum,max_chroma*cosd(x),max_chroma*sind(x); ...
+        W_lum,max_chroma*cosd(x),max_chroma*sind(x)], ...
+        linspace(K_lum,W_lum,256))),[1,3,2]),struct2cell(col),'uni',false)');
     figure;imagesc(all_col);
     set(gca,'XTickLabels',fieldnames(col),'YTick','');
 end
