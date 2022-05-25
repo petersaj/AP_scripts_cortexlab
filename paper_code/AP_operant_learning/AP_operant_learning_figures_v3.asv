@@ -1073,7 +1073,6 @@ for curr_roi = plot_rois
         axis tight;xlim([-0.2,1])
     end
 
-    % Stats (by learning and stimuli)
     [t_idx,stage_idx,stim_idx,animal_idx] = ndgrid(1:length(t),1:2,1:length(stim_unique),1:length(animals));
     [p_l,~,stats] = anovan(reshape(stim_roi_avg_stage(curr_rois(1),:,:,:,:),[],1), ...
         [t_idx(:),stage_idx(:),stim_idx(:)],'continuous',1,'model','interaction','display','on');
@@ -1082,14 +1081,12 @@ for curr_roi = plot_rois
     fprintf('%s t/stage/stim 3-way anova p(stage) = %.2g\n',wf_roi(curr_rois(1)).area,p_l(2));
     fprintf('%s t/stage/stim 3-way anova p(stage) = %.2g\n',wf_roi(curr_rois(2)).area,p_r(2));
 
-    % Stats (L vs R ROI on right-hand stimuli)
-    use_t = t > 0 & t <= 0.2;
-    curr_Lstim_tmax_act = squeeze(max(stim_roi_avg_stage(curr_rois,use_t,:,1,:),[],2));
-    [roi_idx,stage_idx] = ndgrid(1:2,1:2,1:length(animals));
-    [p,~,stats] = anovan(reshape(curr_Lstim_tmax_act,[],1), ...
-        [roi_idx(:),stage_idx(:)],'model','interaction','display','off');
-    fprintf('%s hemi/stage 2-way anova p(hemi) = %.2g, p(stage) = %.2g\n', ...
-        wf_roi(curr_rois(1)).area(1:end-2),p(1),p(2));
+    %%%%% TEMP FOR KENNETH: L vs R roi with left stim
+    [roi_idx,t_idx,stage_idx,stim_idx,animal_idx] = ndgrid(1:2,1:length(t),1:2,1,1:length(animals));
+    [p_r,~,stats] = anovan(reshape(stim_roi_avg_stage(curr_rois,:,:,1,:),[],1), ...
+        [t_idx(:),stage_idx(:),stim_idx(:)],'continuous',1,'model','interaction','display','off');
+    fprintf('%s t/stage/stim 3-way anova p(stage) = %.2g\n',wf_roi(curr_rois(1)).area,p_l(2));
+    fprintf('%s t/stage/stim 3-way anova p(stage) = %.2g\n',wf_roi(curr_rois(2)).area,p_r(2));
 
 end
 % Link ROI axes
