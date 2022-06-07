@@ -1779,6 +1779,8 @@ for experiment = 1:2
         % Raster events: rewardable delay movements
         use_align = wheel_starts(wheel_move_nostim_rewardable_idx);
 
+        align_label = 'Move onset';
+
     elseif contains(expDef,'Passive')
         % If passive, get quiescent movement and raster right-hand stim trials
         wheel_window = [0,0.5];
@@ -1792,6 +1794,7 @@ for experiment = 1:2
         plot_trials = quiescent_trials & stimIDs == 3;
         use_align = stimOn_times(plot_trials);
 
+        align_label = 'Stim onset';
     end
 
     t_peri_event = use_align + raster_t_bins;
@@ -1832,6 +1835,7 @@ for experiment = 1:2
         plot(raster_t(raster_x),raster_y,'.k');
         axis tight off
         set(gca,'ydir','reverse');
+        xlabel(align_label);
 
         drawnow;
     end

@@ -12412,37 +12412,60 @@ for curr_animal = 1:length(animals)
 end
 
 
-%% Save movie for presentation
+%% Save movie for tweet
 
-movie_px = AP_svdFrameReconstruct(U_master(:,:,1:n_vs), ...
-    permute(nanmean(fluor_allcat_deconv(trial_stim_allcat == 1,:,:),1),[3,2,1]));
+% movie as movie_px
 
-movie_fn = 'C:\Users\Andrew\OneDrive for Business\Documents\CarandiniHarrisLab\presentations\220307_data_club\passive_avg.avi';
-movie_framerate = 1/mean(diff(t)) * 0.5;
-movie_cmap = colormap(brewermap([],'PrGn'));
-movie_caxis = prctile(movie_px(:),99.9).*[-1,1];
+movie_fn = 'C:\Users\Andrew\OneDrive for Business\Documents\CarandiniHarrisLab\analysis\operant_learning\paper\submission_1\tweet\test.avi';
+movie_framerate = 35/2;
+movie_cmap = colormap(AP_colormap('WG',[],1.5));
+movie_caxis = [0,0.004];
 movie_position = [43,350,415,415];
-AP_movie2avi(movie_px,movie_framerate,movie_cmap,movie_caxis,movie_position,movie_fn,t);
-
-
-%% testing non-stim movement stuff
+AP_movie2avi(movie_px,movie_framerate,movie_cmap,movie_caxis,movie_position,movie_fn);
 
 
 
 
 
-% (response move: last move start before response signal)
-wheel_move_response_idx = ...
-    arrayfun(@(response) find(wheel_starts <= response,1,'last'), ...
-    signals_events.responseTimes(1:n_trials)');
+%% PASSIVE pixels by learned day
 
-% (iti move: move start with no stim on screen)
-stimOff_times = signals_events.stimOffTimes';
-stimOn_epochs = logical(interp1([0;stimOn_times;stimOff_times], ...
-    [0;ones(size(stimOn_times));zeros(size(stimOff_times))], ...
-    Timeline.rawDAQTimestamps','previous','extrap'));
-wheel_move_iti_idx = find(ismember(wheel_starts, ...
-    Timeline.rawDAQTimestamps(~stimOn_epochs)));
+% Average V/ROI by learning stage
+% (combined naive and pre-learn)
+stim_v_avg_stage = cell2mat(permute(cellfun(@(x,ld) ...
+    cat(3, ...
+    nanmean(x(:,:,ld-3,:),3), ...
+    nanmean(x(:,:,ld-2,:),3), ...
+    nanmean(x(:,:,ld-1,:),3), ...
+    nanmean(x(:,:,ld+0,:),3), ...
+    nanmean(x(:,:,ld+1,:),3), ...
+    nanmean(x(:,:,ld+2,:),3)), ...
+    stim_v_avg,num2cell(learned_day+n_naive), ...
+    'uni',false),[2,3,4,5,1]));
+
+
+% Get pixels and pixel timemax by stage
+stim_px_avg_stage = AP_svdFrameReconstruct(U_master(:,:,1:n_vs),stim_v_avg_stage);
+
+use_t = t >= 0.1 & t <= 0.15;
+stim_px_avg_stage_tmax = ...
+    squeeze(mean(stim_px_avg_stage(:,:,use_t,:,:,:),3));
+
+x = nanmean(stim_px_avg_stage_tmax(:,:,:,3,:),5);
+
+AP_imscroll(x);
+colormap(gca,AP_colormap('WG',[],1.5));
+AP_reference_outline('ccf_aligned',[0.5,0.5,0.5]);
+axis image;
+
+figure; tiledlayout(1,size(x,3));
+for i = 1:size(x,3)
+    nexttile;
+    imagesc(x(:,:,i));
+    colormap(gca,AP_colormap('WG',[],1.5));
+    AP_reference_outline('ccf_aligned',[0.5,0.5,0.5]);
+    axis image off;
+    caxis([0,0.002]);
+end
 
 
 
