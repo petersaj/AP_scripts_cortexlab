@@ -1,11 +1,124 @@
 %% TESTING: replacing pipelineHere
 
+%% Get image filenames
 im_path = 'G:\test_widefield';
-
 im_files = dir(fullfile(im_path,'*.tif'));
 
+%% Get header information from all frames
+% PCO timestamps in binary coded decimal (BCD) as:
+% Pixels code: 
+% 1:4          5 6 7 8 9 10 11 12    13    14
+% framenum(x4) Y Y M D H M  S  10kus 100us us
+% BCD converts to decimal as: a decimal number that codes for one byte, 
+% with two nibbles that are one decimal each
+% (e.g. 10dec = 16bcd: 16 -> 0001 0000 = "1,0" = 10)
 
-curr_im_fn = fullfile(im_path,im_files(1).name);
+tic;
+disp('Getting image headers...');
+
+% Set header position (first row, first 14 pixels)
+header_px_loc = {[1,1],[1,14],[1,Inf]};
+
+% Loop through all files, get frame number and timestamp
+im_header = struct('frame_num',cell(size(im_files)),'timestamp',cell(size(im_files)));
+for curr_im = 1:length(im_files)
+
+    % Grab pixels with header information
+    curr_im_fn = fullfile(im_path,im_files(curr_im).name);
+    pco_timestamps_bcd = permute(tiffreadVolume(curr_im_fn, ...
+        'PixelRegion',header_px_loc),[2,3,1]);
+
+    % Convert from BCD to decimal
+    % (decimal to binary, split into 2 nibbles, binary to decimal)
+    pco_timestamps_decimal = cellfun(@(x) num2str(bin2dec(reshape(dec2bin(x,8),4,[])')'), ...
+        num2cell(pco_timestamps_bcd),'uni',false);
+
+    % (frame number: join digits without spaces, convert to numbers)
+    pco_frame_num = cellfun(@(x) str2num(strrep(x,' ','')), ...
+        join(pco_timestamps_decimal(1:4,:)'));
+    % (time stamp: get joined digits without spaces, then convert to datenum)
+    pco_timestamp_str = cellfun(@(x) strrep(x,' ',''), ...
+        join(pco_timestamps_decimal(5:13,:)'),'uni',false);
+    pco_timestamp = cellfun(@(x) ...
+        datenum(x(1:end-1),'yyyymmddHHMMSSFFF'), ...
+        pco_timestamp_str);
+
+    % Store header info for file
+    im_header(curr_im).frame_num = pco_frame_num;
+    im_header(curr_im).timestamp = pco_timestamp;
+
+    AP_print_progress_fraction(curr_im,length(im_files));
+
+end
+toc;
+
+%% Get illumination color for each frame
+% Assume: blue/violet alternating, with blue starting whenever there is a >
+% 2s gap (= new experiment, which starts on blue)
+
+% Sanity check: make sure frame numbers are consecutive
+if any(diff(vertcat(im_header.frame_num)) ~= 1)
+    error('Frame numbers not consecutive');
+end
+
+% Get time difference between frames (convert datenum days to seconds)
+timestamp_diff = diff(vertcat(im_header.timestamp)*24*60*60);
+
+% Find experiment boundaries (time between frames > threshold)
+exp_boundary_thresh = 2; % seconds between frames to define experiment
+exp_frame_boundary = [0,find(timestamp_diff > exp_boundary_thresh),im_header(end).frame_num(end)]+1;
+
+% Get illumination color of frame (alternate from experiment starts)
+frame_color = 1+mod([1:im_header(end).frame_num(end)] - ...
+    interp1(exp_frame_boundary,exp_frame_boundary,...
+    1:im_header(end).frame_num(end),'previous'),2);
+
+%% For image processing: ignore pixels with timestamps
+% (first 8 pixel rows)
+
+im_info = imfinfo(fullfile(im_path,im_files(1).name));
+im_size = [im_info(1).Height,im_info(1).Width];
+
+exclude_stamp_height = 8;
+
+im_px_loc = {[exclude_stamp_height+1,im_size(1)],[1,im_size(2)],[1,Inf]};
+im_gra
+
+%% Get average image for each color
+
+tic;
+disp('Building average images by color...');
+
+% Loop through images, build average image for each color
+
+im_color_avg = zeros(im_size(1)-exclude_stamp_height,im_size(2),max(frame_color));
+for curr_im = 1:length(im_files)
+   
+    curr_im_fn = fullfile(im_path,im_files(curr_im).name);
+    im = tiffreadVolume(curr_im_fn,'PixelRegion',im_px_loc);
+
+    % Cumulatively add partial color average
+    for curr_color = 1:max(frame_color)
+        curr_frame_color_idx = frame_color(im_header(curr_im).frame_num) == curr_color;
+        curr_color_partial = ...
+            sum(double(im(:,:,curr_frame_color_idx))./sum(frame_color == curr_color),3);
+        im_color_avg(:,:,curr_color) = im_color_avg(:,:,curr_color) + ...
+            curr_color_partial;
+    end
+
+    AP_print_progress_fraction(curr_im,length(im_files));
+
+end
+
+toc;
+
+%% Build covariance matrix for each color 
+
+tic;
+disp('Building covariance matricies by color...');
+
+
+
 
 
 
@@ -15,6 +128,17 @@ curr_im_fn = fullfile(im_path,im_files(1).name);
 
 tic; V = tiffreadVolume(curr_im_fn); toc;
 
+%% Read section
+
+header_px_loc = {[1,1],[1,14],[1,Inf]};
+tic; V = tiffreadVolume(curr_im_fn,'PixelRegion',header_px_loc); toc;
+
+%% Read alternate frames
+
+header_px_loc = {[1,Inf],[1,Inf],[1,2,Inf]};
+tic; V = tiffreadVolume(curr_im_fn,'PixelRegion',header_px_loc); toc;
+
+
 
 %% Do datastore to keep all files accessible without loading together?
 % https://uk.mathworks.com/matlabcentral/answers/350406-how-do-i-read-large-set-of-multi-page-tiff-files-into-tall-array-using-a-datastore
@@ -23,6 +147,10 @@ ds = fileDatastore({im_path},'ReadFcn', @tiffreadVolume);
 
 
 ds = imageDatastore(im_path,'FileExtensions','.tif');
+
+%% 
+
+tic;read(ds);toc;
 
 %% Load current lilrig options 
 
@@ -48,13 +176,13 @@ V2s = single(V2);
 x = reshape(V2s,[],size(V2,3))'*reshape(V2s,[],size(V2,3));
 
 
-%% Nick or someone's timestamp extractor
+%% Get frame number and timestamp from PCO image
 % PCO puts binary code into image in first 14 pixels, apparently
 % (I can't find this online? just use his function for now)
 
 % PCO timestamps in binary coded decimal (BCD) as:
 % Pixels code: 
-% 1:4          5 6 7 8 9 10 11 12    12    13
+% 1:4          5 6 7 8 9 10 11 12    13    14
 % framenum(x4) Y Y M D H M  S  10kus 100us us
 % BCD converts to decimal as: a decimal number that codes for one byte, 
 % with two nibbles that are one decimal each
@@ -64,69 +192,19 @@ pco_timestamps_bcd = squeeze(V(1,1:14,:));
 pco_timestamps_decimal = cellfun(@(x) num2str(bin2dec(reshape(dec2bin(x,8),4,[])')'), ...
     num2cell(pco_timestamps_bcd),'uni',false);
 
-pco_frame_num = cell2mat(pco_timestamps_decimal(1:4,:)')
-
-% (join consecutive values for ite
-cellfun(@(x) str2num(strrep(x,' ',''));
-join(pco_timestamps_decimal(1:4,:)')
-
-[curr_frames, curr_timestamps_day] = timeFromPCOBinaryMulti(squeeze(V(1,1:14,:)));
-curr_timestamps = curr_timestamps_day*24*3600; % convert from seconds to days
-
-
-pco_frame_num = pco_timestamps_bcd(1:4,:)
-
-% fixing here: binary coded decimal in digits, 9 = 9, 10 = 16 (0001 0000 =
-% "1,0")
-r = 32;
-bin2dec(reshape(dec2bin(r,8),4,[])')
-
-
-r = pco_timestamps_bcd(1:4,:)';
-a = bin2dec(reshape(dec2bin(r,8),4,[])')
-
-r = cellfun(@(x) bin2dec(reshape(dec2bin(x,8),4,[])'), ...
-    num2cell(pco_timestamps_bcd(1:4,1:3)),'uni',false);
+% (frame number: join digits without spaces, convert to numbers)
+pco_frame_num = cellfun(@(x) str2num(strrep(x,' ','')), ...
+    join(pco_timestamps_decimal(1:4,:)'));
+% (time stamp: get joined digits without spaces, then convert to datenum)
+pco_timestamp_str = cellfun(@(x) strrep(x,' ',''), ...
+    join(pco_timestamps_decimal(5:13,:)'),'uni',false);
+pco_timestamp = cellfun(@(x) ...
+    datenum(x(1:end-1),'yyyymmddHHMMSSFFF'), ...
+    pco_timestamp_str);
 
 
 
 
-str2num(num2str(bin2dec(reshape(dec2bin(r,8),4,[])'))')
-
-% from Nick's function timeFromPCOBinaryMulti
-
-records = squeeze(V(1,1:14,:));
-
-
-
-records = double(records);
-
-nfr = size(records,2);
-
-dic = zeros(14,nfr,2);
-
-dic(:,:,2) = mod(records,16);
-dic(:,:,1) = (records-dic(:,:,2))/16;
-
-dicd = dic(:,:,1)*10+dic(:,:,2);
-
-frameNums = dicd(1,:)*1000000 + dicd(2,:)*10000 + dicd(3,:)*100 + dicd(4,:);
-
-year = dicd(5,:)*100+dicd(6,:);
-mo = dicd(7,:);
-day = dicd(8,:);
-hr = dicd(9,:);
-min = dicd(10,:);
-sec = dicd(11,:) + dicd(12,:)/100 + dicd(13,:)/10000 + dicd(14,:)/1000000;
-timestampsAsDatenum = datenum(year, mo, day, hr, min, sec);
-
-
-% finally found the manual! https://www.pco.de/fileadmin/user_upload/pco-manuals/MA_PCOSDK_V127.pdf
-% binary coded decimal (BCD): 
-% 
-
-% pixel 1-4: image counter
-% pixel 5
 
 
 
