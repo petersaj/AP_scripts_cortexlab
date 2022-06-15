@@ -88,26 +88,27 @@ end
 
 % Move from local to staging folder (takes time)
 % (temporary location to prevent tape-archiving partial data)
-tapedrive_staging_path = ...
-    fullfile('\\lugaro.cortexlab.net\bigdrive\staging', ...
+tapedrive_staging_path = fullfile('\\lugaro.cortexlab.net\bigdrive\staging', ...
     sprintf('%s_%s',animal,day));
-mkdir(tapedrive_staging_path);
-staging_status = movefile(curr_data_path,tapedrive_staging_path);
+
 
 % Move from staging to toarchive folder (instantaneous)
 % (contents of this folder are regularly moved to tape)
-tapedrive_toarchive_path = ...
-    fullfile('\\lugaro.cortexlab.net\bigdrive\toarchive', ...
-    sprintf('%s_%s',animal,day));
-toarchive_status = movefile(tapedrive_staging_path,tapedrive_toarchive_path);
 
-% If data was successfully moved from local to toarchive, remove local path
-if staging_status && toarchive_status
-    rmdir(curr_data_path);
+
+% Copy into bigdrive as of 2016-08-24
+destFolder = fullfile('\\lugaro.cortexlab.net\bigdrive\staging\', [ops.mouseName '_' ops.thisDate]);
+
+mkdir(destFolder);
+movefile(fullfile(ops.vids(1).fileBase, '*'), destFolder);
+
+destFolder2 = fullfile('\\lugaro.cortexlab.net\bigdrive\toarchive\');
+movefile(destFolder, destFolder2);
+
+if length(dir(ops.localSavePath))==2 % empty folder
+    cd(fileparts(ops.localSavePath));
+    rmdir(ops.localSavePath);
 end
-
-
-
 
 
 
