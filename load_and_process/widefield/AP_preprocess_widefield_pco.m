@@ -1,11 +1,14 @@
-function [U,Vrec,im_color_avg,frame_info] = AP_widefield_svd_pco(im_path)
-% [U,Vrec,im_color_avg,frame_info] = AP_widefield_svd_pco(im_path)
+function [U,Vrec,im_avg_color,frame_info] = AP_preprocess_widefield_pco(im_path)
+% [U,Vrec,im_color_avg,frame_info] = AP_preprocess_widefield_pco(im_path)
 %
 % SVD-compress widefield imaging from PCO Edge 5.5 camera
 % Assumes: 
 % - alternating 2-color imaging that resets order on recording start
 % - recordings are defined by timestamp gaps of >2s
 % - binary and ASCII timestamps are turned on
+
+
+verbose = false; % Turn off messages by default
 
 
 %% Get image filenames
@@ -23,7 +26,7 @@ im_files = dir(fullfile(im_path,'*.tif'));
 % (e.g. 10dec = 16bcd: 16 -> 0001 0000 = "1,0" = 10)
 
 tic;
-disp('Getting image headers...');
+if verbose; disp('Getting image headers...'); end
 
 % Set header position (first row, first 14 pixels)
 header_px_loc = {[1,1],[1,14],[1,Inf]};
@@ -60,7 +63,7 @@ for curr_im = 1:length(im_files)
 
 end
 
-toc;
+if verbose; toc; end
 
 
 %% Get illumination color for each frame
@@ -114,10 +117,10 @@ im_grab_size = cellfun(@(x) diff(x)+1,im_px_loc(1:2));
 n_frame_avg = 15;
 
 tic;
-disp('Building image moving average by color...');
+if verbose; disp('Building image moving average by color...'); end
 
 % Loop through images, cumulatively build averages by illumination color
-im_color_avg = zeros(im_grab_size(1),im_grab_size(2),n_colors);
+im_avg_color = zeros(im_grab_size(1),im_grab_size(2),n_colors);
 im_color_mov_avg = cell(length(im_files),n_colors);
 for curr_im = 1:length(im_files)
    
@@ -132,7 +135,7 @@ for curr_im = 1:length(im_files)
         % Cumulatively add average image
         curr_color_partial = ...
             sum(im(:,:,curr_frame_color_idx)./sum([frame_info.color] == curr_color),3);
-        im_color_avg(:,:,curr_color) = im_color_avg(:,:,curr_color) + ...
+        im_avg_color(:,:,curr_color) = im_avg_color(:,:,curr_color) + ...
             curr_color_partial;
 
         % Get moving average (truncate based on moving avg modulus)
@@ -148,14 +151,14 @@ for curr_im = 1:length(im_files)
 
 end
 
-toc;
+if verbose; toc; end
 
 
 %% Do SVD on moving-average images
 % (keep U and S, don't keep V since U will be applied to full dataset next)
 
 tic;
-disp('Running SVD on moving average images by color...');
+if verbose; disp('Running SVD on moving average images by color...'); end
 
 [U,~,~] = arrayfun(@(color) ...
     svd(reshape(cat(3,im_color_mov_avg{:,color}),prod(im_grab_size),[]),'econ'), ...
@@ -172,7 +175,7 @@ toc;
 % the resulting matrix is equivalent to S*V but just called 'V')
 
 tic;
-disp('Applying SVD spatial components to full data...');
+if verbose; disp('Applying SVD spatial components to full data...'); end
 
 V = cell(length(im_files),n_colors);
 for curr_im = 1:length(im_files)
@@ -189,27 +192,27 @@ for curr_im = 1:length(im_files)
         V{curr_im,curr_color} = ...
             reshape(U{curr_color},[],size(U{curr_color},3))' * ...
             (reshape(im(:,:,curr_frame_color_idx),[],sum(curr_frame_color_idx)) - ...
-            reshape(im_color_avg(:,:,curr_color),[],1));
+            reshape(im_avg_color(:,:,curr_color),[],1));
     end
 
     AP_print_progress_fraction(curr_im,length(im_files));
 
 end
 
-toc;
+if verbose; toc; end
 
 
 %% Split V's by recording (instead of by file)
 
-disp('Applying SVD spatial components to full data...');
+if verbose; disp('Applying SVD spatial components to full data...');end
 
 % Store V's as recordings x color
 Vrec = cell(length(recording_frame_boundary)-1,n_colors);
 
 frame_num_cat = vertcat(frame_info.frame_num);
 
-frame_color_cat = horzcat(frame_info.color);
-frame_rec_idx_cat = horzcat(frame_info.rec_idx);
+frame_color_cat = horzcat(frame_info.color)';
+frame_rec_idx_cat = horzcat(frame_info.rec_idx)';
 for curr_color = 1:n_colors
 
     % Split concatenated V by recording index
@@ -220,7 +223,9 @@ for curr_color = 1:n_colors
     
 end
 
-disp('Finished SVD.')
+if verbose; disp('Finished SVD.'); end
+
+
 
 
 

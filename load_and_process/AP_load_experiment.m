@@ -511,12 +511,10 @@ if imaging_exists && load_parts.imaging
         % Load in all things as neural (n) or hemodynamic (h)
         Un = readUfromNPY([data_path filesep 'svdSpatialComponents_' cam_color_signal '.npy']);
         Vn = readVfromNPY([experiment_path filesep 'svdTemporalComponents_' cam_color_signal '.npy']);
-        dataSummary_n = load([data_path filesep 'dataSummary_' cam_color_signal '.mat']);
         avg_im_n = readNPY([data_path filesep 'meanImage_' cam_color_signal '.npy']);
         
         Uh = readUfromNPY([data_path filesep 'svdSpatialComponents_' cam_color_hemo '.npy']);
         Vh = readVfromNPY([experiment_path filesep 'svdTemporalComponents_' cam_color_hemo '.npy']);
-        dataSummary_h = load([data_path filesep 'dataSummary_' cam_color_signal '.mat']);
         avg_im_h = readNPY([data_path filesep 'meanImage_' cam_color_hemo '.npy']);
         
         % Get frame timestamps (assume odd = blue, even = purple for now)

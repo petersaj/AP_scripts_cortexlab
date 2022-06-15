@@ -1,2 +1,10 @@
 this is a replacement of cortexlab "pipelineHere"
 (and eventually to switch from PCO to Hamamatsu)
+
+AP_preprocess_widefield_pco: 
+- get frame information
+- split by color and recording
+- run svd
+
+AP_batch_widefield: 
+Preprocess all local widefield data
