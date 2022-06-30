@@ -1029,6 +1029,98 @@ end
 disp('Finished loading all')
 
 
+%% Passive long-term post-learning
+
+disp('Long-term passive trial activity')
+
+% Initialize
+clear all
+trial_data_all = struct;
+
+animals = {'AP113','AP114','AP115'};
+
+for curr_animal = 1:length(animals)
+    
+    animal = animals{curr_animal};
+    protocol = 'AP_lcrGratingPassive';
+    passive_experiments = AP_find_experiments(animal,protocol);    
+
+    % Get days with task
+    % (these mice were trained in right, then left task)
+    task_right_protocol = 'AP_stimWheelRight';
+    task_right_experiments = AP_find_experiments(animal,task_right_protocol);
+
+    task_left_protocol = 'AP_stimWheelLeftReverse';
+    task_left_experiments = AP_find_experiments(animal,task_left_protocol);
+
+    % Set experiments to use:
+    % - Last passive with right task
+    % - Last passive with left task
+    % - Passive after task is finished
+    last_task_right_experiment = datenum({passive_experiments.day}) == ....
+        datenum(task_right_experiments(end).day);
+
+    last_task_left_experiment = datenum({passive_experiments.day}) == ....
+        datenum(task_left_experiments(end).day);
+
+    task_last_day = max(vertcat(datenum({task_right_experiments.day}),datenum({task_left_experiments.day})));
+    post_training_experiments = datenum({passive_experiments.day}) > task_last_day;
+
+    experiments = passive_experiments( ...
+        last_task_right_experiment | ...
+        last_task_left_experiment | ...
+        post_training_experiments);
+
+    disp(['Loading ' animal]);
+    
+    for curr_day = 1:length(experiments)
+        
+        preload_vars = who;
+        
+        day = experiments(curr_day).day;
+        experiment = experiments(curr_day).experiment(end);
+        
+        % Load experiment
+        AP_load_experiment;
+        
+        % Pull out trial data
+        operant_grab_trial_data;
+        
+        % Store trial data into master structure
+        trial_data_fieldnames = fieldnames(trial_data);
+        for curr_trial_data_field = trial_data_fieldnames'
+            trial_data_all.(cell2mat(curr_trial_data_field)){curr_animal,1}{curr_day,1} = ...
+                trial_data.(cell2mat(curr_trial_data_field));
+        end
+        
+        % Store day relative to last task day
+        trial_data_all.last_task_day{curr_animal} = task_last_day;
+        trial_data_all.recording_day{curr_animal}(curr_day) = datenum(day);
+
+        % Store general info
+        trial_data_all.animals = animals;
+        trial_data_all.t = t;
+        
+        AP_print_progress_fraction(curr_day,length(experiments));
+        
+        % Clear for next loop
+        clearvars('-except',preload_vars{:});
+        
+    end
+    
+end
+
+clearvars -except trial_data_all
+disp('Finished loading all')
+
+% Save
+save_path = 'C:\Users\Andrew\OneDrive for Business\Documents\CarandiniHarrisLab\analysis\operant_learning\data';
+save_fn = fullfile(save_path,'trial_activity_passive_teto_postlearn');
+save(save_fn,'-v7.3');
+disp(['Saved: ' save_fn])
+
+
+
 
 %% ~~~~~~~~~~~~~~ Muscimol + widefield data
 
