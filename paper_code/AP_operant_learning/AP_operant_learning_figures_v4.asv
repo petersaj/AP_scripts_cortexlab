@@ -166,12 +166,16 @@ trial_day = cell2mat(cellfun(@(x) cell2mat(cellfun(@(curr_day,x) ...
     wheel_all,'uni',false));
 trials_recording = cellfun(@(x) size(x,1),vertcat(wheel_all{:}));
 
+% Get day relative to last task day
+last_task_day{curr_animal} = task_last_day;
+        trial_data_all.task_relative_day{curr_animal}(curr_day) = datenum(day);
+
 % Store day relative to last task day
 task_relative_day = cellfun(@(day,taskday) day' - taskday, ...
     recording_day,last_task_day,'uni',false)';
 trial_postlearn_day = cell2mat(cellfun(@(x,day) cell2mat(cellfun(@(x,day) ...
     day*ones(size(x,1),1),x,num2cell(day),'uni',false)), ...
-    wheel_all,task_relative_day,'uni',false));
+    wheel_all,postlearn_day_relative,'uni',false));
 
 % Get trials with movement during stim to exclude
 quiescent_trials = ~any(abs(wheel_allcat(:,t >= 0 & t <= 0.5)) > 0,2);
@@ -2689,8 +2693,8 @@ axis image off;
 
 % Get relative post-learned days
 % (all animals imaged in same intervals, so unique should be same as length)
-task_relative_day_unique = unique(cat(1,task_relative_day{:}));
-if ~all(task_relative_day_unique == cat(2,task_relative_day{:}),'all')
+postlearn_day_unique = unique(cat(1,postlearn_day_relative{:}));
+if ~all(postlearn_day_unique == cat(2,postlearn_day_relative{:}),'all')
     error('Different relative days across animals');
 end
 
@@ -2715,7 +2719,7 @@ for curr_day = 1:size(stim_px_dayavg_tmax,3)
         colormap(gca,AP_colormap('WG',[],1.5));
         caxis(c)
 
-        title(sprintf('Day %d',task_relative_day_unique(curr_day)));
+        title(sprintf('Day %d',postlearn_day_unique(curr_day)));
 end
 linkaxes(allchild(h),'xy');
 colorbar;
