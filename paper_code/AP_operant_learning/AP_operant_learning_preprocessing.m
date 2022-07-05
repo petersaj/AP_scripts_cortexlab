@@ -1507,8 +1507,11 @@ for curr_animal = 1:length(animals)
                 qMetric.rawAmplitude > param.minAmplitude & isnan(unitType)') = 1;
             unitType(isnan(unitType)') = 2;
 
+            % (some upwards waveforms not caught in .somatic? remove)
+            upward_waveforms = max(waveforms,[],2) > abs(min(waveforms,[],2));
+
             % Templates already 1/re-indexed, grab good ones
-            good_templates = unitType == 1;
+            good_templates = unitType == 1 & ~upward_waveforms;
             good_templates_idx = find(good_templates);
 
             % Throw out all non-good template data
@@ -1611,6 +1614,13 @@ for curr_animal = 1:length(animals)
 
             single_unit_data_all(curr_animal).unit_area{curr_day} = unit_area;
 
+            % Store waveform and spike width for each unit (both mine and Julie's)
+            single_unit_data_all(curr_animal).waveform{curr_day} = waveforms;
+
+            single_unit_data_all(curr_animal).waveform_duration_JF{curr_day} = ...
+                qMetric.waveformDuration(good_templates)';
+            single_unit_data_all(curr_animal).waveform_duration_AP{curr_day} = ...
+                templateDuration_us;
 
             % Prep next loop
             clearvars('-except',preload_vars{:});

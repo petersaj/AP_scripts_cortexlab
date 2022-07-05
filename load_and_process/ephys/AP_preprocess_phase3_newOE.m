@@ -137,12 +137,15 @@ for curr_site = 1:length(data_paths)
         disp('Done');
         
         % Clean AP data of artifacts
-        % (I don't remember doing this - other ones use AP_applyCarToDat,
-        % use that instead?)
         disp('Cleaning AP data...')
         ap_clean_filename = [ssd_kilosort_path filesep animal '_' day '_' 'ephys_apband_clean.dat'];
-        ttl_path = fileparts(sync_filename);
-        AP_clean_dat(ap_temp_filename,n_channels,ttl_path,ap_clean_filename);
+        % (just using common average referencing)
+        ops.NchanTOT = n_channels;
+        AP_applyCARtoDat(ap_temp_filename,ops.NchanTOT,ap_clean_filename);
+
+%         % (old attempt to remove light artifacts - not used)
+%         ttl_path = fileparts(sync_filename);
+%         AP_clean_dat(ap_temp_filename,n_channels,ttl_path,ap_clean_filename);
         
         % Delete local raw data
         delete(ap_temp_filename);
@@ -174,6 +177,9 @@ for curr_site = 1:length(data_paths)
         
         % Move the results into the phy directory
         movefile([ks_results_path filesep '*'],local_phy_path)
+        
+        % Copy the dat_params file into the phy directory
+        copyfile(param_filename,fullfile(curr_save_path,'dat_params.txt'));
         
         %% Delete all temporary local data
         rmdir(ssd_kilosort_path,'s');

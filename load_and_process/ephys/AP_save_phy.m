@@ -66,6 +66,12 @@ end
 
 disp('Saved phy clustering to server');
 
-
+% Delete local phy files
+delete_confirm = strcmp(input('Delete local phy (y/n)? ','s'),'y');
+if delete_confirm
+    rmdir(local_phy_dir,'s');
+    mkdir(local_phy_dir);
+    disp('Cleared local phy data');
+end
 
 
