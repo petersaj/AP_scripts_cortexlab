@@ -1947,76 +1947,68 @@ stim_unique = unique(trial_stim_allcat);
 
 use_trials = quiescent_trials;
 
-% (loop through cell types)
-celltype_label = {'Wide','Narrow'};
-for curr_celltype = 1:length(celltype_label)
+[recording_idx,t_idx,area_idx] = ...
+    ndgrid(trial_recording(use_trials),1:length(t),1:length(mua_areas));
+[stim_idx,~,~,] = ...
+    ndgrid(trial_stim_id(use_trials),1:length(t),1:length(mua_areas));
 
-    [recording_idx,t_idx,area_idx] = ...
-        ndgrid(trial_recording(use_trials),1:length(t),1:length(mua_areas));
-    [stim_idx,~,~,] = ...
-        ndgrid(trial_stim_id(use_trials),1:length(t),1:length(mua_areas));
+mua_recording_avg = accumarray([recording_idx(:),t_idx(:),stim_idx(:),area_idx(:)], ...
+    reshape(mua_area_allcat(use_trials,:,:),[],1), ...
+    [length(trials_recording),length(t),length(stim_unique),length(mua_areas)], ...
+    @nanmean,NaN);
 
-    mua_recording_avg = accumarray([recording_idx(:),t_idx(:),stim_idx(:),area_idx(:)], ...
-        reshape(mua_area_allcat(use_trials,:,:,curr_celltype),[],1), ...
-        [length(trials_recording),length(t),length(stim_unique),length(mua_areas)], ...
-        @nanmean,NaN);
+% Get DV position of each area in CCF for sorting
+allen_atlas_path = fileparts(which('template_volume_10um.npy'));
+av = readNPY([allen_atlas_path filesep 'annotation_volume_10um_by_index.npy']);
+st = loadStructureTree([allen_atlas_path filesep 'structure_tree_safe_2017.csv']);
 
-    % Get DV position of each area in CCF for sorting
-    allen_atlas_path = fileparts(which('template_volume_10um.npy'));
-    av = readNPY([allen_atlas_path filesep 'annotation_volume_10um_by_index.npy']);
-    st = loadStructureTree([allen_atlas_path filesep 'structure_tree_safe_2017.csv']);
+mua_areas_dvmin = nan(size(mua_areas));
+for curr_area = mua_areas'
+    curr_structure_idx = find(strcmp(st.safe_name,curr_area));
+    curr_structure_id = st.structure_id_path{curr_structure_idx};
+    curr_ccf_idx = find(cellfun(@(x) contains(x,curr_structure_id), ...
+        st.structure_id_path));
 
-    mua_areas_dvmin = nan(size(mua_areas));
-    for curr_area = mua_areas'
-        curr_structure_idx = find(strcmp(st.safe_name,curr_area));
-        curr_structure_id = st.structure_id_path{curr_structure_idx};
-        curr_ccf_idx = find(cellfun(@(x) contains(x,curr_structure_id), ...
-            st.structure_id_path));
+    slice_spacing = 5;
+    curr_ccf_volume = ...
+        ismember(av(1:slice_spacing:end, ...
+        1:slice_spacing:end,1:slice_spacing:end),curr_ccf_idx);
 
-        slice_spacing = 5;
-        curr_ccf_volume = ...
-            ismember(av(1:slice_spacing:end, ...
-            1:slice_spacing:end,1:slice_spacing:end),curr_ccf_idx);
+    curr_ccf_coronal_max = permute(max(curr_ccf_volume,[],1),[2,3,1]);
+    curr_min_dv = find(any(curr_ccf_coronal_max,2),1);
 
-        curr_ccf_coronal_max = permute(max(curr_ccf_volume,[],1),[2,3,1]);
-        curr_min_dv = find(any(curr_ccf_coronal_max,2),1);
-
-        mua_areas_dvmin(strcmp(curr_area,mua_areas)) = curr_min_dv;
-    end
-
-    % (get areas to plot: anything present in all recordings)
-    [~,area_idx] = cellfun(@(x) ismember(x,mua_areas),mua_areas_cat,'uni',false);
-    area_recording_n = accumarray(cell2mat(area_idx),1);
-    plot_areas = find(area_recording_n == length(trials_recording));
-    [~,plot_area_sort_idx] = sort(mua_areas_dvmin(plot_areas));
-
-    % Plot stim overlaid
-    figure;
-    stim_color = [0,0,0.8;0.5,0.5,0.5;0.8,0,0];
-    h = tiledlayout(length(plot_areas),1);
-    for curr_area = plot_areas(plot_area_sort_idx)'
-        nexttile;
-        AP_errorfill(t', ...
-            squeeze(nanmean(mua_recording_avg(:,:,:,curr_area),1)), ...
-            squeeze(AP_sem(mua_recording_avg(:,:,:,curr_area),1)),stim_color);
-        yline(0);
-        ylabel(mua_areas(curr_area));
-    end
-    linkaxes(allchild(h),'xy');
-    % (shade stim area and put in back)
-    arrayfun(@(x) patch(x,[0,0.5,0.5,0], ...
-        reshape(repmat(ylim(x),2,1),[],1),[1,1,0.8], ...
-        'linestyle','none'),allchild(h));
-    arrayfun(@(x) set(x,'children',circshift(get(x,'children'),-1)),allchild(h));
-    xlim([-0.2,0.7]);
-
-    x_scale = 0.2;
-    y_scale = 0.5;
-    AP_scalebar(x_scale,y_scale);
-
-    title(h,celltype_label{curr_celltype});
+    mua_areas_dvmin(strcmp(curr_area,mua_areas)) = curr_min_dv;
 end
 
+% (get areas to plot: anything present in all recordings)
+[~,area_idx] = cellfun(@(x) ismember(x,mua_areas),mua_areas_cat,'uni',false);
+area_recording_n = accumarray(cell2mat(area_idx),1);
+plot_areas = find(area_recording_n == length(trials_recording));
+[~,plot_area_sort_idx] = sort(mua_areas_dvmin(plot_areas));
+
+% Plot stim overlaid
+figure;
+stim_color = [0,0,0.8;0.5,0.5,0.5;0.8,0,0];
+h = tiledlayout(length(plot_areas),1);
+for curr_area = plot_areas(plot_area_sort_idx)'
+    nexttile;
+    AP_errorfill(t', ...
+        squeeze(nanmean(mua_recording_avg(:,:,:,curr_area),1)), ...
+        squeeze(AP_sem(mua_recording_avg(:,:,:,curr_area),1)),stim_color);
+    yline(0);
+    ylabel(mua_areas(curr_area));
+end
+linkaxes(allchild(h),'xy');
+% (shade stim area and put in back)
+arrayfun(@(x) patch(x,[0,0.5,0.5,0], ...
+    reshape(repmat(ylim(x),2,1),[],1),[1,1,0.8], ...
+    'linestyle','none'),allchild(h));
+arrayfun(@(x) set(x,'children',circshift(get(x,'children'),-1)),allchild(h));
+xlim([-0.2,0.7]);
+
+x_scale = 0.2;
+y_scale = 0.5;
+AP_scalebar(x_scale,y_scale);
 
 %% [FIG 4D] ephys - move (no stim) response
 
@@ -2043,66 +2035,65 @@ trials_recording = cellfun(@(x) size(x,1),vertcat(wheel_all{:}));
 
 % Plot average activity aligned to stim and move
 
-% (loop through cell types)
-celltype_label = {'Wide','Narrow'};
-for curr_celltype = 1:length(celltype_label)
+% Get average response timecourses
+[recording_idx,t_idx,area_idx] = ...
+    ndgrid(trial_recording,1:length(t),1:length(mua_areas));
 
-    % Get average response timecourses
-    mua_move_nostim_recording_avg = ...
-        mua_area_move_nostim_rewardable_allcat(:,:,:,curr_celltype);
+mua_recording_avg = accumarray([recording_idx(:),t_idx(:),area_idx(:)], ...
+    reshape(mua_area_allcat,[],1), ...
+    [length(trials_recording),length(t),length(mua_areas)], ...
+    @nanmean,NaN);
 
-    % Get DV position of each area in CCF for sorting
-    allen_atlas_path = fileparts(which('template_volume_10um.npy'));
-    av = readNPY([allen_atlas_path filesep 'annotation_volume_10um_by_index.npy']);
-    st = loadStructureTree([allen_atlas_path filesep 'structure_tree_safe_2017.csv']);
+mua_move_nostim_recording_avg = mua_area_move_nostim_rewardable_allcat;
 
-    mua_areas_dvmin = nan(size(mua_areas));
-    for curr_area = mua_areas'
-        curr_structure_idx = find(strcmp(st.safe_name,curr_area));
-        curr_structure_id = st.structure_id_path{curr_structure_idx};
-        curr_ccf_idx = find(cellfun(@(x) contains(x,curr_structure_id), ...
-            st.structure_id_path));
+% Get DV position of each area in CCF for sorting
+allen_atlas_path = fileparts(which('template_volume_10um.npy'));
+av = readNPY([allen_atlas_path filesep 'annotation_volume_10um_by_index.npy']);
+st = loadStructureTree([allen_atlas_path filesep 'structure_tree_safe_2017.csv']);
 
-        slice_spacing = 5;
-        curr_ccf_volume = ...
-            ismember(av(1:slice_spacing:end, ...
-            1:slice_spacing:end,1:slice_spacing:end),curr_ccf_idx);
+mua_areas_dvmin = nan(size(mua_areas));
+for curr_area = mua_areas'
+    curr_structure_idx = find(strcmp(st.safe_name,curr_area));
+    curr_structure_id = st.structure_id_path{curr_structure_idx};
+    curr_ccf_idx = find(cellfun(@(x) contains(x,curr_structure_id), ...
+        st.structure_id_path));
 
-        curr_ccf_coronal_max = permute(max(curr_ccf_volume,[],1),[2,3,1]);
-        curr_min_dv = find(any(curr_ccf_coronal_max,2),1);
+    slice_spacing = 5;
+    curr_ccf_volume = ...
+        ismember(av(1:slice_spacing:end, ...
+        1:slice_spacing:end,1:slice_spacing:end),curr_ccf_idx);
 
-        mua_areas_dvmin(strcmp(curr_area,mua_areas)) = curr_min_dv;
-    end
+    curr_ccf_coronal_max = permute(max(curr_ccf_volume,[],1),[2,3,1]);
+    curr_min_dv = find(any(curr_ccf_coronal_max,2),1);
 
-    % Plot timecourses overlaid
-    % (get areas to plot: anything present in all recordings)
-    [~,area_idx] = cellfun(@(x) ismember(x,mua_areas),mua_areas_cat,'uni',false);
-    area_recording_n = accumarray(cell2mat(area_idx),1);
-    plot_areas = find(area_recording_n == length(trials_recording));
-    [~,plot_area_sort_idx] = sort(mua_areas_dvmin(plot_areas));
-
-    % Plot move no-stim aligned
-    figure;
-    h = tiledlayout(length(plot_areas),1);
-    for curr_area = plot_areas(plot_area_sort_idx)'
-        nexttile;
-        AP_errorfill(t', ...
-            squeeze(nanmean(mua_move_nostim_recording_avg(:,:,curr_area),1)), ...
-            squeeze(AP_sem(mua_move_nostim_recording_avg(:,:,curr_area),1)),'k');
-        xlabel('Move');
-        xline(0);yline(0);
-        ylabel(mua_areas(curr_area));
-    end
-    linkaxes(allchild(h),'xy');
-    xlim([-0.2,0.7]);
-
-    x_scale = 0.2;
-    y_scale = 0.5;
-    AP_scalebar(x_scale,y_scale);
-
-    title(h,celltype_label{curr_celltype});
-
+    mua_areas_dvmin(strcmp(curr_area,mua_areas)) = curr_min_dv;
 end
+
+% Plot timecourses overlaid
+% (get areas to plot: anything present in all recordings)
+[~,area_idx] = cellfun(@(x) ismember(x,mua_areas),mua_areas_cat,'uni',false);
+area_recording_n = accumarray(cell2mat(area_idx),1);
+plot_areas = find(area_recording_n == length(trials_recording));
+[~,plot_area_sort_idx] = sort(mua_areas_dvmin(plot_areas));
+
+% Plot move no-stim aligned
+figure;
+h = tiledlayout(length(plot_areas),1);
+for curr_area = plot_areas(plot_area_sort_idx)'
+    nexttile;
+    AP_errorfill(t', ...
+        squeeze(nanmean(mua_move_nostim_recording_avg(:,:,curr_area),1)), ...
+        squeeze(AP_sem(mua_move_nostim_recording_avg(:,:,curr_area),1)),'k');
+    xlabel('Move');
+    xline(0);yline(0);
+    ylabel(mua_areas(curr_area));
+end
+linkaxes(allchild(h),'xy');
+xlim([-0.2,0.7]);
+
+x_scale = 0.2;
+y_scale = 0.5;
+AP_scalebar(x_scale,y_scale);
 
 
 %% [FIG 4E-F] ephys single cell classification and stim/move response
