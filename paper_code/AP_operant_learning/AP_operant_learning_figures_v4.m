@@ -168,7 +168,7 @@ trials_recording = cellfun(@(x) size(x,1),vertcat(wheel_all{:}));
 
 % Store day relative to last task day
 task_relative_day = cellfun(@(day,taskday) day' - taskday, ...
-    recording_day,last_task_day,'uni',false)';
+    recording_day,last_task_right_day,'uni',false)';
 trial_postlearn_day = cell2mat(cellfun(@(x,day) cell2mat(cellfun(@(x,day) ...
     day*ones(size(x,1),1),x,num2cell(day),'uni',false)), ...
     wheel_all,task_relative_day,'uni',false));
@@ -2965,23 +2965,26 @@ stim_roi_trainday_avg_tmax = squeeze(max(roi_trainday_avg(:,use_t,:,:,:),[],2));
 plot_roi = 6;
 plot_stim = 1;
 
+plot_rxn = (nanmean(rxn_alt_med,3)-rxn_measured_med)./ ...
+    (nanmean(rxn_alt_med,3)+rxn_measured_med);
+plot_act = permute(stim_roi_trainday_avg_tmax(:,plot_roi, ...
+    stim_unique == plot_stim,:),[1,4,2,3]);
+
 animal_col = max(0,jet(length(animals))-0.2);
 
 figure; hold on; set(gca,'ColorOrder',animal_col);
-plot(rxn_measured_med, ...
-    squeeze(stim_roi_trainday_avg_tmax(:,plot_roi,stim_unique == plot_stim,:)), ...
-    '.','MarkerSize',15);
-xlabel('Reaction time')
+plot(plot_rxn,plot_act,'.','MarkerSize',15);
+xlabel('Reaction time (alt-meas/alt+meas)')
 ylabel(wf_roi(plot_roi).area);
-set(gca,'XScale','log');
+% set(gca,'XScale','log');
 
 figure; h = tiledlayout('flow');
 for curr_animal = 1:length(animals)
     nexttile;
-    yyaxis left;plot(rxn_measured_med(:,curr_animal));set(gca,'YDir','reverse','YScale','log');
+    yyaxis left;plot(plot_rxn(:,curr_animal));
+%     set(gca,'YDir','reverse','YScale','log');
     ylabel('Reaction time');
-    yyaxis right;plot(squeeze(stim_roi_trainday_avg_tmax(:,plot_roi, ...
-        stim_unique == plot_stim,curr_animal)));
+    yyaxis right;plot(plot_act(:,curr_animal));
     ylabel(wf_roi(plot_roi).area);
     title(animals(curr_animal));
 end
