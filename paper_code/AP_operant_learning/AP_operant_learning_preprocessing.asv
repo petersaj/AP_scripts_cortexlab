@@ -1089,7 +1089,6 @@ for curr_animal = 1:length(animals)
         end
         
         % Store day relative to last task day (right and left-hand tasks)
-        trial_data_all.last_task_right_day{curr_animal} = datenum(task_right_experiments(end).day);
         trial_data_all.last_task_left_day{curr_animal} = datenum(task_left_experiments(end).day);
         trial_data_all.recording_day{curr_animal}(curr_day) = datenum(day);
 

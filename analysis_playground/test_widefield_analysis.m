@@ -585,8 +585,8 @@ set(gcf,'Name',animal);
 %     trial_conditions(:,2) == -1 & ...
 %     trial_conditions(:,3) == -1;
 
-align_times = stimOn_times;
-% align_times = stimOn_times(stimIDs == 1);
+% align_times = stimOn_times;
+align_times = stimOn_times(stimIDs == 3);
 % align_times = stimOn_times(stim_to_move >= 0.1);
 % align_times = iti_move_starts;
 % align_times = wheel_move_time;

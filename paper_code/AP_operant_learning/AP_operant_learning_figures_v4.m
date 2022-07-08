@@ -271,7 +271,7 @@ vel_scale = 100;
 AP_scalebar(t_scale,vel_scale);
 
 
-%% [FIG 1C-F, FIG 3B, FIG S1]: behavior
+%% [FIG 1C-F, FIG 3C, FIG S1]: behavior
 
 % Load behavior
 data_path = 'C:\Users\Andrew\OneDrive for Business\Documents\CarandiniHarrisLab\analysis\operant_learning\data';
@@ -1255,7 +1255,7 @@ y_scale = 2e-4;
 AP_scalebar(x_scale,y_scale);
 
 
-%% >> [FIG 3C1] task hemidiff ROI stim window daysplit by learned day
+%% >> [FIG 3D(1)] task hemidiff ROI stim window daysplit by learned day
 
 % Activity to average 
 stim_roi_act = fluor_roi_deconv - ...
@@ -1329,7 +1329,7 @@ end
 
 
 
-%% ++ [FIG 3A2,C2, FIG S3] passive - L/R ROI timecourse/stim window by learned day
+%% ++ [FIG 3B,D(2), FIG S3] passive - L/R ROI timecourse/stim window by learned day
 
 % Set ROIs to plot
 plot_rois = [6];
@@ -2719,7 +2719,7 @@ for curr_day = 1:size(stim_px_dayavg_tmax,3)
         axis image off;
         AP_reference_outline('ccf_aligned',[0.5,0.5,0.5]);
         colormap(gca,AP_colormap('WG',[],1.5));
-        caxis(c)
+        caxis(c);
 
         title(sprintf('Day %d',task_relative_day_unique(curr_day)));
 end
@@ -2749,6 +2749,13 @@ for curr_roi = plot_rois
     y_scale = 4e-4;
     AP_scalebar(x_scale,y_scale);
 end
+
+
+% Get ROI activity within stim window
+use_t = t > 0 & t <= 0.2;
+stim_roi_avg_tmax = squeeze(max(stim_roi_avg_cat(:,use_t,:,:,:),[],2));
+
+a = squeeze(stim_roi_avg_tmax(6,[1,5:8],3,:));
 
 
 
@@ -2838,11 +2845,146 @@ for curr_roi = plot_rois
 end
 
 
+%%%%% TEMP: get the post-learning median to plot
+
+a = squeeze(nanmedian(roi_learnday_avg(learned_day_unique >= 0,:,6,3,use_animals),1));
+
+use_t = t > 0 & t <= 0.2;
+a_tmax = max(a(use_t,:),[],1);
+
+
+
+%% ++ Reaction time by activity plot
+% (this is a bit messy - clean this up)
+
+% Load behavior, exclude animals not in dataset, get learned day
+data_path = 'C:\Users\Andrew\OneDrive for Business\Documents\CarandiniHarrisLab\analysis\operant_learning\data';
+bhv_fn = [data_path filesep 'bhv_teto'];
+load(bhv_fn);
+bhv = bhv(ismember({bhv.animal},animals)); 
+learned_day = cellfun(@(x) find(x,1),{bhv.learned_days})';
+learned_day_animal = cellfun(@(ld,n) [1:n]'-(ld), ...
+    num2cell(learned_day),num2cell(cellfun(@length,trial_info_all)), ...
+    'uni',false);
+
+% Load muscimol injection info
+data_path = 'C:\Users\Andrew\OneDrive for Business\Documents\CarandiniHarrisLab\analysis\operant_learning\data';
+muscimol_fn = [data_path filesep 'muscimol.mat'];
+load(muscimol_fn);
+
+% Use days before muscimol
+use_days = cell(size(bhv));
+for curr_animal = 1:length(bhv)
+    muscimol_animal_idx = ismember({muscimol.animal},bhv(curr_animal).animal);
+    if ~any(muscimol_animal_idx)
+        use_days{curr_animal} = true(length(bhv(curr_animal).day),1);
+        continue
+    end
+    muscimol_day_idx = datenum(bhv(curr_animal).day) >= ...
+        datenum(muscimol(muscimol_animal_idx).day(1));
+    use_days{curr_animal} = ~muscimol_day_idx;
+end
+max_days = max(cellfun(@sum,use_days));
+
+% Get reaction/resampled alt reaction times for all regular days
+% (exclude trials without alts: rare, from wheel click issues)
+use_rxn = cellfun(@(x) cellfun(@(x) cellfun(@(x) ...
+    ~isempty(x),x),x,'uni',false),{bhv.alt_stim_move_t},'uni',false);
+
+rxn_measured = cellfun(@(rxn,use_days,use_trials) ...
+    cellfun(@(rxn,use_trials) rxn(use_trials),rxn(use_days),use_trials(use_days),'uni',false), ...
+    {bhv.stim_move_t},use_days,use_rxn,'uni',false)';
+
+n_rxn_altsample = 1000;
+rxn_alt = cellfun(@(rxn,use_days,use_trials) ...
+    cellfun(@(rxn,use_trials) ...
+    cell2mat(cellfun(@(x) datasample(x,n_rxn_altsample)',rxn(use_trials),'uni',false)), ...
+    rxn(use_days),use_trials(use_days),'uni',false), ...
+    {bhv.alt_stim_move_t},use_days,use_rxn,'uni',false)';
+
+% Concatenate and get indicies
+rxn_measured_allcat = cell2mat(cellfun(@cell2mat,rxn_measured,'uni',false));
+rxn_alt_allcat = cell2mat(cellfun(@cell2mat,rxn_alt,'uni',false));
+
+animal_idx = cell2mat(cellfun(@(x,animal) repmat(animal,length(cell2mat(x)),1), ...
+    rxn_measured,num2cell(1:length(bhv))','uni',false));
+day_idx = cell2mat(cellfun(@(x) cell2mat(cellfun(@(x,day) ...
+    repmat(day,length(x),1),x,num2cell(1:length(x))','uni',false)), ...
+    rxn_measured,'uni',false));
+
+% Reaction time median: whole day
+% (exclude too-fast rxn < 0.1)
+rxn_measured_med = accumarray([day_idx,animal_idx], ...
+    rxn_measured_allcat.*AP_nanout(rxn_measured_allcat < 0.1), ...
+    [max_days,length(bhv)],@(x) nanmedian(x),NaN);
+
+rxn_alt_med = cell2mat(permute(arrayfun(@(x) ...
+    accumarray([day_idx,animal_idx], ...
+    rxn_alt_allcat(:,x).*AP_nanout(rxn_alt_allcat(:,x) < 0.1), ...
+    [max_days,length(bhv)],@(x) nanmedian(x),NaN), ...
+    1:n_rxn_altsample,'uni',false),[1,3,2]));
 
 
 
 
 
+
+% Get average ROI activity 
+
+% Get indicies for averaging 
+% (adjust trial day to only include training days)
+trial_day_training = trial_day - n_naive;
+
+[trained_day_idx,t_idx,roi_idx] = ...
+    ndgrid(trial_day_training,1:length(t),1:n_rois);
+
+[learned_day_idx,~,~] = ...
+    ndgrid(trial_learned_day_id,1:length(t),1:n_rois);
+[animal_idx,~,~] = ...
+    ndgrid(trial_animal,1:length(t),1:n_rois);
+[stim_idx,~,~] = ...
+    ndgrid(trial_stim_id,1:length(t),1:n_rois);
+
+accum_idx = cat(4,trained_day_idx,learned_day_idx,t_idx,roi_idx,stim_idx,animal_idx);
+
+use_trials_training = quiescent_trials & trial_day_training > 0;
+
+roi_trainday_avg = accumarray( ...
+    reshape(accum_idx(use_trials_training,:,:,[1,3,4,5,6]),[],5), ...
+    reshape(fluor_roi_deconv(use_trials_training,:,:),[],1), ...
+    [max(trial_day_training),length(t),n_rois,length(stim_unique),length(animals)], ...
+    @nanmean,NaN('single'));
+
+% Get ROI activity within stim window
+use_t = t > 0 & t <= 0.2;
+stim_roi_trainday_avg_tmax = squeeze(max(roi_trainday_avg(:,use_t,:,:,:),[],2));
+
+
+
+% Plot activity against reaction times
+plot_roi = 6;
+plot_stim = 1;
+
+animal_col = max(0,jet(length(animals))-0.2);
+
+figure; hold on; set(gca,'ColorOrder',animal_col);
+plot(rxn_measured_med, ...
+    squeeze(stim_roi_trainday_avg_tmax(:,plot_roi,stim_unique == plot_stim,:)), ...
+    '.','MarkerSize',15);
+xlabel('Reaction time')
+ylabel(wf_roi(plot_roi).area);
+set(gca,'XScale','log');
+
+figure; h = tiledlayout('flow');
+for curr_animal = 1:length(animals)
+    nexttile;
+    yyaxis left;plot(rxn_measured_med(:,curr_animal));set(gca,'YDir','reverse','YScale','log');
+    ylabel('Reaction time');
+    yyaxis right;plot(squeeze(stim_roi_trainday_avg_tmax(:,plot_roi, ...
+        stim_unique == plot_stim,curr_animal)));
+    ylabel(wf_roi(plot_roi).area);
+    title(animals(curr_animal));
+end
 
 
 

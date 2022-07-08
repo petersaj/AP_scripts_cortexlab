@@ -179,7 +179,7 @@ for curr_site = 1:length(data_paths)
         movefile([ks_results_path filesep '*'],local_phy_path)
         
         % Copy the dat_params file into the phy directory
-        copyfile(param_filename,fullfile(curr_save_path,'dat_params.txt'));
+        copyfile(param_filename,fullfile(local_phy_path,'dat_params.txt'));
         
         %% Delete all temporary local data
         rmdir(ssd_kilosort_path,'s');
