@@ -10,11 +10,18 @@ st = loadStructureTree([allen_atlas_path filesep 'structure_tree_safe_2017.csv']
 
 % Set paths for histology images and directory to save slice/alignment
 
-% (for writing/debugging)
-% im_path = '\\znas.cortexlab.net\Subjects\AP105\histology\all_images';
-im_path = 'C:\Users\Andrew\Desktop\temp_histology\AP079';
+% % (for writing/debugging)
+% % im_path = '\\znas.cortexlab.net\Subjects\AP105\histology\all_images';
+% im_path = 'C:\Users\Andrew\Desktop\temp_histology\AP079';
+% slice_path = [im_path filesep 'slices'];
+
+
+% New histology
+im_path = '\\zinu.cortexlab.net\Subjects\AP117\histology';
 slice_path = [im_path filesep 'slices'];
 
+
+% % (what was this for? loaded existing set?)
 % animal = 'AP100';
 % [probe_ccf_fn,probe_ccf_fn_exists] = AP_cortexlab_filename(animal,[],[],'probe_ccf');
 % if probe_ccf_fn_exists

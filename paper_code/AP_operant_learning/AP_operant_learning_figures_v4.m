@@ -2726,46 +2726,76 @@ end
 linkaxes(allchild(h),'xy');
 colorbar;
 
-
 % Get average ROI by day
 stim_roi_avg_cat = cat(5,stim_roi_avg{:});
 stim_roi_day = squeeze(stim_roi_avg_cat(:,:,:,use_stim,:));
-
-% Plot ROIs by stage (L/R overlay)
-figure;
-plot_rois = [1,6];
-h = tiledlayout(length(plot_rois),1);
-for curr_roi = plot_rois
-    nexttile; hold on;
-    AP_errorfill(t, ...
-        squeeze(nanmean(stim_roi_avg_cat(curr_roi,:,:,use_stim,:),5)), ...
-        squeeze(AP_sem(stim_roi_avg_cat(curr_roi,:,:,use_stim,:),5)));
-
-    xlabel('Time from stim (s)');
-    ylabel(sprintf('%s \\DeltaF/F_0',wf_roi(curr_roi).area));
-    axis tight;xlim([-0.2,1])
-
-    x_scale = 0.2;
-    y_scale = 4e-4;
-    AP_scalebar(x_scale,y_scale);
-end
-
 
 % Get ROI activity within stim window
 use_t = t > 0 & t <= 0.2;
 stim_roi_avg_tmax = squeeze(max(stim_roi_avg_cat(:,use_t,:,:,:),[],2));
 
-a = squeeze(stim_roi_avg_tmax(6,[1,5:8],3,:));
+plot_roi = 6;
+plot_stim = 1;
+
+figure; hold on;
+plot_data = squeeze(stim_roi_avg_tmax(plot_roi,:,stim_unique == plot_stim,:));
+plot(plot_data,'color',[0.5,0.5,0.5]);
+errorbar(nanmean(plot_data,2),AP_sem(plot_data,2),'linewidth',2,'color','k');
 
 
 
-%% (not sure using yet) (fix this up) plot full timecourse for long-term animals
+%% ++ [COMBINE WITH ABOVE] long-term animals: pre/post learning px and ROIs
 
 long_term_animals = {'AP113','AP114','AP115'};
 use_animals = ismember(animals,long_term_animals);
 
+
+% Average V/ROI by learning stage
+% (combined naive and pre-learn)
+stim_v_avg_stage = cell2mat(permute(cellfun(@(x,ld) ...
+    cat(3, ...
+    nanmean(x(:,:,1:ld-1,:),3), ...
+    nanmean(x(:,:,ld:end,:),3)), ...
+    stim_v_avg,num2cell(learned_day+n_naive), ...
+    'uni',false),[2,3,4,5,1]));
+
+stim_roi_avg_stage = cell2mat(permute(cellfun(@(x,ld) ...
+    cat(3, ...
+    nanmean(x(:,:,1:ld-1,:),3), ...
+    nanmean(x(:,:,ld:end,:),3)), ...
+    stim_roi_avg,num2cell(learned_day+n_naive), ...
+    'uni',false),[2,3,4,5,1]));
+
+n_stages = size(stim_v_avg_stage,3);
+
+% Get pixels and pixel timemax by stage
+stim_px_avg_stage = AP_svdFrameReconstruct(U_master(:,:,1:n_vs),stim_v_avg_stage);
+
+use_t = t >= 0 & t <= 0.2;
+stim_px_avg_stage_tmax = ...
+    squeeze(max(stim_px_avg_stage(:,:,use_t,:,:,:),[],3));
+
+% Plot pixel timeavg
+figure;
+h = tiledlayout(1,n_stages);
+c = [0,0.003];
+plot_stim = 1;
+for curr_stage = 1:n_stages
+        curr_px = nanmean(stim_px_avg_stage_tmax(:,:, ...
+            curr_stage,stim_unique == plot_stim,use_animals),5);
+
+        nexttile;
+        imagesc(curr_px);
+        axis image off;
+        AP_reference_outline('ccf_aligned',[0.5,0.5,0.5]);
+        colormap(gca,AP_colormap('WG',[],1.5));
+        caxis(c)
+end
+linkaxes(allchild(h),'xy');
+colorbar;
+
+
 % Set ROIs to plot
-plot_rois = [1,6];
 
 % Get indicies for averaging 
 [trained_day_idx,t_idx,roi_idx] = ...
@@ -2783,74 +2813,33 @@ accum_idx = cat(4,trained_day_idx,learned_day_idx,t_idx,roi_idx,stim_idx,animal_
 use_trials_naive = quiescent_trials & trial_day <= n_naive;
 use_trials_training = quiescent_trials & trial_day > n_naive;
 
-roi_naive_avg = accumarray( ...
-    reshape(accum_idx(use_trials_naive,:,:,[1,3,4,5,6]),[],5), ...
-    reshape(fluor_roi_deconv(use_trials_naive,:,:),[],1), ...
-    [n_naive,length(t),n_rois,length(stim_unique),length(animals)], ...
-    @nanmean,NaN('single'));
-
-roi_trainday_avg = accumarray( ...
-    reshape(accum_idx(use_trials_training,:,:,[1,3,4,5,6]),[],5), ...
-    reshape(fluor_roi_deconv(use_trials_training,:,:),[],1), ...
-    [max(trial_day),length(t),n_rois,length(stim_unique),length(animals)], ...
-    @nanmean,NaN('single'));
-
 roi_learnday_avg = accumarray( ...
     reshape(accum_idx(use_trials_training,:,:,[2,3,4,5,6]),[],5), ...
     reshape(fluor_roi_deconv(use_trials_training,:,:),[],1), ...
     [length(learned_day_unique),length(t),n_rois,length(stim_unique),length(animals)], ...
     @nanmean,NaN('single'));
 
-% Get ROI activity within stim window
-use_t = t > 0 & t <= 0.2;
+% Plot ROI activity in stim window pre/post learning
+plot_roi = 6;
+plot_stim = 1;
 
-stim_roi_naive_avg_tmax = squeeze(max(roi_naive_avg(:,use_t,:,:,:),[],2));
-stim_roi_learnday_avg_tmax = squeeze(max(roi_learnday_avg(:,use_t,:,:,:),[],2));
-
-% Get days to plot by minimum n
-learned_days_n = sum(any(any(stim_roi_learnday_avg_tmax,2),3),4);
-plot_learned_day_idx = learned_days_n >= min_n;
-
-% Plot ROI stim window activity by learned day
-figure('Name','mPFC passive learned day');
-plot_stim = [1,-1];
-plot_stim_linestyle = {'-',':'};
-hemi_col = [0.7,0,0;0,0,0.7];
-h = tiledlayout(length(plot_rois),1);
-for curr_roi = plot_rois
-
-    curr_lr_roi = curr_roi + [0,size(wf_roi,1)];
-
-    nexttile; hold on;
-    set(gca,'ColorOrder',hemi_col);
-    for curr_stim = plot_stim
-        curr_stim_idx = ismember(stim_unique,curr_stim);
-        % (naive and training as split lines)
-        curr_x = [learned_day_unique(1:3);NaN;learned_day_unique(plot_learned_day_idx)];
-        curr_data = squeeze([...
-            padarray(stim_roi_naive_avg_tmax(:,curr_lr_roi,curr_stim_idx,use_animals),1,NaN,'post'); ...
-            stim_roi_learnday_avg_tmax(plot_learned_day_idx,curr_lr_roi,curr_stim_idx,use_animals)]);
-        
-        p = errorbar(repmat(curr_x,1,length(plot_stim)), ...
-            nanmean(curr_data,3),AP_sem(curr_data,3),'linewidth',2,'capsize',0, ...
-            'linestyle',plot_stim_linestyle{ismember(plot_stim,curr_stim)});
-  
-    end
-    xlabel('Time from stim (s)');
-    ylabel(wf_roi(curr_roi).area(1:end-2));
-    axis tight; xlim(xlim + [-0.5,0.5]);
-    xline(0);
-    legend({wf_roi(curr_lr_roi).area})
-
-end
-
-
-%%%%% TEMP: get the post-learning median to plot
-
-a = squeeze(nanmedian(roi_learnday_avg(learned_day_unique >= 0,:,6,3,use_animals),1));
+plot_data = cat(1,...
+    nanmean(roi_learnday_avg(learned_day_unique < 0,:, ...
+    plot_roi,stim_unique == plot_stim,use_animals),1), ...
+    nanmean(roi_learnday_avg(learned_day_unique >= 0,:, ...
+    plot_roi,stim_unique == plot_stim,use_animals),1));
 
 use_t = t > 0 & t <= 0.2;
-a_tmax = max(a(use_t,:),[],1);
+plot_data_tmax = squeeze(max(plot_data(:,use_t,:,:),[],2));
+
+figure; hold on;
+plot(plot_data_tmax,'color',[0.5,0.5,0.5]);
+errorbar(nanmean(plot_data_tmax,2),AP_sem(plot_data_tmax,2), ...
+    'linewidth',2,'color','k');
+set(gca,'XTick',1:2,'XTickLabel',{'Pre-learn','Post-learn'});
+ylabel(wf_roi(plot_roi).area);
+xlim(xlim+[-0.5,0.5]);
+
 
 
 
