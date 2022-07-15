@@ -189,27 +189,24 @@ end
 % (split by wide/narrow waveform)
 if ephys_exists
     
-    stim_aligned_mua_area = nan(size(t_peri_stim_bins,1),length(t),length(probe_areas),2);
+    % (to just pool all spikes)
+    use_celltypes = {true(size(unique(spike_templates)))};
+    % (to pool by cell type)
+%     use_celltypes = {wide,narrow}; 
+
+    stim_aligned_mua_area = nan(size(t_peri_stim_bins,1), ...
+        length(t),length(probe_areas),length(use_celltypes));
 
     if task_dataset
-        move_nostim_rewardable_aligned_mua_area = nan(size(t_peri_move_nostim_rewardable_bins,1),length(t),length(probe_areas),2);
+        move_nostim_rewardable_aligned_mua_area = ...
+            nan(size(t_peri_move_nostim_rewardable_bins,1), ...
+            length(t),length(probe_areas),length(use_celltypes));
     end
 
     for curr_area = 1:length(probe_areas)
-        for curr_celltype = 1:2 % (wide, narrow)
+        for curr_celltype = 1:length(use_celltypes) % (wide, narrow)
 
-            % sanity check: all cells are one of the two types
-            if ~all((wide + narrow) == 1) || ...
-                    ~all(unique(spike_templates) == union(find(wide),find(narrow)))
-                error('Not all waveforms wide or narrow classed');
-            end
-
-            switch curr_celltype
-                case 1
-                    curr_celltype_idx = find(wide);
-                case 2
-                    curr_celltype_idx = find(narrow);
-            end
+            curr_celltype_idx = find(use_celltypes{curr_celltype});
 
             curr_spikes = spike_times_timeline(...
                 spike_depths >= probe_area_boundaries{curr_area}(1) & ...

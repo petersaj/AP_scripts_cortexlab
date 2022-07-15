@@ -17,7 +17,7 @@ st = loadStructureTree([allen_atlas_path filesep 'structure_tree_safe_2017.csv']
 
 
 % New histology
-im_path = '\\zinu.cortexlab.net\Subjects\AP118\histology';
+im_path = '\\zinu.cortexlab.net\Subjects\AP119\histology';
 slice_path = [im_path filesep 'slices'];
 
 
@@ -181,7 +181,7 @@ x = [625.6156921	647.8201804	614.3965802	636.6010684; ...
 figure;isosurface(av(1:10:end,1:10:end,1:10:end) > 1);
 axis vis3d equal; hold on;
 
-x2p = sortrows([x,x(:,1)]'/10,3)';
+x2p = sortrows([x,x(:,1)]/10,1)';
 fill3(x2p(1,:),x2p(2,:),x2p(3,:),'r')
 
 

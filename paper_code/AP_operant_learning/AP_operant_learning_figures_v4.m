@@ -1948,8 +1948,7 @@ stim_unique = unique(trial_stim_allcat);
 use_trials = quiescent_trials;
 
 % (loop through cell types)
-celltype_label = {'Wide','Narrow'};
-for curr_celltype = 1:length(celltype_label)
+for curr_celltype = 1:size(mua_area_allcat,4)
 
     [recording_idx,t_idx,area_idx] = ...
         ndgrid(trial_recording(use_trials),1:length(t),1:length(mua_areas));
@@ -2014,7 +2013,7 @@ for curr_celltype = 1:length(celltype_label)
     y_scale = 0.5;
     AP_scalebar(x_scale,y_scale);
 
-    title(h,celltype_label{curr_celltype});
+    title(h,sprintf('Cell type %d',curr_celltype));
 end
 
 
@@ -2979,9 +2978,233 @@ for curr_animal = 1:length(animals)
 end
 
 
+%% Naive ephys - plot probe position
+
+animals = {'AP116','AP117','AP118','AP119'};
+
+% Load CCF annotated volume
+allen_atlas_path = fileparts(which('template_volume_10um.npy'));
+av = readNPY([allen_atlas_path filesep 'annotation_volume_10um_by_index.npy']);
+st = loadStructureTree([allen_atlas_path filesep 'structure_tree_safe_2017.csv']);
+
+figure;
+animal_col = repmat([0,0,0],length(animals),1);
+
+% Set up 3D axes
+ccf_3d_axes = subplot(1,4,1);
+[~, brain_outline] = plotBrainGrid([],ccf_3d_axes);
+set(ccf_3d_axes,'ZDir','reverse');
+hold(ccf_3d_axes,'on');
+axis vis3d equal off manual
+view([-30,25]);
+axis tight;
+h = rotate3d(ccf_3d_axes);
+h.Enable = 'on';
+
+% Set up 2D axes
+bregma_ccf = [540,44,570];
+ccf_size = size(av);
+
+ccf_axes = gobjects(3,1);
+ccf_axes(1) = subplot(1,4,2,'YDir','reverse');
+hold on; axis image off;
+ccf_axes(2) = subplot(1,4,3,'YDir','reverse');
+hold on; axis image off;
+ccf_axes(3) = subplot(1,4,4,'YDir','reverse');
+hold on; axis image off;
+for curr_view = 1:3
+    curr_outline = bwboundaries(squeeze((max(av,[],curr_view)) > 1));    
+    cellfun(@(x) plot(ccf_axes(curr_view),x(:,2),x(:,1),'k','linewidth',2),curr_outline)
+    
+    curr_bregma = fliplr(bregma_ccf(setdiff(1:3,curr_view)));
+    plot(ccf_axes(curr_view),curr_bregma(1),curr_bregma(2),'rx');
+    
+    curr_size = fliplr(ccf_size(setdiff(1:3,curr_view)));
+    xlim(ccf_axes(curr_view),[0,curr_size(1)]);
+    ylim(ccf_axes(curr_view),[0,curr_size(2)]);
+end
+linkaxes(ccf_axes);
+
+% Plot specific areas
+plot_structure_names = {'Secondary motor area', ...
+    'Anterior cingulate area','Prelimbic area','Infralimbic area'};
+plot_structure_colors = lines(length(plot_structure_names));
+
+for plot_structure_name = plot_structure_names
+    plot_structure = find(strcmp(st.safe_name,plot_structure_name));
+
+    % Get all areas within and below the selected hierarchy level
+    plot_structure_id = st.structure_id_path{plot_structure};
+    plot_ccf_idx = find(cellfun(@(x) contains(x,plot_structure_id), ...
+        st.structure_id_path));
+
+    % plot the structure
+    slice_spacing = 5;
+    plot_structure_color = plot_structure_colors( ...
+        strcmp(plot_structure_name,plot_structure_names),:);
+
+    % Get structure volume
+    plot_ccf_volume = ismember(av(1:slice_spacing:end,1:slice_spacing:end,1:slice_spacing:end),plot_ccf_idx);
+
+    for curr_view = 1:3
+        curr_outline = bwboundaries(squeeze((max(plot_ccf_volume,[],curr_view))));
+        cellfun(@(x) plot(ccf_axes(curr_view),x(:,2)*slice_spacing, ...
+            x(:,1)*slice_spacing,'color',plot_structure_color,'linewidth',2),curr_outline)
+    end
+end
+
+% Plot probe locations
+probe_coords_mean_all = nan(length(animals),3);
+for curr_animal = 1:length(animals)
+    
+    animal = animals{curr_animal};
+    
+    % Load animal probe histology
+    [probe_ccf_fn,probe_ccf_fn_exists] = AP_cortexlab_filename(animal,[],[],'probe_ccf');
+    load(probe_ccf_fn);
+        
+    % Get line of best fit through mean of marked points
+    probe_coords_mean = mean(probe_ccf.points,1);
+    % (store mean for plotting later)
+    probe_coords_mean_all(curr_animal,:) = probe_coords_mean;
+    xyz = bsxfun(@minus,probe_ccf.points,probe_coords_mean);
+    [~,~,V] = svd(xyz,0);
+    histology_probe_direction = V(:,1);
+    
+    % (make sure the direction goes down in DV - flip if it's going up)
+    if histology_probe_direction(2) < 0
+        histology_probe_direction = -histology_probe_direction;
+    end
+    
+    % Evaluate line of best fit (length of probe to deepest point)
+    [~,deepest_probe_idx] = max(probe_ccf.points(:,2));
+    probe_deepest_point = probe_ccf.points(deepest_probe_idx,:);
+    probe_deepest_point_com_dist = pdist2(probe_coords_mean,probe_deepest_point);
+    probe_length_ccf = 3840/10; % mm / ccf voxel size
+    
+    probe_line_eval = probe_deepest_point_com_dist - [probe_length_ccf,0];
+    probe_line = (probe_line_eval'.*histology_probe_direction') + probe_coords_mean;
+    
+    % Draw probe in 3D view
+    line(ccf_3d_axes,probe_line(:,1),probe_line(:,3),probe_line(:,2), ...
+        'linewidth',2,'color',animal_col(curr_animal,:))
+    
+    % Draw probes on coronal + saggital
+    line(ccf_axes(1),probe_line(:,3),probe_line(:,2),'linewidth',2,'color',animal_col(curr_animal,:));
+    line(ccf_axes(3),probe_line(:,2),probe_line(:,1),'linewidth',2,'color',animal_col(curr_animal,:));
+
+    % Draw probe mean on horizontal
+    plot(ccf_axes(2), probe_coords_mean(:,3),probe_coords_mean(:,1), ...
+        '.','MarkerSize',10,'color',animal_col(curr_animal,:));
+    
+    drawnow
+end
+
+% Plot scalebar
+scalebar_length = 1000/10; % um/voxel size
+line(ccf_axes(3),[0,0],[0,scalebar_length],'color','m','linewidth',3);
 
 
+%% Naive ephys - naive stim response
 
+% Load data
+trial_data_path = 'C:\Users\Andrew\OneDrive for Business\Documents\CarandiniHarrisLab\analysis\operant_learning\data';
+data_fn = 'trial_activity_passive_ephys_naive';
+
+AP_load_trials_operant;
+
+% Get animal and day index for each trial
+trial_animal = cell2mat(arrayfun(@(x) ...
+    x*ones(size(vertcat(wheel_all{x}{:}),1),1), ...
+    [1:length(wheel_all)]','uni',false));
+trial_day = cell2mat(cellfun(@(x) cell2mat(cellfun(@(curr_day,x) ...
+    curr_day*ones(size(x,1),1),num2cell(1:length(x))',x,'uni',false)), ...
+    wheel_all,'uni',false));
+
+trial_recording = cell2mat(cellfun(@(tr,day) ...
+    day*ones(size(tr,1),1), ...
+    cat(1,wheel_all{:}),num2cell(1:length(cat(1,wheel_all{:})))', ...
+    'uni',false));
+
+trials_recording = cellfun(@(x) size(x,1),vertcat(wheel_all{:}));
+
+% Get trials with movement during stim to exclude
+quiescent_trials = ~any(abs(wheel_allcat(:,t >= 0 & t <= 0.5)) > 0,2);
+
+% Get average response timecourses
+stim_unique = unique(trial_stim_allcat);
+[~,trial_stim_id] = ismember(trial_stim_allcat,stim_unique);
+
+use_trials = quiescent_trials;
+
+% (loop through cell types)
+for curr_celltype = 1:size(mua_area_allcat,4)
+
+    [recording_idx,t_idx,area_idx] = ...
+        ndgrid(trial_recording(use_trials),1:length(t),1:length(mua_areas));
+    [stim_idx,~,~,] = ...
+        ndgrid(trial_stim_id(use_trials),1:length(t),1:length(mua_areas));
+
+    mua_recording_avg = accumarray([recording_idx(:),t_idx(:),stim_idx(:),area_idx(:)], ...
+        reshape(mua_area_allcat(use_trials,:,:,curr_celltype),[],1), ...
+        [length(trials_recording),length(t),length(stim_unique),length(mua_areas)], ...
+        @nanmean,NaN);
+
+    % Get DV position of each area in CCF for sorting
+    allen_atlas_path = fileparts(which('template_volume_10um.npy'));
+    av = readNPY([allen_atlas_path filesep 'annotation_volume_10um_by_index.npy']);
+    st = loadStructureTree([allen_atlas_path filesep 'structure_tree_safe_2017.csv']);
+
+    mua_areas_dvmin = nan(size(mua_areas));
+    for curr_area = mua_areas'
+        curr_structure_idx = find(strcmp(st.safe_name,curr_area));
+        curr_structure_id = st.structure_id_path{curr_structure_idx};
+        curr_ccf_idx = find(cellfun(@(x) contains(x,curr_structure_id), ...
+            st.structure_id_path));
+
+        slice_spacing = 5;
+        curr_ccf_volume = ...
+            ismember(av(1:slice_spacing:end, ...
+            1:slice_spacing:end,1:slice_spacing:end),curr_ccf_idx);
+
+        curr_ccf_coronal_max = permute(max(curr_ccf_volume,[],1),[2,3,1]);
+        curr_min_dv = find(any(curr_ccf_coronal_max,2),1);
+
+        mua_areas_dvmin(strcmp(curr_area,mua_areas)) = curr_min_dv;
+    end
+
+    % (get areas to plot: anything present in all recordings)
+    [~,area_idx] = cellfun(@(x) ismember(x,mua_areas),mua_areas_cat,'uni',false);
+    area_recording_n = accumarray(cell2mat(area_idx),1);
+    plot_areas = find(area_recording_n == length(trials_recording));
+    [~,plot_area_sort_idx] = sort(mua_areas_dvmin(plot_areas));
+
+    % Plot stim overlaid
+    figure;
+    stim_color = [0,0,0.8;0.5,0.5,0.5;0.8,0,0];
+    h = tiledlayout(length(plot_areas),1);
+    for curr_area = plot_areas(plot_area_sort_idx)'
+        nexttile;
+        AP_errorfill(t', ...
+            squeeze(nanmean(mua_recording_avg(:,:,:,curr_area),1)), ...
+            squeeze(AP_sem(mua_recording_avg(:,:,:,curr_area),1)),stim_color);
+        yline(0);
+        ylabel(mua_areas(curr_area));
+    end
+    linkaxes(allchild(h),'xy');
+    % (shade stim area and put in back)
+    arrayfun(@(x) patch(x,[0,0.5,0.5,0], ...
+        reshape(repmat(ylim(x),2,1),[],1),[1,1,0.8], ...
+        'linestyle','none'),allchild(h));
+    arrayfun(@(x) set(x,'children',circshift(get(x,'children'),-1)),allchild(h));
+    xlim([-0.2,0.7]);
+
+    x_scale = 0.2;
+    y_scale = 0.5;
+    AP_scalebar(x_scale,y_scale);
+
+    title(h,sprintf('Cell type %d',curr_celltype));
+end
 
 
 
