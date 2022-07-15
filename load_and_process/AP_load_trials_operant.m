@@ -362,22 +362,12 @@ if exist('mua_area_all','var')
         if task_dataset
             mua_area_move_nostim_rewardable_norm_reorder{curr_recording}(:,:,curr_area_idx,:) = ...
             mua_area_move_nostim_rewardable_norm{curr_recording};
-
-            % (regression turned off)
-%             mua_taskpred_norm_reorder{curr_recording}(:,:,curr_area_idx) = ...
-%                 mua_taskpred_norm{curr_recording};
-%             mua_taskpred_reduced_norm_reorder{curr_recording}(:,:,curr_area_idx,:) = ...
-%                 mua_taskpred_reduced_norm{curr_recording};
         end
     end
 
     mua_area_allcat = cell2mat(mua_area_norm_reorder);
     if task_dataset
         mua_area_move_nostim_rewardable_allcat = cell2mat(mua_area_move_nostim_rewardable_norm_reorder);
-
-          % (regression turned off)
-%         mua_taskpred_allcat = cell2mat(mua_taskpred_norm_reorder);
-%         mua_taskpred_reduced_allcat = cell2mat(mua_taskpred_reduced_norm_reorder);
     end
     
 end
