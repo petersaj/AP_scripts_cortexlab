@@ -1534,8 +1534,26 @@ for curr_animal = 1:length(animals)
             %%%% GET RESPONSES ALIGNED TO EVENT
             switch curr_exptype
                 case 'task'
-                    % Task: delay-period movement onsets
-                    use_align = wheel_starts(wheel_move_nostim_idx);
+                    % Task: rewardable delay-period movement onsets
+                    % (selection copied from operant_grab_trial_data.m)
+                    wheel_moves_deg = arrayfun(@(x) wheel_position_deg( ...
+                        Timeline.rawDAQTimestamps >= wheel_starts(x) & ...
+                        Timeline.rawDAQTimestamps <= wheel_stops(x)) - ...
+                        wheel_position_deg(find(Timeline.rawDAQTimestamps >= wheel_starts(x),1)), ...
+                        1:length(wheel_starts),'uni',false);
+
+                    deg_reward = -90;
+                    deg_punish = 90;
+
+                    wheel_moves_deg_rewardlimit = find(cellfun(@(x) ...
+                        any(x <= deg_reward) && ...
+                        ~any(x >= deg_punish),wheel_moves_deg));
+
+                    move_rewardable = ...
+                        intersect(wheel_move_nostim_idx',wheel_moves_deg_rewardlimit);
+
+                    use_align = wheel_starts(move_rewardable);
+
                 case 'passive'
                     % Passive: stim onsets (right-side & quiescent)
                     wheel_window = [0,0.5];
@@ -1546,6 +1564,7 @@ for curr_animal = 1:length(animals)
                     quiescent_trials = ~any(abs(event_aligned_wheel) > 0,2);
 
                     use_align = stimOn_times(quiescent_trials & stimIDs == 3);
+
             end
 
             % Get spike rate within baseline/response window
@@ -1570,35 +1589,37 @@ for curr_animal = 1:length(animals)
 
             end
 
-            % Store rate and event index info
+            % Get PSTH for each unit
+            raster_window = [-0.5,1];
+            raster_sample_rate = 50;
+
+            raster_sample_time = 1/raster_sample_rate;
+            t = raster_window(1):raster_sample_time:raster_window(2);
+            t_peri_stim = bsxfun(@plus,use_align,t);
+            t_peri_stim_bins = [t_peri_stim-raster_sample_time/2,t_peri_stim(:,end)+raster_sample_time/2];
+
+            unit_psth = nan(size(templates,1),length(t));
+            for curr_unit = 1:size(templates,1)
+                curr_spikes = spike_times_timeline(spike_templates == curr_unit);
+                curr_psth = cell2mat(arrayfun(@(x) ...
+                    histcounts(curr_spikes,t_peri_stim_bins(x,:)), ...
+                    [1:size(t_peri_stim_bins,1)]','uni',false))*raster_sample_rate;
+                unit_psth(curr_unit,:) = nanmean(curr_psth,1);
+            end
+
+            % Store rate, psth, and event index info
             switch curr_exptype
                 case 'task'
-                    % (task: get index of rewardable movements)
-                    % (copied from operant_grab_trial_data.m)
-                    wheel_moves_deg = arrayfun(@(x) wheel_position_deg( ...
-                        Timeline.rawDAQTimestamps >= wheel_starts(x) & ...
-                        Timeline.rawDAQTimestamps <= wheel_stops(x)) - ...
-                        wheel_position_deg(find(Timeline.rawDAQTimestamps >= wheel_starts(x),1)), ...
-                        1:length(wheel_starts),'uni',false);
-
-                    deg_reward = -90;
-                    deg_punish = 90;
-
-                    wheel_moves_deg_rewardlimit = find(cellfun(@(x) ...
-                        any(x <= deg_reward) && ...
-                        ~any(x >= deg_punish),wheel_moves_deg));
-
-                    move_rewardable = ...
-                        ismember(wheel_move_nostim_idx',wheel_moves_deg_rewardlimit);
-
                     single_unit_data_all(curr_animal).task_move_fr{curr_day} = ...
                         event_fr;
-                    single_unit_data_all(curr_animal).task_move_rewardable{curr_day} = ...
-                        move_rewardable;
+                    single_unit_data_all(curr_animal).task_move_psth{curr_day} = ...
+                        unit_psth;
 
                 case 'passive'
                     single_unit_data_all(curr_animal).passive_stim_fr{curr_day} = ...
                         event_fr;
+                    single_unit_data_all(curr_animal).passive_stim_psth{curr_day} = ...
+                        unit_psth;
             end
 
             % Get and store area of each unit

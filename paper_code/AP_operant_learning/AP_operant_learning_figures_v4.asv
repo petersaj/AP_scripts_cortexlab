@@ -2116,10 +2116,12 @@ n_units_exp = cellfun(@length,unit_area_cat);
 waveform_duration_exp = horzcat(single_unit_data_all.waveform_duration_JF);
 
 passive_stim_fr_cat = horzcat(single_unit_data_all.passive_stim_fr)';
-passive_stim_psth_allcat = cell2mat(horzcat(single_unit_data_all.passive_stim_psth)');
 
 task_move_fr_cat = horzcat(single_unit_data_all.task_move_fr)';
-task_move_psth_allcat = cell2mat(horzcat(single_unit_data_all.task_move_psth)');
+task_move_rewardable_cat = horzcat(single_unit_data_all.task_move_rewardable)';
+
+task_move_fr_rewardable_cat = cellfun(@(fr,idx) fr(idx,:,:), ...
+    task_move_fr_cat,task_move_rewardable_cat,'uni',false);
 
 % Classify narrow vs. wide waveforms
 % (cutoff from Bartho JNeurophys 2004)
@@ -2133,7 +2135,7 @@ celltype_label = {'Wide','Narrow'};
 passive_stim_fr_diff = cellfun(@(x) nanmean(diff(x,[],3),1), ...
     passive_stim_fr_cat,'uni',false);
 task_move_fr_diff = cellfun(@(x) nanmean(diff(x,[],3),1), ...
-    task_move_fr_cat,'uni',false);
+    task_move_fr_rewardable_cat,'uni',false);
 
 % Get significance from pre/post event shuffle
 stim_sig = cell(length(unit_area_cat),1);
@@ -2149,7 +2151,7 @@ for curr_exp = 1:length(unit_area_cat)
         stim_fr_diff_shuff(curr_shuff,:) = ...
             nanmean(diff(AP_shake(passive_stim_fr_cat{curr_exp},3),[],3),1);
         move_fr_diff_shuff(curr_shuff,:) = ...
-            nanmean(diff(AP_shake(task_move_fr_cat{curr_exp},3),[],3),1);
+            nanmean(diff(AP_shake(task_move_fr_rewardable_cat{curr_exp},3),[],3),1);
     end
 
     % p-value of absolute difference
@@ -2207,13 +2209,11 @@ figure; h = tiledlayout(length(plot_areas),max(vertcat(celltype_exp{:})));
 for curr_area = 1:length(plot_areas)
     for curr_celltype = 1:max(vertcat(celltype_exp{:}))
         nexttile;
-        pie([class_frac(curr_area,:,curr_celltype), ...
-            1-sum(class_frac(curr_area,:,curr_celltype))]);
+        pie([class_frac(curr_area,:,curr_celltype),1-sum(class_frac(curr_area,:,curr_celltype))]);
         title(sprintf('%s %s',plot_areas{curr_area},celltype_label{curr_celltype}));
     end
 end
 colormap(class_col);
-title(h,'Average fraction across experiments')
 
 % Get and plot fraction of responsive cells (all combined)
 unit_area_idx_allcat = cell2mat(unit_area_idx);
@@ -2224,28 +2224,7 @@ move_sig_allcat = cell2mat(move_sig);
 use_cells = unit_area_idx_allcat ~= 0;
 stim_frac_allcat = ...
     accumarray([unit_area_idx_allcat(use_cells),celltype_allcat(use_cells)], ...
-    stim_sig_allcat(use_cells) & ~move_sig_allcat(use_cells),[],@mean);
-move_frac_allcat = ...
-    accumarray([unit_area_idx_allcat(use_cells),celltype_allcat(use_cells)], ...
-    ~stim_sig_allcat(use_cells) & move_sig_allcat(use_cells),[],@mean);
-stimmove_frac_allcat = ...
-    accumarray([unit_area_idx_allcat(use_cells),celltype_allcat(use_cells)], ...
-    stim_sig_allcat(use_cells) & move_sig_allcat(use_cells),[],@mean);
-
-class_frac_allcat = permute(cat(3,stim_frac_allcat, ...
-    stimmove_frac_allcat,move_frac_allcat),[1,3,2]);
-
-figure; h = tiledlayout(length(plot_areas),max(vertcat(celltype_exp{:})));
-for curr_area = 1:length(plot_areas)
-    for curr_celltype = 1:max(vertcat(celltype_exp{:}))
-        nexttile;
-        pie([class_frac_allcat(curr_area,:,curr_celltype), ...
-            1-sum(class_frac_allcat(curr_area,:,curr_celltype))]);
-        title(sprintf('%s %s',plot_areas{curr_area},celltype_label{curr_celltype}));
-    end
-end
-colormap(class_col);
-title(h,'All cells pooled')
+    stim_sig
 
 % Print mean and sem of stim and move cells in MOs and ACA
 stim_frac_dmpfc = cellfun(@(area,sig) ...
