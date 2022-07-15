@@ -2226,17 +2226,38 @@ class_frac = permute(cat(3,nanmean(stim_frac,3), ...
     nanmean(stimmove_frac,3),nanmean(move_frac,3)),[1,3,2]);
 class_col = [0.8,0,0;0.8,0.5,0.5;0.5,0.5,0.5;1,1,1];
 
-figure; h = tiledlayout(length(plot_areas),max(vertcat(celltype_exp{:})));
+figure; h = tiledlayout(length(plot_areas),n_celltypes);
 for curr_area = 1:length(plot_areas)
     for curr_celltype = 1:n_celltypes
         nexttile;
-        pie([class_frac(curr_area,:,curr_celltype), ...
-            1-sum(class_frac(curr_area,:,curr_celltype))]);
+        curr_data = [class_frac(curr_area,:,curr_celltype), ...
+            1-sum(class_frac(curr_area,:,curr_celltype))];
+        pie(curr_data);
         title(sprintf('%s %s',plot_areas{curr_area},celltype_label{curr_celltype}));
     end
 end
 colormap(class_col);
 title(h,'Average fraction across experiments')
+
+% (plot as bar plot also)
+class_frac_sem = permute(cat(3,AP_sem(stim_frac,3), ...
+    AP_sem(stimmove_frac,3),AP_sem(move_frac,3)),[1,3,2]);
+
+figure; h = tiledlayout(1,n_celltypes);
+for curr_celltype = 1:n_celltypes
+    nexttile; hold on; set(gca,'ColorOrder',class_col);
+    curr_data = [class_frac(:,:,curr_celltype), ...
+        1-sum(class_frac(:,:,curr_celltype),2)];
+    bar(curr_data,'stacked');
+
+    curr_sem = class_frac_sem(:,:,curr_celltype);
+    errorbar(cumsum(curr_data(:,1:end-1),2),curr_sem,'k','linewidth',2,'linestyle','none');
+    
+    title(celltype_label{curr_celltype});
+    set(gca,'XTick',1:length(plot_areas),'XTickLabel',plot_areas);
+    ylabel('Fraction of cells');
+end
+
 
 % Get and plot fraction of responsive cells (all combined)
 unit_area_idx_allcat = cell2mat(unit_area_idx);
@@ -2309,7 +2330,11 @@ fprintf('Stim & move shuffle p = %.2f\n',stimmove_frac_p);
 
 
 
-%%%%%%%%%%%%%% NEW IN PROGRESS: RASTER
+%%%%%%%%%%%%%% IN PROGRESS ADDITION: PSTHS AND NARROW/WIDE DIFF STATS
+
+% DO HERE: sort by stim FR diff, and then category?
+passive_stim_fr_diff_cat = horzcat(passive_stim_fr_diff{:})';
+task_move_fr_diff_cat = horzcat(task_move_fr_diff{:})';
 
 baseline_t = t < -0.2;
 softnorm = 1;
@@ -2321,34 +2346,36 @@ task_move_psth_allcat_norm = ...
     (nanmean(task_move_psth_allcat(:,baseline_t),2) + softnorm);
 
 figure; h = tiledlayout(length(plot_areas),2*n_celltypes);
+sig_idx = sum([stim_sig_allcat & ~move_sig_allcat, ...
+    stim_sig_allcat & move_sig_allcat, ...
+    ~stim_sig_allcat & move_sig_allcat].*[1:3],2);
 for curr_area = 1:length(plot_areas)
     for curr_celltype = 1:n_celltypes
 
-        curr_cells = unit_area_idx_allcat == curr_area & ...
-            celltype_allcat == curr_celltype;
+        curr_cells = find(unit_area_idx_allcat == curr_area & ...
+            celltype_allcat == curr_celltype & stim_sig_allcat);
         
-        plot_cells = cat(1, ...
-            find(curr_cells & stim_sig_allcat & ~move_sig_allcat), ...
-            find(curr_cells & stim_sig_allcat & move_sig_allcat), ...
-            find(curr_cells & ~stim_sig_allcat & move_sig_allcat), ...
-            find(curr_cells & ~stim_sig_allcat & ~move_sig_allcat));
+        % (sort by passive fr diff?)
+        [~,sort_idx] = sortrows([passive_stim_fr_diff_cat(curr_cells), ...
+            task_move_fr_diff_cat(curr_cells)],[1,2],'descend');
+
+        plot_cells = curr_cells(sort_idx);
 
         smooth_filt = ones(1,3)/3;
 
         nexttile;
         imagesc(t,[],convn(passive_stim_psth_allcat_norm(plot_cells,:),smooth_filt,'same'));
         colormap(AP_colormap('BWR'));
-        caxis([-1,1].*2);
+        caxis([-1,1].*5);
 
         nexttile;
         imagesc(t,[],convn(task_move_psth_allcat_norm(plot_cells,:),smooth_filt,'same'));
         colormap(AP_colormap('BWR'));
-        caxis([-1,1].*2);
+        caxis([-1,1].*5);
 
     end
 end
 % linkaxes(allchild(h),'xy');
-
 
 % Difference in stim responses in narrow/wide cells
 stim_sig_meas = nanmean(cell2mat(permute(cellfun(@(area,celltype,stim_sig,move_sig) ...
@@ -2370,8 +2397,95 @@ end
 
 figure; hold on;
 AP_errorfill([],[],prctile(diff(stim_sig_shuff,[],2),[5,95],3));
-plot(diff(a,[],2),'linewidth',2);
+plot(diff(stim_sig_meas,[],2),'k','linewidth',2);
+set(gca,'XTick',1:length(plot_areas),'XTickLabel',plot_areas);
+ylabel('Narrow - Wide fraction stim-responsive');
 
+%%%%% TRYING OUT: as above, but just combine dmPFC
+%%%%%%%%%%%%%%%%%% --->>> I THINK THIS IS GOOD,= RUN WITH THIS
+
+baseline_t = t < -0.3;
+softnorm = 1;
+passive_stim_psth_allcat_norm = ...
+    (passive_stim_psth_allcat - nanmean(passive_stim_psth_allcat(:,baseline_t),2))./ ...
+    (nanmean(passive_stim_psth_allcat(:,baseline_t),2) + softnorm);
+task_move_psth_allcat_norm = ...
+    (task_move_psth_allcat - nanmean(task_move_psth_allcat(:,baseline_t),2))./ ...
+    (nanmean(task_move_psth_allcat(:,baseline_t),2) + softnorm);
+
+
+% Plot PSTH for dmPFC
+figure; h = tiledlayout(2,n_celltypes);
+for curr_celltype = 1:n_celltypes
+
+    curr_cells = find(ismember(unit_area_idx_allcat,[1,2]) & ...
+        celltype_allcat == curr_celltype & stim_sig_allcat);
+
+    % (sort by passive fr diff?)
+    [~,sort_idx] = sortrows([move_sig_allcat(curr_cells), ...
+        passive_stim_fr_diff_cat(curr_cells)],[1,2],'descend');
+%     [~,sort_idx] = sort(passive_stim_fr_diff_cat(curr_cells),'descend');
+
+    plot_cells = curr_cells(sort_idx);
+
+    smooth_filt = ones(1,3)/3;
+
+    nexttile;
+    imagesc(t,[],convn(passive_stim_psth_allcat_norm(plot_cells,:),smooth_filt,'same'));
+    colormap(AP_colormap('BWR'));
+    caxis([-1,1].*5);
+    yline(sum(move_sig_allcat(curr_cells)),'color','k','linewidth',2);
+
+    nexttile;
+    imagesc(t,[],convn(task_move_psth_allcat_norm(plot_cells,:),smooth_filt,'same'));
+    colormap(AP_colormap('BWR'));
+    caxis([-1,1].*5);
+    yline(sum(move_sig_allcat(curr_cells)),'color','k','linewidth',2);
+
+end
+
+dmpfc_units = cellfun(@(area) ismember(area,[1,2]),unit_area_idx,'uni',false);
+class_idx = cellfun(@(stim_sig,move_sig) sum( ...
+    [(stim_sig & ~move_sig), ...
+    (stim_sig & move_sig), ...
+    (~stim_sig & move_sig), ...
+    (~stim_sig & ~move_sig)].*[1:4],2), ...
+    stim_sig,move_sig,'uni',false); % (1:4 = stim,stim+move,move,none)
+
+dmpfc_class_frac = cell2mat(permute(cellfun(@(dmpfc,celltype,class_idx) ...
+    accumarray([celltype(dmpfc),class_idx(dmpfc)],1,[],@sum)./ ...
+    accumarray(celltype(dmpfc),1,[],@sum), ...
+    dmpfc_units,celltype_exp,class_idx,'uni',false),[2,3,1]));
+
+figure; hold on;
+class_col = [0.8,0,0;0.8,0.5,0.5;0.5,0.5,0.5;1,1,1];
+set(gca,'ColorOrder',class_col);
+bar(nanmean(dmpfc_class_frac,3),'stacked');
+errorbar(cumsum(nanmean(dmpfc_class_frac,3),2), ...
+    AP_sem(dmpfc_class_frac,3),'k','linewidth',2,'linestyle','none');
+ylabel('Fraction units')
+title('dmPFC')
+set(gca,'XTick',1:n_celltypes,'XTickLabel',celltype_label);
+
+
+%%% (shuffle for dmpfc)
+
+n_shuff = 1000;
+dmpfc_class_frac_shuff = nan(n_celltypes,max(cell2mat(class_idx)),n_shuff);
+for curr_shuff = 1:n_shuff
+    dmpfc_class_frac_shuff(:,:,curr_shuff) = nanmean( ...
+        cell2mat(permute(cellfun(@(dmpfc,celltype,class_idx) ...
+        accumarray([AP_shake(celltype(dmpfc)),class_idx(dmpfc)],1,[],@sum)./ ...
+        accumarray(celltype(dmpfc),1,[],@sum), ...
+        dmpfc_units,celltype_exp,class_idx,'uni',false),[2,3,1])),3);
+end
+
+dmpfc_celltype_diff_rank = ...
+    tiedrank(vertcat(diff(nanmean(dmpfc_class_frac,3),[],1), ...
+    permute(diff(dmpfc_class_frac_shuff,[],1),[3,2,1])));
+dmpfc_celltype_diff_p = dmpfc_celltype_diff_rank(1,:)./(n_shuff+1);
+fprintf('\n Stim p = %.2f\n Stim & Move p = %.2f\n Move p = %.2f\n', ...
+    dmpfc_celltype_diff_p(1),dmpfc_celltype_diff_p(2),dmpfc_celltype_diff_p(3));
 
 
 %% [FIG S2C-E]: V1 muscimol ROI activity pre/post

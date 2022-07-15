@@ -1569,7 +1569,12 @@ for curr_animal = 1:length(animals)
 
             % Get spike rate within baseline/response window
             baseline_window = [-0.5,-0.3];
-            response_window = [0,0.2];
+            switch curr_exptype
+                case 'task'
+                    response_window = [-0.1,0.1];
+                case 'passive'
+                    response_window = [0,0.2];
+            end
 
             event_fr = nan(length(use_align),size(templates,1),2);
             for curr_event = 1:length(use_align)
