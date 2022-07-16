@@ -150,58 +150,6 @@ for curr_animal = 1:length(animals)
     end
 end
 
-%% ** Load passive post-learning data
-
-% Load data
-trial_data_path = 'C:\Users\Andrew\OneDrive for Business\Documents\CarandiniHarrisLab\analysis\operant_learning\data';
-data_fn = 'trial_activity_passive_teto_postlearn';
-AP_load_trials_operant;
-
-% Get animal and day index for each trial
-trial_animal = cell2mat(arrayfun(@(x) ...
-    x*ones(size(vertcat(wheel_all{x}{:}),1),1), ...
-    [1:length(wheel_all)]','uni',false));
-trial_day = cell2mat(cellfun(@(x) cell2mat(cellfun(@(curr_day,x) ...
-    curr_day*ones(size(x,1),1),num2cell(1:length(x))',x,'uni',false)), ...
-    wheel_all,'uni',false));
-trials_recording = cellfun(@(x) size(x,1),vertcat(wheel_all{:}));
-
-% Store day relative to last task day
-task_relative_day = cellfun(@(day,taskday) day' - taskday, ...
-    recording_day,last_task_right_day,'uni',false)';
-trial_postlearn_day = cell2mat(cellfun(@(x,day) cell2mat(cellfun(@(x,day) ...
-    day*ones(size(x,1),1),x,num2cell(day),'uni',false)), ...
-    wheel_all,task_relative_day,'uni',false));
-
-% Get trials with movement during stim to exclude
-quiescent_trials = ~any(abs(wheel_allcat(:,t >= 0 & t <= 0.5)) > 0,2);
-
-% Turn values into IDs for grouping
-stim_unique = unique(trial_stim_allcat);
-[~,trial_stim_id] = ismember(trial_stim_allcat,stim_unique);
-
-% Get average fluorescence by animal/day/stim
-stim_v_avg = cell(length(animals),1);
-stim_roi_avg = cell(length(animals),1);
-for curr_animal = 1:length(animals)
-    for curr_day = 1:max(trial_day(trial_animal == curr_animal))
-        for curr_stim_idx = 1:length(stim_unique)
-
-            use_trials = quiescent_trials & ...
-                trial_animal == curr_animal & ...
-                trial_day == curr_day & ...
-                trial_stim_allcat == stim_unique(curr_stim_idx);
-
-            stim_v_avg{curr_animal}(:,:,curr_day,curr_stim_idx) = ...
-                permute(nanmean(fluor_allcat_deconv(use_trials,:,:),1),[3,2,1]);
-
-            stim_roi_avg{curr_animal}(:,:,curr_day,curr_stim_idx) = ...
-                permute(nanmean(fluor_roi_deconv(use_trials,:,:),1),[3,2,1]);
-            
-        end
-    end
-end
-
 
 %% ------- GENERATE FIGS -----------------------
 
@@ -1593,7 +1541,7 @@ ylabel('\DeltaF/F_0');
 ax = gca; ax.YColor = 'k';
 
 
-%% [FIG 4A]: ephys - plot probe position
+%% (OLD NOW) [FIG 4A]: ephys - plot probe position
 
 animals = {'AP100','AP101','AP104','AP105','AP106'};
 
@@ -1915,7 +1863,7 @@ AP_scalebar(t_scale,rate_scale)
 
 
 
-%% [FIG 4C]: ephys - passive stim response
+%% (OLD NOW) [FIG 4C]: ephys - passive stim response
 
 % Load data
 trial_data_path = 'C:\Users\Andrew\OneDrive for Business\Documents\CarandiniHarrisLab\analysis\operant_learning\data';
@@ -2933,61 +2881,7 @@ axis image off;
 
 %% ------- REVISION: IN PROGRESS -----------------------
 
-%% ** Long-term post-learning passive widefield
-
-% Get relative post-learned days
-% (all animals imaged in same intervals, so unique should be same as length)
-task_relative_day_unique = unique(cat(1,task_relative_day{:}));
-if ~all(task_relative_day_unique == cat(2,task_relative_day{:}),'all')
-    error('Different relative days across animals');
-end
-
-% Get average image by day 
-use_stim = stim_unique == 1;
-use_t = t >= 0 & t <= 0.2;
-
-stim_v_dayavg = nanmean(cat(5,stim_v_avg{:}),5);
-stim_px_dayavg = AP_svdFrameReconstruct(U_master(:,:,1:n_vs),stim_v_dayavg(:,:,:,use_stim));
-
-stim_px_dayavg_tmax = squeeze(max(stim_px_dayavg(:,:,use_t,:),[],3));
-
-% Plot pixel timeavg
-figure;
-h = tiledlayout(1,size(stim_px_dayavg_tmax,3));
-c = [0,0.003];
-for curr_day = 1:size(stim_px_dayavg_tmax,3)
-        nexttile;
-        imagesc(stim_px_dayavg_tmax(:,:,curr_day));
-        axis image off;
-        AP_reference_outline('ccf_aligned',[0.5,0.5,0.5]);
-        colormap(gca,AP_colormap('WG',[],1.5));
-        caxis(c);
-
-        title(sprintf('Day %d',task_relative_day_unique(curr_day)));
-end
-linkaxes(allchild(h),'xy');
-colorbar;
-
-% Get average ROI by day
-stim_roi_avg_cat = cat(5,stim_roi_avg{:});
-stim_roi_day = squeeze(stim_roi_avg_cat(:,:,:,use_stim,:));
-
-% Get ROI activity within stim window
-use_t = t > 0 & t <= 0.2;
-stim_roi_avg_tmax = squeeze(max(stim_roi_avg_cat(:,use_t,:,:,:),[],2));
-
-plot_roi = 6;
-plot_stim = 1;
-
-figure; hold on;
-plot_data = squeeze(stim_roi_avg_tmax(plot_roi,:,stim_unique == plot_stim,:));
-plot(plot_data,'color',[0.5,0.5,0.5]);
-% errorbar(nanmean(plot_data,2),AP_sem(plot_data,2),'linewidth',2,'color','k');
-plot(nanmean(plot_data,2),'linewidth',2,'color','k');
-
-
-
-%% ++ Long-term animals: pre/post learning pixels and ROIs
+%% ++ Long-term post-learning widefield
 
 % Get training data from subset of long-term animals
 long_term_animals = {'AP113','AP114','AP115'};
@@ -3132,23 +3026,6 @@ stim_px_dayavg = AP_svdFrameReconstruct(U_master(:,:,1:n_vs),stim_v_dayavg(:,:,:
 
 stim_px_dayavg_tmax = squeeze(max(stim_px_dayavg(:,:,use_t,:),[],3));
 
-% Plot pixel timeavg
-figure;
-h = tiledlayout(1,size(stim_px_dayavg_tmax,3));
-c = [0,0.003];
-for curr_day = 1:size(stim_px_dayavg_tmax,3)
-        nexttile;
-        imagesc(stim_px_dayavg_tmax(:,:,curr_day));
-        axis image off;
-        AP_reference_outline('ccf_aligned',[0.5,0.5,0.5]);
-        colormap(gca,AP_colormap('WG',[],1.5));
-        caxis(c);
-
-        title(sprintf('Day %d',task_relative_day_unique(curr_day)));
-end
-linkaxes(allchild(h),'xy');
-colorbar;
-
 % Get average ROI by day
 stim_roi_avg_cat = cat(5,stim_roi_avg{:});
 stim_roi_day = squeeze(stim_roi_avg_cat(:,:,:,use_stim,:));
@@ -3271,10 +3148,6 @@ rxn_alt_med = cell2mat(permute(arrayfun(@(x) ...
     1:n_rxn_altsample,'uni',false),[1,3,2]));
 
 
-
-
-
-
 % Get average ROI activity 
 
 % Get indicies for averaging 
@@ -3306,7 +3179,6 @@ use_t = t > 0 & t <= 0.2;
 stim_roi_trainday_avg_tmax = squeeze(max(roi_trainday_avg(:,use_t,:,:,:),[],2));
 
 
-
 % Plot activity against reaction times
 plot_roi = 6;
 plot_stim = 1;
@@ -3318,22 +3190,54 @@ plot_act = permute(stim_roi_trainday_avg_tmax(:,plot_roi, ...
 
 animal_col = max(0,jet(length(animals))-0.2);
 
-figure; hold on; set(gca,'ColorOrder',animal_col);
-plot(plot_rxn,plot_act,'.','MarkerSize',15);
-xlabel('Reaction time (alt-meas/alt+meas)')
-ylabel(wf_roi(plot_roi).area);
-% set(gca,'XScale','log');
+figure; 
+% (plot single mouse example - lines and scatter)
+example_animal = 1;
 
+subplot(1,3,1); hold on; axis square;
+yyaxis left;plot(plot_rxn(:,example_animal),'k','linewidth',2);
+axis tight;
+ylabel('Reaction time idx');
+yyaxis right;plot(plot_act(:,example_animal),'r','linewidth',2);
+axis tight;
+ylabel(wf_roi(plot_roi).area);
+title(animals(example_animal));
+xlabel('Day');
+
+subplot(1,3,2); hold on; axis square;
+plot(plot_rxn(:,example_animal),plot_act(:,example_animal), ...
+    '.-','MarkerSize',15,'color',animal_col(example_animal,:),'linewidth',2);
+xlabel('Reaction time idx');
+ylabel(wf_roi(plot_roi).area);
+title(animals(example_animal));
+
+% (plot all mice together)
+subplot(1,3,3); hold on; axis square;
+set(gca,'ColorOrder',animal_col);
+plot(plot_rxn,plot_act,'.','MarkerSize',15);
+xlabel({'Reaction time idx','(alt-meas/alt+meas)'})
+ylabel(wf_roi(plot_roi).area);
+axis tight;
+xlim(xlim + 0.1*range(xlim).*[-1,1]);
+ylim(ylim + 0.1*range(ylim).*[-1,1]);
+
+% Plot all mice separately
 figure; h = tiledlayout('flow');
 for curr_animal = 1:length(animals)
     nexttile;
-    yyaxis left;plot(plot_rxn(:,curr_animal));
-%     set(gca,'YDir','reverse','YScale','log');
-    ylabel('Reaction time');
-    yyaxis right;plot(plot_act(:,curr_animal));
+    yyaxis left;plot(plot_rxn(:,curr_animal),'k','linewidth',2);
+    axis tight; ylim(ylim + 0.1*range(ylim).*[-1,1]);
+    ylabel('Reaction time idx');
+    yyaxis right;plot(plot_act(:,curr_animal),'r','linewidth',2);
+    axis tight; ylim(ylim + 0.1*range(ylim).*[-1,1]);
     ylabel(wf_roi(plot_roi).area);
     title(animals(curr_animal));
+    xlabel('Day'); 
+    xlim(xlim+[-1,1]);
 end
+
+
+
 
 
 %% Naive ephys - plot probe position
@@ -3564,12 +3468,225 @@ for curr_celltype = 1:size(mua_area_allcat,4)
     title(h,sprintf('Cell type %d',curr_celltype));
 end
 
+%% --> (USE THIS ALT) Recording locations in naive and trained
+
+% Set animal groups (naive, trained)
+animal_groups = {{'AP116','AP117','AP118','AP119'}, ...
+    {'AP100','AP101','AP104','AP105','AP106'}};
+
+animal_group_col = [0.5,0.5,0.5;0,0,0];
+
+% Load CCF annotated volume
+allen_atlas_path = fileparts(which('template_volume_10um.npy'));
+av = readNPY([allen_atlas_path filesep 'annotation_volume_10um_by_index.npy']);
+st = loadStructureTree([allen_atlas_path filesep 'structure_tree_safe_2017.csv']);
+
+% Set up 3D axes
+figure;
+ccf_3d_axes = axes;
+[~, brain_outline] = plotBrainGrid([],ccf_3d_axes);
+set(ccf_3d_axes,'ZDir','reverse');
+hold(ccf_3d_axes,'on');
+axis vis3d equal off manual
+view([-30,25]);
+axis tight;
+h = rotate3d(ccf_3d_axes);
+h.Enable = 'on';
+
+% Set up 2D axes
+figure;
+bregma_ccf = [540,44,570];
+ccf_size = size(av);
+
+ccf_axes = gobjects(3,1);
+ccf_axes(1) = subplot(1,3,1,'YDir','reverse');
+hold on; axis image off;
+ccf_axes(2) = subplot(1,3,2,'YDir','reverse');
+hold on; axis image off;
+ccf_axes(3) = subplot(1,3,3,'YDir','reverse');
+hold on; axis image off;
+for curr_view = 1:3
+    curr_outline = bwboundaries(squeeze((max(av,[],curr_view)) > 1));
+    cellfun(@(x) plot(ccf_axes(curr_view),x(:,2),x(:,1),'k','linewidth',2),curr_outline)
+
+    curr_bregma = fliplr(bregma_ccf(setdiff(1:3,curr_view)));
+    plot(ccf_axes(curr_view),curr_bregma(1),curr_bregma(2),'rx');
+
+    curr_size = fliplr(ccf_size(setdiff(1:3,curr_view)));
+    xlim(ccf_axes(curr_view),[0,curr_size(1)]);
+    ylim(ccf_axes(curr_view),[0,curr_size(2)]);
+end
+linkaxes(ccf_axes);
+
+% Plot specific areas
+plot_structure_names = {'Secondary motor area', ...
+    'Anterior cingulate area','Prelimbic area','Infralimbic area'};
+plot_structure_colors = lines(length(plot_structure_names));
+
+for plot_structure_name = plot_structure_names
+    plot_structure = find(strcmp(st.safe_name,plot_structure_name));
+
+    % Get all areas within and below the selected hierarchy level
+    plot_structure_id = st.structure_id_path{plot_structure};
+    plot_ccf_idx = find(cellfun(@(x) contains(x,plot_structure_id), ...
+        st.structure_id_path));
+
+    % plot the structure
+    slice_spacing = 5;
+    plot_structure_color = plot_structure_colors( ...
+        strcmp(plot_structure_name,plot_structure_names),:);
+
+    % Get structure volume
+    plot_ccf_volume = ismember(av(1:slice_spacing:end,1:slice_spacing:end,1:slice_spacing:end),plot_ccf_idx);
+
+    for curr_view = 1:3
+        curr_outline = bwboundaries(squeeze((max(plot_ccf_volume,[],curr_view))));
+        cellfun(@(x) plot(ccf_axes(curr_view),x(:,2)*slice_spacing, ...
+            x(:,1)*slice_spacing,'color',plot_structure_color,'linewidth',2),curr_outline)
+    end
+end
+
+for animal_group = 1:length(animal_groups)
+
+    animals = animal_groups{animal_group};
+    animal_col = repmat(animal_group_col(animal_group,:),length(animals),1);
+
+    % Plot probe locations
+    probe_coords_mean_all = nan(length(animals),3);
+    for curr_animal = 1:length(animals)
+
+        animal = animals{curr_animal};
+
+        % Load animal probe histology
+        [probe_ccf_fn,probe_ccf_fn_exists] = AP_cortexlab_filename(animal,[],[],'probe_ccf');
+        load(probe_ccf_fn);
+
+        % Get line of best fit through mean of marked points
+        probe_coords_mean = mean(probe_ccf.points,1);
+        % (store mean for plotting later)
+        probe_coords_mean_all(curr_animal,:) = probe_coords_mean;
+        xyz = bsxfun(@minus,probe_ccf.points,probe_coords_mean);
+        [~,~,V] = svd(xyz,0);
+        histology_probe_direction = V(:,1);
+
+        % (make sure the direction goes down in DV - flip if it's going up)
+        if histology_probe_direction(2) < 0
+            histology_probe_direction = -histology_probe_direction;
+        end
+
+        % Evaluate line of best fit (length of probe to deepest point)
+        [~,deepest_probe_idx] = max(probe_ccf.points(:,2));
+        probe_deepest_point = probe_ccf.points(deepest_probe_idx,:);
+        probe_deepest_point_com_dist = pdist2(probe_coords_mean,probe_deepest_point);
+        probe_length_ccf = 3840/10; % mm / ccf voxel size
+
+        probe_line_eval = probe_deepest_point_com_dist - [probe_length_ccf,0];
+        probe_line = (probe_line_eval'.*histology_probe_direction') + probe_coords_mean;
+
+        % Draw probe in 3D view
+        line(ccf_3d_axes,probe_line(:,1),probe_line(:,3),probe_line(:,2), ...
+            'linewidth',2,'color',animal_col(curr_animal,:))
+
+        % Draw probes on coronal + saggital
+        line(ccf_axes(1),probe_line(:,3),probe_line(:,2),'linewidth',2,'color',animal_col(curr_animal,:));
+        line(ccf_axes(3),probe_line(:,2),probe_line(:,1),'linewidth',2,'color',animal_col(curr_animal,:));
+
+        % Draw probe mean on horizontal
+        plot(ccf_axes(2), probe_coords_mean(:,3),probe_coords_mean(:,1), ...
+            '.','MarkerSize',10,'color',animal_col(curr_animal,:));
+
+        drawnow
+    end
+end
+
+% Plot scalebar
+scalebar_length = 1000/10; % um/voxel size
+line(ccf_axes(3),[0,0],[0,scalebar_length],'color','m','linewidth',3);
 
 
+%% --> (USE THIS ALT) Naive and trained passive stim ephys
 
+mua_stim_stage = cell(2,1);
 
+for curr_stage = 1:2 % (naive, trained)
 
+    % Load data
+    trial_data_path = 'C:\Users\Andrew\OneDrive for Business\Documents\CarandiniHarrisLab\analysis\operant_learning\data';
+    switch curr_stage
+        case 1
+            data_fn = 'trial_activity_passive_ephys_naive';
+        case 2
+            data_fn = 'trial_activity_passive_ephys';
+    end
 
+    AP_load_trials_operant;
+
+    % Get animal and day index for each trial
+    trial_animal = cell2mat(arrayfun(@(x) ...
+        x*ones(size(vertcat(wheel_all{x}{:}),1),1), ...
+        [1:length(wheel_all)]','uni',false));
+    trial_day = cell2mat(cellfun(@(x) cell2mat(cellfun(@(curr_day,x) ...
+        curr_day*ones(size(x,1),1),num2cell(1:length(x))',x,'uni',false)), ...
+        wheel_all,'uni',false));
+
+    trial_recording = cell2mat(cellfun(@(tr,day) ...
+        day*ones(size(tr,1),1), ...
+        cat(1,wheel_all{:}),num2cell(1:length(cat(1,wheel_all{:})))', ...
+        'uni',false));
+
+    trials_recording = cellfun(@(x) size(x,1),vertcat(wheel_all{:}));
+
+    % Get trials with movement during stim to exclude
+    quiescent_trials = ~any(abs(wheel_allcat(:,t >= 0 & t <= 0.5)) > 0,2);
+
+    % Get average response timecourses
+    stim_unique = unique(trial_stim_allcat);
+    [~,trial_stim_id] = ismember(trial_stim_allcat,stim_unique);
+
+    use_trials = quiescent_trials;
+
+    [recording_idx,t_idx,area_idx] = ...
+        ndgrid(trial_recording(use_trials),1:length(t),1:length(mua_areas));
+    [stim_idx,~,~,] = ...
+        ndgrid(trial_stim_id(use_trials),1:length(t),1:length(mua_areas));
+
+    mua_recording_avg = accumarray([recording_idx(:),t_idx(:),stim_idx(:),area_idx(:)], ...
+        reshape(mua_area_allcat(use_trials,:,:),[],1), ...
+        [length(trials_recording),length(t),length(stim_unique),length(mua_areas)], ...
+        @nanmean,NaN);
+
+    % Set areas and order to plot
+    % (used to do this programatically to be agnostic, but not necessary
+    % now so just hard-coding)
+    plot_areas = {'Secondary motor area', ...
+        'Anterior cingulate area dorsal part', ...
+        'Prelimbic area','Infralimbic area'};
+    [~,plot_areas_idx] = ismember(plot_areas,mua_areas);
+
+    % Store activity
+    mua_stim_stage{curr_stage} = mua_recording_avg(:,:,:,plot_areas_idx);
+
+    % Clear for next round
+    clearvars -except t plot_areas mua_stim_stage
+
+end
+
+% Plot stim overlaid
+plot_stim = 3;
+stage_cols = [0.5,0.5,0.5;0,0,0];
+figure;
+for curr_stage = 1:2
+    for curr_area = 1:length(plot_areas)
+        subplot(length(plot_areas),1,curr_area); hold on
+        AP_errorfill(t', ...
+            squeeze(nanmean(mua_stim_stage{curr_stage}(:,:,plot_stim,curr_area),1)), ...
+            squeeze(AP_sem(mua_stim_stage{curr_stage}(:,:,plot_stim,curr_area),1)), ...
+            stage_cols(curr_stage,:));
+        yline(0);xline(0);
+        ylabel(plot_areas{curr_area});
+    end
+end
+linkaxes(get(gcf,'Children'),'xy')
 
 
 
