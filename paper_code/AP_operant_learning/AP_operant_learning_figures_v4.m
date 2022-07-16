@@ -2982,12 +2982,14 @@ plot_stim = 1;
 figure; hold on;
 plot_data = squeeze(stim_roi_avg_tmax(plot_roi,:,stim_unique == plot_stim,:));
 plot(plot_data,'color',[0.5,0.5,0.5]);
-errorbar(nanmean(plot_data,2),AP_sem(plot_data,2),'linewidth',2,'color','k');
+% errorbar(nanmean(plot_data,2),AP_sem(plot_data,2),'linewidth',2,'color','k');
+plot(nanmean(plot_data,2),'linewidth',2,'color','k');
 
 
 
-%% ++ [COMBINE WITH ABOVE] long-term animals: pre/post learning px and ROIs
+%% ++ Long-term animals: pre/post learning pixels and ROIs
 
+% Get training data from subset of long-term animals
 long_term_animals = {'AP113','AP114','AP115'};
 use_animals = ismember(animals,long_term_animals);
 
@@ -3008,34 +3010,12 @@ stim_roi_avg_stage = cell2mat(permute(cellfun(@(x,ld) ...
     stim_roi_avg,num2cell(learned_day+n_naive), ...
     'uni',false),[2,3,4,5,1]));
 
-n_stages = size(stim_v_avg_stage,3);
-
 % Get pixels and pixel timemax by stage
 stim_px_avg_stage = AP_svdFrameReconstruct(U_master(:,:,1:n_vs),stim_v_avg_stage);
 
 use_t = t >= 0 & t <= 0.2;
 stim_px_avg_stage_tmax = ...
     squeeze(max(stim_px_avg_stage(:,:,use_t,:,:,:),[],3));
-
-% Plot pixel timeavg
-figure;
-h = tiledlayout(1,n_stages);
-c = [0,0.003];
-plot_stim = 1;
-for curr_stage = 1:n_stages
-        curr_px = nanmean(stim_px_avg_stage_tmax(:,:, ...
-            curr_stage,stim_unique == plot_stim,use_animals),5);
-
-        nexttile;
-        imagesc(curr_px);
-        axis image off;
-        AP_reference_outline('ccf_aligned',[0.5,0.5,0.5]);
-        colormap(gca,AP_colormap('WG',[],1.5));
-        caxis(c)
-end
-linkaxes(allchild(h),'xy');
-colorbar;
-
 
 % Set ROIs to plot
 
@@ -3061,27 +3041,162 @@ roi_learnday_avg = accumarray( ...
     [length(learned_day_unique),length(t),n_rois,length(stim_unique),length(animals)], ...
     @nanmean,NaN('single'));
 
-% Plot ROI activity in stim window pre/post learning
-plot_roi = 6;
+% Keep pixels and ROI data from training, then clear
 plot_stim = 1;
 
-plot_data = cat(1,...
-    nanmean(roi_learnday_avg(learned_day_unique < 0,:, ...
-    plot_roi,stim_unique == plot_stim,use_animals),1), ...
-    nanmean(roi_learnday_avg(learned_day_unique >= 0,:, ...
-    plot_roi,stim_unique == plot_stim,use_animals),1));
-
+% (pixels)
+px_training_stage = nanmean(stim_px_avg_stage_tmax(:,:,:, ...
+    stim_unique == plot_stim,use_animals),5);
+% (ROI)
+plot_roi = 6;
 use_t = t > 0 & t <= 0.2;
-plot_data_tmax = squeeze(max(plot_data(:,use_t,:,:),[],2));
+mpfc_training_stage = squeeze(max(cat(1,...
+    nanmean(roi_learnday_avg(learned_day_unique < 0,use_t, ...
+    plot_roi,stim_unique == plot_stim,use_animals),1), ...
+    nanmean(roi_learnday_avg(learned_day_unique >= 0,use_t, ...
+    plot_roi,stim_unique == plot_stim,use_animals),1)),[],2));
+
+clearvars -except px_training_stage mpfc_training_stage
+
+
+%%% LOAD POST-TRAINING DATA
+
+% Load data
+trial_data_path = 'C:\Users\Andrew\OneDrive for Business\Documents\CarandiniHarrisLab\analysis\operant_learning\data';
+data_fn = 'trial_activity_passive_teto_postlearn';
+AP_load_trials_operant;
+
+% Get animal and day index for each trial
+trial_animal = cell2mat(arrayfun(@(x) ...
+    x*ones(size(vertcat(wheel_all{x}{:}),1),1), ...
+    [1:length(wheel_all)]','uni',false));
+trial_day = cell2mat(cellfun(@(x) cell2mat(cellfun(@(curr_day,x) ...
+    curr_day*ones(size(x,1),1),num2cell(1:length(x))',x,'uni',false)), ...
+    wheel_all,'uni',false));
+trials_recording = cellfun(@(x) size(x,1),vertcat(wheel_all{:}));
+
+% Store day relative to last task day
+task_relative_day = cellfun(@(day,taskday) day' - taskday, ...
+    recording_day,last_task_right_day,'uni',false)';
+retired_relative_day = cellfun(@(day,taskday) day' - taskday, ...
+    recording_day,last_task_left_day,'uni',false)';
+trial_postlearn_day = cell2mat(cellfun(@(x,day) cell2mat(cellfun(@(x,day) ...
+    day*ones(size(x,1),1),x,num2cell(day),'uni',false)), ...
+    wheel_all,task_relative_day,'uni',false));
+
+% Get trials with movement during stim to exclude
+quiescent_trials = ~any(abs(wheel_allcat(:,t >= 0 & t <= 0.5)) > 0,2);
+
+% Turn values into IDs for grouping
+stim_unique = unique(trial_stim_allcat);
+[~,trial_stim_id] = ismember(trial_stim_allcat,stim_unique);
+
+% Get average fluorescence by animal/day/stim
+stim_v_avg = cell(length(animals),1);
+stim_roi_avg = cell(length(animals),1);
+for curr_animal = 1:length(animals)
+    for curr_day = 1:max(trial_day(trial_animal == curr_animal))
+        for curr_stim_idx = 1:length(stim_unique)
+
+            use_trials = quiescent_trials & ...
+                trial_animal == curr_animal & ...
+                trial_day == curr_day & ...
+                trial_stim_allcat == stim_unique(curr_stim_idx);
+
+            stim_v_avg{curr_animal}(:,:,curr_day,curr_stim_idx) = ...
+                permute(nanmean(fluor_allcat_deconv(use_trials,:,:),1),[3,2,1]);
+
+            stim_roi_avg{curr_animal}(:,:,curr_day,curr_stim_idx) = ...
+                permute(nanmean(fluor_roi_deconv(use_trials,:,:),1),[3,2,1]);
+            
+        end
+    end
+end
+
+%%% Get post-learning pixels and ROI
+
+% Get relative post-learned days
+% (all animals imaged in same intervals, so unique should be same as length)
+task_relative_day_unique = unique(cat(1,task_relative_day{:}));
+retired_relative_day_unique = unique(cat(1,retired_relative_day{:}));
+if ~all(task_relative_day_unique == cat(2,task_relative_day{:}),'all')
+    error('Different relative days across animals');
+end
+
+% Get average image by day 
+use_stim = stim_unique == 1;
+use_t = t >= 0 & t <= 0.2;
+
+stim_v_dayavg = nanmean(cat(5,stim_v_avg{:}),5);
+stim_px_dayavg = AP_svdFrameReconstruct(U_master(:,:,1:n_vs),stim_v_dayavg(:,:,:,use_stim));
+
+stim_px_dayavg_tmax = squeeze(max(stim_px_dayavg(:,:,use_t,:),[],3));
+
+% Plot pixel timeavg
+figure;
+h = tiledlayout(1,size(stim_px_dayavg_tmax,3));
+c = [0,0.003];
+for curr_day = 1:size(stim_px_dayavg_tmax,3)
+        nexttile;
+        imagesc(stim_px_dayavg_tmax(:,:,curr_day));
+        axis image off;
+        AP_reference_outline('ccf_aligned',[0.5,0.5,0.5]);
+        colormap(gca,AP_colormap('WG',[],1.5));
+        caxis(c);
+
+        title(sprintf('Day %d',task_relative_day_unique(curr_day)));
+end
+linkaxes(allchild(h),'xy');
+colorbar;
+
+% Get average ROI by day
+stim_roi_avg_cat = cat(5,stim_roi_avg{:});
+stim_roi_day = squeeze(stim_roi_avg_cat(:,:,:,use_stim,:));
+
+% Get ROI activity within stim window
+use_t = t > 0 & t <= 0.2;
+stim_roi_avg_tmax = squeeze(max(stim_roi_avg_cat(:,use_t,:,:,:),[],2));
+
+
+% Grab pixels and ROI data from post-training, concatenate to pre-training
+plot_stim = 1;
+
+% (pixels)
+px_posttraining_stage = stim_px_dayavg_tmax;
+% (ROI)
+plot_roi = 6;
+mpfc_posttraining_stage = squeeze(stim_roi_avg_tmax(plot_roi,:,stim_unique == plot_stim,:));
+
+px_prepost_training = cat(3,px_training_stage,px_posttraining_stage);
+mpfc_prepost_training = cat(1,mpfc_training_stage,mpfc_posttraining_stage);
+
+% Plot pixels and ROIs across pre/post-training
+prepost_training_labels = [{'Novice','Trained', ...
+    sprintf('%d days from R task',task_relative_day_unique(1))}, ...
+    cellfun(@(x) sprintf('%d days devalued',x), ...
+    num2cell(retired_relative_day_unique(2:end))','uni',false)];
+figure;
+h = tiledlayout(1,size(px_prepost_training,3));
+c = [0,0.003];
+for curr_stage = 1:size(px_prepost_training,3)
+        nexttile;
+        imagesc(px_prepost_training(:,:,curr_stage));
+        axis image off;
+        AP_reference_outline('ccf_aligned',[0.5,0.5,0.5]);
+        colormap(gca,AP_colormap('WG',[],1.5));
+        caxis(c);
+
+        title(prepost_training_labels{curr_stage});
+end
+linkaxes(allchild(h),'xy');
+colorbar;
 
 figure; hold on;
-plot(plot_data_tmax,'color',[0.5,0.5,0.5]);
-errorbar(nanmean(plot_data_tmax,2),AP_sem(plot_data_tmax,2), ...
-    'linewidth',2,'color','k');
-set(gca,'XTick',1:2,'XTickLabel',{'Pre-learn','Post-learn'});
+plot(mpfc_prepost_training,'color',[0.5,0.5,0.5]);
+plot(nanmean(mpfc_prepost_training,2),'color','k','linewidth',2);
 ylabel(wf_roi(plot_roi).area);
-xlim(xlim+[-0.5,0.5]);
-
+set(gca,'XTick',1:length(prepost_training_labels), ...
+    'XTickLabels',prepost_training_labels);
 
 
 
