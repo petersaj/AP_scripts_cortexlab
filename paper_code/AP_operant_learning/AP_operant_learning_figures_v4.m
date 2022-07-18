@@ -181,7 +181,7 @@ for curr_day = plot_days
     min_iti_t = signals_events.newTrialTimes + ...
         signals_events.trialQuiescenceValues;
     
-    plot_t = [50,100];
+    plot_t = [100,150];
     plot_t_idx = t > plot_t(1) & t < plot_t(2);
     plot_stim_idx = find(stimOn_times > plot_t(1) & stimOn_times < plot_t(2))';
     plot_min_iti_t_idx = find(min_iti_t > plot_t(1) & min_iti_t < plot_t(2));
@@ -190,12 +190,10 @@ for curr_day = plot_days
     nexttile; hold on;
     
     % Plot stim and rewards
-    yyaxis left; hold on; 
-    ylim([-6,2]);
-    for i = plot_stim_idx
-        line(repmat(stimOn_times(i),2,1), ...
-            [1,2],'color','r','linewidth',2);
-    end
+    yyaxis left; hold on;
+
+    area(t(plot_t_idx),stimOn_epochs(plot_t_idx), ...
+        'EdgeColor','none','FaceColor',[1,1,0.8])
     for i = plot_reward_idx
         line(repmat(reward_t_timeline(i),2,1), ...
             [0,1],'color','b','linewidth',2);
@@ -367,7 +365,7 @@ for curr_animal = 1:length(animals)
 end
 linkaxes(allchild(h),'xy');
 
-% (plot average across mice)
+% (plot median across mice)
 figure; 
 subplot(1,2,1,'YScale','log');hold on
 rxn_alt_med_ci = squeeze(prctile(nanmedian(rxn_alt_med,2),[5,95],3));
@@ -456,6 +454,24 @@ figure;histogram(learned_day,[1;plot_days]-0.5,'EdgeColor','none','FaceColor','k
 xlabel('Learned day');
 ylabel('Number of mice');
 xlim([0.5,max(plot_days)+0.5]);
+
+% Plot frequency of non-response/response movements
+nonresponse_move_rate = AP_padcatcell(cellfun(@(x,use_days) x(use_days), ...
+    {bhv.nonresponse_move_rate},use_days,'uni',false));
+
+trial_rate = AP_padcatcell(cellfun(@(n_trials,duration,use_days) ...
+    n_trials(use_days)./(duration(use_days)*60), ...
+    {bhv.n_trials},{bhv.session_duration},use_days,'uni',false));
+
+figure; hold on
+errorbar(nanmean(nonresponse_move_rate(plot_days,:),2), ...
+    AP_sem(nonresponse_move_rate(plot_days,:),2),'k','linewidth',2);
+errorbar(nanmean(trial_rate(plot_days,:),2), ...
+    AP_sem(trial_rate(plot_days,:),2),'b','linewidth',2);
+legend({'Non-response move rate','Trial rate'})
+xlabel('Training day');
+ylabel('Rate (number/sec)')
+
 
 
 %% [FIG 1F-G, FIG S2A-B]: muscimol behavior and retinotopy
@@ -1439,7 +1455,7 @@ end
 %     curr_lrstim_diff_p = curr_lrstim_diff_rank(:,1)./(n_shuff+1);
 
 
-%% ((run FIG 3C1-2)) [FIG 3C combined]: task & passive daysplit
+%% ((run FIG 3D1-2)) [FIG 3D combined]: task & passive daysplit
 
 % First make plots for passive and task daysplit mPFC activity
 
@@ -3235,6 +3251,14 @@ for curr_animal = 1:length(animals)
     xlabel('Day'); 
     xlim(xlim+[-1,1]);
 end
+
+
+%% ITI turns: quantify frequency of turning with no stim
+
+
+
+
+
 
 
 

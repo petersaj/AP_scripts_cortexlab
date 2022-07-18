@@ -54,7 +54,7 @@ for curr_animal = 1:length(animals)
             % Get protocol name
             [~,curr_protocol] = fileparts(block.expDef);
             
-            % Time of session (in minutes)
+            % Time of session (in minutes)curr_day
             session_duration = block.duration/60;
             
             % Trial counts (use only full trials with a response)
@@ -88,7 +88,39 @@ for curr_animal = 1:length(animals)
             right_wheel_velocity = abs(wheel_velocity.*(wheel_velocity > 0));
             wheel_bias = (nansum(right_wheel_velocity)-nansum(left_wheel_velocity))/ ...
                 (nansum(right_wheel_velocity)+nansum(left_wheel_velocity));
-            
+
+            % Time between prior move stop and post-stim move start
+            prestim_move_pause = ...
+                wheel_starts(wheel_move_stim_idx(2:end)) - ...
+                wheel_stops(wheel_move_stim_idx(2:end)-1);
+
+            % Time between all movements
+            all_move_pause = wheel_starts(2:end)-wheel_stops(1:end-1);
+
+            % Non-stim movements per second
+            wheel_iti_move_rate = arrayfun(@(x) ...
+                sum(wheel_starts > signals_events.responseTimes(x) & ...
+                wheel_starts < stimOn_times(x+1))./ ...
+                (stimOn_times(x+1) - signals_events.responseTimes(x)), ...
+                1:n_trials-1);
+
+
+            wheel_iti_move_rate = arrayfun(@(x) ...
+                sum(wheel_starts > signals_events.responseTimes(x) & ...
+                wheel_starts < stimOn_times(x+1))./ ...
+                (stimOn_times(x+1) - signals_events.responseTimes(x)), ...
+                1:n_trials-1);
+
+            wheel_iti_move_rate = arrayfun(@(x) ...
+                sum(wheel_starts > signals_events.responseTimes(x) & ...
+                wheel_starts < stimOn_times(x+1))./ ...
+                (stimOn_times(x+1) - signals_events.responseTimes(x)), ...
+                1:n_trials-1);
+
+            nonresponse_move_rate = ...
+                (length(wheel_starts)-length(wheel_move_response_idx))./ ...
+                block.duration;
+
             %%%%%%%%% STIM RESPONSE VS. NULL
             
             t = Timeline.rawDAQTimestamps';
@@ -272,7 +304,12 @@ for curr_animal = 1:length(animals)
             bhv(curr_animal).quiescence_t{curr_day,1} = quiescence_t';
             bhv(curr_animal).iti_t{curr_day,1} = iti_t';
             bhv(curr_animal).wheel_bias(curr_day,1) = wheel_bias;
-            
+
+            bhv(curr_animal).prestim_move_pause{curr_day,1} = prestim_move_pause;
+            bhv(curr_animal).all_move_pause{curr_day,1} = all_move_pause;
+            bhv(curr_animal).wheel_iti_move_rate{curr_day,1} = wheel_iti_move_rate;
+            bhv(curr_animal).nonresponse_move_rate(curr_day,1) = nonresponse_move_rate;
+
             % (stim-aligned movement)
             bhv(curr_animal).stim_surround_t = stim_surround_t_centers;
             bhv(curr_animal).stim_surround_wheel{curr_day,1} = stim_surround_move;
