@@ -1568,6 +1568,14 @@ for curr_animal = 1:length(animals)
             new_spike_idx(unique(spike_templates_0idx)+1) = 1:length(unique(spike_templates_0idx));
             spike_templates = new_spike_idx(spike_templates_0idx+1);
 
+            % Get raw waveforms from JF qMetrics
+            % (convert to uV: raw * 0.195 (OE legacy) * 2.34 (uV/bit)
+            waveforms_raw_all_full = cat(3,qMetric.rawWaveforms.spkMapMean);
+            [~,waveforms_raw_all_maxchan] = max(max(abs(waveforms_raw_all_full),[],2),[],1);
+            waveforms_raw = cell2mat(arrayfun(@(x) ...
+                waveforms_raw_all_full(waveforms_raw_all_maxchan(x),:,x), ...
+                good_templates_idx,'uni',false)).* 0.195 * 2.34;
+
             %%%% GET RESPONSES ALIGNED TO EVENT
             switch curr_exptype
                 case 'task'
@@ -1674,7 +1682,8 @@ for curr_animal = 1:length(animals)
             single_unit_data_all(curr_animal).unit_area{curr_day} = unit_area;
 
             % Store waveform and spike width for each unit (both mine and Julie's)
-            single_unit_data_all(curr_animal).waveform{curr_day} = waveforms;
+            single_unit_data_all(curr_animal).waveforms{curr_day} = waveforms;
+            single_unit_data_all(curr_animal).waveforms_raw{curr_day} = waveforms_raw;
 
             single_unit_data_all(curr_animal).waveform_duration_JF{curr_day} = ...
                 qMetric.waveformDuration(good_templates)';

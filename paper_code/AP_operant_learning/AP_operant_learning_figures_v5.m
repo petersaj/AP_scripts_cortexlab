@@ -2011,6 +2011,25 @@ x_scale = 0.2;
 y_scale = 0.5;
 AP_scalebar(x_scale,y_scale);
 
+% Stats naive vs trained
+use_stim = 3;
+curr_data = squeeze(cell2mat(cellfun(@(x) ...
+    x(:,:,use_stim,:),mua_stim_stage,'uni',false)));
+
+stage_exp = cell2mat(cellfun(@(x,data) repmat(x,size(data,1),1), ...
+    num2cell(1:2)',mua_stim_stage,'uni',false));
+[stage_idx,t_idx] = ndgrid(stage_exp,1:length(t));
+
+for curr_area = 1:length(plot_areas)
+    [p,~,stats] = anovan(reshape(curr_data(:,:,curr_area),[],1), ...
+        [stage_idx(:),t_idx(:)],'model','interaction','display','off');
+
+    fprintf('\n%s stage/time 2-way anova p(interaction) = %.2g\n', ...
+        plot_areas{curr_area},p(3));
+end
+
+
+
 
 %% [FIG 4D]: ephys - move (no stim) response
 
@@ -2132,7 +2151,7 @@ celltype_label = {'Wide','Narrow'};
 
 
 % (sanity check: plot waveforms by cell type)
-waveform_allcat = cell2mat(horzcat(single_unit_data_all.waveform)');
+waveform_allcat = cell2mat(horzcat(single_unit_data_all.waveforms)');
 figure; hold on
 celltype_col = lines(max(vertcat(celltype_exp{:})));
 for curr_celltype = 1:max(vertcat(celltype_exp{:}))
@@ -2309,7 +2328,7 @@ for curr_shuff = 1:n_shuff
     curr_move_sig_shuff = cellfun(@(sig,area) ...
         AP_shake(sig,1,area),move_sig,unit_area_cat,'uni',false);
 
-    % (get fraction of sitim & move in shuffle)
+    % (get fraction of stim & move in shuffle)
     stimmove_frac_total_shuff(:,curr_shuff) = ...
         cellfun(@(area,stim,move) ...
         mean(stim(area~=0) & move(area~=0)), ...
@@ -2355,6 +2374,7 @@ for curr_celltype = 1:n_celltypes
 
     nexttile;
     imagesc(t,[],convn(passive_stim_psth_allcat_norm(plot_cells,:),smooth_filt,'same'));
+    xlim([-0.2,0.7]);
     colormap(AP_colormap('BWR'));
     caxis([-1,1].*2);
     xline(0,'color','k','linewidth',2);
@@ -2364,6 +2384,7 @@ for curr_celltype = 1:n_celltypes
 
     nexttile;
     imagesc(t,[],convn(task_move_psth_allcat_norm(plot_cells,:),smooth_filt,'same'));
+    xlim([-0.2,0.7]);
     colormap(AP_colormap('BWR'));
     caxis([-1,1].*2);
     xline(0,'color','k','linewidth',2);
@@ -2373,6 +2394,8 @@ for curr_celltype = 1:n_celltypes
 
 end
 linkaxes(allchild(h),'xy');
+c = colorbar;
+ylabel(c,'\DeltaFR/FR_0');
 
 % Plot fraction of classified units in dmPFC (by wide/narrow)
 dmpfc_units = cellfun(@(area) ismember(area,[1,2]),unit_area_idx,'uni',false);
@@ -2393,13 +2416,14 @@ class_col = [0.8,0,0;0.8,0.5,0.5;0.5,0.5,0.5;1,1,1];
 set(gca,'ColorOrder',class_col);
 bar(nanmean(dmpfc_class_frac,3),'stacked');
 errorbar(cumsum(nanmean(dmpfc_class_frac,3),2), ...
-    AP_sem(dmpfc_class_frac,3),'k','linewidth',2,'linestyle','none');
+    AP_sem(dmpfc_class_frac,3),'k','linewidth',2,'linestyle','none', ...
+    'CapSize',0);
 ylabel('Fraction units')
 title('dmPFC')
 set(gca,'XTick',1:n_celltypes,'XTickLabel',celltype_label);
 
 
-% (shuffle statistic for dmpfc narrov vs wide stim responses)
+% (shuffle statistic for dmpfc narrow vs wide stim responses)
 n_shuff = 1000;
 dmpfc_class_frac_shuff = nan(n_celltypes,max(cell2mat(class_idx)),n_shuff);
 for curr_shuff = 1:n_shuff
@@ -2413,28 +2437,26 @@ end
 dmpfc_celltype_diff_rank = ...
     tiedrank(vertcat(diff(nanmean(dmpfc_class_frac,3),[],1), ...
     permute(diff(dmpfc_class_frac_shuff,[],1),[3,2,1])));
-dmpfc_celltype_diff_p = dmpfc_celltype_diff_rank(1,:)./(n_shuff+1);
+dmpfc_celltype_diff_p = 1 - dmpfc_celltype_diff_rank(1,:)./(n_shuff+1);
 fprintf('\n Stim p = %.2f\n Stim & Move p = %.2f\n Move p = %.2f\n', ...
     dmpfc_celltype_diff_p(1),dmpfc_celltype_diff_p(2),dmpfc_celltype_diff_p(3));
 
 % dmPFC waveforms
 dmpfc_units_allcat = cell2mat(dmpfc_units);
-waveform_allcat = cell2mat(horzcat(single_unit_data_all.waveform)');
+waveform_allcat = cell2mat(horzcat(single_unit_data_all.waveforms_raw)');
 [dmpfc_waveform_mean,dmpfc_waveform_std] = ...
     grpstats(waveform_allcat(dmpfc_units_allcat,:), ...
     celltype_allcat(dmpfc_units_allcat),{'mean','std'});
-figure; h = tiledlayout(2,n_celltypes);
+figure; h = tiledlayout(1,n_celltypes);
 for curr_celltype = 1:n_celltypes
     nexttile;
     AP_errorfill([],dmpfc_waveform_mean(curr_celltype,:), ...
         dmpfc_waveform_std(curr_celltype,:),'k');
 end
-for curr_celltype = 1:n_celltypes
-    nexttile;
-    plot(waveform_allcat(cell2mat(celltype_exp) == curr_celltype,:)', ...
-        'color',[0.5,0.5,0.5]);
-end
-
+linkaxes(allchild(h),'xy');
+x_scale = 0.001*30000; % t*30 kHz (1 ms scalebar)
+y_scale = 150; % uV
+AP_scalebar(x_scale,y_scale)
 
 
 %% [FIG S2C-E]: V1 muscimol ROI activity pre/post
@@ -3180,7 +3202,7 @@ yyaxis right;plot(plot_act(:,example_animal),'linewidth',2);
 axis square tight; ylim(ylim + 0.1*range(ylim).*[-1,1]);
 xlim(xlim+[-1,1]);
 ylabel(wf_roi(plot_roi).area);
-title(sprintf('\\color[rgb]{%1.2f,%1.2f,%1.2f}Mouse%d', ...
+title(sprintf('\\color[rgb]{%1.2f,%1.2f,%1.2f}Mouse %d', ...
         animal_col(example_animal,:),example_animal));
 xlabel('Day');
 
@@ -3203,13 +3225,10 @@ for curr_animal = 1:length(animals)
     set(gca,'ColorOrder',[0,0,0;0.7,0,0]);
     yyaxis left;plot(plot_rxn(:,curr_animal),'linewidth',2);
     axis square tight; ylim(ylim + 0.1*range(ylim).*[-1,1]);
-    ylabel('Reaction time index');
     yyaxis right;plot(plot_act(:,curr_animal),'linewidth',2);
     axis square tight; ylim(ylim + 0.1*range(ylim).*[-1,1]);
-    ylabel(wf_roi(plot_roi).area);
-    title(sprintf('\\color[rgb]{%1.2f,%1.2f,%1.2f}Mouse%d', ...
+    title(sprintf('\\color[rgb]{%1.2f,%1.2f,%1.2f}Mouse %d', ...
         animal_col(curr_animal,:),curr_animal));
-    xlabel('Day'); 
     xlim(xlim+[-1,1]);
 end
 
