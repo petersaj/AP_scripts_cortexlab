@@ -472,10 +472,10 @@ legend({'Task-irrelevant move rate','Task-relevant move rate'})
 xlabel('Training day');
 ylabel('Rate (number/sec)')
 
-p = anova1(nonresponse_move_rate(plot_days,:),[],'off');
+p = anova1(nonresponse_move_rate(plot_days,:)',[],'off');
 fprintf('Task-irrelevant move rate, 1-way anova = %.2d\n',p);
 
-p = anova1(trial_rate(plot_days,:),[],'off');
+p = anova1(trial_rate(plot_days,:)',[],'off');
 fprintf('Task-relevant move rate, 1-way anova = %.2d\n',p);
 
 
@@ -783,6 +783,7 @@ for curr_learn_grp = 1:n_learn_grps
             nexttile
             imagesc(curr_px);
             AP_reference_outline('ccf_aligned',[0.5,0.5,0.5]);
+            AP_reference_outline('bregma_aligned','k');
             axis image off;
             colormap(gca,AP_colormap('WG',[],1.5));
             caxis(c);
@@ -791,6 +792,7 @@ for curr_learn_grp = 1:n_learn_grps
         end
     end
 end
+AP_reference_outline('scalebar','m');
 linkaxes(allchild(h),'xy');
 colorbar;
 
@@ -848,6 +850,7 @@ for curr_learn = 1:n_learn_grps
     colormap(gca,AP_colormap('WG',[],1.5)); caxis(c);
     axis image off;
     AP_reference_outline('ccf_aligned',[0.5,0.5,0.5]);
+    AP_reference_outline('bregma_aligned','k');
     colorbar
 
     nexttile;
@@ -855,8 +858,10 @@ for curr_learn = 1:n_learn_grps
     colormap(gca,AP_colormap('WP',[],1.5)); caxis(c_hemi);
     axis image off;
     AP_reference_outline('ccf_aligned_lefthemi',[0.5,0.5,0.5]);
+    AP_reference_outline('bregma_aligned','k');
     colorbar
 end
+AP_reference_outline('scalebar','m');
 
 
 %% >> [FIG 2C]: task average L/R ROI timecourse (stim/move align, novice/learned)
@@ -1094,11 +1099,13 @@ for curr_stage = 1:n_stages
         imagesc(curr_px);
         axis image off;
         AP_reference_outline('ccf_aligned',[0.5,0.5,0.5]);
+        AP_reference_outline('bregma_aligned','k');
         colormap(gca,AP_colormap('WG',[],1.5));
         caxis(c)
  
     end
 end
+AP_reference_outline('scalebar','m');
 linkaxes(allchild(h),'xy');
 colorbar;
 
@@ -3044,32 +3051,41 @@ px_prepost_training = cat(3,px_training_stage,px_posttraining_stage);
 mpfc_prepost_training = cat(1,mpfc_training_stage,mpfc_posttraining_stage);
 
 % Plot pixels and ROIs across pre/post-training
+use_posttrain_timepoints = [1:2,4:6]; % exclude L/L task
+
 prepost_training_labels = [{'Novice','Trained', ...
     sprintf('%d days from R task',task_relative_day_unique(1))}, ...
     cellfun(@(x) sprintf('%d days devalued',x), ...
     num2cell(retired_relative_day_unique(2:end))','uni',false)];
 figure;
-h = tiledlayout(1,size(px_prepost_training,3));
+h = tiledlayout(1,length(use_posttrain_timepoints), ...
+    'TileSpacing','compact','padding','compact');
 c = [0,0.003];
-for curr_stage = 1:size(px_prepost_training,3)
+for curr_stage = use_posttrain_timepoints
         nexttile;
         imagesc(px_prepost_training(:,:,curr_stage));
         axis image off;
         AP_reference_outline('ccf_aligned',[0.5,0.5,0.5]);
+        AP_reference_outline('bregma_aligned','k');
         colormap(gca,AP_colormap('WG',[],1.5));
         caxis(c);
 
         title(prepost_training_labels{curr_stage});
 end
+AP_reference_outline('scalebar','m');
 linkaxes(allchild(h),'xy');
 colorbar;
 
 figure; hold on;
-plot(mpfc_prepost_training,'color',[0.5,0.5,0.5]);
-plot(nanmean(mpfc_prepost_training,2),'color','k','linewidth',2);
+plot(mpfc_prepost_training(use_posttrain_timepoints,:),'color',[0.5,0.5,0.5]);
+plot(nanmean(mpfc_prepost_training(use_posttrain_timepoints,:),2),'color','k','linewidth',2);
 ylabel(wf_roi(plot_roi).area);
-set(gca,'XTick',1:length(prepost_training_labels), ...
-    'XTickLabels',prepost_training_labels);
+set(gca,'XTick',1:length(use_posttrain_timepoints), ...
+    'XTickLabels',prepost_training_labels(use_posttrain_timepoints));
+
+% Stats: mPFC activity after training
+p = anova1(mpfc_prepost_training(use_posttrain_timepoints(2:end),:)',[],'off');
+fprintf('Devalued 1-way anova = %.2g\n',p);
 
 
 
@@ -3231,6 +3247,23 @@ for curr_animal = 1:length(animals)
         animal_col(curr_animal,:),curr_animal));
     xlim(xlim+[-1,1]);
 end
+
+% Shuffle stats 
+% (refined by Kenneth related to nonsense correlations: mean correlation
+% between reaction and activity, compare to shuffle animal ID)
+r = nanmean(arrayfun(@(x) corr(plot_rxn(:,x),plot_act(:,x), ...
+    'rows','complete','type','Spearman'),1:length(animals)));
+
+n_shuff = 10000;
+r_shuff = nan(n_shuff,1);
+for curr_shuff = 1:n_shuff
+    plot_rxn_shuff = plot_rxn(:,randperm(length(animals)));
+    r_shuff(curr_shuff) = nanmean(arrayfun(@(x) corr(plot_rxn_shuff(:,x),plot_act(:,x), ...
+        'rows','complete','type','Spearman'),1:length(animals)));
+end
+r_rank = tiedrank([r;r_shuff]);
+r_p = r(1)./(n_shuff+1);
+fprintf('Reaction vs behavior correlation mouse shuffle, p = %.2g\n',r_p);
 
 
 

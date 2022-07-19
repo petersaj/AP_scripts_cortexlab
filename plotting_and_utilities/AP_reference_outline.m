@@ -2,7 +2,15 @@ function h = AP_reference_outline(type,color,reference_im,repeats)
 % h = AP_reference_outline(type,color,reference_im,repeats)
 %
 % If a reference image is provided, bregma is defined there
-% type - grid_aligned, ccf, ccf_wf, ccf_aligned, ccf_aligned_lefthemi, retinotopy (master only at the moment)
+% type: 
+% scalebar
+% bregma
+% grid_aligned
+% ccf
+% ccf_wf
+% ccf_aligned
+% ccf_aligned_lefthemi
+% retinotopy
 %
 % repeats - [pixels_y,pixels_x,repeats_y,repeats_x] (only for ccf_aligned)
 
@@ -55,11 +63,26 @@ cortical_area_lefthemi_boundaries_aligned = cellfun(@(areas) cellfun(@(coords) .
     coords(:,[2,1]),areas,'uni',false),cortical_area_lefthemi_boundaries_aligned_long,'uni',false);
 
 switch type   
+
+    case 'scalebar'
+        % Plot 1 mm scalebar
+        y_scale_um = 1000;
+        y_scale_px = y_scale_um/um2pixel;
+        line(gca,repmat(min(xlim(gca)),2,1), ...
+            min(ylim(gca)) + [0,y_scale_px],'color',color,'linewidth',2)
+
+    case 'bregma_aligned'
+        % Plot bregma on aligned widefield
+
+        % Get bregma from aligned
+        bregma_offset_x = bregma_wf(1);
+        bregma_offset_y = bregma_wf(2);
+        h.bregma = plot(bregma_offset_x,bregma_offset_y,'.','color',color,'MarkerSize',15);
     
     case 'grid_aligned'
         % Plot mm grid for widefield
         
-        % Get bregma from aligned (assume aligned atm)
+        % Get bregma from aligned
         bregma_offset_x = bregma_wf(1);
         bregma_offset_y = bregma_wf(2);
         
