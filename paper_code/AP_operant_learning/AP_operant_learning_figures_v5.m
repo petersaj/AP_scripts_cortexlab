@@ -121,6 +121,13 @@ n_stages = length(unique(trial_stage));
 % Get trials with movement during stim to exclude
 quiescent_trials = ~any(abs(wheel_allcat(:,t >= 0 & t <= 0.5)) > 0,2);
 
+% (print total fraction of quiescent trials)
+q_exp = mat2cell(quiescent_trials,cellfun(@(x) size(x,1),vertcat(wheel_all{:})),1);
+s_exp = mat2cell(trial_stim_allcat,cellfun(@(x) size(x,1),vertcat(wheel_all{:})),1);
+q_exp_frac = cell2mat(cellfun(@(q,s) grpstats(q,s),q_exp,s_exp,'uni',false)');
+fprintf('Quiescent trial frac: \n%.2f+-%.2f (left),%.2f+-%.2f (center),%.2f+-%.2f (right)\n', ...
+    reshape([nanmean(q_exp_frac,2),nanstd(q_exp_frac,[],2)]',[],1))
+
 % Turn values into IDs for grouping
 stim_unique = unique(trial_stim_allcat);
 [~,trial_stim_id] = ismember(trial_stim_allcat,stim_unique);
