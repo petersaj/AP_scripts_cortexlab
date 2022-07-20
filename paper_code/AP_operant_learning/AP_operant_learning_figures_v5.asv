@@ -457,9 +457,9 @@ ytickformat('%.2f')
 
 % (stats: within vs across-session differences)
 curr_data = permute(rxn_measured_med_daysplit,[2,1,3]);
-n_shuff = 10000;
 
-% (--> across-day changes)
+% (--> across-
+n_shuff = 1000;
 x_shuff_stat = nan(n_shuff,1);
 for curr_shuff = 1:n_shuff+1
     % (timepoint 1 of next day)
@@ -479,15 +479,17 @@ end
 
 x_rank = tiedrank(x_shuff_stat);
 x_p = 1-(x_rank(1)./(n_shuff+1));
-fprintf('Reaction time: across day (t1-t1) vs across day (t1-t3), p = %.2g\n',x_p);
+fprintf('Reaction time: across change timepoint 1 vs 3, sign-rank p = %.2g\n',x_p);
 
-% (--> within-day changes)
+
+%%%%% tp1 - (day before tp1/tp3)
+n_shuff = 1000;
 x_shuff_stat = nan(n_shuff,1);
 for curr_shuff = 1:n_shuff+1
     % (timepoint 1 of day)
     curr_compare_data_x = curr_data(1:end-1,1,:);
 
-    % (timepoint 3 same day vs timpoint 1 next day)
+    % (timepoint 3 same day vs timpoint 3 next day)
     if curr_shuff == 1
         curr_compare_data_y = curr_data(2:end,1,:);
     else
@@ -502,7 +504,9 @@ end
 
 x_rank = tiedrank(x_shuff_stat);
 x_p = 1-(x_rank(1)./(n_shuff+1));
-fprintf('Reaction time: within day (t1-t3) vs across day (t1-t1), p = %.2g\n',x_p);
+fprintf('Reaction time: across change timepoint 1 vs 3, sign-rank p = %.2g\n',x_p);
+
+
 
 % Plot histogram of learned days
 figure;histogram(learned_day,[1;plot_days]-0.5,'EdgeColor','none','FaceColor','k')
@@ -1396,58 +1400,6 @@ across_day_change = squeeze(curr_data(2:end,1,:) - curr_data(1:end-1,1,:));
 
 p = signrank(nanmean(within_day_change,1),nanmean(across_day_change,1));
 fprintf('Within vs across day change, sign-rank p = %.2g\n',p);
-
-%%%%%%%%%%%% TRTYING OTHER STATS - FROM RXN 
-
-% (stats: within vs across-session differences)
-use_roi = 6;
-curr_data = squeeze(stim_roi_act_tmax_daysplit(plot_learned_day_idx,:,use_roi,:));
-n_shuff = 10000;
-
-% (--> across-day changes)
-x_shuff_stat = nan(n_shuff,1);
-for curr_shuff = 1:n_shuff+1
-    % (timepoint 1 of next day)
-    curr_compare_data_x = curr_data(2:end,1,:);
-
-    % (timepoint 1 vs 3 of previous day)
-    if curr_shuff == 1
-        curr_compare_data_y = curr_data(1:end-1,1,:);
-    else
-        curr_data_shuff = AP_shake(curr_data(1:end-1,[1,end],:),2);
-        curr_compare_data_y = curr_data_shuff(:,1,:);
-    end
-
-    x_shuff_stat(curr_shuff) = ...
-        nanmean(nanmean(curr_compare_data_x-curr_compare_data_y));
-end
-
-x_rank = tiedrank(x_shuff_stat);
-x_p = x_rank(1)./(n_shuff+1);
-fprintf('Reaction time: across day (t1-t1) vs across day (t1-t3), p = %.2g\n',x_p);
-
-% (--> within-day changes)
-x_shuff_stat = nan(n_shuff,1);
-for curr_shuff = 1:n_shuff+1
-    % (timepoint 1 of day)
-    curr_compare_data_x = curr_data(1:end-1,1,:);
-
-    % (timepoint 3 same day vs timpoint 1 next day)
-    if curr_shuff == 1
-        curr_compare_data_y = curr_data(2:end,1,:);
-    else
-        curr_data_shuff = AP_shake( ...
-            cat(2,curr_data(2:end,1,:),curr_data(1:end-1,3,:)),2);
-        curr_compare_data_y = curr_data_shuff(:,1,:);
-    end
-
-    x_shuff_stat(curr_shuff) = ...
-        nanmean(nanmean(curr_compare_data_x-curr_compare_data_y));
-end
-
-x_rank = tiedrank(x_shuff_stat);
-x_p = x_rank(1)./(n_shuff+1);
-fprintf('Reaction time: within day (t1-t3) vs across day (t1-t1), p = %.2g\n',x_p);
 
 
 
