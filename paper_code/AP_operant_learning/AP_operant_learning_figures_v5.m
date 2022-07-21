@@ -3388,6 +3388,47 @@ r_p = r(1)./(n_shuff+1);
 fprintf('Reaction vs behavior correlation mouse shuffle, p = %.2g\n',r_p);
 
 
+%% Fig 3 stat for passive vs task rate
+
+% super janky: 
+
+% get stim_roi_learnday_avg_tmax from a figure userdata
+stim_roi_learnday_avg_tmax = get(gcf,'UserData');
+
+% run task to get stim_roi_act_tmax_daysplit etc
+
+use_roi = 6;
+
+% (get passive data)
+passive_act = squeeze(stim_roi_learnday_avg_tmax([false(3,1);plot_learned_day_idx],use_roi,3,:));
+% (get first third of trial data)
+task_act = squeeze(stim_roi_act_tmax_daysplit(plot_learned_day_idx,1,use_roi,:));
+
+passive_sync_task_corr = nan(length(animals),1);
+passive_lead_task_corr = nan(length(animals),1);
+for curr_animal = 1:length(animals)
+    passive_sync_task_corr(curr_animal) = corr( ...
+        passive_act(2:end,curr_animal), ...
+        task_act(2:end,curr_animal),'rows','complete','type','Spearman');
+
+    passive_lead_task_corr(curr_animal) = corr( ...
+        passive_act(1:end-1,curr_animal), ...
+        task_act(2:end,curr_animal),'rows','complete','type','Spearman');
+end
+
+p = signrank(passive_sync_task_corr,passive_lead_task_corr);
+fprintf('Passive/task: sync corr = %.2g, lead corr = %.2g, signrank p = %.2g', ...
+    nanmean(passive_sync_task_corr),nanmean(passive_lead_task_corr),p);
+
+
+
+
+
+
+
+
+
+
 
 
 
