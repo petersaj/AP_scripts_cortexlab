@@ -1563,7 +1563,7 @@ plot_learned_day_idx = learned_days_n >= min_n;
 % Plot ROI stim window activity by learned day
 figure('Name','mPFC passive learned day');
 plot_stim = [1,-1];
-plot_stim_linestyle = {'-',':'};
+plot_stim_linewidth = [4,1];
 h = tiledlayout(length(plot_rois),1);
 for curr_roi = plot_rois
 
@@ -1581,7 +1581,7 @@ for curr_roi = plot_rois
         
         p = errorbar(repmat(curr_x,1,length(plot_stim)), ...
             nanmean(curr_data,3),AP_sem(curr_data,3),'linewidth',2,'capsize',0, ...
-            'linestyle',plot_stim_linestyle{ismember(plot_stim,curr_stim)});
+            'linewidth',plot_stim_linewidth(ismember(plot_stim,curr_stim)));
   
     end
     xlabel('Time from stim (s)');
@@ -1591,26 +1591,6 @@ for curr_roi = plot_rois
     legend({wf_roi(curr_lr_roi).area})
 
 end
-
-% STATS - DONT KNOW WHAT TO DO HERE YET
-%
-%     %%%%% MAYBE JUST DO A SHUFFLE TEST?
-%     [ld_idx,stim_idx,~] = ndgrid(1:size(curr_data,1),1:length(stim_unique),1:length(animals));
-%     [p,~,stats] = anovan(curr_data(~isnan(curr_data)),[ld_idx(~isnan(curr_data)),stim_idx(~isnan(curr_data))],'model','interaction','display','on');
-%     c = multcompare(stats,'Dimension',[1,2]);
-%     fprintf('%s t-max, 2-way anova p(stim) = %.2g,p(stage) = %.2g\n',wf_roi(curr_rois(1)).area,p_l(1),p_l(2));
-%
-%     curr_lrstim_diff = nanmean(abs(diff(curr_data(:,ismember(stim_unique,[-1,1]),:),[],2)),3);
-%     n_shuff = 1000;
-%     curr_lrstim_diff_shuff = nan(length(curr_x),n_shuff);
-%     for curr_shuff = 1:n_shuff
-%         curr_lrstim_diff_shuff(:,curr_shuff) = ...
-%             nanmean(abs(diff(AP_shake(curr_data(:,ismember(stim_unique,[-1,1]),:),2),[],2)),3);
-%     end
-%     curr_lrstim_diff_rank = cell2mat(arrayfun(@(x) ...
-%         tiedrank([curr_lrstim_diff(x),curr_lrstim_diff_shuff(x,:)]), ...
-%         (1:length(curr_x))','uni',false));
-%     curr_lrstim_diff_p = curr_lrstim_diff_rank(:,1)./(n_shuff+1);
 
 
 %% ((run FIG 3D1-2)) [FIG 3D combined]: task & passive daysplit
@@ -3359,8 +3339,13 @@ for curr_animal = 1:length(animals)
     axis square tight; ylim(ylim + 0.1*range(ylim).*[-1,1]);
     yyaxis right;plot(plot_act(:,curr_animal),'linewidth',2);
     axis square tight; ylim(ylim + 0.1*range(ylim).*[-1,1]);
-    title(sprintf('\\color[rgb]{%1.2f,%1.2f,%1.2f}Mouse %d', ...
-        animal_col(curr_animal,:),curr_animal));
+    
+    curr_rho = corr(plot_rxn(:,curr_animal), plot_act(:,curr_animal), ...
+        'type','Spearman','rows','complete');
+
+    title({sprintf('\\color[rgb]{%1.2f,%1.2f,%1.2f}Mouse %d', ...
+        animal_col(curr_animal,:),curr_animal), ...
+        sprintf('\\color{black}\\rho = %1.2f',curr_rho);});
     xlim(xlim+[-1,1]);
 
     if curr_animal == 1
