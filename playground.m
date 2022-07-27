@@ -12468,6 +12468,36 @@ for i = 1:size(x,3)
 end
 
 
+%% Test pykilosort
+
+
+% Set python environment
+pyenv('Version','C:\Users\Andrew\anaconda3\envs\pyks2\python.exe');
+disp('Added pykilosort python environment');
+
+
+% Run pykilosort (on desktop for now)
+cd('C:\Users\Andrew\Desktop');
+
+pyrunfile('AP_run_pykilosort.py');
+
+
+%  Enny's
+data_fn = 'G:/data_temp/pykilosort_test/continuous.dat';
+success = pyrunfile("RunPyKS2_FromMatlab.py","success",ThisFile = data_fn);
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 

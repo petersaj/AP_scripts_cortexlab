@@ -65,6 +65,7 @@ server_location{end+1} = '\\zserver.cortexlab.net\Data\EyeCamera';
 server_location{end+1} = '\\zubjects.cortexlab.net\Subjects';
 server_location{end+1} = '\\znas.cortexlab.net\Subjects';
 server_location{end+1} = '\\zinu.cortexlab.net\Subjects';
+server_location{end+1} = '\\zaru.cortexlab.net\Subjects';
 
 
 % Check that servers are accessible (login needed on restart)
