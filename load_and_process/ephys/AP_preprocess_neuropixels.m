@@ -1,13 +1,9 @@
-function AP_preprocess_phase3_newOE(animal,day,t_range)
-% AP_preprocess_phase3(animal,day,t_range)
+function AP_preprocess_neuropixels(animal,day)
+% AP_preprocess_neuropixels(animal,day)
 %
-% t_range = specify data time range to use
-% (now using kilosort2, putting into a 'kilosort2' folder)
+% Spike sorts with Pykilosort (into 'pykilosort' folder)
 %
-% Copied from AP_preprocess_phase3_newOE:
-% doesn't accomodate old OE, done when started multiple experiments
-% (stopped and started ephys recordings, which creates multiple experiment
-% folders)
+% Currently assumes Neuropixels Phase 3A recorded with Open Ephys
 
 %% Get paths and filenames
 
@@ -136,32 +132,38 @@ for curr_site = 1:length(data_paths)
         copyfile(ap_data_filename,ap_temp_filename);
         disp('Done');
         
-        % Clean AP data of artifacts
-        disp('Cleaning AP data...')
-        ap_clean_filename = [ssd_kilosort_path filesep animal '_' day '_' 'ephys_apband_clean.dat'];
-        % (just using common average referencing)
-        ops.NchanTOT = n_channels;
-        AP_applyCARtoDat(ap_temp_filename,ops.NchanTOT,ap_clean_filename);
+        % Set up python
+        % (set pykilosort python environment)
+        py_version = pyenv('Version','C:\Users\Andrew\Anaconda3\envs\pyks2\pythonw.exe');
+        % (add pykilosort environment paths to windows system path)
+        pre_pykilosort_syspath = getenv('PATH');
+        py_env_paths = {
+            fullfile(char(py_version.Home),'Library','bin'); ...
+            fullfile(char(py_version.Home),'Scripts')};
+        run_pykilosort_syspath = strjoin( ...
+            unique(cat(1,py_env_paths, ...
+            split(pre_pykilosort_syspath,pathsep)),'stable'),pathsep);
+        setenv('PATH',run_pykilosort_syspath);
 
-%         % (old attempt to remove light artifacts - not used)
-%         ttl_path = fileparts(sync_filename);
-%         AP_clean_dat(ap_temp_filename,n_channels,ttl_path,ap_clean_filename);
-        
-        % Delete local raw data
-        delete(ap_temp_filename);
-        
-        % Kilosort 1 (old)
-        %     AP_run_kilosort(ap_temp_car_filename,ap_sample_rate);
-        
-        % Kilosort 2
-        % Set default time range to be [0,inf]
-        if ~exist('t_range','var')
-            t_range = [0,inf];
-        end
-        AP_run_kilosort2(ap_clean_filename,ap_sample_rate,ssd_kilosort_path,t_range);
+        % Run pykilosort
+        % (directly on raw data - pykilosort does local common average
+        data_filename = 'G:\data_temp\pykilosort_test\continuous.dat';
+        pykilosort_output_path = fullfile(ssd_kilosort_path,'pykilosort');
+
+        pyrunfile('AP_run_pykilosort.py', ...
+            data_filename = ap_temp_filename, ...
+            pykilosort_output_path = pykilosort_output_path);
+
+        % Revert system paths to pre-pykilosort
+        % (just in case alternate python environments used elsewhere)
+        setenv('PATH',pre_pykilosort_syspath);
+
         
         %% Copy kilosort results to server
         
+        warning('NOT SURE WHERE RESULTS LIVE YET')
+        keyboard
+
         disp('Copying sorted data to server...');
         ks_results_path = [ssd_kilosort_path filesep 'results'];
         copyfile(ks_results_path,curr_save_path);
@@ -189,6 +191,6 @@ for curr_site = 1:length(data_paths)
     
 end
 
-disp('Done processing phase 3 data.');
+fprintf('Done preprocessing Neuropixels: %s %s',animal,day);
 
 
