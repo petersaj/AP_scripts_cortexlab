@@ -12501,6 +12501,7 @@ pyrunfile('AP_run_pykilosort.py', ...
 
 
 
+pyrunfile('RunPyKS2_NP1.py');
 
 %  Enny's
 data_fn = 'G:/data_temp/pykilosort_test/continuous.dat';
