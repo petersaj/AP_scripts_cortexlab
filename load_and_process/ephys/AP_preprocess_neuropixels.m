@@ -13,7 +13,7 @@ if ~ephys_exists
     error([animal ' ' day ': No ephys data found']);
 end
 
-save_paths = {[ephys_path filesep 'kilosort2']};
+save_paths = {[ephys_path filesep 'pykilosort']};
 data_paths = {ephys_path};
 
 % Check for multiple sites (assume sites are marked as site#)
@@ -126,10 +126,10 @@ for curr_site = 1:length(data_paths)
         end
         mkdir(ssd_kilosort_path);
         
-        % Copy AP data locally
+        % Copy AP-band data locally
         disp('Copying AP data to local drive...')
-        ap_temp_filename = [ssd_kilosort_path filesep animal '_' day  '_' 'ephys_apband.dat'];
-        copyfile(ap_data_filename,ap_temp_filename);
+        apband_local_filename = [ssd_kilosort_path filesep animal '_' day  '_' 'ephys_apband.dat'];
+        copyfile(ap_data_filename,apband_local_filename);
         disp('Done');
         
         % Set up python
@@ -147,11 +147,9 @@ for curr_site = 1:length(data_paths)
 
         % Run pykilosort
         % (directly on raw data - pykilosort does local common average
-        data_filename = 'G:\data_temp\pykilosort_test\continuous.dat';
         pykilosort_output_path = fullfile(ssd_kilosort_path,'pykilosort');
-
         pyrunfile('AP_run_pykilosort.py', ...
-            data_filename = ap_temp_filename, ...
+            data_filename = apband_local_filename, ...
             pykilosort_output_path = pykilosort_output_path);
 
         % Revert system paths to pre-pykilosort
@@ -160,13 +158,11 @@ for curr_site = 1:length(data_paths)
 
         
         %% Copy kilosort results to server
-        
-        warning('NOT SURE WHERE RESULTS LIVE YET')
-        keyboard
-
+                
         disp('Copying sorted data to server...');
-        ks_results_path = [ssd_kilosort_path filesep 'results'];
-        copyfile(ks_results_path,curr_save_path);
+
+        kilosort_results_path = fullfile(pykilosort_output_path,'output');
+        copyfile(pykilosort_results_path,curr_save_path);
         
         %% Copy kilosort results and raw data to phy folder for clustering
         
@@ -174,11 +170,11 @@ for curr_site = 1:length(data_paths)
         mkdir(local_phy_path)
         
         % Move the cleaned data into the phy directory
-        [~,ap_file,ap_ext] = fileparts(ap_clean_filename);
-        movefile(ap_clean_filename,[local_phy_path filesep ap_file ap_ext])
+        [~,ap_file,ap_ext] = fileparts(apband_local_filename);
+        movefile(apband_local_filename,fullfile(local_phy_path,[ap_file ap_ext]))
         
         % Move the results into the phy directory
-        movefile([ks_results_path filesep '*'],local_phy_path)
+        movefile(fullfile(kilosort_results_path,'*'),local_phy_path)
         
         % Copy the dat_params file into the phy directory
         copyfile(param_filename,fullfile(local_phy_path,'dat_params.txt'));
