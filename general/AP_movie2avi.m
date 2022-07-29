@@ -56,7 +56,7 @@ end
 % Add dorsal cortex CCF outline
 for curr_movie = 1:n_movies
     axes(ax(curr_movie));
-    AP_reference_outline('ccf_aligned',[0.5,0.5,0.5]);
+    AP_reference_outline('ccf_aligned_lefthemi',[0.5,0.5,0.5]);
 end
 
 for curr_t = 1:size(im,3)

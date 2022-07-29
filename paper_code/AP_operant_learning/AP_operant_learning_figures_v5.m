@@ -455,54 +455,36 @@ xlim(xlim + [-0.5,0.5]);
 ylim([0,5]);
 ytickformat('%.2f')
 
-% (stats: within vs across-session differences)
-curr_data = permute(rxn_measured_med_daysplit,[2,1,3]);
-n_shuff = 10000;
 
-% (--> across-day changes)
-x_shuff_stat = nan(n_shuff,1);
-for curr_shuff = 1:n_shuff+1
-    % (timepoint 1 of next day)
-    curr_compare_data_x = curr_data(2:end,1,:);
+% Task performance index (rxn,alt-rxn diff/sum) by learned day (daysplit)
+rxn_idx_long = (nanmean(rxn_alt_med_long,3) - rxn_measured_med_long)./ ...
+    (nanmean(rxn_alt_med_long,3) + rxn_measured_med_long);
 
-    % (timepoint 1 vs 3 of previous day)
-    if curr_shuff == 1
-        curr_compare_data_y = curr_data(1:end-1,1,:);
-    else
-        curr_data_shuff = AP_shake(curr_data(1:end-1,[1,end],:),2);
-        curr_compare_data_y = curr_data_shuff(:,1,:);
-    end
+[rxn_idx_learn_med_daysplit,rxn_idx_learn_mad_daysplit] = ...
+    grpstats(rxn_idx_long(:),learned_daysplit_x(:), ...
+    {'nanmedian',@(x) mad(x,1)});
 
-    x_shuff_stat(curr_shuff) = ...
-        nanmean(nanmean(curr_compare_data_x-curr_compare_data_y));
-end
+figure; hold on;
+errorbar(learned_day_grp_daysplit(plot_learned),rxn_idx_learn_med_daysplit(plot_learned), ...
+    rxn_idx_learn_mad_daysplit(plot_learned),'k','linewidth',2,'CapSize',0);
+xline(0);yline(0);
+xlabel('Learned day');
+ylabel('Task performance index');
 
-x_rank = tiedrank(x_shuff_stat);
-x_p = 1-(x_rank(1)./(n_shuff+1));
-fprintf('Reaction time: across day (t1-t1) vs across day (t1-t3), p = %.2g\n',x_p);
+% (stats: just within/across learning day -1 to 0)
+rxn_idx_daysplit = ...
+    (nanmean(rxn_alt_med_daysplit,4) - rxn_measured_med_daysplit)./ ...
+    (nanmean(rxn_alt_med_daysplit,4) + rxn_measured_med_daysplit);
 
-% (--> within-day changes)
-x_shuff_stat = nan(n_shuff,1);
-for curr_shuff = 1:n_shuff+1
-    % (timepoint 1 of day)
-    curr_compare_data_x = curr_data(1:end-1,1,:);
+rxn_idx_within_prelearn_day_p = ...
+    signrank(arrayfun(@(x) rxn_idx_daysplit(1,learned_day(x)-1,x),1:length(animals)), ...
+    arrayfun(@(x) rxn_idx_daysplit(end,learned_day(x)-1,x),1:length(animals)));
+rxn_idx_across_prepostlearn_day_p = ...
+    signrank(arrayfun(@(x) rxn_idx_daysplit(end,learned_day(x)-1,x),1:length(animals)), ...
+    arrayfun(@(x) rxn_idx_daysplit(1,learned_day(x),x),1:length(animals)));
+fprintf('Reaction index within prelearn day, signrank = %.2g\n',rxn_idx_within_prelearn_day_p);
+fprintf('Reaction index across pre/post learn day, signrank = %.2g\n',rxn_idx_across_prepostlearn_day_p);
 
-    % (timepoint 3 same day vs timpoint 1 next day)
-    if curr_shuff == 1
-        curr_compare_data_y = curr_data(2:end,1,:);
-    else
-        curr_data_shuff = AP_shake( ...
-            cat(2,curr_data(2:end,1,:),curr_data(1:end-1,3,:)),2);
-        curr_compare_data_y = curr_data_shuff(:,1,:);
-    end
-
-    x_shuff_stat(curr_shuff) = ...
-        nanmean(nanmean(curr_compare_data_x-curr_compare_data_y));
-end
-
-x_rank = tiedrank(x_shuff_stat);
-x_p = 1-(x_rank(1)./(n_shuff+1));
-fprintf('Reaction time: within day (t1-t3) vs across day (t1-t1), p = %.2g\n',x_p);
 
 % Plot histogram of learned days
 figure;histogram(learned_day,[1;plot_days]-0.5,'EdgeColor','none','FaceColor','k')

@@ -12412,116 +12412,77 @@ for curr_animal = 1:length(animals)
 end
 
 
-%% Save movie for tweet
+%% Save widefield movie for presentations
 
-% movie as movie_px
+% set frames as movie_px
+movie_px = b(:,:,t>-0.2 & t<0.7,1);
 
-movie_fn = 'C:\Users\Andrew\OneDrive for Business\Documents\CarandiniHarrisLab\analysis\operant_learning\paper\submission_1\tweet\test.avi';
+movie_path = 'C:\Users\Andrew\OneDrive for Business\Documents\CarandiniHarrisLab\presentations\220801_GallegoLab';
+movie_fn = fullfile(movie_path,'task_novice_hemidiff.avi');
 movie_framerate = 35/2;
-movie_cmap = colormap(AP_colormap('WG',[],1.5));
-movie_caxis = [0,0.004];
+movie_cmap = colormap(AP_colormap('WP',[],1.5));
+movie_caxis = [0,0.003];
 movie_position = [43,350,415,415];
 AP_movie2avi(movie_px,movie_framerate,movie_cmap,movie_caxis,movie_position,movie_fn);
 
 
 
 
+%% Paper fig test: rxn vs activity task performance index plot: difference, day x v x+1
 
-%% PASSIVE pixels by learned day
+plot_rxn_diff = diff(plot_rxn,[],1);
+plot_act_diff = diff(plot_act,[],1);
 
-% Average V/ROI by learning stage
-% (combined naive and pre-learn)
-stim_v_avg_stage = cell2mat(permute(cellfun(@(x,ld) ...
-    cat(3, ...
-    nanmean(x(:,:,ld-3,:),3), ...
-    nanmean(x(:,:,ld-2,:),3), ...
-    nanmean(x(:,:,ld-1,:),3), ...
-    nanmean(x(:,:,ld+0,:),3), ...
-    nanmean(x(:,:,ld+1,:),3), ...
-    nanmean(x(:,:,ld+2,:),3)), ...
-    stim_v_avg,num2cell(learned_day+n_naive), ...
-    'uni',false),[2,3,4,5,1]));
+figure; hold on;
+set(gca,'ColorOrder',animal_col);
+plot(plot_rxn_diff,plot_act_diff,'.','MarkerSize',15);
+xlabel({'Reaction time idx','(alt-meas/alt+meas)'})
+ylabel(wf_roi(plot_roi).area);
+axis square tight;
+xlim(xlim + 0.1*range(xlim).*[-1,1]);
+ylim(ylim + 0.1*range(ylim).*[-1,1]);
 
-
-% Get pixels and pixel timemax by stage
-stim_px_avg_stage = AP_svdFrameReconstruct(U_master(:,:,1:n_vs),stim_v_avg_stage);
-
-use_t = t >= 0.1 & t <= 0.15;
-stim_px_avg_stage_tmax = ...
-    squeeze(mean(stim_px_avg_stage(:,:,use_t,:,:,:),3));
-
-x = nanmean(stim_px_avg_stage_tmax(:,:,:,3,:),5);
-
-AP_imscroll(x);
-colormap(gca,AP_colormap('WG',[],1.5));
-AP_reference_outline('ccf_aligned',[0.5,0.5,0.5]);
-axis image;
-
-figure; tiledlayout(1,size(x,3));
-for i = 1:size(x,3)
-    nexttile;
-    imagesc(x(:,:,i));
-    colormap(gca,AP_colormap('WG',[],1.5));
-    AP_reference_outline('ccf_aligned',[0.5,0.5,0.5]);
-    axis image off;
-    caxis([0,0.002]);
+for curr_animal = 1:length(animals)
+    plot(plot_rxn_diff(learned_day(curr_animal)-1,curr_animal), ...
+        plot_act_diff(learned_day(curr_animal)-1,curr_animal), ...
+        'ok','MarkerSize',5,'linewidth',1);
 end
 
 
-%% Test pykilosort
+figure; 
 
-% Set up python
-
-% (set pykilosort python environment)
-py_version = pyenv('Version','C:\Users\Andrew\Anaconda3\envs\pyks2\pythonw.exe');
-
-% (add pykilosort environment paths to windows system path)
-pre_pykilosort_syspath = getenv('PATH');
-py_env_paths = {
-    fullfile(char(py_version.Home),'Library','bin'); ...
-    fullfile(char(py_version.Home),'Scripts')};
-
-run_pykilosort_syspath = strjoin( ...
-    unique(cat(1,py_env_paths, ...
-    split(pre_pykilosort_syspath,pathsep)),'stable'),pathsep);
-
-setenv('PATH',run_pykilosort_syspath);
-
+subplot(1,2,1);hold on;
+set(gca,'ColorOrder',animal_col);
+plot(plot_rxn(1:end-1,:),plot_rxn(2:end,:),'.','MarkerSize',15);
+axis square tight;
+xlim(xlim + 0.1*range(xlim).*[-1,1]);
+ylim(ylim + 0.1*range(ylim).*[-1,1]);
+for curr_animal = 1:length(animals)
+    plot(plot_rxn(learned_day(curr_animal)-1,curr_animal), ...
+        plot_rxn(learned_day(curr_animal),curr_animal), ...
+        'ok','MarkerSize',5,'linewidth',1);
+end
+h = refline(1);
+h.Color = 'k';
+xlabel({'Reaction time index (given day)'})
+ylabel({'Reaction time index (next day)'})
 
 
-% Run pykilosort (on desktop for now)
-cd('C:\Users\Andrew\Desktop');
-
-data_filename = 'G:\data_temp\pykilosort_test\continuous.dat';
-pykilosort_output_path = fullfile(fileparts(data_filename),'pykilosort');
-
-pyrunfile('AP_run_pykilosort.py', ...
-    data_filename = data_filename, ...
-    pykilosort_output_path = pykilosort_output_path);
-
-
-
-
-%  Enny's
-data_fn = 'G:/data_temp/pykilosort_test/continuous.dat';
-success = pyrunfile("RunPyKS2_FromMatlab.py","success",ThisFile = data_fn);
-
-
-% CLEAN UP 
-% Set system paths to pre-pykilosort
-setenv('PATH',pre_pykilosort_syspath);
-
-
-pyrunfile('AP_pytest.py',asdf = 'hello');
-
-
-
-
-
-
-
-
-
+subplot(1,2,2);hold on;
+set(gca,'ColorOrder',animal_col);
+plot(plot_act(1:end-1,:),plot_act(2:end,:),'.','MarkerSize',15);
+axis square tight;
+xlim(xlim + 0.1*range(xlim).*[-1,1]);
+ylim(ylim + 0.1*range(ylim).*[-1,1]);
+for curr_animal = 1:length(animals)
+    plot(plot_act(learned_day(curr_animal)-1,curr_animal), ...
+        plot_act(learned_day(curr_animal),curr_animal), ...
+        'ok','MarkerSize',5,'linewidth',1);
+end
+h = refline(1);
+h.Color = 'k';
+xlabel(sprintf('%s (given day)',wf_roi(plot_roi).area));
+ylabel(sprintf('%s (next day)',wf_roi(plot_roi).area));
 
 
 
