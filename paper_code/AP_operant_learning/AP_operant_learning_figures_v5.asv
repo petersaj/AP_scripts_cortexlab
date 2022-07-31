@@ -3166,10 +3166,16 @@ set(gca,'XTick',1:length(use_posttrain_timepoints), ...
 p = anova1(mpfc_prepost_training(use_posttrain_timepoints(2:end),:)',[],'off');
 fprintf('Trained:devalued 1-way anova = %.2g\n',p);
 
-p = ranksum(mpfc_prepost_training(use_posttrain_timepoints(1),:), ...
-    reshape(mpfc_prepost_training(use_posttrain_timepoints(3:end),:),[],1));
-fprintf('Novice vs devalued rank-sum = %.2d\n',p);
 
+p = anova1(mpfc_prepost_training(use_posttrain_timepoints([1,3:end]),:)',[],'off');
+fprintf('Trained:devalued 1-way anova = %.2g\n',p);
+
+p = anova1(mpfc_prepost_training(use_posttrain_timepoints,:)',[],'off');
+fprintf('Trained:devalued 1-way anova = %.2g\n',p);
+
+p = signrank(mpfc_prepost_training(use_posttrain_timepoints(1),:), ...
+    nanmean(mpfc_prepost_training(use_posttrain_timepoints(3),:),2));
+fprintf('Novice vs devalued signed-rank = %.2g\n',p);
 
 
 
@@ -3350,8 +3356,8 @@ end
 
 % Shuffle stats (NON-SIG! learning rates probably to similar across mice to
 % provide evidence for activity rate vs learning rate changes)
-% (did try using only first n days, or only shuffling mice with different
-% learning rates, but no good)
+% (refined by Kenneth related to nonsense correlations: mean correlation
+% between reaction and activity, compare to shuffle animal ID)
 r = nanmean(arrayfun(@(x) corr(plot_rxn(:,x),plot_act(:,x), ...
     'rows','complete','type','Spearman'),1:length(animals)));
 
