@@ -11,25 +11,21 @@ st = loadStructureTree([allen_atlas_path filesep 'structure_tree_safe_2017.csv']
 % Set paths for histology images and directory to save slice/alignment
 
 % % (for writing/debugging)
-% % im_path = '\\znas.cortexlab.net\Subjects\AP105\histology\all_images';
-% im_path = 'C:\Users\Andrew\Desktop\temp_histology\AP079';
+% im_path = 'C:\Users\Andrew\Desktop\temp_histology\AP077';
 % slice_path = [im_path filesep 'slices'];
-
 
 % New histology
 im_path = '\\zinu.cortexlab.net\Subjects\AP118\histology';
 slice_path = [im_path filesep 'slices'];
 
-
-% % (what was this for? loaded existing set?)
-% animal = 'AP100';
-% [probe_ccf_fn,probe_ccf_fn_exists] = AP_cortexlab_filename(animal,[],[],'probe_ccf');
-% if probe_ccf_fn_exists
-%     load(probe_ccf_fn);
-% else
-%     error('No probe ccf');
-% end
-% slice_path = fileparts(probe_ccf_fn);
+animal = 'AP118';
+[probe_ccf_fn,probe_ccf_fn_exists] = AP_cortexlab_filename(animal,[],[],'probe_ccf');
+if probe_ccf_fn_exists
+    load(probe_ccf_fn);
+else
+    error('No probe ccf');
+end
+slice_path = fileparts(probe_ccf_fn);
 
 
 %% Preprocess slide images to produce slice images
@@ -169,20 +165,7 @@ line(ccf_axes(2),probe_line(:,3),probe_line(:,1),'linewidth',2);
 line(ccf_axes(3),probe_line(:,2),probe_line(:,1),'linewidth',2);
 
 
-%% TESTING: CCF BY ANCHOR POINT
 
-
-
-x = [625.6156921	647.8201804	614.3965802	636.6010684; ...
-45.56663513	6.143208742	812.4069977	772.9835713; ...
-1077.233696	60.03437042	1049.332252	32.13292599];
-
-
-figure;isosurface(av(1:10:end,1:10:end,1:10:end) > 1);
-axis vis3d equal; hold on;
-
-x2p = sortrows([x,x(:,1)]'/10,3)';
-fill3(x2p(1,:),x2p(2,:),x2p(3,:),'r')
 
 
 
