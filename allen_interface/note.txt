@@ -1,2 +1,0 @@
-trajectory explorer: moved to standalone repo for sharing
-neuropixels_trajectory_explorer

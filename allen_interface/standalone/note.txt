@@ -1,2 +1,0 @@
-Standalone version of allen_ccf_npx:
-compiled as executable to run with MATLAB runtime environment
