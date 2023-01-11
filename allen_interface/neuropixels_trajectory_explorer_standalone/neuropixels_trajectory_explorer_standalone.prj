@@ -1,5 +1,5 @@
 <deployment-project plugin="plugin.ezdeploy" plugin-version="1.0">
-  <configuration build-checksum="1405920140" file="C:\Github\AP_scripts_cortexlab\allen_interface\neuropixels_trajectory_explorer_standalone\neuropixels_trajectory_explorer_standalone.prj" location="C:\Github\AP_scripts_cortexlab\allen_interface\neuropixels_trajectory_explorer_standalone" name="neuropixels_trajectory_explorer_standalone" preferred-package-location="C:\Github\AP_scripts_cortexlab\allen_interface\standalone\allen_ccf_npx\for_redistribution" preferred-package-type="package.type.exe" target="target.ezdeploy.standalone" target-name="Application Compiler">
+  <configuration build-checksum="940035598" file="C:\Github\AP_scripts_cortexlab\allen_interface\neuropixels_trajectory_explorer_standalone\neuropixels_trajectory_explorer_standalone.prj" location="C:\Github\AP_scripts_cortexlab\allen_interface\neuropixels_trajectory_explorer_standalone" name="neuropixels_trajectory_explorer_standalone" preferred-package-location="C:\Github\AP_scripts_cortexlab\allen_interface\neuropixels_trajectory_explorer_standalone\neuropixels_trajectory_explorer_standalone\for_redistribution" preferred-package-type="package.type.exe" target="target.ezdeploy.standalone" target-name="Application Compiler">
     <param.appname>neuropixels_trajectory_explorer</param.appname>
     <param.icon>${PROJECT_ROOT}\neuropixels_trajectory_explorer_standalone_resources\icon.ico</param.icon>
     <param.icons>
@@ -36,12 +36,17 @@
     <param.package.mcr.name>MyAppInstaller_mcr</param.package.mcr.name>
     <param.no.mcr.name>MyAppInstaller_app</param.no.mcr.name>
     <param.windows.command.prompt>true</param.windows.command.prompt>
-    <param.create.log>false</param.create.log>
-    <param.log.file />
+    <param.create.log>true</param.create.log>
+    <param.log.file>nte_log</param.log.file>
     <param.native.matlab>false</param.native.matlab>
     <param.checkbox>false</param.checkbox>
     <param.example />
-    <param.help.text />
+    <param.help.text>Syntax 
+	  -? 
+	 
+ Input Arguments 
+	 -?  print help on how to use the application 
+	 input arguments</param.help.text>
     <unset>
       <param.version />
       <param.company />
@@ -68,20 +73,18 @@
       <param.package.mcr.name />
       <param.no.mcr.name />
       <param.windows.command.prompt />
-      <param.create.log />
-      <param.log.file />
       <param.native.matlab />
       <param.checkbox />
       <param.example />
-      <param.help.text />
     </unset>
     <fileset.main>
-      <file>${PROJECT_ROOT}\neuropixels_trajectory_explorer_standalone.m</file>
+      <file>${PROJECT_ROOT}\neuropixels_trajectory_explorer_standalone_mpm.m</file>
     </fileset.main>
-    <fileset.resources />
+    <fileset.resources>
+      <file>${PROJECT_ROOT}\nte_paths.mat</file>
+    </fileset.resources>
     <fileset.package />
     <fileset.depfun>
-      <file>${PROJECT_ROOT}\allen_ccf_path.mat</file>
       <file>${PROJECT_ROOT}\uigetdir_workaround.m</file>
       <file>C:\Github\npy-matlab\npy-matlab\readNPY.m</file>
       <file>C:\Github\npy-matlab\npy-matlab\readNPYheader.m</file>
@@ -93,7 +96,7 @@
     </build-deliverables>
     <workflow />
     <matlab>
-      <root>C:\Program Files\MATLAB\R2018a</root>
+      <root>C:\Program Files\MATLAB\R2022b</root>
       <toolboxes />
     </matlab>
     <platform>
