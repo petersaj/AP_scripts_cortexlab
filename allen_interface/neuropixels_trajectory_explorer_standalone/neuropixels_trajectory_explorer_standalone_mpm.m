@@ -84,22 +84,22 @@ ccf_cmap = horzcat(vertcat(ccf_cmap_c1{:}),vertcat(ccf_cmap_c2{:}),vertcat(ccf_c
 
 % (translation values from our bregma estimate: AP/ML from Paxinos, DV from
 % rough MRI estimate)
-bregma_ccf = [540,44,570]; % [AP,DV,ML]
-ccf_translation_tform = eye(4)+[zeros(3,4);-bregma_ccf([3,1,2]),0];
+bregma_ccf = [570.5,580,44]; % [ML,AP,DV]
+ccf_translation_tform = eye(4)+[zeros(3,4);-bregma_ccf,0];
 
-% (reflect AP/ML, scale DV value from Josh Siegle, convert 10um to 1mm)
-scale = [-1,-1,0.9434]./100; % [AP,ML,DV]
+% (scaling "Toronto MRI transform", reflect AP/ML, convert 10um to 1mm)
+scale = [-0.952,-1.031,0.885]./100; % [ML,AP,DV]
 ccf_scale_tform = eye(4).*[scale,1]';
 
 % (rotation values from IBL estimate)
-ap_rotation = 5; % 5 degrees nose-down
+ap_rotation = -5; % 5 degrees nose-down
 ccf_rotation_tform = ...
     [1 0 0 0; ...
     0 cosd(ap_rotation) -sind(ap_rotation) 0; ...
     0 sind(ap_rotation) cosd(ap_rotation) 0; ...
     0 0 0 1];
 
-ccf_bregma_tform_matrix = ccf_translation_tform*ccf_rotation_tform*ccf_scale_tform;
+ccf_bregma_tform_matrix = ccf_translation_tform*ccf_scale_tform*ccf_rotation_tform;
 ccf_bregma_tform = affine3d(ccf_bregma_tform_matrix);
 
 % ~~~~ Make GUI axes and objects

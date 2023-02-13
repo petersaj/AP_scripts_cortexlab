@@ -11,7 +11,6 @@ AP_mouse_movie_movement(animal,day,experiments);
 
 
 %% Get average movie around event
-% (ADD INTO THIS: average abs movie difference)
 
 % animal = 'AP100';
 % day = '2021-05-14';
@@ -22,9 +21,6 @@ AP_mouse_movie_movement(animal,day,experiments);
 
 use_cam = facecam_fn;
 use_t = facecam_t;
-
-% use_cam = eyecam_fn;
-% use_t = eyecam_t;
 
 % Get wheel movements during stim, only use quiescent trials
 framerate = 30;
