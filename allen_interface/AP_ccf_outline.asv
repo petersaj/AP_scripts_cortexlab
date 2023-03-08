@@ -104,6 +104,8 @@ load(probe_ccf_fn);
 
 % Get line of best fit through mean of marked points
 probe_coords_mean = mean(probe_ccf.points,1);
+% (store mean for plotting later)
+probe_coords_mean_all(curr_animal,:) = probe_coords_mean;
 xyz = bsxfun(@minus,probe_ccf.points,probe_coords_mean);
 [~,~,V] = svd(xyz,0);
 histology_probe_direction = V(:,1);
@@ -124,15 +126,15 @@ probe_line = (probe_line_eval'.*histology_probe_direction') + probe_coords_mean;
 
 % Draw probe in 3D view
 line(ccf_3d_axes,probe_line(:,1),probe_line(:,3),probe_line(:,2), ...
-    'linewidth',2,'color',probe_color)
+    'linewidth',2,'color',animal_col(curr_animal,:))
 
 % Draw probes on coronal + saggital
-line(ccf_axes(1),probe_line(:,3),probe_line(:,2),'linewidth',2,'color',probe_color);
-line(ccf_axes(3),probe_line(:,2),probe_line(:,1),'linewidth',2,'color',probe_color);
+line(ccf_axes(1),probe_line(:,3),probe_line(:,2),'linewidth',2,'color',animal_col(curr_animal,:));
+line(ccf_axes(3),probe_line(:,2),probe_line(:,1),'linewidth',2,'color',animal_col(curr_animal,:));
 
 % Draw probe mean on horizontal
 plot(ccf_axes(2), probe_coords_mean(:,3),probe_coords_mean(:,1), ...
-    '.','MarkerSize',20,'color',probe_color);
+    '.','MarkerSize',20,'color',animal_col(curr_animal,:));
 
 
 

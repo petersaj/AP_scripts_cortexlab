@@ -3,3 +3,5 @@ Copiled as executable to run with MATLAB runtime environment
 
 To update (if only change in main script): 
 deploytool, open project, compile, copy to git
+
+NOTE: there is now only one version, can compile the code in git directly

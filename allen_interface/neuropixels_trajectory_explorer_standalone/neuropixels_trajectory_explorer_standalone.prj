@@ -1,5 +1,5 @@
 <deployment-project plugin="plugin.ezdeploy" plugin-version="1.0">
-  <configuration build-checksum="940035598" file="C:\Github\AP_scripts_cortexlab\allen_interface\neuropixels_trajectory_explorer_standalone\neuropixels_trajectory_explorer_standalone.prj" location="C:\Github\AP_scripts_cortexlab\allen_interface\neuropixels_trajectory_explorer_standalone" name="neuropixels_trajectory_explorer_standalone" preferred-package-location="C:\Github\AP_scripts_cortexlab\allen_interface\neuropixels_trajectory_explorer_standalone\neuropixels_trajectory_explorer_standalone\for_redistribution" preferred-package-type="package.type.exe" target="target.ezdeploy.standalone" target-name="Application Compiler">
+  <configuration build-checksum="940035598" file="C:\Github\neuropixels_trajectory_explorer\standalone\neuropixels_trajectory_explorer_standalone.prj" location="C:\Github\neuropixels_trajectory_explorer\standalone" name="neuropixels_trajectory_explorer_standalone" preferred-package-location="C:\Github\AP_scripts_cortexlab\allen_interface\neuropixels_trajectory_explorer_standalone\neuropixels_trajectory_explorer_standalone\for_redistribution" preferred-package-type="package.type.exe" target="target.ezdeploy.standalone" target-name="Application Compiler">
     <param.appname>neuropixels_trajectory_explorer</param.appname>
     <param.icon>${PROJECT_ROOT}\neuropixels_trajectory_explorer_standalone_resources\icon.ico</param.icon>
     <param.icons>
@@ -78,7 +78,7 @@
       <param.example />
     </unset>
     <fileset.main>
-      <file>${PROJECT_ROOT}\neuropixels_trajectory_explorer_standalone_mpm.m</file>
+      <file>C:\Github\neuropixels_trajectory_explorer\neuropixels_trajectory_explorer.m</file>
     </fileset.main>
     <fileset.resources>
       <file>${PROJECT_ROOT}\nte_paths.mat</file>
@@ -90,9 +90,9 @@
       <file>C:\Github\npy-matlab\npy-matlab\readNPYheader.m</file>
     </fileset.depfun>
     <build-deliverables>
-      <file location="${PROJECT_ROOT}\neuropixels_trajectory_explorer_standalone\for_testing" name="splash.png" optional="false">C:\Github\AP_scripts_cortexlab\allen_interface\neuropixels_trajectory_explorer_standalone\neuropixels_trajectory_explorer_standalone\for_testing\splash.png</file>
-      <file location="${PROJECT_ROOT}\neuropixels_trajectory_explorer_standalone\for_testing" name="neuropixels_trajectory_explorer.exe" optional="false">C:\Github\AP_scripts_cortexlab\allen_interface\neuropixels_trajectory_explorer_standalone\neuropixels_trajectory_explorer_standalone\for_testing\neuropixels_trajectory_explorer.exe</file>
-      <file location="${PROJECT_ROOT}\neuropixels_trajectory_explorer_standalone\for_testing" name="readme.txt" optional="true">C:\Github\AP_scripts_cortexlab\allen_interface\neuropixels_trajectory_explorer_standalone\neuropixels_trajectory_explorer_standalone\for_testing\readme.txt</file>
+      <file location="${PROJECT_ROOT}\neuropixels_trajectory_explorer_standalone\for_testing" name="neuropixels_trajectory_explorer.exe" optional="false">C:\Github\neuropixels_trajectory_explorer\standalone\neuropixels_trajectory_explorer_standalone\for_testing\neuropixels_trajectory_explorer.exe</file>
+      <file location="${PROJECT_ROOT}\neuropixels_trajectory_explorer_standalone\for_testing" name="splash.png" optional="false">C:\Github\neuropixels_trajectory_explorer\standalone\neuropixels_trajectory_explorer_standalone\for_testing\splash.png</file>
+      <file location="${PROJECT_ROOT}\neuropixels_trajectory_explorer_standalone\for_testing" name="readme.txt" optional="true">C:\Github\neuropixels_trajectory_explorer\standalone\neuropixels_trajectory_explorer_standalone\for_testing\readme.txt</file>
     </build-deliverables>
     <workflow />
     <matlab>
