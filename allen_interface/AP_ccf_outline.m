@@ -35,7 +35,12 @@ h.Enable = 'on';
 % (2D)
 for curr_view = 1:3
     curr_outline = bwboundaries(squeeze((max(av,[],curr_view)) > 1));
-    cellfun(@(x) plot(ccf_axes(curr_view),x(:,2),x(:,1),'k','linewidth',2),curr_outline)
+    % (only plot largest outline)
+    [~,curr_outline_idx] = max(cellfun(@length,curr_outline));
+    curr_outline_reduced = reducepoly(curr_outline{curr_outline_idx});
+    plot(ccf_axes(curr_view), ...
+        curr_outline_reduced(:,2), ...
+        curr_outline_reduced(:,1),'k','linewidth',2);
     % (draw 1mm scalebar)
     %     line(ccf_axes(curr_view),[0,0],[0,100],'color','k','linewidth',2);
 end
