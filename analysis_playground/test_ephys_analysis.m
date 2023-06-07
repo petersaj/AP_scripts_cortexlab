@@ -1791,6 +1791,7 @@ rf_map = nan(nY,nX,max(spike_templates));
 for curr_template = unique(spike_templates)'
     [rf_map(:,:,curr_template),stats] = sparseNoiseRF(spike_times_timeline(spike_templates == curr_template), ...
         vertcat(stim_times_grid{:}),vertcat(stim_positions{:}),params);
+    AP_print_progress_fraction(curr_template,max(unique(spike_templates)));
 end
 
 disp('done')
@@ -1824,7 +1825,7 @@ params.makePlots = false;
 params.useSVD = false;
 params.countWindow = [0.05,0.1];
 use_spikes = spike_times_timeline(ismember(spike_templates, ...
-    find(template_depths > 0 & template_depths < 2800)));
+    find(template_depths > 2500 & template_depths < 3000)));
 % use_spikes = spike_times_timeline(aligned_str_depth_group == 2);
 [rf_map,stats] = sparseNoiseRF(use_spikes, ...
     vertcat(stim_times_grid{:}),vertcat(stim_positions{:}),params);
