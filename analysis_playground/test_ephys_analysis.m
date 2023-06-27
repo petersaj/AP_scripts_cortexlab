@@ -1823,9 +1823,9 @@ rf_map_smooth = imfilter(rf_map,gauss_filt);
 params = struct;
 params.makePlots = false;
 params.useSVD = false;
-params.countWindow = [0.05,0.1];
+params.countWindow = [0.05,0.15];
 use_spikes = spike_times_timeline(ismember(spike_templates, ...
-    find(template_depths > 2500 & template_depths < 3000)));
+    find(template_depths > 1500 & template_depths < 2300)));
 % use_spikes = spike_times_timeline(aligned_str_depth_group == 2);
 [rf_map,stats] = sparseNoiseRF(use_spikes, ...
     vertcat(stim_times_grid{:}),vertcat(stim_positions{:}),params);
@@ -1833,7 +1833,7 @@ figure;imagesc(rf_map);axis image off;
 
 % Get stim-triggered MUA average for each stimulus
 use_spikes = spike_times_timeline(ismember(spike_templates, ...
-    find(template_depths > 2800 & template_depths < 3500)));
+    find(template_depths > 1500 & template_depths < 2300)));
 % use_spikes = spike_times_timeline(ismember(spike_templates, ...
 %     find(template_depths > 0 & template_depths < 1500)) &...
 %     ismember(spike_templates,find(msn)));

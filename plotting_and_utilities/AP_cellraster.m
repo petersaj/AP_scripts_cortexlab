@@ -352,7 +352,7 @@ elseif length(gui_data.curr_unit) > 1
     set(gui_data.raster_image,'XData',gui_data.t,'YData', ...
         1:size(gui_data.t_peri_event,1),'CData',raster_heatmap);
     caxis(get(gui_data.raster_image,'Parent'),prctile(raster_heatmap(:),[0,100]));
-    
+    axis(get(gui_data.raster_image,'Parent'),'tight');
 end
 
 % Plot template amplitude over whole experiment
