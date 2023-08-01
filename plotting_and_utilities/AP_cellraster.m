@@ -79,16 +79,39 @@ catch me
     error(['Ephys variable missing from base workspace: ' cell2mat(missing_var{:})]);
 end
 
+% Pull regions from base workspace, if available
+try
+    probe_areas = evalin('base','probe_positions.probe_areas{1}');
+catch me
+end
+
 % Sort the units by depth if not specified
 if ~exist('unit_sort','var')
    [~,unit_sort] = sort(template_depths); 
 end
 
 % Initialize figure and axes
-cellraster_gui = figure('color','w');
+cellraster_gui = figure('color','w','units','normalized','position',[0.2,0.1,0.5,0.8]);
+t = tiledlayout(cellraster_gui,6,8,'TileSpacing','tight');
 
 % (plot unit depths by depth and relative number of spikes)
-unit_axes = subplot(5,5,[1:5:20],'YDir','reverse');
+area_axes = nexttile([5,1]);
+if exist('probe_areas','var')
+    probe_areas_rgb = permute(cell2mat(cellfun(@(x) hex2dec({x(1:2),x(3:4),x(5:6)})'./255, ...
+        probe_areas.color_hex_triplet,'uni',false)),[1,3,2]);
+
+    probe_area_boundaries = find(diff([NaN;probe_areas.atlas_id;NaN]) ~= 0);
+    probe_area_centers_idx = probe_area_boundaries(1:end-1) + floor(diff(probe_area_boundaries)/2);
+    probe_areas_label = probe_areas.acronym(probe_area_centers_idx,:);
+
+    image(area_axes,probe_areas_rgb);
+    yline(probe_area_boundaries,'color','k','linewidth',1);
+    set(area_axes,'YTick',probe_area_centers_idx,'YTickLabels',probe_areas_label);
+end
+
+% (plot unit depths by depth and relative number of spikes)
+unit_axes = nexttile([5,2]);
+set(unit_axes,'YDir','reverse');
 hold on;
 
 norm_spike_n = mat2gray(log10(accumarray(spike_templates,1)+1));
@@ -101,14 +124,15 @@ ylabel('Depth (\mum)')
 xlabel('Normalized log rate')
 
 % (plot of waveform across the probe)
-waveform_axes = subplot(5,5,[2:5:20],'visible','off','YDir','reverse');
+waveform_axes =  nexttile([5,1]);
+set(waveform_axes,'visible','off','YDir','reverse');
 hold on;
 ylim([-50, max(channel_positions(:,2))+50]);
 waveform_lines = arrayfun(@(x) plot(waveform_axes,0,0,'k','linewidth',1),1:size(templates,3));
-% linkaxes([unit_axes,waveform_axes],'y');
 
 % (smoothed psth)
-psth_axes = subplot(5,5,[3,4,5],'YAxisLocation','right');
+psth_axes = nexttile([1,4]);
+set(psth_axes,'YAxisLocation','right');
 hold on;
 max_n_groups = max(cell2mat(cellfun(@(x) 1+sum(diff(sort(x,1),[],1) ~= 0),align_groups,'uni',false)));
 psth_lines = arrayfun(@(x) plot(NaN,NaN,'linewidth',2,'color','k'),1:max_n_groups);
@@ -116,7 +140,8 @@ xlabel('Time from event (s)');
 ylabel('Spikes/s/trial');
 
 % (raster)
-raster_axes = subplot(5,5,[8,9,10,13,14,15,18,19,20],'YDir','reverse','YAxisLocation','right');
+raster_axes = nexttile([4,4]);
+set(raster_axes,'YDir','reverse','YAxisLocation','right');
 hold on;
 raster_dots = scatter(NaN,NaN,5,'k','filled');
 raster_image = imagesc(NaN,'visible','off'); colormap(raster_axes,hot);
@@ -124,9 +149,9 @@ xlabel('Time from event (s)');
 ylabel('Trial');
 
 % (spike amplitude across the recording)
-amplitude_axes = subplot(5,5,21:25); hold on;
+amplitude_axes = nexttile([1,8]); hold on;
 amplitude_plot = plot(NaN,NaN,'.k');
-amplitude_lines = arrayfun(@(x) line([0,0],ylim,'linewidth',2),1:2);
+amplitude_lines = xline(amplitude_axes,[0,0],'linewidth',2,'color','r');
 xlabel('Experiment time (s)');
 ylabel('Template amplitude');
 axis tight
@@ -370,9 +395,7 @@ elseif length(gui_data.curr_unit) > 1
     set(gui_data.amplitude_plot,'XData',long_bins_t,'YData',amplitude_binned,'linestyle','-');
 end
 
-[ymin,ymax] = bounds(get(gui_data.amplitude_plot,'YData'));
-set(gui_data.amplitude_lines(1),'XData',repmat(min(gui_data.t_peri_event(:)),2,1),'YData',[ymin,ymax]);
-set(gui_data.amplitude_lines(2),'XData',repmat(max(gui_data.t_peri_event(:)),2,1),'YData',[ymin,ymax]);
+[gui_data.amplitude_lines.Value] = deal(min(gui_data.t_peri_event(:)),max(gui_data.t_peri_event(:)));
 
 end
 
@@ -461,7 +484,27 @@ switch eventdata.Key
             error(['Unit ' num2str(new_unit) ' not present'])
         end
         gui_data.curr_unit = new_unit;
-        
+
+    case 't'
+        % Change time
+        raster_window = str2num(cell2mat(inputdlg('Peri-event times:')));
+
+        % Create new bin times
+        psth_bin_size = 0.001;
+        t_bins = raster_window(1):psth_bin_size:raster_window(2);
+        t = t_bins(1:end-1) + diff(t_bins)./2;
+
+        use_align = reshape(gui_data.align_times{gui_data.curr_align},[],1);
+        t_peri_event = use_align + t_bins;
+
+        % (handle NaNs by setting rows with NaN times to 0)
+        t_peri_event(any(isnan(t_peri_event),2),:) = 0;
+
+        % Set new bin times
+        gui_data.t = t;
+        gui_data.t_bins = t_bins;
+        gui_data.t_peri_event = t_peri_event;
+
 end
 
 % Upload gui data and draw

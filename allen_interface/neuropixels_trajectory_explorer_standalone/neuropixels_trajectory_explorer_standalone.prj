@@ -1,5 +1,5 @@
 <deployment-project plugin="plugin.ezdeploy" plugin-version="1.0">
-  <configuration build-checksum="2272777118" file="C:\Github\AP_scripts_cortexlab\allen_interface\neuropixels_trajectory_explorer_standalone\neuropixels_trajectory_explorer_standalone.prj" location="C:\Github\AP_scripts_cortexlab\allen_interface\neuropixels_trajectory_explorer_standalone" name="neuropixels_trajectory_explorer_standalone" preferred-package-location="C:\Github\AP_scripts_cortexlab\allen_interface\neuropixels_trajectory_explorer_standalone\neuropixels_trajectory_explorer_standalone\for_redistribution" preferred-package-type="package.type.exe" target="target.ezdeploy.standalone" target-name="Application Compiler">
+  <configuration build-checksum="905482034" file="C:\Github\AP_scripts_cortexlab\allen_interface\neuropixels_trajectory_explorer_standalone\neuropixels_trajectory_explorer_standalone.prj" location="C:\Github\AP_scripts_cortexlab\allen_interface\neuropixels_trajectory_explorer_standalone" name="neuropixels_trajectory_explorer_standalone" preferred-package-location="C:\Github\AP_scripts_cortexlab\allen_interface\neuropixels_trajectory_explorer_standalone\neuropixels_trajectory_explorer_standalone\for_redistribution" preferred-package-type="package.type.exe" target="target.ezdeploy.standalone" target-name="Application Compiler">
     <param.appname>neuropixels_trajectory_explorer</param.appname>
     <param.icon>${PROJECT_ROOT}\neuropixels_trajectory_explorer_standalone_resources\icon.ico</param.icon>
     <param.icons>
@@ -82,7 +82,7 @@
     </fileset.main>
     <fileset.resources>
       <file>${PROJECT_ROOT}\nte_paths.mat</file>
-      <file>C:\Github\neuropixels_trajectory_explorer\nte_helpers\NstMpmClientAccess.dll</file>
+      <file>C:\Github\neuropixels_trajectory_explorer\nte_helpers</file>
     </fileset.resources>
     <fileset.package />
     <fileset.depfun>

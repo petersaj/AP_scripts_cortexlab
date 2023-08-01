@@ -45,6 +45,9 @@ if ~exist('color','var') || isempty(color)
     end
     color_idx = mod(child_type_max_n+[1:size(y,2)]-1,size(ax_color_order,1))+1;
     color = ax_color_order(color_idx,:);
+elseif size(color,1) == 1 && size(y,2) > 1
+    % If only one color specified, replicate for every line
+    color = repmat(color,size(y,2),1);
 end
 
 if ~exist('alpha','var') || isempty(alpha)

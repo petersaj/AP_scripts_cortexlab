@@ -11,21 +11,22 @@ st = loadStructureTree([allen_atlas_path filesep 'structure_tree_safe_2017.csv']
 %% Set up axes, plot brain outline
 
 figure('Color','w');
+h = tiledlayout('flow','Tilespacing','none');
 
 % Set up 2D axes
-ccf_axes = gobjects(3,1);
-ccf_axes(1) = subplot(1,4,1,'YDir','reverse');
-hold on; axis image off;
-ccf_axes(2) = subplot(1,4,2,'YDir','reverse');
-hold on; axis image off;
-ccf_axes(3) = subplot(1,4,3,'YDir','reverse');
-hold on; axis image off;
+ccf_axes(1) = nexttile;
+ccf_axes(2) = nexttile;
+ccf_axes(3) = nexttile;
+
+set(ccf_axes,'YDir','reverse')
+axis(ccf_axes,'equal','off')
+hold(ccf_axes,'on');
 
 % Set up 3D axes
-ccf_3d_axes = subplot(1,4,4);
+ccf_3d_axes = nexttile;
 set(ccf_3d_axes,'ZDir','reverse');
 hold(ccf_3d_axes,'on');
-axis vis3d equal off manual
+axis(ccf_3d_axes,'vis3d','equal','off','manual');
 view([-30,25]);
 axis tight;
 h = rotate3d(ccf_3d_axes);
@@ -60,7 +61,7 @@ brain_outline = patch( ...
     ccf_3d_axes, ...
     'Vertices',brain_outline_patchdata.vertices*slice_spacing, ...
     'Faces',brain_outline_patchdata.faces, ...
-    'FaceColor',[0.8,0.5,0.5],'EdgeColor','none','FaceAlpha',0.1);
+    'FaceColor',[0.7,0.7,0.7],'EdgeColor','none','FaceAlpha',0.1);
 
 %% Get area in search, draw
 
@@ -104,8 +105,8 @@ patch(ccf_3d_axes, ...
 
 probe_color = 'r';
 
-probe_ccf_fn = uigetfile('*.mat','Pick probe histology file');
-load(probe_ccf_fn);
+[probe_ccf_file,probe_ccf_path] = uigetfile('*.mat','Pick probe histology file');
+load(fullfile(probe_ccf_path,probe_ccf_file));
 
 % Loop through probes and draw
 for curr_probe = 1:length(probe_ccf)
@@ -136,13 +137,55 @@ for curr_probe = 1:length(probe_ccf)
 
     % Draw probes on coronal + saggital
     line(ccf_axes(1),probe_line(:,3),probe_line(:,2),'linewidth',2,'color',probe_color);
+    line(ccf_axes(2),probe_line(:,3),probe_line(:,1),'linewidth',2,'color',probe_color);
     line(ccf_axes(3),probe_line(:,2),probe_line(:,1),'linewidth',2,'color',probe_color);
 
-    % Draw probe mean on horizontal
-    plot(ccf_axes(2), probe_coords_mean(:,3),probe_coords_mean(:,1), ...
+    % Draw probe start/end on horizontal
+    plot(ccf_axes(2), probe_line(1,3),probe_line(1,1), ...
+        'o','MarkerSize',5,'color',probe_color);
+    plot(ccf_axes(2), probe_line(end,3),probe_line(end,1), ...
         '.','MarkerSize',20,'color',probe_color);
 
 end
+
+%% Draw probes (from Neuropixels Trajectory Explorer)
+
+probe_color = 'b';
+
+[probe_ccf_file,probe_ccf_path] = uigetfile('*.mat','Pick probe NTE file');
+load(fullfile(probe_ccf_path,probe_ccf_file));
+
+% Loop through probes and draw
+for curr_probe = 1:length(probe_positions_ccf)
+
+    % Probe line is directly stored
+    probe_line = probe_positions_ccf{curr_probe}';
+
+    % Draw probe in 3D view
+    line(ccf_3d_axes,probe_line(:,1),probe_line(:,3),probe_line(:,2), ...
+        'linewidth',2,'color',probe_color)
+
+    % Draw probes on coronal + saggital
+    line(ccf_axes(1),probe_line(:,3),probe_line(:,2),'linewidth',2,'color',probe_color);
+    line(ccf_axes(2),probe_line(:,3),probe_line(:,1),'linewidth',2,'color',probe_color);
+    line(ccf_axes(3),probe_line(:,2),probe_line(:,1),'linewidth',2,'color',probe_color);
+
+    % Draw probe start/end on horizontal
+    plot(ccf_axes(2), probe_line(1,3),probe_line(1,1), ...
+        'o','MarkerSize',5,'color',probe_color);
+    plot(ccf_axes(2), probe_line(end,3),probe_line(end,1), ...
+        '.','MarkerSize',20,'color',probe_color);
+
+end
+
+
+
+
+
+
+
+
+
 
 
 
