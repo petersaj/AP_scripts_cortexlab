@@ -12,7 +12,7 @@ function AP_cellraster(align_times,align_groups,unit_sort)
 % channel_positions (output from kilosort)
 % template_depths (calculated from center-of-mass or otherwise)
 % spike_times_timeline (spike_times aligned to timeline)
-% spike_templates (output from kilosort)
+% spike_templates (output from kilosort+1)
 % template_amplitudes (output from kilosort)
 %
 % Controls: 
@@ -92,7 +92,7 @@ end
 
 % Initialize figure and axes
 cellraster_gui = figure('color','w','units','normalized','position',[0.2,0.1,0.5,0.8]);
-t = tiledlayout(cellraster_gui,6,8,'TileSpacing','tight');
+tiledlayout(cellraster_gui,6,8,'TileSpacing','tight');
 
 % (plot unit depths by depth and relative number of spikes)
 area_axes = nexttile([5,1]);
@@ -114,7 +114,7 @@ unit_axes = nexttile([5,2]);
 set(unit_axes,'YDir','reverse');
 hold on;
 
-norm_spike_n = mat2gray(log10(accumarray(spike_templates,1)+1));
+norm_spike_n = mat2gray(log10(accumarray(findgroups(spike_templates),1)+1));
 unit_dots = plot(norm_spike_n,template_depths,'.k','MarkerSize',20,'ButtonDownFcn',@unit_click);
 curr_unit_dots = plot(0,0,'.r','MarkerSize',20);
 multiunit_lines = arrayfun(@(x) line(xlim,[0,0],'linewidth',2,'visible','off'),1:2);
@@ -200,6 +200,7 @@ gui_data.channel_positions = channel_positions;
 gui_data.spike_times = spike_times;
 gui_data.spike_templates = spike_templates;
 gui_data.template_amplitudes = template_amplitudes;
+gui_data.template_id = unique(spike_templates);
 
 % (current settings)
 gui_data.curr_unit = unit_sort(1);
@@ -217,6 +218,9 @@ function update_plot(cellraster_gui,eventdata)
 
 % Get guidata
 gui_data = guidata(cellraster_gui);
+
+% Get template ID of clicked unit
+curr_template = gui_data.template_id(gui_data.curr_unit);
 
 % Turn on/off the appropriate graphics
 if length(gui_data.curr_unit) == 1
@@ -262,7 +266,7 @@ elseif length(gui_data.curr_unit) > 1
 end
 
 % Bin spikes (use only spikes within time range, big speed-up)
-curr_spikes_idx = ismember(gui_data.spike_templates,gui_data.curr_unit);
+curr_spikes_idx = ismember(gui_data.spike_templates,curr_template);
 curr_raster_spike_times = gui_data.spike_times(curr_spikes_idx);
 curr_raster_spike_times(curr_raster_spike_times < min(gui_data.t_peri_event(:)) | ...
     curr_raster_spike_times > max(gui_data.t_peri_event(:))) = [];
@@ -331,7 +335,7 @@ ylim(get(gui_data.psth_lines(1),'Parent'),[min(curr_smoothed_psth(:)), ...
     max(max(curr_smoothed_psth(:),min(curr_smoothed_psth(:))+1))]);
 if length(gui_data.curr_unit) == 1
 title(get(gui_data.psth_lines(1),'Parent'), ...
-    ['Unit ' num2str(gui_data.curr_unit) ...
+    ['Unit ' num2str(curr_template) ...
     ', Align ' num2str(gui_data.curr_align) ...
     ', Group ' num2str(gui_data.curr_group)],'FontSize',14);
 elseif length(gui_data.curr_unit) > 1
@@ -482,8 +486,9 @@ switch eventdata.Key
         new_unit = str2num(cell2mat(inputdlg('Go to unit:')));
         if ~ismember(new_unit,unique(gui_data.spike_templates))
             error(['Unit ' num2str(new_unit) ' not present'])
+        else
+            gui_data.curr_unit = find(gui_data.template_id == new_unit);
         end
-        gui_data.curr_unit = new_unit;
 
     case 't'
         % Change time
