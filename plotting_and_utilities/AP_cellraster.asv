@@ -471,8 +471,7 @@ switch eventdata.Key
         set(gui_data.multiunit_lines(2),'visible','on','YData',repmat(multiunit_bottom,1,2));
         
         template_depths = get(gui_data.unit_dots,'YData');
-        template_id = get(gui_data.unit_dots,'ZData');
-        gui_data.curr_unit = template_id(template_depths >= multiunit_top & ...
+        gui_data.curr_unit = find(template_depths >= multiunit_top & ...
             template_depths <= multiunit_bottom);       
         
     case 'u'
@@ -523,7 +522,7 @@ unit_y = get(gui_data.unit_dots,'YData');
     eventdata.IntersectionPoint(1:2)').^2,1)));
 
 template_id = get(gui_data.unit_dots,'ZData');
-clicked_unit = template_id(clicked_dot);
+curr_unit = 
 
 gui_data.curr_unit = clicked_unit;
 
