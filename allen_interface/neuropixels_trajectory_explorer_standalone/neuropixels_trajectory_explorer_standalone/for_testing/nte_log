@@ -6,5 +6,5 @@ MATLAB:mpath:PathAlterationNotSupported
 Modifying the search path is not supported by MATLAB Compiler. Remove functions that modify the search path from your MATLAB code. To make files visible to your deployed application, add the parent folder to your MATLAB session.
 Error while evaluating TimerFcn for timer 'timer-1'
 
-Invalid or deleted object.
+Object must be a figure or one of its child objects.
 Warning: You are deleting one or more running timer objects. MATLAB has automatically stopped them before deletion.
