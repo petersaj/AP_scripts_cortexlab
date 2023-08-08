@@ -222,9 +222,10 @@ elseif length(gui_data.curr_unit) > 1
     set(gui_data.raster_image,'visible','on');
 end
 
-% Set color on unit dots
+% Set color and size on unit dots
 curr_unit_unique_idx = ismember(unique(gui_data.spike_templates),gui_data.curr_unit);
 gui_data.unit_dots.CData = zeros(length(curr_unit_unique_idx),3) + [1,0,0].*curr_unit_unique_idx;
+gui_data.unit_dots.SizeData = 20*ones(size(curr_unit_unique_idx)) + 50*curr_unit_unique_idx;
 
 % Plot waveform across probe (reversed YDir, flip Y axis and plot depth)
 template_xscale = 3;
@@ -480,6 +481,8 @@ switch eventdata.Key
         new_unit = str2num(cell2mat(inputdlg('Go to unit:')));
         if ~ismember(new_unit,unique(gui_data.spike_templates))
             error(['Unit ' num2str(new_unit) ' not present'])
+        else
+            gui_data.curr_unit = new_unit;
         end
 
     case 't'
