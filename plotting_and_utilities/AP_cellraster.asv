@@ -253,9 +253,12 @@ if length(gui_data.curr_unit) == 1
 
 else
     % (multiunit: plot max channel superimposed)
-    template_y = -cell2mat(arrayfun(@(x) ...
+
+    gui_data.templates(gui_data.curr_unit,:,template_plot_channels)
+
+    template_y = cell2mat(arrayfun(@(x) ...
         gui_data.templates(gui_data.curr_unit(x),:,max_channel(x)'), ...
-        1:length(gui_data.curr_unit),'UniformOutput',false)')';% offset? + (1:length(gui_data.curr_unit))*10;
+        1:length(gui_data.curr_unit),'UniformOutput',false)')';
     template_x = repmat((1:size(gui_data.templates,2))',1,length(gui_data.curr_unit));
 
 end
@@ -263,7 +266,7 @@ end
 set(gui_data.waveform_lines, ...
     'XData',reshape(padarray(template_x,[1,0],NaN,'post'),[],1), ...
     'YData',reshape(padarray(template_y,[1,0],NaN,'post'),[],1));
-axis(get(gui_data.waveform_lines(1),'Parent'),'tight')
+axis(get(gui_data.waveform_lines(1)tight)
 
 % Bin spikes (use only spikes within time range, big speed-up)
 curr_spikes_idx = ismember(gui_data.spike_templates,gui_data.curr_unit);
