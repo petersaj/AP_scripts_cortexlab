@@ -97,17 +97,18 @@ if exist('probe_areas','var')
     probe_areas_rgb = permute(cell2mat(cellfun(@(x) hex2dec({x(1:2),x(3:4),x(5:6)})'./255, ...
         probe_areas.color_hex_triplet,'uni',false)),[1,3,2]);
 
-    probe_area_boundaries = find(diff([NaN;probe_areas.atlas_id;NaN]) ~= 0);
-    probe_area_centers_idx = probe_area_boundaries(1:end-1) + floor(diff(probe_area_boundaries)/2);
-    probe_areas_label = probe_areas.acronym(probe_area_centers_idx,:);
+    probe_areas_boundaries = probe_areas.probe_depth*1000; % (convert mm to um)
+    probe_areas_centers = mean(probe_areas_boundaries,2);
 
-    probe_depth_um = (1:size(probe_areas_rgb,1))*10;
-    probe_area_boundaries_um = probe_area_boundaries*10;
-    probe_area_centers_um = probe_area_centers_idx*10;
+    probe_areas_image_depth = 0:1:max(probe_areas_boundaries,[],'all');
+    probe_areas_image_idx = interp1(probe_areas_boundaries(:,1), ...
+        1:height(probe_areas),probe_areas_image_depth, ...
+        'previous','extrap');
+    probe_areas_image = probe_areas_rgb(probe_areas_image_idx,:,:);
 
-    image(unit_axes,[0,1],probe_depth_um,probe_areas_rgb);
-    yline(probe_area_boundaries_um,'color','k','linewidth',1);
-    set(unit_axes,'YTick',probe_area_centers_um,'YTickLabels',probe_areas_label);
+    image(unit_axes,[0,1],probe_areas_image_depth,probe_areas_image);
+    yline(unique(probe_areas_boundaries(:)),'color','k','linewidth',1);
+    set(unit_axes,'YTick',probe_areas_centers,'YTickLabels',probe_areas.acronym);
 end
 
 % (plot unit depths by depth and relative number of spikes)
