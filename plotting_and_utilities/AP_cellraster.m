@@ -80,7 +80,7 @@ end
 
 % Pull regions from base workspace, if available
 try
-    probe_areas = evalin('base','probe_positions.probe_areas{1}');
+    probe_areas = evalin('base','probe_areas{1}');
 catch me
 end
 
@@ -97,7 +97,7 @@ if exist('probe_areas','var')
     probe_areas_rgb = permute(cell2mat(cellfun(@(x) hex2dec({x(1:2),x(3:4),x(5:6)})'./255, ...
         probe_areas.color_hex_triplet,'uni',false)),[1,3,2]);
 
-    probe_areas_boundaries = probe_areas.probe_depth*1000; % (convert mm to um)
+    probe_areas_boundaries = probe_areas.probe_depth;
     probe_areas_centers = mean(probe_areas_boundaries,2);
 
     probe_areas_image_depth = 0:1:max(probe_areas_boundaries,[],'all');
@@ -235,31 +235,19 @@ template_yscale = 0.5;
 template_n_surround_plot = 5; % plot N channels around max
 
 [~,max_channel] = max(max(abs(gui_data.templates(gui_data.curr_unit,:,:)),[],2),[],3);
+center_channel = round(median(max_channel));
+template_plot_channels = [-template_n_surround_plot:template_n_surround_plot] + round(median(center_channel));
 
-if length(gui_data.curr_unit) == 1
-    % (single unit: plot waveform across channels)
-    template_plot_channels = [-template_n_surround_plot:template_n_surround_plot] + max_channel;
+template_y = permute(-gui_data.templates(gui_data.curr_unit,:,template_plot_channels) ...
+    *template_yscale + permute(gui_data.channel_positions(template_plot_channels,2),[3,2,1]),[2,3,1]);
+template_x = repmat((1:size(gui_data.templates,2))' + ...
+    gui_data.channel_positions(template_plot_channels,1)'*template_xscale,[1,1,length(gui_data.curr_unit)]);
+set(gui_data.waveform_lines, ...
+    'XData',reshape(padarray(template_x,[1,0],NaN,'post'),[],1), ...
+    'YData',reshape(padarray(template_y,[1,0],NaN,'post'),[],1));
 
-    template_y = squeeze(-gui_data.templates(gui_data.curr_unit,:,template_plot_channels)) ...
-        *template_yscale + gui_data.channel_positions(template_plot_channels,2)';
-    template_x = (1:size(gui_data.templates,2))' + ...
-        gui_data.channel_positions(template_plot_channels,1)'*template_xscale;
-
-    set(gui_data.waveform_lines, ...
-        'XData',reshape(padarray(template_x,[1,0],NaN,'post'),[],1), ...
-        'YData',reshape(padarray(template_y,[1,0],NaN,'post'),[],1));
-
-    yrange = range(gui_data.channel_positions(:,2))*0.03.*[-1,1];
-    ylim(get(gui_data.waveform_lines,'Parent'),[gui_data.channel_positions(max_channel,2) + yrange]);
-
-else
-    % (multiunit: plot max channel superimposed)
-    template_y = -cell2mat(arrayfun(@(x) ...
-        gui_data.templates(gui_data.curr_unit(x),:,max_channel(x)'), ...
-        1:length(gui_data.curr_unit),'UniformOutput',false)')';% offset? + (1:length(gui_data.curr_unit))*10;
-    template_x = repmat((1:size(gui_data.templates,2))',1,length(gui_data.curr_unit));
-
-end
+yrange = range(gui_data.channel_positions(:,2))*0.03.*[-1,1];
+ylim(get(gui_data.waveform_lines,'Parent'),[gui_data.channel_positions(center_channel,2) + yrange]);
 
 set(gui_data.waveform_lines, ...
     'XData',reshape(padarray(template_x,[1,0],NaN,'post'),[],1), ...
@@ -328,13 +316,6 @@ cla(gui_data.psth_axes);
 set(gui_data.psth_axes,'ColorOrder',group_colors);
 plot(gui_data.psth_axes,gui_data.t,curr_smoothed_psth','linewidth',2);
 
-% arrayfun(@(align_group) set(gui_data.psth_lines(align_group), ...
-%     'XData',gui_data.t,'YData',curr_smoothed_psth(align_group,:), ...
-%     'Color',group_colors(align_group,:)),1:size(curr_psth,1));
-% arrayfun(@(align_group) set(gui_data.psth_lines(align_group), ...
-%     'XData',NaN,'YData',NaN), ...
-%     size(curr_psth,1)+1:length(gui_data.psth_lines));
-
 ylim(gui_data.psth_axes,[min(curr_smoothed_psth(:)), ...
     max(max(curr_smoothed_psth(:),min(curr_smoothed_psth(:))+1))]);
 if length(gui_data.curr_unit) == 1
@@ -369,8 +350,6 @@ if length(gui_data.curr_unit) == 1
     ylim(get(gui_data.raster_dots,'Parent'),[0,size(gui_data.t_peri_event,1)]);
     
     % (set dot color by group)
-    % (this was for unsorted trials)
-%     [~,~,row_group] = unique(curr_group,'sorted');
     [~,~,row_group] = unique(curr_group(trial_sort),'sorted');
     raster_dot_color = group_colors(row_group(raster_y),:);
     set(gui_data.raster_dots,'CData',raster_dot_color);
