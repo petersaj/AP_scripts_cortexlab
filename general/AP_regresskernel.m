@@ -35,7 +35,7 @@ function [k,predicted_signals,explained_var,predicted_signals_reduced] = ...
 % The GPU is by default set to time out quickly if it can't update the
 % monitor because it's busy. If there is a GPU error, this time (TDR) can be
 % extended by adding a registry key: regedit, HKEY_LOCAL_MACHINE > SYSTEM >
-% CurrentControlSet > Control > GraphicsDrivers, add new REG_DWORD called
+% CurrentControlSet > Control > GraphicsDrivers, add new DWORD (32bit Value) called
 % "TdrDelay" and having a value of something like 30 (seconds)
 
 % Use no temporal delay if none specified
