@@ -399,6 +399,9 @@ switch eventdata.Key
         [~,depth_sort_idx] = sort(template_depths);
         curr_unit_depth = template_depths(gui_data.curr_unit(1) == template_id);       
         new_unit = template_id(depth_sort_idx(find(template_depths(depth_sort_idx) > curr_unit_depth,1)));
+        if isempty(new_unit)
+            new_unit = depth_sort_idx(end);
+        end
         gui_data.curr_unit = new_unit;
         
     case 'uparrow'
@@ -408,6 +411,9 @@ switch eventdata.Key
         [~,depth_sort_idx] = sort(template_depths);
         curr_unit_depth = template_depths(gui_data.curr_unit(1) == template_id);       
         new_unit = template_id(depth_sort_idx(find(template_depths(depth_sort_idx) < curr_unit_depth,1,'last')));
+        if isempty(new_unit)
+            new_unit = depth_sort_idx(1);
+        end
         gui_data.curr_unit = new_unit;
         
     case 'rightarrow'
