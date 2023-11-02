@@ -192,7 +192,7 @@ cv_partition(predictable_samples) = min(floor(linspace(1,cvfold+1,sum(predictabl
 % (NOT VALID FOR TIME SERIES - but necessary if not)
 % cv_partition(predictable_samples) = AP_shake(round(linspace(1,cvfold,sum(predictable_samples)))');
 
-k_cv = nan(size(regressors_gpu,2),size(signals,1),cvfold,'single');
+k_cv = nan(size(regressors_gpu,2),size(signals,1),cvfold,'double');
 predicted_signals = nan(size(signals));
 predicted_signals_reduced = nan(size(signals,1),size(signals,2),length(regressors));
 predicted_signals_partial = nan(size(signals,1),size(signals,2),length(regressors),2);
