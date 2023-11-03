@@ -397,15 +397,25 @@ switch eventdata.Key
         template_depths = get(gui_data.unit_dots,'YData');
         template_id = get(gui_data.unit_dots,'ZData');
         depth_sort = sortrows([template_depths',template_id'],1);
-        new_unit = depth_sort(circshift(ismember(depth_sort(:,2),gui_data.curr_unit),1),2);
+
+        [~,depth_sort_idx] = sort(template_depths);
+        curr_unit_depth = template_depths(gui_data.curr_unit(1) == template_id);       
+        new_unit = template_id(depth_sort_idx(find(template_depths(depth_sort_idx) > curr_unit_depth,1)));
+        if isempty(new_unit)
+            new_unit = depth_sort_idx(end);
+        end
         gui_data.curr_unit = new_unit;
         
     case 'uparrow'
         % One unit up
         template_depths = get(gui_data.unit_dots,'YData');
         template_id = get(gui_data.unit_dots,'ZData');
-        depth_sort = sortrows([template_depths',template_id'],1);
-        new_unit = depth_sort(circshift(ismember(depth_sort(:,2),gui_data.curr_unit),-1),2);
+        [~,depth_sort_idx] = sort(template_depths);
+        curr_unit_depth = template_depths(gui_data.curr_unit(1) == template_id);       
+        new_unit = template_id(depth_sort_idx(find(template_depths(depth_sort_idx) < curr_unit_depth,1,'last')));
+        if isempty(new_unit)
+            new_unit = depth_sort_idx(1);
+        end
         gui_data.curr_unit = new_unit;
         
     case 'rightarrow'
