@@ -116,7 +116,6 @@ norm_spike_n = mat2gray(log10(accumarray(findgroups(spike_templates),1)+1));
 unit_dots = scatter3( ...
     norm_spike_n,template_depths(unique(spike_templates)), ...
     unique(spike_templates),20,'k','filled','ButtonDownFcn',@unit_click);
-multiunit_lines = arrayfun(@(x) line(xlim,[0,0],'linewidth',2,'visible','off'),1:2);
 xlim(unit_axes,[-0.1,1]);
 ylim([-50, max(channel_positions(:,2))+50]);
 ylabel('Depth (\mum)')
@@ -171,7 +170,6 @@ gui_data = struct;
 
 % (plots)
 gui_data.unit_dots = unit_dots;
-gui_data.multiunit_lines = multiunit_lines;
 gui_data.waveform_lines = waveform_lines;
 gui_data.psth_axes = psth_axes;
 gui_data.raster_axes = raster_axes;
@@ -216,11 +214,9 @@ gui_data = guidata(cellraster_gui);
 % Turn on/off the appropriate graphics
 if length(gui_data.curr_unit) == 1
     set(gui_data.raster_dots,'visible','on');
-    set(gui_data.multiunit_lines,'visible','off');
     set(gui_data.raster_image,'visible','off');
 elseif length(gui_data.curr_unit) > 1
     set(gui_data.raster_dots,'visible','off');
-    set(gui_data.multiunit_lines,'visible','on');
     set(gui_data.raster_image,'visible','on');
 end
 
@@ -459,9 +455,7 @@ switch eventdata.Key
     case 'm'
         % Multiunit (select on unit depth plot)
         [~,multiunit_top] = ginput(1);
-        set(gui_data.multiunit_lines(1),'visible','on','YData',repmat(multiunit_top,1,2));
         [~,multiunit_bottom] = ginput(1);
-        set(gui_data.multiunit_lines(2),'visible','on','YData',repmat(multiunit_bottom,1,2));
         
         template_depths = get(gui_data.unit_dots,'YData');
         template_id = get(gui_data.unit_dots,'ZData');
@@ -502,6 +496,7 @@ end
 % Upload gui data and draw
 guidata(cellraster_gui,gui_data);
 update_plot(cellraster_gui);
+drawnow;
         
 end
 
