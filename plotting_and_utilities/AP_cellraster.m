@@ -233,7 +233,8 @@ template_n_surround_plot = 5; % plot N channels around max
 [~,max_channel] = max(max(abs(gui_data.templates(gui_data.curr_unit,:,:)),[],2),[],3);
 center_channel = round(median(max_channel));
 template_plot_channels = [-template_n_surround_plot:template_n_surround_plot] + round(median(center_channel));
-template_plot_channels = template_plot_channels(template_plot_channels > 0);
+template_plot_channels = template_plot_channels(template_plot_channels > 0 & ...
+    template_plot_channels <= size(gui_data.channel_positions,1));
 
 template_y = permute(-gui_data.templates(gui_data.curr_unit,:,template_plot_channels) ...
     *template_yscale + permute(gui_data.channel_positions(template_plot_channels,2),[3,2,1]),[2,3,1]);
