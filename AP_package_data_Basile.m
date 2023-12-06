@@ -421,7 +421,7 @@ for curr_animal = animals
 
         % Get depth of each template
         % (get min-max range for each channel)
-        template_chan_amp = squeeze(range(templates,2));
+        template_chan_amp = squeeze(abs(diff(prctile(templates,[0,100],2),[],2)));
         % (zero-out low amplitude channels)
         template_chan_amp_thresh = max(template_chan_amp,[],2)*0.5;
         template_chan_amp_overthresh = template_chan_amp.*(template_chan_amp >= template_chan_amp_thresh);
@@ -468,43 +468,69 @@ for curr_animal = animals
         new_spike_idx(good_templates_idx+1) = 1:length(good_templates_idx);
         spike_templates = new_spike_idx(spike_templates_0idx+1);
 
-        %%%%%%%%% Get good single units from bombcell
+        %%%%%%%%% OLD: good units from manual (bombcell not run yet)
 
-        % JF code for loading good single units from bombcell
-        % unitType: 0 = noise, 1 = good, 2 = multiunit
-        curr_qmetrics_path = fullfile(curr_day_path,'ephys','qMetrics');
-        load(fullfile(curr_qmetrics_path, 'qMetric.mat'))
-        load(fullfile(curr_qmetrics_path, 'param.mat'))
-        clearvars unitType;
+         cluster_filepattern = [ephys_path filesep 'cluster_group*'];
+         cluster_filedir = dir(cluster_filepattern);
+         if ~isempty(cluster_filedir)
+             cluster_filename = [ephys_path filesep cluster_filedir.name];
+             fid = fopen(cluster_filename);
+             cluster_groups = textscan(fid,'%d%s','HeaderLines',1);
+             fclose(fid);
+         end
 
-        % DEFAULT CHANGE: eliminate amplitude cutoff
-        % (for one recording it got rid of almost all cells, and
-        % cells under amplitude cutoff still look good)
-        param.minAmplitude = 0;
 
-        % (classify good cells)
-        unitType = nan(length(qMetric.percSpikesMissing), 1);
-        unitType( ...
-            qMetric.nPeaks > param.maxNPeaks | ...
-            qMetric.nTroughs > param.maxNTroughs | ...
-            qMetric.somatic ~= param.somatic | ...
-            qMetric.spatialDecaySlope <=  param.minSpatialDecaySlope | ...
-            qMetric.waveformDuration < param.minWvDuration |...
-            qMetric.waveformDuration > param.maxWvDuration  | ...
-            qMetric.waveformBaseline >= param.maxWvBaselineFraction) = 0;
-        unitType( ...
-            any(qMetric.percSpikesMissing <= param.maxPercSpikesMissing, 2)' & ...
-            qMetric.nSpikes > param.minNumSpikes & ...
-            any(qMetric.Fp <= param.maxRPVviolations, 2)' & ...
-            qMetric.rawAmplitude > param.minAmplitude & isnan(unitType)') = 1;
-        unitType(isnan(unitType)') = 2;
+        % Check that all used spike templates have a label
+        spike_templates_0idx_unique = unique(spike_templates_0idx);
+        if ~all(ismember(spike_templates_0idx_unique,uint32(cluster_groups{1}))) || ...
+                ~all(ismember(cluster_groups{2},{'good','mua','noise'}))
+            warning([animal ' ' day ': not all templates labeled']);
+        end
+        
+        % Define good units from labels
+        good_templates_idx = uint32(cluster_groups{1}( ...
+            strcmp(cluster_groups{2},'good') | strcmp(cluster_groups{2},'mua')));
+        good_templates = ismember(0:size(templates,1)-1,good_templates_idx);        
 
-        % (some upwards waveforms not caught in .somatic? remove)
-        upward_waveforms = max(waveforms,[],2) > abs(min(waveforms,[],2));
+%         %%%%%%%%% Get good single units from bombcell
+% 
+%         % JF code for loading good single units from bombcell
+%         % unitType: 0 = noise, 1 = good, 2 = multiunit
+%         curr_qmetrics_path = fullfile(curr_day_path,'ephys','qMetrics');
+%         load(fullfile(curr_qmetrics_path, 'qMetric.mat'))
+%         load(fullfile(curr_qmetrics_path, 'param.mat'))
+%         clearvars unitType;
+% 
+%         % DEFAULT CHANGE: eliminate amplitude cutoff
+%         % (for one recording it got rid of almost all cells, and
+%         % cells under amplitude cutoff still look good)
+%         param.minAmplitude = 0;
+% 
+%         % (classify good cells)
+%         unitType = nan(length(qMetric.percSpikesMissing), 1);
+%         unitType( ...
+%             qMetric.nPeaks > param.maxNPeaks | ...
+%             qMetric.nTroughs > param.maxNTroughs | ...
+%             qMetric.somatic ~= param.somatic | ...
+%             qMetric.spatialDecaySlope <=  param.minSpatialDecaySlope | ...
+%             qMetric.waveformDuration < param.minWvDuration |...
+%             qMetric.waveformDuration > param.maxWvDuration  | ...
+%             qMetric.waveformBaseline >= param.maxWvBaselineFraction) = 0;
+%         unitType( ...
+%             any(qMetric.percSpikesMissing <= param.maxPercSpikesMissing, 2)' & ...
+%             qMetric.nSpikes > param.minNumSpikes & ...
+%             any(qMetric.Fp <= param.maxRPVviolations, 2)' & ...
+%             qMetric.rawAmplitude > param.minAmplitude & isnan(unitType)') = 1;
+%         unitType(isnan(unitType)') = 2;
+% 
+%         % (some upwards waveforms not caught in .somatic? remove)
+%         upward_waveforms = max(waveforms,[],2) > abs(min(waveforms,[],2));
+% 
+%         % Templates already 1/re-indexed, grab good ones
+%         good_templates = unitType == 1 & ~upward_waveforms;
+%         good_templates_idx = find(good_templates);
 
-        % Templates already 1/re-indexed, grab good ones
-        good_templates = unitType == 1 & ~upward_waveforms;
-        good_templates_idx = find(good_templates);
+        %%%%%%%%
 
         % Throw out all non-good template data
         templates = templates(good_templates,:,:);
@@ -533,17 +559,18 @@ for curr_animal = animals
         experiments_num_idx = cellfun(@(x) ~isempty(x), regexp({experiments_dir.name},'^\d*$'));
         experiment_num = sort(cellfun(@str2num,{experiments_dir(experiments_num_idx).name}));
 
+        block_filename = cell(size(experiment_num));
         exp_protocol = cell(size(experiment_num));
         for curr_exp = 1:length(experiment_num)
             block_dir = dir(fullfile(curr_day_path,num2str(experiment_num(curr_exp)),'*Block*'));
-            block_filename = fullfile(block_dir.folder,block_dir.name);
-            load(block_filename)
+            block_filename{curr_exp} = fullfile(block_dir.folder,block_dir.name);
+            load(block_filename{curr_exp})
             [~,expDef] = fileparts(block.expDef);
             exp_protocol{curr_exp} = expDef;
         end
 
         % Load timeline and flipper from task
-        load_exp = experiment_num(find(strcmp(exp_protocol,'AP_stimWheelRight'),1,'last'));
+        load_exp = experiment_num(find(strcmp(exp_protocol,'AP_lcrGratingPassive'),1,'last'));
         timeline_dir = dir(fullfile(curr_day_path,num2str(experiment_num(load_exp)),'*Timeline.mat'));
         load(fullfile(timeline_dir.folder,timeline_dir.name));
 
@@ -574,7 +601,7 @@ for curr_animal = animals
         % (NEW: accomodating photodiode bug flipping sometimes to gray)
         photodiode_trace_medfilt = medfilt1(Timeline.rawDAQData(stimScreen_on, ...
             photodiode_idx),3);
-        photodiode_diff_thresh = range(Timeline.rawDAQData(:,photodiode_idx))*0.2;
+        photodiode_diff_thresh = abs(diff(prctile(Timeline.rawDAQData(:,photodiode_idx),[0,100])))*0.2;
         photodiode_diff_t = 50; % time (in ms) to get delayed differential
         photodiode_diff_samples = round(Timeline.hw.daqSampleRate/1000*photodiode_diff_t);
         photodiode_diff_filt = [1,zeros(1,photodiode_diff_samples),-1];
@@ -584,20 +611,15 @@ for curr_animal = animals
             photodiode_trace_diff(2:end))+ photodiode_diff_samples + 1;
         photodiode_flip_times = stimScreen_on_t(photodiode_flip)';
 
-        % Get stim on times by closest photodiode flip
+        % Get stim on times
+        load(block_filename{load_exp})
         signals_events = block.events;
-        n_trials = length(signals_events.endTrialTimes);
-        [~,closest_stimOn_photodiode] = ...
-            arrayfun(@(x) min(abs(signals_events.stimOnTimes(x) - ...
-            photodiode_flip_times)), ...
-            1:n_trials);
-        stimOn_times = photodiode_flip_times(closest_stimOn_photodiode);
-
-        timeline_reward_idx = strcmp({Timeline.hw.inputs.name}, 'rewardEcho');
-        reward_thresh = max(Timeline.rawDAQData(:,timeline_reward_idx))/2;
-        reward_trace = Timeline.rawDAQData(:,timeline_reward_idx) > reward_thresh;
-        reward_t_timeline = Timeline.rawDAQTimestamps(find(reward_trace(2:end) & ~reward_trace(1:end-1))+1)';
-
+        stim_azimuth = [signals_events.stimAzimuthValues];
+        % (quick and dirty sanity check: stim off/on + 1 at start)
+        if length(photodiode_flip_times) == length(stim_azimuth)*2+1
+            stimOn_times = photodiode_flip_times(2:2:end);
+        end
+      
         %%%%%%%%% Convert spike times to timeline
 
         % These are the digital channels going into the FPGA
@@ -642,7 +664,7 @@ for curr_animal = animals
         writeNPY(spike_times_timeline,[curr_save_dir filesep 'spike_times.npy']);
         writeNPY(spike_templates,[curr_save_dir filesep 'spike_templates.npy']);
         writeNPY(stimOn_times,[curr_save_dir filesep 'stimOn_times.npy']);
-        writeNPY(reward_t_timeline,[curr_save_dir filesep 'reward_times.npy']);
+        writeNPY(stim_azimuth,[curr_save_dir filesep 'stim_azimuth.npy']);
 
     end
 
