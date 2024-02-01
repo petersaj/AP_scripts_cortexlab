@@ -97,7 +97,14 @@ if exist('probe_areas','var')
     probe_areas_rgb = permute(cell2mat(cellfun(@(x) hex2dec({x(1:2),x(3:4),x(5:6)})'./255, ...
         probe_areas.color_hex_triplet,'uni',false)),[1,3,2]);
 
+    % Get area depth on probe (update this eventually)
+    if any(strcmp('probe_depth',probe_areas.Properties.VariableNames))
+        % Old: "probe_depth" relative to top to bank 0
     probe_areas_boundaries = probe_areas.probe_depth;
+    elseif any(strcmp('probe_tip_distance',probe_areas.Properties.VariableNames))
+        % New: "probe_tip_distance" relative to probe tip
+        probe_areas_boundaries = 3.84-probe_areas.probe_tip_distance;
+    end
     probe_areas_centers = mean(probe_areas_boundaries,2);
 
     probe_areas_image_depth = 0:1:max(probe_areas_boundaries,[],'all');
