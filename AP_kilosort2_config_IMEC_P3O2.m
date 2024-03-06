@@ -6,7 +6,7 @@ ops.NchanTOT    = 384; % total number of channels in your recording
 ops.fbinary             = data_filename;
 
 
-ops.chanMap             = 'C:\Users\Andrew\OneDrive for Business\Documents\CarandiniHarrisLab\kilosort_channelmaps\forPRBimecP3opt3.mat';
+ops.chanMap             = 'C:\Users\petersa\Documents\Previous_labs\CarandiniHarrisLab\kilosort_channelmaps\forPRBimecP3opt3.mat';
 
 % sample rate
 ops.fs = 30000;  

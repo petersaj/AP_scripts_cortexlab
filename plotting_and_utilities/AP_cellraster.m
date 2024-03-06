@@ -94,6 +94,7 @@ set(unit_axes,'YDir','reverse');
 hold on;
 
 if exist('probe_areas','var')
+    try
     probe_areas_rgb = permute(cell2mat(cellfun(@(x) hex2dec({x(1:2),x(3:4),x(5:6)})'./255, ...
         probe_areas.color_hex_triplet,'uni',false)),[1,3,2]);
 
@@ -116,6 +117,9 @@ if exist('probe_areas','var')
     image(unit_axes,[0,1],probe_areas_image_depth,probe_areas_image);
     yline(unique(probe_areas_boundaries(:)),'color','k','linewidth',1);
     set(unit_axes,'YTick',probe_areas_centers,'YTickLabels',probe_areas.acronym);
+    catch me
+        warning('Probe areas not found: old format?');
+    end
 end
 
 % (plot unit depths by depth and relative number of spikes)
@@ -234,7 +238,7 @@ gui_data.unit_dots.SizeData = 20*ones(size(curr_unit_unique_idx)) + 50*curr_unit
 
 % Plot waveform across probe (reversed YDir, flip Y axis and plot depth)
 template_xscale = 3;
-template_yscale = 0.5;
+template_yscale = 0.01;
 template_n_surround_plot = 5; % plot N channels around max
 
 [~,max_channel] = max(max(abs(gui_data.templates(gui_data.curr_unit,:,:)),[],2),[],3);
