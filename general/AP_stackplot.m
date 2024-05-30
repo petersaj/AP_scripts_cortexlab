@@ -3,6 +3,7 @@ function h = AP_stackplot(x,t,spacing,yscale,color,ylabels,zero_lines)
 %
 % Plot lines stacked on each other
 % x - matrix to plot, N points x M lines
+% t - time (x-axis)
 % spacing - number: spacing between traces, vector: y-position of traces
 % yscale - value to rescale y-values
 % ylabels - can set the ylabels for each line being plotted
