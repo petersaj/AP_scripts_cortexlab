@@ -200,7 +200,7 @@ for curr_cv = 1:cvfold
     
     % Get training/test sets
     if cvfold == 1
-        train_idx = predictable_samples;
+        train_idx = [predictable_samples;true(size(ridge_matrix,1),1)];
         test_idx = predictable_samples;
     else
         train_idx = [cv_partition ~= curr_cv & predictable_samples;true(size(ridge_matrix,1),1)];
