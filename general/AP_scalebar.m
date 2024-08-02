@@ -1,5 +1,7 @@
 function AP_scalebar(x_scale,y_scale)
-% Draws scalebars in the bottom left corner of a plot
+% AP_scalebar(x_scale,y_scale)
+% 
+% Draws scalebars in the bottom left corner of a plot 
 
 % Place on current axis
 draw_ax = gca;
