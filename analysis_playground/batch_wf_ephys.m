@@ -4361,7 +4361,7 @@ for curr_animal = 1:length(animals)
                 for curr_depth = 1:n_depths
                     use_spikes = spike_times_timeline(depth_group == curr_depth);
                     event_aligned_spikes(:,:,curr_depth) = cell2mat(arrayfun(@(x) ...
-                        histcounts(use_spikes,t_peri_event_bins(x,:)),[1:size(t_peri_event_bins,1)]','uni',false));
+                        histcounts(use_spikes,t_peri_event_bins(x,:)),(1:size(t_peri_event_bins,1))','uni',false));
                 end
                 
                 % Get sig correlations across all time points across modalities
