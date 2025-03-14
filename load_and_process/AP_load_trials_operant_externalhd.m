@@ -270,8 +270,8 @@ if exist('fluor_all','var')
     
     % Get fluorescence ROIs
     % (by cortical area)
-    load('E:\Cortexlab_documents\CarandiniHarrisLab\analysis\wf_ephys_choiceworld\wf_processing\wf_alignment\U_master');
-    wf_roi_fn = 'E:\Cortexlab_documents\CarandiniHarrisLab\analysis\operant_learning\wf_processing\wf_rois\wf_roi';
+    load('\\qnap-ap001.dpag.ox.ac.uk\APlab\Users\Andy_Peters\cortexlab_corticostriatal_data\wf_processing\wf_alignment\U_master');
+    wf_roi_fn = '\\qnap-ap001.dpag.ox.ac.uk\APlab\Users\Andy_Peters\cortexlab_corticostriatal_data\wf_processing\wf_rois\wf_roi';
     load(wf_roi_fn);
     n_rois = numel(wf_roi);
     fluor_roi_deconv = permute(reshape( ...

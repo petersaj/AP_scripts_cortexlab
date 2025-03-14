@@ -7,6 +7,8 @@ function experiments = AP_find_experiments_externalhd(animal,protocol,flexible_n
 % 
 % EXTERNALHD VERSION: find experiments that were saved on the external HD
 % (after leaving lab so no access to server)
+%
+% NOTE: CHANGED LOCATION TO SERVER (moved off EHD for safety/ease)
 
 
 % If no protocol specified, return all experiments
@@ -27,7 +29,8 @@ days_combined = {};
 days_pathnames_combined = {};
 
 % (server 4)
-expInfo_path = ['E:\Cortexlab_data' filesep animal];
+data_path = '\\qnap-ap001.dpag.ox.ac.uk\APlab\Users\Andy_Peters\cortexlab_corticostriatal_data';
+expInfo_path = fullfile(data_path,animal);
 expInfo_dir = dir(expInfo_path);
 day_paths = cellfun(@(x) ~isempty(regexp(x,'\d\d\d\d-\d\d-\d\d')),{expInfo_dir.name}) &...
     [expInfo_dir.isdir];

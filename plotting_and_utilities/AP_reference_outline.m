@@ -34,7 +34,9 @@ hold on;
 % Load alignment and perform CCF-widefield alignment
 % (note: used to load in pre-aligned areas, but just as fast to align here
 % and better to consolidate/sanity-check)
-alignment_path = 'C:\Users\Andrew\OneDrive for Business\Documents\CarandiniHarrisLab\analysis\widefield_alignment';
+% alignment_path = 'C:\Users\Andrew\OneDrive for Business\Documents\CarandiniHarrisLab\analysis\widefield_alignment';
+% (NEW PATH FOR LAB)
+alignment_path = 'C:\Users\petersa\Documents\Previous_labs\CarandiniHarrisLab\analysis\widefield_alignment';
 ccf_tform_fn = [alignment_path filesep 'ccf_tform.mat'];
 load(ccf_tform_fn);
 

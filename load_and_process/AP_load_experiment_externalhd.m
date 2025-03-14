@@ -90,7 +90,9 @@ if timeline_exists
     % encoder that's known in the lab and was put on the wiki)
     wheel_position = Timeline.rawDAQData(:,rotaryEncoder_idx);
     wheel_position(wheel_position > 2^31) = wheel_position(wheel_position > 2^31) - 2^32;    
-    [wheel_velocity,wheel_move] = AP_parse_wheel(wheel_position,Timeline.hw.daqSampleRate);
+    % (velocity/move: replacing it with newer version)
+%     [wheel_velocity,wheel_move] = AP_parse_wheel(wheel_position,Timeline.hw.daqSampleRate);
+    [wheel_velocity,wheel_move] = ap.parse_wheel(wheel_position,Timeline.hw.daqSampleRate);
     
     % Get whether stim was flickering
     stimScreen_idx = strcmp({Timeline.hw.inputs.name}, 'stimScreen');
