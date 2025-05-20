@@ -28,8 +28,20 @@ end
 days_combined = {};
 days_pathnames_combined = {};
 
-% (server 4)
+% (Peters lab server)
 data_path = '\\qnap-ap001.dpag.ox.ac.uk\APlab\Users\Andy_Peters\cortexlab_corticostriatal_data';
+expInfo_path = fullfile(data_path,animal);
+expInfo_dir = dir(expInfo_path);
+day_paths = cellfun(@(x) ~isempty(regexp(x,'\d\d\d\d-\d\d-\d\d')),{expInfo_dir.name}) &...
+    [expInfo_dir.isdir];
+curr_days = {expInfo_dir(day_paths).name};
+curr_days_pathname = cellfun(@(x) [expInfo_path filesep x],curr_days,'uni',false);
+
+days_combined = [days_combined,curr_days];
+days_pathnames_combined = [days_pathnames_combined,curr_days_pathname];
+
+% (EHD)
+data_path = 'E:\Cortexlab_data';
 expInfo_path = fullfile(data_path,animal);
 expInfo_dir = dir(expInfo_path);
 day_paths = cellfun(@(x) ~isempty(regexp(x,'\d\d\d\d-\d\d-\d\d')),{expInfo_dir.name}) &...

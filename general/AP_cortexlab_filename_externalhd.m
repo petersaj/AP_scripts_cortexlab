@@ -59,8 +59,8 @@ end
 
 % List all folders to check
 server_location = cell(0);
-% (zserver: different files used to be split across folders)
 server_location{end+1} = '\\qnap-ap001.dpag.ox.ac.uk\APlab\Users\Andy_Peters\cortexlab_corticostriatal_data';
+server_location{end+1} = 'E:\Cortexlab_data';
 
 % Check that servers are accessible (login needed on restart)
 warning on
